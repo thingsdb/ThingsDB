@@ -19,7 +19,7 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (e->nr || ti_access_check_err(*access_, query->user, TI_AUTH_GRANT, e))
         return e->nr;
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     /* read user */
@@ -32,7 +32,7 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!user)
         return ti_raw_err_not_found(uname, "user", e);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     /* read mask */
@@ -65,7 +65,7 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_task_add_revoke(task, scope_id, user, mask))
         ex_set_mem(e);  /* task cleanup is not required */
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();
 
     return e->nr;

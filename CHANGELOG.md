@@ -1,3 +1,7 @@
+# v0.9.7
+
+* Fixed potential memory leak when re-using variable, issue #63.
+
 # v0.9.6
 
 * ThingDB `Type` may be extended using methods, issue #56.

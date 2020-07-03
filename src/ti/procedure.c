@@ -45,10 +45,10 @@ void ti_procedure_destroy(ti_procedure_t * procedure)
     if (!procedure)
         return;
 
-    ti_val_drop((ti_val_t *) procedure->name);
+    ti_val_unsafe_drop((ti_val_t *) procedure->name);
+    ti_val_unsafe_drop((ti_val_t *) procedure->closure);
     ti_val_drop((ti_val_t *) procedure->doc);
     ti_val_drop((ti_val_t *) procedure->def);
-    ti_val_drop((ti_val_t *) procedure->closure);
 
     free(procedure);
 }

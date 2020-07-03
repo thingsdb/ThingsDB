@@ -14,7 +14,7 @@ static int do__f_isascii(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     is_ascii = ti_val_is_str(query->rval) &&
             strx_is_asciin((const char *) raw->data, raw->n);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(is_ascii);
 
     return e->nr;

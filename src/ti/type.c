@@ -436,8 +436,8 @@ failed:
     if (!e->nr)
         ex_set_mem(e);
 
-    ti_val_drop(val);
     ti_name_drop(name);
+    ti_val_drop(val);
     ti_val_drop((ti_val_t *) spec_raw);
 
     return e->nr;
@@ -632,7 +632,7 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
                 if (ti_field_make_assignable(field, &val, thing, e))
                 {
                     if (from->ref > 1)
-                        ti_val_drop(val);
+                        ti_val_unsafe_gc_drop(val);
                     goto failed;
                 }
 
@@ -663,7 +663,7 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
             if (ti_val_make_assignable(&val, thing, field->name, e))
             {
                 if (from->ref > 1)
-                    ti_val_drop(val);
+                    ti_val_unsafe_gc_drop(val);
                 goto failed;
             }
 
@@ -677,6 +677,6 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
 
 failed:
     assert (e->nr);
-    ti_val_drop((ti_val_t *) thing);
+    ti_val_unsafe_drop((ti_val_t *) thing);
     return NULL;
 }

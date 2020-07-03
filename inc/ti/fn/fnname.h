@@ -13,7 +13,7 @@ static int do__f_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     name = ((ti_member_t *) query->rval)->name;
     ti_incref(name);
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) name;
 
     return 0;

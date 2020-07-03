@@ -36,6 +36,8 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 0))
             ex_set_mem(e);
     }
+    else
+        ti_thing_may_push_gc((ti_thing_t *) query->rval);
 
     (void) vec_shrink(&varr->vec);
 
@@ -47,6 +49,6 @@ restore:
 
 done:
     ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);
-    ti_val_drop((ti_val_t *) varr);
+    ti_val_unsafe_drop((ti_val_t *) varr);
     return e->nr;
 }

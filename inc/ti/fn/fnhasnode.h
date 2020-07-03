@@ -22,7 +22,7 @@ static int do__f_has_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(
             !!ti_nodes_node_by_id((uint32_t) node_id));
 

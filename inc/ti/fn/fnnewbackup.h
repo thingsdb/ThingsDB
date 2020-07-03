@@ -73,7 +73,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             goto fail0;
         }
 
-        ti_val_drop(query->rval);
+        ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
     }
 
@@ -85,7 +85,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         repeat = VINT(query->rval) < 0 ? 0 : (uint64_t) VINT(query->rval);
 
-        ti_val_drop(query->rval);
+        ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
     }
 
@@ -110,6 +110,6 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set_mem(e);
 
 fail0:
-    ti_val_drop((ti_val_t *) rname);
+    ti_val_unsafe_drop((ti_val_t *) rname);
     return e->nr;
 }

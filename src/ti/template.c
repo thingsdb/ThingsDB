@@ -222,7 +222,7 @@ int ti_template_compile(ti_template_t * template, ti_query_t * query, ex_t * e)
             nd->data = NULL;
             memcpy(ptr, expr->data, expr->n);
             ptr += expr->n;
-            ti_val_drop((ti_val_t *) expr);
+            ti_val_unsafe_drop((ti_val_t *) expr);
         }
     }
 

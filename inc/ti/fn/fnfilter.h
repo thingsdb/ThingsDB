@@ -21,7 +21,7 @@ static int filter__walk_set(ti_thing_t * t, filter__walk_t * w)
         ti_incref(t);
     }
 
-    ti_val_drop(w->query->rval);
+    ti_val_unsafe_drop(w->query->rval);
     w->query->rval = NULL;
     return 0;
 }
@@ -86,7 +86,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     ti_incref(p->val);
                 }
 
-                ti_val_drop(query->rval);
+                ti_val_unsafe_drop(query->rval);
                 query->rval = NULL;
             }
         }
@@ -109,7 +109,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     ti_incref(val);
                 }
 
-                ti_val_drop(query->rval);
+                ti_val_unsafe_drop(query->rval);
                 query->rval = NULL;
             }
 
@@ -137,7 +137,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 VEC_push(varr->vec, v);
             }
 
-            ti_val_drop(query->rval);
+            ti_val_unsafe_drop(query->rval);
             query->rval = NULL;
 
         }
@@ -177,10 +177,10 @@ done:
     ti_closure_dec(closure, query);
 
 fail1:
-    ti_val_drop((ti_val_t *) closure);
+    ti_val_unsafe_drop((ti_val_t *) closure);
 
 fail0:
     ti_val_unlock(iterval, lock_was_set);
-    ti_val_drop(iterval);
+    ti_val_unsafe_drop(iterval);
     return e->nr;
 }

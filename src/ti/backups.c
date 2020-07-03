@@ -405,7 +405,7 @@ ti_varr_t * ti_backups_info(void)
         ti_val_t * mpinfo = ti_backup_as_mpval(backup);
         if (!mpinfo)
         {
-            ti_val_drop((ti_val_t *) varr);
+            ti_val_unsafe_drop((ti_val_t *) varr);
             varr = NULL;
             goto stop;
         }

@@ -51,7 +51,8 @@ void ti_enum_destroy(ti_enum_t * enum_)
 
     smap_destroy(enum_->smap, NULL);
     vec_destroy(enum_->members, (vec_destroy_cb) ti_member_remove);
-    ti_val_drop((ti_val_t *) enum_->rname);
+    if (enum_->rname)
+        ti_val_unsafe_drop((ti_val_t *) enum_->rname);
     free(enum_->name);
     free(enum_);
 }

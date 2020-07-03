@@ -258,7 +258,7 @@ static int do__f_mod_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_enum_try_lock(enum_, e))
         return e->nr;
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (ti_do_statement(query, (child = child->next->next)->node, e) ||
@@ -279,7 +279,7 @@ static int do__f_mod_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
     }
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (ti_raw_eq_strn(rmod, "add", 3))
@@ -323,10 +323,10 @@ done:
         ti_val_drop(query->rval);
         query->rval = (ti_val_t *) ti_nil_get();
     }
-    ti_name_drop(name);
+    ti_name_unsafe_drop(name);
 
 fail1:
-    ti_val_drop((ti_val_t *) rmod);
+    ti_val_unsafe_drop((ti_val_t *) rmod);
 fail0:
     ti_enum_unlock(enum_, true /* lock is set for sure */);
     return e->nr;

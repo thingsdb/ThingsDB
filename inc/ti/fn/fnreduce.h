@@ -23,7 +23,7 @@ static int reduce__walk_set(ti_thing_t * t, reduce__walk_t * w)
     default:
     case 3:
         prop = vec_get(w->closure->vars, 2);
-        ti_val_drop(prop->val);
+        ti_val_unsafe_drop(prop->val);
         prop->val = t->id
                 ? (ti_val_t *) ti_vint_create((int64_t) t->id)
                 : (ti_val_t *) ti_nil_get();
@@ -36,19 +36,19 @@ static int reduce__walk_set(ti_thing_t * t, reduce__walk_t * w)
     case 2:
         prop = vec_get(w->closure->vars, 1);
         ti_incref(t);
-        ti_val_drop(prop->val);
+        ti_val_unsafe_drop(prop->val);
         prop->val = (ti_val_t *) t;
         /* fall through */
     case 1:
         if (ti_val_make_variable(&w->query->rval, w->e))
             return w->e->nr;
         prop = vec_get(w->closure->vars, 0);
-        ti_val_drop(prop->val);
+        ti_val_unsafe_drop(prop->val);
         prop->val = w->query->rval;
         w->query->rval = NULL;
         break;
     case 0:
-        ti_val_drop(w->query->rval);
+        ti_val_unsafe_drop(w->query->rval);
         w->query->rval = NULL;
         break;
     }
@@ -118,7 +118,7 @@ static int do__f_reduce(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             default:
             case 3:
                 prop = vec_get(closure->vars, 2);
-                ti_val_drop(prop->val);
+                ti_val_unsafe_drop(prop->val);
                 prop->val = (ti_val_t *) ti_vint_create(idx);
                 if (!prop->val)
                 {
@@ -130,19 +130,19 @@ static int do__f_reduce(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 prop = vec_get(closure->vars, 1);
                 v = vec_get(vec, idx);
                 ti_incref(v);
-                ti_val_drop(prop->val);
+                ti_val_unsafe_drop(prop->val);
                 prop->val = v;
                 /* fall through */
             case 1:
                 if (ti_val_make_variable(&query->rval, e))
                     goto fail2;
                 prop = vec_get(closure->vars, 0);
-                ti_val_drop(prop->val);
+                ti_val_unsafe_drop(prop->val);
                 prop->val = query->rval;
                 query->rval = NULL;
                 break;
             case 0:
-                ti_val_drop(query->rval);
+                ti_val_unsafe_drop(query->rval);
                 query->rval = NULL;
                 break;
             }
@@ -181,10 +181,10 @@ fail2:
     ti_closure_dec(closure, query);
 
 fail1:
-    ti_val_drop((ti_val_t *) closure);
+    ti_val_unsafe_drop((ti_val_t *) closure);
 
 fail0:
     ti_val_unlock(lockval, lock_was_set);
-    ti_val_drop(lockval);
+    ti_val_unsafe_drop(lockval);
     return e->nr;
 }

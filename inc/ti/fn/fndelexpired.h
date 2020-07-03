@@ -24,8 +24,6 @@ static int do__f_del_expired(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     else
         (void) ti_users_del_expired(after_ts);
 
-    ti_val_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();
-
     return e->nr;
 }

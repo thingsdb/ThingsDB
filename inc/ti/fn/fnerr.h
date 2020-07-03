@@ -32,7 +32,7 @@ static int do__f_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     code = (int8_t) vcode->int_;
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
 
     if (nargs == 1)
     {
@@ -58,7 +58,7 @@ static int do__f_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) verror;
 
     return e->nr;

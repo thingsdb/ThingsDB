@@ -88,6 +88,10 @@ int ti_thing_t_set_val_from_strn(
         size_t n,
         ti_val_t ** val,
         ex_t * e);
+int ti_thing_init_gc(void);
+void ti_thing_destroy_gc(void);
+void ti_thing_clean_gc(void);
+void ti_thing_resize_gc(void);
 
 static inline _Bool ti_thing_is_object(ti_thing_t * thing)
 {

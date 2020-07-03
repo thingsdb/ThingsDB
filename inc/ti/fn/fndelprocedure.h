@@ -29,7 +29,7 @@ static int do__f_del_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_task_add_del_procedure(task, (ti_raw_t *) query->rval))
         ex_set_mem(e);  /* task cleanup is not required */
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();
 
     return e->nr;

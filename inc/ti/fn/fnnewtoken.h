@@ -42,7 +42,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs > 1)
     {
-        ti_val_drop(query->rval);
+        ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
 
         if (ti_do_statement(query, (child = child->next->next)->node, e))
@@ -100,7 +100,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ti_raw_t * raw;
 
-        ti_val_drop(query->rval);
+        ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
 
         if (ti_do_statement(query, (child = child->next->next)->node, e))
@@ -150,7 +150,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_task_add_new_token(task, user, token))
         ex_set_mem(e);  /* task cleanup is not required */
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_str_create(
             token->key,
             sizeof(ti_token_key_t));

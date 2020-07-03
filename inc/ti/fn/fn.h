@@ -338,9 +338,9 @@ static int fn_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     (void) ti_closure_call(closure, query, args, e);
 
 fail1:
-    vec_destroy(args, (vec_destroy_cb) ti_val_drop);
+    vec_destroy(args, (vec_destroy_cb) ti_val_unsafe_drop);
 fail0:
-    ti_val_drop((ti_val_t *) closure);
+    ti_val_unsafe_drop((ti_val_t *) closure);
     return e->nr;
 }
 
@@ -373,7 +373,7 @@ static int fn_call_o_try_n(
 
     query->rval = val;
     ti_incref(val);
-    ti_val_drop((ti_val_t *) thing);
+    ti_val_unsafe_drop((ti_val_t *) thing);
 
     return fn_call(query, nd, e);
 }
@@ -409,7 +409,7 @@ static int fn_call_t_try_n(
 
         query->rval = val;
         ti_incref(val);
-        ti_val_drop((ti_val_t *) thing);
+        ti_val_unsafe_drop((ti_val_t *) thing);
 
         return fn_call(query, nd, e);
     }
@@ -451,7 +451,7 @@ static int fn_call_w_try_n(
         goto no_method_err;
 
     ti_incref(thing);
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) thing;
 
     return ti_method_call(method, type, query, nd, e);

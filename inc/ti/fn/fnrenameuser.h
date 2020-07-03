@@ -21,7 +21,7 @@ static int do__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!user)
         return ti_raw_err_not_found(rname, "user", e);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (ti_do_statement(query, nd->children->next->next->node, e) ||
@@ -38,7 +38,7 @@ static int do__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_user_rename(user, rname, e))
         return e->nr;
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();
 
     task = ti_task_get_task(query->ev, ti.thing0, e);

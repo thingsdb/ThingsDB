@@ -34,8 +34,8 @@ static int opr__and(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
             imap_intersection_inplace(
                     VSET(a),
                     VSET(*b),
-                    (imap_destroy_cb) ti_val_drop);
-            ti_val_drop(*b);
+                    (imap_destroy_cb) ti_val_unsafe_gc_drop);
+            ti_val_unsafe_drop(*b);
             ti_incref(a);
             *b = a;
         }
@@ -44,7 +44,7 @@ static int opr__and(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
             ti_vset_t * vset = ti_vset_create();
             if (!vset || imap_intersection_make(vset->imap, VSET(a), VSET(*b)))
                 goto alloc_err;
-            ti_val_drop(*b);
+            ti_val_unsafe_drop(*b);
             *b = (ti_val_t *) vset;
         }
         return e->nr;

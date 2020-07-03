@@ -21,7 +21,7 @@ static int do__f_has_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(
             ti_backups_has_backup((uint64_t) backup_id));
 

@@ -6,6 +6,7 @@
 
 #include <ti/type.h>
 #include <ti/thing.h>
+#include <ti/thing.t.h>
 #include <ti/name.h>
 #include <ti/raw.h>
 #include <doc.h>
@@ -154,6 +155,18 @@ static inline int ti_thing_to_pk(
     return options <= 0 || (thing->flags & TI_VFLAG_LOCK)
             ? ti_thing_id_to_pk(thing, pk)
             : ti_thing__to_pk(thing, pk, options);
+}
+
+static inline void ti_thing_may_push_gc(ti_thing_t * thing)
+{
+    if (    thing->tp == TI_VAL_THING &&
+            thing->id == 0 &&
+            (thing->flags & TI_VFLAG_THING_SWEEP) &&
+            vec_push(&ti_thing_gc_vec, thing) == 0)
+    {
+        ti_incref(thing);
+        thing->flags &= ~TI_VFLAG_THING_SWEEP;
+    }
 }
 
 #endif  /* TI_THING_INLINE_H_ */

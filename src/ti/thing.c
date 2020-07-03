@@ -22,6 +22,10 @@
 #include <util/logger.h>
 #include <util/mpack.h>
 
+static vec_t * thing__gc_swp;
+vec_t * ti_thing_gc_vec;
+
+
 static inline int thing__val_locked(
         ti_thing_t * thing,
         ti_name_t * name,
@@ -233,7 +237,7 @@ void ti_thing_clear(ti_thing_t * thing)
     {
         ti_val_t * val;
         while ((val = vec_pop(thing->items)))
-            ti_val_drop(val);
+            ti_val_unsafe_gc_drop(val);
 
         /* convert to a simple object since the thing is not type
          * compliant anymore */
@@ -303,7 +307,7 @@ ti_thing_t * ti_thing_new_from_vup(ti_vup_t * vup, size_t sz, ex_t * e)
 
     if (ti_thing_props_from_vup(thing, vup, sz, e))
     {
-        ti_val_drop((ti_val_t *) thing);
+        ti_val_unsafe_drop((ti_val_t *) thing);
         return NULL;  /* error is set */
     }
 
@@ -351,7 +355,7 @@ static int thing_o__prop_set_e(
                 return e->nr;
 
             ti_decref(name);
-            ti_val_drop(p->val);
+            ti_val_unsafe_gc_drop(p->val);
             p->val = val;
 
             return e->nr;
@@ -384,7 +388,7 @@ ti_prop_t * ti_thing_o_prop_set(
         if (p->name == name)
         {
             ti_decref(name);
-            ti_val_drop(p->val);
+            ti_val_unsafe_gc_drop(p->val);
             p->val = val;
             return p;
         }
@@ -409,7 +413,7 @@ void ti_thing_t_prop_set(
         ti_val_t * val)
 {
     ti_val_t ** vaddr = (ti_val_t **) vec_get_addr(thing->items, field->idx);
-    ti_val_drop(*vaddr);
+    ti_val_unsafe_gc_drop(*vaddr);
     *vaddr = val;
 }
 
@@ -438,7 +442,7 @@ int ti_thing_o_set_val_from_valid_strn(
     if (thing_o__prop_set_e(thing, name, *val, e))
     {
         assert (e->nr);
-        ti_name_drop(name);
+        ti_name_unsafe_drop(name);
         return e->nr;
     }
 
@@ -475,7 +479,7 @@ int ti_thing_t_set_val_from_strn(
     if (thing__val_locked(thing, field->name, *vaddr, e))
         return e->nr;
 
-    ti_val_drop(*vaddr);
+    ti_val_unsafe_gc_drop(*vaddr);
     *vaddr = *val;
 
     ti_incref(*val);
@@ -899,4 +903,72 @@ _Bool ti__thing_has_watchers_(ti_thing_t * thing)
         if (watch->stream && (~watch->stream->flags & TI_STREAM_FLAG_CLOSED))
             return true;
     return false;
+}
+
+
+int ti_thing_init_gc(void)
+{
+    thing__gc_swp = vec_new(8);
+    ti_thing_gc_vec = vec_new(8);
+
+    if (!thing__gc_swp || !ti_thing_gc_vec)
+    {
+        free(thing__gc_swp);
+        free(ti_thing_gc_vec);
+        return -1;
+    }
+    return 0;
+}
+
+void ti_thing_resize_gc(void)
+{
+    assert (thing__gc_swp->n == 0);
+    assert (ti_thing_gc_vec->n == 0);
+
+    if (thing__gc_swp->sz > 2047)
+    {
+        (void) vec_resize(&thing__gc_swp, 2047);
+    }
+    else if (thing__gc_swp->sz > ti_thing_gc_vec->sz)
+    {
+        (void) vec_resize(&thing__gc_swp, ti_thing_gc_vec->sz);
+        return;
+    }
+
+    if (ti_thing_gc_vec->sz > 2047)
+    {
+        (void) vec_resize(&ti_thing_gc_vec, 2047);
+    }
+    else if (ti_thing_gc_vec->sz > thing__gc_swp->sz)
+    {
+        (void) vec_resize(&ti_thing_gc_vec, thing__gc_swp->sz);
+        return;
+    }
+}
+
+void ti_thing_destroy_gc(void)
+{
+    free(thing__gc_swp);
+    free(ti_thing_gc_vec);
+}
+
+void ti_thing_clean_gc(void)
+{
+    while (ti_thing_gc_vec->n)
+    {
+        vec_t * tmp = ti_thing_gc_vec;
+        ti_thing_gc_vec = thing__gc_swp;
+        thing__gc_swp = tmp;
+
+        for (vec_each(tmp, ti_thing_t, thing))
+        {
+            if (thing->id)
+                thing->flags |= TI_VFLAG_THING_SWEEP;
+            else
+                ti_thing_clear(thing);
+
+            ti_val_unsafe_drop((ti_val_t *) thing);
+        }
+        vec_clear(tmp);
+    }
 }

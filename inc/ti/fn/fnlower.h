@@ -16,6 +16,6 @@ static int do__f_lower(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!query->rval)
         ex_set_mem(e);
 
-    ti_val_drop((ti_val_t *) raw);
+    ti_val_unsafe_drop((ti_val_t *) raw);
     return e->nr;
 }

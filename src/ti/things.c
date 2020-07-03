@@ -175,7 +175,7 @@ ti_thing_t * ti_things_thing_o_from_vup(
 
     if (ti_thing_props_from_vup(thing, vup, sz, e))
     {
-        ti_val_drop((ti_val_t *) thing);
+        ti_val_unsafe_drop((ti_val_t *) thing);
         return NULL;
     }
     return thing;
@@ -254,7 +254,7 @@ ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
                     field->name->str,
                     type->name);
             ti_val_drop(val);
-            ti_val_drop((ti_val_t *) thing);
+            ti_val_unsafe_drop((ti_val_t *) thing);
             return NULL;
         }
 

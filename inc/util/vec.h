@@ -24,6 +24,7 @@ static inline void ** vec_get_addr(vec_t * vec, uint32_t i);
 static inline void * vec_get_or_null(const vec_t * vec, uint32_t i);
 static inline void * vec_pop(vec_t * vec);
 static inline void vec_clear(vec_t * vec);
+static inline void vec_clear_cb(vec_t * vec, vec_destroy_cb cb);
 static inline void vec_swap(vec_t * vec, uint32_t i, uint32_t j);
 void vec_move(vec_t * vec, uint32_t pos, uint32_t n, uint32_t to);
 void * vec_remove(vec_t * vec, uint32_t i);
@@ -125,6 +126,13 @@ static inline void * vec_pop(vec_t * vec)
 
 static inline void vec_clear(vec_t * vec)
 {
+    vec->n = 0;
+}
+
+static inline void vec_clear_cb(vec_t * vec, vec_destroy_cb cb)
+{
+    for (vec_each(vec, void, v))
+        cb(v);
     vec->n = 0;
 }
 

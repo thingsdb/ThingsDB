@@ -38,7 +38,7 @@ static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (ti_val_as_bool(query->rval))
         {
-            ti_val_drop(query->rval);
+            ti_val_unsafe_drop(query->rval);
             query->rval = v;  /* we can move the reference here */
 
             (void) vec_remove(varr->vec, idx);
@@ -59,11 +59,13 @@ static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                         0))
                     ex_set_mem(e);
             }
+            else
+                ti_thing_may_push_gc((ti_thing_t *) v);
 
             goto done;
         }
 
-        ti_val_drop(query->rval);
+        ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
     }
 
@@ -81,11 +83,11 @@ fail3:
     ti_closure_dec(closure, query);
 
 fail2:
-    ti_val_drop((ti_val_t *) closure);
+    ti_val_unsafe_drop((ti_val_t *) closure);
 
 fail1:
     ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);
-    ti_val_drop((ti_val_t *) varr);
+    ti_val_unsafe_drop((ti_val_t *) varr);
     return e->nr;
 }
 
@@ -114,7 +116,7 @@ static int remove__walk(ti_thing_t * t, remove__walk_t * w)
         return -1;
     }
 
-    ti_val_drop(w->query->rval);
+    ti_val_unsafe_drop(w->query->rval);
     w->query->rval = NULL;
     return 0;
 }
@@ -154,7 +156,7 @@ static int do__f_remove_set_from_closure(
     ti_closure_dec(closure, query);
 
 fail:
-    ti_val_drop((ti_val_t *) closure);
+    ti_val_unsafe_drop((ti_val_t *) closure);
     return e->nr;
 }
 
@@ -228,7 +230,7 @@ static int do__f_remove_set(
             if (ti_vset_pop(vset, (ti_thing_t *) query->rval))
                 VEC_push(removed, query->rval);
 
-            ti_val_drop(query->rval);
+            ti_val_unsafe_drop(query->rval);
             query->rval = NULL;
 
             if (!child->next || !(child = child->next->next))
@@ -274,7 +276,7 @@ fail2:
 fail1:
 done:
     ti_val_unlock((ti_val_t *) vset, true  /* lock was set */);
-    ti_val_drop((ti_val_t *) vset);
+    ti_val_unsafe_drop((ti_val_t *) vset);
     return e->nr;
 }
 

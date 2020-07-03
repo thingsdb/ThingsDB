@@ -15,7 +15,7 @@ static int do__f_has_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             query->collection->types,
             (ti_raw_t *) query->rval);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(has_type);
 
     return e->nr;

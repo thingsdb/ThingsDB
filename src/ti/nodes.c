@@ -1774,7 +1774,7 @@ ti_varr_t * ti_nodes_info(void)
         ti_val_t * mpinfo = ti_node_as_mpval(node);
         if (!mpinfo)
         {
-            ti_val_drop((ti_val_t *) varr);
+            ti_val_unsafe_drop((ti_val_t *) varr);
             return NULL;
         }
         VEC_push(varr->vec, mpinfo);

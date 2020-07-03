@@ -68,7 +68,7 @@ static int opr__lt(ti_val_t * a, ti_val_t ** b, ex_t * e)
         break;
     }
 
-    ti_val_drop(*b);
+    ti_val_unsafe_drop(*b);
     *b = (ti_val_t *) ti_vbool_get(bool_);
     return e->nr;
 }

@@ -16,7 +16,7 @@ static int do__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_val_as_bool(query->rval))
     {
-        ti_val_drop(query->rval);
+        ti_val_unsafe_drop(query->rval);
         query->rval = (ti_val_t *) ti_nil_get();
         return e->nr;  /* success */
     }
@@ -29,7 +29,7 @@ static int do__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (ti_do_statement(query, nd->children->next->next->node, e) ||

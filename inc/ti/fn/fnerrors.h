@@ -39,7 +39,7 @@ static int do__make_err(
         return e->nr;
     }
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) verror;
 
     return e->nr;

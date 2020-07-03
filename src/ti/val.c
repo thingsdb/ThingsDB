@@ -244,7 +244,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
                 "wrap type is expecting a wrapped `"TI_VAL_THING_S"` but "
                 "got type `%s` instead",
                 ti_val_str(vthing));
-            ti_val_drop(vthing);
+            ti_val_unsafe_drop(vthing);
             return NULL;
         }
 
@@ -428,7 +428,7 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
             if (!v || val__push(varr, v, e))
             {
                 ti_val_drop(v);
-                ti_val_drop((ti_val_t *) varr);
+                ti_val_unsafe_drop((ti_val_t *) varr);
                 return NULL;  /* error `e` is set in both cases */
             }
         }
@@ -573,7 +573,7 @@ int ti_val_make_int(ti_val_t ** val, int64_t i)
     if (!v)
         return -1;
 
-    ti_val_drop(*val);
+    ti_val_unsafe_drop(*val);
     *val = v;
     return 0;
 }
@@ -584,7 +584,7 @@ int ti_val_make_float(ti_val_t ** val, double d)
     if (!v)
         return -1;
 
-    ti_val_drop(*val);
+    ti_val_unsafe_drop(*val);
     *val = v;
     return 0;
 }
@@ -794,7 +794,7 @@ int ti_val_convert_to_str(ti_val_t ** val, ex_t * e)
         assert(0);
     }
 
-    ti_val_drop(*val);
+    ti_val_unsafe_drop(*val);
     *val = v;
     return 0;
 }
@@ -854,7 +854,7 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
         assert(0);
     }
 
-    ti_val_drop(*val);
+    ti_val_unsafe_drop(*val);
     *val = v;
     return 0;
 }
@@ -930,7 +930,7 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
             ti_decref(v);
             return e->nr;
         }
-        ti_val_drop(*val);
+        ti_val_unsafe_drop(*val);
         *val = v;
         return 0;
     }
@@ -1020,7 +1020,7 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
             ti_decref(v);
             return e->nr;
         }
-        ti_val_drop(*val);
+        ti_val_unsafe_drop(*val);
         *val = v;
         return 0;
     }
@@ -1121,7 +1121,7 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
             }
         }
 
-        ti_val_drop(*val);
+        ti_val_unsafe_drop(*val);
         *val = (ti_val_t *) vset;
         break;
     }

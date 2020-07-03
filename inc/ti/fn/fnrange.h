@@ -15,7 +15,7 @@ static int do__f_range(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     stop = VINT(query->rval);
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (nargs >= 2)
@@ -26,7 +26,7 @@ static int do__f_range(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         start = stop;
         stop = VINT(query->rval);
-        ti_val_drop(query->rval);
+        ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
     }
 
@@ -43,7 +43,7 @@ static int do__f_range(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
         }
 
-        ti_val_drop(query->rval);
+        ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
     }
 

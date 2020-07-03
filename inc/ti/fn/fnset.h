@@ -32,7 +32,7 @@ static int do__f_set_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 return e->nr;
             }
 
-            ti_val_drop(query->rval);
+            ti_val_unsafe_drop(query->rval);
             query->rval = NULL;
         }
         while (child->next && (child = child->next->next));
@@ -98,10 +98,10 @@ static int do__f_set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
 fail1:
-    ti_val_drop((ti_val_t *) rname);
+    ti_val_unsafe_drop((ti_val_t *) rname);
 fail0:
     ti_val_unlock((ti_val_t *) thing, true /* lock_was_set */);
-    ti_val_drop((ti_val_t *) thing);
+    ti_val_unsafe_drop((ti_val_t *) thing);
     return e->nr;
 }
 

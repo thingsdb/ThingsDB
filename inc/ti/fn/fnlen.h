@@ -18,6 +18,6 @@ static int do__f_len(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!query->rval)
         ex_set_mem(e);
 
-    ti_val_drop(val);
+    ti_val_unsafe_drop(val);
     return e->nr;
 }

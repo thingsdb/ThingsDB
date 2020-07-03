@@ -12,7 +12,8 @@ static int do__f_doc(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     doc = ti_closure_doc((ti_closure_t *) query->rval);
-    ti_val_drop(query->rval);
+
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) doc;
 
     return e->nr;

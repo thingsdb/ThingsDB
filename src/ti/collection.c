@@ -136,7 +136,7 @@ int ti_collection_rename(
         return -1;
     }
 
-    ti_val_drop((ti_val_t *) collection->name);
+    ti_val_unsafe_drop((ti_val_t *) collection->name);
     collection->name = ti_grab(rname);
 
     return 0;

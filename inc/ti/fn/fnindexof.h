@@ -22,7 +22,7 @@ static int do__f_indexof(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         if (ti_opr_eq(v, query->rval))
         {
-            ti_val_drop(query->rval);
+            ti_val_unsafe_drop(query->rval);
             query->rval = (ti_val_t *) ti_vint_create(idx);
             if (!query->rval)
                 ex_set_mem(e);
@@ -30,11 +30,11 @@ static int do__f_indexof(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
     }
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();
 
 done:
 fail1:
-    ti_val_drop((ti_val_t *) varr);
+    ti_val_unsafe_drop((ti_val_t *) varr);
     return e->nr;
 }

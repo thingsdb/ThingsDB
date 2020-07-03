@@ -166,8 +166,8 @@ static vec_t * closure__create_vars(ti_closure_t * closure)
         prop = ti_prop_create(name, val);
         if (!prop)
         {
-            ti_name_drop(name);
-            ti_val_drop(val);
+            ti_name_unsafe_drop(name);
+            ti_val_unsafe_drop(val);
             goto failed;
         }
 
@@ -370,7 +370,7 @@ void ti_closure_dec(ti_closure_t * closure, ti_query_t * query)
 
     /* drop temporary added props */
     while (query->vars->n > pos)
-        ti_query_var_drop_gc(VEC_pop(query->vars), query);
+        ti_prop_destroy(VEC_pop(query->vars));
 
     if (closure->depth)
     {
@@ -379,8 +379,7 @@ void ti_closure_dec(ti_closure_t * closure, ti_query_t * query)
         /* restore property values */
         for (vec_each_rev(closure->vars, ti_prop_t, p))
         {
-            ti_query_val_gc(p->val, query);
-            ti_val_drop(p->val);
+            ti_val_unsafe_gc_drop(p->val);
             p->val = VEC_pop(closure->stacked);
         }
 
@@ -395,8 +394,7 @@ void ti_closure_dec(ti_closure_t * closure, ti_query_t * query)
         /* reset props */
         for (vec_each(closure->vars, ti_prop_t, p))
         {
-            ti_query_val_gc(p->val, query);
-            ti_val_drop(p->val);
+            ti_val_unsafe_gc_drop(p->val);
             p->val = (ti_val_t *) ti_nil_get();
         }
     }
@@ -415,7 +413,7 @@ int ti_closure_vars_nameval(
     case 2:
         prop = vec_get(closure->vars, 1);
         ti_incref(val);
-        ti_val_drop(prop->val);
+        ti_val_unsafe_drop(prop->val);
         prop->val = val;
         /*
          * Re-assign variable since we require a copy of lists and sets.
@@ -426,7 +424,7 @@ int ti_closure_vars_nameval(
     case 1:
         prop = vec_get(closure->vars, 0);
         ti_incref(name);
-        ti_val_drop(prop->val);
+        ti_val_unsafe_drop(prop->val);
         prop->val = (ti_val_t *) name;
         /* fall through */
     case 0:
@@ -443,7 +441,7 @@ int ti_closure_vars_val_idx(ti_closure_t * closure, ti_val_t * v, int64_t i)
     default:
     case 2:
         prop = vec_get(closure->vars, 1);
-        ti_val_drop(prop->val);
+        ti_val_unsafe_drop(prop->val);
         prop->val = (ti_val_t *) ti_vint_create(i);
         if (!prop->val)
             return -1;
@@ -451,7 +449,7 @@ int ti_closure_vars_val_idx(ti_closure_t * closure, ti_val_t * v, int64_t i)
     case 1:
         prop = vec_get(closure->vars, 0);
         ti_incref(v);
-        ti_val_drop(prop->val);
+        ti_val_unsafe_drop(prop->val);
         prop->val = v;
         /* fall through */
     case 0:
@@ -468,7 +466,7 @@ int ti_closure_vars_vset(ti_closure_t * closure, ti_thing_t * t)
     default:
     case 2:
         prop = vec_get(closure->vars, 1);
-        ti_val_drop(prop->val);
+        ti_val_unsafe_drop(prop->val);
         prop->val = t->id
                 ? (ti_val_t *) ti_vint_create((int64_t) t->id)
                 : (ti_val_t *) ti_nil_get();
@@ -478,7 +476,7 @@ int ti_closure_vars_vset(ti_closure_t * closure, ti_thing_t * t)
     case 1:
         prop = vec_get(closure->vars, 0);
         ti_incref(t);
-        ti_val_drop(prop->val);
+        ti_val_unsafe_drop(prop->val);
         prop->val = (ti_val_t *) t;
         /* fall through */
     case 0:
@@ -505,7 +503,7 @@ int ti_closure_call(
 
     for (vec_each(closure->vars, ti_prop_t, prop), ++idx)
     {
-        ti_val_drop(prop->val);
+        ti_val_unsafe_drop(prop->val);
         prop->val = args->data[idx];
         ti_incref(prop->val);
     }

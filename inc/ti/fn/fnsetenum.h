@@ -75,7 +75,7 @@ static int do__f_set_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_enum_try_lock(enum_, e))
         goto fail1;
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (ti_do_statement(query, nd->children->next->next->node, e) ||
@@ -101,7 +101,7 @@ static int do__f_set_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = (ti_val_t *) ti_nil_get();
 
 fail3:
-    ti_val_drop((ti_val_t *) thing);
+    ti_val_unsafe_drop((ti_val_t *) thing);
 fail2:
     ti_enum_unlock(enum_, true /* lock is set for sure */);
 fail1:

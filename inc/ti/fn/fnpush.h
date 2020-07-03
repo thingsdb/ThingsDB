@@ -63,13 +63,12 @@ alloc_err:
 
 fail1:
     while (varr->vec->n > current_n)
-    {
-        ti_val_drop(VEC_pop(varr->vec));
-    }
+        ti_val_unsafe_drop(VEC_pop(varr->vec));
+
     (void) vec_shrink(&varr->vec);
 
 done:
     ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);
-    ti_val_drop((ti_val_t *) varr);
+    ti_val_unsafe_drop((ti_val_t *) varr);
     return e->nr;
 }

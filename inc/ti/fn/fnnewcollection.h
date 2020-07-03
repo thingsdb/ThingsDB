@@ -34,7 +34,7 @@ static int do__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_task_add_new_collection(task, collection, query->user))
         ex_set_mem(e);  /* task cleanup is not required */
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vint_create((int64_t) collection->root->id);
     if (!query->rval)
         ex_set_mem(e);

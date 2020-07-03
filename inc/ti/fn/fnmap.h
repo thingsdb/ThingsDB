@@ -130,10 +130,10 @@ done:
     ti_closure_dec(closure, query);
 
 fail1:
-    ti_val_drop((ti_val_t *) closure);
+    ti_val_unsafe_drop((ti_val_t *) closure);
 
 fail0:
     ti_val_unlock(iterval, lock_was_set);
-    ti_val_drop(iterval);
+    ti_val_unsafe_drop(iterval);
     return e->nr;
 }

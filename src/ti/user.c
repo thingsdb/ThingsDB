@@ -213,7 +213,7 @@ int ti_user_rename(ti_user_t * user, ti_raw_t * name, ex_t * e)
     if (!ti_user_name_check((const char *) name->data, name->n, e))
         return e->nr;
 
-    ti_val_drop((ti_val_t *) user->name);
+    ti_val_unsafe_drop((ti_val_t *) user->name);
     user->name = ti_grab(name);
 
     return e->nr;

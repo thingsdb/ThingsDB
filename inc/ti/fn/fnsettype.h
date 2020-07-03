@@ -77,7 +77,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_type_try_lock(type, e))
         goto fail0;
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (ti_do_statement(query, nd->children->next->next->node, e) ||
@@ -129,7 +129,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 
 fail2:
-    ti_val_drop((ti_val_t *) thing);
+    ti_val_unsafe_drop((ti_val_t *) thing);
 fail1:
     ti_type_unlock(type, true /* lock is set for sure */);
 fail0:

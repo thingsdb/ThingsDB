@@ -42,11 +42,11 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!prop)
         goto fail0;  /* error is set, rname is still bound to query */
 
-    query->rval = (ti_val_t *) prop->val;
+    query->rval = prop->val;
+    ti_incref(query->rval);
 
     ti_val_attach(query->rval, NULL, NULL);
 
-    prop->val = NULL;
     ti_prop_destroy(prop);
 
     if (thing->id)
@@ -61,12 +61,14 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             goto fail1;
         }
     }
+    else
+        ti_thing_may_push_gc((ti_thing_t *) query->rval);
 
 fail1:
-    ti_val_drop((ti_val_t *) rname);
+    ti_val_unsafe_drop((ti_val_t *) rname);
 
 fail0:
     ti_val_unlock((ti_val_t *) thing, true  /* lock was set */);
-    ti_val_drop((ti_val_t *) thing);
+    ti_val_unsafe_drop((ti_val_t *) thing);
     return e->nr;
 }

@@ -29,12 +29,12 @@ static int do__f_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
     }
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_wrap_create(thing, type->type_id);
     if (!query->rval)
         ex_set_mem(e);
 
 fail0:
-    ti_val_drop((ti_val_t *) thing);
+    ti_val_unsafe_drop((ti_val_t *) thing);
     return e->nr;
 }

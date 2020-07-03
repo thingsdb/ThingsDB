@@ -30,7 +30,7 @@ static int do__f_collection_info(ti_query_t * query, cleri_node_t * nd, ex_t * e
 
     assert (collection);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = ti_collection_as_mpval(collection);
     if (!query->rval)
         ex_set_mem(e);

@@ -40,7 +40,7 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (rc > 0)
             VEC_push(added, query->rval);  /* at least the `set` has a
                                               reference now */
-        ti_val_drop(query->rval);
+        ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
     }
     while (child->next && (child = child->next->next));
@@ -70,11 +70,11 @@ alloc_err:
 
 fail1:
     while (added->n)
-        ti_val_drop((ti_val_t *) ti_vset_pop(vset, VEC_pop(added)));
+        ti_val_unsafe_drop((ti_val_t *) ti_vset_pop(vset, VEC_pop(added)));
 
 done:
     ti_val_unlock((ti_val_t *) vset, true  /* lock was set */);
-    ti_val_drop((ti_val_t *) vset);
+    ti_val_unsafe_drop((ti_val_t *) vset);
 
 fail0:
     free(added);

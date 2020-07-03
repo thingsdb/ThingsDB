@@ -49,9 +49,6 @@ struct ti_query_s
                                    required
                                 */
     vec_t * val_cache;          /* ti_val_t, for node and argument cleanup */
-    vec_t * gc;                 /* ti_vat_t, requires garbage collection
-                                   only wrapped values and things will be added
-                                   since they are by reference */
     util_time_t time;           /* time query duration */
     uint32_t block_stack;       /* variable in block start here */
 };

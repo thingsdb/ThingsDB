@@ -49,7 +49,7 @@ ti_varr_t * ti_procedures_info(vec_t * procedures, _Bool with_definition)
         ti_val_t * mpinfo = ti_procedure_as_mpval(procedure, with_definition);
         if (!mpinfo)
         {
-            ti_val_drop((ti_val_t *) varr);
+            ti_val_unsafe_drop((ti_val_t *) varr);
             return NULL;
         }
         VEC_push(varr->vec, mpinfo);

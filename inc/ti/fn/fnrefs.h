@@ -10,7 +10,7 @@ static int do__f_refs(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     ref = query->rval->ref;
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
 
     query->rval = (ti_val_t *) ti_vint_create((int64_t) ref);
     if (!query->rval)

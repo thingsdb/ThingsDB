@@ -15,7 +15,7 @@ static int some__walk_set(ti_thing_t * t, some__walk_t * w)
         return -1;
 
     some = ti_val_as_bool(w->query->rval);
-    ti_val_drop(w->query->rval);
+    ti_val_unsafe_drop(w->query->rval);
 
     if (some)
         return 1;  /* walking stops here */
@@ -72,7 +72,7 @@ static int do__f_some(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 goto fail2;
 
             some = ti_val_as_bool(query->rval);
-            ti_val_drop(query->rval);
+            ti_val_unsafe_drop(query->rval);
 
             if (some)
                 break;
@@ -105,8 +105,8 @@ static int do__f_some(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 fail2:
     ti_closure_dec(closure, query);
 fail1:
-    ti_val_drop((ti_val_t *) closure);
+    ti_val_unsafe_drop((ti_val_t *) closure);
 fail0:
-    ti_val_drop(iterval);
+    ti_val_unsafe_drop(iterval);
     return e->nr;
 }

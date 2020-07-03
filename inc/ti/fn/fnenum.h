@@ -25,7 +25,7 @@ static int do__f_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!enum_)
         return ti_raw_err_not_found((ti_raw_t *) query->rval, "enum", e);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (nargs == 1)
@@ -49,7 +49,7 @@ static int do__f_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_incref(member);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) member;
 
     return e->nr;

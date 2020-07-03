@@ -10,6 +10,7 @@
 #include <ti/syncer.h>
 #include <ti/syncevents.h>
 #include <ti/syncfull.h>
+#include <ti/thing.h>
 #include <ti/things.h>
 #include <ti/watch.h>
 #include <util/logger.h>
@@ -160,6 +161,9 @@ static void away__work(uv_work_t * UNUSED(work))
 
     if ((ti.flags & TI_FLAG_NODES_CHANGED) && ti_save() == 0)
         ti.flags &= ~TI_FLAG_NODES_CHANGED;
+
+    /* resize query garbage storage */
+    ti_thing_resize_gc();
 
     /* garbage collect */
     (void) ti_collections_gc();

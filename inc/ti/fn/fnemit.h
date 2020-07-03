@@ -50,7 +50,7 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         deep = (int) deepi;
 
-        ti_val_drop(query->rval);
+        ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
 
         if (ti_do_statement(query, (child = child->next->next)->node, e))
@@ -105,10 +105,10 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = (ti_val_t *) ti_nil_get();
 
 fail2:
-    vec_destroy(vec, (vec_destroy_cb) ti_val_drop);
+    vec_destroy(vec, (vec_destroy_cb) ti_val_unsafe_drop);
 fail1:
-    ti_val_drop((ti_val_t *) revent);
+    ti_val_unsafe_drop((ti_val_t *) revent);
 fail0:
-    ti_val_drop((ti_val_t *) thing);
+    ti_val_unsafe_drop((ti_val_t *) thing);
     return e->nr;
 }

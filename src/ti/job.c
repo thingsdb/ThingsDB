@@ -181,7 +181,7 @@ static int job__set(ti_thing_t * thing, mp_unp_t * up)
 
 fail:
     ti_val_drop(val);
-    ti_name_drop(name);
+    ti_name_unsafe_drop(name);
     return -1;
 }
 
@@ -1492,7 +1492,8 @@ static int job__remove(ti_thing_t * thing, mp_unp_t * up)
                     mp_id.via.u64);
             continue;
         }
-        ti_val_drop((ti_val_t *) t);
+
+        ti_val_unsafe_drop((ti_val_t *) t);
     }
 
     return 0;
@@ -1572,7 +1573,7 @@ static int job__splice(ti_thing_t * thing, mp_unp_t * up)
     }
 
     for (ssize_t x = i, y = i + c; x < y; ++x)
-        ti_val_drop(vec_get(varr->vec, x));
+        ti_val_unsafe_drop(vec_get(varr->vec, x));
 
     memmove(
             varr->vec->data + i + n,
@@ -1600,7 +1601,7 @@ static int job__splice(ti_thing_t * thing, mp_unp_t * up)
             log_critical("job `splice` array on "TI_THING_ID": %s",
                     thing->id,
                     e.msg);
-            ti_val_drop(val);
+            ti_val_unsafe_drop(val);
             return -1;
         }
     }

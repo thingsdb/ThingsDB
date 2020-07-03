@@ -38,7 +38,7 @@ static int do__f_values(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     query->rval = (ti_val_t *) varr;
-    ti_val_drop((ti_val_t *) thing);
+    ti_val_unsafe_drop((ti_val_t *) thing);
 
     return e->nr;
 }

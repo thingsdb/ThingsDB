@@ -15,7 +15,7 @@ static int do__f_def(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!def)
         ex_set_mem(e);
 
-    ti_val_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) def;
 
     return e->nr;

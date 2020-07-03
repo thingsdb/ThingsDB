@@ -32,7 +32,7 @@ ti_method_t * ti_method_create(ti_name_t * name, ti_closure_t * closure)
 
 void ti_method_destroy(ti_method_t * method)
 {
-    ti_name_drop(method->name);
+    ti_name_unsafe_drop(method->name);
     ti_val_unsafe_drop((ti_val_t *) method->closure);
     ti_val_safe_drop((ti_val_t *) method->def);
     ti_val_safe_drop((ti_val_t *) method->doc);
@@ -156,13 +156,13 @@ int ti_method_set_name(
         goto fail0;
     }
 
-    ti_name_drop(method->name);
+    ti_name_unsafe_drop(method->name);
     method->name = name;
 
     return 0;
 
 fail0:
-    ti_name_drop(name);
+    ti_name_unsafe_drop(name);
     return e->nr;
 }
 

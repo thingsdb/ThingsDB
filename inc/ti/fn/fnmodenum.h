@@ -323,7 +323,7 @@ done:
         ti_val_safe_drop(query->rval);
         query->rval = (ti_val_t *) ti_nil_get();
     }
-    ti_name_drop(name);
+    ti_name_unsafe_drop(name);
 
 fail1:
     ti_val_unsafe_drop((ti_val_t *) rmod);

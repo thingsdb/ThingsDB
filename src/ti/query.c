@@ -291,14 +291,14 @@ int ti_query_unpack_args(ti_query_t * query, ti_vup_t * vup, ex_t * e)
         {
             assert (e->nr);
             ex_append(e, " (in argument `%s`)", name->str);
-            ti_name_drop(name);
+            ti_name_unsafe_drop(name);
             return e->nr;
         }
 
         prop = ti_prop_create(name, argval);
         if (!prop)
         {
-            ti_name_drop(name);
+            ti_name_unsafe_drop(name);
             ti_val_unsafe_drop(argval);
             ex_set_mem(e);
             return e->nr;

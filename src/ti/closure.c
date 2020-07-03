@@ -166,7 +166,7 @@ static vec_t * closure__create_vars(ti_closure_t * closure)
         prop = ti_prop_create(name, val);
         if (!prop)
         {
-            ti_name_drop(name);
+            ti_name_unsafe_drop(name);
             ti_val_unsafe_drop(val);
             goto failed;
         }

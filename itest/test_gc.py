@@ -126,7 +126,7 @@ class TestGC(TestBase):
         counters = await client.query('counters();', scope='@node')
 
         # expecting `w`, `xx`, `yy`, `a` and `a.other` in the garbage
-        self.assertEqual(counters['garbage_collected'], 7)
+        self.assertEqual(counters['garbage_collected'], 8)
 
 
 if __name__ == '__main__':

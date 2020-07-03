@@ -916,7 +916,7 @@ static void type__ren(
         ex_set_mem(e);
 
 done:
-    ti_name_drop(oldname);
+    ti_name_unsafe_drop(oldname);
 }
 
 static int modtype__has_lock(ti_query_t * query, ti_type_t * type, ex_t * e)
@@ -1038,7 +1038,7 @@ done:
         ti_val_safe_drop(query->rval);
         query->rval = (ti_val_t *) ti_nil_get();
     }
-    ti_name_drop(name);
+    ti_name_unsafe_drop(name);
 
 fail1:
     ti_val_unsafe_drop((ti_val_t *) rmod);

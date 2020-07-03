@@ -43,10 +43,10 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;  /* error is set, rname is still bound to query */
 
     query->rval = prop->val;
+    ti_incref(query->rval);
 
     ti_val_attach(query->rval, NULL, NULL);
 
-    prop->val = NULL;
     ti_prop_destroy(prop);
 
     if (thing->id)

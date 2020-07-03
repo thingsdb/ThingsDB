@@ -442,7 +442,7 @@ int ti_thing_o_set_val_from_valid_strn(
     if (thing_o__prop_set_e(thing, name, *val, e))
     {
         assert (e->nr);
-        ti_name_drop(name);
+        ti_name_unsafe_drop(name);
         return e->nr;
     }
 

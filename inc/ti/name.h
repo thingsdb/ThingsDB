@@ -17,4 +17,10 @@ static inline void ti_name_drop(ti_name_t * name)
         ti_name_destroy(name);
 }
 
+static inline void ti_name_unsafe_drop(ti_name_t * name)
+{
+    if (!--name->ref)
+        ti_name_destroy(name);
+}
+
 #endif /* TI_NAME_H_ */

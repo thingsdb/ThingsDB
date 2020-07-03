@@ -287,7 +287,7 @@ double strx_to_double(const char * str)
  *
  * This function may set errno to ERANGE
  */
-int64_t strx_to_int64(const char * str)
+int64_t strx_to_int64(const char * str, char ** endptr)
 {
     int64_t i;
     int negative = 0;
@@ -329,7 +329,7 @@ int64_t strx_to_int64(const char * str)
     if (errno == ERANGE)
         errno = 0;
 
-    i = strtoll(str, NULL, base);
+    i = strtoll(str, endptr, base);
 
     return negative ? negative * i : i;
 }

@@ -80,7 +80,7 @@ int ncache__gen_immutable(
         break;
     case CLERI_GID_T_INT:
     {
-        int64_t i = strx_to_int64(nd->str);
+        int64_t i = strx_to_int64(nd->str, NULL);
         if (errno == ERANGE)
         {
             ex_set(e, EX_OVERFLOW, "integer overflow");
@@ -356,7 +356,7 @@ static int ncache__expr_choice(
         break;
     case CLERI_GID_T_INT:
     {
-        int64_t i = strx_to_int64(nd->str);
+        int64_t i = strx_to_int64(nd->str, NULL);
         if (errno == ERANGE)
         {
             ex_set(e, EX_OVERFLOW, "integer overflow");

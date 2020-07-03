@@ -27,7 +27,7 @@ _Bool strx_is_printablen(const char * str, size_t n);
 _Bool strx_is_asciin(const char * str, size_t n);
 _Bool strx_is_utf8n(const char * str, size_t n);
 double strx_to_double(const char * str);
-int64_t strx_to_int64(const char * str);
+int64_t strx_to_int64(const char * str, char ** endptr);
 const char * strx_from_double(const double d, size_t * n);  /* not thread safe */
 const char * strx_from_int64(const int64_t i, size_t * n);  /* not thread safe */
 char * strx_cat(const char * s1, const char * s2);

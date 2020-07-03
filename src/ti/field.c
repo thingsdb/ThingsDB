@@ -260,6 +260,24 @@ static int field__init(ti_field_t * field, ex_t * e)
             goto invalid;
     }
 
+    if (str[n-1] == '>')
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "invalid declaration for `%s` on type `%s`; "
+            "range conditions are not allowed in a nested specification"
+            DOC_T_TYPE, field->name->str, field->type->name);
+        return e->nr;
+    }
+
+    if (*str == '/')
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "invalid declaration for `%s` on type `%s`; "
+            "regular expressions are not allowed in a nested specification"
+            DOC_T_TYPE, field->name->str, field->type->name);
+        return e->nr;
+    }
+
 skip_nesting:
 
     assert (n);
@@ -282,59 +300,102 @@ skip_nesting:
         return e->nr;
     }
 
-    if (field__cmp(str, n, "any"))
+    if (str[n-1] == '>')
+        return ti_condition_field_range_init(field, str, n, e);
+
+
+    switch(*str)
     {
-        *spec |= TI_SPEC_ANY;
+    case "/":
+        return ti_condition_field_re_init(field, str, n, e);
+    case "a":
+        if (field__cmp(str, n, "any"))
+        {
+            *spec |= TI_SPEC_ANY;
+            goto found;
+        }
+        break;
+    case "b":
+        if (field__cmp(str, n, "bool"))
+        {
+            *spec |= TI_SPEC_BOOL;
+            goto found;
+        }
+        if (field__cmp(str, n, "bytes"))
+        {
+            *spec |= TI_SPEC_BYTES;
+            goto found;
+        }
+        break;
+    case "f":
+        if (field__cmp(str, n, "float"))
+        {
+            *spec |= TI_SPEC_FLOAT;
+            goto found;
+        }
+        break;
+    case "i":
+        if (field__cmp(str, n, "int"))
+        {
+            *spec |= TI_SPEC_INT;
+            goto found;
+        }
+        break;
+    case "n":
+        if (field__cmp(str, n, "nint"))
+        {
+            *spec |= TI_SPEC_NINT;
+            goto found;
+        }
+        if (field__cmp(str, n, "number"))
+        {
+            *spec |= TI_SPEC_NUMBER;
+            goto found;
+        }
+        break;
+    case "p":
+        if (field__cmp(str, n, "pint"))
+        {
+            *spec |= TI_SPEC_PINT;
+            goto found;
+        }
+        break;
+    case "r":
+        if (field__cmp(str, n, "raw"))
+        {
+            *spec |= TI_SPEC_RAW;
+            goto found;
+        }
+        break;
+    case "s":
+        if (field__cmp(str, n, "str"))
+        {
+            *spec |= TI_SPEC_STR;
+            goto found;
+        }
+        break;
+    case "t":
+        if (field__cmp(str, n, "thing"))
+        {
+            *spec |= TI_SPEC_OBJECT;
+            goto found;
+        }
+        break;
+    case "u":
+        if (field__cmp(str, n, "utf8"))
+        {
+            *spec |= TI_SPEC_UTF8;
+            goto found;
+        }
+        if (field__cmp(str, n, "uint"))
+        {
+            *spec |= TI_SPEC_UINT;
+            goto found;
+        }
+        break;
     }
-    else if (field__cmp(str, n, TI_VAL_THING_S))
-    {
-        *spec |= TI_SPEC_OBJECT;
-    }
-    else if (field__cmp(str, n, "raw"))
-    {
-        *spec |= TI_SPEC_RAW;
-    }
-    else if (field__cmp(str, n, TI_VAL_STR_S))
-    {
-        *spec |= TI_SPEC_STR;
-    }
-    else if (field__cmp(str, n, "utf8"))
-    {
-        *spec |= TI_SPEC_UTF8;
-    }
-    else if (field__cmp(str, n, TI_VAL_BYTES_S))
-    {
-        *spec |= TI_SPEC_BYTES;
-    }
-    else if (field__cmp(str, n, TI_VAL_INT_S))
-    {
-        *spec |= TI_SPEC_INT;
-    }
-    else if (field__cmp(str, n, "uint"))
-    {
-        *spec |= TI_SPEC_UINT;
-    }
-    else if (field__cmp(str, n, "pint"))
-    {
-        *spec |= TI_SPEC_PINT;
-    }
-    else if (field__cmp(str, n, "nint"))
-    {
-        *spec |= TI_SPEC_NINT;
-    }
-    else if (field__cmp(str, n, TI_VAL_FLOAT_S))
-    {
-        *spec |= TI_SPEC_FLOAT;
-    }
-    else if (field__cmp(str, n, "number"))
-    {
-        *spec |= TI_SPEC_NUMBER;
-    }
-    else if (field__cmp(str, n, TI_VAL_BOOL_S))
-    {
-        *spec |= TI_SPEC_BOOL;
-    }
-    else if (field__cmp(str, n, field->type->name))
+
+    if (field__cmp(str, n, field->type->name))
     {
         *spec |= field->type->type_id;
         if (&field->spec == spec && (~field->spec & TI_SPEC_NILLABLE))
@@ -394,6 +455,7 @@ skip_nesting:
         return 0;
     }
 
+found:
     if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET &&
         field->nested_spec > TI_SPEC_OBJECT)
     {
@@ -528,6 +590,7 @@ ti_field_t * ti_field_create(
     field->name = name;
     field->spec_raw = spec_raw;
     field->idx = type->fields->n;
+    field->condition.none = NULL;
 
     ti_incref(name);
     ti_incref(spec_raw);

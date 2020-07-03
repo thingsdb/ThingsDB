@@ -28,6 +28,12 @@ typedef enum
     TI_SPEC_BOOL,           /* `bool`               */
     TI_SPEC_ARR,            /* `[..]`               */
     TI_SPEC_SET,            /* `{..}`               */
+
+    TI_SPEC_REMATCH=0x5000, /* `/.../`              */
+    TI_SPEC_STR_RANGE,      /* `str<:>````````````` */
+    TI_SPEC_UTF8_RANGE,     /* `utf8<:>```````````` */
+    TI_SPEC_INT_RANGE,      /* `int<:>````````````` */
+    TI_SPEC_FLOAT_RANGE,    /* `float<:>````````````` */
 } ti_spec_enum_t;
 
 typedef enum

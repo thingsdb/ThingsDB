@@ -14,7 +14,9 @@ typedef struct ti_condition_drange_s ti_condition_drange_t;
 #include <pcre2.h>
 #include <stdint.h>
 #include <stdlib.h>
-
+#include <ti/raw.t.h>
+#include <ti/vint.h>
+#include <ti/vfloat.h>
 
 struct ti_condition_re_s
 {
@@ -26,18 +28,21 @@ struct ti_condition_srange_s
 {
     size_t mi;
     size_t ma;
+    ti_raw_t * dval;
 };
 
 struct ti_condition_irange_s
 {
     int64_t mi;
     int64_t ma;
+    ti_vint_t * dval;
 };
 
 struct ti_condition_drange_s
 {
     double mi;
     double ma;
+    ti_vfloat_t * dval;
 };
 
 typedef union

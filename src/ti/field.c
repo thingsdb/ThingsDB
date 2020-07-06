@@ -5,6 +5,7 @@
 #include <doc.h>
 #include <stdlib.h>
 #include <ti.h>
+#include <ti/condition.h>
 #include <ti/data.h>
 #include <ti/enum.h>
 #include <ti/enum.inline.h>
@@ -306,16 +307,16 @@ skip_nesting:
 
     switch(*str)
     {
-    case "/":
+    case '/':
         return ti_condition_field_re_init(field, str, n, e);
-    case "a":
+    case 'a':
         if (field__cmp(str, n, "any"))
         {
             *spec |= TI_SPEC_ANY;
             goto found;
         }
         break;
-    case "b":
+    case 'b':
         if (field__cmp(str, n, "bool"))
         {
             *spec |= TI_SPEC_BOOL;
@@ -327,21 +328,21 @@ skip_nesting:
             goto found;
         }
         break;
-    case "f":
+    case 'f':
         if (field__cmp(str, n, "float"))
         {
             *spec |= TI_SPEC_FLOAT;
             goto found;
         }
         break;
-    case "i":
+    case 'i':
         if (field__cmp(str, n, "int"))
         {
             *spec |= TI_SPEC_INT;
             goto found;
         }
         break;
-    case "n":
+    case 'n':
         if (field__cmp(str, n, "nint"))
         {
             *spec |= TI_SPEC_NINT;
@@ -353,35 +354,35 @@ skip_nesting:
             goto found;
         }
         break;
-    case "p":
+    case 'p':
         if (field__cmp(str, n, "pint"))
         {
             *spec |= TI_SPEC_PINT;
             goto found;
         }
         break;
-    case "r":
+    case 'r':
         if (field__cmp(str, n, "raw"))
         {
             *spec |= TI_SPEC_RAW;
             goto found;
         }
         break;
-    case "s":
+    case 's':
         if (field__cmp(str, n, "str"))
         {
             *spec |= TI_SPEC_STR;
             goto found;
         }
         break;
-    case "t":
+    case 't':
         if (field__cmp(str, n, "thing"))
         {
             *spec |= TI_SPEC_OBJECT;
             goto found;
         }
         break;
-    case "u":
+    case 'u':
         if (field__cmp(str, n, "utf8"))
         {
             *spec |= TI_SPEC_UTF8;
@@ -560,6 +561,8 @@ ti_val_t * ti_field_dval(ti_field_t * field)
 
         return (ti_val_t *) vset;
     }
+    case TI_SPEC_REMATCH:
+        return
     }
 
     return spec < TI_SPEC_ANY
@@ -1268,7 +1271,7 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
             ? (t_field->nested_spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY
             ? true
             : field__maps_to_nested(t_field, f_field)
-            : field__maps_to_spec(t_spec, f_spec);
+            : field__maps_to_spec(t_spec, f_spec);  /* TODO: condition check */
 }
 
 ti_field_t * ti_field_by_name(ti_type_t * type, ti_name_t * name)

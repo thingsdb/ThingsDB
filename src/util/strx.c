@@ -242,7 +242,7 @@ _Bool strx_is_utf8n(const char * str, size_t n)
  *
  *      [-+]?((inf|nan)([^0-9A-Za-z_]|$)|[0-9]*\.[0-9]+(e[+-][0-9]+)?)
  */
-double strx_to_double(const char * str)
+double strx_to_double(const char * str, char ** endptr)
 {
     double d;
     double negative = 0;
@@ -259,15 +259,31 @@ double strx_to_double(const char * str)
     }
 
     if (*str == 'i')
+    {
+        if (endptr)
+        {
+            *endptr = (*(++str) == 'n' && *(++str) == 'f')
+                    ? ++str
+                    : NULL;
+        }
         return negative ? negative * INFINITY : INFINITY;
+    }
 
     if (*str == 'n')
+    {
+        if (endptr)
+        {
+            *endptr = (*(++str) == 'a' && *(++str) == 'n')
+                    ? ++str
+                    : NULL;
+        }
         return NAN;
+    }
 
     if (errno == ERANGE)
         errno = 0;
 
-    d = strtod(str, NULL);
+    d = strtod(str, endptr);
 
     if (errno == ERANGE)
     {

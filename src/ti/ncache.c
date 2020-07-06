@@ -76,7 +76,7 @@ int ncache__gen_immutable(
                             : TI_VFLAG_CLOSURE_BCSCOPE);
         break;
     case CLERI_GID_T_FLOAT:
-        nd->data = ti_vfloat_create(strx_to_double(nd->str));
+        nd->data = ti_vfloat_create(strx_to_double(nd->str, NULL));
         break;
     case CLERI_GID_T_INT:
     {
@@ -352,7 +352,7 @@ static int ncache__expr_choice(
                             : TI_VFLAG_CLOSURE_BCSCOPE);
         break;
     case CLERI_GID_T_FLOAT:
-        nd->data = ti_vfloat_create(strx_to_double(nd->str));
+        nd->data = ti_vfloat_create(strx_to_double(nd->str, NULL));
         break;
     case CLERI_GID_T_INT:
     {

@@ -117,6 +117,14 @@ class TestAdvanced(TestBase):
             5;
         '''), 5)
 
+        self.assertEqual(await client.query(r'''
+            x = {};
+            x.  y = {};
+            x.y.y = x.y;
+            {x.del('y')}.id();
+            5;
+        '''), 5)
+
     async def test_mod_type_mod_advanced2(self, client):
         with self.assertRaisesRegex(
                 OperationError,

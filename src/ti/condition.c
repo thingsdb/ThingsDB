@@ -124,6 +124,7 @@ int ti_condition_field_range_init(
                 goto invalid_dval;
 
             dval = (ti_val_t *) ti_str_create(str, (size_t) n);
+            str += n;
         }
         else if (is_nillable)
             dval = (ti_val_t *) ti_nil_get();

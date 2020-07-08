@@ -232,6 +232,233 @@ class TestAdvanced(TestBase):
                 set_type('Foo', {a: '[ ]'});
             ''')
 
+        res = await client.query(r'''
+            set_type('Foo', {
+                int_a: 'int<0:10>',
+                int_b: 'int<1:10>',
+                int_c: 'int<-5:-3>',
+                int_d: 'int<-5:5>',
+                int_e: 'int<0:10:5>',
+                int_f: 'int<0:10:5>?',
+                int_g: 'int<0:10>?',
+                float_a: 'float<-1:1>',
+                float_b: 'float<0.5:1.5>',
+                float_c: 'float<0:1:0.5>',
+                float_d: 'float<0:inf>',
+                float_e: 'float<-5:5:0>?',
+                float_f: 'float<-5:5>?',
+                str_a: 'str<0:1>',
+                str_b: 'str<1:1>',
+                str_c: 'str<3:10>',
+                str_d: 'str<0:10:unknown>',
+                str_e: '/^(e|h|i|l|o)*$/',
+                str_f: '/^(e|h|i|l|o)+$/?',
+                str_g: '/^(e|h|i|l|o)+$/i?',
+                str_h: '/^(e|h|i|l|o)+$/i<Hello>',
+                str_i: '/^(e|h|i|l|o){2}$/i<Hi>',
+                str_j: 'str<5:10:empty>?',
+                str_k: 'str<5:5>?',
+            });
+
+            Foo();
+        ''')
+
+        self.assertEqual(res, {
+            "int_a": 0,
+            "int_b": 1,
+            "int_c": -3,
+            "int_d": 0,
+            "int_e": 5,
+            "int_f": 5,
+            "int_g": None,
+            "float_a": 0.0,
+            "float_b": 0.5,
+            "float_c": 0.5,
+            "float_d": 0,
+            "float_e": 0,
+            "float_f": None,
+            "str_a": "",
+            "str_b": "-",
+            "str_c": "---",
+            "str_d": "unknown",
+            "str_e": "",
+            "str_f": None,
+            "str_g": None,
+            "str_h": "Hello",
+            "str_i": "Hi",
+            "str_j": "empty",
+            "str_k": None,
+        })
+
+        self.assertEqual(await client.query(r'''
+                Foo{int_a: 0};
+                Foo{int_a: 10};
+                Foo{int_d: -5};
+                Foo{int_d: 5};
+                Foo{int_f: 5};
+                Foo{int_f: nil};
+                Foo{float_d: 3.14};
+                Foo{float_d: inf };
+                Foo{float_d: 42.0};
+                Foo{float_e: -2.5};
+                Foo{float_e: nil};
+                Foo{str_a: ""};
+                Foo{str_a: "a"};
+                Foo{str_b: "b"};
+                Foo{str_c: "abc"};
+                Foo{str_c: "abcdefghij"};
+                Foo{str_e: ""};
+                Foo{str_e: "hello"};
+                Foo{str_e: "hi"};
+                Foo{str_f: nil};
+                Foo{str_g: "HeLLo"};
+                Foo{str_i: "He"};
+                Foo{str_k: nil};
+                Foo{str_k: "found"};
+                42;  // reached the end
+        '''), 42)
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `Foo`; '
+                r'property `int_a` requires a float value between '
+                r'0 and 10 \(both inclusive\)'):
+            await client.query(r'''
+                Foo{int_a: -1};
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `Foo`; '
+                r'property `int_a` requires a float value between '
+                r'0 and 10 \(both inclusive\)'):
+            await client.query(r'''
+                Foo{int_a: 11};
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `Foo`; '
+                r'type `float` is invalid for property `int_a` with '
+                r'definition `int<0:10>'):
+            await client.query(r'''
+                Foo{int_a: 5.5};
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `Foo`; '
+                r'property `float_d` requires a float value between '
+                r'0.000000 and inf \(both inclusive\)'):
+            await client.query(r'''
+                Foo{float_d: -1.0};
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `Foo`; '
+                r'property `float_d` requires a float value between '
+                r'0.000000 and inf \(both inclusive\)'):
+            await client.query(r'''
+                Foo{float_d: -inf };
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `Foo`; '
+                r'property `float_d` requires a float value between '
+                r'0.000000 and inf but got nan \(not a number\)'):
+            await client.query(r'''
+                Foo{float_d: -nan };
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `Foo`; '
+                r'type `str` is invalid for property `float_d` with '
+                r'definition `float<0:inf>'):
+            await client.query(r'''
+                Foo{float_d: 'pi'};
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `Foo`; '
+                r'type `nil` is invalid for property `float_d` with '
+                r'definition `float<0:inf>'):
+            await client.query(r'''
+                Foo{float_d: nil};
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `Foo`; '
+                r'property `str_b` requires a string with a length '
+                r'of 1 character'):
+            await client.query(r'''
+                Foo{str_b: ""};
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `Foo`; '
+                r'property `str_c` requires a string with a length '
+                r'between 3 and 10 \(both inclusive\) characters'):
+            await client.query(r'''
+                Foo{str_c: "xx"};
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `Foo`; '
+                r'property `str_k` requires a string with a length '
+                r'of 5 characters'):
+            await client.query(r'''
+                Foo{str_k: "ABCDEF"};
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'type `nil` is invalid for property `str_e` with '
+                r'definition `/\(e|h|i|l|o\)\*/`'):
+            await client.query(r'''
+                Foo{str_e: nil};
+            ''')
+        with self.assertRaisesRegex(
+                ValueError,
+                r'property `str_f` has a requirement to match '
+                r'pattern /\(e|h|i|l|o\)\+/"'):
+            await client.query(r'''
+                Foo{str_f: ""};
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `Foo`; '
+                r'property `str_f` has a requirement to match '
+                r'pattern /^\(e|h|i|l|o\)\+$'):
+            await client.query(r'''
+                Foo{str_f: "HDello"};
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'"mismatch in type `Foo`; '
+                r'property `str_i` has a requirement to match '
+                r'pattern /^\(e|h|i|l|o\){2}$/i'):
+            await client.query(r'''
+                Foo{str_i: ""};
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'"mismatch in type `Foo`; '
+                r'property `str_i` has a requirement to match '
+                r'pattern /^\(e|h|i|l|o\){2}$/i'):
+            await client.query(r'''
+                Foo{str_i: "Hello"};
+            ''')
+
     async def test_query_gc(self, client):
         self.assertEqual(await client.query(r'''
             x = {};

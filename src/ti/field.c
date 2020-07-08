@@ -3,6 +3,7 @@
  */
 #include <assert.h>
 #include <doc.h>
+#include <math.h>
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/condition.h>
@@ -1257,6 +1258,8 @@ int ti_field_make_assignable(
         if (VFLOAT(*val) < field->condition.drange->mi ||
             VFLOAT(*val) > field->condition.drange->ma)
             goto drange_error;
+        if (isnan(VFLOAT(*val)))
+            goto nan_error;
         return 0;
     case TI_SPEC_STR_RANGE:
         if (!ti_val_is_str(*val))
@@ -1287,7 +1290,6 @@ int ti_field_make_assignable(
     goto type_error;
 
 irange_error:
-    /* TODO: check error message */
     ex_set(e, EX_VALUE_ERROR,
             "mismatch in type `%s`; "
             "property `%s` requires a float value between "
@@ -1299,7 +1301,6 @@ irange_error:
     return e->nr;
 
 drange_error:
-    /* TODO: check error message */
     ex_set(e, EX_VALUE_ERROR,
             "mismatch in type `%s`; "
             "property `%s` requires a float value between "
@@ -1310,23 +1311,43 @@ drange_error:
             field->condition.drange->ma);
     return e->nr;
 
-srange_error:
-    /* TODO: check error message */
+
+nan_error:
     ex_set(e, EX_VALUE_ERROR,
             "mismatch in type `%s`; "
-            "property `%s` requires a string with a length "
-            "between %zu and %zu (both inclusive) characters",
+            "property `%s` requires a float value between "
+            "%f and %f but got nan (not a number)",
             field->type->name,
             field->name->str,
-            field->condition.srange->mi,
-            field->condition.srange->ma);
+            field->condition.drange->mi,
+            field->condition.drange->ma);
+    return e->nr;
+
+srange_error:
+    if (field->condition.srange->mi == field->condition.srange->ma)
+        ex_set(e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a string with a length "
+                "of %zu character%s",
+                field->type->name,
+                field->name->str,
+                field->condition.srange->mi,
+                field->condition.srange->mi == 1 ? "": "s");
+    else
+        ex_set(e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a string with a length "
+                "between %zu and %zu (both inclusive) characters",
+                field->type->name,
+                field->name->str,
+                field->condition.srange->mi,
+                field->condition.srange->ma);
     return e->nr;
 
 re_error:
-    /* TODO: check error message */
     ex_set(e, EX_VALUE_ERROR,
             "mismatch in type `%s`; "
-            "property `%s` requires a string to match pattern %.*s",
+            "property `%s` has a requirement to match pattern %.*s",
             field->type->name,
             field->name->str,
             (int) field->condition.re->regex->pattern->n,
@@ -1443,7 +1464,8 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
     case TI_SPEC_FLOAT_RANGE:
         return (ti_val_is_float(val) &&
                 VFLOAT(val) >= field->condition.drange->mi &&
-                VFLOAT(val) <= field->condition.drange->ma);
+                VFLOAT(val) <= field->condition.drange->ma &&
+                !isnan(VFLOAT(val)));
     case TI_SPEC_STR_RANGE:
         return (ti_val_is_str(val) &&
                 ((ti_raw_t *) val)->n >= field->condition.srange->mi &&

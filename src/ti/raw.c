@@ -283,6 +283,21 @@ ti_raw_t * ti_str_lower(ti_raw_t * raw)
     return r;
 }
 
+ti_raw_t * ti_str_dval_n(size_t n)
+{
+    ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
+    if (!r)
+        return NULL;
+
+    r->ref = 1;
+    r->tp = TI_VAL_STR;
+    r->n = n;
+
+    memset(r->data, '-', n);
+
+    return r;
+}
+
 char * ti_raw_to_str(const ti_raw_t * raw)
 {
     char * str = malloc(raw->n + 1);

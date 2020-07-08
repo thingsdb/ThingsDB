@@ -7,6 +7,7 @@
 #define TI_SPEC_NILLABLE        0x8000
 #define TI_SPEC_MASK_NILLABLE   0x7fff
 
+
 /*
  * Reserved for thing type: 0-0x3fff
  * Reserved for enum type: 0x6000-0x7fff

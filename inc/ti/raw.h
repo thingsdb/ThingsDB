@@ -24,6 +24,7 @@ ti_raw_t * ti_raw_from_slice(
         ssize_t step);
 ti_raw_t * ti_str_upper(ti_raw_t * raw);
 ti_raw_t * ti_str_lower(ti_raw_t * raw);
+ti_raw_t * ti_str_dval_n(size_t n);
 char * ti_raw_to_str(const ti_raw_t * raw);
 int ti_raw_cmp(const ti_raw_t * a, const ti_raw_t * b);
 int ti_raw_cmp_strn(const ti_raw_t * a, const char * s, size_t n);

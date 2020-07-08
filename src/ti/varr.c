@@ -138,7 +138,7 @@ int ti_varr_val_prepare(ti_varr_t * to, void ** v, ex_t * e)
 {
     assert (ti_varr_is_list(to));  /* `to` must be a list */
 
-    switch (ti_spec_check_val(to->spec, (ti_val_t *) *v))
+    switch (ti_spec_check_nested_val(to->spec, (ti_val_t *) *v))
     {
     case TI_SPEC_RVAL_SUCCESS:
         break;

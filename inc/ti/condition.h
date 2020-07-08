@@ -7,6 +7,7 @@
 #include <ex.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <ti/condition.t.h>
 #include <ti/field.t.h>
 
 int ti_condition_field_range_init(
@@ -19,6 +20,6 @@ int ti_condition_field_re_init(
         const char * str,
         size_t n,
         ex_t * e);
-void ti_condition_destroy(ti_field_t * field);
+void ti_condition_destroy(ti_condition_via_t condition, uint16_t spec);
 
 #endif  /* TI_CONDITION_H_ */

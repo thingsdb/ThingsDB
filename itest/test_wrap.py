@@ -34,7 +34,38 @@ class TestWrap(TestBase):
         client.close()
         await client.wait_closed()
 
-    async def test_wrap_metheod(self, client):
+    async def test_set_to_arr(self, client):
+        await client.query(r'''
+            set_type('Person', {name: 'str'});
+            set_type('People', {people: '[Person]'});
+            set_type('Other', {people: '[str]'});
+        ''')
+
+        res = await client.query(r'''
+            t = {
+                people: set({name: 'Iris'})
+            };
+            return(t.wrap('People'), 2);
+        ''')
+        self.assertEqual(res, {"people": [{"name": "Iris"}]})
+
+        res = await client.query(r'''
+            t = {
+                people: set({firstname: 'Iris'})
+            };
+           return(t.wrap('People'), 2);
+        ''')
+        self.assertEqual(res, {"people": [{}]})
+
+        res = await client.query(r'''
+            t = {
+                people: set(Person{name: 'Iris'})
+            };
+            return(t.wrap('Other'), 2);
+        ''')
+        self.assertEqual(res, {})
+
+    async def test_wrap_method(self, client):
         res = await client.query(r'''
             set_type('Math', {
                 multiply: |this| this.x * this.y,

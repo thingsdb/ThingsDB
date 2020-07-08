@@ -34,6 +34,204 @@ class TestAdvanced(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_conditions(self, client):
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'expecting a `<` character after `int`'):
+            await client.query(r'''
+                set_type('Foo', {a: 'int>'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'expecting a `<` character after `float`'):
+            await client.query(r'''
+                set_type('Foo', {a: 'float>'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'range <..> conditions expect a minimum and maximum value '
+                r'and may only be applied to `int`, `float` or `str`'):
+            await client.query(r'''
+                set_type('Foo', {a: 'uint<0:10>'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'expecting a colon \(:\) after the minimum value '
+                r'of the range;'):
+            await client.query(r'''
+                set_type('Foo', {a: 'float<>'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'the minimum value for a string range must not be negative'):
+            await client.query(r'''
+                set_type('Foo', {a: 'str<-1:5>'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'expecting the maximum value to be greater '
+                r'than or equal to the minimum value;'):
+            await client.query(r'''
+                set_type('Foo', {a: 'int<-1: -5>'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'expecting a colon \(:\) after the minimum value '
+                r'of the range'):
+            await client.query(r'''
+                set_type('Foo', {a: 'int<1>'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'expecting character `>` after `str<0:5`'):
+            await client.query(r'''
+                set_type('Foo', {a: 'str<0:5a>'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'expecting character `>` after `str<0:5`'):
+            await client.query(r'''
+                set_type('Foo', {a: 'str<0:5a>'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'not-a-number \(nan\) values are not allowed to '
+                r'specify a range'):
+            await client.query(r'''
+                set_type('Foo', {a: 'float<nan:10>'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'expecting the maximum value to be greater than or '
+                r'equal to the minimum value'):
+            await client.query(r'''
+                set_type('Foo', {a: 'float<inf:-inf>'});
+            ''')
+
+        with self.assertRaisesRegex(
+                OverflowError,
+                r'integer overflow'):
+            await client.query(r'''
+                set_type('Foo', {a: 'int<0:9223372036854775808>'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'the provided default value does not match the condition;'):
+            await client.query(r'''
+                set_type('Foo', {a: 'int<0:10:-5>'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'the provided default value does not match the condition;'):
+            await client.query(r'''
+                set_type('Foo', {a: 'str<1:10:>'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'the provided default value does not match the condition;'):
+            await client.query(r'''
+                set_type('Foo', {a: 'float<1.5:2.5:0>'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'a non-nillable pattern requires a valid default value;'):
+            await client.query(r'''
+                set_type('Foo', {a: '/abc/'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'a non-nillable pattern requires a valid default value;'):
+            await client.query(r'''
+                set_type('Foo', {a: '/abc/<def>'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r"cannot compile regular expression '/a\(bc/', "
+                r"missing closing parenthesis"):
+            await client.query(r'''
+                set_type('Foo', {a: '/a(bc/'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'nested pattern conditions are not allowed;'):
+            await client.query(r'''
+                set_type('Foo', {a: '[/abc/]'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'pattern condition syntax is invalid;'):
+            await client.query(r'''
+                set_type('Foo', {a: '/abc'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'pattern condition syntax is invalid;'):
+            await client.query(r'''
+                set_type('Foo', {a: '/abc/<'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'pattern condition syntax is invalid;'):
+            await client.query(r'''
+                set_type('Foo', {a: '/abc/>'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'nested range conditions are not allowed;'):
+            await client.query(r'''
+                set_type('Foo', {a: '[int<0:10>]'});
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'unknown type ` ` in declaration'):
+            await client.query(r'''
+                set_type('Foo', {a: '[ ]'});
+            ''')
+
     async def test_query_gc(self, client):
         self.assertEqual(await client.query(r'''
             x = {};

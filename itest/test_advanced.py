@@ -553,11 +553,12 @@ class TestAdvanced(TestBase):
         ])
 
     async def test_any_set(self, client):
-        await client.query(r'''
+        self.assertEqual(await client.query(r'''
             set_type('Foo', {a: 'any'});
             f = Foo{a: set()};
             f.a.add({name: 'Iris'});
-        ''')
+            42;  // reached the end
+        '''), 42)
 
     async def test_adv_specification(self, client):
         with self.assertRaisesRegex(
@@ -584,6 +585,13 @@ class TestAdvanced(TestBase):
                 new_type('A');
                 set_type('Foo', {s: '{A?}'});
             ''')
+
+        self.assertEqual(await client.query(r'''
+            set_type('Foo', {s: '{thing}'});
+            f = Foo{};
+            f.s.add(Foo{});
+            42;
+        '''), 42)
 
     async def test_query_gc(self, client):
         self.assertEqual(await client.query(r'''

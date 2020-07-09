@@ -1,6 +1,8 @@
-# v0.9.7
+# v0.9.7 (alpha-1)
 
 * Fixed potential memory leak when re-using variable, issue #63.
+* Fixed a bug when wrapping a `set` type to a `list` type, issue #65.
+* Added range and pattern conditions, issue #62.
 
 # v0.9.6
 

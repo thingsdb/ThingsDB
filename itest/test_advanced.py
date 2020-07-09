@@ -552,6 +552,13 @@ class TestAdvanced(TestBase):
             {},
         ])
 
+    async def test_any_set(self, client):
+        await client.query(r'''
+            set_type('Foo', {a: 'any'});
+            f = Foo{a: set()};
+            f.a.add({name: 'Iris'});
+        ''')
+
     async def test_adv_specification(self, client):
         with self.assertRaisesRegex(
                 TypeError,

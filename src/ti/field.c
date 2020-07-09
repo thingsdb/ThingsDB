@@ -1014,8 +1014,17 @@ static int field__vset_assign(
         ti_thing_t * parent,
         ex_t * e)
 {
-    if (field->nested_spec == TI_SPEC_ANY ||
-        field->nested_spec == (*vset)->spec ||
+    /*
+     * This method may be called when field is either `any` or a `set.
+     * In case of `any`, we have to make sure the specification will be
+     * OBJECT, not ANY.
+     */
+    uint16_t nested_spec = field->nested_spec == TI_SPEC_ANY
+            ? TI_SPEC_OBJECT
+            : field->nested_spec;
+
+    if (nested_spec == TI_SPEC_OBJECT ||
+        nested_spec == (*vset)->spec ||
         (*vset)->imap->n == 0)
         goto done;
 
@@ -1033,9 +1042,11 @@ static int field__vset_assign(
     }
 
 done:
-    if (ti_val_make_assignable((ti_val_t **) vset, parent, field->name, e) == 0)
-        (*vset)->spec = field->nested_spec;
-    return e->nr;
+    if (ti_val_make_assignable((ti_val_t **) vset, parent, field->name, e))
+        return e->nr;
+
+    (*vset)->spec = nested_spec;
+    return 0;
 }
 
 static int field__varr_assign(
@@ -1098,9 +1109,11 @@ static int field__varr_assign(
     }
 
 done:
-    if (ti_val_make_assignable((ti_val_t **) varr, parent, field->name, e) == 0)
-        (*varr)->spec = field->nested_spec;
-    return e->nr;
+    if (ti_val_make_assignable((ti_val_t **) varr, parent, field->name, e))
+        return e->nr;
+
+    (*varr)->spec = field->nested_spec;
+    return 0;
 }
 
 static _Bool field__maps_arr_to_arr(ti_field_t * field, ti_varr_t * varr)

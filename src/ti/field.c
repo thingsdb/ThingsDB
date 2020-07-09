@@ -425,7 +425,7 @@ skip_nesting:
 
             if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET)
             {
-                ex_set(e, EX_VALUE_ERROR,
+                ex_set(e, EX_TYPE_ERROR,
                     "invalid declaration for `%s` on type `%s`; "
                     "type `"TI_VAL_SET_S"` cannot contain enum type `%.*s`"
                     DOC_T_TYPE,
@@ -453,30 +453,29 @@ skip_nesting:
         }
 
         ++dep->refcount;
-        return 0;
     }
 
 found:
-    if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET &&
-        field->nested_spec > TI_SPEC_OBJECT)
+    if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET)
     {
         if (field->nested_spec & TI_SPEC_NILLABLE)
-            ex_set(e, EX_VALUE_ERROR,
-                "invalid declaration for `%s` on type `%s`; "
-                "type `"TI_VAL_SET_S"` cannot contain type `"TI_VAL_NIL_S"`",
-                DOC_T_TYPE,
-                field->name->str, field->type->name);
-        else
-            ex_set(e, EX_VALUE_ERROR,
+           ex_set(e, EX_TYPE_ERROR,
+               "invalid declaration for `%s` on type `%s`; "
+               "type `"TI_VAL_SET_S"` cannot contain "
+               "a nillable type"DOC_T_TYPE,
+               field->name->str, field->type->name);
+        else if (field->nested_spec > TI_SPEC_OBJECT)
+            ex_set(e, EX_TYPE_ERROR,
                 "invalid declaration for `%s` on type `%s`; "
                 "type `"TI_VAL_SET_S"` cannot contain type `%s`"
                 DOC_T_TYPE,
                 field->name->str, field->type->name,
                 ti__spec_approx_type_str(field->nested_spec));
-        return e->nr;
+        else if (field->nested_spec == TI_SPEC_ANY)
+            field->nested_spec = TI_SPEC_OBJECT;
     }
 
-    return 0;
+    return e->nr;
 
 invalid:
     if (!field__spec_is_ascii(
@@ -1476,65 +1475,20 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
     return ti_val_is_thing(val);
 }
 
-static _Bool field__maps_to_spec(uint16_t t_spec, uint16_t f_spec)
-{
-    switch ((ti_spec_enum_t) t_spec)
-    {
-    case TI_SPEC_ANY:
-        return false;       /* already checked */
-    case TI_SPEC_OBJECT:
-        return f_spec < TI_SPEC_ANY;
-    case TI_SPEC_RAW:
-        return (f_spec == TI_SPEC_STR ||
-                f_spec == TI_SPEC_UTF8 ||
-                f_spec == TI_SPEC_BYTES ||
-                f_spec == TI_SPEC_REMATCH ||
-                f_spec == TI_SPEC_STR_RANGE);
-    case TI_SPEC_INT:
-        return (f_spec == TI_SPEC_UINT ||
-                f_spec == TI_SPEC_PINT ||
-                f_spec == TI_SPEC_NINT);
-    case TI_SPEC_UINT:
-        return f_spec == TI_SPEC_PINT;
-    case TI_SPEC_NUMBER:
-        return (f_spec == TI_SPEC_INT ||
-                f_spec == TI_SPEC_UINT ||
-                f_spec == TI_SPEC_PINT ||
-                f_spec == TI_SPEC_NINT ||
-                f_spec == TI_SPEC_FLOAT);
-    case TI_SPEC_STR:
-        return (f_spec == TI_SPEC_UTF8 ||
-                f_spec == TI_SPEC_REMATCH ||
-                f_spec == TI_SPEC_STR_RANGE);
-    case TI_SPEC_UTF8:
-    case TI_SPEC_BYTES:
-    case TI_SPEC_PINT:
-    case TI_SPEC_NINT:
-    case TI_SPEC_FLOAT:
-    case TI_SPEC_BOOL:
-    case TI_SPEC_ARR:
-    case TI_SPEC_SET:
-    case TI_SPEC_REMATCH:
-    case TI_SPEC_INT_RANGE:
-    case TI_SPEC_FLOAT_RANGE:
-    case TI_SPEC_STR_RANGE:
-        return false;
-    }
-
-    assert (t_spec < TI_SPEC_ANY);  /* enumerators are already checked */
-
-    return f_spec < TI_SPEC_ANY || f_spec == TI_SPEC_OBJECT;
-}
-
 static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
 {
     uint16_t t_spec, f_spec;
 
-    assert (t_field->condition.none == NULL);
-    assert (f_field->condition.none == NULL);
-    assert ((t_field->spec & TI_SPEC_MASK_NILLABLE) ==
-            (f_field->spec & TI_SPEC_MASK_NILLABLE));
-    assert (t_field->nested_spec != TI_SPEC_ANY);
+    /* both the t_field and f_field are either a set or array */
+
+    assert ((f_field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ARR ||
+            (f_field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET);
+
+    assert ((t_field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ARR ||
+            (t_field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET);
+
+    if ((t_field->nested_spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY)
+        return true;
 
     if (    (~t_field->nested_spec & TI_SPEC_NILLABLE) &&
             (f_field->nested_spec & TI_SPEC_NILLABLE))
@@ -1557,7 +1511,48 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     if (t_spec == f_spec)
         return true;
 
-    return field__maps_to_spec(t_spec, f_spec);
+    switch ((ti_spec_enum_t) t_spec)
+    {
+    case TI_SPEC_ANY:
+        return true;       /* already checked */
+    case TI_SPEC_OBJECT:
+        return f_spec < TI_SPEC_ANY;
+    case TI_SPEC_RAW:
+        return (f_spec == TI_SPEC_STR ||
+                f_spec == TI_SPEC_UTF8 ||
+                f_spec == TI_SPEC_BYTES);
+    case TI_SPEC_INT:
+        return (f_spec == TI_SPEC_UINT ||
+                f_spec == TI_SPEC_PINT ||
+                f_spec == TI_SPEC_NINT);
+    case TI_SPEC_UINT:
+        return f_spec == TI_SPEC_PINT;
+    case TI_SPEC_NUMBER:
+        return (f_spec == TI_SPEC_INT ||
+                f_spec == TI_SPEC_UINT ||
+                f_spec == TI_SPEC_PINT ||
+                f_spec == TI_SPEC_NINT ||
+                f_spec == TI_SPEC_FLOAT);
+    case TI_SPEC_STR:
+        return f_spec == TI_SPEC_UTF8;
+    case TI_SPEC_UTF8:
+    case TI_SPEC_BYTES:
+    case TI_SPEC_PINT:
+    case TI_SPEC_NINT:
+    case TI_SPEC_FLOAT:
+    case TI_SPEC_BOOL:
+    case TI_SPEC_ARR:
+    case TI_SPEC_SET:
+    case TI_SPEC_REMATCH:
+    case TI_SPEC_INT_RANGE:
+    case TI_SPEC_FLOAT_RANGE:
+    case TI_SPEC_STR_RANGE:
+        return false;
+    }
+
+    assert (t_spec < TI_SPEC_ANY);  /* enumerators are already checked */
+
+    return f_spec < TI_SPEC_ANY || f_spec == TI_SPEC_OBJECT;
 }
 
 _Bool field__maps_with_condition(ti_field_t * t_field, ti_field_t * f_field)
@@ -1618,16 +1613,95 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
         f_spec = ti_enum_spec(enum_);
     }
 
-    /* return `true` when both specifications are equal, and nested accepts
-     * anything which is default for all other than `arr` and `set` and
-     * the field does not have an additional condition */
-    return t_spec == f_spec
-            ? (t_field->nested_spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY
-                ? (t_field->condition.none == NULL)
-                    ? true
-                    : field__maps_with_condition(t_field, f_field)
-                : field__maps_to_nested(t_field, f_field)
-            : field__maps_to_spec(t_spec, f_spec);
+    switch ((ti_spec_enum_t) t_spec)
+    {
+    case TI_SPEC_ANY:
+        return true;       /* already checked */
+    case TI_SPEC_OBJECT:
+        return (f_spec == TI_SPEC_OBJECT ||
+                f_spec < TI_SPEC_ANY);
+    case TI_SPEC_RAW:
+        return (f_spec == TI_SPEC_RAW ||
+                f_spec == TI_SPEC_STR ||
+                f_spec == TI_SPEC_UTF8 ||
+                f_spec == TI_SPEC_BYTES ||
+                f_spec == TI_SPEC_REMATCH ||
+                f_spec == TI_SPEC_STR_RANGE);
+    case TI_SPEC_STR:
+        return (f_spec == TI_SPEC_STR ||
+                f_spec == TI_SPEC_UTF8 ||
+                f_spec == TI_SPEC_REMATCH ||
+                f_spec == TI_SPEC_STR_RANGE);
+    case TI_SPEC_UTF8:
+    case TI_SPEC_BYTES:
+        return f_spec == t_spec;
+    case TI_SPEC_INT:
+        return (f_spec == TI_SPEC_INT ||
+                f_spec == TI_SPEC_UINT ||
+                f_spec == TI_SPEC_PINT ||
+                f_spec == TI_SPEC_NINT ||
+                f_spec == TI_SPEC_INT_RANGE);
+    case TI_SPEC_UINT:
+        return (
+            f_spec == TI_SPEC_UINT ||
+            f_spec == TI_SPEC_PINT ||
+            (f_spec == TI_SPEC_INT_RANGE && f_field->condition.irange->mi >= 0)
+        );
+    case TI_SPEC_PINT:
+        return (
+            f_spec == TI_SPEC_PINT ||
+            (f_spec == TI_SPEC_INT_RANGE && f_field->condition.irange->mi > 0)
+        );
+    case TI_SPEC_NINT:
+        return (
+            f_spec == TI_SPEC_NINT ||
+            (f_spec == TI_SPEC_INT_RANGE && f_field->condition.irange->ma < 0)
+        );
+    case TI_SPEC_FLOAT:
+        return (f_spec == TI_SPEC_FLOAT ||
+                f_spec == TI_SPEC_FLOAT_RANGE);
+    case TI_SPEC_NUMBER:
+        return (f_spec == TI_SPEC_NUMBER ||
+                f_spec == TI_SPEC_FLOAT ||
+                f_spec == TI_SPEC_INT ||
+                f_spec == TI_SPEC_UINT ||
+                f_spec == TI_SPEC_PINT ||
+                f_spec == TI_SPEC_NINT ||
+                f_spec == TI_SPEC_INT_RANGE ||
+                f_spec == TI_SPEC_FLOAT_RANGE);
+    case TI_SPEC_BOOL:
+        return f_spec == t_spec;
+    case TI_SPEC_ARR:
+        return (
+            (f_spec == TI_SPEC_ARR || f_spec == TI_SPEC_SET) &&
+            field__maps_to_nested(t_field, f_field)
+        );
+    case TI_SPEC_SET:
+        return f_spec == TI_SPEC_SET;  /* TODO: check set */
+    case TI_SPEC_REMATCH:
+        return f_spec == TI_SPEC_REMATCH && ti_regex_eq(
+                        t_field->condition.re->regex,
+                        f_field->condition.re->regex);
+    case TI_SPEC_INT_RANGE:
+        return (
+            f_spec == TI_SPEC_INT_RANGE &&
+            f_field->condition.irange->mi >= t_field->condition.irange->mi &&
+            f_field->condition.irange->ma <= t_field->condition.irange->ma);
+    case TI_SPEC_FLOAT_RANGE:
+        return (
+            f_spec == TI_SPEC_FLOAT_RANGE &&
+            f_field->condition.drange->mi >= t_field->condition.drange->mi &&
+            f_field->condition.drange->ma <= t_field->condition.drange->ma);
+    case TI_SPEC_STR_RANGE:
+        return (
+            f_spec == TI_SPEC_STR_RANGE &&
+            f_field->condition.srange->mi >= t_field->condition.srange->mi &&
+            f_field->condition.srange->ma <= t_field->condition.srange->ma);
+    }
+
+    assert (t_spec < TI_SPEC_ANY);
+
+    return f_spec < TI_SPEC_ANY || f_spec == TI_SPEC_OBJECT;
 }
 
 ti_field_t * ti_field_by_name(ti_type_t * type, ti_name_t * name)

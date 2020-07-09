@@ -277,6 +277,7 @@ _Bool ti__spec_maps_to_nested_val(uint16_t spec, ti_val_t * val)
         return ti_val_is_array(val) || ti_val_is_set(val);
     case TI_SPEC_SET:
         return ti_val_is_set(val);
+
     case TI_SPEC_REMATCH:
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
@@ -376,12 +377,12 @@ ti_spec_mod_enum ti__spec_check_mod(
     case TI_SPEC_PINT:
         return (
             ospec == TI_SPEC_PINT ||
-            (ospec == TI_SPEC_INT_RANGE && ocondition.irange->mi >= 1)
+            (ospec == TI_SPEC_INT_RANGE && ocondition.irange->mi > 0)
         ) ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
     case TI_SPEC_NINT:
         return (
             ospec == TI_SPEC_NINT ||
-            (ospec == TI_SPEC_INT_RANGE && ocondition.irange->ma <= -1)
+            (ospec == TI_SPEC_INT_RANGE && ocondition.irange->ma < 0)
         ) ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
     case TI_SPEC_FLOAT:
         return (

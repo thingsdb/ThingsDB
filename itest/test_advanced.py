@@ -443,7 +443,7 @@ class TestAdvanced(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                r'"mismatch in type `Foo`; '
+                r'mismatch in type `Foo`; '
                 r'property `str_i` has a requirement to match '
                 r'pattern /^\(e|h|i|l|o\){2}$/i'):
             await client.query(r'''
@@ -452,11 +452,130 @@ class TestAdvanced(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                r'"mismatch in type `Foo`; '
+                r'mismatch in type `Foo`; '
                 r'property `str_i` has a requirement to match '
                 r'pattern /^\(e|h|i|l|o\){2}$/i'):
             await client.query(r'''
                 Foo{str_i: "Hello"};
+            ''')
+
+        res = await client.query(r'''
+            set_type('Int_a1', { int_a: 'int' });
+            set_type('Int_a2', { int_a: 'int<0:10>' });
+            set_type('Int_a3', { int_a: 'int<-1:11>' });
+            set_type('Int_a4', { int_a: 'int<0:9>' });
+            set_type('Int_a5', { int_a: 'int<1:10>' });
+            set_type('Int_a6', { int_a: 'float<0:10>' });
+            f = Foo{};
+            [
+                f.wrap('Int_a1'),
+                f.wrap('Int_a2'),
+                f.wrap('Int_a3'),
+                f.wrap('Int_a4'),
+                f.wrap('Int_a5'),
+                f.wrap('Int_a6'),
+            ]
+        ''')
+
+        self.assertEqual(res, [
+            {"int_a": 0},
+            {"int_a": 0},
+            {"int_a": 0},
+            {},
+            {},
+            {},
+        ])
+
+        res = await client.query(r'''
+            set_type('Float_a1', { float_a: 'float' });
+            set_type('Float_a2', { float_a: 'float<-1:1>' });
+            set_type('Float_a3', { float_a: 'float<-2:2>' });
+            set_type('Float_a4', { float_a: 'float<-1:0.5>' });
+            set_type('Float_a5', { float_a: 'float<-0.5:1>' });
+            set_type('Float_a6', { float_a: 'int<0:10>' });
+            f = Foo{};
+            [
+                f.wrap('Float_a1'),
+                f.wrap('Float_a2'),
+                f.wrap('Float_a3'),
+                f.wrap('Float_a4'),
+                f.wrap('Float_a5'),
+                f.wrap('Float_a6'),
+            ]
+        ''')
+
+        self.assertEqual(res, [
+            {"float_a": 0.0},
+            {"float_a": 0.0},
+            {"float_a": 0.0},
+            {},
+            {},
+            {},
+        ])
+
+        res = await client.query(r'''
+            set_type('Str_c1', { str_c: 'str' });
+            set_type('Str_c2', { str_c: 'str<3:10>' });
+            set_type('Str_c3', { str_c: 'str<0:10>' });
+            set_type('Str_c4', { str_c: 'str<4:10>' });
+            set_type('Str_c5', { str_c: 'str<3:9>' });
+            set_type('Str_c6', { str_c: '/.*/' });
+            set_type('Str_h1', { str_h: '/^(e|h|i|l|o)+$/i<Hi>' });
+            set_type('Str_h2', { str_h: '/^(e|h|i|l|o)+$/i?' });
+            set_type('Str_h3', { str_h: '/^(e|h|i|l|o)+$/<hello>' });
+            set_type('Str_h4', { str_h: '/.*/' });
+            f = Foo{};
+            [
+                f.wrap('Str_c1'),
+                f.wrap('Str_c2'),
+                f.wrap('Str_c3'),
+                f.wrap('Str_c4'),
+                f.wrap('Str_c5'),
+                f.wrap('Str_c6'),
+                f.wrap('Str_h1'),
+                f.wrap('Str_h2'),
+                f.wrap('Str_h3'),
+                f.wrap('Str_h4'),
+            ]
+        ''')
+
+        self.assertEqual(res, [
+            {"str_c": "---"},
+            {"str_c": "---"},
+            {"str_c": "---"},
+            {},
+            {},
+            {},
+            {"str_h": "Hello"},
+            {"str_h": "Hello"},
+            {},
+            {},
+        ])
+
+    async def test_adv_specification(self, client):
+        with self.assertRaisesRegex(
+                TypeError,
+                r'invalid declaration for `s` on type `Foo`; '
+                r'type `set` cannot contain a nillable type'):
+            await client.query(r'''
+                set_type('Foo', {s: '{thing?}'});
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'invalid declaration for `s` on type `Foo`; '
+                r'type `set` cannot contain type `int'):
+            await client.query(r'''
+                set_type('Foo', {s: '{int}'});
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'invalid declaration for `s` on type `Foo`; '
+                r'type `set` cannot contain a nillable type'):
+            await client.query(r'''
+                new_type('A');
+                set_type('Foo', {s: '{A?}'});
             ''')
 
     async def test_query_gc(self, client):

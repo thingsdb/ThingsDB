@@ -31,6 +31,7 @@ static char * type__wrap_name(const char * name, size_t n)
 ti_type_t * ti_type_create(
         ti_types_t * types,
         uint16_t type_id,
+        uint8_t flags,
         const char * name,
         size_t name_n,
         uint64_t created_at,
@@ -43,7 +44,7 @@ ti_type_t * ti_type_create(
     type->refcount = 0;  /* only incremented when this type
                             is used by another type */
     type->type_id = type_id;
-    type->flags = 0;
+    type->flags = flags;
     type->name = strndup(name, name_n);
     type->wname = type__wrap_name(name, name_n);
     type->rname = ti_str_create(name, name_n);

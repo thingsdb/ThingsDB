@@ -7,9 +7,10 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_type_t * type;
     ti_task_t * task;
     uint16_t type_id;
+    uint8_t flags = 0;
 
     if (fn_not_collection_scope("new_type", query, e) ||
-        fn_nargs("new_type", DOC_NEW_TYPE, 1, nargs, e) ||
+            fn_nargs_range("new_type", DOC_NEW_TYPE, 1, 2, nargs, e) ||
         ti_do_statement(query, nd->children->node, e) ||
         fn_arg_str("new_type", DOC_NEW_TYPE, 1, query->rval, e))
         return e->nr;
@@ -47,6 +48,25 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
+    if (nargs == 2)
+    {
+        query->rval = NULL;
+
+        if (ti_do_statement(query, nd->children->next->next->node, e) ||
+            fn_arg_bool("new_type", DOC_NEW_TYPE, 2, query->rval, e))
+        {
+            ti_val_unsafe_drop((ti_val_t *) rname);
+            return e->nr;
+        }
+
+        if (ti_val_as_bool(query->rval))
+            flags = TI_TYPE_FLAG_WRAP_ONLY;
+
+        /* drop the current return value and restore the name */
+        ti_val_unsafe_drop(query->rval);
+        query->rval = (ti_val_t *) rname;
+    }
+
     type_id = ti_types_get_new_id(query->collection->types, rname, e);
     if (e->nr)
         return e->nr;
@@ -54,6 +74,7 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     type = ti_type_create(
             query->collection->types,
             type_id,
+            flags,
             (const char *) rname->data,
             rname->n,
             util_now_tsec()  /* created_at */,

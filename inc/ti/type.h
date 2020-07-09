@@ -18,6 +18,7 @@
 ti_type_t * ti_type_create(
         ti_types_t * types,
         uint16_t type_id,
+        uint8_t flags,
         const char * name,
         size_t name_n,
         uint64_t created_at,
@@ -103,6 +104,11 @@ static inline int ti_type_to_pk(
         mp_pack_str(pk, "methods") ||
         ti_type_methods_info_to_pk(type, pk, with_definition)
     );
+}
+
+static inline _Bool ti_type_is_warp_only(ti_type_t * type)
+{
+    return type->flags & TI_TYPE_FLAG_WRAP_ONLY;
 }
 
 #endif  /* TI_TYPE_H_ */

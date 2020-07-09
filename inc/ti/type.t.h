@@ -7,6 +7,7 @@
 enum
 {
     TI_TYPE_FLAG_LOCK       =1<<0,
+    TI_TYPE_FLAG_WRAP_ONLY  =1<<1,
 };
 
 typedef struct ti_type_s ti_type_t;
@@ -43,7 +44,6 @@ struct ti_type_s
     vec_t * methods;        /* ti_method_t */
     imap_t * t_mappings;    /* from_type_id / vec_t * with ti_field_t */
 };
-
 
 #endif  /* TI_TYPE_T_H_ */
 

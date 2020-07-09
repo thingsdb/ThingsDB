@@ -197,8 +197,14 @@ static int job__new_type(ti_thing_t * thing, mp_unp_t * up)
     ti_collection_t * collection = thing->collection;
     ti_type_t * type;
     mp_obj_t obj, mp_id, mp_name, mp_created;
+    uint8_t flags = 0;
 
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+    /*
+     * TODO: Before v0.9.7 the wrap_only value was not included.
+     *       Some code can be simplified once backwards dependency may
+     *       be dropped.
+     */
+    if (mp_next(up, &obj) != MP_MAP || (obj.via.sz != 4 && obj.via.sz != 3) ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
         mp_skip(up) != MP_STR ||
@@ -210,6 +216,22 @@ static int job__new_type(ti_thing_t * thing, mp_unp_t * up)
             "job `new_type` for "TI_COLLECTION_ID" is invalid",
             collection->root->id);
         return -1;
+    }
+
+    if (obj.via.sz == 4)
+    {
+        mp_obj_t mp_wo;
+
+        if (mp_skip(up) != MP_STR || mp_next(up, &mp_wo) != MP_BOOL)
+        {
+            log_critical(
+                "job `new_type` for "TI_COLLECTION_ID" is invalid",
+                collection->root->id);
+            return -1;
+        }
+
+        if (mp_wo.via.bool_)
+            flags |= TI_TYPE_FLAG_WRAP_ONLY;
     }
 
     if (mp_id.via.u64 >= TI_SPEC_ANY)
@@ -224,6 +246,7 @@ static int job__new_type(ti_thing_t * thing, mp_unp_t * up)
     type = ti_type_create(
             collection->types,
             mp_id.via.u64,
+            flags,
             mp_name.via.str.data,
             mp_name.via.str.n,
             mp_created.via.u64,
@@ -331,7 +354,7 @@ static int job__set_type(ti_thing_t * thing, mp_unp_t * up)
     mp_obj_t obj, mp_id, mp_modified;
 
     /* TODO: For compatibility with versions before v0.9.6 */
-    if (mp_next(up, &obj) != MP_MAP || (obj.via.sz != 3 && obj.via.sz != 4) ||
+    if (mp_next(up, &obj) != MP_MAP || (obj.via.sz != 4 && obj.via.sz != 3) ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
         mp_skip(up) != MP_STR ||
@@ -712,7 +735,7 @@ static int job__mod_type_add(
             .up = up,
     };
 
-    if (mp_next(up, &obj) != MP_MAP || (obj.via.sz != 4 && obj.via.sz != 5) ||
+    if (mp_next(up, &obj) != MP_MAP || (obj.via.sz != 5 && obj.via.sz != 4) ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
         mp_skip(up) != MP_STR ||
@@ -1180,7 +1203,62 @@ static int job__mod_type_ren(ti_thing_t * thing, mp_unp_t * up)
             "job `mod_type_ren` for "TI_COLLECTION_ID" is invalid; "
             "type `%s` has no property or method `%s`",
             collection->root->id, type->name, name->str);
+
     return rc;
+}
+
+/*
+ * Returns 0 on success
+ */
+static int job__mod_type_wpo(ti_thing_t * thing, mp_unp_t * up)
+{
+    ti_collection_t * collection = thing->collection;
+    ti_type_t * type;
+    mp_obj_t obj, mp_id, mp_modified, mp_wo;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_modified) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_wo) != MP_BOOL)
+    {
+        log_critical(
+                "job `mod_type_wpo` for "TI_COLLECTION_ID" is invalid",
+                collection->root->id);
+        return -1;
+    }
+
+    type = ti_types_by_id(collection->types, mp_id.via.u64);
+    if (!type)
+    {
+        log_critical(
+                "job `mod_type_wpo` for "TI_COLLECTION_ID" is invalid; "
+                "type with id %"PRIu64" not found",
+                collection->root->id, mp_id.via.u64);
+        return -1;
+    }
+
+    if (mp_wo.via.bool_)
+    {
+        if (type->refcount)
+        {
+            log_critical(
+                    "job `mod_type_wpo` for "TI_COLLECTION_ID" is invalid; "
+                    "type `%s` is used by other type and wrap-only mode will "
+                    "be enabled",
+                    collection->root->id, type->name);
+            /* continue anyway */
+        }
+        type->flags |= TI_TYPE_FLAG_WRAP_ONLY;
+    }
+    else
+        type->flags &= ~TI_TYPE_FLAG_WRAP_ONLY;
+
+    type->modified_at = mp_modified.via.u64;
+
+    return 0;
 }
 
 /*
@@ -1676,6 +1754,8 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
             return job__mod_type_mod(thing, up);
         if (mp_str_eq(&mp_job, "mod_type_ren"))
             return job__mod_type_ren(thing, up);
+        if (mp_str_eq(&mp_job, "mod_type_wpo"))
+            return job__mod_type_wpo(thing, up);
         break;
     case 'r':
         if (mp_str_eq(&mp_job, "remove"))

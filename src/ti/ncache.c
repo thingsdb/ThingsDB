@@ -76,11 +76,11 @@ int ncache__gen_immutable(
                             : TI_VFLAG_CLOSURE_BCSCOPE);
         break;
     case CLERI_GID_T_FLOAT:
-        nd->data = ti_vfloat_create(strx_to_double(nd->str));
+        nd->data = ti_vfloat_create(strx_to_double(nd->str, NULL));
         break;
     case CLERI_GID_T_INT:
     {
-        int64_t i = strx_to_int64(nd->str);
+        int64_t i = strx_to_int64(nd->str, NULL);
         if (errno == ERANGE)
         {
             ex_set(e, EX_OVERFLOW, "integer overflow");
@@ -352,11 +352,11 @@ static int ncache__expr_choice(
                             : TI_VFLAG_CLOSURE_BCSCOPE);
         break;
     case CLERI_GID_T_FLOAT:
-        nd->data = ti_vfloat_create(strx_to_double(nd->str));
+        nd->data = ti_vfloat_create(strx_to_double(nd->str, NULL));
         break;
     case CLERI_GID_T_INT:
     {
-        int64_t i = strx_to_int64(nd->str);
+        int64_t i = strx_to_int64(nd->str, NULL);
         if (errno == ERANGE)
         {
             ex_set(e, EX_OVERFLOW, "integer overflow");

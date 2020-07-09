@@ -7,6 +7,7 @@
 #define TI_SPEC_NILLABLE        0x8000
 #define TI_SPEC_MASK_NILLABLE   0x7fff
 
+
 /*
  * Reserved for thing type: 0-0x3fff
  * Reserved for enum type: 0x6000-0x7fff
@@ -28,6 +29,11 @@ typedef enum
     TI_SPEC_BOOL,           /* `bool`               */
     TI_SPEC_ARR,            /* `[..]`               */
     TI_SPEC_SET,            /* `{..}`               */
+
+    TI_SPEC_REMATCH=0x5000, /* `/.../`              */
+    TI_SPEC_INT_RANGE,      /* `int<:>              */
+    TI_SPEC_FLOAT_RANGE,    /* `float<:>            */
+    TI_SPEC_STR_RANGE,      /* `str<:>              */
 } ti_spec_enum_t;
 
 typedef enum

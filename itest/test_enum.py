@@ -106,7 +106,7 @@ class TestEnum(TestBase):
             await client.query(r'''set_enum('Color', {X: 1});''')
 
         with self.assertRaisesRegex(
-                ValueError,
+                TypeError,
                 r'invalid declaration for `colors` on type `FailSpec`; '
                 r'type `set` cannot contain enum type `Color`'):
             await client.query(r'''

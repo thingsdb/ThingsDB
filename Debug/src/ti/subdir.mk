@@ -19,6 +19,7 @@ C_SRCS += \
 ../src/ti/closure.c \
 ../src/ti/collection.c \
 ../src/ti/collections.c \
+../src/ti/condition.c \
 ../src/ti/connect.c \
 ../src/ti/counters.c \
 ../src/ti/data.c \
@@ -111,6 +112,7 @@ OBJS += \
 ./src/ti/closure.o \
 ./src/ti/collection.o \
 ./src/ti/collections.o \
+./src/ti/condition.o \
 ./src/ti/connect.o \
 ./src/ti/counters.o \
 ./src/ti/data.o \
@@ -203,6 +205,7 @@ C_DEPS += \
 ./src/ti/closure.d \
 ./src/ti/collection.d \
 ./src/ti/collections.d \
+./src/ti/condition.d \
 ./src/ti/connect.d \
 ./src/ti/counters.d \
 ./src/ti/data.d \

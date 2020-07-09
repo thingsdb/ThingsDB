@@ -3,8 +3,10 @@
  */
 #include <assert.h>
 #include <doc.h>
+#include <math.h>
 #include <stdlib.h>
 #include <ti.h>
+#include <ti/condition.h>
 #include <ti/data.h>
 #include <ti/enum.h>
 #include <ti/enum.inline.h>
@@ -260,6 +262,24 @@ static int field__init(ti_field_t * field, ex_t * e)
             goto invalid;
     }
 
+    if (*str == '/')
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "invalid declaration for `%s` on type `%s`; "
+            "nested pattern conditions are not allowed"
+            DOC_T_TYPE, field->name->str, field->type->name);
+        return e->nr;
+    }
+
+    if (str[n-1] == '>')
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "invalid declaration for `%s` on type `%s`; "
+            "nested range conditions are not allowed"
+            DOC_T_TYPE, field->name->str, field->type->name);
+        return e->nr;
+    }
+
 skip_nesting:
 
     assert (n);
@@ -282,59 +302,101 @@ skip_nesting:
         return e->nr;
     }
 
-    if (field__cmp(str, n, "any"))
+    if (*str != '/' && str[n-1] == '>')
+        return ti_condition_field_range_init(field, str, n, e);
+
+    switch(*str)
     {
-        *spec |= TI_SPEC_ANY;
+    case '/':
+        return ti_condition_field_re_init(field, str, n, e);
+    case 'a':
+        if (field__cmp(str, n, "any"))
+        {
+            *spec |= TI_SPEC_ANY;
+            goto found;
+        }
+        break;
+    case 'b':
+        if (field__cmp(str, n, "bool"))
+        {
+            *spec |= TI_SPEC_BOOL;
+            goto found;
+        }
+        if (field__cmp(str, n, "bytes"))
+        {
+            *spec |= TI_SPEC_BYTES;
+            goto found;
+        }
+        break;
+    case 'f':
+        if (field__cmp(str, n, "float"))
+        {
+            *spec |= TI_SPEC_FLOAT;
+            goto found;
+        }
+        break;
+    case 'i':
+        if (field__cmp(str, n, "int"))
+        {
+            *spec |= TI_SPEC_INT;
+            goto found;
+        }
+        break;
+    case 'n':
+        if (field__cmp(str, n, "nint"))
+        {
+            *spec |= TI_SPEC_NINT;
+            goto found;
+        }
+        if (field__cmp(str, n, "number"))
+        {
+            *spec |= TI_SPEC_NUMBER;
+            goto found;
+        }
+        break;
+    case 'p':
+        if (field__cmp(str, n, "pint"))
+        {
+            *spec |= TI_SPEC_PINT;
+            goto found;
+        }
+        break;
+    case 'r':
+        if (field__cmp(str, n, "raw"))
+        {
+            *spec |= TI_SPEC_RAW;
+            goto found;
+        }
+        break;
+    case 's':
+        if (field__cmp(str, n, "str"))
+        {
+            *spec |= TI_SPEC_STR;
+            goto found;
+        }
+        break;
+    case 't':
+        if (field__cmp(str, n, "thing"))
+        {
+            *spec |= TI_SPEC_OBJECT;
+            goto found;
+        }
+        break;
+    case 'u':
+        if (field__cmp(str, n, "utf8"))
+        {
+            *spec |= TI_SPEC_UTF8;
+            goto found;
+        }
+        if (field__cmp(str, n, "uint"))
+        {
+            *spec |= TI_SPEC_UINT;
+            goto found;
+        }
+        break;
     }
-    else if (field__cmp(str, n, TI_VAL_THING_S))
-    {
-        *spec |= TI_SPEC_OBJECT;
-    }
-    else if (field__cmp(str, n, "raw"))
-    {
-        *spec |= TI_SPEC_RAW;
-    }
-    else if (field__cmp(str, n, TI_VAL_STR_S))
-    {
-        *spec |= TI_SPEC_STR;
-    }
-    else if (field__cmp(str, n, "utf8"))
-    {
-        *spec |= TI_SPEC_UTF8;
-    }
-    else if (field__cmp(str, n, TI_VAL_BYTES_S))
-    {
-        *spec |= TI_SPEC_BYTES;
-    }
-    else if (field__cmp(str, n, TI_VAL_INT_S))
-    {
-        *spec |= TI_SPEC_INT;
-    }
-    else if (field__cmp(str, n, "uint"))
-    {
-        *spec |= TI_SPEC_UINT;
-    }
-    else if (field__cmp(str, n, "pint"))
-    {
-        *spec |= TI_SPEC_PINT;
-    }
-    else if (field__cmp(str, n, "nint"))
-    {
-        *spec |= TI_SPEC_NINT;
-    }
-    else if (field__cmp(str, n, TI_VAL_FLOAT_S))
-    {
-        *spec |= TI_SPEC_FLOAT;
-    }
-    else if (field__cmp(str, n, "number"))
-    {
-        *spec |= TI_SPEC_NUMBER;
-    }
-    else if (field__cmp(str, n, TI_VAL_BOOL_S))
-    {
-        *spec |= TI_SPEC_BOOL;
-    }
-    else if (field__cmp(str, n, field->type->name))
+
+    if (field__cmp(str, n, field->type->name))
     {
         *spec |= field->type->type_id;
         if (&field->spec == spec && (~field->spec & TI_SPEC_NILLABLE))
@@ -363,7 +425,7 @@ skip_nesting:
 
             if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET)
             {
-                ex_set(e, EX_VALUE_ERROR,
+                ex_set(e, EX_TYPE_ERROR,
                     "invalid declaration for `%s` on type `%s`; "
                     "type `"TI_VAL_SET_S"` cannot contain enum type `%.*s`"
                     DOC_T_TYPE,
@@ -391,29 +453,29 @@ skip_nesting:
         }
 
         ++dep->refcount;
-        return 0;
     }
 
-    if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET &&
-        field->nested_spec > TI_SPEC_OBJECT)
+found:
+    if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET)
     {
         if (field->nested_spec & TI_SPEC_NILLABLE)
-            ex_set(e, EX_VALUE_ERROR,
-                "invalid declaration for `%s` on type `%s`; "
-                "type `"TI_VAL_SET_S"` cannot contain type `"TI_VAL_NIL_S"`",
-                DOC_T_TYPE,
-                field->name->str, field->type->name);
-        else
-            ex_set(e, EX_VALUE_ERROR,
+           ex_set(e, EX_TYPE_ERROR,
+               "invalid declaration for `%s` on type `%s`; "
+               "type `"TI_VAL_SET_S"` cannot contain "
+               "a nillable type"DOC_T_TYPE,
+               field->name->str, field->type->name);
+        else if (field->nested_spec > TI_SPEC_OBJECT)
+            ex_set(e, EX_TYPE_ERROR,
                 "invalid declaration for `%s` on type `%s`; "
                 "type `"TI_VAL_SET_S"` cannot contain type `%s`"
                 DOC_T_TYPE,
                 field->name->str, field->type->name,
                 ti__spec_approx_type_str(field->nested_spec));
-        return e->nr;
+        else if (field->nested_spec == TI_SPEC_ANY)
+            field->nested_spec = TI_SPEC_OBJECT;
     }
 
-    return 0;
+    return e->nr;
 
 invalid:
     if (!field__spec_is_ascii(
@@ -449,6 +511,13 @@ ti_val_t * ti_field_dval(ti_field_t * field)
 {
     uint16_t spec = field->spec;
 
+    if (field->condition.none)
+    {
+        ti_val_t * dval = field->condition.none->dval;
+        ti_incref(dval);
+        return dval;
+    }
+
     if (spec & TI_SPEC_NILLABLE)
          return (ti_val_t *) ti_nil_get();
 
@@ -466,9 +535,9 @@ ti_val_t * ti_field_dval(ti_field_t * field)
     case TI_SPEC_RAW:
     case TI_SPEC_STR:
     case TI_SPEC_UTF8:
-        return (ti_val_t *) ti_val_empty_str();
+        return ti_val_empty_str();
     case TI_SPEC_BYTES:
-        return (ti_val_t *) ti_val_empty_bin();
+        return ti_val_empty_bin();
     case TI_SPEC_INT:
     case TI_SPEC_UINT:
         return (ti_val_t *) ti_vint_create(0);
@@ -498,6 +567,12 @@ ti_val_t * ti_field_dval(ti_field_t * field)
 
         return (ti_val_t *) vset;
     }
+    case TI_SPEC_REMATCH:
+    case TI_SPEC_INT_RANGE:
+    case TI_SPEC_FLOAT_RANGE:
+    case TI_SPEC_STR_RANGE:
+        assert(0);  /* must always have a default value set */
+        return NULL;
     }
 
     return spec < TI_SPEC_ANY
@@ -528,6 +603,7 @@ ti_field_t * ti_field_create(
     field->name = name;
     field->spec_raw = spec_raw;
     field->idx = type->fields->n;
+    field->condition.none = NULL;
 
     ti_incref(name);
     ti_incref(spec_raw);
@@ -608,10 +684,11 @@ ti_field_t * ti_field_as_new(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e)
         return NULL;
     }
 
-    new_field->idx = field->idx;
     new_field->name = field->name;
     new_field->spec_raw = spec_raw;
     new_field->type = field->type;
+    new_field->idx = field->idx;
+    new_field->condition.none = NULL;
 
     ti_incref(new_field->name);
     ti_incref(new_field->spec_raw);
@@ -649,6 +726,7 @@ void ti_field_replace(ti_field_t * field, ti_field_t ** with_field)
 int ti_field_mod_force(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e)
 {
     ti_raw_t * prev_spec_raw = field->spec_raw;
+    ti_condition_via_t prev_condition = field->condition;
     uint16_t prev_spec = field->spec;
     uint16_t prev_nested_spec = field->nested_spec;
 
@@ -669,12 +747,14 @@ int ti_field_mod_force(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e)
 
     ti_incref(spec_raw);
     ti_val_unsafe_drop((ti_val_t *) prev_spec_raw);
+    ti_condition_destroy(prev_condition, prev_spec);
     return 0;
 
 undo:
     field->spec_raw = prev_spec_raw;
     field->spec = prev_spec;
     field->nested_spec = prev_nested_spec;
+    field->condition = prev_condition;
     (void) field__add_dep(field);
 
     return e->nr;
@@ -687,6 +767,7 @@ int ti_field_mod(
         ex_t * e)
 {
     ti_raw_t * prev_spec_raw = field->spec_raw;
+    ti_condition_via_t prev_condition = field->condition;
     uint16_t prev_spec = field->spec;
     uint16_t prev_nested_spec = field->nested_spec;
 
@@ -696,13 +777,21 @@ int ti_field_mod(
     if (field__init(field, e))
         goto undo;
 
-    switch (ti__spec_check_mod(prev_spec, field->spec))
+    switch (ti__spec_check_mod(
+            prev_spec,
+            field->spec,
+            prev_condition,
+            field->condition))
     {
     case TI_SPEC_MOD_SUCCESS:           goto success;
     case TI_SPEC_MOD_ERR:               goto incompatible;
     case TI_SPEC_MOD_NILLABLE_ERR:      goto nillable;
     case TI_SPEC_MOD_NESTED:
-        switch (ti__spec_check_mod(prev_nested_spec, field->nested_spec))
+        switch (ti__spec_check_mod(
+                prev_nested_spec,
+                field->nested_spec,
+                prev_condition,
+                field->condition))
         {
         case TI_SPEC_MOD_SUCCESS:           goto success;
         case TI_SPEC_MOD_ERR:               goto incompatible;
@@ -740,6 +829,7 @@ undo:
     field->spec_raw = prev_spec_raw;
     field->spec = prev_spec;
     field->nested_spec = prev_nested_spec;
+    field->condition = prev_condition;
     (void) field__add_dep(field);
 
     return e->nr;
@@ -766,6 +856,7 @@ success:
     }
     ti_incref(spec_raw);
     ti_val_unsafe_drop((ti_val_t *) prev_spec_raw);
+    ti_condition_destroy(prev_condition, prev_spec);
     return 0;
 }
 
@@ -900,7 +991,7 @@ void ti_field_destroy(ti_field_t * field)
     ti_name_drop(field->name);
     if (field->spec_raw)
         ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
-
+    ti_condition_destroy(field->condition, field->spec);
     free(field);
 }
 
@@ -923,8 +1014,17 @@ static int field__vset_assign(
         ti_thing_t * parent,
         ex_t * e)
 {
-    if (field->nested_spec == TI_SPEC_ANY ||
-        field->nested_spec == (*vset)->spec ||
+    /*
+     * This method may be called when field is either `any` or a `set.
+     * In case of `any`, we have to make sure the specification will be
+     * OBJECT, not ANY.
+     */
+    uint16_t nested_spec = field->nested_spec == TI_SPEC_ANY
+            ? TI_SPEC_OBJECT
+            : field->nested_spec;
+
+    if (nested_spec == TI_SPEC_OBJECT ||
+        nested_spec == (*vset)->spec ||
         (*vset)->imap->n == 0)
         goto done;
 
@@ -942,9 +1042,11 @@ static int field__vset_assign(
     }
 
 done:
-    if (ti_val_make_assignable((ti_val_t **) vset, parent, field->name, e) == 0)
-        (*vset)->spec = field->nested_spec;
-    return e->nr;
+    if (ti_val_make_assignable((ti_val_t **) vset, parent, field->name, e))
+        return e->nr;
+
+    (*vset)->spec = nested_spec;
+    return 0;
 }
 
 static int field__varr_assign(
@@ -960,7 +1062,7 @@ static int field__varr_assign(
 
     for (vec_each((*varr)->vec, ti_val_t, val))
     {
-        switch (ti_spec_check_val(field->nested_spec, val))
+        switch (ti_spec_check_nested_val(field->nested_spec, val))
         {
         case TI_SPEC_RVAL_SUCCESS:
             continue;
@@ -1007,12 +1109,14 @@ static int field__varr_assign(
     }
 
 done:
-    if (ti_val_make_assignable((ti_val_t **) varr, parent, field->name, e) == 0)
-        (*varr)->spec = field->nested_spec;
-    return e->nr;
+    if (ti_val_make_assignable((ti_val_t **) varr, parent, field->name, e))
+        return e->nr;
+
+    (*varr)->spec = field->nested_spec;
+    return 0;
 }
 
-static _Bool field__maps_to_varr(ti_field_t * field, ti_varr_t * varr)
+static _Bool field__maps_arr_to_arr(ti_field_t * field, ti_varr_t * varr)
 {
     if ((field->nested_spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY ||
         varr->vec->n == 0 ||
@@ -1020,10 +1124,19 @@ static _Bool field__maps_to_varr(ti_field_t * field, ti_varr_t * varr)
         return true;
 
     for (vec_each(varr->vec, ti_val_t, val))
-        if (!ti_spec_maps_to_val(field->nested_spec, val))
+        if (!ti_spec_maps_to_nested_val(field->nested_spec, val))
             return false;
 
     return true;
+}
+
+static _Bool field__maps_set_to_arr(ti_field_t * field)
+{
+    /*
+     * A set can only map to an array if, and only if the array accepts a
+     * custom type or `any` type, or thing type. Resolves issue #65.
+     */
+    return ((field->nested_spec & TI_SPEC_MASK_NILLABLE) <= TI_SPEC_OBJECT);
 }
 
 /*
@@ -1035,74 +1148,386 @@ int ti_field_make_assignable(
         ti_thing_t * parent,  /* may be NULL */
         ex_t * e)
 {
-    switch (ti_spec_check_val(field->spec, *val))
+    uint16_t spec = field->spec;
+
+    if ((spec & TI_SPEC_NILLABLE) && ti_val_is_nil(*val))
+        return 0;
+
+    spec &= TI_SPEC_MASK_NILLABLE;
+
+    switch ((ti_spec_enum_t) spec)
     {
-    case TI_SPEC_RVAL_SUCCESS:
-        return ti_val_is_array(*val)
-                ? field__varr_assign(field, (ti_varr_t **) val, parent, e)
-                : ti_val_is_set(*val)
-                ? field__vset_assign(field, (ti_vset_t **) val, parent, e)
-                : ti_val_is_closure(*val)
-                ? ti_closure_unbound((ti_closure_t * ) *val, e)
-                : 0;
-    case TI_SPEC_RVAL_TYPE_ERROR:
-        ex_set(e, EX_TYPE_ERROR,
-                "mismatch in type `%s`; "
-                "type `%s` is invalid for property `%s` with definition `%.*s`",
-                field->type->name,
-                ti_val_str(*val),
-                field->name->str,
-                (int) field->spec_raw->n,
-                (const char *) field->spec_raw->data);
-        break;
-    case TI_SPEC_RVAL_UTF8_ERROR:
-        ex_set(e, EX_VALUE_ERROR,
-                "mismatch in type `%s`; "
-                "property `%s` only accepts valid UTF8 data",
-                field->type->name,
-                field->name->str);
-        break;
-    case TI_SPEC_RVAL_UINT_ERROR:
-        ex_set(e, EX_VALUE_ERROR,
-                "mismatch in type `%s`; "
-                "property `%s` only accepts integer values "
-                "greater than or equal to 0",
-                field->type->name,
-                field->name->str);
-        break;
-    case TI_SPEC_RVAL_PINT_ERROR:
-        ex_set(e, EX_VALUE_ERROR,
-                "mismatch in type `%s`; "
-                "property `%s` only accepts positive integer values",
-                field->type->name,
-                field->name->str);
-        break;
-    case TI_SPEC_RVAL_NINT_ERROR:
-        ex_set(e, EX_VALUE_ERROR,
-                "mismatch in type `%s`; "
-                "property `%s` only accepts negative integer values",
-                field->type->name,
-                field->name->str);
-        break;
+    case TI_SPEC_ANY:
+        switch ((ti_val_enum) (*val)->tp)
+        {
+        case TI_VAL_NIL:
+        case TI_VAL_INT:
+        case TI_VAL_FLOAT:
+        case TI_VAL_BOOL:
+        case TI_VAL_MP:
+        case TI_VAL_NAME:
+        case TI_VAL_STR:
+        case TI_VAL_BYTES:
+        case TI_VAL_REGEX:
+        case TI_VAL_THING:
+        case TI_VAL_WRAP:
+            break;
+        case TI_VAL_ARR:
+            return field__varr_assign(field, (ti_varr_t **) val, parent, e);
+        case TI_VAL_SET:
+            return field__vset_assign(field, (ti_vset_t **) val, parent, e);
+        case TI_VAL_CLOSURE:
+            return ti_val_is_closure(*val);
+        case TI_VAL_ERROR:
+        case TI_VAL_MEMBER:
+        case TI_VAL_TEMPLATE:
+            break;
+        }
+        return 0;
+    case TI_SPEC_OBJECT:
+        if (ti_val_is_thing(*val))
+            return 0;
+        goto type_error;
+    case TI_SPEC_RAW:
+        if (ti_val_is_raw(*val))
+            return 0;
+        goto type_error;
+    case TI_SPEC_STR:
+        if (ti_val_is_str(*val))
+            return 0;
+        goto type_error;
+    case TI_SPEC_UTF8:
+        if (!ti_val_is_str(*val))
+            goto type_error;
+        if (!strx_is_utf8n(
+                (const char *) ((ti_raw_t *) *val)->data,
+                ((ti_raw_t *) *val)->n))
+            goto utf8_error;
+        return 0;
+    case TI_SPEC_BYTES:
+        if (ti_val_is_bytes(*val))
+            return 0;
+        goto type_error;
+    case TI_SPEC_INT:
+        if (ti_val_is_int(*val))
+            return 0;
+        goto type_error;
+    case TI_SPEC_UINT:
+        if (!ti_val_is_int(*val))
+            goto type_error;
+        if (VINT(*val) < 0)
+            goto uint_error;
+        return 0;
+    case TI_SPEC_PINT:
+        if (!ti_val_is_int(*val))
+            goto type_error;
+        if (VINT(*val) <= 0)
+            goto pint_error;
+        return 0;
+    case TI_SPEC_NINT:
+        if (!ti_val_is_int(*val))
+            goto type_error;
+        if (VINT(*val) >= 0)
+            goto nint_error;
+        return 0;
+    case TI_SPEC_FLOAT:
+        if (ti_val_is_float(*val))
+            return 0;
+        goto type_error;
+    case TI_SPEC_NUMBER:
+        if (ti_val_is_number(*val))
+            return 0;
+        goto type_error;
+    case TI_SPEC_BOOL:
+        if (ti_val_is_bool(*val))
+            return 0;
+        goto type_error;
+    case TI_SPEC_ARR:
+        if (ti_val_is_array(*val))
+            return field__varr_assign(field, (ti_varr_t **) val, parent, e);
+        goto type_error;
+    case TI_SPEC_SET:
+        if (ti_val_is_set(*val))
+            return field__vset_assign(field, (ti_vset_t **) val, parent, e);
+        goto type_error;
+
+    case TI_SPEC_REMATCH:
+        if (!ti_val_is_str(*val))
+            goto type_error;
+        if (!ti_regex_test(field->condition.re->regex, (ti_raw_t *) *val))
+            goto re_error;
+        return 0;
+    case TI_SPEC_INT_RANGE:
+        if (!ti_val_is_int(*val))
+            goto type_error;
+        if (VINT(*val) < field->condition.irange->mi ||
+            VINT(*val) > field->condition.irange->ma)
+            goto irange_error;
+        return 0;
+    case TI_SPEC_FLOAT_RANGE:
+        if (!ti_val_is_float(*val))
+            goto type_error;
+        if (VFLOAT(*val) < field->condition.drange->mi ||
+            VFLOAT(*val) > field->condition.drange->ma)
+            goto drange_error;
+        if (isnan(VFLOAT(*val)))
+            goto nan_error;
+        return 0;
+    case TI_SPEC_STR_RANGE:
+        if (!ti_val_is_str(*val))
+            goto type_error;
+        if (((ti_raw_t *) *val)->n < field->condition.srange->mi ||
+            ((ti_raw_t *) *val)->n > field->condition.srange->ma)
+            goto srange_error;
+        return 0;
     }
+
+    if (spec >= TI_ENUM_ID_FLAG)
+    {
+        if (ti_spec_enum_eq_to_val(spec, *val))
+            return 0;
+
+        goto type_error;
+    }
+
+    assert (spec < TI_SPEC_ANY);
+
+    /*
+     * Just compare the specification with the type since the nillable mask is
+     * removed the specification
+     */
+    if (ti_val_is_thing(*val) && ((ti_thing_t *) *val)->type_id == spec)
+        return 0;
+
+    goto type_error;
+
+irange_error:
+    ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` requires a float value between "
+            "%"PRId64" and %"PRId64" (both inclusive)",
+            field->type->name,
+            field->name->str,
+            field->condition.irange->mi,
+            field->condition.irange->ma);
+    return e->nr;
+
+drange_error:
+    ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` requires a float value between "
+            "%f and %f (both inclusive)",
+            field->type->name,
+            field->name->str,
+            field->condition.drange->mi,
+            field->condition.drange->ma);
+    return e->nr;
+
+
+nan_error:
+    ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` requires a float value between "
+            "%f and %f but got nan (not a number)",
+            field->type->name,
+            field->name->str,
+            field->condition.drange->mi,
+            field->condition.drange->ma);
+    return e->nr;
+
+srange_error:
+    if (field->condition.srange->mi == field->condition.srange->ma)
+        ex_set(e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a string with a length "
+                "of %zu character%s",
+                field->type->name,
+                field->name->str,
+                field->condition.srange->mi,
+                field->condition.srange->mi == 1 ? "": "s");
+    else
+        ex_set(e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a string with a length "
+                "between %zu and %zu (both inclusive) characters",
+                field->type->name,
+                field->name->str,
+                field->condition.srange->mi,
+                field->condition.srange->ma);
+    return e->nr;
+
+re_error:
+    ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` has a requirement to match pattern %.*s",
+            field->type->name,
+            field->name->str,
+            (int) field->condition.re->regex->pattern->n,
+            (const char *) field->condition.re->regex->pattern->data);
+    return e->nr;
+
+uint_error:
+    ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` only accepts integer values "
+            "greater than or equal to 0",
+            field->type->name,
+            field->name->str);
+    return e->nr;
+
+pint_error:
+    ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` only accepts positive integer values",
+            field->type->name,
+            field->name->str);
+    return e->nr;
+
+nint_error:
+    ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` only accepts negative integer values",
+            field->type->name,
+            field->name->str);
+    return e->nr;
+
+utf8_error:
+    ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` only accepts valid UTF8 data",
+            field->type->name,
+            field->name->str);
+    return e->nr;
+
+type_error:
+    ex_set(e, EX_TYPE_ERROR,
+            "mismatch in type `%s`; "
+            "type `%s` is invalid for property `%s` with definition `%.*s`",
+            field->type->name,
+            ti_val_str(*val),
+            field->name->str,
+            (int) field->spec_raw->n,
+            (const char *) field->spec_raw->data);
     return e->nr;
 }
 
 _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
 {
-    return ti_spec_maps_to_val(field->spec, val)
-            ? ti_val_is_array(val)
-            ? field__maps_to_varr(field, (ti_varr_t *) val)
-            : true
-            : false;
+    uint16_t spec = field->spec;
+
+    if ((spec & TI_SPEC_NILLABLE) && ti_val_is_nil(val))
+        return true;
+
+    spec &= TI_SPEC_MASK_NILLABLE;
+
+    if (spec >= TI_ENUM_ID_FLAG)
+        return ti_spec_enum_eq_to_val(spec, val);
+
+    if (ti_val_is_member(val))
+        val = VMEMBER(val);
+
+    switch ((ti_spec_enum_t) spec)
+    {
+    case TI_SPEC_ANY:
+        return true;
+    case TI_SPEC_OBJECT:
+        return ti_val_is_thing(val);
+    case TI_SPEC_RAW:
+        return ti_val_is_raw(val);
+    case TI_SPEC_STR:
+        return ti_val_is_str(val);
+    case TI_SPEC_UTF8:
+        return ti_val_is_str(val) && strx_is_utf8n(
+                (const char *) ((ti_raw_t *) val)->data,
+                ((ti_raw_t *) val)->n);
+    case TI_SPEC_BYTES:
+        return ti_val_is_bytes(val);
+    case TI_SPEC_INT:
+        return ti_val_is_int(val);
+    case TI_SPEC_UINT:
+        return ti_val_is_int(val) && VINT(val) >= 0;
+    case TI_SPEC_PINT:
+        return ti_val_is_int(val) && VINT(val) > 0;
+    case TI_SPEC_NINT:
+        return ti_val_is_int(val) && VINT(val) < 0;
+    case TI_SPEC_FLOAT:
+        return ti_val_is_float(val);
+    case TI_SPEC_NUMBER:
+        return ti_val_is_number(val);
+    case TI_SPEC_BOOL:
+        return ti_val_is_bool(val);
+    case TI_SPEC_ARR:
+        /* we can map a set to an array */
+        return ((
+            ti_val_is_array(val) &&
+            field__maps_arr_to_arr(field, (ti_varr_t *) val)
+        ) || (
+            ti_val_is_set(val) && field__maps_set_to_arr(field)
+        ));
+    case TI_SPEC_SET:
+        return ti_val_is_set(val);
+    case TI_SPEC_REMATCH:
+        return (ti_val_is_str(val) &&
+                ti_regex_test(field->condition.re->regex, (ti_raw_t *) val));
+    case TI_SPEC_INT_RANGE:
+        return (ti_val_is_int(val) &&
+                VINT(val) >= field->condition.irange->mi &&
+                VINT(val) <= field->condition.irange->ma);
+    case TI_SPEC_FLOAT_RANGE:
+        return (ti_val_is_float(val) &&
+                VFLOAT(val) >= field->condition.drange->mi &&
+                VFLOAT(val) <= field->condition.drange->ma &&
+                !isnan(VFLOAT(val)));
+    case TI_SPEC_STR_RANGE:
+        return (ti_val_is_str(val) &&
+                ((ti_raw_t *) val)->n >= field->condition.srange->mi &&
+                ((ti_raw_t *) val)->n <= field->condition.srange->ma);
+    }
+
+    /* any *thing* can be mapped */
+    return ti_val_is_thing(val);
 }
 
-static _Bool field__maps_to_spec(uint16_t t_spec, uint16_t f_spec)
+static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
 {
+    uint16_t t_spec, f_spec;
+
+    /* both the t_field and f_field are either a set or array */
+
+    assert ((f_field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ARR ||
+            (f_field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET);
+
+    assert ((t_field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ARR ||
+            (t_field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET);
+
+    if ((t_field->nested_spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY)
+        return true;
+
+    if (    (~t_field->nested_spec & TI_SPEC_NILLABLE) &&
+            (f_field->nested_spec & TI_SPEC_NILLABLE))
+        return false;
+
+    t_spec = t_field->nested_spec & TI_SPEC_MASK_NILLABLE;
+    f_spec = f_field->nested_spec & TI_SPEC_MASK_NILLABLE;
+
+    if (t_spec >= TI_ENUM_ID_FLAG)
+        return t_spec == f_spec;
+
+    if (f_spec >= TI_ENUM_ID_FLAG)
+    {
+        ti_enum_t * enum_ = ti_enums_by_id(
+                f_field->type->types->collection->enums,
+                f_spec & TI_ENUM_ID_MASK);
+        f_spec = ti_enum_spec(enum_);
+    }
+
+    if (t_spec == f_spec)
+        return true;
+
     switch ((ti_spec_enum_t) t_spec)
     {
     case TI_SPEC_ANY:
-        return false;       /* already checked */
+        return true;       /* already checked */
     case TI_SPEC_OBJECT:
         return f_spec < TI_SPEC_ANY;
     case TI_SPEC_RAW:
@@ -1131,6 +1556,10 @@ static _Bool field__maps_to_spec(uint16_t t_spec, uint16_t f_spec)
     case TI_SPEC_BOOL:
     case TI_SPEC_ARR:
     case TI_SPEC_SET:
+    case TI_SPEC_REMATCH:
+    case TI_SPEC_INT_RANGE:
+    case TI_SPEC_FLOAT_RANGE:
+    case TI_SPEC_STR_RANGE:
         return false;
     }
 
@@ -1139,36 +1568,34 @@ static _Bool field__maps_to_spec(uint16_t t_spec, uint16_t f_spec)
     return f_spec < TI_SPEC_ANY || f_spec == TI_SPEC_OBJECT;
 }
 
-static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
+_Bool field__maps_with_condition(ti_field_t * t_field, ti_field_t * f_field)
 {
-    uint16_t t_spec, f_spec;
+    uint16_t spec = t_field->spec & TI_SPEC_MASK_NILLABLE;
+    assert (t_field->condition.none);
+    assert (f_field->condition.none);
 
-    assert ((t_field->spec & TI_SPEC_MASK_NILLABLE) ==
-            (f_field->spec & TI_SPEC_MASK_NILLABLE));
-    assert (t_field->nested_spec != TI_SPEC_ANY);
-
-    if (    (~t_field->nested_spec & TI_SPEC_NILLABLE) &&
-            (f_field->nested_spec & TI_SPEC_NILLABLE))
-        return false;
-
-    t_spec = t_field->nested_spec & TI_SPEC_MASK_NILLABLE;
-    f_spec = f_field->nested_spec & TI_SPEC_MASK_NILLABLE;
-
-    if (t_spec >= TI_ENUM_ID_FLAG)
-        return t_spec == f_spec;
-
-    if (f_spec >= TI_ENUM_ID_FLAG)
+    switch((ti_spec_enum_t) spec)
     {
-        ti_enum_t * enum_ = ti_enums_by_id(
-                f_field->type->types->collection->enums,
-                f_spec & TI_ENUM_ID_MASK);
-        f_spec = ti_enum_spec(enum_);
+    case TI_SPEC_REMATCH:
+        return ti_regex_eq(
+                t_field->condition.re->regex,
+                f_field->condition.re->regex);
+    case TI_SPEC_STR_RANGE:
+        return (
+            t_field->condition.srange->mi <= f_field->condition.srange->mi &&
+            t_field->condition.srange->ma >= f_field->condition.srange->ma);
+    case TI_SPEC_INT_RANGE:
+        return (
+            t_field->condition.irange->mi <= f_field->condition.irange->mi &&
+            t_field->condition.irange->ma >= f_field->condition.irange->ma);
+    case TI_SPEC_FLOAT_RANGE:
+        return (
+            t_field->condition.drange->mi <= f_field->condition.drange->mi &&
+            t_field->condition.drange->ma >= f_field->condition.drange->ma);
+    default:
+        assert(0);
+        return false;
     }
-
-    if (t_spec == f_spec)
-        return true;
-
-    return field__maps_to_spec(t_spec, f_spec);
 }
 
 _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
@@ -1199,13 +1626,95 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
         f_spec = ti_enum_spec(enum_);
     }
 
-    /* return `true` when both specifications are equal, and nested accepts
-     * anything which is default for all other than `arr` and `set` */
-    return t_spec == f_spec
-            ? (t_field->nested_spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY
-            ? true
-            : field__maps_to_nested(t_field, f_field)
-            : field__maps_to_spec(t_spec, f_spec);
+    switch ((ti_spec_enum_t) t_spec)
+    {
+    case TI_SPEC_ANY:
+        return true;       /* already checked */
+    case TI_SPEC_OBJECT:
+        return (f_spec == TI_SPEC_OBJECT ||
+                f_spec < TI_SPEC_ANY);
+    case TI_SPEC_RAW:
+        return (f_spec == TI_SPEC_RAW ||
+                f_spec == TI_SPEC_STR ||
+                f_spec == TI_SPEC_UTF8 ||
+                f_spec == TI_SPEC_BYTES ||
+                f_spec == TI_SPEC_REMATCH ||
+                f_spec == TI_SPEC_STR_RANGE);
+    case TI_SPEC_STR:
+        return (f_spec == TI_SPEC_STR ||
+                f_spec == TI_SPEC_UTF8 ||
+                f_spec == TI_SPEC_REMATCH ||
+                f_spec == TI_SPEC_STR_RANGE);
+    case TI_SPEC_UTF8:
+    case TI_SPEC_BYTES:
+        return f_spec == t_spec;
+    case TI_SPEC_INT:
+        return (f_spec == TI_SPEC_INT ||
+                f_spec == TI_SPEC_UINT ||
+                f_spec == TI_SPEC_PINT ||
+                f_spec == TI_SPEC_NINT ||
+                f_spec == TI_SPEC_INT_RANGE);
+    case TI_SPEC_UINT:
+        return (
+            f_spec == TI_SPEC_UINT ||
+            f_spec == TI_SPEC_PINT ||
+            (f_spec == TI_SPEC_INT_RANGE && f_field->condition.irange->mi >= 0)
+        );
+    case TI_SPEC_PINT:
+        return (
+            f_spec == TI_SPEC_PINT ||
+            (f_spec == TI_SPEC_INT_RANGE && f_field->condition.irange->mi > 0)
+        );
+    case TI_SPEC_NINT:
+        return (
+            f_spec == TI_SPEC_NINT ||
+            (f_spec == TI_SPEC_INT_RANGE && f_field->condition.irange->ma < 0)
+        );
+    case TI_SPEC_FLOAT:
+        return (f_spec == TI_SPEC_FLOAT ||
+                f_spec == TI_SPEC_FLOAT_RANGE);
+    case TI_SPEC_NUMBER:
+        return (f_spec == TI_SPEC_NUMBER ||
+                f_spec == TI_SPEC_FLOAT ||
+                f_spec == TI_SPEC_INT ||
+                f_spec == TI_SPEC_UINT ||
+                f_spec == TI_SPEC_PINT ||
+                f_spec == TI_SPEC_NINT ||
+                f_spec == TI_SPEC_INT_RANGE ||
+                f_spec == TI_SPEC_FLOAT_RANGE);
+    case TI_SPEC_BOOL:
+        return f_spec == t_spec;
+    case TI_SPEC_ARR:
+        return (
+            (f_spec == TI_SPEC_ARR || f_spec == TI_SPEC_SET) &&
+            field__maps_to_nested(t_field, f_field)
+        );
+    case TI_SPEC_SET:
+        return f_spec == TI_SPEC_SET;  /* TODO: check set */
+    case TI_SPEC_REMATCH:
+        return f_spec == TI_SPEC_REMATCH && ti_regex_eq(
+                        t_field->condition.re->regex,
+                        f_field->condition.re->regex);
+    case TI_SPEC_INT_RANGE:
+        return (
+            f_spec == TI_SPEC_INT_RANGE &&
+            f_field->condition.irange->mi >= t_field->condition.irange->mi &&
+            f_field->condition.irange->ma <= t_field->condition.irange->ma);
+    case TI_SPEC_FLOAT_RANGE:
+        return (
+            f_spec == TI_SPEC_FLOAT_RANGE &&
+            f_field->condition.drange->mi >= t_field->condition.drange->mi &&
+            f_field->condition.drange->ma <= t_field->condition.drange->ma);
+    case TI_SPEC_STR_RANGE:
+        return (
+            f_spec == TI_SPEC_STR_RANGE &&
+            f_field->condition.srange->mi >= t_field->condition.srange->mi &&
+            f_field->condition.srange->ma <= t_field->condition.srange->ma);
+    }
+
+    assert (t_spec < TI_SPEC_ANY);
+
+    return f_spec < TI_SPEC_ANY || f_spec == TI_SPEC_OBJECT;
 }
 
 ti_field_t * ti_field_by_name(ti_type_t * type, ti_name_t * name)

@@ -950,6 +950,13 @@ class TestType(TestBase):
 
             with self.assertRaisesRegex(
                     TypeError,
+                    r'type `Books` is not allowed in restricted array'):
+                await client.query(r'''
+                    .books.own.push(Books());
+                ''')
+
+            with self.assertRaisesRegex(
+                    TypeError,
                     r'mismatch in type `Books`; type `thing` is invalid '
                     r'for property `fav` with definition `Book\?`'):
                 await client.query(r'''
@@ -965,6 +972,13 @@ class TestType(TestBase):
                     .books.unique.add({
                         foo: 'Not a book'
                     });
+                ''')
+
+            with self.assertRaisesRegex(
+                    TypeError,
+                    r'type `Books` is not allowed in restricted set'):
+                await client.query(r'''
+                    .books.unique.add(Books());
                 ''')
 
         books0 = await client0.query(r'.books.filter(||true);')

@@ -19,7 +19,7 @@ ti_vset_t * ti_vset_create(void)
     vset->ref = 1;
     vset->tp = TI_VAL_SET;
     vset->flags = 0;
-    vset->spec = TI_SPEC_ANY;
+    vset->spec = TI_SPEC_OBJECT;
     vset->parent = NULL;
 
     vset->imap = imap_create();
@@ -149,7 +149,7 @@ int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e)
         return e->nr;
     }
 
-    if (vset->spec != TI_SPEC_ANY &&
+    if (vset->spec != TI_SPEC_OBJECT &&
         vset->spec != ((ti_thing_t *) val)->type_id)
     {
         ex_set(e, EX_TYPE_ERROR,

@@ -1416,7 +1416,7 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case CLERI_GID_T_FLOAT:
         if (!nd->data)
         {
-            nd->data = ti_vfloat_create(strx_to_double(nd->str));
+            nd->data = ti_vfloat_create(strx_to_double(nd->str, NULL));
             if (!nd->data)
             {
                 ex_set_mem(e);
@@ -1431,7 +1431,7 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case CLERI_GID_T_INT:
         if (!nd->data)
         {
-            int64_t i = strx_to_int64(nd->str);
+            int64_t i = strx_to_int64(nd->str, NULL);
             if (errno == ERANGE)
             {
                 ex_set(e, EX_OVERFLOW, "integer overflow");

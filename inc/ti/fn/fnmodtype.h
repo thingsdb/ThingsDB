@@ -942,7 +942,7 @@ static void type__wpo(
 
     wrap_only = ti_val_as_bool(query->rval);
 
-    ti_name_unsafe_drop(query->rval);
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (wrap_only == ti_type_is_wrap_only(type))
@@ -963,24 +963,22 @@ static void type__wpo(
         return;
     }
 
-    if (wrap_only && type->refcount)
-    {
-        /* TODO: Test error message */
-        ex_set(e, EX_OPERATION_ERROR,
-            "type `%s` is used by at least one other type and can "
-            "therefore not be set to `wrap-only` mode"DOC_MOD_TYPE_WPO,
-            type->name);
+    if (wrap_only && ti_type_required_by_non_wpo(type, e))
         return;
-    }
+
+    if (!wrap_only && ti_type_uses_wpo(type, e))
+        return;
 
     task = ti_task_get_task(query->ev, query->collection->root, e);
     if (!task)
         return;
 
+    ti_type_set_wrap_only_mode(type, wrap_only);
+
     /* update modified time-stamp */
     type->modified_at = util_now_tsec();
 
-    if (ti_task_add_mod_type_wpo(task, type, wrap_only))
+    if (ti_task_add_mod_type_wpo(task, type))
         ex_set_mem(e);
 }
 
@@ -1098,7 +1096,8 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ex_set(e, EX_VALUE_ERROR,
             "function `mod_type` expects argument 2 to be "
-            "`add`, `del`, `mod` or `ren` but got `%.*s` instead"DOC_MOD_TYPE,
+            "`add`, `del`, `mod`, `ren` or `wpo` but got `%.*s` instead"
+            DOC_MOD_TYPE,
             (int) rmod->n, (const char *) rmod->data);
 
 done:

@@ -50,7 +50,8 @@ int ti_type_methods_info_to_pk(
         ti_type_t * type,
         msgpack_packer * pk,
         _Bool with_definition);
-
+int ti_type_required_by_non_wpo(ti_type_t * type, ex_t * e);
+int ti_type_uses_wpo(ti_type_t * type, ex_t * e);
 
 static inline int ti_type_try_lock(ti_type_t * type, ex_t * e)
 {
@@ -77,18 +78,26 @@ static inline void ti_type_unlock(ti_type_t * type, int lock_was_set)
         type->flags &= ~TI_TYPE_FLAG_LOCK;
 }
 
+static inline _Bool ti_type_is_wrap_only(ti_type_t * type)
+{
+    return type->flags & TI_TYPE_FLAG_WRAP_ONLY;
+}
+
 static inline int ti_type_to_pk(
         ti_type_t * type,
         msgpack_packer * pk,
         _Bool with_definition)
 {
     return (
-        msgpack_pack_map(pk, 6) ||
+        msgpack_pack_map(pk, 7) ||
         mp_pack_str(pk, "type_id") ||
         msgpack_pack_uint16(pk, type->type_id) ||
 
         mp_pack_str(pk, "name") ||
         mp_pack_strn(pk, type->rname->data, type->rname->n) ||
+
+        mp_pack_str(pk, "wrap_only") ||
+        mp_pack_bool(pk, ti_type_is_wrap_only(type)) ||
 
         mp_pack_str(pk, "created_at") ||
         msgpack_pack_uint64(pk, type->created_at) ||
@@ -106,9 +115,20 @@ static inline int ti_type_to_pk(
     );
 }
 
-static inline _Bool ti_type_is_warp_only(ti_type_t * type)
+static inline void ti_type_set_wrap_only_mode(ti_type_t * type, _Bool wpo)
 {
-    return type->flags & TI_TYPE_FLAG_WRAP_ONLY;
+    if (wpo)
+        type->flags |= TI_TYPE_FLAG_WRAP_ONLY;
+    else
+        type->flags &= ~TI_TYPE_FLAG_WRAP_ONLY;
+}
+
+static inline int ti_type_wrap_only_e(ti_type_t * type, ex_t * e)
+{
+    if (ti_type_is_wrap_only(type))
+        ex_set(e, EX_TYPE_ERROR,
+                "type `%s` has wrap-only mode enabled", type->name);
+    return e->nr;
 }
 
 #endif  /* TI_TYPE_H_ */

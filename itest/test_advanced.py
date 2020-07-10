@@ -34,6 +34,87 @@ class TestAdvanced(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_wpo(self, client):
+        await client.query(r'''
+            set_type('Person', {
+                name: 'str',
+                age: 'int',
+            }, false);
+            set_type('_Name', {
+                name: 'str'
+            }, true);
+        ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'invalid declaration for `wrap` on type `Foo`; '
+                r'when depending on a type in wrap-only mode, both types '
+                r'must have wrap-only mode enabled; either add a `\?` to '
+                r'make the dependency nillable or make `Foo` a wrap-only '
+                r'type as well;'):
+            await client.query(r'''
+                set_type('Foo', {
+                    wrap: '_Name',
+                });
+            ''')
+
+        await client.query(r'''
+            set_type('_Foo1', {
+                wrap: '_Name',
+            }, true);
+        ''')
+
+        await client.query(r'''
+            set_type('_Foo2', {
+                wrap: '_Name?',
+            }, false);
+        ''')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'type `_Foo1` is dependent on at least one type '
+                r'with `wrap-only` mode enabled'):
+            await client.query(r'''
+                mod_type('_Foo1', 'wpo', false);
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'invalid declaration for `wrap` on type `_Foo2`; '
+                r'when depending on a type in wrap-only mode, both types '
+                r'must have wrap-only mode enabled; either add a `\?` to '
+                r'make the dependency nillable or make `_Foo2` a wrap-only '
+                r'type as well;'):
+            await client.query(r'''
+                mod_type('_Foo2', 'mod', 'wrap', '_Name', ||nil);
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'type `_Name` has wrap-only mode enabled'):
+            await client.query(r''' n = _Name(); ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'type `_Name` has wrap-only mode enabled'):
+            await client.query(r''' n = _Name{}; ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'type `_Name` has wrap-only mode enabled'):
+            await client.query(r''' n = new('_Name'); ''')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'a type can only be changed to `wrap-only` mode without '
+                r'having active instances; 1 active instance of '
+                r'type `X` has been found;'):
+            await client.query(r'''
+                new_type('X');
+                x = X{};
+                mod_type('X', 'wpo', true);
+            ''')
+
     async def test_conditions(self, client):
         with self.assertRaisesRegex(
                 ValueError,

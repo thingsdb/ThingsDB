@@ -1240,21 +1240,7 @@ static int job__mod_type_wpo(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    if (mp_wo.via.bool_)
-    {
-        if (type->refcount)
-        {
-            log_critical(
-                    "job `mod_type_wpo` for "TI_COLLECTION_ID" is invalid; "
-                    "type `%s` is used by other type and wrap-only mode will "
-                    "be enabled",
-                    collection->root->id, type->name);
-            /* continue anyway */
-        }
-        type->flags |= TI_TYPE_FLAG_WRAP_ONLY;
-    }
-    else
-        type->flags &= ~TI_TYPE_FLAG_WRAP_ONLY;
+    ti_type_set_wrap_only_mode(type, mp_wo.via.bool_);
 
     type->modified_at = mp_modified.via.u64;
 

@@ -212,7 +212,7 @@ int ti_task_add_new_type(ti_task_t * task, ti_type_t * type)
     mp_pack_strn(&pk, type->rname->data, type->rname->n);
 
     mp_pack_str(&pk, "wrap_only");
-    mp_pack_bool(&pk, ti_type_is_warp_only(type));
+    mp_pack_bool(&pk, ti_type_is_wrap_only(type));
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
@@ -1039,7 +1039,7 @@ int ti_task_add_mod_type_wpo(ti_task_t * task, ti_type_t * type)
     msgpack_pack_uint64(&pk, type->modified_at);
 
     mp_pack_str(&pk, "wrap_only");
-    mp_pack_bool(&pk, ti_type_is_warp_only(type));
+    mp_pack_bool(&pk, ti_type_is_wrap_only(type));
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

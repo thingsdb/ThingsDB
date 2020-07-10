@@ -18,6 +18,7 @@
 #include <ti/thing.inline.h>
 #include <ti/type.h>
 #include <ti/types.h>
+#include <ti/types.inline.h>
 #include <ti/val.inline.h>
 
 static char * type__wrap_name(const char * name, size_t n)
@@ -577,11 +578,17 @@ vec_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type)
     return mappings;
 }
 
+/*
+ * Type must have been checked for `wrap_only` mode before calling this
+ * function.
+ */
 ti_val_t * ti_type_dval(ti_type_t * type)
 {
     ti_thing_t * thing = ti_thing_t_create(0, type, type->types->collection);
     if (!thing)
         return NULL;
+
+    assert (!ti_type_is_wrap_only(type));
 
     for (vec_each(type->fields, ti_field_t, field))
     {
@@ -600,6 +607,10 @@ ti_val_t * ti_type_dval(ti_type_t * type)
     return (ti_val_t *) thing;
 }
 
+/*
+ * Type must have been checked for `wrap_only` mode before calling this
+ * function.
+ */
 ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
 {
     ti_thing_t * thing = ti_thing_t_create(0, type, type->types->collection);
@@ -608,6 +619,8 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
         ex_set_mem(e);
         return NULL;
     }
+
+    assert (!ti_type_is_wrap_only(type));
 
     if (ti_thing_is_object(from))
     {
@@ -680,4 +693,49 @@ failed:
     assert (e->nr);
     ti_val_unsafe_drop((ti_val_t *) thing);
     return NULL;
+}
+
+static inline int type__test_wpo_cb(ti_type_t * haystack, ti_type_t * needle)
+{
+    if (ti_type_is_wrap_only(haystack))
+        return 0;
+
+    for (vec_each(haystack->fields, ti_field_t, field))
+        if (field->spec == needle->type_id)
+            return -1;
+
+    return 0;
+}
+
+int ti_type_required_by_non_wpo(ti_type_t * type, ex_t * e)
+{
+    if (type->refcount &&
+        imap_walk(type->types->imap, (imap_cb) type__test_wpo_cb, type))
+        ex_set(e, EX_OPERATION_ERROR,
+            "type `%s` is required by at least one other type "
+            "without having `wrap-only` mode enabled",
+            type->name);
+
+    return e->nr;
+}
+
+int ti_type_uses_wpo(ti_type_t * type, ex_t * e)
+{
+    for (vec_each(type->fields, ti_field_t, field))
+    {
+        if (field->spec < TI_SPEC_ANY)
+        {
+            ti_type_t * dep = ti_types_by_id(type->types, field->spec);
+
+            if (ti_type_is_wrap_only(dep))
+            {
+                ex_set(e, EX_OPERATION_ERROR,
+                    "type `%s` is dependent on at least one type "
+                    "with `wrap-only` mode enabled",
+                    type->name);
+                return e->nr;
+            }
+        }
+    }
+    return 0;
 }

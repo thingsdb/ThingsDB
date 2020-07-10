@@ -7,7 +7,6 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_thing_t * thing;
     ti_task_t * task;
     ssize_t n;
-    uint8_t flags = 0;
     uint64_t ts_now = util_now_tsec();
     cleri_children_t * child = nd->children;
     _Bool is_new_type = false;
@@ -106,33 +105,23 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 3)
     {
+        _Bool wpo;
         if (ti_do_statement(query, (child = child->next->next)->node, e) ||
             fn_arg_bool("set_type", DOC_SET_TYPE, 3, query->rval, e))
             goto fail2;
 
-        if (ti_val_as_bool(query->rval))
-        {
-            if (type->refcount)
-            {
-                /* TODO: Test error message */
-                ex_set(e, EX_OPERATION_ERROR,
-                    "type `%s` is used by at least one other type and can "
-                    "therefore not be set to `wrap-only` mode"DOC_SET_TYPE,
-                    type->name);
-                goto fail2;
-            }
-            type->flags |= TI_TYPE_FLAG_WRAP_ONLY;
-        }
-        else
-        {
-            type->flags &= ~TI_TYPE_FLAG_WRAP_ONLY;
-        }
+        wpo = ti_val_as_bool(query->rval);
 
         ti_val_drop(query->rval);
         query->rval = NULL;
+
+        if (wpo && ti_type_required_by_non_wpo(type, e))
+            goto fail2;
+
+        ti_type_set_wrap_only_mode(type, wpo);
     }
     else if (is_new_type)
-        type->flags &= ~TI_TYPE_FLAG_WRAP_ONLY;
+        ti_type_set_wrap_only_mode(type, false);
 
     if (ti_type_init_from_thing(type, thing, e))
         goto fail2;

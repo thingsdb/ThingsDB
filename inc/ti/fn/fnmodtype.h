@@ -953,7 +953,6 @@ static void type__wpo(
         if (n < 0)
             ex_set_mem(e);
         else
-            /* TODO: Test error message */
             ex_set(e, EX_OPERATION_ERROR,
                 "a type can only be changed to `wrap-only` mode without "
                 "having active instances; "

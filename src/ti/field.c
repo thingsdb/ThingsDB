@@ -1709,7 +1709,7 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
             field__maps_to_nested(t_field, f_field)
         );
     case TI_SPEC_SET:
-        return f_spec == TI_SPEC_SET;  /* TODO: check set */
+        return f_spec == TI_SPEC_SET;
     case TI_SPEC_REMATCH:
         return f_spec == TI_SPEC_REMATCH && ti_regex_eq(
                         t_field->condition.re->regex,

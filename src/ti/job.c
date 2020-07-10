@@ -200,7 +200,7 @@ static int job__new_type(ti_thing_t * thing, mp_unp_t * up)
     uint8_t flags = 0;
 
     /*
-     * TODO: Before v0.9.7 the wrap_only value was not included.
+     * TODO: (COMPAT) Before v0.9.7 the wrap_only value was not included.
      *       Some code can be simplified once backwards dependency may
      *       be dropped.
      */
@@ -353,7 +353,7 @@ static int job__set_type(ti_thing_t * thing, mp_unp_t * up)
     ti_type_t * type;
     mp_obj_t obj, mp_id, mp_modified;
 
-    /* TODO: For compatibility with versions before v0.9.6 */
+    /* TODO: (COMPAT) For compatibility with versions before v0.9.6 */
     if (mp_next(up, &obj) != MP_MAP || (obj.via.sz != 4 && obj.via.sz != 3) ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
@@ -820,8 +820,8 @@ static int job__mod_type_add(
     }
 
     /*
-     * TODO: since version 0.9.2 (June 2020), the initial value is no longer
-     *       optional but always added to the `mod_type_add` job.
+     * TODO: (COMPAT) Since version 0.9.2 (June 2020), the initial value is no
+     *       longer optional but always added to the `mod_type_add` job.
      */
     if (obj.via.sz == 5)
     {

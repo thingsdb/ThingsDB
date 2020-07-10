@@ -79,6 +79,15 @@ class TestAdvanced(TestBase):
             ''')
 
         with self.assertRaisesRegex(
+                OperationError,
+                r'type `_Foo2` is required by at least one other type '
+                r'without having `wrap-only` mode enabled'):
+            await client.query(r'''
+                set_type('_Tmp2', {foo2: '_Foo2'});
+                mod_type('_Foo2', 'wpo', true);
+            ''')
+
+        with self.assertRaisesRegex(
                 TypeError,
                 r'invalid declaration for `wrap` on type `_Foo2`; '
                 r'when depending on a type in wrap-only mode, both types '

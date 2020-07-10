@@ -104,7 +104,7 @@ int ti_create(void)
      * Patch statement `Prio` since the current version of libcleri does
      * not set the GID to `Prio` objects for backward compatibility reasons.
      *
-     * TODO: this can be removed in a future release when libcleri sets the
+     * TODO: This can be removed in a future release when libcleri sets the
      *       required GID.
      */
     ti.langdef->start->via.sequence            /* START */

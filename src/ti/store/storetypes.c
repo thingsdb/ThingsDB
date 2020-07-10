@@ -169,8 +169,8 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
         {
         case 5:
             /*
-             * TODO: This code is for compatibility with ThingsDB versions
-             *       before v0.9.6.
+             * TODO: (COMPAT) This code is for compatibility with ThingsDB
+             *       versions before v0.9.6.
              */
             with_methods = false;
             with_wrap_only = false;
@@ -185,8 +185,8 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             break;
         case 6:
             /*
-             * TODO: This code is for compatibility with ThingsDB versions
-             *       before v0.9.7.
+             * TODO: (COMPAT) This code is for compatibility with ThingsDB
+             *       versions before v0.9.7.
              */
             with_wrap_only = false;
             mp_wo.tp = MP_BOOL;
@@ -235,9 +235,9 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     for (i = types->imap->n; i--;)
     {
         /*
-         * TODO: This code is for compatibility with ThingsDB version before
-         *       v0.9.6 and might be changed to obj.via.sz != 7 when backwards
-         *       compatibility may be dropped.
+         * TODO: (COMPAT) This code is for compatibility with ThingsDB version
+         *       before v0.9.6 and might be changed to obj.via.sz != 7 when
+         *       backwards compatibility may be dropped.
          */
         if (mp_next(&up, &obj) != MP_ARR || obj.via.sz < 5 ||
             mp_next(&up, &mp_id) != MP_U64 ||
@@ -275,7 +275,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
         }
 
         if (!with_methods)
-            continue;  /* TODO: only for compatibility, see above */
+            continue;  /* TODO: (COMPAT) only for compatibility, see above */
 
         if (mp_next(&up, &obj) != MP_MAP)
             goto fail1;

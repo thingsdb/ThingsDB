@@ -37,6 +37,13 @@ class TestType(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_wrap_only(self, client):
+        self.assertFalse(await client.query(r'''
+            try(set_type('X', {arr: '[str?]'}, {1/0}));
+            /* tests if type is correctly broken down on error */
+            has_type('X');
+        '''))
+
     async def test_mod_arr(self, client):
         await client.query(r'''
             set_type('X', {arr: '[str?]'});
@@ -498,7 +505,7 @@ class TestType(TestBase):
         with self.assertRaisesRegex(
                 ValueError,
                 r'function `mod_type` expects argument 2 to be `add`, `del`, '
-                r'`mod` or `ren` but got `x` instead'):
+                r'`mod`, `ren` or `wpo` but got `x` instead'):
             await client.query(r'mod_type("Person", "x", "x");')
 
         # section ADD
@@ -799,6 +806,26 @@ class TestType(TestBase):
                 LookupError,
                 r'type `Person` has no property or method `happy_birthday`'):
             await client.query(r'.iris.happy_birthday();')
+
+        # Section WPO
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `mod_type` with task `wpo` takes 3 arguments '
+                r'but 4 were given'):
+            await client.query(r'mod_type("Person", "wpo", true, "x");')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `mod_type` with task `wpo` expects argument 3 to '
+                r'be of type `bool` but got type `int` instead'):
+            await client.query(r'mod_type("Person", "wpo", 1);')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'a type can only be changed to `wrap-only` mode without '
+                r'having active instances; 2 active instances of '
+                r'type `Person` have been found'):
+            await client.query(r'mod_type("Person", "wpo", true);')
 
     async def test_del_type(self, client):
         await client.query(r'''
@@ -1447,6 +1474,31 @@ class TestType(TestBase):
 
             self.assertIs(await client.query('.room_a.chat.chat;'), None)
             self.assertIs(await client.query('.room_b.chat.chat;'), None)
+
+    async def test_wpo(self, client0):
+        await client0.query(r'''
+            new_type('A', true);
+            new_type('B', false);
+            mod_type('B', 'wpo', true);
+            new_type('C', true);
+            mod_type('C', 'wpo', false);
+            set_type('D', {}, true);
+            set_type('E', {}, false);
+        ''')
+
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await asyncio.sleep(1.6)
+
+        for client in (client0, client1):
+            res = await client.query(r'''
+                type_assert(try(A{}), 'error');
+                type_assert(try(B{}), 'error');
+                type_assert(try(C{}), 'C');
+                type_assert(try(D{}), 'error');
+                type_assert(try(E{}), 'E');
+            ''')
 
 
 if __name__ == '__main__':

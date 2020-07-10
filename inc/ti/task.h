@@ -74,6 +74,7 @@ int ti_task_add_mod_type_ren(
         ti_type_t * type,
         ti_name_t * oldname,
         ti_name_t * newname);
+int ti_task_add_mod_type_wpo(ti_task_t * task, ti_type_t * type);
 int ti_task_add_del_node(ti_task_t * task, uint32_t node_id);
 int ti_task_add_remove(ti_task_t * task, ti_name_t * name, vec_t * removed);
 int ti_task_add_rename_collection(

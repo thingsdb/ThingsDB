@@ -919,6 +919,68 @@ done:
     ti_name_unsafe_drop(oldname);
 }
 
+static void type__wpo(
+        ti_query_t * query,
+        ti_type_t * type,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    static const char * fnname = "mod_type` with task `wpo";
+    const int nargs = langdef_nd_n_function_params(nd);
+    _Bool wrap_only;
+    ti_task_t * task;
+    ssize_t n;
+
+    if (fn_nargs(fnname, DOC_MOD_TYPE_WPO, 3, nargs, e))
+        return;
+
+    if (ti_do_statement(
+            query,
+            nd->children->next->next->next->next->node,
+            e) || fn_arg_bool(fnname, DOC_MOD_TYPE_WPO, 3, query->rval, e))
+        return;
+
+    wrap_only = ti_val_as_bool(query->rval);
+
+    ti_val_unsafe_drop(query->rval);
+    query->rval = NULL;
+
+    if (wrap_only == ti_type_is_wrap_only(type))
+        return;  /* nothing to do */
+
+    if (wrap_only && (n = ti_query_count_type(query, type)))
+    {
+        if (n < 0)
+            ex_set_mem(e);
+        else
+            ex_set(e, EX_OPERATION_ERROR,
+                "a type can only be changed to `wrap-only` mode without "
+                "having active instances; "
+                "%zd active instance%s of type `%s` %s been found"
+                DOC_MOD_TYPE_WPO,
+                n, n == 1 ? "" : "s", type->name, n == 1 ? "has" : "have");
+        return;
+    }
+
+    if (wrap_only && ti_type_required_by_non_wpo(type, e))
+        return;
+
+    if (!wrap_only && ti_type_uses_wpo(type, e))
+        return;
+
+    task = ti_task_get_task(query->ev, query->collection->root, e);
+    if (!task)
+        return;
+
+    ti_type_set_wrap_only_mode(type, wrap_only);
+
+    /* update modified time-stamp */
+    type->modified_at = util_now_tsec();
+
+    if (ti_task_add_mod_type_wpo(task, type))
+        ex_set_mem(e);
+}
+
 static int modtype__has_lock(ti_query_t * query, ti_type_t * type, ex_t * e)
 {
     int rc = ti_query_vars_walk(
@@ -954,8 +1016,8 @@ memerror:
 static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     ti_type_t * type;
-    ti_name_t * name;
     ti_raw_t * rmod;
+    ti_name_t * name = NULL;
     cleri_children_t * child = nd->children;
     const int nargs = langdef_nd_n_function_params(nd);
 
@@ -986,6 +1048,12 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     rmod = (ti_raw_t *) query->rval;
     query->rval = NULL;
+
+    if (ti_raw_eq_strn(rmod, "wpo", 3))
+    {
+        type__wpo(query, type, nd, e);
+        goto done;
+    }
 
     if (ti_do_statement(query, (child = child->next->next)->node, e) ||
         fn_arg_name_check("mod_type", DOC_MOD_TYPE, 3, query->rval, e))
@@ -1027,7 +1095,8 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ex_set(e, EX_VALUE_ERROR,
             "function `mod_type` expects argument 2 to be "
-            "`add`, `del`, `mod` or `ren` but got `%.*s` instead"DOC_MOD_TYPE,
+            "`add`, `del`, `mod`, `ren` or `wpo` but got `%.*s` instead"
+            DOC_MOD_TYPE,
             (int) rmod->n, (const char *) rmod->data);
 
 done:
@@ -1038,7 +1107,7 @@ done:
         ti_val_drop(query->rval);
         query->rval = (ti_val_t *) ti_nil_get();
     }
-    ti_name_unsafe_drop(name);
+    ti_name_drop(name);
 
 fail1:
     ti_val_unsafe_drop((ti_val_t *) rmod);

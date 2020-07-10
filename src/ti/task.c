@@ -200,7 +200,7 @@ int ti_task_add_new_type(ti_task_t * task, ti_type_t * type)
     msgpack_pack_map(&pk, 1);
 
     mp_pack_str(&pk, "new_type");
-    msgpack_pack_map(&pk, 3);
+    msgpack_pack_map(&pk, 4);
 
     mp_pack_str(&pk, "type_id");
     msgpack_pack_uint16(&pk, type->type_id);
@@ -210,6 +210,9 @@ int ti_task_add_new_type(ti_task_t * task, ti_type_t * type)
 
     mp_pack_str(&pk, "name");
     mp_pack_strn(&pk, type->rname->data, type->rname->n);
+
+    mp_pack_str(&pk, "wrap_only");
+    mp_pack_bool(&pk, ti_type_is_wrap_only(type));
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
@@ -998,6 +1001,45 @@ int ti_task_add_mod_type_ren(
 
     mp_pack_str(&pk, "to");
     mp_pack_strn(&pk, newname->str, newname->n);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_mod_type_wpo(ti_task_t * task, ti_type_t * type)
+{
+    size_t alloc = 64;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_str(&pk, "mod_type_wpo");
+    msgpack_pack_map(&pk, 3);
+
+    mp_pack_str(&pk, "type_id");
+    msgpack_pack_uint16(&pk, type->type_id);
+
+    mp_pack_str(&pk, "modified_at");
+    msgpack_pack_uint64(&pk, type->modified_at);
+
+    mp_pack_str(&pk, "wrap_only");
+    mp_pack_bool(&pk, ti_type_is_wrap_only(type));
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

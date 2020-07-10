@@ -83,9 +83,9 @@ int ti_store_enums_restore(ti_enums_t * enums, const char * fn)
     if (!fx_file_exist(fn))
     {
         /*
-         * TODO: this check may be removed when we no longer require backwards
-         *       compatibility with previous versions of ThingsDB where the
-         *       enum file did not exist.
+         * TODO: (COMPAT) This check may be removed when we no longer require
+         *       backwards compatibility with previous versions of ThingsDB
+         *       where the enum file did not exist.
          */
         log_warning(
                 "no enumerations found for collection `%.*s`; "

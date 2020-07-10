@@ -323,6 +323,9 @@ static int do__get_type_instance(
 {
     const int nargs = langdef_nd_n_function_params(nd);
 
+    if (ti_type_wrap_only_e(type, e))
+        return e->nr;
+
     if (nargs == 1)
     {
         int64_t id;
@@ -987,6 +990,9 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 name_nd->str);
         return e->nr;
     }
+
+    if (ti_type_wrap_only_e(type, e))
+        return e->nr;
 
     thing = ti_thing_t_create(0, type, query->collection);
     if (!thing)

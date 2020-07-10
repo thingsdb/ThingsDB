@@ -863,6 +863,9 @@ ssize_t ti_query_count_type(ti_query_t * query, ti_type_t * type)
             .type_id = type->type_id
     };
 
+    if (ti_type_is_wrap_only(type))
+        return 0;
+
     if (ti_query_vars_walk(query->vars, (imap_cb) query__count, &c))
         return -1;
 

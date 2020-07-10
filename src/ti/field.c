@@ -441,9 +441,28 @@ skip_nesting:
         {
             *spec |= dep->type_id;
 
-            if (&field->spec == spec && (~field->spec & TI_SPEC_NILLABLE) &&
-                field__dep_check(dep, field->type))
-                goto circular_dep;
+
+
+            if (&field->spec == spec && (~field->spec & TI_SPEC_NILLABLE))
+            {
+                if (field__dep_check(dep, field->type))
+                    goto circular_dep;
+
+                if (!ti_type_is_wrap_only(field->type) &&
+                    ti_type_is_wrap_only(dep))
+                {
+                    ex_set(e, EX_TYPE_ERROR,
+                        "invalid declaration for `%s` on type `%s`; "
+                        "when depending on a type in wrap-only mode, both "
+                        "types must have wrap-only mode enabled; either add "
+                        "a `?` to make the dependency nillable or make `%s` a "
+                        "wrap-only type as well"
+                        DOC_T_TYPE,
+                        field->name->str, field->type->name,
+                        field->type->name);
+                    return e->nr;
+                }
+            }
         }
 
         if (vec_push(&field->type->dependencies, dep))
@@ -1690,7 +1709,7 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
             field__maps_to_nested(t_field, f_field)
         );
     case TI_SPEC_SET:
-        return f_spec == TI_SPEC_SET;  /* TODO: check set */
+        return f_spec == TI_SPEC_SET;
     case TI_SPEC_REMATCH:
         return f_spec == TI_SPEC_REMATCH && ti_regex_eq(
                         t_field->condition.re->regex,

@@ -2,6 +2,7 @@
  * ti/restore.c
  */
 #include <ti.h>
+#include <tiinc.h>
 #include <ti/epkg.inline.h>
 #include <ti/event.h>
 #include <ti/restore.h>
@@ -10,6 +11,8 @@
 #include <uv.h>
 
 static uv_timer_t restore__timer;
+static _Bool restore__is_busy = false;
+static ti_user_t * restore__user;
 
 char * ti_restore_job(const char * fn, size_t n)
 {
@@ -176,6 +179,47 @@ static void restore__cb(void)
 
     /* write global status (write zero status) */
     (void) ti_nodes_write_global_status();
+
+    restore__is_busy = false;
+}
+
+static void restore__user_access(void)
+{
+    if (!restore__user)
+        return;
+
+    if (ti_users_clear())
+    {
+        log_critical("error while clearing users");
+    }
+
+    restore__user->id = 1;  /* user_id 1 is the first user */
+
+    if (ti_access_grant(&ti->access_thingsdb, restore__user, TI_AUTH_MASK_FULL))
+    {
+        log_critical("failed to restore thingsdb access");
+    }
+
+    if (ti_access_grant(&ti->access_node, restore__user, TI_AUTH_MASK_FULL))
+    {
+        log_critical("failed to restore node access");
+    }
+
+    for (vec_each(ti->collections->vec, ti_collection_t, c))
+    {
+        if (ti_access_grant(&c->access, restore__user, TI_AUTH_MASK_FULL))
+        {
+            log_critical(
+                    "failed to restore collection access ("TI_COLLECTION_ID")",
+                    c->root->id);
+        }
+    }
+
+    if (vec_push(&ti->users->vec, restore__user))
+    {
+        log_critical("failed store user");
+        ti_user_drop(restore__user);
+    }
 }
 
 static void restore__master_cb(uv_timer_t * UNUSED(timer))
@@ -187,6 +231,8 @@ static void restore__master_cb(uv_timer_t * UNUSED(timer))
         log_critical("restore ThingsDB has failed");
         return;
     }
+
+    restore__user_access();
 
     /* write global status (write loaded status) */
     (void) ti_nodes_write_global_status();
@@ -203,16 +249,27 @@ static void restore__slave_cb(uv_timer_t * UNUSED(timer))
         ti_sync_start();
 }
 
-int ti_restore_master(void)
+_Bool ti_restore_is_busy(void)
 {
+    return restore__is_busy;
+}
+
+int ti_restore_master(ti_user_t * user /* may be NULL */)
+{
+    restore__is_busy = true;
+    restore__user = ti_grab(user);
+
     if (uv_timer_init(ti.loop, &restore__timer))
         return -1;
 
     return uv_timer_start(&restore__timer, restore__master_cb, 150, 0);
 }
 
-int ti_restore_slave(void)
+int ti_restore_slave(ti_user_t * user /* may be NULL */)
 {
+    restore__is_busy = true;
+    restore__user = ti_grab(user);
+
     ti_set_and_broadcast_node_status(TI_NODE_STAT_SYNCHRONIZING);
 
     if (uv_timer_init(ti.loop, &restore__timer))

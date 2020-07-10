@@ -1341,7 +1341,7 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_restore(ti_task_t * task)
+int ti_task_add_restore(ti_task_t * task, ti_user_t * user)
 {
     size_t alloc = 64;
     ti_data_t * data;
@@ -1354,7 +1354,10 @@ int ti_task_add_restore(ti_task_t * task)
 
     msgpack_pack_map(&pk, 1);
     mp_pack_str(&pk, "restore");
-    msgpack_pack_true(&pk);
+    if (user)
+        msgpack_pack_uint64(&pk, user->id);
+    else
+        msgpack_pack_true(&pk);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

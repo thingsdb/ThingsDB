@@ -1,4 +1,4 @@
-# v0.9.7 (alpha-3)
+# v0.9.7
 
 * Fixed potential memory leak when re-using variable, issue #63.
 * Fixed a bug when wrapping a `set` type to a `list` type, issue #65.

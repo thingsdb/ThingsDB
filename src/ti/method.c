@@ -171,6 +171,8 @@ void ti_method_set_closure(ti_method_t * method, ti_closure_t * closure)
     ti_val_drop((ti_val_t *) method->def);
     ti_val_drop((ti_val_t *) method->doc);
     ti_val_unsafe_drop((ti_val_t *) method->closure);
+    method->def = NULL;
+    method->doc = NULL;
     method->closure = closure;
     ti_incref(closure);
 }

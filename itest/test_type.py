@@ -123,6 +123,19 @@ class TestType(TestBase):
             await client.query('.iris.get("upper").call(.iris);'),
             'IRIS')
 
+        await client.query('''types_info();''')
+
+        await client.query(r'''
+            mod_type('Person', 'mod', 'upper',
+                |this| {
+                    "convert to upper case";
+                    this.name.upper();
+                }
+            );
+        ''')
+
+        await client.query('''types_info();''')
+
     async def test_new_type(self, client):
         await client.query(r'''
             set_type('User', {

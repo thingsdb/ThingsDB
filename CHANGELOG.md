@@ -1,3 +1,7 @@
+# v0.9.8
+
+* Fixed bug in replacing a method with a new closure, issue #70.
+
 # v0.9.7
 
 * Fixed potential memory leak when re-using variable, issue #63.

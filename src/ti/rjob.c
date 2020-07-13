@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <ti.h>
 #include <ti/access.h>
+#include <ti/auth.h>
 #include <ti/procedure.h>
 #include <ti/procedures.h>
 #include <ti/qbind.h>
@@ -17,6 +18,69 @@
 #include <util/cryptx.h>
 #include <util/fx.h>
 #include <util/mpack.h>
+
+/*
+ * Returns 0 on success
+ * - for example: id
+ */
+static int rjob__clear_users(mp_unp_t * up)
+{
+    if (mp_skip(up) != MP_BOOL)
+    {
+        log_critical("job `clear_users`: invalid format");
+        return -1;
+    }
+
+    if (ti_users_clear())
+    {
+        log_critical("error while clearing users");
+    }
+
+    return 0;
+}
+
+static int rjob__take_access(mp_unp_t * up)
+{
+    mp_obj_t mp_id;
+    ti_user_t * user;
+
+    if (mp_next(up, &mp_id) != MP_U64)
+    {
+        log_critical("job `take_access`: invalid format");
+        return -1;
+    }
+
+    user = ti_users_get_by_id(mp_id.via.u64);
+    if (!user)
+    {
+        log_critical(
+                "job `take_access`: "TI_USER_ID" not found",
+                mp_id.via.u64);
+        return -1;
+    }
+
+    if (ti_access_grant(&ti.access_thingsdb, user, TI_AUTH_MASK_FULL))
+    {
+        log_critical("failed to take thingsdb access");
+    }
+
+    if (ti_access_grant(&ti.access_node, user, TI_AUTH_MASK_FULL))
+    {
+        log_critical("failed to take node access");
+    }
+
+    for (vec_each(ti.collections->vec, ti_collection_t, c))
+    {
+        if (ti_access_grant(&c->access, user, TI_AUTH_MASK_FULL))
+        {
+            log_critical(
+                    "failed to take collection access ("TI_COLLECTION_ID")",
+                    c->root->id);
+        }
+    }
+
+    return 0;
+}
 
 /*
  * Returns 0 on success
@@ -603,8 +667,11 @@ static int rjob__restore(mp_unp_t * up)
 {
     mp_obj_t obj;
 
-    if (mp_next(up, &obj) != MP_BOOL || obj.via.bool_ != true)
+    switch (mp_next(up, &obj))
     {
+    case MP_BOOL:
+        break;
+    default:
         log_critical("job `restore`: invalid format");
         return -1;
     }
@@ -733,6 +800,10 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
 
     switch (*mp_job.via.str.data)
     {
+    case 'c':
+        if (mp_str_eq(&mp_job, "clear_users"))
+            return rjob__clear_users(up);
+        break;
     case 'd':
         if (mp_str_eq(&mp_job, "del_collection"))
             return rjob__del_collection(up);
@@ -784,6 +855,10 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
             mp_skip(up);
             return 0;
         }
+        break;
+    case 't':
+        if (mp_str_eq(&mp_job, "take_access"))
+            return rjob__take_access(up);
         break;
     }
 

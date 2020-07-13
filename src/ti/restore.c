@@ -2,14 +2,20 @@
  * ti/restore.c
  */
 #include <ti.h>
+#include <tiinc.h>
+#include <ti/access.h>
+#include <ti/auth.h>
 #include <ti/epkg.inline.h>
 #include <ti/event.h>
+#include <ti/epkg.h>
 #include <ti/restore.h>
 #include <util/buf.h>
 #include <util/vec.h>
 #include <uv.h>
 
 static uv_timer_t restore__timer;
+static _Bool restore__is_busy = false;
+static ti_user_t * restore__user;
 
 char * ti_restore_job(const char * fn, size_t n)
 {
@@ -178,6 +184,132 @@ static void restore__cb(void)
     (void) ti_nodes_write_global_status();
 }
 
+static void restore__user_access(void)
+{
+    if (!restore__user)
+        return;
+
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+    uint64_t event_id = ti.events->next_event_id++;
+    uint64_t scope_id = 0;                      /* TI_SCOPE_THINGSDB */
+    uint64_t thing_id = 0;                      /* parent root thing */
+    uint64_t user_id = 1;                       /* overwrites the first user */
+    ti_epkg_t * epkg;
+    ti_pkg_t * pkg;
+    ti_event_t * event;
+    size_t njobs = 3 +
+            !!restore__user->encpass +
+            restore__user->tokens->n;
+
+    if (mp_sbuffer_alloc_init(&buffer, njobs * 128, sizeof(ti_pkg_t)))
+    {
+        log_critical(EX_MEMORY_S);
+        return;
+    }
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+
+    msgpack_pack_array(&pk, 2);
+    msgpack_pack_uint64(&pk, event_id);
+    msgpack_pack_uint64(&pk, scope_id);
+
+    msgpack_pack_map(&pk, 1);
+
+    msgpack_pack_uint64(&pk, thing_id);
+    msgpack_pack_array(&pk, njobs);  /* TODO : calc n jobs */
+
+    msgpack_pack_map(&pk, 1);           /* job 1 */
+
+    mp_pack_str(&pk, "clear_users");
+    msgpack_pack_true(&pk);
+
+    msgpack_pack_map(&pk, 1);           /* job 2 */
+
+    mp_pack_str(&pk, "new_user");
+    msgpack_pack_map(&pk, 3);
+
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, user_id);
+
+    mp_pack_str(&pk, "username");
+    mp_pack_strn(&pk, restore__user->name->data, restore__user->name->n);
+
+    mp_pack_str(&pk, "created_at");
+    msgpack_pack_uint64(&pk, restore__user->created_at);
+
+    msgpack_pack_map(&pk, 1);           /* job 3 */
+
+    mp_pack_str(&pk, "take_access");
+    msgpack_pack_uint64(&pk, user_id);
+
+    /* restore password (if required) */
+    if (restore__user->encpass)
+    {
+        msgpack_pack_map(&pk, 1);
+
+        mp_pack_str(&pk, "set_password");
+        msgpack_pack_map(&pk, 2);
+
+        mp_pack_str(&pk, "id");
+        msgpack_pack_uint64(&pk, user_id);
+
+        mp_pack_str(&pk, "password");
+        mp_pack_str(&pk, restore__user->encpass);
+    }
+
+    /* restore tokens (if required) */
+    for (vec_each(restore__user->tokens, ti_token_t, token))
+    {
+        msgpack_pack_map(&pk, 1);
+
+        mp_pack_str(&pk, "new_token");
+        msgpack_pack_map(&pk, 5);
+
+        mp_pack_str(&pk, "id");
+        msgpack_pack_uint64(&pk, user_id);
+
+        mp_pack_str(&pk, "key");
+        mp_pack_strn(&pk, token->key, sizeof(ti_token_key_t));
+
+        mp_pack_str(&pk, "expire_ts");
+        msgpack_pack_uint64(&pk, token->expire_ts);
+
+        mp_pack_str(&pk, "created_at");
+        msgpack_pack_uint64(&pk, token->created_at);
+
+        mp_pack_str(&pk, "description");
+        mp_pack_str(&pk, token->description);
+    }
+
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, 0, TI_PROTO_NODE_EVENT, buffer.size);
+
+    epkg = ti_epkg_create(pkg, event_id);
+    if (!epkg)
+        goto fail0;
+
+    event = ti_event_epkg(epkg);
+    if (!event)
+        goto fail1;
+
+    if (queue_push(&ti.events->queue, event))
+        goto fail2;
+
+    ti_user_drop(restore__user);
+    return;  /* success */
+
+fail2:
+    free(event);
+fail1:
+    free(epkg);
+fail0:
+    free(pkg);
+    ti.events->next_event_id--;
+    log_critical("failed to create (users) job");
+}
+
 static void restore__master_cb(uv_timer_t * UNUSED(timer))
 {
     restore__cb();
@@ -188,8 +320,12 @@ static void restore__master_cb(uv_timer_t * UNUSED(timer))
         return;
     }
 
+    restore__user_access();
+
     /* write global status (write loaded status) */
     (void) ti_nodes_write_global_status();
+
+    restore__is_busy = false;
 }
 
 static void restore__slave_cb(uv_timer_t * UNUSED(timer))
@@ -201,10 +337,20 @@ static void restore__slave_cb(uv_timer_t * UNUSED(timer))
 
     if (ti_sync_create() == 0)
         ti_sync_start();
+
+    restore__is_busy = false;
 }
 
-int ti_restore_master(void)
+_Bool ti_restore_is_busy(void)
 {
+    return restore__is_busy;
+}
+
+int ti_restore_master(ti_user_t * user /* may be NULL */)
+{
+    restore__is_busy = true;
+    restore__user = ti_grab(user);
+
     if (uv_timer_init(ti.loop, &restore__timer))
         return -1;
 
@@ -213,6 +359,8 @@ int ti_restore_master(void)
 
 int ti_restore_slave(void)
 {
+    restore__is_busy = true;
+
     ti_set_and_broadcast_node_status(TI_NODE_STAT_SYNCHRONIZING);
 
     if (uv_timer_init(ti.loop, &restore__timer))

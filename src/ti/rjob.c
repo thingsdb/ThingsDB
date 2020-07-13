@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <ti.h>
 #include <ti/access.h>
+#include <ti/auth.h>
 #include <ti/procedure.h>
 #include <ti/procedures.h>
 #include <ti/qbind.h>
@@ -24,9 +25,7 @@
  */
 static int rjob__clear_users(mp_unp_t * up)
 {
-    mp_obj_t mp_id;
-
-    if (mp_next(up, &mp_id) != MP_BOOL)
+    if (mp_skip(up) != MP_BOOL)
     {
         log_critical("job `clear_users`: invalid format");
         return -1;
@@ -35,6 +34,49 @@ static int rjob__clear_users(mp_unp_t * up)
     if (ti_users_clear())
     {
         log_critical("error while clearing users");
+    }
+
+    return 0;
+}
+
+static int rjob__take_access(mp_unp_t * up)
+{
+    mp_obj_t mp_id;
+    ti_user_t * user;
+
+    if (mp_next(up, &mp_id) != MP_U64)
+    {
+        log_critical("job `take_access`: invalid format");
+        return -1;
+    }
+
+    user = ti_users_get_by_id(mp_id.via.u64);
+    if (!user)
+    {
+        log_critical(
+                "job `take_access`: "TI_USER_ID" not found",
+                mp_id.via.u64);
+        return -1;
+    }
+
+    if (ti_access_grant(&ti.access_thingsdb, user, TI_AUTH_MASK_FULL))
+    {
+        log_critical("failed to take thingsdb access");
+    }
+
+    if (ti_access_grant(&ti.access_node, user, TI_AUTH_MASK_FULL))
+    {
+        log_critical("failed to take node access");
+    }
+
+    for (vec_each(ti.collections->vec, ti_collection_t, c))
+    {
+        if (ti_access_grant(&c->access, user, TI_AUTH_MASK_FULL))
+        {
+            log_critical(
+                    "failed to take collection access ("TI_COLLECTION_ID")",
+                    c->root->id);
+        }
     }
 
     return 0;
@@ -813,6 +855,10 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
             mp_skip(up);
             return 0;
         }
+        break;
+    case 't':
+        if (mp_str_eq(&mp_job, "take_access"))
+            return rjob__take_access(up);
         break;
     }
 

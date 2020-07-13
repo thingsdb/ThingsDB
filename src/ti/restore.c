@@ -198,10 +198,9 @@ static void restore__user_access(void)
     ti_epkg_t * epkg;
     ti_pkg_t * pkg;
     ti_event_t * event;
-    size_t njobs = 4 +
+    size_t njobs = 3 +
             !!restore__user->encpass +
-            restore__user->tokens->n +
-            ti.collections->vec->n;
+            restore__user->tokens->n;
 
     if (mp_sbuffer_alloc_init(&buffer, njobs * 128, sizeof(ti_pkg_t)))
     {
@@ -242,32 +241,10 @@ static void restore__user_access(void)
 
     msgpack_pack_map(&pk, 1);           /* job 3 */
 
-    mp_pack_str(&pk, "grant");
-    msgpack_pack_map(&pk, 3);
-
-    mp_pack_str(&pk, "scope");
-    msgpack_pack_uint64(&pk, TI_SCOPE_NODE);
-
-    mp_pack_str(&pk, "user");
+    mp_pack_str(&pk, "take_access");
     msgpack_pack_uint64(&pk, user_id);
 
-    mp_pack_str(&pk, "mask");
-    msgpack_pack_uint64(&pk, TI_AUTH_MASK_FULL);
-
-    msgpack_pack_map(&pk, 1);           /* job 4 */
-
-    mp_pack_str(&pk, "grant");
-    msgpack_pack_map(&pk, 3);
-
-    mp_pack_str(&pk, "scope");
-    msgpack_pack_uint64(&pk, TI_SCOPE_THINGSDB);
-
-    mp_pack_str(&pk, "user");
-    msgpack_pack_uint64(&pk, user_id);
-
-    mp_pack_str(&pk, "mask");
-    msgpack_pack_uint64(&pk, TI_AUTH_MASK_FULL);
-
+    /* restore password (if required) */
     if (restore__user->encpass)
     {
         msgpack_pack_map(&pk, 1);
@@ -282,6 +259,7 @@ static void restore__user_access(void)
         mp_pack_str(&pk, restore__user->encpass);
     }
 
+    /* restore tokens (if required) */
     for (vec_each(restore__user->tokens, ti_token_t, token))
     {
         msgpack_pack_map(&pk, 1);
@@ -303,23 +281,6 @@ static void restore__user_access(void)
 
         mp_pack_str(&pk, "description");
         mp_pack_str(&pk, token->description);
-    }
-
-    for (vec_each(ti.collections->vec, ti_collection_t, c))
-    {
-        msgpack_pack_map(&pk, 1);
-
-        mp_pack_str(&pk, "grant");
-        msgpack_pack_map(&pk, 3);
-
-        mp_pack_str(&pk, "scope");
-        msgpack_pack_uint64(&pk, c->root->id);
-
-        mp_pack_str(&pk, "user");
-        msgpack_pack_uint64(&pk, user_id);
-
-        mp_pack_str(&pk, "mask");
-        msgpack_pack_uint64(&pk, TI_AUTH_MASK_FULL);
     }
 
     pkg = (ti_pkg_t *) buffer.data;

@@ -42,10 +42,14 @@ class TestMigrate(TestBase):
             fn = os.path.join(BACKUP_PATH, fn)
 
             collections = await query('collections_info();')
+
             for collection in collections:
                 await query('del_collection(c);', c=collection['name'])
 
-            await query('restore(fn);', fn=fn)
+            await query('restore(fn, true);', fn=fn)
+
+            await asyncio.sleep(10)
+            await client.authenticate('admin', 'pass')
 
         client.close()
         await client.wait_closed()

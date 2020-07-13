@@ -22,6 +22,28 @@
  * Returns 0 on success
  * - for example: id
  */
+static int rjob__clear_users(mp_unp_t * up)
+{
+    mp_obj_t mp_id;
+
+    if (mp_next(up, &mp_id) != MP_BOOL)
+    {
+        log_critical("job `clear_users`: invalid format");
+        return -1;
+    }
+
+    if (ti_users_clear())
+    {
+        log_critical("error while clearing users");
+    }
+
+    return 0;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: id
+ */
 static int rjob__del_collection(mp_unp_t * up)
 {
     mp_obj_t mp_id;
@@ -603,8 +625,11 @@ static int rjob__restore(mp_unp_t * up)
 {
     mp_obj_t obj;
 
-    if (mp_next(up, &obj) != MP_BOOL || obj.via.bool_ != true)
+    switch (mp_next(up, &obj))
     {
+    case MP_BOOL:
+        break;
+    default:
         log_critical("job `restore`: invalid format");
         return -1;
     }
@@ -733,6 +758,10 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
 
     switch (*mp_job.via.str.data)
     {
+    case 'c':
+        if (mp_str_eq(&mp_job, "clear_users"))
+            return rjob__clear_users(up);
+        break;
     case 'd':
         if (mp_str_eq(&mp_job, "del_collection"))
             return rjob__del_collection(up);

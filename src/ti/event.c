@@ -47,12 +47,9 @@ ti_event_t * ti_event_create(ti_event_tp_enum tp)
     return ev;
 }
 
-ti_event_t * ti_event_initial(void)
+ti_event_t * ti_event_epkg(ti_epkg_t * epkg)
 {
     ti_event_t * ev;
-    ti_epkg_t * epkg = ti_epkg_initial();
-    if (!epkg)
-        return NULL;
     ev = ti_event_create(TI_EVENT_TP_EPKG);
     if (!ev)
     {
@@ -65,6 +62,14 @@ ti_event_t * ti_event_initial(void)
     ev->id = epkg->event_id;
 
     return ev;
+}
+
+ti_event_t * ti_event_initial(void)
+{
+    ti_epkg_t * epkg = ti_epkg_initial();
+    if (!epkg)
+        return NULL;
+    return ti_event_epkg(epkg);
 }
 
 void ti_event_drop(ti_event_t * ev)

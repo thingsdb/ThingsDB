@@ -11,6 +11,7 @@
 #include <util/vec.h>
 
 ti_event_t * ti_event_create(ti_event_tp_enum tp);
+ti_event_t * ti_event_epkg(ti_epkg_t * epkg);
 ti_event_t * ti_event_initial(void);
 void ti_event_drop(ti_event_t * ev);
 int ti_event_append_pkgs(ti_event_t * ev, ti_thing_t * thing, vec_t ** pkgs);

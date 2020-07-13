@@ -37,8 +37,7 @@ ti_epkg_t * ti_epkg_initial(void)
     char salt[CRYPTX_SALT_SZ];
     char encrypted[CRYPTX_SZ];
 
-    /* first user must have id 1, see restore */
-    assert (user_id == 1);
+    assert (user_id == 1);  /* first user must have id 1, see restore */
 
     /* collection id must be >1, see TI_SCOPE_THINGSDB and TI_SCOPE_NODE */
     assert (stuff_id > 1);

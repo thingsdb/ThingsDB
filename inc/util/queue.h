@@ -78,17 +78,17 @@ static inline void * queue_get(const queue_t * queue, size_t i)
 
 static inline void * queue_first(const queue_t * queue)
 {
-    return (queue->n) ? queue->data_[queue__i(queue, 0)] : NULL;
+    return queue->n ? queue->data_[queue__i(queue, 0)] : NULL;
 }
 
 static inline void * queue_last(const queue_t * queue)
 {
-    return (queue->n) ? queue->data_[queue__i(queue, queue->n - 1)] : NULL;
+    return queue->n ? queue->data_[queue__i(queue, queue->n - 1)] : NULL;
 }
 
 static inline void * queue_pop(queue_t * queue)
 {
-    return (queue->n) ? queue->data_[queue__i(queue, --queue->n)] : NULL;
+    return queue->n ? queue->data_[queue__i(queue, --queue->n)] : NULL;
 }
 
 static inline void * queue_shift(queue_t * queue)

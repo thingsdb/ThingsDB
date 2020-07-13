@@ -16,7 +16,7 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_access_check_err(
                     ti.access_thingsdb,
                     query->user, TI_AUTH_MASK_FULL, e) ||
-        fn_nargs_range("restore", DOC_RESTORE, 2, nargs, e) ||
+        fn_nargs_range("restore", DOC_RESTORE, 1, 2, nargs, e) ||
         ti_do_statement(query, nd->children->node, e) ||
         fn_arg_str_slow("restore", DOC_RESTORE, 1, query->rval, e))
         return e->nr;
@@ -127,6 +127,14 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
     }
 
+    if (ti_restore_is_busy())
+    {
+        ex_set(e, EX_OPERATION_ERROR,
+                "another restore is busy; wait until the pending restore is "
+                "finished and try again"DOC_RESTORE);
+        goto fail1;
+    }
+
     if (fx_is_dir(ti.store->store_path))
     {
         log_warning("removing store directory: `%s`", ti.store->store_path);
@@ -146,14 +154,6 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
     }
 
-    if (ti_restore_is_busy())
-    {
-        ex_set(e, EX_OPERATION_ERROR,
-                "another restore is busy; wait until the pending restore is "
-                "finished and try again"DOC_RESTORE);
-        goto fail1;
-    }
-
     if (ti_restore_unp(job, e))
         goto fail1;
 
@@ -167,13 +167,12 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!task)
         goto fail1;
 
-    if (ti_task_add_restore(task, overwrite_access ? query->user : NULL))
+    if (ti_task_add_restore(task))
     {
         ex_set_mem(e);
         goto fail1;
     }
 
-    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();
 
 fail1:

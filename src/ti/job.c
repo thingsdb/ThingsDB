@@ -819,10 +819,6 @@ static int job__mod_type_add(
         goto fail0;
     }
 
-    /*
-     * TODO: (COMPAT) Since version 0.9.2 (June 2020), the initial value is no
-     *       longer optional but always added to the `mod_type_add` job.
-     */
     if (obj.via.sz == 5)
     {
         if (mp_skip(up) != MP_STR )

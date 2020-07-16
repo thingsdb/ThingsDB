@@ -113,6 +113,22 @@ int fx_mkdir_n(const char * path, size_t n)
     return rc;
 }
 
+int fx_unlink_n(const char * str, size_t n)
+{
+    int rc;
+    char * tmp = strndup(str, n);
+    if (!tmp)
+        return -1;
+
+    rc = unlink(tmp);
+    if (rc)
+    {
+        log_errno_file("cannot delete file", errno, tmp);
+    }
+    free(tmp);
+    return rc;
+}
+
 int fx_rmdir(const char * path)
 {
     DIR * d = opendir(path);

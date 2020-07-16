@@ -756,7 +756,8 @@ int ti_field_mod_force(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e)
     if (field__init(field, e))
         goto undo;
 
-    if (prev_nested_spec != field->nested_spec)
+    if (!ti_type_is_wrap_only(field->type) &&
+        prev_nested_spec != field->nested_spec)
     {
         (void) imap_walk(
             field->type->types->collection->things,
@@ -795,6 +796,9 @@ int ti_field_mod(
     field->spec_raw = spec_raw;
     if (field__init(field, e))
         goto undo;
+
+    if (ti_type_is_wrap_only(field->type))
+        goto done;
 
     switch (ti__spec_check_mod(
             prev_spec,
@@ -873,6 +877,7 @@ success:
             (imap_cb) field__mod_nested_cb,
             field);
     }
+done:
     ti_incref(spec_raw);
     ti_val_unsafe_drop((ti_val_t *) prev_spec_raw);
     ti_condition_destroy(prev_condition, prev_spec);

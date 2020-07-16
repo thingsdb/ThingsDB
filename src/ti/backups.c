@@ -5,6 +5,7 @@
 #include <ti.h>
 #include <ti/backup.h>
 #include <ti/backups.h>
+#include <ti/raw.inline.h>
 #include <ti/val.inline.h>
 #include <util/buf.h>
 #include <util/fx.h>
@@ -67,6 +68,7 @@ void ti_backups_upd_status(uint64_t backup_id, int rc, buf_t * buf)
 {
     uint64_t now = util_now_tsec();
     ti_backup_t * backup;
+    ti_raw_t * last_fn;
 
     if (rc)
         log_error("backup result: %.*s", (int) buf->len, buf->data);
@@ -84,6 +86,36 @@ void ti_backups_upd_status(uint64_t backup_id, int rc, buf_t * buf)
     backup->result_msg = strndup(buf->data, buf->len);
 
     backup->result_code = rc;
+
+    if (rc || (
+            (last_fn = queue_last(backup->files)) &&
+            ti_raw_eq(last_fn, backup->work_fn)))
+    {
+        ti_val_drop((ti_val_t *) backup->work_fn);
+    }
+    else
+    {
+        if (backup->files->n == backup->max_files)
+        {
+            ti_raw_t * first_fn = queue_shift(backup->files);
+
+            assert (first_fn);  /* max_files > 0 so we always have some file */
+
+            /* delete the file if possible */
+            (void) fx_unlink_n((const char *) first_fn->data, first_fn->n);
+
+            /* drop the file name */
+            ti_val_unsafe_drop((ti_val_t *) first_fn);
+        }
+
+        /*
+         * The queue always has enough space since the queue_size is at
+         * least equal to max_files.
+         */
+        QUEUE_push(backup->files, backup->work_fn);
+    }
+
+    backup->work_fn = NULL;  /* either dropped or moved to the queue */
 
     if (backup->repeat)
     {
@@ -169,18 +201,24 @@ static int backups__store(void)
     for (omap_each(iter, ti_backup_t, backup))
     {
         result_msg = backup->result_msg ? backup->result_msg : empty;
-        if (msgpack_pack_array(&pk, 8) ||
+        if (msgpack_pack_array(&pk, 10) ||
             msgpack_pack_uint64(&pk, backup->id) ||
             msgpack_pack_uint64(&pk, backup->created_at) ||
             msgpack_pack_uint64(&pk, backup->timestamp) ||
             msgpack_pack_uint64(&pk, backup->repeat) ||
+            msgpack_pack_uint64(&pk, backup->max_files) ||
             mp_pack_str(&pk, backup->fn_template) ||
             (backup->result_msg
                     ? mp_pack_str(&pk, result_msg)
                     : msgpack_pack_nil(&pk)) ||
             mp_pack_bool(&pk, backup->scheduled) ||
-            msgpack_pack_fix_int32(&pk, backup->result_code)
+            msgpack_pack_fix_int32(&pk, backup->result_code) ||
+            msgpack_pack_array(&pk, backup->files->n)
         ) goto fail;
+
+        for (queue_each(backup->files, ti_raw_t, fn))
+            if (mp_pack_strn(&pk, fn->data, fn->n))
+                goto fail;
     }
 
     log_debug("stored backup schedules to file: `%s`", backups->fn);
@@ -228,12 +266,14 @@ int ti_backups_restore(void)
 {
     int rc = -1;
     fx_mmap_t fmap;
-    size_t i;
-    mp_obj_t obj, mp_ver, mp_id, mp_ts, mp_repeat, mp_fn,
-             mp_msg, mp_plan, mp_code, mp_created;
+    size_t i, ii;
+    mp_obj_t obj, arr, mp_ver, mp_id, mp_ts, mp_repeat, mp_template,
+             mp_fn, mp_msg, mp_plan, mp_code, mp_created, mp_max_files;
     mp_unp_t up;
     ti_backup_t * backup;
     uint64_t now = util_now_tsec();
+    queue_t * files_queue;
+    ti_raw_t * raw_fn;
 
     /* prevents a compiler warning */
     mp_msg.via.str.n = 0;
@@ -257,24 +297,76 @@ int ti_backups_restore(void)
 
     for (i = obj.via.sz; i--;)
     {
-        if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 8 ||
-            mp_next(&up, &mp_id) != MP_U64 ||
-            mp_next(&up, &mp_created) != MP_U64 ||
-            mp_next(&up, &mp_ts) != MP_U64 ||
-            mp_next(&up, &mp_repeat) != MP_U64 ||
-            mp_next(&up, &mp_fn) != MP_STR ||
-            mp_next(&up, &mp_msg) <= 0  ||
-            mp_next(&up, &mp_plan) != MP_BOOL ||
-            mp_next(&up, &mp_code) != MP_I64
-        ) goto fail1;
+        if (mp_next(&up, &obj) != MP_ARR)
+            goto fail1;
+
+        switch (obj.via.sz)
+
+        {
+        case 8:
+            if (mp_next(&up, &mp_id) != MP_U64 ||
+                mp_next(&up, &mp_created) != MP_U64 ||
+                mp_next(&up, &mp_ts) != MP_U64 ||
+                mp_next(&up, &mp_repeat) != MP_U64 ||
+                mp_next(&up, &mp_template) != MP_STR ||
+                mp_next(&up, &mp_msg) <= 0  ||
+                mp_next(&up, &mp_plan) != MP_BOOL ||
+                mp_next(&up, &mp_code) != MP_I64
+            ) goto fail1;
+            mp_max_files.tp = MP_U64;
+            mp_max_files.via.u64 = mp_repeat.via.u64
+                    ? TI_BACKUP_DEFAULT_MAX_FILES
+                    : 1;
+            files_queue = queue_new(mp_max_files.via.u64);
+            if (!files_queue)
+                goto fail1;
+            break;
+        case 10:
+            if (mp_next(&up, &mp_id) != MP_U64 ||
+                mp_next(&up, &mp_created) != MP_U64 ||
+                mp_next(&up, &mp_ts) != MP_U64 ||
+                mp_next(&up, &mp_repeat) != MP_U64 ||
+                mp_next(&up, &mp_max_files) != MP_U64 ||
+                mp_next(&up, &mp_template) != MP_STR ||
+                mp_next(&up, &mp_msg) <= 0  ||
+                mp_next(&up, &mp_plan) != MP_BOOL ||
+                mp_next(&up, &mp_code) != MP_I64 ||
+                mp_next(&up, &arr) != MP_ARR
+            ) goto fail1;
+            files_queue = queue_new(arr.via.sz);
+            if (!files_queue)
+                goto fail1;
+
+            for (ii = arr.via.sz; ii--;)
+            {
+                if (mp_next(&up, &mp_fn) != MP_STR ||
+                    !(raw_fn = ti_str_create(
+                            (const char *) mp_fn.via.str.data,
+                            mp_fn.via.str.n)))
+                {
+                    queue_destroy(
+                            files_queue,
+                            (queue_destroy_cb) ti_val_unsafe_drop);
+                    goto fail1;
+                }
+
+                QUEUE_push(files_queue, raw_fn);
+            }
+
+            break;
+        default:
+            goto fail1;
+        }
 
         backup = ti_backups_new_backup(
                 mp_id.via.u64,
-                mp_fn.via.str.data,
-                mp_fn.via.str.n,
+                mp_template.via.str.data,
+                mp_template.via.str.n,
                 mp_ts.via.u64,
                 mp_repeat.via.u64,
-                mp_created.via.u64);
+                mp_max_files.via.u64,
+                mp_created.via.u64,
+                files_queue);
 
         if (backup)
         {
@@ -286,6 +378,10 @@ int ti_backups_restore(void)
             if (backup->repeat)
                 while (backup->timestamp < now)
                     backup->timestamp += backup->repeat;
+        }
+        else
+        {
+            queue_destroy(files_queue, (queue_destroy_cb) ti_val_unsafe_drop);
         }
     }
 
@@ -417,7 +513,7 @@ stop:
     return varr;
 }
 
-void ti_backups_del_backup(uint64_t backup_id, ex_t * e)
+void ti_backups_del_backup(uint64_t backup_id, _Bool delete_files, ex_t * e)
 {
     ti_backup_t * backup;
     uv_mutex_lock(backups->lock);
@@ -425,6 +521,10 @@ void ti_backups_del_backup(uint64_t backup_id, ex_t * e)
     backup = omap_rm(backups->omap, backup_id);
     if (backup)
     {
+        if (delete_files)
+            for (queue_each(backup->files, ti_raw_t, fn))
+                (void) fx_unlink_n((const char *) fn->data, fn->n);
+
         ti_backup_destroy(backup);
         backups->changed = true;
     }
@@ -476,7 +576,9 @@ ti_backup_t * ti_backups_new_backup(
         size_t fn_templare_n,
         uint64_t timestamp,
         uint64_t repeat,
-        uint64_t created_at)
+        uint64_t max_files,
+        uint64_t created_at,
+        queue_t * files)
 {
     ti_backup_t * backup = ti_backup_create(
             id,
@@ -484,7 +586,9 @@ ti_backup_t * ti_backups_new_backup(
             fn_templare_n,
             timestamp,
             repeat,
-            created_at);
+            max_files,
+            created_at,
+            files);
     if (!backup)
         return NULL;
 

@@ -304,6 +304,11 @@ int ti_backups_restore(void)
 
         {
         case 8:
+            /*
+             * TODO: (COMPAT) Before v0.9.9 backups are stored with a
+             *       max_files value and files queue. This code may be
+             *       removed once we want to drop backwards compatibility.
+             */
             if (mp_next(&up, &mp_id) != MP_U64 ||
                 mp_next(&up, &mp_created) != MP_U64 ||
                 mp_next(&up, &mp_ts) != MP_U64 ||
@@ -320,6 +325,7 @@ int ti_backups_restore(void)
             files_queue = queue_new(mp_max_files.via.u64);
             if (!files_queue)
                 goto fail1;
+            backups->changed = true;
             break;
         case 10:
             if (mp_next(&up, &mp_id) != MP_U64 ||

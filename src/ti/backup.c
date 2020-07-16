@@ -1,14 +1,16 @@
 /*
  * ti/backup.h
  */
-#include <ti/backup.h>
 #include <stdlib.h>
 #include <string.h>
-#include <util/util.h>
+#include <ti.h>
+#include <ti/backup.h>
+#include <ti/raw.inline.h>
+#include <ti/val.inline.h>
+#include <time.h>
 #include <util/buf.h>
 #include <util/fx.h>
-#include <ti.h>
-#include <time.h>
+#include <util/util.h>
 
 #define TEMPLACE_CMP(pt__, end__, s__, sz__) \
 *(pt__) == *(s__) && (pt__ + sz__) <= end__ && memcmp(pt__, s__, sz__) == 0
@@ -19,7 +21,9 @@ ti_backup_t * ti_backup_create(
         size_t fn_templare_n,
         uint64_t timestamp,
         uint64_t repeat,
-        uint64_t created_at)
+        uint64_t max_files,
+        uint64_t created_at,
+        queue_t * files)
 {
     ti_backup_t * backup = malloc(sizeof(ti_backup_t));
     if (!backup)
@@ -28,18 +32,21 @@ ti_backup_t * ti_backup_create(
     backup->id = id;
     backup->fn_template = strndup(fn_template, fn_templare_n);
     backup->result_msg = NULL;
+    backup->work_fn = NULL;
+    backup->files = NULL;
     backup->timestamp = timestamp;
     backup->repeat = repeat;
+    backup->max_files = max_files;
     backup->scheduled = true;
     backup->result_code = 0;
     backup->created_at = created_at;
-
     if (!backup->fn_template)
     {
         ti_backup_destroy(backup);
         return NULL;
     }
 
+    backup->files = files;  /* set only when everything is successful */
     return backup;
 }
 
@@ -49,6 +56,8 @@ void ti_backup_destroy(ti_backup_t * backup)
         return;
     free(backup->fn_template);
     free(backup->result_msg);
+    ti_val_drop((ti_val_t *) backup->work_fn);
+    queue_destroy(backup->files, (queue_destroy_cb) ti_val_unsafe_drop);
     free(backup);
 }
 
@@ -70,11 +79,11 @@ char * backup__next_run(ti_backup_t * backup)
 
 int ti_backup_info_to_pk(ti_backup_t * backup, msgpack_packer * pk)
 {
-    size_t n = 3;
+    size_t n = 4;
     if (backup->scheduled)
         n += 1;
     if (backup->repeat)
-        n += 1;
+        n += 2;
     if (backup->result_msg)
         n += 2;
     if (
@@ -97,7 +106,9 @@ int ti_backup_info_to_pk(ti_backup_t * backup, msgpack_packer * pk)
 
     if (backup->repeat && (
         mp_pack_str(pk, "repeat") ||
-        msgpack_pack_uint64(pk, backup->repeat)
+        msgpack_pack_uint64(pk, backup->repeat) ||
+        mp_pack_str(pk, "max_files") ||
+        msgpack_pack_uint64(pk, backup->max_files)
     )) return -1;
 
     if (backup->result_msg && (
@@ -107,6 +118,14 @@ int ti_backup_info_to_pk(ti_backup_t * backup, msgpack_packer * pk)
         mp_pack_str(pk, "result_code") ||
         msgpack_pack_int(pk, backup->result_code)
     )) return -1;
+
+    if (mp_pack_str(pk, "files") ||
+        msgpack_pack_array(pk, backup->files->n)
+    ) return -1;
+
+    for (queue_each(backup->files, ti_raw_t, fn))
+        if (mp_pack_strn(pk, fn->data, fn->n))
+            return -1;
 
     return 0;
 }
@@ -199,6 +218,8 @@ char * ti_backup_job(ti_backup_t * backup)
 
     buf_append(&buf, pv, pt - pv);
 
+    backup->work_fn = ti_str_create(buf.data + offset, buf.len - offset);
+
     if (path_n > 1)
         (void) fx_mkdir_n(buf.data + offset, path_n - offset);
 
@@ -206,7 +227,7 @@ char * ti_backup_job(ti_backup_t * backup)
     buf_append_str(&buf, ti.cfg->storage_path);
     buf_append_str(&buf, "\" . 2>&1");
 
-    if (buf_write(&buf, '\0'))
+    if (!backup->work_fn || buf_write(&buf, '\0'))
     {
         free(buf.data);
         return NULL;

@@ -124,6 +124,22 @@ class TestAdvanced(TestBase):
                 mod_type('X', 'wpo', true);
             ''')
 
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `mod_type` with task `add` takes at most 4 '
+                r'arguments when used on a type with wrap-only mode enabled'):
+            await client.query(r'''
+                mod_type('_Foo1', 'add', 'x', 'int', ||1);
+            ''')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `mod_type` with task `mod` takes at most 4 '
+                r'arguments when used on a type with wrap-only mode enabled'):
+            await client.query(r'''
+                mod_type('_Foo1', 'mod', 'wrap', 'int', ||1);
+            ''')
+
     async def test_conditions(self, client):
         with self.assertRaisesRegex(
                 ValueError,

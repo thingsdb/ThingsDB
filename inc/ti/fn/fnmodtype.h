@@ -370,6 +370,14 @@ static void type__add(
 
     if (nargs == 5)
     {
+        if (ti_type_is_wrap_only(type))
+        {
+            ex_set(e, EX_NUM_ARGUMENTS,
+                    "function `%s` takes at most 4 arguments when used on "
+                    "a type with wrap-only mode enabled"DOC_MOD_TYPE_ADD,
+                    fnname);
+            goto fail0;
+        }
         /*
          * Statements must be parsed before creating a new field since
          * potentially generated instances of this type must be without the
@@ -393,7 +401,7 @@ static void type__add(
         dval = query->rval;
         query->rval = NULL;
     }
-    else
+    else if (!ti_type_is_wrap_only(type))
     {
         dval = ti_field_dval(field);
         if (!dval)
@@ -401,6 +409,10 @@ static void type__add(
             ex_set_mem(e);
             goto fail1;
         }
+    }
+    else
+    {
+        dval = NULL;
     }
 
     /*
@@ -416,13 +428,16 @@ static void type__add(
 
     if (closure)
     {
+        /* we must have a default value when having a closure */
+        assert (dval);
+
         if (ti_closure_try_wse(closure, query, e) ||
             ti_closure_inc(closure, query, e))
             goto fail2;
     }
 
     /* here we create the ID's for optional new things */
-    if (ti_val_gen_ids(dval))
+    if (dval && ti_val_gen_ids(dval))
     {
         ex_set_mem(e);
         goto fail3;
@@ -435,6 +450,13 @@ static void type__add(
     {
         ex_set_mem(e);
         goto fail3;
+    }
+
+    if (ti_type_is_wrap_only(type))
+    {
+        /* we are finished when we do not have a default value to set */
+        assert (dval == NULL);
+        return;
     }
 
     modtype__addv_t addvjob = {
@@ -820,6 +842,15 @@ static void type__mod(
         }
         else
         {
+            if (ti_type_is_wrap_only(type))
+            {
+                ex_set(e, EX_NUM_ARGUMENTS,
+                        "function `%s` takes at most 4 arguments when used on "
+                        "a type with wrap-only mode enabled"DOC_MOD_TYPE_MOD,
+                        fnname);
+                goto fail;
+            }
+
             (void) type__mod_using_callback(
                     fnname,
                     query,

@@ -1,3 +1,8 @@
+# v0.9.9 (alpha-0)
+
+* Fixed bug in using `mod_type(..)` on a type with wrap-only mode enabled, issue #72.
+* Improvements on managing backup files, issue #71.
+
 # v0.9.8
 
 * Fixed bug in replacing a method with a new closure, issue #70.

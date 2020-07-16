@@ -53,9 +53,9 @@ class TestBackup(TestBase):
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `new_backup` takes at most 3 arguments '
-                'but 4 were given'):
-            await client.query('new_backup("a", 2, 3, 4);')
+                'function `new_backup` takes at most 4 arguments '
+                'but 5 were given'):
+            await client.query('new_backup("a", 2, 3, 4, 5);')
 
         backup_id = await client.query(r'''
             new_backup('/tmp/test.tar.gz');

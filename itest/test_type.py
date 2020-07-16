@@ -1513,6 +1513,16 @@ class TestType(TestBase):
                 type_assert(try(E{}), 'E');
             ''')
 
+        await client0.query(r'''
+            mod_type('A', 'add', 'x', 'B');
+        ''')
+
+        await client0.query(r'''
+            mod_type('A', 'mod', 'x', 'C');
+        ''')
+
+        await asyncio.sleep(1.6)
+
 
 if __name__ == '__main__':
     run_test(TestType())

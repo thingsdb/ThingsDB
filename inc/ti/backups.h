@@ -11,6 +11,7 @@ typedef struct ti_backups_s ti_backups_t;
 #include <ti/val.t.h>
 #include <ti/varr.t.h>
 #include <util/omap.h>
+#include <util/queue.h>
 #include <uv.h>
 
 int ti_backups_create(void);
@@ -23,7 +24,7 @@ size_t ti_backups_scheduled(void);
 size_t ti_backups_pending(void);
 _Bool ti_backups_require_away(void);
 ti_varr_t * ti_backups_info(void);
-void ti_backups_del_backup(uint64_t backup_id, ex_t * e);
+void ti_backups_del_backup(uint64_t backup_id, _Bool delete_files, ex_t * e);
 _Bool ti_backups_has_backup(uint64_t backup_id);
 ti_val_t * ti_backups_backup_as_mpval(uint64_t backup_id, ex_t * e);
 ti_backup_t * ti_backups_new_backup(
@@ -32,7 +33,9 @@ ti_backup_t * ti_backups_new_backup(
         size_t fn_templare_n,
         uint64_t timestamp,
         uint64_t repeat,
-        uint64_t created_at);
+        uint64_t max_files,
+        uint64_t created_at,
+        queue_t * files);
 
 
 struct ti_backups_s

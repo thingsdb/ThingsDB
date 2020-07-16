@@ -339,7 +339,7 @@ int ti_backups_restore(void)
                 mp_next(&up, &mp_code) != MP_I64 ||
                 mp_next(&up, &arr) != MP_ARR
             ) goto fail1;
-            files_queue = queue_new(arr.via.sz);
+            files_queue = queue_new(mp_max_files.via.u64);
             if (!files_queue)
                 goto fail1;
 

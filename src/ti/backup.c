@@ -254,9 +254,11 @@ char * ti_backup_gcloud_job(ti_backup_t * backup)
 
     buf_append_fmt(
             &buf,
-            "gsutil -o 'Boto:num_retries=1' cp %.*s %.*s 2>&1;",
+            "gsutil -o 'Boto:num_retries=1' cp %.*s %.*s 2>&1; "
+            "rm %.*s 2>&1;",
             (int) fnbuf.len, fnbuf.data,
-            (int) gsbuf.len, gsbuf.data);
+            (int) gsbuf.len, gsbuf.data,
+            (int) fnbuf.len, fnbuf.data);
 
     if (!backup->work_fn || buf_write(&buf, '\0'))
     {

@@ -1,6 +1,6 @@
-# v0.9.9 (alpha-1)
+# v0.9.9
 
-* Fixed bug in using `mod_type(..)` on a type with wrap-only mode enabled, issue #72.
+* Fixed bug in `mod_type(..)` when wrap-only mode is enabled, issue #72.
 * Improvements on managing backup files, issue #71.
 * Added Google Cloud Storage backup support, issue #74.
 

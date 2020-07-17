@@ -307,6 +307,7 @@ int ti_cfg_create(void)
     cfg->storage_path = !homedir || !sysuser || strcmp(sysuser, "root") == 0
             ? strdup("/var/lib/thingsdb/")
             : fx_path_join(homedir, ".thingsdb/");
+    cfg->gcloud_key_file = NULL;
     cfg->pipe_client_name = NULL;
     cfg->zone = 0;
     cfg->query_duration_warn = 0;
@@ -332,6 +333,7 @@ void ti_cfg_destroy(void)
     free(cfg->bind_node_addr);
     free(cfg->pipe_client_name);
     free(cfg->storage_path);
+    free(cfg->gcloud_key_file);
     free(cfg);
     cfg = ti.cfg = NULL;
 }
@@ -373,7 +375,12 @@ int ti_cfg_parse(const char * cfg_file)
                     parser,
                     cfg_file,
                     "pipe_client_name",
-                    &cfg->pipe_client_name)))
+                    &cfg->pipe_client_name)) ||
+            (rc = cfg__str(
+                    parser,
+                    cfg_file,
+                    "gcloud_key_file",
+                    &cfg->gcloud_key_file)))
         goto exit_parse;
 
     cfg__port(parser, cfg_file, "listen_client_port", &cfg->client_port);

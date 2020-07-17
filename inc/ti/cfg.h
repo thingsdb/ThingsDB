@@ -33,6 +33,7 @@ struct ti_cfg_s
     char * bind_node_addr;
     char * pipe_client_name;
     char * storage_path;                /* with trailing `/` */
+    char * gcloud_key_file;
     double query_duration_warn;
     double query_duration_error;
 };

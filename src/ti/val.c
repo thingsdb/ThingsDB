@@ -57,6 +57,7 @@ static ti_val_t * val__sset;
 static ti_val_t * val__sthing;
 static ti_val_t * val__swthing;
 static ti_val_t * val__tar_gz_str;
+static ti_val_t * val__gs_str;
 
 
 #define VAL__BUF_SZ 128
@@ -479,13 +480,14 @@ int ti_val_init_common(void)
     val__sthing = (ti_val_t *) ti_str_from_str(TI_VAL_THING_S);
     val__swthing = (ti_val_t *) ti_str_from_str("<thing>");
     val__tar_gz_str = (ti_val_t *) ti_str_from_str(".tar.gz");
+    val__gs_str = (ti_val_t *) ti_str_from_str("gs://");
 
     if (!val__empty_bin || !val__empty_str || !val__snil || !val__strue ||
         !val__sfalse || !val__sbool || !val__sint || !val__sfloat ||
         !val__sstr || !val__sbytes || !val__sinfo || !val__sregex ||
         !val__serror || !val__sclosure || !val__slist || !val__stuple ||
         !val__sset || !val__sthing || !val__swthing || !val__tar_gz_str ||
-        !val__sany)
+        !val__sany || !val__gs_str)
     {
         ti_val_drop_common();
         return -1;
@@ -516,6 +518,7 @@ void ti_val_drop_common(void)
     ti_val_drop(val__sthing);
     ti_val_drop(val__swthing);
     ti_val_drop(val__tar_gz_str);
+    ti_val_drop(val__gs_str);
 }
 
 void ti_val_destroy(ti_val_t * val)
@@ -617,6 +620,11 @@ ti_val_t * ti_val_borrow_any_str(void)
 ti_val_t * ti_val_borrow_tar_gz_str(void)
 {
     return val__tar_gz_str;
+}
+
+ti_val_t * ti_val_borrow_gs_str(void)
+{
+    return val__gs_str;
 }
 
 ti_val_t * ti_val_empty_bin(void)

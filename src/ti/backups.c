@@ -10,12 +10,150 @@
 #include <util/buf.h>
 #include <util/fx.h>
 #include <util/util.h>
+#include <util/vec.h>
 
 static const char * backups__fn             = "node_backups.mp";
 
-
 static ti_backups_t * backups;
 static ti_backups_t backups_;
+
+static int backups__gcd_rm(ti_raw_t * fn)
+{
+    int rc = -1;
+    char buffer[512];
+    FILE * fp;
+    buf_t buf;
+    buf_init(&buf);
+
+    if (ti.cfg->gcloud_key_file)
+        buf_append_fmt(
+                &buf,
+                "gcloud auth activate-service-account "
+                "--quiet --key-file \"%s\" 2>&1; ",
+                ti.cfg->gcloud_key_file);
+
+    buf_append_fmt(
+            &buf,
+            "gsutil -o 'Boto:num_retries=1' rm %.*s 2>&1;",
+            (int) fn->n, (char *) fn->data);
+
+    if (buf_write(&buf, '\0'))
+        goto fail0;
+
+    fp = popen(buf.data, "r");
+    if (!fp)
+        goto fail0;
+
+    while (fgets(buffer, sizeof(buffer), fp) != NULL)
+    {
+        size_t sz = strlen(buffer);
+        if (sz)
+            log_debug(buffer);
+    }
+
+    rc = pclose(fp);
+
+fail0:
+    free(buf.data);
+    return rc;
+}
+
+static void backups__rm(uv_work_t * work)
+{
+    ti_raw_t * gs_str = (ti_raw_t *) ti_val_borrow_gs_str();
+    vec_t * vec = work->data;
+
+    for (vec_each(vec, ti_raw_t, fn))
+    {
+        if (ti_raw_startswith(fn, gs_str))
+            (void) backups__gcd_rm(fn);
+        else
+            (void) fx_unlink_n((const char *) fn->data, fn->n);
+    }
+}
+
+static void backups__rm_finish(uv_work_t * work, int status)
+{
+    vec_t * vec = work->data;
+
+    if (status)
+        log_error(uv_strerror(status));
+
+    vec_destroy(vec, (vec_destroy_cb) ti_val_unsafe_drop);
+    free(work);
+}
+
+static void backups__delete_files(ti_backup_t * backup)
+{
+    vec_t * vec;
+    uv_work_t * work;
+
+    if (!backup->files->n)
+        return;
+
+    vec = vec_new(backup->files->n);
+    if (!vec)
+        goto fail0;
+
+    for (queue_each(backup->files, ti_raw_t, fn))
+    {
+        ti_incref(fn);
+        VEC_push(vec, fn);
+    }
+
+    work = malloc(sizeof(uv_work_t));
+    if (!work)
+        goto fail1;
+
+    work->data = vec;
+
+    if (uv_queue_work(ti.loop, work, backups__rm, backups__rm_finish))
+        goto fail2;
+
+    return;
+
+fail2:
+    free(work);
+fail1:
+    vec_destroy(vec, (vec_destroy_cb) ti_val_unsafe_drop);
+fail0:
+    log_error("failed to remove files for backup id %u", backup->id);
+    return;
+}
+
+static void backup__delete_file(ti_raw_t * fn)
+{
+    vec_t * vec;
+    uv_work_t * work;
+
+    vec = vec_new(1);
+    if (!vec)
+        goto fail0;
+
+    ti_incref(fn);
+    VEC_push(vec, fn);
+
+    work = malloc(sizeof(uv_work_t));
+    if (!work)
+        goto fail1;
+
+    work->data = vec;
+
+    if (uv_queue_work(ti.loop, work, backups__rm, backups__rm_finish))
+        goto fail2;
+
+    return;
+
+fail2:
+    free(work);
+fail1:
+    vec_destroy(vec, (vec_destroy_cb) ti_val_unsafe_drop);
+fail0:
+    log_error("failed to remove backup file: `%.*s`",
+            (int) fn->n,
+            (char *) fn->data);
+    return;
+}
 
 int ti_backups_create(void)
 {
@@ -63,7 +201,6 @@ static ti_backup_t * backups__get_pending(uint64_t ts, uint64_t id)
     return NULL;
 }
 
-
 void ti_backups_upd_status(uint64_t backup_id, int rc, buf_t * buf)
 {
     uint64_t now = util_now_tsec();
@@ -101,8 +238,7 @@ void ti_backups_upd_status(uint64_t backup_id, int rc, buf_t * buf)
 
             assert (first_fn);  /* max_files > 0 so we always have some file */
 
-            /* delete the file if possible */
-            (void) fx_unlink_n((const char *) first_fn->data, first_fn->n);
+            backup__delete_file(first_fn);
 
             /* drop the file name */
             ti_val_unsafe_drop((ti_val_t *) first_fn);
@@ -161,6 +297,9 @@ void backups__run(uint64_t backup_id, const char * job)
             uint64_t now = util_now_tsec();
             struct tm * tm_info;
             tm_info = gmtime((const time_t *) &now);
+
+            free(buf.data);
+            buf_init(&buf);
 
             buf_append_str(&buf, "success - ");
 
@@ -274,6 +413,7 @@ int ti_backups_restore(void)
     uint64_t now = util_now_tsec();
     queue_t * files_queue;
     ti_raw_t * raw_fn;
+    _Bool set_changed = false;
 
     /* prevents a compiler warning */
     mp_msg.via.str.n = 0;
@@ -325,7 +465,7 @@ int ti_backups_restore(void)
             files_queue = queue_new(mp_max_files.via.u64);
             if (!files_queue)
                 goto fail1;
-            backups->changed = true;
+            set_changed = true;
             break;
         case 10:
             if (mp_next(&up, &mp_id) != MP_U64 ||
@@ -391,6 +531,8 @@ int ti_backups_restore(void)
         }
     }
 
+    /* set here since a new backup always sets the value to true */
+    backups->changed = set_changed;
     rc = 0;
 
 fail1:
@@ -428,7 +570,9 @@ int ti_backups_backup(void)
         if (backup)
         {
             backup_id = backup->id;
-            job = ti_backup_job(backup);
+            job = ti_backup_is_gcloud(backup)
+                    ? ti_backup_gcloud_job(backup)
+                    : ti_backup_job(backup);
         }
 
         uv_mutex_unlock(backups->lock);
@@ -528,8 +672,7 @@ void ti_backups_del_backup(uint64_t backup_id, _Bool delete_files, ex_t * e)
     if (backup)
     {
         if (delete_files)
-            for (queue_each(backup->files, ti_raw_t, fn))
-                (void) fx_unlink_n((const char *) fn->data, fn->n);
+            backups__delete_files(backup);
 
         ti_backup_destroy(backup);
         backups->changed = true;

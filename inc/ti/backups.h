@@ -42,6 +42,8 @@ struct ti_backups_s
 {
     omap_t * omap;
     uv_mutex_t * lock;
+    vec_t * files_to_remove;
+    uv_mutex_t * files_to_remove_lock;
     char * fn;
     uint64_t next_id;
     _Bool changed;

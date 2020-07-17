@@ -155,9 +155,125 @@ ti_val_t * ti_backup_as_mpval(ti_backup_t * backup)
     return (ti_val_t *) raw;
 }
 
+_Bool ti_backup_is_gcloud(ti_backup_t * backup)
+{
+    char * s = backup->fn_template;
+
+    return  s[0] == 'g' &&
+            s[1] == 's' &&
+            s[2] == ':' &&
+            s[3] == '/' &&
+            s[4] == '/';
+}
+
+char * ti_backup_gcloud_job(ti_backup_t * backup)
+{
+    struct tm * tm_info;
+    uint64_t now = util_now_tsec();
+    const size_t event_sz = strlen("{EVENT}");
+    const size_t date_sz = strlen("{DATE}");
+    const size_t time_sz = strlen("{TIME}");
+    char buffer[512];
+    buf_t buf;
+    buf_t fnbuf;
+    buf_t gsbuf;
+    char * pv = backup->fn_template;
+    char * pt = backup->fn_template;
+    char * end = pt + strlen(backup->fn_template);
+
+    buf_init(&buf);
+    buf_init(&fnbuf);
+    buf_init(&gsbuf);
+
+    if (buf_append_fmt(
+            &fnbuf,
+            "/tmp/_tmpbackup_%"PRIu32"_%"PRIu64".tar.gz",
+            ti.node->id,
+            backup->id))
+        return NULL;
+
+    tm_info = gmtime((const time_t *) &now);
+
+    buf_append_str(
+            &buf,
+            "tar "
+            "--exclude=.lock "
+            "--exclude=*.tar.gz "
+            "--exclude=*backup* "
+            "--exclude=lost+found "
+            "-czf \"");
+
+    buf_append(&buf, fnbuf.data, fnbuf.len);
+
+    while(*pt)
+    {
+        if (TEMPLACE_CMP(pt, end, "{EVENT}", event_sz))
+        {
+            buf_append(&gsbuf, pv, pt - pv);
+            sprintf(buffer, "%"PRIu64, ti.node->cevid);
+            buf_append_str(&gsbuf, buffer);
+            pt += event_sz;
+            pv = pt;
+            continue;
+        }
+        if (TEMPLACE_CMP(pt, end, "{DATE}", date_sz))
+        {
+            buf_append(&gsbuf, pv, pt - pv);
+            strftime(buffer, sizeof(buffer), "%Y%m%d", tm_info);
+            buf_append_str(&gsbuf, buffer);
+            pt += date_sz;
+            pv = pt;
+            continue;
+        }
+        if (TEMPLACE_CMP(pt, end, "{TIME}", time_sz))
+        {
+            buf_append(&gsbuf, pv, pt - pv);
+            strftime(buffer, sizeof(buffer), "%H%M%S", tm_info);
+            buf_append_str(&gsbuf, buffer);
+            pt += time_sz;
+            pv = pt;
+            continue;
+        }
+
+        ++pt;
+    }
+
+    buf_append(&gsbuf, pv, pt - pv);
+
+    ti_val_drop((ti_val_t *) backup->work_fn);
+    backup->work_fn = ti_str_create(gsbuf.data, gsbuf.len);
+
+    buf_append_fmt(&buf, "\" -C \"%s\" . 2>&1; ", ti.cfg->storage_path);
+
+    if (ti.cfg->gcloud_key_file)
+        buf_append_fmt(
+                &buf,
+                "gcloud auth activate-service-account "
+                "--quiet --key-file \"%s\" 2>&1; ",
+                ti.cfg->gcloud_key_file);
+
+    buf_append_fmt(
+            &buf,
+            "gsutil -o 'Boto:num_retries=1' cp %.*s %.*s 2>&1;",
+            (int) fnbuf.len, fnbuf.data,
+            (int) gsbuf.len, gsbuf.data);
+
+    if (!backup->work_fn || buf_write(&buf, '\0'))
+    {
+        ti_val_drop((ti_val_t *) backup->work_fn);
+        free(buf.data);
+        backup->work_fn = NULL;
+        buf.data = NULL;
+    }
+
+    free(fnbuf.data);
+    free(gsbuf.data);
+
+    return buf.data;
+}
+
 char * ti_backup_job(ti_backup_t * backup)
 {
-    char * data;
     struct tm * tm_info;
     uint64_t now = util_now_tsec();
     const size_t event_sz = strlen("{EVENT}");
@@ -222,6 +338,7 @@ char * ti_backup_job(ti_backup_t * backup)
 
     buf_append(&buf, pv, pt - pv);
 
+    ti_val_drop((ti_val_t *) backup->work_fn);
     backup->work_fn = ti_str_create(buf.data + offset, buf.len - offset);
 
     if (path_n > 1)
@@ -229,15 +346,13 @@ char * ti_backup_job(ti_backup_t * backup)
 
     buf_append_str(&buf, "\" -C \"");
     buf_append_str(&buf, ti.cfg->storage_path);
-    buf_append_str(&buf, "\" . 2>&1");
+    buf_append_str(&buf, "\" . 2>&1;");
 
     if (!backup->work_fn || buf_write(&buf, '\0'))
     {
         free(buf.data);
-        return NULL;
+        buf.data = NULL;
     }
 
-    data = buf.data;
-    buf.data = NULL;
-    return data;
+    return buf.data;
 }

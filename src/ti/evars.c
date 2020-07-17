@@ -102,4 +102,7 @@ void ti_evars_parse(void)
     evars__abs_double(
             "THINGSDB_QUERY_DURATION_ERROR",
             &ti.cfg->query_duration_error);
+    evars__str(
+            "THINGSDB_GCLOUD_KEY_FILE",
+            &ti.cfg->gcloud_key_file);
 }

@@ -29,6 +29,10 @@ ti_backup_t * ti_backup_create(
     if (!backup)
         return NULL;
 
+    /* files queue should be able to hold at least `max_files` number
+     * of files. */
+    assert (files->sz >= max_files);
+
     backup->id = id;
     backup->fn_template = strndup(fn_template, fn_templare_n);
     backup->result_msg = NULL;

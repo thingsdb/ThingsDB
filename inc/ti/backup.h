@@ -45,7 +45,7 @@ struct ti_backup_s
     char * fn_template;     /* {EVENT} {DATE} {TIME} */
     char * result_msg;      /* last status message */
     ti_raw_t * work_fn;     /* current backup file name */
-    queue_t * files;        /* successful backup files */
+    queue_t * files;        /* ti_raw_t, successful files, size: >=max_files */
     size_t max_files;       /* max files queue size */
     _Bool scheduled;        /* true when the backup is scheduled to run */
     int result_code;        /* last status code (0 = OK) */

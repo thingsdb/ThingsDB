@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: thingsdb
+  labels:
+    app: thingsdb
+spec:
+  selector:
+    matchLabels:
+      app: thingsdb
+  serviceName: thingsdb
+  replicas: 3
+  updateStrategy:
+    type: RollingUpdate
+  podManagementPolicy: Parallel
+  template:
+    metadata:
+      labels:
+        app: thingsdb
+    spec:
+      terminationGracePeriodSeconds: 90
+      dnsConfig:
+        searches:
+        - thingsdb.default.svc.cluster.local
+      containers:
+      - name: thingsdb
+        image: thingsdb/node:gcloud-v0.9.9
+        imagePullPolicy: Always
+        args: ["--deploy"]
+        env:
+        - name: THINGSDB_HTTP_STATUS_PORT
+          value: "8080"
+        - name: THINGSDB_HTTP_API_PORT
+          value: "9210"
+        - name: THINGSDB_STORAGE_PATH
+          value: /mnt/thingsdb/
+        - name: THINGSDB_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: THINGSDB_GCLOUD_KEY_FILE
+          value: /mnt/config/service_account.json
+        ports:
+        - name: status
+          containerPort: 8080
+        - name: client
+          containerPort: 9200
+        - name: http
+          containerPort: 9210
+        - name: node
+          containerPort: 9220
+        volumeMounts:
+        - name: data
+          mountPath: /mnt/thingsdb
+        - name: ti-config-volume
+          mountPath: /mnt/config
+        resources:
+          requests:
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /healthy
+            port: 8080
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 2
+      volumes:
+        - name: ti-config-volume
+          configMap:
+            name: ti-config
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 20Gi

@@ -8,6 +8,11 @@ First an overview of all the kubernetes component we will use:
 - [ConfigMap](#configmap) - For service account credentials to Google Cloud Storage where we will store backups.
 - [StatefulSet](#statefulset) - For deploying ThingsDB nodes.
 
+Next we will configure ThingsDB and schedule backups.
+
+- [Configure ThingsDB](#configure-thingsdb) - Configure the ThingsDB to use the tree nodes.
+- [Schedule backups](#schedule-backups) - Create daily and weekly ThingsDB backups in Google Cloud Storage.
+
 
 ## Service
 

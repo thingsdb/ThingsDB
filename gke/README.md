@@ -298,5 +298,46 @@ The output will be something similar to this:
 ]
 ```
 
+## Schedule backups
+
+Now we are ready to use ThingsDB but before actually creating collections we are gonna configure backup scheduling like we promised.
+
+In this example we will create a daily backup schedule on node 0 and a weekly schedule on node 1. This is just an example and both schedules
+could be running on the same node, or more or different schedules may be planned as you like.
+
+### Create a daily backup schedule
+
+We will keep out daily backups for 14 days, so after two weeks the backup file will be removed from Google Cloud Storage by ThingsDB automatically.
+
+```bash
+curl --location --request POST 'http://localhost:9210/node/0' \
+--header 'Content-Type: application/json' \
+--user admin:pass \
+--data-raw '{
+    "type": "query",
+    "code": "new_backup('gs://thingsdb-backups/node0_{DATE}_{TIME}.tar.gz', '2000-01-01 2:00', 3600*24, 14);"
+}'
+```
+
+This will immediately create a backup since we have chosen a start time in the past (2000-01-01...). Once the backup is made, the next backup will be scheduled at 2:00 AM and will repeat every 24 hours.
+As a scope we used `/node/0` which tells to run the query on node with id 0.
+
+
+### Create a weekly backup schedule
+
+To create weekly backups we do almost the same as above but change the repeat time to 7 days and we start at `2000-01-02 2:00`. This happens to be a sunday so the weekly backups will be made each sunday at 2:00 AM. You do not have to worry about having two schedules on sunday since ThingsDB will not run the backups simultaneous thus always keeps at least two nodes available for other work. This means that one of the two backups will be created after the other one is finished.
+
+```bash
+curl --location --request POST 'http://localhost:9210/node/1' \
+--header 'Content-Type: application/json' \
+--user admin:pass \
+--data-raw '{
+    "type": "query",
+    "code": "new_backup('gs://thingsdb-backups/node1_{DATE}_{TIME}.tar.gz', '2000-01-02 2:00', 3600*24*7, 14);"
+}'
+```
+
+## More...
+
 It is also a good idea to remove the default `admin` password and switch to token authentication.
 Documentation on how to create a token can be found here: https://docs.thingsdb.net/v0/connect/authentication/#token-authentication

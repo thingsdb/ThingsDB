@@ -182,7 +182,7 @@ spec:
 ```
 
 
-Apply the StatefulSet: (the file may be copied from above of can be downloaded [here](statefulset.yaml))
+Apply the StatefulSet: (the file may be copied from above or can be downloaded [here](statefulset.yaml))
 
 ```
 kubectl apply -f statefulset.yaml
@@ -198,7 +198,7 @@ kubectl port-forward thingsdb-0 9210:9210
 
 This will bind the local port `9210` to the HTTP port on the first ThingsDB node and allows for sending POST requests to query ThingsDB.
 
-> **Tip:** As an alternative, you might want bind to the client port `9200` and use [ThingsDB GUI](github.com/thingsdb/ThingsGUI/releases/latest) instead of the CURL commands below.
+**Tip:** As an alternative, you might want bind to client port `9200` and use [ThingsDB GUI](http://github.com/thingsdb/ThingsGUI/releases/latest) instead of the CURL commands below.
 
 ```bash
 curl --location --request POST 'http://localhost:9210/thingsdb' \
@@ -206,11 +206,11 @@ curl --location --request POST 'http://localhost:9210/thingsdb' \
 --user admin:pass \
 --data-raw '{
     "type": "query",
-    "code": "'Hello ThingsDB on Kubernetes!';"
+    "code": "'Hello ThingsDB on GKE!';"
 }'
 ```
 
-If everything is working, you should see `Hello ThingsDB on Kubernetes!` as a response.
+If everything is working, you should see `Hello ThingsDB on GKE!` as a response.
 
 Now lets look at the log of thingsdb node 1:
 
@@ -242,7 +242,8 @@ curl --location --request POST 'http://localhost:9210/thingsdb' \
 
 Repeat the step above for node 2.
 
-It might take a minute for the nodes to become ready and this status can be viewed using the [nodes_info()](https://docs.thingsdb.net/v0/node-api/nodes_info/) function.
+It might take a minute for the nodes to become ready. To view the status of the nodes the [nodes_info()](https://docs.thingsdb.net/v0/node-api/nodes_info/) function can be used.
+Note that we use `/node` for this request since the nodes_info(..) function must be used from the node scope.
 
 ```bash
 curl --location --request POST 'http://localhost:9210/node' \

@@ -302,6 +302,8 @@ The output will be something similar to this:
 
 Now we are ready to use ThingsDB but before actually creating collections we are gonna configure backup scheduling like we promised.
 
+First create a bucket `thingsdb-backups` in Google Cloud Storage: https://console.cloud.google.com/storage/browser
+
 In this example we will create a daily backup schedule on node 0 and a weekly schedule on node 1. This is just an example and both schedules
 could be running on the same node, or more or different schedules may be planned as you like.
 

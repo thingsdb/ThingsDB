@@ -128,7 +128,7 @@ spec:
       - name: thingsdb
         image: thingsdb/node:gcloud-v0.9.9  # Latest version at the time of writing
         imagePullPolicy: Always
-        args: ["--deploy"]
+        args: ["--deploy"]  # Tells ThingsDB it will be deployed in kubernetes
         env:
         - name: THINGSDB_HTTP_STATUS_PORT
           value: "8080"

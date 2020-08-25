@@ -1,3 +1,7 @@
+# v0.9.10
+
+* Fixed bug in function `filter(..)` when used on a list, issue #76.
+
 # v0.9.9
 
 * Fixed bug in `mod_type(..)` when wrap-only mode is enabled, issue #72.

@@ -135,6 +135,9 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             {
                 ti_incref(v);
                 VEC_push(varr->vec, v);
+
+                if (ti_val_is_thing(v))
+                    varr->flags |= TI_VFLAG_ARR_MHT;
             }
 
             ti_val_unsafe_drop(query->rval);

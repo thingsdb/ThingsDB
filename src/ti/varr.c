@@ -215,20 +215,6 @@ int ti_varr_set(ti_varr_t * to, void ** v, size_t idx, ex_t * e)
     return 0;
 }
 
-_Bool ti_varr_has_things(ti_varr_t * varr)
-{
-    if (ti_varr_may_have_things(varr))
-    {
-        for (vec_each(varr->vec, ti_val_t, val))
-            if (val->tp == TI_VAL_THING)
-                return true;
-
-        /* Remove the flag since no `things` are found in the array */
-        varr->flags &= ~TI_VFLAG_ARR_MHT;
-    }
-    return false;
-}
-
 int ti_varr_to_list(ti_varr_t ** varr)
 {
     ti_varr_t * list = *varr;

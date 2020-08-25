@@ -34,6 +34,15 @@ class TestAdvanced(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_filter_things(self, client):
+        res = await client.query(r'''
+            set_type('X', {b: 'int'});
+            a = [X{b:1}, X{b:2}, X{b:3}];
+            a = a.filter( |x| x.b > 1 );
+            type_count('X');
+        ''')
+        self.assertEqual(res, 2)
+
     async def test_wpo(self, client):
         await client.query(r'''
             set_type('Person', {

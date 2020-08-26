@@ -36,6 +36,17 @@ class TestAdvanced(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_set_assign(self, client):
+        res = await client.query(r'''
+            t = {
+                s: set({}, {})
+            };
+
+            s = t.s;
+            s;
+        ''')
+        self.assertEqual(res, [{}, {}])
+
     async def test_set_type_create(self, client):
         with self.assertRaisesRegex(
                 OperationError,

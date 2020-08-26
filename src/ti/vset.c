@@ -117,19 +117,19 @@ static int vset__walk_assign(ti_thing_t * t, ti_vset_t * vset)
 
 int ti_vset_assign(ti_vset_t ** vsetaddr)
 {
-    ti_vset_t * vset = *vsetaddr;
+    ti_vset_t * nvset, * ovset = *vsetaddr;
 
-    if (vset->ref == 1)
+    if (ovset->ref == 1)
         return 0;  /* with only one reference we do not require a copy */
 
-    if (!(vset = ti_vset_create()))
+    if (!(nvset = ti_vset_create()))
         return -1;
 
-    if (imap_walk(vset->imap, (imap_cb) vset__walk_assign, vset))
+    if (imap_walk(ovset->imap, (imap_cb) vset__walk_assign, nvset))
         return -1;  /* vset is destroyed if walk has failed */
 
-    ti_decref(*vsetaddr);
-    *vsetaddr = vset;
+    ti_decref(ovset);
+    *vsetaddr = nvset;
 
     return 0;
 }

@@ -868,7 +868,7 @@ void ti_do_drop(void)
     for (size_t i = 0, n = TOTAL_KEYWORDS; i < n; ++i)
     {
         do__fixed_t * fixed = &do__fixed_mapping[i];
-        ti_val_unsafe_drop(fixed->val);
+        ti_val_drop(fixed->val);  /* might be uninitialized at early stop */
     }
 }
 

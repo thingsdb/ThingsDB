@@ -7,6 +7,7 @@ import configparser
 import psutil
 import logging
 import io
+import re
 import threading
 from .vars import THINGSDB_BIN
 from .vars import THINGSDB_MEMCHECK
@@ -165,6 +166,32 @@ class Node:
             os.mkdir(self.storage_path)
         except FileExistsError:
             pass
+
+    def version(self):
+        command = THINGSDB_MEMCHECK + [
+            THINGSDB_BIN,
+            '--version'
+        ]
+
+        p = subprocess.Popen(
+            command,
+            cwd=os.getcwd(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        out, err = p.communicate()
+        assert p.returncode == 0
+
+        r = re.compile(r'.*(version: [0-9]+\.[0-9]+\.[0-9]+).*')
+        o = str(out)
+        m = r.match(o)
+        assert m
+
+        if THINGSDB_NODE_OUTPUT is True or (
+                isinstance(THINGSDB_NODE_OUTPUT, int) and
+                self.n == THINGSDB_NODE_OUTPUT):
+            print(Color.node(self.n, m.group(1)))
 
     def start(self, init=None, secret=None):
         self.queue = asyncio.Queue()

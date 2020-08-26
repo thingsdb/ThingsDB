@@ -232,9 +232,21 @@ int ti_type_init_from_thing(ti_type_t * type, ti_thing_t * thing, ex_t * e)
     assert (thing->collection);  /* type are only created within a collection
                                     scope and all things inside a collection
                                     scope have the collection set; */
-    return ti_thing_is_object(thing)
+    assert (type->fields->n == 0);  /* no fields should exist */
+
+    int enr = ti_thing_is_object(thing)
             ? type__init_thing_o(type, thing, e)
             : type__init_thing_t(type, thing, e);
+
+    if (enr)
+    {
+        /* cleanup fields on error */
+        ti_field_t * field;
+        while ((field = vec_last(type->fields)))
+            ti_field_remove(field);
+    }
+
+    return enr;
 }
 
 /*

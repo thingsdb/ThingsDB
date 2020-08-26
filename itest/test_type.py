@@ -1523,6 +1523,29 @@ class TestType(TestBase):
 
         await asyncio.sleep(1.6)
 
+    async def test_err_handling(self, client0):
+        with self.assertRaisesRegex(
+                TypeError,
+                r'invalid declaration for `x` on type `A`; '
+                r'type `set` cannot contain a nillable type;'):
+            await client0.query(r'''
+                new_type('A');
+                new_type('B');
+                set_type('A', {
+                    a: 'int',
+                    x: '{B?}'
+                });
+            ''')
+
+        # type A should be created as an empty type
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await asyncio.sleep(1.6)
+
+        for client in (client0, client1):
+            self.assertEqual(await client.query('A{}'), {})
+
 
 if __name__ == '__main__':
     run_test(TestType())

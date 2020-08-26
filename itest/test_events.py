@@ -61,6 +61,10 @@ class TestEvents(TestBase):
         client2.set_default_scope('//stuff')
         client2.id = 9
 
+        # Added sleep() to test if this prevents a timeout-error which
+        # may sometimes happen on the `mquery` below
+        await asyncio.sleep(0.2)
+
         for _ in range(x):
             await self.mquery(mq, client0, client1, client2)
 

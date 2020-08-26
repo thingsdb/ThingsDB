@@ -402,6 +402,10 @@ class TestCollectionFunctions(TestBase):
 }
 '''.strip())
 
+        self.assertEqual(await client.query(r'''
+            (|| range(10)[0:9:2]).def();
+        '''), "|| range(10)[0:9:2]")
+
     async def test_code(self, client):
         with self.assertRaisesRegex(
                 LookupError,

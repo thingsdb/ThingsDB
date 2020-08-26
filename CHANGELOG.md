@@ -3,6 +3,7 @@
 * Fixed bug in nested `set_type(..)` calls when the are linked, issue #79.
 * Fixed bug when using the `--version` argument flag, issue #77.
 * Fixed error handling when using the `set_type(..)` function, issue #78.
+* Fixed bug in assigning a `set` from a thing to a varialble, issue #80.
 
 # v0.9.10
 

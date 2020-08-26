@@ -1,3 +1,9 @@
+# v0.9.11
+
+* Fixed bug in nested `set_type(..)` calls when the are linked, issue #79.
+* Fixed bug when using the `--version` argument flag, issue #77.
+* Fixed error handling when using the `set_type(..)` function, issue #78.
+
 # v0.9.10
 
 * Fixed bug in function `filter(..)` when used on a list, issue #76.

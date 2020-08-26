@@ -43,7 +43,6 @@ static int fmt__index(ti_fmt_t * fmt, cleri_node_t * nd)
         if (buf_write(&fmt->buf, '['))
             return -1;
 
-
         for (; c; c = c->next)
         {
             if (c->node->cl_obj->gid == CLERI_GID_STATEMENT)

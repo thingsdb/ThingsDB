@@ -36,6 +36,50 @@ class TestAdvanced(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_set_type_create(self, client):
+        with self.assertRaisesRegex(
+                OperationError,
+                r'function `set_type` can only be used on a type without '
+                r'active instances; 1 active instance '
+                r'of type `AA` has been found;'):
+            await client.query(r'''
+                new_type('AA');
+
+                set_type('AA', {
+                    a: 'int',
+                }, {
+                    .aa = AA{};
+                    false
+                });
+            ''')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'invalid declaration for `a` on type `B`; '
+                r'cannot assign type `A` while the type is being used;'):
+            await client.query(r'''
+                set_type('A', {
+                    x: 'int',
+                }, {
+                    set_type('B', {
+                        a: 'A'
+                    }, true);
+                    true;
+                });
+            ''')
+
+        res = await client.query(r'''
+            .del('aa');
+            set_type('AA', {
+                a: 'int',
+            }, {
+                aa = AA{};
+                false
+            });
+            AA{};
+        ''')
+        self.assertEqual(res, {'a': 0})
+
     async def test_filter_things(self, client):
         res = await client.query(r'''
             set_type('X', {b: 'int'});

@@ -36,10 +36,11 @@ struct ti_type_s
     ti_raw_t * rname;       /* name as raw type */
     ti_raw_t * rwname;      /* wrapped name as raw type */
     ti_types_t * types;
-    vec_t * dependencies;   /* ti_type_t; contains type where this type is
-                               depended on. type may be more than one inside
-                               this vector but a self dependency is not
-                               included, order is not important */
+    vec_t * dependencies;   /* ti_type_t/ti_enum_t; contains type and enum
+                               where this type is depended on. A type or enum
+                               may be more than once inside this vector
+                               but a self dependency is not included,
+                               order is not important */
     vec_t * fields;         /* ti_field_t */
     vec_t * methods;        /* ti_method_t */
     imap_t * t_mappings;    /* from_type_id / vec_t * with ti_field_t */

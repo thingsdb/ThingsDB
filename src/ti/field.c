@@ -407,12 +407,12 @@ skip_nesting:
         ti_type_t * dep = ti_types_by_strn(field->type->types, str, n);
         if (!dep)
         {
-            dep = (ti_type_t *) ti_enums_by_strn(
+            ti_enum_t * enum_ = ti_enums_by_strn(
                     field->type->types->collection->enums,
                     str,
                     n);
 
-            if (!dep)
+            if (!enum_)
             {
                 if (field__spec_is_ascii(field, str, n, e))
                     ex_set(e, EX_TYPE_ERROR,
@@ -423,25 +423,49 @@ skip_nesting:
                 return e->nr;
             }
 
+            /* assign the enum as dependency */
+            dep = (ti_type_t *) enum_;
+
+            if (enum_->flags & TI_ENUM_FLAG_LOCK)
+            {
+                ex_set(e, EX_OPERATION_ERROR,
+                    "invalid declaration for `%s` on type `%s`; "
+                    "cannot assign enum type `%s` while the enum is being used"
+                    DOC_T_TYPE,
+                    field->name->str, field->type->name,
+                    enum_->name);
+
+                return e->nr;
+            }
+
             if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET)
             {
                 ex_set(e, EX_TYPE_ERROR,
                     "invalid declaration for `%s` on type `%s`; "
-                    "type `"TI_VAL_SET_S"` cannot contain enum type `%.*s`"
+                    "type `"TI_VAL_SET_S"` cannot contain enum type `%s`"
                     DOC_T_TYPE,
                     field->name->str, field->type->name,
-                    (int) n, str);
+                    enum_->name);
                 return e->nr;
             }
 
-            /* When an enum is cast to a type, the enum_id becomes type_id */
-            *spec |= dep->type_id | TI_ENUM_ID_FLAG;
+            *spec |= enum_->enum_id | TI_ENUM_ID_FLAG;
         }
         else
         {
+            if (dep->flags & TI_TYPE_FLAG_LOCK)
+            {
+                ex_set(e, EX_OPERATION_ERROR,
+                    "invalid declaration for `%s` on type `%s`; "
+                    "cannot assign type `%s` while the type is being used"
+                    DOC_T_TYPE,
+                    field->name->str, field->type->name,
+                    dep->name);
+
+                return e->nr;
+            }
+
             *spec |= dep->type_id;
-
-
 
             if (&field->spec == spec && (~field->spec & TI_SPEC_NILLABLE))
             {

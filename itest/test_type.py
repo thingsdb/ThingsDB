@@ -1546,6 +1546,22 @@ class TestType(TestBase):
         for client in (client0, client1):
             self.assertEqual(await client.query('A{}'), {})
 
+    async def test_init_create(self, client0):
+        await client0.query(r'''
+            set_type('X', {
+                a: new_type('A'),
+                b: new_type('B'),
+            });
+        ''')
+
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await asyncio.sleep(1.6)
+
+        for client in (client0, client1):
+            self.assertEqual(await client.query('X{}'), {'a': {}, 'b': {}})
+
 
 if __name__ == '__main__':
     run_test(TestType())

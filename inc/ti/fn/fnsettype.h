@@ -10,6 +10,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     uint64_t ts_now = util_now_tsec();
     cleri_children_t * child = nd->children;
     _Bool is_new_type = false;
+    _Bool wpo = false;
 
     if (fn_not_collection_scope("set_type", query, e) ||
         fn_nargs_range("set_type", DOC_SET_TYPE, 2, 3, nargs, e) ||
@@ -86,6 +87,21 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_arg_thing("set_type", DOC_SET_TYPE, 2, query->rval, e))
         goto fail1;
 
+    thing = (ti_thing_t *) query->rval;
+    query->rval = NULL;
+
+    if (nargs == 3)
+    {
+        if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+            fn_arg_bool("set_type", DOC_SET_TYPE, 3, query->rval, e))
+            goto fail2;
+
+        wpo = ti_val_as_bool(query->rval);
+
+        ti_val_drop(query->rval);
+        query->rval = NULL;
+    }
+
     n = ti_query_count_type(query, type);
     if (n)
     {
@@ -97,24 +113,11 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 "instances; %zd active instance%s of type `%s` %s been found"
                 DOC_SET_TYPE,
                 n, n == 1 ? "" : "s", type->name, n == 1 ? "has" : "have");
-        goto fail1;
+        goto fail2;
     }
-
-    thing = (ti_thing_t *) query->rval;
-    query->rval = NULL;
 
     if (nargs == 3)
     {
-        _Bool wpo;
-        if (ti_do_statement(query, (child = child->next->next)->node, e) ||
-            fn_arg_bool("set_type", DOC_SET_TYPE, 3, query->rval, e))
-            goto fail2;
-
-        wpo = ti_val_as_bool(query->rval);
-
-        ti_val_drop(query->rval);
-        query->rval = NULL;
-
         if (wpo && ti_type_required_by_non_wpo(type, e))
             goto fail2;
 
@@ -148,7 +151,6 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     is_new_type = false;  /* set always to false to prevent cleanup */
     query->rval = (ti_val_t *) ti_nil_get();
-
 
 fail2:
     ti_val_unsafe_drop((ti_val_t *) thing);

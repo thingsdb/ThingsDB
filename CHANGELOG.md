@@ -5,6 +5,7 @@
 * Fixed error handling when using the `set_type(..)` function, issue #78.
 * Fixed bug in assigning a `set` from a thing to a variable, issue #80.
 * Fixed misssing colon `:` character in slices, issue #81.
+* Never set the `any` type as nillable for quick compare, issue #82.
 
 # v0.9.10
 

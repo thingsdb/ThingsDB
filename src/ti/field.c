@@ -312,7 +312,7 @@ skip_nesting:
     case 'a':
         if (field__cmp(str, n, "any"))
         {
-            *spec |= TI_SPEC_ANY;
+            *spec = TI_SPEC_ANY;  /* overwrite */
             goto found;
         }
         break;
@@ -1103,7 +1103,7 @@ static int field__varr_assign(
         ti_thing_t * parent,
         ex_t * e)
 {
-    if ((field->nested_spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY ||
+    if (field->nested_spec == TI_SPEC_ANY ||
         (*varr)->vec->n == 0 ||
         (*varr)->spec == field->nested_spec)
         goto done;
@@ -1166,7 +1166,7 @@ done:
 
 static _Bool field__maps_arr_to_arr(ti_field_t * field, ti_varr_t * varr)
 {
-    if ((field->nested_spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY ||
+    if (field->nested_spec == TI_SPEC_ANY ||
         varr->vec->n == 0 ||
         varr->spec == field->nested_spec)
         return true;
@@ -1548,7 +1548,7 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     assert ((t_field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ARR ||
             (t_field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET);
 
-    if ((t_field->nested_spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY)
+    if (t_field->nested_spec == TI_SPEC_ANY)
         return true;
 
     if (    (~t_field->nested_spec & TI_SPEC_NILLABLE) &&
@@ -1652,7 +1652,7 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
     assert (t_field->name == f_field->name);
 
     /* return 0 when `to` accepts `any` */
-    if ((t_field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY)
+    if (t_field->spec == TI_SPEC_ANY)
         return true;
 
     /* if `to` does not accept `nil`, and from does, this is an error */

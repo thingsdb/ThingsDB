@@ -206,8 +206,6 @@ int ti_init(void)
     return (ti.fn && ti.node_fn) ? ti_store_create() : -1;
 }
 
-
-
 int ti_build_node(void)
 {
     char salt[CRYPTX_SALT_SZ];

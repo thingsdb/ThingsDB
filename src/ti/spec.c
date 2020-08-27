@@ -324,7 +324,7 @@ ti_spec_mod_enum ti__spec_check_mod(
         ti_condition_via_t ocondition,
         ti_condition_via_t ncondition)
 {
-    if ((nspec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ANY)
+    if (nspec == TI_SPEC_ANY)
         return TI_SPEC_MOD_SUCCESS;
 
     if ((ospec & TI_SPEC_NILLABLE) && (~nspec & TI_SPEC_NILLABLE))

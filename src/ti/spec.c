@@ -214,7 +214,7 @@ ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t * val)
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
     case TI_SPEC_STR_RANGE:
-        assert (0);
+        assert (0);  /* not supported on nested specification */
         return false;
     }
 

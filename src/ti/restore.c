@@ -218,7 +218,7 @@ static void restore__user_access(void)
     msgpack_pack_map(&pk, 1);
 
     msgpack_pack_uint64(&pk, thing_id);
-    msgpack_pack_array(&pk, njobs);  /* TODO : calc n jobs */
+    msgpack_pack_array(&pk, njobs);
 
     msgpack_pack_map(&pk, 1);           /* job 1 */
 

@@ -78,8 +78,11 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = (ti_val_t *) thing;
     ti_incref(thing);
 
-    if (thing->id && !(task = ti_task_get_task(query->ev, thing, e)))
+    if (thing->id && !(task = ti_task_get_task(query->ev, thing)))
+    {
+        ex_set_mem(e);
         goto fail1;
+    }
 
     if (ti_thing_is_object(thing))
     {

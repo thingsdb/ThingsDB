@@ -267,11 +267,8 @@ static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (thing->id)
     {
         assert (query->collection);  /* only in a collection scope */
-        task = ti_task_get_task(query->ev, thing, e);
-        if (!task)
-            goto done;
-
-        if (ti_task_add_set(task, wprop.name, *wprop.val))
+        task = ti_task_get_task(query->ev, thing);
+        if (!task || ti_task_add_set(task, wprop.name, *wprop.val))
             ex_set_mem(e);
     }
 
@@ -1214,14 +1211,20 @@ static inline int do__enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (enum_nd->data)
     {
         ti_member_t * member = enum_nd->data;
-        cleri_node_t * name_nd = enum_nd->children->next->node;
+        cleri_node_t * mname_nd = enum_nd->children->next->node;
+        cleri_node_t * ename_nd = nd->children->node;
 
         /* enum_ is set to NULL when the enum is removed;
-         * the name must be checked to support a rename of the member name;
+         * the name from both the enum and member must be checked to support
+         * renaming.
          */
         if (member->enum_ &&
-            member->name->n == name_nd->len &&
-            !memcmp(member->name->str, name_nd->str, name_nd->len))
+            ti_raw_eq_strn(
+                    member->enum_->rname,
+                    ename_nd->str,
+                    ename_nd->len) &&
+            member->name->n == mname_nd->len &&
+            !memcmp(member->name->str, mname_nd->str, mname_nd->len))
         {
             ti_incref(member);
             query->rval = (ti_val_t *) member;

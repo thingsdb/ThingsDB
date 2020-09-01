@@ -42,7 +42,7 @@ static int do__f_del_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_enum_try_lock(enum_, e))
         return e->nr;
 
-    task = ti_task_get_task(query->ev, query->collection->root, e);
+    task = ti_task_get_task(query->ev, query->collection->root);
     if (!task || ti_task_add_del_enum(task, enum_))
     {
         ex_set_mem(e);  /* task cleanup is not required */

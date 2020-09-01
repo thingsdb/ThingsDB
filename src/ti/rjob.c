@@ -603,11 +603,9 @@ static int rjob__rename_collection(mp_unp_t * up)
     rname = ti_str_create(mp_name.via.str.data, mp_name.via.str.n);
     if (!rname)
     {
-        ex_set_mem(&e);
+        log_critical(EX_MEMORY_S);
         return -1;
     }
-
-    assert (e.nr == 0);
 
     (void) ti_collection_rename(collection, rname, &e);
     ti_val_drop((ti_val_t *) rname);
@@ -647,13 +645,11 @@ static int rjob__rename_user(mp_unp_t * up)
     rname = ti_str_create(mp_name.via.str.data, mp_name.via.str.n);
     if (!rname)
     {
-        ex_set_mem(&e);
+        log_critical(EX_MEMORY_S);
         return -1;
     }
 
-    assert (e.nr == 0);
-
-    ti_user_rename(user, rname, &e);
+    (void) ti_user_rename(user, rname, &e);
     ti_val_drop((ti_val_t *) rname);
 
     return e.nr;

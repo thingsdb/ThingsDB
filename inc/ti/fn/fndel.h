@@ -51,11 +51,8 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (thing->id)
     {
-        task = ti_task_get_task(query->ev, thing, e);
-        if (!task)
-            goto fail1;
-
-        if (ti_task_add_del(task, rname))
+        task = ti_task_get_task(query->ev, thing);
+        if (!task || ti_task_add_del(task, rname))
         {
             ex_set_mem(e);
             goto fail1;

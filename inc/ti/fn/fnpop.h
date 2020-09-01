@@ -23,18 +23,19 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (varr->parent && varr->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, varr->parent, e);
-        if (!task)
-            goto restore;
-
-        if (ti_task_add_splice(
+        ti_task_t * task = ti_task_get_task(query->ev, varr->parent);
+        if (!task || ti_task_add_splice(
                 task,
                 varr->name,
                 NULL,
                 varr->vec->n,
                 1,
                 0))
+        {
             ex_set_mem(e);
+            goto restore;
+        }
+
     }
     else
         ti_thing_may_push_gc((ti_thing_t *) query->rval);

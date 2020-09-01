@@ -259,11 +259,8 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
     if (varr->parent && varr->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, varr->parent, e);
-        if (!task)
-            goto fail1;
-
-        if (ti_task_add_splice(
+        ti_task_t * task = ti_task_get_task(query->ev, varr->parent);
+        if (!task || ti_task_add_splice(
                 task,
                 varr->name,
                 varr,
@@ -394,11 +391,8 @@ static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
     if (varr->parent && varr->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, varr->parent, e);
-        if (!task)
-            goto fail1;
-
-        if (ti_task_add_splice(
+        ti_task_t * task = ti_task_get_task(query->ev, varr->parent);
+        if (!task || ti_task_add_splice(
                 task,
                 varr->name,
                 varr,
@@ -551,15 +545,9 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
     if (thing->id)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, thing, e);
-        if (!task)
-            goto fail1;
-
-        if (ti_task_add_set(task, wprop.name, *wprop.val))
-        {
+        ti_task_t * task = ti_task_get_task(query->ev, thing);
+        if (!task || ti_task_add_set(task, wprop.name, *wprop.val))
             ex_set_mem(e);
-            goto fail1;
-        }
     }
 
 fail1:

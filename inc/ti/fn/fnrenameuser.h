@@ -41,11 +41,8 @@ static int do__f_rename_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();
 
-    task = ti_task_get_task(query->ev, ti.thing0, e);
-    if (!task)
-        return e->nr;
-
-    if (ti_task_add_rename_user(task, user))
+    task = ti_task_get_task(query->ev, ti.thing0);
+    if (!task || ti_task_add_rename_user(task, user))
         ex_set_mem(e);  /* task cleanup is not required */
 
     return e->nr;

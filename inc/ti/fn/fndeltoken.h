@@ -32,11 +32,8 @@ static int do__f_del_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_token_destroy(token);
 
-    task = ti_task_get_task(query->ev, ti.thing0, e);
-    if (!task)
-        return e->nr;
-
-    if (ti_task_add_del_token(task, (ti_token_key_t *) rkey->data))
+    task = ti_task_get_task(query->ev, ti.thing0);
+    if (!task || ti_task_add_del_token(task, (ti_token_key_t *) rkey->data))
         ex_set_mem(e);  /* task cleanup is not required */
 
     ti_val_unsafe_drop(query->rval);

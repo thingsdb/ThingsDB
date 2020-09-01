@@ -150,6 +150,49 @@ size_t ti_type_fields_approx_pack_sz(ti_type_t * type)
     return n;
 }
 
+int ti_type_rename(ti_type_t * type, ti_raw_t * nname)
+{
+    void * ptype;
+    char name[TI_NAME_MAX+1];
+    char * type_name;
+    char * wtype_name;
+
+    assert (nname->n <= TI_NAME_MAX);
+
+    memcpy(name, nname->data, nname->n);
+    name[nname->n] = '\0';
+
+    ptype = smap_pop(type->types->removed, name);
+    if (ptype)
+    {
+        /* swap new type name with the old type name */
+        (void) smap_add(type->types->removed, type->name, ptype);
+    }
+
+    type_name = strndup((const char *) nname->data, nname->n);
+    wtype_name = type__wrap_name((const char *) nname->data, nname->n);
+
+    if (!type_name || !wtype_name || smap_add(type->types->smap, name, type))
+    {
+        free(type_name);
+        free(wtype_name);
+        return -1;
+    }
+
+    (void) smap_pop(type->types->smap, type->name);
+
+    free(type->name);
+    free(type->wname);
+    ti_val_unsafe_drop((ti_val_t *) type->rname);
+
+    type->name = type_name;
+    type->wname = wtype_name;
+    type->rname = nname;
+
+    ti_incref(nname);
+    return 0;
+}
+
 int ti_type_add_method(
         ti_type_t * type,
         ti_name_t * name,

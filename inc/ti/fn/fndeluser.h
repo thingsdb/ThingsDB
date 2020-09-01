@@ -29,11 +29,8 @@ static int do__f_del_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    task = ti_task_get_task(query->ev, ti.thing0, e);
-    if (!task)
-        return e->nr;
-
-    if (ti_task_add_del_user(task, user))
+    task = ti_task_get_task(query->ev, ti.thing0);
+    if (!task || ti_task_add_del_user(task, user))
         ex_set_mem(e);  /* task cleanup is not required */
 
     /* this will remove the user so it cannot be used after here */

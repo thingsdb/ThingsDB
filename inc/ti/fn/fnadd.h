@@ -47,11 +47,8 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (added->n && vset->parent && vset->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, vset->parent, e);
-        if (!task)
-            goto fail1;
-
-        if (ti_task_add_add(
+        ti_task_t * task = ti_task_get_task(query->ev, vset->parent);
+        if (!task || ti_task_add_add(
                 task,
                 vset->name,
                 added))

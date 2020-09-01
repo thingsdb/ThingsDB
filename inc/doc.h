@@ -69,6 +69,8 @@
 #define DOC_RANDINT                 DOC_SEE("collection-api/randint")
 #define DOC_RANGE                   DOC_SEE("collection-api/range")
 #define DOC_REFS                    DOC_SEE("collection-api/refs")
+#define DOC_RENAME_ENUM             DOC_SEE("collection-api/rename_enum")
+#define DOC_RENAME_TYPE             DOC_SEE("collection-api/rename_type")
 #define DOC_RETURN                  DOC_SEE("collection-api/return")
 #define DOC_SET                     DOC_SEE("collection-api/set")
 #define DOC_SET_ENUM                DOC_SEE("collection-api/set_enum")

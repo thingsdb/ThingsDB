@@ -43,7 +43,7 @@ ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing)
     return task;
 }
 
-ti_task_t * ti_task_get_task(ti_event_t * ev, ti_thing_t * thing, ex_t * e)
+ti_task_t * ti_task_get_task(ti_event_t * ev, ti_thing_t * thing)
 {
     ti_task_t * task = vec_last(ev->_tasks);
     if (task && task->thing == thing)
@@ -60,7 +60,6 @@ ti_task_t * ti_task_get_task(ti_event_t * ev, ti_thing_t * thing, ex_t * e)
 
 failed:
     ti_task_destroy(task);
-    ex_set_mem(e);
     return NULL;
 }
 
@@ -430,6 +429,78 @@ int ti_task_add_del_type(ti_task_t * task, ti_type_t * type)
     msgpack_pack_map(&pk, 1);
     mp_pack_str(&pk, "del_type");
     msgpack_pack_uint16(&pk, type->type_id);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_rename_type(ti_task_t * task, ti_type_t * type)
+{
+    size_t alloc = 64 + type->rname->n;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+    mp_pack_str(&pk, "rename_type");
+
+    msgpack_pack_map(&pk, 2);
+
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, type->type_id);
+
+    mp_pack_str(&pk, "name");
+    mp_pack_strn(&pk, type->rname->data, type->rname->n);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_rename_enum(ti_task_t * task, ti_enum_t * enum_)
+{
+    size_t alloc = 64 + enum_->rname->n;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+    mp_pack_str(&pk, "rename_enum");
+
+    msgpack_pack_map(&pk, 2);
+
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, enum_->enum_id);
+
+    mp_pack_str(&pk, "name");
+    mp_pack_strn(&pk, enum_->rname->data, enum_->rname->n);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

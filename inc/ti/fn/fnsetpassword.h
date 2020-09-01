@@ -59,11 +59,8 @@ static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    task = ti_task_get_task(query->ev, ti.thing0, e);
-    if (!task)
-        goto done;
-
-    if (ti_task_add_set_password(task, user))
+    task = ti_task_get_task(query->ev, ti.thing0);
+    if (!task || ti_task_add_set_password(task, user))
         ex_set_mem(e);  /* task cleanup is not required */
 
     ti_val_unsafe_drop(query->rval);

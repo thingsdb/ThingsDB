@@ -26,11 +26,12 @@ static int do__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
                 2,
                 query->rval,
                 e) ||
-        ti_collection_rename(collection, (ti_raw_t *) query->rval, e) ||
-        !(task = ti_task_get_task(query->ev, ti.thing0, e)))
+        ti_collection_rename(collection, (ti_raw_t *) query->rval, e))
         return e->nr;
 
-    if (ti_task_add_rename_collection(task, collection))
+    task = ti_task_get_task(query->ev, ti.thing0);
+
+    if (!task || ti_task_add_rename_collection(task, collection))
         ex_set_mem(e);  /* task cleanup is not required */
 
     ti_val_unsafe_drop(query->rval);

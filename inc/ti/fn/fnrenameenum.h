@@ -26,7 +26,7 @@ static int do__f_rename_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     enum_ = ti_enums_by_raw(query->collection->enums, oname);
     if (!enum_)
     {
-        (void) ti_raw_err_not_found(nname, "enum", e);
+        (void) ti_raw_err_not_found(oname, "enum", e);
         goto fail1;
     }
 

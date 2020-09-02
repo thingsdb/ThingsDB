@@ -1602,6 +1602,52 @@ static int job__rename_enum(ti_thing_t * thing, mp_unp_t * up)
 
 /*
  * Returns 0 on success
+ * - for example: {'old':name, 'name':name}
+ */
+static int job__rename_procedure(ti_thing_t * thing, mp_unp_t * up)
+{
+    ti_procedure_t * procedure;
+    mp_obj_t obj, mp_old, mp_name;
+    ti_raw_t * nname;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_old) != MP_STR ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR)
+    {
+        log_critical("job `rename_collection`: invalid format");
+        return -1;
+    }
+
+    procedure = ti_procedures_by_strn(
+            thing->collection->procedures,
+            mp_old.via.str.data,
+            mp_old.via.str.n);
+
+    if (!procedure)
+    {
+        log_critical(
+                "job `rename_procedure` cannot find `%.*s`",
+                (int) mp_old.via.str.n, mp_old.via.str.data);
+        return -1;
+    }
+
+    nname = ti_str_create(mp_name.via.str.data, mp_name.via.str.n);
+    if (!nname)
+    {
+        log_critical(EX_MEMORY_S);
+        return -1;
+    }
+
+    ti_procedure_rename(procedure, nname);
+    ti_val_drop((ti_val_t *) nname);
+
+    return 0;
+}
+
+/*
+ * Returns 0 on success
  * - for example: {'id':id, 'name':name}
  */
 static int job__rename_type(ti_thing_t * thing, mp_unp_t * up)
@@ -1826,6 +1872,8 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
             return job__remove(thing, up);
         if (mp_str_eq(&mp_job, "rename_enum"))
             return job__rename_enum(thing, up);
+        if (mp_str_eq(&mp_job, "rename_procedure"))
+            return job__rename_procedure(thing, up);
         if (mp_str_eq(&mp_job, "rename_type"))
             return job__rename_type(thing, up);
         break;

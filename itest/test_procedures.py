@@ -182,6 +182,40 @@ class TestProcedures(TestBase):
         for client in (client0, client1, client2):
             self.assertEqual(await client.run('get_first'), first)
 
+        with self.assertRaisesRegex(
+                LookupError,
+                r'procedure `get_first` already exists'):
+            await client.query(r'''
+                    rename_procedure('get_first', 'get_first');
+                ''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'procedure `unknown` not found'):
+            await client.query(r'''
+                    rename_procedure('unknown', 'first');
+                ''')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `rename_procedure` takes 2 arguments '
+                r'but 1 was given'):
+            await client.query(r'''rename_procedure('get_first'); ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `rename_procedure` expects argument 2 to be of '
+                r'type `str` but got type `int` instead;'):
+            await client.query(r'''rename_procedure('get_first', 123); ''')
+
+        await client.query(r'''
+                rename_procedure('get_first', 'first');
+            ''')
+
+        await asyncio.sleep(1.0)
+        for client in (client0, client1, client2):
+            self.assertEqual(await client.run('first'), first)
+
         # force a full database store ✅
         for x in range(10):
             await client.query(f'.x = {x};')
@@ -198,7 +232,7 @@ class TestProcedures(TestBase):
 
         for client in (client0, client1, client2, client3, client4):
             self.assertTrue(await client.run('validate'))
-            self.assertEqual(await client.run('get_first'), first)
+            self.assertEqual(await client.run('first'), first)
             self.assertEqual(await client.query('.x'), x)
 
         for client in (client0, client1, client2, client3, client4):

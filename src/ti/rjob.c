@@ -615,6 +615,52 @@ static int rjob__rename_collection(mp_unp_t * up)
 
 /*
  * Returns 0 on success
+ * - for example: {'old':name, 'name':name}
+ */
+static int rjob__rename_procedure(mp_unp_t * up)
+{
+    ti_procedure_t * procedure;
+    mp_obj_t obj, mp_old, mp_name;
+    ti_raw_t * nname;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_old) != MP_STR ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR)
+    {
+        log_critical("job `rename_collection`: invalid format");
+        return -1;
+    }
+
+    procedure = ti_procedures_by_strn(
+            ti.procedures,
+            mp_old.via.str.data,
+            mp_old.via.str.n);
+
+    if (!procedure)
+    {
+        log_critical(
+                "job `rename_procedure` cannot find `%.*s`",
+                (int) mp_old.via.str.n, mp_old.via.str.data);
+        return -1;
+    }
+
+    nname = ti_str_create(mp_name.via.str.data, mp_name.via.str.n);
+    if (!nname)
+    {
+        log_critical(EX_MEMORY_S);
+        return -1;
+    }
+
+    ti_procedure_rename(procedure, nname);
+    ti_val_drop((ti_val_t *) nname);
+
+    return 0;
+}
+
+/*
+ * Returns 0 on success
  * - for example: {'id':id, 'name':name}
  */
 static int rjob__rename_user(mp_unp_t * up)
@@ -833,6 +879,8 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
     case 'r':
         if (mp_str_eq(&mp_job, "rename_collection"))
             return rjob__rename_collection(up);
+        if (mp_str_eq(&mp_job, "rename_procedure"))
+            return rjob__rename_procedure(up);
         if (mp_str_eq(&mp_job, "rename_user"))
             return rjob__rename_user(up);
         if (mp_str_eq(&mp_job, "restore"))

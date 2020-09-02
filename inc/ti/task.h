@@ -80,6 +80,10 @@ int ti_task_add_remove(ti_task_t * task, ti_name_t * name, vec_t * removed);
 int ti_task_add_rename_collection(
         ti_task_t * task,
         ti_collection_t * collection);
+int ti_task_add_rename_procedure(
+        ti_task_t * task,
+        ti_procedure_t * procedure,
+        ti_raw_t * nname);
 int ti_task_add_rename_type(ti_task_t * task, ti_type_t * type);
 int ti_task_add_rename_enum(ti_task_t * task, ti_enum_t * enum_);
 int ti_task_add_rename_user(ti_task_t * task, ti_user_t * user);

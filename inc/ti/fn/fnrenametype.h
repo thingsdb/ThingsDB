@@ -27,7 +27,7 @@ static int do__f_rename_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     type = ti_types_by_raw(query->collection->types, oname);
     if (!type)
     {
-        (void) ti_raw_err_not_found(nname, "type", e);
+        (void) ti_raw_err_not_found(oname, "type", e);
         goto fail1;
     }
 

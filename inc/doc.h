@@ -130,6 +130,7 @@
 #define DOC_PROCEDURE_DOC           DOC_SEE("procedures-api/procedure_doc")
 #define DOC_PROCEDURE_INFO          DOC_SEE("procedures-api/procedure_info")
 #define DOC_PROCEDURES_INFO         DOC_SEE("procedures-api/procedures_info")
+#define DOC_RENAME_PROCEDURE        DOC_SEE("procedures-api/rename_procedure")
 #define DOC_RUN                     DOC_SEE("procedures-api/run")
 
 /* Data Types */

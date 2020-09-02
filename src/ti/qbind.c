@@ -121,6 +121,7 @@
 #include <ti/fn/fnremove.h>
 #include <ti/fn/fnrenamecollection.h>
 #include <ti/fn/fnrenameenum.h>
+#include <ti/fn/fnrenameprocedure.h>
 #include <ti/fn/fnrenametype.h>
 #include <ti/fn/fnrenameuser.h>
 #include <ti/fn/fnresetcounters.h>
@@ -182,7 +183,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 160,
+    TOTAL_KEYWORDS = 161,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 15,
@@ -469,9 +470,10 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="refs",              .fn=do__f_refs,                 ROOT_NE},
     {.name="remove",            .fn=do__f_remove,               CHAIN_CE_XVAR},
     {.name="rename_collection", .fn=do__f_rename_collection,    ROOT_TE},
-    {.name="rename_user",       .fn=do__f_rename_user,          ROOT_TE},
-    {.name="rename_type",       .fn=do__f_rename_type,          ROOT_CE},
     {.name="rename_enum",       .fn=do__f_rename_enum,          ROOT_CE},
+    {.name="rename_procedure",  .fn=do__f_rename_procedure,     ROOT_BE},
+    {.name="rename_type",       .fn=do__f_rename_type,          ROOT_CE},
+    {.name="rename_user",       .fn=do__f_rename_user,          ROOT_TE},
     {.name="reset_counters",    .fn=do__f_reset_counters,       ROOT_NE},
     {.name="restore",           .fn=do__f_restore,              ROOT_TE},
     {.name="return",            .fn=do__f_return,               ROOT_NE},

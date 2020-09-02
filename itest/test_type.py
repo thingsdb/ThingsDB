@@ -1562,6 +1562,59 @@ class TestType(TestBase):
         for client in (client0, client1):
             self.assertEqual(await client.query('X{}'), {'a': {}, 'b': {}})
 
+    async def test_rename(self, client0):
+        await client0.query(r'''
+            set_type('A', {i: 'int'});
+            set_type('B', {a: 'A'});
+        ''')
+
+        await client0.query(r'''
+            .a = A{};
+            .b = B{};
+        ''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `B` already exists'):
+            await client0.query(r'''
+                    rename_type('A', 'B');
+                ''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `unknown` not found'):
+            await client0.query(r'''
+                    rename_type('unknown', 'A');
+                ''')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `rename_type` takes 2 arguments '
+                r'but 1 was given'):
+            await client0.query(r'''rename_type('A'); ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `rename_type` expects argument 2 to be of '
+                r'type `str` but got type `int` instead;'):
+            await client0.query(r'''rename_type('A', 123); ''')
+
+        await client0.query(r'''
+                a = A{}; b = B{};
+                rename_type('A', 'TypeA');
+                rename_type('B', 'TypeB');
+            ''')
+
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await asyncio.sleep(1.6)
+
+        for client in (client0, client1):
+            self.assertEqual(await client.query(r'''
+                [TypeA{}, TypeB{}]
+            '''), [{'i': 0}, {'a': {}}])
+
 
 if __name__ == '__main__':
     run_test(TestType())

@@ -47,6 +47,52 @@ class TestAdvanced(TestBase):
         ''')
         self.assertEqual(res, [{}, {}])
 
+    async def test_adv_rename(self, client):
+        await client.query(r'''
+            set_type('A', {name: 'str'});
+            set_enum('C', {RED: 'F00'});
+            set_type('Prev', {
+                a: 'A',
+                b: 'A?',
+                c: '[A]',
+                d: '[A?]',
+                e: '[A?]?',
+                f: '{A}',
+                g: '{A}?',
+                h: 'C',
+                i: 'C?',
+                j: '[C]',
+                k: '[C?]',
+                l: '[C?]?',
+                m: 'Prev?',
+            });
+        ''')
+
+        await client.query(r'''
+            rename_type('A', 'Name');
+            rename_type('Prev', 'New');
+            rename_enum('C', 'Color');
+        ''')
+
+        res = await client.query(r'''
+            type_info('New');
+        ''')
+
+        self.assertEqual(res['fields'], [
+            ['a', 'Name'],
+            ['b', 'Name?'],
+            ['c', '[Name]'],
+            ['d', '[Name?]'],
+            ['e', '[Name?]?'],
+            ['f', '{Name}'],
+            ['g', '{Name}?'],
+            ['h', 'Color'],
+            ['i', 'Color?'],
+            ['j', '[Color]'],
+            ['k', '[Color?]'],
+            ['l', '[Color?]?'],
+            ['m', 'New?']])
+
     async def test_set_type_create(self, client):
         with self.assertRaisesRegex(
                 OperationError,

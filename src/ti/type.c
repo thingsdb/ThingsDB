@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ti.h>
 #include <ti/field.h>
 #include <ti/mapping.h>
 #include <ti/method.h>
@@ -176,6 +177,12 @@ int ti_type_rename(ti_type_t * type, ti_raw_t * nname)
     {
         free(type_name);
         free(wtype_name);
+        return -1;
+    }
+
+    if (ti_types_rename_spec(type->types, type->type_id, type->rname, nname))
+    {
+        ti_panic("failed to rename all specifications");
         return -1;
     }
 

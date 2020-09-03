@@ -69,6 +69,87 @@ void ti_types_del(ti_types_t * types, ti_type_t * type)
     (void) smap_pop(types->smap, type->name);
 }
 
+typedef struct
+{
+    uint16_t id;
+    ti_raw_t * oname;
+    ti_raw_t * nname;
+} types__rename_t;
+
+static int types__rename_cb(ti_type_t * type, types__rename_t * w)
+{
+    for (vec_each(type->fields, ti_field_t, field))
+    {
+        if ((field->spec & TI_SPEC_MASK_NILLABLE) == w->id)
+        {
+            if (field->spec == w->id)
+            {
+                ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
+                field->spec_raw = w->nname;
+                ti_incref(field->spec_raw);
+            }
+            else
+            {
+                ti_raw_t * spec_raw = ti_str_from_fmt(
+                        "%.*s?",
+                        (int) w->nname->n,
+                        (const char *) w->nname->data);
+                if (!spec_raw)
+                    return -1;
+
+                ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
+                field->spec_raw = spec_raw;
+            }
+        }
+        else if ((field->nested_spec & TI_SPEC_MASK_NILLABLE) == w->id)
+        {
+            ti_raw_t * spec_raw;
+            char begin, end;
+            if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ARR)
+            {
+                begin = '[';
+                end = ']';
+            }
+            else
+            {
+                assert((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET);
+                begin = '{';
+                end = '}';
+            }
+            spec_raw = ti_str_from_fmt(
+                    "%c%.*s%s%c%s",
+                    begin,
+                    (int) w->nname->n,
+                    (const char *) w->nname->data,
+                    (field->nested_spec & TI_SPEC_NILLABLE) ? "?": "",
+                    end,
+                    (field->spec & TI_SPEC_NILLABLE) ? "?": "");
+
+            if (!spec_raw)
+                return -1;
+
+            ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
+            field->spec_raw = spec_raw;
+        }
+    }
+    return 0;
+}
+
+int ti_types_rename_spec(
+        ti_types_t * types,
+        uint16_t type_or_enum_id,
+        ti_raw_t * oname,
+        ti_raw_t * nname)
+{
+    types__rename_t w = {
+        .id = type_or_enum_id,
+        .oname = oname,
+        .nname = nname,
+    };
+
+    return imap_walk(types->imap, (imap_cb) types__rename_cb, &w);
+}
+
 uint16_t ti_types_get_new_id(ti_types_t * types, ti_raw_t * rname, ex_t * e)
 {
     uintptr_t utype;

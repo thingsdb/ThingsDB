@@ -3,9 +3,11 @@
  */
 #include <assert.h>
 #include <stdlib.h>
+#include <ti.h>
 #include <ti/enum.h>
 #include <ti/enums.h>
 #include <ti/enums.inline.h>
+#include <ti/types.h>
 #include <ti/val.h>
 #include <ti/val.inline.h>
 
@@ -59,6 +61,16 @@ int ti_enums_rename(ti_enums_t * enums, ti_enum_t * enum_, ti_raw_t * nname)
         return -1;
 
     (void) smap_pop(enums->smap, enum_->name);
+
+    if (ti_types_rename_spec(
+            enums->collection->types,
+            enum_->enum_id | TI_ENUM_ID_FLAG,
+            enum_->rname,
+            nname))
+    {
+        ti_panic("failed to rename all specifications");
+        return -1;
+    }
 
     free(enum_->name);
     ti_val_unsafe_drop((ti_val_t *) enum_->rname);

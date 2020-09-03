@@ -1,3 +1,7 @@
+# v0.9.13
+
+* Fixed bug in full storage after renaming enumerator or type, issue #87.
+
 # v0.9.12
 
 * Added `rename_type(..)` function, issue #83.

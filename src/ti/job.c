@@ -1616,7 +1616,7 @@ static int job__rename_procedure(ti_thing_t * thing, mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_name) != MP_STR)
     {
-        log_critical("job `rename_collection`: invalid format");
+        log_critical("job `rename_procedure`: invalid format");
         return -1;
     }
 

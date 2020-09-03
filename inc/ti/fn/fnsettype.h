@@ -129,10 +129,12 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_type_init_from_thing(type, thing, e))
         goto fail2;
 
-    task = ti_task_get_task(query->ev, query->collection->root, e);
+    task = ti_task_get_task(query->ev, query->collection->root);
     if (!task)
+    {
+        ex_set_mem(e);
         goto fail2;
-
+    }
     /* update modified time-stamp if this is an existing type */
     if (!is_new_type)
         type->modified_at = ts_now;

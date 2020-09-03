@@ -163,11 +163,8 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
     }
 
-    task = ti_task_get_task(query->ev, ti.thing0, e);
-    if (!task)
-        goto fail1;
-
-    if (ti_task_add_restore(task))
+    task = ti_task_get_task(query->ev, ti.thing0);
+    if (!task || ti_task_add_restore(task))
     {
         ex_set_mem(e);
         goto fail1;

@@ -52,6 +52,7 @@ int ti_type_methods_info_to_pk(
         _Bool with_definition);
 int ti_type_required_by_non_wpo(ti_type_t * type, ex_t * e);
 int ti_type_uses_wpo(ti_type_t * type, ex_t * e);
+int ti_type_rename(ti_type_t * type, ti_raw_t * nname);
 
 static inline int ti_type_try_lock(ti_type_t * type, ex_t * e)
 {

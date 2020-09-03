@@ -31,11 +31,14 @@ ti_procedure_t * ti_procedure_create(
     assert (name);
     assert (closure);
 
-    procedure->name = ti_grab(name);
+    procedure->name = name;
     procedure->doc = NULL;
     procedure->def = NULL;
-    procedure->closure = ti_grab(closure);
+    procedure->closure = closure;
     procedure->created_at = created_at;
+
+    ti_incref(name);
+    ti_incref(closure);
 
     return procedure;
 }
@@ -51,6 +54,13 @@ void ti_procedure_destroy(ti_procedure_t * procedure)
     ti_val_drop((ti_val_t *) procedure->def);
 
     free(procedure);
+}
+
+void ti_procedure_rename(ti_procedure_t * procedure, ti_raw_t * nname)
+{
+    ti_val_unsafe_drop((ti_val_t *) procedure->name);
+    procedure->name = nname;
+    ti_incref(nname);
 }
 
 /* may return an empty string but never NULL */

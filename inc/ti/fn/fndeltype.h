@@ -30,7 +30,7 @@ static int do__f_del_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_type_try_lock(type, e))
         return e->nr;
 
-    task = ti_task_get_task(query->ev, query->collection->root, e);
+    task = ti_task_get_task(query->ev, query->collection->root);
     if (!task || ti_task_add_del_type(task, type))
     {
         ex_set_mem(e);  /* task cleanup is not required */

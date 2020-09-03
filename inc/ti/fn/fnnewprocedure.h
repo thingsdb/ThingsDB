@@ -54,12 +54,8 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     task = ti_task_get_task(
             query->ev,
-            query->collection ? query->collection->root : ti.thing0,
-            e);
-    if (!task)
-        goto undo;
-
-    if (ti_task_add_new_procedure(task, procedure))
+            query->collection ? query->collection->root : ti.thing0);
+    if (!task || ti_task_add_new_procedure(task, procedure))
         goto undo;
 
     query->rval = (ti_val_t *) procedure->name;

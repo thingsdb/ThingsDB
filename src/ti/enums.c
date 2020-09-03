@@ -52,6 +52,24 @@ int ti_enums_add(ti_enums_t * enums, ti_enum_t * enum_)
     return 0;
 }
 
+int ti_enums_rename(ti_enums_t * enums, ti_enum_t * enum_, ti_raw_t * nname)
+{
+    char * name = strndup((const char *) nname->data, nname->n);
+    if (!name || smap_add(enums->smap, name, enum_))
+        return -1;
+
+    (void) smap_pop(enums->smap, enum_->name);
+
+    free(enum_->name);
+    ti_val_unsafe_drop((ti_val_t *) enum_->rname);
+
+    enum_->name = name;
+    enum_->rname = nname;
+
+    ti_incref(nname);
+    return 0;
+}
+
 void ti_enums_del(ti_enums_t * enums, ti_enum_t * enum_)
 {
     (void) imap_pop(enums->imap, enum_->enum_id);

@@ -58,11 +58,8 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_access_revoke(*access_, user, mask);
 
-    task = ti_task_get_task(query->ev, ti.thing0, e);
-    if (!task)
-        return e->nr;
-
-    if (ti_task_add_revoke(task, scope_id, user, mask))
+    task = ti_task_get_task(query->ev, ti.thing0);
+    if (!task || ti_task_add_revoke(task, scope_id, user, mask))
         ex_set_mem(e);  /* task cleanup is not required */
 
     ti_val_unsafe_drop(query->rval);

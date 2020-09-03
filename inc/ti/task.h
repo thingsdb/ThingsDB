@@ -23,7 +23,7 @@
 #include <util/vec.h>
 
 ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing);
-ti_task_t * ti_task_get_task(ti_event_t * ev, ti_thing_t * thing, ex_t * e);
+ti_task_t * ti_task_get_task(ti_event_t * ev, ti_thing_t * thing);
 void ti_task_destroy(ti_task_t * task);
 ti_pkg_t * ti_task_pkg_watch(ti_task_t * task);
 int ti_task_add_add(ti_task_t * task, ti_name_t * name, vec_t * added);
@@ -80,6 +80,12 @@ int ti_task_add_remove(ti_task_t * task, ti_name_t * name, vec_t * removed);
 int ti_task_add_rename_collection(
         ti_task_t * task,
         ti_collection_t * collection);
+int ti_task_add_rename_procedure(
+        ti_task_t * task,
+        ti_procedure_t * procedure,
+        ti_raw_t * nname);
+int ti_task_add_rename_type(ti_task_t * task, ti_type_t * type);
+int ti_task_add_rename_enum(ti_task_t * task, ti_enum_t * enum_);
 int ti_task_add_rename_user(ti_task_t * task, ti_user_t * user);
 int ti_task_add_revoke(
         ti_task_t * task,

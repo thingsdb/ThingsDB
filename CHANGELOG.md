@@ -1,3 +1,9 @@
+# v0.9.12
+
+* Added `rename_type(..)` function, issue #83.
+* Added `rename_enum(..)` function, issue #84.
+* Added `rename_procedure(..)` function, issue #85.
+
 # v0.9.11
 
 * Fixed bug in nested `set_type(..)` calls when they are linked, issue #79.

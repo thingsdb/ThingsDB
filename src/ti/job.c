@@ -1561,6 +1561,134 @@ static int job__remove(ti_thing_t * thing, mp_unp_t * up)
 
 /*
  * Returns 0 on success
+ * - for example: {'id':id, 'name':name}
+ */
+static int job__rename_enum(ti_thing_t * thing, mp_unp_t * up)
+{
+    int rc = 0;
+    ti_enum_t * enum_;
+    mp_obj_t obj, mp_id, mp_name;
+    ti_raw_t * rname;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR)
+    {
+        log_critical("job `rename_enum`: invalid format");
+        return -1;
+    }
+
+    enum_ = ti_enums_by_id(thing->collection->enums, mp_id.via.u64);
+    if (!enum_)
+    {
+        log_critical(
+                "job `rename_enum`: enum id %"PRIu64" not found",
+                mp_id.via.u64);
+        return -1;
+    }
+
+    rname = ti_str_create(mp_name.via.str.data, mp_name.via.str.n);
+    if (!rname || ti_enums_rename(thing->collection->enums, enum_, rname))
+    {
+        log_critical(EX_MEMORY_S);
+        rc = -1;
+    }
+
+    ti_val_drop((ti_val_t *) rname);
+    return rc;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: {'old':name, 'name':name}
+ */
+static int job__rename_procedure(ti_thing_t * thing, mp_unp_t * up)
+{
+    ti_procedure_t * procedure;
+    mp_obj_t obj, mp_old, mp_name;
+    ti_raw_t * nname;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_old) != MP_STR ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR)
+    {
+        log_critical("job `rename_collection`: invalid format");
+        return -1;
+    }
+
+    procedure = ti_procedures_by_strn(
+            thing->collection->procedures,
+            mp_old.via.str.data,
+            mp_old.via.str.n);
+
+    if (!procedure)
+    {
+        log_critical(
+                "job `rename_procedure` cannot find `%.*s`",
+                (int) mp_old.via.str.n, mp_old.via.str.data);
+        return -1;
+    }
+
+    nname = ti_str_create(mp_name.via.str.data, mp_name.via.str.n);
+    if (!nname)
+    {
+        log_critical(EX_MEMORY_S);
+        return -1;
+    }
+
+    ti_procedure_rename(procedure, nname);
+    ti_val_drop((ti_val_t *) nname);
+
+    return 0;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: {'id':id, 'name':name}
+ */
+static int job__rename_type(ti_thing_t * thing, mp_unp_t * up)
+{
+    int rc = 0;
+    ti_type_t * type;
+    mp_obj_t obj, mp_id, mp_name;
+    ti_raw_t * rname;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR)
+    {
+        log_critical("job `rename_type`: invalid format");
+        return -1;
+    }
+
+    type = ti_types_by_id(thing->collection->types, mp_id.via.u64);
+    if (!type)
+    {
+        log_critical(
+                "job `rename_type`: type id %"PRIu64" not found",
+                mp_id.via.u64);
+        return -1;
+    }
+
+    rname = ti_str_create(mp_name.via.str.data, mp_name.via.str.n);
+    if (!rname || ti_type_rename(type, rname))
+    {
+        log_critical(EX_MEMORY_S);
+        rc = -1;
+    }
+
+    ti_val_drop((ti_val_t *) rname);
+    return rc;
+}
+
+/*
+ * Returns 0 on success
  * - for example: {'prop': [index, del_count, new_count, values...]}
  */
 static int job__splice(ti_thing_t * thing, mp_unp_t * up)
@@ -1742,6 +1870,12 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
     case 'r':
         if (mp_str_eq(&mp_job, "remove"))
             return job__remove(thing, up);
+        if (mp_str_eq(&mp_job, "rename_enum"))
+            return job__rename_enum(thing, up);
+        if (mp_str_eq(&mp_job, "rename_procedure"))
+            return job__rename_procedure(thing, up);
+        if (mp_str_eq(&mp_job, "rename_type"))
+            return job__rename_type(thing, up);
         break;
     case 's':
         if (mp_str_eq(&mp_job, "set"))

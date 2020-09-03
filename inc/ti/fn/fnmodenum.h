@@ -26,9 +26,12 @@ static void enum__add(
     if (!member)
         return;
 
-    task = ti_task_get_task(query->ev, query->collection->root, e);
+    task = ti_task_get_task(query->ev, query->collection->root);
     if (!task)
+    {
+        ex_set_mem(e);
         goto fail0;
+    }
 
     /* update modified time-stamp */
     enum_->modified_at = util_now_tsec();
@@ -72,9 +75,12 @@ static void enum__def(
     if (!member->idx)
         return;  /* already set as default */
 
-    task = ti_task_get_task(query->ev, query->collection->root, e);
+    task = ti_task_get_task(query->ev, query->collection->root);
     if (!task)
+    {
+        ex_set_mem(e);
         return;
+    }
 
     /* update modified time-stamp */
     enum_->modified_at = util_now_tsec();
@@ -128,9 +134,12 @@ static void enum__del(
         return;
     }
 
-    task = ti_task_get_task(query->ev, query->collection->root, e);
+    task = ti_task_get_task(query->ev, query->collection->root);
     if (!task)
+    {
+        ex_set_mem(e);
         return;
+    }
 
     /* update modified time-stamp */
     enum_->modified_at = util_now_tsec();
@@ -176,9 +185,12 @@ static void enum__mod(
     if (ti_member_set_value(member, query->rval, e))
         return;
 
-    task = ti_task_get_task(query->ev, query->collection->root, e);
+    task = ti_task_get_task(query->ev, query->collection->root);
     if (!task)
+    {
+        ex_set_mem(e);
         return;
+    }
 
     /* update modified time-stamp */
     enum_->modified_at = util_now_tsec();
@@ -226,9 +238,12 @@ static void enum__ren(
     if (ti_member_set_name(member, (const char *) rname->data, rname->n, e))
         return;
 
-    task = ti_task_get_task(query->ev, query->collection->root, e);
+    task = ti_task_get_task(query->ev, query->collection->root);
     if (!task)
+    {
+        ex_set_mem(e);
         return;
+    }
 
     /* update modified time-stamp */
     enum_->modified_at = util_now_tsec();

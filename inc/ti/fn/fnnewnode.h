@@ -85,9 +85,12 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cryptx_gen_salt(salt);
     cryptx(secret, salt, encrypted);
 
-    task = ti_task_get_task(query->ev, ti.thing0, e);
+    task = ti_task_get_task(query->ev, ti.thing0);
     if (!task)
+    {
+        ex_set_mem(e);
         goto fail1;
+    }
 
     node = ti_nodes_new_node(ti_nodes_next_id(), 0, port, addrstr, encrypted);
     if (!node)

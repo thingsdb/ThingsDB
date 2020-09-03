@@ -749,6 +749,64 @@ class TestEnum(TestBase):
             .b.color.name()
             '''), 'RED')
 
+    async def test_rename(self, client):
+        await client.query(r'''
+            set_enum('Color', {
+                RED: '#FF0000',
+                GREEN: '#00FF00',
+                BLUE: '#0000FF'
+            });
+        ''')
+
+        await client.query(r'''
+            .get_color = |i| {
+                i = isint(i) ? i : randint(0, 3);
+                i == 0 && return(Color{RED});
+                i == 1 && return(Color{GREEN});
+                i == 2 && return(Color{BLUE});
+                nil;
+            }
+        ''')
+
+        self.assertEqual(await client.query('.get_color(0);'), '#FF0000')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'enum `Color` already exists'):
+            await client.query(r'''
+                    rename_enum('Color', 'Color');
+                ''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'enum `unknown` not found'):
+            await client.query(r'''
+                    rename_enum('unknown', 'Colors');
+                ''')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `rename_enum` takes 2 arguments '
+                r'but 1 was given'):
+            await client.query(r'''rename_enum('Color'); ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `rename_enum` expects argument 2 to be of '
+                r'type `str` but got type `int` instead;'):
+            await client.query(r'''rename_enum('Color', 123); ''')
+
+        await client.query(r'''
+                rename_enum('Color', 'Colors');
+            ''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'enum `Color` is undefined'):
+            self.assertEqual(await client.query('.get_color(0);'), '#FF0000')
+
+        self.assertEqual(await client.query('Colors()'), '#FF0000')
+
 
 if __name__ == '__main__':
     run_test(TestEnum())

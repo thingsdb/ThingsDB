@@ -21,7 +21,7 @@ ti_procedure_t * ti_procedure_create(
         ti_closure_t * closure,
         uint64_t created_at);
 void ti_procedure_destroy(ti_procedure_t * procedure);
-
+void ti_procedure_rename(ti_procedure_t * procedure, ti_raw_t * nname);
 int ti_procedure_info_to_pk(
         ti_procedure_t * procedure,
         msgpack_packer * pk,

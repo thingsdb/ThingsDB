@@ -54,11 +54,8 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (varr_dest->parent && varr_dest->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, varr_dest->parent, e);
-        if (!task)
-            goto fail3;
-
-        if (ti_task_add_splice(
+        ti_task_t * task = ti_task_get_task(query->ev, varr_dest->parent);
+        if (!task || ti_task_add_splice(
                 task,
                 varr_dest->name,
                 varr_dest,
@@ -77,7 +74,6 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 alloc_err:
     ex_set_mem(e);
 
-fail3:
     while (varr_dest->vec->n > current_n)
         ti_val_unsafe_drop(VEC_pop(varr_dest->vec));
 

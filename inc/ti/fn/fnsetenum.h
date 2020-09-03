@@ -88,11 +88,8 @@ static int do__f_set_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_enum_init_from_thing(enum_, thing, e))
         goto fail3;
 
-    task = ti_task_get_task(query->ev, query->collection->root, e);
-    if (!task)
-        goto fail3;
-
-    if (ti_task_add_set_enum(task, enum_))
+    task = ti_task_get_task(query->ev, query->collection->root);
+    if (!task || ti_task_add_set_enum(task, enum_))
     {
         ex_set_mem(e);
         goto fail3;

@@ -1618,19 +1618,38 @@ class TestType(TestBase):
     async def test_rename_prop(self, client0):
         await client0.query(r'''
             set_type('Test', {
-                arr: '[]'
+                arr: '[]',
+                set: '{}',
+                oarr: '[]?',
+                oset: '{}?',
             });
-            .test = Test{
-                arr: range(10)
+
+            .test1 = Test{
+                arr: range(10),
+                set: set(),
+            };
+            .test2 = Test{
+                oarr: range(1),
+                oset: set({})
             };
         ''')
 
         await client0.query(r'''
+            t = Test{set: set({}, {})};
             mod_type('Test', 'ren', 'arr', 'list');
+            mod_type('Test', 'ren', 'oarr', 'olist');
+            mod_type('Test', 'ren', 'set', 'col');
+            mod_type('Test', 'ren', 'oset', 'ocol');
+            .test3 = t;
         ''')
 
         await client0.query(r'''
-            .test.list.push(10);
+            .test1.list.push(10);
+            .test1.col.add({});
+            .test2.olist.push(42);
+            .test2.ocol.add({});
+            .test3.list.push(123);
+            .test3.col.add({});
         ''')
 
         client1 = await get_client(self.node1)
@@ -1639,7 +1658,13 @@ class TestType(TestBase):
         await asyncio.sleep(1.6)
 
         for client in (client0, client1):
-            self.assertEqual(await client.query(r'.test.list[-1];'), 10)
+            self.assertEqual(await client.query(r'.test1.list[-1];'), 10)
+            self.assertEqual(await client.query(r'.test1.col.len();'), 1)
+            self.assertEqual(await client.query(r'.test2.olist[-1];'), 42)
+            self.assertEqual(await client.query(r'.test2.ocol.len();'), 2)
+            self.assertEqual(await client.query(r'.test3.list[-1];'), 123)
+            self.assertEqual(await client.query(r'.test3.col.len();'), 3)
+
 
 
 if __name__ == '__main__':

@@ -971,6 +971,10 @@ int ti_field_set_name(
                 (imap_cb) field__ren_cb,
                 field);
 
+        /*
+         * Things without an ID must be adjusted too since a thing
+         * may still receive an ID at some later time.
+         */
         if (vars)
             (void) ti_query_vars_walk(vars, (imap_cb) field__ren_cb, field);
     }

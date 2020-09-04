@@ -26,7 +26,12 @@ int ti_field_mod(
         ti_raw_t * spec_raw,
         vec_t * vars,
         ex_t * e);
-int ti_field_set_name(ti_field_t * field, const char * s, size_t n, ex_t * e);
+int ti_field_set_name(
+        ti_field_t * field,
+        vec_t * vars,
+        const char * s,
+        size_t n,
+        ex_t * e);
 int ti_field_del(ti_field_t * field, uint64_t ev_id);
 void ti_field_remove(ti_field_t * field);
 void ti_field_destroy(ti_field_t * field);

@@ -3,6 +3,10 @@
 Start this test using:
 
 THINGSDB_BIN=../Debug/thingsdb THINGSDB_KEEP_ON_ERROR=1 THINGSDB_VERBOSE=1 THINGSDB_MEMCHECK=1 THINGSDB_NODE_OUTPUT= THINGSDB_LOGLEVEL=debug ./test_pre_restore.py
+
+Example restore:
+
+restore('/home/joente/Downloads/playground_20200903040003.tar.gz', true);
 """
 import asyncio
 from lib import run_test

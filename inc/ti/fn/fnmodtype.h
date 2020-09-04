@@ -938,6 +938,7 @@ static void type__ren(
     {
         if (ti_field_set_name(
                 field,
+                query->vars,
                 (const char *) rname->data,
                 rname->n,
                 e))

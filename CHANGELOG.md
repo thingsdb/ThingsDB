@@ -1,3 +1,7 @@
+# v0.9.14
+
+* Fixed bug with lost parents after a type property rename action, issue #88.
+
 # v0.9.13
 
 * Fixed bug in full storage after renaming enumerator or type, issue #87.

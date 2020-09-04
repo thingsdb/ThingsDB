@@ -1166,7 +1166,12 @@ static int job__mod_type_ren(ti_thing_t * thing, mp_unp_t * up)
     field = ti_field_by_name(type, name);
     if (field)
     {
-        if (ti_field_set_name(field, mp_to.via.str.data, mp_to.via.str.n, &e))
+        if (ti_field_set_name(
+                field,
+                NULL,
+                mp_to.via.str.data,
+                mp_to.via.str.n,
+                &e))
             log_critical(e.msg);
         else
             /* update modified time-stamp */

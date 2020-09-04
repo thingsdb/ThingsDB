@@ -1615,6 +1615,32 @@ class TestType(TestBase):
                 [TypeA{}, TypeB{}]
             '''), [{'i': 0}, {'a': {}}])
 
+    async def test_rename_prop(self, client0):
+        await client0.query(r'''
+            set_type('Test', {
+                arr: '[]'
+            });
+            .test = Test{
+                arr: range(10)
+            };
+        ''')
+
+        await client0.query(r'''
+            mod_type('Test', 'ren', 'arr', 'list');
+        ''')
+
+        await client0.query(r'''
+            .test.list.push(10);
+        ''')
+
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await asyncio.sleep(1.6)
+
+        for client in (client0, client1):
+            self.assertEqual(await client.query(r'.test.list[-1];'), 10)
+
 
 if __name__ == '__main__':
     run_test(TestType())

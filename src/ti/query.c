@@ -947,7 +947,7 @@ static int query__var_walk_thing(ti_thing_t * thing, imap_t * imap)
 }
 
 /*
- * While walking the things, each thing has a reference so if can not be
+ * While walking the things, each thing has a reference so it can not be
  * removed even if the callback tries to drop the thing.
  *
  * The callback will only be called on things without an ID.

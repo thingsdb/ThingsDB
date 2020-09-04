@@ -908,7 +908,32 @@ done:
     return 0;
 }
 
-int ti_field_set_name(ti_field_t * field, const char * s, size_t n, ex_t * e)
+static int field__ren_cb(ti_thing_t * thing, ti_field_t * field)
+{
+    if (thing->type_id == field->type->type_id)
+    {
+        ti_val_t * val = vec_get(thing->items, field->idx);
+        switch((ti_val_enum) val->tp)
+        {
+        case TI_VAL_ARR:
+            ((ti_varr_t *) val)->name = field->name;
+            break;
+        case TI_VAL_SET:
+            ((ti_vset_t *) val)->name = field->name;
+            break;
+        default:
+            break;
+        }
+    }
+    return 0;
+}
+
+int ti_field_set_name(
+        ti_field_t * field,
+        vec_t * vars,
+        const char * s,
+        size_t n,
+        ex_t * e)
 {
     ti_name_t * name;
 
@@ -938,6 +963,17 @@ int ti_field_set_name(ti_field_t * field, const char * s, size_t n, ex_t * e)
 
     ti_name_drop(field->name);
     field->name = name;
+
+    if (ti_spec_is_arr_or_set(field->spec))
+    {
+        (void) imap_walk(
+                field->type->types->collection->things,
+                (imap_cb) field__ren_cb,
+                field);
+
+        if (vars)
+            (void) ti_query_vars_walk(vars, (imap_cb) field__ren_cb, field);
+    }
 
     return 0;
 
@@ -1541,12 +1577,8 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     uint16_t t_spec, f_spec;
 
     /* both the t_field and f_field are either a set or array */
-
-    assert ((f_field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ARR ||
-            (f_field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET);
-
-    assert ((t_field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ARR ||
-            (t_field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET);
+    assert (ti_spec_is_arr_or_set(f_field->spec));
+    assert (ti_spec_is_arr_or_set(t_field->spec));
 
     if (t_field->nested_spec == TI_SPEC_ANY)
         return true;

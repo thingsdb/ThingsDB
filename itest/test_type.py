@@ -1666,6 +1666,5 @@ class TestType(TestBase):
             self.assertEqual(await client.query(r'.test3.col.len();'), 3)
 
 
-
 if __name__ == '__main__':
     run_test(TestType())

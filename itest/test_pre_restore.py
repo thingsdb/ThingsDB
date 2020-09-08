@@ -7,7 +7,7 @@ THINGSDB_BIN=../Debug/thingsdb THINGSDB_KEEP_ON_ERROR=1 THINGSDB_VERBOSE=1 THING
 Example restore:
 
 restore('/home/joente/Downloads/playground_20200903040003.tar.gz', true);
-"""
+"""  # nopep8
 import asyncio
 from lib import run_test
 from lib import default_test_setup

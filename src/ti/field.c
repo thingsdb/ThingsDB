@@ -756,9 +756,14 @@ void ti_field_replace(ti_field_t * field, ti_field_t ** with_field)
     field__remove_dep(field);
 
     ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
+    ti_condition_destroy(field->condition, field->spec);
+
     field->spec = (*with_field)->spec;
     field->nested_spec = (*with_field)->nested_spec;
     field->spec_raw = (*with_field)->spec_raw;
+    field->condition = (*with_field)->condition;
+
+    (*with_field)->condition.none = NULL;
 
     ti_incref(field->spec_raw);
 

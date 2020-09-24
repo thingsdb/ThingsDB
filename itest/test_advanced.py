@@ -1225,6 +1225,33 @@ class TestAdvanced(TestBase):
             });
         ''')
         self.assertEqual(res, [["p0a"], ["p1c", "p1d"], []])
+        self.assertEqual(await client.query('type_count("P");'), 3)
+
+    async def test_ref_count_mod(self, client):
+        res = await client.query(r'''
+            set_type('P', {
+                name: 'str'
+            });
+
+            set_type('A', {
+                reports: '{P}'
+            });
+
+            .list = [
+                A{reports: set()},
+                A{reports: set(P{name: 'p1a'}, P{name: 'p1b'})},
+                A{reports: set(P{name: 'p2a'}, P{name: 'p2b'}, P{name: 'p2c'})},
+            ];
+
+            .store = .list[1].reports;
+
+            try(mod_type('A', 'mod', 'reports', '[]', |x| x.reports));
+
+            .list[1].reports.push(P{name: 'p0a'});
+            .store.map(|p| p.name).sort();
+        ''')
+        self.assertEqual(res, ['p1a', 'p1b'])
+        self.assertEqual(await client.query('type_count("P");'), 3)
 
 
 if __name__ == '__main__':

@@ -1,3 +1,8 @@
+# v0.9.15
+
+* Fixed incorrect default value after changing a type, issue #91.
+* Fixed error when changing a type definition with a new condition, issue #90.
+
 # v0.9.14
 
 * Fixed bug with lost parents after a type property rename action, issue #88.

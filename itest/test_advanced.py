@@ -1210,7 +1210,10 @@ class TestAdvanced(TestBase):
             .list = [
                 A{reports: set()},
                 A{reports: set(P{name: 'p1a'}, P{name: 'p1b'})},
-                A{reports: set(P{name: 'p2a'}, P{name: 'p2b'}, P{name: 'p2c'})},
+                A{reports: set(
+                    P{name: 'p2a'},
+                    P{name: 'p2b'},
+                    P{name: 'p2c'})},
             ];
 
             try(mod_type('A', 'mod', 'reports', '[]', |x| x.reports));
@@ -1218,7 +1221,12 @@ class TestAdvanced(TestBase):
             .list[0].reports.push(P{name: 'p0a'});
             .list[1].reports.push(P{name: 'p1c'}, P{name: 'p1d'});
 
-            try(mod_type('A', 'mod', 'reports', '[]', |x| x.reports.map(|p|p)));
+            try(mod_type(
+                'A',
+                'mod',
+                'reports',
+                '[]',
+                |x| x.reports.map(|p|p)));
 
             .list.map(|a| {
                 a.reports.map(|p| p.name);
@@ -1240,7 +1248,10 @@ class TestAdvanced(TestBase):
             .list = [
                 A{reports: set()},
                 A{reports: set(P{name: 'p1a'}, P{name: 'p1b'})},
-                A{reports: set(P{name: 'p2a'}, P{name: 'p2b'}, P{name: 'p2c'})},
+                A{reports: set(
+                    P{name: 'p2a'},
+                    P{name: 'p2b'},
+                    P{name: 'p2c'})},
             ];
 
             .store = .list[1].reports;

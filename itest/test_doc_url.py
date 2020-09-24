@@ -43,7 +43,10 @@ class TestDocUrl(TestBase):
                 testurl = f'{url}{m.group(1)}'
                 logging.info(f'testing `{testurl}`...')
                 try:
-                    future = loop.run_in_executor(None, urllib.request.urlopen, testurl)
+                    future = loop.run_in_executor(
+                        None,
+                        urllib.request.urlopen,
+                        testurl)
                     response = await future
                     html = response.read()
 

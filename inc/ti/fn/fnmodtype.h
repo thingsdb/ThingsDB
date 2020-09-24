@@ -236,7 +236,8 @@ static int modtype__mod_after_cb(ti_thing_t * thing, modtype__mod_t * w)
      * ensures that not much work has to be done since no copy of a set
      * or list will be made.
      */
-    if (ti_field_make_assignable(w->field, &val, thing, &ex))
+    if (ti_field_make_assignable(w->field, &val, thing, &ex) &&
+        !ti_val_make_assignable(&w->dval, thing, w->field->name, w->e))
     {
         ti_incref(w->dval);
         ti_val_unsafe_drop(vec_set(thing->items, w->dval, w->field->idx));

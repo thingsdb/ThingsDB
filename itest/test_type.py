@@ -204,8 +204,6 @@ class TestType(TestBase):
             mod_type('User', 'mod', 'name', 'str?');
         ''')
 
-        await asyncio.sleep(1.5)
-
         client1 = await get_client(self.node1)
         client1.set_default_scope('//stuff')
 
@@ -377,8 +375,6 @@ class TestType(TestBase):
 
         iris = {k: v for k, v in only_name.items()}
         iris['age'] = 6
-
-        await asyncio.sleep(1.5)
 
         client1 = await get_client(self.node1)
         client1.set_default_scope('//stuff')
@@ -971,8 +967,6 @@ class TestType(TestBase):
             };
         ''')
 
-        await asyncio.sleep(1.5)
-
         client1 = await get_client(self.node1)
         client1.set_default_scope('//stuff')
 
@@ -1260,8 +1254,6 @@ class TestType(TestBase):
         client1 = await get_client(self.node1)
         client1.set_default_scope('//stuff')
 
-        await asyncio.sleep(1.6)
-
         await self.wait_nodes_ready(client0)
 
         for client in (client0, client1):
@@ -1277,8 +1269,6 @@ class TestType(TestBase):
                 Chat{messages: [`Welcome in {room.name}`]}
             });
         ''')
-
-        await asyncio.sleep(1.6)
 
         await self.wait_nodes_ready(client0)
 
@@ -1312,8 +1302,6 @@ class TestType(TestBase):
         client1 = await get_client(self.node1)
         client1.set_default_scope('//stuff')
 
-        await asyncio.sleep(1.6)
-
         await self.wait_nodes_ready(client0)
 
         for client in (client0, client1):
@@ -1343,8 +1331,6 @@ class TestType(TestBase):
 
             .room_a.chat.messages.push('Just one instance');
         ''')
-
-        await asyncio.sleep(1.6)
 
         await self.wait_nodes_ready(client0)
 
@@ -1391,8 +1377,6 @@ class TestType(TestBase):
         client1 = await get_client(self.node1)
         client1.set_default_scope('//stuff')
 
-        await asyncio.sleep(1.6)
-
         await self.wait_nodes_ready(client0)
 
         for client in (client0, client1):
@@ -1419,8 +1403,6 @@ class TestType(TestBase):
 
         client1 = await get_client(self.node1)
         client1.set_default_scope('//stuff')
-
-        await asyncio.sleep(1.6)
 
         await self.wait_nodes_ready(client0)
 
@@ -1473,8 +1455,6 @@ class TestType(TestBase):
 
         client1 = await get_client(self.node1)
         client1.set_default_scope('//stuff')
-
-        await asyncio.sleep(1.6)
 
         await self.wait_nodes_ready(client0)
 

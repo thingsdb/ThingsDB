@@ -11,11 +11,12 @@ class TestBase(unittest.TestCase):
     async def run(self):
         raise NotImplementedError('run must be implemented')
 
-    async def wait_nodes_ready(self, client=None):
+    async def wait_nodes_ready(self, client=None, success_count=10):
         if client is None:
             client = await get_client(self.node0)
 
-        attempts = 20
+        count = 0
+        attempts = 120  # at most 2 minutes
         while attempts:
             try:
                 res = await client.nodes_info()
@@ -23,7 +24,11 @@ class TestBase(unittest.TestCase):
                 pass
             else:
                 if all((node['status'] == 'READY' for node in res)):
-                    return
+                    count += 1
+                    if count >= success_count:  # at least X times successful
+                        return
+                else:
+                    success = 0
             attempts -= 1
             await asyncio.sleep(0.5)
 
@@ -57,7 +62,7 @@ class TestBase(unittest.TestCase):
                     del_collection('stuff');
                     new_collection('stuff');
                 ''')
-                await self.wait_nodes_ready(client)
+                await self.wait_nodes_ready(client, success_count=1)
                 await f(self, *args, **kwargs)
                 client.close()
                 await client.wait_closed()

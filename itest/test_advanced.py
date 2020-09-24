@@ -1181,6 +1181,22 @@ class TestAdvanced(TestBase):
             root, 'name', '127.0.0.1', [], [], '')
         self.assertGreater(host_b, host_a)
 
+    async def test_mod_condition(self, client):
+        name = await client.query(r'''
+            set_type('P', {name: 'str?'});
+            .person = P{name: 'Iris'};
+
+            mod_type('P', 'mod', 'name', 'str<3:25>?', |p| p.name);
+            .person.name = 'Cato';
+        ''')
+        self.assertEqual(name, 'Cato')
+
+        name = await client.query(r'''
+            try(mod_type('P', 'mod', 'name', 'str<6:25>?', |p| p.name));
+            .person.name;
+        ''')
+        self.assertIs(name, None)
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

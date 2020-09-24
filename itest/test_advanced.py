@@ -1181,7 +1181,7 @@ class TestAdvanced(TestBase):
             root, 'name', '127.0.0.1', [], [], '')
         self.assertGreater(host_b, host_a)
 
-    async def test_mod_condition(self, client):
+    async def test_issue_90(self, client):
         name = await client.query(r'''
             set_type('P', {name: 'str?'});
             .person = P{name: 'Iris'};
@@ -1196,6 +1196,35 @@ class TestAdvanced(TestBase):
             .person.name;
         ''')
         self.assertIs(name, None)
+
+    async def test_issue_91(self, client):
+        res = await client.query(r'''
+            set_type('P', {
+                name: 'str'
+            });
+
+            set_type('A', {
+                reports: '{P}'
+            });
+
+            .list = [
+                A{reports: set()},
+                A{reports: set(P{name: 'p1a'}, P{name: 'p1b'})},
+                A{reports: set(P{name: 'p2a'}, P{name: 'p2b'}, P{name: 'p2c'})},
+            ];
+
+            try(mod_type('A', 'mod', 'reports', '[]', |x| x.reports));
+
+            .list[0].reports.push(P{name: 'p0a'});
+            .list[1].reports.push(P{name: 'p1c'}, P{name: 'p1d'});
+
+            try(mod_type('A', 'mod', 'reports', '[]', |x| x.reports.map(|p|p)));
+
+            .list.map(|a| {
+                a.reports.map(|p| p.name);
+            });
+        ''')
+        self.assertEqual(res, [["p0a"], ["p1c", "p1d"], []])
 
 
 if __name__ == '__main__':

@@ -263,7 +263,7 @@ class TestIndexSlice(TestBase):
         await client0.query(r'.list[0] = [{}, {}];')
         await asyncio.sleep(0.2)
         for client in (client0, client1, client2):
-            self.assertTrue(await client.query('istuple(.list[0]);'))
+            self.assertTrue(await client.query('is_tuple(.list[0]);'))
 
     async def test_reference(self, client0, client1, client2):
         res = await client0.query(r'''

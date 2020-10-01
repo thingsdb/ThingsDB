@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_isinf(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_is_inf(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     _Bool is_inf;
 
-    if (fn_nargs("isinf", DOC_ISINF, 1, nargs, e) ||
+    if (fn_nargs("is_inf", DOC_IS_INF, 1, nargs, e) ||
         ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
@@ -20,8 +20,8 @@ static int do__f_isinf(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         break;
     default:
         ex_set(e, EX_TYPE_ERROR,
-                "function `isinf` expects argument 1 to be of "
-                "type `"TI_VAL_FLOAT_S"` but got type `%s` instead"DOC_ISINF,
+                "function `is_inf` expects argument 1 to be of "
+                "type `"TI_VAL_FLOAT_S"` but got type `%s` instead"DOC_IS_INF,
                 ti_val_str(query->rval));
         return e->nr;
     }

@@ -67,8 +67,8 @@ class TestSyntax(TestBase):
     async def test_invalid_syntax(self, client):
         with self.assertRaisesRegex(
                 SyntaxError,
-                r'error at line 1, position 16, expecting: :'):
-            await client.query('|x| iserr(x)?x+2')
+                r'error at line 1, position 17, expecting: :'):
+            await client.query('|x| is_err(x)?x+2')
 
 
 if __name__ == '__main__':

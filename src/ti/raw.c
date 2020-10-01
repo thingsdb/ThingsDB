@@ -326,7 +326,7 @@ int ti_raw_cmp_strn(const ti_raw_t * a, const char * s, size_t n)
     );
 }
 
-void ti_raw_to_e(const ti_raw_t * r, ex_t * e, ex_enum code)
+void ti_raw_set_e(ex_t * e, const ti_raw_t * r, ex_enum code)
 {
     assert(r->n < EX_MAX_SZ);
     e->n = r->n;

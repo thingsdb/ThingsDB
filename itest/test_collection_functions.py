@@ -69,6 +69,76 @@ class TestCollectionFunctions(TestBase):
 
         '''), None)
 
+    async def test_alt_raise(self, client):
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `alt_raise`'):
+            await client.query('nil.alt_raise(nil, -100);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `alt_raise` takes at most 3 arguments '
+                'but 4 were given'):
+            await client.query('alt_raise(nil, -100, "msg", nil);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `alt_raise` requires at least 2 arguments '
+                'but 0 were given'):
+            await client.query('alt_raise();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `alt_raise` expects argument 2 to be of type `int` '
+                'but got type `nil` instead'):
+            await client.query('alt_raise(1/0, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `alt_raise` expects argument 3 to be of type `str` '
+                'but got type `nil` instead'):
+            await client.query('alt_raise(1/0, -100, nil);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'function `alt_raise` expects an error code '
+                'between -127 and -50 but got 100 instead'):
+            await client.query('alt_raise(42/0, 100);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'function `alt_raise` expects an error code '
+                'between -127 and -50 but got -128 instead'):
+            await client.query('alt_raise(42/0, -128);')
+
+        with self.assertRaisesRegex(
+                ThingsDBError,
+                'division or modulo by zero'):
+            await client.query('alt_raise(42/0, -100);')
+
+        with self.assertRaisesRegex(
+                ThingsDBError,
+                'just a message'):
+            await client.query('alt_raise(42/0, -100, "just a message");')
+
+        try:
+            await client.query('alt_raise(42/0, -50);')
+        except ThingsDBError as e:
+            self.assertEqual(e.error_code, -50)
+            self.assertEqual(str(e), 'division or modulo by zero')
+
+        try:
+            await client.query('alt_raise(42/0, -127, "just a message");')
+        except ThingsDBError as e:
+            self.assertEqual(e.error_code, -127)
+            self.assertEqual(str(e), 'just a message')
+
+        self.assertEqual(
+            await client.query('alt_raise(42/6, -100, "just a message");'),
+            7
+        )
+
     async def test_add(self, client):
         await client.query(r'.s = set(); .a = {}; .b = {}; .c = {};')
         self.assertEqual(
@@ -733,25 +803,29 @@ class TestCollectionFunctions(TestBase):
             }, 2))).doc();
         '''), 'Test!')
 
-    async def test_endswith(self, client):
+    async def test_ends_with(self, client):
         with self.assertRaisesRegex(
                 LookupError,
-                'type `nil` has no function `endswith`'):
-            await client.query('nil.endswith("world!");')
+                'type `nil` has no function `ends_with`'):
+            await client.query('nil.ends_with("world!");')
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `endswith` takes 1 argument but 2 were given'):
-            await client.query('"Hi World!".endswith("x", 2)')
+                'function `ends_with` takes 1 argument but 2 were given'):
+            await client.query('"Hi World!".ends_with("x", 2)')
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'function `endswith` expects argument 1 to be of '
+                r'function `ends_with` expects argument 1 to be of '
                 r'type `str` but got type `int` instead'):
-            await client.query('"Hi World!".endswith(1);')
+            await client.query('"Hi World!".ends_with(1);')
 
-        self.assertTrue(await client.query('"Hi World!".endswith("")'))
-        self.assertFalse(await client.query('"".endswith("!")'))
+        self.assertTrue(await client.query('"Hi World!".ends_with("")'))
+        self.assertFalse(await client.query('"".ends_with("!")'))
+        self.assertTrue(await client.query('"Hi World!".ends_with("World!")'))
+        self.assertFalse(await client.query('"Hi World!".ends_with("world!")'))
+
+        # deprecated calls
         self.assertTrue(await client.query('"Hi World!".endswith("World!")'))
         self.assertFalse(await client.query('"Hi World!".endswith("world!")'))
 
@@ -831,7 +905,7 @@ class TestCollectionFunctions(TestBase):
             {'age': 6})
 
         self.assertEqual(
-            (await client.query('.iris.likes.filter(|v|isstr(v));')),
+            (await client.query('.iris.likes.filter(|v|is_str(v));')),
             ['k3', 'swimming', 'red'])
 
         self.assertEqual(
@@ -853,6 +927,57 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query(r'{}.filter(||true)'), {})
         self.assertEqual(await client.query(r'[].filter(||true)'), [])
         self.assertEqual(await client.query(r'set().filter(||1)'), [])
+
+    async def test_reverse(self, client):
+        await client.query(r'''
+            .arr1 = range(10);
+            arr2 = [{n: 2}, {n: 1}, {n: 0}];
+            set_type('List', {numbers: '[int]'});
+            .list = List{
+                numbers: [1, 2, 3]
+            };
+            .arr2 = arr2.reverse();
+        ''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `reverse`'):
+            await client.query('nil.reverse();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `reverse` takes 0 arguments '
+                'but 1 was given'):
+            await client.query('.arr1.reverse(nil);')
+
+        self.assertEqual(
+            await client.query('.arr1.reverse();'),
+            list(range(10))[::-1]
+        )
+
+        self.assertEqual(
+            await client.query(r'''
+                arr = .list.numbers.reverse();
+                arr.push("abc");
+                arr;
+            '''),
+            [3, 2, 1, "abc"]
+        )
+
+        res = await client.query('.list.numbers = .list.numbers.reverse()')
+        self.assertEqual(res, [3, 2, 1])
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'type `str` is not allowed in restricted array'):
+            await client.query('.list.numbers.push("abc");')
+
+        res = await client.query('.arr2;')
+        self.assertEqual(len(res), 3)
+
+        for i, item in enumerate(res):
+            self.assertIn('#', item.keys())
+            self.assertEqual(item['n'], i)
 
     async def test_find(self, client):
         await client.query(r'''
@@ -909,32 +1034,36 @@ class TestCollectionFunctions(TestBase):
             '.g.find(|_,i|(i==.iris.id()));'), iris)
         self.assertIs(await client.query('.g.find(||nil);'), None)
 
-    async def test_findindex(self, client):
+    async def test_find_index(self, client):
         await client.query(r'.x = [42, ""];')
 
         with self.assertRaisesRegex(
                 LookupError,
-                'type `int` has no function `findindex`'):
-            await client.query('(1).findindex(||true);')
+                'type `int` has no function `find_index`'):
+            await client.query('(1).find_index(||true);')
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `findindex` takes 1 argument but 2 were given'):
-            await client.query('.x.findindex(0, 1);')
+                'function `find_index` takes 1 argument but 2 were given'):
+            await client.query('.x.find_index(0, 1);')
 
         with self.assertRaisesRegex(
                 TypeError,
-                'function `findindex` expects argument 1 to be of '
+                'function `find_index` expects argument 1 to be of '
                 'type `closure` but got type `bool` instead'):
-            await client.query('.x.findindex(true);')
+            await client.query('.x.find_index(true);')
 
-        self.assertIs(await client.query('[].findindex(||true);'), None)
-        self.assertIs(await client.query('[].findindex(||false);'), None)
-        self.assertEqual(await client.query('.x.findindex(||true);'), 0)
+        self.assertIs(await client.query('[].find_index(||true);'), None)
+        self.assertIs(await client.query('[].find_index(||false);'), None)
+        self.assertEqual(await client.query('.x.find_index(||true);'), 0)
+        self.assertIs(await client.query('.x.find_index(||false);'), None)
+        self.assertEqual(await client.query('.x.find_index(|_,i|(i>0));'), 1)
+        self.assertEqual(await client.query('.x.find_index(|v|(v==42));'), 0)
+        self.assertEqual(await client.query('.x.find_index(|v|is_str(v));'), 1)
+
+        # deprecated calls
         self.assertIs(await client.query('.x.findindex(||false);'), None)
         self.assertEqual(await client.query('.x.findindex(|_,i|(i>0));'), 1)
-        self.assertEqual(await client.query('.x.findindex(|v|(v==42));'), 0)
-        self.assertEqual(await client.query('.x.findindex(|v|isstr(v));'), 1)
 
     async def test_float(self, client):
         with self.assertRaisesRegex(
@@ -1134,29 +1263,60 @@ class TestCollectionFunctions(TestBase):
                 'function `id` takes 0 arguments but 2 were given'):
             await client.query('.id(nil, nil);')
 
-    async def test_indexof(self, client):
+    async def test_index_of(self, client):
         await client.query(
             r'.x = [42, "thingsdb", thing(.id()), 42, false, nil];')
 
         with self.assertRaisesRegex(
                 LookupError,
-                'type `float` has no function `indexof`'):
-            await client.query('(1.0).indexof("x");')
+                'type `float` has no function `index_of`'):
+            await client.query('(1.0).index_of("x");')
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `indexof` takes 1 argument but 0 were given'):
-            await client.query('.x.indexof();')
+                'function `index_of` takes 1 argument but 0 were given'):
+            await client.query('.x.index_of();')
 
-        self.assertEqual(await client.query('.x.indexof(42);'), 0)
-        self.assertEqual(await client.query('.x.indexof("thingsdb");'), 1)
-        self.assertEqual(await client.query('.x.indexof(thing(.id()));'), 2)
-        self.assertEqual(await client.query('.x.indexof(false);'), 4)
+        self.assertEqual(await client.query('.x.index_of(42);'), 0)
+        self.assertEqual(await client.query('.x.index_of("thingsdb");'), 1)
+        self.assertEqual(await client.query('.x.index_of(thing(.id()));'), 2)
+        self.assertEqual(await client.query('.x.index_of(false);'), 4)
+        self.assertEqual(await client.query('.x.index_of(nil);'), 5)
+        self.assertIs(await client.query('.x.index_of(42.1);'), None)
+        self.assertIs(await client.query('.x.index_of("ThingsDb");'), None)
+        self.assertIs(await client.query('.x.index_of(true);'), None)
+        self.assertIs(await client.query(r'.x.index_of({});'), None)
+
+        # deprecated calls
         self.assertEqual(await client.query('.x.indexof(nil);'), 5)
         self.assertIs(await client.query('.x.indexof(42.1);'), None)
-        self.assertIs(await client.query('.x.indexof("ThingsDb");'), None)
-        self.assertIs(await client.query('.x.indexof(true);'), None)
-        self.assertIs(await client.query(r'.x.indexof({});'), None)
+
+        # cleanup garbage, the reference to the collection
+        await client.query(r'''.x.splice(2, 1);''')
+
+    async def test_has_list(self, client):
+        await client.query(
+            r'.x = [42, "thingsdb", thing(.id()), 42, false, nil];')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `float` has no function `has`'):
+            await client.query('(1.0).has("x");')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `has` takes 1 argument but 0 were given'):
+            await client.query('.x.has();')
+
+        self.assertEqual(await client.query('.x.has(42);'), True)
+        self.assertEqual(await client.query('.x.has("thingsdb");'), True)
+        self.assertEqual(await client.query('.x.has(thing(.id()));'), True)
+        self.assertEqual(await client.query('.x.has(false);'), True)
+        self.assertEqual(await client.query('.x.has(nil);'), True)
+        self.assertIs(await client.query('.x.has(42.1);'), False)
+        self.assertIs(await client.query('.x.has("ThingsDb");'), False)
+        self.assertIs(await client.query('.x.has(true);'), False)
+        self.assertIs(await client.query(r'.x.has({});'), False)
 
         # cleanup garbage, the reference to the collection
         await client.query(r'''.x.splice(2, 1);''')
@@ -1265,247 +1425,279 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('int("3.14");'), 3)
         self.assertEqual(await client.query('int("-3.14");'), -3)
 
-    async def test_isarray(self, client):
+    async def test_is_array(self, client):
         await client.query('.x = [[0, 1], nil]; .y = .x[0];')
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `isarray` takes 1 argument but 0 were given'):
-            await client.query('isarray();')
+                'function `is_array` takes 1 argument but 0 were given'):
+            await client.query('is_array();')
 
-        self.assertTrue(await client.query('isarray([]);'))
-        self.assertTrue(await client.query('isarray(.x);'))
-        self.assertTrue(await client.query('isarray(.y);'))
-        self.assertTrue(await client.query('isarray(.x[0]);'))
-        self.assertFalse(await client.query('isarray(0);'))
-        self.assertFalse(await client.query('isarray("test");'))
-        self.assertFalse(await client.query(r'isarray({});'))
-        self.assertFalse(await client.query('isarray(.x[1]);'))
-        self.assertFalse(await client.query('isarray(set());'))
+        self.assertTrue(await client.query('is_array([]);'))
+        self.assertTrue(await client.query('is_array(.x);'))
+        self.assertTrue(await client.query('is_array(.y);'))
+        self.assertTrue(await client.query('is_array(.x[0]);'))
+        self.assertFalse(await client.query('is_array(0);'))
+        self.assertFalse(await client.query('is_array("test");'))
+        self.assertFalse(await client.query(r'is_array({});'))
+        self.assertFalse(await client.query('is_array(.x[1]);'))
+        self.assertFalse(await client.query('is_array(set());'))
 
-    async def test_isascii(self, client):
+    async def test_is_ascii(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `isascii` takes 1 argument but 0 were given'):
-            await client.query('isascii();')
+                'function `is_ascii` takes 1 argument but 0 were given'):
+            await client.query('is_ascii();')
 
-        self.assertTrue(await client.query('isascii( "pi" ); '))
-        self.assertTrue(await client.query('isascii( "" ); '))
-        self.assertFalse(await client.query('isascii( "ԉ" ); '))
-        self.assertFalse(await client.query('isascii([]);'))
-        self.assertFalse(await client.query('isascii(nil);'))
+        self.assertTrue(await client.query('is_ascii( "pi" ); '))
+        self.assertTrue(await client.query('is_ascii( "" ); '))
+        self.assertFalse(await client.query('is_ascii( "ԉ" ); '))
+        self.assertFalse(await client.query('is_ascii([]);'))
+        self.assertFalse(await client.query('is_ascii(nil);'))
         self.assertFalse(await client.query(
-                'isascii(blob);',
+                'is_ascii(blob);',
                 blob=pickle.dumps('binary')))
 
-    async def test_isbool(self, client):
+    async def test_is_bool(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `isbool` takes 1 argument but 3 were given'):
-            await client.query('isbool(1, 2, 3);')
+                'function `is_bool` takes 1 argument but 3 were given'):
+            await client.query('is_bool(1, 2, 3);')
 
-        self.assertTrue(await client.query('isbool( true ); '))
-        self.assertTrue(await client.query('isbool( false ); '))
-        self.assertTrue(await client.query('isbool( isint(.id()) ); '))
-        self.assertFalse(await client.query('isbool( "ԉ" ); '))
-        self.assertFalse(await client.query('isbool([]);'))
-        self.assertFalse(await client.query('isbool(nil);'))
+        self.assertTrue(await client.query('is_bool( true ); '))
+        self.assertTrue(await client.query('is_bool( false ); '))
+        self.assertTrue(await client.query('is_bool( is_int(.id()) ); '))
+        self.assertFalse(await client.query('is_bool( "ԉ" ); '))
+        self.assertFalse(await client.query('is_bool([]);'))
+        self.assertFalse(await client.query('is_bool(nil);'))
 
-    async def test_iserr(self, client):
+    async def test_is_err(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `iserr` takes 1 argument but 2 were given'):
-            await client.query('iserr(1, 2);')
+                'function `is_err` takes 1 argument but 2 were given'):
+            await client.query('is_err(1, 2);')
 
-        self.assertTrue(await client.query('iserr( err() ); '))
-        self.assertTrue(await client.query('iserr( zero_div_err() ); '))
+        self.assertTrue(await client.query('is_err( err() ); '))
+        self.assertTrue(await client.query('is_err( zero_div_err() ); '))
+        self.assertTrue(await client.query('is_err( try ((1/0)) ); '))
+        self.assertFalse(await client.query('is_err( "ԉ" ); '))
+        self.assertFalse(await client.query('is_err([]);'))
+        self.assertFalse(await client.query('is_err(nil);'))
+
+        # deprecated calls
         self.assertTrue(await client.query('iserr( try ((1/0)) ); '))
         self.assertFalse(await client.query('iserr( "ԉ" ); '))
-        self.assertFalse(await client.query('iserr([]);'))
-        self.assertFalse(await client.query('iserr(nil);'))
 
-    async def test_isfloat(self, client):
+    async def test_is_float(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `isfloat` takes 1 argument but 0 were given'):
-            await client.query('isfloat();')
+                'function `is_float` takes 1 argument but 0 were given'):
+            await client.query('is_float();')
 
-        self.assertTrue(await client.query('isfloat( 0.0 ); '))
-        self.assertTrue(await client.query('isfloat( -0.0 ); '))
-        self.assertTrue(await client.query('isfloat( inf ); '))
-        self.assertTrue(await client.query('isfloat( -inf ); '))
-        self.assertTrue(await client.query('isfloat( nan ); '))
-        self.assertFalse(await client.query('isfloat( "ԉ" ); '))
-        self.assertFalse(await client.query('isfloat( 42 );'))
-        self.assertFalse(await client.query('isfloat( nil );'))
+        self.assertTrue(await client.query('is_float( 0.0 ); '))
+        self.assertTrue(await client.query('is_float( -0.0 ); '))
+        self.assertTrue(await client.query('is_float( inf ); '))
+        self.assertTrue(await client.query('is_float( -inf ); '))
+        self.assertTrue(await client.query('is_float( nan ); '))
+        self.assertFalse(await client.query('is_float( "ԉ" ); '))
+        self.assertFalse(await client.query('is_float( 42 );'))
+        self.assertFalse(await client.query('is_float( nil );'))
 
-    async def test_isinf(self, client):
+    async def test_is_inf(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `isinf` takes 1 argument but 0 were given'):
-            await client.query('isinf();')
+                'function `is_inf` takes 1 argument but 0 were given'):
+            await client.query('is_inf();')
 
         with self.assertRaisesRegex(
                 TypeError,
-                'function `isinf` expects argument 1 to be of '
+                'function `is_inf` expects argument 1 to be of '
                 'type `float` but got type `nil` instead'):
-            await client.query('isinf(nil);')
+            await client.query('is_inf(nil);')
 
-        self.assertTrue(await client.query('isinf( inf ); '))
-        self.assertTrue(await client.query('isinf( -inf ); '))
-        self.assertFalse(await client.query('isinf( 0.0 ); '))
-        self.assertFalse(await client.query('isinf( nan ); '))
-        self.assertFalse(await client.query('isinf( 42 ); '))
-        self.assertFalse(await client.query('isinf( true ); '))
+        self.assertTrue(await client.query('is_inf( inf ); '))
+        self.assertTrue(await client.query('is_inf( -inf ); '))
+        self.assertFalse(await client.query('is_inf( 0.0 ); '))
+        self.assertFalse(await client.query('is_inf( nan ); '))
+        self.assertFalse(await client.query('is_inf( 42 ); '))
+        self.assertFalse(await client.query('is_inf( true ); '))
 
-    async def test_isint(self, client):
+    async def test_is_int(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `isint` takes 1 argument but 0 were given'):
-            await client.query('isint();')
+                'function `is_int` takes 1 argument but 0 were given'):
+            await client.query('is_int();')
 
-        self.assertTrue(await client.query('isint( 0 ); '))
-        self.assertTrue(await client.query('isint( -0 ); '))
-        self.assertTrue(await client.query('isint( 42 );'))
-        self.assertFalse(await client.query('isint( 0.0 ); '))
-        self.assertFalse(await client.query('isint( -0.0 ); '))
-        self.assertFalse(await client.query('isint( inf ); '))
-        self.assertFalse(await client.query('isint( -inf ); '))
-        self.assertFalse(await client.query('isint( nan ); '))
-        self.assertFalse(await client.query('isint( "ԉ" ); '))
-        self.assertFalse(await client.query('isint( nil );'))
-        self.assertFalse(await client.query('isint( set() );'))
+        self.assertTrue(await client.query('is_int( 0 ); '))
+        self.assertTrue(await client.query('is_int( -0 ); '))
+        self.assertTrue(await client.query('is_int( 42 );'))
+        self.assertFalse(await client.query('is_int( 0.0 ); '))
+        self.assertFalse(await client.query('is_int( -0.0 ); '))
+        self.assertFalse(await client.query('is_int( inf ); '))
+        self.assertFalse(await client.query('is_int( -inf ); '))
+        self.assertFalse(await client.query('is_int( nan ); '))
+        self.assertFalse(await client.query('is_int( "ԉ" ); '))
+        self.assertFalse(await client.query('is_int( nil );'))
+        self.assertFalse(await client.query('is_int( set() );'))
 
-    async def test_islist(self, client):
+    async def test_is_list(self, client):
         await client.query('.x = [[0, 1], nil]; .y = .x[0];')
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `islist` takes 1 argument but 0 were given'):
-            await client.query('islist();')
+                'function `is_list` takes 1 argument but 0 were given'):
+            await client.query('is_list();')
 
-        self.assertTrue(await client.query('islist([]);'))
-        self.assertTrue(await client.query('islist(.x);'))
-        self.assertTrue(await client.query('islist(.y);'))
-        self.assertFalse(await client.query('islist(.x[0]);'))
-        self.assertFalse(await client.query('islist(0);'))
-        self.assertFalse(await client.query('islist("test");'))
-        self.assertFalse(await client.query(r'islist({});'))
-        self.assertFalse(await client.query('islist(.x[1]);'))
-        self.assertFalse(await client.query('islist(set());'))
+        self.assertTrue(await client.query('is_list([]);'))
+        self.assertTrue(await client.query('is_list(.x);'))
+        self.assertTrue(await client.query('is_list(.y);'))
+        self.assertFalse(await client.query('is_list(.x[0]);'))
+        self.assertFalse(await client.query('is_list(0);'))
+        self.assertFalse(await client.query('is_list("test");'))
+        self.assertFalse(await client.query(r'is_list({});'))
+        self.assertFalse(await client.query('is_list(.x[1]);'))
+        self.assertFalse(await client.query('is_list(set());'))
 
-    async def test_isnan(self, client):
+    async def test_is_nan(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `isnan` takes 1 argument but 0 were given'):
-            await client.query('isnan();')
+                'function `is_nan` takes 1 argument but 0 were given'):
+            await client.query('is_nan();')
 
-        self.assertFalse(await client.query('isnan( inf ); '))
-        self.assertFalse(await client.query('isnan( -inf ); '))
-        self.assertFalse(await client.query('isnan( 3.14 ); '))
-        self.assertFalse(await client.query('isnan( 42 ); '))
-        self.assertFalse(await client.query('isnan( true ); '))
-        self.assertTrue(await client.query('isnan( nan ); '))
-        self.assertTrue(await client.query('isnan( [] ); '))
-        self.assertTrue(await client.query(r'isnan( {} ); '))
-        self.assertTrue(await client.query('isnan( "3" ); '))
-        self.assertTrue(await client.query('isnan( set() ); '))
+        self.assertFalse(await client.query('is_nan( inf ); '))
+        self.assertFalse(await client.query('is_nan( -inf ); '))
+        self.assertFalse(await client.query('is_nan( 3.14 ); '))
+        self.assertFalse(await client.query('is_nan( 42 ); '))
+        self.assertFalse(await client.query('is_nan( true ); '))
+        self.assertTrue(await client.query('is_nan( nan ); '))
+        self.assertTrue(await client.query('is_nan( [] ); '))
+        self.assertTrue(await client.query(r'is_nan( {} ); '))
+        self.assertTrue(await client.query('is_nan( "3" ); '))
+        self.assertTrue(await client.query('is_nan( set() ); '))
 
-    async def test_isnil(self, client):
+    async def test_is_nil(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `isnil` takes 1 argument but 0 were given'):
-            await client.query('isnil();')
+                'function `is_nil` takes 1 argument but 0 were given'):
+            await client.query('is_nil();')
 
+        self.assertTrue(await client.query('is_nil( nil ); '))
+        self.assertFalse(await client.query('is_nil( 0 ); '))
+
+        # deprecated calls
         self.assertTrue(await client.query('isnil( nil ); '))
         self.assertFalse(await client.query('isnil( 0 ); '))
 
-    async def test_israw(self, client):
+    async def test_is_bytes(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `israw` takes 1 argument but 0 were given'):
-            await client.query('israw();')
+                'function `is_bytes` takes 1 argument but 0 were given'):
+            await client.query('is_bytes();')
 
-        self.assertTrue(await client.query('israw( "pi" ); '))
-        self.assertTrue(await client.query('israw( "" ); '))
-        self.assertTrue(await client.query('israw( "ԉ" ); '))
-        self.assertFalse(await client.query('israw([]);'))
-        self.assertFalse(await client.query('israw(nil);'))
+        self.assertFalse(await client.query('is_bytes( "pi" ); '))
+        self.assertFalse(await client.query('is_bytes( "" ); '))
+        self.assertFalse(await client.query('is_bytes( "ԉ" ); '))
+        self.assertFalse(await client.query('is_bytes( [] );'))
+        self.assertFalse(await client.query('is_bytes(nil);'))
+        self.assertTrue(await client.query('is_bytes( bytes("pi") ); '))
         self.assertTrue(await client.query(
-                'israw(blob);',
+                'is_bytes(blob);',
                 blob=pickle.dumps('binary')))
 
-    async def test_isset(self, client):
+        # deprecated calls
+        self.assertFalse(await client.query('isbytes(nil);'))
+        self.assertTrue(await client.query('isbytes( bytes("pi") ); '))
+
+    async def test_is_raw(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `is_raw` takes 1 argument but 0 were given'):
+            await client.query('is_raw();')
+
+        self.assertTrue(await client.query('is_raw( "pi" ); '))
+        self.assertTrue(await client.query('is_raw( "" ); '))
+        self.assertTrue(await client.query('is_raw( "ԉ" ); '))
+        self.assertFalse(await client.query('is_raw([]);'))
+        self.assertFalse(await client.query('is_raw(nil);'))
+        self.assertTrue(await client.query(
+                'is_raw(blob);',
+                blob=pickle.dumps('binary')))
+
+        # deprecated calls
+        self.assertTrue(await client.query('israw( "ԉ" ); '))
+        self.assertFalse(await client.query('israw([]);'))
+
+    async def test_is_set(self, client):
         await client.query(r'.sa = set(); .sb = set([ {} ]);')
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `isset` takes 1 argument but 0 were given'):
-            await client.query('isset();')
+                'function `is_set` takes 1 argument but 0 were given'):
+            await client.query('is_set();')
 
-        self.assertFalse(await client.query(r'isset({});'))
-        self.assertFalse(await client.query('isset([]);'))
-        self.assertTrue(await client.query('isset(set());'))
-        self.assertTrue(await client.query('isset(.sa);'))
-        self.assertTrue(await client.query('isset(.sb);'))
+        self.assertFalse(await client.query(r'is_set({});'))
+        self.assertFalse(await client.query('is_set([]);'))
+        self.assertTrue(await client.query('is_set(set());'))
+        self.assertTrue(await client.query('is_set(.sa);'))
+        self.assertTrue(await client.query('is_set(.sb);'))
 
-    async def test_isstr(self, client):
+    async def test_is_str(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `isstr` takes 1 argument but 0 were given'):
-            await client.query('isstr();')
+                'function `is_str` takes 1 argument but 0 were given'):
+            await client.query('is_str();')
 
-        self.assertTrue(await client.query('isstr( "pi" ); '))
-        self.assertTrue(await client.query('isstr( "" ); '))
-        self.assertTrue(await client.query('isstr( "ԉ" ); '))
-        self.assertFalse(await client.query('isstr([]);'))
-        self.assertFalse(await client.query('isstr(nil);'))
-        self.assertFalse(await client.query('isstr(123);'))
+        self.assertTrue(await client.query('is_str( "pi" ); '))
+        self.assertTrue(await client.query('is_str( "" ); '))
+        self.assertTrue(await client.query('is_str( "ԉ" ); '))
+        self.assertFalse(await client.query('is_str([]);'))
+        self.assertFalse(await client.query('is_str(nil);'))
+        self.assertFalse(await client.query('is_str(123);'))
         self.assertFalse(await client.query(
-                'isstr(blob);',
+                'is_str(blob);',
                 blob=pickle.dumps('binary')))
 
-    async def test_isthing(self, client):
+    async def test_is_thing(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `isthing` takes 1 argument but 0 were given'):
-            await client.query('isthing();')
+                'function `is_thing` takes 1 argument but 0 were given'):
+            await client.query('is_thing();')
 
         id = await client.query('.id();')
 
-        self.assertTrue(await client.query(f'isthing( #{id} ); '))
-        self.assertTrue(await client.query(r'isthing( {} ); '))
-        self.assertTrue(await client.query(r'isthing( thing(.id()) ); '))
-        self.assertFalse(await client.query('isthing( [] ); '))
-        self.assertFalse(await client.query('isthing( set() ); '))
+        self.assertTrue(await client.query(f'is_thing( #{id} ); '))
+        self.assertTrue(await client.query(r'is_thing( {} ); '))
+        self.assertTrue(await client.query(r'is_thing( thing(.id()) ); '))
+        self.assertFalse(await client.query('is_thing( [] ); '))
+        self.assertFalse(await client.query('is_thing( set() ); '))
 
-    async def test_istuple(self, client):
+    async def test_is_tuple(self, client):
         await client.query('.x = [[0, 1], nil]; .y = .x[0];')
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `istuple` takes 1 argument but 0 were given'):
-            await client.query('istuple();')
+                'function `is_tuple` takes 1 argument but 0 were given'):
+            await client.query('is_tuple();')
 
-        self.assertFalse(await client.query('istuple([]);'))
-        self.assertFalse(await client.query('istuple(.x);'))
-        self.assertFalse(await client.query('istuple(.y);'))
-        self.assertTrue(await client.query('istuple(.x[0]);'))
-        self.assertFalse(await client.query('istuple(0);'))
-        self.assertFalse(await client.query('istuple("test");'))
-        self.assertFalse(await client.query(r'istuple({});'))
-        self.assertFalse(await client.query('istuple(.x[1]);'))
+        self.assertFalse(await client.query('is_tuple([]);'))
+        self.assertFalse(await client.query('is_tuple(.x);'))
+        self.assertFalse(await client.query('is_tuple(.y);'))
+        self.assertTrue(await client.query('is_tuple(.x[0]);'))
+        self.assertFalse(await client.query('is_tuple(0);'))
+        self.assertFalse(await client.query('is_tuple("test");'))
+        self.assertFalse(await client.query(r'is_tuple({});'))
+        self.assertFalse(await client.query('is_tuple(.x[1]);'))
 
-    async def test_isutf8(self, client):
+    async def test_is_utf8(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `isutf8` takes 1 argument but 0 were given'):
-            await client.query('isutf8();')
+                'function `is_utf8` takes 1 argument but 0 were given'):
+            await client.query('is_utf8();')
 
-        self.assertTrue(await client.query('isutf8( "pi" ); '))
-        self.assertTrue(await client.query('isutf8( "" ); '))
-        self.assertTrue(await client.query('isutf8( "ԉ" ); '))
-        self.assertFalse(await client.query('isutf8([]);'))
-        self.assertFalse(await client.query('isutf8(nil);'))
-        self.assertFalse(await client.query('isutf8(123);'))
+        self.assertTrue(await client.query('is_utf8( "pi" ); '))
+        self.assertTrue(await client.query('is_utf8( "" ); '))
+        self.assertTrue(await client.query('is_utf8( "ԉ" ); '))
+        self.assertFalse(await client.query('is_utf8([]);'))
+        self.assertFalse(await client.query('is_utf8(nil);'))
+        self.assertFalse(await client.query('is_utf8(123);'))
         self.assertFalse(await client.query(
-                'isutf8(blob);',
+                'is_utf8(blob);',
                 blob=pickle.dumps('binary')))
 
     async def test_keys(self, client):
@@ -1658,7 +1850,7 @@ class TestCollectionFunctions(TestBase):
 
         self.assertEqual(
             set(await client.query(
-                '.iris.map(|_, v| (isarray(v)) ? true:v);')),
+                '.iris.map(|_, v| (is_array(v)) ? true:v);')),
             set({'Iris', 6, True}))
 
         self.assertEqual(
@@ -2511,34 +2703,34 @@ class TestCollectionFunctions(TestBase):
                 r'type `int` but got type `nil` instead'):
             await client.query('.li.splice(0, nil)')
 
-    async def test_startswith(self, client):
+    async def test_starts_with(self, client):
         with self.assertRaisesRegex(
                 LookupError,
-                'type `nil` has no function `startswith`'):
-            await client.query('nil.startswith("world!");')
+                'type `nil` has no function `starts_with`'):
+            await client.query('nil.starts_with("world!");')
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `startswith` takes 1 argument '
+                'function `starts_with` takes 1 argument '
                 'but 2 were given'):
-            await client.query('"Hi World!".startswith("x", 2)')
+            await client.query('"Hi World!".starts_with("x", 2)')
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `startswith` takes 1 argument '
+                'function `starts_with` takes 1 argument '
                 'but 0 were given'):
-            await client.query('"Hi World!".startswith()')
+            await client.query('"Hi World!".starts_with()')
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'function `startswith` expects argument 1 to be of '
+                r'function `starts_with` expects argument 1 to be of '
                 r'type `str` but got type `list` instead'):
-            await client.query('"Hi World!".startswith([]);')
+            await client.query('"Hi World!".starts_with([]);')
 
-        self.assertTrue(await client.query('"Hi World!".startswith("")'))
-        self.assertFalse(await client.query('"".startswith("!")'))
-        self.assertTrue(await client.query('"Hi World!".startswith("Hi")'))
-        self.assertFalse(await client.query('"Hi World!".startswith("hi")'))
+        self.assertTrue(await client.query('"Hi World!".starts_with("")'))
+        self.assertFalse(await client.query('"".starts_with("!")'))
+        self.assertTrue(await client.query('"Hi World!".starts_with("Hi")'))
+        self.assertFalse(await client.query('"Hi World!".starts_with("hi")'))
 
     async def test_str(self, client):
         with self.assertRaisesRegex(
@@ -2678,10 +2870,10 @@ class TestCollectionFunctions(TestBase):
                 r'type `error` but got type `nil` instead'):
             await client.query('try((10 / 0), nil);')
 
-        self.assertIs(await client.query('iserr(try( (10 / 2) ));'), False)
-        self.assertIs(await client.query('iserr(try( (10 / 0) ));'), True)
+        self.assertIs(await client.query('is_err(try( (10 / 2) ));'), False)
+        self.assertIs(await client.query('is_err(try( (10 / 0) ));'), True)
         self.assertIs(await client.query(
-            'iserr(try( (10 / 0), zero_div_err() ));'), True)
+            'is_err(try( (10 / 0), zero_div_err() ));'), True)
 
         with self.assertRaisesRegex(
                 ZeroDivisionError,

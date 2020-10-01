@@ -1,12 +1,12 @@
 #include <ti/fn/fn.h>
 
-static int do__f_isutf8(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_is_utf8(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     _Bool is_utf8;
     ti_raw_t * raw;
 
-    if (fn_nargs("isutf8", DOC_ISUTF8, 1, nargs, e) ||
+    if (fn_nargs("is_utf8", DOC_IS_UTF8, 1, nargs, e) ||
         ti_do_statement(query, nd->children->node, e))
         return e->nr;
 

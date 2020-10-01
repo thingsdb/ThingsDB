@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_isnil(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_is_nil(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     _Bool is_nil;
 
-    if (fn_nargs("isnil", DOC_ISNIL, 1, nargs, e) ||
+    if (fn_nargs("is_nil", DOC_IS_NIL, 1, nargs, e) ||
         ti_do_statement(query, nd->children->node, e))
         return e->nr;
 

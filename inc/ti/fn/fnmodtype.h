@@ -81,14 +81,14 @@ static int modtype__add_cb(ti_thing_t * thing, modtype__add_t * w)
     if (w->closure->vars->n)
     {
         ti_incref(thing);
-        prop = vec_get(w->closure->vars, 0);
+        prop = VEC_get(w->closure->vars, 0);
         ti_val_unsafe_drop(prop->val);
         prop->val = (ti_val_t *) thing;
     }
 
     if (ti_closure_do_statement(w->closure, w->query, &ex) ||
         ti_val_is_nil(w->query->rval) ||
-        w->query->rval == vec_get(thing->items, w->field->idx) ||
+        w->query->rval == VEC_get(thing->items, w->field->idx) ||
         ti_field_make_assignable(w->field, &w->query->rval, thing, &ex))
     {
         if (w->e->nr == 0 && ex.nr)
@@ -142,7 +142,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
     if (w->closure->vars->n)
     {
         ti_incref(thing);
-        prop = vec_get(w->closure->vars, 0);
+        prop = VEC_get(w->closure->vars, 0);
         ti_val_unsafe_drop(prop->val);
         prop->val = (ti_val_t *) thing;
     }
@@ -151,7 +151,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
         ti_val_is_nil(w->query->rval) ||
         ti_field_make_assignable(w->field, &w->query->rval, thing, &ex))
     {
-        ti_val_t * val = vec_get(thing->items, w->field->idx);
+        ti_val_t * val = VEC_get(thing->items, w->field->idx);
 
         if (w->e->nr == 0 && ex.nr)
         {
@@ -226,7 +226,7 @@ static int modtype__mod_after_cb(ti_thing_t * thing, modtype__mod_t * w)
 {
     ti_task_t * task;
     ex_t ex = {0};
-    ti_val_t * val = vec_get(thing->items, w->field->idx);
+    ti_val_t * val = VEC_get(thing->items, w->field->idx);
 
     assert (thing->type_id == w->field->type->type_id);
 

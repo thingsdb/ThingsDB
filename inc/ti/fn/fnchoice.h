@@ -38,7 +38,7 @@ static int do__f_choice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         n = rand() % n;
     }
 
-    query->rval = vec_get(arr->vec, n);
+    query->rval = VEC_get(arr->vec, n);
     ti_incref(query->rval);
 
     ti_val_unsafe_drop((ti_val_t *) arr);

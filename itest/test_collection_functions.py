@@ -2001,6 +2001,38 @@ class TestCollectionFunctions(TestBase):
                 'pop from empty list'):
             await client.query('[].pop();')
 
+    async def test_shift(self, client):
+        await client.query('.list = [1, 2, 3];')
+        self.assertEqual(await client.query('.list.shift()'), 1)
+        self.assertEqual(await client.query('.list.shift()'), 2)
+        self.assertEqual(await client.query('.list;'), [3])
+        self.assertIs(await client.query('[nil].shift()'), None)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `shift`'):
+            await client.query('nil.shift();')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `tuple` has no function `shift`'):
+            await client.query('.a = [.list]; .a[0].shift();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `shift` takes 0 arguments but 1 was given'):
+            await client.query('.list.shift(nil);')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'cannot change type `list` while the value is being used'):
+            await client.query('.list.map(||.list.shift());')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'shift from empty list'):
+            await client.query('[].shift();')
+
     async def test_push(self, client):
         await client.query('.list = [];')
         self.assertEqual(await client.query('.list.push("a")'), 1)
@@ -2027,6 +2059,33 @@ class TestCollectionFunctions(TestBase):
                 OperationError,
                 r'cannot change type `list` while the value is being used'):
             await client.query('.list.map(||.list.push(4));')
+
+    async def test_unshift(self, client):
+        await client.query('.list = [];')
+        self.assertEqual(await client.query('.list.unshift("c")'), 1)
+        self.assertEqual(await client.query('.list.unshift("a", "b")'), 3)
+        self.assertEqual(await client.query('.list;'), ['a', 'b', 'c'])
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `unshift`'):
+            await client.query('nil.unshift();')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `tuple` has no function `unshift`'):
+            await client.query('.a = [.list]; .a[0].unshift(nil);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `unshift` requires at least 1 argument '
+                'but 0 were given'):
+            await client.query('.list.unshift();')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'cannot change type `list` while the value is being used'):
+            await client.query('.list.map(||.list.unshift(4));')
 
     async def test_raise(self, client):
         with self.assertRaisesRegex(
@@ -2918,6 +2977,91 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('"".upper();'), "")
         self.assertEqual(await client.query('"U".upper();'), "U")
         self.assertEqual(await client.query('"hi !!".upper();'), "HI !!")
+
+    async def test_trim(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `trim`'):
+            await client.query('nil.trim();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `trim` takes 0 arguments but 1 was given'):
+            await client.query('"Hello World".trim(nil);')
+
+        self.assertEqual(await client.query('"".trim();'), "")
+        self.assertEqual(await client.query('"U".trim();'), "U")
+        self.assertEqual(await client.query(r'''
+            "
+              hi  !!
+            ".trim();
+        '''), "hi  !!")
+        self.assertEqual(await client.query(r'''
+            "hi  !!
+            ".trim();
+        '''), "hi  !!")
+        self.assertEqual(await client.query(r'''
+            "
+              hi  !!".trim();
+        '''), "hi  !!")
+
+        await client.query(r'''
+            x = "TestString";
+            b = refs(x);
+            y = x.trim();
+            assert (refs(x) == b + 1 );
+        ''')
+
+    async def test_trim_left(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `trim_left`'):
+            await client.query('nil.trim_left();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `trim_left` takes 0 arguments but 1 was given'):
+            await client.query('"Hello World".trim_left(nil);')
+
+        self.assertEqual(await client.query('"".trim_left();'), "")
+        self.assertEqual(await client.query('"U".trim_left();'), "U")
+        self.assertEqual(await client.query(r'''
+            "
+              hi  !!   ".trim_left();
+        '''), "hi  !!   ")
+
+        await client.query(r'''
+            x = "TestString   ";
+            b = refs(x);
+            y = x.trim_left();
+            assert (refs(x) == b + 1 );
+        ''')
+
+    async def test_trim_right(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `trim_right`'):
+            await client.query('nil.trim_right();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `trim_right` takes 0 arguments but 1 was given'):
+            await client.query('"Hello World".trim_right(nil);')
+
+        self.assertEqual(await client.query('"".trim_right();'), "")
+        self.assertEqual(await client.query('"U".trim_right();'), "U")
+        self.assertEqual(await client.query(r'''
+            "   hi  !!
+
+            ".trim_right();
+        '''), "   hi  !!")
+
+        await client.query(r'''
+            x = "   TestString";
+            b = refs(x);
+            y = x.trim_right();
+            assert (refs(x) == b + 1 );
+        ''')
 
     async def test_values(self, client):
         with self.assertRaisesRegex(

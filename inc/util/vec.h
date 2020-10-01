@@ -31,6 +31,7 @@ void * vec_remove(vec_t * vec, uint32_t i);
 void * vec_swap_remove(vec_t * vec, uint32_t i);
 vec_t * vec_dup(const vec_t * vec);
 int vec_push(vec_t ** vaddr, void * data);
+int vec_insert(vec_t ** vaddr, void * data, uint32_t i);
 int vec_extend(vec_t ** vaddr, void * data[], uint32_t n);
 int vec_reserve(vec_t ** vaddr, uint32_t n);
 int vec_resize(vec_t ** vaddr, uint32_t sz);
@@ -38,6 +39,8 @@ int vec_shrink(vec_t ** vaddr);
 static inline void vec_sort(vec_t * vec, vec_sort_cb compare);
 void vec_sort_r(vec_t * vec, vec_sort_r_cb compare, void * arg);
 _Bool vec_is_sorting(void);
+
+static inline void * VEC_get(const vec_t * vec, uint32_t i);
 
 #define VEC_set(vec__, data__, i__) ((vec__)->data[i__] = data__)
 
@@ -87,19 +90,24 @@ static inline uint32_t vec_space(const vec_t * vec)
     return vec->sz - vec->n;
 }
 
-static inline void * vec_first(const vec_t * vec)
+static inline void * VEC_get(const vec_t * vec, uint32_t i)
 {
-    return vec->n ? vec_get(vec, 0) : NULL;
-}
-
-static inline void * vec_last(const vec_t * vec)
-{
-    return vec->n ? vec_get(vec, vec->n - 1) : NULL;
+    return vec->data[i];
 }
 
 static inline void * vec_get(const vec_t * vec, uint32_t i)
 {
-    return vec->data[i];
+    return vec->n ? vec->data[i] : NULL;
+}
+
+static inline void * vec_first(const vec_t * vec)
+{
+    return vec_get(vec, 0);
+}
+
+static inline void * vec_last(const vec_t * vec)
+{
+    return vec_get(vec, vec->n - 1);
 }
 
 static inline void * vec_set(vec_t * vec, void * data, uint32_t i)

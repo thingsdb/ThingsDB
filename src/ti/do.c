@@ -1034,7 +1034,7 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ti_field_make_assignable(field, &query->rval, thing, e))
             goto fail;
 
-        val = vec_get(thing->items, field->idx);
+        val = VEC_get(thing->items, field->idx);
         if (val)
             ti_val_unsafe_gc_drop(val);
         else
@@ -1049,7 +1049,7 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         /* fill missing fields */
         for (vec_each(type->fields, ti_field_t, field))
         {
-            if (!vec_get(thing->items, field->idx))
+            if (!VEC_get(thing->items, field->idx))
             {
                 ti_val_t * val = ti_field_dval(field);
                 if (!val)
@@ -1267,7 +1267,7 @@ static inline ti_prop_t * do__prop_scope(ti_query_t * query, ti_name_t * name)
 
     while (n-- > end)
     {
-        ti_prop_t * prop = vec_get(query->vars, n);
+        ti_prop_t * prop = VEC_get(query->vars, n);
         if (prop->name == name)
             return prop;
     }

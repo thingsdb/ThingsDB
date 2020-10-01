@@ -683,7 +683,7 @@ static int field__mod_nested_cb(ti_thing_t * thing, ti_field_t * field)
 {
     if (thing->type_id == field->type->type_id)
     {
-        ti_val_t * val = vec_get(thing->items, field->idx);
+        ti_val_t * val = VEC_get(thing->items, field->idx);
 
         switch (val->tp)
         {
@@ -917,7 +917,7 @@ static int field__ren_cb(ti_thing_t * thing, ti_field_t * field)
 {
     if (thing->type_id == field->type->type_id)
     {
-        ti_val_t * val = vec_get(thing->items, field->idx);
+        ti_val_t * val = VEC_get(thing->items, field->idx);
         switch((ti_val_enum) val->tp)
         {
         case TI_VAL_ARR:

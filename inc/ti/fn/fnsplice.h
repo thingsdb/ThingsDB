@@ -61,7 +61,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     for (x = i, l = i + c; x < l; ++x)
-        VEC_push(retv->vec, vec_get(varr->vec, x));
+        VEC_push(retv->vec, VEC_get(varr->vec, x));
 
     memmove(
         varr->vec->data + i + n,
@@ -119,7 +119,7 @@ fail2:
         (current_n - i - c) * sizeof(void*));
 
     for (x = 0; x < c; ++x)
-        VEC_push(varr->vec, vec_get(retv->vec, x));
+        VEC_push(varr->vec, VEC_get(retv->vec, x));
 
     retv->vec->n = 0;
     ti_val_unsafe_drop((ti_val_t *) retv);

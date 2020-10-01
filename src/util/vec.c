@@ -87,7 +87,7 @@ void vec_move(vec_t * vec, uint32_t pos, uint32_t n, uint32_t to)
 
 void * vec_remove(vec_t * vec, uint32_t i)
 {
-    void * data = vec_get(vec, i);
+    void * data = VEC_get(vec, i);
     memmove(vec->data + i, vec->data + i + 1, (--vec->n - i) * sizeof(void*));
     return data;
 }
@@ -95,7 +95,7 @@ void * vec_remove(vec_t * vec, uint32_t i)
 void * vec_swap_remove(vec_t * vec, uint32_t i)
 {
     assert (vec->n > 0);
-    void * data = vec_get(vec, i);
+    void * data = VEC_get(vec, i);
     vec->data[i] = vec->data[--vec->n];
     return data;
 }
@@ -143,6 +143,43 @@ int vec_push(vec_t ** vaddr, void * data)
         *vaddr = vec = tmp;
     }
     VEC_push(vec, data);
+    return 0;
+}
+
+/*
+ * Returns 0 when successful.
+ */
+int vec_insert(vec_t ** vaddr, void * data, uint32_t i)
+{
+    vec_t * vec = *vaddr;
+    assert(i <= vec->n);
+    if (vec->n == vec->sz)
+    {
+        size_t prev = vec->sz;
+
+        if (prev)
+            vec->sz <<= 1;
+        else
+            vec->sz = 1;  /* the first item */
+
+        vec_t * tmp = realloc(vec, sizeof(vec_t) + vec->sz * sizeof(void*));
+
+        if (!tmp)
+        {
+            /* restore original size */
+            vec->sz = prev;
+            return -1;
+        }
+
+        *vaddr = vec = tmp;
+    }
+
+    if (i < vec->n)
+        memmove(vec->data+i+1, vec->data+i, (vec->n-i) * sizeof(void*));
+
+    VEC_set(vec, data, i);
+    ++vec->n;
+
     return 0;
 }
 

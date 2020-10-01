@@ -245,6 +245,96 @@ ti_raw_t * ti_raw_from_slice(
     return raw;
 }
 
+/*
+" "
+
+i = 1
+n = 2
+
+  */
+
+ti_raw_t * ti_str_trim(ti_raw_t * raw)
+{
+    uint32_t i = 0, n = raw->n;
+    char * start = (char *) raw->data;
+    char * end = (char *) (raw->data + n);
+
+    for (; i < n && isspace(*start); ++i, ++start);
+    for (; n && isspace(*(--end)); --n);
+
+    LOGC("i: %u, n: %u", i, n);
+
+    if (i >= n)
+        return (ti_raw_t *) ti_val_empty_str();
+
+    if ((n -= i) != raw->n)
+    {
+        ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
+        if (!r)
+            return NULL;
+        r->ref = 1;
+        r->tp = TI_VAL_STR;
+        r->n = n;
+        memcpy(r->data, raw->data + i, n);
+        return r;
+    }
+
+    ti_incref(raw);
+    return raw;
+}
+
+ti_raw_t * ti_str_trim_left(ti_raw_t * raw)
+{
+    uint32_t i = 0, n = raw->n;
+    char * start = (char *) raw->data;
+
+    for (; i < n && isspace(*start); ++i, ++start);
+
+    if (i >= n)
+        return (ti_raw_t *) ti_val_empty_str();
+
+    if ((n -= i) != raw->n)
+    {
+        ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
+        if (!r)
+            return NULL;
+        r->ref = 1;
+        r->tp = TI_VAL_STR;
+        r->n = n;
+        memcpy(r->data, raw->data + i, n);
+        return r;
+    }
+
+    ti_incref(raw);
+    return raw;
+}
+
+ti_raw_t * ti_str_trim_right(ti_raw_t * raw)
+{
+    uint32_t n = raw->n;
+    char * end = (char *) raw->data + n;
+
+    for (; n && isspace(*(--end)); --n);
+
+    if (!n)
+        return (ti_raw_t *) ti_val_empty_str();
+
+    if (n != raw->n)
+    {
+        ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
+        if (!r)
+            return NULL;
+        r->ref = 1;
+        r->tp = TI_VAL_STR;
+        r->n = n;
+        memcpy(r->data, raw->data, n);
+        return r;
+    }
+
+    ti_incref(raw);
+    return raw;
+}
+
 ti_raw_t * ti_str_upper(ti_raw_t * raw)
 {
     char * to, * from = (char *) raw->data;

@@ -118,7 +118,7 @@ ti_varr_t * ti_varr_from_slice(
 
     for (n = start; sz--; n += step)
     {
-        ti_val_t * val = vec_get(source->vec, n);
+        ti_val_t * val = VEC_get(source->vec, n);
         ti_incref(val);
         VEC_push(varr->vec, val);
     }
@@ -210,7 +210,7 @@ int ti_varr_set(ti_varr_t * to, void ** v, size_t idx, ex_t * e)
     if (ti_varr_val_prepare(to, v, e))
         return e->nr;
 
-    ti_val_unsafe_gc_drop((ti_val_t *) vec_get(to->vec, idx));
+    ti_val_unsafe_gc_drop((ti_val_t *) VEC_get(to->vec, idx));
     to->vec->data[idx] = *v;
     return 0;
 }
@@ -262,7 +262,7 @@ _Bool ti__varr_eq(ti_varr_t * varra, ti_varr_t * varrb)
 
     assert (varra != varrb && varra->vec->n == varrb->vec->n);
     for (vec_each(varra->vec, ti_val_t, va), ++i)
-        if (!ti_opr_eq(va, vec_get(varrb->vec, i)))
+        if (!ti_opr_eq(va, VEC_get(varrb->vec, i)))
             return false;
     return true;
 }

@@ -246,7 +246,7 @@ int ti__wrap_field_thing(
                 wrap__field_val(
                         mapping->t_field,
                         &mapping->t_field->spec,
-                        vec_get(thing->items, mapping->f_field->idx),
+                        VEC_get(thing->items, mapping->f_field->idx),
                         pk,
                         options)
             ) goto fail;

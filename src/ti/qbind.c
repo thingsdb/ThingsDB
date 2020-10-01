@@ -136,6 +136,7 @@
 #include <ti/fn/fnsetloglevel.h>
 #include <ti/fn/fnsetpassword.h>
 #include <ti/fn/fnsettype.h>
+#include <ti/fn/fnshift.h>
 #include <ti/fn/fnshutdown.h>
 #include <ti/fn/fnsome.h>
 #include <ti/fn/fnsort.h>
@@ -144,12 +145,16 @@
 #include <ti/fn/fnstr.h>
 #include <ti/fn/fntest.h>
 #include <ti/fn/fnthing.h>
+#include <ti/fn/fntrim.h>
+#include <ti/fn/fntrimleft.h>
+#include <ti/fn/fntrimright.h>
 #include <ti/fn/fntry.h>
 #include <ti/fn/fntype.h>
 #include <ti/fn/fntypeassert.h>
 #include <ti/fn/fntypecount.h>
 #include <ti/fn/fntypeinfo.h>
 #include <ti/fn/fntypesinfo.h>
+#include <ti/fn/fnunshift.h>
 #include <ti/fn/fnunwatch.h>
 #include <ti/fn/fnunwrap.h>
 #include <ti/fn/fnupper.h>
@@ -185,11 +190,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 185,
+    TOTAL_KEYWORDS = 190,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 10,
-    MAX_HASH_VALUE = 382
+    MIN_HASH_VALUE = 17,
+    MAX_HASH_VALUE = 384
 };
 
 static inline unsigned int qbind__hash(
@@ -198,32 +203,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        383, 383, 383, 383, 383, 383, 383, 383, 383, 383,
-        383, 383, 383, 383, 383, 383, 383, 383, 383, 383,
-        383, 383, 383, 383, 383, 383, 383, 383, 383, 383,
-        383, 383, 383, 383, 383, 383, 383, 383, 383, 383,
-        383, 383, 383, 383, 383, 383, 383, 383, 383, 383,
-        383, 383,   3, 383,   3, 383,   4, 383, 383, 383,
-        383, 383, 383, 383, 383, 383, 383, 383, 383, 383,
-        383, 383, 383, 383, 383, 383, 383, 383, 383, 383,
-        383, 383, 383, 383, 383, 383, 383, 383, 383, 383,
-        383, 383, 383, 383, 383,   2, 383,   7,  70,  55,
-         29,   5,  33, 148,  78,   2, 383,  54,  16,  47,
-         15,  23,  61,   2,   3,   2,   2,  17, 123,  86,
-         72, 120,   3, 383, 383, 383, 383, 383, 383, 383,
-        383, 383, 383, 383, 383, 383, 383, 383, 383, 383,
-        383, 383, 383, 383, 383, 383, 383, 383, 383, 383,
-        383, 383, 383, 383, 383, 383, 383, 383, 383, 383,
-        383, 383, 383, 383, 383, 383, 383, 383, 383, 383,
-        383, 383, 383, 383, 383, 383, 383, 383, 383, 383,
-        383, 383, 383, 383, 383, 383, 383, 383, 383, 383,
-        383, 383, 383, 383, 383, 383, 383, 383, 383, 383,
-        383, 383, 383, 383, 383, 383, 383, 383, 383, 383,
-        383, 383, 383, 383, 383, 383, 383, 383, 383, 383,
-        383, 383, 383, 383, 383, 383, 383, 383, 383, 383,
-        383, 383, 383, 383, 383, 383, 383, 383, 383, 383,
-        383, 383, 383, 383, 383, 383, 383, 383, 383, 383,
-        383, 383, 383, 383, 383, 383
+        385, 385, 385, 385, 385, 385, 385, 385, 385, 385,
+        385, 385, 385, 385, 385, 385, 385, 385, 385, 385,
+        385, 385, 385, 385, 385, 385, 385, 385, 385, 385,
+        385, 385, 385, 385, 385, 385, 385, 385, 385, 385,
+        385, 385, 385, 385, 385, 385, 385, 385, 385, 385,
+        385, 385,   4, 385,   4, 385,  14, 385, 385, 385,
+        385, 385, 385, 385, 385, 385, 385, 385, 385, 385,
+        385, 385, 385, 385, 385, 385, 385, 385, 385, 385,
+        385, 385, 385, 385, 385, 385, 385, 385, 385, 385,
+        385, 385, 385, 385, 385,   4, 385,   8,  32,  40,
+         33,   4,  39, 108, 108,   4, 385,  24,  18,  43,
+         11,  21,  75,   4,   5,   4,   7,  47, 157,  81,
+         36, 113,   5, 385, 385, 385, 385, 385, 385, 385,
+        385, 385, 385, 385, 385, 385, 385, 385, 385, 385,
+        385, 385, 385, 385, 385, 385, 385, 385, 385, 385,
+        385, 385, 385, 385, 385, 385, 385, 385, 385, 385,
+        385, 385, 385, 385, 385, 385, 385, 385, 385, 385,
+        385, 385, 385, 385, 385, 385, 385, 385, 385, 385,
+        385, 385, 385, 385, 385, 385, 385, 385, 385, 385,
+        385, 385, 385, 385, 385, 385, 385, 385, 385, 385,
+        385, 385, 385, 385, 385, 385, 385, 385, 385, 385,
+        385, 385, 385, 385, 385, 385, 385, 385, 385, 385,
+        385, 385, 385, 385, 385, 385, 385, 385, 385, 385,
+        385, 385, 385, 385, 385, 385, 385, 385, 385, 385,
+        385, 385, 385, 385, 385, 385, 385, 385, 385, 385,
+        385, 385, 385, 385, 385, 385
     };
 
     register unsigned int hval = n;
@@ -509,6 +514,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="set_password",      .fn=do__f_set_password,         ROOT_TE},
     {.name="set_type",          .fn=do__f_set_type,             ROOT_CE},
     {.name="set",               .fn=do__f_set,                  BOTH_CE_XROOT},
+    {.name="shift",             .fn=do__f_shift,                CHAIN_CE_XVAR},
     {.name="shutdown",          .fn=do__f_shutdown,             ROOT_NE},
     {.name="some",              .fn=do__f_some,                 CHAIN_NE},
     {.name="sort",              .fn=do__f_sort,                 CHAIN_NE},
@@ -519,6 +525,9 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="syntax_err",        .fn=do__f_syntax_err,           ROOT_NE},
     {.name="test",              .fn=do__f_test,                 CHAIN_NE},
     {.name="thing",             .fn=do__f_thing,                ROOT_NE},
+    {.name="trim_left",         .fn=do__f_trim_left,            CHAIN_NE},
+    {.name="trim_right",        .fn=do__f_trim_right,           CHAIN_NE},
+    {.name="trim",              .fn=do__f_trim,                 CHAIN_NE},
     {.name="try",               .fn=do__f_try,                  XROOT_NE},
     {.name="type_assert",       .fn=do__f_type_assert,          ROOT_NE},
     {.name="type_count",        .fn=do__f_type_count,           ROOT_NE},
@@ -526,6 +535,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="type_info",         .fn=do__f_type_info,            ROOT_NE},
     {.name="type",              .fn=do__f_type,                 ROOT_NE},
     {.name="types_info",        .fn=do__f_types_info,           ROOT_NE},
+    {.name="unshift",           .fn=do__f_unshift,              CHAIN_CE_XVAR},
     {.name="unwatch",           .fn=do__f_unwatch,              CHAIN_NE},
     {.name="unwrap",            .fn=do__f_unwrap,               CHAIN_NE},
     {.name="upper",             .fn=do__f_upper,                CHAIN_NE},

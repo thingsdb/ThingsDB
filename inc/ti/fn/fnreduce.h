@@ -22,7 +22,7 @@ static int reduce__walk_set(ti_thing_t * t, reduce__walk_t * w)
     {
     default:
     case 3:
-        prop = vec_get(w->closure->vars, 2);
+        prop = VEC_get(w->closure->vars, 2);
         ti_val_unsafe_drop(prop->val);
         prop->val = t->id
                 ? (ti_val_t *) ti_vint_create((int64_t) t->id)
@@ -34,7 +34,7 @@ static int reduce__walk_set(ti_thing_t * t, reduce__walk_t * w)
         }
         /* fall through */
     case 2:
-        prop = vec_get(w->closure->vars, 1);
+        prop = VEC_get(w->closure->vars, 1);
         ti_incref(t);
         ti_val_unsafe_drop(prop->val);
         prop->val = (ti_val_t *) t;
@@ -42,7 +42,7 @@ static int reduce__walk_set(ti_thing_t * t, reduce__walk_t * w)
     case 1:
         if (ti_val_make_variable(&w->query->rval, w->e))
             return w->e->nr;
-        prop = vec_get(w->closure->vars, 0);
+        prop = VEC_get(w->closure->vars, 0);
         ti_val_unsafe_drop(prop->val);
         prop->val = w->query->rval;
         w->query->rval = NULL;
@@ -117,7 +117,7 @@ static int do__f_reduce(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             {
             default:
             case 3:
-                prop = vec_get(closure->vars, 2);
+                prop = VEC_get(closure->vars, 2);
                 ti_val_unsafe_drop(prop->val);
                 prop->val = (ti_val_t *) ti_vint_create(idx);
                 if (!prop->val)
@@ -127,8 +127,8 @@ static int do__f_reduce(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 }
                 /* fall through */
             case 2:
-                prop = vec_get(closure->vars, 1);
-                v = vec_get(vec, idx);
+                prop = VEC_get(closure->vars, 1);
+                v = VEC_get(vec, idx);
                 ti_incref(v);
                 ti_val_unsafe_drop(prop->val);
                 prop->val = v;
@@ -136,7 +136,7 @@ static int do__f_reduce(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             case 1:
                 if (ti_val_make_variable(&query->rval, e))
                     goto fail2;
-                prop = vec_get(closure->vars, 0);
+                prop = VEC_get(closure->vars, 0);
                 ti_val_unsafe_drop(prop->val);
                 prop->val = query->rval;
                 query->rval = NULL;

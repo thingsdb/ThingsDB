@@ -239,7 +239,7 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     }
 
     for (step = start; step < stop; ++step)
-        ti_val_unsafe_gc_drop(vec_get(varr->vec, step));
+        ti_val_unsafe_gc_drop(VEC_get(varr->vec, step));
 
     memmove(
         varr->vec->data + start + n,
@@ -349,7 +349,7 @@ static int index__index_arr(
     if (index__numeric(query, statement, &idx, source->vec->n, e))
         goto done;
 
-    query->rval = vec_get(source->vec, idx);
+    query->rval = VEC_get(source->vec, idx);
     ti_incref(query->rval);
 
 done:
@@ -377,7 +377,7 @@ static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
     if (ass_tokens->len == 2)
     {
-        ti_val_t * val = vec_get(varr->vec, idx);
+        ti_val_t * val = VEC_get(varr->vec, idx);
         if (ti_opr_a_to_b(val, ass_tokens, &query->rval, e))
             goto fail1;
 

@@ -22,6 +22,9 @@ ti_raw_t * ti_raw_from_slice(
         ssize_t start,
         ssize_t stop,
         ssize_t step);
+ti_raw_t * ti_str_trim(ti_raw_t * raw);
+ti_raw_t * ti_str_trim_left(ti_raw_t * raw);
+ti_raw_t * ti_str_trim_right(ti_raw_t * raw);
 ti_raw_t * ti_str_upper(ti_raw_t * raw);
 ti_raw_t * ti_str_lower(ti_raw_t * raw);
 ti_raw_t * ti_str_dval_n(size_t n);

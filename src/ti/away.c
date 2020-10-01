@@ -112,7 +112,7 @@ static void away__update_sleep(void)
     }
     while (
         c_idx != my_idx &&
-        ((ti_node_t *) vec_get(nodes_vec, c_idx))->status != TI_NODE_STAT_READY
+        ((ti_node_t *) VEC_get(nodes_vec, c_idx))->status != TI_NODE_STAT_READY
     );
 
     if (c_idx > my_idx)

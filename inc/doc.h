@@ -179,6 +179,7 @@
 #define DOC_STR_ENDS_WITH           DOC_SEE("data-types/str/ends_with")
 #define DOC_STR_LEN                 DOC_SEE("data-types/str/len")
 #define DOC_STR_LOWER               DOC_SEE("data-types/str/lower")
+#define DOC_STR_SPLIT               DOC_SEE("data-types/str/split")
 #define DOC_STR_STARTS_WITH         DOC_SEE("data-types/str/starts_with")
 #define DOC_STR_TEST                DOC_SEE("data-types/str/test")
 #define DOC_STR_TRIM                DOC_SEE("data-types/str/trim")

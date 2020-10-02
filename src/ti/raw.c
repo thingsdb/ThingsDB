@@ -245,14 +245,6 @@ ti_raw_t * ti_raw_from_slice(
     return raw;
 }
 
-/*
-" "
-
-i = 1
-n = 2
-
-  */
-
 ti_raw_t * ti_str_trim(ti_raw_t * raw)
 {
     uint32_t i = 0, n = raw->n;
@@ -261,8 +253,6 @@ ti_raw_t * ti_str_trim(ti_raw_t * raw)
 
     for (; i < n && isspace(*start); ++i, ++start);
     for (; n && isspace(*(--end)); --n);
-
-    LOGC("i: %u, n: %u", i, n);
 
     if (i >= n)
         return (ti_raw_t *) ti_val_empty_str();

@@ -85,6 +85,18 @@ void vec_move(vec_t * vec, uint32_t pos, uint32_t n, uint32_t to)
     }
 }
 
+void vec_reverse(vec_t * vec)
+{
+    size_t i, n, e;
+
+    for (i = 0, n = vec->n, e = n / 2; i < e; ++i)
+    {
+        void * tmp = vec->data[i];
+        vec->data[i] = vec->data[--n];
+        vec->data[n] = tmp;
+    }
+}
+
 void * vec_remove(vec_t * vec, uint32_t i)
 {
     void * data = VEC_get(vec, i);

@@ -3063,6 +3063,94 @@ class TestCollectionFunctions(TestBase):
             assert (refs(x) == b + 1 );
         ''')
 
+    async def test_split(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `split`'):
+            await client.query('nil.split();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `split` takes at most 2 arguments '
+                'but 3 were given'):
+            await client.query('"Hello World".split("x", 0, nil);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `split` takes at most 1 argument '
+                'when the first argument is of type `int`'):
+            await client.query('"Hello World".split(1, "a");')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `split` expects argument 1 to be of '
+                'type `str` or type `int` but got type `nil` instead'):
+            await client.query('"Hello World".split(nil);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'empty separator'):
+            await client.query('"Hello World".split("");')
+
+        with self.assertRaisesRegex(
+                OverflowError,
+                'integer overflow'):
+            await client.query('"".split(-0x7fffffffffffffff - 1);')
+
+        self.assertEqual(await client.query(r'''
+            [
+                "".split(),
+                " ".split(),
+                "  ".split(),
+                "My
+                name
+                is
+                Iris".split(),
+                "Hello World!".split(),
+                "a,b,c".split(','),
+                "a, b, c".split(', '),
+                'ttttt'.split('tt'),
+                "This  is  a  test!".split(2),
+                "comma,separate,this,line!".split(',', 0),
+                "comma,separate,this,line!".split(',', 1),
+                "comma,separate,this,line!".split(',', 2),
+                "comma,separate,this,line!".split(',', 3),
+                "comma,separate,this,line!".split(',', 99),
+                "comma,separate,this,line!".split(',', -1),
+                "comma,separate,this,line!".split(',', -2),
+                "comma,separate,this,line!".split(',', -3),
+                "comma,separate,this,line!".split(',', -99),
+                "".split(-1),
+                " ".split(-1),
+                "This  is  a  test!".split(-2),
+                "This  is  a  test!".split(-0),
+            ]
+        '''), [
+            [''],
+            ['', ''],
+            ['', ''],
+            ['My', 'name', 'is', 'Iris'],
+            ['Hello', 'World!'],
+            ['a', 'b', 'c'],
+            ['a', 'b', 'c'],
+            ['', '', 't'],
+            ['This', 'is', 'a  test!'],
+            ['comma,separate,this,line!'],
+            ['comma', 'separate,this,line!'],
+            ['comma', 'separate', 'this,line!'],
+            ['comma', 'separate', 'this', 'line!'],
+            ['comma', 'separate', 'this', 'line!'],
+            ['comma,separate,this', 'line!'],
+            ['comma,separate', 'this', 'line!'],
+            ['comma', 'separate', 'this', 'line!'],
+            ['comma', 'separate', 'this', 'line!'],
+            [''],
+            ['', ''],
+            ['This  is', 'a', 'test!'],
+            ['This  is  a  test!'],
+
+        ])
+
     async def test_values(self, client):
         with self.assertRaisesRegex(
                 LookupError,

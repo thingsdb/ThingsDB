@@ -51,6 +51,7 @@ static inline _Bool ti_raw_eq_strn(
         const char * s,
         size_t n);
 
+
 static inline _Bool ti_raw_eq(const ti_raw_t * a, const ti_raw_t * b)
 {
     return a == b || (a->n == b->n && !memcmp(a->data, b->data, a->n));

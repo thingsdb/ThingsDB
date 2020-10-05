@@ -11,8 +11,8 @@
   - `trim_right`: https://docs.thingsdb.net/v0/data-types/str/trim_right/
   - `replace`: https://docs.thingsdb.net/v0/data-types/str/replace/
   - `alt_raise`: https://docs.thingsdb.net/v0/collection-api/alt_raise/
-* Consistent function naming, issue #93
-* Fixed possible error when ThingsDB types are cleared, issue #94 
+* Consistent function naming, issue #93.
+* Fixed possible error when ThingsDB types are cleared, issue #94.
 
 # v0.9.15
 

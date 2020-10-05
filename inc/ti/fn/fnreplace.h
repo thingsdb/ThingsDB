@@ -107,6 +107,10 @@ static int do__f_replace(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     str = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
+    /*
+     * TODO: It would be a nice feature if the `old` argument could also be
+     *       a regular expression, instead of only a type string.
+     */
     if (ti_do_statement(query, (child = nd->children)->node, e) ||
         fn_arg_str("replace", DOC_STR_REPLACE, 1, query->rval, e))
         goto fail0;

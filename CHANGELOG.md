@@ -1,3 +1,19 @@
+# v0.9.16
+
+* Added new functions, issue #89.
+  - `has`: https://docs.thingsdb.net/v0/data-types/list/has/
+  - `reverse`: https://docs.thingsdb.net/v0/data-types/list/reverse/
+  - `shift`: https://docs.thingsdb.net/v0/data-types/list/shift/
+  - `unshift`: https://docs.thingsdb.net/v0/data-types/list/unshift/
+  - `split`: https://docs.thingsdb.net/v0/data-types/str/split/
+  - `trim`: https://docs.thingsdb.net/v0/data-types/str/trim/
+  - `trim_left`: https://docs.thingsdb.net/v0/data-types/str/trim_left/
+  - `trim_right`: https://docs.thingsdb.net/v0/data-types/str/trim_right/
+  - `replace`: https://docs.thingsdb.net/v0/data-types/str/replace/
+  - `alt_raise`: https://docs.thingsdb.net/v0/collection-api/alt_raise/
+* Consistent function naming, issue #93
+* Fixed possible error when ThingsDB types are cleared, issue #94 
+
 # v0.9.15
 
 * Fixed incorrect default value after changing a type, issue #91.

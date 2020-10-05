@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_isfloat(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_is_float(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     _Bool is_float;
 
-    if (fn_nargs("isfloat", DOC_ISFLOAT, 1, nargs, e) ||
+    if (fn_nargs("is_float", DOC_IS_FLOAT, 1, nargs, e) ||
         ti_do_statement(query, nd->children->node, e))
         return e->nr;
 

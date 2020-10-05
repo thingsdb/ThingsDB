@@ -36,7 +36,7 @@ class TestMigrate(TestBase):
         query = client.query
 
         for fn in os.listdir(BACKUP_PATH):
-            if not fn.endswith('.tar.gz'):
+            if not fn.ends_with('.tar.gz'):
                 continue
 
             fn = os.path.join(BACKUP_PATH, fn)

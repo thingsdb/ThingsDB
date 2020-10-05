@@ -732,7 +732,7 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
 
         for (vec_each(type->fields, ti_field_t, field))
         {
-            ti_val_t * val = vec_get(from->items, field->idx);
+            ti_val_t * val = VEC_get(from->items, field->idx);
 
             val->ref += from->ref > 1;
 

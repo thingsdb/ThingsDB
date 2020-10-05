@@ -1,11 +1,11 @@
 #include <ti/fn/fn.h>
 
-static int do__f_isbytes(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_is_bytes(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     _Bool is_bytes;
 
-    if (fn_nargs("isbytes", DOC_ISBYTES, 1, nargs, e) ||
+    if (fn_nargs("is_bytes", DOC_IS_BYTES, 1, nargs, e) ||
         ti_do_statement(query, nd->children->node, e))
         return e->nr;
 

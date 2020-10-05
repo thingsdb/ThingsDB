@@ -99,6 +99,7 @@ int ti_store_collection_store(ti_collection_t * collection, const char * fn)
     if (rc == 0)
         log_debug("stored collection info to file: `%s`", fn);
 
+    (void) ti_sleep(5);
     return rc;
 }
 

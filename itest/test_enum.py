@@ -703,7 +703,7 @@ class TestEnum(TestBase):
 
         self.assertEqual(await client.query('Color{RED}.value()'), '#FF0000')
 
-    async def test_isenum(self, client):
+    async def test_is_enum(self, client):
         self.assertIs(await client.query(r'''
             set_enum('Color', {
                 RED: '#FF0000',
@@ -714,24 +714,24 @@ class TestEnum(TestBase):
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `isenum` takes 1 argument but 2 were given'):
-            await client.query('isenum(1, 2);')
+                'function `is_enum` takes 1 argument but 2 were given'):
+            await client.query('is_enum(1, 2);')
 
         self.assertTrue(await client.query(
-            'isenum( enum("Color", "#FF0000") );'
+            'is_enum( enum("Color", "#FF0000") );'
         ))
-        self.assertTrue(await client.query('isenum( Color{RED} ); '))
+        self.assertTrue(await client.query('is_enum( Color{RED} ); '))
         self.assertTrue(await client.query('''
-            isenum({
+            is_enum({
                 color = "GREEN";
                 Color{||color};
             });
         '''))
 
-        self.assertFalse(await client.query('isenum( Color{RED}.value() ); '))
-        self.assertFalse(await client.query('isenum( Color{RED}.name() ); '))
-        self.assertFalse(await client.query('isenum( "RED" );'))
-        self.assertFalse(await client.query('isenum( "#0000FF" );'))
+        self.assertFalse(await client.query('is_enum( Color{RED}.value() ); '))
+        self.assertFalse(await client.query('is_enum( Color{RED}.name() ); '))
+        self.assertFalse(await client.query('is_enum( "RED" );'))
+        self.assertFalse(await client.query('is_enum( "#0000FF" );'))
 
     async def test_enum_type(self, client):
         self.assertIs(await client.query(r'''
@@ -760,7 +760,7 @@ class TestEnum(TestBase):
 
         await client.query(r'''
             .get_color = |i| {
-                i = isint(i) ? i : randint(0, 3);
+                i = is_int(i) ? i : randint(0, 3);
                 i == 0 && return(Color{RED});
                 i == 1 && return(Color{GREEN});
                 i == 2 && return(Color{BLUE});

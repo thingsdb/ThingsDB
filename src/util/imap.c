@@ -77,22 +77,16 @@ void imap_clear(imap_t * imap, imap_destroy_cb cb)
         imap_node_t * nd = imap->nodes, * end = nd + IMAP_NODE_SZ;
         do
         {
-            if (nd->data)
-            {
-                if (cb)
-                    (*cb)(nd->data);
-                nd->data = NULL;
-            }
+            if (nd->data && cb)
+                (*cb)(nd->data);
 
             if (nd->nodes)
-            {
                 imap__node_destroy_cb(nd, cb);
-                nd->nodes = NULL;
-            }
         }
         while (++nd < end);
 
-        imap->n = 0;
+        /* reset everything to 0 */
+        memset(imap, 0, sizeof(imap_t) + IMAP_NODE_SZ * sizeof(imap_node_t));
     }
 }
 
@@ -1110,10 +1104,7 @@ static int imap__add(imap_node_t * node, uint64_t id, void * data)
 
     rc = imap__add(nd, id - 1, data);
 
-    if (rc == 0)
-    {
-        node->sz++;
-    }
+    node->sz += (rc == 0);
 
     return rc;
 }

@@ -1423,11 +1423,11 @@ int ti_task_add_splice(
 
     for (c = i + n; i < c; ++i)
     {
-        val = vec_get(varr->vec, i);
+        val = VEC_get(varr->vec, i);
 
         if (ti_val_gen_ids(val) ||
             ti_val_to_pk(
-                vec_get(varr->vec, i),
+                VEC_get(varr->vec, i),
                 &pk,
                 TI_VAL_PACK_TASK))
             goto fail_pack;

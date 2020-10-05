@@ -411,7 +411,7 @@ int ti_closure_vars_nameval(
     {
     default:
     case 2:
-        prop = vec_get(closure->vars, 1);
+        prop = VEC_get(closure->vars, 1);
         ti_incref(val);
         ti_val_unsafe_drop(prop->val);
         prop->val = val;
@@ -422,7 +422,7 @@ int ti_closure_vars_nameval(
             return e->nr;
         /* fall through */
     case 1:
-        prop = vec_get(closure->vars, 0);
+        prop = VEC_get(closure->vars, 0);
         ti_incref(name);
         ti_val_unsafe_drop(prop->val);
         prop->val = (ti_val_t *) name;
@@ -440,14 +440,14 @@ int ti_closure_vars_val_idx(ti_closure_t * closure, ti_val_t * v, int64_t i)
     {
     default:
     case 2:
-        prop = vec_get(closure->vars, 1);
+        prop = VEC_get(closure->vars, 1);
         ti_val_unsafe_drop(prop->val);
         prop->val = (ti_val_t *) ti_vint_create(i);
         if (!prop->val)
             return -1;
         /* fall through */
     case 1:
-        prop = vec_get(closure->vars, 0);
+        prop = VEC_get(closure->vars, 0);
         ti_incref(v);
         ti_val_unsafe_drop(prop->val);
         prop->val = v;
@@ -465,7 +465,7 @@ int ti_closure_vars_vset(ti_closure_t * closure, ti_thing_t * t)
     {
     default:
     case 2:
-        prop = vec_get(closure->vars, 1);
+        prop = VEC_get(closure->vars, 1);
         ti_val_unsafe_drop(prop->val);
         prop->val = t->id
                 ? (ti_val_t *) ti_vint_create((int64_t) t->id)
@@ -474,7 +474,7 @@ int ti_closure_vars_vset(ti_closure_t * closure, ti_thing_t * t)
             return -1;
         /* fall through */
     case 1:
-        prop = vec_get(closure->vars, 0);
+        prop = VEC_get(closure->vars, 0);
         ti_incref(t);
         ti_val_unsafe_drop(prop->val);
         prop->val = (ti_val_t *) t;

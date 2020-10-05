@@ -1,6 +1,6 @@
 #include <ti/fn/fn.h>
 
-static int do__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_find_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     size_t idx = 0;
@@ -9,9 +9,9 @@ static int do__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     int lock_was_set;
 
     if (!ti_val_is_array(query->rval))
-        return fn_call_try("findindex", query, nd, e);
+        return fn_call_try("find_index", query, nd, e);
 
-    if (fn_nargs("findindex", DOC_LIST_FINDINDEX, 1, nargs, e))
+    if (fn_nargs("find_index", DOC_LIST_FIND_INDEX, 1, nargs, e))
         return e->nr;
 
     lock_was_set = ti_val_ensure_lock(query->rval);
@@ -19,7 +19,7 @@ static int do__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
 
     if (ti_do_statement(query, nd->children->node, e) ||
-        fn_arg_closure("findindex", DOC_LIST_FINDINDEX, 1, query->rval, e))
+        fn_arg_closure("find_index", DOC_LIST_FIND_INDEX, 1, query->rval, e))
         goto fail0;
 
     closure = (ti_closure_t *) query->rval;

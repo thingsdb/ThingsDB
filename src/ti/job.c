@@ -1766,7 +1766,7 @@ static int job__splice(ti_thing_t * thing, mp_unp_t * up)
     }
 
     for (ssize_t x = i, y = i + c; x < y; ++x)
-        ti_val_unsafe_drop(vec_get(varr->vec, x));
+        ti_val_unsafe_drop(VEC_get(varr->vec, x));
 
     memmove(
             varr->vec->data + i + n,

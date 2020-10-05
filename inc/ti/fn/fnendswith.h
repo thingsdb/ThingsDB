@@ -1,27 +1,27 @@
 #include <ti/fn/fn.h>
 
-static int do__f_endswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_ends_with(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     ti_raw_t * raw;
-    _Bool endswith;
+    _Bool ends_with;
 
     if (!ti_val_is_str(query->rval))
-        return fn_call_try("endswith", query, nd, e);
+        return fn_call_try("ends_with", query, nd, e);
 
-    if (fn_nargs("endswith", DOC_STR_ENDSWITH, 1, nargs, e))
+    if (fn_nargs("ends_with", DOC_STR_ENDS_WITH, 1, nargs, e))
         return e->nr;
 
     raw = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
     if (ti_do_statement(query, nd->children->node, e) ||
-        fn_arg_str("endswith", DOC_STR_ENDSWITH, 1, query->rval, e))
+        fn_arg_str("ends_with", DOC_STR_ENDS_WITH, 1, query->rval, e))
         goto failed;
 
-    endswith = ti_raw_endswith(raw, (ti_raw_t *) query->rval);
+    ends_with = ti_raw_endswith(raw, (ti_raw_t *) query->rval);
     ti_val_unsafe_drop(query->rval);
-    query->rval = (ti_val_t *) ti_vbool_get(endswith);
+    query->rval = (ti_val_t *) ti_vbool_get(ends_with);
 
 failed:
     ti_val_unsafe_drop((ti_val_t *) raw);

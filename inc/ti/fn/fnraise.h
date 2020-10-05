@@ -25,7 +25,7 @@ static int do__f_raise(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (ti_verror_check_msg((const char *) msg->data, msg->n, e))
             return e->nr;
 
-        ti_raw_to_e(msg, e, TI_VERROR_DEF_CODE);
+        ti_raw_set_e(e, msg, TI_VERROR_DEF_CODE);
         return e->nr;
     }
 

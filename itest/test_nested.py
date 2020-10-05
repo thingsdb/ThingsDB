@@ -308,20 +308,20 @@ class TestNested(TestBase):
 
         self.assertEqual(await client0.query(r'''
             .users.filter(
-                |user| !isnil(
+                |user| !is_nil(
                     user.memberships.find(
                         |membership| membership.workspace == .workspace
-                    ).channels.indexof(.channel)
+                    ).channels.index_of(.channel)
                 )
             );
         '''), [usera])
 
         self.assertEqual(await client0.query(r'''
             .users.filter(
-                |user| isnil(
+                |user| is_nil(
                     user.memberships.find(
                         |membership| membership.workspace == .workspace
-                    ).channels.indexof(
+                    ).channels.index_of(
                         .channel
                     )
                 )

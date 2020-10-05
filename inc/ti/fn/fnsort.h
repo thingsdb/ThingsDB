@@ -20,8 +20,8 @@ static int ti_closure_cmp(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
     ti_incref(va);
     ti_incref(vb);
 
-    pa = vec_get(cc->closure->vars, 0);
-    pb = vec_get(cc->closure->vars, 1);
+    pa = VEC_get(cc->closure->vars, 0);
+    pb = VEC_get(cc->closure->vars, 1);
 
     ti_val_unsafe_drop(pa->val);
     ti_val_unsafe_drop(pb->val);
@@ -58,7 +58,7 @@ static int ti_closure_pick(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
         return 0;
 
     ti_incref(va);
-    p = vec_get(cc->closure->vars, 0);
+    p = VEC_get(cc->closure->vars, 0);
     ti_val_unsafe_drop(p->val);
     p->val = va;
 
@@ -69,7 +69,7 @@ static int ti_closure_pick(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
     cc->query->rval = NULL;
 
     ti_incref(vb);
-    p = vec_get(cc->closure->vars, 0);
+    p = VEC_get(cc->closure->vars, 0);
     ti_val_unsafe_drop(p->val);
     p->val = vb;
 

@@ -22,13 +22,16 @@ ti_raw_t * ti_raw_from_slice(
         ssize_t start,
         ssize_t stop,
         ssize_t step);
+ti_raw_t * ti_str_trim(ti_raw_t * raw);
+ti_raw_t * ti_str_trim_left(ti_raw_t * raw);
+ti_raw_t * ti_str_trim_right(ti_raw_t * raw);
 ti_raw_t * ti_str_upper(ti_raw_t * raw);
 ti_raw_t * ti_str_lower(ti_raw_t * raw);
 ti_raw_t * ti_str_dval_n(size_t n);
 char * ti_raw_to_str(const ti_raw_t * raw);
 int ti_raw_cmp(const ti_raw_t * a, const ti_raw_t * b);
 int ti_raw_cmp_strn(const ti_raw_t * a, const char * s, size_t n);
-void ti_raw_to_e(const ti_raw_t * r, ex_t * e, ex_enum code);
+void ti_raw_set_e(ex_t * e, const ti_raw_t * r, ex_enum code);
 ti_raw_t * ti_raw_cat(const ti_raw_t * a, const ti_raw_t * b);
 ti_raw_t * ti_raw_cat_strn(const ti_raw_t * a, const char * s, size_t n);
 ti_raw_t * ti_raw_icat_strn(const ti_raw_t * b, const char * s, size_t n);
@@ -47,6 +50,7 @@ static inline _Bool ti_raw_eq_strn(
         const ti_raw_t * a,
         const char * s,
         size_t n);
+
 
 static inline _Bool ti_raw_eq(const ti_raw_t * a, const ti_raw_t * b)
 {

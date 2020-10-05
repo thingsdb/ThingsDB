@@ -178,11 +178,12 @@ int ti_store_store(void)
 
     /* not need for checking on errors */
     (void) fx_rmdir(store->prev_path);
-
     if (mkdir(store->tmp_path, FX_DEFAULT_DIR_ACCESS))
     {
         log_errno_file("cannot create directory", errno, store->tmp_path);
     }
+
+    (void) ti_sleep(5);
 
     store__set_filename(/* use_tmp: */ true);
 
@@ -206,8 +207,11 @@ int ti_store_store(void)
         ti_store_collection_t * store_collection = ti_store_collection_create(
                 store->tmp_path,
                 &collection->guid);
+
         if (!store_collection)
             goto failed;
+
+        (void) ti_sleep(2);
 
         rc = mkdir(store_collection->collection_path, FX_DEFAULT_DIR_ACCESS);
         if (rc)
@@ -247,6 +251,8 @@ int ti_store_store(void)
     }
 
     (void) rename(store->store_path, store->prev_path);
+    (void) ti_sleep(2);
+
     if (rename(store->tmp_path, store->store_path))
     {
         log_error(
@@ -256,7 +262,9 @@ int ti_store_store(void)
         goto failed;
     }
 
+    (void) ti_sleep(2);
     (void) fx_rmdir(store->prev_path);
+    (void) ti_sleep(2);
 
     store->last_stored_event_id = ti.node->cevid;
 

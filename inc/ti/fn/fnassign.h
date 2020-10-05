@@ -179,7 +179,7 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
             for (vec_each(type->fields, ti_field_t, field))
             {
-                ti_val_t * val = vec_get(tsrc->items, field->idx);
+                ti_val_t * val = VEC_get(tsrc->items, field->idx);
 
                 val->ref += parent_ref > 1;
 

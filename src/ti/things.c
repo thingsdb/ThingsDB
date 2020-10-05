@@ -291,7 +291,7 @@ int ti_things_gc(imap_t * things, ti_thing_t * root)
     if (!things_vec)
         return -1;
 
-    (void) ti_sleep(1);  /* sleeps are here to allow thread switching */
+    (void) ti_sleep(2);  /* sleeps are here to allow thread switching */
 
     if (root)
     {
@@ -302,19 +302,19 @@ int ti_things_gc(imap_t * things, ti_thing_t * root)
         things__gc_mark_thing(root);
     }
 
-    (void) ti_sleep(1);
+    (void) ti_sleep(2);
 
     for (vec_each(things_vec, ti_thing_t, thing))
         if (thing->flags & TI_VFLAG_THING_SWEEP)
             thing->ref = 0;
 
-    (void) ti_sleep(1);
+    (void) ti_sleep(2);
 
     for (vec_each(things_vec, ti_thing_t, thing))
         if (thing->flags & TI_VFLAG_THING_SWEEP)
             ti_thing_clear(thing);
 
-    (void) ti_sleep(1);
+    (void) ti_sleep(2);
 
     for (vec_each(things_vec, ti_thing_t, thing))
     {

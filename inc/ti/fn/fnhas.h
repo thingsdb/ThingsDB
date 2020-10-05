@@ -52,11 +52,51 @@ fail1:
     return e->nr;
 }
 
+static int do__f_has_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    const int nargs = langdef_nd_n_function_params(nd);
+    _Bool has = false;
+    ti_varr_t * varr;
+
+    if (fn_nargs("has", DOC_LIST_HAS, 1, nargs, e))
+        return e->nr;
+
+    varr = (ti_varr_t *) query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->node, e))
+        goto fail1;
+
+    for (vec_each(varr->vec, ti_val_t, v))
+    {
+        if (ti_opr_eq(v, query->rval))
+        {
+            has = true;
+            break;
+        }
+    }
+
+    ti_val_unsafe_drop(query->rval);
+    query->rval = (ti_val_t *) ti_vbool_get(has);
+
+fail1:
+    ti_val_unsafe_drop((ti_val_t *) varr);
+    return e->nr;
+}
+
 static inline int do__f_has(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    return ti_val_is_thing(query->rval)
-            ? do__f_has_thing(query, nd, e)
-            : ti_val_is_set(query->rval)
-            ? do__f_has_set(query, nd, e)
-            : fn_call_try("has", query, nd, e);
+    switch((ti_val_enum) query->rval->tp)
+    {
+    case TI_VAL_THING:
+        return do__f_has_thing(query, nd, e);
+    case TI_VAL_SET:
+        return do__f_has_set(query, nd, e);
+    case TI_VAL_ARR:
+        return do__f_has_list(query, nd, e);
+    default:
+        return fn_call_try("has", query, nd, e);
+    }
+    assert(0);
+    return -1;
 }

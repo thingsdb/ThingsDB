@@ -11,8 +11,8 @@ typedef struct ti_template_s ti_template_t;
 #include <cleri/cleri.h>
 
 int ti_template_build(cleri_node_t * node);
-int ti_template_compile(ti_template_t * template, ti_query_t * query, ex_t * e);
-void ti_template_destroy(ti_template_t * template);
+int ti_template_compile(ti_template_t * tmplate, ti_query_t * query, ex_t * e);
+void ti_template_destroy(ti_template_t * tmplate);
 
 struct ti_template_s
 {

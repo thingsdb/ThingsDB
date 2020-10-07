@@ -29,6 +29,12 @@ static int opr__or(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
         break;
 
     case OPR_SET_SET:
+        /*
+         * The resulting set might contain items from both `a` and `b`,
+         * therefore a "shortcut" can only be made if `b` is not used anymore
+         * and this is an in-place modification of `a`, or `a` is also not
+         * used anymore.
+         */
         if ((inplace || a->ref == 1) && (*b)->ref == 1)
         {
             imap_union_move(VSET(a), VSET(*b));

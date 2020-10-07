@@ -448,9 +448,19 @@ static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_prop_t * prop;
 
+    /*
+     * If `rval` is set, this means it is a "chained" function call,
+     * for example:  my_thing.func()
+     * This means we should check if `rval` is a thing or wrapped thing and
+     * then see if the function exist on this thing.
+     */
     if (query->rval)
         return fn_call_try_n(fname->str, fname->len, query, args, e);
 
+    /*
+     * When querying a collection, it is possible that the function call
+     * is an attempt to initialize a type of enum.
+     */
     if (query->collection)
     {
         ti_enum_t * enum_;
@@ -475,8 +485,12 @@ static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return do__get_enum_member(enum_, query, args, e);
     }
 
-    /* Props with build-in function names, and/or exist as Type/Enum name
-     * are not reached.
+    /*
+     * If the call is not a type of enum, let's try if the function is a
+     * variable of type closure which can be called. Props with build-in
+     * function names, and/or exist as type/enum names are not reached and
+     * can not be called in this way. It is possible to call these variable
+     * using the `call` function: variable.call(...)
      */
     prop = do__get_var(query, fname);
     if (prop)
@@ -497,6 +511,10 @@ static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return fn_call(query, args, e);
     }
 
+    /*
+     * It is not a build-in function, not a type or enum, and not a variable
+     * so the function must be undefined.
+     */
     ex_set(e, EX_LOOKUP_ERROR,
             "function `%.*s` is undefined",
             fname->len,
@@ -509,7 +527,10 @@ static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->children->next->node->cl_obj->gid == CLERI_GID_FUNCTION);
-
+    /*
+     * "Node -> data" is set for all build-in functions so they are preferred
+     * over other functions/type/enum.
+     */
     return nd->data
             ? ((fn_cb) nd->data)(
                     query,
@@ -524,11 +545,20 @@ static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_BLOCK);
 
+    /*
+     * This "block" will overwrite the stack position so keep the previous
+     * value in case this block is nested inside another block.
+     */
     uint32_t prev_block_stack = query->block_stack;
     cleri_children_t * child= nd->children->next->next
             ->node->children;  /* first child, not empty */
 
+    /*
+     * Keep the "position" in the variable stack so we can later break down
+     * all used variable inside the block.
+     */
     query->block_stack = query->vars->n;
+
     do
     {
         if (ti_do_statement(query, child->node, e))
@@ -542,9 +572,17 @@ static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     while (1);
 
+    /*
+     * Break down all used variables inside the block. Make sure we mark
+     * things for garbage collection if their reference has not reached zero.
+     */
     while (query->vars->n > query->block_stack)
         ti_prop_destroy(VEC_pop(query->vars));
 
+    /*
+     * Restore the previous stack "position" so the optional parent block
+     * has the correct block_stack to work with.
+     */
     query->block_stack = prev_block_stack;
     return e->nr;
 }
@@ -1265,6 +1303,11 @@ static inline ti_prop_t * do__prop_scope(ti_query_t * query, ti_name_t * name)
     register uint32_t n = query->vars->n;
     register uint32_t end = query->block_stack;
 
+    /*
+     * End is the position in the variable stack where this block scope has
+     * started, therefore we start at the end and then look back until
+     * the "end" position in the stack.
+     */
     while (n-- > end)
     {
         ti_prop_t * prop = VEC_get(query->vars, n);
@@ -1280,6 +1323,11 @@ static inline ti_name_t * do__ensure_name_cache(
 {
     assert (nd->data == NULL);
     ti_name_t * name = nd->data = ti_names_get(nd->str, nd->len);
+    /*
+     * Function `ti_qbind_probe(..)` has checked how much cache must be
+     * available, therefore we can use `VEC_push` there must be enough space
+     * to fit this name.
+     */
     if (name)
         VEC_push(query->val_cache, name);
     return name;
@@ -1301,15 +1349,27 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, assign_seq->next->node, e))
         return e->nr;
 
+    /*
+     * When `tokens_nd` has a length of 2, this means the statement wants to
+     * update an existing variable using something like +=, -= etc.
+     * The only other option is a token length of 1 which is an assignment
+     * using token `=`.
+     */
     if (tokens_nd->len == 2)
     {
+        /*
+         * Since the statement attempts to update an existing variable, the
+         * prop must exist.
+         */
         prop = do__get_var_e(query, name_nd, e);
         if (!prop)
             return e->nr;
 
+        /* update value `a` with value `b` but store the value in `b` */
         if (ti_opr_a_to_b(prop->val, tokens_nd, &query->rval, e))
             return e->nr;
 
+        /* switch `a` with `b` as the new value is set to `b` */
         ti_val_unsafe_drop(prop->val);
         prop->val = query->rval;
         ti_incref(prop->val);
@@ -1317,7 +1377,7 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     /*
-     * We must make variable assignable because we require a copy and need to
+     * Must make variable assignable because we require a copy and need to
      * convert for example a tuple to a list.
      *
      * Closures can be ignored here because they are not mutable and will
@@ -1327,12 +1387,21 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ti_val_make_variable(&query->rval, e))
         goto failed;
 
+    /*
+     * Try to get the name from cache, else ensure it is set on the cache for
+     * the next time the code visits this same point.
+     */
     name = name_nd->data
             ? name_nd->data
             : do__ensure_name_cache(query, name_nd);
     if (!name)
         goto alloc_err;
 
+    /*
+     * Check if the `prop` already is available in this block scope on the
+     * stack, and if * this is the case, then update the `prop` value with the
+     * new value and return.
+     */
     prop = do__prop_scope(query, name);
     if (prop)
     {
@@ -1342,6 +1411,10 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
+    /*
+     * Create a new `prop` and store the `prop` in this block scope on the
+     * stack. Only allocation errors might screw things up.
+     */
     ti_incref(name);
     prop = ti_prop_create(name, query->rval);
     if (!prop)
@@ -1367,8 +1440,19 @@ failed:
 
 static inline int do__template(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    /*
+     * The template will be build and stored on node -> data the first time
+     * it reaches this code. Function `ti_qbind_probe(..)` has to make sure
+     * there is enough room on the cache to store a pointer to the build
+     * template.
+     */
     if (!nd->data)
     {
+        /*
+         * This will build a template which can be re-used with different
+         * values and rather quickly may generate new strings based on the
+         * template and values.
+         */
         if (ti_template_build(nd))
         {
             ex_set_mem(e);

@@ -29,6 +29,11 @@ static int opr__and(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
         break;
 
     case OPR_SET_SET:
+        /*
+         * The resulting set will only contain thing which are already
+         * available in both `a` and `b`, therefore a "shortcut" can be made
+         * if this is an in-place modification or if `a` is not used  anymore.
+         */
         if (inplace || a->ref == 1)
         {
             imap_intersection_inplace(

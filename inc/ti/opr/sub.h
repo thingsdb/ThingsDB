@@ -58,6 +58,11 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
         goto type_int;
 
     case OPR_SET_SET:
+        /*
+         * The resulting set will only contain things which already exist
+         * in `a`, therefore a "shortcut" can be made if this is an in-place
+         * modification or if `a` is not used  anymore.
+         */
         if (inplace || a->ref == 1)
         {
             imap_difference_inplace(VSET(a), VSET(*b));

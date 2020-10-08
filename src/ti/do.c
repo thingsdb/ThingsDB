@@ -184,7 +184,9 @@ static inline int do__t_upd_prop(
 {
     ti_field_t * field;
     ti_type_t * type = ti_thing_type(thing);
-    ti_name_t * name = name_nd->data ? name_nd->data : do__cache_name(query, name_nd);
+    ti_name_t * name = name_nd->data
+            ? name_nd->data
+            : do__cache_name(query, name_nd);
 
     if (name && (field = ti_field_by_name(type, name)))
     {

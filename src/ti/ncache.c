@@ -334,6 +334,10 @@ static int ncache__expr_choice(
     case CLERI_GID_CHAIN:
         return ncache__chain(syntax, vcache, nd, e);
     case CLERI_GID_THING_BY_ID:
+        /*
+         * An overflow here is fine as it will just result in a ThingID which
+         * will not be found;
+         */
         nd->data = ti_vint_create(strtoll(nd->str + 1, NULL, 10));
         if (!nd->data)
             ex_set_mem(e);

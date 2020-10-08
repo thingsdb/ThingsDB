@@ -710,6 +710,12 @@ int ti_do_operations(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int do__thing_by_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    /*
+     * Set node -> data to the actual thing when this is a normal query but
+     * when used in a stored procedure, the `int` value is stored instead;
+     * This syntax is probably not used frequently so do not worry a lot about
+     * performance here; (and this is already pretty fast anyway...)
+     */
     if (!nd->data)
     {
         int64_t thing_id = strtoll(nd->str + 1, NULL, 10);
@@ -767,8 +773,12 @@ static int do__read_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 }
 
 /*
-pcregrep -o1 '\.name\=\"(\w+)' do.c | gperf -E -k '*,1,$' -m 200
-*/
+ * Use the command below to generate a perfect hash for the fixed mapping
+ * constants. Fixed constants are available in non-collection scopes only.
+ * This allows to find the constants in the fastest possible way.
+ *
+ *   pcregrep -o1 '\.name\=\"(\w+)' do.c | gperf -E -k '*,1,$' -m 200
+ */
 
 enum
 {
@@ -855,7 +865,6 @@ typedef struct
     size_t n;
 } do__fixed_t;
 
-
 do__fixed_t do__fixed_mapping[TOTAL_KEYWORDS] = {
     {.name="READ",                  .value=TI_AUTH_READ},
     {.name="MODIFY",                .value=TI_AUTH_MODIFY},
@@ -874,6 +883,10 @@ static do__fixed_t * do__fixed_map[MAX_HASH_VALUE+1];
 
 int ti_do_init(void)
 {
+    /*
+     * This code only runs once at startup and prepares perfect hashing for
+     * constant variable names;
+     */
     for (size_t i = 0, n = TOTAL_KEYWORDS; i < n; ++i)
     {
         uint32_t key;
@@ -909,6 +922,10 @@ void ti_do_drop(void)
 
 static int do__fixed_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    /*
+     * This function is only called in a non-collection scope as all known
+     * constants are only applicable in the node- and thingsdb scope.
+     */
     assert (e->nr == 0);
     assert (nd->cl_obj->gid == CLERI_GID_VAR);
 
@@ -1286,6 +1303,9 @@ static inline int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         if (do__no_collection_scope(query))
         {
+            /*
+             * Look for fixed constants only if this is not a collection scope.
+             */
             e->nr = 0;
             return do__fixed_name(query, nd, e);
         }
@@ -1478,6 +1498,10 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     switch (nd->cl_obj->gid)
     {
     case CLERI_GID_CHAIN:
+        /*
+         * When an expression starts with a dot, this is always the root
+         * of the collection; For example .id(); or .prop;
+         */
         if (!query->collection)
         {
             ex_set(e, EX_LOOKUP_ERROR,
@@ -1487,6 +1511,7 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
         }
 
+        /* Set the collection at the current value */
         query->rval = (ti_val_t *) query->collection->root;
         ti_incref(query->rval);
 
@@ -1496,6 +1521,9 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         /* nothing is possible after a chain */
         goto preopr;
     case CLERI_GID_THING_BY_ID:
+        /*
+         * Get a thing by ID using the hash (#) syntax, for example: #123;
+         */
         if (do__thing_by_id(query, nd, e))
             return e->nr;
         break;

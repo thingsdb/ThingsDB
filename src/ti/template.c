@@ -177,7 +177,8 @@ int ti_template_compile(ti_template_t * tmplate, ti_query_t * query, ex_t * e)
         n += ((ti_raw_t *) query->rval)->n;
         /*
          * Store the generated value to node -> cache so we can later re-use
-         * the value to build the actual string.
+         * the value to build the actual string. Make sure to clean those
+         * both when successful and on failure.
          */
         nd->data = query->rval;
         query->rval = NULL;
@@ -258,7 +259,7 @@ void ti_template_destroy(ti_template_t * tmplate)
 {
     cleri_children_t * child;
 
-    child = tmplate->node              /* sequence */
+    child = tmplate->node               /* sequence */
             ->children->next->node      /* repeat */
             ->children;
 

@@ -1,11 +1,14 @@
 /*
  * util/util.c
  */
-#include <util/util.h>
+#define _GNU_SOURCE
+#include <linux/random.h>
 #include <stdlib.h>
+#include <sys/syscall.h>
 #include <time.h>
+#include <unistd.h>
 #include <util/logger.h>
-#include <sys/random.h>
+#include <util/util.h>
 
 static struct timespec util__now;
 static const char util__charset[65] = \
@@ -35,7 +38,7 @@ uint64_t util_now_tsec(void)
  */
 void util_random_key(char * buf, size_t n)
 {
-    _Bool success = getrandom(buf, n, GRND_NONBLOCK) == (ssize_t) n;
+    _Bool success = syscall(SYS_getrandom, buf, n, GRND_NONBLOCK) == (ssize_t) n;
 
     if (!success)
         log_warning(

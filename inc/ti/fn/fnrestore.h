@@ -154,6 +154,11 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
     }
 
+    /*
+     * Unpacking is "reasonable" tested by `ti_restore_chk(..)` so at this
+     * point, unpacking the tar file is not expected to fail unless there is
+     * not enough disk space or other serious error.
+     */
     if (ti_restore_unp(job, e))
         goto fail1;
 

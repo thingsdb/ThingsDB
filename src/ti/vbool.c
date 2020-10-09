@@ -18,6 +18,10 @@ static ti_vbool_t vbool__false = {
     .bool_ = false,
 };
 
+/*
+ * This function is always successful and the result does not have to be
+ * checked.
+ */
 ti_vbool_t * ti_vbool_get(_Bool b)
 {
     ti_vbool_t * vbool = b ? &vbool__true : &vbool__false;
@@ -25,6 +29,10 @@ ti_vbool_t * ti_vbool_get(_Bool b)
     return vbool;
 }
 
+/*
+ * Can be used for a sanity check when stopping ThingsDB to see if all
+ * references are cleared.
+ */
 _Bool ti_vbool_no_ref(void)
 {
     return vbool__true.ref == 1 && vbool__false.ref == 1;

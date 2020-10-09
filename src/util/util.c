@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <util/logger.h>
+#include <sys/random.h>
 
 static struct timespec util__now;
 static const char util__charset[65] = \
@@ -26,12 +27,24 @@ uint64_t util_now_tsec(void)
     return util__now.tv_sec;
 }
 
+/*
+ * This will generate a random key using getrandom(..) which in turn will use
+ * the `urandom` source if possible. If for some reason the getrandom(..)
+ * function cannot be used, for example, when not enough random source is
+ * available, then rand() is used as a fall-back scenario.
+ */
 void util_random_key(char * buf, size_t n)
 {
-    int idx;
+    _Bool success = getrandom(buf, n, GRND_NONBLOCK) == (ssize_t) n;
+
+    if (!success)
+        log_warning(
+                "getrandom(..) has failed; "
+                "fall-back using rand() for generating token");
+
     while (n--)
     {
-        idx = rand() % uril__charset_sz;
-        buf[n] = util__charset[idx];
+        unsigned int idx = (unsigned int) (success ? buf[n] : rand());
+        buf[n] = util__charset[idx % uril__charset_sz];
     }
 }

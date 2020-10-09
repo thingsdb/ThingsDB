@@ -20,7 +20,11 @@ static void wareq__destroy_cb(uv_async_t * task);
 static void wareq__watch_cb(uv_async_t * task);
 static void wareq__unwatch_cb(uv_async_t * task);
 
-
+/*
+ * On systems with a pointer size of 32-bit, space will be allocated for each
+ * thing ID in the watch request. With a 64-bit pointer size, the thing ID is
+ * stored in the pointer.
+ */
 static inline void wareq__vec_destoroy(vec_t * vec)
 {
     #if TI_IS64BIT

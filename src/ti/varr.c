@@ -33,8 +33,13 @@ static int varr__to_tuple(ti_varr_t ** varr)
     tuple->ref = 1;
     tuple->tp = TI_VAL_ARR;
     tuple->flags = TI_VFLAG_ARR_TUPLE | ((*varr)->flags & TI_VFLAG_ARR_MHT);
-    tuple->spec = (*varr)->spec;
+    tuple->spec = (*varr)->spec;  /* no harm to set `spec`, but useless */
     tuple->vec = vec_dup((*varr)->vec);
+    /*
+     * Note that `tuple` is allocation as a tuple but is casted as type `varr`
+     * so do NOT set the `parent` and `name` since there is no room for
+     * allocated!
+     */
 
     if (!tuple->vec)
     {
@@ -106,6 +111,10 @@ ti_varr_t * ti_varr_from_slice(
     varr->spec = source->spec;
     varr->parent = NULL;
 
+    /*
+     * Calculate the exact size for the new list. This has to be exact since
+     * the size is used below to fill the list with values.
+     */
     n = n / step + !!(n % step);
     sz = (uint32_t) (n < 0 ? 0 : n);
 
@@ -254,16 +263,20 @@ int ti_varr_to_list(ti_varr_t ** varr)
 }
 
 /*
- * Do not use this method, but the in-line method ti_varr_eq() instead
+ * Do not use this method, but the in-line method ti_varr_eq() instead since
+ * this functions already takes the assumption that `a` and `b` are different
+ * arrays but of equal size.
  */
 _Bool ti__varr_eq(ti_varr_t * varra, ti_varr_t * varrb)
 {
     size_t i = 0;
 
     assert (varra != varrb && varra->vec->n == varrb->vec->n);
+
     for (vec_each(varra->vec, ti_val_t, va), ++i)
         if (!ti_opr_eq(va, VEC_get(varrb->vec, i)))
             return false;
+
     return true;
 }
 

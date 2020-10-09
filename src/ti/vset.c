@@ -101,10 +101,32 @@ failed:
 
 int ti_vset_to_tuple(ti_vset_t ** vsetaddr)
 {
-    if (ti_vset_to_list(vsetaddr))
+    ti_tuple_t * tuple;
+    vec_t * vec = imap_vec((*vsetaddr)->imap);
+    if (!vec)
         return -1;
-    (*vsetaddr)->flags |= TI_VFLAG_ARR_TUPLE;
+
+    tuple = malloc(sizeof(ti_tuple_t));
+    if (!tuple)
+        goto failed;
+
+    tuple->ref = 1;
+    tuple->tp = TI_VAL_ARR;
+    tuple->flags = TI_VFLAG_ARR_TUPLE | (vec->n ? TI_VFLAG_ARR_MHT : 0);
+    tuple->spec = TI_SPEC_ANY;
+    tuple->vec = vec;
+
+    for (vec_each(vec, ti_val_t, val))
+        ti_incref(val);
+
+    ti_val_unsafe_drop((ti_val_t *) *vsetaddr);
+    *vsetaddr = (ti_vset_t *) tuple;
+
     return 0;
+
+failed:
+    free(vec);
+    return -1;
 }
 
 static int vset__walk_assign(ti_thing_t * t, ti_vset_t * vset)

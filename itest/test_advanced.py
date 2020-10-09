@@ -1285,6 +1285,16 @@ class TestAdvanced(TestBase):
         ''')
         self.assertEqual(res, [2, 2])
 
+        res = await client.query(r'''
+            list = [];
+            set = set(P{}, P{});
+            list.push(set);
+            assert( is_tuple(list[0]) );
+            list;
+
+        ''')
+        self.assertEqual(res, [[{"name": ""}, {"name": ""}]])
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

@@ -57,6 +57,9 @@ int ti_vset_to_pk(ti_vset_t * vset, msgpack_packer * pk, int options)
             .pk = pk,
             .options = options,
     };
+    /*
+     * Pack as a `map` when options < 0, otherwise pack the set as an array.
+     */
     return ((options < 0 && (
                 msgpack_pack_map(pk, 1) ||
                 mp_pack_strn(pk, TI_KIND_S_SET, 1)
@@ -79,7 +82,7 @@ int ti_vset_to_list(ti_vset_t ** vsetaddr)
     list->ref = 1;
     list->tp = TI_VAL_ARR;
     list->flags = vec->n ? TI_VFLAG_ARR_MHT : 0;
-    list->spec = (*vsetaddr)->spec;
+    list->spec = TI_SPEC_ANY;
     list->vec = vec;
     list->parent = NULL;
 
@@ -128,7 +131,7 @@ int ti_vset_assign(ti_vset_t ** vsetaddr)
     if (imap_walk(ovset->imap, (imap_cb) vset__walk_assign, nvset))
         return -1;  /* vset is destroyed if walk has failed */
 
-    ti_decref(ovset);
+    ti_decref(ovset);  /* checked for more than one reference */
     *vsetaddr = nvset;
 
     return 0;

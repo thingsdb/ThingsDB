@@ -1264,6 +1264,27 @@ class TestAdvanced(TestBase):
         self.assertEqual(res, ['p1a', 'p1b'])
         self.assertEqual(await client.query('type_count("P");'), 3)
 
+    async def test_copy_set_to_list(self, client):
+        res = await client.query(r'''
+            set_type('P', {name: 'str'});
+            set_type('T', {
+                s: '{P}',
+                a: '[P]',
+            });
+
+            p = P{name: 'Iris'};
+            t = T{s: set(p), a: [p]};
+
+            list = list(t.s);
+            list.push(123);  // list should not be restricted
+
+            set = set(t.a);
+            set.add({});  // set should nog be restricted
+
+            [list.len(), set.len()];
+        ''')
+        self.assertEqual(res, [2, 2])
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

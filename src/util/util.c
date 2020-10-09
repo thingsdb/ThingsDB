@@ -38,7 +38,7 @@ uint64_t util_now_tsec(void)
  */
 void util_random_key(char * buf, size_t n)
 {
-    _Bool success = syscall(SYS_getrandom, buf, n, GRND_NONBLOCK) == (ssize_t) n;
+    int success = syscall(SYS_getrandom, buf, n, GRND_NONBLOCK) == (ssize_t) n;
 
     if (!success)
         log_warning(

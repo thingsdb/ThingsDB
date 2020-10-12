@@ -1606,6 +1606,15 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query('isbytes(nil);'))
         self.assertTrue(await client.query('isbytes( bytes("pi") ); '))
 
+    async def test_is_closure(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `is_closure` takes 1 argument but 0 were given'):
+            await client.query('is_closure();')
+
+        self.assertTrue(await client.query('is_closure( ||nil ); '))
+        self.assertFalse(await client.query('is_closure( "" ); '))
+
     async def test_is_raw(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,

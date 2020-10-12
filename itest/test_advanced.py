@@ -1295,6 +1295,16 @@ class TestAdvanced(TestBase):
         ''')
         self.assertEqual(res, [[{"name": ""}, {"name": ""}]])
 
+    async def test_thing_id_closure(self, client):
+        res = await client.query(r'''
+            .x = || {
+                #9999999999999999999999999999999999999999999;
+                #3;
+            };
+            assert (is_closure(.x) );
+        ''')
+        self.assertIs(res, None)
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

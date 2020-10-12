@@ -339,9 +339,7 @@ static int ncache__expr_choice(
          * will not be found;
          */
         nd->data = ti_vint_create(strtoll(nd->str + 1, NULL, 10));
-        if (!nd->data)
-            ex_set_mem(e);
-        return e->nr;
+        break;
     case CLERI_GID_T_CLOSURE:
         if (ncache__statement(
                     syntax,

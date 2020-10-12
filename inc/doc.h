@@ -35,6 +35,7 @@
 #define DOC_IS_ASCII                DOC_SEE("collection-api/is_ascii")
 #define DOC_IS_BOOL                 DOC_SEE("collection-api/is_bool")
 #define DOC_IS_BYTES                DOC_SEE("collection-api/is_bytes")
+#define DOC_IS_CLOSURE              DOC_SEE("collection-api/is_closure")
 #define DOC_IS_ENUM                 DOC_SEE("collection-api/is_enum")
 #define DOC_IS_ERR                  DOC_SEE("collection-api/is_err")
 #define DOC_IS_FLOAT                DOC_SEE("collection-api/is_float")

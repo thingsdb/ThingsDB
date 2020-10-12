@@ -1,3 +1,11 @@
+# v0.9.17
+
+* Remove restrictions when a `set` is converted to a `list`, issue #96.
+* No longer allocate too much space for a `tuple` in a `list`, issue #97.
+* Improved token generation by using the `getrandom` syscall, issue #98.
+* Fixed releasing cached integer values, issue #99.
+* Added `is_closure(..)` function, issue #100.
+
 # v0.9.16
 
 * Added new functions, issue #89.

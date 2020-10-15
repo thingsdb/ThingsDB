@@ -683,10 +683,37 @@ stop:
     ti_query_send_response(query, &e);
 }
 
+static inline int query__pack_response(
+        ti_query_t * query,
+        msgpack_sbuffer * buffer,
+        ex_t * e)
+{
+    msgpack_packer pk;
+    msgpack_packer_init(&pk, buffer, msgpack_sbuffer_write);
+
+    if (ti_val_to_pk(query->rval, &pk, (int) query->qbind.deep))
+    {
+        if (buffer->size > ti.cfg->result_size_limit)
+            ex_set(e, EX_RESULT_TOO_LARGE,
+                    "too much data to return; "
+                    "try to use a lower `deep` value and/or `wrap` things to "
+                    "reduce the data size"DOC_THING_WRAP);
+        else
+            ex_set_mem(e);
+
+        msgpack_sbuffer_destroy(buffer);
+        return e->nr;
+    }
+
+    if (buffer->size > ti.counters->largest_result_size)
+        ti.counters->largest_result_size = buffer->size;
+
+    return 0;
+}
+
 static int query__response_api(ti_query_t * query, ex_t * e)
 {
     ti_api_request_t * ar = query->via.api_request;
-    msgpack_packer pk;
     msgpack_sbuffer buffer;
     size_t alloc = 24;
 
@@ -701,14 +728,8 @@ static int query__response_api(ti_query_t * query, ex_t * e)
         goto response_err;
     }
 
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-
-    if (ti_val_to_pk(query->rval, &pk, (int) query->qbind.deep))
-    {
-        msgpack_sbuffer_destroy(&buffer);
-        ex_set_mem(e);
+    if (query__pack_response(query, &buffer, e))
         goto response_err;
-    }
 
     return ti_api_close_with_response(ar, buffer.data, buffer.size);
 
@@ -719,7 +740,6 @@ response_err:
 static int query__response_pkg(ti_query_t * query, ex_t * e)
 {
     ti_pkg_t * pkg;
-    msgpack_packer pk;
     msgpack_sbuffer buffer;
     size_t alloc = 24;
 
@@ -733,14 +753,9 @@ static int query__response_pkg(ti_query_t * query, ex_t * e)
         ex_set_mem(e);
         goto pkg_err;
     }
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    if (ti_val_to_pk(query->rval, &pk, (int) query->qbind.deep))
-    {
-        msgpack_sbuffer_destroy(&buffer);
-        ex_set_mem(e);
+    if (query__pack_response(query, &buffer, e))
         goto pkg_err;
-    }
 
     pkg = (ti_pkg_t *) buffer.data;
     pkg_init(pkg,

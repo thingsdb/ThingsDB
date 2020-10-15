@@ -42,7 +42,7 @@ class TestNodeFunctions(TestBase):
 
         counters = await client.query('counters();')
 
-        self.assertEqual(len(counters), 16)
+        self.assertEqual(len(counters), 17)
 
         self.assertIn("queries_success", counters)
         self.assertIn("queries_with_error", counters)
@@ -60,6 +60,7 @@ class TestNodeFunctions(TestBase):
         self.assertIn("average_query_duration", counters)
         self.assertIn("average_event_duration", counters)
         self.assertIn("started_at", counters)
+        self.assertIn("largest_result_size", counters)
 
         self.assertTrue(isinstance(counters["queries_success"], int))
         self.assertTrue(isinstance(counters["queries_with_error"], int))
@@ -77,6 +78,7 @@ class TestNodeFunctions(TestBase):
         self.assertTrue(isinstance(counters["average_query_duration"], float))
         self.assertTrue(isinstance(counters["average_event_duration"], float))
         self.assertTrue(isinstance(counters["started_at"], int))
+        self.assertTrue(isinstance(counters["largest_result_size"], int))
 
     async def test_node_info(self, client):
         with self.assertRaisesRegex(
@@ -86,7 +88,7 @@ class TestNodeFunctions(TestBase):
 
         node = await client.query('node_info();')
 
-        self.assertEqual(len(node), 32)
+        self.assertEqual(len(node), 33)
 
         self.assertIn("node_id", node)
         self.assertIn("version", node)
@@ -120,6 +122,7 @@ class TestNodeFunctions(TestBase):
         self.assertIn('http_api_port', node)
         self.assertIn('scheduled_backups', node)
         self.assertIn('connected_clients', node)
+        self.assertIn('result_size_limit', node)
 
         self.assertTrue(isinstance(node["node_id"], int))
         self.assertTrue(isinstance(node["version"], str))
@@ -153,6 +156,7 @@ class TestNodeFunctions(TestBase):
         self.assertTrue(isinstance(node["http_api_port"], (int, str)))
         self.assertTrue(isinstance(node["scheduled_backups"], int))
         self.assertTrue(isinstance(node["connected_clients"], int))
+        self.assertTrue(isinstance(node["result_size_limit"], int))
 
     async def test_nodes_info(self, client):
         with self.assertRaisesRegex(

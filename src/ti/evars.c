@@ -87,6 +87,9 @@ void ti_evars_parse(void)
     evars__sizet(
             "THINGSDB_THRESHOLD_FULL_STORAGE",
             &ti.cfg->threshold_full_storage);
+    evars__sizet(
+            "THINGSDB_RESULT_SIZE_LIMIT",
+            &ti.cfg->result_size_limit);
     evars__u16(
             "THINGSDB_HTTP_STATUS_PORT",
             &ti.cfg->http_status_port);

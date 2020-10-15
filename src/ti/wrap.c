@@ -157,25 +157,38 @@ int ti__wrap_field_thing(
         uint16_t spec,
         int options)
 {
-    assert (options >= 0);
-
     ti_type_t * t_type;
     spec &= TI_SPEC_MASK_NILLABLE;
 
+    assert (options >= 0);
     assert (thing->tp == TI_VAL_THING);
     assert (spec <= TI_SPEC_OBJECT);
 
-    if (spec >= TI_SPEC_ANY ||   /* TI_SPEC_ANY || TI_SPEC_OBJECT */
-        (thing->flags & TI_VFLAG_LOCK) ||
-        !options ||
-        !(t_type = ti_types_by_id(thing->collection->types, spec))
-    ) return ti_thing_to_pk(thing, pk, options);
+    /*
+     * Just return the ID when locked or if `options` (deep) has reached zero.
+     */
+    if ((thing->flags & TI_VFLAG_LOCK) || !options)
+        return ti_thing_id_to_pk(thing, pk);
 
+    /*
+     * If `spec` is not a type or a none existing type (thus ANY or OBJECT),
+     * then pack the thing as normal.
+     */
+    if (spec >= TI_SPEC_ANY ||  /* TI_SPEC_ANY || TI_SPEC_OBJECT */
+        !(t_type = ti_types_by_id(thing->collection->types, spec)))
+        return ti_thing__to_pk(thing, pk, options);
+
+    /* decrement `options` (deep) by one */
     --options;
+
+    /* Set the lock */
     thing->flags |= TI_VFLAG_LOCK;
 
     if (ti_thing_is_object(thing))
     {
+        /* If the `thing` to wrap is not an existing type but a normal `thing`,
+         * some extra work needs to be done.
+         */
         typedef struct
         {
             ti_field_t * field;
@@ -189,6 +202,11 @@ int ti__wrap_field_thing(
             goto fail;
 
         n = 0;
+        /*
+         * First read all the appropriate properties to allocated `map_prop_t`.
+         * There is enough room allocated as it will never exceed more than
+         * there are properties on the source or fields in the target.
+         */
         for (vec_each(t_type->fields, ti_field_t, t_field))
         {
             ti_prop_t * prop;
@@ -202,12 +220,18 @@ int ti__wrap_field_thing(
             ++n;
         };
 
+        /*
+         * Now we can pack, let's start with the ID.
+         */
         if (wrap__thing_id_to_pk(thing, pk, n))
         {
             free(map_props);
             goto fail;
         }
 
+        /*
+         * Pack all the gathered properties.
+         */
         for (;map_get < map_set; ++map_get)
         {
             if (mp_pack_strn(
@@ -233,6 +257,11 @@ int ti__wrap_field_thing(
         vec_t * mappings;
         ti_type_t * f_type = ti_thing_type(thing);
 
+        /*
+         * Type mappings are only created the first time a conversion from
+         * `to_type` -> `from_type` is asked so most likely the mappings are
+         * returned from cache.
+         */
         mappings = ti_type_map(t_type, f_type);
         if (!mappings || wrap__thing_id_to_pk(thing, pk, mappings->n))
             goto fail;

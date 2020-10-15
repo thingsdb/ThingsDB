@@ -27,6 +27,10 @@ struct ti_cfg_s
                                            instead of incremental store will be
                                            performed
                                         */
+    size_t result_size_limit;           /* error EX_RESULT_TOO_LARGE is raised
+                                           when the return size exceeds this
+                                           limit.
+                                        */
     int ip_support;                     /* AF_UNSPEC / AF_INET / AF_INET6 */
     char * node_name;
     char * bind_client_addr;

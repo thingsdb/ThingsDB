@@ -8,6 +8,11 @@
 #include <ti/thing.inline.h>
 #include <util/mpack.h>
 
+/*
+ * The returned type may be NULL, because a `type_id` might no longer exist.
+ * If, and only if a new type with an equal name is created, then the ID will
+ * be re-used and the "new" type would return for this wrap.
+ */
 static inline ti_type_t * ti_wrap_maybe_type(ti_wrap_t * wrap)
 {
     ti_type_t * type = imap_get(
@@ -22,6 +27,9 @@ static inline const char * ti_wrap_str(ti_wrap_t * wrap)
     return type ? type->wname : "<thing>";
 }
 
+/*
+ * Returns the wrapped name as a a raw type with a new reference.
+ */
 static inline ti_raw_t * ti_wrap_strv(ti_wrap_t * wrap)
 {
     ti_type_t * type = ti_wrap_maybe_type(wrap);

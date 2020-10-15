@@ -59,6 +59,7 @@ struct ti_counters_s
                                        a higher event id is already queued
                                     */
     uint64_t garbage_collected;     /* total garbage collected */
+    uint64_t largest_result_size;   /* largest result size in bytes */
     double longest_query_duration;  /* longest duration it took for a
                                        successful query to process (in seconds)
                                     */

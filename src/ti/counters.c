@@ -39,6 +39,7 @@ void ti_counters_reset(void)
     counters->events_quorum_lost = 0;
     counters->events_unaligned = 0;
     counters->garbage_collected = 0;
+    counters->largest_result_size = 0;
     counters->longest_query_duration = 0.0;
     counters->longest_event_duration = 0.0;
     counters->total_query_duration = 0.0;
@@ -94,7 +95,7 @@ double ti_counters_upd_success_query(struct timespec * start)
 int ti_counters_to_pk(msgpack_packer * pk)
 {
     return -(
-        msgpack_pack_map(pk, 16) ||
+        msgpack_pack_map(pk, 17) ||
 
         mp_pack_str(pk, "queries_success") ||
         msgpack_pack_uint64(pk, counters->queries_success) ||
@@ -146,7 +147,10 @@ int ti_counters_to_pk(msgpack_packer * pk)
             : 0.0) ||
 
         mp_pack_str(pk, "started_at") ||
-        msgpack_pack_uint64(pk, counters->started_at)
+        msgpack_pack_uint64(pk, counters->started_at) ||
+
+        mp_pack_str(pk, "largest_result_size") ||
+        msgpack_pack_uint64(pk, counters->largest_result_size)
     );
 }
 

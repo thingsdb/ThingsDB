@@ -1,3 +1,8 @@
+# v0.9.18
+
+* Added `result_size_limit` to prevent large return data, issue #101.
+* Added `largest_result_size` counter, issue #102. 
+
 # v0.9.17
 
 * Remove restrictions when a `set` is converted to a `list`, issue #96.

@@ -833,6 +833,19 @@ int ti_thing__to_pk(ti_thing_t * thing, msgpack_packer * pk, int options)
 {
     assert (options);  /* should be either positive or negative, not 0 */
 
+    if (options > 0)
+    {
+        /*
+         * Only when packing for a client the result size is checked;
+         * The correct error is not set here, but instead the size should be
+         * checked again to set either a `memory` or `too_much_data` error.
+         */
+        if (((msgpack_sbuffer *) pk->data)->size > ti.cfg->result_size_limit)
+            return -1;
+
+        --options;
+    }
+
     if (msgpack_pack_map(pk, (!!thing->id) + thing->items->n))
         return -1;
 
@@ -840,9 +853,6 @@ int ti_thing__to_pk(ti_thing_t * thing, msgpack_packer * pk, int options)
             mp_pack_strn(pk, TI_KIND_S_THING, 1) ||
             msgpack_pack_uint64(pk, thing->id)
     )) return -1;
-
-    if (options > 0)
-        --options;
 
     thing->flags |= TI_VFLAG_LOCK;
 

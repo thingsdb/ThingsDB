@@ -18,7 +18,7 @@
 /* Incremental events are stored until this threshold is reached */
 #define TI_DEFAULT_THRESHOLD_FULL_STORAGE 1000UL
 
-/* Raise an error when packing a thing and this limit (20MB) is reached */
+/* Raise an error when packing a thing and this limit (20MiB) is reached */
 #define TI_DEFAULT_RESULT_DATA_LIMIT 20971520UL
 
 #define TI_COLLECTION_ID "`collection:%"PRIu64"`"

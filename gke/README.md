@@ -126,7 +126,7 @@ spec:
         - thingsdb.default.svc.cluster.local
       containers:
       - name: thingsdb
-        image: thingsdb/node:gcloud-v0.9.11  # Latest version at the time of writing
+        image: thingsdb/node:gcloud-v0.9.18  # Latest version at the time of writing
         imagePullPolicy: Always
         args: ["--deploy"]  # Tells ThingsDB it will be deployed in Kubernetes
         env:

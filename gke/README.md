@@ -2,21 +2,21 @@
 
 The goal of this blog is to show how ThingsDB can be deployed in GKE using three nodes for redundancy with automatic backups in Google Cloud Storage.
 
-First an overview of all the kubernetes component we will use:
+First an overview of all the Kubernetes components we will use:
 
 - [Service](#serive) - For connecting to ThingsDB.
-- [ConfigMap](#configmap) - For service account credentials to Google Cloud Storage where we will store backups.
+- [ConfigMap](#configmap) - For service account credentials (Google Cloud Storage).
 - [StatefulSet](#statefulset) - For deploying ThingsDB nodes.
 
 Next we will configure ThingsDB to use all three nodes and create a backup schedule plan.
 
-- [Setup nodes](#setup-nodes) - Configure ThingsDB to use the tree nodes.
+- [Setup nodes](#setup-nodes) - Configure ThingsDB to use the three nodes.
 - [Schedule backups](#schedule-backups) - Create daily and weekly ThingsDB backups in Google Cloud Storage.
 
 
 ## Service
 
-This will expose the ThingsDB related ports to be used by other nodes. Not all ports are required although I don’t think it will do any harm. Important setting is `publishNotReadyAddresses` which must be set to `true`. If not, then the nodes will not publish themself before they are marked as ready and this is required as nodes need to synchronize data before they will be marked as ready.
+This will expose the ThingsDB related ports to be used by other nodes. Not all ports are required although I don’t think it will do any harm. Important setting is `publishNotReadyAddresses` which must be set to `true`. If not, then the nodes will not publish themselves before they are marked as ready and this is required as nodes need to synchronize data before they will be marked as ready.
 
 ```yaml
 apiVersion: v1
@@ -49,7 +49,7 @@ kubectl apply -f service.yaml
 
 ## ConfigMap
 
-The configMap is only required for creating backups in the Google Cloud Storage. If you just want to run ThingsDB in kubernetes without GKE, you may create your own backup solution and forget about
+The configMap is only required for creating backups in Google Cloud Storage. If you just want to run ThingsDB in Kubernetes without GKE, you may create your own backup solution and forget about
 creating the config map. We store a service account key file in the config map.
 
 To create a service account:
@@ -57,10 +57,10 @@ To create a service account:
 1. Open [Service accounts](https://console.cloud.google.com/iam-admin/serviceaccounts) on the Google Cloud Platform.
 2. Click `+ CREATE SERVICE ACCOUNT` to create a new service account.
 3. Enter a display name and service account ID, for example `thingsdb-sa`. (optionally enter a description)
-4. On the next screen, *"Grant this service account access to project"*, select the role `Storage Object Creator` which should be sufficient for writing objects to Google Cloud Storage.
-5. We do not require to *"Grant users access to this service account"*, leave the *user* and *admin* roles empty and press `DONE`.
+4. On the next screen, select the role `Storage Object Creator` which should be sufficient for writing objects to Google Cloud Storage.
+5. We do not require to grant users access to the service account. In addition, leave the *user* and *admin* roles empty and press `DONE`.
 6. At this point, the service account is created and by using the action `Create key` we can create our key file.
-7. Choose `JSON` as the key type and you done.
+7. Choose `JSON` as the key type and you are done.
 
 Now open the JSON file and copy the context to [configmap.yaml](configmap.yaml) like in the example below:
 
@@ -128,7 +128,7 @@ spec:
       - name: thingsdb
         image: thingsdb/node:gcloud-v0.9.11  # Latest version at the time of writing
         imagePullPolicy: Always
-        args: ["--deploy"]  # Tells ThingsDB it will be deployed in kubernetes
+        args: ["--deploy"]  # Tells ThingsDB it will be deployed in Kubernetes
         env:
         - name: THINGSDB_HTTP_STATUS_PORT
           value: "8080"
@@ -195,7 +195,7 @@ kubectl apply -f statefulset.yaml
 
 ## Setup nodes
 
-We can now test if thingsdb is working. To do this we use `kubectl` port forwarding to create a connection to ThingsDB.
+We can now test if ThingsDB is working. To do this we use `kubectl` port forwarding to create a connection to ThingsDB.
 
 ```bash
 kubectl port-forward thingsdb-0 9210:9210
@@ -203,7 +203,7 @@ kubectl port-forward thingsdb-0 9210:9210
 
 This will bind the local port `9210` to the HTTP port on the first ThingsDB node and allows for sending POST requests to query ThingsDB.
 
-**Tip:** As an alternative, you might want bind to client port `9200` and use [ThingsDB GUI](http://github.com/thingsdb/ThingsGUI/releases/latest) instead of the CURL commands below.
+**Tip:** As an alternative, you might want to bind to client port `9200` and use [ThingsDB GUI](http://github.com/thingsdb/ThingsGUI/releases/latest) instead of CURL in a terminal.
 
 ```bash
 curl --location --request POST 'http://localhost:9210/thingsdb' \
@@ -217,7 +217,7 @@ curl --location --request POST 'http://localhost:9210/thingsdb' \
 
 If everything is working, you should see `Hello ThingsDB on GKE!` as a response.
 
-Now lets look at the log of thingsdb node 1:
+Now let's look at the log of ThingsDB node 1:
 
 ```
 kubectl logs thingsdb-1
@@ -305,7 +305,7 @@ The output will be something similar to this:
 
 ## Schedule backups
 
-Now we are ready to use ThingsDB but before actually creating collections we are gonna configure backup scheduling like we promised.
+Now we are ready to use ThingsDB, but before actually creating collections we are gonna configure backup scheduling like we promised.
 
 First create a bucket `thingsdb-backups` in Google Cloud Storage: https://console.cloud.google.com/storage/browser
 
@@ -327,12 +327,12 @@ curl --location --request POST 'http://localhost:9210/node/0' \
 ```
 
 This will immediately create a backup since we have chosen a start time in the past (2000-01-01...). Once the backup is made, the next backup will be scheduled at 2:00 AM and will repeat every 24 hours.
-As a scope we used `/node/0` which tells to run the query on node with id 0.
+As a scope we used `/node/0` which tells ThingsDB to run the query on the node with id 0.
 
 
 ### Create a weekly backup schedule
 
-To create weekly backups we do almost the same as above but change the repeat time to 7 days and we start at `2000-01-02 2:00`. This happens to be a sunday so the weekly backups will be made each sunday at 2:00 AM. You do not have to worry about having two schedules on sunday since ThingsDB will not run the backups simultaneous thus always keeps at least two nodes available for other work. This means that one of the two backups will be created after the other one is finished. Instead of 14 files we chose to keep 52 files so we will keep weekly backups for one full year.
+To create weekly backups we do almost the same as above but change the repeat time to 7 days and we start at `2000-01-02 2:00`. This happens to be a Sunday so the weekly backups will be made each Sunday at 2:00 AM. You do not have to worry about having two schedules on Sunday since ThingsDB will not run the backups simultaneously thus always keeping at least two nodes available for other work. This means that one of the two backups will be created after the other one is finished. Instead of 14 files we chose to keep 52 files so we will keep weekly backups for one full year.
 
 ```bash
 curl --location --request POST 'http://localhost:9210/node/1' \

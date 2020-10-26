@@ -21,7 +21,6 @@
 #include <cleri/node.inline.h>
 
 #define CLOSURE__QBOUND (TI_VFLAG_CLOSURE_BTSCOPE|TI_VFLAG_CLOSURE_BCSCOPE)
-#define INDENT 4
 
 static inline _Bool closure__is_unbound(ti_closure_t * closure)
 {
@@ -575,7 +574,7 @@ ti_raw_t * ti_closure_def(ti_closure_t * closure)
 {
     ti_raw_t * def;
     ti_fmt_t fmt;
-    ti_fmt_init(&fmt, INDENT);
+    ti_fmt_init(&fmt, FMT_INDENT);
 
     if (ti_fmt_nd(&fmt, closure->node))
         return NULL;

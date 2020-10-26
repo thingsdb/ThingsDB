@@ -30,6 +30,7 @@ C_SRCS += \
 ../src/ti/evars.c \
 ../src/ti/event.c \
 ../src/ti/events.c \
+../src/ti/export.c \
 ../src/ti/field.c \
 ../src/ti/fmt.c \
 ../src/ti/fn.c \
@@ -123,6 +124,7 @@ OBJS += \
 ./src/ti/evars.o \
 ./src/ti/event.o \
 ./src/ti/events.o \
+./src/ti/export.o \
 ./src/ti/field.o \
 ./src/ti/fmt.o \
 ./src/ti/fn.o \
@@ -216,6 +218,7 @@ C_DEPS += \
 ./src/ti/evars.d \
 ./src/ti/event.d \
 ./src/ti/events.d \
+./src/ti/export.d \
 ./src/ti/field.d \
 ./src/ti/fmt.d \
 ./src/ti/fn.d \

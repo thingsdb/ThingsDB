@@ -42,6 +42,7 @@
 #include <ti/fn/fndoc.h>
 #include <ti/fn/fneach.h>
 #include <ti/fn/fnemit.h>
+#include <ti/fn/fnexport.h>
 #include <ti/fn/fnendswith.h>
 #include <ti/fn/fnenum.h>
 #include <ti/fn/fnenuminfo.h>
@@ -193,7 +194,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 193,
+    TOTAL_KEYWORDS = 194,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 17,
@@ -404,10 +405,11 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="err",               .fn=do__f_err,                  ROOT_NE},
     {.name="event_id",          .fn=do__f_event_id,             ROOT_NE},
     {.name="every",             .fn=do__f_every,                CHAIN_NE},
+    {.name="export",            .fn=do__f_export,               ROOT_NE},
     {.name="extend",            .fn=do__f_extend,               CHAIN_CE_XVAR},
     {.name="filter",            .fn=do__f_filter,               CHAIN_NE},
-    {.name="find",              .fn=do__f_find,                 XCHAIN_NE},
     {.name="find_index",        .fn=do__f_find_index,           CHAIN_NE},
+    {.name="find",              .fn=do__f_find,                 XCHAIN_NE},
     {.name="findindex",         .fn=do__f_find_index,           CHAIN_NE},      /* deprecated */
     {.name="float",             .fn=do__f_float,                ROOT_NE},
     {.name="forbidden_err",     .fn=do__f_forbidden_err,        ROOT_NE},

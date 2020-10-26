@@ -1,6 +1,6 @@
 # v0.9.19
 
-* Added `export(..)` to prevent large return data, issue #104.
+* Added `export(..)` as an experimental function, issue #104.
 * Fixed bug in formatting closure definitions, issue #103.
 
 # v0.9.18

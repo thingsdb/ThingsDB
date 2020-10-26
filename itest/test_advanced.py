@@ -1321,6 +1321,64 @@ class TestAdvanced(TestBase):
         ''')
         self.assertEqual(res, '|| x[0] += 1')
 
+    async def test_export(self, client):
+        script = r'''
+/*
+ * Enums
+ */
+
+set_enum('B', {
+    A: base64_decode('YUFh'),
+    B: base64_decode('YkJi'),
+    C: base64_decode('Y0Nj'),
+});
+set_enum('Colors', {
+    RED: '#f00',
+    GREEN: '#0f0',
+    BLUE: '#00f',
+});
+set_enum('Math', {
+    PI: 3.140000,
+    E: 2.718000,
+});
+set_enum('Str', {
+    sq: "Hi 'Iris'!",
+    dq: 'Hi "Cato"!',
+    bq: 'Hi ''"Tess"''!',
+});
+
+/*
+ * Types
+ */
+
+new_type('Person');
+new_type('Friend');
+
+set_type('Person', {
+    name: 'str',
+    age: 'int',
+});
+set_type('Friend', {
+    person: 'Person',
+    friend: 'Person',
+});
+
+/*
+ * Procedures
+ */
+
+new_procedure('multiply', |a, b| a * b);
+new_procedure('more', |a, b| {
+    .answers.push(a * b);
+    .answers[-1];
+});
+
+'DONE';
+'''.lstrip()
+        await client.query(script)
+        res = await client.query('export();')
+        self.assertEqual(res, script)
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

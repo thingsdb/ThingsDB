@@ -54,13 +54,15 @@ static int fmt__index(ti_fmt_t * fmt, cleri_node_t * nd)
         if (buf_write(&fmt->buf, ']'))
             return -1;
 
-        if (child->node->children->next->next->next && (
-            buf_append_str(&fmt->buf, " = ") ||
+        if ((c = child->node->children->next->next->next) && (
+            buf_append_fmt(
+                    &fmt->buf,
+                    " %.*s ",
+                    c->node->children->node->len,
+                    c->node->children->node->str) ||
             fmt__statement(
                     fmt,
-                    child->node
-                        ->children->next->next->next->node
-                        ->children->next->node)))
+                    c->node->children->next->node)))
             return -1;
     }
     while ((child = child->next));
@@ -212,7 +214,11 @@ static int fmt__var_opt_fa(ti_fmt_t * fmt, cleri_node_t * nd)
             return fmt__function(fmt, nd);
         case CLERI_GID_ASSIGN:
             if (buf_append(&fmt->buf, child->node->str, child->node->len) ||
-                buf_append_str(&fmt->buf, " = ") ||
+                buf_append_fmt(
+                        &fmt->buf,
+                        " %.*s ",
+                        child->next->node->children->node->len,
+                        child->next->node->children->node->str) ||
                 fmt__statement(fmt, child->next->node->children->next->node))
                 return -1;
             break;
@@ -241,7 +247,11 @@ static int fmt__name_opt_fa(ti_fmt_t * fmt, cleri_node_t * nd)
             return fmt__function(fmt, nd);
         case CLERI_GID_ASSIGN:
             if (buf_append(&fmt->buf, child->node->str, child->node->len) ||
-                buf_append_str(&fmt->buf, " = ") ||
+                buf_append_fmt(
+                        &fmt->buf,
+                        " %.*s ",
+                        child->next->node->children->node->len,
+                        child->next->node->children->node->str) ||
                 fmt__statement(fmt, child->next->node->children->next->node))
                 return -1;
             break;
@@ -534,4 +544,41 @@ int ti_fmt_nd(ti_fmt_t * fmt, cleri_node_t * nd)
     }
     assert(0);  /* unsupported node to format */
     return -1;
+}
+
+int ti_fmt_ti_string(ti_fmt_t * fmt, ti_raw_t * raw)
+{
+    int sq = 0, dq= 0;
+    char * c, * e, * data = (char *) raw->data;
+
+    for (c = data, e = data + raw->n; c < e; ++c)
+        if (*c == '\'')
+            ++sq;
+        else if (*c == '"')
+            ++dq;
+
+    if (!sq)
+        return (
+            buf_write(&fmt->buf, '\'') ||
+            buf_append(&fmt->buf, (const char *) raw->data, raw->n) ||
+            buf_write(&fmt->buf, '\''));
+    if (!dq)
+        return (
+            buf_write(&fmt->buf, '"') ||
+            buf_append(&fmt->buf, (const char *) raw->data, raw->n) ||
+            buf_write(&fmt->buf, '"'));
+
+    if (buf_write(&fmt->buf, '\''))
+        return -1;
+
+    for (c = data, e = data + raw->n; c < e; ++c)
+        if (*c == '\'')
+        {
+            if (buf_append_str(&fmt->buf, "''"))
+                return -1;
+        }
+        else if (buf_write(&fmt->buf, *c))
+            return -1;
+
+    return buf_write(&fmt->buf, '\'');
 }

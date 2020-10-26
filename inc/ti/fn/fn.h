@@ -22,6 +22,7 @@
 #include <ti/do.h>
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
+#include <ti/export.h>
 #include <ti/field.h>
 #include <ti/member.h>
 #include <ti/member.inline.h>

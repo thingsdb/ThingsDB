@@ -1305,6 +1305,22 @@ class TestAdvanced(TestBase):
         ''')
         self.assertIs(res, None)
 
+    async def test_assign_in_def(self, client):
+        res = await client.query(r'''
+            (|| x+=1).def();
+        ''')
+        self.assertEqual(res, '|| x += 1')
+
+        res = await client.query(r'''
+            (|| .x += 1).def();
+        ''')
+        self.assertEqual(res, '|| .x += 1')
+
+        res = await client.query(r'''
+            (|| x[0] += 1).def();
+        ''')
+        self.assertEqual(res, '|| x[0] += 1')
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

@@ -10,6 +10,13 @@
 #include <ti/val.h>
 #include <ti/varr.h>
 
+/*
+ * Some functions are available on different type. In this case we want to
+ * return a link to the correct documentation. Since this requires ThingsDB
+ * to check the type, the result of these documentation functions can be used
+ * to find if the function is native available on the called type.
+ */
+
 static inline const char * doc_len(ti_val_t * val)
 {
     switch ((ti_val_enum) val->tp)

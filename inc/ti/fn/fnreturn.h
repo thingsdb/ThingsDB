@@ -1,7 +1,5 @@
 #include <ti/fn/fn.h>
 
-
-
 static int do__f_return(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);

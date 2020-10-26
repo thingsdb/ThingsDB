@@ -535,6 +535,9 @@ void ti_fmt_clear(ti_fmt_t * fmt)
     free(fmt->buf.data);
 }
 
+/*
+ * Only `closure` nodes are supported but may be extend to other type
+ */
 int ti_fmt_nd(ti_fmt_t * fmt, cleri_node_t * nd)
 {
     switch(nd->cl_obj->gid)
@@ -557,17 +560,27 @@ int ti_fmt_ti_string(ti_fmt_t * fmt, ti_raw_t * raw)
         else if (*c == '"')
             ++dq;
 
+    /*
+     * First try single quotes if no single quotes exist in the string
+     */
     if (!sq)
         return (
             buf_write(&fmt->buf, '\'') ||
             buf_append(&fmt->buf, (const char *) raw->data, raw->n) ||
             buf_write(&fmt->buf, '\''));
+
+    /*
+     * Try double quotes since at least one single quote exist in the string
+     */
     if (!dq)
         return (
             buf_write(&fmt->buf, '"') ||
             buf_append(&fmt->buf, (const char *) raw->data, raw->n) ||
             buf_write(&fmt->buf, '"'));
 
+    /*
+     * Fall-back to single quotes with escaped single quotes inside the string
+     */
     if (buf_write(&fmt->buf, '\''))
         return -1;
 

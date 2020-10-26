@@ -255,6 +255,10 @@ static int export__collection(ti_fmt_t * fmt, ti_collection_t * collection)
     );
 }
 
+/*
+ * Export enumerators, types and procedures. (No data will be exported and
+ * enumerators of type `thing` are created with new *empty* things.
+ */
 ti_raw_t * ti_export_collection(ti_collection_t * collection)
 {
     ti_raw_t * str;

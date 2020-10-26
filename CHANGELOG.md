@@ -2,6 +2,7 @@
 
 * Added `export(..)` as an experimental function, issue #104.
 * Fixed bug in formatting closure definitions, issue #103.
+* Enable `debug` logging for deprecated functions, issue #106.
 
 # v0.9.18
 

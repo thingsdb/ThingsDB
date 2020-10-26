@@ -3496,6 +3496,33 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(err['error_code'], Err.EX_OPERATION_ERROR)
         self.assertEqual(err['error_msg'], "my custom error msg")
 
+    async def test_deprecated(self, client):
+        await client.query(r'''
+
+            isnil(nil);
+            isstr(nil);
+            isbytes(nil);
+            isascii(nil);
+            isutf8(nil);
+            isint(nil);
+            isfloat(nil);
+            isbool(nil);
+            israw(nil);
+            isnan(0.0);
+            isinf(0.0);
+            isarray(nil);
+            istuple(nil);
+            islist(nil);
+            isenum(nil);
+            isthing(nil);
+            iserr(nil);
+            [].findindex(||nil);
+            [].indexof(nil);
+            ''.startswith('');
+            ''.endswith('');
+
+        ''')
+
 
 if __name__ == '__main__':
     run_test(TestCollectionFunctions())

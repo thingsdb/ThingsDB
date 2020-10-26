@@ -19,3 +19,9 @@ static int do__f_is_ascii(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     return e->nr;
 }
+
+static int do__f_isascii(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    log_debug("function `isascii` is deprecated, use `is_ascii` instead");
+    return do__f_is_ascii(query, nd, e);
+}

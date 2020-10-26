@@ -398,7 +398,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="each",              .fn=do__f_each,                 CHAIN_NE},
     {.name="emit",              .fn=do__f_emit,                 CHAIN_CE},
     {.name="ends_with",         .fn=do__f_ends_with,            CHAIN_NE},
-    {.name="endswith",          .fn=do__f_ends_with,            CHAIN_NE},      /* deprecated */
+    {.name="endswith",          .fn=do__f_endswith,             CHAIN_NE},      /* deprecated */
     {.name="enum_info",         .fn=do__f_enum_info,            ROOT_NE},
     {.name="enum",              .fn=do__f_enum,                 ROOT_NE},
     {.name="enums_info",        .fn=do__f_enums_info,           ROOT_NE},
@@ -409,8 +409,8 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="extend",            .fn=do__f_extend,               CHAIN_CE_XVAR},
     {.name="filter",            .fn=do__f_filter,               CHAIN_NE},
     {.name="find_index",        .fn=do__f_find_index,           CHAIN_NE},
+    {.name="findindex",         .fn=do__f_findindex,            CHAIN_NE},      /* deprecated */
     {.name="find",              .fn=do__f_find,                 XCHAIN_NE},
-    {.name="findindex",         .fn=do__f_find_index,           CHAIN_NE},      /* deprecated */
     {.name="float",             .fn=do__f_float,                ROOT_NE},
     {.name="forbidden_err",     .fn=do__f_forbidden_err,        ROOT_NE},
     {.name="get",               .fn=do__f_get,                  XCHAIN_NE},
@@ -427,45 +427,45 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="id",                .fn=do__f_id,                   CHAIN_NE},
     {.name="if",                .fn=do__f_if,                   ROOT_NE},
     {.name="index_of",          .fn=do__f_index_of,             CHAIN_NE},
-    {.name="indexof",           .fn=do__f_index_of,             CHAIN_NE},      /* deprecated */
+    {.name="indexof",           .fn=do__f_indexof,              CHAIN_NE},      /* deprecated */
     {.name="int",               .fn=do__f_int,                  ROOT_NE},
     {.name="is_array",          .fn=do__f_is_array,             ROOT_NE},
-    {.name="isarray",           .fn=do__f_is_array,             ROOT_NE},       /* deprecated */
+    {.name="isarray",           .fn=do__f_isarray,              ROOT_NE},       /* deprecated */
     {.name="is_ascii",          .fn=do__f_is_ascii,             ROOT_NE},
-    {.name="isascii",           .fn=do__f_is_ascii,             ROOT_NE},       /* deprecated */
+    {.name="isascii",           .fn=do__f_isascii,              ROOT_NE},       /* deprecated */
     {.name="is_bool",           .fn=do__f_is_bool,              ROOT_NE},
-    {.name="isbool",            .fn=do__f_is_bool,              ROOT_NE},       /* deprecated */
+    {.name="isbool",            .fn=do__f_isbool,               ROOT_NE},       /* deprecated */
     {.name="is_bytes",          .fn=do__f_is_bytes,             ROOT_NE},
-    {.name="isbytes",           .fn=do__f_is_bytes,             ROOT_NE},       /* deprecated */
+    {.name="isbytes",           .fn=do__f_isbytes,              ROOT_NE},       /* deprecated */
     {.name="is_closure",        .fn=do__f_is_closure,           ROOT_NE},
     {.name="is_enum",           .fn=do__f_is_enum,              ROOT_NE},
-    {.name="isenum",            .fn=do__f_is_enum,              ROOT_NE},       /* deprecated */
+    {.name="isenum",            .fn=do__f_isenum,               ROOT_NE},       /* deprecated */
     {.name="is_err",            .fn=do__f_is_err,               ROOT_NE},
-    {.name="iserr",             .fn=do__f_is_err,               ROOT_NE},       /* deprecated */
+    {.name="iserr",             .fn=do__f_iserr,                ROOT_NE},       /* deprecated */
     {.name="is_float",          .fn=do__f_is_float,             ROOT_NE},
-    {.name="isfloat",           .fn=do__f_is_float,             ROOT_NE},       /* deprecated */
+    {.name="isfloat",           .fn=do__f_isfloat,              ROOT_NE},       /* deprecated */
     {.name="is_inf",            .fn=do__f_is_inf,               ROOT_NE},
-    {.name="isinf",             .fn=do__f_is_inf,               ROOT_NE},       /* deprecated */
+    {.name="isinf",             .fn=do__f_isinf,                ROOT_NE},       /* deprecated */
     {.name="is_int",            .fn=do__f_is_int,               ROOT_NE},
-    {.name="isint",             .fn=do__f_is_int,               ROOT_NE},       /* deprecated */
+    {.name="isint",             .fn=do__f_isint,                ROOT_NE},       /* deprecated */
     {.name="is_list",           .fn=do__f_is_list,              ROOT_NE},
-    {.name="islist",            .fn=do__f_is_list,              ROOT_NE},       /* deprecated */
+    {.name="islist",            .fn=do__f_islist,               ROOT_NE},       /* deprecated */
     {.name="is_nan",            .fn=do__f_is_nan,               ROOT_NE},
-    {.name="isnan",             .fn=do__f_is_nan,               ROOT_NE},       /* deprecated */
+    {.name="isnan",             .fn=do__f_isnan,                ROOT_NE},       /* deprecated */
     {.name="is_nil",            .fn=do__f_is_nil,               ROOT_NE},
-    {.name="isnil",             .fn=do__f_is_nil,               ROOT_NE},       /* deprecated */
+    {.name="isnil",             .fn=do__f_isnil,                ROOT_NE},       /* deprecated */
     {.name="is_raw",            .fn=do__f_is_raw,               ROOT_NE},
-    {.name="israw",             .fn=do__f_is_raw,               ROOT_NE},       /* deprecated */
+    {.name="israw",             .fn=do__f_israw,                ROOT_NE},       /* deprecated */
     {.name="is_set",            .fn=do__f_is_set,               ROOT_NE},
-    {.name="isset",             .fn=do__f_is_set,               ROOT_NE},       /* deprecated */
+    {.name="isset",             .fn=do__f_isset,                ROOT_NE},       /* deprecated */
     {.name="is_str",            .fn=do__f_is_str,               ROOT_NE},
-    {.name="isstr",             .fn=do__f_is_str,               ROOT_NE},       /* deprecated */
+    {.name="isstr",             .fn=do__f_isstr,                ROOT_NE},       /* deprecated */
     {.name="is_thing",          .fn=do__f_is_thing,             ROOT_NE},
-    {.name="isthing",           .fn=do__f_is_thing,             ROOT_NE},       /* deprecated */
+    {.name="isthing",           .fn=do__f_isthing,              ROOT_NE},       /* deprecated */
     {.name="is_tuple",          .fn=do__f_is_tuple,             ROOT_NE},
-    {.name="istuple",           .fn=do__f_is_tuple,             ROOT_NE},       /* deprecated */
+    {.name="istuple",           .fn=do__f_istuple,              ROOT_NE},       /* deprecated */
     {.name="is_utf8",           .fn=do__f_is_utf8,              ROOT_NE},
-    {.name="isutf8",            .fn=do__f_is_utf8,              ROOT_NE},       /* deprecated */
+    {.name="isutf8",            .fn=do__f_isutf8,               ROOT_NE},       /* deprecated */
     {.name="keys",              .fn=do__f_keys,                 CHAIN_NE},
     {.name="len",               .fn=do__f_len,                  CHAIN_NE},
     {.name="list",              .fn=do__f_list,                 ROOT_NE},
@@ -528,7 +528,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="sort",              .fn=do__f_sort,                 CHAIN_NE},
     {.name="splice",            .fn=do__f_splice,               CHAIN_CE_XVAR},
     {.name="starts_with",       .fn=do__f_starts_with,          CHAIN_NE},
-    {.name="startswith",        .fn=do__f_starts_with,          CHAIN_NE},      /* deprecated */
+    {.name="startswith",        .fn=do__f_startswith,           CHAIN_NE},      /* deprecated */
     {.name="str",               .fn=do__f_str,                  ROOT_NE},
     {.name="syntax_err",        .fn=do__f_syntax_err,           ROOT_NE},
     {.name="test",              .fn=do__f_test,                 CHAIN_NE},

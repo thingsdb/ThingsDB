@@ -16,3 +16,9 @@ static int do__f_is_array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     return e->nr;
 }
+
+static int do__f_isarray(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    log_debug("function `isarray` is deprecated, use `is_array` instead");
+    return do__f_is_array(query, nd, e);
+}

@@ -27,3 +27,10 @@ failed:
     ti_val_unsafe_drop((ti_val_t *) raw);
     return e->nr;
 }
+
+static int do__f_startswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    log_debug("function `startswith` is deprecated, use `starts_with` instead");
+    return do__f_starts_with(query, nd, e);
+}
+

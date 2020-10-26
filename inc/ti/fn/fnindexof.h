@@ -37,3 +37,9 @@ done:
     ti_val_unsafe_drop((ti_val_t *) varr);
     return e->nr;
 }
+
+static int do__f_indexof(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    log_debug("function `indexof` is deprecated, use `index_of` instead");
+    return do__f_index_of(query, nd, e);
+}

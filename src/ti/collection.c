@@ -40,6 +40,7 @@ ti_collection_t * ti_collection_create(
     collection->root = NULL;
     collection->name = ti_str_create(name, n);
     collection->things = imap_create();
+    collection->gc = queue_new(20);
     collection->access = vec_new(1);
     collection->procedures = vec_new(0);
     collection->types = ti_types_create(collection);
@@ -49,9 +50,10 @@ ti_collection_t * ti_collection_create(
 
     memcpy(&collection->guid, guid, sizeof(guid_t));
 
-    if (!collection->name || !collection->things || !collection->access ||
-        !collection->procedures || !collection->lock ||!collection->types ||
-        !collection->enums || uv_mutex_init(collection->lock))
+    if (!collection->name || !collection->things || !collection->gc ||
+        !collection->access || !collection->procedures || !collection->lock ||
+        !collection->types || !collection->enums ||
+        uv_mutex_init(collection->lock))
     {
         ti_collection_drop(collection);
         return NULL;
@@ -66,6 +68,7 @@ void ti_collection_destroy(ti_collection_t * collection)
         return;
 
     imap_destroy(collection->things, NULL);
+    queue_destroy(collection->gc, NULL);  /* TODO: callback using gc? */
     ti_val_drop((ti_val_t *) collection->name);
     vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);
     vec_destroy(collection->procedures, (vec_destroy_cb) ti_procedure_destroy);
@@ -161,4 +164,31 @@ ti_val_t * ti_collection_as_mpval(ti_collection_t * collection)
     ti_raw_init(raw, TI_VAL_MP, buffer.size);
 
     return (ti_val_t *) raw;
+}
+
+/*
+ * Usually make a call to `ti_collection_find_thing` which will first look in
+ * the collection and only if not found will look at the garbage collection.
+ */
+ti_thing_t * ti_collection_thing_restore_gc(
+        ti_collection_t * collection,
+        uint64_t thing_id)
+{
+    size_t idx = 0;
+    ti_thing_t * thing;
+
+    /* look if the thing is marked for garbage collection */
+    for (queue_each(collection->gc, ti_gc_t, gc), ++idx)
+    {
+        if ((thing = gc->thing)->id == thing_id)
+        {
+            if (imap_add(collection->things, thing_id, thing))
+                ti_panic("unable to restore from garbage collection");
+
+            free(queue_remove(collection->gc, idx));
+            return thing;
+        }
+    }
+
+    return NULL;
 }

@@ -231,7 +231,8 @@ ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
 
     if (!thing)
     {
-        if (ti_collection_thing_by_id(vup->collection, mp_thing_id.via.u64))
+        /* No need to check for garbage collected things */
+        if (imap_get(vup->collection->things, mp_thing_id.via.u64))
             ex_set(e, EX_LOOKUP_ERROR,
                     "error while loading type `%s`; "
                     "thing "TI_THING_ID" already exists",

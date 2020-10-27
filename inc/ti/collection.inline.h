@@ -29,4 +29,13 @@ static inline int ti_collection_to_pk(
     );
 }
 
+static inline ti_thing_t * ti_collection_find_thing(
+        ti_collection_t * collection,
+        uint64_t thing_id)
+{
+    size_t idx = 0;
+    ti_thing_t * thing = imap_get(collection->things, thing_id);
+    return thing ? thing : ti_collection_thing_pop_gc(collection, thing_id);
+}
+
 #endif  /* TI_COLLECTION_INLINE_H_ */

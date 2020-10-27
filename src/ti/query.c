@@ -841,8 +841,9 @@ ti_thing_t * ti_query_thing_from_id(
         return NULL;
     }
 
+    /* No need to check for garbage collected things */
     thing = thing_id
-            ? ti_collection_thing_by_id(query->collection, (uint64_t) thing_id)
+            ? imap_get(query->collection->things, (uint64_t) thing_id)
             : NULL;
 
     if (!thing)

@@ -25,13 +25,10 @@ int ti_collection_rename(
         ti_raw_t * rname,
         ex_t * e);
 ti_val_t * ti_collection_as_mpval(ti_collection_t * collection);
-
-/* returns a borrowed reference */
-static inline void * ti_collection_thing_by_id(
+ti_thing_t * ti_collection_thing_restore_gc(
         ti_collection_t * collection,
-        uint64_t thing_id)
-{
-    return imap_get(collection->things, thing_id);
-}
+        uint64_t thing_id);
+void ti_collection_gc_clear(ti_collection_t * collection);
+int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things);
 
 #endif /* TI_COLLECTION_H_ */

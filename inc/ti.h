@@ -106,6 +106,7 @@ struct ti_s
     uv_loop_t * loop;
     cleri_grammar_t * langdef;
     uint8_t flags;
+    uint64_t global_stored_event_id;    /* used for garbage collection */
 };
 
 

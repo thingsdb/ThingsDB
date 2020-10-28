@@ -11,7 +11,7 @@ class TestBase(unittest.TestCase):
     async def run(self):
         raise NotImplementedError('run must be implemented')
 
-    async def wait_nodes_ready(self, client=None, success_count=10):
+    async def wait_nodes_ready(self, client=None):
         if client is None:
             client = await get_client(self.node0)
 
@@ -29,6 +29,27 @@ class TestBase(unittest.TestCase):
                         return
                 else:
                     success = 0
+            attempts -= 1
+            await asyncio.sleep(0.5)
+
+    async def wait_nodes_stored(self, client=None):
+        if client is None:
+            client = await get_client(self.node0)
+
+        attempts = 120  # at most 2 minutes
+        while attempts:
+            try:
+                res = await client.nodes_info()
+            except NodeError:
+                pass
+            else:
+                event_id = res[0]['committed_event_id']
+                if all((
+                    node['stored_event_id'] == event_id
+                    for node in res)) and all((
+                        node['committed_event_id'] == event_id
+                        for node in res)):
+                    return  # success
             attempts -= 1
             await asyncio.sleep(0.5)
 

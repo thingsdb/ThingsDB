@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <ti.h>
-#include <ti/collection.h>
+#include <ti/collection.inline.h>
 #include <ti/collections.h>
 #include <ti/epkg.h>
 #include <ti/epkg.inline.h>
@@ -194,7 +194,7 @@ int ti_event_watch(ti_event_t * ev)
         if (mp_next(&up, &mp_id) != MP_U64)
             goto fail_mp_data;
 
-        thing = ti_collection_thing_by_id(collection, mp_id.via.u64);
+        thing = ti_collection_find_thing(collection, mp_id.via.u64);
 
         /* keep the current position so we can update watchers */
         jobs_position = up.pt;
@@ -351,7 +351,7 @@ int ti_event_run(ti_event_t * ev)
 
         thing = ev->collection == NULL
                 ? ti.thing0
-                : ti_collection_thing_by_id(ev->collection, mp_id.via.u64);
+                : ti_collection_find_thing(ev->collection, mp_id.via.u64);
 
         if (!thing)
         {

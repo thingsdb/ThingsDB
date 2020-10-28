@@ -318,6 +318,10 @@ fail1:
 static void away__waiter_pre_close_cb(uv_handle_t * UNUSED(handle))
 {
     away->status = AWAY__STATUS_WORKING;
+
+    /* set the global stored event ID */
+    ti.global_stored_event_id = ti_nodes_sevid();
+
     if (uv_queue_work(
             ti.loop,
             &away__uv_work,

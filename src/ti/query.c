@@ -12,6 +12,7 @@
 #include <ti/api.h>
 #include <ti/closure.h>
 #include <ti/collections.h>
+#include <ti/collection.inline.h>
 #include <ti/data.h>
 #include <ti/do.h>
 #include <ti/epkg.h>
@@ -843,7 +844,7 @@ ti_thing_t * ti_query_thing_from_id(
 
     /* No need to check for garbage collected things */
     thing = thing_id
-            ? imap_get(query->collection->things, (uint64_t) thing_id)
+            ? ti_collection_thing_by_id(query->collection, (uint64_t) thing_id)
             : NULL;
 
     if (!thing)

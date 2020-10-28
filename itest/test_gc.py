@@ -123,10 +123,49 @@ class TestGC(TestBase):
         # add another node so away node and gc is forced
         await self.node1.join_until_ready(client)
 
+        for i in range(2):
+            await client.query('.x = i;', i=i, scope=stuff)
+            await self.wait_nodes_stored()
+
         counters = await client.query('counters();', scope='@node')
 
+        #
         # expecting `w`, `xx`, `yy`, `a` and `a.other` in the garbage
         self.assertEqual(counters['garbage_collected'], 8)
+
+        # below do an advanced garbage collection test
+        client.set_default_scope(stuff)
+
+        n = 10
+        ids = await client.query(r'''
+            things = range(n).map(|| {});
+            things.each(|t| t.me = t);
+            .a = things;
+            .b = [];
+            .a.map(|t| t.id());
+        ''', n=n)
+
+        b = []
+
+        for id in ids:
+            await client.query(r'''
+                .a.shift();
+            ''')
+
+            await asyncio.sleep(3)
+
+            if await client.query(r'''
+                try({
+                    t = thing(id);
+                    t.id = id;
+                    .b.push(t);
+                    return(true);
+                });
+                false;
+            ''', id=id):
+                b.append(id)
+
+        print(b)
 
 
 if __name__ == '__main__':

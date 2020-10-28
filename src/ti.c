@@ -64,6 +64,7 @@ static void ti__stop(void);
 int ti_create(void)
 {
     ti.last_event_id = 0;
+    ti.global_stored_event_id = 0;
     ti.flags = 0;
     ti.fn = NULL;
     ti.node_fn = NULL;
@@ -801,7 +802,7 @@ int ti_this_node_to_pk(msgpack_packer * pk)
     double uptime = util_time_diff(&ti.boottime, &timing);
 
     return (
-        msgpack_pack_map(pk, 33) ||
+        msgpack_pack_map(pk, 34) ||
         /* 1 */
         mp_pack_str(pk, "node_id") ||
         msgpack_pack_uint32(pk, ti.node->id) ||
@@ -906,7 +907,10 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         msgpack_pack_uint64(pk, ti_stream_client_connections()) ||
         /* 33 */
         mp_pack_str(pk, "result_size_limit") ||
-        msgpack_pack_uint64(pk, ti.cfg->result_size_limit)
+        msgpack_pack_uint64(pk, ti.cfg->result_size_limit) ||
+        /* 34 */
+        mp_pack_str(pk, "marked_as_garbage") ||
+        msgpack_pack_uint64(pk, ti_collections_marked_as_garbage())
     );
 }
 

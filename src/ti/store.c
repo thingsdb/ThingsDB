@@ -240,6 +240,12 @@ int ti_store_store(void)
                 ti_store_things_store_data(
                         collection->things,
                         store_collection->props_fn) ||
+                ti_store_gcollect_store(
+                        collection->gc,
+                        store_collection->gcthings_fn) ||
+                ti_store_gcollect_store_data(
+                        collection->gc,
+                        store_collection->gcprops_fn) ||
                 ti_store_procedures_store(
                         collection->procedures,
                         store_collection->procedures_fn)
@@ -353,6 +359,13 @@ int ti_store_restore(void)
                         collection,
                         namesmap,
                         store_collection->props_fn) ||
+                ti_store_gcollect_restore(
+                        collection,
+                        store_collection->gcthings_fn) ||
+                ti_store_gcollect_restore_data(
+                        collection,
+                        namesmap,
+                        store_collection->gcprops_fn) ||
                 ti_store_procedures_restore(
                         &collection->procedures,
                         store_collection->procedures_fn,

@@ -10,18 +10,22 @@
 #include <ti/collection.h>
 #include <ti/collection.inline.h>
 #include <ti/enums.h>
+#include <ti/gc.h>
 #include <ti/name.h>
 #include <ti/name.h>
 #include <ti/names.h>
+#include <ti/member.t.h>
 #include <ti/procedure.h>
 #include <ti/raw.inline.h>
 #include <ti/thing.h>
+#include <ti/wrap.h>
 #include <ti/things.h>
 #include <ti/types.h>
 #include <ti/val.inline.h>
 #include <util/fx.h>
 #include <util/strx.h>
 
+static void collection__gc_mark_thing(ti_thing_t * thing);
 
 static const size_t ti_collection_min_name = 1;
 static const size_t ti_collection_max_name = 128;
@@ -67,8 +71,11 @@ void ti_collection_destroy(ti_collection_t * collection)
     if (!collection)
         return;
 
+    assert (collection->things->n == 0);
+    assert (collection->gc->n == 0);
+
     imap_destroy(collection->things, NULL);
-    queue_destroy(collection->gc, NULL);  /* TODO: callback using gc? */
+    queue_destroy(collection->gc, NULL);
     ti_val_drop((ti_val_t *) collection->name);
     vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);
     vec_destroy(collection->procedures, (vec_destroy_cb) ti_procedure_destroy);
@@ -86,7 +93,7 @@ void ti_collection_drop(ti_collection_t * collection)
 
     ti_val_drop((ti_val_t *) collection->root);
 
-    if (!collection->things->n)
+    if (!collection->things->n && !collection->gc->n)
     {
         ti_collection_destroy(collection);
         return;
@@ -191,4 +198,225 @@ ti_thing_t * ti_collection_thing_restore_gc(
     }
 
     return NULL;
+}
+
+static void collection__gc_mark_varr(ti_varr_t * varr)
+{
+    for (vec_each(varr->vec, ti_val_t, val))
+    {
+        switch(val->tp)
+        {
+        case TI_VAL_THING:
+        {
+            ti_thing_t * thing = (ti_thing_t *) val;
+            if (thing->flags & TI_VFLAG_THING_SWEEP)
+                collection__gc_mark_thing(thing);
+            continue;
+        }
+        case TI_VAL_WRAP:
+        {
+            ti_thing_t * thing = ((ti_wrap_t *) val)->thing;
+            if (thing->flags & TI_VFLAG_THING_SWEEP)
+                collection__gc_mark_thing(thing);
+            continue;
+        }
+        case TI_VAL_ARR:
+        {
+            ti_varr_t * varr = (ti_varr_t *) val;
+            if (ti_varr_may_have_things(varr))
+                collection__gc_mark_varr(varr);
+            continue;
+        }
+        }
+    }
+}
+
+static inline int colection__set_cb(ti_thing_t * thing, void * UNUSED(arg))
+{
+    if (thing->flags & TI_VFLAG_THING_SWEEP)
+        collection__gc_mark_thing(thing);
+    return 0;
+}
+
+static inline void collection__gc_val(ti_val_t * val)
+{
+    switch(val->tp)
+    {
+    case TI_VAL_THING:
+    {
+        ti_thing_t * thing = (ti_thing_t *) val;
+        if (thing->flags & TI_VFLAG_THING_SWEEP)
+            collection__gc_mark_thing(thing);
+        return;
+    }
+    case TI_VAL_WRAP:
+    {
+        ti_thing_t * thing = ((ti_wrap_t *) val)->thing;
+        if (thing->flags & TI_VFLAG_THING_SWEEP)
+            collection__gc_mark_thing(thing);
+        return;
+    }
+    case TI_VAL_ARR:
+    {
+        ti_varr_t * varr = (ti_varr_t *) val;
+        if (ti_varr_may_have_things(varr))
+            collection__gc_mark_varr(varr);
+        return;
+    }
+    case TI_VAL_SET:
+    {
+        ti_vset_t * vset = (ti_vset_t *) val;
+        (void) imap_walk(vset->imap, (imap_cb) colection__set_cb, NULL);
+        return;
+    }
+    }
+}
+
+static int collection__mark_enum_cb(ti_enum_t * enum_, void * UNUSED(data))
+{
+    if (enum_->enum_tp == TI_ENUM_THING)
+    {
+        for (vec_each(enum_->members, ti_member_t, member))
+        {
+            ti_thing_t * thing = (ti_thing_t *) VMEMBER(member);
+            if (thing->flags & TI_VFLAG_THING_SWEEP)
+                collection__gc_mark_thing(thing);
+        }
+    }
+    return 0;
+}
+
+static void collection__gc_mark_thing(ti_thing_t * thing)
+{
+    thing->flags &= ~TI_VFLAG_THING_SWEEP;
+
+    if (ti_thing_is_object(thing))
+        for (vec_each(thing->items, ti_prop_t, prop))
+            collection__gc_val(prop->val);
+    else
+        for (vec_each(thing->items, ti_val_t, val))
+            collection__gc_val(val);
+}
+
+void ti_collection_gc_clear(ti_collection_t * collection)
+{
+    ti_gc_t * gc;
+
+    for (queue_each(collection->gc, ti_gc_t, gc))
+        gc->thing->ref = 0;
+
+    for (queue_each(collection->gc, ti_gc_t, gc))
+        ti_thing_clear(gc->thing);
+
+    while ((gc = queue_pop(collection->gc)))
+    {
+        ti_thing_destroy(gc->thing);
+        free(gc);
+    }
+}
+
+int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
+{
+    size_t n = 0, m = 0;
+    vec_t * things_vec;
+    struct timespec start, stop;
+    double duration;
+
+    uint64_t cevid = ti.node ? ti.node->cevid : 0;
+    uint64_t sevid = ti.global_stored_event_id;
+
+    (void) clock_gettime(TI_CLOCK_MONOTONIC, &start);
+
+    things_vec = imap_vec(collection->things);
+    if (!things_vec)
+        return -1;
+
+    (void) ti_sleep(2);  /* sleeps are here to allow thread switching */
+
+    if (do_mark_things)
+    {
+        imap_walk(
+                collection->enums->imap,
+                (imap_cb) collection__mark_enum_cb,
+                NULL);
+        collection__gc_mark_thing(collection->root);
+    }
+
+    (void) ti_sleep(2);
+
+    for (queue_each(collection->gc, ti_gc_t, gc), ++m)
+    {
+        if (gc->event_id >= sevid)
+            break;
+
+        if (gc->thing->flags & TI_VFLAG_THING_SWEEP)
+            gc->thing->ref = 0;
+    }
+
+    for (queue_each(collection->gc, ti_gc_t, gc))
+    {
+        if (gc->event_id >= sevid)
+            break;
+
+        if (gc->thing->flags & TI_VFLAG_THING_SWEEP)
+            ti_thing_clear(gc->thing);
+    }
+
+    (void) ti_sleep(2);
+
+    while (m--)
+    {
+        ti_gc_t * gc = queue_shift(collection->gc);
+        ti_thing_t * thing = gc->thing;
+        free(gc);
+
+        if (thing->flags & TI_VFLAG_THING_SWEEP)
+        {
+            ++n;
+            ti_thing_destroy(thing);
+            continue;
+        }
+
+        log_debug("restore "TI_THING_ID" from garbage collection", thing->id);
+
+        if (imap_add(collection->things, thing->id, thing))
+            ti_panic("unable to restore from garbage collection");
+
+        thing->flags |= TI_VFLAG_THING_SWEEP;
+    }
+
+    (void) ti_sleep(2);
+
+    for (vec_each(things_vec, ti_thing_t, thing))
+    {
+        if (thing->flags & TI_VFLAG_THING_SWEEP)
+        {
+            ti_gc_t * gc = ti_gc_create(cevid, thing);
+            if (gc && queue_push(&collection->gc, gc) == 0)
+            {
+                /*
+                 * Successful marked for garbage collection.
+                 */
+                (void) imap_pop(collection->things, thing->id);
+                continue;
+            }
+            free(gc);
+            log_error(
+                "cannot mark "TI_THING_ID" for garbage collection",
+                thing->id);
+        }
+        thing->flags |= TI_VFLAG_THING_SWEEP;
+    }
+
+    free(things_vec);
+
+    ti.counters->garbage_collected += n;
+
+    (void) clock_gettime(TI_CLOCK_MONOTONIC, &stop);
+    duration = util_time_diff(&start, &stop);
+
+    log_debug("garbage collection took %f seconds and cleaned: %zu thing(s)",
+            duration, n);
+
+    return 0;
 }

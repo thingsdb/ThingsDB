@@ -32,6 +32,8 @@ typedef enum
     SYNCFULL__COLLECTION_DAT_FILE,
     SYNCFULL__COLLECTION_TYPES_FILE,
     SYNCFULL__COLLECTION_ENUMS_FILE,
+    SYNCFULL__COLLECTION_GCPROPS_FILE,
+    SYNCFULL__COLLECTION_GCTHINGS_FILE,
     SYNCFULL__COLLECTION_ACCESS_FILE,
     SYNCFULL__COLLECTION_PROCEDURES_FILE,
     SYNCFULL__COLLECTION_THINGS_FILE,
@@ -66,6 +68,10 @@ static char * syncfull__get_fn(uint64_t scope_id, syncfull__file_t ft)
         return ti_store_collection_types_fn(path, scope_id);
     case SYNCFULL__COLLECTION_ENUMS_FILE:
         return ti_store_collection_enums_fn(path, scope_id);
+    case SYNCFULL__COLLECTION_GCPROPS_FILE:
+        return ti_store_collection_gcprops_fn(path, scope_id);
+    case SYNCFULL__COLLECTION_GCTHINGS_FILE:
+        return ti_store_collection_gcthings_fn(path, scope_id);
     case SYNCFULL__COLLECTION_ACCESS_FILE:
         return ti_store_collection_access_fn(path, scope_id);
     case SYNCFULL__COLLECTION_PROCEDURES_FILE:

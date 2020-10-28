@@ -6,6 +6,7 @@
 #include <util/fx.h>
 #include <stdlib.h>
 #include <ti/store/storecollection.h>
+#include <ti/collection.inline.h>
 
 static const char * collection___access_fn     = "access.mp";
 static const char * collection___dat_fn        = "collection.dat";
@@ -14,6 +15,8 @@ static const char * collection___props_fn      = "props.mp";
 static const char * collection___things_fn     = "things.mp";
 static const char * collection___types_fn      = "types.mp";
 static const char * collection___enums_fn      = "enums.mp";
+static const char * collection___gcprops_fn    = "gcprops.mp";
+static const char * collection___gcthings_fn   = "gcthings.mp";
 
 ti_store_collection_t * ti_store_collection_create(
         const char * path,
@@ -40,6 +43,8 @@ ti_store_collection_t * ti_store_collection_create(
     store_collection->things_fn = fx_path_join(cpath, collection___things_fn);
     store_collection->types_fn = fx_path_join(cpath, collection___types_fn);
     store_collection->enums_fn = fx_path_join(cpath, collection___enums_fn);
+    store_collection->gcprops_fn = fx_path_join(cpath, collection___gcprops_fn);
+    store_collection->gcthings_fn = fx_path_join(cpath, collection___gcthings_fn);
 
     if (    !store_collection->access_fn ||
             !store_collection->collection_fn ||
@@ -47,7 +52,9 @@ ti_store_collection_t * ti_store_collection_create(
             !store_collection->props_fn ||
             !store_collection->things_fn ||
             !store_collection->types_fn ||
-            !store_collection->enums_fn)
+            !store_collection->enums_fn ||
+            !store_collection->gcprops_fn ||
+            !store_collection->gcthings_fn)
         goto fail1;
 
     return store_collection;
@@ -71,6 +78,8 @@ void ti_store_collection_destroy(ti_store_collection_t * store_collection)
     free(store_collection->things_fn);
     free(store_collection->types_fn);
     free(store_collection->enums_fn);
+    free(store_collection->gcprops_fn);
+    free(store_collection->gcthings_fn);
     free(store_collection);
 }
 
@@ -114,7 +123,7 @@ int ti_store_collection_restore(ti_collection_t * collection, const char * fn)
 
     memcpy(&id, data, sizeof(uint64_t));
 
-    collection->root = imap_get(collection->things, id);
+    collection->root = ti_collection_thing_by_id(collection, id);
     if (!collection->root)
     {
         log_critical("cannot find collection root: "TI_THING_ID, id);
@@ -233,6 +242,30 @@ char * ti_store_collection_enums_fn(
     if (!cpath)
         return NULL;
     fn = fx_path_join(cpath, collection___enums_fn);
+    free(cpath);
+    return fn;
+}
+
+char * ti_store_collection_gcprops_fn(
+        const char * path,
+        uint64_t collection_id)
+{
+    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    if (!cpath)
+        return NULL;
+    fn = fx_path_join(cpath, collection___gcprops_fn);
+    free(cpath);
+    return fn;
+}
+
+char * ti_store_collection_gcthings_fn(
+        const char * path,
+        uint64_t collection_id)
+{
+    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    if (!cpath)
+        return NULL;
+    fn = fx_path_join(cpath, collection___gcthings_fn);
     free(cpath);
     return fn;
 }

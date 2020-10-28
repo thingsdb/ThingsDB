@@ -74,7 +74,7 @@ int ti_collections_gc(void)
     {
         uv_mutex_lock(collection->lock);
 
-        if (ti_things_gc(collection->things, collection->root))
+        if (ti_collection_gc(collection, true))
         {
             log_error("garbage collection for collection `%.*s` has failed",
                     (int) collection->name->n,
@@ -119,14 +119,14 @@ int ti_collections_gc_collect_dropped(void)
         ti_enums_destroy(collection->enums);
         collection->enums = NULL;
 
-        if (ti_things_gc(collection->things, NULL))
+        if (ti_collection_gc(collection, false))
         {
             rc = -1;
             log_critical(EX_MEMORY_S);
             continue;
         }
 
-        assert (!collection->things->n);
+        ti_collection_gc_clear(collection);
         ti_collection_destroy(collection);
     }
     return rc;
@@ -287,4 +287,12 @@ ti_varr_t * ti_collections_info(ti_user_t * user)
         VEC_push(varr->vec, mpinfo);
     }
     return varr;
+}
+
+size_t ti_collections_marked_as_garbage(void)
+{
+    size_t n = 0;
+    for (vec_each(collections->vec, ti_collection_t, collection))
+        n += collection->gc->n;
+    return n;
 }

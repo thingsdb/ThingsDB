@@ -13,7 +13,7 @@
 #include <util/fx.h>
 #include <util/mpack.h>
 
-static int store__things_cb(ti_thing_t * thing, msgpack_packer * pk)
+static int store__gcollect_cb(ti_thing_t * thing, msgpack_packer * pk)
 {
     return (
             msgpack_pack_uint64(pk, thing->id) ||
@@ -21,7 +21,7 @@ static int store__things_cb(ti_thing_t * thing, msgpack_packer * pk)
     );
 }
 
-int ti_store_things_store(imap_t * things, const char * fn)
+int ti_store_gcollect_store(imap_t * things, const char * fn)
 {
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
@@ -39,7 +39,7 @@ int ti_store_things_store(imap_t * things, const char * fn)
         msgpack_pack_map(&pk, things->n)
     ) goto fail;
 
-    if (imap_walk(things, (imap_cb) store__things_cb, &pk))
+    if (imap_walk(things, (imap_cb) store__gcollect_cb, &pk))
         goto fail;
 
     log_debug("stored thing id's and type to file: `%s`", fn);
@@ -86,7 +86,7 @@ static int store__walk_data(ti_thing_t * thing, msgpack_packer * pk)
     return 0;
 }
 
-int ti_store_things_store_data(imap_t * things, const char * fn)
+int ti_store_gcollect_store_data(imap_t * things, const char * fn)
 {
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
@@ -121,7 +121,7 @@ done:
     return 0;
 }
 
-int ti_store_things_restore(ti_collection_t * collection, const char * fn)
+int ti_store_gcollect_restore(ti_collection_t * collection, const char * fn)
 {
     int rc = -1;
     size_t i;
@@ -175,7 +175,7 @@ fail:
     return rc;
 }
 
-int ti_store_things_restore_data(
+int ti_store_gcollect_restore_data(
         ti_collection_t * collection,
         imap_t * names,
         const char * fn)

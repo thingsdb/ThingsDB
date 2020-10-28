@@ -25,7 +25,7 @@ static inline int ti_collection_to_pk(
         msgpack_pack_uint64(pk, collection->created_at) ||
 
         mp_pack_str(pk, "things") ||
-        msgpack_pack_uint64(pk, collection->things->n)
+        msgpack_pack_uint64(pk, collection->things->n + collection->gc->n)
     );
 }
 

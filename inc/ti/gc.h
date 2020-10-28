@@ -18,4 +18,13 @@ struct ti_gc_s
     ti_thing_t * thing; /* no reference, thing marked for garbage collection */
 };
 
+static inline int ti_gc_walk(queue_t * queue, queue_cb cb, void * arg)
+{
+    int rc;
+    for (queue_each(queue, ti_gc_t, gc))
+        if ((rc = cb(gc->thing, arg)))
+            return rc;
+    return 0;
+}
+
 #endif  /* TI_GC_H_ */

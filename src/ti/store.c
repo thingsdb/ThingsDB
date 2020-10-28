@@ -10,6 +10,7 @@
 #include <ti/store/storecollection.h>
 #include <ti/store/storecollections.h>
 #include <ti/store/storeenums.h>
+#include <ti/store/storegcollect.h>
 #include <ti/store/storenames.h>
 #include <ti/store/storeprocedures.h>
 #include <ti/store/storestatus.h>
@@ -380,6 +381,7 @@ int ti_store_restore(void)
         if (rc)
             goto stop;
 
+        /* TODO: walk gc */
         (void) imap_walk(
                 collection->things,
                 (imap_cb) store__thing_drop,

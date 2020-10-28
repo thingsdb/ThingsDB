@@ -202,7 +202,23 @@ void ti_thing_destroy(ti_thing_t * thing)
     {
         if (ti_events_cache_dropped_thing(thing))
             return;
-        (void) imap_pop(thing->collection->things, thing->id);
+
+        if (!imap_pop(thing->collection->things, thing->id))
+        {
+            /*
+             * Try to remove the thing from garbage collection if not found
+             * in queue.
+             */
+            size_t idx = 0;
+            for (queue_each(thing->collection->gc, ti_gc_t, gc), ++idx)
+            {
+                if (thing == gc->thing)
+                {
+                    free(queue_remove(thing->collection->gc, idx));
+                    break;
+                }
+            }
+        }
     }
 
     if ((~ti.flags & TI_FLAG_SIGNAL) && ti_thing_has_watchers(thing))

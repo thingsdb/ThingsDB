@@ -788,6 +788,7 @@ int ti_field_mod_force(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e)
     if (!ti_type_is_wrap_only(field->type) &&
         prev_nested_spec != field->nested_spec)
     {
+        /* TODO: walk gc */
         (void) imap_walk(
             field->type->types->collection->things,
             (imap_cb) field__mod_nested_cb,
@@ -901,6 +902,7 @@ success:
             goto undo_dep;
         }
 
+        /* TODO: walk gc */
         (void) imap_walk(
             field->type->types->collection->things,
             (imap_cb) field__mod_nested_cb,
@@ -971,6 +973,7 @@ int ti_field_set_name(
 
     if (ti_spec_is_arr_or_set(field->spec))
     {
+        /* TODO: walk gc */
         (void) imap_walk(
                 field->type->types->collection->things,
                 (imap_cb) field__ren_cb,
@@ -1028,6 +1031,7 @@ static void field__del_watch(
 
 int ti_field_del(ti_field_t * field, uint64_t ev_id)
 {
+    /* TODO: extend with gc */
     vec_t * vec = imap_vec(field->type->types->collection->things);
     uint16_t type_id = field->type->type_id;
     ti_data_t * data = field__del_job(field->name->str, field->name->n);
@@ -1918,6 +1922,7 @@ int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr, uint64_t ev_id)
     if (!addjob.data)
         return -1;
 
+    /* TODO: walk gc */
     rc = imap_walk(
             field->type->types->collection->things,
             (imap_cb) field__add,

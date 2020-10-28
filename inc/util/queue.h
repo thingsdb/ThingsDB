@@ -8,6 +8,7 @@
 
 typedef struct queue_s queue_t;
 typedef void (*queue_destroy_cb)(void * data);
+typedef int (*queue_cb)(void * data, void * arg);
 
 #include <stdio.h>
 
@@ -31,6 +32,8 @@ int queue_unshift(queue_t ** qaddr, void * data);
 int queue_insert(queue_t ** qaddr, size_t idx, void * data);
 int queue_extend(queue_t ** qaddr, void * data[], size_t n);
 int queue_shrink(queue_t ** qaddr);
+int queue_walk(queue_t * queue, queue_cb cb, void * arg);
+
 /* unsafe macro for queue_push();
  * might overwrite data if not enough space and requires at least size 1 */
 #define QUEUE_push(q__, d__) \

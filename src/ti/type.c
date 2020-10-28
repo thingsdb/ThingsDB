@@ -122,6 +122,7 @@ void ti_type_del(ti_type_t * type)
     ti_collection_t * collection = type->types->collection;
     uint16_t type_id = type->type_id;
 
+    /* TODO: add gc walk */
     (void) imap_walk(collection->things, (imap_cb) type__conv, &type_id);
 
     ti_type_drop(type);

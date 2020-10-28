@@ -283,6 +283,15 @@ int queue_shrink(queue_t ** qaddr)
     return 0;
 }
 
+int queue_walk(queue_t * queue, queue_cb cb, void * arg)
+{
+    int rc;
+    for (queue_each(queue, void, data))
+        if ((rc = cb(data, arg)))
+            return rc;
+    return 0;
+}
+
 static queue_t * queue__grow(queue_t * queue)
 {
     queue_t * q;

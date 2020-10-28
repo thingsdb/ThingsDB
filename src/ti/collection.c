@@ -315,23 +315,54 @@ void ti_collection_gc_clear(ti_collection_t * collection)
     }
 }
 
+typedef struct
+{
+    ti_collection_t * collection;
+    uint64_t cevid;
+} collection__gc_t;
+
+static int collection__gc_thing(ti_thing_t * thing, collection__gc_t * w)
+{
+    if (thing->flags & TI_VFLAG_THING_SWEEP)
+    {
+        ti_gc_t * gc = ti_gc_create(w->cevid, thing);
+        if (gc && queue_push(&w->collection->gc, gc) == 0)
+        {
+            /*
+             * Successful marked for garbage collection.
+             */
+            (void) imap_pop(w->collection->things, thing->id);
+            return 0;
+        }
+
+        free(gc);
+        log_error(
+            "cannot mark "TI_THING_ID" for garbage collection",
+            thing->id);
+    }
+
+    thing->flags |= TI_VFLAG_THING_SWEEP;
+
+    /*
+     * Return success, also when marking has failed to make sure at least
+     * all thing flags are restored
+     */
+    return 0;
+}
+
 int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
 {
     size_t n = 0, m = 0;
-    vec_t * things_vec;
+    uint64_t sevid = ti.global_stored_event_id;
     struct timespec start, stop;
     double duration;
+    collection__gc_t w = {
+            .collection = collection,
+            .cevid = ti.node ? ti.node->cevid : 0,
+    };
 
-    uint64_t cevid = ti.node ? ti.node->cevid : 0;
-    uint64_t sevid = ti.global_stored_event_id;
 
     (void) clock_gettime(TI_CLOCK_MONOTONIC, &start);
-
-    things_vec = imap_vec(collection->things);
-    if (!things_vec)
-        return -1;
-
-    (void) ti_sleep(2);  /* sleeps are here to allow thread switching */
 
     if (do_mark_things)
     {
@@ -340,10 +371,11 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
                 (imap_cb) collection__mark_enum_cb,
                 NULL);
         collection__gc_mark_thing(collection->root);
+
+        (void) ti_sleep(2);
     }
 
-    (void) ti_sleep(2);
-
+    /* TODO: think.... shoud we set ref to 0 for all marked things > sevid */
     for (queue_each(collection->gc, ti_gc_t, gc), ++m)
     {
         if (gc->event_id >= sevid)
@@ -387,28 +419,9 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
 
     (void) ti_sleep(2);
 
-    for (vec_each(things_vec, ti_thing_t, thing))
-    {
-        if (thing->flags & TI_VFLAG_THING_SWEEP)
-        {
-            ti_gc_t * gc = ti_gc_create(cevid, thing);
-            if (gc && queue_push(&collection->gc, gc) == 0)
-            {
-                /*
-                 * Successful marked for garbage collection.
-                 */
-                (void) imap_pop(collection->things, thing->id);
-                continue;
-            }
-            free(gc);
-            log_error(
-                "cannot mark "TI_THING_ID" for garbage collection",
-                thing->id);
-        }
-        thing->flags |= TI_VFLAG_THING_SWEEP;
-    }
+    (void) imap_walk(collection->things, (imap_cb) collection__gc_thing, &w);
 
-    free(things_vec);
+    (void) ti_sleep(2);
 
     ti.counters->garbage_collected += n;
 

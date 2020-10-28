@@ -886,6 +886,7 @@ ssize_t ti_query_count_type(ti_query_t * query, ti_type_t * type)
     if (ti_query_vars_walk(query->vars, (imap_cb) query__count, &c))
         return -1;
 
+    /* TODO: add gc count */
     (void) imap_walk(query->collection->things, (imap_cb) query__count, &c);
 
     return c.n;

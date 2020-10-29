@@ -35,6 +35,7 @@ C_SRCS += \
 ../src/ti/fmt.c \
 ../src/ti/fn.c \
 ../src/ti/fwd.c \
+../src/ti/gc.c \
 ../src/ti/index.c \
 ../src/ti/job.c \
 ../src/ti/mapping.c \
@@ -129,6 +130,7 @@ OBJS += \
 ./src/ti/fmt.o \
 ./src/ti/fn.o \
 ./src/ti/fwd.o \
+./src/ti/gc.o \
 ./src/ti/index.o \
 ./src/ti/job.o \
 ./src/ti/mapping.o \
@@ -223,6 +225,7 @@ C_DEPS += \
 ./src/ti/fmt.d \
 ./src/ti/fn.d \
 ./src/ti/fwd.d \
+./src/ti/gc.d \
 ./src/ti/index.d \
 ./src/ti/job.d \
 ./src/ti/mapping.d \

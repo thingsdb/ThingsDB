@@ -3,6 +3,7 @@
  */
 #include <assert.h>
 #include <ti.h>
+#include <ti/collection.inline.h>
 #include <ti/enum.h>
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
@@ -1546,7 +1547,7 @@ static int job__remove(ti_thing_t * thing, mp_unp_t * up)
             return -1;
         }
 
-        t = imap_get(collection->things, mp_id.via.u64);
+        t = ti_collection_find_thing(collection, mp_id.via.u64);
 
         if (!t || !ti_vset_pop(vset, t))
         {

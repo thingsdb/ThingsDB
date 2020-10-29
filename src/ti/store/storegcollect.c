@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <ti.h>
 #include <ti/collection.inline.h>
+#include <ti/gc.h>
 #include <ti/prop.h>
 #include <ti/store/storethings.h>
 #include <ti/thing.inline.h>
@@ -13,15 +14,17 @@
 #include <util/fx.h>
 #include <util/mpack.h>
 
-static int store__things_cb(ti_thing_t * thing, msgpack_packer * pk)
+static int store__gcollect_cb(ti_gc_t * gc, msgpack_packer * pk)
 {
     return (
-            msgpack_pack_uint64(pk, thing->id) ||
-            msgpack_pack_uint16(pk, thing->type_id)
+            msgpack_pack_uint64(pk, gc->thing->id) ||
+            msgpack_pack_array(pk, 2) ||
+            msgpack_pack_uint16(pk, gc->thing->type_id) ||
+            msgpack_pack_uint64(pk, gc->event_id)
     );
 }
 
-int ti_store_things_store(imap_t * things, const char * fn)
+int ti_store_gcollect_store(queue_t * queue, const char * fn)
 {
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
@@ -35,14 +38,14 @@ int ti_store_things_store(imap_t * things, const char * fn)
 
     if (
         msgpack_pack_map(&pk, 1) ||
-        mp_pack_str(&pk, "things") ||
-        msgpack_pack_map(&pk, things->n)
+        mp_pack_str(&pk, "gcthings") ||
+        msgpack_pack_map(&pk, queue->n)
     ) goto fail;
 
-    if (imap_walk(things, (imap_cb) store__things_cb, &pk))
+    if (queue_walk(queue, (queue_cb) store__gcollect_cb, &pk))
         goto fail;
 
-    log_debug("stored thing id's and type to file: `%s`", fn);
+    log_debug("stored garbage collected meta data to file: `%s`", fn);
     goto done;
 fail:
     log_error("failed to write file: `%s`", fn);
@@ -86,7 +89,7 @@ static int store__walk_data(ti_thing_t * thing, msgpack_packer * pk)
     return 0;
 }
 
-int ti_store_things_store_data(imap_t * things, const char * fn)
+int ti_store_gcollect_store_data(queue_t * queue, const char * fn)
 {
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
@@ -101,13 +104,13 @@ int ti_store_things_store_data(imap_t * things, const char * fn)
     if (
         msgpack_pack_map(&pk, 1) ||
         mp_pack_str(&pk, "data") ||
-        msgpack_pack_map(&pk, things->n)
+        msgpack_pack_map(&pk, queue->n)
     ) goto fail;
 
-    if (imap_walk(things, (imap_cb) store__walk_data, &pk))
+    if (ti_gc_walk(queue, (queue_cb) store__walk_data, &pk))
         goto fail;
 
-    log_debug("stored things data to file: `%s`", fn);
+    log_debug("stored garbage collected data to file: `%s`", fn);
     goto done;
 fail:
     log_error("failed to write file: `%s`", fn);
@@ -121,15 +124,17 @@ done:
     return 0;
 }
 
-int ti_store_things_restore(ti_collection_t * collection, const char * fn)
+int ti_store_gcollect_restore(ti_collection_t * collection, const char * fn)
 {
     int rc = -1;
     size_t i;
     uint16_t type_id;
     ssize_t n;
-    mp_obj_t obj, mp_ver, mp_thing_id, mp_type_id;
+    mp_obj_t obj, mp_ver, mp_thing_id, mp_type_id, mp_event_id;
     mp_unp_t up;
     ti_type_t * type;
+    ti_thing_t * thing;
+    ti_gc_t * gc;
     uchar * data = fx_read(fn, &n);
     if (!data)
         return -1;
@@ -145,25 +150,39 @@ int ti_store_things_restore(ti_collection_t * collection, const char * fn)
     for (i = obj.via.sz; i--;)
     {
         if (mp_next(&up, &mp_thing_id) != MP_U64 ||
-            mp_next(&up, &mp_type_id) != MP_U64
+            mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
+            mp_next(&up, &mp_type_id) != MP_U64 ||
+            mp_next(&up, &mp_event_id) != MP_U64
         ) goto fail;
 
         type_id = mp_type_id.via.u64;
         if (type_id == TI_SPEC_OBJECT)
         {
-            if (!ti_things_create_thing_o(mp_thing_id.via.u64, 0, collection))
+            thing = ti_thing_o_create(mp_thing_id.via.u64, 0, collection);
+        }
+        else
+        {
+            type = ti_types_by_id(collection->types, type_id);
+            if (!type)
+            {
+                log_critical("cannot find type with id %u", type_id);
                 goto fail;
-            continue;
+            }
+            thing = ti_thing_t_create(mp_thing_id.via.u64, type, collection);
+                goto fail;
         }
 
-        type = ti_types_by_id(collection->types, type_id);
-        if (!type)
+        if (!thing)
+            goto fail;
+
+        gc = ti_gc_create(mp_event_id.via.u64, thing);
+
+        if (!gc || queue_push(&collection->gc, gc))
         {
-            log_critical("cannot find type with id %u", type_id);
+            ti_gc_destroy(gc);
+            ti_thing_destroy(thing);
             goto fail;
         }
-        if (!ti_things_create_thing_t(mp_thing_id.via.u64, type, collection))
-            goto fail;
     }
 
     rc = 0;
@@ -175,7 +194,7 @@ fail:
     return rc;
 }
 
-int ti_store_things_restore_data(
+int ti_store_gcollect_restore_data(
         ti_collection_t * collection,
         imap_t * names,
         const char * fn)
@@ -197,8 +216,18 @@ int ti_store_things_restore_data(
     };
 
     fx_mmap_init(&fmap, fn);
+
     if (fx_mmap_open(&fmap))  /* fx_mmap_open() is a log function */
         goto fail0;
+
+    /*
+     * By adding the things to the collection the code below is sure to find
+     * attached `things` inside the collection, otherwise they might be
+     * restored from the garbage collection.
+     */
+    for (queue_each(collection->gc, ti_gc_t, gc))
+        if (imap_add(collection->things, gc->thing->id, gc->thing))
+            goto fail1;
 
     mp_unp_init(&up, fmap.data, fmap.n);
 
@@ -278,6 +307,9 @@ int ti_store_things_restore_data(
     rc = 0;
 
 fail1:
+    for (queue_each(collection->gc, ti_gc_t, gc))
+        (void) imap_pop(collection->things, gc->thing->id);
+
     if (fx_mmap_close(&fmap))
         rc = -1;
 fail0:

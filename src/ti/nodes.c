@@ -1158,6 +1158,7 @@ void ti_nodes_destroy(void)
     vec_destroy(nodes->vec, (vec_destroy_cb) ti_node_drop);
     free(nodes->status_fn);
     ti.nodes = nodes = NULL;
+    ti.node = NULL;
 }
 
 int ti_nodes_read_scevid(void)

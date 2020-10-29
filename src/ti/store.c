@@ -10,6 +10,7 @@
 #include <ti/store/storecollection.h>
 #include <ti/store/storecollections.h>
 #include <ti/store/storeenums.h>
+#include <ti/store/storegcollect.h>
 #include <ti/store/storenames.h>
 #include <ti/store/storeprocedures.h>
 #include <ti/store/storestatus.h>
@@ -240,6 +241,12 @@ int ti_store_store(void)
                 ti_store_things_store_data(
                         collection->things,
                         store_collection->props_fn) ||
+                ti_store_gcollect_store(
+                        collection->gc,
+                        store_collection->gcthings_fn) ||
+                ti_store_gcollect_store_data(
+                        collection->gc,
+                        store_collection->gcprops_fn) ||
                 ti_store_procedures_store(
                         collection->procedures,
                         store_collection->procedures_fn)
@@ -328,6 +335,26 @@ int ti_store_restore(void)
         ti_store_collection_t * store_collection = ti_store_collection_create(
                 store->store_path,
                 &collection->guid);
+
+        /*
+         * TODO: (COMPAT) This code is for compatibility with ThingsDB version
+         *       before v0.9.19 and might be removed on the next major release.
+         */
+        if (!fx_file_exist(store_collection->gcthings_fn))
+        {
+            log_warning(
+                    "file `%s` is missing; "
+                    "create new files for garbage collect",
+                    store_collection->gcthings_fn);
+
+            (void) ti_store_gcollect_store(
+                    collection->gc,
+                    store_collection->gcthings_fn);
+            (void) ti_store_gcollect_store_data(
+                    collection->gc,
+                    store_collection->gcprops_fn);
+        }
+
         rc = (  -(!store_collection) ||
                 ti_store_enums_restore(
                         collection->enums,
@@ -353,6 +380,13 @@ int ti_store_restore(void)
                         collection,
                         namesmap,
                         store_collection->props_fn) ||
+                ti_store_gcollect_restore(
+                        collection,
+                        store_collection->gcthings_fn) ||
+                ti_store_gcollect_restore_data(
+                        collection,
+                        namesmap,
+                        store_collection->gcprops_fn) ||
                 ti_store_procedures_restore(
                         &collection->procedures,
                         store_collection->procedures_fn,
@@ -371,6 +405,10 @@ int ti_store_restore(void)
                 collection->things,
                 (imap_cb) store__thing_drop,
                 NULL);
+        /*
+         * The things in the garbage collection must keep a reference,
+         * therefore the garbage collection must not be walked.
+         */
     }
 
     store->last_stored_event_id = ti.node->cevid;

@@ -82,6 +82,7 @@ struct ti_s
     char * fn;                  /* ti__fn */
     char * node_fn;             /* ti__node_fn */
     uint64_t last_event_id;     /* when `ti__fn` was saved */
+    uint64_t global_stored_event_id;    /* used for garbage collection */
     ti_archive_t * archive;     /* committed events archive */
     ti_args_t * args;
     ti_away_t * away;

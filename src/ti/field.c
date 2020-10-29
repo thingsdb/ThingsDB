@@ -12,6 +12,7 @@
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
 #include <ti/field.h>
+#include <ti/gc.h>
 #include <ti/method.h>
 #include <ti/names.h>
 #include <ti/nil.h>
@@ -792,6 +793,10 @@ int ti_field_mod_force(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e)
             field->type->types->collection->things,
             (imap_cb) field__mod_nested_cb,
             field);
+        (void) ti_gc_walk(
+            field->type->types->collection->gc,
+            (queue_cb) field__mod_nested_cb,
+            field);
     }
 
     ti_incref(spec_raw);
@@ -905,6 +910,10 @@ success:
             field->type->types->collection->things,
             (imap_cb) field__mod_nested_cb,
             field);
+        (void) ti_gc_walk(
+            field->type->types->collection->gc,
+            (queue_cb) field__mod_nested_cb,
+            field);
     }
 done:
     ti_incref(spec_raw);
@@ -975,7 +984,10 @@ int ti_field_set_name(
                 field->type->types->collection->things,
                 (imap_cb) field__ren_cb,
                 field);
-
+        (void) ti_gc_walk(
+                field->type->types->collection->gc,
+                (queue_cb) field__ren_cb,
+                field);
         /*
          * Things without an ID must be adjusted too since a thing
          * may still receive an ID at some later time.
@@ -1048,6 +1060,21 @@ int ti_field_del(ti_field_t * field, uint64_t ev_id)
             ti_val_unsafe_drop(vec_swap_remove(thing->items, field->idx));
         }
         ti_val_unsafe_drop((ti_val_t *) thing);
+    }
+
+    /*
+     * The garbage collector has a reference to each thing so things can never
+     * be removed by a field which is removed.
+     */
+    for (queue_each(field->type->types->collection->gc, ti_gc_t, gc))
+    {
+        if (gc->thing->type_id == type_id)
+        {
+            if (ti_thing_has_watchers(gc->thing))
+                field__del_watch(gc->thing, data, ev_id);
+
+            ti_val_unsafe_drop(vec_swap_remove(gc->thing->items, field->idx));
+        }
     }
 
     free(data);
@@ -1921,6 +1948,10 @@ int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr, uint64_t ev_id)
     rc = imap_walk(
             field->type->types->collection->things,
             (imap_cb) field__add,
+            &addjob);
+    rc = rc ? rc : ti_gc_walk(
+            field->type->types->collection->gc,
+            (queue_cb) field__add,
             &addjob);
 
     free(addjob.data);

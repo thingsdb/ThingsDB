@@ -18,7 +18,7 @@
 
 typedef struct fx_mmap_s fx_mmap_t;
 
-int fx_write(const char * fn, unsigned char * data, size_t n);
+int fx_write(const char * fn, const void * data, size_t n);
 unsigned char * fx_read(const char * fn, ssize_t * size);
 _Bool fx_file_exist(const char * fn);
 _Bool fx_is_dir(const char * path);

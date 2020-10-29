@@ -25,8 +25,33 @@ static inline int ti_collection_to_pk(
         msgpack_pack_uint64(pk, collection->created_at) ||
 
         mp_pack_str(pk, "things") ||
-        msgpack_pack_uint64(pk, collection->things->n)
+        msgpack_pack_uint64(pk, collection->things->n + collection->gc->n)
     );
+}
+
+/*
+ * Return a thing with a borrowed reference from the collection, or,
+ * if not found, tries to restore the thing from the garbage collector.
+ */
+static inline ti_thing_t * ti_collection_find_thing(
+        ti_collection_t * collection,
+        uint64_t thing_id)
+{
+    ti_thing_t * thing = imap_get(collection->things, thing_id);
+    return thing
+            ? thing
+            : ti_collection_thing_restore_gc(collection, thing_id);
+}
+
+/*
+ * Return a thing with a borrowed reference from the collection but
+ * does not look in the garbage collector.
+ */
+static inline void * ti_collection_thing_by_id(
+        ti_collection_t * collection,
+        uint64_t thing_id)
+{
+    return imap_get(collection->things, thing_id);
 }
 
 #endif  /* TI_COLLECTION_INLINE_H_ */

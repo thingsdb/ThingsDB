@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <ti.h>
+#include <ti/collection.inline.h>
 #include <ti/enum.h>
 #include <ti/field.h>
 #include <ti/names.h>
@@ -16,83 +17,7 @@
 #include <ti/varr.h>
 #include <ti/vset.h>
 #include <ti/watch.h>
-#include <ti/wrap.h>
 #include <util/logger.h>
-
-static void things__gc_mark_thing(ti_thing_t * thing);
-
-
-static void things__gc_mark_varr(ti_varr_t * varr)
-{
-    for (vec_each(varr->vec, ti_val_t, val))
-    {
-        switch(val->tp)
-        {
-        case TI_VAL_THING:
-        {
-            ti_thing_t * thing = (ti_thing_t *) val;
-            if (thing->flags & TI_VFLAG_THING_SWEEP)
-                things__gc_mark_thing(thing);
-            continue;
-        }
-        case TI_VAL_WRAP:
-        {
-            ti_thing_t * thing = ((ti_wrap_t *) val)->thing;
-            if (thing->flags & TI_VFLAG_THING_SWEEP)
-                things__gc_mark_thing(thing);
-            continue;
-        }
-        case TI_VAL_ARR:
-        {
-            ti_varr_t * varr = (ti_varr_t *) val;
-            if (ti_varr_may_have_things(varr))
-                things__gc_mark_varr(varr);
-            continue;
-        }
-        }
-    }
-}
-
-static inline int things__set_cb(ti_thing_t * thing, void * UNUSED(arg))
-{
-    if (thing->flags & TI_VFLAG_THING_SWEEP)
-        things__gc_mark_thing(thing);
-    return 0;
-}
-
-static inline void things__gc_val(ti_val_t * val)
-{
-    switch(val->tp)
-    {
-    case TI_VAL_THING:
-    {
-        ti_thing_t * thing = (ti_thing_t *) val;
-        if (thing->flags & TI_VFLAG_THING_SWEEP)
-            things__gc_mark_thing(thing);
-        return;
-    }
-    case TI_VAL_WRAP:
-    {
-        ti_thing_t * thing = ((ti_wrap_t *) val)->thing;
-        if (thing->flags & TI_VFLAG_THING_SWEEP)
-            things__gc_mark_thing(thing);
-        return;
-    }
-    case TI_VAL_ARR:
-    {
-        ti_varr_t * varr = (ti_varr_t *) val;
-        if (ti_varr_may_have_things(varr))
-            things__gc_mark_varr(varr);
-        return;
-    }
-    case TI_VAL_SET:
-    {
-        ti_vset_t * vset = (ti_vset_t *) val;
-        (void) imap_walk(vset->imap, (imap_cb) things__set_cb, NULL);
-        return;
-    }
-    }
-}
 
 ti_thing_t * ti_things_create_thing_o(
         uint64_t id,
@@ -132,7 +57,7 @@ ti_thing_t * ti_things_thing_o_from_vup(
         ex_t * e)
 {
     ti_thing_t * thing;
-    thing = imap_get(vup->collection->things, thing_id);
+    thing = ti_collection_find_thing(vup->collection, thing_id);
     if (thing)
     {
         if (sz != 1)
@@ -231,6 +156,7 @@ ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
 
     if (!thing)
     {
+        /* No need to check for garbage collected things */
         if (ti_collection_thing_by_id(vup->collection, mp_thing_id.via.u64))
             ex_set(e, EX_LOOKUP_ERROR,
                     "error while loading type `%s`; "
@@ -263,92 +189,3 @@ ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
 
     return thing;
 }
-
-static int things__mark_enum_cb(ti_enum_t * enum_, void * UNUSED(data))
-{
-    if (enum_->enum_tp == TI_ENUM_THING)
-    {
-        for (vec_each(enum_->members, ti_member_t, member))
-        {
-            ti_thing_t * thing = (ti_thing_t *) VMEMBER(member);
-            if (thing->flags & TI_VFLAG_THING_SWEEP)
-                things__gc_mark_thing(thing);
-        }
-    }
-    return 0;
-}
-
-int ti_things_gc(imap_t * things, ti_thing_t * root)
-{
-    size_t n = 0;
-    vec_t * things_vec;
-    struct timespec start, stop;
-    double duration;
-
-    (void) clock_gettime(TI_CLOCK_MONOTONIC, &start);
-
-    things_vec = imap_vec(things);
-    if (!things_vec)
-        return -1;
-
-    (void) ti_sleep(2);  /* sleeps are here to allow thread switching */
-
-    if (root)
-    {
-        imap_walk(
-                root->collection->enums->imap,
-                (imap_cb) things__mark_enum_cb,
-                NULL);
-        things__gc_mark_thing(root);
-    }
-
-    (void) ti_sleep(2);
-
-    for (vec_each(things_vec, ti_thing_t, thing))
-        if (thing->flags & TI_VFLAG_THING_SWEEP)
-            thing->ref = 0;
-
-    (void) ti_sleep(2);
-
-    for (vec_each(things_vec, ti_thing_t, thing))
-        if (thing->flags & TI_VFLAG_THING_SWEEP)
-            ti_thing_clear(thing);
-
-    (void) ti_sleep(2);
-
-    for (vec_each(things_vec, ti_thing_t, thing))
-    {
-        if (thing->flags & TI_VFLAG_THING_SWEEP)
-        {
-            ++n;
-            ti_thing_destroy(thing);
-            continue;
-        }
-        thing->flags |= TI_VFLAG_THING_SWEEP;
-    }
-
-    free(things_vec);
-
-    ti.counters->garbage_collected += n;
-
-    (void) clock_gettime(TI_CLOCK_MONOTONIC, &stop);
-    duration = util_time_diff(&start, &stop);
-
-    log_debug("garbage collection took %f seconds and cleaned: %zu thing(s)",
-            duration, n);
-
-    return 0;
-}
-
-static void things__gc_mark_thing(ti_thing_t * thing)
-{
-    thing->flags &= ~TI_VFLAG_THING_SWEEP;
-
-    if (ti_thing_is_object(thing))
-        for (vec_each(thing->items, ti_prop_t, prop))
-            things__gc_val(prop->val);
-    else
-        for (vec_each(thing->items, ti_val_t, val))
-            things__gc_val(val);
-}
-

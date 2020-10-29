@@ -16,7 +16,7 @@
 #include <util/fx.h>
 #include <util/logger.h>
 
-int fx_write(const char * fn, unsigned char * data, size_t n)
+int fx_write(const char * fn, const void * data, size_t n)
 {
     int rc = 0;
     FILE * fp = fopen(fn, "w");
@@ -26,7 +26,7 @@ int fx_write(const char * fn, unsigned char * data, size_t n)
         return -1;
     }
 
-    if (fwrite(data, n, 1, fp) != 1)
+    if (fwrite(data, 1, n, fp) != n)
     {
         log_error("cannot write %zu bytes to `%s`", n, fn);
         rc = -1;
@@ -67,7 +67,7 @@ unsigned char * fx_read(const char * fn, ssize_t * size)
         goto final;
     }
 
-    if (fread(data, *size, 1, fp) != 1)
+    if (fread(data, 1, *size, fp) != (size_t) *size)
     {
         log_error("cannot read %zu bytes from file `%s`", *size, fn);
         free(data);

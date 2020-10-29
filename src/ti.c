@@ -64,6 +64,7 @@ static void ti__stop(void);
 int ti_create(void)
 {
     ti.last_event_id = 0;
+    ti.global_stored_event_id = 0;
     ti.flags = 0;
     ti.fn = NULL;
     ti.node_fn = NULL;

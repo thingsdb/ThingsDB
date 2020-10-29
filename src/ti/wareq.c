@@ -6,6 +6,7 @@
 #include <ti.h>
 #include <ti/access.h>
 #include <ti/auth.h>
+#include <ti/collection.inline.h>
 #include <ti/collections.h>
 #include <ti/fwd.h>
 #include <ti/procedures.h>
@@ -246,7 +247,7 @@ static void wareq__watch_cb(uv_async_t * task)
         free(idp);
         #endif
 
-        thing = imap_get(wareq->collection->things, id);
+        thing = ti_collection_thing_by_id(wareq->collection, id);
 
         if (!thing)
         {
@@ -356,7 +357,7 @@ static void wareq__unwatch_cb(uv_async_t * task)
         free(idp);
         #endif
 
-        thing = imap_get(wareq->collection->things, id);
+        thing = ti_collection_thing_by_id(wareq->collection, id);
         if (thing)
             (void) ti_thing_unwatch(thing, wareq->stream);
     }

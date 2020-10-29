@@ -37,6 +37,12 @@ char* ti_store_collection_types_fn(
 char * ti_store_collection_enums_fn(
         const char * path,
         uint64_t collection_id);
+char * ti_store_collection_gcprops_fn(
+        const char * path,
+        uint64_t collection_id);
+char * ti_store_collection_gcthings_fn(
+        const char * path,
+        uint64_t collection_id);
 
 struct ti_store_collection_s
 {
@@ -49,4 +55,6 @@ struct ti_store_collection_s
     char * things_fn;
     char * types_fn;
     char * enums_fn;
+    char * gcprops_fn;
+    char * gcthings_fn;
 };

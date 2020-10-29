@@ -202,6 +202,7 @@ void ti_thing_destroy(ti_thing_t * thing)
     {
         if (ti_events_cache_dropped_thing(thing))
             return;
+
         (void) imap_pop(thing->collection->things, thing->id);
     }
 

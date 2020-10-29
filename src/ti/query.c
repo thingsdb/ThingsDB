@@ -12,11 +12,13 @@
 #include <ti/api.h>
 #include <ti/closure.h>
 #include <ti/collections.h>
+#include <ti/collection.inline.h>
 #include <ti/data.h>
 #include <ti/do.h>
 #include <ti/epkg.h>
 #include <ti/epkg.inline.h>
 #include <ti/event.h>
+#include <ti/gc.h>
 #include <ti/names.h>
 #include <ti/nil.h>
 #include <ti/procedures.h>
@@ -841,6 +843,7 @@ ti_thing_t * ti_query_thing_from_id(
         return NULL;
     }
 
+    /* No need to check for garbage collected things */
     thing = thing_id
             ? ti_collection_thing_by_id(query->collection, (uint64_t) thing_id)
             : NULL;
@@ -885,6 +888,7 @@ ssize_t ti_query_count_type(ti_query_t * query, ti_type_t * type)
         return -1;
 
     (void) imap_walk(query->collection->things, (imap_cb) query__count, &c);
+    (void) ti_gc_walk(query->collection->gc, (queue_cb) query__count, &c);
 
     return c.n;
 }

@@ -134,7 +134,7 @@ class TestGC(TestBase):
         # below do an advanced garbage collection test
         client.set_default_scope(stuff)
 
-        n = 8
+        n = 12
         ids = await client.query(r'''
             things = range(n).map(|| {});
             things.each(|t| {
@@ -157,7 +157,7 @@ class TestGC(TestBase):
                 .a.shift();
             ''')
 
-            await asyncio.sleep(1 + (x % 2) * 12)
+            await asyncio.sleep(x)
 
             if await client.query(r'''
                 try({

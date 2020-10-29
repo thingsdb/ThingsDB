@@ -192,7 +192,7 @@ ti_thing_t * ti_collection_thing_restore_gc(
             assert (thing->flags & TI_VFLAG_THING_SWEEP);
             assert (thing->ref);
 
-            log_debug("restoring "TI_THING_ID" from garbage", thing->id);
+            log_info("restoring "TI_THING_ID" from garbage", thing->id);
 
             if (imap_add(collection->things, thing_id, thing))
                 ti_panic("unable to restore from garbage collection");

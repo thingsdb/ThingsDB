@@ -426,7 +426,7 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
             continue;
         }
 
-        log_debug("restore "TI_THING_ID" from garbage collection", thing->id);
+        log_debug("restoring "TI_THING_ID" from garbage collection", thing->id);
 
         /*
          * The garbage collector has a reference and since the
@@ -467,8 +467,10 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
     (void) clock_gettime(TI_CLOCK_MONOTONIC, &stop);
     duration = util_time_diff(&start, &stop);
 
-    log_debug("garbage collection took %f seconds and cleaned: %zu thing(s)",
-            duration, n);
+    log_info(
+        "garbage collection took %f seconds; "
+        "%zu things(s) are marked as garbage and %zu thing(s) are cleaned",
+        duration, idx-m, n);
 
     return 0;
 }

@@ -346,8 +346,13 @@ int ti_store_restore(void)
                     "file `%s` is missing; "
                     "create new files for garbage collect",
                     store_collection->gcthings_fn);
-            (void) fx_write(store_collection->gcthings_fn, "", 0);
-            (void) fx_write(store_collection->gcprops_fn, "", 0);
+
+            (void) ti_store_gcollect_store(
+                    collection->gc,
+                    store_collection->gcthings_fn);
+            (void) ti_store_gcollect_store_data(
+                    collection->gc,
+                    store_collection->gcprops_fn);
         }
 
         rc = (  -(!store_collection) ||

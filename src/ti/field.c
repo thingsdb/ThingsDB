@@ -12,6 +12,7 @@
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
 #include <ti/field.h>
+#include <ti/gc.h>
 #include <ti/method.h>
 #include <ti/names.h>
 #include <ti/nil.h>
@@ -788,10 +789,13 @@ int ti_field_mod_force(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e)
     if (!ti_type_is_wrap_only(field->type) &&
         prev_nested_spec != field->nested_spec)
     {
-        /* TODO: walk gc */
         (void) imap_walk(
             field->type->types->collection->things,
             (imap_cb) field__mod_nested_cb,
+            field);
+        (void) ti_gc_walk(
+            field->type->types->collection->gc,
+            (queue_cb) field__mod_nested_cb,
             field);
     }
 
@@ -902,10 +906,13 @@ success:
             goto undo_dep;
         }
 
-        /* TODO: walk gc */
         (void) imap_walk(
             field->type->types->collection->things,
             (imap_cb) field__mod_nested_cb,
+            field);
+        (void) ti_gc_walk(
+            field->type->types->collection->gc,
+            (queue_cb) field__mod_nested_cb,
             field);
     }
 done:
@@ -973,12 +980,14 @@ int ti_field_set_name(
 
     if (ti_spec_is_arr_or_set(field->spec))
     {
-        /* TODO: walk gc */
         (void) imap_walk(
                 field->type->types->collection->things,
                 (imap_cb) field__ren_cb,
                 field);
-
+        (void) ti_gc_walk(
+                field->type->types->collection->gc,
+                (queue_cb) field__ren_cb,
+                field);
         /*
          * Things without an ID must be adjusted too since a thing
          * may still receive an ID at some later time.
@@ -1031,7 +1040,6 @@ static void field__del_watch(
 
 int ti_field_del(ti_field_t * field, uint64_t ev_id)
 {
-    /* TODO: extend with gc */
     vec_t * vec = imap_vec(field->type->types->collection->things);
     uint16_t type_id = field->type->type_id;
     ti_data_t * data = field__del_job(field->name->str, field->name->n);
@@ -1052,6 +1060,21 @@ int ti_field_del(ti_field_t * field, uint64_t ev_id)
             ti_val_unsafe_drop(vec_swap_remove(thing->items, field->idx));
         }
         ti_val_unsafe_drop((ti_val_t *) thing);
+    }
+
+    /*
+     * The garbage collector has a reference to each thing so things can never
+     * be removed by a field which is removed.
+     */
+    for (queue_each(field->type->types->collection->gc, ti_gc_t, gc))
+    {
+        if (gc->thing->type_id == type_id)
+        {
+            if (ti_thing_has_watchers(gc->thing))
+                field__del_watch(gc->thing, data, ev_id);
+
+            ti_val_unsafe_drop(vec_swap_remove(gc->thing->items, field->idx));
+        }
     }
 
     free(data);
@@ -1922,10 +1945,13 @@ int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr, uint64_t ev_id)
     if (!addjob.data)
         return -1;
 
-    /* TODO: walk gc */
     rc = imap_walk(
             field->type->types->collection->things,
             (imap_cb) field__add,
+            &addjob);
+    rc = rc ? rc : ti_gc_walk(
+            field->type->types->collection->gc,
+            (queue_cb) field__add,
             &addjob);
 
     free(addjob.data);

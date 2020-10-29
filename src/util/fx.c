@@ -16,7 +16,7 @@
 #include <util/fx.h>
 #include <util/logger.h>
 
-int fx_write(const char * fn, unsigned char * data, size_t n)
+int fx_write(const char * fn, const void * data, size_t n)
 {
     int rc = 0;
     FILE * fp = fopen(fn, "w");

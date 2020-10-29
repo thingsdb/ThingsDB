@@ -11,7 +11,7 @@ class TestBase(unittest.TestCase):
     async def run(self):
         raise NotImplementedError('run must be implemented')
 
-    async def wait_nodes_ready(self, client=None):
+    async def wait_nodes_ready(self, client=None, success_count=10):
         if client is None:
             client = await get_client(self.node0)
 

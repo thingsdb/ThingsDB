@@ -335,6 +335,21 @@ int ti_store_restore(void)
         ti_store_collection_t * store_collection = ti_store_collection_create(
                 store->store_path,
                 &collection->guid);
+
+        /*
+         * TODO: (COMPAT) This code is for compatibility with ThingsDB version
+         *       before v0.9.19 and might be removed on the next major release.
+         */
+        if (!fx_file_exist(store_collection->gcthings_fn))
+        {
+            log_warning(
+                    "file `%s` is missing; "
+                    "create new files for garbage collect",
+                    store_collection->gcthings_fn);
+            (void) fx_write(store_collection->gcthings_fn, "", 0);
+            (void) fx_write(store_collection->gcprops_fn, "", 0);
+        }
+
         rc = (  -(!store_collection) ||
                 ti_store_enums_restore(
                         collection->enums,
@@ -381,11 +396,14 @@ int ti_store_restore(void)
         if (rc)
             goto stop;
 
-        /* TODO: walk gc */
         (void) imap_walk(
                 collection->things,
                 (imap_cb) store__thing_drop,
                 NULL);
+        /*
+         * The things in the garbage collection must keep a reference,
+         * therefore the garbage collection must not be walked.
+         */
     }
 
     store->last_stored_event_id = ti.node->cevid;

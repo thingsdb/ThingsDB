@@ -274,7 +274,6 @@ static imap_t * modtype__collect_things(ti_query_t * query, ti_type_t * type)
     if (!collect.imap)
         return NULL;
 
-    /* TODO: add walk gc */
     if (ti_query_vars_walk(
             query->vars,
             (imap_cb) modtype__collect_cb,
@@ -282,6 +281,10 @@ static imap_t * modtype__collect_things(ti_query_t * query, ti_type_t * type)
         imap_walk(
                 query->collection->things,
                 (imap_cb) modtype__collect_cb,
+                &collect) ||
+        ti_gc_walk(
+                query->collection->gc,
+                (queue_cb) modtype__collect_cb,
                 &collect))
     {
         imap_destroy(collect.imap, (imap_destroy_cb) ti_val_unsafe_drop);
@@ -1045,10 +1048,13 @@ static int modtype__has_lock(ti_query_t * query, ti_type_t * type, ex_t * e)
         goto locked;
     }
 
-    /* TODO: add walk gc */
     if (imap_walk(
             query->collection->things,
             (imap_cb) modtype__is_locked_cb,
+            type) ||
+        ti_gc_walk(
+            query->collection->gc,
+            (queue_cb) modtype__is_locked_cb,
             type))
         goto locked;
 

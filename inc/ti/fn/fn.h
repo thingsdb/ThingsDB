@@ -24,6 +24,7 @@
 #include <ti/enums.inline.h>
 #include <ti/export.h>
 #include <ti/field.h>
+#include <ti/gc.h>
 #include <ti/member.h>
 #include <ti/member.inline.h>
 #include <ti/method.h>

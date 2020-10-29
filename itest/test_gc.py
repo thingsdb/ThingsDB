@@ -13,7 +13,7 @@ class TestGC(TestBase):
 
     title = 'Test garbage collection'
 
-    @default_test_setup(num_nodes=2, seed=1)
+    @default_test_setup(num_nodes=2, seed=1, threshold_full_storage=50)
     async def run(self):
 
         await self.node0.init_and_run()
@@ -129,17 +129,22 @@ class TestGC(TestBase):
 
         counters = await client.query('counters();', scope='@node')
 
-        #
-        # expecting `w`, `xx`, `yy`, `a` and `a.other` in the garbage
-        self.assertEqual(counters['garbage_collected'], 8)
+        self.assertEqual(counters['garbage_collected'], 9)
 
         # below do an advanced garbage collection test
         client.set_default_scope(stuff)
 
-        n = 10
+        n = 8
         ids = await client.query(r'''
             things = range(n).map(|| {});
-            things.each(|t| t.me = t);
+            things.each(|t| {
+                t.me = t;
+                t.other = {};
+                t.garbage = {};
+                t.garbage.me = t.garbage;
+                t.ref = {};
+                t.ref.parent = t;
+            });
             .a = things;
             .b = [];
             .a.map(|t| t.id());
@@ -147,12 +152,12 @@ class TestGC(TestBase):
 
         b = []
 
-        for id in ids:
+        for x, id in enumerate(ids):
             await client.query(r'''
                 .a.shift();
             ''')
 
-            await asyncio.sleep(3)
+            await asyncio.sleep(1 + (x % 2) * 12)
 
             if await client.query(r'''
                 try({
@@ -165,7 +170,45 @@ class TestGC(TestBase):
             ''', id=id):
                 b.append(id)
 
-        print(b)
+        await self.node1.shutdown()
+        await self.node1.run()
+
+        await asyncio.sleep(4)
+
+        await self.wait_nodes_ready()
+
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        for t in b:
+            for cl in (client, client1):
+                self.assertTrue(await cl.query(r'''
+                    is_thing(thing(id));
+                ''', id=t))
+
+        client1.close()
+        await client1.wait_closed()
+
+        await client.query(r'''
+            .del('b');
+        ''')
+
+        await asyncio.sleep(2)
+
+        await self.node1.shutdown()
+        await self.node1.run()
+        await asyncio.sleep(4)
+        await self.wait_nodes_ready()
+
+        for val in range(50):
+            await client.query(r'''
+                .val = val;
+            ''', val=val)
+
+        await self.node1.shutdown()
+        await self.node1.run()
+        await asyncio.sleep(4)
+        await self.wait_nodes_ready()
 
 
 if __name__ == '__main__':

@@ -189,9 +189,20 @@ ti_thing_t * ti_collection_thing_restore_gc(
     {
         if ((thing = gc->thing)->id == thing_id)
         {
+            assert (thing->flags & TI_VFLAG_THING_SWEEP);
+            assert (thing->ref);
+
+            log_debug("restoring "TI_THING_ID" from garbage", thing->id);
+
             if (imap_add(collection->things, thing_id, thing))
                 ti_panic("unable to restore from garbage collection");
 
+            ti_decref(thing);
+            /*
+             * The references of thing may be 0 at this point but even if this
+             * is the case we still should not drop the thing since it will
+             * soon get a new reference by the one calling this function.
+             */
             free(queue_remove(collection->gc, idx));
             return thing;
         }
@@ -326,16 +337,16 @@ static int collection__gc_thing(ti_thing_t * thing, collection__gc_t * w)
     if (thing->flags & TI_VFLAG_THING_SWEEP)
     {
         ti_gc_t * gc = ti_gc_create(w->cevid, thing);
-        if (gc && queue_push(&w->collection->gc, gc) == 0)
-        {
-            /*
-             * Successful marked for garbage collection.
-             */
-            (void) imap_pop(w->collection->things, thing->id);
-            return 0;
-        }
 
-        free(gc);
+        /*
+         * Things are removed from the collection after the walk because we
+         * cannot modify the collection at this point.
+         */
+        if (gc && queue_push(&w->collection->gc, gc) == 0)
+            return 0;
+
+        ti_gc_destroy(gc);
+
         log_error(
             "cannot mark "TI_THING_ID" for garbage collection",
             thing->id);
@@ -352,7 +363,7 @@ static int collection__gc_thing(ti_thing_t * thing, collection__gc_t * w)
 
 int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
 {
-    size_t n = 0, m = 0;
+    size_t n = 0, m = 0, idx = 0;
     uint64_t sevid = ti.global_stored_event_id;
     struct timespec start, stop;
     double duration;
@@ -375,23 +386,29 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
         (void) ti_sleep(2);
     }
 
-    /* TODO: think.... shoud we set ref to 0 for all marked things > sevid */
-    for (queue_each(collection->gc, ti_gc_t, gc), ++m)
-    {
-        if (gc->event_id >= sevid)
-            break;
-
-        if (gc->thing->flags & TI_VFLAG_THING_SWEEP)
-            gc->thing->ref = 0;
-    }
-
     for (queue_each(collection->gc, ti_gc_t, gc))
     {
-        if (gc->event_id >= sevid)
-            break;
+        if (gc->event_id > sevid)
+        {
+            /*
+             * For all collected things above the stored event id need to
+             * have the `TI_VFLAG_THING_SWEEP` which might be removed by the
+             * earlier markings.
+             */
+            gc->thing->flags |= TI_VFLAG_THING_SWEEP;
+            continue;
+        }
+
+        ++m;
 
         if (gc->thing->flags & TI_VFLAG_THING_SWEEP)
+        {
+            /*
+             * Clear all the properties which is safe because the garbage
+             * collector still hold at least one reference.
+             */
             ti_thing_clear(gc->thing);
+        }
     }
 
     (void) ti_sleep(2);
@@ -411,15 +428,37 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
 
         log_debug("restore "TI_THING_ID" from garbage collection", thing->id);
 
+        /*
+         * The garbage collector has a reference and since the
+         */
+        assert (thing->ref > 1);
+        ti_decref(thing);
+
         if (imap_add(collection->things, thing->id, thing))
             ti_panic("unable to restore from garbage collection");
-
-        thing->flags |= TI_VFLAG_THING_SWEEP;
+        /*
+         * Do not re-set the SWEEP flag since this will be done while
+         * walking the things collection below.
+         */
     }
 
     (void) ti_sleep(2);
 
+    /*
+     * Take the current garbage size to see which things are assigned by the
+     * walk below.
+     */
+    m = collection->gc->n;
+
     (void) imap_walk(collection->things, (imap_cb) collection__gc_thing, &w);
+
+    /*
+     * Remove the marked things from the collection. This is done after the
+     * walk to prevent changes to the collection map.
+     */
+    for (queue_each(collection->gc, ti_gc_t, gc), ++idx)
+        if (idx >= m)
+            (void) imap_pop(collection->things, gc->thing->id);
 
     (void) ti_sleep(2);
 

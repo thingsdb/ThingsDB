@@ -288,11 +288,3 @@ ti_varr_t * ti_collections_info(ti_user_t * user)
     }
     return varr;
 }
-
-size_t ti_collections_marked_as_garbage(void)
-{
-    size_t n = 0;
-    for (vec_each(collections->vec, ti_collection_t, collection))
-        n += collection->gc->n;
-    return n;
-}

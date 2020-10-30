@@ -119,7 +119,7 @@ int ti_args_parse(int argc, char *argv[])
     argparse_argument_t rebuild_ = {
         .name = "rebuild",
         .shortcut = 0,
-        .help = "rebuild the node (can only be used when having >1 nodes)",
+        .help = "rebuild this node (can only be used when having >1 nodes)",
         .action = ARGPARSE_STORE_TRUE,
         .default_int32_t = 0,
         .pt_value_int32_t = &args->rebuild,
@@ -131,7 +131,7 @@ int ti_args_parse(int argc, char *argv[])
     argparse_argument_t forget_nodes_ = {
         .name = "forget-nodes",
         .shortcut = 0,
-        .help = "forget all nodes info and load ThingsDB with a single node",
+        .help = "forget all nodes info and load ThingsDB as a single node",
         .action = ARGPARSE_STORE_TRUE,
         .default_int32_t = 0,
         .pt_value_int32_t = &args->forget_nodes,

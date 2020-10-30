@@ -376,13 +376,18 @@ int ti_store_restore(void)
                         collection->enums,
                         namesmap,
                         store_collection->enums_fn) ||
+                /*
+                 * First load the things from the garbage collector; There
+                 * might be data referring to things marked as garbage if
+                 * the store was done before garbage collection took place.
+                 */
+                ti_store_gcollect_restore(
+                        collection,
+                        store_collection->gcthings_fn) ||
                 ti_store_things_restore_data(
                         collection,
                         namesmap,
                         store_collection->props_fn) ||
-                ti_store_gcollect_restore(
-                        collection,
-                        store_collection->gcthings_fn) ||
                 ti_store_gcollect_restore_data(
                         collection,
                         namesmap,

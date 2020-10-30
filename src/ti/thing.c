@@ -204,6 +204,11 @@ void ti_thing_destroy(ti_thing_t * thing)
             return;
 
         (void) imap_pop(thing->collection->things, thing->id);
+        /*
+         * It is not possible that the thing exist in garbage collection
+         * since the garbage collector hold a reference to the thing and
+         * will therefore never destroy.
+         */
     }
 
     if ((~ti.flags & TI_FLAG_SIGNAL) && ti_thing_has_watchers(thing))

@@ -19,6 +19,6 @@ static int do__f_is_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int do__f_iserr(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    log_debug("function `iserr` is deprecated, use `is_err` instead");
+    log_warning("function `iserr` is deprecated, use `is_err` instead");
     return do__f_is_err(query, nd, e);
 }

@@ -19,6 +19,6 @@ static int do__f_is_tuple(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int do__f_istuple(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    log_debug("function `istuple` is deprecated, use `is_tuple` instead");
+    log_warning("function `istuple` is deprecated, use `is_tuple` instead");
     return do__f_is_tuple(query, nd, e);
 }

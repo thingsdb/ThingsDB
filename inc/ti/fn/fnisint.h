@@ -19,6 +19,6 @@ static int do__f_is_int(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int do__f_isint(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    log_debug("function `isint` is deprecated, use `is_int` instead");
+    log_warning("function `isint` is deprecated, use `is_int` instead");
     return do__f_is_int(query, nd, e);
 }

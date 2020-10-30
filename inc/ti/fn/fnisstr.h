@@ -19,6 +19,6 @@ static int do__f_is_str(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int do__f_isstr(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    log_debug("function `isstr` is deprecated, use `is_str` instead");
+    log_warning("function `isstr` is deprecated, use `is_str` instead");
     return do__f_is_str(query, nd, e);
 }

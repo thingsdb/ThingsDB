@@ -75,7 +75,7 @@ fail0:
 
 static int do__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    log_debug("function `findindex` is deprecated, use `find_index` instead");
+    log_warning("function `findindex` is deprecated, use `find_index` instead");
     return do__f_find_index(query, nd, e);
 }
 

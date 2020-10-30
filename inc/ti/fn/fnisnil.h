@@ -19,6 +19,6 @@ static int do__f_is_nil(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int do__f_isnil(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    log_debug("function `isnil` is deprecated, use `is_nil` instead");
+    log_warning("function `isnil` is deprecated, use `is_nil` instead");
     return do__f_is_nil(query, nd, e);
 }

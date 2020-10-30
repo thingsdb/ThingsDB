@@ -1,3 +1,7 @@
+# v0.9.20-alpha-0
+
+* Enable `warning` logging for deprecated functions, issue #109.
+
 # v0.9.19
 
 * Added `export(..)` as an experimental function, issue #104.

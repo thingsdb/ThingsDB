@@ -22,6 +22,6 @@ static int do__f_is_utf8(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int do__f_isutf8(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    log_debug("function `isutf8` is deprecated, use `is_utf8` instead");
+    log_warning("function `isutf8` is deprecated, use `is_utf8` instead");
     return do__f_is_utf8(query, nd, e);
 }

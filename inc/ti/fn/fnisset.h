@@ -19,6 +19,6 @@ static int do__f_is_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int do__f_isset(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    log_debug("function `isset` is deprecated, use `is_set` instead");
+    log_warning("function `isset` is deprecated, use `is_set` instead");
     return do__f_is_set(query, nd, e);
 }

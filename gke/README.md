@@ -195,15 +195,16 @@ kubectl apply -f statefulset.yaml
 
 ## Setup nodes
 
-We can now test if ThingsDB is working. To do this we use `kubectl` port forwarding to create a connection to ThingsDB.
+We can now test if ThingsDB is working. To do this we use `kubectl port-forward` to create a connection to ThingsDB.
 
 ```bash
 kubectl port-forward thingsdb-0 9210:9210
 ```
 
-This will bind the local port `9210` to the HTTP port on the first ThingsDB node and allows for sending POST requests to query ThingsDB.
+Connections made to the local port `9210` are now forwarded to the HTTP port of the Pod that is running the first ThingsDB node and allows for sending POST requests to query ThingsDB.
 
 **Tip:** As an alternative, you might want to bind to client port `9200` and use [ThingsDB GUI](http://github.com/thingsdb/ThingsGUI/releases/latest) instead of CURL in a terminal.
+
 
 ```bash
 curl --location --request POST 'http://localhost:9210/thingsdb' \
@@ -211,7 +212,7 @@ curl --location --request POST 'http://localhost:9210/thingsdb' \
 --user admin:pass \
 --data-raw '{
     "type": "query",
-    "code": "'Hello ThingsDB on GKE!';"
+    "code": "\"Hello ThingsDB on GKE!\";"
 }'
 ```
 
@@ -230,7 +231,7 @@ Waiting for an invite from a node to join ThingsDB...
 
 You can use the following query to add this node:
 
-    new_node('thingsb-1', '10.0.0.11', 9220);
+    new_node('thingsb-1', 'thingsdb-1', 9220);
 ```
 
 Copy the `new_node(...)` part and past it into a curl command, like this:
@@ -241,7 +242,7 @@ curl --location --request POST 'http://localhost:9210/thingsdb' \
 --user admin:pass \
 --data-raw '{
     "type": "query",
-    "code": "new_node('thingsdb-1', '10.0.0.11', 9220);"
+    "code": "new_node(\"thingsdb-1\", \"thingsdb-1\", 9220);"
 }'
 ```
 
@@ -322,7 +323,7 @@ curl --location --request POST 'http://localhost:9210/node/0' \
 --user admin:pass \
 --data-raw '{
     "type": "query",
-    "code": "new_backup('gs://thingsdb-backups/node0_{DATE}_{TIME}.tar.gz', '2000-01-01 2:00', 3600*24, 14);"
+    "code": "new_backup(\"gs://thingsdb-backups/node0_{DATE}_{TIME}.tar.gz\", \"2000-01-01 2:00\", 3600*24, 14);"
 }'
 ```
 
@@ -340,7 +341,7 @@ curl --location --request POST 'http://localhost:9210/node/1' \
 --user admin:pass \
 --data-raw '{
     "type": "query",
-    "code": "new_backup('gs://thingsdb-backups/node1_{DATE}_{TIME}.tar.gz', '2000-01-02 2:00', 3600*24*7, 52);"
+    "code": "new_backup(\"gs://thingsdb-backups/node1_{DATE}_{TIME}.tar.gz\", \"2000-01-02 2:00\", 3600*24*7, 52);"
 }'
 ```
 

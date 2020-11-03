@@ -20,14 +20,14 @@ COPY --from=0 /usr/lib/libcleri* /usr/lib/
 
 # Data
 VOLUME ["/var/lib/thingsdb/"]
-# Client connections
+# Client (Socket) connections
 EXPOSE 9200
-# HTTP API connections
+# Client (HTTP) connections
 EXPOSE 9210
-# back-end connections
+# Node connections
 EXPOSE 9220
-# back-end connections
-EXPOSE 9220
+# Status (HTTP) connections
+EXPOSE 8080
 
 ENV THINGSDB_BIND_NODE_ADDR 0.0.0.0
 ENV THINGSDB_BIND_CLIENT_ADDR 0.0.0.0

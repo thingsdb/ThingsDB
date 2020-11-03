@@ -205,9 +205,6 @@ Connections made to the local port `9210` are now forwarded to the HTTP port of 
 
 **Tip:** As an alternative, you might want to bind to client port `9200` and use [ThingsDB GUI](http://github.com/thingsdb/ThingsGUI/releases/latest) instead of CURL in a terminal.
 
-```bash
-kubectl port-forward thingsdb-0 9200:9200
-```
 
 ```bash
 curl --location --request POST 'http://localhost:9210/thingsdb' \

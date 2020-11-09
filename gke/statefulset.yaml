@@ -9,7 +9,7 @@ spec:
     matchLabels:
       app: thingsdb
   serviceName: thingsdb
-  replicas: 3
+  replicas: 3  # Three nodes for redundancy
   updateStrategy:
     type: RollingUpdate
   podManagementPolicy: OrderedReady
@@ -24,9 +24,9 @@ spec:
         - thingsdb.default.svc.cluster.local
       containers:
       - name: thingsdb
-        image: thingsdb/node:gcloud-v0.9.19
+        image: thingsdb/node:gcloud-v0.9.19  # Latest version at the time of writing
         imagePullPolicy: Always
-        args: ["--deploy"]
+        args: ["--deploy"]  # Tells ThingsDB it will be deployed in Kubernetes
         env:
         - name: THINGSDB_HTTP_STATUS_PORT
           value: "8080"
@@ -81,4 +81,4 @@ spec:
       accessModes: ["ReadWriteOnce"]
       resources:
         requests:
-          storage: 20Gi
+          storage: 10Gi

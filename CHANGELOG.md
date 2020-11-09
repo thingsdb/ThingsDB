@@ -1,6 +1,7 @@
-# v0.9.20-alpha-0
+# v0.9.20
 
 * Enable `warning` logging for deprecated functions, issue #109.
+* Fixed Kubernetes compatibility, issue #111.
 
 # v0.9.19
 

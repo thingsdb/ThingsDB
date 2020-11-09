@@ -1288,6 +1288,19 @@ ti_node_t * ti_nodes_not_ready(void)
     return NULL;
 }
 
+/*
+ * Returns true if at least node is found with the off-line or connecting
+ * status. The retry counter should be at higher than 3 so we know for sure the
+ * node is really off-line, and not in the status of not connected yet.
+ */
+_Bool ti_nodes_offline_found(void)
+{
+    for (vec_each(nodes->vec, ti_node_t, node))
+        if (node->status <= TI_NODE_STAT_CONNECTING && node->retry_counter > 3)
+            return true;
+    return false;
+}
+
 /* increases with a new reference as long as required */
 void ti_nodes_write_rpkg(ti_rpkg_t * rpkg)
 {

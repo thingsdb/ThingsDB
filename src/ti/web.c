@@ -158,18 +158,37 @@ static uv_buf_t * web__get_ready_response(void)
 {
     ti_node_t * this_node = ti.node;
 
-    return (this_node && (
-            /*
-             * Exclude SYNCHRONIZATION although clients could connect
-             * during this status, this is because the `ready` handler
-             * can be used to indicate a shutdown of another node during
-             * an upgrade cycle.
-             */
-            this_node->status & (
-                TI_NODE_STAT_AWAY|
-                TI_NODE_STAT_AWAY_SOON|
-                TI_NODE_STAT_READY)
-        )) ? &web__uv_ok_buf : &web__uv_nok_buf;
+    if (!this_node)
+        return &web__uv_nok_buf;
+
+    /*
+     * Exclude SYNCHRONIZATION although clients could connect
+     * during this status, this is because the `ready` handler
+     * can be used to indicate a shutdown of another node during
+     * an upgrade cycle.
+     */
+    if (this_node->status & (
+            TI_NODE_STAT_AWAY|
+            TI_NODE_STAT_AWAY_SOON|
+            TI_NODE_STAT_READY))
+        return &web__uv_ok_buf;
+
+    /*
+     * If at least one node is off-line, and we are running using the deploy
+     * flag, then a system like Kubernetes might wait for the ready probe
+     * before spinning up the next pod and thus ThingsDB might never be able to
+     * get the ready status. The podManagementPolicy: Parallel setting in
+     * Kubernetes can solve this issue, but then you loose pod-by-pod migration
+     * when performing an update to the Kubernetes cluster. Updates to ThingsDB
+     * do work pod-by-pod, even with the podManagementPolicy settings set to
+     * Parallel. (issue #111)
+     */
+    if (ti.args->deploy &&
+        this_node->status == TI_NODE_STAT_SYNCHRONIZING &&
+        ti_nodes_offline_found())
+        return &web__uv_ok_buf;
+
+    return &web__uv_nok_buf;
 }
 
 static int web__url_cb(http_parser * parser, const char * at, size_t length)

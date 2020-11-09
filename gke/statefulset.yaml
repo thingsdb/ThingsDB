@@ -12,7 +12,7 @@ spec:
   replicas: 3
   updateStrategy:
     type: RollingUpdate
-  podManagementPolicy: Parallel
+  podManagementPolicy: OrderedReady
   template:
     metadata:
       labels:
@@ -24,7 +24,7 @@ spec:
         - thingsdb.default.svc.cluster.local
       containers:
       - name: thingsdb
-        image: thingsdb/node:gcloud-v0.9.9
+        image: thingsdb/node:gcloud-v0.9.19
         imagePullPolicy: Always
         args: ["--deploy"]
         env:

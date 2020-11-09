@@ -114,7 +114,7 @@ spec:
   replicas: 3  # Three nodes for redundancy
   updateStrategy:
     type: RollingUpdate
-  podManagementPolicy: Parallel
+  podManagementPolicy: OrderedReady
   template:
     metadata:
       labels:

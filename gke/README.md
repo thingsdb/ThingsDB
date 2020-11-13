@@ -7,6 +7,7 @@ First an overview of all the Kubernetes components we will use:
 - [Service](#serive) - For connecting to ThingsDB.
 - [ConfigMap](#configmap) - For service account credentials (Google Cloud Storage).
 - [StatefulSet](#statefulset) - For deploying ThingsDB nodes.
+- [PodDisruptionBudget](#poddisruptionbudget) - Set Disruption Budget.
 
 Next we will configure ThingsDB to use all three nodes and create a backup schedule plan.
 
@@ -114,7 +115,7 @@ spec:
   replicas: 3  # Three nodes for redundancy
   updateStrategy:
     type: RollingUpdate
-  podManagementPolicy: OrderedReady
+  podManagementPolicy: Parallel
   template:
     metadata:
       labels:
@@ -126,7 +127,7 @@ spec:
         - thingsdb.default.svc.cluster.local
       containers:
       - name: thingsdb
-        image: thingsdb/node:gcloud-v0.9.19  # Latest version at the time of writing
+        image: thingsdb/node:gcloud-v0.9.20  # Latest version at the time of writing
         imagePullPolicy: Always
         args: ["--deploy"]  # Tells ThingsDB it will be deployed in Kubernetes
         env:
@@ -302,6 +303,28 @@ The output will be something similar to this:
         "stream": "<node-out:2> 10.0.0.12:9220"
     }
 ]
+```
+
+## PodDisruptionBudget
+
+Set a pod disruption budget to make sure high availability while managing Kubernetes nodes.
+
+```yaml
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: thingsdb-pdb
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: thingsdb
+```
+
+Save the above as `pdb.yaml` and apply the PodDisruptionBudget. (or download the file [here](pdb.yaml))
+
+```
+kubectl apply -f pdb.yaml
 ```
 
 ## Schedule backups

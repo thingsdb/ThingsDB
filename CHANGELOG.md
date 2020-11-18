@@ -1,3 +1,7 @@
+# v0.9.21
+
+* Fixed internal buffer resize when formatter is used, issue #113.
+
 # v0.9.20
 
 * Enable `warning` logging for deprecated functions, issue #109.

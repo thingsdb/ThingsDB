@@ -36,6 +36,23 @@ class TestAdvanced(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_unpack(self, client):
+        res = await client.query(r'''
+            set_type('T', {
+                name: 'str',
+                age: 'int',
+            });
+
+            .t = T{name: 'test', age: 7};
+        ''')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                r'cannot directly assign properties to.*'):
+            await client.query(r'''
+                val;
+            ''', val=res, convert_vars=False)
+
     async def test_set_assign(self, client):
         res = await client.query(r'''
             t = {

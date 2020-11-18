@@ -70,14 +70,21 @@ int buf_append_fmt(buf_t * buf, const char * fmt, ...)
     va_copy(args_cp, args);
 
     nchars = vsnprintf(buf->data + buf->len, cap, fmt, args);
-    rc = nchars < 0 || (size_t) nchars > cap;  /* 0 (false) = success */
+
+    /*
+     * Must test for >= cap because vsnprintf() will always write the \0
+     * character to end the string, also when not enough space exists in the
+     * buffer. Therefore the buffer must have enough space to also contain the
+     * last terminator character.
+     */
+    rc = nchars < 0 || (size_t) nchars >= cap;  /* 0 (false) = success */
 
     if (rc)
     {
         char * tmp;
         size_t nsize = buf->cap ? buf->cap << 1 : 8192;
 
-        while((size_t) nchars > nsize)
+        while(buf->len + (size_t) nchars > nsize)
             nsize <<= 1;
 
         tmp = realloc(buf->data, nsize);
@@ -90,7 +97,7 @@ int buf_append_fmt(buf_t * buf, const char * fmt, ...)
         cap = buf->cap - buf->len;
         nchars = vsnprintf(buf->data + buf->len, cap, fmt, args_cp);
 
-        rc = nchars < 0 || (size_t) nchars > cap;  /* 0 (false) = success */
+        rc = nchars < 0 || (size_t) nchars >= cap;  /* 0 (false) = success */
     }
 
     if (rc == 0)

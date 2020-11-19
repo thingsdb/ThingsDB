@@ -59,7 +59,7 @@ void util_random_key(char * buf, size_t n)
 
     while (n--)
     {
-        unsigned int idx = (unsigned int) buf[n];
+        unsigned char idx = (unsigned char) buf[n];
         buf[n] = util__charset[idx % uril__charset_sz];
     }
 }

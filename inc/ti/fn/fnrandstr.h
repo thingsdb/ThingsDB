@@ -98,7 +98,7 @@ static int do__f_randstr(ti_query_t * query, cleri_node_t * nd, ex_t * e)
          * Get random data in batches and fill the buffer based on the
          * data.
          */
-        const size_t tmp_sz = 4;
+        const size_t tmp_sz = 64;
         unsigned int tmprand[tmp_sz];
 
         while (n)

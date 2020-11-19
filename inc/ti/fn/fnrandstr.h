@@ -49,8 +49,7 @@ static int do__f_randstr(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_VALUE_ERROR,
                     "function `randstr` requires a character set with ASCII "
-                    "characters only"
-                    DOC_RANDSTR);
+                    "characters only"DOC_RANDSTR);
             return e->nr;
         }
 

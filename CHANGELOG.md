@@ -1,3 +1,8 @@
+# v0.9.22
+
+* Added `join(..)` function, issue #114.
+* Added `randstr(..)` function, issue #115.
+
 # v0.9.21
 
 * Fixed internal buffer resize when formatter is used, issue #113.

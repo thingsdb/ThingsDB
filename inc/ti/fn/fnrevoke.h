@@ -24,7 +24,7 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     /* read user */
     if (ti_do_statement(query, (child = child->next->next)->node, e) ||
-        fn_arg_str("revoke", DOC_REVOKE, 2, query->rval, e))
+        fn_arg_str_slow("revoke", DOC_REVOKE, 2, query->rval, e))
         return e->nr;
 
     uname = (ti_raw_t *) query->rval;

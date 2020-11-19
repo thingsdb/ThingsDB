@@ -30,6 +30,23 @@ uint64_t util_now_tsec(void)
     return util__now.tv_sec;
 }
 
+void util_get_random(void * buf, size_t n)
+{
+    if (syscall(SYS_getrandom, buf, n, GRND_NONBLOCK) != (ssize_t) n)
+    {
+        log_warning(
+                "getrandom(..) has failed; "
+                "fall-back using rand() for generating random data");
+
+        unsigned char * c = buf;
+        while (n--)
+        {
+            *c = (unsigned char) (rand() % 255);
+            ++c;
+        }
+    }
+}
+
 /*
  * This will generate a random key using getrandom(..) which in turn will use
  * the `urandom` source if possible. If for some reason the getrandom(..)
@@ -38,16 +55,11 @@ uint64_t util_now_tsec(void)
  */
 void util_random_key(char * buf, size_t n)
 {
-    int success = syscall(SYS_getrandom, buf, n, GRND_NONBLOCK) == (ssize_t) n;
-
-    if (!success)
-        log_warning(
-                "getrandom(..) has failed; "
-                "fall-back using rand() for generating token");
+    util_get_random(buf, n);
 
     while (n--)
     {
-        unsigned int idx = (unsigned int) (success ? buf[n] : rand());
+        unsigned char idx = (unsigned char) buf[n];
         buf[n] = util__charset[idx % uril__charset_sz];
     }
 }

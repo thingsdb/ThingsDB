@@ -2188,6 +2188,57 @@ class TestCollectionFunctions(TestBase):
                 'randint(-0x4000000000000000, 0x4000000000000000);')
         self.assertTrue(isinstance(res, int))
 
+    async def test_randstr(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `randstr`'):
+            await client.query('nil.randstr();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `randstr` requires at least 1 character '
+                'but 0 were given'):
+            await client.query('randstr();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `randstr` takes at most 2 arguments '
+                'but 3 were given'):
+            await client.query('randstr(8, "abc", nil);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'function `randstr` requires a length between 0 an 1024'):
+            await client.query('randstr(-1);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'function `randstr` requires a length between 0 an 1024'):
+            await client.query('randstr(1025);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'function `randstr` requires a character set '
+                'with at least one ASCII charactrer'):
+            await client.query('randstr(16, "");')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'function `randstr` requires a character set '
+                'with ASCII characters only'):
+            await client.query('randstr(16, "abcԉpi");')
+
+        res = await client.query('randstr(1024);')
+        self.assertTrue(isinstance(res, str))
+        self.assertEqual(len(res), 1024)
+        self.assertLess(res, 10)
+
+        res = await client.query('randstr(10, "abc");')
+        for c in res:
+            self.assertIn(c, "abc")
+
+        self.assertEqual
+
     async def test_choice(self, client):
         with self.assertRaisesRegex(
                 LookupError,
@@ -3071,6 +3122,67 @@ class TestCollectionFunctions(TestBase):
             y = x.trim_right();
             assert (refs(x) == b + 1 );
         ''')
+
+    async def test_join(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `str` has no function `join`'):
+            await client.query('"".join();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `join` takes at most 1 argument '
+                'but 3 were given'):
+            await client.query('["Hello", "World"].join(" ", nil, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `join` expects argument 1 to be of '
+                'type `str` but got type `bytes` instead'):
+            await client.query('["Hello", "World"].join(bytes(" "));')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'expecting item 0 to be of type `str` '
+                'but got type `int` instead'):
+            await client.query('[0, "a"].join();')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'expecting item 2 to be of type `str` '
+                'but got type `bytes` instead'):
+            await client.query('["a", "b", bytes("c")].join();')
+
+        self.assertEqual(await client.query(r'''
+            [
+                [].join(),
+                [].join(""),
+                ["a"].join(),
+                ["a"].join(''),
+                ["a"].join(" - "),
+                ["a", "b"].join(),
+                ["a", "b"].join(''),
+                ["a", "b", "c"].join(),
+                ["a", "b", "c"].join(''),
+                ["a", "b", "c"].join(" - "),
+                ["Hello", "World"].join(" "),
+                range(5).map(|i| str(i)).join(' '),
+            ]
+        '''), [
+            '',
+            '',
+            'a',
+            'a',
+            'a',
+            'ab',
+            'ab',
+            'a - b',
+            'abc',
+            'abc',
+            'a - b - c',
+            'Hello World',
+            '0 1 2 3 4'
+        ])
 
     async def test_split(self, client):
         with self.assertRaisesRegex(

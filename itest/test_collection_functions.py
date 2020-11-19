@@ -2196,7 +2196,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `randstr` requires at least 1 character '
+                'function `randstr` requires at least 1 argument '
                 'but 0 were given'):
             await client.query('randstr();')
 
@@ -2208,18 +2208,18 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                'function `randstr` requires a length between 0 an 1024'):
+                'function `randstr` requires a length between 0 and 1024'):
             await client.query('randstr(-1);')
 
         with self.assertRaisesRegex(
                 ValueError,
-                'function `randstr` requires a length between 0 an 1024'):
+                'function `randstr` requires a length between 0 and 1024'):
             await client.query('randstr(1025);')
 
         with self.assertRaisesRegex(
                 ValueError,
                 'function `randstr` requires a character set '
-                'with at least one ASCII charactrer'):
+                'with at least one valid ASCII character'):
             await client.query('randstr(16, "");')
 
         with self.assertRaisesRegex(
@@ -2231,13 +2231,13 @@ class TestCollectionFunctions(TestBase):
         res = await client.query('randstr(1024);')
         self.assertTrue(isinstance(res, str))
         self.assertEqual(len(res), 1024)
-        self.assertLess(res, 10)
 
         res = await client.query('randstr(10, "abc");')
         for c in res:
             self.assertIn(c, "abc")
 
-        self.assertEqual
+        self.assertEqual(await client.query('randstr(0);'), '')
+        self.assertEqual(await client.query('randstr(3, "X");'), 'XXX')
 
     async def test_choice(self, client):
         with self.assertRaisesRegex(
@@ -3142,13 +3142,13 @@ class TestCollectionFunctions(TestBase):
             await client.query('["Hello", "World"].join(bytes(" "));')
 
         with self.assertRaisesRegex(
-                ValueError,
+                TypeError,
                 'expecting item 0 to be of type `str` '
                 'but got type `int` instead'):
             await client.query('[0, "a"].join();')
 
         with self.assertRaisesRegex(
-                ValueError,
+                TypeError,
                 'expecting item 2 to be of type `str` '
                 'but got type `bytes` instead'):
             await client.query('["a", "b", bytes("c")].join();')
@@ -3162,6 +3162,7 @@ class TestCollectionFunctions(TestBase):
                 ["a"].join(" - "),
                 ["a", "b"].join(),
                 ["a", "b"].join(''),
+                ["a", "b"].join(' - '),
                 ["a", "b", "c"].join(),
                 ["a", "b", "c"].join(''),
                 ["a", "b", "c"].join(" - "),

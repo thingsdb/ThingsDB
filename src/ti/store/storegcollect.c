@@ -169,7 +169,6 @@ int ti_store_gcollect_restore(ti_collection_t * collection, const char * fn)
                 goto fail;
             }
             thing = ti_thing_t_create(mp_thing_id.via.u64, type, collection);
-                goto fail;
         }
 
         if (!thing)

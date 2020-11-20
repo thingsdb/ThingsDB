@@ -2,6 +2,7 @@
 
 * Added `join(..)` function, issue #114.
 * Added `randstr(..)` function, issue #115.
+* Fixed bug in restoring things from the garbage collector, issue #117.
 
 # v0.9.21
 

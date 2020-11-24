@@ -380,10 +380,11 @@ int ti_type_init_from_unp(
         ti_type_t * type,
         mp_unp_t * up,
         ex_t * e,
-        _Bool with_methods)
+        _Bool with_methods,
+        _Bool with_wrap_only)
 {
     ti_name_t * name;
-    mp_obj_t obj, mp_name, mp_spec;
+    mp_obj_t obj, mp_name, mp_spec, mp_wpo;
     size_t i;
     ti_val_t * val = NULL;
     ti_raw_t * spec_raw = NULL;
@@ -439,7 +440,7 @@ int ti_type_init_from_unp(
     }
 
     if (!with_methods)
-        return e->nr;
+        return e->nr;  /* this implies that `with_wrap_only` is also false */
 
     if (mp_skip(up) != MP_STR || mp_next(up, &obj) != MP_MAP)
     {
@@ -496,6 +497,19 @@ int ti_type_init_from_unp(
         ti_decref(val);
     }
 
+    if (!with_wrap_only)
+        return 0;  /* success */
+
+    if (mp_skip(up) != MP_STR || mp_next(up, &mp_wpo) != MP_BOOL)
+    {
+        ex_set(e, EX_BAD_DATA,
+                    "failed unpacking methods for type `%s`;"
+                    "expecting a boolean as wrap-only value",
+                    type->name);
+        return e->nr;
+    }
+
+    ti_type_set_wrap_only_mode(type, mp_wpo.via.bool_);
     return 0;  /* success */
 
 failed:

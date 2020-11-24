@@ -1645,6 +1645,44 @@ class TestType(TestBase):
             self.assertEqual(await client.query(r'.test3.list[-1];'), 123)
             self.assertEqual(await client.query(r'.test3.col.len();'), 3)
 
+    async def test_wrap(self, client0):
+        await client0.query(r'''
+            new_type('_A');  // true through mod_type
+            new_type('_B');  // true through set_type
+            new_type('_C', true);  // true through new_type
+            new_type('_D', true);  // false through set_type
+            new_type('_E', true);  // false through mod_type
+
+            set_type('_A', {});
+            set_type('_B', {}, true);
+            set_type('_D', {}, false);
+            set_type('_E', {});
+
+            mod_type('_A', 'wpo', true);
+            mod_type('_E', 'wpo', false);
+        ''')
+
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await self.wait_nodes_ready(client0)
+
+        for client in (client0, client1):
+            res = await client.query('type_info("_A");')
+            self.assertTrue(res['wrap_only'])
+
+            res = await client.query('type_info("_B");')
+            self.assertTrue(res['wrap_only'])
+
+            res = await client.query('type_info("_C");')
+            self.assertTrue(res['wrap_only'])
+
+            res = await client.query('type_info("_D");')
+            self.assertFalse(res['wrap_only'])
+
+            res = await client.query('type_info("_E");')
+            self.assertFalse(res['wrap_only'])
+
 
 if __name__ == '__main__':
     run_test(TestType())

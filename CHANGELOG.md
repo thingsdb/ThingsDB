@@ -1,3 +1,7 @@
+# v0.9.23
+
+* Fixed bug in wrap-only when set by function `set_type(..)`, issue #118.
+
 # v0.9.22
 
 * Added `join(..)` function, issue #114.

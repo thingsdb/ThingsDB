@@ -1,3 +1,8 @@
+# v0.9.24
+
+* Fixed bug in `export()` function, issue #119.
+* Fixed bug in order when applying wrap-only mode, issue #120.
+
 # v0.9.23
 
 * Fixed bug in wrap-only when set by function `set_type(..)`, issue #118.

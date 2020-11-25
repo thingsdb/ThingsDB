@@ -309,7 +309,7 @@ int ti_type_init_from_thing(ti_type_t * type, ti_thing_t * thing, ex_t * e)
  * This function is called only in case when unpacking according the new
  * version has failed, so has zero impact on performance.
  */
-static int type__deprecated_init(
+static int type__deprecated_init_map(
         ti_type_t * type,
         mp_unp_t * up,
         mp_obj_t * obj,
@@ -376,15 +376,24 @@ failed:
     return e->nr;
 }
 
-int ti_type_init_from_unp(
+/*
+ * TODO: (COMPAT) This function can be removed when we want to stop support
+ * for events containing type events using the `old map` format.
+ * (Changed in version 0.9.24, 25 November 2020)
+ *
+ * This function is called only in case when unpacking according the new
+ * version has failed, so has zero impact on performance.
+ */
+static int type__deprecated_init_arr(
         ti_type_t * type,
         mp_unp_t * up,
+        mp_obj_t * arr,
         ex_t * e,
         _Bool with_methods,
         _Bool with_wrap_only)
 {
     ti_name_t * name;
-    mp_obj_t obj, mp_name, mp_spec, mp_wpo;
+    mp_obj_t obj, mp_name, mp_spec;
     size_t i;
     ti_val_t * val = NULL;
     ti_raw_t * spec_raw = NULL;
@@ -394,19 +403,32 @@ int ti_type_init_from_unp(
             .up = up,
     };
 
-    if (mp_next(up, &obj) != MP_ARR)
+    if (with_wrap_only)
     {
-        if (obj.tp == MP_MAP)
-            return type__deprecated_init(type, up, &obj, e);
+        /* Ugly fix for bug #120 */
+        const char * keep = up->pt;
+        mp_obj_t mp_wpo;
 
-        ex_set(e, EX_BAD_DATA,
-                "failed unpacking fields for type `%s`;"
-                "expecting the field as an array",
-                type->name);
-        return e->nr;
+        for (i = arr->via.sz; i--;)
+            mp_skip(up);
+
+        mp_skip(up);  /* methods (key) */
+        mp_skip(up);  /* methods (map) */
+
+        if (mp_skip(up) != MP_STR || mp_next(up, &mp_wpo) != MP_BOOL)
+        {
+            ex_set(e, EX_BAD_DATA,
+                        "failed unpacking methods for type `%s`;"
+                        "expecting a boolean as wrap-only value",
+                        type->name);
+            return e->nr;
+        }
+
+        ti_type_set_wrap_only_mode(type, mp_wpo.via.bool_);
+        up->pt = keep;
     }
 
-    for (i = obj.via.sz; i--;)
+    for (i = arr->via.sz; i--;)
     {
         if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||
             mp_next(up, &mp_name) != MP_STR ||
@@ -497,19 +519,164 @@ int ti_type_init_from_unp(
         ti_decref(val);
     }
 
-    if (!with_wrap_only)
-        return 0;  /* success */
-
-    if (mp_skip(up) != MP_STR || mp_next(up, &mp_wpo) != MP_BOOL)
+    if (with_wrap_only)
     {
+        mp_skip(up);  /* wrap-only key */
+        mp_skip(up);  /* wrap-only value */
+    }
+
+    return 0;  /* success */
+
+failed:
+    if (!e->nr)
+        ex_set_mem(e);
+
+    ti_name_drop(name);
+    ti_val_drop(val);
+    ti_val_drop((ti_val_t *) spec_raw);
+
+    return e->nr;
+}
+
+
+int ti_type_init_from_unp(
+        ti_type_t * type,
+        mp_unp_t * up,
+        ex_t * e,
+        _Bool with_methods,
+        _Bool with_wrap_only)
+{
+    ti_name_t * name;
+    mp_obj_t obj, mp_name, mp_spec;
+    size_t i;
+    ti_val_t * val = NULL;
+    ti_raw_t * spec_raw = NULL;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = type->types->collection,
+            .up = up,
+    };
+
+    if (mp_next(up, &obj) != MP_BOOL)
+    {
+        if (obj.tp == MP_ARR)
+            return type__deprecated_init_arr(
+                    type,
+                    up,
+                    &obj,
+                    e,
+                    with_methods,
+                    with_wrap_only);
+
+        if (obj.tp == MP_MAP)
+            return type__deprecated_init_map(type, up, &obj, e);
+
         ex_set(e, EX_BAD_DATA,
-                    "failed unpacking methods for type `%s`;"
-                    "expecting a boolean as wrap-only value",
-                    type->name);
+                "failed unpacking fields for type `%s`;"
+                "expecting the field as an array",
+                type->name);
         return e->nr;
     }
 
-    ti_type_set_wrap_only_mode(type, mp_wpo.via.bool_);
+    ti_type_set_wrap_only_mode(type, obj.via.bool_);
+
+    if (mp_skip(up) != MP_STR || mp_next(up, &obj) != MP_ARR)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "failed unpacking fields for type `%s`;"
+                "expecting the field as an array",
+                type->name);
+        return e->nr;
+    }
+
+    for (i = obj.via.sz; i--;)
+    {
+        if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||
+            mp_next(up, &mp_name) != MP_STR ||
+            mp_next(up, &mp_spec) != MP_STR)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "failed unpacking fields for type `%s`;"
+                    "expecting an array with two string values",
+                    type->name);
+            return e->nr;
+        }
+
+        if (!ti_name_is_valid_strn(mp_name.via.str.data, mp_name.via.str.n))
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "failed unpacking fields for type `%s`;"
+                    "fields must follow the naming rules"DOC_NAMES,
+                    type->name);
+            return e->nr;
+        }
+
+        name = ti_names_get(mp_name.via.str.data, mp_name.via.str.n);
+        spec_raw = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
+
+        if (!name || !spec_raw ||
+            !ti_field_create(name, spec_raw, type, e))
+            goto failed;
+
+        ti_decref(name);
+        ti_decref(spec_raw);
+    }
+
+    if (mp_skip(up) != MP_STR || mp_next(up, &obj) != MP_MAP)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "failed unpacking methods for type `%s`;"
+                "expecting the methods as a map",
+                type->name);
+        return e->nr;
+    }
+
+    for (i = obj.via.sz; i--;)
+    {
+        if (mp_next(up, &mp_name) != MP_STR)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "failed unpacking methods for type `%s`;"
+                    "expecting a map with a string a method name",
+                    type->name);
+            return e->nr;
+        }
+
+        if (!ti_name_is_valid_strn(mp_name.via.str.data, mp_name.via.str.n))
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "failed unpacking methods for type `%s`;"
+                    "methods must follow the naming rules"DOC_NAMES,
+                    type->name);
+            return e->nr;
+        }
+
+        name = ti_names_get(mp_name.via.str.data, mp_name.via.str.n);
+        if (!name)
+            goto failed;
+
+        val = ti_val_from_vup_e(&vup, e);
+        if (!val)
+            goto failed;
+
+        if (!ti_val_is_closure(val))
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "failed unpacking methods for type `%s`;"
+                    "methods must have type `"TI_VAL_CLOSURE_S"` as value "
+                    "but got type `%s` instead",
+                    type->name,
+                    ti_val_str(val));
+            goto failed;
+        }
+
+        if (ti_type_add_method(type, name, (ti_closure_t *) val, e))
+            goto failed;
+
+        ti_decref(name);
+        ti_decref(val);
+    }
+
     return 0;  /* success */
 
 failed:

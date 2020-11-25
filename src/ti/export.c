@@ -24,7 +24,9 @@ static int export__new_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
                 &fmt->buf,
                 (const char *) type_->rname->data,
                 type_->rname->n) ||
-        buf_append_str(&fmt->buf, "');\n")
+        (type_->flags & TI_TYPE_FLAG_WRAP_ONLY)
+          ? buf_append_str(&fmt->buf, "', true);\n")
+          : buf_append_str(&fmt->buf, "');\n")
     );
 }
 
@@ -70,13 +72,7 @@ static int export__set_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
     }
 
     --fmt->indent;
-
-    if (type_->flags & TI_TYPE_FLAG_WRAP_ONLY)
-        buf_append_str(&fmt->buf, "}, true);\n");
-    else
-        buf_append_str(&fmt->buf, "});\n");
-
-    return 0;
+    return buf_append_str(&fmt->buf, "});\n");
 }
 
 static int export__write_types(ti_fmt_t * fmt, ti_types_t * types)

@@ -249,14 +249,14 @@ int ti_task_add_set_type(ti_task_t * task, ti_type_t * type)
     mp_pack_str(&pk, "modified_at");
     msgpack_pack_uint64(&pk, type->modified_at);
 
+    mp_pack_str(&pk, "wrap_only");
+    mp_pack_bool(&pk, ti_type_is_wrap_only(type));
+
     mp_pack_str(&pk, "fields");
     ti_type_fields_to_pk(type, &pk);
 
     mp_pack_str(&pk, "methods");
     ti_type_methods_to_pk(type, &pk);
-
-    mp_pack_str(&pk, "wrap_only");
-    mp_pack_bool(&pk, ti_type_is_wrap_only(type));
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

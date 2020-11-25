@@ -578,6 +578,10 @@ int ti_type_init_from_unp(
         return e->nr;
     }
 
+    /* It is important to set wrap-only mode before initializing,
+     * since field dependencies might depend on the correct wrap-only
+     * setting.
+     */
     ti_type_set_wrap_only_mode(type, obj.via.bool_);
 
     if (mp_skip(up) != MP_STR || mp_next(up, &obj) != MP_ARR)

@@ -121,6 +121,10 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (wpo && ti_type_required_by_non_wpo(type, e))
             goto fail2;
 
+        /* It is important to set wrap-only mode before initializing,
+         * since field dependencies might depend on the correct wrap-only
+         * setting.
+         */
         ti_type_set_wrap_only_mode(type, wpo);
     }
     else if (is_new_type)

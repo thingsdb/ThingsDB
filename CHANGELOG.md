@@ -1,3 +1,9 @@
+# v0.10.0
+
+* Change local variable in scope behavior, issue #123.
+* Fixed variable in closure body, issue #122.
+* Fixed cleanup variable after exception in body, issue #121.
+
 # v0.9.24
 
 * Fixed bug in `export()` function, issue #119.

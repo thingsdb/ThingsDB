@@ -57,12 +57,48 @@ class TestAdvanced(TestBase):
                 LookupError,
                 r'variable `x` is undefined'):
             await client.query(r'''
-                try({
+                try((|| {
                     x = {};
                     x.x = x;
                     1 / 0;
-                });
+                }).call());
                 x;  // should error, x is defined outside this scope
+            ''')
+
+    async def test_scope_new(self, client):
+        res = await client.query(r'''
+            a = 1;
+            {
+                a = 2;
+            };
+            a;
+        ''')
+        self.assertEqual(res, 2)
+        res = await client.query(r'''
+            a = 1;
+            (|| {
+                a = 2;
+            }).call();
+            a;
+        ''')
+        self.assertEqual(res, 1)
+
+    async def test_combined(self, client):
+        self.assertIs(await client.query(r'''
+            range(1).each(|i|
+                (i || a = 1) &&
+                (a += i)
+            );
+        '''), None)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'variable `a` is undefined'):
+            await client.query(r'''
+                range(2).each(|i|
+                    (i || a = 1) &&
+                    (a += i)
+                );
             ''')
 
     async def test_unpack(self, client):
@@ -175,10 +211,10 @@ class TestAdvanced(TestBase):
             .del('aa');
             set_type('AA', {
                 a: 'int',
-            }, {
+            }, (||{
                 aa = AA{};
                 false
-            });
+            }).call());
             AA{};
         ''')
         self.assertEqual(res, {'a': 0})

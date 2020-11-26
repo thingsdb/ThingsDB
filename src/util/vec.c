@@ -75,7 +75,7 @@ void vec_move(vec_t * vec, uint32_t pos, uint32_t n, uint32_t to)
     {
         i = gcd;
         tmp = vec->data[i + pos];
-        for (_ = m; _ < m; ++_)
+        for (_ = 0; _ < m; ++_)
         {
             j = (i + n) % range;
             vec->data[i + pos] = vec->data[j + pos];

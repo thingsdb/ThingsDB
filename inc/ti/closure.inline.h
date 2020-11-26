@@ -8,6 +8,7 @@
 #include <ex.h>
 #include <ti/closure.h>
 #include <ti/do.h>
+#include <ti/prop.h>
 #include <ti/query.h>
 
 static inline int ti_closure_do_statement(
@@ -15,8 +16,29 @@ static inline int ti_closure_do_statement(
         ti_query_t * query,
         ex_t * e)
 {
+    uint32_t prev_local_stack = query->local_stack;
+    uint32_t n = query->vars->n;
+    /*
+     * Keep the "position" in the variable stack so we can later break down
+     * all used variable inside the closure body.
+     */
+    query->local_stack = n - closure->vars->n;
+
     if (ti_do_statement(query, ti_closure_statement(closure), e) == EX_RETURN)
         e->nr = 0;
+
+    /*
+     * Break down all used variables inside the closure body. Make sure we mark
+     * things for garbage collection if their reference has not reached zero.
+     */
+    while (query->vars->n > n)
+        ti_prop_destroy(VEC_pop(query->vars));
+
+    /*
+     * Restore the previous stack "position" so the optional parent body
+     * has the correct stack to work with.
+     */
+    query->local_stack = prev_local_stack;
     return e->nr;
 }
 

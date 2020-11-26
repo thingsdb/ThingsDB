@@ -36,6 +36,35 @@ class TestAdvanced(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_closure_scope(self, client):
+        res = await client.query(r'''
+            a = 1;
+            (|| a = 2).call();
+            a;  // should be 1, not 2 as the closure should have it's own scope
+        ''')
+        self.assertEqual(res, 1)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'variable `a` is undefined'):
+            await client.query(r'''
+                (|| a = 2).call();
+                a;  // should be undefined
+            ''')
+
+    async def test_block_cleanup(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                r'variable `x` is undefined'):
+            await client.query(r'''
+                try({
+                    x = {};
+                    x.x = x;
+                    1 / 0;
+                });
+                x;  // should error, x is defined outside this scope
+            ''')
+
     async def test_unpack(self, client):
         res = await client.query(r'''
             set_type('T', {

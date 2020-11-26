@@ -563,11 +563,10 @@ static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     do
     {
-        if (ti_do_statement(query, child->node, e))
-            return e->nr;
-
-        if (!child->next || !(child = child->next->next))
-            break;
+        if (ti_do_statement(query, child->node, e) ||
+            !child->next ||
+            !(child = child->next->next)
+        ) break;
 
         ti_val_unsafe_drop(query->rval);
         query->rval = NULL;

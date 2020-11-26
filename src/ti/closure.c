@@ -325,6 +325,10 @@ int ti_closure_inc(ti_closure_t * closure, ti_query_t * query, ex_t * e)
 {
     uint32_t n = closure->vars->n;
 
+    /* set correct block stack */
+    closure->stack_pos[closure->depth].prev_block_stack = query->block_stack;
+    query->block_stack = query->vars->n;
+
     switch (closure->depth)
     {
     case TI_CLOSURE_MAX_RECURSION_DEPTH:
@@ -332,14 +336,15 @@ int ti_closure_inc(ti_closure_t * closure, ti_query_t * query, ex_t * e)
                 "maximum recursion depth exceeded"DOC_CLOSURE);
         return -1;
     case 0:
+
         if (n && vec_extend(&query->vars, closure->vars->data, n))
             goto err_alloc;
         break;
     default:
         if (n)
         {
-            uint32_t pos = closure->stack_pos[closure->depth-1] - n;
-            uint32_t to = query->vars->n - n;
+            uint32_t pos = closure->stack_pos[closure->depth-1].pos - n;
+            query->block_stack -= n;
 
             if (vec_reserve(&closure->stacked, n))
                 goto err_alloc;
@@ -349,11 +354,14 @@ int ti_closure_inc(ti_closure_t * closure, ti_query_t * query, ex_t * e)
                 VEC_push(closure->stacked, p->val);
                 ti_incref(p->val);
             }
-            vec_move(query->vars, pos, n, to);
+            vec_move(query->vars, pos, n, query->block_stack);
+            break;
         }
     }
 
-    closure->stack_pos[closure->depth++] = query->vars->n;
+    closure->stack_pos[closure->depth].pos = query->vars->n;
+    closure->depth++;
+
     return 0;
 
 err_alloc:
@@ -365,15 +373,18 @@ err_alloc:
 void ti_closure_dec(ti_closure_t * closure, ti_query_t * query)
 {
     uint32_t n = closure->vars->n;
-    uint32_t pos = closure->stack_pos[--closure->depth];
+    uint32_t pos = closure->stack_pos[--closure->depth].pos;
 
     /* drop temporary added props */
     while (query->vars->n > pos)
         ti_prop_destroy(VEC_pop(query->vars));
 
+    /* restore block stack */
+    query->block_stack = closure->stack_pos[closure->depth].prev_block_stack;
+
     if (closure->depth)
     {
-        uint32_t to = closure->stack_pos[closure->depth-1];
+        uint32_t to = closure->stack_pos[closure->depth-1].pos;
 
         /* restore property values */
         for (vec_each_rev(closure->vars, ti_prop_t, p))

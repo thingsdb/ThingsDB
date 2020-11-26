@@ -13,12 +13,6 @@ typedef struct ti_closure_s ti_closure_t;
 #include <inttypes.h>
 #include <util/vec.h>
 
-typedef struct
-{
-    uint32_t pos;
-    uint32_t prev_block_stack;
-} ti_stacked_t;
-
 /*
  * Reserve 1024 bytes for a closure
  */
@@ -31,7 +25,7 @@ struct ti_closure_s
     vec_t * vars;               /* ti_prop_t - arguments */
     vec_t * stacked;            /* ti_val_t - stacked values */
     cleri_node_t * node;
-    ti_stacked_t stack_pos[TI_CLOSURE_MAX_RECURSION_DEPTH];
+    uint32_t stack_pos[TI_CLOSURE_MAX_RECURSION_DEPTH];
 };
 
 #endif  /* TI_CLOSURE_T_H_ */

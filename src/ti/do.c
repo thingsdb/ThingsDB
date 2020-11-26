@@ -547,19 +547,8 @@ static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_BLOCK);
 
-    /*
-     * This "block" will overwrite the stack position so keep the previous
-     * value in case this block is nested inside another block.
-     */
-    uint32_t prev_block_stack = query->block_stack;
     cleri_children_t * child= nd->children->next->next
             ->node->children;  /* first child, not empty */
-
-    /*
-     * Keep the "position" in the variable stack so we can later break down
-     * all used variable inside the block.
-     */
-    query->block_stack = query->vars->n;
 
     do
     {
@@ -573,18 +562,6 @@ static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     while (1);
 
-    /*
-     * Break down all used variables inside the block. Make sure we mark
-     * things for garbage collection if their reference has not reached zero.
-     */
-    while (query->vars->n > query->block_stack)
-        ti_prop_destroy(VEC_pop(query->vars));
-
-    /*
-     * Restore the previous stack "position" so the optional parent block
-     * has the correct block_stack to work with.
-     */
-    query->block_stack = prev_block_stack;
     return e->nr;
 }
 
@@ -1419,7 +1396,7 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto alloc_err;
 
     /*
-     * Check if the `prop` already is available in this block scope on the
+     * Check if the `prop` already is available in this scope on the
      * stack, and if * this is the case, then update the `prop` value with the
      * new value and return.
      */
@@ -1433,7 +1410,7 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     /*
-     * Create a new `prop` and store the `prop` in this block scope on the
+     * Create a new `prop` and store the `prop` in this scope on the
      * stack. Only allocation errors might screw things up.
      */
     ti_incref(name);

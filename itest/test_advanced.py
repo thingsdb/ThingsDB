@@ -69,15 +69,15 @@ class TestAdvanced(TestBase):
         res = await client.query(r'''
             a = 1;
             {
-            a = 2;
-            }
+                a = 2;
+            };
             a;
         ''')
         self.assertEqual(res, 2)
         res = await client.query(r'''
             a = 1;
             (|| {
-            a = 2;
+                a = 2;
             }).call();
             a;
         ''')

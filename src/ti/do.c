@@ -543,7 +543,7 @@ static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             : do__function_call(query, nd, e);
 }
 
-static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_BLOCK);
 
@@ -554,8 +554,8 @@ static int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         if (ti_do_statement(query, child->node, e) ||
             !child->next ||
-            !(child = child->next->next)
-        ) break;
+            !(child = child->next->next))
+            break;
 
         ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
@@ -1299,10 +1299,10 @@ static inline int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 static inline ti_prop_t * do__prop_scope(ti_query_t * query, ti_name_t * name)
 {
     register uint32_t n = query->vars->n;
-    register uint32_t end = query->block_stack;
+    register uint32_t end = query->local_stack;
 
     /*
-     * End is the position in the variable stack where this block scope has
+     * End is the position in the variable stack where this body has
      * started, therefore we start at the end and then look back until
      * the "end" position in the stack.
      */

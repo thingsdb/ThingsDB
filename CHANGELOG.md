@@ -4,6 +4,7 @@
 * Fixed variable in closure body, issue #122.
 * Fixed cleanup variable after exception in body, issue #121.
 * Reserve `date`, `time` and `datetime` names, issue #125.
+* Changed exception when trying to delete an online node, issue #126.
 
 # v0.9.24
 

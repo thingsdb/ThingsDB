@@ -25,3 +25,13 @@ docker build -t thingsdb/itest -f itest/Dockerfile .
 docker run thingsdb/itest:latest
 ```
 
+Or, if you want all the output:
+
+```
+docker run \
+    -e THINGSDB_VERBOSE=1 \
+    -e THINGSDB_MEMCHECK=1 \
+    -e THINGSDB_LOGLEVEL=debug \
+    -e THINGSDB_NODE_OUTPUT=true \
+    thingsdb/itest:latest
+```

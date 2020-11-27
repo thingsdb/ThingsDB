@@ -27,8 +27,11 @@ class TestUserAccess(TestBase):
 
         await self.node0.init_and_run()
 
+        await asyncio.sleep(3)
+
         with self.assertRaisesRegex(AuthError, 'invalid username or password'):
-            await get_client(self.node0, auth=['test1', 'test'])
+            await get_client(
+                self.node0, auth=['test1', 'test'], auto_reconnect=False)
 
         client = await get_client(self.node0)
 
@@ -139,7 +142,8 @@ class TestUserAccess(TestBase):
 
         # should not be possible to create a new client
         with self.assertRaisesRegex(AuthError, 'invalid username or password'):
-            await get_client(self.node0, auth=['test1', 'test'])
+            await get_client(
+                self.node0, auth=['test1', 'test'], auto_reconnect=False)
 
         testcl1.close()
         client.close()

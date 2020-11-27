@@ -4,7 +4,7 @@ from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
-from thingsdb.exceptions import NodeError
+from thingsdb.exceptions import OperationError
 
 
 class TestNodes(TestBase):
@@ -29,7 +29,7 @@ class TestNodes(TestBase):
             self.assertEqual(node_info.get('node_id'), id)
 
         with self.assertRaisesRegex(
-                NodeError,
+                OperationError,
                 r'`node:2` is still active; '
                 r'shutdown the node before removal'):
             await client.query(r'del_node(2);')

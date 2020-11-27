@@ -137,6 +137,17 @@ class TestType(TestBase):
         await client.query('''types_info();''')
 
     async def test_new_type(self, client):
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'name `datetime` is reserved'):
+            await client.query(r''' set_type('datetime', {}); ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'name `closure` is reserved'):
+            await client.query(r''' new_type('closure', {}); ''')
+
         await client.query(r'''
             set_type('User', {
                 name: 'str',
@@ -886,7 +897,7 @@ class TestType(TestBase):
             del_type('Bar');
         ''')
 
-    async def test_del_type(self, client):
+    async def test_type_mismatch(self, client):
         await client.query(r'''
             new_type('Tic');
             new_type('Tac');

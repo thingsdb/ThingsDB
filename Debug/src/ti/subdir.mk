@@ -23,6 +23,7 @@ C_SRCS += \
 ../src/ti/connect.c \
 ../src/ti/counters.c \
 ../src/ti/data.c \
+../src/ti/datetime.c \
 ../src/ti/do.c \
 ../src/ti/enum.c \
 ../src/ti/enums.c \
@@ -118,6 +119,7 @@ OBJS += \
 ./src/ti/connect.o \
 ./src/ti/counters.o \
 ./src/ti/data.o \
+./src/ti/datetime.o \
 ./src/ti/do.o \
 ./src/ti/enum.o \
 ./src/ti/enums.o \
@@ -213,6 +215,7 @@ C_DEPS += \
 ./src/ti/connect.d \
 ./src/ti/counters.d \
 ./src/ti/data.d \
+./src/ti/datetime.d \
 ./src/ti/do.d \
 ./src/ti/enum.d \
 ./src/ti/enums.d \

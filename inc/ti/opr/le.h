@@ -48,19 +48,17 @@ static int opr__le(ti_val_t * a, ti_val_t ** b, ex_t * e)
         bool_ = VBOOL(a) <= VBOOL(*b);
         break;
 
-    case OPR_MP_MP:
-    case OPR_MP_NAME:
-    case OPR_MP_STR:
-    case OPR_MP_BYTES:
-    case OPR_NAME_MP:
+    case OPR_DATETIME_DATETIME:
+        bool_ = DATETIME(a) <= DATETIME(*b);
+        break;
+
     case OPR_NAME_NAME:
     case OPR_NAME_STR:
     case OPR_NAME_BYTES:
-    case OPR_STR_MP:
+    case OPR_STR_DATETIME:
     case OPR_STR_NAME:
     case OPR_STR_STR:
     case OPR_STR_BYTES:
-    case OPR_BYTES_MP:
     case OPR_BYTES_NAME:
     case OPR_BYTES_STR:
     case OPR_BYTES_BYTES:

@@ -26,6 +26,7 @@
 #define TI_VAL_SET_S        "set"
 #define TI_VAL_CLOSURE_S    "closure"
 #define TI_VAL_ERROR_S      "error"
+#define TI_VAL_DATETIME_S   "datetime"
 
 /* negative value is used for packing tasks */
 #define TI_VAL_PACK_TASK -1
@@ -39,6 +40,7 @@
 #define TI_KIND_S_ERROR     "!"
 #define TI_KIND_S_WRAP      "&"
 #define TI_KIND_S_MEMBER    "%"
+#define TI_KIND_S_DATETIME  "'"
 
 typedef enum
 {
@@ -46,7 +48,7 @@ typedef enum
     TI_VAL_INT,
     TI_VAL_FLOAT,
     TI_VAL_BOOL,
-    TI_VAL_MP,          /* msgpack data */
+    TI_VAL_DATETIME,
     TI_VAL_NAME,
     TI_VAL_STR,
     TI_VAL_BYTES,       /* MP,STR and BIN all use RAW as underlying type */
@@ -58,6 +60,7 @@ typedef enum
     TI_VAL_CLOSURE,
     TI_VAL_ERROR,
     TI_VAL_MEMBER,      /* enum member */
+    TI_VAL_MP,          /* msgpack data */
     TI_VAL_TEMPLATE,    /* template to generate TI_VAL_STR
                            note that a template is never stored like a value,
                            rather it may build from either a query or a stored
@@ -120,6 +123,7 @@ typedef enum
     TI_KIND_C_ERROR     ='!',
     TI_KIND_C_WRAP      ='&',
     TI_KIND_C_MEMBER    ='%',
+    TI_KIND_C_DATETIME = '\'',
 } ti_val_kind;
 
 typedef struct ti_val_s ti_val_t;

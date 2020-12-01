@@ -21,6 +21,7 @@ struct ti_collection_s
     uint32_t ref;
     guid_t guid;            /* derived from collection->root->id */
     uint64_t created_at;    /* UNIX time-stamp in seconds */
+    ti_raw_t * timezone;
     ti_raw_t * name;
     imap_t * things;        /* weak map for ti_thing_t */
     queue_t * gc;           /* ti_gc_t */

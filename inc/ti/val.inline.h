@@ -7,6 +7,7 @@
 #include <ex.h>
 #include <ti/closure.h>
 #include <ti/collection.h>
+#include <ti/datetime.h>
 #include <ti/name.h>
 #include <ti/thing.h>
 #include <ti/thing.inline.h>
@@ -351,6 +352,8 @@ static inline int ti_val_make_variable(ti_val_t ** val, ex_t * e)
         return VBOOL(val__) \
                 ? msgpack_pack_true(pk__) \
                 : msgpack_pack_false(pk__); \
+    case TI_VAL_DATETIME: \
+        return ti_datetime_to_pk((ti_datetime_t *) val__, pk__, options__) \
     case TI_VAL_MP: \
     { \
         ti_raw_t * r__ = (ti_raw_t *) val__; \

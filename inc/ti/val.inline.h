@@ -51,6 +51,11 @@ static inline _Bool ti_val_is_bool(ti_val_t * val)
     return val->tp == TI_VAL_BOOL;
 }
 
+static inline _Bool ti_val_is_datetime(ti_val_t * val)
+{
+    return val->tp == TI_VAL_DATETIME;
+}
+
 static inline _Bool ti_val_is_closure(ti_val_t * val)
 {
     return val->tp == TI_VAL_CLOSURE;

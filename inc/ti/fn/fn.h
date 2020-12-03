@@ -19,6 +19,7 @@
 #include <ti/closure.h>
 #include <ti/closure.inline.h>
 #include <ti/collections.h>
+#include <ti/datetime.h>
 #include <ti/do.h>
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>

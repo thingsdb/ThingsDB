@@ -66,9 +66,10 @@ int main(int argc, char * argv[])
     /* set thread-pool size to 4 (default=4) */
     putenv("UV_THREADPOOL_SIZE=4");
 
-    /* set default time-zone to UTC */
+    /* TODO: set default time-zone to UTC
     putenv("TZ=:UTC");
     tzset();
+    */
 
     printf(
 "   _____ _   _             ____  _____    \n"

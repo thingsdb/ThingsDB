@@ -62,6 +62,13 @@ static ti_val_t * val__tar_gz_str;
 static ti_val_t * val__gs_str;
 static ti_val_t * val__charset_str;
 static ti_val_t * val__utc_str;
+static ti_val_t * val__year_str;
+static ti_val_t * val__month_str;
+static ti_val_t * val__day_str;
+static ti_val_t * val__hour_str;
+static ti_val_t * val__minute_str;
+static ti_val_t * val__second_str;
+static ti_val_t * val__gmt_offset_str;
 
 
 #define VAL__BUF_SZ 128
@@ -349,6 +356,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
     case TI_VAL_MP:
     case TI_VAL_NAME:
     case TI_VAL_STR:
@@ -524,6 +532,14 @@ int ti_val_init_common(void)
             "abcdefghijklmnopqrstuvwxyz"
             "-_");
     val__utc_str = (ti_val_t *) ti_str_from_str("UTC");
+    val__year_str = (ti_val_t *) ti_str_from_str("year");
+    val__month_str = (ti_val_t *) ti_str_from_str("month");
+    val__day_str = (ti_val_t *) ti_str_from_str("day");
+    val__hour_str = (ti_val_t *) ti_str_from_str("hour");
+    val__minute_str = (ti_val_t *) ti_str_from_str("minute");
+    val__second_str = (ti_val_t *) ti_str_from_str("second");
+    val__gmt_offset_str = (ti_val_t *) ti_str_from_str("gmt_offset");
+
 
     if (!val__empty_bin || !val__empty_str || !val__snil || !val__strue ||
         !val__sfalse || !val__sbool || !val__sdatetime || !val__sint ||
@@ -531,7 +547,9 @@ int ti_val_init_common(void)
         !val__sregex || !val__serror || !val__sclosure || !val__slist ||
         !val__stuple || !val__sset || !val__sthing || !val__swthing ||
         !val__tar_gz_str || !val__sany || !val__gs_str || !val__charset_str ||
-        !val__utc_str)
+        !val__utc_str || !val__year_str || !val__month_str || !val__day_str ||
+        !val__hour_str || !val__minute_str || !val__second_str ||
+        !val__gmt_offset_str)
     {
         ti_val_drop_common();
         return -1;
@@ -566,6 +584,13 @@ void ti_val_drop_common(void)
     ti_val_drop(val__gs_str);
     ti_val_drop(val__charset_str);
     ti_val_drop(val__utc_str);
+    ti_val_drop(val__year_str);
+    ti_val_drop(val__month_str);
+    ti_val_drop(val__day_str);
+    ti_val_drop(val__hour_str);
+    ti_val_drop(val__minute_str);
+    ti_val_drop(val__second_str);
+    ti_val_drop(val__gmt_offset_str);
 }
 
 void ti_val_destroy(ti_val_t * val)
@@ -699,6 +724,50 @@ ti_val_t * ti_val_utc_str(void)
     return val__utc_str;
 }
 
+ti_val_t * ti_val_year_str(void)
+{
+    ti_incref(val__year_str);
+    return val__year_str;
+}
+
+ti_val_t * ti_val_month_str(void)
+{
+    ti_incref(val__month_str);
+    return val__month_str;
+}
+
+ti_val_t * ti_val_day_str(void)
+{
+    ti_incref(val__day_str);
+    return val__day_str;
+}
+
+ti_val_t * ti_val_hour_str(void)
+{
+    ti_incref(val__hour_str);
+    return val__hour_str;
+}
+
+ti_val_t * ti_val_minute_str(void)
+{
+    ti_incref(val__minute_str);
+    return val__minute_str;
+}
+
+ti_val_t * ti_val_second_str(void)
+{
+    ti_incref(val__second_str);
+    return val__second_str;
+}
+
+ti_val_t * ti_val_gmt_offset_str(void)
+{
+    ti_incref(val__gmt_offset_str);
+    return val__gmt_offset_str;
+}
+
+
+
 /*
  * Returns an address to the `access` object by a given value and set the
  * argument `scope_id` to the collection ID, or TI_SCOPE_THINGSDB or
@@ -803,7 +872,7 @@ int ti_val_convert_to_str(ti_val_t ** val, ex_t * e)
         break;
 
     case TI_VAL_DATETIME:
-        v = ti_datetime_to_str((ti_datetime_t *) *val, e);
+        v = (ti_val_t *) ti_datetime_to_str((ti_datetime_t *) *val, e);
         if (!v)
             return e->nr;
         break;

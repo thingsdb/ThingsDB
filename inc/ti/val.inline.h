@@ -222,6 +222,7 @@ static inline void ti_val_attach(
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
     case TI_VAL_MP:
     case TI_VAL_NAME:
     case TI_VAL_STR:
@@ -269,6 +270,7 @@ static inline int ti_val_make_assignable(
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
     case TI_VAL_MP:
     case TI_VAL_NAME:
     case TI_VAL_STR:
@@ -314,6 +316,7 @@ static inline int ti_val_make_variable(ti_val_t ** val, ex_t * e)
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
     case TI_VAL_MP:
     case TI_VAL_NAME:
     case TI_VAL_STR:
@@ -353,7 +356,7 @@ static inline int ti_val_make_variable(ti_val_t ** val, ex_t * e)
                 ? msgpack_pack_true(pk__) \
                 : msgpack_pack_false(pk__); \
     case TI_VAL_DATETIME: \
-        return ti_datetime_to_pk((ti_datetime_t *) val__, pk__, options__) \
+        return ti_datetime_to_pk((ti_datetime_t *) val__, pk__, options__); \
     case TI_VAL_MP: \
     { \
         ti_raw_t * r__ = (ti_raw_t *) val__; \

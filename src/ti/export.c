@@ -138,6 +138,7 @@ static int export__set_enum_cb(ti_enum_t * enum_, ti_fmt_t * fmt)
             {
             case TI_VAL_NIL:
             case TI_VAL_BOOL:
+            case TI_VAL_DATETIME:
             case TI_VAL_REGEX:
             case TI_VAL_WRAP:
             case TI_VAL_ARR:

@@ -27,7 +27,7 @@ struct ti_datetime_s
 
 ti_datetime_t * ti_datetime_from_i64(int64_t ts, int16_t offset);
 ti_datetime_t * ti_datetime_from_double(double d, int16_t offset, ex_t * e);
-ti_raw_t * ti_datetime_to_str(ti_datetime_t * dt);
+ti_raw_t * ti_datetime_to_str(ti_datetime_t * dt, ex_t * e);
 int ti_datetime_to_pk(ti_datetime_t * dt, msgpack_packer * pk, int options);
 
 #endif  /* TI_DATETIME_H_ */

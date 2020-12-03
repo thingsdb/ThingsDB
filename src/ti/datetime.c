@@ -3,9 +3,12 @@
  */
 #define _GNU_SOURCE
 #include <ti/datetime.h>
+#include <ti/val.t.h>
+#include <ti/raw.inline.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <ctype.h>
 
 /*
  * Arguments `ts` is in seconds, `offset` in minutes.
@@ -20,7 +23,7 @@ ti_datetime_t * ti_datetime_from_i64(int64_t ts, int16_t offset)
     return dt;
 }
 
-static ti_datetime_t * datetime__from_str(,
+static ti_datetime_t * datetime__from_str(
         ti_raw_t * str,
         const char * fmt,
         _Bool with_offset,
@@ -30,8 +33,8 @@ static ti_datetime_t * datetime__from_str(,
     time_t ts;
     long int offset = 0;
     struct tm tm;
-    static size_t buf_sz = 80;
-    static char * buf[buf_sz];
+    const size_t buf_sz = 80;
+    char buf[buf_sz];
     char * c;
 
     if (str->n >= buf_sz)
@@ -170,13 +173,17 @@ ti_datetime_t * ti_datetime_from_str(ti_raw_t * str, ex_t * e)
     return NULL;
 }
 
+#define DATETIME__BUF_SZ 32
+static char datetime__buf[DATETIME__BUF_SZ];
+static const char * datetime__fmt_zone = "%Y-%m-%dT%H:%M:%S%z";
+static const char * datetime__fmp_utc = "%Y-%m-%dT%H:%M:%SZ";
+
+
 ti_datetime_t * ti_datetime_from_fmt(ti_raw_t * str, ti_raw_t * fmt, ex_t * e)
 {
-    static size_t buf_sz = 30;
-    static char * buf[buf_sz];
     _Bool with_offset;
 
-    if (fmt->n < 2 || fmt->n >= buf_sz)
+    if (fmt->n < 2 || fmt->n >= DATETIME__BUF_SZ)
     {
         ex_set(e, EX_VALUE_ERROR, "invalid datetime format (wrong size)");
         return NULL;
@@ -184,17 +191,17 @@ ti_datetime_t * ti_datetime_from_fmt(ti_raw_t * str, ti_raw_t * fmt, ex_t * e)
 
     with_offset = fmt->data[fmt->n-2] == '%' && fmt->data[fmt->n-2] == 'z';
 
-    memcpy(buf, fmt->data, fmt->n);
-    buf[fmt->n] = '\0';
+    memcpy(datetime__buf, fmt->data, fmt->n);
+    datetime__buf[fmt->n] = '\0';
 
-    return datetime__from_str(str, buf, with_offset, e);
+    return datetime__from_str(str, datetime__buf, with_offset, e);
 }
 
 /*
  * Returns `0` when failed (with `e` set), otherwise the number of chars
  * written inside the given buffer.
  */
-static size_t datetime__get_buf(
+static size_t datetime__write(
         ti_datetime_t * dt,
         char * buf,
         size_t buf_sz,
@@ -235,29 +242,48 @@ static size_t datetime__get_buf(
 ti_raw_t * ti_datetime_to_str(ti_datetime_t * dt, ex_t * e)
 {
     ti_raw_t * str;
-    static size_t buf_sz = 32;
-    static char * buf[buf_sz];
-    static const char * fo = "%Y-%m-%dT%H:%M:%S%z";
-    static const char * fu = "%Y-%m-%dT%H:%M:%SZ";
-    size_t sz = datetime__get_buf(dt, &buf, buf_sz, dt->offset ? fo : fu, e);
+    size_t sz = datetime__write(
+            dt,
+            datetime__buf,
+            DATETIME__BUF_SZ,
+            dt->offset ? datetime__fmt_zone : datetime__fmp_utc,
+            e);
     if (!sz)
-        return NULL;
+        return NULL;  /* e is set */
 
-    str = ti_str_create(&buf, sz);
+    str = ti_str_create(datetime__buf, sz);
     if (!str)
         ex_set_mem(e);
     return str;
 }
 
+/*
+ * This function is not thread safe.
+ */
 int ti_datetime_to_pk(ti_datetime_t * dt, msgpack_packer * pk, int options)
 {
     if (options >= 0)
     {
         /* pack client result, convert to string */
+        ex_t e = {0};
+        size_t sz = datetime__write(
+                dt,
+                datetime__buf,
+                DATETIME__BUF_SZ,
+                dt->offset ? datetime__fmt_zone : datetime__fmp_utc,
+                &e);
+        if (sz)
+            return mp_pack_strn(pk, datetime__buf, sz);
+        else  /* fall-back to time-stamp 0 on conversion error */
+            return mp_pack_str(pk, "1970-01-01T00:00:00Z");
     }
-    else
-    {
-        /* pack internal/event, pack values */
-    }
+
+    return (
+        msgpack_pack_map(pk, 1) ||
+        mp_pack_strn(pk, TI_KIND_S_DATETIME, 1) ||
+        msgpack_pack_array(pk, 2) ||
+        msgpack_pack_int64(pk, dt->ts) ||
+        msgpack_pack_int16(pk, dt->offset)
+    );
 }
 

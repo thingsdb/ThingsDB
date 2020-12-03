@@ -313,6 +313,7 @@ ti_member_t * ti_enum_member_by_val_e(
     {
     case TI_VAL_NIL:
     case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
     case TI_VAL_MP:
     case TI_VAL_REGEX:
     case TI_VAL_WRAP:

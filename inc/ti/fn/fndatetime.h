@@ -6,9 +6,6 @@ static int fn__datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     struct tm tm;
     cleri_children_t * child = nd->children;
     int64_t i;
-    time_t ts;
-    ti_datetime_t * dt;
-    int mday;  /* saved for parse check */
 
     assert (langdef_nd_n_function_params(nd) >= 3);
 
@@ -107,7 +104,7 @@ static int fn__datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    mday = tm.tm_mday = (int) i;
+    tm.tm_mday = (int) i;
 
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
@@ -250,25 +247,11 @@ static int fn__datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
 done:
-    ts = mktime(&tm);
-
-    if (tm.tm_mday != mday)
-    {
-        ex_set(e, EX_VALUE_ERROR,
-                "day %s is out of range for month"DOC_DATETIME,
-                mday);
-        return e->nr;
-    }
-
-    dt = ti_datetime_from_i64(ts, 0);
-    if (!dt)
-    {
-        ex_set_mem(e);
-        return e->nr;
-    }
 
     if (query->rval)
     {
+        ti_datetime_t * dt;
+
         if (child && child->next)
         {
             ex_set(e, EX_TYPE_ERROR,
@@ -278,15 +261,14 @@ done:
             return e->nr;
         }
 
-        /* calculate time zone info */
-        (void) (
-            ti_datetime_to_zone(dt, (ti_raw_t *) query->rval, e) ||
-            ti_datetime_localize(dt, e));
+        dt = ti_datetime_from_tm_tzinfo(&tm, (ti_raw_t *) query->rval, e);
 
         ti_val_unsafe_drop(query->rval);
+        query->rval = (ti_val_t *) dt;
     }
+    else
+        query->rval = (ti_val_t *) ti_datetime_from_tm(&tm, e);
 
-    query->rval = (ti_val_t *) dt;  /* may be NULL */
     return e->nr;
 }
 

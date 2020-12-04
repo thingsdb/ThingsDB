@@ -13,6 +13,7 @@
 #include <ti/enums.inline.h>
 #include <ti/member.h>
 #include <ti/member.inline.h>
+#include <ti/names.h>
 #include <ti/nil.h>
 #include <ti/prop.h>
 #include <ti/proto.h>
@@ -61,14 +62,13 @@ static ti_val_t * val__swthing;
 static ti_val_t * val__tar_gz_str;
 static ti_val_t * val__gs_str;
 static ti_val_t * val__charset_str;
-static ti_val_t * val__utc_str;
-static ti_val_t * val__year_str;
-static ti_val_t * val__month_str;
-static ti_val_t * val__day_str;
-static ti_val_t * val__hour_str;
-static ti_val_t * val__minute_str;
-static ti_val_t * val__second_str;
-static ti_val_t * val__gmt_offset_str;
+static ti_val_t * val__year_name;
+static ti_val_t * val__month_name;
+static ti_val_t * val__day_name;
+static ti_val_t * val__hour_name;
+static ti_val_t * val__minute_name;
+static ti_val_t * val__second_name;
+static ti_val_t * val__gmt_offset_name;
 
 
 #define VAL__BUF_SZ 128
@@ -531,14 +531,15 @@ int ti_val_init_common(void)
             "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             "abcdefghijklmnopqrstuvwxyz"
             "-_");
-    val__utc_str = (ti_val_t *) ti_str_from_str("UTC");
-    val__year_str = (ti_val_t *) ti_str_from_str("year");
-    val__month_str = (ti_val_t *) ti_str_from_str("month");
-    val__day_str = (ti_val_t *) ti_str_from_str("day");
-    val__hour_str = (ti_val_t *) ti_str_from_str("hour");
-    val__minute_str = (ti_val_t *) ti_str_from_str("minute");
-    val__second_str = (ti_val_t *) ti_str_from_str("second");
-    val__gmt_offset_str = (ti_val_t *) ti_str_from_str("gmt_offset");
+
+    /* names */
+    val__year_name = (ti_val_t *) ti_names_from_str("year");
+    val__month_name = (ti_val_t *) ti_names_from_str("month");
+    val__day_name = (ti_val_t *) ti_names_from_str("day");
+    val__hour_name = (ti_val_t *) ti_names_from_str("hour");
+    val__minute_name = (ti_val_t *) ti_names_from_str("minute");
+    val__second_name = (ti_val_t *) ti_names_from_str("second");
+    val__gmt_offset_name = (ti_val_t *) ti_names_from_str("gmt_offset");
 
 
     if (!val__empty_bin || !val__empty_str || !val__snil || !val__strue ||
@@ -547,9 +548,9 @@ int ti_val_init_common(void)
         !val__sregex || !val__serror || !val__sclosure || !val__slist ||
         !val__stuple || !val__sset || !val__sthing || !val__swthing ||
         !val__tar_gz_str || !val__sany || !val__gs_str || !val__charset_str ||
-        !val__utc_str || !val__year_str || !val__month_str || !val__day_str ||
-        !val__hour_str || !val__minute_str || !val__second_str ||
-        !val__gmt_offset_str)
+        !val__year_name || !val__month_name || !val__day_name ||
+        !val__hour_name || !val__minute_name || !val__second_name ||
+        !val__gmt_offset_name)
     {
         ti_val_drop_common();
         return -1;
@@ -583,14 +584,6 @@ void ti_val_drop_common(void)
     ti_val_drop(val__tar_gz_str);
     ti_val_drop(val__gs_str);
     ti_val_drop(val__charset_str);
-    ti_val_drop(val__utc_str);
-    ti_val_drop(val__year_str);
-    ti_val_drop(val__month_str);
-    ti_val_drop(val__day_str);
-    ti_val_drop(val__hour_str);
-    ti_val_drop(val__minute_str);
-    ti_val_drop(val__second_str);
-    ti_val_drop(val__gmt_offset_str);
 }
 
 void ti_val_destroy(ti_val_t * val)
@@ -718,52 +711,46 @@ ti_val_t * ti_val_wthing_str(void)
     return val__swthing;
 }
 
-ti_val_t * ti_val_utc_str(void)
+ti_val_t * ti_val_year_name(void)
 {
-    ti_incref(val__utc_str);
-    return val__utc_str;
+    ti_incref(val__year_name);
+    return val__year_name;
 }
 
-ti_val_t * ti_val_year_str(void)
+ti_val_t * ti_val_month_name(void)
 {
-    ti_incref(val__year_str);
-    return val__year_str;
+    ti_incref(val__month_name);
+    return val__month_name;
 }
 
-ti_val_t * ti_val_month_str(void)
+ti_val_t * ti_val_day_name(void)
 {
-    ti_incref(val__month_str);
-    return val__month_str;
+    ti_incref(val__day_name);
+    return val__day_name;
 }
 
-ti_val_t * ti_val_day_str(void)
+ti_val_t * ti_val_hour_name(void)
 {
-    ti_incref(val__day_str);
-    return val__day_str;
+    ti_incref(val__hour_name);
+    return val__hour_name;
 }
 
-ti_val_t * ti_val_hour_str(void)
+ti_val_t * ti_val_minute_name(void)
 {
-    ti_incref(val__hour_str);
-    return val__hour_str;
+    ti_incref(val__minute_name);
+    return val__minute_name;
 }
 
-ti_val_t * ti_val_minute_str(void)
+ti_val_t * ti_val_second_name(void)
 {
-    ti_incref(val__minute_str);
-    return val__minute_str;
+    ti_incref(val__second_name);
+    return val__second_name;
 }
 
-ti_val_t * ti_val_second_str(void)
+ti_val_t * ti_val_gmt_offset_name(void)
 {
-    ti_incref(val__second_str);
-    return val__second_str;
-}
-
-ti_val_t * ti_val_gmt_offset_str(void)
-{
-    ti_incref(val__gmt_offset_str);
-    return val__gmt_offset_str;
+    ti_incref(val__gmt_offset_name);
+    return val__gmt_offset_name;
 }
 
 

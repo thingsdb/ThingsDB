@@ -33,6 +33,7 @@ static int do__f_to(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_datetime_to_zone(dt, (ti_raw_t *) query->rval, e))
         goto fail0;
 
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) dt;
     return e->nr;
 

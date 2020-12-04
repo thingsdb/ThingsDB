@@ -330,7 +330,7 @@ int ti_query_unpack(
     mp_unp_t up;
     mp_unp_init(&up, data, n);
 
-    query->qbind.pkg_id = pkg_id;
+    query->pkg_id = pkg_id;
 
     mp_next(&up, &obj);     /* array with at least size 1 */
     mp_skip(&up);           /* scope */
@@ -462,7 +462,7 @@ int ti_query_unp_run(
     assert (query->val_cache == NULL);
 
     query->qbind.flags |= TI_QBIND_FLAG_AS_PROCEDURE;
-    query->qbind.pkg_id = pkg_id;
+    query->pkg_id = pkg_id;
 
     mp_next(&up, &obj);     /* array with at least size 1 */
     mp_skip(&up);           /* scope */
@@ -634,6 +634,11 @@ void ti_query_run(ti_query_t * query)
 
     clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
 
+    /* set the time zone */
+    ti_datetime_set_time_zone(query->collection
+            ? query->collection->time_zone
+            : NULL);
+
     if (query->qbind.flags & TI_QBIND_FLAG_AS_PROCEDURE)
     {
         if (query->closure->flags & TI_VFLAG_CLOSURE_WSE)
@@ -761,7 +766,7 @@ static int query__response_pkg(ti_query_t * query, ex_t * e)
 
     pkg = (ti_pkg_t *) buffer.data;
     pkg_init(pkg,
-            query->qbind.pkg_id,
+            query->pkg_id,
             TI_PROTO_CLIENT_RES_DATA ,
             buffer.size);
 
@@ -773,7 +778,7 @@ static int query__response_pkg(ti_query_t * query, ex_t * e)
     return 0;
 
 pkg_err:
-    pkg = ti_pkg_client_err(query->qbind.pkg_id, e);
+    pkg = ti_pkg_client_err(query->pkg_id, e);
     if (!pkg || ti_stream_write_pkg(query->via.stream, pkg))
     {
         free(pkg);

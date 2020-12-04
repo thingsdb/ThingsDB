@@ -36,7 +36,8 @@ const char * LOGGER_COLOR_MAP[LOGGER_NUM_LEVELS] =
 #define LOGGER_LOG_STUFF(LEVEL)                                 \
 {                                                               \
     time_t t = time(NULL);                                      \
-    struct tm tm = *localtime(&t);                              \
+    struct tm tm;                                               \
+    gmtime_r(&t, &tm);                                          \
     if (Logger.flags & LOGGER_FLAG_COLORED)                     \
     {                                                           \
         fprintf(Logger.ostream,                                 \

@@ -15,6 +15,7 @@
 #include <ti/archive.h>
 #include <ti/args.h>
 #include <ti/cfg.h>
+#include <ti/datetime.h>
 #include <ti/evars.h>
 #include <ti/store.h>
 #include <ti/user.h>
@@ -66,10 +67,8 @@ int main(int argc, char * argv[])
     /* set thread-pool size to 4 (default=4) */
     putenv("UV_THREADPOOL_SIZE=4");
 
-    /* TODO: set default time-zone to UTC
-    putenv("TZ=:UTC");
-    tzset();
-    */
+    /* initialize time-zone environment variable */
+    ti_datetime_init_env();
 
     printf(
 "   _____ _   _             ____  _____    \n"

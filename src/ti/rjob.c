@@ -615,6 +615,64 @@ static int rjob__rename_collection(mp_unp_t * up)
 
 /*
  * Returns 0 on success
+ * - for example: {'id':id, 'name':name}
+ */
+static int rjob__set_time_zone(mp_unp_t * up)
+{
+    ti_collection_t * collection;
+    mp_obj_t obj, mp_id, mp_tz;
+    ti_raw_t * timezone;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_tz) <= 0 ||
+        (mp_tz.tp != MP_STR && mp_tz.tp != MP_NIL))
+
+    {
+        log_critical("job `set_time_zone`: invalid format");
+        return -1;
+    }
+
+    collection = ti_collections_get_by_id(mp_id.via.u64);
+    if (!collection)
+    {
+        log_critical(
+                "job `set_time_zone`: "TI_COLLECTION_ID" not found",
+                mp_id.via.u64);
+        return -1;
+    }
+
+    if (mp_tz.tp == MP_NIL)
+    {
+        timezone = NULL;
+    }
+    else
+    {
+        if (!ti_datetime_is_time_zone(mp_tz.via.str.data, mp_tz.via.str.n))
+        {
+            log_error("unknown timezone in `set_time_zone` task");
+            return 0;  /* log error, but continue as if successful since it is
+                          not critical, as long as no illegal timezone is set */
+        }
+
+        timezone = ti_str_create(mp_tz.via.str.data, mp_tz.via.str.n);
+        if (!timezone)
+        {
+            log_critical(EX_MEMORY_S);
+            return -1;
+        }
+    }
+
+    ti_val_drop((ti_val_t *) collection->time_zone);
+    collection->time_zone = timezone;
+
+    return 0;
+}
+
+/*
+ * Returns 0 on success
  * - for example: {'old':name, 'name':name}
  */
 static int rjob__rename_procedure(mp_unp_t * up)
@@ -891,6 +949,8 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
     case 's':
         if (mp_str_eq(&mp_job, "set_password"))
             return rjob__set_password(up);
+        if (mp_str_eq(&mp_job, "set_time_zone"))
+            return rjob__set_time_zone(up);
         if (mp_str_eq(&mp_job, "set_quota"))
         {
             /*

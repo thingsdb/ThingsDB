@@ -32,6 +32,9 @@ typedef union
 
 struct ti_query_s
 {
+    uint32_t local_stack;       /* variable scopes start here */
+    uint16_t pkg_id;            /* package id to return the query to */
+    uint16_t pad0;
     ti_qbind_t qbind;               /* query binding */
     ti_val_t * rval;                /* return value of a statement */
     ti_collection_t * collection;   /* with reference, NULL when the scope is
@@ -50,7 +53,6 @@ struct ti_query_s
                                 */
     vec_t * val_cache;          /* ti_val_t, for node and argument cleanup */
     util_time_t time;           /* time query duration */
-    uint32_t local_stack;       /* variable scopes start here */
 };
 
 #endif /* TI_QUERY_T_H_ */

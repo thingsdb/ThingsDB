@@ -171,7 +171,7 @@ ti_collection_t * ti_collections_create_collection(
 
     guid_init(&guid, root_id);
 
-    collection = ti_collection_create(&guid, name, name_n, created_at);
+    collection = ti_collection_create(&guid, name, name_n, NULL, created_at);
     if (!collection || vec_push(&collections->vec, collection))
     {
         ex_set_mem(e);

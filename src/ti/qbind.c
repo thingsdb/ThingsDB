@@ -14,6 +14,7 @@
 #include <ti/fn/fnaltraise.h>
 #include <ti/fn/fnassert.h>
 #include <ti/fn/fnassign.h>
+#include <ti/fn/fnasthing.h>
 #include <ti/fn/fnbackupinfo.h>
 #include <ti/fn/fnbackupsinfo.h>
 #include <ti/fn/fnbase64decode.h>
@@ -43,7 +44,6 @@
 #include <ti/fn/fndoc.h>
 #include <ti/fn/fneach.h>
 #include <ti/fn/fnemit.h>
-#include <ti/fn/fnexport.h>
 #include <ti/fn/fnendswith.h>
 #include <ti/fn/fnenum.h>
 #include <ti/fn/fnenuminfo.h>
@@ -52,11 +52,13 @@
 #include <ti/fn/fnerrors.h>
 #include <ti/fn/fneventid.h>
 #include <ti/fn/fnevery.h>
+#include <ti/fn/fnexport.h>
 #include <ti/fn/fnextend.h>
 #include <ti/fn/fnfilter.h>
 #include <ti/fn/fnfind.h>
 #include <ti/fn/fnfindindex.h>
 #include <ti/fn/fnfloat.h>
+#include <ti/fn/fnformat.h>
 #include <ti/fn/fnget.h>
 #include <ti/fn/fngrant.h>
 #include <ti/fn/fnhas.h>
@@ -69,8 +71,8 @@
 #include <ti/fn/fnhastype.h>
 #include <ti/fn/fnhasuser.h>
 #include <ti/fn/fnid.h>
-#include <ti/fn/fnindexof.h>
 #include <ti/fn/fnif.h>
+#include <ti/fn/fnindexof.h>
 #include <ti/fn/fnint.h>
 #include <ti/fn/fnisarray.h>
 #include <ti/fn/fnisascii.h>
@@ -141,6 +143,7 @@
 #include <ti/fn/fnsetenum.h>
 #include <ti/fn/fnsetloglevel.h>
 #include <ti/fn/fnsetpassword.h>
+#include <ti/fn/fnsettimezone.h>
 #include <ti/fn/fnsettype.h>
 #include <ti/fn/fnshift.h>
 #include <ti/fn/fnshutdown.h>
@@ -152,6 +155,7 @@
 #include <ti/fn/fnstr.h>
 #include <ti/fn/fntest.h>
 #include <ti/fn/fnthing.h>
+#include <ti/fn/fnto.h>
 #include <ti/fn/fntrim.h>
 #include <ti/fn/fntrimleft.h>
 #include <ti/fn/fntrimright.h>
@@ -197,11 +201,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 197,
+    TOTAL_KEYWORDS = 201,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 5,
-    MAX_HASH_VALUE = 429
+    MIN_HASH_VALUE = 11,
+    MAX_HASH_VALUE = 444
 };
 
 static inline unsigned int qbind__hash(
@@ -210,32 +214,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        430, 430, 430, 430, 430, 430, 430, 430, 430, 430,
-        430, 430, 430, 430, 430, 430, 430, 430, 430, 430,
-        430, 430, 430, 430, 430, 430, 430, 430, 430, 430,
-        430, 430, 430, 430, 430, 430, 430, 430, 430, 430,
-        430, 430, 430, 430, 430, 430, 430, 430, 430, 430,
-        430, 430,   0, 430,   0, 430,   0, 430, 430, 430,
-        430, 430, 430, 430, 430, 430, 430, 430, 430, 430,
-        430, 430, 430, 430, 430, 430, 430, 430, 430, 430,
-        430, 430, 430, 430, 430, 430, 430, 430, 430, 430,
-        430, 430, 430, 430, 430,   0, 430,   8, 113,  75,
-         23,   6,  35, 144, 106,   0,   0,   4,  20,  56,
-         14,  12,  80,   0,   2,   0,   0,  19, 182,  95,
-        131,  58,   1, 430, 430, 430, 430, 430, 430, 430,
-        430, 430, 430, 430, 430, 430, 430, 430, 430, 430,
-        430, 430, 430, 430, 430, 430, 430, 430, 430, 430,
-        430, 430, 430, 430, 430, 430, 430, 430, 430, 430,
-        430, 430, 430, 430, 430, 430, 430, 430, 430, 430,
-        430, 430, 430, 430, 430, 430, 430, 430, 430, 430,
-        430, 430, 430, 430, 430, 430, 430, 430, 430, 430,
-        430, 430, 430, 430, 430, 430, 430, 430, 430, 430,
-        430, 430, 430, 430, 430, 430, 430, 430, 430, 430,
-        430, 430, 430, 430, 430, 430, 430, 430, 430, 430,
-        430, 430, 430, 430, 430, 430, 430, 430, 430, 430,
-        430, 430, 430, 430, 430, 430, 430, 430, 430, 430,
-        430, 430, 430, 430, 430, 430, 430, 430, 430, 430,
-        430, 430, 430, 430, 430, 430
+        445, 445, 445, 445, 445, 445, 445, 445, 445, 445,
+        445, 445, 445, 445, 445, 445, 445, 445, 445, 445,
+        445, 445, 445, 445, 445, 445, 445, 445, 445, 445,
+        445, 445, 445, 445, 445, 445, 445, 445, 445, 445,
+        445, 445, 445, 445, 445, 445, 445, 445, 445, 445,
+        445, 445,   3, 445,   3, 445,   8, 445, 445, 445,
+        445, 445, 445, 445, 445, 445, 445, 445, 445, 445,
+        445, 445, 445, 445, 445, 445, 445, 445, 445, 445,
+        445, 445, 445, 445, 445, 445, 445, 445, 445, 445,
+        445, 445, 445, 445, 445,   0, 445,  11,  24,  39,
+         21,   0,  45, 161, 135,   0,   0,   7,  24,  30,
+          9,  17,  88,   0,   4,   0,  12,  50, 169, 135,
+        164, 134,   8, 445, 445, 445, 445, 445, 445, 445,
+        445, 445, 445, 445, 445, 445, 445, 445, 445, 445,
+        445, 445, 445, 445, 445, 445, 445, 445, 445, 445,
+        445, 445, 445, 445, 445, 445, 445, 445, 445, 445,
+        445, 445, 445, 445, 445, 445, 445, 445, 445, 445,
+        445, 445, 445, 445, 445, 445, 445, 445, 445, 445,
+        445, 445, 445, 445, 445, 445, 445, 445, 445, 445,
+        445, 445, 445, 445, 445, 445, 445, 445, 445, 445,
+        445, 445, 445, 445, 445, 445, 445, 445, 445, 445,
+        445, 445, 445, 445, 445, 445, 445, 445, 445, 445,
+        445, 445, 445, 445, 445, 445, 445, 445, 445, 445,
+        445, 445, 445, 445, 445, 445, 445, 445, 445, 445,
+        445, 445, 445, 445, 445, 445, 445, 445, 445, 445,
+        445, 445, 445, 445, 445, 445
     };
 
     register unsigned int hval = n;
@@ -367,6 +371,7 @@ typedef struct
 qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="add",               .fn=do__f_add,                  CHAIN_CE_XVAR},
     {.name="alt_raise",         .fn=do__f_alt_raise,            ROOT_NE},
+    {.name="as_thing",          .fn=do__f_as_thing,             CHAIN_NE},
     {.name="assert_err",        .fn=do__f_assert_err,           ROOT_NE},
     {.name="assert",            .fn=do__f_assert,               ROOT_NE},
     {.name="assign",            .fn=do__f_assign,               CHAIN_CE},
@@ -416,6 +421,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="findindex",         .fn=do__f_findindex,            CHAIN_NE},      /* deprecated */
     {.name="find",              .fn=do__f_find,                 XCHAIN_NE},
     {.name="float",             .fn=do__f_float,                ROOT_NE},
+    {.name="format",            .fn=do__f_format,               CHAIN_NE},
     {.name="forbidden_err",     .fn=do__f_forbidden_err,        ROOT_NE},
     {.name="get",               .fn=do__f_get,                  XCHAIN_NE},
     {.name="grant",             .fn=do__f_grant,                ROOT_TE},
@@ -525,20 +531,22 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="set_enum",          .fn=do__f_set_enum,             ROOT_CE},
     {.name="set_log_level",     .fn=do__f_set_log_level,        ROOT_NE},
     {.name="set_password",      .fn=do__f_set_password,         ROOT_TE},
+    {.name="set_time_zone",     .fn=do__f_set_time_zone,        ROOT_TE},
     {.name="set_type",          .fn=do__f_set_type,             ROOT_CE},
     {.name="set",               .fn=do__f_set,                  BOTH_CE_XROOT},
-    {.name="split",             .fn=do__f_split,                CHAIN_NE},
     {.name="shift",             .fn=do__f_shift,                CHAIN_CE_XVAR},
     {.name="shutdown",          .fn=do__f_shutdown,             ROOT_NE},
     {.name="some",              .fn=do__f_some,                 CHAIN_NE},
     {.name="sort",              .fn=do__f_sort,                 CHAIN_NE},
     {.name="splice",            .fn=do__f_splice,               CHAIN_CE_XVAR},
+    {.name="split",             .fn=do__f_split,                CHAIN_NE},
     {.name="starts_with",       .fn=do__f_starts_with,          CHAIN_NE},
     {.name="startswith",        .fn=do__f_startswith,           CHAIN_NE},      /* deprecated */
     {.name="str",               .fn=do__f_str,                  ROOT_NE},
     {.name="syntax_err",        .fn=do__f_syntax_err,           ROOT_NE},
     {.name="test",              .fn=do__f_test,                 CHAIN_NE},
     {.name="thing",             .fn=do__f_thing,                ROOT_NE},
+    {.name="to",                .fn=do__f_to,                   CHAIN_NE},
     {.name="trim_left",         .fn=do__f_trim_left,            CHAIN_NE},
     {.name="trim_right",        .fn=do__f_trim_right,           CHAIN_NE},
     {.name="trim",              .fn=do__f_trim,                 CHAIN_NE},

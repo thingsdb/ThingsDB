@@ -45,56 +45,59 @@ static int do__f_as_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
+    LOGC("HERE");
+
     /* year */
-    name = ti_val_year_str();
+    name = (ti_name_t *) ti_val_year_name();
     vint = ti_vint_create(tm.tm_year + 1900);
-    if (!vint || ti_thing_o_prop_add(as_thing, name, vint))
-        goto fail;
+    if (!vint || !ti_thing_o_prop_add(as_thing, name, (ti_val_t *) vint))
+        goto mem_error;
 
     /* month */
-    name = ti_val_month_str();
+    name = (ti_name_t *) ti_val_month_name();
     vint = ti_vint_create(tm.tm_mon + 1);
-    if (!vint || ti_thing_o_prop_add(as_thing, name, vint))
-        goto fail;
+    if (!vint || !ti_thing_o_prop_add(as_thing, name, (ti_val_t *) vint))
+        goto mem_error;
 
     /* day */
-    name = ti_val_day_str();
+    name = (ti_name_t *) ti_val_day_name();
     vint = ti_vint_create(tm.tm_mday);
-    if (!vint || ti_thing_o_prop_add(as_thing, name, vint))
-        goto fail;
+    if (!vint || !ti_thing_o_prop_add(as_thing, name, (ti_val_t *) vint))
+        goto mem_error;
 
     /* hour */
-    name = ti_val_hour_str();
+    name = (ti_name_t *) ti_val_hour_name();
     vint = ti_vint_create(tm.tm_hour);
-    if (!vint || ti_thing_o_prop_add(as_thing, name, vint))
-        goto fail;
+    if (!vint || !ti_thing_o_prop_add(as_thing, name, (ti_val_t *) vint))
+        goto mem_error;
 
     /* minute */
-    name = ti_val_minute_str();
+    name = (ti_name_t *) ti_val_minute_name();
     vint = ti_vint_create(tm.tm_min);
-    if (!vint || ti_thing_o_prop_add(as_thing, name, vint))
-        goto fail;
+    if (!vint || !ti_thing_o_prop_add(as_thing, name, (ti_val_t *) vint))
+        goto mem_error;
 
     /* second */
-    name = ti_val_second_str();
+    name = (ti_name_t *) ti_val_second_name();
     vint = ti_vint_create(tm.tm_sec);
-    if (!vint || ti_thing_o_prop_add(as_thing, name, vint))
-        goto fail;
+    if (!vint || !ti_thing_o_prop_add(as_thing, name, (ti_val_t *) vint))
+        goto mem_error;
 
     /* gmt_offset */
-    name = ti_val_gmt_offset_str();
+    name = (ti_name_t *) ti_val_gmt_offset_name();
     vint = ti_vint_create(offset);
-    if (!vint || ti_thing_o_prop_add(as_thing, name, vint))
-        goto fail;
+    if (!vint || !ti_thing_o_prop_add(as_thing, name, (ti_val_t *) vint))
+        goto mem_error;
 
     ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) as_thing;
 
     return e->nr;
 
-fail:
+mem_error:
+    ex_set_mem(e);
     ti_decref(name);
-    ti_val_drop(vint);
+    ti_val_drop((ti_val_t *) vint);
     ti_val_unsafe_drop((ti_val_t *) as_thing);
     return e->nr;
 }

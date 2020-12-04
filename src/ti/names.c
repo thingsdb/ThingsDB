@@ -11,7 +11,6 @@
 
 smap_t * names;
 
-#define NAMES__INJECT(__s) __s, strlen(__s)
 
 int ti_names_create(void)
 {
@@ -32,14 +31,14 @@ void ti_names_destroy(void)
  */
 void ti_names_inject_common(void)
 {
-    (void) ti_names_get(NAMES__INJECT("_"));
-    (void) ti_names_get(NAMES__INJECT("a"));
-    (void) ti_names_get(NAMES__INJECT("b"));
-    (void) ti_names_get(NAMES__INJECT("c"));
-    (void) ti_names_get(NAMES__INJECT("x"));
-    (void) ti_names_get(NAMES__INJECT("y"));
-    (void) ti_names_get(NAMES__INJECT("z"));
-    (void) ti_names_get(NAMES__INJECT("tmp"));
+    (void) ti_names_from_str("_");
+    (void) ti_names_from_str("a");
+    (void) ti_names_from_str("b");
+    (void) ti_names_from_str("c");
+    (void) ti_names_from_str("x");
+    (void) ti_names_from_str("y");
+    (void) ti_names_from_str("z");
+    (void) ti_names_from_str("tmp");
 }
 
 /*

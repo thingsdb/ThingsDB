@@ -32,7 +32,7 @@ static int do__f_watch(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     rc = ti_stream_is_client(query->via.stream)
         ? ti_thing_watch_init(thing, query->via.stream)
-        : ti_thing_watch_fwd(thing, query->via.stream, query->qbind.pkg_id);
+        : ti_thing_watch_fwd(thing, query->via.stream, query->pkg_id);
 
     if (rc)
         log_error("watch() has failed (%d)", rc);

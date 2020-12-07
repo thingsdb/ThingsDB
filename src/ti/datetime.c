@@ -40,7 +40,6 @@ ti_datetime_t * ti_datetime_copy(ti_datetime_t * dt)
  *
  *    pcregrep -o1 ' :: `([\w\/]+)' datetime.c | gperf -E -k '*,1,$' -m 200
 
-  :: `localtime`
   :: `Africa/Abidjan`
   :: `Africa/Accra`
   :: `Africa/Addis_Ababa`
@@ -1893,4 +1892,144 @@ ti_datetime_t * ti_datetime_from_tm_tzinfo(
     return dt;
 }
 
+int ti_datetime_move(
+        ti_datetime_t * dt,
+        datetime_unit_e unit,
+        int64_t num,
+        ex_t * e)
+{
+    struct tm tm = {0};
+    time_t ts = dt->ts;
 
+    if (gmtime_r(&ts, &tm) != &tm)
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "failed to convert to Coordinated Universal Time (UTC)");
+        return 0;
+    }
+
+    LOGC("dst: %d", tm.tm_isdst);
+
+    switch(unit)
+    {
+    case DT_MONTHS:
+        if ((num > 0 && tm.tm_mon > INT_MAX - num) ||
+            (num < 0 && tm.tm_mon < INT_MIN - num))
+        {
+            ex_set(e, EX_OVERFLOW, "integer overflow");
+            return 0;
+        }
+        tm.tm_mon += num;
+        num = tm.tm_mon / 12;
+        tm.tm_mon %= 12;
+        /* fall through */
+    case DT_YEARS:
+        if ((num > 0 && tm.tm_year > INT_MAX - num) ||
+            (num < 0 && tm.tm_year < INT_MIN - num))
+        {
+            ex_set(e, EX_OVERFLOW, "integer overflow");
+            return 0;
+        }
+        tm.tm_year += num;
+        break;
+    }
+
+    dt->ts = datetime__mktime_utc(&tm);
+    return e->nr;
+}
+
+int ti_datetime_weekday(ti_datetime_t * dt)
+{
+    struct tm tm = {0};
+    long int offset = ((long int) dt->offset) * 60;
+    time_t ts = dt->ts;
+
+    if ((offset > 0 && ts > LLONG_MAX - offset) ||
+        (offset < 0 && ts < LLONG_MIN - offset))
+    {
+        return -1;
+    }
+
+    ts += offset;
+
+    if (gmtime_r(&ts, &tm) != &tm)
+    {
+        return -1;
+    }
+
+    return tm.tm_wday;
+}
+
+int ti_datetime_yday(ti_datetime_t * dt)
+{
+    struct tm tm = {0};
+    long int offset = ((long int) dt->offset) * 60;
+    time_t ts = dt->ts;
+
+    if ((offset > 0 && ts > LLONG_MAX - offset) ||
+        (offset < 0 && ts < LLONG_MIN - offset))
+    {
+        return -1;
+    }
+
+    ts += offset;
+
+    if (gmtime_r(&ts, &tm) != &tm)
+    {
+        return -1;
+    }
+
+    return tm.tm_yday;
+}
+
+int ti_datetime_week(ti_datetime_t * dt)
+{
+    struct tm tm = {0};
+    long int offset = ((long int) dt->offset) * 60;
+    time_t ts = dt->ts;
+
+    if ((offset > 0 && ts > LLONG_MAX - offset) ||
+        (offset < 0 && ts < LLONG_MIN - offset))
+    {
+        return -1;
+    }
+
+    ts += offset;
+
+    if (gmtime_r(&ts, &tm) != &tm)
+    {
+        return -1;
+    }
+
+    if (tm.tm_yday < tm.tm_wday)
+        return 0;
+
+    return (tm.tm_yday - tm.tm_wday) / 7 + 1;
+}
+
+
+/*
+ * Returns the unit corresponding to the given string.
+ * (`e` must be checked for errors)
+ */
+datetime_unit_e ti_datetime_get_unit(ti_raw_t * raw, ex_t * e)
+{
+    if (ti_raw_eq_strn(raw, "years", 5))
+        return DT_YEARS;
+    if (ti_raw_eq_strn(raw, "months", 6))
+        return DT_MONTHS;
+    if (ti_raw_eq_strn(raw, "days", 4))
+        return DT_DAYS;
+    if (ti_raw_eq_strn(raw, "hours", 5))
+        return DT_HOURS;
+    if (ti_raw_eq_strn(raw, "minutes", 7))
+        return DT_MINUTES;
+    if (ti_raw_eq_strn(raw, "seconds", 7))
+        return DT_SECONDS;
+
+    ex_set(e, EX_VALUE_ERROR,
+            "invalid unit, "
+            "expecting one of `years`, `months`, `days`, "
+            "`hours`, `minutes` or `seconds`");
+    return 0;
+}

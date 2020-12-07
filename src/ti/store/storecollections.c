@@ -37,12 +37,7 @@ int ti_store_collections_store(const char * fn)
             mp_pack_strn(&pk, collection->guid.guid, sizeof(guid_t)) ||
             mp_pack_strn(&pk, collection->name->data, collection->name->n) ||
             msgpack_pack_uint64(&pk, collection->created_at) ||
-            (collection->time_zone
-                    ? mp_pack_strn(
-                            &pk,
-                            collection->time_zone->data,
-                            collection->time_zone->n)
-                    : msgpack_pack_nil(&pk))
+            msgpack_pack_int(&pk, collection->tz->index)
         ) goto fail;
     }
 
@@ -70,7 +65,7 @@ int ti_store_collections_restore(const char * fn)
     mp_unp_t up;
     guid_t guid;
     ti_collection_t * collection;
-    ti_raw_t * timezone;
+    ti_tz_t * tz;
     uchar * data = fx_read(fn, &n);
     if (!data)
         return -1;
@@ -108,28 +103,19 @@ int ti_store_collections_restore(const char * fn)
             /* TODO: (COMPAT) This check is for compatibility with ThingsDB
              *       versions before v0.10.0
              */
-            if (mp_next(&up, &mp_tz) <= 0)
+            if (mp_next(&up, &mp_tz) != MP_I64)
                 goto fail;
 
-            if (mp_tz.tp == MP_STR)
-            {
-                timezone = ti_str_create(mp_tz.via.str.data, mp_tz.via.str.n);
-                if (!timezone)
-                    goto fail;
-            }
-            else if (mp_tz.tp == MP_NIL)
-                timezone = NULL;
-            else
-                goto fail;
+            tz = ti_tz_from_i64(mp_tz.via.i64);
         }
         else
-            timezone = NULL;
+            tz = ti_tz_utc();
 
         collection = ti_collection_create(
                 &guid,
                 mp_name.via.str.data,
                 mp_name.via.str.n,
-                timezone,
+                tz,
                 mp_created.via.u64);
         if (!collection || vec_push(&ti.collections->vec, collection))
             goto fail;  /* might leak a few bytes for the timezone */

@@ -16,11 +16,26 @@ typedef struct ti_datetime_s ti_datetime_t;
 #include <ti/raw.h>
 #include <util/mpack.h>
 
+typedef enum
+{
+    DT_YEARS,
+    DT_MONTHS,
+    DT_DAYS,
+    DT_HOURS,
+    DT_MINUTES,
+    DT_SECONDS,
+} datetime_unit_e;
+
+enum
+{
+    DT_FLAG_WITH_ZONE_INFO=1<<0,
+};
+
 struct ti_datetime_s
 {
     uint32_t ref;
     uint8_t tp;
-    uint8_t _flags;
+    uint8_t flags;
     int16_t offset;         /* offset in minutes */
     time_t ts;              /* time-stamp in seconds */
 };
@@ -41,5 +56,14 @@ int ti_datetime_to_zone(ti_datetime_t * dt, ti_raw_t * tzinfo, ex_t * e);
 _Bool ti_datetime_is_time_zone(register const char * s, register size_t n);
 void ti_datetime_init_env(void);
 void ti_datetime_set_time_zone(ti_raw_t * zone);
+int ti_datetime_move(
+        ti_datetime_t * dt,
+        datetime_unit_e unit,
+        int64_t num,
+        ex_t * e);
+datetime_unit_e ti_datetime_get_unit(ti_raw_t * raw, ex_t * e);
+int ti_datetime_weekday(ti_datetime_t * dt);
+int ti_datetime_yday(ti_datetime_t * dt);
+int ti_datetime_week(ti_datetime_t * dt);
 
 #endif  /* TI_DATETIME_H_ */

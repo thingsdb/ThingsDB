@@ -34,7 +34,7 @@ ti_collection_t * ti_collection_create(
         guid_t * guid,
         const char * name,
         size_t n,
-        ti_raw_t * timezone,  /* may be NULL */
+        ti_tz_t * tz,
         uint64_t created_at)
 {
     ti_collection_t * collection = malloc(sizeof(ti_collection_t));
@@ -52,7 +52,7 @@ ti_collection_t * ti_collection_create(
     collection->enums = ti_enums_create(collection);
     collection->lock = malloc(sizeof(uv_mutex_t));
     collection->created_at = created_at;
-    collection->time_zone = timezone;
+    collection->tz = tz;
 
     memcpy(&collection->guid, guid, sizeof(guid_t));
 

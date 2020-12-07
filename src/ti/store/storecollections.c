@@ -5,6 +5,7 @@
 #include <string.h>
 #include <ti.h>
 #include <ti/collection.h>
+#include <ti/tz.h>
 #include <ti/raw.inline.h>
 #include <ti/store/storecollections.h>
 #include <util/fx.h>
@@ -106,7 +107,7 @@ int ti_store_collections_restore(const char * fn)
             if (mp_next(&up, &mp_tz) != MP_I64)
                 goto fail;
 
-            tz = ti_tz_from_i64(mp_tz.via.i64);
+            tz = ti_tz_from_index(mp_tz.via.i64);
         }
         else
             tz = ti_tz_utc();

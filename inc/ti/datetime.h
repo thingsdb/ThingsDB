@@ -14,6 +14,7 @@ typedef struct ti_datetime_s ti_datetime_t;
 #include <time.h>
 #include <ex.h>
 #include <ti/raw.h>
+#include <ti/tz.h>
 #include <util/mpack.h>
 
 typedef enum
@@ -36,11 +37,18 @@ struct ti_datetime_s
     ti_tz_t * tz;           /* may be NULL */
 };
 
-ti_datetime_t * ti_datetime_from_i64(int64_t ts, int16_t offset);
+ti_datetime_t * ti_datetime_from_i64(int64_t ts, int16_t offset, ti_tz_t * tz);
 ti_datetime_t * ti_datetime_copy(ti_datetime_t * dt);
-ti_datetime_t * ti_datetime_from_str(ti_raw_t * str, ex_t * e);
-ti_datetime_t * ti_datetime_from_fmt(ti_raw_t * str, ti_raw_t * fmt, ex_t * e);
-ti_datetime_t * ti_datetime_from_tm(struct tm * tm, ex_t * e);
+ti_datetime_t * ti_datetime_from_str(ti_raw_t * str, ti_tz_t * tz, ex_t * e);
+ti_datetime_t * ti_datetime_from_fmt(
+        ti_raw_t * str,
+        ti_raw_t * fmt,
+        ti_tz_t * tz,
+        ex_t * e);
+ti_datetime_t * ti_datetime_from_tm_tz(
+        struct tm * tm,
+        ti_tz_t * tz,
+        ex_t * e);
 ti_datetime_t * ti_datetime_from_tm_tzinfo(
         struct tm * tm,
         ti_raw_t * tzinfo,
@@ -49,9 +57,7 @@ ti_raw_t * ti_datetime_to_str(ti_datetime_t * dt, ex_t * e);
 ti_raw_t * ti_datetime_to_str_fmt(ti_datetime_t * dt, ti_raw_t * fmt, ex_t * e);
 int ti_datetime_to_pk(ti_datetime_t * dt, msgpack_packer * pk, int options);
 int ti_datetime_to_zone(ti_datetime_t * dt, ti_raw_t * tzinfo, ex_t * e);
-_Bool ti_datetime_is_time_zone(register const char * s, register size_t n);
-void ti_datetime_init_env(void);
-void ti_datetime_set_time_zone(ti_raw_t * zone);
+void ti_datetime_set_tz(ti_tz_t * tz);
 int ti_datetime_move(
         ti_datetime_t * dt,
         datetime_unit_e unit,

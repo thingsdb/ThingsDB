@@ -28,12 +28,7 @@ static inline int ti_collection_to_pk(
         msgpack_pack_uint64(pk, collection->things->n + collection->gc->n) ||
 
         mp_pack_str(pk, "time_zone") ||
-        (collection->time_zone
-                ? mp_pack_strn(
-                        pk,
-                        collection->time_zone->data,
-                        collection->time_zone->n)
-                : mp_pack_str(pk, "GMT"))
+        mp_pack_strn(pk, collection->tz->name, collection->tz->n)
     );
 }
 

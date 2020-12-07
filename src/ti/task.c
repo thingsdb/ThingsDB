@@ -1254,11 +1254,8 @@ int ti_task_add_set_time_zone(ti_task_t * task, ti_collection_t * collection)
     mp_pack_str(&pk, "id");
     msgpack_pack_uint64(&pk, collection->root->id);
 
-    mp_pack_str(&pk, "timezone");
-    if (collection->time_zone)
-        mp_pack_strn(&pk, collection->time_zone->data, collection->time_zone->n);
-    else
-        msgpack_pack_nil(&pk);
+    mp_pack_str(&pk, "tz");
+    msgpack_pack_uint64(&pk, collection->tz->index);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

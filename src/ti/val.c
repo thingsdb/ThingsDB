@@ -335,7 +335,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
         }
         else if (mp_tz.tp == MP_U64)
         {
-            tz = ti_tz_by_index(mp_tz.via.u64);
+            tz = ti_tz_from_index(mp_tz.via.u64);
         }
         else
         {

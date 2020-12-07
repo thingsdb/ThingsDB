@@ -25,31 +25,20 @@ static int do__f_set_time_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_val_is_str(query->rval))
     {
         ti_raw_t * str = (ti_raw_t *) query->rval;
+        ti_tz_t * tz = ti_tz_from_strn((const char *) str->data, str->n);
 
-        if (!ti_datetime_is_time_zone((const char *) str->data, str->n))
+        if (!tz)
         {
             ex_set(e, EX_VALUE_ERROR, "unknown timezone");
             return e->nr;
         }
 
-        ti_val_drop((ti_val_t *) collection->time_zone);
+        collection->tz = tz;
 
-        if (ti_raw_eq_strn(str, "UTC", 3) ||
-            ti_raw_eq_strn(str, "GMT", 3))
-        {
-            collection->time_zone = NULL;
-            ti_val_unsafe_drop(query->rval);
-        }
-        else
-        {
-            collection->time_zone = (ti_raw_t *) query->rval;
-        }
     }
     else if(ti_val_is_nil(query->rval))
     {
-        ti_val_drop((ti_val_t *) collection->time_zone);
-        collection->time_zone = NULL;
-        ti_val_unsafe_drop(query->rval);
+        collection->tz = ti_get_utc();
     }
     else
     {
@@ -61,6 +50,7 @@ static int do__f_set_time_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
+    ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();
 
     task = ti_task_get_task(query->ev, ti.thing0);

@@ -4,7 +4,7 @@ import pprint
 import re
 
 TZ_LINE = re.compile(
-    '^\s+\{\.name\=\"([\w_/]*)\"\}\,')
+    '^\s+\{\.name\=\"([\w\_\/\-]+)\"\}\,.*')
 
 def update_info(lines):
     last_line = False
@@ -51,7 +51,9 @@ if __name__ == '__main__':
 
     if args.apply:
         lines[last_line:last_line] = zones
-        print(''.join(lines))
+        with open('src/ti/tz.c', 'w') as f:
+            f.write(''.join(lines))
     else:
-        print(
-            f'{len(zones)} new zone(s) found, use `--apply` to add the zones')
+        pprint.pprint(zones)
+        print(f'\n{len(zones)} zone(s) found, use `--apply` to add the zones')
+

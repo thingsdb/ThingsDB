@@ -38,14 +38,12 @@ static int do__f_as_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    as_thing = ti_thing_o_create(0, 7, query->collection);
+    as_thing = ti_thing_o_create(0, 6, query->collection);
     if (!as_thing)
     {
         ex_set_mem(e);
         return e->nr;
     }
-
-    LOGC("HERE");
 
     /* year */
     name = (ti_name_t *) ti_val_year_name();

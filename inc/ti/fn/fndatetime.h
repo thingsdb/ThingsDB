@@ -267,7 +267,10 @@ done:
         query->rval = (ti_val_t *) dt;
     }
     else
-        query->rval = (ti_val_t *) ti_datetime_from_tm(&tm, e);
+    {
+        ti_tz_t * tz = query->collection ? query->collection->tz : ti_tz_utc();
+        query->rval = (ti_val_t *) ti_datetime_from_tm_tz(&tm, tz, e);
+    }
 
     return e->nr;
 }
@@ -275,7 +278,7 @@ done:
 static int do__f_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
-    ti_tz_t * tz = query->collection ? query->collection->tz : NULL;
+    ti_tz_t * tz = query->collection ? query->collection->tz : ti_tz_utc();
 
     if (fn_nargs_max("datetime", DOC_DATETIME, 7, nargs, e))
         return e->nr;
@@ -307,7 +310,7 @@ static int do__f_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             int64_t i = VINT(query->rval);
             ti_val_unsafe_drop(query->rval);
-            query->rval = (ti_val_t *) ti_datetime_from_i64(i, 0);
+            query->rval = (ti_val_t *) ti_datetime_from_i64(i, 0, tz);
             if (!query->rval)
                 ex_set_mem(e);
             return e->nr;
@@ -323,7 +326,7 @@ static int do__f_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             }
             i = (int64_t) d;
             ti_val_unsafe_drop(query->rval);
-            query->rval = (ti_val_t *) ti_datetime_from_i64(i, 0);
+            query->rval = (ti_val_t *) ti_datetime_from_i64(i, 0, tz);
             if (!query->rval)
                 ex_set_mem(e);
             return e->nr;
@@ -335,6 +338,7 @@ static int do__f_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ti_datetime_t * dt = ti_datetime_from_str(
                     (ti_raw_t *) query->rval,
+                    tz,
                     e);
             if (dt)
             {
@@ -387,7 +391,7 @@ static int do__f_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
 
         fmt = (ti_raw_t *) query->rval;
-        query->rval = (ti_val_t *) ti_datetime_from_fmt(str, fmt, e);
+        query->rval = (ti_val_t *) ti_datetime_from_fmt(str, fmt, tz, e);
         ti_val_unsafe_drop((ti_val_t *) fmt);
 fail0:
         ti_val_unsafe_drop((ti_val_t *) str);

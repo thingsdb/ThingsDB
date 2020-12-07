@@ -50,7 +50,7 @@ static int datetime__get_time(ti_datetime_t * dt, struct tm * tm)
     if (dt->tz)
     {
         ti_tz_set(dt->tz);
-        return -(localtime_r(&dt->ts, &tm) != &tm);
+        return -(localtime_r(&dt->ts, tm) != tm);
     }
 
     if (dt->offset)
@@ -64,14 +64,14 @@ static int datetime__get_time(ti_datetime_t * dt, struct tm * tm)
 
         ts += offset;
 
-        if (gmtime_r(&ts, &tm) != &tm)
+        if (gmtime_r(&ts, tm) != tm)
             return -1;
 
         tm->tm_gmtoff = offset;
         return 0;
     }
 
-    return -(gmtime_r(&dt->ts, &tm) != &tm);
+    return -(gmtime_r(&dt->ts, tm) != tm);
 }
 
 static long int datetime__offset_in_sec(const char * str, ex_t * e)
@@ -372,8 +372,6 @@ ti_raw_t * ti_datetime_to_str_fmt(ti_datetime_t * dt, ti_raw_t * fmt, ex_t * e)
  */
 int ti_datetime_to_pk(ti_datetime_t * dt, msgpack_packer * pk, int options)
 {
-    ti_tz_t * tz;
-
     if (options >= 0)
     {
         /* pack client result, convert to string */

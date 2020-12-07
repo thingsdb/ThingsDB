@@ -1,3 +1,7 @@
+/*
+ * ti/tz.c
+ */
+#include <assert.h>
 #include <ti/tz.h>
 #include <stdlib.h>
 #include <string.h>

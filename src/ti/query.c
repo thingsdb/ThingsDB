@@ -634,9 +634,6 @@ void ti_query_run(ti_query_t * query)
 
     clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
 
-    /* set the time zone */
-    ti_datetime_set_tz(query->collection ? query->collection->tz : ti_tz_utc());
-
     if (query->qbind.flags & TI_QBIND_FLAG_AS_PROCEDURE)
     {
         if (query->closure->flags & TI_VFLAG_CLOSURE_WSE)

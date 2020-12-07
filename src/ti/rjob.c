@@ -621,7 +621,6 @@ static int rjob__set_time_zone(mp_unp_t * up)
 {
     ti_collection_t * collection;
     mp_obj_t obj, mp_id, mp_tz;
-    ti_tz_t * tz;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
         mp_skip(up) != MP_STR ||

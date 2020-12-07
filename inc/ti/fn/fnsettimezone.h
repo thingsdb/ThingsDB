@@ -38,7 +38,7 @@ static int do__f_set_time_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     else if(ti_val_is_nil(query->rval))
     {
-        collection->tz = ti_get_utc();
+        collection->tz = ti_tz_utc();
     }
     else
     {

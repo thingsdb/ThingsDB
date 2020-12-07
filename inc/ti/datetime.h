@@ -26,11 +26,6 @@ typedef enum
     DT_SECONDS,
 } datetime_unit_e;
 
-enum
-{
-    DT_FLAG_WITH_ZONE_INFO=1<<0,
-};
-
 struct ti_datetime_s
 {
     uint32_t ref;
@@ -38,6 +33,7 @@ struct ti_datetime_s
     uint8_t flags;
     int16_t offset;         /* offset in minutes */
     time_t ts;              /* time-stamp in seconds */
+    ti_tz_t * tz;           /* may be NULL */
 };
 
 ti_datetime_t * ti_datetime_from_i64(int64_t ts, int16_t offset);

@@ -84,7 +84,6 @@ void ti_collection_destroy(ti_collection_t * collection)
     ti_types_destroy(collection->types);
     ti_enums_destroy(collection->enums);
     uv_mutex_destroy(collection->lock);
-    ti_val_drop((ti_val_t *) collection->time_zone);
     free(collection->lock);
     free(collection);
 }

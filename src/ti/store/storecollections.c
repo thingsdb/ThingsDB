@@ -37,7 +37,7 @@ int ti_store_collections_store(const char * fn)
             mp_pack_strn(&pk, collection->guid.guid, sizeof(guid_t)) ||
             mp_pack_strn(&pk, collection->name->data, collection->name->n) ||
             msgpack_pack_uint64(&pk, collection->created_at) ||
-            msgpack_pack_int(&pk, collection->tz->index)
+            msgpack_pack_uint64(&pk, collection->tz->index)
         ) goto fail;
     }
 

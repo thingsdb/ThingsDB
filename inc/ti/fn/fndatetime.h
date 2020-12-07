@@ -275,6 +275,7 @@ done:
 static int do__f_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
+    ti_tz_t * tz = query->collection ? query->collection->tz : NULL;
 
     if (fn_nargs_max("datetime", DOC_DATETIME, 7, nargs, e))
         return e->nr;
@@ -286,7 +287,8 @@ static int do__f_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         assert (query->rval == NULL);
         query->rval = (ti_val_t *) ti_datetime_from_i64(
                 (int64_t) util_now_tsec(),
-                0);
+                0,
+                tz);
         if (!query->rval)
             ex_set_mem(e);
         return e->nr;

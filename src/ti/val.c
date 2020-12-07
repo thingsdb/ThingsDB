@@ -304,17 +304,20 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
     }
     case TI_KIND_C_DATETIME:
     {
-        mp_obj_t mp_ts, mp_offset;
+        mp_obj_t mp_ts, mp_offset, mp_tz;
         ti_datetime_t * dt;
+        ti_tz_t * tz;
 
         if (sz != 1 ||
-            mp_next(vup->up, &mp_val) != MP_ARR || mp_val.via.sz != 2 ||
+            mp_next(vup->up, &mp_val) != MP_ARR || mp_val.via.sz != 3 ||
             mp_next(vup->up, &mp_ts) != MP_I64 ||
-            mp_next(vup->up, &mp_offset) != MP_I64)
+            mp_next(vup->up, &mp_offset) != MP_I64 ||
+            mp_next(vup->up, &mp_tz) <= 0)  /* U64 or NIL */
         {
             ex_set(e, EX_BAD_DATA,
                 "datetime type must be written according the "
-                "following syntax: {\""TI_KIND_S_DATETIME"\": [ts, offset]");
+                "following syntax: {\""TI_KIND_S_DATETIME"\": "
+                "[ts, offset, tz_info]");
             return NULL;
         }
 
@@ -326,7 +329,22 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
             return NULL;
         }
 
-        dt = ti_datetime_from_i64(mp_ts.via.i64, mp_offset.via.i64);
+        if (mp_tz.tp == MP_NIL)
+        {
+            tz = NULL;
+        }
+        else if (mp_tz.tp == MP_U64)
+        {
+            tz = ti_tz_by_index(mp_tz.via.u64);
+        }
+        else
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "invalid timezone, expecting `nil` or `u64`");
+            return NULL;
+        }
+
+        dt = ti_datetime_from_i64(mp_ts.via.i64, mp_offset.via.i64, tz);
         if (!dt)
             ex_set_mem(e);
 

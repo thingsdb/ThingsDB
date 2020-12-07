@@ -10,18 +10,29 @@
 #include <time.h>
 #include <ctype.h>
 
+typedef struct
+{
+    uint32_t ref;
+    uint8_t tp;
+    uint8_t flags;
+    int16_t offset;         /* offset in minutes */
+    time_t ts;              /* time-stamp in seconds */
+    ti_tz_t * tz;
+} datetime__zone_t;
+
 /*
  * Arguments `ts` is in seconds, `offset` in minutes.
  */
-ti_datetime_t * ti_datetime_from_i64(int64_t ts, int16_t offset)
+ti_datetime_t * ti_datetime_from_i64(int64_t ts, int16_t offset, ti_tz_t * tz)
 {
     ti_datetime_t * dt = malloc(sizeof(ti_datetime_t));
     if (!dt)
         return NULL;
     dt->ref = 1;
-    dt->tp = TI_VAL_DATETIME;
+    dt->flags = 0;
     dt->ts = (time_t) ts;
     dt->offset = offset;
+    dt->tz = tz;
     return dt;
 }
 
@@ -1627,23 +1638,30 @@ static size_t datetime__write(
     long int offset = ((long int) dt->offset) * 60;
     time_t ts = dt->ts;
 
-    if ((offset > 0 && ts > LLONG_MAX - offset) ||
-        (offset < 0 && ts < LLONG_MIN - offset))
+    if (offset)
     {
-        ex_set(e, EX_OVERFLOW, "datetime overflow");
-        return 0;
+        if ((offset > 0 && ts > LLONG_MAX - offset) ||
+            (offset < 0 && ts < LLONG_MIN - offset))
+        {
+            ex_set(e, EX_OVERFLOW, "datetime overflow");
+            return 0;
+        }
+
+        ts += offset;
+
+        if (gmtime_r(&ts, &tm) != &tm)
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "failed to convert to Coordinated Universal Time (UTC)");
+            return 0;
+        }
+
+        tm.tm_gmtoff = offset;
     }
-
-    ts += offset;
-
-    if (gmtime_r(&ts, &tm) != &tm)
+    else if (dt->tz)
     {
-        ex_set(e, EX_VALUE_ERROR,
-                "failed to convert to Coordinated Universal Time (UTC)");
-        return 0;
-    }
 
-    tm.tm_gmtoff = offset;
+    }
 
     sz = strftime(buf, buf_sz, fmt, &tm);
     if (sz == 0)
@@ -1704,11 +1722,18 @@ ti_raw_t * ti_datetime_to_str_fmt(ti_datetime_t * dt, ti_raw_t * fmt, ex_t * e)
     return str;
 }
 
+static inline datetime__get_tz(ti_datetime_t * dt)
+{
+
+}
+
 /*
  * This function is not thread safe.
  */
 int ti_datetime_to_pk(ti_datetime_t * dt, msgpack_packer * pk, int options)
 {
+    ti_tz_t * tz;
+
     if (options >= 0)
     {
         /* pack client result, convert to string */
@@ -1724,6 +1749,8 @@ int ti_datetime_to_pk(ti_datetime_t * dt, msgpack_packer * pk, int options)
         else  /* fall-back to time-stamp 0 on conversion error */
             return mp_pack_str(pk, "1970-01-01T00:00:00Z");
     }
+
+    tz =
 
     return (
         msgpack_pack_map(pk, 1) ||

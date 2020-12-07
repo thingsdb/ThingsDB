@@ -21,6 +21,7 @@ typedef enum
 {
     DT_YEARS,
     DT_MONTHS,
+    DT_WEEKS,
     DT_DAYS,
     DT_HOURS,
     DT_MINUTES,

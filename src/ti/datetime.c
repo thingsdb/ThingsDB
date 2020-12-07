@@ -172,7 +172,7 @@ static ti_datetime_t * datetime__from_strn(
         ti_tz_set_utc();
         ts = mktime(&tm);
         offset = 0;
-        tz = ti_get_utc();
+        tz = ti_tz_utc();
         break;
     case 'z':
         {
@@ -547,47 +547,86 @@ int ti_datetime_move(
         int64_t num,
         ex_t * e)
 {
-    struct tm tm = {0};
-    time_t ts = dt->ts;
-
-    if (gmtime_r(&ts, &tm) != &tm)
+    if (unit <= DT_MONTHS)
     {
-        ex_set(e, EX_VALUE_ERROR,
-                "failed to convert to Coordinated Universal Time (UTC)");
+        struct tm tm = {0};
+        if (datetime__get_time(dt, &tm))
+        {
+            ex_set(e, EX_VALUE_ERROR, "failed to localize time for datetime");
+            return e->nr;
+        }
+
+        switch(unit)
+        {
+        case DT_MONTHS:
+            if ((num > 0 && tm.tm_mon > INT_MAX - num) ||
+                (num < 0 && tm.tm_mon < INT_MIN - num))
+            {
+                ex_set(e, EX_OVERFLOW, "integer overflow");
+                return e->nr;
+            }
+            tm.tm_mon += num;
+            num = tm.tm_mon / 12;
+            tm.tm_mon %= 12;
+            /* fall through */
+        case DT_YEARS:
+            if ((num > 0 && tm.tm_year > INT_MAX - num) ||
+                (num < 0 && tm.tm_year < INT_MIN - num))
+            {
+                ex_set(e, EX_OVERFLOW, "integer overflow");
+                return e->nr;
+            }
+            tm.tm_year += num;
+            break;
+        default:
+            assert(0);
+            ex_set_internal(e);
+            return e->nr;
+        }
+
+        dt->ts = mktime(&tm);
         return 0;
     }
-
-    LOGC("dst: %d", tm.tm_isdst);
-
-    switch(unit)
+    else
     {
-    case DT_MONTHS:
-        if ((num > 0 && tm.tm_mon > INT_MAX - num) ||
-            (num < 0 && tm.tm_mon < INT_MIN - num))
+        if (num < INT_MIN || num > INT_MAX)
         {
             ex_set(e, EX_OVERFLOW, "integer overflow");
-            return 0;
+            return e->nr;
         }
-        tm.tm_mon += num;
-        num = tm.tm_mon / 12;
-        tm.tm_mon %= 12;
-        /* fall through */
-    case DT_YEARS:
-        if ((num > 0 && tm.tm_year > INT_MAX - num) ||
-            (num < 0 && tm.tm_year < INT_MIN - num))
+
+        switch(unit)
+        {
+        case DT_YEARS:
+        case DT_MONTHS:
+        case DT_WEEKS:
+            num *= 7;
+            /* fall through */
+        case DT_DAYS:
+            num *= 24;
+            /* fall through */
+        case DT_HOURS:
+            num *= 60;
+            /* fall through */
+        case DT_MINUTES:
+            num *= 60;
+            /* fall through */
+        case DT_SECONDS:
+            break;
+        }
+
+        if ((num > 0 && dt->ts > LLONG_MAX - num) ||
+            (num < 0 && dt->ts < LLONG_MIN - num))
         {
             ex_set(e, EX_OVERFLOW, "integer overflow");
-            return 0;
+            return e->nr;
         }
-        tm.tm_year += num;
-        break;
+
+        dt->ts += num;
     }
 
-    dt->ts = datetime__mktime_utc(&tm);
     return e->nr;
 }
-
-
 
 int ti_datetime_weekday(ti_datetime_t * dt)
 {
@@ -621,6 +660,8 @@ datetime_unit_e ti_datetime_get_unit(ti_raw_t * raw, ex_t * e)
         return DT_YEARS;
     if (ti_raw_eq_strn(raw, "months", 6))
         return DT_MONTHS;
+    if (ti_raw_eq_strn(raw, "weeks", 5))
+        return DT_WEEKS;
     if (ti_raw_eq_strn(raw, "days", 4))
         return DT_DAYS;
     if (ti_raw_eq_strn(raw, "hours", 5))
@@ -632,7 +673,7 @@ datetime_unit_e ti_datetime_get_unit(ti_raw_t * raw, ex_t * e)
 
     ex_set(e, EX_VALUE_ERROR,
             "invalid unit, "
-            "expecting one of `years`, `months`, `days`, "
+            "expecting one of `years`, `months`, `weeks`, `days`, "
             "`hours`, `minutes` or `seconds`");
     return 0;
 }

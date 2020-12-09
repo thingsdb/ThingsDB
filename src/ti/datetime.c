@@ -25,12 +25,30 @@ static inline const char * datetime__fmt(ti_datetime_t * dt)
 /*
  * Arguments `ts` is in seconds, `offset` in minutes.
  */
+ti_datetime_t * ti_timeval_from_i64(int64_t ts, int16_t offset, ti_tz_t * tz)
+{
+    ti_datetime_t * dt = malloc(sizeof(ti_datetime_t));
+    if (!dt)
+        return NULL;
+    dt->ref = 1;
+    dt->flags = DT_AS_TIMEVAL;
+    dt->tp = TI_VAL_DATETIME;
+    dt->ts = (time_t) ts;
+    dt->offset = offset;
+    dt->tz = tz;  /* may be NULL */
+    return dt;
+}
+
+/*
+ * Arguments `ts` is in seconds, `offset` in minutes.
+ */
 ti_datetime_t * ti_datetime_from_i64(int64_t ts, int16_t offset, ti_tz_t * tz)
 {
     ti_datetime_t * dt = malloc(sizeof(ti_datetime_t));
     if (!dt)
         return NULL;
     dt->ref = 1;
+    dt->flags = 0;
     dt->tp = TI_VAL_DATETIME;
     dt->ts = (time_t) ts;
     dt->offset = offset;
@@ -42,6 +60,7 @@ ti_datetime_t * ti_datetime_copy(ti_datetime_t * dt)
 {
     ti_datetime_t * dtnew = malloc(sizeof(ti_datetime_t));
     memcpy(dtnew, dt, sizeof(ti_datetime_t));
+    dtnew->ref = 1;
     return dtnew;
 }
 
@@ -304,7 +323,7 @@ static size_t datetime__write(
     struct tm tm = {0};
     if (ti_datetime_time(dt, &tm))
     {
-        ex_set(e, EX_VALUE_ERROR, "failed to read time for datetime object");
+        ex_set(e, EX_VALUE_ERROR, "failed to localize time");
         return 0;
     }
 
@@ -375,23 +394,31 @@ int ti_datetime_to_pk(ti_datetime_t * dt, msgpack_packer * pk, int options)
 {
     if (options >= 0)
     {
-        /* pack client result, convert to string */
-        ex_t e = {0};
-        size_t sz = datetime__write(
-                dt,
-                datetime__buf,
-                DATETIME__BUF_SZ,
-                datetime__fmt(dt),
-                &e);
-        if (sz)
-            return mp_pack_strn(pk, datetime__buf, sz);
-        else  /* fall-back to time-stamp 0 on conversion error */
-            return mp_pack_str(pk, "1970-01-01T00:00:00Z");
+        if (ti_datetime_is_datetime(dt))
+        {
+            /* pack client result, convert to string */
+            ex_t e = {0};
+            size_t sz = datetime__write(
+                    dt,
+                    datetime__buf,
+                    DATETIME__BUF_SZ,
+                    datetime__fmt(dt),
+                    &e);
+            return sz
+                ? mp_pack_strn(pk, datetime__buf, sz)
+                : mp_pack_str(pk, "1970-01-01T00:00:00Z");
+        }
+        return msgpack_pack_int64(pk, dt->ts);
     }
 
     return (
         msgpack_pack_map(pk, 1) ||
-        mp_pack_strn(pk, TI_KIND_S_DATETIME, 1) ||
+        mp_pack_strn(
+                pk,
+                ti_datetime_is_timeval(dt)
+                    ? TI_KIND_S_TIMEVAL
+                    : TI_KIND_S_DATETIME,
+                1) ||
         msgpack_pack_array(pk, 3) ||
         msgpack_pack_int64(pk, dt->ts) ||
         msgpack_pack_fix_int16(pk, dt->offset) ||
@@ -591,7 +618,7 @@ int ti_datetime_move(
         if (ti_datetime_time(dt, &tm))
         {
             ex_set(e, EX_VALUE_ERROR,
-                    "failed to read time for datetime object");
+                    "failed to localize time");
             return e->nr;
         }
 

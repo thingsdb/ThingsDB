@@ -19,7 +19,7 @@ static int do__f_as_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_datetime_time(dt, &tm))
     {
-        ex_set(e, EX_VALUE_ERROR, "failed to read time for datetime object");
+        ex_set(e, EX_VALUE_ERROR, "failed to localize time");
         return e->nr;
     }
 

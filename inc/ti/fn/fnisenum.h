@@ -19,6 +19,6 @@ static int do__f_is_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int do__f_isenum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    log_warning("function `isenum` is deprecated, use `is_enum` instead");
+    log_error("function `isenum` is deprecated, use `is_enum` instead");
     return do__f_is_enum(query, nd, e);
 }

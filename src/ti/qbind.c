@@ -79,6 +79,7 @@
 #include <ti/fn/fnisbool.h>
 #include <ti/fn/fnisbytes.h>
 #include <ti/fn/fnisclosure.h>
+#include <ti/fn/fnisdatetime.h>
 #include <ti/fn/fnisenum.h>
 #include <ti/fn/fniserr.h>
 #include <ti/fn/fnisfloat.h>
@@ -91,6 +92,7 @@
 #include <ti/fn/fnisset.h>
 #include <ti/fn/fnisstr.h>
 #include <ti/fn/fnisthing.h>
+#include <ti/fn/fnistimeval.h>
 #include <ti/fn/fnistuple.h>
 #include <ti/fn/fnisutf8.h>
 #include <ti/fn/fnjoin.h>
@@ -206,11 +208,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 206,
+    TOTAL_KEYWORDS = 209,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 17,
-    MAX_HASH_VALUE = 458
+    MAX_HASH_VALUE = 492
 };
 
 static inline unsigned int qbind__hash(
@@ -219,32 +221,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
-        459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
-        459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
-        459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
-        459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
-        459, 459,   6, 459,   6, 459,  10, 459, 459, 459,
-        459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
-        459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
-        459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
-        459, 459, 459, 459, 459,   4, 459,   8,  62,  69,
-         33,   4,  39,  86, 141,   4,   7,  67,  18,  43,
-         11,  33,  47,   4,   5,   4,   7,  36, 149, 140,
-        143, 155,   5, 459, 459, 459, 459, 459, 459, 459,
-        459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
-        459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
-        459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
-        459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
-        459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
-        459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
-        459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
-        459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
-        459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
-        459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
-        459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
-        459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
-        459, 459, 459, 459, 459, 459
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493,   4, 493,   4, 493,  10, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493,   4, 493,   8,  62,  69,
+         33,   4,  39,  86, 141,   4,   5,  67,  18,  43,
+         11,  33,  47,   4,   5,   4,   7,  36, 190, 140,
+        176, 155,  32, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493
     };
 
     register unsigned int hval = n;
@@ -453,6 +455,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="is_bytes",          .fn=do__f_is_bytes,             ROOT_NE},
     {.name="isbytes",           .fn=do__f_isbytes,              ROOT_NE},       /* deprecated */
     {.name="is_closure",        .fn=do__f_is_closure,           ROOT_NE},
+    {.name="is_datetime",       .fn=do__f_is_datetime,          ROOT_NE},
     {.name="is_enum",           .fn=do__f_is_enum,              ROOT_NE},
     {.name="isenum",            .fn=do__f_isenum,               ROOT_NE},       /* deprecated */
     {.name="is_err",            .fn=do__f_is_err,               ROOT_NE},
@@ -477,6 +480,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="isstr",             .fn=do__f_isstr,                ROOT_NE},       /* deprecated */
     {.name="is_thing",          .fn=do__f_is_thing,             ROOT_NE},
     {.name="isthing",           .fn=do__f_isthing,              ROOT_NE},       /* deprecated */
+    {.name="is_timeval",        .fn=do__f_is_timeval,           ROOT_NE},
     {.name="is_tuple",          .fn=do__f_is_tuple,             ROOT_NE},
     {.name="istuple",           .fn=do__f_istuple,              ROOT_NE},       /* deprecated */
     {.name="is_utf8",           .fn=do__f_is_utf8,              ROOT_NE},
@@ -552,6 +556,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="syntax_err",        .fn=do__f_syntax_err,           ROOT_NE},
     {.name="test",              .fn=do__f_test,                 CHAIN_NE},
     {.name="thing",             .fn=do__f_thing,                ROOT_NE},
+    {.name="timeval",           .fn=do__f_timeval,              ROOT_NE},
     {.name="to",                .fn=do__f_to,                   CHAIN_NE},
     {.name="trim_left",         .fn=do__f_trim_left,            CHAIN_NE},
     {.name="trim_right",        .fn=do__f_trim_right,           CHAIN_NE},

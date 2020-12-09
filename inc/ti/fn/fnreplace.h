@@ -344,6 +344,7 @@ static int do__replace_value(
 static int do__replace_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
+    uint8_t flags;
     ti_datetime_t * dt;
     ti_tz_t * tz;
     ti_thing_t * thing;
@@ -354,10 +355,11 @@ static int do__replace_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     dt = (ti_datetime_t *) query->rval;
     tz = dt->tz;
+    flags = dt->flags;
 
     if (ti_datetime_time(dt, &tm))
     {
-        ex_set(e, EX_VALUE_ERROR, "failed to read time for datetime object");
+        ex_set(e, EX_VALUE_ERROR, "failed to localize time");
         return e->nr;
     }
 
@@ -387,6 +389,10 @@ static int do__replace_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_val_unsafe_drop((ti_val_t *) thing);
     query->rval = (ti_val_t *) ti_datetime_from_tm_tz(&tm, tz, e);
+
+    if (query->rval)
+        query->rval->flags = flags;  /* restore datetime flags */
+
     return e->nr;
 }
 

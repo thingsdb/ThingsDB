@@ -8,6 +8,7 @@
 #include <ti/closure.h>
 #include <ti/collection.h>
 #include <ti/datetime.h>
+#include <ti/datetime.h>
 #include <ti/name.h>
 #include <ti/thing.h>
 #include <ti/thing.inline.h>
@@ -54,6 +55,18 @@ static inline _Bool ti_val_is_bool(ti_val_t * val)
 static inline _Bool ti_val_is_datetime(ti_val_t * val)
 {
     return val->tp == TI_VAL_DATETIME;
+}
+
+static inline _Bool ti_val_is_datetime_strict(ti_val_t * val)
+{
+    return val->tp == TI_VAL_DATETIME &&
+            ti_datetime_is_datetime((ti_datetime_t *) val);
+}
+
+static inline _Bool ti_val_is_timeval(ti_val_t * val)
+{
+    return val->tp == TI_VAL_DATETIME &&
+            ti_datetime_is_timeval((ti_datetime_t *) val);
 }
 
 static inline _Bool ti_val_is_closure(ti_val_t * val)

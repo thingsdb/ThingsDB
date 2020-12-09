@@ -1,7 +1,12 @@
 #include <ti/fn/fn.h>
 
 
-static int fn__datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int fn__datetime(
+        const char * fname,
+        const char * doc,
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
 {
     struct tm tm;
     cleri_children_t * child = nd->children;
@@ -21,11 +26,11 @@ static int fn__datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_int(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
-                "function `datetime` expects argument 1 to be of "
+                "function `%s` expects argument 1 to be of "
                 "type `"TI_VAL_INT_S"` "
                 "(when called with three or more arguments) "
-                "but got type `%s` instead"DOC_DATETIME,
-                ti_val_str(query->rval));
+                "but got type `%s` instead%s",
+                fname, ti_val_str(query->rval), doc);
         return e->nr;
     }
 
@@ -33,8 +38,8 @@ static int fn__datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (i < 1 || i > 9999)
     {
         ex_set(e, EX_VALUE_ERROR,
-                "year %"PRId64" is out of range [1..9999]"DOC_DATETIME,
-                i);
+                "year %"PRId64" is out of range [1..9999]%s",
+                i, doc);
         return e->nr;
     }
 
@@ -54,11 +59,11 @@ static int fn__datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_int(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
-                "function `datetime` expects argument 2 to be of "
+                "function `%s` expects argument 2 to be of "
                 "type `"TI_VAL_INT_S"` "
                 "(when called with three or more arguments) "
-                "but got type `%s` instead"DOC_DATETIME,
-                ti_val_str(query->rval));
+                "but got type `%s` instead%s",
+                fname, ti_val_str(query->rval), doc);
         return e->nr;
     }
 
@@ -66,8 +71,8 @@ static int fn__datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (i < 1 || i > 12)
     {
         ex_set(e, EX_VALUE_ERROR,
-                "month %"PRId64" is out of range [1..12]"DOC_DATETIME,
-                i);
+                "month %"PRId64" is out of range [1..12]%s",
+                i, doc);
         return e->nr;
     }
 
@@ -87,11 +92,11 @@ static int fn__datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_int(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
-                "function `datetime` expects argument 3 to be of "
+                "function `%s` expects argument 3 to be of "
                 "type `"TI_VAL_INT_S"` "
                 "(when called with three or more arguments) "
-                "but got type `%s` instead"DOC_DATETIME,
-                ti_val_str(query->rval));
+                "but got type `%s` instead%s",
+                fname, ti_val_str(query->rval), doc);
         return e->nr;
     }
 
@@ -99,8 +104,8 @@ static int fn__datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (i < 1 || i > 31)
     {
         ex_set(e, EX_VALUE_ERROR,
-                "day %"PRId64" is out of range [1..31]"DOC_DATETIME,
-                i);
+                "day %"PRId64" is out of range [1..31]%s",
+                i, doc);
         return e->nr;
     }
 
@@ -125,8 +130,8 @@ static int fn__datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (i < 0 || i > 23)
         {
             ex_set(e, EX_VALUE_ERROR,
-                    "hour %"PRId64" is out of range [0..23]"DOC_DATETIME,
-                    i);
+                    "hour %"PRId64" is out of range [0..23]%s",
+                    i, doc);
             return e->nr;
         }
 
@@ -140,11 +145,11 @@ static int fn__datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     default:
         ex_set(e, EX_TYPE_ERROR,
-                "function `datetime` expects argument 4 to be of "
+                "function `%s` expects argument 4 to be of "
                 "type `"TI_VAL_INT_S"` or type `"TI_VAL_STR_S"` "
                 "(when called with three or more arguments) "
-                "but got type `%s` instead"DOC_DATETIME,
-                ti_val_str(query->rval));
+                "but got type `%s` instead%s",
+                fname, ti_val_str(query->rval), doc);
         return e->nr;
     }
 
@@ -164,8 +169,8 @@ static int fn__datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (i < 0 || i > 59)
         {
             ex_set(e, EX_VALUE_ERROR,
-                    "minute %"PRId64" is out of range [0..59]"DOC_DATETIME,
-                    i);
+                    "minute %"PRId64" is out of range [0..59]%s",
+                    i, doc);
             return e->nr;
         }
 
@@ -179,11 +184,11 @@ static int fn__datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     default:
         ex_set(e, EX_TYPE_ERROR,
-                "function `datetime` expects argument 5 to be of "
+                "function `%s` expects argument 5 to be of "
                 "type `"TI_VAL_INT_S"` or type `"TI_VAL_STR_S"` "
                 "(when called with three or more arguments) "
-                "but got type `%s` instead"DOC_DATETIME,
-                ti_val_str(query->rval));
+                "but got type `%s` instead%s",
+                fname, ti_val_str(query->rval), doc);
         return e->nr;
     }
 
@@ -203,8 +208,8 @@ static int fn__datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (i < 0 || i > 59)
         {
             ex_set(e, EX_VALUE_ERROR,
-                    "second %"PRId64" is out of range [0..59]"DOC_DATETIME,
-                    i);
+                    "second %"PRId64" is out of range [0..59]%s",
+                    i, doc);
             return e->nr;
         }
 
@@ -218,11 +223,11 @@ static int fn__datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     default:
         ex_set(e, EX_TYPE_ERROR,
-                "function `datetime` expects argument 6 to be of "
+                "function `%s` expects argument 6 to be of "
                 "type `"TI_VAL_INT_S"` or type `"TI_VAL_STR_S"` "
                 "(when called with three or more arguments) "
-                "but got type `%s` instead"DOC_DATETIME,
-                ti_val_str(query->rval));
+                "but got type `%s` instead%s",
+                fname, ti_val_str(query->rval), doc);
         return e->nr;
     }
 
@@ -238,11 +243,11 @@ static int fn__datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_str(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR,
-            "function `datetime` expects argument 7 to be of "
+            "function `%s` expects argument 7 to be of "
             "type `"TI_VAL_STR_S"` "
             "(when called with three or more arguments) "
-            "but got type `%s` instead"DOC_DATETIME,
-            ti_val_str(query->rval));
+            "but got type `%s` instead%s",
+            fname, ti_val_str(query->rval), doc);
         return e->nr;
     }
 
@@ -255,9 +260,10 @@ done:
         if (child && child->next)
         {
             ex_set(e, EX_TYPE_ERROR,
-                "function `datetime` expects the last, and only the last "
+                "function `%s` expects the last, and only the last "
                 "argument to be of type `"TI_VAL_STR_S"` "
-                "(when called with three or more arguments)"DOC_DATETIME);
+                "(when called with three or more arguments)%s",
+                fname, doc);
             return e->nr;
         }
 
@@ -275,18 +281,23 @@ done:
     return e->nr;
 }
 
-static int do__f_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__datetime(
+        const char * fname,
+        const char * doc,
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     ti_tz_t * tz = query->collection ? query->collection->tz : ti_tz_utc();
 
-    if (fn_nargs_max("datetime", DOC_DATETIME, 7, nargs, e))
+    if (fn_nargs_max(fname, doc, 7, nargs, e))
         return e->nr;
 
     switch (nargs)
     {
     case 0:
-        /* Return the current date/time. Equal to `datetime(now());` */
+        /* Return the current date/time. */
         assert (query->rval == NULL);
         query->rval = (ti_val_t *) ti_datetime_from_i64(
                 (int64_t) util_now_tsec(),
@@ -350,9 +361,8 @@ static int do__f_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
         default:
             ex_set(e, EX_TYPE_ERROR,
-                    "cannot convert type `%s` to `"TI_VAL_DATETIME_S"`"
-                    DOC_DATETIME,
-                    ti_val_str(query->rval));
+                    "cannot convert type `%s` to `%s`%s",
+                    ti_val_str(query->rval), fname, doc);
         }
         return e->nr;
     case 2:
@@ -367,10 +377,10 @@ static int do__f_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!ti_val_is_str(query->rval))
         {
             ex_set(e, EX_TYPE_ERROR,
-                    "function `datetime` expects argument 1 to be of "
+                    "function `%s` expects argument 1 to be of "
                     "type `"TI_VAL_STR_S"` (when called using 2 arguments) "
-                    "but got type `%s` instead"DOC_DATETIME,
-                    ti_val_str(query->rval));
+                    "but got type `%s` instead%s",
+                    fname, ti_val_str(query->rval), doc);
             return e->nr;
         }
 
@@ -383,10 +393,10 @@ static int do__f_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!ti_val_is_str(query->rval))
         {
             ex_set(e, EX_TYPE_ERROR,
-                    "function `datetime` expects argument 2 to be of "
+                    "function `%s` expects argument 2 to be of "
                     "type `"TI_VAL_STR_S"` (when called with two arguments) "
-                    "but got type `%s` instead"DOC_DATETIME,
-                    ti_val_str(query->rval));
+                    "but got type `%s` instead%s",
+                    fname, ti_val_str(query->rval), doc);
             return e->nr;
         }
 
@@ -401,6 +411,54 @@ fail0:
         /*
          * Accept year, month, day... construction, with optimal time-zone info
          */
-        return fn__datetime(query, nd, e);
+        return fn__datetime(fname, doc, query, nd, e);
     }
+}
+
+static int do__f_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    if (do__datetime("datetime", DOC_DATETIME, query, nd, e))
+        return e->nr;
+
+    assert (ti_val_is_datetime(query->rval));
+
+    if (query->rval->ref == 1)
+    {
+        query->rval->flags &= ~DT_AS_TIMEVAL;
+    }
+    else if (ti_val_is_timeval(query->rval))
+    {
+        ti_datetime_t * dt = ti_datetime_copy((ti_datetime_t *) query->rval);
+        ti_val_unsafe_drop(query->rval);
+        query->rval = (ti_val_t *) dt;
+        if (!dt)
+            ex_set_mem(e);
+        else
+            query->rval->flags &= ~DT_AS_TIMEVAL;
+    }
+    return e->nr;
+}
+
+static int do__f_timeval(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    if (do__datetime("timeval", DOC_TIMEVAL, query, nd, e))
+        return e->nr;
+
+    assert (ti_val_is_datetime(query->rval));
+
+    if (query->rval->ref == 1)
+    {
+        query->rval->flags |= DT_AS_TIMEVAL;
+    }
+    else if (ti_val_is_datetime_strict(query->rval))
+    {
+        ti_datetime_t * dt = ti_datetime_copy((ti_datetime_t *) query->rval);
+        ti_val_unsafe_drop(query->rval);
+        query->rval = (ti_val_t *) dt;
+        if (!dt)
+            ex_set_mem(e);
+        else
+            query->rval->flags |= DT_AS_TIMEVAL;
+    }
+    return e->nr;
 }

@@ -46,12 +46,13 @@
   :: `date`
   :: `time`
   :: `datetime`
+  :: `timeval`
 
  */
 
 enum
 {
-    TOTAL_KEYWORDS = 23,
+    TOTAL_KEYWORDS = 24,
     MIN_WORD_LENGTH = 3,
     MAX_WORD_LENGTH = 8,
     MIN_HASH_VALUE = 6,
@@ -73,9 +74,9 @@ static inline unsigned int spec__hash(
         36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
         36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
         36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 36,  7,  3, 10,
-         6,  0,  2,  8,  3,  3, 36, 36,  0,  5,
-         2,  8,  1, 36,  1,  0,  3,  0, 36, 10,
+        36, 36, 36, 36, 36, 36, 36,  7,  3, 11,
+         6,  0,  3,  8,  3,  3, 36, 36,  0,  5,
+         2,  8,  1, 36,  1,  0,  3,  0,  0, 10,
          8,  7, 36, 36, 36, 36, 36, 36, 36, 36,
         36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
         36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
@@ -148,10 +149,11 @@ _Bool ti_spec_is_reserved(register const char * s, register size_t n)
         "regex",
         "bool",
         "thing",
+        "timeval",
         "float",
         "closure",
         "utf8",
-        "", "", "", "", "", "", "",
+        "", "", "", "", "", "",
         "datetime"
     };
 
@@ -219,6 +221,10 @@ ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t * val)
         return ti_val_is_array(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_SET:
         return ti_val_is_set(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
+    case TI_SPEC_DATETIME:
+        return ti_val_is_datetime_strict(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
+    case TI_SPEC_TIMEVAL:
+        return ti_val_is_timeval(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
 
     case TI_SPEC_REMATCH:
     case TI_SPEC_INT_RANGE:
@@ -287,7 +293,10 @@ _Bool ti__spec_maps_to_nested_val(uint16_t spec, ti_val_t * val)
         return ti_val_is_array(val) || ti_val_is_set(val);
     case TI_SPEC_SET:
         return ti_val_is_set(val);
-
+    case TI_SPEC_DATETIME:
+        return ti_val_is_datetime_strict(val);
+    case TI_SPEC_TIMEVAL:
+        return ti_val_is_timeval(val);
     case TI_SPEC_REMATCH:
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
@@ -324,6 +333,8 @@ const char * ti__spec_approx_type_str(uint16_t spec)
     case TI_SPEC_BOOL:          return "bool";
     case TI_SPEC_ARR:           return "list";
     case TI_SPEC_SET:           return "set";
+    case TI_SPEC_DATETIME:      return "datetime";
+    case TI_SPEC_TIMEVAL:       return "timeval";
     }
     return spec < TI_SPEC_ANY ? "thing" : "enum";
 }
@@ -415,6 +426,9 @@ ti_spec_mod_enum ti__spec_check_mod(
     case TI_SPEC_ARR:
     case TI_SPEC_SET:
         return ospec == nspec ? TI_SPEC_MOD_NESTED : TI_SPEC_MOD_ERR;
+    case TI_SPEC_DATETIME:
+    case TI_SPEC_TIMEVAL:
+        return ospec == nspec ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
     case TI_SPEC_REMATCH:
         return TI_SPEC_MOD_ERR;
     case TI_SPEC_INT_RANGE:

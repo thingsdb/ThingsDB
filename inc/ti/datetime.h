@@ -30,16 +30,22 @@ typedef enum
     DT_SECONDS,
 } datetime_unit_e;
 
+enum
+{
+    DT_AS_TIMEVAL   =1<<0,
+};
+
 struct ti_datetime_s
 {
     uint32_t ref;
     uint8_t tp;
-    uint8_t _flags;
+    uint8_t flags;
     int16_t offset;         /* offset in minutes */
     time_t ts;              /* time-stamp in seconds */
     ti_tz_t * tz;           /* may be NULL */
 };
 
+ti_datetime_t * ti_timeval_from_i64(int64_t ts, int16_t offset, ti_tz_t * tz);
 ti_datetime_t * ti_datetime_from_i64(int64_t ts, int16_t offset, ti_tz_t * tz);
 ti_datetime_t * ti_datetime_copy(ti_datetime_t * dt);
 ti_datetime_t * ti_datetime_from_str(ti_raw_t * str, ti_tz_t * tz, ex_t * e);
@@ -71,5 +77,15 @@ datetime_unit_e ti_datetime_get_unit(ti_raw_t * raw, ex_t * e);
 int ti_datetime_weekday(ti_datetime_t * dt);
 int ti_datetime_yday(ti_datetime_t * dt);
 int ti_datetime_week(ti_datetime_t * dt);
+
+static inline _Bool ti_datetime_is_timeval(ti_datetime_t * dt)
+{
+    return dt->flags & DT_AS_TIMEVAL;
+}
+
+static inline _Bool ti_datetime_is_datetime(ti_datetime_t * dt)
+{
+    return ~dt->flags & DT_AS_TIMEVAL;
+}
 
 #endif  /* TI_DATETIME_H_ */

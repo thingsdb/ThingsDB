@@ -689,7 +689,17 @@ static void __attribute__((unused))mp_print_up(FILE * out, mp_unp_t * up)
         fputs("<BINARY>", out);
         return;
     case MP_STR:
-        fprintf(out, "\"%.*s\"", (int) obj.via.str.n, obj.via.str.data);
+        putc('"', out);
+        for (const char * c = obj.via.str.data,
+                        * e = obj.via.str.data + obj.via.str.n;
+             c < e;
+             ++c)
+        {
+            if (*c == '"')
+                putc('\\', out);
+            putc(*c, out);
+        }
+        putc('"', out);
         return;
     case MP_BOOL:
         if (obj.via.bool_)

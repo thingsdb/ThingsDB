@@ -7,8 +7,6 @@ static int do__f_as_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_name_t * name;
     ti_vint_t * vint;
     struct tm tm;
-    time_t ts;
-    long int offset;
     ti_thing_t * as_thing;
 
     if (!ti_val_is_datetime(query->rval))
@@ -19,26 +17,13 @@ static int do__f_as_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     dt = (ti_datetime_t *) query->rval;
 
-    ts = dt->ts;
-    offset = dt->offset * 60;
-
-    if ((offset > 0 && ts > LLONG_MAX - offset) ||
-        (offset < 0 && ts < LLONG_MIN - offset))
+    if (ti_datetime_time(dt, &tm))
     {
-        ex_set(e, EX_OVERFLOW, "datetime overflow");
+        ex_set(e, EX_VALUE_ERROR, "failed to read time for datetime object");
         return e->nr;
     }
 
-    ts += offset;
-
-    if (gmtime_r(&ts, &tm) != &tm)
-    {
-        ex_set(e, EX_VALUE_ERROR,
-                "failed to convert to Coordinated Universal Time (UTC)");
-        return e->nr;
-    }
-
-    as_thing = ti_thing_o_create(0, 6, query->collection);
+    as_thing = ti_thing_o_create(0, 7, query->collection);
     if (!as_thing)
     {
         ex_set_mem(e);
@@ -83,7 +68,7 @@ static int do__f_as_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     /* gmt_offset */
     name = (ti_name_t *) ti_val_gmt_offset_name();
-    vint = ti_vint_create(offset);
+    vint = ti_vint_create(tm.tm_gmtoff);
     if (!vint || !ti_thing_o_prop_add(as_thing, name, (ti_val_t *) vint))
         goto mem_error;
 

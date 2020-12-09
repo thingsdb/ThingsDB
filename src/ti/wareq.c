@@ -93,7 +93,7 @@ static int wareq__unpack(ti_wareq_t * wareq, ti_pkg_t * pkg, ex_t * e)
     for (i = 0; i < nargs; ++i)
     {
         void * idp;
-        if (!mp_may_cast_u64(mp_next(&up, &mp_id)))
+        if (mp_next(&up, &mp_id) <= 0 || mp_cast_u64(&mp_id))
         {
             ex_set(e, EX_BAD_DATA,
                     "watch requests only excepts integer thing id's "DOC_WATCHING);

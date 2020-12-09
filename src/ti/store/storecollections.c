@@ -104,10 +104,10 @@ int ti_store_collections_restore(const char * fn)
             /* TODO: (COMPAT) This check is for compatibility with ThingsDB
              *       versions before v0.10.0
              */
-            if (mp_next(&up, &mp_tz) != MP_I64)
+            if (mp_next(&up, &mp_tz) != MP_U64)
                 goto fail;
 
-            tz = ti_tz_from_index(mp_tz.via.i64);
+            tz = ti_tz_from_index(mp_tz.via.u64);
         }
         else
             tz = ti_tz_utc();

@@ -22,9 +22,9 @@ ti_tz_t * ti_tz_utc(void);
 ti_tz_t * ti_tz_from_index(size_t tz_index);
 ti_tz_t * ti_tz_from_strn(register const char * s, register size_t n);
 
-static inline _Bool ti_tz_is_utc(ti_tz_t * tz)
+static inline _Bool ti_tz_is_not_utc(ti_tz_t * tz)
 {
-    return tz && tz->index == 0;
+    return tz && tz->index;
 }
 
 

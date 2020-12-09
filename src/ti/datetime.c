@@ -17,9 +17,9 @@ static const char * datetime__fmp_utc = "%Y-%m-%dT%H:%M:%SZ";
 
 static inline const char * datetime__fmt(ti_datetime_t * dt)
 {
-    return ti_tz_is_utc(dt->tz) || !dt->offset
-            ? datetime__fmp_utc
-            : datetime__fmt_zone;
+    return ti_tz_is_not_utc(dt->tz) || dt->offset
+            ? datetime__fmt_zone
+            : datetime__fmp_utc;
 }
 
 /*
@@ -31,7 +31,7 @@ ti_datetime_t * ti_datetime_from_i64(int64_t ts, int16_t offset, ti_tz_t * tz)
     if (!dt)
         return NULL;
     dt->ref = 1;
-    dt->flags = 0;
+    dt->tp = TI_VAL_DATETIME;
     dt->ts = (time_t) ts;
     dt->offset = offset;
     dt->tz = tz;  /* may be NULL */
@@ -45,11 +45,12 @@ ti_datetime_t * ti_datetime_copy(ti_datetime_t * dt)
     return dtnew;
 }
 
-static int datetime__get_time(ti_datetime_t * dt, struct tm * tm)
+int ti_datetime_time(ti_datetime_t * dt, struct tm * tm)
 {
     if (dt->tz)
     {
         ti_tz_set(dt->tz);
+        tzset();
         return -(localtime_r(&dt->ts, tm) != tm);
     }
 
@@ -301,9 +302,9 @@ static size_t datetime__write(
 {
     size_t sz;
     struct tm tm = {0};
-    if (datetime__get_time(dt, &tm))
+    if (ti_datetime_time(dt, &tm))
     {
-        ex_set(e, EX_VALUE_ERROR, "failed to localize time for datetime");
+        ex_set(e, EX_VALUE_ERROR, "failed to read time for datetime object");
         return 0;
     }
 
@@ -393,7 +394,7 @@ int ti_datetime_to_pk(ti_datetime_t * dt, msgpack_packer * pk, int options)
         mp_pack_strn(pk, TI_KIND_S_DATETIME, 1) ||
         msgpack_pack_array(pk, 3) ||
         msgpack_pack_int64(pk, dt->ts) ||
-        msgpack_pack_int16(pk, dt->offset) ||
+        msgpack_pack_fix_int16(pk, dt->offset) ||
         (dt->tz ? msgpack_pack_uint64(pk, dt->tz->index) : msgpack_pack_nil(pk))
     );
 }
@@ -450,12 +451,26 @@ int ti_datetime_to_zone(ti_datetime_t * dt, ti_raw_t * tzinfo, ex_t * e)
 
 ti_datetime_t * ti_datetime_from_tm_tz(struct tm * tm, ti_tz_t * tz, ex_t * e)
 {
+    time_t ts;
     ti_datetime_t * dt;
     long int offset;
     int mday = tm->tm_mday;
 
-    ti_tz_set(tz);
-    time_t ts = mktime(tm);
+    if (tz)
+    {
+        /* get offset after calculating time stamp */
+        ti_tz_set(tz);
+        ts = mktime(tm);
+        offset = tm->tm_gmtoff / 60;
+    }
+    else
+    {
+        /* get offset before calculating time stamp */
+        offset = tm->tm_gmtoff;
+        ti_tz_set_utc();
+        ts = mktime(tm) - offset;
+        offset /= 60;
+    }
 
     if (tm->tm_mday != mday)
     {
@@ -463,7 +478,6 @@ ti_datetime_t * ti_datetime_from_tm_tz(struct tm * tm, ti_tz_t * tz, ex_t * e)
         return NULL;
     }
 
-    offset = tm->tm_gmtoff / 60;
     dt = ti_datetime_from_i64(ts, (int16_t) offset, tz);
     if (!dt)
         ex_set_mem(e);
@@ -539,6 +553,32 @@ ti_datetime_t * ti_datetime_from_tm_tzinfo(
     return dt;
 }
 
+static void datetime__correct_max_mday(struct tm * tm)
+{
+    int mday = tm->tm_mday;
+    int month = tm->tm_mon;
+
+    if (month == 3 || month == 5 || month == 8 || month == 10)
+    {
+        /* April, June, September, November */
+        if (mday > 30)
+            tm->tm_mday = 30;
+    }
+    else if (month == 1)
+    {
+        /* February */
+        long int y = tm->tm_year + 1900;
+        int mfeb = 28 + ((y % 4 == 0 && y % 100 != 0) || (y % 400 == 0));
+        if (mday > mfeb)
+            tm->tm_mday = mfeb;
+    }
+    else if (mday > 31)
+    {
+        /* January, March, May, July, August, October, December */
+        tm->tm_mday = 31;
+    }
+}
+
 int ti_datetime_move(
         ti_datetime_t * dt,
         datetime_unit_e unit,
@@ -548,9 +588,10 @@ int ti_datetime_move(
     if (unit <= DT_MONTHS)
     {
         struct tm tm = {0};
-        if (datetime__get_time(dt, &tm))
+        if (ti_datetime_time(dt, &tm))
         {
-            ex_set(e, EX_VALUE_ERROR, "failed to localize time for datetime");
+            ex_set(e, EX_VALUE_ERROR,
+                    "failed to read time for datetime object");
             return e->nr;
         }
 
@@ -566,6 +607,11 @@ int ti_datetime_move(
             tm.tm_mon += num;
             num = tm.tm_mon / 12;
             tm.tm_mon %= 12;
+            if (tm.tm_mon < 0)
+            {
+                tm.tm_mon += 12;
+                num -= 1;
+            }
             /* fall through */
         case DT_YEARS:
             if ((num > 0 && tm.tm_year > INT_MAX - num) ||
@@ -582,6 +628,10 @@ int ti_datetime_move(
             return e->nr;
         }
 
+        /* ensures the the day of the month is correct */
+        if (tm.tm_mday > 28)
+            datetime__correct_max_mday(&tm);
+
         dt->ts = mktime(&tm);
         return 0;
     }
@@ -597,6 +647,8 @@ int ti_datetime_move(
         {
         case DT_YEARS:
         case DT_MONTHS:
+            assert(0);
+            /* fall through */
         case DT_WEEKS:
             num *= 7;
             /* fall through */
@@ -629,19 +681,19 @@ int ti_datetime_move(
 int ti_datetime_weekday(ti_datetime_t * dt)
 {
     struct tm tm = {0};
-    return datetime__get_time(dt, &tm) < 0 ? -1 : tm.tm_wday;
+    return ti_datetime_time(dt, &tm) < 0 ? -1 : tm.tm_wday;
 }
 
 int ti_datetime_yday(ti_datetime_t * dt)
 {
     struct tm tm = {0};
-    return datetime__get_time(dt, &tm) < 0 ? -1 : tm.tm_yday;
+    return ti_datetime_time(dt, &tm) < 0 ? -1 : tm.tm_yday;
 }
 
 int ti_datetime_week(ti_datetime_t * dt)
 {
     struct tm tm = {0};
-    return datetime__get_time(dt, &tm) < 0
+    return ti_datetime_time(dt, &tm) < 0
             ? -1                                    /* error */
             : tm.tm_yday < tm.tm_wday
             ? 0                                     /* before first Sunday */

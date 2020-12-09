@@ -100,7 +100,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
                     "cannot unpack a `thing` without a collection");
             return NULL;
         }
-        if (!mp_may_cast_u64(mp_next(vup->up, &mp_val)))
+        if (mp_next(vup->up, &mp_val) <= 0 || mp_cast_u64(&mp_val))
         {
             ex_set(e, EX_TYPE_ERROR,
                     "expecting an integer value as thing id");
@@ -310,8 +310,8 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
 
         if (sz != 1 ||
             mp_next(vup->up, &mp_val) != MP_ARR || mp_val.via.sz != 3 ||
-            mp_next(vup->up, &mp_ts) != MP_I64 ||
-            mp_next(vup->up, &mp_offset) != MP_I64 ||
+            mp_next(vup->up, &mp_ts) <= 0 || mp_cast_i64(&mp_ts) ||
+            mp_next(vup->up, &mp_offset) <= 0 || mp_cast_i64(&mp_ts) ||
             mp_next(vup->up, &mp_tz) <= 0)  /* U64 or NIL */
         {
             ex_set(e, EX_BAD_DATA,
@@ -329,13 +329,13 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
             return NULL;
         }
 
-        if (mp_tz.tp == MP_NIL)
-        {
-            tz = NULL;
-        }
-        else if (mp_tz.tp == MP_U64)
+        if (mp_tz.tp == MP_U64)
         {
             tz = ti_tz_from_index(mp_tz.via.u64);
+        }
+        else if (mp_tz.tp == MP_NIL)
+        {
+            tz = NULL;
         }
         else
         {

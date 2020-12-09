@@ -151,6 +151,7 @@
 #define DOC_DATETIME_WEEK           DOC_SEE("data-types/datetime/week")
 #define DOC_DATETIME_WEEKDAY        DOC_SEE("data-types/datetime/weekday")
 #define DOC_DATETIME_YDAY           DOC_SEE("data-types/datetime/yday")
+#define DOC_DATETIME_ZONE           DOC_SEE("data-types/datetime/zone")
 #define DOC_ENUM_NAME               DOC_SEE("data-types/enum/name")
 #define DOC_ENUM_VALUE              DOC_SEE("data-types/enum/value")
 #define DOC_ERROR_CODE              DOC_SEE("data-types/error/code")

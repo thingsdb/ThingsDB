@@ -180,6 +180,7 @@
 #include <ti/fn/fnwrap.h>
 #include <ti/fn/fnwse.h>
 #include <ti/fn/fnyday.h>
+#include <ti/fn/fnzone.h>
 #include <ti/qbind.h>
 #include <ti/preopr.h>
 
@@ -205,7 +206,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 205,
+    TOTAL_KEYWORDS = 206,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 17,
@@ -228,9 +229,9 @@ static inline unsigned int qbind__hash(
         459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
         459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
         459, 459, 459, 459, 459,   4, 459,   8,  62,  69,
-         33,   4,  39,  86, 141,   4,   5,  67,  18,  43,
+         33,   4,  39,  86, 141,   4,   7,  67,  18,  43,
          11,  33,  47,   4,   5,   4,   7,  36, 149, 140,
-        143, 155,   4, 459, 459, 459, 459, 459, 459, 459,
+        143, 155,   5, 459, 459, 459, 459, 459, 459, 459,
         459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
         459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
         459, 459, 459, 459, 459, 459, 459, 459, 459, 459,
@@ -578,6 +579,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="wse",               .fn=do__f_wse,                  XROOT_BE},
     {.name="yday",              .fn=do__f_yday,                 CHAIN_NE},
     {.name="zero_div_err",      .fn=do__f_zero_div_err,         ROOT_NE},
+    {.name="zone",              .fn=do__f_zone,                 CHAIN_NE},
 };
 
 static qbind__fmap_t * qbind__fn_map[MAX_HASH_VALUE+1];

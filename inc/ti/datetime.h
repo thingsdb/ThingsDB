@@ -9,6 +9,8 @@ typedef struct ti_datetime_s ti_datetime_t;
 #define DATETIME(__x)  ((ti_datetime_t *) (__x))->ts
 #define DATETIME_OFFSET_MIN (-720)
 #define DATETIME_OFFSET_MAX (+720)
+#define DATETIME_OFFSET_SEC_MIN (-43200L)
+#define DATETIME_OFFSET_SEC_MAX (+43200L)
 
 #include <inttypes.h>
 #include <time.h>
@@ -32,7 +34,7 @@ struct ti_datetime_s
 {
     uint32_t ref;
     uint8_t tp;
-    uint8_t flags;
+    uint8_t _flags;
     int16_t offset;         /* offset in minutes */
     time_t ts;              /* time-stamp in seconds */
     ti_tz_t * tz;           /* may be NULL */
@@ -56,6 +58,7 @@ ti_datetime_t * ti_datetime_from_tm_tzinfo(
         ex_t * e);
 ti_raw_t * ti_datetime_to_str(ti_datetime_t * dt, ex_t * e);
 ti_raw_t * ti_datetime_to_str_fmt(ti_datetime_t * dt, ti_raw_t * fmt, ex_t * e);
+int ti_datetime_time(ti_datetime_t * dt, struct tm * tm);
 int ti_datetime_to_pk(ti_datetime_t * dt, msgpack_packer * pk, int options);
 int ti_datetime_to_zone(ti_datetime_t * dt, ti_raw_t * tzinfo, ex_t * e);
 void ti_datetime_set_tz(ti_tz_t * tz);

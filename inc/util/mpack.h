@@ -745,9 +745,30 @@ static void __attribute__((unused))mp_print(FILE * out, const void * data, size_
     mp_print_up(out, &up);
 }
 
-static inline _Bool mp_may_cast_u64(mp_enum_t tp)
+static inline int mp_cast_u64(mp_obj_t * o)
 {
-    return tp == MP_I64 || tp == MP_U64;
+    if (o->tp == MP_U64)
+        return 0;
+    if (o->tp == MP_I64)
+    {
+        o->via.u64 = (uint64_t) o->via.i64;
+        return 0;
+    }
+    return -1;
+}
+
+static inline int mp_cast_i64(mp_obj_t * o)
+{
+    if (o->tp == MP_I64)
+        return 0;
+    if (o->tp == MP_U64)
+    {
+        if (o->via.u64 > LLONG_MAX)
+            return -1;
+        o->via.i64 = (int64_t) o->via.u64;
+        return 0;
+    }
+    return -1;
 }
 
 static inline void * mp_strdup(mp_obj_t * o)

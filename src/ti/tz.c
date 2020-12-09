@@ -618,6 +618,7 @@ void ti_tz_init(void)
         unsigned int key;
         ti_tz_t * tz = &tz__list[i];
 
+        tz->index = i;
         tz->n = strlen(tz->name);
         key = tz__hash(tz->name, tz->n);
 

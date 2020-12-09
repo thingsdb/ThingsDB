@@ -710,13 +710,14 @@ static int field__mod_nested_cb(ti_thing_t * thing, ti_field_t * field)
     {
         ti_val_t * val = VEC_get(thing->items, field->idx);
 
-        switch (val->tp)
+        switch ((ti_val_enum) val->tp)
         {
         case TI_VAL_NIL:
             return 0;
         case TI_VAL_INT:
         case TI_VAL_FLOAT:
         case TI_VAL_BOOL:
+        case TI_VAL_DATETIME:
         case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_STR:

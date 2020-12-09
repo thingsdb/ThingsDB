@@ -644,7 +644,7 @@ ti_tz_t * ti_tz_utc(void)
     return &tz__list[0];
 }
 
-/* Always returns a timezone, UTC if no valid index is given. As this is
+/* Always returns a time zone, UTC if no valid index is given. As this is
  * used internally only. An error will be logged when an invalid time zone
  * is asked.
  */
@@ -659,7 +659,7 @@ ti_tz_t * ti_tz_from_index(size_t tz_index)
 }
 
 /*
- * Returns NULL if the timezone is unknown.
+ * Returns NULL if the time zone is unknown.
  */
 ti_tz_t * ti_tz_from_strn(register const char * s, register size_t n)
 {

@@ -431,8 +431,8 @@ int ti_datetime_to_zone(ti_datetime_t * dt, ti_raw_t * tzinfo, ex_t * e)
     if (!tzinfo->n)
     {
         ex_set(e, EX_VALUE_ERROR,
-                "expecting a timezone or offset; "
-                "example timezone: `Europe/Amsterdam`; example offset: `+01`");
+                "expecting a time zone or offset; "
+                "example time zone: `Europe/Amsterdam`; example offset: `+01`");
         return e->nr;
     }
 
@@ -465,7 +465,7 @@ int ti_datetime_to_zone(ti_datetime_t * dt, ti_raw_t * tzinfo, ex_t * e)
         ti_tz_t * tz = ti_tz_from_strn((const char *) tzinfo->data, tzinfo->n);
         if (!tz)
         {
-            ex_set(e, EX_VALUE_ERROR, "unknown timezone");
+            ex_set(e, EX_VALUE_ERROR, "unknown time zone");
             return e->nr;
         }
 
@@ -525,8 +525,8 @@ ti_datetime_t * ti_datetime_from_tm_tzinfo(
     if (!tzinfo->n)
     {
         ex_set(e, EX_VALUE_ERROR,
-                "expecting a timezone or offset; "
-                "example timezone: `Europe/Amsterdam`; example offset: `+01`");
+                "expecting a time zone or offset; "
+                "example time zone: `Europe/Amsterdam`; example offset: `+01`");
         return NULL;
     }
 
@@ -559,7 +559,7 @@ ti_datetime_t * ti_datetime_from_tm_tzinfo(
         tz = ti_tz_from_strn((const char *) tzinfo->data, tzinfo->n);
         if (!tz)
         {
-            ex_set(e, EX_VALUE_ERROR, "unknown timezone");
+            ex_set(e, EX_VALUE_ERROR, "unknown time zone");
             return NULL;
         }
 

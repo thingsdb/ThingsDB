@@ -232,7 +232,7 @@ static int fn__datetime(
     }
 
     /*
-     * Read (optional) timezone info
+     * Read (optional) time zone info
      */
     if (!child->next || !(child = child->next->next))
         goto done;

@@ -327,7 +327,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
             mp_offset.via.i64 > DATETIME_OFFSET_MAX)
         {
             ex_set(e, EX_BAD_DATA,
-                "invalid datetime offset: %"PRId64, mp_offset.via.i64);
+                "invalid offset: %"PRId64, mp_offset.via.i64);
             return NULL;
         }
 
@@ -342,11 +342,11 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
         else
         {
             ex_set(e, EX_BAD_DATA,
-                    "invalid timezone, expecting `nil` or `u64`");
+                    "invalid time zone, expecting `nil` or `u64`");
             return NULL;
         }
 
-        dt = (ti_val_kind) *mp_key.via.str.data == TI_KIND_C_TIMEVAL
+        dt = ((ti_val_kind) *mp_key.via.str.data) == TI_KIND_C_TIMEVAL
                 ? ti_timeval_from_i64(mp_ts.via.i64, mp_offset.via.i64, tz)
                 : ti_datetime_from_i64(mp_ts.via.i64, mp_offset.via.i64, tz);
 

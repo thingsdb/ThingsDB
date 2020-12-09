@@ -29,7 +29,7 @@ static int do__f_set_time_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (!tz)
         {
-            ex_set(e, EX_VALUE_ERROR, "unknown timezone");
+            ex_set(e, EX_VALUE_ERROR, "unknown time zone");
             return e->nr;
         }
 

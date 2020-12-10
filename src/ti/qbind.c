@@ -27,6 +27,7 @@
 #include <ti/fn/fncollectionsinfo.h>
 #include <ti/fn/fncontains.h>
 #include <ti/fn/fncounters.h>
+#include <ti/fn/fndatetime.h>
 #include <ti/fn/fndeep.h>
 #include <ti/fn/fndef.h>
 #include <ti/fn/fndel.h>
@@ -42,7 +43,6 @@
 #include <ti/fn/fndoc.h>
 #include <ti/fn/fneach.h>
 #include <ti/fn/fnemit.h>
-#include <ti/fn/fnexport.h>
 #include <ti/fn/fnendswith.h>
 #include <ti/fn/fnenum.h>
 #include <ti/fn/fnenuminfo.h>
@@ -51,11 +51,14 @@
 #include <ti/fn/fnerrors.h>
 #include <ti/fn/fneventid.h>
 #include <ti/fn/fnevery.h>
+#include <ti/fn/fnexport.h>
 #include <ti/fn/fnextend.h>
+#include <ti/fn/fnextract.h>
 #include <ti/fn/fnfilter.h>
 #include <ti/fn/fnfind.h>
 #include <ti/fn/fnfindindex.h>
 #include <ti/fn/fnfloat.h>
+#include <ti/fn/fnformat.h>
 #include <ti/fn/fnget.h>
 #include <ti/fn/fngrant.h>
 #include <ti/fn/fnhas.h>
@@ -68,14 +71,15 @@
 #include <ti/fn/fnhastype.h>
 #include <ti/fn/fnhasuser.h>
 #include <ti/fn/fnid.h>
-#include <ti/fn/fnindexof.h>
 #include <ti/fn/fnif.h>
+#include <ti/fn/fnindexof.h>
 #include <ti/fn/fnint.h>
 #include <ti/fn/fnisarray.h>
 #include <ti/fn/fnisascii.h>
 #include <ti/fn/fnisbool.h>
 #include <ti/fn/fnisbytes.h>
 #include <ti/fn/fnisclosure.h>
+#include <ti/fn/fnisdatetime.h>
 #include <ti/fn/fnisenum.h>
 #include <ti/fn/fniserr.h>
 #include <ti/fn/fnisfloat.h>
@@ -88,6 +92,7 @@
 #include <ti/fn/fnisset.h>
 #include <ti/fn/fnisstr.h>
 #include <ti/fn/fnisthing.h>
+#include <ti/fn/fnistimeval.h>
 #include <ti/fn/fnistuple.h>
 #include <ti/fn/fnisutf8.h>
 #include <ti/fn/fnjoin.h>
@@ -98,6 +103,7 @@
 #include <ti/fn/fnmap.h>
 #include <ti/fn/fnmodenum.h>
 #include <ti/fn/fnmodtype.h>
+#include <ti/fn/fnmove.h>
 #include <ti/fn/fnmsg.h>
 #include <ti/fn/fnname.h>
 #include <ti/fn/fnnew.h>
@@ -140,6 +146,7 @@
 #include <ti/fn/fnsetenum.h>
 #include <ti/fn/fnsetloglevel.h>
 #include <ti/fn/fnsetpassword.h>
+#include <ti/fn/fnsettimezone.h>
 #include <ti/fn/fnsettype.h>
 #include <ti/fn/fnshift.h>
 #include <ti/fn/fnshutdown.h>
@@ -151,6 +158,7 @@
 #include <ti/fn/fnstr.h>
 #include <ti/fn/fntest.h>
 #include <ti/fn/fnthing.h>
+#include <ti/fn/fnto.h>
 #include <ti/fn/fntrim.h>
 #include <ti/fn/fntrimleft.h>
 #include <ti/fn/fntrimright.h>
@@ -169,8 +177,12 @@
 #include <ti/fn/fnvalue.h>
 #include <ti/fn/fnvalues.h>
 #include <ti/fn/fnwatch.h>
+#include <ti/fn/fnweek.h>
+#include <ti/fn/fnweekday.h>
 #include <ti/fn/fnwrap.h>
 #include <ti/fn/fnwse.h>
+#include <ti/fn/fnyday.h>
+#include <ti/fn/fnzone.h>
 #include <ti/qbind.h>
 #include <ti/preopr.h>
 
@@ -196,11 +208,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 196,
+    TOTAL_KEYWORDS = 209,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 13,
-    MAX_HASH_VALUE = 428
+    MIN_HASH_VALUE = 17,
+    MAX_HASH_VALUE = 492
 };
 
 static inline unsigned int qbind__hash(
@@ -209,32 +221,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        429, 429, 429, 429, 429, 429, 429, 429, 429, 429,
-        429, 429, 429, 429, 429, 429, 429, 429, 429, 429,
-        429, 429, 429, 429, 429, 429, 429, 429, 429, 429,
-        429, 429, 429, 429, 429, 429, 429, 429, 429, 429,
-        429, 429, 429, 429, 429, 429, 429, 429, 429, 429,
-        429, 429,   3, 429,   3, 429,   5, 429, 429, 429,
-        429, 429, 429, 429, 429, 429, 429, 429, 429, 429,
-        429, 429, 429, 429, 429, 429, 429, 429, 429, 429,
-        429, 429, 429, 429, 429, 429, 429, 429, 429, 429,
-        429, 429, 429, 429, 429,   3, 429,   9,  44,  77,
-         34,   5,  40,  47, 146,   3,   7,  35,  17,  69,
-          6,  20,  66,   3,   4,   3,   3,   7, 138, 146,
-        133, 185,   5, 429, 429, 429, 429, 429, 429, 429,
-        429, 429, 429, 429, 429, 429, 429, 429, 429, 429,
-        429, 429, 429, 429, 429, 429, 429, 429, 429, 429,
-        429, 429, 429, 429, 429, 429, 429, 429, 429, 429,
-        429, 429, 429, 429, 429, 429, 429, 429, 429, 429,
-        429, 429, 429, 429, 429, 429, 429, 429, 429, 429,
-        429, 429, 429, 429, 429, 429, 429, 429, 429, 429,
-        429, 429, 429, 429, 429, 429, 429, 429, 429, 429,
-        429, 429, 429, 429, 429, 429, 429, 429, 429, 429,
-        429, 429, 429, 429, 429, 429, 429, 429, 429, 429,
-        429, 429, 429, 429, 429, 429, 429, 429, 429, 429,
-        429, 429, 429, 429, 429, 429, 429, 429, 429, 429,
-        429, 429, 429, 429, 429, 429, 429, 429, 429, 429,
-        429, 429, 429, 429, 429, 429
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493,   4, 493,   4, 493,  10, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493,   4, 493,   8,  62,  69,
+         33,   4,  39,  86, 141,   4,   5,  67,  18,  43,
+         11,  33,  47,   4,   5,   4,   7,  36, 190, 140,
+        171, 155,  26, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
+        493, 493, 493, 493, 493, 493
     };
 
     register unsigned int hval = n;
@@ -384,6 +396,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="collections_info",  .fn=do__f_collections_info,     ROOT_NE},
     {.name="contains",          .fn=do__f_contains,             CHAIN_NE},
     {.name="counters",          .fn=do__f_counters,             ROOT_NE},
+    {.name="datetime",          .fn=do__f_datetime,             ROOT_NE},
     {.name="deep",              .fn=do__f_deep,                 ROOT_NE},
     {.name="def",               .fn=do__f_def,                  CHAIN_NE},
     {.name="del_backup",        .fn=do__f_del_backup,           ROOT_NE},
@@ -409,12 +422,14 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="every",             .fn=do__f_every,                CHAIN_NE},
     {.name="export",            .fn=do__f_export,               ROOT_NE},
     {.name="extend",            .fn=do__f_extend,               CHAIN_CE_XVAR},
+    {.name="extract",           .fn=do__f_extract,              CHAIN_NE},
     {.name="filter",            .fn=do__f_filter,               CHAIN_NE},
     {.name="find_index",        .fn=do__f_find_index,           CHAIN_NE},
-    {.name="findindex",         .fn=do__f_findindex,            CHAIN_NE},      /* deprecated */
     {.name="find",              .fn=do__f_find,                 XCHAIN_NE},
+    {.name="findindex",         .fn=do__f_findindex,            CHAIN_NE},      /* deprecated */
     {.name="float",             .fn=do__f_float,                ROOT_NE},
     {.name="forbidden_err",     .fn=do__f_forbidden_err,        ROOT_NE},
+    {.name="format",            .fn=do__f_format,               CHAIN_NE},
     {.name="get",               .fn=do__f_get,                  XCHAIN_NE},
     {.name="grant",             .fn=do__f_grant,                ROOT_TE},
     {.name="has_backup",        .fn=do__f_has_backup,           ROOT_NE},
@@ -440,6 +455,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="is_bytes",          .fn=do__f_is_bytes,             ROOT_NE},
     {.name="isbytes",           .fn=do__f_isbytes,              ROOT_NE},       /* deprecated */
     {.name="is_closure",        .fn=do__f_is_closure,           ROOT_NE},
+    {.name="is_datetime",       .fn=do__f_is_datetime,          ROOT_NE},
     {.name="is_enum",           .fn=do__f_is_enum,              ROOT_NE},
     {.name="isenum",            .fn=do__f_isenum,               ROOT_NE},       /* deprecated */
     {.name="is_err",            .fn=do__f_is_err,               ROOT_NE},
@@ -464,6 +480,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="isstr",             .fn=do__f_isstr,                ROOT_NE},       /* deprecated */
     {.name="is_thing",          .fn=do__f_is_thing,             ROOT_NE},
     {.name="isthing",           .fn=do__f_isthing,              ROOT_NE},       /* deprecated */
+    {.name="is_timeval",        .fn=do__f_is_timeval,           ROOT_NE},
     {.name="is_tuple",          .fn=do__f_is_tuple,             ROOT_NE},
     {.name="istuple",           .fn=do__f_istuple,              ROOT_NE},       /* deprecated */
     {.name="is_utf8",           .fn=do__f_is_utf8,              ROOT_NE},
@@ -478,6 +495,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="max_quota_err",     .fn=do__f_max_quota_err,        ROOT_NE},
     {.name="mod_enum",          .fn=do__f_mod_enum,             ROOT_CE},
     {.name="mod_type",          .fn=do__f_mod_type,             ROOT_CE},
+    {.name="move",              .fn=do__f_move,                 CHAIN_NE},
     {.name="msg",               .fn=do__f_msg,                  CHAIN_NE},
     {.name="name",              .fn=do__f_name,                 CHAIN_NE},
     {.name="new_backup",        .fn=do__f_new_backup,           ROOT_NE},
@@ -523,20 +541,23 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="set_enum",          .fn=do__f_set_enum,             ROOT_CE},
     {.name="set_log_level",     .fn=do__f_set_log_level,        ROOT_NE},
     {.name="set_password",      .fn=do__f_set_password,         ROOT_TE},
+    {.name="set_time_zone",     .fn=do__f_set_time_zone,        ROOT_TE},
     {.name="set_type",          .fn=do__f_set_type,             ROOT_CE},
     {.name="set",               .fn=do__f_set,                  BOTH_CE_XROOT},
-    {.name="split",             .fn=do__f_split,                CHAIN_NE},
     {.name="shift",             .fn=do__f_shift,                CHAIN_CE_XVAR},
     {.name="shutdown",          .fn=do__f_shutdown,             ROOT_NE},
     {.name="some",              .fn=do__f_some,                 CHAIN_NE},
     {.name="sort",              .fn=do__f_sort,                 CHAIN_NE},
     {.name="splice",            .fn=do__f_splice,               CHAIN_CE_XVAR},
+    {.name="split",             .fn=do__f_split,                CHAIN_NE},
     {.name="starts_with",       .fn=do__f_starts_with,          CHAIN_NE},
     {.name="startswith",        .fn=do__f_startswith,           CHAIN_NE},      /* deprecated */
     {.name="str",               .fn=do__f_str,                  ROOT_NE},
     {.name="syntax_err",        .fn=do__f_syntax_err,           ROOT_NE},
     {.name="test",              .fn=do__f_test,                 CHAIN_NE},
     {.name="thing",             .fn=do__f_thing,                ROOT_NE},
+    {.name="timeval",           .fn=do__f_timeval,              ROOT_NE},
+    {.name="to",                .fn=do__f_to,                   CHAIN_NE},
     {.name="trim_left",         .fn=do__f_trim_left,            CHAIN_NE},
     {.name="trim_right",        .fn=do__f_trim_right,           CHAIN_NE},
     {.name="trim",              .fn=do__f_trim,                 CHAIN_NE},
@@ -557,9 +578,13 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="value",             .fn=do__f_value,                CHAIN_NE},
     {.name="values",            .fn=do__f_values,               CHAIN_NE},
     {.name="watch",             .fn=do__f_watch,                CHAIN_NE},
+    {.name="week",              .fn=do__f_week,                 CHAIN_NE},
+    {.name="weekday",           .fn=do__f_weekday,              CHAIN_NE},
     {.name="wrap",              .fn=do__f_wrap,                 CHAIN_NE},
     {.name="wse",               .fn=do__f_wse,                  XROOT_BE},
+    {.name="yday",              .fn=do__f_yday,                 CHAIN_NE},
     {.name="zero_div_err",      .fn=do__f_zero_div_err,         ROOT_NE},
+    {.name="zone",              .fn=do__f_zone,                 CHAIN_NE},
 };
 
 static qbind__fmap_t * qbind__fn_map[MAX_HASH_VALUE+1];

@@ -80,6 +80,7 @@ int ti_task_add_remove(ti_task_t * task, ti_name_t * name, vec_t * removed);
 int ti_task_add_rename_collection(
         ti_task_t * task,
         ti_collection_t * collection);
+int ti_task_add_set_time_zone(ti_task_t * task, ti_collection_t * collection);
 int ti_task_add_rename_procedure(
         ti_task_t * task,
         ti_procedure_t * procedure,

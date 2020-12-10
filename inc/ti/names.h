@@ -37,6 +37,11 @@ static inline ti_name_t * ti_names_get(const char * str, size_t n)
     return ti_names_new(str, n);
 }
 
+static inline ti_name_t * ti_names_from_str(const char * str)
+{
+    return ti_names_get(str, strlen(str));
+}
+
 static inline ti_name_t * ti_names_from_raw(ti_raw_t * raw)
 {
     return ti_names_get((const char *) raw->data, raw->n);

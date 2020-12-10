@@ -5,6 +5,8 @@
 #include <string.h>
 #include <ti.h>
 #include <ti/collection.h>
+#include <ti/tz.h>
+#include <ti/raw.inline.h>
 #include <ti/store/storecollections.h>
 #include <util/fx.h>
 #include <util/mpack.h>
@@ -32,10 +34,11 @@ int ti_store_collections_store(const char * fn)
     for (vec_each(vec, ti_collection_t, collection))
     {
         if (
-            msgpack_pack_array(&pk, 3) ||
+            msgpack_pack_array(&pk, 4) ||
             mp_pack_strn(&pk, collection->guid.guid, sizeof(guid_t)) ||
             mp_pack_strn(&pk, collection->name->data, collection->name->n) ||
-            msgpack_pack_uint64(&pk, collection->created_at)
+            msgpack_pack_uint64(&pk, collection->created_at) ||
+            msgpack_pack_uint64(&pk, collection->tz->index)
         ) goto fail;
     }
 
@@ -59,10 +62,11 @@ int ti_store_collections_restore(const char * fn)
     int rc = -1;
     size_t i;
     ssize_t n;
-    mp_obj_t obj, mp_ver, mp_guid, mp_name, mp_created;
+    mp_obj_t obj, mp_ver, mp_guid, mp_name, mp_created, mp_tz;
     mp_unp_t up;
     guid_t guid;
     ti_collection_t * collection;
+    ti_tz_t * tz;
     uchar * data = fx_read(fn, &n);
     if (!data)
         return -1;
@@ -81,7 +85,9 @@ int ti_store_collections_restore(const char * fn)
     for (i = obj.via.sz; i--;)
     {
         if (
-            mp_next(&up, &obj) != MP_ARR || obj.via.sz != 3 ||
+            mp_next(&up, &obj) != MP_ARR ||
+            /* size 3 from compatibility */
+            (obj.via.sz != 3 && obj.via.sz != 4) ||
             mp_next(&up, &mp_guid) != MP_STR ||
             mp_guid.via.str.n != sizeof(guid_t) ||
             mp_next(&up, &mp_name) != MP_STR ||
@@ -93,13 +99,27 @@ int ti_store_collections_restore(const char * fn)
         if (guid.guid[sizeof(guid_t) - 1])
             goto fail;
 
+        if (obj.via.sz == 4)
+        {
+            /* TODO: (COMPAT) This check is for compatibility with ThingsDB
+             *       versions before v0.10.0
+             */
+            if (mp_next(&up, &mp_tz) != MP_U64)
+                goto fail;
+
+            tz = ti_tz_from_index(mp_tz.via.u64);
+        }
+        else
+            tz = ti_tz_utc();
+
         collection = ti_collection_create(
                 &guid,
                 mp_name.via.str.data,
                 mp_name.via.str.n,
+                tz,
                 mp_created.via.u64);
         if (!collection || vec_push(&ti.collections->vec, collection))
-            goto fail;
+            goto fail;  /* might leak a few bytes for the time zone */
 
     }
     goto done;

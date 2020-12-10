@@ -11,6 +11,7 @@ typedef struct ti_collection_s  ti_collection_t;
 #include <ti/raw.t.h>
 #include <ti/enums.t.h>
 #include <ti/thing.t.h>
+#include <ti/tz.h>
 #include <ti/types.t.h>
 #include <util/guid.h>
 #include <util/imap.h>
@@ -21,6 +22,7 @@ struct ti_collection_s
     uint32_t ref;
     guid_t guid;            /* derived from collection->root->id */
     uint64_t created_at;    /* UNIX time-stamp in seconds */
+    ti_tz_t * tz;
     ti_raw_t * name;
     imap_t * things;        /* weak map for ti_thing_t */
     queue_t * gc;           /* ti_gc_t */

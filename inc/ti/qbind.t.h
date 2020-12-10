@@ -4,8 +4,6 @@
 #ifndef TI_QBIND_T_H_
 #define TI_QBIND_T_H_
 
-#define TI_QBIND_FLAG_BIT = 3;
-
 typedef enum
 {
     /* First three flags are exclusive, only one may be set.
@@ -44,7 +42,7 @@ typedef struct ti_qbind_s ti_qbind_t;
 struct ti_qbind_s
 {
     uint32_t val_cache_n;       /* count while investigate */
-    uint16_t pkg_id;            /* package id to return the query to */
+    uint16_t pad0;
     uint8_t flags;              /* query flags (ti_qbind_flag_t) */
     uint8_t deep;               /* fetch level */
 };

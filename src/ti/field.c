@@ -329,6 +329,13 @@ skip_nesting:
             goto found;
         }
         break;
+    case 'd':
+        if (field__cmp(str, n, "datetime"))
+        {
+            *spec |= TI_SPEC_DATETIME;
+            goto found;
+        }
+        break;
     case 'f':
         if (field__cmp(str, n, "float"))
         {
@@ -380,6 +387,11 @@ skip_nesting:
         if (field__cmp(str, n, "thing"))
         {
             *spec |= TI_SPEC_OBJECT;
+            goto found;
+        }
+        if (field__cmp(str, n, "timeval"))
+        {
+            *spec |= TI_SPEC_TIMEVAL;
             goto found;
         }
         break;
@@ -595,6 +607,18 @@ ti_val_t * ti_field_dval(ti_field_t * field)
         return (ti_val_t *) ti_vint_create(0);
     case TI_SPEC_BOOL:
         return (ti_val_t *) ti_vbool_get(false);
+    case TI_SPEC_DATETIME:
+        /* TODO: test if this works as expected, since `now` is time depended */
+        return (ti_val_t *) ti_datetime_from_i64(
+                (int64_t) util_now_tsec(),
+                0,
+                field->type->types->collection->tz);
+    case TI_SPEC_TIMEVAL:
+        /* TODO: test if this works as expected, since `now` is time depended */
+        return (ti_val_t *) ti_timeval_from_i64(
+                (int64_t) util_now_tsec(),
+                0,
+                field->type->types->collection->tz);
     case TI_SPEC_ARR:
     {
          ti_varr_t * varr = ti_varr_create(0);
@@ -686,13 +710,14 @@ static int field__mod_nested_cb(ti_thing_t * thing, ti_field_t * field)
     {
         ti_val_t * val = VEC_get(thing->items, field->idx);
 
-        switch (val->tp)
+        switch ((ti_val_enum) val->tp)
         {
         case TI_VAL_NIL:
             return 0;
         case TI_VAL_INT:
         case TI_VAL_FLOAT:
         case TI_VAL_BOOL:
+        case TI_VAL_DATETIME:
         case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_STR:
@@ -1284,6 +1309,7 @@ int ti_field_make_assignable(
         case TI_VAL_INT:
         case TI_VAL_FLOAT:
         case TI_VAL_BOOL:
+        case TI_VAL_DATETIME:
         case TI_VAL_MP:
         case TI_VAL_NAME:
         case TI_VAL_STR:
@@ -1360,6 +1386,14 @@ int ti_field_make_assignable(
         goto type_error;
     case TI_SPEC_BOOL:
         if (ti_val_is_bool(*val))
+            return 0;
+        goto type_error;
+    case TI_SPEC_DATETIME:
+        if (ti_val_is_datetime_strict(*val))
+            return 0;
+        goto type_error;
+    case TI_SPEC_TIMEVAL:
+        if (ti_val_is_timeval(*val))
             return 0;
         goto type_error;
     case TI_SPEC_ARR:
@@ -1576,6 +1610,10 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
         return ti_val_is_number(val);
     case TI_SPEC_BOOL:
         return ti_val_is_bool(val);
+    case TI_SPEC_DATETIME:
+        return ti_val_is_datetime_strict(val);
+    case TI_SPEC_TIMEVAL:
+        return ti_val_is_timeval(val);
     case TI_SPEC_ARR:
         /* we can map a set to an array */
         return ((
@@ -1670,6 +1708,8 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_NINT:
     case TI_SPEC_FLOAT:
     case TI_SPEC_BOOL:
+    case TI_SPEC_DATETIME:
+    case TI_SPEC_TIMEVAL:
     case TI_SPEC_ARR:
     case TI_SPEC_SET:
     case TI_SPEC_REMATCH:
@@ -1799,6 +1839,8 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
                 f_spec == TI_SPEC_INT_RANGE ||
                 f_spec == TI_SPEC_FLOAT_RANGE);
     case TI_SPEC_BOOL:
+    case TI_SPEC_DATETIME:
+    case TI_SPEC_TIMEVAL:
         return f_spec == t_spec;
     case TI_SPEC_ARR:
         return (

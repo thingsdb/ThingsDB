@@ -30,6 +30,6 @@ static int do__f_is_nan(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int do__f_isnan(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    log_warning("function `isnan` is deprecated, use `is_nan` instead");
+    log_error("function `isnan` is deprecated, use `is_nan` instead");
     return do__f_is_nan(query, nd, e);
 }

@@ -15,7 +15,6 @@ struct ti_vbool_s
     uint32_t ref;
     uint8_t tp;
     _Bool bool_;
-    uint16_t _pad16;
 };
 
 ti_vbool_t * ti_vbool_get(_Bool b);

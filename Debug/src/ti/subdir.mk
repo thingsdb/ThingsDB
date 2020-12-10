@@ -23,6 +23,7 @@ C_SRCS += \
 ../src/ti/connect.c \
 ../src/ti/counters.c \
 ../src/ti/data.c \
+../src/ti/datetime.c \
 ../src/ti/do.c \
 ../src/ti/enum.c \
 ../src/ti/enums.c \
@@ -82,6 +83,7 @@ C_SRCS += \
 ../src/ti/token.c \
 ../src/ti/type.c \
 ../src/ti/types.c \
+../src/ti/tz.c \
 ../src/ti/user.c \
 ../src/ti/users.c \
 ../src/ti/val.c \
@@ -118,6 +120,7 @@ OBJS += \
 ./src/ti/connect.o \
 ./src/ti/counters.o \
 ./src/ti/data.o \
+./src/ti/datetime.o \
 ./src/ti/do.o \
 ./src/ti/enum.o \
 ./src/ti/enums.o \
@@ -177,6 +180,7 @@ OBJS += \
 ./src/ti/token.o \
 ./src/ti/type.o \
 ./src/ti/types.o \
+./src/ti/tz.o \
 ./src/ti/user.o \
 ./src/ti/users.o \
 ./src/ti/val.o \
@@ -213,6 +217,7 @@ C_DEPS += \
 ./src/ti/connect.d \
 ./src/ti/counters.d \
 ./src/ti/data.d \
+./src/ti/datetime.d \
 ./src/ti/do.d \
 ./src/ti/enum.d \
 ./src/ti/enums.d \
@@ -272,6 +277,7 @@ C_DEPS += \
 ./src/ti/token.d \
 ./src/ti/type.d \
 ./src/ti/types.d \
+./src/ti/tz.d \
 ./src/ti/user.d \
 ./src/ti/users.d \
 ./src/ti/val.d \

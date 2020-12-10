@@ -34,6 +34,6 @@ static int do__f_is_inf(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int do__f_isinf(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    log_warning("function `isinf` is deprecated, use `is_inf` instead");
+    log_error("function `isinf` is deprecated, use `is_inf` instead");
     return do__f_is_inf(query, nd, e);
 }

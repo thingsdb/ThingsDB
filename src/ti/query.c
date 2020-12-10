@@ -330,7 +330,7 @@ int ti_query_unpack(
     mp_unp_t up;
     mp_unp_init(&up, data, n);
 
-    query->qbind.pkg_id = pkg_id;
+    query->pkg_id = pkg_id;
 
     mp_next(&up, &obj);     /* array with at least size 1 */
     mp_skip(&up);           /* scope */
@@ -462,7 +462,7 @@ int ti_query_unp_run(
     assert (query->val_cache == NULL);
 
     query->qbind.flags |= TI_QBIND_FLAG_AS_PROCEDURE;
-    query->qbind.pkg_id = pkg_id;
+    query->pkg_id = pkg_id;
 
     mp_next(&up, &obj);     /* array with at least size 1 */
     mp_skip(&up);           /* scope */
@@ -761,7 +761,7 @@ static int query__response_pkg(ti_query_t * query, ex_t * e)
 
     pkg = (ti_pkg_t *) buffer.data;
     pkg_init(pkg,
-            query->qbind.pkg_id,
+            query->pkg_id,
             TI_PROTO_CLIENT_RES_DATA ,
             buffer.size);
 
@@ -773,7 +773,7 @@ static int query__response_pkg(ti_query_t * query, ex_t * e)
     return 0;
 
 pkg_err:
-    pkg = ti_pkg_client_err(query->qbind.pkg_id, e);
+    pkg = ti_pkg_client_err(query->pkg_id, e);
     if (!pkg || ti_stream_write_pkg(query->via.stream, pkg))
     {
         free(pkg);
@@ -903,6 +903,7 @@ static int query__get_things(ti_val_t * val, imap_t * imap)
     {
     case TI_VAL_NIL:
     case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_MP:

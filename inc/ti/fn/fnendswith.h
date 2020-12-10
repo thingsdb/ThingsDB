@@ -30,6 +30,6 @@ failed:
 
 static int do__f_endswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    log_warning("function `endswith` is deprecated, use `ends_with` instead");
+    log_error("function `endswith` is deprecated, use `ends_with` instead");
     return do__f_ends_with(query, nd, e);
 }

@@ -615,6 +615,38 @@ static int rjob__rename_collection(mp_unp_t * up)
 
 /*
  * Returns 0 on success
+ * - for example: {'id':id, 'name':name}
+ */
+static int rjob__set_time_zone(mp_unp_t * up)
+{
+    ti_collection_t * collection;
+    mp_obj_t obj, mp_id, mp_tz;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_tz) != MP_U64)
+    {
+        log_critical("job `set_time_zone`: invalid format");
+        return -1;
+    }
+
+    collection = ti_collections_get_by_id(mp_id.via.u64);
+    if (!collection)
+    {
+        log_critical(
+                "job `set_time_zone`: "TI_COLLECTION_ID" not found",
+                mp_id.via.u64);
+        return -1;
+    }
+
+    collection->tz = ti_tz_from_index(mp_tz.via.u64);
+    return 0;
+}
+
+/*
+ * Returns 0 on success
  * - for example: {'old':name, 'name':name}
  */
 static int rjob__rename_procedure(mp_unp_t * up)
@@ -891,6 +923,8 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
     case 's':
         if (mp_str_eq(&mp_job, "set_password"))
             return rjob__set_password(up);
+        if (mp_str_eq(&mp_job, "set_time_zone"))
+            return rjob__set_time_zone(up);
         if (mp_str_eq(&mp_job, "set_quota"))
         {
             /*

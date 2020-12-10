@@ -7,11 +7,13 @@
 #include <string.h>
 #include <ti.h>
 #include <ti/closure.h>
+#include <ti/datetime.h>
 #include <ti/enum.h>
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
 #include <ti/member.h>
 #include <ti/member.inline.h>
+#include <ti/names.h>
 #include <ti/nil.h>
 #include <ti/prop.h>
 #include <ti/proto.h>
@@ -43,6 +45,8 @@ static ti_val_t * val__snil;
 static ti_val_t * val__strue;
 static ti_val_t * val__sfalse;
 static ti_val_t * val__sbool;
+static ti_val_t * val__sdatetime;
+static ti_val_t * val__stimeval;
 static ti_val_t * val__sint;
 static ti_val_t * val__sfloat;
 static ti_val_t * val__sstr;
@@ -59,6 +63,13 @@ static ti_val_t * val__swthing;
 static ti_val_t * val__tar_gz_str;
 static ti_val_t * val__gs_str;
 static ti_val_t * val__charset_str;
+static ti_val_t * val__year_name;
+static ti_val_t * val__month_name;
+static ti_val_t * val__day_name;
+static ti_val_t * val__hour_name;
+static ti_val_t * val__minute_name;
+static ti_val_t * val__second_name;
+static ti_val_t * val__gmt_offset_name;
 
 
 #define VAL__BUF_SZ 128
@@ -90,7 +101,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
                     "cannot unpack a `thing` without a collection");
             return NULL;
         }
-        if (!mp_may_cast_u64(mp_next(vup->up, &mp_val)))
+        if (mp_next(vup->up, &mp_val) <= 0 || mp_cast_u64(&mp_val))
         {
             ex_set(e, EX_TYPE_ERROR,
                     "expecting an integer value as thing id");
@@ -283,12 +294,66 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
 
         member = ti_enum_member_by_idx(enum_, mp_idx.via.u64);
         if (!member)
+        {
             ex_set(e, EX_LOOKUP_ERROR,
                     "internal index out of range in enumerator `%s`",
                     enum_->name);
-
+            return NULL;
+        }
         ti_incref(member);
         return (ti_val_t *) member;
+    }
+    case TI_KIND_C_DATETIME:
+    case TI_KIND_C_TIMEVAL:
+    {
+        mp_obj_t mp_ts, mp_offset, mp_tz;
+        ti_datetime_t * dt;
+        ti_tz_t * tz;
+
+        if (sz != 1 ||
+            mp_next(vup->up, &mp_val) != MP_ARR || mp_val.via.sz != 3 ||
+            mp_next(vup->up, &mp_ts) <= 0 || mp_cast_i64(&mp_ts) ||
+            mp_next(vup->up, &mp_offset) <= 0 || mp_cast_i64(&mp_ts) ||
+            mp_next(vup->up, &mp_tz) <= 0)  /* U64 or NIL */
+        {
+            ex_set(e, EX_BAD_DATA,
+                "datetime type must be written according the "
+                "following syntax: {\""TI_KIND_S_DATETIME"\": "
+                "[ts, offset, tz_info]");
+            return NULL;
+        }
+
+        if (mp_offset.via.i64 < DATETIME_OFFSET_MIN ||
+            mp_offset.via.i64 > DATETIME_OFFSET_MAX)
+        {
+            ex_set(e, EX_BAD_DATA,
+                "invalid offset: %"PRId64, mp_offset.via.i64);
+            return NULL;
+        }
+
+        if (mp_tz.tp == MP_U64)
+        {
+            tz = ti_tz_from_index(mp_tz.via.u64);
+        }
+        else if (mp_tz.tp == MP_NIL)
+        {
+            tz = NULL;
+        }
+        else
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "invalid time zone, expecting `nil` or `u64`");
+            return NULL;
+        }
+
+        dt = ((ti_val_kind) *mp_key.via.str.data) == TI_KIND_C_TIMEVAL
+                ? ti_timeval_from_i64(mp_ts.via.i64, mp_offset.via.i64, tz)
+                : ti_datetime_from_i64(mp_ts.via.i64, mp_offset.via.i64, tz);
+
+        if (!dt)
+            ex_set_mem(e);
+
+        return (ti_val_t *) dt;
     }
     }
 
@@ -314,6 +379,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
     case TI_VAL_MP:
     case TI_VAL_NAME:
     case TI_VAL_STR:
@@ -467,6 +533,8 @@ int ti_val_init_common(void)
     val__strue = (ti_val_t *) ti_str_from_str("true");
     val__sfalse = (ti_val_t *) ti_str_from_str("false");
     val__sbool = (ti_val_t *) ti_str_from_str(TI_VAL_BOOL_S);
+    val__sdatetime = (ti_val_t *) ti_str_from_str(TI_VAL_DATETIME_S);
+    val__stimeval = (ti_val_t *) ti_str_from_str(TI_VAL_TIMEVAL_S);
     val__sint = (ti_val_t *) ti_str_from_str(TI_VAL_INT_S);
     val__sfloat = (ti_val_t *) ti_str_from_str(TI_VAL_FLOAT_S);
     val__sstr = (ti_val_t *) ti_str_from_str(TI_VAL_STR_S);
@@ -488,12 +556,25 @@ int ti_val_init_common(void)
             "abcdefghijklmnopqrstuvwxyz"
             "-_");
 
+    /* names */
+    val__year_name = (ti_val_t *) ti_names_from_str("year");
+    val__month_name = (ti_val_t *) ti_names_from_str("month");
+    val__day_name = (ti_val_t *) ti_names_from_str("day");
+    val__hour_name = (ti_val_t *) ti_names_from_str("hour");
+    val__minute_name = (ti_val_t *) ti_names_from_str("minute");
+    val__second_name = (ti_val_t *) ti_names_from_str("second");
+    val__gmt_offset_name = (ti_val_t *) ti_names_from_str("gmt_offset");
+
+
     if (!val__empty_bin || !val__empty_str || !val__snil || !val__strue ||
-        !val__sfalse || !val__sbool || !val__sint || !val__sfloat ||
-        !val__sstr || !val__sbytes || !val__sinfo || !val__sregex ||
-        !val__serror || !val__sclosure || !val__slist || !val__stuple ||
-        !val__sset || !val__sthing || !val__swthing || !val__tar_gz_str ||
-        !val__sany || !val__gs_str || !val__charset_str)
+        !val__sfalse || !val__sbool || !val__sdatetime || !val__stimeval ||
+        !val__sint || !val__sfloat || !val__sstr || !val__sbytes ||
+        !val__sinfo || !val__sregex || !val__serror || !val__sclosure ||
+        !val__slist || !val__stuple || !val__sset || !val__sthing ||
+        !val__swthing || !val__tar_gz_str || !val__sany || !val__gs_str ||
+        !val__charset_str || !val__year_name || !val__month_name ||
+        !val__day_name || !val__hour_name || !val__minute_name ||
+        !val__second_name || !val__gmt_offset_name)
     {
         ti_val_drop_common();
         return -1;
@@ -510,6 +591,8 @@ void ti_val_drop_common(void)
     ti_val_drop(val__strue);
     ti_val_drop(val__sfalse);
     ti_val_drop(val__sbool);
+    ti_val_drop(val__sdatetime);
+    ti_val_drop(val__stimeval);
     ti_val_drop(val__sint);
     ti_val_drop(val__sfloat);
     ti_val_drop(val__sstr);
@@ -544,6 +627,7 @@ void ti_val_destroy(ti_val_t * val)
     case TI_VAL_STR:
     case TI_VAL_BYTES:
     case TI_VAL_ERROR:
+    case TI_VAL_DATETIME:
         break;
     case TI_VAL_NAME:
         ti_name_destroy((ti_name_t *) val);
@@ -652,6 +736,49 @@ ti_val_t * ti_val_wthing_str(void)
     return val__swthing;
 }
 
+ti_val_t * ti_val_year_name(void)
+{
+    ti_incref(val__year_name);
+    return val__year_name;
+}
+
+ti_val_t * ti_val_month_name(void)
+{
+    ti_incref(val__month_name);
+    return val__month_name;
+}
+
+ti_val_t * ti_val_day_name(void)
+{
+    ti_incref(val__day_name);
+    return val__day_name;
+}
+
+ti_val_t * ti_val_hour_name(void)
+{
+    ti_incref(val__hour_name);
+    return val__hour_name;
+}
+
+ti_val_t * ti_val_minute_name(void)
+{
+    ti_incref(val__minute_name);
+    return val__minute_name;
+}
+
+ti_val_t * ti_val_second_name(void)
+{
+    ti_incref(val__second_name);
+    return val__second_name;
+}
+
+ti_val_t * ti_val_gmt_offset_name(void)
+{
+    ti_incref(val__gmt_offset_name);
+    return val__gmt_offset_name;
+}
+
+
 
 /*
  * Returns an address to the `access` object by a given value and set the
@@ -755,6 +882,13 @@ int ti_val_convert_to_str(ti_val_t ** val, ex_t * e)
         v = VBOOL(*val) ? val__strue : val__sfalse;
         ti_incref(v);
         break;
+
+    case TI_VAL_DATETIME:
+        v = (ti_val_t *) ti_datetime_to_str((ti_datetime_t *) *val, e);
+        if (!v)
+            return e->nr;
+        break;
+
     case TI_VAL_NAME:
     case TI_VAL_STR:
         return e->nr;  /* do nothing, just return the string */
@@ -851,6 +985,7 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
     case TI_VAL_MP:
     case TI_VAL_THING:
     case TI_VAL_WRAP:
@@ -908,6 +1043,9 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
         break;
     case TI_VAL_BOOL:
         i = VBOOL(*val);
+        break;
+    case TI_VAL_DATETIME:
+        i = DATETIME(*val);
         break;
     case TI_VAL_NAME:
     case TI_VAL_STR:
@@ -995,6 +1133,9 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
     case TI_VAL_BOOL:
         d = (double) VBOOL(*val);
         break;
+    case TI_VAL_DATETIME:
+        d = (double) DATETIME(*val);
+        break;
     case TI_VAL_NAME:
     case TI_VAL_STR:
     {
@@ -1063,6 +1204,7 @@ int ti_val_convert_to_array(ti_val_t ** val, ex_t * e)
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
     case TI_VAL_MP:
     case TI_VAL_NAME:
     case TI_VAL_STR:
@@ -1097,6 +1239,7 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
     case TI_VAL_MP:
     case TI_VAL_NAME:
     case TI_VAL_STR:
@@ -1169,6 +1312,8 @@ _Bool ti_val_as_bool(ti_val_t * val)
         return !!VFLOAT(val);
     case TI_VAL_BOOL:
         return VBOOL(val);
+    case TI_VAL_DATETIME:
+        return true;
     case TI_VAL_MP:
     case TI_VAL_NAME:
     case TI_VAL_STR:
@@ -1208,6 +1353,7 @@ size_t ti_val_get_len(ti_val_t * val)
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
     case TI_VAL_MP:
     case TI_VAL_TEMPLATE:
         break;
@@ -1253,6 +1399,7 @@ int ti_val_gen_ids(ti_val_t * val)
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
     case TI_VAL_MP:
     case TI_VAL_NAME:
     case TI_VAL_STR:
@@ -1341,6 +1488,9 @@ void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz)
     case TI_VAL_BOOL:
         *sz = 32;
         return;
+    case TI_VAL_DATETIME:
+        *sz = 64;
+        return;
     case TI_VAL_MP:
     case TI_VAL_NAME:
     case TI_VAL_STR:
@@ -1378,18 +1528,25 @@ const char * ti_val_str(ti_val_t * val)
     case TI_VAL_INT:            return TI_VAL_INT_S;
     case TI_VAL_FLOAT:          return TI_VAL_FLOAT_S;
     case TI_VAL_BOOL:           return TI_VAL_BOOL_S;
+    case TI_VAL_DATETIME:
+        return ti_datetime_is_timeval((ti_datetime_t *) val)
+                ? TI_VAL_TIMEVAL_S
+                : TI_VAL_DATETIME_S;
     case TI_VAL_MP:             return TI_VAL_INFO_S;
     case TI_VAL_NAME:
     case TI_VAL_STR:            return TI_VAL_STR_S;
     case TI_VAL_BYTES:          return TI_VAL_BYTES_S;
     case TI_VAL_REGEX:          return TI_VAL_REGEX_S;
-    case TI_VAL_THING:          return ti_thing_is_object((ti_thing_t *) val)
-                                    ? TI_VAL_THING_S
-                                    : ti_thing_type_str((ti_thing_t *) val);
-    case TI_VAL_WRAP:           return ti_wrap_str((ti_wrap_t *) val);
-    case TI_VAL_ARR:            return ti_varr_is_list((ti_varr_t *) val)
-                                    ? TI_VAL_LIST_S
-                                    : TI_VAL_TUPLE_S;
+    case TI_VAL_THING:
+        return ti_thing_is_object((ti_thing_t *) val)
+                ? TI_VAL_THING_S
+                : ti_thing_type_str((ti_thing_t *) val);
+    case TI_VAL_WRAP:
+        return ti_wrap_str((ti_wrap_t *) val);
+    case TI_VAL_ARR:
+        return ti_varr_is_list((ti_varr_t *) val)
+                ? TI_VAL_LIST_S
+                : TI_VAL_TUPLE_S;
     case TI_VAL_SET:            return TI_VAL_SET_S;
     case TI_VAL_CLOSURE:        return TI_VAL_CLOSURE_S;
     case TI_VAL_ERROR:          return TI_VAL_ERROR_S;
@@ -1410,6 +1567,10 @@ ti_val_t * ti_val_strv(ti_val_t * val)
     case TI_VAL_INT:            return ti_grab(val__sint);
     case TI_VAL_FLOAT:          return ti_grab(val__sfloat);
     case TI_VAL_BOOL:           return ti_grab(val__sbool);
+    case TI_VAL_DATETIME:
+        return ti_datetime_is_timeval((ti_datetime_t *) val)
+                ? ti_grab(val__stimeval)
+                : ti_grab(val__sdatetime);
     case TI_VAL_MP:             return ti_grab(val__sinfo);
     case TI_VAL_NAME:
     case TI_VAL_STR:            return ti_grab(val__sstr);

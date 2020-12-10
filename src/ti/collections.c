@@ -142,6 +142,7 @@ ti_collection_t * ti_collections_create_collection(
 {
     guid_t guid;
     ti_collection_t * collection = NULL;
+    ti_tz_t * tz = ti_tz_utc();
 
     if (!ti_name_is_valid_strn(name, name_n))
     {
@@ -171,7 +172,7 @@ ti_collection_t * ti_collections_create_collection(
 
     guid_init(&guid, root_id);
 
-    collection = ti_collection_create(&guid, name, name_n, created_at);
+    collection = ti_collection_create(&guid, name, name_n, tz, created_at);
     if (!collection || vec_push(&collections->vec, collection))
     {
         ex_set_mem(e);

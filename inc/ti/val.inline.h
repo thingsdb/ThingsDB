@@ -7,6 +7,8 @@
 #include <ex.h>
 #include <ti/closure.h>
 #include <ti/collection.h>
+#include <ti/datetime.h>
+#include <ti/datetime.h>
 #include <ti/name.h>
 #include <ti/thing.h>
 #include <ti/thing.inline.h>
@@ -48,6 +50,23 @@ static inline _Bool ti_val_is_arr(ti_val_t * val)
 static inline _Bool ti_val_is_bool(ti_val_t * val)
 {
     return val->tp == TI_VAL_BOOL;
+}
+
+static inline _Bool ti_val_is_datetime(ti_val_t * val)
+{
+    return val->tp == TI_VAL_DATETIME;
+}
+
+static inline _Bool ti_val_is_datetime_strict(ti_val_t * val)
+{
+    return val->tp == TI_VAL_DATETIME &&
+            ti_datetime_is_datetime((ti_datetime_t *) val);
+}
+
+static inline _Bool ti_val_is_timeval(ti_val_t * val)
+{
+    return val->tp == TI_VAL_DATETIME &&
+            ti_datetime_is_timeval((ti_datetime_t *) val);
 }
 
 static inline _Bool ti_val_is_closure(ti_val_t * val)
@@ -221,6 +240,7 @@ static inline void ti_val_attach(
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
     case TI_VAL_MP:
     case TI_VAL_NAME:
     case TI_VAL_STR:
@@ -268,6 +288,7 @@ static inline int ti_val_make_assignable(
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
     case TI_VAL_MP:
     case TI_VAL_NAME:
     case TI_VAL_STR:
@@ -313,6 +334,7 @@ static inline int ti_val_make_variable(ti_val_t ** val, ex_t * e)
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
     case TI_VAL_MP:
     case TI_VAL_NAME:
     case TI_VAL_STR:
@@ -351,6 +373,8 @@ static inline int ti_val_make_variable(ti_val_t ** val, ex_t * e)
         return VBOOL(val__) \
                 ? msgpack_pack_true(pk__) \
                 : msgpack_pack_false(pk__); \
+    case TI_VAL_DATETIME: \
+        return ti_datetime_to_pk((ti_datetime_t *) val__, pk__, options__); \
     case TI_VAL_MP: \
     { \
         ti_raw_t * r__ = (ti_raw_t *) val__; \

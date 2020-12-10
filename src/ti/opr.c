@@ -22,6 +22,7 @@
 #include <ti/verror.h>
 #include <ti/vset.h>
 #include <ti/wrap.h>
+#include <ti/datetime.h>
 
 
 int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t ** b, ex_t * e)
@@ -91,11 +92,10 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         boolean values true and false always point to the
         same address so they must be different since a != b
     */
-    case OPR_MP_MP:
-    case OPR_MP_NAME:
-    case OPR_MP_STR:
-    case OPR_MP_BYTES:
-    case OPR_NAME_MP:
+    case OPR_DATETIME_DATETIME:
+        /* Only compare the time-stamps, the offset is not relevant. */
+        return DATETIME(a) == DATETIME(b);
+
     /*
     case OPR_NAME_NAME:
         the same name values only exist once and must point to the
@@ -103,11 +103,10 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
     */
     case OPR_NAME_STR:
     case OPR_NAME_BYTES:
-    case OPR_STR_MP:
+    case OPR_STR_DATETIME:
     case OPR_STR_NAME:
     case OPR_STR_STR:
     case OPR_STR_BYTES:
-    case OPR_BYTES_MP:
     case OPR_BYTES_NAME:
     case OPR_BYTES_STR:
     case OPR_BYTES_BYTES:
@@ -167,19 +166,15 @@ int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
         return (VBOOL(a) > VFLOAT(b)) - (VBOOL(a) < VFLOAT(b));
     case OPR_BOOL_BOOL:
         return (VBOOL(a) > VBOOL(b)) - (VBOOL(a) < VBOOL(b));
-    case OPR_MP_MP:
-    case OPR_MP_NAME:
-    case OPR_MP_STR:
-    case OPR_MP_BYTES:
-    case OPR_NAME_MP:
+    case OPR_DATETIME_DATETIME:
+        return (DATETIME(a) > DATETIME(b)) - (DATETIME(a) < DATETIME(b));
     case OPR_NAME_NAME:
     case OPR_NAME_STR:
     case OPR_NAME_BYTES:
-    case OPR_STR_MP:
+    case OPR_STR_DATETIME:
     case OPR_STR_NAME:
     case OPR_STR_STR:
     case OPR_STR_BYTES:
-    case OPR_BYTES_MP:
     case OPR_BYTES_NAME:
     case OPR_BYTES_STR:
     case OPR_BYTES_BYTES:

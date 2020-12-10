@@ -19,6 +19,6 @@ static int do__f_is_raw(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int do__f_israw(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    log_warning("function `israw` is deprecated, use `is_raw` instead");
+    log_error("function `israw` is deprecated, use `is_raw` instead");
     return do__f_is_raw(query, nd, e);
 }

@@ -25,7 +25,7 @@ static int do__f_unwatch(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ? 0
         : ti_stream_is_client(query->via.stream)
         ? ti_thing_unwatch(thing, query->via.stream)
-        : ti_thing_unwatch_fwd(thing, query->via.stream, query->qbind.pkg_id);
+        : ti_thing_unwatch_fwd(thing, query->via.stream, query->pkg_id);
 
     if (rc)
         log_error("unwatch() has failed (%d)", rc);

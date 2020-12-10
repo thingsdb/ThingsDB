@@ -611,6 +611,7 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         /* fall through */
     case TI_VAL_BYTES:
     case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:

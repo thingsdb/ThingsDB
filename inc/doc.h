@@ -146,7 +146,7 @@
 #define DOC_CLOSURE_CALL            DOC_SEE("data-types/closure/call")
 #define DOC_CLOSURE_DEF             DOC_SEE("data-types/closure/def")
 #define DOC_CLOSURE_DOC             DOC_SEE("data-types/closure/doc")
-#define DOC_DATETIME_AS_THING       DOC_SEE("data-types/datetime/as_thing")
+#define DOC_DATETIME_EXTRACT        DOC_SEE("data-types/datetime/extract")
 #define DOC_DATETIME_FORMAT         DOC_SEE("data-types/datetime/format")
 #define DOC_DATETIME_MOVE           DOC_SEE("data-types/datetime/move")
 #define DOC_DATETIME_REPLACE        DOC_SEE("data-types/datetime/replace")

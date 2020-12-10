@@ -14,7 +14,6 @@
 #include <ti/fn/fnaltraise.h>
 #include <ti/fn/fnassert.h>
 #include <ti/fn/fnassign.h>
-#include <ti/fn/fnasthing.h>
 #include <ti/fn/fnbackupinfo.h>
 #include <ti/fn/fnbackupsinfo.h>
 #include <ti/fn/fnbase64decode.h>
@@ -54,6 +53,7 @@
 #include <ti/fn/fnevery.h>
 #include <ti/fn/fnexport.h>
 #include <ti/fn/fnextend.h>
+#include <ti/fn/fnextract.h>
 #include <ti/fn/fnfilter.h>
 #include <ti/fn/fnfind.h>
 #include <ti/fn/fnfindindex.h>
@@ -233,7 +233,7 @@ static inline unsigned int qbind__hash(
         493, 493, 493, 493, 493,   4, 493,   8,  62,  69,
          33,   4,  39,  86, 141,   4,   5,  67,  18,  43,
          11,  33,  47,   4,   5,   4,   7,  36, 190, 140,
-        176, 155,  32, 493, 493, 493, 493, 493, 493, 493,
+        171, 155,  26, 493, 493, 493, 493, 493, 493, 493,
         493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
         493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
         493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
@@ -378,7 +378,6 @@ typedef struct
 qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="add",               .fn=do__f_add,                  CHAIN_CE_XVAR},
     {.name="alt_raise",         .fn=do__f_alt_raise,            ROOT_NE},
-    {.name="as_thing",          .fn=do__f_as_thing,             CHAIN_NE},
     {.name="assert_err",        .fn=do__f_assert_err,           ROOT_NE},
     {.name="assert",            .fn=do__f_assert,               ROOT_NE},
     {.name="assign",            .fn=do__f_assign,               CHAIN_CE},
@@ -423,13 +422,14 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="every",             .fn=do__f_every,                CHAIN_NE},
     {.name="export",            .fn=do__f_export,               ROOT_NE},
     {.name="extend",            .fn=do__f_extend,               CHAIN_CE_XVAR},
+    {.name="extract",           .fn=do__f_extract,              CHAIN_NE},
     {.name="filter",            .fn=do__f_filter,               CHAIN_NE},
     {.name="find_index",        .fn=do__f_find_index,           CHAIN_NE},
-    {.name="findindex",         .fn=do__f_findindex,            CHAIN_NE},      /* deprecated */
     {.name="find",              .fn=do__f_find,                 XCHAIN_NE},
+    {.name="findindex",         .fn=do__f_findindex,            CHAIN_NE},      /* deprecated */
     {.name="float",             .fn=do__f_float,                ROOT_NE},
-    {.name="format",            .fn=do__f_format,               CHAIN_NE},
     {.name="forbidden_err",     .fn=do__f_forbidden_err,        ROOT_NE},
+    {.name="format",            .fn=do__f_format,               CHAIN_NE},
     {.name="get",               .fn=do__f_get,                  XCHAIN_NE},
     {.name="grant",             .fn=do__f_grant,                ROOT_TE},
     {.name="has_backup",        .fn=do__f_has_backup,           ROOT_NE},

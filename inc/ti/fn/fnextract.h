@@ -1,6 +1,6 @@
 #include <ti/fn/fn.h>
 
-static int do__f_as_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_extract(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     ti_datetime_t * dt;
@@ -10,9 +10,9 @@ static int do__f_as_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_thing_t * as_thing;
 
     if (!ti_val_is_datetime(query->rval))
-        return fn_call_try("as_thing", query, nd, e);
+        return fn_call_try("extract", query, nd, e);
 
-    if (fn_nargs("as_thing", DOC_DATETIME_AS_THING, 0, nargs, e))
+    if (fn_nargs("extract", DOC_DATETIME_EXTRACT, 0, nargs, e))
         return e->nr;
 
     dt = (ti_datetime_t *) query->rval;

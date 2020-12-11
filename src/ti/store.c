@@ -323,7 +323,7 @@ int ti_store_restore(void)
                     store->access_thingsdb_fn) ||
             ti_store_collections_restore(store->collections_fn) ||
             ti_store_procedures_restore(
-                    &ti.procedures,
+                    ti.procedures,
                     store->procedures_fn,
                     NULL));
 
@@ -393,7 +393,7 @@ int ti_store_restore(void)
                         namesmap,
                         store_collection->gcprops_fn) ||
                 ti_store_procedures_restore(
-                        &collection->procedures,
+                        collection->procedures,
                         store_collection->procedures_fn,
                         collection)
 

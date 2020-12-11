@@ -7,7 +7,7 @@ static int do__f_run(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_procedure_t * procedure;
     ti_closure_t * closure;
     vec_t * args;
-    vec_t * procedures = ti_query_procedures(query);
+    smap_t * procedures = ti_query_procedures(query);
     size_t n;
 
     if (fn_not_thingsdb_or_collection_scope("run", query, e) ||

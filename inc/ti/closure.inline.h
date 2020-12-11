@@ -57,7 +57,7 @@ static inline int ti_closure_try_wse(
                 TI_VFLAG_CLOSURE_BCSCOPE|
                 TI_VFLAG_CLOSURE_WSE
             )) == TI_VFLAG_CLOSURE_WSE) &&
-            (~query->qbind.flags & TI_QBIND_FLAG_WSE))
+            (~query->flags & TI_QUERY_FLAG_WSE))
     {
         ex_set(e, EX_OPERATION_ERROR,
                 "stored closures with side effects must be "

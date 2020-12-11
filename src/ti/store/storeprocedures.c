@@ -12,7 +12,17 @@
 #include <util/fx.h>
 #include <util/mpack.h>
 
-int ti_store_procedures_store(const vec_t * procedures, const char * fn)
+static int procedure__store_cb(ti_procedure_t * procedure, msgpack_packer * pk)
+{
+    return -(
+        msgpack_pack_array(pk, 3) ||
+        mp_pack_strn(pk, procedure->name, procedure->name_n) ||
+        msgpack_pack_uint64(pk, procedure->created_at) ||
+        ti_closure_to_pk(procedure->closure, pk)
+    );
+}
+
+int ti_store_procedures_store(smap_t * procedures, const char * fn)
 {
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
@@ -30,15 +40,8 @@ int ti_store_procedures_store(const vec_t * procedures, const char * fn)
         msgpack_pack_array(&pk, procedures->n)
     ) goto fail;
 
-    for (vec_each(procedures, ti_procedure_t, procedure))
-    {
-        if (
-            msgpack_pack_array(&pk, 3) ||
-            mp_pack_strn(&pk, procedure->name->data, procedure->name->n) ||
-            msgpack_pack_uint64(&pk, procedure->created_at) ||
-            ti_closure_to_pk(procedure->closure, &pk)
-        ) goto fail;
-    }
+    if (smap_values(procedures, (smap_val_cb) procedure__store_cb, &pk))
+        goto fail;
 
     log_debug("stored procedures to file: `%s`", fn);
     goto done;
@@ -55,7 +58,7 @@ done:
 }
 
 int ti_store_procedures_restore(
-        vec_t ** procedures,
+        smap_t * procedures,
         const char * fn,
         ti_collection_t * collection)  /* collection may be NULL */
 {
@@ -64,7 +67,6 @@ int ti_store_procedures_restore(
     size_t i;
     mp_obj_t obj, mp_ver, mp_name, mp_created;
     mp_unp_t up;
-    ti_raw_t * rname;
     ti_closure_t * closure;
     ti_procedure_t * procedure;
     ti_vup_t vup = {
@@ -93,21 +95,19 @@ int ti_store_procedures_restore(
             mp_next(&up, &mp_created) != MP_U64
         ) goto fail1;
 
-        rname = ti_str_create(mp_name.via.str.data, mp_name.via.str.n);
         closure = (ti_closure_t *) ti_val_from_vup(&vup);
         procedure = NULL;
 
-        if (!rname ||
-            !closure ||
+        if (!closure ||
             !ti_val_is_closure((ti_val_t *) closure) ||
             !(procedure = ti_procedure_create(
-                    rname,
+                    mp_name.via.str.data,
+                    mp_name.via.str.n,
                     closure,
                     mp_created.via.u64)) ||
             ti_procedures_add(procedures, procedure))
             goto fail2;
 
-        ti_decref(rname);
         ti_decref(closure);
     }
 
@@ -116,7 +116,6 @@ int ti_store_procedures_restore(
 
 fail2:
     ti_procedure_destroy(procedure);
-    ti_val_drop((ti_val_t *) rname);
     ti_val_drop((ti_val_t *) closure);
 
 done:

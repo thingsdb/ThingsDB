@@ -158,6 +158,7 @@
 #include <ti/fn/fnstr.h>
 #include <ti/fn/fntest.h>
 #include <ti/fn/fnthing.h>
+#include <ti/fn/fntimezonesinfo.h>
 #include <ti/fn/fnto.h>
 #include <ti/fn/fntrim.h>
 #include <ti/fn/fntrimleft.h>
@@ -208,7 +209,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 209,
+    TOTAL_KEYWORDS = 210,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 17,
@@ -226,14 +227,14 @@ static inline unsigned int qbind__hash(
         493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
         493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
         493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
-        493, 493,   4, 493,   4, 493,  10, 493, 493, 493,
+        493, 493,   9, 493,   9, 493,  10, 493, 493, 493,
         493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
         493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
         493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
         493, 493, 493, 493, 493,   4, 493,   8,  62,  69,
          33,   4,  39,  86, 141,   4,   5,  67,  18,  43,
          11,  33,  47,   4,   5,   4,   7,  36, 190, 140,
-        171, 155,  26, 493, 493, 493, 493, 493, 493, 493,
+        171, 155,  37, 493, 493, 493, 493, 493, 493, 493,
         493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
         493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
         493, 493, 493, 493, 493, 493, 493, 493, 493, 493,
@@ -557,6 +558,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="test",              .fn=do__f_test,                 CHAIN_NE},
     {.name="thing",             .fn=do__f_thing,                ROOT_NE},
     {.name="timeval",           .fn=do__f_timeval,              ROOT_NE},
+    {.name="time_zones_info",   .fn=do__f_time_zones_info,      ROOT_NE},
     {.name="to",                .fn=do__f_to,                   CHAIN_NE},
     {.name="trim_left",         .fn=do__f_trim_left,            CHAIN_NE},
     {.name="trim_right",        .fn=do__f_trim_right,           CHAIN_NE},

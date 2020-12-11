@@ -9,7 +9,6 @@
 #include <ti/collection.inline.h>
 #include <ti/collections.h>
 #include <ti/fwd.h>
-#include <ti/procedures.h>
 #include <ti/proto.h>
 #include <ti/thing.inline.h>
 #include <ti/wareq.h>

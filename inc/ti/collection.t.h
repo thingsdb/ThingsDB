@@ -27,7 +27,7 @@ struct ti_collection_s
     imap_t * things;        /* weak map for ti_thing_t */
     queue_t * gc;           /* ti_gc_t */
     vec_t * access;         /* ti_auth_t */
-    vec_t * procedures;     /* ti_procedure_t */
+    smap_t * procedures;     /* ti_procedure_t */
     ti_thing_t * root;
     ti_types_t * types;
     ti_enums_t * enums;

@@ -5,7 +5,7 @@
 #define TI_TZ_H_
 
 #include <stddef.h>
-
+#include <ti/val.t.h>
 typedef struct ti_tz_s ti_tz_t;
 
 struct ti_tz_s
@@ -27,5 +27,6 @@ static inline _Bool ti_tz_is_not_utc(ti_tz_t * tz)
     return tz && tz->index;
 }
 
+ti_val_t * ti_tz_as_mpval(void);
 
 #endif  /* TI_TZ_H_ */

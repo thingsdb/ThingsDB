@@ -840,7 +840,7 @@ static int api__run(ti_api_request_t * ar, api__req_t * req)
         return 0;
     }
 
-    query = ti_query_create(ar, ar->user, TI_QBIND_FLAG_API);
+    query = ti_query_create(ar, ar->user, TI_QUERY_FLAG_API);
 
     if (!query || api__gen_run_data(ar, req, &data, &n))
     {
@@ -951,7 +951,7 @@ static int api__query(ti_api_request_t * ar, api__req_t * req)
     }
 
 query:
-    query = ti_query_create(ar, ar->user, TI_QBIND_FLAG_API);
+    query = ti_query_create(ar, ar->user, TI_QUERY_FLAG_API);
 
     if (!query || !(query->querystr = mp_strdup(&req->mp_code)))
     {

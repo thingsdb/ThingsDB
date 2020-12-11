@@ -186,17 +186,15 @@ int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
     return e->nr;
 }
 
-
-
 ti_query_t * ti_query_create(void * via, ti_user_t * user, uint8_t flags)
 {
     ti_query_t * query = calloc(1, sizeof(ti_query_t));
     if (!query)
         return NULL;
 
-    query->qbind.flags = flags;
+    query->flags = flags;
     query->qbind.deep = 1;
-    if (query->qbind.flags & TI_QBIND_FLAG_API)
+    if (flags & TI_QUERY_FLAG_API)
         query->via.api_request = ti_api_acquire((ti_api_request_t *) via);
     else
         query->via.stream = ti_grab((ti_stream_t *) via);
@@ -225,7 +223,7 @@ void ti_query_destroy(ti_query_t * query)
 
     vec_destroy(query->val_cache, (vec_destroy_cb) ti_val_unsafe_drop);
 
-    if (query->qbind.flags & TI_QBIND_FLAG_API)
+    if (query->flags & TI_QUERY_FLAG_API)
         ti_api_release(query->via.api_request);
     else
         ti_stream_drop(query->via.stream);
@@ -377,10 +375,9 @@ static int query__run_arr_props(
         if (!val)
         {
             assert (e->nr);
-            ex_append(e, " (argument %zu for procedure `%.*s`)",
+            ex_append(e, " (argument %zu for procedure `%s`)",
                 idx,
-                (int) procedure->name->n,
-                (const char *) procedure->name->data);
+                procedure->name);
             return e->nr;
         }
         ti_val_unsafe_drop(vec_set(query->val_cache, val, idx));
@@ -424,11 +421,10 @@ static int query__run_map_props(
         if (!val)
         {
             assert (e->nr);
-            ex_append(e, " (argument `%.*s` for procedure `%.*s`)",
+            ex_append(e, " (argument `%.*s` for procedure `%s`)",
                 (int) arg_name.via.str.n,
                 arg_name.via.str.data,
-                (int) procedure->name->n,
-                (const char *) procedure->name->data);
+                procedure->name);
             return e->nr;
         }
 
@@ -445,7 +441,7 @@ int ti_query_unp_run(
         size_t n,
         ex_t * e)
 {
-    vec_t * procedures = NULL;
+    smap_t * procedures = NULL;
     mp_obj_t obj, mp_procedure;
     ti_procedure_t * procedure;
 
@@ -461,7 +457,7 @@ int ti_query_unp_run(
     assert (e->nr == 0);
     assert (query->val_cache == NULL);
 
-    query->qbind.flags |= TI_QBIND_FLAG_AS_PROCEDURE;
+    query->flags |= TI_QUERY_FLAG_AS_PROCEDURE;
     query->pkg_id = pkg_id;
 
     mp_next(&up, &obj);     /* array with at least size 1 */
@@ -615,7 +611,7 @@ static void query__duration_log(
         double duration,
         int log_level)
 {
-    if (query->qbind.flags & TI_QBIND_FLAG_AS_PROCEDURE)
+    if (query->flags & TI_QUERY_FLAG_AS_PROCEDURE)
     {
         log_with_level(log_level, "procedure took %f seconds to process: `%s`",
                 duration,
@@ -634,12 +630,12 @@ void ti_query_run(ti_query_t * query)
 
     clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
 
-    if (query->qbind.flags & TI_QBIND_FLAG_AS_PROCEDURE)
+    if (query->flags & TI_QUERY_FLAG_AS_PROCEDURE)
     {
         if (query->closure->flags & TI_VFLAG_CLOSURE_WSE)
         {
             assert (query->ev);
-            query->qbind.flags |= TI_QBIND_FLAG_WSE;
+            query->flags |= TI_QUERY_FLAG_WSE;
         }
         (void) ti_closure_call(query->closure, query, query->val_cache, &e);
         goto stop;
@@ -787,14 +783,14 @@ typedef int (*query__cb)(ti_query_t *, ex_t *);
 void ti_query_send_response(ti_query_t * query, ex_t * e)
 {
     double duration, warn = ti.cfg->query_duration_warn;
-    query__cb cb = query->qbind.flags & TI_QBIND_FLAG_API
+    query__cb cb = query->flags & TI_QUERY_FLAG_API
             ? query__response_api
             : query__response_pkg;
 
     if (cb(query, e))
     {
         log_debug("query failed: `%s`, %s: `%s`",
-                query->qbind.flags & TI_QBIND_FLAG_AS_PROCEDURE
+                query->flags & TI_QUERY_FLAG_AS_PROCEDURE
                 ? query->closure->node->str
                 : query->querystr,
                 ex_str(e->nr),

@@ -17,6 +17,13 @@ typedef int (*ti_query_vars_walk_cb)(void * data, void * arg);
 #include <ti/user.t.h>
 #include <ti/val.t.h>
 
+enum
+{
+    TI_QUERY_FLAG_AS_PROCEDURE  =1<<0,
+    TI_QUERY_FLAG_WSE           =1<<1,
+    TI_QUERY_FLAG_API           =1<<2,
+};
+
 typedef int (*ti_query_unpack_cb) (
         ti_query_t *,
         uint16_t,
@@ -34,7 +41,8 @@ struct ti_query_s
 {
     uint32_t local_stack;       /* variable scopes start here */
     uint16_t pkg_id;            /* package id to return the query to */
-    uint16_t pad0;
+    uint8_t flags;
+    uint8_t pad0;
     ti_qbind_t qbind;               /* query binding */
     ti_val_t * rval;                /* return value of a statement */
     ti_collection_t * collection;   /* with reference, NULL when the scope is

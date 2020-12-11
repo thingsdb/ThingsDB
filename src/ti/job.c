@@ -1317,7 +1317,7 @@ static int job__del_procedure(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    procedure = ti_procedures_pop_strn(
+    procedure = ti_procedures_by_strn(
             collection->procedures,
             mp_name.via.str.data,
             mp_name.via.str.n);
@@ -1330,6 +1330,8 @@ static int job__del_procedure(ti_thing_t * thing, mp_unp_t * up)
                 collection->root->id);
         return -1;
     }
+
+    (void) ti_procedures_pop(collection->procedures, procedure);
 
     ti_procedure_destroy(procedure);
     return 0;  /* success */
@@ -1346,7 +1348,6 @@ static int job__new_procedure(ti_thing_t * thing, mp_unp_t * up)
     ti_collection_t * collection = thing->collection;
     ti_procedure_t * procedure;
     ti_closure_t * closure;
-    ti_raw_t * rname;
     ti_vup_t vup = {
             .isclient = false,
             .collection = thing->collection,
@@ -1367,20 +1368,21 @@ static int job__new_procedure(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    rname = ti_str_create(mp_name.via.str.data, mp_name.via.str.n);
     closure = (ti_closure_t *) ti_val_from_vup(&vup);
     procedure = NULL;
 
-    if (!rname || !closure || !ti_val_is_closure((ti_val_t *) closure) ||
-        !(procedure = ti_procedure_create(rname, closure, mp_created.via.u64)))
+    if (!closure || !ti_val_is_closure((ti_val_t *) closure) ||
+        !(procedure = ti_procedure_create(
+                mp_name.via.str.data,
+                mp_name.via.str.n,
+                closure,
+                mp_created.via.u64)))
         goto failed;
 
-    rc = ti_procedures_add(&collection->procedures, procedure);
+    rc = ti_procedures_add(collection->procedures, procedure);
     if (rc == 0)
     {
-        ti_decref(rname);
         ti_decref(closure);
-
         return 0;  /* success */
     }
 
@@ -1389,13 +1391,12 @@ static int job__new_procedure(ti_thing_t * thing, mp_unp_t * up)
     else
         log_critical(
                 "job `new_procedure` for "TI_COLLECTION_ID": "
-                "procedure `%.*s` already exists",
+                "procedure `%s` already exists",
                 collection->root->id,
-                (int) procedure->name->n, (char *) procedure->name->data);
+                procedure->name);
 
 failed:
     ti_procedure_destroy(procedure);
-    ti_val_drop((ti_val_t *) rname);
     ti_val_drop((ti_val_t *) closure);
     return -1;
 }
@@ -1616,9 +1617,9 @@ static int job__rename_enum(ti_thing_t * thing, mp_unp_t * up)
  */
 static int job__rename_procedure(ti_thing_t * thing, mp_unp_t * up)
 {
+    ti_collection_t * collection = thing->collection;
     ti_procedure_t * procedure;
     mp_obj_t obj, mp_old, mp_name;
-    ti_raw_t * nname;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
         mp_skip(up) != MP_STR ||
@@ -1643,17 +1644,11 @@ static int job__rename_procedure(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    nname = ti_str_create(mp_name.via.str.data, mp_name.via.str.n);
-    if (!nname)
-    {
-        log_critical(EX_MEMORY_S);
-        return -1;
-    }
-
-    ti_procedure_rename(procedure, nname);
-    ti_val_drop((ti_val_t *) nname);
-
-    return 0;
+    return ti_procedures_rename(
+            collection->procedures,
+            procedure,
+            mp_name.via.str.data,
+            mp_name.via.str.n);
 }
 
 /*

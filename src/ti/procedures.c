@@ -8,87 +8,81 @@
  * Returns 0 if added, >0 if already exists or <0 in case of an error
  * Does NOT increment the reference count
  */
-int ti_procedures_add(vec_t ** procedures, ti_procedure_t * procedure)
+int ti_procedures_add(smap_t * procedures, ti_procedure_t * procedure)
 {
-    for (vec_each(*procedures, ti_procedure_t, p))
-        if (ti_raw_eq(p->name, procedure->name))
-            return 1;
-
-    return vec_push(procedures, procedure);
+    switch(smap_add(procedures, procedure->name, procedure))
+    {
+    case SMAP_ERR_EMPTY_KEY:
+    case SMAP_ERR_ALLOC:
+        return -1;
+    case SMAP_ERR_EXIST:
+        return 1;
+    }
+    return 0;
 }
 
-/* returns a weak reference to a procedure or NULL if not found */
-ti_procedure_t * ti_procedures_by_name(vec_t * procedures, ti_raw_t * name)
+static int procedures__info_cb(ti_procedure_t * procedure, ti_varr_t * varr)
 {
-    for (vec_each(procedures, ti_procedure_t, p))
-        if (ti_raw_eq(p->name, name))
-            return p;
-    return NULL;
+    ti_val_t * mpinfo = ti_procedure_as_mpval(procedure, varr->flags);
+    if (!mpinfo)
+        return -1;
+    VEC_push(varr->vec, mpinfo);
+    return 0;
 }
 
-/* returns a weak reference to a procedure or NULL if not found */
-ti_procedure_t * ti_procedures_by_strn(
-        vec_t * procedures,
-        const char * str,
-        size_t n)
+ti_varr_t * ti_procedures_info(smap_t * procedures, _Bool with_definition)
 {
-    for (vec_each(procedures, ti_procedure_t, p))
-        if (ti_raw_eq_strn(p->name, str, n))
-            return p;
-    return NULL;
-}
-
-ti_varr_t * ti_procedures_info(vec_t * procedures, _Bool with_definition)
-{
+    uint8_t flags;
     ti_varr_t * varr = ti_varr_create(procedures->n);
     if (!varr)
         return NULL;
 
-    for (vec_each(procedures, ti_procedure_t, procedure))
+    flags = varr->flags;
+    varr->flags = with_definition;
+
+    if (smap_values(procedures, (smap_val_cb) procedures__info_cb, varr))
     {
-        ti_val_t * mpinfo = ti_procedure_as_mpval(procedure, with_definition);
-        if (!mpinfo)
-        {
-            ti_val_unsafe_drop((ti_val_t *) varr);
-            return NULL;
-        }
-        VEC_push(varr->vec, mpinfo);
+        ti_val_unsafe_drop((ti_val_t *) varr);
+        return NULL;
     }
+
+    varr->flags = flags;
     return varr;
 }
 
-ti_procedure_t * ti_procedures_pop_name(vec_t * procedures, ti_raw_t * name)
+static int procedures__pk_cb(ti_procedure_t * procedure, msgpack_packer * pk)
 {
-    size_t idx = 0;
-    for (vec_each(procedures, ti_procedure_t, p), ++idx)
-        if (ti_raw_eq(p->name, name))
-            return vec_swap_remove(procedures, idx);
-    return NULL;
-}
-
-ti_procedure_t * ti_procedures_pop_strn(
-        vec_t * procedures,
-        const char * str,
-        size_t n)
-{
-    size_t idx = 0;
-    for (vec_each(procedures, ti_procedure_t, p), ++idx)
-        if (ti_raw_eq_strn(p->name, str, n))
-            return vec_swap_remove(procedures, idx);
-    return NULL;
+    return ti_procedure_info_to_pk(procedure, pk, false);
 }
 
 /*
  * Pack procedures without definitions
  */
-int ti_procedures_to_pk(vec_t * procedures, msgpack_packer * pk)
+int ti_procedures_to_pk(smap_t * procedures, msgpack_packer * pk)
 {
     if (msgpack_pack_array(pk, procedures->n))
         return -1;
 
-    for (vec_each(procedures, ti_procedure_t, procedure))
-        if (ti_procedure_info_to_pk(procedure, pk, false))
-            return -1;
+    return smap_values(procedures, (smap_val_cb) procedures__pk_cb, pk);
+}
 
+int ti_procedures_rename(
+        smap_t * procedures,
+        ti_procedure_t * procedure,
+        const char * name,
+        size_t n)
+{
+    char * tmp = strndup(name, n);
+    if (!tmp || smap_add(procedures, tmp, procedure))
+    {
+        free(tmp);
+        return -1;
+    }
+    (void) smap_pop(procedures, procedure->name);
+
+    free(procedure->name);
+    procedure->name = tmp;
+    procedure->name_n = n;
     return 0;
+
 }

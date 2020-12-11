@@ -1,3 +1,23 @@
+# v0.10.1
+* Added `datetime` and `timeval` types and related functions, issue #127.
+  - `is_datetime`: https://docs.thingsdb.net/v0/collection-api/is_datetime/
+  - `is_timeval`: https://docs.thingsdb.net/v0/collection-api/is_timeval/
+  - `datetime`: https://docs.thingsdb.net/v0/collection-api/datetime/
+  - `timeval`: https://docs.thingsdb.net/v0/collection-api/timeval/
+  - `set_time_zone`: https://docs.thingsdb.net/v0/thingsdb-api/set_time_zone/
+  - `time_zones_info`: https://docs.thingsdb.net/v0/thingsdb-api/time_zones_info/
+  - `extract`: https://docs.thingsdb.net/v0/data-types/datetime/extract/
+  - `format`: https://docs.thingsdb.net/v0/data-types/datetime/format/
+  - `move`: https://docs.thingsdb.net/v0/data-types/datetime/move/
+  - `replace`: https://docs.thingsdb.net/v0/data-types/datetime/replace/
+  - `to`: https://docs.thingsdb.net/v0/data-types/datetime/to/
+  - `week`: https://docs.thingsdb.net/v0/data-types/datetime/week/
+  - `weekday`: https://docs.thingsdb.net/v0/data-types/datetime/weekday/
+  - `yday`: https://docs.thingsdb.net/v0/data-types/datetime/yday/
+  - `zone`: https://docs.thingsdb.net/v0/data-types/datetime/zone/
+* Create lookup for procedures, issue #129
+* Order procedures, types and enumerators by name, issue #130
+
 # v0.10.0
 
 * Change local variable in scope behavior, issue #123.

@@ -681,7 +681,7 @@ fail_data:
 
 int ti_task_add_new_procedure(ti_task_t * task, ti_procedure_t * procedure)
 {
-    size_t alloc = procedure->closure->node->len + procedure->name->n + 64;
+    size_t alloc = procedure->closure->node->len + procedure->name_n + 64;
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -696,7 +696,7 @@ int ti_task_add_new_procedure(ti_task_t * task, ti_procedure_t * procedure)
     msgpack_pack_map(&pk, 3);
 
     mp_pack_str(&pk, "name");
-    mp_pack_strn(&pk, procedure->name->data, procedure->name->n);
+    mp_pack_strn(&pk, procedure->name, procedure->name_n);
 
     mp_pack_str(&pk, "created_at");
     msgpack_pack_uint64(&pk, procedure->created_at);
@@ -1276,7 +1276,7 @@ int ti_task_add_rename_procedure(
         ti_procedure_t * procedure,
         ti_raw_t * nname)
 {
-    size_t alloc = 64 + procedure->name->n + nname->n;
+    size_t alloc = 64 + procedure->name_n + nname->n;
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -1291,7 +1291,7 @@ int ti_task_add_rename_procedure(
     msgpack_pack_map(&pk, 2);
 
     mp_pack_str(&pk, "old");
-    mp_pack_strn(&pk, procedure->name->data, procedure->name->n);
+    mp_pack_strn(&pk, procedure->name, procedure->name_n);
 
     mp_pack_str(&pk, "name");
     mp_pack_strn(&pk, nname->data, nname->n);

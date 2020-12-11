@@ -13,7 +13,7 @@
 #include <ti/val.t.h>
 #include <ti/vfloat.h>
 #include <ti/vint.h>
-#include <util/imap.h>
+#include <util/smap.h>
 #include <util/vec.h>
 
 static int export__new_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
@@ -84,9 +84,9 @@ static int export__write_types(ti_fmt_t * fmt, ti_types_t * types)
 " * Types\n"
 " */\n"
 "\n") ||
-        imap_walk(types->imap, (imap_cb) export__new_type_cb, fmt) ||
+        smap_values(types->smap, (smap_val_cb) export__new_type_cb, fmt) ||
         buf_write(&fmt->buf, '\n') ||
-        imap_walk(types->imap, (imap_cb) export__set_type_cb, fmt)
+        smap_values(types->smap, (smap_val_cb) export__set_type_cb, fmt)
     );
 }
 
@@ -213,12 +213,26 @@ static int export__write_enums(ti_fmt_t * fmt, ti_enums_t * enums)
 " * Enums\n"
 " */\n"
 "\n") ||
-        imap_walk(enums->imap, (imap_cb) export__set_enum_cb, fmt)
+        smap_values(enums->smap, (smap_val_cb) export__set_enum_cb, fmt)
     );
 
 }
 
-static int export__write_procedures(ti_fmt_t * fmt, vec_t * procedures)
+static int export__procedure_cb(ti_procedure_t * procedure, ti_fmt_t * fmt)
+{
+    return -(
+        buf_append_str(&fmt->buf, "new_procedure('") ||
+        buf_append(
+                &fmt->buf,
+                procedure->name,
+                procedure->name_n) ||
+        buf_append_str(&fmt->buf, "', ") ||
+        ti_fmt_nd(fmt, procedure->closure->node) ||
+        buf_append_str(&fmt->buf, ");\n")
+    );
+}
+
+static int export__write_procedures(ti_fmt_t * fmt, smap_t * procedures)
 {
     if (buf_append_str(&fmt->buf,
 "\n"
@@ -227,19 +241,7 @@ static int export__write_procedures(ti_fmt_t * fmt, vec_t * procedures)
 " */\n"
 "\n")) return -1;
 
-    for (vec_each(procedures, ti_procedure_t, procedure))
-    {
-        if (buf_append_str(&fmt->buf, "new_procedure('") ||
-            buf_append(
-                    &fmt->buf,
-                    (const char *) procedure->name->data,
-                    procedure->name->n) ||
-            buf_append_str(&fmt->buf, "', ") ||
-            ti_fmt_nd(fmt, procedure->closure->node) ||
-            buf_append_str(&fmt->buf, ");\n")
-        ) return -1;
-    }
-    return 0;
+    return smap_values(procedures, (smap_val_cb) export__procedure_cb, fmt);
 }
 
 static int export__collection(ti_fmt_t * fmt, ti_collection_t * collection)

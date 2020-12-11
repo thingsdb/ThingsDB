@@ -47,7 +47,7 @@ ti_collection_t * ti_collection_create(
     collection->things = imap_create();
     collection->gc = queue_new(20);
     collection->access = vec_new(1);
-    collection->procedures = vec_new(0);
+    collection->procedures = smap_create();
     collection->types = ti_types_create(collection);
     collection->enums = ti_enums_create(collection);
     collection->lock = malloc(sizeof(uv_mutex_t));
@@ -80,7 +80,7 @@ void ti_collection_destroy(ti_collection_t * collection)
     queue_destroy(collection->gc, NULL);
     ti_val_drop((ti_val_t *) collection->name);
     vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);
-    vec_destroy(collection->procedures, (vec_destroy_cb) ti_procedure_destroy);
+    smap_destroy(collection->procedures, (smap_destroy_cb) ti_procedure_destroy);
     ti_types_destroy(collection->types);
     ti_enums_destroy(collection->enums);
     uv_mutex_destroy(collection->lock);

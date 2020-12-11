@@ -73,7 +73,7 @@ int ti_create(void)
     ti.store = NULL;
     ti.access_node = vec_new(0);
     ti.access_thingsdb = vec_new(0);
-    ti.procedures = vec_new(0);
+    ti.procedures = smap_create();
     ti.langdef = compile_langdef();
     ti.thing0 = ti_thing_o_create(0, 0, NULL);
     if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti.boottime) ||
@@ -137,7 +137,7 @@ void ti_destroy(void)
 
     vec_destroy(ti.access_node, (vec_destroy_cb) ti_auth_destroy);
     vec_destroy(ti.access_thingsdb, (vec_destroy_cb) ti_auth_destroy);
-    vec_destroy(ti.procedures, (vec_destroy_cb) ti_procedure_destroy);
+    smap_destroy(ti.procedures, (smap_destroy_cb) ti_procedure_destroy);
 
     /* remove late since counters can be updated */
     ti_counters_destroy();

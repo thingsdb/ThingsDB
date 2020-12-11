@@ -4,7 +4,7 @@ static int do__f_has_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     _Bool has_procedure;
-    vec_t * procedures = ti_query_procedures(query);
+    smap_t * procedures = ti_query_procedures(query);
 
     if (fn_not_thingsdb_or_collection_scope("has_procedure", query, e) ||
         fn_nargs("has_procedure", DOC_HAS_PROCEDURE, 1, nargs, e) ||

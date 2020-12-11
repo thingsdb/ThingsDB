@@ -452,7 +452,7 @@ void ti__event_log_(const char * prefix, ti_event_t * ev, int log_level)
     switch ((ti_event_tp_enum) ev->tp)
     {
     case TI_EVENT_TP_MASTER:
-        if (ev->via.query->qbind.flags & TI_QBIND_FLAG_AS_PROCEDURE)
+        if (ev->via.query->flags & TI_QUERY_FLAG_AS_PROCEDURE)
         {
             (void) fprintf(
                     Logger.ostream,

@@ -102,7 +102,7 @@ struct ti_s
     ti_backups_t * backups;
     vec_t * access_node;        /* ti_access_t */
     vec_t * access_thingsdb;    /* ti_access_t */
-    vec_t * procedures;         /* ti_procedure_t */
+    smap_t * procedures;        /* ti_procedure_t */
     smap_t * names;             /* weak map for ti_name_t */
     uv_loop_t * loop;
     cleri_grammar_t * langdef;

@@ -23,7 +23,7 @@ static int do__f_watch(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (query->qbind.flags & TI_QBIND_FLAG_API)
+    if (query->flags & TI_QUERY_FLAG_API)
     {
         log_debug(
             "function `watch()` with a HTTP API request has no effect");

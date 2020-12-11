@@ -206,7 +206,7 @@ ti_varr_t * ti_types_info(ti_types_t * types, _Bool with_definition)
             .with_definition = with_definition,
     };
 
-    if (imap_walk(types->imap, (imap_cb) types__pack_type, &info_cb))
+    if (smap_values(types->smap, (smap_val_cb) types__pack_type, &info_cb))
     {
         ti_val_unsafe_drop((ti_val_t *) varr);
         return NULL;

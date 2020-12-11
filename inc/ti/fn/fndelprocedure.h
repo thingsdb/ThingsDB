@@ -5,7 +5,7 @@ static int do__f_del_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = langdef_nd_n_function_params(nd);
     ti_procedure_t * procedure;
     ti_task_t * task;
-    vec_t * procedures = ti_query_procedures(query);
+    smap_t * procedures = ti_query_procedures(query);
 
     if (fn_not_thingsdb_or_collection_scope("del_procedure", query, e) ||
         fn_nargs("del_procedure", DOC_DEL_PROCEDURE, 1, nargs, e) ||
@@ -13,9 +13,11 @@ static int do__f_del_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_arg_str("del_procedure", DOC_DEL_PROCEDURE, 1, query->rval, e))
         return e->nr;
 
-    procedure = ti_procedures_pop_name(procedures, (ti_raw_t *) query->rval);
+    procedure = ti_procedures_by_name(procedures, (ti_raw_t *) query->rval);
     if (!procedure)
         return ti_raw_err_not_found((ti_raw_t *) query->rval, "procedure", e);
+
+    (void) ti_procedures_pop(procedures, procedure);
 
     ti_procedure_destroy(procedure);
 

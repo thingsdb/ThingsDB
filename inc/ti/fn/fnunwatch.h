@@ -14,7 +14,7 @@ static int do__f_unwatch(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     thing = (ti_thing_t *) query->rval;
 
-    if (query->qbind.flags & TI_QBIND_FLAG_API)
+    if (query->flags & TI_QUERY_FLAG_API)
     {
         log_debug(
             "function `unwatch()` with a HTTP API request has no effect");

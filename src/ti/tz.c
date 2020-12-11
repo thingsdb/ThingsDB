@@ -6,7 +6,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <ti/raw.h>
 #include <util/logger.h>
+#include <util/mpack.h>
 
 enum
 {
@@ -668,5 +670,31 @@ ti_tz_t * ti_tz_from_strn(register const char * s, register size_t n)
     return tz && memcmp(tz->name, s, n) == 0 ? tz : NULL;
 }
 
+ti_val_t * ti_tz_as_mpval(void)
+{
+    ti_raw_t * raw;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
 
+    mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
+    if (msgpack_pack_array(&pk, TOTAL_KEYWORDS))
+        goto fail;
+
+    for (size_t i = 0, n = TOTAL_KEYWORDS; i < n; ++i)
+    {
+        ti_tz_t * tz = &tz__list[i];
+        if (mp_pack_strn(&pk, tz->name, tz->n))
+            goto fail;
+    }
+
+    raw = (ti_raw_t *) buffer.data;
+    ti_raw_init(raw, TI_VAL_MP, buffer.size);
+
+    return (ti_val_t *) raw;
+
+fail:
+    msgpack_sbuffer_destroy(&buffer);
+    return NULL;
+}

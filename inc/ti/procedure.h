@@ -17,11 +17,11 @@ typedef struct ti_procedure_s ti_procedure_t;
 #include <ti/val.h>
 
 ti_procedure_t * ti_procedure_create(
-        ti_raw_t * name,
+        const char * name,
+        size_t name_n,
         ti_closure_t * closure,
         uint64_t created_at);
 void ti_procedure_destroy(ti_procedure_t * procedure);
-void ti_procedure_rename(ti_procedure_t * procedure, ti_raw_t * nname);
 int ti_procedure_info_to_pk(
         ti_procedure_t * procedure,
         msgpack_packer * pk,
@@ -33,7 +33,8 @@ ti_val_t * ti_procedure_as_mpval(
 struct ti_procedure_s
 {
     uint64_t created_at;        /* UNIX time-stamp in seconds */
-    ti_raw_t * name;            /* name of the procedure */
+    char * name;                /* NULL terminater name */
+    size_t name_n;              /* size of the name */
     ti_raw_t * doc;             /* documentation, may be NULL */
     ti_raw_t * def;             /* formatted definition, may be NULL */
     ti_closure_t * closure;     /* closure */

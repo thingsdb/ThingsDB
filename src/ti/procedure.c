@@ -20,7 +20,8 @@
 #define PROCEDURE__DEEP_UNSET 255
 
 ti_procedure_t * ti_procedure_create(
-        ti_raw_t * name,
+        const char * name,
+        size_t name_n,
         ti_closure_t * closure,
         uint64_t created_at)
 {
@@ -31,15 +32,20 @@ ti_procedure_t * ti_procedure_create(
     assert (name);
     assert (closure);
 
-    procedure->name = name;
+    procedure->name = strndup(name, name_n);
+    procedure->name_n = name_n;
     procedure->doc = NULL;
     procedure->def = NULL;
     procedure->closure = closure;
     procedure->created_at = created_at;
 
-    ti_incref(name);
     ti_incref(closure);
 
+    if (!procedure->name)
+    {
+        ti_procedure_destroy(procedure);
+        return NULL;
+    }
     return procedure;
 }
 
@@ -48,19 +54,12 @@ void ti_procedure_destroy(ti_procedure_t * procedure)
     if (!procedure)
         return;
 
-    ti_val_unsafe_drop((ti_val_t *) procedure->name);
+    free(procedure->name);
     ti_val_unsafe_drop((ti_val_t *) procedure->closure);
     ti_val_drop((ti_val_t *) procedure->doc);
     ti_val_drop((ti_val_t *) procedure->def);
 
     free(procedure);
-}
-
-void ti_procedure_rename(ti_procedure_t * procedure, ti_raw_t * nname)
-{
-    ti_val_unsafe_drop((ti_val_t *) procedure->name);
-    procedure->name = nname;
-    ti_incref(nname);
 }
 
 /* may return an empty string but never NULL */
@@ -94,7 +93,7 @@ int ti_procedure_info_to_pk(
         mp_pack_strn(pk, doc->data, doc->n) ||
 
         mp_pack_str(pk, "name") ||
-        mp_pack_strn(pk, procedure->name->data, procedure->name->n) ||
+        mp_pack_strn(pk, procedure->name, procedure->name_n) ||
 
         mp_pack_str(pk, "created_at") ||
         msgpack_pack_uint64(pk, procedure->created_at) ||

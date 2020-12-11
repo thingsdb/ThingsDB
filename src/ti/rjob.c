@@ -140,7 +140,7 @@ static int rjob__del_procedure(mp_unp_t * up)
         return -1;
     }
 
-    procedure = ti_procedures_pop_strn(
+    procedure = ti_procedures_by_strn(
             ti.procedures,
             mp_name.via.str.data,
             mp_name.via.str.n);
@@ -152,6 +152,8 @@ static int rjob__del_procedure(mp_unp_t * up)
                 (int) mp_name.via.str.n, mp_name.via.str.data);
         return -1;
     }
+
+    (void) ti_procedures_pop(ti.procedures, procedure);
 
     ti_procedure_destroy(procedure);
     return 0;  /* success */
@@ -393,7 +395,6 @@ static int rjob__new_procedure(mp_unp_t * up)
     mp_obj_t obj, mp_name, mp_created;
     ti_procedure_t * procedure;
     ti_closure_t * closure;
-    ti_raw_t * rname;
     ti_vup_t vup = {
             .isclient = false,
             .collection = NULL,
@@ -413,19 +414,21 @@ static int rjob__new_procedure(mp_unp_t * up)
         return -1;
     }
 
-    rname = ti_str_create(mp_name.via.str.data, mp_name.via.str.n);
     closure = (ti_closure_t *) ti_val_from_vup(&vup);
     procedure = NULL;
 
-    if (!rname || !closure || !ti_val_is_closure((ti_val_t *) closure) ||
-        !(procedure = ti_procedure_create(rname, closure, mp_created.via.u64)))
+    if (!closure || !ti_val_is_closure((ti_val_t *) closure) ||
+        !(procedure = ti_procedure_create(
+                mp_name.via.str.data,
+                mp_name.via.str.n,
+                closure,
+                mp_created.via.u64)))
         goto failed;
 
 
-    rc = ti_procedures_add(&ti.procedures, procedure);
+    rc = ti_procedures_add(ti.procedures, procedure);
     if (rc == 0)
     {
-        ti_decref(rname);
         ti_decref(closure);
 
         return 0;  /* success */
@@ -436,12 +439,11 @@ static int rjob__new_procedure(mp_unp_t * up)
     else
         log_critical(
                 "job `new_procedure` for `.thingsdb`: "
-                "procedure `%.*s` already exists",
-                (int) procedure->name->n, (char *) procedure->name->data);
+                "procedure `%s` already exists",
+                procedure->name);
 
 failed:
     ti_procedure_destroy(procedure);
-    ti_val_drop((ti_val_t *) rname);
     ti_val_drop((ti_val_t *) closure);
     return -1;
 }
@@ -653,7 +655,6 @@ static int rjob__rename_procedure(mp_unp_t * up)
 {
     ti_procedure_t * procedure;
     mp_obj_t obj, mp_old, mp_name;
-    ti_raw_t * nname;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
         mp_skip(up) != MP_STR ||
@@ -678,17 +679,11 @@ static int rjob__rename_procedure(mp_unp_t * up)
         return -1;
     }
 
-    nname = ti_str_create(mp_name.via.str.data, mp_name.via.str.n);
-    if (!nname)
-    {
-        log_critical(EX_MEMORY_S);
-        return -1;
-    }
-
-    ti_procedure_rename(procedure, nname);
-    ti_val_drop((ti_val_t *) nname);
-
-    return 0;
+    return ti_procedures_rename(
+            ti.procedures,
+            procedure,
+            mp_name.via.str.data,
+            mp_name.via.str.n);
 }
 
 /*

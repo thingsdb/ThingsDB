@@ -6,9 +6,7 @@ static int do__f_rename_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * 
     ti_task_t * task;
     ti_procedure_t * procedure;
     ti_raw_t * nname;
-    vec_t * procedures = query->collection
-            ? query->collection->procedures
-            : ti.procedures;
+    smap_t * procedures = ti_query_procedures(query);
 
     if (fn_not_thingsdb_or_collection_scope("rename_procedure", query, e) ||
         fn_nargs("rename_procedure", DOC_RENAME_PROCEDURE, 2, nargs, e) ||
@@ -53,10 +51,15 @@ static int do__f_rename_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * 
     task = ti_task_get_task(
             query->ev,
             query->collection ? query->collection->root : ti.thing0);
-    if (!task || ti_task_add_rename_procedure(task, procedure, nname))
+
+    if (!task ||
+        ti_task_add_rename_procedure(task, procedure, nname) ||
+        ti_procedures_rename(
+                        procedures,
+                        procedure,
+                        (const char *) nname->data,
+                        nname->n))
         ex_set_mem(e);  /* task cleanup is not required */
-    else
-        ti_procedure_rename(procedure, nname);
 
 fail0:
     ti_val_unsafe_drop((ti_val_t *) nname);

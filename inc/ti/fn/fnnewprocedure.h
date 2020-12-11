@@ -8,9 +8,7 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_task_t * task;
     ti_procedure_t * procedure;
     ti_closure_t * closure;
-    vec_t ** procedures = query->collection
-            ? &query->collection->procedures
-            : &ti.procedures;
+    smap_t * procedures = ti_query_procedures(query);
 
     if (fn_not_thingsdb_or_collection_scope("new_procedure", query, e) ||
         fn_nargs("new_procedure", DOC_NEW_PROCEDURE, 2, nargs, e) ||
@@ -38,7 +36,11 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_closure_unbound(closure, e))
         goto fail1;
 
-    procedure = ti_procedure_create(raw, closure, util_now_tsec());
+    procedure = ti_procedure_create(
+            (const char *) raw->data,
+            raw->n,
+            closure,
+            util_now_tsec());
     if (!procedure)
         goto alloc_error;
 
@@ -47,8 +49,9 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto alloc_error;
     if (rc > 0)
     {
-        ex_set(e, EX_LOOKUP_ERROR, "procedure `%.*s` already exists",
-                (int) procedure->name->n, (char *) procedure->name->data);
+        ex_set(e, EX_LOOKUP_ERROR,
+                "procedure `%s` already exists",
+                procedure->name);
         goto fail2;
     }
 
@@ -58,13 +61,13 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!task || ti_task_add_new_procedure(task, procedure))
         goto undo;
 
-    query->rval = (ti_val_t *) procedure->name;
+    query->rval = (ti_val_t *) raw;
     ti_incref(query->rval);
 
     goto done;
 
 undo:
-    (void) vec_pop(*procedures);
+    (void) ti_procedures_pop(procedures, procedure);
 
 alloc_error:
     if (!e->nr)

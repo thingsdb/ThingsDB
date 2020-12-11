@@ -1473,7 +1473,6 @@ int ti_val_to_pk(ti_val_t * val, msgpack_packer * pk, int options)
     case TI_VAL_MEMBER:
         return ti_member_to_pk((ti_member_t *) val, pk, options);
     }
-
     assert(0);
     return -1;
 }

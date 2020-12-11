@@ -128,6 +128,7 @@
 #define DOC_REVOKE                  DOC_SEE("thingsdb-api/revoke")
 #define DOC_SET_PASSWORD            DOC_SEE("thingsdb-api/set_password")
 #define DOC_SET_TIME_ZONE           DOC_SEE("thingsdb-api/set_time_zone")
+#define DOC_TIME_ZONES_INFO         DOC_SEE("thingsdb-api/time_zones_info")
 #define DOC_USER_INFO               DOC_SEE("thingsdb-api/user_info")
 #define DOC_USERS_INFO              DOC_SEE("thingsdb-api/users_info")
 

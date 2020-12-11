@@ -8,8 +8,8 @@ static int do__f_wse(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_nargs("wse", DOC_WSE, 1, nargs, e))
         return e->nr;
 
-    wse_flag_state = ~query->qbind.flags & TI_QBIND_FLAG_WSE;
-    query->qbind.flags |= TI_QBIND_FLAG_WSE;
+    wse_flag_state = ~query->flags & TI_QUERY_FLAG_WSE;
+    query->flags |= TI_QUERY_FLAG_WSE;
 
     (void) ti_do_statement(query, nd->children->node, e);
 

@@ -113,7 +113,7 @@ ti_varr_t * ti_enums_info(ti_enums_t * enums)
     if (!varr)
         return NULL;
 
-    if (imap_walk(enums->imap, (imap_cb) enums__pack_enum, varr))
+    if (smap_values(enums->smap, (smap_val_cb) enums__pack_enum, varr))
     {
         ti_val_unsafe_drop((ti_val_t *) varr);
         return NULL;

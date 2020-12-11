@@ -4,7 +4,7 @@ static int do__f_procedure_doc(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     ti_procedure_t * procedure;
-    vec_t * procedures = ti_query_procedures(query);
+    smap_t * procedures = ti_query_procedures(query);
 
     if (fn_not_thingsdb_or_collection_scope("procedure_doc", query, e) ||
         fn_nargs("procedure_doc", DOC_PROCEDURE_DOC, 1, nargs, e) ||

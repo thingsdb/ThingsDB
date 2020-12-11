@@ -9,15 +9,11 @@ typedef enum
     /* First three flags are exclusive, only one may be set.
      * The order is important since the order is used in function binding */
     TI_QBIND_BIT_NODE,
-    TI_QBIND_BIT_THINGSDB=1,      /* must be one (see qbind) */
-    TI_QBIND_BIT_COLLECTION=2,    /* must be two (see qbind) */
+    TI_QBIND_BIT_THINGSDB=1,      /* must be one (see qbind, FN__FLAG_EV_T) */
+    TI_QBIND_BIT_COLLECTION=2,    /* must be two (see qbind, FN__FLAG_EV_C) */
 
     TI_QBIND_BIT_EVENT,
-    TI_QBIND_BIT_WSE,
-    TI_QBIND_BIT_AS_PROCEDURE,
-
     TI_QBIND_BIT_ON_VAR,
-    TI_QBIND_BIT_API,
 } ti_qbind_bit_t;
 
 typedef enum
@@ -28,11 +24,7 @@ typedef enum
     TI_QBIND_FLAG_COLLECTION    =1<<TI_QBIND_BIT_COLLECTION,
 
     TI_QBIND_FLAG_EVENT         =1<<TI_QBIND_BIT_EVENT,
-    TI_QBIND_FLAG_WSE           =1<<TI_QBIND_BIT_WSE,
-    TI_QBIND_FLAG_AS_PROCEDURE  =1<<TI_QBIND_BIT_AS_PROCEDURE,
-
     TI_QBIND_FLAG_ON_VAR        =1<<TI_QBIND_BIT_ON_VAR,
-    TI_QBIND_FLAG_API           =1<<TI_QBIND_BIT_API,
 } ti_qbind_flag_t;
 
 typedef struct ti_qbind_s ti_qbind_t;

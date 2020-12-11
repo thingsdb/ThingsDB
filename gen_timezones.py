@@ -1,3 +1,10 @@
+"""Generate Time Zones
+This script detects time zones which are specified by pytz library.
+Zones which are found in the common list and missing in ThingsDB
+will be added, none of the existing time zones will be removed.
+
+Without arguments, this script only displays the changes.
+"""
 import pytz
 import argparse
 import pprint

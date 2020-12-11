@@ -14,7 +14,12 @@
 #include <ti/user.t.h>
 #include <ti/vup.t.h>
 
-ti_query_t * ti_query_create(void * via, ti_user_t * user, uint8_t flags);
+ti_query_t * ti_query_create(uint8_t flags);
+void ti_query_init(
+        ti_query_t * query,
+        void * via,
+        ti_user_t * user,
+        uint8_t flags);
 void ti_query_destroy(ti_query_t * query);
 int ti_query_unpack(
         ti_query_t * query,

@@ -19,9 +19,11 @@ typedef int (*ti_query_vars_walk_cb)(void * data, void * arg);
 
 enum
 {
-    TI_QUERY_FLAG_AS_PROCEDURE  =1<<0,
-    TI_QUERY_FLAG_WSE           =1<<1,
-    TI_QUERY_FLAG_API           =1<<2,
+    TI_QUERY_FLAG_AS_PROCEDURE      =1<<0,
+    TI_QUERY_FLAG_WSE               =1<<1,
+    TI_QUERY_FLAG_API               =1<<2,
+    TI_QUERY_FLAG_CACHE             =1<<3,
+    TI_QUERY_FLAG_IN_CACHE          =1<<4,
 };
 
 typedef int (*ti_query_unpack_cb) (

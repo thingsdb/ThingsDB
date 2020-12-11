@@ -129,6 +129,21 @@ vec_t * vec_dup(const vec_t * vec)
 }
 
 /*
+ * Returns a copy of a given vector with equal size.
+ * In case of an allocation error the return value is NULL.
+ */
+vec_t * vec_copy(const vec_t * vec)
+{
+    size_t sz = sizeof(vec_t) + vec->sz * sizeof(void*);
+    vec_t * v = malloc(sz);
+    if (!v)
+        return NULL;
+
+    memcpy(v, vec, sz);
+    return v;
+}
+
+/*
  * Returns 0 when successful.
  */
 int vec_push(vec_t ** vaddr, void * data)

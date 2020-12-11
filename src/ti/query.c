@@ -186,19 +186,12 @@ int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
     return e->nr;
 }
 
-ti_query_t * ti_query_create(void * via, ti_user_t * user, uint8_t flags)
+ti_query_t * ti_query_create(uint8_t flags)
 {
     ti_query_t * query = calloc(1, sizeof(ti_query_t));
     if (!query)
         return NULL;
-
     query->flags = flags;
-    query->qbind.deep = 1;
-    if (flags & TI_QUERY_FLAG_API)
-        query->via.api_request = ti_api_acquire((ti_api_request_t *) via);
-    else
-        query->via.stream = ti_grab((ti_stream_t *) via);
-    query->user = ti_grab(user);
     query->vars = vec_new(7);  /* with some initial size; we could find the
                                 * exact number in the syntax (maybe), but then
                                 * we also must allow closures to still grow
@@ -206,11 +199,22 @@ ti_query_t * ti_query_create(void * via, ti_user_t * user, uint8_t flags)
                                 */
     if (!query->vars)
     {
-        ti_query_destroy(query);
+        free(query);
         return NULL;
     }
-
     return query;
+}
+
+void ti_query_init(ti_query_t * query, void * via, ti_user_t * user)
+{
+    query->qbind.deep = 1;
+
+    if (query->flags & TI_QUERY_FLAG_API)
+        query->via.api_request = ti_api_acquire((ti_api_request_t *) via);
+    else
+        query->via.stream = ti_grab((ti_stream_t *) via);
+
+    query->user = ti_grab(user);
 }
 
 void ti_query_destroy(ti_query_t * query)

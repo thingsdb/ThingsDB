@@ -21,6 +21,9 @@
 /* Raise an error when packing a thing and this limit (20MiB) is reached */
 #define TI_DEFAULT_RESULT_DATA_LIMIT 20971520UL
 
+/* Use query cache for queries with a length equal or above this threshold */
+#define TI_DEFAULT_THRESHOLD_QUERY_CACHE 200UL
+
 #define TI_COLLECTION_ID "`collection:%"PRIu64"`"
 #define TI_EVENT_ID "`event:%"PRIu64"`"
 #define TI_NODE_ID "`node:%"PRIu32"`"

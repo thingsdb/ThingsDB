@@ -1113,10 +1113,9 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_enum_t * enum_;
     cleri_node_t * name_nd = nd                 /* sequence */
             ->children->node;                   /* name */
-    cleri_node_t * enum_nd = nd                 /* sequence */
-            ->children->next->node;             /* enum node */
-
-    nd = enum_nd->children->next->node;         /* name or closure */
+    nd = nd                                     /* sequence */
+            ->children->next->node              /* enum node */
+            ->children->next->node;             /* name or closure */
 
     enum_ = ti_enums_by_strn(
             query->collection->enums,
@@ -1135,28 +1134,18 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     switch(nd->cl_obj->gid)
     {
     case CLERI_GID_NAME:
-        enum_nd->data = (ti_val_t *) ti_enum_member_by_strn(
+        query->rval = (ti_val_t *) ti_enum_member_by_strn(
                 enum_,
                 nd->str,
                 nd->len);
-        if (enum_nd->data)
-        {
-            /*
-             * In an unbound closure we have space reserved to store the enum
-             * member in the closure cache. This means that the member will be
-             * in use from this point on, until the closure is removed.
-             */
-            vec_t * vec = nd->data ? nd->data : query->val_cache;
-            query->rval = enum_nd->data;
-            VEC_push(vec, query->rval);
-            query->rval->ref += 2;
-        }
+        if (query->rval)
+            ti_incref(query->rval);
         else
             ex_set(e, EX_LOOKUP_ERROR, "enum `%s` has no member `%.*s`",
                     enum_->name,
                     nd->len,
                     nd->str);
-        break;
+        return e->nr;
     case CLERI_GID_T_CLOSURE:
     {
         ti_closure_t * closure;
@@ -1234,38 +1223,6 @@ static inline void do__clear_enum_cache(cleri_node_t * enum_nd)
     vec_swap_remove(vec, idx);
     ti_member_drop(member);
     enum_nd->data = NULL;
-}
-
-static inline int do__enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    cleri_node_t * enum_nd = nd                 /* sequence */
-            ->children->next->node;             /* enum node */
-
-    if (enum_nd->data)
-    {
-        ti_member_t * member = enum_nd->data;
-        cleri_node_t * mname_nd = enum_nd->children->next->node;
-        cleri_node_t * ename_nd = nd->children->node;
-
-        /* enum_ is set to NULL when the enum is removed;
-         * the name from both the enum and member must be checked to support
-         * renaming.
-         */
-        if (member->enum_ &&
-            ti_raw_eq_strn(
-                    member->enum_->rname,
-                    ename_nd->str,
-                    ename_nd->len) &&
-            member->name->n == mname_nd->len &&
-            !memcmp(member->name->str, mname_nd->str, mname_nd->len))
-        {
-            ti_incref(member);
-            query->rval = (ti_val_t *) member;
-            return 0;
-        }
-        do__clear_enum_cache(enum_nd);
-    }
-    return do__enum_get(query, nd, e);
 }
 
 /* changes scope->name and/or scope->thing */
@@ -1610,7 +1567,7 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 return e->nr;
             break;
         case CLERI_GID_ENUM_:
-            if (do__enum(query, nd, e))
+            if (do__enum_get(query, nd, e))
                 return e->nr;
             break;
         default:

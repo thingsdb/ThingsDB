@@ -25,11 +25,14 @@ struct ti_cfg_s
                                            stored on disk is equal or greater
                                            than this threshold, then a full-
                                            instead of incremental store will be
-                                           performed
+                                           performed.
                                         */
     size_t result_size_limit;           /* error EX_RESULT_TOO_LARGE is raised
                                            when the return size exceeds this
                                            limit.
+                                        */
+    size_t threshold_query_cache;       /* use query cache for queries above
+                                           this threshold size. (0=disabled)
                                         */
     int ip_support;                     /* AF_UNSPEC / AF_INET / AF_INET6 */
     char * node_name;

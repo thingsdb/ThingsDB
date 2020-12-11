@@ -247,6 +247,35 @@ static void cfg__threshold_full_storage(
     cfg->threshold_full_storage = (size_t) option->val->integer;
 }
 
+static void cfg__threshold_query_cache(
+        cfgparser_t * parser,
+        const char * cfg_file)
+{
+    const char * option_name = "threshold_query_cache";
+
+    cfgparser_option_t * option;
+    cfgparser_return_t rc;
+    rc = cfgparser_get_option(&option, parser, cfg__section, option_name);
+
+    if (rc != CFGPARSER_SUCCESS)
+        return;
+
+    if (    option->tp != CFGPARSER_TP_INTEGER ||
+            option->val->integer < 0)
+    {
+        log_warning(
+                "error reading `%s` in `%s` "
+                "(expecting an integer value greater than, or equal to 0), "
+                "using default value %zu",
+                option_name,
+                cfg_file,
+                cfg->threshold_query_cache);
+        return;
+    }
+
+    cfg->threshold_query_cache = (size_t) option->val->integer;
+}
+
 static void cfg__result_size_limit(cfgparser_t * parser, const char * cfg_file)
 {
     const char * option_name = "result_size_limit";
@@ -329,6 +358,7 @@ int ti_cfg_create(void)
     cfg->http_status_port = TI_DEFAULT_HTTP_STATUS_PORT;
     cfg->threshold_full_storage = TI_DEFAULT_THRESHOLD_FULL_STORAGE;
     cfg->result_size_limit = TI_DEFAULT_RESULT_DATA_LIMIT;
+    cfg->threshold_query_cache = TI_DEFAULT_THRESHOLD_QUERY_CACHE;
     cfg->ip_support = AF_UNSPEC;
     cfg->bind_client_addr = strdup("127.0.0.1");
     cfg->bind_node_addr = strdup("127.0.0.1");
@@ -419,6 +449,7 @@ int ti_cfg_parse(const char * cfg_file)
     cfg__ip_support(parser, cfg_file);
     cfg__threshold_full_storage(parser, cfg_file);
     cfg__result_size_limit(parser, cfg_file);
+    cfg__threshold_query_cache(parser, cfg_file);
     cfg__duration(
             parser,
             cfg_file,

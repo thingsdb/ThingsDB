@@ -17,6 +17,7 @@
 #include <ti/procedure.h>
 #include <ti/proto.h>
 #include <ti/qbind.h>
+#include <ti/qcache.h>
 #include <ti/regex.h>
 #include <ti/signals.h>
 #include <ti/store.h>
@@ -78,6 +79,7 @@ int ti_create(void)
     ti.thing0 = ti_thing_o_create(0, 0, NULL);
     if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti.boottime) ||
             ti_counters_create() ||
+            ti_qcache_create() ||
             ti_away_create() ||
             ti_args_create() ||
             ti_cfg_create() ||
@@ -123,6 +125,7 @@ void ti_destroy(void)
 
     ti__stop();
 
+    ti_qcache_destroy();
     ti_build_destroy();
     ti_archive_destroy();
     ti_args_destroy();

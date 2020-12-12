@@ -10,6 +10,7 @@
 #include <tiinc.h>
 #include <util/smap.h>
 #include <util/util.h>
+#include <util/logger.h>
 
 static smap_t * qcache;
 static size_t qcache__cache_sz;
@@ -100,11 +101,13 @@ new_query:
         ti_query_destroy(query);
         return NULL;
     }
+    LOGC("query flags: %u", query->flags);
     return query;
 }
 
 void ti_qcache_return(ti_query_t * query)
 {
+    LOGC("Return: %u", query->pkg_id);
     if (query->flags & TI_QUERY_FLAG_API)
         ti_api_release(query->via.api_request);
     else
@@ -146,6 +149,9 @@ void ti_qcache_return(ti_query_t * query)
             item->used = 0;
             item->last = (uint32_t) util_now_tsec();
         }
+        if (smap_add(qcache, query->querystr, item))
+            qcache__item_destroy(item);
+        return;
     }
 
     free(query);

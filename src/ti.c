@@ -82,7 +82,6 @@ int ti_create(void)
             ti_away_create() ||
             ti_args_create() ||
             ti_cfg_create() ||
-            ti_qcache_create() ||  /* requires cfg */
             ti_archive_create() ||
             ti_clients_create() ||
             ti_nodes_create() ||
@@ -201,7 +200,10 @@ int ti_init(void)
     if (ti.cfg->query_duration_error > ti.cfg->query_duration_warn)
         ti.cfg->query_duration_warn = ti.cfg->query_duration_error;
 
-    if (ti_do_init() || ti_val_init_common() || ti_thing_init_gc())
+    if (ti_qcache_create() ||
+        ti_do_init() ||
+        ti_val_init_common() ||
+        ti_thing_init_gc())
         return -1;
 
     ti.fn = strx_cat(ti.cfg->storage_path, ti__fn);
@@ -910,10 +912,10 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         msgpack_pack_uint64(pk, ti_stream_client_connections()) ||
         /* 33 */
         mp_pack_str(pk, "result_size_limit") ||
-        msgpack_pack_uint64(pk, ti.cfg->result_size_limit ||
+        msgpack_pack_uint64(pk, ti.cfg->result_size_limit) ||
         /* 34 */
         mp_pack_str(pk, "cached_queries") ||
-        msgpack_pack_uint32(pk, 10))
+        msgpack_pack_uint32(pk, ti.qcache->n)
     );
 }
 

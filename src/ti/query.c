@@ -23,6 +23,7 @@
 #include <ti/nil.h>
 #include <ti/procedures.h>
 #include <ti/proto.h>
+#include <ti/qcache.h>
 #include <ti/query.h>
 #include <ti/query.inline.h>
 #include <ti/task.h>
@@ -841,7 +842,10 @@ void ti_query_send_response(ti_query_t * query, ex_t * e)
     }
 
 done:
-    ti_query_destroy(query);
+    if (query->flags & TI_QUERY_FLAG_CACHE)
+        ti_qcache_return(query);
+    else
+        ti_query_destroy(query);
 }
 
 ti_prop_t * ti_query_var_get(ti_query_t * query, ti_name_t * name)

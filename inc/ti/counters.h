@@ -63,7 +63,7 @@ struct ti_counters_s
     uint64_t queries_from_cache;    /* number of queries which are loaded from
                                        cache.
                                     */
-    uint64_t dropped_query_cache;   /* number of cached queries which are
+    uint64_t waste_cache;           /* number of cached queries which are
                                        removed from the cache before the cache
                                        was ever used. Basically this count the
                                        useless caching.

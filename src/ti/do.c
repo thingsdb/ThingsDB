@@ -74,7 +74,7 @@ static inline ti_name_t * do__cache_name(ti_query_t * query, cleri_node_t * nd)
     if (name)
     {
         ti_incref(name);
-        VEC_push(query->val_cache, name);
+        VEC_push(query->immutable_cache, name);
     }
     return name;
 }
@@ -686,7 +686,10 @@ int ti_do_operations(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static int do__thing_by_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__thing_by_id(
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
 {
     /*
      * Set node -> data to the actual thing when this is a normal query but
@@ -694,36 +697,8 @@ static int do__thing_by_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
      * This syntax is probably not used frequently so do not worry a lot about
      * performance here; (and this is already pretty fast anyway...)
      */
-    if (!nd->data)
-    {
-        int64_t thing_id = strtoll(nd->str + 1, NULL, 10);
-        ti_thing_t * thing = ti_query_thing_from_id(query, thing_id, e);
-        if (!thing)
-            return e->nr;
-
-        nd->data = thing;
-        VEC_push(query->val_cache, thing);
-    }
-    else if (ti_val_is_int((ti_val_t *) nd->data))
-    {
-        /*
-         * Unbound closures do not cache `#` syntax. if we really wanted this,
-         * then it could be achieved by assigning the closure instead of `int`
-         * to this node cache. But the hard part is then the garbage collection
-         * because things keep attached to the stored closure but this is not
-         * detected by the current garbage collector.
-         */
-        ti_vint_t * thing_id = nd->data;
-        query->rval = (ti_val_t *) ti_query_thing_from_id(
-                query,
-                thing_id->int_,
-                e);
-        return e->nr;
-    }
-
-    query->rval = nd->data;
-    ti_incref(query->rval);
-
+    intptr_t thing_id = (intptr_t) nd->data;
+    query->rval = (ti_val_t *) ti_query_thing_from_id(query, thing_id, e);
     return e->nr;
 }
 
@@ -741,8 +716,8 @@ static int do__read_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ex_set_mem(e);
             return e->nr;
         }
-        assert (vec_space(query->val_cache));
-        VEC_push(query->val_cache, nd->data);
+        assert (vec_space(query->immutable_cache));
+        VEC_push(query->immutable_cache, nd->data);
     }
     query->rval = nd->data;
     ti_incref(query->rval);
@@ -1209,22 +1184,6 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static inline void do__clear_enum_cache(cleri_node_t * enum_nd)
-{
-    ti_member_t * member = enum_nd->data;
-    vec_t * vec = enum_nd->children->next->node->data;
-    uint32_t idx = 0;
-
-    for (vec_each(vec, void, data), ++idx)
-        if (data == member)
-            break;
-
-    assert (idx < vec->n);
-    vec_swap_remove(vec, idx);
-    ti_member_drop(member);
-    enum_nd->data = NULL;
-}
-
 /* changes scope->name and/or scope->thing */
 static inline int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
@@ -1284,7 +1243,7 @@ static inline ti_name_t * do__ensure_name_cache(
      * to fit this name.
      */
     if (name)
-        VEC_push(query->val_cache, name);
+        VEC_push(query->immutable_cache, name);
     return name;
 }
 
@@ -1413,8 +1372,8 @@ static inline int do__template(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ex_set_mem(e);
             return e->nr;
         }
-        assert (vec_space(query->val_cache));
-        VEC_push(query->val_cache, nd->data);
+        assert (vec_space(query->immutable_cache));
+        VEC_push(query->immutable_cache, nd->data);
     }
     return ti_template_compile(nd->data, query, e);
 }
@@ -1478,8 +1437,8 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ex_set_mem(e);
                 return e->nr;
             }
-            assert (vec_space(query->val_cache));
-            VEC_push(query->val_cache, nd->data);
+            assert (vec_space(query->immutable_cache));
+            VEC_push(query->immutable_cache, nd->data);
         }
         query->rval = nd->data;
         ti_incref(query->rval);
@@ -1499,8 +1458,8 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ex_set_mem(e);
                 return e->nr;
             }
-            assert (vec_space(query->val_cache));
-            VEC_push(query->val_cache, nd->data);
+            assert (vec_space(query->immutable_cache));
+            VEC_push(query->immutable_cache, nd->data);
         }
         query->rval = nd->data;
         ti_incref(query->rval);
@@ -1514,8 +1473,8 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             nd->data = ti_regex_from_strn(nd->str, nd->len, e);
             if (!nd->data)
                 return e->nr;
-            assert (vec_space(query->val_cache));
-            VEC_push(query->val_cache, nd->data);
+            assert (vec_space(query->immutable_cache));
+            VEC_push(query->immutable_cache, nd->data);
         }
         query->rval = nd->data;
         ti_incref(query->rval);
@@ -1529,8 +1488,8 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ex_set_mem(e);
                 return e->nr;
             }
-            assert (vec_space(query->val_cache));
-            VEC_push(query->val_cache, nd->data);
+            assert (vec_space(query->immutable_cache));
+            VEC_push(query->immutable_cache, nd->data);
         }
         query->rval = nd->data;
         ti_incref(query->rval);

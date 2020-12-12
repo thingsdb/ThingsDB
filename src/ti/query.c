@@ -191,6 +191,8 @@ ti_query_t * ti_query_create(uint8_t flags)
     ti_query_t * query = calloc(1, sizeof(ti_query_t));
     if (!query)
         return NULL;
+
+    query->qbind.deep = 1;
     query->flags = flags;
     query->vars = vec_new(7);  /* with some initial size; we could find the
                                 * exact number in the syntax (maybe), but then
@@ -205,10 +207,24 @@ ti_query_t * ti_query_create(uint8_t flags)
     return query;
 }
 
+ti_query_t * ti_query_create_strn(const char * str, size_t n, uint8_t flags)
+{
+    ti_query_t * query = ti_query_create(flags);
+    if (!query)
+        return NULL;
+
+    query->querystr = strndup(str, n);
+    if (!query)
+    {
+        ti_query_destroy(query);
+        return NULL;
+    }
+
+    return query;
+}
+
 void ti_query_init(ti_query_t * query, void * via, ti_user_t * user)
 {
-    query->qbind.deep = 1;
-
     if (query->flags & TI_QUERY_FLAG_API)
         query->via.api_request = ti_api_acquire((ti_api_request_t *) via);
     else
@@ -225,7 +241,7 @@ void ti_query_destroy(ti_query_t * query)
     if (query->parseres)
         cleri_parse_free(query->parseres);
 
-    vec_destroy(query->val_cache, (vec_destroy_cb) ti_val_unsafe_drop);
+    vec_destroy(query->immutable_cache, (vec_destroy_cb) ti_val_unsafe_drop);
 
     if (query->flags & TI_QUERY_FLAG_API)
         ti_api_release(query->via.api_request);
@@ -234,13 +250,14 @@ void ti_query_destroy(ti_query_t * query)
 
     ti_user_drop(query->user);
     ti_event_drop(query->ev);
-
     ti_val_drop(query->rval);
 
-    while(query->vars->n)
-        ti_prop_destroy(VEC_pop(query->vars));
-
-    free(query->vars);
+    if (query->vars)
+    {
+        while(query->vars->n)
+            ti_prop_destroy(VEC_pop(query->vars));
+        free(query->vars);
+    }
 
     ti_val_drop((ti_val_t *) query->closure);
 
@@ -256,16 +273,26 @@ void ti_query_destroy(ti_query_t * query)
     free(query);
 }
 
-int ti_query_unpack_args(ti_query_t * query, ti_vup_t * vup, ex_t * e)
+int ti_query_unpack_args(ti_query_t * query, mp_unp_t * up, ex_t * e)
 {
     size_t i, n;
     mp_obj_t obj, mp_key;
     ti_name_t * name;
     ti_prop_t * prop;
     ti_val_t * argval;
+    ti_vup_t vup = {
+            .isclient = true,
+            .collection = query->collection,
+            .up = up,
+    };
 
-    if (mp_next(vup->up, &obj) != MP_MAP)
+    if (mp_next(vup.up, &obj) == MP_END)
+        return e->nr;  /* no arguments */
+
+    if (obj.tp != MP_MAP)
     {
+        if (obj.tp == MP_END)
+
         ex_set(e, EX_TYPE_ERROR,
                 "expecting variable for a `query` to be of type `map`"
                 DOC_SOCKET_QUERY);
@@ -274,7 +301,7 @@ int ti_query_unpack_args(ti_query_t * query, ti_vup_t * vup, ex_t * e)
 
     for (i = 0, n = obj.via.sz; i < n; ++i)
     {
-        if (mp_next(vup->up, &mp_key) != MP_STR ||
+        if (mp_next(vup.up, &mp_key) != MP_STR ||
             !ti_name_is_valid_strn(mp_key.via.str.data, mp_key.via.str.n))
         {
             ex_set(e, EX_VALUE_ERROR,
@@ -290,7 +317,7 @@ int ti_query_unpack_args(ti_query_t * query, ti_vup_t * vup, ex_t * e)
             return e->nr;
         }
 
-        argval = ti_val_from_vup_e(vup, e);
+        argval = ti_val_from_vup_e(&vup, e);
         if (!argval)
         {
             assert (e->nr);
@@ -355,12 +382,7 @@ int ti_query_unpack(
         return e->nr;
     }
 
-    ti_vup_t vup = {
-            .isclient = true,
-            .collection = query->collection,
-            .up = &up,
-    };
-    return obj.via.sz == 2 ? 0 : ti_query_unpack_args(query, &vup, e);
+    return obj.via.sz == 2 ? 0 : ti_query_unpack_args(query, &up, e);
 }
 
 static int query__run_arr_props(
@@ -384,7 +406,7 @@ static int query__run_arr_props(
                 procedure->name);
             return e->nr;
         }
-        ti_val_unsafe_drop(vec_set(query->val_cache, val, idx));
+        ti_val_unsafe_drop(vec_set(query->immutable_cache, val, idx));
     }
     return e->nr;
 }
@@ -432,7 +454,7 @@ static int query__run_map_props(
             return e->nr;
         }
 
-        ti_val_unsafe_drop(vec_set(query->val_cache, val, idx));
+        ti_val_unsafe_drop(vec_set(query->immutable_cache, val, idx));
     }
     return e->nr;
 }
@@ -459,7 +481,7 @@ int ti_query_unp_run(
     };
 
     assert (e->nr == 0);
-    assert (query->val_cache == NULL);
+    assert (query->immutable_cache == NULL);
 
     query->flags |= TI_QUERY_FLAG_AS_PROCEDURE;
     query->pkg_id = pkg_id;
@@ -516,15 +538,15 @@ int ti_query_unp_run(
     query->closure = procedure->closure;
     ti_incref(query->closure);
 
-    query->val_cache = vec_new(procedure->closure->vars->n);
-    if (!query->val_cache)
+    query->immutable_cache = vec_new(procedure->closure->vars->n);
+    if (!query->immutable_cache)
     {
         ex_set_mem(e);
         return e->nr;
     }
 
     for (vec_each(procedure->closure->vars, ti_prop_t, _))
-        VEC_push(query->val_cache, ti_nil_get());
+        VEC_push(query->immutable_cache, ti_nil_get());
 
     mp_next(&up, &obj);
 
@@ -540,9 +562,34 @@ int ti_query_unp_run(
     return 0;
 }
 
+static inline int ti_query_investigate(ti_query_t * query, ex_t * e)
+{
+    cleri_children_t * seqchildren;
+    assert (e->nr == 0);
+
+    seqchildren = query->parseres->tree /* root */
+            ->children->node            /* sequence <comment, list> */
+            ->children;
+
+    /* list statements */
+    ti_qbind_probe(&query->qbind, seqchildren->next->node);
+
+    /*
+     * Create value cache for immutable, names and things.
+     */
+    if (    query->qbind.val_cache_n &&
+            !(query->immutable_cache = vec_new(query->qbind.val_cache_n)))
+        ex_set_mem(e);
+
+    return e->nr;
+}
+
 int ti_query_parse(ti_query_t * query, ex_t * e)
 {
     assert (e->nr == 0);
+    if (query->parseres)
+        return e->nr;  /* already parsed and investigated */
+
     query->parseres = cleri_parse2(
             ti.langdef,
             query->querystr,
@@ -585,29 +632,7 @@ int ti_query_parse(ti_query_t * query, ex_t * e)
         e->nr = EX_SYNTAX_ERROR;
     }
 
-    return e->nr;
-}
-
-int ti_query_investigate(ti_query_t * query, ex_t * e)
-{
-    cleri_children_t * seqchildren;
-    assert (e->nr == 0);
-
-    seqchildren = query->parseres->tree /* root */
-            ->children->node            /* sequence <comment, list> */
-            ->children;
-
-    /* list statements */
-    ti_qbind_probe(&query->qbind, seqchildren->next->node);
-
-    /*
-     * Create value cache for immutable, names and things.
-     */
-    if (    query->qbind.val_cache_n &&
-            !(query->val_cache = vec_new(query->qbind.val_cache_n)))
-        ex_set_mem(e);
-
-    return e->nr;
+    return ti_query_investigate(query, e);
 }
 
 static void query__duration_log(
@@ -641,7 +666,7 @@ void ti_query_run(ti_query_t * query)
             assert (query->ev);
             query->flags |= TI_QUERY_FLAG_WSE;
         }
-        (void) ti_closure_call(query->closure, query, query->val_cache, &e);
+        (void) ti_closure_call(query->closure, query, query->immutable_cache, &e);
         goto stop;
     }
 

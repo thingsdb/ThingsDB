@@ -12,10 +12,12 @@
 #include <ti/node.h>
 #include <ti/proto.h>
 #include <ti/query.h>
+#include <ti/qcache.h>
 #include <ti/query.inline.h>
 #include <ti/req.h>
 #include <ti/scope.h>
 #include <ti/thing.h>
+#include <doc.h>
 #include <ti/users.h>
 #include <ti/wareq.h>
 #include <ti/watch.h>
@@ -186,6 +188,8 @@ static inline int clients__check(ti_user_t * user, ex_t * e)
 static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t e = {0};
+    mp_obj_t mp_query;
+    mp_unp_t up;
     ti_pkg_t * resp = NULL;
     ti_query_t * query = NULL;
     ti_node_t * this_node = ti.node, * other_node;
@@ -193,7 +197,9 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
     vec_t * access_;
     ti_scope_t scope;
 
-    if (clients__check(user, &e) || ti_scope_init_pkg(&scope, pkg, &e))
+    mp_unp_init(&up, pkg->data, pkg->n);
+
+    if (clients__check(user, &e) || ti_scope_init_from_up(&scope, &up, &e))
         goto finish;
 
     if (scope.tp == TI_SCOPE_NODE)
@@ -252,22 +258,36 @@ static void clients__on_query(ti_stream_t * stream, ti_pkg_t * pkg)
 
 query:
 
-    query = ti_query_create(stream, user, 0);
+    if (mp_next(&up, &mp_query) != MP_STR)
+    {
+        ex_set(&e, EX_TYPE_ERROR,
+            "expecting the code in a `query` request to be of type `string`"
+            DOC_SOCKET_QUERY);
+        goto finish;
+    }
+
+    query = ti_scope_is_collection(&scope)
+        ? ti_qcache_get_query(mp_query.via.str.data, mp_query.via.str.n, 0)
+        : ti_query_create_strn(mp_query.via.str.data, mp_query.via.str.n, 0);
+
     if (!query)
     {
         ex_set_mem(&e);
         goto finish;
     }
 
-    if (ti_query_unpack(query, &scope, pkg->id, pkg->data, pkg->n, &e))
+    ti_query_init(query, stream, user);
+    query->pkg_id = pkg->id;
+
+    if (ti_query_apply_scope(query, &scope, &e) ||
+        ti_query_unpack_args(query, &up, &e))
         goto finish;
 
     access_ = ti_query_access(query);
     assert (access_);
 
     if (ti_access_check_err(access_, query->user, TI_AUTH_READ, &e) ||
-        ti_query_parse(query, &e) ||
-        ti_query_investigate(query, &e))
+        ti_query_parse(query, &e))
         goto finish;
 
     if (ti_query_will_update(query))
@@ -422,12 +442,14 @@ static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
-    query = ti_query_create(stream, user, 0);
+    query = ti_query_create(0);
     if (!query)
     {
         ex_set_mem(&e);
         goto finish;
     }
+
+    ti_query_init(query, stream, user);
 
     if (ti_query_unp_run(query, &scope, pkg->id, pkg->data, pkg->n, &e))
         goto finish;

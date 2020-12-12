@@ -1,50 +1,73 @@
 #include <ti/qcache.h>
+#include <ti/val.h>
+#include <ti/val.inline.h>
+#include <ti/query.h>
+#include <ti/event.h>
+#include <ti/api.h>
+#include <ti/prop.h>
+#include <ti/thing.h>
+#include <ti.h>
 #include <tiinc.h>
 #include <util/smap.h>
 #include <util/util.h>
 
 static smap_t * qcache;
+static size_t qcache__cache_sz;
+static size_t qcache__threshold;
+
+/* Queries will be removed from cache if not used with X seconds */
+#define QCACHE__EXPIRATION_TIME 900UL
+
+/* If more than X queries are stored in cache, the cache will ask for away mode
+ * to perform a cleanup. */
+#define QCACHE__GROW_SIZE 20
 
 typedef struct
 {
-    uint32_t ref;
-    uint32_t chk_val_n;
-    uint64_t last;
+    uint32_t used;
+    uint32_t last;      /* works fine until we reach year 2038 */
     ti_query_t * query;
 } qcache__item_t;
 
 static void qcache__item_destroy(qcache__item_t * item)
 {
-    ti_query_destroy(item->query);
+    if (item)
+        ti_query_destroy(item->query);
     free(item);
 }
 
 static ti_query_t * qcache__from_cache(qcache__item_t * item, uint8_t flags)
 {
-    ti_query_t * query = malloc(
-            flags|TI_QUERY_FLAG_CACHE|TI_QUERY_FLAG_IN_CACHE);
+    ti_query_t * query = ti_query_create(flags|TI_QUERY_FLAG_CACHE);
     if (!query)
         return NULL;
 
-    item->last = util_now_tsec();
+    item->used++;
+    item->last = (uint32_t) util_now_tsec();
+    /*
+     * Mark the cached query so we know this query is at least once being
+     * asked from cache.
+     */
+    item->query->flags |= TI_QUERY_FLAG_CACHE;
+
     query->parseres = item->query->parseres;
     query->querystr = item->query->querystr;
     query->qbind = item->query->qbind;
-    query->val_cache = vec_copy(item->query->val_cache);
-    if (!query->val_cache)
-    {
-        query_destroy(query);
-        return NULL;
-    }
+    query->immutable_cache = item->query->immutable_cache;
+
+    ++ti.counters->queries_from_cache;
+
     return query;
 }
 
 int ti_qcache_create(void)
 {
-    if (!ti.cfg->threshold_query_cache)
-        ti.cfg->threshold_query_cache = SIZE_MAX;
+    qcache__threshold = ti.cfg->threshold_query_cache
+            ? ti.cfg->threshold_query_cache
+            : SIZE_MAX;
     qcache = smap_create();
     ti.qcache = qcache;
+    qcache__cache_sz = QCACHE__GROW_SIZE;
     return -(!qcache);
 }
 
@@ -58,11 +81,113 @@ void ti_qcache_destroy(void)
 
 ti_query_t * ti_qcache_get_query(const char * str, size_t n, uint8_t flags)
 {
+    ti_query_t * query;
     qcache__item_t * item;
-    if (n < ti.cfg->threshold_query_cache)
-        return ti_create_query(flags);
+
+    if (n < qcache__threshold)
+        goto new_query;
+
     item = smap_getn(qcache, str, n);
-    return item
-            ? qcache__from_cache(item, flags)
-            : ti_create_query(flags|TI_QUERY_FLAG_CACHE);
+    if (item)
+        return qcache__from_cache(item, flags);
+
+    flags |= TI_QUERY_FLAG_CACHE|TI_QUERY_FLAG_DO_CACHE;
+
+new_query:
+    query = ti_query_create(flags);
+    if (!query || !(query->querystr = strndup(str, n)))
+    {
+        ti_query_destroy(query);
+        return NULL;
+    }
+    return query;
+}
+
+void ti_qcache_return(ti_query_t * query)
+{
+    if (query->flags & TI_QUERY_FLAG_API)
+        ti_api_release(query->via.api_request);
+    else
+        ti_stream_drop(query->via.stream);
+
+    ti_user_drop(query->user);
+    ti_event_drop(query->ev);
+    ti_val_drop(query->rval);
+
+    while(query->vars->n)
+        ti_prop_destroy(VEC_pop(query->vars));
+    free(query->vars);
+
+    assert (query->closure == NULL);
+    ti_collection_drop(query->collection);
+
+    /*
+     * Garbage collection at least after cleaning the return value,
+     * otherwise the value might already be destroyed.
+     */
+    ti_thing_clean_gc();
+
+    if (query->flags & TI_QUERY_FLAG_DO_CACHE)
+    {
+        qcache__item_t * item = malloc(sizeof(qcache__item_t));
+        if (item)
+        {
+            /* Set the flags to 0, only `TI_QUERY_FLAG_CACHE` will be set
+             * on this query if it will be asked at least once from the cache.
+             */
+            query->flags = 0;
+            query->via.stream = NULL;
+            query->user = NULL;
+            query->ev = NULL;
+            query->rval = NULL;
+            query->vars = NULL;
+            query->collection = NULL;
+            item->query = query;
+            item->used = 0;
+            item->last = (uint32_t) util_now_tsec();
+        }
+    }
+
+    free(query);
+}
+
+typedef struct
+{
+    vec_t * items;
+    uint32_t expire_ts;
+} qcache__cleanup_t;
+
+static int qcache__cleanup_cb(qcache__item_t * item, qcache__cleanup_t * w)
+{
+    if (item->last < w->expire_ts)
+        (void) vec_push(&w->items, item);
+    return 0;
+}
+
+void ti_qcache_cleanup(void)
+{
+    qcache__cleanup_t w = {
+            .expire_ts = (uint32_t) util_now_tsec() - QCACHE__EXPIRATION_TIME,
+            .items = vec_new(16),
+    };
+    if (!w.items)
+        return;
+
+    (void) smap_values(qcache, (smap_val_cb) qcache__cleanup_cb, &w);
+
+    ti_sleep(50);
+
+    for (vec_each(w.items, qcache__item_t, item))
+    {
+        if (!item->used)
+            ++ti.counters->waste_cache;
+        qcache__item_destroy(smap_pop(qcache, item->query->querystr));
+    }
+
+    qcache__cache_sz = qcache->n + QCACHE__GROW_SIZE;
+}
+
+_Bool ti_qcache_require_away(void)
+{
+    return qcache->n > qcache__cache_sz;
 }

@@ -79,10 +79,10 @@ int ti_create(void)
     ti.thing0 = ti_thing_o_create(0, 0, NULL);
     if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti.boottime) ||
             ti_counters_create() ||
-            ti_qcache_create() ||
             ti_away_create() ||
             ti_args_create() ||
             ti_cfg_create() ||
+            ti_qcache_create() ||  /* requires cfg */
             ti_archive_create() ||
             ti_clients_create() ||
             ti_nodes_create() ||
@@ -805,7 +805,7 @@ int ti_this_node_to_pk(msgpack_packer * pk)
     double uptime = util_time_diff(&ti.boottime, &timing);
 
     return (
-        msgpack_pack_map(pk, 33) ||
+        msgpack_pack_map(pk, 34) ||
         /* 1 */
         mp_pack_str(pk, "node_id") ||
         msgpack_pack_uint32(pk, ti.node->id) ||
@@ -910,7 +910,10 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         msgpack_pack_uint64(pk, ti_stream_client_connections()) ||
         /* 33 */
         mp_pack_str(pk, "result_size_limit") ||
-        msgpack_pack_uint64(pk, ti.cfg->result_size_limit)
+        msgpack_pack_uint64(pk, ti.cfg->result_size_limit ||
+        /* 34 */
+        mp_pack_str(pk, "cached_queries") ||
+        msgpack_pack_uint32(pk, 10))
     );
 }
 

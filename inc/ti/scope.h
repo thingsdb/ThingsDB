@@ -15,7 +15,7 @@ int ti_scope_init_packed(
         const unsigned char * data,
         size_t n,
         ex_t * e);
-
+int ti_scope_init_from_up(ti_scope_t * scope, mp_unp_t * up, ex_t * e);
 
 static inline int ti_scope_init_pkg(
         ti_scope_t * scope,
@@ -23,6 +23,11 @@ static inline int ti_scope_init_pkg(
         ex_t * e)
 {
     return ti_scope_init_packed(scope, pkg->data, pkg->n, e);
+}
+
+static inline _Bool ti_scope_is_collection(ti_scope_t * scope)
+{
+    return scope->tp >= TI_SCOPE_COLLECTION_NAME;
 }
 
 #endif /* TI_SCOPE_H_ */

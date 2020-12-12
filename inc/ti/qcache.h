@@ -5,6 +5,8 @@
 #ifndef TI_QCACHE_H_
 #define TI_QCACHE_H_
 
+#include <inttypes.h>
+#include <ti/query.t.h>
 
 /*
  * Node info:

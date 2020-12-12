@@ -41,7 +41,7 @@ void ti_counters_reset(void)
     counters->garbage_collected = 0;
     counters->largest_result_size = 0;
     counters->queries_from_cache = 0;
-    counters->dropped_query_cache = 0;
+    counters->waste_cache = 0;
     counters->longest_query_duration = 0.0;
     counters->longest_event_duration = 0.0;
     counters->total_query_duration = 0.0;
@@ -135,8 +135,8 @@ int ti_counters_to_pk(msgpack_packer * pk)
         mp_pack_str(pk, "queries_from_cache") ||
         msgpack_pack_uint64(pk, counters->queries_from_cache) ||
 
-        mp_pack_str(pk, "dropped_query_cache") ||
-        msgpack_pack_uint64(pk, counters->dropped_query_cache) ||
+        mp_pack_str(pk, "waste_cache") ||
+        msgpack_pack_uint64(pk, counters->waste_cache) ||
 
         mp_pack_str(pk, "longest_query_duration") ||
         msgpack_pack_double(pk, counters->longest_query_duration) ||

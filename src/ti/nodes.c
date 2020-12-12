@@ -570,12 +570,14 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    query = ti_query_create(stream, user, 0);
+    query = ti_query_create(0);
     if (!query)
     {
         ex_set_mem(&e);
         goto finish;
     }
+
+    ti_query_init(query, stream, user);
 
     if (ti_query_unpack(
             query,
@@ -589,8 +591,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
     access_ = ti_query_access(query);
 
     if (ti_access_check_err(access_, query->user, TI_AUTH_READ, &e) ||
-        ti_query_parse(query, &e) ||
-        ti_query_investigate(query, &e))
+        ti_query_parse(query, &e))
         goto finish;
 
     if (ti_query_will_update(query))
@@ -672,12 +673,14 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    query = ti_query_create(stream, user, 0);
+    query = ti_query_create(0);
     if (!query)
     {
         ex_set_mem(&e);
         goto finish;
     }
+
+    ti_query_init(query, stream, user);
 
     if (ti_scope_init_packed(
             &scope,

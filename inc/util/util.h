@@ -16,8 +16,6 @@ double util_now(void);
 uint64_t util_now_tsec(void);
 void util_get_random(void * buf, size_t n);
 void util_random_key(char * buf, size_t n);
-static inline double util_time_diff(util_time_t * start, util_time_t * end);
-
 
 /* Returns time difference in seconds */
 static inline double util_time_diff(util_time_t * start, util_time_t * end)

@@ -200,16 +200,9 @@ static int ncache__enum(
         cleri_node_t * nd,
         ex_t * e)
 {
-    nd->data = NULL;  /* member value */
-
     nd = nd->children->next->node;
-    switch(nd->cl_obj->gid)
+    if (nd->cl_obj->gid == CLERI_GID_T_CLOSURE)
     {
-    case CLERI_GID_NAME:
-        nd->data = vcache;  /* trick so we can assign a enum value to the
-                               correct cache */
-        break;
-    case CLERI_GID_T_CLOSURE:
         if (ncache__statement(
                     syntax,
                     vcache,
@@ -334,12 +327,11 @@ static int ncache__expr_choice(
     case CLERI_GID_CHAIN:
         return ncache__chain(syntax, vcache, nd, e);
     case CLERI_GID_THING_BY_ID:
-        /*
-         * An overflow here is fine as it will just result in a ThingID which
-         * will not be found;
-         */
-        nd->data = ti_vint_create(strtoll(nd->str + 1, NULL, 10));
-        break;
+    {
+        intptr_t thing_id = strtoll(nd->str + 1, NULL, 10);
+        nd->data = (void *) thing_id;
+        return e->nr;
+    }
     case CLERI_GID_T_CLOSURE:
         if (ncache__statement(
                     syntax,

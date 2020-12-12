@@ -784,14 +784,15 @@ static inline void qbind__thing(ti_qbind_t * qbind, cleri_node_t * nd)
 
 static inline void qbind__enum(ti_qbind_t * qbind, cleri_node_t * nd)
 {
-    nd->data = NULL;        /* member */
-    ++qbind->val_cache_n;   /* member of closure, not both */
-
+//    nd->data = NULL;        /* member */
     nd = nd->children->next->node;
-    nd->data = NULL;        /* closure or value cache */
 
     if (nd->cl_obj->gid == CLERI_GID_T_CLOSURE)
+    {
         qbind__statement(qbind, nd->children->next->next->next->node);
+        ++qbind->val_cache_n;   /* member or closure, not both */
+        nd->data = NULL;        /* closure */
+    }
 }
 
 static void qbind__var_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
@@ -877,13 +878,18 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
     case CLERI_GID_CHAIN:
         qbind__chain(qbind, nd);        /* chain */
         return;
+    case CLERI_GID_THING_BY_ID:
+    {
+        intptr_t thing_id = strtoll(nd->str + 1, NULL, 10);
+        nd->data = (void *) thing_id;
+        return;
+    }
     case CLERI_GID_T_CLOSURE:
         /* investigate the statement, the rest can be skipped */
         qbind__statement(
                 qbind,
                 nd->children->next->next->next->node);
         /* fall through */
-    case CLERI_GID_THING_BY_ID:
     case CLERI_GID_T_INT:
     case CLERI_GID_T_FLOAT:
     case CLERI_GID_T_STRING:

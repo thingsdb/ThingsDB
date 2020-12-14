@@ -62,7 +62,7 @@ class TestNodeFunctions(TestBase):
         self.assertIn("started_at", counters)
         self.assertIn("largest_result_size", counters)
         self.assertIn("queries_from_cache", counters)
-        self.assertIn("waste_cache", counters)
+        self.assertIn("wasted_cache", counters)
 
         self.assertTrue(isinstance(counters["queries_success"], int))
         self.assertTrue(isinstance(counters["queries_with_error"], int))
@@ -82,7 +82,7 @@ class TestNodeFunctions(TestBase):
         self.assertTrue(isinstance(counters["started_at"], int))
         self.assertTrue(isinstance(counters["largest_result_size"], int))
         self.assertTrue(isinstance(counters["queries_from_cache"], int))
-        self.assertTrue(isinstance(counters["waste_cache"], int))
+        self.assertTrue(isinstance(counters["wasted_cache"], int))
 
     async def test_node_info(self, client):
         with self.assertRaisesRegex(

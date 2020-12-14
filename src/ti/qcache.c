@@ -162,7 +162,7 @@ static int qcache__cleanup_cb(qcache__item_t * item, qcache__cleanup_t * w)
 static void qcache__cleanup_destroy(qcache__item_t * item)
 {
     if (!item->used)
-        ++ti.counters->waste_cache;
+        ++ti.counters->wasted_cache;
     qcache__item_destroy(smap_pop(qcache, item->query->querystr));
 }
 

@@ -1,11 +1,14 @@
+/*
+ * ti/qcache.c
+ */
+#include <ti/api.h>
+#include <ti/event.h>
+#include <ti/prop.h>
 #include <ti/qcache.h>
+#include <ti/query.h>
+#include <ti/thing.h>
 #include <ti/val.h>
 #include <ti/val.inline.h>
-#include <ti/query.h>
-#include <ti/event.h>
-#include <ti/api.h>
-#include <ti/prop.h>
-#include <ti/thing.h>
 #include <ti.h>
 #include <tiinc.h>
 #include <util/smap.h>
@@ -15,9 +18,6 @@
 static smap_t * qcache;
 static size_t qcache__cache_sz;
 static size_t qcache__threshold;
-
-/* Queries will be removed from cache if not used with X seconds */
-#define QCACHE__EXPIRATION_TIME 900UL
 
 /* If more than X queries are stored in cache, the cache will ask for away mode
  * to perform a cleanup. */
@@ -63,9 +63,9 @@ static ti_query_t * qcache__from_cache(qcache__item_t * item, uint8_t flags)
 
 int ti_qcache_create(void)
 {
-    qcache__threshold = ti.cfg->threshold_query_cache
+    qcache__threshold = ti.cfg->cache_expiration_time
             ? ti.cfg->threshold_query_cache
-            : SIZE_MAX;
+            : SIZE_MAX;  /* this will effectively disable caching */
     qcache = smap_create();
     ti.qcache = qcache;
     qcache__cache_sz = QCACHE__GROW_SIZE;
@@ -82,32 +82,21 @@ void ti_qcache_destroy(void)
 
 ti_query_t * ti_qcache_get_query(const char * str, size_t n, uint8_t flags)
 {
-    ti_query_t * query;
     qcache__item_t * item;
 
     if (n < qcache__threshold)
-        goto new_query;
+        return ti_query_create_strn(str, n, flags);
 
     item = smap_getn(qcache, str, n);
     if (item)
         return qcache__from_cache(item, flags);
 
     flags |= TI_QUERY_FLAG_CACHE|TI_QUERY_FLAG_DO_CACHE;
-
-new_query:
-    query = ti_query_create(flags);
-    if (!query || !(query->querystr = strndup(str, n)))
-    {
-        ti_query_destroy(query);
-        return NULL;
-    }
-    LOGC("query flags: %u", query->flags);
-    return query;
+    return ti_query_create_strn(str, n, flags);
 }
 
 void ti_qcache_return(ti_query_t * query)
 {
-    LOGC("Return: %u", query->pkg_id);
     if (query->flags & TI_QUERY_FLAG_API)
         ti_api_release(query->via.api_request);
     else
@@ -170,25 +159,29 @@ static int qcache__cleanup_cb(qcache__item_t * item, qcache__cleanup_t * w)
     return 0;
 }
 
+static void qcache__cleanup_destroy(qcache__item_t * item)
+{
+    if (!item->used)
+        ++ti.counters->waste_cache;
+    qcache__item_destroy(smap_pop(qcache, item->query->querystr));
+}
+
 void ti_qcache_cleanup(void)
 {
     qcache__cleanup_t w = {
-            .expire_ts = (uint32_t) util_now_tsec() - QCACHE__EXPIRATION_TIME,
-            .items = vec_new(16),
+        .expire_ts = (uint32_t) util_now_tsec() - ti.cfg->cache_expiration_time,
+        .items = vec_new(16),
     };
     if (!w.items)
         return;
 
     (void) smap_values(qcache, (smap_val_cb) qcache__cleanup_cb, &w);
 
-    ti_sleep(50);
+    ti_sleep(100);
 
-    for (vec_each(w.items, qcache__item_t, item))
-    {
-        if (!item->used)
-            ++ti.counters->waste_cache;
-        qcache__item_destroy(smap_pop(qcache, item->query->querystr));
-    }
+    log_info("removed %u item(s) from query cache", w.items->n);
+
+    vec_destroy(w.items, (vec_destroy_cb) qcache__cleanup_destroy);
 
     qcache__cache_sz = qcache->n + QCACHE__GROW_SIZE;
 }

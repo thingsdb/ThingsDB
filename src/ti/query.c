@@ -11,8 +11,8 @@
 #include <ti.h>
 #include <ti/api.h>
 #include <ti/closure.h>
-#include <ti/collections.h>
 #include <ti/collection.inline.h>
+#include <ti/collections.h>
 #include <ti/data.h>
 #include <ti/do.h>
 #include <ti/epkg.h>
@@ -345,45 +345,6 @@ int ti_query_unpack_args(ti_query_t * query, mp_unp_t * up, ex_t * e)
     }
 
     return 0;
-}
-
-int ti_query_unpack(
-        ti_query_t * query,
-        ti_scope_t * scope,
-        uint16_t pkg_id,
-        const unsigned char * data,
-        size_t n,
-        ex_t * e)
-{
-    assert (e->nr == 0);
-    mp_obj_t obj, mp_query;
-    mp_unp_t up;
-    mp_unp_init(&up, data, n);
-
-    query->pkg_id = pkg_id;
-
-    mp_next(&up, &obj);     /* array with at least size 1 */
-    mp_skip(&up);           /* scope */
-
-    if (obj.via.sz < 2 || mp_next(&up, &mp_query) != MP_STR)
-    {
-        ex_set(e, EX_TYPE_ERROR,
-                "expecting the code in a `query` request to be of type `string`"
-                DOC_SOCKET_QUERY);
-        return e->nr;
-    }
-
-    if (ti_query_apply_scope(query, scope, e))
-        return e->nr;
-
-    query->querystr = mp_strdup(&mp_query);
-    if (!query->querystr)
-    {
-        ex_set_mem(e);
-        return e->nr;
-    }
-
-    return obj.via.sz == 2 ? 0 : ti_query_unpack_args(query, &up, e);
 }
 
 static int query__run_arr_props(
@@ -842,10 +803,7 @@ void ti_query_send_response(ti_query_t * query, ex_t * e)
     }
 
 done:
-    if (query->flags & TI_QUERY_FLAG_CACHE)
-        ti_qcache_return(query);
-    else
-        ti_query_destroy(query);
+    ti_query_destroy_or_return(query);
 }
 
 ti_prop_t * ti_query_var_get(ti_query_t * query, ti_name_t * name)

@@ -24,6 +24,9 @@
 /* Use query cache for queries with a length equal or above this threshold */
 #define TI_DEFAULT_THRESHOLD_QUERY_CACHE 200UL
 
+/* Cached query expiration time in seconds */
+#define TI_DEFAULT_CACHE_EXPIRATION_TIME 900UL
+
 #define TI_COLLECTION_ID "`collection:%"PRIu64"`"
 #define TI_EVENT_ID "`event:%"PRIu64"`"
 #define TI_NODE_ID "`node:%"PRIu32"`"

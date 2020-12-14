@@ -9,6 +9,7 @@
 #include <ti/event.t.h>
 #include <ti/thing.t.h>
 #include <util/vec.h>
+#include <util/logger.h>
 
 ti_event_t * ti_event_create(ti_event_tp_enum tp);
 ti_event_t * ti_event_epkg(ti_epkg_t * epkg);

@@ -807,7 +807,7 @@ int ti_this_node_to_pk(msgpack_packer * pk)
     double uptime = util_time_diff(&ti.boottime, &timing);
 
     return (
-        msgpack_pack_map(pk, 34) ||
+        msgpack_pack_map(pk, 36) ||
         /* 1 */
         mp_pack_str(pk, "node_id") ||
         msgpack_pack_uint32(pk, ti.node->id) ||
@@ -915,7 +915,13 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         msgpack_pack_uint64(pk, ti.cfg->result_size_limit) ||
         /* 34 */
         mp_pack_str(pk, "cached_queries") ||
-        msgpack_pack_uint32(pk, ti.qcache->n)
+        msgpack_pack_uint32(pk, ti.qcache->n) ||
+        /* 35 */
+        mp_pack_str(pk, "threshold_query_cache") ||
+        msgpack_pack_uint32(pk, ti.cfg->threshold_query_cache) ||
+        /* 36 */
+        mp_pack_str(pk, "cache_expiration_time") ||
+        msgpack_pack_uint32(pk, ti.cfg->cache_expiration_time)
     );
 }
 

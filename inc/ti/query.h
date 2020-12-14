@@ -21,13 +21,6 @@ void ti_query_init(
         void * via,
         ti_user_t * user);
 void ti_query_destroy(ti_query_t * query);
-int ti_query_unpack(
-        ti_query_t * query,
-        ti_scope_t * scope,
-        uint16_t pkg_id,
-        const unsigned char * data,
-        size_t n,
-        ex_t * e);
 int ti_query_unp_run(
         ti_query_t * query,
         ti_scope_t * scope,

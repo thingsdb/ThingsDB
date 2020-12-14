@@ -1,7 +1,6 @@
 /*
  * ti/qcache.h
  */
-
 #ifndef TI_QCACHE_H_
 #define TI_QCACHE_H_
 

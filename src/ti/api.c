@@ -1008,7 +1008,7 @@ query:
 invalid_api_request:
     ex_set(e, EX_BAD_DATA, "invalid API request"DOC_HTTP_API);
 failed:
-    ti_query_destroy(query);
+    ti_query_destroy_or_return(query);
     return e->nr;
 }
 

@@ -32,8 +32,13 @@ struct ti_cfg_s
                                            limit.
                                         */
     size_t threshold_query_cache;       /* use query cache for queries above
-                                           this threshold size. (0=disabled)
+                                           this threshold size.
                                         */
+    size_t cache_expiration_time;       /* cached queries which are not used
+                                           within the expiration time will be
+                                           remove from cache. This check only
+                                           takes place while in `away` mode.
+                                       */
     int ip_support;                     /* AF_UNSPEC / AF_INET / AF_INET6 */
     char * node_name;
     char * bind_client_addr;

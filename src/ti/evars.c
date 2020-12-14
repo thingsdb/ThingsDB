@@ -93,6 +93,9 @@ void ti_evars_parse(void)
     evars__sizet(
             "THINGSDB_THRESHOLD_QUERY_CACHE",
             &ti.cfg->threshold_query_cache);
+    evars__sizet(
+            "THINGSDB_CACHE_EXPIRATION_TIME",
+            &ti.cfg->cache_expiration_time);
     evars__u16(
             "THINGSDB_HTTP_STATUS_PORT",
             &ti.cfg->http_status_port);

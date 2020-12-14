@@ -16,6 +16,7 @@ typedef int (*ti_query_vars_walk_cb)(void * data, void * arg);
 #include <ti/stream.t.h>
 #include <ti/user.t.h>
 #include <ti/val.t.h>
+#include <util/util.h>
 
 enum
 {

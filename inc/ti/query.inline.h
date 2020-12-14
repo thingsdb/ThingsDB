@@ -8,6 +8,7 @@
 #include <util/vec.h>
 #include <ti.h>
 #include <ti/query.h>
+#include <ti/qcache.h>
 #include <ti/prop.h>
 
 static inline vec_t * ti_query_access(ti_query_t * query)
@@ -34,6 +35,14 @@ static inline smap_t * ti_query_procedures(ti_query_t * query)
     return query->collection
             ? query->collection->procedures
             : ti.procedures;
+}
+
+static inline void ti_query_destroy_or_return(ti_query_t * query)
+{
+    if (query && (query->flags & TI_QUERY_FLAG_CACHE))
+        ti_qcache_return(query);
+    else
+        ti_query_destroy(query);
 }
 
 #endif  /* TI_QUERY_INLINE_H_ */

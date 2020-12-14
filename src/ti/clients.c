@@ -305,7 +305,7 @@ query:
     return;
 
 finish:
-    ti_query_destroy(query);
+    ti_query_destroy_or_return(query);
 
     if (e.nr)
     {

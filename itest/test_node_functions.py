@@ -42,7 +42,7 @@ class TestNodeFunctions(TestBase):
 
         counters = await client.query('counters();')
 
-        self.assertEqual(len(counters), 17)
+        self.assertEqual(len(counters), 19)
 
         self.assertIn("queries_success", counters)
         self.assertIn("queries_with_error", counters)
@@ -61,6 +61,8 @@ class TestNodeFunctions(TestBase):
         self.assertIn("average_event_duration", counters)
         self.assertIn("started_at", counters)
         self.assertIn("largest_result_size", counters)
+        self.assertIn("queries_from_cache", counters)
+        self.assertIn("waste_cache", counters)
 
         self.assertTrue(isinstance(counters["queries_success"], int))
         self.assertTrue(isinstance(counters["queries_with_error"], int))
@@ -79,6 +81,8 @@ class TestNodeFunctions(TestBase):
         self.assertTrue(isinstance(counters["average_event_duration"], float))
         self.assertTrue(isinstance(counters["started_at"], int))
         self.assertTrue(isinstance(counters["largest_result_size"], int))
+        self.assertTrue(isinstance(counters["queries_from_cache"], int))
+        self.assertTrue(isinstance(counters["waste_cache"], int))
 
     async def test_node_info(self, client):
         with self.assertRaisesRegex(
@@ -88,7 +92,7 @@ class TestNodeFunctions(TestBase):
 
         node = await client.query('node_info();')
 
-        self.assertEqual(len(node), 33)
+        self.assertEqual(len(node), 36)
 
         self.assertIn("node_id", node)
         self.assertIn("version", node)
@@ -123,6 +127,9 @@ class TestNodeFunctions(TestBase):
         self.assertIn('scheduled_backups', node)
         self.assertIn('connected_clients', node)
         self.assertIn('result_size_limit', node)
+        self.assertIn('cached_queries', node)
+        self.assertIn('threshold_query_cache', node)
+        self.assertIn('cache_expiration_time', node)
 
         self.assertTrue(isinstance(node["node_id"], int))
         self.assertTrue(isinstance(node["version"], str))
@@ -157,6 +164,9 @@ class TestNodeFunctions(TestBase):
         self.assertTrue(isinstance(node["scheduled_backups"], int))
         self.assertTrue(isinstance(node["connected_clients"], int))
         self.assertTrue(isinstance(node["result_size_limit"], int))
+        self.assertTrue(isinstance(node["cached_queries"], int))
+        self.assertTrue(isinstance(node["threshold_query_cache"], int))
+        self.assertTrue(isinstance(node["cache_expiration_time"], int))
 
     async def test_nodes_info(self, client):
         with self.assertRaisesRegex(

@@ -34,9 +34,9 @@ ti_ncache_t * ti_ncache_create(char * query, size_t n)
         return NULL;
 
     ncache->query = query;
-    ncache->val_cache = vec_new(n);
+    ncache->immutable_cache = vec_new(n);
 
-    if (!ncache->val_cache)
+    if (!ncache->immutable_cache)
     {
         free(ncache);
         return NULL;
@@ -49,7 +49,7 @@ void ti_ncache_destroy(ti_ncache_t * ncache)
 {
     if (!ncache)
         return;
-    vec_destroy(ncache->val_cache, (vec_destroy_cb) ti_val_unsafe_drop);
+    vec_destroy(ncache->immutable_cache, (vec_destroy_cb) ti_val_unsafe_drop);
     free(ncache->query);
     free(ncache);
 }

@@ -22,7 +22,7 @@ int ti_ncache_gen_node_data(
 struct ti_ncache_s
 {
     char * query;
-    vec_t * val_cache;
+    vec_t * immutable_cache;
 };
 
 #endif /* TI_NCACHE_H_ */

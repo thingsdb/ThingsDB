@@ -129,7 +129,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
     case TI_KIND_C_CLOSURE:
     {
         ti_qbind_t syntax = {
-                .val_cache_n = 0,
+                .immutable_n = 0,
                 .flags = vup->collection
                     ? TI_QBIND_FLAG_COLLECTION
                     : TI_QBIND_FLAG_THINGSDB,

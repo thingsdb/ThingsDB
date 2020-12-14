@@ -539,8 +539,8 @@ static inline int ti_query_investigate(ti_query_t * query, ex_t * e)
     /*
      * Create value cache for immutable, names and things.
      */
-    if (    query->qbind.val_cache_n &&
-            !(query->immutable_cache = vec_new(query->qbind.val_cache_n)))
+    if (    query->qbind.immutable_n &&
+            !(query->immutable_cache = vec_new(query->qbind.immutable_n)))
         ex_set_mem(e);
 
     return e->nr;
@@ -592,6 +592,7 @@ int ti_query_parse(ti_query_t * query, ex_t * e)
         /* we will certainly will not hit the max size, but just to be safe */
         e->n = i < EX_MAX_SZ ? i : EX_MAX_SZ - 1;
         e->nr = EX_SYNTAX_ERROR;
+        return e->nr;
     }
 
     return ti_query_investigate(query, e);

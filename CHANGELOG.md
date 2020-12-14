@@ -15,8 +15,9 @@
   - `weekday`: https://docs.thingsdb.net/v0/data-types/datetime/weekday/
   - `yday`: https://docs.thingsdb.net/v0/data-types/datetime/yday/
   - `zone`: https://docs.thingsdb.net/v0/data-types/datetime/zone/
-* Create lookup for procedures, issue #129
-* Order procedures, types and enumerators by name, issue #130
+* Added a lookup for procedures, issue #129.
+* Ordered procedures, types and enumerators by name, issue #130.
+* Added query caching, issue #131.
 
 # v0.10.0
 

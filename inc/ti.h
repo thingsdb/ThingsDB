@@ -104,6 +104,7 @@ struct ti_s
     vec_t * access_thingsdb;    /* ti_access_t */
     smap_t * procedures;        /* ti_procedure_t */
     smap_t * names;             /* weak map for ti_name_t */
+    smap_t * qcache;            /* pointer to qcache */
     uv_loop_t * loop;
     cleri_grammar_t * langdef;
     uint8_t flags;

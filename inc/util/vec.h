@@ -31,6 +31,7 @@ void vec_reverse(vec_t * vec);
 void * vec_remove(vec_t * vec, uint32_t i);
 void * vec_swap_remove(vec_t * vec, uint32_t i);
 vec_t * vec_dup(const vec_t * vec);
+vec_t * vec_copy(const vec_t * vec);
 int vec_push(vec_t ** vaddr, void * data);
 int vec_insert(vec_t ** vaddr, void * data, uint32_t i);
 int vec_extend(vec_t ** vaddr, void * data[], uint32_t n);

@@ -74,7 +74,7 @@ static inline ti_name_t * do__cache_name(ti_query_t * query, cleri_node_t * nd)
     if (name)
     {
         ti_incref(name);
-        VEC_push(query->val_cache, name);
+        VEC_push(query->immutable_cache, name);
     }
     return name;
 }
@@ -686,7 +686,10 @@ int ti_do_operations(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static int do__thing_by_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static inline int do__thing_by_id(
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
 {
     /*
      * Set node -> data to the actual thing when this is a normal query but
@@ -694,36 +697,8 @@ static int do__thing_by_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
      * This syntax is probably not used frequently so do not worry a lot about
      * performance here; (and this is already pretty fast anyway...)
      */
-    if (!nd->data)
-    {
-        int64_t thing_id = strtoll(nd->str + 1, NULL, 10);
-        ti_thing_t * thing = ti_query_thing_from_id(query, thing_id, e);
-        if (!thing)
-            return e->nr;
-
-        nd->data = thing;
-        VEC_push(query->val_cache, thing);
-    }
-    else if (ti_val_is_int((ti_val_t *) nd->data))
-    {
-        /*
-         * Unbound closures do not cache `#` syntax. if we really wanted this,
-         * then it could be achieved by assigning the closure instead of `int`
-         * to this node cache. But the hard part is then the garbage collection
-         * because things keep attached to the stored closure but this is not
-         * detected by the current garbage collector.
-         */
-        ti_vint_t * thing_id = nd->data;
-        query->rval = (ti_val_t *) ti_query_thing_from_id(
-                query,
-                thing_id->int_,
-                e);
-        return e->nr;
-    }
-
-    query->rval = nd->data;
-    ti_incref(query->rval);
-
+    intptr_t thing_id = (intptr_t) nd->data;
+    query->rval = (ti_val_t *) ti_query_thing_from_id(query, thing_id, e);
     return e->nr;
 }
 
@@ -741,8 +716,8 @@ static int do__read_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ex_set_mem(e);
             return e->nr;
         }
-        assert (vec_space(query->val_cache));
-        VEC_push(query->val_cache, nd->data);
+        assert (vec_space(query->immutable_cache));
+        VEC_push(query->immutable_cache, nd->data);
     }
     query->rval = nd->data;
     ti_incref(query->rval);
@@ -1113,10 +1088,9 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_enum_t * enum_;
     cleri_node_t * name_nd = nd                 /* sequence */
             ->children->node;                   /* name */
-    cleri_node_t * enum_nd = nd                 /* sequence */
-            ->children->next->node;             /* enum node */
-
-    nd = enum_nd->children->next->node;         /* name or closure */
+    nd = nd                                     /* sequence */
+            ->children->next->node              /* enum node */
+            ->children->next->node;             /* name or closure */
 
     enum_ = ti_enums_by_strn(
             query->collection->enums,
@@ -1135,28 +1109,18 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     switch(nd->cl_obj->gid)
     {
     case CLERI_GID_NAME:
-        enum_nd->data = (ti_val_t *) ti_enum_member_by_strn(
+        query->rval = (ti_val_t *) ti_enum_member_by_strn(
                 enum_,
                 nd->str,
                 nd->len);
-        if (enum_nd->data)
-        {
-            /*
-             * In an unbound closure we have space reserved to store the enum
-             * member in the closure cache. This means that the member will be
-             * in use from this point on, until the closure is removed.
-             */
-            vec_t * vec = nd->data ? nd->data : query->val_cache;
-            query->rval = enum_nd->data;
-            VEC_push(vec, query->rval);
-            query->rval->ref += 2;
-        }
+        if (query->rval)
+            ti_incref(query->rval);
         else
             ex_set(e, EX_LOOKUP_ERROR, "enum `%s` has no member `%.*s`",
                     enum_->name,
                     nd->len,
                     nd->str);
-        break;
+        return e->nr;
     case CLERI_GID_T_CLOSURE:
     {
         ti_closure_t * closure;
@@ -1220,54 +1184,6 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static inline void do__clear_enum_cache(cleri_node_t * enum_nd)
-{
-    ti_member_t * member = enum_nd->data;
-    vec_t * vec = enum_nd->children->next->node->data;
-    uint32_t idx = 0;
-
-    for (vec_each(vec, void, data), ++idx)
-        if (data == member)
-            break;
-
-    assert (idx < vec->n);
-    vec_swap_remove(vec, idx);
-    ti_member_drop(member);
-    enum_nd->data = NULL;
-}
-
-static inline int do__enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    cleri_node_t * enum_nd = nd                 /* sequence */
-            ->children->next->node;             /* enum node */
-
-    if (enum_nd->data)
-    {
-        ti_member_t * member = enum_nd->data;
-        cleri_node_t * mname_nd = enum_nd->children->next->node;
-        cleri_node_t * ename_nd = nd->children->node;
-
-        /* enum_ is set to NULL when the enum is removed;
-         * the name from both the enum and member must be checked to support
-         * renaming.
-         */
-        if (member->enum_ &&
-            ti_raw_eq_strn(
-                    member->enum_->rname,
-                    ename_nd->str,
-                    ename_nd->len) &&
-            member->name->n == mname_nd->len &&
-            !memcmp(member->name->str, mname_nd->str, mname_nd->len))
-        {
-            ti_incref(member);
-            query->rval = (ti_val_t *) member;
-            return 0;
-        }
-        do__clear_enum_cache(enum_nd);
-    }
-    return do__enum_get(query, nd, e);
-}
-
 /* changes scope->name and/or scope->thing */
 static inline int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
@@ -1327,7 +1243,7 @@ static inline ti_name_t * do__ensure_name_cache(
      * to fit this name.
      */
     if (name)
-        VEC_push(query->val_cache, name);
+        VEC_push(query->immutable_cache, name);
     return name;
 }
 
@@ -1456,8 +1372,8 @@ static inline int do__template(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ex_set_mem(e);
             return e->nr;
         }
-        assert (vec_space(query->val_cache));
-        VEC_push(query->val_cache, nd->data);
+        assert (vec_space(query->immutable_cache));
+        VEC_push(query->immutable_cache, nd->data);
     }
     return ti_template_compile(nd->data, query, e);
 }
@@ -1521,8 +1437,8 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ex_set_mem(e);
                 return e->nr;
             }
-            assert (vec_space(query->val_cache));
-            VEC_push(query->val_cache, nd->data);
+            assert (vec_space(query->immutable_cache));
+            VEC_push(query->immutable_cache, nd->data);
         }
         query->rval = nd->data;
         ti_incref(query->rval);
@@ -1542,8 +1458,8 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ex_set_mem(e);
                 return e->nr;
             }
-            assert (vec_space(query->val_cache));
-            VEC_push(query->val_cache, nd->data);
+            assert (vec_space(query->immutable_cache));
+            VEC_push(query->immutable_cache, nd->data);
         }
         query->rval = nd->data;
         ti_incref(query->rval);
@@ -1557,8 +1473,8 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             nd->data = ti_regex_from_strn(nd->str, nd->len, e);
             if (!nd->data)
                 return e->nr;
-            assert (vec_space(query->val_cache));
-            VEC_push(query->val_cache, nd->data);
+            assert (vec_space(query->immutable_cache));
+            VEC_push(query->immutable_cache, nd->data);
         }
         query->rval = nd->data;
         ti_incref(query->rval);
@@ -1572,8 +1488,8 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ex_set_mem(e);
                 return e->nr;
             }
-            assert (vec_space(query->val_cache));
-            VEC_push(query->val_cache, nd->data);
+            assert (vec_space(query->immutable_cache));
+            VEC_push(query->immutable_cache, nd->data);
         }
         query->rval = nd->data;
         ti_incref(query->rval);
@@ -1610,7 +1526,7 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 return e->nr;
             break;
         case CLERI_GID_ENUM_:
-            if (do__enum(query, nd, e))
+            if (do__enum_get(query, nd, e))
                 return e->nr;
             break;
         default:

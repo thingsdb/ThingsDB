@@ -16,12 +16,19 @@ typedef int (*ti_query_vars_walk_cb)(void * data, void * arg);
 #include <ti/stream.t.h>
 #include <ti/user.t.h>
 #include <ti/val.t.h>
+#include <util/util.h>
 
 enum
 {
-    TI_QUERY_FLAG_AS_PROCEDURE  =1<<0,
-    TI_QUERY_FLAG_WSE           =1<<1,
-    TI_QUERY_FLAG_API           =1<<2,
+    TI_QUERY_FLAG_AS_PROCEDURE      =1<<0,
+    TI_QUERY_FLAG_WSE               =1<<1,
+    TI_QUERY_FLAG_API               =1<<2,
+    TI_QUERY_FLAG_CACHE             =1<<3,  /* Queries which are handled by the
+                                               query change will have this
+                                               flags. Also the first query,
+                                               which has not yet a cache item.
+                                            */
+    TI_QUERY_FLAG_DO_CACHE          =1<<4,  /* mark the query for caching */
 };
 
 typedef int (*ti_query_unpack_cb) (
@@ -59,7 +66,8 @@ struct ti_query_s
     ti_event_t * ev;            /* with reference, only when an event is
                                    required
                                 */
-    vec_t * val_cache;          /* ti_val_t, for node and argument cleanup */
+    vec_t * immutable_cache;    /* ti_val_t, Only for immutable and collection
+                                   independent variable. */
     util_time_t time;           /* time query duration */
 };
 

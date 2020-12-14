@@ -33,7 +33,7 @@ typedef struct ti_qbind_s ti_qbind_t;
 
 struct ti_qbind_s
 {
-    uint32_t val_cache_n;       /* count while investigate */
+    uint32_t immutable_n;       /* count while investigate */
     uint16_t pad0;
     uint8_t flags;              /* query flags (ti_qbind_flag_t) */
     uint8_t deep;               /* fetch level */

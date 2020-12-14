@@ -34,9 +34,9 @@ ti_ncache_t * ti_ncache_create(char * query, size_t n)
         return NULL;
 
     ncache->query = query;
-    ncache->val_cache = vec_new(n);
+    ncache->immutable_cache = vec_new(n);
 
-    if (!ncache->val_cache)
+    if (!ncache->immutable_cache)
     {
         free(ncache);
         return NULL;
@@ -49,7 +49,7 @@ void ti_ncache_destroy(ti_ncache_t * ncache)
 {
     if (!ncache)
         return;
-    vec_destroy(ncache->val_cache, (vec_destroy_cb) ti_val_unsafe_drop);
+    vec_destroy(ncache->immutable_cache, (vec_destroy_cb) ti_val_unsafe_drop);
     free(ncache->query);
     free(ncache);
 }
@@ -200,16 +200,9 @@ static int ncache__enum(
         cleri_node_t * nd,
         ex_t * e)
 {
-    nd->data = NULL;  /* member value */
-
     nd = nd->children->next->node;
-    switch(nd->cl_obj->gid)
+    if (nd->cl_obj->gid == CLERI_GID_T_CLOSURE)
     {
-    case CLERI_GID_NAME:
-        nd->data = vcache;  /* trick so we can assign a enum value to the
-                               correct cache */
-        break;
-    case CLERI_GID_T_CLOSURE:
         if (ncache__statement(
                     syntax,
                     vcache,
@@ -334,12 +327,11 @@ static int ncache__expr_choice(
     case CLERI_GID_CHAIN:
         return ncache__chain(syntax, vcache, nd, e);
     case CLERI_GID_THING_BY_ID:
-        /*
-         * An overflow here is fine as it will just result in a ThingID which
-         * will not be found;
-         */
-        nd->data = ti_vint_create(strtoll(nd->str + 1, NULL, 10));
-        break;
+    {
+        intptr_t thing_id = strtoll(nd->str + 1, NULL, 10);
+        nd->data = (void *) thing_id;
+        return e->nr;
+    }
     case CLERI_GID_T_CLOSURE:
         if (ncache__statement(
                     syntax,

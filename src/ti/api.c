@@ -8,6 +8,7 @@
 #include <ti/access.h>
 #include <ti/api.h>
 #include <ti/auth.h>
+#include <ti/qcache.h>
 #include <ti/query.inline.h>
 #include <ti/req.h>
 #include <ti/scope.h>
@@ -840,13 +841,15 @@ static int api__run(ti_api_request_t * ar, api__req_t * req)
         return 0;
     }
 
-    query = ti_query_create(ar, ar->user, TI_QUERY_FLAG_API);
+    query = ti_query_create(TI_QUERY_FLAG_API);
 
     if (!query || api__gen_run_data(ar, req, &data, &n))
     {
         ex_set_mem(e);
         goto fail0;
     }
+
+    ti_query_init(query, ar, ar->user);
 
     if (ti_query_unp_run(query, &ar->scope, 0, data, n, &ar->e))
         goto fail0;
@@ -951,13 +954,23 @@ static int api__query(ti_api_request_t * ar, api__req_t * req)
     }
 
 query:
-    query = ti_query_create(ar, ar->user, TI_QUERY_FLAG_API);
+    query = ti_scope_is_collection(&ar->scope)
+        ? ti_qcache_get_query(
+                req->mp_code.via.str.data,
+                req->mp_code.via.str.n,
+                TI_QUERY_FLAG_API)
+        : ti_query_create_strn(
+                req->mp_code.via.str.data,
+                req->mp_code.via.str.n,
+                TI_QUERY_FLAG_API);
 
-    if (!query || !(query->querystr = mp_strdup(&req->mp_code)))
+    if (!query)
     {
         ex_set_mem(e);
         goto failed;
     }
+
+    ti_query_init(query, ar, ar->user);
 
     if (ti_query_apply_scope(query, &ar->scope, e))
         goto failed;
@@ -966,13 +979,7 @@ query:
     {
         mp_unp_t up;
         mp_unp_init(&up, req->mp_vars.via.bin.data, req->mp_vars.via.bin.n);
-        ti_vup_t vup = {
-                .isclient = true,
-                .collection = query->collection,
-                .up = &up,
-        };
-
-        if (ti_query_unpack_args(query, &vup, e))
+        if (ti_query_unpack_args(query, &up, e))
             goto failed;
     }
 
@@ -980,8 +987,7 @@ query:
     assert (access_);
 
     if (ti_access_check_err(access_, query->user, TI_AUTH_READ, e) ||
-        ti_query_parse(query, e) ||
-        ti_query_investigate(query, e))
+        ti_query_parse(query, e))
         goto failed;
 
     if (ti_query_will_update(query))
@@ -1002,7 +1008,7 @@ query:
 invalid_api_request:
     ex_set(e, EX_BAD_DATA, "invalid API request"DOC_HTTP_API);
 failed:
-    ti_query_destroy(query);
+    ti_query_destroy_or_return(query);
     return e->nr;
 }
 
@@ -1238,6 +1244,9 @@ ti_api_request_t * ti_api_acquire(ti_api_request_t * ar)
 
 void ti_api_release(ti_api_request_t * ar)
 {
+    if (!ar)
+        return;
+
     ar->flags &= ~TI_API_FLAG_IN_USE;
 
     if (ar->flags & TI_API_FLAG_IS_CLOSED)

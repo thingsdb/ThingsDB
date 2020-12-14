@@ -9,7 +9,7 @@ static int do__f_del_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_collection_scope("del_enum", query, e) ||
         fn_nargs("del_enum", DOC_DEL_ENUM, 1, nargs, e) ||
         ti_do_statement(query, nd->children->node, e) ||
-        fn_arg_str("del_enum", DOC_DEL_ENUM, 1, query->rval, e))
+        fn_arg_str_slow("del_enum", DOC_DEL_ENUM, 1, query->rval, e))
         return e->nr;
 
     enum_ = ti_enums_by_raw(query->collection->enums, (ti_raw_t *) query->rval);

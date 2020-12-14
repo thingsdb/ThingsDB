@@ -60,6 +60,14 @@ struct ti_counters_s
                                     */
     uint64_t garbage_collected;     /* total garbage collected */
     uint64_t largest_result_size;   /* largest result size in bytes */
+    uint64_t queries_from_cache;    /* number of queries which are loaded from
+                                       cache.
+                                    */
+    uint64_t wasted_cache;          /* number of cached queries which are
+                                       removed from the cache before the cache
+                                       was ever used. Basically this count the
+                                       useless caching.
+                                    */
     double longest_query_duration;  /* longest duration it took for a
                                        successful query to process (in seconds)
                                     */

@@ -5,6 +5,7 @@
 #include <ti.h>
 #include <ti/away.h>
 #include <ti/proto.h>
+#include <ti/qcache.h>
 #include <ti/quorum.h>
 #include <ti/syncarchive.h>
 #include <ti/syncer.h>
@@ -52,7 +53,9 @@ enum away__severity
 
 static _Bool away__has_major_severity(void)
 {
-    return ti_nodes_require_sync() || ti_backups_require_away();
+    return (ti_nodes_require_sync() ||
+            ti_backups_require_away() ||
+            ti_qcache_require_away());
 }
 
 static enum away__severity away__get_minor_severity_first(void)
@@ -161,6 +164,9 @@ static void away__work(uv_work_t * UNUSED(work))
 
     if ((ti.flags & TI_FLAG_NODES_CHANGED) && ti_save() == 0)
         ti.flags &= ~TI_FLAG_NODES_CHANGED;
+
+    /* cleanup query cache */
+    ti_qcache_cleanup();
 
     /* resize query garbage storage */
     ti_thing_resize_gc();

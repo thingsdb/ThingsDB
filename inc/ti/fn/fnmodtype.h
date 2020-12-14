@@ -591,9 +591,7 @@ static void type__del(
         goto done;
     }
 
-    /* check for variable to update, val_cache is not required since only
-     * things with an id are store in cache
-     */
+    /* check for variable to update */
     if (ti_query_vars_walk(
             query->vars,
             (imap_cb) modtype__delv_cb,

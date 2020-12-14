@@ -17,6 +17,7 @@
 #include <ti/procedure.h>
 #include <ti/proto.h>
 #include <ti/qbind.h>
+#include <ti/qcache.h>
 #include <ti/regex.h>
 #include <ti/signals.h>
 #include <ti/store.h>
@@ -123,6 +124,7 @@ void ti_destroy(void)
 
     ti__stop();
 
+    ti_qcache_destroy();
     ti_build_destroy();
     ti_archive_destroy();
     ti_args_destroy();
@@ -198,7 +200,10 @@ int ti_init(void)
     if (ti.cfg->query_duration_error > ti.cfg->query_duration_warn)
         ti.cfg->query_duration_warn = ti.cfg->query_duration_error;
 
-    if (ti_do_init() || ti_val_init_common() || ti_thing_init_gc())
+    if (ti_qcache_create() ||
+        ti_do_init() ||
+        ti_val_init_common() ||
+        ti_thing_init_gc())
         return -1;
 
     ti.fn = strx_cat(ti.cfg->storage_path, ti__fn);
@@ -802,7 +807,7 @@ int ti_this_node_to_pk(msgpack_packer * pk)
     double uptime = util_time_diff(&ti.boottime, &timing);
 
     return (
-        msgpack_pack_map(pk, 33) ||
+        msgpack_pack_map(pk, 36) ||
         /* 1 */
         mp_pack_str(pk, "node_id") ||
         msgpack_pack_uint32(pk, ti.node->id) ||
@@ -907,7 +912,16 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         msgpack_pack_uint64(pk, ti_stream_client_connections()) ||
         /* 33 */
         mp_pack_str(pk, "result_size_limit") ||
-        msgpack_pack_uint64(pk, ti.cfg->result_size_limit)
+        msgpack_pack_uint64(pk, ti.cfg->result_size_limit) ||
+        /* 34 */
+        mp_pack_str(pk, "cached_queries") ||
+        msgpack_pack_uint32(pk, ti.qcache->n) ||
+        /* 35 */
+        mp_pack_str(pk, "threshold_query_cache") ||
+        msgpack_pack_uint32(pk, ti.cfg->threshold_query_cache) ||
+        /* 36 */
+        mp_pack_str(pk, "cache_expiration_time") ||
+        msgpack_pack_uint32(pk, ti.cfg->cache_expiration_time)
     );
 }
 

@@ -11,6 +11,7 @@
 #include <ti/auth.h>
 #include <ti/away.h>
 #include <ti/fwd.h>
+#include <ti/qcache.h>
 #include <ti/nodes.h>
 #include <ti/proto.h>
 #include <ti/query.inline.h>
@@ -510,7 +511,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_query_t * query = NULL;
     ti_node_t * other_node = stream->via.node;
     ti_node_t * this_node = ti.node;
-    mp_obj_t obj, mp_user_id, mp_orig;
+    mp_obj_t obj, mp_user_id, mp_orig, mp_query;
     ti_scope_t scope;
 
     if (!other_node)
@@ -540,11 +541,9 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    if (ti_scope_init_packed(
-            &scope,
-            mp_orig.via.bin.data,
-            mp_orig.via.bin.n,
-            &e))
+    mp_unp_init(&up, mp_orig.via.bin.data, mp_orig.via.bin.n);
+
+    if (ti_scope_init_from_up(&scope, &up, &e))
         goto finish;
 
     if (scope.tp != TI_SCOPE_NODE &&
@@ -570,27 +569,35 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    query = ti_query_create(stream, user, 0);
+    if (mp_next(&up, &mp_query) != MP_STR)
+    {
+        ex_set(&e, EX_TYPE_ERROR,
+            "expecting the code in a `query` request to be of type `string`"
+            DOC_SOCKET_QUERY);
+        goto finish;
+    }
+
+    query = ti_scope_is_collection(&scope)
+        ? ti_qcache_get_query(mp_query.via.str.data, mp_query.via.str.n, 0)
+        : ti_query_create_strn(mp_query.via.str.data, mp_query.via.str.n, 0);
+
     if (!query)
     {
         ex_set_mem(&e);
         goto finish;
     }
 
-    if (ti_query_unpack(
-            query,
-            &scope,
-            pkg->id,
-            mp_orig.via.bin.data,
-            mp_orig.via.bin.n,
-            &e))
+    ti_query_init(query, stream, user);
+    query->pkg_id = pkg->id;
+
+    if (ti_query_apply_scope(query, &scope, &e) ||
+        ti_query_unpack_args(query, &up, &e))
         goto finish;
 
     access_ = ti_query_access(query);
 
     if (ti_access_check_err(access_, query->user, TI_AUTH_READ, &e) ||
-        ti_query_parse(query, &e) ||
-        ti_query_investigate(query, &e))
+        ti_query_parse(query, &e))
         goto finish;
 
     if (ti_query_will_update(query))
@@ -606,7 +613,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
     return;
 
 finish:
-    ti_query_destroy(query);
+    ti_query_destroy_or_return(query);
 
     if (e.nr)
         resp = ti_pkg_client_err(pkg->id, &e);
@@ -672,12 +679,14 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    query = ti_query_create(stream, user, 0);
+    query = ti_query_create(0);
     if (!query)
     {
         ex_set_mem(&e);
         goto finish;
     }
+
+    ti_query_init(query, stream, user);
 
     if (ti_scope_init_packed(
             &scope,

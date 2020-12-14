@@ -57,6 +57,7 @@ C_SRCS += \
 ../src/ti/prop.c \
 ../src/ti/proto.c \
 ../src/ti/qbind.c \
+../src/ti/qcache.c \
 ../src/ti/query.c \
 ../src/ti/quorum.c \
 ../src/ti/raw.c \
@@ -154,6 +155,7 @@ OBJS += \
 ./src/ti/prop.o \
 ./src/ti/proto.o \
 ./src/ti/qbind.o \
+./src/ti/qcache.o \
 ./src/ti/query.o \
 ./src/ti/quorum.o \
 ./src/ti/raw.o \
@@ -251,6 +253,7 @@ C_DEPS += \
 ./src/ti/prop.d \
 ./src/ti/proto.d \
 ./src/ti/qbind.d \
+./src/ti/qcache.d \
 ./src/ti/query.d \
 ./src/ti/quorum.d \
 ./src/ti/raw.d \

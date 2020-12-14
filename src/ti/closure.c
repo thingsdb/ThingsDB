@@ -82,7 +82,7 @@ static cleri_node_t * closure__node_from_strn(
     statement = node->children->next->next->next->node;
     ti_qbind_probe(syntax, statement);
 
-    ncache = ti_ncache_create(query, syntax->val_cache_n);
+    ncache = ti_ncache_create(query, syntax->immutable_n);
     if (!ncache)
     {
         ex_set_mem(e);
@@ -90,7 +90,7 @@ static cleri_node_t * closure__node_from_strn(
     }
     query = NULL;  /* ownership is moved to ncache */
     node->data = ncache;
-    if (ti_ncache_gen_node_data(syntax, ncache->val_cache, statement, e))
+    if (ti_ncache_gen_node_data(syntax, ncache->immutable_cache, statement, e))
         goto fail2;
 
     /* make sure the node gets an extra reference so it will be kept */
@@ -261,7 +261,7 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
         return 0;
 
     ti_qbind_t syntax = {
-            .val_cache_n = 0,
+            .immutable_n = 0,
             .flags = closure->flags & TI_VFLAG_CLOSURE_BTSCOPE
                 ? TI_QBIND_FLAG_THINGSDB
                 : TI_QBIND_FLAG_COLLECTION,

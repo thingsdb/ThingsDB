@@ -252,4 +252,20 @@ int ti_scope_init_packed(
     return ti_scope_init(scope, mp_scope.via.str.data, mp_scope.via.str.n, e);
 }
 
+int ti_scope_init_from_up(ti_scope_t * scope, mp_unp_t * up, ex_t * e)
+{
+    mp_obj_t obj, mp_scope;
+    if (mp_next(up, &obj) != MP_ARR || !obj.via.sz ||
+        mp_next(up, &mp_scope) != MP_STR)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "expecting the request to contain an array "
+                "with as scope as first item");
+        return e->nr;
+    }
+
+    return ti_scope_init(scope, mp_scope.via.str.data, mp_scope.via.str.n, e);
+
+}
+
 

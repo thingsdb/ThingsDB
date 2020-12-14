@@ -295,7 +295,10 @@ int ti_web_init(void)
     struct sockaddr_storage addr = {0};
     uint16_t port = ti.cfg->http_status_port;
 
-    (void) uv_ip6_addr("::", (int) port, (struct sockaddr_in6 *) &addr);
+    if (ti.cfg->ip_support == AF_INET)
+        (void) uv_ip4_addr("0.0.0.0", (int) port, (struct sockaddr_in *) &addr);
+    else
+        (void) uv_ip6_addr("::", (int) port, (struct sockaddr_in6 *) &addr);
 
     web__uv_ok_buf =
             uv_buf_init(OK_RESPONSE, strlen(OK_RESPONSE));
@@ -315,12 +318,11 @@ int ti_web_init(void)
     web__settings.on_url = web__url_cb;
     web__settings.on_message_complete = web__message_complete_cb;
 
-    if (
-        (rc = uv_tcp_init(ti.loop, &web__uv_server)) ||
+    if ((rc = uv_tcp_init(ti.loop, &web__uv_server)) ||
         (rc = uv_tcp_bind(
                 &web__uv_server,
                 (const struct sockaddr *) &addr,
-                0)) ||
+                ti.cfg->ip_support == AF_INET6 ? UV_TCP_IPV6ONLY : 0)) ||
         (rc = uv_listen(
                 (uv_stream_t *) &web__uv_server,
                 128,

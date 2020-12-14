@@ -18,6 +18,7 @@
 * Added a lookup for procedures, issue #129.
 * Ordered procedures, types and enumerators by name, issue #130.
 * Added query caching, issue #131.
+* Honor IP configuration for HTTP API and health checkes, issue #133.
 
 # v0.10.0
 

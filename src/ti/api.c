@@ -1206,7 +1206,10 @@ int ti_api_init(void)
     if (port == 0)
         return 0;
 
-    (void) uv_ip6_addr("::", (int) port, (struct sockaddr_in6 *) &addr);
+    if (ti.cfg->ip_support == AF_INET)
+        (void) uv_ip4_addr("0.0.0.0", (int) port, (struct sockaddr_in *) &addr);
+    else
+        (void) uv_ip6_addr("::", (int) port, (struct sockaddr_in6 *) &addr);
 
     api__settings.on_url = api__url_cb;
     api__settings.on_header_field = api__header_field_cb;
@@ -1215,12 +1218,11 @@ int ti_api_init(void)
     api__settings.on_body = api__body_cb;
     api__settings.on_headers_complete = api__headers_complete_cb;
 
-    if (
-        (rc = uv_tcp_init(ti.loop, &api__uv_server)) ||
+    if ((rc = uv_tcp_init(ti.loop, &api__uv_server)) ||
         (rc = uv_tcp_bind(
                 &api__uv_server,
                 (const struct sockaddr *) &addr,
-                0)) ||
+                ti.cfg->ip_support == AF_INET6 ? UV_TCP_IPV6ONLY : 0)) ||
         (rc = uv_listen(
                 (uv_stream_t *) &api__uv_server,
                 128,

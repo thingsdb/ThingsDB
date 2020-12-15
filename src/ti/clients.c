@@ -436,7 +436,8 @@ static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
             ex_set_internal(&e);
             goto finish;
         }
-        /* the response to the client will be handled by a callback on the
+        /*
+         * The response to the client will be handled by a callback on the
          * query forward request so we simply return;
          */
         return;

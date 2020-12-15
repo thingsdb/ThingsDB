@@ -181,10 +181,12 @@ int ti_event_watch(ti_event_t * ev)
     collection = ti_collections_get_by_id(mp_scope.via.u64);
     if (!collection)
     {
-        log_critical(
-                "target "TI_COLLECTION_ID" for "TI_EVENT_ID" not found",
+        log_warning(
+                "target "TI_COLLECTION_ID" for "TI_EVENT_ID" not found "
+                "(this may occur in case the event which will create the  "
+                "collection, is still in the queue and not yet processed)",
                 mp_scope.via.u64, ev->id);
-        return -1;
+        return 0;
     }
 
     uv_mutex_lock(collection->lock);

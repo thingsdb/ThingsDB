@@ -22,7 +22,7 @@
 #define TI_DEFAULT_RESULT_DATA_LIMIT 20971520UL
 
 /* Use query cache for queries with a length equal or above this threshold */
-#define TI_DEFAULT_THRESHOLD_QUERY_CACHE 200UL
+#define TI_DEFAULT_THRESHOLD_QUERY_CACHE 160UL
 
 /* Cached query expiration time in seconds */
 #define TI_DEFAULT_CACHE_EXPIRATION_TIME 900UL

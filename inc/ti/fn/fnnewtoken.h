@@ -48,8 +48,23 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (ti_do_statement(query, (child = child->next->next)->node, e))
             return e->nr;
 
-        if (ti_val_is_float(query->rval))
+        if (ti_val_is_datetime(query->rval))
         {
+            int64_t now = (int64_t) util_now_tsec();
+            int64_t ts = DATETIME(query->rval);
+
+            if (ts < now)
+                goto errpast;
+            if (ts > TI_MAX_EXPIRATION_LONG)
+                goto errfuture;
+
+            exp_time = (uint64_t) ts;
+        }
+        else if (ti_val_is_float(query->rval))
+        {
+            log_warning(
+                "parsing type `float` to `new_token(..)` as second argument "
+                "is obsolete, use type `datetime` or type `timeval` instead");
             double now = util_now();
             double ts = VFLOAT(query->rval);
             if (ts < now)
@@ -61,6 +76,9 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
         else if (ti_val_is_int(query->rval))
         {
+            log_warning(
+                "parsing type `int` to `new_token(..)` as second argument "
+                "is obsolete, use type `datetime` or type `timeval` instead");
             int64_t now = (int64_t) util_now_tsec();
             int64_t ts = VINT(query->rval);
             if (ts < now)
@@ -72,6 +90,9 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
         else if (ti_val_is_str(query->rval))
         {
+            log_warning(
+                "parsing type `str` to `new_token(..)` as second argument "
+                "is obsolete, use type `datetime` or type `timeval` instead");
             int64_t now = (int64_t) util_now_tsec();
             ti_raw_t * rt = (ti_raw_t *) query->rval;
             int64_t ts = iso8601_parse_date_n((const char *) rt->data, rt->n);
@@ -88,7 +109,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_TYPE_ERROR,
                 "function `new_token` expects argument 2 to be of "
-                "type `"TI_VAL_STR_S"`, `"TI_VAL_INT_S"`, `"TI_VAL_FLOAT_S"` "
+                "type `"TI_VAL_DATETIME_S"`, `"TI_VAL_TIMEVAL_S"` "
                 "or `"TI_VAL_NIL_S"` but got type `%s` instead"DOC_NEW_TOKEN,
                 ti_val_str(query->rval));
             return e->nr;

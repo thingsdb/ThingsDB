@@ -14,7 +14,7 @@ static int do__f_yday(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     yday = ti_datetime_yday((ti_datetime_t *) query->rval);
     if (yday < 0)
     {
-        ex_set(e, EX_OVERFLOW, "datetime overflow");
+        ex_set(e, EX_OVERFLOW, "date/time overflow");
         return e->nr;
     }
 

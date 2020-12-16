@@ -170,17 +170,3 @@ int64_t iso8601_parse_date_n(const char * str, size_t n)
 
     return iso8601_parse_date(iso8601__buf);
 }
-
-const char * iso8601_time_str(const time_t * ts)
-{
-    struct tm * tm_info;
-
-    tm_info = gmtime(ts);
-
-    (void) strftime(
-            iso8601__buf,
-            sizeof(iso8601__buf),
-            "%Y-%m-%d %H:%M:%SZ",
-            tm_info);
-    return iso8601__buf;
-}

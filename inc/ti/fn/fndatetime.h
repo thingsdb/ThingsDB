@@ -332,7 +332,7 @@ static int do__datetime(
             int64_t i;
             if (ti_val_overflow_cast(d))
             {
-                ex_set(e, EX_OVERFLOW, "datetime overflow");
+                ex_set(e, EX_OVERFLOW, "date/time overflow");
                 return e->nr;
             }
             i = (int64_t) d;

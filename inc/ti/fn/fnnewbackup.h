@@ -51,8 +51,16 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (ti_do_statement(query, (child = child->next->next)->node, e))
             goto fail0;
 
-        if (ti_val_is_float(query->rval))
+        if (ti_val_is_datetime(query->rval))
         {
+            int64_t ts = DATETIME(query->rval);
+            timestamp = ts < 0 ? 0 : (uint64_t ) ts;
+        }
+        else if (ti_val_is_float(query->rval))
+        {
+            log_warning(
+                "parsing type `float` to `new_backup(..)` as second argument "
+                "is obsolete, use type `datetime` or type `timeval` instead");
             double ts = VFLOAT(query->rval);
             if (ts < 0.0)
                 ts = 0.0;
@@ -60,6 +68,9 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
         else if (ti_val_is_int(query->rval))
         {
+            log_warning(
+                "parsing type `int` to `new_backup(..)` as second argument "
+                "is obsolete, use type `datetime` or type `timeval` instead");
             int64_t ts = VINT(query->rval);
             if (ts < 0)
                 ts = 0;
@@ -67,6 +78,9 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
         else if (ti_val_is_str(query->rval))
         {
+            log_warning(
+                "parsing type `str` to `new_backup(..)` as second argument "
+                "is obsolete, use type `datetime` or type `timeval` instead");
             ti_raw_t * rt = (ti_raw_t *) query->rval;
             int64_t ts = iso8601_parse_date_n((const char *) rt->data, rt->n);
             if (ts < 0)
@@ -82,7 +96,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_TYPE_ERROR,
                 "function `new_backup` expects argument 2 to be of "
-                "type `"TI_VAL_STR_S"`, `"TI_VAL_INT_S"`, `"TI_VAL_FLOAT_S"` "
+                "type `"TI_VAL_DATETIME_S"`, `"TI_VAL_TIMEVAL_S"` "
                 "or `"TI_VAL_NIL_S"` but got type `%s` instead"DOC_NEW_BACKUP,
                 ti_val_str(query->rval));
             goto fail0;

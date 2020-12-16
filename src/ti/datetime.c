@@ -172,7 +172,7 @@ static ti_datetime_t * datetime__from_strn(
     if (str->n >= buf_sz)
     {
         ex_set(e, EX_VALUE_ERROR,
-                "invalid datetime string (too large)");
+                "invalid date/time string (too large)");
         return NULL;
     }
 
@@ -210,13 +210,6 @@ static ti_datetime_t * datetime__from_strn(
             if (e->nr)
                 return NULL;
 
-            if ((offset < 0 && ts > LLONG_MAX + offset) ||
-                (offset > 0 && ts < LLONG_MIN + offset))
-            {
-                ex_set(e, EX_OVERFLOW, "datetime overflow");
-                return NULL;
-            }
-
             ts -= offset;
             offset /= 60;
             tz = NULL;  /* no time zone info */
@@ -240,7 +233,7 @@ static ti_datetime_t * datetime__from_strn(
 
 invalid:
     ex_set(e, EX_VALUE_ERROR,
-            "invalid datetime string (does not match format string `%s`)", fmt);
+            "invalid date/time string (does not match format string `%s`)", fmt);
     return NULL;
 }
 
@@ -286,7 +279,7 @@ ti_datetime_t * ti_datetime_from_str(ti_raw_t * str, ti_tz_t * tz, ex_t * e)
     }
 
     ex_set(e, EX_VALUE_ERROR,
-            "invalid datetime string");
+            "invalid date/time string");
     return NULL;
 }
 
@@ -298,7 +291,7 @@ ti_datetime_t * ti_datetime_from_fmt(
 {
     if (fmt->n < 2 || fmt->n >= DATETIME__BUF_SZ)
     {
-        ex_set(e, EX_VALUE_ERROR, "invalid datetime format (wrong size)");
+        ex_set(e, EX_VALUE_ERROR, "invalid date/time format (wrong size)");
         return NULL;
     }
 
@@ -329,7 +322,7 @@ static size_t datetime__write(
 
     sz = strftime(buf, buf_sz, fmt, &tm);
     if (sz == 0)
-        ex_set(e, EX_VALUE_ERROR, "invalid datetime template");
+        ex_set(e, EX_VALUE_ERROR, "invalid date/time template");
     return sz;
 }
 
@@ -363,7 +356,7 @@ ti_raw_t * ti_datetime_to_str_fmt(ti_datetime_t * dt, ti_raw_t * fmt, ex_t * e)
 
     if (fmt->n < 2|| fmt->n >= DATETIME__BUF_SZ)
     {
-        ex_set(e, EX_VALUE_ERROR, "invalid datetime format (wrong size)");
+        ex_set(e, EX_VALUE_ERROR, "invalid date/time format (wrong size)");
         return NULL;
     }
 
@@ -725,6 +718,21 @@ int ti_datetime_week(ti_datetime_t * dt)
             : tm.tm_yday < tm.tm_wday
             ? 0                                     /* before first Sunday */
             : (tm.tm_yday - tm.tm_wday) / 7 + 1;    /* calculate week */
+}
+
+const char * ti_datetime_ts_str(const time_t * ts)
+{
+    struct tm tm;
+
+    if (gmtime_r(ts, &tm) != &tm)
+        return "error date/time";
+
+    (void) strftime(
+            datetime__buf,
+            DATETIME__BUF_SZ,
+            datetime__fmp_utc,
+            &tm);
+    return datetime__buf;
 }
 
 /*

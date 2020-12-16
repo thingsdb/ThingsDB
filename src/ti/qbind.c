@@ -1000,7 +1000,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
  * - event requirement (set as qbind flags)
  * - closure detection and event requirement (set as flag to node->data)
  * - re-arrange operations to honor compare order
- * - count primitives cache requirements
+ * - count immutable cache requirements
  */
 void ti_qbind_probe(ti_qbind_t * qbind, cleri_node_t * nd)
 {

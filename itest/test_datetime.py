@@ -56,6 +56,99 @@ class TestDatetime(TestBase):
                 'name `datetime` is reserved'):
             await client.query('set_type("datetime", {});')
 
+    async def test_is_datetime(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `is_datetime` takes 1 argument but 2 were given'):
+            await client.query('is_datetime(1, 2);')
+
+        self.assertFalse(await client.query('is_datetime( err() ); '))
+        self.assertTrue(await client.query('is_datetime( datetime() ); '))
+        self.assertFalse(await client.query('is_datetime( timeval() ); '))
+
+    async def test_is_datetime(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `is_timeval` takes 1 argument but 2 were given'):
+            await client.query('is_timeval(1, 2);')
+
+        self.assertFalse(await client.query('is_timeval( err() ); '))
+        self.assertFalse(await client.query('is_timeval( datetime() ); '))
+        self.assertTrue(await client.query('is_timeval( timeval() ); '))
+
+    async def test_datetime(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `datetime` takes at most 7 arguments '
+                'but 8 were given'):
+            await client.query('datetime(1, 2, 3, 4, 5, 6, 7, 8);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'cannot convert type `nil` to `datetime`'):
+            await client.query('datetime(nil);')
+
+        with self.assertRaisesRegex(
+                OverflowError,
+                'date/time overflow'):
+            await client.query('datetime(0.9e+28);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'invalid date/time string'):
+            await client.query('datetime("xxx");')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid offset; expecting format `\+/-hh\[mm\]'):
+            await client.query('datetime("2013-02-06T13:00:00+28");')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid date/time string '
+                r'\(does not match format string `%Y`\)'):
+            await client.query('datetime("abcd");')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `datetime` expects argument 1 to be of '
+                r'type `str` \(when called using 2 arguments\) but '
+                r'got type `nil` instead'):
+            await client.query('datetime(nil, "x");')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `datetime` expects argument 2 to be of '
+                r'type `str` \(when called using 2 arguments\) but '
+                r'got type `nil` instead'):
+            await client.query('datetime("x"", nil);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid date/time string \(too large\)'):
+            await client.query('datetime(s, "%Y");', s='x'*130)
+
+        self.assertEqual(
+            await client.query('datetime(1360155600);'),
+            '2013-02-06T13:00:00Z')
+
+        self.assertEqual(
+            await client.query('datetime(1360155600.123);'),
+            '2013-02-06T13:00:00Z')
+
+        self.assertEqual(
+            await client.query('datetime(datetime(1360155600));'),
+            '2013-02-06T13:00:00Z')
+
+        self.assertEqual(
+            await client.query('datetime(timeval(1360155600));'),
+            '2013-02-06T13:00:00Z')
+
+        self.assertEqual(
+            await client.query('int(datetime(1360155600));'),
+            1360155600)
+
+        # `is_datetime`, `is_timeval`, `datetime`, `timeval`, `set_time_zone`, `time_zones_info`, `extract`, `format`, `move`, `replace`, `to`, `week`, `weekday`, `yday` and `zone` functions.
 
 if __name__ == '__main__':
     run_test(TestDatetime())

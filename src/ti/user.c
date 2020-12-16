@@ -60,7 +60,7 @@ static int user__pack_tokens(ti_user_t * user, msgpack_packer * pk)
         if (token->expire_ts)
         {
             status = token->expire_ts > now ? "OK" : "EXPIRED";
-            isotimestr = iso8601_time_str((const time_t *) &token->expire_ts);
+            isotimestr = ti_datetime_ts_str((const time_t *) &token->expire_ts);
         }
         else
         {
@@ -88,7 +88,7 @@ static int user__pack_tokens(ti_user_t * user, msgpack_packer * pk)
         /* the iso8601_time_str() return a pointer to an internal buffer so
          * we cannot have both the created and expire time together
          */
-        isotimestr = iso8601_time_str((const time_t *) &token->created_at);
+        isotimestr = ti_datetime_ts_str((const time_t *) &token->created_at);
 
         if (mp_pack_str(pk, "created_on") || mp_pack_str(pk, isotimestr))
             return -1;

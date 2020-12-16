@@ -19,7 +19,7 @@ static int do__f_del_expired(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!task || ti_task_add_del_expired(task, after_ts))
         ex_set_mem(e);  /* task cleanup is not required */
     else
-        (void) ti_users_del_expired(after_ts);
+        ti_users_del_expired(after_ts);
 
     query->rval = (ti_val_t *) ti_nil_get();
     return e->nr;

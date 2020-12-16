@@ -77,6 +77,7 @@ datetime_unit_e ti_datetime_get_unit(ti_raw_t * raw, ex_t * e);
 int ti_datetime_weekday(ti_datetime_t * dt);
 int ti_datetime_yday(ti_datetime_t * dt);
 int ti_datetime_week(ti_datetime_t * dt);
+const char * ti_datetime_ts_str(const time_t * ts);
 
 static inline _Bool ti_datetime_is_timeval(ti_datetime_t * dt)
 {

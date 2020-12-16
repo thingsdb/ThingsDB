@@ -378,7 +378,7 @@ static int do__datetime(
         {
             ex_set(e, EX_TYPE_ERROR,
                     "function `%s` expects argument 1 to be of "
-                    "type `"TI_VAL_STR_S"` (when called using 2 arguments) "
+                    "type `"TI_VAL_STR_S"` (when called with two arguments) "
                     "but got type `%s` instead%s",
                     fname, ti_val_str(query->rval), doc);
             return e->nr;
@@ -397,7 +397,7 @@ static int do__datetime(
                     "type `"TI_VAL_STR_S"` (when called with two arguments) "
                     "but got type `%s` instead%s",
                     fname, ti_val_str(query->rval), doc);
-            return e->nr;
+            goto fail0;
         }
 
         fmt = (ti_raw_t *) query->rval;

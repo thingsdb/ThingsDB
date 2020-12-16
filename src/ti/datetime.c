@@ -5,6 +5,7 @@
 #include <ti/datetime.h>
 #include <ti/val.t.h>
 #include <ti/raw.inline.h>
+#include <doc.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -233,7 +234,7 @@ static ti_datetime_t * datetime__from_strn(
 
 invalid:
     ex_set(e, EX_VALUE_ERROR,
-            "invalid date/time string (does not match format string `%s`)", fmt);
+            "invalid date/time string (does not match format `%s`)", fmt);
     return NULL;
 }
 
@@ -291,7 +292,9 @@ ti_datetime_t * ti_datetime_from_fmt(
 {
     if (fmt->n < 2 || fmt->n >= DATETIME__BUF_SZ)
     {
-        ex_set(e, EX_VALUE_ERROR, "invalid date/time format (wrong size)");
+        ex_set(e, EX_VALUE_ERROR,
+                "date/time format is restricted to a length between 2 and %d "
+                "characters", DATETIME__BUF_SZ);
         return NULL;
     }
 
@@ -356,7 +359,9 @@ ti_raw_t * ti_datetime_to_str_fmt(ti_datetime_t * dt, ti_raw_t * fmt, ex_t * e)
 
     if (fmt->n < 2|| fmt->n >= DATETIME__BUF_SZ)
     {
-        ex_set(e, EX_VALUE_ERROR, "invalid date/time format (wrong size)");
+        ex_set(e, EX_VALUE_ERROR,
+                "date/time format is restricted to a length between 2 and %d "
+                "characters", DATETIME__BUF_SZ);
         return NULL;
     }
 
@@ -458,7 +463,7 @@ int ti_datetime_to_zone(ti_datetime_t * dt, ti_raw_t * tzinfo, ex_t * e)
         ti_tz_t * tz = ti_tz_from_strn((const char *) tzinfo->data, tzinfo->n);
         if (!tz)
         {
-            ex_set(e, EX_VALUE_ERROR, "unknown time zone");
+            ex_set(e, EX_VALUE_ERROR, "unknown time zone"DOC_TIME_ZONES_INFO);
             return e->nr;
         }
 
@@ -552,7 +557,7 @@ ti_datetime_t * ti_datetime_from_tm_tzinfo(
         tz = ti_tz_from_strn((const char *) tzinfo->data, tzinfo->n);
         if (!tz)
         {
-            ex_set(e, EX_VALUE_ERROR, "unknown time zone");
+            ex_set(e, EX_VALUE_ERROR, "unknown time zone"DOC_TIME_ZONES_INFO);
             return NULL;
         }
 

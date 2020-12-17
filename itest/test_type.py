@@ -1156,6 +1156,8 @@ class TestType(TestBase):
             set_type('_nint', {test: 'nint'});
             set_type('_float', {test: 'float'});
             set_type('_number', {test: 'number'});
+            set_type('_datetime', {test: 'datetime'});
+            set_type('_timeval', {test: 'timeval'});
             set_type('_thing', {test: 'thing'});
             set_type('_Type', {test: '_str'});
             set_type('_array', {test: '[]'});
@@ -1219,6 +1221,20 @@ class TestType(TestBase):
                 r'with definition `pint`'):
             await client.query(r'''_pint{test: '0'};''')
 
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `_datetime`; '
+                r'type `timeval` is invalid for property `test` '
+                r'with definition `datetime`'):
+            await client.query(r'''_datetime{test: timeval()};''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `_timeval`; '
+                r'type `datetime` is invalid for property `test` '
+                r'with definition `timeval`'):
+            await client.query(r'''_timeval{test: datetime()};''')
+
         self.assertEqual(
             await client.query(r'_pint{test:42}.test;'), 42)
         self.assertEqual(
@@ -1247,7 +1263,9 @@ class TestType(TestBase):
             await client.query(r'_nint{test:-6}.wrap("_number")'),
             {'test': -6})
 
-    async def test_mod_type_add_closure(self, client0):
+    async def test_mod_type_add_closure_and_ts(self, client0):
+        now = int(time.time())
+
         await client0.query(r'''
             set_type('Chat', {
                 messages: '[str]'
@@ -1258,6 +1276,7 @@ class TestType(TestBase):
             .room_a = Room{name: 'room A'};
             .room_b = Room{name: 'room B'};
             mod_type('Room', 'add', 'chat', 'Chat');
+            mod_type('Room', 'add', 'ts', 'timeval');
 
             .room_a.chat.messages.push('Just one instance');
         ''')
@@ -1267,6 +1286,14 @@ class TestType(TestBase):
 
         await self.wait_nodes_ready(client0)
 
+        ts_a = await client0.query('.room_a.ts;')
+        self.assertIsInstance(ts_a, int)
+        self.assertAlmostEqual(ts_a, now, delta=1)
+
+        ts_b = await client0.query('.room_a.ts;')
+        self.assertIsInstance(ts_b, int)
+        self.assertAlmostEqual(ts_b, now, delta=1)
+
         for client in (client0, client1):
             msg = await client.query('.room_a.chat.messages[0];')
             self.assertEqual(msg, 'Just one instance')
@@ -1274,14 +1301,24 @@ class TestType(TestBase):
             msg = await client.query('.room_b.chat.messages[0];')
             self.assertEqual(msg, 'Just one instance')
 
+            self.assertEqual(await client.query('.room_a.ts;'), ts_a)
+            self.assertEqual(await client.query('.room_b.ts;'), ts_b)
+
         await client0.query(r'''
             mod_type('Room', 'del', 'chat');
             mod_type('Room', 'add', 'chat', 'Chat', |room| {
                 Chat{messages: [`Welcome in {room.name}`]}
             });
+            mod_type('Room', 'mod', 'ts', 'datetime', |r| datetime(r.ts));
         ''')
 
         await self.wait_nodes_ready(client0)
+
+        dt_a = await client0.query('.room_a.ts;')
+        self.assertIsInstance(dt_a, str)
+
+        dt_b = await client0.query('.room_a.ts;')
+        self.assertIsInstance(dt_b, str)
 
         for client in (client0, client1):
             msg = await client.query('.room_a.chat.messages[0];')
@@ -1289,6 +1326,9 @@ class TestType(TestBase):
 
             msg = await client.query('.room_b.chat.messages[0];')
             self.assertEqual(msg, 'Welcome in room B')
+
+            self.assertEqual(await client.query('int(.room_a.ts)'), ts_a)
+            self.assertEqual(await client.query('int(.room_b.ts)'), ts_b)
 
         client1.close()
         await client1.wait_closed()

@@ -1842,7 +1842,7 @@ int ti_task_add_event(
     msgpack_pack_array(&pk, 1 + (vec ? vec->n : 0));
 
     /* the first in the array is the event, followed by optional data */
-    if (mp_pack_strn(&pk,revent->data, revent->n))
+    if (mp_pack_strn(&pk, revent->data, revent->n))
         goto fail_pack;
 
     /* no need to generate ID's since the values might not be stored */

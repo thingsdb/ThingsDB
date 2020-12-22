@@ -785,12 +785,12 @@ static inline void qbind__thing(ti_qbind_t * qbind, cleri_node_t * nd)
 static inline void qbind__enum(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     nd = nd->children->next->node;
-    nd->data = NULL;    /* closure or member */
 
     if (nd->cl_obj->gid == CLERI_GID_T_CLOSURE)
     {
+        nd->data = NULL;    /* closure */
+        ++qbind->immutable_n;
         qbind__statement(qbind, nd->children->next->next->next->node);
-        ++qbind->immutable_n;   /* member or closure, not both */
     }
 }
 

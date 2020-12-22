@@ -1330,8 +1330,9 @@ _Bool ti_val_as_bool(ti_val_t * val)
     case TI_VAL_WRAP:
         return !!((ti_wrap_t *) val)->thing->items->n;
     case TI_VAL_CLOSURE:
-    case TI_VAL_ERROR:
         return true;
+    case TI_VAL_ERROR:
+        return false;
     case TI_VAL_MEMBER:
         return ti_val_as_bool(VMEMBER(val));
     case TI_VAL_TEMPLATE:

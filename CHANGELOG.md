@@ -19,7 +19,7 @@
 * Ordered procedures, types and enumerators by name, issue #130.
 * Added query caching, issue #131.
 * Honor IP configuration for HTTP API and health checkes, issue #133.
-* Fnuctions `new_token` and `new_backup` now accept date/time type, issue #134. 
+* Functions `new_token` and `new_backup` now accept date/time type, issue #134. 
 
 # v0.10.0
 

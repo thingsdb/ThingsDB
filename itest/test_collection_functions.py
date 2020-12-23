@@ -825,10 +825,6 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(await client.query('"Hi World!".ends_with("World!")'))
         self.assertFalse(await client.query('"Hi World!".ends_with("world!")'))
 
-        # deprecated calls
-        self.assertTrue(await client.query('"Hi World!".endswith("World!")'))
-        self.assertFalse(await client.query('"Hi World!".endswith("world!")'))
-
     async def test_extend(self, client):
         await client.query('.list = [];')
         self.assertEqual(await client.query('.list.extend(["a"])'), 1)
@@ -1061,10 +1057,6 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('.x.find_index(|v|(v==42));'), 0)
         self.assertEqual(await client.query('.x.find_index(|v|is_str(v));'), 1)
 
-        # deprecated calls
-        self.assertIs(await client.query('.x.findindex(||false);'), None)
-        self.assertEqual(await client.query('.x.findindex(|_,i|(i>0));'), 1)
-
     async def test_float(self, client):
         with self.assertRaisesRegex(
                 LookupError,
@@ -1287,10 +1279,6 @@ class TestCollectionFunctions(TestBase):
         self.assertIs(await client.query('.x.index_of(true);'), None)
         self.assertIs(await client.query(r'.x.index_of({});'), None)
 
-        # deprecated calls
-        self.assertEqual(await client.query('.x.indexof(nil);'), 5)
-        self.assertIs(await client.query('.x.indexof(42.1);'), None)
-
         # cleanup garbage, the reference to the collection
         await client.query(r'''.x.splice(2, 1);''')
 
@@ -1483,10 +1471,6 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query('is_err([]);'))
         self.assertFalse(await client.query('is_err(nil);'))
 
-        # deprecated calls
-        self.assertTrue(await client.query('iserr( try ((1/0)) ); '))
-        self.assertFalse(await client.query('iserr( "ԉ" ); '))
-
     async def test_is_float(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
@@ -1582,10 +1566,6 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(await client.query('is_nil( nil ); '))
         self.assertFalse(await client.query('is_nil( 0 ); '))
 
-        # deprecated calls
-        self.assertTrue(await client.query('isnil( nil ); '))
-        self.assertFalse(await client.query('isnil( 0 ); '))
-
     async def test_is_bytes(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
@@ -1601,10 +1581,6 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(await client.query(
                 'is_bytes(blob);',
                 blob=pickle.dumps('binary')))
-
-        # deprecated calls
-        self.assertFalse(await client.query('isbytes(nil);'))
-        self.assertTrue(await client.query('isbytes( bytes("pi") ); '))
 
     async def test_is_closure(self, client):
         with self.assertRaisesRegex(
@@ -1629,10 +1605,6 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(await client.query(
                 'is_raw(blob);',
                 blob=pickle.dumps('binary')))
-
-        # deprecated calls
-        self.assertTrue(await client.query('israw( "ԉ" ); '))
-        self.assertFalse(await client.query('israw([]);'))
 
     async def test_is_set(self, client):
         await client.query(r'.sa = set(); .sb = set([ {} ]);')
@@ -3608,33 +3580,6 @@ class TestCollectionFunctions(TestBase):
         err = await client.query('operation_err("my custom error msg");')
         self.assertEqual(err['error_code'], Err.EX_OPERATION_ERROR)
         self.assertEqual(err['error_msg'], "my custom error msg")
-
-    async def test_deprecated(self, client):
-        await client.query(r'''
-
-            isnil(nil);
-            isstr(nil);
-            isbytes(nil);
-            isascii(nil);
-            isutf8(nil);
-            isint(nil);
-            isfloat(nil);
-            isbool(nil);
-            israw(nil);
-            isnan(0.0);
-            isinf(0.0);
-            isarray(nil);
-            istuple(nil);
-            islist(nil);
-            isenum(nil);
-            isthing(nil);
-            iserr(nil);
-            [].findindex(||nil);
-            [].indexof(nil);
-            ''.startswith('');
-            ''.endswith('');
-
-        ''')
 
 
 if __name__ == '__main__':

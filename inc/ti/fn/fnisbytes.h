@@ -16,9 +16,3 @@ static int do__f_is_bytes(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     return e->nr;
 }
-
-static int do__f_isbytes(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    log_error("function `isbytes` is deprecated, use `is_bytes` instead");
-    return do__f_is_bytes(query, nd, e);
-}

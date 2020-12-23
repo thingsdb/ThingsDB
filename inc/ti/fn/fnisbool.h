@@ -16,9 +16,3 @@ static int do__f_is_bool(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     return e->nr;
 }
-
-static int do__f_isbool(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    log_error("function `isbool` is deprecated, use `is_bool` instead");
-    return do__f_is_bool(query, nd, e);
-}

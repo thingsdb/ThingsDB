@@ -72,10 +72,3 @@ fail0:
     ti_val_unsafe_drop((ti_val_t *) varr);
     return e->nr;
 }
-
-static int do__f_findindex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    log_error("function `findindex` is deprecated, use `find_index` instead");
-    return do__f_find_index(query, nd, e);
-}
-

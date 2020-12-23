@@ -16,9 +16,3 @@ static int do__f_is_float(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     return e->nr;
 }
-
-static int do__f_isfloat(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    log_error("function `isfloat` is deprecated, use `is_float` instead");
-    return do__f_is_float(query, nd, e);
-}

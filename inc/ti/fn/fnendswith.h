@@ -27,9 +27,3 @@ failed:
     ti_val_unsafe_drop((ti_val_t *) raw);
     return e->nr;
 }
-
-static int do__f_endswith(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    log_error("function `endswith` is deprecated, use `ends_with` instead");
-    return do__f_ends_with(query, nd, e);
-}

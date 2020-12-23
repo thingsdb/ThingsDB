@@ -1,7 +1,10 @@
 # v0.10.2
+
 * Evaluate `error` values as `false`, issue #135.
+* Removed list of deprecated functions, issue #136.
 
 # v0.10.1
+
 * Added `datetime` and `timeval` types and related functions, issue #127.
   - `is_datetime`: https://docs.thingsdb.net/v0/collection-api/is_datetime/
   - `is_timeval`: https://docs.thingsdb.net/v0/collection-api/is_timeval/

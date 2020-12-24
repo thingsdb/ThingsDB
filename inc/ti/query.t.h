@@ -68,6 +68,7 @@ struct ti_query_s
                                 */
     vec_t * immutable_cache;    /* ti_val_t, Only for immutable and collection
                                    independent variable. */
+    vec_t * futures;
     util_time_t time;           /* time query duration */
 };
 

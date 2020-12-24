@@ -615,6 +615,19 @@ static void query__duration_log(
             query->querystr);
 }
 
+void ti_query_handle_futures(ti_query_t * query)
+{
+    for (vec_each(query->futures, ti_future_t, future))
+    {
+        future->addon->cb(future);
+    }
+}
+
+void ti_query_on_future_result(ti_future_t * future)
+{
+    if
+}
+
 void ti_query_run(ti_query_t * query)
 {
     cleri_children_t * child, * seqchild;
@@ -629,6 +642,7 @@ void ti_query_run(ti_query_t * query)
             assert (query->ev);
             query->flags |= TI_QUERY_FLAG_WSE;
         }
+        /* this can never set `e->nr` to EX_RETURN */
         (void) ti_closure_call(query->closure, query, query->immutable_cache, &e);
         goto stop;
     }
@@ -670,7 +684,10 @@ stop:
     if (query->ev)
         query__event_handle(query);  /* errors will be logged only */
 
-    ti_query_send_response(query, &e);
+    if (query->futures && query->futures->n && e.nr == 0)
+        ti_query_handle_futures(query);
+    else
+        ti_query_send_response(query, &e);
 }
 
 static inline int query__pack_response(

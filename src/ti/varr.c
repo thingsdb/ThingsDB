@@ -193,13 +193,11 @@ int ti_varr_val_prepare(ti_varr_t * to, void ** v, ex_t * e)
         }
         break;
     case TI_VAL_ARR:
-        if (ti_varr_is_list((ti_varr_t *) *v))
+        if (ti_varr_is_list((ti_varr_t *) *v) &&
+            varr__to_tuple((ti_varr_t **) v))
         {
-            if (varr__to_tuple((ti_varr_t **) v))
-            {
-                ex_set_mem(e);
-                return e->nr;
-            }
+            ex_set_mem(e);
+            return e->nr;
         }
         to->flags |= ((ti_varr_t *) *v)->flags & TI_VFLAG_ARR_MHT;
         break;

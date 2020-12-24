@@ -157,6 +157,11 @@ static inline _Bool ti_val_is_tuple(ti_val_t * val)
     return val->tp == TI_VAL_ARR && ti_varr_is_tuple((ti_varr_t *) val);
 }
 
+static inline _Bool ti_val_is_future(ti_val_t * val)
+{
+    return val->tp == TI_VAL_FUTURE;
+}
+
 static inline _Bool ti_val_has_len(ti_val_t * val)
 {
     return (

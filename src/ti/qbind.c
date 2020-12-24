@@ -318,6 +318,7 @@ typedef enum
     FN__FLAG_CHAIN      = 1<<4,
     FN__FLAG_XROOT      = 1<<5,
     FN__FLAG_AS_ON_VAR  = 1<<6, /* function result as on variable */
+    FN__FLAG_ON_FUTURE  = 1<<7, /* event and save on node .then(..) */
 } qbind__fn_flag_t;
 
 typedef struct
@@ -357,6 +358,8 @@ typedef struct
         .flags=FN__FLAG_CHAIN|FN__FLAG_EV_C|FN__FLAG_AS_ON_VAR
 #define CHAIN_CE_XVAR \
         .flags=FN__FLAG_CHAIN|FN__FLAG_EXCL_VAR|FN__FLAG_EV_C|FN__FLAG_AS_ON_VAR
+#define CHAIN_ON_FUT \
+        .flags=FN__FLAG_CHAIN|FN__FLAG_AS_ON_VAR|FN__FLAG_ON_FUTURE
 #define BOTH_CE_XROOT \
         .flags=FN__FLAG_ROOT|FN__FLAG_CHAIN|FN__FLAG_EV_C|FN__FLAG_XROOT|FN__FLAG_AS_ON_VAR
 #define XROOT_NE \

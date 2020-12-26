@@ -11,6 +11,7 @@
 #include <ti/enum.h>
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
+#include <ti/future.h>
 #include <ti/member.h>
 #include <ti/member.inline.h>
 #include <ti/names.h>
@@ -997,6 +998,7 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
     case TI_VAL_ARR:
     case TI_VAL_SET:
     case TI_VAL_CLOSURE:
+    case TI_VAL_FUTURE:
     case TI_VAL_ERROR:
         ex_set(e, EX_TYPE_ERROR,
                 "cannot convert type `%s` to `"TI_VAL_BYTES_S"`",
@@ -1032,6 +1034,7 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
     case TI_VAL_ARR:
     case TI_VAL_SET:
     case TI_VAL_CLOSURE:
+    case TI_VAL_FUTURE:
     case TI_VAL_MP:
     case TI_VAL_BYTES:
         ex_set(e, EX_TYPE_ERROR,
@@ -1124,6 +1127,7 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
     case TI_VAL_ARR:
     case TI_VAL_SET:
     case TI_VAL_CLOSURE:
+    case TI_VAL_FUTURE:
     case TI_VAL_MP:
     case TI_VAL_BYTES:
         ex_set(e, EX_TYPE_ERROR,
@@ -1220,6 +1224,7 @@ int ti_val_convert_to_array(ti_val_t ** val, ex_t * e)
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:
+    case TI_VAL_FUTURE:
         ex_set(e, EX_TYPE_ERROR,
                 "cannot convert type `%s` to `"TI_VAL_LIST_S"`",
                 ti_val_str(*val));
@@ -1254,6 +1259,7 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:
+    case TI_VAL_FUTURE:
         ex_set(e, EX_TYPE_ERROR,
                 "cannot convert type `%s` to `"TI_VAL_SET_S"`",
                 ti_val_str(*val));
@@ -1382,9 +1388,9 @@ size_t ti_val_get_len(ti_val_t * val)
         break;
     case TI_VAL_MEMBER:
         return ti_val_get_len(VMEMBER(val));
+    case TI_VAL_FUTURE:
     case TI_VAL_ERROR:
         break;
-        assert(0);
     }
     return 0;
 }
@@ -1450,6 +1456,8 @@ int ti_val_gen_ids(ti_val_t * val)
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
         break;
+    case TI_VAL_FUTURE:
+        return VFUT(val) ? ti_val_gen_ids(VFUT(val)) : 0;
     case TI_VAL_TEMPLATE:
         assert (0);
     }
@@ -1523,6 +1531,10 @@ void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz)
     case TI_VAL_MEMBER:
         ti_val_may_change_pack_sz(VMEMBER(val), sz);
         return;
+    case TI_VAL_FUTURE:
+        if (VFUT(val))
+            ti_val_may_change_pack_sz(VFUT(val), sz);
+        return;
     case TI_VAL_TEMPLATE:
         assert (0);
     }
@@ -1560,6 +1572,7 @@ const char * ti_val_str(ti_val_t * val)
     case TI_VAL_ERROR:          return TI_VAL_ERROR_S;
     case TI_VAL_MEMBER:
         return ti_member_enum_name((ti_member_t *) val);
+    case TI_VAL_FUTURE:         return TI_VAL_FUTURE_S;
     case TI_VAL_TEMPLATE:
         assert (0);
     }

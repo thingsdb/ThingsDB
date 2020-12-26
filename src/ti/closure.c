@@ -493,7 +493,7 @@ int ti_closure_call(
 {
     assert (closure);
     assert (closure->vars);
-    assert (closure->vars->n == 0 || args->n == closure->vars->n);
+    assert (closure->vars->n == 0 || args->n >= closure->vars->n);
 
     size_t idx = 0;
 

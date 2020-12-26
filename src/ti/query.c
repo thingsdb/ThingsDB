@@ -617,7 +617,9 @@ static void query__duration_log(
 
 void ti_query_handle_futures(ti_query_t * query)
 {
-    for (vec_each(query->futures, ti_future_t, future))
+    omap_iter_t iter = omap_iter(query->futures);
+
+    for (omap_each(iter, ti_future_t, future))
     {
         future->addon->cb(future);
     }
@@ -625,7 +627,75 @@ void ti_query_handle_futures(ti_query_t * query)
 
 void ti_query_on_future_result(ti_future_t * future)
 {
-    if
+    ex_t e = {0};
+    vec_t * vec = VARR(future->rval);
+    ti_query_t * query = future->query;
+
+    (void) link_rm(query->futures, future);
+
+    /* query must have a return value set */
+    assert(query->rval);
+    /* the future result must always contain an error */
+    assert(ti_val_is_array(future->rval) && vec->n);
+
+    if (query->flags & TI_QUERY_FLAG_RAISE_ERR)
+        goto done;
+
+    if (future->then)
+    {
+        ti_val_t * rval = query->rval;
+        query->rval = NULL;
+        while (vec->n < future->then->vars->n)
+        {
+            if (vec_push(&vec, ti_nil_get()))
+            {
+                ex_set_mem(&e);
+                goto fail;
+            }
+        }
+
+        (void) ti_closure_call(future->then, query, vec, &e);
+
+        ti_val_unsafe_drop(future->rval);
+        future->rval = query->rval;
+        query->rval = rval;
+
+fail:
+        if (e.nr && query->futures->n)
+        {
+            ti_val_unsafe_drop(query->rval);
+            query->flags |= TI_QUERY_FLAG_RAISE_ERR;
+            query->rval = (ti_val_t *) ti_verror_from_e(e);
+            if (!query->rval)
+                query->rval = ti_val_mem_error();
+        }
+
+        goto done;
+    }
+
+    if (ti_val_is_error(vec_first(vec)))
+    {
+        if (query->futures->n)
+        {
+            ti_val_unsafe_drop(query->rval);
+            query->flags |= TI_QUERY_FLAG_RAISE_ERR;
+            query->rval = (ti_val_t *) vec_first(vec);
+            ti_incref(query->rval);
+        }
+        else
+            ti_verror_to_e((ti_verror_t *) vec_first(vec), &e);
+    }
+
+done:
+    if (query->futures->n == 0)
+    {
+        if (query->flags & TI_QUERY_FLAG_RAISE_ERR)
+            ti_verror_to_e((ti_verror_t *) query->rval, &e);
+
+        ti_query_send_response(query, &e);
+    }
+
+    ti_future_destroy(future);
 }
 
 void ti_query_run(ti_query_t * query)

@@ -17,23 +17,15 @@ static int do__f_then(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_arg_closure("then", DOC_FUTURE_THEN, 1, query->rval, e))
         goto fail;
 
+    /* remove previous closure, if one is set */
+    ti_val_drop((ti_val_t *) future->then);
+
     future->then = (ti_closure_t *) query->rval;
-    query->rval = ti_nil_get();
+    query->rval = future;
+
+    return e->nr;
 
 fail:
     ti_val_unsafe_drop((ti_val_t *) future);
     return e->nr;
 }
-
-/*
-THINGSDB_SIRIDB = TS
-THINGSDB_MYSQL = SQL
-
-TS_SERVERS = localhost:9000,localhost:9001
-TS_DBNAME = dbtest
-TS_USERNAME = iris
-TS_PASSWORD = siri
-
-
-
-*/

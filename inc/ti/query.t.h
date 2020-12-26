@@ -29,6 +29,9 @@ enum
                                                which has not yet a cache item.
                                             */
     TI_QUERY_FLAG_DO_CACHE          =1<<4,  /* mark the query for caching */
+    TI_QUERY_FLAG_RAISE_ERR         =1<<5,  /* query->rval contains an error
+                                               from a future which must raised
+                                               once all futures are done */
 };
 
 typedef int (*ti_query_unpack_cb) (
@@ -68,7 +71,7 @@ struct ti_query_s
                                 */
     vec_t * immutable_cache;    /* ti_val_t, Only for immutable and collection
                                    independent variable. */
-    vec_t * futures;
+    link_t * futures;
     util_time_t time;           /* time query duration */
 };
 

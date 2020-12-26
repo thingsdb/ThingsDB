@@ -736,6 +736,7 @@ static int field__mod_nested_cb(ti_thing_t * thing, ti_field_t * field)
         case TI_VAL_CLOSURE:
         case TI_VAL_ERROR:
         case TI_VAL_MEMBER:
+        case TI_VAL_FUTURE:
         case TI_VAL_TEMPLATE:
             assert(0);
             return 0;
@@ -1327,6 +1328,10 @@ int ti_field_make_assignable(
         case TI_VAL_ERROR:
         case TI_VAL_MEMBER:
         case TI_VAL_TEMPLATE:
+            break;
+        case TI_VAL_FUTURE:
+            ti_val_unsafe_drop(*val);
+            *val = ti_nil_get();
             break;
         }
         return 0;

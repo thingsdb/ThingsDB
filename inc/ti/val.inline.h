@@ -256,6 +256,7 @@ static inline void ti_val_attach(
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:
     case TI_VAL_CLOSURE:
+    case TI_VAL_FUTURE:
         return;
     case TI_VAL_ARR:
         ((ti_varr_t *) val)->parent = parent;
@@ -324,6 +325,10 @@ static inline int ti_val_make_assignable(
         return 0;
     case TI_VAL_CLOSURE:
         return ti_closure_unbound((ti_closure_t * ) *val, e);
+    case TI_VAL_FUTURE:
+        ti_val_unsafe_drop(*val);
+        *val = ti_nil_get();
+        return 0;
     case TI_VAL_TEMPLATE:
         break;
     }
@@ -362,6 +367,10 @@ static inline int ti_val_make_variable(ti_val_t ** val, ex_t * e)
         return ti_closure_unbound((ti_closure_t * ) *val, e);
     case TI_VAL_TEMPLATE:
         break;
+    case TI_VAL_FUTURE:
+        ti_val_unsafe_drop(*val);
+        *val = ti_nil_get();
+        return 0;
     }
     assert(0);
     return -1;

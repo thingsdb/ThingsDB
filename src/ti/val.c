@@ -409,6 +409,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
         if (ti_val_is_thing(VMEMBER(val)))
             varr->flags |= TI_VFLAG_ARR_MHT;
         break;
+    case TI_VAL_FUTURE:
     case TI_VAL_TEMPLATE:
         assert (0);
         return e->nr;
@@ -652,6 +653,9 @@ void ti_val_destroy(ti_val_t * val)
         return;
     case TI_VAL_MEMBER:
         ti_member_destroy((ti_member_t *) val);
+        return;
+    case TI_VAL_FUTURE:
+        ti_future_destroy((ti_future_t *) val);
         return;
     case TI_VAL_TEMPLATE:
         ti_template_destroy((ti_template_t *) val);
@@ -925,6 +929,7 @@ int ti_val_convert_to_str(ti_val_t ** val, ex_t * e)
     case TI_VAL_ARR:
     case TI_VAL_SET:
     case TI_VAL_CLOSURE:
+    case TI_VAL_FUTURE:
         ex_set(e, EX_TYPE_ERROR,
                 "cannot convert type `%s` to `"TI_VAL_STR_S"`",
                 ti_val_str(*val));
@@ -1330,6 +1335,7 @@ _Bool ti_val_as_bool(ti_val_t * val)
     case TI_VAL_WRAP:
         return !!((ti_wrap_t *) val)->thing->items->n;
     case TI_VAL_CLOSURE:
+    case TI_VAL_FUTURE:
         return true;
     case TI_VAL_ERROR:
         return false;
@@ -1473,6 +1479,8 @@ int ti_val_to_pk(ti_val_t * val, msgpack_packer * pk, int options)
         return ti_vset_to_pk((ti_vset_t *) val, pk, options);
     case TI_VAL_MEMBER:
         return ti_member_to_pk((ti_member_t *) val, pk, options);
+    case TI_VAL_FUTURE:
+        return ti_future_to_pk((ti_future_t * ) val, pk, options);
     }
     assert(0);
     return -1;

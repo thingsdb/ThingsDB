@@ -19,10 +19,11 @@ struct link__s
 link_t * link_create(void);
 void link_destroy(link_t * link, link_destroy_cb cb);
 int link_insert(link_t * link, size_t idx, void * data);
-void * link_pop(link_t * link);
+void * link_rm(link_t * link, void * data);
 static inline int link_push(link_t * link, void * data);
 static inline int link_unshift(link_t * link, void * data);
 static inline void * link_shift(link_t * link);
+
 
 /* iterator functions */
 static inline link_iter_t link_iter(link_t * link);

@@ -1,4 +1,3 @@
-
 /*
  * ti/query.c
  */
@@ -695,7 +694,7 @@ done:
         ti_query_send_response(query, &e);
     }
 
-    ti_future_destroy(future);
+    ti_val_unsafe_drop((ti_val_t *) future);
 }
 
 void ti_query_run(ti_query_t * query)
@@ -1004,6 +1003,8 @@ static int query__get_things(ti_val_t * val, imap_t * imap)
     case TI_VAL_MEMBER:  /* things as a member have an id */
     case TI_VAL_TEMPLATE:
         break;
+    case TI_VAL_FUTURE:
+        return VFUT(val) ? query__get_things(VFUT(val), imap) : 0;
     }
 
     return 0;

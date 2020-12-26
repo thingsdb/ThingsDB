@@ -43,22 +43,29 @@ int link_insert(link_t * link, size_t idx, void * data)
     struct link__s * cur, * tmp;
     for (cur = (struct link__s *) link; cur->next_ && idx--; cur = cur->next_);
     tmp = link__new(data, cur->next_);
-    if (!tmp) return -1;
+    if (!tmp)
+        return -1;
     link->n++;
     cur->next_ = tmp;
 
     return 0;
 }
 
-void * link_pop(link_t * link)
+void * link_rm(link_t * link, void * data)
 {
-    if (!link->next_)
-        return NULL;
     struct link__s * cur, * prev = (struct link__s *) link;
-    while ((cur = prev->next_))
-        prev = cur->next_;
 
-    return link__pop__(link, &prev->next_);
+    while ((cur = prev->next_))
+    {
+        if (cur->data_ == data)
+        {
+            prev->next_ = cur->next_;
+            free(cur);
+            return data;
+        }
+        prev = cur->next_;
+    }
+    return NULL;
 }
 
 void * link__pop__(link_t * link, struct link__s ** link_)
@@ -109,8 +116,10 @@ int link_iter_insert(link_t * link, link_iter_t iter, void * data)
 
 static struct link__s * link__new(void * data, struct link__s * next)
 {
-    struct link__s * link = (struct link__s *) malloc(sizeof(struct link__s));
-    if (!link) return NULL;
+    struct link__s * link = malloc(sizeof(struct link__s));
+    if (!link)
+        return NULL;
+
     link->data_ = data;
     link->next_ = next;
 

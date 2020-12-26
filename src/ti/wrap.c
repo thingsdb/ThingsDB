@@ -126,6 +126,15 @@ static int wrap__field_val(
                 VMEMBER(val),
                 pk,
                 options);
+    case TI_VAL_FUTURE:
+        return VFUT(val)
+                ? wrap__field_val(
+                        t_field,
+                        spec,
+                        VFUT(val),
+                        pk,
+                        options)
+                : msgpack_pack_nil(pk);
     }
 
     assert(0);

@@ -937,7 +937,7 @@ int ti_val_convert_to_str(ti_val_t ** val, ex_t * e)
             return -1;
         break;
     case TI_VAL_MEMBER:
-        v = VMEMBER(val);
+        v = VMEMBER(*val);
         ti_incref(v);
         if (ti_val_convert_to_str(&v, e))
         {
@@ -998,7 +998,7 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
                 ti_val_str(*val));
         return e->nr;
     case TI_VAL_MEMBER:
-        v = VMEMBER(val);
+        v = VMEMBER(*val);
         ti_incref(v);
         if (ti_val_convert_to_bytes(&v, e))
         {

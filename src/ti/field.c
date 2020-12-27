@@ -1331,7 +1331,7 @@ int ti_field_make_assignable(
             break;
         case TI_VAL_FUTURE:
             ti_val_unsafe_drop(*val);
-            *val = ti_nil_get();
+            *val = (ti_val_t *) ti_nil_get();
             break;
         }
         return 0;

@@ -12,6 +12,7 @@
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
 #include <ti/future.h>
+#include <ti/future.inline.h>
 #include <ti/member.h>
 #include <ti/member.inline.h>
 #include <ti/names.h>
@@ -56,6 +57,7 @@ static ti_val_t * val__sinfo;
 static ti_val_t * val__sregex;
 static ti_val_t * val__serror;
 static ti_val_t * val__sclosure;
+static ti_val_t * val__sfuture;
 static ti_val_t * val__slist;
 static ti_val_t * val__stuple;
 static ti_val_t * val__sset;
@@ -545,6 +547,7 @@ int ti_val_init_common(void)
     val__sregex = (ti_val_t *) ti_str_from_str(TI_VAL_REGEX_S);
     val__serror = (ti_val_t *) ti_str_from_str(TI_VAL_ERROR_S);
     val__sclosure = (ti_val_t *) ti_str_from_str(TI_VAL_CLOSURE_S);
+    val__sfuture = (ti_val_t *) ti_str_from_str(TI_VAL_FUTURE_S);
     val__slist = (ti_val_t *) ti_str_from_str(TI_VAL_LIST_S);
     val__stuple = (ti_val_t *) ti_str_from_str(TI_VAL_TUPLE_S);
     val__sset = (ti_val_t *) ti_str_from_str(TI_VAL_SET_S);
@@ -576,9 +579,8 @@ int ti_val_init_common(void)
         !val__swthing || !val__tar_gz_str || !val__sany || !val__gs_str ||
         !val__charset_str || !val__year_name || !val__month_name ||
         !val__day_name || !val__hour_name || !val__minute_name ||
-        !val__second_name || !val__gmt_offset_name)
+        !val__second_name || !val__gmt_offset_name || !val__sfuture)
     {
-        ti_val_drop_common();
         return -1;
     }
     return 0;
@@ -603,6 +605,7 @@ void ti_val_drop_common(void)
     ti_val_drop(val__sregex);
     ti_val_drop(val__serror);
     ti_val_drop(val__sclosure);
+    ti_val_drop(val__sfuture);
     ti_val_drop(val__slist);
     ti_val_drop(val__stuple);
     ti_val_drop(val__sset);
@@ -1612,6 +1615,7 @@ ti_val_t * ti_val_strv(ti_val_t * val)
     case TI_VAL_ERROR:          return ti_grab(val__serror);
     case TI_VAL_MEMBER:
         return (ti_val_t *) ti_member_enum_get_rname((ti_member_t *) val);
+    case TI_VAL_FUTURE:         return ti_grab(val__sfuture);
     case TI_VAL_TEMPLATE:
         assert (0);
     }

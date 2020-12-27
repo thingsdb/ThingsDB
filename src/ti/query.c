@@ -17,6 +17,7 @@
 #include <ti/epkg.h>
 #include <ti/epkg.inline.h>
 #include <ti/event.h>
+#include <ti/future.h>
 #include <ti/gc.h>
 #include <ti/names.h>
 #include <ti/nil.h>
@@ -28,6 +29,7 @@
 #include <ti/task.h>
 #include <ti/val.inline.h>
 #include <ti/varr.h>
+#include <ti/verror.h>
 #include <ti/vset.h>
 #include <ti/wrap.h>
 #include <util/strx.h>
@@ -251,6 +253,7 @@ void ti_query_destroy(ti_query_t * query)
     ti_user_drop(query->user);
     ti_event_drop(query->ev);
     ti_val_drop(query->rval);
+    link_clear(&query->futures, (link_destroy_cb) ti_val_unsafe_drop);
 
     if (query->vars)
     {
@@ -614,17 +617,15 @@ static void query__duration_log(
             query->querystr);
 }
 
-void ti_query_handle_futures(ti_query_t * query)
+static void query__run_futures(ti_query_t * query)
 {
-    omap_iter_t iter = omap_iter(query->futures);
+    link_iter_t iter = link_iter(query->futures);
 
-    for (omap_each(iter, ti_future_t, future))
-    {
-        future->addon->cb(future);
-    }
+    for (link_each(iter, ti_future_t, future))
+        future->ext->cb(future);
 }
 
-void ti_query_on_future_result(ti_future_t * future)
+void ti_query_on_future_result(ti_future_t * future, ex_enum res)
 {
     ex_t e = {0};
     vec_t * vec = VARR(future->rval);
@@ -634,11 +635,22 @@ void ti_query_on_future_result(ti_future_t * future)
 
     /* query must have a return value set */
     assert(query->rval);
-    /* the future result must always contain an error */
-    assert(ti_val_is_array(future->rval) && vec->n);
 
     if (query->flags & TI_QUERY_FLAG_RAISE_ERR)
         goto done;
+
+    if (res)
+    {
+        /* Must be an internal error */
+        assert (res > -50 && res < 0);
+        ti_val_unsafe_drop(query->rval);
+        query->flags |= TI_QUERY_FLAG_RAISE_ERR;
+        query->rval = (ti_val_t *) ti_verror_from_code(res);
+        goto done;
+    }
+
+    /* the future result must always contain an array */
+    assert(ti_val_is_array(future->rval) && vec->n);
 
     if (future->then)
     {
@@ -664,9 +676,9 @@ fail:
         {
             ti_val_unsafe_drop(query->rval);
             query->flags |= TI_QUERY_FLAG_RAISE_ERR;
-            query->rval = (ti_val_t *) ti_verror_from_e(e);
+            query->rval = (ti_val_t *) ti_verror_from_e(&e);
             if (!query->rval)
-                query->rval = ti_val_mem_error();
+                query->rval = (ti_val_t *) ti_verror_from_code(EX_MEMORY);
         }
 
         goto done;
@@ -754,7 +766,7 @@ stop:
         query__event_handle(query);  /* errors will be logged only */
 
     if (query->futures && query->futures->n && e.nr == 0)
-        ti_query_handle_futures(query);
+        query__run_futures(query);
     else
         ti_query_send_response(query, &e);
 }

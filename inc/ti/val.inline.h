@@ -10,6 +10,7 @@
 #include <ti/datetime.h>
 #include <ti/datetime.h>
 #include <ti/name.h>
+#include <ti/nil.h>
 #include <ti/thing.h>
 #include <ti/thing.inline.h>
 #include <ti/val.h>
@@ -327,7 +328,7 @@ static inline int ti_val_make_assignable(
         return ti_closure_unbound((ti_closure_t * ) *val, e);
     case TI_VAL_FUTURE:
         ti_val_unsafe_drop(*val);
-        *val = ti_nil_get();
+        *val = (ti_val_t *) ti_nil_get();
         return 0;
     case TI_VAL_TEMPLATE:
         break;
@@ -369,7 +370,7 @@ static inline int ti_val_make_variable(ti_val_t ** val, ex_t * e)
         break;
     case TI_VAL_FUTURE:
         ti_val_unsafe_drop(*val);
-        *val = ti_nil_get();
+        *val = (ti_val_t *) ti_nil_get();
         return 0;
     }
     assert(0);

@@ -17,6 +17,7 @@ typedef int (*ti_query_vars_walk_cb)(void * data, void * arg);
 #include <ti/user.t.h>
 #include <ti/val.t.h>
 #include <util/util.h>
+#include <util/link.h>
 
 enum
 {
@@ -71,7 +72,7 @@ struct ti_query_s
                                 */
     vec_t * immutable_cache;    /* ti_val_t, Only for immutable and collection
                                    independent variable. */
-    link_t * futures;
+    link_t futures;             /* place to store futures */
     util_time_t time;           /* time query duration */
 };
 

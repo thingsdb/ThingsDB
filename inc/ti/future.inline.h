@@ -20,7 +20,7 @@ static inline int ti_future_to_pk(
             : msgpack_pack_nil(pk);
 }
 
-static inline int ti_future_regiter(ti_future_t * future)
+static inline int ti_future_register(ti_future_t * future)
 {
     int rc = link_insert(&future->query->futures, future);
     if (!rc)

@@ -25,7 +25,7 @@ struct ti_future_s
     ti_closure_t * then;    /* optional closure, then */
     ti_val_t * rval;        /* resolved value or NULL */
     vec_t * args;
-    ti_ext_t * ext;
+    ti_ext_cb ext_cb;
 };
 
 #endif  /* TI_FUTURE_T_H_ */

@@ -619,10 +619,10 @@ static void query__duration_log(
 
 static void query__run_futures(ti_query_t * query)
 {
-    link_iter_t iter = link_iter(query->futures);
+    link_iter_t iter = link_iter(&query->futures);
 
     for (link_each(iter, ti_future_t, future))
-        future->ext->cb(future);
+        future->ext_cb(future);
 }
 
 void ti_query_on_future_result(ti_future_t * future, ex_enum res)
@@ -631,7 +631,7 @@ void ti_query_on_future_result(ti_future_t * future, ex_enum res)
     vec_t * vec = VARR(future->rval);
     ti_query_t * query = future->query;
 
-    (void) link_rm(query->futures, future);
+    (void) link_rm(&query->futures, future);
 
     /* query must have a return value set */
     assert(query->rval);
@@ -672,7 +672,7 @@ void ti_query_on_future_result(ti_future_t * future, ex_enum res)
         query->rval = rval;
 
 fail:
-        if (e.nr && query->futures->n)
+        if (e.nr && query->futures.n)
         {
             ti_val_unsafe_drop(query->rval);
             query->flags |= TI_QUERY_FLAG_RAISE_ERR;
@@ -686,7 +686,7 @@ fail:
 
     if (ti_val_is_error(vec_first(vec)))
     {
-        if (query->futures->n)
+        if (query->futures.n)
         {
             ti_val_unsafe_drop(query->rval);
             query->flags |= TI_QUERY_FLAG_RAISE_ERR;
@@ -698,7 +698,7 @@ fail:
     }
 
 done:
-    if (query->futures->n == 0)
+    if (query->futures.n == 0)
     {
         if (query->flags & TI_QUERY_FLAG_RAISE_ERR)
             ti_verror_to_e((ti_verror_t *) query->rval, &e);
@@ -765,7 +765,7 @@ stop:
     if (query->ev)
         query__event_handle(query);  /* errors will be logged only */
 
-    if (query->futures && query->futures->n && e.nr == 0)
+    if (query->futures.n && e.nr == 0)
         query__run_futures(query);
     else
         ti_query_send_response(query, &e);

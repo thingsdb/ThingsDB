@@ -24,7 +24,11 @@
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
 #include <ti/export.h>
+#include <ti/ext.h>
+#include <ti/ext/async.h>
 #include <ti/field.h>
+#include <ti/future.h>
+#include <ti/future.inline.h>
 #include <ti/gc.h>
 #include <ti/member.h>
 #include <ti/member.inline.h>

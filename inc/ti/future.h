@@ -11,7 +11,7 @@
 
 ti_future_t * ti_future_create(
         ti_query_t * query,
-        ti_ext_t * ext,
+        ti_ext_cb ext_cb,
         size_t nargs);
 void ti_future_destroy(ti_future_t * future);
 

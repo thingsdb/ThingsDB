@@ -59,6 +59,7 @@
 #include <ti/fn/fnfindindex.h>
 #include <ti/fn/fnfloat.h>
 #include <ti/fn/fnformat.h>
+#include <ti/fn/fnfuture.h>
 #include <ti/fn/fnget.h>
 #include <ti/fn/fngrant.h>
 #include <ti/fn/fnhas.h>
@@ -157,6 +158,7 @@
 #include <ti/fn/fnstartswith.h>
 #include <ti/fn/fnstr.h>
 #include <ti/fn/fntest.h>
+#include <ti/fn/fnthen.h>
 #include <ti/fn/fnthing.h>
 #include <ti/fn/fntimezonesinfo.h>
 #include <ti/fn/fnto.h>
@@ -209,7 +211,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 188,
+    TOTAL_KEYWORDS = 190,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 14,
@@ -318,7 +320,8 @@ typedef enum
     FN__FLAG_CHAIN      = 1<<4,
     FN__FLAG_XROOT      = 1<<5,
     FN__FLAG_AS_ON_VAR  = 1<<6, /* function result as on variable */
-    FN__FLAG_ON_FUTURE  = 1<<7, /* event and save on node .then(..) */
+    FN__FLAG_THEN       = 1<<7, /* must check for closure and do not set event
+                                   by itself */
 } qbind__fn_flag_t;
 
 typedef struct
@@ -358,8 +361,8 @@ typedef struct
         .flags=FN__FLAG_CHAIN|FN__FLAG_EV_C|FN__FLAG_AS_ON_VAR
 #define CHAIN_CE_XVAR \
         .flags=FN__FLAG_CHAIN|FN__FLAG_EXCL_VAR|FN__FLAG_EV_C|FN__FLAG_AS_ON_VAR
-#define CHAIN_ON_FUT \
-        .flags=FN__FLAG_CHAIN|FN__FLAG_AS_ON_VAR|FN__FLAG_ON_FUTURE
+#define CHAIN_THEN \
+        .flags=FN__FLAG_CHAIN|FN__FLAG_AS_ON_VAR|FN__FLAG_THEN
 #define BOTH_CE_XROOT \
         .flags=FN__FLAG_ROOT|FN__FLAG_CHAIN|FN__FLAG_EV_C|FN__FLAG_XROOT|FN__FLAG_AS_ON_VAR
 #define XROOT_NE \
@@ -432,6 +435,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="float",             .fn=do__f_float,                ROOT_NE},
     {.name="forbidden_err",     .fn=do__f_forbidden_err,        ROOT_NE},
     {.name="format",            .fn=do__f_format,               CHAIN_NE},
+    {.name="future",            .fn=do__f_future,               ROOT_NE},
     {.name="get",               .fn=do__f_get,                  XCHAIN_NE},
     {.name="grant",             .fn=do__f_grant,                ROOT_TE},
     {.name="has_backup",        .fn=do__f_has_backup,           ROOT_NE},
@@ -537,9 +541,10 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="str",               .fn=do__f_str,                  ROOT_NE},
     {.name="syntax_err",        .fn=do__f_syntax_err,           ROOT_NE},
     {.name="test",              .fn=do__f_test,                 CHAIN_NE},
+    {.name="then",              .fn=do__f_then,                 CHAIN_THEN},
     {.name="thing",             .fn=do__f_thing,                ROOT_NE},
-    {.name="timeval",           .fn=do__f_timeval,              ROOT_NE},
     {.name="time_zones_info",   .fn=do__f_time_zones_info,      ROOT_NE},
+    {.name="timeval",           .fn=do__f_timeval,              ROOT_NE},
     {.name="to",                .fn=do__f_to,                   CHAIN_NE},
     {.name="trim_left",         .fn=do__f_trim_left,            CHAIN_NE},
     {.name="trim_right",        .fn=do__f_trim_right,           CHAIN_NE},
@@ -668,6 +673,13 @@ static _Bool qbind__operations(
     return gid > parent_gid;
 }
 
+static inline _Bool qbind__peek_statement_is_closure(cleri_node_t * nd)
+{
+    return (nd = nd->children->node)->cl_obj->gid == CLERI_GID_EXPRESSION
+        ? nd->children->next->node->cl_obj->gid == CLERI_GID_T_CLOSURE
+        : false;
+}
+
 static void qbind__function(
         ti_qbind_t * q,
         cleri_node_t * nd,
@@ -705,8 +717,21 @@ static void qbind__function(
     /* list (arguments) */
     nd = nd->children->next->node->children->next->node;
 
-    /* investigate arguments */
-    for(child = nd->children;
+    if (fmflags & FN__FLAG_THEN)
+    {
+        child = nd->children;
+        if  (child)
+        {
+            if (!qbind__peek_statement_is_closure(child->node))
+                qbind__statement(q, child->node);  /* statement */
+
+            nargs = 1;
+            child = child->next ? child->next->next : NULL;
+        }
+        for(; child; child = child->next ? child->next->next : NULL, ++nargs);
+    }
+    /* for all other, investigate arguments */
+    else for(child = nd->children;
         child;
         child = child->next ? child->next->next : NULL, ++nargs)
     {

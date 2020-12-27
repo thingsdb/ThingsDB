@@ -21,19 +21,25 @@ typedef int (*ti_query_vars_walk_cb)(void * data, void * arg);
 
 enum
 {
-    TI_QUERY_FLAG_AS_PROCEDURE      =1<<0,
-    TI_QUERY_FLAG_WSE               =1<<1,
-    TI_QUERY_FLAG_API               =1<<2,
-    TI_QUERY_FLAG_CACHE             =1<<3,  /* Queries which are handled by the
+    TI_QUERY_FLAG_WSE               =1<<3,
+    TI_QUERY_FLAG_API               =1<<4,
+    TI_QUERY_FLAG_CACHE             =1<<5,  /* Queries which are handled by the
                                                query change will have this
                                                flags. Also the first query,
                                                which has not yet a cache item.
                                             */
-    TI_QUERY_FLAG_DO_CACHE          =1<<4,  /* mark the query for caching */
-    TI_QUERY_FLAG_RAISE_ERR         =1<<5,  /* query->rval contains an error
+    TI_QUERY_FLAG_DO_CACHE          =1<<6,  /* mark the query for caching */
+    TI_QUERY_FLAG_RAISE_ERR         =1<<7,  /* query->rval contains an error
                                                from a future which must raised
                                                once all futures are done */
 };
+
+typedef enum
+{
+    TI_QUERY_WITH_PARSERES,
+    TI_QUERY_WITH_PROCEDURE,
+    TI_QUERY_WITH_FUTURE,
+} ti_query_with_t;
 
 typedef int (*ti_query_unpack_cb) (
         ti_query_t *,
@@ -48,21 +54,26 @@ typedef union
     ti_api_request_t * api_request;     /* with ownership of the api_request */
 } ti_query_via_t;
 
+typedef union
+{
+    cleri_parse_t * parseres;   /* parse result */
+    ti_closure_t * closure;     /* when called as procedure */
+    ti_future_t * future;       /* when called as future->then */
+} ti_query_with_t;
+
+
 struct ti_query_s
 {
     uint32_t local_stack;       /* variable scopes start here */
     uint16_t pkg_id;            /* package id to return the query to */
+    uint8_t with_tp;
     uint8_t flags;
-    uint8_t pad0;
     ti_qbind_t qbind;               /* query binding */
     ti_val_t * rval;                /* return value of a statement */
     ti_collection_t * collection;   /* with reference, NULL when the scope is
                                      * @node or @thingsdb
                                      */
-    char * querystr;            /* 0 terminated query string */
-
-    cleri_parse_t * parseres;   /* parse result */
-    ti_closure_t * closure;     /* when called as procedure */
+    ti_query_with_t with;
     ti_query_via_t via;         /* with reference */
     ti_user_t * user;           /* with reference, required in case stream
                                    is a node stream */

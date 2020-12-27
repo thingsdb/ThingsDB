@@ -16,7 +16,6 @@
 #include <ti/vup.t.h>
 
 ti_query_t * ti_query_create(uint8_t flags);
-ti_query_t * ti_query_create_strn(const char * str, size_t n, uint8_t flags);
 void ti_query_init(
         ti_query_t * query,
         void * via,

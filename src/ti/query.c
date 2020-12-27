@@ -209,22 +209,6 @@ ti_query_t * ti_query_create(uint8_t flags)
     return query;
 }
 
-ti_query_t * ti_query_create_strn(const char * str, size_t n, uint8_t flags)
-{
-    ti_query_t * query = ti_query_create(flags);
-    if (!query)
-        return NULL;
-
-    query->querystr = strndup(str, n);
-    if (!query)
-    {
-        ti_query_destroy(query);
-        return NULL;
-    }
-
-    return query;
-}
-
 void ti_query_init(ti_query_t * query, void * via, ti_user_t * user)
 {
     if (query->flags & TI_QUERY_FLAG_API)
@@ -239,9 +223,6 @@ void ti_query_destroy(ti_query_t * query)
 {
     if (!query)
         return;
-
-    if (query->parseres)
-        cleri_parse_free(query->parseres);
 
     vec_destroy(query->immutable_cache, (vec_destroy_cb) ti_val_unsafe_drop);
 
@@ -262,7 +243,23 @@ void ti_query_destroy(ti_query_t * query)
         free(query->vars);
     }
 
-    ti_val_drop((ti_val_t *) query->closure);
+    switch((ti_query_with_t) query->with_tp)
+    {
+    case TI_QUERY_WITH_PARSERES:
+        if (query->with.parseres)
+        {
+            free(query->with.parseres->str);
+            cleri_parse_free(query->with.parseres);
+        }
+
+        break;
+    case TI_QUERY_WITH_PROCEDURE:
+        ti_val_unsafe_drop((ti_val_t *) query->with.closure);
+        break;
+    case TI_QUERY_WITH_FUTURE:
+        ti_val_unsafe_drop((ti_val_t *) query->with.future);
+        break;
+    }
 
     ti_collection_drop(query->collection);
 
@@ -271,8 +268,6 @@ void ti_query_destroy(ti_query_t * query)
      * the value might already be destroyed.
      */
     ti_thing_clean_gc();
-
-    free(query->querystr);
     free(query);
 }
 
@@ -447,7 +442,7 @@ int ti_query_unp_run(
     assert (e->nr == 0);
     assert (query->immutable_cache == NULL);
 
-    query->flags |= TI_QUERY_FLAG_AS_PROCEDURE;
+    query->with_tp = TI_QUERY_WITH_PROCEDURE;
     query->pkg_id = pkg_id;
 
     mp_next(&up, &obj);     /* array with at least size 1 */
@@ -499,8 +494,10 @@ int ti_query_unp_run(
     if (procedure->closure->flags & TI_VFLAG_CLOSURE_WSE)
         query->qbind.flags |= TI_QBIND_FLAG_EVENT;
 
-    query->closure = procedure->closure;
-    ti_incref(query->closure);
+    query->with.closure = procedure->closure;
+    ti_incref(query->with.closure);
+
+query->with.parseres->
 
     query->immutable_cache = vec_new(procedure->closure->vars->n);
     if (!query->immutable_cache)
@@ -531,8 +528,8 @@ static inline int ti_query_investigate(ti_query_t * query, ex_t * e)
     cleri_children_t * seqchildren;
     assert (e->nr == 0);
 
-    seqchildren = query->parseres->tree /* root */
-            ->children->node            /* sequence <comment, list> */
+    seqchildren = query->with.parseres->tree    /* root */
+            ->children->node                    /* sequence <comment, list> */
             ->children;
 
     /* list statements */
@@ -548,33 +545,43 @@ static inline int ti_query_investigate(ti_query_t * query, ex_t * e)
     return e->nr;
 }
 
-int ti_query_parse(ti_query_t * query, ex_t * e)
+int ti_query_parse(ti_query_t * query, const char * str, size_t n, ex_t * e)
 {
+    char * querystr;
     assert (e->nr == 0);
-    if (query->parseres)
+    if (query->with.parseres)
         return e->nr;  /* already parsed and investigated */
 
-    query->parseres = cleri_parse2(
+    querystr = strnduu(str, n);
+    if (!querystr)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    query->with.parseres = cleri_parse2(
             ti.langdef,
-            query->querystr,
+            querystr,
             TI_CLERI_PARSE_FLAGS);
 
-    if (!query->parseres)
+    if (!query->with.parseres)
     {
+        free(querystr);
         ex_set(e, EX_OPERATION_ERROR,
                 "query has reached the maximum recursion depth of %d",
                 MAX_RECURSION_DEPTH);
         return e->nr;
     }
 
-    if (!query->parseres->is_valid)
+    if (!query->with.parseres->is_valid)
     {
         int i;
-        cleri_parse_free(query->parseres);
+        cleri_parse_free(query->with.parseres);
 
-        query->parseres = cleri_parse2(ti.langdef, query->querystr, 0);
-        if (!query->parseres)
+        query->with.parseres = cleri_parse2(ti.langdef, querystr, 0);
+        if (!query->with.parseres)
         {
+            free(querystr);
             ex_set_mem(e);
             return e->nr;
         }
@@ -582,14 +589,14 @@ int ti_query_parse(ti_query_t * query, ex_t * e)
         i = cleri_parse_strn(
                 e->msg,
                 EX_MAX_SZ,
-                query->parseres,
+                query->with.parseres,
                 &langdef_translate);
 
         assert_log(i<EX_MAX_SZ, "expecting >= max size %d>=%d", i, EX_MAX_SZ);
 
         e->msg[EX_MAX_SZ] = '\0';
 
-        log_warning("invalid syntax: `%s` (%s)", query->querystr, e->msg);
+        log_warning("invalid syntax: `%s` (%s)", querystr, e->msg);
 
         /* we will certainly will not hit the max size, but just to be safe */
         e->n = i < EX_MAX_SZ ? i : EX_MAX_SZ - 1;
@@ -605,16 +612,24 @@ static void query__duration_log(
         double duration,
         int log_level)
 {
-    if (query->flags & TI_QUERY_FLAG_AS_PROCEDURE)
+    switch ((ti_query_with_t) query->with_tp)
     {
-        log_with_level(log_level, "procedure took %f seconds to process: `%s`",
-                duration,
-                query->closure->node->str);
-        return;
-    }
-    log_with_level(log_level, "query took %f seconds to process: `%s`",
+    case TI_QUERY_WITH_PARSERES:
+        log_with_level(log_level, "query took %f seconds to process: `%s`",
             duration,
             query->querystr);
+        return;
+    case TI_QUERY_WITH_PROCEDURE:
+        log_with_level(log_level, "procedure took %f seconds to process: `%s`",
+                duration,
+                query->with.closure->node->str);
+        return;
+    case TI_QUERY_WITH_FUTURE:
+        log_with_level(log_level, "future->then took %f seconds to process: `%s`",
+                duration,
+                query->with.future->then->node->str);
+        return;
+    }
 }
 
 static void query__run_futures(ti_query_t * query)
@@ -649,11 +664,16 @@ void ti_query_on_future_result(ti_future_t * future, ex_enum res)
         goto done;
     }
 
-    /* the future result must always contain an array */
-    assert(ti_val_is_array(future->rval) && vec->n);
-
     if (future->then)
     {
+        /* TODO: event ?
+         *
+         */
+
+        if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, &e) ||
+            ti_events_create_new_event(query, &e))
+            goto finish;
+
         ti_val_t * rval = query->rval;
         query->rval = NULL;
         while (vec->n < future->then->vars->n)
@@ -709,6 +729,140 @@ done:
     ti_val_unsafe_drop((ti_val_t *) future);
 }
 
+static inline int query__pack_response(
+        ti_query_t * query,
+        msgpack_sbuffer * buffer,
+        ex_t * e)
+{
+    msgpack_packer pk;
+    msgpack_packer_init(&pk, buffer, msgpack_sbuffer_write);
+
+    if (ti_val_to_pk(query->rval, &pk, (int) query->qbind.deep))
+    {
+        if (buffer->size > ti.cfg->result_size_limit)
+            ex_set(e, EX_RESULT_TOO_LARGE,
+                    "too much data to return; "
+                    "try to use a lower `deep` value and/or `wrap` things to "
+                    "reduce the data size"DOC_THING_WRAP);
+        else
+            ex_set_mem(e);
+
+        msgpack_sbuffer_destroy(buffer);
+        return e->nr;
+    }
+
+    if (buffer->size > ti.counters->largest_result_size)
+        ti.counters->largest_result_size = buffer->size;
+
+    return 0;
+}
+
+void ti_query_run_parseres(ti_query_t * query)
+{
+    cleri_children_t * child, * seqchild;
+    ex_t e = {0};
+
+    clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
+
+#ifndef NDEBUG
+    log_debug("[DEBUG] run query: %s", query->querystr);
+#endif
+
+    seqchild = query->with.parseres->tree   /* root */
+        ->children->node                    /* sequence <comment, list, [deep]> */
+        ->children->next;                   /* list */
+
+    child = seqchild->node->children;   /* first child or NULL */
+
+    if (!child)
+    {
+        query->rval = (ti_val_t *) ti_nil_get();
+        goto stop;
+    }
+
+    while (1)
+    {
+        assert (child->node->cl_obj->gid == CLERI_GID_STATEMENT);
+
+        if (ti_do_statement(query, child->node, &e))
+            break;
+
+        if (!child->next || !(child = child->next->next))
+            break;
+
+        ti_val_unsafe_drop(query->rval);
+        query->rval = NULL;
+    }
+
+    if (e.nr == EX_RETURN)
+        e.nr = 0;
+
+stop:
+    if (query->ev)
+        query__event_handle(query);  /* errors will be logged only */
+
+    if (query->futures.n && e.nr == 0)
+        query__run_futures(query);
+    else
+        ti_query_send_response(query, &e);
+}
+
+void ti_query_run_procedure(ti_query_t * query)
+{
+    cleri_children_t * child, * seqchild;
+    ex_t e = {0};
+
+    clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
+
+    if (query->with.closure->flags & TI_VFLAG_CLOSURE_WSE)
+    {
+        assert (query->ev);
+        query->flags |= TI_QUERY_FLAG_WSE;
+    }
+    /* this can never set `e->nr` to EX_RETURN */
+    (void) ti_closure_call(
+            query->with.closure,
+            query,
+            query->immutable_cache,
+            &e);
+
+    if (query->ev)
+        query__event_handle(query);  /* errors will be logged only */
+
+    if (query->futures.n && e.nr == 0)
+        query__run_futures(query);
+    else
+        ti_query_send_response(query, &e);
+}
+
+void ti_query_run_future(ti_query_t * query)
+{
+    cleri_children_t * child, * seqchild;
+    ex_t e = {0};
+
+    clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
+
+    if (query->with.closure->flags & TI_VFLAG_CLOSURE_WSE)
+    {
+        assert (query->ev);
+        query->flags |= TI_QUERY_FLAG_WSE;
+    }
+    /* this can never set `e->nr` to EX_RETURN */
+    (void) ti_closure_call(
+            query->with.closure,
+            query,
+            query->immutable_cache,
+            &e);
+
+    if (query->ev)
+        query__event_handle(query);  /* errors will be logged only */
+
+    if (query->futures.n && e.nr == 0)
+        query__run_futures(query);
+    else
+        ti_query_send_response(query, &e);
+}
+
 void ti_query_run(ti_query_t * query)
 {
     cleri_children_t * child, * seqchild;
@@ -716,7 +870,7 @@ void ti_query_run(ti_query_t * query)
 
     clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
 
-    if (query->flags & TI_QUERY_FLAG_AS_PROCEDURE)
+    if (query->with_tp == TI_QUERY_WITH_PROCEDURE)
     {
         if (query->closure->flags & TI_VFLAG_CLOSURE_WSE)
         {
@@ -732,9 +886,9 @@ void ti_query_run(ti_query_t * query)
     log_debug("[DEBUG] run query: %s", query->querystr);
 #endif
 
-    seqchild = query->parseres->tree    /* root */
-        ->children->node                /* sequence <comment, list, [deep]> */
-        ->children->next;               /* list */
+    seqchild = query->with.parseres->tree   /* root */
+        ->children->node                    /* sequence <comment, list, [deep]> */
+        ->children->next;                   /* list */
 
     child = seqchild->node->children;   /* first child or NULL */
 
@@ -879,10 +1033,9 @@ void ti_query_send_response(ti_query_t * query, ex_t * e)
 
     if (cb(query, e))
     {
+        switch((ti_query_with_t) )
         log_debug("query failed: `%s`, %s: `%s`",
-                query->flags & TI_QUERY_FLAG_AS_PROCEDURE
-                ? query->closure->node->str
-                : query->querystr,
+                query->querystr,
                 ex_str(e->nr),
                 e->msg);
 

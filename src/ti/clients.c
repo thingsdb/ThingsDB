@@ -268,7 +268,7 @@ query:
 
     query = ti_scope_is_collection(&scope)
         ? ti_qcache_get_query(mp_query.via.str.data, mp_query.via.str.n, 0)
-        : ti_query_create_strn(mp_query.via.str.data, mp_query.via.str.n, 0);
+        : ti_query_create(0);
 
     if (!query)
     {
@@ -287,7 +287,7 @@ query:
     assert (access_);
 
     if (ti_access_check_err(access_, query->user, TI_AUTH_READ, &e) ||
-        ti_query_parse(query, &e))
+        ti_query_parse(query, mp_query.via.str.data, mp_query.via.str.n, &e))
         goto finish;
 
     if (ti_query_will_update(query))

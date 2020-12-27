@@ -51,7 +51,7 @@ static ti_query_t * qcache__from_cache(qcache__item_t * item, uint8_t flags)
      */
     item->query->flags |= TI_QUERY_FLAG_CACHE;
 
-    query->parseres = item->query->parseres;
+    query->with.parseres = item->query->with.parseres;
     query->querystr = item->query->querystr;
     query->qbind = item->query->qbind;
     query->immutable_cache = item->query->immutable_cache;
@@ -97,6 +97,7 @@ ti_query_t * ti_qcache_get_query(const char * str, size_t n, uint8_t flags)
 
 void ti_qcache_return(ti_query_t * query)
 {
+    assert (query->with_tp == TI_QUERY_WITH_PARSERES);
     if (query->flags & TI_QUERY_FLAG_API)
         ti_api_release(query->via.api_request);
     else
@@ -110,7 +111,6 @@ void ti_qcache_return(ti_query_t * query)
         ti_prop_destroy(VEC_pop(query->vars));
     free(query->vars);
 
-    assert (query->closure == NULL);
     ti_collection_drop(query->collection);
 
     /*

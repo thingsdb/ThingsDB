@@ -7,8 +7,11 @@
 #include <langdef/nd.h>
 #include <langdef/translate.h>
 #include <stdlib.h>
+#include <string.h>
 #include <ti.h>
+#include <ti/access.h>
 #include <ti/api.h>
+#include <ti/auth.h>
 #include <ti/closure.h>
 #include <ti/collection.inline.h>
 #include <ti/collections.h>
@@ -18,6 +21,7 @@
 #include <ti/epkg.inline.h>
 #include <ti/event.h>
 #include <ti/future.h>
+#include <ti/future.inline.h>
 #include <ti/gc.h>
 #include <ti/names.h>
 #include <ti/nil.h>
@@ -209,16 +213,6 @@ ti_query_t * ti_query_create(uint8_t flags)
     return query;
 }
 
-void ti_query_init(ti_query_t * query, void * via, ti_user_t * user)
-{
-    if (query->flags & TI_QUERY_FLAG_API)
-        query->via.api_request = ti_api_acquire((ti_api_request_t *) via);
-    else
-        query->via.stream = ti_grab((ti_stream_t *) via);
-
-    query->user = ti_grab(user);
-}
-
 void ti_query_destroy(ti_query_t * query)
 {
     if (!query)
@@ -243,12 +237,12 @@ void ti_query_destroy(ti_query_t * query)
         free(query->vars);
     }
 
-    switch((ti_query_with_t) query->with_tp)
+    switch((ti_query_with_enum) query->with_tp)
     {
     case TI_QUERY_WITH_PARSERES:
         if (query->with.parseres)
         {
-            free(query->with.parseres->str);
+            free((void *) query->with.parseres->str);
             cleri_parse_free(query->with.parseres);
         }
 
@@ -492,12 +486,13 @@ int ti_query_unp_run(
     }
 
     if (procedure->closure->flags & TI_VFLAG_CLOSURE_WSE)
+    {
         query->qbind.flags |= TI_QBIND_FLAG_EVENT;
+        query->flags |= TI_QUERY_FLAG_WSE;
+    }
 
     query->with.closure = procedure->closure;
     ti_incref(query->with.closure);
-
-query->with.parseres->
 
     query->immutable_cache = vec_new(procedure->closure->vars->n);
     if (!query->immutable_cache)
@@ -552,7 +547,7 @@ int ti_query_parse(ti_query_t * query, const char * str, size_t n, ex_t * e)
     if (query->with.parseres)
         return e->nr;  /* already parsed and investigated */
 
-    querystr = strnduu(str, n);
+    querystr = strndup(str, n);
     if (!querystr)
     {
         ex_set_mem(e);
@@ -612,12 +607,12 @@ static void query__duration_log(
         double duration,
         int log_level)
 {
-    switch ((ti_query_with_t) query->with_tp)
+    switch ((ti_query_with_enum) query->with_tp)
     {
     case TI_QUERY_WITH_PARSERES:
         log_with_level(log_level, "query took %f seconds to process: `%s`",
             duration,
-            query->querystr);
+            query->with.parseres->str);
         return;
     case TI_QUERY_WITH_PROCEDURE:
         log_with_level(log_level, "procedure took %f seconds to process: `%s`",
@@ -636,125 +631,181 @@ static void query__run_futures(ti_query_t * query)
 {
     link_iter_t iter = link_iter(&query->futures);
 
+    /* increase the number of running futures */
+    ti.futures_count += query->futures.n;
+
     for (link_each(iter, ti_future_t, future))
         future->ext_cb(future);
 }
 
-void ti_query_on_future_result(ti_future_t * future, ex_enum res)
+void ti_query_on_then_result(ti_query_t * query, ex_t * e)
 {
-    ex_t e = {0};
-    vec_t * vec = VARR(future->rval);
-    ti_query_t * query = future->query;
+    ti_future_t * future = query->with.future;
+
+    --ti.futures_count;
+
+    ti_val_unsafe_drop(future->rval);
+    future->rval = query->rval;
+    LOGC("refs: %u, tp: %u", future->rval->ref, future->rval->tp);
+
+    ti_user_drop(query->user);
+    ti_event_drop(query->ev);
+
+    while(query->vars->n)
+        ti_prop_destroy(VEC_pop(query->vars));
+
+    free(query->vars);
+    ti_collection_drop(query->collection);
+
+    ti_thing_clean_gc();
+    free(query);
+
+    query = future->query;
 
     (void) link_rm(&query->futures, future);
 
-    /* query must have a return value set */
-    assert(query->rval);
-
-    if (query->flags & TI_QUERY_FLAG_RAISE_ERR)
-        goto done;
-
-    if (res)
-    {
-        /* Must be an internal error */
-        assert (res > -50 && res < 0);
-        ti_val_unsafe_drop(query->rval);
-        query->flags |= TI_QUERY_FLAG_RAISE_ERR;
-        query->rval = (ti_val_t *) ti_verror_from_code(res);
-        goto done;
-    }
-
-    if (future->then)
-    {
-        /* TODO: event ?
-         *
-         */
-
-        if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, &e) ||
-            ti_events_create_new_event(query, &e))
-            goto finish;
-
-        ti_val_t * rval = query->rval;
-        query->rval = NULL;
-        while (vec->n < future->then->vars->n)
-        {
-            if (vec_push(&vec, ti_nil_get()))
-            {
-                ex_set_mem(&e);
-                goto fail;
-            }
-        }
-
-        (void) ti_closure_call(future->then, query, vec, &e);
-
-        ti_val_unsafe_drop(future->rval);
-        future->rval = query->rval;
-        query->rval = rval;
-
-fail:
-        if (e.nr && query->futures.n)
-        {
-            ti_val_unsafe_drop(query->rval);
-            query->flags |= TI_QUERY_FLAG_RAISE_ERR;
-            query->rval = (ti_val_t *) ti_verror_from_e(&e);
-            if (!query->rval)
-                query->rval = (ti_val_t *) ti_verror_from_code(EX_MEMORY);
-        }
-
-        goto done;
-    }
-
-    if (ti_val_is_error(vec_first(vec)))
-    {
-        if (query->futures.n)
-        {
-            ti_val_unsafe_drop(query->rval);
-            query->flags |= TI_QUERY_FLAG_RAISE_ERR;
-            query->rval = (ti_val_t *) vec_first(vec);
-            ti_incref(query->rval);
-        }
-        else
-            ti_verror_to_e((ti_verror_t *) vec_first(vec), &e);
-    }
-
-done:
     if (query->futures.n == 0)
     {
         if (query->flags & TI_QUERY_FLAG_RAISE_ERR)
-            ti_verror_to_e((ti_verror_t *) query->rval, &e);
+            ti_verror_to_e((ti_verror_t *) query->rval, e);
 
-        ti_query_send_response(query, &e);
+        ti_query_response(query, e);
+    }
+    else if (e->nr)
+    {
+        ti_val_unsafe_drop(query->rval);
+        query->rval = (ti_val_t *) ti_verror_ensure_from_e(e);
+        query->flags |= TI_QUERY_FLAG_RAISE_ERR;
     }
 
     ti_val_unsafe_drop((ti_val_t *) future);
 }
 
-static inline int query__pack_response(
-        ti_query_t * query,
-        msgpack_sbuffer * buffer,
-        ex_t * e)
+static void query__then(ti_query_t * query, ex_t * e)
 {
-    msgpack_packer pk;
-    msgpack_packer_init(&pk, buffer, msgpack_sbuffer_write);
+    ti_future_t * future = query->with.future;
+    vec_t * access_;
+    vec_t * vec;
 
-    if (ti_val_to_pk(query->rval, &pk, (int) query->qbind.deep))
+    ++ti.futures_count;
+
+    if (future->then->flags & TI_VFLAG_CLOSURE_WSE)
     {
-        if (buffer->size > ti.cfg->result_size_limit)
-            ex_set(e, EX_RESULT_TOO_LARGE,
-                    "too much data to return; "
-                    "try to use a lower `deep` value and/or `wrap` things to "
-                    "reduce the data size"DOC_THING_WRAP);
-        else
-            ex_set_mem(e);
-
-        msgpack_sbuffer_destroy(buffer);
-        return e->nr;
+        query->qbind.flags |= TI_QBIND_FLAG_EVENT;
+        query->flags |= TI_QUERY_FLAG_WSE;
     }
 
-    if (buffer->size > ti.counters->largest_result_size)
-        ti.counters->largest_result_size = buffer->size;
+    vec = VARR(future->rval);
+    while (vec->n < future->then->vars->n)
+    {
+        if (vec_push(&vec, ti_nil_get()))
+        {
+            ex_set_mem(e);
+            goto finish;
+        }
+    }
 
-    return 0;
+    if (ti_query_will_update(query))
+    {
+        access_ = ti_query_access(query);
+        assert (access_);
+
+        if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, e) ||
+            ti_events_create_new_event(query, e))
+            goto finish;
+
+        return;
+    }
+
+    ti_query_run_future(query);
+    return;
+
+finish:
+    ti_query_on_then_result(query, e);
+}
+
+void ti_query_on_future_result(ti_future_t * future, ex_t * e)
+{
+    ti_query_t * query = future->query;
+
+    --ti.futures_count;
+
+    if (query->flags & TI_QUERY_FLAG_RAISE_ERR)
+        goto done;
+
+    if (e->nr)
+    {
+        assert (future->rval == NULL);
+
+        if (future->fail)  /* there is an `else` case */
+        {
+            ti_verror_t * verror = ti_verror_ensure_from_e(e);
+            if (vec_insert(&future->args, verror, 0))
+            {
+                ti_val_unsafe_drop((ti_val_t *) verror);
+                ex_set_mem(e);
+            }
+            else
+            {
+                future->rval = (ti_val_t *) ti_varr_from_vec(future->args);
+                if (future->rval)
+                {
+                    ti_future_forget_cb(future->then);
+                    future->then = future->fail;
+                    future->fail = NULL;
+                    future->args = NULL;
+                    goto then;
+                }
+                else
+                    ex_set_mem(e);
+            }
+        }
+
+        ti_val_unsafe_drop(query->rval);
+        query->rval = (ti_val_t *) ti_verror_ensure_from_e(e);
+        query->flags |= TI_QUERY_FLAG_RAISE_ERR;
+        goto done;
+    }
+
+then:
+    assert (ti_val_is_array(future->rval));
+
+    if (future->then)
+    {
+        ti_query_t * then_query = ti_query_create(0);
+
+        if (!then_query)
+        {
+            ti_val_unsafe_drop(query->rval);
+            query->rval = (ti_val_t *) ti_verror_from_code(EX_MEMORY);
+            query->flags |= TI_QUERY_FLAG_RAISE_ERR;
+            goto done;
+        }
+
+        then_query->qbind.flags |= query->qbind.flags & (
+                TI_QBIND_FLAG_NODE|
+                TI_QBIND_FLAG_THINGSDB|
+                TI_QBIND_FLAG_COLLECTION);
+        then_query->user = ti_grab(query->user);
+        then_query->collection = ti_grab(query->collection);
+        then_query->with_tp = TI_QUERY_WITH_FUTURE;
+        then_query->with.future = future;
+
+        query__then(then_query, e);
+        return;
+    }
+
+done:
+    (void) link_rm(&query->futures, future);
+
+    if (query->futures.n == 0)
+    {
+        if (query->flags & TI_QUERY_FLAG_RAISE_ERR)
+            ti_verror_to_e((ti_verror_t *) query->rval, e);
+
+        ti_query_response(query, e);
+    }
+    ti_val_unsafe_drop((ti_val_t *) future);
 }
 
 void ti_query_run_parseres(ti_query_t * query)
@@ -765,7 +816,7 @@ void ti_query_run_parseres(ti_query_t * query)
     clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
 
 #ifndef NDEBUG
-    log_debug("[DEBUG] run query: %s", query->querystr);
+    log_debug("[DEBUG] run query: %s", query->with.parseres->str);
 #endif
 
     seqchild = query->with.parseres->tree   /* root */
@@ -809,16 +860,14 @@ stop:
 
 void ti_query_run_procedure(ti_query_t * query)
 {
-    cleri_children_t * child, * seqchild;
     ex_t e = {0};
 
     clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
 
-    if (query->with.closure->flags & TI_VFLAG_CLOSURE_WSE)
-    {
-        assert (query->ev);
-        query->flags |= TI_QUERY_FLAG_WSE;
-    }
+#ifndef NDEBUG
+    log_debug("[DEBUG] run procedure: %s", query->with.closure->node->str);
+#endif
+
     /* this can never set `e->nr` to EX_RETURN */
     (void) ti_closure_call(
             query->with.closure,
@@ -837,22 +886,13 @@ void ti_query_run_procedure(ti_query_t * query)
 
 void ti_query_run_future(ti_query_t * query)
 {
-    cleri_children_t * child, * seqchild;
     ex_t e = {0};
+    vec_t * vec = VARR(query->with.future->rval);
 
     clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
 
-    if (query->with.closure->flags & TI_VFLAG_CLOSURE_WSE)
-    {
-        assert (query->ev);
-        query->flags |= TI_QUERY_FLAG_WSE;
-    }
     /* this can never set `e->nr` to EX_RETURN */
-    (void) ti_closure_call(
-            query->with.closure,
-            query,
-            query->immutable_cache,
-            &e);
+    (void) ti_closure_call(query->with.future->then, query, vec, &e);
 
     if (query->ev)
         query__event_handle(query);  /* errors will be logged only */
@@ -860,69 +900,7 @@ void ti_query_run_future(ti_query_t * query)
     if (query->futures.n && e.nr == 0)
         query__run_futures(query);
     else
-        ti_query_send_response(query, &e);
-}
-
-void ti_query_run(ti_query_t * query)
-{
-    cleri_children_t * child, * seqchild;
-    ex_t e = {0};
-
-    clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
-
-    if (query->with_tp == TI_QUERY_WITH_PROCEDURE)
-    {
-        if (query->closure->flags & TI_VFLAG_CLOSURE_WSE)
-        {
-            assert (query->ev);
-            query->flags |= TI_QUERY_FLAG_WSE;
-        }
-        /* this can never set `e->nr` to EX_RETURN */
-        (void) ti_closure_call(query->closure, query, query->immutable_cache, &e);
-        goto stop;
-    }
-
-#ifndef NDEBUG
-    log_debug("[DEBUG] run query: %s", query->querystr);
-#endif
-
-    seqchild = query->with.parseres->tree   /* root */
-        ->children->node                    /* sequence <comment, list, [deep]> */
-        ->children->next;                   /* list */
-
-    child = seqchild->node->children;   /* first child or NULL */
-
-    if (!child)
-    {
-        query->rval = (ti_val_t *) ti_nil_get();
-        goto stop;
-    }
-
-    while (1)
-    {
-        assert (child->node->cl_obj->gid == CLERI_GID_STATEMENT);
-
-        if (ti_do_statement(query, child->node, &e))
-            break;
-
-        if (!child->next || !(child = child->next->next))
-            break;
-
-        ti_val_unsafe_drop(query->rval);
-        query->rval = NULL;
-    }
-
-    if (e.nr == EX_RETURN)
-        e.nr = 0;
-
-stop:
-    if (query->ev)
-        query__event_handle(query);  /* errors will be logged only */
-
-    if (query->futures.n && e.nr == 0)
-        query__run_futures(query);
-    else
-        ti_query_send_response(query, &e);
+        ti_query_on_then_result(query, &e);
 }
 
 static inline int query__pack_response(
@@ -1033,11 +1011,27 @@ void ti_query_send_response(ti_query_t * query, ex_t * e)
 
     if (cb(query, e))
     {
-        switch((ti_query_with_t) )
-        log_debug("query failed: `%s`, %s: `%s`",
-                query->querystr,
-                ex_str(e->nr),
-                e->msg);
+        switch((ti_query_with_enum) query->with_tp)
+        {
+        case TI_QUERY_WITH_PARSERES:
+            log_debug("query failed: `%s`, %s: `%s`",
+                    query->with.parseres->str,
+                    ex_str(e->nr),
+                    e->msg);
+            break;
+        case TI_QUERY_WITH_PROCEDURE:
+            log_debug("procedure failed: `%s`, %s: `%s`",
+                    query->with.closure->node->str,
+                    ex_str(e->nr),
+                    e->msg);
+            break;
+        case TI_QUERY_WITH_FUTURE:
+            log_debug("future failed: `%s`, %s: `%s`",
+                    query->with.future->then->node->str,
+                    ex_str(e->nr),
+                    e->msg);
+            break;
+        }
 
         ++ti.counters->queries_with_error;
         goto done;

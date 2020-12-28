@@ -161,6 +161,7 @@
 #define DOC_ENUM_VALUE              DOC_SEE("data-types/enum/value")
 #define DOC_ERROR_CODE              DOC_SEE("data-types/error/code")
 #define DOC_ERROR_MSG               DOC_SEE("data-types/error/msg")
+#define DOC_FUTURE_ELSE             DOC_SEE("data-types/future/else")
 #define DOC_FUTURE_THEN             DOC_SEE("data-types/future/then")
 #define DOC_LIST_CHOICE             DOC_SEE("data-types/list/choice")
 #define DOC_LIST_EACH               DOC_SEE("data-types/list/each")

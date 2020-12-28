@@ -358,6 +358,15 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
         return;
     }
 
+    if (ti.futures_count)
+    {
+        log_warning(
+                "waiting for %zd %s to finish before going to away mode",
+                ti.futures_count,
+                ti.futures_count == 1 ? "future" : "futures");
+        return;
+    }
+
     if (ti.flags & TI_FLAG_SIGNAL)
         return;
 

@@ -2,6 +2,7 @@
  * ti/future.c
  */
 #include <ti/future.h>
+#include <ti/future.inline.h>
 #include <ti/val.t.h>
 #include <ti/val.inline.h>
 
@@ -19,6 +20,7 @@ ti_future_t * ti_future_create(
     future->query = query;
     future->rval = NULL;
     future->then = NULL;
+    future->fail = NULL;
     future->ext_cb = ext_cb;
     future->args = vec_new(nargs);
     if (!future->args)
@@ -36,8 +38,9 @@ void ti_future_destroy(ti_future_t * future)
     /*
      * TODO: check if GC drops are required here.
      */
+    ti_future_forget_cb(future->then);
+    ti_future_forget_cb(future->fail);
     vec_destroy(future->args, (vec_destroy_cb) ti_val_unsafe_gc_drop);
-    ti_val_drop((ti_val_t *) future->then);
     ti_val_gc_drop(future->rval);
     free(future);
 }

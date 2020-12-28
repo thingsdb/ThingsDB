@@ -16,10 +16,6 @@
 #include <ti/vup.t.h>
 
 ti_query_t * ti_query_create(uint8_t flags);
-void ti_query_init(
-        ti_query_t * query,
-        void * via,
-        ti_user_t * user);
 void ti_query_destroy(ti_query_t * query);
 int ti_query_unp_run(
         ti_query_t * query,
@@ -28,10 +24,13 @@ int ti_query_unp_run(
         const unsigned char * data,
         size_t n,
         ex_t * e);
-int ti_query_parse(ti_query_t * query, ex_t * e);
-void ti_query_run(ti_query_t * query);
+int ti_query_parse(ti_query_t * query, const char * str, size_t n, ex_t * e);
+void ti_query_on_then_result(ti_query_t * query, ex_t * e);
+void ti_query_run_parseres(ti_query_t * query);
+void ti_query_run_procedure(ti_query_t * query);
+void ti_query_run_future(ti_query_t * query);
 void ti_query_send_response(ti_query_t * query, ex_t * e);
-void ti_query_on_future_result(ti_future_t * future, ex_enum res);
+void ti_query_on_future_result(ti_future_t * future, ex_t * e);
 int ti_query_unpack_args(ti_query_t * query, mp_unp_t * up, ex_t * e);
 int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e);
 ti_prop_t * ti_query_var_get(ti_query_t * query, ti_name_t * name);

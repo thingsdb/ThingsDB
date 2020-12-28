@@ -108,6 +108,7 @@ struct ti_s
     smap_t * extlookup;         /* lookup with extensions */
     uv_loop_t * loop;
     cleri_grammar_t * langdef;
+    size_t futures_count;       /* number of running futures */
     uint8_t flags;
 };
 

@@ -12,6 +12,7 @@ typedef int (*ti_query_vars_walk_cb)(void * data, void * arg);
 #include <ti/closure.t.h>
 #include <ti/collection.t.h>
 #include <ti/event.t.h>
+#include <ti/future.t.h>
 #include <ti/qbind.t.h>
 #include <ti/stream.t.h>
 #include <ti/user.t.h>
@@ -39,7 +40,7 @@ typedef enum
     TI_QUERY_WITH_PARSERES,
     TI_QUERY_WITH_PROCEDURE,
     TI_QUERY_WITH_FUTURE,
-} ti_query_with_t;
+} ti_query_with_enum;
 
 typedef int (*ti_query_unpack_cb) (
         ti_query_t *,
@@ -82,7 +83,9 @@ struct ti_query_s
                                    required
                                 */
     vec_t * immutable_cache;    /* ti_val_t, Only for immutable and collection
-                                   independent variable. */
+                                   independent variable and temporary used for
+                                   procedures to populate the closure arguments
+                                */
     link_t futures;             /* place to store futures */
     util_time_t time;           /* time query duration */
 };

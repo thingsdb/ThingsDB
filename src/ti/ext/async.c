@@ -8,9 +8,16 @@
 
 static void ext_async__cb(uv_async_t * task)
 {
+    ex_t e = {0};
     ti_future_t * future = task->data;
+
     future->rval = (ti_val_t *) ti_varr_from_vec(future->args);
-    ti_query_on_future_result(future, future->rval ? 0 : EX_MEMORY);
+    if (future->rval)
+        future->args = NULL;
+    else
+        ex_set_mem(&e);
+
+    ti_query_on_future_result(future, &e);
     uv_close((uv_handle_t *) task, (uv_close_cb) free);
 }
 
@@ -18,16 +25,20 @@ void ti_ext_async_cb(ti_future_t * future)
 {
     uv_async_t * task = malloc(sizeof(uv_async_t));
     if (!task)
-        goto fail;
+    {
+        ex_t e;
+        ex_set_mem(&e);
+        ti_query_on_future_result(future, &e);
+    }
 
     task->data = future;
 
     if (uv_async_init(ti.loop, task, (uv_async_cb) ext_async__cb) ||
         uv_async_send(task))
-        ti_query_on_future_result(future, EX_INTERNAL);
-
-    return;
-fail:
-    ti_query_on_future_result(future, EX_MEMORY);
+    {
+        ex_t e;
+        ex_set_internal(&e);
+        ti_query_on_future_result(future, &e);
+    }
 }
 

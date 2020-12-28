@@ -454,7 +454,7 @@ void ti__event_log_(const char * prefix, ti_event_t * ev, int log_level)
     switch ((ti_event_tp_enum) ev->tp)
     {
     case TI_EVENT_TP_MASTER:
-        switch ((ti_query_with_t) ev->via.query->with_tp)
+        switch ((ti_query_with_enum) ev->via.query->with_tp)
         {
         case TI_QUERY_WITH_PARSERES:
             (void) fprintf(

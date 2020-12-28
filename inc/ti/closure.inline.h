@@ -67,4 +67,20 @@ static inline int ti_closure_try_wse(
     return 0;
 }
 
+static inline int ti_closure_inc_future(ti_closure_t * closure, ex_t * e)
+{
+    if (closure->future_depth == TI_CLOSURE_MAX_FUTURE_RECURSION_DEPTH)
+        ex_set(e, EX_OPERATION_ERROR,
+                "maximum recursion depth exceeded"DOC_CLOSURE);
+    else
+        closure->future_depth++;
+    return e->nr;
+}
+
+static inline void ti_closure_dec_future(ti_closure_t * closure)
+{
+    assert(closure->future_depth);
+    --closure->future_depth;
+}
+
 #endif  /* TI_CLOSURE_INLINE_H_ */

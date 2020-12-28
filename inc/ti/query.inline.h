@@ -45,4 +45,28 @@ static inline void ti_query_destroy_or_return(ti_query_t * query)
         ti_query_destroy(query);
 }
 
+static inline void ti_query_run(ti_query_t * query)
+{
+    switch((ti_query_with_enum) query->with_tp)
+    {
+    case TI_QUERY_WITH_PARSERES:
+        ti_query_run_parseres(query);
+        return;
+    case TI_QUERY_WITH_PROCEDURE:
+        ti_query_run_procedure(query);
+        return;
+    case TI_QUERY_WITH_FUTURE:
+        ti_query_run_future(query);
+        return;
+    }
+}
+
+static inline void ti_query_response(ti_query_t * query, ex_t * e)
+{
+    if (query->with_tp == TI_QUERY_WITH_FUTURE)
+        ti_query_on_then_result(query, e);
+    else
+        ti_query_send_response(query, e);
+}
+
 #endif  /* TI_QUERY_INLINE_H_ */

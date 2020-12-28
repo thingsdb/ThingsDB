@@ -42,6 +42,7 @@
 #include <ti/fn/fndeluser.h>
 #include <ti/fn/fndoc.h>
 #include <ti/fn/fneach.h>
+#include <ti/fn/fnelse.h>
 #include <ti/fn/fnemit.h>
 #include <ti/fn/fnendswith.h>
 #include <ti/fn/fnenum.h>
@@ -211,11 +212,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 190,
+    TOTAL_KEYWORDS = 191,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 14,
-    MAX_HASH_VALUE = 438
+    MIN_HASH_VALUE = 8,
+    MAX_HASH_VALUE = 449
 };
 
 static inline unsigned int qbind__hash(
@@ -224,32 +225,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439,   4, 439,   3, 439,   4, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439,   3, 439,   4,  81,  61,
-         26,   3,  44, 102,  97,   3,   5,  69,  57,  19,
-          8,  14,  70,   3,   4,   3,   7,  10, 111, 119,
-        142,  89, 117, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439
+        450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
+        450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
+        450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
+        450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
+        450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
+        450, 450,   2, 450,   2, 450,  10, 450, 450, 450,
+        450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
+        450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
+        450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
+        450, 450, 450, 450, 450,   1, 450,   5, 101,  37,
+         25,   1,  47, 117, 143,   1,   2,  46,  59,  12,
+          5,  30,  39,   1,   2,   1,   7,   7,  93, 162,
+         44, 156,  40, 450, 450, 450, 450, 450, 450, 450,
+        450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
+        450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
+        450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
+        450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
+        450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
+        450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
+        450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
+        450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
+        450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
+        450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
+        450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
+        450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
+        450, 450, 450, 450, 450, 450
     };
 
     register unsigned int hval = n;
@@ -320,7 +321,7 @@ typedef enum
     FN__FLAG_CHAIN      = 1<<4,
     FN__FLAG_XROOT      = 1<<5,
     FN__FLAG_AS_ON_VAR  = 1<<6, /* function result as on variable */
-    FN__FLAG_THEN       = 1<<7, /* must check for closure and do not set event
+    FN__FLAG_FUT        = 1<<7, /* must check for closure and do not set event
                                    by itself */
 } qbind__fn_flag_t;
 
@@ -361,8 +362,8 @@ typedef struct
         .flags=FN__FLAG_CHAIN|FN__FLAG_EV_C|FN__FLAG_AS_ON_VAR
 #define CHAIN_CE_XVAR \
         .flags=FN__FLAG_CHAIN|FN__FLAG_EXCL_VAR|FN__FLAG_EV_C|FN__FLAG_AS_ON_VAR
-#define CHAIN_THEN \
-        .flags=FN__FLAG_CHAIN|FN__FLAG_AS_ON_VAR|FN__FLAG_THEN
+#define CHAIN_FUT \
+        .flags=FN__FLAG_CHAIN|FN__FLAG_AS_ON_VAR|FN__FLAG_FUT
 #define BOTH_CE_XROOT \
         .flags=FN__FLAG_ROOT|FN__FLAG_CHAIN|FN__FLAG_EV_C|FN__FLAG_XROOT|FN__FLAG_AS_ON_VAR
 #define XROOT_NE \
@@ -419,6 +420,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="doc",               .fn=do__f_doc,                  CHAIN_NE},
     {.name="each",              .fn=do__f_each,                 CHAIN_NE},
     {.name="emit",              .fn=do__f_emit,                 CHAIN_CE},
+    {.name="else",              .fn=do__f_else,                 CHAIN_FUT},
     {.name="ends_with",         .fn=do__f_ends_with,            CHAIN_NE},
     {.name="enum_info",         .fn=do__f_enum_info,            ROOT_NE},
     {.name="enum",              .fn=do__f_enum,                 ROOT_NE},
@@ -541,7 +543,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="str",               .fn=do__f_str,                  ROOT_NE},
     {.name="syntax_err",        .fn=do__f_syntax_err,           ROOT_NE},
     {.name="test",              .fn=do__f_test,                 CHAIN_NE},
-    {.name="then",              .fn=do__f_then,                 CHAIN_THEN},
+    {.name="then",              .fn=do__f_then,                 CHAIN_FUT},
     {.name="thing",             .fn=do__f_thing,                ROOT_NE},
     {.name="time_zones_info",   .fn=do__f_time_zones_info,      ROOT_NE},
     {.name="timeval",           .fn=do__f_timeval,              ROOT_NE},
@@ -673,11 +675,25 @@ static _Bool qbind__operations(
     return gid > parent_gid;
 }
 
-static inline _Bool qbind__peek_statement_is_closure(cleri_node_t * nd)
+static void qbind__peek_statement_for_closure(
+        ti_qbind_t * q,
+        cleri_node_t * nd)
 {
-    return (nd = nd->children->node)->cl_obj->gid == CLERI_GID_EXPRESSION
-        ? nd->children->next->node->cl_obj->gid == CLERI_GID_T_CLOSURE
-        : false;
+    if ((nd = nd->children->node)->cl_obj->gid == CLERI_GID_EXPRESSION &&
+        nd->children->next->node->cl_obj->gid == CLERI_GID_T_CLOSURE)
+    {
+        intptr_t preopr;
+        nd->data = ti_do_expression;
+
+        nd->children->next->node->data = NULL;  /* closure node */
+        ++q->immutable_n;
+
+        nd = nd->children->node;
+        preopr = (intptr_t) ti_preopr_bind(nd->str, nd->len);
+        nd->data = (void *) preopr;
+        return;
+    }
+    qbind__statement(q, nd);  /* statement */
 }
 
 static void qbind__function(
@@ -717,14 +733,12 @@ static void qbind__function(
     /* list (arguments) */
     nd = nd->children->next->node->children->next->node;
 
-    if (fmflags & FN__FLAG_THEN)
+    if (fmflags & FN__FLAG_FUT)
     {
         child = nd->children;
         if  (child)
         {
-            if (!qbind__peek_statement_is_closure(child->node))
-                qbind__statement(q, child->node);  /* statement */
-
+            qbind__peek_statement_for_closure(q, child->node);
             nargs = 1;
             child = child->next ? child->next->next : NULL;
         }

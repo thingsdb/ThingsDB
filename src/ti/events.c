@@ -10,6 +10,7 @@
 #include <ti/events.h>
 #include <ti/proto.h>
 #include <ti/query.h>
+#include <ti/query.inline.h>
 #include <ti/quorum.h>
 #include <ti/thing.h>
 #include <util/fx.h>
@@ -458,7 +459,7 @@ static void events__new_id(ti_event_t * ev)
     /* in case of an error, `ev->id` is not changed */
 fail:
     ti_event_drop(ev);  /* reference for the queue */
-    (void) ti_query_send_response(ev->via.query, &e);
+    ti_query_response(ev->via.query, &e);
     ev->status = TI_EVENT_STAT_CACNCEL;
 }
 

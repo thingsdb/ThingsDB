@@ -849,7 +849,8 @@ static int api__run(ti_api_request_t * ar, api__req_t * req)
         goto fail0;
     }
 
-    ti_query_init(query, ar, ar->user);
+    query->via.api_request = ti_api_acquire(ar);
+    query->user = ti_grab(ar->user);
 
     if (ti_query_unp_run(query, &ar->scope, 0, data, n, &ar->e))
         goto fail0;
@@ -872,7 +873,7 @@ static int api__run(ti_api_request_t * ar, api__req_t * req)
         return 0;
     }
 
-    ti_query_run(query);
+    ti_query_run_procedure(query);
     return 0;
 
 invalid_api_request:
@@ -959,10 +960,7 @@ query:
                 req->mp_code.via.str.data,
                 req->mp_code.via.str.n,
                 TI_QUERY_FLAG_API)
-        : ti_query_create_strn(
-                req->mp_code.via.str.data,
-                req->mp_code.via.str.n,
-                TI_QUERY_FLAG_API);
+        : ti_query_create(TI_QUERY_FLAG_API);
 
     if (!query)
     {
@@ -970,7 +968,8 @@ query:
         goto failed;
     }
 
-    ti_query_init(query, ar, ar->user);
+    query->via.api_request = ti_api_acquire(ar);
+    query->user = ti_grab(ar->user);
 
     if (ti_query_apply_scope(query, &ar->scope, e))
         goto failed;
@@ -987,7 +986,11 @@ query:
     assert (access_);
 
     if (ti_access_check_err(access_, query->user, TI_AUTH_READ, e) ||
-        ti_query_parse(query, e))
+        ti_query_parse(
+                query,
+                req->mp_code.via.str.data,
+                req->mp_code.via.str.n,
+                e))
         goto failed;
 
     if (ti_query_will_update(query))
@@ -1002,7 +1005,7 @@ query:
         return 0;
     }
 
-    ti_query_run(query);
+    ti_query_run_parseres(query);
     return 0;
 
 invalid_api_request:

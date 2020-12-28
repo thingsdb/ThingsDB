@@ -52,7 +52,6 @@ static ti_query_t * qcache__from_cache(qcache__item_t * item, uint8_t flags)
     item->query->flags |= TI_QUERY_FLAG_CACHE;
 
     query->with.parseres = item->query->with.parseres;
-    query->querystr = item->query->querystr;
     query->qbind = item->query->qbind;
     query->immutable_cache = item->query->immutable_cache;
 
@@ -85,14 +84,14 @@ ti_query_t * ti_qcache_get_query(const char * str, size_t n, uint8_t flags)
     qcache__item_t * item;
 
     if (n < qcache__threshold)
-        return ti_query_create_strn(str, n, flags);
+        return ti_query_create(flags);
 
     item = smap_getn(qcache, str, n);
     if (item)
         return qcache__from_cache(item, flags);
 
     flags |= TI_QUERY_FLAG_CACHE|TI_QUERY_FLAG_DO_CACHE;
-    return ti_query_create_strn(str, n, flags);
+    return ti_query_create(flags);
 }
 
 void ti_qcache_return(ti_query_t * query)
@@ -138,7 +137,7 @@ void ti_qcache_return(ti_query_t * query)
             item->used = 0;
             item->last = (uint32_t) util_now_tsec();
         }
-        if (smap_add(qcache, query->querystr, item))
+        if (smap_add(qcache, query->with.parseres->str, item))
             qcache__item_destroy(item);
         return;
     }
@@ -163,7 +162,7 @@ static void qcache__cleanup_destroy(qcache__item_t * item)
 {
     if (!item->used)
         ++ti.counters->wasted_cache;
-    qcache__item_destroy(smap_pop(qcache, item->query->querystr));
+    qcache__item_destroy(smap_pop(qcache, item->query->with.parseres->str));
 }
 
 void ti_qcache_cleanup(void)

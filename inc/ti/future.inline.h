@@ -6,6 +6,7 @@
 
 #include <ti/future.t.h>
 #include <ti/val.inline.h>
+#include <ti/closure.inline.h>
 #include <util/mpack.h>
 #include <util/link.h>
 
@@ -28,4 +29,12 @@ static inline int ti_future_register(ti_future_t * future)
     return rc;
 }
 
-#endif  /* TI_FUTURE_H_ */
+static inline void ti_future_forget_cb(ti_closure_t * cb)
+{
+    if (!cb)
+        return;
+    ti_closure_dec_future(cb);
+    ti_val_unsafe_drop((ti_val_t *) cb);
+}
+
+#endif  /* TI_FUTURE_INLINE_H_ */

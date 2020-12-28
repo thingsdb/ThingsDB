@@ -579,7 +579,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
 
     query = ti_scope_is_collection(&scope)
         ? ti_qcache_get_query(mp_query.via.str.data, mp_query.via.str.n, 0)
-        : ti_query_create_strn(mp_query.via.str.data, mp_query.via.str.n, 0);
+        : ti_query_create(0);
 
     if (!query)
     {
@@ -587,7 +587,8 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    ti_query_init(query, stream, user);
+    query->via.stream = ti_grab(stream);
+    query->user = ti_grab(user);
     query->pkg_id = pkg->id;
 
     if (ti_query_apply_scope(query, &scope, &e) ||
@@ -597,7 +598,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
     access_ = ti_query_access(query);
 
     if (ti_access_check_err(access_, query->user, TI_AUTH_READ, &e) ||
-        ti_query_parse(query, &e))
+        ti_query_parse(query, mp_query.via.str.data, mp_query.via.str.n, &e))
         goto finish;
 
     if (ti_query_will_update(query))
@@ -609,7 +610,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
-    ti_query_run(query);
+    ti_query_run_parseres(query);
     return;
 
 finish:
@@ -686,7 +687,8 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    ti_query_init(query, stream, user);
+    query->via.stream = ti_grab(stream);
+    query->user = ti_grab(user);
 
     if (ti_scope_init_packed(
             &scope,
@@ -716,7 +718,7 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
-    ti_query_run(query);
+    ti_query_run_procedure(query);
     return;
 
 finish:

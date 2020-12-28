@@ -34,7 +34,7 @@ class TestFuture(TestBase):
         client.close()
         await client.wait_closed()
 
-    async def test_recursion(self, client):
+    async def _OFF_test_recursion(self, client):
         with self.assertRaisesRegex(
                 OperationError,
                 r'maximum recursion depth exceeded'):
@@ -49,12 +49,30 @@ class TestFuture(TestBase):
 
     async def _OFF_test_future_gc(self, client):
         await client.query(r'''
-            future(nil).then(|| {
+            y = {};
+            y.y = y;
+            future(nil, y).then(|y| {
                x = {};
                x.x = x;
             });
+            y = nil;
             "done";
         ''')
+
+    async def test_append_results(self, client):
+        res = await client.query(r'''
+            ret = [];
+            future(nil, "test1", ret).then(|res, ret| {
+                ret.push(res);
+            });
+            future(nil, "test2", ret).then(|res, ret| {
+                ret.push(res);
+            });
+
+            ret;
+        ''')
+        self.assertEqual(sorted(res), ['test1', 'test2'])
+
 
 if __name__ == '__main__':
     run_test(TestFuture())

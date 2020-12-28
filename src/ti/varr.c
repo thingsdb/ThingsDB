@@ -204,6 +204,10 @@ int ti_varr_val_prepare(ti_varr_t * to, void ** v, ex_t * e)
     case TI_VAL_THING:
         to->flags |= TI_VFLAG_ARR_MHT;
         break;
+    case TI_VAL_FUTURE:
+        ti_val_unsafe_drop(*v);
+        *v = ti_nil_get();
+        break;
     }
     return e->nr;
 }

@@ -646,10 +646,10 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e)
 
     ti_val_unsafe_drop(future->rval);
     future->rval = query->rval;
-    LOGC("refs: %u, tp: %u", future->rval->ref, future->rval->tp);
 
     ti_user_drop(query->user);
     ti_event_drop(query->ev);
+    link_clear(&query->futures, (link_destroy_cb) ti_val_unsafe_drop);
 
     while(query->vars->n)
         ti_prop_destroy(VEC_pop(query->vars));
@@ -685,7 +685,7 @@ static void query__then(ti_query_t * query, ex_t * e)
 {
     ti_future_t * future = query->with.future;
     vec_t * access_;
-    vec_t * vec;
+    vec_t ** vecaddr;
 
     ++ti.futures_count;
 
@@ -695,10 +695,10 @@ static void query__then(ti_query_t * query, ex_t * e)
         query->flags |= TI_QUERY_FLAG_WSE;
     }
 
-    vec = VARR(future->rval);
-    while (vec->n < future->then->vars->n)
+    vecaddr = &VARR(future->rval);
+    while ((*vecaddr)->n < future->then->vars->n)
     {
-        if (vec_push(&vec, ti_nil_get()))
+        if (vec_push(vecaddr, ti_nil_get()))
         {
             ex_set_mem(e);
             goto finish;
@@ -890,6 +890,9 @@ void ti_query_run_future(ti_query_t * query)
     vec_t * vec = VARR(query->with.future->rval);
 
     clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
+
+    LOGC("tp: %s", ti_val_str(query->with.future->rval));
+    LOGC("vecn: %u", vec->n);
 
     /* this can never set `e->nr` to EX_RETURN */
     (void) ti_closure_call(query->with.future->then, query, vec, &e);

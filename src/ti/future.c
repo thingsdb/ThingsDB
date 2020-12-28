@@ -35,13 +35,11 @@ void ti_future_destroy(ti_future_t * future)
 {
     if (!future)
         return;
-    /*
-     * TODO: check if GC drops are required here.
-     */
+
     ti_future_forget_cb(future->then);
     ti_future_forget_cb(future->fail);
-    vec_destroy(future->args, (vec_destroy_cb) ti_val_unsafe_gc_drop);
-    ti_val_gc_drop(future->rval);
+    vec_destroy(future->args, (vec_destroy_cb) ti_val_unsafe_drop);
+    ti_val_drop(future->rval);
     free(future);
 }
 

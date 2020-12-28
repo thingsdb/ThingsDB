@@ -371,7 +371,9 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
 static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
 {
     assert (ti_varr_is_list(varr));
-
+    /*
+     * Futures can never occur at this point since they are never packed;
+     */
     switch ((ti_val_enum) val->tp)
     {
     case TI_VAL_THING:
@@ -1460,7 +1462,6 @@ int ti_val_gen_ids(ti_val_t * val)
     case TI_VAL_ERROR:
         break;
     case TI_VAL_FUTURE:
-        return VFUT(val) ? ti_val_gen_ids(VFUT(val)) : 0;
     case TI_VAL_TEMPLATE:
         assert (0);
     }

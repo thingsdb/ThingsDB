@@ -20,7 +20,7 @@ static int do__f_procedure_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = ti_procedure_as_mpval(procedure, ti_access_check(
             ti_query_access(query),
             query->user,
-            TI_AUTH_MODIFY));
+            TI_AUTH_EVENT));
 
     if (!query->rval)
         ex_set_mem(e);

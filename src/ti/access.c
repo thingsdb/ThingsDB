@@ -96,6 +96,14 @@ _Bool ti_access_check(const vec_t * access, ti_user_t * user, uint64_t mask)
     return false;
 }
 
+_Bool ti_access_check_or(const vec_t * access, ti_user_t * user, uint64_t mask)
+{
+    for (vec_each(access, ti_auth_t, auth))
+        if (auth->user == user)
+            return auth->mask & mask;
+    return false;
+}
+
 
 /*
  * Return 0 if the user has the required privileges or EX_FORBIDDEN if not
@@ -126,6 +134,34 @@ int ti_access_check_err(
     return e->nr;
 }
 
+/*
+ * Return 0 if the user has the required privileges or EX_FORBIDDEN if not
+ * with e->msg set
+ */
+int ti_access_check_or_err(
+        const vec_t * access,
+        ti_user_t * user,
+        uint64_t mask,
+        ex_t * e)
+{
+    assert (e->nr == 0);
+
+    if (!ti_access_check_or(access, user, mask))
+    {
+        char * prefix, * name;
+        size_t name_sz;
+        access__helper_str(access, &prefix, &name, &name_sz);
+
+        ex_set(e, EX_FORBIDDEN,
+                "user `%.*s` is missing the required privileges (`%s`) "
+                "on scope `%s%.*s`"DOC_GRANT,
+                (int) user->name->n, (char *) user->name->data,
+                ti_auth_mask_to_str(mask),
+                prefix,
+                name_sz, name);
+    }
+    return e->nr;
+}
 
 
 

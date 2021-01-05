@@ -16,8 +16,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     queue_t * files_queue;
 
     if (fn_not_node_scope("new_backup", query, e) ||
-        ti_access_check_err(ti.access_node,
-            query->user, TI_AUTH_MODIFY, e) ||
+        ti_access_check_err(ti.access_node, query->user, TI_AUTH_EVENT, e) ||
         fn_nargs_range("new_backup", DOC_NEW_BACKUP, 1, 4, nargs, e) ||
         ti_do_statement(query, child->node, e) ||
         fn_arg_str("new_backup", DOC_NEW_BACKUP, 1, query->rval, e))

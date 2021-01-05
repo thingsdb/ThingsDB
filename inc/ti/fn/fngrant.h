@@ -42,11 +42,9 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     mask = (uint64_t) VINT(query->rval);
 
-    /* make sure READ when MODIFY and MODIFY when GRANT */
+    /* make sure EVENT when GRANT */
     if (mask & TI_AUTH_GRANT)
-        mask |= TI_AUTH_READ|TI_AUTH_MODIFY;
-    else if (mask & TI_AUTH_MODIFY)
-        mask |= TI_AUTH_READ;
+        mask |= TI_AUTH_EVENT;
 
     if (ti_access_grant(access_, user, mask))
     {

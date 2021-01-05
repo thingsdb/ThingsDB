@@ -44,7 +44,7 @@ class TestHTTPAPI(TestBase):
             'type': 'query',
             'code': '''
                 new_user("test");
-                grant("@t", "test", READ|RUN);
+                grant("@t", "test", QUERY|RUN);
                 new_token("test");
             '''
         }
@@ -219,7 +219,7 @@ class TestHTTPAPI(TestBase):
         self.assertEqual(x.status_code, 403)
         self.assertRegex(
             x.text,
-            r'user `test` is missing the required privileges \(`READ`\) '
+            r'user `test` is missing the required privileges \(`QUERY`\) '
             r'on scope `@collection:stuff`.*')
 
         x = requests.post(

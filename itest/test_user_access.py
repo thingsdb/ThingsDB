@@ -66,15 +66,16 @@ class TestUserAccess(TestBase):
         with self.assertRaisesRegex(ForbiddenError, error_msg):
             await testcl1.query(r'''.map(||nil);''', scope='@:junk')
 
+        # Deprecation `READ` privileges
         await client.query(r'''
-            grant('@thingsdb', "test1", GRANT);
+            grant('@thingsdb', "test1", QUERY|GRANT);
             grant('@collection:junk', 'test1', READ);
         ''')
 
         await testcl1.query(r'''
             new_collection('Collection');
-            grant('@c:Collection', 'admin', GRANT);
-            grant('@:Collection', 'test2', READ);
+            grant('@c:Collection', 'admin', QUERY|GRANT);
+            grant('@:Collection', 'test2', QUERY);
         ''')
         await testcl1.query(r'''.x = 42;''', scope='@:Collection')
         await testcl1.query(r'''.map(||nil);''', scope='@:junk')
@@ -84,9 +85,10 @@ class TestUserAccess(TestBase):
                 OperationError,
                 'it is not possible to revoke your own `GRANT` privileges'):
             await testcl1.query(
-                r'''revoke('@:Collection', 'test1', MODIFY);''')
+                r'''revoke('@:Collection', 'test1', EVENT);''')
 
-        await client.query(r'''revoke('@:Collection', 'test1', MODIFY);''')
+        await client.query(
+            r'''revoke('@:Collection', 'test1', MODIFY);''')  # Deprecation
 
         users_access = await testcl1.query(r'''user_info('admin');''')
 
@@ -108,7 +110,7 @@ class TestUserAccess(TestBase):
                 'privileges': 'FULL',
                 'scope': '@collection:junk'
             }, {
-                'privileges': 'READ|MODIFY|GRANT',
+                'privileges': 'QUERY|EVENT|GRANT',
                 'scope': '@collection:Collection'
             }],
             'has_password': True,
@@ -122,7 +124,7 @@ class TestUserAccess(TestBase):
             await testcl1.query(r'''nodes_info();''', scope='@node')
 
         await client.query(r'''
-            grant('@node', "test1", READ);
+            grant('@node', "test1", QUERY);
         ''')
 
         await testcl1.query(r'''nodes_info();''', scope='@node')
@@ -130,7 +132,7 @@ class TestUserAccess(TestBase):
         with self.assertRaisesRegex(ForbiddenError, error_msg):
             await testcl1.query(r'''reset_counters();''', scope='@node')
 
-        await client.query(r'''grant('@n', "test1", MODIFY);''')
+        await client.query(r'''grant('@n', "test1", EVENT);''')
 
         await testcl1.query(r'''reset_counters();''', scope='@node')
 

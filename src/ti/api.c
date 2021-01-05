@@ -865,7 +865,7 @@ static int api__run(ti_api_request_t * ar, api__req_t * req)
 
     if (ti_query_will_update(query))
     {
-        if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, e) ||
+        if (ti_access_check_err(access_, query->user, TI_AUTH_EVENT, e) ||
             ti_events_create_new_event(query, e))
             goto fail1;
 
@@ -985,7 +985,7 @@ query:
     access_ = ti_query_access(query);
     assert (access_);
 
-    if (ti_access_check_err(access_, query->user, TI_AUTH_READ, e) ||
+    if (ti_access_check_err(access_, query->user, TI_AUTH_QUERY, e) ||
         ti_query_parse(
                 query,
                 req->mp_code.via.str.data,
@@ -997,7 +997,7 @@ query:
     {
         assert (ar->scope.tp != TI_SCOPE_NODE);
 
-        if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, e) ||
+        if (ti_access_check_err(access_, query->user, TI_AUTH_EVENT, e) ||
             ti_events_create_new_event(query, e))
             goto failed;
 

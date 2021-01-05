@@ -248,7 +248,7 @@ void ti_query_destroy(ti_query_t * query)
 
         break;
     case TI_QUERY_WITH_PROCEDURE:
-        ti_val_unsafe_drop((ti_val_t *) query->with.closure);
+        ti_val_drop((ti_val_t *) query->with.closure);
         break;
     case TI_QUERY_WITH_FUTURE:
         ti_val_unsafe_drop((ti_val_t *) query->with.future);
@@ -710,7 +710,7 @@ static void query__then(ti_query_t * query, ex_t * e)
         access_ = ti_query_access(query);
         assert (access_);
 
-        if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, e) ||
+        if (ti_access_check_err(access_, query->user, TI_AUTH_EVENT, e) ||
             ti_events_create_new_event(query, e))
             goto finish;
 
@@ -890,9 +890,6 @@ void ti_query_run_future(ti_query_t * query)
     vec_t * vec = VARR(query->with.future->rval);
 
     clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
-
-    LOGC("tp: %s", ti_val_str(query->with.future->rval));
-    LOGC("vecn: %u", vec->n);
 
     /* this can never set `e->nr` to EX_RETURN */
     (void) ti_closure_call(query->with.future->then, query, vec, &e);

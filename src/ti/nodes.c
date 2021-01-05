@@ -597,13 +597,13 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
 
     access_ = ti_query_access(query);
 
-    if (ti_access_check_err(access_, query->user, TI_AUTH_READ, &e) ||
+    if (ti_access_check_err(access_, query->user, TI_AUTH_QUERY, &e) ||
         ti_query_parse(query, mp_query.via.str.data, mp_query.via.str.n, &e))
         goto finish;
 
     if (ti_query_will_update(query))
     {
-        if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, &e) ||
+        if (ti_access_check_err(access_, query->user, TI_AUTH_EVENT, &e) ||
             ti_events_create_new_event(query, &e))
             goto finish;
 

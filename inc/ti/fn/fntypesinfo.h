@@ -13,7 +13,7 @@ static int do__f_types_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ti_access_check(
                 query->collection->access,
                 query->user,
-                TI_AUTH_MODIFY));
+                TI_AUTH_EVENT));
 
     if (!query->rval)
         ex_set_mem(e);

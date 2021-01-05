@@ -679,20 +679,17 @@ static void qbind__peek_statement_for_closure(
         ti_qbind_t * q,
         cleri_node_t * nd)
 {
-    if ((nd = nd->children->node)->cl_obj->gid == CLERI_GID_EXPRESSION &&
-        nd->children->next->node->cl_obj->gid == CLERI_GID_T_CLOSURE)
+    cleri_node_t * node;
+
+    if ((node = nd->children->node)->cl_obj->gid == CLERI_GID_EXPRESSION &&
+        node->children->next->node->cl_obj->gid == CLERI_GID_T_CLOSURE)
     {
-        intptr_t preopr;
-        nd->data = ti_do_expression;
-
-        nd->children->next->node->data = NULL;  /* closure node */
-        ++q->immutable_n;
-
-        nd = nd->children->node;
-        preopr = (intptr_t) ti_preopr_bind(nd->str, nd->len);
-        nd->data = (void *) preopr;
+        uint8_t no_ev_flag = ~q->flags & TI_QBIND_FLAG_EVENT;
+        qbind__statement(q, nd);
+        q->flags &= ~no_ev_flag;
         return;
     }
+
     qbind__statement(q, nd);  /* statement */
 }
 
@@ -742,6 +739,7 @@ static void qbind__function(
             nargs = 1;
             child = child->next ? child->next->next : NULL;
         }
+        /* only care about the first argument */
         for(; child; child = child->next ? child->next->next : NULL, ++nargs);
     }
     /* for all other, investigate arguments */

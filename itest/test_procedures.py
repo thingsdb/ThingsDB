@@ -15,6 +15,7 @@ from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import ZeroDivisionError
 from thingsdb.exceptions import OperationError
+from thingsdb.exceptions import ForbiddenError
 
 
 class TestProcedures(TestBase):
@@ -41,8 +42,8 @@ class TestProcedures(TestBase):
                 "Create a user with a token and basic privileges.";
                 new_user(user);
                 token = new_token(user);
-                grant('@node', user, (READ|WATCH));
-                grant('@:stuff', user, (MODIFY|RUN));
+                grant('@node', user, (QUERY|WATCH));
+                grant('@:stuff', user, (QUERY|EVENT|RUN));
                 token;
             });
         ''', scope='@thingsdb')
@@ -394,6 +395,43 @@ class TestProcedures(TestBase):
 
         iris = await client.run('create_user', 'Iris')
         self.assertEqual(iris['name'], 'Iris')
+
+    async def test_run_only(self, client):
+        await client.query(r'''
+            new_procedure('read_x', || .x);
+            new_procedure('write_x', |x| .x = x);
+        ''')
+        read_token, write_token = await client.query(r'''
+            new_user('read');
+            new_user('write');
+            grant('//stuff', 'read', RUN);
+            grant('//stuff', 'write', RUN|EVENT);
+            [new_token('read'), new_token('write')];
+        ''', scope='@t')
+
+        error_msg = 'user .* is missing the required privileges'
+
+        cl_read = await get_client(self.node1, auth=read_token)
+        cl_read.set_default_scope('//stuff')
+
+        cl_write = await get_client(self.node1, auth=write_token)
+        cl_write.set_default_scope('//stuff')
+
+        with self.assertRaisesRegex(ForbiddenError, error_msg):
+            await cl_read.query('.x;')
+
+        with self.assertRaisesRegex(ForbiddenError, error_msg):
+            await cl_write.query('.x;')
+
+        with self.assertRaisesRegex(ForbiddenError, error_msg):
+            await cl_write.query('.x = x;', x=42)
+
+        with self.assertRaisesRegex(ForbiddenError, error_msg):
+            await cl_read.run('write_x', 42)
+
+        self.assertEqual(await cl_write.run('write_x', 42), 42)
+        self.assertEqual(await cl_write.run('read_x'), 42)
+        self.assertEqual(await cl_read.run('read_x'), 42)
 
     async def test_procedure_doc(self, client):
         await client.query(r'''

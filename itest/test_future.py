@@ -15,6 +15,7 @@ from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import ZeroDivisionError
 from thingsdb.exceptions import OperationError
+from thingsdb.exceptions import ForbiddenError
 
 
 class TestFuture(TestBase):
@@ -34,7 +35,7 @@ class TestFuture(TestBase):
         client.close()
         await client.wait_closed()
 
-    async def _OFF_test_recursion(self, client):
+    async def test_recursion(self, client):
         with self.assertRaisesRegex(
                 OperationError,
                 r'maximum recursion depth exceeded'):
@@ -47,7 +48,7 @@ class TestFuture(TestBase):
                 fut();
             ''')
 
-    async def _OFF_test_future_gc(self, client):
+    async def test_future_gc(self, client):
         await client.query(r'''
             y = {};
             y.y = y;
@@ -72,6 +73,43 @@ class TestFuture(TestBase):
             ret;
         ''')
         self.assertEqual(sorted(res), ['test1', 'test2'])
+
+    async def test_procedure_with_future(self, client):
+        await client.query(r'''
+            new_procedure('test_rx', || {
+                future(nil).then(|| {
+                    .x;
+                });
+            });
+            new_procedure('test_rw', || {
+                future(nil).then(|| {
+                    .x = 42;
+                });
+            });
+        ''')
+
+        read_token, write_token = await client.query(r'''
+            new_user('read');
+            new_user('write');
+            grant('//stuff', 'read', RUN);
+            grant('//stuff', 'write', RUN|EVENT);
+            [new_token('read'), new_token('write')];
+        ''', scope='@t')
+
+        error_msg = 'user .* is missing the required privileges'
+
+        cl_read = await get_client(self.node0, auth=read_token)
+        cl_read.set_default_scope('//stuff')
+
+        cl_write = await get_client(self.node0, auth=write_token)
+        cl_write.set_default_scope('//stuff')
+
+        with self.assertRaisesRegex(ForbiddenError, error_msg):
+            self.assertEqual(await cl_read.run('test_rw'), 42)
+
+        self.assertEqual(await cl_write.run('test_rw'), 42)
+        self.assertEqual(await cl_read.run('test_rx'), 42)
+        self.assertEqual(await cl_read.run('test_rx'), 42)
 
 
 if __name__ == '__main__':

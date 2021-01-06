@@ -18,7 +18,7 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     else
     {
         /* TODO: str lookup */
-        ext_cb = (ti_ext_cb) ti_ext_async_cb;
+        ext_cb = (ti_ext_cb) ti_ext_py_cb;
     }
 
     ti_val_unsafe_drop(query->rval);

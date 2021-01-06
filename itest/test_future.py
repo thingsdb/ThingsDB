@@ -35,7 +35,7 @@ class TestFuture(TestBase):
         client.close()
         await client.wait_closed()
 
-    async def test_recursion(self, client):
+    async def _OFF_test_recursion(self, client):
         with self.assertRaisesRegex(
                 OperationError,
                 r'maximum recursion depth exceeded'):
@@ -48,7 +48,7 @@ class TestFuture(TestBase):
                 fut();
             ''')
 
-    async def test_future_gc(self, client):
+    async def _OFF_test_future_gc(self, client):
         await client.query(r'''
             y = {};
             y.y = y;
@@ -60,7 +60,7 @@ class TestFuture(TestBase):
             "done";
         ''')
 
-    async def test_append_results(self, client):
+    async def _OFF_test_append_results(self, client):
         res = await client.query(r'''
             ret = [];
             future(nil, "test1", ret).then(|res, ret| {
@@ -74,7 +74,7 @@ class TestFuture(TestBase):
         ''')
         self.assertEqual(sorted(res), ['test1', 'test2'])
 
-    async def test_procedure_with_future(self, client):
+    async def _OFF_test_procedure_with_future(self, client):
         await client.query(r'''
             new_procedure('test_rx', || {
                 future(nil).then(|| {
@@ -110,6 +110,28 @@ class TestFuture(TestBase):
         self.assertEqual(await cl_write.run('test_rw'), 42)
         self.assertEqual(await cl_read.run('test_rx'), 42)
         self.assertEqual(await cl_read.run('test_rx'), 42)
+
+    async def test_py(self, client):
+        # asyncio.ensure_future(client.query(r'''
+        #     future('py');
+        # '''))
+        await client.query(r'''
+            future('py');
+        ''')
+
+        # asyncio.ensure_future(client.query(r'''
+        #     future('py');
+        # '''))
+
+        # for x in range(5):
+        #     await asyncio.sleep(1)
+        #     await client.query('x * x', x=x)
+
+
+        # for x in range(5):
+        #     await asyncio.sleep(1)
+        #     await client.query('x * x', x=x)
+
 
 
 if __name__ == '__main__':

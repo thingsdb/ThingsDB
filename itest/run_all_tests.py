@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import argparse
-from lib import run_test
+from lib import run_test, vars
 
 from test_advanced import TestAdvanced
 from test_arguments import TestArguments
@@ -10,6 +10,7 @@ from test_datetime import TestDatetime
 from test_doc_url import TestDocUrl
 from test_enum import TestEnum
 from test_events import TestEvents
+from test_future import TestFuture
 from test_gc import TestGC
 from test_http_api import TestHTTPAPI
 from test_index_slice import TestIndexSlice
@@ -19,6 +20,7 @@ from test_node_functions import TestNodeFunctions
 from test_nodes import TestNodes
 from test_operators import TestOperators
 from test_procedures import TestProcedures
+from test_py import TestPy
 from test_scopes import TestScopes
 from test_syntax import TestSyntax
 from test_thingsdb_functions import TestThingsDBFunctions
@@ -30,6 +32,13 @@ from test_watch import TestWatch
 from test_wrap import TestWrap
 
 
+def no_mem_test(test_class):
+    tmp = vars.THINGSDB_MEMCHECK.copy()
+    vars.THINGSDB_MEMCHECK.clear()
+    run_test(test_class())
+    vars.THINGSDB_MEMCHECK[:] = tmp
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -38,6 +47,7 @@ if __name__ == '__main__':
         help='skip documentation testing')
     args = parser.parse_args()
 
+    no_mem_test(TestPy)
     run_test(TestAdvanced())
     run_test(TestArguments())
     run_test(TestBackup())

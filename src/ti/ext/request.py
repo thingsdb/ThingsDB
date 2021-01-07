@@ -1,7 +1,10 @@
-import thingsdb
 
 
-def main(set_result):
-    set_result(42);
-    return 123
+
+THINGSDB_MOD_NAME = 'PY_GCD'
+
+
+def main(data):
+    
+    return data
 

@@ -29,6 +29,7 @@ void ti_ext_async_cb(ti_future_t * future)
         ex_t e;
         ex_set_mem(&e);
         ti_query_on_future_result(future, &e);
+        return;
     }
 
     task->data = future;

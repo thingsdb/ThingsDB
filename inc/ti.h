@@ -105,7 +105,7 @@ struct ti_s
     smap_t * procedures;        /* ti_procedure_t */
     smap_t * names;             /* weak map for ti_name_t */
     smap_t * qcache;            /* pointer to qcache */
-    smap_t * extlookup;         /* lookup with extensions */
+    smap_t * extlookup;         /* lookup with extension modules */
     vec_t * futures;            /* store futures */
     uv_loop_t * loop;
     cleri_grammar_t * langdef;

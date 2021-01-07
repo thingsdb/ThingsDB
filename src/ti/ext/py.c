@@ -9,10 +9,16 @@
 #include <ti/vfloat.h>
 #include <ti/vbool.h>
 #include <ti/query.h>
+#include <ti/datetime.h>
 #include <ti.h>
 #include <Python.h>
 #include <ctype.h>
 
+/*
+ * Do not allow deep nesting of objects. This should be avoided at any cost
+ * because it may grow very rapidly once recursion is used.
+ */
+#define MAX_OBJECT_NESTING 6
 
 static const char * ext_py__init_code =
     "import threading\n"
@@ -33,28 +39,162 @@ static const char * ext_py__init_code =
     "    t.start()\n";
 
 
-PyObject * ext_py__val_to_py(ti_val_t * val, ex_t * e)
+PyObject * ext_py__datetime_from_dt_and_tz(ti_datetime_t * dt)
 {
+    PyObject * p_delta, * p_tzname, * p_tz, * p_ts,  * p_tuple, * p_datetime;
+    ti_tz_t * tz;
+    struct tm tm;
+
+    if (ti_datetime_time(dt, &tm))
+        return NULL;
+
+    if (tm.tm_gmtoff > INT_MAX || tm.tm_gmtoff < INT_MIN)
+        return NULL;
+
+    p_delta = PyDelta_FromDSU(0, (int) tm.tm_gmtoff, 0);
+    if (!p_delta)
+        return NULL;
+
+    p_tzname = PyUnicode_FromStringAndSize(dt->tz->name, dt->tz->n);
+    if (!p_tzname)
+        goto fail0;
+
+    p_tz = PyTimeZone_FromOffsetAndName(p_delta, p_tzname);
+    if (!p_tz)
+        goto fail1;
+
+    Py_DECREF(p_tzname);
+    Py_DECREF(p_delta);
+
+    p_ts = PyLong_FromLongLong(DATETIME(dt));
+    if (!p_ts)
+        goto fail2;
+
+    p_tuple = PyTuple_New(2);
+    if (!p_tuple)
+        goto fail3;
+
+    /* this steals references to p_ts and p_tz */
+    (void) PyTuple_SET_ITEM(p_tuple, 0, p_ts);
+    (void) PyTuple_SET_ITEM(p_tuple, 1, p_tz);
+
+    p_datetime = PyDateTime_FromTimestamp(p_tuple);
+    Py_DECREF(p_tuple);
+    return p_datetime;
+
+fail3:
+    Py_DECREF(p_ts);
+fail2:
+    Py_DECREF(p_tz);
+    return NULL;
+fail1:
+    Py_DECREF(p_tzname);
+fail0:
+    Py_DECREF(p_delta);
+    return NULL;
+}
+
+PyObject * ext_py__datetime_from_dt_and_offset(ti_datetime_t * dt)
+{
+    PyObject * p_delta, * p_tz, * p_ts,  * p_tuple, * p_datetime;
+    ti_tz_t * tz;
+
+    p_delta = PyDelta_FromDSU(0, (int) dt->offset * 60, 0);
+    if (!p_delta)
+        return NULL;
+
+    p_tz = PyTimeZone_FromOffset(p_delta);
+    if (!p_tz)
+        goto fail0;
+
+    Py_DECREF(p_delta);
+
+    p_ts = PyLong_FromLongLong(DATETIME(dt));
+    if (!p_ts)
+        goto fail1;
+
+    p_tuple = PyTuple_New(2);
+    if (!p_tuple)
+        goto fail2;
+
+    /* this steals references to p_ts and p_tz */
+    (void) PyTuple_SET_ITEM(p_tuple, 0, p_ts);
+    (void) PyTuple_SET_ITEM(p_tuple, 1, p_tz);
+
+    p_datetime = PyDateTime_FromTimestamp(p_tuple);
+    Py_DECREF(p_tuple);
+    return p_datetime;
+
+fail2:
+    Py_DECREF(p_ts);
+fail1:
+    Py_DECREF(p_tz);
+    return NULL;
+fail0:
+    Py_DECREF(p_delta);
+    return NULL;
+}
+
+PyObject * ext_py__datetime_from_dt_utc(ti_datetime_t * dt)
+{
+    PyObject * p_ts,  * p_tuple, * p_datetime;
+    ti_tz_t * tz;
+
+    p_ts = PyLong_FromLongLong(DATETIME(dt));
+    if (!p_ts)
+        return NULL;
+
+    p_tuple = PyTuple_New(1);
+    if (!p_tuple)
+        goto fail0;
+
+    /* this steals references to p_ts and p_tz */
+    (void) PyTuple_SET_ITEM(p_tuple, 0, p_ts);
+
+    p_datetime = PyDateTime_FromTimestamp(p_tuple);
+    Py_DECREF(p_tuple);
+    return p_datetime;
+
+fail0:
+    Py_DECREF(p_ts);
+    return NULL;
+}
+
+PyObject * ext_py__datetime_from_dt(ti_datetime_t * dt)
+{
+    return dt->tz
+            ? ext_py__datetime_from_dt_and_tz(dt)
+            : dt->tz
+            ? ext_py__datetime_from_dt_and_offset(dt)
+            : ext_py__datetime_from_dt_utc(dt);
+}
+
+PyObject * ext_py__py_from_val(ti_val_t * val, ex_t * e, int depth)
+{
+    if (++depth == MAX_OBJECT_NESTING)
+    {
+        ex_set(e, EX_OPERATION_ERROR,
+            "object has reached the maximum depth of %d",
+            MAX_OBJECT_NESTING);
+        return NULL;
+    }
+
     switch((ti_val_enum) val->tp)
     {
     case TI_VAL_NIL:
         Py_RETURN_NONE;
-    case TI_VAL_CLOSURE:
-        ex_set(e, EX_TYPE_ERROR,
-                "cannot convert type `"TI_VAL_CLOSURE_S"` to Python");
-        return NULL;
     case TI_VAL_INT:
     {
         PyObject * val = PyLong_FromLongLong(VINT(val));
         if (!val)
-            goto mem_error;
+            ex_mem_set(e);
         return val;
     }
     case TI_VAL_FLOAT:
     {
         PyObject * val = PyLong_FromDouble(VFLOAT(val));
         if (!val)
-            goto mem_error;
+            ex_mem_set(e);
         return val;
     }
     case TI_VAL_BOOL:
@@ -62,10 +202,48 @@ PyObject * ext_py__val_to_py(ti_val_t * val, ex_t * e)
                 ? Py_INCREF(Py_True), Py_True
                 : Py_INCREF(Py_False), Py_False;
     case TI_VAL_DATETIME:
+    {
+        PyObject * val = ext_py__datetime_from_dt((ti_datetime_t *) val);
+        if (!val)
+            ex_set(e, EX_VALUE_ERROR, "failed to convert date/time type");
+        return val;
+    }
     case TI_VAL_NAME:
+    {
+        ti_name_t * name = (ti_name_t *) val;
+        PyObject * val = PyUnicode_FromStringAndSize(name->str, name->n);
+        if (!val)
+            ex_mem_set(e);
+        return val;
+    }
     case TI_VAL_STR:
+    {
+        /*
+         * TODO: Technically it is not 100% guaranteed that type `raw` contains
+         * valid UTF8 data. (use: strx_is_utf8n)
+         */
+        ti_raw_t * raw = (ti_raw_t *) val;
+        if (strx_is_utf8n((const char *) raw->data, raw->n))
+        {
+            PyObject * val = PyUnicode_FromStringAndSize(
+                    (const char *) raw->data,
+                    raw->n);
+            if (!val)
+                ex_mem_set(e);
+            return val;
+        }
+    }
+    /* fall through */
     case TI_VAL_BYTES:
-    case TI_VAL_REGEX:
+    {
+        ti_raw_t * raw = (ti_raw_t *) val;
+        PyObject * val = PyBytes_FromStringAndSize(
+                (const char *) raw->data,
+                raw->n);
+        if (!val)
+            ex_mem_set(e);
+        return val;
+    }
     case TI_VAL_THING:
     case TI_VAL_WRAP:
     case TI_VAL_ARR:
@@ -75,14 +253,16 @@ PyObject * ext_py__val_to_py(ti_val_t * val, ex_t * e)
     case TI_VAL_MP:
     case TI_VAL_FUTURE:
     case TI_VAL_TEMPLATE:
-        break;
+    case TI_VAL_CLOSURE:
+    case TI_VAL_REGEX:
+        ex_set(e, EX_TYPE_ERROR,
+                "cannot convert type `%s` to a Python object",
+                ti_val_str(val));
+        return NULL;
     }
-
-mem_error:
-    ex_mem_set(e);
-    return NULL;
+    assert (0);
+    Py_RETURN_NONE;
 }
-
 
 /*
  * Create set_result function
@@ -452,13 +632,36 @@ static void ext_py__work_finish(uv_work_t * work, int status)
 
 void ti_ext_py_cb(ti_future_t * future)
 {
+    ex_t e;
+    PyObject * arg;
+
+    future->
+
+    if (future->args->n)
+    {
+        ti_val_t * val = vec_first(future->args);
+        arg = ext_py__py_from_val(val, &e, 0);
+        if (!arg)
+        {
+            ti_query_on_future_result(future, &e);
+            return;
+        }
+    }
+    else
+    {
+        arg = Py_None();
+        Py_INCREF(arg);
+    }
+
     if (vec_push(&ti.futures, future))
     {
-        ex_t e;
         ex_set_mem(&e);
         ti_query_on_future_result(future, &e);
         return;
     }
+
+
+    ext_py__val_to_py
 
     if (uv_queue_work(
             ti.loop,

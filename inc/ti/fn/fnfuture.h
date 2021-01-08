@@ -5,7 +5,7 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = langdef_nd_n_function_params(nd);
     cleri_children_t * child = nd->children;
     ti_future_t * future;
-    ti_ext_cb ext_cb;
+    ti_ext_t * ext;
 
     if (fn_nargs_min("future", DOC_FUTURE, 1, nargs, e))
         return e->nr;
@@ -14,17 +14,17 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     if (ti_val_is_nil(query->rval))
-        ext_cb = (ti_ext_cb) ti_ext_async_cb;
+        ext = ti_ext_async_get();
     else
     {
         /* TODO: str lookup */
-        ext_cb = (ti_ext_cb) ti_ext_py_cb;
+        ext = ti_ext_py_cb;
     }
 
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
-    future = ti_future_create(query, ext_cb, nargs-1);
+    future = ti_future_create(query, ext, nargs-1);
     if (!future)
     {
         ex_set_mem(e);

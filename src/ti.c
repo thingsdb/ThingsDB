@@ -72,6 +72,7 @@ int ti_create(void)
     ti.build = NULL;
     ti.node = NULL;
     ti.store = NULL;
+    ti.extensions = smap_create();
     ti.access_node = vec_new(0);
     ti.access_thingsdb = vec_new(0);
     ti.procedures = smap_create();
@@ -92,6 +93,7 @@ int ti_create(void)
             ti_events_create() ||
             ti_connect_create() ||
             ti_sync_create() ||
+            !ti.extensions ||
             !ti.access_node ||
             !ti.access_thingsdb ||
             !ti.procedures ||
@@ -140,6 +142,8 @@ void ti_destroy(void)
     vec_destroy(ti.access_node, (vec_destroy_cb) ti_auth_destroy);
     vec_destroy(ti.access_thingsdb, (vec_destroy_cb) ti_auth_destroy);
     smap_destroy(ti.procedures, (smap_destroy_cb) ti_procedure_destroy);
+    smap_destroy(ti.extensions, (smap_destroy_cb) ti_ext_destroy);
+
 
     /* remove late since counters can be updated */
     ti_counters_destroy();
@@ -160,6 +164,10 @@ void ti_destroy(void)
 
     if (ti.langdef)
         cleri_grammar_free(ti.langdef);
+
+    /* unload Python extension */
+    ti_ext_py_destroy();
+
     memset(&ti, 0, sizeof(ti_t));
 }
 

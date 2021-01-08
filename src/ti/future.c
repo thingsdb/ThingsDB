@@ -8,7 +8,7 @@
 
 ti_future_t * ti_future_create(
         ti_query_t * query,
-        ti_ext_cb ext_cb,
+        ti_ext_t * ext,
         size_t nargs)
 {
     ti_future_t * future = malloc(sizeof(ti_future_t));
@@ -21,7 +21,7 @@ ti_future_t * ti_future_create(
     future->rval = NULL;
     future->then = NULL;
     future->fail = NULL;
-    future->ext_cb = ext_cb;
+    future->ext = ext;
     future->args = vec_new(nargs);
     if (!future->args)
     {

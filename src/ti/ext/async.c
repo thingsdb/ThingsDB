@@ -6,6 +6,13 @@
 #include <ti/query.h>
 #include <ti.h>
 
+
+static ti_ext_t ext_async = {
+        .cb = ti_ext_async_cb,
+        .destroy_cb = NULL,
+        .data = NULL,
+};
+
 static void ext_async__cb(uv_async_t * task)
 {
     ex_t e = {0};
@@ -21,7 +28,12 @@ static void ext_async__cb(uv_async_t * task)
     uv_close((uv_handle_t *) task, (uv_close_cb) free);
 }
 
-void ti_ext_async_cb(ti_future_t * future)
+ti_ext_t * ti_ext_async_get(void)
+{
+    return &ext_async;
+}
+
+void ti_ext_async_cb(ti_future_t * future, void * UNUSED(data))
 {
     uv_async_t * task = malloc(sizeof(uv_async_t));
     if (!task)

@@ -635,7 +635,7 @@ static void query__run_futures(ti_query_t * query)
     ti.futures_count += query->futures.n;
 
     for (link_each(iter, ti_future_t, future))
-        future->ext_cb(future);
+        future->ext->cb(future, future->ext->data);
 }
 
 void ti_query_on_then_result(ti_query_t * query, ex_t * e)

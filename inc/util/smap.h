@@ -7,9 +7,13 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define SMAP_ERR_ALLOC      -1
-#define SMAP_ERR_EXIST      -2
-#define SMAP_ERR_EMPTY_KEY  -3
+enum
+{
+    SMAP_SUCCESS        =0,
+    SMAP_ERR_ALLOC      =-1,
+    SMAP_ERR_EXIST      =-2,
+    SMAP_ERR_EMPTY_KEY  =-3,
+};
 
 typedef struct smap_s smap_t;
 typedef struct smap_node_s smap_node_t;

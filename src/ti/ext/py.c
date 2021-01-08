@@ -24,18 +24,18 @@ static const char * ext_py__init_code =
     "import threading\n"
     "import _ti\n"
     "\n"
-    "def _ti_work(pid, func, *args):\n"
+    "def _ti_work(pid, func, arg):\n"
     "    try:\n"
-    "        result = func(*args)\n"
+    "        result = func(arg)\n"
     "    except Exception as e:\n"
     "        result = e\n"
     "    finally:\n"
     "        _ti._eval_set_result(pid, result)\n"
     "\n"
-    "def _ti_call_ext(pid, func, *args):\n"
+    "def _ti_call_ext(pid, func, arg):\n"
     "    t = threading.Thread(\n"
     "        target=_ti_work,\n"
-    "        args=(pid, func) + tuple(args))\n"
+    "        args=(pid, func, arg))\n"
     "    t.start()\n";
 
 
@@ -218,10 +218,6 @@ PyObject * ext_py__py_from_val(ti_val_t * val, ex_t * e, int depth)
     }
     case TI_VAL_STR:
     {
-        /*
-         * TODO: Technically it is not 100% guaranteed that type `raw` contains
-         * valid UTF8 data. (use: strx_is_utf8n)
-         */
         ti_raw_t * raw = (ti_raw_t *) val;
         if (strx_is_utf8n((const char *) raw->data, raw->n))
         {
@@ -421,9 +417,132 @@ fail0:
     return rc;
 }
 
+static void ext_py__load_modules(void)
+{
+    char * s = ti.cfg->py_modules;
+    while (*s)
+    {
+        ti_ext_t * ext;
+        PyObject * p_module, * p_name, * p_main;
+        char * module_str;
+        const char * name_str;
+
+        /* skip white space */
+        for (;isspace(*s); ++s);
+
+        /* set begin path and read the size of the path */
+        module_str = s;
+        for (; *s && *s != ',' && *s != ';'; ++s);
+
+        if (*s)
+        {
+            *s = '\0';
+            ++s;  /* not reached the end, skip divider */
+        }
+
+        if (!*module_str)
+            continue;
+
+        p_module = PyImport_ImportModule(module_str);
+        if (!p_module)
+        {
+            log_error(
+                    "(py) failed to load module `%s`; "
+                    "make sure the correct module path is configured",
+                    module_str);
+            continue;
+        }
+
+        p_name = PyObject_GetAttrString(p_module, "THINGSDB_EXT_NAME");
+        if (!p_name)
+        {
+            log_error(
+                    "(py) failed to load module `%s`; "
+                    "missing `THINGSDB_EXT_NAME`",
+                    module_str);
+            goto fail0;
+        }
+
+        if (!PyUnicode_Check(p_name))
+        {
+            log_error(
+                    "(py) failed to load module `%s`; "
+                    "`THINGSDB_EXT_NAME` must be a Python Unicode String",
+                    module_str);
+            goto fail1;
+        }
+
+        p_main = PyObject_GetAttrString(p_module, "main");
+        if (!p_main)
+        {
+            log_error(
+                    "(py) failed to load module `%s`; "
+                    "missing `main` function`",
+                    module_str);
+            goto fail1;
+        }
+
+        if (!PyCallable_Check(p_main))
+        {
+            log_error(
+                    "(py) failed to load module `%s`; "
+                    "`main` must be callable",
+                    module_str);
+            goto fail2;
+        }
+
+        ext = malloc(sizeof(ti_ext_t));
+        if (!ext)
+        {
+            log_error(EX_MEMORY_S);
+            goto fail2;
+        }
+
+        ext->cb = ti_ext_py_cb;
+        ext->data = p_main;
+
+        name_str = PyUnicode_AsUTF8(p_name);
+
+        switch(smap_add(ti.extensions, name_str, ext))
+        {
+        case SMAP_SUCCESS:
+            goto done;
+        case SMAP_ERR_EMPTY_KEY:
+            log_error(
+                    "(py) failed to load module `%s`; "
+                    "`THINGSDB_EXT_NAME` must be not be empty",
+                    module_str);
+            break;
+        case SMAP_ERR_ALLOC:
+            log_error(EX_MEMORY_S);
+            break;
+        case SMAP_ERR_EXIST:
+            log_error(
+                    "(py) failed to load module `%s`; "
+                    "cannot register `%s` as another extension with the same "
+                    "name already exists",
+                    module_str, name_str);
+            break;
+        }
+
+        free(ext);
+fail2:
+        Py_DECREF(p_main);
+fail1:
+done:
+        Py_DECREF(p_name);
+fail0:
+        Py_DECREF(p_module);
+    }
+}
+
+static PyObject * py_ext_call_ext;
 
 int ti_ext_py_init(void)
 {
+
+    PyObject * p_main_module;
+
     if (PyImport_AppendInittab("_ti", &PyInit_ti) < 0)
     {
         log_error("(py) failed to load _ti module");
@@ -438,19 +557,43 @@ int ti_ext_py_init(void)
     if (PyRun_SimpleString(ext_py__init_code))
     {
         log_error("(py) failed to run initial code");
+        goto fail0;
     }
 
-    main_module = PyImport_ImportModule("__main__");
-    pName = PyUnicode_DecodeFSDefaultAndSize("request", 7);
-    /* Error checking of pName left out */
 
-    pModule = PyImport_Import(pName);
-    Py_DECREF(pName);
 
+    p_main_module = PyImport_ImportModule("__main__");
+    if (!p_main_module)
+    {
+        log_error("(py) failed to load main module");
+        goto fail0;
+
+    }
+
+    py_ext_call_ext = PyObject_GetAttrString(p_main_module, "_ti_call_ext");
+    Py_DECREF(p_main_module);
+
+    if (!py_ext_call_ext)
+    {
+        log_error("(py) failed to load main module");
+        goto fail0;
+
+    }
+
+    return 0;
 
 fail0:
     (void) Py_FinalizeEx();
     return -1;
+}
+
+void ti_ext_py_destroy(void)
+{
+    if (py_ext_call_ext)
+    {
+        Py_DECREF(py_ext_call_ext);
+        Py_FinalizeEx();
+    }
 }
 
 static int ext_py__run_thread(void)
@@ -630,7 +773,7 @@ static void ext_py__work_finish(uv_work_t * work, int status)
 //    uv_close((uv_handle_t *) work, (uv_close_cb) free);
 }
 
-void ti_ext_py_cb(ti_future_t * future)
+void ti_ext_py_cb(ti_future_t * future, void * data)
 {
     ex_t e;
     PyObject * arg;
@@ -659,7 +802,7 @@ void ti_ext_py_cb(ti_future_t * future)
         ti_query_on_future_result(future, &e);
         return;
     }
-
+    PyObject_CallOneArg
 
     ext_py__val_to_py
 

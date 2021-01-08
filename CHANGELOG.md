@@ -3,6 +3,7 @@
 * Evaluate `error` values as `false`, issue #135.
 * Removed list of deprecated functions, issue #136.
 * Fixed bug in enumerator member conversion to `str` or `bytes`, issue #137.
+* Fixed possible memory leak in `imap`, issue #139.
 
 # v0.10.1
 

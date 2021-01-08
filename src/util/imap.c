@@ -769,7 +769,6 @@ static int imap__intersection_make(
             dest->sz += dest_nd->sz;
         }
     }
-
     if (!dest->sz)
     {
         free(dest->nodes);

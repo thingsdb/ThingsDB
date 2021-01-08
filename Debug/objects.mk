@@ -4,5 +4,5 @@
 
 USER_OBJS :=
 
-LIBS := -luv -lpcre2-8 -lcleri -lm -lyajl
+LIBS := -luv -lpython3.8 -lpcre2-8 -lcleri -lm -lyajl
 

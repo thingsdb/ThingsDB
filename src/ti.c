@@ -13,6 +13,8 @@
 #include <ti/collections.h>
 #include <ti/do.h>
 #include <ti/event.h>
+#include <ti/ext.h>
+#include <ti/ext/py.h>
 #include <ti/names.h>
 #include <ti/procedure.h>
 #include <ti/proto.h>
@@ -72,6 +74,7 @@ int ti_create(void)
     ti.build = NULL;
     ti.node = NULL;
     ti.store = NULL;
+    ti.futures = NULL;
     ti.extensions = smap_create();
     ti.access_node = vec_new(0);
     ti.access_thingsdb = vec_new(0);
@@ -157,10 +160,15 @@ void ti_destroy(void)
     ti_val_drop_common();
     ti_do_drop();
 
-    /* sanity check to see if all references are removed as expected */
+    /* sanity check to see if all references are removed as expected;
+     * first check futures: if futures still exist, other values might exist
+     * as well. */
+    assert(!ti.futures || !ti.futures->n);
     assert(ti_vbool_no_ref());
     assert(ti_nil_no_ref());
     assert(ti_vint_no_ref());
+
+    free(ti.futures);
 
     if (ti.langdef)
         cleri_grammar_free(ti.langdef);
@@ -204,6 +212,9 @@ int ti_init(void)
     ti_names_inject_common();
     ti_verror_init();
     ti_qbind_init();
+
+    if (ti.cfg->py_modules)
+        ti_ext_py_init();
 
     if (ti.cfg->query_duration_error > ti.cfg->query_duration_warn)
         ti.cfg->query_duration_warn = ti.cfg->query_duration_error;

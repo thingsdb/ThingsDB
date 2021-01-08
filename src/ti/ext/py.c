@@ -2,17 +2,19 @@
  * ti/ext/async.c
  */
 #define PY_SSIZE_T_CLEAN
-#include <ti/ext/async.h>
-#include <ti/varr.h>
-#include <ti/nil.h>
-#include <ti/vint.h>
-#include <ti/vfloat.h>
-#include <ti/vbool.h>
-#include <ti/query.h>
-#include <ti/datetime.h>
-#include <ti.h>
-#include <Python.h>
 #include <ctype.h>
+#include <Python.h>
+#include <datetime.h>
+#include <ti.h>
+#include <ti/datetime.h>
+#include <ti/ext/py.h>
+#include <ti/nil.h>
+#include <ti/query.h>
+#include <ti/varr.h>
+#include <ti/vbool.h>
+#include <ti/vfloat.h>
+#include <ti/vint.h>
+#include <util/strx.h>
 
 /*
  * Do not allow deep nesting of objects. This should be avoided at any cost
@@ -26,7 +28,7 @@ static const char * ext_py__init_code =
     "\n"
     "def _ti_work(pid, func, arg):\n"
     "    try:\n"
-    "        result = func(arg)\n"
+    "        result = func\n"
     "    except Exception as e:\n"
     "        result = e\n"
     "    finally:\n"
@@ -35,14 +37,13 @@ static const char * ext_py__init_code =
     "def _ti_call_ext(pid, func, arg):\n"
     "    t = threading.Thread(\n"
     "        target=_ti_work,\n"
-    "        args=(pid, func, arg))\n"
+    "        args=(123, 456, 789))\n"
     "    t.start()\n";
 
 
 PyObject * ext_py__datetime_from_dt_and_tz(ti_datetime_t * dt)
 {
     PyObject * p_delta, * p_tzname, * p_tz, * p_ts,  * p_tuple, * p_datetime;
-    ti_tz_t * tz;
     struct tm tm;
 
     if (ti_datetime_time(dt, &tm))
@@ -97,7 +98,6 @@ fail0:
 PyObject * ext_py__datetime_from_dt_and_offset(ti_datetime_t * dt)
 {
     PyObject * p_delta, * p_tz, * p_ts,  * p_tuple, * p_datetime;
-    ti_tz_t * tz;
 
     p_delta = PyDelta_FromDSU(0, (int) dt->offset * 60, 0);
     if (!p_delta)
@@ -138,7 +138,6 @@ fail0:
 PyObject * ext_py__datetime_from_dt_utc(ti_datetime_t * dt)
 {
     PyObject * p_ts,  * p_tuple, * p_datetime;
-    ti_tz_t * tz;
 
     p_ts = PyLong_FromLongLong(DATETIME(dt));
     if (!p_ts)
@@ -185,17 +184,17 @@ PyObject * ext_py__py_from_val(ti_val_t * val, ex_t * e, int depth)
         Py_RETURN_NONE;
     case TI_VAL_INT:
     {
-        PyObject * val = PyLong_FromLongLong(VINT(val));
-        if (!val)
-            ex_mem_set(e);
-        return val;
+        PyObject * p_val = PyLong_FromLongLong(VINT(val));
+        if (!p_val)
+            ex_set_mem(e);
+        return p_val;
     }
     case TI_VAL_FLOAT:
     {
-        PyObject * val = PyLong_FromDouble(VFLOAT(val));
-        if (!val)
-            ex_mem_set(e);
-        return val;
+        PyObject * p_val = PyLong_FromDouble(VFLOAT(val));
+        if (!p_val)
+            ex_set_mem(e);
+        return p_val;
     }
     case TI_VAL_BOOL:
         return VBOOL(val)
@@ -203,42 +202,42 @@ PyObject * ext_py__py_from_val(ti_val_t * val, ex_t * e, int depth)
                 : Py_INCREF(Py_False), Py_False;
     case TI_VAL_DATETIME:
     {
-        PyObject * val = ext_py__datetime_from_dt((ti_datetime_t *) val);
-        if (!val)
+        PyObject * p_val = ext_py__datetime_from_dt((ti_datetime_t *) val);
+        if (!p_val)
             ex_set(e, EX_VALUE_ERROR, "failed to convert date/time type");
-        return val;
+        return p_val;
     }
     case TI_VAL_NAME:
     {
         ti_name_t * name = (ti_name_t *) val;
-        PyObject * val = PyUnicode_FromStringAndSize(name->str, name->n);
-        if (!val)
-            ex_mem_set(e);
-        return val;
+        PyObject * p_val = PyUnicode_FromStringAndSize(name->str, name->n);
+        if (!p_val)
+            ex_set_mem(e);
+        return p_val;
     }
     case TI_VAL_STR:
     {
         ti_raw_t * raw = (ti_raw_t *) val;
         if (strx_is_utf8n((const char *) raw->data, raw->n))
         {
-            PyObject * val = PyUnicode_FromStringAndSize(
+            PyObject * p_val = PyUnicode_FromStringAndSize(
                     (const char *) raw->data,
                     raw->n);
-            if (!val)
-                ex_mem_set(e);
-            return val;
+            if (!p_val)
+                ex_set_mem(e);
+            return p_val;
         }
     }
     /* fall through */
     case TI_VAL_BYTES:
     {
         ti_raw_t * raw = (ti_raw_t *) val;
-        PyObject * val = PyBytes_FromStringAndSize(
+        PyObject * p_val = PyBytes_FromStringAndSize(
                 (const char *) raw->data,
                 raw->n);
-        if (!val)
-            ex_mem_set(e);
-        return val;
+        if (!p_val)
+            ex_set_mem(e);
+        return p_val;
     }
     case TI_VAL_THING:
     case TI_VAL_WRAP:
@@ -267,12 +266,11 @@ static PyObject * ti_set_result(PyObject * UNUSED(self), PyObject * args)
 {
     ex_t e = {0};
     ti_future_t * future;
-    PyObject * pRes, * pNone;
+    PyObject * p_result;
     intptr_t ptr;
-    ti_future_t * chk;
     size_t idx = 0;
 
-    if (!PyArg_ParseTuple(args, "LO", &ptr, &pRes))
+    if (!PyArg_ParseTuple(args, "LO", &ptr, &p_result))
     {
         log_error("set_result(..) called by using wrong arguments");
         Py_RETURN_NONE;
@@ -298,6 +296,17 @@ static PyObject * ti_set_result(PyObject * UNUSED(self), PyObject * args)
 
     future = vec_swap_remove(ti.futures, idx);
 
+    future->rval = (ti_val_t *) ti_varr_from_vec(future->args);
+    if (future->rval)
+    {
+        future->args = NULL;
+        /* TODO: replace the first value with the p_return value */
+    }
+    else
+        ex_set_mem(&e);
+
+
+    ti_query_on_future_result(future, &e);
 
     Py_RETURN_NONE;
 }
@@ -324,6 +333,9 @@ static int ext_py__insert_module_path(void)
     char * s = ti.cfg->py_modules_path;
     PyObject * sys_module, * p_path, * p_insert, * p_zero;
     size_t n;
+
+    if (!s)
+        return 0;  /* no additional modules path is configured */
 
     sys_module = PyImport_ImportModule("sys");
     if (!sys_module)
@@ -417,6 +429,11 @@ fail0:
     return rc;
 }
 
+static void ext_py__destroy_cb(PyObject * p_main)
+{
+    Py_DECREF(p_main);
+}
+
 static void ext_py__load_modules(void)
 {
     char * s = ti.cfg->py_modules;
@@ -498,7 +515,8 @@ static void ext_py__load_modules(void)
             goto fail2;
         }
 
-        ext->cb = ti_ext_py_cb;
+        ext->cb = (ti_ext_cb) ti_ext_py_cb;
+        ext->destroy_cb = (ti_ext_destroy_cb) ext_py__destroy_cb;
         ext->data = p_main;
 
         name_str = PyUnicode_AsUTF8(p_name);
@@ -538,35 +556,15 @@ fail0:
 
 static PyObject * py_ext_call_ext;
 
-int ti_ext_py_init(void)
+static int py_ext__init_call_ext(void)
 {
-
     PyObject * p_main_module;
-
-    if (PyImport_AppendInittab("_ti", &PyInit_ti) < 0)
-    {
-        log_error("(py) failed to load _ti module");
-        return -1;
-    }
-
-    Py_Initialize();
-
-    if (ext_py__insert_module_path)
-        goto fail0;
-
-    if (PyRun_SimpleString(ext_py__init_code))
-    {
-        log_error("(py) failed to run initial code");
-        goto fail0;
-    }
-
-
 
     p_main_module = PyImport_ImportModule("__main__");
     if (!p_main_module)
     {
         log_error("(py) failed to load main module");
-        goto fail0;
+        return -1;
 
     }
 
@@ -576,13 +574,48 @@ int ti_ext_py_init(void)
     if (!py_ext_call_ext)
     {
         log_error("(py) failed to load main module");
-        goto fail0;
-
+        return -1;
     }
+
+    if (!PyCallable_Check(py_ext_call_ext))
+    {
+        log_error("(py) `_ti_call_ext` is not callable");
+        return -1;
+    }
+
+    Py_INCREF(py_ext_call_ext);
+
+    return 0;
+}
+
+int ti_ext_py_init(void)
+{
+    if (PyImport_AppendInittab("_ti", &PyInit_ti) < 0)
+    {
+        log_error("(py) failed to load _ti module");
+        return -1;
+    }
+
+    Py_Initialize();
+
+    if (ext_py__insert_module_path())
+        goto fail;
+
+    if (PyRun_SimpleString(ext_py__init_code))
+    {
+        log_error("(py) failed to run initial code");
+        goto fail;
+    }
+
+    if (py_ext__init_call_ext())
+        goto fail;
+
+    /* load modules, failed modules are logged and skipped */
+    ext_py__load_modules();
 
     return 0;
 
-fail0:
+fail:
     (void) Py_FinalizeEx();
     return -1;
 }
@@ -592,229 +625,76 @@ void ti_ext_py_destroy(void)
     if (py_ext_call_ext)
     {
         Py_DECREF(py_ext_call_ext);
-        Py_FinalizeEx();
+        (void) Py_FinalizeEx();
     }
-}
-
-static int ext_py__run_thread(void)
-{
-
-}
-
-
-static void ext_py__work(uv_work_t * UNUSED(work))
-{
-    PyObject * pName, * pModule, * pFunc, * pFunc2, * pFunc3, *main_module, *sys_module, * Ppath;
-    PyObject *pArgs, *pValue;
-//        PyObject *pName, *pModule, *pDict,
-//                   *pFunc, *pInstance, *pArgs, *pValue;
-//        PyThreadState *mainThreadState, *myThreadState, *tempState;
-//        PyInterpreterState *mainInterpreterState;
-    PyImport_AppendInittab("_ti", &PyInit_ti);
-    Py_Initialize();
-
-    sys_module = PyImport_ImportModule("sys");
-    if (!sys_module)
-    {
-        LOGC("ERROR");
-    }
-    Ppath = PyObject_GetAttrString(sys_module, "path");
-    pFunc3 = PyObject_GetAttrString(Ppath, "insert");
-
-    pArgs = PyTuple_New(2);
-    pValue = PyLong_FromLong(0);
-    pName = PyUnicode_DecodeFSDefault("/home/joente/workspace/thingsdb/src/ti/ext");
-
-    /* pValue reference stolen here: */
-    PyTuple_SetItem(pArgs, 0, pValue);
-    PyTuple_SetItem(pArgs, 1, pName);
-    pValue = PyObject_CallObject(pFunc3, pArgs);
-    Py_DECREF(pValue);
-
-    PyRun_SimpleString(pycode);
-
-    main_module = PyImport_ImportModule("__main__");
-    pName = PyUnicode_DecodeFSDefaultAndSize("request", 7);
-    /* Error checking of pName left out */
-
-    pModule = PyImport_Import(pName);
-    Py_DECREF(pName);
-
-
-    if (pModule != NULL) {
-        pFunc = PyObject_GetAttrString(main_module, "_ti_call_ext");
-        pFunc2 = PyObject_GetAttrString(pModule, "main");
-        /* pFunc is a new reference */
-
-        if (pFunc && PyCallable_Check(pFunc)) {
-            pArgs = PyTuple_New(2);
-            pValue = PyLong_FromLong(1234);
-            /* pValue reference stolen here: */
-            PyTuple_SetItem(pArgs, 0, pValue);
-            PyTuple_SetItem(pArgs, 1, pFunc2);
-
-            pValue = PyObject_CallObject(pFunc, pArgs);
-            Py_DECREF(pArgs);
-            if (pValue != NULL) {
-                Py_DECREF(pValue);
-            }
-            else {
-                Py_DECREF(pFunc);
-                Py_DECREF(pModule);
-                PyErr_Print();
-                fprintf(stderr,"Call failed\n");
-            }
-        }
-        else {
-            if (PyErr_Occurred())
-                PyErr_Print();
-            fprintf(stderr, "Cannot find function `main`\n");
-        }
-        Py_XDECREF(pFunc);
-        Py_DECREF(pModule);
-    }
-    else {
-        PyErr_Print();
-        fprintf(stderr, "Failed to load \"request\"\n");
-    }
-
-    (void) Py_FinalizeEx();
-
-
-//        PyGILState_STATE state;
-//        PyThreadState * tstate;
-//
-//        // Random testing code
-//        for(i = 0; i < 3; i++)
-//        {
-//            printf("...Printed from my thread.\n");
-//            sleep(1);
-//        }
-//
-//        if (!gil_init) {
-//            gil_init = 1;
-//            PyEval_InitThreads();
-//                    tstate = PyEval_SaveThread();
-//        }
-////        tstate = PyEval_SaveThread();
-//        state = PyGILState_Ensure();
-////        PyEval_RestoreThread(tstate);
-//        PyGILState_Release(state);
-
-        // Initialize python inerpreter
-//        Py_Initialize();
-//
-//        // Initialize thread support
-//        PyEval_InitThreads();
-
-        // Save a pointer to the main PyThreadState object
-//        mainThreadState = PyThreadState_Get();
-//
-//        // Get a reference to the PyInterpreterState
-//        mainInterpreterState = mainThreadState->interp;
-//
-//        // Create a thread state object for this thread
-//        myThreadState = PyThreadState_New(mainInterpreterState);
-//
-//        // Release global lock
-////        PyEval_ReleaseLock();
-//
-//        // Acquire global lock
-//        PyEval_AcquireLock();
-//
-//        // Swap in my thread state
-//        tempState = PyThreadState_Swap(myThreadState);
-
-//        // Now execute some python code (call python functions)
-//        pName = PyString_FromString(arg->argv[1]);
-//        pModule = PyImport_Import(pName);
-//
-//        // pDict and pFunc are borrowed references
-//        pDict = PyModule_GetDict(pModule);
-//        pFunc = PyDict_GetItemString(pDict, arg->argv[2]);
-//
-//        if (PyCallable_Check(pFunc))
-//        {
-//            pValue = PyObject_CallObject(pFunc, NULL);
-//        }
-//        else {
-//            PyErr_Print();
-//        }
-//
-//        // Clean up
-//        Py_DECREF(pModule);
-//        Py_DECREF(pName);
-
-//        // Swap out the current thread
-//        PyThreadState_Swap(tempState);
-//
-//        // Release global lock
-//        PyEval_ReleaseLock();
-//
-//        // Clean up thread state
-//        PyThreadState_Clear(myThreadState);
-//        PyThreadState_Delete(myThreadState);
-
-//        PyEval_SaveThread();
-//
-        printf("My thread is finishing...\n");
-}
-
-static void ext_py__work_finish(uv_work_t * work, int status)
-{
-    ex_t e = {0};
-    ti_future_t * future = work->data;
-
-    future->rval = (ti_val_t *) ti_varr_create(0);
-    fprintf(stderr, "status: %d\n\n", status);
-
-    ti_query_on_future_result(future, &e);
-    free(work);
-//    uv_close((uv_handle_t *) work, (uv_close_cb) free);
 }
 
 void ti_ext_py_cb(ti_future_t * future, void * data)
 {
-    ex_t e;
-    PyObject * arg;
+    ex_t e = {0};
+    intptr_t ptr = (intptr_t) future;
+    PyObject * p_arg, * p_main, * p_tuple, * p_return, * p_pid;
 
-    future->
+    p_main = data;
 
     if (future->args->n)
     {
         ti_val_t * val = vec_first(future->args);
-        arg = ext_py__py_from_val(val, &e, 0);
-        if (!arg)
-        {
-            ti_query_on_future_result(future, &e);
-            return;
-        }
+        p_arg = ext_py__py_from_val(val, &e, 0);
+        if (!p_arg)
+            goto fail0;
     }
     else
     {
-        arg = Py_None();
-        Py_INCREF(arg);
+        p_arg = Py_None;
+        Py_INCREF(p_arg);
     }
 
-    if (vec_push(&ti.futures, future))
+    p_pid = PyLong_FromLongLong(ptr);
+    if (!p_pid)
     {
         ex_set_mem(&e);
-        ti_query_on_future_result(future, &e);
-        return;
+        goto fail1;
     }
-    PyObject_CallOneArg
 
-    ext_py__val_to_py
-
-    if (uv_queue_work(
-            ti.loop,
-            work,
-            ext_py__work,
-            ext_py__work_finish))
+    if (vec_push_create(&ti.futures, future))
     {
-        ex_t e;
-        ex_set_internal(&e);
-        ti_query_on_future_result(future, &e);
+        ex_set_mem(&e);
+        goto fail2;
     }
+
+    p_tuple = PyTuple_New(3);
+    if (!p_tuple)
+    {
+        ex_set_mem(&e);
+        goto fail3;
+    }
+
+    /* this steals references to p_ts and p_tz */
+    (void) PyTuple_SET_ITEM(p_tuple, 0, p_pid);
+    (void) PyTuple_SET_ITEM(p_tuple, 1, p_main);
+    (void) PyTuple_SET_ITEM(p_tuple, 2, p_arg);
+
+    LOGC("call function...");
+    p_return = PyObject_CallObject(py_ext_call_ext, p_tuple);
+    LOGC("done function...");
+    Py_DECREF(p_tuple);
+
+    if (p_return)
+    {
+        Py_DECREF(p_return);
+        return;  /* success, ti_query_on_future_result will be called
+                             once the python thread finishes */
+    }
+
+    ex_set_internal(&e);
+fail3:
+    vec_pop(ti.futures);
+fail2:
+    Py_DECREF(p_pid);
+fail1:
+    Py_DECREF(p_arg);
+fail0:
+    ti_query_on_future_result(future, &e);
 }
 

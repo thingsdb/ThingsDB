@@ -15,10 +15,21 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_val_is_nil(query->rval))
         ext = ti_ext_async_get();
+    else if (ti_val_is_str(query->rval))
+    {
+        ti_raw_t * raw = (ti_raw_t *) query->rval;
+        ext = smap_getn(ti.extensions, (const char *) raw->data, raw->n);
+        if (!ext)
+            return ti_raw_err_not_found(raw, "module", e);
+    }
     else
     {
-        /* TODO: str lookup */
-        ext = ti_ext_py_cb;
+        ex_set(e, EX_TYPE_ERROR,
+            "function `future` expects argument 1 to be of "
+            "type `"TI_VAL_STR_S"` or `"TI_VAL_NIL_S"` "
+            "but got type `%s` instead"DOC_FUTURE,
+            ti_val_str(query->rval));
+        return e->nr;
     }
 
     ti_val_unsafe_drop(query->rval);

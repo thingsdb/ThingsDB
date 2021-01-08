@@ -8,7 +8,7 @@
 
 
 static ti_ext_t ext_async = {
-        .cb = ti_ext_async_cb,
+        .cb = (ti_ext_cb) ti_ext_async_cb,
         .destroy_cb = NULL,
         .data = NULL,
 };

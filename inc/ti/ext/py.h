@@ -7,6 +7,8 @@
 #include <inttypes.h>
 #include <ti/future.t.h>
 
+int ti_ext_py_init(void);
+void ti_ext_py_destroy(void);
 void ti_ext_py_cb(ti_future_t * future, void * data);
 
 #endif  /* TI_EXT_PY_H_ */

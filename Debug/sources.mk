@@ -21,4 +21,5 @@ src/langdef \
 src/ti \
 src/ti/store \
 src/util \
+src/ti/ext \
 

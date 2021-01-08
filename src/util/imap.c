@@ -612,6 +612,11 @@ static int imap__difference_make(
             }
         }
     }
+    if (!dest->sz)
+    {
+        free(dest->nodes);
+        dest->nodes = NULL;
+    }
     return 0;
 }
 

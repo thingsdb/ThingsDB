@@ -612,6 +612,11 @@ static int imap__difference_make(
             }
         }
     }
+    if (!dest->sz)
+    {
+        free(dest->nodes);
+        dest->nodes = NULL;
+    }
     return 0;
 }
 
@@ -764,7 +769,6 @@ static int imap__intersection_make(
             dest->sz += dest_nd->sz;
         }
     }
-
     if (!dest->sz)
     {
         free(dest->nodes);

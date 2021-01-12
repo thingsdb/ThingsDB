@@ -41,6 +41,14 @@ typedef enum
     TI_PROTO_CLIENT_REQ_RUN     =37,    /* [scope, procedure, arguments...] */
 
     /*
+     * 64..127 extension range
+     */
+    TI_PROTO_EXT_INIT           =64,    /* data, initialize extension */
+    TI_PROTO_EXT_CLOSE          =65,    /* empty, close extension */
+    TI_PROTO_EXT_REQ            =66,    /* data, request */
+    TI_PROTO_EXT_RES            =67,    /* data, response */
+
+    /*
      * protocol definition for node connections
      */
 

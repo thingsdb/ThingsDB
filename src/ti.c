@@ -14,7 +14,6 @@
 #include <ti/do.h>
 #include <ti/event.h>
 #include <ti/ext.h>
-#include <ti/ext/py.h>
 #include <ti/names.h>
 #include <ti/procedure.h>
 #include <ti/proto.h>
@@ -74,7 +73,6 @@ int ti_create(void)
     ti.build = NULL;
     ti.node = NULL;
     ti.store = NULL;
-    ti.futures = NULL;
     ti.extensions = smap_create();
     ti.access_node = vec_new(0);
     ti.access_thingsdb = vec_new(0);
@@ -160,21 +158,13 @@ void ti_destroy(void)
     ti_val_drop_common();
     ti_do_drop();
 
-    /* sanity check to see if all references are removed as expected;
-     * first check futures: if futures still exist, other values might exist
-     * as well. */
-    assert(!ti.futures || !ti.futures->n);
+    /* sanity check to see if all references are removed as expected; */
     assert(ti_vbool_no_ref());
     assert(ti_nil_no_ref());
     assert(ti_vint_no_ref());
 
-    free(ti.futures);
-
     if (ti.langdef)
         cleri_grammar_free(ti.langdef);
-
-    /* unload Python extension */
-    ti_ext_py_destroy();
 
     memset(&ti, 0, sizeof(ti_t));
 }
@@ -517,9 +507,6 @@ int ti_run(void)
 
     if (ti_signals_init())
         goto failed;
-
-    if (ti.cfg->py_modules)
-        ti_ext_py_init();
 
     if (ti.cfg->http_status_port && ti_web_init())
         goto failed;

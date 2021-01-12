@@ -402,8 +402,6 @@ int ti_cfg_create(void)
     cfg->query_duration_warn = 0;
     cfg->query_duration_error = 0;
     cfg->node_name = strdup(hostname);
-    cfg->py_modules = NULL;
-    cfg->py_modules_path = NULL;
 
     if (!cfg->bind_client_addr ||
         !cfg->bind_node_addr ||
@@ -425,8 +423,6 @@ void ti_cfg_destroy(void)
     free(cfg->pipe_client_name);
     free(cfg->storage_path);
     free(cfg->gcloud_key_file);
-    free(cfg->py_modules);
-    free(cfg->py_modules_path);
     free(cfg);
     cfg = ti.cfg = NULL;
 }
@@ -473,17 +469,7 @@ int ti_cfg_parse(const char * cfg_file)
                     parser,
                     cfg_file,
                     "gcloud_key_file",
-                    &cfg->gcloud_key_file)) ||
-            (rc = cfg__str(
-                    parser,
-                    cfg_file,
-                    "py_modules_path",
-                    &cfg->py_modules_path)) ||
-            (rc = cfg__str(
-                    parser,
-                    cfg_file,
-                    "py_modules",
-                    &cfg->py_modules)))
+                    &cfg->gcloud_key_file)))
         goto exit_parse;
 
     cfg__port(parser, cfg_file, "listen_client_port", &cfg->client_port);

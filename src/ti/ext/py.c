@@ -12,6 +12,7 @@
 #include <ti/query.h>
 #include <ti/varr.h>
 #include <ti/vbool.h>
+#include <ti/val.inline.h>
 #include <ti/vfloat.h>
 #include <ti/vint.h>
 #include <util/strx.h>
@@ -24,22 +25,32 @@
 
 static const char * ext_py__init_code =
     "import threading\n"
+    "import time\n"
     "import _ti\n"
     "\n"
     "def _ti_work(pid, func, arg):\n"
     "    try:\n"
-    "        result = func\n"
+    "        result = func(arg)\n"
     "    except Exception as e:\n"
     "        result = e\n"
     "    finally:\n"
-    "        _ti._eval_set_result(pid, result)\n"
+    "        _ti.set_result(pid, result)\n"
     "\n"
-    "def _ti_call_ext(pid, func, arg):\n"
+    "while True:\n"
+    "    time.sleep(0.5)\n"
+    "    print('loop....')\n"
+    "    task = _ti.get_task()\n"
+    "    if task is None:\n"
+    "        continue\n"
+    "    if task is False:\n"
+    "        break\n"
     "    t = threading.Thread(\n"
     "        target=_ti_work,\n"
-    "        args=(123, 456, 789))\n"
+    "        args=task)\n"
     "    t.start()\n";
 
+static _Bool ext_py__running;
+static vec_t * ext_py__vec;
 
 PyObject * ext_py__datetime_from_dt_and_tz(ti_datetime_t * dt)
 {
@@ -259,16 +270,110 @@ PyObject * ext_py__py_from_val(ti_val_t * val, ex_t * e, int depth)
     Py_RETURN_NONE;
 }
 
+ti_val_t * ext_py__val_from_py(PyObject * p_obj, ex_t * e, int depth)
+{
+    ti_val_t * val;
+    if (p_obj == Py_None)
+        return (ti_val_t *) ti_nil_get();
+    if (p_obj == Py_True)
+        return (ti_val_t *) ti_vbool_get(true);
+    if (p_obj == Py_False)
+        return (ti_val_t *) ti_vbool_get(false);
+    if (PyLong_Check(p_obj))
+    {
+        int overflow;
+        int64_t i = PyLong_AsLongLongAndOverflow(p_obj, &overflow);
+        if (overflow)
+            ex_set(e, EX_OVERFLOW, "integer overflow");
+        val = (ti_val_t *) ti_vint_create(i);
+        if (!val)
+            ex_set_mem(e);
+        return val;
+    }
+    return (ti_val_t *) ti_nil_get();
+}
+
+static PyObject * ext_py__get_tuple(ti_future_t * future, ex_t * e)
+{
+    ti_val_t * val;
+    intptr_t ptr = (intptr_t) future;
+    PyObject * p_arg, * p_main, * p_tuple, * p_pid;
+
+    p_main = future->ext->data;
+    Py_INCREF(p_main);
+
+    assert (future->args->n);
+    val = vec_first(future->args);
+    p_arg = ext_py__py_from_val(val, e, 0);
+    if (!p_arg)
+        goto fail0;
+
+    p_pid = PyLong_FromLongLong(ptr);
+    if (!p_pid)
+    {
+        ex_set_mem(e);
+        goto fail1;
+    }
+
+    if (vec_push_create(&ti.futures, future))
+    {
+        ex_set_mem(e);
+        goto fail2;
+    }
+
+    p_tuple = PyTuple_New(3);
+    if (!p_tuple)
+    {
+        ex_set_mem(e);
+        goto fail3;
+    }
+
+    /* this steals references to p_ts and p_tz */
+    (void) PyTuple_SET_ITEM(p_tuple, 0, p_pid);
+    (void) PyTuple_SET_ITEM(p_tuple, 1, p_main);
+    (void) PyTuple_SET_ITEM(p_tuple, 2, p_arg);
+
+    return p_tuple;
+
+    ex_set_internal(e);
+fail3:
+    vec_pop(ti.futures);
+fail2:
+    Py_DECREF(p_pid);
+fail1:
+    Py_DECREF(p_arg);
+fail0:
+    Py_DECREF(p_main);
+    Py_RETURN_NONE;
+}
+
+typedef struct
+{
+    ti_future_t * future;
+    ex_t e;
+} ext_py__t;
+
+static void ext_py__async_result(uv_async_t * task)
+{
+    ext_py__t * w = task->data;
+    ti_query_on_future_result(w->future, &w->e);
+    free(w);
+    uv_close((uv_handle_t *) task, (uv_close_cb) free);
+}
+
 /*
  * Create set_result function
  */
 static PyObject * ti_set_result(PyObject * UNUSED(self), PyObject * args)
 {
-    ex_t e = {0};
-    ti_future_t * future;
     PyObject * p_result;
     intptr_t ptr;
     size_t idx = 0;
+    ext_py__t * w = malloc(sizeof(ext_py__t));
+    uv_async_t * task = malloc(sizeof(uv_async_t));
+    ti_varr_t * varr;
+
+    ex_clear(&w->e);
 
     if (!PyArg_ParseTuple(args, "LO", &ptr, &p_result))
     {
@@ -281,39 +386,85 @@ static PyObject * ti_set_result(PyObject * UNUSED(self), PyObject * args)
      * pointer. If not checked, ThingsDB might break on receiving a
      * corrupted pointer.
      */
-    future = (ti_future_t *) ptr;
+    w->future = (ti_future_t *) ptr;
     for (vec_each(ti.futures, ti_future_t, f), ++idx)
-        if (future == f)
+        if (w->future == f)
             break;
 
     if (idx == ti.futures->n)
     {
         log_error(
                 "set_result(..) is called with an unknown future pointer: %p",
-                future);
+                w->future);
         Py_RETURN_NONE;
     }
 
-    future = vec_swap_remove(ti.futures, idx);
+    w->future = vec_swap_remove(ti.futures, idx);
+    assert (w->future);
 
-    future->rval = (ti_val_t *) ti_varr_from_vec(future->args);
-    if (future->rval)
+    varr = ti_varr_from_vec(w->future->args);
+    if (varr)
     {
-        future->args = NULL;
+        ti_val_t * val;
+        w->future->rval = (ti_val_t *) varr;
+        w->future->args = NULL;
+        val = ext_py__val_from_py(p_result, &w->e, 0);
+        ti_val_gc_drop(vec_first(varr->vec));
+        ti_varr_val_prepare(varr, (void **) &val, &w->e);
+        vec_set(varr->vec, val, 0);
+
+
+        LOGC("Found future...");
+
         /* TODO: replace the first value with the p_return value */
     }
     else
-        ex_set_mem(&e);
+        ex_set_mem(&w->e);
 
+    task->data = w;
 
-    ti_query_on_future_result(future, &e);
+    if (uv_async_init(ti.loop, task, (uv_async_cb) ext_py__async_result) ||
+        uv_async_send(task))
+    {
+        LOGC("BLABLA");
+    }
+
+    Py_RETURN_NONE;
+}
+
+static PyObject * ti_get_task(PyObject * UNUSED(self), PyObject * UNUSED(args))
+{
+    LOGC("ti flags: %d", ti.flags);
+    if (ti.flags & TI_FLAG_SIGNAL)
+        return Py_INCREF(Py_False), Py_False;
+
+    if (ext_py__vec && ext_py__vec->n)
+    {
+        ex_t e = {0};
+        PyObject * result;
+        result = ext_py__get_tuple(vec_pop(ext_py__vec), &e);
+        if (result)
+            return result;
+        /* TODO exception handling */
+        LOGC("ERROR: %s", e.msg);
+    }
 
     Py_RETURN_NONE;
 }
 
 static PyMethodDef TiMethods[] = {
-    {"set_result", ti_set_result, METH_VARARGS,
-     "Can be called only once to set the result for ThingsDB."},
+    {
+        "set_result",
+        ti_set_result,
+        METH_VARARGS,
+        "Can be called only once to set the result for ThingsDB."
+    },
+    {
+        "get_task",
+        ti_get_task,
+        METH_VARARGS,
+        "Get a task."
+    },
     {NULL, NULL, 0, NULL}
 };
 
@@ -554,147 +705,127 @@ fail0:
     }
 }
 
-static PyObject * py_ext_call_ext;
+//static PyObject * py_ext_call_ext;
 
-static int py_ext__init_call_ext(void)
+//static int py_ext__init_call_ext(void)
+//{
+//    PyObject * p_main_module;
+//
+//    p_main_module = PyImport_ImportModule("__main__");
+//    if (!p_main_module)
+//    {
+//        log_error("(py) failed to load main module");
+//        return -1;
+//
+//    }
+//
+//    py_ext_call_ext = PyObject_GetAttrString(p_main_module, "_ti_call_ext");
+//    Py_DECREF(p_main_module);
+//
+//    if (!py_ext_call_ext)
+//    {
+//        log_error("(py) failed to load main module");
+//        return -1;
+//    }
+//
+//    if (!PyCallable_Check(py_ext_call_ext))
+//    {
+//        log_error("(py) `_ti_call_ext` is not callable");
+//        return -1;
+//    }
+//
+//    return 0;
+//}
+
+
+void ti_ext_py_destroy(void)
 {
-    PyObject * p_main_module;
-
-    p_main_module = PyImport_ImportModule("__main__");
-    if (!p_main_module)
-    {
-        log_error("(py) failed to load main module");
-        return -1;
-
-    }
-
-    py_ext_call_ext = PyObject_GetAttrString(p_main_module, "_ti_call_ext");
-    Py_DECREF(p_main_module);
-
-    if (!py_ext_call_ext)
-    {
-        log_error("(py) failed to load main module");
-        return -1;
-    }
-
-    if (!PyCallable_Check(py_ext_call_ext))
-    {
-        log_error("(py) `_ti_call_ext` is not callable");
-        return -1;
-    }
-
-    Py_INCREF(py_ext_call_ext);
-
-    return 0;
+    ext_py__running = false;
 }
 
-int ti_ext_py_init(void)
+static void ext_py__work(uv_work_t * UNUSED(work))
 {
     if (PyImport_AppendInittab("_ti", &PyInit_ti) < 0)
     {
         log_error("(py) failed to load _ti module");
-        return -1;
+        return;
     }
 
     Py_Initialize();
 
     if (ext_py__insert_module_path())
-        goto fail;
-
-    if (PyRun_SimpleString(ext_py__init_code))
-    {
-        log_error("(py) failed to run initial code");
-        goto fail;
-    }
-
-    if (py_ext__init_call_ext())
-        goto fail;
+        goto fail0;
 
     /* load modules, failed modules are logged and skipped */
     ext_py__load_modules();
 
-    return 0;
-
-fail:
-    (void) Py_FinalizeEx();
-    return -1;
-}
-
-void ti_ext_py_destroy(void)
-{
-    if (py_ext_call_ext)
+    if (PyRun_SimpleString(ext_py__init_code))
     {
-        Py_DECREF(py_ext_call_ext);
-        (void) Py_FinalizeEx();
-    }
-}
-
-void ti_ext_py_cb(ti_future_t * future, void * data)
-{
-    ex_t e = {0};
-    intptr_t ptr = (intptr_t) future;
-    PyObject * p_arg, * p_main, * p_tuple, * p_return, * p_pid;
-
-    p_main = data;
-
-    if (future->args->n)
-    {
-        ti_val_t * val = vec_first(future->args);
-        p_arg = ext_py__py_from_val(val, &e, 0);
-        if (!p_arg)
-            goto fail0;
-    }
-    else
-    {
-        p_arg = Py_None;
-        Py_INCREF(p_arg);
+        log_error("(py) failed to run initial code");
+        goto fail0;
     }
 
-    p_pid = PyLong_FromLongLong(ptr);
-    if (!p_pid)
-    {
-        ex_set_mem(&e);
-        goto fail1;
-    }
+//    if (py_ext__init_call_ext())
+//        goto fail1;
+//
+//
+//    ext_py__running = true;
+//
+//    do
+//    {
+//        ti_future_t * future = vec_pop(ext_py__vec);
+//        if (future)
+//            ext_py__do_work(future);
+//        usleep(100);
+//    }
+//    while(ext_py__running);
 
-    if (vec_push_create(&ti.futures, future))
-    {
-        ex_set_mem(&e);
-        goto fail2;
-    }
-
-    p_tuple = PyTuple_New(3);
-    if (!p_tuple)
-    {
-        ex_set_mem(&e);
-        goto fail3;
-    }
-
-    /* this steals references to p_ts and p_tz */
-    (void) PyTuple_SET_ITEM(p_tuple, 0, p_pid);
-    (void) PyTuple_SET_ITEM(p_tuple, 1, p_main);
-    (void) PyTuple_SET_ITEM(p_tuple, 2, p_arg);
-
-    LOGC("call function...");
-    p_return = PyObject_CallObject(py_ext_call_ext, p_tuple);
-    LOGC("done function...");
-    Py_DECREF(p_tuple);
-
-    if (p_return)
-    {
-        Py_DECREF(p_return);
-        return;  /* success, ti_query_on_future_result will be called
-                             once the python thread finishes */
-    }
-
-    ex_set_internal(&e);
-fail3:
-    vec_pop(ti.futures);
-fail2:
-    Py_DECREF(p_pid);
-fail1:
-    Py_DECREF(p_arg);
+//fail1:
+//    Py_DECREF(py_ext_call_ext);
 fail0:
-    ti_query_on_future_result(future, &e);
+    (void) Py_FinalizeEx();
 }
+
+static void ext_py__work_finish(uv_work_t * UNUSED(work), int status)
+{
+
+}
+
+static uv_work_t ext_py__uv_work;
+
+int ti_ext_py_init(void)
+{
+    return uv_queue_work(
+            ti.loop,
+            &ext_py__uv_work,
+            ext_py__work,
+            ext_py__work_finish);
+}
+
+
+void ti_ext_py_cb(ti_future_t * future)
+{
+    if (!future->args->n)
+    {
+        vec_push(&future->args, ti_nil_get());
+    }
+    /* TODO: lock and exception handling */
+    int rc = vec_push_create(&ext_py__vec, future);
+
+    if (rc)
+        LOGC("FAILED");
+    else
+        LOGC("ADDED");
+
+//    if (!task)
+//    {
+//        ex_t e;
+//        ex_set_mem(&e);
+//        ti_query_on_future_result(future, &e);
+//        return;
+//    }
+//
+//    task->data = future;
+}
+
 

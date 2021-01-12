@@ -58,6 +58,9 @@ class Node:
         self.pipe_client_name = options.pop('pipe_client_name', None)
         self.threshold_full_storage = options.pop('threshold_full_storage', 10)
 
+        self.py_modules_path = options.pop('py_modules_path', None)
+        self.py_modules = options.pop('py_modules', None)
+
         self.storage_path = os.path.join(THINGSDB_TESTDIR, f'tdb{n}')
         self.cfgfile = os.path.join(THINGSDB_TESTDIR, f't{n}.conf')
 
@@ -158,6 +161,11 @@ class Node:
             config.set('thingsdb', 'pipe_client_name',  self.pipe_client_name)
 
         config.set('thingsdb', 'storage_path', self.storage_path)
+
+        if self.py_modules:
+            config.set('thingsdb', 'py_modules', self.py_modules)
+        if self.py_modules_path:
+            config.set('thingsdb', 'py_modules_path', self.py_modules_path)
 
         with open(self.cfgfile, 'w') as configfile:
             config.write(configfile)

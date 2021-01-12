@@ -22,7 +22,10 @@ class TestPy(TestBase):
 
     title = 'Test python integration'
 
-    @default_test_setup(num_nodes=1, seed=1, threshold_full_storage=10)
+    @default_test_setup(
+        num_nodes=1, seed=1, threshold_full_storage=10,
+        py_modules="request",
+        py_modules_path="../ext/py")
     async def run(self):
 
         await self.node0.init_and_run()
@@ -39,9 +42,13 @@ class TestPy(TestBase):
         # asyncio.ensure_future(client.query(r'''
         #     future('py');
         # '''))
-        await client.query(r'''
-            future('py');
+        res = await client.query(r'''
+            future('PY_REQUEST', 6);
         ''')
+
+        self.assertEqual(res, [42])
+
+        await asyncio.sleep(2)
 
 
 if __name__ == '__main__':

@@ -8,7 +8,7 @@
 
 typedef struct ti_ext_s ti_ext_t;
 
-typedef void (*ti_ext_cb)(void * future, void * data);
+typedef void (*ti_ext_cb)(void * future);
 typedef void (*ti_ext_destroy_cb)(void * data);
 
 struct ti_ext_s

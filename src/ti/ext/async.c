@@ -33,7 +33,7 @@ ti_ext_t * ti_ext_async_get(void)
     return &ext_async;
 }
 
-void ti_ext_async_cb(ti_future_t * future, void * UNUSED(data))
+void ti_ext_async_cb(ti_future_t * future)
 {
     uv_async_t * task = malloc(sizeof(uv_async_t));
     if (!task)

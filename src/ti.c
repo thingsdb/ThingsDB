@@ -213,9 +213,6 @@ int ti_init(void)
     ti_verror_init();
     ti_qbind_init();
 
-    if (ti.cfg->py_modules)
-        ti_ext_py_init();
-
     if (ti.cfg->query_duration_error > ti.cfg->query_duration_warn)
         ti.cfg->query_duration_warn = ti.cfg->query_duration_error;
 
@@ -520,6 +517,9 @@ int ti_run(void)
 
     if (ti_signals_init())
         goto failed;
+
+    if (ti.cfg->py_modules)
+        ti_ext_py_init();
 
     if (ti.cfg->http_status_port && ti_web_init())
         goto failed;

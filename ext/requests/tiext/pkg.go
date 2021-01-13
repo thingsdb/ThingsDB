@@ -43,8 +43,8 @@ func (p *pkg) setData(b *[]byte, size uint32) {
 	p.Data = (*b)[pkgHeaderSize:size]
 }
 
-// pkgPackBin returns a byte array containing a header with serialized data.
-func pkgPackBin(pid uint16, tp Proto, data []byte) []byte {
+// PkgPackBin returns a byte array containing a header with serialized data.
+func PkgPackBin(pid uint16, tp Proto, data []byte) []byte {
 
 	datasz := len(data)
 
@@ -64,15 +64,15 @@ func pkgPackBin(pid uint16, tp Proto, data []byte) []byte {
 	return pkgdata
 }
 
-// pkgPack returns a byte array containing a header with serialized data.
-func pkgPack(pid uint16, tp Proto, v interface{}) ([]byte, error) {
+// PkgPack returns a byte array containing a header with serialized data.
+func PkgPack(pid uint16, tp Proto, v interface{}) ([]byte, error) {
 
 	data, err := msgpack.Marshal(v)
 	if err != nil {
 		return nil, err
 	}
 
-	data = pkgPackBin(pid, tp, data)
+	data = PkgPackBin(pid, tp, data)
 
 	return data, nil
 }

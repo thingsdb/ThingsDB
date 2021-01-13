@@ -1041,6 +1041,9 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
             uv_close(handle, NULL);
         }
         break;
+    case UV_PROCESS:
+        log_warning("closing spawned process...");
+        break;
     default:
         log_error("unexpected handle type: %d", handle->type);
     }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 	tiext "requests/tiext"
 )
 
@@ -18,6 +19,11 @@ func handler(buf *tiext.Buffer, quit chan bool) {
 				return
 			case tiext.ProtoExtReq:
 				log.Println("Received a request")
+				data, err := tiext.PkgPack(0, 67, nil)
+				if err == nil {
+					log.Println("Write a response")
+					os.Stdout.Write(data)
+				}
 			default:
 				log.Printf("Error: Unexpected package type: %d", pkg.Tp)
 			}

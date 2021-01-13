@@ -509,8 +509,8 @@ int ti_run(void)
     if (ti_signals_init())
         goto failed;
 
-//    if (ti_ext_proc_init())
-//        return -1;
+    if (ti_ext_proc_init())
+        return -1;
 
     if (ti.cfg->http_status_port && ti_web_init())
         goto failed;

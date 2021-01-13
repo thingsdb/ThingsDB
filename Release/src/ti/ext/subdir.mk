@@ -4,13 +4,16 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
-../src/ti/ext/async.c 
+../src/ti/ext/async.c \
+../src/ti/ext/proc.c 
 
 OBJS += \
-./src/ti/ext/async.o 
+./src/ti/ext/async.o \
+./src/ti/ext/proc.o 
 
 C_DEPS += \
-./src/ti/ext/async.d 
+./src/ti/ext/async.d \
+./src/ti/ext/proc.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes

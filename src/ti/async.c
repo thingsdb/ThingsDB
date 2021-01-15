@@ -1,19 +1,18 @@
 /*
- * ti/ext/async.c
+ * ti/modasync.c
  */
-#include <ti/ext/async.h>
+#include <ti/async.h>
 #include <ti/varr.h>
 #include <ti/query.h>
 #include <ti.h>
 
 
-static ti_ext_t ext_async = {
-        .cb = (ti_ext_cb) ti_ext_async_cb,
-        .destroy_cb = NULL,
-        .data = NULL,
+static ti_module_t async__module = {
+        .status = TI_MODULE_STAT_RUNNING,
+        .cb = (ti_module_cb) ti_async_cb,
 };
 
-static void ext_async__cb(uv_async_t * task)
+static void async__cb(uv_async_t * task)
 {
     ex_t e = {0};
     ti_future_t * future = task->data;
@@ -28,12 +27,12 @@ static void ext_async__cb(uv_async_t * task)
     uv_close((uv_handle_t *) task, (uv_close_cb) free);
 }
 
-ti_ext_t * ti_ext_async_get(void)
+ti_module_t * ti_async_get_module(void)
 {
-    return &ext_async;
+    return &async__module;
 }
 
-void ti_ext_async_cb(ti_future_t * future)
+void ti_async_cb(ti_future_t * future)
 {
     uv_async_t * task = malloc(sizeof(uv_async_t));
     if (!task)
@@ -46,7 +45,7 @@ void ti_ext_async_cb(ti_future_t * future)
 
     task->data = future;
 
-    if (uv_async_init(ti.loop, task, (uv_async_cb) ext_async__cb) ||
+    if (uv_async_init(ti.loop, task, (uv_async_cb) async__cb) ||
         uv_async_send(task))
     {
         ex_t e;

@@ -5,14 +5,14 @@
 #define TI_FUTURE_H_
 
 #include <inttypes.h>
-#include <ti/ext.h>
 #include <ti/future.t.h>
 #include <ti/query.t.h>
 
 ti_future_t * ti_future_create(
         ti_query_t * query,
-        ti_ext_t * ext,
-        size_t nargs);
+        ti_module_t * module,
+        size_t nargs,
+        uint8_t deep);
 void ti_future_destroy(ti_future_t * future);
 
 

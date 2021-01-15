@@ -25,7 +25,7 @@
 #include <ti/enums.inline.h>
 #include <ti/export.h>
 #include <ti/ext.h>
-#include <ti/ext/async.h>
+#include <ti/async.h>
 #include <ti/field.h>
 #include <ti/future.h>
 #include <ti/future.inline.h>

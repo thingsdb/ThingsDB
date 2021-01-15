@@ -105,7 +105,7 @@ struct ti_s
     smap_t * procedures;        /* ti_procedure_t */
     smap_t * names;             /* weak map for ti_name_t */
     smap_t * qcache;            /* pointer to qcache */
-    smap_t * extensions;         /* lookup with extension modules */
+    smap_t * modules;           /* ti_module_t */
     uv_loop_t * loop;
     cleri_grammar_t * langdef;
     size_t futures_count;       /* number of running futures */

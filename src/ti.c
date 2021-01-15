@@ -14,8 +14,8 @@
 #include <ti/do.h>
 #include <ti/event.h>
 #include <ti/ext.h>
-#include <ti/ext/proc.h>
 #include <ti/names.h>
+#include <ti/proc.h>
 #include <ti/procedure.h>
 #include <ti/proto.h>
 #include <ti/qbind.h>
@@ -74,10 +74,10 @@ int ti_create(void)
     ti.build = NULL;
     ti.node = NULL;
     ti.store = NULL;
-    ti.extensions = smap_create();
     ti.access_node = vec_new(0);
     ti.access_thingsdb = vec_new(0);
     ti.procedures = smap_create();
+    ti.modules = smap_create();
     ti.langdef = compile_langdef();
     ti.thing0 = ti_thing_o_create(0, 0, NULL);
     if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti.boottime) ||
@@ -95,7 +95,7 @@ int ti_create(void)
             ti_events_create() ||
             ti_connect_create() ||
             ti_sync_create() ||
-            !ti.extensions ||
+            !ti.modules ||
             !ti.access_node ||
             !ti.access_thingsdb ||
             !ti.procedures ||
@@ -144,7 +144,7 @@ void ti_destroy(void)
     vec_destroy(ti.access_node, (vec_destroy_cb) ti_auth_destroy);
     vec_destroy(ti.access_thingsdb, (vec_destroy_cb) ti_auth_destroy);
     smap_destroy(ti.procedures, (smap_destroy_cb) ti_procedure_destroy);
-    smap_destroy(ti.extensions, (smap_destroy_cb) ti_ext_destroy);
+    smap_destroy(ti.modules, (smap_destroy_cb) ti_module_destroy);
 
 
     /* remove late since counters can be updated */
@@ -591,6 +591,7 @@ void ti_stop(void)
     {
         ti_set_and_broadcast_node_status(TI_NODE_STAT_OFFLINE);
 
+        (void) ti_modules_stop();
         (void) ti_collections_gc();
         (void) ti_archive_to_disk();
         (void) ti_backups_store();
@@ -976,15 +977,14 @@ static void ti__shutdown_cb(uv_timer_t * UNUSED(timer))
      * shutdown so request should stop in a short period. When there is only
      * one node, there is no point in waiting.
      */
-    if (ti.nodes->vec->n > 1 && shutdown_counter)
+    if (shutdown_counter-- > 0 && ti.nodes->vec->n > 1)
     {
         log_info("going off-line in %d second%s",
                 shutdown_counter, shutdown_counter == 1 ? "" : "s");
-        --shutdown_counter;
         return;
     }
 
-    if (ti_away_is_working())
+    if (shutdown_counter > -300 && ti_away_is_working())
     {
         log_info("wait for `away` mode to finish before shutting down");
         return;

@@ -582,6 +582,25 @@ static _Bool thing_t__get_by_name(
     return false;
 }
 
+ti_val_t * ti_thing_weak_val_by_name(ti_thing_t * thing, ti_name_t * name)
+{
+    if (ti_thing_is_object(thing))
+    {
+        for (vec_each(thing->items, ti_prop_t, prop))
+            if (prop->name == name)
+                return prop->val;
+    }
+    else
+    {
+        ti_type_t * type = ti_thing_type(thing);
+        ti_field_t * field;
+
+        if ((field = ti_field_by_name(type, name)))
+            return VEC_get(thing->items, field->idx);
+    }
+    return NULL;
+}
+
 _Bool ti_thing_get_by_raw(ti_wprop_t * wprop, ti_thing_t * thing, ti_raw_t * r)
 {
     ti_name_t * name = r->tp == TI_VAL_NAME

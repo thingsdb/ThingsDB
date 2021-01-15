@@ -73,6 +73,8 @@ static ti_val_t * val__hour_name;
 static ti_val_t * val__minute_name;
 static ti_val_t * val__second_name;
 static ti_val_t * val__gmt_offset_name;
+static ti_val_t * val__module_name;
+static ti_val_t * val__deep_name;
 
 
 #define VAL__BUF_SZ 128
@@ -571,7 +573,8 @@ int ti_val_init_common(void)
     val__minute_name = (ti_val_t *) ti_names_from_str("minute");
     val__second_name = (ti_val_t *) ti_names_from_str("second");
     val__gmt_offset_name = (ti_val_t *) ti_names_from_str("gmt_offset");
-
+    val__module_name = (ti_val_t *) ti_names_from_str("module");
+    val__deep_name = (ti_val_t *) ti_names_from_str("deep");
 
     if (!val__empty_bin || !val__empty_str || !val__snil || !val__strue ||
         !val__sfalse || !val__sbool || !val__sdatetime || !val__stimeval ||
@@ -581,7 +584,8 @@ int ti_val_init_common(void)
         !val__swthing || !val__tar_gz_str || !val__sany || !val__gs_str ||
         !val__charset_str || !val__year_name || !val__month_name ||
         !val__day_name || !val__hour_name || !val__minute_name ||
-        !val__second_name || !val__gmt_offset_name || !val__sfuture)
+        !val__second_name || !val__gmt_offset_name || !val__sfuture ||
+        !val__module_name || !val__deep_name)
     {
         return -1;
     }
@@ -788,6 +792,15 @@ ti_val_t * ti_val_gmt_offset_name(void)
     return val__gmt_offset_name;
 }
 
+ti_val_t * ti_val_borrow_module_name(void)
+{
+    return val__module_name;
+}
+
+ti_val_t * ti_val_borrow_deep_name(void)
+{
+    return val__deep_name;
+}
 
 
 /*

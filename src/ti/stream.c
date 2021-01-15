@@ -132,7 +132,7 @@ void ti_stream_set_user(ti_stream_t * stream, ti_user_t * user)
 
 void ti_stream_alloc_buf(uv_handle_t * handle, size_t sugsz, uv_buf_t * buf)
 {
-    ti_stream_t * stream  = (ti_stream_t *) handle->data;
+    ti_stream_t * stream = handle->data;
 
     if (!stream->n && stream->sz != sugsz)
     {
@@ -155,7 +155,7 @@ void ti_stream_alloc_buf(uv_handle_t * handle, size_t sugsz, uv_buf_t * buf)
 
 void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf)
 {
-    ti_stream_t * stream  = uvstream->data;
+    ti_stream_t * stream = uvstream->data;
     ti_pkg_t * pkg;
     size_t total_sz;
 

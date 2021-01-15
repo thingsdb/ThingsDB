@@ -44,9 +44,8 @@ typedef enum
      * 64..127 modules range
      */
     TI_PROTO_MODULE_CONF           =64,    /* data, initialize extension */
-    TI_PROTO_MODULE_CLOSE          =65,    /* empty, close extension */
-    TI_PROTO_MODULE_REQ            =66,    /* data, request */
-    TI_PROTO_MODULE_RES            =67,    /* data, response */
+    TI_PROTO_MODULE_REQ            =65,    /* data, request */
+    TI_PROTO_MODULE_RES            =66,    /* data, response */
 
     /*
      * protocol definition for node connections

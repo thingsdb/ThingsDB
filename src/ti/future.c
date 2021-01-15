@@ -23,6 +23,7 @@ ti_future_t * ti_future_create(
     future->rval = NULL;
     future->then = NULL;
     future->fail = NULL;
+    future->pkg = NULL;
     future->module = module;
     future->args = vec_new(nargs);
     if (!future->args)
@@ -42,6 +43,13 @@ void ti_future_destroy(ti_future_t * future)
     ti_future_forget_cb(future->fail);
     vec_destroy(future->args, (vec_destroy_cb) ti_val_unsafe_drop);
     ti_val_drop(future->rval);
+    free(future->pkg);
     free(future);
 }
 
+void ti_future_cancel(ti_future_t * future)
+{
+    ex_t e;  /* TODO: introduce new error ? */
+    ex_set(e, EX_OPERATION_ERROR, "future cancelled before completion");
+    ti_query_on_future_result(future, &e);
+}

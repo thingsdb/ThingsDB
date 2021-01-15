@@ -5,6 +5,7 @@
 #include <ti/proc.h>
 #include <ti.h>
 
+
 static void proc__alloc_buf(
         uv_handle_t * handle,
         size_t sugsz,
@@ -88,26 +89,61 @@ void proc__on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf)
     }
 }
 
+static void proc__on_child_stdout_close(uv_handle_t * handle)
+{
+    ti_proc_t * proc = handle->data;
+
+    /* clear buffer */
+    free(proc->buf.data);
+    buf_init(&proc->buf);
+
+    ti_module_on_exit(proc->module);
+}
+
+static void proc__on_child_stdin_close(uv_handle_t * handle)
+{
+    ti_proc_t * proc = handle->data;
+    uv_close((uv_handle_t *) &proc->child_stdout, proc__on_child_stdout_close);
+}
+
+static void proc__on_process_close(uv_process_t * process)
+{
+    ti_proc_t * proc = process->data;
+
+    process->pid = 0;
+
+    uv_close((uv_handle_t *) &proc->child_stdin, proc__on_child_stdin_close);
+}
+
 static void proc__on_exit(
         uv_process_t * process,
         int64_t exit_status,
         int term_signal)
 {
-    LOGC("ON_EXIT");
+    ti_proc_t * proc = process->data;
+    ti_module_t * module = proc->module;
+
+    if (exit_status)
+    {
+        log_error(
+            "module `%s` has been stopped (%d) with exit status: %"PRId64,
+            proc->module->binary->str, term_signal, exit_status);
+    }
+    else
+    {
+        log_info(
+            "module `%s` has been stopped (%d) with exit status: %"PRId64,
+            proc->module->binary->str, term_signal, exit_status);
+    }
+
+    uv_close((uv_handle_t *) process, (uv_close_cb) proc__on_process_close);
 }
 
-
-int ti_ext_proc_init(ti_proc_t * proc, ti_module_t * module)
+void ti_proc_init(ti_proc_t * proc, ti_module_t * module)
 {
     memset(proc, 0, sizeof(ti_proc_t));
 
     proc->module = module;
-
-    if (uv_pipe_init(ti.loop, &proc->child_stdin, 1))
-        goto fail0;
-
-    if (uv_pipe_init(ti.loop, &proc->child_stdout, 1))
-        goto fail1;
 
     proc->options.stdio_count = 3;
     proc->options.stdio = &proc->child_stdio;
@@ -124,60 +160,47 @@ int ti_ext_proc_init(ti_proc_t * proc, ti_module_t * module)
     proc->options.file = module->binary->str;
     proc->options.exit_cb = (uv_exit_cb) proc__on_exit;
 
+    proc->child_stdin.data = proc;
     proc->child_stdout.data = proc;
     proc->process.data = proc;
-
-    return 0;
-
-fail1:
-    uv_close((uv_handle_t *) &proc->child_stdin, NULL);
-fail0:
-    return -1;
 }
 
+/*
+ * Return 0 on success or a libuv error when failed.
+ */
 int ti_proc_load(ti_proc_t * proc)
 {
     int rc;
 
-    rc = uv_spawn(ti.loop, &proc->process, &proc->options);
+    rc = uv_pipe_init(ti.loop, &proc->child_stdin, 1);
     if (rc)
         goto fail0;
+
+    rc = uv_pipe_init(ti.loop, &proc->child_stdout, 1);
+    if (rc)
+        goto fail1;
+
+    rc = uv_spawn(ti.loop, &proc->process, &proc->options);
+    if (rc)
+        goto fail2;
 
     rc = uv_read_start(
             (uv_stream_t *) &proc->child_stdout,
             (uv_alloc_cb) proc__alloc_buf,
             (uv_read_cb) proc__on_data);
     if (rc)
-        goto fail1;
+        goto fail3;
 
     return 0;
 
+fail3:
+    (void) uv_kill(proc->process->pid, SIGTERM);
+fail2:
+    uv_close((uv_handle_t *) &proc->child_stdout, NULL);
 fail1:
-    uv_kill(proc->process->pid, SIGTERM);
+    uv_close((uv_handle_t *) &proc->child_stdin, NULL);
 fail0:
-    proc->module->status = rc;
-    return -1;
+    return rc;
 }
 
-static void proc__write_cb(uv_write_t * req, int status)
-{
-    if (status)
-    {
-        ex_t e; /* TODO : new error? */
-        ti_future_t * future = req->data;
-
-        /* remove the future from the module */
-        (void) omap_rm(future->module->futures, future->pid);
-
-        ex_set(&e, EX_OPERATION_ERROR, uv_strerror(status));
-        ti_query_on_future_result(future, &e);
-    }
-
-    free(req);
-}
-
-int ti_proc_write_request(ti_proc_t * proc, uv_write_t * req, uv_buf_t * wrbuf)
-{
-    return uv_write(req, &proc->child_stdin, wrbuf, 1, &proc__write_cb);
-}
 

@@ -16,6 +16,9 @@ ti_module_t * ti_module_create_strn(
         uint64_t created_at,
         ti_scope_t * scope /* may be NULL */);
 
+void ti_module_destroy(ti_module_t * module);
+void ti_module_on_exit(uv_process_t * process);
 void ti_module_stop(ti_module_t * module);
+const char * ti_module_status_str(ti_module_t * module);
 
 #endif /* TI_MODULE_H_ */

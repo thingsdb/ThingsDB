@@ -1,4 +1,4 @@
-package tiext
+package timod
 
 import (
 	"bufio"

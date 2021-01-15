@@ -4,77 +4,116 @@
 #include <stdlib.h>
 #include <ti/module.h>
 
-ti_module_t * ti_module_create_strn(
-        const char * name,
-        size_t name_n,
-        const char * binary,
-        size_t binary_n,
-        const char * conf,
-        size_t conf_n,
-        uint64_t created_at,
-        ti_scope_t * scope /* may be NULL */)
+
+#define MODULE__TOO_MANY_RESTARTS 15
+
+
+static void module__write_req_cb(uv_write_t * req, int status)
 {
-    ti_module_t * module = malloc(sizeof(ti_module_t));
-    if (!module)
-        return NULL;
-
-    module->status = TI_MODULE_STAT_NOT_LOADED;
-    module->restarts = 0;
-    module->next_pid = 0;
-    module->cb = ti_module_cb;
-    module->name = ti_str_create(name, name_n);
-    module->binary = ti_str_create(binary, binary_n);
-    module->conf = conf_n ? ti_raw_create(conf, conf_n) : NULL;
-    module->started_at = 0;
-    module->created_at = created_at;
-    module->scope = scope;
-    module->futures = omap_create();
-
-    if ((conf_n && !module->conf) ||
-        !module->name || !module->binary || !module->futures)
+    if (status)
     {
-        ti_module_destroy(module);
-        return NULL;
+        ex_t e; /* TODO : new error? */
+        ti_future_t * future = req->data;
+
+        /* remove the future from the module */
+        (void) omap_rm(future->module->futures, future->pid);
+
+        ex_set(&e, EX_OPERATION_ERROR, uv_strerror(status));
+        ti_query_on_future_result(future, &e);
     }
-    return module;
+
+    free(req);
 }
 
-int ti_module_load(ti_module_t * module)
-{
-
-}
-
-void ti_module_destroy(ti_module_t * module)
-{
-    if (!module)
-        return;
-    assert (module->status != TI_MODULE_STAT_RUNNING);
-
-    ti_val_drop((ti_val_t *) module->name);
-    ti_val_drop((ti_val_t *) module->binary);
-    ti_val_drop((ti_val_t *) module->conf);
-    omap_destroy(module->futures, (omap_destroy_cb) ti_future_cancel);
-    free(module);
-}
-
-void ti_module_stop(ti_module_t * module)
-{
-
-}
-
-void ti_module_cb(ti_future_t * future)
+static int module__write_req(ti_future_t * future)
 {
     int uv_err = 0;
+    ti_module_t * module = future->module;
+    ti_proc_t * proc = &module->proc;
+    uv_buf_t wrbuf;
+    ti_future_t * prev;
+    uv_write_t * req;
+
+    req = malloc(sizeof(uv_write_t));
+    if (!req)
+        return UV_EAI_MEMORY;
+
+    req->data = future;
+    future->pkg->id = future->pid = module->next_pid;
+
+    prev = omap_set(module->futures, future->pid, future);
+    if (!prev)
+    {
+        free(req);
+        return UV_EAI_MEMORY;
+    }
+
+    if (prev != future)
+        ti_future_cancel(prev);
+
+    wrbuf = uv_buf_init(
+            (char *) future->pkg,
+            sizeof(ti_pkg_t) + future->pkg->n);
+
+    uv_err = uv_write(req, &proc->child_stdin, &wrbuf, 1, &module__write_req_cb)
+    if (uv_err)
+    {
+        (void) omap_rm(module->futures, module->next_pid);
+        free(req);
+        return uv_err;
+    }
+
+    ++module->next_pid;
+    return 0;
+}
+
+static void module__write_conf_cb(uv_write_t * req, int status)
+{
+    if (status)
+    {
+        log_error(uv_strerror(status));
+        ((ti_module_t *) req->data)->status = status;
+    }
+
+    free(req);
+}
+
+static int module__write_conf(ti_module_t * module)
+{
+    int uv_err;
+    ti_proc_t * proc = &module->proc;
+    uv_buf_t wrbuf;
+    uv_write_t * req;
+
+    req = malloc(sizeof(uv_write_t));
+    if (!req)
+        return UV_EAI_MEMORY;
+
+    req->data = module;
+
+    wrbuf = uv_buf_init(
+            (char *) module->conf_pkg,
+            sizeof(ti_pkg_t) + module->conf_pkg->n);
+    uv_err = \
+        uv_write(req, &proc->child_stdin, &wrbuf, 1, &module__write_conf_cb);
+
+    if (uv_err)
+    {
+        free(req);
+        module->status = uv_err;
+        return -1;
+    }
+
+    return 0;
+}
+
+static void module__cb(ti_future_t * future)
+{
+    int uv_err;
     ti_thing_t * thing = VEC_get(future->args, 0);
     msgpack_packer pk;
     msgpack_sbuffer buffer;
     size_t alloc_sz = 1024;
-    ti_pkg_t * pkg = NULL;
-    uv_write_t * req;
-    uv_buf_t wrbuf;
-    ti_module_t * module = future->module;
-    ti_proc_t * proc = &module->proc;
-    ti_future_t * prev;
 
     assert (ti_val_is_thing((ti_val_t *) thing));
 
@@ -84,54 +123,137 @@ void ti_module_cb(ti_future_t * future)
     if (ti_thing_to_pk(thing, &pk, future->deep))
         goto mem_error1;
 
-    pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, 0, TI_PROTO_MODULE_REQ, buffer.size);
+    future->pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(future->pkg, 0, TI_PROTO_MODULE_REQ, buffer.size);
 
-    req = malloc(sizeof(uv_write_t));
-    if (!req)
-        goto mem_error1;
-
-    req->data = future;
-    future->pid = module->next_pid;
-
-    prev = omap_set(module->futures, future->pid, future);
-    if (!prev)
-        goto mem_error2;
-
-    if (prev != future)
-    {
-        ex_t e;  /* TODO: introduce new error ? */
-        ex_set(e, EX_OPERATION_ERROR, "future cancelled before completion");
-        ti_query_on_future_result(prev, &e);
-    }
-
-    wrbuf = uv_buf_init((char *) pkg, sizeof(ti_pkg_t) + pkg->n);
-
-    uv_err = ti_proc_write_request(proc, req, &wrbuf);
-
+    uv_err = module__write_req(future);
     if (uv_err)
     {
         ex_t e;  /* TODO: introduce new error ? */
         ex_set(e, EX_OPERATION_ERROR, uv_strerror(uv_err));
         ti_query_on_future_result(future, &e);
-        goto uv_error;
+        free(pkg);
     }
+    return;
 
-    ++module->next_pid;
-    return;  /* success */
-
-uv_error:
-    omap_rm(module->futures, module->next_pid);
-mem_error2:
-    free(req);
 mem_error1:
     msgpack_sbuffer_destroy(buffer);
 mem_error0:
-    if (uv_err == 0)
     {
         ex_t e;
         ex_set_internal(&e);
         ti_query_on_future_result(future, &e);
     }
+}
+
+ti_module_t * ti_module_create_strn(
+        const char * name,
+        size_t name_n,
+        const char * binary,
+        size_t binary_n,
+        uint64_t created_at,
+        ti_pkg_t * conf_pkg,    /* may be NULL */
+        ti_scope_t * scope      /* may be NULL */)
+{
+    ti_module_t * module = malloc(sizeof(ti_module_t));
+    if (!module)
+        return NULL;
+
+    module->status = TI_MODULE_STAT_NOT_LOADED;
+    module->restarts = 0;
+    module->next_pid = 0;
+    module->cb = module__cb;
+    module->name = ti_str_create(name, name_n);
+    module->binary = ti_str_create(binary, binary_n);
+    module->conf_pkg = conf_pkg;
+    module->started_at = 0;
+    module->created_at = created_at;
+    module->scope = scope;
+    module->futures = omap_create();
+
+    if (!module->name || !module->binary || !module->futures)
+    {
+        ti_module_destroy(module);
+        return NULL;
+    }
+
+    ti_proc_init(&module->proc, module);
+
+    return module;
+}
+
+int ti_module_load(ti_module_t * module)
+{
+    int rc = ti_proc_load(&module->proc);
+
+    module->status = rc
+            ? rc
+            : module->conf_pkg
+            ? module__write_conf(module)
+            : TI_MODULE_STAT_RUNNING;
+
+    return module->status;
+}
+
+void ti_module_destroy(ti_module_t * module)
+{
+    if (!module)
+        return;
+    ti_val_drop((ti_val_t *) module->name);
+    ti_val_drop((ti_val_t *) module->binary);
+    omap_destroy(module->futures, (omap_destroy_cb) ti_future_cancel);
+    free(module->conf_pkg);
+    free(module);
+}
+
+void ti_module_on_exit(ti_module_t * module)
+{
+    omap_clear(module->futures, (omap_destroy_cb) ti_future_cancel);
+
+    if (module->status == TI_MODULE_STAT_RUNNING)
+    {
+        if (++module->restarts > MODULE__TOO_MANY_RESTARTS)
+        {
+            log_error(
+                    "module `%s` has been restarted too many (>%d) times",
+                    module->binary->str,
+                    MODULE__TOO_MANY_RESTARTS);
+            module->status = TI_MODULE_STAT_TOO_MANY_RESTARTS;
+        }
+        else if (ti_module_load(module))
+        {
+            log_error(
+                    "failed to restart module `%s` (%s)",
+                    module->binary->str,
+                    ti_module_status_str(module));
+        }
+    }
+}
+
+void ti_module_stop(ti_module_t * module)
+{
+    int rc, pid = module->proc.process.pid;
+    if (!pid)
+        return;
+    rc = uv_kill(pid, SIGTERM);
+    if (rc)
+        log_error()
+}
+
+
+const char * ti_module_status_str(ti_module_t * module)
+{
+    switch (module->status)
+    {
+    case TI_MODULE_STAT_RUNNING:
+        return "running";
+    case TI_MODULE_STAT_NOT_LOADED:
+        return "module not loaded";
+    case TI_MODULE_STAT_STOPPING:
+        return "stopping";
+    case TI_MODULE_STAT_TOO_MANY_RESTARTS:
+        return "too many restarts detected; most likely the module is broken";
+    }
+    return uv_strerror(module->status);
 }
 

@@ -29,6 +29,7 @@ struct omap__s
 
 omap_t * omap_create(void);
 void omap_destroy(omap_t * omap, omap_destroy_cb cb);
+void omap_clear(omap_t * omap, omap_destroy_cb cb)
 int omap_add(omap_t * omap, uint64_t id, void * data);
 void * omap_set(omap_t * omap, uint64_t id, void * data);
 void * omap_get(omap_t * omap, uint64_t id);

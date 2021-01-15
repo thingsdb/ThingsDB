@@ -15,6 +15,8 @@ enum
     /* negative values are reserved for uv errors */
     TI_MODULE_STAT_RUNNING,         /* success */
     TI_MODULE_STAT_NOT_LOADED,
+    TI_MODULE_STAT_STOPPING,
+    TI_MODULE_STAT_TOO_MANY_RESTARTS,
 };
 
 struct ti_module_s
@@ -26,7 +28,7 @@ struct ti_module_s
     ti_module_cb cb;        /* module callback */
     ti_raw_t * name;        /* name of the module */
     ti_name_t * binary;     /* binary to start */
-    ti_raw_t * conf;        /* message_pack data (may be NULL) */
+    ti_pkg_t * conf_pkg;    /* configuration package */
     uint64_t started_at;    /* module started at this time-stamp */
     uint64_t created_at;    /* module started at this time-stamp */
     ti_scope_t * scope;     /* may be NULL */

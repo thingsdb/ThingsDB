@@ -6,13 +6,7 @@
 #include <ti/query.h>
 #include <ti.h>
 
-
-static ti_module_t async__module = {
-        .status = TI_MODULE_STAT_RUNNING,
-        .cb = (ti_module_cb) ti_async_cb,
-};
-
-static void async__cb(uv_async_t * task)
+static void async__uv_cb(uv_async_t * task)
 {
     ex_t e = {0};
     ti_future_t * future = task->data;
@@ -27,12 +21,7 @@ static void async__cb(uv_async_t * task)
     uv_close((uv_handle_t *) task, (uv_close_cb) free);
 }
 
-ti_module_t * ti_async_get_module(void)
-{
-    return &async__module;
-}
-
-void ti_async_cb(ti_future_t * future)
+static void async__cb(ti_future_t * future)
 {
     uv_async_t * task = malloc(sizeof(uv_async_t));
     if (!task)
@@ -45,7 +34,7 @@ void ti_async_cb(ti_future_t * future)
 
     task->data = future;
 
-    if (uv_async_init(ti.loop, task, (uv_async_cb) async__cb) ||
+    if (uv_async_init(ti.loop, task, (uv_async_cb) async__uv_cb) ||
         uv_async_send(task))
     {
         ex_t e;
@@ -54,3 +43,12 @@ void ti_async_cb(ti_future_t * future)
     }
 }
 
+static ti_module_t async__module = {
+        .status = TI_MODULE_STAT_RUNNING,
+        .cb = (ti_module_cb) async__cb,
+};
+
+ti_module_t * ti_async_get_module(void)
+{
+    return &async__module;
+}

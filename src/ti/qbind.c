@@ -111,6 +111,7 @@
 #include <ti/fn/fnnew.h>
 #include <ti/fn/fnnewbackup.h>
 #include <ti/fn/fnnewcollection.h>
+#include <ti/fn/fnnewmodule.h>
 #include <ti/fn/fnnewnode.h>
 #include <ti/fn/fnnewprocedure.h>
 #include <ti/fn/fnnewtoken.h>
@@ -212,7 +213,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 191,
+    TOTAL_KEYWORDS = 192,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 8,
@@ -489,6 +490,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="name",              .fn=do__f_name,                 CHAIN_NE},
     {.name="new_backup",        .fn=do__f_new_backup,           ROOT_NE},
     {.name="new_collection",    .fn=do__f_new_collection,       ROOT_TE},
+    {.name="new_module",        .fn=do__f_new_module,           ROOT_TE},
     {.name="new_node",          .fn=do__f_new_node,             ROOT_TE},
     {.name="new_procedure",     .fn=do__f_new_procedure,        ROOT_BE},
     {.name="new_token",         .fn=do__f_new_token,            ROOT_TE},

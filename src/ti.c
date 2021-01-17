@@ -13,6 +13,7 @@
 #include <ti/collections.h>
 #include <ti/do.h>
 #include <ti/event.h>
+#include <ti/modules.h>
 #include <ti/names.h>
 #include <ti/proc.h>
 #include <ti/procedure.h>
@@ -143,8 +144,7 @@ void ti_destroy(void)
     vec_destroy(ti.access_node, (vec_destroy_cb) ti_auth_destroy);
     vec_destroy(ti.access_thingsdb, (vec_destroy_cb) ti_auth_destroy);
     smap_destroy(ti.procedures, (smap_destroy_cb) ti_procedure_destroy);
-    smap_destroy(ti.modules, (smap_destroy_cb) ti_module_destroy);
-
+    smap_destroy(ti.modules, (smap_destroy_cb) ti_module_destroy);  /* TODO : destroy should not happen here */
 
     /* remove late since counters can be updated */
     ti_counters_destroy();
@@ -442,12 +442,6 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
         if (ti_away_start())
             goto failed;
 
-        if (ti_clients_listen())
-            goto failed;
-
-        if (ti_api_init())
-            goto failed;
-
         if (ti_connect_start())
             goto failed;
 
@@ -459,8 +453,19 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
             goto failed;
     }
 
+    ti_modules_load();
+
     if (ti_nodes_listen())
         goto failed;
+
+    if (ti.node)
+    {
+        if (ti_clients_listen())
+            goto failed;
+
+        if (ti_api_init())
+            goto failed;
+    }
 
     ti__delayed_start_stop();
     return;
@@ -507,9 +512,6 @@ int ti_run(void)
 
     if (ti_signals_init())
         goto failed;
-
-    if (ti_ext_proc_init())
-        return -1;
 
     if (ti.cfg->http_status_port && ti_web_init())
         goto failed;
@@ -589,8 +591,8 @@ void ti_stop(void)
     if (ti.node)
     {
         ti_set_and_broadcast_node_status(TI_NODE_STAT_OFFLINE);
+        ti_modules_stop_and_destroy();
 
-        (void) ti_modules_stop();
         (void) ti_collections_gc();
         (void) ti_archive_to_disk();
         (void) ti_backups_store();

@@ -46,8 +46,7 @@ struct ti_cfg_s
     char * pipe_client_name;
     char * storage_path;                /* with trailing `/` */
     char * gcloud_key_file;
-    char * modules;                     /* modules to load */
-    char * modules_path;                /* path with extensions */
+    char * modules_path;                /* path to find modules */
     double query_duration_warn;
     double query_duration_error;
 };

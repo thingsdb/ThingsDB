@@ -32,5 +32,5 @@ func handler(buf *timod.Buffer, quit chan bool) {
 }
 
 func main() {
-	timod.StartModule(handler)
+	timod.StartModule("requests", handler)
 }

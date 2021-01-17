@@ -276,24 +276,24 @@ const char * ti_scope_name_from_id(uint64_t scope_id)
     switch(scope_id)
     {
     case TI_SCOPE_THINGSDB:
-        strcpy(&scope__name_buf, "@thingsdb");
-        return &scope__name_buf;
+        strcpy(scope__name_buf, "@thingsdb");
+        return scope__name_buf;
     case TI_SCOPE_NODE:
-        strcpy(&scope__name_buf, "@node");
-        return &scope__name_buf;
+        strcpy(scope__name_buf, "@node");
+        return scope__name_buf;
     }
 
     collection = ti_collections_get_by_id(scope_id);
     if (collection)
     {
-        sprintf(&scope__name_buf,
+        sprintf(scope__name_buf,
                 "@collection:%.*s",
                 collection->name->n,
                 (const char *) collection->name->data);
-        return &scope__name_buf;
+        return scope__name_buf;
     }
-    strcpy(&scope__name_buf, "@collection:<unknown>");
-    return &scope__name_buf;
+    strcpy(scope__name_buf, "@collection:<unknown>");
+    return scope__name_buf;
 }
 
 

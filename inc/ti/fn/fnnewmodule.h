@@ -33,6 +33,13 @@ static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     binary = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
+    if (!strx_is_printablen((const char *) binary->data, binary->n))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "binary contains illegal characters"DOC_NEW_MODULE);
+        goto fail1;
+    }
+
     if (ti_do_statement(query, (child = child->next->next)->node, e))
         goto fail1;
 
@@ -111,9 +118,13 @@ static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     scope_id = NULL;
 
     task = ti_task_get_task(query->ev, ti.thing0);
-
     if (!task || ti_task_add_new_module(task, module))
+    {
+        /* TODO: delete (and destroy) module */
         ex_set_mem(e);
+    }
+    else
+        ti_module_load(module);
 
     ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();

@@ -171,20 +171,25 @@ stop:
     return rmdir(path);
 }
 
-char * fx_path_join(const char * s1, const char * s2)
+char * fx_path_join_strn(
+        const char * s1,
+        size_t n1,
+        const char * s2,
+        size_t n2)
 {
-    size_t n1 = strlen(s1);
-    size_t n2 = strlen(s2);
     int add_slash = (s1[n1-1] != '/');
-    char * s = malloc(n1 + n2 + 1 + add_slash);
+    size_t sz = n1 + n2 + 1 + add_slash;
+    char * s = malloc(sz);
     if (!s)
         return NULL;
 
     memcpy(s, s1, n1);
-    memcpy(s + n1 + add_slash, s2, n2 + 1);
+    memcpy(s + n1 + add_slash, s2, n2);
 
     if (add_slash)
         s[n1] = '/';
+
+    s[sz-1] = '\0';
 
     return s;
 }

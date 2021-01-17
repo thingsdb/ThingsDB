@@ -5,16 +5,13 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 )
 
 //StartModule can be used to start the module
-func StartModule(handler func(*Buffer, chan bool)) {
-	filename := filepath.Base(os.Args[0])
-
+func StartModule(name string, handler func(*Buffer, chan bool)) {
 	// Setup log module
-	log.SetPrefix(fmt.Sprintf("[%s] ", filename))
+	log.SetPrefix(fmt.Sprintf("[%s] ", name))
 
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc,

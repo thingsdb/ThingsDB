@@ -4,6 +4,7 @@
 #include <ti/module.t.h>
 #include <ti/proc.h>
 #include <ti.h>
+#include <util/fx.h>
 
 
 static void proc__alloc_buf(
@@ -55,8 +56,8 @@ void proc__on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * uv_buf)
     {
         log_error(
                 "invalid package (type=%u invert=%u size=%u) "
-                "from module binary `%s`",
-                pkg->tp, pkg->ntp, pkg->n, proc->module->binary->str);
+                "from module `%s`",
+                pkg->tp, pkg->ntp, pkg->n, proc->module->name->str);
         return;
     }
 
@@ -124,13 +125,13 @@ static void proc__on_exit(
     {
         log_error(
             "module `%s` has been stopped (%d) with exit status: %"PRId64,
-            proc->module->binary->str, term_signal, exit_status);
+            proc->module->name->str, term_signal, exit_status);
     }
     else
     {
         log_info(
             "module `%s` has been stopped (%d) with exit status: %"PRId64,
-            proc->module->binary->str, term_signal, exit_status);
+            proc->module->name->str, term_signal, exit_status);
     }
 
     uv_close((uv_handle_t *) process, (uv_close_cb) proc__on_process_close);
@@ -154,7 +155,7 @@ void ti_proc_init(ti_proc_t * proc, ti_module_t * module)
     proc->child_stdio[2].flags = UV_INHERIT_FD;
     proc->child_stdio[2].data.fd = 2;
 
-    proc->options.file = module->binary->str;
+    proc->options.file = module->binary;
     proc->options.exit_cb = (uv_exit_cb) proc__on_exit;
 
     proc->child_stdin.data = proc;
@@ -169,6 +170,9 @@ int ti_proc_load(ti_proc_t * proc)
 {
     int rc;
 
+    if (!fx_file_exist(proc->options.file))
+        return UV_ENOENT;  /* no such file or directory */
+
     rc = uv_pipe_init(ti.loop, &proc->child_stdin, 1);
     if (rc)
         goto fail0;
@@ -179,19 +183,25 @@ int ti_proc_load(ti_proc_t * proc)
 
     rc = uv_spawn(ti.loop, &proc->process, &proc->options);
     if (rc)
-        goto fail2;
+        goto fail3;
 
     rc = uv_read_start(
             (uv_stream_t *) &proc->child_stdout,
             (uv_alloc_cb) proc__alloc_buf,
             (uv_read_cb) proc__on_data);
     if (rc)
-        goto fail3;
+        goto fail4;
 
     return 0;
 
+fail4:
+    if (proc->process.pid)
+    {
+        (void) uv_kill(proc->process.pid, SIGTERM);
+        goto fail2;
+    }
 fail3:
-    (void) uv_kill(proc->process.pid, SIGTERM);
+    uv_close((uv_handle_t *) &proc->process, NULL);
 fail2:
     uv_close((uv_handle_t *) &proc->child_stdout, NULL);
 fail1:

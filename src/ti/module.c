@@ -9,9 +9,12 @@
 #include <ti/names.h>
 #include <ti/pkg.h>
 #include <ti/proc.h>
+#include <ti/proto.h>
 #include <ti/proto.t.h>
 #include <ti/query.h>
 #include <ti/val.inline.h>
+#include <ti/verror.h>
+#include <util/fx.h>
 
 #define MODULE__TOO_MANY_RESTARTS 15
 
@@ -202,7 +205,11 @@ ti_module_t * ti_module_create(
     module->next_pid = 0;
     module->cb = (ti_module_cb) &module__cb;
     module->name = ti_names_get(name, name_n);
-    module->binary = ti_names_get(binary, binary_n);
+    module->binary = fx_path_join_strn(
+            ti.cfg->modules_path,
+            strlen(ti.cfg->modules_path),
+            binary,
+            binary_n);
     module->conf_pkg = conf_pkg;
     module->started_at = 0;
     module->created_at = created_at;
@@ -221,7 +228,7 @@ ti_module_t * ti_module_create(
     return module;
 }
 
-int ti_module_load(ti_module_t * module)
+void ti_module_load(ti_module_t * module)
 {
     int rc = ti_proc_load(&module->proc);
 
@@ -231,7 +238,17 @@ int ti_module_load(ti_module_t * module)
             ? module__write_conf(module)
             : TI_MODULE_STAT_RUNNING;
 
-    return module->status;
+    if (module->status)
+        log_error(
+                "failed to start module `%s` (%s): %s",
+                module->name->str,
+                module->binary,
+                ti_module_status_str(module));
+    else
+        log_info(
+                "loaded module `%s` (%s)",
+                module->name->str,
+                module->binary);
 }
 
 void ti_module_destroy(ti_module_t * module)
@@ -239,8 +256,8 @@ void ti_module_destroy(ti_module_t * module)
     if (!module)
         return;
     ti_val_drop((ti_val_t *) module->name);
-    ti_val_drop((ti_val_t *) module->binary);
     omap_destroy(module->futures, (omap_destroy_cb) ti_future_cancel);
+    free(module->binary);
     free(module->conf_pkg);
     free(module);
 }
@@ -256,17 +273,12 @@ void ti_module_on_exit(ti_module_t * module)
         {
             log_error(
                     "module `%s` has been restarted too many (>%d) times",
-                    module->binary->str,
+                    module->name->str,
                     MODULE__TOO_MANY_RESTARTS);
             module->status = TI_MODULE_STAT_TOO_MANY_RESTARTS;
         }
-        else if (ti_module_load(module))
-        {
-            log_error(
-                    "failed to start module `%s` (%s)",
-                    module->binary->str,
-                    ti_module_status_str(module));
-        }
+        else
+            ti_module_load(module);
     }
 }
 
@@ -281,10 +293,7 @@ void ti_module_stop(ti_module_t * module)
     /* TODO: stop... */
 }
 
-static void module__on_res(
-        ti_module_t * module,
-        ti_future_t * future,
-        ti_pkg_t * pkg)
+static void module__on_res(ti_future_t * future, ti_pkg_t * pkg)
 {
     ex_t e = {0};
     ti_val_t * val;
@@ -295,7 +304,7 @@ static void module__on_res(
             .up = &up,
     };
     mp_unp_init(&up, pkg->data, pkg->n);
-    val = ti_val_from_vup_e(&vup, e);
+    val = ti_val_from_vup_e(&vup, &e);
     if (!val)
     {
         ti_query_on_future_result(future, &e);
@@ -305,22 +314,16 @@ static void module__on_res(
     ti_val_unsafe_drop(vec_set(future->args, val, 0));
     future->rval = (ti_val_t *) ti_varr_from_vec(future->args);
     if (!future->rval)
-    {
         ex_set_mem(&e);
-        ti_query_on_future_result(future, &e);
-        return;
-    }
+
+    ti_query_on_future_result(future, &e);
 }
 
-static void module__on_err(
-        ti_module_t * module,
-        ti_future_t * future,
-        ti_pkg_t * pkg)
+static void module__on_err(ti_future_t * future, ti_pkg_t * pkg)
 {
     ex_t e = {0};
     mp_unp_t up;
     mp_obj_t mp_obj, mp_err_code, mp_err_msg;
-    int64_t err_code;
 
     mp_unp_init(&up, pkg->data, pkg->n);
 
@@ -330,24 +333,27 @@ static void module__on_err(
     {
         ex_set(&e, EX_BAD_DATA,
                 "invalid error data from module `%s`",
-                module->binary->str);
+                future->module->name->str);
         goto done;
     }
 
     if (mp_err_code.via.i64 < EX_MIN_ERR ||
         mp_err_code.via.i64 > EX_MAX_BUILD_IN_ERR)
     {
-        ex_set(e, EX_BAD_DATA,
+        ex_set(&e, EX_BAD_DATA,
             "invalid error code (%"PRId64") received from module `%s`",
             mp_err_code.via.i64,
-            module->binary->str);
+            future->module->name->str);
         goto done;
     }
 
     if (ti_verror_check_msg(mp_err_msg.via.str.data, mp_err_msg.via.str.n, &e))
         goto done;
 
-    ex_setn(e, mp_err_code.via.i64, mp_err_msg.via.str, mp_err_msg.via.str.n);
+    ex_setn(&e,
+            mp_err_code.via.i64,
+            mp_err_msg.via.str.data,
+            mp_err_msg.via.str.n);
 
 done:
     ti_query_on_future_result(future, &e);
@@ -368,17 +374,17 @@ void ti_module_on_pkg(ti_module_t * module, ti_pkg_t * pkg)
     switch(pkg->tp)
     {
     case TI_PROTO_MODULE_RES:
-        module__on_res(module, future, pkg);
+        module__on_res(future, pkg);
         return;
     case TI_PROTO_MODULE_ERR:
-        module__on_err(module, future, pkg);
+        module__on_err(future, pkg);
         return;
     default:
     {
         ex_t e;
-        ex_set(e, EX_BAD_DATA,
+        ex_set(&e, EX_BAD_DATA,
                 "unexpected package type `%s` (%u) from module `%s`",
-                ti_proto_str(pkg->tp), pkg->tp, module->binary->str);
+                ti_proto_str(pkg->tp), pkg->tp, module->name->str);
         ti_query_on_future_result(future, &e);
     }
     }

@@ -30,7 +30,7 @@ struct ti_module_s
     uint16_t next_pid;      /* next package id  */
     ti_module_cb cb;        /* module callback */
     ti_name_t * name;       /* name of the module */
-    ti_name_t * binary;     /* binary to start */
+    char * binary;          /* binary (full path) to start */
     ti_pkg_t * conf_pkg;    /* configuration package */
     uint64_t started_at;    /* module started at this time-stamp */
     uint64_t created_at;    /* module started at this time-stamp */

@@ -281,6 +281,86 @@ void ti_module_stop(ti_module_t * module)
     /* TODO: stop... */
 }
 
+static void module__on_res(
+        ti_module_t * module,
+        ti_future_t * future,
+        ti_pkg_t * pkg)
+{
+    mp_unp_init(&up, pkg->data, pkg->n);
+
+}
+
+static void module__on_err(
+        ti_module_t * module,
+        ti_future_t * future,
+        ti_pkg_t * pkg)
+{
+    ex_t e = {0};
+    mp_unp_t up;
+    mp_obj_t mp_obj, mp_err_code, mp_err_msg;
+    int64_t err_code;
+
+    mp_unp_init(&up, pkg->data, pkg->n);
+
+    if (mp_next(&up, &mp_obj) != MP_ARR || mp_obj.via.sz != 2 ||
+        mp_next(&up, &mp_err_code) != MP_I64 ||
+        mp_next(&up, &mp_err_msg) != MP_STR)
+    {
+        ex_set(&e, EX_BAD_DATA,
+                "invalid error data from module `%s`",
+                module->binary->str);
+        goto done;
+    }
+
+    if (mp_err_code.via.i64 < EX_MIN_ERR ||
+        mp_err_code.via.i64 > EX_MAX_BUILD_IN_ERR)
+    {
+        ex_set(e, EX_BAD_DATA,
+            "invalid error code (%"PRId64") received from module `%s`",
+            mp_err_code.via.i64,
+            module->binary->str);
+        goto done;
+    }
+
+    if (ti_verror_check_msg(mp_err_msg.via.str.data, mp_err_msg.via.str.n, &e))
+        goto done;
+
+    ex_setn(e, mp_err_code.via.i64, mp_err_msg.via.str, mp_err_msg.via.str.n);
+
+done:
+    ti_query_on_future_result(future, &e);
+}
+
+void ti_module_on_pkg(ti_module_t * module, ti_pkg_t * pkg)
+{
+    ti_future_t * future = omap_rm(module->futures, pkg->id);
+    if (!future)
+    {
+        log_error(
+                "got a response for future id %u but a future with this id "
+                "does not exist; maybe the future has been cancelled?",
+                pkg->id);
+        return;
+    }
+
+    switch(pkg->tp)
+    {
+    case TI_PROTO_MODULE_RES:
+        module__on_res(module, future, pkg);
+        return;
+    case TI_PROTO_MODULE_ERR:
+        module__on_err(module, future, pkg);
+        return;
+    default:
+    {
+        ex_t e;
+        ex_set(e, EX_BAD_DATA,
+                "unexpected package type `%s` (%u) from module `%s`",
+                ti_proto_str(pkg->tp), pkg->tp, module->binary->str);
+        ti_query_on_future_result(future, &e);
+    }
+    }
+}
 
 const char * ti_module_status_str(ti_module_t * module)
 {

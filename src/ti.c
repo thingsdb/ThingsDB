@@ -13,7 +13,6 @@
 #include <ti/collections.h>
 #include <ti/do.h>
 #include <ti/event.h>
-#include <ti/ext.h>
 #include <ti/names.h>
 #include <ti/proc.h>
 #include <ti/procedure.h>

@@ -740,25 +740,18 @@ void ti_query_on_future_result(ti_future_t * future, ex_t * e)
         if (future->fail)  /* there is an `else` case */
         {
             ti_verror_t * verror = ti_verror_ensure_from_e(e);
-            if (vec_insert(&future->args, verror, 0))
+            ti_val_unsafe_drop(vec_set(future->args, verror, 0));
+            future->rval = (ti_val_t *) ti_varr_from_vec(future->args);
+            if (future->rval)
             {
-                ti_val_unsafe_drop((ti_val_t *) verror);
-                ex_set_mem(e);
+                ti_future_forget_cb(future->then);
+                future->then = future->fail;
+                future->fail = NULL;
+                future->args = NULL;
+                goto then;
             }
             else
-            {
-                future->rval = (ti_val_t *) ti_varr_from_vec(future->args);
-                if (future->rval)
-                {
-                    ti_future_forget_cb(future->then);
-                    future->then = future->fail;
-                    future->fail = NULL;
-                    future->args = NULL;
-                    goto then;
-                }
-                else
-                    ex_set_mem(e);
-            }
+                ex_set_mem(e);
         }
 
         ti_val_unsafe_drop(query->rval);

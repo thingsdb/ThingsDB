@@ -46,6 +46,7 @@ typedef enum
     TI_PROTO_MODULE_CONF           =64,    /* data, initialize extension */
     TI_PROTO_MODULE_REQ            =65,    /* data, request */
     TI_PROTO_MODULE_RES            =66,    /* data, response */
+    TI_PROTO_MODULE_ERR            =67,    /* [err_nr, message] */
 
     /*
      * protocol definition for node connections

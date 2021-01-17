@@ -397,7 +397,7 @@ mem_error:
     log_critical(EX_MEMORY_S);
 failed:
     free(pkg);
-    free(mp_scope);
+    free(scope_id);
     return -1;
 }
 

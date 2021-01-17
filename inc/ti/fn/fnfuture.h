@@ -6,6 +6,7 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_children_t * child = nd->children;
     ti_future_t * future;
     ti_module_t * module;
+    uint8_t deep;
 
     if (fn_nargs_min("future", DOC_FUTURE, 1, nargs, e))
         return e->nr;
@@ -15,20 +16,11 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_val_is_nil(query->rval))
     {
-        ti_val_unsafe_drop(query->rval);
-        query->rval = NULL;
-
         module = ti_async_get_module();
-        future = ti_future_create(query, module, nargs-1, 0);
-        if (!future)
-        {
-            ex_set_mem(e);
-            return e->nr;
-        }
+        deep = 0;
     }
     else if (ti_val_is_thing(query->rval))
     {
-        uint8_t deep = 1;
         ti_thing_t * thing = (ti_thing_t *) query->rval;
         ti_name_t * module_name = (ti_name_t *) ti_val_borrow_module_name();
         ti_name_t * deep_name = (ti_name_t *) ti_val_borrow_deep_name();
@@ -84,15 +76,8 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
             deep = (uint8_t) deepi;
         }
-
-        future = ti_future_create(query, module, nargs, deep);
-        if (!future)
-        {
-            ex_set_mem(e);
-            return e->nr;
-        }
-        VEC_push(future->args, query->rval);
-        query->rval = NULL;
+        else
+            deep = 1;
     }
     else
     {
@@ -103,6 +88,15 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ti_val_str(query->rval));
         return e->nr;
     }
+
+    future = ti_future_create(query, module, nargs, deep);
+    if (!future)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+    VEC_push(future->args, query->rval);
+    query->rval = NULL;
 
     while ((child = child->next) && (child = child->next))
     {

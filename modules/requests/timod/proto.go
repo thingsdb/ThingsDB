@@ -12,4 +12,7 @@ const (
 
 	// ProtoModuleRes is used to respond to a ProtoModuleReq package
 	ProtoModuleRes Proto = 66
+
+	// ProtoModuleErr is used to respond with an error
+	ProtoModuleErr Proto = 67
 )

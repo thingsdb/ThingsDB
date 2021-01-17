@@ -664,6 +664,9 @@ int ti_task_add_new_module(ti_task_t * task, ti_module_t * module)
     mp_pack_str(&pk, "binary");
     mp_pack_strn(&pk, module->binary->str, module->binary->n);
 
+    mp_pack_str(&pk, "created_at");
+    msgpack_pack_uint64(&pk, module->created_at);
+
     mp_pack_str(&pk, "conf_pkg");
     if (module->conf_pkg)
     {
@@ -674,9 +677,6 @@ int ti_task_add_new_module(ti_task_t * task, ti_module_t * module)
     }
     else
         msgpack_pack_nil(&pk);
-
-    mp_pack_str(&pk, "created_at");
-    msgpack_pack_uint64(&pk, module->created_at);
 
     mp_pack_str(&pk, "scope_id");
     if (module->scope_id)

@@ -1,9 +1,17 @@
 /*
  * ti/module.c
  */
+#include <ex.h>
 #include <stdlib.h>
+#include <ti.h>
+#include <ti/future.h>
 #include <ti/module.h>
-
+#include <ti/names.h>
+#include <ti/pkg.h>
+#include <ti/proc.h>
+#include <ti/proto.t.h>
+#include <ti/query.h>
+#include <ti/val.inline.h>
 
 #define MODULE__TOO_MANY_RESTARTS 15
 
@@ -55,7 +63,13 @@ static int module__write_req(ti_future_t * future)
             (char *) future->pkg,
             sizeof(ti_pkg_t) + future->pkg->n);
 
-    uv_err = uv_write(req, &proc->child_stdin, &wrbuf, 1, &module__write_req_cb)
+    uv_err = uv_write(
+            req,
+            (uv_stream_t *) &proc->child_stdin,
+            &wrbuf,
+            1,
+            &module__write_req_cb);
+
     if (uv_err)
     {
         (void) omap_rm(module->futures, module->next_pid);
@@ -94,8 +108,12 @@ static int module__write_conf(ti_module_t * module)
     wrbuf = uv_buf_init(
             (char *) module->conf_pkg,
             sizeof(ti_pkg_t) + module->conf_pkg->n);
-    uv_err = \
-        uv_write(req, &proc->child_stdin, &wrbuf, 1, &module__write_conf_cb);
+    uv_err = uv_write(
+            req,
+            (uv_stream_t *) &proc->child_stdin,
+            &wrbuf,
+            1,
+            &module__write_conf_cb);
 
     if (uv_err)
     {
@@ -129,13 +147,13 @@ static void module__cb(ti_future_t * future)
     if (uv_err)
     {
         ex_t e;  /* TODO: introduce new error ? */
-        ex_set(e, EX_OPERATION_ERROR, uv_strerror(uv_err));
+        ex_set(&e, EX_OPERATION_ERROR, uv_strerror(uv_err));
         ti_query_on_future_result(future, &e);
     }
     return;
 
 mem_error1:
-    msgpack_sbuffer_destroy(buffer);
+    msgpack_sbuffer_destroy(&buffer);
 mem_error0:
     {
         ex_t e;
@@ -156,7 +174,7 @@ ti_pkg_t * ti_module_conf_pkg(ti_val_t * val)
 
     if (ti_val_to_pk(val, &pk, 1))
     {
-        msgpack_sbuffer_destroy(buffer);
+        msgpack_sbuffer_destroy(&buffer);
         return NULL;
     }
 
@@ -182,7 +200,7 @@ ti_module_t * ti_module_create(
     module->status = TI_MODULE_STAT_NOT_LOADED;
     module->restarts = 0;
     module->next_pid = 0;
-    module->cb = &module__cb;
+    module->cb = (ti_module_cb) &module__cb;
     module->name = ti_names_get(name, name_n);
     module->binary = ti_names_get(binary, binary_n);
     module->conf_pkg = conf_pkg;
@@ -259,7 +277,8 @@ void ti_module_stop(ti_module_t * module)
         return;
     rc = uv_kill(pid, SIGTERM);
     if (rc)
-        log_error()
+        log_error("BLA");
+    /* TODO: stop... */
 }
 
 

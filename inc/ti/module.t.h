@@ -10,6 +10,7 @@ typedef void (*ti_module_cb)(void * future);
 #include <inttypes.h>
 #include <ti/proc.t.h>
 #include <ti/name.t.h>
+#include <ti/pkg.t.h>
 #include <util/omap.h>
 
 enum

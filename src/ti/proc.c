@@ -33,7 +33,7 @@ static void proc__alloc_buf(
     uv_buf->len = buf->cap - buf->len;
 }
 
-void proc__on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf)
+void proc__on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * uv_buf)
 {
     ti_proc_t * proc = uvstream->data;
     buf_t * buf = &proc->buf;
@@ -85,7 +85,7 @@ void proc__on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf)
     {
         /* move data and call ti_stream_on_data() again */
         memmove(buf->data, buf->data + total_sz, buf->len);
-        proc__on_data(uvstream, 0, buf);
+        proc__on_data(uvstream, 0, uv_buf);
     }
 }
 
@@ -109,9 +109,7 @@ static void proc__on_child_stdin_close(uv_handle_t * handle)
 static void proc__on_process_close(uv_process_t * process)
 {
     ti_proc_t * proc = process->data;
-
     process->pid = 0;
-
     uv_close((uv_handle_t *) &proc->child_stdin, proc__on_child_stdin_close);
 }
 
@@ -121,7 +119,6 @@ static void proc__on_exit(
         int term_signal)
 {
     ti_proc_t * proc = process->data;
-    ti_module_t * module = proc->module;
 
     if (exit_status)
     {
@@ -146,7 +143,7 @@ void ti_proc_init(ti_proc_t * proc, ti_module_t * module)
     proc->module = module;
 
     proc->options.stdio_count = 3;
-    proc->options.stdio = &proc->child_stdio;
+    proc->options.stdio = proc->child_stdio;
 
     proc->child_stdio[0].flags = UV_CREATE_PIPE | UV_READABLE_PIPE;
     proc->child_stdio[0].data.stream = (uv_stream_t *) &proc->child_stdin;
@@ -194,7 +191,7 @@ int ti_proc_load(ti_proc_t * proc)
     return 0;
 
 fail3:
-    (void) uv_kill(proc->process->pid, SIGTERM);
+    (void) uv_kill(proc->process.pid, SIGTERM);
 fail2:
     uv_close((uv_handle_t *) &proc->child_stdout, NULL);
 fail1:

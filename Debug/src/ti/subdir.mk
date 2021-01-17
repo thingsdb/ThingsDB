@@ -9,6 +9,7 @@ C_SRCS += \
 ../src/ti/archfile.c \
 ../src/ti/archive.c \
 ../src/ti/args.c \
+../src/ti/async.c \
 ../src/ti/auth.c \
 ../src/ti/away.c \
 ../src/ti/backup.c \
@@ -43,6 +44,8 @@ C_SRCS += \
 ../src/ti/mapping.c \
 ../src/ti/member.c \
 ../src/ti/method.c \
+../src/ti/module.c \
+../src/ti/modules.c \
 ../src/ti/name.c \
 ../src/ti/names.c \
 ../src/ti/ncache.c \
@@ -53,6 +56,7 @@ C_SRCS += \
 ../src/ti/pipe.c \
 ../src/ti/pkg.c \
 ../src/ti/preopr.c \
+../src/ti/proc.c \
 ../src/ti/procedure.c \
 ../src/ti/procedures.c \
 ../src/ti/prop.c \
@@ -108,6 +112,7 @@ OBJS += \
 ./src/ti/archfile.o \
 ./src/ti/archive.o \
 ./src/ti/args.o \
+./src/ti/async.o \
 ./src/ti/auth.o \
 ./src/ti/away.o \
 ./src/ti/backup.o \
@@ -142,6 +147,8 @@ OBJS += \
 ./src/ti/mapping.o \
 ./src/ti/member.o \
 ./src/ti/method.o \
+./src/ti/module.o \
+./src/ti/modules.o \
 ./src/ti/name.o \
 ./src/ti/names.o \
 ./src/ti/ncache.o \
@@ -152,6 +159,7 @@ OBJS += \
 ./src/ti/pipe.o \
 ./src/ti/pkg.o \
 ./src/ti/preopr.o \
+./src/ti/proc.o \
 ./src/ti/procedure.o \
 ./src/ti/procedures.o \
 ./src/ti/prop.o \
@@ -207,6 +215,7 @@ C_DEPS += \
 ./src/ti/archfile.d \
 ./src/ti/archive.d \
 ./src/ti/args.d \
+./src/ti/async.d \
 ./src/ti/auth.d \
 ./src/ti/away.d \
 ./src/ti/backup.d \
@@ -241,6 +250,8 @@ C_DEPS += \
 ./src/ti/mapping.d \
 ./src/ti/member.d \
 ./src/ti/method.d \
+./src/ti/module.d \
+./src/ti/modules.d \
 ./src/ti/name.d \
 ./src/ti/names.d \
 ./src/ti/ncache.d \
@@ -251,6 +262,7 @@ C_DEPS += \
 ./src/ti/pipe.d \
 ./src/ti/pkg.d \
 ./src/ti/preopr.d \
+./src/ti/proc.d \
 ./src/ti/procedure.d \
 ./src/ti/procedures.d \
 ./src/ti/prop.d \

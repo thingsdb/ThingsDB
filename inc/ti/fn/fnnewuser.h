@@ -1,19 +1,19 @@
 #include <ti/fn/fn.h>
 
-static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     ti_user_t * nuser;
     ti_raw_t * rname;
     ti_task_t * task;
 
-    if (fn_not_thingsdb_scope("new_module", query, e) ||
+    if (fn_not_thingsdb_scope("new_user", query, e) ||
         ti_access_check_err(
                     ti.access_thingsdb,
                     query->user, TI_AUTH_GRANT, e) ||
-        fn_nargs("new_module", DOC_NEW_MODULE, 1, nargs, e) ||
+        fn_nargs("new_user", DOC_NEW_USER, 1, nargs, e) ||
         ti_do_statement(query, nd->children->node, e) ||
-        fn_arg_str("new_module", DOC_NEW_MODULE, 1, query->rval, e))
+        fn_arg_str("new_user", DOC_NEW_USER, 1, query->rval, e))
         return e->nr;
 
     rname = (ti_raw_t *) query->rval;

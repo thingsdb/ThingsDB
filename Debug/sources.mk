@@ -19,7 +19,6 @@ inc/msgpack \
 src \
 src/langdef \
 src/ti \
-src/ti/ext \
 src/ti/store \
 src/util \
 

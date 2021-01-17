@@ -100,8 +100,7 @@ static int module__write_conf(ti_module_t * module)
     if (uv_err)
     {
         free(req);
-        module->status = uv_err;
-        return -1;
+        return uv_err;
     }
 
     return 0;
@@ -132,7 +131,6 @@ static void module__cb(ti_future_t * future)
         ex_t e;  /* TODO: introduce new error ? */
         ex_set(e, EX_OPERATION_ERROR, uv_strerror(uv_err));
         ti_query_on_future_result(future, &e);
-        free(pkg);
     }
     return;
 
@@ -146,14 +144,36 @@ mem_error0:
     }
 }
 
-ti_module_t * ti_module_create_strn(
+ti_pkg_t * ti_module_conf_pkg(ti_val_t * val)
+{
+    ti_pkg_t * pkg;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+    size_t alloc_sz = 1024;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc_sz, sizeof(ti_pkg_t)))
+        return NULL;
+
+    if (ti_val_to_pk(val, &pk, 1))
+    {
+        msgpack_sbuffer_destroy(buffer);
+        return NULL;
+    }
+
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, 0, TI_PROTO_MODULE_CONF, buffer.size);
+
+    return pkg;
+}
+
+ti_module_t * ti_module_create(
         const char * name,
         size_t name_n,
         const char * binary,
         size_t binary_n,
         uint64_t created_at,
         ti_pkg_t * conf_pkg,    /* may be NULL */
-        ti_scope_t * scope      /* may be NULL */)
+        uint64_t * scope_id     /* may be NULL */)
 {
     ti_module_t * module = malloc(sizeof(ti_module_t));
     if (!module)
@@ -162,16 +182,17 @@ ti_module_t * ti_module_create_strn(
     module->status = TI_MODULE_STAT_NOT_LOADED;
     module->restarts = 0;
     module->next_pid = 0;
-    module->cb = module__cb;
-    module->name = ti_str_create(name, name_n);
-    module->binary = ti_str_create(binary, binary_n);
+    module->cb = &module__cb;
+    module->name = ti_names_get(name, name_n);
+    module->binary = ti_names_get(binary, binary_n);
     module->conf_pkg = conf_pkg;
     module->started_at = 0;
     module->created_at = created_at;
-    module->scope = scope;
+    module->scope_id = scope_id;
     module->futures = omap_create();
 
-    if (!module->name || !module->binary || !module->futures)
+    if (!module->name || !module->binary || !module->futures ||
+        smap_add(ti.modules, module->name->str, module))
     {
         ti_module_destroy(module);
         return NULL;
@@ -210,7 +231,8 @@ void ti_module_on_exit(ti_module_t * module)
 {
     omap_clear(module->futures, (omap_destroy_cb) ti_future_cancel);
 
-    if (module->status == TI_MODULE_STAT_RUNNING)
+    if (module->status == TI_MODULE_STAT_RUNNING &&
+        (~ti.flags & TI_FLAG_SIGNAL))
     {
         if (++module->restarts > MODULE__TOO_MANY_RESTARTS)
         {
@@ -223,7 +245,7 @@ void ti_module_on_exit(ti_module_t * module)
         else if (ti_module_load(module))
         {
             log_error(
-                    "failed to restart module `%s` (%s)",
+                    "failed to start module `%s` (%s)",
                     module->binary->str,
                     ti_module_status_str(module));
         }

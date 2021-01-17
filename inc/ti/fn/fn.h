@@ -21,11 +21,10 @@
 #include <ti/collections.h>
 #include <ti/datetime.h>
 #include <ti/do.h>
+#include <ti/async.h>
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
 #include <ti/export.h>
-#include <ti/ext.h>
-#include <ti/async.h>
 #include <ti/field.h>
 #include <ti/future.h>
 #include <ti/future.inline.h>
@@ -33,6 +32,9 @@
 #include <ti/member.h>
 #include <ti/member.inline.h>
 #include <ti/method.h>
+#include <ti/module.h>
+#include <ti/module.t.h>
+#include <ti/modules.h>
 #include <ti/names.h>
 #include <ti/nil.h>
 #include <ti/opr.h>

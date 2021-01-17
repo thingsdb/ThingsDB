@@ -265,7 +265,35 @@ int ti_scope_init_from_up(ti_scope_t * scope, mp_unp_t * up, ex_t * e)
     }
 
     return ti_scope_init(scope, mp_scope.via.str.data, mp_scope.via.str.n, e);
+}
 
+static char scope__name_buf[TI_NAME_MAX+13];
+
+const char * ti_scope_name_from_id(uint64_t scope_id)
+{
+    ti_collection_t * collection;
+
+    switch(scope_id)
+    {
+    case TI_SCOPE_THINGSDB:
+        strcpy(&scope__name_buf, "@thingsdb");
+        return &scope__name_buf;
+    case TI_SCOPE_NODE:
+        strcpy(&scope__name_buf, "@node");
+        return &scope__name_buf;
+    }
+
+    collection = ti_collections_get_by_id(scope_id);
+    if (collection)
+    {
+        sprintf(&scope__name_buf,
+                "@collection:%.*s",
+                collection->name->n,
+                (const char *) collection->name->data);
+        return &scope__name_buf;
+    }
+    strcpy(&scope__name_buf, "@collection:<unknown>");
+    return &scope__name_buf;
 }
 
 

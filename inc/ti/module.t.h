@@ -9,6 +9,8 @@ typedef void (*ti_module_cb)(void * future);
 
 #include <inttypes.h>
 #include <ti/proc.t.h>
+#include <ti/name.t.h>
+#include <util/omap.h>
 
 enum
 {
@@ -26,12 +28,12 @@ struct ti_module_s
                                restarted */
     uint16_t next_pid;      /* next package id  */
     ti_module_cb cb;        /* module callback */
-    ti_raw_t * name;        /* name of the module */
+    ti_name_t * name;       /* name of the module */
     ti_name_t * binary;     /* binary to start */
     ti_pkg_t * conf_pkg;    /* configuration package */
     uint64_t started_at;    /* module started at this time-stamp */
     uint64_t created_at;    /* module started at this time-stamp */
-    ti_scope_t * scope;     /* may be NULL */
+    uint64_t * scope_id;    /* may be NULL */
     omap_t * futures;       /* ti_future_t (no reference, parent query holds
                                a reference so no extra is needed) */
     ti_proc_t proc;

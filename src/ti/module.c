@@ -286,8 +286,30 @@ static void module__on_res(
         ti_future_t * future,
         ti_pkg_t * pkg)
 {
+    ex_t e = {0};
+    ti_val_t * val;
+    mp_unp_t up;
+    ti_vup_t vup = {
+            .isclient = true,
+            .collection = future->query->collection,
+            .up = &up,
+    };
     mp_unp_init(&up, pkg->data, pkg->n);
+    val = ti_val_from_vup_e(&vup, e);
+    if (!val)
+    {
+        ti_query_on_future_result(future, &e);
+        return;
+    }
 
+    ti_val_unsafe_drop(vec_set(future->args, val, 0));
+    future->rval = (ti_val_t *) ti_varr_from_vec(future->args);
+    if (!future->rval)
+    {
+        ex_set_mem(&e);
+        ti_query_on_future_result(future, &e);
+        return;
+    }
 }
 
 static void module__on_err(

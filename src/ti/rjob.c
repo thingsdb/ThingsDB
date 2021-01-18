@@ -330,14 +330,14 @@ static int rjob__new_collection(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {
  *          'name': module_name,
- *          'binary': binary_name,
+ *          'file': file_name,
  *          'created_at': ts,
  *          'conf_pkg': configuration_package or nil,
  *          'scope_id': scope_id or nil}
  */
 static int rjob__new_module(mp_unp_t * up)
 {
-    mp_obj_t obj, mp_name, mp_binary, mp_created, mp_pkg, mp_scope;
+    mp_obj_t obj, mp_name, mp_file, mp_created, mp_pkg, mp_scope;
     ti_module_t * module;
     uint64_t * scope_id = NULL;
     ti_pkg_t * pkg = NULL;
@@ -346,7 +346,7 @@ static int rjob__new_module(mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_name) != MP_STR ||
         mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_binary) != MP_U64 ||
+        mp_next(up, &mp_file) != MP_U64 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_created) != MP_U64 ||
         mp_skip(up) != MP_STR ||
@@ -379,8 +379,8 @@ static int rjob__new_module(mp_unp_t * up)
     module = ti_module_create(
             mp_name.via.str.data,
             mp_name.via.str.n,
-            mp_binary.via.str.data,
-            mp_binary.via.str.n,
+            mp_file.via.str.data,
+            mp_file.via.str.n,
             mp_created.via.u64,
             pkg,
             scope_id);

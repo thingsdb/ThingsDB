@@ -9,9 +9,9 @@ import (
 type Buffer struct {
 	data   []byte
 	len    uint32
-	pkg    *pkg
+	pkg    *Pkg
 	reader *bufio.Reader
-	PkgCh  chan *pkg
+	PkgCh  chan *Pkg
 	ErrCh  chan error
 }
 
@@ -22,7 +22,7 @@ func NewBuffer() *Buffer {
 		len:    0,
 		pkg:    nil,
 		reader: bufio.NewReader(os.Stdin),
-		PkgCh:  make(chan *pkg),
+		PkgCh:  make(chan *Pkg),
 		ErrCh:  make(chan error, 1),
 	}
 }

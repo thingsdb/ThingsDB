@@ -639,11 +639,11 @@ fail_data:
 
 int ti_task_add_new_module(ti_task_t * task, ti_module_t * module)
 {
-    size_t binaryn = strlen(module->binary);
+    size_t file_n = strlen(module->file);
     size_t alloc = \
             128 + \
             module->name->n + \
-            binaryn + \
+            file_n + \
             (module->conf_pkg ? module->conf_pkg->n : 0);
 
     ti_data_t * data;
@@ -662,8 +662,8 @@ int ti_task_add_new_module(ti_task_t * task, ti_module_t * module)
     mp_pack_str(&pk, "name");
     mp_pack_strn(&pk, module->name->str, module->name->n);
 
-    mp_pack_str(&pk, "binary");
-    mp_pack_strn(&pk, module->binary, binaryn);
+    mp_pack_str(&pk, "file");
+    mp_pack_strn(&pk, module->file, file_n);
 
     mp_pack_str(&pk, "created_at");
     msgpack_pack_uint64(&pk, module->created_at);

@@ -13,8 +13,8 @@ const pkgHeaderSize = 8
 // PkgInitCapacity will be used as default capacity when allocating for a package.
 const pkgInitCapacity = 8192
 
-// pkg contains of a header and data.
-type pkg struct {
+// Pkg contains of a header and data.
+type Pkg struct {
 	Size uint32
 	Pid  uint16
 	Tp   Proto
@@ -22,7 +22,7 @@ type pkg struct {
 }
 
 // newPkg returns a poiter to a new pkg.
-func newPkg(b []byte) (*pkg, error) {
+func newPkg(b []byte) (*Pkg, error) {
 	tp := b[6]
 	check := b[7]
 
@@ -30,7 +30,7 @@ func newPkg(b []byte) (*pkg, error) {
 		return nil, fmt.Errorf("invalid checkbit")
 	}
 
-	return &pkg{
+	return &Pkg{
 		Size: binary.LittleEndian.Uint32(b),
 		Pid:  binary.LittleEndian.Uint16(b[4:]),
 		Tp:   Proto(tp),
@@ -39,7 +39,7 @@ func newPkg(b []byte) (*pkg, error) {
 }
 
 // setData sets package data
-func (p *pkg) setData(b *[]byte, size uint32) {
+func (p *Pkg) setData(b *[]byte, size uint32) {
 	p.Data = (*b)[pkgHeaderSize:size]
 }
 

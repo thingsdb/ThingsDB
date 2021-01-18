@@ -36,3 +36,34 @@ func StartModule(name string, handler func(*Buffer, chan bool)) {
 	<-quit
 
 }
+
+//WriteResponse can be used to write a response
+func WriteResponse(pid uint16, v interface{}) {
+	data, err := PkgPack(pid, ProtoModuleRes, &v)
+	if err == nil {
+		_, err := os.Stdout.Write(data)
+		if err != nil {
+			log.Printf("Error writing to stdout: %s", err)
+		}
+	} else {
+		log.Printf("Error creating package from value: %v", v)
+	}
+}
+
+//WriteEx can be used to write an error response
+func WriteEx(pid uint16, errCode Ex, errMsg string) {
+	var errArr [2]interface{}
+
+	errArr[0] = errCode
+	errArr[1] = errMsg
+
+	data, err := PkgPack(pid, ProtoModuleErr, &errArr)
+	if err == nil {
+		_, err := os.Stdout.Write(data)
+		if err != nil {
+			log.Printf("Error writing to stdout: %s", err)
+		}
+	} else {
+		log.Printf("Error creating package from value: %v", errArr)
+	}
+}

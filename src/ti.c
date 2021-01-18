@@ -144,7 +144,6 @@ void ti_destroy(void)
     vec_destroy(ti.access_node, (vec_destroy_cb) ti_auth_destroy);
     vec_destroy(ti.access_thingsdb, (vec_destroy_cb) ti_auth_destroy);
     smap_destroy(ti.procedures, (smap_destroy_cb) ti_procedure_destroy);
-    smap_destroy(ti.modules, (smap_destroy_cb) ti_module_destroy);  /* TODO : destroy should not happen here */
 
     /* remove late since counters can be updated */
     ti_counters_destroy();

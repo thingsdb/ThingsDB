@@ -2,9 +2,24 @@ package main
 
 import (
 	"log"
-	"os"
 	timod "requests/timod"
+
+	"github.com/vmihailenco/msgpack"
 )
+
+func onRequest(pkg *timod.Pkg) {
+	type Request struct {
+		URL string `msgpack:"url"`
+	}
+	var request Request
+
+	err := msgpack.Unmarshal(pkg.Data, &request)
+	if err == nil {
+		timod.WriteResponse(pkg.Pid, &request)
+	} else {
+		timod.WriteEx(pkg.Pid, timod.ExBadData, "failed to unpack request")
+	}
+}
 
 func handler(buf *timod.Buffer, quit chan bool) {
 	for {
@@ -12,14 +27,9 @@ func handler(buf *timod.Buffer, quit chan bool) {
 		case pkg := <-buf.PkgCh:
 			switch timod.Proto(pkg.Tp) {
 			case timod.ProtoModuleInit:
-				log.Println("Initializing requests module")
+				log.Println("No init required for this module")
 			case timod.ProtoModuleReq:
-				log.Println("Received a request")
-				data, err := timod.PkgPack(0, 67, nil)
-				if err == nil {
-					log.Println("Write a response")
-					os.Stdout.Write(data)
-				}
+				onRequest(pkg)
 			default:
 				log.Printf("Error: Unexpected package type: %d", pkg.Tp)
 			}

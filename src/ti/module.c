@@ -139,6 +139,7 @@ static void module__cb(ti_future_t * future)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc_sz, sizeof(ti_pkg_t)))
         goto mem_error0;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     if (ti_thing_to_pk(thing, &pk, future->deep))
         goto mem_error1;
@@ -190,8 +191,8 @@ ti_pkg_t * ti_module_conf_pkg(ti_val_t * val)
 ti_module_t * ti_module_create(
         const char * name,
         size_t name_n,
-        const char * binary,
-        size_t binary_n,
+        const char * file,
+        size_t file_n,
         uint64_t created_at,
         ti_pkg_t * conf_pkg,    /* may be NULL */
         uint64_t * scope_id     /* may be NULL */)
@@ -205,23 +206,27 @@ ti_module_t * ti_module_create(
     module->next_pid = 0;
     module->cb = (ti_module_cb) &module__cb;
     module->name = ti_names_get(name, name_n);
-    module->binary = fx_path_join_strn(
+    module->file = fx_path_join_strn(
             ti.cfg->modules_path,
             strlen(ti.cfg->modules_path),
-            binary,
-            binary_n);
+            file,
+            file_n);
+    module->args = malloc(sizeof(char*) * 2);
     module->conf_pkg = conf_pkg;
     module->started_at = 0;
     module->created_at = created_at;
     module->scope_id = scope_id;
     module->futures = omap_create();
 
-    if (!module->name || !module->binary || !module->futures ||
+    if (!module->name || !module->file || !module->futures || !module->args ||
         smap_add(ti.modules, module->name->str, module))
     {
         ti_module_destroy(module);
         return NULL;
     }
+
+    module->args[0] = module->file;
+    module->args[0] = NULL;
 
     ti_proc_init(&module->proc, module);
 
@@ -242,13 +247,13 @@ void ti_module_load(ti_module_t * module)
         log_error(
                 "failed to start module `%s` (%s): %s",
                 module->name->str,
-                module->binary,
+                module->file,
                 ti_module_status_str(module));
     else
         log_info(
                 "loaded module `%s` (%s)",
                 module->name->str,
-                module->binary);
+                module->file);
 }
 
 void ti_module_destroy(ti_module_t * module)
@@ -257,7 +262,8 @@ void ti_module_destroy(ti_module_t * module)
         return;
     ti_val_drop((ti_val_t *) module->name);
     omap_destroy(module->futures, (omap_destroy_cb) ti_future_cancel);
-    free(module->binary);
+    free(module->file);
+    free(module->args);
     free(module->conf_pkg);
     free(module);
 }
@@ -279,18 +285,35 @@ void ti_module_on_exit(ti_module_t * module)
         }
         else
             ti_module_load(module);
+
+        return;
+    }
+
+    if (module->status == TI_MODULE_STAT_STOP_AND_DESTROY ||
+        (ti.flags & TI_FLAG_SIGNAL))
+    {
+        ti_module_destroy(module);
     }
 }
 
-void ti_module_stop(ti_module_t * module)
+int ti_module_stop(ti_module_t * module)
 {
     int rc, pid = module->proc.process.pid;
     if (!pid)
-        return;
+        return 0;
     rc = uv_kill(pid, SIGTERM);
     if (rc)
-        log_error("BLA");
-    /* TODO: stop... */
+        log_error(
+                "failed to stop module `%s` (%s)",
+                module->name->str,
+                uv_strerror(rc));
+    return rc;
+}
+
+void ti_module_stop_and_destroy(ti_module_t * module)
+{
+    if (ti_module_stop(module))
+        ti_module_destroy(module);
 }
 
 static void module__on_res(ti_future_t * future, ti_pkg_t * pkg)
@@ -315,6 +338,8 @@ static void module__on_res(ti_future_t * future, ti_pkg_t * pkg)
     future->rval = (ti_val_t *) ti_varr_from_vec(future->args);
     if (!future->rval)
         ex_set_mem(&e);
+    else
+        future->args = NULL;
 
     ti_query_on_future_result(future, &e);
 }
@@ -398,8 +423,8 @@ const char * ti_module_status_str(ti_module_t * module)
         return "running";
     case TI_MODULE_STAT_NOT_LOADED:
         return "module not loaded";
-    case TI_MODULE_STAT_STOPPING:
-        return "stopping";
+    case TI_MODULE_STAT_STOP_AND_DESTROY:
+        return "stopping module...";
     case TI_MODULE_STAT_TOO_MANY_RESTARTS:
         return "too many restarts detected; most likely the module is broken";
     }

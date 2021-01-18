@@ -44,6 +44,15 @@ class TestModules(TestBase):
             new_module('REQUESTS', 'requests', nil, nil);
         ''', scope='/t')
 
+        res = await client.query(r'''
+            future({
+                module: 'REQUESTS',
+                type: 'GET',
+                url: 'https://thingsdb.net'
+            });
+        ''')
+        print(res)
+
 
 if __name__ == '__main__':
     run_test(TestModules())

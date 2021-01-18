@@ -16,5 +16,6 @@ void ti_modules_load(void)
 
 void ti_modules_stop_and_destroy(void)
 {
-    /* TODO : implemnent */
+    smap_destroy(ti.modules, (smap_destroy_cb) ti_module_stop_and_destroy);
+    ti.modules = NULL;
 }

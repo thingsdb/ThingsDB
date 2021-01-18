@@ -3,7 +3,7 @@
 static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
-    ti_raw_t * name, * binary;
+    ti_raw_t * name, * file;
     ti_module_t * module;
     ti_task_t * task;
     ti_pkg_t * pkg;
@@ -30,10 +30,10 @@ static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_arg_str_slow("new_module", DOC_NEW_MODULE, 2, query->rval, e))
         goto fail0;
 
-    binary = (ti_raw_t *) query->rval;
+    file = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (!strx_is_printablen((const char *) binary->data, binary->n))
+    if (!strx_is_printablen((const char *) file->data, file->n))
     {
         ex_set(e, EX_VALUE_ERROR,
                 "binary contains illegal characters"DOC_NEW_MODULE);
@@ -106,8 +106,8 @@ static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     module = ti_module_create(
             (const char *) name->data,
             name->n,
-            (const char *) binary->data,
-            binary->n,
+            (const char *) file->data,
+            file->n,
             util_now_tsec(),
             pkg,
             scope_id);
@@ -134,7 +134,7 @@ fail3:
 fail2:
     free(pkg);
 fail1:
-    ti_val_unsafe_drop((ti_val_t *) binary);
+    ti_val_unsafe_drop((ti_val_t *) file);
 fail0:
     ti_val_unsafe_drop((ti_val_t *) name);
     return e->nr;

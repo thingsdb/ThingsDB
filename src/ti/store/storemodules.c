@@ -27,7 +27,7 @@ static int store_modules__store_cb(ti_module_t * module, msgpack_packer * pk)
                     sizeof(ti_pkg_t) + module->conf_pkg->n)
             : msgpack_pack_nil(pk) ||
         module->scope_id
-            ? msgpack_pack_uin64(pk, *module->scope_id)
+            ? msgpack_pack_uint64(pk, *module->scope_id)
             : msgpack_pack_nil(pk)
     );
 }
@@ -76,7 +76,24 @@ int ti_store_modules_restore(const char * fn)
     ti_module_t * module;
     ti_pkg_t * conf_pkg;
     uint64_t * scope_id;
-    uchar * data = fx_read(fn, &n);
+    uchar * data;
+
+    if (!fx_file_exist(fn))
+    {
+        /*
+         * TODO: (COMPAT) This check may be removed when we no longer require
+         *       backwards compatibility with previous versions of ThingsDB
+         *       where the modules file did not exist.
+         */
+        log_warning(
+                "no modules found; "
+                "file `%s` is missing",
+                fn);
+        return ti_store_modules_store(fn);
+    }
+
+
+    data = fx_read(fn, &n);
     if (!data)
         return -1;
 

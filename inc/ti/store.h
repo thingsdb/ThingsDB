@@ -27,6 +27,7 @@ struct ti_store_s
     char * store_path;
     char * tmp_path;
     char * users_fn;
+    char * modules_fn;
     size_t fn_offset;
     vec_t * collection_ids;         /* stored collection id's, uint64_t */
     uint64_t last_stored_event_id;  /* last event ID in full database store */

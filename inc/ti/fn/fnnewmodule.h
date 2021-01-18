@@ -70,10 +70,11 @@ static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ti_scope_t scope;
         ti_raw_t * rscope = (ti_raw_t *) query->rval;
-
-        if (ti_scope_init(&scope, (const char *) rscope->data, rscope->n, e) ||
+        scope_id = malloc(sizeof(uint64_t));
+        if (!scope_id ||
+            ti_scope_init(&scope, (const char *) rscope->data, rscope->n, e) ||
             ti_scope_id(&scope, scope_id, e))
-            goto fail2;
+            goto fail3;
     }
     else
     {

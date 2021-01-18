@@ -197,6 +197,7 @@ int ti_proc_load(ti_proc_t * proc)
         goto fail4;
 
     proc->module->status = TI_MODULE_STAT_RUNNING;
+    proc->module->flags |= TI_MODULE_FLAG_IN_USE;
     return 0;
 
 fail4:

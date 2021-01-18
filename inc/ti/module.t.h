@@ -18,13 +18,20 @@ enum
     /* negative values are reserved for uv errors */
     TI_MODULE_STAT_RUNNING,         /* success */
     TI_MODULE_STAT_NOT_LOADED,
-    TI_MODULE_STAT_STOP_AND_DESTROY,
+    TI_MODULE_STAT_STOPPING,
     TI_MODULE_STAT_TOO_MANY_RESTARTS,
+};
+
+enum
+{
+    TI_MODULE_FLAG_IN_USE       =1<<0,
+    TI_MODULE_FLAG_DESTROY      =1<<1,
 };
 
 struct ti_module_s
 {
     int status;             /* 0 = success, >0 = enum, <0 = uv error */
+    int flags;
     uint16_t restarts;      /* keep the number of times this module has been
                                restarted */
     uint16_t next_pid;      /* next package id  */

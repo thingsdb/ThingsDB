@@ -9,6 +9,7 @@
 #include <ti.h>
 #include <ti/module.h>
 #include <ti/raw.t.h>
+#include <ti/varr.t.h>
 #include <util/mpack.h>
 #include <util/smap.h>
 

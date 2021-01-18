@@ -58,8 +58,6 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
         }
 
-        if (module->scope_id)
-
         if (deep_val)
         {
             int64_t deepi;

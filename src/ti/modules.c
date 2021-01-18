@@ -2,6 +2,8 @@
  * ti/modules.c
  */
 #include <ti/modules.h>
+#include <ti/varr.h>
+#include <ti/val.inline.h>
 
 static int modules__load_cb(ti_module_t * module, void * UNUSED(arg))
 {

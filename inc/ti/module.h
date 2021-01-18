@@ -8,6 +8,7 @@
 #include <ti/val.t.h>
 #include <ti/scope.t.h>
 #include <ti/module.t.h>
+#include <util/mpack.h>
 
 ti_module_t * ti_module_create(
         const char * name,

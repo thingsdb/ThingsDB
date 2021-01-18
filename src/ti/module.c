@@ -12,6 +12,7 @@
 #include <ti/proto.h>
 #include <ti/proto.t.h>
 #include <ti/query.h>
+#include <ti/scope.h>
 #include <ti/val.inline.h>
 #include <ti/verror.h>
 #include <util/fx.h>
@@ -202,6 +203,7 @@ ti_module_t * ti_module_create(
         return NULL;
 
     module->status = TI_MODULE_STAT_NOT_LOADED;
+    module->flags = 0;
     module->restarts = 0;
     module->next_pid = 0;
     module->cb = (ti_module_cb) &module__cb;
@@ -236,7 +238,17 @@ ti_module_t * ti_module_create(
 
 void ti_module_load(ti_module_t * module)
 {
-    int rc = ti_proc_load(&module->proc);
+    int rc;
+
+    if (module->flags & TI_MODULE_FLAG_IN_USE)
+    {
+        log_debug(
+                "module `%s` already loaded (PID %d)",
+                module->name->str, module->proc.process.pid);
+        return;
+    }
+
+    rc = ti_proc_load(&module->proc);
 
     module->status = rc
             ? rc
@@ -244,17 +256,17 @@ void ti_module_load(ti_module_t * module)
             ? module__write_conf(module)
             : TI_MODULE_STAT_RUNNING;
 
-    if (module->status)
+    if (module->status == TI_MODULE_STAT_RUNNING)
+        log_info(
+                "loaded module `%s` (%s)",
+                module->name->str,
+                module->file);
+    else
         log_error(
                 "failed to start module `%s` (%s): %s",
                 module->name->str,
                 module->file,
                 ti_module_status_str(module));
-    else
-        log_info(
-                "loaded module `%s` (%s)",
-                module->name->str,
-                module->file);
 }
 
 void ti_module_destroy(ti_module_t * module)
@@ -273,8 +285,15 @@ void ti_module_on_exit(ti_module_t * module)
 {
     omap_clear(module->futures, (omap_destroy_cb) ti_future_cancel);
 
-    if (module->status == TI_MODULE_STAT_RUNNING &&
-        (~ti.flags & TI_FLAG_SIGNAL))
+    if (module->flags & TI_MODULE_FLAG_DESTROY)
+    {
+        ti_module_destroy(module);
+        return;
+    }
+
+    module->flags &= ~TI_MODULE_FLAG_IN_USE;
+
+    if (module->status == TI_MODULE_STAT_RUNNING)
     {
         if (++module->restarts > MODULE__TOO_MANY_RESTARTS)
         {
@@ -286,15 +305,9 @@ void ti_module_on_exit(ti_module_t * module)
         }
         else
             ti_module_load(module);
-
         return;
     }
 
-    if (module->status == TI_MODULE_STAT_STOP_AND_DESTROY ||
-        (ti.flags & TI_FLAG_SIGNAL))
-    {
-        ti_module_destroy(module);
-    }
 }
 
 int ti_module_stop(ti_module_t * module)
@@ -304,16 +317,24 @@ int ti_module_stop(ti_module_t * module)
         return 0;
     rc = uv_kill(pid, SIGTERM);
     if (rc)
+    {
         log_error(
                 "failed to stop module `%s` (%s)",
                 module->name->str,
                 uv_strerror(rc));
+        module->status = rc;
+    }
+    else
+        module->status = TI_MODULE_STAT_STOPPING;
     return rc;
 }
 
 void ti_module_stop_and_destroy(ti_module_t * module)
 {
-    if (ti_module_stop(module))
+    module->flags |= TI_MODULE_FLAG_DESTROY;
+    if (module->flags & TI_MODULE_FLAG_IN_USE)
+        (void) ti_module_stop(module);
+    else
         ti_module_destroy(module);
 }
 
@@ -424,7 +445,7 @@ const char * ti_module_status_str(ti_module_t * module)
         return "running";
     case TI_MODULE_STAT_NOT_LOADED:
         return "module not loaded";
-    case TI_MODULE_STAT_STOP_AND_DESTROY:
+    case TI_MODULE_STAT_STOPPING:
         return "stopping module...";
     case TI_MODULE_STAT_TOO_MANY_RESTARTS:
         return "too many restarts detected; most likely the module is broken";

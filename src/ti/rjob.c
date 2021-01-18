@@ -346,7 +346,7 @@ static int rjob__new_module(mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_name) != MP_STR ||
         mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_file) != MP_U64 ||
+        mp_next(up, &mp_file) != MP_STR ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_created) != MP_U64 ||
         mp_skip(up) != MP_STR ||

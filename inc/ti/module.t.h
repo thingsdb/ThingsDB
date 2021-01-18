@@ -31,6 +31,7 @@ struct ti_module_s
     ti_module_cb cb;        /* module callback */
     ti_name_t * name;       /* name of the module */
     char * file;            /* file (full path) to start */
+    char * fn;              /* just the file name (using a pointer to file) */
     char ** args;
     ti_pkg_t * conf_pkg;    /* configuration package */
     uint64_t started_at;    /* module started at this time-stamp */

@@ -225,6 +225,7 @@ ti_module_t * ti_module_create(
         return NULL;
     }
 
+    module->fn = module->file + (strlen(module->file) - file_n);
     module->args[0] = module->file;
     module->args[0] = NULL;
 
@@ -260,8 +261,8 @@ void ti_module_destroy(ti_module_t * module)
 {
     if (!module)
         return;
-    ti_val_drop((ti_val_t *) module->name);
     omap_destroy(module->futures, (omap_destroy_cb) ti_future_cancel);
+    ti_val_drop((ti_val_t *) module->name);
     free(module->file);
     free(module->args);
     free(module->conf_pkg);
@@ -429,5 +430,62 @@ const char * ti_module_status_str(ti_module_t * module)
         return "too many restarts detected; most likely the module is broken";
     }
     return uv_strerror(module->status);
+}
+
+int ti_module_info_to_pk(
+        ti_module_t * module,
+        msgpack_packer * pk,
+        _Bool with_conf)
+{
+    return -(
+        msgpack_pack_map(pk, 5 + !!with_conf) ||
+
+        mp_pack_str(pk, "name") ||
+        mp_pack_strn(pk, module->name->str, module->name->n) ||
+
+        mp_pack_str(pk, "file") ||
+        mp_pack_str(pk, module->file) ||
+
+        mp_pack_str(pk, "created_at") ||
+        msgpack_pack_uint64(pk, module->created_at) ||
+
+        (with_conf && (
+                mp_pack_str(pk, "conf") ||
+                (module->conf_pkg
+                        ? mp_pack_append(
+                            pk,
+                            module->conf_pkg + sizeof(ti_pkg_t),
+                            module->conf_pkg->n)
+                        : msgpack_pack_nil(pk)))) ||
+
+        mp_pack_str(pk, "status") ||
+        mp_pack_str(pk, ti_module_status_str(module)) ||
+
+        mp_pack_str(pk, "scope") ||
+        (module->scope_id
+                ? mp_pack_str(pk, ti_scope_name_from_id(*module->scope_id))
+                : msgpack_pack_nil(pk))
+    );
+}
+
+ti_val_t * ti_module_as_mpval(ti_module_t * module, _Bool with_conf)
+{
+    ti_raw_t * raw;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    if (ti_module_info_to_pk(module, &pk, with_conf))
+    {
+        msgpack_sbuffer_destroy(&buffer);
+        return NULL;
+    }
+
+    raw = (ti_raw_t *) buffer.data;
+    ti_raw_init(raw, TI_VAL_MP, buffer.size);
+
+    return (ti_val_t *) raw;
 }
 

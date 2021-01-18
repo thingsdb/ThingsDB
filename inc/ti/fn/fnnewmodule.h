@@ -68,21 +68,12 @@ static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     else if (ti_val_is_str(query->rval))
     {
-        scope_id = malloc(sizeof(uint64_t));
-        if (!scope_id)
-            goto fail2;
+        ti_scope_t scope;
+        ti_raw_t * rscope = (ti_raw_t *) query->rval;
 
-        if (query->collection)
-            *scope_id = query->collection->root->id;
-        else if (query->qbind.flags & TI_QBIND_FLAG_THINGSDB)
-            *scope_id = TI_SCOPE_THINGSDB;
-        else if (query->qbind.flags & TI_QBIND_FLAG_NODE)
-            *scope_id = TI_SCOPE_NODE;
-        else
-        {
-            log_error("unknown query scope");
-            assert(0);
-        }
+        if (ti_scope_init(&scope, (const char *) rscope->data, rscope->n, e) ||
+            ti_scope_id(&scope, scope_id, e))
+            goto fail2;
     }
     else
     {

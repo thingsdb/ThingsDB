@@ -639,7 +639,7 @@ fail_data:
 
 int ti_task_add_new_module(ti_task_t * task, ti_module_t * module)
 {
-    size_t file_n = strlen(module->file);
+    size_t file_n = strlen(module->fn);
     size_t alloc = \
             128 + \
             module->name->n + \
@@ -663,7 +663,7 @@ int ti_task_add_new_module(ti_task_t * task, ti_module_t * module)
     mp_pack_strn(&pk, module->name->str, module->name->n);
 
     mp_pack_str(&pk, "file");
-    mp_pack_strn(&pk, module->file, file_n);
+    mp_pack_strn(&pk, module->fn, file_n);
 
     mp_pack_str(&pk, "created_at");
     msgpack_pack_uint64(&pk, module->created_at);

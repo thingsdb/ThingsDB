@@ -1,5 +1,5 @@
 /*
- * ti/store/users.h
+ * ti/store/storeusers.h
  */
 #include <assert.h>
 #include <stdlib.h>

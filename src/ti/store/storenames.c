@@ -1,5 +1,5 @@
 /*
- * ti/store/names.c
+ * ti/store/storenames.c
  */
 #include <ti.h>
 #include <ti/names.h>

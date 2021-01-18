@@ -49,6 +49,17 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!module)
             return ti_raw_err_not_found((ti_raw_t *) module_val, "module", e);
 
+        if (module->scope_id && *module->scope_id != ti_query_scope_id(query))
+        {
+            ex_set(e, EX_FORBIDDEN,
+                    "module `%s` is restricted to scope `%s`",
+                    module->name->str,
+                    ti_scope_name_from_id(*module->scope_id));
+            return e->nr;
+        }
+
+        if (module->scope_id)
+
         if (deep_val)
         {
             int64_t deepi;

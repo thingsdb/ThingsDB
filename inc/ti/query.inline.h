@@ -69,4 +69,17 @@ static inline void ti_query_response(ti_query_t * query, ex_t * e)
         ti_query_send_response(query, e);
 }
 
+static inline uint64_t ti_query_scope_id(ti_query_t * query)
+{
+    if (query->collection)
+        return query->collection->root->id;
+    if (query->qbind.flags & TI_QBIND_FLAG_THINGSDB)
+        return TI_SCOPE_THINGSDB;
+    if (query->qbind.flags & TI_QBIND_FLAG_NODE)
+        return TI_SCOPE_NODE;
+
+    assert (0);
+    return 0;
+}
+
 #endif  /* TI_QUERY_INLINE_H_ */

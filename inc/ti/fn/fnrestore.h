@@ -67,6 +67,28 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
     }
 
+    if ((n = ti.modules->n))
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "restore requires all existing modules to be removed; "
+                "there %s still %"PRIu32" module%s found"DOC_RESTORE,
+                n == 1 ? "is" : "are",
+                n,
+                n == 1 ? "" : "s");
+        goto fail1;
+    }
+
+    if ((n = ti.futures_count))
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "restore requires all existing futures to be finished; "
+                "there %s still %"PRIu32" running future%s found"DOC_RESTORE,
+                n == 1 ? "is" : "are",
+                n,
+                n == 1 ? "" : "s");
+        goto fail1;
+    }
+
     if ((n = ti.collections->vec->n))
     {
         ex_set(e, EX_LOOKUP_ERROR,

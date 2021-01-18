@@ -340,7 +340,7 @@ static int rjob__new_module(mp_unp_t * up)
     mp_obj_t obj, mp_name, mp_file, mp_created, mp_pkg, mp_scope;
     ti_module_t * module;
     uint64_t * scope_id = NULL;
-    ti_pkg_t * pkg = NULL;
+    ti_pkg_t * conf_pkg = NULL;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 5 ||
         mp_skip(up) != MP_STR ||
@@ -362,10 +362,10 @@ static int rjob__new_module(mp_unp_t * up)
 
     if (mp_pkg.tp == MP_BIN)
     {
-        pkg = malloc(mp_pkg.via.bin.n);
-        if (!pkg)
+        conf_pkg = malloc(mp_pkg.via.bin.n);
+        if (!conf_pkg)
             goto mem_error;
-        memcpy(pkg, mp_pkg.via.bin.data, mp_pkg.via.bin.n);
+        memcpy(conf_pkg, mp_pkg.via.bin.data, mp_pkg.via.bin.n);
     }
 
     if (mp_scope.tp == MP_U64)
@@ -382,7 +382,7 @@ static int rjob__new_module(mp_unp_t * up)
             mp_file.via.str.data,
             mp_file.via.str.n,
             mp_created.via.u64,
-            pkg,
+            conf_pkg,
             scope_id);
 
     if (!module)
@@ -391,12 +391,13 @@ static int rjob__new_module(mp_unp_t * up)
         goto failed;
     }
 
+    ti_module_load(module);
     return 0;
 
 mem_error:
     log_critical(EX_MEMORY_S);
 failed:
-    free(pkg);
+    free(conf_pkg);
     free(scope_id);
     return -1;
 }

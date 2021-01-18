@@ -105,6 +105,8 @@
 #include <ti/fn/fnmap.h>
 #include <ti/fn/fnmodenum.h>
 #include <ti/fn/fnmodtype.h>
+#include <ti/fn/fnmoduleinfo.h>
+#include <ti/fn/fnmodulesinfo.h>
 #include <ti/fn/fnmove.h>
 #include <ti/fn/fnmsg.h>
 #include <ti/fn/fnname.h>
@@ -502,6 +504,8 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="nodes_info",        .fn=do__f_nodes_info,           ROOT_NE},
     {.name="now",               .fn=do__f_now,                  ROOT_NE},
     {.name="num_arguments_err", .fn=do__f_num_arguments_err,    ROOT_NE},
+    {.name="module_info",       .fn=do__f_module_info,          ROOT_NE},
+    {.name="modules_info",      .fn=do__f_modules_info,         ROOT_NE},
     {.name="operation_err",     .fn=do__f_operation_err,        ROOT_NE},
     {.name="overflow_err",      .fn=do__f_overflow_err,         ROOT_NE},
     {.name="pop",               .fn=do__f_pop,                  CHAIN_CE_XVAR},

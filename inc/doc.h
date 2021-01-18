@@ -119,6 +119,8 @@
 #define DOC_HAS_NODE                DOC_SEE("thingsdb-api/has_node")
 #define DOC_HAS_TOKEN               DOC_SEE("thingsdb-api/has_token")
 #define DOC_HAS_USER                DOC_SEE("thingsdb-api/has_user")
+#define DOC_MODULE_INFO             DOC_SEE("thingsdb-api/module_info")
+#define DOC_MODULES_INFO            DOC_SEE("thingsdb-api/modules_info")
 #define DOC_NEW_COLLECTION          DOC_SEE("thingsdb-api/new_collection")
 #define DOC_NEW_MODULE              DOC_SEE("thingsdb-api/new_module")
 #define DOC_NEW_NODE                DOC_SEE("thingsdb-api/new_node")

@@ -228,7 +228,8 @@ void ti_query_destroy(ti_query_t * query)
     ti_user_drop(query->user);
     ti_event_drop(query->ev);
     ti_val_drop(query->rval);
-    link_clear(&query->futures, (link_destroy_cb) ti_val_unsafe_drop);
+
+    assert (query->futures.n == 0);
 
     if (query->vars)
     {
@@ -562,7 +563,7 @@ int ti_query_parse(ti_query_t * query, const char * str, size_t n, ex_t * e)
     if (!query->with.parseres)
     {
         free(querystr);
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
                 "query has reached the maximum recursion depth of %d",
                 MAX_RECURSION_DEPTH);
         return e->nr;
@@ -627,15 +628,9 @@ static void query__duration_log(
     }
 }
 
-static void query__run_futures(ti_query_t * query)
+static void query__future_cb(ti_future_t * future)
 {
-    link_iter_t iter = link_iter(&query->futures);
-
-    /* increase the number of running futures */
-    ti.futures_count += query->futures.n;
-
-    for (link_each(iter, ti_future_t, future))
-        future->module->cb(future);
+    future->module->cb(future);
 }
 
 void ti_query_on_then_result(ti_query_t * query, ex_t * e)
@@ -649,7 +644,8 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e)
 
     ti_user_drop(query->user);
     ti_event_drop(query->ev);
-    link_clear(&query->futures, (link_destroy_cb) ti_val_unsafe_drop);
+
+    assert (query->futures.n == 0);
 
     while(query->vars->n)
         ti_prop_destroy(VEC_pop(query->vars));
@@ -662,9 +658,7 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e)
 
     query = future->query;
 
-    (void) link_rm(&query->futures, future);
-
-    if (query->futures.n == 0)
+    if (!--query->fcount)
     {
         if (query->flags & TI_QUERY_FLAG_RAISE_ERR)
             ti_verror_to_e((ti_verror_t *) query->rval, e);
@@ -785,13 +779,15 @@ then:
         then_query->with.future = future;
 
         query__then(then_query, e);
+        /*
+         * Note that `fcount` is not decremented, this has to be done then the
+         * `then` logic is completed.
+         */
         return;
     }
 
 done:
-    (void) link_rm(&query->futures, future);
-
-    if (query->futures.n == 0)
+    if (!--query->fcount)
     {
         if (query->flags & TI_QUERY_FLAG_RAISE_ERR)
             ti_verror_to_e((ti_verror_t *) query->rval, e);
@@ -845,10 +841,7 @@ stop:
     if (query->ev)
         query__event_handle(query);  /* errors will be logged only */
 
-    if (query->futures.n && e.nr == 0)
-        query__run_futures(query);
-    else
-        ti_query_send_response(query, &e);
+    ti_query_done(query, &e);
 }
 
 void ti_query_run_procedure(ti_query_t * query)
@@ -871,10 +864,7 @@ void ti_query_run_procedure(ti_query_t * query)
     if (query->ev)
         query__event_handle(query);  /* errors will be logged only */
 
-    if (query->futures.n && e.nr == 0)
-        query__run_futures(query);
-    else
-        ti_query_send_response(query, &e);
+    ti_query_done(query, &e);
 }
 
 void ti_query_run_future(ti_query_t * query)
@@ -890,10 +880,7 @@ void ti_query_run_future(ti_query_t * query)
     if (query->ev)
         query__event_handle(query);  /* errors will be logged only */
 
-    if (query->futures.n && e.nr == 0)
-        query__run_futures(query);
-    else
-        ti_query_on_then_result(query, &e);
+    ti_query_done(query, &e);
 }
 
 static inline int query__pack_response(
@@ -995,7 +982,7 @@ pkg_err:
 
 typedef int (*query__cb)(ti_query_t *, ex_t *);
 
-void ti_query_send_response(ti_query_t * query, ex_t * e)
+static void query__send_response(ti_query_t * query, ex_t * e)
 {
     double duration, warn = ti.cfg->query_duration_warn;
     query__cb cb = query->flags & TI_QUERY_FLAG_API
@@ -1043,6 +1030,25 @@ void ti_query_send_response(ti_query_t * query, ex_t * e)
 
 done:
     ti_query_destroy_or_return(query);
+}
+
+void ti_query_done(ti_query_t * query, ex_t * e)
+{
+    if (query->futures.n)
+    {
+        if (e->nr == 0)
+        {
+            /* increase the number of running futures */
+            ti.futures_count += query->futures.n;
+            query->fcount = query->futures.n;
+
+            link_clear(&query->futures, (link_destroy_cb) query__future_cb);
+            return;
+        }
+        /* futures might exist but in this case they are not "running" */
+        link_clear(&query->futures, (link_destroy_cb) ti_val_unsafe_drop);
+    }
+    query__send_response(query, e);
 }
 
 ti_prop_t * ti_query_var_get(ti_query_t * query, ti_name_t * name)

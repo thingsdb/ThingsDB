@@ -55,7 +55,8 @@ const char * ex_str(ex_enum errnr)
     switch (errnr)
     {
     /* build-in */
-    case EX_OPERATION_ERROR:    return EX_OPERATION_ERROR_X;
+    case EX_CANCELLED:          return EX_CANCELLED_X;
+    case EX_OPERATION:          return EX_OPERATION_X;
     case EX_NUM_ARGUMENTS:      return EX_NUM_ARGUMENTS_X;
     case EX_TYPE_ERROR:         return EX_TYPE_ERROR_X;
     case EX_VALUE_ERROR:        return EX_VALUE_ERROR_X;

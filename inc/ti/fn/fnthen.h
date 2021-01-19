@@ -13,7 +13,7 @@ static int do__f_then(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (future->then)
     {
-        ex_set(e, EX_OPERATION_ERROR, "only one `then` case is allowed");
+        ex_set(e, EX_OPERATION, "only one `then` case is allowed");
         goto fail;
     }
 

@@ -1444,7 +1444,7 @@ int ti_nodes_check_add(ex_t * e)
     {
         if (node->status <= TI_NODE_STAT_CONNECTED && !may_skip--)
         {
-            ex_set(e, EX_OPERATION_ERROR,
+            ex_set(e, EX_OPERATION,
                 "wait for a connection to "TI_NODE_ID" before adding a new node; "
                 "current status: `%s`",
                 node->id, ti_node_status_str(node->status));

@@ -35,6 +35,7 @@
 #include <ti/fn/fndelcollection.h>
 #include <ti/fn/fndelenum.h>
 #include <ti/fn/fndelexpired.h>
+#include <ti/fn/fndelmodule.h>
 #include <ti/fn/fndelnode.h>
 #include <ti/fn/fndelprocedure.h>
 #include <ti/fn/fndeltoken.h>
@@ -215,7 +216,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 194,
+    TOTAL_KEYWORDS = 196,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 8,
@@ -233,14 +234,14 @@ static inline unsigned int qbind__hash(
         450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
         450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
         450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
-        450, 450,   2, 450,   2, 450,  10, 450, 450, 450,
+        450, 450,   2, 450,   2, 450,   9, 450, 450, 450,
         450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
         450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
         450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
-        450, 450, 450, 450, 450,   1, 450,   5, 101,  37,
-         25,   1,  47, 117, 143,   1,   2,  46,  59,  12,
+        450, 450, 450, 450, 450,   1, 450,   5,   3,  37,
+         25,   1,  47, 117, 143,   1,   2,  65,  59,  12,
           5,  30,  39,   1,   2,   1,   7,   7,  93, 162,
-         44, 156,  40, 450, 450, 450, 450, 450, 450, 450,
+         44, 156,  44, 450, 450, 450, 450, 450, 450, 450,
         450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
         450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
         450, 450, 450, 450, 450, 450, 450, 450, 450, 450,
@@ -401,6 +402,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="bool",              .fn=do__f_bool,                 ROOT_NE},
     {.name="bytes",             .fn=do__f_bytes,                ROOT_NE},
     {.name="call",              .fn=do__f_call,                 XCHAIN_NE},
+    {.name="cancelled_err",     .fn=do__f_cancelled_err,        ROOT_NE},
     {.name="choice",            .fn=do__f_choice,               CHAIN_NE},
     {.name="code",              .fn=do__f_code,                 CHAIN_NE},
     {.name="collection_info",   .fn=do__f_collection_info,      ROOT_NE},
@@ -414,6 +416,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="del_collection",    .fn=do__f_del_collection,       ROOT_TE},
     {.name="del_enum",          .fn=do__f_del_enum,             ROOT_CE},
     {.name="del_expired",       .fn=do__f_del_expired,          ROOT_TE},
+    {.name="del_module",        .fn=do__f_del_module,           ROOT_TE},
     {.name="del_node",          .fn=do__f_del_node,             ROOT_TE},
     {.name="del_procedure",     .fn=do__f_del_procedure,        ROOT_BE},
     {.name="del_token",         .fn=do__f_del_token,            ROOT_TE},

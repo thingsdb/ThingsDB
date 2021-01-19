@@ -452,8 +452,6 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
             goto failed;
     }
 
-    ti_modules_load();
-
     if (ti_nodes_listen())
         goto failed;
 
@@ -514,6 +512,13 @@ int ti_run(void)
 
     if (ti.cfg->http_status_port && ti_web_init())
         goto failed;
+
+    /*
+     * Load the modules before the events, note that events might create
+     * additional modules but if that is the case, they will be loaded by the
+     * event.
+     */
+    ti_modules_load();
 
     if (ti_events_start())
         goto failed;

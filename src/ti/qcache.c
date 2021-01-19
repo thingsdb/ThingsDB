@@ -105,7 +105,8 @@ void ti_qcache_return(ti_query_t * query)
     ti_user_drop(query->user);
     ti_event_drop(query->ev);
     ti_val_drop(query->rval);
-    link_clear(&query->futures, (link_destroy_cb) ti_val_unsafe_drop);
+
+    assert (query->futures.n == 0);
 
     while(query->vars->n)
         ti_prop_destroy(VEC_pop(query->vars));

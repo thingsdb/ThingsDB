@@ -87,6 +87,7 @@ struct ti_query_s
                                    procedures to populate the closure arguments
                                 */
     link_t futures;             /* place to store futures */
+    size_t fcount;              /* future count */
     util_time_t time;           /* time query duration */
 };
 

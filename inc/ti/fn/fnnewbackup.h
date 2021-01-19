@@ -35,7 +35,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_raw_startswith(rname, gs_str) && !ti.cfg->gcloud_key_file)
     {
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
             "a key file must be configured to use Google Cloud "
             "storage; set `gcloud_key_file` in the configuration file or set "
             "the environment variable `THINGSDB_GCLOUD_KEY_FILE`"

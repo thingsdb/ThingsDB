@@ -37,6 +37,11 @@ void link_destroy(link_t * link, link_destroy_cb cb)
 void link_clear(link_t * link, link_destroy_cb cb)
 {
     struct link__s * node = link->next_;
+
+    /* set to NULL in front, to prevent recursive calling */
+    link->n = 0;
+    link->next_ = NULL;
+
     while (node)
     {
         struct link__s * tmp = node;
@@ -44,8 +49,6 @@ void link_clear(link_t * link, link_destroy_cb cb)
         (*cb)(tmp->data_);
         free(tmp);
     }
-    link->n = 0;
-    link->next_ = NULL;
 }
 
 void * link_rm(link_t * link, void * data)

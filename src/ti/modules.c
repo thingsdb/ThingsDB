@@ -22,6 +22,12 @@ void ti_modules_stop_and_destroy(void)
     ti.modules = NULL;
 }
 
+void ti_modules_stop_and_cancel(void)
+{
+    smap_destroy(ti.modules, (smap_destroy_cb) ti_module_stop_and_destroy);
+    ti.modules = NULL;
+}
+
 static int modues__info_cb(ti_module_t * module, ti_varr_t * varr)
 {
     ti_val_t * mpinfo = ti_module_as_mpval(module, varr->flags);
@@ -49,4 +55,15 @@ ti_varr_t * ti_modules_info(_Bool with_conf)
 
     varr->flags = flags;
     return varr;
+}
+
+static int modules__cfuture_cb(ti_module_t * module, void * UNUSED(arg))
+{
+    ti_module_cancel_futures(module);
+    return 0;
+}
+
+void ti_modules_cancel_futures(void)
+{
+    (void) smap_values(ti.modules, (smap_val_cb) modules__cfuture_cb, NULL);
 }

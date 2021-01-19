@@ -309,14 +309,19 @@ int ti_scope_id(ti_scope_t * scope, uint64_t * scope_id, ex_t * e)
         collection = ti_collections_get_by_strn(
                 scope->via.collection_name.name,
                 scope->via.collection_name.sz);
-        if (!collection)
+        if (collection)
+            *scope_id = collection->root->id;
+        else
             ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
                 (int) scope->via.collection_name.sz,
                 scope->via.collection_name.name);
+
         return e->nr;
     case TI_SCOPE_COLLECTION_ID:
         collection = ti_collections_get_by_id(scope->via.collection_id);
-        if (!collection)
+        if (collection)
+            *scope_id = collection->root->id;
+        else
             ex_set(e, EX_LOOKUP_ERROR, TI_COLLECTION_ID" not found",
                     scope->via.collection_id);
         return e->nr;

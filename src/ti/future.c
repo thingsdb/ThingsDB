@@ -49,7 +49,9 @@ void ti_future_destroy(ti_future_t * future)
 
 void ti_future_cancel(ti_future_t * future)
 {
-    ex_t e;  /* TODO: introduce new error ? */
-    ex_set(&e, EX_OPERATION_ERROR, "future cancelled before completion");
+    ex_t e;
+    ex_set(&e, EX_CANCELLED, "future cancelled before completion");
     ti_query_on_future_result(future, &e);
 }
+
+

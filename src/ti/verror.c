@@ -152,16 +152,23 @@ static const verror__t verror__num_arguments_err = {
 static const verror__t verror__operation_err = {
         .ref=1,
         .tp=TI_VAL_ERROR,
-        .code=EX_OPERATION_ERROR,
-        .msg_n=strlen(EX_OPERATION_ERROR_X),
-        .msg=EX_OPERATION_ERROR_X
+        .code=EX_OPERATION,
+        .msg_n=strlen(EX_OPERATION_X),
+        .msg=EX_OPERATION_X
+};
+static const verror__t verror__cancelled_err = {
+        .ref=1,
+        .tp=TI_VAL_ERROR,
+        .code=EX_CANCELLED,
+        .msg_n=strlen(EX_CANCELLED_X),
+        .msg=EX_CANCELLED_X
 };
 
 void ti_verror_init(void)
 {
     memcpy(&verror__cache[-EX_INTERNAL], &verror__internal, sizeof(verror__t));
-
     memcpy(&verror__cache[-EX_MEMORY], &verror__memory, sizeof(verror__t));
+
     verror__cache[-EX_WRITE_UV]         = verror__write_uv;
     verror__cache[-EX_REQUEST_CANCEL]   = verror__request_cancel;
     verror__cache[-EX_REQUEST_TIMEOUT]  = verror__request_timeout;
@@ -178,8 +185,8 @@ void ti_verror_init(void)
     verror__cache[-EX_VALUE_ERROR]      = verror__value_err;
     verror__cache[-EX_TYPE_ERROR]       = verror__type_err;
     verror__cache[-EX_NUM_ARGUMENTS]    = verror__num_arguments_err;
-    verror__cache[-EX_OPERATION_ERROR]  = verror__operation_err;
-
+    verror__cache[-EX_OPERATION]        = verror__operation_err;
+    verror__cache[-EX_CANCELLED]        = verror__cancelled_err;
 
     for (int i = 0; i < VERROR__CACHE_SZ; ++i)
     {
@@ -246,7 +253,8 @@ const char * ti_verror_type_str(ti_verror_t * verror)
 {
     switch (verror->code)
     {
-    case EX_OPERATION_ERROR: return "operation_err()";
+    case EX_CANCELLED: return "cancelled_err()";
+    case EX_OPERATION: return "operation_err()";
     case EX_NUM_ARGUMENTS: return "num_arguments_err()";
     case EX_TYPE_ERROR: return "type_err()";
     case EX_VALUE_ERROR: return "value_err()";

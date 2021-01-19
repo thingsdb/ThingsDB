@@ -44,6 +44,10 @@ class TestModules(TestBase):
             new_module('REQUESTS', 'requests', nil, nil);
         ''', scope='/t')
 
+        await client.query(r'''
+            new_module('XXX', 'xxx', {}, '//stuff');
+        ''', scope='/t')
+
         res = await client.query(r'''
             future({
                 module: 'REQUESTS',
@@ -51,7 +55,15 @@ class TestModules(TestBase):
                 url: 'https://thingsdb.net'
             });
         ''')
-        print(res)
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'no such file or directory'):
+            res = await client.query(r'''
+                future({
+                    module: 'XXX'
+                });
+            ''')
 
 
 if __name__ == '__main__':

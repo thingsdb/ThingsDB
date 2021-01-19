@@ -39,6 +39,7 @@ void omap_clear(omap_t * omap, omap_destroy_cb cb)
 {
     omap__t * cur = omap->next_;
 
+    /* first reset everything to zero to prevent recursive usage */
     omap->next_ = NULL;
     omap->n = 0;
 

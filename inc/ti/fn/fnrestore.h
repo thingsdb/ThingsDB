@@ -37,7 +37,7 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if ((node = ti_nodes_not_ready()))
     {
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
                 TI_NODE_ID" is having status `%s`, "
                 "wait for the status to become `%s` and try again"
                 DOC_RESTORE,
@@ -49,7 +49,7 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_query_is_fwd(query))
     {
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
                 "wait for "TI_NODE_ID" to have status `%s` and try again"
                 DOC_RESTORE,
                 query->via.stream->via.node->id,
@@ -113,7 +113,7 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti.events->next_event_id - 1 > query->ev->id)
     {
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
                 "restore is expecting to have the last event id but it seems "
                 "another event is claiming the last event id"DOC_RESTORE);
         goto fail1;
@@ -124,7 +124,7 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (cevid != sevid && ti.nodes->vec->n > 1)
     {
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
                 "restore requires the committed "TI_EVENT_ID
                 "to be equal to the stored "TI_EVENT_ID""DOC_RESTORE,
                 cevid, sevid);
@@ -133,7 +133,7 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (cevid != ti.node->cevid)
     {
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
                 "restore requires the global committed "TI_EVENT_ID
                 "to be equal to the local committed "TI_EVENT_ID""DOC_RESTORE,
                 cevid, ti.node->cevid);
@@ -142,7 +142,7 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (sevid != ti.node->sevid)
     {
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
                 "restore requires the global stored "TI_EVENT_ID
                 "to be equal to the local stored "TI_EVENT_ID""DOC_RESTORE,
                 sevid, ti.node->sevid);
@@ -151,7 +151,7 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_restore_is_busy())
     {
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
                 "another restore is busy; wait until the pending restore is "
                 "finished and try again"DOC_RESTORE);
         goto fail1;
@@ -162,7 +162,7 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         log_warning("removing store directory: `%s`", ti.store->store_path);
         if (fx_rmdir(ti.store->store_path))
         {
-            ex_set(e, EX_OPERATION_ERROR,
+            ex_set(e, EX_OPERATION,
                         "failed to remove path: `%s`",
                         ti.store->store_path);
             goto fail1;
@@ -171,7 +171,7 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_archive_rmdir())
     {
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
                 "failed to remove archives, check node log for more details");
         goto fail1;
     }

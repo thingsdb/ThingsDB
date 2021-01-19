@@ -5,6 +5,7 @@
 #include <ti.h>
 #include <ti/access.h>
 #include <ti/auth.h>
+#include <ti/modules.h>
 #include <ti/procedure.h>
 #include <ti/procedures.h>
 #include <ti/qbind.h>
@@ -654,6 +655,34 @@ static int rjob__del_node(ti_event_t * ev, mp_unp_t * up)
 
 /*
  * Returns 0 on success
+ * - for example: module_name
+ */
+static int rjob__del_module(mp_unp_t * up)
+{
+    ti_module_t * module;
+    mp_obj_t mp_name;
+
+    if (mp_next(up, &mp_name) != MP_STR)
+    {
+        log_critical("job `del_module`: invalid format");
+        return -1;
+    }
+
+    module = ti_modules_by_strn(mp_name.via.str.data, mp_name.via.str.n);
+    if (!module)
+    {
+        log_error("job `del_module`: module `%.*s` not found",
+                mp_name.via.str.n,
+                mp_name.via.str.data);
+        return 0;  /* error, but able to continue */
+    }
+
+    ti_module_del(module);
+    return 0;
+}
+
+/*
+ * Returns 0 on success
  * - for example: {'id':id, 'name':name}
  */
 static int rjob__rename_collection(mp_unp_t * up)
@@ -960,6 +989,8 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
             return rjob__del_expired(up);
         if (mp_str_eq(&mp_job, "del_node"))
             return rjob__del_node(ev, up);
+        if (mp_str_eq(&mp_job, "del_module"))
+            return rjob__del_module(up);
         if (mp_str_eq(&mp_job, "del_procedure"))
             return rjob__del_procedure(up);
         if (mp_str_eq(&mp_job, "del_token"))

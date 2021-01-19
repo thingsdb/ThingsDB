@@ -13,7 +13,7 @@ static int do__f_else(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (future->fail)
     {
-        ex_set(e, EX_OPERATION_ERROR, "only one `else` case is allowed");
+        ex_set(e, EX_OPERATION, "only one `else` case is allowed");
         goto fail;
     }
 

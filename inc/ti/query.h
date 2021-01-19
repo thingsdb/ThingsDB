@@ -29,7 +29,7 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e);
 void ti_query_run_parseres(ti_query_t * query);
 void ti_query_run_procedure(ti_query_t * query);
 void ti_query_run_future(ti_query_t * query);
-void ti_query_send_response(ti_query_t * query, ex_t * e);
+void ti_query_done(ti_query_t * query, ex_t * e);
 void ti_query_on_future_result(ti_future_t * future, ex_t * e);
 int ti_query_unpack_args(ti_query_t * query, mp_unp_t * up, ex_t * e);
 int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e);

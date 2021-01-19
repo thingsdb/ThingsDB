@@ -24,13 +24,13 @@ static void module__write_req_cb(uv_write_t * req, int status)
 {
     if (status)
     {
-        ex_t e; /* TODO : new error? */
+        ex_t e;
         ti_future_t * future = req->data;
 
         /* remove the future from the module */
         (void) omap_rm(future->module->futures, future->pid);
 
-        ex_set(&e, EX_OPERATION_ERROR, uv_strerror(status));
+        ex_set(&e, EX_OPERATION, uv_strerror(status));
         ti_query_on_future_result(future, &e);
     }
 
@@ -138,6 +138,14 @@ static void module__cb(ti_future_t * future)
 
     assert (ti_val_is_thing((ti_val_t *) thing));
 
+    if (future->module->status)
+    {
+        ex_t e;
+        ex_set(&e, EX_OPERATION, ti_module_status_str(future->module));
+        ti_query_on_future_result(future, &e);
+        return;
+    }
+
     if (mp_sbuffer_alloc_init(&buffer, alloc_sz, sizeof(ti_pkg_t)))
         goto mem_error0;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
@@ -151,8 +159,8 @@ static void module__cb(ti_future_t * future)
     uv_err = module__write_req(future);
     if (uv_err)
     {
-        ex_t e;  /* TODO: introduce new error ? */
-        ex_set(&e, EX_OPERATION_ERROR, uv_strerror(uv_err));
+        ex_t e;
+        ex_set(&e, EX_OPERATION, uv_strerror(uv_err));
         ti_query_on_future_result(future, &e);
     }
     return;
@@ -176,6 +184,7 @@ ti_pkg_t * ti_module_conf_pkg(ti_val_t * val)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc_sz, sizeof(ti_pkg_t)))
         return NULL;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     if (ti_val_to_pk(val, &pk, 1))
     {
@@ -278,12 +287,14 @@ void ti_module_destroy(ti_module_t * module)
     free(module->file);
     free(module->args);
     free(module->conf_pkg);
+    free(module->scope_id);
     free(module);
 }
 
 void ti_module_on_exit(ti_module_t * module)
 {
-    omap_clear(module->futures, (omap_destroy_cb) ti_future_cancel);
+    /* first cancel all open futures */
+    ti_modules_cancel_futures(module);
 
     if (module->flags & TI_MODULE_FLAG_DESTROY)
     {
@@ -336,6 +347,16 @@ void ti_module_stop_and_destroy(ti_module_t * module)
         (void) ti_module_stop(module);
     else
         ti_module_destroy(module);
+}
+
+void ti_module_del(ti_module_t * module)
+{
+    ti_module_stop_and_destroy(smap_pop(ti.modules, module->name->str));
+}
+
+void ti_module_cancel_futures(ti_module_t * module)
+{
+    omap_clear(module->futures, (omap_destroy_cb) ti_future_cancel);
 }
 
 static void module__on_res(ti_future_t * future, ti_pkg_t * pkg)

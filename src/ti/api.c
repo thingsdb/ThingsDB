@@ -376,7 +376,7 @@ static void api__set_yajl_gen_status_error(ex_t * e, yajl_gen_status stat)
         ex_set(e, EX_TYPE_ERROR, "JSON keys must be strings");
         return;
     case yajl_max_depth_exceeded:
-        ex_set(e, EX_OPERATION_ERROR, "JSON max depth exceeded");
+        ex_set(e, EX_OPERATION, "JSON max depth exceeded");
         return;
     case yajl_gen_in_error_state:
         ex_set(e, EX_INTERNAL, "JSON general error");
@@ -482,7 +482,8 @@ int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
                 TI_API_CT_TEXT_PLAIN,
                 (size_t) body_size);
         break;
-    case EX_OPERATION_ERROR:
+    case EX_CANCELLED:
+    case EX_OPERATION:
     case EX_NUM_ARGUMENTS:
     case EX_TYPE_ERROR:
     case EX_VALUE_ERROR:

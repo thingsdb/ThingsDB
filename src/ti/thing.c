@@ -40,7 +40,7 @@ static inline int thing__val_locked(
     if (    (val->tp == TI_VAL_ARR || val->tp == TI_VAL_SET) &&
             (val->flags & TI_VFLAG_LOCK))
     {
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
             "cannot change or remove property `%s` on "TI_THING_ID
             " while the `%s` is being used",
             name->str,

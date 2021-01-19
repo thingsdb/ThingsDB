@@ -14,6 +14,7 @@
 #include <util/smap.h>
 
 ti_varr_t * ti_modules_info(_Bool with_conf);
+void ti_modules_cancel_futures(void);
 
 static inline ti_module_t * ti_modules_by_raw(ti_raw_t * raw)
 {

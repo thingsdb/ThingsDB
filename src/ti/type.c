@@ -960,7 +960,7 @@ int ti_type_required_by_non_wpo(ti_type_t * type, ex_t * e)
 {
     if (type->refcount &&
         imap_walk(type->types->imap, (imap_cb) type__test_wpo_cb, type))
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
             "type `%s` is required by at least one other type "
             "without having `wrap-only` mode enabled",
             type->name);
@@ -978,7 +978,7 @@ int ti_type_uses_wpo(ti_type_t * type, ex_t * e)
 
             if (ti_type_is_wrap_only(dep))
             {
-                ex_set(e, EX_OPERATION_ERROR,
+                ex_set(e, EX_OPERATION,
                     "type `%s` is dependent on at least one type "
                     "with `wrap-only` mode enabled",
                     type->name);

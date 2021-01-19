@@ -23,11 +23,15 @@ static uv_work_t away__uv_work;
 static uv_timer_t away__uv_trigger;
 static uv_timer_t away__uv_waiter;
 
-#define AWAY__RESET_COUNTER 5   /* reset expect after X times reject   */
-#define AWAY__SOON_TIMER 10000  /* in soon mode for X seconds  */
-#define AWAY__BLOCK_TIME 15000  /* block accepting for X seconds */
-#define AWAY__SKIP_COUNT 25     /* skip away mode X times when events are
-                                   pending */
+#define AWAY__RESET_COUNTER 5       /* reset expect after X times reject   */
+#define AWAY__SOON_TIMER 10000      /* in soon mode for X seconds  */
+#define AWAY__BLOCK_TIME 15000      /* block accepting for X seconds */
+#define AWAY__SKIP_COUNT 25         /* skip away mode X times when events are
+                                       pending */
+#define AWAY__WAIT_FUTURES 20       /* wait X extra seconds before canceling
+                                       running futures when going into away
+                                       mode */
+
 
 enum away__status
 {
@@ -345,6 +349,22 @@ static void away__waiter_pre_close_cb(uv_handle_t * UNUSED(handle))
 static void away__waiter_pre_cb(uv_timer_t * waiter)
 {
     ssize_t events_to_process = ti_events_trigger_loop();
+
+    if (ti.futures_count)
+    {
+        if (!--away->wait_futures)
+        {
+            log_warning("canceling all open futures for going into away mode");
+            ti_modules_cancel_futures();
+        }
+        else
+            log_warning(
+                "waiting for %zd %s to finish before going to away mode",
+                ti.futures_count,
+                ti.futures_count == 1 ? "future" : "futures");
+        return;
+    }
+
     if (events_to_process)
     {
         /* empty the queue because other nodes might wait for these evens to
@@ -358,14 +378,8 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
         return;
     }
 
-    if (ti.futures_count)
-    {
-        log_warning(
-                "waiting for %zd %s to finish before going to away mode",
-                ti.futures_count,
-                ti.futures_count == 1 ? "future" : "futures");
-        return;
-    }
+    /* restore original wait for future counter */
+    away->wait_futures = AWAY__WAIT_FUTURES;
 
     if (ti.flags & TI_FLAG_SIGNAL)
         return;
@@ -547,6 +561,7 @@ int ti_away_create(void)
     away->syncers = vec_new(1);
     away->status = AWAY__STATUS_INIT;
     away->skip_count = AWAY__SKIP_COUNT;
+    away->wait_futures = AWAY__WAIT_FUTURES;
     away->away_node_id = 0;
     away->sleep = 0;
 

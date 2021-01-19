@@ -44,7 +44,8 @@
 #define EX_VALUE_ERROR_X        "object has the right type but an inappropriate value"
 #define EX_TYPE_ERROR_X         "object of inappropriate type"
 #define EX_NUM_ARGUMENTS_X      "wrong number of arguments"
-#define EX_OPERATION_ERROR_X    "operation is not valid in the current context"
+#define EX_OPERATION_X          "operation is not valid in the current context"
+#define EX_CANCELLED_X          "operation is cancelled before completion"
 
 typedef enum
 {
@@ -53,7 +54,8 @@ typedef enum
     /* reserved build-in errors -99..-EX_MAX_BUILD_IN_ERR */
 
     /* build-in errors */
-    EX_OPERATION_ERROR      =-63,
+    EX_CANCELLED            =-64,
+    EX_OPERATION            =-63,
     EX_NUM_ARGUMENTS        =-62,
     EX_TYPE_ERROR           =-61,
     EX_VALUE_ERROR          =-60,

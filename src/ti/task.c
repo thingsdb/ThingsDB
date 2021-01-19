@@ -549,6 +549,37 @@ fail_data:
     return -1;
 }
 
+int ti_task_add_del_module(ti_task_t * task, ti_module_t * module)
+{
+    size_t alloc = 64 + module->name->n;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_str(&pk, "del_module");
+    mp_pack_strn(&pk, module->name->str, module->name->n);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+
 int ti_task_add_grant(
         ti_task_t * task,
         uint64_t scope_id,

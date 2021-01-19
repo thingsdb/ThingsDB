@@ -59,7 +59,7 @@ static inline int ti_type_try_lock(ti_type_t * type, ex_t * e)
 {
     if (type->flags & TI_TYPE_FLAG_LOCK)
     {
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
             "cannot change type `%s` while the type is being used",
             type->name);
         return -1;

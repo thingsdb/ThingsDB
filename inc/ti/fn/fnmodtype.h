@@ -93,7 +93,7 @@ static int modtype__add_cb(ti_thing_t * thing, modtype__add_t * w)
     {
         if (w->e->nr == 0 && ex.nr)
         {
-            ex_set(w->e, EX_OPERATION_ERROR,
+            ex_set(w->e, EX_OPERATION,
                     "field `%s` is added to type `%s` but at least one "
                     "error has occurred using the given callback; %s",
                     w->field->name->str,
@@ -155,7 +155,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
 
         if (w->e->nr == 0 && ex.nr)
         {
-            ex_set(w->e, EX_OPERATION_ERROR,
+            ex_set(w->e, EX_OPERATION,
                     "field `%s` on type `%s` is modified but at least one "
                     "error has occurred using the given callback; %s",
                     w->field->name->str,
@@ -187,7 +187,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
 
             if (w->e->nr == 0 && ex.nr)
             {
-                ex_set(w->e, EX_OPERATION_ERROR,
+                ex_set(w->e, EX_OPERATION,
                         "field `%s` on type `%s` is modified but at least "
                         "one failed attempt was made to keep the original "
                         "value; %s",
@@ -251,7 +251,7 @@ static int modtype__mod_after_cb(ti_thing_t * thing, modtype__mod_t * w)
 
         if (w->e->nr == 0 && ex.nr)
         {
-            ex_set(w->e, EX_OPERATION_ERROR,
+            ex_set(w->e, EX_OPERATION,
                     "field `%s` on type `%s` is modified but at least one new "
                     "instance was made with an inappropriate value which in "
                     "response is changed to default by ThingsDB; %s",
@@ -1001,7 +1001,7 @@ static void type__wpo(
         if (n < 0)
             ex_set_mem(e);
         else
-            ex_set(e, EX_OPERATION_ERROR,
+            ex_set(e, EX_OPERATION,
                 "a type can only be changed to `wrap-only` mode without "
                 "having active instances; "
                 "%zd active instance%s of type `%s` %s been found"
@@ -1059,7 +1059,7 @@ static int modtype__has_lock(ti_query_t * query, ti_type_t * type, ex_t * e)
     return 0;
 
 locked:
-    ex_set(e, EX_OPERATION_ERROR,
+    ex_set(e, EX_OPERATION,
         "cannot change type `%s` while one of the instances is being used",
         type->name);
     return e->nr;

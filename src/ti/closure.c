@@ -330,7 +330,7 @@ int ti_closure_inc(ti_closure_t * closure, ti_query_t * query, ex_t * e)
     switch (closure->depth)
     {
     case TI_CLOSURE_MAX_RECURSION_DEPTH:
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
                 "maximum recursion depth exceeded"DOC_CLOSURE);
         return -1;
     case 0:

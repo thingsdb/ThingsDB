@@ -11,7 +11,7 @@ static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_thingsdb_scope("set_password", query, e) ||
         fn_nargs("set_password", DOC_SET_PASSWORD, 2, nargs, e) ||
         ti_do_statement(query, nd->children->node, e) ||
-        fn_arg_str("set_password", DOC_SET_PASSWORD, 1, query->rval, e))
+        fn_arg_str_slow("set_password", DOC_SET_PASSWORD, 1, query->rval, e))
         return e->nr;
 
     uname = (ti_raw_t *) query->rval;

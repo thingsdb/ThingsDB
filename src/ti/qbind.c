@@ -68,6 +68,7 @@
 #include <ti/fn/fnhasbackup.h>
 #include <ti/fn/fnhascollection.h>
 #include <ti/fn/fnhasenum.h>
+#include <ti/fn/fnhasmodule.h>
 #include <ti/fn/fnhasnode.h>
 #include <ti/fn/fnhasprocedure.h>
 #include <ti/fn/fnhastoken.h>
@@ -151,6 +152,8 @@
 #include <ti/fn/fnset.h>
 #include <ti/fn/fnsetenum.h>
 #include <ti/fn/fnsetloglevel.h>
+#include <ti/fn/fnsetmoduleconf.h>
+#include <ti/fn/fnsetmodulescope.h>
 #include <ti/fn/fnsetpassword.h>
 #include <ti/fn/fnsettimezone.h>
 #include <ti/fn/fnsettype.h>
@@ -449,6 +452,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="has_backup",        .fn=do__f_has_backup,           ROOT_NE},
     {.name="has_collection",    .fn=do__f_has_collection,       ROOT_NE},
     {.name="has_enum",          .fn=do__f_has_enum,             ROOT_NE},
+    {.name="has_module",        .fn=do__f_has_module,           ROOT_NE},
     {.name="has_node",          .fn=do__f_has_node,             ROOT_NE},
     {.name="has_procedure",     .fn=do__f_has_procedure,        ROOT_NE},
     {.name="has_token",         .fn=do__f_has_token,            ROOT_NE},
@@ -538,7 +542,9 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="run",               .fn=do__f_run,                  XROOT_NE},
     {.name="set_enum",          .fn=do__f_set_enum,             ROOT_CE},
     {.name="set_log_level",     .fn=do__f_set_log_level,        ROOT_NE},
-    {.name="set_password",      .fn=do__f_set_password,         ROOT_TE},
+    {.name="set_module_conf",   .fn=do__f_set_password,         ROOT_TE},
+    {.name="set_module_scope",  .fn=do__f_set_module_conf,      ROOT_TE},
+    {.name="set_password",      .fn=do__f_set_module_scope,     ROOT_TE},
     {.name="set_time_zone",     .fn=do__f_set_time_zone,        ROOT_TE},
     {.name="set_type",          .fn=do__f_set_type,             ROOT_CE},
     {.name="set",               .fn=do__f_set,                  BOTH_CE_XROOT},

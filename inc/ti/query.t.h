@@ -49,6 +49,8 @@ typedef int (*ti_query_unpack_cb) (
         size_t,
         ex_t *);
 
+typedef void (*ti_query_done_cb) (ti_query_t *, ex_t *);
+
 typedef union
 {
     ti_stream_t * stream;               /* with reference */

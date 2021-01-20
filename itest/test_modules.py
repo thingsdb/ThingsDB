@@ -26,7 +26,7 @@ class TestModules(TestBase):
         num_nodes=1,
         seed=1,
         threshold_full_storage=10,
-        modules_path='../modules/requests')
+        modules_path='../modules/demo')
     async def run(self):
 
         await self.node0.init_and_run()
@@ -41,33 +41,18 @@ class TestModules(TestBase):
 
     async def test_new_modules(self, client):
         await client.query(r'''
-            new_module('REQUESTS', 'requests', nil, nil);
-        ''', scope='/t')
-
-        await client.query(r'''
-            new_module('XXX', 'xxx', {}, '//stuff');
+            new_module('DEMO', 'demo', nil, nil);
         ''', scope='/t')
 
         res = await client.query(r'''
             future({
-                module: 'REQUESTS',
-                method: 'GET',
-                url: 'https://playground.thingsdb.net',
-                headers: [
-                    ['Content-Type', 'application/json'],
-                ],
+                module: 'DEMO',
+                message: 'Hi ThingsDB!'
+            }).then(|msg| {
+                `Got this message back: {msg}`
             });
         ''')
         print(res)
-
-        with self.assertRaisesRegex(
-                OperationError,
-                r'no such file or directory'):
-            res = await client.query(r'''
-                future({
-                    module: 'XXX'
-                });
-            ''')
 
 
 if __name__ == '__main__':

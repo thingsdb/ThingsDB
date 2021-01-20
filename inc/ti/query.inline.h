@@ -63,10 +63,9 @@ static inline void ti_query_run(ti_query_t * query)
 
 static inline void ti_query_response(ti_query_t * query, ex_t * e)
 {
-    if (query->with_tp == TI_QUERY_WITH_FUTURE)
-        ti_query_on_then_result(query, e);
-    else
-        ti_query_done(query, e);
+    ti_query_done(query, e, query->with_tp == TI_QUERY_WITH_FUTURE
+            ? &ti_query_on_then_result
+            : &ti_query_send_response);
 }
 
 static inline uint64_t ti_query_scope_id(ti_query_t * query)

@@ -841,7 +841,7 @@ stop:
     if (query->ev)
         query__event_handle(query);  /* errors will be logged only */
 
-    ti_query_done(query, &e);
+    ti_query_done(query, &e, &ti_query_send_response);
 }
 
 void ti_query_run_procedure(ti_query_t * query)
@@ -864,7 +864,7 @@ void ti_query_run_procedure(ti_query_t * query)
     if (query->ev)
         query__event_handle(query);  /* errors will be logged only */
 
-    ti_query_done(query, &e);
+    ti_query_done(query, &e, &ti_query_send_response);
 }
 
 void ti_query_run_future(ti_query_t * query)
@@ -880,7 +880,7 @@ void ti_query_run_future(ti_query_t * query)
     if (query->ev)
         query__event_handle(query);  /* errors will be logged only */
 
-    ti_query_done(query, &e);
+    ti_query_done(query, &e, &ti_query_on_then_result);
 }
 
 static inline int query__pack_response(
@@ -982,7 +982,7 @@ pkg_err:
 
 typedef int (*query__cb)(ti_query_t *, ex_t *);
 
-static void query__send_response(ti_query_t * query, ex_t * e)
+void ti_query_send_response(ti_query_t * query, ex_t * e)
 {
     double duration, warn = ti.cfg->query_duration_warn;
     query__cb cb = query->flags & TI_QUERY_FLAG_API
@@ -1032,7 +1032,7 @@ done:
     ti_query_destroy_or_return(query);
 }
 
-void ti_query_done(ti_query_t * query, ex_t * e)
+void ti_query_done(ti_query_t * query, ex_t * e, ti_query_done_cb cb)
 {
     if (query->futures.n)
     {
@@ -1048,7 +1048,7 @@ void ti_query_done(ti_query_t * query, ex_t * e)
         /* futures might exist but in this case they are not "running" */
         link_clear(&query->futures, (link_destroy_cb) ti_val_unsafe_drop);
     }
-    query__send_response(query, e);
+    cb(query, e);
 }
 
 ti_prop_t * ti_query_var_get(ti_query_t * query, ti_name_t * name)

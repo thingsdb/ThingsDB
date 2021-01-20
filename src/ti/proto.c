@@ -28,6 +28,8 @@ const char * ti_proto_str(ti_proto_enum_t tp)
     case TI_PROTO_CLIENT_REQ_RUN:           return "CLIENT_REQ_RUN";
 
     case TI_PROTO_MODULE_CONF:              return "MODULE_CONF";
+    case TI_PROTO_MODULE_CONF_OK:           return "MODULE_CONF_OK";
+    case TI_PROTO_MODULE_CONF_ERR:          return "MODULE_CONF_ERR";
     case TI_PROTO_MODULE_REQ:               return "MODULE_REQ";
     case TI_PROTO_MODULE_RES:               return "MODULE_RES";
     case TI_PROTO_MODULE_ERR:               return "MODULE_ERR";

@@ -51,10 +51,14 @@ class TestModules(TestBase):
         res = await client.query(r'''
             future({
                 module: 'REQUESTS',
-                type: 'GET',
-                url: 'https://thingsdb.net'
+                method: 'GET',
+                url: 'https://playground.thingsdb.net',
+                headers: [
+                    ['Content-Type', 'application/json'],
+                ],
             });
         ''')
+        print(res)
 
         with self.assertRaisesRegex(
                 OperationError,

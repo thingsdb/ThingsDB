@@ -329,5 +329,3 @@ int ti_scope_id(ti_scope_t * scope, uint64_t * scope_id, ex_t * e)
     assert(0);
     return e->nr;
 }
-
-

@@ -26,13 +26,14 @@ void ti_module_stop_and_destroy(ti_module_t * module);
 void ti_module_del(ti_module_t * module);
 void ti_module_cancel_futures(ti_module_t * module);
 void ti_module_load(ti_module_t * module);
+void ti_module_update_conf(ti_module_t * module);
 const char * ti_module_status_str(ti_module_t * module);
 ti_pkg_t * ti_module_conf_pkg(ti_val_t * val);
 void ti_module_on_pkg(ti_module_t * module, ti_pkg_t * pkg);
 int ti_module_info_to_pk(
         ti_module_t * module,
         msgpack_packer * pk,
-        _Bool with_conf);
-ti_val_t * ti_module_as_mpval(ti_module_t * module, _Bool with_conf);
+        int options);
+ti_val_t * ti_module_as_mpval(ti_module_t * module, int flags);
 
 #endif /* TI_MODULE_H_ */

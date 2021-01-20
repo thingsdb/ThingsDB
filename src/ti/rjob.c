@@ -683,6 +683,97 @@ static int rjob__del_module(mp_unp_t * up)
 
 /*
  * Returns 0 on success
+ * - for example: {"name": module_name, "scope_id": nil/id}
+ */
+static int rjob__set_module_scope(mp_unp_t * up)
+{
+    ti_module_t * module;
+    mp_obj_t obj, mp_name, mp_scope;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR ||
+        mp_skip(up) != MP_STR ||
+        (mp_next(up, &mp_scope) != MP_U64 && mp_scope.tp != MP_NIL))
+    {
+        log_critical("job `set_module_scope`: invalid format");
+        return -1;
+    }
+
+    module = ti_modules_by_strn(mp_name.via.str.data, mp_name.via.str.n);
+    if (!module)
+    {
+        log_error("job `set_module_scope`: module `%.*s` not found",
+                mp_name.via.str.n,
+                mp_name.via.str.data);
+        return 0;  /* error, but able to continue */
+    }
+
+    free(module->scope_id);
+    if (mp_scope.tp == MP_U64)
+    {
+        module->scope_id = malloc(sizeof(uint64_t));
+        if (!module->scope_id)
+        {
+            log_critical(EX_MEMORY_S);
+            return 0;  /* error, but able to continue */
+        }
+        *module->scope_id = mp_scope.via.u64;
+    }
+    else
+        module->scope_id = NULL;
+
+    return 0;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: {"name": module_name, "conf_pkg": nil/bin}
+ */
+static int rjob__set_module_conf(mp_unp_t * up)
+{
+    ti_module_t * module;
+    mp_obj_t obj, mp_name, mp_pkg;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR ||
+        mp_skip(up) != MP_STR ||
+        (mp_next(up, &mp_pkg) != MP_BIN && mp_pkg.tp != MP_NIL))
+    {
+        log_critical("job `set_module_conf`: invalid format");
+        return -1;
+    }
+
+    module = ti_modules_by_strn(mp_name.via.str.data, mp_name.via.str.n);
+    if (!module)
+    {
+        log_error("job `set_module_conf`: module `%.*s` not found",
+                mp_name.via.str.n,
+                mp_name.via.str.data);
+        return 0;  /* error, but able to continue */
+    }
+
+    free(module->conf_pkg);
+    if (mp_pkg.tp == MP_BIN)
+    {
+        module->conf_pkg = malloc(mp_pkg.via.bin.n);
+        if (!module->conf_pkg)
+        {
+            log_critical(EX_MEMORY_S);
+            return 0;  /* error, but able to continue */
+        }
+        memcpy(module->conf_pkg, mp_pkg.via.bin.data, mp_pkg.via.bin.n);
+    }
+    else
+        module->conf_pkg = NULL;
+
+    ti_module_update_conf(module);
+    return 0;
+}
+
+/*
+ * Returns 0 on success
  * - for example: {'id':id, 'name':name}
  */
 static int rjob__rename_collection(mp_unp_t * up)
@@ -1029,6 +1120,10 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
             return rjob__revoke(up);
         break;
     case 's':
+        if (mp_str_eq(&mp_job, "set_module_conf"))
+            return rjob__set_module_conf(up);
+        if (mp_str_eq(&mp_job, "set_module_scope"))
+            return rjob__set_module_scope(up);
         if (mp_str_eq(&mp_job, "set_password"))
             return rjob__set_password(up);
         if (mp_str_eq(&mp_job, "set_time_zone"))

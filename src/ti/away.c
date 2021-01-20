@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <ti.h>
 #include <ti/away.h>
+#include <ti/modules.h>
 #include <ti/proto.h>
 #include <ti/qcache.h>
 #include <ti/quorum.h>

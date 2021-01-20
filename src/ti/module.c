@@ -146,6 +146,26 @@ static void module__cb(ti_future_t * future)
         return;
     }
 
+    if (future->module->proc.process.pid == 0)
+    {
+        ex_t e;
+        ex_set(&e, EX_OPERATION, "missing process ID for module `%s`",
+                future->module->name->str);
+        ti_query_on_future_result(future, &e);
+        return;
+    }
+
+    if (future->module->flags & TI_MODULE_FLAG_WAIT_CONF)
+    {
+        ex_t e;
+        ex_set(&e, EX_OPERATION,
+                "module `%s` is not configured; "
+                "if you keep this error, then please check the module status",
+                future->module->name->str);
+        ti_query_on_future_result(future, &e);
+        return;
+    }
+
     if (mp_sbuffer_alloc_init(&buffer, alloc_sz, sizeof(ti_pkg_t)))
         goto mem_error0;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
@@ -245,10 +265,29 @@ ti_module_t * ti_module_create(
     return module;
 }
 
+static void module__conf(ti_module_t * module)
+{
+    if (!module->conf_pkg)
+    {
+        module->flags &= ~TI_MODULE_FLAG_WAIT_CONF;
+        log_debug("no configuration found for module `%s`", module->name->str);
+        return;
+    }
+
+    module->status = module__write_conf(module);
+
+    if (module->status == TI_MODULE_STAT_RUNNING)
+        log_info("wrote configuration to module `%s`", module->name->str);
+    else
+        log_error(
+                "failed to write configuration to module `%s` (%s): %s",
+                module->name->str,
+                module->file,
+                ti_module_status_str(module));
+}
+
 void ti_module_load(ti_module_t * module)
 {
-    int rc;
-
     if (module->flags & TI_MODULE_FLAG_IN_USE)
     {
         log_debug(
@@ -257,25 +296,33 @@ void ti_module_load(ti_module_t * module)
         return;
     }
 
-    rc = ti_proc_load(&module->proc);
-
-    module->status = rc
-            ? rc
-            : module->conf_pkg
-            ? module__write_conf(module)
-            : TI_MODULE_STAT_RUNNING;
+    module->flags |= TI_MODULE_FLAG_WAIT_CONF;
+    module->status = ti_proc_load(&module->proc);
 
     if (module->status == TI_MODULE_STAT_RUNNING)
+    {
         log_info(
                 "loaded module `%s` (%s)",
                 module->name->str,
                 module->file);
+        module__conf(module);
+    }
     else
+    {
         log_error(
                 "failed to start module `%s` (%s): %s",
                 module->name->str,
                 module->file,
                 ti_module_status_str(module));
+    }
+}
+
+void ti_module_update_conf(ti_module_t * module)
+{
+    if (module->flags & TI_MODULE_FLAG_IN_USE)
+        module__conf(module);
+    else
+        ti_module_load(module);
 }
 
 void ti_module_destroy(ti_module_t * module)
@@ -294,7 +341,7 @@ void ti_module_destroy(ti_module_t * module)
 void ti_module_on_exit(ti_module_t * module)
 {
     /* first cancel all open futures */
-    ti_modules_cancel_futures(module);
+    ti_module_cancel_futures(module);
 
     if (module->flags & TI_MODULE_FLAG_DESTROY)
     {
@@ -315,10 +362,14 @@ void ti_module_on_exit(ti_module_t * module)
             module->status = TI_MODULE_STAT_TOO_MANY_RESTARTS;
         }
         else
+        {
+            module->status = TI_MODULE_STAT_NOT_LOADED;
             ti_module_load(module);
+        }
         return;
     }
-
+    else if (module->status == TI_MODULE_STAT_STOPPING)
+        module->status = TI_MODULE_STAT_NOT_LOADED;
 }
 
 int ti_module_stop(ti_module_t * module)
@@ -441,6 +492,15 @@ void ti_module_on_pkg(ti_module_t * module, ti_pkg_t * pkg)
 
     switch(pkg->tp)
     {
+    case TI_PROTO_MODULE_CONF_OK:
+        log_info("module `%s` is successfully configured", module->name->str);
+        module->flags &= ~TI_MODULE_FLAG_WAIT_CONF;
+        return;
+    case TI_PROTO_MODULE_CONF_ERR:
+        log_info("failed to configure module `%s`", module->name->str);
+        module->status = TI_MODULE_STAT_CONFIGURATION_ERR;
+        module->flags &= ~TI_MODULE_FLAG_WAIT_CONF;
+        return;
     case TI_PROTO_MODULE_RES:
         module__on_res(future, pkg);
         return;
@@ -470,17 +530,20 @@ const char * ti_module_status_str(ti_module_t * module)
         return "stopping module...";
     case TI_MODULE_STAT_TOO_MANY_RESTARTS:
         return "too many restarts detected; most likely the module is broken";
+    case TI_MODULE_STAT_CONFIGURATION_ERR:
+        return "configuration error; " \
+               "use `set_module_conf(..)` to update the module configuration";
     }
     return uv_strerror(module->status);
 }
 
-int ti_module_info_to_pk(
-        ti_module_t * module,
-        msgpack_packer * pk,
-        _Bool with_conf)
+int ti_module_info_to_pk(ti_module_t * module, msgpack_packer * pk, int flags)
 {
+    size_t sz = 5 + \
+            !!(flags & TI_MODULE_FLAG_WITH_CONF) + \
+            !!(flags & TI_MODULE_FLAG_WITH_TASKS);
     return -(
-        msgpack_pack_map(pk, 5 + !!with_conf) ||
+        msgpack_pack_map(pk, sz)||
 
         mp_pack_str(pk, "name") ||
         mp_pack_strn(pk, module->name->str, module->name->n) ||
@@ -491,7 +554,7 @@ int ti_module_info_to_pk(
         mp_pack_str(pk, "created_at") ||
         msgpack_pack_uint64(pk, module->created_at) ||
 
-        (with_conf && (
+        ((flags & TI_MODULE_FLAG_WITH_CONF) && (
                 mp_pack_str(pk, "conf") ||
                 (module->conf_pkg
                         ? mp_pack_append(
@@ -503,6 +566,10 @@ int ti_module_info_to_pk(
         mp_pack_str(pk, "status") ||
         mp_pack_str(pk, ti_module_status_str(module)) ||
 
+        ((flags & TI_MODULE_FLAG_WITH_TASKS) && (
+                mp_pack_str(pk, "tasks") ||
+                msgpack_pack_uint64(pk, module->futures->n))) ||
+
         mp_pack_str(pk, "scope") ||
         (module->scope_id
                 ? mp_pack_str(pk, ti_scope_name_from_id(*module->scope_id))
@@ -510,7 +577,7 @@ int ti_module_info_to_pk(
     );
 }
 
-ti_val_t * ti_module_as_mpval(ti_module_t * module, _Bool with_conf)
+ti_val_t * ti_module_as_mpval(ti_module_t * module, int flags)
 {
     ti_raw_t * raw;
     msgpack_packer pk;
@@ -519,7 +586,7 @@ ti_val_t * ti_module_as_mpval(ti_module_t * module, _Bool with_conf)
     mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    if (ti_module_info_to_pk(module, &pk, with_conf))
+    if (ti_module_info_to_pk(module, &pk, flags))
     {
         msgpack_sbuffer_destroy(&buffer);
         return NULL;

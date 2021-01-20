@@ -20,12 +20,16 @@ enum
     TI_MODULE_STAT_NOT_LOADED,
     TI_MODULE_STAT_STOPPING,
     TI_MODULE_STAT_TOO_MANY_RESTARTS,
+    TI_MODULE_STAT_CONFIGURATION_ERR,
 };
 
 enum
 {
     TI_MODULE_FLAG_IN_USE       =1<<0,
-    TI_MODULE_FLAG_DESTROY      =1<<1,
+    TI_MODULE_FLAG_WAIT_CONF    =1<<1,
+    TI_MODULE_FLAG_DESTROY      =1<<2,
+    TI_MODULE_FLAG_WITH_CONF    =1<<3,      /* used for info */
+    TI_MODULE_FLAG_WITH_TASKS   =1<<4,      /* used for info */
 };
 
 struct ti_module_s

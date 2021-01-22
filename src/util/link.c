@@ -46,7 +46,8 @@ void link_clear(link_t * link, link_destroy_cb cb)
     {
         struct link__s * tmp = node;
         node = node->next_;
-        (*cb)(tmp->data_);
+        if (cb)
+            (*cb)(tmp->data_);
         free(tmp);
     }
 }

@@ -67,6 +67,30 @@ class TestModules(TestBase):
         ''')
         self.assertEqual(res, ['READY', 200])
 
+    async def test_siridb_module(self, client):
+        await client.query(r'''
+            new_module('SIRIDB', 'siridb/siridb', {
+                username: 'iris',
+                password: 'siri',
+                database: 'dbtest',
+                servers: [{
+                    host: 'localhost',
+                    port: -100
+                }]
+            }, nil);
+        ''', scope='/t')
+
+        await asyncio.sleep(3)
+
+        res = await client.query(r'''
+            future({
+                module: 'SIRIDB',
+                type: 'QUERY',
+                query: 'select * from *'
+            });
+        ''')
+        print(res)
+
 
 if __name__ == '__main__':
     run_test(TestModules())

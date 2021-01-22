@@ -17,7 +17,7 @@
 #include <ti/verror.h>
 #include <util/fx.h>
 
-#define MODULE__TOO_MANY_RESTARTS 15
+#define MODULE__TOO_MANY_RESTARTS 5
 
 
 static void module__write_req_cb(uv_write_t * req, int status)
@@ -206,7 +206,11 @@ ti_pkg_t * ti_module_conf_pkg(ti_val_t * val)
         return NULL;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    if (ti_val_to_pk(val, &pk, 1))
+    /*
+     * Module configuration will be packed 2 levels deep. This is a fixed
+     * setting and should be sufficient to configure a module.
+     */
+    if (ti_val_to_pk(val, &pk, 2))
     {
         msgpack_sbuffer_destroy(&buffer);
         return NULL;
@@ -480,15 +484,7 @@ done:
 
 void ti_module_on_pkg(ti_module_t * module, ti_pkg_t * pkg)
 {
-    ti_future_t * future = omap_rm(module->futures, pkg->id);
-    if (!future)
-    {
-        log_error(
-                "got a response for future id %u but a future with this id "
-                "does not exist; maybe the future has been cancelled?",
-                pkg->id);
-        return;
-    }
+    ti_future_t * future;
 
     switch(pkg->tp)
     {
@@ -501,6 +497,20 @@ void ti_module_on_pkg(ti_module_t * module, ti_pkg_t * pkg)
         module->status = TI_MODULE_STAT_CONFIGURATION_ERR;
         module->flags &= ~TI_MODULE_FLAG_WAIT_CONF;
         return;
+    }
+
+    future = omap_rm(module->futures, pkg->id);
+    if (!future)
+    {
+        log_error(
+                "got a response for future id %u but a future with this id "
+                "does not exist; maybe the future has been cancelled?",
+                pkg->id);
+        return;
+    }
+
+    switch(pkg->tp)
+    {
     case TI_PROTO_MODULE_RES:
         module__on_res(future, pkg);
         return;

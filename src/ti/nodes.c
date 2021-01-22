@@ -579,7 +579,7 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
 
     query = ti_scope_is_collection(&scope)
         ? ti_qcache_get_query(mp_query.via.str.data, mp_query.via.str.n, 0)
-        : ti_query_create_strn(mp_query.via.str.data, mp_query.via.str.n, 0);
+        : ti_query_create(0);
 
     if (!query)
     {
@@ -587,7 +587,8 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    ti_query_init(query, stream, user);
+    query->via.stream = ti_grab(stream);
+    query->user = ti_grab(user);
     query->pkg_id = pkg->id;
 
     if (ti_query_apply_scope(query, &scope, &e) ||
@@ -596,20 +597,20 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
 
     access_ = ti_query_access(query);
 
-    if (ti_access_check_err(access_, query->user, TI_AUTH_READ, &e) ||
-        ti_query_parse(query, &e))
+    if (ti_access_check_err(access_, query->user, TI_AUTH_QUERY, &e) ||
+        ti_query_parse(query, mp_query.via.str.data, mp_query.via.str.n, &e))
         goto finish;
 
     if (ti_query_will_update(query))
     {
-        if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, &e) ||
+        if (ti_access_check_err(access_, query->user, TI_AUTH_EVENT, &e) ||
             ti_events_create_new_event(query, &e))
             goto finish;
 
         return;
     }
 
-    ti_query_run(query);
+    ti_query_run_parseres(query);
     return;
 
 finish:
@@ -686,7 +687,8 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    ti_query_init(query, stream, user);
+    query->via.stream = ti_grab(stream);
+    query->user = ti_grab(user);
 
     if (ti_scope_init_packed(
             &scope,
@@ -716,7 +718,7 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
-    ti_query_run(query);
+    ti_query_run_procedure(query);
     return;
 
 finish:
@@ -1442,7 +1444,7 @@ int ti_nodes_check_add(ex_t * e)
     {
         if (node->status <= TI_NODE_STAT_CONNECTED && !may_skip--)
         {
-            ex_set(e, EX_OPERATION_ERROR,
+            ex_set(e, EX_OPERATION,
                 "wait for a connection to "TI_NODE_ID" before adding a new node; "
                 "current status: `%s`",
                 node->id, ti_node_status_str(node->status));

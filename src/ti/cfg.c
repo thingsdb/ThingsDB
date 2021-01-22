@@ -18,63 +18,6 @@
 static ti_cfg_t * cfg;
 static const char * cfg__section = "thingsdb";
 
-
-static int cfg__node_name(cfgparser_t * parser, const char * cfg_file)
-{
-    const char * option_name = "node_name";
-    cfgparser_option_t * option;
-    cfgparser_return_t rc;
-
-    rc = cfgparser_get_option(&option, parser, cfg__section, option_name);
-    if (rc != CFGPARSER_SUCCESS)
-        return 0;
-
-    if (option->tp != CFGPARSER_TP_STRING)
-    {
-        log_warning(
-                "error reading `%s` in `%s` (%s), "
-                "using default value `%s`",
-                option_name,
-                cfg_file,
-                "expecting a string value",
-                cfg->node_name);
-        return 0;
-    }
-
-    free(cfg->node_name);
-    cfg->node_name = strdup(option->val->string);
-
-    return cfg->node_name ? 0 : -1;
-}
-
-static int cfg__storage_path(cfgparser_t * parser, const char * cfg_file)
-{
-    const char * option_name = "storage_path";
-    cfgparser_option_t * option;
-    cfgparser_return_t rc;
-
-    rc = cfgparser_get_option(&option, parser, cfg__section, option_name);
-    if (rc != CFGPARSER_SUCCESS)
-        return 0;
-
-    if (option->tp != CFGPARSER_TP_STRING)
-    {
-        log_warning(
-                "error reading `%s` in `%s` (%s), "
-                "using default value `%s`",
-                option_name,
-                cfg_file,
-                "expecting a string value",
-                cfg->storage_path);
-        return 0;
-    }
-
-    free(cfg->storage_path);
-    cfg->storage_path = strdup(option->val->string);
-
-    return cfg->storage_path ? 0 : -1;
-}
-
 static void cfg__port(
         cfgparser_t * parser,
         const char * cfg_file,
@@ -396,6 +339,7 @@ int ti_cfg_create(void)
     cfg->storage_path = !homedir || !sysuser || strcmp(sysuser, "root") == 0
             ? strdup("/var/lib/thingsdb/")
             : fx_path_join(homedir, ".thingsdb/");
+    cfg->modules_path = strdup("/usr/lib/thingsdb/modules");
     cfg->gcloud_key_file = NULL;
     cfg->pipe_client_name = NULL;
     cfg->zone = 0;
@@ -406,6 +350,7 @@ int ti_cfg_create(void)
     if (!cfg->bind_client_addr ||
         !cfg->bind_node_addr ||
         !cfg->storage_path ||
+        !cfg->modules_path ||
         !cfg->node_name)
         ti_cfg_destroy();
 
@@ -422,6 +367,7 @@ void ti_cfg_destroy(void)
     free(cfg->bind_node_addr);
     free(cfg->pipe_client_name);
     free(cfg->storage_path);
+    free(cfg->modules_path);
     free(cfg->gcloud_key_file);
     free(cfg);
     cfg = ti.cfg = NULL;
@@ -448,8 +394,16 @@ int ti_cfg_parse(const char * cfg_file)
         goto exit_parse;
     }
 
-    if (    (rc = cfg__node_name(parser, cfg_file)) ||
-            (rc = cfg__storage_path(parser, cfg_file)) ||
+    if (    (rc = cfg__str(
+                    parser,
+                    cfg_file,
+                    "node_name",
+                    &cfg->node_name)) ||
+            (rc = cfg__str(
+                    parser,
+                    cfg_file,
+                    "storage_path",
+                    &cfg->storage_path)) ||
             (rc = cfg__str(
                     parser,
                     cfg_file,
@@ -465,6 +419,11 @@ int ti_cfg_parse(const char * cfg_file)
                     cfg_file,
                     "pipe_client_name",
                     &cfg->pipe_client_name)) ||
+            (rc = cfg__str(
+                    parser,
+                    cfg_file,
+                    "modules_path",
+                    &cfg->modules_path)) ||
             (rc = cfg__str(
                     parser,
                     cfg_file,

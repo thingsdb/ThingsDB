@@ -15,7 +15,7 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (errnr > EX_MAX_BUILD_IN_ERR && errnr <= EX_RETURN)
         return errnr;   /* do not catch success or internal errors */
 
-    verror = (ti_verror_t *) ti_verror_from_e(e);
+    verror = ti_verror_from_e(e);
     if (!verror)
     {
         ex_set_mem(e);

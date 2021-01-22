@@ -25,7 +25,7 @@ static void wareq__unwatch_cb(uv_async_t * task);
  * thing ID in the watch request. With a 64-bit pointer size, the thing ID is
  * stored in the pointer.
  */
-static inline void wareq__vec_destoroy(vec_t * vec)
+static inline void wareq__vec_destroy(vec_t * vec)
 {
     #if TI_IS64BIT
     vec_destroy(vec, NULL);
@@ -198,7 +198,7 @@ int ti_wareq_run(ti_wareq_t * wareq)
 
 static void wareq__destroy(ti_wareq_t * wareq)
 {
-    wareq__vec_destoroy(wareq->thing_ids);
+    wareq__vec_destroy(wareq->thing_ids);
     ti_stream_drop(wareq->stream);
     ti_collection_drop(wareq->collection);
     free(wareq->task);
@@ -281,7 +281,7 @@ static void wareq__watch_cb(uv_async_t * task)
     {
         if (ti.node->status != TI_NODE_STAT_SHUTTING_DOWN)
         {
-            wareq__vec_destoroy(wareq->thing_ids);
+            wareq__vec_destroy(wareq->thing_ids);
             wareq->thing_ids = vec;
 
             if (wareq->task->type == UV_TIMER)
@@ -315,7 +315,7 @@ static void wareq__watch_cb(uv_async_t * task)
 
             return;
         }
-        wareq__vec_destoroy(vec);
+        wareq__vec_destroy(vec);
     }
 
     if (wareq->task->type == UV_TIMER)

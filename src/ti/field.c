@@ -441,7 +441,7 @@ skip_nesting:
 
             if (enum_->flags & TI_ENUM_FLAG_LOCK)
             {
-                ex_set(e, EX_OPERATION_ERROR,
+                ex_set(e, EX_OPERATION,
                     "invalid declaration for `%s` on type `%s`; "
                     "cannot assign enum type `%s` while the enum is being used"
                     DOC_T_TYPE,
@@ -468,7 +468,7 @@ skip_nesting:
         {
             if (dep->flags & TI_TYPE_FLAG_LOCK)
             {
-                ex_set(e, EX_OPERATION_ERROR,
+                ex_set(e, EX_OPERATION,
                     "invalid declaration for `%s` on type `%s`; "
                     "cannot assign type `%s` while the type is being used"
                     DOC_T_TYPE,
@@ -736,6 +736,7 @@ static int field__mod_nested_cb(ti_thing_t * thing, ti_field_t * field)
         case TI_VAL_CLOSURE:
         case TI_VAL_ERROR:
         case TI_VAL_MEMBER:
+        case TI_VAL_FUTURE:
         case TI_VAL_TEMPLATE:
             assert(0);
             return 0;
@@ -885,7 +886,7 @@ int ti_field_mod(
     assert (0);
 
 nillable:
-    ex_set(e, EX_OPERATION_ERROR,
+    ex_set(e, EX_OPERATION,
         "cannot apply type declaration `%.*s` to `%s` on type `%s` without a "
         "closure to migrate existing instances; the old declaration "
         "was nillable while the new declaration is not"DOC_MOD_TYPE_MOD,
@@ -895,7 +896,7 @@ nillable:
     goto undo_dep;
 
 incompatible:
-    ex_set(e, EX_OPERATION_ERROR,
+    ex_set(e, EX_OPERATION,
         "cannot apply type declaration `%.*s` to `%s` on type `%s` without a "
         "closure to migrate existing instances; the old declaration `%.*s` "
         "is not compatible with the new declaration"DOC_MOD_TYPE_MOD,
@@ -1327,6 +1328,10 @@ int ti_field_make_assignable(
         case TI_VAL_ERROR:
         case TI_VAL_MEMBER:
         case TI_VAL_TEMPLATE:
+            break;
+        case TI_VAL_FUTURE:
+            ti_val_unsafe_drop(*val);
+            *val = (ti_val_t *) ti_nil_get();
             break;
         }
         return 0;

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <ti/closure.h>
 #include <ti/field.h>
+#include <ti/future.h>
 #include <ti/mapping.h>
 #include <ti/member.h>
 #include <ti/regex.h>
@@ -126,6 +127,15 @@ static int wrap__field_val(
                 VMEMBER(val),
                 pk,
                 options);
+    case TI_VAL_FUTURE:
+        return VFUT(val)
+                ? wrap__field_val(
+                        t_field,
+                        spec,
+                        VFUT(val),
+                        pk,
+                        options)
+                : msgpack_pack_nil(pk);
     }
 
     assert(0);

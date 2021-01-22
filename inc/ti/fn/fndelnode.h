@@ -25,7 +25,7 @@ static int do__f_del_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (node->status >= TI_NODE_STAT_SYNCHRONIZING)
     {
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
                 TI_NODE_ID" is still active; shutdown the node before removal"
                 DOC_DEL_NODE, node->id);
         return e->nr;

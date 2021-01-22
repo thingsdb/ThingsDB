@@ -376,7 +376,7 @@ static void api__set_yajl_gen_status_error(ex_t * e, yajl_gen_status stat)
         ex_set(e, EX_TYPE_ERROR, "JSON keys must be strings");
         return;
     case yajl_max_depth_exceeded:
-        ex_set(e, EX_OPERATION_ERROR, "JSON max depth exceeded");
+        ex_set(e, EX_OPERATION, "JSON max depth exceeded");
         return;
     case yajl_gen_in_error_state:
         ex_set(e, EX_INTERNAL, "JSON general error");
@@ -482,7 +482,8 @@ int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
                 TI_API_CT_TEXT_PLAIN,
                 (size_t) body_size);
         break;
-    case EX_OPERATION_ERROR:
+    case EX_CANCELLED:
+    case EX_OPERATION:
     case EX_NUM_ARGUMENTS:
     case EX_TYPE_ERROR:
     case EX_VALUE_ERROR:
@@ -849,7 +850,8 @@ static int api__run(ti_api_request_t * ar, api__req_t * req)
         goto fail0;
     }
 
-    ti_query_init(query, ar, ar->user);
+    query->via.api_request = ti_api_acquire(ar);
+    query->user = ti_grab(ar->user);
 
     if (ti_query_unp_run(query, &ar->scope, 0, data, n, &ar->e))
         goto fail0;
@@ -864,7 +866,7 @@ static int api__run(ti_api_request_t * ar, api__req_t * req)
 
     if (ti_query_will_update(query))
     {
-        if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, e) ||
+        if (ti_access_check_err(access_, query->user, TI_AUTH_EVENT, e) ||
             ti_events_create_new_event(query, e))
             goto fail1;
 
@@ -872,7 +874,7 @@ static int api__run(ti_api_request_t * ar, api__req_t * req)
         return 0;
     }
 
-    ti_query_run(query);
+    ti_query_run_procedure(query);
     return 0;
 
 invalid_api_request:
@@ -959,10 +961,7 @@ query:
                 req->mp_code.via.str.data,
                 req->mp_code.via.str.n,
                 TI_QUERY_FLAG_API)
-        : ti_query_create_strn(
-                req->mp_code.via.str.data,
-                req->mp_code.via.str.n,
-                TI_QUERY_FLAG_API);
+        : ti_query_create(TI_QUERY_FLAG_API);
 
     if (!query)
     {
@@ -970,7 +969,8 @@ query:
         goto failed;
     }
 
-    ti_query_init(query, ar, ar->user);
+    query->via.api_request = ti_api_acquire(ar);
+    query->user = ti_grab(ar->user);
 
     if (ti_query_apply_scope(query, &ar->scope, e))
         goto failed;
@@ -986,15 +986,19 @@ query:
     access_ = ti_query_access(query);
     assert (access_);
 
-    if (ti_access_check_err(access_, query->user, TI_AUTH_READ, e) ||
-        ti_query_parse(query, e))
+    if (ti_access_check_err(access_, query->user, TI_AUTH_QUERY, e) ||
+        ti_query_parse(
+                query,
+                req->mp_code.via.str.data,
+                req->mp_code.via.str.n,
+                e))
         goto failed;
 
     if (ti_query_will_update(query))
     {
         assert (ar->scope.tp != TI_SCOPE_NODE);
 
-        if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, e) ||
+        if (ti_access_check_err(access_, query->user, TI_AUTH_EVENT, e) ||
             ti_events_create_new_event(query, e))
             goto failed;
 
@@ -1002,7 +1006,7 @@ query:
         return 0;
     }
 
-    ti_query_run(query);
+    ti_query_run_parseres(query);
     return 0;
 
 invalid_api_request:

@@ -262,7 +262,7 @@ ti_collection_t * ti_collections_get_by_val(ti_val_t * val, ex_t * e)
 
 /*
  * If `user` is NULL, then all collection info will be returned. When a `user`
- * is given, only collection info where the user has at least `READ`
+ * is given, only collection info where the user has at least `QUERY` or `RUN`
  * permissions are returned.
  */
 ti_varr_t * ti_collections_info(ti_user_t * user)
@@ -276,7 +276,10 @@ ti_varr_t * ti_collections_info(ti_user_t * user)
     {
         ti_val_t * mpinfo;
 
-        if (user && !ti_access_check(collection->access, user, TI_AUTH_READ))
+        if (user && !ti_access_check_or(
+                collection->access,
+                user,
+                TI_AUTH_QUERY|TI_AUTH_RUN))
             continue;
 
         mpinfo = ti_collection_as_mpval(collection);

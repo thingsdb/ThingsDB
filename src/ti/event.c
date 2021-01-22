@@ -454,19 +454,26 @@ void ti__event_log_(const char * prefix, ti_event_t * ev, int log_level)
     switch ((ti_event_tp_enum) ev->tp)
     {
     case TI_EVENT_TP_MASTER:
-        if (ev->via.query->flags & TI_QUERY_FLAG_AS_PROCEDURE)
+        switch ((ti_query_with_enum) ev->via.query->with_tp)
         {
-            (void) fprintf(
-                    Logger.ostream,
-                    "<procedure: `%s`>",
-                    ev->via.query->closure->node->str);
-        }
-        else
-        {
+        case TI_QUERY_WITH_PARSERES:
             (void) fprintf(
                     Logger.ostream,
                     "<query: `%s`>",
-                    ev->via.query->querystr);
+                    ev->via.query->with.parseres->str);
+            break;
+        case TI_QUERY_WITH_PROCEDURE:
+            (void) fprintf(
+                    Logger.ostream,
+                    "<procedure: `%s`>",
+                    ev->via.query->with.closure->node->str);
+            break;
+        case TI_QUERY_WITH_FUTURE:
+            (void) fprintf(
+                    Logger.ostream,
+                    "<future: `%s`>",
+                    ev->via.query->with.future->then->node->str);
+            break;
         }
         break;
     case TI_EVENT_TP_EPKG:

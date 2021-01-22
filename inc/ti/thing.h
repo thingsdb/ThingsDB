@@ -54,6 +54,7 @@ void ti_thing_t_to_object(ti_thing_t * thing);
 _Bool ti_thing_o_del(ti_thing_t * thing, ti_name_t * name);
 ti_prop_t * ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e);
 _Bool ti_thing_get_by_raw(ti_wprop_t * wprop, ti_thing_t * thing, ti_raw_t * raw);
+ti_val_t * ti_thing_weak_val_by_name(ti_thing_t * thing, ti_name_t * name);
 int ti_thing_get_by_raw_e(
         ti_wprop_t * wprop,
         ti_thing_t * thing,

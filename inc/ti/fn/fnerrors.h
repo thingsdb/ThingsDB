@@ -45,13 +45,24 @@ static int do__make_err(
     return e->nr;
 }
 
+static inline int do__f_cancelled_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    assert (e->nr == 0);
+    assert (nd->cl_obj->tp == CLERI_TP_LIST);
+
+    return do__make_err(query, nd, e,
+            EX_CANCELLED,
+            "cancelled_err",
+            DOC_CANCELLED_ERR);
+}
+
 static inline int do__f_operation_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->tp == CLERI_TP_LIST);
 
     return do__make_err(query, nd, e,
-            EX_OPERATION_ERROR,
+            EX_OPERATION,
             "operation_err",
             DOC_OPERATION_ERR);
 }

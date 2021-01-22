@@ -81,7 +81,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = NULL;
     }
 
-    if (varr->parent && varr->parent->id)
+    if (varr->parent && varr->parent->id && (c || n))
     {
         ti_task_t * task = ti_task_get_task(query->ev, varr->parent);
         if (!task || ti_task_add_splice(

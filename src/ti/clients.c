@@ -268,7 +268,7 @@ query:
 
     query = ti_scope_is_collection(&scope)
         ? ti_qcache_get_query(mp_query.via.str.data, mp_query.via.str.n, 0)
-        : ti_query_create_strn(mp_query.via.str.data, mp_query.via.str.n, 0);
+        : ti_query_create(0);
 
     if (!query)
     {
@@ -276,7 +276,8 @@ query:
         goto finish;
     }
 
-    ti_query_init(query, stream, user);
+    query->via.stream = ti_grab(stream);
+    query->user = ti_grab(user);
     query->pkg_id = pkg->id;
 
     if (ti_query_apply_scope(query, &scope, &e) ||
@@ -286,22 +287,22 @@ query:
     access_ = ti_query_access(query);
     assert (access_);
 
-    if (ti_access_check_err(access_, query->user, TI_AUTH_READ, &e) ||
-        ti_query_parse(query, &e))
+    if (ti_access_check_err(access_, query->user, TI_AUTH_QUERY, &e) ||
+        ti_query_parse(query, mp_query.via.str.data, mp_query.via.str.n, &e))
         goto finish;
 
     if (ti_query_will_update(query))
     {
         assert (scope.tp != TI_SCOPE_NODE);
 
-        if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, &e) ||
+        if (ti_access_check_err(access_, query->user, TI_AUTH_EVENT, &e) ||
             ti_events_create_new_event(query, &e))
             goto finish;
 
         return;
     }
 
-    ti_query_run(query);
+    ti_query_run_parseres(query);
     return;
 
 finish:
@@ -450,7 +451,8 @@ static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    ti_query_init(query, stream, user);
+    query->via.stream = ti_grab(stream);
+    query->user = ti_grab(user);
 
     if (ti_query_unp_run(query, &scope, pkg->id, pkg->data, pkg->n, &e))
         goto finish;
@@ -463,13 +465,13 @@ static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (ti_query_will_update(query))
     {
-        if (ti_access_check_err(access_, query->user, TI_AUTH_MODIFY, &e) ||
+        if (ti_access_check_err(access_, query->user, TI_AUTH_EVENT, &e) ||
             ti_events_create_new_event(query, &e))
             goto finish;
         return;
     }
 
-    ti_query_run(query);
+    ti_query_run_procedure(query);
     return;
 
 finish:

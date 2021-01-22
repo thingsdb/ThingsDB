@@ -11,6 +11,7 @@
 #include <ti/store/storecollections.h>
 #include <ti/store/storeenums.h>
 #include <ti/store/storegcollect.h>
+#include <ti/store/storemodules.h>
 #include <ti/store/storenames.h>
 #include <ti/store/storeprocedures.h>
 #include <ti/store/storestatus.h>
@@ -35,6 +36,7 @@ static const char * store__id_stat_fn           = "idstat.mp";
 static const char * store__names_fn             = "names.mp";
 static const char * store__procedures_fn        = "procedures.mp";
 static const char * store__users_fn             = "users.mp";
+static const char * store__modules_fn           = "modules.mp";
 
 static ti_store_t * store;
 static ti_store_t store_;
@@ -57,7 +59,7 @@ static void store__set_filename(_Bool use_tmp)
     memcpy(store->names_fn + store->fn_offset, path, n);
     memcpy(store->procedures_fn + store->fn_offset, path, n);
     memcpy(store->users_fn + store->fn_offset, path, n);
-    memcpy(store->users_fn + store->fn_offset, path, n);
+    memcpy(store->modules_fn + store->fn_offset, path, n);
 }
 
 static int store__collection_ids(void)
@@ -110,6 +112,7 @@ int ti_store_create(void)
     store->names_fn = fx_path_join(store->tmp_path, store__names_fn);
     store->procedures_fn = fx_path_join(store->tmp_path, store__procedures_fn);
     store->users_fn = fx_path_join(store->tmp_path, store__users_fn);
+    store->modules_fn = fx_path_join(store->tmp_path, store__modules_fn);
     store->last_stored_event_id = 0;
     store->collection_ids = NULL;
 
@@ -121,7 +124,8 @@ int ti_store_create(void)
             !store->id_stat_fn ||
             !store->names_fn ||
             !store->procedures_fn ||
-            !store->users_fn)
+            !store->users_fn ||
+            !store->modules_fn)
         goto fail1;
 
     ti.store = store;
@@ -164,6 +168,7 @@ void ti_store_destroy(void)
     free(store->names_fn);
     free(store->procedures_fn);
     free(store->users_fn);
+    free(store->modules_fn);
     vec_destroy(store->collection_ids, free);
     ti.store = store = NULL;
 }
@@ -198,9 +203,8 @@ int ti_store_store(void)
                     ti.access_thingsdb,
                     store->access_thingsdb_fn) ||
             ti_store_collections_store(store->collections_fn) ||
-            ti_store_procedures_store(
-                    ti.procedures,
-                    store->procedures_fn))
+            ti_store_procedures_store(ti.procedures, store->procedures_fn) ||
+            ti_store_modules_store(store->modules_fn))
         goto failed;
 
     for (vec_each(ti.collections->vec, ti_collection_t, collection))
@@ -325,7 +329,8 @@ int ti_store_restore(void)
             ti_store_procedures_restore(
                     ti.procedures,
                     store->procedures_fn,
-                    NULL));
+                    NULL) ||
+            ti_store_modules_restore(store->modules_fn));
 
     if (rc)
         goto stop;

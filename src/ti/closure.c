@@ -198,6 +198,7 @@ ti_closure_t * ti_closure_from_node(cleri_node_t * node, uint8_t flags)
     closure->tp = TI_VAL_CLOSURE;
     closure->flags = flags;
     closure->depth = 0;
+    closure->future_depth = 0;
     closure->node = node;
     closure->stacked = NULL;
     closure->vars = closure__create_vars(closure);
@@ -221,6 +222,7 @@ ti_closure_t * ti_closure_from_strn(
     closure->ref = 1;
     closure->tp = TI_VAL_CLOSURE;
     closure->depth = 0;
+    closure->future_depth = 0;
     closure->node = closure__node_from_strn(syntax, str, n, e);
     closure->flags = syntax->flags & TI_QBIND_FLAG_EVENT
             ? TI_VFLAG_CLOSURE_WSE
@@ -328,7 +330,7 @@ int ti_closure_inc(ti_closure_t * closure, ti_query_t * query, ex_t * e)
     switch (closure->depth)
     {
     case TI_CLOSURE_MAX_RECURSION_DEPTH:
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
                 "maximum recursion depth exceeded"DOC_CLOSURE);
         return -1;
     case 0:
@@ -493,7 +495,7 @@ int ti_closure_call(
 {
     assert (closure);
     assert (closure->vars);
-    assert (closure->vars->n == 0 || args->n == closure->vars->n);
+    assert (closure->vars->n == 0 || args->n >= closure->vars->n);
 
     size_t idx = 0;
 

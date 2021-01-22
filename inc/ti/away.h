@@ -27,6 +27,7 @@ struct ti_away_s
     vec_t * syncers;            /* weak ti_watch_t for synchronizing */
     uint8_t status;             /* internal state */
     uint8_t skip_count;         /* skip x times when having events in queue */
+    uint8_t wait_futures;       /* wait X extra loops before canceling futures */
     uint32_t away_node_id;      /* schedule based on the node in away mode */
     uint32_t sleep;
 };

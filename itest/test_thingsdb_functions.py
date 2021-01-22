@@ -56,7 +56,7 @@ class TestThingsDBFunctions(TestBase):
         await client.query('''
             new_user('user1');
             set_password('user1', 'pass1');
-            grant('@t', 'user1', READ);
+            grant('@t', 'user1', QUERY);
             grant('@n', 'user1', WATCH);
         ''', scope='@t')
 
@@ -64,7 +64,7 @@ class TestThingsDBFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 ForbiddenError,
-                r'user `user1` is missing the required privileges \(`READ`\) '
+                r'user `user1` is missing the required privileges \(`QUERY`\) '
                 r'on scope `@collection:stuff`'):
             await user1_cl.query('collection_info("stuff");')
 
@@ -107,7 +107,7 @@ class TestThingsDBFunctions(TestBase):
         await client.query('''
             new_user('user2');
             set_password('user2', 'pass2');
-            grant('@t', 'user2', READ);
+            grant('@t', 'user2', QUERY);
             grant('@n', 'user2', WATCH);
         ''', scope='@t')
 
@@ -283,7 +283,7 @@ class TestThingsDBFunctions(TestBase):
         token = await client.query('''
             new_user('has_token');
             set_password('has_token', 'pass');
-            grant('@t', 'has_token', READ);
+            grant('@t', 'has_token', QUERY);
             grant('@n', 'has_token', WATCH);
             new_token('admin');
         ''', scope='@t')
@@ -327,7 +327,7 @@ class TestThingsDBFunctions(TestBase):
         await client.query('''
             new_user('has_user');
             set_password('has_user', 'pass');
-            grant('@t', 'has_user', READ);
+            grant('@t', 'has_user', QUERY);
             grant('@n', 'has_user', WATCH);
         ''', scope='@t')
 

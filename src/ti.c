@@ -13,7 +13,9 @@
 #include <ti/collections.h>
 #include <ti/do.h>
 #include <ti/event.h>
+#include <ti/modules.h>
 #include <ti/names.h>
+#include <ti/proc.h>
 #include <ti/procedure.h>
 #include <ti/proto.h>
 #include <ti/qbind.h>
@@ -75,6 +77,7 @@ int ti_create(void)
     ti.access_node = vec_new(0);
     ti.access_thingsdb = vec_new(0);
     ti.procedures = smap_create();
+    ti.modules = smap_create();
     ti.langdef = compile_langdef();
     ti.thing0 = ti_thing_o_create(0, 0, NULL);
     if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti.boottime) ||
@@ -92,6 +95,7 @@ int ti_create(void)
             ti_events_create() ||
             ti_connect_create() ||
             ti_sync_create() ||
+            !ti.modules ||
             !ti.access_node ||
             !ti.access_thingsdb ||
             !ti.procedures ||
@@ -153,13 +157,14 @@ void ti_destroy(void)
     ti_val_drop_common();
     ti_do_drop();
 
-    /* sanity check to see if all references are removed as expected */
+    /* sanity check to see if all references are removed as expected; */
     assert(ti_vbool_no_ref());
     assert(ti_nil_no_ref());
     assert(ti_vint_no_ref());
 
     if (ti.langdef)
         cleri_grammar_free(ti.langdef);
+
     memset(&ti, 0, sizeof(ti_t));
 }
 
@@ -436,12 +441,6 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
         if (ti_away_start())
             goto failed;
 
-        if (ti_clients_listen())
-            goto failed;
-
-        if (ti_api_init())
-            goto failed;
-
         if (ti_connect_start())
             goto failed;
 
@@ -455,6 +454,15 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
 
     if (ti_nodes_listen())
         goto failed;
+
+    if (ti.node)
+    {
+        if (ti_clients_listen())
+            goto failed;
+
+        if (ti_api_init())
+            goto failed;
+    }
 
     ti__delayed_start_stop();
     return;
@@ -504,6 +512,13 @@ int ti_run(void)
 
     if (ti.cfg->http_status_port && ti_web_init())
         goto failed;
+
+    /*
+     * Load the modules before the events, note that events might create
+     * additional modules but if that is the case, they will be loaded by the
+     * event.
+     */
+    ti_modules_load();
 
     if (ti_events_start())
         goto failed;
@@ -580,6 +595,7 @@ void ti_stop(void)
     if (ti.node)
     {
         ti_set_and_broadcast_node_status(TI_NODE_STAT_OFFLINE);
+        ti_modules_stop_and_destroy();
 
         (void) ti_collections_gc();
         (void) ti_archive_to_disk();
@@ -966,15 +982,14 @@ static void ti__shutdown_cb(uv_timer_t * UNUSED(timer))
      * shutdown so request should stop in a short period. When there is only
      * one node, there is no point in waiting.
      */
-    if (ti.nodes->vec->n > 1 && shutdown_counter)
+    if (shutdown_counter-- > 0 && ti.nodes->vec->n > 1)
     {
         log_info("going off-line in %d second%s",
                 shutdown_counter, shutdown_counter == 1 ? "" : "s");
-        --shutdown_counter;
         return;
     }
 
-    if (ti_away_is_working())
+    if (shutdown_counter > -300 && ti_away_is_working())
     {
         log_info("wait for `away` mode to finish before shutting down");
         return;
@@ -1030,6 +1045,9 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
             uv_timer_stop((uv_timer_t *) handle);
             uv_close(handle, NULL);
         }
+        break;
+    case UV_PROCESS:
+        log_warning("closing spawned process...");
         break;
     default:
         log_error("unexpected handle type: %d", handle->type);

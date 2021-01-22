@@ -20,6 +20,7 @@ ti_verror_t * ti_verror_create(const char * msg, size_t n, int8_t code);
 ti_verror_t * ti_verror_from_code(int8_t code);
 static inline ti_verror_t * ti_verror_from_raw(int8_t code, ti_raw_t * raw);
 static inline ti_verror_t * ti_verror_from_e(ex_t * e);
+static inline ti_verror_t * ti_verror_ensure_from_e(ex_t * e);
 void ti_verror_to_e(ti_verror_t * verror, ex_t * e);
 int ti_verror_check_msg(const char * msg, size_t n, ex_t * e);
 const char * ti_verror_type_str(ti_verror_t * verror);
@@ -44,6 +45,12 @@ static inline ti_verror_t * ti_verror_from_raw(int8_t code, ti_raw_t * raw)
 static inline ti_verror_t * ti_verror_from_e(ex_t * e)
 {
     return ti_verror_create(e->msg, e->n, (int8_t) e->nr);
+}
+
+static inline ti_verror_t * ti_verror_ensure_from_e(ex_t * e)
+{
+    ti_verror_t * verror = ti_verror_create(e->msg, e->n, (int8_t) e->nr);
+    return verror ? verror : ti_verror_from_code(EX_MEMORY);
 }
 
 static inline int ti_verror_to_pk(ti_verror_t * verror, msgpack_packer * pk)

@@ -52,7 +52,7 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     else for (vec_each(varr_source->vec, ti_val_t, v))
         ti_incref(v);
 
-    if (varr_dest->parent && varr_dest->parent->id)
+    if (varr_dest->parent && varr_dest->parent->id && source_n)
     {
         ti_task_t * task = ti_task_get_task(query->ev, varr_dest->parent);
         if (!task || ti_task_add_splice(

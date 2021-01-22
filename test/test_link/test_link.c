@@ -28,9 +28,9 @@ int main()
 
     /* test appending values */
     {
-        for (size_t i = 0; i < num_entries; i++)
+        for (size_t i = num_entries; i; i--)
         {
-            _assert (link_insert(link, link->n, entries[i]) == 0);
+            _assert (link_insert(link, entries[i-1]) == 0);
         }
     }
 
@@ -44,64 +44,6 @@ int main()
             _assert (val == *entry);
         }
         _assert (i == num_entries);
-    }
-
-    /* test shift */
-    {
-        for (size_t i = 0; i < num_entries; i++)
-        {
-            _assert (link_shift(link) == entries[i]);
-        }
-        _assert (link->n == 0);
-
-        /* restore entries */
-        for (size_t i = 0; i < num_entries; i++)
-        {
-            _assert (link_insert(link, link->n, entries[i]) == 0);
-        }
-    }
-
-    /* test remove while iterate */
-    {
-        size_t i = 0;
-        link_iter_t iter = link_iter(link);
-        for (link_each(iter, char, val), i++)
-        {
-            if (val == entries[1] || val == entries[3])
-            {
-                /* return value should be the next value, so 2 / 4 */
-                link_iter_remove(link, iter);
-                val = (char *) link_iter_get(iter);
-                i++;
-            }
-            _assert (val == entries[i]);
-        }
-
-        _assert (link-> n == num_entries - 2);
-
-        /* test inset iter */
-        iter = link_iter(link);
-        for (link_each(iter, char, val))
-        {
-            if (val == entries[2])
-            {
-                _assert (link_iter_insert(link, iter, entries[1]) == 0);
-                link_iter_next(iter);
-            }
-            if (val == entries[4])
-            {
-                _assert (link_iter_insert(link, iter, entries[3]) == 0);
-                link_iter_next(iter);
-            }
-        }
-
-        i = 0;
-        iter = link_iter(link);
-        for (link_each(iter, char, val), i++)
-        {
-            _assert (val == entries[i]);
-        }
-
     }
 
     link_destroy(link, NULL);

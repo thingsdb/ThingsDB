@@ -1,5 +1,5 @@
 /*
- * ti/store/things.c
+ * ti/store/storethings.c
  */
 #include <assert.h>
 #include <ti.h>

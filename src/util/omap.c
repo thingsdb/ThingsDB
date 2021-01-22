@@ -28,11 +28,29 @@ void omap_destroy(omap_t * omap, omap_destroy_cb cb)
 
     for (omap__t * tmp; (tmp = cur->next_); cur = tmp)
     {
-        if (cb && tmp)
+        if (cb)
             (*cb)(tmp->data_);
         free(cur);
     }
     free(cur);
+}
+
+void omap_clear(omap_t * omap, omap_destroy_cb cb)
+{
+    omap__t * cur = omap->next_;
+
+    /* first reset everything to zero to prevent recursive usage */
+    omap->next_ = NULL;
+    omap->n = 0;
+
+    while(cur)
+    {
+        omap__t * next = cur->next_;
+        if (cb)
+            (*cb)(cur->data_);
+        free(cur);
+        cur = next;
+    }
 }
 
 /*

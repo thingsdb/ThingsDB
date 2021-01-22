@@ -146,6 +146,7 @@ static int export__set_enum_cb(ti_enum_t * enum_, ti_fmt_t * fmt)
             case TI_VAL_CLOSURE:
             case TI_VAL_ERROR:
             case TI_VAL_MEMBER:
+            case TI_VAL_FUTURE:
             case TI_VAL_TEMPLATE:
                 assert(0);
                 break;

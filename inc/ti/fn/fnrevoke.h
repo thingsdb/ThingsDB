@@ -42,15 +42,13 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     mask = (uint64_t) VINT(query->rval);
 
-    /* make sure READ when MODIFY and MODIFY when GRANT */
-    if (mask & TI_AUTH_READ)
-        mask |= TI_AUTH_MODIFY|TI_AUTH_GRANT;
-    else if (mask & TI_AUTH_MODIFY)
+    /* make sure EVENT when GRANT */
+    if (mask & TI_AUTH_EVENT)
         mask |= TI_AUTH_GRANT;
 
     if (query->user == user && (mask & TI_AUTH_GRANT))
     {
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
                 "it is not possible to revoke your own `GRANT` privileges"
                 DOC_REVOKE);
         return e->nr;

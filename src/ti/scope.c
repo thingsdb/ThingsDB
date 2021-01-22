@@ -265,7 +265,67 @@ int ti_scope_init_from_up(ti_scope_t * scope, mp_unp_t * up, ex_t * e)
     }
 
     return ti_scope_init(scope, mp_scope.via.str.data, mp_scope.via.str.n, e);
-
 }
 
+static char scope__name_buf[TI_NAME_MAX+13];
 
+const char * ti_scope_name_from_id(uint64_t scope_id)
+{
+    ti_collection_t * collection;
+
+    switch(scope_id)
+    {
+    case TI_SCOPE_THINGSDB:
+        strcpy(scope__name_buf, "@thingsdb");
+        return scope__name_buf;
+    case TI_SCOPE_NODE:
+        strcpy(scope__name_buf, "@node");
+        return scope__name_buf;
+    }
+
+    collection = ti_collections_get_by_id(scope_id);
+    if (collection)
+    {
+        sprintf(scope__name_buf,
+                "@collection:%.*s",
+                collection->name->n,
+                (const char *) collection->name->data);
+        return scope__name_buf;
+    }
+    strcpy(scope__name_buf, "@collection:<unknown>");
+    return scope__name_buf;
+}
+
+int ti_scope_id(ti_scope_t * scope, uint64_t * scope_id, ex_t * e)
+{
+    ti_collection_t * collection;
+    switch (scope->tp)
+    {
+    case TI_SCOPE_THINGSDB:
+    case TI_SCOPE_NODE:
+        *scope_id = scope->tp;
+        return e->nr;
+    case TI_SCOPE_COLLECTION_NAME:
+        collection = ti_collections_get_by_strn(
+                scope->via.collection_name.name,
+                scope->via.collection_name.sz);
+        if (collection)
+            *scope_id = collection->root->id;
+        else
+            ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
+                (int) scope->via.collection_name.sz,
+                scope->via.collection_name.name);
+
+        return e->nr;
+    case TI_SCOPE_COLLECTION_ID:
+        collection = ti_collections_get_by_id(scope->via.collection_id);
+        if (collection)
+            *scope_id = collection->root->id;
+        else
+            ex_set(e, EX_LOOKUP_ERROR, TI_COLLECTION_ID" not found",
+                    scope->via.collection_id);
+        return e->nr;
+    }
+    assert(0);
+    return e->nr;
+}

@@ -1,5 +1,5 @@
 /*
- * ti/store/procedures.c
+ * ti/store/storeprocedures.c
  */
 #include <assert.h>
 #include <stdlib.h>

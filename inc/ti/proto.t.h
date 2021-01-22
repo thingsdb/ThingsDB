@@ -41,6 +41,16 @@ typedef enum
     TI_PROTO_CLIENT_REQ_RUN     =37,    /* [scope, procedure, arguments...] */
 
     /*
+     * 64..127 modules range
+     */
+    TI_PROTO_MODULE_CONF           =64,    /* data, initialize extension */
+    TI_PROTO_MODULE_CONF_OK        =65,    /* empty */
+    TI_PROTO_MODULE_CONF_ERR       =66,    /* empty */
+    TI_PROTO_MODULE_REQ            =80,    /* data, request */
+    TI_PROTO_MODULE_RES            =81,    /* data, response */
+    TI_PROTO_MODULE_ERR            =82,    /* [err_nr, message] */
+
+    /*
      * protocol definition for node connections
      */
 

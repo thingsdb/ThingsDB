@@ -45,4 +45,40 @@ static inline void ti_query_destroy_or_return(ti_query_t * query)
         ti_query_destroy(query);
 }
 
+static inline void ti_query_run(ti_query_t * query)
+{
+    switch((ti_query_with_enum) query->with_tp)
+    {
+    case TI_QUERY_WITH_PARSERES:
+        ti_query_run_parseres(query);
+        return;
+    case TI_QUERY_WITH_PROCEDURE:
+        ti_query_run_procedure(query);
+        return;
+    case TI_QUERY_WITH_FUTURE:
+        ti_query_run_future(query);
+        return;
+    }
+}
+
+static inline void ti_query_response(ti_query_t * query, ex_t * e)
+{
+    ti_query_done(query, e, query->with_tp == TI_QUERY_WITH_FUTURE
+            ? &ti_query_on_then_result
+            : &ti_query_send_response);
+}
+
+static inline uint64_t ti_query_scope_id(ti_query_t * query)
+{
+    if (query->collection)
+        return query->collection->root->id;
+    if (query->qbind.flags & TI_QBIND_FLAG_THINGSDB)
+        return TI_SCOPE_THINGSDB;
+    if (query->qbind.flags & TI_QBIND_FLAG_NODE)
+        return TI_SCOPE_NODE;
+
+    assert (0);
+    return 0;
+}
+
 #endif  /* TI_QUERY_INLINE_H_ */

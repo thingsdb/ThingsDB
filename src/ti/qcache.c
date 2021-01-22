@@ -51,8 +51,7 @@ static ti_query_t * qcache__from_cache(qcache__item_t * item, uint8_t flags)
      */
     item->query->flags |= TI_QUERY_FLAG_CACHE;
 
-    query->parseres = item->query->parseres;
-    query->querystr = item->query->querystr;
+    query->with.parseres = item->query->with.parseres;
     query->qbind = item->query->qbind;
     query->immutable_cache = item->query->immutable_cache;
 
@@ -85,18 +84,19 @@ ti_query_t * ti_qcache_get_query(const char * str, size_t n, uint8_t flags)
     qcache__item_t * item;
 
     if (n < qcache__threshold)
-        return ti_query_create_strn(str, n, flags);
+        return ti_query_create(flags);
 
     item = smap_getn(qcache, str, n);
     if (item)
         return qcache__from_cache(item, flags);
 
     flags |= TI_QUERY_FLAG_CACHE|TI_QUERY_FLAG_DO_CACHE;
-    return ti_query_create_strn(str, n, flags);
+    return ti_query_create(flags);
 }
 
 void ti_qcache_return(ti_query_t * query)
 {
+    assert (query->with_tp == TI_QUERY_WITH_PARSERES);
     if (query->flags & TI_QUERY_FLAG_API)
         ti_api_release(query->via.api_request);
     else
@@ -106,11 +106,12 @@ void ti_qcache_return(ti_query_t * query)
     ti_event_drop(query->ev);
     ti_val_drop(query->rval);
 
+    assert (query->futures.n == 0);
+
     while(query->vars->n)
         ti_prop_destroy(VEC_pop(query->vars));
     free(query->vars);
 
-    assert (query->closure == NULL);
     ti_collection_drop(query->collection);
 
     /*
@@ -138,7 +139,7 @@ void ti_qcache_return(ti_query_t * query)
             item->used = 0;
             item->last = (uint32_t) util_now_tsec();
         }
-        if (smap_add(qcache, query->querystr, item))
+        if (smap_add(qcache, query->with.parseres->str, item))
             qcache__item_destroy(item);
         return;
     }
@@ -162,16 +163,21 @@ static int qcache__cleanup_cb(qcache__item_t * item, qcache__cleanup_t * w)
 static void qcache__cleanup_destroy(qcache__item_t * item)
 {
     if (!item->used)
-        ++ti.counters->wasted_cache;
-    qcache__item_destroy(smap_pop(qcache, item->query->querystr));
+        ti_counters_inc_wasted_cache();
+    qcache__item_destroy(smap_pop(qcache, item->query->with.parseres->str));
 }
 
 void ti_qcache_cleanup(void)
 {
+    struct timespec now;
+    if (clock_gettime(CLOCK_REALTIME, &now))
+        return;
+
     qcache__cleanup_t w = {
-        .expire_ts = (uint32_t) util_now_tsec() - ti.cfg->cache_expiration_time,
+        .expire_ts = (uint32_t) now.tv_sec - ti.cfg->cache_expiration_time,
         .items = vec_new(16),
     };
+
     if (!w.items)
         return;
 

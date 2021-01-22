@@ -27,6 +27,13 @@ typedef enum
     TI_QBIND_FLAG_ON_VAR        =1<<TI_QBIND_BIT_ON_VAR,
 } ti_qbind_flag_t;
 
+typedef enum
+{
+    TI_QBIND_THEN_OK,
+    TI_QBIND_THEN_NUM_ARGUMENTS,
+    TI_QBIND_THEN_TYPE_ERROR,
+} ti_qbind_then_t;
+
 typedef struct ti_qbind_s ti_qbind_t;
 
 #include <inttypes.h>

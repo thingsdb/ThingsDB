@@ -35,6 +35,7 @@
 #include <ti/fn/fndelcollection.h>
 #include <ti/fn/fndelenum.h>
 #include <ti/fn/fndelexpired.h>
+#include <ti/fn/fndelmodule.h>
 #include <ti/fn/fndelnode.h>
 #include <ti/fn/fndelprocedure.h>
 #include <ti/fn/fndeltoken.h>
@@ -42,6 +43,7 @@
 #include <ti/fn/fndeluser.h>
 #include <ti/fn/fndoc.h>
 #include <ti/fn/fneach.h>
+#include <ti/fn/fnelse.h>
 #include <ti/fn/fnemit.h>
 #include <ti/fn/fnendswith.h>
 #include <ti/fn/fnenum.h>
@@ -59,12 +61,14 @@
 #include <ti/fn/fnfindindex.h>
 #include <ti/fn/fnfloat.h>
 #include <ti/fn/fnformat.h>
+#include <ti/fn/fnfuture.h>
 #include <ti/fn/fnget.h>
 #include <ti/fn/fngrant.h>
 #include <ti/fn/fnhas.h>
 #include <ti/fn/fnhasbackup.h>
 #include <ti/fn/fnhascollection.h>
 #include <ti/fn/fnhasenum.h>
+#include <ti/fn/fnhasmodule.h>
 #include <ti/fn/fnhasnode.h>
 #include <ti/fn/fnhasprocedure.h>
 #include <ti/fn/fnhastoken.h>
@@ -103,12 +107,15 @@
 #include <ti/fn/fnmap.h>
 #include <ti/fn/fnmodenum.h>
 #include <ti/fn/fnmodtype.h>
+#include <ti/fn/fnmoduleinfo.h>
+#include <ti/fn/fnmodulesinfo.h>
 #include <ti/fn/fnmove.h>
 #include <ti/fn/fnmsg.h>
 #include <ti/fn/fnname.h>
 #include <ti/fn/fnnew.h>
 #include <ti/fn/fnnewbackup.h>
 #include <ti/fn/fnnewcollection.h>
+#include <ti/fn/fnnewmodule.h>
 #include <ti/fn/fnnewnode.h>
 #include <ti/fn/fnnewprocedure.h>
 #include <ti/fn/fnnewtoken.h>
@@ -145,6 +152,8 @@
 #include <ti/fn/fnset.h>
 #include <ti/fn/fnsetenum.h>
 #include <ti/fn/fnsetloglevel.h>
+#include <ti/fn/fnsetmoduleconf.h>
+#include <ti/fn/fnsetmodulescope.h>
 #include <ti/fn/fnsetpassword.h>
 #include <ti/fn/fnsettimezone.h>
 #include <ti/fn/fnsettype.h>
@@ -157,6 +166,7 @@
 #include <ti/fn/fnstartswith.h>
 #include <ti/fn/fnstr.h>
 #include <ti/fn/fntest.h>
+#include <ti/fn/fnthen.h>
 #include <ti/fn/fnthing.h>
 #include <ti/fn/fntimezonesinfo.h>
 #include <ti/fn/fnto.h>
@@ -209,11 +219,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 188,
+    TOTAL_KEYWORDS = 199,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 14,
-    MAX_HASH_VALUE = 438
+    MIN_HASH_VALUE = 17,
+    MAX_HASH_VALUE = 482
 };
 
 static inline unsigned int qbind__hash(
@@ -222,32 +232,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439,   4, 439,   3, 439,   4, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439,   3, 439,   4,  81,  61,
-         26,   3,  44, 102,  97,   3,   5,  69,  57,  19,
-          8,  14,  70,   3,   4,   3,   7,  10, 111, 119,
-        142,  89, 117, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439, 439, 439, 439, 439,
-        439, 439, 439, 439, 439, 439
+        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
+        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
+        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
+        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
+        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
+        483, 483,   9, 483,   9, 483,   6, 483, 483, 483,
+        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
+        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
+        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
+        483, 483, 483, 483, 483,   4, 483,   5, 100,  39,
+         25,   4,  45, 120, 126,   4,   8,  54,  48,   9,
+          8,  29,  57,   6,   5,   4,   7,  20, 130, 162,
+        129,  87,   7, 483, 483, 483, 483, 483, 483, 483,
+        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
+        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
+        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
+        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
+        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
+        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
+        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
+        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
+        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
+        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
+        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
+        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
+        483, 483, 483, 483, 483, 483
     };
 
     register unsigned int hval = n;
@@ -318,6 +328,8 @@ typedef enum
     FN__FLAG_CHAIN      = 1<<4,
     FN__FLAG_XROOT      = 1<<5,
     FN__FLAG_AS_ON_VAR  = 1<<6, /* function result as on variable */
+    FN__FLAG_FUT        = 1<<7, /* must check for closure and do not set event
+                                   by itself */
 } qbind__fn_flag_t;
 
 typedef struct
@@ -357,6 +369,8 @@ typedef struct
         .flags=FN__FLAG_CHAIN|FN__FLAG_EV_C|FN__FLAG_AS_ON_VAR
 #define CHAIN_CE_XVAR \
         .flags=FN__FLAG_CHAIN|FN__FLAG_EXCL_VAR|FN__FLAG_EV_C|FN__FLAG_AS_ON_VAR
+#define CHAIN_FUT \
+        .flags=FN__FLAG_CHAIN|FN__FLAG_AS_ON_VAR|FN__FLAG_FUT
 #define BOTH_CE_XROOT \
         .flags=FN__FLAG_ROOT|FN__FLAG_CHAIN|FN__FLAG_EV_C|FN__FLAG_XROOT|FN__FLAG_AS_ON_VAR
 #define XROOT_NE \
@@ -391,6 +405,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="bool",              .fn=do__f_bool,                 ROOT_NE},
     {.name="bytes",             .fn=do__f_bytes,                ROOT_NE},
     {.name="call",              .fn=do__f_call,                 XCHAIN_NE},
+    {.name="cancelled_err",     .fn=do__f_cancelled_err,        ROOT_NE},
     {.name="choice",            .fn=do__f_choice,               CHAIN_NE},
     {.name="code",              .fn=do__f_code,                 CHAIN_NE},
     {.name="collection_info",   .fn=do__f_collection_info,      ROOT_NE},
@@ -404,6 +419,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="del_collection",    .fn=do__f_del_collection,       ROOT_TE},
     {.name="del_enum",          .fn=do__f_del_enum,             ROOT_CE},
     {.name="del_expired",       .fn=do__f_del_expired,          ROOT_TE},
+    {.name="del_module",        .fn=do__f_del_module,           ROOT_TE},
     {.name="del_node",          .fn=do__f_del_node,             ROOT_TE},
     {.name="del_procedure",     .fn=do__f_del_procedure,        ROOT_BE},
     {.name="del_token",         .fn=do__f_del_token,            ROOT_TE},
@@ -413,6 +429,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="doc",               .fn=do__f_doc,                  CHAIN_NE},
     {.name="each",              .fn=do__f_each,                 CHAIN_NE},
     {.name="emit",              .fn=do__f_emit,                 CHAIN_CE},
+    {.name="else",              .fn=do__f_else,                 CHAIN_FUT},
     {.name="ends_with",         .fn=do__f_ends_with,            CHAIN_NE},
     {.name="enum_info",         .fn=do__f_enum_info,            ROOT_NE},
     {.name="enum",              .fn=do__f_enum,                 ROOT_NE},
@@ -429,11 +446,13 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="float",             .fn=do__f_float,                ROOT_NE},
     {.name="forbidden_err",     .fn=do__f_forbidden_err,        ROOT_NE},
     {.name="format",            .fn=do__f_format,               CHAIN_NE},
+    {.name="future",            .fn=do__f_future,               ROOT_NE},
     {.name="get",               .fn=do__f_get,                  XCHAIN_NE},
     {.name="grant",             .fn=do__f_grant,                ROOT_TE},
     {.name="has_backup",        .fn=do__f_has_backup,           ROOT_NE},
     {.name="has_collection",    .fn=do__f_has_collection,       ROOT_NE},
     {.name="has_enum",          .fn=do__f_has_enum,             ROOT_NE},
+    {.name="has_module",        .fn=do__f_has_module,           ROOT_NE},
     {.name="has_node",          .fn=do__f_has_node,             ROOT_NE},
     {.name="has_procedure",     .fn=do__f_has_procedure,        ROOT_NE},
     {.name="has_token",         .fn=do__f_has_token,            ROOT_NE},
@@ -480,6 +499,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="name",              .fn=do__f_name,                 CHAIN_NE},
     {.name="new_backup",        .fn=do__f_new_backup,           ROOT_NE},
     {.name="new_collection",    .fn=do__f_new_collection,       ROOT_TE},
+    {.name="new_module",        .fn=do__f_new_module,           ROOT_TE},
     {.name="new_node",          .fn=do__f_new_node,             ROOT_TE},
     {.name="new_procedure",     .fn=do__f_new_procedure,        ROOT_BE},
     {.name="new_token",         .fn=do__f_new_token,            ROOT_TE},
@@ -491,6 +511,8 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="nodes_info",        .fn=do__f_nodes_info,           ROOT_NE},
     {.name="now",               .fn=do__f_now,                  ROOT_NE},
     {.name="num_arguments_err", .fn=do__f_num_arguments_err,    ROOT_NE},
+    {.name="module_info",       .fn=do__f_module_info,          ROOT_NE},
+    {.name="modules_info",      .fn=do__f_modules_info,         ROOT_NE},
     {.name="operation_err",     .fn=do__f_operation_err,        ROOT_NE},
     {.name="overflow_err",      .fn=do__f_overflow_err,         ROOT_NE},
     {.name="pop",               .fn=do__f_pop,                  CHAIN_CE_XVAR},
@@ -520,7 +542,9 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="run",               .fn=do__f_run,                  XROOT_NE},
     {.name="set_enum",          .fn=do__f_set_enum,             ROOT_CE},
     {.name="set_log_level",     .fn=do__f_set_log_level,        ROOT_NE},
-    {.name="set_password",      .fn=do__f_set_password,         ROOT_TE},
+    {.name="set_module_conf",   .fn=do__f_set_password,         ROOT_TE},
+    {.name="set_module_scope",  .fn=do__f_set_module_conf,      ROOT_TE},
+    {.name="set_password",      .fn=do__f_set_module_scope,     ROOT_TE},
     {.name="set_time_zone",     .fn=do__f_set_time_zone,        ROOT_TE},
     {.name="set_type",          .fn=do__f_set_type,             ROOT_CE},
     {.name="set",               .fn=do__f_set,                  BOTH_CE_XROOT},
@@ -534,9 +558,10 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="str",               .fn=do__f_str,                  ROOT_NE},
     {.name="syntax_err",        .fn=do__f_syntax_err,           ROOT_NE},
     {.name="test",              .fn=do__f_test,                 CHAIN_NE},
+    {.name="then",              .fn=do__f_then,                 CHAIN_FUT},
     {.name="thing",             .fn=do__f_thing,                ROOT_NE},
-    {.name="timeval",           .fn=do__f_timeval,              ROOT_NE},
     {.name="time_zones_info",   .fn=do__f_time_zones_info,      ROOT_NE},
+    {.name="timeval",           .fn=do__f_timeval,              ROOT_NE},
     {.name="to",                .fn=do__f_to,                   CHAIN_NE},
     {.name="trim_left",         .fn=do__f_trim_left,            CHAIN_NE},
     {.name="trim_right",        .fn=do__f_trim_right,           CHAIN_NE},
@@ -665,6 +690,24 @@ static _Bool qbind__operations(
     return gid > parent_gid;
 }
 
+static void qbind__peek_statement_for_closure(
+        ti_qbind_t * q,
+        cleri_node_t * nd)
+{
+    cleri_node_t * node;
+
+    if ((node = nd->children->node)->cl_obj->gid == CLERI_GID_EXPRESSION &&
+        node->children->next->node->cl_obj->gid == CLERI_GID_T_CLOSURE)
+    {
+        uint8_t no_ev_flag = ~q->flags & TI_QBIND_FLAG_EVENT;
+        qbind__statement(q, nd);
+        q->flags &= ~no_ev_flag;
+        return;
+    }
+
+    qbind__statement(q, nd);  /* statement */
+}
+
 static void qbind__function(
         ti_qbind_t * q,
         cleri_node_t * nd,
@@ -702,8 +745,20 @@ static void qbind__function(
     /* list (arguments) */
     nd = nd->children->next->node->children->next->node;
 
-    /* investigate arguments */
-    for(child = nd->children;
+    if (fmflags & FN__FLAG_FUT)
+    {
+        child = nd->children;
+        if  (child)
+        {
+            qbind__peek_statement_for_closure(q, child->node);
+            nargs = 1;
+            child = child->next ? child->next->next : NULL;
+        }
+        /* only care about the first argument */
+        for(; child; child = child->next ? child->next->next : NULL, ++nargs);
+    }
+    /* for all other, investigate arguments */
+    else for(child = nd->children;
         child;
         child = child->next ? child->next->next : NULL, ++nargs)
     {

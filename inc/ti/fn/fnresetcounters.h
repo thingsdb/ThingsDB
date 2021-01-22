@@ -6,7 +6,7 @@ static int do__f_reset_counters(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_node_scope("reset_counters", query, e) ||
         ti_access_check_err(ti.access_node,
-            query->user, TI_AUTH_MODIFY, e) ||
+            query->user, TI_AUTH_EVENT, e) ||
         fn_nargs("reset_counters", DOC_RESET_COUNTERS, 0, nargs, e))
         return e->nr;
 

@@ -52,7 +52,7 @@ static int do__f_range(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (n > TI_RANGE_MAX)
     {
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
                 "maximum range length exceeded"DOC_RANGE);
         return e->nr;
     }

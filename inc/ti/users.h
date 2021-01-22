@@ -12,6 +12,7 @@ typedef struct ti_users_s ti_users_t;
 #include <ti/user.h>
 #include <ti/val.h>
 #include <util/mpack.h>
+#include <util/vec.h>
 
 int ti_users_create(void);
 void ti_users_destroy(void);

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import argparse
-from lib import run_test
+from lib import run_test, vars
 
 from test_advanced import TestAdvanced
 from test_arguments import TestArguments
@@ -10,6 +10,7 @@ from test_datetime import TestDatetime
 from test_doc_url import TestDocUrl
 from test_enum import TestEnum
 from test_events import TestEvents
+from test_future import TestFuture
 from test_gc import TestGC
 from test_http_api import TestHTTPAPI
 from test_index_slice import TestIndexSlice
@@ -30,6 +31,13 @@ from test_watch import TestWatch
 from test_wrap import TestWrap
 
 
+def no_mem_test(test_class):
+    tmp = vars.THINGSDB_MEMCHECK.copy()
+    vars.THINGSDB_MEMCHECK.clear()
+    run_test(test_class())
+    vars.THINGSDB_MEMCHECK[:] = tmp
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -47,6 +55,7 @@ if __name__ == '__main__':
         run_test(TestDocUrl())
     run_test(TestEnum())
     run_test(TestEvents())
+    run_test(TestFuture())
     run_test(TestGC())
     run_test(TestHTTPAPI())
     run_test(TestIndexSlice())

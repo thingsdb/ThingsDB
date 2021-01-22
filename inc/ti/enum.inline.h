@@ -70,7 +70,7 @@ static inline int ti_enum_try_lock(ti_enum_t * enum_, ex_t * e)
 {
     if (enum_->flags & TI_ENUM_FLAG_LOCK)
     {
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
             "cannot change enum `%s` while the enumerator is being used",
             enum_->name);
         return -1;

@@ -13,7 +13,7 @@ static int do__f_del_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     query->user, TI_AUTH_GRANT, e) ||
         fn_nargs("del_user", DOC_DEL_USER, 1, nargs, e) ||
         ti_do_statement(query, nd->children->node, e) ||
-        fn_arg_str("del_user", DOC_DEL_USER, 1, query->rval, e))
+        fn_arg_str_slow("del_user", DOC_DEL_USER, 1, query->rval, e))
         return e->nr;
 
     ruser = (ti_raw_t *) query->rval;
@@ -23,7 +23,7 @@ static int do__f_del_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (query->user == user)
     {
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
                 "it is not possible to delete your own user account"
                 DOC_DEL_USER);
         return e->nr;
@@ -32,9 +32,10 @@ static int do__f_del_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     task = ti_task_get_task(query->ev, ti.thing0);
     if (!task || ti_task_add_del_user(task, user))
         ex_set_mem(e);  /* task cleanup is not required */
+    else
+        /* this will remove the user so it cannot be used after here */
+        ti_users_del_user(user);
 
-    /* this will remove the user so it cannot be used after here */
-    ti_users_del_user(user);
     ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();
 

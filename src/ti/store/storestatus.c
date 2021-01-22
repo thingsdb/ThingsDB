@@ -1,5 +1,5 @@
 /*
- * ti/store/status.c
+ * ti/store/storestatus.c
  */
 #include <ti.h>
 #include <ti/store/storestatus.h>

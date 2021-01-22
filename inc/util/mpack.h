@@ -3,7 +3,9 @@
  *
  * TESTED with msgpack version: 3.2.0
  */
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 
 #ifndef MPACK_H_
 #define MPACK_H_

@@ -1,5 +1,5 @@
 /*
- * ti/users.h
+ * ti/users.c
  */
 #include <assert.h>
 #include <doc.h>

@@ -28,7 +28,6 @@ ti_epkg_t * ti_epkg_initial(void)
     msgpack_sbuffer buffer;
 
     uint64_t event_id = 1;
-    uint64_t scope_id = 0;                      /* TI_SCOPE_THINGSDB */
     uint64_t thing_id = 0;                      /* parent root thing */
     uint64_t user_id = ti_next_thing_id();      /* id:1 */
     uint64_t stuff_id = ti_next_thing_id();     /* id:2 !important: id > 1 */
@@ -56,7 +55,7 @@ ti_epkg_t * ti_epkg_initial(void)
 
     msgpack_pack_array(&pk, 2);
     msgpack_pack_uint64(&pk, event_id);
-    msgpack_pack_uint64(&pk, scope_id);
+    msgpack_pack_uint64(&pk, TI_SCOPE_THINGSDB);
 
     msgpack_pack_map(&pk, 1);
 

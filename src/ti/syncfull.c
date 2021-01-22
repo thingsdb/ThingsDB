@@ -27,6 +27,7 @@ typedef enum
     SYNCFULL__PROCEDURES_FILE,
     SYNCFULL__NAMES_FILE,
     SYNCFULL__COLLECTIONS_FILE,
+    SYNCFULL__MODULES_FILE,
     SYNCFULL__ID_STAT_FILE,
     /* collection files */
     SYNCFULL__COLLECTION_DAT_FILE,
@@ -60,6 +61,8 @@ static char * syncfull__get_fn(uint64_t scope_id, syncfull__file_t ft)
         return strdup(ti.store->names_fn);
     case SYNCFULL__COLLECTIONS_FILE:
         return strdup(ti.store->collections_fn);
+    case SYNCFULL__MODULES_FILE:
+        return strdup(ti.store->modules_fn);
     case SYNCFULL__ID_STAT_FILE:
         return strdup(ti.store->id_stat_fn);
     case SYNCFULL__COLLECTION_DAT_FILE:

@@ -70,7 +70,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     else if (type->fields->n)
     {
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
             "function `set_type` works only on a new type; "
             "use `mod_type()` if you want to change an existing type"
             DOC_MOD_TYPE);
@@ -108,7 +108,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (n < 0)
             ex_set_mem(e);
         else
-            ex_set(e, EX_OPERATION_ERROR,
+            ex_set(e, EX_OPERATION,
                 "function `set_type` can only be used on a type without active "
                 "instances; %zd active instance%s of type `%s` %s been found"
                 DOC_SET_TYPE,

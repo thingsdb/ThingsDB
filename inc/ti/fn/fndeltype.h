@@ -18,7 +18,7 @@ static int do__f_del_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (type->refcount)
     {
-        ex_set(e, EX_OPERATION_ERROR,
+        ex_set(e, EX_OPERATION,
                 "type `%s` is used by at least one other type; "
                 "use `types_info(..)` to find all dependencies and "
                 "remove them by using `mod_type(..)` or delete the dependency "

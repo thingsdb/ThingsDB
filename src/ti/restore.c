@@ -88,7 +88,7 @@ int ti_restore_chk(const char * fn, size_t n, ex_t * e)
     fp = popen(job, "r");
     if (!fp)
     {
-        ex_set(e, EX_OPERATION_ERROR, "failed to start `restore` task");
+        ex_set(e, EX_OPERATION, "failed to start `restore` task");
     }
     else
     {
@@ -133,7 +133,7 @@ int ti_restore_unp(const char * restore_job, ex_t * e)
     fp = popen(restore_job, "r");
     if (!fp)
     {
-        ex_set(e, EX_OPERATION_ERROR, "failed to start `restore` task");
+        ex_set(e, EX_OPERATION, "failed to start `restore` task");
     }
     else
     {
@@ -146,7 +146,7 @@ int ti_restore_unp(const char * restore_job, ex_t * e)
 
         rc = pclose(fp);
         if (rc)
-            ex_set(e, EX_OPERATION_ERROR, "restore failed: `%.*s`",
+            ex_set(e, EX_OPERATION, "restore failed: `%.*s`",
                     (int) buf.len, buf.data);
     }
 

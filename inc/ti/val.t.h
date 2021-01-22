@@ -28,6 +28,7 @@
 #define TI_VAL_ERROR_S      "error"
 #define TI_VAL_DATETIME_S   "datetime"
 #define TI_VAL_TIMEVAL_S    "timeval"
+#define TI_VAL_FUTURE_S     "future"
 
 /* negative value is used for packing tasks */
 #define TI_VAL_PACK_TASK -1
@@ -44,9 +45,11 @@
 #define TI_KIND_S_DATETIME  "'"
 #define TI_KIND_S_TIMEVAL   "\""
 
+/* both `nil` and `closure` must be on top, see TI_OPR_PERM */
 typedef enum
 {
     TI_VAL_NIL,
+    TI_VAL_CLOSURE,
     TI_VAL_INT,
     TI_VAL_FLOAT,
     TI_VAL_BOOL,
@@ -59,10 +62,10 @@ typedef enum
     TI_VAL_WRAP,
     TI_VAL_ARR,         /* array, list or tuple */
     TI_VAL_SET,         /* set of things */
-    TI_VAL_CLOSURE,
     TI_VAL_ERROR,
     TI_VAL_MEMBER,      /* enum member */
     TI_VAL_MP,          /* msgpack data */
+    TI_VAL_FUTURE,      /* future, TODO: check compare etc */
     TI_VAL_TEMPLATE,    /* template to generate TI_VAL_STR
                            note that a template is never stored like a value,
                            rather it may build from either a query or a stored

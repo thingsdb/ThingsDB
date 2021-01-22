@@ -47,6 +47,7 @@ class Node:
         self.listen_client_port = 9200 + n
         self.http_api_port = 9210 + n
         self.listen_node_port = 9220 + n
+        self.http_status_port = 8080 + n
 
         # can be used for clients to connect
         self.address_info = ('localhost', self.listen_client_port)
@@ -57,6 +58,8 @@ class Node:
         self.ip_support = options.pop('ip_support', 'ALL')
         self.pipe_client_name = options.pop('pipe_client_name', None)
         self.threshold_full_storage = options.pop('threshold_full_storage', 10)
+
+        self.modules_path = options.pop('modules_path', None)
 
         self.storage_path = os.path.join(THINGSDB_TESTDIR, f'tdb{n}')
         self.cfgfile = os.path.join(THINGSDB_TESTDIR, f't{n}.conf')
@@ -144,6 +147,7 @@ class Node:
         config.set('thingsdb', 'listen_client_port', self.listen_client_port)
         config.set('thingsdb', 'listen_node_port', self.listen_node_port)
         config.set('thingsdb', 'http_api_port', self.http_api_port)
+        config.set('thingsdb', 'http_status_port', self.http_status_port)
 
         config.set('thingsdb', 'bind_client_addr', self.bind_client_addr)
         config.set('thingsdb', 'bind_node_addr', self.bind_node_addr)
@@ -158,6 +162,9 @@ class Node:
             config.set('thingsdb', 'pipe_client_name',  self.pipe_client_name)
 
         config.set('thingsdb', 'storage_path', self.storage_path)
+
+        if self.modules_path:
+            config.set('thingsdb', 'modules_path', self.modules_path)
 
         with open(self.cfgfile, 'w') as configfile:
             config.write(configfile)

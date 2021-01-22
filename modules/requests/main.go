@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -20,15 +21,25 @@ type reqData struct {
 	Params  [][2]string `msgpack:"params"`
 }
 
+type resData struct {
+	StatusCode int    `msgpack:"status_code"`
+	Body       []byte `msgpack:"body"`
+}
+
 func handleReqData(pkg *timod.Pkg, data *reqData) {
 
 	params := url.Values{}
 
 	reqURL, err := url.Parse(data.URL)
 	if err != nil {
-		timod.WriteEx(pkg.Pid, timod.ExBadData, fmt.Sprintf("failed to parse URL (%s)", err))
+		timod.WriteEx(
+			pkg.Pid,
+			timod.ExBadData,
+			fmt.Sprintf("Error: Failed to parse URL (%s)", err))
 		return
 	}
+
+	body := bytes.NewReader(data.Body)
 
 	for i := 0; i < len(data.Params); i++ {
 		param := data.Params[i]
@@ -38,9 +49,12 @@ func handleReqData(pkg *timod.Pkg, data *reqData) {
 
 	reqURL.RawQuery = params.Encode()
 
-	req, err := http.NewRequest(data.Method, reqURL.String(), nil)
+	req, err := http.NewRequest(data.Method, reqURL.String(), body)
 	if err != nil {
-		timod.WriteEx(pkg.Pid, timod.ExBadData, fmt.Sprintf("failed to create HTTP request (%s)", err))
+		timod.WriteEx(
+			pkg.Pid,
+			timod.ExBadData,
+			fmt.Sprintf("Error: Failed to create HTTP request (%s)", err))
 		return
 	}
 
@@ -53,17 +67,29 @@ func handleReqData(pkg *timod.Pkg, data *reqData) {
 	client := &http.Client{}
 	res, err := client.Do(req)
 	if err != nil {
-		timod.WriteEx(pkg.Pid, timod.ExBadData, fmt.Sprintf("failed to do the HTTP request (%s)", err))
+		timod.WriteEx(
+			pkg.Pid,
+			timod.ExOperation,
+			fmt.Sprintf("Error: Failed to do the HTTP request (%s)", err))
 		return
 	}
 
-	_, err = ioutil.ReadAll(res.Body)
+	var response resData
+
+	// Set the body
+	response.Body, err = ioutil.ReadAll(res.Body)
 	if err != nil {
-		timod.WriteEx(pkg.Pid, timod.ExBadData, fmt.Sprintf("failed to read bytes from HTTP response (%s)", err))
+		timod.WriteEx(
+			pkg.Pid,
+			timod.ExBadData,
+			fmt.Sprintf("Error: Failed to read bytes from HTTP response (%s)", err))
 		return
 	}
 
-	// timod.WriteResponse(pkg.Pid, &resBytes)
+	// Set the status code
+	response.StatusCode = res.StatusCode
+
+	timod.WriteResponse(pkg.Pid, &response)
 }
 
 func onModuleReq(pkg *timod.Pkg) {
@@ -73,7 +99,10 @@ func onModuleReq(pkg *timod.Pkg) {
 	if err == nil {
 		handleReqData(pkg, &data)
 	} else {
-		timod.WriteEx(pkg.Pid, timod.ExBadData, fmt.Sprintf("failed to unpack request (%s)", err))
+		timod.WriteEx(
+			pkg.Pid,
+			timod.ExBadData,
+			fmt.Sprintf("Error: Failed to unpack request (%s)", err))
 	}
 }
 

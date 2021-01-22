@@ -8,7 +8,7 @@
 #include <util/util.h>
 
 static ti_counters_t * counters;
-static ti_counters_t counters_;
+ti_counters_t counters_;
 
 int ti_counters_create(void)
 {
@@ -38,10 +38,10 @@ void ti_counters_reset(void)
     counters->events_committed = 0;
     counters->events_quorum_lost = 0;
     counters->events_unaligned = 0;
-    counters->garbage_collected = 0;
     counters->largest_result_size = 0;
     counters->queries_from_cache = 0;
-    counters->wasted_cache = 0;
+    ti_counters_zero_garbage_collected();
+    ti_counters_zero_wasted_cache();
     counters->longest_query_duration = 0.0;
     counters->longest_event_duration = 0.0;
     counters->total_query_duration = 0.0;
@@ -130,13 +130,13 @@ int ti_counters_to_pk(msgpack_packer * pk)
         msgpack_pack_uint64(pk, counters->events_unaligned) ||
 
         mp_pack_str(pk, "garbage_collected") ||
-        msgpack_pack_uint64(pk, counters->garbage_collected) ||
+        msgpack_pack_uint64(pk, ti_counters_garbage_collected()) ||
 
         mp_pack_str(pk, "queries_from_cache") ||
         msgpack_pack_uint64(pk, counters->queries_from_cache) ||
 
         mp_pack_str(pk, "wasted_cache") ||
-        msgpack_pack_uint64(pk, counters->wasted_cache) ||
+        msgpack_pack_uint64(pk, ti_counters_wasted_cache()) ||
 
         mp_pack_str(pk, "longest_query_duration") ||
         msgpack_pack_double(pk, counters->longest_query_duration) ||

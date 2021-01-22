@@ -464,7 +464,7 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
 
     (void) ti_sleep(2);
 
-    ti.counters->garbage_collected += n;
+    ti_counters_add_garbage_collected(n);
 
     (void) clock_gettime(TI_CLOCK_MONOTONIC, &stop);
     duration = util_time_diff(&start, &stop);

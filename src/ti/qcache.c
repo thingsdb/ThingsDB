@@ -163,16 +163,21 @@ static int qcache__cleanup_cb(qcache__item_t * item, qcache__cleanup_t * w)
 static void qcache__cleanup_destroy(qcache__item_t * item)
 {
     if (!item->used)
-        ++ti.counters->wasted_cache;
+        ti_counters_inc_wasted_cache();
     qcache__item_destroy(smap_pop(qcache, item->query->with.parseres->str));
 }
 
 void ti_qcache_cleanup(void)
 {
+    struct timespec now;
+    if (clock_gettime(CLOCK_REALTIME, &now))
+        return;
+
     qcache__cleanup_t w = {
-        .expire_ts = (uint32_t) util_now_tsec() - ti.cfg->cache_expiration_time,
+        .expire_ts = (uint32_t) now.tv_sec - ti.cfg->cache_expiration_time,
         .items = vec_new(16),
     };
+
     if (!w.items)
         return;
 

@@ -26,7 +26,7 @@ class TestModules(TestBase):
         num_nodes=1,
         seed=1,
         threshold_full_storage=10,
-        modules_path='../modules/demo')
+        modules_path='../modules/')
     async def run(self):
 
         await self.node0.init_and_run()
@@ -39,9 +39,9 @@ class TestModules(TestBase):
         client.close()
         await client.wait_closed()
 
-    async def test_new_modules(self, client):
+    async def test_demo_module(self, client):
         await client.query(r'''
-            new_module('DEMO', 'demo', nil, nil);
+            new_module('DEMO', 'demo/demo', nil, nil);
         ''', scope='/t')
 
         res = await client.query(r'''
@@ -52,7 +52,20 @@ class TestModules(TestBase):
                 `Got this message back: {msg}`
             });
         ''')
-        print(res)
+        self.assertEqual(res, 'Got this message back: Hi ThingsDB!')
+
+    async def test_requests_module(self, client):
+        await client.query(r'''
+            new_module('REQUESTS', 'requests/requests', nil, nil);
+        ''', scope='/t')
+
+        res = await client.query(r'''
+            future({
+                module: 'REQUESTS',
+                url: 'http://localhost:8080/status'
+            }).then(|resp| [str(resp.body).trim(), resp.status_code]);
+        ''')
+        self.assertEqual(res, ['READY', 200])
 
 
 if __name__ == '__main__':

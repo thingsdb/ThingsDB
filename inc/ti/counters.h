@@ -6,6 +6,8 @@
 
 typedef struct ti_counters_s ti_counters_t;
 
+extern ti_counters_t counters_;
+
 #include <inttypes.h>
 #include <sys/time.h>
 #include <ti/val.h>
@@ -58,12 +60,16 @@ struct ti_counters_s
                                        pushed to the end of the queue because
                                        a higher event id is already queued
                                     */
-    uint64_t garbage_collected;     /* total garbage collected */
     uint64_t largest_result_size;   /* largest result size in bytes */
     uint64_t queries_from_cache;    /* number of queries which are loaded from
                                        cache.
                                     */
-    uint64_t wasted_cache;          /* number of cached queries which are
+    /*
+     * Both `garbage_collected` and `wasted_cache` may be accessed by multiple
+     * threads at equal times.
+     */
+    uint64_t _garbage_collected;    /* total garbage collected */
+    uint64_t _wasted_cache;         /* number of cached queries which are
                                        removed from the cache before the cache
                                        was ever used. Basically this count the
                                        useless caching.
@@ -84,4 +90,17 @@ struct ti_counters_s
                                     */
 };
 
+#define ti_counters_garbage_collected() \
+    (__atomic_load_n(&counters_._garbage_collected, __ATOMIC_SEQ_CST))
+#define ti_counters_add_garbage_collected(n__) \
+    (__atomic_add_fetch(&counters_._garbage_collected, n__, __ATOMIC_SEQ_CST))
+#define ti_counters_zero_garbage_collected() \
+    (__atomic_store_n(&counters_._garbage_collected, 0, __ATOMIC_SEQ_CST))
+
+#define ti_counters_wasted_cache() \
+    (__atomic_load_n(&counters_._wasted_cache, __ATOMIC_SEQ_CST))
+#define ti_counters_inc_wasted_cache() \
+    (__atomic_add_fetch(&counters_._wasted_cache, 1, __ATOMIC_SEQ_CST))
+#define ti_counters_zero_wasted_cache() \
+    (__atomic_store_n(&counters_._wasted_cache, 0, __ATOMIC_SEQ_CST))
 #endif  /* TI_COUNTERS_H_ */

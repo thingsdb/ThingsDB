@@ -17,7 +17,7 @@
 #include <ti/verror.h>
 #include <util/fx.h>
 
-#define MODULE__TOO_MANY_RESTARTS 5
+#define MODULE__TOO_MANY_RESTARTS 3
 
 
 static void module__write_req_cb(uv_write_t * req, int status)
@@ -321,6 +321,19 @@ void ti_module_load(ti_module_t * module)
     }
 }
 
+void ti_module_restart(ti_module_t * module)
+{
+    if (module->flags & TI_MODULE_FLAG_IN_USE)
+    {
+        module->flags |= TI_MODULE_FLAG_RESTARTING;
+        (void) ti_module_stop(module);
+    }
+    else
+    {
+        ti_module_load(module);
+    }
+}
+
 void ti_module_update_conf(ti_module_t * module)
 {
     if (module->flags & TI_MODULE_FLAG_IN_USE)
@@ -355,6 +368,13 @@ void ti_module_on_exit(ti_module_t * module)
 
     module->flags &= ~TI_MODULE_FLAG_IN_USE;
 
+    if (module->flags & TI_MODULE_FLAG_RESTARTING)
+    {
+        module->restarts = 0;
+        module->flags &= ~TI_MODULE_FLAG_RESTARTING;
+        goto restart;
+    }
+
     if (module->status == TI_MODULE_STAT_RUNNING)
     {
         if (++module->restarts > MODULE__TOO_MANY_RESTARTS)
@@ -364,16 +384,20 @@ void ti_module_on_exit(ti_module_t * module)
                     module->name->str,
                     MODULE__TOO_MANY_RESTARTS);
             module->status = TI_MODULE_STAT_TOO_MANY_RESTARTS;
+            return;
         }
-        else
-        {
-            module->status = TI_MODULE_STAT_NOT_LOADED;
-            ti_module_load(module);
-        }
+        goto restart;
+    }
+
+    if (module->status == TI_MODULE_STAT_STOPPING)
+    {
+        module->status = TI_MODULE_STAT_NOT_LOADED;
         return;
     }
-    else if (module->status == TI_MODULE_STAT_STOPPING)
-        module->status = TI_MODULE_STAT_NOT_LOADED;
+
+restart:
+    module->status = TI_MODULE_STAT_NOT_LOADED;
+    ti_module_load(module);
 }
 
 int ti_module_stop(ti_module_t * module)
@@ -551,7 +575,8 @@ int ti_module_info_to_pk(ti_module_t * module, msgpack_packer * pk, int flags)
 {
     size_t sz = 5 + \
             !!(flags & TI_MODULE_FLAG_WITH_CONF) + \
-            !!(flags & TI_MODULE_FLAG_WITH_TASKS);
+            !!(flags & TI_MODULE_FLAG_WITH_TASKS) + \
+            !!(flags & TI_MODULE_FLAG_WITH_RESTARTS);
     return -(
         msgpack_pack_map(pk, sz)||
 
@@ -579,6 +604,10 @@ int ti_module_info_to_pk(ti_module_t * module, msgpack_packer * pk, int flags)
         ((flags & TI_MODULE_FLAG_WITH_TASKS) && (
                 mp_pack_str(pk, "tasks") ||
                 msgpack_pack_uint64(pk, module->futures->n))) ||
+
+        ((flags & TI_MODULE_FLAG_WITH_RESTARTS) && (
+                mp_pack_str(pk, "restarts") ||
+                msgpack_pack_uint16(pk, module->restarts))) ||
 
         mp_pack_str(pk, "scope") ||
         (module->scope_id

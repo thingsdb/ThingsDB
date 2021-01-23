@@ -113,7 +113,6 @@ static void proc__on_child_stdin_close(uv_handle_t * handle)
 static void proc__on_process_close(uv_process_t * process)
 {
     ti_proc_t * proc = process->data;
-    process->pid = 0;
     uv_close((uv_handle_t *) &proc->child_stdin, proc__on_child_stdin_close);
 }
 
@@ -123,6 +122,8 @@ static void proc__on_exit(
         int term_signal)
 {
     ti_proc_t * proc = process->data;
+
+    process->pid = 0;
 
     if (exit_status)
     {

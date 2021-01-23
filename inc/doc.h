@@ -103,6 +103,7 @@
 #define DOC_NODE_INFO               DOC_SEE("node-api/node_info")
 #define DOC_NODES_INFO              DOC_SEE("node-api/nodes_info")
 #define DOC_RESET_COUNTERS          DOC_SEE("node-api/reset_counters")
+#define DOC_RESTART_MODULE          DOC_SEE("node-api/restart_module")
 #define DOC_SET_LOG_LEVEL           DOC_SEE("node-api/set_log_level")
 #define DOC_SHUTDOWN                DOC_SEE("node-api/shutdown")
 
@@ -129,6 +130,7 @@
 #define DOC_NEW_TOKEN               DOC_SEE("thingsdb-api/new_token")
 #define DOC_NEW_USER                DOC_SEE("thingsdb-api/new_user")
 #define DOC_RENAME_COLLECTION       DOC_SEE("thingsdb-api/rename_collection")
+#define DOC_RENAME_MODULE           DOC_SEE("thingsdb-api/rename_module")
 #define DOC_RENAME_USER             DOC_SEE("thingsdb-api/rename_user")
 #define DOC_RESTORE                 DOC_SEE("thingsdb-api/restore")
 #define DOC_REVOKE                  DOC_SEE("thingsdb-api/revoke")

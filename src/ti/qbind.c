@@ -139,11 +139,13 @@
 #include <ti/fn/fnremove.h>
 #include <ti/fn/fnrenamecollection.h>
 #include <ti/fn/fnrenameenum.h>
+#include <ti/fn/fnrenamemodule.h>
 #include <ti/fn/fnrenameprocedure.h>
 #include <ti/fn/fnrenametype.h>
 #include <ti/fn/fnrenameuser.h>
 #include <ti/fn/fnreplace.h>
 #include <ti/fn/fnresetcounters.h>
+#include <ti/fn/fnrestartmodule.h>
 #include <ti/fn/fnrestore.h>
 #include <ti/fn/fnreturn.h>
 #include <ti/fn/fnreverse.h>
@@ -219,11 +221,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 199,
+    TOTAL_KEYWORDS = 201,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 17,
-    MAX_HASH_VALUE = 482
+    MIN_HASH_VALUE = 22,
+    MAX_HASH_VALUE = 489
 };
 
 static inline unsigned int qbind__hash(
@@ -232,32 +234,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483,   9, 483,   9, 483,   6, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483,   4, 483,   5, 100,  39,
-         25,   4,  45, 120, 126,   4,   8,  54,  48,   9,
-          8,  29,  57,   6,   5,   4,   7,  20, 130, 162,
-        129,  87,   7, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483
+        490, 490, 490, 490, 490, 490, 490, 490, 490, 490,
+        490, 490, 490, 490, 490, 490, 490, 490, 490, 490,
+        490, 490, 490, 490, 490, 490, 490, 490, 490, 490,
+        490, 490, 490, 490, 490, 490, 490, 490, 490, 490,
+        490, 490, 490, 490, 490, 490, 490, 490, 490, 490,
+        490, 490,   9, 490,   9, 490,  11, 490, 490, 490,
+        490, 490, 490, 490, 490, 490, 490, 490, 490, 490,
+        490, 490, 490, 490, 490, 490, 490, 490, 490, 490,
+        490, 490, 490, 490, 490, 490, 490, 490, 490, 490,
+        490, 490, 490, 490, 490,   9, 490,  10,  73,  45,
+         11,   9,  55, 109,  74,   9,  10,  87,  45,   9,
+         13,  25,  81,   9,  10,   9,  12,  12, 140, 130,
+        159, 106,  29, 490, 490, 490, 490, 490, 490, 490,
+        490, 490, 490, 490, 490, 490, 490, 490, 490, 490,
+        490, 490, 490, 490, 490, 490, 490, 490, 490, 490,
+        490, 490, 490, 490, 490, 490, 490, 490, 490, 490,
+        490, 490, 490, 490, 490, 490, 490, 490, 490, 490,
+        490, 490, 490, 490, 490, 490, 490, 490, 490, 490,
+        490, 490, 490, 490, 490, 490, 490, 490, 490, 490,
+        490, 490, 490, 490, 490, 490, 490, 490, 490, 490,
+        490, 490, 490, 490, 490, 490, 490, 490, 490, 490,
+        490, 490, 490, 490, 490, 490, 490, 490, 490, 490,
+        490, 490, 490, 490, 490, 490, 490, 490, 490, 490,
+        490, 490, 490, 490, 490, 490, 490, 490, 490, 490,
+        490, 490, 490, 490, 490, 490, 490, 490, 490, 490,
+        490, 490, 490, 490, 490, 490
     };
 
     register unsigned int hval = n;
@@ -530,11 +532,13 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="remove",            .fn=do__f_remove,               CHAIN_CE_XVAR},
     {.name="rename_collection", .fn=do__f_rename_collection,    ROOT_TE},
     {.name="rename_enum",       .fn=do__f_rename_enum,          ROOT_CE},
+    {.name="rename_module",     .fn=do__f_rename_module,        ROOT_CE},
     {.name="rename_procedure",  .fn=do__f_rename_procedure,     ROOT_BE},
     {.name="rename_type",       .fn=do__f_rename_type,          ROOT_CE},
     {.name="rename_user",       .fn=do__f_rename_user,          ROOT_TE},
     {.name="replace",           .fn=do__f_replace,              CHAIN_NE},
     {.name="reset_counters",    .fn=do__f_reset_counters,       ROOT_NE},
+    {.name="restart_module",    .fn=do__f_restart_module,       ROOT_NE},
     {.name="restore",           .fn=do__f_restore,              ROOT_TE},
     {.name="return",            .fn=do__f_return,               ROOT_NE},
     {.name="reverse",           .fn=do__f_reverse,              CHAIN_NE},

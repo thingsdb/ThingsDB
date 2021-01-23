@@ -44,6 +44,12 @@ type authSiriDB struct {
 	Servers  []serverSiriDB `msgpack:"servers"`
 }
 
+type reqSiriDB struct {
+	Type    string `msgpack:"type"`
+	Query   string `msgpack:"query"`
+	Timeout uint16 `msgpack:"timeout"`
+}
+
 func printLogs(logCh chan string) {
 	for {
 		msg := <-logCh
@@ -53,6 +59,7 @@ func printLogs(logCh chan string) {
 
 func handleConf(auth *authSiriDB) {
 	mux.Lock()
+	defer mux.Unlock()
 
 	if client != nil {
 		client.Close()
@@ -65,8 +72,6 @@ func handleConf(auth *authSiriDB) {
 		servers[i] = s
 	}
 
-	log.Printf("Servers: %v", servers)
-
 	client = siridb.NewClient(
 		auth.Username,
 		auth.Password,
@@ -77,9 +82,36 @@ func handleConf(auth *authSiriDB) {
 
 	client.Connect()
 
-	mux.Unlock()
-
 	timod.WriteConfOk()
+}
+
+func handleQuery(pkg *timod.Pkg, req *reqSiriDB) {
+	if req.Timeout == 0 {
+		req.Timeout = 10
+	}
+	res, err := client.Query(req.Query, req.Timeout)
+	if err != nil {
+		timod.WriteEx(
+			pkg.Pid,
+			timod.ExOperation,
+			fmt.Sprintf("Query has failed: %s", err))
+		return
+	}
+	timod.WriteResponse(pkg.Pid, &res)
+}
+
+func handleReq(pkg *timod.Pkg, req *reqSiriDB) {
+	switch req.Type {
+	case "QUERY":
+		handleQuery(pkg, req)
+		return
+	case "INSERT":
+	default:
+		timod.WriteEx(
+			pkg.Pid,
+			timod.ExBadData,
+			fmt.Sprintf("Error: Invalid type: %s", req.Type))
+	}
 }
 
 func onModuleReq(pkg *timod.Pkg) {
@@ -94,7 +126,15 @@ func onModuleReq(pkg *timod.Pkg) {
 		return
 	}
 
-	timod.WriteResponse(pkg.Pid, nil)
+	var req reqSiriDB
+	err := msgpack.Unmarshal(pkg.Data, &req)
+	if err != nil {
+		timod.WriteEx(
+			pkg.Pid,
+			timod.ExBadData,
+			"Error: Failed to unpack SiriDB request")
+	}
+	handleReq(pkg, &req)
 }
 
 func handler(buf *timod.Buffer, quit chan bool) {

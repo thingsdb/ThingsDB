@@ -75,7 +75,7 @@ class TestModules(TestBase):
                 database: 'dbtest',
                 servers: [{
                     host: 'localhost',
-                    port: -100
+                    port: 9000
                 }]
             }, nil);
         ''', scope='/t')

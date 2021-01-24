@@ -162,6 +162,13 @@ void ti_destroy(void)
     assert(ti_nil_no_ref());
     assert(ti_vint_no_ref());
 
+    /*
+     * When modules are actually loaded, the `modules` map is already destroyed
+     * by `ti_modules_stop_and_destroy`. Otherwise, we just need to clean the
+     * mapping.
+     */
+    smap_destroy(ti.modules, NULL);
+
     if (ti.langdef)
         cleri_grammar_free(ti.langdef);
 

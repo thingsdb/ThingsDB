@@ -33,10 +33,17 @@ static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     file = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
+    if (!file->n)
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "file argument must not be an empty string"DOC_NEW_MODULE);
+        goto fail1;
+    }
+
     if (!strx_is_printablen((const char *) file->data, file->n))
     {
         ex_set(e, EX_VALUE_ERROR,
-                "binary contains illegal characters"DOC_NEW_MODULE);
+                "file argument contains illegal characters"DOC_NEW_MODULE);
         goto fail1;
     }
 

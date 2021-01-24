@@ -23,12 +23,6 @@ void ti_modules_stop_and_destroy(void)
     ti.modules = NULL;
 }
 
-void ti_modules_stop_and_cancel(void)
-{
-    smap_destroy(ti.modules, (smap_destroy_cb) ti_module_stop_and_destroy);
-    ti.modules = NULL;
-}
-
 int ti_modules_rename(ti_module_t * module, const char * s, size_t n)
 {
     ti_name_t * tmp = ti_names_get(s, n);

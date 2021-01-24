@@ -141,7 +141,10 @@ static void module__cb(ti_future_t * future)
     if (future->module->status)
     {
         ex_t e;
-        ex_set(&e, EX_OPERATION, ti_module_status_str(future->module));
+        ex_set(&e, EX_OPERATION,
+                "module `%s` is not running (status: %s)",
+                future->module->name->str,
+                ti_module_status_str(future->module));
         ti_query_on_future_result(future, &e);
         return;
     }

@@ -18,7 +18,7 @@ static int do__f_set_module_conf(ti_query_t * query, cleri_node_t * nd, ex_t * e
     rname = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->next->next->node, e))
         goto fail0;
 
     /* All statements are parsed, now check if the module (still) exists) */
@@ -57,6 +57,6 @@ static int do__f_set_module_conf(ti_query_t * query, cleri_node_t * nd, ex_t * e
     query->rval = (ti_val_t *) ti_nil_get();
 
 fail0:
-    ti_val_unsafe_drop(query->rval);
+    ti_val_unsafe_drop((ti_val_t *) rname);
     return e->nr;
 }

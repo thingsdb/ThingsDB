@@ -25,7 +25,7 @@ class TestModules(TestBase):
     @default_test_setup(
         num_nodes=1,
         seed=1,
-        threshold_full_storage=10,
+        threshold_full_storage=100,
         modules_path='../modules/')
     async def run(self):
 
@@ -140,7 +140,251 @@ class TestModules(TestBase):
             "tasks": 0,
         })
 
-    async def test_demo_module(self, client):
+        res = await client.query('module_info("X");', scope="/n")
+        self.assertIsInstance(res.pop('created_at'), int)
+        self.assertEqual(res, {
+            "name": "X",
+            "file": "../modules/x",
+            "conf": None,
+            "restarts": 0,
+            "scope": "@collection:stuff",
+            "status": "no such file or directory",
+            "tasks": 0,
+        })
+
+        await client.query(r'''
+            new_user('test1');
+            set_password("test1", "test1");
+            grant('//stuff', 'test1', QUERY);
+        ''')
+
+        testcl = await get_client(
+            self.node0,
+            auth=['test1', 'test1'],
+            auto_reconnect=False)
+
+        res = await testcl.query('module_info("X");', scope="//stuff")
+        self.assertIsInstance(res.pop('created_at'), int)
+        self.assertEqual(res, {
+            "name": "X",
+            "file": "../modules/x",
+            "scope": "@collection:stuff",
+            "status": "no such file or directory"
+        })
+
+        res = await client.query('del_module("X");')
+        self.assertIs(res, None)
+
+    async def test_set_module_conf(self, client):
+        res = await client.query(r'''
+            new_module("X", "x", nil, nil);
+        ''', scope='/t')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'function `set_module_conf` is undefined in the `@node` '
+                r'scope; you might want to query the `@thingsdb` scope\?'):
+            await client.query('set_module_conf("X", nil);', scope='/n')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `set_module_conf` takes 2 arguments '
+                r'but 1 was given;'):
+            await client.query('set_module_conf(nil);', scope='/t')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `set_module_conf` expects argument 1 to be of '
+                r'type `str` but got type `nil` instead;'):
+            await client.query('set_module_conf(nil, nil);', scope='/t')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'module name must follow the naming rules;'):
+            await client.query('set_module_conf("", nil);', scope='/t')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'module `Y` not found'):
+            await client.query('set_module_conf("Y", nil);', scope='/t')
+
+        res = await client.query(r'''
+            set_module_conf("X", {
+                name: "Level1",
+                level2: [{
+                    name: "Level2",
+                    level3: {
+                        name: "Level3",
+                    }
+                }]
+            });
+            module_info("X");
+        ''', scope='/t')
+
+        self.assertEqual(res['conf'], {
+            "name": "Level1",
+            "level2": [{
+                "name": "Level2",
+                "level3": {}  # Only 2 deep will be packed
+            }]
+        })
+
+        res = await client.query(r'''
+            set_module_conf("X", 42);
+            module_info("X");
+        ''')
+        self.assertEqual(res['conf'], 42)
+
+        res = await client.query(r'''
+            set_module_conf("X", nil);
+            module_info("X");
+        ''')
+        self.assertEqual(res['conf'], None)
+
+        res = await client.query('del_module("X");')
+        self.assertIs(res, None)
+
+    async def test_set_module_scope(self, client):
+        res = await client.query(r'''
+            new_module("X", "x", nil, nil);
+        ''', scope='/t')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'function `set_module_scope` is undefined in the `@node` '
+                r'scope; you might want to query the `@thingsdb` scope\?'):
+            await client.query('set_module_scope("X", nil);', scope='/n')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `set_module_scope` takes 2 arguments '
+                r'but 1 was given;'):
+            await client.query('set_module_scope(nil);', scope='/t')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `set_module_scope` expects argument 1 to be of '
+                r'type `str` but got type `nil` instead;'):
+            await client.query('set_module_scope(nil, nil);', scope='/t')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'module name must follow the naming rules;'):
+            await client.query('set_module_scope("", nil);', scope='/t')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'module `Y` not found'):
+            await client.query('set_module_scope("Y", nil);', scope='/t')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid scope; the specified collection name is invalid;'):
+            await client.query(
+                'set_module_scope("X", "///stuff");',
+                scope='/t')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'collection `unknown` not found'):
+            await client.query(
+                'set_module_scope("X", "//unknown");',
+                scope='/t')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'collection `unknown` not found'):
+            await client.query(
+                'set_module_scope("X", "//unknown");',
+                scope='/t')
+
+        res = await client.query('set_module_scope("X", "/n");', scope='/t')
+        self.assertIs(res, None)
+
+        with self.assertRaisesRegex(
+                ForbiddenError,
+                r'module `X` is restricted to scope `@node`'):
+            await client.query(r'''
+                future({
+                    module: 'X'
+                });
+            ''', scope='//stuff')
+
+        res = await client.query(
+            'set_module_scope("X", "//stuff");',
+            scope='/t')
+        self.assertIs(res, None)
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'module `X` is not running '
+                r'\(status: no such file or directory\)'):
+            await client.query(r'''
+                future({
+                    module: 'X'
+                });
+            ''', scope='//stuff')
+
+        res = await client.query(
+            'set_module_scope("X", nil);',
+            scope='/t')
+        self.assertIs(res, None)
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'module `X` is not running '
+                r'\(status: no such file or directory\)'):
+            await client.query(r'''
+                future({
+                    module: 'X'
+                });
+            ''', scope='/t')
+
+        res = await client.query('del_module("X");')
+        self.assertIs(res, None)
+
+    async def test_del_module(self, client):
+        res = await client.query(r'''
+            new_module("X", "x", nil, nil);
+        ''', scope='/t')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'function `del_module` is undefined in the `@node` '
+                r'scope; you might want to query the `@thingsdb` scope\?'):
+            await client.query('del_module("X");', scope='/n')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `del_module` takes 1 argument '
+                r'but 0 were given;'):
+            await client.query('del_module();', scope='/t')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `del_module` expects argument 1 to be of '
+                r'type `str` but got type `int` instead;'):
+            await client.query('del_module(1);', scope='/t')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'module name must follow the naming rules;'):
+            await client.query('del_module("");', scope='/t')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'module `Y` not found'):
+            await client.query('del_module("Y");', scope='/t')
+
+        res = await client.query('del_module("X");')
+        self.assertIs(res, None)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'module `X` not found'):
+            await client.query('del_module("X");', scope='/t')
+
+    async def _OFF_test_demo_module(self, client):
         await client.query(r'''
             new_module('DEMO', 'demo/demo', nil, nil);
         ''', scope='/t')
@@ -155,7 +399,7 @@ class TestModules(TestBase):
         ''')
         self.assertEqual(res, 'Got this message back: Hi ThingsDB!')
 
-    async def test_requests_module(self, client):
+    async def _OFF_test_requests_module(self, client):
         await client.query(r'''
             new_module('REQUESTS', 'requests/requests', nil, nil);
         ''', scope='/t')

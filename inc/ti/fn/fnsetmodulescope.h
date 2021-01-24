@@ -18,7 +18,7 @@ static int do__f_set_module_scope(ti_query_t * query, cleri_node_t * nd, ex_t * 
     rname = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children->next->next->node, e))
         goto fail0;
 
     /* All statements are parsed, now check if the module (still) exists) */
@@ -67,6 +67,6 @@ static int do__f_set_module_scope(ti_query_t * query, cleri_node_t * nd, ex_t * 
 fail1:
     free(scope_id);
 fail0:
-    ti_val_unsafe_drop(query->rval);
+    ti_val_unsafe_drop((ti_val_t *) rname);
     return e->nr;
 }

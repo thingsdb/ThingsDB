@@ -25,11 +25,13 @@ enum
 
 enum
 {
-    TI_MODULE_FLAG_IN_USE       =1<<0,
-    TI_MODULE_FLAG_WAIT_CONF    =1<<1,
-    TI_MODULE_FLAG_DESTROY      =1<<2,
-    TI_MODULE_FLAG_WITH_CONF    =1<<3,      /* used for info */
-    TI_MODULE_FLAG_WITH_TASKS   =1<<4,      /* used for info */
+    TI_MODULE_FLAG_IN_USE           =1<<0,
+    TI_MODULE_FLAG_WAIT_CONF        =1<<1,
+    TI_MODULE_FLAG_DESTROY          =1<<2,
+    TI_MODULE_FLAG_RESTARTING       =1<<3,
+    TI_MODULE_FLAG_WITH_CONF        =1<<4,      /* used for info */
+    TI_MODULE_FLAG_WITH_TASKS       =1<<5,      /* used for info */
+    TI_MODULE_FLAG_WITH_RESTARTS    =1<<6,      /* used for info */
 };
 
 struct ti_module_s

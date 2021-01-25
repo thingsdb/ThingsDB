@@ -14,6 +14,7 @@ from test_future import TestFuture
 from test_gc import TestGC
 from test_http_api import TestHTTPAPI
 from test_index_slice import TestIndexSlice
+from test_modules import TestModules
 from test_multi_node import TestMultiNode
 from test_nested import TestNested
 from test_node_functions import TestNodeFunctions
@@ -59,6 +60,7 @@ if __name__ == '__main__':
     run_test(TestGC())
     run_test(TestHTTPAPI())
     run_test(TestIndexSlice())
+    run_test(TestModules())
     run_test(TestMultiNode())
     run_test(TestNested())
     run_test(TestNodeFunctions())

@@ -5,6 +5,21 @@
 * Fixed bug in enumerator member conversion to `str` or `bytes`, issue #137.
 * Fixed possible memory leak in `imap`, issue #139.
 * Changed access policy, issue #138.
+* Added future type, issue #140.
+  - `then`: https://docs.thingsdb.net/v0/data-types/future/then/
+  - `else`: https://docs.thingsdb.net/v0/data-types/future/else/
+  - `future`: https://docs.thingsdb.net/v0/collection-api/future/
+  - `is_future`: https://docs.thingsdb.net/v0/collection-api/is_future/
+  - `cancelled_err`: https://docs.thingsdb.net/v0/errors/cancelled_err/
+* Added module support, issue #141.
+  - `has_module`: https://docs.thingsdb.net/v0/thingsdb-api/has_module/
+  - `module_info`: https://docs.thingsdb.net/v0/thingsdb-api/module_info/
+  - `modules_info`: https://docs.thingsdb.net/v0/thingsdb-api/modules_info/
+  - `new_module`: https://docs.thingsdb.net/v0/thingsdb-api/new_module/
+  - `rename_module`: https://docs.thingsdb.net/v0/thingsdb-api/rename_module/
+  - `set_module_conf`: https://docs.thingsdb.net/v0/thingsdb-api/set_module_conf/
+  - `set_module_scope`: https://docs.thingsdb.net/v0/thingsdb-api/set_module_scope/
+  - `restart_module`: https://docs.thingsdb.net/v0/node-api/restart_module/
 
 # v0.10.1
 

@@ -64,5 +64,4 @@ static int do__f_rename_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * 
 fail0:
     ti_val_unsafe_drop((ti_val_t *) nname);
     return e->nr;
-
 }

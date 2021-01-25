@@ -48,6 +48,40 @@ class TestFuture(TestBase):
                 fut();
             ''')
 
+    async def test_future_var(self, client):
+        with self.assertRaisesRegex(
+                TypeError,
+                r'`>` not supported between `future` and `int`'):
+            await client.query(r'''
+                future(nil) > 1;
+            ''')
+
+        res = await client.query(r'''
+            type(future(nil));
+        ''')
+        self.assertEqual(res, "future")
+
+        res = await client.query(r'''
+            f = future(nil);
+            .x = f;  // Assign to collectoin converts the future to `nil`
+            type(.x);
+        ''')
+        self.assertEqual(res, "nil")
+
+        res = await client.query(r'''
+            f = future(nil);
+            x = f;
+            type(x);
+        ''')
+        self.assertEqual(res, "future")
+
+        res = await client.query(r'''
+            f = future(nil);
+            x = [f];
+            type(x[0]);
+        ''')
+        self.assertEqual(res, "nil")
+
     async def test_future_gc(self, client):
         await client.query(r'''
             y = {};
@@ -69,7 +103,6 @@ class TestFuture(TestBase):
             future(nil, "test2", ret).then(|_, res, ret| {
                 ret.push(res);
             });
-
             ret;
         ''')
         self.assertEqual(sorted(res), ['test1', 'test2'])

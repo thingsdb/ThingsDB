@@ -9,7 +9,7 @@ static int do__f_modules_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     if (query->qbind.flags & TI_QBIND_FLAG_NODE)
-        flags |= TI_MODULE_FLAG_WITH_TASKS;
+        flags |= TI_MODULE_FLAG_WITH_TASKS|TI_MODULE_FLAG_WITH_RESTARTS;
 
     if (ti_access_check(ti.access_thingsdb, query->user, TI_AUTH_EVENT))
         flags |= TI_MODULE_FLAG_WITH_CONF;

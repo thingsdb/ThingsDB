@@ -23,7 +23,7 @@
  *  "-alpha-1"
  *  ""
  */
-#define TI_VERSION_PRE_RELEASE "-alpha-4"
+#define TI_VERSION_PRE_RELEASE "-alpha-5"
 
 #define TI_MAINTAINER \
     "Jeroen van der Heijden <jeroen@transceptor.technology>"

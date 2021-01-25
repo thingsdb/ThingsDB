@@ -87,6 +87,7 @@
 #include <ti/fn/fnisenum.h>
 #include <ti/fn/fniserr.h>
 #include <ti/fn/fnisfloat.h>
+#include <ti/fn/fnisfuture.h>
 #include <ti/fn/fnisinf.h>
 #include <ti/fn/fnisint.h>
 #include <ti/fn/fnislist.h>
@@ -139,11 +140,13 @@
 #include <ti/fn/fnremove.h>
 #include <ti/fn/fnrenamecollection.h>
 #include <ti/fn/fnrenameenum.h>
+#include <ti/fn/fnrenamemodule.h>
 #include <ti/fn/fnrenameprocedure.h>
 #include <ti/fn/fnrenametype.h>
 #include <ti/fn/fnrenameuser.h>
 #include <ti/fn/fnreplace.h>
 #include <ti/fn/fnresetcounters.h>
+#include <ti/fn/fnrestartmodule.h>
 #include <ti/fn/fnrestore.h>
 #include <ti/fn/fnreturn.h>
 #include <ti/fn/fnreverse.h>
@@ -219,11 +222,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 199,
+    TOTAL_KEYWORDS = 202,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 17,
-    MAX_HASH_VALUE = 482
+    MIN_HASH_VALUE = 23,
+    MAX_HASH_VALUE = 476
 };
 
 static inline unsigned int qbind__hash(
@@ -232,32 +235,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483,   9, 483,   9, 483,   6, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483,   4, 483,   5, 100,  39,
-         25,   4,  45, 120, 126,   4,   8,  54,  48,   9,
-          8,  29,  57,   6,   5,   4,   7,  20, 130, 162,
-        129,  87,   7, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483
+        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
+        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
+        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
+        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
+        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
+        477, 477,   8, 477,   7, 477,   7, 477, 477, 477,
+        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
+        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
+        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
+        477, 477, 477, 477, 477,   7, 477,  11,  64,  34,
+         14,   7,  52, 179, 110,   7,   7,  58,  40,   8,
+         10,  43,  51,   7,   8,   7,  10,  10,  63, 170,
+        149, 152,  21, 477, 477, 477, 477, 477, 477, 477,
+        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
+        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
+        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
+        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
+        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
+        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
+        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
+        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
+        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
+        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
+        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
+        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
+        477, 477, 477, 477, 477, 477
     };
 
     register unsigned int hval = n;
@@ -472,6 +475,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="is_enum",           .fn=do__f_is_enum,              ROOT_NE},
     {.name="is_err",            .fn=do__f_is_err,               ROOT_NE},
     {.name="is_float",          .fn=do__f_is_float,             ROOT_NE},
+    {.name="is_future",         .fn=do__f_is_future,            ROOT_NE},
     {.name="is_inf",            .fn=do__f_is_inf,               ROOT_NE},
     {.name="is_int",            .fn=do__f_is_int,               ROOT_NE},
     {.name="is_list",           .fn=do__f_is_list,              ROOT_NE},
@@ -530,11 +534,13 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="remove",            .fn=do__f_remove,               CHAIN_CE_XVAR},
     {.name="rename_collection", .fn=do__f_rename_collection,    ROOT_TE},
     {.name="rename_enum",       .fn=do__f_rename_enum,          ROOT_CE},
+    {.name="rename_module",     .fn=do__f_rename_module,        ROOT_TE},
     {.name="rename_procedure",  .fn=do__f_rename_procedure,     ROOT_BE},
     {.name="rename_type",       .fn=do__f_rename_type,          ROOT_CE},
     {.name="rename_user",       .fn=do__f_rename_user,          ROOT_TE},
     {.name="replace",           .fn=do__f_replace,              CHAIN_NE},
     {.name="reset_counters",    .fn=do__f_reset_counters,       ROOT_NE},
+    {.name="restart_module",    .fn=do__f_restart_module,       ROOT_NE},
     {.name="restore",           .fn=do__f_restore,              ROOT_TE},
     {.name="return",            .fn=do__f_return,               ROOT_NE},
     {.name="reverse",           .fn=do__f_reverse,              CHAIN_NE},
@@ -542,9 +548,9 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="run",               .fn=do__f_run,                  XROOT_NE},
     {.name="set_enum",          .fn=do__f_set_enum,             ROOT_CE},
     {.name="set_log_level",     .fn=do__f_set_log_level,        ROOT_NE},
-    {.name="set_module_conf",   .fn=do__f_set_password,         ROOT_TE},
-    {.name="set_module_scope",  .fn=do__f_set_module_conf,      ROOT_TE},
-    {.name="set_password",      .fn=do__f_set_module_scope,     ROOT_TE},
+    {.name="set_module_conf",   .fn=do__f_set_module_conf,      ROOT_TE},
+    {.name="set_module_scope",  .fn=do__f_set_module_scope,     ROOT_TE},
+    {.name="set_password",      .fn=do__f_set_password,         ROOT_TE},
     {.name="set_time_zone",     .fn=do__f_set_time_zone,        ROOT_TE},
     {.name="set_type",          .fn=do__f_set_type,             ROOT_CE},
     {.name="set",               .fn=do__f_set,                  BOTH_CE_XROOT},

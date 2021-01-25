@@ -162,6 +162,13 @@ void ti_destroy(void)
     assert(ti_nil_no_ref());
     assert(ti_vint_no_ref());
 
+    /*
+     * When modules are actually loaded, the `modules` map is already destroyed
+     * by `ti_modules_stop_and_destroy`. Otherwise, we just need to clean the
+     * mapping.
+     */
+    smap_destroy(ti.modules, NULL);
+
     if (ti.langdef)
         cleri_grammar_free(ti.langdef);
 
@@ -595,12 +602,19 @@ void ti_stop(void)
     if (ti.node)
     {
         ti_set_and_broadcast_node_status(TI_NODE_STAT_OFFLINE);
-        ti_modules_stop_and_destroy();
 
         (void) ti_collections_gc();
         (void) ti_archive_to_disk();
+
+        /*
+         * Stop the modules after writing to disk since it might be required
+         * to write the modules to disk as well.
+         */
+        ti_modules_stop_and_destroy();
+
         (void) ti_backups_store();
         (void) ti_nodes_write_global_status();
+
         if (ti.flags & TI_FLAG_NODES_CHANGED)
             (void) ti_save();
     }

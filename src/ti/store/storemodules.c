@@ -110,8 +110,8 @@ int ti_store_modules_restore(const char * fn)
             mp_next(&up, &mp_name) != MP_STR ||
             mp_next(&up, &mp_file) != MP_STR ||
             mp_next(&up, &mp_created) != MP_U64 ||
-            mp_next(&up, &mp_pkg) > MP_END ||
-            mp_next(&up, &mp_scope) > MP_END
+            mp_next(&up, &mp_pkg) <= MP_END ||
+            mp_next(&up, &mp_scope) <= MP_END
         ) goto fail;
 
         if (mp_pkg.tp == MP_BIN)

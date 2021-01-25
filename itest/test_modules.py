@@ -175,6 +175,23 @@ class TestModules(TestBase):
         res = await client.query('del_module("X");')
         self.assertIs(res, None)
 
+    async def test_module_info(self, client):
+        res = await client.query(r'''
+            new_module("X", "bin", nil, "//stuff");
+            new_module("Y", "bin", "conf:123", nil);
+        ''', scope='/t')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `modules_info` takes 0 arguments '
+                r'but 2 were given;'):
+            await client.query('modules_info("X", "x");')
+
+        res = await client.query('modules_info();', scope="/t")
+        self.assertEqual(len(res), 2)
+        res = await client.query('["X", "Y"].each(|m| del_module(m));')
+        self.assertIs(res, None)
+
     async def test_set_module_conf(self, client):
         res = await client.query(r'''
             new_module("X", "x", nil, nil);
@@ -383,6 +400,45 @@ class TestModules(TestBase):
                 LookupError,
                 r'module `X` not found'):
             await client.query('del_module("X");', scope='/t')
+
+    async def test_future_module(self, client):
+        res = await client.query(r'''
+            new_module("X", "x", nil, nil);
+        ''', scope='/t')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `future` requires at least 1 argument '
+                r'but 0 were given;'):
+            await client.query('future();', scope='/t')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `future` expects argument 1 to be of '
+                r'type `thing` or `nil` but got type `str` instead;'):
+            await client.query('future("X");', scope='/t')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'missing `module` in future request;'):
+            await client.query('future({});', scope='/t')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'module `Z` not found'):
+            await client.query('future({module: "Z"});', scope='/t')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'module `X` is not running '
+                r'\(status: no such file or directory\)'):
+            await client.query('future({module: "X"});', scope='/t')
+
+        res = await client.query('future({module: "X"}).else(||nil);')
+        self.assertIs(res, None)
+
+        res = await client.query('del_module("X");')
+        self.assertIs(res, None)
 
     async def _OFF_test_demo_module(self, client):
         await client.query(r'''

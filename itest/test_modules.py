@@ -23,7 +23,7 @@ class TestModules(TestBase):
     title = 'Test modules'
 
     @default_test_setup(
-        num_nodes=1,
+        num_nodes=2,
         seed=1,
         threshold_full_storage=100,
         modules_path='../modules/')
@@ -33,6 +33,9 @@ class TestModules(TestBase):
 
         client = await get_client(self.node0)
         client.set_default_scope('//stuff')
+
+        # add another node otherwise backups are not possible
+        # await self.node1.join_until_ready(client)
 
         await self.run_tests(client)
 
@@ -45,67 +48,61 @@ class TestModules(TestBase):
                 LookupError,
                 r'function `new_module` is undefined in the `@collection` '
                 r'scope; you might want to query the `@thingsdb` scope\?'):
-            await client.query('new_module("X", "x", nil, nil);')
+            await client.query('new_module("X", "x");')
 
         client.set_default_scope('/t')
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `new_module` takes 4 arguments but 1 was given'):
+                'function `new_module` requires at least 2 arguments '
+                'but 1 was given'):
             await client.query('new_module(1234);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `new_module` takes at most 3 arguments '
+                'but 4 were given'):
+            await client.query('new_module(1, 2, 3, 4);')
 
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `new_module` expects argument 1 to be '
                 r'of type `str` but got type `int` instead'):
-            await client.query('new_module(1, "x", nil, nil);')
+            await client.query('new_module(1, "x");')
 
         with self.assertRaisesRegex(
                 ValueError,
                 r'module name must follow the naming rules'):
-            await client.query('new_module("", "x", nil, nil);')
+            await client.query('new_module("", "x");')
 
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `new_module` expects argument 2 to be of '
                 r'type `str` but got type `int` instead'):
-            await client.query('new_module("X", 1, nil, nil);')
+            await client.query('new_module("X", 1);')
 
         with self.assertRaisesRegex(
                 ValueError,
                 r'file argument must not be an empty string'):
-            await client.query('new_module("X", "", nil, nil);')
+            await client.query('new_module("X", "");')
 
         with self.assertRaisesRegex(
                 ValueError,
                 r'file argument contains illegal characters'):
-            await client.query('new_module("X", "\n", nil, nil);')
+            await client.query('new_module("X", "\n");')
 
-        with self.assertRaisesRegex(
-                TypeError,
-                r'function `new_module` expects argument 4 to be of '
-                r'type `str` or `nil` but got type `int` instead'):
-            await client.query('new_module("X", "x", nil, 1);')
-
-        with self.assertRaisesRegex(
-                ValueError,
-                r'invalid scope; scopes must start with a `@` or `/` but '
-                r'got `stuff` instead'):
-            await client.query('new_module("X", "x", nil, "stuff");')
-
-        with self.assertRaisesRegex(
-                LookupError,
-                r'collection `bla` not found'):
-            await client.query('new_module("X", "x", nil, "//bla");')
-
-        res = await client.query('new_module("X", "x", nil, "//stuff");')
+        res = await client.query('new_module("X", "x", nil);')
         self.assertIs(res, None)
 
-        res = await client.query('del_module("X");')
+        res = await client.query('new_module("Y", "y");')
+        self.assertIs(res, None)
+
+        res = await client.query('["X", "Y"].each(|m| del_module(m));')
         self.assertIs(res, None)
 
     async def test_module_info(self, client):
         res = await client.query(r'''
-            new_module("X", "x", nil, "//stuff");
+            new_module("X", "x");
+            set_module_scope("//stuff");
         ''', scope='/t')
 
         with self.assertRaisesRegex(
@@ -177,8 +174,9 @@ class TestModules(TestBase):
 
     async def test_module_info(self, client):
         res = await client.query(r'''
-            new_module("X", "bin", nil, "//stuff");
-            new_module("Y", "bin", "conf:123", nil);
+            new_module("X", "bin", nil);
+            set_module_scope("X", '//stuff');
+            new_module("Y", "bin", "conf:123");
         ''', scope='/t')
 
         with self.assertRaisesRegex(
@@ -194,7 +192,7 @@ class TestModules(TestBase):
 
     async def test_set_module_conf(self, client):
         res = await client.query(r'''
-            new_module("X", "x", nil, nil);
+            new_module("X", "x");
         ''', scope='/t')
 
         with self.assertRaisesRegex(
@@ -263,7 +261,7 @@ class TestModules(TestBase):
 
     async def test_set_module_scope(self, client):
         res = await client.query(r'''
-            new_module("X", "x", nil, nil);
+            new_module("X", "x");
         ''', scope='/t')
 
         with self.assertRaisesRegex(
@@ -362,8 +360,8 @@ class TestModules(TestBase):
 
     async def test_rename_module(self, client):
         res = await client.query(r'''
-            new_module("X", "x", nil, nil);
-            new_module("Y", "y", nil, nil);
+            new_module("X", "x");
+            new_module("Y", "y");
         ''', scope='/t')
 
         with self.assertRaisesRegex(
@@ -415,7 +413,7 @@ class TestModules(TestBase):
 
     async def test_del_module(self, client):
         res = await client.query(r'''
-            new_module("X", "x", nil, nil);
+            new_module("X", "x");
         ''', scope='/t')
 
         with self.assertRaisesRegex(
@@ -456,7 +454,7 @@ class TestModules(TestBase):
 
     async def test_restart_module(self, client):
         res = await client.query(r'''
-            new_module("X", "x", nil, nil);
+            new_module("X", "x");
         ''', scope='/t')
 
         with self.assertRaisesRegex(
@@ -495,7 +493,7 @@ class TestModules(TestBase):
 
     async def test_future_module(self, client):
         res = await client.query(r'''
-            new_module("X", "x", nil, nil);
+            new_module("X", "x");
         ''', scope='/t')
 
         with self.assertRaisesRegex(
@@ -532,9 +530,83 @@ class TestModules(TestBase):
         res = await client.query('del_module("X");')
         self.assertIs(res, None)
 
+    async def test_future_then_module(self, client):
+        res = await client.query(r'''
+            new_module("X", "x");
+        ''', scope='/t')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `then` takes 1 argument but 0 were given;'):
+            await client.query('future(nil).then();', scope='/t')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `then` expects argument 1 to be of '
+                r'type `closure` but got type `str` instead;'):
+            await client.query('future(nil).then("test");', scope='/t')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'only one `then` case is allowed'):
+            await client.query('future(nil).then(||nil).then(||nil);')
+
+        res = await client.query('type(future(nil).then(||nil));')
+        self.assertEqual(res, 'future')
+
+        res = await client.query(r'''
+            a = event_id();
+            future(nil, a).then(|_, a| {
+                b = event_id();
+                .arr = [is_int(a), is_int(b)];
+            });
+        ''', scope='//stuff')
+
+        self.assertEqual(res, [False, True])
+
+        res = await client.query('del_module("X");')
+        self.assertIs(res, None)
+
+    async def test_future_else_module(self, client):
+        res = await client.query(r'''
+            new_module("X", "x");
+        ''', scope='/t')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `else` takes 1 argument but 0 were given;'):
+            await client.query('future(nil).else();', scope='/t')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `else` expects argument 1 to be of '
+                r'type `closure` but got type `str` instead;'):
+            await client.query('future(nil).else("test");', scope='/t')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'only one `else` case is allowed'):
+            await client.query('future(nil).else(||nil).else(||nil);')
+
+        res = await client.query('type(future(nil).else(||nil));')
+        self.assertEqual(res, 'future')
+
+        res = await client.query(r'''
+            a = event_id();
+            future({module: "X"}, a).else(|_, a| {
+                b = event_id();
+                .arr = [is_int(a), is_int(b)];
+            });
+        ''', scope='//stuff')
+
+        self.assertEqual(res, [False, True])
+
+        res = await client.query('del_module("X");')
+        self.assertIs(res, None)
+
     async def _OFF_test_demo_module(self, client):
         await client.query(r'''
-            new_module('DEMO', 'demo/demo', nil, nil);
+            new_module('DEMO', 'demo/demo');
         ''', scope='/t')
 
         res = await client.query(r'''
@@ -549,7 +621,7 @@ class TestModules(TestBase):
 
     async def _OFF_test_requests_module(self, client):
         await client.query(r'''
-            new_module('REQUESTS', 'requests/requests', nil, nil);
+            new_module('REQUESTS', 'requests/requests');
         ''', scope='/t')
 
         res = await client.query(r'''

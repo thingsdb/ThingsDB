@@ -1486,6 +1486,21 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query('is_float( 42 );'))
         self.assertFalse(await client.query('is_float( nil );'))
 
+    async def test_is_future(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `is_future` takes 1 argument but 0 were given'):
+            await client.query('is_future();')
+
+        self.assertTrue(await client.query('is_future(future(nil));'))
+        self.assertTrue(await client.query(
+            'is_future(future(nil).then(||nil));'))
+        self.assertTrue(await client.query(
+            'is_future(future(nil).else(||nil));'))
+        self.assertFalse(await client.query('is_future([future(nil)][0]); '))
+        self.assertFalse(await client.query('is_future( 42 );'))
+        self.assertFalse(await client.query('is_future( nil );'))
+
     async def test_is_inf(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
@@ -3459,6 +3474,37 @@ class TestCollectionFunctions(TestBase):
 
         err = await client.query('zero_div_err("my custom error msg");')
         self.assertEqual(err['error_code'], Err.EX_ZERO_DIV)
+        self.assertEqual(err['error_msg'], "my custom error msg")
+
+    async def test_cancelled_err(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `cancelled_err` takes at most 1 argument '
+                'but 2 were given'):
+            await client.query('cancelled_err("bla", 2);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `cancelled_err` expects argument 1 to be of '
+                'type `str` but got type `nil` instead'):
+            await client.query('cancelled_err(nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `cancelled_err` expects argument 1 to be of '
+                'type `str` but got type `bytes` instead'):
+            await client.query(
+                'cancelled_err(blob);',
+                blob=pickle.dumps({}))
+
+        err = await client.query('cancelled_err();')
+        self.assertEqual(err['error_code'], Err.EX_CANCELLED)
+        self.assertEqual(
+            err['error_msg'],
+            "operation is cancelled before completion")
+
+        err = await client.query('cancelled_err("my custom error msg");')
+        self.assertEqual(err['error_code'], Err.EX_CANCELLED)
         self.assertEqual(err['error_msg'], "my custom error msg")
 
     async def test_value_err(self, client):

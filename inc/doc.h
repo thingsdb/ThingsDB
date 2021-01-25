@@ -42,6 +42,7 @@
 #define DOC_IS_ENUM                 DOC_SEE("collection-api/is_enum")
 #define DOC_IS_ERR                  DOC_SEE("collection-api/is_err")
 #define DOC_IS_FLOAT                DOC_SEE("collection-api/is_float")
+#define DOC_IS_FUTURE               DOC_SEE("collection-api/is_future")
 #define DOC_IS_INF                  DOC_SEE("collection-api/is_inf")
 #define DOC_IS_INT                  DOC_SEE("collection-api/is_int")
 #define DOC_IS_LIST                 DOC_SEE("collection-api/is_list")

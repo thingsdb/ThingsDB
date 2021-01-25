@@ -64,8 +64,8 @@ class TestThingsDBFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 ForbiddenError,
-                r'user `user1` is missing the required privileges \(`QUERY`\) '
-                r'on scope `@collection:stuff`'):
+                r'user `user1` is missing the required privileges '
+                r'\(`QUERY|RUN`\) on scope `@collection:stuff`'):
             await user1_cl.query('collection_info("stuff");')
 
         with self.assertRaisesRegex(

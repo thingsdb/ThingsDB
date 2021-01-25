@@ -738,6 +738,7 @@ void ti_query_on_future_result(ti_future_t * future, ex_t * e)
             future->rval = (ti_val_t *) ti_varr_from_vec(future->args);
             if (future->rval)
             {
+                ex_clear(e);
                 ti_future_forget_cb(future->then);
                 future->then = future->fail;
                 future->fail = NULL;

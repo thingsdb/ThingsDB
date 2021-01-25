@@ -326,6 +326,7 @@ void ti_module_load(ti_module_t * module)
 
 void ti_module_restart(ti_module_t * module)
 {
+    log_info("restarting module `%s`...", module->name->str);
     if (module->flags & TI_MODULE_FLAG_IN_USE)
     {
         module->flags |= TI_MODULE_FLAG_RESTARTING;

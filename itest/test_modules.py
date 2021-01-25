@@ -360,6 +360,59 @@ class TestModules(TestBase):
         res = await client.query('del_module("X");')
         self.assertIs(res, None)
 
+    async def test_rename_module(self, client):
+        res = await client.query(r'''
+            new_module("X", "x", nil, nil);
+            new_module("Y", "y", nil, nil);
+        ''', scope='/t')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'function `rename_module` is undefined in the `@node` '
+                r'scope; you might want to query the `@thingsdb` scope\?'):
+            await client.query('rename_module("X", nil);', scope='/n')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `rename_module` takes 2 arguments '
+                r'but 1 was given;'):
+            await client.query('rename_module(nil);', scope='/t')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `rename_module` expects argument 1 to be of '
+                r'type `str` but got type `nil` instead;'):
+            await client.query('rename_module(nil, "Y");', scope='/t')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'module name must follow the naming rules;'):
+            await client.query('rename_module("", "Y");', scope='/t')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'module `Z` not found'):
+            await client.query('rename_module("Z", "A");', scope='/t')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'module `Y` already exists'):
+            await client.query('rename_module("X", "Y");', scope='/t')
+
+        res = await client.query(r'''
+            rename_module("X", "Z");
+        ''', scope='/t')
+
+        self.assertIs(res, None)
+
+        res = await client.query(r'''
+            future({module: 'Z'}).else(||42);
+        ''')
+        self.assertEqual(res, 42)
+
+        res = await client.query('["Y", "Z"].each(|m| del_module(m));')
+        self.assertIs(res, None)
+
     async def test_del_module(self, client):
         res = await client.query(r'''
             new_module("X", "x", nil, nil);
@@ -400,6 +453,45 @@ class TestModules(TestBase):
                 LookupError,
                 r'module `X` not found'):
             await client.query('del_module("X");', scope='/t')
+
+    async def test_restart_module(self, client):
+        res = await client.query(r'''
+            new_module("X", "x", nil, nil);
+        ''', scope='/t')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'function `restart_module` is undefined in the `@thingsdb` '
+                r'scope; you might want to query a `@node` scope\?'):
+            await client.query('restart_module("X");', scope='/t')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `restart_module` takes 1 argument '
+                r'but 0 were given;'):
+            await client.query('restart_module();', scope='/n')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `restart_module` expects argument 1 to be of '
+                r'type `str` but got type `int` instead;'):
+            await client.query('restart_module(1);', scope='/n')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'module name must follow the naming rules;'):
+            await client.query('restart_module("");', scope='/n')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'module `Y` not found'):
+            await client.query('restart_module("Y");', scope='/n')
+
+        res = await client.query('restart_module("X");', scope='/n')
+        self.assertIs(res, None)
+
+        res = await client.query('del_module("X");', scope='/t')
+        self.assertIs(res, None)
 
     async def test_future_module(self, client):
         res = await client.query(r'''

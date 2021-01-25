@@ -532,7 +532,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="remove",            .fn=do__f_remove,               CHAIN_CE_XVAR},
     {.name="rename_collection", .fn=do__f_rename_collection,    ROOT_TE},
     {.name="rename_enum",       .fn=do__f_rename_enum,          ROOT_CE},
-    {.name="rename_module",     .fn=do__f_rename_module,        ROOT_CE},
+    {.name="rename_module",     .fn=do__f_rename_module,        ROOT_TE},
     {.name="rename_procedure",  .fn=do__f_rename_procedure,     ROOT_BE},
     {.name="rename_type",       .fn=do__f_rename_type,          ROOT_CE},
     {.name="rename_user",       .fn=do__f_rename_user,          ROOT_TE},

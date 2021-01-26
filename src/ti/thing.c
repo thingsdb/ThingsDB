@@ -10,6 +10,7 @@
 #include <ti/field.h>
 #include <ti/method.h>
 #include <ti/names.h>
+#include <ti/opr.h>
 #include <ti/procedures.h>
 #include <ti/prop.h>
 #include <ti/proto.h>
@@ -940,6 +941,57 @@ _Bool ti__thing_has_watchers_(ti_thing_t * thing)
     return false;
 }
 
+static inline _Bool thing__val_equals(ti_val_t * a, ti_val_t * b, uint8_t deep)
+{
+    return ti_val_is_thing(a)
+            ? ti_thing_equals((ti_thing_t *) a, b, deep)
+            : ti_opr_eq(a, b);
+}
+
+_Bool ti_thing_equals(ti_thing_t * thing, ti_val_t * otherv, uint8_t deep)
+{
+    ti_thing_t * other = (ti_thing_t *) otherv;
+    if (!ti_val_is_thing(otherv))
+        return false;
+    if (thing == other || !deep)
+        return true;
+    if (thing->items->n != other->items->n)
+        return false;
+
+    --deep;
+
+    if (ti_thing_is_object(thing))
+    {
+        for (vec_each(thing->items, ti_prop_t, prop))
+        {
+            ti_val_t * b = ti_thing_weak_val_by_name(other, prop->name);
+            if (!b || !thing__val_equals(prop->val, b, deep))
+                return false;
+        }
+    }
+    else if (thing->type_id == other->type_id)
+    {
+        size_t idx = 0;
+        for (vec_each(thing->items, ti_val_t, a), ++idx)
+        {
+            ti_val_t * b = VEC_get(other->items, idx);
+            if (!thing__val_equals(a, b, deep))
+                return false;
+        }
+    }
+    else
+    {
+        ti_name_t * name;
+        ti_val_t * a;
+        for (thing_t_each(thing, name, a))
+        {
+            ti_val_t * b = ti_thing_weak_val_by_name(other, name);
+            if (!b || !thing__val_equals(a, b, deep))
+                return false;
+        }
+    }
+    return true;
+}
 
 int ti_thing_init_gc(void)
 {

@@ -65,7 +65,7 @@ typedef enum
     TI_VAL_ERROR,
     TI_VAL_MEMBER,      /* enum member */
     TI_VAL_MP,          /* msgpack data */
-    TI_VAL_FUTURE,      /* future, TODO: check compare etc */
+    TI_VAL_FUTURE,      /* future */
     TI_VAL_TEMPLATE,    /* template to generate TI_VAL_STR
                            note that a template is never stored like a value,
                            rather it may build from either a query or a stored

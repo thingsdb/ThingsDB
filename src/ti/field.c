@@ -608,13 +608,11 @@ ti_val_t * ti_field_dval(ti_field_t * field)
     case TI_SPEC_BOOL:
         return (ti_val_t *) ti_vbool_get(false);
     case TI_SPEC_DATETIME:
-        /* TODO: test if this works as expected, since `now` is time depended */
         return (ti_val_t *) ti_datetime_from_i64(
                 (int64_t) util_now_tsec(),
                 0,
                 field->type->types->collection->tz);
     case TI_SPEC_TIMEVAL:
-        /* TODO: test if this works as expected, since `now` is time depended */
         return (ti_val_t *) ti_timeval_from_i64(
                 (int64_t) util_now_tsec(),
                 0,

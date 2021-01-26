@@ -222,6 +222,7 @@
 #define DOC_THING_DEL               DOC_SEE("data-types/thing/del")
 #define DOC_THING_EACH              DOC_SEE("data-types/thing/each")
 #define DOC_THING_EMIT              DOC_SEE("data-types/thing/emit")
+#define DOC_THING_EQUALS            DOC_SEE("data-types/thing/equals")
 #define DOC_THING_FILTER            DOC_SEE("data-types/thing/filter")
 #define DOC_THING_GET               DOC_SEE("data-types/thing/get")
 #define DOC_THING_HAS               DOC_SEE("data-types/thing/has")

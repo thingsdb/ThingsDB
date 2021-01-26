@@ -49,6 +49,7 @@
 #include <ti/fn/fnenum.h>
 #include <ti/fn/fnenuminfo.h>
 #include <ti/fn/fnenumsinfo.h>
+#include <ti/fn/fnequals.h>
 #include <ti/fn/fnerr.h>
 #include <ti/fn/fnerrors.h>
 #include <ti/fn/fneventid.h>
@@ -222,7 +223,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 202,
+    TOTAL_KEYWORDS = 203,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 23,
@@ -433,12 +434,13 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="del",               .fn=do__f_del,                  CHAIN_CE},
     {.name="doc",               .fn=do__f_doc,                  CHAIN_NE},
     {.name="each",              .fn=do__f_each,                 CHAIN_NE},
-    {.name="emit",              .fn=do__f_emit,                 CHAIN_CE},
     {.name="else",              .fn=do__f_else,                 CHAIN_FUT},
+    {.name="emit",              .fn=do__f_emit,                 CHAIN_CE},
     {.name="ends_with",         .fn=do__f_ends_with,            CHAIN_NE},
     {.name="enum_info",         .fn=do__f_enum_info,            ROOT_NE},
     {.name="enum",              .fn=do__f_enum,                 ROOT_NE},
     {.name="enums_info",        .fn=do__f_enums_info,           ROOT_NE},
+    {.name="equals",            .fn=do__f_equals,               CHAIN_NE},
     {.name="err",               .fn=do__f_err,                  ROOT_NE},
     {.name="event_id",          .fn=do__f_event_id,             ROOT_NE},
     {.name="every",             .fn=do__f_every,                CHAIN_NE},

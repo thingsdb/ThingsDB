@@ -1233,6 +1233,174 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(await client.query('.has("x");'))
         self.assertFalse(await client.query('.has("y");'))
 
+    async def test_equals(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `equals`'):
+            await client.query('nil.equals(nil);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `equals` requires at least 1 argument '
+                r'but 0 were given'):
+            await client.query('{}.equals();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `equals` takes at most 2 arguments '
+                r'but 3 were given'):
+            await client.query('{}.equals(nil, 2, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `equals` expects argument 2 to be of '
+                r'type `int` but got type `float` instead;'):
+            await client.query('{}.equals(nil, 0.5);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'expecting a `deep` value between 0 and 127 but '
+                r'got -1 instead'):
+            await client.query('{}.equals(nil, -1);')
+
+        res = await client.query(r'''
+            {name: 'hi'}.equals({name: 'hi'});
+        ''')
+        self.assertIs(res, True)
+
+        res = await client.query(r'''
+            {name: 'hi'}.equals({}, 0);
+        ''')
+        self.assertIs(res, True)
+
+        res = await client.query(r'''
+            {name: 'hi'}.equals({}, 1);
+        ''')
+        self.assertIs(res, False)
+
+        res = await client.query(r'''
+            {name: 'hi'}.equals({name: 'hi!'});
+        ''')
+        self.assertIs(res, False)
+
+        res = await client.query(r'''
+            {name: 'hi'}.equals({Name: 'hi'});
+        ''')
+        self.assertIs(res, False)
+
+        res = await client.query(r'''
+            {
+                a: [1, 2],
+                b: {
+                    c: [3, 4],
+                    d: {}
+                }
+            }.equals({
+                a: [1, 2],
+                b: {
+                    c: [3, 4],
+                    d: {}
+                }
+            }, 3);
+        ''')
+        self.assertIs(res, True)
+
+        res = await client.query(r'''
+            {
+                a: [1, 2],
+                b: {
+                    c: [3, 4],
+                    d: {}
+                }
+            }.equals({
+                a: [1, 2],
+                b: {
+                    c: [3, 4],
+                    d: {
+                        e: 0
+                    }
+                }
+            }, 2);
+        ''')
+        self.assertIs(res, True)
+
+        res = await client.query(r'''
+            {
+                a: [1, 2],
+                b: {
+                    c: [3, 4],
+                    d: {}
+                }
+            }.equals({
+                a: [1, 2],
+                b: {
+                    c: [3, 4],
+                    d: {
+                        e: 0
+                    }
+                }
+            }, 3);
+        ''')
+        self.assertIs(res, False)
+
+        res = await client.query(r'''
+            set_type('A', {
+                name: 'str',
+                age: 'int'
+            });
+            set_type('B', {
+                name: 'str',
+                age: 'float'
+            });
+            set_type('C', {
+                name: 'str',
+                address: 'str'
+            });
+            A{}.equals(B{});
+        ''')
+        self.assertIs(res, True)
+
+        res = await client.query(r'''
+            A{}.equals(A{});
+        ''')
+        self.assertIs(res, True)
+
+        res = await client.query(r'''
+            A{}.equals(C{});
+        ''')
+        self.assertIs(res, False)
+
+        res = await client.query(r'''
+            A{}.equals(C{}, 0);
+        ''')
+        self.assertIs(res, True)
+
+        res = await client.query(r'''
+            A{}.equals({}, 0);
+        ''')
+        self.assertIs(res, True)
+
+        res = await client.query(r'''
+            A{}.equals({}, 1);
+        ''')
+        self.assertIs(res, False)
+
+        res = await client.query(r'''
+            A{}.equals({
+                name: '',
+                age: 0,
+            });
+        ''')
+        self.assertIs(res, True)
+
+        res = await client.query(r'''
+            A{}.equals({
+                name: '',
+                age: 1,
+            });
+        ''')
+        self.assertIs(res, False)
+
     async def test_id(self, client):
         o = await client.query(r'.o = {};')
         self.assertTrue(isinstance(o['#'], int))

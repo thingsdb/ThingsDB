@@ -505,7 +505,8 @@ class TestModules(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `future` expects argument 1 to be of '
-                r'type `thing` or `nil` but got type `str` instead;'):
+                r'type `thing`, `closure` or `nil` '
+                r'but got type `str` instead;'):
             await client.query('future("X");', scope='/t')
 
         with self.assertRaisesRegex(
@@ -523,6 +524,25 @@ class TestModules(TestBase):
                 r'module `X` is not running '
                 r'\(status: no such file or directory\)'):
             await client.query('future({module: "X"});', scope='/t')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'variable `b` is undefined'):
+            await client.query(r'''
+                a = 1; c = 3;
+                future(|a, b, c| nil);
+            ''', scope='/t')
+
+        res = await client.query(r'''
+            a = event_id();
+            b = 42;
+            future(|a, b| {
+                c = event_id();
+                .arr = [is_int(a), is_int(b), is_int(c)];
+            });
+        ''', scope='//stuff')
+
+        self.assertEqual(res, [False, True, True])
 
         res = await client.query('future({module: "X"}).else(||nil);')
         self.assertIs(res, None)

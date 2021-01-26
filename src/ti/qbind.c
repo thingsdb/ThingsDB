@@ -374,6 +374,8 @@ typedef struct
         .flags=FN__FLAG_CHAIN|FN__FLAG_EXCL_VAR|FN__FLAG_EV_C|FN__FLAG_AS_ON_VAR
 #define CHAIN_FUT \
         .flags=FN__FLAG_CHAIN|FN__FLAG_AS_ON_VAR|FN__FLAG_FUT
+#define ROOT_FUT \
+        .flags=FN__FLAG_ROOT|FN__FLAG_FUT
 #define BOTH_CE_XROOT \
         .flags=FN__FLAG_ROOT|FN__FLAG_CHAIN|FN__FLAG_EV_C|FN__FLAG_XROOT|FN__FLAG_AS_ON_VAR
 #define XROOT_NE \
@@ -449,7 +451,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="float",             .fn=do__f_float,                ROOT_NE},
     {.name="forbidden_err",     .fn=do__f_forbidden_err,        ROOT_NE},
     {.name="format",            .fn=do__f_format,               CHAIN_NE},
-    {.name="future",            .fn=do__f_future,               ROOT_NE},
+    {.name="future",            .fn=do__f_future,               ROOT_FUT},
     {.name="get",               .fn=do__f_get,                  XCHAIN_NE},
     {.name="grant",             .fn=do__f_grant,                ROOT_TE},
     {.name="has_backup",        .fn=do__f_has_backup,           ROOT_NE},
@@ -761,7 +763,10 @@ static void qbind__function(
             child = child->next ? child->next->next : NULL;
         }
         /* only care about the first argument */
-        for(; child; child = child->next ? child->next->next : NULL, ++nargs);
+        for(; child; child = child->next ? child->next->next : NULL, ++nargs)
+        {
+            qbind__statement(q, child->node);  /* statement */
+        }
     }
     /* for all other, investigate arguments */
     else for(child = nd->children;

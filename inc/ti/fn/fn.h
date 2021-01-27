@@ -29,6 +29,7 @@
 #include <ti/future.h>
 #include <ti/future.inline.h>
 #include <ti/gc.h>
+#include <ti/item.h>
 #include <ti/item.t.h>
 #include <ti/member.h>
 #include <ti/member.inline.h>

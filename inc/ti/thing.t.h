@@ -30,12 +30,21 @@ enum
 union ti_thing_via
 {
     vec_t * vec;                /* contains:
-                                 *  - ti_prop_t : when thing is an object with
-                                 *                only valid name properties.
-                                 *  - ti_val_t : when thing is an instance of
+                                 *  - ti_prop_t :
+                                 *          When thing is an object with
+                                 *          only valid name properties.
+                                 *  - ti_val_t :
+                                 *          When thing is an instance of
                                  *               a type.
                                  */
-    smap_t * smap;              /* contains ti_item_t */
+    smap_t * smap;              /* contains ti_item_t :
+                                 *          In an item the `key` value is of
+                                 *          type ti_raw_t, but valid names are
+                                 *          must still be of type ti_name_t
+                                 *          because logic might decide a
+                                 *          key does not exist in case there is
+                                 *          no name available.
+                                 */
 };
 
 struct ti_thing_s

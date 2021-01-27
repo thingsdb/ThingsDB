@@ -274,7 +274,7 @@ int ti_store_gcollect_restore_data(
                 val = ti_val_from_vup(&vup);
 
                 if (!val || ti_val_make_assignable(&val, thing, name, &e) ||
-                    !ti_thing_o_prop_add(thing, name, val))
+                    !ti_thing_p_prop_add(thing, name, val))
                     goto fail1;
 
                 ti_incref(name);

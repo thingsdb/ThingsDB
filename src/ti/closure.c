@@ -404,7 +404,7 @@ void ti_closure_dec(ti_closure_t * closure, ti_query_t * query)
 
 int ti_closure_vars_nameval(
         ti_closure_t * closure,
-        ti_name_t * name,
+        ti_val_t * name,
         ti_val_t * val,
         ex_t * e)
 {
@@ -427,7 +427,7 @@ int ti_closure_vars_nameval(
         prop = VEC_get(closure->vars, 0);
         ti_incref(name);
         ti_val_unsafe_drop(prop->val);
-        prop->val = (ti_val_t *) name;
+        prop->val = name;
         /* fall through */
     case 0:
         break;

@@ -178,6 +178,31 @@ ti_thing_t * ti_thing_o_create(
     return thing;
 }
 
+ti_thing_t * ti_thing_i_create(uint64_t id, ti_collection_t * collection)
+{
+    ti_thing_t * thing = malloc(sizeof(ti_thing_t));
+    if (!thing)
+        return NULL;
+
+    thing->ref = 1;
+    thing->tp = TI_VAL_THING;
+    thing->flags = TI_THING_FLAG_SWEEP|TI_THING_FLAG_ITEMS;
+    thing->type_id = TI_SPEC_OBJECT;
+
+    thing->id = id;
+    thing->collection = collection;
+    thing->items.smap = smap_create();
+    thing->watchers = NULL;
+
+    if (!thing->items.smap)
+    {
+        ti_thing_destroy(thing);
+        return NULL;
+    }
+    return thing;
+}
+
+
 ti_thing_t * ti_thing_t_create(
         uint64_t id,
         ti_type_t * type,
@@ -395,23 +420,42 @@ ti_thing_t * ti_thing_new_from_vup(ti_vup_t * vup, size_t sz, ex_t * e)
  * Does not increment the `name` and `val` reference counters.
  * Use only when you are sure the property does not yet exist.
  */
-ti_prop_t * ti_thing_o_prop_add(
+ti_prop_t * ti_thing_p_prop_add(
         ti_thing_t * thing,
         ti_name_t * name,
         ti_val_t * val)
 {
-    assert (ti_thing_is_object(thing));
-    assert (ti_thing_o_prop_weak_get(thing, name) == NULL);
-
     ti_prop_t * prop = ti_prop_create(name, val);
     if (!prop || vec_push(&thing->items.vec, prop))
     {
         free(prop);
         return NULL;
     }
-
     return prop;
 }
+
+/*
+ * Does not increment the `key` and `val` reference counters.
+ * Use only when you are sure the property does not yet exist.
+ */
+ti_item_t * ti_thing_i_item_add(
+        ti_thing_t * thing,
+        ti_raw_t * key,
+        ti_val_t * val)
+{
+    ti_item_t * item = ti_item_create(key, val);
+    if (!item || smap_addn(
+            thing->items.smap,
+            (const char *) key->data,
+            key->n,
+            item))
+    {
+        free(item);
+        return NULL;
+    }
+    return item;
+}
+
 
 /*
  * It takes a reference on `name` and `val` when successful
@@ -659,27 +703,40 @@ _Bool ti_thing_o_del(ti_thing_t * thing, ti_name_t * name)
 }
 
 /* Returns the removed property or NULL in case of an error */
-ti_prop_t * ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
+ti_item_t * ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
 {
     assert (ti_thing_is_object(thing));
-
-    uint32_t i = 0;
-    ti_name_t * name = ti_names_weak_from_raw(rname);
-
-    if (name)
+    if (ti_thing_is_object_i(thing))
     {
-        for (vec_each(thing->items.vec, ti_prop_t, prop), ++i)
-        {
-            if (prop->name == name)
-            {
-                if (thing__val_locked(thing, prop->name, prop->val, e))
-                    return NULL;
+        ti_item_t * item = smap_popn(
+                thing->items.smap,
+                (const char *) rname->data,
+                rname->n);
+        if (!item)
+            goto not_found;
 
-                return vec_swap_remove(thing->items.vec, i);
+        return thing__item_val_locked(thing, item->key, item->val, e)
+                ? NULL
+                : item;
+    }
+    else
+    {
+        uint32_t i = 0;
+        ti_name_t * name = ti_names_weak_from_raw(rname);
+
+        if (name)
+        {
+            for (vec_each(thing->items.vec, ti_prop_t, prop), ++i)
+            {
+                if (prop->name == name)
+                    return thing__val_locked(thing, prop->name, prop->val, e)
+                        ? NULL
+                        : vec_swap_remove(thing->items.vec, i);
             }
         }
     }
 
+not_found:
     ti_thing_o_set_not_found(thing, rname, e);
     return NULL;
 }
@@ -1031,6 +1088,20 @@ void ti_thing_t_to_object(ti_thing_t * thing)
     thing->type_id = TI_SPEC_OBJECT;
 }
 
+typedef struct
+{
+    int options;
+    msgpack_packer * pk;
+} thing__pk_cb_t;
+
+static int thing__pk_cb(ti_item_t * item, thing__pk_cb_t * w)
+{
+    return (
+        mp_pack_strn(w->pk, item->key->data, item->key->n) ||
+        ti_val_to_pk(item->val, w->pk, w->options)
+    );
+}
+
 int ti_thing__to_pk(ti_thing_t * thing, msgpack_packer * pk, int options)
 {
     assert (options);  /* should be either positive or negative, not 0 */
@@ -1060,11 +1131,26 @@ int ti_thing__to_pk(ti_thing_t * thing, msgpack_packer * pk, int options)
 
     if (ti_thing_is_object(thing))
     {
-        for (vec_each(thing->items.vec, ti_prop_t, prop))
+        if (ti_thing_is_object_i(thing))
         {
-            if (mp_pack_strn(pk, prop->name->str, prop->name->n) ||
-                ti_val_to_pk(prop->val, pk, options)
-            ) goto fail;
+            thing__pk_cb_t w = {
+                    .options = options,
+                    .pk = pk,
+            };
+            if (smap_values(
+                    thing->items.smap,
+                    (smap_val_cb) thing__pk_cb,
+                    &w))
+                goto fail;
+        }
+        else
+        {
+            for (vec_each(thing->items.vec, ti_prop_t, prop))
+            {
+                if (mp_pack_strn(pk, prop->name->str, prop->name->n) ||
+                    ti_val_to_pk(prop->val, pk, options)
+                ) goto fail;
+            }
         }
     }
     else

@@ -17,6 +17,16 @@ static int each__walk_set(ti_thing_t * t, each__walk_t * w)
     return 0;
 }
 
+static int each__walk_i(ti_item_t * item, each__walk_t * w)
+{
+    if (ti_closure_vars_item(w->closure, item, w->e) ||
+        ti_closure_do_statement(w->closure, w->query, w->e))
+        return -1;
+    ti_val_unsafe_drop(w->query->rval);
+    w->query->rval = NULL;
+    return 0;
+}
+
 static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const char * doc;
@@ -54,13 +64,30 @@ static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_thing_t * thing = (ti_thing_t *) iterval;
         if (ti_thing_is_object(thing))
         {
-            for (vec_each(thing->items.vec, ti_prop_t, p))
+            if (ti_thing_is_object_i(thing))
             {
-                if (ti_closure_vars_prop(closure, p, e) ||
-                    ti_closure_do_statement(closure, query, e))
+                each__walk_t w = {
+                        .e = e,
+                        .closure = closure,
+                        .query = query,
+                };
+
+                if (smap_values(
+                        thing->items.smap,
+                        (smap_val_cb) each__walk_i,
+                        &w))
                     goto fail2;
-                ti_val_unsafe_drop(query->rval);
-                query->rval = NULL;
+            }
+            else
+            {
+                for (vec_each(thing->items.vec, ti_prop_t, p))
+                {
+                    if (ti_closure_vars_prop(closure, p, e) ||
+                        ti_closure_do_statement(closure, query, e))
+                        goto fail2;
+                    ti_val_unsafe_drop(query->rval);
+                    query->rval = NULL;
+                }
             }
         }
         else
@@ -69,7 +96,7 @@ static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ti_val_t * val;
             for (thing_t_each(thing, name, val))
             {
-                if (ti_closure_vars_nameval(closure, name, val, e) ||
+                if (ti_closure_vars_nameval(closure, (ti_val_t *) name, val, e) ||
                     ti_closure_do_statement(closure, query, e))
                     goto fail2;
                 ti_val_unsafe_drop(query->rval);

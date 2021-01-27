@@ -25,4 +25,9 @@ static inline ti_raw_t * ti_mp_create(const unsigned char * bin, size_t n)
     return ti_raw_create(TI_VAL_MP, bin, n);
 }
 
+static inline _Bool ti_raw_is_name(ti_raw_t * raw)
+{
+    return raw->tp == TI_VAL_NAME;
+}
+
 #endif  /* TI_RAW_INLINE_H_ */

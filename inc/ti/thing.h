@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <ti/collection.t.h>
 #include <ti/field.t.h>
+#include <ti/item.t.h>
 #include <ti/name.t.h>
 #include <ti/prop.t.h>
 #include <ti/raw.t.h>
@@ -27,6 +28,7 @@ ti_thing_t * ti_thing_o_create(
         uint64_t id,
         size_t init_sz,
         ti_collection_t * collection);
+ti_thing_t * ti_thing_i_create(uint64_t id, ti_collection_t * collection);
 ti_thing_t * ti_thing_t_create(
         uint64_t id,
         ti_type_t * type,
@@ -40,9 +42,13 @@ int ti_thing_props_from_vup(
         size_t sz,
         ex_t * e);
 ti_thing_t * ti_thing_new_from_vup(ti_vup_t * vup, size_t sz, ex_t * e);
-ti_prop_t * ti_thing_o_prop_add(    /* only when property does not exists */
+ti_prop_t * ti_thing_p_prop_add(    /* only when property does not exists */
         ti_thing_t * thing,
         ti_name_t * name,
+        ti_val_t * val);
+ti_item_t * ti_thing_i_item_add(
+        ti_thing_t * thing,
+        ti_raw_t * key,
         ti_val_t * val);
 ti_prop_t * ti_thing_p_prop_set(
         ti_thing_t * thing,
@@ -54,7 +60,7 @@ void ti_thing_t_prop_set(
         ti_val_t * val);
 void ti_thing_t_to_object(ti_thing_t * thing);
 _Bool ti_thing_o_del(ti_thing_t * thing, ti_name_t * name);
-ti_prop_t * ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e);
+ti_item_t * ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e);
 _Bool ti_thing_get_by_raw(ti_witem_t * witem, ti_thing_t * thing, ti_raw_t * raw);
 ti_val_t * ti_thing_weak_val_by_name(ti_thing_t * thing, ti_name_t * name);
 int ti_thing_get_by_raw_e(

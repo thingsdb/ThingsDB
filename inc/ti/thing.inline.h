@@ -46,13 +46,17 @@ static inline int ti_thing_o_set_val_from_strn(
         ex_t * e)
 {
     if (ti_name_is_valid_strn(str, n))
+        /* Create a name when the key is a valid name, this is required since
+         * some logic, for example in `do.c` checks if a name exists, and from
+         * that result might decide a property exists or not.
+         */
         return ti_thing_o_set_val_from_valid_strn(
                 (ti_wprop_t *) witem,
                 thing, str, n, val, e);
 
     /*
-     *  TODO: UTF-8 encoding depends on correct msgpack data, should we add an
-     *  extra check?
+     *  TODO: UTF-8 encoding depends on correct msgpack data, decide if we
+     *  want to keep this check, or rely on correct usage of msgpack.
      */
 
     if (!strx_is_utf8n(str, n))

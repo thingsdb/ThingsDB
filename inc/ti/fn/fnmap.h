@@ -79,7 +79,7 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ti_val_t * val;
             for (thing_t_each(thing, name, val))
             {
-                if (ti_closure_vars_nameval(closure, name, val, e) ||
+                if (ti_closure_vars_nameval(closure, (ti_val_t *) name, val, e) ||
                     ti_closure_do_statement(closure, query, e) ||
                     ti_varr_append(retvarr, (void **) &query->rval, e))
                     goto fail2;

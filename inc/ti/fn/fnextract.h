@@ -80,43 +80,43 @@ static int do__f_extract(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     /* year */
     name = (ti_name_t *) ti_val_year_name();
     vint = ti_vint_create(tm.tm_year + 1900);
-    if (!vint || !ti_thing_o_prop_add(as_thing, name, (ti_val_t *) vint))
+    if (!vint || !ti_thing_p_prop_add(as_thing, name, (ti_val_t *) vint))
         goto mem_error;
 
     /* month */
     name = (ti_name_t *) ti_val_month_name();
     vint = ti_vint_create(tm.tm_mon + 1);
-    if (!vint || !ti_thing_o_prop_add(as_thing, name, (ti_val_t *) vint))
+    if (!vint || !ti_thing_p_prop_add(as_thing, name, (ti_val_t *) vint))
         goto mem_error;
 
     /* day */
     name = (ti_name_t *) ti_val_day_name();
     vint = ti_vint_create(tm.tm_mday);
-    if (!vint || !ti_thing_o_prop_add(as_thing, name, (ti_val_t *) vint))
+    if (!vint || !ti_thing_p_prop_add(as_thing, name, (ti_val_t *) vint))
         goto mem_error;
 
     /* hour */
     name = (ti_name_t *) ti_val_hour_name();
     vint = ti_vint_create(tm.tm_hour);
-    if (!vint || !ti_thing_o_prop_add(as_thing, name, (ti_val_t *) vint))
+    if (!vint || !ti_thing_p_prop_add(as_thing, name, (ti_val_t *) vint))
         goto mem_error;
 
     /* minute */
     name = (ti_name_t *) ti_val_minute_name();
     vint = ti_vint_create(tm.tm_min);
-    if (!vint || !ti_thing_o_prop_add(as_thing, name, (ti_val_t *) vint))
+    if (!vint || !ti_thing_p_prop_add(as_thing, name, (ti_val_t *) vint))
         goto mem_error;
 
     /* second */
     name = (ti_name_t *) ti_val_second_name();
     vint = ti_vint_create(tm.tm_sec);
-    if (!vint || !ti_thing_o_prop_add(as_thing, name, (ti_val_t *) vint))
+    if (!vint || !ti_thing_p_prop_add(as_thing, name, (ti_val_t *) vint))
         goto mem_error;
 
     /* gmt_offset */
     name = (ti_name_t *) ti_val_gmt_offset_name();
     vint = ti_vint_create(tm.tm_gmtoff);
-    if (!vint || !ti_thing_o_prop_add(as_thing, name, (ti_val_t *) vint))
+    if (!vint || !ti_thing_p_prop_add(as_thing, name, (ti_val_t *) vint))
         goto mem_error;
 
     ti_val_unsafe_drop(query->rval);

@@ -176,12 +176,42 @@ void ti_enum_del_member(ti_enum_t * enum_, ti_member_t * member)
     (void) smap_pop(enum_->smap, member->name->str);
 }
 
+typedef struct
+{
+    ti_enum_t * enum_;
+    ex_t * e;
+} enum__init_t;
+
+static int enum__init_cb(ti_item_t * item, enum__init_t * w)
+{
+    if (!ti_raw_is_name(item->key))
+        ex_set(w->e, EX_VALUE_ERROR,
+                "enum member must follow the naming rules"DOC_NAMES);
+    else
+        (void) ti_member_create(
+                w->enum_,
+                (ti_name_t *) item->key,
+                item->val,
+                w->e);
+    return w->e->nr;
+}
+
 static int enum__init_thing_o(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
 {
-    for (vec_each(thing->items.vec, ti_prop_t, prop))
-        if (!ti_member_create(enum_, prop->name, prop->val, e))
-            return e->nr;
-
+    if (ti_thing_is_object_i(thing))
+    {
+        enum__init_t w = {
+                .enum_ = enum_,
+                .e = e,
+        };
+        (void) smap_values(thing->items.smap, (smap_val_cb) enum__init_cb, &w);
+    }
+    else
+    {
+        for (vec_each(thing->items.vec, ti_prop_t, prop))
+            if (!ti_member_create(enum_, prop->name, prop->val, e))
+                return e->nr;
+    }
     return e->nr;
 }
 

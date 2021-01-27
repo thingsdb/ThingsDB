@@ -54,8 +54,13 @@ class TestDict(TestBase):
             "b": 2,
         })
         res = await client.query(r'''
-            d = thing(.dict);
+            a = {};
+            a[""] = 1;
+            a[""] += 1;
+            a[""] = a.get("") + 1;
+            a;
         ''')
+        self.assertEqual(res, {"": 3})
 
 
 if __name__ == '__main__':

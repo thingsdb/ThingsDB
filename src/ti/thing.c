@@ -822,7 +822,12 @@ ti_val_t * ti_thing_weak_val_by_name(ti_thing_t * thing, ti_name_t * name)
 
 _Bool ti_thing_get_by_raw(ti_witem_t * witem, ti_thing_t * thing, ti_raw_t * r)
 {
-    ti_name_t * name = r->tp == TI_VAL_NAME
+    ti_name_t * name;
+
+    if (ti_thing_is_object_i(thing))
+        return thing_i__get_by_key(witem, thing, r);
+
+    name = r->tp == TI_VAL_NAME
             ? (ti_name_t *) r
             : ti_names_weak_from_raw(r);
     return name && (ti_thing_is_object(thing)

@@ -299,13 +299,25 @@ static int collection__mark_enum_cb(ti_enum_t * enum_, void * UNUSED(data))
     return 0;
 }
 
+static int collection__gc_i_cb(ti_item_t * item, void * UNUSED(arg))
+{
+    collection__gc_val(item->val);
+    return 0;
+}
+
 static void collection__gc_mark_thing(ti_thing_t * thing)
 {
     thing->flags &= ~TI_THING_FLAG_SWEEP;
 
     if (ti_thing_is_object(thing))
-        for (vec_each(thing->items.vec, ti_prop_t, prop))
-            collection__gc_val(prop->val);
+        if (ti_thing_is_object_i(thing))
+            (void) smap_values(
+                    thing->items.smap,
+                    (smap_val_cb) collection__gc_i_cb,
+                    NULL);
+        else
+            for (vec_each(thing->items.vec, ti_prop_t, prop))
+                collection__gc_val(prop->val);
     else
         for (vec_each(thing->items.vec, ti_val_t, val))
             collection__gc_val(val);

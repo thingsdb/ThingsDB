@@ -198,7 +198,7 @@ static int enum__init_cb(ti_item_t * item, enum__init_t * w)
 
 static int enum__init_thing_o(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
 {
-    if (ti_thing_is_object_i(thing))
+    if (ti_thing_is_dict(thing))
     {
         enum__init_t w = {
                 .enum_ = enum_,

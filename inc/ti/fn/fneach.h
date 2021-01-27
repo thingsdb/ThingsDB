@@ -64,7 +64,7 @@ static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_thing_t * thing = (ti_thing_t *) iterval;
         if (ti_thing_is_object(thing))
         {
-            if (ti_thing_is_object_i(thing))
+            if (ti_thing_is_dict(thing))
             {
                 each__walk_t w = {
                         .e = e,

@@ -310,7 +310,7 @@ static void collection__gc_mark_thing(ti_thing_t * thing)
     thing->flags &= ~TI_THING_FLAG_SWEEP;
 
     if (ti_thing_is_object(thing))
-        if (ti_thing_is_object_i(thing))
+        if (ti_thing_is_dict(thing))
             (void) smap_values(
                     thing->items.smap,
                     (smap_val_cb) collection__gc_i_cb,

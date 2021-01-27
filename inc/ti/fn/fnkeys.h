@@ -29,7 +29,7 @@ static int do__f_keys(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_thing_is_object(thing))
     {
-        if (ti_thing_is_object_i(thing))
+        if (ti_thing_is_dict(thing))
         {
             (void) smap_values(
                     thing->items.smap,

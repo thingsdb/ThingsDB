@@ -91,7 +91,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ti_thing_t * thing, * t = (ti_thing_t *) iterval;
 
-        if (ti_thing_is_object_i(t))
+        if (ti_thing_is_dict(t))
         {
             thing = ti_thing_i_create(0, query->collection);
             if (!thing)

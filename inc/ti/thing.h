@@ -115,14 +115,9 @@ static inline _Bool ti_thing_is_object(ti_thing_t * thing)
     return thing->type_id == TI_SPEC_OBJECT;
 }
 
-static inline _Bool ti_thing_is_object_i(ti_thing_t * thing)
+static inline _Bool ti_thing_is_dict(ti_thing_t * thing)
 {
-    return thing->flags & TI_THING_FLAG_ITEMS;
-}
-
-static inline _Bool ti_thing_is_object_p(ti_thing_t * thing)
-{
-    return ti_thing_is_object(thing) && (~thing->flags & TI_THING_FLAG_ITEMS);
+    return thing->flags & TI_THING_FLAG_DICT;
 }
 
 static inline _Bool ti_thing_is_instance(ti_thing_t * thing)

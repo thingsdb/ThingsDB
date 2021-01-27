@@ -24,7 +24,8 @@ enum
                                            a full `dump` in a task while
                                            existing things only can contain
                                            the `id`.*/
-    TI_THING_FLAG_ITEMS     =1<<2,
+    TI_THING_FLAG_DICT      =1<<2,      /* thing is an object and items are
+                                           stored in the smap_t. */
 };
 
 union ti_thing_via

@@ -65,7 +65,7 @@ static inline int ti_thing_o_set_val_from_strn(
         return e->nr;
     }
 
-    if (!ti_thing_is_object_i(thing) && ti_thing_to_items(thing))
+    if (!ti_thing_is_dict(thing) && ti_thing_to_items(thing))
     {
         ex_set_mem(e);
         return e->nr;

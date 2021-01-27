@@ -186,7 +186,7 @@ ti_thing_t * ti_thing_i_create(uint64_t id, ti_collection_t * collection)
 
     thing->ref = 1;
     thing->tp = TI_VAL_THING;
-    thing->flags = TI_THING_FLAG_SWEEP|TI_THING_FLAG_ITEMS;
+    thing->flags = TI_THING_FLAG_SWEEP|TI_THING_FLAG_DICT;
     thing->type_id = TI_SPEC_OBJECT;
 
     thing->id = id;
@@ -289,7 +289,7 @@ void ti_thing_destroy(ti_thing_t * thing)
      *
      * In this case the `thing` will be removed while the list stays alive.
      */
-    if (ti_thing_is_object_i(thing))
+    if (ti_thing_is_dict(thing))
         smap_destroy(thing->items.smap, (smap_destroy_cb) thing__item_destroy);
     else
         vec_destroy(thing->items.vec, ti_thing_is_object(thing)
@@ -304,7 +304,7 @@ void ti_thing_clear(ti_thing_t * thing)
 {
     if (ti_thing_is_object(thing))
     {
-        if (ti_thing_is_object_i(thing))
+        if (ti_thing_is_dict(thing))
         {
             smap_clear(thing->items.smap, (smap_destroy_cb) ti_item_destroy);
         }
@@ -337,7 +337,7 @@ int ti_thing_to_items(ti_thing_t * thing)
         if (smap_add(smap, prop->name->str, prop))
             goto fail0;
 
-    thing->flags |= TI_THING_FLAG_ITEMS;
+    thing->flags |= TI_THING_FLAG_DICT;
     free(thing->items.vec);
     thing->items.smap = smap;
     return 0;
@@ -590,7 +590,7 @@ int ti_thing_i_set_val_from_strn(
         return e->nr;
     }
 
-    assert (ti_thing_is_object_i(thing));
+    assert (ti_thing_is_dict(thing));
 
     if (ti_val_make_assignable(val, thing, key, e))
         return e->nr;
@@ -632,7 +632,7 @@ int ti_thing_o_set_val_from_valid_strn(
     if (ti_val_make_assignable(val, thing, name, e))
         return e->nr;
 
-    if (ti_thing_is_object_i(thing)
+    if (ti_thing_is_dict(thing)
             ? thing_i__item_set_e(thing, (ti_raw_t *) name, *val, e)
             : thing_p__prop_set_e(thing, name, *val, e))
     {
@@ -706,7 +706,7 @@ _Bool ti_thing_o_del(ti_thing_t * thing, ti_name_t * name)
 ti_item_t * ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
 {
     assert (ti_thing_is_object(thing));
-    if (ti_thing_is_object_i(thing))
+    if (ti_thing_is_dict(thing))
     {
         ti_item_t * item = smap_popn(
                 thing->items.smap,
@@ -824,7 +824,7 @@ _Bool ti_thing_get_by_raw(ti_witem_t * witem, ti_thing_t * thing, ti_raw_t * r)
 {
     ti_name_t * name;
 
-    if (ti_thing_is_object_i(thing))
+    if (ti_thing_is_dict(thing))
         return thing_i__get_by_key(witem, thing, r);
 
     name = r->tp == TI_VAL_NAME
@@ -843,7 +843,7 @@ int ti_thing_get_by_raw_e(
 {
     ti_name_t * name;
 
-    if (ti_thing_is_object_i(thing))
+    if (ti_thing_is_dict(thing))
     {
         if (!thing_i__get_by_key(witem, thing, r))
             ti_thing_o_set_not_found(thing, r, e);
@@ -1136,7 +1136,7 @@ int ti_thing__to_pk(ti_thing_t * thing, msgpack_packer * pk, int options)
 
     if (ti_thing_is_object(thing))
     {
-        if (ti_thing_is_object_i(thing))
+        if (ti_thing_is_dict(thing))
         {
             thing__pk_cb_t w = {
                     .options = options,

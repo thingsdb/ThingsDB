@@ -238,7 +238,7 @@ static inline _Bool ti_val_is_instance(ti_val_t * val)
 static inline void ti_val_attach(
         ti_val_t * val,
         ti_thing_t * parent,
-        ti_name_t * name)
+        void * key)  /* ti_raw_t or ti_name_t */
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -261,11 +261,11 @@ static inline void ti_val_attach(
         return;
     case TI_VAL_ARR:
         ((ti_varr_t *) val)->parent = parent;
-        ((ti_varr_t *) val)->name = name;
+        ((ti_varr_t *) val)->key = key;
         return;
     case TI_VAL_SET:
         ((ti_vset_t *) val)->parent = parent;
-        ((ti_vset_t *) val)->name = name;
+        ((ti_vset_t *) val)->key = key;
         return;
     case TI_VAL_TEMPLATE:
         break;
@@ -286,7 +286,7 @@ static inline void ti_val_attach(
 static inline int ti_val_make_assignable(
         ti_val_t ** val,
         ti_thing_t * parent,
-        ti_name_t * name,
+        void * key,
         ex_t * e)
 {
     switch ((ti_val_enum) (*val)->tp)
@@ -313,7 +313,7 @@ static inline int ti_val_make_assignable(
             return e->nr;
         }
         ((ti_varr_t *) *val)->parent = parent;
-        ((ti_varr_t *) *val)->name = name;
+        ((ti_varr_t *) *val)->key = key;
         return 0;
     case TI_VAL_SET:
         if (ti_vset_assign((ti_vset_t **) val))
@@ -322,7 +322,7 @@ static inline int ti_val_make_assignable(
             return e->nr;
         }
         ((ti_vset_t *) *val)->parent = parent;
-        ((ti_vset_t *) *val)->name = name;
+        ((ti_vset_t *) *val)->key = key;
         return 0;
     case TI_VAL_CLOSURE:
         return ti_closure_unbound((ti_closure_t * ) *val, e);

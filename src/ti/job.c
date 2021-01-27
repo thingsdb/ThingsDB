@@ -159,7 +159,7 @@ static int job__set(ti_thing_t * thing, mp_unp_t * up)
 
     if (ti_thing_is_object(thing))
     {
-        if (!ti_thing_o_prop_set(thing, name, val))
+        if (!ti_thing_p_prop_set(thing, name, val))
         {
             log_critical(
                     "job `set` to "TI_THING_ID": "

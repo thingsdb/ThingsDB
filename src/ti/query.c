@@ -486,7 +486,7 @@ int ti_query_unp_run(
         return e->nr;
     }
 
-    if (procedure->closure->flags & TI_VFLAG_CLOSURE_WSE)
+    if (procedure->closure->flags & TI_CLOSURE_FLAG_WSE)
     {
         query->qbind.flags |= TI_QBIND_FLAG_EVENT;
         query->flags |= TI_QUERY_FLAG_WSE;
@@ -683,7 +683,7 @@ static void query__then(ti_query_t * query, ex_t * e)
 
     ++ti.futures_count;
 
-    if (future->then->flags & TI_VFLAG_CLOSURE_WSE)
+    if (future->then->flags & TI_CLOSURE_FLAG_WSE)
     {
         query->qbind.flags |= TI_QBIND_FLAG_EVENT;
         query->flags |= TI_QUERY_FLAG_WSE;
@@ -1188,13 +1188,13 @@ static int query__var_walk_thing(ti_thing_t * thing, imap_t * imap)
 
     if (ti_thing_is_object(thing))
     {
-        for (vec_each(thing->items, ti_prop_t, prop))
+        for (vec_each(thing->items.vec, ti_prop_t, prop))
             if (query__get_things(prop->val, imap))
                 return -1;
     }
     else
     {
-        for (vec_each(thing->items, ti_val_t, val))
+        for (vec_each(thing->items.vec, ti_val_t, val))
             if (query__get_things(val, imap))
                 return -1;
     }

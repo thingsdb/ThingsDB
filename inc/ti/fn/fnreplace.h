@@ -374,7 +374,7 @@ static int do__replace_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_thing_is_object(thing))
     {
-        for (vec_each(thing->items, ti_prop_t, p))
+        for (vec_each(thing->items.vec, ti_prop_t, p))
             if (do__replace_value(&tm, p->name, p->val, e))
                 return e->nr;
     }

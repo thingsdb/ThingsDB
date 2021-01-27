@@ -81,7 +81,7 @@ int ti_vset_to_list(ti_vset_t ** vsetaddr)
 
     list->ref = 1;
     list->tp = TI_VAL_ARR;
-    list->flags = vec->n ? TI_VFLAG_ARR_MHT : 0;
+    list->flags = vec->n ? TI_VARR_FLAG_MHT : 0;
     list->spec = TI_SPEC_ANY;
     list->vec = vec;
     list->parent = NULL;
@@ -112,7 +112,7 @@ int ti_vset_to_tuple(ti_vset_t ** vsetaddr)
 
     tuple->ref = 1;
     tuple->tp = TI_VAL_ARR;
-    tuple->flags = TI_VFLAG_ARR_TUPLE | (vec->n ? TI_VFLAG_ARR_MHT : 0);
+    tuple->flags = TI_VARR_FLAG_TUPLE | (vec->n ? TI_VARR_FLAG_MHT : 0);
     tuple->spec = TI_SPEC_ANY;
     tuple->vec = vec;
 

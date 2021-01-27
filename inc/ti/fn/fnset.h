@@ -52,7 +52,7 @@ static int do__f_set_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 static int do__f_set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
-    ti_wprop_t wprop;
+    ti_witem_t witem;
     ti_thing_t * thing;
     ti_raw_t * rname;
 
@@ -77,7 +77,7 @@ static int do__f_set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
 
     if (ti_thing_set_val_from_strn(
-            &wprop,
+            &witem,
             thing,
             (const char *) rname->data,
             rname->n,
@@ -87,7 +87,7 @@ static int do__f_set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (thing->id)
     {
         ti_task_t * task = ti_task_get_task(query->ev, thing);
-        if (!task || ti_task_add_set(task, wprop.name, *wprop.val))
+        if (!task || ti_task_add_set(task, witem.key, *witem.val))
         {
             ex_set_mem(e);
             goto fail1;

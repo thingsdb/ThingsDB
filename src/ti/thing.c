@@ -8,12 +8,15 @@
 #include <ti/enums.h>
 #include <ti/events.inline.h>
 #include <ti/field.h>
+#include <ti/item.h>
+#include <ti/item.t.h>
 #include <ti/method.h>
 #include <ti/names.h>
 #include <ti/opr.h>
 #include <ti/procedures.h>
 #include <ti/prop.h>
 #include <ti/proto.h>
+#include <ti/raw.inline.h>
 #include <ti/thing.h>
 #include <ti/thing.inline.h>
 #include <ti/types.h>
@@ -51,6 +54,36 @@ static inline int thing__val_locked(
     }
     return 0;
 }
+
+static inline int thing__item_val_locked(
+        ti_thing_t * thing,
+        ti_raw_t * key,
+        ti_val_t * val,
+        ex_t * e)
+{
+    /* TODO: add test */
+    /*
+     * Array and Sets are the only two values with are mutable and not set
+     * by reference (like things). An array is always type `list` since it
+     * is a value attached to a `prop` type.
+     */
+    if (    (val->tp == TI_VAL_ARR || val->tp == TI_VAL_SET) &&
+            (val->flags & TI_VFLAG_LOCK))
+    {
+        size_t n = key->n <= 30 ? key->n : 30;
+        ex_set(e, EX_OPERATION,
+            "cannot change or remove property `%.*s%s` on "TI_THING_ID
+            " while the `%s` is being used",
+            n,
+            (const char *) key->data,
+            key->n == n ? "" : "...",
+            thing->id,
+            ti_val_str(val));
+        return -1;
+    }
+    return 0;
+}
+
 
 static void thing__unwatch(ti_thing_t * thing, ti_stream_t * stream)
 {
@@ -129,15 +162,15 @@ ti_thing_t * ti_thing_o_create(
 
     thing->ref = 1;
     thing->tp = TI_VAL_THING;
-    thing->flags = TI_VFLAG_THING_SWEEP;
+    thing->flags = TI_THING_FLAG_SWEEP;
     thing->type_id = TI_SPEC_OBJECT;
 
     thing->id = id;
     thing->collection = collection;
-    thing->items = vec_new(init_sz);
+    thing->items.vec = vec_new(init_sz);
     thing->watchers = NULL;
 
-    if (!thing->items)
+    if (!thing->items.vec)
     {
         ti_thing_destroy(thing);
         return NULL;
@@ -156,15 +189,15 @@ ti_thing_t * ti_thing_t_create(
 
     thing->ref = 1;
     thing->tp = TI_VAL_THING;
-    thing->flags = TI_VFLAG_THING_SWEEP;
+    thing->flags = TI_THING_FLAG_SWEEP;
     thing->type_id = type->type_id;
 
     thing->id = id;
     thing->collection = collection;
-    thing->items = vec_new(type->fields->n);
+    thing->items.vec = vec_new(type->fields->n);
     thing->watchers = NULL;
 
-    if (!thing->items)
+    if (!thing->items.vec)
     {
         ti_thing_destroy(thing);
         return NULL;
@@ -179,6 +212,15 @@ static inline void thing__prop_destroy(ti_prop_t * prop)
     else if (ti_val_is_set(prop->val))
         ((ti_vset_t *) prop->val)->parent = NULL;
     ti_prop_destroy(prop);
+}
+
+static inline void thing__item_destroy(ti_item_t * item)
+{
+    if (ti_val_is_array(item->val))
+        ((ti_varr_t *) item->val)->parent = NULL;
+    else if (ti_val_is_set(item->val))
+        ((ti_vset_t *) item->val)->parent = NULL;
+    ti_item_destroy(item);
 }
 
 static inline void thing__val_drop(ti_val_t * val)
@@ -222,11 +264,12 @@ void ti_thing_destroy(ti_thing_t * thing)
      *
      * In this case the `thing` will be removed while the list stays alive.
      */
-    vec_destroy(
-            thing->items,
-            ti_thing_is_object(thing)
-                    ? (vec_destroy_cb) thing__prop_destroy
-                    : (vec_destroy_cb) thing__val_drop);
+    if (ti_thing_is_object_i(thing))
+        smap_destroy(thing->items.smap, (smap_destroy_cb) thing__item_destroy);
+    else
+        vec_destroy(thing->items.vec, ti_thing_is_object(thing)
+                ? (vec_destroy_cb) thing__prop_destroy
+                : (vec_destroy_cb) thing__val_drop);
 
     vec_destroy(thing->watchers, (vec_destroy_cb) ti_watch_drop);
     free(thing);
@@ -236,20 +279,47 @@ void ti_thing_clear(ti_thing_t * thing)
 {
     if (ti_thing_is_object(thing))
     {
-        ti_prop_t * prop;
-        while ((prop = vec_pop(thing->items)))
-            ti_prop_destroy(prop);
+        if (ti_thing_is_object_i(thing))
+        {
+            smap_clear(thing->items.smap, (smap_destroy_cb) ti_item_destroy);
+        }
+        else
+        {
+            ti_prop_t * prop;
+            while ((prop = vec_pop(thing->items.vec)))
+                ti_prop_destroy(prop);
+        }
     }
     else
     {
         ti_val_t * val;
-        while ((val = vec_pop(thing->items)))
+        while ((val = vec_pop(thing->items.vec)))
             ti_val_unsafe_gc_drop(val);
 
         /* convert to a simple object since the thing is not type
          * compliant anymore */
         thing->type_id = TI_SPEC_OBJECT;
     }
+}
+
+int ti_thing_to_items(ti_thing_t * thing)
+{
+    smap_t * smap = smap_create();
+    if (!smap)
+        return -1;
+
+    for (vec_each(thing->items.vec, ti_prop_t, prop))
+        if (smap_add(smap, prop->name->str, prop))
+            goto fail0;
+
+    thing->flags |= TI_THING_FLAG_ITEMS;
+    free(thing->items.vec);
+    thing->items.smap = smap;
+    return 0;
+
+fail0:
+    smap_destroy(smap, NULL);
+    return -1;
 }
 
 int ti_thing_props_from_vup(
@@ -281,7 +351,7 @@ int ti_thing_props_from_vup(
         val = ti_val_from_vup_e(vup, e);
 
         if (!val || !name || ti_val_make_assignable(&val, thing, name, e) ||
-            !ti_thing_o_prop_set(thing, name, val))
+            !ti_thing_p_prop_set(thing, name, val))
         {
             if (!e->nr)
                 ex_set_mem(e);
@@ -334,7 +404,7 @@ ti_prop_t * ti_thing_o_prop_add(
     assert (ti_thing_o_prop_weak_get(thing, name) == NULL);
 
     ti_prop_t * prop = ti_prop_create(name, val);
-    if (!prop || vec_push(&thing->items, prop))
+    if (!prop || vec_push(&thing->items.vec, prop))
     {
         free(prop);
         return NULL;
@@ -346,7 +416,7 @@ ti_prop_t * ti_thing_o_prop_add(
 /*
  * It takes a reference on `name` and `val` when successful
  */
-static int thing_o__prop_set_e(
+static int thing_p__prop_set_e(
         ti_thing_t * thing,
         ti_name_t * name,
         ti_val_t * val,
@@ -354,7 +424,7 @@ static int thing_o__prop_set_e(
 {
     ti_prop_t * prop;
 
-    for (vec_each(thing->items, ti_prop_t, p))
+    for (vec_each(thing->items.vec, ti_prop_t, p))
     {
         if (p->name == name)
         {
@@ -370,7 +440,7 @@ static int thing_o__prop_set_e(
     }
 
     prop = ti_prop_create(name, val);
-    if (!prop || vec_push(&thing->items, prop))
+    if (!prop || vec_push(&thing->items.vec, prop))
     {
         free(prop);
         ex_set_mem(e);
@@ -380,9 +450,44 @@ static int thing_o__prop_set_e(
 }
 
 /*
+ * It takes a reference on `name` and `val` when successful
+ */
+static int thing_i__item_set_e(
+        ti_thing_t * thing,
+        ti_raw_t * key,
+        ti_val_t * val,
+        ex_t * e)
+{
+    ti_item_t * item = smap_getn(
+            thing->items.smap,
+            (const char *)
+            key->data, key->n);
+    if (item)
+    {
+        if (thing__item_val_locked(thing, item->key, item->val, e))
+            return e->nr;
+        ti_val_unsafe_drop((ti_val_t *) item->key);
+        ti_val_unsafe_gc_drop(item->val);
+        item->val = val;
+        item->key = key;
+        return e->nr;
+    }
+
+    item = ti_item_create(key, val);
+    if (smap_addn(thing->items.smap, (const char *) key->data, key->n, item))
+    {
+        free(item);
+        ex_set_mem(e);
+    }
+
+    return e->nr;
+}
+
+
+/*
  * Does not increment the `name` and `val` reference counters.
  */
-ti_prop_t * ti_thing_o_prop_set(
+ti_prop_t * ti_thing_p_prop_set(
         ti_thing_t * thing,
         ti_name_t * name,
         ti_val_t * val)
@@ -390,7 +495,7 @@ ti_prop_t * ti_thing_o_prop_set(
     assert (ti_thing_is_object(thing));
     ti_prop_t * prop;
 
-    for (vec_each(thing->items, ti_prop_t, p))
+    for (vec_each(thing->items.vec, ti_prop_t, p))
     {
         if (p->name == name)
         {
@@ -402,7 +507,7 @@ ti_prop_t * ti_thing_o_prop_set(
     }
 
     prop = ti_prop_create(name, val);
-    if (!prop || vec_push(&thing->items, prop))
+    if (!prop || vec_push(&thing->items.vec, prop))
     {
         free(prop);
         return NULL;
@@ -419,9 +524,46 @@ void ti_thing_t_prop_set(
         ti_field_t * field,
         ti_val_t * val)
 {
-    ti_val_t ** vaddr = (ti_val_t **) vec_get_addr(thing->items, field->idx);
+    ti_val_t ** vaddr = (ti_val_t **) vec_get_addr(
+            thing->items.vec,
+            field->idx);
     ti_val_unsafe_gc_drop(*vaddr);
     *vaddr = val;
+}
+
+int ti_thing_i_set_val_from_strn(
+        ti_witem_t * witem,
+        ti_thing_t * thing,
+        const char * str,
+        size_t n,
+        ti_val_t ** val,
+        ex_t * e)
+{
+    ti_raw_t * key = ti_str_create(str, n);
+    if (!key)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    assert (ti_thing_is_object_i(thing));
+
+    if (ti_val_make_assignable(val, thing, key, e))
+        return e->nr;
+
+    if (thing_i__item_set_e(thing, key, *val, e))
+    {
+        assert (e->nr);
+        ti_val_unsafe_drop((ti_val_t *) key);
+        return e->nr;
+    }
+
+    ti_incref(*val);
+
+    witem->key = key;
+    witem->val = val;
+
+    return 0;
 }
 
 /*
@@ -446,7 +588,9 @@ int ti_thing_o_set_val_from_valid_strn(
     if (ti_val_make_assignable(val, thing, name, e))
         return e->nr;
 
-    if (thing_o__prop_set_e(thing, name, *val, e))
+    if (ti_thing_is_object_i(thing)
+            ? thing_i__item_set_e(thing, (ti_raw_t *) name, *val, e)
+            : thing_p__prop_set_e(thing, name, *val, e))
     {
         assert (e->nr);
         ti_name_unsafe_drop(name);
@@ -482,7 +626,7 @@ int ti_thing_t_set_val_from_strn(
     if (!field || ti_field_make_assignable(field, val, thing, e))
         return e->nr;
 
-    vaddr = (ti_val_t **) vec_get_addr(thing->items, field->idx);
+    vaddr = (ti_val_t **) vec_get_addr(thing->items.vec, field->idx);
     if (thing__val_locked(thing, field->name, *vaddr, e))
         return e->nr;
 
@@ -503,11 +647,11 @@ _Bool ti_thing_o_del(ti_thing_t * thing, ti_name_t * name)
     assert (ti_thing_is_object(thing));
 
     uint32_t i = 0;
-    for (vec_each(thing->items, ti_prop_t, prop), ++i)
+    for (vec_each(thing->items.vec, ti_prop_t, prop), ++i)
     {
         if (prop->name == name)
         {
-            ti_prop_destroy(vec_swap_remove(thing->items, i));
+            ti_prop_destroy(vec_swap_remove(thing->items.vec, i));
             return true;
         }
     }
@@ -524,28 +668,28 @@ ti_prop_t * ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
 
     if (name)
     {
-        for (vec_each(thing->items, ti_prop_t, prop), ++i)
+        for (vec_each(thing->items.vec, ti_prop_t, prop), ++i)
         {
             if (prop->name == name)
             {
                 if (thing__val_locked(thing, prop->name, prop->val, e))
                     return NULL;
 
-                return vec_swap_remove(thing->items, i);
+                return vec_swap_remove(thing->items.vec, i);
             }
         }
     }
 
-    ti_thing_set_not_found(thing, name, rname, e);
+    ti_thing_o_set_not_found(thing, rname, e);
     return NULL;
 }
 
-static _Bool thing_o__get_by_name(
+static _Bool thing_p__get_by_name(
         ti_wprop_t * wprop,
         ti_thing_t * thing,
         ti_name_t * name)
 {
-    for (vec_each(thing->items, ti_prop_t, prop))
+    for (vec_each(thing->items.vec, ti_prop_t, prop))
     {
         if (prop->name == name)
         {
@@ -569,7 +713,7 @@ static _Bool thing_t__get_by_name(
     if ((field = ti_field_by_name(type, name)))
     {
         wprop->name = name;
-        wprop->val = (ti_val_t **) vec_get_addr(thing->items, field->idx);
+        wprop->val = (ti_val_t **) vec_get_addr(thing->items.vec, field->idx);
         return true;
     }
 
@@ -583,11 +727,28 @@ static _Bool thing_t__get_by_name(
     return false;
 }
 
+static _Bool thing_i__get_by_key(
+        ti_witem_t * witem,
+        ti_thing_t * thing,
+        ti_raw_t * key)
+{
+    ti_item_t * item = smap_getn(
+            thing->items.smap,
+            (const char *) key->data,
+            key->n);
+    if (!item)
+        return false;
+
+    witem->key = key;
+    witem->val = &item->val;
+    return true;
+}
+
 ti_val_t * ti_thing_weak_val_by_name(ti_thing_t * thing, ti_name_t * name)
 {
     if (ti_thing_is_object(thing))
     {
-        for (vec_each(thing->items, ti_prop_t, prop))
+        for (vec_each(thing->items.vec, ti_prop_t, prop))
             if (prop->name == name)
                 return prop->val;
     }
@@ -597,32 +758,47 @@ ti_val_t * ti_thing_weak_val_by_name(ti_thing_t * thing, ti_name_t * name)
         ti_field_t * field;
 
         if ((field = ti_field_by_name(type, name)))
-            return VEC_get(thing->items, field->idx);
+            return VEC_get(thing->items.vec, field->idx);
     }
     return NULL;
 }
 
-_Bool ti_thing_get_by_raw(ti_wprop_t * wprop, ti_thing_t * thing, ti_raw_t * r)
+_Bool ti_thing_get_by_raw(ti_witem_t * witem, ti_thing_t * thing, ti_raw_t * r)
 {
     ti_name_t * name = r->tp == TI_VAL_NAME
             ? (ti_name_t *) r
             : ti_names_weak_from_raw(r);
     return name && (ti_thing_is_object(thing)
-            ? thing_o__get_by_name(wprop, thing, name)
-            : thing_t__get_by_name(wprop, thing, name));
+            ? thing_p__get_by_name((ti_wprop_t *) witem, thing, name)
+            : thing_t__get_by_name((ti_wprop_t *) witem, thing, name));
 }
 
 int ti_thing_get_by_raw_e(
-        ti_wprop_t * wprop,
+        ti_witem_t * witem,
         ti_thing_t * thing,
         ti_raw_t * r,
         ex_t * e)
 {
-    ti_name_t * name = ti_names_weak_from_raw(r);
-    if (!name || (ti_thing_is_object(thing)
-            ? !thing_o__get_by_name(wprop, thing, name)
-            : !thing_t__get_by_name(wprop, thing, name)))
-        ti_thing_set_not_found(thing, name, r, e);
+    ti_name_t * name;
+
+    if (ti_thing_is_object_i(thing))
+    {
+        if (!thing_i__get_by_key(witem, thing, r))
+            ti_thing_o_set_not_found(thing, r, e);
+        return e->nr;
+    }
+
+    name = ti_names_weak_from_raw(r);
+
+    if (ti_thing_is_object(thing))
+    {
+        if (!name || !thing_p__get_by_name((ti_wprop_t *) witem, thing, name))
+            ti_thing_o_set_not_found(thing, r, e);
+        return e->nr;
+    }
+
+    if (!name || !thing_t__get_by_name((ti_wprop_t *) witem, thing, name))
+        ti_thing_t_set_not_found(thing, name, r, e);
 
     return e->nr;
 }
@@ -643,13 +819,13 @@ int ti_thing_gen_id(ti_thing_t * thing)
      */
     if (ti_thing_is_object(thing))
     {
-        for (vec_each(thing->items, ti_prop_t, prop))
+        for (vec_each(thing->items.vec, ti_prop_t, prop))
             if (ti_val_gen_ids(prop->val))
                 return -1;
     }
     else
     {
-        for (vec_each(thing->items, ti_val_t, val))
+        for (vec_each(thing->items.vec, ti_val_t, val))
             if (ti_val_gen_ids(val))
                 return -1;
     }
@@ -872,7 +1048,7 @@ int ti_thing__to_pk(ti_thing_t * thing, msgpack_packer * pk, int options)
         --options;
     }
 
-    if (msgpack_pack_map(pk, (!!thing->id) + thing->items->n))
+    if (msgpack_pack_map(pk, (!!thing->id) + ti_thing_n(thing)))
         return -1;
 
     if (thing->id && (
@@ -884,7 +1060,7 @@ int ti_thing__to_pk(ti_thing_t * thing, msgpack_packer * pk, int options)
 
     if (ti_thing_is_object(thing))
     {
-        for (vec_each(thing->items, ti_prop_t, prop))
+        for (vec_each(thing->items.vec, ti_prop_t, prop))
         {
             if (mp_pack_strn(pk, prop->name->str, prop->name->n) ||
                 ti_val_to_pk(prop->val, pk, options)
@@ -922,10 +1098,10 @@ int ti_thing_t_to_pk(ti_thing_t * thing, msgpack_packer * pk, int options)
         mp_pack_strn(pk, TI_KIND_S_THING, 1) ||
         msgpack_pack_uint64(pk, thing->id) ||
         msgpack_pack_str(pk, 0) ||
-        msgpack_pack_array(pk, thing->items->n))
+        msgpack_pack_array(pk, ti_thing_n(thing)))
         return -1;
 
-    for (vec_each(thing->items, ti_val_t, val))
+    for (vec_each(thing->items.vec, ti_val_t, val))
         if (ti_val_to_pk(val, pk, options))
             return -1;
 
@@ -955,14 +1131,14 @@ _Bool ti_thing_equals(ti_thing_t * thing, ti_val_t * otherv, uint8_t deep)
         return false;
     if (thing == other || !deep)
         return true;
-    if (thing->items->n != other->items->n)
+    if (ti_thing_n(thing) != ti_thing_n(other))
         return false;
 
     --deep;
 
     if (ti_thing_is_object(thing))
     {
-        for (vec_each(thing->items, ti_prop_t, prop))
+        for (vec_each(thing->items.vec, ti_prop_t, prop))
         {
             ti_val_t * b = ti_thing_weak_val_by_name(other, prop->name);
             if (!b || !thing__val_equals(prop->val, b, deep))
@@ -972,9 +1148,9 @@ _Bool ti_thing_equals(ti_thing_t * thing, ti_val_t * otherv, uint8_t deep)
     else if (thing->type_id == other->type_id)
     {
         size_t idx = 0;
-        for (vec_each(thing->items, ti_val_t, a), ++idx)
+        for (vec_each(thing->items.vec, ti_val_t, a), ++idx)
         {
-            ti_val_t * b = VEC_get(other->items, idx);
+            ti_val_t * b = VEC_get(other->items.vec, idx);
             if (!thing__val_equals(a, b, deep))
                 return false;
         }
@@ -1050,7 +1226,7 @@ void ti_thing_clean_gc(void)
         for (vec_each(tmp, ti_thing_t, thing))
         {
             if (thing->id)
-                thing->flags |= TI_VFLAG_THING_SWEEP;
+                thing->flags |= TI_THING_FLAG_SWEEP;
             else
                 ti_thing_clear(thing);
 

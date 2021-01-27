@@ -16,12 +16,12 @@ static int varr__to_tuple(ti_varr_t ** varr)
 {
     ti_varr_t * tuple = *varr;
 
-    if (tuple->flags & TI_VFLAG_ARR_TUPLE)
+    if (tuple->flags & TI_VARR_FLAG_TUPLE)
         return 0;  /* tuples cannot change so we do not require a copy */
 
     if (tuple->ref == 1)
     {
-        tuple->flags |= TI_VFLAG_ARR_TUPLE;
+        tuple->flags |= TI_VARR_FLAG_TUPLE;
         tuple->parent = NULL;  /* make sure no parent is set */
         return 0;  /* with only one reference we do not require a copy */
     }
@@ -32,7 +32,7 @@ static int varr__to_tuple(ti_varr_t ** varr)
 
     tuple->ref = 1;
     tuple->tp = TI_VAL_ARR;
-    tuple->flags = TI_VFLAG_ARR_TUPLE | ((*varr)->flags & TI_VFLAG_ARR_MHT);
+    tuple->flags = TI_VARR_FLAG_TUPLE | ((*varr)->flags & TI_VARR_FLAG_MHT);
     tuple->spec = (*varr)->spec;  /* no harm to set `spec`, but useless */
     tuple->vec = vec_dup((*varr)->vec);
     /*
@@ -183,7 +183,7 @@ int ti_varr_val_prepare(ti_varr_t * to, void ** v, ex_t * e)
             ex_set_mem(e);
             return e->nr;
         }
-        to->flags |= ((ti_varr_t *) *v)->flags & TI_VFLAG_ARR_MHT;
+        to->flags |= ((ti_varr_t *) *v)->flags & TI_VARR_FLAG_MHT;
         break;
     case TI_VAL_CLOSURE:
         if (ti_closure_unbound((ti_closure_t *) *v, e))
@@ -199,10 +199,10 @@ int ti_varr_val_prepare(ti_varr_t * to, void ** v, ex_t * e)
             ex_set_mem(e);
             return e->nr;
         }
-        to->flags |= ((ti_varr_t *) *v)->flags & TI_VFLAG_ARR_MHT;
+        to->flags |= ((ti_varr_t *) *v)->flags & TI_VARR_FLAG_MHT;
         break;
     case TI_VAL_THING:
-        to->flags |= TI_VFLAG_ARR_MHT;
+        to->flags |= TI_VARR_FLAG_MHT;
         break;
     case TI_VAL_FUTURE:
         ti_val_unsafe_drop(*v);
@@ -234,7 +234,7 @@ int ti_varr_to_list(ti_varr_t ** varr)
     {
         /* This can never happen to a tuple since a tuple is always nested
          * and therefore always has more than one reference; */
-        assert (~list->flags & TI_VFLAG_ARR_TUPLE);
+        assert (~list->flags & TI_VARR_FLAG_TUPLE);
         return 0;
     }
 
@@ -244,7 +244,7 @@ int ti_varr_to_list(ti_varr_t ** varr)
 
     list->ref = 1;
     list->tp = TI_VAL_ARR;
-    list->flags = (*varr)->flags & TI_VFLAG_ARR_MHT;
+    list->flags = (*varr)->flags & TI_VARR_FLAG_MHT;
     list->spec = (*varr)->spec;
     list->vec = vec_dup((*varr)->vec);
     list->parent = NULL;

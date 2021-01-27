@@ -10,6 +10,26 @@
 
 typedef struct ti_closure_s ti_closure_t;
 
+enum
+{
+    TI_CLOSURE_FLAG_BTSCOPE =1<<0,      /* closure bound to query string
+                                            within the thingsdb scope;
+                                            when not stored, closures do not
+                                            own the closure string but refer
+                                            the full query string.*/
+    TI_CLOSURE_FLAG_BCSCOPE =1<<1,     /* closure bound to query string
+                                            within a collection scope;
+                                            when not stored, closures do not
+                                            own the closure string but refer
+                                            the full query string. */
+    TI_CLOSURE_FLAG_WSE     =1<<2,     /* stored closure with side effects;
+                                            when closure make changes they
+                                            require an event and thus must be
+                                            wrapped by wse() so we can know
+                                            an event is created.
+                                            (only stored closures) */
+};
+
 #include <cleri/cleri.h>
 #include <inttypes.h>
 #include <util/vec.h>

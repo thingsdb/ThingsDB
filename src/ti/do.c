@@ -127,7 +127,9 @@ static inline int do__t_get_wprop(
         if ((field = ti_field_by_name(type, name)))
         {
             wprop->name = name;
-            wprop->val = (ti_val_t **) vec_get_addr(thing->items, field->idx);
+            wprop->val = (ti_val_t **) vec_get_addr(
+                    thing->items.vec,
+                    field->idx);
             return 0;
         }
 
@@ -191,7 +193,9 @@ static inline int do__t_upd_prop(
     if (name && (field = ti_field_by_name(type, name)))
     {
         wprop->name = field->name;
-        wprop->val = (ti_val_t **) vec_get_addr(thing->items, field->idx);
+        wprop->val = (ti_val_t **) vec_get_addr(
+                thing->items.vec,
+                field->idx);
 
         return (
             ti_opr_a_to_b(*wprop->val, tokens_nd, &query->rval, e) ||
@@ -270,7 +274,7 @@ static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         assert (query->collection);  /* only in a collection scope */
         task = ti_task_get_task(query->ev, thing);
-        if (!task || ti_task_add_set(task, wprop.name, *wprop.val))
+        if (!task || ti_task_add_set(task, (ti_raw_t *) wprop.name, *wprop.val))
             ex_set_mem(e);
     }
 
@@ -709,8 +713,8 @@ static int do__read_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         nd->data = (ti_val_t *) ti_closure_from_node(
                 nd,
                 (query->qbind.flags & TI_QBIND_FLAG_THINGSDB)
-                    ? TI_VFLAG_CLOSURE_BTSCOPE
-                    : TI_VFLAG_CLOSURE_BCSCOPE);
+                    ? TI_CLOSURE_FLAG_BTSCOPE
+                    : TI_CLOSURE_FLAG_BCSCOPE);
         if (!nd->data)
         {
             ex_set_mem(e);
@@ -939,7 +943,7 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (    !name||
                 ti_do_statement(query, scope, e) ||
                 ti_val_make_assignable(&query->rval, thing, name, e) ||
-                !ti_thing_o_prop_set(thing, name, query->rval))
+                !ti_thing_p_prop_set(thing, name, query->rval))
         {
             ti_name_drop(name);
             goto failed;
@@ -1009,7 +1013,7 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     for (n = type->fields->n; n--;)
-        VEC_push(thing->items, NULL);
+        VEC_push(thing->items.vec, NULL);
 
     lock_was_set = ti_type_ensure_lock(type);
 
@@ -1044,12 +1048,12 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ti_field_make_assignable(field, &query->rval, thing, e))
             goto fail;
 
-        val = VEC_get(thing->items, field->idx);
+        val = VEC_get(thing->items.vec, field->idx);
         if (val)
             ti_val_unsafe_gc_drop(val);
         else
             ++n;
-        vec_set(thing->items, query->rval, field->idx);
+        vec_set(thing->items.vec, query->rval, field->idx);
 
         query->rval = NULL;
     }
@@ -1059,7 +1063,7 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         /* fill missing fields */
         for (vec_each(type->fields, ti_field_t, field))
         {
-            if (!VEC_get(thing->items, field->idx))
+            if (!VEC_get(thing->items.vec, field->idx))
             {
                 ti_val_t * val = ti_field_dval(field);
                 if (!val)
@@ -1069,7 +1073,7 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 }
 
                 ti_val_attach(val, thing, field->name);
-                vec_set(thing->items, val, field->idx);
+                vec_set(thing->items.vec, val, field->idx);
             }
         }
     }

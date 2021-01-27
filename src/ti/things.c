@@ -184,7 +184,7 @@ ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
             return NULL;
         }
 
-        VEC_push(thing->items, val);
+        VEC_push(thing->items.vec, val);
     }
 
     return thing;

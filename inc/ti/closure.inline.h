@@ -53,10 +53,10 @@ static inline int ti_closure_try_wse(
      * if we later decide to change the code.
      */
     if (    ((closure->flags & (
-                TI_VFLAG_CLOSURE_BTSCOPE|
-                TI_VFLAG_CLOSURE_BCSCOPE|
-                TI_VFLAG_CLOSURE_WSE
-            )) == TI_VFLAG_CLOSURE_WSE) &&
+                TI_CLOSURE_FLAG_BTSCOPE|
+                TI_CLOSURE_FLAG_BCSCOPE|
+                TI_CLOSURE_FLAG_WSE
+            )) == TI_CLOSURE_FLAG_WSE) &&
             (~query->flags & TI_QUERY_FLAG_WSE))
     {
         ex_set(e, EX_OPERATION,

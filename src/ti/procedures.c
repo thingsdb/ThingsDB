@@ -12,7 +12,6 @@ int ti_procedures_add(smap_t * procedures, ti_procedure_t * procedure)
 {
     switch(smap_add(procedures, procedure->name, procedure))
     {
-    case SMAP_ERR_EMPTY_KEY:
     case SMAP_ERR_ALLOC:
         return -1;
     case SMAP_ERR_EXIST:

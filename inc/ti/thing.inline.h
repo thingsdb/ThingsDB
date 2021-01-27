@@ -7,8 +7,10 @@
 #include <ti/type.h>
 #include <ti/thing.h>
 #include <ti/thing.t.h>
+#include <ti/witem.t.h>
 #include <ti/name.h>
 #include <ti/raw.h>
+#include <util/strx.h>
 #include <doc.h>
 
 /* returns IMAP_ERR_EXIST if the thing is already in the map */
@@ -35,26 +37,40 @@ static inline ti_raw_t * ti_thing_type_strv(ti_thing_t * thing)
     ti_incref(r);
     return r;
 }
-
 static inline int ti_thing_o_set_val_from_strn(
-        ti_wprop_t * wprop,
+        ti_witem_t * witem,
         ti_thing_t * thing,
         const char * str,
         size_t n,
         ti_val_t ** val,
         ex_t * e)
 {
-    if (!ti_name_is_valid_strn(str, n))
+    if (ti_name_is_valid_strn(str, n))
+        return ti_thing_o_set_val_from_valid_strn(
+                (ti_wprop_t *) witem,
+                thing, str, n, val, e);
+
+    /*
+     *  TODO: UTF-8 encoding depends on correct msgpack data, should we add an
+     *  extra check?
+     */
+
+    if (!strx_is_utf8n(str, n))
     {
-        ex_set(e, EX_VALUE_ERROR,
-            "properties must follow the naming rules"DOC_NAMES);
+        ex_set(e, EX_VALUE_ERROR, "properties must have valid UTF-8 encoding");
         return e->nr;
     }
-    return ti_thing_o_set_val_from_valid_strn(wprop, thing, str, n, val, e);
-}
 
+    if (!ti_thing_is_object_i(thing) && ti_thing_to_items(thing))
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    return ti_thing_i_set_val_from_strn(witem, thing, str, n, val, e);
+}
 static inline int ti_thing_set_val_from_strn(
-        ti_wprop_t * wprop,
+        ti_witem_t * witem,
         ti_thing_t * thing,
         const char * str,
         size_t n,
@@ -62,8 +78,10 @@ static inline int ti_thing_set_val_from_strn(
         ex_t * e)
 {
     return ti_thing_is_object(thing)
-            ? ti_thing_o_set_val_from_strn(wprop, thing, str, n, val, e)
-            : ti_thing_t_set_val_from_strn(wprop, thing, str, n, val, e);
+            ? ti_thing_o_set_val_from_strn(witem, thing, str, n, val, e)
+            : ti_thing_t_set_val_from_strn(
+                    (ti_wprop_t *) witem,
+                    thing, str, n, val, e);
 }
 
 static inline int ti_thing_set_val_from_valid_strn(
@@ -80,7 +98,28 @@ static inline int ti_thing_set_val_from_valid_strn(
 }
 
 
-static inline void ti_thing_set_not_found(
+static inline void ti_thing_o_set_not_found(
+        ti_thing_t * thing,
+        ti_raw_t * key,
+        ex_t * e)
+{
+    if (!strx_is_utf8n((const char *) key->data, key->n))
+    {
+        ex_set(e, EX_VALUE_ERROR, "properties must have valid UTF-8 encoding");
+    }
+    else
+    {
+        size_t n = key->n <= 30 ? key->n : 30;
+        ex_set(e, EX_LOOKUP_ERROR,
+                "thing "TI_THING_ID" has no property `%.*s%s`",
+                thing->id,
+                n,
+                (const char *) key->data,
+                key->n == n ? "" : "...");
+    }
+}
+
+static inline void ti_thing_t_set_not_found(
         ti_thing_t * thing,
         ti_name_t * name,
         ti_raw_t * rname,
@@ -88,21 +127,15 @@ static inline void ti_thing_set_not_found(
 {
     if (name || ti_name_is_valid_strn((const char *) rname->data, rname->n))
     {
-        if (ti_thing_is_object(thing))
-            ex_set(e, EX_LOOKUP_ERROR,
-                    "thing "TI_THING_ID" has no property `%.*s`",
-                    thing->id,
-                    (int) rname->n, (const char *) rname->data);
-        else
-            ex_set(e, EX_LOOKUP_ERROR,
-                    "type `%s` has no property or method `%.*s`",
-                    ti_thing_type(thing)->name,
-                    (int) rname->n, (const char *) rname->data);
+        ex_set(e, EX_LOOKUP_ERROR,
+                "type `%s` has no property or method `%.*s`",
+                ti_thing_type(thing)->name,
+                (int) rname->n, (const char *) rname->data);
     }
     else
     {
         ex_set(e, EX_VALUE_ERROR,
-                "property name must follow the naming rules"DOC_NAMES);
+                "type properties name must follow the naming rules"DOC_NAMES);
     }
 }
 
@@ -111,7 +144,7 @@ static inline ti_val_t * ti_thing_o_val_weak_get(
         ti_name_t * name)
 {
     assert (ti_thing_is_object(thing));
-    for (vec_each(thing->items, ti_prop_t, prop))
+    for (vec_each(thing->items.vec, ti_prop_t, prop))
         if (prop->name == name)
             return prop->val;
     return NULL;
@@ -161,11 +194,11 @@ static inline void ti_thing_may_push_gc(ti_thing_t * thing)
 {
     if (    thing->tp == TI_VAL_THING &&
             thing->id == 0 &&
-            (thing->flags & TI_VFLAG_THING_SWEEP) &&
+            (thing->flags & TI_THING_FLAG_SWEEP) &&
             vec_push(&ti_thing_gc_vec, thing) == 0)
     {
         ti_incref(thing);
-        thing->flags &= ~TI_VFLAG_THING_SWEEP;
+        thing->flags &= ~TI_THING_FLAG_SWEEP;
     }
 }
 

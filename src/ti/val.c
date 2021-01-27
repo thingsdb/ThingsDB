@@ -380,7 +380,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
     {
     case TI_VAL_THING:
     case TI_VAL_WRAP:
-        varr->flags |= TI_VFLAG_ARR_MHT;
+        varr->flags |= TI_VARR_FLAG_MHT;
         break;
     case TI_VAL_NIL:
     case TI_VAL_INT:
@@ -401,8 +401,8 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
          * may-have-things flags to the parent.
          */
         ti_varr_t * arr = (ti_varr_t *) val;
-        arr->flags |= TI_VFLAG_ARR_TUPLE;
-        varr->flags |= arr->flags & TI_VFLAG_ARR_MHT;
+        arr->flags |= TI_VARR_FLAG_TUPLE;
+        varr->flags |= arr->flags & TI_VARR_FLAG_MHT;
         break;
     }
     case TI_VAL_SET:
@@ -414,7 +414,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
         return e->nr;
     case TI_VAL_MEMBER:
         if (ti_val_is_thing(VMEMBER(val)))
-            varr->flags |= TI_VFLAG_ARR_MHT;
+            varr->flags |= TI_VARR_FLAG_MHT;
         break;
     case TI_VAL_FUTURE:
     case TI_VAL_TEMPLATE:
@@ -1355,9 +1355,9 @@ _Bool ti_val_as_bool(ti_val_t * val)
     case TI_VAL_SET:
         return !!VSET(val)->n;
     case TI_VAL_THING:
-        return !!((ti_thing_t *) val)->items->n;
+        return !!ti_thing_n((ti_thing_t *) val);
     case TI_VAL_WRAP:
-        return !!((ti_wrap_t *) val)->thing->items->n;
+        return !!ti_thing_n(((ti_wrap_t *) val)->thing);
     case TI_VAL_CLOSURE:
     case TI_VAL_FUTURE:
         return true;
@@ -1395,9 +1395,9 @@ size_t ti_val_get_len(ti_val_t * val)
     case TI_VAL_REGEX:
         break;
     case TI_VAL_THING:
-        return ((ti_thing_t *) val)->items->n;
+        return ti_thing_n((ti_thing_t *) val);
     case TI_VAL_WRAP:
-        return ((ti_wrap_t *) val)->thing->items->n;
+        return ti_thing_n(((ti_wrap_t *) val)->thing);
     case TI_VAL_ARR:
         return VARR(val)->n;
     case TI_VAL_SET:

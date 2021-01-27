@@ -178,7 +178,7 @@ void ti_enum_del_member(ti_enum_t * enum_, ti_member_t * member)
 
 static int enum__init_thing_o(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
 {
-    for (vec_each(thing->items, ti_prop_t, prop))
+    for (vec_each(thing->items.vec, ti_prop_t, prop))
         if (!ti_member_create(enum_, prop->name, prop->val, e))
             return e->nr;
 
@@ -198,7 +198,7 @@ static int enum__init_thing_t(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
 
 int ti_enum_init_from_thing(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
 {
-    if (ti_enum_prealloc(enum_, thing->items->n, e))
+    if (ti_enum_prealloc(enum_, ti_thing_n(thing), e))
         return e->nr;
 
     return ti_thing_is_object(thing)

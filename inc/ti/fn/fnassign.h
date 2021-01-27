@@ -19,8 +19,8 @@ static inline int assign__set_o(
      * critical.
      */
     if (ti_val_make_assignable(&val, thing, name, e) ||
-        !ti_thing_o_prop_set(thing, name, val) ||
-        (task && ti_task_add_set(task, name, val)))
+        !ti_thing_p_prop_set(thing, name, val) ||
+        (task && ti_task_add_set(task, (ti_raw_t *) name, val)))
         goto failed;
 
     ti_incref(name);
@@ -88,7 +88,7 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         if (ti_thing_is_object(tsrc))
         {
-            for(vec_each(tsrc->items, ti_prop_t, p))
+            for(vec_each(tsrc->items.vec, ti_prop_t, p))
                 if (assign__set_o(thing, p->name, p->val, task, e, tsrc->ref))
                     goto fail1;
         }
@@ -108,14 +108,14 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (ti_thing_is_object(tsrc))
         {
-            vec = vec_new(tsrc->items->n);
+            vec = vec_new(ti_thing_n(tsrc));
             if (!vec)
             {
                 ex_set_mem(e);
                 goto fail1;
             }
 
-            for(vec_each(tsrc->items, ti_prop_t, p))
+            for(vec_each(tsrc->items.vec, ti_prop_t, p))
             {
                 ti_val_t * val = p->val;
                 ti_field_t * field = ti_field_by_name(type, p->name);
@@ -146,12 +146,15 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 VEC_push(vec, val);
             }
 
-            for(vec_each_rev(tsrc->items, ti_prop_t, p))
+            for(vec_each_rev(tsrc->items.vec, ti_prop_t, p))
             {
                 ti_field_t * field = ti_field_by_name(type, p->name);
                 ti_val_t * val = VEC_pop(vec);
                 ti_thing_t_prop_set(thing, field, val);
-                if (task && ti_task_add_set(task, field->name, val))
+                if (task && ti_task_add_set(
+                        task,
+                        (ti_raw_t *) field->name,
+                        val))
                     goto fail2;
             }
         }
@@ -159,7 +162,7 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ti_type_t * f_type = ti_thing_type(tsrc);
 
-            vec = vec_new(tsrc->items->n);
+            vec = vec_new(ti_thing_n(tsrc));
             if (!vec)
             {
                 ex_set_mem(e);
@@ -179,7 +182,7 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
             for (vec_each(type->fields, ti_field_t, field))
             {
-                ti_val_t * val = VEC_get(tsrc->items, field->idx);
+                ti_val_t * val = VEC_get(tsrc->items.vec, field->idx);
 
                 val->ref += parent_ref > 1;
 
@@ -193,7 +196,10 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 val->ref += parent_ref == 1;
 
                 ti_thing_t_prop_set(thing, field, val);
-                if (task && ti_task_add_set(task, field->name, val))
+                if (task && ti_task_add_set(
+                        task,
+                        (ti_raw_t *) field->name,
+                        val))
                     goto fail1;
             }
         }

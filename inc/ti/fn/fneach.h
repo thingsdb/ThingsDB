@@ -54,7 +54,7 @@ static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_thing_t * thing = (ti_thing_t *) iterval;
         if (ti_thing_is_object(thing))
         {
-            for (vec_each(thing->items, ti_prop_t, p))
+            for (vec_each(thing->items.vec, ti_prop_t, p))
             {
                 if (ti_closure_vars_prop(closure, p, e) ||
                     ti_closure_do_statement(closure, query, e))

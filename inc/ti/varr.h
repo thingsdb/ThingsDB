@@ -24,17 +24,17 @@ _Bool ti__varr_eq(ti_varr_t * varra, ti_varr_t * varrb);
 
 static inline _Bool ti_varr_may_have_things(ti_varr_t * varr)
 {
-    return varr->flags & TI_VFLAG_ARR_MHT;
+    return varr->flags & TI_VARR_FLAG_MHT;
 }
 
 static inline _Bool ti_varr_is_list(ti_varr_t * varr)
 {
-    return ~varr->flags & TI_VFLAG_ARR_TUPLE;
+    return ~varr->flags & TI_VARR_FLAG_TUPLE;
 }
 
 static inline _Bool ti_varr_is_tuple(ti_varr_t * varr)
 {
-    return varr->flags & TI_VFLAG_ARR_TUPLE;
+    return varr->flags & TI_VARR_FLAG_TUPLE;
 }
 
 static inline _Bool ti_varr_eq(ti_varr_t * va, ti_varr_t * vb)

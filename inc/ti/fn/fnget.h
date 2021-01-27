@@ -4,7 +4,7 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
     ti_thing_t * thing;
-    ti_wprop_t wprop;
+    ti_witem_t witem;
     _Bool found;
 
     if (!ti_val_is_thing(query->rval))
@@ -20,7 +20,7 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_arg_str("get", DOC_THING_GET, 1, query->rval, e))
         goto done;
 
-    found = ti_thing_get_by_raw(&wprop, thing, (ti_raw_t *) query->rval);
+    found = ti_thing_get_by_raw(&witem, thing, (ti_raw_t *) query->rval);
 
     ti_val_unsafe_drop(query->rval);
 
@@ -37,7 +37,7 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    query->rval = *wprop.val;
+    query->rval = *witem.val;
     ti_incref(query->rval);
 
 done:

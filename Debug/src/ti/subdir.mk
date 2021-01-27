@@ -40,6 +40,7 @@ C_SRCS += \
 ../src/ti/fwd.c \
 ../src/ti/gc.c \
 ../src/ti/index.c \
+../src/ti/item.c \
 ../src/ti/job.c \
 ../src/ti/mapping.c \
 ../src/ti/member.c \
@@ -143,6 +144,7 @@ OBJS += \
 ./src/ti/fwd.o \
 ./src/ti/gc.o \
 ./src/ti/index.o \
+./src/ti/item.o \
 ./src/ti/job.o \
 ./src/ti/mapping.o \
 ./src/ti/member.o \
@@ -246,6 +248,7 @@ C_DEPS += \
 ./src/ti/fwd.d \
 ./src/ti/gc.d \
 ./src/ti/index.d \
+./src/ti/item.d \
 ./src/ti/job.d \
 ./src/ti/mapping.d \
 ./src/ti/member.d \

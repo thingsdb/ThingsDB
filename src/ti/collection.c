@@ -191,7 +191,7 @@ ti_thing_t * ti_collection_thing_restore_gc(
     {
         if ((thing = gc->thing)->id == thing_id)
         {
-            assert (thing->flags & TI_VFLAG_THING_SWEEP);
+            assert (thing->flags & TI_THING_FLAG_SWEEP);
             assert (thing->ref);
 
             log_info("restoring "TI_THING_ID" from garbage", thing->id);
@@ -222,14 +222,14 @@ static void collection__gc_mark_varr(ti_varr_t * varr)
         case TI_VAL_THING:
         {
             ti_thing_t * thing = (ti_thing_t *) val;
-            if (thing->flags & TI_VFLAG_THING_SWEEP)
+            if (thing->flags & TI_THING_FLAG_SWEEP)
                 collection__gc_mark_thing(thing);
             continue;
         }
         case TI_VAL_WRAP:
         {
             ti_thing_t * thing = ((ti_wrap_t *) val)->thing;
-            if (thing->flags & TI_VFLAG_THING_SWEEP)
+            if (thing->flags & TI_THING_FLAG_SWEEP)
                 collection__gc_mark_thing(thing);
             continue;
         }
@@ -246,7 +246,7 @@ static void collection__gc_mark_varr(ti_varr_t * varr)
 
 static inline int colection__set_cb(ti_thing_t * thing, void * UNUSED(arg))
 {
-    if (thing->flags & TI_VFLAG_THING_SWEEP)
+    if (thing->flags & TI_THING_FLAG_SWEEP)
         collection__gc_mark_thing(thing);
     return 0;
 }
@@ -258,14 +258,14 @@ static inline void collection__gc_val(ti_val_t * val)
     case TI_VAL_THING:
     {
         ti_thing_t * thing = (ti_thing_t *) val;
-        if (thing->flags & TI_VFLAG_THING_SWEEP)
+        if (thing->flags & TI_THING_FLAG_SWEEP)
             collection__gc_mark_thing(thing);
         return;
     }
     case TI_VAL_WRAP:
     {
         ti_thing_t * thing = ((ti_wrap_t *) val)->thing;
-        if (thing->flags & TI_VFLAG_THING_SWEEP)
+        if (thing->flags & TI_THING_FLAG_SWEEP)
             collection__gc_mark_thing(thing);
         return;
     }
@@ -292,7 +292,7 @@ static int collection__mark_enum_cb(ti_enum_t * enum_, void * UNUSED(data))
         for (vec_each(enum_->members, ti_member_t, member))
         {
             ti_thing_t * thing = (ti_thing_t *) VMEMBER(member);
-            if (thing->flags & TI_VFLAG_THING_SWEEP)
+            if (thing->flags & TI_THING_FLAG_SWEEP)
                 collection__gc_mark_thing(thing);
         }
     }
@@ -301,13 +301,13 @@ static int collection__mark_enum_cb(ti_enum_t * enum_, void * UNUSED(data))
 
 static void collection__gc_mark_thing(ti_thing_t * thing)
 {
-    thing->flags &= ~TI_VFLAG_THING_SWEEP;
+    thing->flags &= ~TI_THING_FLAG_SWEEP;
 
     if (ti_thing_is_object(thing))
-        for (vec_each(thing->items, ti_prop_t, prop))
+        for (vec_each(thing->items.vec, ti_prop_t, prop))
             collection__gc_val(prop->val);
     else
-        for (vec_each(thing->items, ti_val_t, val))
+        for (vec_each(thing->items.vec, ti_val_t, val))
             collection__gc_val(val);
 }
 
@@ -336,7 +336,7 @@ typedef struct
 
 static int collection__gc_thing(ti_thing_t * thing, collection__gc_t * w)
 {
-    if (thing->flags & TI_VFLAG_THING_SWEEP)
+    if (thing->flags & TI_THING_FLAG_SWEEP)
     {
         ti_gc_t * gc = ti_gc_create(w->cevid, thing);
 
@@ -354,7 +354,7 @@ static int collection__gc_thing(ti_thing_t * thing, collection__gc_t * w)
             thing->id);
     }
 
-    thing->flags |= TI_VFLAG_THING_SWEEP;
+    thing->flags |= TI_THING_FLAG_SWEEP;
 
     /*
      * Return success, also when marking has failed to make sure at least
@@ -394,16 +394,16 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
         {
             /*
              * For all collected things above the stored event id need to
-             * have the `TI_VFLAG_THING_SWEEP` which might be removed by the
+             * have the `TI_THING_FLAG_SWEEP` which might be removed by the
              * earlier markings.
              */
-            gc->thing->flags |= TI_VFLAG_THING_SWEEP;
+            gc->thing->flags |= TI_THING_FLAG_SWEEP;
             continue;
         }
 
         ++m;
 
-        if (gc->thing->flags & TI_VFLAG_THING_SWEEP)
+        if (gc->thing->flags & TI_THING_FLAG_SWEEP)
         {
             /*
              * Clear all the properties which is safe because the garbage
@@ -421,7 +421,7 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
         ti_thing_t * thing = gc->thing;
         free(gc);
 
-        if (thing->flags & TI_VFLAG_THING_SWEEP)
+        if (thing->flags & TI_THING_FLAG_SWEEP)
         {
             ++n;
             ti_thing_destroy(thing);

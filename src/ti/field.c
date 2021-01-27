@@ -706,7 +706,7 @@ static int field__mod_nested_cb(ti_thing_t * thing, ti_field_t * field)
 {
     if (thing->type_id == field->type->type_id)
     {
-        ti_val_t * val = VEC_get(thing->items, field->idx);
+        ti_val_t * val = VEC_get(thing->items.vec, field->idx);
 
         switch ((ti_val_enum) val->tp)
         {
@@ -950,14 +950,14 @@ static int field__ren_cb(ti_thing_t * thing, ti_field_t * field)
 {
     if (thing->type_id == field->type->type_id)
     {
-        ti_val_t * val = VEC_get(thing->items, field->idx);
+        ti_val_t * val = VEC_get(thing->items.vec, field->idx);
         switch((ti_val_enum) val->tp)
         {
         case TI_VAL_ARR:
-            ((ti_varr_t *) val)->name = field->name;
+            ((ti_varr_t *) val)->key = (ti_raw_t *) field->name;
             break;
         case TI_VAL_SET:
-            ((ti_vset_t *) val)->name = field->name;
+            ((ti_vset_t *) val)->key = (ti_raw_t *) field->name;
             break;
         default:
             break;
@@ -1081,7 +1081,7 @@ int ti_field_del(ti_field_t * field, uint64_t ev_id)
             if (ti_thing_has_watchers(thing))
                 field__del_watch(thing, data, ev_id);
 
-            ti_val_unsafe_drop(vec_swap_remove(thing->items, field->idx));
+            ti_val_unsafe_drop(vec_swap_remove(thing->items.vec, field->idx));
         }
         ti_val_unsafe_drop((ti_val_t *) thing);
     }
@@ -1097,7 +1097,9 @@ int ti_field_del(ti_field_t * field, uint64_t ev_id)
             if (ti_thing_has_watchers(gc->thing))
                 field__del_watch(gc->thing, data, ev_id);
 
-            ti_val_unsafe_drop(vec_swap_remove(gc->thing->items, field->idx));
+            ti_val_unsafe_drop(vec_swap_remove(
+                    gc->thing->items.vec,
+                    field->idx));
         }
     }
 
@@ -1926,7 +1928,7 @@ static int field__add(ti_thing_t * thing, field__add_t * w)
 
     /* closure is already unbound, so only a memory exception can occur */
     if (ti_val_make_assignable(w->vaddr, thing, w->name, &w->e) ||
-        vec_push(&thing->items, *w->vaddr))
+        vec_push(&thing->items.vec, *w->vaddr))
         return 1;
 
     ti_incref(*w->vaddr);

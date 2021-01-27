@@ -26,7 +26,7 @@ static inline int modtype__addv_cb(ti_thing_t * thing, modtype__addv_t * w)
         if (ti_val_make_assignable(&w->dval, thing, w->name, w->e))
             return w->e->nr;
 
-        if (vec_push(&thing->items, w->dval))
+        if (vec_push(&thing->items.vec, w->dval))
         {
             ex_set_mem(w->e);
             return w->e->nr;
@@ -40,7 +40,7 @@ static inline int modtype__addv_cb(ti_thing_t * thing, modtype__addv_t * w)
 static inline int modtype__delv_cb(ti_thing_t * thing, ti_field_t * field)
 {
     if (thing->type_id == field->type->type_id)
-        ti_val_unsafe_drop(vec_swap_remove(thing->items, field->idx));
+        ti_val_unsafe_drop(vec_swap_remove(thing->items.vec, field->idx));
     return 0;
 }
 
@@ -88,7 +88,7 @@ static int modtype__add_cb(ti_thing_t * thing, modtype__add_t * w)
 
     if (ti_closure_do_statement(w->closure, w->query, &ex) ||
         ti_val_is_nil(w->query->rval) ||
-        w->query->rval == VEC_get(thing->items, w->field->idx) ||
+        w->query->rval == VEC_get(thing->items.vec, w->field->idx) ||
         ti_field_make_assignable(w->field, &w->query->rval, thing, &ex))
     {
         if (w->e->nr == 0 && ex.nr)
@@ -106,14 +106,17 @@ static int modtype__add_cb(ti_thing_t * thing, modtype__add_t * w)
     else
     {
         ti_val_unsafe_drop(vec_set(
-                thing->items,
+                thing->items.vec,
                 w->query->rval,
                 w->field->idx));
 
         if (thing->id)
         {
             task = ti_task_get_task(w->query->ev, thing);
-            if (!task || ti_task_add_set(task, w->field->name, w->query->rval))
+            if (!task || ti_task_add_set(
+                    task,
+                    (ti_raw_t *) w->field->name,
+                    w->query->rval))
                 ex_set_mem(w->e);
         }
     }
@@ -151,7 +154,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
         ti_val_is_nil(w->query->rval) ||
         ti_field_make_assignable(w->field, &w->query->rval, thing, &ex))
     {
-        ti_val_t * val = VEC_get(thing->items, w->field->idx);
+        ti_val_t * val = VEC_get(thing->items.vec, w->field->idx);
 
         if (w->e->nr == 0 && ex.nr)
         {
@@ -176,12 +179,18 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
             !ti_val_make_assignable(&w->dval, thing, w->field->name, w->e))
         {
             ti_incref(w->dval);
-            ti_val_unsafe_drop(vec_set(thing->items, w->dval, w->field->idx));
+            ti_val_unsafe_drop(vec_set(
+                    thing->items.vec,
+                    w->dval,
+                    w->field->idx));
 
             if (thing->id)
             {
                 task = ti_task_get_task(w->query->ev, thing);
-                if (!task || ti_task_add_set(task, w->field->name, w->dval))
+                if (!task || ti_task_add_set(
+                        task,
+                        (ti_raw_t *) w->field->name,
+                        w->dval))
                     ex_set_mem(w->e);
             }
 
@@ -200,14 +209,17 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
     else
     {
         ti_val_unsafe_drop(vec_set(
-                thing->items,
+                thing->items.vec,
                 w->query->rval,
                 w->field->idx));
 
         if (thing->id)
         {
             task = ti_task_get_task(w->query->ev, thing);
-            if (!task || ti_task_add_set(task, w->field->name, w->query->rval))
+            if (!task || ti_task_add_set(
+                    task,
+                    (ti_raw_t *) w->field->name,
+                    w->query->rval))
                 ex_set_mem(w->e);
         }
     }
@@ -226,7 +238,7 @@ static int modtype__mod_after_cb(ti_thing_t * thing, modtype__mod_t * w)
 {
     ti_task_t * task;
     ex_t ex = {0};
-    ti_val_t * val = VEC_get(thing->items, w->field->idx);
+    ti_val_t * val = VEC_get(thing->items.vec, w->field->idx);
 
     assert (thing->type_id == w->field->type->type_id);
 
@@ -240,12 +252,15 @@ static int modtype__mod_after_cb(ti_thing_t * thing, modtype__mod_t * w)
         !ti_val_make_assignable(&w->dval, thing, w->field->name, w->e))
     {
         ti_incref(w->dval);
-        ti_val_unsafe_drop(vec_set(thing->items, w->dval, w->field->idx));
+        ti_val_unsafe_drop(vec_set(thing->items.vec, w->dval, w->field->idx));
 
         if (thing->id)
         {
             task = ti_task_get_task(w->query->ev, thing);
-            if (!task || ti_task_add_set(task, w->field->name, w->dval))
+            if (!task || ti_task_add_set(
+                    task,
+                    (ti_raw_t *) w->field->name,
+                    w->dval))
                 ex_set_mem(w->e);
         }
 

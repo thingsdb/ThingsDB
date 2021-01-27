@@ -63,10 +63,10 @@ static int store__walk_data(ti_thing_t * thing, msgpack_packer * pk)
 
     if (ti_thing_is_object(thing))
     {
-        if (msgpack_pack_map(pk, thing->items->n))
+        if (msgpack_pack_map(pk, ti_thing_n(thing)))
             return -1;
 
-        for (vec_each(thing->items, ti_prop_t, prop))
+        for (vec_each(thing->items.vec, ti_prop_t, prop))
         {
             uintptr_t p = (uintptr_t) prop->name;
             if (msgpack_pack_uint64(pk, p) ||
@@ -76,10 +76,10 @@ static int store__walk_data(ti_thing_t * thing, msgpack_packer * pk)
     }
     else
     {
-        if (msgpack_pack_array(pk, thing->items->n))
+        if (msgpack_pack_array(pk, ti_thing_n(thing)))
             return -1;
 
-        for (vec_each(thing->items, ti_val_t, val))
+        for (vec_each(thing->items.vec, ti_val_t, val))
             if (ti_val_to_pk(val, pk, TI_VAL_PACK_FILE))
                 return -1;
     }
@@ -270,7 +270,7 @@ int ti_store_things_restore_data(
                 if (!val ||
                     ti_val_make_assignable(&val, thing, field->name, &e))
                     goto fail1;
-                VEC_push(thing->items, val);
+                VEC_push(thing->items.vec, val);
             }
         }
     }

@@ -134,4 +134,9 @@ typedef enum
     TI_STR_INFO
 } ti_ext_tp;
 
+static inline _Bool ti_is_reserved_key_strn(const char * str, size_t n)
+{
+    return n == 1 && ((*str & 240) == 32);
+}
+
 #endif  /* TIINC_H_ */

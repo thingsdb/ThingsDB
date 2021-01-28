@@ -73,20 +73,6 @@ ti_thing_t * ti_things_thing_o_from_vup(
         return thing;
     }
 
-    if (vup->isclient)
-    {
-        /*
-         * If not unpacking from an event, then new things should be created
-         * without an id.
-         */
-        ex_set(e, EX_LOOKUP_ERROR,
-                "thing "TI_THING_ID" not found; "
-                "if you want to create a new thing then remove the id (`#`) "
-                "and try again",
-                thing_id);
-        return NULL;
-    }
-
     --sz;  /* decrease one to unpack the remaining properties */
 
     thing = ti_things_create_thing_o(thing_id, sz, vup->collection);
@@ -112,12 +98,6 @@ ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
     ti_thing_t * thing;
     ti_type_t * type;
     mp_obj_t obj, mp_thing_id, mp_type_id;
-
-    if (vup->isclient)
-    {
-        ex_set(e, EX_BAD_DATA, "cannot unpack a type from a client request");
-        return NULL;
-    }
 
     if (mp_next(vup->up, &mp_type_id) != MP_U64 ||
         mp_skip(vup->up) != MP_STR ||   /* `#` */

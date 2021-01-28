@@ -102,7 +102,7 @@ static int job__set(ti_thing_t * thing, mp_unp_t * up)
 {
     ex_t e = {0};
     ti_val_t * val;
-    ti_name_t * name;
+    ti_raw_t * key;
     mp_obj_t obj, mp_prop;
     ti_vup_t vup = {
             .isclient = false,
@@ -119,17 +119,11 @@ static int job__set(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    if (!ti_name_is_valid_strn(mp_prop.via.str.data, mp_prop.via.str.n))
-    {
-        log_critical(
-                "job `set` to "TI_THING_ID": "
-                "invalid property: `%.*s`",
-                thing->id, (int) mp_prop.via.str.n, mp_prop.via.str.data);
-        return -1;
-    }
+    key = ti_name_is_valid_strn(mp_prop.via.str.data, mp_prop.via.str.n)
+        ? (ti_raw_t *) ti_names_get(mp_prop.via.str.data, mp_prop.via.str.n)
+        : ti_str_create(mp_prop.via.str.data, mp_prop.via.str.n);
 
-    name = ti_names_get(mp_prop.via.str.data, mp_prop.via.str.n);
-    if (!name)
+    if (!key || ti_raw_is_reserved_key(key))
     {
         log_critical(EX_MEMORY_S);
         return -1;
@@ -140,49 +134,56 @@ static int job__set(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "job `set` to "TI_THING_ID": "
-                "error reading value for property: `%s`",
-                thing->id,
-                name->str);
+                "error reading value for property",
+                thing->id);
         goto fail;
     }
 
-    if (ti_val_make_assignable(&val, thing, name, &e))
+    if (ti_val_make_assignable(&val, thing, key, &e))
     {
         log_critical(
                 "job `set` to "TI_THING_ID": "
                 "error making variable assignable: `%s`",
                 thing->id,
-                name->str,
                 e.msg);
         goto fail;
     }
 
     if (ti_thing_is_object(thing))
     {
-        if (!ti_thing_p_prop_set(thing, name, val))
+        if (ti_thing_o_set(thing, key, val))
         {
             log_critical(
                     "job `set` to "TI_THING_ID": "
-                    "error setting property: `%s` (type: `%s`)",
+                    "error setting property (type: `%s`)",
                     thing->id,
-                    name->str,
                     ti_val_str(val));
             goto fail;
         }
     }
     else
     {
-        ti_thing_t_prop_set(
-                thing,
-                ti_field_by_name(ti_thing_type(thing), name),
-                val);
+        ti_field_t * field = ti_field_by_name(
+                ti_thing_type(thing),
+                (ti_name_t *) key);
+
+        if (!field)
+        {
+            log_critical(
+                    "job `set` to "TI_THING_ID": "
+                    "cannot find field",
+                    thing->id);
+            goto fail;
+
+        }
+        ti_thing_t_prop_set(thing, field, val);
     }
 
     return 0;
 
 fail:
     ti_val_drop(val);
-    ti_name_unsafe_drop(name);
+    ti_val_unsafe_drop((ti_val_t *) key);
     return -1;
 }
 

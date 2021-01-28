@@ -89,13 +89,32 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
 
     restore_point = vup->up->pt;
 
-    if (mp_next(vup->up, &mp_key) != MP_STR || mp_key.via.str.n == 0)
+    if (mp_next(vup->up, &mp_key) != MP_STR)
     {
         ex_set(e, EX_TYPE_ERROR,
-                "property names must be of type `"TI_VAL_STR_S"` "
-                "and follow the naming rules"DOC_NAMES);
+                "property names must be of type `"TI_VAL_STR_S"`");
         return NULL;
     }
+
+    /*
+     *  TODO: UTF-8 encoding depends on correct msgpack data, decide if we
+     *  want to keep this check, or rely on correct usage of msgpack.
+     */
+    if (!strx_is_utf8n(mp_key.via.str.data, mp_key.via.str.n))
+    {
+        ex_set(e, EX_VALUE_ERROR, "properties must have valid UTF-8 encoding");
+        return NULL;
+    }
+
+    if (!ti_is_reserved_key_strn(mp_key.via.str.data, mp_key.via.str.n))
+    {
+        /* restore the unpack pointer to the first property */
+        vup->up->pt = restore_point;
+        return (ti_val_t *) ti_thing_new_from_vup(vup, sz, e);
+    }
+
+    if (vup->isclient)
+        goto reserved;
 
     switch ((ti_val_kind) *mp_key.via.str.data)
     {
@@ -142,8 +161,8 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
         if (sz != 1 || mp_next(vup->up, &mp_val) != MP_STR)
         {
             ex_set(e, EX_BAD_DATA,
-                    "closures must be written according the following syntax: "
-                    "{\""TI_KIND_S_CLOSURE"\": \"...\"");
+                    "closures must be written according the following "
+                    "syntax: {\""TI_KIND_S_CLOSURE"\": \"...\"");
             return NULL;
         }
 
@@ -361,10 +380,10 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
         return (ti_val_t *) dt;
     }
     }
-
-    /* restore the unpack pointer to the first property */
-    vup->up->pt = restore_point;
-    return (ti_val_t *) ti_thing_new_from_vup(vup, sz, e);
+reserved:
+    ex_set(e, EX_VALUE_ERROR, "property `%c` is reserved",
+            *mp_key.via.str.data);
+    return NULL;
 }
 
 /*

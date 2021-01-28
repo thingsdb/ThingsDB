@@ -30,4 +30,9 @@ static inline _Bool ti_raw_is_name(ti_raw_t * raw)
     return raw->tp == TI_VAL_NAME;
 }
 
+static inline _Bool ti_raw_is_reserved_key(ti_raw_t * raw)
+{
+    return raw->n == 1 && ((*raw->data & 240) == 32);
+}
+
 #endif  /* TI_RAW_INLINE_H_ */

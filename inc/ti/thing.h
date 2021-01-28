@@ -35,7 +35,8 @@ ti_thing_t * ti_thing_t_create(
         ti_collection_t * collection);
 void ti_thing_destroy(ti_thing_t * thing);
 void ti_thing_clear(ti_thing_t * thing);
-int ti_thing_to_items(ti_thing_t * thing);
+int ti_thing_to_dict(ti_thing_t * thing);
+int ti_thing_to_strict(ti_thing_t * thing, ti_raw_t ** incompatible);
 int ti_thing_props_from_vup(
         ti_thing_t * thing,
         ti_vup_t * vup,
@@ -53,6 +54,10 @@ ti_item_t * ti_thing_i_item_add(
 ti_prop_t * ti_thing_p_prop_set(
         ti_thing_t * thing,
         ti_name_t * name,
+        ti_val_t * val);
+ti_item_t * ti_thing_i_item_set(
+        ti_thing_t * thing,
+        ti_raw_t * key,
         ti_val_t * val);
 void ti_thing_t_prop_set(
         ti_thing_t * thing,
@@ -158,6 +163,7 @@ static inline uint64_t ti_thing_key(ti_thing_t * thing)
 }
 static inline uint32_t ti_thing_n(ti_thing_t * thing)
 {
+    /* both smap_t and vec_t have the `n` counter on top */
     return thing->items.vec->n;
 }
 
@@ -165,7 +171,9 @@ static inline ti_prop_t * ti_thing_o_prop_weak_get(
         ti_thing_t * thing,
         ti_name_t * name)
 {
-    assert (ti_thing_is_object(thing));
+    if (ti_thing_is_dict(thing))
+        return smap_get(thing->items.smap, name->str);
+
     for (vec_each(thing->items.vec, ti_prop_t, prop))
         if (prop->name == name)
             return prop;

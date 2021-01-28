@@ -5,11 +5,13 @@
 #define TI_THING_INLINE_H_
 
 #include <ti/type.h>
+#include <ti/name.h>
+#include <ti/names.h>
+#include <ti/raw.h>
+#include <ti/raw.inline.h>
 #include <ti/thing.h>
 #include <ti/thing.t.h>
 #include <ti/witem.t.h>
-#include <ti/name.h>
-#include <ti/raw.h>
 #include <util/strx.h>
 #include <doc.h>
 
@@ -58,14 +60,19 @@ static inline int ti_thing_o_set_val_from_strn(
      *  TODO: UTF-8 encoding depends on correct msgpack data, decide if we
      *  want to keep this check, or rely on correct usage of msgpack.
      */
-
     if (!strx_is_utf8n(str, n))
     {
         ex_set(e, EX_VALUE_ERROR, "properties must have valid UTF-8 encoding");
         return e->nr;
     }
 
-    if (!ti_thing_is_dict(thing) && ti_thing_to_items(thing))
+    if (ti_is_reserved_key_strn(str, n))
+    {
+        ex_set(e, EX_VALUE_ERROR, "property `%c` is reserved", *str);
+        return e->nr;
+    }
+
+    if (!ti_thing_is_dict(thing) && ti_thing_to_dict(thing))
     {
         ex_set_mem(e);
         return e->nr;
@@ -113,13 +120,10 @@ static inline void ti_thing_o_set_not_found(
     }
     else
     {
-        size_t n = key->n <= 30 ? key->n : 30;
         ex_set(e, EX_LOOKUP_ERROR,
-                "thing "TI_THING_ID" has no property `%.*s%s`",
+                "thing "TI_THING_ID" has no property `%s`",
                 thing->id,
-                n,
-                (const char *) key->data,
-                key->n == n ? "" : "...");
+                ti_raw_as_printable_str(key));
     }
 }
 
@@ -147,10 +151,16 @@ static inline ti_val_t * ti_thing_o_val_weak_get(
         ti_thing_t * thing,
         ti_name_t * name)
 {
-    assert (ti_thing_is_object(thing));
+    if (ti_thing_is_dict(thing))
+    {
+        ti_item_t * item = smap_get(thing->items.smap, name->str);
+        return item ? item->val : NULL;
+    }
+
     for (vec_each(thing->items.vec, ti_prop_t, prop))
         if (prop->name == name)
             return prop->val;
+
     return NULL;
 }
 
@@ -167,7 +177,9 @@ static inline ti_val_t * ti_thing_t_val_weak_get(
     return NULL;
 }
 
-static inline ti_val_t * ti_thing_val_weak_get(ti_thing_t * thing, ti_name_t * name)
+static inline ti_val_t * ti_thing_val_weak_get(
+        ti_thing_t * thing,
+        ti_name_t * name)
 {
     return ti_thing_is_object(thing)
             ? ti_thing_o_val_weak_get(thing, name)
@@ -204,6 +216,44 @@ static inline void ti_thing_may_push_gc(ti_thing_t * thing)
         ti_incref(thing);
         thing->flags &= ~TI_THING_FLAG_SWEEP;
     }
+}
+
+static inline int ti_thing_o_set(
+        ti_thing_t * thing,
+        ti_raw_t * key,
+        ti_val_t * val)
+{
+    if (ti_thing_is_dict(thing))
+        return -!ti_thing_i_item_set(thing, key, val);
+
+    if (ti_raw_is_name(key))
+        return -!ti_thing_p_prop_set(thing, (ti_name_t *) key, val);
+
+    return -(ti_thing_to_dict(thing) || !ti_thing_i_item_set(thing, key, val));
+}
+
+static inline int ti_thing_o_add(
+        ti_thing_t * thing,
+        ti_raw_t * key,
+        ti_val_t * val)
+{
+    if (ti_thing_is_dict(thing))
+        return -!ti_thing_i_item_add(thing, key, val);
+
+    if (ti_raw_is_name(key))
+        return -!ti_thing_p_prop_add(thing, (ti_name_t *) key, val);
+
+    return -(ti_thing_to_dict(thing) || !ti_thing_i_item_add(thing, key, val));
+}
+
+static inline _Bool ti_thing_o_has_key(ti_thing_t * thing, ti_raw_t * key)
+{
+    if (!ti_thing_is_dict(thing))
+    {
+        ti_name_t * name = ti_names_weak_from_raw(key);
+        return name && ti_thing_val_weak_get(thing, name);
+    }
+    return !!smap_getn(thing->items.smap, (const char *) key->data, key->n);
 }
 
 #endif  /* TI_THING_INLINE_H_ */

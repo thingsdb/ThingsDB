@@ -369,7 +369,7 @@ static int fn_call_o_try_n(
     if (!name_ || !(val = ti_thing_o_val_weak_get(thing, name_)))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "thing "TI_THING_ID" has no property `%.*s`",
+                "thing "TI_THING_ID" has no property or method `%.*s`",
                 thing->id, n, name);
         return e->nr;
     }

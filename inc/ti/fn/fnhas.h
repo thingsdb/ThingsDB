@@ -28,7 +28,7 @@ fail1:
 static int do__f_has_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
-    ti_name_t * name;
+    _Bool has;
     ti_thing_t * thing;
 
     if (fn_nargs("has", DOC_THING_HAS, 1, nargs, e))
@@ -41,11 +41,10 @@ static int do__f_has_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_arg_str("has", DOC_THING_HAS, 1, query->rval, e))
         goto fail1;
 
-    name = ti_names_weak_from_raw((ti_raw_t *) query->rval);
+    has = ti_thing_o_has_key(thing, (ti_raw_t *) query->rval);
 
     ti_val_unsafe_drop(query->rval);
-    query->rval = (ti_val_t *) ti_vbool_get(
-            name && ti_thing_val_weak_get(thing, name));
+    query->rval = (ti_val_t *) ti_vbool_get(has);
 
 fail1:
     ti_val_unsafe_drop((ti_val_t *) thing);

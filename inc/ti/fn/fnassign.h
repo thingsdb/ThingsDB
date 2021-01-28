@@ -2,7 +2,7 @@
 
 static inline int assign__set_o(
         ti_thing_t * thing,
-        ti_name_t * name,
+        ti_raw_t * key,
         ti_val_t * val,
         ti_task_t * task,
         ex_t * e,
@@ -18,12 +18,12 @@ static inline int assign__set_o(
      * Closures are already unbound so the only possible errors are
      * critical.
      */
-    if (ti_val_make_assignable(&val, thing, name, e) ||
-        !ti_thing_p_prop_set(thing, name, val) ||
-        (task && ti_task_add_set(task, (ti_raw_t *) name, val)))
+    if (ti_val_make_assignable(&val, thing, key, e) ||
+        ti_thing_o_set(thing, key, val) ||
+        (task && ti_task_add_set(task, key, val)))
         goto failed;
 
-    ti_incref(name);
+    ti_incref(key);
     val->ref += parent_ref == 1;
     return e->nr;
 
@@ -36,6 +36,24 @@ failed:
     return e->nr;
 }
 
+typedef struct
+{
+    ti_thing_t * thing;
+    ti_thing_t * tsrc;
+    ti_task_t * task;
+    ex_t * e;
+} assign__walk_i_t;
+
+static int assign__walk_i(ti_item_t * item, assign__walk_i_t * w)
+{
+    return assign__set_o(
+            w->thing,
+            item->key,
+            item->val,
+            w->task,
+            w->e,
+            w->tsrc->ref);
+}
 
 static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
@@ -88,16 +106,45 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         if (ti_thing_is_object(tsrc))
         {
-            for(vec_each(tsrc->items.vec, ti_prop_t, p))
-                if (assign__set_o(thing, p->name, p->val, task, e, tsrc->ref))
+            if (ti_thing_is_dict(tsrc))
+            {
+                assign__walk_i_t w = {
+                        .thing = thing,
+                        .tsrc = tsrc,
+                        .task = task,
+                        .e = e,
+                };
+                if (smap_values(
+                        tsrc->items.smap,
+                        (smap_val_cb) assign__walk_i,
+                        &w))
                     goto fail1;
+            }
+            else
+            {
+                for(vec_each(tsrc->items.vec, ti_prop_t, p))
+                    if (assign__set_o(
+                            thing,
+                            (ti_raw_t *) p->name,
+                            p->val,
+                            task,
+                            e,
+                            tsrc->ref))
+                        goto fail1;
+            }
         }
         else
         {
             ti_name_t * name;
             ti_val_t * val;
             for(thing_t_each(tsrc, name, val))
-                if (assign__set_o(thing, name, val, task, e, tsrc->ref))
+                if (assign__set_o(
+                        thing,
+                        (ti_raw_t *) name,
+                        val,
+                        task,
+                        e,
+                        tsrc->ref))
                     goto fail1;
         }
     }
@@ -108,6 +155,22 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (ti_thing_is_object(tsrc))
         {
+            if (ti_thing_is_dict(tsrc))
+            {
+                ti_raw_t * incompatible;
+                if (ti_thing_to_strict(tsrc, &incompatible))
+                {
+                    if (incompatible)
+                        ex_set(e, EX_LOOKUP_ERROR,
+                                "type `%s` has no property `%s`",
+                                type->name,
+                                ti_raw_as_printable_str(incompatible));
+                    else
+                        ex_set_mem(e);
+
+                    goto fail1;
+                }
+            }
             vec = vec_new(ti_thing_n(tsrc));
             if (!vec)
             {

@@ -70,13 +70,10 @@ static inline int thing__item_val_locked(
     if (    (val->tp == TI_VAL_ARR || val->tp == TI_VAL_SET) &&
             (val->flags & TI_VFLAG_LOCK))
     {
-        size_t n = key->n <= 30 ? key->n : 30;
         ex_set(e, EX_OPERATION,
-            "cannot change or remove property `%.*s%s` on "TI_THING_ID
+            "cannot change or remove property `%s` on "TI_THING_ID
             " while the `%s` is being used",
-            n,
-            (const char *) key->data,
-            key->n == n ? "" : "...",
+            ti_raw_as_printable_str(key),
             thing->id,
             ti_val_str(val));
         return -1;
@@ -327,7 +324,7 @@ void ti_thing_clear(ti_thing_t * thing)
     }
 }
 
-int ti_thing_to_items(ti_thing_t * thing)
+int ti_thing_to_dict(ti_thing_t * thing)
 {
     smap_t * smap = smap_create();
     if (!smap)
@@ -347,6 +344,50 @@ fail0:
     return -1;
 }
 
+typedef struct
+{
+    ti_raw_t ** incompatible;
+    vec_t * vec;
+} thing__to_stric_t;
+
+static int thing__to_strict_cb(ti_item_t * item, thing__to_stric_t * w)
+{
+    if (ti_raw_is_name(item->key))
+    {
+        VEC_push(w->vec, item);
+        return 0;
+    }
+    *w->incompatible = item->key;
+    return -1;
+}
+
+int ti_thing_to_strict(ti_thing_t * thing, ti_raw_t ** incompatible)
+{
+    vec_t * vec = vec_new(ti_thing_n(thing));
+    if (!vec)
+    {
+        *incompatible = NULL;
+        return -1;
+    }
+    thing__to_stric_t w = {
+            .incompatible = incompatible,
+            .vec = vec,
+    };
+    if (smap_values(
+            thing->items.smap,
+            (smap_val_cb) thing__to_strict_cb,
+            &w))
+    {
+        free(vec);
+        return -1;
+    }
+
+    smap_destroy(thing->items.smap, NULL);
+    thing->items.vec = vec;
+    thing->flags &= ~TI_THING_FLAG_DICT;
+    return 0;
+}
+
 int ti_thing_props_from_vup(
         ti_thing_t * thing,
         ti_vup_t * vup,
@@ -354,7 +395,7 @@ int ti_thing_props_from_vup(
         ex_t * e)
 {
     ti_val_t * val;
-    ti_name_t * name;
+    ti_raw_t * key;
     mp_obj_t mp_prop;
     while (sz--)
     {
@@ -364,24 +405,37 @@ int ti_thing_props_from_vup(
             return e->nr;
         }
 
-        if (!ti_name_is_valid_strn(mp_prop.via.str.data, mp_prop.via.str.n))
+        /*
+         *  TODO: UTF-8 encoding depends on correct msgpack data, decide if we
+         *  want to keep this check, or rely on correct usage of msgpack.
+         */
+        if (!strx_is_utf8n(mp_prop.via.str.data, mp_prop.via.str.n))
         {
             ex_set(e, EX_VALUE_ERROR,
-                    "property name must follow the naming rules"
-                    DOC_NAMES);
+                    "properties must have valid UTF-8 encoding");
             return e->nr;
         }
 
-        name = ti_names_get(mp_prop.via.str.data, mp_prop.via.str.n);
+        if (ti_is_reserved_key_strn(mp_prop.via.str.data, mp_prop.via.str.n))
+        {
+            ex_set(e, EX_VALUE_ERROR, "property `%c` is reserved",
+                    *mp_prop.via.str.data);
+            return e->nr;
+        }
+
+        key = ti_name_is_valid_strn(mp_prop.via.str.data, mp_prop.via.str.n)
+            ? (ti_raw_t *) ti_names_get(mp_prop.via.str.data, mp_prop.via.str.n)
+            : ti_str_create(mp_prop.via.str.data, mp_prop.via.str.n);
+
         val = ti_val_from_vup_e(vup, e);
 
-        if (!val || !name || ti_val_make_assignable(&val, thing, name, e) ||
-            !ti_thing_p_prop_set(thing, name, val))
+        if (!val || !key || ti_val_make_assignable(&val, thing, key, e) ||
+            ti_thing_o_set(thing, key, val))
         {
             if (!e->nr)
                 ex_set_mem(e);
             ti_val_drop(val);
-            ti_name_drop(name);
+            ti_val_drop((ti_val_t *) key);
             return e->nr;
         }
     }
@@ -527,7 +581,6 @@ static int thing_i__item_set_e(
     return e->nr;
 }
 
-
 /*
  * Does not increment the `name` and `val` reference counters.
  */
@@ -536,7 +589,6 @@ ti_prop_t * ti_thing_p_prop_set(
         ti_name_t * name,
         ti_val_t * val)
 {
-    assert (ti_thing_is_object(thing));
     ti_prop_t * prop;
 
     for (vec_each(thing->items.vec, ti_prop_t, p))
@@ -558,6 +610,37 @@ ti_prop_t * ti_thing_p_prop_set(
     }
 
     return prop;
+}
+
+/*
+ * Does not increment the `name` and `val` reference counters.
+ */
+ti_item_t * ti_thing_i_item_set(
+        ti_thing_t * thing,
+        ti_raw_t * key,
+        ti_val_t * val)
+{
+    ti_item_t * item = smap_getn(
+            thing->items.smap,
+            (const char *)
+            key->data, key->n);
+    if (item)
+    {
+        ti_val_unsafe_drop((ti_val_t *) item->key);
+        ti_val_unsafe_gc_drop(item->val);
+        item->val = val;
+        item->key = key;
+        return item;
+    }
+
+    item = ti_item_create(key, val);
+    if (smap_addn(thing->items.smap, (const char *) key->data, key->n, item))
+    {
+        free(item);
+        return NULL;
+    }
+
+    return item;
 }
 
 /*

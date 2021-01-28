@@ -59,6 +59,17 @@ done:
     return 0;
 }
 
+static int store__walk_i(ti_item_t * item, msgpack_packer * pk)
+{
+    uintptr_t p = (uintptr_t) item->key;
+
+    return -((ti_raw_is_name(item->key)
+        ? msgpack_pack_uint64(pk, p)
+        : mp_pack_strn(pk, item->key->data, item->key->n)) ||
+        ti_val_to_pk(item->val, pk, TI_VAL_PACK_FILE));
+}
+
+
 static int store__walk_data(ti_thing_t * thing, msgpack_packer * pk)
 {
     if (msgpack_pack_uint64(pk, thing->id))
@@ -69,6 +80,13 @@ static int store__walk_data(ti_thing_t * thing, msgpack_packer * pk)
         if (msgpack_pack_map(pk, ti_thing_n(thing)))
             return -1;
 
+        if (ti_thing_is_dict(thing))
+            return smap_values(
+                    thing->items.smap,
+                    (smap_val_cb) store__walk_i,
+                    pk);
+
+
         for (vec_each(thing->items.vec, ti_prop_t, prop))
         {
             uintptr_t p = (uintptr_t) prop->name;
@@ -76,16 +94,16 @@ static int store__walk_data(ti_thing_t * thing, msgpack_packer * pk)
                 ti_val_to_pk(prop->val, pk, TI_VAL_PACK_FILE)
             ) return -1;
         }
+        return 0;
     }
-    else
-    {
-        if (msgpack_pack_array(pk, ti_thing_n(thing)))
+    /* type */
+    if (msgpack_pack_array(pk, ti_thing_n(thing)))
+        return -1;
+
+    for (vec_each(thing->items.vec, ti_val_t, val))
+        if (ti_val_to_pk(val, pk, TI_VAL_PACK_FILE))
             return -1;
 
-        for (vec_each(thing->items.vec, ti_val_t, val))
-            if (ti_val_to_pk(val, pk, TI_VAL_PACK_FILE))
-                return -1;
-    }
     return 0;
 }
 
@@ -202,10 +220,10 @@ int ti_store_gcollect_restore_data(
     ex_t e = {0};
     fx_mmap_t fmap;
     ti_thing_t * thing;
-    ti_name_t * name;
+    ti_raw_t * key;
     ti_type_t * type;
     ti_val_t * val;
-    mp_obj_t obj, mp_ver, mp_thing_id, mp_name_id;
+    mp_obj_t obj, mp_ver, mp_thing_id, mp_key;
     mp_unp_t up;
     size_t i, ii;
     ti_vup_t vup = {
@@ -259,25 +277,34 @@ int ti_store_gcollect_restore_data(
 
             for (ii = obj.via.sz; ii--;)
             {
-                if (mp_next(&up, &mp_name_id) != MP_U64)
+                if (mp_next(&up, &mp_key) <= MP_END)
                     goto fail1;
 
-                name = imap_get(names, mp_name_id.via.u64);
-                if (!name)
+                switch(mp_key.tp)
                 {
-                    log_critical(
-                            "cannot find name with id: %"PRIu64,
-                            mp_name_id.via.u64);
+                case MP_U64:
+                    key = imap_get(names, mp_key.via.u64);
+                    break;
+                case MP_STR:
+                    key = ti_str_create(mp_key.via.str.data, mp_key.via.str.n);
+                    break;
+                default:
+                    goto fail1;
+                }
+
+                if (!key)
+                {
+                    log_critical("failed to load (gc) key");
                     goto fail1;
                 }
 
                 val = ti_val_from_vup(&vup);
 
-                if (!val || ti_val_make_assignable(&val, thing, name, &e) ||
-                    !ti_thing_p_prop_add(thing, name, val))
+                if (!val || ti_val_make_assignable(&val, thing, key, &e) ||
+                    ti_thing_o_add(thing, key, val))
                     goto fail1;
 
-                ti_incref(name);
+                ti_incref(key);
             }
         }
         else

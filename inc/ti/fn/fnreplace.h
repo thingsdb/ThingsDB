@@ -184,16 +184,16 @@ fail0:
  */
 static int do__replace_value(
         struct tm * tm,
-        ti_name_t * name,
+        ti_raw_t * key,
         ti_val_t * val,
         ex_t * e)
 {
     int64_t i;
 
-    switch(name->n)
+    switch(key->n)
     {
     case 3:
-        if (memcmp(name->str, "day", 3) == 0)
+        if (memcmp(key->data, "day", 3) == 0)
         {
             if (!ti_val_is_int(val))
             {
@@ -217,7 +217,7 @@ static int do__replace_value(
         }
         return 0;
     case 4:
-        if (memcmp(name->str, "hour", 4) == 0)
+        if (memcmp(key->data, "hour", 4) == 0)
         {
             if (!ti_val_is_int(val))
             {
@@ -240,7 +240,7 @@ static int do__replace_value(
             tm->tm_hour = (int) i;
             return 0;
         }
-        if (memcmp(name->str, "year", 4) == 0)
+        if (memcmp(key->data, "year", 4) == 0)
         {
             if (!ti_val_is_int(val))
             {
@@ -264,7 +264,7 @@ static int do__replace_value(
         }
         return 0;
     case 5:
-        if (memcmp(name->str, "month", 5) == 0)
+        if (memcmp(key->data, "month", 5) == 0)
         {
             if (!ti_val_is_int(val))
             {
@@ -289,7 +289,7 @@ static int do__replace_value(
         }
         return 0;
     case 6:
-        if (memcmp(name->str, "second", 6) == 0)
+        if (memcmp(key->data, "second", 6) == 0)
         {
             if (!ti_val_is_int(val))
             {
@@ -313,7 +313,7 @@ static int do__replace_value(
             tm->tm_sec = (int) i;
             return 0;
         }
-        if (memcmp(name->str, "minute", 6) == 0)
+        if (memcmp(key->data, "minute", 6) == 0)
         {
             if (!ti_val_is_int(val))
             {
@@ -339,6 +339,17 @@ static int do__replace_value(
         return 0;
     }
     return 0;
+}
+
+typedef struct
+{
+    struct tm * tm;
+    ex_t * e;
+} replace__walk_i_t;
+
+static int replace__walk_i(ti_item_t * item, replace__walk_i_t * w)
+{
+    return do__replace_value(w->tm, item->key, item->val, w->e);
 }
 
 static int do__replace_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
@@ -374,16 +385,31 @@ static int do__replace_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_thing_is_object(thing))
     {
-        for (vec_each(thing->items.vec, ti_prop_t, p))
-            if (do__replace_value(&tm, p->name, p->val, e))
+        if (ti_thing_is_dict(thing))
+        {
+            replace__walk_i_t w = {
+                    .e = e,
+                    .tm = &tm,
+            };
+            if (smap_values(
+                    thing->items.smap,
+                    (smap_val_cb) replace__walk_i,
+                    &w))
                 return e->nr;
+        }
+        else
+        {
+            for (vec_each(thing->items.vec, ti_prop_t, p))
+                if (do__replace_value(&tm, (ti_raw_t *) p->name, p->val, e))
+                    return e->nr;
+        }
     }
     else
     {
         ti_name_t * name;
         ti_val_t * val;
         for (thing_t_each(thing, name, val))
-            if (do__replace_value(&tm, name, val, e))
+            if (do__replace_value(&tm, (ti_raw_t *) name, val, e))
                 return e->nr;
     }
 

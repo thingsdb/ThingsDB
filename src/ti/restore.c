@@ -5,9 +5,10 @@
 #include <tiinc.h>
 #include <ti/access.h>
 #include <ti/auth.h>
+#include <ti/epkg.h>
 #include <ti/epkg.inline.h>
 #include <ti/event.h>
-#include <ti/epkg.h>
+#include <ti/modules.h>
 #include <ti/restore.h>
 #include <util/buf.h>
 #include <util/vec.h>
@@ -330,6 +331,13 @@ static void restore__master_cb(uv_timer_t * UNUSED(timer))
 
 static void restore__slave_cb(uv_timer_t * UNUSED(timer))
 {
+    if (ti.futures_count)
+    {
+        log_warning("cancel all open futures before starting the restore...");
+        ti_modules_cancel_futures();
+        return;
+    }
+
     restore__cb();
 
     (void) ti_store_init();
@@ -366,5 +374,5 @@ int ti_restore_slave(void)
     if (uv_timer_init(ti.loop, &restore__timer))
         return -1;
 
-    return uv_timer_start(&restore__timer, restore__slave_cb, 150, 0);
+    return uv_timer_start(&restore__timer, restore__slave_cb, 150, 1000);
 }

@@ -22,6 +22,7 @@ NUM_NODES = int(os.getenv("NUM_NODES", 2))
 
 assert 1 <= NUM_NODES <= 3
 
+
 class TestNodes(TestBase):
 
     title = 'Test prepare for restore'
@@ -33,12 +34,18 @@ class TestNodes(TestBase):
         client = await get_client(self.node0)
         await client.del_collection('stuff')
 
+        await client.query(r'''
+            new_procedure('test', |a, b| {
+                future(|a, b| a*b);
+            });
+        ''', scope='/t')
+
         if NUM_NODES > 1:
             await self.node1.join_until_ready(client)
 
         if NUM_NODES > 2:
             await self.node2.join_until_ready(client)
-        
+
         client.close()
         await client.wait_closed()
         if THINGSDB_KEEP_ON_ERROR:

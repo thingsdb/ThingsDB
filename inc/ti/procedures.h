@@ -19,6 +19,11 @@ int ti_procedures_rename(
         const char * name,
         size_t n);
 
+static inline void ti_procedures_clear(smap_t * procedures)
+{
+    smap_clear(procedures, (smap_destroy_cb) ti_procedure_destroy);
+}
+
 static inline ti_procedure_t * ti_procedures_pop(
         smap_t * procedures,
         ti_procedure_t * procedure)

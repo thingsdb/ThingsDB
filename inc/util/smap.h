@@ -29,6 +29,7 @@ typedef void (*smap_destroy_cb)(void * data);
 
 smap_t * smap_create(void);
 void smap_destroy(smap_t * smap, smap_destroy_cb cb);
+void smap_clear(smap_t * smap, smap_destroy_cb cb);
 int smap_add(smap_t * smap, const char * key, void * data);
 void * smap_get(smap_t * node, const char * key);
 void ** smap_getaddr(smap_t * smap, const char * key);

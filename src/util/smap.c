@@ -70,6 +70,29 @@ void smap_destroy(smap_t * smap, smap_destroy_cb cb)
 }
 
 /*
+ * Clear smap.
+ */
+void smap_clear(smap_t * smap, smap_destroy_cb cb)
+{
+    if (!smap)
+        return;
+
+    if (smap->nodes)
+    {
+        for (uint_fast16_t i = 0, end = smap->sz * SMAP_BSZ; i < end; i++)
+        {
+            if ((*smap->nodes)[i])
+            {
+                smap__destroy((*smap->nodes)[i], cb);
+            }
+        }
+        free(smap->nodes);
+    }
+    memset(smap, 0, sizeof(smap_t));
+    smap->offset = UINT8_MAX;
+}
+
+/*
  * Adds new key/data to the smap.
  *
  * Returns 0 when successful or SMAP_ERR_EXIST if the key already exists.

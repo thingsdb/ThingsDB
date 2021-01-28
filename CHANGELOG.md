@@ -21,6 +21,7 @@
   - `set_module_scope`: https://docs.thingsdb.net/v0/thingsdb-api/set_module_scope/
   - `restart_module`: https://docs.thingsdb.net/v0/node-api/restart_module/
 * Added `equals` function for comparing things, issue #144.
+* Remove procedures in the `@thingsdb` scope on restore, issue #147.
 
 # v0.10.1
 

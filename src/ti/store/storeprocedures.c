@@ -76,7 +76,7 @@ int ti_store_procedures_restore(
     };
 
     /* clear existing procedures (may exist in the thingsdb scope) */
-//    ti_procedures_clear(procedures);
+    ti_procedures_clear(procedures);
 
     fx_mmap_init(&fmap, fn);
     if (fx_mmap_open(&fmap))  /* fx_mmap_open() is a log function */

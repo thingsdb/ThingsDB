@@ -203,8 +203,8 @@ class TestDict(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                'property `!` is reserved'):
-            await client.query(r'', x={"!": 123})
+                'property `.` is reserved'):
+            await client.query(r'', x={".": 123})
 
     async def test_assign_and_del(self, client0):
         if not self.with_node1():
@@ -357,7 +357,7 @@ class TestDict(TestBase):
 
             [x.equals(y), y.equals(x)];
         ''')
-        self.assertEquals(res, [True, True])
+        self.assertEqual(res, [True, True])
 
         res = await client.query(r'''
             x = {};
@@ -372,7 +372,7 @@ class TestDict(TestBase):
 
             [x.equals(y), y.equals(x)];
         ''')
-        self.assertEquals(res, [False, False])
+        self.assertEqual(res, [False, False])
 
         res = await client.query(r'''
             x = {};
@@ -391,7 +391,7 @@ class TestDict(TestBase):
 
             [x.equals(y), y.equals(x)];
         ''')
-        self.assertEquals(res, [True, True])
+        self.assertEqual(res, [True, True])
 
         res = await client.query(r'''
             x = {};
@@ -410,7 +410,7 @@ class TestDict(TestBase):
 
             [x.equals(z), z.equals(x)];
         ''')
-        self.assertEquals(res, [False, False])
+        self.assertEqual(res, [False, False])
 
     async def test_gen_ids(self, client):
         res = await client.query(r'''

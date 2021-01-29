@@ -18,7 +18,7 @@ struct ti_nil_s
     void * nil;
 };
 
-ti_nil_t nil__val;
+extern ti_nil_t nil__val;
 
 static inline ti_nil_t * ti_nil_get(void)
 {

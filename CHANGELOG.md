@@ -1,3 +1,7 @@
+# v0.10.3
+
+* Fixed Alpine Linux build, issue #152.
+
 # v0.10.2
 
 * Evaluate `error` values as `false`, issue #135.

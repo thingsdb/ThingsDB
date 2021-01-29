@@ -53,16 +53,8 @@ class TestSyntax(TestBase):
             await client.query('.{} = 1'.format('a'*256))
 
         await client.query('thing(.id())[prop] = 1', prop='b'*255)
-        with self.assertRaisesRegex(
-                ValueError,
-                r'properties must follow the naming rules'):
-            await client.query('thing(.id())[prop] = 1', prop='b'*256)
 
         await client.query('thing(.id()).set(prop, 1)', prop='c'*255)
-        with self.assertRaisesRegex(
-                ValueError,
-                r'properties must follow the naming rules'):
-            await client.query('thing(.id())[prop] = 1', prop='c'*256)
 
     async def test_invalid_syntax(self, client):
         with self.assertRaisesRegex(

@@ -1,3 +1,7 @@
+# v0.10.4
+
+* Added things as dictionary support, issue #146.
+
 # v0.10.3
 
 * Fixed Alpine Linux build, issue #152.

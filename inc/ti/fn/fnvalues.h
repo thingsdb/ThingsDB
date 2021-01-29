@@ -1,5 +1,12 @@
 #include <ti/fn/fn.h>
 
+static int values__walk_i(ti_item_t * item, vec_t * vec)
+{
+    VEC_push(vec, item->val);
+    ti_incref(item->val);
+    return 0;
+}
+
 static int do__f_values(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = langdef_nd_n_function_params(nd);
@@ -13,7 +20,7 @@ static int do__f_values(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     thing = (ti_thing_t *) query->rval;
-    varr = ti_varr_create(thing->items->n);
+    varr = ti_varr_create(ti_thing_n(thing));
     if (!varr)
     {
         ex_set_mem(e);
@@ -22,15 +29,25 @@ static int do__f_values(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_thing_is_object(thing))
     {
-        for (vec_each(thing->items, ti_prop_t, prop))
+        if (ti_thing_is_dict(thing))
         {
-            VEC_push(varr->vec, prop->val);
-            ti_incref(prop->val);
+            (void) smap_values(
+                    thing->items.smap,
+                    (smap_val_cb) values__walk_i,
+                    varr->vec);
+        }
+        else
+        {
+            for (vec_each(thing->items.vec, ti_prop_t, prop))
+            {
+                VEC_push(varr->vec, prop->val);
+                ti_incref(prop->val);
+            }
         }
     }
     else
     {
-        for (vec_each(thing->items, ti_val_t, val))
+        for (vec_each(thing->items.vec, ti_val_t, val))
         {
             VEC_push(varr->vec, val);
             ti_incref(val);

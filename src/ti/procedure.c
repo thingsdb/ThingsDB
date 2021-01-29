@@ -104,7 +104,7 @@ int ti_procedure_info_to_pk(
         )) ||
 
         mp_pack_str(pk, "with_side_effects") ||
-        mp_pack_bool(pk, procedure->closure->flags & TI_VFLAG_CLOSURE_WSE) ||
+        mp_pack_bool(pk, procedure->closure->flags & TI_CLOSURE_FLAG_WSE) ||
 
         mp_pack_str(pk, "arguments") ||
         msgpack_pack_array(pk, procedure->closure->vars->n))

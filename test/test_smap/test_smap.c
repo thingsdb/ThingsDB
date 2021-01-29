@@ -116,11 +116,6 @@ int main()
         _assert (smap_get(smap, entries[2]) == entries[2]);
     }
 
-    /* test if empty keys return correct error code */
-    {
-        _assert (smap_add(smap, "", "empty key") == SMAP_ERR_EMPTY_KEY);
-    }
-
     /* test longest key length */
     {
         _assert (smap_longest_key_size(smap) == strlen(entries[7]));

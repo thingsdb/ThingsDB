@@ -108,13 +108,6 @@ class TestProcedures(TestBase):
         )
 
         with self.assertRaisesRegex(
-                ValueError,
-                r'property name must follow the naming rules'
-                r'; see.*'
-                r'\(argument 0 for procedure `upd_list`\)'):
-            await client0.run('upd_list', {"0InvalidKey": 4})
-
-        with self.assertRaisesRegex(
                 LookupError,
                 r'thing `#42` not found; if you want to create a new thing '
                 r'then remove the id \(`#`\) and try again '

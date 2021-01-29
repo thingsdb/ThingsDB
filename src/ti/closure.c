@@ -20,7 +20,7 @@
 #include <util/strx.h>
 #include <cleri/node.inline.h>
 
-#define CLOSURE__QBOUND (TI_VFLAG_CLOSURE_BTSCOPE|TI_VFLAG_CLOSURE_BCSCOPE)
+#define CLOSURE__QBOUND (TI_CLOSURE_FLAG_BTSCOPE|TI_CLOSURE_FLAG_BCSCOPE)
 
 static inline _Bool closure__is_unbound(ti_closure_t * closure)
 {
@@ -225,7 +225,7 @@ ti_closure_t * ti_closure_from_strn(
     closure->future_depth = 0;
     closure->node = closure__node_from_strn(syntax, str, n, e);
     closure->flags = syntax->flags & TI_QBIND_FLAG_EVENT
-            ? TI_VFLAG_CLOSURE_WSE
+            ? TI_CLOSURE_FLAG_WSE
             : 0;
     closure->stacked = NULL;
     closure->vars = closure->node ? closure__create_vars(closure) : NULL;
@@ -264,7 +264,7 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
 
     ti_qbind_t syntax = {
             .immutable_n = 0,
-            .flags = closure->flags & TI_VFLAG_CLOSURE_BTSCOPE
+            .flags = closure->flags & TI_CLOSURE_FLAG_BTSCOPE
                 ? TI_QBIND_FLAG_THINGSDB
                 : TI_QBIND_FLAG_COLLECTION,
     };
@@ -277,7 +277,7 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
         return e->nr;
 
     closure->flags = syntax.flags & TI_QBIND_FLAG_EVENT
-            ? TI_VFLAG_CLOSURE_WSE
+            ? TI_CLOSURE_FLAG_WSE
             : 0;
     closure->node = node;
 
@@ -404,7 +404,7 @@ void ti_closure_dec(ti_closure_t * closure, ti_query_t * query)
 
 int ti_closure_vars_nameval(
         ti_closure_t * closure,
-        ti_name_t * name,
+        ti_val_t * name,
         ti_val_t * val,
         ex_t * e)
 {
@@ -427,7 +427,7 @@ int ti_closure_vars_nameval(
         prop = VEC_get(closure->vars, 0);
         ti_incref(name);
         ti_val_unsafe_drop(prop->val);
-        prop->val = (ti_val_t *) name;
+        prop->val = name;
         /* fall through */
     case 0:
         break;

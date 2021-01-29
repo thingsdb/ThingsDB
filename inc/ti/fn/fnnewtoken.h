@@ -69,7 +69,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             double ts = VFLOAT(query->rval);
             if (ts < now)
                 goto errpast;
-            if (ts > TI_MAX_EXPIRATION_DOUDLE)
+            if (ts > TI_MAX_EXPIRATION_DOUBLE)
                 goto errfuture;
 
             exp_time = (uint64_t) ts;

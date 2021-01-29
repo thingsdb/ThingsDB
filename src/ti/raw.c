@@ -12,6 +12,7 @@
 #include <ti/raw.h>
 #include <ti/val.h>
 #include <util/logger.h>
+#include <util/strx.h>
 
 static const int base64__idx[256] = {
         0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 0,  0,  0,  0,  0,  0,
@@ -25,6 +26,9 @@ static const int base64__idx[256] = {
 
 static const unsigned char base64__table[65] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+#define RAW__AS_PRINTABLE_BUF_SZ 48
+static char raw__as_printable_buf[RAW__AS_PRINTABLE_BUF_SZ];
 
 ti_raw_t * ti_raw_create(uint8_t tp, const void * raw, size_t n)
 {
@@ -505,3 +509,25 @@ int ti_raw_err_not_found(ti_raw_t * raw, const char * s, ex_t * e)
     return e->nr;
 }
 
+const char * ti_raw_as_printable_str(ti_raw_t * raw)
+{
+    const size_t m = RAW__AS_PRINTABLE_BUF_SZ-4;
+    size_t n = raw->n <= m ? raw->n : m;
+    char * pt = raw__as_printable_buf;
+
+    if (!strx_is_printablen((const char *) raw->data, n))
+    {
+        strcpy(pt, "<non-printable sting>");
+        return pt;
+    }
+
+    memcpy(pt, raw->data, n);
+    if (raw->n > n)
+    {
+        strcpy(pt + n, "...");
+        return pt;
+    }
+
+    pt[n] = '\0';
+    return pt;
+}

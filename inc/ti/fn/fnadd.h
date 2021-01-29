@@ -50,7 +50,7 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_task_t * task = ti_task_get_task(query->ev, vset->parent);
         if (!task || ti_task_add_add(
                 task,
-                vset->name,
+                vset->key,
                 added))
             goto alloc_err;  /* we do not need to cleanup task, since the task
                                 is added to `query->ev->tasks` */

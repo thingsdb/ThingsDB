@@ -72,8 +72,8 @@ int ncache__gen_immutable(
         nd->data = ti_closure_from_node(
                 nd,
                 (syntax->flags & TI_QBIND_FLAG_THINGSDB)
-                            ? TI_VFLAG_CLOSURE_BTSCOPE
-                            : TI_VFLAG_CLOSURE_BCSCOPE);
+                            ? TI_CLOSURE_FLAG_BTSCOPE
+                            : TI_CLOSURE_FLAG_BCSCOPE);
         break;
     case CLERI_GID_T_FLOAT:
         nd->data = ti_vfloat_create(strx_to_double(nd->str, NULL));
@@ -212,8 +212,8 @@ static int ncache__enum(
         nd->data = ti_closure_from_node(
                 nd,
                 (syntax->flags & TI_QBIND_FLAG_THINGSDB)
-                            ? TI_VFLAG_CLOSURE_BTSCOPE
-                            : TI_VFLAG_CLOSURE_BCSCOPE);
+                            ? TI_CLOSURE_FLAG_BTSCOPE
+                            : TI_CLOSURE_FLAG_BCSCOPE);
         if (nd->data)
             VEC_push(vcache, nd->data);
         else
@@ -342,8 +342,8 @@ static int ncache__expr_choice(
         nd->data = ti_closure_from_node(
                 nd,
                 (syntax->flags & TI_QBIND_FLAG_THINGSDB)
-                            ? TI_VFLAG_CLOSURE_BTSCOPE
-                            : TI_VFLAG_CLOSURE_BCSCOPE);
+                            ? TI_CLOSURE_FLAG_BTSCOPE
+                            : TI_CLOSURE_FLAG_BCSCOPE);
         break;
     case CLERI_GID_T_FLOAT:
         nd->data = ti_vfloat_create(strx_to_double(nd->str, NULL));

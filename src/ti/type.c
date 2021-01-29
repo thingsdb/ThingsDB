@@ -156,16 +156,15 @@ size_t ti_type_fields_approx_pack_sz(ti_type_t * type)
 int ti_type_rename(ti_type_t * type, ti_raw_t * nname)
 {
     void * ptype;
-    char name[TI_NAME_MAX+1];
     char * type_name;
     char * wtype_name;
 
     assert (nname->n <= TI_NAME_MAX);
 
-    memcpy(name, nname->data, nname->n);
-    name[nname->n] = '\0';
-
-    ptype = smap_pop(type->types->removed, name);
+    ptype = smap_popn(
+            type->types->removed,
+            (const char *) nname->data,
+            nname->n);
     if (ptype)
     {
         /* swap new type name with the old type name */
@@ -175,7 +174,13 @@ int ti_type_rename(ti_type_t * type, ti_raw_t * nname)
     type_name = strndup((const char *) nname->data, nname->n);
     wtype_name = type__wrap_name((const char *) nname->data, nname->n);
 
-    if (!type_name || !wtype_name || smap_add(type->types->smap, name, type))
+    if (!type_name ||
+        !wtype_name ||
+        smap_addn(
+                type->types->smap,
+                (const char *) nname->data,
+                nname->n,
+                type))
     {
         free(type_name);
         free(wtype_name);
@@ -261,9 +266,38 @@ static inline int type__assign(
     return e->nr;
 }
 
+typedef struct
+{
+    ti_type_t * type;
+    ex_t * e;
+} type__init_t;
+
+static int type__init_cb(ti_item_t * item, type__init_t * w)
+{
+    if (!ti_raw_is_name(item->key))
+        ex_set(w->e, EX_VALUE_ERROR,
+                "type keys must follow the naming rules"DOC_NAMES);
+    else
+        (void) type__assign(
+                w->type,
+                (ti_name_t *) item->key,
+                item->val,
+                w->e);
+    return w->e->nr;
+}
+
 static int type__init_thing_o(ti_type_t * type, ti_thing_t * thing, ex_t * e)
 {
-    for (vec_each(thing->items, ti_prop_t, prop))
+    if (ti_thing_is_dict(thing))
+    {
+        type__init_t w = {
+                .type = type,
+                .e = e,
+        };
+        return smap_values(thing->items.smap, (smap_val_cb) type__init_cb, &w);
+    }
+
+    for (vec_each(thing->items.vec, ti_prop_t, prop))
         if (type__assign(type, prop->name, prop->val, e))
             return e->nr;
     return 0;
@@ -754,7 +788,7 @@ int ti_type_methods_info_to_pk(
             )) ||
 
             mp_pack_str(pk, "with_side_effects") ||
-            mp_pack_bool(pk, method->closure->flags & TI_VFLAG_CLOSURE_WSE) ||
+            mp_pack_bool(pk, method->closure->flags & TI_CLOSURE_FLAG_WSE) ||
 
             mp_pack_str(pk, "arguments") ||
             msgpack_pack_array(pk, method->closure->vars->n))
@@ -850,7 +884,7 @@ ti_val_t * ti_type_dval(ti_type_t * type)
 
         ti_val_attach(val, thing, field->name);
 
-        VEC_push(thing->items, val);
+        VEC_push(thing->items.vec, val);
     }
 
     return (ti_val_t *) thing;
@@ -901,7 +935,7 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
 
                 val->ref += from->ref == 1;
             }
-            VEC_push(thing->items, val);
+            VEC_push(thing->items.vec, val);
         }
     }
     else
@@ -919,7 +953,7 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
 
         for (vec_each(type->fields, ti_field_t, field))
         {
-            ti_val_t * val = VEC_get(from->items, field->idx);
+            ti_val_t * val = VEC_get(from->items.vec, field->idx);
 
             val->ref += from->ref > 1;
 
@@ -932,7 +966,7 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
 
             val->ref += from->ref == 1;
 
-            VEC_push(thing->items, val);
+            VEC_push(thing->items.vec, val);
         }
     }
 

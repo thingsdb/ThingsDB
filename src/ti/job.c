@@ -32,8 +32,7 @@
  */
 static int job__add(ti_thing_t * thing, mp_unp_t * up)
 {
-    ti_vset_t * vset;
-    ti_name_t * name;
+    ti_val_t * val;
     ti_thing_t * t;
     size_t i;
     mp_obj_t obj, mp_prop;
@@ -54,8 +53,8 @@ static int job__add(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    name = ti_names_weak_get_strn(mp_prop.via.str.data, mp_prop.via.str.n);
-    if (!name || !(vset = (ti_vset_t *) ti_thing_val_weak_get(thing, name)))
+    val = ti_thing_val_by_strn(thing, mp_prop.via.str.data, mp_prop.via.str.n);
+    if (!val)
     {
         log_critical(
                 "job `add` to set on "TI_THING_ID": "
@@ -65,13 +64,13 @@ static int job__add(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    if (!ti_val_is_set((ti_val_t *) vset))
+    if (!ti_val_is_set(val))
     {
         log_critical(
                 "job `add` to set on "TI_THING_ID": "
                 "expecting a `"TI_VAL_SET_S"`, got `%s`",
                 thing->id,
-                ti_val_str((ti_val_t *) vset));
+                ti_val_str(val));
         return -1;
     }
 
@@ -79,13 +78,13 @@ static int job__add(ti_thing_t * thing, mp_unp_t * up)
     {
         t = (ti_thing_t *) ti_val_from_vup(&vup);
 
-        if (!t || !ti_val_is_thing((ti_val_t *) t) || ti_vset_add(vset, t))
+        if (!t || !ti_val_is_thing((ti_val_t *) t) ||
+            ti_vset_add((ti_vset_t *) val, t))
         {
             log_critical(
                     "job `add` to set on "TI_THING_ID": "
-                    "error while reading value for property: `%s`",
-                    thing->id,
-                    name->str);
+                    "error while reading value for property",
+                    thing->id);
             ti_val_drop((ti_val_t *) t);
             return -1;
         }
@@ -102,7 +101,7 @@ static int job__set(ti_thing_t * thing, mp_unp_t * up)
 {
     ex_t e = {0};
     ti_val_t * val;
-    ti_name_t * name;
+    ti_raw_t * key;
     mp_obj_t obj, mp_prop;
     ti_vup_t vup = {
             .isclient = false,
@@ -119,17 +118,11 @@ static int job__set(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    if (!ti_name_is_valid_strn(mp_prop.via.str.data, mp_prop.via.str.n))
-    {
-        log_critical(
-                "job `set` to "TI_THING_ID": "
-                "invalid property: `%.*s`",
-                thing->id, (int) mp_prop.via.str.n, mp_prop.via.str.data);
-        return -1;
-    }
+    key = ti_name_is_valid_strn(mp_prop.via.str.data, mp_prop.via.str.n)
+        ? (ti_raw_t *) ti_names_get(mp_prop.via.str.data, mp_prop.via.str.n)
+        : ti_str_create(mp_prop.via.str.data, mp_prop.via.str.n);
 
-    name = ti_names_get(mp_prop.via.str.data, mp_prop.via.str.n);
-    if (!name)
+    if (!key || ti_raw_is_reserved_key(key))
     {
         log_critical(EX_MEMORY_S);
         return -1;
@@ -140,49 +133,56 @@ static int job__set(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "job `set` to "TI_THING_ID": "
-                "error reading value for property: `%s`",
-                thing->id,
-                name->str);
+                "error reading value for property",
+                thing->id);
         goto fail;
     }
 
-    if (ti_val_make_assignable(&val, thing, name, &e))
+    if (ti_val_make_assignable(&val, thing, key, &e))
     {
         log_critical(
                 "job `set` to "TI_THING_ID": "
                 "error making variable assignable: `%s`",
                 thing->id,
-                name->str,
                 e.msg);
         goto fail;
     }
 
     if (ti_thing_is_object(thing))
     {
-        if (!ti_thing_o_prop_set(thing, name, val))
+        if (ti_thing_o_set(thing, key, val))
         {
             log_critical(
                     "job `set` to "TI_THING_ID": "
-                    "error setting property: `%s` (type: `%s`)",
+                    "error setting property (type: `%s`)",
                     thing->id,
-                    name->str,
                     ti_val_str(val));
             goto fail;
         }
     }
     else
     {
-        ti_thing_t_prop_set(
-                thing,
-                ti_field_by_name(ti_thing_type(thing), name),
-                val);
+        ti_field_t * field = ti_field_by_name(
+                ti_thing_type(thing),
+                (ti_name_t *) key);
+
+        if (!field)
+        {
+            log_critical(
+                    "job `set` to "TI_THING_ID": "
+                    "cannot find field",
+                    thing->id);
+            goto fail;
+
+        }
+        ti_thing_t_prop_set(thing, field, val);
     }
 
     return 0;
 
 fail:
     ti_val_drop(val);
-    ti_name_unsafe_drop(name);
+    ti_val_unsafe_drop((ti_val_t *) key);
     return -1;
 }
 
@@ -1260,7 +1260,7 @@ static int job__mod_type_wpo(ti_thing_t * thing, mp_unp_t * up)
 static int job__del(ti_thing_t * thing, mp_unp_t * up)
 {
     assert (ti_thing_is_object(thing));
-    ti_name_t * name;
+
     mp_obj_t mp_prop;
 
     if (mp_next(up, &mp_prop) != MP_STR)
@@ -1272,29 +1272,8 @@ static int job__del(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    /* the job is already validated so getting the name will most likely
-     * succeed */
-    name = ti_names_weak_get_strn(mp_prop.via.str.data, mp_prop.via.str.n);
-    if (!name || !ti_thing_o_del(thing, name))
-    {
-        if (ti_name_is_valid_strn(mp_prop.via.str.data, mp_prop.via.str.n))
-        {
-            log_critical(
-                    "job `del` property from "TI_THING_ID": "
-                    "thing has no property `%.*s`",
-                    thing->id,
-                    (int) mp_prop.via.str.n, mp_prop.via.str.data);
-        }
-        else
-        {
-            log_critical(
-                    "job `del` property from "TI_THING_ID": "
-                    "invalid name property",
-                    thing->id);
-        }
+    ti_thing_o_del(thing, mp_prop.via.str.data, mp_prop.via.str.n);
 
-        return -1;
-    }
     return 0;
 }
 
@@ -1502,8 +1481,7 @@ static int job__del_type(ti_thing_t * thing, mp_unp_t * up)
 static int job__remove(ti_thing_t * thing, mp_unp_t * up)
 {
     ti_collection_t * collection = thing->collection;
-    ti_vset_t * vset;
-    ti_name_t * name;
+    ti_val_t * val;
     mp_obj_t obj, mp_prop, mp_id;
     ti_thing_t * t;
     size_t i;
@@ -1519,24 +1497,23 @@ static int job__remove(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    name = ti_names_weak_get_strn(mp_prop.via.str.data, mp_prop.via.str.n);
-    if (!name || !(vset = (ti_vset_t *) ti_thing_val_weak_get(thing, name)))
+    val = ti_thing_val_by_strn(thing, mp_prop.via.str.data, mp_prop.via.str.n);
+    if (!val)
     {
         log_critical(
                 "job `remove` from set on "TI_THING_ID": "
-                "missing property: `%.*s`",
-                thing->id,
-                (int) mp_prop.via.str.n, (char *) mp_prop.via.str.data);
+                "missing property",
+                thing->id);
         return -1;
     }
 
-    if (!ti_val_is_set((ti_val_t *) vset))
+    if (!ti_val_is_set(val))
     {
         log_critical(
                 "job `remove` from set on "TI_THING_ID": "
                 "expecting a `"TI_VAL_SET_S"`, got `%s`",
                 thing->id,
-                ti_val_str((ti_val_t *) vset));
+                ti_val_str(val));
         return -1;
     }
 
@@ -1546,15 +1523,14 @@ static int job__remove(ti_thing_t * thing, mp_unp_t * up)
         {
             log_critical(
                     "job `remove` from set on "TI_THING_ID": "
-                    "error reading integer value for property: `%s`",
-                    thing->id,
-                    name->str);
+                    "error reading integer value for property",
+                    thing->id);
             return -1;
         }
 
         t = ti_collection_find_thing(collection, mp_id.via.u64);
 
-        if (!t || !ti_vset_pop(vset, t))
+        if (!t || !ti_vset_pop((ti_vset_t *) val, t))
         {
             log_error(
                     "job `remove` from set on "TI_THING_ID": "
@@ -1701,7 +1677,6 @@ static int job__splice(ti_thing_t * thing, mp_unp_t * up)
     ex_t e = {0};
     size_t n, i, c, cur_n, new_n;
     ti_varr_t * varr;
-    ti_name_t * name;
     ti_vup_t vup = {
             .isclient = false,
             .collection = thing->collection,
@@ -1725,14 +1700,16 @@ static int job__splice(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    name = ti_names_weak_get_strn(mp_prop.via.str.data, mp_prop.via.str.n);
-    if (!name || !(varr = (ti_varr_t *) ti_thing_val_weak_get(thing, name)))
+    varr = (ti_varr_t *) ti_thing_val_by_strn(
+            thing,
+            mp_prop.via.str.data,
+            mp_prop.via.str.n);
+    if (!varr)
     {
         log_critical(
                 "job `splice` array on "TI_THING_ID": "
-                "missing property: `%.*s`",
-                thing->id,
-                (int) mp_prop.via.str.n, mp_prop.via.str.data);
+                "missing property",
+                thing->id);
         return -1;
     }
 
@@ -1783,9 +1760,8 @@ static int job__splice(ti_thing_t * thing, mp_unp_t * up)
         {
             log_critical(
                     "job `splice` array on "TI_THING_ID": "
-                    "error reading value for property: `%s`",
-                    thing->id,
-                    name->str);
+                    "error reading value for property",
+                    thing->id);
             return -1;
         }
 

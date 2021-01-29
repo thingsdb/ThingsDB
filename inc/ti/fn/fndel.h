@@ -6,7 +6,7 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_node_t * name_nd;
     ti_task_t * task;
     ti_thing_t * thing;
-    ti_prop_t * prop;
+    ti_item_t * item;
     ti_raw_t * rname;
 
     if (!ti_val_is_object(query->rval))
@@ -38,16 +38,15 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     rname = (ti_raw_t *) query->rval;
 
-    prop = ti_thing_o_del_e(thing, rname, e);
-    if (!prop)
+    item = ti_thing_o_del_e(thing, rname, e);
+    if (!item)
         goto fail0;  /* error is set, rname is still bound to query */
 
-    query->rval = prop->val;
+    query->rval = item->val;
     ti_incref(query->rval);
 
     ti_val_attach(query->rval, NULL, NULL);
-
-    ti_prop_destroy(prop);
+    ti_item_destroy(item);
 
     if (thing->id)
     {

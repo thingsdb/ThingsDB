@@ -4,8 +4,6 @@
 #ifndef TIINC_H_
 #define TIINC_H_
 
-#define TI_URL "https://thingsdb.github.io"
-
 #define TI_DEFAULT_CLIENT_PORT 9200
 #define TI_DEFAULT_NODE_PORT 9220
 
@@ -33,17 +31,15 @@
 #define TI_THING_ID "`#%"PRIu64"`"
 #define TI_USER_ID "`user:%"PRIu64"`"
 #define TI_QBIND "syntax v%u"
-#define TI_SAVE_PK_SZ (60 + ti_.nodes->imap->n * 140)
 
 /* Max token expiration time */
-#define TI_MAX_EXPIRATION_DOUDLE 4294967295.0
+#define TI_MAX_EXPIRATION_DOUBLE 4294967295.0
 #define TI_MAX_EXPIRATION_LONG 4294967295L
 
 /*
  * File name schema to check version info on created files.
  */
 #define TI_FN_SCHEMA 0
-
 
 /*
  * If a system has a WORDSIZE of 64 bits, we can take advantage of storing
@@ -93,45 +89,18 @@ static const int TI_CLERI_PARSE_FLAGS =
 enum
 {
     TI_FLAG_SIGNAL          =1<<0,
-    TI_FLAG_STOP            =1<<1,
-    TI_FLAG_INDEXING        =1<<2,
-    TI_FLAG_LOCKED          =1<<3,
-    TI_FLAG_NODES_CHANGED   =1<<4,
+    TI_FLAG_LOCKED          =1<<1,
+    TI_FLAG_NODES_CHANGED   =1<<2,
 };
-
-typedef enum
-{
-    TI_a = 'a',
-    TI_b,
-    TI_c,
-    TI_d,
-    TI_e,
-    TI_f,
-    TI_g,
-    TI_h,
-    TI_i,
-    TI_j,
-    TI_k,
-    TI_l,
-    TI_m,
-    TI_n,
-    TI_o,
-    TI_p,
-    TI_q,
-    TI_r,
-    TI_s,
-    TI_t,
-    TI_u,
-    TI_v,
-    TI_w,
-    TI_x,
-    TI_y,
-    TI_z,
-} ti_alpha_lower_t;
 
 typedef enum
 {
     TI_STR_INFO
 } ti_ext_tp;
+
+static inline _Bool ti_is_reserved_key_strn(const char * str, size_t n)
+{
+    return n == 1 && (*str >> 4 == 2);
+}
 
 #endif  /* TIINC_H_ */

@@ -6,9 +6,9 @@ typedef struct
     ti_closure_t * closure;
     ti_query_t * query;
     ti_vset_t * vset;
-} filter__walk_t;
+} filter__walk_set_t;
 
-static int filter__walk_set(ti_thing_t * t, filter__walk_t * w)
+static int filter__walk_set(ti_thing_t * t, filter__walk_set_t * w)
 {
     if (ti_closure_vars_vset(w->closure, t) ||
         ti_closure_do_statement(w->closure, w->query, w->e))
@@ -19,6 +19,34 @@ static int filter__walk_set(ti_thing_t * t, filter__walk_t * w)
         if (ti_vset_add(w->vset, t))
             return -1;
         ti_incref(t);
+    }
+
+    ti_val_unsafe_drop(w->query->rval);
+    w->query->rval = NULL;
+    return 0;
+}
+
+typedef struct
+{
+    ex_t * e;
+    ti_closure_t * closure;
+    ti_query_t * query;
+    ti_thing_t * thing;
+} filter__walk_i_t;
+
+static int filter__walk_i(ti_item_t * item, filter__walk_i_t * w)
+{
+    if (ti_closure_vars_item(w->closure, item, w->e) ||
+        ti_closure_do_statement(w->closure, w->query, w->e))
+        return -1;
+
+    if (ti_val_as_bool(w->query->rval))
+    {
+        if (ti_val_make_variable(&item->val, w->e) ||
+            !ti_thing_i_item_add(w->thing, item->key, item->val))
+            return -1;
+        ti_incref(item->key);
+        ti_incref(item->val);
     }
 
     ti_val_unsafe_drop(w->query->rval);
@@ -63,7 +91,27 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ti_thing_t * thing, * t = (ti_thing_t *) iterval;
 
-        thing = ti_thing_o_create(0, t->items->n, query->collection);
+        if (ti_thing_is_dict(t))
+        {
+            thing = ti_thing_i_create(0, query->collection);
+            if (!thing)
+                goto fail2;
+
+            retval = (ti_val_t *) thing;
+
+            filter__walk_i_t w = {
+                    .closure = closure,
+                    .e = e,
+                    .query = query,
+                    .thing = thing,
+            };
+
+            if (smap_values(t->items.smap, (smap_val_cb) filter__walk_i, &w))
+                goto fail2;
+            break;
+        }
+
+        thing = ti_thing_o_create(0, ti_thing_n(t), query->collection);
         if (!thing)
             goto fail2;
 
@@ -71,7 +119,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (ti_thing_is_object(t))
         {
-            for (vec_each(t->items, ti_prop_t, p))
+            for (vec_each(t->items.vec, ti_prop_t, p))
             {
                 if (ti_closure_vars_prop(closure, p, e) ||
                     ti_closure_do_statement(closure, query, e))
@@ -80,7 +128,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 if (ti_val_as_bool(query->rval))
                 {
                     if (    ti_val_make_variable(&p->val, e) ||
-                            !ti_thing_o_prop_add(thing, p->name, p->val))
+                            !ti_thing_p_prop_add(thing, p->name, p->val))
                         goto fail2;
                     ti_incref(p->name);
                     ti_incref(p->val);
@@ -96,14 +144,14 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ti_val_t * val;
             for (thing_t_each(t, name, val))
             {
-                if (ti_closure_vars_nameval(closure, name, val, e) ||
+                if (ti_closure_vars_nameval(closure, (ti_val_t *) name, val, e) ||
                     ti_closure_do_statement(closure, query, e))
                     goto fail2;
 
                 if (ti_val_as_bool(query->rval))
                 {
                     if (    ti_val_make_variable(&val, e) ||
-                            !ti_thing_o_prop_add(thing, name, val))
+                            !ti_thing_p_prop_add(thing, name, val))
                         goto fail2;
                     ti_incref(name);
                     ti_incref(val);
@@ -137,7 +185,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 VEC_push(varr->vec, v);
 
                 if (ti_val_is_thing(v))
-                    varr->flags |= TI_VFLAG_ARR_MHT;
+                    varr->flags |= TI_VARR_FLAG_MHT;
             }
 
             ti_val_unsafe_drop(query->rval);
@@ -149,7 +197,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     case TI_VAL_SET:
     {
-        filter__walk_t w = {
+        filter__walk_set_t w = {
                 .e = e,
                 .closure = closure,
                 .query = query,

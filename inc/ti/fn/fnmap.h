@@ -18,6 +18,16 @@ static int map__walk_set(ti_thing_t * t, map__walk_t * w)
     return 0;
 }
 
+static int map__walk_i(ti_item_t * item, map__walk_t * w)
+{
+    if (ti_closure_vars_item(w->closure, item, w->e) ||
+        ti_closure_do_statement(w->closure, w->query, w->e) ||
+        ti_varr_append(w->varr, (void **) &w->query->rval, w->e))
+        return -1;
+    w->query->rval = NULL;
+    return 0;
+}
+
 static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const char * doc;
@@ -64,13 +74,31 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (ti_thing_is_object(thing))
         {
-            for (vec_each(thing->items, ti_prop_t, p))
+            if (ti_thing_is_dict(thing))
             {
-                if (ti_closure_vars_prop(closure, p, e) ||
-                    ti_closure_do_statement(closure, query, e) ||
-                    ti_varr_append(retvarr, (void **) &query->rval, e))
+                map__walk_t w = {
+                        .e = e,
+                        .closure = closure,
+                        .query = query,
+                        .varr = retvarr,
+                };
+
+                if (smap_values(
+                        thing->items.smap,
+                        (smap_val_cb) map__walk_i,
+                        &w))
                     goto fail2;
-                query->rval = NULL;
+            }
+            else
+            {
+                for (vec_each(thing->items.vec, ti_prop_t, p))
+                {
+                    if (ti_closure_vars_prop(closure, p, e) ||
+                        ti_closure_do_statement(closure, query, e) ||
+                        ti_varr_append(retvarr, (void **) &query->rval, e))
+                        goto fail2;
+                    query->rval = NULL;
+                }
             }
         }
         else
@@ -79,7 +107,7 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ti_val_t * val;
             for (thing_t_each(thing, name, val))
             {
-                if (ti_closure_vars_nameval(closure, name, val, e) ||
+                if (ti_closure_vars_nameval(closure, (ti_val_t *) name, val, e) ||
                     ti_closure_do_statement(closure, query, e) ||
                     ti_varr_append(retvarr, (void **) &query->rval, e))
                     goto fail2;

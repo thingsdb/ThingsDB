@@ -113,12 +113,6 @@ ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
     ti_type_t * type;
     mp_obj_t obj, mp_thing_id, mp_type_id;
 
-    if (vup->isclient)
-    {
-        ex_set(e, EX_BAD_DATA, "cannot unpack a type from a client request");
-        return NULL;
-    }
-
     if (mp_next(vup->up, &mp_type_id) != MP_U64 ||
         mp_skip(vup->up) != MP_STR ||   /* `#` */
         mp_next(vup->up, &mp_thing_id) != MP_U64 ||
@@ -184,7 +178,7 @@ ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
             return NULL;
         }
 
-        VEC_push(thing->items, val);
+        VEC_push(thing->items.vec, val);
     }
 
     return thing;

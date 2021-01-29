@@ -149,14 +149,14 @@ void ti_qcache_return(ti_query_t * query)
 
 typedef struct
 {
-    vec_t * items;
+    vec_t * qcached;
     uint32_t expire_ts;
 } qcache__cleanup_t;
 
 static int qcache__cleanup_cb(qcache__item_t * item, qcache__cleanup_t * w)
 {
     if (item->last < w->expire_ts)
-        (void) vec_push(&w->items, item);
+        (void) vec_push(&w->qcached, item);
     return 0;
 }
 
@@ -175,19 +175,19 @@ void ti_qcache_cleanup(void)
 
     qcache__cleanup_t w = {
         .expire_ts = (uint32_t) now.tv_sec - ti.cfg->cache_expiration_time,
-        .items = vec_new(16),
+        .qcached = vec_new(16),
     };
 
-    if (!w.items)
+    if (!w.qcached)
         return;
 
     (void) smap_values(qcache, (smap_val_cb) qcache__cleanup_cb, &w);
 
     ti_sleep(100);
 
-    log_info("removed %u item(s) from query cache", w.items->n);
+    log_info("removed %u item(s) from query cache", w.qcached->n);
 
-    vec_destroy(w.items, (vec_destroy_cb) qcache__cleanup_destroy);
+    vec_destroy(w.qcached, (vec_destroy_cb) qcache__cleanup_destroy);
 
     qcache__cache_sz = qcache->n + QCACHE__GROW_SIZE;
 }

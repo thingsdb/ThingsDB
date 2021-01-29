@@ -49,7 +49,7 @@ static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 task = ti_task_get_task(query->ev, varr->parent);
                 if (!task || ti_task_add_splice(
                         task,
-                        varr->name,
+                        varr->key,
                         NULL,
                         idx,
                         1,
@@ -243,7 +243,7 @@ static int do__f_remove_set(
         ti_task_t * task = ti_task_get_task(query->ev, vset->parent);
         if (!task || ti_task_add_remove(
                 task,
-                vset->name,
+                vset->key,
                 removed))
         {
             ex_set_mem(e);

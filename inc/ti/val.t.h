@@ -75,41 +75,8 @@ typedef enum
 
 enum
 {
-    TI_VFLAG_THING_SWEEP     =1<<0,      /* marked for sweep; each thing is
-                                            initially marked and while running
-                                            garbage collection this mark is
-                                            removed as long as the `thing` is
-                                            attached to the collection. */
-    TI_VFLAG_THING_NEW       =1<<1,      /* thing is new; new things require
-                                            a full `dump` in a task while
-                                            existing things only can contain
-                                            the `id`.*/
-    TI_VFLAG_CLOSURE_BTSCOPE =1<<2,      /* closure bound to query string
-                                            within the thingsdb scope;
-                                            when not stored, closures do not
-                                            own the closure string but refer
-                                            the full query string.*/
-    TI_VFLAG_CLOSURE_BCSCOPE =1<<3,      /* closure bound to query string
-                                            within a collection scope;
-                                            when not stored, closures do not
-                                            own the closure string but refer
-                                            the full query string. */
-    TI_VFLAG_CLOSURE_WSE     =1<<4,      /* stored closure with side effects;
-                                            when closure make changes they
-                                            require an event and thus must be
-                                            wrapped by wse() so we can know
-                                            an event is created.
-                                            (only stored closures) */
-    TI_VFLAG_LOCK            =1<<5,      /* thing or value in use;
+    TI_VFLAG_LOCK            =1<<7,      /* thing or value in use;
                                             used to prevent illegal changes */
-    TI_VFLAG_ARR_TUPLE       =1<<6,      /* array is immutable; nested, and
-                                            only nested array's are tuples;
-                                            once a tuple is direct assigned to
-                                            a thing, it converts back to a
-                                            mutable list. */
-    TI_VFLAG_ARR_MHT         =1<<7,      /* array may-have-things; some code
-                                            might skip arrays without this flag
-                                            while searching for things; */
 };
 
 typedef enum

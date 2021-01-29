@@ -34,12 +34,6 @@ class TestNodes(TestBase):
         client = await get_client(self.node0)
         await client.del_collection('stuff')
 
-        await client.query(r'''
-            new_procedure('test', |a, b| {
-                future(|a, b| a*b);
-            });
-        ''', scope='/t')
-
         if NUM_NODES > 1:
             await self.node1.join_until_ready(client)
 

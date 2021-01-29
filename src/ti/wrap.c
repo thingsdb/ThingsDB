@@ -204,7 +204,7 @@ int ti__wrap_field_thing(
             ti_field_t * field;
             ti_prop_t * prop;
         } map_prop_t;
-        size_t n = ti_min(t_type->fields->n, thing->items->n);
+        size_t n = ti_min(t_type->fields->n, ti_thing_n(thing));
         map_prop_t * map_props = malloc(sizeof(map_prop_t) * n);
         map_prop_t * map_set = map_props;
         map_prop_t * map_get = map_props;
@@ -285,7 +285,7 @@ int ti__wrap_field_thing(
                 wrap__field_val(
                         mapping->t_field,
                         &mapping->t_field->spec,
-                        VEC_get(thing->items, mapping->f_field->idx),
+                        VEC_get(thing->items.vec, mapping->f_field->idx),
                         pk,
                         options)
             ) goto fail;

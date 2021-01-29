@@ -95,7 +95,7 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_VAL_SET:
     {
         int rc;
-        filter__walk_t w = {
+        find__walk_t w = {
                 .e = e,
                 .closure = closure,
                 .query = query,

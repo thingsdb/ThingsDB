@@ -7,6 +7,7 @@ from test_arguments import TestArguments
 from test_backup import TestBackup
 from test_collection_functions import TestCollectionFunctions
 from test_datetime import TestDatetime
+from test_dict import TestDict
 from test_doc_url import TestDocUrl
 from test_enum import TestEnum
 from test_events import TestEvents
@@ -52,6 +53,7 @@ if __name__ == '__main__':
     run_test(TestBackup())
     run_test(TestCollectionFunctions())
     run_test(TestDatetime())
+    run_test(TestDict())
     if args.skip_doc_test is False:
         run_test(TestDocUrl())
     run_test(TestEnum())

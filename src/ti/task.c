@@ -103,10 +103,10 @@ ti_pkg_t * ti_task_pkg_watch(ti_task_t * task)
     return pkg;
 }
 
-int ti_task_add_add(ti_task_t * task, ti_name_t * name, vec_t * added)
+int ti_task_add_add(ti_task_t * task, ti_raw_t * key, vec_t * added)
 {
     assert (added->n);
-    assert (name);
+    assert (key);
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -119,7 +119,7 @@ int ti_task_add_add(ti_task_t * task, ti_name_t * name, vec_t * added)
         msgpack_pack_map(&pk, 1)
     ) goto fail_pack;
 
-    if (mp_pack_strn(&pk, name->str, name->n) ||
+    if (mp_pack_strn(&pk, key->data, key->n) ||
         msgpack_pack_array(&pk, added->n)
     ) goto fail_pack;
 
@@ -146,7 +146,7 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val)
+int ti_task_add_set(ti_task_t * task, ti_raw_t * key, ti_val_t * val)
 {
     ti_data_t * data;
     msgpack_packer pk;
@@ -163,7 +163,7 @@ int ti_task_add_set(ti_task_t * task, ti_name_t * name, ti_val_t * val)
         msgpack_pack_map(&pk, 1)
     ) goto fail_pack;
 
-    if (mp_pack_strn(&pk, name->str, name->n) ||
+    if (mp_pack_strn(&pk, key->data, key->n) ||
         ti_val_to_pk(val, &pk, TI_VAL_PACK_TASK)
     ) goto fail_pack;
 
@@ -1334,11 +1334,11 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_remove(ti_task_t * task, ti_name_t * name, vec_t * removed)
+int ti_task_add_remove(ti_task_t * task, ti_raw_t * key, vec_t * removed)
 {
     assert (removed->n);
-    assert (name);
-    size_t alloc = 64 + name->n + removed->n * 9;
+    assert (key);
+    size_t alloc = 64 + key->n + removed->n * 9;
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -1352,7 +1352,7 @@ int ti_task_add_remove(ti_task_t * task, ti_name_t * name, vec_t * removed)
     mp_pack_str(&pk, "remove");
     msgpack_pack_map(&pk, 1);
 
-    mp_pack_strn(&pk, name->str, name->n);
+    mp_pack_strn(&pk, key->data, key->n);
     msgpack_pack_array(&pk, removed->n);
 
     for (vec_each(removed, ti_thing_t, thing))
@@ -1644,7 +1644,7 @@ fail_data:
 
 int ti_task_add_splice(
         ti_task_t * task,
-        ti_name_t * name,
+        ti_raw_t * key,
         ti_varr_t * varr,
         uint32_t i,  /* start index */
         uint32_t c,  /* number of items to remove */
@@ -1652,9 +1652,9 @@ int ti_task_add_splice(
 {
     assert (!varr || varr->tp == TI_VAL_ARR);
     assert ((n && varr) || !n);
-    assert (name);
+    assert (key);
     ti_val_t * val;
-    size_t alloc = n ? 8192 : (name->n + 64);
+    size_t alloc = n ? 8192 : (key->n + 64);
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -1667,7 +1667,7 @@ int ti_task_add_splice(
     mp_pack_str(&pk, "splice");
 
     msgpack_pack_map(&pk, 1);
-    mp_pack_strn(&pk, name->str, name->n);
+    mp_pack_strn(&pk, key->data, key->n);
 
     msgpack_pack_array(&pk, 2 + n);
 

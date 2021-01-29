@@ -262,7 +262,7 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
         ti_task_t * task = ti_task_get_task(query->ev, varr->parent);
         if (!task || ti_task_add_splice(
                 task,
-                varr->name,
+                varr->key,
                 varr,
                 (uint32_t) start,
                 (uint32_t) c,
@@ -394,7 +394,7 @@ static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
         ti_task_t * task = ti_task_get_task(query->ev, varr->parent);
         if (!task || ti_task_add_splice(
                 task,
-                varr->name,
+                varr->key,
                 varr,
                 (uint32_t) idx,
                 1,
@@ -410,7 +410,7 @@ fail1:
 
 static int index__get(ti_query_t * query, cleri_node_t * statement, ex_t * e)
 {
-    ti_wprop_t wprop;
+    ti_witem_t witem;
     ti_thing_t * thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
@@ -426,11 +426,11 @@ static int index__get(ti_query_t * query, cleri_node_t * statement, ex_t * e)
         goto fail0;
     }
 
-    if (ti_thing_get_by_raw_e(&wprop, thing, (ti_raw_t *) query->rval, e))
+    if (ti_thing_get_by_raw_e(&witem, thing, (ti_raw_t *) query->rval, e))
         goto fail0;
 
     ti_val_unsafe_drop(query->rval);
-    query->rval = *wprop.val;
+    query->rval = *witem.val;
     ti_incref(query->rval);
 
 fail0:
@@ -439,16 +439,15 @@ fail0:
 }
 
 static inline int index__o_upd_prop(
-        ti_wprop_t * wprop,
+        ti_witem_t * witem,
         ti_query_t * query,
         ti_thing_t * thing,
         ti_raw_t * rname,
         cleri_node_t * tokens_nd,
         ex_t * e)
 {
-    return (
-            ti_thing_get_by_raw_e(wprop, thing, rname, e) ||
-            ti_opr_a_to_b(*wprop->val, tokens_nd, &query->rval, e)
+    return (ti_thing_get_by_raw_e(witem, thing, rname, e) ||
+            ti_opr_a_to_b(*witem->val, tokens_nd, &query->rval, e)
     ) ? e->nr : 0;
 }
 
@@ -467,7 +466,7 @@ static inline int index__t_upd_prop(
     if (name && (field = ti_field_by_name(type, name)))
     {
         wprop->name = field->name;
-        wprop->val = (ti_val_t **) vec_get_addr(thing->items, field->idx);
+        wprop->val = (ti_val_t **) vec_get_addr(thing->items.vec, field->idx);
 
         return (
             ti_opr_a_to_b(*wprop->val, tokens_nd, &query->rval, e) ||
@@ -475,12 +474,12 @@ static inline int index__t_upd_prop(
         ) ? e->nr : 0;
     }
 
-    ti_thing_set_not_found(thing, name, rname, e);
+    ti_thing_t_set_not_found(thing, name, rname, e);
     return e->nr;
 }
 
 static inline int index__upd_prop(
-        ti_wprop_t * wprop,
+        ti_witem_t * witem,
         ti_query_t * query,
         ti_thing_t * thing,
         ti_raw_t * rname,
@@ -488,12 +487,14 @@ static inline int index__upd_prop(
         ex_t * e)
 {
     if (ti_thing_is_object(thing)
-            ? index__o_upd_prop(wprop, query, thing, rname, tokens_nd, e)
-            : index__t_upd_prop(wprop, query, thing, rname, tokens_nd, e))
+            ? index__o_upd_prop(witem, query, thing, rname, tokens_nd, e)
+            : index__t_upd_prop(
+                    (ti_wprop_t *) witem,
+                    query, thing, rname, tokens_nd, e))
         return e->nr;
 
-    ti_val_unsafe_gc_drop(*wprop->val);
-    *wprop->val = query->rval;
+    ti_val_unsafe_gc_drop(*witem->val);
+    *witem->val = query->rval;
     ti_incref(query->rval);
 
     return 0;
@@ -504,7 +505,7 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     cleri_node_t * idx_statem = inode->children->next->node->children->node;
     cleri_node_t * ass_statem = inode->children->next->next->next->node;
     cleri_node_t * ass_tokens = ass_statem->children->node;
-    ti_wprop_t wprop;
+    ti_witem_t witem;
     ti_thing_t * thing;
     ti_raw_t * rname;
 
@@ -533,9 +534,9 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
         goto fail1;
 
     if (ass_tokens->len == 2
-            ? index__upd_prop(&wprop, query, thing, rname, ass_tokens, e)
+            ? index__upd_prop(&witem, query, thing, rname, ass_tokens, e)
             : ti_thing_set_val_from_strn(
-                    &wprop,
+                    &witem,
                     thing,
                     (const char *) rname->data,
                     rname->n,
@@ -546,7 +547,7 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     if (thing->id)
     {
         ti_task_t * task = ti_task_get_task(query->ev, thing);
-        if (!task || ti_task_add_set(task, wprop.name, *wprop.val))
+        if (!task || ti_task_add_set(task, witem.key, *witem.val))
             ex_set_mem(e);
     }
 

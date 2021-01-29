@@ -18,10 +18,10 @@
 #include <ti/auth.h>
 #include <ti/closure.h>
 #include <ti/closure.inline.h>
+#include <ti/async.h>
 #include <ti/collections.h>
 #include <ti/datetime.h>
 #include <ti/do.h>
-#include <ti/async.h>
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
 #include <ti/export.h>
@@ -29,6 +29,8 @@
 #include <ti/future.h>
 #include <ti/future.inline.h>
 #include <ti/gc.h>
+#include <ti/item.h>
+#include <ti/item.t.h>
 #include <ti/member.h>
 #include <ti/member.inline.h>
 #include <ti/method.h>
@@ -360,14 +362,13 @@ static int fn_call_o_try_n(
         cleri_node_t * nd,
         ex_t * e)
 {
-    ti_name_t * name_ = ti_names_weak_get_strn(name, n);
     ti_thing_t * thing = (ti_thing_t *) query->rval;
-    ti_val_t * val;
+    ti_val_t * val = ti_thing_val_by_strn(thing, name, n);
 
-    if (!name_ || !(val = ti_thing_o_val_weak_get(thing, name_)))
+    if (!val)
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "thing "TI_THING_ID" has no property `%.*s`",
+                "thing "TI_THING_ID" has no property or method `%.*s`",
                 thing->id, n, name);
         return e->nr;
     }

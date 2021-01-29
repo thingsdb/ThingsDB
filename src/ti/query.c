@@ -1169,6 +1169,11 @@ static int query__get_things(ti_val_t * val, imap_t * imap)
     return 0;
 }
 
+static int query__val_walk_i_cb(ti_item_t * item, imap_t * imap)
+{
+    return query__get_things(item->val, imap);
+}
+
 static int query__var_walk_thing(ti_thing_t * thing, imap_t * imap)
 {
     if (thing->id)
@@ -1188,16 +1193,22 @@ static int query__var_walk_thing(ti_thing_t * thing, imap_t * imap)
 
     if (ti_thing_is_object(thing))
     {
+        if (ti_thing_is_dict(thing))
+            return smap_values(
+                    thing->items.smap,
+                    (smap_val_cb) query__val_walk_i_cb,
+                    imap);
+
         for (vec_each(thing->items.vec, ti_prop_t, prop))
             if (query__get_things(prop->val, imap))
                 return -1;
+        return 0;
     }
-    else
-    {
-        for (vec_each(thing->items.vec, ti_val_t, val))
-            if (query__get_things(val, imap))
-                return -1;
-    }
+
+    for (vec_each(thing->items.vec, ti_val_t, val))
+        if (query__get_things(val, imap))
+            return -1;
+
     return 0;
 }
 

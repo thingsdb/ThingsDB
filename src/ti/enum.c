@@ -204,15 +204,12 @@ static int enum__init_thing_o(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
                 .enum_ = enum_,
                 .e = e,
         };
-        (void) smap_values(thing->items.smap, (smap_val_cb) enum__init_cb, &w);
+        return smap_values(thing->items.smap, (smap_val_cb) enum__init_cb, &w);
     }
-    else
-    {
-        for (vec_each(thing->items.vec, ti_prop_t, prop))
-            if (!ti_member_create(enum_, prop->name, prop->val, e))
-                return e->nr;
-    }
-    return e->nr;
+    for (vec_each(thing->items.vec, ti_prop_t, prop))
+        if (!ti_member_create(enum_, prop->name, prop->val, e))
+            return e->nr;
+    return 0;
 }
 
 static int enum__init_thing_t(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)

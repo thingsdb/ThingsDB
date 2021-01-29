@@ -768,27 +768,35 @@ int ti_thing_t_set_val_from_strn(
     return 0;
 }
 
-/* Returns true if the property is removed, false if not found */
-_Bool ti_thing_o_del(ti_thing_t * thing, ti_name_t * name)
+/* Deletes a property */
+void ti_thing_o_del(ti_thing_t * thing, const char * str, size_t n)
 {
-    assert (ti_thing_is_object(thing));
-
-    uint32_t i = 0;
-    for (vec_each(thing->items.vec, ti_prop_t, prop), ++i)
+    if (ti_thing_is_dict(thing))
     {
-        if (prop->name == name)
+        ti_item_t * item = smap_popn(thing->items.smap, str, n);
+        ti_item_destroy(item);
+    }
+    else
+    {
+        uint32_t idx = 0;
+        ti_name_t * name = ti_names_weak_get_strn(str, n);
+        if (!name)
+            return;
+
+        for (vec_each(thing->items.vec, ti_prop_t, prop), ++idx)
         {
-            ti_prop_destroy(vec_swap_remove(thing->items.vec, i));
-            return true;
+            if (prop->name == name)
+            {
+                ti_prop_destroy(vec_swap_remove(thing->items.vec, idx));
+                return;
+            }
         }
     }
-    return false;
 }
 
 /* Returns the removed property or NULL in case of an error */
 ti_item_t * ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
 {
-    assert (ti_thing_is_object(thing));
     if (ti_thing_is_dict(thing))
     {
         ti_item_t * item = smap_popn(

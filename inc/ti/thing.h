@@ -64,7 +64,7 @@ void ti_thing_t_prop_set(
         ti_field_t * field,
         ti_val_t * val);
 void ti_thing_t_to_object(ti_thing_t * thing);
-_Bool ti_thing_o_del(ti_thing_t * thing, ti_name_t * name);
+void ti_thing_o_del(ti_thing_t * thing, const char * str, size_t n);
 ti_item_t * ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e);
 _Bool ti_thing_get_by_raw(ti_witem_t * witem, ti_thing_t * thing, ti_raw_t * raw);
 ti_val_t * ti_thing_weak_val_by_name(ti_thing_t * thing, ti_name_t * name);

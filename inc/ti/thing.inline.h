@@ -143,7 +143,7 @@ static inline void ti_thing_t_set_not_found(
     else
     {
         ex_set(e, EX_VALUE_ERROR,
-                "type properties name must follow the naming rules"DOC_NAMES);
+                "type keys must follow the naming rules"DOC_NAMES);
     }
 }
 

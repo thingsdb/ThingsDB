@@ -1261,7 +1261,7 @@ static int job__mod_type_wpo(ti_thing_t * thing, mp_unp_t * up)
 static int job__del(ti_thing_t * thing, mp_unp_t * up)
 {
     assert (ti_thing_is_object(thing));
-    ti_name_t * name;
+
     mp_obj_t mp_prop;
 
     if (mp_next(up, &mp_prop) != MP_STR)
@@ -1273,29 +1273,8 @@ static int job__del(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    /* the job is already validated so getting the name will most likely
-     * succeed */
-    name = ti_names_weak_get_strn(mp_prop.via.str.data, mp_prop.via.str.n);
-    if (!name || !ti_thing_o_del(thing, name))
-    {
-        if (ti_name_is_valid_strn(mp_prop.via.str.data, mp_prop.via.str.n))
-        {
-            log_critical(
-                    "job `del` property from "TI_THING_ID": "
-                    "thing has no property `%.*s`",
-                    thing->id,
-                    (int) mp_prop.via.str.n, mp_prop.via.str.data);
-        }
-        else
-        {
-            log_critical(
-                    "job `del` property from "TI_THING_ID": "
-                    "invalid name property",
-                    thing->id);
-        }
+    ti_thing_o_del(thing, mp_prop.via.str.data, mp_prop.via.str.n);
 
-        return -1;
-    }
     return 0;
 }
 

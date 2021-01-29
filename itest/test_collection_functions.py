@@ -659,8 +659,8 @@ class TestCollectionFunctions(TestBase):
             await client.query('.del(nil);')
 
         with self.assertRaisesRegex(
-                ValueError,
-                r'property name must follow the naming rules'):
+                LookupError,
+                r'thing `#\d+` has no property ``'):
             await client.query('.del("");')
 
         with self.assertRaisesRegex(
@@ -3602,8 +3602,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `wse` takes 1 argument but 0 were given'):
-            await client.query('wse();')
+                'function `wse` takes at most 1 argument but 2 were given'):
+            await client.query('wse({}, nil);')
 
         res = await client.query(r'''
             wse({

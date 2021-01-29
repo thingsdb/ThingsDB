@@ -266,8 +266,37 @@ static inline int type__assign(
     return e->nr;
 }
 
+typedef struct
+{
+    ti_type_t * type;
+    ex_t * e;
+} type__init_t;
+
+static int type__init_cb(ti_item_t * item, type__init_t * w)
+{
+    if (!ti_raw_is_name(item->key))
+        ex_set(w->e, EX_VALUE_ERROR,
+                "type keys must follow the naming rules"DOC_NAMES);
+    else
+        (void) type__assign(
+                w->type,
+                (ti_name_t *) item->key,
+                item->val,
+                w->e);
+    return w->e->nr;
+}
+
 static int type__init_thing_o(ti_type_t * type, ti_thing_t * thing, ex_t * e)
 {
+    if (ti_thing_is_dict(thing))
+    {
+        type__init_t w = {
+                .type = type,
+                .e = e,
+        };
+        return smap_values(thing->items.smap, (smap_val_cb) type__init_cb, &w);
+    }
+
     for (vec_each(thing->items.vec, ti_prop_t, prop))
         if (type__assign(type, prop->name, prop->val, e))
             return e->nr;

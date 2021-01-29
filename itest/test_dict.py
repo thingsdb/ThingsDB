@@ -32,7 +32,7 @@ class TestDict(TestBase):
         client.set_default_scope('//stuff')
 
         # add another node otherwise backups are not possible
-        # await self.node1.join_until_ready(client)
+        await self.node1.join_until_ready(client)
 
         await self.run_tests(client)
 
@@ -198,8 +198,10 @@ class TestDict(TestBase):
                 'property `#` is reserved'):
             await client.query(r'', x={"#": 123})
 
-    async def test_assign_and_del(self, client):
-        await client.query(r'''
+    async def test_assign_and_del(self, client0):
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+        await client0.query(r'''
             .dict = {};
         ''')
         keys = []
@@ -207,15 +209,17 @@ class TestDict(TestBase):
             key = [chr(random.randint(ord('0'), ord('z'))) for x in range(i)]
             keys.append(''.join(key))
         for key in keys:
-            await client.query(r'''
+            await client0.query(r'''
                 .dict.set(key, nil);
             ''', key=key)
-        self.assertEqual(await client.query('.dict.len();'), len(keys))
+        self.assertEqual(await client0.query('wse(); .dict.len();'), len(keys))
+        self.assertEqual(await client1.query('wse(); .dict.len();'), len(keys))
         for key in keys:
-            await client.query(r'''
+            await client0.query(r'''
                 .dict.del(key);
             ''', key=key)
-        self.assertEqual(await client.query('.dict.len();'), 0)
+        self.assertEqual(await client0.query('wse(); .dict.len();'), 0)
+        self.assertEqual(await client1.query('wse(); .dict.len();'), 0)
 
     async def test_dict_enum(self, client):
         with self.assertRaisesRegex(
@@ -240,7 +244,7 @@ class TestDict(TestBase):
     async def test_dict_type(self, client):
         with self.assertRaisesRegex(
                 ValueError,
-                'xxx'):
+                'type keys must follow the naming rules;'):
             res = await client.query(r'''
                 x = {}; x[""] = nil;
                 x["name"] = 'str';
@@ -249,13 +253,36 @@ class TestDict(TestBase):
             ''')
         res = await client.query(r'''
             x = {}; x[""] = nil;
-            x["name"] = 'str;
+            x["name"] = 'str';
             x["age"] = 'int';
             x.del("");
             set_type('T', x);
             T{};
         ''')
-        self.assertEqual(res, {name: '', age: 0})
+        self.assertEqual(res, {"name": '', "age": 0})
+
+        res = await client.query(r'''
+            x = {};
+            x["other"] = 'bla';
+            x["name"] = 'Iris';
+            x["age"] = 7;
+            x[""] = 123;
+            x.wrap('T');
+        ''')
+        self.assertEqual(res, {"name": 'Iris', "age": 7})
+
+        res = await client.query(r'''
+            x = {};
+            x["other"] = 'bla';
+            x["name"] = 'Iris';
+            x["age"] = 7;
+            x[""] = 123;
+            w = x.wrap('T');
+            t = T{};
+            type_count('T');
+        ''')
+        self.assertEqual(res, 1)
+
 
 
 if __name__ == '__main__':

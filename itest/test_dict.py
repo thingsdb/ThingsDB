@@ -23,6 +23,13 @@ class TestDict(TestBase):
 
     title = 'Test thing as dictionary '
 
+    def with_node1(self):
+        if hasattr(self, 'node1'):
+            return True
+        print('''
+            WARNING: Test requires a second node!!!
+        ''')
+
     @default_test_setup(num_nodes=2, seed=1, threshold_full_storage=10)
     async def run(self):
 
@@ -32,7 +39,8 @@ class TestDict(TestBase):
         client.set_default_scope('//stuff')
 
         # add another node otherwise backups are not possible
-        await self.node1.join_until_ready(client)
+        if hasattr(self, 'node1'):
+            await self.node1.join_until_ready(client)
 
         await self.run_tests(client)
 
@@ -199,6 +207,8 @@ class TestDict(TestBase):
             await client.query(r'', x={"#": 123})
 
     async def test_assign_and_del(self, client0):
+        if not self.with_node1():
+            return
         client1 = await get_client(self.node1)
         client1.set_default_scope('//stuff')
         await client0.query(r'''
@@ -283,6 +293,138 @@ class TestDict(TestBase):
         ''')
         self.assertEqual(res, 1)
 
+    async def test_set_and_list(self, client0):
+        if not self.with_node1():
+            return
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+        await client0.query(r'''
+            .set("my list", []);
+            .set("my set", set());
+        ''')
+
+        res = await client0.query(r'''
+            .get('my list').push("one", "two", "three");
+        ''')
+        self.assertEqual(res, 3)
+
+        res = await client1.query(r'''
+            wse(); .get('my list');
+        ''')
+        self.assertEqual(res, ["one", "two", "three"])
+
+    async def test_equals_dict(self, client):
+        res = await client.query(r'''
+            x = {};
+            x["name"] = 'Iris';
+            x["age"] = 7;
+            x[""] = 123;
+
+            y = {};
+            y["name"] = 'Iris';
+            y["age"] = 7;
+            y[""] = 123;
+
+            x.equals(y);
+        ''')
+        self.assertIs(res, True)
+
+        res = await client.query(r'''
+            x = {};
+            x["name"] = 'Iris';
+            x["age"] = 7;
+            x[""] = 123;
+
+            y = {};
+            y["name"] = 'Iris';
+            y["Age"] = 7;
+            y[""] = 123;
+
+            x.equals(y);
+        ''')
+        self.assertIs(res, False)
+
+        res = await client.query(r'''
+            x = {};
+            x["name"] = 'Iris';
+            x["age"] = 7;
+            x[""] = 123;
+            x.del("");
+
+            y = {};
+            y["name"] = 'Iris';
+            y["age"] = 7;
+
+            [x.equals(y), y.equals(x)];
+        ''')
+        self.assertEquals(res, [True, True])
+
+        res = await client.query(r'''
+            x = {};
+            x["name"] = 'Iris';
+            x["age"] = 7;
+            x[""] = 123;
+            x.del("");
+
+            y = {};
+            y["name"] = 'Iriske';
+            y["age"] = 7;
+
+            [x.equals(y), y.equals(x)];
+        ''')
+        self.assertEquals(res, [False, False])
+
+        res = await client.query(r'''
+            x = {};
+            x["name"] = 'Iris';
+            x["age"] = 7;
+            x[""] = 123;
+            x.del("");
+
+            set_type('Y', {
+                name: 'str',
+                age: 'int',
+            });
+            y = Y{};
+            y["name"] = 'Iris';
+            y["age"] = 7;
+
+            [x.equals(y), y.equals(x)];
+        ''')
+        self.assertEquals(res, [True, True])
+
+        res = await client.query(r'''
+            x = {};
+            x["name"] = 'Iris';
+            x["age"] = 7;
+            x[""] = 123;
+            x.del("");
+
+            set_type('Z', {
+                name: 'str',
+                age: 'int',
+            });
+            z = Z{};
+            z["name"] = 'Iris';
+            z["age"] = 6;
+
+            [x.equals(z), z.equals(x)];
+        ''')
+        self.assertEquals(res, [False, False])
+
+    async def test_gen_ids(self, client):
+        res = await client.query(r'''
+            x = {};
+            x["name"] = 'Iris';
+            x["age"] = 7;
+            x[""] = 123;
+
+            .dict = {};
+            .dict["another dict"] = {};
+            .dict["another dict"][""] = 5;
+            .dict["my set"] = set();
+            .dict["my set"].add({}, x);
+        ''')
 
 
 if __name__ == '__main__':

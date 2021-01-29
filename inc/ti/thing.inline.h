@@ -56,10 +56,6 @@ static inline int ti_thing_o_set_val_from_strn(
                 (ti_wprop_t *) witem,
                 thing, str, n, val, e);
 
-    /*
-     *  TODO: UTF-8 encoding depends on correct msgpack data, decide if we
-     *  want to keep this check, or rely on correct usage of msgpack.
-     */
     if (!strx_is_utf8n(str, n))
     {
         ex_set(e, EX_VALUE_ERROR, "properties must have valid UTF-8 encoding");
@@ -147,6 +143,16 @@ static inline void ti_thing_t_set_not_found(
     }
 }
 
+static inline ti_val_t * ti_thing_p_val_weak_get(
+        ti_thing_t * thing,
+        ti_name_t * name)
+{
+    for (vec_each(thing->items.vec, ti_prop_t, prop))
+        if (prop->name == name)
+            return prop->val;
+    return NULL;
+}
+
 static inline ti_val_t * ti_thing_o_val_weak_get(
         ti_thing_t * thing,
         ti_name_t * name)
@@ -156,19 +162,13 @@ static inline ti_val_t * ti_thing_o_val_weak_get(
         ti_item_t * item = smap_get(thing->items.smap, name->str);
         return item ? item->val : NULL;
     }
-
-    for (vec_each(thing->items.vec, ti_prop_t, prop))
-        if (prop->name == name)
-            return prop->val;
-
-    return NULL;
+    return ti_thing_p_val_weak_get(thing, name);
 }
 
 static inline ti_val_t * ti_thing_t_val_weak_get(
         ti_thing_t * thing,
         ti_name_t * name)
 {
-    assert (ti_thing_is_instance(thing));
     ti_name_t * n;
     ti_val_t * v;
     for (thing_t_each(thing, n, v))
@@ -177,7 +177,7 @@ static inline ti_val_t * ti_thing_t_val_weak_get(
     return NULL;
 }
 
-static inline ti_val_t * ti_thing_val_weak_get(
+static inline ti_val_t * ti_thing_val_weak_by_name(
         ti_thing_t * thing,
         ti_name_t * name)
 {
@@ -251,7 +251,7 @@ static inline _Bool ti_thing_o_has_key(ti_thing_t * thing, ti_raw_t * key)
     if (!ti_thing_is_dict(thing))
     {
         ti_name_t * name = ti_names_weak_from_raw(key);
-        return name && ti_thing_val_weak_get(thing, name);
+        return name && ti_thing_val_weak_by_name(thing, name);
     }
     return !!smap_getn(thing->items.smap, (const char *) key->data, key->n);
 }

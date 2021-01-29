@@ -96,18 +96,15 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
         return NULL;
     }
 
-    /*
-     *  TODO: UTF-8 encoding depends on correct msgpack data, decide if we
-     *  want to keep this check, or rely on correct usage of msgpack.
-     */
-    if (!strx_is_utf8n(mp_key.via.str.data, mp_key.via.str.n))
-    {
-        ex_set(e, EX_VALUE_ERROR, "properties must have valid UTF-8 encoding");
-        return NULL;
-    }
-
     if (!ti_is_reserved_key_strn(mp_key.via.str.data, mp_key.via.str.n))
     {
+        if (!strx_is_utf8n(mp_key.via.str.data, mp_key.via.str.n))
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "properties must have valid UTF-8 encoding");
+            return NULL;
+        }
+
         /* restore the unpack pointer to the first property */
         vup->up->pt = restore_point;
         return (ti_val_t *) ti_thing_new_from_vup(vup, sz, e);

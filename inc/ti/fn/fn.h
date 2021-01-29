@@ -362,11 +362,10 @@ static int fn_call_o_try_n(
         cleri_node_t * nd,
         ex_t * e)
 {
-    ti_name_t * name_ = ti_names_weak_get_strn(name, n);
     ti_thing_t * thing = (ti_thing_t *) query->rval;
-    ti_val_t * val;
+    ti_val_t * val = ti_thing_val_by_strn(thing, name, n);
 
-    if (!name_ || !(val = ti_thing_o_val_weak_get(thing, name_)))
+    if (!val)
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "thing "TI_THING_ID" has no property or method `%.*s`",

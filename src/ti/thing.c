@@ -405,10 +405,6 @@ int ti_thing_props_from_vup(
             return e->nr;
         }
 
-        /*
-         *  TODO: UTF-8 encoding depends on correct msgpack data, decide if we
-         *  want to keep this check, or rely on correct usage of msgpack.
-         */
         if (!strx_is_utf8n(mp_prop.via.str.data, mp_prop.via.str.n))
         {
             ex_set(e, EX_VALUE_ERROR,
@@ -892,25 +888,6 @@ static _Bool thing_i__get_by_key(
     return true;
 }
 
-ti_val_t * ti_thing_weak_val_by_name(ti_thing_t * thing, ti_name_t * name)
-{
-    if (ti_thing_is_object(thing))
-    {
-        for (vec_each(thing->items.vec, ti_prop_t, prop))
-            if (prop->name == name)
-                return prop->val;
-    }
-    else
-    {
-        ti_type_t * type = ti_thing_type(thing);
-        ti_field_t * field;
-
-        if ((field = ti_field_by_name(type, name)))
-            return VEC_get(thing->items.vec, field->idx);
-    }
-    return NULL;
-}
-
 _Bool ti_thing_get_by_raw(ti_witem_t * witem, ti_thing_t * thing, ti_raw_t * r)
 {
     ti_name_t * name;
@@ -956,6 +933,11 @@ int ti_thing_get_by_raw_e(
     return e->nr;
 }
 
+static inline int thing__gen_id_i_cb(ti_item_t * item, void * UNUSED(arg))
+{
+    return ti_val_gen_ids(item->val);
+}
+
 int ti_thing_gen_id(ti_thing_t * thing)
 {
     assert (!thing->id);
@@ -972,16 +954,22 @@ int ti_thing_gen_id(ti_thing_t * thing)
      */
     if (ti_thing_is_object(thing))
     {
+        if (ti_thing_is_dict(thing))
+            return smap_values(
+                    thing->items.smap,
+                    (smap_val_cb) thing__gen_id_i_cb,
+                    NULL);
+
         for (vec_each(thing->items.vec, ti_prop_t, prop))
             if (ti_val_gen_ids(prop->val))
                 return -1;
+        return 0;
     }
-    else
-    {
-        for (vec_each(thing->items.vec, ti_val_t, val))
-            if (ti_val_gen_ids(val))
-                return -1;
-    }
+
+    /* type */
+    for (vec_each(thing->items.vec, ti_val_t, val))
+        if (ti_val_gen_ids(val))
+            return -1;
     return 0;
 }
 
@@ -1290,6 +1278,25 @@ int ti_thing_t_to_pk(ti_thing_t * thing, msgpack_packer * pk, int options)
     return 0;
 }
 
+ti_val_t * ti_thing_val_by_strn(ti_thing_t * thing, const char * str, size_t n)
+{
+    if (ti_thing_is_dict(thing))
+    {
+        ti_item_t * item = smap_getn(thing->items.smap, str, n);
+        return item ? item->val : NULL;
+    }
+    else
+    {
+        ti_name_t * name = ti_names_weak_get_strn(str, n);
+        if (!name)
+            return NULL;
+
+        return ti_thing_is_object(thing)
+                ? ti_thing_p_val_weak_get(thing, name)
+                : ti_thing_t_val_weak_get(thing, name);
+    }
+}
+
 _Bool ti__thing_has_watchers_(ti_thing_t * thing)
 {
     assert (thing->watchers);
@@ -1306,6 +1313,45 @@ static inline _Bool thing__val_equals(ti_val_t * a, ti_val_t * b, uint8_t deep)
             : ti_opr_eq(a, b);
 }
 
+typedef struct
+{
+    uint8_t deep;
+    ti_thing_t * other;
+} thing__equals_t;
+
+static int thing__equals_i_i_cb(ti_item_t * item, thing__equals_t * w)
+{
+    ti_item_t * i = smap_getn(
+            w->other->items.smap,
+            (const char *) item->key->data,
+            item->key->n);
+    return !i || !thing__val_equals(item->val, i->val, w->deep);
+}
+
+static int thing__equals_i_p_cb(ti_item_t * item, thing__equals_t * w)
+{
+    if (ti_raw_is_name(item->key))
+    {
+        ti_val_t * b = ti_thing_p_val_weak_get(
+                w->other,
+                (ti_name_t *) item->key);
+        return !b || !thing__val_equals(item->val, b, w->deep);
+    }
+    return 1;
+}
+
+static int thing__equals_i_t_cb(ti_item_t * item, thing__equals_t * w)
+{
+    if (ti_raw_is_name(item->key))
+    {
+        ti_val_t * b = ti_thing_t_val_weak_get(
+                w->other,
+                (ti_name_t *) item->key);
+        return !b || !thing__val_equals(item->val, b, w->deep);
+    }
+    return 1;
+}
+
 _Bool ti_thing_equals(ti_thing_t * thing, ti_val_t * otherv, uint8_t deep)
 {
     ti_thing_t * other = (ti_thing_t *) otherv;
@@ -1320,9 +1366,22 @@ _Bool ti_thing_equals(ti_thing_t * thing, ti_val_t * otherv, uint8_t deep)
 
     if (ti_thing_is_object(thing))
     {
+        if (ti_thing_is_dict(thing))
+        {
+            thing__equals_t w = {
+                    .deep = deep,
+                    .other = other,
+            };
+            smap_val_cb cb = ti_thing_is_object(other)
+                    ? ti_thing_is_dict(other)
+                    ? (smap_val_cb) thing__equals_i_i_cb
+                    : (smap_val_cb) thing__equals_i_p_cb
+                    : (smap_val_cb) thing__equals_i_t_cb;
+            return !smap_values(thing->items.smap, cb, &w);
+        }
         for (vec_each(thing->items.vec, ti_prop_t, prop))
         {
-            ti_val_t * b = ti_thing_weak_val_by_name(other, prop->name);
+            ti_val_t * b = ti_thing_val_weak_by_name(other, prop->name);
             if (!b || !thing__val_equals(prop->val, b, deep))
                 return false;
         }
@@ -1343,7 +1402,7 @@ _Bool ti_thing_equals(ti_thing_t * thing, ti_val_t * otherv, uint8_t deep)
         ti_val_t * a;
         for (thing_t_each(thing, name, a))
         {
-            ti_val_t * b = ti_thing_weak_val_by_name(other, name);
+            ti_val_t * b = ti_thing_val_weak_by_name(other, name);
             if (!b || !thing__val_equals(a, b, deep))
                 return false;
         }

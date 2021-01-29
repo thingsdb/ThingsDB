@@ -67,7 +67,6 @@ void ti_thing_t_to_object(ti_thing_t * thing);
 void ti_thing_o_del(ti_thing_t * thing, const char * str, size_t n);
 ti_item_t * ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e);
 _Bool ti_thing_get_by_raw(ti_witem_t * witem, ti_thing_t * thing, ti_raw_t * raw);
-ti_val_t * ti_thing_weak_val_by_name(ti_thing_t * thing, ti_name_t * name);
 int ti_thing_get_by_raw_e(
         ti_witem_t * witem,
         ti_thing_t * thing,
@@ -87,6 +86,7 @@ int ti_thing_watch_init(ti_thing_t * thing, ti_stream_t * stream);
 int ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream);
 int ti_thing__to_pk(ti_thing_t * thing, msgpack_packer * pk, int options);
 int ti_thing_t_to_pk(ti_thing_t * thing, msgpack_packer * pk, int options);
+ti_val_t * ti_thing_val_by_strn(ti_thing_t * thing, const char * str, size_t n);
 _Bool ti__thing_has_watchers_(ti_thing_t * thing);
 _Bool ti_thing_equals(ti_thing_t * thing, ti_val_t * other, uint8_t deep);
 int ti_thing_i_set_val_from_strn(

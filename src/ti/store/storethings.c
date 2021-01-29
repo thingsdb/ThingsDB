@@ -253,27 +253,28 @@ int ti_store_things_restore_data(
                 {
                 case MP_U64:
                     key = imap_get(names, mp_key.via.u64);
+                    if (!key)
+                    {
+                        log_critical("failed to load key");
+                        goto fail1;
+                    }
+                    ti_incref(key);
                     break;
                 case MP_STR:
                     key = ti_str_create(mp_key.via.str.data, mp_key.via.str.n);
-                    break;
+                    if (key)
+                        break;
+                    /* fall through */
                 default:
                     goto fail1;
                 }
 
-                if (!key)
-                {
-                    log_critical("failed to load key");
-                    goto fail1;
-                }
 
                 val = ti_val_from_vup(&vup);
 
                 if (!val || ti_val_make_assignable(&val, thing, key, &e) ||
                     ti_thing_o_add(thing, key, val))
-                    goto fail1;
-
-                ti_incref(key);
+                    goto fail1;  /* may leak a few bytes for key */
             }
         }
         else

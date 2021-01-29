@@ -22,8 +22,8 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_thing_t * thing = (ti_thing_t *) query->rval;
         ti_name_t * module_name = (ti_name_t *) ti_val_borrow_module_name();
         ti_name_t * deep_name = (ti_name_t *) ti_val_borrow_deep_name();
-        ti_val_t * module_val = ti_thing_weak_val_by_name(thing, module_name);
-        ti_val_t * deep_val = ti_thing_weak_val_by_name(thing, deep_name);
+        ti_val_t * module_val = ti_thing_val_weak_by_name(thing, module_name);
+        ti_val_t * deep_val = ti_thing_val_weak_by_name(thing, deep_name);
 
         if (!module_val)
         {

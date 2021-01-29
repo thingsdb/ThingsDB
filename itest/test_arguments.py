@@ -44,8 +44,8 @@ class TestArguments(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'property names must be of type `str` and follow the '
-                r'naming rules'):
+                r'property names must be of type `str` '
+                r'\(in argument `blob`\)'):
             await client.query(r'blob;', blob={0: 1})
 
         with self.assertRaisesRegex(

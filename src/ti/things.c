@@ -73,6 +73,20 @@ ti_thing_t * ti_things_thing_o_from_vup(
         return thing;
     }
 
+    if (vup->isclient)
+    {
+        /*
+         * If not unpacking from an event, then new things should be created
+         * without an id.
+         */
+        ex_set(e, EX_LOOKUP_ERROR,
+                "thing "TI_THING_ID" not found; "
+                "if you want to create a new thing then remove the id (`#`) "
+                "and try again",
+                thing_id);
+        return NULL;
+    }
+
     --sz;  /* decrease one to unpack the remaining properties */
 
     thing = ti_things_create_thing_o(thing_id, sz, vup->collection);

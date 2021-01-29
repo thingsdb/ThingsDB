@@ -203,8 +203,8 @@ class TestDict(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                'property `#` is reserved'):
-            await client.query(r'', x={"#": 123})
+                'property `!` is reserved'):
+            await client.query(r'', x={"!": 123})
 
     async def test_assign_and_del(self, client0):
         if not self.with_node1():

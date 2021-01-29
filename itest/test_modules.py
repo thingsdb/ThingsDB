@@ -662,7 +662,7 @@ class TestModules(TestBase):
                     host: 'localhost',
                     port: 9000
                 }]
-            }, nil);
+            });
         ''', scope='/t')
 
         await asyncio.sleep(3)

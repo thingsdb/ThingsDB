@@ -1,6 +1,8 @@
 # v0.10.4
 
 * Added things as dictionary support, issue #146.
+* Allow zero arguments for `wse(..)` function, issue #148.
+* Deprecate injection of special variable, issue #151.
 
 # v0.10.3
 

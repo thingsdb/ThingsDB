@@ -31,6 +31,7 @@ typedef enum
     TI_API_FLAG_JSON_BEAUTY     =1<<3,
     TI_API_FLAG_JSON_UTF8       =1<<4,
     TI_API_FLAG_HOME            =1<<5,
+    TI_API_FLAG_USED            =1<<6,
 } ti_api_flags_t;
 
 #include <ex.h>

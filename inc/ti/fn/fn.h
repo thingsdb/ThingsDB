@@ -16,9 +16,9 @@
 #include <ti.h>
 #include <ti/access.h>
 #include <ti/auth.h>
+#include <ti/async.h>
 #include <ti/closure.h>
 #include <ti/closure.inline.h>
-#include <ti/async.h>
 #include <ti/collections.h>
 #include <ti/datetime.h>
 #include <ti/do.h>

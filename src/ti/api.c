@@ -101,6 +101,20 @@ static void api__alloc_cb(
     buf->len = buf->base ? HTTP_MAX_HEADER_SIZE-1 : 0;
 }
 
+static void api__reset(ti_api_request_t * ar)
+{
+    free(ar->content);
+    ar->content = NULL;
+    ar->content_n = 0;
+    ar->content_type = TI_API_CT_TEXT_PLAIN;
+    ar->state = TI_API_STATE_NONE;
+
+    ti_user_drop(ar->user);
+    ar->user = NULL;
+
+    ex_clear(&ar->e);
+}
+
 static void api__data_cb(
         uv_stream_t * uvstream,
         ssize_t n,
@@ -120,6 +134,11 @@ static void api__data_cb(
         ti_api_close(ar);
         goto done;
     }
+
+    if (ar->flags & TI_API_FLAG_USED)
+        api__reset(ar);
+    else
+        ar->flags |= TI_API_FLAG_USED;
 
     buf->base[HTTP_MAX_HEADER_SIZE-1] = '\0';
 
@@ -177,6 +196,7 @@ static void api__connection_cb(uv_stream_t * server, int status)
     ar->_id = TI_API_IDENTIFIER;
     ar->uvstream.data = ar;
     ar->parser.data = ar;
+    ar->flags |= TI_API_FLAG_USED;
 
     rc = uv_accept(server, &ar->uvstream);
     if (rc)

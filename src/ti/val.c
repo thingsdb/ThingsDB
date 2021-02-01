@@ -407,7 +407,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
     }
     }
 reserved:
-    ex_set(e, EX_VALUE_ERROR, "property `%c` is reserved",
+    ex_set(e, EX_VALUE_ERROR, "property `%c` is reserved"DOC_PROPERTIES,
             *mp_key.via.str.data);
     return NULL;
 }

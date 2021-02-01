@@ -64,7 +64,8 @@ static inline int ti_thing_o_set_val_from_strn(
 
     if (ti_is_reserved_key_strn(str, n))
     {
-        ex_set(e, EX_VALUE_ERROR, "property `%c` is reserved", *str);
+        ex_set(e, EX_VALUE_ERROR, "property `%c` is reserved"DOC_PROPERTIES,
+                *str);
         return e->nr;
     }
 

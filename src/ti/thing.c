@@ -414,7 +414,7 @@ int ti_thing_props_from_vup(
 
         if (ti_is_reserved_key_strn(mp_prop.via.str.data, mp_prop.via.str.n))
         {
-            ex_set(e, EX_VALUE_ERROR, "property `%c` is reserved",
+            ex_set(e, EX_VALUE_ERROR, "property `%c` is reserved"DOC_PROPERTIES,
                     *mp_prop.via.str.data);
             return e->nr;
         }

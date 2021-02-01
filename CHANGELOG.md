@@ -2,7 +2,10 @@
 
 * Added things as dictionary support, issue #146.
 * Allow zero arguments for `wse(..)` function, issue #148.
+* Added `regex()` function, issue #149.
+* Added `first()` and `last()` functions for a list, issue #150.
 * Deprecate injection of special variable, issue #151.
+* Fixed bug with multiple HTTP API request on the same connection, issue #153.
 
 # v0.10.3
 

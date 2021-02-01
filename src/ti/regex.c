@@ -128,7 +128,7 @@ ti_regex_t * ti_regex_create(ti_raw_t * pattern, ti_raw_t * flags, ex_t * e)
 
     for (size_t i = 0, m = flags->n; i < m; ++i, ++ptr)
     {
-        if (!islower((*ptr = flags->data[i])))
+        if (!isgraph((*ptr = flags->data[i])))
         {
             ti_val_unsafe_drop((ti_val_t *) re);
             ex_set(e, EX_VALUE_ERROR, "invalid regular expression flags");

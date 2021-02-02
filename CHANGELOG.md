@@ -6,6 +6,8 @@
 * Added `first()` and `last()` functions for a list, issue #150.
 * Deprecate injection of special variable, issue #151.
 * Fixed bug with multiple HTTP API request on the same connection, issue #153.
+* Deprecated *str*.test() and added *regex*.test() function, issue #155.
+* Added `is_regex(..)` function, issue #156.
 
 # v0.10.3
 

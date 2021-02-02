@@ -311,6 +311,17 @@ class TestHTTPAPI(TestBase):
         self.assertEqual(x.status_code, 200)
         self.assertEqual(msgpack.unpackb(x.content, raw=False), 42)
 
+    async def test_long_request(self, api0, api1, token):
+        code = r''' "just another simple test string!!!"; ''' * 3000
+        data = {'type': 'query', 'code': code}
+        x = requests.post(
+            f'{api0}/t',
+            json=data,
+            headers={'Authorization': f'TOKEN {token}'})
+
+        self.assertEqual(x.status_code, 200)
+        self.assertEqual(x.json(), "just another simple test string!!!")
+
     async def test_run(self, api0, api1, token):
         data = {'type': 'query', 'code': 'new_procedure("addone", |x| x+1);'}
         x = requests.post(

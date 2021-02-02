@@ -1688,41 +1688,41 @@ class TestCollectionFunctions(TestBase):
             .s5 = "BAR\nFOO\nBAR";
         ''')
 
-        self.assertIs(await client.query('.s0.test(.rn);'), False)
-        self.assertIs(await client.query('.s0.test(.ri);'), False)
-        self.assertIs(await client.query('.s0.test(.rs);'), False)
-        self.assertIs(await client.query('.s0.test(.rm);'), False)
-        self.assertIs(await client.query('.s0.test(.ra);'), False)
+        self.assertIs(await client.query('.rn.test(.s0);'), False)
+        self.assertIs(await client.query('.ri.test(.s0);'), False)
+        self.assertIs(await client.query('.rs.test(.s0);'), False)
+        self.assertIs(await client.query('.rm.test(.s0);'), False)
+        self.assertIs(await client.query('.ra.test(.s0);'), False)
 
-        self.assertIs(await client.query('.s1.test(.rn);'), True)
-        self.assertIs(await client.query('.s1.test(.ri);'), True)
-        self.assertIs(await client.query('.s1.test(.rs);'), True)
-        self.assertIs(await client.query('.s1.test(.rm);'), True)
-        self.assertIs(await client.query('.s1.test(.ra);'), True)
+        self.assertIs(await client.query('.rn.test(.s1);'), True)
+        self.assertIs(await client.query('.ri.test(.s1);'), True)
+        self.assertIs(await client.query('.rs.test(.s1);'), True)
+        self.assertIs(await client.query('.rm.test(.s1);'), True)
+        self.assertIs(await client.query('.ra.test(.s1);'), True)
 
-        self.assertIs(await client.query('.s2.test(.rn);'), False)
-        self.assertIs(await client.query('.s2.test(.ri);'), True)
-        self.assertIs(await client.query('.s2.test(.rs);'), False)
-        self.assertIs(await client.query('.s2.test(.rm);'), False)
-        self.assertIs(await client.query('.s2.test(.ra);'), True)
+        self.assertIs(await client.query('.rn.test(.s2);'), False)
+        self.assertIs(await client.query('.ri.test(.s2);'), True)
+        self.assertIs(await client.query('.rs.test(.s2);'), False)
+        self.assertIs(await client.query('.rm.test(.s2);'), False)
+        self.assertIs(await client.query('.ra.test(.s2);'), True)
 
-        self.assertIs(await client.query('.s3.test(.rn);'), False)
-        self.assertIs(await client.query('.s3.test(.ri);'), False)
-        self.assertIs(await client.query('.s3.test(.rs);'), True)
-        self.assertIs(await client.query('.s3.test(.rm);'), False)
-        self.assertIs(await client.query('.s3.test(.ra);'), True)
+        self.assertIs(await client.query('.rn.test(.s3);'), False)
+        self.assertIs(await client.query('.ri.test(.s3);'), False)
+        self.assertIs(await client.query('.rs.test(.s3);'), True)
+        self.assertIs(await client.query('.rm.test(.s3);'), False)
+        self.assertIs(await client.query('.ra.test(.s3);'), True)
 
-        self.assertIs(await client.query('.s4.test(.rn);'), False)
-        self.assertIs(await client.query('.s4.test(.ri);'), False)
-        self.assertIs(await client.query('.s4.test(.rs);'), False)
-        self.assertIs(await client.query('.s4.test(.rm);'), True)
-        self.assertIs(await client.query('.s4.test(.ra);'), True)
+        self.assertIs(await client.query('.rn.test(.s4);'), False)
+        self.assertIs(await client.query('.ri.test(.s4);'), False)
+        self.assertIs(await client.query('.rs.test(.s4);'), False)
+        self.assertIs(await client.query('.rm.test(.s4);'), True)
+        self.assertIs(await client.query('.ra.test(.s4);'), True)
 
-        self.assertIs(await client.query('.s5.test(.rn);'), False)
-        self.assertIs(await client.query('.s5.test(.ri);'), False)
-        self.assertIs(await client.query('.s5.test(.rs);'), False)
-        self.assertIs(await client.query('.s5.test(.rm);'), False)
-        self.assertIs(await client.query('.s5.test(.ra);'), True)
+        self.assertIs(await client.query('.rn.test(.s5);'), False)
+        self.assertIs(await client.query('.ri.test(.s5);'), False)
+        self.assertIs(await client.query('.rs.test(.s5);'), False)
+        self.assertIs(await client.query('.rm.test(.s5);'), False)
+        self.assertIs(await client.query('.ra.test(.s5);'), True)
 
     async def test_is_array(self, client):
         await client.query('.x = [[0, 1], nil]; .y = .x[0];')
@@ -1848,6 +1848,16 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query('is_int( "ԉ" ); '))
         self.assertFalse(await client.query('is_int( nil );'))
         self.assertFalse(await client.query('is_int( set() );'))
+
+    async def test_is_regex(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `is_regex` takes 1 argument but 0 were given'):
+            await client.query('is_regex();')
+
+        self.assertTrue(await client.query('is_regex( /.*/m ); '))
+        self.assertTrue(await client.query('is_regex( regex("abc") ); '))
+        self.assertFalse(await client.query('is_regex( "bla" ); '))
 
     async def test_is_list(self, client):
         await client.query('.x = [[0, 1], nil]; .y = .x[0];')
@@ -3220,20 +3230,27 @@ class TestCollectionFunctions(TestBase):
     async def test_test(self, client):
         with self.assertRaisesRegex(
                 LookupError,
-                'type `regex` has no function `test`'):
-            await client.query('(/.*/).test();')
+                'type `int` has no function `test`'):
+            await client.query('(42).test();')
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
                 'function `test` takes 1 argument but 0 were given'):
-            await client.query('"".test();')
+            await client.query('/.*/.test();')
 
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `test` expects argument 1 to be of '
-                r'type `regex` but got type `str` instead'):
-            await client.query('"".test("abc");')
+                r'type `str` but got type `regex` instead'):
+            await client.query('/.*/.test(/.*/);')
 
+        self.assertTrue(await client.query(r'/.*/.test("");'))
+        self.assertTrue(await client.query(r'/hi/i.test("Hi");'))
+        self.assertTrue(await client.query(r'/hello.*/.test("hello!");'))
+        self.assertFalse(await client.query(r'/hi/.test("Hi");'))
+        self.assertFalse(await client.query(r'/hello!.*/.test("hello");'))
+
+        # test deprecated
         self.assertTrue(await client.query(r'"".test(/.*/);'))
         self.assertTrue(await client.query(r'"Hi".test(/hi/i);'))
         self.assertTrue(await client.query(r'"hello!".test(/hello.*/);'))

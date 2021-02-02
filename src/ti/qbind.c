@@ -96,6 +96,7 @@
 #include <ti/fn/fnisnan.h>
 #include <ti/fn/fnisnil.h>
 #include <ti/fn/fnisraw.h>
+#include <ti/fn/fnisregex.h>
 #include <ti/fn/fnisset.h>
 #include <ti/fn/fnisstr.h>
 #include <ti/fn/fnisthing.h>
@@ -226,7 +227,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 206,
+    TOTAL_KEYWORDS = 207,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 14,
@@ -251,7 +252,7 @@ static inline unsigned int qbind__hash(
         460, 460, 460, 460, 460,   6, 460,   7,  77,  50,
           6,   6,  52, 153, 128,   6,  10,  23,   6,  13,
          12,  39, 118,   6,   7,   6,   9,  27,  70, 122,
-        134, 165,  43, 460, 460, 460, 460, 460, 460, 460,
+        184, 165,  42, 460, 460, 460, 460, 460, 460, 460,
         460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
         460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
         460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
@@ -490,6 +491,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="is_nan",            .fn=do__f_is_nan,               ROOT_NE},
     {.name="is_nil",            .fn=do__f_is_nil,               ROOT_NE},
     {.name="is_raw",            .fn=do__f_is_raw,               ROOT_NE},
+    {.name="is_regex",          .fn=do__f_is_regex,             ROOT_NE},
     {.name="is_set",            .fn=do__f_is_set,               ROOT_NE},
     {.name="is_str",            .fn=do__f_is_str,               ROOT_NE},
     {.name="is_thing",          .fn=do__f_is_thing,             ROOT_NE},

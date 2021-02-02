@@ -1450,6 +1450,66 @@ class TestCollectionFunctions(TestBase):
         # cleanup garbage, the reference to the collection
         await client.query(r'''.x.splice(2, 1);''')
 
+    async def test_first(self, client):
+        await client.query(
+            r'.x = [42, ["thingsdb", false], nil];')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `float` has no function `first`'):
+            await client.query('(1.0).first();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `first` takes at most 1 argument '
+                'but 2 were given'):
+            await client.query('.x.first(nil, nil);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'no first item in an empty list'):
+            await client.query('[].first();')
+
+        with self.assertRaisesRegex(
+                ThingsDBError,
+                'error:-100'):
+            await client.query('[].first(raise(err()));')
+
+        self.assertEqual(await client.query('.x.first();'), 42)
+        self.assertEqual(await client.query('.x[1].first();'), "thingsdb")
+        self.assertEqual(await client.query('[].first(123);'), 123)
+        self.assertEqual(await client.query('[8].first(raise(err()));'), 8)
+
+    async def test_last(self, client):
+        await client.query(
+            r'.x = [42, ["thingsdb", false], nil];')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `float` has no function `last`'):
+            await client.query('(1.0).last();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `last` takes at most 1 argument '
+                'but 2 were given'):
+            await client.query('.x.last(nil, nil);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'no last item in an empty list'):
+            await client.query('[].last();')
+
+        with self.assertRaisesRegex(
+                ThingsDBError,
+                'error:-100'):
+            await client.query('[].last(raise(err()));')
+
+        self.assertEqual(await client.query('.x.last();'), None)
+        self.assertEqual(await client.query('.x[1].last();'), False)
+        self.assertEqual(await client.query('[].last(123);'), 123)
+        self.assertEqual(await client.query('[8].last(raise(err()));'), 8)
+
     async def test_has_list(self, client):
         await client.query(
             r'.x = [42, "thingsdb", thing(.id()), 42, false, nil];')
@@ -1581,6 +1641,89 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('int("3.14");'), 3)
         self.assertEqual(await client.query('int("-3.14");'), -3)
 
+    async def test_regex(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `regex`'):
+            await client.query('nil.regex();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `regex` takes at most 2 arguments but 3 were given'):
+            await client.query('regex("", "", nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `regex` expects argument 1 to be of '
+                r'type `str` but got type `regex` instead;'):
+            await client.query('regex(/.*/);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `regex` expects argument 2 to be of '
+                r'type `str` but got type `int` instead;'):
+            await client.query('regex("", 123);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'invalid regular expression flags'):
+            await client.query('regex("", "\n ");')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'unsupported regular expression flag: `I`'):
+            await client.query('regex("", "I");')
+
+        await client.query('''
+            .rn = regex("^foo.");
+            .ri = regex("^foo.", "i");
+            .rs = regex("^foo.", "s");
+            .rm = regex("^foo.", "m");
+            .ra = regex("^foo.", "ism");
+            .s0 = "foo";
+            .s1 = "foo bar";
+            .s2 = "FOO BAR";
+            .s3 = "foo\nbar";
+            .s4 = "bar\nfoo bar";
+            .s5 = "BAR\nFOO\nBAR";
+        ''')
+
+        self.assertIs(await client.query('.rn.test(.s0);'), False)
+        self.assertIs(await client.query('.ri.test(.s0);'), False)
+        self.assertIs(await client.query('.rs.test(.s0);'), False)
+        self.assertIs(await client.query('.rm.test(.s0);'), False)
+        self.assertIs(await client.query('.ra.test(.s0);'), False)
+
+        self.assertIs(await client.query('.rn.test(.s1);'), True)
+        self.assertIs(await client.query('.ri.test(.s1);'), True)
+        self.assertIs(await client.query('.rs.test(.s1);'), True)
+        self.assertIs(await client.query('.rm.test(.s1);'), True)
+        self.assertIs(await client.query('.ra.test(.s1);'), True)
+
+        self.assertIs(await client.query('.rn.test(.s2);'), False)
+        self.assertIs(await client.query('.ri.test(.s2);'), True)
+        self.assertIs(await client.query('.rs.test(.s2);'), False)
+        self.assertIs(await client.query('.rm.test(.s2);'), False)
+        self.assertIs(await client.query('.ra.test(.s2);'), True)
+
+        self.assertIs(await client.query('.rn.test(.s3);'), False)
+        self.assertIs(await client.query('.ri.test(.s3);'), False)
+        self.assertIs(await client.query('.rs.test(.s3);'), True)
+        self.assertIs(await client.query('.rm.test(.s3);'), False)
+        self.assertIs(await client.query('.ra.test(.s3);'), True)
+
+        self.assertIs(await client.query('.rn.test(.s4);'), False)
+        self.assertIs(await client.query('.ri.test(.s4);'), False)
+        self.assertIs(await client.query('.rs.test(.s4);'), False)
+        self.assertIs(await client.query('.rm.test(.s4);'), True)
+        self.assertIs(await client.query('.ra.test(.s4);'), True)
+
+        self.assertIs(await client.query('.rn.test(.s5);'), False)
+        self.assertIs(await client.query('.ri.test(.s5);'), False)
+        self.assertIs(await client.query('.rs.test(.s5);'), False)
+        self.assertIs(await client.query('.rm.test(.s5);'), False)
+        self.assertIs(await client.query('.ra.test(.s5);'), True)
+
     async def test_is_array(self, client):
         await client.query('.x = [[0, 1], nil]; .y = .x[0];')
         with self.assertRaisesRegex(
@@ -1705,6 +1848,16 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query('is_int( "ԉ" ); '))
         self.assertFalse(await client.query('is_int( nil );'))
         self.assertFalse(await client.query('is_int( set() );'))
+
+    async def test_is_regex(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `is_regex` takes 1 argument but 0 were given'):
+            await client.query('is_regex();')
+
+        self.assertTrue(await client.query('is_regex( /.*/m ); '))
+        self.assertTrue(await client.query('is_regex( regex("abc") ); '))
+        self.assertFalse(await client.query('is_regex( "bla" ); '))
 
     async def test_is_list(self, client):
         await client.query('.x = [[0, 1], nil]; .y = .x[0];')
@@ -3077,20 +3230,27 @@ class TestCollectionFunctions(TestBase):
     async def test_test(self, client):
         with self.assertRaisesRegex(
                 LookupError,
-                'type `regex` has no function `test`'):
-            await client.query('(/.*/).test();')
+                'type `int` has no function `test`'):
+            await client.query('(42).test();')
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
                 'function `test` takes 1 argument but 0 were given'):
-            await client.query('"".test();')
+            await client.query('/.*/.test();')
 
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `test` expects argument 1 to be of '
-                r'type `regex` but got type `str` instead'):
-            await client.query('"".test("abc");')
+                r'type `str` but got type `regex` instead'):
+            await client.query('/.*/.test(/.*/);')
 
+        self.assertTrue(await client.query(r'/.*/.test("");'))
+        self.assertTrue(await client.query(r'/hi/i.test("Hi");'))
+        self.assertTrue(await client.query(r'/hello.*/.test("hello!");'))
+        self.assertFalse(await client.query(r'/hi/.test("Hi");'))
+        self.assertFalse(await client.query(r'/hello!.*/.test("hello");'))
+
+        # test deprecated
         self.assertTrue(await client.query(r'"".test(/.*/);'))
         self.assertTrue(await client.query(r'"Hi".test(/hi/i);'))
         self.assertTrue(await client.query(r'"hello!".test(/hello.*/);'))

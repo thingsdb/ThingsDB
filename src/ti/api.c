@@ -87,6 +87,7 @@ static inline _Bool api__starts_with(
 static void api__close_cb(uv_handle_t * handle)
 {
     ti_api_request_t * ar = handle->data;
+    log_debug("API connection closed");
     ti_user_drop(ar->user);
     free(ar->content);
     free(ar);
@@ -99,6 +100,22 @@ static void api__alloc_cb(
 {
     buf->base = malloc(HTTP_MAX_HEADER_SIZE);
     buf->len = buf->base ? HTTP_MAX_HEADER_SIZE-1 : 0;
+}
+
+static void api__reset(ti_api_request_t * ar)
+{
+    free(ar->content);
+    ar->content = NULL;
+    ar->content_n = 0;
+    ar->content_type = TI_API_CT_TEXT_PLAIN;
+    ar->state = TI_API_STATE_NONE;
+
+    ti_user_drop(ar->user);
+    ar->user = NULL;
+
+    ex_clear(&ar->e);
+
+    ar->flags &= TI_API_FLAG_IN_USE;
 }
 
 static void api__data_cb(
@@ -120,6 +137,9 @@ static void api__data_cb(
         ti_api_close(ar);
         goto done;
     }
+
+    if (ar->flags & TI_API_FLAG_USED)
+        api__reset(ar);
 
     buf->base[HTTP_MAX_HEADER_SIZE-1] = '\0';
 
@@ -316,7 +336,6 @@ static int api__body_cb(http_parser * parser, const char * at, size_t n)
 {
     size_t offset;
     ti_api_request_t * ar = parser->data;
-
     if (!n || !ar->content_n)
         return 0;
 
@@ -329,12 +348,17 @@ static int api__body_cb(http_parser * parser, const char * at, size_t n)
 
 static void api__write_cb(uv_write_t * req, int status)
 {
+    ti_api_request_t * ar = req->handle->data;
+
     if (status)
         log_error(
                 "error writing HTTP API response: `%s`",
                 uv_strerror(status));
 
-    ti_api_close((ti_api_request_t *) req->handle->data);
+    /* Resume parsing */
+    http_parser_pause(&ar->parser, 0);
+
+    ti_api_release(ar);
 }
 
 static void api__write_free_cb(uv_write_t * req, int status)
@@ -1127,6 +1151,11 @@ static int api__plain_response(ti_api_request_t * ar, const api__header_t ht)
 static int api__message_complete_cb(http_parser * parser)
 {
     ti_api_request_t * ar = parser->data;
+
+    ar->flags |= TI_API_FLAG_USED;
+
+    /* Pause parsing */
+    http_parser_pause(&ar->parser, 1);
 
     if (ar->flags & TI_API_FLAG_HOME)
     {

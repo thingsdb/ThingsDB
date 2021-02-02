@@ -12,6 +12,7 @@ typedef struct ti_regex_s ti_regex_t;
 #include <pcre2.h>
 #include <stddef.h>
 #include <ti/raw.h>
+#include <ti/raw.t.h>
 #include <ti/val.h>
 #include <util/mpack.h>
 #include <ex.h>
@@ -28,6 +29,7 @@ typedef struct ti_regex_s ti_regex_t;
         PCRE2_PRERELEASE
 
 ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e);
+ti_regex_t * ti_regex_create(ti_raw_t * pattern, ti_raw_t * flags, ex_t * e);
 void ti_regex_destroy(ti_regex_t * regex);
 static inline int ti_regex_to_pk(ti_regex_t * regex, msgpack_packer * pk);
 static inline _Bool ti_regex_test(ti_regex_t * regex, ti_raw_t * raw);

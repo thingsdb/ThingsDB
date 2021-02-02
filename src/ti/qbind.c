@@ -60,6 +60,7 @@
 #include <ti/fn/fnfilter.h>
 #include <ti/fn/fnfind.h>
 #include <ti/fn/fnfindindex.h>
+#include <ti/fn/fnfirst.h>
 #include <ti/fn/fnfloat.h>
 #include <ti/fn/fnformat.h>
 #include <ti/fn/fnfuture.h>
@@ -95,6 +96,7 @@
 #include <ti/fn/fnisnan.h>
 #include <ti/fn/fnisnil.h>
 #include <ti/fn/fnisraw.h>
+#include <ti/fn/fnisregex.h>
 #include <ti/fn/fnisset.h>
 #include <ti/fn/fnisstr.h>
 #include <ti/fn/fnisthing.h>
@@ -103,6 +105,7 @@
 #include <ti/fn/fnisutf8.h>
 #include <ti/fn/fnjoin.h>
 #include <ti/fn/fnkeys.h>
+#include <ti/fn/fnlast.h>
 #include <ti/fn/fnlen.h>
 #include <ti/fn/fnlist.h>
 #include <ti/fn/fnlower.h>
@@ -138,6 +141,7 @@
 #include <ti/fn/fnrange.h>
 #include <ti/fn/fnreduce.h>
 #include <ti/fn/fnrefs.h>
+#include <ti/fn/fnregex.h>
 #include <ti/fn/fnremove.h>
 #include <ti/fn/fnrenamecollection.h>
 #include <ti/fn/fnrenameenum.h>
@@ -223,11 +227,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 203,
+    TOTAL_KEYWORDS = 207,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 23,
-    MAX_HASH_VALUE = 476
+    MIN_HASH_VALUE = 14,
+    MAX_HASH_VALUE = 459
 };
 
 static inline unsigned int qbind__hash(
@@ -236,32 +240,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
-        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
-        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
-        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
-        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
-        477, 477,   8, 477,   7, 477,   7, 477, 477, 477,
-        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
-        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
-        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
-        477, 477, 477, 477, 477,   7, 477,  11,  64,  34,
-         14,   7,  52, 179, 110,   7,   7,  58,  40,   8,
-         10,  43,  51,   7,   8,   7,  10,  10,  63, 170,
-        149, 152,  21, 477, 477, 477, 477, 477, 477, 477,
-        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
-        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
-        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
-        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
-        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
-        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
-        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
-        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
-        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
-        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
-        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
-        477, 477, 477, 477, 477, 477, 477, 477, 477, 477,
-        477, 477, 477, 477, 477, 477
+        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
+        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
+        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
+        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
+        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
+        460, 460,   6, 460,   6, 460,   6, 460, 460, 460,
+        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
+        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
+        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
+        460, 460, 460, 460, 460,   6, 460,   7,  77,  50,
+          6,   6,  52, 153, 128,   6,  10,  23,   6,  13,
+         12,  39, 118,   6,   7,   6,   9,  27,  70, 122,
+        184, 165,  42, 460, 460, 460, 460, 460, 460, 460,
+        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
+        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
+        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
+        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
+        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
+        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
+        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
+        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
+        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
+        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
+        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
+        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
+        460, 460, 460, 460, 460, 460
     };
 
     register unsigned int hval = n;
@@ -450,6 +454,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="filter",            .fn=do__f_filter,               CHAIN_NE},
     {.name="find_index",        .fn=do__f_find_index,           CHAIN_NE},
     {.name="find",              .fn=do__f_find,                 XCHAIN_NE},
+    {.name="first",             .fn=do__f_first,                XCHAIN_NE},
     {.name="float",             .fn=do__f_float,                ROOT_NE},
     {.name="forbidden_err",     .fn=do__f_forbidden_err,        ROOT_NE},
     {.name="format",            .fn=do__f_format,               CHAIN_NE},
@@ -486,6 +491,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="is_nan",            .fn=do__f_is_nan,               ROOT_NE},
     {.name="is_nil",            .fn=do__f_is_nil,               ROOT_NE},
     {.name="is_raw",            .fn=do__f_is_raw,               ROOT_NE},
+    {.name="is_regex",          .fn=do__f_is_regex,             ROOT_NE},
     {.name="is_set",            .fn=do__f_is_set,               ROOT_NE},
     {.name="is_str",            .fn=do__f_is_str,               ROOT_NE},
     {.name="is_thing",          .fn=do__f_is_thing,             ROOT_NE},
@@ -494,6 +500,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="is_utf8",           .fn=do__f_is_utf8,              ROOT_NE},
     {.name="join",              .fn=do__f_join,                 CHAIN_NE},
     {.name="keys",              .fn=do__f_keys,                 CHAIN_NE},
+    {.name="last",              .fn=do__f_last,                 XCHAIN_NE},
     {.name="len",               .fn=do__f_len,                  CHAIN_NE},
     {.name="list",              .fn=do__f_list,                 ROOT_NE},
     {.name="lookup_err",        .fn=do__f_lookup_err,           ROOT_NE},
@@ -502,6 +509,8 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="max_quota_err",     .fn=do__f_max_quota_err,        ROOT_NE},
     {.name="mod_enum",          .fn=do__f_mod_enum,             ROOT_CE},
     {.name="mod_type",          .fn=do__f_mod_type,             ROOT_CE},
+    {.name="module_info",       .fn=do__f_module_info,          ROOT_NE},
+    {.name="modules_info",      .fn=do__f_modules_info,         ROOT_NE},
     {.name="move",              .fn=do__f_move,                 CHAIN_NE},
     {.name="msg",               .fn=do__f_msg,                  CHAIN_NE},
     {.name="name",              .fn=do__f_name,                 CHAIN_NE},
@@ -519,8 +528,6 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="nodes_info",        .fn=do__f_nodes_info,           ROOT_NE},
     {.name="now",               .fn=do__f_now,                  ROOT_NE},
     {.name="num_arguments_err", .fn=do__f_num_arguments_err,    ROOT_NE},
-    {.name="module_info",       .fn=do__f_module_info,          ROOT_NE},
-    {.name="modules_info",      .fn=do__f_modules_info,         ROOT_NE},
     {.name="operation_err",     .fn=do__f_operation_err,        ROOT_NE},
     {.name="overflow_err",      .fn=do__f_overflow_err,         ROOT_NE},
     {.name="pop",               .fn=do__f_pop,                  CHAIN_CE_XVAR},
@@ -535,6 +542,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="range",             .fn=do__f_range,                ROOT_NE},
     {.name="reduce",            .fn=do__f_reduce,               XCHAIN_NE},
     {.name="refs",              .fn=do__f_refs,                 ROOT_NE},
+    {.name="regex",             .fn=do__f_regex,                ROOT_NE},
     {.name="remove",            .fn=do__f_remove,               CHAIN_CE_XVAR},
     {.name="rename_collection", .fn=do__f_rename_collection,    ROOT_TE},
     {.name="rename_enum",       .fn=do__f_rename_enum,          ROOT_CE},

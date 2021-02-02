@@ -1,5 +1,31 @@
 /*
  * ti/thing.t.h
+ *
+ * Things in ThingsDB might store data in three different ways.
+ *
+ * 1. - Instance of a type, then the values are stored in a vector
+ * and the keys are only stored on the type. The order of values must in this
+ * case map that of the type.
+ *
+ * 2. - Object with strict keys, each key is compatible with the name
+ * convention. In this case the properties are stored in a vector as key/value
+ * pairs. The order is not important.
+ *
+ * 3. - Object might have keys which are not strict. Properties are stored in
+ * a "smap" lookup as key/value pairs. The keys must be UTF-8 compatible and
+ * no reserved keys (such as `#`) are allowed. When a key does follow the
+ * name rules, the key must be of type `ti_name_t`, thus `ti_raw_t` keys are
+ * never compatible with the naming convention.
+ *
+ * Specialized functions:
+ *
+ * - xxx_o_xxx : function is compatible with 2. and 3. only.
+ * - xxx_t_xxx : function is compatible with 1. only.
+ * - xxx_p_xxx : function is compatible with 2. only.
+ * - xxx_i_xxx : function is compatible with 3. only.
+ *
+ * Without the "prefix" in the function name, the function should work on
+ * a thing, no matter what type of thing it is.
  */
 #ifndef TI_THING_T_H_
 #define TI_THING_T_H_

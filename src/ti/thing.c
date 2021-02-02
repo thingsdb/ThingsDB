@@ -61,7 +61,6 @@ static inline int thing__item_val_locked(
         ti_val_t * val,
         ex_t * e)
 {
-    /* TODO: add test */
     /*
      * Array and Sets are the only two values with are mutable and not set
      * by reference (like things). An array is always type `list` since it

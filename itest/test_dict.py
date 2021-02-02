@@ -206,6 +206,31 @@ class TestDict(TestBase):
                 'property `.` is reserved'):
             await client.query(r'', x={".": 123})
 
+        key = 'a ' * 50
+        with self.assertRaisesRegex(
+                OperationError,
+                'cannot change type `list` while the value is being used'):
+            await client.query(r'''
+                x = {};
+                x.set(key, []);
+                x.get(key).push({
+                    x.get(key).push(123);
+                });
+            ''', key=key)
+
+        with self.assertRaisesRegex(
+                OperationError,
+                'cannot change or remove property `a a a a a a a a a a a a a '
+                'a a a a a a a a a ...` on `#0` while '
+                'the `list` is being used'):
+            await client.query(r'''
+                x = {};
+                x.set(key, []);
+                x.get(key).push({
+                    x.set(key, 123);
+                });
+            ''', key=key)
+
     async def test_assign_and_del(self, client0):
         if not self.with_node1():
             return

@@ -115,6 +115,7 @@ static void api__reset(ti_api_request_t * ar)
 
     ex_clear(&ar->e);
 
+    /* Reset flags, except, keep the status of the IN_USE flag */
     ar->flags &= TI_API_FLAG_IN_USE;
 }
 
@@ -137,9 +138,6 @@ static void api__data_cb(
         ti_api_close(ar);
         goto done;
     }
-
-    if (ar->flags & TI_API_FLAG_USED)
-        api__reset(ar);
 
     buf->base[HTTP_MAX_HEADER_SIZE-1] = '\0';
 
@@ -354,6 +352,9 @@ static void api__write_cb(uv_write_t * req, int status)
         log_error(
                 "error writing HTTP API response: `%s`",
                 uv_strerror(status));
+
+    /* Reset API */
+    api__reset(ar);
 
     /* Resume parsing */
     http_parser_pause(&ar->parser, 0);
@@ -1151,8 +1152,6 @@ static int api__plain_response(ti_api_request_t * ar, const api__header_t ht)
 static int api__message_complete_cb(http_parser * parser)
 {
     ti_api_request_t * ar = parser->data;
-
-    ar->flags |= TI_API_FLAG_USED;
 
     /* Pause parsing */
     http_parser_pause(&ar->parser, 1);

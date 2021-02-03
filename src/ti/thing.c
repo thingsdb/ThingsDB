@@ -80,7 +80,6 @@ static inline int thing__item_val_locked(
     return 0;
 }
 
-
 static void thing__unwatch(ti_thing_t * thing, ti_stream_t * stream)
 {
     msgpack_packer pk;

@@ -25,7 +25,7 @@ ti_backup_t * ti_backup_create(
         uint64_t id,
         const char * fn_template,
         size_t fn_templare_n,
-        uint64_t timestamp,
+        uint64_t next_run,
         uint64_t repeat,
         uint64_t max_files,
         uint64_t created_at,
@@ -41,7 +41,7 @@ ti_val_t * ti_backup_as_mpval(ti_backup_t * backup);
 struct ti_backup_s
 {
     uint64_t id;
-    uint64_t timestamp;     /* Next run, UNIX time-stamp in seconds */
+    uint64_t next_run;      /* Next run, UNIX time-stamp in seconds */
     uint64_t repeat;        /* Repeat every X seconds */
     uint64_t created_at;    /* UNIX time-stamp in seconds */
     char * fn_template;     /* {EVENT} {DATE} {TIME} */

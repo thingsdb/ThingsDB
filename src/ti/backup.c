@@ -19,7 +19,7 @@ ti_backup_t * ti_backup_create(
         uint64_t id,
         const char * fn_template,
         size_t fn_templare_n,
-        uint64_t timestamp,
+        uint64_t next_run,
         uint64_t repeat,
         uint64_t max_files,
         uint64_t created_at,
@@ -38,7 +38,7 @@ ti_backup_t * ti_backup_create(
     backup->result_msg = NULL;
     backup->work_fn = NULL;
     backup->files = NULL;
-    backup->timestamp = timestamp;
+    backup->next_run = next_run;
     backup->repeat = repeat;
     backup->max_files = max_files;
     backup->scheduled = true;
@@ -72,10 +72,10 @@ char * backup__next_run(ti_backup_t * backup)
     struct tm * tm_info;
     uint64_t now = util_now_tsec();
 
-    if (backup->timestamp < now)
+    if (backup->next_run < now)
         return "pending";
 
-    tm_info = gmtime((const time_t *) &backup->timestamp);
+    tm_info = gmtime((const time_t *) &backup->next_run);
 
     strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%SZ", tm_info);
     return buf;

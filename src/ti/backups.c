@@ -196,7 +196,7 @@ static ti_backup_t * backups__get_pending(uint64_t ts, uint64_t id)
 {
     omap_iter_t iter = omap_iter(backups->omap);
     for (omap_each(iter, ti_backup_t, backup))
-        if (backup->scheduled && backup->id >= id && backup->timestamp < ts)
+        if (backup->scheduled && backup->id >= id && backup->next_run < ts)
             return backup;
     return NULL;
 }
@@ -256,8 +256,8 @@ void ti_backups_upd_status(uint64_t backup_id, int rc, buf_t * buf)
     if (backup->repeat)
     {
         do
-            backup->timestamp += backup->repeat;
-        while (backup->timestamp < now);
+            backup->next_run += backup->repeat;
+        while (backup->next_run < now);
     }
     else
         backup->scheduled = false;
@@ -343,7 +343,7 @@ static int backups__store(void)
         if (msgpack_pack_array(&pk, 10) ||
             msgpack_pack_uint64(&pk, backup->id) ||
             msgpack_pack_uint64(&pk, backup->created_at) ||
-            msgpack_pack_uint64(&pk, backup->timestamp) ||
+            msgpack_pack_uint64(&pk, backup->next_run) ||
             msgpack_pack_uint64(&pk, backup->repeat) ||
             msgpack_pack_uint64(&pk, backup->max_files) ||
             mp_pack_str(&pk, backup->fn_template) ||
@@ -522,8 +522,8 @@ int ti_backups_restore(void)
             backup->result_code = (int) mp_code.via.i64;
             backup->scheduled = mp_plan.via.bool_;
             if (backup->repeat)
-                while (backup->timestamp < now)
-                    backup->timestamp += backup->repeat;
+                while (backup->next_run < now)
+                    backup->next_run += backup->repeat;
         }
         else
         {
@@ -623,7 +623,7 @@ size_t ti_backups_pending(void)
 
     iter = omap_iter(backups->omap);
     for (omap_each(iter, ti_backup_t, backup))
-        if (backup->scheduled && backup->timestamp < now)
+        if (backup->scheduled && backup->next_run < now)
             ++n;
 
     uv_mutex_unlock(backups->lock);

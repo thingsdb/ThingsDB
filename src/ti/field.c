@@ -923,6 +923,7 @@ success:
          */
         if (vars && ti_query_vars_walk(
                 vars,
+                field->type->types->collection,
                 (imap_cb) field__mod_nested_cb,
                 field))
         {
@@ -1017,7 +1018,11 @@ int ti_field_set_name(
          * may still receive an ID at some later time.
          */
         if (vars)
-            (void) ti_query_vars_walk(vars, (imap_cb) field__ren_cb, field);
+            (void) ti_query_vars_walk(
+                    vars,
+                    field->type->types->collection,
+                    (imap_cb) field__ren_cb,
+                    field);
     }
 
     return 0;

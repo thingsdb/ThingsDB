@@ -32,6 +32,7 @@ struct ti_collection_s
     ti_types_t * types;
     ti_enums_t * enums;
     uv_mutex_t * lock;      /* only for watch/ unwatch/ away-mode */
+    vec_t * futures;
 };
 
 #endif /* TI_COLLECTION_T_H_ */

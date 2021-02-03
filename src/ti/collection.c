@@ -53,12 +53,13 @@ ti_collection_t * ti_collection_create(
     collection->lock = malloc(sizeof(uv_mutex_t));
     collection->created_at = created_at;
     collection->tz = tz;
+    collection->futures = vec_new(4);
 
     memcpy(&collection->guid, guid, sizeof(guid_t));
 
     if (!collection->name || !collection->things || !collection->gc ||
         !collection->access || !collection->procedures || !collection->lock ||
-        !collection->types || !collection->enums ||
+        !collection->types || !collection->enums || !collection->futures ||
         uv_mutex_init(collection->lock))
     {
         ti_collection_drop(collection);
@@ -84,6 +85,7 @@ void ti_collection_destroy(ti_collection_t * collection)
     ti_types_destroy(collection->types);
     ti_enums_destroy(collection->enums);
     uv_mutex_destroy(collection->lock);
+    free(collection->futures);
     free(collection->lock);
     free(collection);
 }

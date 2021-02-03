@@ -5,6 +5,7 @@
 #define TI_QUERY_H_
 
 #include <ex.h>
+#include <ti/collection.t.h>
 #include <ti/future.t.h>
 #include <ti/name.t.h>
 #include <ti/prop.t.h>
@@ -42,7 +43,11 @@ ti_thing_t * ti_query_thing_from_id(
 ssize_t ti_query_count_type(ti_query_t * query, ti_type_t * type);
 static inline _Bool ti_query_will_update(ti_query_t * query);
 static inline const char * ti_query_scope_name(ti_query_t * query);
-int ti_query_vars_walk(vec_t * vars, imap_cb cb, void * args);
+int ti_query_vars_walk(
+        vec_t * vars,
+        ti_collection_t * collection,
+        imap_cb cb,
+        void * args);
 
 static inline _Bool ti_query_will_update(ti_query_t * query)
 {

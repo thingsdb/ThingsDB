@@ -82,6 +82,28 @@ class TestFuture(TestBase):
         ''')
         self.assertEqual(res, "nil")
 
+    async def test_future_mod_type(self, client):
+        res = await client.query(r'''
+            set_type('T', {
+                name: 'str',
+            });
+            f = future(nil, T{}).then(|_, x| {
+                x.age;
+            });
+            mod_type('T', 'add', 'age', 'int');
+            f;
+        ''')
+        self.assertEqual(res, 0)
+
+        res = await client.query(r'''
+            set_type('Y', {
+                name: 'str',
+            });
+            future(nil, Y{});
+            type_count('Y');
+        ''')
+        self.assertEqual(res, 1)
+
     async def test_future_gc(self, client):
         await client.query(r'''
             y = {};

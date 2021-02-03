@@ -291,6 +291,7 @@ static imap_t * modtype__collect_things(ti_query_t * query, ti_type_t * type)
 
     if (ti_query_vars_walk(
             query->vars,
+            query->collection,
             (imap_cb) modtype__collect_cb,
             &collect) ||
         imap_walk(
@@ -490,7 +491,11 @@ static void type__add(
             .e = e,
     };
 
-    if (ti_query_vars_walk(query->vars, (imap_cb) modtype__addv_cb, &addvjob))
+    if (ti_query_vars_walk(
+            query->vars,
+            query->collection,
+            (imap_cb) modtype__addv_cb,
+            &addvjob))
     {
         if (!e->nr)
             ex_set_mem(e);
@@ -609,6 +614,7 @@ static void type__del(
     /* check for variable to update */
     if (ti_query_vars_walk(
             query->vars,
+            query->collection,
             (imap_cb) modtype__delv_cb,
             field))
     {
@@ -1051,6 +1057,7 @@ static int modtype__has_lock(ti_query_t * query, ti_type_t * type, ex_t * e)
 {
     int rc = ti_query_vars_walk(
             query->vars,
+            query->collection,
             (imap_cb) modtype__is_locked_cb,
             type);
 

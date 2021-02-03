@@ -658,6 +658,9 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e)
 
     query = future->query;
 
+    /* drop the future first since it might require the query */
+    ti_val_unsafe_drop((ti_val_t *) future);
+
     if (!--query->fcount)
     {
         if (query->flags & TI_QUERY_FLAG_RAISE_ERR)
@@ -671,8 +674,6 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e)
         query->rval = (ti_val_t *) ti_verror_ensure_from_e(e);
         query->flags |= TI_QUERY_FLAG_RAISE_ERR;
     }
-
-    ti_val_unsafe_drop((ti_val_t *) future);
 }
 
 static void query__then(ti_query_t * query, ex_t * e)
@@ -788,6 +789,9 @@ then:
     }
 
 done:
+    /* drop the future first since it might require the query */
+    ti_val_unsafe_drop((ti_val_t *) future);
+
     if (!--query->fcount)
     {
         if (query->flags & TI_QUERY_FLAG_RAISE_ERR)
@@ -795,7 +799,6 @@ done:
 
         ti_query_response(query, e);
     }
-    ti_val_unsafe_drop((ti_val_t *) future);
 }
 
 void ti_query_run_parseres(ti_query_t * query)
@@ -1117,7 +1120,11 @@ ssize_t ti_query_count_type(ti_query_t * query, ti_type_t * type)
     if (ti_type_is_wrap_only(type))
         return 0;
 
-    if (ti_query_vars_walk(query->vars, (imap_cb) query__count, &c))
+    if (ti_query_vars_walk(
+            query->vars,
+            query->collection,
+            (imap_cb) query__count,
+            &c))
         return -1;
 
     (void) imap_walk(query->collection->things, (imap_cb) query__count, &c);
@@ -1218,7 +1225,11 @@ static int query__var_walk_thing(ti_thing_t * thing, imap_t * imap)
  *
  * The callback will only be called on things without an ID.
  */
-int ti_query_vars_walk(vec_t * vars, imap_cb cb, void * args)
+int ti_query_vars_walk(
+        vec_t * vars,
+        ti_collection_t * collection,
+        imap_cb cb,
+        void * args)
 {
     int rc;
     imap_t * imap = imap_create();
@@ -1228,6 +1239,11 @@ int ti_query_vars_walk(vec_t * vars, imap_cb cb, void * args)
     for (vec_each(vars, ti_prop_t, prop))
         if ((rc = query__get_things(prop->val, imap)))
             goto fail;
+
+    for (vec_each(collection->futures, ti_future_t, future))
+        for (vec_each(future->args, ti_val_t, val))
+            if ((rc = query__get_things(val, imap)))
+                goto fail;
 
     rc = imap_walk(imap, cb, args);
 

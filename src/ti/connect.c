@@ -93,7 +93,6 @@ static void connect__destroy(uv_handle_t * UNUSED(handle))
  */
 static void connect__cb(uv_timer_t * UNUSED(handle))
 {
-//    ex_t e = {0};
     uint32_t n = ++connect_loop->n_loops;
     ti_rpkg_t * rpkg = NULL;
     vec_t * nodes_vec = ti.nodes->vec;
@@ -125,10 +124,11 @@ static void connect__cb(uv_timer_t * UNUSED(handle))
             (sync_changes || !((n + node->id) % 25)) &&
 
             /* write only if the node has an appropriate status */
-            (   node->status == TI_NODE_STAT_SYNCHRONIZING ||
-                node->status == TI_NODE_STAT_AWAY ||
-                node->status == TI_NODE_STAT_AWAY_SOON ||
-                node->status == TI_NODE_STAT_READY))
+            (node->status & (
+                TI_NODE_STAT_SYNCHRONIZING |
+                TI_NODE_STAT_AWAY |
+                TI_NODE_STAT_AWAY_SOON |
+                TI_NODE_STAT_READY)))
         {
             rpkg = rpkg ? rpkg : ti_node_status_rpkg();
             if (!rpkg)

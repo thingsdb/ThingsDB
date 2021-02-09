@@ -76,6 +76,8 @@ int ti_create(void)
     ti.store = NULL;
     ti.access_node = vec_new(0);
     ti.access_thingsdb = vec_new(0);
+    ti.timers_node = vec_new(0);
+    ti.timers_thingsdb = vec_new(0);
     ti.procedures = smap_create();
     ti.modules = smap_create();
     ti.langdef = compile_langdef();
@@ -691,6 +693,17 @@ int ti_unlock(void)
         }
     }
     return 0;
+}
+
+void ti_update_rel_id(void)
+{
+    uint32_t this_node_id = ti.node->id;
+
+    ti.rel_id = 0;
+
+    for (vec_each(ti.nodes->vec, ti_node_t, node))
+        if (node->id < this_node_id)
+            ++ti.rel_id;
 }
 
 _Bool ti_ask_continue(const char * warn)

@@ -36,6 +36,9 @@
 #define TI_MAX_EXPIRATION_DOUBLE 4294967295.0
 #define TI_MAX_EXPIRATION_LONG 4294967295L
 
+/* Maximum number of active futures (just some arbitrary value) */
+#define TI_MAX_FUTURE_COUNT 500U
+
 /*
  * File name schema to check version info on created files.
  */

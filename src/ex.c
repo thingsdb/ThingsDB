@@ -10,12 +10,10 @@
 #include <util/logger.h>
 #include <uv.h>
 
-void ex_set(ex_t * e, ex_enum errnr, const char * errmsg, ...)
+void ex_setv(ex_t * e, ex_enum errnr, const char * errmsg, va_list args)
 {
-    va_list args;
     int n;
     e->nr = errnr;
-    va_start(args, errmsg);
     n = vsnprintf(e->msg, EX_MAX_SZ, errmsg, args);
     e->n = n < EX_MAX_SZ ? n : EX_MAX_SZ;
 
@@ -27,7 +25,13 @@ void ex_set(ex_t * e, ex_enum errnr, const char * errmsg, ...)
         e->msg[0] = '\0';
         assert(0);
     }
+}
 
+void ex_set(ex_t * e, ex_enum errnr, const char * errmsg, ...)
+{
+    va_list args;
+    va_start(args, errmsg);
+    ex_setv(e, errnr, errmsg, args);
     va_end(args);
 }
 

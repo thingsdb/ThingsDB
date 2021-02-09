@@ -40,6 +40,7 @@ typedef enum
     TI_QUERY_WITH_PARSERES,
     TI_QUERY_WITH_PROCEDURE,
     TI_QUERY_WITH_FUTURE,
+    TI_QUERY_WITH_TIMER,
 } ti_query_with_enum;
 
 typedef int (*ti_query_unpack_cb) (

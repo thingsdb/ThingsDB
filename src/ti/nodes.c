@@ -1523,6 +1523,10 @@ ti_node_t * ti_nodes_new_node(
     }
     if (id >= nodes->next_id)
         nodes->next_id = id + 1;
+
+    /* update relative node id */
+    ti_update_rel_id();
+
     return node;
 }
 
@@ -1534,6 +1538,10 @@ void ti_nodes_del_node(uint32_t node_id)
         if (node->id == node_id)
         {
             ti_node_drop(vec_swap_remove(nodes->vec, idx));
+
+            /* update relative node id */
+            ti_update_rel_id();
+
             return;
         }
     }

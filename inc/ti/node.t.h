@@ -69,6 +69,18 @@ typedef enum
     TI_NODE_STAT_READY          =1<<7,
 } ti_node_status_t;
 
+/*
+ * Size TI_NODE_INFO_PK_SZ for node status info.
+ *  {
+ *      next_thing_id,
+ *      cevid,
+ *      sevid,
+ *      status
+ *      zone,
+ *      port,
+ *      version
+ *  }
+ */
 #define TI_NODE_INFO_PK_SZ 128
 
 typedef struct ti_node_s ti_node_t;

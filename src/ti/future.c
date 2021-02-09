@@ -1,6 +1,7 @@
 /*
  * ti/future.c
  */
+#include <ti/async.h>
 #include <ti/future.h>
 #include <ti/future.inline.h>
 #include <ti/val.t.h>
@@ -78,3 +79,10 @@ void ti_future_cancel(ti_future_t * future)
     ti_query_on_future_result(future, &e);
 }
 
+void ti_future_stop(ti_future_t * future)
+{
+    if (future->module != ti_async_get_module())
+        (void) omap_rm(future->module->futures, future->pid);
+
+    ti_future_cancel(future);
+}

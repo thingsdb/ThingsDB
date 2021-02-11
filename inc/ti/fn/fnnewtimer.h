@@ -99,9 +99,9 @@ static int do__f_new_timer(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_closure_unbound(closure, e))
         goto fail1;
 
-    ti_next_thing_id()
 
     timer = ti_timer_create(
+            0,          /* ID, set the id in the last moment */
             name,
             raw->n,
             closure,

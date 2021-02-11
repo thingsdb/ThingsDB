@@ -10,9 +10,8 @@ static int test__deprecated_on_string(
     _Bool has_match;
 
     log_warning(
-            "function `test()` on type `str` is deprected; "
-            "use the function on type `regex` instead "
-            "with the string to test as argument");
+            "function `test()` on type `str` is deprecated; "
+            "use the function on type `regex` instead"DOC_REGEX_TEST);
 
     if (fn_nargs("test", DOC_STR_TEST, 1, nargs, e))
         return e->nr;
@@ -66,7 +65,7 @@ static int do__f_test(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `test` expects argument 1 to be "
-            "of type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_STR_TEST,
+            "of type `"TI_VAL_STR_S"` but got type `%s` instead"DOC_REGEX_TEST,
             ti_val_str(query->rval));
         goto failed;
     }

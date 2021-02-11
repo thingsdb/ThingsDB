@@ -843,8 +843,7 @@ static int api__run(ti_api_request_t * ar, api__req_t * req)
     if (req->mp_name.tp != MP_STR)
         goto invalid_api_request;
 
-    if (this_node->status < TI_NODE_STAT_READY &&
-        this_node->status != TI_NODE_STAT_SHUTTING_DOWN)
+    if (this_node->status < TI_NODE_STAT_READY)
     {
         other_node = ti_nodes_random_ready_node();
         if (!other_node)
@@ -956,8 +955,7 @@ static int api__query(ti_api_request_t * ar, api__req_t * req)
         return 0;
     }
 
-    if (this_node->status < TI_NODE_STAT_READY &&
-        this_node->status != TI_NODE_STAT_SHUTTING_DOWN)
+    if (this_node->status < TI_NODE_STAT_READY)
     {
         other_node = ti_nodes_random_ready_node();
         if (!other_node)
@@ -1203,6 +1201,9 @@ static int api__message_complete_cb(http_parser * parser)
 
     if (!ar->user)
         return api__plain_response(ar, E401_UNAUTHORIZED);
+
+    if (ti.node->status == TI_NODE_STAT_SHUTTING_DOWN)
+        return api__plain_response(ar, E503_SERVICE_UNAVAILABLE);
 
     switch (ar->content_type)
     {

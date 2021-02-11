@@ -16,6 +16,8 @@
 #include <ti/user.t.h>
 #include <ti/vup.t.h>
 
+extern ti_query_done_cb ti_query_done_map[];
+
 ti_query_t * ti_query_create(uint8_t flags);
 void ti_query_destroy(ti_query_t * query);
 int ti_query_unp_run(
@@ -31,6 +33,7 @@ void ti_query_run_procedure(ti_query_t * query);
 void ti_query_run_future(ti_query_t * query);
 void ti_query_send_response(ti_query_t * query, ex_t * e);
 void ti_query_on_then_result(ti_query_t * query, ex_t * e);
+void ti_query_timer_result(ti_query_t * query, ex_t * e);
 void ti_query_done(ti_query_t * query, ex_t * e, ti_query_done_cb cb);
 void ti_query_on_future_result(ti_future_t * future, ex_t * e);
 int ti_query_unpack_args(ti_query_t * query, mp_unp_t * up, ex_t * e);

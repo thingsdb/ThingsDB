@@ -155,6 +155,9 @@
 #define DOC_RENAME_PROCEDURE        DOC_SEE("procedures-api/rename_procedure")
 #define DOC_RUN                     DOC_SEE("procedures-api/run")
 
+/* Timers API */
+#define DOC_NEW_TIMER               DOC_SEE("timers-api/new_timer")
+
 /* Data Types */
 #define DOC_BYTES_LEN               DOC_SEE("data-types/bytes/len")
 #define DOC_CLOSURE_CALL            DOC_SEE("data-types/closure/call")

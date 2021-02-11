@@ -63,6 +63,7 @@ typedef union
     cleri_parse_t * parseres;   /* parse result */
     ti_closure_t * closure;     /* when called as procedure */
     ti_future_t * future;       /* when called as future->then */
+    ti_timer_t * timer;         /* when called as timer */
 } ti_query_with_t;
 
 

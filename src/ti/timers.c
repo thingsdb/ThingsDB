@@ -121,7 +121,4 @@ static void timers__cb(uv_timer_t * UNUSED(handle))
             if (timer->next_run <= now || (timer->id % nodes_n == rel_id))
                 cb(timer);
     }
-
-
-
 }

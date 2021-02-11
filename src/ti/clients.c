@@ -531,7 +531,7 @@ static void clients__tcp_connection(uv_stream_t * uvstream, int status)
         log_error("client connection error: `%s`", uv_strerror(status));
         return;
     }
-    else if (ti.node->status == TI_NODE_STAT_SHUTTING_DOWN)
+    if (ti.node->status == TI_NODE_STAT_SHUTTING_DOWN)
     {
         log_error(
                 "ignore client connection request; "
@@ -574,6 +574,13 @@ static void clients__pipe_connection(uv_stream_t * uvstream, int status)
     if (status < 0)
     {
         log_error("client connection error: `%s`", uv_strerror(status));
+        return;
+    }
+    if (ti.node->status == TI_NODE_STAT_SHUTTING_DOWN)
+    {
+        log_error(
+                "ignore client connection request; "
+                "node has status: %s", ti_node_status_str(ti.node->status));
         return;
     }
 

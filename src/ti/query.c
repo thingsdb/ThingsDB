@@ -38,6 +38,12 @@
 #include <ti/wrap.h>
 #include <util/strx.h>
 
+ti_query_done_cb ti_query_done_map[] = {
+        &ti_query_send_response,
+        &ti_query_send_response,
+        &ti_query_on_then_result,
+        &ti_query_timer_result,
+};
 
 /*
  *  tasks are ordered for low to high thing ids
@@ -246,13 +252,15 @@ void ti_query_destroy(ti_query_t * query)
             free((void *) query->with.parseres->str);
             cleri_parse_free(query->with.parseres);
         }
-
         break;
     case TI_QUERY_WITH_PROCEDURE:
         ti_val_drop((ti_val_t *) query->with.closure);
         break;
     case TI_QUERY_WITH_FUTURE:
-        ti_val_unsafe_drop((ti_val_t *) query->with.future);
+        ti_val_drop((ti_val_t *) query->with.future);
+        break;
+    case TI_QUERY_WITH_TIMER:
+        ti_timer_drop(query->with.timer);
         break;
     }
 
@@ -676,6 +684,11 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e)
     }
 }
 
+static void ti_query_timer_result(ti_query_t * query, ex_t * e)
+{
+
+}
+
 static void query__then(ti_query_t * query, ex_t * e)
 {
     ti_future_t * future = query->with.future;
@@ -885,6 +898,29 @@ void ti_query_run_future(ti_query_t * query)
         query__event_handle(query);  /* errors will be logged only */
 
     ti_query_done(query, &e, &ti_query_on_then_result);
+}
+
+void ti_query_run_timer(ti_query_t * query)
+{
+    ex_t e = {0};
+
+    clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
+
+#ifndef NDEBUG
+    log_debug("[DEBUG] run timer: %s", query->with.timer->closure->node->str);
+#endif
+
+    /* this can never set `e->nr` to EX_RETURN */
+    (void) ti_closure_call(
+            query->with.timer->closure,
+            query,
+            query->with.timer->args,
+            &e);
+
+    if (query->ev)
+        query__event_handle(query);  /* errors will be logged only */
+
+    ti_query_done(query, &e, &ti_query_timer_result);
 }
 
 static inline int query__pack_response(

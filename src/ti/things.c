@@ -76,6 +76,9 @@ ti_thing_t * ti_things_thing_o_from_vup(
     if (vup->isclient)
     {
         /*
+         * TODO: injection from specials is deprecated, once removed, this
+         *       check can be removed as well.
+         *
          * If not unpacking from an event, then new things should be created
          * without an id.
          */

@@ -21,7 +21,52 @@ static void imap__walkn(imap_node_t * node, imap_cb cb, void * arg, size_t * n);
 static _Bool imap__eq(imap_node_t * nodea, imap_node_t * nodeb);
 static void imap__vec(imap_node_t * node, vec_t * vec);
 static uint64_t imap__unused_id(imap_node_t * node, uint64_t max);
-static imap_node_t * imap__nodes_dup(imap_node_t * node);
+static int imap__nodes_dup(imap_node_t * dest, imap_node_t * node);
+
+static imap_node_t imap__empty_node = {
+        .data = NULL,
+        .nodes = NULL,
+        .sz = 0,
+};
+
+static inline uint8_t imap__node_size(imap_node_t * node)
+{
+    return node->key == IMAP_NODE_SZ ? IMAP_NODE_SZ : 1;
+}
+
+static inline imap_node_t * imap__unsafe_node(imap_node_t * node, uint8_t key)
+{
+    return node->key == IMAP_NODE_SZ
+            ? node->nodes + key
+            : node->nodes;
+}
+
+static inline imap_node_t * imap__get_node(imap_node_t * node, uint8_t key)
+{
+    return node->key == IMAP_NODE_SZ
+            ? node->nodes + key
+            : node->key == key ? node->nodes : NULL;
+}
+
+static inline imap_node_t * imap__ensure_node(imap_node_t * node, uint8_t key)
+{
+    return node->key == IMAP_NODE_SZ
+            ? node->nodes + key
+            : node->key == key ? node->nodes : &imap__empty_node;
+}
+
+static inline int imap__node_grow(imap_node_t * node)
+{
+    imap_node_t * tmp = calloc(IMAP_NODE_SZ, sizeof(imap_node_t));
+    if (!tmp)
+        return -1;
+    memcpy(tmp + node->key, node->nodes, sizeof(imap_node_t));
+    free(node->nodes);
+    node->nodes = tmp;
+    node->key = IMAP_NODE_SZ;
+    return 0;
+}
+
 
 /*
  * Returns a new imap or NULL in case of an allocation error.
@@ -165,9 +210,11 @@ void * imap_get(imap_t * imap, uint64_t id)
         if (!nd->nodes)
             return NULL;
 
-        nd = nd->nodes + (--id % IMAP_NODE_SZ);
+        nd = imap__get_node(nd, --id % IMAP_NODE_SZ);
     }
-    while (1);
+    while (nd);
+
+    return NULL;
 }
 
 /*
@@ -338,10 +385,16 @@ static void imap__union_move(imap_node_t * dest, imap_node_t * node)
     imap_node_t * dest_nd;
     imap_node_t * node_nd;
 
-    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+    if (dest->key != IMAP_NODE_SZ &&
+        node->key != dest->key &&
+        imap__node_grow(dest))
+        abort();
+
+    for (uint_fast8_t i = dest->key & 0x1f,
+                      m = i + imap__node_size(dest); i < m; i++)
     {
-        dest_nd = dest->nodes + i;
-        node_nd = node->nodes + i;
+        dest_nd = imap__unsafe_node(dest, i);
+        node_nd = imap__ensure_node(node, i);
 
         if (node_nd->data)
         {
@@ -368,6 +421,7 @@ static void imap__union_move(imap_node_t * dest, imap_node_t * node)
             else
             {
                 dest_nd->nodes = node_nd->nodes;
+                dest_nd->key = node_nd->key;
                 dest->sz += (dest_nd->sz = node_nd->sz);
             }
         }
@@ -412,6 +466,7 @@ void imap_union_move(imap_t * dest, imap_t * imap)
                 else
                 {
                     dest_nd->nodes = imap_nd->nodes;
+                    dest_nd->key = imap_nd->key;
                     dest->n += (dest_nd->sz = imap_nd->sz);
                 }
             }
@@ -424,11 +479,19 @@ void imap_union_move(imap_t * dest, imap_t * imap)
 
 static int imap__union_make(imap_node_t * dest, imap_node_t * node)
 {
+    imap_node_t * dest_nd;
+    imap_node_t * node_nd;
 
-    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+    if (dest->key != IMAP_NODE_SZ &&
+        node->key != dest->key &&
+        imap__node_grow(dest))
+        return -1;
+
+    for (uint_fast8_t i = dest->key & 0x1f,
+                      m = i + imap__node_size(dest); i < m; i++)
     {
-        imap_node_t * dest_nd = dest->nodes + i;
-        imap_node_t * node_nd = node->nodes + i;
+        dest_nd = imap__unsafe_node(dest, i);
+        node_nd = imap__ensure_node(node, i);
 
         if (node_nd->data && !dest_nd->data)
         {
@@ -448,9 +511,9 @@ static int imap__union_make(imap_node_t * dest, imap_node_t * node)
             }
             else
             {
-                if (!(dest_nd->nodes = imap__nodes_dup(node_nd->nodes)))
+                if (imap__nodes_dup(dest_nd, node_nd))
                     return -1;
-                dest->sz += (dest_nd->sz = node_nd->sz);
+                dest->sz += dest_nd->sz;
             }
         }
     }
@@ -480,9 +543,9 @@ int imap_union_make(imap_t * dest, imap_t * a, imap_t * b)
 
             if (a_nd->nodes)
             {
-                if (!(dest_nd->nodes = imap__nodes_dup(a_nd->nodes)))
+                if (imap__nodes_dup(dest_nd, a_nd))
                     return -1;
-                dest->n += (dest_nd->sz = a_nd->sz);
+                dest->n += dest_nd->sz;
             }
 
             if (b_nd->nodes)
@@ -496,10 +559,9 @@ int imap_union_make(imap_t * dest, imap_t * a, imap_t * b)
                 }
                 else
                 {
-                    if (!(dest_nd->nodes = imap__nodes_dup(b_nd->nodes)))
+                    if (imap__nodes_dup(dest_nd, b_nd))
                         return -1;
-                    dest->n += (dest_nd->sz = b_nd->sz);
-
+                    dest->n += dest_nd->sz;
                 }
             }
         }
@@ -512,10 +574,11 @@ static void imap__difference_inplace(imap_node_t * dest, imap_node_t * node)
     imap_node_t * dest_nd;
     imap_node_t * node_nd;
 
-    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+    for (uint_fast8_t i = dest->key & 0x1f,
+                      m = i + imap__node_size(dest); i < m; i++)
     {
-        dest_nd = dest->nodes + i;
-        node_nd = node->nodes + i;
+        dest_nd = imap__unsafe_node(dest, i);
+        node_nd = imap__ensure_node(node, i);
 
         if (node_nd->data && dest_nd->data)
         {
@@ -579,15 +642,22 @@ static int imap__difference_make(
         imap_node_t * a,
         imap_node_t * b)
 {
-    dest->nodes = calloc(IMAP_NODE_SZ, sizeof(imap_node_t));
+    imap_node_t * dest_nd;
+    imap_node_t * a_nd;
+    imap_node_t * b_nd;
+    uint8_t size = imap__node_size(a);
+
+    dest->nodes = calloc(size, sizeof(imap_node_t));
     if (!dest->nodes)
         return -1;
+    dest->key = a->key;
 
-    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+    for (uint_fast8_t i = dest->key & 0x1f,
+                      m = i + imap__node_size(dest); i < m; i++)
     {
-        imap_node_t * dest_nd = dest->nodes + i;
-        imap_node_t * a_nd = a->nodes + i;
-        imap_node_t * b_nd = b->nodes + i;
+        dest_nd = imap__unsafe_node(dest, i);
+        a_nd = imap__unsafe_node(a, i);
+        b_nd = imap__ensure_node(b, i);
 
         if (a_nd->data && !b_nd->data)
         {
@@ -600,9 +670,9 @@ static int imap__difference_make(
         {
             if (!b_nd->nodes)
             {
-                if (!(dest_nd->nodes = imap__nodes_dup(a_nd->nodes)))
+                if (imap__nodes_dup(dest_nd, a_nd))
                     return -1;
-                dest->sz += (dest_nd->sz = a_nd->sz);
+                dest->sz += dest_nd->sz;
             }
             else if (a_nd->sz != b_nd->sz || !imap__eq(a_nd, b_nd))
             {
@@ -612,11 +682,13 @@ static int imap__difference_make(
             }
         }
     }
+
     if (!dest->sz)
     {
         free(dest->nodes);
         dest->nodes = NULL;
     }
+
     return 0;
 }
 
@@ -645,9 +717,9 @@ int imap_difference_make(imap_t * dest, imap_t * a, imap_t * b)
             {
                 if (!b_nd->nodes)
                 {
-                    if (!(dest_nd->nodes = imap__nodes_dup(a_nd->nodes)))
+                    if (imap__nodes_dup(dest_nd, a_nd))
                         return -1;
-                    dest->n += (dest_nd->sz = a_nd->sz);
+                    dest->n += dest_nd->sz;
                 }
                 else if (a_nd->sz != b_nd->sz || !imap__eq(a_nd, b_nd))
                 {
@@ -669,10 +741,11 @@ static void imap__intersection_inplace(
     imap_node_t * dest_nd;
     imap_node_t * node_nd;
 
-    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+    for (uint_fast8_t i = dest->key & 0x1f,
+                      m = i + imap__node_size(dest); i < m; i++)
     {
-        dest_nd = dest->nodes + i;
-        node_nd = node->nodes + i;
+        dest_nd = imap__unsafe_node(dest, i);
+        node_nd = imap__ensure_node(node, i);
 
         if (!node_nd->data && dest_nd->data)
         {
@@ -694,6 +767,7 @@ static void imap__intersection_inplace(
                 dest->sz -= dest_nd->sz;
                 imap__node_destroy_cb(dest_nd, cb);
                 dest_nd->nodes = NULL;
+                dest_nd->sz = 0;
             }
         }
     }
@@ -735,6 +809,7 @@ void imap_intersection_inplace(imap_t * dest, imap_t * imap, imap_destroy_cb cb)
                 dest->n -= dest_nd->sz;
                 imap__node_destroy_cb(dest_nd, cb);
                 dest_nd->nodes = NULL;
+                dest_nd->sz = 0;
             }
         }
     }
@@ -745,15 +820,31 @@ static int imap__intersection_make(
         imap_node_t * a,
         imap_node_t * b)
 {
-    dest->nodes = calloc(IMAP_NODE_SZ, sizeof(imap_node_t));
+    imap_node_t * dest_nd;
+    imap_node_t * a_nd;
+    imap_node_t * b_nd;
+    uint8_t sizea = imap__node_size(a);
+    uint8_t sizeb = imap__node_size(b);
+
+    if (sizeb < sizea)
+    {
+        imap_node_t * tmp = a;
+        a = b;
+        b = tmp;
+        sizea = sizeb;
+    }
+
+    dest->nodes = calloc(sizea, sizeof(imap_node_t));
     if (!dest->nodes)
         return -1;
+    dest->key = a->key;
 
-    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+    for (uint_fast8_t i = dest->key & 0x1f,
+                      m = i + imap__node_size(dest); i < m; i++)
     {
-        imap_node_t * dest_nd = dest->nodes + i;
-        imap_node_t * a_nd = a->nodes + i;
-        imap_node_t * b_nd = b->nodes + i;
+        dest_nd = imap__unsafe_node(dest, i);
+        a_nd = imap__unsafe_node(a, i);
+        b_nd = imap__ensure_node(b, i);
 
         if (a_nd->data && b_nd->data)
         {
@@ -769,11 +860,13 @@ static int imap__intersection_make(
             dest->sz += dest_nd->sz;
         }
     }
+
     if (!dest->sz)
     {
         free(dest->nodes);
         dest->nodes = NULL;
     }
+
     return 0;
 }
 
@@ -817,10 +910,16 @@ static void imap__symmdiff_move(
     imap_node_t * dest_nd;
     imap_node_t * node_nd;
 
-    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+    if (dest->key != IMAP_NODE_SZ &&
+        node->key != dest->key &&
+        imap__node_grow(dest))
+        abort();
+
+    for (uint_fast8_t i = dest->key & 0x1f,
+                      m = i + imap__node_size(dest); i < m; i++)
     {
-        dest_nd = dest->nodes + i;
-        node_nd = node->nodes + i;
+        dest_nd = imap__unsafe_node(dest, i);
+        node_nd = imap__ensure_node(node, i);
 
         if (node_nd->data)
         {
@@ -853,6 +952,7 @@ static void imap__symmdiff_move(
             else
             {
                 dest_nd->nodes = node_nd->nodes;
+                dest_nd->key = node_nd->key;
                 dest->sz += (dest_nd->sz = node_nd->sz);
             }
         }
@@ -911,6 +1011,7 @@ void imap_symmdiff_move(imap_t * dest, imap_t * imap, imap_destroy_cb cb)
                 else
                 {
                     dest_nd->nodes = imap_nd->nodes;
+                    dest_nd->key = imap_nd->key;
                     dest->n += (dest_nd->sz = imap_nd->sz);
                 }
             }
@@ -926,15 +1027,30 @@ static int imap__symmdiff_make(
         imap_node_t * a,
         imap_node_t * b)
 {
-    dest->nodes = calloc(IMAP_NODE_SZ, sizeof(imap_node_t));
+    imap_node_t * dest_nd;
+    imap_node_t * a_nd;
+    imap_node_t * b_nd;
+    uint8_t size, key;
+
+    if (a->key == b->key && a->key != IMAP_NODE_SZ)
+    {
+        size = 1;
+        key = a->key;
+    }
+    else
+        key = size = IMAP_NODE_SZ;
+
+    dest->nodes = calloc(size, sizeof(imap_node_t));
     if (!dest->nodes)
         return -1;
+    dest->key = key;
 
-    for (uint_fast8_t i = 0; i < IMAP_NODE_SZ; i++)
+    for (uint_fast8_t i = dest->key & 0x1f,
+                      m = i + imap__node_size(dest); i < m; i++)
     {
-        imap_node_t * dest_nd = dest->nodes + i;
-        imap_node_t * a_nd = a->nodes + i;
-        imap_node_t * b_nd = b->nodes + i;
+        dest_nd = imap__unsafe_node(dest, i);
+        a_nd = imap__ensure_node(a, i);
+        b_nd = imap__ensure_node(b, i);
 
         if (a_nd->data && !b_nd->data)
         {
@@ -959,15 +1075,15 @@ static int imap__symmdiff_make(
         }
         else if (a_nd->nodes && !b_nd->nodes)
         {
-            if (!(dest_nd->nodes = imap__nodes_dup(a_nd->nodes)))
+            if (imap__nodes_dup(dest_nd, a_nd))
                 return -1;
-            dest->sz +=(dest_nd->sz = a_nd->sz);
+            dest->sz += dest_nd->sz;
         }
         else if (!a_nd->nodes && b_nd->nodes)
         {
-            if (!(dest_nd->nodes = imap__nodes_dup(b_nd->nodes)))
+            if (imap__nodes_dup(dest_nd, b_nd))
                 return -1;
-            dest->sz += (dest_nd->sz = b_nd->sz);
+            dest->sz += dest_nd->sz;
         }
     }
     return 0;
@@ -1010,15 +1126,15 @@ int imap_symmdiff_make(imap_t * dest, imap_t * a, imap_t * b)
             }
             else if (a_nd->nodes && !b_nd->nodes)
             {
-                if (!(dest_nd->nodes = imap__nodes_dup(a_nd->nodes)))
+                if (imap__nodes_dup(dest_nd, a_nd))
                     return -1;
-                dest->n +=(dest_nd->sz = a_nd->sz);
+                dest->n += dest_nd->sz;
             }
             else if (!a_nd->nodes && b_nd->nodes)
             {
-                if (!(dest_nd->nodes = imap__nodes_dup(b_nd->nodes)))
+                if (imap__nodes_dup(dest_nd, b_nd))
                     return -1;
-                dest->n += (dest_nd->sz = b_nd->sz);
+                dest->n += dest_nd->sz;
             }
         }
     }
@@ -1027,7 +1143,7 @@ int imap_symmdiff_make(imap_t * dest, imap_t * a, imap_t * b)
 
 static void imap__node_destroy(imap_node_t * node)
 {
-    imap_node_t * nd = node->nodes, * end = nd + IMAP_NODE_SZ;
+    imap_node_t * nd = node->nodes, * end = nd + imap__node_size(node);
 
     do
         if (nd->nodes)
@@ -1039,32 +1155,43 @@ static void imap__node_destroy(imap_node_t * node)
 
 static void imap__node_destroy_cb(imap_node_t * node, imap_destroy_cb cb)
 {
-    imap_node_t * nd = node->nodes, * end = nd + IMAP_NODE_SZ;
+    imap_node_t * nd = node->nodes, * end = nd + imap__node_size(node);
 
     do
     {
         if (nd->data)
+        {
             (*cb)(nd->data);
+        }
 
         if (nd->nodes)
+        {
             imap__node_destroy_cb(nd, cb);
+        }
     }
     while (++nd < end);
-
     free(node->nodes);
 }
 
 static void * imap__set(imap_node_t * node, uint64_t id, void * data)
 {
+    void * ret;
+    uint8_t key = id % IMAP_NODE_SZ;
+    imap_node_t * nd;
+
     if (!node->sz)
     {
-        node->nodes = calloc(IMAP_NODE_SZ, sizeof(imap_node_t));
+        node->nodes = calloc(1, sizeof(imap_node_t));
         if (!node->nodes)
             return NULL;
+        node->key = key;
     }
+    else if (node->key != key &&
+             node->key != IMAP_NODE_SZ &&
+             imap__node_grow(node))
+        return NULL;
 
-    void * ret;
-    imap_node_t * nd = node->nodes + (id % IMAP_NODE_SZ);
+    nd = imap__unsafe_node(node, key);
     id /= IMAP_NODE_SZ;
 
     if (!id)
@@ -1084,15 +1211,23 @@ static void * imap__set(imap_node_t * node, uint64_t id, void * data)
 
 static int imap__add(imap_node_t * node, uint64_t id, void * data)
 {
+    int rc;
+    uint8_t key = id % IMAP_NODE_SZ;
+    imap_node_t * nd;
+
     if (!node->sz)
     {
-        node->nodes = calloc(IMAP_NODE_SZ, sizeof(imap_node_t));
+        node->nodes = calloc(1, sizeof(imap_node_t));
         if (!node->nodes)
             return IMAP_ERR_ALLOC;
+        node->key = key;
     }
+    else if (node->key != key &&
+             node->key != IMAP_NODE_SZ &&
+             imap__node_grow(node))
+        return IMAP_ERR_ALLOC;
 
-    int rc;
-    imap_node_t * nd = node->nodes + (id % IMAP_NODE_SZ);
+    nd = imap__unsafe_node(node, key);
     id /= IMAP_NODE_SZ;
 
     if (!id)
@@ -1116,7 +1251,10 @@ static int imap__add(imap_node_t * node, uint64_t id, void * data)
 static void * imap__pop(imap_node_t * node, uint64_t id)
 {
     void * data;
-    imap_node_t * nd = node->nodes + (id % IMAP_NODE_SZ);
+    imap_node_t * nd = imap__get_node(node, id % IMAP_NODE_SZ);
+    if (!nd)
+        return NULL;
+
     id /= IMAP_NODE_SZ;
 
     if (!id)
@@ -1151,7 +1289,7 @@ static void * imap__pop(imap_node_t * node, uint64_t id)
 static int imap__walk(imap_node_t * node, imap_cb cb, void * arg)
 {
     int rc;
-    imap_node_t * nd = node->nodes, * end = nd + IMAP_NODE_SZ;
+    imap_node_t * nd = node->nodes, * end = nd + imap__node_size(node);
 
     do
     {
@@ -1168,7 +1306,7 @@ static int imap__walk(imap_node_t * node, imap_cb cb, void * arg)
 
 static void imap__walkn(imap_node_t * node, imap_cb cb, void * arg, size_t * n)
 {
-    imap_node_t * nd = node->nodes, * end = nd + IMAP_NODE_SZ;
+    imap_node_t * nd = node->nodes, * end = nd + imap__node_size(node);
 
     for (; *n && nd < end; ++nd)
     {
@@ -1182,24 +1320,55 @@ static void imap__walkn(imap_node_t * node, imap_cb cb, void * arg, size_t * n)
 
 static _Bool imap__eq(imap_node_t * nodea, imap_node_t * nodeb)
 {
-    imap_node_t
-            * nda = nodea->nodes,
-            * ndb = nodeb->nodes,
-            * end = nda + IMAP_NODE_SZ;
+    if (nodea->key == nodeb->key)
+    {
+        imap_node_t
+                * nda = nodea->nodes,
+                * ndb = nodeb->nodes,
+                * end = nda + imap__node_size(nodea);
 
-    for (; nda < end; ++nda, ++ndb)
-        if (nda->sz != ndb->sz ||
-            nda->data != ndb->data ||
-            !nda->nodes != !ndb->nodes ||
-            (nda->nodes && !imap__eq(nda, ndb)))
-            return false;
+        for (; nda < end; ++nda, ++ndb)
+            if (nda->sz != ndb->sz ||
+                nda->data != ndb->data ||
+                !nda->nodes != !ndb->nodes ||
+                (nda->nodes && !imap__eq(nda, ndb)))
+                return false;
+        return true;
+    }
 
-    return true;
+    if (nodea->key != IMAP_NODE_SZ && nodeb->key != IMAP_NODE_SZ)
+        return false;
+
+    if (nodeb->key == IMAP_NODE_SZ)
+    {
+        imap_node_t * tmp = nodea;
+        nodea = nodeb;
+        nodeb = tmp;
+    }
+
+    /* check if the nodes are equal unless the key's are different */
+    {
+        uint8_t key = 0;
+        imap_node_t
+                * nda = nodea->nodes,
+                * ndb = nodeb->nodes,
+                * end = nda + IMAP_NODE_SZ;
+
+        for (; nda < end; ++nda, ++key)
+            if ((nodeb->key == key && (
+                    nda->sz != ndb->sz ||
+                    nda->data != ndb->data ||
+                    !nda->nodes != !ndb->nodes ||
+                    (nda->nodes && !imap__eq(nda, ndb))
+                )) || (nodeb->key != key && nda->sz))
+                return false;
+        return true;
+    }
 }
 
 static void imap__vec(imap_node_t * node, vec_t * vec)
 {
-    imap_node_t * nd = node->nodes, * end = nd + IMAP_NODE_SZ;
+    imap_node_t * nd = node->nodes, * end = nd + imap__node_size(node);
 
     do
     {
@@ -1216,6 +1385,9 @@ static uint64_t imap__unused_id(imap_node_t * node, uint64_t max)
 {
     imap_node_t * nd = node->nodes;
     size_t i, n, m, r;
+
+    if (node->key != IMAP_NODE_SZ)
+        return (node->key+1) % IMAP_NODE_SZ;
 
     for (i = 0; i < IMAP_NODE_SZ; ++i, ++nd)
         if (!nd->data)
@@ -1246,31 +1418,34 @@ static inline void imap__nodes_dec(void * data)
     ti_decref((ti_ref_t *) data);
 }
 
-static imap_node_t * imap__nodes_dup(imap_node_t * node)
+static int imap__nodes_dup(imap_node_t * dest, imap_node_t * node)
 {
-    imap_node_t * dest = calloc(IMAP_NODE_SZ, sizeof(imap_node_t));
-    imap_node_t * ret = dest;
-    imap_node_t * end = node + IMAP_NODE_SZ;
+    uint8_t size = imap__node_size(node);
+    imap_node_t * nd = node->nodes;
+    imap_node_t * end = nd + size;
+    imap_node_t * dest_nd;
 
-    if (!ret)
-        return NULL;
+    dest_nd = dest->nodes = calloc(size, sizeof(imap_node_t));
+    if (!dest_nd)
+        return -1;
 
-    for (; node < end; ++node, ++dest)
+    for (; nd < end; ++nd, ++dest_nd)
     {
-        if (node->data)
+        if (nd->data)
         {
-            dest->data = node->data;
-            ti_incref((ti_ref_t *) dest->data);
+            dest_nd->data = nd->data;
+            ti_incref((ti_ref_t *) dest_nd->data);
         }
 
-        if (node->nodes && !(dest->nodes = imap__nodes_dup(node->nodes)))
+        if (nd->nodes && imap__nodes_dup(dest_nd, nd))
         {
-            imap__node_destroy_cb(ret, imap__nodes_dec);
-            return NULL;
+            imap__node_destroy_cb(dest->nodes, imap__nodes_dec);
+            return -1;
         }
-
-        dest->sz = node->sz;
     }
 
-    return ret;
+    dest->key = node->key;
+    dest->sz = node->sz;
+
+    return 0;
 }

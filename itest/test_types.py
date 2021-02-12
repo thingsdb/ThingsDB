@@ -326,22 +326,26 @@ class TestTypes(TestBase):
             ( set([.a]) != set([.b]) )
         '''))
         await client.query(r'''
-            anna = {};
-            cato = {};
-            iris = {};
+            anna = {name: 'anne'};
+            cato = {name: 'cato'};
+            iris = {name: 'iris'};
 
             a = set(cato, iris);
             b = set(cato, anna);
 
-            //assert (a | b == set(anna, cato, iris));    // Union
-            //assert (a & b == set(cato));                // Intersection
-            //assert (a - b == set(iris));                // Difference
-            //assert (a ^ b == set(anna, iris));          // Symmetric difference
+            assert (a | b == set(anna, cato, iris));    // Union
+            assert (a & b == set(cato));                // Intersection
+            assert (a - b == set(iris));                // Difference
+            assert (a ^ b == set(anna, iris));          // Symmetric difference
 
-            assert ((set(cato, iris) | set(cato, anna)) == set(anna, cato, iris));    // Union move
-            //assert (a &= b == set(cato));                // Intersection
-            //assert (a -= b == set(iris));                // Difference
-            //assert (a ^= b == set(anna, iris));          // Symmetric difference
+            assert ((set(cato, iris) | set(cato, anna))
+                        == set(anna, cato, iris));      // Union move
+            assert ((set(cato, iris) & set(cato, anna))
+                        == set(cato));                  // Intersection inplace
+            assert ((set(cato, iris) - set(cato, anna))
+                        == set(iris));                  // Difference inplace
+            assert ((set(cato, iris) ^ set(cato, anna))
+                        == set(anna, iris));            // Symmetric difference
 
 
         ''')

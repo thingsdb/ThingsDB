@@ -10,6 +10,7 @@
 * Added `is_regex(..)` function, issue #156.
 * Fixed bug with `future()` and `mod_type()`, issue #157.
 * Fixed bug with cached queries containing invalid syntax, issue #159.
+* Fixed bug with `wse(..)` internal status, issue #160.
 
 # v0.10.3
 

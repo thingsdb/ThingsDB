@@ -1509,6 +1509,37 @@ new_procedure('multiply', |a, b| a * b);
         res = await client.query('export();')
         self.assertEqual(res, script)
 
+    async def test_with_cache_one(self, client):
+        await client.query(r'''
+            set_type('Check', {
+                name: 'str',
+            });
+            new_procedure('new_check', |name| {
+                check = Check{
+                    name: name,
+                };
+                .checks.push(check);
+                check.id();
+            });
+            .checks = [];
+            wse(run('new_check', 'test'));
+        ''')
+
+    async def test_with_cache_two(self, client):
+        await client.query(r'''
+            set_type('Check', {
+                name: 'str',
+            });
+            new_procedure('new_check', |name| {
+                check = Check{
+                    name: name,
+                };
+                .checks.push(check);
+                check.id();
+            });
+            .checks = [];
+            wse(run('new_check', 'test'));
+        ''')
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

@@ -19,6 +19,6 @@ static int do__f_wse(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     (void) ti_do_statement(query, nd->children->node, e);
 
-    query->qbind.flags &= ~wse_flag_state;
+    query->flags &= ~wse_flag_state;
     return e->nr;
 }

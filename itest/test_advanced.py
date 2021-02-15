@@ -1541,5 +1541,6 @@ new_procedure('multiply', |a, b| a * b);
             wse(run('new_check', 'test'));
         ''')
 
+
 if __name__ == '__main__':
     run_test(TestAdvanced())

@@ -1444,6 +1444,14 @@ int ti_field_make_assignable(
             ((ti_raw_t *) *val)->n > field->condition.srange->ma)
             goto srange_error;
         return 0;
+    case TI_SPEC_SET_TO_SET:
+        assert (parent);  /* only possible when a parent is set */
+    case TI_SPEC_SET_TO_TYPE:
+        assert (parent);  /* only possible when a parent is set */
+    case TI_SPEC_TYPE_TO_SET:
+        assert (parent);  /* only possible when a parent is set */
+    case TI_SPEC_TYPE_TO_TYPE:
+        assert (parent);  /* only possible when a parent is set */
     }
 
     if (spec >= TI_ENUM_ID_FLAG)

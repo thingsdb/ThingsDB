@@ -8,6 +8,16 @@ typedef struct ti_vset_s ti_vset_t;
 
 #define VSET(__x)  ((ti_vset_t *) (__x))->imap
 
+enum
+{
+    TI_VSET_FLAG_RELATION    =1<<0,      /* array is immutable; nested, and
+                                            only nested array's are tuples;
+                                            once a tuple is direct assigned to
+                                            a thing, it converts back to a
+                                            mutable list. */
+
+};
+
 #include <ex.h>
 #include <inttypes.h>
 #include <ti/thing.h>

@@ -68,6 +68,7 @@
 #define DOC_MOD_TYPE_DEL            DOC_SEE("collection-api/mod_type/del")
 #define DOC_MOD_TYPE_MOD            DOC_SEE("collection-api/mod_type/mod")
 #define DOC_MOD_TYPE_REN            DOC_SEE("collection-api/mod_type/ren")
+#define DOC_MOD_TYPE_REL            DOC_SEE("collection-api/mod_type/rel")
 #define DOC_MOD_TYPE_WPO            DOC_SEE("collection-api/mod_type/wpo")
 #define DOC_NEW                     DOC_SEE("collection-api/new")
 #define DOC_NEW_TYPE                DOC_SEE("collection-api/new_type")

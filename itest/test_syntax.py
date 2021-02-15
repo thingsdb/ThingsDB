@@ -62,6 +62,25 @@ class TestSyntax(TestBase):
                 r'error at line 1, position 17, expecting: :'):
             await client.query('|x| is_err(x)?x+2')
 
+        with self.assertRaisesRegex(
+                SyntaxError,
+                r'error at line 1, position 17, expecting: :'):
+            await client.query('|x| is_err(x)?x+2')
+
+    async def test_other_invalid_syntax(self, client):
+
+        with self.assertRaisesRegex(
+                SyntaxError,
+                r'error at line 1, position 2, unexpected character `1`, '
+                r'expecting: ; or end_of_statemen'):
+            await client.query('1 1;' * 150)
+
+        with self.assertRaisesRegex(
+                SyntaxError,
+                r'error at line 1, position 2, unexpected character `1`, '
+                r'expecting: ; or end_of_statemen'):
+            await client.query('1 1;' * 150)
+
 
 if __name__ == '__main__':
     run_test(TestSyntax())

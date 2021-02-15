@@ -9,6 +9,7 @@
 * Deprecated *str*.test() and added *regex*.test() function, issue #155.
 * Added `is_regex(..)` function, issue #156.
 * Fixed bug with `future()` and `mod_type()`, issue #157.
+* Fixed bug with cached queries containing invalid syntax, issue #159.
 
 # v0.10.3
 

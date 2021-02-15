@@ -115,6 +115,12 @@ void ti_thing_destroy_gc(void);
 void ti_thing_clean_gc(void);
 void ti_thing_resize_gc(void);
 
+#if TI_IS64BIT
+#define THING__KEY_SHIFT 3
+#else
+#define THING__KEY_SHIFT 2
+#endif
+
 static inline _Bool ti_thing_is_object(ti_thing_t * thing)
 {
     return thing->type_id == TI_SPEC_OBJECT;
@@ -159,7 +165,7 @@ static inline void ti_thing_unmark_new(ti_thing_t * thing)
 }
 static inline uint64_t ti_thing_key(ti_thing_t * thing)
 {
-    return (uintptr_t) thing;
+    return (uintptr_t) thing >> THING__KEY_SHIFT;
 }
 static inline uint32_t ti_thing_n(ti_thing_t * thing)
 {

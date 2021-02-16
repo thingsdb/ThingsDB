@@ -598,6 +598,16 @@ static void type__del(
         return;
     }
 
+    if (field && field->condition.rel)
+    {
+        ex_set(e, EX_TYPE_ERROR,
+                "cannot delete a property with a relation; "
+                "you may want to remove the relation first by using: "
+                "`mod_type(\"%s\", \"rel\", \"%s\", nil);`",
+                type->name, name->str);
+        return;
+    }
+
     task = ti_task_get_task(query->ev, query->collection->root);
     if (!task)
     {
@@ -780,6 +790,16 @@ static void type__mod(
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no property or method `%s`",
+                type->name, name->str);
+        return;
+    }
+
+    if (field && field->condition.rel)
+    {
+        ex_set(e, EX_TYPE_ERROR,
+                "cannot modify a property with a relation; "
+                "you may want to remove the relation first by using: "
+                "`mod_type(\"%s\", \"rel\", \"%s\", nil);`",
                 type->name, name->str);
         return;
     }
@@ -1027,27 +1047,29 @@ memerror:
 
 static ti_type_t * modtype__type_from_field(ti_field_t * field, ex_t * e)
 {
-    uint16_t spec = field->spec & TI_SPEC_MASK_NILLABLE;
+    uint16_t spec = field->spec;
 
-    if (spec == TI_SPEC_RELATION)
+    if (spec == TI_SPEC_SET)
+        spec = field->nested_spec | TI_SPEC_NILLABLE;
+
+    if ((spec & TI_SPEC_MASK_NILLABLE) >= TI_SPEC_ANY ||
+        (~spec & TI_SPEC_NILLABLE))
     {
-        ex_set(e, EX_TYPE_ERROR, "a relation for `%s` on type `%s` already exists",
+        ex_set(e, EX_TYPE_ERROR,
+                "relations may only be configured between restricted "
+                "sets and/or nillable types");
+        return NULL;
+    }
+
+    if (field->condition.rel)
+    {
+        ex_set(e, EX_TYPE_ERROR,
+                "a relation for `%s` on type `%s` already exists",
                 field->name->str, field->type->name);
         return NULL;
     }
 
-    if (spec == TI_SPEC_SET)
-        spec = field->nested_spec;
-
-    if (spec >= TI_SPEC_ANY)
-    {
-        ex_set(e, EX_TYPE_ERROR,
-                "relations may only be configured between restricted "
-                "sets and/or types");
-        return NULL;
-    }
-
-    return ti_types_by_id(spec);
+    return ti_types_by_id(spec & TI_SPEC_MASK_NILLABLE);
 }
 
 static void type__rel_add(
@@ -1088,8 +1110,10 @@ static void type__rel_add(
     if (modtype__has_lock(query, type, e) || ti_type_try_lock(type, e))
         return;
 
+    /* TODO : first check, then apply to existing instances */
 
-
+    field->condition.field = ofield;
+    ofield->condition.field = field;
 
 
 fail0:

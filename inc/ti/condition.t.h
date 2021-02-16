@@ -51,9 +51,14 @@ struct ti_condition_drange_s
     double ma;
 };
 
-struct ti_condition_rel_s
+typedef int (*ti_field_rel_cb) (ti_field_t *, ti_thing_t *);
+
+struct ti_condition_res_s
 {
     ti_field_t * field;
+    ti_field_rel_cb chk_cb;
+    ti_field_rel_cb del_cb;
+    ti_field_rel_cb add_cb;
 };
 
 typedef union

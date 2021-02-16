@@ -1156,7 +1156,10 @@ void ti_field_destroy_dep(ti_field_t * field)
 
 static inline int field__walk_assign(ti_thing_t * thing, ti_field_t * field)
 {
-    return thing->type_id != field->nested_spec;
+    return thing->type_id != field->nested_spec || (
+           field->condition.field &&
+           field->condition
+    );
 }
 
 static int field__vset_assign(
@@ -1195,6 +1198,9 @@ static int field__vset_assign(
 done:
     if (ti_val_make_assignable((ti_val_t **) vset, parent, field->name, e))
         return e->nr;
+
+    if (field->condition.field)
+        (*vset)->flags |= TI_VSET_FLAG_RELATION;
 
     (*vset)->spec = nested_spec;
     return 0;

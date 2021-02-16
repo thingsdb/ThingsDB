@@ -238,16 +238,19 @@ static int do__f_remove_set(
         }
     }
 
-    if (removed->n && vset->parent && vset->parent->id)
+    if (removed->n && vset->parent)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, vset->parent);
-        if (!task || ti_task_add_remove(
-                task,
-                vset->key,
-                removed))
+        if (vset->parent->id)
         {
-            ex_set_mem(e);
-            goto fail2;
+            ti_task_t * task = ti_task_get_task(query->ev, vset->parent);
+            if (!task || ti_task_add_remove(
+                    task,
+                    vset->key,
+                    removed))
+            {
+                ex_set_mem(e);
+                goto fail2;
+            }
         }
     }
 

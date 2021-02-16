@@ -36,10 +36,6 @@ typedef enum
     TI_SPEC_INT_RANGE,      /* `int<:>              */
     TI_SPEC_FLOAT_RANGE,    /* `float<:>            */
     TI_SPEC_STR_RANGE,      /* `str<:>              */
-    TI_SPEC_SET_TO_SET,     /* `set <-> set         */
-    TI_SPEC_SET_TO_TYPE,    /* `set <-> type        */
-    TI_SPEC_TYPE_TO_SET,    /* `type <-> set        */
-    TI_SPEC_TYPE_TO_TYPE,   /* `type <-> type       */
 } ti_spec_enum_t;
 
 typedef enum

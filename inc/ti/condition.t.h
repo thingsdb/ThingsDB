@@ -51,7 +51,7 @@ struct ti_condition_drange_s
     double ma;
 };
 
-typedef int (*ti_field_rel_cb) (ti_field_t *, ti_thing_t *);
+typedef int (*ti_field_rel_cb) (ti_thing_t *, ti_field_t *);
 
 struct ti_condition_res_s
 {

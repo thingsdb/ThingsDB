@@ -20,7 +20,7 @@ static int do__f_unshift(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     current_n = varr->vec->n;
     new_n = current_n + nargs;
 
-    if (vec_resize(&varr->vec, new_n))
+    if (vec_reserve(&varr->vec, new_n))
     {
         ex_set_mem(e);
         goto done;
@@ -68,7 +68,7 @@ fail1:
     while (varr->vec->n > current_n)
         ti_val_unsafe_drop(vec_remove(varr->vec, 0));
 
-    (void) vec_shrink(&varr->vec);
+    (void) vec_may_shrink(&varr->vec);
 
 done:
     ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);

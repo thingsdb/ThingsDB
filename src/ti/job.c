@@ -1736,7 +1736,7 @@ static int job__splice(ti_thing_t * thing, mp_unp_t * up)
 
     new_n = cur_n + n - c;
 
-    if (new_n > cur_n && vec_resize(&varr->vec, new_n))
+    if (new_n > cur_n && vec_reserve(&varr->vec, new_n))
     {
         log_critical(EX_MEMORY_S);
         return -1;
@@ -1778,7 +1778,7 @@ static int job__splice(ti_thing_t * thing, mp_unp_t * up)
     varr->vec->n = new_n;
 
     if (new_n < cur_n)
-        (void) vec_shrink(&varr->vec);
+        (void) vec_may_shrink(&varr->vec);
 
     return 0;
 }

@@ -47,7 +47,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     c = c < 0 ? 0 : (c > current_n - i ? current_n - i : c);
     new_n = current_n + n - c;
 
-    if (new_n > current_n && vec_resize(&varr->vec, new_n))
+    if (new_n > current_n && vec_reserve(&varr->vec, new_n))
     {
         ex_set_mem(e);
         goto fail1;
@@ -103,7 +103,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = (ti_val_t *) retv;
     varr->vec->n = new_n;
     if (new_n < current_n)
-        (void) vec_shrink(&varr->vec);
+        (void) vec_may_shrink(&varr->vec);
     goto done;
 
 alloc_err:

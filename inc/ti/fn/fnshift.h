@@ -41,7 +41,7 @@ static int do__f_shift(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     else
         ti_thing_may_push_gc((ti_thing_t *) query->rval);
 
-    (void) vec_shrink(&varr->vec);
+    (void) vec_may_shrink(&varr->vec);
 
     goto done;
 

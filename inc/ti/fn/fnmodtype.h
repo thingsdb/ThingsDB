@@ -425,7 +425,7 @@ static void type__add(
     }
     else if (!ti_type_is_wrap_only(type))
     {
-        dval = ti_field_dval(field);
+        dval = field->dval_cb(field);
         if (!dval)
         {
             ex_set_mem(e);
@@ -598,7 +598,7 @@ static void type__del(
         return;
     }
 
-    if (field && field->condition.rel)
+    if (field && ti_field_has_relation(field))
     {
         ex_set(e, EX_TYPE_ERROR,
                 "cannot delete a property with a relation; "
@@ -680,7 +680,7 @@ static int type__mod_using_callback(
     if (!modjob.field)
         goto fail1;  /* error is set */
 
-    modjob.dval = ti_field_dval(modjob.field);
+    modjob.dval = modjob.field->dval_cb(modjob.field);
     if (!modjob.dval)
         goto fail2;  /* error is set */
 
@@ -794,7 +794,7 @@ static void type__mod(
         return;
     }
 
-    if (field && field->condition.rel)
+    if (field && ti_field_has_relation(field))
     {
         ex_set(e, EX_TYPE_ERROR,
                 "cannot modify a property with a relation; "
@@ -1057,7 +1057,7 @@ static ti_type_t * modtype__type_from_field(ti_field_t * field, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "relations may only be configured between restricted "
-                "sets and/or nillable types");
+                "sets and/or nillable types"DOC_MOD_TYPE_REL);
         return NULL;
     }
 
@@ -1069,7 +1069,7 @@ static ti_type_t * modtype__type_from_field(ti_field_t * field, ex_t * e)
         return NULL;
     }
 
-    return ti_types_by_id(spec & TI_SPEC_MASK_NILLABLE);
+    return ti_types_by_id(field->type->types, spec & TI_SPEC_MASK_NILLABLE);
 }
 
 static void type__rel_add(
@@ -1078,7 +1078,7 @@ static void type__rel_add(
         ti_name_t * name,
         ex_t * e)
 {
-    ti_type_t * type, otype;
+    ti_type_t * type, * otype;
     ti_field_t * ofield;
 
     otype = modtype__type_from_field(field, e);
@@ -1094,7 +1094,7 @@ static void type__rel_add(
         return;
     }
 
-    type = modtype__type_from_field(ofield);
+    type = modtype__type_from_field(ofield, e);
     if (!type)
         return;
 
@@ -1107,17 +1107,26 @@ static void type__rel_add(
         return;
     }
 
-    if (modtype__has_lock(query, type, e) || ti_type_try_lock(type, e))
+    if (type != otype && (
+        modtype__has_lock(query, otype, e) || ti_type_try_lock(otype, e)))
         return;
 
     /* TODO : first check, then apply to existing instances */
+    if (ti_condition_field_rel_init(field, ofield, e))
+        goto fail0;
 
-    field->condition.field = ofield;
-    ofield->condition.field = field;
-
+    /* TODO : add task */
 
 fail0:
-    ti_type_unlock(type, true /* lock is set for sure */);
+    ti_type_unlock(otype, type != otype /* only when type are not equal*/);
+}
+
+static void type__rel_del(
+        ti_query_t * query,
+        ti_field_t * field,
+        ex_t * e)
+{
+    LOGC("del: %p, %p, %p", query, field, e);
 }
 
 static void type__rel(
@@ -1163,7 +1172,7 @@ static void type__rel(
 
     if (ti_val_is_nil(query->rval))
     {
-        type__rel_add(query, field, e);
+        type__rel_del(query, field, e);
         ti_name_drop(name);
         return;
     }
@@ -1322,13 +1331,13 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_raw_eq_strn(rmod, "rel", 3))
     {
-        type__ren(query, type, name, nd, e);
+        type__rel(query, type, name, nd, e);
         goto done;
     }
 
     ex_set(e, EX_VALUE_ERROR,
             "function `mod_type` expects argument 2 to be "
-            "`add`, `del`, `mod`, `ren` or `wpo` but got `%.*s` instead"
+            "`add`, `del`, `mod`, `rel`, `ren` or `wpo` but got `%.*s` instead"
             DOC_MOD_TYPE,
             (int) rmod->n, (const char *) rmod->data);
 

@@ -248,14 +248,22 @@ static inline void thing__val_drop(ti_val_t * val)
 {
     if (!val)
         return;
+
     if (--val->ref)
     {
         if (ti_val_is_array(val))
+        {
+            assert(0);
             ((ti_varr_t *) val)->parent = NULL;
+        }
         else if (ti_val_is_set(val))
+        {
+            assert(0);
             ((ti_vset_t *) val)->parent = NULL;
+        }
         return;
     }
+
     ti_val_destroy(val);
 }
 

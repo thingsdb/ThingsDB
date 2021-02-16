@@ -4,7 +4,7 @@
 #ifndef TI_CONDITION_T_H_
 #define TI_CONDITION_T_H_
 
-
+typedef union ti_condition_via_u ti_condition_via_t;
 typedef struct ti_condition_s ti_condition_t;
 typedef struct ti_condition_re_s ti_condition_re_t;
 typedef struct ti_condition_srange_s ti_condition_srange_t;
@@ -12,12 +12,24 @@ typedef struct ti_condition_irange_s ti_condition_irange_t;
 typedef struct ti_condition_drange_s ti_condition_drange_t;
 typedef struct ti_condition_rel_s ti_condition_rel_t;
 
+union ti_condition_via_u
+{
+    ti_condition_re_t * re;             /* str, utf8 */
+    ti_condition_srange_t * srange;     /* str, utf8 */
+    ti_condition_irange_t * irange;     /* int, float */
+    ti_condition_drange_t * drange;     /* int, float */
+    ti_condition_rel_t * rel;           /* relation */
+    ti_condition_t * none;              /* NULL */
+};
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <ti/raw.t.h>
 #include <ti/regex.h>
 #include <ti/val.t.h>
 #include <ti/field.t.h>
+
+typedef int (*ti__rel_cb) (void *, void *);
 
 struct ti_condition_s
 {
@@ -51,25 +63,12 @@ struct ti_condition_drange_s
     double ma;
 };
 
-typedef int (*ti_field_rel_cb) (ti_thing_t *, ti_field_t *);
-
-struct ti_condition_res_s
+struct ti_condition_rel_s
 {
     ti_field_t * field;
-    ti_field_rel_cb chk_cb;
-    ti_field_rel_cb del_cb;
-    ti_field_rel_cb add_cb;
+    ti__rel_cb chk_cb;
+    ti__rel_cb del_cb;
+    ti__rel_cb add_cb;
 };
-
-typedef union
-{
-    ti_condition_re_t * re;             /* str, utf8 */
-    ti_condition_srange_t * srange;     /* str, utf8 */
-    ti_condition_irange_t * irange;     /* int, float */
-    ti_condition_drange_t * drange;     /* int, float */
-    ti_condition_rel_t * rel;           /* relation */
-    ti_condition_t * none;              /* NULL */
-} ti_condition_via_t;
-
 
 #endif  /* TI_CONDITION_T_H_ */

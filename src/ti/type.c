@@ -875,7 +875,7 @@ ti_val_t * ti_type_dval(ti_type_t * type)
 
     for (vec_each(type->fields, ti_field_t, field))
     {
-        ti_val_t * val = ti_field_dval(field);
+        ti_val_t * val = field->dval_cb(field);
         if (!val)
         {
             ti_thing_destroy(thing);
@@ -913,7 +913,7 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
             val = ti_thing_o_val_weak_get(from, field->name);
             if (!val)
             {
-                val = ti_field_dval(field);
+                val = field->dval_cb(field);
                 if (!val)
                 {
                     ex_set_mem(e);

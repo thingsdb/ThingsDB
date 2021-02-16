@@ -525,7 +525,7 @@ class TestType(TestBase):
         with self.assertRaisesRegex(
                 ValueError,
                 r'function `mod_type` expects argument 2 to be `add`, `del`, '
-                r'`mod`, `ren` or `wpo` but got `x` instead'):
+                r'`mod`, `rel`, `ren` or `wpo` but got `x` instead'):
             await client.query(r'mod_type("Person", "x", "x");')
 
         # section ADD

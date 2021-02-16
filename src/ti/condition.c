@@ -14,6 +14,14 @@
 #include <doc.h>
 #include <util/strx.h>
 
+static ti_val_t * condition__dval_cb(ti_field_t * field)
+{
+    ti_val_t * dval = field->condition.none->dval;
+    ti_incref(dval);
+    return dval;
+}
+
+
 int ti_condition_field_range_init(
         ti_field_t * field,
         const char * str,
@@ -25,6 +33,9 @@ int ti_condition_field_range_init(
     const char * end = str + n - 1;
     char * tmp;
     _Bool is_nillable = field->spec & TI_SPEC_NILLABLE;
+
+    /* can be set even for nillable */
+    field->dval_cb = condition__dval_cb;
 
     assert (*end == '>');
 
@@ -388,6 +399,9 @@ int ti_condition_field_re_init(
     const char * end = str + n - 1;
     _Bool is_nillable = field->spec & TI_SPEC_NILLABLE;
 
+    /* can be set even for nillable */
+    field->dval_cb = condition__dval_cb;
+
     assert (*str == '/');
 
     if (*end == '>')
@@ -469,6 +483,32 @@ fail0:
     return e->nr;
 }
 
+int ti_condition_field_rel_init(
+        ti_field_t * field,
+        ti_field_t * ofield,
+        ex_t * e)
+{
+    ti_condition_rel_t * a, * b = malloc(sizeof(ti_condition_rel_t));
+
+    a = (field == ofield) ? b : malloc(sizeof(ti_condition_rel_t));
+
+    if (!a || !b)
+        goto mem_error;
+
+    a->field = ofield;
+    b->field = field;
+
+    field->condition.rel = a;
+    ofield->condition.rel = b;
+
+    return 0;
+
+mem_error:
+    free(b);
+    ex_set_mem(e);
+    return e->nr;
+}
+
 
 void ti_condition_destroy(ti_condition_via_t condition, uint16_t spec)
 {
@@ -479,6 +519,9 @@ void ti_condition_destroy(ti_condition_via_t condition, uint16_t spec)
 
     switch((ti_spec_enum_t) spec)
     {
+    case TI_SPEC_ANY:
+        return;  /* a field may be set to ANY while using mod_type in which
+                    case a condition should be left alone */
     case TI_SPEC_REMATCH:
         ti_regex_destroy(condition.re->regex);
         /* fall through */
@@ -486,9 +529,9 @@ void ti_condition_destroy(ti_condition_via_t condition, uint16_t spec)
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
         ti_val_drop(condition.none->dval);
-        free(condition.none);
-        return;
+        /* fall through */
     default:
+        free(condition.none);
         return;
     }
 }

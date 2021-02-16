@@ -11,6 +11,7 @@
 #include <ti/raw.t.h>
 #include <ti/thing.t.h>
 #include <ti/val.t.h>
+#include <ti/spec.t.h>
 #include <util/vec.h>
 
 ti_field_t * ti_field_create(
@@ -50,6 +51,16 @@ ti_field_t * ti_field_by_strn_e(
         size_t n,
         ex_t * e);
 int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr, uint64_t ev_id);
-ti_val_t * ti_field_dval(ti_field_t * field);
+
+static inline _Bool ti_field_has_relation(ti_field_t * field)
+{
+    /*
+     * Field has a relation if at least a condition is set, and the field
+     * is a non-nillable set or a nillable type.
+     */
+    return field->condition.none && (
+            field->spec == TI_SPEC_SET ||
+            (field->spec & TI_SPEC_MASK_NILLABLE) < TI_SPEC_ANY);
+}
 
 #endif  /* TI_FIELD_H_ */

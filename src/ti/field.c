@@ -202,6 +202,106 @@ static ti_data_t * field__del_job(const char * name, size_t n)
     return data;
 }
 
+static ti_val_t * field__dval_nil(ti_field_t * UNUSED(field))
+{
+    return (ti_val_t *) ti_nil_get();
+}
+
+static ti_val_t * field__dval_arr(ti_field_t * field)
+{
+     ti_varr_t * varr = ti_varr_create(0);
+     if (varr)
+         varr->spec = field->nested_spec;
+
+     return (ti_val_t *) varr;
+}
+
+static ti_val_t * field__dval_set(ti_field_t * field)
+{
+    ti_vset_t * vset = ti_vset_create();
+    if (vset)
+        vset->spec = field->nested_spec;
+
+    return (ti_val_t *) vset;
+}
+
+static ti_val_t * field__dval_thing(ti_field_t * field)
+{
+    return (ti_val_t *) ti_thing_o_create(
+            0,      /* id */
+            0,      /* initial size */
+            field->type->types->collection);
+}
+
+static ti_val_t * field__dval_str(ti_field_t * UNUSED(field))
+{
+    return ti_val_empty_str();
+}
+
+static ti_val_t * field__dval_bin(ti_field_t * UNUSED(field))
+{
+    return ti_val_empty_bin();
+}
+
+static ti_val_t * field__dval_int(ti_field_t * UNUSED(field))
+{
+    return (ti_val_t *) ti_vint_create(0);
+}
+
+static ti_val_t * field__dval_pint(ti_field_t * UNUSED(field))
+{
+    return (ti_val_t *) ti_vint_create(1);
+}
+
+static ti_val_t * field__dval_nint(ti_field_t * UNUSED(field))
+{
+    return (ti_val_t *) ti_vint_create(-1);
+}
+
+static ti_val_t * field__dval_float(ti_field_t * UNUSED(field))
+{
+    return (ti_val_t *) ti_vfloat_create(0.0);
+}
+
+static ti_val_t * field__dval_bool(ti_field_t * UNUSED(field))
+{
+    return (ti_val_t *) ti_vbool_get(false);
+}
+
+static ti_val_t * field__dval_datetime(ti_field_t * field)
+{
+    return (ti_val_t *) ti_datetime_from_i64(
+            (int64_t) util_now_tsec(),
+            0,
+            field->type->types->collection->tz);
+}
+
+static ti_val_t * field__dval_timeval(ti_field_t * field)
+{
+    return (ti_val_t *) ti_timeval_from_i64(
+            (int64_t) util_now_tsec(),
+            0,
+            field->type->types->collection->tz);
+}
+
+static ti_val_t * field__dval_type(ti_field_t * field)
+{
+    return ti_type_dval(ti_types_by_id(field->type->types, field->spec));
+}
+
+static ti_val_t * field__dval_enum(ti_field_t * field)
+{
+    return ti_enum_dval(ti_enums_by_id(
+            field->type->types->collection->enums,
+            field->spec & TI_ENUM_ID_MASK));
+}
+
+static inline void field__set_cb(ti_field_t * field, ti_field_dval_cb cb)
+{
+    if (!field->dval_cb)
+        field->dval_cb = cb;
+}
+
 static int field__init(ti_field_t * field, ex_t * e)
 {
     const char * str = (const char *) field->spec_raw->data;
@@ -210,6 +310,7 @@ static int field__init(ti_field_t * field, ex_t * e)
 
     field->spec = 0;
     field->nested_spec = 0;
+    field->dval_cb = NULL;
 
     if (!n)
     {
@@ -223,6 +324,7 @@ static int field__init(ti_field_t * field, ex_t * e)
     if (str[n-1] == '?')
     {
         field->spec |= TI_SPEC_NILLABLE;
+        field__set_cb(field, field__dval_nil);
         if (!--n)
             goto invalid;
     }
@@ -232,12 +334,14 @@ static int field__init(ti_field_t * field, ex_t * e)
         if (str[n-1] != ']')
             goto invalid;
         field->spec |= TI_SPEC_ARR;
+        field__set_cb(field, field__dval_arr);
     }
     else if (*str == '{')
     {
         if (str[n-1] != '}')
             goto invalid;
         field->spec |= TI_SPEC_SET;
+        field__set_cb(field, field__dval_set);
     }
     else
     {
@@ -250,7 +354,7 @@ static int field__init(ti_field_t * field, ex_t * e)
     if (!(n -= 2))
     {
         field->nested_spec = TI_SPEC_ANY;  /* must default to any */
-        return 0;
+        return 0;  /* dval_cb is set to nil,  array or set */
     }
 
     spec = &field->nested_spec;
@@ -314,6 +418,7 @@ skip_nesting:
         if (field__cmp(str, n, "any"))
         {
             *spec = TI_SPEC_ANY;  /* overwrite */
+            field__set_cb(field, field__dval_nil);
             goto found;
         }
         break;
@@ -321,11 +426,13 @@ skip_nesting:
         if (field__cmp(str, n, "bool"))
         {
             *spec |= TI_SPEC_BOOL;
+            field__set_cb(field, field__dval_bool);
             goto found;
         }
         if (field__cmp(str, n, "bytes"))
         {
             *spec |= TI_SPEC_BYTES;
+            field__set_cb(field, field__dval_bin);
             goto found;
         }
         break;
@@ -333,6 +440,7 @@ skip_nesting:
         if (field__cmp(str, n, "datetime"))
         {
             *spec |= TI_SPEC_DATETIME;
+            field__set_cb(field, field__dval_datetime);
             goto found;
         }
         break;
@@ -340,6 +448,7 @@ skip_nesting:
         if (field__cmp(str, n, "float"))
         {
             *spec |= TI_SPEC_FLOAT;
+            field__set_cb(field, field__dval_float);
             goto found;
         }
         break;
@@ -347,6 +456,7 @@ skip_nesting:
         if (field__cmp(str, n, "int"))
         {
             *spec |= TI_SPEC_INT;
+            field__set_cb(field, field__dval_int);
             goto found;
         }
         break;
@@ -354,11 +464,13 @@ skip_nesting:
         if (field__cmp(str, n, "nint"))
         {
             *spec |= TI_SPEC_NINT;
+            field__set_cb(field, field__dval_nint);
             goto found;
         }
         if (field__cmp(str, n, "number"))
         {
             *spec |= TI_SPEC_NUMBER;
+            field__set_cb(field, field__dval_int);
             goto found;
         }
         break;
@@ -366,6 +478,7 @@ skip_nesting:
         if (field__cmp(str, n, "pint"))
         {
             *spec |= TI_SPEC_PINT;
+            field__set_cb(field, field__dval_pint);
             goto found;
         }
         break;
@@ -373,6 +486,7 @@ skip_nesting:
         if (field__cmp(str, n, "raw"))
         {
             *spec |= TI_SPEC_RAW;
+            field__set_cb(field, field__dval_str);
             goto found;
         }
         break;
@@ -380,6 +494,7 @@ skip_nesting:
         if (field__cmp(str, n, "str"))
         {
             *spec |= TI_SPEC_STR;
+            field__set_cb(field, field__dval_str);
             goto found;
         }
         break;
@@ -387,11 +502,13 @@ skip_nesting:
         if (field__cmp(str, n, "thing"))
         {
             *spec |= TI_SPEC_OBJECT;
+            field__set_cb(field, field__dval_thing);
             goto found;
         }
         if (field__cmp(str, n, "timeval"))
         {
             *spec |= TI_SPEC_TIMEVAL;
+            field__set_cb(field, field__dval_timeval);
             goto found;
         }
         break;
@@ -399,11 +516,13 @@ skip_nesting:
         if (field__cmp(str, n, "utf8"))
         {
             *spec |= TI_SPEC_UTF8;
+            field__set_cb(field, field__dval_str);
             goto found;
         }
         if (field__cmp(str, n, "uint"))
         {
             *spec |= TI_SPEC_UINT;
+            field__set_cb(field, field__dval_int);
             goto found;
         }
         break;
@@ -414,6 +533,7 @@ skip_nesting:
         *spec |= field->type->type_id;
         if (&field->spec == spec && (~field->spec & TI_SPEC_NILLABLE))
             goto circular_dep;
+        field__set_cb(field, field__dval_type);
     }
     else
     {
@@ -463,6 +583,7 @@ skip_nesting:
             }
 
             *spec |= enum_->enum_id | TI_ENUM_ID_FLAG;
+            field__set_cb(field, field__dval_enum);
         }
         else
         {
@@ -479,6 +600,7 @@ skip_nesting:
             }
 
             *spec |= dep->type_id;
+            field__set_cb(field, field__dval_type);
 
             if (&field->spec == spec && (~field->spec & TI_SPEC_NILLABLE))
             {
@@ -531,6 +653,8 @@ found:
             field->nested_spec = TI_SPEC_OBJECT;
     }
 
+    assert (field->dval_cb);  /* callback must have been set */
+
     return e->nr;
 
 invalid:
@@ -563,90 +687,90 @@ circular_dep:
     return e->nr;
 }
 
-ti_val_t * ti_field_dval(ti_field_t * field)
-{
-    uint16_t spec = field->spec;
-
-    if (field->condition.none)
-    {
-        ti_val_t * dval = field->condition.none->dval;
-        ti_incref(dval);
-        return dval;
-    }
-
-    if (spec & TI_SPEC_NILLABLE)
-         return (ti_val_t *) ti_nil_get();
-
-    spec &= TI_SPEC_MASK_NILLABLE;
-
-    switch ((ti_spec_enum_t) spec)
-    {
-    case TI_SPEC_ANY:
-        return (ti_val_t *) ti_nil_get();
-    case TI_SPEC_OBJECT:
-        return (ti_val_t *) ti_thing_o_create(
-                0,      /* id */
-                0,      /* initial size */
-                field->type->types->collection);
-    case TI_SPEC_RAW:
-    case TI_SPEC_STR:
-    case TI_SPEC_UTF8:
-        return ti_val_empty_str();
-    case TI_SPEC_BYTES:
-        return ti_val_empty_bin();
-    case TI_SPEC_INT:
-    case TI_SPEC_UINT:
-        return (ti_val_t *) ti_vint_create(0);
-    case TI_SPEC_PINT:
-        return (ti_val_t *) ti_vint_create(1);
-    case TI_SPEC_NINT:
-        return (ti_val_t *) ti_vint_create(-1);
-    case TI_SPEC_FLOAT:
-        return (ti_val_t *) ti_vfloat_create(0.0);
-    case TI_SPEC_NUMBER:
-        return (ti_val_t *) ti_vint_create(0);
-    case TI_SPEC_BOOL:
-        return (ti_val_t *) ti_vbool_get(false);
-    case TI_SPEC_DATETIME:
-        return (ti_val_t *) ti_datetime_from_i64(
-                (int64_t) util_now_tsec(),
-                0,
-                field->type->types->collection->tz);
-    case TI_SPEC_TIMEVAL:
-        return (ti_val_t *) ti_timeval_from_i64(
-                (int64_t) util_now_tsec(),
-                0,
-                field->type->types->collection->tz);
-    case TI_SPEC_ARR:
-    {
-         ti_varr_t * varr = ti_varr_create(0);
-         if (varr)
-             varr->spec = field->nested_spec;
-
-         return (ti_val_t *) varr;
-    }
-    case TI_SPEC_SET:
-    {
-        ti_vset_t * vset = ti_vset_create();
-        if (vset)
-            vset->spec = field->nested_spec;
-
-        return (ti_val_t *) vset;
-    }
-    case TI_SPEC_REMATCH:
-    case TI_SPEC_INT_RANGE:
-    case TI_SPEC_FLOAT_RANGE:
-    case TI_SPEC_STR_RANGE:
-        assert(0);  /* must always have a default value set */
-        return NULL;
-    }
-
-    return spec < TI_SPEC_ANY
-            ? ti_type_dval(ti_types_by_id(field->type->types, spec))
-            : ti_enum_dval(ti_enums_by_id(
-                    field->type->types->collection->enums,
-                    spec & TI_ENUM_ID_MASK));
-}
+//ti_val_t * ti_field_dval(ti_field_t * field)
+//{
+//    uint16_t spec = field->spec;
+//
+//    if (field->condition.none)
+//    {
+//        ti_val_t * dval = field->condition.none->dval;
+//        ti_incref(dval);
+//        return dval;
+//    }
+//
+//    if (spec & TI_SPEC_NILLABLE)
+//         return (ti_val_t *) ti_nil_get();
+//
+//    spec &= TI_SPEC_MASK_NILLABLE;
+//
+//    switch ((ti_spec_enum_t) spec)
+//    {
+//    case TI_SPEC_ANY:
+//        return (ti_val_t *) ti_nil_get();
+//    case TI_SPEC_OBJECT:
+//        return (ti_val_t *) ti_thing_o_create(
+//                0,      /* id */
+//                0,      /* initial size */
+//                field->type->types->collection);
+//    case TI_SPEC_RAW:
+//    case TI_SPEC_STR:
+//    case TI_SPEC_UTF8:
+//        return ti_val_empty_str();
+//    case TI_SPEC_BYTES:
+//        return ti_val_empty_bin();
+//    case TI_SPEC_INT:
+//    case TI_SPEC_UINT:
+//        return (ti_val_t *) ti_vint_create(0);
+//    case TI_SPEC_PINT:
+//        return (ti_val_t *) ti_vint_create(1);
+//    case TI_SPEC_NINT:
+//        return (ti_val_t *) ti_vint_create(-1);
+//    case TI_SPEC_FLOAT:
+//        return (ti_val_t *) ti_vfloat_create(0.0);
+//    case TI_SPEC_NUMBER:
+//        return (ti_val_t *) ti_vint_create(0);
+//    case TI_SPEC_BOOL:
+//        return (ti_val_t *) ti_vbool_get(false);
+//    case TI_SPEC_DATETIME:
+//        return (ti_val_t *) ti_datetime_from_i64(
+//                (int64_t) util_now_tsec(),
+//                0,
+//                field->type->types->collection->tz);
+//    case TI_SPEC_TIMEVAL:
+//        return (ti_val_t *) ti_timeval_from_i64(
+//                (int64_t) util_now_tsec(),
+//                0,
+//                field->type->types->collection->tz);
+//    case TI_SPEC_ARR:
+//    {
+//         ti_varr_t * varr = ti_varr_create(0);
+//         if (varr)
+//             varr->spec = field->nested_spec;
+//
+//         return (ti_val_t *) varr;
+//    }
+//    case TI_SPEC_SET:
+//    {
+//        ti_vset_t * vset = ti_vset_create();
+//        if (vset)
+//            vset->spec = field->nested_spec;
+//
+//        return (ti_val_t *) vset;
+//    }
+//    case TI_SPEC_REMATCH:
+//    case TI_SPEC_INT_RANGE:
+//    case TI_SPEC_FLOAT_RANGE:
+//    case TI_SPEC_STR_RANGE:
+//        assert(0);  /* must always have a default value set */
+//        return NULL;
+//    }
+//
+//    return spec < TI_SPEC_ANY
+//            ? ti_type_dval(ti_types_by_id(field->type->types, spec))
+//            : ti_enum_dval(ti_enums_by_id(
+//                    field->type->types->collection->enums,
+//                    spec & TI_ENUM_ID_MASK));
+//}
 
 /*
  * If successful, the reference counter for `name` and `spec_raw` will
@@ -1156,10 +1280,7 @@ void ti_field_destroy_dep(ti_field_t * field)
 
 static inline int field__walk_assign(ti_thing_t * thing, ti_field_t * field)
 {
-    return thing->type_id != field->nested_spec || (
-           field->condition.field &&
-           field->condition
-    );
+    return thing->type_id != field->nested_spec;
 }
 
 static int field__vset_assign(
@@ -1199,7 +1320,7 @@ done:
     if (ti_val_make_assignable((ti_val_t **) vset, parent, field->name, e))
         return e->nr;
 
-    if (field->condition.field)
+    if (field->condition.rel)
         (*vset)->flags |= TI_VSET_FLAG_RELATION;
 
     (*vset)->spec = nested_spec;
@@ -1450,14 +1571,6 @@ int ti_field_make_assignable(
             ((ti_raw_t *) *val)->n > field->condition.srange->ma)
             goto srange_error;
         return 0;
-    case TI_SPEC_SET_TO_SET:
-        assert (parent);  /* only possible when a parent is set */
-    case TI_SPEC_SET_TO_TYPE:
-        assert (parent);  /* only possible when a parent is set */
-    case TI_SPEC_TYPE_TO_SET:
-        assert (parent);  /* only possible when a parent is set */
-    case TI_SPEC_TYPE_TO_TYPE:
-        assert (parent);  /* only possible when a parent is set */
     }
 
     if (spec >= TI_ENUM_ID_FLAG)

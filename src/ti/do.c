@@ -1065,7 +1065,7 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             if (!VEC_get(thing->items.vec, field->idx))
             {
-                ti_val_t * val = ti_field_dval(field);
+                ti_val_t * val = field->dval_cb(field);
                 if (!val)
                 {
                     ex_set_mem(e);

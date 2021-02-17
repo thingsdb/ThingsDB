@@ -221,6 +221,8 @@ static ti_val_t * field__dval_set(ti_field_t * field)
     ti_vset_t * vset = ti_vset_create();
     if (vset)
         vset->spec = field->nested_spec;
+    if (field->condition.rel)
+        vset->flags |= TI_VSET_FLAG_RELATION;
 
     return (ti_val_t *) vset;
 }
@@ -686,91 +688,6 @@ circular_dep:
         (const char *) field->spec_raw->data);
     return e->nr;
 }
-
-//ti_val_t * ti_field_dval(ti_field_t * field)
-//{
-//    uint16_t spec = field->spec;
-//
-//    if (field->condition.none)
-//    {
-//        ti_val_t * dval = field->condition.none->dval;
-//        ti_incref(dval);
-//        return dval;
-//    }
-//
-//    if (spec & TI_SPEC_NILLABLE)
-//         return (ti_val_t *) ti_nil_get();
-//
-//    spec &= TI_SPEC_MASK_NILLABLE;
-//
-//    switch ((ti_spec_enum_t) spec)
-//    {
-//    case TI_SPEC_ANY:
-//        return (ti_val_t *) ti_nil_get();
-//    case TI_SPEC_OBJECT:
-//        return (ti_val_t *) ti_thing_o_create(
-//                0,      /* id */
-//                0,      /* initial size */
-//                field->type->types->collection);
-//    case TI_SPEC_RAW:
-//    case TI_SPEC_STR:
-//    case TI_SPEC_UTF8:
-//        return ti_val_empty_str();
-//    case TI_SPEC_BYTES:
-//        return ti_val_empty_bin();
-//    case TI_SPEC_INT:
-//    case TI_SPEC_UINT:
-//        return (ti_val_t *) ti_vint_create(0);
-//    case TI_SPEC_PINT:
-//        return (ti_val_t *) ti_vint_create(1);
-//    case TI_SPEC_NINT:
-//        return (ti_val_t *) ti_vint_create(-1);
-//    case TI_SPEC_FLOAT:
-//        return (ti_val_t *) ti_vfloat_create(0.0);
-//    case TI_SPEC_NUMBER:
-//        return (ti_val_t *) ti_vint_create(0);
-//    case TI_SPEC_BOOL:
-//        return (ti_val_t *) ti_vbool_get(false);
-//    case TI_SPEC_DATETIME:
-//        return (ti_val_t *) ti_datetime_from_i64(
-//                (int64_t) util_now_tsec(),
-//                0,
-//                field->type->types->collection->tz);
-//    case TI_SPEC_TIMEVAL:
-//        return (ti_val_t *) ti_timeval_from_i64(
-//                (int64_t) util_now_tsec(),
-//                0,
-//                field->type->types->collection->tz);
-//    case TI_SPEC_ARR:
-//    {
-//         ti_varr_t * varr = ti_varr_create(0);
-//         if (varr)
-//             varr->spec = field->nested_spec;
-//
-//         return (ti_val_t *) varr;
-//    }
-//    case TI_SPEC_SET:
-//    {
-//        ti_vset_t * vset = ti_vset_create();
-//        if (vset)
-//            vset->spec = field->nested_spec;
-//
-//        return (ti_val_t *) vset;
-//    }
-//    case TI_SPEC_REMATCH:
-//    case TI_SPEC_INT_RANGE:
-//    case TI_SPEC_FLOAT_RANGE:
-//    case TI_SPEC_STR_RANGE:
-//        assert(0);  /* must always have a default value set */
-//        return NULL;
-//    }
-//
-//    return spec < TI_SPEC_ANY
-//            ? ti_type_dval(ti_types_by_id(field->type->types, spec))
-//            : ti_enum_dval(ti_enums_by_id(
-//                    field->type->types->collection->enums,
-//                    spec & TI_ENUM_ID_MASK));
-//}
 
 /*
  * If successful, the reference counter for `name` and `spec_raw` will
@@ -1250,7 +1167,7 @@ void ti_field_remove(ti_field_t * field)
 
     (void) vec_swap_remove(field->type->fields, field->idx);
 
-    swap = vec_get_or_null(field->type->fields, field->idx);
+    swap = vec_get(field->type->fields, field->idx);
     if (swap)
         swap->idx = field->idx;
 
@@ -1588,7 +1505,26 @@ int ti_field_make_assignable(
      * removed the specification
      */
     if (ti_val_is_thing(*val) && ((ti_thing_t *) *val)->type_id == spec)
+    {
+        if (parent && field->condition.rel)
+        {
+            ti_thing_t * prev = vec_get(parent->items, field->idx);
+            if (prev && prev->tp == TI_VAL_THING)
+            {
+                ti_field_t * ofield = field->condition.rel->field;
+                ti_val_t ** relation = vec_get_addr(parent->items, ofield->idx);
+                assert (*relation == *val);
+                assert ((*relation)->ref > 1);
+                ti_decref(*relation);
+                *relation = ti_nil_get();
+            }
+            prev = (ti_thing_t *) *val;
+
+
+        }
+
         return 0;
+    }
 
     goto type_error;
 

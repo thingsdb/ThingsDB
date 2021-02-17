@@ -136,19 +136,19 @@ class TestType(TestBase):
 
         await client.query('''types_info();''')
 
-    async def test_new_type(self, client):
+    async def test_new_type(self, client0):
 
         with self.assertRaisesRegex(
                 ValueError,
                 'name `datetime` is reserved'):
-            await client.query(r''' set_type('datetime', {}); ''')
+            await client0.query(r''' set_type('datetime', {}); ''')
 
         with self.assertRaisesRegex(
                 ValueError,
                 'name `closure` is reserved'):
-            await client.query(r''' new_type('closure', {}); ''')
+            await client0.query(r''' new_type('closure', {}); ''')
 
-        await client.query(r'''
+        await client0.query(r'''
             set_type('User', {
                 name: 'str',
                 age: 'uint',
@@ -162,7 +162,7 @@ class TestType(TestBase):
             });
         ''')
 
-        await client.query(r'''
+        await client0.query(r'''
             .iris = new('User', {
                 name: 'Iris',
                 age: 6,
@@ -172,7 +172,16 @@ class TestType(TestBase):
                 age: 5,
             };
             .people = new('People', {users: [.iris, .cato]});
+            .people.users.push(User{});
         ''')
+
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await self.wait_nodes_ready(client0)
+
+        self.assertEqual(await client0.query('.people.users.len();'), 3)
+        self.assertEqual(await client1.query('.people.users.len();'), 3)
 
     async def test_mod_type_add(self, client0):
         await client0.query(r'''

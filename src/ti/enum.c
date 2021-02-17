@@ -169,7 +169,7 @@ void ti_enum_del_member(ti_enum_t * enum_, ti_member_t * member)
 
     (void) vec_swap_remove(enum_->members, member->idx);
 
-    swap = vec_get_or_null(enum_->members, member->idx);
+    swap = vec_get(enum_->members, member->idx);
     if (swap)
         swap->idx = member->idx;
 

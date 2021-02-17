@@ -21,7 +21,6 @@ static inline void * vec_last(const vec_t * vec);
 static inline void * vec_get(const vec_t * vec, uint32_t i);
 static inline void * vec_set(vec_t * vec, void * data, uint32_t i);
 static inline void ** vec_get_addr(vec_t * vec, uint32_t i);
-static inline void * vec_get_or_null(const vec_t * vec, uint32_t i);
 static inline void * vec_pop(vec_t * vec);
 static inline void vec_clear(vec_t * vec);
 static inline void vec_clear_cb(vec_t * vec, vec_destroy_cb cb);
@@ -101,7 +100,7 @@ static inline void * VEC_get(const vec_t * vec, uint32_t i)
 
 static inline void * vec_get(const vec_t * vec, uint32_t i)
 {
-    return vec->n ? vec->data[i] : NULL;
+    return i < vec->n ? vec->data[i] : NULL;
 }
 
 static inline void * vec_first(const vec_t * vec)
@@ -124,11 +123,6 @@ static inline void * vec_set(vec_t * vec, void * data, uint32_t i)
 static inline void ** vec_get_addr(vec_t * vec, uint32_t i)
 {
     return vec->data + i;
-}
-
-static inline void * vec_get_or_null(const vec_t * vec, uint32_t i)
-{
-    return i < vec->n ? vec->data[i] : NULL;
 }
 
 static inline void * vec_pop(vec_t * vec)

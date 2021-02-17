@@ -138,18 +138,18 @@ static int job__set(ti_thing_t * thing, mp_unp_t * up)
         goto fail;
     }
 
-    if (ti_val_make_assignable(&val, thing, key, &e))
-    {
-        log_critical(
-                "job `set` to "TI_THING_ID": "
-                "error making variable assignable: `%s`",
-                thing->id,
-                e.msg);
-        goto fail;
-    }
-
     if (ti_thing_is_object(thing))
     {
+        if (ti_val_make_assignable(&val, thing, key, &e))
+        {
+            log_critical(
+                    "job `set` to "TI_THING_ID": "
+                    "error making variable assignable: `%s`",
+                    thing->id,
+                    e.msg);
+            goto fail;
+        }
+
         if (ti_thing_o_set(thing, key, val))
         {
             log_critical(
@@ -175,6 +175,16 @@ static int job__set(ti_thing_t * thing, mp_unp_t * up)
             goto fail;
 
         }
+
+        if (ti_field_make_assignable(field, &val, thing, &e))
+        {
+            log_critical(
+                    "job `set` to "TI_THING_ID": "
+                    "cannot make value relation",
+                    thing->id);
+            goto fail;
+        }
+
         ti_thing_t_prop_set(thing, field, val);
     }
 
@@ -1121,6 +1131,102 @@ static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
+static int job__mod_type_rel(ti_thing_t * thing, mp_unp_t * up)
+{
+    int rc = -1;
+    ex_t e = {0};
+    ti_collection_t * collection = thing->collection;
+    ti_type_t * type;
+    ti_name_t * name;
+    ti_field_t * field;
+    ti_method_t * method;
+    mp_obj_t obj, mp_id, mp_name, mp_to, mp_modified;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 4 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_modified) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_to) != MP_STR)
+    {
+        log_critical(
+                "job `mod_type_ren` for "TI_COLLECTION_ID" is invalid",
+                collection->root->id);
+        return rc;
+    }
+
+    type = ti_types_by_id(collection->types, mp_id.via.u64);
+    if (!type)
+    {
+        log_critical(
+                "job `mod_type_ren` for "TI_COLLECTION_ID" is invalid; "
+                "type with id %"PRIu64" not found",
+                collection->root->id, mp_id.via.u64);
+        return rc;
+    }
+
+    name = ti_names_weak_get_strn(mp_name.via.str.data, mp_name.via.str.n);
+    if (!name)
+    {
+        log_critical(
+                "job `mod_type_ren` for "TI_COLLECTION_ID" is invalid; "
+                "type with id %"PRIu64"; name is missing",
+                collection->root->id, mp_id.via.u64);
+        return rc;
+    }
+
+    field = ti_field_by_name(type, name);
+    if (field)
+    {
+        if (ti_field_set_name(
+                field,
+                NULL,
+                mp_to.via.str.data,
+                mp_to.via.str.n,
+                &e))
+            log_critical(e.msg);
+        else
+            /* update modified time-stamp */
+            type->modified_at = mp_modified.via.u64;
+
+        /* clean mappings */
+        ti_type_map_cleanup(type);
+
+        return e.nr;
+    }
+
+    method = ti_method_by_name(type, name);
+    if (method)
+    {
+        if (ti_method_set_name(
+                method,
+                type,
+                mp_to.via.str.data,
+                mp_to.via.str.n,
+                &e))
+            log_critical(e.msg);
+        else
+            /* update modified time-stamp */
+            type->modified_at = mp_modified.via.u64;
+
+        return e.nr;
+    }
+
+    log_critical(
+            "job `mod_type_ren` for "TI_COLLECTION_ID" is invalid; "
+            "type `%s` has no property or method `%s`",
+            collection->root->id, type->name, name->str);
+
+    return rc;
+}
+
+
+/*
+ * Returns 0 on success
+ */
 static int job__mod_type_ren(ti_thing_t * thing, mp_unp_t * up)
 {
     int rc = -1;
@@ -1843,6 +1949,8 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
             return job__mod_type_del(thing, up, ev_id);
         if (mp_str_eq(&mp_job, "mod_type_mod"))
             return job__mod_type_mod(thing, up);
+        if (mp_str_eq(&mp_job, "mod_type_rel"))
+            return job__mod_type_rel(thing, up);
         if (mp_str_eq(&mp_job, "mod_type_ren"))
             return job__mod_type_ren(thing, up);
         if (mp_str_eq(&mp_job, "mod_type_wpo"))

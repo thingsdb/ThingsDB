@@ -1343,12 +1343,52 @@ int ti_field_make_assignable(
         ti_thing_t * parent,  /* may be NULL */
         ex_t * e)
 {
-    uint16_t spec = field->spec;
+    uint16_t spec = field->spec & TI_SPEC_MASK_NILLABLE;
 
-    if ((spec & TI_SPEC_NILLABLE) && ti_val_is_nil(*val))
+    if (spec < TI_SPEC_ANY)
+    {
+        /*
+         * Just compare the specification with the type since the nillable
+         * mask is removed the specification
+         */
+        if (parent && field->condition.rel)
+        {
+            ti_thing_t * relation = vec_get(parent->items.vec, field->idx);
+            ti_field_t * rfield = field->condition.rel->field;
+
+            if (!ti_val_is_nil(*val) && (!ti_val_is_thing(*val) ||
+                ((ti_thing_t *) *val)->type_id != spec))
+                goto type_error;
+
+            if (relation && relation->tp == TI_VAL_THING)
+                rfield->condition.rel->del_cb(rfield, relation, parent);
+
+            if (ti_val_is_thing(*val))
+            {
+                relation = (ti_thing_t *) *val;
+                if (rfield->spec != TI_SPEC_SET)
+                {
+                    ti_thing_t * prev = \
+                            VEC_get(relation->items.vec, rfield->idx);
+                    if (prev->tp == TI_VAL_THING)
+                        field->condition.rel->del_cb(field, prev, relation);
+                }
+
+                rfield->condition.rel->add_cb(rfield, relation, parent);
+            }
+
+            return 0;
+        }
+
+        if (((field->spec & TI_SPEC_NILLABLE) && ti_val_is_nil(*val)) ||
+            (ti_val_is_thing(*val) && ((ti_thing_t *) *val)->type_id == spec))
+            return 0;
+
+        goto type_error;
+    }
+
+    if ((field->spec & TI_SPEC_NILLABLE) && ti_val_is_nil(*val))
         return 0;
-
-    spec &= TI_SPEC_MASK_NILLABLE;
 
     switch ((ti_spec_enum_t) spec)
     {
@@ -1490,41 +1530,10 @@ int ti_field_make_assignable(
         return 0;
     }
 
-    if (spec >= TI_ENUM_ID_FLAG)
-    {
-        if (ti_spec_enum_eq_to_val(spec, *val))
-            return 0;
+    assert (spec >= TI_ENUM_ID_FLAG);
 
-        goto type_error;
-    }
-
-    assert (spec < TI_SPEC_ANY);
-
-    /*
-     * Just compare the specification with the type since the nillable mask is
-     * removed the specification
-     */
-    if (ti_val_is_thing(*val) && ((ti_thing_t *) *val)->type_id == spec)
-    {
-        if (parent && field->condition.rel)
-        {
-            ti_thing_t * prev = vec_get(parent->items, field->idx);
-            if (prev && prev->tp == TI_VAL_THING)
-            {
-                ti_field_t * ofield = field->condition.rel->field;
-                ti_val_t ** relation = vec_get_addr(parent->items, ofield->idx);
-                assert (*relation == *val);
-                assert ((*relation)->ref > 1);
-                ti_decref(*relation);
-                *relation = ti_nil_get();
-            }
-            prev = (ti_thing_t *) *val;
-
-
-        }
-
+    if (ti_spec_enum_eq_to_val(spec, *val))
         return 0;
-    }
 
     goto type_error;
 

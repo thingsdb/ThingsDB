@@ -28,8 +28,9 @@ union ti_condition_via_u
 #include <ti/regex.h>
 #include <ti/val.t.h>
 #include <ti/field.t.h>
+#include <ti/thing.t.h>
 
-typedef int (*ti__rel_cb) (void *, void *);
+typedef void (*ti_condition_rel_cb) (ti_field_t *, ti_thing_t *, ti_thing_t *);
 
 struct ti_condition_s
 {
@@ -66,9 +67,8 @@ struct ti_condition_drange_s
 struct ti_condition_rel_s
 {
     ti_field_t * field;
-    ti__rel_cb chk_cb;
-    ti__rel_cb del_cb;
-    ti__rel_cb add_cb;
+    ti_condition_rel_cb del_cb;
+    ti_condition_rel_cb add_cb;
 };
 
 #endif  /* TI_CONDITION_T_H_ */

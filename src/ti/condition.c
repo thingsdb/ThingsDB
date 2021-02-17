@@ -1,17 +1,17 @@
 /*
  * ti/condition.c
  */
-
 #include <assert.h>
+#include <doc.h>
 #include <math.h>
+#include <ti.h>
 #include <ti/condition.h>
+#include <ti/nil.h>
+#include <ti/raw.inline.h>
 #include <ti/spec.t.h>
+#include <ti/val.inline.h>
 #include <ti/vfloat.h>
 #include <ti/vint.h>
-#include <ti/nil.h>
-#include <ti/val.inline.h>
-#include <ti/raw.inline.h>
-#include <doc.h>
 #include <util/strx.h>
 
 static ti_val_t * condition__dval_cb(ti_field_t * field)
@@ -483,6 +483,58 @@ fail0:
     return e->nr;
 }
 
+static void condition__del_type_cb(
+        ti_field_t * field,
+        ti_thing_t * thing,
+        ti_thing_t * UNUSED(relation))
+{
+    ti_val_t ** vaddr = \
+            (ti_val_t **) vec_get_addr(thing->items.vec, field->idx);
+    ti_val_unsafe_gc_drop(*vaddr);
+    *vaddr = (ti_val_t *) ti_nil_get();
+}
+
+static void condition__add_type_cb(
+        ti_field_t * field,
+        ti_thing_t * thing,
+        ti_thing_t * relation)
+{
+    ti_val_t ** vaddr = \
+            (ti_val_t **) vec_get_addr(thing->items.vec, field->idx);
+    ti_val_unsafe_gc_drop(*vaddr);
+    *vaddr = (ti_val_t *) relation;
+    ti_incref(relation);
+}
+
+static void condition__del_set_cb(
+        ti_field_t * field,
+        ti_thing_t * thing,
+        ti_thing_t * relation)
+{
+    ti_vset_t * vset = VEC_get(thing->items.vec, field->idx);
+    ti_val_unsafe_gc_drop(imap_pop(vset->imap, ti_thing_key(relation)));
+}
+
+static void condition__add_set_cb(
+        ti_field_t * field,
+        ti_thing_t * thing,
+        ti_thing_t * relation)
+{
+    ti_vset_t * vset = VEC_get(thing->items.vec, field->idx);
+
+    switch(imap_add(vset->imap, ti_thing_key(relation), relation))
+    {
+    case IMAP_SUCCESS:
+        ti_incref(relation);
+        return;
+    case IMAP_ERR_EXIST:
+        return;
+    case IMAP_ERR_ALLOC:
+        ti_panic("unrecoverable error");
+    }
+}
+
+
 int ti_condition_field_rel_init(
         ti_field_t * field,
         ti_field_t * ofield,
@@ -496,9 +548,21 @@ int ti_condition_field_rel_init(
         goto mem_error;
 
     a->field = ofield;
-    b->field = field;
-
+    a->del_cb = field->spec == TI_SPEC_SET
+            ? condition__del_set_cb
+            : condition__del_type_cb;
+    a->add_cb = field->spec == TI_SPEC_SET
+            ? condition__add_set_cb
+            : condition__add_type_cb;
     field->condition.rel = a;
+
+    b->field = field;
+    b->del_cb = ofield->spec == TI_SPEC_SET
+            ? condition__del_set_cb
+            : condition__del_type_cb;
+    b->add_cb = ofield->spec == TI_SPEC_SET
+            ? condition__add_set_cb
+            : condition__add_type_cb;
     ofield->condition.rel = b;
 
     return 0;

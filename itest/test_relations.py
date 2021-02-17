@@ -21,13 +21,24 @@ class TestRelations(TestBase):
 
     title = 'Test relations between types'
 
-    @default_test_setup(num_nodes=3, seed=1, threshold_full_storage=10)
+    def with_node1(self):
+        if hasattr(self, 'node1'):
+            return True
+        print('''
+            WARNING: Test requires a second node!!!
+        ''')
+
+    @default_test_setup(num_nodes=2, seed=1, threshold_full_storage=10)
     async def run(self):
 
         await self.node0.init_and_run()
 
         client = await get_client(self.node0)
         client.set_default_scope('//stuff')
+
+        # add another node otherwise backups are not possible
+        if hasattr(self, 'node1'):
+            await self.node1.join_until_ready(client)
 
         await self.run_tests(client)
 
@@ -142,8 +153,75 @@ class TestRelations(TestBase):
         self.assertTrue(await client.query(r'''
             u = User{};
             u.space = Space{};
-            //u.space.user == u;
+            u.space.user == u;
         '''))
+
+        self.assertEqual(await client.query(r'''
+            u1 = User{};
+            s1 = Space{};
+            u1.space = s1;
+            assert (s1.user == u1);
+            assert (u1.space == s1);
+
+            u2 = User{};
+            s2 = Space{};
+            s2.user = u2;
+            assert (s2.user == u2);
+            assert (u2.space == s2);
+
+            u = User{};
+            s = Space{};
+            u.space = s;
+            assert (s.user == u);
+            assert (u.space == s);
+
+            u.space = s2;
+            assert (s.user == nil);
+            assert (u.space == s2);
+            assert (s2.user == u);
+            assert (u2.space == nil);
+
+            'OK';
+        '''), 'OK')
+
+    async def test_mod_type_multi_node(self, client0):
+        if not self.with_node1():
+            return
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await client0.query(r'''
+            new_type('User');
+            new_type('Space');
+            new_type('Self');
+
+            set_type('Self', {
+                self: 'Self?'
+            });
+
+            set_type('User', {
+                space: 'Space?'
+            });
+
+            set_type('Space', {
+                user: 'User?'
+            });
+
+            mod_type('User', 'rel', 'space', 'user');
+        ''')
+
+        await client0.query(r'''
+            .u1 = User{};
+            .s1 = Space{};
+            .u1.space = .s1;
+        ''')
+
+        for client in (client0, client1):
+            self.assertEqual(await client.query(r'''
+                assert (.s1.user == .u1);
+                assert (.u1.space == .s1);
+                'OK';
+            '''), 'OK')
 
 
 if __name__ == '__main__':

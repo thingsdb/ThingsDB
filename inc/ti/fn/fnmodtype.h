@@ -1080,6 +1080,7 @@ static void type__rel_add(
 {
     ti_type_t * type, * otype;
     ti_field_t * ofield;
+    ti_task_t * task;
 
     otype = modtype__type_from_field(field, e);
     if (!otype)
@@ -1112,8 +1113,25 @@ static void type__rel_add(
         return;
 
     /* TODO : first check, then apply to existing instances */
+
+
+    task = ti_task_get_task(query->ev, query->collection->root);
+    if (!task)
+    {
+        ex_set_mem(e);
+        goto fail0;
+    }
+
     if (ti_condition_field_rel_init(field, ofield, e))
         goto fail0;
+
+
+    /* update modified time-stamp */
+    type->modified_at = util_now_tsec();
+    otype->modified_at = type->modified_at;
+
+    if (ti_task_add_mod_type_rel(task, type, field->name, otype, ofield->name))
+        ex_set_mem(e);
 
     /* TODO : add task */
 

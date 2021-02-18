@@ -1957,14 +1957,6 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
     return f_spec < TI_SPEC_ANY || f_spec == TI_SPEC_OBJECT;
 }
 
-ti_field_t * ti_field_by_name(ti_type_t * type, ti_name_t * name)
-{
-    for (vec_each(type->fields, ti_field_t, field))
-        if (field->name == name)
-            return field;
-    return NULL;
-}
-
 ti_field_t * ti_field_by_strn_e(
         ti_type_t * type,
         const char * str,

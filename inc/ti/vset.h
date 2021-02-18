@@ -45,7 +45,7 @@ struct ti_vset_s
     imap_t * imap;          /* key: thing_key() / value: *ti_things_t */
     ti_thing_t * parent;    /* without reference,
                                NULL when this is a variable */
-    ti_raw_t * key;         /* without reference */
+    void * key_;            /* ti_name_t, ti_raw_t or ti_field_t without reference */
 };
 
 /*

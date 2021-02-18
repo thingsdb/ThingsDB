@@ -174,13 +174,37 @@ int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e)
         return e->nr;
     }
 
-    if (vset->spec != TI_SPEC_OBJECT &&
-        vset->spec != ((ti_thing_t *) val)->type_id)
+    if (vset->spec != TI_SPEC_OBJECT)
     {
-        ex_set(e, EX_TYPE_ERROR,
-                "type `%s` is not allowed in restricted "TI_VAL_SET_S,
-                ti_val_str(val));
-        return e->nr;
+        if (vset->spec != ((ti_thing_t *) val)->type_id)
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                    "type `%s` is not allowed in restricted "TI_VAL_SET_S,
+                    ti_val_str(val));
+            return e->nr;
+        }
+
+        assert (vset->parent);
+        assert (ti_raw_is_name(vset->key));
+
+        if (vset->flags & TI_VSET_FLAG_RELATION)
+        {
+            /*
+             * TODO: both the type and field lookup might be skipped if we
+             *       change the ->key to ->key_or_field which is most likely
+             *       possible. If we do, then the rename can be simplified
+             *       and conversion from type to thing needs to be changed to
+             *       set the field back to a name. (fndeltype).
+             */
+            ti_type_t * type = ti_types_by_id(
+                    vset->parent->collection->types,
+                    vset->spec);
+            ti_field_t * field = ti_field_by_name(
+                    type,
+                    (ti_name_t *) vset->key);
+
+
+        }
     }
 
     switch((imap_err_t) ti_vset_add(vset, (ti_thing_t *) val))

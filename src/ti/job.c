@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <ti.h>
 #include <ti/collection.inline.h>
+#include <ti/condition.h>
 #include <ti/enum.h>
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
@@ -32,8 +33,9 @@
  */
 static int job__add(ti_thing_t * thing, mp_unp_t * up)
 {
+    ex_t e = {0};
     ti_val_t * val;
-    ti_thing_t * t;
+    ti_val_t * v;
     size_t i;
     mp_obj_t obj, mp_prop;
     ti_vup_t vup = {
@@ -76,18 +78,17 @@ static int job__add(ti_thing_t * thing, mp_unp_t * up)
 
     for (i = obj.via.sz; i--;)
     {
-        t = (ti_thing_t *) ti_val_from_vup(&vup);
-
-        if (!t || !ti_val_is_thing((ti_val_t *) t) ||
-            ti_vset_add((ti_vset_t *) val, t))
+        v = ti_val_from_vup(&vup);
+        if (!v || ti_vset_add_val((ti_vset_t *) val, v, &e) < 0)
         {
             log_critical(
                     "job `add` to set on "TI_THING_ID": "
                     "error while reading value for property",
                     thing->id);
-            ti_val_drop((ti_val_t *) t);
+            ti_val_drop(v);
             return -1;
         }
+        ti_val_unsafe_drop(v);
     }
 
     return 0;
@@ -1136,91 +1137,101 @@ static int job__mod_type_rel(ti_thing_t * thing, mp_unp_t * up)
     int rc = -1;
     ex_t e = {0};
     ti_collection_t * collection = thing->collection;
-    ti_type_t * type;
-    ti_name_t * name;
-    ti_field_t * field;
-    ti_method_t * method;
-    mp_obj_t obj, mp_id, mp_name, mp_to, mp_modified;
+    ti_type_t * type, * otype;
+    ti_name_t * name, * oname;
+    ti_field_t * field, * ofield;
+    mp_obj_t obj, mp_modified, mp_id1, mp_name1, mp_id2, mp_name2;
 
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 4 ||
-        mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_id) != MP_U64 ||
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 5 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_modified) != MP_U64 ||
         mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_name) != MP_STR ||
+        mp_next(up, &mp_id1) != MP_U64 ||
         mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_to) != MP_STR)
+        mp_next(up, &mp_name1) != MP_STR ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id2) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name2) != MP_STR)
     {
         log_critical(
-                "job `mod_type_ren` for "TI_COLLECTION_ID" is invalid",
+                "job `mod_type_rel` for "TI_COLLECTION_ID" is invalid",
                 collection->root->id);
         return rc;
     }
 
-    type = ti_types_by_id(collection->types, mp_id.via.u64);
+    type = ti_types_by_id(collection->types, mp_id1.via.u64);
     if (!type)
     {
         log_critical(
-                "job `mod_type_ren` for "TI_COLLECTION_ID" is invalid; "
+                "job `mod_type_rel` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64" not found",
-                collection->root->id, mp_id.via.u64);
+                collection->root->id, mp_id1.via.u64);
         return rc;
     }
 
-    name = ti_names_weak_get_strn(mp_name.via.str.data, mp_name.via.str.n);
+    otype = ti_types_by_id(collection->types, mp_id2.via.u64);
+    if (!otype)
+    {
+        log_critical(
+                "job `mod_type_rel` for "TI_COLLECTION_ID" is invalid; "
+                "type with id %"PRIu64" not found",
+                collection->root->id, mp_id2.via.u64);
+        return rc;
+    }
+
+    name = ti_names_weak_get_strn(mp_name1.via.str.data, mp_name1.via.str.n);
     if (!name)
     {
         log_critical(
-                "job `mod_type_ren` for "TI_COLLECTION_ID" is invalid; "
+                "job `mod_type_rel` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64"; name is missing",
-                collection->root->id, mp_id.via.u64);
+                collection->root->id, mp_id1.via.u64);
+        return rc;
+    }
+
+    oname = ti_names_weak_get_strn(mp_name2.via.str.data, mp_name2.via.str.n);
+    if (!oname)
+    {
+        log_critical(
+                "job `mod_type_rel` for "TI_COLLECTION_ID" is invalid; "
+                "type with id %"PRIu64"; name is missing",
+                collection->root->id, mp_id2.via.u64);
         return rc;
     }
 
     field = ti_field_by_name(type, name);
-    if (field)
+    if (!field)
     {
-        if (ti_field_set_name(
-                field,
-                NULL,
-                mp_to.via.str.data,
-                mp_to.via.str.n,
-                &e))
-            log_critical(e.msg);
-        else
-            /* update modified time-stamp */
-            type->modified_at = mp_modified.via.u64;
-
-        /* clean mappings */
-        ti_type_map_cleanup(type);
-
-        return e.nr;
+        log_critical(
+                "job `mod_type_rel` for "TI_COLLECTION_ID" is invalid; "
+                "type `%s` has no property `%s`",
+                collection->root->id, type->name, name->str);
+        return rc;
     }
 
-    method = ti_method_by_name(type, name);
-    if (method)
+    ofield = ti_field_by_name(otype, oname);
+    if (!ofield)
     {
-        if (ti_method_set_name(
-                method,
-                type,
-                mp_to.via.str.data,
-                mp_to.via.str.n,
-                &e))
-            log_critical(e.msg);
-        else
-            /* update modified time-stamp */
-            type->modified_at = mp_modified.via.u64;
-
-        return e.nr;
+        log_critical(
+                "job `mod_type_rel` for "TI_COLLECTION_ID" is invalid; "
+                "type `%s` has no property `%s`",
+                collection->root->id, otype->name, oname->str);
+        return rc;
     }
 
-    log_critical(
-            "job `mod_type_ren` for "TI_COLLECTION_ID" is invalid; "
-            "type `%s` has no property or method `%s`",
-            collection->root->id, type->name, name->str);
+    /* TODO : convert existing */
 
-    return rc;
+    if (ti_condition_field_rel_init(field, ofield, &e))
+    {
+        log_critical(e.msg);
+        return rc;
+    }
+
+    type->modified_at = mp_modified.via.u64;
+    otype->modified_at = mp_modified.via.u64;
+
+    return 0;
 }
 
 

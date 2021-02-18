@@ -28,7 +28,7 @@ class TestRelations(TestBase):
             WARNING: Test requires a second node!!!
         ''')
 
-    @default_test_setup(num_nodes=2, seed=1, threshold_full_storage=10)
+    @default_test_setup(num_nodes=1, seed=1, threshold_full_storage=10)
     async def run(self):
 
         await self.node0.init_and_run()
@@ -134,7 +134,7 @@ class TestRelations(TestBase):
                 mod_type('A', 'rel', 'bstrict', 'a');
             ''')
 
-    async def test_mod_type(self, client):
+    async def test_type_to_type(self, client):
         await client.query(r'''
             new_type('User');
             new_type('Space');
@@ -180,6 +180,65 @@ class TestRelations(TestBase):
             assert (u.space == s2);
             assert (s2.user == u);
             assert (u2.space == nil);
+
+            'OK';
+        '''), 'OK')
+
+    async def test_type_to_self(self, client):
+        await client.query(r'''
+            new_type('Self');
+            set_type('Self', {
+                self: 'Self?'
+            });
+
+            mod_type('Self', 'rel', 'self', 'self');
+        ''')
+
+        self.assertEqual(await client.query(r'''
+            s1 = Self{};
+            s2 = Self{};
+            s1.self = s2;
+            assert (s1.self == s2);
+            assert (s2.self == s1);
+
+            // a second time shoudl work as well
+            s1.self = s2;
+            assert (s1.self == s2);
+            assert (s2.self == s1);
+
+            // remove assignment
+            s1.self = nil;
+            assert(is_nil(s1.self));
+            assert(is_nil(s2.self));
+
+            // Restore assigmment
+            s1.self = s2;
+            assert (s1.self == s2);
+            assert (s2.self == s1);
+
+            // Remove relation
+            // mod_type('Self', 'rel', 'self', nil);
+
+            // Check is relation is removed
+            // s1.self = nil;
+            // assert(is_nil(s1.self));
+            // assert(s2.self == s1);
+
+            'OK';
+        '''), 'OK')
+
+        self.assertEqual(await client.query(r'''
+            s1 = Self{};
+            s1.self = s1;
+            assert (s1.self == s1);
+
+            // a second time should work as well
+            s1.self = s1;
+            assert (s1.self == s1);
+
+            // remove assignment
+            s1.self = nil;
+            assert(is_nil(s1.self));
 
             'OK';
         '''), 'OK')

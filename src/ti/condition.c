@@ -573,7 +573,6 @@ mem_error:
     return e->nr;
 }
 
-
 void ti_condition_destroy(ti_condition_via_t condition, uint16_t spec)
 {
     if (!condition.none)

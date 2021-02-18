@@ -1932,3 +1932,261 @@ int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr, uint64_t ev_id)
     return rc;
 }
 
+typedef struct
+{
+    ti_field_t * field;
+    ti_field_t * ofield;
+    ex_t * e;
+} field__type_rel_chk_t;
+
+static int field__type_rel_chk(
+        ti_thing_t * thing,
+        ti_field_t * field,
+        ti_field_t * ofield,
+        ex_t * e)
+{
+    ti_thing_t * me, * othing = VEC_get(thing->items.vec, field->idx);
+    if (othing->tp == TI_VAL_NIL)
+        return 0;
+
+    me = VEC_get(othing->items.vec, ofield->idx);
+    if (me->tp == TI_VAL_NIL || me == thing)
+        return 0;
+
+    if (thing->id)
+        ex_set(e, EX_TYPE_ERROR,
+            "failed to create relation; "
+            "property `%s` on "TI_THING_ID" is referring to "TI_THING_ID
+            " while property `%s` on "TI_THING_ID" is "
+            "referring to "TI_THING_ID,
+            field->name->str, thing->id, othing->id,
+            ofield->name->str, othing->id, me->id);
+    else
+        ex_set(e, EX_TYPE_ERROR,
+            "failed to create relation; "
+            "property `%s` on a `thing` is referring to a second `thing` "
+            "while property `%s` on that second thing is referring to "
+            "a third `thing`",
+            field->name->str, ofield->name->str);
+    return e->nr;
+}
+
+static int field__type_rel_chk_cb(ti_thing_t * thing, field__type_rel_chk_t * w)
+{
+    return thing->type_id == w->field->type->type_id
+            ? field__type_rel_chk(thing, w->field, w->ofield, w->e)
+            : thing->type_id == w->ofield->type->type_id
+            ? field__type_rel_chk(thing, w->ofield, w->field, w->e)
+            : 0;
+}
+
+typedef struct
+{
+    imap_t * collect;
+    ti_field_t * field;
+    ti_field_t * ofield;
+    ti_thing_t * parent;
+    ex_t * e;
+} field__set_rel_chk_t;
+
+static int field__set_rel_cb(ti_thing_t * thing, field__set_rel_chk_t * w)
+{
+    ti_thing_t * other = VEC_get(thing->items.vec, w->field->idx);
+    if (other->tp == TI_VAL_THING && other != w->parent)
+    {
+        if (thing->id)
+            ex_set(w->e, EX_TYPE_ERROR,
+                    "failed to create relation; "
+                    "thing "TI_THING_ID" belongs to a set `%s` on "TI_THING_ID
+                    " but is referring to "TI_THING_ID,
+                    thing->id, w->ofield->name->str, w->parent->id, other->id);
+        else
+            ex_set(w->e, EX_TYPE_ERROR,
+                    "failed to create relation; "
+                    "at least one thing belongs to a set (`%s.%s`) of a "
+                    "different thing than the thing it is referring "
+                    "to (`%s.%s`)",
+                    w->ofield->type->name, w->ofield->name->str,
+                    w->field->type->name, w->field->name->str);
+        return w->e->nr;
+    }
+
+    switch (imap_add(w->collect, ti_thing_key(thing), thing))
+    {
+    case IMAP_SUCCESS:
+        return 0;
+    case IMAP_ERR_EXIST:
+        if (thing->id)
+            ex_set(w->e, EX_TYPE_ERROR,
+                    "failed to create relation; "
+                    "thing "TI_THING_ID" belongs to at least two "
+                    "different sets; (property `%s` on type `%s`)",
+                    thing->id, w->ofield->name->str, w->ofield->type->name);
+        else
+            ex_set(w->e, EX_TYPE_ERROR,
+                    "failed to create relation; "
+                    "at least one thing belongs to at least two "
+                    "different sets; (property `%s` on type `%s`)",
+                    w->ofield->name->str, w->ofield->type->name);
+        return w->e->nr;
+    case IMAP_ERR_ALLOC:
+        ex_set_mem(w->e);
+    }
+    return w->e->nr;
+}
+
+static int field__set_rel_chk_cb(ti_thing_t * thing, field__set_rel_chk_t * w)
+{
+    if (thing->type_id == w->ofield->type->type_id)
+    {
+        w->parent = thing;
+        ti_vset_t * vset = VEC_get(thing->items.vec, w->ofield->idx);
+        return imap_walk(vset->imap, (imap_cb) field__set_rel_cb, w);
+    }
+    return 0;
+}
+
+static int field__walk_things(
+        vec_t * vars,
+        ti_collection_t * collection,
+        imap_cb cb,
+        void * w)
+{
+    return (
+        (vars && ti_query_vars_walk(vars, collection, (imap_cb) cb, w)) ||
+        imap_walk(collection->things, (imap_cb) cb, w) ||
+        ti_gc_walk(collection->gc, (queue_cb) cb, w)
+    );
+}
+
+int ti_field_relation_check(
+        ti_field_t * field,
+        ti_field_t * ofield,
+        vec_t * vars,
+        ex_t * e)
+{
+    ti_collection_t * collection = field->type->types->collection;
+
+    if (field->spec == TI_SPEC_SET && ofield->spec == TI_SPEC_SET)
+        return 0;
+
+    if (field->spec != TI_SPEC_SET && ofield->spec != TI_SPEC_SET)
+    {
+        field__type_rel_chk_t w = {
+                .field = field,
+                .ofield = ofield,
+                .e = e,
+        };
+
+        if (field__walk_things(
+                vars,
+                collection,
+                (imap_cb) field__type_rel_chk_cb,
+                &w))
+        {
+            if (!e->nr)
+                ex_set_mem(e);
+            return e->nr;
+        }
+
+        return 0;
+    }
+
+    if (field->spec == TI_SPEC_SET)
+    {
+        ti_field_t * tmp = field;
+        field = ofield;
+        ofield = tmp;
+    }
+
+    field__set_rel_chk_t w = {
+            .collect = imap_create(),
+            .field = field,
+            .ofield = ofield,
+            .e = e,
+    };
+
+    if (!w.collect)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    if (field__walk_things(
+            vars,
+            collection,
+            (imap_cb) field__set_rel_chk_cb,
+            &w) && !e->nr)
+        ex_set_mem(e);
+
+    imap_destroy(w.collect, NULL);
+    return e->nr;
+}
+
+
+typedef struct
+{
+    ti_field_t * field;
+    ti_field_t * ofield;
+} field__rel_t;
+
+typedef struct
+{
+    ti_field_t * field;
+    ti_thing_t * relation;
+} field__rel_set_t;
+
+static int field__rel_set_add(ti_thing_t * thing, field__rel_set_t * w)
+{
+    w->field->condition.rel->add_cb(w->field, thing, w->relation);
+    return 0;
+}
+
+static int field__rel_set_cb(ti_thing_t * thing, field__rel_t * w)
+{
+    if (thing->type_id == w->field->type->type_id)
+    {
+        ti_vset_t * vset = VEC_get(thing->items.vec, w->field->idx);
+        field__rel_set_t r = {
+                .field = w->ofield,
+                .relation = thing,
+        };
+        return imap_walk(vset->imap, (imap_cb) field__rel_set_add, &r);
+    }
+
+    if (thing->type_id == w->ofield->type->type_id)
+    {
+        ti_vset_t * vset = VEC_get(thing->items.vec, w->ofield->idx);
+        field__rel_set_t r = {
+                .field = w->field,
+                .relation = thing,
+        };
+        return imap_walk(vset->imap, (imap_cb) field__rel_set_add, &r);
+    }
+
+    return 0;
+}
+
+
+int ti_field_relation_make(
+        ti_field_t * field,
+        ti_field_t * ofield,
+        vec_t * vars)   /* may be NULL */
+{
+    ti_collection_t * collection = field->type->types->collection;
+    field__rel_t w = {
+           .field = field,
+           .ofield = ofield,
+    };
+
+    if (field->spec == TI_SPEC_SET && ofield->spec == TI_SPEC_SET)
+    {
+        return field__walk_things(
+                vars,
+                collection,
+                (imap_cb) field__rel_set_cb,
+                &w);
+    }
+
+    return 0;
+}

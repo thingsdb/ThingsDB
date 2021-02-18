@@ -28,7 +28,7 @@ class TestRelations(TestBase):
             WARNING: Test requires a second node!!!
         ''')
 
-    @default_test_setup(num_nodes=1, seed=1, threshold_full_storage=10)
+    @default_test_setup(num_nodes=2, seed=1, threshold_full_storage=10)
     async def run(self):
 
         await self.node0.init_and_run()
@@ -112,7 +112,7 @@ class TestRelations(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'cannot create relation; property `c` on type `A` is '
+                r'failed to create relation; property `c` on type `A` is '
                 r'referring to type `C`'):
             await client.query(r'''
                 mod_type('A', 'rel', 'a', 'c');
@@ -133,6 +133,231 @@ class TestRelations(TestBase):
             await client.query(r'''
                 mod_type('A', 'rel', 'bstrict', 'a');
             ''')
+
+    async def test_type_state_error(self, client):
+        await client.query(r'''
+            new_type('A');
+            new_type('B');
+
+            set_type('A', {
+                b: 'B?'
+            });
+
+            set_type('B', {
+                a: 'A?'
+            });
+        ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'failed to create relation; '
+                r'property `b` on a `thing` is referring to a second '
+                r'`thing` while property `a` on that second thing is '
+                r'referring to a third `thing`'):
+            await client.query(r'''
+                a1 = A{};
+                a2 = A{};
+                b1 = B{};
+
+                a1.b = b1;
+                b1.a = a2;
+
+                mod_type('A', 'rel', 'b', 'a');
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'failed to create relation; '
+                r'property `b` on `#\d+` is referring to `#\d+` while '
+                r'property `a` on `#\d+` is referring to `#\d+`'):
+            await client.query(r'''
+                .a1 = A{};
+                .a2 = A{};
+                .b1 = B{};
+
+                .a1.b = .b1;
+                .b1.a = .a2;
+
+                mod_type('A', 'rel', 'b', 'a');
+            ''')
+
+    async def test_set_state_error_1(self, client):
+        await client.query(r'''
+            new_type('A');
+            new_type('B');
+
+            set_type('A', {
+                b: 'B?'
+            });
+
+            set_type('B', {
+                aa: '{A}'
+            });
+        ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'failed to create relation; at least one thing belongs to '
+                r'at least two different sets; \(property `aa` on type `B`'):
+            await client.query(r'''
+                a1 = A{};
+                b1 = B{};
+                b2 = B{};
+
+                b1.aa.add(a1);
+                b2.aa.add(a1);
+
+                mod_type('A', 'rel', 'b', 'aa');
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'failed to create relation; thing `#\d+` belongs to at '
+                r'least two different sets; \(property `aa` on type `B`\)'):
+            await client.query(r'''
+                .a1 = A{};
+                .b1 = B{};
+                .b2 = B{};
+
+                .b1.aa.add(.a1);
+                .b2.aa.add(.a1);
+
+                mod_type('A', 'rel', 'b', 'aa');
+            ''')
+
+    async def test_set_state_error_2(self, client):
+        await client.query(r'''
+            new_type('A');
+            new_type('B');
+
+            set_type('A', {
+                b: 'B?'
+            });
+
+            set_type('B', {
+                aa: '{A}'
+            });
+        ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'failed to create relation; at least one thing belongs '
+                r'to a set \(`B.aa`\) of a different thing than the thing '
+                r'it is referring to \(`A.b`\)'):
+            await client.query(r'''
+                a1 = A{};
+                b1 = B{};
+                b2 = B{};
+
+                a1.b = b1;
+                b2.aa.add(a1);
+
+                mod_type('A', 'rel', 'b', 'aa');
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'failed to create relation; thing `#\d+` belongs to a '
+                r'set `aa` on `#\d+` but is referring to `#\d+`'):
+            await client.query(r'''
+                .a1 = A{};
+                .b1 = B{};
+                .b2 = B{};
+
+                .a1.b = .b1;
+                .b2.aa.add(.a1);
+
+                mod_type('A', 'rel', 'b', 'aa');
+            ''')
+
+    async def test_set_set_init_state(self, client0):
+        if not self.with_node1():
+            return
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await client0.query(r'''
+            new_type('A');
+            new_type('B');
+            new_type('C');
+
+            set_type('A', {
+                bb: '{B}'
+            });
+
+            set_type('B', {
+                aa: '{A}'
+            });
+
+            set_type('C', {
+                cc: '{C}'
+            });
+        ''')
+
+        self.assertEqual(await client0.query(r'''
+            .a1 = A{};
+            .a2 = A{};
+            .b1 = B{};
+            .b2 = B{};
+            .c1 = C{};
+            .c2 = C{};
+
+            .a1.bb.add(.b1, .b2);
+            .b1.aa.add(.a1);
+            .b2.aa.add(.a2);
+            .c1.cc.add(.c1);
+            .c2.cc.add(.c1);
+
+            a1 = A{};
+            a2 = A{};
+            b1 = B{};
+            b2 = B{};
+            c1 = C{};
+            c2 = C{};
+
+            a1.bb.add(b1, b2);
+            b1.aa.add(a1);
+            b2.aa.add(a2);
+            c1.cc.add(c1);
+            c2.cc.add(c1);
+
+            mod_type('A', 'rel', 'bb', 'aa');
+            mod_type('C', 'rel', 'cc', 'cc');
+
+            assert(a1.bb.has(b1));
+            assert(a1.bb.has(b2));
+
+            assert(!a2.bb.has(b1));
+            assert(a2.bb.has(b2));
+
+            assert(b1.aa.has(a1));
+            assert(!b1.aa.has(a2));
+
+            assert(b2.aa.has(a1));
+            assert(b2.aa.has(a2));
+
+            'OK';
+        '''), 'OK')
+
+        await asyncio.sleep(0.2)
+
+        for client in (client0, client1):
+            self.assertEqual(await client.query(r'''
+                assert(.a1.bb.has(.b1));
+                assert(.a1.bb.has(.b2));
+
+                assert(!.a2.bb.has(.b1));
+                assert(.a2.bb.has(.b2));
+
+                assert(.b1.aa.has(.a1));
+                assert(!.b1.aa.has(.a2));
+
+                assert(.b2.aa.has(.a1));
+                assert(.b2.aa.has(.a2));
+
+                'OK';
+            '''), 'OK')
+
 
     async def test_type_to_type(self, client):
         await client.query(r'''
@@ -217,12 +442,12 @@ class TestRelations(TestBase):
             assert (s2.self == s1);
 
             // Remove relation
-            // mod_type('Self', 'rel', 'self', nil);
+            mod_type('Self', 'rel', 'self', nil);
 
             // Check is relation is removed
-            // s1.self = nil;
-            // assert(is_nil(s1.self));
-            // assert(s2.self == s1);
+            s1.self = nil;
+            assert(is_nil(s1.self));
+            assert(s2.self == s1);
 
             'OK';
         '''), 'OK')
@@ -391,6 +616,8 @@ class TestRelations(TestBase):
             'OK';
         '''), 'OK')
 
+        await asyncio.sleep(0.2)
+
         for client in (client0, client1):
             self.assertEqual(await client.query(r'''
                 assert(.a.b.has(.b));
@@ -404,6 +631,8 @@ class TestRelations(TestBase):
 
             'OK';
         '''), 'OK')
+
+        await asyncio.sleep(0.2)
 
         for client in (client0, client1):
             self.assertEqual(await client.query(r'''
@@ -422,6 +651,8 @@ class TestRelations(TestBase):
             'OK';
         '''), 'OK')
 
+        await asyncio.sleep(0.2)
+
         for client in (client0, client1):
             self.assertEqual(await client.query(r'''
                 assert(.c.c.has(.c));
@@ -435,6 +666,8 @@ class TestRelations(TestBase):
             .c.c.remove(||true);
             'OK';
         '''), 'OK')
+
+        await asyncio.sleep(0.2)
 
         for client in (client0, client1):
             self.assertEqual(await client.query(r'''
@@ -478,9 +711,51 @@ class TestRelations(TestBase):
             .u1.space = .s1;
         ''')
 
+        await asyncio.sleep(0.2)
+
         for client in (client0, client1):
             self.assertEqual(await client.query(r'''
                 assert (.s1.user == .u1);
+                assert (.u1.space == .s1);
+                'OK';
+            '''), 'OK')
+
+        await client0.query(r'''
+            .s1.user = nil;
+        ''')
+
+        await asyncio.sleep(0.2)
+
+        for client in (client0, client1):
+            self.assertEqual(await client.query(r'''
+                assert (.s1.user == nil);
+                assert (.u1.space == nil);
+                'OK';
+            '''), 'OK')
+
+        await client0.query(r'''
+            .u1.space = .s1;
+        ''')
+
+        await asyncio.sleep(0.2)
+
+        for client in (client0, client1):
+            self.assertEqual(await client.query(r'''
+                assert (.s1.user == .u1);
+                assert (.u1.space == .s1);
+                'OK';
+            '''), 'OK')
+
+        await client0.query(r'''
+            mod_type('User', 'rel', 'space', nil);
+            .s1.user = nil;
+        ''')
+
+        await asyncio.sleep(0.2)
+
+        for client in (client0, client1):
+            self.assertEqual(await client.query(r'''
+                assert (.s1.user == nil);
                 assert (.u1.space == .s1);
                 'OK';
             '''), 'OK')

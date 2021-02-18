@@ -1104,7 +1104,7 @@ static void type__rel_add(
     if (type != field->type)
     {
         ex_set(e, EX_TYPE_ERROR,
-                "cannot create relation; "
+                "failed to create relation; "
                 "property `%s` on type `%s` is referring to type `%s`",
                 ofield->name->str, otype->name, type->name);
         return;
@@ -1114,8 +1114,8 @@ static void type__rel_add(
         modtype__has_lock(query, otype, e) || ti_type_try_lock(otype, e)))
         return;
 
-    /* TODO : first check, then apply to existing instances */
-
+    if (ti_field_relation_check(field, ofield, query->vars, e))
+        goto fail0;
 
     task = ti_task_get_task(query->ev, query->collection->root);
     if (!task)
@@ -1127,15 +1127,24 @@ static void type__rel_add(
     if (ti_condition_field_rel_init(field, ofield, e))
         goto fail0;
 
+    if (ti_field_relation_make(field, ofield, query->vars))
+    {
+        ti_panic("unrecoverable error");
+        ex_set_mem(e);
+        goto fail0;
+    }
 
     /* update modified time-stamp */
     type->modified_at = util_now_tsec();
     otype->modified_at = type->modified_at;
 
-    if (ti_task_add_mod_type_rel(task, type, field->name, otype, ofield->name))
+    if (ti_task_add_mod_type_rel_add(
+            task,
+            type,
+            field->name,
+            otype,
+            ofield->name))
         ex_set_mem(e);
-
-    /* TODO : add task */
 
 fail0:
     ti_type_unlock(otype, type != otype /* only when type are not equal*/);
@@ -1146,7 +1155,49 @@ static void type__rel_del(
         ti_field_t * field,
         ex_t * e)
 {
-    LOGC("del: %p, %p, %p", query, field, e);
+    ti_field_t * ofield;
+    ti_task_t * task;
+
+    if (!ti_field_has_relation(field))
+    {
+        ex_set(e, EX_TYPE_ERROR,
+                "missing relation for `%s` on type `%s`",
+                field->name->str, field->type->name);
+        return;
+    }
+
+    ofield = field->condition.rel->field;
+
+    if (field->type != ofield->type && (
+        modtype__has_lock(query, ofield->type, e) ||
+        ti_type_try_lock(ofield->type, e)))
+        return;
+
+    task = ti_task_get_task(query->ev, query->collection->root);
+    if (!task)
+    {
+        ex_set_mem(e);
+        goto fail0;
+    }
+
+    /* update modified time-stamp */
+    field->type->modified_at = util_now_tsec();
+    ofield->type->modified_at = field->type->modified_at;
+
+    free(field->condition.rel);
+    field->condition.rel = NULL;
+
+    free(ofield->condition.rel);
+    ofield->condition.rel = NULL;
+
+    if (ti_task_add_mod_type_rel_del(
+            task,
+            field->type,
+            field->name))
+        ex_set_mem(e);
+
+fail0:
+    ti_type_unlock(ofield->type, field->type != ofield->type);
 }
 
 static void type__rel(
@@ -1193,7 +1244,6 @@ static void type__rel(
     if (ti_val_is_nil(query->rval))
     {
         type__rel_del(query, field, e);
-        ti_name_drop(name);
         return;
     }
 

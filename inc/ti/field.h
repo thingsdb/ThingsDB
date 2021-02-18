@@ -12,6 +12,7 @@
 #include <ti/thing.t.h>
 #include <ti/val.t.h>
 #include <ti/spec.t.h>
+#include <ti/query.t.h>
 #include <util/vec.h>
 
 ti_field_t * ti_field_create(
@@ -48,6 +49,15 @@ ti_field_t * ti_field_by_strn_e(
         size_t n,
         ex_t * e);
 int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr, uint64_t ev_id);
+int ti_field_relation_check(
+        ti_field_t * field,
+        ti_field_t * ofield,
+        vec_t * vars,
+        ex_t * e);
+int ti_field_relation_make(
+        ti_field_t * field,
+        ti_field_t * ofield,
+        vec_t * vars);
 
 static inline ti_field_t * ti_field_by_name(ti_type_t * type, ti_name_t * name)
 {

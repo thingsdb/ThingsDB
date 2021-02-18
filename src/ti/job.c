@@ -1136,7 +1136,7 @@ static int job__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
-static int job__mod_type_rel(ti_thing_t * thing, mp_unp_t * up)
+static int job__mod_type_rel_add(ti_thing_t * thing, mp_unp_t * up)
 {
     int rc = -1;
     ex_t e = {0};
@@ -1159,7 +1159,7 @@ static int job__mod_type_rel(ti_thing_t * thing, mp_unp_t * up)
         mp_next(up, &mp_name2) != MP_STR)
     {
         log_critical(
-                "job `mod_type_rel` for "TI_COLLECTION_ID" is invalid",
+                "job `mod_type_rel_add` for "TI_COLLECTION_ID" is invalid",
                 collection->root->id);
         return rc;
     }
@@ -1168,7 +1168,7 @@ static int job__mod_type_rel(ti_thing_t * thing, mp_unp_t * up)
     if (!type)
     {
         log_critical(
-                "job `mod_type_rel` for "TI_COLLECTION_ID" is invalid; "
+                "job `mod_type_rel_add` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64" not found",
                 collection->root->id, mp_id1.via.u64);
         return rc;
@@ -1178,7 +1178,7 @@ static int job__mod_type_rel(ti_thing_t * thing, mp_unp_t * up)
     if (!otype)
     {
         log_critical(
-                "job `mod_type_rel` for "TI_COLLECTION_ID" is invalid; "
+                "job `mod_type_rel_add` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64" not found",
                 collection->root->id, mp_id2.via.u64);
         return rc;
@@ -1188,7 +1188,7 @@ static int job__mod_type_rel(ti_thing_t * thing, mp_unp_t * up)
     if (!name)
     {
         log_critical(
-                "job `mod_type_rel` for "TI_COLLECTION_ID" is invalid; "
+                "job `mod_type_rel_add` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64"; name is missing",
                 collection->root->id, mp_id1.via.u64);
         return rc;
@@ -1198,7 +1198,7 @@ static int job__mod_type_rel(ti_thing_t * thing, mp_unp_t * up)
     if (!oname)
     {
         log_critical(
-                "job `mod_type_rel` for "TI_COLLECTION_ID" is invalid; "
+                "job `mod_type_rel_add` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64"; name is missing",
                 collection->root->id, mp_id2.via.u64);
         return rc;
@@ -1208,7 +1208,7 @@ static int job__mod_type_rel(ti_thing_t * thing, mp_unp_t * up)
     if (!field)
     {
         log_critical(
-                "job `mod_type_rel` for "TI_COLLECTION_ID" is invalid; "
+                "job `mod_type_rel_add` for "TI_COLLECTION_ID" is invalid; "
                 "type `%s` has no property `%s`",
                 collection->root->id, type->name, name->str);
         return rc;
@@ -1218,17 +1218,22 @@ static int job__mod_type_rel(ti_thing_t * thing, mp_unp_t * up)
     if (!ofield)
     {
         log_critical(
-                "job `mod_type_rel` for "TI_COLLECTION_ID" is invalid; "
+                "job `mod_type_rel_add` for "TI_COLLECTION_ID" is invalid; "
                 "type `%s` has no property `%s`",
                 collection->root->id, otype->name, oname->str);
         return rc;
     }
 
-    /* TODO : convert existing */
-
     if (ti_condition_field_rel_init(field, ofield, &e))
     {
         log_critical(e.msg);
+        return rc;
+    }
+
+    if (ti_field_relation_make(field, ofield, NULL))
+    {
+        ti_panic("unrecoverable error");
+        log_critical(EX_MEMORY_S);
         return rc;
     }
 
@@ -1238,6 +1243,84 @@ static int job__mod_type_rel(ti_thing_t * thing, mp_unp_t * up)
     return 0;
 }
 
+/*
+ * Returns 0 on success
+ */
+static int job__mod_type_rel_del(ti_thing_t * thing, mp_unp_t * up)
+{
+    int rc = -1;
+    ti_collection_t * collection = thing->collection;
+    ti_type_t * type;
+    ti_name_t * name;
+    ti_field_t * field, * ofield;
+    mp_obj_t obj, mp_modified, mp_id, mp_name;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_modified) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR)
+    {
+        log_critical(
+                "job `mod_type_rel_del` for "TI_COLLECTION_ID" is invalid",
+                collection->root->id);
+        return rc;
+    }
+
+    type = ti_types_by_id(collection->types, mp_id.via.u64);
+    if (!type)
+    {
+        log_critical(
+                "job `mod_type_rel_del` for "TI_COLLECTION_ID" is invalid; "
+                "type with id %"PRIu64" not found",
+                collection->root->id, mp_id.via.u64);
+        return rc;
+    }
+
+    name = ti_names_weak_get_strn(mp_name.via.str.data, mp_name.via.str.n);
+    if (!name)
+    {
+        log_critical(
+                "job `mod_type_rel_del` for "TI_COLLECTION_ID" is invalid; "
+                "type with id %"PRIu64"; name is missing",
+                collection->root->id, mp_id.via.u64);
+        return rc;
+    }
+
+    field = ti_field_by_name(type, name);
+    if (!field)
+    {
+        log_critical(
+                "job `mod_type_rel_del` for "TI_COLLECTION_ID" is invalid; "
+                "type `%s` has no property `%s`",
+                collection->root->id, type->name, name->str);
+        return rc;
+    }
+
+    if (!ti_field_has_relation(field))
+    {
+        log_critical(
+                "job `mod_type_rel_del` for "TI_COLLECTION_ID" is invalid; "
+                "type `%s` has no relation for property `%s`",
+                collection->root->id, type->name, name->str);
+        return rc;
+    }
+
+    ofield = field->condition.rel->field;
+
+    field->type->modified_at = mp_modified.via.u64;
+    ofield->type->modified_at = mp_modified.via.u64;
+
+    free(field->condition.rel);
+    field->condition.rel = NULL;
+
+    free(ofield->condition.rel);
+    ofield->condition.rel = NULL;
+
+    return 0;
+}
 
 /*
  * Returns 0 on success
@@ -1974,8 +2057,10 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
             return job__mod_type_del(thing, up, ev_id);
         if (mp_str_eq(&mp_job, "mod_type_mod"))
             return job__mod_type_mod(thing, up);
-        if (mp_str_eq(&mp_job, "mod_type_rel"))
-            return job__mod_type_rel(thing, up);
+        if (mp_str_eq(&mp_job, "mod_type_rel_add"))
+            return job__mod_type_rel_add(thing, up);
+        if (mp_str_eq(&mp_job, "mod_type_rel_del"))
+            return job__mod_type_rel_del(thing, up);
         if (mp_str_eq(&mp_job, "mod_type_ren"))
             return job__mod_type_ren(thing, up);
         if (mp_str_eq(&mp_job, "mod_type_wpo"))

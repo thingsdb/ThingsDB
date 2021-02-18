@@ -1090,7 +1090,7 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_mod_type_rel(
+int ti_task_add_mod_type_rel_add(
         ti_task_t * task,
         ti_type_t * type1,
         ti_name_t * name1,
@@ -1108,7 +1108,7 @@ int ti_task_add_mod_type_rel(
 
     msgpack_pack_map(&pk, 1);
 
-    mp_pack_str(&pk, "mod_type_rel");
+    mp_pack_str(&pk, "mod_type_rel_add");
     msgpack_pack_map(&pk, 5);
 
     mp_pack_str(&pk, "modified_at");
@@ -1125,6 +1125,48 @@ int ti_task_add_mod_type_rel(
 
     mp_pack_str(&pk, "name2");
     mp_pack_strn(&pk, name2->str, name2->n);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_mod_type_rel_del(
+        ti_task_t * task,
+        ti_type_t * type,
+        ti_name_t * name)
+{
+    size_t alloc = 64 + name->n;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_str(&pk, "mod_type_rel_del");
+    msgpack_pack_map(&pk, 3);
+
+    mp_pack_str(&pk, "modified_at");
+    msgpack_pack_uint64(&pk, type->modified_at);
+
+    mp_pack_str(&pk, "type_id");
+    msgpack_pack_uint16(&pk, type->type_id);
+
+    mp_pack_str(&pk, "name");
+    mp_pack_strn(&pk, name->str, name->n);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

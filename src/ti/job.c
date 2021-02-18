@@ -177,6 +177,10 @@ static int job__set(ti_thing_t * thing, mp_unp_t * up)
 
         }
 
+        /*
+         * TODO: what about sets ?
+         */
+
         if (ti_field_make_assignable(field, &val, thing, &e))
         {
             log_critical(
@@ -1290,7 +1294,6 @@ static int job__mod_type_ren(ti_thing_t * thing, mp_unp_t * up)
     {
         if (ti_field_set_name(
                 field,
-                NULL,
                 mp_to.via.str.data,
                 mp_to.via.str.n,
                 &e))

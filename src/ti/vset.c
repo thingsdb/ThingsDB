@@ -185,26 +185,7 @@ int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e)
         }
 
         assert (vset->parent);
-        assert (ti_raw_is_name(vset->key));
 
-        if (vset->flags & TI_VSET_FLAG_RELATION)
-        {
-            /*
-             * TODO: both the type and field lookup might be skipped if we
-             *       change the ->key to ->key_or_field which is most likely
-             *       possible. If we do, then the rename can be simplified
-             *       and conversion from type to thing needs to be changed to
-             *       set the field back to a name. (fndeltype).
-             */
-            ti_type_t * type = ti_types_by_id(
-                    vset->parent->collection->types,
-                    vset->spec);
-            ti_field_t * field = ti_field_by_name(
-                    type,
-                    (ti_name_t *) vset->key);
-
-
-        }
     }
 
     switch((imap_err_t) ti_vset_add(vset, (ti_thing_t *) val))

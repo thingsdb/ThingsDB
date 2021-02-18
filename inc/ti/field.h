@@ -29,7 +29,6 @@ int ti_field_mod(
         ex_t * e);
 int ti_field_set_name(
         ti_field_t * field,
-        vec_t * vars,
         const char * s,
         size_t n,
         ex_t * e);

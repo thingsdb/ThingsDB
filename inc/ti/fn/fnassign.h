@@ -249,7 +249,7 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
                 val->ref += parent_ref > 1;
 
-                if (ti_val_make_assignable(&val, thing, field->name, e))
+                if (ti_val_make_assignable(&val, thing, field, e))
                 {
                     if (parent_ref > 1)
                         ti_val_unsafe_gc_drop(val);

@@ -262,7 +262,7 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
         ti_task_t * task = ti_task_get_task(query->ev, varr->parent);
         if (!task || ti_task_add_splice(
                 task,
-                varr->key,
+                ti_varr_key(varr),
                 varr,
                 (uint32_t) start,
                 (uint32_t) c,
@@ -394,7 +394,7 @@ static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
         ti_task_t * task = ti_task_get_task(query->ev, varr->parent);
         if (!task || ti_task_add_splice(
                 task,
-                varr->key,
+                ti_varr_key(varr),
                 varr,
                 (uint32_t) idx,
                 1,

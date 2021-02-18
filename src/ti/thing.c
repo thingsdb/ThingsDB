@@ -1133,6 +1133,16 @@ void ti_thing_t_to_object(ti_thing_t * thing)
         if (!prop)
             ti_panic("cannot recover from a state between object and instance");
 
+        switch((*val)->tp)
+        {
+        case TI_VAL_ARR:
+            ((ti_varr_t *) *val)->key_ = name;
+            break;
+        case TI_VAL_SET:
+            ((ti_vset_t *) *val)->key_ = name;
+            break;
+        }
+
         ti_incref(name);
         *val = (ti_val_t *) prop;
     }

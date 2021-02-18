@@ -49,6 +49,7 @@
 #include <ti/regex.h>
 #include <ti/restore.h>
 #include <ti/scope.h>
+#include <ti/spec.inline.h>
 #include <ti/task.h>
 #include <ti/thing.inline.h>
 #include <ti/token.h>

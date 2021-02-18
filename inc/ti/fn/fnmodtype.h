@@ -13,7 +13,7 @@ static inline int modtype__unlocked_cb(ti_thing_t * thing, void * UNUSED(arg))
 
 typedef struct
 {
-    ti_name_t * name;
+    ti_field_t * field;
     ti_val_t * dval;
     ti_type_t * type;
     ex_t * e;
@@ -23,7 +23,7 @@ static inline int modtype__addv_cb(ti_thing_t * thing, modtype__addv_t * w)
 {
     if (thing->type_id == w->type->type_id)
     {
-        if (ti_val_make_assignable(&w->dval, thing, w->name, w->e))
+        if (ti_val_make_assignable(&w->dval, thing, w->field, w->e))
             return w->e->nr;
 
         if (vec_push(&thing->items.vec, w->dval))
@@ -128,6 +128,7 @@ static int modtype__add_cb(ti_thing_t * thing, modtype__add_t * w)
 typedef struct
 {
     ti_field_t * field;
+    ti_field_t * true_field;
     ti_closure_t * closure;
     ti_query_t * query;
     ti_val_t * dval;
@@ -155,7 +156,6 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
         ti_field_make_assignable(w->field, &w->query->rval, thing, &ex))
     {
         ti_val_t * val = VEC_get(thing->items.vec, w->field->idx);
-
         if (w->e->nr == 0 && ex.nr)
         {
             ex_set(w->e, EX_OPERATION,
@@ -176,7 +176,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
          * or list will be made.
          */
         if (ti_field_make_assignable(w->field, &val, thing, &ex) &&
-            !ti_val_make_assignable(&w->dval, thing, w->field->name, w->e))
+            !ti_val_make_assignable(&w->dval, thing, w->field, w->e))
         {
             ti_incref(w->dval);
             ti_val_unsafe_drop(vec_set(
@@ -224,6 +224,12 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
         }
     }
 
+    if (ti_spec_is_arr_or_set(w->field->spec))
+    {
+        ti_varr_t * varr_or_vset = VEC_get(thing->items.vec, w->field->idx);
+        varr_or_vset->key_ = w->true_field;
+    }
+
     /* none of the affected things may have a lock, (checked beforehand) */
     assert (~thing->flags & TI_VFLAG_LOCK);
 
@@ -249,7 +255,7 @@ static int modtype__mod_after_cb(ti_thing_t * thing, modtype__mod_t * w)
      * or list will be made.
      */
     if (ti_field_make_assignable(w->field, &val, thing, &ex) &&
-        !ti_val_make_assignable(&w->dval, thing, w->field->name, w->e))
+        !ti_val_make_assignable(&w->dval, thing, w->field, w->e))
     {
         ti_incref(w->dval);
         ti_val_unsafe_drop(vec_set(thing->items.vec, w->dval, w->field->idx));
@@ -485,7 +491,7 @@ static void type__add(
     }
 
     modtype__addv_t addvjob = {
-            .name = field->name,
+            .field = field,
             .dval = dval,
             .type = type,
             .e = e,
@@ -671,6 +677,7 @@ static int type__mod_using_callback(
 
     modtype__mod_t modjob = {
             .field = ti_field_as_new(field, spec_raw, e),
+            .true_field = field,
             .closure = closure,
             .query = query,
             .dval = NULL,
@@ -983,7 +990,6 @@ static void type__ren(
     {
         if (ti_field_set_name(
                 field,
-                query->vars,
                 (const char *) rname->data,
                 rname->n,
                 e))

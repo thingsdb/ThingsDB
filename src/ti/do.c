@@ -1072,7 +1072,7 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     goto fail;
                 }
 
-                ti_val_attach(val, thing, field->name);
+                ti_val_attach(val, thing, field);
                 vec_set(thing->items.vec, val, field->idx);
             }
         }

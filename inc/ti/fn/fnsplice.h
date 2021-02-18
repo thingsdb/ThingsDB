@@ -86,7 +86,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_task_t * task = ti_task_get_task(query->ev, varr->parent);
         if (!task || ti_task_add_splice(
                 task,
-                varr->key,
+                ti_varr_key(varr),
                 varr,
                 (uint32_t) i,
                 (uint32_t) c,

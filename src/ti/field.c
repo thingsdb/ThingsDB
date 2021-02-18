@@ -221,8 +221,6 @@ static ti_val_t * field__dval_set(ti_field_t * field)
     ti_vset_t * vset = ti_vset_create();
     if (vset)
         vset->spec = field->nested_spec;
-    if (field->condition.rel)
-        vset->flags |= TI_VSET_FLAG_RELATION;
 
     return (ti_val_t *) vset;
 }
@@ -988,29 +986,8 @@ done:
     return 0;
 }
 
-static int field__ren_cb(ti_thing_t * thing, ti_field_t * field)
-{
-    if (thing->type_id == field->type->type_id)
-    {
-        ti_val_t * val = VEC_get(thing->items.vec, field->idx);
-        switch((ti_val_enum) val->tp)
-        {
-        case TI_VAL_ARR:
-            ((ti_varr_t *) val)->key = (ti_raw_t *) field->name;
-            break;
-        case TI_VAL_SET:
-            ((ti_vset_t *) val)->key = (ti_raw_t *) field->name;
-            break;
-        default:
-            break;
-        }
-    }
-    return 0;
-}
-
 int ti_field_set_name(
         ti_field_t * field,
-        vec_t * vars,
         const char * s,
         size_t n,
         ex_t * e)
@@ -1043,28 +1020,6 @@ int ti_field_set_name(
 
     ti_name_drop(field->name);
     field->name = name;
-
-    if (ti_spec_is_arr_or_set(field->spec))
-    {
-        (void) imap_walk(
-                field->type->types->collection->things,
-                (imap_cb) field__ren_cb,
-                field);
-        (void) ti_gc_walk(
-                field->type->types->collection->gc,
-                (queue_cb) field__ren_cb,
-                field);
-        /*
-         * Things without an ID must be adjusted too since a thing
-         * may still receive an ID at some later time.
-         */
-        if (vars)
-            (void) ti_query_vars_walk(
-                    vars,
-                    field->type->types->collection,
-                    (imap_cb) field__ren_cb,
-                    field);
-    }
 
     return 0;
 
@@ -1234,11 +1189,8 @@ static int field__vset_assign(
     }
 
 done:
-    if (ti_val_make_assignable((ti_val_t **) vset, parent, field->name, e))
+    if (ti_val_make_assignable((ti_val_t **) vset, parent, field, e))
         return e->nr;
-
-    if (field->condition.rel)
-        (*vset)->flags |= TI_VSET_FLAG_RELATION;
 
     (*vset)->spec = nested_spec;
     return 0;
@@ -1304,7 +1256,7 @@ static int field__varr_assign(
     }
 
 done:
-    if (ti_val_make_assignable((ti_val_t **) varr, parent, field->name, e))
+    if (ti_val_make_assignable((ti_val_t **) varr, parent, field, e))
         return e->nr;
 
     (*varr)->spec = field->nested_spec;
@@ -1983,7 +1935,7 @@ ti_field_t * ti_field_by_strn_e(
 typedef struct
 {
     ti_data_t * data;
-    ti_name_t * name;
+    ti_field_t * field;
     ti_val_t ** vaddr;
     uint64_t event_id;
     uint16_t type_id;
@@ -1996,7 +1948,7 @@ static int field__add(ti_thing_t * thing, field__add_t * w)
         return 0;
 
     /* closure is already unbound, so only a memory exception can occur */
-    if (ti_val_make_assignable(w->vaddr, thing, w->name, &w->e) ||
+    if (ti_val_make_assignable(w->vaddr, thing, w->field, &w->e) ||
         vec_push(&thing->items.vec, *w->vaddr))
         return 1;
 
@@ -2051,7 +2003,7 @@ int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr, uint64_t ev_id)
     int rc;
     field__add_t addjob = {
             .data = field___set_job(field->name, *vaddr),
-            .name = field->name,
+            .field = field,
             .vaddr = vaddr,
             .event_id = ev_id,
             .type_id = field->type->type_id,

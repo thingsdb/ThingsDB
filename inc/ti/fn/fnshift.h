@@ -27,7 +27,7 @@ static int do__f_shift(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_task_t * task = ti_task_get_task(query->ev, varr->parent);
         if (!task || ti_task_add_splice(
                 task,
-                varr->key,
+                ti_varr_key(varr),
                 NULL,
                 0,
                 1,

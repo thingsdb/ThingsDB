@@ -8,13 +8,6 @@ typedef struct ti_vset_s ti_vset_t;
 
 #define VSET(__x)  ((ti_vset_t *) (__x))->imap
 
-enum
-{
-    TI_VSET_FLAG_RELATION    =1<<0,      /* set has a relation with another
-                                             set or type. */
-
-};
-
 #include <ex.h>
 #include <inttypes.h>
 #include <ti/thing.h>
@@ -41,11 +34,12 @@ struct ti_vset_s
     uint32_t ref;
     uint8_t tp;
     uint8_t flags;
-    uint16_t spec;
+    uint16_t spec_;
     imap_t * imap;          /* key: thing_key() / value: *ti_things_t */
     ti_thing_t * parent;    /* without reference,
                                NULL when this is a variable */
-    void * key_;            /* ti_name_t, ti_raw_t or ti_field_t without reference */
+    void * key_;            /* ti_name_t, ti_raw_t or ti_field_t; all  without
+                               reference */
 };
 
 /*
@@ -74,5 +68,13 @@ static inline _Bool ti_vset_eq(ti_vset_t * va, ti_vset_t * vb)
 {
     return imap_eq(va->imap, vb->imap);
 }
+
+static inline void * ti_vset_key(ti_vset_t * vset)
+{
+    return ti_thing_is_object(vset->parent)
+            ? vset->key_
+            : ((ti_field_t *) vset->key_)->name;
+}
+
 
 #endif  /* TI_VSET_H_ */

@@ -882,7 +882,7 @@ ti_val_t * ti_type_dval(ti_type_t * type)
             return NULL;
         }
 
-        ti_val_attach(val, thing, field->name);
+        ti_val_attach(val, thing, field);
 
         VEC_push(thing->items.vec, val);
     }
@@ -920,7 +920,7 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
                     goto failed;
                 }
 
-                ti_val_attach(val, thing, field->name);
+                ti_val_attach(val, thing, field);
             }
             else
             {
@@ -957,7 +957,7 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
 
             val->ref += from->ref > 1;
 
-            if (ti_val_make_assignable(&val, thing, field->name, e))
+            if (ti_val_make_assignable(&val, thing, field, e))
             {
                 if (from->ref > 1)
                     ti_val_unsafe_gc_drop(val);

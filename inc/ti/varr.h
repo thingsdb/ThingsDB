@@ -7,6 +7,7 @@
 #include <ex.h>
 #include <stdint.h>
 #include <ti/varr.t.h>
+#include <ti/thing.h>
 #include <util/vec.h>
 
 ti_varr_t * ti_varr_create(size_t sz);
@@ -74,6 +75,13 @@ static inline int ti_varr_insert(
         ex_set_mem(e);
 
     return e->nr;
+}
+
+static inline void * ti_varr_key(ti_varr_t * varr)
+{
+    return ti_thing_is_object(varr->parent)
+            ? varr->key_
+            : ((ti_field_t *) varr->key_)->name;
 }
 
 #endif  /* TI_VARR_H_ */

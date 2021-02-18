@@ -57,7 +57,7 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_task_t * task = ti_task_get_task(query->ev, varr_dest->parent);
         if (!task || ti_task_add_splice(
                 task,
-                varr_dest->key,
+                ti_varr_key(varr_dest),
                 varr_dest,
                 current_n,
                 0,

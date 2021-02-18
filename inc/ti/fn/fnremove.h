@@ -240,6 +240,7 @@ static int do__f_remove_set(
 
     if (removed->n && vset->parent)
     {
+
         if (vset->parent->id)
         {
             ti_task_t * task = ti_task_get_task(query->ev, vset->parent);
@@ -250,6 +251,20 @@ static int do__f_remove_set(
             {
                 ex_set_mem(e);
                 goto fail2;
+            }
+        }
+
+        if (ti_thing_is_instance(vset->parent))
+        {
+            ti_field_t * field = vset->key_;
+            if (field->condition.rel)
+            {
+                ti_field_t * ofield = field->condition.rel->field;
+                for (vec_each(removed, ti_thing_t, thing))
+                    ofield->condition.rel->del_cb(
+                            ofield,
+                            thing,
+                            vset->parent);
             }
         }
     }

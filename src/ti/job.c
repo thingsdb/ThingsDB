@@ -1605,6 +1605,7 @@ static int job__remove(ti_thing_t * thing, mp_unp_t * up)
     mp_obj_t obj, mp_prop, mp_id;
     ti_thing_t * t;
     size_t i;
+    ti_field_t * field, * ofield = NULL;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
         mp_next(up, &mp_prop) != MP_STR ||
@@ -1637,6 +1638,13 @@ static int job__remove(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
+    if (ti_thing_is_instance(thing))
+    {
+        field = ((ti_vset_t *) val)->key_;
+        if (field->condition.rel)
+            ofield = field->condition.rel->field;
+    }
+
     for (i = obj.via.sz; i--;)
     {
         if (mp_next(up, &mp_id) != MP_U64)
@@ -1659,6 +1667,9 @@ static int job__remove(ti_thing_t * thing, mp_unp_t * up)
                     mp_id.via.u64);
             continue;
         }
+
+        if (ofield)
+            ofield->condition.rel->del_cb(ofield, t, thing);
 
         ti_val_unsafe_drop((ti_val_t *) t);
     }

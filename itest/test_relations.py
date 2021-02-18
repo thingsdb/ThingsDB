@@ -243,6 +243,209 @@ class TestRelations(TestBase):
             'OK';
         '''), 'OK')
 
+    async def test_type_to_set(self, client):
+        await client.query(r'''
+            new_type('A');
+            new_type('B');
+            new_type('C');
+
+            set_type('A', {
+                b: '{B}'
+            });
+
+            set_type('B', {
+                a: 'A?'
+            });
+
+            set_type('C', {
+                c: 'C?',
+                cc: '{C}'
+            });
+
+            mod_type('A', 'rel', 'b', 'a');
+            mod_type('C', 'rel', 'c', 'cc');
+        ''')
+
+        self.assertEqual(await client.query(r'''
+            a1 = A{};
+            a2 = A{};
+            b1 = B{};
+            b2 = B{};
+
+            b1.a = a1;
+            b2.a = a1;
+
+            assert(a1.b.has(b1));
+            assert(a1.b.has(b2));
+            assert(!a2.b.has(b1));
+            assert(!a2.b.has(b2));
+
+            b2.a = a2;
+
+            assert(a1.b.has(b1));
+            assert(!a1.b.has(b2));
+            assert(!a2.b.has(b1));
+            assert(a2.b.has(b2));
+
+            a2.b.add(b1);
+
+            assert(!a1.b.has(b1));
+            assert(!a1.b.has(b2));
+            assert(a2.b.has(b1));
+            assert(a2.b.has(b2));
+
+            'OK';
+        '''), 'OK')
+
+    async def test_set_to_set(self, client):
+        await client.query(r'''
+            new_type('A');
+            new_type('B');
+            new_type('C');
+
+            set_type('A', {
+                b: '{B}'
+            });
+
+            set_type('B', {
+                a: '{A}'
+            });
+
+            set_type('C', {
+                c: '{C}'
+            });
+
+            mod_type('A', 'rel', 'b', 'a');
+            mod_type('C', 'rel', 'c', 'c');
+        ''')
+
+        self.assertEqual(await client.query(r'''
+            a = A{};
+            b = B{};
+            b.a.add(a);
+
+            assert(a.b.has(b));
+            assert(b.a.has(a));
+
+            b.a.remove(a);
+
+            assert(!a.b.has(b));
+            assert(!b.a.has(a));
+
+            'OK';
+        '''), 'OK')
+
+        self.assertEqual(await client.query(r'''
+            c = C{};
+            cc = C{};
+            c.c.add(c);
+            c.c.add(cc);
+
+            assert(c.c.has(c));
+            assert(c.c.has(cc));
+            assert(cc.c.has(c));
+            assert(!cc.c.has(cc));
+
+            c.c.remove(||true);
+
+            assert(!c.c.has(c));
+            assert(!c.c.has(cc));
+            assert(!cc.c.has(c));
+            assert(!cc.c.has(cc));
+
+            'OK';
+        '''), 'OK')
+
+    async def test_set_to_set_multi_node(self, client0):
+        if not self.with_node1():
+            return
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await client0.query(r'''
+            new_type('A');
+            new_type('B');
+            new_type('C');
+
+            set_type('A', {
+                b: '{B}'
+            });
+
+            set_type('B', {
+                a: '{A}'
+            });
+
+            set_type('C', {
+                c: '{C}'
+            });
+
+            mod_type('A', 'rel', 'b', 'a');
+            mod_type('C', 'rel', 'c', 'c');
+        ''')
+
+        self.assertEqual(await client0.query(r'''
+            .a = A{};
+            .b = B{};
+            .b.a.add(.a);
+
+            'OK';
+        '''), 'OK')
+
+        for client in (client0, client1):
+            self.assertEqual(await client.query(r'''
+                assert(.a.b.has(.b));
+                assert(.b.a.has(.a));
+
+                'OK';
+            '''), 'OK')
+
+        self.assertEqual(await client0.query(r'''
+            .b.a.remove(.a);
+
+            'OK';
+        '''), 'OK')
+
+        for client in (client0, client1):
+            self.assertEqual(await client.query(r'''
+                assert(!.a.b.has(.b));
+                assert(!.b.a.has(.a));
+
+                'OK';
+            '''), 'OK')
+
+        self.assertEqual(await client0.query(r'''
+            .c = C{};
+            .cc = C{};
+            .c.c.add(.c);
+            .c.c.add(.cc);
+
+            'OK';
+        '''), 'OK')
+
+        for client in (client0, client1):
+            self.assertEqual(await client.query(r'''
+                assert(.c.c.has(.c));
+                assert(.c.c.has(.cc));
+                assert(.cc.c.has(.c));
+                assert(!.cc.c.has(.cc));
+                'OK';
+            '''), 'OK')
+
+        self.assertEqual(await client0.query(r'''
+            .c.c.remove(||true);
+            'OK';
+        '''), 'OK')
+
+        for client in (client0, client1):
+            self.assertEqual(await client.query(r'''
+                assert(!.c.c.has(.c));
+                assert(!.c.c.has(.cc));
+                assert(!.cc.c.has(.c));
+                assert(!.cc.c.has(.cc));
+
+                'OK';
+            '''), 'OK')
+
     async def test_mod_type_multi_node(self, client0):
         if not self.with_node1():
             return

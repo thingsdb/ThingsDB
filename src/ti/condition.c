@@ -512,7 +512,7 @@ static void condition__del_set_cb(
         ti_thing_t * relation)
 {
     ti_vset_t * vset = VEC_get(thing->items.vec, field->idx);
-    ti_val_unsafe_gc_drop(imap_pop(vset->imap, ti_thing_key(relation)));
+    ti_val_gc_drop(imap_pop(vset->imap, ti_thing_key(relation)));
 }
 
 static void condition__add_set_cb(

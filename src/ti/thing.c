@@ -198,7 +198,6 @@ ti_thing_t * ti_thing_i_create(uint64_t id, ti_collection_t * collection)
     return thing;
 }
 
-
 ti_thing_t * ti_thing_t_create(
         uint64_t id,
         ti_type_t * type,
@@ -257,7 +256,7 @@ void ti_thing_destroy(ti_thing_t * thing)
     else
         vec_destroy(thing->items.vec, ti_thing_is_object(thing)
                 ? (vec_destroy_cb) ti_prop_destroy
-                : (vec_destroy_cb) ti_val_drop);
+                : (vec_destroy_cb) ti_val_unassign_drop);
 
     vec_destroy(thing->watchers, (vec_destroy_cb) ti_watch_drop);
     free(thing);

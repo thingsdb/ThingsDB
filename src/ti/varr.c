@@ -33,7 +33,6 @@ static int varr__to_tuple(ti_varr_t ** varr)
     tuple->ref = 1;
     tuple->tp = TI_VAL_ARR;
     tuple->flags = TI_VARR_FLAG_TUPLE | ((*varr)->flags & TI_VARR_FLAG_MHT);
-    tuple->spec = (*varr)->spec;  /* no harm to set `spec`, but useless */
     tuple->vec = vec_dup((*varr)->vec);
     /*
      * Note that `tuple` is allocation as a tuple but is casted as type `varr`
@@ -65,7 +64,6 @@ ti_varr_t * ti_varr_create(size_t sz)
     varr->ref = 1;
     varr->tp = TI_VAL_ARR;
     varr->flags = 0;
-    varr->spec = TI_SPEC_ANY;
     varr->parent = NULL;
 
     varr->vec = vec_new(sz);
@@ -87,7 +85,6 @@ ti_varr_t * ti_varr_from_vec(vec_t * vec)
     varr->ref = 1;
     varr->tp = TI_VAL_ARR;
     varr->flags = 0;
-    varr->spec = TI_SPEC_ANY;
     varr->vec = vec;
     varr->parent = NULL;
     return varr;
@@ -108,7 +105,6 @@ ti_varr_t * ti_varr_from_slice(
     varr->ref = 1;
     varr->tp = TI_VAL_ARR;
     varr->flags = 0;
-    varr->spec = source->spec;
     varr->parent = NULL;
 
     /*
@@ -147,7 +143,7 @@ int ti_varr_val_prepare(ti_varr_t * to, void ** v, ex_t * e)
 {
     assert (ti_varr_is_list(to));  /* `to` must be a list */
 
-    switch (ti_spec_check_nested_val(to->spec, (ti_val_t *) *v))
+    switch (ti_spec_check_nested_val(ti_varr_spec(to), (ti_val_t *) *v))
     {
     case TI_SPEC_RVAL_SUCCESS:
         break;
@@ -245,7 +241,6 @@ int ti_varr_to_list(ti_varr_t ** varr)
     list->ref = 1;
     list->tp = TI_VAL_ARR;
     list->flags = (*varr)->flags & TI_VARR_FLAG_MHT;
-    list->spec = (*varr)->spec;
     list->vec = vec_dup((*varr)->vec);
     list->parent = NULL;
 

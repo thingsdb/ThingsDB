@@ -34,7 +34,7 @@ struct ti_vset_s
     uint32_t ref;
     uint8_t tp;
     uint8_t flags;
-    uint16_t spec_;
+    uint16_t pad0;
     imap_t * imap;          /* key: thing_key() / value: *ti_things_t */
     ti_thing_t * parent;    /* without reference,
                                NULL when this is a variable */
@@ -76,5 +76,18 @@ static inline void * ti_vset_key(ti_vset_t * vset)
             : ((ti_field_t *) vset->key_)->name;
 }
 
+static inline uint16_t ti_vset_unsafe_spec(ti_vset_t * vset)
+{
+    return ti_thing_is_object(vset->parent)
+            ? TI_SPEC_ANY
+            : ((ti_field_t *) vset->key_)->nested_spec;
+}
+
+static inline uint16_t ti_vset_spec(ti_vset_t * vset)
+{
+    return !vset->parent || ti_thing_is_object(vset->parent)
+            ? TI_SPEC_ANY
+            : ((ti_field_t *) vset->key_)->nested_spec;
+}
 
 #endif  /* TI_VSET_H_ */

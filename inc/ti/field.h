@@ -25,7 +25,6 @@ int ti_field_mod_force(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e);
 int ti_field_mod(
         ti_field_t * field,
         ti_raw_t * spec_raw,
-        vec_t * vars,
         ex_t * e);
 int ti_field_set_name(
         ti_field_t * field,

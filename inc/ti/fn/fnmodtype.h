@@ -705,11 +705,7 @@ static int type__mod_using_callback(
         goto fail4;
     }
 
-    if (ti_field_mod(
-            field,
-            (ti_raw_t *) ti_val_borrow_any_str(),
-            query->vars,
-            e))
+    if (ti_field_mod(field, (ti_raw_t *) ti_val_borrow_any_str(), e))
         goto fail4;
 
     /* From now on it is critical and we should panic */
@@ -882,7 +878,7 @@ static void type__mod(
         {
             ti_task_t * task;
 
-            if (ti_field_mod(field, spec_raw, query->vars, e))
+            if (ti_field_mod(field, spec_raw, e))
                 goto fail;
 
             task = ti_task_get_task(query->ev, query->collection->root);

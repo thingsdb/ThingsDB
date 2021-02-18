@@ -207,22 +207,14 @@ static ti_val_t * field__dval_nil(ti_field_t * UNUSED(field))
     return (ti_val_t *) ti_nil_get();
 }
 
-static ti_val_t * field__dval_arr(ti_field_t * field)
+static ti_val_t * field__dval_arr(ti_field_t * UNUSED(field))
 {
-     ti_varr_t * varr = ti_varr_create(0);
-     if (varr)
-         varr->spec = field->nested_spec;
-
-     return (ti_val_t *) varr;
+     return (ti_val_t *) ti_varr_create(0);
 }
 
-static ti_val_t * field__dval_set(ti_field_t * field)
+static ti_val_t * field__dval_set(ti_field_t * UNUSED(field))
 {
-    ti_vset_t * vset = ti_vset_create();
-    if (vset)
-        vset->spec = field->nested_spec;
-
-    return (ti_val_t *) vset;
+    return (ti_val_t *) ti_vset_create();;
 }
 
 static ti_val_t * field__dval_thing(ti_field_t * field)
@@ -649,8 +641,8 @@ found:
                 DOC_T_TYPE,
                 field->name->str, field->type->name,
                 ti__spec_approx_type_str(field->nested_spec));
-        else if (field->nested_spec == TI_SPEC_ANY)
-            field->nested_spec = TI_SPEC_OBJECT;
+        else if (field->nested_spec == TI_SPEC_OBJECT)
+            field->nested_spec = TI_SPEC_ANY;
     }
 
     assert (field->dval_cb);  /* callback must have been set */
@@ -741,47 +733,6 @@ typedef struct
     ex_t e;
 } field__mod_t;
 
-static int field__mod_nested_cb(ti_thing_t * thing, ti_field_t * field)
-{
-    if (thing->type_id == field->type->type_id)
-    {
-        ti_val_t * val = VEC_get(thing->items.vec, field->idx);
-
-        switch ((ti_val_enum) val->tp)
-        {
-        case TI_VAL_NIL:
-            return 0;
-        case TI_VAL_INT:
-        case TI_VAL_FLOAT:
-        case TI_VAL_BOOL:
-        case TI_VAL_DATETIME:
-        case TI_VAL_MP:
-        case TI_VAL_NAME:
-        case TI_VAL_STR:
-        case TI_VAL_BYTES:
-        case TI_VAL_REGEX:
-        case TI_VAL_THING:
-        case TI_VAL_WRAP:
-            assert(0);
-            return 0;
-        case TI_VAL_ARR:
-            ((ti_varr_t *) val)->spec = field->nested_spec;
-            return 0;
-        case TI_VAL_SET:
-            ((ti_vset_t *) val)->spec = field->nested_spec;
-            return 0;
-        case TI_VAL_CLOSURE:
-        case TI_VAL_ERROR:
-        case TI_VAL_MEMBER:
-        case TI_VAL_FUTURE:
-        case TI_VAL_TEMPLATE:
-            assert(0);
-            return 0;
-        }
-    }
-    return 0;
-}
-
 ti_field_t * ti_field_as_new(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e)
 {
     ti_field_t * new_field = malloc(sizeof(ti_field_t));
@@ -849,19 +800,6 @@ int ti_field_mod_force(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e)
     if (field__init(field, e))
         goto undo;
 
-    if (!ti_type_is_wrap_only(field->type) &&
-        prev_nested_spec != field->nested_spec)
-    {
-        (void) imap_walk(
-            field->type->types->collection->things,
-            (imap_cb) field__mod_nested_cb,
-            field);
-        (void) ti_gc_walk(
-            field->type->types->collection->gc,
-            (queue_cb) field__mod_nested_cb,
-            field);
-    }
-
     ti_incref(spec_raw);
     ti_val_unsafe_drop((ti_val_t *) prev_spec_raw);
     ti_condition_destroy(prev_condition, prev_spec);
@@ -880,7 +818,6 @@ undo:
 int ti_field_mod(
         ti_field_t * field,
         ti_raw_t * spec_raw,
-        vec_t * vars,
         ex_t * e)
 {
     ti_raw_t * prev_spec_raw = field->spec_raw;
@@ -903,7 +840,7 @@ int ti_field_mod(
             prev_condition,
             field->condition))
     {
-    case TI_SPEC_MOD_SUCCESS:           goto success;
+    case TI_SPEC_MOD_SUCCESS:           goto done;
     case TI_SPEC_MOD_ERR:               goto incompatible;
     case TI_SPEC_MOD_NILLABLE_ERR:      goto nillable;
     case TI_SPEC_MOD_NESTED:
@@ -913,7 +850,7 @@ int ti_field_mod(
                 prev_condition,
                 field->condition))
         {
-        case TI_SPEC_MOD_SUCCESS:           goto success;
+        case TI_SPEC_MOD_SUCCESS:           goto done;
         case TI_SPEC_MOD_ERR:               goto incompatible;
         case TI_SPEC_MOD_NILLABLE_ERR:      goto nillable;
         case TI_SPEC_MOD_NESTED:            goto incompatible;
@@ -954,31 +891,6 @@ undo:
 
     return e->nr;
 
-success:
-    if (prev_nested_spec != field->nested_spec)
-    {
-        /* check for variable to update, val_cache is not required
-         * since only things with an id are store in cache
-         */
-        if (vars && ti_query_vars_walk(
-                vars,
-                field->type->types->collection,
-                (imap_cb) field__mod_nested_cb,
-                field))
-        {
-            ex_set_mem(e);
-            goto undo_dep;
-        }
-
-        (void) imap_walk(
-            field->type->types->collection->things,
-            (imap_cb) field__mod_nested_cb,
-            field);
-        (void) ti_gc_walk(
-            field->type->types->collection->gc,
-            (queue_cb) field__mod_nested_cb,
-            field);
-    }
 done:
     ti_incref(spec_raw);
     ti_val_unsafe_drop((ti_val_t *) prev_spec_raw);
@@ -1171,7 +1083,7 @@ static int field__vset_assign(
             : field->nested_spec;
 
     if (nested_spec == TI_SPEC_OBJECT ||
-        nested_spec == (*vset)->spec ||
+        nested_spec == ti_vset_spec(*vset) ||
         (*vset)->imap->n == 0)
         goto done;
 
@@ -1189,11 +1101,7 @@ static int field__vset_assign(
     }
 
 done:
-    if (ti_val_make_assignable((ti_val_t **) vset, parent, field, e))
-        return e->nr;
-
-    (*vset)->spec = nested_spec;
-    return 0;
+    return ti_val_make_assignable((ti_val_t **) vset, parent, field, e);
 }
 
 static int field__varr_assign(
@@ -1204,7 +1112,7 @@ static int field__varr_assign(
 {
     if (field->nested_spec == TI_SPEC_ANY ||
         (*varr)->vec->n == 0 ||
-        (*varr)->spec == field->nested_spec)
+        field->nested_spec == ti_varr_spec(*varr))
         goto done;
 
     for (vec_each((*varr)->vec, ti_val_t, val))
@@ -1256,18 +1164,14 @@ static int field__varr_assign(
     }
 
 done:
-    if (ti_val_make_assignable((ti_val_t **) varr, parent, field, e))
-        return e->nr;
-
-    (*varr)->spec = field->nested_spec;
-    return 0;
+    return ti_val_make_assignable((ti_val_t **) varr, parent, field, e);
 }
 
 static _Bool field__maps_arr_to_arr(ti_field_t * field, ti_varr_t * varr)
 {
     if (field->nested_spec == TI_SPEC_ANY ||
         varr->vec->n == 0 ||
-        varr->spec == field->nested_spec)
+        field->nested_spec == ti_varr_spec(varr))
         return true;
 
     for (vec_each(varr->vec, ti_val_t, val))
@@ -1717,7 +1621,7 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_ANY:
         return true;       /* already checked */
     case TI_SPEC_OBJECT:
-        return f_spec < TI_SPEC_ANY;
+        return  f_spec < TI_SPEC_ANY || ti_spec_is_set(f_field->spec);
     case TI_SPEC_RAW:
         return (f_spec == TI_SPEC_STR ||
                 f_spec == TI_SPEC_UTF8 ||
@@ -1755,7 +1659,9 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
 
     assert (t_spec < TI_SPEC_ANY);  /* enumerators are already checked */
 
-    return f_spec < TI_SPEC_ANY || f_spec == TI_SPEC_OBJECT;
+    return f_spec < TI_SPEC_ANY ||
+           f_spec == TI_SPEC_OBJECT ||
+           ti_spec_is_set(f_field->spec);
 }
 
 _Bool field__maps_with_condition(ti_field_t * t_field, ti_field_t * f_field)

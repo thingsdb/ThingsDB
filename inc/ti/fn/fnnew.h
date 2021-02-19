@@ -2,7 +2,7 @@
 
 static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     int lock_was_set;
     ti_type_t * type;
     ti_thing_t * new_thing, * from_thing;

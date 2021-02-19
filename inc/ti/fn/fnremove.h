@@ -2,7 +2,7 @@
 
 static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     size_t idx = 0;
     ti_closure_t * closure;
     ti_varr_t * varr;
@@ -163,7 +163,7 @@ static int do__f_remove_set(
         ex_t * e)
 {
     vec_t * removed = NULL;
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_vset_t * vset;
 
     if (fn_nargs_min("remove", DOC_SET_REMOVE, 1, nargs, e) ||

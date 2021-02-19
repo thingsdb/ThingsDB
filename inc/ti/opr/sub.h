@@ -63,7 +63,7 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
          * in `a`, therefore a "shortcut" can be made if this is an in-place
          * modification or if `a` is not used  anymore.
          */
-        if (inplace || a->ref == 1)
+        if (!ti_vset_has_relation((ti_vset_t *) a) && (inplace || a->ref == 1))
         {
             imap_difference_inplace(VSET(a), VSET(*b));
             ti_val_unsafe_drop(*b);

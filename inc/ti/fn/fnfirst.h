@@ -2,7 +2,7 @@
 
 static int do__f_first(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_varr_t * varr;
 
     if (!ti_val_is_array(query->rval))

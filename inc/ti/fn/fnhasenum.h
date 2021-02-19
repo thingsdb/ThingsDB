@@ -4,7 +4,7 @@ static int do__f_has_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     ti_raw_t * rname;
     _Bool has_enum;
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
 
     if (fn_not_collection_scope("has_enum", query, e) ||
         fn_nargs("has_enum", DOC_HAS_ENUM, 1, nargs, e) ||

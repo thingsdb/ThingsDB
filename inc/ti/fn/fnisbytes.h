@@ -2,7 +2,7 @@
 
 static int do__f_is_bytes(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     _Bool is_bytes;
 
     if (fn_nargs("is_bytes", DOC_IS_BYTES, 1, nargs, e) ||

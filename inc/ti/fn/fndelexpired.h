@@ -2,7 +2,7 @@
 
 static int do__f_del_expired(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     uint64_t after_ts;
     ti_task_t * task;
 

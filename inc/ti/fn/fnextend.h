@@ -2,7 +2,7 @@
 
 static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     uint32_t current_n, source_n;
     ti_varr_t * varr_dest, * varr_source;
 

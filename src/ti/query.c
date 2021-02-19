@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <doc.h>
 #include <errno.h>
-#include <langdef/nd.h>
 #include <langdef/translate.h>
 #include <stdlib.h>
 #include <string.h>

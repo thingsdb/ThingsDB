@@ -2,7 +2,7 @@
 
 static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     int rc;
     ti_raw_t * raw;
     ti_task_t * task;

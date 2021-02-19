@@ -5,7 +5,7 @@ static int test__deprecated_on_string(
         cleri_node_t * nd,
         ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_raw_t * raw;
     _Bool has_match;
 
@@ -43,7 +43,7 @@ failed:
 
 static int do__f_test(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_regex_t * regex;
     _Bool has_match;
 

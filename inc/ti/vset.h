@@ -90,4 +90,11 @@ static inline uint16_t ti_vset_spec(ti_vset_t * vset)
             : ((ti_field_t *) vset->key_)->nested_spec;
 }
 
+static inline _Bool ti_vset_has_relation(ti_vset_t * vset)
+{
+    return vset->parent &&
+            ti_thing_is_instance(vset->parent) &&
+            ((ti_field_t *) vset->key_)->condition.rel;
+}
+
 #endif  /* TI_VSET_H_ */

@@ -1099,6 +1099,148 @@ class TestRelations(TestBase):
                 'OK';
             '''), 'OK')
 
+    async def test_multi_node_replace_val(self, client0):
+        if not self.with_node1():
+            return
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await client0.query(r'''
+            new_type('A');
+            new_type('B');
+
+            set_type('A', {
+                b: 'B?'
+            });
+
+            set_type('B', {
+                aa: '{A}'
+            });
+
+            mod_type('A', 'rel', 'b', 'aa');
+        ''')
+
+        await client0.query(r'''
+            .a1 = A{};
+            .a2 = A{};
+            .a3 = A{};
+            .a4 = A{};
+
+            .b1 = B{};
+            .b2 = B{};
+
+            .a1.b = .b1;
+            .b1.aa = set(.a2, .a3);
+            .b2.aa |= set(.a3, .a4);
+            .a4.b = nil;
+        ''')
+
+        await asyncio.sleep(0.2)
+
+        for client in (client0, client1):
+            self.assertEqual(await client.query(r'''
+                assert (.a1.b == nil);
+                assert (.a2.b == .b1);
+                assert (.a3.b == .b2);
+                assert (.a4.b == nil);
+                assert (.b2.aa.has(.a3));
+                assert (.b1.aa.len() == 1);
+                assert (.b2.aa.has(.a3));
+                assert (.b2.aa.len() == 1);
+
+                'OK';
+            '''), 'OK')
+
+    async def test_set_operations(self, client0):
+        if not self.with_node1():
+            return
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await client0.query(r'''
+            new_type('A');
+            new_type('B');
+
+            set_type('A', {
+                a: 'A?',
+                aa: '{A}',
+                bb: '{B}',
+            });
+
+            set_type('B', {
+                aa: '{A}'
+            });
+
+            mod_type('A', 'rel', 'a', 'aa');
+            mod_type('A', 'rel', 'bb', 'aa');
+        ''')
+
+        self.assertEqual(await client0.query(r'''
+            .a1 = A{};
+            .a2 = A{};
+            .a3 = A{};
+            .a4 = A{};
+
+            .b1 = B{};
+            .b2 = B{};
+
+            .b1.aa.add(.a1, .a2, .a3);
+
+            assert (.a1.bb == set(.b1));
+            assert (.a2.bb == set(.b1));
+            assert (.a3.bb == set(.b1));
+
+            .b1.aa = set(.a2, .a3);
+
+            assert (.a1.bb == set());
+            assert (.a2.bb == set(.b1));
+            assert (.a3.bb == set(.b1));
+
+            .b1.aa |= set(.a3, .a4);
+
+            assert (.a1.bb == set());
+            assert (.a2.bb == set(.b1));
+            assert (.a3.bb == set(.b1));
+            assert (.a3.bb == set(.b1));
+
+            .b1.aa ^= set(.a1, .a3, .a4);
+            assert (.a1.bb == set(.b1));
+            assert (.a2.bb == set(.b1));
+            assert (.a3.bb == set());
+            assert (.a4.bb == set());
+
+            .a1.aa |= set(.a1, .a2);
+            assert (.a1.a == .a1);
+            assert (.a2.a == .a1);
+            assert (.a1.aa == set(.a1, .a2));
+            assert (.a2.aa == set());
+
+            .a2.aa |= set(.a1, .a2);
+            assert (.a1.a == .a2);
+            assert (.a2.a == .a2);
+            assert (.a1.aa == set());
+            assert (.a2.aa == set(.a1, .a2));
+
+            'OK';
+        '''), 'OK')
+
+        await asyncio.sleep(0.2)
+
+        for client in (client0, client1):
+            self.assertEqual(await client.query(r'''
+                assert (.a1.bb == set(.b1));
+                assert (.a2.bb == set(.b1));
+                assert (.a3.bb == set());
+                assert (.a4.bb == set());
+
+                assert (.a1.a == .a2);
+                assert (.a2.a == .a2);
+                assert (.a1.aa == set());
+                assert (.a2.aa == set(.a1, .a2));
+
+                'OK';
+            '''), 'OK')
+
 
 if __name__ == '__main__':
     run_test(TestRelations())

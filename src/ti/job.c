@@ -177,10 +177,6 @@ static int job__set(ti_thing_t * thing, mp_unp_t * up)
 
         }
 
-        /*
-         * TODO: what about sets ?
-         */
-
         if (ti_field_make_assignable(field, &val, thing, &e))
         {
             log_critical(

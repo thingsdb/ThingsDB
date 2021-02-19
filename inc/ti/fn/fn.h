@@ -9,7 +9,6 @@
 #include <doc.h>
 #include <doc.inline.h>
 #include <langdef/langdef.h>
-#include <langdef/nd.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -89,6 +88,11 @@ int fn_arg_str_slow(
         int argn,
         ti_val_t * val,
         ex_t * e);
+
+static inline int fn_get_nargs(cleri_node_t * nd)
+{
+    return (int) ((intptr_t) nd->data);
+}
 
 static inline int fn_not_node_scope(
         const char * name,

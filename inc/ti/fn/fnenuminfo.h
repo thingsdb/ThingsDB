@@ -2,7 +2,7 @@
 
 static int do__f_enum_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_enum_t * enum_;
 
     if (fn_not_collection_scope("enum_info", query, e) ||

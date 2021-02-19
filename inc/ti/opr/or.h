@@ -35,7 +35,9 @@ static int opr__or(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
          * and this is an in-place modification of `a`, or `a` is also not
          * used anymore.
          */
-        if ((inplace || a->ref == 1) && (*b)->ref == 1)
+        if (!ti_vset_has_relation((ti_vset_t *) a) &&
+            (inplace || a->ref == 1) &&
+            (*b)->ref == 1)
         {
             imap_union_move(VSET(a), VSET(*b));
             ti_val_unsafe_drop(*b);

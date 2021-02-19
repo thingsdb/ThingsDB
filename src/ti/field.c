@@ -1067,6 +1067,45 @@ static inline int field__walk_assign(ti_thing_t * thing, ti_field_t * field)
     return thing->type_id != field->nested_spec;
 }
 
+typedef struct
+{
+    ti_field_t * field;
+    ti_thing_t * relation;
+    imap_t * imap;
+} field__walk_set_t;
+
+static int field__walk_unset_cb(ti_thing_t * thing, field__walk_set_t * w)
+{
+    if (!imap_get(w->imap, ti_thing_key(thing)))
+        w->field->condition.rel->del_cb(w->field, thing, w->relation);
+
+    return 0;
+}
+
+static int field__walk_set_cb(ti_thing_t * thing, field__walk_set_t * w)
+{
+    w->field->condition.rel->add_cb(w->field, thing, w->relation);
+    return 0;
+}
+
+static int field__walk_tset_cb(ti_thing_t * thing, field__walk_set_t * w)
+{
+    ti_thing_t * other;
+
+    if (imap_get(w->imap, ti_thing_key(thing)))
+        return 0;
+
+    other = VEC_get(thing->items.vec, w->field->idx);
+    if (other->tp == TI_VAL_THING)
+    {
+        ti_field_t * ofield = w->field->condition.rel->field;
+        ofield->condition.rel->del_cb(ofield, other, thing);
+    }
+
+    w->field->condition.rel->add_cb(w->field, thing, w->relation);
+    return 0;
+}
+
 static int field__vset_assign(
         ti_field_t * field,
         ti_vset_t ** vset,
@@ -1078,12 +1117,10 @@ static int field__vset_assign(
      * In case of `any`, we have to make sure the specification will be
      * OBJECT, not ANY.
      */
-    uint16_t nested_spec = field->nested_spec == TI_SPEC_ANY
-            ? TI_SPEC_OBJECT
-            : field->nested_spec;
+    ti_vset_t * oset;
 
-    if (nested_spec == TI_SPEC_OBJECT ||
-        nested_spec == ti_vset_spec(*vset) ||
+    if (field->nested_spec == TI_SPEC_ANY ||
+        field->nested_spec == ti_vset_spec(*vset) ||
         (*vset)->imap->n == 0)
         goto done;
 
@@ -1101,7 +1138,27 @@ static int field__vset_assign(
     }
 
 done:
-    return ti_val_make_assignable((ti_val_t **) vset, parent, field, e);
+    if (ti_val_make_assignable((ti_val_t **) vset, parent, field, e))
+        return e->nr;
+
+    if (field->condition.rel &&
+        (oset = vec_get(parent->items.vec, field->idx)))
+    {
+        field__walk_set_t w = {
+                .field = field->condition.rel->field,
+                .relation = parent,
+                .imap = oset->imap,
+        };
+
+        imap_walk((*vset)->imap, w.field->spec == TI_SPEC_SET
+                ? (imap_cb) field__walk_set_cb
+                : (imap_cb) field__walk_tset_cb, &w);
+
+        w.imap = (*vset)->imap;
+
+        (void) imap_walk(oset->imap, (imap_cb) field__walk_unset_cb, &w);
+    }
+    return 0;
 }
 
 static int field__varr_assign(
@@ -1111,8 +1168,8 @@ static int field__varr_assign(
         ex_t * e)
 {
     if (field->nested_spec == TI_SPEC_ANY ||
-        (*varr)->vec->n == 0 ||
-        field->nested_spec == ti_varr_spec(*varr))
+        field->nested_spec == ti_varr_spec(*varr) ||
+        (*varr)->vec->n == 0)
         goto done;
 
     for (vec_each((*varr)->vec, ti_val_t, val))
@@ -1354,7 +1411,6 @@ int ti_field_make_assignable(
         if (ti_val_is_set(*val))
             return field__vset_assign(field, (ti_vset_t **) val, parent, e);
         goto type_error;
-
     case TI_SPEC_REMATCH:
         if (!ti_val_is_str(*val))
             goto type_error;

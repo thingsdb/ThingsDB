@@ -2,7 +2,7 @@
 
 static int do__f_find_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     size_t idx = 0;
     ti_varr_t * varr;
     ti_closure_t * closure;

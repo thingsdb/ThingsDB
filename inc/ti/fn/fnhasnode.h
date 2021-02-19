@@ -3,7 +3,7 @@
 static int do__f_has_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     int64_t node_id;
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
 
     if (fn_not_thingsdb_scope("has_node", query, e) ||
         fn_nargs("has_node", DOC_HAS_NODE, 1, nargs, e) ||

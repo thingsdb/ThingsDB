@@ -57,7 +57,7 @@ static int filter__walk_i(ti_item_t * item, filter__walk_i_t * w)
 static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const char * doc;
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_val_t * retval = NULL;
     ti_closure_t * closure;
     ti_val_t * iterval;

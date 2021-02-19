@@ -2,7 +2,7 @@
 
 static int do__f_set_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
 
     if (nargs == 1 && nd->children->next == NULL)
     {
@@ -51,7 +51,7 @@ static int do__f_set_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int do__f_set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_witem_t witem;
     ti_thing_t * thing;
     ti_raw_t * rname;

@@ -12,7 +12,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_list(query->rval))
         return fn_call_try("splice", query, nd, e);
 
-    n = langdef_nd_n_function_params(nd);
+    n = fn_get_nargs(nd);
     if (fn_nargs_min("splice", DOC_LIST_SPLICE, 2, n, e) ||
         ti_val_try_lock(query->rval, e))
         return e->nr;

@@ -2,7 +2,7 @@
 
 static int do__f_type_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_val_t * type_str;
     cleri_children_t * child = nd->children;    /* first in argument list */
 

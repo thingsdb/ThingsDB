@@ -12,7 +12,7 @@ static int fn__datetime(
     cleri_children_t * child = nd->children;
     int64_t i;
 
-    assert (langdef_nd_n_function_params(nd) >= 3);
+    assert (fn_get_nargs(nd) >= 3);
 
     memset(&tm, 0, sizeof(struct tm));
 
@@ -288,7 +288,7 @@ static int do__datetime(
         cleri_node_t * nd,
         ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_tz_t * tz = query->collection ? query->collection->tz : ti_tz_utc();
 
     if (fn_nargs_max(fname, doc, 7, nargs, e))

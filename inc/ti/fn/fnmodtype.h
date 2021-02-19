@@ -331,7 +331,7 @@ static void type__add(
     ti_field_t * field = ti_field_by_name(type, name);
     ti_method_t * method = field ? NULL : ti_method_by_name(type, name);
     ti_closure_t * closure;
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
 
     if (fn_nargs_range(fnname, DOC_MOD_TYPE_ADD, 4, 5, nargs, e))
         return;
@@ -588,7 +588,7 @@ static void type__del(
         ex_t * e)
 {
     static const char * fnname = "mod_type` with task `del";
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_field_t * field = ti_field_by_name(type, name);
     ti_method_t * method = field ? NULL : ti_method_by_name(type, name);
     ti_task_t * task;
@@ -780,7 +780,7 @@ static void type__mod(
         ex_t * e)
 {
     static const char * fnname = "mod_type` with task `mod";
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_field_t * field = ti_field_by_name(type, name);
     ti_method_t * method = field ? NULL : ti_method_by_name(type, name);
 
@@ -936,7 +936,7 @@ static void type__ren(
         ex_t * e)
 {
     static const char * fnname = "mod_type` with task `ren";
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_field_t * field = ti_field_by_name(type, name);
     ti_method_t * method = field ? NULL : ti_method_by_name(type, name);
     ti_task_t * task;
@@ -1208,7 +1208,7 @@ static void type__rel(
         ex_t * e)
 {
     static const char * fnname = "mod_type` with task `rel";
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_field_t * field = ti_field_by_name(type, name);
 
     if (fn_nargs(fnname, DOC_MOD_TYPE_REL, 4, nargs, e))
@@ -1261,7 +1261,7 @@ static void type__wpo(
         ex_t * e)
 {
     static const char * fnname = "mod_type` with task `wpo";
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     _Bool wrap_only;
     ti_task_t * task;
     ssize_t n;
@@ -1325,7 +1325,7 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * rmod;
     ti_name_t * name = NULL;
     cleri_children_t * child = nd->children;
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
 
     if (fn_not_collection_scope("mod_type", query, e) ||
         fn_nargs_min("mod_type", DOC_MOD_TYPE, 3, nargs, e) ||

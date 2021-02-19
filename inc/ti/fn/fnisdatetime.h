@@ -2,7 +2,7 @@
 
 static int do__f_is_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     _Bool is_datetime;
 
     if (fn_nargs("is_datetime", DOC_IS_DATETIME, 1, nargs, e) ||

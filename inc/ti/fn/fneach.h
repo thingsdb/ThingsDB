@@ -30,7 +30,7 @@ static int each__walk_i(ti_item_t * item, each__walk_t * w)
 static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const char * doc;
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_closure_t * closure;
     ti_val_t * iterval;
     int lock_was_set;

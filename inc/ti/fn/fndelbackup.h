@@ -3,7 +3,7 @@
 static int do__f_del_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     int64_t backup_id;
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     _Bool delete_files = false;
 
     if (fn_not_node_scope("del_backup", query, e) ||

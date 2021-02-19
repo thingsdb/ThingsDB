@@ -57,7 +57,7 @@ static int assign__walk_i(ti_item_t * item, assign__walk_i_t * w)
 
 static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     cleri_node_t * name_nd;
     ti_task_t * task = NULL;
     ti_thing_t * thing, * tsrc;

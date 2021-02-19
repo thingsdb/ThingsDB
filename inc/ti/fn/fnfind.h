@@ -35,7 +35,7 @@ static int find__walk_set(ti_thing_t * t, find__walk_t * w)
 static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const char * doc;
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     int64_t idx = 0;
     ti_closure_t * closure;
     ti_val_t * iterval;

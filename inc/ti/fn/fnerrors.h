@@ -8,7 +8,7 @@ static int do__make_err(
         const char * fn_name,
         const char * fn_doc)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_raw_t * msg;
     ti_verror_t * verror;
 

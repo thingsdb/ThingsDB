@@ -7,7 +7,7 @@ static void enum__add(
         cleri_node_t * nd,
         ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
 
     static const char * fnname = "mod_enum` with task `add";
     cleri_children_t * child;
@@ -55,7 +55,7 @@ static void enum__def(
         cleri_node_t * nd,
         ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
 
     static const char * fnname = "mod_enum` with task `def";
     ti_member_t * member = ti_enum_member_by_strn(enum_, name->str, name->n);
@@ -102,7 +102,7 @@ static void enum__del(
         cleri_node_t * nd,
         ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     static const char * fnname = "mod_enum` with task `del";
     ti_member_t * member = ti_enum_member_by_strn(enum_, name->str, name->n);
     ti_task_t * task;
@@ -157,7 +157,7 @@ static void enum__mod(
         cleri_node_t * nd,
         ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     static const char * fnname = "mod_enum` with task `mod";
     cleri_children_t * child;
     ti_member_t * member = ti_enum_member_by_strn(enum_, name->str, name->n);
@@ -206,7 +206,7 @@ static void enum__ren(
         cleri_node_t * nd,
         ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     static const char * fnname = "mod_enum` with task `ren";
     cleri_children_t * child;
     ti_member_t * member = ti_enum_member_by_strn(enum_, name->str, name->n);
@@ -258,7 +258,7 @@ static int do__f_mod_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_name_t * name;
     ti_raw_t * rmod;
     cleri_children_t * child = nd->children;
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
 
     if (fn_not_collection_scope("mod_enum", query, e) ||
         fn_nargs_min("mod_enum", DOC_MOD_ENUM, 3, nargs, e) ||

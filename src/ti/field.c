@@ -2082,14 +2082,9 @@ int ti_field_relation_check(
                 vars,
                 collection,
                 (imap_cb) field__type_rel_chk_cb,
-                &w))
-        {
-            if (!e->nr)
-                ex_set_mem(e);
-            return e->nr;
-        }
-
-        return 0;
+                &w) && !e->nr)
+            ex_set_mem(e);
+        return e->nr;
     }
 
     if (field->spec == TI_SPEC_SET)
@@ -2122,7 +2117,6 @@ int ti_field_relation_check(
     imap_destroy(w.collect, NULL);
     return e->nr;
 }
-
 
 typedef struct
 {
@@ -2167,6 +2161,46 @@ static int field__rel_set_cb(ti_thing_t * thing, field__rel_t * w)
     return 0;
 }
 
+static int field__rel_type_cb(ti_thing_t * thing, field__rel_t * w)
+{
+    if (thing->type_id == w->field->type->type_id)
+    {
+        ti_thing_t * relation = VEC_get(thing->items.vec, w->field->idx);
+        if (relation->tp == TI_VAL_THING)
+            w->ofield->condition.rel->add_cb(w->ofield, relation, thing);
+        return 0;
+    }
+
+    if (thing->type_id == w->ofield->type->type_id)
+    {
+        ti_thing_t * relation = VEC_get(thing->items.vec, w->ofield->idx);
+        if (relation->tp == TI_VAL_THING)
+            w->field->condition.rel->add_cb(w->field, relation, thing);
+    }
+    return 0;
+}
+
+static int field__rel_st_cb(ti_thing_t * thing, field__rel_t * w)
+{
+    if (thing->type_id == w->field->type->type_id)
+    {
+        ti_thing_t * relation = VEC_get(thing->items.vec, w->field->idx);
+        if (relation->tp == TI_VAL_THING)
+            w->ofield->condition.rel->add_cb(w->ofield, relation, thing);
+        return 0;
+    }
+
+    if (thing->type_id == w->ofield->type->type_id)
+    {
+        ti_vset_t * vset = VEC_get(thing->items.vec, w->ofield->idx);
+        field__rel_set_t r = {
+                .field = w->field,
+                .relation = thing,
+        };
+        return imap_walk(vset->imap, (imap_cb) field__rel_set_add, &r);
+    }
+    return 0;
+}
 
 int ti_field_relation_make(
         ti_field_t * field,
@@ -2188,5 +2222,24 @@ int ti_field_relation_make(
                 &w);
     }
 
-    return 0;
+    if (field->spec != TI_SPEC_SET && ofield->spec != TI_SPEC_SET)
+    {
+        return field__walk_things(
+                vars,
+                collection,
+                (imap_cb) field__rel_type_cb,
+                &w);
+    }
+
+    if (field->spec == TI_SPEC_SET)
+    {
+        w.ofield = field;
+        w.field = ofield;
+    }
+
+    return field__walk_things(
+            vars,
+            collection,
+            (imap_cb) field__rel_st_cb,
+            &w);
 }

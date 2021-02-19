@@ -28,7 +28,7 @@ class TestRelations(TestBase):
             WARNING: Test requires a second node!!!
         ''')
 
-    @default_test_setup(num_nodes=1, seed=1, threshold_full_storage=10)
+    @default_test_setup(num_nodes=2, seed=1, threshold_full_storage=10)
     async def run(self):
 
         await self.node0.init_and_run()
@@ -138,6 +138,7 @@ class TestRelations(TestBase):
         await client.query(r'''
             new_type('A');
             new_type('B');
+            new_type('C');
 
             set_type('A', {
                 b: 'B?'
@@ -146,7 +147,42 @@ class TestRelations(TestBase):
             set_type('B', {
                 a: 'A?'
             });
+
+            set_type('C', {
+                cx: 'C?',
+                cy: 'C?'
+            });
         ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'failed to create relation; '
+                r'property `cx` on a `thing` is referring to a second '
+                r'`thing` while property `cy` on that second thing is '
+                r'referring to a third `thing`'):
+            await client.query(r'''
+                c1 = C{};
+                c2 = C{};
+                c1.cx = c1;
+                c1.cy = c2;
+
+                mod_type('C', 'rel', 'cx', 'cy');
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'failed to create relation; '
+                r'property `cy` on a `thing` is referring to a second '
+                r'`thing` while property `cx` on that second thing is '
+                r'referring to a third `thing`'):
+            await client.query(r'''
+                c1 = C{};
+                c2 = C{};
+                c1.cx = c2;
+                c1.cy = c1;
+
+                mod_type('C', 'rel', 'cx', 'cy');
+            ''')
 
         with self.assertRaisesRegex(
                 TypeError,
@@ -368,6 +404,7 @@ class TestRelations(TestBase):
             new_type('A');
             new_type('B');
             new_type('C');
+            new_type('D');
 
             set_type('A', {
                 b: 'B?'
@@ -380,6 +417,11 @@ class TestRelations(TestBase):
             set_type('C', {
                 c: 'C?'
             });
+
+            set_type('D', {
+                dx: 'D?',
+                dy: 'D?'
+            });
         ''')
 
         self.assertEqual(await client0.query(r'''
@@ -390,11 +432,16 @@ class TestRelations(TestBase):
             .b2 = B{};
             .c1 = C{};
             .c2 = C{};
+            .d1 = D{};
+            .d2 = D{};
+            .d3 = D{};
 
             .a1.b = .b1;
             .a2.b = .b2;
             .b2.a = .a2;
             .c1.c = .c1;
+            .d1.dx = .d2;
+            .d3.dx = .d3;
 
             a1 = A{};
             a2 = A{};
@@ -403,14 +450,20 @@ class TestRelations(TestBase):
             b2 = B{};
             c1 = C{};
             c2 = C{};
+            d1 = D{};
+            d2 = D{};
+            d3 = D{};
 
             a1.b = b1;
             a2.b = b2;
             b2.a = a2;
             c1.c = c1;
+            d1.dx = d2;
+            d3.dx = d3;
 
             mod_type('A', 'rel', 'b', 'a');
             mod_type('C', 'rel', 'c', 'c');
+            mod_type('D', 'rel', 'dx', 'dy');
 
             assert(a1.b == b1);
             assert(a2.b == b2);
@@ -419,6 +472,12 @@ class TestRelations(TestBase):
             assert(b2.a == a2);
             assert(c1.c == c1);
             assert(c2.c == nil);
+            assert(d1.dx == d2);
+            assert(d1.dy == nil);
+            assert(d2.dx == nil);
+            assert(d2.dy == d1);
+            assert(d3.dx == d3);
+            assert(d3.dy == d3);
 
             'OK';
         '''), 'OK')
@@ -434,6 +493,12 @@ class TestRelations(TestBase):
                 assert(.b2.a == .a2);
                 assert(.c1.c == .c1);
                 assert(.c2.c == nil);
+                assert(.d1.dx == .d2);
+                assert(.d1.dy == nil);
+                assert(.d2.dx == nil);
+                assert(.d2.dy == .d1);
+                assert(.d3.dx == .d3);
+                assert(.d3.dy == .d3);
 
                 'OK';
             '''), 'OK')
@@ -459,7 +524,7 @@ class TestRelations(TestBase):
 
             set_type('C', {
                 c: 'C?',
-                cc: '{C},
+                cc: '{C}',
             });
         ''')
 
@@ -524,6 +589,18 @@ class TestRelations(TestBase):
             assert(b1.aa.has(a1));
             assert(b1.aa.has(a2));
             assert(b1.aa.len() == 2);
+            assert(b2.aa.has(a3));
+            assert(b2.aa.len() == 1);
+
+            assert(c1.cc.has(c1));
+            assert(c1.cc.has(c2));
+            assert(c1.cc.has(c3));
+            assert(c1.cc.len() == 3);
+            assert(c2.cc.len() == 0);
+            assert(c3.cc.len() == 0);
+            assert(c4.cc.has(c5));
+            assert(c4.cc.len() == 1);
+            assert(c5.cc.len() == 0);
 
             'OK';
         '''), 'OK')
@@ -533,10 +610,30 @@ class TestRelations(TestBase):
         for client in (client0, client1):
             self.assertEqual(await client.query(r'''
                 assert(.a1.b == .b1);
-                assert(.a2.b == .b2);
-                assert(.a3.b == nil);
-                assert(.b1.a == .a1);
-                assert(.b2.a == .a2);
+                assert(.a2.b == .b1);
+                assert(.a3.b == .b2);
+                assert(.a4.b == nil);
+                assert(.c1.c == .c1);
+                assert(.c2.c == .c1);
+                assert(.c3.c == .c1);
+                assert(.c4.c == nil);
+                assert(.c5.c == .c4);
+
+                assert(.b1.aa.has(.a1));
+                assert(.b1.aa.has(.a2));
+                assert(.b1.aa.len() == 2);
+                assert(.b2.aa.has(.a3));
+                assert(.b2.aa.len() == 1);
+
+                assert(.c1.cc.has(.c1));
+                assert(.c1.cc.has(.c2));
+                assert(.c1.cc.has(.c3));
+                assert(.c1.cc.len() == 3);
+                assert(.c2.cc.len() == 0);
+                assert(.c3.cc.len() == 0);
+                assert(.c4.cc.has(.c5));
+                assert(.c4.cc.len() == 1);
+                assert(.c5.cc.len() == 0);
 
                 'OK';
             '''), 'OK')

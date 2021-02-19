@@ -1973,11 +1973,16 @@ static int field__type_rel_chk(
 
 static int field__type_rel_chk_cb(ti_thing_t * thing, field__type_rel_chk_t * w)
 {
-    return thing->type_id == w->field->type->type_id
-            ? field__type_rel_chk(thing, w->field, w->ofield, w->e)
-            : thing->type_id == w->ofield->type->type_id
-            ? field__type_rel_chk(thing, w->ofield, w->field, w->e)
-            : 0;
+    if (thing->type_id == w->field->type->type_id &&
+        field__type_rel_chk(thing, w->field, w->ofield, w->e))
+        return w->e->nr;
+
+    /* the fields may be different but of the same type, therefore
+     * the code must bubble down and also check the "set" below.
+     */
+    return thing->type_id == w->ofield->type->type_id
+        ? field__type_rel_chk(thing, w->ofield, w->field, w->e)
+        : 0;
 }
 
 typedef struct
@@ -2145,7 +2150,10 @@ static int field__rel_set_cb(ti_thing_t * thing, field__rel_t * w)
                 .field = w->ofield,
                 .relation = thing,
         };
-        return imap_walk(vset->imap, (imap_cb) field__rel_set_add, &r);
+        (void) imap_walk(vset->imap, (imap_cb) field__rel_set_add, &r);
+        /* the fields may be different but of the same type, therefore
+         * the code must bubble down and also check the "set" below.
+         */
     }
 
     if (thing->type_id == w->ofield->type->type_id)
@@ -2168,7 +2176,9 @@ static int field__rel_type_cb(ti_thing_t * thing, field__rel_t * w)
         ti_thing_t * relation = VEC_get(thing->items.vec, w->field->idx);
         if (relation->tp == TI_VAL_THING)
             w->ofield->condition.rel->add_cb(w->ofield, relation, thing);
-        return 0;
+        /* the fields may be different but of the same type, therefore
+         * the code must bubble down and also check the "set" below.
+         */
     }
 
     if (thing->type_id == w->ofield->type->type_id)
@@ -2187,7 +2197,9 @@ static int field__rel_st_cb(ti_thing_t * thing, field__rel_t * w)
         ti_thing_t * relation = VEC_get(thing->items.vec, w->field->idx);
         if (relation->tp == TI_VAL_THING)
             w->ofield->condition.rel->add_cb(w->ofield, relation, thing);
-        return 0;
+        /* the fields may be different but of the same type, therefore
+         * the code must bubble down and also check the "set" below.
+         */
     }
 
     if (thing->type_id == w->ofield->type->type_id)

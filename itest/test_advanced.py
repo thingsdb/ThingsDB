@@ -1279,7 +1279,7 @@ class TestAdvanced(TestBase):
         ''')
         self.assertIs(name, None)
 
-    async def _OFF_test_issue_91(self, client):
+    async def test_issue_91(self, client):
         res = await client.query(r'''
             set_type('P', {
                 name: 'str'

@@ -189,7 +189,7 @@ int ti_type_rename(ti_type_t * type, ti_raw_t * nname)
 
     if (ti_types_rename_spec(type->types, type->type_id, type->rname, nname))
     {
-        ti_panic("failed to rename all specifications");
+        ti_panic("failed to rename all type");
         return -1;
     }
 
@@ -756,6 +756,43 @@ int ti_type_methods_to_pk(ti_type_t * type, msgpack_packer * pk)
         if (mp_pack_strn(pk, method->name->str, method->name->n) ||
             ti_closure_to_pk(method->closure, pk)
         ) return -1;
+    }
+
+    return 0;
+}
+
+/* adds a map with key/value pairs */
+int ti_type_relations_to_pk(ti_type_t * type, msgpack_packer * pk)
+{
+    size_t n = 0;
+    for (vec_each(type->fields, ti_field_t, field))
+        if (ti_field_has_relation(field))
+            ++n;
+
+    if (msgpack_pack_map(pk, n))
+        return -1;
+
+    for (vec_each(type->fields, ti_field_t, field))
+    {
+        if (ti_field_has_relation(field))
+        {
+            ti_field_t * ofield = field->condition.rel->field;
+
+            if (mp_pack_strn(pk, field->name->str, field->name->n) ||
+                msgpack_pack_map(pk, 3) ||
+                mp_pack_str(pk, "type") ||
+                mp_pack_strn(
+                        pk,
+                        ofield->type->rname->data,
+                        ofield->type->rname->n) ||
+
+                mp_pack_str(pk, "property") ||
+                mp_pack_strn(pk, ofield->name->str, ofield->name->n) ||
+
+                mp_pack_str(pk, "definition") ||
+                mp_pack_strn(pk, ofield->spec_raw->data, ofield->spec_raw->n))
+                return -1;
+        }
     }
 
     return 0;

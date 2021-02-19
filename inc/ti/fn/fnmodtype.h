@@ -608,7 +608,7 @@ static void type__del(
     {
         ex_set(e, EX_TYPE_ERROR,
                 "cannot delete a property with a relation; "
-                "you may want to remove the relation first by using: "
+                "you might want to remove the relation by using: "
                 "`mod_type(\"%s\", \"rel\", \"%s\", nil);`",
                 type->name, name->str);
         return;
@@ -801,7 +801,7 @@ static void type__mod(
     {
         ex_set(e, EX_TYPE_ERROR,
                 "cannot modify a property with a relation; "
-                "you may want to remove the relation first by using: "
+                "you might want to remove the relation by using: "
                 "`mod_type(\"%s\", \"rel\", \"%s\", nil);`",
                 type->name, name->str);
         return;
@@ -1066,7 +1066,7 @@ static ti_type_t * modtype__type_from_field(ti_field_t * field, ex_t * e)
     if (field->condition.rel)
     {
         ex_set(e, EX_TYPE_ERROR,
-                "a relation for `%s` on type `%s` already exists",
+                "relation for `%s` on type `%s` already exists",
                 field->name->str, field->type->name);
         return NULL;
     }

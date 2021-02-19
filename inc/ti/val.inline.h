@@ -43,7 +43,7 @@ static inline void ti_val_gc_drop(ti_val_t * val)
         ti_val_unsafe_gc_drop(val);
 }
 
-static inline void ti_val_unassign_drop(ti_val_t * val)
+static inline void ti_val_unassign_unsafe_drop(ti_val_t * val)
 {
     if (!--val->ref)
         ti_val_destroy(val);
@@ -51,6 +51,12 @@ static inline void ti_val_unassign_drop(ti_val_t * val)
         ((ti_varr_t *) val)->parent = NULL;
     else
         ti_thing_may_push_gc((ti_thing_t *) val);
+}
+
+static inline void ti_val_unassign_drop(ti_val_t * val)
+{
+    if (val)
+        ti_val_unassign_unsafe_drop(val);
 }
 
 static inline _Bool ti_val_is_arr(ti_val_t * val)

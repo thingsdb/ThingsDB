@@ -1152,7 +1152,7 @@ class TestType(TestBase):
             del_type('Toe');
         ''')
 
-    async def test_type_specs(self, client):
+    async def test_type_definitions(self, client):
         await client.query(r'''
             set_type('_str', {test: 'str'});
             set_type('_utf8', {test: 'utf8'});

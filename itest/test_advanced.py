@@ -860,7 +860,7 @@ class TestAdvanced(TestBase):
             42;  // reached the end
         '''), 42)
 
-    async def test_adv_specification(self, client):
+    async def test_adv_definition(self, client):
         with self.assertRaisesRegex(
                 TypeError,
                 r'invalid declaration for `s` on type `Foo`; '

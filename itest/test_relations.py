@@ -50,6 +50,9 @@ class TestRelations(TestBase):
             new_type('A');
             new_type('B');
             new_type('C');
+            new_type('D');
+            new_type('E');
+            new_type('F');
 
             set_type('A', {
                 bstrict: 'B',
@@ -68,7 +71,62 @@ class TestRelations(TestBase):
                 a: 'A?',
                 t: 'thing',
             });
+
+            set_type('D', {
+                e: 'E?'
+            });
+
+            set_type('E', {
+                dd: '{D}'
+            });
+
+            set_type('F', {
+                f: 'F?',
+                ff: 'F?',
+                fff: '{F}'
+            });
+
+            mod_type('D', 'rel', 'e', 'dd');
+            mod_type('F', 'rel', 'f', 'f');
+            mod_type('F', 'rel', 'fff', 'fff');
         ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'relation for `f` on type `F` already exist'):
+            await client.query(r'''
+                mod_type('F', 'rel', 'ff', 'f');
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'cannot delete a property with a relation; '
+                r'you might want to remove the relation by using: '
+                r'`mod_type\("D", "rel", "e", nil\);`'):
+            await client.query(r'''
+                mod_type('D', 'del', 'e');
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'cannot modify a property with a relation; '
+                r'you might want to remove the relation by using: '
+                r'`mod_type\("D", "rel", "e", nil\);`'):
+            await client.query(r'''
+                mod_type('D', 'mod', 'e', 'E');
+            ''')
+
+        res = await client.query(r'''
+            f = F{};
+            f2 = F{};
+            f3 = F{};
+            f.fff.add(f);
+            f.fff.add(f2);
+            mod_type('F', 'ren', 'fff', 'others');
+            f.others.add(f3);
+            [f.others.len(), f2.others.len(), f3.others.len()];
+        ''')
+        self.assertEqual(res, [3, 1, 1])
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
@@ -601,6 +659,8 @@ class TestRelations(TestBase):
             assert(c4.cc.has(c5));
             assert(c4.cc.len() == 1);
             assert(c5.cc.len() == 0);
+
+            assert(types_info().len(), 3);
 
             'OK';
         '''), 'OK')

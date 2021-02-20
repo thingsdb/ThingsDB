@@ -97,4 +97,12 @@ static inline _Bool ti_vset_has_relation(ti_vset_t * vset)
             ((ti_field_t *) vset->key_)->condition.rel;
 }
 
+static inline _Bool ti_vset_is_unrestricted(ti_vset_t * vset)
+{
+    return vset->parent &&
+            ti_thing_is_instance(vset->parent) &&
+            ((ti_field_t *) vset->key_)->nested_spec == TI_SPEC_ANY;
+}
+
+
 #endif  /* TI_VSET_H_ */

@@ -534,7 +534,6 @@ static void condition__add_set_cb(
     }
 }
 
-
 int ti_condition_field_rel_init(
         ti_field_t * field,
         ti_field_t * ofield,

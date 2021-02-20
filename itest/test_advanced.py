@@ -1541,6 +1541,20 @@ new_procedure('multiply', |a, b| a * b);
             wse(run('new_check', 'test'));
         ''')
 
+    async def test_type_set(self, client):
+        await client.query(r'''
+            new_type('A');
+            set_type('A', {
+                aa: '{A}'
+            });
+        ''')
+
+        await client.query(r'''
+            a1 = A{};
+            try(a1.aa |= set({}, {}));
+            assert (a1.aa.len() == 0);
+        ''')
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

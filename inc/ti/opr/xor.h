@@ -35,7 +35,7 @@ static int opr__xor(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
          * and this is an in-place modification of `a`, or `a` is also not
          * used anymore.
          */
-        if (!ti_vset_has_relation((ti_vset_t *) a) &&
+        if (ti_vset_is_unrestricted((ti_vset_t *) a) &&
             (inplace || a->ref == 1) &&
             (*b)->ref == 1)
         {

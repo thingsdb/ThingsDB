@@ -1241,6 +1241,29 @@ class TestRelations(TestBase):
                 'OK';
             '''), 'OK')
 
+        self.assertEqual(await client0.query(r'''
+            .a2.aa ^= set(.a1, .a3);
+            assert (.a1.a == nil);
+            assert (.a2.a == .a2);
+            assert (.a3.a == .a2);
+            assert (.a2.aa == set(.a2, .a3));
+
+            'OK';
+        '''), 'OK')
+
+        await asyncio.sleep(0.2)
+
+        for client in (client0, client1):
+            self.assertEqual(await client.query(r'''
+                assert (.a1.a == nil);
+                assert (.a2.a == .a2);
+                assert (.a3.a == .a2);
+                assert (.a2.aa == set(.a2, .a3));
+
+                'OK';
+            '''), 'OK')
+
+
 
 if __name__ == '__main__':
     run_test(TestRelations())

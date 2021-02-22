@@ -1076,14 +1076,18 @@ typedef struct
 
 static int field__walk_unset_cb(ti_thing_t * thing, field__walk_set_t * w)
 {
-    if (!imap_get(w->imap, ti_thing_key(thing)))
-        w->field->condition.rel->del_cb(w->field, thing, w->relation);
-
+    w->field->condition.rel->del_cb(w->field, thing, w->relation);
     return 0;
 }
 
 static int field__walk_set_cb(ti_thing_t * thing, field__walk_set_t * w)
 {
+    if (imap_pop(w->imap, ti_thing_key(thing)))
+    {
+        ti_decref(thing);
+        return 0;
+    }
+
     w->field->condition.rel->add_cb(w->field, thing, w->relation);
     return 0;
 }
@@ -1092,8 +1096,11 @@ static int field__walk_tset_cb(ti_thing_t * thing, field__walk_set_t * w)
 {
     ti_thing_t * other;
 
-    if (imap_get(w->imap, ti_thing_key(thing)))
+    if (imap_pop(w->imap, ti_thing_key(thing)))
+    {
+        ti_decref(thing);
         return 0;
+    }
 
     other = VEC_get(thing->items.vec, w->field->idx);
     if (other->tp == TI_VAL_THING)

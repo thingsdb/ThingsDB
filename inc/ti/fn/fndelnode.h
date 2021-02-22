@@ -2,7 +2,7 @@
 
 static int do__f_del_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_node_t * node;
     uint32_t node_id;
     ti_task_t * task;

@@ -7,6 +7,7 @@
 #include <ex.h>
 #include <stdint.h>
 #include <ti/varr.t.h>
+#include <ti/thing.h>
 #include <util/vec.h>
 
 ti_varr_t * ti_varr_create(size_t sz);
@@ -57,6 +58,20 @@ static inline int ti_varr_append(ti_varr_t * to, void ** v, ex_t * e)
     return e->nr;
 }
 
+static inline uint16_t ti_varr_unsafe_spec(ti_varr_t * varr)
+{
+    return ti_thing_is_object(varr->parent)
+            ? TI_SPEC_ANY
+            : ((ti_field_t *) varr->key_)->nested_spec;
+}
+
+static inline uint16_t ti_varr_spec(ti_varr_t * varr)
+{
+    return ((!varr->parent) || ti_thing_is_object(varr->parent))
+            ? TI_SPEC_ANY
+            : ((ti_field_t *) varr->key_)->nested_spec;
+}
+
 /*
  * does not increment `*v` reference counter but the value might change to
  * a (new) tuple pointer.
@@ -74,6 +89,13 @@ static inline int ti_varr_insert(
         ex_set_mem(e);
 
     return e->nr;
+}
+
+static inline void * ti_varr_key(ti_varr_t * varr)
+{
+    return ti_thing_is_object(varr->parent)
+            ? varr->key_
+            : ((ti_field_t *) varr->key_)->name;
 }
 
 #endif  /* TI_VARR_H_ */

@@ -40,6 +40,6 @@ void ti_item_destroy(ti_item_t * item)
     if (!item)
         return;
     ti_val_unsafe_drop((ti_val_t *) item->key);
-    ti_val_unsafe_gc_drop(item->val);
+    ti_val_unassign_unsafe_drop(item->val);
     free(item);
 }

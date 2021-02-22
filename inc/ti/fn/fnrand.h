@@ -2,7 +2,7 @@
 
 static int do__f_rand(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
 
     if (fn_nargs("rand", DOC_RAND, 0, nargs, e))
         return e->nr;

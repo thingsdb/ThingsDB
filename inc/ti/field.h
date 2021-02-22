@@ -11,6 +11,8 @@
 #include <ti/raw.t.h>
 #include <ti/thing.t.h>
 #include <ti/val.t.h>
+#include <ti/spec.t.h>
+#include <ti/query.t.h>
 #include <util/vec.h>
 
 ti_field_t * ti_field_create(
@@ -24,11 +26,9 @@ int ti_field_mod_force(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e);
 int ti_field_mod(
         ti_field_t * field,
         ti_raw_t * spec_raw,
-        vec_t * vars,
         ex_t * e);
 int ti_field_set_name(
         ti_field_t * field,
-        vec_t * vars,
         const char * s,
         size_t n,
         ex_t * e);
@@ -43,13 +43,39 @@ int ti_field_make_assignable(
         ex_t * e);
 _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val);
 _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field);
-ti_field_t * ti_field_by_name(ti_type_t * type, ti_name_t * name);
 ti_field_t * ti_field_by_strn_e(
         ti_type_t * type,
         const char * str,
         size_t n,
         ex_t * e);
 int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr, uint64_t ev_id);
-ti_val_t * ti_field_dval(ti_field_t * field);
+int ti_field_relation_check(
+        ti_field_t * field,
+        ti_field_t * ofield,
+        vec_t * vars,
+        ex_t * e);
+int ti_field_relation_make(
+        ti_field_t * field,
+        ti_field_t * ofield,
+        vec_t * vars);
+
+static inline ti_field_t * ti_field_by_name(ti_type_t * type, ti_name_t * name)
+{
+    for (vec_each(type->fields, ti_field_t, field))
+        if (field->name == name)
+            return field;
+    return NULL;
+}
+
+static inline _Bool ti_field_has_relation(ti_field_t * field)
+{
+    /*
+     * Field has a relation if at least a condition is set, and the field
+     * is a non-nillable set or a nillable type.
+     */
+    return field->condition.none && (
+            field->spec == TI_SPEC_SET ||
+            (field->spec & TI_SPEC_MASK_NILLABLE) < TI_SPEC_ANY);
+}
 
 #endif  /* TI_FIELD_H_ */

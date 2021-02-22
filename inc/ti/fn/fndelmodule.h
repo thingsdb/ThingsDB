@@ -2,7 +2,7 @@
 
 static int do__f_del_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_module_t * module;
     ti_task_t * task;
 

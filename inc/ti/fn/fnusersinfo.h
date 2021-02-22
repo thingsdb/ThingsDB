@@ -2,7 +2,7 @@
 
 static int do__f_users_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
 
     if (fn_not_thingsdb_scope("users_info", query, e) ||
         /* check access */

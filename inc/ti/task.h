@@ -73,6 +73,16 @@ int ti_task_add_mod_type_mod_method(
         ti_task_t * task,
         ti_type_t * type,
         ti_method_t * method);
+int ti_task_add_mod_type_rel_add(
+        ti_task_t * task,
+        ti_type_t * type1,
+        ti_name_t * name1,
+        ti_type_t * type2,
+        ti_name_t * name2);
+int ti_task_add_mod_type_rel_del(
+        ti_task_t * task,
+        ti_type_t * type,
+        ti_name_t * name);
 int ti_task_add_mod_type_ren(
         ti_task_t * task,
         ti_type_t * type,

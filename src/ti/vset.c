@@ -3,6 +3,7 @@
  */
 #include <assert.h>
 #include <stdlib.h>
+#include <ti.h>
 #include <ti/thing.inline.h>
 #include <ti/val.h>
 #include <ti/val.inline.h>
@@ -19,7 +20,6 @@ ti_vset_t * ti_vset_create(void)
     vset->ref = 1;
     vset->tp = TI_VAL_SET;
     vset->flags = 0;
-    vset->spec = TI_SPEC_OBJECT;
     vset->parent = NULL;
 
     vset->imap = imap_create();
@@ -82,7 +82,6 @@ int ti_vset_to_list(ti_vset_t ** vsetaddr)
     list->ref = 1;
     list->tp = TI_VAL_ARR;
     list->flags = vec->n ? TI_VARR_FLAG_MHT : 0;
-    list->spec = TI_SPEC_ANY;
     list->vec = vec;
     list->parent = NULL;
 
@@ -113,7 +112,6 @@ int ti_vset_to_tuple(ti_vset_t ** vsetaddr)
     tuple->ref = 1;
     tuple->tp = TI_VAL_ARR;
     tuple->flags = TI_VARR_FLAG_TUPLE | (vec->n ? TI_VARR_FLAG_MHT : 0);
-    tuple->spec = TI_SPEC_ANY;
     tuple->vec = vec;
 
     for (vec_each(vec, ti_val_t, val))
@@ -166,6 +164,8 @@ int ti_vset_assign(ti_vset_t ** vsetaddr)
  */
 int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e)
 {
+    uint16_t spec = ti_vset_spec(vset);
+
     if (!ti_val_is_thing(val))
     {
         ex_set(e, EX_TYPE_ERROR,
@@ -174,13 +174,38 @@ int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e)
         return e->nr;
     }
 
-    if (vset->spec != TI_SPEC_OBJECT &&
-        vset->spec != ((ti_thing_t *) val)->type_id)
+    if (spec != TI_SPEC_ANY)
     {
-        ex_set(e, EX_TYPE_ERROR,
-                "type `%s` is not allowed in restricted "TI_VAL_SET_S,
-                ti_val_str(val));
-        return e->nr;
+        ti_thing_t * thing = (ti_thing_t *) val;
+        ti_field_t * field = vset->key_;
+
+        if (spec != thing->type_id)
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                    "type `%s` is not allowed in restricted "TI_VAL_SET_S,
+                    ti_val_str(val));
+            return e->nr;
+        }
+
+        assert (vset->parent);
+
+        if (field->condition.rel)
+        {
+            ti_field_t * ofield = field->condition.rel->field;
+            if (ofield->spec == TI_SPEC_SET)
+            {
+                if (field != ofield || thing != vset->parent)
+                    ofield->condition.rel->add_cb(ofield, thing, vset->parent);
+            }
+            else
+            {
+                ti_thing_t * othing = VEC_get(thing->items.vec, ofield->idx);
+                if (othing->tp == TI_VAL_THING)
+                    field->condition.rel->del_cb(field, othing, thing);
+
+                ofield->condition.rel->add_cb(ofield, thing, vset->parent);
+            }
+        }
     }
 
     switch((imap_err_t) ti_vset_add(vset, (ti_thing_t *) val))
@@ -189,6 +214,7 @@ int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e)
         return 0;
     case IMAP_ERR_ALLOC:
         ex_set_mem(e);
+        ti_panic("unrecoverable error");
         return e->nr;
     case IMAP_SUCCESS:
         ti_incref(val);

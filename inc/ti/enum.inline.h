@@ -48,7 +48,7 @@ static inline ti_member_t * ti_enum_member_by_idx(
         ti_enum_t * enum_,
         uint16_t idx)
 {
-    return vec_get_or_null(enum_->members, idx);
+    return vec_get(enum_->members, idx);
 }
 
 static inline ti_member_t * ti_enum_member_by_strn(

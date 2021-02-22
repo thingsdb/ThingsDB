@@ -27,7 +27,7 @@ static int some__walk_set(ti_thing_t * t, some__walk_t * w)
 static int do__f_some(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const char * doc;
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     _Bool some = false;
     ti_val_t * iterval;
     ti_closure_t * closure;

@@ -47,6 +47,7 @@ int ti_type_add_method(
         ex_t * e);
 void ti_type_remove_method(ti_type_t * type, ti_name_t * name);
 int ti_type_methods_to_pk(ti_type_t * type, msgpack_packer * pk);
+int ti_type_relations_to_pk(ti_type_t * type, msgpack_packer * pk);
 int ti_type_methods_info_to_pk(
         ti_type_t * type,
         msgpack_packer * pk,
@@ -91,7 +92,7 @@ static inline int ti_type_to_pk(
         _Bool with_definition)
 {
     return (
-        msgpack_pack_map(pk, 7) ||
+        msgpack_pack_map(pk, 8) ||
         mp_pack_str(pk, "type_id") ||
         msgpack_pack_uint16(pk, type->type_id) ||
 
@@ -113,7 +114,10 @@ static inline int ti_type_to_pk(
         ti_type_fields_to_pk(type, pk) ||
 
         mp_pack_str(pk, "methods") ||
-        ti_type_methods_info_to_pk(type, pk, with_definition)
+        ti_type_methods_info_to_pk(type, pk, with_definition) ||
+
+        mp_pack_str(pk, "relations") ||
+        ti_type_relations_to_pk(type, pk)
     );
 }
 

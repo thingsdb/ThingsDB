@@ -189,7 +189,7 @@ int ti_type_rename(ti_type_t * type, ti_raw_t * nname)
 
     if (ti_types_rename_spec(type->types, type->type_id, type->rname, nname))
     {
-        ti_panic("failed to rename all specifications");
+        ti_panic("failed to rename all type");
         return -1;
     }
 
@@ -762,6 +762,43 @@ int ti_type_methods_to_pk(ti_type_t * type, msgpack_packer * pk)
 }
 
 /* adds a map with key/value pairs */
+int ti_type_relations_to_pk(ti_type_t * type, msgpack_packer * pk)
+{
+    size_t n = 0;
+    for (vec_each(type->fields, ti_field_t, field))
+        if (ti_field_has_relation(field))
+            ++n;
+
+    if (msgpack_pack_map(pk, n))
+        return -1;
+
+    for (vec_each(type->fields, ti_field_t, field))
+    {
+        if (ti_field_has_relation(field))
+        {
+            ti_field_t * ofield = field->condition.rel->field;
+
+            if (mp_pack_strn(pk, field->name->str, field->name->n) ||
+                msgpack_pack_map(pk, 3) ||
+                mp_pack_str(pk, "type") ||
+                mp_pack_strn(
+                        pk,
+                        ofield->type->rname->data,
+                        ofield->type->rname->n) ||
+
+                mp_pack_str(pk, "property") ||
+                mp_pack_strn(pk, ofield->name->str, ofield->name->n) ||
+
+                mp_pack_str(pk, "definition") ||
+                mp_pack_strn(pk, ofield->spec_raw->data, ofield->spec_raw->n))
+                return -1;
+        }
+    }
+
+    return 0;
+}
+
+/* adds a map with key/value pairs */
 int ti_type_methods_info_to_pk(
         ti_type_t * type,
         msgpack_packer * pk,
@@ -875,14 +912,14 @@ ti_val_t * ti_type_dval(ti_type_t * type)
 
     for (vec_each(type->fields, ti_field_t, field))
     {
-        ti_val_t * val = ti_field_dval(field);
+        ti_val_t * val = field->dval_cb(field);
         if (!val)
         {
             ti_thing_destroy(thing);
             return NULL;
         }
 
-        ti_val_attach(val, thing, field->name);
+        ti_val_attach(val, thing, field);
 
         VEC_push(thing->items.vec, val);
     }
@@ -896,6 +933,8 @@ ti_val_t * ti_type_dval(ti_type_t * type)
  */
 ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
 {
+    _Bool is_last_ref = from->ref == 1;
+
     ti_thing_t * thing = ti_thing_t_create(0, type, type->types->collection);
     if (!thing)
     {
@@ -907,33 +946,43 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
 
     if (ti_thing_is_object(from))
     {
+        ti_prop_t * prop;
         ti_val_t * val;
         for (vec_each(type->fields, ti_field_t, field))
         {
-            val = ti_thing_o_val_weak_get(from, field->name);
-            if (!val)
+
+            prop = ti_thing_o_prop_weak_get(from, field->name);
+            if (!prop)
             {
-                val = ti_field_dval(field);
+                val = field->dval_cb(field);
                 if (!val)
                 {
                     ex_set_mem(e);
                     goto failed;
                 }
 
-                ti_val_attach(val, thing, field->name);
+                ti_val_attach(val, thing, field);
             }
             else
             {
-                val->ref += from->ref > 1;
+                val = prop->val;
+                val->ref += !is_last_ref;
 
                 if (ti_field_make_assignable(field, &val, thing, e))
                 {
-                    if (from->ref > 1)
+                    if (!is_last_ref)
                         ti_val_unsafe_gc_drop(val);
                     goto failed;
                 }
 
-                val->ref += from->ref == 1;
+                /*
+                 * This is a hack, but safe, because `from` will definitely be
+                 * destroyed after this call. Must replace the value because if
+                 * the value is a set or array, the parent must be left alone.
+                 */
+
+                if (is_last_ref)
+                    prop->val = (ti_val_t *) ti_nil_get();
             }
             VEC_push(thing->items.vec, val);
         }
@@ -955,16 +1004,22 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
         {
             ti_val_t * val = VEC_get(from->items.vec, field->idx);
 
-            val->ref += from->ref > 1;
+            val->ref += !is_last_ref;
 
-            if (ti_val_make_assignable(&val, thing, field->name, e))
+            if (ti_val_make_assignable(&val, thing, field, e))
             {
-                if (from->ref > 1)
+                if (!is_last_ref)
                     ti_val_unsafe_gc_drop(val);
                 goto failed;
             }
 
-            val->ref += from->ref == 1;
+            /*
+             * This is a hack, but safe, because `from` will definitely be
+             * destroyed after this call. Must replace the value because if
+             * the value is a set or array, the parent must be left alone.
+             */
+            if (is_last_ref)
+                VEC_set(from->items.vec, ti_nil_get(), field->idx);
 
             VEC_push(thing->items.vec, val);
         }

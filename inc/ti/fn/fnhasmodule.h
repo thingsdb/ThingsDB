@@ -2,7 +2,7 @@
 
 static int do__f_has_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     _Bool has_module;
 
     if (fn_nargs("has_module", DOC_HAS_MODULE, 1, nargs, e) ||

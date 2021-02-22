@@ -293,7 +293,7 @@ int ti_store_things_restore_data(
             {
                 val = ti_val_from_vup(&vup);
                 if (!val ||
-                    ti_val_make_assignable(&val, thing, field->name, &e))
+                    ti_val_make_assignable(&val, thing, field, &e))
                     goto fail1;
                 VEC_push(thing->items.vec, val);
             }

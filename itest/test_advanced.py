@@ -860,7 +860,7 @@ class TestAdvanced(TestBase):
             42;  // reached the end
         '''), 42)
 
-    async def test_adv_specification(self, client):
+    async def test_adv_definition(self, client):
         with self.assertRaisesRegex(
                 TypeError,
                 r'invalid declaration for `s` on type `Foo`; '
@@ -1539,6 +1539,20 @@ new_procedure('multiply', |a, b| a * b);
             });
             .checks = [];
             wse(run('new_check', 'test'));
+        ''')
+
+    async def test_type_set(self, client):
+        await client.query(r'''
+            new_type('A');
+            set_type('A', {
+                aa: '{A}'
+            });
+        ''')
+
+        await client.query(r'''
+            a1 = A{};
+            try(a1.aa |= set({}, {}));
+            assert (a1.aa.len() == 0);
         ''')
 
 

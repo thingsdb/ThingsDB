@@ -3,7 +3,7 @@
 
 static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     cleri_children_t * child = nd->children;
     ti_raw_t * rname;
     uint64_t backup_id;

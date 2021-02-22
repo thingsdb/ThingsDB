@@ -2,7 +2,7 @@
 
 static int do__f_int(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
 
     if (fn_nargs_max("int", DOC_INT, 1, nargs, e))
         return e->nr;

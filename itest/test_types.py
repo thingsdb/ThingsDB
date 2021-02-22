@@ -227,6 +227,30 @@ class TestTypes(TestBase):
             ({}.t = [1, 2, 3]).push(4);
         '''), 4)
 
+        self.assertEqual(await client.query(r'''
+            {{}.t = [1, 2, 3]}.push(4);
+        '''), 4)
+
+        self.assertEqual(await client.query(r'''
+            ({}['some key'] = [1, 2, 3]).push(4);
+        '''), 4)
+
+        self.assertEqual(await client.query(r'''
+            {{}['some key'] = [1, 2, 3]}.push(4);
+        '''), 4)
+
+        await client.query(r'''
+            set_type("T", {arr: '[]'});
+        ''')
+
+        self.assertEqual(await client.query(r'''
+            (T{}.arr = [1, 2, 3]).push(4);
+        '''), 4)
+
+        self.assertEqual(await client.query(r'''
+            {T{}.arr = [1, 2, 3]}.push(4);
+        '''), 4)
+
     async def test_closure(self, client):
         with self.assertRaisesRegex(
                 OverflowError,

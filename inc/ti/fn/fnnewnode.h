@@ -2,7 +2,7 @@
 
 static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     char salt[CRYPTX_SALT_SZ];
     char encrypted[CRYPTX_SZ];
     char * secret;

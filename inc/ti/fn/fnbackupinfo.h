@@ -3,7 +3,7 @@
 static int do__f_backup_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     int64_t backup_id;
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
 
     if (fn_not_node_scope("backup_info", query, e) ||
         fn_nargs("backup_info", DOC_BACKUP_INFO, 1, nargs, e) ||

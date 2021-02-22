@@ -3,7 +3,7 @@
 static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     cleri_children_t * child = nd->children;    /* first in argument list */
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ex_enum errnr;
     ti_verror_t * verror;
 

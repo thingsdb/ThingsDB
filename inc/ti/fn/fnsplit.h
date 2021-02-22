@@ -139,7 +139,7 @@ fail:
 
 static int do__f_split(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_raw_t * str, * sep = NULL;
     ti_vint_t * vnum = NULL;
     ti_varr_t * varr;

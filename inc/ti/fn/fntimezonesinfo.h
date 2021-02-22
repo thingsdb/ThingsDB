@@ -2,7 +2,7 @@
 
 static int do__f_time_zones_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
 
     if (fn_not_thingsdb_scope("time_zones_info", query, e) ||
         fn_nargs("time_zones_info", DOC_TIME_ZONES_INFO, 0, nargs, e))

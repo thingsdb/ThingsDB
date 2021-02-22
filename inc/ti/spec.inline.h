@@ -22,6 +22,11 @@ static inline _Bool ti_spec_is_arr_or_set(uint16_t spec)
     );
 }
 
+static inline _Bool ti_spec_is_set(uint16_t spec)
+{
+    return (spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET;
+}
+
 static inline ti_spec_rval_enum ti_spec_check_nested_val(
         uint16_t spec,
         ti_val_t * val)

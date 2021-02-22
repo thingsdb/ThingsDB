@@ -9,7 +9,7 @@ static int values__walk_i(ti_item_t * item, vec_t * vec)
 
 static int do__f_values(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_thing_t * thing;
     ti_varr_t * varr;
 

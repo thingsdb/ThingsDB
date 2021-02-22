@@ -110,7 +110,7 @@ static _Bool syncfull__next_file(uint64_t * scope_id, syncfull__file_t * ft)
 
         while (1)
         {
-            collection_id = vec_get_or_null(collection_ids, i);
+            collection_id = vec_get(collection_ids, i);
             if (!collection_id)
                 return false;       /* finished, no more files to sync */
 

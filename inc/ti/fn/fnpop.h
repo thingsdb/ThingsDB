@@ -2,7 +2,7 @@
 
 static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_varr_t * varr;
 
     if (!ti_val_is_list(query->rval))
@@ -26,7 +26,7 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_task_t * task = ti_task_get_task(query->ev, varr->parent);
         if (!task || ti_task_add_splice(
                 task,
-                varr->key,
+                ti_varr_key(varr),
                 NULL,
                 varr->vec->n,
                 1,
@@ -40,7 +40,7 @@ static int do__f_pop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     else
         ti_thing_may_push_gc((ti_thing_t *) query->rval);
 
-    (void) vec_shrink(&varr->vec);
+    (void) vec_may_shrink(&varr->vec);
 
     goto done;
 

@@ -1,3 +1,7 @@
+# v0.10.5
+
+* Added option to create relations between types, issue #161.
+
 # v0.10.4
 
 * Added things as dictionary support, issue #146.

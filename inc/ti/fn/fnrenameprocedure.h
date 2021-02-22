@@ -2,7 +2,7 @@
 
 static int do__f_rename_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_task_t * task;
     ti_procedure_t * procedure;
     ti_raw_t * nname;

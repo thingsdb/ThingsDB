@@ -12,7 +12,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_list(query->rval))
         return fn_call_try("splice", query, nd, e);
 
-    n = langdef_nd_n_function_params(nd);
+    n = fn_get_nargs(nd);
     if (fn_nargs_min("splice", DOC_LIST_SPLICE, 2, n, e) ||
         ti_val_try_lock(query->rval, e))
         return e->nr;
@@ -47,7 +47,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     c = c < 0 ? 0 : (c > current_n - i ? current_n - i : c);
     new_n = current_n + n - c;
 
-    if (new_n > current_n && vec_resize(&varr->vec, new_n))
+    if (new_n > current_n && vec_reserve(&varr->vec, new_n))
     {
         ex_set_mem(e);
         goto fail1;
@@ -86,7 +86,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_task_t * task = ti_task_get_task(query->ev, varr->parent);
         if (!task || ti_task_add_splice(
                 task,
-                varr->key,
+                ti_varr_key(varr),
                 varr,
                 (uint32_t) i,
                 (uint32_t) c,
@@ -103,7 +103,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = (ti_val_t *) retv;
     varr->vec->n = new_n;
     if (new_n < current_n)
-        (void) vec_shrink(&varr->vec);
+        (void) vec_may_shrink(&varr->vec);
     goto done;
 
 alloc_err:

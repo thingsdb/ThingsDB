@@ -43,6 +43,22 @@ static inline void ti_val_gc_drop(ti_val_t * val)
         ti_val_unsafe_gc_drop(val);
 }
 
+static inline void ti_val_unassign_unsafe_drop(ti_val_t * val)
+{
+    if (!--val->ref)
+        ti_val_destroy(val);
+    else if (val->tp == TI_VAL_SET || val->tp == TI_VAL_ARR)
+        ((ti_varr_t *) val)->parent = NULL;
+    else
+        ti_thing_may_push_gc((ti_thing_t *) val);
+}
+
+static inline void ti_val_unassign_drop(ti_val_t * val)
+{
+    if (val)
+        ti_val_unassign_unsafe_drop(val);
+}
+
 static inline _Bool ti_val_is_arr(ti_val_t * val)
 {
     return val->tp == TI_VAL_ARR;
@@ -261,11 +277,11 @@ static inline void ti_val_attach(
         return;
     case TI_VAL_ARR:
         ((ti_varr_t *) val)->parent = parent;
-        ((ti_varr_t *) val)->key = key;
+        ((ti_varr_t *) val)->key_ = key;
         return;
     case TI_VAL_SET:
         ((ti_vset_t *) val)->parent = parent;
-        ((ti_vset_t *) val)->key = key;
+        ((ti_vset_t *) val)->key_ = key;
         return;
     case TI_VAL_TEMPLATE:
         break;
@@ -313,7 +329,7 @@ static inline int ti_val_make_assignable(
             return e->nr;
         }
         ((ti_varr_t *) *val)->parent = parent;
-        ((ti_varr_t *) *val)->key = key;
+        ((ti_varr_t *) *val)->key_ = key;
         return 0;
     case TI_VAL_SET:
         if (ti_vset_assign((ti_vset_t **) val))
@@ -322,7 +338,7 @@ static inline int ti_val_make_assignable(
             return e->nr;
         }
         ((ti_vset_t *) *val)->parent = parent;
-        ((ti_vset_t *) *val)->key = key;
+        ((ti_vset_t *) *val)->key_ = key;
         return 0;
     case TI_VAL_CLOSURE:
         return ti_closure_unbound((ti_closure_t * ) *val, e);

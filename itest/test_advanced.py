@@ -860,7 +860,7 @@ class TestAdvanced(TestBase):
             42;  // reached the end
         '''), 42)
 
-    async def test_adv_specification(self, client):
+    async def test_adv_definition(self, client):
         with self.assertRaisesRegex(
                 TypeError,
                 r'invalid declaration for `s` on type `Foo`; '
@@ -1508,6 +1508,52 @@ new_procedure('multiply', |a, b| a * b);
         await client.query(script)
         res = await client.query('export();')
         self.assertEqual(res, script)
+
+    async def test_with_cache_one(self, client):
+        await client.query(r'''
+            set_type('Check', {
+                name: 'str',
+            });
+            new_procedure('new_check', |name| {
+                check = Check{
+                    name: name,
+                };
+                .checks.push(check);
+                check.id();
+            });
+            .checks = [];
+            wse(run('new_check', 'test'));
+        ''')
+
+    async def test_with_cache_two(self, client):
+        await client.query(r'''
+            set_type('Check', {
+                name: 'str',
+            });
+            new_procedure('new_check', |name| {
+                check = Check{
+                    name: name,
+                };
+                .checks.push(check);
+                check.id();
+            });
+            .checks = [];
+            wse(run('new_check', 'test'));
+        ''')
+
+    async def test_type_set(self, client):
+        await client.query(r'''
+            new_type('A');
+            set_type('A', {
+                aa: '{A}'
+            });
+        ''')
+
+        await client.query(r'''
+            a1 = A{};
+            try(a1.aa |= set({}, {}));
+            assert (a1.aa.len() == 0);
+        ''')
 
 
 if __name__ == '__main__':

@@ -5,7 +5,7 @@
 
 static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_raw_t * uname;
     ti_user_t * user;
     ti_task_t * task;

@@ -2,7 +2,7 @@
 
 static int do__f_node_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
 
     if (fn_not_node_scope("node_info", query, e) ||
         fn_nargs("node_info", DOC_NODE_INFO, 0, nargs, e))

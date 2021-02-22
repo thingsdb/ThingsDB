@@ -1,3 +1,7 @@
+# v0.10.5
+
+* Added option to create relations between types, issue #161.
+
 # v0.10.4
 
 * Added things as dictionary support, issue #146.
@@ -9,6 +13,9 @@
 * Deprecated *str*.test() and added *regex*.test() function, issue #155.
 * Added `is_regex(..)` function, issue #156.
 * Fixed bug with `future()` and `mod_type()`, issue #157.
+* Improved speed and less memory usage for internal `imap_t` type, issue #158.
+* Fixed bug with cached queries containing invalid syntax, issue #159.
+* Fixed bug with `wse(..)` internal status, issue #160.
 
 # v0.10.3
 

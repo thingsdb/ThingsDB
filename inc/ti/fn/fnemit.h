@@ -3,7 +3,7 @@
 
 static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     int sargs = 1;
     int deep = 1;
     ti_thing_t * thing;

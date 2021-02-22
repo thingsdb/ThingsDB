@@ -61,7 +61,7 @@ int ti_enum_prealloc(ti_enum_t * enum_, size_t sz, ex_t * e)
 {
     if (!sz)
         ex_set(e, EX_VALUE_ERROR, "cannot create an empty enum type");
-    else if (vec_reserve(&enum_->members, sz))
+    else if (vec_make(&enum_->members, sz))
         ex_set_mem(e);
 
     return e->nr;
@@ -169,7 +169,7 @@ void ti_enum_del_member(ti_enum_t * enum_, ti_member_t * member)
 
     (void) vec_swap_remove(enum_->members, member->idx);
 
-    swap = vec_get_or_null(enum_->members, member->idx);
+    swap = vec_get(enum_->members, member->idx);
     if (swap)
         swap->idx = member->idx;
 

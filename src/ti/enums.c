@@ -68,7 +68,7 @@ int ti_enums_rename(ti_enums_t * enums, ti_enum_t * enum_, ti_raw_t * nname)
             enum_->rname,
             nname))
     {
-        ti_panic("failed to rename all specifications");
+        ti_panic("failed to rename enumerator definitions");
         return -1;
     }
 

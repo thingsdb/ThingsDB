@@ -57,7 +57,10 @@ int imap_symmdiff_make(imap_t * dest, imap_t * a, imap_t * b);
 
 struct imap_node_s
 {
-    size_t sz;
+    uint32_t sz;
+    uint8_t key;
+    uint8_t pad8;
+    uint16_t pad16;
     void * data;
     imap_node_t * nodes;
 };

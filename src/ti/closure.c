@@ -343,7 +343,7 @@ int ti_closure_inc(ti_closure_t * closure, ti_query_t * query, ex_t * e)
             uint32_t pos = closure->stack_pos[closure->depth-1];
             uint32_t to = query->vars->n - n;
 
-            if (vec_reserve(&closure->stacked, n))
+            if (vec_make(&closure->stacked, n))
                 goto err_alloc;
 
             for (vec_each(closure->vars, ti_prop_t, p))

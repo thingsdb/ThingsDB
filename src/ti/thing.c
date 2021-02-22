@@ -197,7 +197,6 @@ ti_thing_t * ti_thing_i_create(uint64_t id, ti_collection_t * collection)
     return thing;
 }
 
-
 ti_thing_t * ti_thing_t_create(
         uint64_t id,
         ti_type_t * type,
@@ -223,39 +222,6 @@ ti_thing_t * ti_thing_t_create(
         return NULL;
     }
     return thing;
-}
-
-static inline void thing__prop_destroy(ti_prop_t * prop)
-{
-    if (ti_val_is_array(prop->val))
-        ((ti_varr_t *) prop->val)->parent = NULL;
-    else if (ti_val_is_set(prop->val))
-        ((ti_vset_t *) prop->val)->parent = NULL;
-    ti_prop_destroy(prop);
-}
-
-static inline void thing__item_destroy(ti_item_t * item)
-{
-    if (ti_val_is_array(item->val))
-        ((ti_varr_t *) item->val)->parent = NULL;
-    else if (ti_val_is_set(item->val))
-        ((ti_vset_t *) item->val)->parent = NULL;
-    ti_item_destroy(item);
-}
-
-static inline void thing__val_drop(ti_val_t * val)
-{
-    if (!val)
-        return;
-    if (--val->ref)
-    {
-        if (ti_val_is_array(val))
-            ((ti_varr_t *) val)->parent = NULL;
-        else if (ti_val_is_set(val))
-            ((ti_vset_t *) val)->parent = NULL;
-        return;
-    }
-    ti_val_destroy(val);
 }
 
 void ti_thing_destroy(ti_thing_t * thing)
@@ -285,11 +251,11 @@ void ti_thing_destroy(ti_thing_t * thing)
      * In this case the `thing` will be removed while the list stays alive.
      */
     if (ti_thing_is_dict(thing))
-        smap_destroy(thing->items.smap, (smap_destroy_cb) thing__item_destroy);
+        smap_destroy(thing->items.smap, (smap_destroy_cb) ti_item_destroy);
     else
         vec_destroy(thing->items.vec, ti_thing_is_object(thing)
-                ? (vec_destroy_cb) thing__prop_destroy
-                : (vec_destroy_cb) thing__val_drop);
+                ? (vec_destroy_cb) ti_prop_destroy
+                : (vec_destroy_cb) ti_val_unassign_drop);
 
     vec_destroy(thing->watchers, (vec_destroy_cb) ti_watch_drop);
     free(thing);
@@ -744,11 +710,12 @@ int ti_thing_t_set_val_from_strn(
     ti_val_t ** vaddr;
     ti_type_t * type = ti_thing_type(thing);
     ti_field_t * field = ti_field_by_strn_e(type, str, n, e);
-    if (!field || ti_field_make_assignable(field, val, thing, e))
+    if (!field)
         return e->nr;
 
     vaddr = (ti_val_t **) vec_get_addr(thing->items.vec, field->idx);
-    if (thing__val_locked(thing, field->name, *vaddr, e))
+    if (thing__val_locked(thing, field->name, *vaddr, e) ||
+        ti_field_make_assignable(field, val, thing, e))
         return e->nr;
 
     ti_val_unsafe_gc_drop(*vaddr);
@@ -1163,6 +1130,16 @@ void ti_thing_t_to_object(ti_thing_t * thing)
         prop = ti_prop_create(name, *val);
         if (!prop)
             ti_panic("cannot recover from a state between object and instance");
+
+        switch((*val)->tp)
+        {
+        case TI_VAL_ARR:
+            ((ti_varr_t *) *val)->key_ = name;
+            break;
+        case TI_VAL_SET:
+            ((ti_vset_t *) *val)->key_ = name;
+            break;
+        }
 
         ti_incref(name);
         *val = (ti_val_t *) prop;

@@ -230,7 +230,7 @@ ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t * val)
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
     case TI_SPEC_STR_RANGE:
-        assert (0);  /* not supported on nested specification */
+        assert (0);  /* not supported on nested definition */
         return false;
     }
 
@@ -239,8 +239,8 @@ ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t * val)
 
     assert (spec < TI_SPEC_ANY);
     /*
-     * Just compare the specification with the type since the nillable mask is
-     * removed the specification
+     * Just compare the definition with the type since the nillable mask is
+     * removed the definition
      */
     return ti_val_is_thing(val) && ((ti_thing_t *) val)->type_id == spec
             ? 0

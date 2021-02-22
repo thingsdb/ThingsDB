@@ -9,7 +9,6 @@
 #include <doc.h>
 #include <doc.inline.h>
 #include <langdef/langdef.h>
-#include <langdef/nd.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -20,6 +19,7 @@
 #include <ti/closure.h>
 #include <ti/closure.inline.h>
 #include <ti/collections.h>
+#include <ti/condition.h>
 #include <ti/datetime.h>
 #include <ti/do.h>
 #include <ti/enum.inline.h>
@@ -48,6 +48,7 @@
 #include <ti/regex.h>
 #include <ti/restore.h>
 #include <ti/scope.h>
+#include <ti/spec.inline.h>
 #include <ti/task.h>
 #include <ti/thing.inline.h>
 #include <ti/token.h>
@@ -87,6 +88,11 @@ int fn_arg_str_slow(
         int argn,
         ti_val_t * val,
         ex_t * e);
+
+static inline int fn_get_nargs(cleri_node_t * nd)
+{
+    return (int) ((intptr_t) nd->data);
+}
 
 static inline int fn_not_node_scope(
         const char * name,

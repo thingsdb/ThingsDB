@@ -2,7 +2,7 @@
 
 static int do__f_join(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_varr_t * arr;
     ti_raw_t * sep = NULL;
     size_t n = sizeof(ti_raw_t), idx = 0;

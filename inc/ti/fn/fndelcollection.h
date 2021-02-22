@@ -3,7 +3,7 @@
 
 static int do__f_del_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     uint64_t collection_id;
     ti_collection_t * collection;
     ti_task_t * task;

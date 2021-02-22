@@ -4,7 +4,7 @@
 
 static int do__f_range(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     int64_t start = 0, stop, step = 1, n;
     ti_varr_t * varr;
     cleri_children_t * child = nd->children;

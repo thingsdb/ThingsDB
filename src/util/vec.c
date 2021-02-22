@@ -235,9 +235,25 @@ int vec_extend(vec_t ** vaddr, void * data[], uint32_t n)
 }
 
 /*
- * Reserve at least `n` free spots in the vector.
+ * Make at least `n` free spots in the vector.
  *
  * If *vaddr is NULL, a new vector will be created with the required space.
+ *
+ * More spots might be allocated and nothing happens if enough empty
+ * spots are already available.
+ */
+int vec_make(vec_t ** vaddr, uint32_t n)
+{
+    if (!*vaddr)
+    {
+        *vaddr = vec_new(n);
+        return -!*vaddr;
+    }
+    return vec_reserve(vaddr, n);
+}
+
+/*
+ * Reserve at least `n` free spots in the vector.
  *
  * More spots might be allocated and nothing happens if enough empty
  * spots are already available.
@@ -245,11 +261,6 @@ int vec_extend(vec_t ** vaddr, void * data[], uint32_t n)
 int vec_reserve(vec_t ** vaddr, uint32_t n)
 {
     vec_t * vec = *vaddr;
-    if (!vec)
-    {
-        *vaddr = vec_new(n);
-        return -!*vaddr;
-    }
 
     if (vec_space(vec) < n)
     {
@@ -287,6 +298,28 @@ int vec_resize(vec_t ** vaddr, uint32_t sz)
         v->n = sz;
 
     v->sz = sz;
+    *vaddr = v;
+    return 0;
+}
+
+/*
+ * May shrink to some size if a lot is reserved.
+ *
+ * Shrinks to a size, plus 8 extra, if 16 or more spots are free.
+ *
+ * Returns 0 when successful.
+ */
+int vec_may_shrink(vec_t ** vaddr)
+{
+    vec_t * vec = *vaddr;
+    if (vec_space(vec) < 16)
+        return 0;
+
+    vec_t * v = realloc(vec, sizeof(vec_t) + (vec->n+8) * sizeof(void*));
+    if (!v)
+        return -1;
+
+    v->sz = v->n;
     *vaddr = v;
     return 0;
 }

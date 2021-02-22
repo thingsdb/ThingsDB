@@ -13,7 +13,7 @@ static inline int modtype__unlocked_cb(ti_thing_t * thing, void * UNUSED(arg))
 
 typedef struct
 {
-    ti_name_t * name;
+    ti_field_t * field;
     ti_val_t * dval;
     ti_type_t * type;
     ex_t * e;
@@ -23,7 +23,7 @@ static inline int modtype__addv_cb(ti_thing_t * thing, modtype__addv_t * w)
 {
     if (thing->type_id == w->type->type_id)
     {
-        if (ti_val_make_assignable(&w->dval, thing, w->name, w->e))
+        if (ti_val_make_assignable(&w->dval, thing, w->field, w->e))
             return w->e->nr;
 
         if (vec_push(&thing->items.vec, w->dval))
@@ -128,6 +128,7 @@ static int modtype__add_cb(ti_thing_t * thing, modtype__add_t * w)
 typedef struct
 {
     ti_field_t * field;
+    ti_field_t * true_field;
     ti_closure_t * closure;
     ti_query_t * query;
     ti_val_t * dval;
@@ -155,7 +156,6 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
         ti_field_make_assignable(w->field, &w->query->rval, thing, &ex))
     {
         ti_val_t * val = VEC_get(thing->items.vec, w->field->idx);
-
         if (w->e->nr == 0 && ex.nr)
         {
             ex_set(w->e, EX_OPERATION,
@@ -176,7 +176,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
          * or list will be made.
          */
         if (ti_field_make_assignable(w->field, &val, thing, &ex) &&
-            !ti_val_make_assignable(&w->dval, thing, w->field->name, w->e))
+            !ti_val_make_assignable(&w->dval, thing, w->field, w->e))
         {
             ti_incref(w->dval);
             ti_val_unsafe_drop(vec_set(
@@ -224,6 +224,12 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
         }
     }
 
+    if (ti_spec_is_arr_or_set(w->field->spec))
+    {
+        ti_varr_t * varr_or_vset = VEC_get(thing->items.vec, w->field->idx);
+        varr_or_vset->key_ = w->true_field;
+    }
+
     /* none of the affected things may have a lock, (checked beforehand) */
     assert (~thing->flags & TI_VFLAG_LOCK);
 
@@ -249,7 +255,7 @@ static int modtype__mod_after_cb(ti_thing_t * thing, modtype__mod_t * w)
      * or list will be made.
      */
     if (ti_field_make_assignable(w->field, &val, thing, &ex) &&
-        !ti_val_make_assignable(&w->dval, thing, w->field->name, w->e))
+        !ti_val_make_assignable(&w->dval, thing, w->field, w->e))
     {
         ti_incref(w->dval);
         ti_val_unsafe_drop(vec_set(thing->items.vec, w->dval, w->field->idx));
@@ -325,7 +331,7 @@ static void type__add(
     ti_field_t * field = ti_field_by_name(type, name);
     ti_method_t * method = field ? NULL : ti_method_by_name(type, name);
     ti_closure_t * closure;
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
 
     if (fn_nargs_range(fnname, DOC_MOD_TYPE_ADD, 4, 5, nargs, e))
         return;
@@ -425,7 +431,7 @@ static void type__add(
     }
     else if (!ti_type_is_wrap_only(type))
     {
-        dval = ti_field_dval(field);
+        dval = field->dval_cb(field);
         if (!dval)
         {
             ex_set_mem(e);
@@ -485,7 +491,7 @@ static void type__add(
     }
 
     modtype__addv_t addvjob = {
-            .name = field->name,
+            .field = field,
             .dval = dval,
             .type = type,
             .e = e,
@@ -582,7 +588,7 @@ static void type__del(
         ex_t * e)
 {
     static const char * fnname = "mod_type` with task `del";
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_field_t * field = ti_field_by_name(type, name);
     ti_method_t * method = field ? NULL : ti_method_by_name(type, name);
     ti_task_t * task;
@@ -594,6 +600,16 @@ static void type__del(
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no property or method `%s`",
+                type->name, name->str);
+        return;
+    }
+
+    if (field && ti_field_has_relation(field))
+    {
+        ex_set(e, EX_TYPE_ERROR,
+                "cannot delete a property with a relation; "
+                "you might want to remove the relation by using: "
+                "`mod_type(\"%s\", \"rel\", \"%s\", nil);`",
                 type->name, name->str);
         return;
     }
@@ -661,6 +677,7 @@ static int type__mod_using_callback(
 
     modtype__mod_t modjob = {
             .field = ti_field_as_new(field, spec_raw, e),
+            .true_field = field,
             .closure = closure,
             .query = query,
             .dval = NULL,
@@ -670,7 +687,7 @@ static int type__mod_using_callback(
     if (!modjob.field)
         goto fail1;  /* error is set */
 
-    modjob.dval = ti_field_dval(modjob.field);
+    modjob.dval = modjob.field->dval_cb(modjob.field);
     if (!modjob.dval)
         goto fail2;  /* error is set */
 
@@ -688,11 +705,7 @@ static int type__mod_using_callback(
         goto fail4;
     }
 
-    if (ti_field_mod(
-            field,
-            (ti_raw_t *) ti_val_borrow_any_str(),
-            query->vars,
-            e))
+    if (ti_field_mod(field, (ti_raw_t *) ti_val_borrow_any_str(), e))
         goto fail4;
 
     /* From now on it is critical and we should panic */
@@ -767,7 +780,7 @@ static void type__mod(
         ex_t * e)
 {
     static const char * fnname = "mod_type` with task `mod";
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_field_t * field = ti_field_by_name(type, name);
     ti_method_t * method = field ? NULL : ti_method_by_name(type, name);
 
@@ -780,6 +793,16 @@ static void type__mod(
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no property or method `%s`",
+                type->name, name->str);
+        return;
+    }
+
+    if (field && ti_field_has_relation(field))
+    {
+        ex_set(e, EX_TYPE_ERROR,
+                "cannot modify a property with a relation; "
+                "you might want to remove the relation by using: "
+                "`mod_type(\"%s\", \"rel\", \"%s\", nil);`",
                 type->name, name->str);
         return;
     }
@@ -855,7 +878,7 @@ static void type__mod(
         {
             ti_task_t * task;
 
-            if (ti_field_mod(field, spec_raw, query->vars, e))
+            if (ti_field_mod(field, spec_raw, e))
                 goto fail;
 
             task = ti_task_get_task(query->ev, query->collection->root);
@@ -913,7 +936,7 @@ static void type__ren(
         ex_t * e)
 {
     static const char * fnname = "mod_type` with task `ren";
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_field_t * field = ti_field_by_name(type, name);
     ti_method_t * method = field ? NULL : ti_method_by_name(type, name);
     ti_task_t * task;
@@ -963,7 +986,6 @@ static void type__ren(
     {
         if (ti_field_set_name(
                 field,
-                query->vars,
                 (const char *) rname->data,
                 rname->n,
                 e))
@@ -988,6 +1010,250 @@ done:
     ti_name_unsafe_drop(oldname);
 }
 
+static int modtype__has_lock(ti_query_t * query, ti_type_t * type, ex_t * e)
+{
+    int rc = ti_query_vars_walk(
+            query->vars,
+            query->collection,
+            (imap_cb) modtype__is_locked_cb,
+            type);
+
+    if (rc)
+    {
+        if (rc < 0)
+            goto memerror;
+        goto locked;
+    }
+
+    if (imap_walk(
+            query->collection->things,
+            (imap_cb) modtype__is_locked_cb,
+            type) ||
+        ti_gc_walk(
+            query->collection->gc,
+            (queue_cb) modtype__is_locked_cb,
+            type))
+        goto locked;
+
+    return 0;
+
+locked:
+    ex_set(e, EX_OPERATION,
+        "cannot change type `%s` while one of the instances is being used",
+        type->name);
+    return e->nr;
+memerror:
+    ex_set_mem(e);
+    return e->nr;
+}
+
+static ti_type_t * modtype__type_from_field(ti_field_t * field, ex_t * e)
+{
+    uint16_t spec = field->spec;
+
+    if (spec == TI_SPEC_SET)
+        spec = field->nested_spec | TI_SPEC_NILLABLE;
+
+    if ((spec & TI_SPEC_MASK_NILLABLE) >= TI_SPEC_ANY ||
+        (~spec & TI_SPEC_NILLABLE))
+    {
+        ex_set(e, EX_TYPE_ERROR,
+                "relations may only be configured between restricted "
+                "sets and/or nillable types"DOC_MOD_TYPE_REL);
+        return NULL;
+    }
+
+    if (field->condition.rel)
+    {
+        ex_set(e, EX_TYPE_ERROR,
+                "relation for `%s` on type `%s` already exists",
+                field->name->str, field->type->name);
+        return NULL;
+    }
+
+    return ti_types_by_id(field->type->types, spec & TI_SPEC_MASK_NILLABLE);
+}
+
+static void type__rel_add(
+        ti_query_t * query,
+        ti_field_t * field,
+        ti_name_t * name,
+        ex_t * e)
+{
+    ti_type_t * type, * otype;
+    ti_field_t * ofield;
+    ti_task_t * task;
+
+    otype = modtype__type_from_field(field, e);
+    if (!otype)
+        return;
+
+    ofield = ti_field_by_name(otype, name);
+    if (!ofield)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "type `%s` has no property `%s`",
+                otype->name, name->str);
+        return;
+    }
+
+    type = modtype__type_from_field(ofield, e);
+    if (!type)
+        return;
+
+    if (type != field->type)
+    {
+        ex_set(e, EX_TYPE_ERROR,
+                "failed to create relation; "
+                "property `%s` on type `%s` is referring to type `%s`",
+                ofield->name->str, otype->name, type->name);
+        return;
+    }
+
+    if (type != otype && (
+        modtype__has_lock(query, otype, e) || ti_type_try_lock(otype, e)))
+        return;
+
+    if (ti_field_relation_check(field, ofield, query->vars, e))
+        goto fail0;
+
+    task = ti_task_get_task(query->ev, query->collection->root);
+    if (!task)
+    {
+        ex_set_mem(e);
+        goto fail0;
+    }
+
+    if (ti_condition_field_rel_init(field, ofield, e))
+        goto fail0;
+
+    if (ti_field_relation_make(field, ofield, query->vars))
+    {
+        ti_panic("unrecoverable error");
+        ex_set_mem(e);
+        goto fail0;
+    }
+
+    /* update modified time-stamp */
+    type->modified_at = util_now_tsec();
+    otype->modified_at = type->modified_at;
+
+    if (ti_task_add_mod_type_rel_add(
+            task,
+            type,
+            field->name,
+            otype,
+            ofield->name))
+        ex_set_mem(e);
+
+fail0:
+    ti_type_unlock(otype, type != otype /* only when type are not equal*/);
+}
+
+static void type__rel_del(
+        ti_query_t * query,
+        ti_field_t * field,
+        ex_t * e)
+{
+    ti_field_t * ofield;
+    ti_task_t * task;
+
+    if (!ti_field_has_relation(field))
+    {
+        ex_set(e, EX_TYPE_ERROR,
+                "missing relation for `%s` on type `%s`",
+                field->name->str, field->type->name);
+        return;
+    }
+
+    ofield = field->condition.rel->field;
+
+    if (field->type != ofield->type && (
+        modtype__has_lock(query, ofield->type, e) ||
+        ti_type_try_lock(ofield->type, e)))
+        return;
+
+    task = ti_task_get_task(query->ev, query->collection->root);
+    if (!task)
+    {
+        ex_set_mem(e);
+        goto fail0;
+    }
+
+    /* update modified time-stamp */
+    field->type->modified_at = util_now_tsec();
+    ofield->type->modified_at = field->type->modified_at;
+
+    free(field->condition.rel);
+    field->condition.rel = NULL;
+
+    free(ofield->condition.rel);
+    ofield->condition.rel = NULL;
+
+    if (ti_task_add_mod_type_rel_del(
+            task,
+            field->type,
+            field->name))
+        ex_set_mem(e);
+
+fail0:
+    ti_type_unlock(ofield->type, field->type != ofield->type);
+}
+
+static void type__rel(
+        ti_query_t * query,
+        ti_type_t * type,
+        ti_name_t * name,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    static const char * fnname = "mod_type` with task `rel";
+    const int nargs = fn_get_nargs(nd);
+    ti_field_t * field = ti_field_by_name(type, name);
+
+    if (fn_nargs(fnname, DOC_MOD_TYPE_REL, 4, nargs, e))
+        return;
+
+    if (!field)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "type `%s` has no property `%s`",
+                type->name, name->str);
+        return;
+    }
+
+    if (ti_do_statement(
+            query,
+            nd->children->next->next->next->next->next->next->node,
+            e))
+        return;
+
+    if (ti_val_is_str(query->rval))
+    {
+        name = ti_names_from_raw((ti_raw_t *) query->rval);
+        if (!name)
+        {
+            ex_set_mem(e);
+            return;
+        }
+        type__rel_add(query, field, name, e);
+        ti_name_drop(name);
+        return;
+    }
+
+    if (ti_val_is_nil(query->rval))
+    {
+        type__rel_del(query, field, e);
+        return;
+    }
+
+    ex_set(e, EX_TYPE_ERROR,
+        "function `%s` expects argument 4 to be of "
+        "type `"TI_VAL_STR_S"` or type `"TI_VAL_NIL_S"` "
+        "but got type `%s` instead"DOC_MOD_TYPE_REL,
+        fnname, ti_val_str(query->rval));
+}
+
 static void type__wpo(
         ti_query_t * query,
         ti_type_t * type,
@@ -995,7 +1261,7 @@ static void type__wpo(
         ex_t * e)
 {
     static const char * fnname = "mod_type` with task `wpo";
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     _Bool wrap_only;
     ti_task_t * task;
     ssize_t n;
@@ -1053,50 +1319,13 @@ static void type__wpo(
         ex_set_mem(e);
 }
 
-static int modtype__has_lock(ti_query_t * query, ti_type_t * type, ex_t * e)
-{
-    int rc = ti_query_vars_walk(
-            query->vars,
-            query->collection,
-            (imap_cb) modtype__is_locked_cb,
-            type);
-
-    if (rc)
-    {
-        if (rc < 0)
-            goto memerror;
-        goto locked;
-    }
-
-    if (imap_walk(
-            query->collection->things,
-            (imap_cb) modtype__is_locked_cb,
-            type) ||
-        ti_gc_walk(
-            query->collection->gc,
-            (queue_cb) modtype__is_locked_cb,
-            type))
-        goto locked;
-
-    return 0;
-
-locked:
-    ex_set(e, EX_OPERATION,
-        "cannot change type `%s` while one of the instances is being used",
-        type->name);
-    return e->nr;
-memerror:
-    ex_set_mem(e);
-    return e->nr;
-}
-
 static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     ti_type_t * type;
     ti_raw_t * rmod;
     ti_name_t * name = NULL;
     cleri_children_t * child = nd->children;
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
 
     if (fn_not_collection_scope("mod_type", query, e) ||
         fn_nargs_min("mod_type", DOC_MOD_TYPE, 3, nargs, e) ||
@@ -1170,9 +1399,15 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
+    if (ti_raw_eq_strn(rmod, "rel", 3))
+    {
+        type__rel(query, type, name, nd, e);
+        goto done;
+    }
+
     ex_set(e, EX_VALUE_ERROR,
             "function `mod_type` expects argument 2 to be "
-            "`add`, `del`, `mod`, `ren` or `wpo` but got `%.*s` instead"
+            "`add`, `del`, `mod`, `rel`, `ren` or `wpo` but got `%.*s` instead"
             DOC_MOD_TYPE,
             (int) rmod->n, (const char *) rmod->data);
 

@@ -2,7 +2,7 @@
 
 static int do__f_has_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
 
     if (fn_not_thingsdb_scope("has_collection", query, e) ||
         fn_nargs("has_collection", DOC_HAS_COLLECTION, 1, nargs, e) ||

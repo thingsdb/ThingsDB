@@ -2,7 +2,7 @@
 
 static int do__f_has_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     _Bool has;
     ti_vset_t * vset;
 
@@ -27,7 +27,7 @@ fail1:
 
 static int do__f_has_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     _Bool has;
     ti_thing_t * thing;
 
@@ -53,7 +53,7 @@ fail1:
 
 static int do__f_has_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     _Bool has = false;
     ti_varr_t * varr;
 

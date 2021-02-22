@@ -34,11 +34,12 @@ struct ti_vset_s
     uint32_t ref;
     uint8_t tp;
     uint8_t flags;
-    uint16_t spec;
+    uint16_t pad0;
     imap_t * imap;          /* key: thing_key() / value: *ti_things_t */
     ti_thing_t * parent;    /* without reference,
                                NULL when this is a variable */
-    ti_raw_t * key;         /* without reference */
+    void * key_;            /* ti_name_t, ti_raw_t or ti_field_t; all  without
+                               reference */
 };
 
 /*
@@ -67,5 +68,41 @@ static inline _Bool ti_vset_eq(ti_vset_t * va, ti_vset_t * vb)
 {
     return imap_eq(va->imap, vb->imap);
 }
+
+static inline void * ti_vset_key(ti_vset_t * vset)
+{
+    return ti_thing_is_object(vset->parent)
+            ? vset->key_
+            : ((ti_field_t *) vset->key_)->name;
+}
+
+static inline uint16_t ti_vset_unsafe_spec(ti_vset_t * vset)
+{
+    return ti_thing_is_object(vset->parent)
+            ? TI_SPEC_ANY
+            : ((ti_field_t *) vset->key_)->nested_spec;
+}
+
+static inline uint16_t ti_vset_spec(ti_vset_t * vset)
+{
+    return !vset->parent || ti_thing_is_object(vset->parent)
+            ? TI_SPEC_ANY
+            : ((ti_field_t *) vset->key_)->nested_spec;
+}
+
+static inline _Bool ti_vset_has_relation(ti_vset_t * vset)
+{
+    return vset->parent &&
+            ti_thing_is_instance(vset->parent) &&
+            ((ti_field_t *) vset->key_)->condition.rel;
+}
+
+static inline _Bool ti_vset_is_unrestricted(ti_vset_t * vset)
+{
+    return vset->parent &&
+            ti_thing_is_instance(vset->parent) &&
+            ((ti_field_t *) vset->key_)->nested_spec == TI_SPEC_ANY;
+}
+
 
 #endif  /* TI_VSET_H_ */

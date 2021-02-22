@@ -227,6 +227,30 @@ class TestTypes(TestBase):
             ({}.t = [1, 2, 3]).push(4);
         '''), 4)
 
+        self.assertEqual(await client.query(r'''
+            {{}.t = [1, 2, 3]}.push(4);
+        '''), 4)
+
+        self.assertEqual(await client.query(r'''
+            ({}['some key'] = [1, 2, 3]).push(4);
+        '''), 4)
+
+        self.assertEqual(await client.query(r'''
+            {{}['some key'] = [1, 2, 3]}.push(4);
+        '''), 4)
+
+        await client.query(r'''
+            set_type("T", {arr: '[]'});
+        ''')
+
+        self.assertEqual(await client.query(r'''
+            (T{}.arr = [1, 2, 3]).push(4);
+        '''), 4)
+
+        self.assertEqual(await client.query(r'''
+            {T{}.arr = [1, 2, 3]}.push(4);
+        '''), 4)
+
     async def test_closure(self, client):
         with self.assertRaisesRegex(
                 OverflowError,
@@ -326,9 +350,9 @@ class TestTypes(TestBase):
             ( set([.a]) != set([.b]) )
         '''))
         await client.query(r'''
-            anna = {};
-            cato = {};
-            iris = {};
+            anna = {name: 'anne'};
+            cato = {name: 'cato'};
+            iris = {name: 'iris'};
 
             a = set(cato, iris);
             b = set(cato, anna);
@@ -337,6 +361,17 @@ class TestTypes(TestBase):
             assert (a & b == set(cato));                // Intersection
             assert (a - b == set(iris));                // Difference
             assert (a ^ b == set(anna, iris));          // Symmetric difference
+
+            assert ((set(cato, iris) | set(cato, anna))
+                        == set(anna, cato, iris));      // Union move
+            assert ((set(cato, iris) & set(cato, anna))
+                        == set(cato));                  // Intersection inplace
+            assert ((set(cato, iris) - set(cato, anna))
+                        == set(iris));                  // Difference inplace
+            assert ((set(cato, iris) ^ set(cato, anna))
+                        == set(anna, iris));            // Symmetric difference
+
+
         ''')
 
 

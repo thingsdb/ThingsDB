@@ -32,7 +32,7 @@ struct ti_tuple_s
     uint32_t ref;
     uint8_t tp;
     uint8_t flags;
-    uint16_t spec;
+    uint16_t pad0;
     vec_t * vec;
 };
 
@@ -41,11 +41,12 @@ struct ti_varr_s
     uint32_t ref;
     uint8_t tp;
     uint8_t flags;
-    uint16_t spec;
+    uint16_t pad0;
     vec_t * vec;
     ti_thing_t * parent;    /* without reference,
                                NULL when this is a variable or tuple */
-    ti_raw_t * key;         /* without reference */
+    void * key_;            /* ti_name_t, ti_raw_t or ti_field_t; all  without
+                               reference */
 };
 
 #endif  /* TI_VARR_T_H_ */

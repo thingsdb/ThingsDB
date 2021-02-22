@@ -1,18 +1,26 @@
 /*
  * ti/condition.c
  */
-
 #include <assert.h>
+#include <doc.h>
 #include <math.h>
+#include <ti.h>
 #include <ti/condition.h>
+#include <ti/nil.h>
+#include <ti/raw.inline.h>
 #include <ti/spec.t.h>
+#include <ti/val.inline.h>
 #include <ti/vfloat.h>
 #include <ti/vint.h>
-#include <ti/nil.h>
-#include <ti/val.inline.h>
-#include <ti/raw.inline.h>
-#include <doc.h>
 #include <util/strx.h>
+
+static ti_val_t * condition__dval_cb(ti_field_t * field)
+{
+    ti_val_t * dval = field->condition.none->dval;
+    ti_incref(dval);
+    return dval;
+}
+
 
 int ti_condition_field_range_init(
         ti_field_t * field,
@@ -25,6 +33,9 @@ int ti_condition_field_range_init(
     const char * end = str + n - 1;
     char * tmp;
     _Bool is_nillable = field->spec & TI_SPEC_NILLABLE;
+
+    /* can be set even for nillable */
+    field->dval_cb = condition__dval_cb;
 
     assert (*end == '>');
 
@@ -388,6 +399,9 @@ int ti_condition_field_re_init(
     const char * end = str + n - 1;
     _Bool is_nillable = field->spec & TI_SPEC_NILLABLE;
 
+    /* can be set even for nillable */
+    field->dval_cb = condition__dval_cb;
+
     assert (*str == '/');
 
     if (*end == '>')
@@ -469,6 +483,94 @@ fail0:
     return e->nr;
 }
 
+static void condition__del_type_cb(
+        ti_field_t * field,
+        ti_thing_t * thing,
+        ti_thing_t * UNUSED(relation))
+{
+    ti_val_t ** vaddr = \
+            (ti_val_t **) vec_get_addr(thing->items.vec, field->idx);
+    ti_val_unsafe_gc_drop(*vaddr);
+    *vaddr = (ti_val_t *) ti_nil_get();
+}
+
+static void condition__add_type_cb(
+        ti_field_t * field,
+        ti_thing_t * thing,
+        ti_thing_t * relation)
+{
+    ti_val_t ** vaddr = \
+            (ti_val_t **) vec_get_addr(thing->items.vec, field->idx);
+    ti_val_unsafe_gc_drop(*vaddr);
+    *vaddr = (ti_val_t *) relation;
+    ti_incref(relation);
+}
+
+static void condition__del_set_cb(
+        ti_field_t * field,
+        ti_thing_t * thing,
+        ti_thing_t * relation)
+{
+    ti_vset_t * vset = VEC_get(thing->items.vec, field->idx);
+    ti_val_gc_drop(imap_pop(vset->imap, ti_thing_key(relation)));
+}
+
+static void condition__add_set_cb(
+        ti_field_t * field,
+        ti_thing_t * thing,
+        ti_thing_t * relation)
+{
+    ti_vset_t * vset = VEC_get(thing->items.vec, field->idx);
+
+    switch(imap_add(vset->imap, ti_thing_key(relation), relation))
+    {
+    case IMAP_SUCCESS:
+        ti_incref(relation);
+        return;
+    case IMAP_ERR_EXIST:
+        return;
+    case IMAP_ERR_ALLOC:
+        ti_panic("unrecoverable error");
+    }
+}
+
+int ti_condition_field_rel_init(
+        ti_field_t * field,
+        ti_field_t * ofield,
+        ex_t * e)
+{
+    ti_condition_rel_t * a, * b = malloc(sizeof(ti_condition_rel_t));
+
+    a = (field == ofield) ? b : malloc(sizeof(ti_condition_rel_t));
+
+    if (!a || !b)
+        goto mem_error;
+
+    a->field = ofield;
+    a->del_cb = field->spec == TI_SPEC_SET
+            ? condition__del_set_cb
+            : condition__del_type_cb;
+    a->add_cb = field->spec == TI_SPEC_SET
+            ? condition__add_set_cb
+            : condition__add_type_cb;
+    field->condition.rel = a;
+
+    b->field = field;
+    b->del_cb = ofield->spec == TI_SPEC_SET
+            ? condition__del_set_cb
+            : condition__del_type_cb;
+    b->add_cb = ofield->spec == TI_SPEC_SET
+            ? condition__add_set_cb
+            : condition__add_type_cb;
+    ofield->condition.rel = b;
+
+    return 0;
+
+mem_error:
+    free(b);
+    ex_set_mem(e);
+    return e->nr;
+}
 
 void ti_condition_destroy(ti_condition_via_t condition, uint16_t spec)
 {
@@ -479,6 +581,9 @@ void ti_condition_destroy(ti_condition_via_t condition, uint16_t spec)
 
     switch((ti_spec_enum_t) spec)
     {
+    case TI_SPEC_ANY:
+        return;  /* a field may be set to ANY while using mod_type in which
+                    case a condition should be left alone */
     case TI_SPEC_REMATCH:
         ti_regex_destroy(condition.re->regex);
         /* fall through */
@@ -486,9 +591,9 @@ void ti_condition_destroy(ti_condition_via_t condition, uint16_t spec)
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
         ti_val_drop(condition.none->dval);
-        free(condition.none);
-        return;
+        /* fall through */
     default:
+        free(condition.none);
         return;
     }
 }

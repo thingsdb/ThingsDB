@@ -92,7 +92,7 @@ static int ti_closure_pick(ti_val_t * va, ti_val_t * vb, closure_cmp_t * cc)
 
 static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_varr_t * varr;
     ti_closure_t * closure;
     _Bool reverse = false;

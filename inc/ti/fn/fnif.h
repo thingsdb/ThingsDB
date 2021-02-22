@@ -2,7 +2,7 @@
 
 static int do__f_if(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     _Bool tobool;
 
     if (fn_nargs_range("if", DOC_IF, 2, 3, nargs, e) ||

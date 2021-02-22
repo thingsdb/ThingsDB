@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <doc.h>
 #include <errno.h>
-#include <langdef/nd.h>
 #include <langdef/translate.h>
 #include <stdlib.h>
 #include <string.h>
@@ -549,12 +548,36 @@ static inline int ti_query_investigate(ti_query_t * query, ex_t * e)
     return e->nr;
 }
 
+static int query__syntax_err(ti_query_t * query, ex_t * e)
+{
+    int i = cleri_parse_strn(
+            e->msg,
+            EX_MAX_SZ,
+            query->with.parseres,
+            &langdef_translate);
+
+    assert_log(i<EX_MAX_SZ, "expecting >= max size %d>=%d", i, EX_MAX_SZ);
+
+    e->msg[EX_MAX_SZ] = '\0';
+
+    log_warning(
+            "invalid syntax: `%s` (%s)", query->with.parseres->str, e->msg);
+
+    /* we will certainly will not hit the max size, but just to be safe */
+    e->n = i < EX_MAX_SZ ? i : EX_MAX_SZ - 1;
+    e->nr = EX_SYNTAX_ERROR;
+
+    return e->nr;
+}
+
 int ti_query_parse(ti_query_t * query, const char * str, size_t n, ex_t * e)
 {
     char * querystr;
     assert (e->nr == 0);
-    if (query->with.parseres)
-        return e->nr;  /* already parsed and investigated */
+    if (query->with.parseres)  /* already parsed and investigated */
+        return query->with.parseres->is_valid
+                ? e->nr
+                : query__syntax_err(query, e);
 
     querystr = strndup(str, n);
     if (!querystr)
@@ -579,7 +602,6 @@ int ti_query_parse(ti_query_t * query, const char * str, size_t n, ex_t * e)
 
     if (!query->with.parseres->is_valid)
     {
-        int i;
         cleri_parse_free(query->with.parseres);
 
         query->with.parseres = cleri_parse2(ti.langdef, querystr, 0);
@@ -589,23 +611,7 @@ int ti_query_parse(ti_query_t * query, const char * str, size_t n, ex_t * e)
             ex_set_mem(e);
             return e->nr;
         }
-
-        i = cleri_parse_strn(
-                e->msg,
-                EX_MAX_SZ,
-                query->with.parseres,
-                &langdef_translate);
-
-        assert_log(i<EX_MAX_SZ, "expecting >= max size %d>=%d", i, EX_MAX_SZ);
-
-        e->msg[EX_MAX_SZ] = '\0';
-
-        log_warning("invalid syntax: `%s` (%s)", querystr, e->msg);
-
-        /* we will certainly will not hit the max size, but just to be safe */
-        e->n = i < EX_MAX_SZ ? i : EX_MAX_SZ - 1;
-        e->nr = EX_SYNTAX_ERROR;
-        return e->nr;
+        return query__syntax_err(query, e);
     }
 
     return ti_query_investigate(query, e);

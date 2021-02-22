@@ -2,7 +2,7 @@
 
 static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     size_t idx = 0;
     ti_closure_t * closure;
     ti_varr_t * varr;
@@ -49,7 +49,7 @@ static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 task = ti_task_get_task(query->ev, varr->parent);
                 if (!task || ti_task_add_splice(
                         task,
-                        varr->key,
+                        ti_varr_key(varr),
                         NULL,
                         idx,
                         1,
@@ -163,7 +163,7 @@ static int do__f_remove_set(
         ex_t * e)
 {
     vec_t * removed = NULL;
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
     ti_vset_t * vset;
 
     if (fn_nargs_min("remove", DOC_SET_REMOVE, 1, nargs, e) ||
@@ -238,16 +238,34 @@ static int do__f_remove_set(
         }
     }
 
-    if (removed->n && vset->parent && vset->parent->id)
+    if (removed->n && vset->parent)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, vset->parent);
-        if (!task || ti_task_add_remove(
-                task,
-                vset->key,
-                removed))
+
+        if (vset->parent->id)
         {
-            ex_set_mem(e);
-            goto fail2;
+            ti_task_t * task = ti_task_get_task(query->ev, vset->parent);
+            if (!task || ti_task_add_remove(
+                    task,
+                    ti_vset_key(vset),
+                    removed))
+            {
+                ex_set_mem(e);
+                goto fail2;
+            }
+        }
+
+        if (ti_thing_is_instance(vset->parent))
+        {
+            ti_field_t * field = vset->key_;
+            if (field->condition.rel)
+            {
+                ti_field_t * ofield = field->condition.rel->field;
+                for (vec_each(removed, ti_thing_t, thing))
+                    ofield->condition.rel->del_cb(
+                            ofield,
+                            thing,
+                            vset->parent);
+            }
         }
     }
 

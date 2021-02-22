@@ -4,7 +4,6 @@
 #include <cleri/cleri.h>
 #include <doc.h>
 #include <langdef/langdef.h>
-#include <langdef/nd.h>
 #include <ti/auth.h>
 #include <ti/do.h>
 #include <ti/enums.inline.h>
@@ -324,7 +323,7 @@ static int do__get_type_instance(
         cleri_node_t * nd,
         ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
 
     if (ti_type_wrap_only_e(type, e))
         return e->nr;
@@ -403,7 +402,7 @@ static int do__get_enum_member(
         cleri_node_t * nd,
         ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
 
     if (nargs == 1)
     {
@@ -1065,14 +1064,14 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             if (!VEC_get(thing->items.vec, field->idx))
             {
-                ti_val_t * val = ti_field_dval(field);
+                ti_val_t * val = field->dval_cb(field);
                 if (!val)
                 {
                     ex_set_mem(e);
                     goto fail;
                 }
 
-                ti_val_attach(val, thing, field->name);
+                ti_val_attach(val, thing, field);
                 vec_set(thing->items.vec, val, field->idx);
             }
         }

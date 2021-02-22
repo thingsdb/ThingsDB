@@ -10,7 +10,7 @@
  */
 static int do__f_export(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
+    const int nargs = fn_get_nargs(nd);
 
     if (fn_not_collection_scope("export", query, e) ||
         fn_nargs("export", "; Warning: `export(..)` is experimental", 0, nargs, e))

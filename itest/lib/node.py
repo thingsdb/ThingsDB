@@ -60,6 +60,7 @@ class Node:
         self.threshold_full_storage = options.pop('threshold_full_storage', 10)
 
         self.modules_path = options.pop('modules_path', None)
+        self.python_interpreter = options.pop('python_interpreter', None)
 
         self.storage_path = os.path.join(THINGSDB_TESTDIR, f'tdb{n}')
         self.cfgfile = os.path.join(THINGSDB_TESTDIR, f't{n}.conf')
@@ -165,6 +166,12 @@ class Node:
 
         if self.modules_path:
             config.set('thingsdb', 'modules_path', self.modules_path)
+
+        if self.python_interpreter:
+            config.set(
+                'thingsdb',
+                'python_interpreter',
+                self.python_interpreter)
 
         with open(self.cfgfile, 'w') as configfile:
             config.write(configfile)

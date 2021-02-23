@@ -85,6 +85,9 @@ void ti_evars_parse(void)
             "THINGSDB_MODULES_PATH",
             &ti.cfg->modules_path);
     evars__str(
+            "THINGSDB_PYTHON_INTERPRETER",
+            &ti.cfg->python_interpreter);
+    evars__str(
             "THINGSDB_PIPE_CLIENT_NAME",
             &ti.cfg->pipe_client_name);
     evars__sizet(

@@ -159,7 +159,10 @@ void ti_proc_init(ti_proc_t * proc, ti_module_t * module)
     proc->child_stdio[2].flags = UV_INHERIT_FD;
     proc->child_stdio[2].data.fd = 2;
 
-    proc->options.file = module->file;
+    proc->options.file = (module->flags & TI_MODULE_FLAG_IS_PY_MODULE)
+            ? ti.cfg->python_interpreter
+            : module->file;
+
     proc->options.args = module->args;
     proc->options.exit_cb = (uv_exit_cb) proc__on_exit;
 

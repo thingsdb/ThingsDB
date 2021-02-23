@@ -21,6 +21,8 @@ enum
     TI_MODULE_STAT_STOPPING,
     TI_MODULE_STAT_TOO_MANY_RESTARTS,
     TI_MODULE_STAT_CONFIGURATION_ERR,
+    TI_MODULE_STAT_PY_INTERPRETER_MISSING,
+    TI_MODULE_STAT_PY_INTERPRETER_NOT_EXISTS,
 };
 
 enum
@@ -32,6 +34,7 @@ enum
     TI_MODULE_FLAG_WITH_CONF        =1<<4,      /* used for info */
     TI_MODULE_FLAG_WITH_TASKS       =1<<5,      /* used for info */
     TI_MODULE_FLAG_WITH_RESTARTS    =1<<6,      /* used for info */
+    TI_MODULE_FLAG_IS_PY_MODULE     =1<<7,
 };
 
 struct ti_module_s

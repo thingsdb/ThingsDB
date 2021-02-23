@@ -26,7 +26,8 @@ class TestModules(TestBase):
         num_nodes=2,
         seed=1,
         threshold_full_storage=100,
-        modules_path='../modules/')
+        modules_path='../modules/',
+        python_interpreter='/home/joente/miniconda3/envs/thingsdb/bin/python')
     async def run(self):
 
         await self.node0.init_and_run()
@@ -42,7 +43,7 @@ class TestModules(TestBase):
         client.close()
         await client.wait_closed()
 
-    async def test_new_module(self, client):
+    async def _OFF_test_new_module(self, client):
         client.set_default_scope('//stuff')
         with self.assertRaisesRegex(
                 LookupError,
@@ -99,7 +100,7 @@ class TestModules(TestBase):
         res = await client.query('["X", "Y"].each(|m| del_module(m));')
         self.assertIs(res, None)
 
-    async def test_module_info(self, client):
+    async def _OFF_test_module_info(self, client):
         res = await client.query(r'''
             new_module("X", "x");
             set_module_scope("//stuff");
@@ -172,7 +173,7 @@ class TestModules(TestBase):
         res = await client.query('del_module("X");')
         self.assertIs(res, None)
 
-    async def test_module_info(self, client):
+    async def _OFF_test_module_info(self, client):
         res = await client.query(r'''
             new_module("X", "bin", nil);
             set_module_scope("X", '//stuff');
@@ -190,7 +191,7 @@ class TestModules(TestBase):
         res = await client.query('["X", "Y"].each(|m| del_module(m));')
         self.assertIs(res, None)
 
-    async def test_set_module_conf(self, client):
+    async def _OFF_test_set_module_conf(self, client):
         res = await client.query(r'''
             new_module("X", "x");
         ''', scope='/t')
@@ -259,7 +260,7 @@ class TestModules(TestBase):
         res = await client.query('del_module("X");')
         self.assertIs(res, None)
 
-    async def test_set_module_scope(self, client):
+    async def _OFF_test_set_module_scope(self, client):
         res = await client.query(r'''
             new_module("X", "x");
         ''', scope='/t')
@@ -358,7 +359,7 @@ class TestModules(TestBase):
         res = await client.query('del_module("X");')
         self.assertIs(res, None)
 
-    async def test_rename_module(self, client):
+    async def _OFF_test_rename_module(self, client):
         res = await client.query(r'''
             new_module("X", "x");
             new_module("Y", "y");
@@ -411,7 +412,7 @@ class TestModules(TestBase):
         res = await client.query('["Y", "Z"].each(|m| del_module(m));')
         self.assertIs(res, None)
 
-    async def test_del_module(self, client):
+    async def _OFF_test_del_module(self, client):
         res = await client.query(r'''
             new_module("X", "x");
         ''', scope='/t')
@@ -452,7 +453,7 @@ class TestModules(TestBase):
                 r'module `X` not found'):
             await client.query('del_module("X");', scope='/t')
 
-    async def test_restart_module(self, client):
+    async def _OFF_test_restart_module(self, client):
         res = await client.query(r'''
             new_module("X", "x");
         ''', scope='/t')
@@ -491,7 +492,7 @@ class TestModules(TestBase):
         res = await client.query('del_module("X");', scope='/t')
         self.assertIs(res, None)
 
-    async def test_future_module(self, client):
+    async def _OFF_test_future_module(self, client):
         res = await client.query(r'''
             new_module("X", "x");
         ''', scope='/t')
@@ -550,7 +551,7 @@ class TestModules(TestBase):
         res = await client.query('del_module("X");')
         self.assertIs(res, None)
 
-    async def test_future_then_module(self, client):
+    async def _OFF_test_future_then_module(self, client):
         res = await client.query(r'''
             new_module("X", "x");
         ''', scope='/t')
@@ -587,7 +588,7 @@ class TestModules(TestBase):
         res = await client.query('del_module("X");')
         self.assertIs(res, None)
 
-    async def test_future_else_module(self, client):
+    async def _OFF_test_future_else_module(self, client):
         res = await client.query(r'''
             new_module("X", "x");
         ''', scope='/t')
@@ -626,7 +627,7 @@ class TestModules(TestBase):
 
     async def _OFF_test_demo_module(self, client):
         await client.query(r'''
-            new_module('DEMO', 'demo/demo');
+            new_module('DEMO', 'go/demo/demo');
         ''', scope='/t')
 
         res = await client.query(r'''
@@ -675,6 +676,21 @@ class TestModules(TestBase):
             });
         ''')
         print(res)
+
+    async def test_demo_py_module(self, client):
+        await client.query(r'''
+            new_module('PYDEMO', 'python/demo.py');
+        ''', scope='/t')
+
+        res = await client.query(r'''
+            future({
+                module: 'PYDEMO',
+                message: 'Hi ThingsDB!'
+            }).then(|msg| {
+                `Got this message back: {msg}`
+            });
+        ''')
+        self.assertEqual(res, 'Got this message back: Hi ThingsDB!')
 
 
 if __name__ == '__main__':

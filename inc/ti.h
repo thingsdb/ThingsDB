@@ -58,6 +58,7 @@ int ti_read(void);
 int ti_unpack(uchar * data, size_t n);
 int ti_run(void);
 void ti_shutdown(void);
+void ti_offline(void);
 void ti_stop(void);
 int ti_save(void);
 int ti_lock(void);

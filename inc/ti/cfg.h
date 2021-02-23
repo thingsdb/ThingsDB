@@ -47,6 +47,7 @@ struct ti_cfg_s
     char * storage_path;                /* with trailing `/` */
     char * gcloud_key_file;
     char * modules_path;                /* path to find modules */
+    char * python_interpreter;          /* python interpreter, default NULL */
     double query_duration_warn;
     double query_duration_error;
 };

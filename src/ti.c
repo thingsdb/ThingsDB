@@ -597,7 +597,7 @@ fail0:
     ti_stop();
 }
 
-void ti_stop(void)
+void ti_offline(void)
 {
     if (ti.node)
     {
@@ -611,7 +611,13 @@ void ti_stop(void)
          * to write the modules to disk as well.
          */
         ti_modules_stop_and_destroy();
+    }
+}
 
+void ti_stop(void)
+{
+    if (ti.node)
+    {
         (void) ti_backups_store();
         (void) ti_nodes_write_global_status();
 
@@ -1009,6 +1015,13 @@ static void ti__shutdown_cb(uv_timer_t * UNUSED(timer))
         return;
     }
 
+    if (shutdown_counter > -400 && ti.modules && ti.modules->n)
+    {
+        shutdown_counter = -400;
+        ti_offline();
+        return;
+    }
+
     ti__shutdown_stop();
     ti_stop();
 }
@@ -1062,6 +1075,7 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
         break;
     case UV_PROCESS:
         log_warning("closing spawned process...");
+        sleep(1);
         break;
     default:
         log_error("unexpected handle type: %d", handle->type);

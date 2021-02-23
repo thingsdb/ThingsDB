@@ -994,31 +994,54 @@ static void ti__shutdown_stop(void)
     uv_close((uv_handle_t *) shutdown_timer, ti__shutdown_free);
 }
 
+static void ti__num_proc_cb(uv_handle_t * handle, void * arg)
+{
+    if (handle->type == UV_PROCESS)
+        (*((intptr_t *) arg))++;
+}
+
+static int ti__num_proc(void)
+{
+    intptr_t count = 0;
+    uv_walk(ti.loop, ti__num_proc_cb, (void *) &count);
+    return count;
+}
+
 static void ti__shutdown_cb(uv_timer_t * UNUSED(timer))
 {
+    int num_modules;
     /*
      * The shutdown counter is here so the node might still process queries
      * from other nodes during this time. Other nodes are informed of the
      * shutdown so request should stop in a short period. When there is only
      * one node, there is no point in waiting.
      */
-    if (shutdown_counter-- > 0 && ti.nodes->vec->n > 1)
+    if (shutdown_counter > 0 && ti.nodes->vec->n == 1)
+    {
+        shutdown_counter = 0;
+    }
+
+    if (shutdown_counter-- > 0)
     {
         log_info("going off-line in %d second%s",
                 shutdown_counter, shutdown_counter == 1 ? "" : "s");
         return;
     }
 
-    if (shutdown_counter > -300 && ti_away_is_working())
+    if (shutdown_counter == -1)
+        ti_offline();
+
+    if (shutdown_counter > -120 && (num_modules = ti__num_proc()))
     {
-        log_info("wait for `away` mode to finish before shutting down");
+        log_info("waiting for %d module%s to close..",
+                num_modules,
+                num_modules == 1 ? "" : "s");
         return;
     }
 
-    if (shutdown_counter > -400 && ti.modules && ti.modules->n)
+    if (shutdown_counter > -300 && ti_away_is_working())
     {
-        shutdown_counter = -400;
-        ti_offline();
+        log_info("wait for `away` mode to finish before shutting down");
         return;
     }
 
@@ -1075,7 +1098,6 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
         break;
     case UV_PROCESS:
         log_warning("closing spawned process...");
-        sleep(1);
         break;
     default:
         log_error("unexpected handle type: %d", handle->type);

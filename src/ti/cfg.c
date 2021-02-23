@@ -340,6 +340,7 @@ int ti_cfg_create(void)
             ? strdup("/var/lib/thingsdb/")
             : fx_path_join(homedir, ".thingsdb/");
     cfg->modules_path = strdup("/usr/lib/thingsdb/modules");
+    cfg->python_interpreter = strdup("/usr/bin/python");
     cfg->gcloud_key_file = NULL;
     cfg->pipe_client_name = NULL;
     cfg->zone = 0;
@@ -351,6 +352,7 @@ int ti_cfg_create(void)
         !cfg->bind_node_addr ||
         !cfg->storage_path ||
         !cfg->modules_path ||
+        !cfg->python_interpreter ||
         !cfg->node_name)
         ti_cfg_destroy();
 
@@ -368,6 +370,7 @@ void ti_cfg_destroy(void)
     free(cfg->pipe_client_name);
     free(cfg->storage_path);
     free(cfg->modules_path);
+    free(cfg->python_interpreter);
     free(cfg->gcloud_key_file);
     free(cfg);
     cfg = ti.cfg = NULL;
@@ -424,6 +427,11 @@ int ti_cfg_parse(const char * cfg_file)
                     cfg_file,
                     "modules_path",
                     &cfg->modules_path)) ||
+            (rc = cfg__str(
+                    parser,
+                    cfg_file,
+                    "python_interpreter",
+                    &cfg->python_interpreter)) ||
             (rc = cfg__str(
                     parser,
                     cfg_file,

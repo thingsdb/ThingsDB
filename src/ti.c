@@ -597,7 +597,7 @@ fail0:
     ti_stop();
 }
 
-void ti_stop(void)
+void ti_offline(void)
 {
     if (ti.node)
     {
@@ -611,7 +611,13 @@ void ti_stop(void)
          * to write the modules to disk as well.
          */
         ti_modules_stop_and_destroy();
+    }
+}
 
+void ti_stop(void)
+{
+    if (ti.node)
+    {
         (void) ti_backups_store();
         (void) ti_nodes_write_global_status();
 
@@ -988,18 +994,48 @@ static void ti__shutdown_stop(void)
     uv_close((uv_handle_t *) shutdown_timer, ti__shutdown_free);
 }
 
+static void ti__num_proc_cb(uv_handle_t * handle, void * arg)
+{
+    if (handle->type == UV_PROCESS)
+        (*((intptr_t *) arg))++;
+}
+
+static int ti__num_proc(void)
+{
+    intptr_t count = 0;
+    uv_walk(ti.loop, ti__num_proc_cb, (void *) &count);
+    return count;
+}
+
 static void ti__shutdown_cb(uv_timer_t * UNUSED(timer))
 {
+    int num_modules;
     /*
      * The shutdown counter is here so the node might still process queries
      * from other nodes during this time. Other nodes are informed of the
      * shutdown so request should stop in a short period. When there is only
      * one node, there is no point in waiting.
      */
-    if (shutdown_counter-- > 0 && ti.nodes->vec->n > 1)
+    if (shutdown_counter > 0 && ti.nodes->vec->n == 1)
+    {
+        shutdown_counter = 0;
+    }
+
+    if (shutdown_counter-- > 0)
     {
         log_info("going off-line in %d second%s",
                 shutdown_counter, shutdown_counter == 1 ? "" : "s");
+        return;
+    }
+
+    if (shutdown_counter == -1)
+        ti_offline();
+
+    if (shutdown_counter > -120 && (num_modules = ti__num_proc()))
+    {
+        log_info("waiting for %d module%s to close..",
+                num_modules,
+                num_modules == 1 ? "" : "s");
         return;
     }
 

@@ -225,6 +225,14 @@ ti_pkg_t * ti_module_conf_pkg(ti_val_t * val)
     return pkg;
 }
 
+static _Bool module__is_py(const char * file, size_t n)
+{
+    return file[n-3] == '.' &&
+           file[n-2] == 'p' &&
+           file[n-1] == 'y';
+}
+
+
 ti_module_t * ti_module_create(
         const char * name,
         size_t name_n,
@@ -234,12 +242,13 @@ ti_module_t * ti_module_create(
         ti_pkg_t * conf_pkg,    /* may be NULL */
         uint64_t * scope_id     /* may be NULL */)
 {
+    _Bool is_py_module = module__is_py(file, file_n);
     ti_module_t * module = malloc(sizeof(ti_module_t));
     if (!module)
         return NULL;
 
     module->status = TI_MODULE_STAT_NOT_LOADED;
-    module->flags = 0;
+    module->flags = is_py_module ? TI_MODULE_FLAG_IS_PY_MODULE : 0;
     module->restarts = 0;
     module->next_pid = 0;
     module->cb = (ti_module_cb) &module__cb;
@@ -249,7 +258,7 @@ ti_module_t * ti_module_create(
             strlen(ti.cfg->modules_path),
             file,
             file_n);
-    module->args = malloc(sizeof(char*) * 2);
+    module->args = malloc(sizeof(char*) * (is_py_module ? 3 : 2));
     module->conf_pkg = conf_pkg;
     module->started_at = 0;
     module->created_at = created_at;
@@ -264,8 +273,18 @@ ti_module_t * ti_module_create(
     }
 
     module->fn = module->file + (strlen(module->file) - file_n);
-    module->args[0] = module->file;
-    module->args[0] = NULL;
+
+    if (is_py_module)
+    {
+        module->args[0] = ti.cfg->python_interpreter;
+        module->args[1] = module->file;
+        module->args[2] = NULL;
+    }
+    else
+    {
+        module->args[0] = module->file;
+        module->args[1] = NULL;
+    }
 
     ti_proc_init(&module->proc, module);
 

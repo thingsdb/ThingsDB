@@ -2,6 +2,7 @@
 import asyncio
 import pickle
 import time
+import sys
 from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
@@ -26,7 +27,8 @@ class TestModules(TestBase):
         num_nodes=2,
         seed=1,
         threshold_full_storage=100,
-        modules_path='../modules/')
+        modules_path='../modules/',
+        python_interpreter=sys.executable)
     async def run(self):
 
         await self.node0.init_and_run()
@@ -626,7 +628,7 @@ class TestModules(TestBase):
 
     async def _OFF_test_demo_module(self, client):
         await client.query(r'''
-            new_module('DEMO', 'demo/demo');
+            new_module('DEMO', 'go/demo/demo');
         ''', scope='/t')
 
         res = await client.query(r'''
@@ -641,7 +643,7 @@ class TestModules(TestBase):
 
     async def _OFF_test_requests_module(self, client):
         await client.query(r'''
-            new_module('REQUESTS', 'requests/requests');
+            new_module('REQUESTS', 'go/requests/requests');
         ''', scope='/t')
 
         res = await client.query(r'''
@@ -654,7 +656,7 @@ class TestModules(TestBase):
 
     async def _OFF_test_siridb_module(self, client):
         await client.query(r'''
-            new_module('SIRIDB', 'siridb/siridb', {
+            new_module('SIRIDB', 'go/siridb/siridb', {
                 username: 'iris',
                 password: 'siri',
                 database: 'dbtest',
@@ -675,6 +677,21 @@ class TestModules(TestBase):
             });
         ''')
         print(res)
+
+    async def test_demo_py_module(self, client):
+        await client.query(r'''
+            new_module('PYDEMO', 'python/demo.py');
+        ''', scope='/t')
+
+        res = await client.query(r'''
+            future({
+                module: 'PYDEMO',
+                message: 'Hi ThingsDB!'
+            }).then(|msg| {
+                `Got this message back: {msg}`
+            });
+        ''')
+        self.assertEqual(res, 'Got this message back: Hi ThingsDB!')
 
 
 if __name__ == '__main__':

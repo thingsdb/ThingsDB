@@ -1,6 +1,7 @@
 # v0.10.5
 
 * Added option to create relations between types, issue #161.
+* Added support for Python modules, issue #162.
 
 # v0.10.4
 

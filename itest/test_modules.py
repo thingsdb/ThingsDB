@@ -2,6 +2,7 @@
 import asyncio
 import pickle
 import time
+import sys
 from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
@@ -27,7 +28,7 @@ class TestModules(TestBase):
         seed=1,
         threshold_full_storage=100,
         modules_path='../modules/',
-        python_interpreter='/home/joente/miniconda3/envs/thingsdb/bin/python')
+        python_interpreter=sys.executable)
     async def run(self):
 
         await self.node0.init_and_run()
@@ -677,7 +678,7 @@ class TestModules(TestBase):
         ''')
         print(res)
 
-    async def _OFF_test_demo_py_module(self, client):
+    async def test_demo_py_module(self, client):
         await client.query(r'''
             new_module('PYDEMO', 'python/demo.py');
         ''', scope='/t')

@@ -82,8 +82,6 @@ static void timers__destroy(uv_handle_t * UNUSED(handle))
     timers = ti.timers = NULL;
 }
 
-
-
 /*
  * Called from the main thread at CONNECT__INTERVAL (every X seconds)
  */
@@ -122,3 +120,4 @@ static void timers__cb(uv_timer_t * UNUSED(handle))
                 cb(timer);
     }
 }
+

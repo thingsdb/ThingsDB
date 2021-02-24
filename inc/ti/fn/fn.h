@@ -186,7 +186,6 @@ static inline int fn_arg_str(
         ex_t * e)
 {
     if (!ti_val_is_str(val))
-
         ex_set(e, EX_TYPE_ERROR,
             "function `%s` expects argument %d to be of "
             "type `"TI_VAL_STR_S"` but got type `%s` instead%s",
@@ -202,7 +201,6 @@ static inline int fn_arg_int(
         ex_t * e)
 {
     if (!ti_val_is_int(val))
-
         ex_set(e, EX_TYPE_ERROR,
             "function `%s` expects argument %d to be of "
             "type `"TI_VAL_INT_S"` but got type `%s` instead%s",
@@ -218,7 +216,6 @@ static inline int fn_arg_thing(
         ex_t * e)
 {
     if (!ti_val_is_thing(val))
-
         ex_set(e, EX_TYPE_ERROR,
             "function `%s` expects argument %d to be of "
             "type `"TI_VAL_THING_S"` but got type `%s` instead%s",
@@ -235,7 +232,6 @@ static inline int fn_arg_closure(
         ex_t * e)
 {
     if (!ti_val_is_closure(val))
-
         ex_set(e, EX_TYPE_ERROR,
             "function `%s` expects argument %d to be of "
             "type `"TI_VAL_CLOSURE_S"` but got type `%s` instead%s",
@@ -251,7 +247,6 @@ static inline int fn_arg_bool(
         ex_t * e)
 {
     if (!ti_val_is_bool(val))
-
         ex_set(e, EX_TYPE_ERROR,
             "function `%s` expects argument %d to be of "
             "type `"TI_VAL_BOOL_S"` but got type `%s` instead%s",
@@ -270,6 +265,22 @@ static inline int fn_arg_datetime(
         ex_set(e, EX_TYPE_ERROR,
             "function `%s` expects argument %d to be of "
             "type `"TI_VAL_DATETIME_S"` or `"TI_VAL_TIMEVAL_S"` "
+            "but got type `%s` instead%s",
+            name, argn, ti_val_str(val), doc);
+    return e->nr;
+}
+
+static inline int fn_arg_array(
+        const char * name,
+        const char * doc,
+        int argn,
+        ti_val_t * val,
+        ex_t * e)
+{
+    if (!ti_val_is_array(val))
+        ex_set(e, EX_TYPE_ERROR,
+            "function `%s` expects argument %d to be of "
+            "type `"TI_VAL_LIST_S"` or `"TI_VAL_TUPLE_S"` "
             "but got type `%s` instead%s",
             name, argn, ti_val_str(val), doc);
     return e->nr;

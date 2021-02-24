@@ -7,10 +7,13 @@ static int do__f_new_timer(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_children_t * child;
     ti_name_t * name;
     ti_task_t * task;
-    ti_procedure_t * procedure;
+    ti_timer_t * timer;
     ti_closure_t * closure;
-    time_t * start_ts;
+    time_t start_ts;
     uint32_t repeat;
+    vec_t * args;
+    uint64_t scope_id = ti_query_scope_id(query);
+    vec_t ** timers = ti_query_timers(query);
 
     if (fn_not_thingsdb_or_collection_scope("new_timer", query, e) ||
         fn_nargs_range("new_timer", DOC_NEW_TIMER, 4, 5, nargs, e) ||
@@ -90,7 +93,7 @@ static int do__f_new_timer(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
 
     if (ti_do_statement(query, (child = child->next->next)->node, e) ||
-        fn_arg_closure("new_timer", DOC_NEW_TIMER, 4, query->rval, e))
+            fn_arg_array("new_timer", DOC_NEW_TIMER, 4, query->rval, e))
         goto fail0;
 
     closure = (ti_closure_t *) query->rval;
@@ -99,53 +102,77 @@ static int do__f_new_timer(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_closure_unbound(closure, e))
         goto fail1;
 
+    if (nargs == 5)
+    {
+        if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+            fn_arg_array("new_timer", DOC_NEW_TIMER, 5, query->rval, e))
+            goto fail1;
+        args = vec_dup(VARR(query->rval));
+    }
+    else
+        args = vec_create(0);
+
+    if (!args || vec_reserve(timers, 1))
+    {
+        ex_set_mem(e);
+        goto fail1;
+    }
+
+    for (vec_each(args, ti_val_t, v))
+        ti_incref(v);
+
+    ti_val_drop(query->rval);
+    query->rval = NULL;
+
+    if (name && ti_timer_by_name(*timers, name))
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "timer `%s` already exists",
+                name->str);
+        goto fail2;
+    }
 
     timer = ti_timer_create(
             0,          /* ID, set the id in the last moment */
             name,
-            raw->n,
+            start_ts,
+            repeat,
+            scope_id,
+            query->user,
             closure,
-            util_now_tsec());
-    if (!procedure)
-        goto alloc_error;
-
-    rc = ti_procedures_add(procedures, procedure);
-    if (rc < 0)
-        goto alloc_error;
-    if (rc > 0)
+            args);
+    if (!timer)
     {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "procedure `%s` already exists",
-                procedure->name);
+        ex_set_mem(e);
         goto fail2;
     }
+
+    VEC_push(*timers, timer);
+
+    timer->id = ti_next_thing_id();
 
     task = ti_task_get_task(
             query->ev,
             query->collection ? query->collection->root : ti.thing0);
-    if (!task || ti_task_add_new_procedure(task, procedure))
+    if (!task || ti_task_add_new_timer(task, timer))
         goto undo;
 
-    query->rval = (ti_val_t *) raw;
-    ti_incref(query->rval);
-
+    query->rval = (ti_val_t *) ti_nil_get();
     goto done;
 
 undo:
-    (void) ti_procedures_pop(procedures, procedure);
-
-alloc_error:
-    if (!e->nr)
-        ex_set_mem(e);
+    VEC_pop(*timers);
+    ex_set_mem(e);
+    ti_timer_unsafe_drop(timer);
 
 fail2:
-    ti_procedure_destroy(procedure);
+    vec_destoy(args, (vec_destroy_cb)  ti_val_drop);
 
 done:
 fail1:
     ti_val_unsafe_drop((ti_val_t *) closure);
 
 fail0:
-    ti_name_drop(name);
+    ti_name_drop(name);  /* name may be NULL */
     return e->nr;
 }

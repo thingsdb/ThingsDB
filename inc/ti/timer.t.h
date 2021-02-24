@@ -14,9 +14,9 @@ typedef struct ti_timer_s ti_timer_t;
 struct ti_timer_s
 {
     uint32_t ref;
-    uint32_t repeat;                /* Repeat every X seconds */
+    uint32_t repeat;                /* Repeat every X seconds, 0=no repeat */
     uint64_t id;                    /* Unique ID */
-    uint64_t scope_id;              /* Pointer to access address */
+    uint64_t scope_id;              /* Scope ID */
     time_t next_run;                /* Next run, UNIX time-stamp in seconds */
     ti_user_t * user;               /* Owner of the timer; TODO: delete user */
     ti_closure_t * closure;         /* Closure to run */

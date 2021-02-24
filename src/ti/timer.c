@@ -1,6 +1,46 @@
 #include <ti/node.t.h>
 #include <ex.h>
 
+ti_timer_t * ti_timer_create(
+        uint64_t id,
+        ti_name_t * name,
+        time_t next_run,
+        uint32_t repeat,
+        uint64_t scope_id,
+        ti_user_t * user,
+        ti_closure_t * closure,
+        vec_t * args)
+{
+    ti_timer_t * timer = malloc(sizeof(ti_timer_t));
+    if (!timer)
+        return NULL;
+    timer->ref = 1;
+    timer->id = id;
+    timer->name = name;  /* may be NULL */
+    timer->next_run = next_run;
+    timer->repeat = repeat;
+    timer->scope_id = scope_id;
+    timer->user = user;
+    timer->closure = closure;
+
+    if (name)
+        ti_incref(name);
+
+    ti_incref(user);
+    ti_incref(closure);
+
+    return timer;
+}
+
+void ti_timer_destroy(ti_timer_t * timer)
+{
+    ti_name_drop(timer->name);  /* name may be NULL */
+    ti_val_unsafe_drop(timer->closure);
+    ti_user_drop(timer->user);
+
+    free(timer);
+}
+
 static void timer__async_cb(uv_async_t * async)
 {
     ti_timer_t * timer = async->data;

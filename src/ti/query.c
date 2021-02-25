@@ -30,6 +30,8 @@
 #include <ti/query.h>
 #include <ti/query.inline.h>
 #include <ti/task.h>
+#include <ti/timer.h>
+#include <ti/timer.inline.h>
 #include <ti/val.inline.h>
 #include <ti/varr.h>
 #include <ti/verror.h>
@@ -43,6 +45,14 @@ ti_query_done_cb ti_query_done_map[] = {
         &ti_query_on_then_result,
         &ti_query_timer_result,
 };
+
+ti_query_run_cb ti_query_run_map[] = {
+        &ti_query_run_parseres,
+        &ti_query_run_procedure,
+        &ti_query_run_future,
+        &ti_query_run_timer,
+};
+
 
 /*
  *  tasks are ordered for low to high thing ids
@@ -639,6 +649,11 @@ static void query__duration_log(
                 duration,
                 query->with.future->then->node->str);
         return;
+    case TI_QUERY_WITH_TIMER:
+        log_with_level(log_level, "timer took %f seconds to process: `%s`",
+                duration,
+                query->with.timer->closure->node->str);
+        return;
     }
 }
 
@@ -690,9 +705,18 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e)
     }
 }
 
-static void ti_query_timer_result(ti_query_t * query, ex_t * e)
+void ti_query_timer_result(ti_query_t * query, ex_t * e)
 {
+    if (e->nr)
+    {
+        log_debug("timer failed: `%s`, %s: `%s`",
+                query->with.timer->closure->node->str,
+                ex_str(e->nr),
+                e->msg);
+        ti_timer_ex_set_from_e(query->with.timer, e);
 
+    }
+    ti_query_destroy(query);
 }
 
 static void query__then(ti_query_t * query, ex_t * e)
@@ -1052,10 +1076,8 @@ void ti_query_send_response(ti_query_t * query, ex_t * e)
                     e->msg);
             break;
         case TI_QUERY_WITH_FUTURE:
-            log_debug("future failed: `%s`, %s: `%s`",
-                    query->with.future->then->node->str,
-                    ex_str(e->nr),
-                    e->msg);
+        case TI_QUERY_WITH_TIMER:
+            assert(0);
             break;
         }
 

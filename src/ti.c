@@ -76,13 +76,12 @@ int ti_create(void)
     ti.store = NULL;
     ti.access_node = vec_new(0);
     ti.access_thingsdb = vec_new(0);
-    ti.timers_node = vec_new(0);
-    ti.timers_thingsdb = vec_new(0);
     ti.procedures = smap_create();
     ti.modules = smap_create();
     ti.langdef = compile_langdef();
     ti.thing0 = ti_thing_o_create(0, 0, NULL);
     if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti.boottime) ||
+            ti_timers_create() ||
             ti_counters_create() ||
             ti_away_create() ||
             ti_args_create() ||

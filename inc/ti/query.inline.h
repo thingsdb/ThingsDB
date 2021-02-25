@@ -41,11 +41,8 @@ static inline vec_t ** ti_query_timers(ti_query_t * query)
 {
     return query->collection
             ? &query->collection->timers
-            : query->qbind.flags & TI_QBIND_FLAG_THINGSDB
-            ? ti.timers_thingsdb
-            : ti.timers_node;
+            : &ti.timers->timers;
 }
-
 
 static inline void ti_query_destroy_or_return(ti_query_t * query)
 {
@@ -57,18 +54,7 @@ static inline void ti_query_destroy_or_return(ti_query_t * query)
 
 static inline void ti_query_run(ti_query_t * query)
 {
-    switch((ti_query_with_enum) query->with_tp)
-    {
-    case TI_QUERY_WITH_PARSERES:
-        ti_query_run_parseres(query);
-        return;
-    case TI_QUERY_WITH_PROCEDURE:
-        ti_query_run_procedure(query);
-        return;
-    case TI_QUERY_WITH_FUTURE:
-        ti_query_run_future(query);
-        return;
-    }
+    ti_query_run_map[query->with_tp](query);
 }
 
 static inline void ti_query_response(ti_query_t * query, ex_t * e)

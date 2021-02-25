@@ -25,6 +25,7 @@
 #include <ti/store.h>
 #include <ti/sync.h>
 #include <ti/tcp.h>
+#include <ti/timers.h>
 #include <ti/users.h>
 #include <ti/val.t.h>
 #include <tiinc.h>
@@ -105,8 +106,6 @@ struct ti_s
     ti_timers_t * timers;
     vec_t * access_node;        /* ti_access_t */
     vec_t * access_thingsdb;    /* ti_access_t */
-    vec_t * timers_node;        /* ti_timer_t */
-    vec_t * timers_thingsdb;    /* ti_timer_t */
     smap_t * procedures;        /* ti_procedure_t */
     smap_t * names;             /* weak map for ti_name_t */
     smap_t * qcache;            /* pointer to cache in stack */

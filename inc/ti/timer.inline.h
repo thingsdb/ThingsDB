@@ -6,6 +6,7 @@
 
 #include <ex.h>
 #include <ti/timer.t.h>
+#include <ti/timer.h>
 #include <util/vec.h>
 
 static inline ti_timer_t * ti_timer_by_name(vec_t * timers, ti_name_t * name)
@@ -14,6 +15,12 @@ static inline ti_timer_t * ti_timer_by_name(vec_t * timers, ti_name_t * name)
         if (timer->name == name)
             return timer;
     return NULL;
+}
+
+static inline void ti_timer_drop(ti_timer_t * timer)
+{
+    if (timer && !--timer->ref)
+        ti_timer_destroy(timer);
 }
 
 static inline void ti_timer_unsafe_drop(ti_timer_t * timer)

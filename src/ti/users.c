@@ -199,7 +199,7 @@ failed:
  */
 ti_user_t * ti_users_auth_by_token(mp_obj_t * mp_token, ex_t * e)
 {
-    uint64_t now_ts = util_now_tsec();
+    uint64_t now_ts = util_now_usec();
     const size_t key_sz = sizeof(ti_token_key_t);
 
     if (mp_token->tp != MP_STR || mp_token->via.str.n != key_sz)

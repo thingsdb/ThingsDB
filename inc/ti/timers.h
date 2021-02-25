@@ -20,6 +20,7 @@ struct ti_timers_s
     _Bool is_started;
     uint32_t n_loops;       /* count number of loops */
     uv_timer_t * timer;
+    vec_t * timers;         /* ti_timer_t */
 };
 
 #endif  /* TI_TIMERS_H_ */

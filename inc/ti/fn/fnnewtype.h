@@ -77,7 +77,7 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             flags,
             (const char *) rname->data,
             rname->n,
-            util_now_tsec()  /* created_at */,
+            util_now_usec()  /* created_at */,
             0  /* modified_at */);
 
     if (!type)

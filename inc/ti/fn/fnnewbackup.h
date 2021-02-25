@@ -145,7 +145,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             timestamp,
             repeat,
             max_files,
-            util_now_tsec(),
+            util_now_usec(),
             files_queue);
 
     if (!backup)

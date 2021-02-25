@@ -36,7 +36,7 @@ const char * ti_scope_name_from_id(uint64_t scope_id);
 int ti_scope_id(ti_scope_t * scope, uint64_t * scope_id, ex_t * e);
 void ti_scope_load_from_scope_id(
         uint64_t scope_id,
-        vec_t * access_,
-        ti_collection_t * collection);
+        vec_t ** access_,
+        ti_collection_t ** collection);
 
 #endif /* TI_SCOPE_H_ */

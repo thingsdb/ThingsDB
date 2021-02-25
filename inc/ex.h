@@ -90,6 +90,7 @@ typedef struct ex_s ex_t;
 
 #include <inttypes.h>
 #include <stddef.h>
+#include <stdarg.h>
 #include <string.h>
 
 void ex_set(ex_t * e, ex_enum errnr, const char * errmsg, ...);

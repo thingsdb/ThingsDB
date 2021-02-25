@@ -2,8 +2,7 @@
 
 static int do__f_new_timer(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    const int nargs = langdef_nd_n_function_params(nd);
-    int rc;
+    const int nargs = fn_get_nargs(nd);
     cleri_children_t * child;
     ti_name_t * name;
     ti_task_t * task;
@@ -110,7 +109,7 @@ static int do__f_new_timer(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         args = vec_dup(VARR(query->rval));
     }
     else
-        args = vec_create(0);
+        args = vec_new(0);
 
     if (!args || vec_reserve(timers, 1))
     {
@@ -161,12 +160,11 @@ static int do__f_new_timer(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     goto done;
 
 undo:
-    VEC_pop(*timers);
     ex_set_mem(e);
-    ti_timer_unsafe_drop(timer);
+    ti_timer_unsafe_drop(VEC_pop(*timers));
 
 fail2:
-    vec_destoy(args, (vec_destroy_cb)  ti_val_drop);
+    vec_destroy(args, (vec_destroy_cb) ti_val_drop);
 
 done:
 fail1:

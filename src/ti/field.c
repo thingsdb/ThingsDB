@@ -263,7 +263,7 @@ static ti_val_t * field__dval_bool(ti_field_t * UNUSED(field))
 static ti_val_t * field__dval_datetime(ti_field_t * field)
 {
     return (ti_val_t *) ti_datetime_from_i64(
-            (int64_t) util_now_tsec(),
+            (int64_t) util_now_usec(),
             0,
             field->type->types->collection->tz);
 }
@@ -271,7 +271,7 @@ static ti_val_t * field__dval_datetime(ti_field_t * field)
 static ti_val_t * field__dval_timeval(ti_field_t * field)
 {
     return (ti_val_t *) ti_timeval_from_i64(
-            (int64_t) util_now_tsec(),
+            (int64_t) util_now_usec(),
             0,
             field->type->types->collection->tz);
 }

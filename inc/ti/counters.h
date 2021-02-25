@@ -32,6 +32,14 @@ struct ti_counters_s
                                        the master node but the query has
                                        returned with an error
                                     */
+    uint64_t timers_success;        /* node queries where this node acted as
+                                       the master node and the query was
+                                       successful finished
+                                    */
+    uint64_t timers_with_error;     /* node queries where this node acted as
+                                       the master node but the query has
+                                       returned with an error
+                                    */
     uint16_t watcher_failed;        /* failed to update a watcher with an
                                        event
                                     */

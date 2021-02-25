@@ -203,7 +203,7 @@ static ti_backup_t * backups__get_pending(uint64_t ts, uint64_t id)
 
 void ti_backups_upd_status(uint64_t backup_id, int rc, buf_t * buf)
 {
-    uint64_t now = util_now_tsec();
+    uint64_t now = util_now_usec();
     ti_backup_t * backup;
     ti_raw_t * last_fn;
 
@@ -294,7 +294,7 @@ void backups__run(uint64_t backup_id, const char * job)
 
         if (rc == 0)
         {
-            uint64_t now = util_now_tsec();
+            uint64_t now = util_now_usec();
             struct tm * tm_info;
             tm_info = gmtime((const time_t *) &now);
 
@@ -410,7 +410,7 @@ int ti_backups_restore(void)
              mp_fn, mp_msg, mp_plan, mp_code, mp_created, mp_max_files;
     mp_unp_t up;
     ti_backup_t * backup;
-    uint64_t now = util_now_tsec();
+    uint64_t now = util_now_usec();
     queue_t * files_queue;
     ti_raw_t * raw_fn;
     _Bool set_changed = false;
@@ -558,7 +558,7 @@ int ti_backups_backup(void)
     uint64_t backup_id = 0;
     char * job = NULL;
     ti_backup_t * backup;
-    uint64_t now = util_now_tsec();
+    uint64_t now = util_now_usec();
 
     do
     {
@@ -614,7 +614,7 @@ size_t ti_backups_scheduled(void)
 
 size_t ti_backups_pending(void)
 {
-    uint64_t now = util_now_tsec();
+    uint64_t now = util_now_usec();
     size_t n = 0;
     omap_iter_t iter;
 

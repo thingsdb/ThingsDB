@@ -34,7 +34,7 @@ static void enum__add(
     }
 
     /* update modified time-stamp */
-    enum_->modified_at = util_now_tsec();
+    enum_->modified_at = util_now_usec();
 
     /* query->rval might be null; when there are no instances */
     if (ti_task_add_mod_enum_add(task, member))
@@ -83,7 +83,7 @@ static void enum__def(
     }
 
     /* update modified time-stamp */
-    enum_->modified_at = util_now_tsec();
+    enum_->modified_at = util_now_usec();
 
     if (ti_task_add_mod_enum_def(task, member))
     {
@@ -142,7 +142,7 @@ static void enum__del(
     }
 
     /* update modified time-stamp */
-    enum_->modified_at = util_now_tsec();
+    enum_->modified_at = util_now_usec();
 
     if (ti_task_add_mod_enum_del(task, member))
         ex_set_mem(e);
@@ -193,7 +193,7 @@ static void enum__mod(
     }
 
     /* update modified time-stamp */
-    enum_->modified_at = util_now_tsec();
+    enum_->modified_at = util_now_usec();
 
     if (ti_task_add_mod_enum_mod(task, member))
         ex_set_mem(e);
@@ -246,7 +246,7 @@ static void enum__ren(
     }
 
     /* update modified time-stamp */
-    enum_->modified_at = util_now_tsec();
+    enum_->modified_at = util_now_usec();
 
     if (ti_task_add_mod_enum_ren(task, member))
         ex_set_mem(e);

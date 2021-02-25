@@ -26,6 +26,7 @@ from test_relations import TestRelations
 from test_scopes import TestScopes
 from test_syntax import TestSyntax
 from test_thingsdb_functions import TestThingsDBFunctions
+from test_timers import TestTimers
 from test_type import TestType
 from test_types import TestTypes
 from test_user_access import TestUserAccess
@@ -74,6 +75,7 @@ if __name__ == '__main__':
     run_test(TestScopes())
     run_test(TestSyntax())
     run_test(TestThingsDBFunctions())
+    run_test(TestTimers())
     run_test(TestType())
     run_test(TestTypes())
     run_test(TestUserAccess())

@@ -3,6 +3,8 @@
  */
 #include <assert.h>
 #include <ti/timers.h>
+#include <ti/timer.h>
+#include <ti/timer.inline.h>
 #include <stdbool.h>
 #include <ti/node.h>
 #include <ti.h>
@@ -24,8 +26,9 @@ int ti_timers_create(void)
     timers->is_started = false;
     timers->timer = malloc(sizeof(uv_timer_t));
     timers->n_loops = 0;
+    timers->timers = vec_new(0);
 
-    if (!timers->timer)
+    if (!timers->timer || !timers->timers)
         goto failed;
 
     ti.timers = timers;
@@ -77,7 +80,10 @@ void ti_timers_stop(void)
 static void timers__destroy(uv_handle_t * UNUSED(handle))
 {
     if (timers)
+    {
         free(timers->timer);
+        vec_destroy(timers->timers, (vec_destroy_cb) ti_timer_drop);
+    }
     free(timers);
     timers = ti.timers = NULL;
 }
@@ -87,27 +93,21 @@ static void timers__destroy(uv_handle_t * UNUSED(handle))
  */
 static void timers__cb(uv_timer_t * UNUSED(handle))
 {
-    uint64_t now = util_now_tsec();
+    time_t now = util_now_tsec();
     uint32_t rel_id = ti.rel_id;
     uint32_t nodes_n = ti.nodes->vec->n;
     ti_timers_cb cb;
 
-    if (ti.node->status & (
+    if ((ti.node->status & (
             TI_NODE_STAT_SYNCHRONIZING|
             TI_NODE_STAT_AWAY|
             TI_NODE_STAT_AWAY_SOON|
-            TI_NODE_STAT_READY) == 0)
+            TI_NODE_STAT_READY)) == 0)
         return;
 
     cb = ti.node->status == TI_NODE_STAT_READY ? ti_timer_run : ti_timer_fwd;
 
-    for (vec_each(ti.timers_node, ti_timer_t, timer))
-    {
-        if (timer->next_run <= now)
-            ti_timer_run(timer);
-    }
-
-    for (vec_each(ti.timers_thingsdb, ti_timer_t, timer))
+    for (vec_each(ti.timers->timers, ti_timer_t, timer))
     {
         if (timer->next_run <= now && (timer->id % nodes_n == rel_id))
             cb(timer);

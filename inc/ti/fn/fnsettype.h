@@ -7,7 +7,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_thing_t * thing;
     ti_task_t * task;
     ssize_t n;
-    uint64_t ts_now = util_now_tsec();
+    uint64_t ts_now = util_now_usec();
     cleri_children_t * child = nd->children;
     _Bool is_new_type = false;
     _Bool wpo = false;

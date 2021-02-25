@@ -40,7 +40,7 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             (const char *) raw->data,
             raw->n,
             closure,
-            util_now_tsec());
+            util_now_usec());
     if (!procedure)
         goto alloc_error;
 

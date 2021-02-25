@@ -70,7 +70,7 @@ char * backup__next_run(ti_backup_t * backup)
     /* length 27 =  "2000-00-00 00:00:00+01.00Z" + 1 */
     static char buf[27];
     struct tm * tm_info;
-    uint64_t now = util_now_tsec();
+    uint64_t now = util_now_usec();
 
     if (backup->next_run < now)
         return "pending";
@@ -169,7 +169,7 @@ _Bool ti_backup_is_gcloud(ti_backup_t * backup)
 char * ti_backup_gcloud_job(ti_backup_t * backup)
 {
     struct tm * tm_info;
-    uint64_t now = util_now_tsec();
+    uint64_t now = util_now_usec();
     const size_t event_sz = strlen("{EVENT}");
     const size_t date_sz = strlen("{DATE}");
     const size_t time_sz = strlen("{TIME}");
@@ -277,7 +277,7 @@ char * ti_backup_gcloud_job(ti_backup_t * backup)
 char * ti_backup_job(ti_backup_t * backup)
 {
     struct tm * tm_info;
-    uint64_t now = util_now_tsec();
+    uint64_t now = util_now_usec();
     const size_t event_sz = strlen("{EVENT}");
     const size_t date_sz = strlen("{DATE}");
     const size_t time_sz = strlen("{TIME}");

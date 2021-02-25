@@ -46,7 +46,7 @@ static int user__pack_access(
 
 static int user__pack_tokens(ti_user_t * user, msgpack_packer * pk)
 {
-    uint64_t now = util_now_tsec();
+    uint64_t now = util_now_usec();
     const size_t key_sz = sizeof(ti_token_key_t);
 
     if (mp_pack_str(pk, "tokens") ||

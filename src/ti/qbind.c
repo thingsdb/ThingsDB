@@ -123,6 +123,7 @@
 #include <ti/fn/fnnewmodule.h>
 #include <ti/fn/fnnewnode.h>
 #include <ti/fn/fnnewprocedure.h>
+#include <ti/fn/fnnewtimer.h>
 #include <ti/fn/fnnewtoken.h>
 #include <ti/fn/fnnewtype.h>
 #include <ti/fn/fnnewuser.h>
@@ -227,7 +228,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 207,
+    TOTAL_KEYWORDS = 208,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 14,
@@ -245,14 +246,14 @@ static inline unsigned int qbind__hash(
         460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
         460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
         460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
-        460, 460,   6, 460,   6, 460,   6, 460, 460, 460,
+        460, 460,  12, 460,  11, 460,   6, 460, 460, 460,
         460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
         460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
         460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
         460, 460, 460, 460, 460,   6, 460,   7,  77,  50,
-          6,   6,  52, 153, 128,   6,  10,  23,   6,  13,
-         12,  39, 118,   6,   7,   6,   9,  27,  70, 122,
-        184, 165,  42, 460, 460, 460, 460, 460, 460, 460,
+        6,   6,  52, 209, 128,   6,  10,  23,   6,  13,
+        12,  39, 118,   6,   7,   6,   9,  27,  70, 122,
+        58, 165,  38, 460, 460, 460, 460, 460, 460, 460,
         460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
         460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
         460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
@@ -519,6 +520,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="new_module",        .fn=do__f_new_module,           ROOT_TE},
     {.name="new_node",          .fn=do__f_new_node,             ROOT_TE},
     {.name="new_procedure",     .fn=do__f_new_procedure,        ROOT_BE},
+    {.name="new_timer",         .fn=do__f_new_timer,            ROOT_BE},
     {.name="new_token",         .fn=do__f_new_token,            ROOT_TE},
     {.name="new_type",          .fn=do__f_new_type,             ROOT_CE},
     {.name="new_user",          .fn=do__f_new_user,             ROOT_TE},

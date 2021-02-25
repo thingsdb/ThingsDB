@@ -474,6 +474,12 @@ void ti__event_log_(const char * prefix, ti_event_t * ev, int log_level)
                     "<future: `%s`>",
                     ev->via.query->with.future->then->node->str);
             break;
+        case TI_QUERY_WITH_TIMER:
+            (void) fprintf(
+                    Logger.ostream,
+                    "<timer: `%s`>",
+                    ev->via.query->with.timer->closure->node->str);
+            break;
         }
         break;
     case TI_EVENT_TP_EPKG:

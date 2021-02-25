@@ -15,6 +15,7 @@ typedef int (*ti_query_vars_walk_cb)(void * data, void * arg);
 #include <ti/future.t.h>
 #include <ti/qbind.t.h>
 #include <ti/stream.t.h>
+#include <ti/timer.t.h>
 #include <ti/user.t.h>
 #include <ti/val.t.h>
 #include <util/util.h>
@@ -51,6 +52,7 @@ typedef int (*ti_query_unpack_cb) (
         ex_t *);
 
 typedef void (*ti_query_done_cb) (ti_query_t *, ex_t *);
+typedef void (*ti_query_run_cb) (ti_query_t *);
 
 typedef union
 {

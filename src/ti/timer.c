@@ -1,5 +1,24 @@
-#include <ti/node.t.h>
+/*
+ * ti/timer.c
+ */
+#include <assert.h>
 #include <ex.h>
+#include <ti.h>
+#include <ti/access.h>
+#include <ti/auth.h>
+#include <ti/name.h>
+#include <ti/node.t.h>
+#include <ti/node.t.h>
+#include <ti/pkg.t.h>
+#include <ti/query.h>
+#include <ti/query.t.h>
+#include <ti/rpkg.t.h>
+#include <ti/scope.h>
+#include <ti/timer.h>
+#include <ti/timer.inline.h>
+#include <ti/timer.t.h>
+#include <ti/user.h>
+#include <ti/val.inline.h>
 
 ti_timer_t * ti_timer_create(
         uint64_t id,
@@ -22,6 +41,7 @@ ti_timer_t * ti_timer_create(
     timer->scope_id = scope_id;
     timer->user = user;
     timer->closure = closure;
+    timer->args = args;
 
     if (name)
         ti_incref(name);
@@ -35,7 +55,7 @@ ti_timer_t * ti_timer_create(
 void ti_timer_destroy(ti_timer_t * timer)
 {
     ti_name_drop(timer->name);  /* name may be NULL */
-    ti_val_unsafe_drop(timer->closure);
+    ti_val_unsafe_drop((ti_val_t *) timer->closure);
     ti_user_drop(timer->user);
 
     free(timer);
@@ -46,13 +66,11 @@ static void timer__async_cb(uv_async_t * async)
     ti_timer_t * timer = async->data;
     ex_t e = {0};
     ti_node_t * this_node = ti.node;
-    ti_pkg_t * resp = NULL;
     ti_query_t * query = NULL;
-    ti_scope_t scope;
     vec_t * access_;
     ti_collection_t * collection;
 
-    uv_close((uv_handle_t *) async, free);
+    uv_close((uv_handle_t *) async, (uv_close_cb) free);
 
     if (this_node->status < TI_NODE_STAT_READY &&
         this_node->status != TI_NODE_STAT_SHUTTING_DOWN)
@@ -109,8 +127,8 @@ finish:
     ti_query_destroy(query);
     if (e.nr)
     {
-        ++ti.counters->queries_with_error;
-        ti_timer_ex_cpy(timer, &e);
+        ++ti.counters->timers_with_error;
+        ti_timer_ex_set_from_e(timer, &e);
     }
 }
 
@@ -153,7 +171,6 @@ static ti_rpkg_t * timer__rpkg_e(ti_timer_t * timer)
     msgpack_sbuffer buffer;
     ti_pkg_t * pkg;
     ti_rpkg_t * rpkg;
-    ti_node_t * ti_node = ti.node;
 
     if (mp_sbuffer_alloc_init(&buffer, timer->e->n + 28, sizeof(ti_pkg_t)))
         return NULL;
@@ -166,7 +183,7 @@ static ti_rpkg_t * timer__rpkg_e(ti_timer_t * timer)
     (void) mp_pack_strn(&pk, timer->e->msg, timer->e->n);
 
     pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, 0, TI_PROTO_NODE_INFO, buffer.size);
+    pkg_init(pkg, 0, TI_PROTO_NODE_EX_TIMER, buffer.size);
 
     rpkg = ti_rpkg_create(pkg);
     if (!rpkg)
@@ -220,7 +237,7 @@ void ti_timer_ex_set(
     ti_timer_broadcast_e(timer);
 }
 
-void ti_timer_ex_cpy(ti_timer_t * timer, ex_t * e)
+void ti_timer_ex_set_from_e(ti_timer_t * timer, ex_t * e)
 {
     if (!timer->e && !(timer->e = malloc(sizeof(ex_t))))
     {

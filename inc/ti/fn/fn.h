@@ -51,6 +51,8 @@
 #include <ti/spec.inline.h>
 #include <ti/task.h>
 #include <ti/thing.inline.h>
+#include <ti/timer.h>
+#include <ti/timer.inline.h>
 #include <ti/token.h>
 #include <ti/types.inline.h>
 #include <ti/users.h>
@@ -66,9 +68,9 @@
 #include <ti/wrap.inline.h>
 #include <tiinc.h>
 #include <util/cryptx.h>
+#include <util/fx.h>
 #include <util/strx.h>
 #include <util/util.h>
-#include <util/fx.h>
 #include <uv.h>
 
 typedef int (*fn_cb) (ti_query_t *, cleri_node_t *, ex_t *);

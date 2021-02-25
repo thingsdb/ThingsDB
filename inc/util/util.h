@@ -13,7 +13,8 @@ typedef struct timespec util_time_t;
 
 
 double util_now(void);
-uint64_t util_now_tsec(void);
+uint64_t util_now_usec(void);
+time_t util_now_tsec(void);
 void util_get_random(void * buf, size_t n);
 void util_random_key(char * buf, size_t n);
 

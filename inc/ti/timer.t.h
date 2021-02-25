@@ -6,7 +6,10 @@
 
 #include <ex.h>
 #include <inttypes.h>
+#include <ti/closure.t.h>
+#include <ti/name.t.h>
 #include <ti/pkg.t.h>
+#include <ti/user.t.h>
 #include <ti/timer.t.h>
 
 typedef struct ti_timer_s ti_timer_t;

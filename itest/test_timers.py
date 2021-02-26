@@ -37,7 +37,9 @@ class TestTimers(TestBase):
     async def test_new_timer(self, client):
         with self.assertRaisesRegex(
                 LookupError,
-                'xxx'):
+                r'function `new_timer` is undefined in the `@node` scope; '
+                r'you might want to query the `@thingsdb` or '
+                r'a `@collection` scope\?'):
             await client.query('new_timer();', scope='/n')
 
         with self.assertRaisesRegex(
@@ -47,9 +49,44 @@ class TestTimers(TestBase):
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `new_timer` takes at least 4 arguments '
+                'function `new_timer` requires at least 2 arguments '
                 'but 0 were given'):
             await client.query('new_timer();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `new_timer` takes at most 5 arguments '
+                'but 6 were given'):
+            await client.query('new_timer(nil, now(), nil, ||nil, [], nil);')
+
+        await client.query(r'''
+            .x = 8;
+            new_timer(
+                nil,
+                datetime().move('seconds', 2),
+                nil,
+                |x| {.x = x},
+                [42]
+            );
+        ''')
+
+        self.assertEqual(await client.query('.x'), 8)
+        await asyncio.sleep(20)
+        self.assertEqual(await client.query('.x'), 42)
+
+        await client.query(r'''
+            .x = 8;
+            new_timer(
+                datetime().move('seconds', 2),
+                |x| {.x = x},
+                [42]
+            );
+        ''')
+
+        self.assertEqual(await client.query('.x'), 8)
+        await asyncio.sleep(20)
+        self.assertEqual(await client.query('.x'), 42)
+
 
 
 if __name__ == '__main__':

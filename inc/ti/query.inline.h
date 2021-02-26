@@ -4,12 +4,13 @@
 #ifndef TI_QUERY_INLINE_H_
 #define TI_QUERY_INLINE_H_
 
-#include <ti/qbind.h>
-#include <util/vec.h>
 #include <ti.h>
-#include <ti/query.h>
-#include <ti/qcache.h>
 #include <ti/prop.h>
+#include <ti/qbind.h>
+#include <ti/qcache.h>
+#include <ti/query.h>
+#include <ti/timer.t.h>
+#include <util/vec.h>
 
 static inline vec_t * ti_query_access(ti_query_t * query)
 {
@@ -73,6 +74,16 @@ static inline uint64_t ti_query_scope_id(ti_query_t * query)
 
     assert (0);
     return 0;
+}
+
+static inline ti_timer_t * ti_timer_query(ti_query_t * query, ex_t * e)
+{
+    if (query->with_tp == TI_QUERY_WITH_TIMER)
+        return query->with.timer;
+    ex_set(e, EX_LOOKUP_ERROR,
+            "missing timer; use this function within a timer callback or "
+            "try to provide a timer ID/name");
+    return NULL;
 }
 
 #endif  /* TI_QUERY_INLINE_H_ */

@@ -18,6 +18,7 @@
 #include <ti/syncarchive.h>
 #include <ti/syncevents.h>
 #include <ti/syncfull.h>
+#include <ti/timer.h>
 #include <ti/val.inline.h>
 #include <ti/varr.h>
 #include <ti/version.h>
@@ -36,6 +37,16 @@ static ti_nodes_t * nodes;
 static ti_nodes_t nodes_;
 
 static const char * nodes__status    = "global_status";
+
+
+#define LOG_UNAUTHORIZED_NODE \
+    log_error("got `%s` from an unauthorized connection: `%s`", \
+              ti_proto_str(pkg->tp), ti_stream_name(stream));
+
+#define LOG_INVALID \
+    log_error("invalid `%s` from `%s`", \
+              ti_proto_str(pkg->tp), ti_stream_name(stream));
+
 
 static void nodes__tcp_connection(uv_stream_t * uvstream, int status)
 {
@@ -397,10 +408,10 @@ static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_proto_enum_t accepted;
     uint8_t n = 0;
 
-    if (!this_node)
+    if (!other_node)
     {
         ex_set(&e, EX_AUTH_ERROR,
-                "got an `%s` request from an unauthorized connection",
+                "got `%s` from an unauthorized connection",
                 ti_proto_str(pkg->tp));
         goto finish;
     }
@@ -463,17 +474,18 @@ static void nodes__on_req_away(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t e = {0};
     ti_pkg_t * resp = NULL;
-    ti_node_t * node = stream->via.node;
+    ti_node_t * other_node = stream->via.node;
     _Bool accepted;
 
-    if (!node)
+    if (!other_node)
     {
         ex_set(&e, EX_AUTH_ERROR,
-                "got an away request from an unauthorized connection");
+                "got `%s` from an unauthorized connection",
+                ti_proto_str(pkg->tp));
         goto finish;
     }
 
-    if (node->status < TI_NODE_STAT_SHUTTING_DOWN)
+    if (ti.node->status < TI_NODE_STAT_SHUTTING_DOWN)
     {
         ex_set(&e, EX_NODE_ERROR,
                 TI_NODE_ID" is not ready to handle away requests",
@@ -481,7 +493,7 @@ static void nodes__on_req_away(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    accepted = ti_away_accept(node->id);
+    accepted = ti_away_accept(other_node->id);
 
     assert (e.nr == 0);
     resp = ti_pkg_new(
@@ -517,7 +529,8 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
     if (!other_node)
     {
         ex_set(&e, EX_AUTH_ERROR,
-                "got a forwarded query from an unauthorized connection");
+                "got `%s` from an unauthorized connection",
+                ti_proto_str(pkg->tp));
         goto finish;
     }
 
@@ -642,7 +655,8 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
     if (!other_node)
     {
         ex_set(&e, EX_AUTH_ERROR,
-                "got a forwarded run request from an unauthorized connection");
+                "got `%s` from an unauthorized connection",
+                ti_proto_str(pkg->tp));
         goto finish;
     }
 
@@ -739,11 +753,11 @@ static void nodes__on_req_setup(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_pkg_t * resp;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
-    ti_node_t * node = stream->via.node;
+    ti_node_t * other_node = stream->via.node;
 
-    if (!node)
+    if (!other_node)
     {
-        log_error("got a setup request from an unauthorized connection");
+        LOG_UNAUTHORIZED_NODE
         return;
     }
 
@@ -771,14 +785,16 @@ static void nodes__on_req_sync(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t e = {0};
     ti_pkg_t * resp = NULL;
-    ti_node_t * node = stream->via.node;
+    ti_node_t * other_node = stream->via.node;
     mp_unp_t up;
     mp_obj_t mp_start;
 
-    if (!node)
+    if (!other_node)
     {
-        log_error("got a sync request from an unauthorized connection");
-        return;
+        ex_set(&e, EX_AUTH_ERROR,
+                "got `%s` from an unauthorized connection",
+                ti_proto_str(pkg->tp));
+        goto finish;
     }
 
     if ((ti.node->status & (TI_NODE_STAT_AWAY_SOON|TI_NODE_STAT_AWAY)) == 0)
@@ -831,14 +847,14 @@ static void nodes__on_req_syncpart(
 {
     ex_t e = {0};
     ti_pkg_t * resp = NULL;
-    ti_node_t * node = stream->via.node;
+    ti_node_t * other_node = stream->via.node;
 
-    if (!node)
+    if (!other_node)
     {
-        log_error(
-            "got a `%s` from an unauthorized connection: `%s`",
-            ti_proto_str(pkg->tp), ti_stream_name(stream));
-        return;
+        ex_set(&e, EX_AUTH_ERROR,
+                "got `%s` from an unauthorized connection",
+                ti_proto_str(pkg->tp));
+        goto finish;
     }
 
     if (ti.node->status != TI_NODE_STAT_SYNCHRONIZING)
@@ -873,14 +889,14 @@ static void nodes__on_req_syncfdone(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t e = {0};
     ti_pkg_t * resp = NULL;
-    ti_node_t * node = stream->via.node;
+    ti_node_t * other_node = stream->via.node;
 
-    if (!node)
+    if (!other_node)
     {
-        log_error(
-            "got a `%s` from an unauthorized connection: `%s`",
-            ti_proto_str(pkg->tp), ti_stream_name(stream));
-        return;
+        ex_set(&e, EX_AUTH_ERROR,
+                "got `%s` from an unauthorized connection",
+                ti_proto_str(pkg->tp));
+        goto finish;
     }
 
     if (ti.node->status != TI_NODE_STAT_SYNCHRONIZING)
@@ -914,14 +930,14 @@ static void nodes__on_req_syncadone(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t e = {0};
     ti_pkg_t * resp = NULL;
-    ti_node_t * node = stream->via.node;
+    ti_node_t * other_node = stream->via.node;
 
-    if (!node)
+    if (!other_node)
     {
-        log_error(
-            "got a `%s` from an unauthorized connection: `%s`",
-            ti_proto_str(pkg->tp), ti_stream_name(stream));
-        return;
+        ex_set(&e, EX_AUTH_ERROR,
+                "got `%s` from an unauthorized connection",
+                ti_proto_str(pkg->tp));
+        goto finish;
     }
 
     if (ti.node->status != TI_NODE_STAT_SYNCHRONIZING)
@@ -956,14 +972,14 @@ static void nodes__on_req_syncedone(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t e = {0};
     ti_pkg_t * resp = NULL;
-    ti_node_t * node = stream->via.node;
+    ti_node_t * other_node = stream->via.node;
 
-    if (!node)
+    if (!other_node)
     {
-        log_error(
-            "got a `%s` from an unauthorized connection: `%s`",
-            ti_proto_str(pkg->tp), ti_stream_name(stream));
-        return;
+        ex_set(&e, EX_AUTH_ERROR,
+                "got `%s` from an unauthorized connection",
+                ti_proto_str(pkg->tp));
+        goto finish;
     }
 
     if (ti.node->status != TI_NODE_STAT_SYNCHRONIZING)
@@ -1001,9 +1017,7 @@ static void nodes__on_event(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (!other_node)
     {
-        log_error(
-                "got a `%s` from an unauthorized connection: `%s`",
-                ti_proto_str(pkg->tp), ti_stream_name(stream));
+        LOG_UNAUTHORIZED_NODE
         return;
     }
 
@@ -1017,9 +1031,7 @@ static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (!other_node)
     {
-        log_error(
-                "got a `%s` from an unauthorized connection: `%s`",
-                ti_proto_str(pkg->tp), ti_stream_name(stream));
+        LOG_UNAUTHORIZED_NODE
         return;
     }
 
@@ -1027,8 +1039,7 @@ static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (ti_node_status_from_unp(other_node, &up))
     {
-        log_error("invalid `%s` from `%s`",
-                ti_proto_str(pkg->tp), ti_stream_name(stream));
+        LOG_INVALID
         return;
     }
 }
@@ -1042,9 +1053,7 @@ static void nodes__on_missing_event(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (!other_node)
     {
-        log_error(
-                "got a `%s` from an unauthorized connection: `%s`",
-                ti_proto_str(pkg->tp), ti_stream_name(stream));
+        LOG_UNAUTHORIZED_NODE
         return;
     }
 
@@ -1052,7 +1061,7 @@ static void nodes__on_missing_event(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (mp_next(&up, &mp_id) != MP_U64)
     {
-        log_error("got an invalid missing event package");
+        LOG_INVALID
         return;
     }
 
@@ -1064,6 +1073,145 @@ static void nodes__on_missing_event(ti_stream_t * stream, ti_pkg_t * pkg)
             epkg ? "respond with event to" : "cannot find",
             mp_id.via.u64,
             other_node->id);
+}
+
+static void nodes__on_ok_timer(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    mp_unp_t up;
+    ti_node_t * other_node = stream->via.node;
+    ti_node_t * this_node = ti.node;
+    mp_obj_t obj, mp_scope_id, mp_id, mp_next_run;
+    vec_t ** timers;
+
+    if (!other_node)
+    {
+        LOG_UNAUTHORIZED_NODE
+        return;
+    }
+
+    if (this_node->status <= TI_NODE_STAT_SHUTTING_DOWN)
+    {
+        log_warning("skip update for timer; (node status: `%s`)",
+                ti_node_status_str(this_node->status));
+        return;
+    }
+
+    mp_unp_init(&up, pkg->data, pkg->n);
+
+    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 3 ||
+        mp_next(&up, &mp_scope_id) != MP_U64 ||
+        mp_next(&up, &mp_id) != MP_U64 ||
+        mp_next(&up, &mp_next_run) != MP_U64)
+    {
+        LOG_INVALID
+        return;
+    }
+
+    timers = ti_timers_from_scope_id(mp_scope_id.via.u64);
+    if (!timers)
+    {
+        log_error(
+                "failed to get timers for scope id %"PRIu64,
+                mp_scope_id.via.u64);
+        return;
+    }
+
+    for (vec_each(*timers, ti_timer_t, timer))
+    {
+        if (timer->id == mp_id.via.u64)
+        {
+            if (mp_next_run.via.u64)
+            {
+                ex_t e = {0};
+
+                if (mp_next_run.via.u64 > timer->next_run)
+                    timer->next_run = mp_next_run.via.u64;
+
+                ti_timer_ex_set_from_e(timer, &e);
+                return;
+            }
+            else
+            {
+                ti_timer_mark_del(timer);
+                return;
+            }
+        }
+    }
+
+    log_error(
+            "failed to update timer with id %"PRIu64,
+            mp_id.via.u64);
+}
+
+static void nodes__on_ex_timer(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    mp_unp_t up;
+    ti_node_t * other_node = stream->via.node;
+    ti_node_t * this_node = ti.node;
+    mp_obj_t obj, mp_scope_id, mp_id, mp_next_run, mp_err_code, mp_err_msg;
+    vec_t ** timers;
+
+    if (!other_node)
+    {
+        LOG_UNAUTHORIZED_NODE
+        return;
+    }
+
+    if (this_node->status <= TI_NODE_STAT_SHUTTING_DOWN)
+    {
+        log_warning("skip update for timer; (node status: `%s`)",
+                ti_node_status_str(this_node->status));
+        return;
+    }
+
+    mp_unp_init(&up, pkg->data, pkg->n);
+
+    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 5 ||
+        mp_next(&up, &mp_scope_id) != MP_U64 ||
+        mp_next(&up, &mp_id) != MP_U64 ||
+        mp_next(&up, &mp_next_run) != MP_U64 ||
+        mp_next(&up, &mp_err_code) != MP_I64 ||
+        mp_next(&up, &mp_err_msg) != MP_STR)
+    {
+        LOG_INVALID
+        return;
+    }
+
+    timers = ti_timers_from_scope_id(mp_scope_id.via.u64);
+    if (!timers)
+    {
+        log_error(
+                "failed to get timers for scope id %"PRIu64,
+                mp_scope_id.via.u64);
+        return;
+    }
+
+    for (vec_each(*timers, ti_timer_t, timer))
+    {
+        if (timer->id == mp_id.via.u64)
+        {
+            if (mp_next_run.via.u64)
+            {
+                ex_t e = {0};
+                timer->next_run = mp_next_run.via.u64;
+                ex_setn(&e,
+                        mp_err_code.via.i64,
+                        mp_err_msg.via.str.data,
+                        mp_err_msg.via.str.n);
+                ti_timer_ex_set_from_e(timer, &e);
+                return;
+            }
+            else
+            {
+                ti_timer_mark_del(timer);
+                return;
+            }
+        }
+    }
+
+    log_error(
+            "failed to update timer with id %"PRIu64,
+            mp_id.via.u64);
 }
 
 static void nodes__on_fwd_wu(
@@ -1081,9 +1229,7 @@ static void nodes__on_fwd_wu(
 
     if (!other_node)
     {
-        log_error(
-                "got a `%s` from an unauthorized connection: `%s`",
-                ti_proto_str(pkg->tp), ti_stream_name(stream));
+        LOG_UNAUTHORIZED_NODE
         return;
     }
 
@@ -1093,7 +1239,7 @@ static void nodes__on_fwd_wu(
         mp_next(&up, &mp_cid) != MP_U64 ||
         mp_next(&up, &mp_tid) != MP_U64)
     {
-        log_error("got an invalid (forwarded) `%s` package", action);
+        LOG_INVALID
         return;
     }
 
@@ -1733,6 +1879,12 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
         break;
     case TI_PROTO_NODE_FWD_UNWATCH:
         nodes__on_fwd_wu(stream, pkg, "unwatch");
+        break;
+    case TI_PROTO_NODE_OK_TIMER:
+        nodes__on_ok_timer(stream, pkg);
+        break;
+    case TI_PROTO_NODE_EX_TIMER:
+        nodes__on_ex_timer(stream, pkg);
         break;
     case TI_PROTO_NODE_REQ_QUERY:
         nodes__on_req_query(stream, pkg);

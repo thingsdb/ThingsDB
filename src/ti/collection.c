@@ -12,13 +12,14 @@
 #include <ti/enums.h>
 #include <ti/future.h>
 #include <ti/gc.h>
+#include <ti/member.t.h>
 #include <ti/name.h>
 #include <ti/name.h>
 #include <ti/names.h>
-#include <ti/member.t.h>
 #include <ti/procedure.h>
 #include <ti/raw.inline.h>
 #include <ti/thing.h>
+#include <ti/timer.inline.h>
 #include <ti/wrap.h>
 #include <ti/things.h>
 #include <ti/types.h>
@@ -55,6 +56,7 @@ ti_collection_t * ti_collection_create(
     collection->created_at = created_at;
     collection->tz = tz;
     collection->futures = vec_new(4);
+    collection->timers = vec_new(4);
 
     memcpy(&collection->guid, guid, sizeof(guid_t));
 
@@ -82,6 +84,7 @@ void ti_collection_destroy(ti_collection_t * collection)
     queue_destroy(collection->gc, NULL);
     ti_val_drop((ti_val_t *) collection->name);
     vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);
+    vec_destroy(collection->timers, (vec_destroy_cb) ti_timer_drop);
     smap_destroy(collection->procedures, (smap_destroy_cb) ti_procedure_destroy);
     ti_types_destroy(collection->types);
     ti_enums_destroy(collection->enums);

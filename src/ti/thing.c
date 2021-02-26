@@ -406,11 +406,12 @@ ti_thing_t * ti_thing_new_from_vup(ti_vup_t * vup, size_t sz, ex_t * e)
 {
     ti_thing_t * thing;
 
-    if (!vup->isclient)
+    if (!vup->isclient && vup->collection)
     {
         ex_set(e, EX_BAD_DATA,
                 "new things without an id can only be created from user input "
-                "and are unexpected when parsed from node data");
+                "or in the thingsdb scope, and are unexpected when parsed "
+                "from node data with a collection");
         return NULL;
     }
 

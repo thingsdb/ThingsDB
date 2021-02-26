@@ -707,15 +707,17 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e)
 
 void ti_query_timer_result(ti_query_t * query, ex_t * e)
 {
+    ti_timer_t * timer = query->with.timer;
     if (e->nr)
-    {
         log_debug("timer failed: `%s`, %s: `%s`",
-                query->with.timer->closure->node->str,
+                timer->closure->node->str,
                 ex_str(e->nr),
                 e->msg);
+
+    if (timer->next_run || e->nr)
         ti_timer_ex_set_from_e(query->with.timer, e);
 
-    }
+    ti_timer_done(timer);
     ti_query_destroy(query);
 }
 

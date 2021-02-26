@@ -9,8 +9,8 @@
 #include <ti/node.h>
 #include <ti.h>
 
-/* 9 seconds */
-#define TIMERS__INTERVAL 9000
+/* check two times within the minimal repeat value */
+#define TIMERS__INTERVAL ((TI_TIMERS_MIN_REPEAT*1000)/2)
 
 static ti_timers_t * timers;
 
@@ -26,7 +26,7 @@ int ti_timers_create(void)
     timers->is_started = false;
     timers->timer = malloc(sizeof(uv_timer_t));
     timers->n_loops = 0;
-    timers->timers = vec_new(0);
+    timers->timers = vec_new(4);
 
     if (!timers->timer || !timers->timers)
         goto failed;
@@ -43,7 +43,7 @@ failed:
 int ti_timers_start(void)
 {
     assert (timers->is_started == false);
-
+    LOGC("start");
     if (uv_timer_init(ti.loop, timers->timer))
         goto fail0;
 
@@ -77,6 +77,29 @@ void ti_timers_stop(void)
     }
 }
 
+void ti_timers_del_user(ti_user_t * user)
+{
+    for (vec_each(ti.timers->timers, ti_timer_t, timer))
+        if (timer->user == user)
+            ti_timer_mark_del(timer);
+
+    for (vec_each(ti.collections->vec, ti_collection_t, collection))
+        for (vec_each(collection->timers, ti_timer_t, timer))
+            ti_timer_mark_del(timer);
+}
+
+vec_t ** ti_timers_from_scope_id(uint64_t scope_id)
+{
+    if (scope_id == TI_SCOPE_THINGSDB)
+        return &ti.timers->timers;
+
+    for (vec_each(ti.collections->vec, ti_collection_t, collection))
+        if (collection->root->id == scope_id)
+            return &collection->timers;
+
+    return NULL;
+}
+
 static void timers__destroy(uv_handle_t * UNUSED(handle))
 {
     if (timers)
@@ -93,10 +116,11 @@ static void timers__destroy(uv_handle_t * UNUSED(handle))
  */
 static void timers__cb(uv_timer_t * UNUSED(handle))
 {
-    time_t now = util_now_tsec();
+    uint64_t now = util_now_usec();
     uint32_t rel_id = ti.rel_id;
     uint32_t nodes_n = ti.nodes->vec->n;
     ti_timers_cb cb;
+    size_t i, n = 0;
 
     if ((ti.node->status & (
             TI_NODE_STAT_SYNCHRONIZING|
@@ -107,17 +131,49 @@ static void timers__cb(uv_timer_t * UNUSED(handle))
 
     cb = ti.node->status == TI_NODE_STAT_READY ? ti_timer_run : ti_timer_fwd;
 
-    for (vec_each(ti.timers->timers, ti_timer_t, timer))
+    i = ti.timers->timers->n;
+    for (vec_each_rev(ti.timers->timers, ti_timer_t, timer))
     {
-        if (timer->next_run <= now && (timer->id % nodes_n == rel_id))
+        --i;
+
+        if (!timer->user)
+        {
+            ti_timer_drop(vec_swap_remove(ti.timers->timers, i));
+            continue;
+        }
+
+        if (timer->next_run <= now && (timer->id % nodes_n == rel_id) &&
+            timer->ref == 1)
+        {
+            ++n;
             cb(timer);
+        }
     }
 
     for (vec_each(ti.collections->vec, ti_collection_t, collection))
     {
-        for (vec_each(collection->timers, ti_timer_t, timer))
-            if (timer->next_run <= now || (timer->id % nodes_n == rel_id))
+        i = collection->timers->n;
+        for (vec_each_rev(collection->timers, ti_timer_t, timer))
+        {
+            --i;
+
+            if (!timer->user)
+            {
+                ti_timer_drop(vec_swap_remove(collection->timers, i));
+                continue;
+            }
+
+            if (timer->next_run <= now && (timer->id % nodes_n == rel_id) &&
+                timer->ref == 1)
+            {
+                ++n;
                 cb(timer);
+            }
+        }
     }
+
+    log_debug(
+            "%s %zu timer%s",
+            cb == ti_timer_run ? "handled" : "forwarded", n, n == 1 ? "": "s");
 }
 

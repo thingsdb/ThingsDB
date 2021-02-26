@@ -158,6 +158,7 @@
 
 /* Timers API */
 #define DOC_NEW_TIMER               DOC_SEE("timers-api/new_timer")
+#define DOC_DEL_TIMER               DOC_SEE("timers-api/del_timer")
 
 /* Data Types */
 #define DOC_BYTES_LEN               DOC_SEE("data-types/bytes/len")

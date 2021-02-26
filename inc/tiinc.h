@@ -26,6 +26,7 @@
 #define TI_DEFAULT_CACHE_EXPIRATION_TIME 900UL
 
 #define TI_COLLECTION_ID "`collection:%"PRIu64"`"
+#define TI_TIMER_ID "`timer:%"PRIu64"`"
 #define TI_EVENT_ID "`event:%"PRIu64"`"
 #define TI_NODE_ID "`node:%"PRIu32"`"
 #define TI_THING_ID "`#%"PRIu64"`"

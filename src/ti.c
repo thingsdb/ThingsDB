@@ -446,6 +446,9 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
 
     if (ti.node)
     {
+        if (ti_timers_start())
+            goto failed;
+
         if (ti_away_start())
             goto failed;
 
@@ -612,6 +615,7 @@ void ti_offline(void)
          * to write the modules to disk as well.
          */
         ti_modules_stop_and_destroy();
+        ti_timers_stop();
     }
 }
 
@@ -702,7 +706,7 @@ int ti_unlock(void)
 
 void ti_update_rel_id(void)
 {
-    uint32_t this_node_id = ti.node->id;
+    uint32_t this_node_id = ti.node ? ti.node->id : 0;
 
     ti.rel_id = 0;
 

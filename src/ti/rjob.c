@@ -152,7 +152,7 @@ static int rjob__del_procedure(mp_unp_t * up)
     {
         log_critical(
                 "job `del_procedure` cannot find `%.*s`",
-                (int) mp_name.via.str.n, mp_name.via.str.data);
+                mp_name.via.str.n, mp_name.via.str.data);
         return -1;
     }
 
@@ -216,7 +216,7 @@ static int rjob__del_token(mp_unp_t * up)
     {
         log_critical("job `del_token` for `.thingsdb`: "
                 "token key `%.*s` not found",
-                (int) mp_key.via.str.n, mp_key.via.str.data);
+                mp_key.via.str.n, mp_key.via.str.data);
         return -1;
     }
 
@@ -981,7 +981,7 @@ static int rjob__rename_module(mp_unp_t * up)
     {
         log_critical(
                 "job `rename_module` cannot find `%.*s`",
-                (int) mp_old.via.str.n, mp_old.via.str.data);
+                mp_old.via.str.n, mp_old.via.str.data);
         return -1;
     }
 
@@ -1016,7 +1016,7 @@ static int rjob__rename_procedure(mp_unp_t * up)
     {
         log_critical(
                 "job `rename_procedure` cannot find `%.*s`",
-                (int) mp_old.via.str.n, mp_old.via.str.data);
+                mp_old.via.str.n, mp_old.via.str.data);
         return -1;
     }
 
@@ -1290,7 +1290,6 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
         break;
     }
 
-    log_critical("unknown job: `%.*s`",
-            (int) mp_job.via.str.n, mp_job.via.str.data);
+    log_critical("unknown job: `%.*s`", mp_job.via.str.n, mp_job.via.str.data);
     return -1;
 }

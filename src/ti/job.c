@@ -64,7 +64,7 @@ static int job__add(ti_thing_t * thing, mp_unp_t * up)
                 "job `add` to set on "TI_THING_ID": "
                 "missing property: `%.*s`",
                 thing->id,
-                (int) mp_prop.via.str.n, mp_prop.via.str.data);
+                mp_prop.via.str.n, mp_prop.via.str.data);
         return -1;
     }
 
@@ -1506,7 +1506,7 @@ static int job__del_procedure(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "job `del_procedure` cannot find `%.*s` in "TI_COLLECTION_ID,
-                (int) mp_name.via.str.n, mp_name.via.str.data,
+                mp_name.via.str.n, mp_name.via.str.data,
                 collection->root->id);
         return -1;
     }
@@ -1944,7 +1944,7 @@ static int job__rename_procedure(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "job `rename_procedure` cannot find `%.*s`",
-                (int) mp_old.via.str.n, mp_old.via.str.data);
+                mp_old.via.str.n, mp_old.via.str.data);
         return -1;
     }
 
@@ -2206,7 +2206,6 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
         break;
     }
 
-    log_critical("unknown job: `%.*s`",
-            (int) mp_job.via.str.n, mp_job.via.str.data);
+    log_critical("unknown job: `%.*s`", mp_job.via.str.n, mp_job.via.str.data);
     return -1;
 }

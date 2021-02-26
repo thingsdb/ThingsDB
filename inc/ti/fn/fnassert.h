@@ -25,7 +25,7 @@ static int do__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_ASSERT_ERROR,
                 "assertion statement `%.*s` has failed",
-                (int) assert_node->len, assert_node->str);
+                assert_node->len, assert_node->str);
         return e->nr;
     }
 

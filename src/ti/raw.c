@@ -505,7 +505,7 @@ int ti_raw_err_not_found(ti_raw_t * raw, const char * s, ex_t * e)
     if (!ti_raw_check_valid_name(raw, s, e))
         ex_set(e, EX_LOOKUP_ERROR,
                 "%s `%.*s` not found",
-                s, (int) raw->n, (const char *) raw->data);
+                s, raw->n, (const char *) raw->data);
     return e->nr;
 }
 

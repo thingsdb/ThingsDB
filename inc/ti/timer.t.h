@@ -24,8 +24,8 @@ struct ti_timer_s
     ti_user_t * user;               /* Owner of the timer; TODO: delete user */
     ti_closure_t * closure;         /* Closure to run */
     vec_t * args;                   /* Argument values. TODO: walk type, gc */
-    ti_name_t * name;               /* May be NULL, or name */
-    ex_t * e;                       /* Last status or (NULL if never ran) */
+    ti_raw_t * doc;                 /* documentation, may be NULL */
+    ti_raw_t * def;                 /* formatted definition, may be NULL */
 };
 
 #endif /* TI_TIMER_T_H_ */

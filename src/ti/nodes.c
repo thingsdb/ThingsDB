@@ -1122,12 +1122,12 @@ static void nodes__on_ok_timer(ti_stream_t * stream, ti_pkg_t * pkg)
         {
             if (mp_next_run.via.u64)
             {
-                ex_t e = {0};
-
                 if (mp_next_run.via.u64 > timer->next_run)
                     timer->next_run = mp_next_run.via.u64;
 
-                ti_timer_ex_set_from_e(timer, &e);
+                log_debug(
+                        "timer %"PRIu64" ran successful on node %"PRIu32,
+                        timer->id, other_node->id);
                 return;
             }
             else
@@ -1138,8 +1138,9 @@ static void nodes__on_ok_timer(ti_stream_t * stream, ti_pkg_t * pkg)
         }
     }
 
-    log_error(
-            "failed to update timer with id %"PRIu64,
+    log_warning(
+            "failed to update timer with id %"PRIu64
+            "; this timer is most likely removed",
             mp_id.via.u64);
 }
 

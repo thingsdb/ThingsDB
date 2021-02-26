@@ -198,7 +198,7 @@ invalid_scope:
             "invalid scope; "
             "scopes must start with a `@` or `/` but got `%.*s` instead"
             DOC_SCOPES,
-            (int) n, str);
+            n, str);
 
         return e->nr;
     }
@@ -221,7 +221,7 @@ invalid_scope:
         "`%c""thingsdb`, `%c""node%c""...` or `%c""collection%c""...` "
         "but got `%.*s` instead"DOC_SCOPES,
         *str, *str, sep_char, *str, sep_char,
-        (int) n, str);
+        n, str);
 
     return e->nr;
 }
@@ -313,7 +313,7 @@ int ti_scope_id(ti_scope_t * scope, uint64_t * scope_id, ex_t * e)
             *scope_id = collection->root->id;
         else
             ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
-                (int) scope->via.collection_name.sz,
+                scope->via.collection_name.sz,
                 scope->via.collection_name.name);
 
         return e->nr;

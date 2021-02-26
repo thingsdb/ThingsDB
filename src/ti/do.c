@@ -103,7 +103,7 @@ static inline int do__o_get_wprop(
 
     ex_set(e, EX_LOOKUP_ERROR,
             "thing "TI_THING_ID" has no property `%.*s`",
-            thing->id, (int) nd->len, nd->str);
+            thing->id, nd->len, nd->str);
 
     return e->nr;
 }
@@ -145,7 +145,7 @@ static inline int do__t_get_wprop(
 
     ex_set(e, EX_LOOKUP_ERROR,
             "type `%s` has no property or method `%.*s`",
-            type->name, (int) nd->len, nd->str);
+            type->name, nd->len, nd->str);
     return e->nr;
 }
 
@@ -204,7 +204,7 @@ static inline int do__t_upd_prop(
 
     ex_set(e, EX_LOOKUP_ERROR,
             "type `%s` has no property `%.*s`",
-            type->name, (int) name_nd->len, name_nd->str);
+            type->name, name_nd->len, name_nd->str);
     return e->nr;
 }
 
@@ -308,7 +308,7 @@ static inline ti_prop_t * do__get_var_e(
     if (!prop)
         ex_set(e, EX_LOOKUP_ERROR,
                 "variable `%.*s` is undefined",
-                (int) nd->len, nd->str);
+                nd->len, nd->str);
     return prop;
 }
 
@@ -900,9 +900,8 @@ static int do__fixed_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return 0;
     }
 
-    ex_set(e, EX_LOOKUP_ERROR,
-            "variable `%.*s` is undefined",
-            (int) nd->len, nd->str);
+    ex_set(e, EX_LOOKUP_ERROR, "variable `%.*s` is undefined",
+            nd->len, nd->str);
 
     return e->nr;
 }
@@ -1178,8 +1177,7 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         else
             ex_set(e, EX_LOOKUP_ERROR, "enum `%s` has no member `%.*s`",
                     enum_->name,
-                    (int) rname->n,
-                    (const char *) rname->data);
+                    rname->n, (const char *) rname->data);
 
         ti_val_unsafe_drop((ti_val_t *) rname);
         break;

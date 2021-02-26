@@ -131,7 +131,7 @@ ti_wareq_t * ti_wareq_may_create(
         if (!collection)
         {
             ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
-                (int) scope->via.collection_name.sz,
+                scope->via.collection_name.sz,
                 scope->via.collection_name.name);
             return NULL;
         }
@@ -263,7 +263,7 @@ static void wareq__watch_cb(uv_async_t * task)
                     "failed to watch thing "TI_THING_ID", "
                     "it is not found in collection `%.*s`",
                     id,
-                    (int) wareq->collection->name->n,
+                    wareq->collection->name->n,
                     (char *) wareq->collection->name->data);
             continue;
         }

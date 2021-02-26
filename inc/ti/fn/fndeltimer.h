@@ -13,7 +13,7 @@ static int do__f_del_timer(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 0)
     {
-        timer = ti_timer_query(query, e);
+        timer = ti_timer_query_alt(query, e);
     }
     else
     {

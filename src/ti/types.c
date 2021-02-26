@@ -92,7 +92,7 @@ static int types__rename_cb(ti_type_t * type, types__rename_t * w)
             {
                 ti_raw_t * spec_raw = ti_str_from_fmt(
                         "%.*s?",
-                        (int) w->nname->n,
+                        w->nname->n,
                         (const char *) w->nname->data);
                 if (!spec_raw)
                     return -1;
@@ -119,7 +119,7 @@ static int types__rename_cb(ti_type_t * type, types__rename_t * w)
             spec_raw = ti_str_from_fmt(
                     "%c%.*s%s%c%s",
                     begin,
-                    (int) w->nname->n,
+                    w->nname->n,
                     (const char *) w->nname->data,
                     (field->nested_spec & TI_SPEC_NILLABLE) ? "?": "",
                     end,

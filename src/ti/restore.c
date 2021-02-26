@@ -111,8 +111,7 @@ int ti_restore_chk(const char * fn, size_t n, ex_t * e)
         if (rc)
         {
             if (buf.len)
-                ex_set(e, EX_BAD_DATA, "%.*s",
-                    (int) buf.len-1, buf.data);
+                ex_set(e, EX_BAD_DATA, "%.*s", buf.len-1, buf.data);
             else
                 ex_set(e, EX_BAD_DATA, "invalid tar file");
         }
@@ -148,7 +147,7 @@ int ti_restore_unp(const char * restore_job, ex_t * e)
         rc = pclose(fp);
         if (rc)
             ex_set(e, EX_OPERATION, "restore failed: `%.*s`",
-                    (int) buf.len, buf.data);
+                    buf.len, buf.data);
     }
 
     free(buf.data);

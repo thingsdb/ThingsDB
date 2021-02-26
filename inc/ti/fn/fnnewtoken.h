@@ -35,7 +35,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_MAX_QUOTA,
             "user `%.*s` has reached the maximum of %u tokens"DOC_NEW_TOKEN,
-            (int) uname->n, (char *) uname->data,
+            uname->n, (char *) uname->data,
             MAX_USER_TOKENS);
         return e->nr;
     }

@@ -330,7 +330,7 @@ static int do__f_mod_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ex_set(e, EX_VALUE_ERROR,
             "function `mod_enum` expects argument 2 to be "
             "`add`, `del`, `mod` or `ren` but got `%.*s` instead"DOC_MOD_ENUM,
-            (int) rmod->n, (const char *) rmod->data);
+            rmod->n, (const char *) rmod->data);
 
 done:
     if (e->nr == 0)

@@ -126,7 +126,7 @@ int ti_access_check_err(
         ex_set(e, EX_FORBIDDEN,
                 "user `%.*s` is missing the required privileges (`%s`) "
                 "on scope `%s%.*s`"DOC_GRANT,
-                (int) user->name->n, (char *) user->name->data,
+                user->name->n, (char *) user->name->data,
                 ti_auth_mask_to_str(mask),
                 prefix,
                 name_sz, name);
@@ -155,7 +155,7 @@ int ti_access_check_or_err(
         ex_set(e, EX_FORBIDDEN,
                 "user `%.*s` is missing the required privileges (`%s`) "
                 "on scope `%s%.*s`"DOC_GRANT,
-                (int) user->name->n, (char *) user->name->data,
+                user->name->n, (char *) user->name->data,
                 ti_auth_mask_to_str(mask),
                 prefix,
                 name_sz, name);

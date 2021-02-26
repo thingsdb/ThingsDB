@@ -279,7 +279,7 @@ static int api__header_value_cb(http_parser * parser, const char * at, size_t n)
         }
 
         /* invalid content type */
-        log_debug("unsupported content-type: %.*s", (int) n, at);
+        log_debug("unsupported content-type: %.*s", n, at);
         break;
 
     case TI_API_STATE_AUTHORIZATION:
@@ -308,7 +308,7 @@ static int api__header_value_cb(http_parser * parser, const char * at, size_t n)
             break;
         }
 
-        log_debug("invalid authorization type: %.*s", (int) n, at);
+        log_debug("invalid authorization type: %.*s", n, at);
         break;
     }
     return 0;
@@ -618,7 +618,7 @@ static int api__gen_scope(ti_api_request_t * ar, msgpack_packer * pk)
         return mp_pack_fmt(pk, "@n:%d", ar->scope.via.node_id);
     case TI_SCOPE_COLLECTION_NAME:
         return mp_pack_fmt(pk, "@:%.*s",
-                (int) ar->scope.via.collection_name.sz,
+                ar->scope.via.collection_name.sz,
                 ar->scope.via.collection_name.name);
     case TI_SCOPE_COLLECTION_ID:
         return mp_pack_fmt(pk, "@:%"PRIu64, ar->scope.via.collection_id);
@@ -1089,7 +1089,7 @@ static int api__from_msgpack(ti_api_request_t * ar)
         {
             log_warning(
                     "unknown key in API request: `%.*s`",
-                    (int) mp_key.via.str.n,
+                    mp_key.via.str.n,
                     mp_key.via.str.data);
             mp_skip(&up);
         }

@@ -183,7 +183,7 @@ int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
             ti_incref(query->collection);
         else
             ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
-                (int) scope->via.collection_name.sz,
+                scope->via.collection_name.sz,
                 scope->via.collection_name.name);
         return e->nr;
     case TI_SCOPE_COLLECTION_ID:
@@ -419,7 +419,7 @@ static int query__run_map_props(
         {
             assert (e->nr);
             ex_append(e, " (argument `%.*s` for procedure `%s`)",
-                (int) arg_name.via.str.n,
+                arg_name.via.str.n,
                 arg_name.via.str.data,
                 procedure->name);
             return e->nr;
@@ -498,7 +498,7 @@ int ti_query_unp_run(
     if (!procedure)
     {
         ex_set(e, EX_LOOKUP_ERROR, "procedure `%.*s` not found",
-                (int) mp_procedure.via.str.n,
+                mp_procedure.via.str.n,
                 mp_procedure.via.str.data);
         return e->nr;
     }
@@ -1154,7 +1154,7 @@ ti_thing_t * ti_query_thing_from_id(
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "collection `%.*s` has no `thing` with id %"PRId64,
-                (int) query->collection->name->n,
+                query->collection->name->n,
                 (char *) query->collection->name->data,
                 thing_id);
         return NULL;

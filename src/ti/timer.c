@@ -23,7 +23,6 @@
 
 ti_timer_t * ti_timer_create(
         uint64_t id,
-        ti_name_t * name,
         uint64_t next_run,
         uint32_t repeat,
         uint64_t scope_id,
@@ -34,22 +33,20 @@ ti_timer_t * ti_timer_create(
     ti_timer_t * timer = malloc(sizeof(ti_timer_t));
     if (!timer)
         return NULL;
+
     timer->ref = 1;
     timer->id = id;
-    timer->name = name;  /* may be NULL */
     timer->next_run = next_run;
     timer->repeat = repeat;
     timer->scope_id = scope_id;
     timer->user = user;
     timer->closure = closure;
     timer->args = args;
-    timer->e = NULL;
+    timer->doc = NULL;
+    timer->def = NULL;
 
-    if (name)
-        ti_incref(name);
     if (user)
         ti_incref(user);
-
     ti_incref(closure);
 
     return timer;
@@ -57,7 +54,6 @@ ti_timer_t * ti_timer_create(
 
 void ti_timer_destroy(ti_timer_t * timer)
 {
-    ti_name_drop(timer->name);  /* name may be NULL */
     ti_val_unsafe_drop((ti_val_t *) timer->closure);
     ti_user_drop(timer->user);
     vec_destroy(timer->args, (vec_destroy_cb) ti_val_unsafe_drop);
@@ -86,10 +82,8 @@ static void timer__async_cb(uv_async_t * async)
     ti_scope_load_from_scope_id(timer->scope_id, &access_, &collection);
     if (!access_)
     {
-        ti_timer_ex_set(timer, EX_INTERNAL,
-                "invalid scope id: %"PRIu64,
-                timer->scope_id);
-        ti_timer_done(timer);
+        ex_set(&e, EX_INTERNAL, "invalid scope id: %"PRIu64, timer->scope_id);
+        ti_timer_done(timer, &e);
         ti_timer_drop(timer);
         return;
     }
@@ -148,8 +142,6 @@ finish:
 void ti_timer_run(ti_timer_t * timer)
 {
     uv_async_t * async = malloc(sizeof(uv_async_t));
-
-
     if (!async)
     {
         ti_timer_ex_set(timer, EX_MEMORY, EX_MEMORY_S);
@@ -183,8 +175,7 @@ void ti_timer_fwd(ti_timer_t * timer)
     if (!node)
     {
         ti_timer_ex_set(timer, EX_NODE_ERROR,
-                "cannot find a node for running timer `%s` (%"PRIu64")",
-                timer->name ? timer->name->str : "anonymous",
+                "cannot find a node for running timer (ID: %"PRIu64")",
                 timer->id);
         return;
     }
@@ -299,7 +290,7 @@ void ti_timer_ex_set_from_e(ti_timer_t * timer, ex_t * e)
     memcpy(timer->e, e, sizeof(ex_t));
 }
 
-void ti_timer_done(ti_timer_t * timer)
+void ti_timer_done(ti_timer_t * timer, ex_t * e)
 {
     ti_rpkg_t * rpkg;
 
@@ -323,41 +314,18 @@ void ti_timer_done(ti_timer_t * timer)
 
 ti_timer_t * ti_timer_from_val(vec_t * timers, ti_val_t * val, ex_t * e)
 {
-    switch((ti_val_enum) val->tp)
-    {
-    case TI_VAL_NAME:
-    {
-        ti_name_t * name = (ti_name_t *) val;
-        for (vec_each(timers, ti_timer_t, timer))
-            if (timer->name == name)
-                return timer;
-        ex_set(e, EX_LOOKUP_ERROR, "timer `%s` not found", name->str);
-        break;
-    }
-    case TI_VAL_STR:
-    {
-        ti_raw_t * raw = (ti_raw_t *) val;
-        for (vec_each(timers, ti_timer_t, timer))
-            if (ti_raw_eq((ti_raw_t *) timer->name, raw))
-                return timer;
-        ex_set(e, EX_LOOKUP_ERROR, "timer `%.*s` not found",
-                raw->n, (const char *) raw->data);
-        break;
-    }
-    case TI_VAL_INT:
+    if (ti_val_is_int(val))
     {
         uint64_t id = (uint64_t) VINT(val);
         for (vec_each(timers, ti_timer_t, timer))
             if (timer->id == id)
                 return timer;
         ex_set(e, EX_LOOKUP_ERROR, TI_TIMER_ID" not found", id);
-        break;
     }
-    default:
+    else
         ex_set(e, EX_TYPE_ERROR,
                 "expecting type `"TI_VAL_STR_S"` "
                 "or `"TI_VAL_INT_S"` as timer but got type `%s` instead",
                 ti_val_str(val));
-    }
     return NULL;
 }

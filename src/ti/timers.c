@@ -43,7 +43,6 @@ failed:
 int ti_timers_start(void)
 {
     assert (timers->is_started == false);
-    LOGC("start");
     if (uv_timer_init(ti.loop, timers->timer))
         goto fail0;
 
@@ -111,16 +110,54 @@ static void timers__destroy(uv_handle_t * UNUSED(handle))
     timers = ti.timers = NULL;
 }
 
+static int timer__handle(vec_t * timers, uint64_t now)
+{
+    int n = 0;
+    size_t i = timers->n;
+    uint32_t rel_id = ti.rel_id;
+    uint32_t nodes_n = ti.nodes->vec->n;
+
+    for (vec_each_rev(timers, ti_timer_t, timer))
+    {
+        --i;
+
+        if (!timer->user)
+        {
+            ti_timer_drop(vec_swap_remove(ti.timers->timers, i));
+            continue;
+        }
+
+        if (timer->next_run > now)
+            continue;
+
+        if (timer->id % nodes_n == rel_id)
+        {
+            if (timer->ref == 1)
+            {
+                ++n;
+                cb(timer);
+            }
+            continue;
+        }
+
+        if (!timer->repeat && ((now - timer->next_run) > 120))
+        {
+            ti_timer_drop(vec_swap_remove(ti.timers->timers, i));
+        }
+    }
+
+    return n;
+}
+
 /*
  * Called from the main thread at CONNECT__INTERVAL (every X seconds)
  */
 static void timers__cb(uv_timer_t * UNUSED(handle))
 {
     uint64_t now = util_now_usec();
-    uint32_t rel_id = ti.rel_id;
-    uint32_t nodes_n = ti.nodes->vec->n;
     ti_timers_cb cb;
-    size_t i, n = 0;
+    size_t i;
+    int n;
 
     if ((ti.node->status & (
             TI_NODE_STAT_SYNCHRONIZING|
@@ -131,46 +168,10 @@ static void timers__cb(uv_timer_t * UNUSED(handle))
 
     cb = ti.node->status == TI_NODE_STAT_READY ? ti_timer_run : ti_timer_fwd;
 
-    i = ti.timers->timers->n;
-    for (vec_each_rev(ti.timers->timers, ti_timer_t, timer))
-    {
-        --i;
-
-        if (!timer->user)
-        {
-            ti_timer_drop(vec_swap_remove(ti.timers->timers, i));
-            continue;
-        }
-
-        if (timer->next_run <= now && (timer->id % nodes_n == rel_id) &&
-            timer->ref == 1)
-        {
-            ++n;
-            cb(timer);
-        }
-    }
+    n = timer__handle(ti.timers->timers, now);
 
     for (vec_each(ti.collections->vec, ti_collection_t, collection))
-    {
-        i = collection->timers->n;
-        for (vec_each_rev(collection->timers, ti_timer_t, timer))
-        {
-            --i;
-
-            if (!timer->user)
-            {
-                ti_timer_drop(vec_swap_remove(collection->timers, i));
-                continue;
-            }
-
-            if (timer->next_run <= now && (timer->id % nodes_n == rel_id) &&
-                timer->ref == 1)
-            {
-                ++n;
-                cb(timer);
-            }
-        }
-    }
+        n += timer__handle(collection->timers, now);
 
     log_debug(
             "%s %zu timer%s",

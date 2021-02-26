@@ -76,14 +76,28 @@ static inline uint64_t ti_query_scope_id(ti_query_t * query)
     return 0;
 }
 
+static inline ti_timer_t * ti_timer_query_alt(ti_query_t * query, ex_t * e)
+{
+    if (query->with_tp == TI_QUERY_WITH_TIMER)
+        return query->with.timer;
+
+    ex_set(e, EX_LOOKUP_ERROR,
+        "missing timer; use this function within a timer callback or "
+        "try to provide a timer ID as first argument");
+
+    return NULL;
+}
+
 static inline ti_timer_t * ti_timer_query(ti_query_t * query, ex_t * e)
 {
     if (query->with_tp == TI_QUERY_WITH_TIMER)
         return query->with.timer;
+
     ex_set(e, EX_LOOKUP_ERROR,
-            "missing timer; use this function within a timer callback or "
-            "try to provide a timer ID/name");
+        "missing timer; this function must be used within a timer callback");
+
     return NULL;
 }
+
 
 #endif  /* TI_QUERY_INLINE_H_ */

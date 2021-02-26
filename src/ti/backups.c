@@ -35,7 +35,7 @@ static int backups__gcd_rm(ti_raw_t * fn)
     buf_append_fmt(
             &buf,
             "gsutil -o 'Boto:num_retries=1' rm %.*s 2>&1;",
-            (int) fn->n, (char *) fn->data);
+            fn->n, (char *) fn->data);
 
     if (buf_write(&buf, '\0'))
         goto fail0;
@@ -150,8 +150,7 @@ fail1:
     vec_destroy(vec, (vec_destroy_cb) ti_val_unsafe_drop);
 fail0:
     log_error("failed to remove backup file: `%.*s`",
-            (int) fn->n,
-            (char *) fn->data);
+            fn->n, (char *) fn->data);
     return;
 }
 
@@ -208,9 +207,9 @@ void ti_backups_upd_status(uint64_t backup_id, int rc, buf_t * buf)
     ti_raw_t * last_fn;
 
     if (rc)
-        log_error("backup result: %.*s", (int) buf->len, buf->data);
+        log_error("backup result: %.*s", buf->len, buf->data);
     else
-        log_info("backup result: %.*s", (int) buf->len, buf->data);
+        log_info("backup result: %.*s", buf->len, buf->data);
 
     uv_mutex_lock(backups->lock);
 

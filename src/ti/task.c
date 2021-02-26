@@ -942,16 +942,10 @@ int ti_task_add_new_timer(ti_task_t * task, ti_timer_t * timer)
     msgpack_pack_map(&pk, 1);
 
     mp_pack_str(&pk, "new_timer");
-    msgpack_pack_map(&pk, 7);
+    msgpack_pack_map(&pk, 6);
 
     mp_pack_str(&pk, "id");
     msgpack_pack_uint64(&pk, timer->id);
-
-    mp_pack_str(&pk, "name");
-    if (timer->name)
-        mp_pack_strn(&pk, timer->name->str, timer->name->n);
-    else
-        msgpack_pack_nil(&pk);
 
     mp_pack_str(&pk, "next_run");
     msgpack_pack_uint64(&pk, timer->next_run);

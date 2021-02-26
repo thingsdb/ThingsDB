@@ -224,7 +224,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
                 mp_modified.via.u64))
         {
             log_critical("cannot create type `%.*s`",
-                    (int) mp_name.via.str.n,
+                    mp_name.via.str.n,
                     mp_name.via.str.data);
             goto fail1;
         }

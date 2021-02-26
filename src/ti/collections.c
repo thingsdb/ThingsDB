@@ -75,8 +75,7 @@ int ti_collections_gc(void)
         if (ti_collection_gc(collection, true))
         {
             log_error("garbage collection for collection `%.*s` has failed",
-                    (int) collection->name->n,
-                    (char *) collection->name->data);
+                    collection->name->n, (char *) collection->name->data);
             rc = -1;
         }
 
@@ -158,7 +157,7 @@ ti_collection_t * ti_collections_create_collection(
     if (ti_collections_get_by_strn(name, name_n))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "collection `%.*s` already exists", (int) name_n, name);
+                "collection `%.*s` already exists", name_n, name);
         goto fail0;
     }
 

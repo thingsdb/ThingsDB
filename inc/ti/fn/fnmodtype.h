@@ -1409,7 +1409,7 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             "function `mod_type` expects argument 2 to be "
             "`add`, `del`, `mod`, `rel`, `ren` or `wpo` but got `%.*s` instead"
             DOC_MOD_TYPE,
-            (int) rmod->n, (const char *) rmod->data);
+            rmod->n, (const char *) rmod->data);
 
 done:
     if (e->nr == 0)

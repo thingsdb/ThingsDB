@@ -544,7 +544,7 @@ skip_nesting:
                             "invalid declaration for `%s` on type `%s`; "
                             "unknown type `%.*s` in declaration"DOC_T_TYPE,
                             field->name->str, field->type->name,
-                            (int) n, str);
+                            n, str);
                 return e->nr;
             }
 
@@ -662,8 +662,7 @@ invalid:
         "expecting a valid type declaration but got `%.*s` instead"
         DOC_T_TYPE,
         field->name->str, field->type->name,
-        (int) field->spec_raw->n,
-        (const char *) field->spec_raw->data);
+        field->spec_raw->n, (const char *) field->spec_raw->data);
 
     return e->nr;
 
@@ -674,8 +673,7 @@ circular_dep:
         "circular dependencies must be nillable "
         "at least at one point in the chain"DOC_T_TYPE,
         field->name->str, field->type->name,
-        (int) field->spec_raw->n,
-        (const char *) field->spec_raw->data);
+        field->spec_raw->n, (const char *) field->spec_raw->data);
     return e->nr;
 }
 
@@ -864,7 +862,7 @@ nillable:
         "cannot apply type declaration `%.*s` to `%s` on type `%s` without a "
         "closure to migrate existing instances; the old declaration "
         "was nillable while the new declaration is not"DOC_MOD_TYPE_MOD,
-        (int) spec_raw->n, (const char *) spec_raw->data,
+        spec_raw->n, (const char *) spec_raw->data,
         field->name->str,
         field->type->name);
     goto undo_dep;
@@ -874,10 +872,10 @@ incompatible:
         "cannot apply type declaration `%.*s` to `%s` on type `%s` without a "
         "closure to migrate existing instances; the old declaration `%.*s` "
         "is not compatible with the new declaration"DOC_MOD_TYPE_MOD,
-        (int) spec_raw->n, (const char *) spec_raw->data,
+        spec_raw->n, (const char *) spec_raw->data,
         field->name->str,
         field->type->name,
-        (int) prev_spec_raw->n, (const char *) prev_spec_raw->data);
+        prev_spec_raw->n, (const char *) prev_spec_raw->data);
 
 undo_dep:
     field__remove_dep(field);
@@ -1139,8 +1137,7 @@ static int field__vset_assign(
                 "at least one thing of another type",
                 field->type->name,
                 field->name->str,
-                (int) field->spec_raw->n,
-                (const char *) field->spec_raw->data);
+                field->spec_raw->n, (const char *) field->spec_raw->data);
         return e->nr;
     }
 
@@ -1192,8 +1189,7 @@ static int field__varr_assign(
                 "definition `%.*s`",
                 field->type->name,
                 field->name->str,
-                (int) field->spec_raw->n,
-                (const char *) field->spec_raw->data);
+                field->spec_raw->n, (const char *) field->spec_raw->data);
             return e->nr;
         case TI_SPEC_RVAL_UTF8_ERROR:
             ex_set(e, EX_VALUE_ERROR,
@@ -1517,7 +1513,7 @@ re_error:
             "property `%s` has a requirement to match pattern %.*s",
             field->type->name,
             field->name->str,
-            (int) field->condition.re->regex->pattern->n,
+            field->condition.re->regex->pattern->n,
             (const char *) field->condition.re->regex->pattern->data);
     return e->nr;
 
@@ -1561,8 +1557,7 @@ type_error:
             field->type->name,
             ti_val_str(*val),
             field->name->str,
-            (int) field->spec_raw->n,
-            (const char *) field->spec_raw->data);
+            field->spec_raw->n, (const char *) field->spec_raw->data);
     return e->nr;
 }
 
@@ -1893,7 +1888,7 @@ ti_field_t * ti_field_by_strn_e(
     if (ti_name_is_valid_strn(str, n))
         ex_set(e, EX_LOOKUP_ERROR, "type `%s` has no property `%.*s`",
                 type->name,
-                (int) n, str);
+                n, str);
     else
         ex_set(e, EX_VALUE_ERROR,
                 "property name must follow the naming rules"DOC_NAMES);

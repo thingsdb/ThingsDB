@@ -891,7 +891,7 @@ vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id)
         }
 
         ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
-                (int) scope.via.collection_name.sz,
+                scope.via.collection_name.sz,
                 scope.via.collection_name.name);
         return NULL;
     case TI_SCOPE_COLLECTION_ID:

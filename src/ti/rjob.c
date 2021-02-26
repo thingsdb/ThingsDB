@@ -567,11 +567,10 @@ failed:
  */
 static int rjob__new_timer(mp_unp_t * up)
 {
-    mp_obj_t obj, mp_id, mp_name, mp_next_run, mp_repeat, mp_user_id;
+    mp_obj_t obj, mp_id, mp_next_run, mp_repeat, mp_user_id;
     ti_timer_t * timer = NULL;
     ti_varr_t * varr = NULL;
     ti_closure_t * closure;
-    ti_name_t * name;
     ti_user_t * user;
     ti_vup_t vup = {
             .isclient = false,
@@ -579,12 +578,9 @@ static int rjob__new_timer(mp_unp_t * up)
             .up = up,
     };
 
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 7 ||
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 6 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
-        mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_name) <= 0 ||
-        (mp_name.tp != MP_NIL && mp_name.tp != MP_STR) ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_next_run) != MP_U64 ||
         mp_skip(up) != MP_STR ||
@@ -597,9 +593,6 @@ static int rjob__new_timer(mp_unp_t * up)
         return -1;
     }
 
-    name = mp_name.tp != MP_STR
-            ? ti_names_get(mp_name.via.str.data, mp_name.via.str.n)
-            : NULL;
     user = ti_users_get_by_id(mp_user_id.via.u64);
     closure = (ti_closure_t *) ti_val_from_vup(&vup);
 
@@ -614,7 +607,6 @@ static int rjob__new_timer(mp_unp_t * up)
 
     timer = ti_timer_create(
                 mp_id.via.u64,
-                name,
                 mp_next_run.via.u64,
                 mp_repeat.via.u64,
                 TI_SCOPE_THINGSDB,
@@ -633,7 +625,6 @@ static int rjob__new_timer(mp_unp_t * up)
 fail0:
     log_critical("job `new_timer` for the @thingsdb scope has failed");
     ti_val_drop((ti_val_t *) varr);
-    ti_val_drop((ti_val_t *) name);
     ti_val_drop((ti_val_t *) closure);
     return -1;
 }

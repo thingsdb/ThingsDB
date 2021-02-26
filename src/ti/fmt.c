@@ -462,7 +462,7 @@ static int fmt__operations(ti_fmt_t * fmt, cleri_node_t * nd)
         cleri_node_t * node;
         node = nd->children->next->node;
         if (fmt__statement(fmt, nd->children->node) ||
-            buf_append_fmt(&fmt->buf, " %.*s ", (int) node->len, node->str) ||
+            buf_append_fmt(&fmt->buf, " %.*s ", node->len, node->str) ||
             fmt__statement(fmt, nd->children->next->next->node))
             return -1;
         return 0;

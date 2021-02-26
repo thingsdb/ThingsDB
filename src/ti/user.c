@@ -36,7 +36,7 @@ static int user__pack_access(
                 mp_pack_str(pk, "scope") ||
                 (*scope == '@'
                     ? mp_pack_strn(pk, scope, n)
-                    : mp_pack_fmt(pk, "@collection:%.*s", (int) n, scope)) ||
+                    : mp_pack_fmt(pk, "@collection:%.*s", n, scope)) ||
 
                 mp_pack_str(pk, "privileges") ||
                 mp_pack_str(pk, ti_auth_mask_to_str(auth->mask))
@@ -170,7 +170,7 @@ _Bool ti_user_name_check(const char * name, size_t n, ex_t * e)
 
     if (ti_users_get_by_namestrn(name, n))
     {
-        ex_set(e, EX_LOOKUP_ERROR, "user `%.*s` already exists", (int) n, name);
+        ex_set(e, EX_LOOKUP_ERROR, "user `%.*s` already exists", n, name);
         return false;
     }
 

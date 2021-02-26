@@ -150,7 +150,7 @@ int ti_collection_rename(
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "collection `%.*s` already exists",
-                (int) rname->n, (const char *) rname->data);
+                rname->n, (const char *) rname->data);
         return -1;
     }
 

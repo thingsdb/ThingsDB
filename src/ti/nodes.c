@@ -1201,7 +1201,7 @@ static void nodes__on_ex_timer(ti_stream_t * stream, ti_pkg_t * pkg)
                         mp_err_msg.via.str.n);
                 log_warning(
                         "timer %"PRIu64" has failed: (%s) `%s`",
-                        timer->id, ex_str(e->nr), e->msg);
+                        timer->id, ex_str(e.nr), e.msg);
                 return;
             }
             else

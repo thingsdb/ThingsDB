@@ -110,7 +110,7 @@ static void timers__destroy(uv_handle_t * UNUSED(handle))
     timers = ti.timers = NULL;
 }
 
-static int timer__handle(vec_t * timers, uint64_t now)
+static int timer__handle(vec_t * timers, uint64_t now, ti_timers_cb cb)
 {
     int n = 0;
     size_t i = timers->n;
@@ -156,7 +156,6 @@ static void timers__cb(uv_timer_t * UNUSED(handle))
 {
     uint64_t now = util_now_usec();
     ti_timers_cb cb;
-    size_t i;
     int n;
 
     if ((ti.node->status & (
@@ -168,10 +167,10 @@ static void timers__cb(uv_timer_t * UNUSED(handle))
 
     cb = ti.node->status == TI_NODE_STAT_READY ? ti_timer_run : ti_timer_fwd;
 
-    n = timer__handle(ti.timers->timers, now);
+    n = timer__handle(ti.timers->timers, now, cb);
 
     for (vec_each(ti.collections->vec, ti_collection_t, collection))
-        n += timer__handle(collection->timers, now);
+        n += timer__handle(collection->timers, now, cb);
 
     log_debug(
             "%s %zu timer%s",

@@ -55,14 +55,13 @@ class TestTimers(TestBase):
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `new_timer` takes at most 5 arguments '
-                'but 6 were given'):
-            await client.query('new_timer(nil, now(), nil, ||nil, [], nil);')
+                'function `new_timer` takes at most 4 arguments '
+                'but 5 were given'):
+            await client.query('new_timer(datetime(), nil, ||nil, [], nil);')
 
         await client.query(r'''
             .x = 8;
             new_timer(
-                nil,
                 datetime().move('seconds', 2),
                 nil,
                 |x| {.x = x},

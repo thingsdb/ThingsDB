@@ -12,6 +12,11 @@
 /* check two times within the minimal repeat value */
 #define TIMERS__INTERVAL ((TI_TIMERS_MIN_REPEAT*1000)/2)
 
+/* one time timers which are not handled by this node will expire after X
+ * seconds
+ */
+#define TIMERS__EXPIRE_TIME 120
+
 static ti_timers_t * timers;
 
 static void timers__destroy(uv_handle_t * UNUSED(handle));
@@ -123,7 +128,7 @@ static int timer__handle(vec_t * timers, uint64_t now, ti_timers_cb cb)
 
         if (!timer->user)
         {
-            ti_timer_drop(vec_swap_remove(ti.timers->timers, i));
+            ti_timer_drop(vec_swap_remove(timers, i));
             continue;
         }
 
@@ -140,9 +145,9 @@ static int timer__handle(vec_t * timers, uint64_t now, ti_timers_cb cb)
             continue;
         }
 
-        if (!timer->repeat && ((now - timer->next_run) > 120))
+        if (!timer->repeat && ((now - timer->next_run) > TIMERS__EXPIRE_TIME))
         {
-            ti_timer_drop(vec_swap_remove(ti.timers->timers, i));
+            ti_timer_drop(vec_swap_remove(timers, i));
         }
     }
 

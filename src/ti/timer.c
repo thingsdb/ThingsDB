@@ -56,6 +56,9 @@ void ti_timer_destroy(ti_timer_t * timer)
 {
     ti_val_unsafe_drop((ti_val_t *) timer->closure);
     ti_user_drop(timer->user);
+    ti_val_drop((ti_val_t *) timer->doc);
+    ti_val_drop((ti_val_t *) timer->def);
+
     vec_destroy(timer->args, (vec_destroy_cb) ti_val_unsafe_drop);
     free(timer);
 }

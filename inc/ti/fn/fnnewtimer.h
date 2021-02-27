@@ -13,6 +13,7 @@ static int do__f_new_timer(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     uint64_t scope_id = ti_query_scope_id(query);
     vec_t ** timers = ti_query_timers(query);
     ti_vint_t * timer_id;
+    size_t m;
 
     if (fn_not_thingsdb_or_collection_scope("new_timer", query, e) ||
         fn_nargs_range("new_timer", DOC_NEW_TIMER, 2, 4, nargs, e) ||
@@ -87,10 +88,12 @@ skip_repeat:
     if (ti_closure_unbound(closure, e))
         goto fail1;
 
-    if (vec_reserve(timers, 1))
+    m = closure->vars->n;
+
+    if (!(args = vec_new(m)) || vec_reserve(timers, 1))
     {
         ex_set_mem(e);
-        goto fail1;
+        goto fail2;
     }
 
     child = child->next ? child->next->next : NULL;
@@ -98,7 +101,16 @@ skip_repeat:
     if (child)
     {
         if (ti_do_statement(query, child->node, e))
-            goto fail1;
+            goto fail2;
+
+        child = child->next ? child->next->next : NULL;
+
+        if (child)
+        {
+            ex_set(e, EX_NUM_ARGUMENTS,
+                "function `new_timer` got too many arguments"DOC_NEW_TIMER);
+            goto fail2;
+        }
 
         if (!ti_val_is_array(query->rval))
         {
@@ -107,34 +119,26 @@ skip_repeat:
                     "type `"TI_VAL_LIST_S"` or `"TI_VAL_TUPLE_S"` "
                     "but got type `%s` instead"DOC_NEW_TIMER,
                     ti_val_str(query->rval));
-            goto fail1;
+            goto fail2;
 
         }
-        args = vec_dup(VARR(query->rval));
-    }
-    else
-        args = vec_new(0);
 
-    if (!args)
-    {
-        ex_set_mem(e);
-        goto fail1;
-    }
+        for (vec_each(VARR(query->rval), ti_val_t, v), --m)
+        {
+            if (!m)
+                break;
+            VEC_push(args, v);
+            ti_incref(v);
+        }
 
-    for (vec_each(args, ti_val_t, v))
-        ti_incref(v);
-
-    child = child->next ? child->next->next : NULL;
-
-    if (child)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-            "function `new_timer` got too many arguments"DOC_NEW_TIMER);
-        goto fail2;
+        ti_val_drop(query->rval);
+        query->rval = NULL;
     }
 
-    ti_val_drop(query->rval);
-    query->rval = NULL;
+    LOGC("m: %zu args sz: %u, len: %u", m, args->sz, args->n);
+
+    while (m--)
+        VEC_push(args, ti_nil_get());
 
     timer_id = ti_vint_create((int64_t) ti_next_thing_id());
     if (!timer_id)
@@ -173,7 +177,6 @@ fail3:
     ti_val_unsafe_drop((ti_val_t *) timer_id);
 fail2:
     vec_destroy(args, (vec_destroy_cb) ti_val_drop);
-
 done:
 fail1:
     ti_val_unsafe_drop((ti_val_t *) closure);

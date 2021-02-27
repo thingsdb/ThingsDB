@@ -91,8 +91,8 @@ static void timer__async_cb(uv_async_t * async)
     query = ti_query_create(0);
     if (!query)
     {
-        ti_timer_ex_set(timer, EX_MEMORY, EX_MEMORY_S);
-        ti_timer_done(timer);
+        ex_set(&e, EX_MEMORY, EX_MEMORY_S);
+        ti_timer_done(timer, &e);
         ti_timer_drop(timer);
         return;
     }
@@ -129,8 +129,7 @@ finish:
     if (e.nr)
     {
         ++ti.counters->timers_with_error;
-        ti_timer_ex_set_from_e(timer, &e);
-        ti_timer_done(timer);
+        ti_timer_done(timer, &e);
     }
     ti_query_destroy(query);
 }
@@ -144,7 +143,7 @@ void ti_timer_run(ti_timer_t * timer)
     uv_async_t * async = malloc(sizeof(uv_async_t));
     if (!async)
     {
-        ti_timer_ex_set(timer, EX_MEMORY, EX_MEMORY_S);
+        log_error(EX_MEMORY_S);
         return;
     }
 
@@ -158,7 +157,7 @@ void ti_timer_run(ti_timer_t * timer)
     if (uv_async_init(ti.loop, async, (uv_async_cb) timer__async_cb) ||
         uv_async_send(async))
     {
-        ti_timer_ex_set(timer, EX_INTERNAL, EX_INTERNAL_S);
+        log_error(EX_INTERNAL_S);
         ti_timer_drop(timer);
         free(async);
         return;
@@ -174,9 +173,9 @@ void ti_timer_fwd(ti_timer_t * timer)
     ti_node_t * node = ti_nodes_random_ready_node();
     if (!node)
     {
-        ti_timer_ex_set(timer, EX_NODE_ERROR,
-                "cannot find a node for running timer (ID: %"PRIu64")",
-                timer->id);
+        log_error(
+            "cannot find a ready node for starting timer %"PRIu64,
+            timer->id);
         return;
     }
 }
@@ -187,14 +186,31 @@ void ti_timer_mark_del(ti_timer_t * timer)
     timer->user = NULL;
 }
 
-static ti_rpkg_t * timer__rpkg_ex(ti_timer_t * timer)
+/* may return an empty string but never NULL */
+ti_raw_t * ti_tmer_doc(ti_timer_t * timer)
+{
+    if (!timer->doc)
+        timer->doc = ti_closure_doc(timer->closure);
+    return timer->doc;
+}
+
+/* may return an empty string but never NULL */
+ti_raw_t * ti_timer_def(ti_timer_t * timer)
+{
+    if (!timer->def)
+        /* calculate only once */
+        timer->def = ti_closure_def(timer->closure);
+    return timer->def;
+}
+
+static ti_rpkg_t * timer__rpkg_ex(ti_timer_t * timer, ex_t * e)
 {
     msgpack_packer pk;
     msgpack_sbuffer buffer;
     ti_pkg_t * pkg;
     ti_rpkg_t * rpkg;
 
-    if (mp_sbuffer_alloc_init(&buffer, timer->e->n + 48, sizeof(ti_pkg_t)))
+    if (mp_sbuffer_alloc_init(&buffer, e->n + 48, sizeof(ti_pkg_t)))
         return NULL;
 
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
@@ -203,8 +219,8 @@ static ti_rpkg_t * timer__rpkg_ex(ti_timer_t * timer)
     (void) msgpack_pack_uint64(&pk, timer->scope_id);
     (void) msgpack_pack_uint64(&pk, timer->id);
     (void) msgpack_pack_uint64(&pk, timer->next_run);
-    (void) msgpack_pack_fix_int8(&pk, (int8_t) timer->e->nr);
-    (void) mp_pack_strn(&pk, timer->e->msg, timer->e->n);
+    (void) msgpack_pack_fix_int8(&pk, (int8_t) e->nr);
+    (void) mp_pack_strn(&pk, e->msg, e->n);
 
     pkg = (ti_pkg_t *) buffer.data;
     pkg_init(pkg, 0, TI_PROTO_NODE_EX_TIMER, buffer.size);
@@ -260,36 +276,6 @@ static void timer__broadcast_rpkg(ti_rpkg_t * rpkg)
     ti_rpkg_drop(rpkg);
 }
 
-void ti_timer_ex_set(
-        ti_timer_t * timer,
-        ex_enum errnr,
-        const char * errmsg,
-        ...)
-{
-    va_list args;
-
-    if (!timer->e && !(timer->e = malloc(sizeof(ex_t))))
-    {
-        log_error(EX_MEMORY_S);
-        return;
-    }
-
-    va_start(args, errmsg);
-    ex_setv(timer->e, errnr, errmsg, args);
-    va_end(args);
-}
-
-void ti_timer_ex_set_from_e(ti_timer_t * timer, ex_t * e)
-{
-    if (!timer->e && !(timer->e = malloc(sizeof(ex_t))))
-    {
-        log_error(EX_MEMORY_S);
-        return;
-    }
-
-    memcpy(timer->e, e, sizeof(ex_t));
-}
-
 void ti_timer_done(ti_timer_t * timer, ex_t * e)
 {
     ti_rpkg_t * rpkg;
@@ -299,8 +285,8 @@ void ti_timer_done(ti_timer_t * timer, ex_t * e)
     else if (!timer->next_run)
         ti_timer_mark_del(timer);
 
-    rpkg = (timer->e && timer->e->nr)
-            ? timer__rpkg_ex(timer)
+    rpkg = (e->nr)
+            ? timer__rpkg_ex(timer, e)
             : timer__rpkg_ok(timer);
 
     if (!rpkg)

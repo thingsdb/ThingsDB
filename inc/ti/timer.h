@@ -5,6 +5,7 @@
 #define TI_TIMER_H_
 
 #include <ex.h>
+#include <ti/raw.t.h>
 #include <ti/timer.t.h>
 #include <ti/val.t.h>
 
@@ -20,12 +21,8 @@ void ti_timer_destroy(ti_timer_t * timer);
 void ti_timer_run(ti_timer_t * timer);
 void ti_timer_fwd(ti_timer_t * timer);
 void ti_timer_mark_del(ti_timer_t * timer);
-void ti_timer_ex_set(
-        ti_timer_t * timer,
-        ex_enum errnr,
-        const char * errmsg,
-        ...);
-void ti_timer_ex_set_from_e(ti_timer_t * timer, ex_t * e);
+ti_raw_t * ti_tmer_doc(ti_timer_t * timer);
+ti_raw_t * ti_timer_def(ti_timer_t * timer);
 void ti_timer_done(ti_timer_t * timer, ex_t * e);
 ti_timer_t * ti_timer_from_val(vec_t * timers, ti_val_t * val, ex_t * e);
 

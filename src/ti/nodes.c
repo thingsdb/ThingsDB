@@ -1199,7 +1199,9 @@ static void nodes__on_ex_timer(ti_stream_t * stream, ti_pkg_t * pkg)
                         mp_err_code.via.i64,
                         mp_err_msg.via.str.data,
                         mp_err_msg.via.str.n);
-                ti_timer_ex_set_from_e(timer, &e);
+                log_warning(
+                        "timer %"PRIu64" has failed: (%s) `%s`",
+                        timer->id, ex_str(e->nr), e->msg);
                 return;
             }
             else

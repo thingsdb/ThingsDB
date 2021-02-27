@@ -714,10 +714,7 @@ void ti_query_timer_result(ti_query_t * query, ex_t * e)
                 ex_str(e->nr),
                 e->msg);
 
-    if (timer->next_run || e->nr)
-        ti_timer_ex_set_from_e(query->with.timer, e);
-
-    ti_timer_done(timer);
+    ti_timer_done(timer, e);
     ti_query_destroy(query);
 }
 

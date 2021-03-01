@@ -62,8 +62,9 @@ typedef enum
     TI_PROTO_NODE_MISSING_EVENT =130,   /* event_id */
     TI_PROTO_NODE_FWD_WATCH     =131,   /* thing_id */
     TI_PROTO_NODE_FWD_UNWATCH   =132,   /* thing_id */
-    TI_PROTO_NODE_OK_TIMER      =133,   /* [scope_id, timer_id, next_ts] */
-    TI_PROTO_NODE_EX_TIMER      =134,   /* [scope_id, timer_id, next_ts,
+    TI_PROTO_NODE_FWD_TIMER     =133,   /* [scope_id, timer_id] */
+    TI_PROTO_NODE_OK_TIMER      =134,   /* [scope_id, timer_id, next_ts] */
+    TI_PROTO_NODE_EX_TIMER      =135,   /* [scope_id, timer_id, next_ts,
                                             err_code, err_msg] */
     /*
      * 160..191 node requests
@@ -72,7 +73,6 @@ typedef enum
     /* expects a client response which will be forwarded back to the client */
     TI_PROTO_NODE_REQ_QUERY     =160,   /* [user_id, [original]] */
     TI_PROTO_NODE_REQ_RUN       =161,   /* [user_id, [original]] */
-    TI_PROTO_NODE_REQ_TIMER     =162,   /* [scope_id, timer_id] */
 
     TI_PROTO_NODE_REQ_CONNECT   =168,   /* [...] */
     TI_PROTO_NODE_REQ_EVENT_ID  =169,   /* event id */

@@ -21,4 +21,12 @@ static inline void ti_timer_unsafe_drop(ti_timer_t * timer)
         ti_timer_destroy(timer);
 }
 
+static inline ti_timer_t * ti_timer_by_id(vec_t * timers, uint64_t id)
+{
+    for (vec_each(timers, ti_timer_t, timer))
+        if (timer->id == id)
+            return timer;
+    return NULL;
+}
+
 #endif /* TI_TIMER_INLINE_H_ */

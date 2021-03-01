@@ -2,15 +2,17 @@
  * ti/timers.c
  */
 #include <assert.h>
-#include <ti/timers.h>
-#include <ti/timer.h>
-#include <ti/timer.inline.h>
 #include <stdbool.h>
 #include <ti/node.h>
+#include <ti/timer.h>
+#include <ti/timer.inline.h>
+#include <ti/timers.h>
+#include <ti/val.inline.h>
+#include <ti/varr.h>
 #include <ti.h>
 
-/* check two times within the minimal repeat value */
-#define TIMERS__INTERVAL ((TI_TIMERS_MIN_REPEAT*1000)/2)
+/* check five times within the minimal repeat value */
+#define TIMERS__INTERVAL ((TI_TIMERS_MIN_REPEAT*1000)/5)
 
 /* one time timers which are not handled by this node will expire after X
  * seconds
@@ -76,6 +78,7 @@ void ti_timers_stop(void)
         timers__destroy(NULL);
     else
     {
+        timers->is_started = false;
         uv_timer_stop(timers->timer);
         uv_close((uv_handle_t *) timers->timer, timers__destroy);
     }
@@ -126,28 +129,41 @@ static int timer__handle(vec_t * timers, uint64_t now, ti_timers_cb cb)
     {
         --i;
 
+        LOGC("timer id: %u", timer->id);
+
         if (!timer->user)
         {
+            LOGC("drop timer id: %u  (no user)", timer->id);
             ti_timer_drop(vec_swap_remove(timers, i));
             continue;
         }
 
         if (timer->next_run > now)
+        {
+            LOGC("skip timer id: %u  (waiting...)", timer->id);
             continue;
+        }
 
         if (timer->id % nodes_n == rel_id)
         {
             if (timer->ref == 1)
             {
+                LOGC("GO timer id: %u !!!", timer->id);
                 ++n;
                 cb(timer);
             }
+            else
+                LOGC("skip timer id: %u  (busy...)", timer->id);
             continue;
         }
 
-        if (!timer->repeat && ((now - timer->next_run) > TIMERS__EXPIRE_TIME))
+        LOGC("skip timer id: %u (not mine...)", timer->id);
+        if ((now - timer->next_run) > TIMERS__EXPIRE_TIME)
         {
-            ti_timer_drop(vec_swap_remove(timers, i));
+            if (timer->repeat)
+                timer->next_run += timer->repeat;
+            else
+                ti_timer_drop(vec_swap_remove(timers, i));
         }
     }
 
@@ -180,5 +196,31 @@ static void timers__cb(uv_timer_t * UNUSED(handle))
     log_debug(
             "%s %zu timer%s",
             cb == ti_timer_run ? "handled" : "forwarded", n, n == 1 ? "": "s");
+}
+
+ti_varr_t * ti_timers_info(vec_t * timers, _Bool with_full_access)
+{
+    ti_val_t * mpinfo;
+    ti_varr_t * varr = ti_varr_create(timers->n);
+    if (!varr)
+        return NULL;
+
+    for (vec_each(timers, ti_timer_t, timer))
+    {
+        if (!timer->user)
+            continue;
+
+        mpinfo = ti_timer_as_mpval(timer, with_full_access);
+        if (!mpinfo)
+            goto failed;
+
+        VEC_push(varr->vec, mpinfo);
+    }
+
+    return varr;
+
+failed:
+    ti_val_unsafe_drop((ti_val_t *) varr);
+    return NULL;
 }
 

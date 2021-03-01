@@ -59,6 +59,7 @@ int ti_task_add_new_token(
         ti_user_t * user,
         ti_token_t * token);
 int ti_task_add_new_user(ti_task_t * task, ti_user_t * user);
+int ti_task_add_set_timer_args(ti_task_t * task, ti_timer_t * timer);
 int ti_task_add_mod_type_add_field(
         ti_task_t * task,
         ti_type_t * type,

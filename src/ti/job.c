@@ -1691,6 +1691,60 @@ fail0:
 
 /*
  * Returns 0 on success
+ * - for example: '{...}'
+ */
+static int job__set_timer_args(ti_thing_t * thing, mp_unp_t * up)
+{
+    mp_obj_t obj, mp_id;
+    ti_collection_t * collection = thing->collection;
+    ti_varr_t * varr;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = thing->collection,
+            .up = up,
+    };
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR)
+    {
+        log_critical(
+                "job `set_timer_args` for "TI_COLLECTION_ID": "
+                "invalid data",
+                collection->root->id);
+        return -1;
+    }
+
+    varr = (ti_varr_t *) ti_val_from_vup(&vup);
+    if (!varr || !ti_val_is_array((ti_val_t *) varr))
+        goto fail0;
+
+    for (vec_each(collection->timers, ti_timer_t, timer))
+    {
+        if (timer->id == mp_id.via.u64)
+        {
+            vec_t * tmp = timer->args;
+            timer->args = varr->vec;
+            varr->vec = tmp;
+            break;
+        }
+    }
+
+    /* it may happen that the timer is already gone, this is not an issue */
+    ti_val_drop((ti_val_t *) varr);
+    return 0;
+
+fail0:
+    log_critical(
+            "job `set_timer_args` for "TI_COLLECTION_ID" has failed",
+            collection->root->id);
+    ti_val_drop((ti_val_t *) varr);
+    return -1;
+}
+
+/*
+ * Returns 0 on success
  * - for example: enum_id
  */
 static int job__del_enum(ti_thing_t * thing, mp_unp_t * up)
@@ -2190,6 +2244,8 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
             return job__set(thing, up);
         if (mp_str_eq(&mp_job, "splice"))
             return job__splice(thing, up);
+        if (mp_str_eq(&mp_job, "set_timer_args"))
+            return job__set_timer_args(thing, up);
         if (mp_str_eq(&mp_job, "set_enum"))
             return job__set_enum(thing, up);
         if (mp_str_eq(&mp_job, "set_type"))

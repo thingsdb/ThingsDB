@@ -157,8 +157,12 @@
 #define DOC_RUN                     DOC_SEE("procedures-api/run")
 
 /* Timers API */
-#define DOC_NEW_TIMER               DOC_SEE("timers-api/new_timer")
 #define DOC_DEL_TIMER               DOC_SEE("timers-api/del_timer")
+#define DOC_NEW_TIMER               DOC_SEE("timers-api/new_timer")
+#define DOC_SET_TIMER_ARGS          DOC_SEE("timers-api/set_timer_args")
+#define DOC_TIMER_ARGS              DOC_SEE("timers-api/timers_args")
+#define DOC_TIMER_INFO              DOC_SEE("timers-api/timer_info")
+#define DOC_TIMERS_INFO             DOC_SEE("timers-api/timers_info")
 
 /* Data Types */
 #define DOC_BYTES_LEN               DOC_SEE("data-types/bytes/len")

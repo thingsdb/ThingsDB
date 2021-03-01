@@ -39,12 +39,12 @@ const char * ti_proto_str(ti_proto_enum_t tp)
     case TI_PROTO_NODE_MISSING_EVENT:       return "NODE_MISSING_EVENT";
     case TI_PROTO_NODE_FWD_WATCH:           return "NODE_FWD_WATCH";
     case TI_PROTO_NODE_FWD_UNWATCH:         return "NODE_FWD_UNWATCH";
+    case TI_PROTO_NODE_FWD_TIMER:           return "NODE_FWD_TIMER";
     case TI_PROTO_NODE_OK_TIMER:            return "NODE_OK_TIMER";
     case TI_PROTO_NODE_EX_TIMER:            return "NODE_EX_TIMER";
 
     case TI_PROTO_NODE_REQ_QUERY:           return "NODE_REQ_QUERY";
     case TI_PROTO_NODE_REQ_RUN:             return "NODE_REQ_RUN";
-    case TI_PROTO_NODE_REQ_TIMER:           return "NODE_REQ_TIMER";
 
     case TI_PROTO_NODE_REQ_CONNECT:         return "NODE_REQ_CONNECT";
     case TI_PROTO_NODE_REQ_EVENT_ID:        return "NODE_REQ_EVENT_ID";

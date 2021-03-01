@@ -11,6 +11,7 @@ typedef struct ti_timers_s ti_timers_t;
 
 #include <ti/timer.t.h>
 #include <ti/user.t.h>
+#include <ti/varr.t.h>
 #include <util/vec.h>
 #include <uv.h>
 
@@ -21,6 +22,7 @@ int ti_timers_start(void);
 void ti_timers_stop(void);
 void ti_timers_del_user(ti_user_t * user);
 vec_t ** ti_timers_from_scope_id(uint64_t scope_id);
+ti_varr_t * ti_timers_info(vec_t * timers, _Bool with_full_access);
 
 struct ti_timers_s
 {

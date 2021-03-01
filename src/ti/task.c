@@ -995,6 +995,60 @@ fail_pack:
     return -1;
 }
 
+int ti_task_add_set_timer_args(ti_task_t * task, ti_timer_t * timer)
+{
+    size_t alloc = 1024;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_str(&pk, "set_timer_args");
+    msgpack_pack_map(&pk, 2);
+
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, timer->id);
+
+    mp_pack_str(&pk, "args");
+    msgpack_pack_array(&pk, timer->args->n);
+
+    if (timer->scope_id == TI_SCOPE_THINGSDB)
+    {
+        for (vec_each(timer->args, ti_val_t, val))
+            if (ti_val_to_pk(val, &pk, 2))  /* pack arguments as deep 2 */
+                goto fail_pack;
+    }
+    else
+    {
+        for (vec_each(timer->args, ti_val_t, val))
+            if (ti_val_gen_ids(val) ||
+                ti_val_to_pk(val, &pk, TI_VAL_PACK_TASK))
+                goto fail_pack;
+    }
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+
+fail_pack:
+    msgpack_sbuffer_destroy(&buffer);
+    return -1;
+}
+
 int ti_task_add_new_token(
         ti_task_t * task,
         ti_user_t * user,

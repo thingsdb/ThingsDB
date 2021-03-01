@@ -74,6 +74,7 @@ int ti_create(void)
     ti.build = NULL;
     ti.node = NULL;
     ti.store = NULL;
+    ti.timers = NULL;
     ti.access_node = vec_new(0);
     ti.access_thingsdb = vec_new(0);
     ti.procedures = smap_create();
@@ -81,7 +82,6 @@ int ti_create(void)
     ti.langdef = compile_langdef();
     ti.thing0 = ti_thing_o_create(0, 0, NULL);
     if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti.boottime) ||
-            ti_timers_create() ||
             ti_counters_create() ||
             ti_away_create() ||
             ti_args_create() ||
@@ -216,7 +216,8 @@ int ti_init(void)
     if (ti_qcache_create() ||
         ti_do_init() ||
         ti_val_init_common() ||
-        ti_thing_init_gc())
+        ti_thing_init_gc() ||
+        ti_timers_create())
         return -1;
 
     ti.fn = strx_cat(ti.cfg->storage_path, ti__fn);
@@ -713,6 +714,7 @@ void ti_update_rel_id(void)
     for (vec_each(ti.nodes->vec, ti_node_t, node))
         if (node->id < this_node_id)
             ++ti.rel_id;
+    LOGC("rel id: %u", ti.rel_id);
 }
 
 _Bool ti_ask_continue(const char * warn)

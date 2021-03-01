@@ -76,6 +76,21 @@ ti_varr_t * ti_varr_create(size_t sz)
     return varr;
 }
 
+ti_varr_t * ti_tuple_from_vec(vec_t * vec)
+{
+    ti_varr_t * varr = malloc(sizeof(ti_varr_t));
+    if (!varr)
+        return NULL;
+
+    varr->ref = 1;
+    varr->tp = TI_VAL_ARR;
+    varr->flags = TI_VARR_FLAG_TUPLE|(vec->n ? TI_VARR_FLAG_MHT:0);
+    varr->vec = vec;
+    varr->parent = NULL;
+    return varr;
+}
+
+
 ti_varr_t * ti_varr_from_vec(vec_t * vec)
 {
     ti_varr_t * varr = malloc(sizeof(ti_varr_t));
@@ -84,7 +99,7 @@ ti_varr_t * ti_varr_from_vec(vec_t * vec)
 
     varr->ref = 1;
     varr->tp = TI_VAL_ARR;
-    varr->flags = 0;
+    varr->flags = vec->n ? TI_VARR_FLAG_MHT : 0;;
     varr->vec = vec;
     varr->parent = NULL;
     return varr;
@@ -227,12 +242,7 @@ int ti_varr_to_list(ti_varr_t ** varr)
     ti_varr_t * list = *varr;
 
     if (list->ref == 1)
-    {
-        /* This can never happen to a tuple since a tuple is always nested
-         * and therefore always has more than one reference; */
-        assert (~list->flags & TI_VARR_FLAG_TUPLE);
         return 0;
-    }
 
     list = malloc(sizeof(ti_varr_t));
     if (!list)

@@ -29,6 +29,10 @@ class TestTimers(TestBase):
         client = await get_client(self.node0)
         client.set_default_scope('//stuff')
 
+        # add another node otherwise backups are not possible
+        if hasattr(self, 'node1'):
+            await self.node1.join_until_ready(client)
+
         await self.run_tests(client)
 
         client.close()
@@ -59,6 +63,24 @@ class TestTimers(TestBase):
                 'but 5 were given'):
             await client.query('new_timer(datetime(), nil, ||nil, [], nil);')
 
+        with self.assertRaisesRegex(
+                ValueError,
+                r'repeat value must be at least 30 seconds '
+                r'or disabled \(nil\)'):
+            await client.query('new_timer(datetime(), 20, ||nil);')
+
+        await client.query(r'''
+            new_timer(
+                datetime(),
+                30,
+                |x| {
+                    .r = x;
+                    set_timer_args([x+1]);
+                },
+                [1]
+            );
+        ''')
+
         await client.query(r'''
             .x = 8;
             new_timer(
@@ -70,7 +92,7 @@ class TestTimers(TestBase):
         ''')
 
         self.assertEqual(await client.query('.x'), 8)
-        await asyncio.sleep(20)
+        await asyncio.sleep(8)
         self.assertEqual(await client.query('.x'), 42)
 
         await client.query(r'''
@@ -78,14 +100,41 @@ class TestTimers(TestBase):
             new_timer(
                 datetime().move('seconds', 2),
                 |x| {.x = x},
-                [42]
+                []
             );
         ''')
 
         self.assertEqual(await client.query('.x'), 8)
-        await asyncio.sleep(20)
+        await asyncio.sleep(8)
+        self.assertIs(await client.query('.x'), None)
+
+        await client.query(r'''
+            .x = 8;
+            timer = new_timer(
+                datetime().move('seconds', 2),
+                |x| {.x = x}
+            );
+            set_timer_args(timer, [42, 123]);
+        ''')
+
+        self.assertEqual(await client.query('.x'), 8)
+        await asyncio.sleep(8)
         self.assertEqual(await client.query('.x'), 42)
 
+        res = await client.query(r'''
+            .x = 8;
+            timer = new_timer(
+                datetime().move('seconds', 2),
+                || {.x += 8}
+            );
+            wse(run(timer));
+        ''')
+        self.assertEqual(res, 16)
+        await asyncio.sleep(8)
+        self.assertEqual(await client.query('.x'), 24)
+
+        await asyncio.sleep(8)
+        self.assertEqual(await client.query('.r'), 2)
 
 
 if __name__ == '__main__':

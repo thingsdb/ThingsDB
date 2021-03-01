@@ -1075,6 +1075,65 @@ static void nodes__on_missing_event(ti_stream_t * stream, ti_pkg_t * pkg)
             other_node->id);
 }
 
+static void nodes__on_fwd_timer(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    mp_unp_t up;
+    ti_node_t * other_node = stream->via.node;
+    ti_node_t * this_node = ti.node;
+    mp_obj_t obj, mp_scope_id, mp_id;
+    vec_t ** timers;
+
+    if (!other_node)
+    {
+        LOG_UNAUTHORIZED_NODE
+        return;
+    }
+
+    if (this_node->status <= TI_NODE_STAT_SHUTTING_DOWN)
+    {
+        log_warning("skip running timer; (node status: `%s`)",
+                ti_node_status_str(this_node->status));
+        return;
+    }
+
+    mp_unp_init(&up, pkg->data, pkg->n);
+
+    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
+        mp_next(&up, &mp_scope_id) != MP_U64 ||
+        mp_next(&up, &mp_id) != MP_U64)
+    {
+        LOG_INVALID
+        return;
+    }
+
+    timers = ti_timers_from_scope_id(mp_scope_id.via.u64);
+    if (!timers)
+    {
+        log_error(
+                "failed to get timers for scope id %"PRIu64,
+                mp_scope_id.via.u64);
+        return;
+    }
+
+    for (vec_each(*timers, ti_timer_t, timer))
+    {
+        if (timer->id == mp_id.via.u64)
+        {
+            if (timer->user)
+                ti_timer_run(timer);
+            else
+                break;
+            return;
+        }
+    }
+
+    log_warning(
+            "failed to start timer with ID %"PRIu64
+            "; this timer is most likely removed",
+            mp_id.via.u64);
+}
+
+
 static void nodes__on_ok_timer(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     mp_unp_t up;
@@ -1882,6 +1941,9 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
         break;
     case TI_PROTO_NODE_FWD_UNWATCH:
         nodes__on_fwd_wu(stream, pkg, "unwatch");
+        break;
+    case TI_PROTO_NODE_FWD_TIMER:
+        nodes__on_fwd_timer(stream, pkg);
         break;
     case TI_PROTO_NODE_OK_TIMER:
         nodes__on_ok_timer(stream, pkg);

@@ -34,8 +34,6 @@ static int do__f_new_timer(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, (child = child->next->next)->node, e))
         return e->nr;
 
-    child = child->next ? child->next->next : NULL;
-
     if (ti_val_is_int(query->rval))
     {
         if (VINT(query->rval) < TI_TIMERS_MIN_REPEAT)
@@ -59,6 +57,8 @@ static int do__f_new_timer(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
+
+    child = child->next ? child->next->next : NULL;
 
     if (!child)
     {
@@ -134,8 +134,6 @@ skip_repeat:
         ti_val_drop(query->rval);
         query->rval = NULL;
     }
-
-    LOGC("m: %zu args sz: %u, len: %u", m, args->sz, args->n);
 
     while (m--)
         VEC_push(args, ti_nil_get());

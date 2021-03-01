@@ -88,16 +88,4 @@ static inline ti_timer_t * ti_timer_query_alt(ti_query_t * query, ex_t * e)
     return NULL;
 }
 
-static inline ti_timer_t * ti_timer_query(ti_query_t * query, ex_t * e)
-{
-    if (query->with_tp == TI_QUERY_WITH_TIMER)
-        return query->with.timer;
-
-    ex_set(e, EX_LOOKUP_ERROR,
-        "missing timer; this function must be used within a timer callback");
-
-    return NULL;
-}
-
-
 #endif  /* TI_QUERY_INLINE_H_ */

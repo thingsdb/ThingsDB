@@ -105,6 +105,9 @@ static void timer__async_cb(uv_async_t * async)
     query->pkg_id = 0;
     query->with.timer = timer;          /* move the timer reference */
     query->collection = collection;     /* may be NULL */
+    query->qbind.flags |= (timer->scope_id == TI_SCOPE_THINGSDB)
+        ? TI_QBIND_FLAG_THINGSDB
+        : TI_QBIND_FLAG_COLLECTION;
 
     ti_incref(query->user);
     ti_incref(query->collection);
@@ -173,6 +176,10 @@ void ti_timer_run(ti_timer_t * timer)
  */
 void ti_timer_fwd(ti_timer_t * timer)
 {
+
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+    ti_pkg_t * pkg;
     ti_node_t * node = ti_nodes_random_ready_node();
     if (!node)
     {
@@ -180,6 +187,26 @@ void ti_timer_fwd(ti_timer_t * timer)
             "cannot find a ready node for starting timer %"PRIu64,
             timer->id);
         return;
+    }
+
+    if (mp_sbuffer_alloc_init(&buffer, 32, sizeof(ti_pkg_t)))
+    {
+        log_error(EX_MEMORY_S);
+        return;
+    }
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+    msgpack_pack_uint64(&pk, timer->scope_id);
+    msgpack_pack_uint64(&pk, timer->id);
+
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, 0, TI_PROTO_NODE_FWD_TIMER, buffer.size);
+
+    if (ti_stream_write_pkg(node->stream, pkg))
+    {
+        free(pkg);
+        log_error("failed to forward timer package");
     }
 }
 
@@ -190,7 +217,7 @@ void ti_timer_mark_del(ti_timer_t * timer)
 }
 
 /* may return an empty string but never NULL */
-ti_raw_t * ti_tmer_doc(ti_timer_t * timer)
+ti_raw_t * ti_timer_doc(ti_timer_t * timer)
 {
     if (!timer->doc)
         timer->doc = ti_closure_doc(timer->closure);
@@ -253,7 +280,7 @@ static ti_rpkg_t * timer__rpkg_ok(ti_timer_t * timer)
     (void) msgpack_pack_uint64(&pk, timer->next_run);
 
     pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, 0, TI_PROTO_NODE_EX_TIMER, buffer.size);
+    pkg_init(pkg, 0, TI_PROTO_NODE_OK_TIMER, buffer.size);
 
     rpkg = ti_rpkg_create(pkg);
     if (!rpkg)
@@ -317,4 +344,101 @@ ti_timer_t * ti_timer_from_val(vec_t * timers, ti_val_t * val, ex_t * e)
                 "or `"TI_VAL_INT_S"` as timer but got type `%s` instead",
                 ti_val_str(val));
     return NULL;
+}
+
+char * timer__next_run(ti_timer_t * timer)
+{
+    /* length 27 =  "2000-00-00 00:00:00+01.00Z" + 1 */
+    static char buf[27];
+    struct tm * tm_info;
+    uint64_t now = util_now_usec();
+
+    if (timer->next_run < now)
+        return "pending";
+
+    tm_info = gmtime((const time_t *) &timer->next_run);
+
+    strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%SZ", tm_info);
+    return buf;
+}
+
+
+static int timer__info_to_pk(
+        ti_timer_t * timer,
+        msgpack_packer * pk,
+        _Bool with_full_access)
+{
+    ti_raw_t * doc = ti_timer_doc(timer);
+    ti_raw_t * def;
+    size_t size = 5;
+
+    if (with_full_access)
+    {
+        def = ti_timer_def(timer);
+        size += 2;
+    }
+
+    if (timer->repeat)
+        ++size;
+
+    if (msgpack_pack_map(pk, size) ||
+
+        mp_pack_str(pk, "doc") ||
+        mp_pack_strn(pk, doc->data, doc->n) ||
+
+        mp_pack_str(pk, "id") ||
+        msgpack_pack_uint64(pk, timer->id) ||
+
+        mp_pack_str(pk, "next_run") ||
+        mp_pack_str(pk, timer__next_run(timer)) ||
+
+        mp_pack_str(pk, "with_side_effects") ||
+        mp_pack_bool(pk, timer->closure->flags & TI_CLOSURE_FLAG_WSE))
+        return -1;
+
+    if (mp_pack_str(pk, "arguments") ||
+        msgpack_pack_array(pk, timer->closure->vars->n))
+        return -1;
+
+    for (vec_each(timer->closure->vars, ti_prop_t, prop))
+        if (mp_pack_str(pk, prop->name->str))
+            return -1;
+
+    if (timer->repeat && (
+        mp_pack_str(pk, "repeat") ||
+        msgpack_pack_uint64(pk, timer->repeat)))
+        return -1;
+
+    if (with_full_access && (
+        mp_pack_str(pk, "user") ||
+        mp_pack_strn(pk, timer->user->name->data, timer->user->name->n) ||
+
+        mp_pack_str(pk, "definition") ||
+        mp_pack_strn(pk, def->data, def->n)))
+        return -1;
+
+    return 0;
+}
+
+ti_val_t * ti_timer_as_mpval(ti_timer_t * timer, _Bool with_full_access)
+{
+    ti_raw_t * raw;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    assert (timer->user);
+
+    mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    if (timer__info_to_pk(timer, &pk, with_full_access))
+    {
+        msgpack_sbuffer_destroy(&buffer);
+        return NULL;
+    }
+
+    raw = (ti_raw_t *) buffer.data;
+    ti_raw_init(raw, TI_VAL_MP, buffer.size);
+
+    return (ti_val_t *) raw;
 }

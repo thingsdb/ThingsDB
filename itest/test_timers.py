@@ -21,7 +21,7 @@ class TestTimers(TestBase):
 
     title = 'Test timers'
 
-    @default_test_setup(num_nodes=1, seed=1, threshold_full_storage=10)
+    @default_test_setup(num_nodes=2, seed=1, threshold_full_storage=10)
     async def run(self):
 
         await self.node0.init_and_run()
@@ -38,7 +38,7 @@ class TestTimers(TestBase):
         client.close()
         await client.wait_closed()
 
-    async def _OFF_test_new_timer(self, client):
+    async def test_new_timer(self, client):
         with self.assertRaisesRegex(
                 LookupError,
                 r'function `new_timer` is undefined in the `@node` scope; '
@@ -86,8 +86,10 @@ class TestTimers(TestBase):
             new_timer(
                 datetime().move('seconds', 2),
                 nil,
-                |x| {.x = x},
-                [42]
+                |x| {.x = x.value},
+                [{
+                    value: 42
+                }]
             );
         ''')
 

@@ -25,6 +25,14 @@ static int do__f_new_timer(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
+    if ((*timers)->n >= TI_MAX_TIMER_COUNT)
+    {
+        ex_set(e, EX_MAX_QUOTA,
+                "maximum number of timers (%u) is reached",
+                TI_MAX_TIMER_COUNT);
+        return e->nr;
+    }
+
     if (start_ts <= 0 || start_ts > UINT32_MAX)
     {
         ex_set(e, EX_VALUE_ERROR, "start time out-of-range"DOC_NEW_TIMER);

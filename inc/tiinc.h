@@ -40,6 +40,9 @@
 /* Maximum number of active futures (just some arbitrary value) */
 #define TI_MAX_FUTURE_COUNT 500U
 
+/* Maximum number of timers per scope (just some arbitrary value) */
+#define TI_MAX_TIMER_COUNT 200U
+
 /*
  * File name schema to check version info on created files.
  */

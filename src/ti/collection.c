@@ -419,7 +419,9 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
         /* Take a lock because flags are not atomic and might be changed */
         uv_mutex_lock(collection->lock);
 
-        /* TODO: do something with timers */
+        for (vec_each(collection->timers, ti_timer_t, timer))
+            for (vec_each(timer->args, ti_val_t, val))
+                collection__gc_val(val);
 
         imap_walk(
                 collection->enums->imap,

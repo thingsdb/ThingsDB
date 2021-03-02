@@ -1089,7 +1089,12 @@ static void nodes__on_fwd_timer(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
-    if (this_node->status <= TI_NODE_STAT_SHUTTING_DOWN)
+    /*
+     * It is fine to start the timer with AWAY_SOON because the actual a-sync
+     * call checks for READY status and can always decide to forward the
+     * request to another node.
+     */
+    if (this_node->status <= TI_NODE_STAT_AWAY)
     {
         log_warning("skip running timer; (node status: `%s`)",
                 ti_node_status_str(this_node->status));
@@ -1115,6 +1120,8 @@ static void nodes__on_fwd_timer(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
+    uv_mutex_lock(ti.timers->lock);
+
     for (vec_each(*timers, ti_timer_t, timer))
     {
         if (timer->id == mp_id.via.u64)
@@ -1123,7 +1130,7 @@ static void nodes__on_fwd_timer(ti_stream_t * stream, ti_pkg_t * pkg)
                 ti_timer_run(timer);
             else
                 break;
-            return;
+            goto unlock;
         }
     }
 
@@ -1131,6 +1138,9 @@ static void nodes__on_fwd_timer(ti_stream_t * stream, ti_pkg_t * pkg)
             "failed to start timer with ID %"PRIu64
             "; this timer is most likely removed",
             mp_id.via.u64);
+
+unlock:
+    uv_mutex_unlock(ti.timers->lock);
 }
 
 
@@ -1175,6 +1185,8 @@ static void nodes__on_ok_timer(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
+    uv_mutex_lock(ti.timers->lock);
+
     for (vec_each(*timers, ti_timer_t, timer))
     {
         if (timer->id == mp_id.via.u64)
@@ -1187,13 +1199,11 @@ static void nodes__on_ok_timer(ti_stream_t * stream, ti_pkg_t * pkg)
                 log_debug(
                         "timer %"PRIu64" ran successful on node %"PRIu32,
                         timer->id, other_node->id);
-                return;
             }
             else
-            {
                 ti_timer_mark_del(timer);
-                return;
-            }
+
+            goto unlock;
         }
     }
 
@@ -1201,6 +1211,8 @@ static void nodes__on_ok_timer(ti_stream_t * stream, ti_pkg_t * pkg)
             "failed to update timer with id %"PRIu64
             "; this timer is most likely removed",
             mp_id.via.u64);
+unlock:
+    uv_mutex_unlock(ti.timers->lock);
 }
 
 static void nodes__on_ex_timer(ti_stream_t * stream, ti_pkg_t * pkg)
@@ -1246,6 +1258,8 @@ static void nodes__on_ex_timer(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
+    uv_mutex_lock(ti.timers->lock);
+
     for (vec_each(*timers, ti_timer_t, timer))
     {
         if (timer->id == mp_id.via.u64)
@@ -1261,19 +1275,19 @@ static void nodes__on_ex_timer(ti_stream_t * stream, ti_pkg_t * pkg)
                 log_warning(
                         "timer %"PRIu64" has failed: (%s) `%s`",
                         timer->id, ex_str(e.nr), e.msg);
-                return;
             }
             else
-            {
                 ti_timer_mark_del(timer);
-                return;
-            }
+
+            goto unlock;
         }
     }
 
-    log_error(
+    log_warning(
             "failed to update timer with id %"PRIu64,
             mp_id.via.u64);
+unlock:
+    uv_mutex_unlock(ti.timers->lock);
 }
 
 static void nodes__on_fwd_wu(

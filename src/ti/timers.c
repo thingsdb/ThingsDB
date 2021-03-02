@@ -17,7 +17,7 @@
 /* one time timers which are not handled by this node will expire after X
  * seconds
  */
-#define TIMERS__EXPIRE_TIME 120
+#define TIMERS__EXPIRE_TIME 900
 
 static ti_timers_t * timers;
 
@@ -34,8 +34,10 @@ int ti_timers_create(void)
     timers->timer = malloc(sizeof(uv_timer_t));
     timers->n_loops = 0;
     timers->timers = vec_new(4);
+    timers->lock = malloc(sizeof(uv_mutex_t));
 
-    if (!timers->timer || !timers->timers)
+    if (!timers->timer || !timers->timers || !timers->lock ||
+        uv_mutex_init(timers->lock))
         goto failed;
 
     ti.timers = timers;
@@ -84,6 +86,43 @@ void ti_timers_stop(void)
     }
 }
 
+void ti_timers_clear(vec_t ** timers)
+{
+    ti_timer_t * timer;
+    while ((timer = vec_pop(*timers)))
+        ti_timer_drop(timer);
+
+    vec_shrink(timers);
+}
+
+void ti_timers_reschedule(vec_t * timers)
+{
+    uint64_t now = util_now_usec();
+    uint32_t rel_id = ti.rel_id;
+    uint32_t nodes_n = ti.nodes->vec->n;
+
+    for (vec_each(timers, ti_timer_t, timer))
+    {
+        if (timer->next_run > now)
+            continue;
+
+        if (timer->id % nodes_n == rel_id)
+        {
+            if (timer->repeat)
+            {
+                uint64_t until = now - timer->repeat;
+                while (timer->next_run <= until)
+                    timer->next_run += timer->repeat;
+            }
+            continue;
+        }
+
+        if (timer->repeat)
+            while (timer->next_run <= now)
+                timer->next_run += timer->repeat;
+    }
+}
+
 void ti_timers_del_user(ti_user_t * user)
 {
     for (vec_each(ti.timers->timers, ti_timer_t, timer))
@@ -113,6 +152,8 @@ static void timers__destroy(uv_handle_t * UNUSED(handle))
     {
         free(timers->timer);
         vec_destroy(timers->timers, (vec_destroy_cb) ti_timer_drop);
+        uv_mutex_destroy(timers->lock);
+        free(timers->lock);
     }
     free(timers);
     timers = ti.timers = NULL;
@@ -125,39 +166,29 @@ static int timer__handle(vec_t * timers, uint64_t now, ti_timers_cb cb)
     uint32_t rel_id = ti.rel_id;
     uint32_t nodes_n = ti.nodes->vec->n;
 
+    uv_mutex_lock(ti.timers->lock);
+
     for (vec_each_rev(timers, ti_timer_t, timer))
     {
         --i;
 
-        LOGC("timer id: %u", timer->id);
-
         if (!timer->user)
         {
-            LOGC("drop timer id: %u  (no user)", timer->id);
             ti_timer_drop(vec_swap_remove(timers, i));
             continue;
         }
 
         if (timer->next_run > now)
-        {
-            LOGC("skip timer id: %u  (waiting...)", timer->id);
             continue;
-        }
 
         if (timer->id % nodes_n == rel_id)
         {
+
             if (timer->ref == 1)
-            {
-                LOGC("GO timer id: %u !!!", timer->id);
-                ++n;
-                cb(timer);
-            }
-            else
-                LOGC("skip timer id: %u  (busy...)", timer->id);
+                n += !cb(timer);
             continue;
         }
 
-        LOGC("skip timer id: %u (not mine...)", timer->id);
         if ((now - timer->next_run) > TIMERS__EXPIRE_TIME)
         {
             if (timer->repeat)
@@ -166,6 +197,8 @@ static int timer__handle(vec_t * timers, uint64_t now, ti_timers_cb cb)
                 ti_timer_drop(vec_swap_remove(timers, i));
         }
     }
+
+    uv_mutex_unlock(ti.timers->lock);
 
     return n;
 }
@@ -193,13 +226,15 @@ static void timers__cb(uv_timer_t * UNUSED(handle))
     for (vec_each(ti.collections->vec, ti_collection_t, collection))
         n += timer__handle(collection->timers, now, cb);
 
-    log_debug(
+    if (n)
+        log_info(
             "%s %zu timer%s",
             cb == ti_timer_run ? "handled" : "forwarded", n, n == 1 ? "": "s");
 }
 
 ti_varr_t * ti_timers_info(vec_t * timers, _Bool with_full_access)
 {
+    uint64_t now = util_now_usec() - 5;
     ti_val_t * mpinfo;
     ti_varr_t * varr = ti_varr_create(timers->n);
     if (!varr)
@@ -207,7 +242,7 @@ ti_varr_t * ti_timers_info(vec_t * timers, _Bool with_full_access)
 
     for (vec_each(timers, ti_timer_t, timer))
     {
-        if (!timer->user)
+        if (!timer->user || (!timer->repeat && timer->next_run < now))
             continue;
 
         mpinfo = ti_timer_as_mpval(timer, with_full_access);

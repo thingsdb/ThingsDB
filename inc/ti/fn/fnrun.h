@@ -8,6 +8,8 @@ static int run__timer(
     vec_t ** timers = ti_query_timers(query);
     ti_timer_t * timer;
     ti_closure_t * closure;
+    uint8_t prev_with_tp;
+    ti_query_with_t prev_with;
 
     timer = ti_timer_from_val(*timers, query->rval, e);
     if (!timer)
@@ -26,9 +28,26 @@ static int run__timer(
     closure = timer->closure;
 
     ti_incref(closure);  /* take a reference */
+    ti_incref(timer);  /* take a reference */
+
+    /*
+     * Mock the query as if the query is started as a timer.
+     */
+    prev_with_tp = query->with_tp;
+    prev_with = query->with;
+
+    query->with_tp = TI_QUERY_WITH_TIMER;
+    query->with.timer = timer;
 
     (void) ti_closure_call(closure, query, timer->args, e);
 
+    /*
+     * Restore Mock
+     */
+    query->with_tp = prev_with_tp;
+    query->with = prev_with;
+
+    ti_timer_drop(timer);
     ti_val_unsafe_drop((ti_val_t *) closure);
     return e->nr;
 }

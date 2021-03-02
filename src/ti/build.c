@@ -126,7 +126,6 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
     ti_node->status = TI_NODE_STAT_SYNCHRONIZING;
 
     ti_nodes_update_syntax_ver(TI_VERSION_SYNTAX);
-
     ti_update_rel_id();
 
     if (ti_save())

@@ -83,6 +83,7 @@
 #define DOC_RENAME_ENUM             DOC_SEE("collection-api/rename_enum")
 #define DOC_RENAME_TYPE             DOC_SEE("collection-api/rename_type")
 #define DOC_RETURN                  DOC_SEE("collection-api/return")
+#define DOC_RUN                     DOC_SEE("collection-api/run")
 #define DOC_SET                     DOC_SEE("collection-api/set")
 #define DOC_SET_ENUM                DOC_SEE("collection-api/set_enum")
 #define DOC_SET_TYPE                DOC_SEE("collection-api/set_type")
@@ -154,7 +155,6 @@
 #define DOC_PROCEDURE_INFO          DOC_SEE("procedures-api/procedure_info")
 #define DOC_PROCEDURES_INFO         DOC_SEE("procedures-api/procedures_info")
 #define DOC_RENAME_PROCEDURE        DOC_SEE("procedures-api/rename_procedure")
-#define DOC_RUN                     DOC_SEE("procedures-api/run")
 
 /* Timers API */
 #define DOC_DEL_TIMER               DOC_SEE("timers-api/del_timer")

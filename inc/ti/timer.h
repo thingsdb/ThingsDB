@@ -18,8 +18,8 @@ ti_timer_t * ti_timer_create(
         ti_closure_t * closure,
         vec_t * args);
 void ti_timer_destroy(ti_timer_t * timer);
-void ti_timer_run(ti_timer_t * timer);
-void ti_timer_fwd(ti_timer_t * timer);
+int ti_timer_run(ti_timer_t * timer);
+int ti_timer_fwd(ti_timer_t * timer);
 void ti_timer_mark_del(ti_timer_t * timer);
 ti_raw_t * ti_timer_doc(ti_timer_t * timer);
 ti_raw_t * ti_timer_def(ti_timer_t * timer);

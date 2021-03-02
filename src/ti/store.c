@@ -16,6 +16,7 @@
 #include <ti/store/storeprocedures.h>
 #include <ti/store/storestatus.h>
 #include <ti/store/storethings.h>
+#include <ti/store/storetimers.h>
 #include <ti/store/storetypes.h>
 #include <ti/store/storeusers.h>
 #include <ti/things.h>
@@ -35,6 +36,7 @@ static const char * store__collections_fn       = "collections.mp";
 static const char * store__id_stat_fn           = "idstat.mp";
 static const char * store__names_fn             = "names.mp";
 static const char * store__procedures_fn        = "procedures.mp";
+static const char * store__timers_fn            = "timers.mp";
 static const char * store__users_fn             = "users.mp";
 static const char * store__modules_fn           = "modules.mp";
 
@@ -58,6 +60,7 @@ static void store__set_filename(_Bool use_tmp)
     memcpy(store->id_stat_fn + store->fn_offset, path, n);
     memcpy(store->names_fn + store->fn_offset, path, n);
     memcpy(store->procedures_fn + store->fn_offset, path, n);
+    memcpy(store->timers_fn + store->fn_offset, path, n);
     memcpy(store->users_fn + store->fn_offset, path, n);
     memcpy(store->modules_fn + store->fn_offset, path, n);
 }
@@ -111,6 +114,7 @@ int ti_store_create(void)
     store->id_stat_fn = fx_path_join(store->tmp_path, store__id_stat_fn);
     store->names_fn = fx_path_join(store->tmp_path, store__names_fn);
     store->procedures_fn = fx_path_join(store->tmp_path, store__procedures_fn);
+    store->timers_fn = fx_path_join(store->tmp_path, store__timers_fn);
     store->users_fn = fx_path_join(store->tmp_path, store__users_fn);
     store->modules_fn = fx_path_join(store->tmp_path, store__modules_fn);
     store->last_stored_event_id = 0;
@@ -124,6 +128,7 @@ int ti_store_create(void)
             !store->id_stat_fn ||
             !store->names_fn ||
             !store->procedures_fn ||
+            !store->timers_fn ||
             !store->users_fn ||
             !store->modules_fn)
         goto fail1;
@@ -167,6 +172,7 @@ void ti_store_destroy(void)
     free(store->id_stat_fn);
     free(store->names_fn);
     free(store->procedures_fn);
+    free(store->timers_fn);
     free(store->users_fn);
     free(store->modules_fn);
     vec_destroy(store->collection_ids, free);
@@ -204,6 +210,7 @@ int ti_store_store(void)
                     store->access_thingsdb_fn) ||
             ti_store_collections_store(store->collections_fn) ||
             ti_store_procedures_store(ti.procedures, store->procedures_fn) ||
+            ti_store_timers_store(ti.timers->timers, store->timers_fn) ||
             ti_store_modules_store(store->modules_fn))
         goto failed;
 
@@ -253,7 +260,10 @@ int ti_store_store(void)
                         store_collection->gcprops_fn) ||
                 ti_store_procedures_store(
                         collection->procedures,
-                        store_collection->procedures_fn)
+                        store_collection->procedures_fn) ||
+                ti_store_timers_store(
+                        collection->timers,
+                        store_collection->timers_fn)
             );
         }
         ti_store_collection_destroy(store_collection);
@@ -330,6 +340,10 @@ int ti_store_restore(void)
                     ti.procedures,
                     store->procedures_fn,
                     NULL) ||
+            ti_store_timers_restore(
+                    &ti.timers->timers,
+                    store->timers_fn,
+                    NULL) ||
             ti_store_modules_restore(store->modules_fn));
 
     if (rc)
@@ -400,8 +414,11 @@ int ti_store_restore(void)
                 ti_store_procedures_restore(
                         collection->procedures,
                         store_collection->procedures_fn,
+                        collection) ||
+                ti_store_timers_restore(
+                        &collection->timers,
+                        store_collection->timers_fn,
                         collection)
-
         );
 
         ti_store_collection_destroy(store_collection);

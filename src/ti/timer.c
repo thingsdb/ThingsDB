@@ -21,6 +21,8 @@
 #include <ti/vint.h>
 #include <ti/val.inline.h>
 
+#define TIMER__FWD_AGAIN 120
+
 ti_timer_t * ti_timer_create(
         uint64_t id,
         uint64_t next_run,
@@ -74,13 +76,15 @@ static void timer__async_cb(uv_async_t * async)
 
     uv_close((uv_handle_t *) async, (uv_close_cb) free);
 
-    if (this_node->status < TI_NODE_STAT_READY &&
-        this_node->status != TI_NODE_STAT_SHUTTING_DOWN)
+    if (this_node->status != TI_NODE_STAT_READY)
     {
-        ti_timer_fwd(timer);
+        (void) ti_timer_fwd(timer);
         ti_timer_drop(timer);
         return;
     }
+
+    if (!timer->repeat)
+        timer->next_run = 0;
 
     ti_scope_load_from_scope_id(timer->scope_id, &access_, &collection);
     if (!access_)
@@ -144,19 +148,16 @@ finish:
  * If this function is not able to start an a-sync call, an exception will
  * be set but `ti_timer_done(..)` will not be called.
  */
-void ti_timer_run(ti_timer_t * timer)
+int ti_timer_run(ti_timer_t * timer)
 {
     uv_async_t * async = malloc(sizeof(uv_async_t));
     if (!async)
     {
         log_error(EX_MEMORY_S);
-        return;
+        return -1;
     }
 
     ti_incref(timer);
-
-    if (!timer->repeat)
-        timer->next_run = 0;
 
     async->data = timer;
 
@@ -166,15 +167,17 @@ void ti_timer_run(ti_timer_t * timer)
         log_error(EX_INTERNAL_S);
         ti_timer_drop(timer);
         free(async);
-        return;
+        return -1;
     }
+
+    return 0;
 }
 
 /*
  * If this function is not able to forward the timer, an exception will
  * be set but `ti_timer_done(..)` will not be called.
  */
-void ti_timer_fwd(ti_timer_t * timer)
+int ti_timer_fwd(ti_timer_t * timer)
 {
 
     msgpack_packer pk;
@@ -186,13 +189,13 @@ void ti_timer_fwd(ti_timer_t * timer)
         log_error(
             "cannot find a ready node for starting timer %"PRIu64,
             timer->id);
-        return;
+        return -1;
     }
 
     if (mp_sbuffer_alloc_init(&buffer, 32, sizeof(ti_pkg_t)))
     {
         log_error(EX_MEMORY_S);
-        return;
+        return -1;
     }
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
@@ -207,7 +210,11 @@ void ti_timer_fwd(ti_timer_t * timer)
     {
         free(pkg);
         log_error("failed to forward timer package");
+        return -1;
     }
+
+    timer->next_run += timer->repeat ? timer->repeat : TIMER__FWD_AGAIN;
+    return 0;
 }
 
 void ti_timer_mark_del(ti_timer_t * timer)

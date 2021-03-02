@@ -4,10 +4,11 @@ static int do__f_timer_args(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
     ti_timer_t * timer;
+    vec_t * args;
     vec_t ** timers = ti_query_timers(query);
 
     if (fn_not_thingsdb_or_collection_scope("timer_args", query, e) ||
-        fn_nargs("timer_args", DOC_TIMER_ARGS, 1, nargs, e))
+        fn_nargs_max("timer_args", DOC_TIMER_ARGS, 1, nargs, e))
         return e->nr;
 
     if (nargs == 0)
@@ -27,9 +28,13 @@ static int do__f_timer_args(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!timer)
         return e->nr;
 
-    query->rval = (ti_val_t *) ti_tuple_from_vec(timer->args);
-    if (!query->rval)
+    args = vec_dup(timer->args);
+
+    if (!args || !(query->rval = (ti_val_t *) ti_tuple_from_vec(args)))
         ex_set_mem(e);
+    else
+        for (vec_each(args, ti_val_t, val))
+            ti_incref(val);
 
     return e->nr;
 }

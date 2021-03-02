@@ -11,6 +11,7 @@
 static const char * collection___access_fn     = "access.mp";
 static const char * collection___dat_fn        = "collection.dat";
 static const char * collection___procedures_fn = "procedures.mp";
+static const char * collection___timers_fn     = "timers.mp";
 static const char * collection___props_fn      = "props.mp";
 static const char * collection___things_fn     = "things.mp";
 static const char * collection___types_fn      = "types.mp";
@@ -39,6 +40,7 @@ ti_store_collection_t * ti_store_collection_create(
     store_collection->access_fn = fx_path_join(cpath, collection___access_fn);
     store_collection->collection_fn = fx_path_join(cpath, collection___dat_fn);
     store_collection->procedures_fn = fx_path_join(cpath, collection___procedures_fn);
+    store_collection->timers_fn = fx_path_join(cpath, collection___timers_fn);
     store_collection->props_fn = fx_path_join(cpath, collection___props_fn);
     store_collection->things_fn = fx_path_join(cpath, collection___things_fn);
     store_collection->types_fn = fx_path_join(cpath, collection___types_fn);
@@ -49,6 +51,7 @@ ti_store_collection_t * ti_store_collection_create(
     if (    !store_collection->access_fn ||
             !store_collection->collection_fn ||
             !store_collection->procedures_fn ||
+            !store_collection->timers_fn ||
             !store_collection->props_fn ||
             !store_collection->things_fn ||
             !store_collection->types_fn ||
@@ -74,6 +77,7 @@ void ti_store_collection_destroy(ti_store_collection_t * store_collection)
     free(store_collection->collection_fn);
     free(store_collection->collection_path);
     free(store_collection->procedures_fn);
+    free(store_collection->timers_fn);
     free(store_collection->props_fn);
     free(store_collection->things_fn);
     free(store_collection->types_fn);
@@ -182,6 +186,18 @@ char * ti_store_collection_procedures_fn(
     if (!cpath)
         return NULL;
     fn = fx_path_join(cpath, collection___procedures_fn);
+    free(cpath);
+    return fn;
+}
+
+char * ti_store_collection_timers_fn(
+        const char * path,
+        uint64_t collection_id)
+{
+    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    if (!cpath)
+        return NULL;
+    fn = fx_path_join(cpath, collection___timers_fn);
     free(cpath);
     return fn;
 }

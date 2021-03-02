@@ -24,6 +24,7 @@ struct ti_store_s
     char * names_fn;
     char * prev_path;
     char * procedures_fn;
+    char * timers_fn;
     char * store_path;
     char * tmp_path;
     char * users_fn;

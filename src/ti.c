@@ -412,6 +412,8 @@ int ti_unpack(uchar * data, size_t n)
         }
     }
 
+    ti_update_rel_id();
+
     return 0;
 fail:
     ti.node = NULL;
@@ -714,7 +716,6 @@ void ti_update_rel_id(void)
     for (vec_each(ti.nodes->vec, ti_node_t, node))
         if (node->id < this_node_id)
             ++ti.rel_id;
-    LOGC("rel id: %u", ti.rel_id);
 }
 
 _Bool ti_ask_continue(const char * warn)

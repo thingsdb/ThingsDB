@@ -92,7 +92,6 @@ int ti_store_modules_restore(const char * fn)
         return ti_store_modules_store(fn);
     }
 
-
     data = fx_read(fn, &n);
     if (!data)
         return -1;

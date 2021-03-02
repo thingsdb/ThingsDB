@@ -83,7 +83,7 @@ static inline ti_timer_t * ti_timer_query_alt(ti_query_t * query, ex_t * e)
 
     ex_set(e, EX_LOOKUP_ERROR,
         "missing timer; use this function within a timer callback or "
-        "try to provide a timer ID as first argument");
+        "provide a timer ID as first argument");
 
     return NULL;
 }

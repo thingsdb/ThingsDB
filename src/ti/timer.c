@@ -317,6 +317,11 @@ void ti_timer_done(ti_timer_t * timer, ex_t * e)
 {
     ti_rpkg_t * rpkg;
 
+    if (e->nr)
+        ++ti.counters->timers_with_error;
+    else
+        ++ti.counters->timers_success;
+
     if (timer->repeat)
         timer->next_run += timer->repeat;
     else if (!timer->next_run)
@@ -341,7 +346,7 @@ ti_timer_t * ti_timer_from_val(vec_t * timers, ti_val_t * val, ex_t * e)
     {
         uint64_t id = (uint64_t) VINT(val);
         for (vec_each(timers, ti_timer_t, timer))
-            if (timer->id == id)
+            if (timer->user && timer->id == id)
                 return timer;
         ex_set(e, EX_LOOKUP_ERROR, TI_TIMER_ID" not found", id);
     }
@@ -433,12 +438,10 @@ ti_val_t * ti_timer_as_mpval(ti_timer_t * timer, _Bool with_full_access)
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
-    assert (timer->user);
-
     mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    if (timer__info_to_pk(timer, &pk, with_full_access))
+    if (timer__info_to_pk(timer, &pk, with_full_access && timer->user))
     {
         msgpack_sbuffer_destroy(&buffer);
         return NULL;

@@ -110,8 +110,6 @@ int ti_collections_gc_collect_dropped(void)
     ti_collection_t * collection;
     while ((collection = vec_pop(collections->dropped)))
     {
-        /* TODO: do something with timers. */
-
         /* stop exiting futures */
         ti_collection_stop_futures(collection);
 

@@ -21,7 +21,8 @@ static int run__timer(
     if (child->next && child->next->next)
     {
         ex_set(e, EX_NUM_ARGUMENTS,
-                "no arguments are allowed when using `run` with a `timer`");
+                "no arguments are allowed when using `run` with a `timer`"
+                DOC_RUN_TIMER);
         return e->nr;
     }
 
@@ -108,7 +109,7 @@ static int do__f_run(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_children_t * child = nd->children;    /* first in argument list */
 
     if (fn_not_thingsdb_or_collection_scope("run", query, e) ||
-        fn_nargs_min("run", DOC_RUN, 1, nargs, e) ||
+        fn_nargs_min("run", DOC_RUN_PROCEDURE""DOC_RUN_TIMER, 1, nargs, e) ||
         ti_do_statement(query, child->node, e))
         return e->nr;
 
@@ -123,7 +124,7 @@ static int do__f_run(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 "function `run` expects argument 1 to be of "
                 "type `"TI_VAL_STR_S"` (procedure) "
                 "or `"TI_VAL_INT_S"` (timer) but got type `%s` instead"
-                DOC_RUN, ti_val_str(query->rval));
+                DOC_RUN_PROCEDURE""DOC_RUN_TIMER, ti_val_str(query->rval));
     }
     return e->nr;
 }

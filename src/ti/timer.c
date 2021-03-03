@@ -392,14 +392,11 @@ static int timer__info_to_pk(
         _Bool with_full_access)
 {
     ti_raw_t * doc = ti_timer_doc(timer);
-    ti_raw_t * def;
+    ti_raw_t * def = ti_timer_def(timer);
     size_t size = 5;
 
     if (with_full_access)
-    {
-        def = ti_timer_def(timer);
         size += 2;
-    }
 
     if (timer->repeat)
         ++size;

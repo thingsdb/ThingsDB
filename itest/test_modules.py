@@ -678,7 +678,7 @@ class TestModules(TestBase):
         ''')
         print(res)
 
-    async def test_demo_py_module(self, client):
+    async def _OFF_test_demo_py_module(self, client):
         await client.query(r'''
             new_module('PYDEMO', 'python/demo.py');
         ''', scope='/t')

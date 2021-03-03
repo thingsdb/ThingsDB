@@ -286,6 +286,41 @@ class TestTimers(TestBase):
         await asyncio.sleep(8)
         self.assertFalse(await client.query('has_timer(t);', t=t1))
 
+    async def test_ti_scope(self, client):
+        with self.assertRaisesRegex(
+                TypeError,
+                r'type `thing` is not allowed as a timer argument in '
+                r'the `@thingsdb` scope;'):
+            timer = await client.query(r'''
+                t = {};
+                t.counter = 0;
+                t.me = t;
+                new_timer(datetime(), 30, |_, t| {
+                    t.counter += 1
+                }, [t]);
+            ''', scope='/t')
+
+        timer = await client.query(r'''
+            new_timer(datetime().move('seconds', 2), 30, |t, i| {
+                set_timer_args(t, [i+1]);
+            }, [0]);
+        ''', scope='/t')
+
+        self.assertEqual(await client.query(
+            'timer_args(t);',
+            t=timer, scope='/t'), [0])
+
+        await asyncio.sleep(8)
+
+        self.assertEqual(await client.query(
+            'timer_args(t);',
+            t=timer, scope='/t'), [1])
+
+        await asyncio.sleep(30)
+        self.assertEqual(await client.query(
+            'timer_args(t);',
+            t=timer, scope='/t'), [2])
+
 
 if __name__ == '__main__':
     run_test(TestTimers())

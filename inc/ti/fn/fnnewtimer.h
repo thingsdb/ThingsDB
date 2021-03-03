@@ -134,8 +134,11 @@ skip_repeat:
                     "but got type `%s` instead"DOC_NEW_TIMER,
                     ti_val_str(query->rval));
             goto fail2;
-
         }
+
+        if (!query->collection &&
+            ti_timer_check_thingsdb_args(VARR(query->rval), e))
+            goto fail2;
 
         for (vec_each(VARR(query->rval), ti_val_t, v), --m)
         {

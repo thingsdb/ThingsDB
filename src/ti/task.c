@@ -963,19 +963,14 @@ int ti_task_add_new_timer(ti_task_t * task, ti_timer_t * timer)
         msgpack_pack_array(&pk, timer->args->n))
         goto fail_pack;
 
-    if (timer->scope_id == TI_SCOPE_THINGSDB)
-    {
-        for (vec_each(timer->args, ti_val_t, val))
-            if (ti_val_to_pk(val, &pk, 1))  /* pack arguments as deep 1 */
-                goto fail_pack;
-    }
-    else
-    {
-        for (vec_each(timer->args, ti_val_t, val))
-            if (ti_val_gen_ids(val) ||
-                ti_val_to_pk(val, &pk, TI_VAL_PACK_TASK))
-                goto fail_pack;
-    }
+    /*
+     * In the @thingsdb scope there are no things allowed as arguments so
+     * the code below should run fine
+     */
+    for (vec_each(timer->args, ti_val_t, val))
+        if (ti_val_gen_ids(val) ||
+            ti_val_to_pk(val, &pk, TI_VAL_PACK_TASK))
+            goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
@@ -1017,19 +1012,14 @@ int ti_task_add_set_timer_args(ti_task_t * task, ti_timer_t * timer)
     mp_pack_str(&pk, "args");
     msgpack_pack_array(&pk, timer->args->n);
 
-    if (timer->scope_id == TI_SCOPE_THINGSDB)
-    {
-        for (vec_each(timer->args, ti_val_t, val))
-            if (ti_val_to_pk(val, &pk, 2))  /* pack arguments as deep 2 */
-                goto fail_pack;
-    }
-    else
-    {
-        for (vec_each(timer->args, ti_val_t, val))
-            if (ti_val_gen_ids(val) ||
-                ti_val_to_pk(val, &pk, TI_VAL_PACK_TASK))
-                goto fail_pack;
-    }
+    /*
+     * In the @thingsdb scope there are no things allowed as arguments so
+     * the code below should run fine
+     */
+    for (vec_each(timer->args, ti_val_t, val))
+        if (ti_val_gen_ids(val) ||
+            ti_val_to_pk(val, &pk, TI_VAL_PACK_TASK))
+            goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

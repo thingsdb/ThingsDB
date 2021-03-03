@@ -76,6 +76,15 @@ static void timer__async_cb(uv_async_t * async)
 
     uv_close((uv_handle_t *) async, (uv_close_cb) free);
 
+    if (!timer->user)
+    {
+        log_error(
+                "timer %"PRIu64" is removed before the a-sync call is made",
+                timer->id);
+        ti_timer_drop(timer);
+        return;
+    }
+
     if (this_node->status != TI_NODE_STAT_READY)
     {
         (void) ti_timer_fwd(timer);
@@ -114,7 +123,9 @@ static void timer__async_cb(uv_async_t * async)
         : TI_QBIND_FLAG_COLLECTION;
 
     ti_incref(query->user);
-    ti_incref(query->collection);
+
+    if (query->collection)
+        ti_incref(query->collection);
 
     if (timer->closure->flags & TI_CLOSURE_FLAG_WSE)
     {
@@ -451,4 +462,39 @@ ti_val_t * ti_timer_as_mpval(ti_timer_t * timer, _Bool with_full_access)
     ti_raw_init(raw, TI_VAL_MP, buffer.size);
 
     return (ti_val_t *) raw;
+}
+
+int ti_timer_check_thingsdb_args(vec_t * args, ex_t * e)
+{
+    for (vec_each(args, ti_val_t, v))
+    {
+        switch((ti_val_enum) v->tp)
+        {
+        case TI_VAL_NIL:
+        case TI_VAL_INT:
+        case TI_VAL_FLOAT:
+        case TI_VAL_BOOL:
+        case TI_VAL_DATETIME:
+        case TI_VAL_NAME:
+        case TI_VAL_STR:
+        case TI_VAL_BYTES:
+        case TI_VAL_REGEX:
+            return 0;
+        case TI_VAL_CLOSURE:
+        case TI_VAL_THING:
+        case TI_VAL_WRAP:
+        case TI_VAL_ARR:
+        case TI_VAL_SET:
+        case TI_VAL_ERROR:
+        case TI_VAL_MEMBER:
+        case TI_VAL_MP:
+        case TI_VAL_FUTURE:
+        case TI_VAL_TEMPLATE:
+            ex_set(e, EX_TYPE_ERROR,
+                "type `%s` is not allowed as a timer argument in "
+                "the `@thingsdb` scope"DOC_NEW_TIMER,
+                ti_val_str(v));
+        }
+    }
+    return e->nr;
 }

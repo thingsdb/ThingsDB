@@ -26,5 +26,6 @@ ti_raw_t * ti_timer_def(ti_timer_t * timer);
 void ti_timer_done(ti_timer_t * timer, ex_t * e);
 ti_timer_t * ti_timer_from_val(vec_t * timers, ti_val_t * val, ex_t * e);
 ti_val_t * ti_timer_as_mpval(ti_timer_t * timer, _Bool with_full_access);
+int ti_timer_check_thingsdb_args(vec_t * args, ex_t * e);
 
 #endif /* TI_TIMER_H_ */

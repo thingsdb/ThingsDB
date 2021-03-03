@@ -26,6 +26,10 @@ static int do__f_set_timer_args(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     m = timer->args->n;
 
+    if (!query->collection &&
+        ti_timer_check_thingsdb_args(VARR(query->rval), e))
+        return e->nr;
+
     for (vec_each(VARR(query->rval), ti_val_t, v), ++i)
     {
         if (i >= m)

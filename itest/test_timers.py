@@ -73,9 +73,9 @@ class TestTimers(TestBase):
             new_timer(
                 datetime(),
                 30,
-                |x| {
+                |timer, x| {
                     .r = x;
-                    set_timer_args([x+1]);
+                    set_timer_args(timer, [x+1]);
                 },
                 [1]
             );
@@ -86,7 +86,7 @@ class TestTimers(TestBase):
             new_timer(
                 datetime().move('seconds', 2),
                 nil,
-                |x| {.x = x.value},
+                |timer, x| {.x = x.value},
                 [{
                     value: 42
                 }]
@@ -101,7 +101,7 @@ class TestTimers(TestBase):
             .x = 8;
             new_timer(
                 datetime().move('seconds', 2),
-                |x| {.x = x},
+                |timer, x| {.x = x},
                 []
             );
         ''')
@@ -114,7 +114,7 @@ class TestTimers(TestBase):
             .x = 8;
             timer = new_timer(
                 datetime().move('seconds', 2),
-                |x| {.x = x}
+                |timer, x| {.x = x}
             );
             set_timer_args(timer, [42, 123]);
             timer_args(timer);
@@ -161,7 +161,7 @@ class TestTimers(TestBase):
                 r'function `timer_args` is undefined in the `@node` scope; '
                 r'you might want to query the `@thingsdb` or '
                 r'a `@collection` scope\?'):
-            await client.query('timer_args();', scope='/n')
+            await client.query('timer_args(123);', scope='/n')
 
         with self.assertRaisesRegex(
                 LookupError,
@@ -169,9 +169,8 @@ class TestTimers(TestBase):
             await client.query('nil.timer_args();')
 
         with self.assertRaisesRegex(
-                LookupError,
-                'missing timer; use this function within a timer callback or '
-                'provide a timer ID as first argument'):
+                NumArgumentsError,
+                'function `timer_args` takes 1 argument but 0 were given;'):
             await client.query('timer_args();')
 
         with self.assertRaisesRegex(
@@ -186,7 +185,7 @@ class TestTimers(TestBase):
         self.assertEqual(res, [])
 
         timer = await client.query(r'''
-            new_timer(timeval().move('days', 1), |x, y, z| nil, [1, 2]);
+            new_timer(timeval().move('days', 1), |_, x, y, z| nil, [1, 2]);
         ''')
         res = await client.query('timer_args(timer);', timer=timer)
         self.assertEqual(res, [1, 2, None])
@@ -199,7 +198,7 @@ class TestTimers(TestBase):
         timer = await client.query(r'''
             new_timer(
                 timeval(),
-                |x| .x = timer_args(),
+                |timer, x| .x = timer_args(timer),
                 ['MTB']
             );
         ''')

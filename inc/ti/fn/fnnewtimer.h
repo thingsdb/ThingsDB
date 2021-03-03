@@ -104,6 +104,12 @@ skip_repeat:
         goto fail2;
     }
 
+    if (m)
+    {
+        VEC_push(args, NULL);
+        --m;
+    }
+
     child = child->next ? child->next->next : NULL;
 
     if (child)
@@ -149,6 +155,12 @@ skip_repeat:
     timer_id = ti_vint_create((int64_t) ti_next_thing_id());
     if (!timer_id)
         goto fail2;
+
+    if (args->n)
+    {
+        (void) vec_set(args, timer_id, 0);
+        ti_incref(timer_id);
+    }
 
     timer = ti_timer_create(
             VINT(timer_id),

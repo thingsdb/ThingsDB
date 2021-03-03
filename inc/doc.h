@@ -158,6 +158,7 @@
 
 /* Timers API */
 #define DOC_DEL_TIMER               DOC_SEE("timers-api/del_timer")
+#define DOC_HAS_TIMER               DOC_SEE("timers-api/has_timer")
 #define DOC_NEW_TIMER               DOC_SEE("timers-api/new_timer")
 #define DOC_SET_TIMER_ARGS          DOC_SEE("timers-api/set_timer_args")
 #define DOC_TIMER_ARGS              DOC_SEE("timers-api/timers_args")

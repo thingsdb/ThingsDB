@@ -2182,7 +2182,7 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
     case 'd':
         if (mp_str_eq(&mp_job, "del"))
             return job__del(thing, up);
-        if (mp_str_eq(&mp_job, "job__del_timer"))
+        if (mp_str_eq(&mp_job, "del_timer"))
             return job__del_timer(thing, up);
         if (mp_str_eq(&mp_job, "del_enum"))
             return job__del_enum(thing, up);

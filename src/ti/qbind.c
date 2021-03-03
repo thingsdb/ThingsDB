@@ -74,6 +74,7 @@
 #include <ti/fn/fnhasmodule.h>
 #include <ti/fn/fnhasnode.h>
 #include <ti/fn/fnhasprocedure.h>
+#include <ti/fn/fnhastimer.h>
 #include <ti/fn/fnhastoken.h>
 #include <ti/fn/fnhastype.h>
 #include <ti/fn/fnhasuser.h>
@@ -233,7 +234,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 213,
+    TOTAL_KEYWORDS = 214,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 7,
@@ -474,6 +475,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="has_module",        .fn=do__f_has_module,           ROOT_NE},
     {.name="has_node",          .fn=do__f_has_node,             ROOT_NE},
     {.name="has_procedure",     .fn=do__f_has_procedure,        ROOT_NE},
+    {.name="has_timer",         .fn=do__f_has_timer,            ROOT_NE},
     {.name="has_token",         .fn=do__f_has_token,            ROOT_NE},
     {.name="has_type",          .fn=do__f_has_type,             ROOT_NE},
     {.name="has_user",          .fn=do__f_has_user,             ROOT_NE},

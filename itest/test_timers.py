@@ -207,6 +207,85 @@ class TestTimers(TestBase):
         res = await client.query('.x')
         self.assertEqual(res, ['MTB'])
 
+    async def test_del_timer(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                r'function `del_timer` is undefined in the `@node` scope; '
+                r'you might want to query the `@thingsdb` or '
+                r'a `@collection` scope\?'):
+            await client.query('del_timer(123);', scope='/n')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `del_timer`'):
+            await client.query('nil.del_timer();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `del_timer` takes 1 argument but 0 were given;'):
+            await client.query('del_timer();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'expecting type `str` or `int` as timer '
+                'but got type `str` instead'):
+            await client.query('del_timer("unknown");')
+
+        t1 = await client.query(r'''
+            timer = new_timer(datetime(), |timer| del_timer(timer));
+        ''')
+        t2 = await client.query(r'''
+            timer = new_timer(datetime(), |timer| .done = true);
+            del_timer(timer);
+            timer;
+        ''')
+
+        await asyncio.sleep(8)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                f'`timer:{t1}` not found'):
+            await client.query('timer_args(t);', t=t1)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                f'`timer:{t2}` not found'):
+            await client.query('timer_args(t);', t=t2)
+
+        self.assertFalse(await client.query('.has("done");'))
+
+    async def test_has_timer(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                r'function `has_timer` is undefined in the `@node` scope; '
+                r'you might want to query the `@thingsdb` or '
+                r'a `@collection` scope\?'):
+            await client.query('has_timer(123);', scope='/n')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `has_timer`'):
+            await client.query('nil.has_timer();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `has_timer` takes 1 argument but 0 were given;'):
+            await client.query('has_timer();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `has_timer` expects argument 1 to be of '
+                r'type `int` but got type `str` instead;'):
+            await client.query('has_timer("unknown");')
+
+        t1 = await client.query(r'''
+            timer = new_timer(datetime().move('seconds', 2), || nil);
+        ''')
+
+        self.assertTrue(await client.query('has_timer(t);', t=t1))
+        await asyncio.sleep(8)
+        self.assertFalse(await client.query('has_timer(t);', t=t1))
+
 
 if __name__ == '__main__':
     run_test(TestTimers())

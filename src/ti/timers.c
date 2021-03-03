@@ -90,7 +90,10 @@ void ti_timers_clear(vec_t ** timers)
 {
     ti_timer_t * timer;
     while ((timer = vec_pop(*timers)))
+    {
+        ti_timer_mark_del(timer);
         ti_timer_drop(timer);
+    }
 
     vec_shrink(timers);
 }

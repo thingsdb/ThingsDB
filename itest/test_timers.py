@@ -321,6 +321,16 @@ class TestTimers(TestBase):
             'timer_args(t);',
             t=timer, scope='/t'), [2])
 
+    async def test_recursive(self, client):
+        timer = await client.query(r'''
+            t = {};
+            t.counter = 0;
+            t.me = t;
+            new_timer(datetime(), 30, |_, t| {
+                t.counter += 1
+            }, [t]);
+        ''')
+
 
 if __name__ == '__main__':
     run_test(TestTimers())

@@ -830,7 +830,7 @@ static int rjob__set_module_scope(mp_unp_t * up)
  * Returns 0 on success
  * - for example: '{...}'
  */
-static int job__set_timer_args(mp_unp_t * up)
+static int rjob__set_timer_args(mp_unp_t * up)
 {
     mp_obj_t obj, mp_id;
     ti_varr_t * varr;
@@ -1309,7 +1309,7 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
         break;
     case 's':
         if (mp_str_eq(&mp_job, "set_timer_args"))
-            return job__set_timer_args(up);
+            return rjob__set_timer_args(up);
         if (mp_str_eq(&mp_job, "set_module_conf"))
             return rjob__set_module_conf(up);
         if (mp_str_eq(&mp_job, "set_module_scope"))

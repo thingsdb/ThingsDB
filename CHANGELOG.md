@@ -2,6 +2,13 @@
 
 * Added option to create relations between types, issue #161.
 * Added support for Python modules, issue #162.
+  - `new_timer`: https://docs.thingsdb.net/v0/timers-api/new_timer/
+  - `del_timer`: https://docs.thingsdb.net/v0/timers-api/del_timer/
+  - `has_timer`: https://docs.thingsdb.net/v0/timers-api/has_timer/
+  - `set_timer_args`: https://docs.thingsdb.net/v0/timers-api/set_timer_args/
+  - `timer_args`: https://docs.thingsdb.net/v0/timers-api/timer_args/
+  - `timer_info`: https://docs.thingsdb.net/v0/timers-api/timer_info/
+  - `timers_info`: https://docs.thingsdb.net/v0/timers-api/timers_info/
 
 # v0.10.4
 

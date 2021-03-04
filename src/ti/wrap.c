@@ -173,13 +173,35 @@ int ti__wrap_methods_to_pk(
     {
         vp->query->rval = NULL;
 
-        if (ti_closure_call_one_arg(
+        if (method->closure->flags & TI_CLOSURE_FLAG_WSE)
+        {
+            ex_set(&e, EX_BAD_DATA,
+                    "failed to compute property; "
+                    "method has side effects");
+            vp->query->rval = (ti_val_t *) ti_verror_ensure_from_e(&e);
+        }
+        else if (ti_closure_call_one_arg(
                 method->closure,
                 vp->query,
                 (ti_val_t *) thing,
                 &e))
         {
             ti_val_gc_drop((ti_val_t *) vp->query->rval);
+            vp->query->rval = (ti_val_t *) ti_verror_ensure_from_e(&e);
+        }
+
+        if (vp->query->futures.n)
+        {
+            link_clear(
+                    &vp->query->futures,
+                    (link_destroy_cb) ti_val_unsafe_drop);
+
+            ti_val_gc_drop((ti_val_t *) vp->query->rval);
+
+            ex_set(&e, EX_BAD_DATA,
+                    "failed to compute property; "
+                    "method contains futures");
+
             vp->query->rval = (ti_val_t *) ti_verror_ensure_from_e(&e);
         }
 

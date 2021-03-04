@@ -9,6 +9,7 @@
   - `timer_args`: https://docs.thingsdb.net/v0/timers-api/timer_args/
   - `timer_info`: https://docs.thingsdb.net/v0/timers-api/timer_info/
   - `timers_info`: https://docs.thingsdb.net/v0/timers-api/timers_info/
+* Support computed properties on wrapped type, issue #164.
 
 # v0.10.4
 

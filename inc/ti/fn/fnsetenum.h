@@ -8,7 +8,7 @@ static int do__f_set_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_task_t * task;
     ti_raw_t * rname;
     uint16_t enum_id;
-    uint64_t ts_now = util_now_tsec();
+    uint64_t ts_now = util_now_usec();
 
     if (fn_not_collection_scope("set_enum", query, e) ||
         fn_nargs("set_enum", DOC_SET_ENUM, 2, nargs, e) ||
@@ -29,7 +29,7 @@ static int do__f_set_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_VALUE_ERROR,
                 "name `%.*s` is reserved",
-                (int) rname->n, (const char *) rname->data);
+                rname->n, (const char *) rname->data);
         return e->nr;
     }
 
@@ -37,7 +37,7 @@ static int do__f_set_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "enum `%.*s` already exists",
-                (int) rname->n, (const char *) rname->data);
+                rname->n, (const char *) rname->data);
         return e->nr;
     }
 
@@ -45,7 +45,7 @@ static int do__f_set_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%.*s` already exists",
-                (int) rname->n, (const char *) rname->data);
+                rname->n, (const char *) rname->data);
         return e->nr;
     }
 

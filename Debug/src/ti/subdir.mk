@@ -87,6 +87,8 @@ C_SRCS += \
 ../src/ti/template.c \
 ../src/ti/thing.c \
 ../src/ti/things.c \
+../src/ti/timer.c \
+../src/ti/timers.c \
 ../src/ti/token.c \
 ../src/ti/type.c \
 ../src/ti/types.c \
@@ -191,6 +193,8 @@ OBJS += \
 ./src/ti/template.o \
 ./src/ti/thing.o \
 ./src/ti/things.o \
+./src/ti/timer.o \
+./src/ti/timers.o \
 ./src/ti/token.o \
 ./src/ti/type.o \
 ./src/ti/types.o \
@@ -295,6 +299,8 @@ C_DEPS += \
 ./src/ti/template.d \
 ./src/ti/thing.d \
 ./src/ti/things.d \
+./src/ti/timer.d \
+./src/ti/timers.d \
 ./src/ti/token.d \
 ./src/ti/type.d \
 ./src/ti/types.d \

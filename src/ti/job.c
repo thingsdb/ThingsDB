@@ -19,6 +19,8 @@
 #include <ti/qbind.h>
 #include <ti/raw.inline.h>
 #include <ti/thing.inline.h>
+#include <ti/timer.h>
+#include <ti/timer.inline.h>
 #include <ti/types.inline.h>
 #include <ti/val.h>
 #include <ti/val.inline.h>
@@ -62,7 +64,7 @@ static int job__add(ti_thing_t * thing, mp_unp_t * up)
                 "job `add` to set on "TI_THING_ID": "
                 "missing property: `%.*s`",
                 thing->id,
-                (int) mp_prop.via.str.n, mp_prop.via.str.data);
+                mp_prop.via.str.n, mp_prop.via.str.data);
         return -1;
     }
 
@@ -1504,7 +1506,7 @@ static int job__del_procedure(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "job `del_procedure` cannot find `%.*s` in "TI_COLLECTION_ID,
-                (int) mp_name.via.str.n, mp_name.via.str.data,
+                mp_name.via.str.n, mp_name.via.str.data,
                 collection->root->id);
         return -1;
     }
@@ -1513,6 +1515,40 @@ static int job__del_procedure(ti_thing_t * thing, mp_unp_t * up)
 
     ti_procedure_destroy(procedure);
     return 0;  /* success */
+}
+
+/*
+ * Returns 0 on success
+ * - for example: 'id'
+ */
+static int job__del_timer(ti_thing_t * thing, mp_unp_t * up)
+{
+    ti_collection_t * collection = thing->collection;
+    mp_obj_t mp_id;
+
+    if (mp_next(up, &mp_id) != MP_U64)
+    {
+        log_critical(
+                "job `del_timer` in "TI_COLLECTION_ID": "
+                "missing timer id",
+                collection->root->id);
+        return -1;
+    }
+
+    for (vec_each(collection->timers, ti_timer_t, timer))
+    {
+        if (timer->id == mp_id.via.u64)
+        {
+            ti_timer_mark_del(timer);
+            break;
+        }
+    }
+
+    /*
+     * For a timer event it may occur that a timer is already marked for
+     * deletion and the timer may even be removed.
+     */
+    return 0;
 }
 
 /*
@@ -1579,6 +1615,133 @@ failed:
     return -1;
 }
 
+/*
+ * Returns 0 on success
+ * - for example: '{...}'
+ */
+static int job__new_timer(ti_thing_t * thing, mp_unp_t * up)
+{
+    mp_obj_t obj, mp_id, mp_next_run, mp_repeat, mp_user_id;
+    ti_collection_t * collection = thing->collection;
+    ti_timer_t * timer = NULL;
+    ti_varr_t * varr = NULL;
+    ti_closure_t * closure;
+    ti_user_t * user;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = thing->collection,
+            .up = up,
+    };
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 6 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_next_run) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_repeat) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_user_id) != MP_U64 ||
+        mp_skip(up) != MP_STR)
+    {
+        log_critical(
+                "job `new_timer` for "TI_COLLECTION_ID": "
+                "invalid data",
+                collection->root->id);
+        return -1;
+    }
+
+    user = ti_users_get_by_id(mp_user_id.via.u64);
+    closure = (ti_closure_t *) ti_val_from_vup(&vup);
+
+    if (!closure || !ti_val_is_closure((ti_val_t *) closure) ||
+        mp_skip(up) != MP_STR ||
+        vec_reserve(&collection->timers, 1))
+        goto fail0;
+
+    varr = (ti_varr_t *) ti_val_from_vup(&vup);
+    if (!varr || !ti_val_is_array((ti_val_t *) varr))
+        goto fail0;
+
+    timer = ti_timer_create(
+                mp_id.via.u64,
+                mp_next_run.via.u64,
+                mp_repeat.via.u64,
+                collection->root->id,
+                user,
+                closure,
+                varr->vec);
+    if (!timer)
+        goto fail0;
+
+    ti_update_next_thing_id(timer->id);
+    VEC_push(collection->timers, timer);
+    free(varr);
+    ti_decref(closure);
+    return 0;
+
+fail0:
+    log_critical(
+            "job `new_timer` for "TI_COLLECTION_ID" has failed",
+            collection->root->id);
+    ti_val_drop((ti_val_t *) varr);
+    ti_val_drop((ti_val_t *) closure);
+    return -1;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: '{...}'
+ */
+static int job__set_timer_args(ti_thing_t * thing, mp_unp_t * up)
+{
+    mp_obj_t obj, mp_id;
+    ti_collection_t * collection = thing->collection;
+    ti_varr_t * varr;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = thing->collection,
+            .up = up,
+    };
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR)
+    {
+        log_critical(
+                "job `set_timer_args` for "TI_COLLECTION_ID": "
+                "invalid data",
+                collection->root->id);
+        return -1;
+    }
+
+    varr = (ti_varr_t *) ti_val_from_vup(&vup);
+    if (!varr || !ti_val_is_array((ti_val_t *) varr))
+        goto fail0;
+
+    for (vec_each(collection->timers, ti_timer_t, timer))
+    {
+        if (timer->id == mp_id.via.u64)
+        {
+            vec_t * tmp = timer->args;
+            timer->args = varr->vec;
+            varr->vec = tmp;
+            break;
+        }
+    }
+
+    /* it may happen that the timer is already gone, this is not an issue */
+    ti_val_drop((ti_val_t *) varr);
+    return 0;
+
+fail0:
+    log_critical(
+            "job `set_timer_args` for "TI_COLLECTION_ID" has failed",
+            collection->root->id);
+    ti_val_drop((ti_val_t *) varr);
+    return -1;
+}
 
 /*
  * Returns 0 on success
@@ -1826,7 +1989,7 @@ static int job__rename_procedure(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "job `rename_procedure` cannot find `%.*s`",
-                (int) mp_old.via.str.n, mp_old.via.str.data);
+                mp_old.via.str.n, mp_old.via.str.data);
         return -1;
     }
 
@@ -2019,6 +2182,8 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
     case 'd':
         if (mp_str_eq(&mp_job, "del"))
             return job__del(thing, up);
+        if (mp_str_eq(&mp_job, "del_timer"))
+            return job__del_timer(thing, up);
         if (mp_str_eq(&mp_job, "del_enum"))
             return job__del_enum(thing, up);
         if (mp_str_eq(&mp_job, "del_type"))
@@ -2031,6 +2196,8 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
             return mp_skip(up) == MP_ERR ? -1 : 0;
         break;
     case 'n':
+        if (mp_str_eq(&mp_job, "new_timer"))
+            return job__new_timer(thing, up);
         if (mp_str_eq(&mp_job, "new_type"))
             return job__new_type(thing, up);
         if (mp_str_eq(&mp_job, "new_procedure"))
@@ -2077,6 +2244,8 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
             return job__set(thing, up);
         if (mp_str_eq(&mp_job, "splice"))
             return job__splice(thing, up);
+        if (mp_str_eq(&mp_job, "set_timer_args"))
+            return job__set_timer_args(thing, up);
         if (mp_str_eq(&mp_job, "set_enum"))
             return job__set_enum(thing, up);
         if (mp_str_eq(&mp_job, "set_type"))
@@ -2084,7 +2253,6 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
         break;
     }
 
-    log_critical("unknown job: `%.*s`",
-            (int) mp_job.via.str.n, mp_job.via.str.data);
+    log_critical("unknown job: `%.*s`", mp_job.via.str.n, mp_job.via.str.data);
     return -1;
 }

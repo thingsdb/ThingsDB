@@ -15,6 +15,7 @@ typedef int (*ti_query_vars_walk_cb)(void * data, void * arg);
 #include <ti/future.t.h>
 #include <ti/qbind.t.h>
 #include <ti/stream.t.h>
+#include <ti/timer.t.h>
 #include <ti/user.t.h>
 #include <ti/val.t.h>
 #include <util/util.h>
@@ -40,6 +41,7 @@ typedef enum
     TI_QUERY_WITH_PARSERES,
     TI_QUERY_WITH_PROCEDURE,
     TI_QUERY_WITH_FUTURE,
+    TI_QUERY_WITH_TIMER,
 } ti_query_with_enum;
 
 typedef int (*ti_query_unpack_cb) (
@@ -50,6 +52,7 @@ typedef int (*ti_query_unpack_cb) (
         ex_t *);
 
 typedef void (*ti_query_done_cb) (ti_query_t *, ex_t *);
+typedef void (*ti_query_run_cb) (ti_query_t *);
 
 typedef union
 {
@@ -62,6 +65,7 @@ typedef union
     cleri_parse_t * parseres;   /* parse result */
     ti_closure_t * closure;     /* when called as procedure */
     ti_future_t * future;       /* when called as future->then */
+    ti_timer_t * timer;         /* when called as timer */
 } ti_query_with_t;
 
 

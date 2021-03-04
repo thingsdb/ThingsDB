@@ -91,7 +91,7 @@ int ti_store_enums_restore(ti_enums_t * enums, const char * fn)
         log_warning(
                 "no enumerations found for collection `%.*s`; "
                 "file `%s` is missing",
-                (int) enums->collection->name->n,
+                enums->collection->name->n,
                 (const char *) enums->collection->name->data,
                 fn);
         return ti_store_enums_store(enums, fn);
@@ -129,7 +129,7 @@ int ti_store_enums_restore(ti_enums_t * enums, const char * fn)
         if (!enum_)
         {
             log_critical("cannot create enum `%.*s`",
-                    (int) mp_name.via.str.n,
+                    mp_name.via.str.n,
                     mp_name.via.str.data);
             goto fail1;
         }

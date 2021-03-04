@@ -35,7 +35,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_MAX_QUOTA,
             "user `%.*s` has reached the maximum of %u tokens"DOC_NEW_TOKEN,
-            (int) uname->n, (char *) uname->data,
+            uname->n, (char *) uname->data,
             MAX_USER_TOKENS);
         return e->nr;
     }
@@ -50,7 +50,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (ti_val_is_datetime(query->rval))
         {
-            int64_t now = (int64_t) util_now_tsec();
+            int64_t now = (int64_t) util_now_usec();
             int64_t ts = DATETIME(query->rval);
 
             if (ts < now)
@@ -79,7 +79,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             log_warning(
                 "parsing type `int` to `new_token(..)` as second argument "
                 "is obsolete, use type `datetime` or type `timeval` instead");
-            int64_t now = (int64_t) util_now_tsec();
+            int64_t now = (int64_t) util_now_usec();
             int64_t ts = VINT(query->rval);
             if (ts < now)
                 goto errpast;
@@ -93,7 +93,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             log_warning(
                 "parsing type `str` to `new_token(..)` as second argument "
                 "is obsolete, use type `datetime` or type `timeval` instead");
-            int64_t now = (int64_t) util_now_tsec();
+            int64_t now = (int64_t) util_now_usec();
             ti_raw_t * rt = (ti_raw_t *) query->rval;
             int64_t ts = iso8601_parse_date_n((const char *) rt->data, rt->n);
             if (ts < 0)
@@ -154,7 +154,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     token = ti_token_create(
             NULL,
             exp_time,
-            util_now_tsec(),
+            util_now_usec(),
             description,
             description_sz);
     if (!token || ti_user_add_token(user, token))

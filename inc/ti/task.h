@@ -34,6 +34,7 @@ int ti_task_add_del(ti_task_t * task, ti_raw_t * name);
 int ti_task_add_del_collection(ti_task_t * task, uint64_t collection_id);
 int ti_task_add_del_expired(ti_task_t * task, uint64_t after_ts);
 int ti_task_add_del_procedure(ti_task_t * task, ti_raw_t * name);
+int ti_task_add_del_timer(ti_task_t * task, ti_timer_t * timer);
 int ti_task_add_del_token(ti_task_t * task, ti_token_key_t * key);
 int ti_task_add_del_type(ti_task_t * task, ti_type_t * type);
 int ti_task_add_del_user(ti_task_t * task, ti_user_t * user);
@@ -52,11 +53,13 @@ int ti_task_add_new_collection(
 int ti_task_add_new_module(ti_task_t * task, ti_module_t * module);
 int ti_task_add_new_node(ti_task_t * task, ti_node_t * node);
 int ti_task_add_new_procedure(ti_task_t * task, ti_procedure_t * procedure);
+int ti_task_add_new_timer(ti_task_t * task, ti_timer_t * timer);
 int ti_task_add_new_token(
         ti_task_t * task,
         ti_user_t * user,
         ti_token_t * token);
 int ti_task_add_new_user(ti_task_t * task, ti_user_t * user);
+int ti_task_add_set_timer_args(ti_task_t * task, ti_timer_t * timer);
 int ti_task_add_mod_type_add_field(
         ti_task_t * task,
         ti_type_t * type,

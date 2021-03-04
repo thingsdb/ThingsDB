@@ -74,6 +74,7 @@ int ti_create(void)
     ti.build = NULL;
     ti.node = NULL;
     ti.store = NULL;
+    ti.timers = NULL;
     ti.access_node = vec_new(0);
     ti.access_thingsdb = vec_new(0);
     ti.procedures = smap_create();
@@ -215,7 +216,8 @@ int ti_init(void)
     if (ti_qcache_create() ||
         ti_do_init() ||
         ti_val_init_common() ||
-        ti_thing_init_gc())
+        ti_thing_init_gc() ||
+        ti_timers_create())
         return -1;
 
     ti.fn = strx_cat(ti.cfg->storage_path, ti__fn);
@@ -410,6 +412,8 @@ int ti_unpack(uchar * data, size_t n)
         }
     }
 
+    ti_update_rel_id();
+
     return 0;
 fail:
     ti.node = NULL;
@@ -445,6 +449,9 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
 
     if (ti.node)
     {
+        if (ti_timers_start())
+            goto failed;
+
         if (ti_away_start())
             goto failed;
 
@@ -611,6 +618,7 @@ void ti_offline(void)
          * to write the modules to disk as well.
          */
         ti_modules_stop_and_destroy();
+        ti_timers_stop();
     }
 }
 
@@ -697,6 +705,17 @@ int ti_unlock(void)
         }
     }
     return 0;
+}
+
+void ti_update_rel_id(void)
+{
+    uint32_t this_node_id = ti.node ? ti.node->id : 0;
+
+    ti.rel_id = 0;
+
+    for (vec_each(ti.nodes->vec, ti_node_t, node))
+        if (node->id < this_node_id)
+            ++ti.rel_id;
 }
 
 _Bool ti_ask_continue(const char * warn)

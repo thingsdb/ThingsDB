@@ -343,6 +343,7 @@ int ti_task_add_del_expired(ti_task_t * task, uint64_t after_ts)
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_map(&pk, 1);
+
     mp_pack_str(&pk, "del_expired");
     msgpack_pack_uint64(&pk, after_ts);
 
@@ -362,7 +363,7 @@ fail_data:
 
 int ti_task_add_del_procedure(ti_task_t * task, ti_raw_t * name)
 {
-    size_t alloc = 64;
+    size_t alloc = 64 + name->n;
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -374,6 +375,35 @@ int ti_task_add_del_procedure(ti_task_t * task, ti_raw_t * name)
     msgpack_pack_map(&pk, 1);
     mp_pack_str(&pk, "del_procedure");
     mp_pack_strn(&pk, name->data, name->n);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_del_timer(ti_task_t * task, ti_timer_t * timer)
+{
+    size_t alloc = 64;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+    mp_pack_str(&pk, "del_timer");
+    msgpack_pack_uint64(&pk, timer->id);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
@@ -879,6 +909,117 @@ int ti_task_add_new_procedure(ti_task_t * task, ti_procedure_t * procedure)
     mp_pack_str(&pk, "closure");
     if (ti_closure_to_pk(procedure->closure, &pk))
         goto fail_pack;
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+
+fail_pack:
+    msgpack_sbuffer_destroy(&buffer);
+    return -1;
+}
+
+int ti_task_add_new_timer(ti_task_t * task, ti_timer_t * timer)
+{
+    size_t alloc = 1024;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_str(&pk, "new_timer");
+    msgpack_pack_map(&pk, 6);
+
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, timer->id);
+
+    mp_pack_str(&pk, "next_run");
+    msgpack_pack_uint64(&pk, timer->next_run);
+
+    mp_pack_str(&pk, "repeat");
+    msgpack_pack_uint32(&pk, timer->repeat);
+
+    mp_pack_str(&pk, "user_id");
+    msgpack_pack_uint64(&pk, timer->user->id);
+
+    if (mp_pack_str(&pk, "closure") ||
+        ti_closure_to_pk(timer->closure, &pk) ||
+
+        mp_pack_str(&pk, "args") ||
+        msgpack_pack_array(&pk, timer->args->n))
+        goto fail_pack;
+
+    /*
+     * In the @thingsdb scope there are no things allowed as arguments so
+     * the code below should run fine
+     */
+    for (vec_each(timer->args, ti_val_t, val))
+        if (ti_val_gen_ids(val) ||
+            ti_val_to_pk(val, &pk, TI_VAL_PACK_TASK))
+            goto fail_pack;
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+
+fail_pack:
+    msgpack_sbuffer_destroy(&buffer);
+    return -1;
+}
+
+int ti_task_add_set_timer_args(ti_task_t * task, ti_timer_t * timer)
+{
+    size_t alloc = 1024;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_str(&pk, "set_timer_args");
+    msgpack_pack_map(&pk, 2);
+
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, timer->id);
+
+    mp_pack_str(&pk, "args");
+    msgpack_pack_array(&pk, timer->args->n);
+
+    /*
+     * In the @thingsdb scope there are no things allowed as arguments so
+     * the code below should run fine
+     */
+    for (vec_each(timer->args, ti_val_t, val))
+        if (ti_val_gen_ids(val) ||
+            ti_val_to_pk(val, &pk, TI_VAL_PACK_TASK))
+            goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
@@ -1770,11 +1911,7 @@ int ti_task_add_splice(
     {
         val = VEC_get(varr->vec, i);
 
-        if (ti_val_gen_ids(val) ||
-            ti_val_to_pk(
-                VEC_get(varr->vec, i),
-                &pk,
-                TI_VAL_PACK_TASK))
+        if (ti_val_gen_ids(val) || ti_val_to_pk(val, &pk, TI_VAL_PACK_TASK))
             goto fail_pack;
     }
 

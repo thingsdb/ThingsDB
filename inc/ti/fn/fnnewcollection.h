@@ -19,7 +19,7 @@ static int do__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             0,
             (const char *) rname->data,
             rname->n,
-            util_now_tsec(),
+            util_now_usec(),
             query->user,
             e);
 

@@ -68,8 +68,7 @@ static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "module `%.*s` already exists",
-                (int) name->n,
-                (const char *) name->data);
+                name->n, (const char *) name->data);
         goto fail2;
     }
 
@@ -78,7 +77,7 @@ static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             name->n,
             (const char *) file->data,
             file->n,
-            util_now_tsec(),
+            util_now_usec(),
             pkg,
             NULL);
     if (!module)

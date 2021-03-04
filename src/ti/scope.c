@@ -198,7 +198,7 @@ invalid_scope:
             "invalid scope; "
             "scopes must start with a `@` or `/` but got `%.*s` instead"
             DOC_SCOPES,
-            (int) n, str);
+            n, str);
 
         return e->nr;
     }
@@ -221,7 +221,7 @@ invalid_scope:
         "`%c""thingsdb`, `%c""node%c""...` or `%c""collection%c""...` "
         "but got `%.*s` instead"DOC_SCOPES,
         *str, *str, sep_char, *str, sep_char,
-        (int) n, str);
+        n, str);
 
     return e->nr;
 }
@@ -313,7 +313,7 @@ int ti_scope_id(ti_scope_t * scope, uint64_t * scope_id, ex_t * e)
             *scope_id = collection->root->id;
         else
             ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
-                (int) scope->via.collection_name.sz,
+                scope->via.collection_name.sz,
                 scope->via.collection_name.name);
 
         return e->nr;
@@ -328,4 +328,25 @@ int ti_scope_id(ti_scope_t * scope, uint64_t * scope_id, ex_t * e)
     }
     assert(0);
     return e->nr;
+}
+
+void ti_scope_load_from_scope_id(
+        uint64_t scope_id,
+        vec_t ** access_,
+        ti_collection_t ** collection)
+{
+    switch (scope_id)
+    {
+    case TI_SCOPE_THINGSDB:
+        *collection = NULL;
+        *access_ = ti.access_thingsdb;
+        return;
+    case TI_SCOPE_NODE:
+        *collection = NULL;
+        *access_ = ti.access_node;
+        return;
+    default:
+        *collection = ti_collections_get_by_id(scope_id);
+        *access_ = *collection ? (*collection)->access : NULL;
+    }
 }

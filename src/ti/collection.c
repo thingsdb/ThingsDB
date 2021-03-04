@@ -10,14 +10,16 @@
 #include <ti/collection.h>
 #include <ti/collection.inline.h>
 #include <ti/enums.h>
+#include <ti/future.h>
 #include <ti/gc.h>
+#include <ti/member.t.h>
 #include <ti/name.h>
 #include <ti/name.h>
 #include <ti/names.h>
-#include <ti/member.t.h>
 #include <ti/procedure.h>
 #include <ti/raw.inline.h>
 #include <ti/thing.h>
+#include <ti/timer.inline.h>
 #include <ti/wrap.h>
 #include <ti/things.h>
 #include <ti/types.h>
@@ -54,6 +56,7 @@ ti_collection_t * ti_collection_create(
     collection->created_at = created_at;
     collection->tz = tz;
     collection->futures = vec_new(4);
+    collection->timers = vec_new(4);
 
     memcpy(&collection->guid, guid, sizeof(guid_t));
 
@@ -81,6 +84,7 @@ void ti_collection_destroy(ti_collection_t * collection)
     queue_destroy(collection->gc, NULL);
     ti_val_drop((ti_val_t *) collection->name);
     vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);
+    vec_destroy(collection->timers, (vec_destroy_cb) ti_timer_drop);
     smap_destroy(collection->procedures, (smap_destroy_cb) ti_procedure_destroy);
     ti_types_destroy(collection->types);
     ti_enums_destroy(collection->enums);
@@ -97,7 +101,7 @@ void ti_collection_drop(ti_collection_t * collection)
 
     ti_val_drop((ti_val_t *) collection->root);
 
-    if (!collection->things->n && !collection->gc->n)
+    if (!collection->things->n && !collection->gc->n && !collection->futures->n)
     {
         ti_collection_destroy(collection);
         return;
@@ -146,7 +150,7 @@ int ti_collection_rename(
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "collection `%.*s` already exists",
-                (int) rname->n, (const char *) rname->data);
+                rname->n, (const char *) rname->data);
         return -1;
     }
 
@@ -377,6 +381,24 @@ static int collection__gc_thing(ti_thing_t * thing, collection__gc_t * w)
     return 0;
 }
 
+void ti_collection_stop_futures(ti_collection_t * collection)
+{
+    ti_future_t * future;
+
+    /*
+     * First take a reference, otherwise the stop future call might adjust the
+     * vector.
+     */
+    for (vec_each(collection->futures, ti_future_t, future))
+        ti_incref(future);
+
+    for (vec_each(collection->futures, ti_future_t, future))
+        ti_future_stop(future);
+
+    while ((future = vec_pop(collection->futures)))
+        ti_val_unsafe_drop((ti_val_t *) future);
+}
+
 int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
 {
     size_t n = 0, m = 0, idx = 0;
@@ -388,19 +410,32 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
             .cevid = ti.node ? ti.node->cevid : 0,
     };
 
-
     (void) clock_gettime(TI_CLOCK_MONOTONIC, &start);
 
     if (do_mark_things)
     {
+        assert (collection->futures->n == 0 && "Futures must be cancelled");
+
+        /* Take a lock because flags are not atomic and might be changed */
+        uv_mutex_lock(collection->lock);
+
+        for (vec_each(collection->timers, ti_timer_t, timer))
+            for (vec_each(timer->args, ti_val_t, val))
+                collection__gc_val(val);
+
         imap_walk(
                 collection->enums->imap,
                 (imap_cb) collection__mark_enum_cb,
                 NULL);
         collection__gc_mark_thing(collection->root);
 
-        (void) ti_sleep(2);
+        /* Release the lock */
+        uv_mutex_unlock(collection->lock);
+
+        (void) ti_sleep(5);
     }
+
+    uv_mutex_lock(collection->lock);
 
     for (queue_each(collection->gc, ti_gc_t, gc))
     {
@@ -426,8 +461,6 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
             ti_thing_clear(gc->thing);
         }
     }
-
-    (void) ti_sleep(2);
 
     while (m--)
     {
@@ -458,7 +491,13 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
          */
     }
 
-    (void) ti_sleep(2);
+    /* Release the lock and let the thread sleep some time */
+    uv_mutex_unlock(collection->lock);
+
+    (void) ti_sleep(5);
+
+    /* Take a new lock */
+    uv_mutex_lock(collection->lock);
 
     /*
      * Take the current garbage size to see which things are assigned by the
@@ -475,6 +514,10 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
     for (queue_each(collection->gc, ti_gc_t, gc), ++idx)
         if (idx >= m)
             (void) imap_pop(collection->things, gc->thing->id);
+
+
+    /* Finished, release the collection lock */
+    uv_mutex_unlock(collection->lock);
 
     (void) ti_sleep(2);
 

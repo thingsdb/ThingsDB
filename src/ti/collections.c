@@ -72,17 +72,12 @@ int ti_collections_gc(void)
     /* collect all other stuff */
     for (vec_each(collections->vec, ti_collection_t, collection))
     {
-        uv_mutex_lock(collection->lock);
-
         if (ti_collection_gc(collection, true))
         {
             log_error("garbage collection for collection `%.*s` has failed",
-                    (int) collection->name->n,
-                    (char *) collection->name->data);
+                    collection->name->n, (char *) collection->name->data);
             rc = -1;
         }
-
-        uv_mutex_unlock(collection->lock);
 
         ti_sleep(100);
     }
@@ -94,12 +89,14 @@ _Bool ti_collections_del_collection(const uint64_t collection_id)
 {
     uint32_t i = 0;
     for (vec_each(collections->vec, ti_collection_t, collection), ++i)
+    {
         if (collection->root->id == collection_id)
-            break;
-    if (i == collections->vec->n)
-        return false;
-    ti_collection_drop(vec_swap_remove(collections->vec, i));
-    return true;
+        {
+            ti_collection_drop(vec_swap_remove(collections->vec, i));
+            return true;
+        }
+    }
+    return false;
 }
 
 int ti_collections_add_for_collect(ti_collection_t * collection)
@@ -113,6 +110,12 @@ int ti_collections_gc_collect_dropped(void)
     ti_collection_t * collection;
     while ((collection = vec_pop(collections->dropped)))
     {
+        /* stop exiting futures */
+        ti_collection_stop_futures(collection);
+
+        /* clear existing timers */
+        ti_timers_clear(&collection->timers);
+
         /* drop enumerators; this is required since we no longer mark the
          * enumerators when they contain things so they need to be dropped
          * before the garbage collector will remove them */
@@ -155,7 +158,7 @@ ti_collection_t * ti_collections_create_collection(
     if (ti_collections_get_by_strn(name, name_n))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "collection `%.*s` already exists", (int) name_n, name);
+                "collection `%.*s` already exists", name_n, name);
         goto fail0;
     }
 

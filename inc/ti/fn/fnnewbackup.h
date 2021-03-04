@@ -29,7 +29,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_VALUE_ERROR,
             "expecting a backup file-name to end with `%.*s`"
-            DOC_NEW_BACKUP, (int) tar_gz_str->n, (char *) tar_gz_str->data);
+            DOC_NEW_BACKUP, tar_gz_str->n, (char *) tar_gz_str->data);
         goto fail0;
     }
 
@@ -39,7 +39,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             "a key file must be configured to use Google Cloud "
             "storage; set `gcloud_key_file` in the configuration file or set "
             "the environment variable `THINGSDB_GCLOUD_KEY_FILE`"
-            DOC_NEW_BACKUP, (int) tar_gz_str->n, (char *) tar_gz_str->data);
+            DOC_NEW_BACKUP, tar_gz_str->n, (char *) tar_gz_str->data);
         goto fail0;
     }
 
@@ -145,7 +145,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             timestamp,
             repeat,
             max_files,
-            util_now_tsec(),
+            util_now_usec(),
             files_queue);
 
     if (!backup)

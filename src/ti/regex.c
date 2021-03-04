@@ -70,8 +70,7 @@ static ti_regex_t * regex_create(ti_raw_t * re, ex_t * e)
     if (!regex->code)
     {
         ex_set(e, EX_VALUE_ERROR, "cannot compile regular expression '%.*s', ",
-                (int) regex->pattern->n,
-                (char *) regex->pattern->data);
+                regex->pattern->n, (char *) regex->pattern->data);
 
         e->n += pcre2_get_error_message(
                 pcre_error_num,

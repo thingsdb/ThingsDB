@@ -34,7 +34,7 @@ static void enum__add(
     }
 
     /* update modified time-stamp */
-    enum_->modified_at = util_now_tsec();
+    enum_->modified_at = util_now_usec();
 
     /* query->rval might be null; when there are no instances */
     if (ti_task_add_mod_enum_add(task, member))
@@ -83,7 +83,7 @@ static void enum__def(
     }
 
     /* update modified time-stamp */
-    enum_->modified_at = util_now_tsec();
+    enum_->modified_at = util_now_usec();
 
     if (ti_task_add_mod_enum_def(task, member))
     {
@@ -142,7 +142,7 @@ static void enum__del(
     }
 
     /* update modified time-stamp */
-    enum_->modified_at = util_now_tsec();
+    enum_->modified_at = util_now_usec();
 
     if (ti_task_add_mod_enum_del(task, member))
         ex_set_mem(e);
@@ -193,7 +193,7 @@ static void enum__mod(
     }
 
     /* update modified time-stamp */
-    enum_->modified_at = util_now_tsec();
+    enum_->modified_at = util_now_usec();
 
     if (ti_task_add_mod_enum_mod(task, member))
         ex_set_mem(e);
@@ -246,7 +246,7 @@ static void enum__ren(
     }
 
     /* update modified time-stamp */
-    enum_->modified_at = util_now_tsec();
+    enum_->modified_at = util_now_usec();
 
     if (ti_task_add_mod_enum_ren(task, member))
         ex_set_mem(e);
@@ -330,7 +330,7 @@ static int do__f_mod_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ex_set(e, EX_VALUE_ERROR,
             "function `mod_enum` expects argument 2 to be "
             "`add`, `del`, `mod` or `ren` but got `%.*s` instead"DOC_MOD_ENUM,
-            (int) rmod->n, (const char *) rmod->data);
+            rmod->n, (const char *) rmod->data);
 
 done:
     if (e->nr == 0)

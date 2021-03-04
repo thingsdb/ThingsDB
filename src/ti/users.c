@@ -9,6 +9,7 @@
 #include <ti/access.h>
 #include <ti/auth.h>
 #include <ti/proto.h>
+#include <ti/timers.h>
 #include <ti/token.h>
 #include <ti/users.h>
 #include <ti/val.inline.h>
@@ -134,6 +135,9 @@ void ti_users_del_user(ti_user_t * user)
     /* remove thingsdb access */
     ti_access_revoke(ti.access_thingsdb, user, TI_AUTH_MASK_FULL);
 
+    /* remove user from timers */
+    ti_timers_del_user(user);
+
     /* remove collection access */
     for (vec_each(ti.collections->vec, ti_collection_t, collection))
     {
@@ -199,7 +203,7 @@ failed:
  */
 ti_user_t * ti_users_auth_by_token(mp_obj_t * mp_token, ex_t * e)
 {
-    uint64_t now_ts = util_now_tsec();
+    uint64_t now_ts = util_now_usec();
     const size_t key_sz = sizeof(ti_token_key_t);
 
     if (mp_token->tp != MP_STR || mp_token->via.str.n != key_sz)

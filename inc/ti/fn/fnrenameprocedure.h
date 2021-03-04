@@ -44,7 +44,7 @@ static int do__f_rename_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * 
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "procedure `%.*s` already exists",
-                (int) nname->n, (const char *) nname->data);
+                nname->n, (const char *) nname->data);
         goto fail0;
     }
 

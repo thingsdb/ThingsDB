@@ -4,12 +4,13 @@
 #ifndef TI_QUERY_INLINE_H_
 #define TI_QUERY_INLINE_H_
 
-#include <ti/qbind.h>
-#include <util/vec.h>
 #include <ti.h>
-#include <ti/query.h>
-#include <ti/qcache.h>
 #include <ti/prop.h>
+#include <ti/qbind.h>
+#include <ti/qcache.h>
+#include <ti/query.h>
+#include <ti/timer.t.h>
+#include <util/vec.h>
 
 static inline vec_t * ti_query_access(ti_query_t * query)
 {
@@ -37,6 +38,13 @@ static inline smap_t * ti_query_procedures(ti_query_t * query)
             : ti.procedures;
 }
 
+static inline vec_t ** ti_query_timers(ti_query_t * query)
+{
+    return query->collection
+            ? &query->collection->timers
+            : &ti.timers->timers;
+}
+
 static inline void ti_query_destroy_or_return(ti_query_t * query)
 {
     if (query && (query->flags & TI_QUERY_FLAG_CACHE))
@@ -47,25 +55,12 @@ static inline void ti_query_destroy_or_return(ti_query_t * query)
 
 static inline void ti_query_run(ti_query_t * query)
 {
-    switch((ti_query_with_enum) query->with_tp)
-    {
-    case TI_QUERY_WITH_PARSERES:
-        ti_query_run_parseres(query);
-        return;
-    case TI_QUERY_WITH_PROCEDURE:
-        ti_query_run_procedure(query);
-        return;
-    case TI_QUERY_WITH_FUTURE:
-        ti_query_run_future(query);
-        return;
-    }
+    ti_query_run_map[query->with_tp](query);
 }
 
 static inline void ti_query_response(ti_query_t * query, ex_t * e)
 {
-    ti_query_done(query, e, query->with_tp == TI_QUERY_WITH_FUTURE
-            ? &ti_query_on_then_result
-            : &ti_query_send_response);
+    ti_query_done(query, e, ti_query_done_map[query->with_tp]);
 }
 
 static inline uint64_t ti_query_scope_id(ti_query_t * query)

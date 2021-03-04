@@ -135,7 +135,7 @@ static inline void ti_thing_t_set_not_found(
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no property or method `%.*s`",
                 ti_thing_type(thing)->name,
-                (int) rname->n, (const char *) rname->data);
+                rname->n, (const char *) rname->data);
     }
     else
     {

@@ -374,7 +374,9 @@ static inline int ti_val_make_variable(ti_val_t ** val, ex_t * e)
     case TI_VAL_FUTURE:
         return 0;
     case TI_VAL_ARR:
-        if (((ti_varr_t *) *val)->parent && ti_varr_to_list((ti_varr_t **) val))
+        if (((ti_varr_t *) *val)->parent &&
+            ti_varr_is_list((ti_varr_t *) *val) &&
+            ti_varr_to_list((ti_varr_t **) val))
             ex_set_mem(e);
         return e->nr;
     case TI_VAL_SET:

@@ -117,7 +117,7 @@ void ti_pkg_log(ti_pkg_t * pkg)
     {
     case TI_PROTO_NODE_ERR_RES:
         log_error("error response on `package:%u`: %.*s",
-                pkg->id, (int) pkg->n, (char *) pkg->data);
+                pkg->id, pkg->n, (char *) pkg->data);
         break;
     default:
         log_info("package id: %u, type: %s", pkg->id, ti_proto_str(pkg->tp));

@@ -45,7 +45,7 @@ static int do__f_rename_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_VALUE_ERROR,
                 "name `%.*s` is reserved",
-                (int) nname->n, (const char *) nname->data);
+                nname->n, (const char *) nname->data);
         goto fail2;
     }
 
@@ -53,7 +53,7 @@ static int do__f_rename_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%.*s` already exists",
-                (int) nname->n, (const char *) nname->data);
+                nname->n, (const char *) nname->data);
         goto fail2;
     }
 
@@ -61,7 +61,7 @@ static int do__f_rename_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "enum `%.*s` already exists",
-                (int) nname->n, (const char *) nname->data);
+                nname->n, (const char *) nname->data);
         goto fail2;
     }
 

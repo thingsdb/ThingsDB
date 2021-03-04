@@ -30,12 +30,28 @@
 #include <ti/query.h>
 #include <ti/query.inline.h>
 #include <ti/task.h>
+#include <ti/timer.h>
+#include <ti/timer.inline.h>
 #include <ti/val.inline.h>
 #include <ti/varr.h>
 #include <ti/verror.h>
 #include <ti/vset.h>
 #include <ti/wrap.h>
 #include <util/strx.h>
+
+ti_query_done_cb ti_query_done_map[] = {
+        &ti_query_send_response,
+        &ti_query_send_response,
+        &ti_query_on_then_result,
+        &ti_query_timer_result,
+};
+
+ti_query_run_cb ti_query_run_map[] = {
+        &ti_query_run_parseres,
+        &ti_query_run_procedure,
+        &ti_query_run_future,
+        &ti_query_run_timer,
+};
 
 
 /*
@@ -167,7 +183,7 @@ int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
             ti_incref(query->collection);
         else
             ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
-                (int) scope->via.collection_name.sz,
+                scope->via.collection_name.sz,
                 scope->via.collection_name.name);
         return e->nr;
     case TI_SCOPE_COLLECTION_ID:
@@ -245,13 +261,15 @@ void ti_query_destroy(ti_query_t * query)
             free((void *) query->with.parseres->str);
             cleri_parse_free(query->with.parseres);
         }
-
         break;
     case TI_QUERY_WITH_PROCEDURE:
         ti_val_drop((ti_val_t *) query->with.closure);
         break;
     case TI_QUERY_WITH_FUTURE:
-        ti_val_unsafe_drop((ti_val_t *) query->with.future);
+        ti_val_drop((ti_val_t *) query->with.future);
+        break;
+    case TI_QUERY_WITH_TIMER:
+        ti_timer_drop(query->with.timer);
         break;
     }
 
@@ -401,7 +419,7 @@ static int query__run_map_props(
         {
             assert (e->nr);
             ex_append(e, " (argument `%.*s` for procedure `%s`)",
-                (int) arg_name.via.str.n,
+                arg_name.via.str.n,
                 arg_name.via.str.data,
                 procedure->name);
             return e->nr;
@@ -480,7 +498,7 @@ int ti_query_unp_run(
     if (!procedure)
     {
         ex_set(e, EX_LOOKUP_ERROR, "procedure `%.*s` not found",
-                (int) mp_procedure.via.str.n,
+                mp_procedure.via.str.n,
                 mp_procedure.via.str.data);
         return e->nr;
     }
@@ -631,6 +649,11 @@ static void query__duration_log(
                 duration,
                 query->with.future->then->node->str);
         return;
+    case TI_QUERY_WITH_TIMER:
+        log_with_level(log_level, "timer took %f seconds to process: `%s`",
+                duration,
+                query->with.timer->closure->node->str);
+        return;
     }
 }
 
@@ -680,6 +703,19 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e)
         query->rval = (ti_val_t *) ti_verror_ensure_from_e(e);
         query->flags |= TI_QUERY_FLAG_RAISE_ERR;
     }
+}
+
+void ti_query_timer_result(ti_query_t * query, ex_t * e)
+{
+    ti_timer_t * timer = query->with.timer;
+    if (e->nr)
+        log_debug("timer failed: `%s`, %s: `%s`",
+                timer->closure->node->str,
+                ex_str(e->nr),
+                e->msg);
+
+    ti_timer_done(timer, e);
+    ti_query_destroy(query);
 }
 
 static void query__then(ti_query_t * query, ex_t * e)
@@ -893,6 +929,29 @@ void ti_query_run_future(ti_query_t * query)
     ti_query_done(query, &e, &ti_query_on_then_result);
 }
 
+void ti_query_run_timer(ti_query_t * query)
+{
+    ex_t e = {0};
+
+    clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
+
+#ifndef NDEBUG
+    log_debug("[DEBUG] run timer: %s", query->with.timer->closure->node->str);
+#endif
+
+    /* this can never set `e->nr` to EX_RETURN */
+    (void) ti_closure_call(
+            query->with.timer->closure,
+            query,
+            query->with.timer->args,
+            &e);
+
+    if (query->ev)
+        query__event_handle(query);  /* errors will be logged only */
+
+    ti_query_done(query, &e, &ti_query_timer_result);
+}
+
 static inline int query__pack_response(
         ti_query_t * query,
         msgpack_sbuffer * buffer,
@@ -1016,10 +1075,8 @@ void ti_query_send_response(ti_query_t * query, ex_t * e)
                     e->msg);
             break;
         case TI_QUERY_WITH_FUTURE:
-            log_debug("future failed: `%s`, %s: `%s`",
-                    query->with.future->then->node->str,
-                    ex_str(e->nr),
-                    e->msg);
+        case TI_QUERY_WITH_TIMER:
+            assert(0);
             break;
         }
 
@@ -1094,7 +1151,7 @@ ti_thing_t * ti_query_thing_from_id(
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "collection `%.*s` has no `thing` with id %"PRId64,
-                (int) query->collection->name->n,
+                query->collection->name->n,
                 (char *) query->collection->name->data,
                 thing_id);
         return NULL;

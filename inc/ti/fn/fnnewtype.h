@@ -28,7 +28,7 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_VALUE_ERROR,
                 "name `%.*s` is reserved",
-                (int) rname->n, (const char *) rname->data);
+                rname->n, (const char *) rname->data);
         return e->nr;
     }
 
@@ -36,7 +36,7 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%.*s` already exists",
-                (int) rname->n, (const char *) rname->data);
+                rname->n, (const char *) rname->data);
         return e->nr;
     }
 
@@ -44,7 +44,7 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "enum `%.*s` already exists",
-                (int) rname->n, (const char *) rname->data);
+                rname->n, (const char *) rname->data);
         return e->nr;
     }
 
@@ -77,7 +77,7 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             flags,
             (const char *) rname->data,
             rname->n,
-            util_now_tsec()  /* created_at */,
+            util_now_usec()  /* created_at */,
             0  /* modified_at */);
 
     if (!type)

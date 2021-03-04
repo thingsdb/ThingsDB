@@ -38,6 +38,7 @@
 #include <ti/fn/fndelmodule.h>
 #include <ti/fn/fndelnode.h>
 #include <ti/fn/fndelprocedure.h>
+#include <ti/fn/fndeltimer.h>
 #include <ti/fn/fndeltoken.h>
 #include <ti/fn/fndeltype.h>
 #include <ti/fn/fndeluser.h>
@@ -73,6 +74,7 @@
 #include <ti/fn/fnhasmodule.h>
 #include <ti/fn/fnhasnode.h>
 #include <ti/fn/fnhasprocedure.h>
+#include <ti/fn/fnhastimer.h>
 #include <ti/fn/fnhastoken.h>
 #include <ti/fn/fnhastype.h>
 #include <ti/fn/fnhasuser.h>
@@ -123,6 +125,7 @@
 #include <ti/fn/fnnewmodule.h>
 #include <ti/fn/fnnewnode.h>
 #include <ti/fn/fnnewprocedure.h>
+#include <ti/fn/fnnewtimer.h>
 #include <ti/fn/fnnewtoken.h>
 #include <ti/fn/fnnewtype.h>
 #include <ti/fn/fnnewuser.h>
@@ -163,6 +166,7 @@
 #include <ti/fn/fnsetmoduleconf.h>
 #include <ti/fn/fnsetmodulescope.h>
 #include <ti/fn/fnsetpassword.h>
+#include <ti/fn/fnsettimerargs.h>
 #include <ti/fn/fnsettimezone.h>
 #include <ti/fn/fnsettype.h>
 #include <ti/fn/fnshift.h>
@@ -176,6 +180,9 @@
 #include <ti/fn/fntest.h>
 #include <ti/fn/fnthen.h>
 #include <ti/fn/fnthing.h>
+#include <ti/fn/fntimerargs.h>
+#include <ti/fn/fntimerinfo.h>
+#include <ti/fn/fntimersinfo.h>
 #include <ti/fn/fntimezonesinfo.h>
 #include <ti/fn/fnto.h>
 #include <ti/fn/fntrim.h>
@@ -227,11 +234,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 207,
+    TOTAL_KEYWORDS = 214,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 14,
-    MAX_HASH_VALUE = 459
+    MIN_HASH_VALUE = 7,
+    MAX_HASH_VALUE = 493
 };
 
 static inline unsigned int qbind__hash(
@@ -240,32 +247,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
-        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
-        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
-        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
-        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
-        460, 460,   6, 460,   6, 460,   6, 460, 460, 460,
-        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
-        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
-        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
-        460, 460, 460, 460, 460,   6, 460,   7,  77,  50,
-          6,   6,  52, 153, 128,   6,  10,  23,   6,  13,
-         12,  39, 118,   6,   7,   6,   9,  27,  70, 122,
-        184, 165,  42, 460, 460, 460, 460, 460, 460, 460,
-        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
-        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
-        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
-        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
-        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
-        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
-        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
-        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
-        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
-        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
-        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
-        460, 460, 460, 460, 460, 460, 460, 460, 460, 460,
-        460, 460, 460, 460, 460, 460
+        494, 494, 494, 494, 494, 494, 494, 494, 494, 494,
+        494, 494, 494, 494, 494, 494, 494, 494, 494, 494,
+        494, 494, 494, 494, 494, 494, 494, 494, 494, 494,
+        494, 494, 494, 494, 494, 494, 494, 494, 494, 494,
+        494, 494, 494, 494, 494, 494, 494, 494, 494, 494,
+        494, 494,   0, 494,   0, 494,   0, 494, 494, 494,
+        494, 494, 494, 494, 494, 494, 494, 494, 494, 494,
+        494, 494, 494, 494, 494, 494, 494, 494, 494, 494,
+        494, 494, 494, 494, 494, 494, 494, 494, 494, 494,
+        494, 494, 494, 494, 494,   0, 494,  51,  61,  48,
+         32,   0,  19, 153,  36,   0,   0,  53,  37,  10,
+          6,  25,  90,   0,   2,   0,   6,   6, 185, 142,
+        153, 138,  18, 494, 494, 494, 494, 494, 494, 494,
+        494, 494, 494, 494, 494, 494, 494, 494, 494, 494,
+        494, 494, 494, 494, 494, 494, 494, 494, 494, 494,
+        494, 494, 494, 494, 494, 494, 494, 494, 494, 494,
+        494, 494, 494, 494, 494, 494, 494, 494, 494, 494,
+        494, 494, 494, 494, 494, 494, 494, 494, 494, 494,
+        494, 494, 494, 494, 494, 494, 494, 494, 494, 494,
+        494, 494, 494, 494, 494, 494, 494, 494, 494, 494,
+        494, 494, 494, 494, 494, 494, 494, 494, 494, 494,
+        494, 494, 494, 494, 494, 494, 494, 494, 494, 494,
+        494, 494, 494, 494, 494, 494, 494, 494, 494, 494,
+        494, 494, 494, 494, 494, 494, 494, 494, 494, 494,
+        494, 494, 494, 494, 494, 494, 494, 494, 494, 494,
+        494, 494, 494, 494, 494, 494
     };
 
     register unsigned int hval = n;
@@ -432,6 +439,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="del_module",        .fn=do__f_del_module,           ROOT_TE},
     {.name="del_node",          .fn=do__f_del_node,             ROOT_TE},
     {.name="del_procedure",     .fn=do__f_del_procedure,        ROOT_BE},
+    {.name="del_timer",         .fn=do__f_del_timer,            ROOT_BE},
     {.name="del_token",         .fn=do__f_del_token,            ROOT_TE},
     {.name="del_type",          .fn=do__f_del_type,             ROOT_CE},
     {.name="del_user",          .fn=do__f_del_user,             ROOT_TE},
@@ -467,6 +475,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="has_module",        .fn=do__f_has_module,           ROOT_NE},
     {.name="has_node",          .fn=do__f_has_node,             ROOT_NE},
     {.name="has_procedure",     .fn=do__f_has_procedure,        ROOT_NE},
+    {.name="has_timer",         .fn=do__f_has_timer,            ROOT_NE},
     {.name="has_token",         .fn=do__f_has_token,            ROOT_NE},
     {.name="has_type",          .fn=do__f_has_type,             ROOT_NE},
     {.name="has_user",          .fn=do__f_has_user,             ROOT_NE},
@@ -519,6 +528,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="new_module",        .fn=do__f_new_module,           ROOT_TE},
     {.name="new_node",          .fn=do__f_new_node,             ROOT_TE},
     {.name="new_procedure",     .fn=do__f_new_procedure,        ROOT_BE},
+    {.name="new_timer",         .fn=do__f_new_timer,            ROOT_BE},
     {.name="new_token",         .fn=do__f_new_token,            ROOT_TE},
     {.name="new_type",          .fn=do__f_new_type,             ROOT_CE},
     {.name="new_user",          .fn=do__f_new_user,             ROOT_TE},
@@ -564,6 +574,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="set_module_scope",  .fn=do__f_set_module_scope,     ROOT_TE},
     {.name="set_password",      .fn=do__f_set_password,         ROOT_TE},
     {.name="set_time_zone",     .fn=do__f_set_time_zone,        ROOT_TE},
+    {.name="set_timer_args",    .fn=do__f_set_timer_args,       ROOT_BE},
     {.name="set_type",          .fn=do__f_set_type,             ROOT_CE},
     {.name="set",               .fn=do__f_set,                  BOTH_CE_XROOT},
     {.name="shift",             .fn=do__f_shift,                CHAIN_CE_XVAR},
@@ -579,6 +590,9 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="then",              .fn=do__f_then,                 CHAIN_FUT},
     {.name="thing",             .fn=do__f_thing,                ROOT_NE},
     {.name="time_zones_info",   .fn=do__f_time_zones_info,      ROOT_NE},
+    {.name="timer_args",        .fn=do__f_timer_args,           ROOT_NE},
+    {.name="timer_info",        .fn=do__f_timer_info,           ROOT_NE},
+    {.name="timers_info",       .fn=do__f_timers_info,          ROOT_NE},
     {.name="timeval",           .fn=do__f_timeval,              ROOT_NE},
     {.name="to",                .fn=do__f_to,                   CHAIN_NE},
     {.name="trim_left",         .fn=do__f_trim_left,            CHAIN_NE},

@@ -12,6 +12,14 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_nargs_min("future", DOC_FUTURE, 1, nargs, e))
         return e->nr;
 
+    if (ti.futures_count >= TI_MAX_FUTURE_COUNT)
+    {
+        ex_set(e, EX_MAX_QUOTA,
+                "maximum number of active futures (%u) is reached",
+                TI_MAX_FUTURE_COUNT);
+        return e->nr;
+    }
+
     if (ti_do_statement(query, child->node, e))
         return e->nr;
 

@@ -279,7 +279,7 @@ static int api__header_value_cb(http_parser * parser, const char * at, size_t n)
         }
 
         /* invalid content type */
-        log_debug("unsupported content-type: %.*s", (int) n, at);
+        log_debug("unsupported content-type: %.*s", n, at);
         break;
 
     case TI_API_STATE_AUTHORIZATION:
@@ -308,7 +308,7 @@ static int api__header_value_cb(http_parser * parser, const char * at, size_t n)
             break;
         }
 
-        log_debug("invalid authorization type: %.*s", (int) n, at);
+        log_debug("invalid authorization type: %.*s", n, at);
         break;
     }
     return 0;
@@ -618,7 +618,7 @@ static int api__gen_scope(ti_api_request_t * ar, msgpack_packer * pk)
         return mp_pack_fmt(pk, "@n:%d", ar->scope.via.node_id);
     case TI_SCOPE_COLLECTION_NAME:
         return mp_pack_fmt(pk, "@:%.*s",
-                (int) ar->scope.via.collection_name.sz,
+                ar->scope.via.collection_name.sz,
                 ar->scope.via.collection_name.name);
     case TI_SCOPE_COLLECTION_ID:
         return mp_pack_fmt(pk, "@:%"PRIu64, ar->scope.via.collection_id);
@@ -843,8 +843,7 @@ static int api__run(ti_api_request_t * ar, api__req_t * req)
     if (req->mp_name.tp != MP_STR)
         goto invalid_api_request;
 
-    if (this_node->status < TI_NODE_STAT_READY &&
-        this_node->status != TI_NODE_STAT_SHUTTING_DOWN)
+    if (this_node->status < TI_NODE_STAT_READY)
     {
         other_node = ti_nodes_random_ready_node();
         if (!other_node)
@@ -956,8 +955,7 @@ static int api__query(ti_api_request_t * ar, api__req_t * req)
         return 0;
     }
 
-    if (this_node->status < TI_NODE_STAT_READY &&
-        this_node->status != TI_NODE_STAT_SHUTTING_DOWN)
+    if (this_node->status < TI_NODE_STAT_READY)
     {
         other_node = ti_nodes_random_ready_node();
         if (!other_node)
@@ -1091,7 +1089,7 @@ static int api__from_msgpack(ti_api_request_t * ar)
         {
             log_warning(
                     "unknown key in API request: `%.*s`",
-                    (int) mp_key.via.str.n,
+                    mp_key.via.str.n,
                     mp_key.via.str.data);
             mp_skip(&up);
         }
@@ -1203,6 +1201,9 @@ static int api__message_complete_cb(http_parser * parser)
 
     if (!ar->user)
         return api__plain_response(ar, E401_UNAUTHORIZED);
+
+    if (ti.node->status == TI_NODE_STAT_SHUTTING_DOWN)
+        return api__plain_response(ar, E503_SERVICE_UNAVAILABLE);
 
     switch (ar->content_type)
     {

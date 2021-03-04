@@ -77,7 +77,7 @@ invalid:
 
     ex_set(e, EX_TYPE_ERROR,
             "invalid type `%.*s`",
-            (int) ((ti_raw_t *) type_str)->n,
+            ((ti_raw_t *) type_str)->n,
             (const char *) ((ti_raw_t *) type_str)->data);
     goto done;
 

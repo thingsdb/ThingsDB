@@ -300,7 +300,7 @@ static int do__datetime(
         /* Return the current date/time. */
         assert (query->rval == NULL);
         query->rval = (ti_val_t *) ti_datetime_from_i64(
-                (int64_t) util_now_tsec(),
+                (int64_t) util_now_usec(),
                 0,
                 tz);
         if (!query->rval)

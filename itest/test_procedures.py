@@ -587,8 +587,9 @@ class TestProcedures(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'function `run` expects argument 1 to be of type `str` '
-                r'but got type `nil` instead'):
+                r'function `run` expects argument 1 to be of '
+                r'type `str` \(procedure\) or `int` \(timer\) but got '
+                r'type `nil` instead'):
             await client.query('run(nil);')
 
         with self.assertRaisesRegex(

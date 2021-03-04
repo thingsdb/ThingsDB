@@ -25,6 +25,7 @@
 #include <ti/store.h>
 #include <ti/sync.h>
 #include <ti/tcp.h>
+#include <ti/timers.h>
 #include <ti/users.h>
 #include <ti/val.t.h>
 #include <tiinc.h>
@@ -63,6 +64,7 @@ void ti_stop(void);
 int ti_save(void);
 int ti_lock(void);
 int ti_unlock(void);
+void ti_update_rel_id(void);
 _Bool ti_ask_continue(const char * warn);
 void ti_print_connect_info(void);
 ti_rpkg_t * ti_node_status_rpkg(void);  /* returns package with next_thing_id,
@@ -101,15 +103,17 @@ struct ti_s
     ti_thing_t * thing0;        /* thing with id 0 */
     ti_users_t * users;
     ti_backups_t * backups;
+    ti_timers_t * timers;
     vec_t * access_node;        /* ti_access_t */
     vec_t * access_thingsdb;    /* ti_access_t */
     smap_t * procedures;        /* ti_procedure_t */
     smap_t * names;             /* weak map for ti_name_t */
-    smap_t * qcache;            /* pointer to qcache */
+    smap_t * qcache;            /* pointer to cache in stack */
     smap_t * modules;           /* ti_module_t */
     uv_loop_t * loop;
     cleri_grammar_t * langdef;
     size_t futures_count;       /* number of running futures */
+    uint32_t rel_id;            /* relative node id */
     uint8_t flags;
 };
 

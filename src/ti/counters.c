@@ -27,9 +27,11 @@ void ti_counters_destroy(void)
 
 void ti_counters_reset(void)
 {
-    counters->started_at = util_now_tsec();
+    counters->started_at = util_now_usec();
     counters->queries_success = 0;
     counters->queries_with_error = 0;
+    counters->timers_success = 0;
+    counters->timers_with_error = 0;
     counters->watcher_failed = 0;
     counters->events_with_gap = 0;
     counters->events_skipped = 0;
@@ -97,13 +99,19 @@ double ti_counters_upd_success_query(struct timespec * start)
 int ti_counters_to_pk(msgpack_packer * pk)
 {
     return -(
-        msgpack_pack_map(pk, 19) ||
+        msgpack_pack_map(pk, 21) ||
 
         mp_pack_str(pk, "queries_success") ||
         msgpack_pack_uint64(pk, counters->queries_success) ||
 
         mp_pack_str(pk, "queries_with_error") ||
         msgpack_pack_uint64(pk, counters->queries_with_error) ||
+
+        mp_pack_str(pk, "timers_success") ||
+        msgpack_pack_uint64(pk, counters->timers_success) ||
+
+        mp_pack_str(pk, "timers_with_error") ||
+        msgpack_pack_uint64(pk, counters->timers_with_error) ||
 
         mp_pack_str(pk, "watcher_failed") ||
         msgpack_pack_uint16(pk, counters->watcher_failed) ||

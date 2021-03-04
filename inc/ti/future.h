@@ -15,5 +15,6 @@ ti_future_t * ti_future_create(
         uint8_t deep);
 void ti_future_destroy(ti_future_t * future);
 void ti_future_cancel(ti_future_t * future);
+void ti_future_stop(ti_future_t * future);
 
 #endif  /* TI_FUTURE_H_ */

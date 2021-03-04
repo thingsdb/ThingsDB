@@ -38,7 +38,7 @@ static int do__f_rename_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "module `%.*s` already exists",
-                (int) nname->n, (const char *) nname->data);
+                nname->n, (const char *) nname->data);
         goto fail0;
     }
 

@@ -30,6 +30,7 @@ ti_thing_t * ti_collection_thing_restore_gc(
         ti_collection_t * collection,
         uint64_t thing_id);
 void ti_collection_gc_clear(ti_collection_t * collection);
+void ti_collection_stop_futures(ti_collection_t * collection);
 int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things);
 
 #endif /* TI_COLLECTION_H_ */

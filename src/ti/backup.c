@@ -19,7 +19,7 @@ ti_backup_t * ti_backup_create(
         uint64_t id,
         const char * fn_template,
         size_t fn_templare_n,
-        uint64_t timestamp,
+        uint64_t next_run,
         uint64_t repeat,
         uint64_t max_files,
         uint64_t created_at,
@@ -38,7 +38,7 @@ ti_backup_t * ti_backup_create(
     backup->result_msg = NULL;
     backup->work_fn = NULL;
     backup->files = NULL;
-    backup->timestamp = timestamp;
+    backup->next_run = next_run;
     backup->repeat = repeat;
     backup->max_files = max_files;
     backup->scheduled = true;
@@ -70,12 +70,12 @@ char * backup__next_run(ti_backup_t * backup)
     /* length 27 =  "2000-00-00 00:00:00+01.00Z" + 1 */
     static char buf[27];
     struct tm * tm_info;
-    uint64_t now = util_now_tsec();
+    uint64_t now = util_now_usec();
 
-    if (backup->timestamp < now)
+    if (backup->next_run < now)
         return "pending";
 
-    tm_info = gmtime((const time_t *) &backup->timestamp);
+    tm_info = gmtime((const time_t *) &backup->next_run);
 
     strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%SZ", tm_info);
     return buf;
@@ -169,7 +169,7 @@ _Bool ti_backup_is_gcloud(ti_backup_t * backup)
 char * ti_backup_gcloud_job(ti_backup_t * backup)
 {
     struct tm * tm_info;
-    uint64_t now = util_now_tsec();
+    uint64_t now = util_now_usec();
     const size_t event_sz = strlen("{EVENT}");
     const size_t date_sz = strlen("{DATE}");
     const size_t time_sz = strlen("{TIME}");
@@ -256,9 +256,9 @@ char * ti_backup_gcloud_job(ti_backup_t * backup)
             &buf,
             "gsutil -o 'Boto:num_retries=1' cp %.*s %.*s 2>&1; "
             "rm %.*s 2>&1;",
-            (int) fnbuf.len, fnbuf.data,
-            (int) gsbuf.len, gsbuf.data,
-            (int) fnbuf.len, fnbuf.data);
+            fnbuf.len, fnbuf.data,
+            gsbuf.len, gsbuf.data,
+            fnbuf.len, fnbuf.data);
 
     if (!backup->work_fn || buf_write(&buf, '\0'))
     {
@@ -277,7 +277,7 @@ char * ti_backup_gcloud_job(ti_backup_t * backup)
 char * ti_backup_job(ti_backup_t * backup)
 {
     struct tm * tm_info;
-    uint64_t now = util_now_tsec();
+    uint64_t now = util_now_usec();
     const size_t event_sz = strlen("{EVENT}");
     const size_t date_sz = strlen("{DATE}");
     const size_t time_sz = strlen("{TIME}");

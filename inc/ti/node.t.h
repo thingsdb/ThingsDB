@@ -34,10 +34,7 @@ typedef enum
     /*
      * Shutting-Down: Few seconds before going off-line, the node still accepts
      *                requests on existing connections but all nodes and
-     *                clients should change to another connection. Client
-     *                request should be forwarded so no new event will be
-     *                created by this node. New connections should not be
-     *                accepted.
+     *                clients should change to another connection.
      */
     TI_NODE_STAT_SHUTTING_DOWN  =1<<3,
 
@@ -69,6 +66,18 @@ typedef enum
     TI_NODE_STAT_READY          =1<<7,
 } ti_node_status_t;
 
+/*
+ * Size TI_NODE_INFO_PK_SZ for node status info.
+ *  {
+ *      next_thing_id,
+ *      cevid,
+ *      sevid,
+ *      status
+ *      zone,
+ *      port,
+ *      version
+ *  }
+ */
 #define TI_NODE_INFO_PK_SZ 128
 
 typedef struct ti_node_s ti_node_t;

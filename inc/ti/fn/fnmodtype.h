@@ -475,7 +475,7 @@ static void type__add(
     }
 
     /* update modified time-stamp */
-    type->modified_at = util_now_tsec();
+    type->modified_at = util_now_usec();
 
     if (ti_task_add_mod_type_add_field(task, type, dval))
     {
@@ -646,7 +646,7 @@ static void type__del(
 
 done:
     /* update modified time-stamp */
-    type->modified_at = util_now_tsec();
+    type->modified_at = util_now_usec();
 
     if (ti_task_add_mod_type_del(task, type, name))
         ex_set_mem(e);
@@ -711,7 +711,7 @@ static int type__mod_using_callback(
     /* From now on it is critical and we should panic */
 
     /* update modified time-stamp */
-    field->type->modified_at = util_now_tsec();
+    field->type->modified_at = util_now_usec();
 
     /* add a modify to any */
     if (ti_task_add_mod_type_mod_field(task, field))
@@ -889,7 +889,7 @@ static void type__mod(
             }
 
             /* update modified time-stamp */
-            type->modified_at = util_now_tsec();
+            type->modified_at = util_now_usec();
 
             if (ti_task_add_mod_type_mod_field(task, field))
             {
@@ -1001,7 +1001,7 @@ static void type__ren(
     }
 
     /* update modified time-stamp */
-    type->modified_at = util_now_tsec();
+    type->modified_at = util_now_usec();
 
     if (ti_task_add_mod_type_ren(task, type, oldname, newname))
         ex_set_mem(e);
@@ -1135,7 +1135,7 @@ static void type__rel_add(
     }
 
     /* update modified time-stamp */
-    type->modified_at = util_now_tsec();
+    type->modified_at = util_now_usec();
     otype->modified_at = type->modified_at;
 
     if (ti_task_add_mod_type_rel_add(
@@ -1181,7 +1181,7 @@ static void type__rel_del(
     }
 
     /* update modified time-stamp */
-    field->type->modified_at = util_now_tsec();
+    field->type->modified_at = util_now_usec();
     ofield->type->modified_at = field->type->modified_at;
 
     free(field->condition.rel);
@@ -1313,7 +1313,7 @@ static void type__wpo(
     ti_type_set_wrap_only_mode(type, wrap_only);
 
     /* update modified time-stamp */
-    type->modified_at = util_now_tsec();
+    type->modified_at = util_now_usec();
 
     if (ti_task_add_mod_type_wpo(task, type))
         ex_set_mem(e);
@@ -1409,7 +1409,7 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             "function `mod_type` expects argument 2 to be "
             "`add`, `del`, `mod`, `rel`, `ren` or `wpo` but got `%.*s` instead"
             DOC_MOD_TYPE,
-            (int) rmod->n, (const char *) rmod->data);
+            rmod->n, (const char *) rmod->data);
 
 done:
     if (e->nr == 0)

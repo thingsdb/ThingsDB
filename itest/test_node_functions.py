@@ -42,10 +42,12 @@ class TestNodeFunctions(TestBase):
 
         counters = await client.query('counters();')
 
-        self.assertEqual(len(counters), 19)
+        self.assertEqual(len(counters), 21)
 
         self.assertIn("queries_success", counters)
         self.assertIn("queries_with_error", counters)
+        self.assertIn("timers_success", counters)
+        self.assertIn("timers_with_error", counters)
         self.assertIn("watcher_failed", counters)
         self.assertIn("events_with_gap", counters)
         self.assertIn("events_skipped", counters)
@@ -66,6 +68,8 @@ class TestNodeFunctions(TestBase):
 
         self.assertTrue(isinstance(counters["queries_success"], int))
         self.assertTrue(isinstance(counters["queries_with_error"], int))
+        self.assertTrue(isinstance(counters["timers_success"], int))
+        self.assertTrue(isinstance(counters["timers_with_error"], int))
         self.assertTrue(isinstance(counters["watcher_failed"], int))
         self.assertTrue(isinstance(counters["events_with_gap"], int))
         self.assertTrue(isinstance(counters["events_skipped"], int))

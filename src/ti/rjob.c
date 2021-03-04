@@ -12,6 +12,8 @@
 #include <ti/raw.inline.h>
 #include <ti/restore.h>
 #include <ti/rjob.h>
+#include <ti/timer.h>
+#include <ti/timer.inline.h>
 #include <ti/token.h>
 #include <ti/users.h>
 #include <ti/val.h>
@@ -150,7 +152,7 @@ static int rjob__del_procedure(mp_unp_t * up)
     {
         log_critical(
                 "job `del_procedure` cannot find `%.*s`",
-                (int) mp_name.via.str.n, mp_name.via.str.data);
+                mp_name.via.str.n, mp_name.via.str.data);
         return -1;
     }
 
@@ -158,6 +160,36 @@ static int rjob__del_procedure(mp_unp_t * up)
 
     ti_procedure_destroy(procedure);
     return 0;  /* success */
+}
+
+/*
+ * Returns 0 on success
+ * - for example: 'id'
+ */
+static int rjob__del_timer(mp_unp_t * up)
+{
+    mp_obj_t mp_id;
+
+    if (mp_next(up, &mp_id) != MP_U64)
+    {
+        log_critical("job `del_timer`: missing timer id");
+        return -1;
+    }
+
+    for (vec_each(ti.timers->timers, ti_timer_t, timer))
+    {
+        if (timer->id == mp_id.via.u64)
+        {
+            ti_timer_mark_del(timer);
+            break;
+        }
+    }
+
+    /*
+     * For a timer event it may occur that a timer is already marked for
+     * deletion and the timer may even be removed.
+     */
+    return 0;
 }
 
 /*
@@ -184,7 +216,7 @@ static int rjob__del_token(mp_unp_t * up)
     {
         log_critical("job `del_token` for `.thingsdb`: "
                 "token key `%.*s` not found",
-                (int) mp_key.via.str.n, mp_key.via.str.data);
+                mp_key.via.str.n, mp_key.via.str.data);
         return -1;
     }
 
@@ -468,7 +500,7 @@ static int rjob__new_node(ti_event_t * ev, mp_unp_t * up)
 
 /*
  * Returns 0 on success
- * - for example: {'name': 'def'}
+ * - for example: {...}
  */
 static int rjob__new_procedure(mp_unp_t * up)
 {
@@ -525,6 +557,74 @@ static int rjob__new_procedure(mp_unp_t * up)
 
 failed:
     ti_procedure_destroy(procedure);
+    ti_val_drop((ti_val_t *) closure);
+    return -1;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: '{...}'
+ */
+static int rjob__new_timer(mp_unp_t * up)
+{
+    mp_obj_t obj, mp_id, mp_next_run, mp_repeat, mp_user_id;
+    ti_timer_t * timer = NULL;
+    ti_varr_t * varr = NULL;
+    ti_closure_t * closure;
+    ti_user_t * user;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = NULL,
+            .up = up,
+    };
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 6 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_next_run) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_repeat) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_user_id) != MP_U64 ||
+        mp_skip(up) != MP_STR)
+    {
+        log_critical("job `new_timer` for the @thingsdb scope: invalid data");
+        return -1;
+    }
+
+    user = ti_users_get_by_id(mp_user_id.via.u64);
+    closure = (ti_closure_t *) ti_val_from_vup(&vup);
+
+    if (!closure || !ti_val_is_closure((ti_val_t *) closure) ||
+        mp_skip(up) != MP_STR ||
+        vec_reserve(&ti.timers->timers, 1))
+        goto fail0;
+
+    varr = (ti_varr_t *) ti_val_from_vup(&vup);
+    if (!varr || !ti_val_is_array((ti_val_t *) varr))
+        goto fail0;
+
+    timer = ti_timer_create(
+                mp_id.via.u64,
+                mp_next_run.via.u64,
+                mp_repeat.via.u64,
+                TI_SCOPE_THINGSDB,
+                user,
+                closure,
+                varr->vec);
+    if (!timer)
+        goto fail0;
+
+    ti_update_next_thing_id(timer->id);
+    VEC_push(ti.timers->timers, timer);
+    free(varr);
+    ti_decref(closure);
+    return 0;
+
+fail0:
+    log_critical("job `new_timer` for the @thingsdb scope has failed");
+    ti_val_drop((ti_val_t *) varr);
     ti_val_drop((ti_val_t *) closure);
     return -1;
 }
@@ -728,6 +828,56 @@ static int rjob__set_module_scope(mp_unp_t * up)
 
 /*
  * Returns 0 on success
+ * - for example: '{...}'
+ */
+static int job__set_timer_args(mp_unp_t * up)
+{
+    mp_obj_t obj, mp_id;
+    ti_varr_t * varr;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = NULL,
+            .up = up,
+    };
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR)
+    {
+        log_critical(
+                "job `set_timer_args` for the @thingsdb scope has failed: "
+                "invalid data");
+        return -1;
+    }
+
+    varr = (ti_varr_t *) ti_val_from_vup(&vup);
+    if (!varr || !ti_val_is_array((ti_val_t *) varr))
+        goto fail0;
+
+    for (vec_each(ti.timers->timers, ti_timer_t, timer))
+    {
+        if (timer->id == mp_id.via.u64)
+        {
+            vec_t * tmp = timer->args;
+            timer->args = varr->vec;
+            varr->vec = tmp;
+            break;
+        }
+    }
+
+    /* it may happen that the timer is already gone, this is not an issue */
+    ti_val_drop((ti_val_t *) varr);
+    return 0;
+
+fail0:
+    log_critical("job `set_timer_args` for the @thingsdb scope has failed");
+    ti_val_drop((ti_val_t *) varr);
+    return -1;
+}
+
+/*
+ * Returns 0 on success
  * - for example: {"name": module_name, "conf_pkg": nil/bin}
  */
 static int rjob__set_module_conf(mp_unp_t * up)
@@ -872,7 +1022,7 @@ static int rjob__rename_module(mp_unp_t * up)
     {
         log_critical(
                 "job `rename_module` cannot find `%.*s`",
-                (int) mp_old.via.str.n, mp_old.via.str.data);
+                mp_old.via.str.n, mp_old.via.str.data);
         return -1;
     }
 
@@ -907,7 +1057,7 @@ static int rjob__rename_procedure(mp_unp_t * up)
     {
         log_critical(
                 "job `rename_procedure` cannot find `%.*s`",
-                (int) mp_old.via.str.n, mp_old.via.str.data);
+                mp_old.via.str.n, mp_old.via.str.data);
         return -1;
     }
 
@@ -1106,6 +1256,8 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
             return rjob__clear_users(up);
         break;
     case 'd':
+        if (mp_str_eq(&mp_job, "del_timer"))
+            return rjob__del_timer(up);
         if (mp_str_eq(&mp_job, "del_collection"))
             return rjob__del_collection(up);
         if (mp_str_eq(&mp_job, "del_expired"))
@@ -1126,6 +1278,8 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
             return rjob__grant(up);
         break;
     case 'n':
+        if (mp_str_eq(&mp_job, "new_timer"))
+            return rjob__new_timer(up);
         if (mp_str_eq(&mp_job, "new_collection"))
             return rjob__new_collection(up);
         if (mp_str_eq(&mp_job, "new_module"))
@@ -1154,6 +1308,8 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
             return rjob__revoke(up);
         break;
     case 's':
+        if (mp_str_eq(&mp_job, "set_timer_args"))
+            return job__set_timer_args(up);
         if (mp_str_eq(&mp_job, "set_module_conf"))
             return rjob__set_module_conf(up);
         if (mp_str_eq(&mp_job, "set_module_scope"))
@@ -1177,7 +1333,6 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
         break;
     }
 
-    log_critical("unknown job: `%.*s`",
-            (int) mp_job.via.str.n, mp_job.via.str.data);
+    log_critical("unknown job: `%.*s`", mp_job.via.str.n, mp_job.via.str.data);
     return -1;
 }

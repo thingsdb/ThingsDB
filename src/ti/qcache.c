@@ -44,7 +44,7 @@ static ti_query_t * qcache__from_cache(qcache__item_t * item, uint8_t flags)
         return NULL;
 
     item->used++;
-    item->last = (uint32_t) util_now_tsec();
+    item->last = (uint32_t) util_now_usec();
     /*
      * Mark the cached query so we know this query is at least once being
      * asked from cache.
@@ -137,7 +137,7 @@ void ti_qcache_return(ti_query_t * query)
             query->collection = NULL;
             item->query = query;
             item->used = 0;
-            item->last = (uint32_t) util_now_tsec();
+            item->last = (uint32_t) util_now_usec();
         }
         if (smap_add(qcache, query->with.parseres->str, item))
             qcache__item_destroy(item);

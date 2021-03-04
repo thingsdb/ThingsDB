@@ -13,7 +13,7 @@ static int do__f_del_expired(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_nargs("del_expired", DOC_DEL_EXPIRED, 0, nargs, e))
         return e->nr;
 
-    after_ts = util_now_tsec();
+    after_ts = util_now_usec();
 
     task = ti_task_get_task(query->ev, ti.thing0);
     if (!task || ti_task_add_del_expired(task, after_ts))

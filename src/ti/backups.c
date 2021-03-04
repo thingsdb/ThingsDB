@@ -35,7 +35,7 @@ static int backups__gcd_rm(ti_raw_t * fn)
     buf_append_fmt(
             &buf,
             "gsutil -o 'Boto:num_retries=1' rm %.*s 2>&1;",
-            (int) fn->n, (char *) fn->data);
+            fn->n, (char *) fn->data);
 
     if (buf_write(&buf, '\0'))
         goto fail0;
@@ -150,8 +150,7 @@ fail1:
     vec_destroy(vec, (vec_destroy_cb) ti_val_unsafe_drop);
 fail0:
     log_error("failed to remove backup file: `%.*s`",
-            (int) fn->n,
-            (char *) fn->data);
+            fn->n, (char *) fn->data);
     return;
 }
 
@@ -196,21 +195,21 @@ static ti_backup_t * backups__get_pending(uint64_t ts, uint64_t id)
 {
     omap_iter_t iter = omap_iter(backups->omap);
     for (omap_each(iter, ti_backup_t, backup))
-        if (backup->scheduled && backup->id >= id && backup->timestamp < ts)
+        if (backup->scheduled && backup->id >= id && backup->next_run < ts)
             return backup;
     return NULL;
 }
 
 void ti_backups_upd_status(uint64_t backup_id, int rc, buf_t * buf)
 {
-    uint64_t now = util_now_tsec();
+    uint64_t now = util_now_usec();
     ti_backup_t * backup;
     ti_raw_t * last_fn;
 
     if (rc)
-        log_error("backup result: %.*s", (int) buf->len, buf->data);
+        log_error("backup result: %.*s", buf->len, buf->data);
     else
-        log_info("backup result: %.*s", (int) buf->len, buf->data);
+        log_info("backup result: %.*s", buf->len, buf->data);
 
     uv_mutex_lock(backups->lock);
 
@@ -256,8 +255,8 @@ void ti_backups_upd_status(uint64_t backup_id, int rc, buf_t * buf)
     if (backup->repeat)
     {
         do
-            backup->timestamp += backup->repeat;
-        while (backup->timestamp < now);
+            backup->next_run += backup->repeat;
+        while (backup->next_run < now);
     }
     else
         backup->scheduled = false;
@@ -294,7 +293,7 @@ void backups__run(uint64_t backup_id, const char * job)
 
         if (rc == 0)
         {
-            uint64_t now = util_now_tsec();
+            uint64_t now = util_now_usec();
             struct tm * tm_info;
             tm_info = gmtime((const time_t *) &now);
 
@@ -343,7 +342,7 @@ static int backups__store(void)
         if (msgpack_pack_array(&pk, 10) ||
             msgpack_pack_uint64(&pk, backup->id) ||
             msgpack_pack_uint64(&pk, backup->created_at) ||
-            msgpack_pack_uint64(&pk, backup->timestamp) ||
+            msgpack_pack_uint64(&pk, backup->next_run) ||
             msgpack_pack_uint64(&pk, backup->repeat) ||
             msgpack_pack_uint64(&pk, backup->max_files) ||
             mp_pack_str(&pk, backup->fn_template) ||
@@ -410,7 +409,7 @@ int ti_backups_restore(void)
              mp_fn, mp_msg, mp_plan, mp_code, mp_created, mp_max_files;
     mp_unp_t up;
     ti_backup_t * backup;
-    uint64_t now = util_now_tsec();
+    uint64_t now = util_now_usec();
     queue_t * files_queue;
     ti_raw_t * raw_fn;
     _Bool set_changed = false;
@@ -522,8 +521,8 @@ int ti_backups_restore(void)
             backup->result_code = (int) mp_code.via.i64;
             backup->scheduled = mp_plan.via.bool_;
             if (backup->repeat)
-                while (backup->timestamp < now)
-                    backup->timestamp += backup->repeat;
+                while (backup->next_run < now)
+                    backup->next_run += backup->repeat;
         }
         else
         {
@@ -558,7 +557,7 @@ int ti_backups_backup(void)
     uint64_t backup_id = 0;
     char * job = NULL;
     ti_backup_t * backup;
-    uint64_t now = util_now_tsec();
+    uint64_t now = util_now_usec();
 
     do
     {
@@ -614,7 +613,7 @@ size_t ti_backups_scheduled(void)
 
 size_t ti_backups_pending(void)
 {
-    uint64_t now = util_now_tsec();
+    uint64_t now = util_now_usec();
     size_t n = 0;
     omap_iter_t iter;
 
@@ -623,7 +622,7 @@ size_t ti_backups_pending(void)
 
     iter = omap_iter(backups->omap);
     for (omap_each(iter, ti_backup_t, backup))
-        if (backup->scheduled && backup->timestamp < now)
+        if (backup->scheduled && backup->next_run < now)
             ++n;
 
     uv_mutex_unlock(backups->lock);

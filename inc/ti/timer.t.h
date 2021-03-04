@@ -21,9 +21,9 @@ struct ti_timer_s
     uint64_t id;                    /* Unique ID */
     uint64_t scope_id;              /* Scope ID */
     uint64_t next_run;              /* Next run, UNIX time-stamp in seconds */
-    ti_user_t * user;               /* Owner of the timer; TODO: delete user */
+    ti_user_t * user;               /* Owner of the timer */
     ti_closure_t * closure;         /* Closure to run */
-    vec_t * args;                   /* Argument values. TODO: walk type, gc */
+    vec_t * args;                   /* Argument values */
     ti_raw_t * doc;                 /* documentation, may be NULL */
     ti_raw_t * def;                 /* formatted definition, may be NULL */
 };
@@ -47,24 +47,3 @@ struct ti_timer_s
     (__atomic_store_n(&(__timer)->_next_run, (__x), __ATOMIC_SEQ_CST))
 */
 
-
-/*
- * new_timer(datetime().move('days', 1), || {
- *   // download stuff
- *
- *   del_timer();
- * })
- *
- * del_timer(..);
- * stop_timer(...);
- * stop_timer();  -> only effect for repeating timer
- * set_timer_args([...]);
- *
- * set_timer_name(..);
- * set_timer_repeat(..);
- *
- * timer_again(...);
- * timer_info();
- * timers_info();
- *
- */

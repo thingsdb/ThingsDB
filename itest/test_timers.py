@@ -331,6 +331,41 @@ class TestTimers(TestBase):
             }, [t]);
         ''')
 
+    async def test_del_user(self, client):
+        await client.query(r'''
+            new_user("test1");
+            set_password("test1", "test");
+            grant('@collection:stuff', 'test1', QUERY|EVENT);
+        ''', scope='/t')
+
+        testcl1 = await get_client(
+            self.node0,
+            auth=['test1', 'test'],
+            auto_reconnect=False)
+
+        interval = await testcl1.query(r'''
+            new_timer(
+                datetime(),
+                30,
+                || nil);
+        ''', scope='//stuff')
+
+        timeout = await testcl1.query(r'''
+            new_timer(
+                datetime().move('minutes', 10),
+                || nil);
+        ''', scope='//stuff')
+
+        self.assertTrue(await client.query('has_timer(t);', t=interval))
+        self.assertTrue(await client.query('has_timer(t);', t=timeout))
+
+        await client.query(r'''
+            del_user("test1");
+        ''', scope='/t')
+
+        self.assertFalse(await client.query('wse(has_timer(t));', t=interval))
+        self.assertFalse(await client.query('wse(has_timer(t));', t=timeout))
+
 
 if __name__ == '__main__':
     run_test(TestTimers())

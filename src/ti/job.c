@@ -293,7 +293,7 @@ static int job__set_enum(ti_thing_t * thing, mp_unp_t * up)
     mp_obj_t obj, mp_id, mp_name, mp_created;
     ti_vup_t vup = {
             .isclient = false,
-            .collection = thing->collection,
+            .collection = collection,
             .up = up,
     };
 
@@ -612,7 +612,7 @@ static int job__mod_enum_mod(ti_thing_t * thing, mp_unp_t * up)
     mp_obj_t obj, mp_id, mp_index, mp_modified;
     ti_vup_t vup = {
             .isclient = false,
-            .collection = thing->collection,
+            .collection = collection,
             .up = up,
     };
 
@@ -1564,7 +1564,7 @@ static int job__new_procedure(ti_thing_t * thing, mp_unp_t * up)
     ti_closure_t * closure;
     ti_vup_t vup = {
             .isclient = false,
-            .collection = thing->collection,
+            .collection = collection,
             .up = up,
     };
 
@@ -1629,7 +1629,7 @@ static int job__new_timer(ti_thing_t * thing, mp_unp_t * up)
     ti_user_t * user;
     ti_vup_t vup = {
             .isclient = false,
-            .collection = thing->collection,
+            .collection = collection,
             .up = up,
     };
 
@@ -1700,7 +1700,7 @@ static int job__set_timer_args(ti_thing_t * thing, mp_unp_t * up)
     ti_varr_t * varr;
     ti_vup_t vup = {
             .isclient = false,
-            .collection = thing->collection,
+            .collection = collection,
             .up = up,
     };
 

@@ -17,6 +17,7 @@
 #include <ti/thing.t.h>
 #include <ti/type.t.h>
 #include <ti/val.t.h>
+#include <ti/vp.t.h>
 #include <ti/vup.t.h>
 #include <ti/watch.t.h>
 #include <ti/wprop.t.h>
@@ -84,8 +85,8 @@ int ti_thing_unwatch_fwd(
         uint16_t pkg_id);
 int ti_thing_watch_init(ti_thing_t * thing, ti_stream_t * stream);
 int ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream);
-int ti_thing__to_pk(ti_thing_t * thing, msgpack_packer * pk, int options);
-int ti_thing_t_to_pk(ti_thing_t * thing, msgpack_packer * pk, int options);
+int ti_thing__to_pk(ti_thing_t * thing, ti_vp_t * vp, int options);
+int ti_thing_t_to_pk(ti_thing_t * thing, ti_vp_t * vp, int options);
 ti_val_t * ti_thing_val_by_strn(ti_thing_t * thing, const char * str, size_t n);
 _Bool ti__thing_has_watchers_(ti_thing_t * thing);
 _Bool ti_thing_equals(ti_thing_t * thing, ti_val_t * other, uint8_t deep);

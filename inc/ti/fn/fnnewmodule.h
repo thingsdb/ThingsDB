@@ -53,7 +53,7 @@ static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (!ti_val_is_nil(query->rval))
         {
-            pkg = ti_module_conf_pkg(query->rval);
+            pkg = ti_module_conf_pkg(query->rval, query);
             if (!pkg)
             {
                 ex_set_mem(e);

@@ -8,6 +8,7 @@
 #include <ti/future.h>
 #include <ti/mapping.h>
 #include <ti/member.h>
+#include <ti/method.t.h>
 #include <ti/regex.h>
 #include <ti/types.inline.h>
 #include <ti/val.inline.h>
@@ -46,7 +47,7 @@ void ti_wrap_destroy(ti_wrap_t * wrap)
 
 typedef struct
 {
-    msgpack_packer * pk;
+    ti_vp_t * vp;
     uint16_t spec;
     uint16_t _pad0;
     int options;
@@ -54,23 +55,23 @@ typedef struct
 
 static int wrap__walk(ti_thing_t * thing, wrap__walk_t * w)
 {
-    return ti__wrap_field_thing(thing, w->pk, w->spec, w->options);
+    return ti__wrap_field_thing(thing, w->vp, w->spec, w->options);
 }
 
 static int wrap__set(
         ti_vset_t * vset,
-        msgpack_packer * pk,
+        ti_vp_t * vp,
         uint16_t spec,
         int options)
 {
     wrap__walk_t w = {
-            .pk = pk,
+            .vp = vp,
             .spec = spec,
             .options = options,
     };
 
     return (
-            msgpack_pack_array(pk, vset->imap->n) ||
+            msgpack_pack_array(&vp->pk, vset->imap->n) ||
             imap_walk(vset->imap, (imap_cb) wrap__walk, &w)
     );
 }
@@ -79,28 +80,28 @@ static int wrap__field_val(
         ti_field_t * t_field,
         uint16_t * spec,    /* points to t_field->spec or t_field->nested */
         ti_val_t * val,
-        msgpack_packer * pk,
+        ti_vp_t * vp,
         int options)
 {
     switch ((ti_val_enum) val->tp)
     {
-    TI_VAL_PACK_CASE_IMMUTABLE(val, pk, options)
+    TI_VAL_PACK_CASE_IMMUTABLE(val, &vp->pk, options)
     case TI_VAL_THING:
         return ti__wrap_field_thing(
                 (ti_thing_t *) val,
-                pk,
+                vp,
                 *spec,
                 options);
     case TI_VAL_WRAP:
         return ti__wrap_field_thing(
                 ((ti_wrap_t *) val)->thing,
-                pk,
+                vp,
                 *spec,
                 options);
     case TI_VAL_ARR:
     {
         ti_varr_t * varr = (ti_varr_t *) val;
-        if (msgpack_pack_array(pk, varr->vec->n))
+        if (msgpack_pack_array(&vp->pk, varr->vec->n))
             return -1;
         for (vec_each(varr->vec, ti_val_t, v))
         {
@@ -108,7 +109,7 @@ static int wrap__field_val(
                     t_field,
                     &t_field->nested_spec,
                     v,
-                    pk,
+                    vp,
                     options))
                 return -1;
         }
@@ -117,7 +118,7 @@ static int wrap__field_val(
     case TI_VAL_SET:
         return wrap__set(
                 (ti_vset_t *) val,
-                pk,
+                vp,
                 t_field->nested_spec,
                 options);
     case TI_VAL_MEMBER:
@@ -125,7 +126,7 @@ static int wrap__field_val(
                 t_field,
                 spec,
                 VMEMBER(val),
-                pk,
+                vp,
                 options);
     case TI_VAL_FUTURE:
         return VFUT(val)
@@ -133,9 +134,9 @@ static int wrap__field_val(
                         t_field,
                         spec,
                         VFUT(val),
-                        pk,
+                        vp,
                         options)
-                : msgpack_pack_nil(pk);
+                : msgpack_pack_nil(&vp->pk);
     }
 
     assert(0);
@@ -158,15 +159,56 @@ static inline int wrap__thing_id_to_pk(
     return 0;
 }
 
+int ti__wrap_methods_to_pk(
+        ti_type_t * t_type,
+        ti_thing_t * thing,
+        ti_vp_t * vp,
+        int options)
+{
+    int rc = 0;
+    ex_t e = {0};
+    ti_val_t * rval = vp->query->rval;
+
+    for (vec_each(t_type->methods, ti_method_t, method))
+    {
+        vp->query->rval = NULL;
+
+        if (ti_closure_call_one_arg(
+                method->closure,
+                vp->query,
+                (ti_val_t *) thing,
+                &e))
+        {
+            ti_val_gc_drop((ti_val_t *) vp->query->rval);
+            vp->query->rval = (ti_val_t *) ti_verror_ensure_from_e(&e);
+        }
+
+        rc = mp_pack_strn(
+                &vp->pk,
+                method->name->str,
+                method->name->n) ||
+            ti_val_to_pk(vp->query->rval, vp, options);
+
+        ti_val_gc_drop(vp->query->rval);
+
+        if (rc)
+            break;
+    }
+
+    vp->query->rval = rval;
+    return rc;
+}
+
 /*
  * Do not use directly, use ti_wrap_to_pk() instead
  */
 int ti__wrap_field_thing(
         ti_thing_t * thing,
-        msgpack_packer * pk,
+        ti_vp_t * vp,
         uint16_t spec,
         int options)
 {
+    size_t nm;
     ti_type_t * t_type;
     spec &= TI_SPEC_MASK_NILLABLE;
 
@@ -178,7 +220,7 @@ int ti__wrap_field_thing(
      * Just return the ID when locked or if `options` (deep) has reached zero.
      */
     if ((thing->flags & TI_VFLAG_LOCK) || !options)
-        return ti_thing_id_to_pk(thing, pk);
+        return ti_thing_id_to_pk(thing, &vp->pk);
 
     /*
      * If `spec` is not a type or a none existing type (thus ANY or OBJECT),
@@ -186,13 +228,16 @@ int ti__wrap_field_thing(
      */
     if (spec >= TI_SPEC_ANY ||  /* TI_SPEC_ANY || TI_SPEC_OBJECT */
         !(t_type = ti_types_by_id(thing->collection->types, spec)))
-        return ti_thing__to_pk(thing, pk, options);
+        return ti_thing__to_pk(thing, vp, options);
 
     /* decrement `options` (deep) by one */
     --options;
 
     /* Set the lock */
     thing->flags |= TI_VFLAG_LOCK;
+
+    /* Number of methods to pack */
+    nm = t_type->methods->n;
 
     if (ti_thing_is_object(thing))
     {
@@ -233,7 +278,7 @@ int ti__wrap_field_thing(
         /*
          * Now we can pack, let's start with the ID.
          */
-        if (wrap__thing_id_to_pk(thing, pk, n))
+        if (wrap__thing_id_to_pk(thing, &vp->pk, n + nm))
         {
             free(map_props);
             goto fail;
@@ -245,14 +290,14 @@ int ti__wrap_field_thing(
         for (;map_get < map_set; ++map_get)
         {
             if (mp_pack_strn(
-                    pk,
+                    &vp->pk,
                     map_get->prop->name->str,
                     map_get->prop->name->n) ||
                 wrap__field_val(
                         map_get->field,
                         &map_get->field->spec,
                         map_get->prop->val,
-                        pk,
+                        vp,
                         options)
             ) {
                 free(map_props);
@@ -273,27 +318,33 @@ int ti__wrap_field_thing(
          * returned from cache.
          */
         mappings = ti_type_map(t_type, f_type);
-        if (!mappings || wrap__thing_id_to_pk(thing, pk, mappings->n))
+        if (!mappings || wrap__thing_id_to_pk(thing, &vp->pk, mappings->n + nm))
             goto fail;
 
         for (vec_each(mappings, ti_mapping_t, mapping))
         {
             if (mp_pack_strn(
-                        pk,
+                        &vp->pk,
                         mapping->f_field->name->str,
                         mapping->f_field->name->n) ||
                 wrap__field_val(
                         mapping->t_field,
                         &mapping->t_field->spec,
                         VEC_get(thing->items.vec, mapping->f_field->idx),
-                        pk,
+                        vp,
                         options)
             ) goto fail;
         }
     }
 
+    assert (vp->query != NULL);
+
+    if (t_type->methods && ti__wrap_methods_to_pk(t_type, thing, vp, options))
+        goto fail;
+
     thing->flags &= ~TI_VFLAG_LOCK;
     return 0;
+
 fail:
     thing->flags &= ~TI_VFLAG_LOCK;
     return -1;

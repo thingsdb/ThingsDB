@@ -195,6 +195,31 @@ class TestWrap(TestBase):
             }]
         })
 
+    async def test_wrap_methods(self, client):
+        await client.query(r'''
+            set_type('Person', {
+                name: 'str',
+                messages: '[str]',
+            });
+            set_type('_Person', {
+                name: 'any',
+                mcount: |p| p.messages.len()
+            }, true);
+        ''')
+
+        res = await client.query(r'''
+            p = Person{
+                name: 'iris',
+                messages: ['hi', 'hello', 'bye']
+            };
+            p.wrap('_Person');
+        ''')
+
+        self.assertEqual(res, {
+            "name": "iris",
+            "mcount": 3
+        })
+
 
 if __name__ == '__main__':
     run_test(TestWrap())

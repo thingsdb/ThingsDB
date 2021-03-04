@@ -14,7 +14,7 @@
 
 int ti_store_timers_store(vec_t * timers, const char * fn)
 {
-    msgpack_packer pk;
+    ti_vp_t vp;
     FILE * f = fopen(fn, "w");
     if (!f)
     {
@@ -24,28 +24,28 @@ int ti_store_timers_store(vec_t * timers, const char * fn)
 
     uv_mutex_lock(ti.timers->lock);
 
-    msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
+    msgpack_packer_init(&vp.pk, f, msgpack_fbuffer_write);
 
     if (
-        msgpack_pack_map(&pk, 1) ||
-        mp_pack_str(&pk, "timers") ||
-        msgpack_pack_array(&pk, timers->n)
+        msgpack_pack_map(&vp.pk, 1) ||
+        mp_pack_str(&vp.pk, "timers") ||
+        msgpack_pack_array(&vp.pk, timers->n)
     ) goto fail;
 
     for (vec_each(timers, ti_timer_t, timer))
     {
-        if (msgpack_pack_array(&pk, 7) ||
-            msgpack_pack_uint64(&pk, timer->id) ||
-            msgpack_pack_uint64(&pk, timer->scope_id) ||
-            msgpack_pack_uint64(&pk, timer->next_run) ||
-            msgpack_pack_uint32(&pk, timer->repeat) ||
-            msgpack_pack_uint64(&pk, timer->user ? timer->user->id : 0) ||
-            ti_closure_to_pk(timer->closure, &pk) ||
-            msgpack_pack_array(&pk, timer->args->n))
+        if (msgpack_pack_array(&vp.pk, 7) ||
+            msgpack_pack_uint64(&vp.pk, timer->id) ||
+            msgpack_pack_uint64(&vp.pk, timer->scope_id) ||
+            msgpack_pack_uint64(&vp.pk, timer->next_run) ||
+            msgpack_pack_uint32(&vp.pk, timer->repeat) ||
+            msgpack_pack_uint64(&vp.pk, timer->user ? timer->user->id : 0) ||
+            ti_closure_to_pk(timer->closure, &vp.pk) ||
+            msgpack_pack_array(&vp.pk, timer->args->n))
             goto fail;
 
         for (vec_each(timer->args, ti_val_t, val))
-            if (ti_val_to_pk(val, &pk, TI_VAL_PACK_FILE))
+            if (ti_val_to_pk(val, &vp, TI_VAL_PACK_FILE))
                 goto fail;
     }
 

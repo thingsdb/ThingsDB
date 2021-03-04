@@ -95,7 +95,7 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (thing->id)
     {
         ti_task_t * task = ti_task_get_task(query->ev, thing);
-        if (!task || ti_task_add_event(task, revent, vec, deep))
+        if (!task || ti_task_add_event(task, query, revent, vec, deep))
             ex_set_mem(e);
     }
 

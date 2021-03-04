@@ -11,6 +11,7 @@
 #include <ti/raw.inline.h>
 #include <ti/thing.h>
 #include <ti/thing.t.h>
+#include <ti/vp.t.h>
 #include <ti/witem.t.h>
 #include <util/strx.h>
 #include <doc.h>
@@ -189,7 +190,7 @@ static inline ti_val_t * ti_thing_val_weak_by_name(
 
 static inline int ti_thing_to_pk(
         ti_thing_t * thing,
-        msgpack_packer * pk,
+        ti_vp_t * vp,
         int options)
 {
     if (options == TI_VAL_PACK_TASK)
@@ -198,13 +199,13 @@ static inline int ti_thing_to_pk(
         {
             ti_thing_unmark_new(thing);
             return ti_thing_is_object(thing)
-                    ? ti_thing__to_pk(thing, pk, options)
-                    : ti_thing_t_to_pk(thing, pk, options);
+                    ? ti_thing__to_pk(thing, vp, options)
+                    : ti_thing_t_to_pk(thing, vp, options);
         }
     }
     return options <= 0 || (thing->flags & TI_VFLAG_LOCK)
-            ? ti_thing_id_to_pk(thing, pk)
-            : ti_thing__to_pk(thing, pk, options);
+            ? ti_thing_id_to_pk(thing, &vp->pk)
+            : ti_thing__to_pk(thing, vp, options);
 }
 
 static inline void ti_thing_may_push_gc(ti_thing_t * thing)

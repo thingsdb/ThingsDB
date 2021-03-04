@@ -132,6 +132,7 @@ int ti_task_add_mod_enum_ren(ti_task_t * task, ti_member_t * member);
 int ti_task_add_del_enum(ti_task_t * task, ti_enum_t * enum_);
 int ti_task_add_event(
         ti_task_t * task,
+        ti_query_t * query,
         ti_raw_t * revent,
         vec_t * vec,
         int deep);

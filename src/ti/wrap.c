@@ -168,10 +168,12 @@ int ti__wrap_methods_to_pk(
     int rc = 0;
     ex_t e = {0};
     ti_val_t * rval = vp->query->rval;
+    uint8_t deep = vp->query->qbind.deep;
 
     for (vec_each(t_type->methods, ti_method_t, method))
     {
         vp->query->rval = NULL;
+        vp->query->qbind.deep = (uint8_t) options;
 
         if (method->closure->flags & TI_CLOSURE_FLAG_WSE)
         {
@@ -209,7 +211,7 @@ int ti__wrap_methods_to_pk(
                 &vp->pk,
                 method->name->str,
                 method->name->n) ||
-            ti_val_to_pk(vp->query->rval, vp, options);
+            ti_val_to_pk(vp->query->rval, vp, vp->query->qbind.deep);
 
         ti_val_gc_drop(vp->query->rval);
 
@@ -217,6 +219,7 @@ int ti__wrap_methods_to_pk(
             break;
     }
 
+    vp->query->qbind.deep = deep;
     vp->query->rval = rval;
     return rc;
 }

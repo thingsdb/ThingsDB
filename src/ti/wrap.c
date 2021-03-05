@@ -213,7 +213,7 @@ int ti__wrap_methods_to_pk(
                 method->name->n) ||
             ti_val_to_pk(vp->query->rval, vp, vp->query->qbind.deep);
 
-        ti_val_gc_drop(vp->query->rval);
+        ti_val_unsafe_gc_drop(vp->query->rval);
 
         if (rc)
             break;

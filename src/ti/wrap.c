@@ -364,7 +364,7 @@ int ti__wrap_field_thing(
 
     assert (vp->query != NULL);
 
-    if (t_type->methods && ti__wrap_methods_to_pk(t_type, thing, vp, options))
+    if (nm && ti__wrap_methods_to_pk(t_type, thing, vp, options))
         goto fail;
 
     thing->flags &= ~TI_VFLAG_LOCK;

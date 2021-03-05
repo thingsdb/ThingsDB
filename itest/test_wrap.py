@@ -200,6 +200,7 @@ class TestWrap(TestBase):
             set_type('Person', {
                 name: 'str',
                 messages: '[str]',
+                dict: 'thing?',
             });
             set_type('_Pmcount', {
                 name: 'any',
@@ -222,6 +223,10 @@ class TestWrap(TestBase):
             }, true);
             set_type('_Pfut', {
                 fut: || future(|| .x = 1234)
+            }, true);
+            set_type('_Pdeep', {
+                dict: 'any',
+                deep: || return({a: {b: 5}}, 2)
             }, true);
         ''')
 
@@ -321,6 +326,20 @@ class TestWrap(TestBase):
             }
         })
 
+        # Pdeep
+        res = await client.query(r'''
+            p = Person{
+                dict: {a: {b: 5}},
+                name: 'iris',
+                messages: ['hi', 'hello', 'bye']
+            };
+            p.wrap('_Pdeep');
+        ''')
+
+        self.assertEqual(res, {
+            "dict": {},
+            "deep": {"a": {"b": 5}}
+        })
 
 
 if __name__ == '__main__':

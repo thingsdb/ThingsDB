@@ -166,6 +166,30 @@ class TestFuture(TestBase):
         self.assertEqual(await cl_read.run('test_rx'), 42)
         self.assertEqual(await cl_read.run('test_rx'), 42)
 
+    async def test_shortcut_type(self, client):
+        await client.query(r'''
+            set_type('A', {
+                messages: '[]'
+            });
+            set_type('X', {
+                messages: |a| a.messages.len()
+            });
+        ''')
+
+        res = await client.query(r'''
+            a = A{
+                messages: [A{}, A{}, A{}]
+            };
+
+            res = future(|a| {
+                a.wrap('X');
+            });
+
+            res;
+        ''')
+
+        self.assertEqual(res, {'messages': 3})
+
 
 if __name__ == '__main__':
     run_test(TestFuture())

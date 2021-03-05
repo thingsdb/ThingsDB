@@ -1436,6 +1436,9 @@ void ti_thing_destroy_gc(void)
 
 void ti_thing_clean_gc(void)
 {
+    if (ti.futures_count)
+        return;
+
     while (ti_thing_gc_vec->n)
     {
         vec_t * tmp = ti_thing_gc_vec;

@@ -174,6 +174,7 @@ static void away__work(uv_work_t * UNUSED(work))
     ti_qcache_cleanup();
 
     /* resize query garbage storage */
+    ti_thing_clean_gc();
     ti_thing_resize_gc();
 
     /* garbage collect */

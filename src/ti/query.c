@@ -682,7 +682,6 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e)
     free(query->vars);
     ti_collection_drop(query->collection);
 
-    ti_thing_clean_gc();
     free(query);
 
     query = future->query;

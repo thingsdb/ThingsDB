@@ -303,16 +303,16 @@ failed:
 }
 
 /* adds a map with key/value pairs */
-int ti_enum_members_to_pk(ti_enum_t * enum_, msgpack_packer * pk, int options)
+int ti_enum_members_to_pk(ti_enum_t * enum_, ti_vp_t * vp, int options)
 {
-    if (msgpack_pack_array(pk, enum_->members->n))
+    if (msgpack_pack_array(&vp->pk, enum_->members->n))
         return -1;
 
     for (vec_each(enum_->members, ti_member_t, member))
     {
-        if (msgpack_pack_array(pk, 2) ||
-            mp_pack_strn(pk, member->name->str, member->name->n) ||
-            ti_val_to_pk(member->val, pk, options))
+        if (msgpack_pack_array(&vp->pk, 2) ||
+            mp_pack_strn(&vp->pk, member->name->str, member->name->n) ||
+            ti_val_to_pk(member->val, vp, options))
             return -1;
     }
 
@@ -418,13 +418,13 @@ ti_member_t * ti_enum_member_by_val_e(
 ti_val_t * ti_enum_as_mpval(ti_enum_t * enum_)
 {
     ti_raw_t * raw;
-    msgpack_packer pk;
+    ti_vp_t vp;
     msgpack_sbuffer buffer;
 
     mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
-    if (ti_enum_to_pk(enum_, &pk))
+    if (ti_enum_to_pk(enum_, &vp))
     {
         msgpack_sbuffer_destroy(&buffer);
         return NULL;
@@ -436,30 +436,30 @@ ti_val_t * ti_enum_as_mpval(ti_enum_t * enum_)
     return (ti_val_t *) raw;
 }
 
-int ti_enum_to_pk(ti_enum_t * enum_, msgpack_packer * pk)
+int ti_enum_to_pk(ti_enum_t * enum_, ti_vp_t * vp)
 {
     ti_member_t * def = VEC_first(enum_->members);
     return (
-        msgpack_pack_map(pk, 6) ||
-        mp_pack_str(pk, "enum_id") ||
-        msgpack_pack_uint16(pk, enum_->enum_id) ||
+        msgpack_pack_map(&vp->pk, 6) ||
+        mp_pack_str(&vp->pk, "enum_id") ||
+        msgpack_pack_uint16(&vp->pk, enum_->enum_id) ||
 
-        mp_pack_str(pk, "name") ||
-        mp_pack_strn(pk, enum_->rname->data, enum_->rname->n) ||
+        mp_pack_str(&vp->pk, "name") ||
+        mp_pack_strn(&vp->pk, enum_->rname->data, enum_->rname->n) ||
 
-        mp_pack_str(pk, "default") ||
-        mp_pack_strn(pk, def->name->str, def->name->n) ||
+        mp_pack_str(&vp->pk, "default") ||
+        mp_pack_strn(&vp->pk, def->name->str, def->name->n) ||
 
-        mp_pack_str(pk, "created_at") ||
-        msgpack_pack_uint64(pk, enum_->created_at) ||
+        mp_pack_str(&vp->pk, "created_at") ||
+        msgpack_pack_uint64(&vp->pk, enum_->created_at) ||
 
-        mp_pack_str(pk, "modified_at") ||
+        mp_pack_str(&vp->pk, "modified_at") ||
         (enum_->modified_at
-            ? msgpack_pack_uint64(pk, enum_->modified_at)
-            : msgpack_pack_nil(pk)) ||
+            ? msgpack_pack_uint64(&vp->pk, enum_->modified_at)
+            : msgpack_pack_nil(&vp->pk)) ||
 
-        mp_pack_str(pk, "members") ||
-        ti_enum_members_to_pk(enum_, pk, 0)  /* only ID's for one level */
+        mp_pack_str(&vp->pk, "members") ||
+        ti_enum_members_to_pk(enum_, vp, 0)  /* only ID's for one level */
     );
 }
 

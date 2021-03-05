@@ -155,20 +155,20 @@ static _Bool field__spec_is_ascii(
 static ti_data_t * field___set_job(ti_name_t * name, ti_val_t * val)
 {
     ti_data_t * data;
-    msgpack_packer pk;
+    ti_vp_t vp;
     msgpack_sbuffer buffer;
 
     mp_sbuffer_alloc_init(&buffer, sizeof(ti_data_t), sizeof(ti_data_t));
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
-    if (msgpack_pack_array(&pk, 1) ||
-        msgpack_pack_map(&pk, 1) ||
-        mp_pack_str(&pk, "set") ||
-        msgpack_pack_map(&pk, 1)
+    if (msgpack_pack_array(&vp.pk, 1) ||
+        msgpack_pack_map(&vp.pk, 1) ||
+        mp_pack_str(&vp.pk, "set") ||
+        msgpack_pack_map(&vp.pk, 1)
     ) goto fail_pack;
 
-    if (mp_pack_strn(&pk, name->str, name->n) ||
-        ti_val_to_pk(val, &pk, 0)
+    if (mp_pack_strn(&vp.pk, name->str, name->n) ||
+        ti_val_to_pk(val, &vp, 0)
     ) goto fail_pack;
 
     data = (ti_data_t *) buffer.data;

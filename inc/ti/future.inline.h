@@ -7,18 +7,19 @@
 #include <ti/future.t.h>
 #include <ti/val.inline.h>
 #include <ti/closure.inline.h>
+#include <ti/vp.t.h>
 #include <util/mpack.h>
 #include <util/link.h>
 
 static inline int ti_future_to_pk(
         ti_future_t * future,
-        msgpack_packer * pk,
+        ti_vp_t * vp,
         int options)
 {
     assert (options >= 0);
     return future->rval
-            ? ti_val_to_pk(future->rval, pk, options)
-            : msgpack_pack_nil(pk);
+            ? ti_val_to_pk(future->rval, vp, options)
+            : msgpack_pack_nil(&vp->pk);
 }
 
 static inline int ti_future_register(ti_future_t * future)

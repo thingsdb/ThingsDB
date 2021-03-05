@@ -108,24 +108,24 @@ int ti_task_add_add(ti_task_t * task, ti_raw_t * key, vec_t * added)
     assert (added->n);
     assert (key);
     ti_data_t * data;
-    msgpack_packer pk;
+    ti_vp_t vp;
     msgpack_sbuffer buffer;
 
     mp_sbuffer_alloc_init(&buffer, sizeof(ti_data_t), sizeof(ti_data_t));
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
-    if (msgpack_pack_map(&pk, 1) ||
-        mp_pack_str(&pk, "add") ||
-        msgpack_pack_map(&pk, 1)
+    if (msgpack_pack_map(&vp.pk, 1) ||
+        mp_pack_str(&vp.pk, "add") ||
+        msgpack_pack_map(&vp.pk, 1)
     ) goto fail_pack;
 
-    if (mp_pack_strn(&pk, key->data, key->n) ||
-        msgpack_pack_array(&pk, added->n)
+    if (mp_pack_strn(&vp.pk, key->data, key->n) ||
+        msgpack_pack_array(&vp.pk, added->n)
     ) goto fail_pack;
 
     for (vec_each(added, ti_thing_t, thing))
         if ((!thing->id && ti_thing_gen_id(thing)) ||
-            ti_val_to_pk((ti_val_t *) thing, &pk, TI_VAL_PACK_TASK)
+            ti_val_to_pk((ti_val_t *) thing, &vp, TI_VAL_PACK_TASK)
         ) goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
@@ -149,22 +149,22 @@ fail_pack:
 int ti_task_add_set(ti_task_t * task, ti_raw_t * key, ti_val_t * val)
 {
     ti_data_t * data;
-    msgpack_packer pk;
+    ti_vp_t vp;
     msgpack_sbuffer buffer;
 
     mp_sbuffer_alloc_init(&buffer, sizeof(ti_data_t), sizeof(ti_data_t));
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
     if (ti_val_gen_ids(val))
         return -1;
 
-    if (msgpack_pack_map(&pk, 1) ||
-        mp_pack_str(&pk, "set") ||
-        msgpack_pack_map(&pk, 1)
+    if (msgpack_pack_map(&vp.pk, 1) ||
+        mp_pack_str(&vp.pk, "set") ||
+        msgpack_pack_map(&vp.pk, 1)
     ) goto fail_pack;
 
-    if (mp_pack_strn(&pk, key->data, key->n) ||
-        ti_val_to_pk(val, &pk, TI_VAL_PACK_TASK)
+    if (mp_pack_strn(&vp.pk, key->data, key->n) ||
+        ti_val_to_pk(val, &vp, TI_VAL_PACK_TASK)
     ) goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
@@ -932,35 +932,35 @@ int ti_task_add_new_timer(ti_task_t * task, ti_timer_t * timer)
 {
     size_t alloc = 1024;
     ti_data_t * data;
-    msgpack_packer pk;
+    ti_vp_t vp;
     msgpack_sbuffer buffer;
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_map(&vp.pk, 1);
 
-    mp_pack_str(&pk, "new_timer");
-    msgpack_pack_map(&pk, 6);
+    mp_pack_str(&vp.pk, "new_timer");
+    msgpack_pack_map(&vp.pk, 6);
 
-    mp_pack_str(&pk, "id");
-    msgpack_pack_uint64(&pk, timer->id);
+    mp_pack_str(&vp.pk, "id");
+    msgpack_pack_uint64(&vp.pk, timer->id);
 
-    mp_pack_str(&pk, "next_run");
-    msgpack_pack_uint64(&pk, timer->next_run);
+    mp_pack_str(&vp.pk, "next_run");
+    msgpack_pack_uint64(&vp.pk, timer->next_run);
 
-    mp_pack_str(&pk, "repeat");
-    msgpack_pack_uint32(&pk, timer->repeat);
+    mp_pack_str(&vp.pk, "repeat");
+    msgpack_pack_uint32(&vp.pk, timer->repeat);
 
-    mp_pack_str(&pk, "user_id");
-    msgpack_pack_uint64(&pk, timer->user->id);
+    mp_pack_str(&vp.pk, "user_id");
+    msgpack_pack_uint64(&vp.pk, timer->user->id);
 
-    if (mp_pack_str(&pk, "closure") ||
-        ti_closure_to_pk(timer->closure, &pk) ||
+    if (mp_pack_str(&vp.pk, "closure") ||
+        ti_closure_to_pk(timer->closure, &vp.pk) ||
 
-        mp_pack_str(&pk, "args") ||
-        msgpack_pack_array(&pk, timer->args->n))
+        mp_pack_str(&vp.pk, "args") ||
+        msgpack_pack_array(&vp.pk, timer->args->n))
         goto fail_pack;
 
     /*
@@ -969,7 +969,7 @@ int ti_task_add_new_timer(ti_task_t * task, ti_timer_t * timer)
      */
     for (vec_each(timer->args, ti_val_t, val))
         if (ti_val_gen_ids(val) ||
-            ti_val_to_pk(val, &pk, TI_VAL_PACK_TASK))
+            ti_val_to_pk(val, &vp, TI_VAL_PACK_TASK))
             goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
@@ -994,23 +994,23 @@ int ti_task_add_set_timer_args(ti_task_t * task, ti_timer_t * timer)
 {
     size_t alloc = 1024;
     ti_data_t * data;
-    msgpack_packer pk;
+    ti_vp_t vp;
     msgpack_sbuffer buffer;
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_map(&vp.pk, 1);
 
-    mp_pack_str(&pk, "set_timer_args");
-    msgpack_pack_map(&pk, 2);
+    mp_pack_str(&vp.pk, "set_timer_args");
+    msgpack_pack_map(&vp.pk, 2);
 
-    mp_pack_str(&pk, "id");
-    msgpack_pack_uint64(&pk, timer->id);
+    mp_pack_str(&vp.pk, "id");
+    msgpack_pack_uint64(&vp.pk, timer->id);
 
-    mp_pack_str(&pk, "args");
-    msgpack_pack_array(&pk, timer->args->n);
+    mp_pack_str(&vp.pk, "args");
+    msgpack_pack_array(&vp.pk, timer->args->n);
 
     /*
      * In the @thingsdb scope there are no things allowed as arguments so
@@ -1018,7 +1018,7 @@ int ti_task_add_set_timer_args(ti_task_t * task, ti_timer_t * timer)
      */
     for (vec_each(timer->args, ti_val_t, val))
         if (ti_val_gen_ids(val) ||
-            ti_val_to_pk(val, &pk, TI_VAL_PACK_TASK))
+            ti_val_to_pk(val, &vp, TI_VAL_PACK_TASK))
             goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
@@ -1134,34 +1134,34 @@ int ti_task_add_mod_type_add_field(
     ti_field_t * field = VEC_last(type->fields);
     size_t alloc = dval ? 8192 : 64 + field->name->n + field->spec_raw->n;
     ti_data_t * data;
-    msgpack_packer pk;
+    ti_vp_t vp;
     msgpack_sbuffer buffer;
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_map(&vp.pk, 1);
 
-    mp_pack_str(&pk, "mod_type_add");
-    msgpack_pack_map(&pk, dval ? 5 : 4);
+    mp_pack_str(&vp.pk, "mod_type_add");
+    msgpack_pack_map(&vp.pk, dval ? 5 : 4);
 
-    mp_pack_str(&pk, "type_id");
-    msgpack_pack_uint16(&pk, type->type_id);
+    mp_pack_str(&vp.pk, "type_id");
+    msgpack_pack_uint16(&vp.pk, type->type_id);
 
-    mp_pack_str(&pk, "modified_at");
-    msgpack_pack_uint64(&pk, type->modified_at);
+    mp_pack_str(&vp.pk, "modified_at");
+    msgpack_pack_uint64(&vp.pk, type->modified_at);
 
-    mp_pack_str(&pk, "name");
-    mp_pack_strn(&pk, field->name->str, field->name->n);
+    mp_pack_str(&vp.pk, "name");
+    mp_pack_strn(&vp.pk, field->name->str, field->name->n);
 
-    mp_pack_str(&pk, "spec");
-    mp_pack_strn(&pk, field->spec_raw->data, field->spec_raw->n);
+    mp_pack_str(&vp.pk, "spec");
+    mp_pack_strn(&vp.pk, field->spec_raw->data, field->spec_raw->n);
 
     if (dval)
     {
-        mp_pack_str(&pk, "dval");
-        if (ti_val_to_pk(dval, &pk, TI_VAL_PACK_TASK))
+        mp_pack_str(&vp.pk, "dval");
+        if (ti_val_to_pk(dval, &vp, TI_VAL_PACK_TASK))
             goto fail_pack;
     }
 
@@ -1889,29 +1889,29 @@ int ti_task_add_splice(
     ti_val_t * val;
     size_t alloc = n ? 8192 : (key->n + 64);
     ti_data_t * data;
-    msgpack_packer pk;
+    ti_vp_t vp;
     msgpack_sbuffer buffer;
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
-    mp_pack_str(&pk, "splice");
+    msgpack_pack_map(&vp.pk, 1);
+    mp_pack_str(&vp.pk, "splice");
 
-    msgpack_pack_map(&pk, 1);
-    mp_pack_strn(&pk, key->data, key->n);
+    msgpack_pack_map(&vp.pk, 1);
+    mp_pack_strn(&vp.pk, key->data, key->n);
 
-    msgpack_pack_array(&pk, 2 + n);
+    msgpack_pack_array(&vp.pk, 2 + n);
 
-    msgpack_pack_uint32(&pk, i);
-    msgpack_pack_uint32(&pk, c);
+    msgpack_pack_uint32(&vp.pk, i);
+    msgpack_pack_uint32(&vp.pk, c);
 
     for (c = i + n; i < c; ++i)
     {
         val = VEC_get(varr->vec, i);
 
-        if (ti_val_gen_ids(val) || ti_val_to_pk(val, &pk, TI_VAL_PACK_TASK))
+        if (ti_val_gen_ids(val) || ti_val_to_pk(val, &vp, TI_VAL_PACK_TASK))
             goto fail_pack;
     }
 
@@ -1966,7 +1966,7 @@ int ti_task_add_set_enum(ti_task_t * task, ti_enum_t * enum_)
 {
     size_t alloc = 8192;
     ti_data_t * data;
-    msgpack_packer pk;
+    ti_vp_t vp;
     msgpack_sbuffer buffer;
 
     if (enum_->enum_tp == TI_ENUM_THING)
@@ -1977,24 +1977,24 @@ int ti_task_add_set_enum(ti_task_t * task, ti_enum_t * enum_)
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
 
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_map(&vp.pk, 1);
 
-    mp_pack_str(&pk, "set_enum");
-    msgpack_pack_map(&pk, 4);
+    mp_pack_str(&vp.pk, "set_enum");
+    msgpack_pack_map(&vp.pk, 4);
 
-    mp_pack_str(&pk, "enum_id");
-    msgpack_pack_uint16(&pk, enum_->enum_id);
+    mp_pack_str(&vp.pk, "enum_id");
+    msgpack_pack_uint16(&vp.pk, enum_->enum_id);
 
-    mp_pack_str(&pk, "created_at");
-    msgpack_pack_uint64(&pk, enum_->created_at);
+    mp_pack_str(&vp.pk, "created_at");
+    msgpack_pack_uint64(&vp.pk, enum_->created_at);
 
-    mp_pack_str(&pk, "name");
-    mp_pack_strn(&pk, enum_->rname->data, enum_->rname->n);
+    mp_pack_str(&vp.pk, "name");
+    mp_pack_strn(&vp.pk, enum_->rname->data, enum_->rname->n);
 
-    mp_pack_str(&pk, "members");
-    if (ti_enum_members_to_pk(enum_, &pk, TI_VAL_PACK_TASK))
+    mp_pack_str(&vp.pk, "members");
+    if (ti_enum_members_to_pk(enum_, &vp, TI_VAL_PACK_TASK))
         goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
@@ -2019,7 +2019,7 @@ int ti_task_add_mod_enum_add(ti_task_t * task, ti_member_t * member)
 {
     size_t alloc = 8192;
     ti_data_t * data;
-    msgpack_packer pk;
+    ti_vp_t vp;
     msgpack_sbuffer buffer;
 
     if (ti_val_gen_ids(member->val))
@@ -2027,24 +2027,24 @@ int ti_task_add_mod_enum_add(ti_task_t * task, ti_member_t * member)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_map(&vp.pk, 1);
 
-    mp_pack_str(&pk, "mod_enum_add");
-    msgpack_pack_map(&pk, 4);
+    mp_pack_str(&vp.pk, "mod_enum_add");
+    msgpack_pack_map(&vp.pk, 4);
 
-    mp_pack_str(&pk, "enum_id");
-    msgpack_pack_uint16(&pk, member->enum_->enum_id);
+    mp_pack_str(&vp.pk, "enum_id");
+    msgpack_pack_uint16(&vp.pk, member->enum_->enum_id);
 
-    mp_pack_str(&pk, "modified_at");
-    msgpack_pack_uint64(&pk, member->enum_->modified_at);
+    mp_pack_str(&vp.pk, "modified_at");
+    msgpack_pack_uint64(&vp.pk, member->enum_->modified_at);
 
-    mp_pack_str(&pk, "name");
-    mp_pack_strn(&pk, member->name->str, member->name->n);
+    mp_pack_str(&vp.pk, "name");
+    mp_pack_strn(&vp.pk, member->name->str, member->name->n);
 
-    mp_pack_str(&pk, "value");
-    if (ti_val_to_pk(member->val, &pk, TI_VAL_PACK_TASK))
+    mp_pack_str(&vp.pk, "value");
+    if (ti_val_to_pk(member->val, &vp, TI_VAL_PACK_TASK))
         goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
@@ -2147,7 +2147,7 @@ int ti_task_add_mod_enum_mod(ti_task_t * task, ti_member_t * member)
 {
     size_t alloc = 8192;
     ti_data_t * data;
-    msgpack_packer pk;
+    ti_vp_t vp;
     msgpack_sbuffer buffer;
 
     if (ti_val_gen_ids(member->val))
@@ -2155,24 +2155,24 @@ int ti_task_add_mod_enum_mod(ti_task_t * task, ti_member_t * member)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_map(&vp.pk, 1);
 
-    mp_pack_str(&pk, "mod_enum_mod");
-    msgpack_pack_map(&pk, 4);
+    mp_pack_str(&vp.pk, "mod_enum_mod");
+    msgpack_pack_map(&vp.pk, 4);
 
-    mp_pack_str(&pk, "enum_id");
-    msgpack_pack_uint16(&pk, member->enum_->enum_id);
+    mp_pack_str(&vp.pk, "enum_id");
+    msgpack_pack_uint16(&vp.pk, member->enum_->enum_id);
 
-    mp_pack_str(&pk, "modified_at");
-    msgpack_pack_uint64(&pk, member->enum_->modified_at);
+    mp_pack_str(&vp.pk, "modified_at");
+    msgpack_pack_uint64(&vp.pk, member->enum_->modified_at);
 
-    mp_pack_str(&pk, "index");
-    msgpack_pack_uint16(&pk, member->idx);
+    mp_pack_str(&vp.pk, "index");
+    msgpack_pack_uint16(&vp.pk, member->idx);
 
-    mp_pack_str(&pk, "value");
-    if (ti_val_to_pk(member->val, &pk, TI_VAL_PACK_TASK))
+    mp_pack_str(&vp.pk, "value");
+    if (ti_val_to_pk(member->val, &vp, TI_VAL_PACK_TASK))
         goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
@@ -2266,32 +2266,35 @@ fail_data:
 
 int ti_task_add_event(
         ti_task_t * task,
+        ti_query_t * query,
         ti_raw_t * revent,
         vec_t * vec,
         int deep)
 {
     size_t alloc = 8192;
     ti_data_t * data;
-    msgpack_packer pk;
+    ti_vp_t vp = {
+            .query=query,
+    };
     msgpack_sbuffer buffer;
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
-    mp_pack_str(&pk, "event");
+    msgpack_pack_map(&vp.pk, 1);
+    mp_pack_str(&vp.pk, "event");
 
-    msgpack_pack_array(&pk, 1 + (vec ? vec->n : 0));
+    msgpack_pack_array(&vp.pk, 1 + (vec ? vec->n : 0));
 
     /* the first in the array is the event, followed by optional data */
-    if (mp_pack_strn(&pk, revent->data, revent->n))
+    if (mp_pack_strn(&vp.pk, revent->data, revent->n))
         goto fail_pack;
 
     /* no need to generate ID's since the values might not be stored */
     if (vec)
         for (vec_each(vec, ti_val_t, val))
-            if (ti_val_to_pk(val, &pk, deep))
+            if (ti_val_to_pk(val, &vp, deep))
                 goto fail_pack;
 
     data = (ti_data_t *) buffer.data;

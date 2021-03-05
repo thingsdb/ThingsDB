@@ -122,11 +122,11 @@ ti_varr_t * ti_enums_info(ti_enums_t * enums)
     return varr;
 }
 
-int ti_enums_to_pk(ti_enums_t * enums, msgpack_packer * pk)
+int ti_enums_to_pk(ti_enums_t * enums, ti_vp_t * vp)
 {
     return (
-        msgpack_pack_array(pk, enums->imap->n) ||
-        imap_walk(enums->imap, (imap_cb) ti_enum_to_pk, pk)
+        msgpack_pack_array(&vp->pk, enums->imap->n) ||
+        imap_walk(enums->imap, (imap_cb) ti_enum_to_pk, vp)
     );
 }
 

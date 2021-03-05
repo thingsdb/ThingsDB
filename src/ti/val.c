@@ -1526,31 +1526,31 @@ int ti_val_gen_ids(ti_val_t * val)
     return 0;
 }
 
-int ti_val_to_pk(ti_val_t * val, msgpack_packer * pk, int options)
+int ti_val_to_pk(ti_val_t * val, ti_vp_t * vp, int options)
 {
     switch ((ti_val_enum) val->tp)
     {
-    TI_VAL_PACK_CASE_IMMUTABLE(val, pk, options)
+    TI_VAL_PACK_CASE_IMMUTABLE(val, &vp->pk, options)
     case TI_VAL_THING:
-        return ti_thing_to_pk((ti_thing_t *) val, pk, options);
+        return ti_thing_to_pk((ti_thing_t *) val, vp, options);
     case TI_VAL_WRAP:
-        return ti_wrap_to_pk((ti_wrap_t *) val, pk, options);
+        return ti_wrap_to_pk((ti_wrap_t *) val, vp, options);
     case TI_VAL_ARR:
     {
         ti_varr_t * varr = (ti_varr_t *) val;
-        if (msgpack_pack_array(pk, varr->vec->n))
+        if (msgpack_pack_array(&vp->pk, varr->vec->n))
             return -1;
         for (vec_each(varr->vec, ti_val_t, v))
-            if (ti_val_to_pk(v, pk, options))
+            if (ti_val_to_pk(v, vp, options))
                 return -1;
         return 0;
     }
     case TI_VAL_SET:
-        return ti_vset_to_pk((ti_vset_t *) val, pk, options);
+        return ti_vset_to_pk((ti_vset_t *) val, vp, options);
     case TI_VAL_MEMBER:
-        return ti_member_to_pk((ti_member_t *) val, pk, options);
+        return ti_member_to_pk((ti_member_t *) val, vp, options);
     case TI_VAL_FUTURE:
-        return ti_future_to_pk((ti_future_t * ) val, pk, options);
+        return ti_future_to_pk((ti_future_t * ) val, vp, options);
     }
     assert(0);
     return -1;

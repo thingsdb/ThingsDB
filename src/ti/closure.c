@@ -516,6 +516,33 @@ int ti_closure_call(
     return e->nr;
 }
 
+int ti_closure_call_one_arg(
+        ti_closure_t * closure,
+        ti_query_t * query,
+        ti_val_t * arg,
+        ex_t * e)
+{
+    assert (closure);
+    assert (closure->vars);
+
+    if (ti_closure_try_wse(closure, query, e) ||
+        ti_closure_inc(closure, query, e))
+        return e->nr;
+
+    if (closure->vars->n)
+    {
+        ti_prop_t * prop = VEC_first(closure->vars);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = arg;
+        ti_incref(arg);
+    }
+
+    (void) ti_closure_do_statement(closure, query, e);
+    ti_closure_dec(closure, query);
+
+    return e->nr;
+}
+
 ti_raw_t * ti_closure_doc(ti_closure_t * closure)
 {
     ti_raw_t * doc = NULL;

@@ -7,6 +7,7 @@
 #include <ex.h>
 #include <stdint.h>
 #include <ti/val.t.h>
+#include <ti/vp.t.h>
 #include <ti/vup.t.h>
 #include <util/vec.h>
 
@@ -44,7 +45,7 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e);
 _Bool ti_val_as_bool(ti_val_t * val);
 size_t ti_val_get_len(ti_val_t * val);
 int ti_val_gen_ids(ti_val_t * val);
-int ti_val_to_pk(ti_val_t * val, msgpack_packer * pk, int options);
+int ti_val_to_pk(ti_val_t * val, ti_vp_t * vp, int options);
 void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz);
 const char * ti_val_str(ti_val_t * val);
 ti_val_t * ti_val_strv(ti_val_t * val);

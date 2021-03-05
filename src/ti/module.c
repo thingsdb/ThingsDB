@@ -132,7 +132,7 @@ static void module__cb(ti_future_t * future)
 {
     int uv_err;
     ti_thing_t * thing = VEC_get(future->args, 0);
-    msgpack_packer pk;
+    ti_vp_t vp;
     msgpack_sbuffer buffer;
     size_t alloc_sz = 1024;
 
@@ -171,9 +171,9 @@ static void module__cb(ti_future_t * future)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc_sz, sizeof(ti_pkg_t)))
         goto mem_error0;
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
-    if (ti_thing_to_pk(thing, &pk, future->deep))
+    if (ti_thing_to_pk(thing, &vp, future->deep))
         goto mem_error1;
 
     future->pkg = (ti_pkg_t *) buffer.data;
@@ -198,22 +198,24 @@ mem_error0:
     }
 }
 
-ti_pkg_t * ti_module_conf_pkg(ti_val_t * val)
+ti_pkg_t * ti_module_conf_pkg(ti_val_t * val, ti_query_t * query)
 {
     ti_pkg_t * pkg;
-    msgpack_packer pk;
+    ti_vp_t vp = {
+            .query=query,
+    };
     msgpack_sbuffer buffer;
     size_t alloc_sz = 1024;
 
     if (mp_sbuffer_alloc_init(&buffer, alloc_sz, sizeof(ti_pkg_t)))
         return NULL;
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
     /*
      * Module configuration will be packed 2 levels deep. This is a fixed
      * setting and should be sufficient to configure a module.
      */
-    if (ti_val_to_pk(val, &pk, 2))
+    if (ti_val_to_pk(val, &vp, 2))
     {
         msgpack_sbuffer_destroy(&buffer);
         return NULL;

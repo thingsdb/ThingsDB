@@ -40,6 +40,11 @@ int ti_closure_call(
         ti_query_t * query,
         vec_t * args,
         ex_t * e);
+int ti_closure_call_one_arg(
+        ti_closure_t * closure,
+        ti_query_t * query,
+        ti_val_t * arg,
+        ex_t * e);
 ti_raw_t * ti_closure_doc(ti_closure_t * closure);
 ti_raw_t * ti_closure_def(ti_closure_t * closure);
 

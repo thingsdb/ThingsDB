@@ -12,12 +12,13 @@ typedef struct ti_vset_s ti_vset_t;
 #include <inttypes.h>
 #include <ti/thing.h>
 #include <ti/val.h>
+#include <ti/vp.t.h>
 #include <util/imap.h>
 #include <util/mpack.h>
 
 ti_vset_t * ti_vset_create(void);
 void ti_vset_destroy(ti_vset_t * vset);
-int ti_vset_to_pk(ti_vset_t * vset, msgpack_packer * pk, int options);
+int ti_vset_to_pk(ti_vset_t * vset, ti_vp_t * vp, int options);
 int ti_vset_to_list(ti_vset_t ** vsetaddr);
 int ti_vset_to_tuple(ti_vset_t ** vsetaddr);
 int ti_vset_to_file(ti_vset_t * vset, FILE * f);

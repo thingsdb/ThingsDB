@@ -195,6 +195,133 @@ class TestWrap(TestBase):
             }]
         })
 
+    async def test_wrap_methods(self, client):
+        await client.query(r'''
+            set_type('Person', {
+                name: 'str',
+                messages: '[str]',
+            });
+            set_type('_Pmcount', {
+                name: 'any',
+                mcount: |p| p.messages.len()
+            }, true);
+            set_type('_Pmul', {
+                name: 'any',
+                mul: |a, b| a * b
+            }, true);
+            set_type('_Pnoargs', {
+                name: 'any',
+                noargs: || "hi!"
+            }, true);
+            set_type('_Pmore', {
+                name: |p| p.name.upper(),
+                other: || {other: 123},
+            }, true);
+            set_type('_Pwse', {
+                wse: || wse(.x = 1234)
+            }, true);
+            set_type('_Pfut', {
+                fut: || future(|| .x = 1234)
+            }, true);
+        ''')
+
+        # _Pmcount
+        res = await client.query(r'''
+            p = Person{
+                name: 'iris',
+                messages: ['hi', 'hello', 'bye']
+            };
+            p.wrap('_Pmcount');
+        ''')
+
+        self.assertEqual(res, {
+            "name": "iris",
+            "mcount": 3
+        })
+
+        # _Pmul
+        res = await client.query(r'''
+            p = Person{
+                name: 'iris',
+                messages: ['hi', 'hello', 'bye']
+            };
+            p.wrap('_Pmul');
+        ''')
+
+        self.assertEqual(res, {
+            "name": "iris",
+            "mul": {
+                '!': 'type_err()',
+                'error_code': -61,
+                'error_msg': '`*` not supported between `Person` and `nil`'
+            }
+        })
+
+        # _Pnoargs
+        res = await client.query(r'''
+            p = Person{
+                name: 'iris',
+                messages: ['hi', 'hello', 'bye']
+            };
+            p.wrap('_Pnoargs');
+        ''')
+
+        self.assertEqual(res, {
+            "name": "iris",
+            "noargs": "hi!"
+        })
+
+        # _Pmore
+        res = await client.query(r'''
+            p = Person{
+                name: 'iris',
+                messages: ['hi', 'hello', 'bye']
+            };
+            return(p.wrap('_Pmore'), 2);
+        ''')
+
+        self.assertEqual(res, {
+            "name": "IRIS",
+            "other": {'other': 123},
+        })
+
+        # _Pwse
+        res = await client.query(r'''
+            p = Person{
+                name: 'iris',
+                messages: ['hi', 'hello', 'bye']
+            };
+            p.wrap('_Pwse');
+        ''')
+
+        self.assertEqual(res, {
+            "wse": {
+                '!': 'bad_data_err()',
+                'error_code': -53,
+                'error_msg':
+                    'failed to compute property; method has side effects'
+            }
+        })
+
+        # _Pfut
+        res = await client.query(r'''
+            p = Person{
+                name: 'iris',
+                messages: ['hi', 'hello', 'bye']
+            };
+            p.wrap('_Pfut');
+        ''')
+
+        self.assertEqual(res, {
+            "fut": {
+                '!': 'bad_data_err()',
+                'error_code': -53,
+                'error_msg':
+                    'failed to compute property; method contains futures'
+            }
+        })
+
+
 
 if __name__ == '__main__':
     run_test(TestWrap())

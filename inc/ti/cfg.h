@@ -48,8 +48,8 @@ struct ti_cfg_s
     char * gcloud_key_file;
     char * modules_path;                /* path to find modules */
     char * python_interpreter;          /* python interpreter, default NULL */
-    double query_duration_warn;
-    double query_duration_error;
+    double query_duration_warn;         /* TODO : make obsolete */
+    double query_duration_error;        /* TODO : make obsolete */
 };
 
 #endif /* TI_CFG_H_ */

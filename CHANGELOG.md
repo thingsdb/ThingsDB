@@ -2,6 +2,7 @@
 
 * Added option to create relations between types, issue #161.
 * Added support for Python modules, issue #162.
+* Added support for Timers, issue #163.
   - `new_timer`: https://docs.thingsdb.net/v0/timers-api/new_timer/
   - `del_timer`: https://docs.thingsdb.net/v0/timers-api/del_timer/
   - `has_timer`: https://docs.thingsdb.net/v0/timers-api/has_timer/
@@ -9,7 +10,7 @@
   - `timer_args`: https://docs.thingsdb.net/v0/timers-api/timer_args/
   - `timer_info`: https://docs.thingsdb.net/v0/timers-api/timer_info/
   - `timers_info`: https://docs.thingsdb.net/v0/timers-api/timers_info/
-* Support computed properties on wrapped type, issue #164.
+* Added computed properties on wrapped type, issue #164.
 * Fixed cleaning query garbage collection too early, issue #165.
 
 # v0.10.4

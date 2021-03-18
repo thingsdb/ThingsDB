@@ -49,7 +49,15 @@ void ti_quorum_go(ti_quorum_t * quorum)
             quorum->cb_(quorum->data, true);
             quorum->cb_ = NULL;
         }
-        else if (quorum->rejected == quorum->accept_threshold)
+        else if (
+                /* With an even number of requests, for example with 3 nodes
+                 * and 2 requests, the number of rejects must exceed the
+                 * accept threshold, with an odd number, for example 4 nodes
+                 * and 3 requests, the number only requires to match the
+                 * accept threshold.
+                 */
+                quorum->rejected + (quorum->requests & 1) >
+                quorum->accept_threshold)
         {
             quorum->cb_(quorum->data, false);
             quorum->cb_ = NULL;

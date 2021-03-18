@@ -21,7 +21,6 @@
 #include <util/mpack.h>
 #include <util/omap.h>
 
-
 static uint64_t event__req_id = 0;
 
 ti_event_t * ti_event_create(ti_event_tp_enum tp)

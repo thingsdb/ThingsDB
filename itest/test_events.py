@@ -23,7 +23,7 @@ class TestEvents(TestBase):
 
     @default_test_setup(num_nodes=4, seed=1, threshold_full_storage=1000000)
     async def run(self):
-        x = 30
+        x = 50
         mq = '.x += .x % {}; .arr.push(.x);'
 
         await self.node0.init_and_run()
@@ -177,7 +177,7 @@ class TestEvents(TestBase):
     async def loop_add(self, x, q, *clients):
         for _ in range(x):
             await self.mquery(q, *clients)
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.01)
 
 
 if __name__ == '__main__':

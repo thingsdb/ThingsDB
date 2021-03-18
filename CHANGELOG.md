@@ -1,3 +1,7 @@
+# v0.10.6
+
+* Prevent too early rejection of events, issue #167.
+
 # v0.10.5
 
 * Added option to create relations between types, issue #161.

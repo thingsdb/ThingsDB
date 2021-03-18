@@ -11,9 +11,9 @@
 #include <ti/auth.h>
 #include <ti/away.h>
 #include <ti/fwd.h>
-#include <ti/qcache.h>
 #include <ti/nodes.h>
 #include <ti/proto.h>
+#include <ti/qcache.h>
 #include <ti/query.inline.h>
 #include <ti/syncarchive.h>
 #include <ti/syncevents.h>
@@ -1551,8 +1551,8 @@ void ti_nodes_write_rpkg(ti_rpkg_t * rpkg)
                 TI_NODE_STAT_AWAY_SOON |
                 TI_NODE_STAT_AWAY |
                 TI_NODE_STAT_SYNCHRONIZING
-            )) && ti_stream_write_rpkg(node->stream, rpkg)
-        ) log_error(EX_INTERNAL_S);
+        )) && ti_stream_write_rpkg(node->stream, rpkg))
+            log_error(EX_INTERNAL_S);
     }
 }
 

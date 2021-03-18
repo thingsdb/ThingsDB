@@ -300,8 +300,9 @@ ti_proto_enum_t ti_events_accept_id(uint64_t event_id, uint8_t * n)
 
     if (event_id > events->next_event_id)
     {
-        log_info("skipped %u event id's while accepting "TI_EVENT_ID,
+        log_info("skipped %u event id%s while accepting "TI_EVENT_ID,
                 event_id - events->next_event_id,
+                event_id - events->next_event_id == 1 ? "" : "s",
                 event_id);
         do
         {

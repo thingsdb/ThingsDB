@@ -1388,6 +1388,87 @@ _Bool ti_thing_equals(ti_thing_t * thing, ti_val_t * otherv, uint8_t deep)
     return true;
 }
 
+static int thing__copy_cb(ti_thing_t ** thing, uint8_t * deep)
+{
+    return ti_thing_copy(thing, *deep);
+}
+
+static int thing__val_cp(ti_val_t ** valaddr, uint8_t deep)
+{
+    switch ((*valaddr)->tp)
+    {
+    case TI_VAL_THING:
+        return ti_thing_copy((ti_thing_t **) valaddr);
+    case TI_VAL_ARR:
+    {
+        vec_t * vec = VARR(*valaddr);
+        for (vec_each(vec, ti_val_t, v))
+            if (thing__val_cp(&v, deep))
+                return -1;
+        return 0;
+    }
+    case TI_VAL_SET:
+    {
+        imap_t * imap = VSET(*valaddr);
+        return imap_walk_addr(imap, (imap_addr_cb) thing__copy_cb, &deep);
+    }
+    }
+    return 0;
+}
+
+static int thing__copy_p(ti_thing_t ** taddr, uint8_t deep)
+{
+    ti_thing_t * thing = *taddr;
+    ex_t e = {0};
+    ti_thing_t * other = ti_thing_o_create(
+            0,
+            ti_thing_n(thing),
+            thing->collection);
+
+    if (!other)
+        return -1;
+
+    for (vec_each(thing->items->vec, ti_prop_t, prop))
+    {
+        ti_prop_t * p = ti_prop_dup(prop);
+
+        if (!p || ti_val_make_assignable(&p->val, other, p->name, &e))
+            goto fail;
+
+        if (deep && thing__val_cp(&p->val, deep))
+            goto fail;
+    }
+
+    ti_val_unsafe_gc_drop((ti_val_t *) thing);
+    *taddr = other;
+    return 0;
+
+fail:
+    ti_val_unsafe_drop((ti_val_t *) other);
+    return -1;
+}
+
+static int thing__copy_i(ti_thing_t ** taddr, uint8_t deep)
+{
+    return 0;
+}
+
+static int thing__copy_t(ti_thing_t ** taddr, uint8_t deep)
+{
+    return 0;
+}
+
+int ti_thing_copy(ti_thing_t ** thing, uint8_t deep)
+{
+    return deep--
+            ? ti_thing_is_object(thing)
+            ? ti_thing_is_dict(thing)
+            ? thing__copy_p(thing, deep)
+            : thing__copy_i(thing, deep)
+            : thing__copy_t(thing, deep)
+            : 0;
+}
+
 int ti_thing_init_gc(void)
 {
     thing__gc_swp = vec_new(8);

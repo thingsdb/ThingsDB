@@ -9,6 +9,7 @@
 #include <ti/mapping.h>
 #include <ti/member.h>
 #include <ti/method.t.h>
+#include <ti/prop.h>
 #include <ti/regex.h>
 #include <ti/types.inline.h>
 #include <ti/val.inline.h>
@@ -375,4 +376,113 @@ fail:
     return -1;
 }
 
+int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep)
+{
+    assert (deep);
+    ti_thing_t * other, * thing = (*wrap)->thing;
+    ti_type_t * type = ti_types_by_id(
+            thing->collection->types,
+            (*wrap)->type_id);
 
+    if (!type)
+    {
+        ti_incref(thing);
+
+        if (ti_thing_copy(&thing, deep))
+        {
+            ti_decref(thing);
+            return -1;
+        }
+
+        ti_val_unsafe_drop((ti_val_t *) *wrap);
+        *wrap = (ti_wrap_t *) thing;
+        return 0;
+    }
+
+    --deep;
+
+    if (ti_thing_is_object(thing))
+    {
+        size_t n = ti_min(type->fields->n, ti_thing_n(thing));
+        other = ti_thing_o_create(0, n , thing->collection);
+        if (!other)
+            return -1;
+
+        for (vec_each(type->fields, ti_field_t, t_field))
+        {
+            ti_prop_t * prop, * p;
+            prop = ti_thing_o_prop_weak_get(thing, t_field->name);
+            if (!prop || !ti_field_maps_to_val(t_field, prop->val))
+                continue;
+
+            p = ti_prop_dup(prop);
+
+            if (!p || ti_val_copy(&p->val, other, p->name, deep))
+            {
+                ti_prop_destroy(p);
+                goto fail;
+            }
+
+            VEC_push(other->items.vec, p);
+        };
+    }
+    else
+    {
+        vec_t * mappings;
+        ti_type_t * f_type = ti_thing_type(thing);
+
+        mappings = ti_type_map(type, f_type);
+        if (!mappings)
+            return -1;
+
+        other = ti_thing_o_create(0, mappings->n, thing->collection);
+        if (!other)
+            return -1;
+
+        for (vec_each(mappings, ti_mapping_t, mapping))
+        {
+            ti_val_t * val = VEC_get(thing->items.vec, mapping->f_field->idx);
+            ti_prop_t * p = ti_prop_create(mapping->f_field->name, val);
+            if (!p)
+                goto fail;
+
+            ti_incref(p->name);
+            ti_incref(p->val);
+
+            if (ti_val_copy(&p->val, other, p->name, deep))
+            {
+                ti_prop_destroy(p);
+                goto fail;
+            }
+
+            VEC_push(other->items.vec, p);
+        }
+    }
+
+    ti_val_unsafe_drop((ti_val_t *) *wrap);
+    *wrap = (ti_wrap_t *) other;
+    return 0;
+
+fail:
+    ti_val_unsafe_drop((ti_val_t *) other);
+    return -1;
+}
+
+
+int ti_wrap_dup(ti_wrap_t ** wrap, uint8_t deep)
+{
+    assert (deep);
+    ti_wrap_t * nwrap = ti_wrap_create((*wrap)->thing, (*wrap)->type_id);
+    if (!nwrap)
+        return -1;
+
+    if (ti_thing_dup(&nwrap->thing, deep))
+    {
+        ti_wrap_destroy(nwrap);
+        return -1;
+    }
+
+    ti_val_unsafe_drop((ti_val_t *) *wrap);
+    *wrap = nwrap;
+    return 0;
+}

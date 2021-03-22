@@ -15,7 +15,6 @@ typedef struct imap_node_s imap_node_t;
 typedef struct imap_s imap_t;
 
 typedef int (*imap_cb)(void * data, void * arg);
-typedef int (*imap_addr_cb)(void ** data, void * arg);
 typedef void (*imap_destroy_cb)(void * data);
 typedef void (*imap_update_cb)(
         imap_t * dest,
@@ -34,7 +33,6 @@ int imap_add(imap_t * imap, uint64_t id, void * data);
 void * imap_get(imap_t * imap, uint64_t id);
 void * imap_pop(imap_t * imap, uint64_t id);
 int imap_walk(imap_t * imap, imap_cb cb, void * arg);
-int imap_walk_addr(imap_t * imap, imap_addr_cb cb, void * arg);
 void imap_walkn(imap_t * imap, size_t * n, imap_cb cb, void * arg);
 _Bool imap__eq_(imap_t * a, imap_t * b);
 static inline _Bool imap_eq(imap_t * a, imap_t * b);

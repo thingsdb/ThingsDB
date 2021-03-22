@@ -1,17 +1,17 @@
 #include <ti/fn/fn.h>
 
-static int do__f_copy(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_dup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const char * doc;
     const int nargs = fn_get_nargs(nd);
     ti_val_t * val;
     uint8_t deep;
 
-    doc = doc_copy(query->rval);
+    doc = doc_dup(query->rval);
     if (!doc)
-        return fn_call_try("copy", query, nd, e);
+        return fn_call_try("dup", query, nd, e);
 
-    if (fn_nargs_max("copy", doc, 1, nargs, e))
+    if (fn_nargs_max("dup", doc, 1, nargs, e))
         return e->nr;
 
     if (nargs == 1)
@@ -22,7 +22,7 @@ static int do__f_copy(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = NULL;
 
         if (ti_do_statement(query, nd->children->node, e) ||
-            fn_arg_int("copy", doc, 1, query->rval, e))
+            fn_arg_int("dup", DOC_THING_DUP, 1, query->rval, e))
             goto fail0;
 
         deepi = VINT(query->rval);
@@ -43,7 +43,7 @@ static int do__f_copy(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     else
         deep = 1;
 
-    if (ti_val_copy(&query->rval, NULL, NULL, deep))
+    if (ti_val_dup(&query->rval, NULL, NULL, deep))
         ex_set_mem(e);
 
     return e->nr;

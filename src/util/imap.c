@@ -17,7 +17,6 @@ static void * imap__set(imap_node_t * node, uint64_t id, void * data);
 static int imap__add(imap_node_t * node, uint64_t id, void * data);
 static void * imap__pop(imap_node_t * node, uint64_t id);
 static int imap__walk(imap_node_t * node, imap_cb cb, void * arg);
-static int imap__walk_addr(imap_node_t * node, imap_addr_cb cb, void * arg);
 static void imap__walkn(imap_node_t * node, imap_cb cb, void * arg, size_t * n);
 static _Bool imap__eq(imap_node_t * nodea, imap_node_t * nodeb);
 static void imap__vec(imap_node_t * node, vec_t * vec);
@@ -262,38 +261,6 @@ int imap_walk(imap_t * imap, imap_cb cb, void * arg)
                 return rc;
 
             if (nd->nodes && (rc = imap__walk(nd, cb, arg)))
-                return rc;
-        }
-        while (++nd < end);
-    }
-
-    return rc;
-}
-
-/*
- * Run the call-back function on all items in the map.
- *
- * Walking stops on the first callback returning a non zero value.
- * The return value is the last callback result. A return value of 0 means that
- * the callback function is called on all items in the map.
- *
- * This function gives the address to the pointer of the data instead of a
- * direct pointer to the data.
- */
-
-int imap_walk_addr(imap_t * imap, imap_addr_cb cb, void * arg)
-{
-    int rc = 0;
-
-    if (imap->n)
-    {
-        imap_node_t * nd = imap->nodes, * end = nd + IMAP_NODE_SZ;
-        do
-        {
-            if (nd->data && (rc = (*cb)(&nd->data, arg)))
-                return rc;
-
-            if (nd->nodes && (rc = imap__walk_addr(nd, cb, arg)))
                 return rc;
         }
         while (++nd < end);
@@ -1330,24 +1297,6 @@ static int imap__walk(imap_node_t * node, imap_cb cb, void * arg)
             return rc;
 
         if (nd->nodes && (rc = imap__walk(nd, cb, arg)))
-            return rc;
-    }
-    while (++nd < end);
-
-    return 0;
-}
-
-static int imap__walk_addr(imap_node_t * node, imap_addr_cb cb, void * arg)
-{
-    int rc;
-    imap_node_t * nd = node->nodes, * end = nd + imap__node_size(node);
-
-    do
-    {
-        if (nd->data && (rc = (*cb)(&nd->data, arg)))
-            return rc;
-
-        if (nd->nodes && (rc = imap__walk_addr(nd, cb, arg)))
             return rc;
     }
     while (++nd < end);

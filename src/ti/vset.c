@@ -157,6 +157,89 @@ int ti_vset_assign(ti_vset_t ** vsetaddr)
     return 0;
 }
 
+static int vset__walk_copy(ti_thing_t * t, ti_vset_t * vset)
+{
+    ti_thing_t ** tarr = &t;
+
+    ti_incref(t);
+
+    /* deep is stored as flag */
+    if (ti_thing_copy(tarr, vset->flags) || ti_vset_add(vset, *tarr))
+    {
+        ti_val_drop((ti_val_t *) *tarr);
+        ti_vset_destroy(vset);
+        return -1;
+    }
+
+    return 0;
+}
+
+static int vset__walk_dup(ti_thing_t * t, ti_vset_t * vset)
+{
+    ti_thing_t ** tarr = &t;
+
+    ti_incref(t);
+
+    /* deep is stored as flag */
+    if (ti_thing_dup(tarr, vset->flags) || ti_vset_add(vset, *tarr))
+    {
+        ti_val_drop((ti_val_t *) *tarr);
+        ti_vset_destroy(vset);
+        return -1;
+    }
+
+    return 0;
+}
+
+int ti_vset_copy(ti_vset_t ** vsetaddr, uint8_t deep)
+{
+    assert (deep);
+
+    ti_vset_t * nvset, * ovset = *vsetaddr;
+
+    if (!(nvset = ti_vset_create()))
+        return -1;
+
+    /* set temporary `deep` as flag */
+    nvset->flags = deep;
+
+    if (imap_walk(ovset->imap, (imap_cb) vset__walk_copy, nvset))
+        return -1;  /* vset is destroyed if walk has failed */
+
+    /* set default flags */
+    nvset->flags = 0;
+
+    ti_val_unsafe_drop((ti_val_t *) ovset);
+    *vsetaddr = nvset;
+
+    return 0;
+}
+
+int ti_vset_dup(ti_vset_t ** vsetaddr, uint8_t deep)
+{
+    assert (deep);
+
+    ti_vset_t * nvset, * ovset = *vsetaddr;
+
+    if (!(nvset = ti_vset_create()))
+        return -1;
+
+    /* set temporary `deep` as flag */
+    nvset->flags = deep;
+
+    if (imap_walk(ovset->imap, (imap_cb) vset__walk_dup, nvset))
+        return -1;  /* vset is destroyed if walk has failed */
+
+    /* set default flags */
+    nvset->flags = 0;
+
+    ti_val_unsafe_drop((ti_val_t *) ovset);
+    *vsetaddr = nvset;
+
+    return 0;
+}
+
+
 /*
  * Increments the reference for each moved value to the set.
  * The return value is <0 in case of an error and `e` will contain the reason,

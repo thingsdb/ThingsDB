@@ -269,6 +269,99 @@ int ti_varr_to_list(ti_varr_t ** varr)
     return 0;
 }
 
+int ti_varr_copy(ti_varr_t ** varr, uint8_t deep)
+{
+    assert (deep);
+
+    int rc = 0;
+    ti_varr_t * list = *varr;
+
+    if (list->ref == 1)
+        goto listcopy;
+
+    list = malloc(sizeof(ti_varr_t));
+    if (!list)
+        return -1;
+
+    list->ref = 1;
+    list->tp = TI_VAL_ARR;
+    list->flags = (*varr)->flags & TI_VARR_FLAG_MHT;
+    list->vec = vec_dup((*varr)->vec);
+    list->parent = NULL;
+
+    if (!list->vec)
+    {
+        free(list);
+        return -1;
+    }
+
+listcopy:
+
+    for (vec_each_addr(list->vec, ti_val_t, val))
+    {
+        ti_incref(*val);
+        rc = rc || ti_val_copy(val, NULL, NULL, deep);
+    }
+
+    if (rc)
+    {
+        ti_varr_destroy(list);
+        return -1;
+    }
+
+    ti_val_unsafe_drop((ti_val_t *) *varr);
+    *varr = list;
+
+    return 0;
+}
+
+int ti_varr_dup(ti_varr_t ** varr, uint8_t deep)
+{
+    assert (deep);
+
+    int rc = 0;
+    ti_varr_t * list = *varr;
+
+    if (list->ref == 1)
+        goto listcopy;
+
+    list = malloc(sizeof(ti_varr_t));
+    if (!list)
+        return -1;
+
+    list->ref = 1;
+    list->tp = TI_VAL_ARR;
+    list->flags = (*varr)->flags & TI_VARR_FLAG_MHT;
+    list->vec = vec_dup((*varr)->vec);
+    list->parent = NULL;
+
+    if (!list->vec)
+    {
+        free(list);
+        return -1;
+    }
+
+listcopy:
+
+    for (vec_each_addr(list->vec, ti_val_t, val))
+    {
+        ti_incref(*val);
+        rc = rc || ti_val_dup(val, NULL, NULL, deep);
+    }
+
+    if (rc)
+    {
+        ti_varr_destroy(list);
+        return -1;
+    }
+
+    ti_val_unsafe_drop((ti_val_t *) *varr);
+    *varr = list;
+
+    return 0;
+}
+
+
 /*
  * Do not use this method, but the in-line method ti_varr_eq() instead since
  * this functions already takes the assumption that `a` and `b` are different

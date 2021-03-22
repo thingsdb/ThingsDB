@@ -4016,6 +4016,15 @@ class TestCollectionFunctions(TestBase):
         ''')
         self.assertEqual(res, ['thing', {'name': 'iris'}])
 
+        res = await client.query(r'''
+            x = {};
+            x["just a key"] = A{name: 'Foo'};
+
+            return(x.copy(2), 2);
+        ''')
+
+        self.assertEqual(res, {"just a key": {'name': 'Foo'}})
+
     async def test_dup(self, client):
         with self.assertRaisesRegex(
                 LookupError,
@@ -4077,6 +4086,15 @@ class TestCollectionFunctions(TestBase):
             [type(y), y];
         ''')
         self.assertEqual(res, ['<A>', {'name': 'iris'}])
+
+        res = await client.query(r'''
+            x = {};
+            x["just a key"] = A{name: 'Foo'};
+
+            return(x.dup(2), 2);
+        ''')
+
+        self.assertEqual(res, {"just a key": {'name': 'Foo'}})
 
 
 if __name__ == '__main__':

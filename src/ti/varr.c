@@ -274,12 +274,7 @@ int ti_varr_copy(ti_varr_t ** varr, uint8_t deep)
     assert (deep);
 
     int rc = 0;
-    ti_varr_t * list = *varr;
-
-    if (list->ref == 1)
-        goto listcopy;
-
-    list = malloc(sizeof(ti_varr_t));
+    ti_varr_t * list = malloc(sizeof(ti_varr_t));
     if (!list)
         return -1;
 
@@ -294,8 +289,6 @@ int ti_varr_copy(ti_varr_t ** varr, uint8_t deep)
         free(list);
         return -1;
     }
-
-listcopy:
 
     for (vec_each_addr(list->vec, ti_val_t, val))
     {
@@ -320,12 +313,7 @@ int ti_varr_dup(ti_varr_t ** varr, uint8_t deep)
     assert (deep);
 
     int rc = 0;
-    ti_varr_t * list = *varr;
-
-    if (list->ref == 1)
-        goto listcopy;
-
-    list = malloc(sizeof(ti_varr_t));
+    ti_varr_t * list = malloc(sizeof(ti_varr_t));
     if (!list)
         return -1;
 
@@ -340,8 +328,6 @@ int ti_varr_dup(ti_varr_t ** varr, uint8_t deep)
         free(list);
         return -1;
     }
-
-listcopy:
 
     for (vec_each_addr(list->vec, ti_val_t, val))
     {

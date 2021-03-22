@@ -20,6 +20,8 @@ ti_varr_t * ti_varr_from_slice(
         ssize_t step);
 void ti_varr_destroy(ti_varr_t * varr);
 int ti_varr_to_list(ti_varr_t ** varr);
+int ti_varr_copy(ti_varr_t ** varr, uint8_t deep);
+int ti_varr_dup(ti_varr_t ** varr, uint8_t deep);
 int ti_varr_val_prepare(ti_varr_t * to, void ** v, ex_t * e);
 int ti_varr_set(ti_varr_t * to, void ** v, size_t idx, ex_t * e);
 _Bool ti__varr_eq(ti_varr_t * varra, ti_varr_t * varrb);

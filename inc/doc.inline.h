@@ -115,5 +115,25 @@ static inline const char * doc_each(ti_val_t * val)
     }
 }
 
+static inline const char * doc_copy(ti_val_t * val)
+{
+    switch ((ti_val_enum) val->tp)
+    {
+    case TI_VAL_THING:          return DOC_THING_COPY;
+    case TI_VAL_WRAP:           return DOC_WTYPE_COPY;
+    default:                    return NULL;
+    }
+}
+
+static inline const char * doc_dup(ti_val_t * val)
+{
+    switch ((ti_val_enum) val->tp)
+    {
+    case TI_VAL_THING:          return DOC_THING_DUP;
+    case TI_VAL_WRAP:           return DOC_WTYPE_DUP;
+    default:                    return NULL;
+    }
+}
+
 
 #endif  /* DOC_INLINE_H_ */

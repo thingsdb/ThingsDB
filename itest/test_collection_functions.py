@@ -3955,6 +3955,147 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(err['error_code'], Err.EX_OPERATION_ERROR)
         self.assertEqual(err['error_msg'], "my custom error msg")
 
+    async def test_copy(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `copy`'):
+            await client.query('nil.copy(nil);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `copy` takes at most 1 argument '
+                r'but 2 were given'):
+            await client.query('{}.copy(1, 2);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `copy` expects argument 1 to be of '
+                r'type `int` but got type `float` instead;'):
+            await client.query('{}.copy(0.5);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'expecting a `deep` value between 0 and 127 but '
+                r'got 128 instead'):
+            await client.query('{}.copy(128);')
+
+        res = await client.query(r'''
+            (.x = {name: 'hi'}).copy();
+        ''')
+        self.assertEqual(res, {"name": "hi"})
+
+        res = await client.query(r'''
+            .x.copy(0);
+        ''')
+        self.assertIn('#', res)
+        self.assertIn('name', res)
+
+        await client.query(r'''
+            set_type('A', {name: 'str'});
+        ''')
+
+        res = await client.query(r'''
+            x = A{}.copy();
+            type(x);
+        ''')
+        self.assertEqual(res, 'thing')
+
+        res = await client.query(r'''
+            x = {arr: [A{}, A{}]}.copy(2);
+            x.arr.map(|o| type(o));
+        ''')
+        self.assertEqual(res, ['thing', 'thing'])
+
+        res = await client.query(r'''
+            x = {
+                name: 'iris',
+                age: 8
+            };
+            y = x.wrap('A').copy();
+            [type(y), y];
+        ''')
+        self.assertEqual(res, ['thing', {'name': 'iris'}])
+
+        res = await client.query(r'''
+            x = {};
+            x["just a key"] = A{name: 'Foo'};
+
+            return(x.copy(2), 2);
+        ''')
+
+        self.assertEqual(res, {"just a key": {'name': 'Foo'}})
+
+    async def test_dup(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `dup`'):
+            await client.query('nil.dup(nil);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `dup` takes at most 1 argument '
+                r'but 2 were given'):
+            await client.query('{}.dup(1, 2);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `dup` expects argument 1 to be of '
+                r'type `int` but got type `float` instead;'):
+            await client.query('{}.dup(0.5);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'expecting a `deep` value between 0 and 127 but '
+                r'got 128 instead'):
+            await client.query('{}.dup(128);')
+
+        res = await client.query(r'''
+            (.x = {name: 'hi'}).dup();
+        ''')
+        self.assertEqual(res, {"name": "hi"})
+
+        res = await client.query(r'''
+            .x.dup(0);
+        ''')
+        self.assertIn('#', res)
+        self.assertIn('name', res)
+
+        await client.query(r'''
+            set_type('A', {name: 'str'});
+        ''')
+
+        res = await client.query(r'''
+            x = A{}.dup();
+            type(x);
+        ''')
+        self.assertEqual(res, 'A')
+
+        res = await client.query(r'''
+            x = {arr: [A{}, A{}]}.dup(2);
+            x.arr.map(|o| type(o));
+        ''')
+
+        self.assertEqual(res, ['A', 'A'])
+
+        res = await client.query(r'''
+            x = {
+                name: 'iris',
+                age: 8
+            };
+            y = x.wrap('A').dup();
+            [type(y), y];
+        ''')
+        self.assertEqual(res, ['<A>', {'name': 'iris'}])
+
+        res = await client.query(r'''
+            x = {};
+            x["just a key"] = A{name: 'Foo'};
+
+            return(x.dup(2), 2);
+        ''')
+
+        self.assertEqual(res, {"just a key": {'name': 'Foo'}})
+
 
 if __name__ == '__main__':
     run_test(TestCollectionFunctions())

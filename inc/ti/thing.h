@@ -115,6 +115,8 @@ int ti_thing_init_gc(void);
 void ti_thing_destroy_gc(void);
 void ti_thing_clean_gc(void);
 void ti_thing_resize_gc(void);
+int ti_thing_copy(ti_thing_t ** thing, uint8_t deep);
+int ti_thing_dup(ti_thing_t ** thing, uint8_t deep);
 
 #if TI_IS64BIT
 #define THING__KEY_SHIFT 3

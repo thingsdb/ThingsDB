@@ -1682,6 +1682,115 @@ ti_val_t * ti_val_strv(ti_val_t * val)
     return ti_val_empty_str();
 }
 
+int ti_val_copy(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep)
+{
+    if (!deep)
+    {
+        ex_t e = {0};
+        return ti_val_make_assignable(val, parent, key, &e);
+    }
+
+    switch ((ti_val_enum) (*val)->tp)
+    {
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
+    case TI_VAL_MP:
+    case TI_VAL_NAME:
+    case TI_VAL_STR:
+    case TI_VAL_BYTES:
+    case TI_VAL_REGEX:
+    case TI_VAL_ERROR:
+    case TI_VAL_MEMBER:
+        return 0;
+    case TI_VAL_THING:
+        return ti_thing_copy((ti_thing_t **) val, deep);
+    case TI_VAL_WRAP:
+        return ti_wrap_copy((ti_wrap_t **) val, deep);
+    case TI_VAL_ARR:
+        if (ti_varr_copy((ti_varr_t **) val, deep))
+            return -1;
+        ((ti_varr_t *) *val)->parent = parent;
+        ((ti_varr_t *) *val)->key_ = key;
+        return 0;
+    case TI_VAL_SET:
+        if (ti_vset_copy((ti_vset_t **) val, deep))
+            return -1;
+        ((ti_vset_t *) *val)->parent = parent;
+        ((ti_vset_t *) *val)->key_ = key;
+        return 0;
+    case TI_VAL_CLOSURE:
+    {
+        ex_t e = {0};
+        return ti_closure_unbound((ti_closure_t * ) *val, &e);
+    }
+    case TI_VAL_FUTURE:
+        ti_val_unsafe_drop(*val);
+        *val = (ti_val_t *) ti_nil_get();
+        return 0;
+    case TI_VAL_TEMPLATE:
+        break;
+    }
+    assert(0);
+    return -1;
+}
+
+int ti_val_dup(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep)
+{
+    if (!deep)
+    {
+        ex_t e = {0};
+        return ti_val_make_assignable(val, parent, key, &e);
+    }
+
+    switch ((ti_val_enum) (*val)->tp)
+    {
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
+    case TI_VAL_MP:
+    case TI_VAL_NAME:
+    case TI_VAL_STR:
+    case TI_VAL_BYTES:
+    case TI_VAL_REGEX:
+    case TI_VAL_ERROR:
+    case TI_VAL_MEMBER:
+        return 0;
+    case TI_VAL_THING:
+        return ti_thing_dup((ti_thing_t **) val, deep);
+    case TI_VAL_WRAP:
+        return ti_wrap_dup((ti_wrap_t **) val, deep);
+    case TI_VAL_ARR:
+        if (ti_varr_dup((ti_varr_t **) val, deep))
+            return -1;
+        ((ti_varr_t *) *val)->parent = parent;
+        ((ti_varr_t *) *val)->key_ = key;
+        return 0;
+    case TI_VAL_SET:
+        if (ti_vset_dup((ti_vset_t **) val, deep))
+            return -1;
+        ((ti_vset_t *) *val)->parent = parent;
+        ((ti_vset_t *) *val)->key_ = key;
+        return 0;
+    case TI_VAL_CLOSURE:
+    {
+        ex_t e = {0};
+        return ti_closure_unbound((ti_closure_t * ) *val, &e);
+    }
+    case TI_VAL_FUTURE:
+        ti_val_unsafe_drop(*val);
+        *val = (ti_val_t *) ti_nil_get();
+        return 0;
+    case TI_VAL_TEMPLATE:
+        break;
+    }
+    assert(0);
+    return -1;
+}
 
 /* checks for CLOSURE, ARR, SET */
 

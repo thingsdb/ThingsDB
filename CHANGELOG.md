@@ -1,6 +1,7 @@
 # v0.10.6
 
 * Prevent too early rejection of events, issue #167.
+* Added `copy(..)` and `dup..)` functions, issue #168.
 
 # v0.10.5
 

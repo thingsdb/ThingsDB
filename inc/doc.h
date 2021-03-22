@@ -235,7 +235,9 @@
 #define DOC_STR_TRIM_RIGHT          DOC_SEE("data-types/str/trim_right")
 #define DOC_STR_UPPER               DOC_SEE("data-types/str/upper")
 #define DOC_THING_ASSIGN            DOC_SEE("data-types/thing/assign")
+#define DOC_THING_COPY              DOC_SEE("data-types/thing/copy")
 #define DOC_THING_DEL               DOC_SEE("data-types/thing/del")
+#define DOC_THING_DUP               DOC_SEE("data-types/thing/dup")
 #define DOC_THING_EACH              DOC_SEE("data-types/thing/each")
 #define DOC_THING_EMIT              DOC_SEE("data-types/thing/emit")
 #define DOC_THING_EQUALS            DOC_SEE("data-types/thing/equals")
@@ -251,6 +253,8 @@
 #define DOC_THING_VALUES            DOC_SEE("data-types/thing/values")
 #define DOC_THING_WATCH             DOC_SEE("data-types/thing/watch")
 #define DOC_THING_WRAP              DOC_SEE("data-types/thing/wrap")
+#define DOC_WTYPE_COPY              DOC_SEE("data-types/wtype/copy")
+#define DOC_WTYPE_DUP               DOC_SEE("data-types/wtype/dup")
 #define DOC_WTYPE_UNWRAP            DOC_SEE("data-types/wtype/unwrap")
 
 /* Errors */

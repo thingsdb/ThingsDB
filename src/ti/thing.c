@@ -1388,6 +1388,264 @@ _Bool ti_thing_equals(ti_thing_t * thing, ti_val_t * otherv, uint8_t deep)
     return true;
 }
 
+static int thing__copy_p(ti_thing_t ** taddr, uint8_t deep)
+{
+    ti_thing_t * thing = *taddr;
+    ti_thing_t * other = ti_thing_o_create(
+            0,
+            ti_thing_n(thing),
+            thing->collection);
+
+    if (!other)
+        return -1;
+
+    for (vec_each(thing->items.vec, ti_prop_t, prop))
+    {
+        ti_prop_t * p = ti_prop_dup(prop);
+
+        if (!p || ti_val_copy(&p->val, other, p->name, deep))
+        {
+            ti_prop_destroy(p);
+            goto fail;
+        }
+
+        VEC_push(other->items.vec, p);
+    }
+
+    ti_val_unsafe_gc_drop((ti_val_t *) thing);
+    *taddr = other;
+    return 0;
+
+fail:
+    ti_val_unsafe_drop((ti_val_t *) other);
+    return -1;
+}
+
+static int thing__dup_p(ti_thing_t ** taddr, uint8_t deep)
+{
+    ti_thing_t * thing = *taddr;
+    ti_thing_t * other = ti_thing_o_create(
+            0,
+            ti_thing_n(thing),
+            thing->collection);
+
+    if (!other)
+        return -1;
+
+    for (vec_each(thing->items.vec, ti_prop_t, prop))
+    {
+        ti_prop_t * p = ti_prop_dup(prop);
+
+        if (!p || ti_val_dup(&p->val, other, p->name, deep))
+        {
+            ti_prop_destroy(p);
+            goto fail;
+        }
+
+        VEC_push(other->items.vec, p);
+    }
+
+    ti_val_unsafe_gc_drop((ti_val_t *) thing);
+    *taddr = other;
+    return 0;
+
+fail:
+    ti_val_unsafe_drop((ti_val_t *) other);
+    return -1;
+}
+
+typedef struct
+{
+    ti_thing_t * other;
+    uint8_t deep;
+} thing__wcd_t;
+
+static int thing__copy_cb(ti_item_t * item, thing__wcd_t * w)
+{
+    ti_item_t * i = ti_item_dup(item);
+    if (!i ||
+        ti_val_copy(&i->val, w->other, i->key, w->deep) ||
+        smap_addn(
+                w->other->items.smap,
+                (const char *) i->key->data,
+                i->key->n,
+                i))
+    {
+        ti_item_destroy(i);
+        return -1;
+    }
+
+    return 0;
+}
+
+static int thing__dup_cb(ti_item_t * item, thing__wcd_t * w)
+{
+    ti_item_t * i = ti_item_dup(item);
+    if (!i ||
+        ti_val_dup(&i->val, w->other, i->key, w->deep) ||
+        smap_addn(
+                w->other->items.smap,
+                (const char *) i->key->data,
+                i->key->n,
+                i))
+    {
+        ti_item_destroy(i);
+        return -1;
+    }
+
+    return 0;
+}
+
+
+static int thing__copy_i(ti_thing_t ** taddr, uint8_t deep)
+{
+    ti_thing_t * thing = *taddr;
+    ti_thing_t * other = ti_thing_i_create(0, thing->collection);
+    thing__wcd_t w = {
+            .other = other,
+            .deep = deep,
+    };
+
+    if (!other)
+        return -1;
+
+    if (smap_values(thing->items.smap, (smap_val_cb) thing__copy_cb, &w))
+        goto fail;
+
+    ti_val_unsafe_gc_drop((ti_val_t *) thing);
+    *taddr = other;
+    return 0;
+
+fail:
+    ti_val_unsafe_drop((ti_val_t *) other);
+    return -1;
+}
+
+static int thing__dup_i(ti_thing_t ** taddr, uint8_t deep)
+{
+    ti_thing_t * thing = *taddr;
+    ti_thing_t * other = ti_thing_i_create(0, thing->collection);
+    thing__wcd_t w = {
+            .other = other,
+            .deep = deep,
+    };
+
+    if (!other)
+        return -1;
+
+    if (smap_values(thing->items.smap, (smap_val_cb) thing__dup_cb, &w))
+        goto fail;
+
+    ti_val_unsafe_gc_drop((ti_val_t *) thing);
+    *taddr = other;
+    return 0;
+
+fail:
+    ti_val_unsafe_drop((ti_val_t *) other);
+    return -1;
+}
+
+static int thing__copy_t(ti_thing_t ** taddr, uint8_t deep)
+{
+    ti_name_t * name;
+    ti_val_t * val;
+    ti_thing_t * thing = *taddr;
+    ti_thing_t * other = ti_thing_o_create(
+            0,
+            ti_thing_n(thing),
+            thing->collection);
+
+
+    if (!other)
+        return -1;
+
+    for(thing_t_each(thing, name, val))
+    {
+        ti_prop_t * p = ti_prop_create(name, val);
+        if (!p)
+            goto fail;
+
+        ti_incref(name);
+        ti_incref(val);
+
+        if (ti_val_copy(&p->val, other, p->name, deep))
+        {
+            ti_prop_destroy(p);
+            goto fail;
+        }
+
+        VEC_push(other->items.vec, p);
+    }
+
+    ti_val_unsafe_gc_drop((ti_val_t *) thing);
+    *taddr = other;
+    return 0;
+
+fail:
+    ti_val_unsafe_drop((ti_val_t *) other);
+    return -1;
+}
+
+static int thing__dup_t(ti_thing_t ** taddr, uint8_t deep)
+{
+    ti_val_t * val;
+    ti_thing_t * thing = *taddr;
+    ti_type_t * type = ti_thing_type(thing);
+    ti_thing_t * other = ti_thing_t_create(
+            0,
+            type,
+            thing->collection);
+
+    if (!other)
+        return -1;
+
+    for (vec_each(type->fields, ti_field_t, field))
+    {
+        val = VEC_get(thing->items.vec, field->idx);
+        ti_incref(val);
+        if (ti_val_dup(&val, other, field, deep))
+        {
+            ti_decref(val);
+            goto fail;
+        }
+        VEC_push(other->items.vec, val);
+    }
+
+    ti_val_unsafe_gc_drop((ti_val_t *) thing);
+    *taddr = other;
+    return 0;
+
+fail:
+    ti_val_unsafe_drop((ti_val_t *) other);
+    return -1;
+}
+
+int ti_thing_copy(ti_thing_t ** thing, uint8_t deep)
+{
+    assert (deep);
+
+    return deep--
+            ? ti_thing_is_object(*thing)
+            ? ti_thing_is_dict(*thing)
+            ? thing__copy_i(thing, deep)
+            : thing__copy_p(thing, deep)
+            : thing__copy_t(thing, deep)
+            : 0;
+}
+
+int ti_thing_dup(ti_thing_t ** thing, uint8_t deep)
+{
+    assert (deep);
+
+    return deep--
+            ? ti_thing_is_object(*thing)
+            ? ti_thing_is_dict(*thing)
+            ? thing__dup_i(thing, deep)
+            : thing__dup_p(thing, deep)
+            : thing__dup_t(thing, deep)
+            : 0;
+}
+
 int ti_thing_init_gc(void)
 {
     thing__gc_swp = vec_new(8);

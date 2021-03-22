@@ -49,5 +49,7 @@ int ti_val_to_pk(ti_val_t * val, ti_vp_t * vp, int options);
 void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz);
 const char * ti_val_str(ti_val_t * val);
 ti_val_t * ti_val_strv(ti_val_t * val);
+int ti_val_copy(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep);
+int ti_val_dup(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep);
 
 #endif /* TI_VAL_H_ */

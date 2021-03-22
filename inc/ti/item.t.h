@@ -11,7 +11,8 @@ typedef struct ti_item_s  ti_item_t;
 
 struct ti_item_s
 {
-    ti_raw_t * key;     /* with reference */
+    ti_raw_t * key;     /* with reference, valid names must always be of type
+                           ti_name_t, but casted to ti_raw_t  */
     ti_val_t * val;     /* with reference */
 };
 

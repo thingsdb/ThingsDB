@@ -1,6 +1,7 @@
 #include <ti/enum.t.h>
 #include <ti/enums.t.h>
 #include <ti/export.h>
+#include <ti/field.h>
 #include <ti/field.t.h>
 #include <ti/fmt.h>
 #include <ti/member.t.h>
@@ -75,6 +76,43 @@ static int export__set_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
     return buf_append_str(&fmt->buf, "});\n");
 }
 
+static int export__write_relation(
+        ti_fmt_t * fmt,
+        ti_field_t * field_a,
+        ti_field_t * field_b)
+{
+    return -(
+        buf_append_str(&fmt->buf, "mod_type('") ||
+        buf_append(
+                &fmt->buf,
+                (const char *) field_a->type->rname->data,
+                field_a->type->rname->n) ||
+        buf_append_str(&fmt->buf, "', 'rel', '") ||
+        buf_append(&fmt->buf, field_a->name->str, field_a->name->n) ||
+        buf_append_str(&fmt->buf, "', '") ||
+        buf_append(&fmt->buf, field_b->name->str, field_b->name->n) ||
+        buf_append_str(&fmt->buf, "');\n")
+    );
+}
+
+static int export__relation_cb(ti_type_t * type_, ti_fmt_t * fmt)
+{
+    for (vec_each(type_->fields, ti_field_t, field))
+    {
+        if (ti_field_has_relation(field))
+        {
+            ti_field_t * other = field->condition.rel->field;
+            if ((   field == other ||
+                    field->type->type_id < other->type->type_id ||
+                    (   field->type->type_id == other->type->type_id &&
+                        field->idx < other->idx)) &&
+                    export__write_relation(fmt, field, other))
+                return -1;
+        }
+    }
+    return 0;
+}
+
 static int export__write_types(ti_fmt_t * fmt, ti_types_t * types)
 {
     return (
@@ -86,7 +124,9 @@ static int export__write_types(ti_fmt_t * fmt, ti_types_t * types)
 "\n") ||
         smap_values(types->smap, (smap_val_cb) export__new_type_cb, fmt) ||
         buf_write(&fmt->buf, '\n') ||
-        smap_values(types->smap, (smap_val_cb) export__set_type_cb, fmt)
+        smap_values(types->smap, (smap_val_cb) export__set_type_cb, fmt) ||
+        buf_write(&fmt->buf, '\n') ||
+        smap_values(types->smap, (smap_val_cb) export__relation_cb, fmt)
     );
 }
 

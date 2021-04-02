@@ -6,7 +6,7 @@
 
 #define TI_VERSION_MAJOR 0
 #define TI_VERSION_MINOR 10
-#define TI_VERSION_PATCH 6
+#define TI_VERSION_PATCH 7
 
 /* The syntax version is used to test compatibility with functions
  * using the `ti_nodes_check_syntax()` function */
@@ -23,7 +23,7 @@
  *  "-alpha-1"
  *  ""
  */
-#define TI_VERSION_PRE_RELEASE ""
+#define TI_VERSION_PRE_RELEASE "-alpha-0"
 
 #define TI_MAINTAINER \
     "Jeroen van der Heijden <jeroen@transceptor.technology>"

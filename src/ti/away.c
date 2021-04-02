@@ -29,7 +29,7 @@ static uv_timer_t away__uv_waiter;
 #define AWAY__BLOCK_TIME 15000      /* block accepting for X seconds */
 #define AWAY__SKIP_COUNT 25         /* skip away mode X times when events are
                                        pending */
-#define AWAY__WAIT_FUTURES 20       /* wait X extra seconds before canceling
+#define AWAY__WAIT_FUTURES 30       /* wait X extra seconds before canceling
                                        running futures when going into away
                                        mode */
 
@@ -271,7 +271,7 @@ static void away__waiter_after_cb(uv_timer_t * waiter)
      */
     if (events_to_process)
     {
-        log_warning(
+        log_info(
                 "stay in away mode since the queue contains %zd %s",
                 events_to_process,
                 events_to_process == 1 ? "event" : "events");
@@ -356,12 +356,14 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
     {
         if (!--away->wait_futures)
         {
-            log_warning("canceling all open futures for going into away mode");
+            log_warning(
+                "cancel all open futures (%zd) before going into away mode",
+                ti.futures_count);
             ti_modules_cancel_futures();
         }
         else
-            log_warning(
-                "waiting for %zd %s to finish before going to away mode",
+            log_info(
+                "wait for %zd %s to finish before going into away mode",
                 ti.futures_count,
                 ti.futures_count == 1 ? "future" : "futures");
         return;
@@ -372,11 +374,10 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
         /* empty the queue because other nodes might wait for these evens to
          * be processed
          */
-        log_warning(
-                "waiting for %zd %s to finish before going to away mode",
+        log_info(
+                "wait for %zd %s to finish before going into away mode",
                 events_to_process,
                 events_to_process == 1 ? "event" : "events");
-
         return;
     }
 
@@ -659,7 +660,7 @@ _Bool ti_away_accept(uint32_t node_id)
 
     log_warning(
             "reject away request from "TI_NODE_ID
-            "; away status: `%s`; (pending) away node: "TI_NODE_ID,
+            "; my away status: `%s`; (pending) away node: "TI_NODE_ID,
             node_id, away__status_str(), away->away_node_id);
 
     return false;

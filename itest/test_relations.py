@@ -452,6 +452,42 @@ class TestRelations(TestBase):
                 'OK';
             '''), 'OK')
 
+        res = await client.query(r'''export();''')
+        self.assertEqual(res, r'''
+/*
+ * Enums
+ */
+
+
+/*
+ * Types
+ */
+
+new_type('A');
+new_type('B');
+new_type('C');
+
+set_type('A', {
+    bb: '{B}',
+});
+set_type('B', {
+    aa: '{A}',
+});
+set_type('C', {
+    cc: '{C}',
+});
+
+mod_type('A', 'rel', 'bb', 'aa');
+mod_type('C', 'rel', 'cc', 'cc');
+
+/*
+ * Procedures
+ */
+
+
+'DONE';
+'''.lstrip())
+
     async def test_type_type_init_state(self, client0):
         if not self.with_node1():
             return

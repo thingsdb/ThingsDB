@@ -452,7 +452,19 @@ class TestRelations(TestBase):
                 'OK';
             '''), 'OK')
 
-        res = await client.query(r'''export();''')
+        self.assertEqual(await client0.query(r'''
+            new_type('D');
+            set_type('D', {
+                da: '{D}',
+                db: '{D}'
+            });
+
+            mod_type('D', 'rel', 'da', 'db');
+
+            'OK';
+        '''), 'OK')
+
+        res = await client.query(r'''wse(); export();''')
         self.assertEqual(res, r'''
 /*
  * Enums
@@ -466,6 +478,7 @@ class TestRelations(TestBase):
 new_type('A');
 new_type('B');
 new_type('C');
+new_type('D');
 
 set_type('A', {
     bb: '{B}',
@@ -476,9 +489,14 @@ set_type('B', {
 set_type('C', {
     cc: '{C}',
 });
+set_type('D', {
+    da: '{D}',
+    db: '{D}',
+});
 
 mod_type('A', 'rel', 'bb', 'aa');
 mod_type('C', 'rel', 'cc', 'cc');
+mod_type('D', 'rel', 'da', 'db');
 
 /*
  * Procedures

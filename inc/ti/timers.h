@@ -33,6 +33,7 @@ struct ti_timers_s
     vec_t * timers;         /* ti_timer_t */
     uv_timer_t * timer;
     uv_mutex_t * lock;
+    char * stat_fn;
 };
 
 #endif  /* TI_TIMERS_H_ */

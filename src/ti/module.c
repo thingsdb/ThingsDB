@@ -539,6 +539,7 @@ void ti_module_on_pkg(ti_module_t * module, ti_pkg_t * pkg)
     {
     case TI_PROTO_MODULE_CONF_OK:
         log_info("module `%s` is successfully configured", module->name->str);
+        module->status &= ~TI_MODULE_STAT_CONFIGURATION_ERR;
         module->flags &= ~TI_MODULE_FLAG_WAIT_CONF;
         return;
     case TI_PROTO_MODULE_CONF_ERR:

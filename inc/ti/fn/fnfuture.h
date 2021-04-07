@@ -75,7 +75,7 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 return e->nr;
             }
 
-            deepi = VINT(query->rval);
+            deepi = VINT(deep_val);
 
             if (deepi < 0 || deepi > MAX_DEEP_HINT)
             {

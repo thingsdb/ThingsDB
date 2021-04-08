@@ -261,6 +261,40 @@ int main()
         _assert (i == n);
     }
 
+        /* test push, remove, insert and shift values */
+    {
+        queue_clear(q);
+        size_t n = 11;
+        void * data = entries[0];
+        for (size_t i = 0; i < n; i++)
+        {
+            queue_push(&q, data);
+        }
+
+        for (size_t i = 0; i < 21; i++)
+        {
+            size_t ii = 0;
+            queue_push(&q, data);
+            queue_shift(q);
+
+            for (queue_each(q, void, t), ii++);
+            _assert (ii == n);
+        }
+
+        for (size_t i = 0; i < 21; i++)
+        {
+            size_t ii = 0;
+
+            queue_unshift(&q, data);
+            queue_pop(q);
+            queue_remove(q, i%n);
+            queue_insert(&q, (i+3)%n, data);
+
+            for (queue_each(q, void, t), ii++);
+            _assert (ii == n);
+        }
+    }
+
     /* test destroy */
     {
         queue_clear(q);

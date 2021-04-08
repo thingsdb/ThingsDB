@@ -289,7 +289,6 @@ void ti_archive_destroy(void)
     archive = ti.archive = NULL;
 }
 
-
 int ti_archive_rmdir(void)
 {
     int rc;

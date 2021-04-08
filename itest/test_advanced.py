@@ -1493,6 +1493,7 @@ set_type('Person', {
     age: 'int',
 });
 
+
 /*
  * Procedures
  */
@@ -1554,6 +1555,18 @@ new_procedure('multiply', |a, b| a * b);
             try(a1.aa |= set({}, {}));
             assert (a1.aa.len() == 0);
         ''')
+
+    async def test_ren_after_mod(self, client):
+        res = await client.query(r'''
+            set_type('A', {m: ||nil});
+            mod_type('A', 'mod', 'm', ||0);
+            mod_type('A', 'ren', 'm', 'f');
+            type_info('A');
+        ''')
+        methods = res['methods']
+        self.assertIn('f', methods)
+        self.assertNotIn('m', methods)
+        self.assertEqual(len(methods), 1)
 
 
 if __name__ == '__main__':

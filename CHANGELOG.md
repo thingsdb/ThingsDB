@@ -5,6 +5,7 @@
 * Fixed bug with `deep` argument with the `future()` function, issue #170.
 * Handle *next run* value of timers correctly after reboot, issue #171.
 * Fixed loading modules at startup after a configuration change, issue #174.
+* Fixed renaming a method after modifying the same method, issue #175.
 
 # v0.10.6
 

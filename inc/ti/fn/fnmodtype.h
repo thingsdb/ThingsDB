@@ -846,9 +846,6 @@ static void type__mod(
 
         ti_method_set_closure(method, closure);
 
-        if (ti_type_add_method(type, name, closure, e))
-            return;
-
         if (ti_task_add_mod_type_mod_method(task, type, method))
         {
             ti_type_remove_method(type, name);

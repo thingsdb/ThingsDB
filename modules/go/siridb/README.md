@@ -20,7 +20,7 @@ go build
 
 Copy the created binary file to the ThingsDB module path.
 
-## Using the module
+## Configure the module
 
 The SiriDB module must be configured before it can be used. If you have multiple SiriDB databases, then simply configure the SiriDB module more than once.
 
@@ -40,5 +40,32 @@ new_module('SiriDB', {
     ]
 });
 ```
+
+## Using the module
+
+### Query
+
+```
+future({
+    module: 'SiriDB',
+    query: 'select * from "my-series-001"'
+}).then(|res| res);
+```
+
+### Insert
+
+```
+future({
+    module: 'SiriDB',
+    deep: 2,
+    insert: {
+        mySeries001: [
+            [int(now()), 3.14]
+        ]
+    }
+}).then(|res| res);
+```
+
+
 
 

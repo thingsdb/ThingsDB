@@ -1,3 +1,11 @@
+# v0.10.7
+
+* Changed default `max` value when not given in a range definition, issue #172.
+* Fixed missing relations in experimental `export()` function, issue #169.
+* Fixed bug with `deep` argument with the `future()` function, issue #170.
+* Handle *next run* value of timers correctly after reboot, issue #171.
+* Fixed loading modules at startup after a configuration change, issue #174.
+
 # v0.10.6
 
 * Prevent too early rejection of events, issue #167.

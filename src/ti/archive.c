@@ -17,7 +17,7 @@
 
 #define ARCHIVE__THRESHOLD_FULL 0
 
-static const char * archive__path           = "archive/";
+static const char * archive__path = "archive/";
 
 static ti_archive_t * archive;
 static ti_archive_t archive_;

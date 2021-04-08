@@ -115,6 +115,8 @@ int ti_condition_field_range_init(
         ++str;
 
         ma = strx_to_int64(str, &tmp);
+        if (tmp == str)
+            ma = INT64_MAX;
 
         str = tmp;
 

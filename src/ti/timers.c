@@ -10,6 +10,7 @@
 #include <ti/val.inline.h>
 #include <ti/varr.h>
 #include <ti.h>
+#include <util/fx.h>
 
 /* check five times within the minimal repeat value */
 #define TIMERS__INTERVAL ((TI_TIMERS_MIN_REPEAT*1000)/5)
@@ -24,6 +25,15 @@ static ti_timers_t * timers;
 static void timers__destroy(uv_handle_t * UNUSED(handle));
 static void timers__cb(uv_timer_t * UNUSED(handle));
 
+static const char * timers__stat_fn = "timers_stat.mp";
+static char * timers__get_fn(void)
+{
+    if (!timers->stat_fn)
+        timers->stat_fn = fx_path_join(ti.cfg->storage_path, timers__stat_fn);
+
+    return timers->stat_fn;
+}
+
 int ti_timers_create(void)
 {
     timers = malloc(sizeof(ti_timers_t));
@@ -35,6 +45,7 @@ int ti_timers_create(void)
     timers->n_loops = 0;
     timers->timers = vec_new(4);
     timers->lock = malloc(sizeof(uv_mutex_t));
+    timers->stat_fn = NULL;
 
     if (!timers->timer || !timers->timers || !timers->lock ||
         uv_mutex_init(timers->lock))
@@ -49,11 +60,176 @@ failed:
     return -1;
 }
 
+static void timers__reschedule(vec_t * timers)
+{
+    uint64_t now = util_now_usec();
+    uint32_t rel_id = ti.rel_id;
+    uint32_t nodes_n = ti.nodes->vec->n;
+
+    for (vec_each(timers, ti_timer_t, timer))
+    {
+        if (timer->next_run > now)
+            continue;
+
+        if (timer->id % nodes_n == rel_id)
+        {
+            if (timer->repeat)
+            {
+                uint64_t until = now - timer->repeat;
+                while (timer->next_run <= until)
+                    timer->next_run += timer->repeat;
+            }
+            continue;
+        }
+
+        if (timer->repeat)
+            while (timer->next_run <= now)
+                timer->next_run += timer->repeat;
+    }
+}
+
+static void timers__reschedule_all(void)
+{
+    timers__reschedule(timers->timers);
+
+    for (vec_each(ti.collections->vec, ti_collection_t, collection))
+        timers__reschedule(collection->timers);
+}
+
+static int timers__write_to_stat(char * stat_fn)
+{
+    msgpack_packer pk;
+    FILE * f = fopen(stat_fn, "w");
+    if (!f)
+    {
+        log_errno_file("cannot open file", errno, stat_fn);
+        return -1;
+    }
+
+    uv_mutex_lock(ti.timers->lock);
+
+    msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
+
+    if (msgpack_pack_array(&pk, ti.collections->vec->n + 1) ||
+        msgpack_pack_array(&pk, 2) ||
+        msgpack_pack_uint64(&pk, TI_SCOPE_THINGSDB) ||
+        msgpack_pack_array(&pk, timers->timers->n)
+    ) goto fail;
+
+    for (vec_each(timers->timers, ti_timer_t, timer))
+    {
+        if (msgpack_pack_array(&pk, 2) ||
+            msgpack_pack_uint64(&pk, timer->id) ||
+            msgpack_pack_uint64(&pk, timer->next_run))
+            goto fail;
+    }
+
+    for (vec_each(ti.collections->vec, ti_collection_t, collection))
+    {
+        if (msgpack_pack_array(&pk, 2) ||
+            msgpack_pack_uint64(&pk, collection->root->id) ||
+            msgpack_pack_array(&pk, collection->timers->n)
+        ) goto fail;
+
+        for (vec_each(collection->timers, ti_timer_t, timer))
+        {
+            if (msgpack_pack_array(&pk, 2) ||
+                msgpack_pack_uint64(&pk, timer->id) ||
+                msgpack_pack_uint64(&pk, timer->next_run))
+                goto fail;
+        }
+    }
+
+    log_debug("stored timers status to file: `%s`", stat_fn);
+    goto done;
+
+fail:
+    log_error("failed to write file: `%s`", stat_fn);
+done:
+    uv_mutex_unlock(ti.timers->lock);
+
+    if (fclose(f))
+    {
+        log_errno_file("cannot close file", errno, stat_fn);
+        return -1;
+    }
+    return 0;
+}
+
+int timers__load_from_stat(char * stat_fn)
+{
+    int rc = -1;
+    size_t i, ii;
+    ssize_t n;
+    mp_obj_t obj, mp_id, mp_next_run;
+    mp_unp_t up;
+    uchar * data;
+    vec_t * vtimers;
+    ti_collection_t * collection;
+    ti_timer_t * timer;
+
+    if (!fx_file_exist(stat_fn))
+    {
+        log_debug("timers status file does not exist: `%s`", stat_fn);
+        return 0;
+    }
+
+    data = fx_read(stat_fn, &n);
+    if (!data)
+        goto fail;
+
+    mp_unp_init(&up, data, (size_t) n);
+
+    if (mp_next(&up, &obj) != MP_ARR)
+        goto fail;
+
+    for (i = obj.via.sz; i--;)
+    {
+        if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
+            mp_next(&up, &mp_id) != MP_U64 ||
+            mp_next(&up, &obj) != MP_ARR)
+            goto fail;
+
+        collection = mp_id.via.u64 != TI_SCOPE_THINGSDB
+                ? ti_collections_get_by_id(mp_id.via.u64)
+                : NULL;
+        vtimers = collection ? collection->timers : timers->timers;
+
+        for (ii = obj.via.sz; ii--;)
+        {
+            if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
+                mp_next(&up, &mp_id) != MP_U64 ||
+                mp_next(&up, &mp_next_run) != MP_U64)
+                goto fail;
+
+            timer = ti_timer_by_id(vtimers, mp_id.via.u64);
+            if (timer && mp_next_run.via.u64 > timer->next_run)
+                timer->next_run = mp_next_run.via.u64;
+        }
+    }
+
+    rc = 0;
+fail:
+    if (rc)
+        log_error("failed to restore from file: `%s`", stat_fn);
+
+    free(data);
+    return rc;
+}
+
 int ti_timers_start(void)
 {
     assert (timers->is_started == false);
-    if (uv_timer_init(ti.loop, timers->timer))
+
+    char * stat_fn = timers__get_fn();
+    if (!stat_fn || uv_timer_init(ti.loop, timers->timer))
         goto fail0;
+
+    /* load latest timers next run from status file */
+    (void) timers__load_from_stat(stat_fn);
+
+    /* re-schedule timers */
+    timers__reschedule_all();
 
     if (uv_timer_start(
             timers->timer,
@@ -80,6 +256,7 @@ void ti_timers_stop(void)
         timers__destroy(NULL);
     else
     {
+        (void) timers__write_to_stat(timers->stat_fn);
         timers->is_started = false;
         uv_timer_stop(timers->timer);
         uv_close((uv_handle_t *) timers->timer, timers__destroy);
@@ -96,34 +273,6 @@ void ti_timers_clear(vec_t ** timers)
     }
 
     vec_shrink(timers);
-}
-
-void ti_timers_reschedule(vec_t * timers)
-{
-    uint64_t now = util_now_usec();
-    uint32_t rel_id = ti.rel_id;
-    uint32_t nodes_n = ti.nodes->vec->n;
-
-    for (vec_each(timers, ti_timer_t, timer))
-    {
-        if (timer->next_run > now)
-            continue;
-
-        if (timer->id % nodes_n == rel_id)
-        {
-            if (timer->repeat)
-            {
-                uint64_t until = now - timer->repeat;
-                while (timer->next_run <= until)
-                    timer->next_run += timer->repeat;
-            }
-            continue;
-        }
-
-        if (timer->repeat)
-            while (timer->next_run <= now)
-                timer->next_run += timer->repeat;
-    }
 }
 
 void ti_timers_del_user(ti_user_t * user)
@@ -157,6 +306,7 @@ static void timers__destroy(uv_handle_t * UNUSED(handle))
         vec_destroy(timers->timers, (vec_destroy_cb) ti_timer_drop);
         uv_mutex_destroy(timers->lock);
         free(timers->lock);
+        free(timers->stat_fn);
     }
     free(timers);
     timers = ti.timers = NULL;

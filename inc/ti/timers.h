@@ -21,7 +21,6 @@ int ti_timers_create(void);
 int ti_timers_start(void);
 void ti_timers_stop(void);
 void ti_timers_clear(vec_t ** timers);
-void ti_timers_reschedule(vec_t * timers);
 void ti_timers_del_user(ti_user_t * user);
 vec_t ** ti_timers_from_scope_id(uint64_t scope_id);
 ti_varr_t * ti_timers_info(vec_t * timers, _Bool with_full_access);
@@ -33,6 +32,7 @@ struct ti_timers_s
     vec_t * timers;         /* ti_timer_t */
     uv_timer_t * timer;
     uv_mutex_t * lock;
+    char * stat_fn;
 };
 
 #endif  /* TI_TIMERS_H_ */

@@ -156,7 +156,6 @@ int ti_store_timers_restore(
     }
 
     rc = 0;
-    ti_timers_reschedule(*timers);
     goto done;
 
 fail2:

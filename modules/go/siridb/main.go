@@ -50,13 +50,6 @@ type reqSiriDB struct {
 	Timeout uint16 `msgpack:"timeout"`
 }
 
-func printLogs(logCh chan string) {
-	for {
-		msg := <-logCh
-		fmt.Printf("Log: %s\n", msg)
-	}
-}
-
 func handleConf(auth *authSiriDB) {
 	mux.Lock()
 	defer mux.Unlock()
@@ -114,7 +107,6 @@ func handleInsert(pkg *timod.Pkg, req *reqSiriDB) {
 	}
 	timod.WriteResponse(pkg.Pid, &res)
 }
-
 
 func onModuleReq(pkg *timod.Pkg) {
 	mux.Lock()

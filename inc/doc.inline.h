@@ -24,6 +24,7 @@ static inline const char * doc_len(ti_val_t * val)
     case TI_VAL_NAME:
     case TI_VAL_STR:            return DOC_STR_LEN;
     case TI_VAL_BYTES:          return DOC_BYTES_LEN;
+    case TI_VAL_MPDATA:         return DOC_MPDATA_LEN;
     case TI_VAL_THING:          return DOC_THING_LEN;
     case TI_VAL_ARR:            return DOC_LIST_LEN;
     case TI_VAL_SET:            return DOC_SET_LEN;

@@ -1,3 +1,10 @@
+# v0.10.8
+
+* Renamed type `info` to `mpdata`, issue #176.
+* Add function `load()` for loading `mpdata` into ThingsDB, issue #177.
+* Add function `is_mpdata(..)` for checking the `mpdata` type, issue #179.
+* Module data as `mpdata` and `load` option to overwrite this behavior, issue #178.
+
 # v0.10.7
 
 * Changed default `max` value when not given in a range definition, issue #172.

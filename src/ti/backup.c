@@ -150,7 +150,7 @@ ti_val_t * ti_backup_as_mpval(ti_backup_t * backup)
     }
 
     raw = (ti_raw_t *) buffer.data;
-    ti_raw_init(raw, TI_VAL_MP, buffer.size);
+    ti_raw_init(raw, TI_VAL_MPDATA, buffer.size);
 
     return (ti_val_t *) raw;
 }

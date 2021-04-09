@@ -341,7 +341,7 @@ ti_member_t * ti_enum_member_by_val_e(
     case TI_VAL_NIL:
     case TI_VAL_BOOL:
     case TI_VAL_DATETIME:
-    case TI_VAL_MP:
+    case TI_VAL_MPDATA:
     case TI_VAL_REGEX:
     case TI_VAL_WRAP:
     case TI_VAL_ARR:
@@ -431,7 +431,7 @@ ti_val_t * ti_enum_as_mpval(ti_enum_t * enum_)
     }
 
     raw = (ti_raw_t *) buffer.data;
-    ti_raw_init(raw, TI_VAL_MP, buffer.size);
+    ti_raw_init(raw, TI_VAL_MPDATA, buffer.size);
 
     return (ti_val_t *) raw;
 }

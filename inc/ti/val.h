@@ -35,6 +35,7 @@ ti_val_t * ti_val_second_name(void);
 ti_val_t * ti_val_gmt_offset_name(void);
 ti_val_t * ti_val_borrow_module_name(void);
 ti_val_t * ti_val_borrow_deep_name(void);
+ti_val_t * ti_val_borrow_load_name(void);
 vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id);
 int ti_val_convert_to_str(ti_val_t ** val, ex_t * e);
 int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e);

@@ -19,7 +19,7 @@ struct ti_future_s
 {
     uint32_t ref;
     uint8_t tp;
-    uint8_t deep;
+    uint8_t options;        /* stores deep and unpack flag */
     uint16_t pid;
     ti_query_t * query;     /* parent query */
     ti_closure_t * then;    /* optional closure, then */

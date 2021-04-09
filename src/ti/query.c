@@ -1210,7 +1210,7 @@ static int query__get_things(ti_val_t * val, imap_t * imap)
     case TI_VAL_DATETIME:
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
-    case TI_VAL_MP:
+    case TI_VAL_MPDATA:
     case TI_VAL_STR:
     case TI_VAL_BYTES:
     case TI_VAL_ERROR:

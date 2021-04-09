@@ -1316,7 +1316,7 @@ int ti_field_make_assignable(
         case TI_VAL_FLOAT:
         case TI_VAL_BOOL:
         case TI_VAL_DATETIME:
-        case TI_VAL_MP:
+        case TI_VAL_MPDATA:
         case TI_VAL_NAME:
         case TI_VAL_STR:
         case TI_VAL_BYTES:

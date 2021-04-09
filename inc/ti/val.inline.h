@@ -131,7 +131,12 @@ static inline _Bool ti_val_is_raw(ti_val_t * val)
     return val->tp == TI_VAL_STR ||
            val->tp == TI_VAL_NAME ||
            val->tp == TI_VAL_BYTES ||
-           val->tp == TI_VAL_MP;
+           val->tp == TI_VAL_MPDATA;
+}
+
+static inline _Bool ti_val_is_mpdata(ti_val_t * val)
+{
+    return val->tp == TI_VAL_MPDATA;
 }
 
 static inline _Bool ti_val_is_regex(ti_val_t * val)
@@ -263,7 +268,7 @@ static inline void ti_val_attach(
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
     case TI_VAL_DATETIME:
-    case TI_VAL_MP:
+    case TI_VAL_MPDATA:
     case TI_VAL_NAME:
     case TI_VAL_STR:
     case TI_VAL_BYTES:
@@ -312,7 +317,7 @@ static inline int ti_val_make_assignable(
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
     case TI_VAL_DATETIME:
-    case TI_VAL_MP:
+    case TI_VAL_MPDATA:
     case TI_VAL_NAME:
     case TI_VAL_STR:
     case TI_VAL_BYTES:
@@ -362,7 +367,7 @@ static inline int ti_val_make_variable(ti_val_t ** val, ex_t * e)
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
     case TI_VAL_DATETIME:
-    case TI_VAL_MP:
+    case TI_VAL_MPDATA:
     case TI_VAL_NAME:
     case TI_VAL_STR:
     case TI_VAL_BYTES:
@@ -405,7 +410,7 @@ static inline int ti_val_make_variable(ti_val_t ** val, ex_t * e)
                 : msgpack_pack_false(pk__); \
     case TI_VAL_DATETIME: \
         return ti_datetime_to_pk((ti_datetime_t *) val__, pk__, options__); \
-    case TI_VAL_MP: \
+    case TI_VAL_MPDATA: \
     { \
         ti_raw_t * r__ = (ti_raw_t *) val__; \
         return options__ >= 0 \

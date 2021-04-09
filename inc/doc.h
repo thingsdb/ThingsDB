@@ -46,7 +46,7 @@
 #define DOC_IS_INF                  DOC_SEE("collection-api/is_inf")
 #define DOC_IS_INT                  DOC_SEE("collection-api/is_int")
 #define DOC_IS_LIST                 DOC_SEE("collection-api/is_list")
-#define DOC_IS_MPACK                DOC_SEE("collection-api/is_mpdata")
+#define DOC_IS_MPDATA               DOC_SEE("collection-api/is_mpdata")
 #define DOC_IS_NAN                  DOC_SEE("collection-api/is_nan")
 #define DOC_IS_NIL                  DOC_SEE("collection-api/is_nil")
 #define DOC_IS_RAW                  DOC_SEE("collection-api/is_raw")

@@ -178,6 +178,8 @@ int ti_proc_load(ti_proc_t * proc)
 {
     int rc;
 
+    LOGC("proc module: %p", proc->module);
+
     if (!fx_file_exist(proc->options.file))
         return UV_ENOENT;  /* no such file or directory */
 
@@ -202,6 +204,7 @@ int ti_proc_load(ti_proc_t * proc)
 
     proc->module->status = TI_MODULE_STAT_RUNNING;
     proc->module->flags |= TI_MODULE_FLAG_IN_USE;
+    LOGC("HERE!!!!\n\n");
     return 0;
 
 fail4:

@@ -417,7 +417,7 @@ static int rjob__new_module(mp_unp_t * up)
             mp_created.via.u64,
             conf_pkg,
             scope_id);
-
+    LOGC("module create: %p", module);
     if (!module)
     {
         log_critical("module already exist or allocation error");

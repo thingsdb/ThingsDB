@@ -64,7 +64,7 @@ typedef enum
     TI_VAL_SET,         /* set of things */
     TI_VAL_ERROR,
     TI_VAL_MEMBER,      /* enum member */
-    TI_VAL_MPDATA,       /* msgpack data */
+    TI_VAL_MPDATA,      /* msgpack data */
     TI_VAL_FUTURE,      /* future */
     TI_VAL_TEMPLATE,    /* template to generate TI_VAL_STR
                            note that a template is never stored like a value,

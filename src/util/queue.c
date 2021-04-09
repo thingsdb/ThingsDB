@@ -44,26 +44,21 @@ queue_t * queue_dup(const queue_t * queue)
     if (!q)
         return NULL;
 
-    queue_copy(queue, q->data_);
+    size_t m = queue->sz - queue->s_;
+    if (m < queue->n)
+    {
+        memcpy(q->data_, queue->data_ + queue->s_, m * sizeof(void*));
+        memcpy(q->data_ + m, queue->data_, (queue->n - m) * sizeof(void*));
+    }
+    else
+    {
+        memcpy(q->data_, queue->data_ + queue->s_, queue->n * sizeof(void*));
+    }
 
     q->sz = q->n = queue->n;
     q->s_ = 0;
 
     return q;
-}
-
-void queue_copy(const queue_t * queue, void * dest[])
-{
-    size_t m = queue->sz - queue->s_;
-    if (m < queue->n)
-    {
-        memcpy(dest, queue->data_ + queue->s_, m * sizeof(void*));
-        memcpy(dest + m, queue->data_, (queue->n - m) * sizeof(void*));
-    }
-    else
-    {
-        memcpy(dest, queue->data_ + queue->s_, queue->n * sizeof(void*));
-    }
 }
 
 void * queue_remove(queue_t * queue, size_t idx)

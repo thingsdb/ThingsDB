@@ -22,7 +22,6 @@ static inline void * queue_pop(queue_t * queue);
 static inline void * queue_shift(queue_t * queue);
 static inline void queue_clear(queue_t * queue);
 queue_t * queue_dup(const queue_t * queue);
-void queue_copy(const queue_t * queue, void * dest[]);
 void * queue_remove(queue_t * queue, size_t idx);
 void * queue_rmval(queue_t * queue, void * data);
 void * queue_replace(queue_t * queue, size_t idx, void * data);

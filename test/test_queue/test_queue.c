@@ -132,20 +132,6 @@ int main()
         _assert (i == num_entries);
     }
 
-    /* test copy */
-    {
-        _assert (q->n == num_entries);
-        vec_t * v = vec_new(q->n);
-        queue_copy(q, v->data);
-        v->n = q->n;
-
-        for (size_t i = 0; i < v->n; i++)
-        {
-            _assert (vec_get(v, i) == entries[i]);
-        }
-        free(v);
-    }
-
     /* test adding an extra value */
     {
         const char * extra = "extra";

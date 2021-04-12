@@ -204,7 +204,7 @@ static int export__set_enum_cb(ti_enum_t * enum_, ti_fmt_t * fmt)
                         VFLOAT(member->val)))
                     return -1;
                 break;
-            case TI_VAL_MP:
+            case TI_VAL_MPDATA:
             case TI_VAL_STR:
             case TI_VAL_NAME:
                 if (ti_fmt_ti_string(fmt, (ti_raw_t *) member->val) ||

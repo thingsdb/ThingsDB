@@ -527,13 +527,6 @@ int ti_run(void)
     if (ti.cfg->http_status_port && ti_web_init())
         goto failed;
 
-    /*
-     * Load the modules before the events, note that events might create
-     * additional modules but if that is the case, they will be loaded by the
-     * event.
-     */
-    ti_modules_load();
-
     if (ti_events_start())
         goto failed;
 
@@ -996,7 +989,7 @@ ti_val_t * ti_this_node_as_mpval(void)
     }
 
     raw = (ti_raw_t *) buffer.data;
-    ti_raw_init(raw, TI_VAL_MP, buffer.size);
+    ti_raw_init(raw, TI_VAL_MPDATA, buffer.size);
 
     return (ti_val_t *) raw;
 }

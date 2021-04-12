@@ -16,7 +16,7 @@
 #define TI_VAL_INT_S        "int"
 #define TI_VAL_FLOAT_S      "float"
 #define TI_VAL_BOOL_S       "bool"
-#define TI_VAL_INFO_S       "info"
+#define TI_VAL_MPDATA_S     "mpdata"
 #define TI_VAL_STR_S        "str"
 #define TI_VAL_BYTES_S      "bytes"
 #define TI_VAL_REGEX_S      "regex"
@@ -64,7 +64,7 @@ typedef enum
     TI_VAL_SET,         /* set of things */
     TI_VAL_ERROR,
     TI_VAL_MEMBER,      /* enum member */
-    TI_VAL_MP,          /* msgpack data */
+    TI_VAL_MPDATA,      /* msgpack data */
     TI_VAL_FUTURE,      /* future */
     TI_VAL_TEMPLATE,    /* template to generate TI_VAL_STR
                            note that a template is never stored like a value,

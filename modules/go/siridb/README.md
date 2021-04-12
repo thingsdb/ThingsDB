@@ -31,7 +31,7 @@ Run the following in the `@thingsdb` scope:
 
 ```
 // The values MUST be change according to your situation, this is just an example
-new_module('SiriDB', {
+new_module('SiriDB', 'siridb', {
     username: 'iris',
     password: 'siri',
     database: 'dbtest',

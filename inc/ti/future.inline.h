@@ -11,6 +11,9 @@
 #include <util/mpack.h>
 #include <util/link.h>
 
+#define TI_FUTURE_DEEP_MASK 0x7f
+#define TI_FUTURE_LOAD_FLAG 0x80
+
 static inline int ti_future_to_pk(
         ti_future_t * future,
         ti_vp_t * vp,
@@ -37,5 +40,16 @@ static inline void ti_future_forget_cb(ti_closure_t * cb)
     ti_closure_dec_future(cb);
     ti_val_unsafe_drop((ti_val_t *) cb);
 }
+
+static inline uint8_t ti_future_deep(ti_future_t * future)
+{
+    return future->options & TI_FUTURE_DEEP_MASK;
+}
+
+static inline uint8_t ti_future_should_load(ti_future_t * future)
+{
+    return future->options & TI_FUTURE_LOAD_FLAG;
+}
+
 
 #endif  /* TI_FUTURE_INLINE_H_ */

@@ -456,7 +456,7 @@ ti_val_t * ti_timer_as_mpval(ti_timer_t * timer, _Bool with_full_access)
     }
 
     raw = (ti_raw_t *) buffer.data;
-    ti_raw_init(raw, TI_VAL_MP, buffer.size);
+    ti_raw_init(raw, TI_VAL_MPDATA, buffer.size);
 
     return (ti_val_t *) raw;
 }
@@ -484,7 +484,7 @@ int ti_timer_check_thingsdb_args(vec_t * args, ex_t * e)
         case TI_VAL_SET:
         case TI_VAL_ERROR:
         case TI_VAL_MEMBER:
-        case TI_VAL_MP:
+        case TI_VAL_MPDATA:
         case TI_VAL_FUTURE:
         case TI_VAL_TEMPLATE:
             ex_set(e, EX_TYPE_ERROR,

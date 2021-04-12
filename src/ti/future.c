@@ -35,7 +35,8 @@ ti_future_t * ti_future_create(
         ti_query_t * query,
         ti_module_t * module,
         size_t nargs,
-        uint8_t deep)
+        uint8_t deep,
+        _Bool load)
 {
     ti_future_t * future = malloc(sizeof(ti_future_t));
     if (!future)
@@ -43,7 +44,9 @@ ti_future_t * ti_future_create(
 
     future->ref = 1;
     future->tp = TI_VAL_FUTURE;
-    future->deep = deep;
+    future->options = deep;
+    if (load)
+        future->options |= TI_FUTURE_LOAD_FLAG;
     future->query = query;
     future->rval = NULL;
     future->then = NULL;

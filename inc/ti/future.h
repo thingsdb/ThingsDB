@@ -12,7 +12,8 @@ ti_future_t * ti_future_create(
         ti_query_t * query,
         ti_module_t * module,
         size_t nargs,
-        uint8_t deep);
+        uint8_t deep,
+        _Bool load);
 void ti_future_destroy(ti_future_t * future);
 void ti_future_cancel(ti_future_t * future);
 void ti_future_stop(ti_future_t * future);

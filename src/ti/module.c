@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/future.h>
+#include <ti/future.inline.h>
 #include <ti/module.h>
 #include <ti/names.h>
 #include <ti/pkg.h>
@@ -12,6 +13,8 @@
 #include <ti/proto.h>
 #include <ti/proto.t.h>
 #include <ti/query.h>
+#include <ti/raw.inline.h>
+#include <ti/raw.t.h>
 #include <ti/scope.h>
 #include <ti/val.inline.h>
 #include <ti/verror.h>
@@ -173,7 +176,7 @@ static void module__cb(ti_future_t * future)
         goto mem_error0;
     msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
-    if (ti_thing_to_pk(thing, &vp, future->deep))
+    if (ti_thing_to_pk(thing, &vp, ti_future_deep(future)))
         goto mem_error1;
 
     future->pkg = (ti_pkg_t *) buffer.data;
@@ -453,9 +456,25 @@ void ti_module_stop_and_destroy(ti_module_t * module)
         ti_module_destroy(module);
 }
 
+void module__stop_cb(uv_async_t * task)
+{
+    ti_module_t * module = task->data;
+    ti_module_stop_and_destroy(module);
+    uv_close((uv_handle_t *) task, (uv_close_cb) free);
+}
+
 void ti_module_del(ti_module_t * module)
 {
-    ti_module_stop_and_destroy(smap_pop(ti.modules, module->name->str));
+    uv_async_t * task;
+
+    (void) smap_pop(ti.modules, module->name->str);
+
+    task = malloc(sizeof(uv_async_t));
+    if (task && uv_async_init(ti.loop, task, module__stop_cb) == 0)
+    {
+        task->data = module;
+        (void) uv_async_send(task);
+    }
 }
 
 void ti_module_cancel_futures(ti_module_t * module)
@@ -467,16 +486,32 @@ static void module__on_res(ti_future_t * future, ti_pkg_t * pkg)
 {
     ex_t e = {0};
     ti_val_t * val;
-    mp_unp_t up;
-    ti_vup_t vup = {
-            .isclient = true,
-            .collection = future->query->collection,
-            .up = &up,
-    };
-    mp_unp_init(&up, pkg->data, pkg->n);
-    val = ti_val_from_vup_e(&vup, &e);
+
+    if (ti_future_should_load(future))
+    {
+        mp_unp_t up;
+        ti_vup_t vup = {
+                .isclient = true,
+                .collection = future->query->collection,
+                .up = &up,
+        };
+        mp_unp_init(&up, pkg->data, pkg->n);
+        val = ti_val_from_vup_e(&vup, &e);
+    }
+    else if (!mp_is_valid(pkg->data, pkg->n))
+    {
+        ex_set(&e, EX_BAD_DATA,
+                "got invalid or corrupt MsgPack data from module: `%s`",
+                future->module->name->str);
+        val = NULL;
+    }
+    else
+        val = (ti_val_t *) ti_mp_create(pkg->data, pkg->n);
+
     if (!val)
     {
+        if (e.nr == 0)
+            ex_set_mem(&e);
         ti_query_on_future_result(future, &e);
         return;
     }
@@ -658,7 +693,7 @@ ti_val_t * ti_module_as_mpval(ti_module_t * module, int flags)
     }
 
     raw = (ti_raw_t *) buffer.data;
-    ti_raw_init(raw, TI_VAL_MP, buffer.size);
+    ti_raw_init(raw, TI_VAL_MPDATA, buffer.size);
 
     return (ti_val_t *) raw;
 }

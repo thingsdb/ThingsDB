@@ -757,6 +757,13 @@ static void __attribute__((unused))mp_print(FILE * out, const void * data, size_
     mp_print_up(out, &up);
 }
 
+static _Bool __attribute__((unused))mp_is_valid(const void * data, size_t n)
+{
+    mp_unp_t up;
+    mp_unp_init(&up, data, n);
+    return mp_skip(&up) > MP_END && mp_skip(&up) == MP_END;
+}
+
 static inline int mp_cast_u64(mp_obj_t * o)
 {
     if (o->tp == MP_U64)

@@ -456,10 +456,25 @@ void ti_module_stop_and_destroy(ti_module_t * module)
         ti_module_destroy(module);
 }
 
+void module__stop_cb(uv_async_t * task)
+{
+    ti_module_t * module = task->data;
+    ti_module_stop_and_destroy(module);
+    uv_close((uv_handle_t *) task, (uv_close_cb) free);
+}
+
 void ti_module_del(ti_module_t * module)
 {
-    LOGC("STOP AND DESTROY: %p", module);
-    ti_module_stop_and_destroy(smap_pop(ti.modules, module->name->str));
+    uv_async_t * task;
+
+    (void) smap_pop(ti.modules, module->name->str);
+
+    task = malloc(sizeof(uv_async_t));
+    if (task && uv_async_init(ti.loop, task, module__stop_cb) == 0)
+    {
+        task->data = module;
+        (void) uv_async_send(task);
+    }
 }
 
 void ti_module_cancel_futures(ti_module_t * module)
@@ -483,7 +498,7 @@ static void module__on_res(ti_future_t * future, ti_pkg_t * pkg)
         mp_unp_init(&up, pkg->data, pkg->n);
         val = ti_val_from_vup_e(&vup, &e);
     }
-    else if (mp_is_valid(pkg->data, pkg->n))
+    else if (!mp_is_valid(pkg->data, pkg->n))
     {
         ex_set(&e, EX_BAD_DATA,
                 "got invalid or corrupt MsgPack data from module: `%s`",

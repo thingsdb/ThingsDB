@@ -8,7 +8,8 @@
 
 static int modules__load_cb(ti_module_t * module, void * UNUSED(arg))
 {
-    ti_module_load(module);
+    if (module->flags & TI_MODULE_STAT_NOT_LOADED)
+        ti_module_load(module);
     return 0;
 }
 

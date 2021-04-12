@@ -1849,6 +1849,18 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query('is_int( nil );'))
         self.assertFalse(await client.query('is_int( set() );'))
 
+    async def test_is_mpdata(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `is_mpdata` takes 1 argument but 0 were given'):
+            await client.query('is_mpdata();')
+
+        self.assertTrue(await client.query(
+            'is_mpdata( user_info("admin") ); ',
+            scope='/t'))
+        self.assertFalse(await client.query('is_mpdata( "" ); '))
+        self.assertFalse(await client.query('is_mpdata( bytes() ); '))
+
     async def test_is_regex(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
@@ -4095,6 +4107,38 @@ class TestCollectionFunctions(TestBase):
         ''')
 
         self.assertEqual(res, {"just a key": {'name': 'Foo'}})
+
+    async def test_load(self, client):
+        await client.query(r'''
+            new_type('A');
+        ''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `load`'):
+            await client.query('nil.load();')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `load` is undefined'):
+            await client.query('load();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `load` takes 0 arguments '
+                r'but 1 was given'):
+            await client.query('type_info("A").load(1);')
+
+        res = await client.query(r'''
+            [type_info("A").load(), type_info("A")];
+        ''')
+        self.assertEqual(res[0], res[1])
+
+        res = await client.query(r'''
+             [type(type_info("A").load()), type(type_info("A"))];
+        ''')
+        self.assertEqual(res[0], 'thing')
+        self.assertEqual(res[1], 'mpdata')
 
 
 if __name__ == '__main__':

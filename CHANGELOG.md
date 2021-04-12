@@ -4,6 +4,7 @@
 * Add function `load()` for loading `mpdata` into ThingsDB, issue #177.
 * Add function `is_mpdata(..)` for checking the `mpdata` type, issue #179.
 * Module data as `mpdata` and `load` option to overwrite this behavior, issue #178.
+* Delay module deletion to prevent a memory bug while loading a module, issue #181.
 
 # v0.10.7
 

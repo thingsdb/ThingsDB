@@ -1,3 +1,7 @@
+# v0.10.9
+
+* Fixed bug in storing relations with full database store, issue #182.
+
 # v0.10.8
 
 * Renamed type `info` to `mpdata`, issue #176.

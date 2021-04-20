@@ -1317,6 +1317,67 @@ mod_type('D', 'rel', 'da', 'db');
                 'OK';
             '''), 'OK')
 
+    async def test_full_store(self, client0):
+        await client0.query(r'''
+            new_type('A');
+            new_type('B');
+
+            set_type('A', {
+                a: 'A?',
+                aa: '{A}',
+                bb: '{B}',
+            });
+
+            set_type('B', {
+                aa: '{A}'
+            });
+
+            mod_type('A', 'rel', 'a', 'aa');
+            mod_type('A', 'rel', 'bb', 'aa');
+        ''')
+
+        self.assertEqual(await client0.query(r'''
+            .a1 = A{};
+            .a2 = A{};
+            .a3 = A{};
+            .a4 = A{};
+
+            .b1 = B{};
+            .b2 = B{};
+
+            .b1.aa.add(.a1, .a2, .a3);
+            .b1.aa = set(.a2, .a3);
+            .b1.aa |= set(.a3, .a4);
+            .b1.aa ^= set(.a1, .a3, .a4);
+            .a1.aa |= set(.a1, .a2);
+            .a2.aa |= set(.a1, .a2);
+            'OK';
+        '''), 'OK')
+
+        await self.node0.shutdown()
+        await self.node0.run()
+        await self.wait_nodes_ready()
+
+        res = await client0.query(r'''
+            [type_info('A').load().relations, type_info('B').load().relations];
+        ''')
+
+        self.assertEqual(res[0], {'a': {}, 'aa': {}, 'bb': {}})
+        self.assertEqual(res[1], {'aa': {}})
+        self.assertEqual(await client0.query(r'''
+            assert (.a1.bb == set(.b1));
+            assert (.a2.bb == set(.b1));
+            assert (.a3.bb == set());
+            assert (.a4.bb == set());
+
+            assert (.a1.a == .a2);
+            assert (.a2.a == .a2);
+            assert (.a1.aa == set());
+            assert (.a2.aa == set(.a1, .a2));
+
+            'OK';
+        '''), 'OK')
+
 
 if __name__ == '__main__':
     run_test(TestRelations())

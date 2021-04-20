@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <ti.h>
 #include <ti/closure.h>
+#include <ti/condition.h>
 #include <ti/field.h>
 #include <ti/method.h>
 #include <ti/prop.h>
@@ -60,20 +61,66 @@ static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
     return 0;
 }
 
+static int count_relations_cb(ti_type_t * type, size_t * n)
+{
+    for (vec_each(type->fields, ti_field_t, field))
+    {
+        if (ti_field_has_relation(field))
+        {
+            ti_field_t * other = field->condition.rel->field;
+            if (   field == other ||
+                    field->type->type_id < other->type->type_id ||
+                    (   field->type->type_id == other->type->type_id &&
+                        field->idx < other->idx))
+                (*n)++;
+        }
+    }
+    return 0;
+}
+
+static int rltype_cb(ti_type_t * type, msgpack_packer * pk)
+{
+    for (vec_each(type->fields, ti_field_t, field))
+    {
+        if (ti_field_has_relation(field))
+        {
+            ti_field_t * other = field->condition.rel->field;
+            if (   field == other ||
+                    field->type->type_id < other->type->type_id ||
+                    (   field->type->type_id == other->type->type_id &&
+                        field->idx < other->idx))
+            {
+                if (msgpack_pack_array(pk, 4) ||
+                    msgpack_pack_uint16(pk, field->type->type_id) ||
+                    mp_pack_strn(pk, field->name->str, field->name->n) ||
+                    msgpack_pack_uint16(pk, other->type->type_id) ||
+                    mp_pack_strn(pk, other->name->str, other->name->n))
+                    return -1;
+            }
+        }
+    }
+    return 0;
+}
+
 int ti_store_types_store(ti_types_t * types, const char * fn)
 {
     msgpack_packer pk;
     char namebuf[TI_NAME_MAX];
     FILE * f = fopen(fn, "w");
+    size_t n = 0;
+
     if (!f)
     {
         log_errno_file("cannot open file", errno, fn);
         return -1;
     }
 
+    /* count the number of relations */
+    (void) imap_walk(types->imap, (imap_cb) count_relations_cb, &n);
+
     msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
 
-    if (msgpack_pack_map(&pk, 2) ||
+    if (msgpack_pack_map(&pk, 3) ||
         /* removed types */
         mp_pack_str(&pk, "removed") ||
         msgpack_pack_map(&pk, types->removed->n) ||
@@ -81,7 +128,11 @@ int ti_store_types_store(ti_types_t * types, const char * fn)
         /* active types */
         mp_pack_str(&pk, "types") ||
         msgpack_pack_array(&pk, types->imap->n) ||
-        imap_walk(types->imap, (imap_cb) mktype_cb, &pk)
+        imap_walk(types->imap, (imap_cb) mktype_cb, &pk) ||
+        /* relations */
+        mp_pack_str(&pk, "relations") ||
+        msgpack_pack_array(&pk, n) ||
+        imap_walk(types->imap, (imap_cb) rltype_cb, &pk)
     ) goto fail;
 
     log_debug("stored types to file: `%s`", fn);
@@ -105,10 +156,11 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     int rc = -1;
     _Bool with_methods = true;
     _Bool with_wrap_only = true;
+    _Bool with_relations = true;
     fx_mmap_t fmap;
     ex_t e = {0};
-    ti_name_t * name;
-    ti_type_t * type;
+    ti_name_t * name, * oname;
+    ti_type_t * type, * otype;
     size_t i, ii;
     uint16_t type_id;
     uintptr_t utype_id;
@@ -127,10 +179,14 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 
     mp_unp_init(&up, fmap.data, fmap.n);
 
-    if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 2 ||
-        mp_skip(&up) != MP_STR ||
-        mp_next(&up, &obj) != MP_MAP
-    ) goto fail1;
+    if (mp_next(&up, &obj) != MP_MAP || (obj.via.sz != 2 && obj.via.sz != 3) ||
+        mp_skip(&up) != MP_STR)
+        goto fail1;
+
+    with_relations = obj.via.sz == 3;
+
+    if (mp_next(&up, &obj) != MP_MAP)
+        goto fail1;
 
     for (i = obj.via.sz; i--;)
     {
@@ -303,6 +359,57 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             }
 
             ti_decref(val);
+        }
+    }
+
+    if (with_relations)
+    {
+        mp_obj_t mp_id1, mp_name1, mp_id2, mp_name2;
+        ti_field_t * field, * ofield;
+
+        if (mp_skip(&up) != MP_STR ||
+            mp_next(&up, &obj) != MP_ARR
+        ) goto fail1;
+
+        for (i = obj.via.sz; i--;)
+        {
+            if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 4 ||
+                mp_next(&up, &mp_id1) != MP_U64 ||
+                mp_next(&up, &mp_name1) != MP_STR ||
+                mp_next(&up, &mp_id2) != MP_U64 ||
+                mp_next(&up, &mp_name2) != MP_STR
+            ) goto fail1;
+
+            type = ti_types_by_id(types, mp_id1.via.u64);
+            otype = ti_types_by_id(types, mp_id2.via.u64);
+
+            name = ti_names_weak_get_strn(
+                    mp_name1.via.str.data,
+                    mp_name1.via.str.n);
+            oname = ti_names_weak_get_strn(
+                    mp_name2.via.str.data,
+                    mp_name2.via.str.n);
+
+            if (!type || !otype || !name || !oname)
+                goto fail1;
+
+            field = ti_field_by_name(type, name);
+            ofield = ti_field_by_name(otype, oname);
+
+            if (!field || !ofield)
+                goto fail1;
+
+            if (ti_condition_field_rel_init(field, ofield, &e))
+            {
+                log_critical(e.msg);
+                goto fail1;
+            }
+
+            if (ti_field_relation_make(field, ofield, NULL))
+            {
+                ti_panic("unrecoverable error");
+                goto fail1;
+            }
         }
     }
 

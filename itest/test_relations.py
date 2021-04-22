@@ -1378,6 +1378,55 @@ mod_type('D', 'rel', 'da', 'db');
             'OK';
         '''), 'OK')
 
+    async def test_relation_init_non_id(self, client):
+        await client.query(r'''
+            new_type('P');
+            new_type('W');
+            new_type('S');
+            set_type('P', {
+                w: 'W?'
+            });
+            set_type('W', {
+                p: '{P}'
+            });
+            set_type('S', {
+                s: '{S}'
+            });
+            .w = W{};
+            .p = P{};
+            .s = S{};
+        ''')
+
+        err_msg = (
+            r'failed to create relation; '
+            r'relations between stored and non-stored things must be '
+            r'created using the property on the the stored thing '
+            r'\(the thing with an ID\)')
+
+        with self.assertRaisesRegex(TypeError, err_msg):
+            await client.query(r'''
+                w = W{
+                    p: set(.p)
+                };
+                mod_type('W', 'rel', 'p', 'w');
+            ''')
+
+        with self.assertRaisesRegex(TypeError, err_msg):
+            await client.query(r'''
+                p = P{
+                    w: .w
+                };
+                mod_type('W', 'rel', 'p', 'w');
+            ''')
+
+        with self.assertRaisesRegex(TypeError, err_msg):
+            await client.query(r'''
+                s = S{
+                    s: set(.s)
+                };
+                mod_type('S', 'rel', 's', 's');
+            ''')
+
 
 if __name__ == '__main__':
     run_test(TestRelations())

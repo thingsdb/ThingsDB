@@ -1,3 +1,7 @@
+# v0.10.10
+
+* Fixed bug with relations between stored and non-stored things, issue #183.
+
 # v0.10.9
 
 * Fixed bug in storing relations with full database store, issue #182.

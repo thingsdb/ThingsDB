@@ -1065,6 +1065,11 @@ static inline int field__walk_assign(ti_thing_t * thing, ti_field_t * field)
     return thing->type_id != field->nested_spec;
 }
 
+static inline int field__walk_rel_check(ti_thing_t * thing, void * UNUSED(arg))
+{
+    return thing->id != 0;
+}
+
 typedef struct
 {
     ti_field_t * field;
@@ -1123,6 +1128,7 @@ static int field__vset_assign(
      * OBJECT, not ANY.
      */
     ti_vset_t * oset;
+    _Bool with_relation = field->condition.rel && parent;
 
     if (field->nested_spec == TI_SPEC_ANY ||
         field->nested_spec == ti_vset_spec(*vset) ||
@@ -1142,11 +1148,25 @@ static int field__vset_assign(
     }
 
 done:
+    if (with_relation && !parent->id)
+    {
+        if (imap_walk((*vset)->imap, (imap_cb) field__walk_rel_check, NULL))
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                    "mismatch in type `%s` on property `%s`; "
+                    "relations between stored and non-stored things must be "
+                    "created using the property on the the stored thing "
+                    "(the thing with an ID)",
+                    field->type->name,
+                    field->name->str);
+            return e->nr;
+        }
+    }
+
     if (ti_val_make_assignable((ti_val_t **) vset, parent, field, e))
         return e->nr;
 
-    if (field->condition.rel &&
-        (oset = vec_get(parent->items.vec, field->idx)))
+    if (with_relation && (oset = vec_get(parent->items.vec, field->idx)))
     {
         field__walk_set_t w = {
                 .field = field->condition.rel->field,
@@ -1162,6 +1182,7 @@ done:
 
         (void) imap_walk(oset->imap, (imap_cb) field__walk_unset_cb, &w);
     }
+
     return 0;
 }
 
@@ -1275,6 +1296,11 @@ int ti_field_make_assignable(
             if (!ti_val_is_nil(*val) && (!ti_val_is_thing(*val) ||
                 ((ti_thing_t *) *val)->type_id != spec))
                 goto type_error;
+
+            if (!parent->id &&
+                ti_val_is_thing(*val) &&
+                ((ti_thing_t *) *val)->id)
+                goto relation_error;
 
             if (relation && relation->tp == TI_VAL_THING)
                 rfield->condition.rel->del_cb(rfield, relation, parent);
@@ -1558,6 +1584,16 @@ type_error:
             ti_val_str(*val),
             field->name->str,
             field->spec_raw->n, (const char *) field->spec_raw->data);
+    return e->nr;
+
+relation_error:
+    ex_set(e, EX_TYPE_ERROR,
+            "mismatch in type `%s` on property `%s`; "
+            "relations between stored and non-stored things must be "
+            "created using the property on the the stored thing "
+            "(the thing with an ID)",
+            field->type->name,
+            field->name->str);
     return e->nr;
 }
 
@@ -2122,6 +2158,51 @@ static int field__walk_things(
     );
 }
 
+static int field__chk_id(ti_thing_t * thing, void * UNUSED(arg))
+{
+    return thing->id != 0;
+}
+
+static int field__field_id_chk(ti_thing_t * thing, ti_field_t * field)
+{
+    if (field->spec == TI_SPEC_SET)
+    {
+        ti_vset_t * vset = VEC_get(thing->items.vec, field->idx);
+        return imap_walk(vset->imap, (imap_cb) field__chk_id, NULL);
+    }
+    else
+    {
+        ti_thing_t * other = VEC_get(thing->items.vec, field->idx);
+        return (other->tp == TI_VAL_THING && other->id);
+    }
+
+    return 0;
+}
+
+static int field__non_id_chk(ti_thing_t * thing, field__set_rel_chk_t * w)
+{
+    if (thing->id)
+        return 0;
+
+    if (thing->type_id == w->field->type->type_id &&
+        field__field_id_chk(thing, w->field))
+        goto failed;
+
+    if (thing->type_id == w->ofield->type->type_id &&
+        field__field_id_chk(thing, w->ofield))
+        goto failed;
+
+    return 0;
+
+failed:
+    ex_set(w->e, EX_TYPE_ERROR,
+            "failed to create relation; "
+            "relations between stored and non-stored things must be "
+            "created using the property on the the stored thing "
+            "(the thing with an ID)");
+    return w->e->nr;
+}
+
 int ti_field_relation_check(
         ti_field_t * field,
         ti_field_t * ofield,
@@ -2129,6 +2210,22 @@ int ti_field_relation_check(
         ex_t * e)
 {
     ti_collection_t * collection = field->type->types->collection;
+
+    if (vars)
+    {
+        field__set_rel_chk_t w = {
+                .collect = NULL,
+                .field = field,
+                .ofield = ofield,
+                .e = e,
+        };
+        if (ti_query_vars_walk(
+                vars,
+                collection,
+                (imap_cb) field__non_id_chk,
+                &w))
+            return e->nr;
+    }
 
     if (field->spec == TI_SPEC_SET && ofield->spec == TI_SPEC_SET)
         return 0;

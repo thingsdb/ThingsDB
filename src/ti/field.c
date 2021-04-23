@@ -975,15 +975,16 @@ static void field__del_watch(
 
 int ti_field_del(ti_field_t * field, uint64_t ev_id)
 {
-    vec_t * vec = imap_vec(field->type->types->collection->things);
+    vec_t * vec = imap_vec_ref(field->type->types->collection->things);
     uint16_t type_id = field->type->type_id;
     ti_data_t * data = field__del_job(field->name->str, field->name->n);
 
     if (!data || !vec)
-        return -1;  /* might leak a few bytes */
-
-    for (vec_each(vec, ti_thing_t, thing))
-        ++thing->ref;
+    {
+        free(data);
+        vec_destroy(vec, (vec_destroy_cb) ti_val_unsafe_drop);
+        return -1;
+    }
 
     for (vec_each(vec, ti_thing_t, thing))
     {

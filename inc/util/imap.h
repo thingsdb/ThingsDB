@@ -33,10 +33,16 @@ int imap_add(imap_t * imap, uint64_t id, void * data);
 void * imap_get(imap_t * imap, uint64_t id);
 void * imap_pop(imap_t * imap, uint64_t id);
 int imap_walk(imap_t * imap, imap_cb cb, void * arg);
+int imap_walk_cp(
+        imap_t * imap,
+        imap_cb cb,
+        void * arg,
+        imap_destroy_cb destroy_cb);
 void imap_walkn(imap_t * imap, size_t * n, imap_cb cb, void * arg);
 _Bool imap__eq_(imap_t * a, imap_t * b);
 static inline _Bool imap_eq(imap_t * a, imap_t * b);
 vec_t * imap_vec(imap_t * imap);
+vec_t * imap_vec_ref(imap_t * imap);
 uint64_t imap_unused_id(imap_t * imap, uint64_t max);
 
 /* union `|` */

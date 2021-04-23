@@ -70,23 +70,18 @@ int ti_vset_to_pk(ti_vset_t * vset, ti_vp_t * vp, int options)
 
 int ti_vset_to_list(ti_vset_t ** vsetaddr)
 {
-    ti_varr_t * list;
-    vec_t * vec = imap_vec((*vsetaddr)->imap);
-    if (!vec)
+    ti_varr_t * list = malloc(sizeof(ti_varr_t));
+    if (!list)
         goto failed;
 
-    list = malloc(sizeof(ti_varr_t));
-    if (!list)
+    list->vec = imap_vec_ref((*vsetaddr)->imap);
+    if (!list->vec)
         goto failed;
 
     list->ref = 1;
     list->tp = TI_VAL_ARR;
-    list->flags = vec->n ? TI_VARR_FLAG_MHT : 0;
-    list->vec = vec;
+    list->flags = list->vec->n ? TI_VARR_FLAG_MHT : 0;
     list->parent = NULL;
-
-    for (vec_each(list->vec, ti_val_t, val))
-        ti_incref(val);
 
     ti_val_unsafe_drop((ti_val_t *) *vsetaddr);
     *vsetaddr = (ti_vset_t *) list;
@@ -94,28 +89,23 @@ int ti_vset_to_list(ti_vset_t ** vsetaddr)
     return 0;
 
 failed:
-    free(vec);
+    free(list);
     return -1;
 }
 
 int ti_vset_to_tuple(ti_vset_t ** vsetaddr)
 {
-    ti_tuple_t * tuple;
-    vec_t * vec = imap_vec((*vsetaddr)->imap);
-    if (!vec)
-        return -1;
-
-    tuple = malloc(sizeof(ti_tuple_t));
+    ti_tuple_t * tuple = malloc(sizeof(ti_tuple_t));
     if (!tuple)
+        goto failed;
+
+    tuple->vec = imap_vec_ref((*vsetaddr)->imap);
+    if (!tuple->vec)
         goto failed;
 
     tuple->ref = 1;
     tuple->tp = TI_VAL_ARR;
-    tuple->flags = TI_VARR_FLAG_TUPLE | (vec->n ? TI_VARR_FLAG_MHT : 0);
-    tuple->vec = vec;
-
-    for (vec_each(vec, ti_val_t, val))
-        ti_incref(val);
+    tuple->flags = TI_VARR_FLAG_TUPLE | (tuple->vec->n ? TI_VARR_FLAG_MHT : 0);
 
     ti_val_unsafe_drop((ti_val_t *) *vsetaddr);
     *vsetaddr = (ti_vset_t *) tuple;
@@ -123,7 +113,7 @@ int ti_vset_to_tuple(ti_vset_t ** vsetaddr)
     return 0;
 
 failed:
-    free(vec);
+    free(tuple);
     return -1;
 }
 

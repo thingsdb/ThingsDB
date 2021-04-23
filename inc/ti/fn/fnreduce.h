@@ -173,7 +173,17 @@ static int do__f_reduce(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 .query = query,
         };
 
-        (void) imap_walk(imap, (imap_cb) reduce__walk_set, &w);
+        if (ti_vset_has_relation((ti_vset_t *) lockval))
+        {
+            if (imap_walk_cp(
+                    imap,
+                    (imap_cb) reduce__walk_set,
+                    &w,
+                    (imap_destroy_cb) ti_val_unsafe_drop) && !e->nr)
+                ex_set_mem(e);
+        }
+        else
+            (void) imap_walk(imap, (imap_cb) reduce__walk_set, &w);
     }
     }
 

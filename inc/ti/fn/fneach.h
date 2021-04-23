@@ -110,9 +110,15 @@ static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         int64_t idx = 0;
         for (vec_each(VARR(iterval), ti_val_t, v), ++idx)
         {
-            if (ti_closure_vars_val_idx(closure, v, idx) ||
-                ti_closure_do_statement(closure, query, e))
+            if (ti_closure_vars_val_idx(closure, v, idx))
+            {
+                ex_set_mem(e);
                 goto fail2;
+            }
+
+            if (ti_closure_do_statement(closure, query, e))
+                goto fail2;
+
             ti_val_unsafe_drop(query->rval);
             query->rval = NULL;
         }
@@ -125,7 +131,12 @@ static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 .closure = closure,
                 .query = query,
         };
-        if (imap_walk(VSET(iterval), (imap_cb) each__walk_set, &w))
+        if (ti_vset_has_relation((ti_vset_t *) iterval)
+                ? imap_walk_cp(VSET(iterval),
+                        (imap_cb) each__walk_set,
+                        &w,
+                        (imap_destroy_cb) ti_val_unsafe_drop)
+                : imap_walk(VSET(iterval), (imap_cb) each__walk_set, &w))
         {
             if (!e->nr)
                 ex_set_mem(e);

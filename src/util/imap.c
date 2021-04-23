@@ -20,6 +20,7 @@ static int imap__walk(imap_node_t * node, imap_cb cb, void * arg);
 static void imap__walkn(imap_node_t * node, imap_cb cb, void * arg, size_t * n);
 static _Bool imap__eq(imap_node_t * nodea, imap_node_t * nodeb);
 static void imap__vec(imap_node_t * node, vec_t * vec);
+static void imap__vec_ref(imap_node_t * node, vec_t * vec);
 static uint64_t imap__unused_id(imap_node_t * node, uint64_t max);
 static int imap__nodes_dup(imap_node_t * dest, imap_node_t * node);
 
@@ -269,6 +270,25 @@ int imap_walk(imap_t * imap, imap_cb cb, void * arg)
     return rc;
 }
 
+int imap_walk_cp(
+        imap_t * imap,
+        imap_cb cb,
+        void * arg,
+        imap_destroy_cb destroy_cb)
+{
+    int rc = 0;
+    vec_t * vec = imap_vec_ref(imap);
+    if (!vec)
+        return -1;
+    for (vec_each(vec, void, data))
+    {
+        rc = rc || cb(data, arg);
+        destroy_cb(data);
+    }
+    free(vec);
+    return rc;
+}
+
 /*
  * Recursive function, call-back function will be called on each item.
  *
@@ -332,6 +352,33 @@ vec_t * imap_vec(imap_t * imap)
 
             if (nd->nodes)
                 imap__vec(nd, vec);
+        }
+        while (++nd < end);
+    }
+    return vec;
+}
+
+/*
+ * Returns a pointer to imap->vec or NULL in case an allocation error has
+ * occurred.
+ *
+ * The imap->vec will be created if it does not yet exist.
+ */
+vec_t * imap_vec_ref(imap_t * imap)
+{
+    vec_t * vec = vec_new(imap->n);
+    if (vec && imap->n)
+    {
+        imap_node_t * nd = imap->nodes, * end = nd + IMAP_NODE_SZ;
+        do
+        {
+            if (nd->data)
+            {
+                VEC_push(vec, nd->data);
+                ti_incref((ti_ref_t *) nd->data);
+            }
+            if (nd->nodes)
+                imap__vec_ref(nd, vec);
         }
         while (++nd < end);
     }
@@ -1377,6 +1424,23 @@ static void imap__vec(imap_node_t * node, vec_t * vec)
 
         if (nd->nodes)
             imap__vec(nd, vec);
+    }
+    while (++nd < end);
+}
+
+static void imap__vec_ref(imap_node_t * node, vec_t * vec)
+{
+    imap_node_t * nd = node->nodes, * end = nd + imap__node_size(node);
+
+    do
+    {
+        if (nd->data)
+        {
+            VEC_push(vec, nd->data);
+            ti_incref((ti_ref_t *) nd->data);
+        }
+        if (nd->nodes)
+            imap__vec_ref(nd, vec);
     }
     while (++nd < end);
 }

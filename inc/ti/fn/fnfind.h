@@ -11,10 +11,7 @@ static int find__walk_set(ti_thing_t * t, find__walk_t * w)
 {
     _Bool found;
     if (ti_closure_vars_vset(w->closure, t))
-    {
-        ex_set_mem(w->e);
         return -1;
-    }
 
     if (ti_closure_do_statement(w->closure, w->query, w->e))
         return -1;
@@ -101,12 +98,21 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 .query = query,
         };
 
-        rc = imap_walk(VSET(iterval), (imap_cb) find__walk_set, &w);
+        rc = ti_vset_has_relation((ti_vset_t *) iterval)
+                ? imap_walk_cp(VSET(iterval),
+                        (imap_cb) find__walk_set,
+                        &w,
+                        (imap_destroy_cb) ti_val_unsafe_drop)
+                : imap_walk(VSET(iterval), (imap_cb) find__walk_set, &w);
 
         if (rc > 0)
             goto done;
         if (rc < 0)
+        {
+            if (!e->nr)
+                ex_set_mem(e);
             goto fail2;
+        }
         break;
     }
     }

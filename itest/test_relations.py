@@ -1427,6 +1427,46 @@ mod_type('D', 'rel', 'da', 'db');
                 mod_type('S', 'rel', 's', 's');
             ''')
 
+    async def test_iteration_id(self, client):
+        await client.query(r'''
+            new_type('P');
+            new_type('W');
+            set_type('P', {
+                w: '{W}'
+            });
+            set_type('W', {
+                p: '{P}'
+            });
+            mod_type('W', 'rel', 'p', 'w');
+        ''')
+        await client.query(r'''
+            .w = W{};
+            .w.p.add(P{}, P{}, P{});
+        ''')
+        self.assertEqual(await client.query(r'''
+            w = .w;
+            .w.p.map(|p| p.w.remove(w));
+             'OK';
+        '''), 'OK')
+        await client.query(r'''
+            .w = W{};
+            .w.p.add(P{}, P{}, P{});
+        ''')
+        self.assertEqual(await client.query(r'''
+            w = .w;
+            .w.p.each(|p| p.w.remove(w));
+             'OK';
+        '''), 'OK')
+        await client.query(r'''
+            .w = W{};
+            .w.p.add(P{}, P{}, P{});
+        ''')
+        self.assertEqual(await client.query(r'''
+            w = .w;
+            .w.p.filter(|p| p.w.remove(w));
+             'OK';
+        '''), 'OK')
+
 
 if __name__ == '__main__':
     run_test(TestRelations())

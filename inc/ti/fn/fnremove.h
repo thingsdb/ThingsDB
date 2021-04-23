@@ -149,7 +149,18 @@ static int do__f_remove_set_from_closure(
             .removed = removed,
     };
 
-    (void) imap_walk(vset->imap, (imap_cb) remove__walk, &w);
+    if (ti_vset_has_relation(vset))
+    {
+        if (imap_walk_cp(
+                vset->imap,
+                (imap_cb) remove__walk,
+                &w,
+                (imap_destroy_cb) ti_val_unsafe_drop) && !e->nr)
+            ex_set_mem(e);
+    }
+    else
+        (void) imap_walk(vset->imap, (imap_cb) remove__walk, &w);
+
     ti_closure_dec(closure, query);
 
 fail:
@@ -240,7 +251,6 @@ static int do__f_remove_set(
 
     if (removed->n && vset->parent)
     {
-
         if (vset->parent->id)
         {
             ti_task_t * task = ti_task_get_task(query->ev, vset->parent);

@@ -29,6 +29,7 @@ static int do__f_some(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const char * doc;
     const int nargs = fn_get_nargs(nd);
     _Bool some = false;
+    int lock_was_set;
     ti_val_t * iterval;
     ti_closure_t * closure;
 
@@ -39,6 +40,7 @@ static int do__f_some(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_nargs("some", doc, 1, nargs, e))
         return e->nr;
 
+    lock_was_set = ti_val_ensure_lock(query->rval);
     iterval = query->rval;
     query->rval = NULL;
 
@@ -88,7 +90,13 @@ static int do__f_some(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 .closure = closure,
                 .query = query,
         };
-        switch (imap_walk(VSET(iterval), (imap_cb) some__walk_set, &w))
+        int rc = ti_vset_has_relation((ti_vset_t *) iterval)
+                ? imap_walk_cp(VSET(iterval),
+                        (imap_cb) some__walk_set,
+                        &w,
+                        (imap_destroy_cb) ti_val_unsafe_drop)
+                : imap_walk(VSET(iterval), (imap_cb) some__walk_set, &w);
+        switch (rc)
         {
         case -1:
             if (!e->nr)
@@ -107,6 +115,7 @@ fail2:
 fail1:
     ti_val_unsafe_drop((ti_val_t *) closure);
 fail0:
+    ti_val_unlock(iterval, lock_was_set);
     ti_val_unsafe_drop(iterval);
     return e->nr;
 }

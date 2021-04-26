@@ -1086,7 +1086,7 @@ static int field__walk_unset_cb(ti_thing_t * thing, field__walk_set_t * w)
 
 static int field__walk_set_cb(ti_thing_t * thing, field__walk_set_t * w)
 {
-    if (imap_pop(w->imap, ti_thing_key(thing)))
+    if (w->imap && imap_pop(w->imap, ti_thing_key(thing)))
     {
         ti_decref(thing);
         return 0;
@@ -1100,7 +1100,7 @@ static int field__walk_tset_cb(ti_thing_t * thing, field__walk_set_t * w)
 {
     ti_thing_t * other;
 
-    if (imap_pop(w->imap, ti_thing_key(thing)))
+    if (w->imap && imap_pop(w->imap, ti_thing_key(thing)))
     {
         ti_decref(thing);
         return 0;
@@ -1167,21 +1167,25 @@ done:
     if (ti_val_make_assignable((ti_val_t **) vset, parent, field, e))
         return e->nr;
 
-    if (with_relation && (oset = vec_get(parent->items.vec, field->idx)))
+    if (with_relation)
     {
+        oset = vec_get(parent->items.vec, field->idx);
+
         field__walk_set_t w = {
                 .field = field->condition.rel->field,
                 .relation = parent,
-                .imap = oset->imap,
+                .imap = oset ? oset->imap : NULL,
         };
 
         imap_walk((*vset)->imap, w.field->spec == TI_SPEC_SET
                 ? (imap_cb) field__walk_set_cb
                 : (imap_cb) field__walk_tset_cb, &w);
 
-        w.imap = (*vset)->imap;
-
-        (void) imap_walk(oset->imap, (imap_cb) field__walk_unset_cb, &w);
+        if (oset)
+        {
+            w.imap = (*vset)->imap;
+            (void) imap_walk(oset->imap, (imap_cb) field__walk_unset_cb, &w);
+        }
     }
 
     return 0;

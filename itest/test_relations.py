@@ -1463,9 +1463,47 @@ mod_type('D', 'rel', 'da', 'db');
         ''')
         self.assertEqual(await client.query(r'''
             w = .w;
+            .w.p.filter(|p| p.w.add(W{}));
+             'OK';
+        '''), 'OK')
+
+        self.assertEqual(await client.query(r'''
+            w = .w;
             .w.p.filter(|p| p.w.remove(w));
              'OK';
         '''), 'OK')
+
+        self.assertEqual(await client.query(r'''
+            w = W{};
+            p = P{w: set(w)};
+
+            return([p.w.len(), w.p.len()])
+        '''), [1, 1])
+
+    async def test_iteration_tset(self, client):
+        await client.query(r'''
+            new_type('P');
+            new_type('W');
+            set_type('P', {
+                w: 'W?'
+            });
+            set_type('W', {
+                p: '{P}'
+            });
+            mod_type('W', 'rel', 'p', 'w');
+        ''')
+
+        self.assertEqual(await client.query(r'''
+            w = W{};
+            p = P{w: w};
+            return(w.p.len())
+        '''), 1)
+
+        self.assertEqual(await client.query(r'''
+            p = P{};
+            w = W{p: set(p)};
+            return(p.w.len())
+        '''), 1)
 
 
 if __name__ == '__main__':

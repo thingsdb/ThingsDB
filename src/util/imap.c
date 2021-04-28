@@ -270,6 +270,14 @@ int imap_walk(imap_t * imap, imap_cb cb, void * arg)
     return rc;
 }
 
+/*
+ * This is a down-side for relations. A "normal" set will be locked when being
+ * iterated so it is protected against changes. However, a relation might break
+ * this lock and thus change the set while being iterated. We therefore are
+ * required to make a copy of the items in the set when the set has a relation.
+ * This function will create a copy (with references) before starting to
+ * iterate over the values.
+ */
 int imap_walk_cp(
         imap_t * imap,
         imap_cb cb,

@@ -1,45 +1,27 @@
-import threading
-import time
+import asyncio
+from thingsdb.client import Client
 
+async def hello_world():
+    client = Client()
 
-def main(set_result, *args):
-    print('args:', args)
-    time.sleep(1)
-    raise Exception('stop')
-    # set_result(42)
-    # set_result(43)
+    # replace `localhost` with your ThingsDB server address
+    await client.connect('localhost')
 
-
-def _ti_set_result(pid, res):
-    print('pid:', pid, 'result:', res)
-
-
-class _TiCall:
-    def __init__(self, pid):
-        self.pid = pid
-
-    def set_result(self, result):
-        if self.pid is None:
-            return
-        pid = self.pid
-        self.pid = None
-        _ti_set_result(pid, result)
-
-
-def _ti_work(pid, func, *args):
-    ti_call = _TiCall(pid)
     try:
-        func(ti_call.set_result, *args)
-    except Exception as e:
-        ti_call.set_result(e)
+        # replace `admin` and `pass` with your username and password
+        # or use a valid token string
+        await client.authenticate('admin', 'pass')
+
+        # perform the hello world code...
+        print(await client.query('''
+            "Hello World!";
+        '''))
+
     finally:
-        ti_call.set_result(None)
+        # the will close the client in a nice way
+        client.close()
+        await client.wait_closed()
 
 
-def _ti_call_ext(pid, func, *args):
-    t = threading.Thread(target=_ti_work, args=(pid, func) + tuple(args))
-    t.start()
-
-
-_ti_call_ext(123, main)
-_ti_call_ext(234, main)
+# run the hello world example
+asyncio.get_event_loop().run_until_complete(hello_world())

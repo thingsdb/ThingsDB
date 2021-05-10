@@ -1,3 +1,7 @@
+# v0.10.11
+
+* Added `is_unique()` and `unique()` functions, issue #185.
+
 # v0.10.10
 
 * Fixed bug with relations between stored and non-stored things, issue #183.

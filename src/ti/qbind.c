@@ -107,6 +107,7 @@
 #include <ti/fn/fnisthing.h>
 #include <ti/fn/fnistimeval.h>
 #include <ti/fn/fnistuple.h>
+#include <ti/fn/fnisunique.h>
 #include <ti/fn/fnisutf8.h>
 #include <ti/fn/fnjoin.h>
 #include <ti/fn/fnkeys.h>
@@ -198,6 +199,7 @@
 #include <ti/fn/fntypecount.h>
 #include <ti/fn/fntypeinfo.h>
 #include <ti/fn/fntypesinfo.h>
+#include <ti/fn/fnunique.h>
 #include <ti/fn/fnunshift.h>
 #include <ti/fn/fnunwatch.h>
 #include <ti/fn/fnunwrap.h>
@@ -238,7 +240,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 218,
+    TOTAL_KEYWORDS = 220,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 8,
@@ -262,7 +264,7 @@ static inline unsigned int qbind__hash(
         476, 476, 476, 476, 476, 476, 476, 476, 476, 476,
         476, 476, 476, 476, 476,   1, 476,   5,  36,  41,
          14,   1,  76, 170, 115,   1,   2,  86,   9,  25,
-         18,  33, 126,  21,   2,   1,   7,   9, 197, 106,
+         18,  33, 126,  57,   2,   1,   7,   9, 197, 106,
          36, 130,  17, 476, 476, 476, 476, 476, 476, 476,
         476, 476, 476, 476, 476, 476, 476, 476, 476, 476,
         476, 476, 476, 476, 476, 476, 476, 476, 476, 476,
@@ -513,6 +515,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="is_thing",          .fn=do__f_is_thing,             ROOT_NE},
     {.name="is_timeval",        .fn=do__f_is_timeval,           ROOT_NE},
     {.name="is_tuple",          .fn=do__f_is_tuple,             ROOT_NE},
+    {.name="is_unique",         .fn=do__f_is_unique,            CHAIN_NE},
     {.name="is_utf8",           .fn=do__f_is_utf8,              ROOT_NE},
     {.name="join",              .fn=do__f_join,                 CHAIN_NE},
     {.name="keys",              .fn=do__f_keys,                 CHAIN_NE},
@@ -613,6 +616,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="type_info",         .fn=do__f_type_info,            ROOT_NE},
     {.name="type",              .fn=do__f_type,                 ROOT_NE},
     {.name="types_info",        .fn=do__f_types_info,           ROOT_NE},
+    {.name="unique",            .fn=do__f_unique,               CHAIN_NE},
     {.name="unshift",           .fn=do__f_unshift,              CHAIN_CE_XVAR},
     {.name="unwatch",           .fn=do__f_unwatch,              CHAIN_NE},
     {.name="unwrap",            .fn=do__f_unwrap,               CHAIN_NE},

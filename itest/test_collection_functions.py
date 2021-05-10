@@ -2298,6 +2298,46 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(err['error_code'], Err.EX_OVERFLOW)
         self.assertEqual(err['error_msg'], "my custom error msg")
 
+    async def test_is_unique(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `is_unique`'):
+            await client.query('nil.is_unique();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `is_unique` takes 0 arguments but 1 was given'):
+            await client.query('[].is_unique(nil);')
+
+        self.assertTrue(await client.query('[].is_unique()'))
+        self.assertTrue(await client.query('[[]][0].is_unique()'))
+        self.assertTrue(await client.query('[1, 2, 3].is_unique()'))
+        self.assertTrue(await client.query('["a", "A", 1].is_unique()'))
+        self.assertTrue(await client.query('[["a", "a"]].is_unique()'))
+        self.assertFalse(await client.query('["a", "a"].is_unique()'))
+        self.assertFalse(await client.query('[["a", "a"]][0].is_unique()'))
+        self.assertFalse(await client.query('["b", "a", "a"].is_unique()'))
+        self.assertFalse(await client.query('["b", "a", "b"].is_unique()'))
+        self.assertFalse(await client.query('["a", "a", "b"].is_unique()'))
+        self.assertFalse(await client.query('["a", "a", "b"].is_unique()'))
+
+    async def test_unique(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `unique`'):
+            await client.query('nil.unique();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `unique` takes 0 arguments but 1 was given'):
+            await client.query('[].unique(nil);')
+
+        self.assertEqual(await client.query('[].unique()'), [])
+        self.assertEqual(await client.query('[1, 2, 3].unique()'), [1, 2, 3])
+        self.assertEqual(await client.query('[1, 1, 1].unique()'), [1])
+        self.assertEqual(await client.query('[[1, 1]].unique()'), [[1, 1]])
+        self.assertEqual(await client.query('[[1, 1]][0].unique()'), [1])
+
     async def test_pop(self, client):
         await client.query('.list = [1, 2, 3];')
         self.assertEqual(await client.query('.list.pop()'), 3)

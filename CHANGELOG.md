@@ -1,6 +1,7 @@
 # v0.10.11
 
 * Added `is_unique()` and `unique()` functions, issue #185.
+* Fixed bug regarding access rights when calling a procedure, issue #186.
 
 # v0.10.10
 

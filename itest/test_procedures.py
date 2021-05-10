@@ -419,12 +419,15 @@ class TestProcedures(TestBase):
         with self.assertRaisesRegex(ForbiddenError, error_msg):
             await cl_write.query('.x = x;', x=42)
 
-        with self.assertRaisesRegex(ForbiddenError, error_msg):
-            await cl_read.run('write_x', 42)
+        for x in range(15):
+            with self.assertRaisesRegex(ForbiddenError, error_msg):
+                await cl_read.run('write_x', x)
 
-        self.assertEqual(await cl_write.run('write_x', 42), 42)
-        self.assertEqual(await cl_write.run('read_x'), 42)
-        self.assertEqual(await cl_read.run('read_x'), 42)
+            self.assertEqual(await cl_write.run('write_x', x), x)
+
+            await asyncio.sleep(2)
+            self.assertEqual(await cl_write.run('read_x'), x)
+            self.assertEqual(await cl_read.run('read_x'), x)
 
     async def test_procedure_doc(self, client):
         await client.query(r'''

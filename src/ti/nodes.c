@@ -726,7 +726,8 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (ti_query_will_update(query))
     {
-        if (ti_events_create_new_event(query, &e))
+        if (ti_access_check_err(access_, query->user, TI_AUTH_EVENT, &e) ||
+            ti_events_create_new_event(query, &e))
             goto finish;
 
         return;

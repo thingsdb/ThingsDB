@@ -46,7 +46,6 @@ typedef struct
 typedef struct
 {
     SSL_CTX * ctx;
-    uv_loop_t * loop;
     connection_handler_t protocol;
     tls_uv_connection_state_t* pending_writes;
 } tls_uv_server_state_t;
@@ -67,6 +66,7 @@ typedef struct tls_uv_connection_state
     } pending;
 } tls_uv_connection_state_t;
 
+static tls_uv_server_state_t server_state;
 
 void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf)
 {
@@ -860,6 +860,7 @@ failed:
 tls_uv_connection_state_t * on_create_connection(ti_stream_t * stream) {
     return calloc(1, sizeof(tls_uv_connection_state_t));
 }
+
 int on_connection_established(tls_uv_connection_state_t * connection) {
     return connection_write(connection, "OK\r\n", 4);
 }
@@ -867,6 +868,7 @@ int on_connection_established(tls_uv_connection_state_t * connection) {
 void on_connection_closed(tls_uv_connection_state_t* connection, int status) {
     report_connection_failure(status);
 }
+
 int on_read(tls_uv_connection_state_t* connection, void* buf, ssize_t nread) {
     return connection_write(connection, buf, nread);
 }
@@ -971,7 +973,15 @@ int ti_clients_listen(void)
     SSL_CTX_use_certificate_file(ctx, cert, SSL_FILETYPE_PEM);
     SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM);
 
-    SSL_CTX_free(ctx);
+    // TODO: free SSL_CTX_free(ctx);
+
+    server_state.ctx = ctx;
+    server_state.protocol.create_connection = on_create_connection;
+    server_state.protocol.connection_closed = on_connection_closed;
+    server_state.protocol.read = on_read;
+    server_state.protocol.connection_established = on_connection_established;
+
+    clients->tcp.data = &server_state;
 
     if (cfg->bind_client_addr != NULL)
     {

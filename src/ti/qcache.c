@@ -94,9 +94,14 @@ ti_query_t * ti_qcache_get_query(const char * str, size_t n, uint8_t flags)
     return ti_query_create(flags);
 }
 
+/*
+ * Only call this function when having a parse result
+ */
 void ti_qcache_return(ti_query_t * query)
 {
     assert (query->with_tp == TI_QUERY_WITH_PARSERES);
+    assert (query->with.parseres);
+
     if (query->flags & TI_QUERY_FLAG_API)
         ti_api_release(query->via.api_request);
     else

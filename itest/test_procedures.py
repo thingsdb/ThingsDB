@@ -430,7 +430,7 @@ class TestProcedures(TestBase):
             self.assertEqual(await cl_read.run('read_x'), x)
 
     async def test_procedure_doc(self, client):
-        await client.query(r'''
+        await client.query(r"""//ti
             new_procedure('square', |x| {
                 "No side effects.";
                 (x * x);
@@ -439,7 +439,7 @@ class TestProcedures(TestBase):
                 "With side effects.";
                 .a = a;
             });
-        ''')
+        """)
 
         with self.assertRaisesRegex(
                 LookupError,
@@ -477,7 +477,7 @@ class TestProcedures(TestBase):
 
     async def test_procedure_info(self, client):
         now = time.time()
-        await client.query(r'''
+        await client.query(r"""//ti
             new_procedure('square', |x| {
                 "No side effects.";
                 (x * x);
@@ -486,7 +486,7 @@ class TestProcedures(TestBase):
                 "With side effects.";
                 .a = a;
             });
-        ''')
+        """)
 
         with self.assertRaisesRegex(
                 LookupError,
@@ -538,7 +538,7 @@ class TestProcedures(TestBase):
         self.assertTrue(isinstance(procedure_info['definition'], str))
 
     async def test_procedures_info(self, client):
-        await client.query(r'''
+        await client.query(r"""//ti
             new_procedure('square', |x| {
                 "No side effects.";
                 (x * x);
@@ -547,7 +547,7 @@ class TestProcedures(TestBase):
                 "With side effects.";
                 .a = a;
             });
-        ''')
+        """)
 
         with self.assertRaisesRegex(
                 LookupError,
@@ -572,10 +572,10 @@ class TestProcedures(TestBase):
             self.assertTrue(isinstance(info['definition'], str))
 
     async def test_run(self, client):
-        await client.query(r'''
+        await client.query(r"""//ti
             new_procedure('test', |x| (x * 10));
             new_procedure('test_wse', |x| .x = x);
-        ''')
+        """)
 
         with self.assertRaisesRegex(
                 LookupError,
@@ -624,11 +624,11 @@ class TestProcedures(TestBase):
         self.assertEqual(await client.query('wse(run("test_wse", 42));'), 42)
 
     async def test_thing_argument(self, client):
-        await client.query(r'''
+        await client.query(r"""//ti
             new_procedure('test_save_thing', |t| .t = t);
             new_procedure('test_another_thing', |t| .other = t);
             new_procedure('as_named_args', |options| .name = options.name);
-        ''')
+        """)
 
         await client.run('test_save_thing', {'name': 'Iris', 'age': 6})
         await client.run('as_named_args', {'name': 'Cato'})

@@ -143,7 +143,7 @@ class TestNested(TestBase):
             self.assertEqual(await client.query('.arr'), [123])
 
     async def test_assign_del(self, client0, client1, client2):
-        await client0.query(r'''
+        await client0.query(r"""//ti
             .x = {
                 y: {
                     z: {}
@@ -160,7 +160,7 @@ class TestNested(TestBase):
             };
 
             x.test = 'Test';
-        ''')
+        """)
 
         await asyncio.sleep(0.1)
         for client in (client0, client1, client2):
@@ -168,7 +168,7 @@ class TestNested(TestBase):
             self.assertEqual(x['test'], 'Test')
 
     async def test_nested_pop(self, client0, client1, client2):
-        await client0.query(r'''
+        await client0.query(r"""//ti
             .arr = [[{
                 name: 'Iris'
             }]];
@@ -176,7 +176,7 @@ class TestNested(TestBase):
                 .arr.pop();
                 6;
             };
-        ''')
+        """)
         await asyncio.sleep(0.1)
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.arr'), [])
@@ -186,13 +186,13 @@ class TestNested(TestBase):
                 OperationError,
                 r'cannot change or remove property `arr` on `#\d+` while '
                 r'the `list` is being used'):
-            await client0.query(r'''
+            await client0.query(r"""//ti
                 .arr = ['a', 'b'];
                 .arr.push({
                     .arr = [1, 2, 3];
                     'c';
                 })
-            ''')
+            """)
 
     async def test_list_lock_del(self, client0, client1, client2):
         with self.assertRaisesRegex(

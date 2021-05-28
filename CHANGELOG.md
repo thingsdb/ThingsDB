@@ -1,3 +1,7 @@
+# v0.10.12
+
+* Fixed bug in query-cache when hitting the query-recursion-depth, issue #188.
+
 # v0.10.11
 
 * Added `is_unique()` and `unique()` functions, issue #185.

@@ -593,7 +593,7 @@ int ti_query_parse(ti_query_t * query, const char * str, size_t n, ex_t * e)
     if (!querystr)
     {
         ex_set_mem(e);
-        return e->nr;
+        goto failed;
     }
 
     query->with.parseres = cleri_parse2(
@@ -603,28 +603,31 @@ int ti_query_parse(ti_query_t * query, const char * str, size_t n, ex_t * e)
 
     if (!query->with.parseres)
     {
-        free(querystr);
+
         ex_set(e, EX_OPERATION,
                 "query has reached the maximum recursion depth of %d",
                 MAX_RECURSION_DEPTH);
-        return e->nr;
+        goto failed;
     }
 
     if (!query->with.parseres->is_valid)
     {
         cleri_parse_free(query->with.parseres);
-
         query->with.parseres = cleri_parse2(ti.langdef, querystr, 0);
         if (!query->with.parseres)
         {
-            free(querystr);
             ex_set_mem(e);
-            return e->nr;
+            goto failed;
         }
         return query__syntax_err(query, e);
     }
 
     return ti_query_investigate(query, e);
+
+failed:
+    free(querystr);
+    query->flags &= ~(TI_QUERY_FLAG_CACHE|TI_QUERY_FLAG_DO_CACHE);
+    return e->nr;
 }
 
 static void query__duration_log(

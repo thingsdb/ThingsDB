@@ -138,9 +138,9 @@ void ti_qcache_return(ti_query_t * query)
             item->query = query;
             item->used = 0;
             item->last = (uint32_t) util_now_usec();
+            if (smap_add(qcache, query->with.parseres->str, item))
+                qcache__item_destroy(item);
         }
-        if (smap_add(qcache, query->with.parseres->str, item))
-            qcache__item_destroy(item);
         return;
     }
 

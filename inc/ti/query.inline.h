@@ -47,7 +47,7 @@ static inline vec_t ** ti_query_timers(ti_query_t * query)
 
 static inline void ti_query_destroy_or_return(ti_query_t * query)
 {
-    if (query && (query->flags & TI_QUERY_FLAG_CACHE))
+    if (query && (query->flags & TI_QUERY_FLAG_CACHE) && query->with.parseres)
         ti_qcache_return(query);
     else
         ti_query_destroy(query);

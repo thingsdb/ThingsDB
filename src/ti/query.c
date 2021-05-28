@@ -626,7 +626,6 @@ int ti_query_parse(ti_query_t * query, const char * str, size_t n, ex_t * e)
 
 failed:
     free(querystr);
-    query->flags &= ~(TI_QUERY_FLAG_CACHE|TI_QUERY_FLAG_DO_CACHE);
     return e->nr;
 }
 

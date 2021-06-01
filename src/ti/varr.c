@@ -154,6 +154,14 @@ void ti_varr_destroy(ti_varr_t * varr)
     free(varr);
 }
 
+_Bool ti_varr_has_val(ti_varr_t * varr, ti_val_t * val)
+{
+    for (vec_each(varr->vec, ti_val_t, v))
+        if (ti_opr_eq(v, val))
+            return true;
+    return false;
+}
+
 int ti_varr_val_prepare(ti_varr_t * to, void ** v, ex_t * e)
 {
     assert (ti_varr_is_list(to));  /* `to` must be a list */

@@ -66,14 +66,7 @@ static int do__f_has_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->node, e))
         goto fail1;
 
-    for (vec_each(varr->vec, ti_val_t, v))
-    {
-        if (ti_opr_eq(v, query->rval))
-        {
-            has = true;
-            break;
-        }
-    }
+    has = ti_varr_has_val(varr, query->rval);
 
     ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(has);

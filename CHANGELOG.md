@@ -1,6 +1,6 @@
 # v0.10.13
 
-* Added `regex()` function, issue #189.
+* Added `extend_unique()` function, issue #189.
 
 # v0.10.12
 

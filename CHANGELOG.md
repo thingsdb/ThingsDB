@@ -1,3 +1,7 @@
+# v0.10.13
+
+* Added `regex()` function, issue #189.
+
 # v0.10.12
 
 * Fixed bug in query-cache when hitting the query-recursion-depth, issue #188.

@@ -79,6 +79,18 @@ class TestAdvanced(TestBase):
                     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
             """)
 
+    async def test_extend_restrict(self, client):
+        res = await client.query(r"""//ti
+            set_type('A', {arr: '[str]'});
+        """)
+        with self.assertRaisesRegex(
+                TypeError,
+                r'type `int` is not allowed in restricted array'):
+            await client.query(r"""//ti
+                a = A{};
+                a.arr.extend(range(3));
+            """)
+
     async def test_closure_scope(self, client):
         res = await client.query(r'''
             a = 1;

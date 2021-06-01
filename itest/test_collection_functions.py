@@ -2338,6 +2338,57 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('[[1, 1]].unique()'), [[1, 1]])
         self.assertEqual(await client.query('[[1, 1]][0].unique()'), [1])
 
+    async def test_extend_unique(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `extend_unique`'):
+            await client.query('nil.extend_unique();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `extend_unique` takes 1 argument but 0 were given'):
+            await client.query('[].extend_unique();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `extend_unique` expects argument 1 to be of '
+                r'type `list` or type `tuple` but got type `nil` instead'):
+            await client.query('[].extend_unique(nil);')
+
+        self.assertEqual(await client.query('[].extend_unique([])'), 0)
+        self.assertEqual(await client.query(r"""//ti
+            a = [1, 2, 2];
+            a.extend_unique(range(4));
+            a;
+        """), [1, 2, 2, 0, 3])
+        self.assertEqual(await client.query(r"""//ti
+            a = [1, 2, 2];
+            a.extend_unique(range(4));
+        """), 5)
+        await client.query(r"""//ti
+            set_type('A', {arr: '[str]'});
+            .a = A{};
+        """)
+        with self.assertRaisesRegex(
+                TypeError,
+                r'type `int` is not allowed in restricted array'):
+            await client.query(r"""//ti
+                a = A{};
+                a.arr.extend_unique(range(3));
+            """)
+        self.assertEqual(await client.query(r"""//ti
+            .a.arr.extend_unique(['foo', 'foo', 'bar', 'foo']);
+        """), 2)
+        self.assertEqual(await client.query('.a.arr;'), ['foo', 'bar'])
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'type `nil` is not allowed in restricted array'):
+            await client.query(r"""//ti
+                .a.arr.extend_unique(['tic', 'tac', nil]);
+            """)
+        self.assertEqual(await client.query('.a.arr;'), ['foo', 'bar'])
+
     async def test_pop(self, client):
         await client.query('.list = [1, 2, 3];')
         self.assertEqual(await client.query('.list.pop()'), 3)

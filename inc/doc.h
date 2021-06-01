@@ -191,6 +191,7 @@
 #define DOC_LIST_EACH               DOC_SEE("data-types/list/each")
 #define DOC_LIST_EVERY              DOC_SEE("data-types/list/every")
 #define DOC_LIST_EXTEND             DOC_SEE("data-types/list/extend")
+#define DOC_LIST_EXTEND_UNIQUE      DOC_SEE("data-types/list/extend_unique")
 #define DOC_LIST_FILTER             DOC_SEE("data-types/list/filter")
 #define DOC_LIST_FIND               DOC_SEE("data-types/list/find")
 #define DOC_LIST_FIND_INDEX         DOC_SEE("data-types/list/find_index")

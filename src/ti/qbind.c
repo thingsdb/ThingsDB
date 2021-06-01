@@ -59,6 +59,7 @@
 #include <ti/fn/fnevery.h>
 #include <ti/fn/fnexport.h>
 #include <ti/fn/fnextend.h>
+#include <ti/fn/fnextendunique.h>
 #include <ti/fn/fnextract.h>
 #include <ti/fn/fnfilter.h>
 #include <ti/fn/fnfind.h>
@@ -240,7 +241,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 220,
+    TOTAL_KEYWORDS = 221,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 8,
@@ -264,7 +265,7 @@ static inline unsigned int qbind__hash(
         476, 476, 476, 476, 476, 476, 476, 476, 476, 476,
         476, 476, 476, 476, 476,   1, 476,   5,  36,  41,
          14,   1,  76, 170, 115,   1,   2,  86,   9,  25,
-         18,  33, 126,  57,   2,   1,   7,   9, 197, 106,
+         18,  33, 126, 166,   2,   1,   7,   9, 197, 106,
          36, 130,  17, 476, 476, 476, 476, 476, 476, 476,
         476, 476, 476, 476, 476, 476, 476, 476, 476, 476,
         476, 476, 476, 476, 476, 476, 476, 476, 476, 476,
@@ -466,6 +467,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="every",             .fn=do__f_every,                CHAIN_NE},
     {.name="export",            .fn=do__f_export,               ROOT_NE},
     {.name="extend",            .fn=do__f_extend,               CHAIN_CE_XVAR},
+    {.name="extend_unique",     .fn=do__f_extend_unique,        CHAIN_CE_XVAR},
     {.name="extract",           .fn=do__f_extract,              CHAIN_NE},
     {.name="filter",            .fn=do__f_filter,               CHAIN_NE},
     {.name="find_index",        .fn=do__f_find_index,           CHAIN_NE},

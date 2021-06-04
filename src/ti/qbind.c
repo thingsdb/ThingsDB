@@ -219,6 +219,11 @@
 #include <ti/qbind.h>
 #include <ti/preopr.h>
 
+/*
+ * Set the `event` flag in case the `TI_QBIND_FLAG_COLLECTION` flag is set.
+ *
+ * Argument: flags (QBIND flags)
+ */
 #define qbind__set_collection_event(__f) \
     (__f) |= (((__f) & TI_QBIND_FLAG_COLLECTION) && 1) << TI_QBIND_BIT_EVENT
 
@@ -248,6 +253,9 @@ enum
     MAX_HASH_VALUE = 475
 };
 
+/*
+ * Hash function, created with `pcregrep`. (see documentation above)
+ */
 static inline unsigned int qbind__hash(
         register const char * s,
         register size_t n)
@@ -640,6 +648,11 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
 
 static qbind__fmap_t * qbind__fn_map[MAX_HASH_VALUE+1];
 
+/*
+ * Initializes ThingsDB function mapping.
+ *
+ * Note: must be called exactly once when starting ThingsDB.
+ */
 void ti_qbind_init(void)
 {
     for (size_t i = 0, n = TOTAL_KEYWORDS; i < n; ++i)
@@ -657,6 +670,15 @@ void ti_qbind_init(void)
     }
 }
 
+/*
+ * Used to swap nodes in the correct order, for example:
+ *   1 + 2 * 3
+ * We first need to calculate 2 * 3 and then add the one.
+ *
+ * Note: This function *only* swaps nodes and does no other statement
+ *       work because the function may visit a node multiple times since it
+ *       may be called recursive. *
+ */
 static _Bool qbind__swap(cleri_children_t * parent, uint32_t parent_gid)
 {
     uint32_t gid = parent->node->children->next->node->cl_obj->gid;
@@ -682,6 +704,19 @@ static _Bool qbind__swap(cleri_children_t * parent, uint32_t parent_gid)
     return gid > parent_gid;
 }
 
+/*
+ * Analyze operations nodes.
+ *
+ * This function may swap some nodes in case this is required. For example,
+ * multiplication must be handled before adding etc.
+ *
+ * The language uses keys like:
+ *  - CLERI_GID_OPR0_MUL_DIV_MOD
+ *  - CLERI_GID_OPR1_ADD_SUB
+ *  - CLERI_GID_OPR2_BITWISE_AND,
+ *  - etc....
+ *  The keys are numbered so the corresponding ID's can be used as order.
+ */
 static _Bool qbind__operations(
         ti_qbind_t * qbind,
         cleri_children_t * parent,
@@ -736,6 +771,14 @@ static _Bool qbind__operations(
     return gid > parent_gid;
 }
 
+/*
+ * Peek for a closure and if found, analyze the statement but ignore any event
+ * flags.
+ *
+ * Only called in relation to a future (future,then,else).
+ * If the argument is a closure, this closure be called with it's own query
+ * and event (if required).
+ */
 static void qbind__peek_statement_for_closure(
         ti_qbind_t * q,
         cleri_node_t * nd)
@@ -754,6 +797,13 @@ static void qbind__peek_statement_for_closure(
     qbind__statement(q, nd);  /* statement */
 }
 
+/*
+ * Analyze a function call.
+ *   - Arguments will be analyzed
+ *   - Based on the function, the `event` flag will be set
+ *   - Future (then,else) will be peeked
+ *   - Immutable counter will increase for no-build-in functions
+ */
 static void qbind__function(
         ti_qbind_t * q,
         cleri_node_t * nd,
@@ -820,6 +870,13 @@ static void qbind__function(
     nd->data = (void *) nargs;
 }
 
+/*
+ * Analyze indexes, for example:
+ *    array[0];
+ *
+ * Note: This function also is capable of analyzing slices like:
+ *    array[0:10:2]
+ */
 static void qbind__index(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     cleri_children_t * child = nd->children;
@@ -845,6 +902,12 @@ static void qbind__index(ti_qbind_t * qbind, cleri_node_t * nd)
     while ((child = child->next));
 }
 
+/*
+ * Analyze a thing.
+ *
+ * Note: a thing consists of keys and values, where each value is a statement
+ *       which will be analyzed as well.
+ */
 static inline void qbind__thing(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     uintptr_t sz = 0;
@@ -864,6 +927,18 @@ static inline void qbind__thing(ti_qbind_t * qbind, cleri_node_t * nd)
     nd->data = (void *) sz;
 }
 
+/*
+ * Analyze enumerator.
+ *
+ * This function only does work in case a closure is used within the enumerator.
+ *
+ * For example:
+ *   MyEnum{||x > y ? 'XKEY' : 'YKEY'}
+ *
+ * When an enum is used as a function call, this function will not be used and
+ * no analyzing is required in case of a fixed key like:
+ *   MyEnum{KEY}
+ */
 static inline void qbind__enum(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     nd = nd->children->next->node;
@@ -876,6 +951,16 @@ static inline void qbind__enum(ti_qbind_t * qbind, cleri_node_t * nd)
     }
 }
 
+/*
+ * Used to make the correct call and increase the immutable counter if required.
+ *
+ * Options are:
+ *   - some_function_call(...)
+ *   - my_assignmend = ...
+ *   - MyInstance{...}
+ *   - MyEnum{...}
+ *   - some_variable...
+ */
 static void qbind__var_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     if (nd->children->next)
@@ -908,6 +993,15 @@ static void qbind__var_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
     ++qbind->immutable_n;
 }
 
+/*
+ * Used to make the correct call when chained and increase immutable counter
+ * ir required.
+ *
+ * Options are:
+ * - .my_function_call(...)
+ * - .my_prop = ...
+ * - .my_prop
+ */
 static void qbind__name_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     if (nd->children->next)
@@ -935,6 +1029,13 @@ static void qbind__name_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
     ++qbind->immutable_n;
 }
 
+/*
+ * Analyze a chain (when a dot `.` is used), Examples:
+ *
+ * .something
+ * .something[...]
+ * .something.other();
+ */
 static inline void qbind__chain(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     cleri_children_t * child = nd->children->next;
@@ -952,6 +1053,11 @@ static inline void qbind__chain(ti_qbind_t * qbind, cleri_node_t * nd)
         qbind__chain(qbind, child->next->node);
 }
 
+/*
+ * Analyze a part of a statement.
+ *
+ * This function analyzes things, enumerators, immutable values and more.
+ */
 static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     switch (nd->cl_obj->gid)
@@ -1032,6 +1138,15 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
     }
 }
 
+/*
+ * Analyze an expression. An expression may start with some +, - or ! signs,
+ * followed by a function, variable or something else, next an optional index
+ * and an optional chain. Examples:
+ *
+ * !!convert_to_bool;
+ * -x;
+ * my_var[idx].func();
+ */
 static inline void qbind__expression(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     cleri_node_t * node;
@@ -1056,6 +1171,12 @@ static inline void qbind__expression(ti_qbind_t * qbind, cleri_node_t * nd)
         qbind__chain(qbind, nd->children->next->next->next->node);
 }
 
+/*
+ * Entry point for analyzing a statement.
+ *
+ * Almost anything in the grammar may call this function since statements
+ * can exist on may places in the ThingsDB language.
+ */
 static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     cleri_node_t * node;

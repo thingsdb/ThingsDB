@@ -22,10 +22,9 @@
 #include <ti/preopr.h>
 #include <util/strx.h>
 
-
-static inline int do__no_collection_scope(ti_query_t * query)
+static inline int do__no_node_scope(ti_query_t * query)
 {
-    return ~query->qbind.flags & TI_QBIND_FLAG_COLLECTION;
+    return ~query->qbind.flags & TI_QBIND_FLAG_NODE;
 }
 
 static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
@@ -312,6 +311,34 @@ static inline ti_prop_t * do__get_var_e(
     return prop;
 }
 
+static inline ti_procedure_t * do__get_procedure(
+        ti_query_t * query,
+        cleri_node_t * nd)
+{
+    smap_t * procedures = ti_query_procedures(query);
+    return ti_procedures_by_strn(procedures, nd->str, nd->len);
+}
+
+static int do__get_procedure_e(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    smap_t * procedures = ti_query_procedures(query);
+    ti_procedure_t * procedure = \
+            ti_procedures_by_strn(procedures, nd->str, nd->len);
+
+    if (!procedure)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "variable `%.*s` is undefined",
+                nd->len, nd->str);
+        return e->nr;
+    }
+
+    query->rval = (ti_val_t *) procedure->closure;
+    ti_incref(query->rval);
+
+    return e->nr;
+}
+
 /*
  * Call a Type. Creates a new, empty, instance without arguments, returns
  * an existing instance if an ID is given, or a new instance based on a
@@ -488,6 +515,21 @@ static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     fname->len);
         if (enum_)
             return do__get_enum_member(enum_, query, args, e);
+    }
+
+    /*
+     * If not in the node scope, let try if the function is a known procedure.
+     */
+    if (do__no_node_scope(query))
+    {
+        ti_procedure_t * procedure = do__get_procedure(query, fname);
+        if (procedure)
+        {
+            query->rval = (ti_val_t *) procedure->closure;
+            ti_incref(query->rval);
+
+            return fn_call(query, args, e);
+        }
     }
 
     /*
@@ -1187,26 +1229,27 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-/* changes scope->name and/or scope->thing */
 static inline int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
     assert (nd->cl_obj->gid == CLERI_GID_VAR);
     assert (query->rval == NULL);
 
-    ti_prop_t * prop = do__get_var_e(query, nd, e);
+    ti_prop_t * prop = do__get_var(query, nd);
 
     if (!prop)
     {
-        if (do__no_collection_scope(query))
-        {
-            /*
-             * Look for fixed constants only if this is not a collection scope.
-             */
-            e->nr = 0;
-            return do__fixed_name(query, nd, e);
-        }
-        return e->nr;
+        register uint8_t flags = query->qbind.flags;
+        return flags & TI_QBIND_FLAG_COLLECTION
+            /* Search for procedures in the collection scope */
+            ? do__get_procedure_e(query, nd, e)
+            : flags & TI_QBIND_FLAG_NODE
+            /* Search for fixed names in the node scope */
+            ? do__fixed_name(query, nd, e)
+            /* Search for procedures and fixed names in the thingsdb scope */
+            : do__get_procedure_e(query, nd, e) && do__fixed_name(query, nd, e)
+            ? e->nr
+            : 0;
     }
 
     query->rval = prop->val;

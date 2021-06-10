@@ -174,7 +174,14 @@ int vec_push(vec_t ** vaddr, void * data)
 }
 
 /*
+ * Insert data at a given index. The index *must* be a value lower then the
+ * vector size and this will not be checked by the function. If the vector has
+ * not enough memory, new space will be allocated and **vaddr will be set to
+ * the new pointer.
+ *
  * Returns 0 when successful.
+ *
+ * This function can only return -1 when re-allocation is required and fails.
  */
 int vec_insert(vec_t ** vaddr, void * data, uint32_t i)
 {

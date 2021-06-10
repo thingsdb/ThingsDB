@@ -1,6 +1,7 @@
 # v0.10.13
 
 * Added `extend_unique()` function, issue #189.
+* Lookup procedures by name, issue #192.
 
 # v0.10.12
 

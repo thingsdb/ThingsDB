@@ -64,6 +64,13 @@ static void ti__shutdown_cb(uv_timer_t * shutdown);
 static void ti__close_handles(uv_handle_t * handle, void * arg);
 static void ti__stop(void);
 
+/*
+ * Allocate and set-up ThingsDB.
+ *
+ * This function will create the basics required for ThingsDB. At this point
+ * there is no configuration yet, and no event loop so only parts which do not
+ * require configuration will be loaded.
+ */
 int ti_create(void)
 {
     ti.last_event_id = 0;

@@ -90,12 +90,15 @@ static inline int ti_varr_insert(
         ex_t * e,
         uint32_t i)
 {
+    if (vec_reserve(&to->vec, 1))
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
     if (ti_varr_val_prepare(to, v, e))
         return e->nr;
 
-    if (vec_insert(&to->vec, *v, i))
-        ex_set_mem(e);
-
+    (void) vec_insert(&to->vec, *v, i);
     return e->nr;
 }
 

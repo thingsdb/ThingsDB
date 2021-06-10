@@ -926,7 +926,6 @@ static int do__fixed_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
      * This function is only called in a non-collection scope as all known
      * constants are only applicable in the node- and thingsdb scope.
      */
-    assert (e->nr == 0);
     assert (nd->cl_obj->gid == CLERI_GID_VAR);
 
     register size_t n = nd->len;
@@ -939,7 +938,7 @@ static int do__fixed_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         query->rval = fixed->val;
         ti_incref(query->rval);
-        return 0;
+        return e->nr = 0;
     }
 
     ex_set(e, EX_LOOKUP_ERROR, "variable `%.*s` is undefined",

@@ -3712,13 +3712,13 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `replace` expects argument 1 to be of '
-                'type `str` but got type `nil` instead'):
+                'type `str` or `regex` but got type `nil` instead'):
             await client.query('"Hello World".replace(nil, "y");')
 
         with self.assertRaisesRegex(
                 TypeError,
                 'function `replace` expects argument 2 to be of '
-                'type `str` but got type `nil` instead'):
+                'type `str` or `closure` but got type `nil` instead'):
             await client.query('"Hello World".replace("x", nil);')
 
         with self.assertRaisesRegex(
@@ -3730,6 +3730,23 @@ class TestCollectionFunctions(TestBase):
                 OverflowError,
                 'integer overflow'):
             await client.query('"".replace("a", "", -0x7fffffffffffffff - 1);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'function `replace` does not support backward \(negative\) '
+                'replacements when used with a regular expression'):
+            await client.query('"Hello World".replace(/e/, "E", -1);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'replace callback is expecting a return value of '
+                'type `str` but got type `nil` instead'):
+            await client.query('"Hello World".replace(/e/, ||nil);')
+
+        with self.assertRaisesRegex(
+                ZeroDivisionError,
+                'division or modulo by zero'):
+            await client.query('"Hello World".replace(/e/, ||1/0);')
 
         self.assertEqual(await client.query(r'''
             [
@@ -3791,6 +3808,41 @@ class TestCollectionFunctions(TestBase):
             'Hello',
             'Hello',
             'Hello',
+        ])
+
+        res = await client.query(r"""//ti
+            s = 'This Is _some_ very _nice_ test!! _yeah_';
+            [
+                s.replace('_', |p, e, o| `<{p}:{e}:{o[p:e]}>`),
+                s.replace('_', |p, e, o| `<{p}:{e}:{o[p:e]}>`, 1),
+                s.replace('_', |p, e, o| `<{p}:{e}:{o[p:e]}>`, -2),
+                s.replace('_', |p, e, o| `<{p}:{e}:{o[p:e]}>`, 0),
+                s.replace(/_/, |_, p, e, o| `<{p}:{e}:{_}:{o[p:e]}>`),
+                s.replace(/_/, |_, p, e, o| `<{p}:{e}:{_}:{o[p:e]}>`, 1),
+                s.replace(/_/, |_, p, e, o| `<{p}:{e}:{_}:{o[p:e]}>`, 0),
+                s.replace(/_(\w+)_/, |a| `<b>{a}</b>`),
+                s.replace(/_(\w+)_/, |a| `<div>{a}</div>`, 1),
+                s.replace(/is/i, |w| w.upper()),
+                s.replace(/(ve)(ry)/, |a, b| `{b}{a}`),
+                s.replace(/NICE/i, |w, p, e, o| `<{w}:{p}:{e}:{o[p:e]}>`)
+            ]
+        """)
+
+        self.assertEqual(res, [
+            'This Is <8:9:_>some<13:14:_> very '
+            '<20:21:_>nice<25:26:_> test!! <34:35:_>yeah<39:40:_>',
+            'This Is <8:9:_>some_ very _nice_ test!! _yeah_',
+            'This Is _some_ very _nice_ test!! <35:36:y>yeah<40:41:>',
+            'This Is _some_ very _nice_ test!! _yeah_',
+            'This Is <8:9:_:_>some<13:14:_:_> very <20:21:_:_>nice'
+            '<25:26:_:_> test!! <34:35:_:_>yeah<39:40:_:_>',
+            'This Is <8:9:_:_>some_ very _nice_ test!! _yeah_',
+            'This Is _some_ very _nice_ test!! _yeah_',
+            'This Is <b>some</b> very <b>nice</b> test!! <b>yeah</b>',
+            'This Is <div>some</div> very _nice_ test!! _yeah_',
+            'ThIS IS _some_ very _nice_ test!! _yeah_',
+            'This Is _some_ ryve _nice_ test!! _yeah_',
+            'This Is _some_ very _<nice:21:25:nice>_ test!! _yeah_'
         ])
 
     async def test_values(self, client):

@@ -529,6 +529,7 @@ int ti_closure_vars_replace_regex(
         prop = VEC_get(closure->vars, j+3);
         ti_val_unsafe_drop(prop->val);
         prop->val = (ti_val_t *) vstr;
+        ti_incref(vstr);
         /* fall through */
     case 3:
         prop = VEC_get(closure->vars, j+2);

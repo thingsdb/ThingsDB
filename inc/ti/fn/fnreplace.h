@@ -130,7 +130,7 @@ ti_raw_t * replacescr(
             }
 
             if (ti_closure_do_statement(closure, query, e))
-                goto fail1;  /* TODO: add test */
+                goto fail1;
 
             if (!ti_val_is_str(query->rval))
             {
@@ -139,7 +139,7 @@ ti_raw_t * replacescr(
                         "type `"TI_VAL_STR_S"` but got type `%s` instead"
                         DOC_STR_REPLACE,
                         ti_val_str(query->rval));
-                goto fail1; /* TODO: add test */
+                goto fail1;
             }
 
             new = (ti_raw_t *) query->rval;
@@ -222,7 +222,7 @@ int replacescn(
             }
 
             if (ti_closure_do_statement(closure, query, e))
-                goto fail1;  /* TODO: add test */
+                goto fail1;
 
             if (!ti_val_is_str(query->rval))
             {
@@ -231,7 +231,7 @@ int replacescn(
                         "type `"TI_VAL_STR_S"` but got type `%s` instead"
                         DOC_STR_REPLACE,
                         ti_val_str(query->rval));
-                goto fail1; /* TODO: add test */
+                goto fail1;
             }
 
             new = (ti_raw_t *) query->rval;
@@ -366,7 +366,7 @@ int replacercn(
         }
 
         if (ti_closure_do_statement(closure, query, e))
-            goto fail1;  /* TODO: add test */
+            goto fail1;
 
         if (!ti_val_is_str(query->rval))
         {
@@ -375,7 +375,7 @@ int replacercn(
                     "type `"TI_VAL_STR_S"` but got type `%s` instead"
                     DOC_STR_REPLACE,
                     ti_val_str(query->rval));
-            goto fail1; /* TODO: add test */
+            goto fail1;
         }
 
         new = (ti_raw_t *) query->rval;
@@ -421,10 +421,6 @@ static int do__replace_str(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     str = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    /*
-     * TODO: It would be a nice feature if the `old` argument could also be
-     *       a regular expression, instead of only a type string.
-     */
     if (ti_do_statement(query, (child = nd->children)->node, e) ||
         fn_arg_str_regex("replace", DOC_STR_REPLACE, 1, query->rval, e))
         goto fail0;

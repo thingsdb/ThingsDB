@@ -71,7 +71,7 @@ class LangDef(Grammar):
     t_int = Regex(
         r'[-+]?((0b[01]+)|(0o[0-8]+)|(0x[0-9a-fA-F]+)|([0-9]+))')
     t_nil = Keyword('nil')
-    t_regex = Regex('/[^/\\\\]+(?:\\\\.[^/\\\\]*)*/[a-z]*')
+    t_regex = Regex(r'/((?:.(?!(?<![\\])/))*.?)/[a-z]*')
     t_string = Choice(r_single_quote, r_double_quote)
     t_true = Keyword('true')
 

@@ -2,6 +2,8 @@
 
 * Added `extend_unique()` function, issue #189.
 * Lookup procedures by name, issue #192.
+* Fixed bug with regular expression syntax, issue #193.
+* Added regular expression support on `str.replace(..)` function, issue #194.
 
 # v0.10.12
 

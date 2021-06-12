@@ -67,8 +67,10 @@
 #include <ti/wrap.h>
 #include <ti/wrap.inline.h>
 #include <tiinc.h>
+#include <util/buf.h>
 #include <util/cryptx.h>
 #include <util/fx.h>
+#include <util/rbuf.h>
 #include <util/strx.h>
 #include <util/util.h>
 #include <uv.h>
@@ -267,6 +269,38 @@ static inline int fn_arg_datetime(
         ex_set(e, EX_TYPE_ERROR,
             "function `%s` expects argument %d to be of "
             "type `"TI_VAL_DATETIME_S"` or `"TI_VAL_TIMEVAL_S"` "
+            "but got type `%s` instead%s",
+            name, argn, ti_val_str(val), doc);
+    return e->nr;
+}
+
+static inline int fn_arg_str_regex(
+        const char * name,
+        const char * doc,
+        int argn,
+        ti_val_t * val,
+        ex_t * e)
+{
+    if (!ti_val_is_str_regex(val))
+        ex_set(e, EX_TYPE_ERROR,
+            "function `%s` expects argument %d to be of "
+            "type `"TI_VAL_STR_S"` or `"TI_VAL_REGEX_S"` "
+            "but got type `%s` instead%s",
+            name, argn, ti_val_str(val), doc);
+    return e->nr;
+}
+
+static inline int fn_arg_str_closure(
+        const char * name,
+        const char * doc,
+        int argn,
+        ti_val_t * val,
+        ex_t * e)
+{
+    if (!ti_val_is_str_closure(val))
+        ex_set(e, EX_TYPE_ERROR,
+            "function `%s` expects argument %d to be of "
+            "type `"TI_VAL_STR_S"` or `"TI_VAL_CLOSURE_S"` "
             "but got type `%s` instead%s",
             name, argn, ti_val_str(val), doc);
     return e->nr;

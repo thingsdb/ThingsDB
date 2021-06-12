@@ -5,6 +5,9 @@
 #ifndef TI_CLOSURE_H_
 #define TI_CLOSURE_H_
 
+#define PCRE2_CODE_UNIT_WIDTH 8
+
+#include <pcre2.h>
 #include <cleri/cleri.h>
 #include <ex.h>
 #include <stdint.h>
@@ -34,6 +37,16 @@ int ti_closure_vars_nameval(
         ti_val_t * val,
         ex_t * e);
 int ti_closure_vars_val_idx(ti_closure_t * closure, ti_val_t * v, int64_t i);
+int ti_closure_vars_replace_str(
+        ti_closure_t * closure,
+        size_t pos,
+        size_t n,
+        ti_raw_t * vstr);
+int ti_closure_vars_replace_regex(
+        ti_closure_t * closure,
+        ti_raw_t * vstr,
+        PCRE2_SIZE * ovector,
+        uint32_t sz);
 int ti_closure_vars_vset(ti_closure_t * closure, ti_thing_t * t);
 int ti_closure_call(
         ti_closure_t * closure,

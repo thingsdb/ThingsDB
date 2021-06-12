@@ -460,6 +460,112 @@ int ti_closure_vars_val_idx(ti_closure_t * closure, ti_val_t * v, int64_t i)
     return 0;
 }
 
+int ti_closure_vars_replace_str(
+        ti_closure_t * closure,
+        size_t pos,
+        size_t n,
+        ti_raw_t * vstr)
+{
+    ti_prop_t * prop;
+    switch(closure->vars->n)
+    {
+    default:
+    case 3:
+        prop = VEC_get(closure->vars, 2);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = (ti_val_t *) vstr;
+        ti_incref(vstr);
+        /* fall through */
+    case 2:
+        prop = VEC_get(closure->vars, 1);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = (ti_val_t *) ti_vint_create(pos + n);
+        if (!prop->val)
+            return -1;
+        /* fall through */
+    case 1:
+        prop = VEC_get(closure->vars, 0);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = (ti_val_t *) ti_vint_create(pos);
+        if (!prop->val)
+            return -1;
+        /* fall through */
+    case 0:
+        break;
+    }
+    return 0;
+}
+
+int ti_closure_vars_replace_regex(
+        ti_closure_t * closure,
+        ti_raw_t * vstr,
+        PCRE2_SIZE * ovector,
+        uint32_t sz)
+{
+    ti_prop_t * prop;
+    uint32_t m = closure->vars->n;
+    uint32_t i = 1, j = 0;
+
+    /*
+     * First, add the capture groups
+     */
+    for (; i < sz && j < m; ++i, ++j)
+    {
+        PCRE2_SPTR pt = vstr->data + ovector[2*i];
+        PCRE2_SIZE n =  ovector[2*i+1] - ovector[2*i];
+
+        prop = VEC_get(closure->vars, j);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = (ti_val_t *) ti_str_create((const char *) pt, n);
+        if (!prop->val)
+            return -1;
+    }
+    m -= j;
+
+    switch(m)
+    {
+    default:
+    case 4:
+        prop = VEC_get(closure->vars, j+3);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = (ti_val_t *) vstr;
+        /* fall through */
+    case 3:
+        prop = VEC_get(closure->vars, j+2);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = (ti_val_t *) ti_vint_create(ovector[1]);
+        if (!prop->val)
+            return -1;
+        /* fall through */
+    case 2:
+        prop = VEC_get(closure->vars, j+1);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = (ti_val_t *) ti_vint_create(ovector[0]);
+        if (!prop->val)
+            return -1;
+        /* fall through */
+    case 1:
+        /*
+         * After the capture groups, the complete match will be added
+         */
+        {
+            PCRE2_SPTR pt = vstr->data + ovector[0];
+            PCRE2_SIZE n =  ovector[1] - ovector[0];
+
+            prop = VEC_get(closure->vars, j);
+            ti_val_unsafe_drop(prop->val);
+            prop->val = (ti_val_t *) ti_str_create((const char *) pt, n);
+            if (!prop->val)
+                return -1;
+        }
+        /* fall through */
+    case 0:
+        break;
+    }
+    return 0;
+}
+
+
 int ti_closure_vars_vset(ti_closure_t * closure, ti_thing_t * t)
 {
     ti_prop_t * prop;

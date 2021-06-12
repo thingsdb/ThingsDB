@@ -6,7 +6,6 @@
 
 #define PCRE2_CODE_UNIT_WIDTH 8
 
-
 typedef struct ti_regex_s ti_regex_t;
 
 #include <pcre2.h>

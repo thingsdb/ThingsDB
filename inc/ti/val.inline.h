@@ -121,6 +121,20 @@ static inline _Bool ti_val_is_str(ti_val_t * val)
     return val->tp == TI_VAL_STR || val->tp == TI_VAL_NAME;
 }
 
+static inline _Bool ti_val_is_str_regex(ti_val_t * val)
+{
+    return val->tp == TI_VAL_STR ||
+           val->tp == TI_VAL_NAME ||
+           val->tp == TI_VAL_REGEX;
+}
+
+static inline _Bool ti_val_is_str_closure(ti_val_t * val)
+{
+    return val->tp == TI_VAL_STR ||
+           val->tp == TI_VAL_NAME ||
+           val->tp == TI_VAL_CLOSURE;
+}
+
 static inline _Bool ti_val_is_bytes(ti_val_t * val)
 {
     return val->tp == TI_VAL_BYTES;

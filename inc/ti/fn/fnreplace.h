@@ -1,6 +1,7 @@
 #include <ti/fn/fn.h>
 
-ti_raw_t * replacer(
+/* Replace string with string num (reverse) times */
+ti_raw_t * replacessr(
         ti_raw_t * vstr,
         ti_raw_t * vold,
         ti_raw_t * vnew,
@@ -46,7 +47,8 @@ ti_raw_t * replacer(
     return raw;
 }
 
-ti_raw_t * replacen(
+/* Replace string with string n times */
+ti_raw_t * replacessn(
         ti_raw_t * vstr,
         ti_raw_t * vold,
         ti_raw_t * vnew,
@@ -91,10 +93,325 @@ ti_raw_t * replacen(
     return raw;
 }
 
+/* Replace string using closure n times */
+ti_raw_t * replacescr(
+        ti_raw_t * vstr,
+        ti_raw_t * vold,
+        ti_closure_t * closure,
+        size_t n,
+        ti_query_t * query,
+        ex_t * e)
+{
+    ti_raw_t * raw = NULL;
+    size_t strn = vstr->n;
+    size_t oldn = vold->n;
+    char * s = (char *) vstr->data ;
+    char * pt = s + strn;
+    char * old = (char *) vold->data;
+    char * start = (char *) vstr->data;
+    char * until = start + oldn;
+    rbuf_t buf;
+    rbuf_init(&buf);
+
+    if (ti_closure_try_wse(closure, query, e) ||
+        ti_closure_inc(closure, query, e))
+        goto fail0;
+
+    do
+    {
+        if (n && pt >= until && memcmp(pt-oldn, old, oldn) == 0)
+        {
+            ti_raw_t * new;
+
+            if (ti_closure_vars_replace_str(closure, pt - s, vold->n, vstr))
+            {
+                ex_set_mem(e);
+                goto fail1;
+            }
+
+            if (ti_closure_do_statement(closure, query, e))
+                goto fail1;  /* TODO: add test */
+
+            if (!ti_val_is_str(query->rval))
+            {
+                ex_set(e, EX_TYPE_ERROR,
+                        "replace callback is expecting a return value of "
+                        "type `"TI_VAL_STR_S"` but got type `%s` instead"
+                        DOC_STR_REPLACE,
+                        ti_val_str(query->rval));
+                goto fail1; /* TODO: add test */
+            }
+
+            new = (ti_raw_t *) query->rval;
+
+
+            if (rbuf_append(&buf, (const char *) new->data, new->n))
+            {
+                ex_set_mem(e);
+                goto fail1;
+            }
+            ti_val_unsafe_drop(query->rval);
+            query->rval = NULL;
+
+            pt -= oldn;
+
+            --n;
+            continue;
+        }
+        --pt;
+        if (rbuf_write(&buf, *pt))
+        {
+            ex_set_mem(e);
+            goto fail1;
+        }
+    }
+    while (pt > start);
+
+    raw = ti_str_create(buf.data + buf.pos, rbuf_len(&buf));
+    if (!raw)
+        ex_set_mem(e);
+    query->rval = (ti_val_t *) raw;
+
+fail1:
+    ti_closure_dec(closure, query);
+    free(buf.data);
+fail0:
+    return raw;
+
+}
+
+/* Replace string using closure n times */
+int replacescn(
+        ti_raw_t * vstr,
+        ti_raw_t * vold,
+        ti_closure_t * closure,
+        ti_vint_t * vnum,
+        ti_query_t * query,
+        ex_t * e)
+{
+    assert (!vnum || vnum->int_ > 0);
+    assert (vold->n && vold->n <= vstr->n);
+
+    ti_raw_t * raw;
+    size_t strn = vstr->n;
+    size_t oldn = vold->n;
+    size_t n = vnum ? (size_t) vnum->int_: SIZE_MAX;
+    char * s = (char *) vstr->data;
+    char * pt = s;
+    char * end = pt + strn;
+    char * old = (char *) vold->data;
+
+    char * until = end - oldn;
+    buf_t buf;
+    buf_init(&buf);
+
+    if (ti_closure_try_wse(closure, query, e) ||
+        ti_closure_inc(closure, query, e))
+        goto fail0;
+
+    while(pt < end)
+    {
+        if (n && pt <= until && memcmp(pt, old, oldn) == 0)
+        {
+            ti_raw_t * new;
+
+            if (ti_closure_vars_replace_str(closure, pt - s, vold->n, vstr))
+            {
+                ex_set_mem(e);
+                goto fail1;
+            }
+
+            if (ti_closure_do_statement(closure, query, e))
+                goto fail1;  /* TODO: add test */
+
+            if (!ti_val_is_str(query->rval))
+            {
+                ex_set(e, EX_TYPE_ERROR,
+                        "replace callback is expecting a return value of "
+                        "type `"TI_VAL_STR_S"` but got type `%s` instead"
+                        DOC_STR_REPLACE,
+                        ti_val_str(query->rval));
+                goto fail1; /* TODO: add test */
+            }
+
+            new = (ti_raw_t *) query->rval;
+
+            if (buf_append(&buf, (const char *) new->data, new->n))
+            {
+                ex_set_mem(e);
+                goto fail1;
+            }
+
+            ti_val_unsafe_drop(query->rval);
+            query->rval = NULL;
+
+            pt += oldn;
+            --n;
+            continue;
+        }
+        if (buf_write(&buf, *pt))
+        {
+            ex_set_mem(e);
+            goto fail1;
+        }
+        ++pt;
+    }
+
+    raw = ti_str_create(buf.data, buf.len);
+    if (!raw)
+        ex_set_mem(e);
+    query->rval = (ti_val_t *) raw;
+
+fail1:
+    ti_closure_dec(closure, query);
+    free(buf.data);
+fail0:
+    return e->nr;
+}
+
+/* Replace string using closure n times */
+int replacersn(
+        ti_raw_t * vstr,
+        ti_regex_t * regex,
+        ti_raw_t * vnew,
+        ti_vint_t * vnum,
+        ti_query_t * query,
+        ex_t * e)
+{
+    assert (!vnum || vnum->int_ > 0);
+
+    ti_raw_t * raw;
+    size_t n = vnum ? (size_t) vnum->int_: SIZE_MAX;
+    size_t pos = 0;
+    int rc;
+    const char * s = (const char *) vstr->data;
+
+    buf_t buf;
+    buf_init(&buf);
+
+    while (n-- && (rc = pcre2_match(
+            regex->code,
+            (PCRE2_SPTR8) vstr->data,
+            vstr->n,
+            pos,                   /* start looking at this point */
+            0,                     /* OPTIONS */
+            regex->match_data,
+            NULL)) >= 0)
+    {
+       PCRE2_SIZE * ovector = pcre2_get_ovector_pointer(regex->match_data);
+
+       if (buf_append(&buf, s + pos, ovector[0] - pos) ||
+           buf_append(&buf, (const char *) vnew->data, vnew->n))
+       {
+           ex_set_mem(e);
+           goto fail0;
+       }
+       pos = ovector[1];
+    }
+
+    if (buf_append(&buf, s + pos, vstr->n - pos))
+        goto fail0;
+
+    raw = ti_str_create(buf.data, buf.len);
+    if (!raw)
+        ex_set_mem(e);
+    query->rval = (ti_val_t *) raw;
+
+fail0:
+    free(buf.data);
+    return e->nr;
+}
+
+/* Replace string using closure n times */
+int replacercn(
+        ti_raw_t * vstr,
+        ti_regex_t * regex,
+        ti_closure_t * closure,
+        ti_vint_t * vnum,
+        ti_query_t * query,
+        ex_t * e)
+{
+    assert (!vnum || vnum->int_ > 0);
+
+    ti_raw_t * raw;
+    size_t n = vnum ? (size_t) vnum->int_: SIZE_MAX;
+    size_t pos = 0;
+    int rc;
+    const char * s = (const char *) vstr->data;
+
+    buf_t buf;
+    buf_init(&buf);
+
+    if (ti_closure_try_wse(closure, query, e) ||
+        ti_closure_inc(closure, query, e))
+        goto fail0;
+
+    while (n-- && (rc = pcre2_match(
+            regex->code,
+            (PCRE2_SPTR8) vstr->data,
+            vstr->n,
+            pos,                   /* start looking at this point */
+            0,                     /* OPTIONS */
+            regex->match_data,
+            NULL)) >= 0)
+    {
+        ti_raw_t * new;
+        PCRE2_SIZE * ovector = pcre2_get_ovector_pointer(regex->match_data);
+
+        if (buf_append(&buf, s + pos, ovector[0] - pos) ||
+            ti_closure_vars_replace_regex(closure, vstr, ovector, rc))
+        {
+            ex_set_mem(e);
+            goto fail1;
+        }
+
+        if (ti_closure_do_statement(closure, query, e))
+            goto fail1;  /* TODO: add test */
+
+        if (!ti_val_is_str(query->rval))
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                    "replace callback is expecting a return value of "
+                    "type `"TI_VAL_STR_S"` but got type `%s` instead"
+                    DOC_STR_REPLACE,
+                    ti_val_str(query->rval));
+            goto fail1; /* TODO: add test */
+        }
+
+        new = (ti_raw_t *) query->rval;
+
+        if (buf_append(&buf, (const char *) new->data, new->n))
+        {
+            ex_set_mem(e);
+            goto fail1;
+        }
+
+        ti_val_unsafe_drop(query->rval);
+        query->rval = NULL;
+
+        pos = ovector[1];
+    }
+
+    if (buf_append(&buf, s + pos, vstr->n - pos))
+        goto fail0;
+
+    raw = ti_str_create(buf.data, buf.len);
+    if (!raw)
+        ex_set_mem(e);
+    query->rval = (ti_val_t *) raw;
+
+fail1:
+    ti_closure_dec(closure, query);
+    free(buf.data);
+fail0:
+    return e->nr;
+}
+
 static int do__replace_str(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_raw_t * str, * sold, * snew, * res;
+    ti_raw_t * str;
+    ti_val_t * old, * new;
     ti_vint_t * vnum = NULL;
     cleri_children_t * child;
 
@@ -109,23 +426,17 @@ static int do__replace_str(ti_query_t * query, cleri_node_t * nd, ex_t * e)
      *       a regular expression, instead of only a type string.
      */
     if (ti_do_statement(query, (child = nd->children)->node, e) ||
-        fn_arg_str("replace", DOC_STR_REPLACE, 1, query->rval, e))
+        fn_arg_str_regex("replace", DOC_STR_REPLACE, 1, query->rval, e))
         goto fail0;
 
-    sold = (ti_raw_t *) query->rval;
+    old = query->rval;
     query->rval = NULL;
 
-    if (sold->n == 0)
-    {
-        ex_set(e, EX_VALUE_ERROR, "replace an empty string");
-            goto fail1;
-    }
-
     if (ti_do_statement(query, (child = child->next->next)->node, e) ||
-        fn_arg_str("replace", DOC_STR_REPLACE, 2, query->rval, e))
+        fn_arg_str_closure("replace", DOC_STR_REPLACE, 2, query->rval, e))
         goto fail1;
 
-    snew = (ti_raw_t *) query->rval;
+    new = query->rval;
     query->rval = NULL;
 
     if (nargs == 3)
@@ -140,37 +451,105 @@ static int do__replace_str(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (vnum->int_ == LLONG_MIN)
         {
             ex_set(e, EX_OVERFLOW, "integer overflow");
-            goto fail3;
+            goto done;
+        }
+
+        if (vnum->int_ == 0)
+        {
+            query->rval = (ti_val_t *) str;
+            ti_incref(str);
+            goto done;
         }
     }
 
-    if (sold->n > str->n || (vnum && vnum->int_ == 0))
+    /* vnum is from here on either `NULL` or an integer != zero */
+
+    if (ti_val_is_str(old))
     {
-        res = str;
-        ti_incref(res);
+        ti_raw_t * sold = (ti_raw_t *) old;
+
+        if (sold->n == 0)
+        {
+            ex_set(e, EX_VALUE_ERROR, "replace an empty string");
+            goto done;
+        }
+
+        if (sold->n > str->n)
+        {
+            query->rval = (ti_val_t *) str;
+            ti_incref(str);
+            goto done;
+        }
+
+        if(ti_val_is_str(new))
+        {
+            ti_raw_t * res = (!vnum || vnum->int_ > 0)
+                ? replacessn(str, sold, (ti_raw_t *) new, vnum)
+                : replacessr(str, sold, (ti_raw_t *) new, llabs(vnum->int_));
+            if (!res)
+                ex_set_mem(e);
+
+            query->rval = (ti_val_t *) res;
+            goto done;
+        }
+
+        /* `new` is of `ti_closure_t` */
+        if (!vnum || vnum->int_ > 0)
+            replacescn(
+                    str,
+                    sold,
+                    (ti_closure_t *) new,
+                    vnum,
+                    query,
+                    e);
+        else
+            replacescr(
+                    str,
+                    sold,
+                    (ti_closure_t *) new,
+                    llabs(vnum->int_),
+                    query,
+                    e);
+        goto done;
     }
+
+    if (vnum && vnum->int_ < 0)
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                    "function `replace` does not support backward (negative) "
+                    "replacements when used with a regular expression"
+                    DOC_STR_REPLACE);
+        goto done;
+    }
+
+    /* `old` is of `ti_regex_t` */
+    if(ti_val_is_str(new))
+        replacersn(
+                str,
+                (ti_regex_t *) old,
+                (ti_raw_t *) new,
+                vnum,
+                query,
+                e);
     else
-    {
-        res = (!vnum || vnum->int_ > 0)
-            ? replacen(str, sold, snew, vnum)
-            : replacer(str, sold, snew, llabs(vnum->int_));
-    }
+        replacercn(
+                str,
+                (ti_regex_t *) old,
+                (ti_closure_t *) new,
+                vnum,
+                query,
+                e);
 
-    query->rval = (ti_val_t *) res;
-    if (!res)
-        ex_set_mem(e);
-
-fail3:
-    ti_val_drop((ti_val_t *) vnum);
+done:
+    ti_val_drop((ti_val_t *) vnum);  /* might be NULL */
 fail2:
-    ti_val_unsafe_drop((ti_val_t *) snew);
+    ti_val_unsafe_drop(new);
 fail1:
-    ti_val_unsafe_drop((ti_val_t *) sold);
+    ti_val_unsafe_drop(old);
 fail0:
     ti_val_unsafe_drop((ti_val_t *) str);
     return e->nr;
 }
-
 
 
 /*

@@ -19,6 +19,7 @@ C_SRCS += \
 ../src/util/olist.c \
 ../src/util/omap.c \
 ../src/util/queue.c \
+../src/util/rbuf.c \
 ../src/util/smap.c \
 ../src/util/strx.c \
 ../src/util/syncpart.c \
@@ -41,6 +42,7 @@ OBJS += \
 ./src/util/olist.o \
 ./src/util/omap.o \
 ./src/util/queue.o \
+./src/util/rbuf.o \
 ./src/util/smap.o \
 ./src/util/strx.o \
 ./src/util/syncpart.o \
@@ -63,6 +65,7 @@ C_DEPS += \
 ./src/util/olist.d \
 ./src/util/omap.d \
 ./src/util/queue.d \
+./src/util/rbuf.d \
 ./src/util/smap.d \
 ./src/util/strx.d \
 ./src/util/syncpart.d \

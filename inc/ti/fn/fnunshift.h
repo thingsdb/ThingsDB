@@ -29,10 +29,11 @@ static int do__f_unshift(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     do
     {
         /*
-         * Technically the insert performance could be improved by replacing
-         * the `ti_varr_insert` by a single memmove() function call, followed
-         * by a ti_varr_val_prepare() and vec_set() function call for each
-         * value.
+         * TODO
+         * Technically, the insert performance could be improved by replacing
+         * the `ti_varr_insert` with an optimized function to insert a bulk
+         * at once. This is especially useful for the insert function since
+         * the current solution requires a call to memmove() on each iteration.
          */
         if (ti_do_statement(query, child->node, e) ||
             ti_varr_insert(varr, (void **) &query->rval, e, idx))

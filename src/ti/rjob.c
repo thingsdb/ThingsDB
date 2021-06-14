@@ -782,6 +782,43 @@ static int rjob__del_module(mp_unp_t * up)
 
 /*
  * Returns 0 on success
+ * - for example: {"name": module_name, "data": content}
+ */
+static int rjob__write_module(mp_unp_t * up)
+{
+    ti_module_t * module;
+    mp_obj_t obj, mp_name, mp_data;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_data) != MP_BIN )
+    {
+        log_critical("job `write_module`: invalid format");
+        return -1;
+    }
+
+    module = ti_modules_by_strn(mp_name.via.str.data, mp_name.via.str.n);
+    if (!module)
+    {
+        log_error("job `write_module`: module `%.*s` not found",
+                mp_name.via.str.n,
+                mp_name.via.str.data);
+        return 0;  /* error, but able to continue */
+    }
+
+    if (ti_module_write(
+                module,
+                mp_data.via.bin.data,
+                mp_data.via.bin.n) == 0)
+            ti_module_restart(module);
+
+    return 0;
+}
+
+/*
+ * Returns 0 on success
  * - for example: {"name": module_name, "scope_id": nil/id}
  */
 static int rjob__set_module_scope(mp_unp_t * up)
@@ -1329,6 +1366,10 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
     case 't':
         if (mp_str_eq(&mp_job, "take_access"))
             return rjob__take_access(up);
+        break;
+    case 'w':
+        if (mp_str_eq(&mp_job, "write_module"))
+            return rjob__write_module(up);
         break;
     }
 

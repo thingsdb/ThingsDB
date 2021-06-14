@@ -96,7 +96,7 @@ class TestNodeFunctions(TestBase):
 
         node = await client.query('node_info();')
 
-        self.assertEqual(len(node), 36)
+        self.assertEqual(len(node), 37)
 
         self.assertIn("node_id", node)
         self.assertIn("version", node)
@@ -134,6 +134,7 @@ class TestNodeFunctions(TestBase):
         self.assertIn('cached_queries', node)
         self.assertIn('threshold_query_cache', node)
         self.assertIn('cache_expiration_time', node)
+        self.assertIn('python_interpreter', node)
 
         self.assertTrue(isinstance(node["node_id"], int))
         self.assertTrue(isinstance(node["version"], str))
@@ -171,6 +172,7 @@ class TestNodeFunctions(TestBase):
         self.assertTrue(isinstance(node["cached_queries"], int))
         self.assertTrue(isinstance(node["threshold_query_cache"], int))
         self.assertTrue(isinstance(node["cache_expiration_time"], int))
+        self.assertTrue(isinstance(node["python_interpreter"], str))
 
     async def test_nodes_info(self, client):
         with self.assertRaisesRegex(

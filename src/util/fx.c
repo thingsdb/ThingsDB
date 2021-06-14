@@ -83,12 +83,39 @@ final:
 
 _Bool fx_file_exist(const char * fn)
 {
-    FILE * fp;
-    fp = fopen(fn, "r");
-    if (!fp)
-        return false;
-    (void) fclose(fp);
-    return true;
+    return access(fn, F_OK) != -1;
+}
+
+_Bool fx_is_executable(const char * fn)
+{
+    return access(fn, F_OK | X_OK) != -1;
+}
+
+char * fx_get_executable_in_path(const char * fn)
+{
+    int nchars;
+    char fullpath[FX_PATH_MAX];
+    const char * item;
+    char * paths = strdup(getenv("PATH"));
+    char * tmp = paths; // to use in free
+    char * fpath = NULL;
+    if (!paths)
+        return NULL;
+
+    while ((item = strsep(&paths, ":")) != NULL)
+    {
+        nchars = snprintf(fullpath, FX_PATH_MAX, "%s/%s", item, fn);
+        if (nchars >= FX_PATH_MAX)
+            continue;
+
+        if (fx_is_executable(fullpath))
+        {
+            fpath = strdup(fullpath);
+            break;
+        }
+    }
+    free(tmp);
+    return fpath;
 }
 
 _Bool fx_is_dir(const char * path)

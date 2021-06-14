@@ -146,6 +146,7 @@
 #define DOC_TIME_ZONES_INFO         DOC_SEE("thingsdb-api/time_zones_info")
 #define DOC_USER_INFO               DOC_SEE("thingsdb-api/user_info")
 #define DOC_USERS_INFO              DOC_SEE("thingsdb-api/users_info")
+#define DOC_WRITE_MODULE            DOC_SEE("thingsdb-api/write_module")
 
 /* Procedures API */
 #define DOC_DEL_PROCEDURE           DOC_SEE("procedures-api/del_procedure")
@@ -294,5 +295,6 @@
 #define DOC_PROCEDURES_API          DOC_SEE("procedures-api")
 #define DOC_CLOSURE                 DOC_SEE("data-types/closure")
 #define DOC_HTTP_API                DOC_SEE("connect/http-api")
+#define DOC_CONFIGURATION           DOC_SEE("getting-started/configuration")
 
 #endif  /* TI_DOC_H_ */

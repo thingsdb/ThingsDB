@@ -6,9 +6,52 @@
 #include <ti/names.h>
 #include <ti/val.inline.h>
 
+/*
+ * This function tries to create the module path if it does not exist.
+ * It's not at all critical when this function fails to create the path, the
+ * as a result the module path will simply not exist.
+ */
+void ti_modules_init(void)
+{
+    char * path, * modules_path = ti.cfg->modules_path;
+
+    if (!fx_is_dir(modules_path) && mkdir(modules_path, FX_DEFAULT_DIR_ACCESS))
+    {
+        log_errno_file("cannot create directory", errno, modules_path);
+        goto do_python;
+    }
+
+    path = realpath(ti.cfg->modules_path, NULL);
+    if (!path)
+    {
+        log_warning("cannot find storage path: `%s`", path);
+        goto do_python;
+    }
+
+    free(ti.cfg->modules_path);
+    ti.cfg->modules_path = path;
+
+do_python:
+    /* Just log information about the python interpreter */
+    if (fx_is_executable(ti.cfg->python_interpreter))
+        return;  /* done */
+
+    path = fx_get_executable_in_path(ti.cfg->python_interpreter);
+    if (!path)
+    {
+        log_warning(
+                "cannot find Python interpreter: `%s`",
+                ti.cfg->python_interpreter);
+        return;
+    }
+
+    free(ti.cfg->python_interpreter);
+    ti.cfg->python_interpreter = path;
+}
+
 static int modules__load_cb(ti_module_t * module, void * UNUSED(arg))
 {
-    if (module->flags & TI_MODULE_STAT_NOT_LOADED)
+    if (module->status == TI_MODULE_STAT_NOT_LOADED)
         ti_module_load(module);
     return 0;
 }

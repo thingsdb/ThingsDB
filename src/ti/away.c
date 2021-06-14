@@ -163,6 +163,11 @@ static void away__accept_node_id(uint32_t node_id)
             0);
 }
 
+/*
+ * Away mode might access collections but be careful with things like modules
+ * or anything what might be accessed from within a node scope. This because
+ * the node scope will allow queries even when in away mode.
+ */
 static void away__work(uv_work_t * UNUSED(work))
 {
     uv_mutex_lock(ti.events->lock);
@@ -356,9 +361,13 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
     {
         if (!--away->wait_futures)
         {
+            /* restore original wait for future counter */
+            away->wait_futures = AWAY__WAIT_FUTURES;
+
             log_warning(
                 "cancel all open futures (%zd) before going into away mode",
                 ti.futures_count);
+
             ti_modules_cancel_futures();
         }
         else

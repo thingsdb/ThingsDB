@@ -14,6 +14,7 @@
 #include <util/smap.h>
 
 ti_varr_t * ti_modules_info(_Bool with_conf);
+void ti_modules_init(void);
 void ti_modules_load(void);
 void ti_modules_cancel_futures(void);
 void ti_modules_stop_and_destroy(void);

@@ -19,8 +19,8 @@ COPY --from=0 /tmp/thingsdb/Release/thingsdb /usr/local/bin/
 COPY --from=0 /usr/lib/libcleri* /usr/lib/
 
 # Support Python modules.
-# RUN ln -s /usr/bin/python3 /usr/bin/python && \
-#     pip3 install timod
+RUN ln -s /usr/bin/python3 /usr/bin/python && \
+    pip3 install timod
 
 # Data
 VOLUME ["/var/lib/thingsdb/"]

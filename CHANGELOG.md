@@ -1,9 +1,12 @@
 # v0.10.13
 
-* Added `extend_unique()` function, issue #189.
+* Added `extend_unique(..)` function, issue #189.
 * Lookup procedures by name, issue #192.
 * Fixed bug with regular expression syntax, issue #193.
 * Added regular expression support on `str.replace(..)` function, issue #194.
+* Fixed bug with storing modules during a full database store, issue #195.
+* Search for Python interpreter in `PATH` when no absolute path is given, issue #196.
+* Added `deploy_module(..)` function, issue #197.
 
 # v0.10.12
 

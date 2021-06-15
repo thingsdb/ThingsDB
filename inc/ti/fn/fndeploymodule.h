@@ -33,7 +33,7 @@ static int do__f_deploy_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     task = ti_task_get_task(query->ev, ti.thing0);
     if (!task || ti_task_add_deploy_module(task, module, mdata))
         ex_set_mem(e);  /* task cleanup is not required */
-    else if (ti_module_write(module, mdata->data, mdata->n) == 0)
+    else if (mdata == NULL || ti_module_write(module, mdata->data, mdata->n) == 0)
         ti_module_restart(module);
 
     ti_val_unsafe_drop(query->rval);

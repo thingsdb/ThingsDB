@@ -701,3 +701,25 @@ ti_val_t * ti_module_as_mpval(ti_module_t * module, int flags)
     return (ti_val_t *) raw;
 }
 
+int ti_module_write(ti_module_t * module, const void * data, size_t n)
+{
+    if (ti_module_is_py(module))
+        return fx_write(module->file, data, n);
+
+    if (fx_file_exist(module->file) && unlink(module->file))
+    {
+        log_errno_file("cannot delete file", errno, module->file);
+        return -1;
+    }
+
+    if (fx_write(module->file, data, n))
+        return -1;
+
+    if (chmod(module->file, S_IRWXU))
+    {
+        log_errno_file("cannot make file executable", errno, module->file);
+        return -1;
+    }
+
+    return 0;
+}

@@ -20,7 +20,7 @@ COPY --from=0 /usr/lib/libcleri* /usr/lib/
 
 # Support Python modules.
 RUN ln -s /usr/bin/python3 /usr/bin/python && \
-    pip3 install timod
+    pip3 install py-timod
 
 # Data
 VOLUME ["/var/lib/thingsdb/"]

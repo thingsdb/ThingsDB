@@ -39,6 +39,10 @@ int ti_task_add_del_token(ti_task_t * task, ti_token_key_t * key);
 int ti_task_add_del_type(ti_task_t * task, ti_type_t * type);
 int ti_task_add_del_user(ti_task_t * task, ti_user_t * user);
 int ti_task_add_del_module(ti_task_t * task, ti_module_t * module);
+int ti_task_add_deploy_module(
+        ti_task_t * task,
+        ti_module_t * module,
+        ti_raw_t * mdata);
 int ti_task_add_set_module_scope(ti_task_t * task, ti_module_t * module);
 int ti_task_add_set_module_conf(ti_task_t * task, ti_module_t * module);
 int ti_task_add_grant(

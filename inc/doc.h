@@ -121,6 +121,7 @@
 #define DOC_DEL_NODE                DOC_SEE("thingsdb-api/del_node")
 #define DOC_DEL_TOKEN               DOC_SEE("thingsdb-api/del_token")
 #define DOC_DEL_USER                DOC_SEE("thingsdb-api/del_user")
+#define DOC_DEPLOY_MODULE           DOC_SEE("thingsdb-api/deploy_module")
 #define DOC_GRANT                   DOC_SEE("thingsdb-api/grant")
 #define DOC_HAS_COLLECTION          DOC_SEE("thingsdb-api/has_collection")
 #define DOC_HAS_MODULE              DOC_SEE("thingsdb-api/has_module")
@@ -294,5 +295,6 @@
 #define DOC_PROCEDURES_API          DOC_SEE("procedures-api")
 #define DOC_CLOSURE                 DOC_SEE("data-types/closure")
 #define DOC_HTTP_API                DOC_SEE("connect/http-api")
+#define DOC_CONFIGURATION           DOC_SEE("getting-started/configuration")
 
 #endif  /* TI_DOC_H_ */

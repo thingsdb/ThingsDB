@@ -43,6 +43,7 @@
 #include <ti/fn/fndeltoken.h>
 #include <ti/fn/fndeltype.h>
 #include <ti/fn/fndeluser.h>
+#include <ti/fn/fndeploymodule.h>
 #include <ti/fn/fndoc.h>
 #include <ti/fn/fndup.h>
 #include <ti/fn/fneach.h>
@@ -246,7 +247,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 221,
+    TOTAL_KEYWORDS = 222,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 8,
@@ -460,6 +461,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="del_type",          .fn=do__f_del_type,             ROOT_CE},
     {.name="del_user",          .fn=do__f_del_user,             ROOT_TE},
     {.name="del",               .fn=do__f_del,                  CHAIN_CE},
+    {.name="deploy_module",     .fn=do__f_deploy_module,        ROOT_TE},
     {.name="doc",               .fn=do__f_doc,                  CHAIN_NE},
     {.name="dup",               .fn=do__f_dup,                  CHAIN_NE},
     {.name="each",              .fn=do__f_each,                 CHAIN_NE},

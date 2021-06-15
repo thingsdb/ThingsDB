@@ -4,9 +4,6 @@ from timod import start_module, TiHandler, LookupError
 
 class Handler(TiHandler):
 
-    async def on_error(self, e):
-        logging.error(e)
-
     async def on_config(self, cfg):
         logging.info(cfg)
 
@@ -19,4 +16,3 @@ class Handler(TiHandler):
 
 if __name__ == '__main__':
     start_module('demo', Handler())
-

@@ -10,6 +10,7 @@
 #include <ti/scope.t.h>
 #include <ti/val.t.h>
 #include <util/mpack.h>
+#include <util/fx.h>
 
 ti_module_t * ti_module_create(
         const char * name,
@@ -37,5 +38,17 @@ int ti_module_info_to_pk(
         msgpack_packer * pk,
         int options);
 ti_val_t * ti_module_as_mpval(ti_module_t * module, int flags);
+int ti_module_write(ti_module_t * module, const void * data, size_t n);
+
+static inline _Bool ti_module_is_py(ti_module_t * module)
+{
+    return module->flags & TI_MODULE_FLAG_IS_PY_MODULE;
+}
+
+static inline const char * ti_module_py_fn(ti_module_t * module)
+{
+    return module->args[1];
+}
+
 
 #endif /* TI_MODULE_H_ */

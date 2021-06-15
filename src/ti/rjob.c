@@ -782,6 +782,43 @@ static int rjob__del_module(mp_unp_t * up)
 
 /*
  * Returns 0 on success
+ * - for example: {"name": module_name, "data": content}
+ */
+static int rjob__deploy_module(mp_unp_t * up)
+{
+    ti_module_t * module;
+    mp_obj_t obj, mp_name, mp_data;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR ||
+        mp_skip(up) != MP_STR ||
+        (mp_next(up, &mp_data) != MP_BIN && mp_data.tp != MP_NIL))
+    {
+        log_critical("job `deploy_module`: invalid format");
+        return -1;
+    }
+
+    module = ti_modules_by_strn(mp_name.via.str.data, mp_name.via.str.n);
+    if (!module)
+    {
+        log_error("job `deploy_module`: module `%.*s` not found",
+                mp_name.via.str.n,
+                mp_name.via.str.data);
+        return 0;  /* error, but able to continue */
+    }
+
+    if (mp_data.tp == MP_NIL || ti_module_write(
+                module,
+                mp_data.via.bin.data,
+                mp_data.via.bin.n) == 0)
+            ti_module_restart(module);
+
+    return 0;
+}
+
+/*
+ * Returns 0 on success
  * - for example: {"name": module_name, "scope_id": nil/id}
  */
 static int rjob__set_module_scope(mp_unp_t * up)
@@ -1257,6 +1294,8 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
     case 'd':
         if (mp_str_eq(&mp_job, "del_timer"))
             return rjob__del_timer(up);
+        if (mp_str_eq(&mp_job, "deploy_module"))
+            return rjob__deploy_module(up);
         if (mp_str_eq(&mp_job, "del_collection"))
             return rjob__del_collection(up);
         if (mp_str_eq(&mp_job, "del_expired"))

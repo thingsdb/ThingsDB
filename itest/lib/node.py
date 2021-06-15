@@ -59,11 +59,12 @@ class Node:
         self.pipe_client_name = options.pop('pipe_client_name', None)
         self.threshold_full_storage = options.pop('threshold_full_storage', 10)
 
-        self.modules_path = options.pop('modules_path', None)
-        self.python_interpreter = options.pop('python_interpreter', None)
-
         self.storage_path = os.path.join(THINGSDB_TESTDIR, f'tdb{n}')
         self.cfgfile = os.path.join(THINGSDB_TESTDIR, f't{n}.conf')
+
+        modules_path = os.path.join(self.storage_path, 'modules')
+        self.modules_path = options.pop('modules_path', modules_path)
+        self.python_interpreter = options.pop('python_interpreter', 'python')
 
         self.name = \
             f'Node{n}<{self.listen_client_port}/{self.listen_node_port}>'

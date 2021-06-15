@@ -216,6 +216,7 @@ int ti_init(void)
     ti_names_inject_common();
     ti_verror_init();
     ti_qbind_init();
+    ti_modules_init();
 
     if (ti.cfg->query_duration_error > ti.cfg->query_duration_warn)
         ti.cfg->query_duration_warn = ti.cfg->query_duration_error;
@@ -456,6 +457,8 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
 
     if (ti.node)
     {
+        ti_modules_load();
+
         if (ti_timers_start())
             goto failed;
 
@@ -862,7 +865,7 @@ int ti_this_node_to_pk(msgpack_packer * pk)
     double uptime = util_time_diff(&ti.boottime, &timing);
 
     return (
-        msgpack_pack_map(pk, 36) ||
+        msgpack_pack_map(pk, 37) ||
         /* 1 */
         mp_pack_str(pk, "node_id") ||
         msgpack_pack_uint32(pk, ti.node->id) ||
@@ -976,7 +979,10 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         msgpack_pack_uint32(pk, ti.cfg->threshold_query_cache) ||
         /* 36 */
         mp_pack_str(pk, "cache_expiration_time") ||
-        msgpack_pack_uint32(pk, ti.cfg->cache_expiration_time)
+        msgpack_pack_uint32(pk, ti.cfg->cache_expiration_time) ||
+        /* 37 */
+        mp_pack_str(pk, "python_interpreter") ||
+        mp_pack_str(pk, ti.cfg->python_interpreter)
     );
 }
 

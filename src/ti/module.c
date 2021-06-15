@@ -230,7 +230,7 @@ ti_pkg_t * ti_module_conf_pkg(ti_val_t * val, ti_query_t * query)
     return pkg;
 }
 
-static _Bool module__is_py(const char * file, size_t n)
+static _Bool module__file_is_py(const char * file, size_t n)
 {
     return file[n-3] == '.' &&
            file[n-2] == 'p' &&
@@ -247,7 +247,7 @@ ti_module_t * ti_module_create(
         ti_pkg_t * conf_pkg,    /* may be NULL */
         uint64_t * scope_id     /* may be NULL */)
 {
-    _Bool is_py_module = module__is_py(file, file_n);
+    _Bool is_py_module = module__file_is_py(file, file_n);
     ti_module_t * module = malloc(sizeof(ti_module_t));
     if (!module)
         return NULL;
@@ -625,8 +625,11 @@ const char * ti_module_status_str(ti_module_t * module)
         return "stopping module...";
     case TI_MODULE_STAT_TOO_MANY_RESTARTS:
         return "too many restarts detected; most likely the module is broken";
+    case TI_MODULE_STAT_PY_INTERPRETER_NOT_FOUND:
+        return "the Python interpreter is not found on this node"
+                DOC_NODE_INFO""DOC_CONFIGURATION;
     case TI_MODULE_STAT_CONFIGURATION_ERR:
-        return "configuration error; " \
+        return "configuration error; "
                "use `set_module_conf(..)` to update the module configuration";
     }
     return uv_strerror(module->status);
@@ -698,3 +701,25 @@ ti_val_t * ti_module_as_mpval(ti_module_t * module, int flags)
     return (ti_val_t *) raw;
 }
 
+int ti_module_write(ti_module_t * module, const void * data, size_t n)
+{
+    if (ti_module_is_py(module))
+        return fx_write(module->file, data, n);
+
+    if (fx_file_exist(module->file) && unlink(module->file))
+    {
+        log_errno_file("cannot delete file", errno, module->file);
+        return -1;
+    }
+
+    if (fx_write(module->file, data, n))
+        return -1;
+
+    if (chmod(module->file, S_IRWXU))
+    {
+        log_errno_file("cannot make file executable", errno, module->file);
+        return -1;
+    }
+
+    return 0;
+}

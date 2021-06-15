@@ -18,7 +18,8 @@ static int do__f_deploy_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
 
     if (ti_do_statement(query, nd->children->next->next->node, e) ||
-        fn_arg_str_bytes_nil("deploy_module", DOC_DEPLOY_MODULE, 2, query->rval, e))
+        fn_arg_str_bytes_nil(
+                "deploy_module", DOC_DEPLOY_MODULE, 2, query->rval, e))
         goto fail0;
 
     module = ti_modules_by_raw(rname);
@@ -28,12 +29,24 @@ static int do__f_deploy_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
     }
 
+    if (!ti_module_is_py(module) && ti_val_is_str(query->rval))
+    {
+        ex_set(e, EX_TYPE_ERROR,
+                "function `deploy_module` expects argument 2 to be of "
+                "type `"TI_VAL_BYTES_S"` or `"TI_VAL_NIL_S"`"
+                "but got type `"TI_VAL_STR_S"` instead; "
+                "type `"TI_VAL_STR_S"` is only allowed for Python modules"
+                DOC_DEPLOY_MODULE);
+        goto fail0;
+    }
+
     mdata = (ti_raw_t *) (ti_val_is_nil(query->rval) ? NULL : query->rval);
 
     task = ti_task_get_task(query->ev, ti.thing0);
     if (!task || ti_task_add_deploy_module(task, module, mdata))
         ex_set_mem(e);  /* task cleanup is not required */
-    else if (mdata == NULL || ti_module_write(module, mdata->data, mdata->n) == 0)
+    else if (mdata == NULL ||
+             ti_module_write(module, mdata->data, mdata->n) == 0)
         ti_module_restart(module);
 
     ti_val_unsafe_drop(query->rval);

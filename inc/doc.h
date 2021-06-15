@@ -121,6 +121,7 @@
 #define DOC_DEL_NODE                DOC_SEE("thingsdb-api/del_node")
 #define DOC_DEL_TOKEN               DOC_SEE("thingsdb-api/del_token")
 #define DOC_DEL_USER                DOC_SEE("thingsdb-api/del_user")
+#define DOC_DEPLOY_MODULE           DOC_SEE("thingsdb-api/deploy_module")
 #define DOC_GRANT                   DOC_SEE("thingsdb-api/grant")
 #define DOC_HAS_COLLECTION          DOC_SEE("thingsdb-api/has_collection")
 #define DOC_HAS_MODULE              DOC_SEE("thingsdb-api/has_module")
@@ -146,7 +147,6 @@
 #define DOC_TIME_ZONES_INFO         DOC_SEE("thingsdb-api/time_zones_info")
 #define DOC_USER_INFO               DOC_SEE("thingsdb-api/user_info")
 #define DOC_USERS_INFO              DOC_SEE("thingsdb-api/users_info")
-#define DOC_WRITE_MODULE            DOC_SEE("thingsdb-api/write_module")
 
 /* Procedures API */
 #define DOC_DEL_PROCEDURE           DOC_SEE("procedures-api/del_procedure")

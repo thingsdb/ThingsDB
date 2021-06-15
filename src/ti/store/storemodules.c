@@ -20,15 +20,15 @@ static int store_modules__store_cb(ti_module_t * module, msgpack_packer * pk)
         mp_pack_strn(pk, module->name->str, module->name->n) ||
         mp_pack_str(pk, module->fn) ||
         msgpack_pack_uint64(pk, module->created_at) ||
-        module->conf_pkg
+        (module->conf_pkg
             ? mp_pack_bin(
                     pk,
                     module->conf_pkg,
                     sizeof(ti_pkg_t) + module->conf_pkg->n)
-            : msgpack_pack_nil(pk) ||
-        module->scope_id
+            : msgpack_pack_nil(pk)) ||
+        (module->scope_id
             ? msgpack_pack_uint64(pk, *module->scope_id)
-            : msgpack_pack_nil(pk)
+            : msgpack_pack_nil(pk))
     );
 }
 

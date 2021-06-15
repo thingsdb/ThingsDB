@@ -197,7 +197,7 @@ static inline int fn_arg_str(
     return e->nr;
 }
 
-static inline int fn_arg_raw(
+static inline int fn_arg_str_bytes_nil(
         const char * name,
         const char * doc,
         int argn,
@@ -207,7 +207,7 @@ static inline int fn_arg_raw(
     if (!ti_val_is_raw(val))
         ex_set(e, EX_TYPE_ERROR,
             "function `%s` expects argument %d to be of "
-            "type `"TI_VAL_STR_S"`, `"TI_VAL_BYTES_S"` or `"TI_VAL_MPDATA_S"`"
+            "type `"TI_VAL_STR_S"`, `"TI_VAL_BYTES_S"` or `"TI_VAL_NIL_S"`"
             "but got type `%s` instead%s",
             name, argn, ti_val_str(val), doc);
     return e->nr;

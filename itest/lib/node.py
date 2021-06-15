@@ -62,7 +62,7 @@ class Node:
         self.storage_path = os.path.join(THINGSDB_TESTDIR, f'tdb{n}')
         self.cfgfile = os.path.join(THINGSDB_TESTDIR, f't{n}.conf')
 
-        modules_path = os.path.join(self.storage_pat, 'modules')
+        modules_path = os.path.join(self.storage_path, 'modules')
         self.modules_path = options.pop('modules_path', modules_path)
         self.python_interpreter = options.pop('python_interpreter', 'python')
 

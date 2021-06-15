@@ -609,12 +609,12 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_write_module(
+int ti_task_add_deploy_module(
         ti_task_t * task,
         ti_module_t * module,
-        ti_raw_t * mdata)
+        ti_raw_t * mdata)  /* mdata may be NULL */
 {
-    size_t alloc = 64 + module->name->n + mdata->n;
+    size_t alloc = 64 + module->name->n + (mdata ? mdata->n : 0);
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -625,14 +625,17 @@ int ti_task_add_write_module(
 
     msgpack_pack_map(&pk, 1);
 
-    mp_pack_str(&pk, "write_module");
+    mp_pack_str(&pk, "deploy_module");
     msgpack_pack_map(&pk, 2);
 
     mp_pack_str(&pk, "name");
     mp_pack_strn(&pk, module->name->str, module->name->n);
 
     mp_pack_str(&pk, "data");
-    mp_pack_bin(&pk, mdata->data, mdata->n);
+    if (mdata)
+        mp_pack_bin(&pk, mdata->data, mdata->n);
+    else
+        msgpack_pack_nil(&pk);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

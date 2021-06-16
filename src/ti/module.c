@@ -237,7 +237,6 @@ static _Bool module__file_is_py(const char * file, size_t n)
            file[n-1] == 'y';
 }
 
-
 ti_module_t * ti_module_create(
         const char * name,
         size_t name_n,
@@ -294,6 +293,45 @@ ti_module_t * ti_module_create(
     ti_proc_init(&module->proc, module);
 
     return module;
+}
+
+int ti_module_validate_file(const char * file, size_t file_n, ex_t * e)
+{
+    const char * pt = file;
+
+    if (!file_n)
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "file argument must not be an empty string"DOC_NEW_MODULE);
+        return e->nr;
+    }
+
+    if (!strx_is_printablen((const char *) file, file_n))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "file argument contains illegal characters"DOC_NEW_MODULE);
+        return e->nr;
+    }
+
+
+    if (*file == '/')
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "file argument must not start with a `/`"DOC_NEW_MODULE);
+        return e->nr;
+    }
+
+    for (size_t i = 1; i < file_n; ++i, ++pt)
+    {
+        if (*pt == '.' && (file[i] == '.' || file[i] == '/'))
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "file argument must not contain `..` or `./` to specify "
+                    "a relative path"DOC_NEW_MODULE);
+            return e->nr;
+        }
+    }
+    return 0;
 }
 
 static void module__conf(ti_module_t * module)

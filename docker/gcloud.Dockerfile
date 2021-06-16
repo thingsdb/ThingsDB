@@ -1,4 +1,4 @@
-FROM amd64/alpine:3.12
+FROM amd64/alpine:3.13
 COPY ./ /tmp/thingsdb/
 RUN apk update && \
     apk upgrade && \
@@ -17,6 +17,17 @@ RUN apk update && \
     mkdir -p /var/lib/thingsdb
 COPY --from=0 /tmp/thingsdb/Release/thingsdb /usr/local/bin/
 COPY --from=0 /usr/lib/libcleri* /usr/lib/
+
+ENV PYTHONUNBUFFERED=1
+
+RUN echo "**** install Python ****" && \
+    apk add --no-cache python3 && \
+    if [ ! -e /usr/bin/python ]; then ln -sf python3 /usr/bin/python ; fi && \
+    \
+    echo "**** install pip ****" && \
+    python3 -m ensurepip && \
+    pip3 install --no-cache --upgrade pip setuptools wheel py-timod && \
+    if [ ! -e /usr/bin/pip ]; then ln -sf pip3 /usr/bin/pip ; fi
 
 # Data
 VOLUME ["/var/lib/thingsdb/"]

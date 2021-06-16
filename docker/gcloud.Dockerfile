@@ -1,4 +1,4 @@
-FROM amd64/alpine:latest
+FROM amd64/alpine:3.12
 COPY ./ /tmp/thingsdb/
 RUN apk update && \
     apk upgrade && \

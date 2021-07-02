@@ -573,6 +573,8 @@ int ti_condition_field_rel_init(
     return 0;
 
 mem_error:
+    if (a != b)
+        free(a);
     free(b);
     ex_set_mem(e);
     return e->nr;

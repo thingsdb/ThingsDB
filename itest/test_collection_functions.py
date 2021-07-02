@@ -3733,8 +3733,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                'function `replace` does not support backward \(negative\) '
-                'replacements when used with a regular expression'):
+                r'function `replace` does not support backward \(negative\) '
+                r'replacements when used with a regular expression'):
             await client.query('"Hello World".replace(/e/, "E", -1);')
 
         with self.assertRaisesRegex(
@@ -3810,6 +3810,7 @@ class TestCollectionFunctions(TestBase):
             'Hello',
         ])
 
+        # added empty regex for bug #198
         res = await client.query(r"""//ti
             s = 'This Is _some_ very _nice_ test!! _yeah_';
             [

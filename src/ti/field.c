@@ -303,6 +303,7 @@ static int field__init(ti_field_t * field, ex_t * e)
     field->spec = 0;
     field->nested_spec = 0;
     field->dval_cb = NULL;
+    field->condition.none = NULL;
 
     if (!n)
     {
@@ -775,6 +776,7 @@ void ti_field_replace(ti_field_t * field, ti_field_t ** with_field)
     field->nested_spec = (*with_field)->nested_spec;
     field->spec_raw = (*with_field)->spec_raw;
     field->condition = (*with_field)->condition;
+    field->dval_cb = (*with_field)->dval_cb;
 
     (*with_field)->condition.none = NULL;
 
@@ -790,6 +792,7 @@ int ti_field_mod_force(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e)
     ti_condition_via_t prev_condition = field->condition;
     uint16_t prev_spec = field->spec;
     uint16_t prev_nested_spec = field->nested_spec;
+    ti_field_dval_cb prev_dval_cb = field->dval_cb;
 
     field__remove_dep(field);
 
@@ -808,6 +811,7 @@ undo:
     field->spec = prev_spec;
     field->nested_spec = prev_nested_spec;
     field->condition = prev_condition;
+    field->dval_cb = prev_dval_cb;
     (void) field__add_dep(field);
 
     return e->nr;
@@ -822,6 +826,7 @@ int ti_field_mod(
     ti_condition_via_t prev_condition = field->condition;
     uint16_t prev_spec = field->spec;
     uint16_t prev_nested_spec = field->nested_spec;
+    ti_field_dval_cb prev_dval_cb = field->dval_cb;
 
     field__remove_dep(field);
 
@@ -879,12 +884,14 @@ incompatible:
 
 undo_dep:
     field__remove_dep(field);
+    ti_condition_destroy(field->condition, field->spec);
 
 undo:
     field->spec_raw = prev_spec_raw;
     field->spec = prev_spec;
     field->nested_spec = prev_nested_spec;
     field->condition = prev_condition;
+    field->dval_cb = prev_dval_cb;
     (void) field__add_dep(field);
 
     return e->nr;

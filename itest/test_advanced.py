@@ -1623,6 +1623,33 @@ new_procedure('multiply', |a, b| a * b);
         self.assertNotIn('m', methods)
         self.assertEqual(len(methods), 1)
 
+    async def test_mod_with_restriction(self, client):
+        # bug #199
+        res = await client.query(r"""//ti
+            set_type('Test', {i: 'pint'});
+            mod_type('Test', 'mod', 'i', 'int<0:200>', || 0);
+            Test{};
+        """)
+        self.assertEqual(res, {"i": 0})
+
+    async def test_mod_with_restriction(self, client):
+        # bug #200
+        with self.assertRaisesRegex(
+                OperationError,
+                r'cannot apply type declaration `int<0:200>` to `i` on '
+                r'type `Test` without a closure to migrate existing '
+                r'instances'):
+            await client.query(r"""//ti
+                set_type('Test', {i: 'pint'});
+                mod_type('Test', 'mod', 'i', 'int<0:200>');
+            """)
+
+        res = await client.query(r"""//ti
+            Test{};
+        """)
+        self.assertEqual(res, {"i": 1})
+        # The above should not introduce a memory leak.
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

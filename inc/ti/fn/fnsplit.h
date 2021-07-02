@@ -140,8 +140,9 @@ fail:
 static int do__f_split(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_raw_t * str, * sep = NULL;
-    ti_vint_t * vnum = NULL;
+    ti_raw_t * str;
+    ti_val_t * sep;
+    ti_vint_t * vnum;
     ti_varr_t * varr;
 
     if (!ti_val_is_str(query->rval))
@@ -153,50 +154,58 @@ static int do__f_split(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     str = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (nargs >= 1)
+    if (nargs == 0)
     {
-        if (ti_do_statement(query, nd->children->node, e))
-            goto fail;
+        varr = splitn(str, NULL, NULL);
+        goto done;
+    }
 
-        /*
-         * TODO: It would be a nice feature if the `separator` argument could
-         *       also be a regular expression, instead of only type string.
-         */
-        if (ti_val_is_str(query->rval))
+    if (ti_do_statement(query, nd->children->node, e))
+        goto fail0;
+
+    /*
+     * TODO: It would be a nice feature if the `separator` argument could
+     *       also be a regular expression, instead of only type string.
+     */
+    switch((ti_val_enum) query->rval->tp)
+    {
+    case TI_VAL_INT:
+        if (nargs == 2)
         {
-            sep = (ti_raw_t *) query->rval;
-            query->rval = NULL;
-            if (sep->n == 0)
-            {
-                ex_set(e, EX_VALUE_ERROR, "empty separator");
-                goto fail;
-            }
-            if (nargs == 2)
-            {
-                if (ti_do_statement(query, nd->children->next->next->node, e) ||
-                    fn_arg_int("split", DOC_STR_SPLIT, 2, query->rval, e))
-                    goto fail;
-            }
+            ex_set(e, EX_NUM_ARGUMENTS,
+                "function `split` takes at most 1 argument when the first "
+                "argument is of type `"TI_VAL_INT_S"`"DOC_STR_SPLIT);
+            goto fail0;
         }
-        else if (ti_val_is_int(query->rval))
+        break;
+    case TI_VAL_NAME:
+    case TI_VAL_STR:
+        if (((ti_raw_t *) query->rval)->n == 0)
         {
-            if (nargs == 2)
-            {
-                ex_set(e, EX_NUM_ARGUMENTS,
-                    "function `split` takes at most 1 argument when the first "
-                    "argument is of type `"TI_VAL_INT_S"`"DOC_STR_SPLIT);
-                goto fail;
-            }
-        }
-        else
-        {
-            ex_set(e, EX_TYPE_ERROR,
-                "function `split` expects argument 1 to be of "
-                "type `"TI_VAL_STR_S"` or type `"TI_VAL_INT_S"` "
-                "but got type `%s` instead"DOC_STR_SPLIT,
-                ti_val_str(query->rval));
+            ex_set(e, EX_VALUE_ERROR, "empty separator");
             goto fail;
         }
+        /* fall through */
+    case TI_VAL_REGEX:
+
+        sep = query->rval;
+        query->rval = NULL;
+
+        if (nargs == 2)
+        {
+            if (ti_do_statement(query, nd->children->next->next->node, e) ||
+                fn_arg_int("split", DOC_STR_SPLIT, 2, query->rval, e))
+                goto fail;
+        }
+        break;
+    default:
+        ex_set(e, EX_TYPE_ERROR,
+            "function `split` expects argument 1 to be of "
+            "type `"TI_VAL_STR_S"` or type `"TI_VAL_INT_S"` "
+            "but got type `%s` instead"DOC_STR_SPLIT,
+            ti_val_str(sep));
+        goto fail;
+    }
 
         vnum = (ti_vint_t *) query->rval;
         if (vnum)
@@ -207,20 +216,23 @@ static int do__f_split(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ex_set(e, EX_OVERFLOW, "integer overflow");
                 goto fail;
             }
+            else if (vnum->int_ < 0 && (sep && ))
         }
     }
 
     varr = (!vnum || vnum->int_ >= 0)
-        ? splitn(str, sep, vnum)
-        : splitr(str, sep, llabs(vnum->int_));
+        ? splitn(str, (ti_raw_t *) sep, vnum)
+        : splitr(str, (ti_raw_t *) sep, llabs(vnum->int_));
 
+
+fail1:
+    ti_val_drop(sep);
+    ti_val_drop((ti_val_t *) vnum);
+done:
     query->rval = (ti_val_t *) varr;
     if (!varr)
         ex_set_mem(e);
-
-fail:
-    ti_val_drop((ti_val_t *) vnum);
-    ti_val_drop((ti_val_t *) sep);
+fail0:
     ti_val_unsafe_drop((ti_val_t *) str);
     return e->nr;
 }

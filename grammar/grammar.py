@@ -181,7 +181,6 @@ class LangDef(Grammar):
 
 if __name__ == '__main__':
     langdef = LangDef()
-
     # res = langdef.parse(r'''x = /./;''')
     # print(res.is_valid)
 

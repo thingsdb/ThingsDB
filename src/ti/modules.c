@@ -17,7 +17,7 @@ void ti_modules_init(void)
 
     if (!fx_is_dir(modules_path) && mkdir(modules_path, FX_DEFAULT_DIR_ACCESS))
     {
-        log_errno_file("cannot create directory", errno, modules_path);
+        log_warn_errno_file("cannot create directory", errno, modules_path);
         goto do_python;
     }
 

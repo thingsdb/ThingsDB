@@ -1,8 +1,11 @@
-FROM amd64/alpine:3.13
+FROM google/cloud-sdk:latest
 COPY ./ /tmp/thingsdb/
-RUN apk update && \
-    apk upgrade && \
-    apk add gcc make libuv-dev musl-dev pcre2-dev yajl-dev util-linux-dev linux-headers git && \
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    libuv1-dev \
+    libpcre2-dev \
+    libyajl-dev && \
     git clone https://github.com/transceptor-technology/libcleri.git /tmp/libcleri && \
     cd /tmp/libcleri/Release && \
     make all && \
@@ -11,12 +14,19 @@ RUN apk update && \
     make clean && \
     make
 
-FROM google/cloud-sdk:alpine
-RUN apk update && \
-    apk add pcre2 libuv yajl && \
-    mkdir -p /var/lib/thingsdb
+FROM google/cloud-sdk:latest
+RUN mkdir -p /var/lib/thingsdb && \
+    apt-get update && apt-get install -y \
+    libuv1 \
+    libpcre2-8-0 \
+    libyajl2 && \
+    pip3 install py-timod
+
 COPY --from=0 /tmp/thingsdb/Release/thingsdb /usr/local/bin/
 COPY --from=0 /usr/lib/libcleri* /usr/lib/
+
+ENV PYTHONUNBUFFERED=1
+ENV THINGSDB_PYTHON_INTERPRETER=python3
 
 # Data
 VOLUME ["/var/lib/thingsdb/"]

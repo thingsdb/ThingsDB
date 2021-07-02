@@ -1,3 +1,7 @@
+# v0.10.14
+
+* Fixed bug with `replace(..)` using an empty regular expression, issue #198.
+
 # v0.10.13
 
 * Added `extend_unique(..)` function, issue #189.

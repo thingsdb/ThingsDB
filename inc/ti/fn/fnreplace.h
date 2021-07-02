@@ -306,6 +306,9 @@ int replacersn(
            ex_set_mem(e);
            goto fail0;
        }
+
+       if (pos == ovector[1])
+           break;
        pos = ovector[1];
     }
 
@@ -389,6 +392,8 @@ int replacercn(
         ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
 
+        if (pos == ovector[1])
+            break;
         pos = ovector[1];
     }
 

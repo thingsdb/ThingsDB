@@ -3824,7 +3824,9 @@ class TestCollectionFunctions(TestBase):
                 s.replace(/_(\w+)_/, |a| `<div>{a}</div>`, 1),
                 s.replace(/is/i, |w| w.upper()),
                 s.replace(/(ve)(ry)/, |a, b| `{b}{a}`),
-                s.replace(/NICE/i, |w, p, e, o| `<{w}:{p}:{e}:{o[p:e]}>`)
+                s.replace(/NICE/i, |w, p, e, o| `<{w}:{p}:{e}:{o[p:e]}>`),
+                s.replace(regex(''), |x| '.'),
+                s.replace(regex(''), '!'),
             ]
         """)
 
@@ -3842,7 +3844,9 @@ class TestCollectionFunctions(TestBase):
             'This Is <div>some</div> very _nice_ test!! _yeah_',
             'ThIS IS _some_ very _nice_ test!! _yeah_',
             'This Is _some_ ryve _nice_ test!! _yeah_',
-            'This Is _some_ very _<nice:21:25:nice>_ test!! _yeah_'
+            'This Is _some_ very _<nice:21:25:nice>_ test!! _yeah_',
+            '.This Is _some_ very _nice_ test!! _yeah_',
+            '!This Is _some_ very _nice_ test!! _yeah_',
         ])
 
     async def test_values(self, client):

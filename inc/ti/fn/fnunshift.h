@@ -29,7 +29,7 @@ static int do__f_unshift(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     do
     {
         /*
-         * TODO
+         * TODO (Performance)
          * Technically, the insert performance could be improved by replacing
          * the `ti_varr_insert` with an optimized function to insert a bulk
          * at once. This is especially useful for the insert function since

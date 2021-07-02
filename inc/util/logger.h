@@ -23,6 +23,15 @@ do { \
     ); \
 } while(0)
 
+#define log_warn_errno_file(__s, __err, __fn) \
+do { \
+    char __ebuf[512]; \
+    log_warning( \
+        __s" `%s` (%s)", \
+        __fn, log_strerror(__err, __ebuf, sizeof(__ebuf)) \
+    ); \
+} while(0)
+
 #define LOGGER_DEBUG 0
 #define LOGGER_INFO 1
 #define LOGGER_WARNING 2

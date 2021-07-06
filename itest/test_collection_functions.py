@@ -3637,6 +3637,12 @@ class TestCollectionFunctions(TestBase):
                 'integer overflow'):
             await client.query('"".split(-0x7fffffffffffffff - 1);')
 
+        with self.assertRaisesRegex(
+                ValueError,
+                r'function `split` does not support backward \(negative\) '
+                r'splits when used with a regular expression'):
+            await client.query('"bla".split(/\d+/, -1);')
+
         self.assertEqual(await client.query(r'''
             [
                 "".split(),
@@ -3664,6 +3670,10 @@ class TestCollectionFunctions(TestBase):
                 " ".split(-1),
                 "This  is  a  test!".split(-2),
                 "This  is  a  test!".split(-0),
+                "This123is456a789test.".split(/\d+/),
+                "This123is456a789test.".split(/\d+/, 2),
+                "This123is456a789test.".split(/(\d)\d(\d)/, 2),
+                "ThisIsATest".split(regex('')),
             ]
         '''), [
             [''],
@@ -3688,7 +3698,10 @@ class TestCollectionFunctions(TestBase):
             ['', ''],
             ['This  is', 'a', 'test!'],
             ['This  is  a  test!'],
-
+            ['This', 'is', 'a', 'test.'],
+            ['This', 'is', 'a789test.'],
+            ['This', '1', '3', 'is', '4', '6', 'a789test.'],
+            ['', 'ThisIsATest'],
         ])
 
     async def test_replace(self, client):

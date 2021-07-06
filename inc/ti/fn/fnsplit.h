@@ -249,10 +249,6 @@ static int do__f_split(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->node, e))
         goto fail0;
 
-    /*
-     * TODO: It would be a nice feature if the `separator` argument could
-     *       also be a regular expression, instead of only type string.
-     */
     switch((ti_val_enum) query->rval->tp)
     {
     case TI_VAL_INT:

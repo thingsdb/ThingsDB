@@ -3,6 +3,7 @@
 * Fixed bug with `replace(..)` using an empty regular expression, issue #198.
 * Fixed incorrect default value bug after using `mod_type(..)`, issue #199.
 * Fixed memory leak after invalid `mod_type(..)` usage, issue #200.
+* Added regular expression support on `str.split(..)` function, issue #201.
 
 # v0.10.13
 

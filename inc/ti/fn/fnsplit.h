@@ -137,11 +137,98 @@ fail:
     return NULL;
 }
 
+ti_varr_t * splitrn(ti_raw_t * vstr, ti_regex_t * regex, ti_vint_t * vnum)
+{
+    assert (!vnum || vnum->int_ >= 0);
+
+    int rc;
+    size_t pos = 0, n = vnum ? (size_t) vnum->int_: SIZE_MAX;
+    ti_raw_t * part = NULL;
+    ti_varr_t * varr = ti_varr_create(15);
+    if (!varr)
+        return NULL;
+
+    while (n-- && (rc = pcre2_match(
+            regex->code,
+            (PCRE2_SPTR8) vstr->data,
+            vstr->n,
+            pos,                   /* start looking at this point */
+            0,                     /* OPTIONS */
+            regex->match_data,
+            NULL)) >= 0)
+    {
+        size_t i = 1, j = 0, sz = rc;
+        PCRE2_SIZE * ovector = pcre2_get_ovector_pointer(regex->match_data);
+        PCRE2_SPTR pt = vstr->data + pos;
+        PCRE2_SIZE n =  ovector[0] - pos;
+
+        part = ti_str_create((const char *) pt, n);
+        if (!part || vec_push(&varr->vec, part))
+            goto fail;
+
+        /* First, add the capture groups */
+       for (; i < sz; ++i, ++j)
+       {
+           PCRE2_SPTR pt = vstr->data + ovector[2*i];
+           PCRE2_SIZE n =  ovector[2*i+1] - ovector[2*i];
+
+           part = ti_str_create((const char *) pt, n);
+           if (!part || vec_push(&varr->vec, part))
+               goto fail;
+       }
+
+       if (pos == ovector[1])
+           break;
+       pos = ovector[1];
+    }
+
+    part = ti_str_create((const char *) vstr->data + pos, vstr->n - pos);
+    if (!part || vec_push(&varr->vec, part))
+        goto fail;
+
+    (void) vec_shrink(&varr->vec);
+    return varr;
+
+fail:
+    ti_val_drop((ti_val_t* ) part);
+    ti_varr_destroy(varr);
+    return NULL;
+}
+
+static int do__split_get_int(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+        fn_arg_int("split", DOC_STR_SPLIT, 2, query->rval, e))
+        return e->nr;
+
+    if (((ti_vint_t *) query->rval)->int_ == LLONG_MIN)
+        ex_set(e, EX_OVERFLOW, "integer overflow");
+
+    return e->nr;
+}
+
+static int do__split_get_rint(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+
+    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+        fn_arg_int("split", DOC_STR_SPLIT, 2, query->rval, e))
+        return e->nr;
+
+    if (((ti_vint_t *) query->rval)->int_ < 0)
+        ex_set(e, EX_VALUE_ERROR,
+            "function `split` does not support backward (negative) "
+            "splits when used with a regular expression"
+            DOC_STR_SPLIT);
+
+    return e->nr;
+}
+
 static int do__f_split(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_raw_t * str, * sep = NULL;
-    ti_vint_t * vnum = NULL;
+    ti_raw_t * str;
+    ti_val_t * sep;
+    ti_vint_t * vnum;
     ti_varr_t * varr;
 
     if (!ti_val_is_str(query->rval))
@@ -153,74 +240,107 @@ static int do__f_split(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     str = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (nargs >= 1)
+    if (nargs == 0)
     {
-        if (ti_do_statement(query, nd->children->node, e))
-            goto fail;
+        varr = splitn(str, NULL, NULL);
+        goto done;
+    }
 
-        /*
-         * TODO: It would be a nice feature if the `separator` argument could
-         *       also be a regular expression, instead of only type string.
-         */
-        if (ti_val_is_str(query->rval))
+    if (ti_do_statement(query, nd->children->node, e))
+        goto fail0;
+
+    switch((ti_val_enum) query->rval->tp)
+    {
+    case TI_VAL_INT:
+        if (nargs == 2)
         {
-            sep = (ti_raw_t *) query->rval;
-            query->rval = NULL;
-            if (sep->n == 0)
-            {
-                ex_set(e, EX_VALUE_ERROR, "empty separator");
-                goto fail;
-            }
-            if (nargs == 2)
-            {
-                if (ti_do_statement(query, nd->children->next->next->node, e) ||
-                    fn_arg_int("split", DOC_STR_SPLIT, 2, query->rval, e))
-                    goto fail;
-            }
-        }
-        else if (ti_val_is_int(query->rval))
-        {
-            if (nargs == 2)
-            {
-                ex_set(e, EX_NUM_ARGUMENTS,
-                    "function `split` takes at most 1 argument when the first "
-                    "argument is of type `"TI_VAL_INT_S"`"DOC_STR_SPLIT);
-                goto fail;
-            }
-        }
-        else
-        {
-            ex_set(e, EX_TYPE_ERROR,
-                "function `split` expects argument 1 to be of "
-                "type `"TI_VAL_STR_S"` or type `"TI_VAL_INT_S"` "
-                "but got type `%s` instead"DOC_STR_SPLIT,
-                ti_val_str(query->rval));
-            goto fail;
+            ex_set(e, EX_NUM_ARGUMENTS,
+                "function `split` takes at most 1 argument when the first "
+                "argument is of type `"TI_VAL_INT_S"`"DOC_STR_SPLIT);
+            goto fail0;
         }
 
         vnum = (ti_vint_t *) query->rval;
-        if (vnum)
+        if (vnum->int_ == LLONG_MIN)
         {
-            query->rval = NULL;
-            if (vnum->int_ == LLONG_MIN)
-            {
-                ex_set(e, EX_OVERFLOW, "integer overflow");
-                goto fail;
-            }
+            ex_set(e, EX_OVERFLOW, "integer overflow");
+            goto fail0;
         }
+
+        varr = (vnum->int_ >= 0)
+            ? splitn(str, NULL, vnum)
+            : splitr(str, NULL, llabs(vnum->int_));
+
+        ti_val_unsafe_drop(query->rval);
+        goto done;
+    case TI_VAL_NAME:
+    case TI_VAL_STR:
+        sep = query->rval;
+        if (((ti_raw_t *) sep)->n == 0)
+        {
+            ex_set(e, EX_VALUE_ERROR, "empty separator"DOC_STR_SPLIT);
+            goto fail0;
+        }
+        query->rval = NULL;
+
+        if (nargs == 2)
+        {
+            if (do__split_get_int(query, nd, e))
+            {
+                ti_val_unsafe_drop(sep);
+                goto fail0;
+            }
+
+            vnum = (ti_vint_t *) query->rval;
+            varr = (vnum->int_ >= 0)
+                ? splitn(str, (ti_raw_t *) sep, vnum)
+                : splitr(str, (ti_raw_t *) sep, llabs(vnum->int_));
+
+            ti_val_unsafe_drop(sep);
+            ti_val_unsafe_drop(query->rval);
+            goto done;
+        }
+
+        varr = splitn(str, (ti_raw_t *) sep, NULL);
+        ti_val_unsafe_drop(sep);
+        goto done;
+    case TI_VAL_REGEX:
+        sep = query->rval;
+        query->rval = NULL;
+        if (nargs == 2)
+        {
+            if (do__split_get_rint(query, nd, e))
+            {
+                ti_val_unsafe_drop(sep);
+                goto fail0;
+            }
+
+            vnum = (ti_vint_t *) query->rval;
+            varr = splitrn(str, (ti_regex_t *) sep, vnum);
+
+            ti_val_unsafe_drop(sep);
+            ti_val_unsafe_drop(query->rval);
+            LOGC("HERE4");
+            goto done;
+        }
+
+        varr = splitrn(str, (ti_regex_t *) sep, NULL);
+        ti_val_unsafe_drop(sep);
+        goto done;
+    default:
+        ex_set(e, EX_TYPE_ERROR,
+            "function `split` expects argument 1 to be of "
+            "type `"TI_VAL_STR_S"` or type `"TI_VAL_INT_S"` "
+            "but got type `%s` instead"DOC_STR_SPLIT,
+            ti_val_str(query->rval));
+        goto fail0;
     }
 
-    varr = (!vnum || vnum->int_ >= 0)
-        ? splitn(str, sep, vnum)
-        : splitr(str, sep, llabs(vnum->int_));
-
+done:
     query->rval = (ti_val_t *) varr;
     if (!varr)
         ex_set_mem(e);
-
-fail:
-    ti_val_drop((ti_val_t *) vnum);
-    ti_val_drop((ti_val_t *) sep);
+fail0:
     ti_val_unsafe_drop((ti_val_t *) str);
     return e->nr;
 }

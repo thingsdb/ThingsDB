@@ -42,6 +42,8 @@
 
 static ti_val_t * val__empty_bin;
 static ti_val_t * val__empty_str;
+static ti_val_t * val__default_re;
+static ti_val_t * val__default_closure;
 static ti_val_t * val__sany;
 static ti_val_t * val__snil;
 static ti_val_t * val__strue;
@@ -580,8 +582,18 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
 
 int ti_val_init_common(void)
 {
+    ex_t e = {0};
+    ti_qbind_t syntax = {
+            .immutable_n = 0,
+            .flags = TI_QBIND_FLAG_COLLECTION|
+                     TI_QBIND_FLAG_THINGSDB|
+                     TI_QBIND_FLAG_NODE
+    };
+    val__default_closure = \
+            (ti_val_t *) ti_closure_from_strn(&syntax, "||nil", 5, &e);
     val__empty_bin = (ti_val_t *) ti_bin_create(NULL, 0);
     val__empty_str = (ti_val_t *) ti_str_from_str("");
+    val__default_re = (ti_val_t *) ti_regex_from_strn("/.*/", 4, &e);
     val__sany = (ti_val_t *) ti_str_from_str("any");
     val__snil = (ti_val_t *) ti_str_from_str(TI_VAL_NIL_S);
     val__strue = (ti_val_t *) ti_str_from_str("true");
@@ -632,7 +644,8 @@ int ti_val_init_common(void)
         !val__charset_str || !val__year_name || !val__month_name ||
         !val__day_name || !val__hour_name || !val__minute_name ||
         !val__second_name || !val__gmt_offset_name || !val__sfuture ||
-        !val__module_name || !val__deep_name || !val__load_name)
+        !val__module_name || !val__deep_name || !val__load_name ||
+        !val__default_re || !val__default_closure)
     {
         return -1;
     }
@@ -643,6 +656,8 @@ void ti_val_drop_common(void)
 {
     ti_val_drop(val__empty_bin);
     ti_val_drop(val__empty_str);
+    ti_val_drop(val__default_re);
+    ti_val_drop(val__default_closure);
     ti_val_drop(val__sany);
     ti_val_drop(val__snil);
     ti_val_drop(val__strue);
@@ -762,6 +777,18 @@ ti_val_t * ti_val_empty_str(void)
 {
     ti_incref(val__empty_str);
     return val__empty_str;
+}
+
+ti_val_t * ti_val_default_re(void)
+{
+    ti_incref(val__default_re);
+    return val__default_re;
+}
+
+ti_val_t * ti_val_default_closure(void)
+{
+    ti_incref(val__default_closure);
+    return val__default_closure;
 }
 
 ti_val_t * ti_val_charset_str(void)

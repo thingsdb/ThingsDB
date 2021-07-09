@@ -927,6 +927,112 @@ ti_val_t * ti_type_dval(ti_type_t * type)
     return (ti_val_t *) thing;
 }
 
+typedef struct
+{
+    vec_t * vec;
+    ex_t * e;
+    ti_type_t * type;
+    ti_thing_t * thing;
+} type__convert_t;
+
+/*
+ * Note: prop may be of ti_item_t. Therefore be careful with using the name
+ * as name->str might not be null terminated.
+ */
+int type__convert_cb(ti_prop_t * prop, type__convert_t * w)
+{
+    ti_field_t * field = ti_field_by_name(w->type, prop->name);
+    ti_val_t ** vaddr;
+
+    if (!field)
+    {
+        ex_set(w->e, EX_VALUE_ERROR,
+                "conversion failed; type `%s` has no property `%.*s`",
+                w->type->name, prop->name->n, prop->name->str);
+        return -1;
+    }
+
+    if (ti_field_has_relation(field))
+    {
+        ex_set(w->e, EX_TYPE_ERROR,
+                "conversion failed; property `%s` on type `%s` has a relation "
+                "and can therefore not be converted",
+                field->name->str, field->type->name);
+        return -1;
+    }
+
+    if (prop->val->flags & TI_VFLAG_LOCK)
+    {
+        ex_set(w->e, EX_TYPE_ERROR,
+                "conversion failed; property `%s` is being used",
+                field->name->str);
+        return -1;
+    }
+
+    vaddr = (ti_val_t **) vec_get_addr(w->vec, field->idx);
+    *vaddr = prop->val;
+    return ti_field_make_assignable(field, vaddr, w->thing, w->e);
+}
+
+int ti_type_convert(ti_type_t * type, ti_thing_t * thing, ex_t * e)
+{
+    type__convert_t w = {
+            .vec = vec_new(type->fields->n),
+            .e = e,
+            .type = type,
+    };
+
+    if (!w.vec)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    /*
+     * Make empty vector so we can use VEC_set(..) to fill the vector with
+     * values.
+     */
+    vec_fill_null(w.vec);
+
+    if (ti_thing_is_dict(thing))
+    {
+        if (smap_values(
+                thing->items.smap,
+                (smap_val_cb) type__convert_cb,
+                &w))
+            goto fail0;
+    }
+    else for (vec_each(thing->items.vec, ti_prop_t, prop))
+        if (type__convert_cb(prop, &w))
+            goto fail0;
+
+    for (vec_each(type->fields, ti_field_t, field))
+    {
+        ti_val_t * val = VEC_get(w.vec, field->idx);
+        if (!val)
+        {
+            val = field->dval_cb(field);
+            if (!val)
+            {
+                ex_set_mem(e);  /* may leak a few bytes for optional previous
+                                   default values */
+                goto fail0;
+            }
+            ti_val_attach(val, thing, field);
+            VEC_set(w.vec, val, field->idx);
+        }
+    }
+
+    ti_thing_o_items_destroy(thing);
+    thing->type_id = type->type_id;
+    thing->items.vec = w.vec;
+    return e->nr;
+
+fail0:
+    free(w.vec);
+    return e->nr;
+}
+
 /*
  * Type must have been checked for `wrap_only` mode before calling this
  * function.
@@ -980,7 +1086,6 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
                  * destroyed after this call. Must replace the value because if
                  * the value is a set or array, the parent must be left alone.
                  */
-
                 if (is_last_ref)
                     prop->val = (ti_val_t *) ti_nil_get();
             }
@@ -1029,7 +1134,7 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
 
 failed:
     assert (e->nr);
-    ti_val_unsafe_drop((ti_val_t *) thing);
+    ti_thing_cancel(thing);
     return NULL;
 }
 

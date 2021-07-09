@@ -6,6 +6,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <ti.h>
+#include <ti/closure.h>
 #include <ti/condition.h>
 #include <ti/data.h>
 #include <ti/enum.h>
@@ -24,6 +25,7 @@
 #include <ti/val.inline.h>
 #include <ti/varr.h>
 #include <ti/vbool.h>
+#include <ti/verror.h>
 #include <ti/vfloat.h>
 #include <ti/vint.h>
 #include <ti/vset.h>
@@ -260,6 +262,21 @@ static ti_val_t * field__dval_bool(ti_field_t * UNUSED(field))
     return (ti_val_t *) ti_vbool_get(false);
 }
 
+static ti_val_t * field__dval_regex(ti_field_t * UNUSED(field))
+{
+    return ti_val_default_re();
+}
+
+static ti_val_t * field__dval_closure(ti_field_t * UNUSED(field))
+{
+    return ti_val_default_closure();
+}
+
+static ti_val_t * field__dval_error(ti_field_t * UNUSED(field))
+{
+    return (ti_val_t *) ti_verror_from_code(-100);
+}
+
 static ti_val_t * field__dval_datetime(ti_field_t * field)
 {
     return (ti_val_t *) ti_datetime_from_i64(
@@ -429,11 +446,27 @@ skip_nesting:
             goto found;
         }
         break;
+    case 'c':
+        if (field__cmp(str, n, "closure"))
+        {
+            *spec |= TI_SPEC_CLOSURE;
+            field__set_cb(field, field__dval_closure);
+            goto found;
+        }
+        break;
     case 'd':
         if (field__cmp(str, n, "datetime"))
         {
             *spec |= TI_SPEC_DATETIME;
             field__set_cb(field, field__dval_datetime);
+            goto found;
+        }
+        break;
+    case 'e':
+        if (field__cmp(str, n, "error"))
+        {
+            *spec |= TI_SPEC_ERROR;
+            field__set_cb(field, field__dval_error);
             goto found;
         }
         break;
@@ -480,6 +513,12 @@ skip_nesting:
         {
             *spec |= TI_SPEC_RAW;
             field__set_cb(field, field__dval_str);
+            goto found;
+        }
+        if (field__cmp(str, n, "regex"))
+        {
+            *spec |= TI_SPEC_REGEX;
+            field__set_cb(field, field__dval_regex);
             goto found;
         }
         break;
@@ -1367,15 +1406,13 @@ int ti_field_make_assignable(
         case TI_VAL_SET:
             return field__vset_assign(field, (ti_vset_t **) val, parent, e);
         case TI_VAL_CLOSURE:
-            return ti_val_is_closure(*val);
+            return ti_closure_unbound((ti_closure_t *) *val, e);
         case TI_VAL_ERROR:
         case TI_VAL_MEMBER:
         case TI_VAL_TEMPLATE:
             break;
         case TI_VAL_FUTURE:
-            ti_val_unsafe_drop(*val);
-            *val = (ti_val_t *) ti_nil_get();
-            break;
+            goto future_error;
         }
         return 0;
     case TI_SPEC_OBJECT:
@@ -1444,6 +1481,18 @@ int ti_field_make_assignable(
         if (ti_val_is_timeval(*val))
             return 0;
         goto type_error;
+    case TI_SPEC_REGEX:
+        if (ti_val_is_regex(*val))
+            return 0;
+        goto type_error;
+    case TI_SPEC_CLOSURE:
+        if (ti_val_is_closure(*val))  // TODO
+            return ti_closure_unbound((ti_closure_t *) *val, e);
+        goto type_error;
+    case TI_SPEC_ERROR:
+        if (ti_val_is_error(*val))
+            return 0;
+        goto type_error;
     case TI_SPEC_ARR:
         if (ti_val_is_array(*val))
             return field__varr_assign(field, (ti_varr_t **) val, parent, e);
@@ -1489,6 +1538,14 @@ int ti_field_make_assignable(
         return 0;
 
     goto type_error;
+
+future_error:
+    ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` allows `any` value but got a `future`",
+            field->type->name,
+            field->name->str);
+    return e->nr;
 
 irange_error:
     ex_set(e, EX_VALUE_ERROR,
@@ -1658,6 +1715,12 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
         return ti_val_is_datetime_strict(val);
     case TI_SPEC_TIMEVAL:
         return ti_val_is_timeval(val);
+    case TI_SPEC_REGEX:
+        return ti_val_is_regex(val);
+    case TI_SPEC_CLOSURE:
+        return ti_val_is_closure(val);
+    case TI_SPEC_ERROR:
+        return ti_val_is_error(val);
     case TI_SPEC_ARR:
         /* we can map a set to an array */
         return ((
@@ -1754,6 +1817,9 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_BOOL:
     case TI_SPEC_DATETIME:
     case TI_SPEC_TIMEVAL:
+    case TI_SPEC_REGEX:
+    case TI_SPEC_CLOSURE:
+    case TI_SPEC_ERROR:
     case TI_SPEC_ARR:
     case TI_SPEC_SET:
     case TI_SPEC_REMATCH:
@@ -1887,6 +1953,9 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_BOOL:
     case TI_SPEC_DATETIME:
     case TI_SPEC_TIMEVAL:
+    case TI_SPEC_REGEX:
+    case TI_SPEC_CLOSURE:
+    case TI_SPEC_ERROR:
         return f_spec == t_spec;
     case TI_SPEC_ARR:
         return (

@@ -380,7 +380,7 @@ static int job__set_type(ti_thing_t * thing, mp_unp_t * up)
         mp_skip(up) != MP_STR)
     {
         log_critical(
-            "job `sew_type` for "TI_COLLECTION_ID" is invalid",
+            "job `set_type` for "TI_COLLECTION_ID" is invalid",
             collection->root->id);
         return -1;
     }
@@ -419,6 +419,49 @@ static int job__set_type(ti_thing_t * thing, mp_unp_t * up)
 
     /* clean mappings */
     ti_type_map_cleanup(type);
+
+    return 0;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: {'type_id':.., 'thing_id':.. }
+ *
+ * Note: decided to `panic` in case of failures since it might mess up
+ *       the database in case of failure.
+ */
+static int job__to_type(ti_thing_t * thing, mp_unp_t * up)
+{
+    ex_t e = {0};
+    ti_collection_t * collection = thing->collection;
+    ti_type_t * type;
+    mp_obj_t mp_type_id;
+
+    if (mp_next(up, &mp_type_id) != MP_U64)
+    {
+        log_critical(
+            "job `to_type` for "TI_COLLECTION_ID" is invalid",
+            collection->root->id);
+        return -1;
+    }
+
+    type = ti_types_by_id(collection->types, mp_type_id.via.u64);
+    if (!type)
+    {
+        log_critical(
+                "job `to_type` for "TI_COLLECTION_ID" is invalid; "
+                "type with id %"PRIu64" not found",
+                collection->root->id, mp_type_id.via.u64);
+        return -1;
+    }
+
+    if (ti_type_convert(type, thing, &e))
+    {
+        log_critical(
+            "job `to_type` for "TI_COLLECTION_ID" has failed; %s",
+            collection->root->id, e.msg);
+        return -1;
+    }
 
     return 0;
 }
@@ -2251,6 +2294,9 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
         if (mp_str_eq(&mp_job, "set_type"))
             return job__set_type(thing, up);
         break;
+    case 't':
+        if (mp_str_eq(&mp_job, "to_type"))
+            return job__to_type(thing, up);
     }
 
     log_critical("unknown job: `%.*s`", mp_job.via.str.n, mp_job.via.str.data);

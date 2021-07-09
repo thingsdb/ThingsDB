@@ -1650,6 +1650,169 @@ new_procedure('multiply', |a, b| a * b);
         self.assertEqual(res, {"i": 1})
         # The above should not introduce a memory leak.
 
+    async def test_fail_relations(self, client):
+        # bug #203
+        await client.query(r"""//ti
+            new_type("A");
+            new_type("B");
+            set_type("A", {
+                b: 'B?',
+                bb: '{B}',
+                c: 'B?',
+                name: 'str'
+            });
+            set_type("B", {
+                a: 'A?',
+                aa: '{A}',
+                cc: '{A}',
+                name: 'str'
+            });
+            mod_type('A', 'rel', 'b', 'a');
+            mod_type('A', 'rel', 'bb', 'aa');
+            mod_type('A', 'rel', 'c', 'cc');
+        """)
+
+        res = await client.query(r"""//ti
+            a = A{name: 'mr A'};
+            try(b = B{
+                a: a,
+                name: 123
+            });
+            a.b;
+        """)
+
+        self.assertEqual(res, None)
+
+        res = await client.query(r"""//ti
+            a = A{name: 'mr A'};
+            try(b = B{
+                aa: set(a),
+                name: 123
+            });
+            a.bb;
+        """)
+        self.assertEqual(res, [])
+
+        res = await client.query(r"""//ti
+            a = A{name: 'mr A'};
+            try(b = B{
+                cc: set(a),
+                name: 123
+            });
+            a.c;
+        """)
+        self.assertEqual(res, None)
+
+        res = await client.query(r"""//ti
+            b = B{name: 'mr B'};
+            try(a = A{
+                c: b,
+                name: 123
+            });
+            b.cc;
+        """)
+        self.assertEqual(res, [])
+
+        res = await client.query(r"""//ti
+            a = A{name: 'mr A'};
+            x = new('B', {
+                a: a,
+                aa: set(a),
+                cc: set(a),
+                name: 'mr X'
+            });
+            try(b = new('B', {
+                a: a,
+                aa: set(a),
+                cc: set(a),
+                name: 123
+            }));
+            [a.b, a.bb.len(), a.c, x.a, x.aa.len(), x.cc];
+        """)
+        self.assertEqual(res, [None, 1, None, None, 1, []])
+
+        res = await client.query(r"""//ti
+            b = B{name: 'mr B'};
+            x = A({
+                b: b,
+                bb: set(b),
+                c: b,
+                name: 'mr X'
+            });
+            try(a = A({
+                b: b,
+                bb: set(b),
+                c: b,
+                name: 123
+            }));
+            [b.a, b.aa.len(), b.cc.len(), x.b, x.bb.len(), is_thing(x.c)];
+        """)
+        self.assertEqual(res, [None, 1, 1, None, 1, True])
+
+        res = await client.query(r"""//ti
+            b = B{name: 'mr B'};
+            x = A({
+                b: b,
+                bb: set(b),
+                c: b,
+                name: 'mr X'
+            });
+            try(x.assign({
+                name: 'spy',
+                b: nil
+            }));
+            x.name;
+        """)
+        self.assertEqual(res, 'mr X')
+
+        res = await client.query(r"""//ti
+            b = B{name: 'mr B'};
+            x = A({
+                b: b,
+                bb: set(b),
+                c: b,
+                name: 'mr X'
+            });
+            x.assign(A{
+                name: 'spy',
+            });
+            [x.name, x.b, x.bb, x.c, b.a];
+        """)
+        self.assertEqual(res, ['spy', None, [], None, None])
+
+        res = await client.query(r"""//ti
+            b = B{name: 'mr B'};
+            x = A({
+                b: b,
+                bb: set(b),
+                c: b,
+                name: 'mr X'
+            });
+            d = B{name: 'md D'};
+            c = A{
+                name: 'spy',
+                b: d,
+                bb: set(d),
+                c: d,
+            };
+            x.assign(c);
+            [x.name, x.b == d, x.bb.len(), x.c == d, d.a == x, c.b];
+        """)
+        self.assertEqual(res, ['spy', True, 1, True, True, None])
+
+    async def test_closure_as_type_val(self, client):
+        # bug #202
+        with self.assertRaisesRegex(
+                OperationError,
+                r"stored closures with side effects must be wrapped "
+                r"using `wse\(...\)`"):
+            await client.query("""//ti
+                set_type('Test', {
+                    func: 'any'
+                });
+                Test{func: || .x = 1}.func(); // requires `wse(..)`
+            """)
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

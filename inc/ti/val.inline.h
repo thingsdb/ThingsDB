@@ -368,7 +368,7 @@ static inline int ti_val_make_assignable(
         ((ti_vset_t *) *val)->key_ = key;
         return 0;
     case TI_VAL_CLOSURE:
-        return ti_closure_unbound((ti_closure_t * ) *val, e);
+        return ti_closure_unbound((ti_closure_t *) *val, e);
     case TI_VAL_FUTURE:
         ti_val_unsafe_drop(*val);
         *val = (ti_val_t *) ti_nil_get();

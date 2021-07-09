@@ -190,6 +190,16 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     goto fail2;
                 }
 
+                if (ti_field_has_relation(field))
+                {
+                    ex_set(e, EX_TYPE_ERROR,
+                            "function `assign` is not able to set "
+                            "`%s` because a relation for this "
+                            "property is configured"DOC_THING_ASSIGN,
+                            p->name->str);
+                    goto fail2;
+                }
+
                 /*
                  * Update the reference count based on the parent.
                  * The reason we do this here is that we still require the
@@ -225,12 +235,7 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ti_type_t * f_type = ti_thing_type(tsrc);
 
-            vec = vec_new(ti_thing_n(tsrc));
-            if (!vec)
-            {
-                ex_set_mem(e);
-                goto fail1;
-            }
+            vec = NULL;
 
             if (f_type != type)
             {
@@ -249,7 +254,7 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
                 val->ref += parent_ref > 1;
 
-                if (ti_val_make_assignable(&val, thing, field, e))
+                if (ti_field_make_assignable(field, &val, thing, e))
                 {
                     if (parent_ref > 1)
                         ti_val_unsafe_gc_drop(val);

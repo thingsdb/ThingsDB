@@ -1051,8 +1051,7 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    for (n = type->fields->n; n--;)
-        VEC_push(thing->items.vec, NULL);
+    vec_fill_null(thing->items.vec);
 
     lock_was_set = ti_type_ensure_lock(type);
 
@@ -1121,7 +1120,7 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     goto done;
 
 fail:
-    ti_val_unsafe_drop((ti_val_t *) thing);
+    ti_thing_cancel(thing);
 
 done:
     ti_type_unlock(type, lock_was_set);

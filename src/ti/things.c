@@ -177,7 +177,7 @@ ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
                     field->name->str,
                     type->name);
             ti_val_drop(val);
-            ti_val_unsafe_drop((ti_val_t *) thing);
+            ti_thing_cancel(thing);
             return NULL;
         }
 

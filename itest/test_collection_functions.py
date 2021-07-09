@@ -3641,7 +3641,9 @@ class TestCollectionFunctions(TestBase):
                 ValueError,
                 r'function `split` does not support backward \(negative\) '
                 r'splits when used with a regular expression'):
-            await client.query('"bla".split(/\d+/, -1);')
+            await client.query(r"""//ti
+                "bla".split(/\d+/, -1);
+            """)
 
         self.assertEqual(await client.query(r'''
             [

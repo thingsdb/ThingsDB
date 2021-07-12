@@ -733,6 +733,24 @@ class TestCollectionFunctions(TestBase):
             .p.filter(||true);
         ''')
         self.assertEqual(res, {"name": "Iris"})
+        await client.query(r"""//ti
+            new_type('A');
+            new_type('B');
+            set_type('A', {b: 'B?'});
+            set_type('B', {a: 'A?'});
+            mod_type('A', 'rel', 'b', 'a')
+        """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `assign` is not able to set `b` because a '
+                r'relation for this property is configured'):
+            await client.query(r"""//ti
+                a = A{};
+                a.assign({
+                    b: B{}
+                });
+            """)
 
     async def test_emit(self, client):
         await client.query(r'.greet = "Hello world";')
@@ -4389,6 +4407,23 @@ class TestCollectionFunctions(TestBase):
             other.keys();
         """)
         self.assertEqual(set(res), set(['a', 'aa', 'name']))
+
+        await client.query(r"""//ti
+            new_type('AA');
+            new_type('BB');
+            set_type('AA', {b: 'BB?'});
+            set_type('BB', {a: 'AA?'});
+            mod_type('AA', 'rel', 'b', 'a')
+        """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'conversion failed; property `b` on type `AA` has a relation '
+                r'and can therefore not be converted'):
+            await client.query(r"""//ti)
+                x = {b: BB{}};
+                x.to_type('AA');
+            """)
 
 
 if __name__ == '__main__':

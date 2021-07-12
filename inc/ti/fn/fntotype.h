@@ -26,7 +26,6 @@ static int do__f_to_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_val_try_lock(query->rval, e))
         return e->nr;
 
-
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
@@ -47,7 +46,9 @@ static int do__f_to_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
     }
 
-    if (ti_type_use(type, e) || ti_type_convert(type, thing, e))
+    if (ti_type_wrap_only_e(type, e) ||
+        ti_type_use(type, e) ||
+        ti_type_convert(type, thing, e))
         goto fail1;
 
     if (thing->id)

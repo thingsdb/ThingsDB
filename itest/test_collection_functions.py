@@ -4425,6 +4425,18 @@ class TestCollectionFunctions(TestBase):
                 x.to_type('AA');
             """)
 
+        await client.query(r"""//ti
+            set_type('W', {name: 'str'}, true);
+        """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'type `W` has wrap-only mode enabled'):
+            await client.query(r"""//ti)
+                x = {name: 'foo'};
+                x.to_type('W');
+            """)
+
 
 if __name__ == '__main__':
     run_test(TestCollectionFunctions())

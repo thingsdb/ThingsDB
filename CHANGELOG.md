@@ -1,3 +1,10 @@
+# v0.10.15
+
+* Added `to_type(..)` to convert a thing into a type instance, issue #205.
+* Added definable properties: `regex`, `closure` and `error`, issue #204.
+* Fixed bug with relations after invalid type creation, issue #203.
+* Fixed bug when adding a closure to an `any` type property, issue #202.
+
 # v0.10.14
 
 * Fixed bug with `replace(..)` using an empty regular expression, issue #198.

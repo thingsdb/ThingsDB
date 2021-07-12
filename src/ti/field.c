@@ -1486,7 +1486,7 @@ int ti_field_make_assignable(
             return 0;
         goto type_error;
     case TI_SPEC_CLOSURE:
-        if (ti_val_is_closure(*val))  // TODO
+        if (ti_val_is_closure(*val))
             return ti_closure_unbound((ti_closure_t *) *val, e);
         goto type_error;
     case TI_SPEC_ERROR:

@@ -1540,9 +1540,10 @@ int ti_field_make_assignable(
     goto type_error;
 
 future_error:
-    ex_set(e, EX_VALUE_ERROR,
+    ex_set(e, EX_TYPE_ERROR,
             "mismatch in type `%s`; "
-            "property `%s` allows `any` value but got a `future`",
+            "property `%s` allows `any` type with the exception "
+            "of the `future` type",
             field->type->name,
             field->name->str);
     return e->nr;

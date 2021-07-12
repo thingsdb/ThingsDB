@@ -1813,6 +1813,21 @@ new_procedure('multiply', |a, b| a * b);
                 Test{func: || .x = 1}.func(); // requires `wse(..)`
             """)
 
+    async def test_future_to_type(self, client):
+        await client.query(r"""//ti
+            set_type('A', {x: 'any'});
+        """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `A`; property `x` allows `any` type '
+                r"with the exception of the `future` type"):
+            await client.query("""//ti
+                A{
+                    x: future(||nil)
+                };
+            """)
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

@@ -733,6 +733,24 @@ class TestCollectionFunctions(TestBase):
             .p.filter(||true);
         ''')
         self.assertEqual(res, {"name": "Iris"})
+        await client.query(r"""//ti
+            new_type('A');
+            new_type('B');
+            set_type('A', {b: 'B?'});
+            set_type('B', {a: 'A?'});
+            mod_type('A', 'rel', 'b', 'a')
+        """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `assign` is not able to set `b` because a '
+                r'relation for this property is configured'):
+            await client.query(r"""//ti
+                a = A{};
+                a.assign({
+                    b: B{}
+                });
+            """)
 
     async def test_emit(self, client):
         await client.query(r'.greet = "Hello world";')
@@ -3641,7 +3659,9 @@ class TestCollectionFunctions(TestBase):
                 ValueError,
                 r'function `split` does not support backward \(negative\) '
                 r'splits when used with a regular expression'):
-            await client.query('"bla".split(/\d+/, -1);')
+            await client.query(r"""//ti
+                "bla".split(/\d+/, -1);
+            """)
 
         self.assertEqual(await client.query(r'''
             [
@@ -4300,6 +4320,110 @@ class TestCollectionFunctions(TestBase):
         ''')
         self.assertEqual(res[0], 'thing')
         self.assertEqual(res[1], 'mpdata')
+
+    async def test_to_type(self, client):
+        await client.query(r'''
+            new_type('A');
+            set_type('B', {
+                aa: '[A]',
+                a: 'A',
+                name: 'str<3:20>',
+            });
+            .name = 'X';
+            .aa = [A{}, {}]; // last one is not type A
+            .set('other key', 'some value');
+        ''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `A` has no property or method `to_type`'):
+            await client.query('A{}.to_type();')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `to_type` is undefined'):
+            await client.query('to_type();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `to_type` takes 1 argument '
+                r'but 0 were given'):
+            await client.query('{}.to_type();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `to_type` expects argument 1 to be of '
+                r'type `str` but got type `int` instead'):
+            await client.query('{}.to_type(123);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `XXX` not found'):
+            await client.query('{}.to_type("XXX");')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `B`; property `aa` requires an array '
+                r'with items that matches definition `\[A\]`'):
+            await client.query('.to_type("B");')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `B`; property `name` requires a string '
+                r'with a length between 3 and 20 \(both inclusive\) '
+                r'characters'):
+            await client.query('.aa.pop(); .to_type("B");')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'conversion failed; type `B` has no property `other key`'):
+            await client.query('.name = "Test"; .to_type("B");')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'conversion failed; property `a` is missing'):
+            await client.query('.del("other key"); .to_type("B");')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'conversion failed; property `aa` is being used'):
+            await client.query('.aa.map(|| .to_type("B"));')
+
+        res = await client.query('.a = A{}; .to_type("B");')
+        self.assertIs(res, None)
+
+        res = await client.query('.a.id();')
+        self.assertIsInstance(res, int)
+
+        res = await client.query('{}.to_type("A");')
+        self.assertIs(res, None)
+
+        res = await client.query('t = {}; t.to_type("A"); type(t)')
+        self.assertEqual(res, 'A')
+
+        res = await client.query("""//ti
+            other = .copy();
+            other.to_type("B");
+            other.keys();
+        """)
+        self.assertEqual(set(res), set(['a', 'aa', 'name']))
+
+        await client.query(r"""//ti
+            new_type('AA');
+            new_type('BB');
+            set_type('AA', {b: 'BB?'});
+            set_type('BB', {a: 'AA?'});
+            mod_type('AA', 'rel', 'b', 'a')
+        """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'conversion failed; property `b` on type `AA` has a relation '
+                r'and can therefore not be converted'):
+            await client.query(r"""//ti)
+                x = {b: BB{}};
+                x.to_type('AA');
+            """)
 
 
 if __name__ == '__main__':

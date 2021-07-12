@@ -12,6 +12,7 @@ typedef int (*vec_sort_r_cb) (const void *, const void *, void *);
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 
 vec_t * vec_new(uint32_t sz);
 void vec_destroy(vec_t * vec, vec_destroy_cb cb);
@@ -167,5 +168,10 @@ static inline void vec_swap(vec_t * vec, uint32_t i, uint32_t j)
     vec->data[j] = tmp;
 }
 
+static inline void vec_fill_null(vec_t * vec)
+{
+    vec->n = vec->sz;
+    (void) memset(vec->data, 0, vec->n * sizeof(void*));
+}
 
 #endif /* VEC_H_ */

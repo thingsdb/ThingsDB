@@ -224,6 +224,12 @@ static inline _Bool ti_val_overflow_cast(double d)
     return !(d >= -VAL__CAST_MAX && d < VAL__CAST_MAX);
 }
 
+static inline _Bool ti_val_is_mut_locked(ti_val_t * val)
+{
+    return (val->tp == TI_VAL_ARR || val->tp == TI_VAL_SET) &&
+           (val->flags & TI_VFLAG_LOCK);
+}
+
 /*
  * Return 0 when a new lock is set, or -1 if failed and `e` is set.
  *
@@ -368,7 +374,7 @@ static inline int ti_val_make_assignable(
         ((ti_vset_t *) *val)->key_ = key;
         return 0;
     case TI_VAL_CLOSURE:
-        return ti_closure_unbound((ti_closure_t * ) *val, e);
+        return ti_closure_unbound((ti_closure_t *) *val, e);
     case TI_VAL_FUTURE:
         ti_val_unsafe_drop(*val);
         *val = (ti_val_t *) ti_nil_get();

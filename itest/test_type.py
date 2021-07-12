@@ -1167,6 +1167,9 @@ class TestType(TestBase):
             set_type('_number', {test: 'number'});
             set_type('_datetime', {test: 'datetime'});
             set_type('_timeval', {test: 'timeval'});
+            set_type('_regex', {test: 'regex'});
+            set_type('_closure', {test: 'closure'});
+            set_type('_error', {test: 'error'});
             set_type('_thing', {test: 'thing'});
             set_type('_Type', {test: '_str'});
             set_type('_array', {test: '[]'});
@@ -1243,6 +1246,38 @@ class TestType(TestBase):
                 r'type `datetime` is invalid for property `test` '
                 r'with definition `timeval`'):
             await client.query(r'''_timeval{test: datetime()};''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `_regex`; '
+                r'type `str` is invalid for property `test` '
+                r'with definition `regex`'):
+            await client.query(r'''_regex{test: '\.\*'};''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `_closure`; '
+                r'type `str` is invalid for property `test` '
+                r'with definition `closure`'):
+            await client.query(r'''_closure{test: '\|\|nil'};''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `_error`; '
+                r'type `str` is invalid for property `test` '
+                r'with definition `error`'):
+            await client.query(r'''_error{test: 'err'};''')
+
+        self.assertEqual(
+            await client.query(r'type(_regex{}.test);'), 'regex')
+        self.assertEqual(
+            await client.query(r'_regex{}.test.test("bla");'), True)
+        self.assertEqual(
+            await client.query(r'_closure{}.test();'), None)
+        self.assertEqual(
+            await client.query(r'_closure{test: ||42}.test();'), 42)
+        self.assertEqual(
+            await client.query(r'_error{test:err(-110)}.test.code();'), -110)
 
         self.assertEqual(
             await client.query(r'_pint{test:42}.test;'), 42)

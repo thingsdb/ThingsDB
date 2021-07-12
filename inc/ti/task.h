@@ -29,6 +29,7 @@ ti_pkg_t * ti_task_pkg_watch(ti_task_t * task);
 int ti_task_add_add(ti_task_t * task, ti_raw_t * key, vec_t * added);
 int ti_task_add_set(ti_task_t * task, ti_raw_t * key, ti_val_t * val);
 int ti_task_add_new_type(ti_task_t * task, ti_type_t * type);
+int ti_task_add_to_type(ti_task_t * task, ti_type_t * type);
 int ti_task_add_set_type(ti_task_t * task, ti_type_t * type);
 int ti_task_add_del(ti_task_t * task, ti_raw_t * name);
 int ti_task_add_del_collection(ti_task_t * task, uint64_t collection_id);

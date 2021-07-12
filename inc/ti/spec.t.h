@@ -31,6 +31,9 @@ typedef enum
     TI_SPEC_SET,            /* `{..}`               */
     TI_SPEC_DATETIME,       /* `datetime` (strict)  */
     TI_SPEC_TIMEVAL,        /* `timeval`            */
+    TI_SPEC_REGEX,          /* `regex`              */
+    TI_SPEC_CLOSURE,        /* `closure`            */
+    TI_SPEC_ERROR,          /* `error`              */
 
     TI_SPEC_REMATCH=0x5000, /* `/.../`              */
     TI_SPEC_INT_RANGE,      /* `int<:>              */

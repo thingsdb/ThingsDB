@@ -39,6 +39,7 @@ int ti_type_fields_to_pk(ti_type_t * type, msgpack_packer * pk);
 ti_val_t * ti_type_as_mpval(ti_type_t * type, _Bool with_definition);
 vec_t * ti_type_map(ti_type_t * to_type, ti_type_t * from_type);
 ti_val_t * ti_type_dval(ti_type_t * type);
+int ti_type_convert(ti_type_t * type, ti_thing_t * thing, ex_t * e);
 ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e);
 int ti_type_add_method(
         ti_type_t * type,
@@ -56,6 +57,18 @@ int ti_type_required_by_non_wpo(ti_type_t * type, ex_t * e);
 int ti_type_uses_wpo(ti_type_t * type, ex_t * e);
 int ti_type_rename(ti_type_t * type, ti_raw_t * nname);
 
+static inline int ti_type_use(ti_type_t * type, ex_t * e)
+{
+    if (type->flags & TI_TYPE_FLAG_LOCK)
+    {
+        ex_set(e, EX_OPERATION,
+            "cannot use type `%s` while the type is being locked",
+            type->name);
+        return e->nr;
+    }
+    return 0;
+}
+
 static inline int ti_type_try_lock(ti_type_t * type, ex_t * e)
 {
     if (type->flags & TI_TYPE_FLAG_LOCK)
@@ -63,7 +76,7 @@ static inline int ti_type_try_lock(ti_type_t * type, ex_t * e)
         ex_set(e, EX_OPERATION,
             "cannot change type `%s` while the type is being used",
             type->name);
-        return -1;
+        return e->nr;
     }
     return (type->flags |= TI_TYPE_FLAG_LOCK) & 0;
 }

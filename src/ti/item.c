@@ -43,3 +43,9 @@ void ti_item_destroy(ti_item_t * item)
     ti_val_unassign_unsafe_drop(item->val);
     free(item);
 }
+
+void ti_item_unsafe_vdestroy(ti_item_t * item)
+{
+    ti_val_unsafe_drop((ti_val_t *) item->key);
+    free(item);
+}

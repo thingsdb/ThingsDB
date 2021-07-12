@@ -42,8 +42,7 @@ static inline int thing__val_locked(
      * by reference (like things). An array is always type `list` since it
      * is a value attached to a `prop` type.
      */
-    if (    (val->tp == TI_VAL_ARR || val->tp == TI_VAL_SET) &&
-            (val->flags & TI_VFLAG_LOCK))
+    if (ti_val_is_mut_locked(val))
     {
         ex_set(e, EX_OPERATION,
             "cannot change or remove property `%s` on "TI_THING_ID
@@ -225,6 +224,60 @@ ti_thing_t * ti_thing_t_create(
     return thing;
 }
 
+typedef struct
+{
+    ti_field_t * field;
+    ti_thing_t * thing;
+} thing__clear_rel_t;
+
+int thing__clear_rel_cb(ti_thing_t * other, thing__clear_rel_t * w)
+{
+    w->field->condition.rel->del_cb(w->field, other, w->thing);
+    return 0;
+}
+
+void ti_thing_cancel(ti_thing_t * thing)
+{
+    if (ti_thing_is_instance(thing))
+    {
+        /* Remove SWEEP flag to prevent garbage collection */
+        thing->flags &= ~TI_THING_FLAG_SWEEP;
+
+        ti_type_t * type = ti_thing_type(thing);
+
+        for (vec_each(type->fields, ti_field_t, field))
+        {
+            if (!field->condition.none)
+                continue;
+
+            if (field->spec == TI_SPEC_SET)
+            {
+                ti_field_t * ofield = field->condition.rel->field;
+                ti_vset_t * vset = VEC_get(thing->items.vec, field->idx);
+                if (!vset)
+                    continue;
+                thing__clear_rel_t w = {
+                        .field = ofield,
+                        .thing = thing
+                };
+                (void) imap_walk(vset->imap, (imap_cb) thing__clear_rel_cb, &w);
+            }
+            else if ((field->spec & TI_SPEC_MASK_NILLABLE) < TI_SPEC_ANY)
+            {
+                ti_field_t * ofield = field->condition.rel->field;
+                ti_thing_t * other = VEC_get(thing->items.vec, field->idx);
+
+                if (!other || ti_val_is_nil((ti_val_t *) other))
+                    continue;
+
+                ofield->condition.rel->del_cb(ofield, other, thing);
+                field->condition.rel->del_cb(field, thing, NULL);
+            }
+        }
+    }
+    ti_thing_destroy(thing);
+}
+
 void ti_thing_destroy(ti_thing_t * thing)
 {
     assert (thing);
@@ -286,6 +339,24 @@ void ti_thing_clear(ti_thing_t * thing)
         /* convert to a simple object since the thing is not type
          * compliant anymore */
         thing->type_id = TI_SPEC_OBJECT;
+    }
+}
+
+void ti_thing_o_items_destroy(ti_thing_t * thing)
+{
+    assert(ti_thing_is_object(thing));
+
+    if (ti_thing_is_dict(thing))
+    {
+        smap_destroy(
+                thing->items.smap,
+                (smap_destroy_cb) ti_prop_unsafe_vdestroy);
+    }
+    else
+    {
+        vec_destroy(
+                thing->items.vec,
+                (vec_destroy_cb) ti_prop_unsafe_vdestroy);
     }
 }
 

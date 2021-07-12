@@ -36,6 +36,7 @@ ti_thing_t * ti_thing_t_create(
         ti_collection_t * collection);
 void ti_thing_destroy(ti_thing_t * thing);
 void ti_thing_clear(ti_thing_t * thing);
+void ti_thing_o_items_destroy(ti_thing_t * thing);
 int ti_thing_to_dict(ti_thing_t * thing);
 int ti_thing_to_strict(ti_thing_t * thing, ti_raw_t ** incompatible);
 int ti_thing_props_from_vup(
@@ -117,6 +118,7 @@ void ti_thing_clean_gc(void);
 void ti_thing_resize_gc(void);
 int ti_thing_copy(ti_thing_t ** thing, uint8_t deep);
 int ti_thing_dup(ti_thing_t ** thing, uint8_t deep);
+void ti_thing_cancel(ti_thing_t * thing);
 
 #if TI_IS64BIT
 #define THING__KEY_SHIFT 3

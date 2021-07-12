@@ -4303,6 +4303,69 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(res[0], 'thing')
         self.assertEqual(res[1], 'mpdata')
 
+    async def test_to_type(self, client):
+        await client.query(r'''
+            new_type('A');
+            set_type('B', {
+                aa: '[A]',
+                a: 'A',
+                name: 'str<3:20>',
+            });
+            .name = 'X';
+            .aa = [A{}, {}]; // last one is not type A
+            .set('other key', 'some value');
+        ''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `A` has no property or method `to_type`'):
+            await client.query('A{}.to_type();')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `to_type` is undefined'):
+            await client.query('to_type();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `to_type` takes 1 argument '
+                r'but 0 were given'):
+            await client.query('{}.to_type();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `B`; property `aa` requires an array '
+                r'with items that matches definition `\[A\]`'):
+            await client.query('.to_type("B");')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `B`; property `name` requires a string '
+                r'with a length between 3 and 20 \(both inclusive\) '
+                r'characters'):
+            await client.query('.aa.pop(); .to_type("B");')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'conversion failed; type `B` has no property `other key`'):
+            await client.query('.name = "Test"; .to_type("B");')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'conversion failed; property `a` is missing'):
+            await client.query('.del("other key"); .to_type("B");')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'conversion failed; property `aa` is being used'):
+            await client.query('.aa.map(|| .to_type("B"));')
+
+        res = await client.query('.a = A{}; .to_type("B");')
+        self.assertIs(res, None)
+
+        res = await client.query('.a.id();')
+        self.assertIsInstance(res, int)
+
 
 if __name__ == '__main__':
     run_test(TestCollectionFunctions())

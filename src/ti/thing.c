@@ -42,8 +42,7 @@ static inline int thing__val_locked(
      * by reference (like things). An array is always type `list` since it
      * is a value attached to a `prop` type.
      */
-    if (    (val->tp == TI_VAL_ARR || val->tp == TI_VAL_SET) &&
-            (val->flags & TI_VFLAG_LOCK))
+    if (ti_val_is_mut_locked(val))
     {
         ex_set(e, EX_OPERATION,
             "cannot change or remove property `%s` on "TI_THING_ID

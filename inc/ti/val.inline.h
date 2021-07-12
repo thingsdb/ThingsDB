@@ -224,6 +224,12 @@ static inline _Bool ti_val_overflow_cast(double d)
     return !(d >= -VAL__CAST_MAX && d < VAL__CAST_MAX);
 }
 
+static inline _Bool ti_val_is_mut_locked(ti_val_t * val)
+{
+    return (val->tp == TI_VAL_ARR || val->tp == TI_VAL_SET) &&
+           (val->flags & TI_VFLAG_LOCK);
+}
+
 /*
  * Return 0 when a new lock is set, or -1 if failed and `e` is set.
  *

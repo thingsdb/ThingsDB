@@ -320,7 +320,6 @@ static int do__f_split(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
             ti_val_unsafe_drop(sep);
             ti_val_unsafe_drop(query->rval);
-            LOGC("HERE4");
             goto done;
         }
 

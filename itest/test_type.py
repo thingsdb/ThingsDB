@@ -1271,6 +1271,8 @@ class TestType(TestBase):
         self.assertEqual(
             await client.query(r'type(_regex{}.test);'), 'regex')
         self.assertEqual(
+            await client.query(r'_regex{}.test.test("bla");'), True)
+        self.assertEqual(
             await client.query(r'_closure{}.test();'), None)
         self.assertEqual(
             await client.query(r'_closure{test: ||42}.test();'), 42)

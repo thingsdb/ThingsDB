@@ -946,7 +946,7 @@ int type__convert_cb(ti_prop_t * prop, type__convert_t * w)
 
     if (!field)
     {
-        ex_set(w->e, EX_VALUE_ERROR,
+        ex_set(w->e, EX_TYPE_ERROR,
                 "conversion failed; type `%s` has no property `%.*s`",
                 w->type->name, prop->name->n, prop->name->str);
         return -1;
@@ -961,14 +961,19 @@ int type__convert_cb(ti_prop_t * prop, type__convert_t * w)
         return -1;
     }
 
-    if (prop->val->flags & TI_VFLAG_LOCK)
+    if (ti_val_is_mut_locked(prop->val))
     {
-        ex_set(w->e, EX_TYPE_ERROR,
+        ex_set(w->e, EX_OPERATION,
                 "conversion failed; property `%s` is being used",
                 field->name->str);
         return -1;
     }
 
+    /*
+     * There should be no changes to this pointer. Only a `set` or `array` may
+     * allocate new space and create a new pointer, but since they are checked
+     * for a lock, only a single reference will exist and no copy will be made.
+     */
     vaddr = (ti_val_t **) vec_get_addr(w->vec, field->idx);
     *vaddr = prop->val;
     return ti_field_make_assignable(field, vaddr, w->thing, w->e);
@@ -1011,19 +1016,17 @@ int ti_type_convert(ti_type_t * type, ti_thing_t * thing, ex_t * e)
         ti_val_t * val = VEC_get(w.vec, field->idx);
         if (!val)
         {
-            val = field->dval_cb(field);
-            if (!val)
-            {
-                ex_set_mem(e);  /* may leak a few bytes for optional previous
-                                   default values */
-                goto fail0;
-            }
-            ti_val_attach(val, thing, field);
-            VEC_set(w.vec, val, field->idx);
+            ex_set(e, EX_TYPE_ERROR,
+                    "conversion failed; property `%s` is missing",
+                    field->name->str);
+            goto fail0;
         }
     }
 
     ti_thing_o_items_destroy(thing);
+
+    /* make sure the `dictionary` flag is removed */
+    thing->flags &= ~TI_THING_FLAG_DICT;
     thing->type_id = type->type_id;
     thing->items.vec = w.vec;
     return e->nr;

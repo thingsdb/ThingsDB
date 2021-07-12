@@ -4334,6 +4334,17 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
+                r'function `to_type` expects argument 1 to be of '
+                r'type `str` but got type `int` instead'):
+            await client.query('{}.to_type(123);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `XXX` not found'):
+            await client.query('{}.to_type("XXX");')
+
+        with self.assertRaisesRegex(
+                TypeError,
                 r'mismatch in type `B`; property `aa` requires an array '
                 r'with items that matches definition `\[A\]`'):
             await client.query('.to_type("B");')
@@ -4365,6 +4376,19 @@ class TestCollectionFunctions(TestBase):
 
         res = await client.query('.a.id();')
         self.assertIsInstance(res, int)
+
+        res = await client.query('{}.to_type("A");')
+        self.assertIs(res, None)
+
+        res = await client.query('t = {}; t.to_type("A"); type(t)')
+        self.assertEqual(res, 'A')
+
+        res = await client.query("""//ti
+            other = .copy();
+            other.to_type("B");
+            other.keys();
+        """)
+        self.assertEqual(set(res), set(['a', 'aa', 'name']))
 
 
 if __name__ == '__main__':

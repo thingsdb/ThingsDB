@@ -31,7 +31,7 @@ static int do__f_to_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
 
     if (ti_do_statement(query, nd->children->node, e) ||
-        fn_arg_str("to_type", DOC_MOD_TYPE, 1, query->rval, e))
+        fn_arg_str("to_type", DOC_THING_TO_TYPE, 1, query->rval, e))
         goto fail0;
 
     rname = (ti_raw_t *) query->rval;

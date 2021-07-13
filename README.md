@@ -1,6 +1,6 @@
 # ThingsDB Node
 
-ThingsDB is an object-oriented database with event-driven features that allows 
+ThingsDB is an object-oriented database with event-driven features that allows
 developers to store *things* in an intuitive way.
 
 ## Website
@@ -15,6 +15,28 @@ ThingsDB documentation: https://docs.thingsdb.net
 
 - From source: https://docs.thingsdb.net/v0/getting-started/build-from-source/
 - Image on docker hub: https://hub.docker.com/repository/docker/thingsdb/node
+
+## Docker
+
+You might want to use docker to test ThingsDB locally. Do not forget to mount a volume
+if you want ThingsDB to keep all changes.
+
+For example:
+
+```
+docker run -d \
+    -p 9200:9200 \
+    -p 9210:9210 \
+    -p 8080:8080 \
+    -v ~/thingsdb-data:/data \
+    -v ~/thingsdb-modules:/modules \
+    thingsdb/node:latest \
+    --init
+```
+
+> **Note:** The `--init` argument is technically only required when running ThingsDB for the first time.
+
+Replace the `latest` tag if you want to test using Python modules or Google Cloud support *(see the [getting started page](https://docs.thingsdb.net/v0/getting-started/) for more info)*
 
 ## Run integration tests
 

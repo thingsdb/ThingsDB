@@ -18,12 +18,12 @@ ThingsDB documentation: https://docs.thingsdb.net
 
 ## Docker
 
-You might want to use docker to test ThingsDB locally. Do not forget to mount a volume
+When using Docker, do not forget to mount a volume
 if you want ThingsDB to keep all changes.
 
 For example:
 
-```
+```bash
 docker run -d \
     -p 9200:9200 \
     -p 9210:9210 \

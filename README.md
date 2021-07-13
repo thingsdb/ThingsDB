@@ -34,9 +34,9 @@ docker run -d \
     --init
 ```
 
-> **Note:** The `--init` argument is technically only required when running ThingsDB for the first time.
+> :point_up: **Note:** The `--init` argument is technically only required when running ThingsDB for the first time.
 
-Replace the `latest` tag if you want to test using Python modules or Google Cloud support *(see the [getting started page](https://docs.thingsdb.net/v0/getting-started/) for more info)*
+Replace the `latest` tag or build your own Docker image if you want to test using Python modules or Google Cloud support *(see the [getting started page](https://docs.thingsdb.net/v0/getting-started/) for more info)*
 
 ## Run integration tests
 

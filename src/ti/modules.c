@@ -39,8 +39,9 @@ do_python:
     path = fx_get_executable_in_path(ti.cfg->python_interpreter);
     if (!path)
     {
-        log_warning(
-                "cannot find Python interpreter: `%s`",
+        log_info(
+                "cannot find Python interpreter: `%s` "
+                "(only required for running Python modules)",
                 ti.cfg->python_interpreter);
         return;
     }

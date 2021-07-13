@@ -18,8 +18,10 @@ RUN apk update && \
 COPY --from=0 /tmp/thingsdb/Release/thingsdb /usr/local/bin/
 COPY --from=0 /usr/lib/libcleri* /usr/lib/
 
-# Data
-VOLUME ["/var/lib/thingsdb/"]
+# Volume mounts
+VOLUME ["/data"]
+VOLUME ["/modules"]
+
 # Client (Socket) connections
 EXPOSE 9200
 # Client (HTTP) connections
@@ -29,7 +31,11 @@ EXPOSE 9220
 # Status (HTTP) connections
 EXPOSE 8080
 
-ENV THINGSDB_BIND_NODE_ADDR 0.0.0.0
-ENV THINGSDB_BIND_CLIENT_ADDR 0.0.0.0
+ENV THINGSDB_BIND_CLIENT_ADDR=0.0.0.0
+ENV THINGSDB_BIND_NODE_ADDR=0.0.0.0
+ENV THINGSDB_HTTP_API_PORT=9210
+ENV THINGSDB_HTTP_STATUS_PORT=8080
+ENV THINGSDB_MODULES_PATH=/modules
+ENV THINGSDB_STORAGE_PATH=/data
 
 ENTRYPOINT ["/usr/local/bin/thingsdb"]

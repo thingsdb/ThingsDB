@@ -4,6 +4,7 @@
 * Added definable properties: `regex`, `closure` and `error`, issue #204.
 * Fixed bug with relations after invalid type creation, issue #203.
 * Fixed bug when adding a closure to an `any` type property, issue #202.
+* Changed default modules path, issue #207.
 
 # v0.10.14
 

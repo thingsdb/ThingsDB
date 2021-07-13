@@ -339,7 +339,9 @@ int ti_cfg_create(void)
     cfg->storage_path = !homedir || !sysuser || strcmp(sysuser, "root") == 0
             ? strdup("/var/lib/thingsdb/")
             : fx_path_join(homedir, ".thingsdb/");
-    cfg->modules_path = strdup("/usr/lib/thingsdb/modules");
+    cfg->modules_path = !homedir || !sysuser || strcmp(sysuser, "root") == 0
+            ? strdup("/usr/lib/thingsdb-modules")
+            : fx_path_join(homedir, ".thingsdb-modules/");
     cfg->python_interpreter = strdup("python");
     cfg->gcloud_key_file = NULL;
     cfg->pipe_client_name = NULL;

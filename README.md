@@ -24,7 +24,8 @@ if you want ThingsDB to keep all changes.
 For example:
 
 ```bash
-docker run -d \
+docker run \
+    -d \
     -p 9200:9200 \
     -p 9210:9210 \
     -p 8080:8080 \

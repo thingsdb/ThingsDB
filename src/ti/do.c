@@ -114,7 +114,7 @@ static inline int do__t_get_wprop(
         cleri_node_t * nd,
         ex_t * e)
 {
-    ti_type_t * type = ti_thing_type(thing);
+    ti_type_t * type = thing->via.type;
     ti_name_t * name = nd->data ? nd->data : do__cache_name(query, nd);
 
     if (name)
@@ -183,12 +183,11 @@ static inline int do__t_upd_prop(
         ex_t * e)
 {
     ti_field_t * field;
-    ti_type_t * type = ti_thing_type(thing);
     ti_name_t * name = name_nd->data
             ? name_nd->data
             : do__cache_name(query, name_nd);
 
-    if (name && (field = ti_field_by_name(type, name)))
+    if (name && (field = ti_field_by_name(thing->via.type, name)))
     {
         wprop->name = field->name;
         wprop->val = (ti_val_t **) vec_get_addr(
@@ -203,7 +202,7 @@ static inline int do__t_upd_prop(
 
     ex_set(e, EX_LOOKUP_ERROR,
             "type `%s` has no property `%.*s`",
-            type->name, name_nd->len, name_nd->str);
+            thing->via.type->name, name_nd->len, name_nd->str);
     return e->nr;
 }
 

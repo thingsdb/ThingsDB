@@ -309,7 +309,7 @@ int ti_store_gcollect_restore_data(
         }
         else
         {
-            type = ti_thing_type(thing);
+            type = thing->via.type;
 
             if (mp_next(&up, &obj) != MP_ARR || type->fields->n != obj.via.sz)
             {

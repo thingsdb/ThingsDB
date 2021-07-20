@@ -23,6 +23,9 @@
   - `TI_PROTO_CLIENT_WATCH_STOP` (4)
   - `TI_PROTO_CLIENT_REQ_WATCH` (35)
   - `TI_PROTO_CLIENT_REQ_UNWATCH` (36)
+ * Insert data using syntax like `{"X": ...}` *(where X is a reserved keyword)* 
+   is no longer possible.
+ 
 
 # v0.10.15
 

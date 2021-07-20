@@ -335,15 +335,12 @@ int ti__wrap_field_thing(
     }
     else
     {
-        vec_t * mappings;
-        ti_type_t * f_type = ti_thing_type(thing);
-
         /*
          * Type mappings are only created the first time a conversion from
          * `to_type` -> `from_type` is asked so most likely the mappings are
          * returned from cache.
          */
-        mappings = ti_type_map(t_type, f_type);
+        vec_t * mappings = ti_type_map(t_type, thing->via.type);
         if (!mappings || wrap__thing_id_to_pk(thing, &vp->pk, mappings->n + nm))
             goto fail;
 
@@ -428,10 +425,7 @@ int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep)
     }
     else
     {
-        vec_t * mappings;
-        ti_type_t * f_type = ti_thing_type(thing);
-
-        mappings = ti_type_map(type, f_type);
+        vec_t * mappings = ti_type_map(type, thing->via.type);
         if (!mappings)
             return -1;
 

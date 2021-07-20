@@ -165,10 +165,8 @@ static int job__set(ti_thing_t * thing, mp_unp_t * up)
     }
     else
     {
-        ti_field_t * field = ti_field_by_name(
-                ti_thing_type(thing),
-                (ti_name_t *) key);
-
+        ti_field_t * field = \
+                ti_field_by_name(thing->via.type, (ti_name_t *) key);
         if (!field)
         {
             log_critical(

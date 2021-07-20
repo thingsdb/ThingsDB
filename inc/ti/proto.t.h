@@ -60,12 +60,11 @@ typedef enum
     TI_PROTO_NODE_EVENT         =128,   /* event */
     TI_PROTO_NODE_INFO          =129,   /* [...] */
     TI_PROTO_NODE_MISSING_EVENT =130,   /* event_id */
-    TI_PROTO_NODE_FWD_WATCH     =131,   /* thing_id */
-    TI_PROTO_NODE_FWD_UNWATCH   =132,   /* thing_id */
     TI_PROTO_NODE_FWD_TIMER     =133,   /* [scope_id, timer_id] */
     TI_PROTO_NODE_OK_TIMER      =134,   /* [scope_id, timer_id, next_ts] */
     TI_PROTO_NODE_EX_TIMER      =135,   /* [scope_id, timer_id, next_ts,
                                             err_code, err_msg] */
+    TI_PROTO_NODE_EMIT          =136,   /* {id:.., args: [..]} */
     /*
      * 160..191 node requests
      */

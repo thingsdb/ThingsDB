@@ -25,7 +25,6 @@
 ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing);
 ti_task_t * ti_task_get_task(ti_event_t * ev, ti_thing_t * thing);
 void ti_task_destroy(ti_task_t * task);
-ti_pkg_t * ti_task_pkg_watch(ti_task_t * task);
 int ti_task_add_add(ti_task_t * task, ti_raw_t * key, vec_t * added);
 int ti_task_add_set(ti_task_t * task, ti_raw_t * key, ti_val_t * val);
 int ti_task_add_new_type(ti_task_t * task, ti_type_t * type);

@@ -460,10 +460,9 @@ static inline int index__t_upd_prop(
         ex_t * e)
 {
     ti_field_t * field;
-    ti_type_t * type = ti_thing_type(thing);
     ti_name_t * name = ti_names_weak_from_raw(rname);
 
-    if (name && (field = ti_field_by_name(type, name)))
+    if (name && (field = ti_field_by_name(thing->via.type, name)))
     {
         wprop->name = field->name;
         wprop->val = (ti_val_t **) vec_get_addr(thing->items.vec, field->idx);

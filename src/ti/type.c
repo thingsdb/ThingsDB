@@ -1097,14 +1097,13 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
     }
     else
     {
-        ti_type_t * f_type = ti_thing_type(from);
-        if (f_type != type)
+        if (from->via.type != type)
         {
             ex_set(e, EX_TYPE_ERROR,
                     "cannot create an instance of type `%s` from type `%s`"
                     DOC_NEW,
                     type->name,
-                    f_type->name);
+                    from->via.type->name);
             goto failed;
         }
 

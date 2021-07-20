@@ -20,7 +20,6 @@ typedef enum
 typedef enum
 {
     TI_EVENT_FLAG_SAVE      = 1<<0,    /* ti_save() must be triggered */
-    TI_EVENT_FLAG_WATCHED   = 1<<1,    /* event is pushed to watchers */
 } ti_event_flags_enum;
 
 typedef struct ti_event_s ti_event_t;

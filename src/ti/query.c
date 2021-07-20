@@ -109,43 +109,6 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
 
 /*
  * Void function, although errors can happen. Each error is critical since this
- * results in subscribers inconsistency.
- */
-static void query__task_to_watchers(ti_query_t * query)
-{
-    vec_t * tasks = query->ev->_tasks;
-    for (vec_each(tasks, ti_task_t, task))
-    {
-        if (ti_thing_has_watchers(task->thing))
-        {
-            ti_rpkg_t * rpkg;
-            ti_pkg_t * pkg = ti_task_pkg_watch(task);
-            if (!pkg || !(rpkg = ti_rpkg_create(pkg)))
-            {
-                ++ti.counters->watcher_failed;
-                log_critical(EX_MEMORY_S);
-                free(pkg);
-                break;
-            }
-
-            for (vec_each(task->thing->watchers, ti_watch_t, watch))
-            {
-                if (ti_stream_is_closed(watch->stream))
-                    continue;
-
-                if (ti_stream_write_rpkg(watch->stream, rpkg))
-                {
-                    ++ti.counters->watcher_failed;
-                    log_error(EX_INTERNAL_S);
-                }
-            }
-            ti_rpkg_drop(rpkg);
-        }
-    }
-}
-
-/*
- * Void function, although errors can happen. Each error is critical since this
  * results in nodes and subscribers inconsistency.
  */
 static void query__event_handle(ti_query_t * query)
@@ -156,10 +119,6 @@ static void query__event_handle(ti_query_t * query)
         log_critical(EX_MEMORY_S);
         return;
     }
-
-    /* send tasks to watchers if required */
-    if (query->collection)
-        query__task_to_watchers(query);
 
     /* store event package in archive */
     if (ti_archive_push(epkg))

@@ -482,15 +482,14 @@ static int fn_call_t_try_n(
 {
     ti_name_t * name_ = ti_names_weak_get_strn(name, n);
     ti_thing_t * thing = (ti_thing_t *) query->rval;
-    ti_type_t * type = ti_thing_type(thing);
     ti_method_t * method;
     ti_val_t * val;
 
     if (!name_)
         goto no_prop_err;
 
-    if ((method = ti_method_by_name(type, name_)))
-        return ti_method_call(method, type, query, nd, e);
+    if ((method = ti_method_by_name(thing->via.type, name_)))
+        return ti_method_call(method, thing->via.type, query, nd, e);
 
     if ((val = ti_thing_t_val_weak_get(thing, name_)))
     {
@@ -512,7 +511,7 @@ static int fn_call_t_try_n(
 no_prop_err:
     ex_set(e, EX_LOOKUP_ERROR,
             "type `%s` has no property or method `%.*s`",
-            type->name, n, name);
+            thing->via.type->name, n, name);
     return e->nr;
 }
 

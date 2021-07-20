@@ -97,7 +97,7 @@ ti_thing_t * ti_thing_o_create(
     thing->id = id;
     thing->collection = collection;
     thing->items.vec = vec_new(init_sz);
-    thing->watchers = NULL;
+    thing->via.field = NULL;
 
     if (!thing->items.vec)
     {
@@ -177,9 +177,7 @@ void ti_thing_cancel(ti_thing_t * thing)
         /* Remove SWEEP flag to prevent garbage collection */
         thing->flags &= ~TI_THING_FLAG_SWEEP;
 
-        ti_type_t * type = ti_thing_type(thing);
-
-        for (vec_each(type->fields, ti_field_t, field))
+        for (vec_each(thing->via.type->fields, ti_field_t, field))
         {
             if (!field->condition.none)
                 continue;
@@ -269,6 +267,7 @@ void ti_thing_clear(ti_thing_t * thing)
         /* convert to a simple object since the thing is not type
          * compliant anymore */
         thing->type_id = TI_SPEC_OBJECT;
+        thing->via.field = NULL;
     }
 }
 
@@ -700,8 +699,7 @@ int ti_thing_t_set_val_from_strn(
         ex_t * e)
 {
     ti_val_t ** vaddr;
-    ti_type_t * type = ti_thing_type(thing);
-    ti_field_t * field = ti_field_by_strn_e(type, str, n, e);
+    ti_field_t * field = ti_field_by_strn_e(thing->via.type, str, n, e);
     if (!field)
         return e->nr;
 
@@ -807,18 +805,17 @@ static _Bool thing_t__get_by_name(
         ti_thing_t * thing,
         ti_name_t * name)
 {
-    ti_type_t * type = ti_thing_type(thing);
     ti_field_t * field;
     ti_method_t * method;
 
-    if ((field = ti_field_by_name(type, name)))
+    if ((field = ti_field_by_name(thing->via.type, name)))
     {
         wprop->name = name;
         wprop->val = (ti_val_t **) vec_get_addr(thing->items.vec, field->idx);
         return true;
     }
 
-    if ((method = ti_method_by_name(type, name)))
+    if ((method = ti_method_by_name(thing->via.type, name)))
     {
         wprop->name = name;
         wprop->val = (ti_val_t **) (&method->closure);
@@ -930,114 +927,6 @@ int ti_thing_gen_id(ti_thing_t * thing)
     return 0;
 }
 
-
-
-int ti_thing_watch_init(ti_thing_t * thing, ti_stream_t * stream)
-{
-    ti_pkg_t * pkg;
-    vec_t * pkgs_queue;
-    ti_vp_t vp;
-    msgpack_sbuffer buffer;
-    ti_collection_t * collection = thing->collection;
-    _Bool is_collection = thing == collection->root;
-     ti_watch_t * watch = ti_thing_watch(thing, stream);
-    if (!watch)
-        return -1;
-
-    if (mp_sbuffer_alloc_init(&buffer, 8192, sizeof(ti_pkg_t)))
-        return -1;
-
-    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
-
-    msgpack_pack_map(&vp.pk, is_collection ? 6 : 3);
-
-    mp_pack_str(&vp.pk, "event");
-    msgpack_pack_uint64(&vp.pk, ti.node->cevid);
-
-    mp_pack_str(&vp.pk, "thing");
-
-    if (ti_thing__to_pk(thing, &vp, TI_VAL_PACK_TASK /* options */) ||
-        mp_pack_str(&vp.pk, "collection") ||
-        mp_pack_strn(&vp.pk, collection->name->data, collection->name->n))
-    {
-        msgpack_sbuffer_destroy(&buffer);
-        return -1;
-    }
-
-    if (is_collection && (
-            mp_pack_str(&vp.pk, "enums") ||
-            ti_enums_to_pk(collection->enums, &vp) ||
-            mp_pack_str(&vp.pk, "types") ||
-            ti_types_to_pk(collection->types, &vp.pk) ||
-            mp_pack_str(&vp.pk, "procedures") ||
-            ti_procedures_to_pk(collection->procedures, &vp.pk)))
-    {
-        msgpack_sbuffer_destroy(&buffer);
-        return -1;
-    }
-
-    pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_WATCH_INI, buffer.size);
-
-    if (ti_stream_is_closed(stream) ||
-        ti_stream_write_pkg(stream, pkg))
-        free(pkg);
-
-    pkgs_queue = ti_events_pkgs_from_queue(thing);
-    if (pkgs_queue)
-    {
-        for (vec_each(pkgs_queue, ti_pkg_t, pkg))
-        {
-            if (ti_stream_is_closed(stream) ||
-                ti_stream_write_pkg(stream, pkg))
-                free(pkg);
-        }
-        vec_destroy(pkgs_queue, NULL);
-    }
-    return 0;
-}
-
-static ti_pkg_t * thing__fwd(
-        ti_thing_t * thing,
-        uint16_t pkg_id,
-        ti_proto_enum_t proto)
-{
-    msgpack_packer pk;
-    msgpack_sbuffer buffer;
-    ti_pkg_t * pkg;
-
-    if (mp_sbuffer_alloc_init(&buffer, 64, sizeof(ti_pkg_t)))
-        return NULL;
-
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-    msgpack_pack_array(&pk, 2);
-    msgpack_pack_uint64(&pk, thing->collection->root->id);
-    msgpack_pack_uint64(&pk, thing->id);
-
-    pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, pkg_id, proto, buffer.size);
-
-    return pkg;
-}
-
-int ti_thing_watch_fwd(
-        ti_thing_t * thing,
-        ti_stream_t * stream,
-        uint16_t pkg_id)
-{
-    ti_pkg_t * pkg = thing__fwd(thing, pkg_id, TI_PROTO_NODE_FWD_WATCH);
-    return pkg ? ti_stream_write_pkg(stream, pkg) : -1;
-}
-
-int ti_thing_unwatch_fwd(
-        ti_thing_t * thing,
-        ti_stream_t * stream,
-        uint16_t pkg_id)
-{
-    ti_pkg_t * pkg = thing__fwd(thing, pkg_id, TI_PROTO_NODE_FWD_UNWATCH);
-    return pkg ? ti_stream_write_pkg(stream, pkg) : -1;
-}
-
 void ti_thing_t_to_object(ti_thing_t * thing)
 {
     assert (!ti_thing_is_object(thing));
@@ -1064,6 +953,7 @@ void ti_thing_t_to_object(ti_thing_t * thing)
         *val = (ti_val_t *) prop;
     }
     thing->type_id = TI_SPEC_OBJECT;
+    thing->via.field = NULL;
 }
 
 typedef struct
@@ -1192,15 +1082,6 @@ ti_val_t * ti_thing_val_by_strn(ti_thing_t * thing, const char * str, size_t n)
     }
 }
 
-_Bool ti__thing_has_watchers_(ti_thing_t * thing)
-{
-    assert (thing->watchers);
-    for (vec_each(thing->watchers, ti_watch_t, watch))
-        if (watch->stream && (~watch->stream->flags & TI_STREAM_FLAG_CLOSED))
-            return true;
-    return false;
-}
-
 static inline _Bool thing__val_equals(ti_val_t * a, ti_val_t * b, uint8_t deep)
 {
     return ti_val_is_thing(a)
@@ -1281,7 +1162,7 @@ _Bool ti_thing_equals(ti_thing_t * thing, ti_val_t * otherv, uint8_t deep)
                 return false;
         }
     }
-    else if (thing->type_id == other->type_id)
+    else if (thing->via.type == other->via.type)
     {
         size_t idx = 0;
         for (vec_each(thing->items.vec, ti_val_t, a), ++idx)
@@ -1507,12 +1388,8 @@ static int thing__dup_t(ti_thing_t ** taddr, uint8_t deep)
 {
     ti_val_t * val;
     ti_thing_t * thing = *taddr;
-    ti_type_t * type = ti_thing_type(thing);
-    ti_thing_t * other = ti_thing_t_create(
-            0,
-            type,
-            thing->collection);
-
+    ti_type_t * type = thing->via.type;
+    ti_thing_t * other = ti_thing_t_create(0, type, thing->collection);
     if (!other)
         return -1;
 

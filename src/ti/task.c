@@ -72,37 +72,6 @@ void ti_task_destroy(ti_task_t * task)
     free(task);
 }
 
-ti_pkg_t * ti_task_pkg_watch(ti_task_t * task)
-{
-    ti_pkg_t * pkg;
-    msgpack_packer pk;
-    msgpack_sbuffer buffer;
-
-    if (mp_sbuffer_alloc_init(&buffer, task->approx_sz, sizeof(ti_pkg_t)))
-        return NULL;
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-
-    msgpack_pack_map(&pk, 3);
-
-    mp_pack_strn(&pk, TI_KIND_S_THING, 1);
-    msgpack_pack_uint64(&pk, task->thing->id);
-
-    mp_pack_str(&pk, "event");
-    msgpack_pack_uint64(&pk, task->event_id);
-
-    mp_pack_str(&pk, "jobs");
-    msgpack_pack_array(&pk, task->jobs->n);
-    for (vec_each(task->jobs, ti_data_t, data))
-    {
-        mp_pack_append(&pk, data->data, data->n);
-    }
-
-    pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_WATCH_UPD, buffer.size);
-
-    return pkg;
-}
-
 int ti_task_add_add(ti_task_t * task, ti_raw_t * key, vec_t * added)
 {
     assert (added->n);

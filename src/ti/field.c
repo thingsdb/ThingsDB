@@ -1022,7 +1022,6 @@ static void field__del_watch(
 int ti_field_del(ti_field_t * field, uint64_t ev_id)
 {
     vec_t * vec = imap_vec_ref(field->type->types->collection->things);
-    uint16_t type_id = field->type->type_id;
     ti_data_t * data = field__del_job(field->name->str, field->name->n);
 
     if (!data || !vec)
@@ -1034,7 +1033,7 @@ int ti_field_del(ti_field_t * field, uint64_t ev_id)
 
     for (vec_each(vec, ti_thing_t, thing))
     {
-        if (thing->type_id == type_id)
+        if (thing->via.type == field->type)
         {
             if (ti_thing_has_watchers(thing))
                 field__del_watch(thing, data, ev_id);
@@ -1050,7 +1049,7 @@ int ti_field_del(ti_field_t * field, uint64_t ev_id)
      */
     for (queue_each(field->type->types->collection->gc, ti_gc_t, gc))
     {
-        if (gc->thing->type_id == type_id)
+        if (gc->thing->via.type == field->type)
         {
             if (ti_thing_has_watchers(gc->thing))
                 field__del_watch(gc->thing, data, ev_id);
@@ -2149,14 +2148,14 @@ static int field__type_rel_chk(
 
 static int field__type_rel_chk_cb(ti_thing_t * thing, field__type_rel_chk_t * w)
 {
-    if (thing->type_id == w->field->type->type_id &&
+    if (thing->via.type == w->field->type &&
         field__type_rel_chk(thing, w->field, w->ofield, w->e))
         return w->e->nr;
 
     /* the fields may be different but of the same type, therefore
      * the code must bubble down and also check the "set" below.
      */
-    return thing->type_id == w->ofield->type->type_id
+    return thing->via.type == w->ofield->type
         ? field__type_rel_chk(thing, w->ofield, w->field, w->e)
         : 0;
 }

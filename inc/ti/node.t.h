@@ -102,7 +102,7 @@ struct ti_node_s
 
     uint64_t cevid;                 /* last committed event id */
     uint64_t sevid;                 /* last stored event id on disk */
-    uint64_t next_thing_id;
+    uint64_t next_free_id;
     ti_stream_t * stream;           /* borrowed reference */
 
     /*

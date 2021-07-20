@@ -154,7 +154,7 @@ static inline int vec_push_create(vec_t ** vec, void * data)
 {
     if (*vec)
         return vec_push(vec, data);
-    *vec = vec_new(7);
+    *vec = vec_new(6);
     if (!*vec)
         return -1;
     VEC_push(*vec, data);

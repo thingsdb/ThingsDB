@@ -166,6 +166,7 @@
 #include <ti/fn/fnreturn.h>
 #include <ti/fn/fnreverse.h>
 #include <ti/fn/fnrevoke.h>
+#include <ti/fn/fnroom.h>
 #include <ti/fn/fnrun.h>
 #include <ti/fn/fnset.h>
 #include <ti/fn/fnsetenum.h>
@@ -204,14 +205,12 @@
 #include <ti/fn/fntypesinfo.h>
 #include <ti/fn/fnunique.h>
 #include <ti/fn/fnunshift.h>
-#include <ti/fn/fnunwatch.h>
 #include <ti/fn/fnunwrap.h>
 #include <ti/fn/fnupper.h>
 #include <ti/fn/fnuserinfo.h>
 #include <ti/fn/fnusersinfo.h>
 #include <ti/fn/fnvalue.h>
 #include <ti/fn/fnvalues.h>
-#include <ti/fn/fnwatch.h>
 #include <ti/fn/fnweek.h>
 #include <ti/fn/fnweekday.h>
 #include <ti/fn/fnwrap.h>
@@ -248,11 +247,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 223,
+    TOTAL_KEYWORDS = 222,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 8,
-    MAX_HASH_VALUE = 482
+    MIN_HASH_VALUE = 7,
+    MAX_HASH_VALUE = 583
 };
 
 /*
@@ -264,32 +263,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483,   2, 483,   1, 483,   1, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483,   1, 483,   5,  36,  41,
-         14,   1,  76, 170, 115,   1,   2, 123,   9,  25,
-         18,  33, 126, 206,   2,   1,   7,   9, 197, 106,
-         36, 130,  17, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483
+        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
+        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
+        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
+        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
+        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
+        584, 584,   2, 584,   1, 584,   1, 584, 584, 584,
+        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
+        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
+        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
+        584, 584, 584, 584, 584,   0, 584,   1, 181,  40,
+         18,   0,  15, 169, 156,   0,   0,  83,  14,  36,
+         17,  39,  81,  44,   2,   0,   6,  30, 196, 128,
+        171, 122,   7, 584, 584, 584, 584, 584, 584, 584,
+        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
+        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
+        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
+        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
+        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
+        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
+        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
+        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
+        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
+        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
+        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
+        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
+        584, 584, 584, 584, 584, 584
     };
 
     register unsigned int hval = n;
@@ -467,7 +466,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="dup",               .fn=do__f_dup,                  CHAIN_NE},
     {.name="each",              .fn=do__f_each,                 CHAIN_NE},
     {.name="else",              .fn=do__f_else,                 CHAIN_FUT},
-    {.name="emit",              .fn=do__f_emit,                 CHAIN_CE},
+    {.name="emit",              .fn=do__f_emit,                 CHAIN_NE},
     {.name="ends_with",         .fn=do__f_ends_with,            CHAIN_NE},
     {.name="enum_info",         .fn=do__f_enum_info,            ROOT_NE},
     {.name="enum",              .fn=do__f_enum,                 ROOT_NE},
@@ -591,6 +590,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="return",            .fn=do__f_return,               ROOT_NE},
     {.name="reverse",           .fn=do__f_reverse,              CHAIN_NE},
     {.name="revoke",            .fn=do__f_revoke,               ROOT_TE},
+    {.name="room",              .fn=do__f_room,                 ROOT_NE},
     {.name="run",               .fn=do__f_run,                  XROOT_NE},
     {.name="set_enum",          .fn=do__f_set_enum,             ROOT_CE},
     {.name="set_log_level",     .fn=do__f_set_log_level,        ROOT_NE},
@@ -632,7 +632,6 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="types_info",        .fn=do__f_types_info,           ROOT_NE},
     {.name="unique",            .fn=do__f_unique,               CHAIN_NE},
     {.name="unshift",           .fn=do__f_unshift,              CHAIN_CE_XVAR},
-    {.name="unwatch",           .fn=do__f_unwatch,              CHAIN_NE},
     {.name="unwrap",            .fn=do__f_unwrap,               CHAIN_NE},
     {.name="upper",             .fn=do__f_upper,                CHAIN_NE},
     {.name="user_info",         .fn=do__f_user_info,            ROOT_NE},
@@ -640,7 +639,6 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="value_err",         .fn=do__f_value_err,            ROOT_NE},
     {.name="value",             .fn=do__f_value,                CHAIN_NE},
     {.name="values",            .fn=do__f_values,               CHAIN_NE},
-    {.name="watch",             .fn=do__f_watch,                CHAIN_NE},
     {.name="week",              .fn=do__f_week,                 CHAIN_NE},
     {.name="weekday",           .fn=do__f_weekday,              CHAIN_NE},
     {.name="wrap",              .fn=do__f_wrap,                 CHAIN_NE},

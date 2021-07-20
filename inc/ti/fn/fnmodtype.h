@@ -39,7 +39,7 @@ static inline int modtype__addv_cb(ti_thing_t * thing, modtype__addv_t * w)
 
 static inline int modtype__delv_cb(ti_thing_t * thing, ti_field_t * field)
 {
-    if (thing->type_id == field->type->type_id)
+    if (thing->via.type == field->type)
         ti_val_unsafe_drop(vec_swap_remove(thing->items.vec, field->idx));
     return 0;
 }
@@ -52,7 +52,7 @@ typedef struct
 
 static int modtype__collect_cb(ti_thing_t * thing, modtype__collect_t * w)
 {
-    if (thing->type_id == w->type->type_id)
+    if (thing->via.type == w->type)
     {
         if (imap_add(w->imap, ti_thing_key(thing), thing))
             return -1;

@@ -11,6 +11,7 @@
 #include <ti/prop.t.h>
 #include <ti/qbind.t.h>
 #include <ti/query.t.h>
+#include <ti/room.t.h>
 #include <ti/scope.t.h>
 #include <ti/type.t.h>
 #include <ti/user.t.h>
@@ -44,6 +45,10 @@ ti_prop_t * ti_query_var_get(ti_query_t * query, ti_name_t * name);
 ti_thing_t * ti_query_thing_from_id(
         ti_query_t * query,
         int64_t thing_id,
+        ex_t * e);
+ti_room_t * ti_query_room_from_id(
+        ti_query_t * query,
+        int64_t room_id,
         ex_t * e);
 ssize_t ti_query_count_type(ti_query_t * query, ti_type_t * type);
 static inline _Bool ti_query_will_update(ti_query_t * query);

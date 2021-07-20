@@ -392,7 +392,7 @@ static int do__get_type_instance(
         if (!thing)
             return e->nr;
 
-        if (thing->type_id != type->type_id)
+        if (thing->via.type != type)
         {
             ex_set(e, EX_TYPE_ERROR,
                     TI_THING_ID" is of type `%s`, not `%s`",

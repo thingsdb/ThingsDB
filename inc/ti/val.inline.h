@@ -181,6 +181,11 @@ static inline _Bool ti_val_is_wrap(ti_val_t * val)
     return val->tp == TI_VAL_WRAP;
 }
 
+static inline _Bool ti_val_is_room(ti_val_t * val)
+{
+    return val->tp == TI_VAL_ROOM;
+}
+
 static inline _Bool ti_val_is_member(ti_val_t * val)
 {
     return val->tp == TI_VAL_MEMBER;
@@ -443,7 +448,7 @@ static inline int ti_val_make_variable(ti_val_t ** val, ex_t * e)
         ti_raw_t * r__ = (ti_raw_t *) val__; \
         return options__ >= 0 \
             ? mp_pack_append(pk__, r__->data, r__->n) \
-            : -(msgpack_pack_ext(pk__, r__->n, TI_STR_INFO) || \
+            : -(msgpack_pack_ext(pk__, r__->n, MPACK_EXT_MPACK) || \
                 msgpack_pack_ext_body(pk__, r__->data, r__->n) \
             ); \
     } \

@@ -75,7 +75,7 @@ void ti_set_and_broadcast_node_zone(uint8_t zone);
 void ti_broadcast_node_info(void);
 int ti_this_node_to_pk(msgpack_packer * pk);
 ti_val_t * ti_this_node_as_mpval(void);
-static inline uint64_t ti_next_thing_id(void);
+static inline uint64_t ti_next_free_id(void);
 static inline int ti_sleep(int ms);
 static inline int ti_to_pk(msgpack_packer * pk);
 
@@ -118,10 +118,10 @@ struct ti_s
 };
 
 
-/* Return the next thing id and increment by one. */
-static inline uint64_t ti_next_thing_id(void)
+/* Return the next free id and increment by one. */
+static inline uint64_t ti_next_free_id(void)
 {
-    return ti.node->next_thing_id++;
+    return ti.node->next_free_id++;
 }
 
 /*
@@ -155,10 +155,10 @@ static inline int ti_to_pk(msgpack_packer * pk)
     );
 }
 
-static inline void ti_update_next_thing_id(uint64_t thing_id)
+static inline void ti_update_next_free_id(uint64_t id)
 {
-    if (thing_id >= ti.node->next_thing_id)
-        ti.node->next_thing_id = thing_id + 1;
+    if (id >= ti.node->next_free_id)
+        ti.node->next_free_id = id + 1;
 }
 
 #endif /* TI_H_ */

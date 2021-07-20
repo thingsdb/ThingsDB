@@ -16,11 +16,11 @@ typedef enum
      * 0x0000xxxx  0..15 fire and forgets from node to client
      */
     TI_PROTO_CLIENT_NODE_STATUS =0,     /* str_status                       */
-    TI_PROTO_CLIENT_WATCH_INI   =1,     /* {event:x, thing: {#:x, ...}      */
-    TI_PROTO_CLIENT_WATCH_UPD   =2,     /* {event:x. #:x, jobs:[] etc }     */
-    TI_PROTO_CLIENT_WATCH_DEL   =3,     /* {#:x}                            */
-    TI_PROTO_CLIENT_WATCH_STOP  =4,     /* {#:x}                            */
     TI_PROTO_CLIENT_WARN        =5,     /* {warn_msg:..., warn_code: x}     */
+    TI_PROTO_CLIENT_ROOM_JOIN   =6,     /* {id:x data:...}                  */
+    TI_PROTO_CLIENT_ROOM_LEAVE  =7,     /* {id:x data:...}                  */
+    TI_PROTO_CLIENT_ROOM_EVENT  =8,     /* {id:x event:name args:[...] }    */
+    TI_PROTO_CLIENT_ROOM_DELETE =9,     /* {id:x }                          */
 
     /*
      * 0x0001xxxx  16..31 client responses
@@ -36,9 +36,9 @@ typedef enum
     TI_PROTO_CLIENT_REQ_PING    =32,    /* empty                            */
     TI_PROTO_CLIENT_REQ_AUTH    =33,    /* [user, pass] or token            */
     TI_PROTO_CLIENT_REQ_QUERY   =34,    /* [scope, query, {variable}]       */
-    TI_PROTO_CLIENT_REQ_WATCH   =35,    /* [scope, thing id's....]}         */
-    TI_PROTO_CLIENT_REQ_UNWATCH =36,    /* [scope, thing id's....]}         */
     TI_PROTO_CLIENT_REQ_RUN     =37,    /* [scope, procedure, arguments...] */
+    TI_PROTO_CLIENT_REQ_JOIN    =38,    /* [scope, room id's....]}         */
+    TI_PROTO_CLIENT_REQ_LEAVE   =39,    /* [scope, room id's....]}         */
 
     /*
      * 64..127 modules range

@@ -100,14 +100,14 @@ enum
     TI_FLAG_NODES_CHANGED   =1<<2,
 };
 
-typedef enum
-{
-    TI_STR_INFO
-} ti_ext_tp;
-
 static inline _Bool ti_is_reserved_key_strn(const char * str, size_t n)
 {
     return n == 1 && (*str >> 4 == 2);
+}
+
+static inline _Bool ti_is_shutting_down(void)
+{
+    return ti.flags & TI_FLAG_SIGNAL;
 }
 
 #endif  /* TIINC_H_ */

@@ -1164,6 +1164,41 @@ ti_thing_t * ti_query_thing_from_id(
     return thing;
 }
 
+ti_room_t * ti_query_room_from_id(
+        ti_query_t * query,
+        int64_t room_id,
+        ex_t * e)
+{
+    ti_room_t * room;
+
+    if (!query->collection)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "scope `%s` has no stored rooms; "
+                "you might want to query a `@collection` scope?",
+                ti_query_scope_name(query));
+        return NULL;
+    }
+
+    /* No need to check for garbage collected things */
+    room = room_id
+            ? ti_collection_room_by_id(query->collection, (uint64_t) room_id)
+            : NULL;
+
+    if (!room)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "collection `%.*s` has no `room` with id %"PRId64,
+                query->collection->name->n,
+                (char *) query->collection->name->data,
+                room_id);
+        return NULL;
+    }
+
+    ti_incref(room);
+    return room;
+}
+
 typedef struct
 {
     ssize_t n;

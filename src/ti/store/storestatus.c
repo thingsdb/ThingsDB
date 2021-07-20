@@ -23,7 +23,7 @@ int ti_store_status_store(const char * fn)
         mp_pack_str(&pk, "cevid") ||
         msgpack_pack_uint64(&pk, ti.node->cevid) ||
         mp_pack_str(&pk, "next_thing_id") ||
-        msgpack_pack_uint64(&pk, ti.node->next_thing_id)
+        msgpack_pack_uint64(&pk, ti.node->next_free_id)
     ) goto fail;
 
     log_debug("stored status to file: `%s`", fn);
@@ -62,7 +62,7 @@ int ti_store_status_restore(const char * fn)
 
     ti.node->sevid = ti.node->cevid = mp_cevid.via.u64;
     ti.events->next_event_id = mp_cevid.via.u64 + 1;
-    ti.node->next_thing_id = mp_next_thing_id.via.u64;
+    ti.node->next_free_id = mp_next_thing_id.via.u64;
 
     rc = 0;
 fail:

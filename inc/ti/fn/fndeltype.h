@@ -42,7 +42,7 @@ static int do__f_del_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ti_thing_t * thing = (ti_thing_t *) prop->val;
         if (thing->tp == TI_VAL_THING &&
-            thing->type_id == type->type_id)
+            thing->via.type == type)
             ti_thing_t_to_object(thing);
     }
 

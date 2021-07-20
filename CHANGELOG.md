@@ -1,3 +1,29 @@
+# v1.0.0
+
+* Added a `room` type to replace watching things.
+* Functions for the new `room` type:
+  - `id()`: Return the Id of the room.
+  - `emit(..)`: Emit an event for the room.
+* Protocol types for the new `room` type:
+  - `TI_PROTO_CLIENT_ROOM_JOIN` (6)
+  - `TI_PROTO_CLIENT_ROOM_LEAVE` (7)
+  - `TI_PROTO_CLIENT_ROOM_EVENT` (8)
+  - `TI_PROTO_CLIENT_ROOM_DELETE` (9) 
+  - `TI_PROTO_CLIENT_REQ_JOIN` (38)
+  - `TI_PROTO_CLIENT_REQ_LEAVE` (39)
+  
+## Breaking changes from v0.x -> v1.0.0
+
+* Changed `next_thing_id` to `next_free_id` in `node_info()` and `nodes_info()`.
+* Removed `.watch()`, `.unwatch()` and `.emit()` functions on type `thing`.
+* Removed the following protocol types *(replaced with room protocol)*:
+  - `TI_PROTO_CLIENT_WATCH_INI` (1)
+  - `TI_PROTO_CLIENT_WATCH_UPD` (2)
+  - `TI_PROTO_CLIENT_WATCH_DEL` (3)
+  - `TI_PROTO_CLIENT_WATCH_STOP` (4)
+  - `TI_PROTO_CLIENT_REQ_WATCH` (35)
+  - `TI_PROTO_CLIENT_REQ_UNWATCH` (36)
+
 # v0.10.15
 
 * Added `to_type(..)` to convert a thing into a type instance, issue #205.

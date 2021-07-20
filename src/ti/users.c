@@ -61,7 +61,7 @@ ti_user_t * ti_users_new_user(
     if (passstr && !ti_user_pass_check(passstr, e))
         goto done;
 
-    user = ti_user_create(ti_next_thing_id(), name, name_n, NULL, created_at);
+    user = ti_user_create(ti_next_free_id(), name, name_n, NULL, created_at);
 
     if (!user ||
         ti_user_set_pass(user, passstr) ||
@@ -97,7 +97,7 @@ ti_user_t * ti_users_load_user(
         goto done;
     }
 
-    ti_update_next_thing_id(user_id);
+    ti_update_next_free_id(user_id);
 
     user = ti_user_create(user_id, name, name_n, encrypted, created_at);
 

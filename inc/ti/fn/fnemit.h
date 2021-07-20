@@ -6,18 +6,18 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = fn_get_nargs(nd);
     int sargs = 1;
     int deep = 1;
-    ti_thing_t * thing;
+    ti_room_t * room;
     ti_raw_t * revent;
     vec_t * vec = NULL;
     cleri_children_t * child = nd->children;
 
-    if (!ti_val_is_thing(query->rval))
+    if (!ti_val_is_room(query->rval))
         return fn_call_try("emit", query, nd, e);
 
-    if (fn_nargs_min("emit", DOC_THING_EMIT, 1, nargs, e))
+    if (fn_nargs_min("emit", DOC_ROOM_EMIT, 1, nargs, e))
         return e->nr;
 
-    thing = (ti_thing_t *) query->rval;
+    room = (ti_room_t *) query->rval;
     query->rval = NULL;
 
     if (ti_do_statement(query, child->node, e))
@@ -31,7 +31,7 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_NUM_ARGUMENTS,
                 "function `emit` requires at least 2 arguments "
-                "when `deep` is used but 1 was given "DOC_THING_EMIT);
+                "when `deep` is used but 1 was given "DOC_ROOM_EMIT);
             goto fail0;
         }
 
@@ -62,7 +62,7 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_TYPE_ERROR,
                 "function `emit` expects the `event` argument to be of "
                 "type `"TI_VAL_STR_S"` but got type `%s` instead"
-                DOC_THING_EMIT,
+                DOC_ROOM_EMIT,
                 ti_val_str(query->rval));
         goto fail0;
     }
@@ -92,7 +92,7 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         while (child->next && (child = child->next->next));
     }
 
-    if (thing->id)
+    if (room->id)
     {
         ti_task_t * task = ti_task_get_task(query->ev, thing);
         if (!task || ti_task_add_event(task, query, revent, vec, deep))

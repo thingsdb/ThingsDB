@@ -25,6 +25,7 @@ struct ti_collection_s
     ti_tz_t * tz;
     ti_raw_t * name;
     imap_t * things;        /* weak map for ti_thing_t */
+    imap_t * rooms;         /* weak map for ti_room_t */
     queue_t * gc;           /* ti_gc_t */
     vec_t * access;         /* ti_auth_t */
     smap_t * procedures;    /* ti_procedure_t */

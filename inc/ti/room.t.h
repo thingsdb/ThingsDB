@@ -1,0 +1,25 @@
+/*
+ * ti/room.t.h
+ */
+#ifndef TI_ROOM_T_H_
+#define TI_ROOM_T_H_
+
+#include <stdlib.h>
+#include <inttypes.h>
+#include <ti/collection.t.h>
+#include <util/vec.h>
+
+typedef struct ti_room_s ti_room_t;
+
+struct ti_room_s
+{
+    uint32_t ref;
+    uint8_t tp;
+    uint8_t _flags;
+    uint16_t _pad1;
+    int64_t id;
+    ti_collection_t * collection;
+    vec_t * listeners;
+};
+
+#endif  /* TI_ROOM_T_H_ */

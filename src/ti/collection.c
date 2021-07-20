@@ -47,6 +47,7 @@ ti_collection_t * ti_collection_create(
     collection->root = NULL;
     collection->name = ti_str_create(name, n);
     collection->things = imap_create();
+    collection->rooms = imap_create();
     collection->gc = queue_new(20);
     collection->access = vec_new(1);
     collection->procedures = smap_create();
@@ -63,7 +64,7 @@ ti_collection_t * ti_collection_create(
     if (!collection->name || !collection->things || !collection->gc ||
         !collection->access || !collection->procedures || !collection->lock ||
         !collection->types || !collection->enums || !collection->futures ||
-        uv_mutex_init(collection->lock))
+        !collection->rooms || uv_mutex_init(collection->lock))
     {
         ti_collection_drop(collection);
         return NULL;
@@ -81,6 +82,7 @@ void ti_collection_destroy(ti_collection_t * collection)
     assert (collection->gc->n == 0);
 
     imap_destroy(collection->things, NULL);
+    imap_destroy(collection->rooms, (imap_destroy_cb) ti_val_unsafe_drop);
     queue_destroy(collection->gc, NULL);
     ti_val_drop((ti_val_t *) collection->name);
     vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);

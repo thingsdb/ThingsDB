@@ -29,8 +29,8 @@ ti_epkg_t * ti_epkg_initial(void)
 
     uint64_t event_id = 1;
     uint64_t thing_id = 0;                      /* parent root thing */
-    uint64_t user_id = ti_next_thing_id();      /* id:1 */
-    uint64_t stuff_id = ti_next_thing_id();     /* id:2 !important: id > 1 */
+    uint64_t user_id = ti_next_free_id();      /* id:1 */
+    uint64_t stuff_id = ti_next_free_id();     /* id:2 !important: id > 1 */
     ti_epkg_t * epkg;
     ti_pkg_t * pkg;
     char salt[CRYPTX_SALT_SZ];

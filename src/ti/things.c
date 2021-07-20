@@ -99,7 +99,7 @@ ti_thing_t * ti_things_thing_o_from_vup(
         return NULL;
     }
 
-    ti_update_next_thing_id(thing_id);
+    ti_update_next_free_id(thing_id);
 
     if (ti_thing_props_from_vup(thing, vup, sz, e))
     {
@@ -165,7 +165,7 @@ ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
     }
 
     /* Update the next thing id if required */
-    ti_update_next_thing_id(mp_thing_id.via.u64);
+    ti_update_next_free_id(mp_thing_id.via.u64);
 
     for (vec_each(type->fields, ti_field_t, field))
     {

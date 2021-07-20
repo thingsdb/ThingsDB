@@ -267,7 +267,7 @@ int ti_build(void)
         goto failed;
 
     ti.node->cevid = 0;
-    ti.node->next_thing_id = 1;
+    ti.node->next_free_id = 1;
 
     ev = ti_event_initial();
     if (!ev)
@@ -944,8 +944,8 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         mp_pack_str(pk, "next_event_id") ||
         msgpack_pack_uint64(pk, ti.events->next_event_id) ||
         /* 26 */
-        mp_pack_str(pk, "next_thing_id") ||
-        msgpack_pack_uint64(pk, ti.node->next_thing_id) ||
+        mp_pack_str(pk, "next_free_id") ||
+        msgpack_pack_uint64(pk, ti.node->next_free_id) ||
         /* 27 */
         mp_pack_str(pk, "cached_names") ||
         msgpack_pack_uint32(pk, ti.names->n) ||

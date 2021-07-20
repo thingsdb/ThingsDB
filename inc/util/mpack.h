@@ -16,6 +16,11 @@
 #include <stdarg.h>
 #include <util/logger.h>
 
+typedef enum
+{
+    MPACK_EXT_MPACK,
+} mpack_ext_t;
+
 typedef struct
 {
     const unsigned char * data;

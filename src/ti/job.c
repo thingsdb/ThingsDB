@@ -1717,7 +1717,7 @@ static int job__new_timer(ti_thing_t * thing, mp_unp_t * up)
     if (!timer)
         goto fail0;
 
-    ti_update_next_thing_id(timer->id);
+    ti_update_next_free_id(timer->id);
     VEC_push(collection->timers, timer);
     free(varr);
     ti_decref(closure);

@@ -23,6 +23,7 @@
 #define TI_VAL_THING_S      "thing"
 #define TI_VAL_LIST_S       "list"
 #define TI_VAL_TUPLE_S      "tuple"
+#define TI_VAL_ROOM_S       "room"
 #define TI_VAL_SET_S        "set"
 #define TI_VAL_CLOSURE_S    "closure"
 #define TI_VAL_ERROR_S      "error"
@@ -41,15 +42,14 @@
 #define TI_KIND_S_SET       "$"
 #define TI_KIND_S_ERROR     "!"
 #define TI_KIND_S_WRAP      "&"
+#define TI_KIND_S_ROOM      "("
 #define TI_KIND_S_MEMBER    "%"
 #define TI_KIND_S_DATETIME  "'"
 #define TI_KIND_S_TIMEVAL   "\""
 
-/* both `nil` and `closure` must be on top, see TI_OPR_PERM */
 typedef enum
 {
     TI_VAL_NIL,
-    TI_VAL_CLOSURE,
     TI_VAL_INT,
     TI_VAL_FLOAT,
     TI_VAL_BOOL,
@@ -60,11 +60,19 @@ typedef enum
     TI_VAL_REGEX,
     TI_VAL_THING,       /* instance or object */
     TI_VAL_WRAP,
+    TI_VAL_ROOM,
     TI_VAL_ARR,         /* array, list or tuple */
     TI_VAL_SET,         /* set of things */
     TI_VAL_ERROR,
     TI_VAL_MEMBER,      /* enum member */
+
     TI_VAL_MPDATA,      /* msgpack data */
+    TI_VAL_CLOSURE,
+    /*
+     * {
+     *   "!": "closure",
+     *   "code": "||
+     */
     TI_VAL_FUTURE,      /* future */
     TI_VAL_TEMPLATE,    /* template to generate TI_VAL_STR
                            note that a template is never stored like a value,
@@ -94,6 +102,7 @@ typedef enum
     TI_KIND_C_SET       ='$',
     TI_KIND_C_ERROR     ='!',
     TI_KIND_C_WRAP      ='&',
+    TI_KIND_C_ROOOM     ='(',
     TI_KIND_C_MEMBER    ='%',
     TI_KIND_C_DATETIME  ='\'',
     TI_KIND_C_TIMEVAL   ='"',

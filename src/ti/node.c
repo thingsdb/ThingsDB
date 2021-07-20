@@ -44,7 +44,7 @@ ti_node_t * ti_node_create(
     node->retry_counter = 0;
     node->cevid = 0;
     node->sevid = 0;
-    node->next_thing_id = 0;
+    node->next_free_id = 0;
     node->stream = NULL;
     node->port = port;
     node->addr = strdup(addr);
@@ -322,8 +322,8 @@ int ti_node_info_to_pk(ti_node_t * node, msgpack_packer * pk)
         mp_pack_str(pk, "stored_event_id") ||
         msgpack_pack_uint64(pk, node->sevid) ||
 
-        mp_pack_str(pk, "next_thing_id") ||
-        msgpack_pack_uint64(pk, node->next_thing_id) ||
+        mp_pack_str(pk, "next_free_id") ||
+        msgpack_pack_uint64(pk, node->next_free_id) ||
 
         mp_pack_str(pk, "node_name") ||
         mp_pack_str(pk, node->addr) ||
@@ -382,7 +382,7 @@ int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
         mp_next(up, &mp_syntax_ver) != MP_U64
     ) return -1;
 
-    node->next_thing_id = mp_next_thing_id.via.u64;
+    node->next_free_id = mp_next_thing_id.via.u64;
     node->cevid = mp_cevid.via.u64;
     node->sevid = mp_sevid.via.u64;
     node->status = mp_status.via.u64;

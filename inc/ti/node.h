@@ -29,7 +29,7 @@ static inline int ti_node_status_to_pk(ti_node_t * node, msgpack_packer * pk)
 {
     return -(
         msgpack_pack_array(pk, 7) ||
-        msgpack_pack_uint64(pk, node->next_thing_id) ||
+        msgpack_pack_uint64(pk, node->next_free_id) ||
         msgpack_pack_uint64(pk, node->cevid) ||
         msgpack_pack_uint64(pk, node->sevid) ||
         msgpack_pack_uint8(pk, node->status) ||

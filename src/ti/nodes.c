@@ -363,7 +363,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
     node->syntax_ver = from_node_syntax_ver;
     node->cevid = mp_cevid.via.u64;
     node->sevid = mp_sevid.via.u64;
-    node->next_thing_id = mp_next_thing_id.via.u64;
+    node->next_free_id = mp_next_thing_id.via.u64;
 
     ti_nodes_update_syntax_ver(from_node_zone);
 

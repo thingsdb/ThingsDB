@@ -173,7 +173,7 @@ static void restore__cb(void)
     /* reset all node status properties */
     ti.node->cevid = 0;
     ti.node->sevid = 0;
-    ti.node->next_thing_id = 0;
+    ti.node->next_free_id = 0;
     ti.nodes->cevid = 0;
     ti.nodes->sevid = 0;
 

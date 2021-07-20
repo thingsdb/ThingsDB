@@ -155,7 +155,7 @@ skip_repeat:
     while (m--)
         VEC_push(args, ti_nil_get());
 
-    timer_id = ti_vint_create((int64_t) ti_next_thing_id());
+    timer_id = ti_vint_create((int64_t) ti_next_free_id());
     if (!timer_id)
         goto fail2;
 

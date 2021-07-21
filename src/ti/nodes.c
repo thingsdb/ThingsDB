@@ -1291,10 +1291,7 @@ unlock:
     uv_mutex_unlock(ti.timers->lock);
 }
 
-static void nodes__on_fwd_wu(
-        ti_stream_t * stream,
-        ti_pkg_t * pkg,
-        const char * action)  /* action = "watch" or "unwatch" */
+static void nodes__on_room_emit(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ti_wareq_t * wareq;
     ti_collection_t * collection;
@@ -1302,7 +1299,7 @@ static void nodes__on_fwd_wu(
     ti_req_t * req;
     mp_unp_t up;
     ti_node_t * other_node = stream->via.node;
-    mp_obj_t obj, mp_cid, mp_tid;
+    mp_obj_t obj, mp_collection_id, mp_room_id, mp_data;
 
     if (!other_node)
     {
@@ -1312,37 +1309,26 @@ static void nodes__on_fwd_wu(
 
     mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
-        mp_next(&up, &mp_cid) != MP_U64 ||
-        mp_next(&up, &mp_tid) != MP_U64)
+    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 3 ||
+        mp_next(&up, &mp_collection_id) != MP_U64 ||
+        mp_next(&up, &mp_room_id) != MP_U64 ||
+        mp_next(&up, &mp_data) != MP_BIN)
     {
         LOG_INVALID
         return;
     }
 
-    req = omap_get(stream->reqmap, pkg->id);
-    if (!req || !ti_clients_is_fwd_req(req))
+    collection = ti_collections_get_by_id(mp_collection_id.via.u64);
+    if (!collection)
     {
-        if (req && ti_api_is_fwd_req(req))
-        {
-            log_debug(
-                "function `%s()` with a HTTP API request has no effect",
-                action);
-        }
-        else
-        {
-            log_warning("unexpected or lost request (package id %u)", pkg->id);
-        }
+        log_warning("cannot find "TI_COLLECTION_ID, mp_collection_id.via.u64);
         return;
     }
 
-    fwd = req->data;
-    collection = ti_collections_get_by_id(mp_cid.via.u64);
-    if (!collection)
-    {
-        log_warning("cannot find "TI_COLLECTION_ID, mp_cid.via.u64);
-        return;
-    }
+    uv_mutex_lock(collection->lock);
+
+
+    uv_mutex_unlock(collection->lock);
 
     wareq = ti_wareq_create(fwd->stream, collection, action);
     if (!wareq || !(wareq->thing_ids = vec_new(1)))
@@ -1965,6 +1951,9 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
         break;
     case TI_PROTO_NODE_EX_TIMER:
         nodes__on_ex_timer(stream, pkg);
+        break;
+    case TI_PROTO_NODE_ROOM_EMIT:
+        nodes__on_fwd_wu(stream, pkg, "unwatch");
         break;
     case TI_PROTO_NODE_REQ_QUERY:
         nodes__on_req_query(stream, pkg);

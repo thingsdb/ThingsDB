@@ -16,6 +16,7 @@ typedef enum
      * 0x0000xxxx  0..15 fire and forgets from node to client
      */
     TI_PROTO_CLIENT_NODE_STATUS =0,     /* str_status                       */
+    /* 1..4 : Old watch protocol */
     TI_PROTO_CLIENT_WARN        =5,     /* {warn_msg:..., warn_code: x}     */
     TI_PROTO_CLIENT_ROOM_JOIN   =6,     /* {id:x data:...}                  */
     TI_PROTO_CLIENT_ROOM_LEAVE  =7,     /* {id:x data:...}                  */
@@ -36,6 +37,7 @@ typedef enum
     TI_PROTO_CLIENT_REQ_PING    =32,    /* empty                            */
     TI_PROTO_CLIENT_REQ_AUTH    =33,    /* [user, pass] or token            */
     TI_PROTO_CLIENT_REQ_QUERY   =34,    /* [scope, query, {variable}]       */
+    /* 35..36 : Old watch protocol */
     TI_PROTO_CLIENT_REQ_RUN     =37,    /* [scope, procedure, arguments...] */
     TI_PROTO_CLIENT_REQ_JOIN    =38,    /* [scope, room id's....]}         */
     TI_PROTO_CLIENT_REQ_LEAVE   =39,    /* [scope, room id's....]}         */
@@ -60,11 +62,12 @@ typedef enum
     TI_PROTO_NODE_EVENT         =128,   /* event */
     TI_PROTO_NODE_INFO          =129,   /* [...] */
     TI_PROTO_NODE_MISSING_EVENT =130,   /* event_id */
+    /* 131..132 : Old watch protocol */
     TI_PROTO_NODE_FWD_TIMER     =133,   /* [scope_id, timer_id] */
     TI_PROTO_NODE_OK_TIMER      =134,   /* [scope_id, timer_id, next_ts] */
     TI_PROTO_NODE_EX_TIMER      =135,   /* [scope_id, timer_id, next_ts,
                                             err_code, err_msg] */
-    TI_PROTO_NODE_EMIT          =136,   /* {id:.., args: [..]} */
+    TI_PROTO_NODE_ROOM_EMIT     =136,   /* {id:.., args: [..]} */
     /*
      * 160..191 node requests
      */

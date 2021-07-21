@@ -123,7 +123,7 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
     ti_node->sevid = 0;
     ti_node->next_free_id = 0;
     ti_node->syntax_ver = TI_VERSION_SYNTAX;
-    ti_node->status = TI_NODE_STAT_SYNCHRONIZING;
+    ti_set_and_broadcast_node_status(TI_NODE_STAT_SYNCHRONIZING);
 
     ti_nodes_update_syntax_ver(TI_VERSION_SYNTAX);
     ti_update_rel_id();

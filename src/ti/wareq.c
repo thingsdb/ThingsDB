@@ -146,7 +146,7 @@ ti_wareq_t * ti_wareq_may_create(
         }
         break;
     case TI_SCOPE_NODE:
-        if (ti_access_check_err(ti.access_node, user, TI_AUTH_WATCH, e))
+        if (ti_access_check_err(ti.access_node, user, TI_AUTH_JOIN, e))
             return NULL;
 
         if (scope->via.node_id != ti.node->id)
@@ -164,7 +164,7 @@ ti_wareq_t * ti_wareq_may_create(
 
     assert (collection);
 
-    if (ti_access_check_err(collection->access, user, TI_AUTH_WATCH, e))
+    if (ti_access_check_err(collection->access, user, TI_AUTH_JOIN, e))
         return NULL;
 
     wareq = ti_wareq_create(stream, collection, task);

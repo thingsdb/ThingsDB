@@ -13,7 +13,7 @@ enum
     TI_AUTH_QUERY       =1<<0,  /* allow queries without events */
     TI_AUTH_EVENT       =1<<1,  /* allow events */
     TI_AUTH_GRANT       =1<<2,  /* grant/revoke */
-    TI_AUTH_WATCH       =1<<3,  /* watch/unwatch */
+    TI_AUTH_JOIN        =1<<3,  /* join/leave rooms */
     TI_AUTH_RUN         =1<<4,  /* run    */
     TI_AUTH_MASK_FULL   =1<<0|  /* QUERY  */
                          1<<1|  /* EVENT */

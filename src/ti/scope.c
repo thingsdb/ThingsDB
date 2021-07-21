@@ -350,3 +350,32 @@ void ti_scope_load_from_scope_id(
         *access_ = *collection ? (*collection)->access : NULL;
     }
 }
+
+ti_collection_t * ti_scope_get_collection(ti_scope_t * scope, ex_t * e)
+{
+    ti_collection_t * collection;
+
+    switch (scope->tp)
+    {
+    case TI_SCOPE_THINGSDB:
+    case TI_SCOPE_NODE:
+        ex_set(&e, EX_BAD_DATA, "expecting a `collection` scope");
+        return NULL;
+    case TI_SCOPE_COLLECTION_NAME:
+        collection = ti_collections_get_by_strn(
+                scope->via.collection_name.name,
+                scope->via.collection_name.sz);
+        if (!collection)
+            ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
+                scope->via.collection_name.sz,
+                scope->via.collection_name.name);
+
+        return collection;
+    default:
+        collection = ti_collections_get_by_id(scope->via.collection_id);
+        if (!collection)
+            ex_set(e, EX_LOOKUP_ERROR, TI_COLLECTION_ID" not found",
+                    scope->via.collection_id);
+        return collection;
+    }
+}

@@ -30,6 +30,8 @@ typedef enum
     TI_PROTO_CLIENT_RES_OK      =17,    /* empty */
     TI_PROTO_CLIENT_RES_DATA    =18,    /* ... */
     TI_PROTO_CLIENT_RES_ERROR   =19,    /* {error_msg:..., error_code: x} */
+    TI_PROTO_CLIENT_RES_JOIN    =20,    /* [Id's / nil...] */
+    TI_PROTO_CLIENT_RES_LEAVE   =21,    /* [Id's / nil...] */
 
     /*
      * 0x0010xxxx  32..63 client requests

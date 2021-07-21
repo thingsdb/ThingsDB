@@ -158,6 +158,12 @@ static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
     else
     {
         assert (user != NULL);
+        /*
+         * If below fails, it's an allocation error and the only side effect
+         * will be that the steam will not re
+         */
+        (void) ti_room_join(ti.room0, stream);
+
         ti_stream_set_user(stream, user);
         resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_OK, NULL, 0);
     }
@@ -321,62 +327,47 @@ finish:
     }
 }
 
-static void clients__on_watch(ti_stream_t * stream, ti_pkg_t * pkg)
+static void clients__on_join(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t e = {0};
     ti_user_t * user = stream->via.user;
-    ti_wareq_t * wareq = NULL;
     ti_pkg_t * resp = NULL;
     ti_scope_t scope;
+    ti_collection_t * collection;
 
     if (clients__check(user, &e) || ti_scope_init_pkg(&scope, pkg, &e))
-        goto finish;
+        goto on_error;
 
     if (ti.node->status <= TI_NODE_STAT_SYNCHRONIZING)
     {
         ex_set(&e, EX_NODE_ERROR,
                 TI_NODE_ID" is not ready to handle watch requests",
                 ti.node->id);
-        goto finish;
+        goto on_error;
     }
 
-    wareq = ti_wareq_may_create(&scope, stream, pkg, "watch", &e);
-    if (e.nr)
-        goto finish;
+    collection = ti_scope_get_collection(&scope, &e);
+    if (!collection ||
+        ti_access_check_err(collection->access, user, TI_AUTH_JOIN, &e))
+        goto on_error;
 
-    resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_OK, NULL, 0);
-    if (!resp)
-        ex_set_mem(&e);
+    resp = ti_collection_join_rooms(collection, stream, pkg, &e);
+    if (resp)
+        goto done;
 
-finish:
-    if (e.nr)
-        resp = ti_pkg_client_err(pkg->id, &e);
+on_error:
+    resp = ti_pkg_client_err(pkg->id, &e);
 
+done:
     if (!resp || ti_stream_write_pkg(stream, resp))
     {
-        /* serious error, watch cannot continue */
+        /* serious error, join cannot continue */
         free(resp);
-        ti_wareq_destroy(wareq);
         log_error(EX_MEMORY_S);
-        return;
     }
-
-    if (ti_stream_is_closed(stream))
-        return;
-
-    if (wareq)
-    {
-        /* a watch request, so watch things in a collection scope */
-        if (ti_wareq_run(wareq))
-            ti_wareq_destroy(wareq);
-        return;  /* success */
-    }
-
-    /* this must be the node scope */
-    ti_thing_watch(ti.thing0, stream);
 }
 
-static void clients__on_unwatch(ti_stream_t * stream, ti_pkg_t * pkg)
+static void clients__on_leave(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t e = {0};
     ti_user_t * user = stream->via.user;
@@ -503,14 +494,14 @@ static void clients__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_CLIENT_REQ_QUERY:
         clients__on_query(stream, pkg);
         break;
-    case TI_PROTO_CLIENT_REQ_WATCH:
-        clients__on_watch(stream, pkg);
-        break;
-    case TI_PROTO_CLIENT_REQ_UNWATCH:
-        clients__on_unwatch(stream, pkg);
-        break;
     case TI_PROTO_CLIENT_REQ_RUN:
         clients__on_run(stream, pkg);
+        break;
+    case TI_PROTO_CLIENT_REQ_JOIN:
+        clients__on_join(stream, pkg);
+        break;
+    case TI_PROTO_CLIENT_REQ_LEAVE:
+        clients__on_unwatch(stream, pkg);
         break;
 
     default:
@@ -720,19 +711,4 @@ int ti_clients_listen(void)
             cfg->pipe_client_name);
 
     return 0;
-}
-
-void ti_clients_write_rpkg(ti_rpkg_t * rpkg)
-{
-    if (!ti.thing0->watchers)
-        return;
-
-    for (vec_each(ti.thing0->watchers, ti_watch_t, watch))
-    {
-        if (ti_stream_is_closed(watch->stream))
-            continue;
-
-        if (ti_stream_write_rpkg(watch->stream, rpkg))
-            log_critical(EX_INTERNAL_S);
-    }
 }

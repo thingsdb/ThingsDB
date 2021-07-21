@@ -15,6 +15,7 @@
 #include <ti/proto.h>
 #include <ti/qcache.h>
 #include <ti/query.inline.h>
+#include <ti/room.h>
 #include <ti/syncarchive.h>
 #include <ti/syncevents.h>
 #include <ti/syncfull.h>
@@ -22,7 +23,6 @@
 #include <ti/val.inline.h>
 #include <ti/varr.h>
 #include <ti/version.h>
-#include <ti/wareq.h>
 #include <util/cryptx.h>
 #include <util/fx.h>
 #include <util/mpack.h>
@@ -1293,10 +1293,8 @@ unlock:
 
 static void nodes__on_room_emit(ti_stream_t * stream, ti_pkg_t * pkg)
 {
-    ti_wareq_t * wareq;
     ti_collection_t * collection;
-    ti_fwd_t * fwd;
-    ti_req_t * req;
+    ti_room_t * room;
     mp_unp_t up;
     ti_node_t * other_node = stream->via.node;
     mp_obj_t obj, mp_collection_id, mp_room_id, mp_data;
@@ -1327,22 +1325,13 @@ static void nodes__on_room_emit(ti_stream_t * stream, ti_pkg_t * pkg)
 
     uv_mutex_lock(collection->lock);
 
+    room = ti_collection_room_by_id(collection, mp_room_id.via.u64);
+    if (room)
+        ti_room_emit_event(room, mp_data.via.bin, mp_data.via.sz);
+    else
+        log_warning("cannot find "TI_ROOM_ID, mp_room_id.via.u64);
 
     uv_mutex_unlock(collection->lock);
-
-    wareq = ti_wareq_create(fwd->stream, collection, action);
-    if (!wareq || !(wareq->thing_ids = vec_new(1)))
-    {
-        ti_wareq_destroy(wareq);
-        log_critical(EX_MEMORY_S);
-        return;
-    }
-
-    VEC_push(wareq->thing_ids, ti_wareq_id(mp_tid.via.u64));
-
-    if (ti_wareq_run(wareq))
-        ti_wareq_destroy(wareq);
-    return;  /* success */
 }
 
 static const char * nodes__get_status_fn(void)
@@ -1937,12 +1926,6 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_NODE_MISSING_EVENT:
         nodes__on_missing_event(stream, pkg);
         break;
-    case TI_PROTO_NODE_FWD_WATCH:
-        nodes__on_fwd_wu(stream, pkg, "watch");
-        break;
-    case TI_PROTO_NODE_FWD_UNWATCH:
-        nodes__on_fwd_wu(stream, pkg, "unwatch");
-        break;
     case TI_PROTO_NODE_FWD_TIMER:
         nodes__on_fwd_timer(stream, pkg);
         break;
@@ -1953,7 +1936,7 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
         nodes__on_ex_timer(stream, pkg);
         break;
     case TI_PROTO_NODE_ROOM_EMIT:
-        nodes__on_fwd_wu(stream, pkg, "unwatch");
+        nodes__on_room_emit(stream, pkg);
         break;
     case TI_PROTO_NODE_REQ_QUERY:
         nodes__on_req_query(stream, pkg);

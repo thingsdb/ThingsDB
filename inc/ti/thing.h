@@ -75,17 +75,6 @@ int ti_thing_get_by_raw_e(
         ti_raw_t * r,
         ex_t * e);
 int ti_thing_gen_id(ti_thing_t * thing);
-ti_watch_t * ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream);
-int ti_thing_watch_fwd(
-        ti_thing_t * thing,
-        ti_stream_t * stream,
-        uint16_t pkg_id);
-int ti_thing_unwatch_fwd(
-        ti_thing_t * thing,
-        ti_stream_t * stream,
-        uint16_t pkg_id);
-int ti_thing_watch_init(ti_thing_t * thing, ti_stream_t * stream);
-int ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream);
 int ti_thing__to_pk(ti_thing_t * thing, ti_vp_t * vp, int options);
 int ti_thing_t_to_pk(ti_thing_t * thing, ti_vp_t * vp, int options);
 ti_val_t * ti_thing_val_by_strn(ti_thing_t * thing, const char * str, size_t n);

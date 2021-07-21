@@ -38,5 +38,6 @@ void ti_scope_load_from_scope_id(
         uint64_t scope_id,
         vec_t ** access_,
         ti_collection_t ** collection);
+ti_collection_t * ti_scope_get_collection(ti_scope_t * scope, ex_t * e);
 
 #endif /* TI_SCOPE_H_ */

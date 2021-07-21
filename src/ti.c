@@ -88,6 +88,7 @@ int ti_create(void)
     ti.modules = smap_create();
     ti.langdef = compile_langdef();
     ti.thing0 = ti_thing_o_create(0, 0, NULL);
+    ti.room0 = ti_room_create(0, NULL);
     if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti.boottime) ||
             ti_counters_create() ||
             ti_away_create() ||
@@ -470,7 +471,7 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
 
         if (ti.nodes->vec->n == 1)
         {
-            ti.node->status = TI_NODE_STAT_READY;
+            ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
         }
         else if (ti_sync_start())
             goto failed;
@@ -778,34 +779,8 @@ ti_rpkg_t * ti_node_status_rpkg(void)
     return rpkg;
 }
 
-ti_rpkg_t * ti_client_status_rpkg(void)
-{
-    msgpack_packer pk;
-    msgpack_sbuffer buffer;
-    ti_pkg_t * pkg;
-    ti_rpkg_t * rpkg;
-    const char * status = ti_node_status_str(ti.node->status);
-
-    if (mp_sbuffer_alloc_init(&buffer, 64, sizeof(ti_pkg_t)))
-        return NULL;
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-
-    mp_pack_str(&pk, status);
-
-    pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_NODE_STATUS, buffer.size);
-
-    rpkg = ti_rpkg_create(pkg);
-    if (!rpkg)
-        free(pkg);
-
-    return rpkg;
-}
-
 void ti_set_and_broadcast_node_status(ti_node_status_t status)
 {
-    ti_rpkg_t * client_rpkg;
-
     if (ti.node->status == status)
         return;  /* node status is not changed */
 
@@ -816,16 +791,7 @@ void ti_set_and_broadcast_node_status(ti_node_status_t status)
     ti.node->status = status;
 
     ti_broadcast_node_info();
-
-    client_rpkg = ti_client_status_rpkg();
-    if (!client_rpkg)
-    {
-        log_critical(EX_MEMORY_S);
-        return;
-    }
-
-    ti_clients_write_rpkg(client_rpkg);
-    ti_rpkg_drop(client_rpkg);
+    ti_room_emit_node_status(ti.room0, ti_node_status_str(ti.node->status));
 }
 
 void ti_set_and_broadcast_node_zone(uint8_t zone)

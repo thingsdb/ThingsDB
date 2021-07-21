@@ -7,7 +7,9 @@
 #include <ex.h>
 #include <stdint.h>
 #include <ti/collection.t.h>
+#include <ti/pkg.t.h>
 #include <ti/raw.t.h>
+#include <ti/stream.t.h>
 #include <ti/val.t.h>
 #include <util/guid.h>
 #include <util/imap.h>
@@ -32,5 +34,10 @@ ti_thing_t * ti_collection_thing_restore_gc(
 void ti_collection_gc_clear(ti_collection_t * collection);
 void ti_collection_stop_futures(ti_collection_t * collection);
 int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things);
+ti_pkg_t * ti_collection_join_rooms(
+        ti_collection_t * collection,
+        ti_stream_t * stream,
+        ti_pkg_t * pkg,
+        ex_t * e);
 
 #endif /* TI_COLLECTION_H_ */

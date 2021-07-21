@@ -290,7 +290,7 @@
 #define DOC_SOCKET_QUERY            DOC_SEE("connect/socket/query")
 #define DOC_T_TYPE                  DOC_SEE("data-types/type")
 #define DOC_T_ENUM                  DOC_SEE("data-types/enum")
-#define DOC_WATCHING                DOC_SEE("watching")
+#define DOC_LISTENING               DOC_SEE("listening")
 
 /* No functions */
 #define DOC_PROCEDURES_API          DOC_SEE("procedures-api")

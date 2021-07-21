@@ -11,6 +11,7 @@
 
 ti_room_t * ti_room_create(uint64_t id, ti_collection_t * collection);
 int ti_room_gen_id(ti_room_t * room);
-int ti_room_gen_id(ti_room_t * room);
+void ti_room_emit_event(ti_room_t * room, const char * data, size_t sz);
+void ti_room_emit_node_status(ti_room_t * room, const char * status);
 
 #endif  /* TI_ROOM_H_ */

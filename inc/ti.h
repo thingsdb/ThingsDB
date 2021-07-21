@@ -101,6 +101,7 @@ struct ti_s
     ti_store_t * store;
     ti_sync_t * sync;
     ti_thing_t * thing0;        /* thing with id 0 */
+    ti_room_t * room0;          /* room with id 0 */
     ti_users_t * users;
     ti_backups_t * backups;
     ti_timers_t * timers;

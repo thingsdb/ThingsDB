@@ -535,3 +535,65 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
 
     return 0;
 }
+
+ti_pkg_t * ti_collection_join_rooms(
+        ti_collection_t * collection,
+        ti_stream_t * stream,
+        ti_pkg_t * pkg,
+        ex_t * e)
+{
+    ti_pkg_t * resp;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+    size_t i, nargs, size = pkg->n + sizeof(ti_pkg_t);
+    mp_unp_t up;
+    mp_obj_t obj, mp_id;
+    ti_room_t * room;
+
+    mp_unp_init(&up, pkg->data, pkg->n);
+
+    mp_next(&up, &obj);     /* array with at least size 1 */
+    mp_skip(&up);           /* scope */
+
+    nargs = obj.via.sz - 1;
+
+    if (mp_sbuffer_alloc_init(&buffer, size, sizeof(ti_pkg_t)))
+    {
+        ex_set_mem(e);
+        return NULL;
+    }
+
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+    msgpack_pack_array(&pk, nargs);
+
+    uv_mutex_lock(collection->lock);
+
+    for (i = 0; i < nargs; ++i)
+    {
+        if (mp_next(&up, &mp_id) <= 0 || mp_cast_u64(&mp_id))
+        {
+            ex_set(e, EX_BAD_DATA,
+                "join requests only excepts integer room id's"DOC_LISTENING);
+            break;
+        }
+
+        room = ti_collection_room_by_id(collection, mp_id.via.u64);
+        if (room && ti_room_join(room, stream) == 0)
+            msgpack_pack_uint64(&pk, room->id);
+        else
+            msgpack_pack_nil(&pk);
+    }
+
+    uv_mutex_unlock(collection->lock);
+
+    if (e->nr)
+    {
+        msgpack_sbuffer_destroy(&buffer);
+        return NULL;
+    }
+
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(resp, pkg->id, TI_PROTO_CLIENT_RES_JOIN, buffer.size);
+
+    return resp;
+}

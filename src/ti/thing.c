@@ -1047,12 +1047,11 @@ int ti_thing_t_to_pk(ti_thing_t * thing, ti_vp_t * vp, int options)
     assert (!ti_thing_is_object(thing));
     assert (thing->id);   /* no need to check, options < 0 must have id */
 
-    if (msgpack_pack_map(&vp->pk, 3) ||
+    if (msgpack_pack_map(&vp->pk, 1) ||
         mp_pack_strn(&vp->pk, TI_KIND_S_INSTANCE, 1) ||
+        msgpack_pack_array(&vp->pk, 3) ||
         msgpack_pack_uint16(&vp->pk, thing->type_id) ||
-        mp_pack_strn(&vp->pk, TI_KIND_S_THING, 1) ||
         msgpack_pack_uint64(&vp->pk, thing->id) ||
-        msgpack_pack_str(&vp->pk, 0) ||
         msgpack_pack_array(&vp->pk, ti_thing_n(thing)))
         return -1;
 

@@ -125,6 +125,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
                 mp_val.via.u64,
                 sz,
                 e);
+
     case TI_KIND_C_INSTANCE:
         if (!vup->collection)
         {
@@ -132,49 +133,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
                     "cannot unpack a `thing` without a collection");
             return NULL;
         }
-        if (sz != 3)
-        {
-            ex_set(e, EX_TYPE_ERROR,
-                    "expecting exactly 3 key value pairs for a type");
-            return NULL;
-        }
         return (ti_val_t *) ti_things_thing_t_from_vup(vup, e);
-    case TI_KIND_C_CLOSURE:
-    {
-        ti_qbind_t syntax = {
-                .immutable_n = 0,
-                .flags = vup->collection
-                    ? TI_QBIND_FLAG_COLLECTION
-                    : TI_QBIND_FLAG_THINGSDB,
-        };
-        if (sz != 1 || mp_next(vup->up, &mp_val) != MP_STR)
-        {
-            ex_set(e, EX_BAD_DATA,
-                    "closures must be written according the following "
-                    "syntax: {\""TI_KIND_S_CLOSURE"\": \"...\"");
-            return NULL;
-        }
-        return (ti_val_t *) ti_closure_from_strn(
-                &syntax,
-                mp_val.via.str.data,
-                mp_val.via.str.n, e);
-    }
-    case TI_KIND_C_REGEX_OBSOLETE_:
-    {
-        /*
-         * TODO (COMPAT) For compatibility with data from v0.x
-         */
-        if (sz != 1 || mp_next(vup->up, &mp_val) != MP_STR)        {
-            ex_set(e, EX_BAD_DATA,
-                    "regular expressions must be written according the "
-                    "following syntax: {\""TI_KIND_S_REGEX_OBSOLETE_"\": \"...\"");
-            return NULL;
-        }
-
-        return (ti_val_t *) ti_regex_from_strn(
-                mp_val.via.str.data,
-                mp_val.via.str.n, e);
-    }
     case TI_KIND_C_SET:
     {
         ti_val_t * vthing;
@@ -216,25 +175,37 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
     case TI_KIND_C_ERROR:
     {
         ti_verror_t * verror;
-        mp_obj_t mp_msg, mp_code;
+        mp_obj_t obj, mp_msg, mp_code;
 
-        if (sz != 3 ||
-            mp_skip(vup->up) != MP_STR ||       /* first value: definition */
-            mp_skip(vup->up) != MP_STR ||       /* key: error_msg */
+        if (sz != 1 ||
+            mp_next(vup->up, &obj) != MP_ARR || obj.via.sz != 2 ||
             mp_next(vup->up, &mp_msg) != MP_STR ||
-            mp_msg.via.str.n > EX_MAX_SZ ||
-            mp_skip(vup->up) != MP_STR ||       /* error_code */
             mp_next(vup->up, &mp_code) != MP_I64 ||
+            mp_msg.via.str.n > EX_MAX_SZ ||
             mp_code.via.i64 < EX_MIN_ERR ||
             mp_code.via.i64 > EX_MAX_BUILD_IN_ERR)
         {
-            ex_set(e, EX_BAD_DATA,
-                    "errors must be written according the "
-                    "following syntax: {"
-                    "\""TI_KIND_S_ERROR"\": \"..err()\","
-                    "\"error_msg\": \"..msg\","
-                    "\"error_code\": code}");
-            return NULL;
+            /*
+             * TODO (COMPAT) Compatibility with v0.x
+             */
+            if (sz != 3 ||
+                mp_skip(vup->up) != MP_STR ||       /* definition */
+                mp_skip(vup->up) != MP_STR ||       /* key: error_msg */
+                mp_next(vup->up, &mp_msg) != MP_STR ||
+                mp_skip(vup->up) != MP_STR ||       /* error_code */
+                mp_next(vup->up, &mp_code) != MP_I64 ||
+                mp_msg.via.str.n > EX_MAX_SZ ||
+                mp_code.via.i64 < EX_MIN_ERR ||
+                mp_code.via.i64 > EX_MAX_BUILD_IN_ERR)
+            {
+                ex_set(e, EX_BAD_DATA,
+                        "errors must be written according the "
+                        "following syntax: {"
+                        "\""TI_KIND_S_ERROR"\": \"..err()\","
+                        "\"error_msg\": \"..msg\","
+                        "\"error_code\": code}");
+                return NULL;
+            }
         }
 
         verror = ti_verror_create(
@@ -371,6 +342,45 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
             ex_set_mem(e);
 
         return (ti_val_t *) dt;
+    }
+    /*
+     * TODO (COMPAT) For compatibility with data from v0.x
+     */
+    case TI_KIND_C_CLOSURE_OBSOLETE_:
+    {
+        ti_qbind_t syntax = {
+                .immutable_n = 0,
+                .flags = vup->collection
+                    ? TI_QBIND_FLAG_COLLECTION
+                    : TI_QBIND_FLAG_THINGSDB,
+        };
+        if (sz != 1 || mp_next(vup->up, &mp_val) != MP_STR)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "closures must be written according the following "
+                    "syntax: {\""TI_KIND_S_CLOSURE_OBSOLETE_"\": \"...\"");
+            return NULL;
+        }
+        return (ti_val_t *) ti_closure_from_strn(
+                &syntax,
+                mp_val.via.str.data,
+                mp_val.via.str.n, e);
+    }
+    /*
+     * TODO (COMPAT) For compatibility with data from v0.x
+     */
+    case TI_KIND_C_REGEX_OBSOLETE_:
+    {
+        if (sz != 1 || mp_next(vup->up, &mp_val) != MP_STR)        {
+            ex_set(e, EX_BAD_DATA,
+                    "regular expressions must be written according the "
+                    "following syntax: {\""TI_KIND_S_REGEX_OBSOLETE_"\": \"...\"");
+            return NULL;
+        }
+
+        return (ti_val_t *) ti_regex_from_strn(
+                mp_val.via.str.data,
+                mp_val.via.str.n, e);
     }
     }
     ex_set(e, EX_VALUE_ERROR, "property `%c` is reserved"DOC_PROPERTIES,
@@ -544,6 +554,38 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
                     obj.via.ext.data,
                     obj.via.ext.n,
                     e);
+        case MPACK_EXT_CLOSURE:
+        {
+            ti_qbind_t syntax = {
+                    .immutable_n = 0,
+                    .flags = vup->collection
+                        ? TI_QBIND_FLAG_COLLECTION
+                        : TI_QBIND_FLAG_THINGSDB,
+            };
+            return (ti_val_t *) ti_closure_from_strn(
+                    obj.via.ext.data,
+                    obj.via.ext.n,
+                    e);
+        }
+        case MPACK_EXT_ROOM:
+        {
+            ti_room_t * room;
+            uint64_t room_id;
+            if (obj.via.ext.n != sizeof(uint64_t))
+            {
+                ex_set(e, EX_BAD_DATA,
+                        "expecting a room type of size %zu but got %"PRIu32,
+                        sizeof(uint64_t), obj.via.ext.n);
+                return NULL;
+            }
+
+            mp_read_uint64(obj.via.ext.data, &room_id);
+
+            room = ti_room_create(room_id, vup->collection);
+            if (!room)
+                ex_set_mem(e);
+            return (ti_val_t *) room;
+        }
         }
         ex_set(e, EX_BAD_DATA,
                 "msgpack extension type %d is not supported by ThingsDB",

@@ -20,6 +20,8 @@ typedef enum
 {
     MPACK_EXT_MPACK,
     MPACK_EXT_REGEX,
+    MPACK_EXT_CLOSURE,
+    MPACK_EXT_ROOM,
 } mpack_ext_t;
 
 typedef struct
@@ -813,5 +815,15 @@ static inline void * mp_strdup(mp_obj_t * o)
     assert (o->tp == MP_STR || o->tp == MP_BIN);
     return strndup(o->via.str.data, o->via.str.n);
 }
+
+static inline int mp_store_uint64(msgpack_packer * pk, uint64_t u)
+{
+    unsigned char buf[8];
+    _msgpack_store64(buf, u);
+    return msgpack_pack_append_buffer(pk, buf, 8);
+}
+
+#define mp_read_uint64(o, u) _msgpack_load64(uint64_t, o, u)
+
 
 #endif  /* MPACK_H_ */

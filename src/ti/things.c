@@ -116,16 +116,27 @@ ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
     ti_type_t * type;
     mp_obj_t obj, mp_thing_id, mp_type_id;
 
-    if (mp_next(vup->up, &mp_type_id) != MP_U64 ||
-        mp_skip(vup->up) != MP_STR ||   /* `#` */
+    if (mp_next(vup->up, &obj) != MP_ARR || obj.via.sz != 3 ||
+        mp_next(vup->up, &mp_type_id) != MP_U64 ||
         mp_next(vup->up, &mp_thing_id) != MP_U64 ||
-        mp_skip(vup->up) != MP_STR ||   /* `` */
         mp_next(vup->up, &obj) != MP_ARR)
     {
-        ex_set(e, EX_BAD_DATA,
-                "invalid type data; "
-                "expecting an type_id, things_id and array with values");
-        return NULL;
+        /*
+         * TODO (COMPAT) For backwards compatibility with v0.x
+         */
+        if (obj.tp != MP_U64 ||
+            mp_skip(vup->up) != MP_STR ||   /* `#` */
+            mp_next(vup->up, &mp_thing_id) != MP_U64 ||
+            mp_skip(vup->up) != MP_STR ||   /* `` */
+            mp_next(vup->up, &obj) != MP_ARR)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "invalid type data; "
+                    "expecting an type_id, things_id and array with values");
+            return NULL;
+        }
+
+        mp_type_id = obj;
     }
 
     type = ti_types_by_id(vup->collection->types, mp_type_id.via.u64);

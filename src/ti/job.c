@@ -33,7 +33,7 @@
  * Returns 0 on success
  * - for example: {'prop': [new_count, values...]}
  */
-static int job__add(ti_thing_t * thing, mp_unp_t * up)
+static int job__set_add(ti_thing_t * thing, mp_unp_t * up)
 {
     ex_t e = {0};
     ti_val_t * val;
@@ -1881,7 +1881,7 @@ static int job__del_type(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'prop': [del_count, thing_ids...]}
  */
-static int job__remove(ti_thing_t * thing, mp_unp_t * up)
+static int job__set_remove(ti_thing_t * thing, mp_unp_t * up)
 {
     ti_collection_t * collection = thing->collection;
     ti_val_t * val;
@@ -2202,23 +2202,89 @@ static int job__splice(ti_thing_t * thing, mp_unp_t * up)
  */
 int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
 {
-    assert (thing);
-    assert (thing->collection);
     mp_obj_t obj, mp_job;
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
-        mp_next(up, &mp_job) != MP_STR || mp_job.via.str.n < 3)
+    if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||
+        mp_next(up, &mp_job) != MP_U64)
     {
-        log_critical(
-                "job is not a `map` or `type` "
-                "for thing "TI_THING_ID" is missing", 0);
-        return -1;
+        if (obj.tp != MP_MAP || obj.via.sz != 1 ||
+            mp_next(up, &mp_job) != MP_STR || mp_job.via.str.n < 3)
+        {
+            log_critical(
+                    "job is not a `map` or `type` "
+                    "for thing "TI_THING_ID" is missing", 0);
+            return -1;
+        }
+        goto version_v0;
     }
 
+    switch ((ti_task_enum) mp_job.via.u64)
+    {
+    case TI_TASK_SET:               return job__set(thing, up);
+    case TI_TASK_DEL:               return job__del(thing, up);
+    case TI_TASK_SPLICE:            return job__splice(thing, up);
+    case TI_TASK_SET_ADD:           return job__set_add(thing, up);
+    case TI_TASK_SET_REMOVE:        return job__set_remove(thing, up);
+    case TI_TASK_DEL_COLLECTION:    break;
+    case TI_TASK_DEL_ENUM:          return job__del_enum(thing, up);
+    case TI_TASK_DEL_EXPIRED:       break;
+    case TI_TASK_DEL_MODULE:        break;
+    case TI_TASK_DEL_NODE:          break;
+    case TI_TASK_DEL_PROCEDURE:     return job__del_procedure(thing, up);
+    case TI_TASK_DEL_TIMER:         return job__del_timer(thing, up);
+    case TI_TASK_DEL_TOKEN:         break;
+    case TI_TASK_DEL_TYPE:          return job__del_type(thing, up);
+    case TI_TASK_DEL_USER:          break;
+    case TI_TASK_DEPLOY_MODULE:     break;
+    case TI_TASK_GRANT:             break;
+    case TI_TASK_MOD_ENUM_ADD:      return job__mod_enum_add(thing, up);
+    case TI_TASK_MOD_ENUM_DEF:      return job__mod_enum_def(thing, up);
+    case TI_TASK_MOD_ENUM_DEL:      return job__mod_enum_del(thing, up);
+    case TI_TASK_MOD_ENUM_MOD:      return job__mod_enum_mod(thing, up);
+    case TI_TASK_MOD_ENUM_REN:      return job__mod_enum_ren(thing, up);
+    case TI_TASK_MOD_TYPE_ADD:      return job__mod_type_add(thing, up, ev_id);
+    case TI_TASK_MOD_TYPE_DEL:      return job__mod_type_del(thing, up, ev_id);
+    case TI_TASK_MOD_TYPE_MOD:      return job__mod_type_mod(thing, up);
+    case TI_TASK_MOD_TYPE_REL_ADD:  return job__mod_type_rel_add(thing, up);
+    case TI_TASK_MOD_TYPE_REL_DEL:  return job__mod_type_rel_del(thing, up);
+    case TI_TASK_MOD_TYPE_REN:      return job__mod_type_ren(thing, up);
+    case TI_TASK_MOD_TYPE_WPO:      return job__mod_type_wpo(thing, up);
+    case TI_TASK_NEW_COLLECTION:    break;
+    case TI_TASK_NEW_MODULE:        break;
+    case TI_TASK_NEW_NODE:          break;
+    case TI_TASK_NEW_PROCEDURE:     return job__new_procedure(thing, up);
+    case TI_TASK_NEW_TIMER:         return job__new_timer(thing, up);
+    case TI_TASK_NEW_TOKEN:         break;
+    case TI_TASK_NEW_TYPE:          return job__new_type(thing, up);
+    case TI_TASK_NEW_USER:          break;
+    case TI_TASK_RENAME_COLLECTION: break;
+    case TI_TASK_RENAME_ENUM:       return job__rename_enum(thing, up);
+    case TI_TASK_RENAME_MODULE:     break;
+    case TI_TASK_RENAME_PROCEDURE:  return job__rename_procedure(thing, up);
+    case TI_TASK_RENAME_TYPE:       return job__rename_type(thing, up);
+    case TI_TASK_RENAME_USER:       break;
+    case TI_TASK_RESTORE:           break;
+    case TI_TASK_REVOKE:            break;
+    case TI_TASK_SET_ENUM:          return job__set_enum(thing, up);
+    case TI_TASK_SET_MODULE_CONF:   break;
+    case TI_TASK_SET_MODULE_SCOPE:  break;
+    case TI_TASK_SET_PASSWORD:      break;
+    case TI_TASK_SET_TIME_ZONE:     break;
+    case TI_TASK_SET_TIMER_ARGS:    return job__set_timer_args(thing, up);
+    case TI_TASK_SET_TYPE:          return job__set_type(thing, up);
+    case TI_TASK_TO_TYPE:           return job__to_type(thing, up);
+    case TI_TASK_CLEAR_USERS:       break;
+    case TI_TASK_TAKE_ACCESS:       break;
+    }
+
+    log_critical("unknown job for a collection scope: %"PRIu64, mp_job.via.u64);
+    return -1;
+
+version_v0:
     switch (*mp_job.via.str.data)
     {
     case 'a':
         if (mp_str_eq(&mp_job, "add"))
-            return job__add(thing, up);
+            return job__set_add(thing, up);
         break;
     case 'd':
         if (mp_str_eq(&mp_job, "del"))
@@ -2272,7 +2338,7 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
         break;
     case 'r':
         if (mp_str_eq(&mp_job, "remove"))
-            return job__remove(thing, up);
+            return job__set_remove(thing, up);
         if (mp_str_eq(&mp_job, "rename_enum"))
             return job__rename_enum(thing, up);
         if (mp_str_eq(&mp_job, "rename_procedure"))

@@ -46,13 +46,14 @@ struct ti_regex_s
     ti_raw_t * pattern;
 };
 
-static inline int ti_regex_to_pk(ti_regex_t * regex, msgpack_packer * pk)
+static inline int ti_regex_to_pk(
+        ti_regex_t * re,
+        msgpack_packer * pk,
+        int options)
 {
-    return -(
-        msgpack_pack_map(pk, 1) ||
-        mp_pack_strn(pk, TI_KIND_S_REGEX, 1) ||
-        mp_pack_strn(pk, regex->pattern->data, regex->pattern->n)
-    );
+    return options >= 0
+        ? mp_pack_strn(pk, re->pattern->data, re->pattern->n)
+        : mp_pack_ext(pk, MPACK_EXT_REGEX, re->pattern->data, re->pattern->n);
 }
 
 static inline _Bool ti_regex_test(ti_regex_t * regex, ti_raw_t * raw)

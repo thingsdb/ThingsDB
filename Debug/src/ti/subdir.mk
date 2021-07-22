@@ -71,6 +71,8 @@ C_SRCS += \
 ../src/ti/req.c \
 ../src/ti/restore.c \
 ../src/ti/rjob.c \
+../src/ti/room.c \
+../src/ti/rooms.c \
 ../src/ti/rpkg.c \
 ../src/ti/scope.c \
 ../src/ti/signals.c \
@@ -177,6 +179,8 @@ OBJS += \
 ./src/ti/req.o \
 ./src/ti/restore.o \
 ./src/ti/rjob.o \
+./src/ti/room.o \
+./src/ti/rooms.o \
 ./src/ti/rpkg.o \
 ./src/ti/scope.o \
 ./src/ti/signals.o \
@@ -283,6 +287,8 @@ C_DEPS += \
 ./src/ti/req.d \
 ./src/ti/restore.d \
 ./src/ti/rjob.d \
+./src/ti/room.d \
+./src/ti/rooms.d \
 ./src/ti/rpkg.d \
 ./src/ti/scope.d \
 ./src/ti/signals.d \

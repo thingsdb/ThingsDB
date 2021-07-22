@@ -284,31 +284,47 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
     return e->nr;
 }
 
-int ti_closure_to_pk(ti_closure_t * closure, msgpack_packer * pk)
+int ti_closure_to_pk(ti_closure_t * closure, msgpack_packer * pk, int options)
 {
-    char * buf;
-    size_t n = 0;
     int rc;
-    if (!closure__is_unbound(closure))
+    if (options >= 0)
     {
-        return -(
+        ti_fmt_t fmt;
+        ti_fmt_init(&fmt, FMT_INDENT);
+
+        if (ti_fmt_nd(&fmt, closure->node))
+            return NULL;
+
+        rc = mp_pack_strn(pk, fmt.buf.data, fmt.buf.len);
+        ti_fmt_clear(&fmt);
+    }
+    else
+    {
+        char * buf;
+        size_t n = 0;
+
+        if (!closure__is_unbound(closure))
+        {
+            return -(
+                msgpack_pack_map(pk, 1) ||
+                mp_pack_strn(pk, TI_KIND_S_CLOSURE, 1) ||
+                mp_pack_strn(pk, closure->node->str, closure->node->len)
+            );
+        }
+
+        buf = ti_closure_char(closure, &n);
+        if (!buf)
+            return -1;
+
+        rc = -(
             msgpack_pack_map(pk, 1) ||
             mp_pack_strn(pk, TI_KIND_S_CLOSURE, 1) ||
-            mp_pack_strn(pk, closure->node->str, closure->node->len)
+            mp_pack_strn(pk, buf, n)
         );
+
+        free(buf);
+
     }
-
-    buf = ti_closure_char(closure, &n);
-    if (!buf)
-        return -1;
-
-    rc = -(
-        msgpack_pack_map(pk, 1) ||
-        mp_pack_strn(pk, TI_KIND_S_CLOSURE, 1) ||
-        mp_pack_strn(pk, buf, n)
-    );
-
-    free(buf);
     return rc;
 }
 

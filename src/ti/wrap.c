@@ -86,7 +86,23 @@ static int wrap__field_val(
 {
     switch ((ti_val_enum) val->tp)
     {
-    TI_VAL_PACK_CASE_IMMUTABLE(val, &vp->pk, options)
+    case TI_VAL_NIL:
+        return msgpack_pack_nil(&vp->pk);
+    case TI_VAL_INT:
+        return msgpack_pack_int64(&vp->pk, VINT(val));
+    case TI_VAL_FLOAT:
+        return msgpack_pack_double(&vp->pk, VFLOAT(val));
+    case TI_VAL_BOOL:
+        return ti_vbool_to_pk((ti_vbool_t *) val, &vp->pk);
+    case TI_VAL_DATETIME:
+        return ti_datetime_to_pk((ti_datetime_t *) val, &vp->pk, options);
+    case TI_VAL_NAME:
+    case TI_VAL_STR:
+        return ti_raw_str_to_pk((ti_raw_t *) val, &vp->pk);
+    case TI_VAL_BYTES:
+        return ti_raw_bytes_to_pk((ti_raw_t *) val, &vp->pk);
+    case TI_VAL_REGEX:
+        return ti_regex_to_pk((ti_regex_t *) val, &vp->pk);
     case TI_VAL_THING:
         return ti__wrap_field_thing(
                 (ti_thing_t *) val,
@@ -99,6 +115,8 @@ static int wrap__field_val(
                 vp,
                 *spec,
                 options);
+    case TI_VAL_ROOM:
+        return ti_room_to_pk((ti_room_t *) val, &vp->pk);
     case TI_VAL_ARR:
     {
         ti_varr_t * varr = (ti_varr_t *) val;
@@ -122,6 +140,8 @@ static int wrap__field_val(
                 vp,
                 t_field->nested_spec,
                 options);
+    case TI_VAL_ERROR:
+        return ti_verror_to_pk((ti_verror_t *) val, &vp->pk);
     case TI_VAL_MEMBER:
         return wrap__field_val(
                 t_field,
@@ -129,6 +149,10 @@ static int wrap__field_val(
                 VMEMBER(val),
                 vp,
                 options);
+    case TI_VAL_MPDATA:
+        return ti_raw_mpdata_to_pk((ti_raw_t *) val, &vp->pk, options);
+    case TI_VAL_CLOSURE:
+        return ti_closure_to_pk((ti_closure_t *) val, &vp->pk);
     case TI_VAL_FUTURE:
         return VFUT(val)
                 ? wrap__field_val(
@@ -138,8 +162,9 @@ static int wrap__field_val(
                         vp,
                         options)
                 : msgpack_pack_nil(&vp->pk);
+    case TI_VAL_TEMPLATE:
+        break;
     }
-
     assert(0);
     return -1;
 }

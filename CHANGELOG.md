@@ -27,6 +27,7 @@
    is no longer possible.
  * Authentication `WATCH` is replaced with `JOIN` *(As a keyword, `WATCH` will
    still be accepted but is marked as deprecated)*.
+ * Function `.def()` on a closure is removed. Use `str(closure)` instead.
 
 # v0.10.15
 

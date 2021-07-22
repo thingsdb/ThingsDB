@@ -19,6 +19,7 @@
 typedef enum
 {
     MPACK_EXT_MPACK,
+    MPACK_EXT_REGEX,
 } mpack_ext_t;
 
 typedef struct
@@ -133,14 +134,21 @@ static int __attribute__((unused))mp_pack_fmt(msgpack_packer * x, const char * f
     int rc, n;
     va_list args1, args2;
     char * body;
+    char buffer[255];
 
     va_start(args1, fmt);
     va_copy(args2, args1);
-    n = vsnprintf(NULL, 0, fmt, args1);
+    n = vsnprintf(buffer, sizeof(buffer), fmt, args1);
     va_end(args1);
 
     if (n < 0 || msgpack_pack_str(x, n))
         return -1;
+
+    if (n < sizeof(buffer))
+    {
+        va_end(args2);
+        return msgpack_pack_str_body(x, buffer, n);
+    }
 
     body = malloc(n+1);
     if (!body)
@@ -167,6 +175,11 @@ static int __attribute__((unused))mp_pack_bin(msgpack_packer * x, const void * b
 static int __attribute__((unused))mp_pack_strn(msgpack_packer * x, const void * s, size_t n)
 {
     return msgpack_pack_str(x, n) || (n && msgpack_pack_str_body(x, s, n));
+}
+
+static int __attribute__((unused))mp_pack_ext(msgpack_packer * x, mpack_ext_t ext, const void * s, size_t n)
+{
+    return msgpack_pack_ext(x, n, ext) || (n && msgpack_pack_ext_body(x, s, n));
 }
 
 #define mp_pack_str(x__, s__) \

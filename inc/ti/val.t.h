@@ -7,6 +7,36 @@
 #define VAL__CAST_MAX 9223372036854775808.0
 
 /*
+
+## Return values
+
+Type            | MessagePack | Examples
+--------------- | ----------- | -------
+TI_VAL_NIL      | MP_NIL      | `null`
+TI_VAL_INT      | MP_INT      | `123` / `0`
+TI_VAL_FLOAT    | MP_FLOAT    | `3.14`
+TI_VAL_BOOL     | MP_BOOL     | `true` / `false`
+TI_VAL_DATETIME | MP_STR      | `"2021-07-22T11:23:46Z"`
+TI_VAL_NAME     | MP_STR      | `"some string value"`
+TI_VAL_STR      | MP_STR      | `"some string value"`
+TI_VAL_BYTES    | MP_BIN      | `b"some_bytes"` *(JSON requires encoding)*
+TI_VAL_REGEX    | ?           | ?
+TI_VAL_THING    | MP_OBJ      | `{"#": 123}` / `{"name": "some test"}`
+TI_VAL_WRAP     | MP_OBJ      | `{"#": 123}` / `{"name": "some test"}`
+TI_VAL_ROOM     | ?           | ?
+TI_VAL_ARR      | MP_ARR      | `[...]` *(Array with values)*
+TI_VAL_SET      | MP_ARR      | `[...]` *(Array with things)*
+TI_VAL_ERROR    | ?           | ?
+TI_VAL_MEMBER   | MP_X        | *Enumerator value*
+TI_VAL_MPDATA   | MP_X        | *Packed data*
+TI_VAL_CLOSURE  | ?           | ?
+TI_VAL_FUTURE   | MP_ARR      | `[..]` *(Array with future result)*
+TI_VAL_TEMPLATE | N.A.        | *Never returned to the client as template*
+
+*/
+
+
+/*
  * enum cache is not a real value type but used for stored closure to pre-cache
  *
  */
@@ -38,7 +68,6 @@
 #define TI_KIND_S_THING     "#"
 #define TI_KIND_S_INSTANCE  "."
 #define TI_KIND_S_CLOSURE   "/"
-#define TI_KIND_S_REGEX     "*"
 #define TI_KIND_S_SET       "$"
 #define TI_KIND_S_ERROR     "!"
 #define TI_KIND_S_WRAP      "&"
@@ -46,6 +75,7 @@
 #define TI_KIND_S_MEMBER    "%"
 #define TI_KIND_S_DATETIME  "'"
 #define TI_KIND_S_TIMEVAL   "\""
+#define TI_KIND_S_REGEX_OBSOLETE_     "*"
 
 typedef enum
 {
@@ -98,7 +128,7 @@ typedef enum
     TI_KIND_C_THING     ='#',
     TI_KIND_C_INSTANCE  ='.',
     TI_KIND_C_CLOSURE   ='/',
-    TI_KIND_C_REGEX     ='*',
+    TI_KIND_C_REGEX_OBSOLETE_       ='*',
     TI_KIND_C_SET       ='$',
     TI_KIND_C_ERROR     ='!',
     TI_KIND_C_WRAP      ='&',

@@ -22,7 +22,6 @@ int big_to_str16n(const big_t * big, char * tostr, size_t size)
     ssize_t sz = (ssize_t) size;
     int count;
     uint16_t n = 0;
-    PRIu64;
 
     if (!big->n_)
         return snprintf(tostr, size, "0");

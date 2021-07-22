@@ -48,7 +48,7 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (added->n && vset->parent && vset->parent->id)
     {
         ti_task_t * task = ti_task_get_task(query->ev, vset->parent);
-        if (!task || ti_task_add_add(
+        if (!task || ti_task_add_set_add(
                 task,
                 ti_vset_key(vset),
                 added))

@@ -239,3 +239,14 @@ int ti_room_leave(ti_room_t * room, ti_stream_t * stream)
     }
     return 0;
 }
+
+int ti_room_copy(ti_room_t ** roomaddr)
+{
+    ti_room_t * room = ti_room_create(0, (*roomaddr)->collection);
+    if (!room)
+        return -1;
+
+    ti_val_unsafe_drop((ti_val_t *) *roomaddr);
+    *roomaddr = room;
+    return 0;
+}

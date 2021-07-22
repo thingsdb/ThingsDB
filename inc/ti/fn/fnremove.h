@@ -254,7 +254,7 @@ static int do__f_remove_set(
         if (vset->parent->id)
         {
             ti_task_t * task = ti_task_get_task(query->ev, vset->parent);
-            if (!task || ti_task_add_remove(
+            if (!task || ti_task_add_set_remove(
                     task,
                     ti_vset_key(vset),
                     removed))

@@ -25,7 +25,7 @@
 ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing);
 ti_task_t * ti_task_get_task(ti_event_t * ev, ti_thing_t * thing);
 void ti_task_destroy(ti_task_t * task);
-int ti_task_add_add(ti_task_t * task, ti_raw_t * key, vec_t * added);
+int ti_task_add_set_add(ti_task_t * task, ti_raw_t * key, vec_t * added);
 int ti_task_add_set(ti_task_t * task, ti_raw_t * key, ti_val_t * val);
 int ti_task_add_new_type(ti_task_t * task, ti_type_t * type);
 int ti_task_add_to_type(ti_task_t * task, ti_type_t * type);
@@ -97,7 +97,7 @@ int ti_task_add_mod_type_ren(
         ti_name_t * newname);
 int ti_task_add_mod_type_wpo(ti_task_t * task, ti_type_t * type);
 int ti_task_add_del_node(ti_task_t * task, uint32_t node_id);
-int ti_task_add_remove(ti_task_t * task, ti_raw_t * key, vec_t * removed);
+int ti_task_add_set_remove(ti_task_t * task, ti_raw_t * key, vec_t * removed);
 int ti_task_add_rename_collection(
         ti_task_t * task,
         ti_collection_t * collection);
@@ -134,11 +134,6 @@ int ti_task_add_mod_enum_del(ti_task_t * task, ti_member_t * member);
 int ti_task_add_mod_enum_mod(ti_task_t * task, ti_member_t * member);
 int ti_task_add_mod_enum_ren(ti_task_t * task, ti_member_t * member);
 int ti_task_add_del_enum(ti_task_t * task, ti_enum_t * enum_);
-int ti_task_add_event(
-        ti_task_t * task,
-        ti_query_t * query,
-        ti_raw_t * revent,
-        vec_t * vec,
-        int deep);
+
 
 #endif /* TI_TASK_H_ */

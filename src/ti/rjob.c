@@ -1276,15 +1276,83 @@ static int rjob__set_password(mp_unp_t * up)
 int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
 {
     mp_obj_t obj, mp_job;
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
-        mp_next(up, &mp_job) != MP_STR || mp_job.via.str.n < 2)
+    if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||
+        mp_next(up, &mp_job) != MP_U64)
     {
-        log_critical(
-                "job is not a `map` or `type` "
-                "for thing "TI_THING_ID" is missing", 0);
-        return -1;
+        if (obj.tp != MP_MAP || obj.via.sz != 1 ||
+            mp_next(up, &mp_job) != MP_STR || mp_job.via.str.n < 3)
+        {
+            log_critical(
+                    "job is not a `map` or `type` "
+                    "for thing "TI_THING_ID" is missing", 0);
+            return -1;
+        }
+        goto version_v0;
     }
 
+    switch ((ti_task_enum) mp_job.via.u64)
+    {
+    case TI_TASK_SET:               break;
+    case TI_TASK_DEL:               break;
+    case TI_TASK_SPLICE:            break;
+    case TI_TASK_SET_ADD:           break;
+    case TI_TASK_SET_REMOVE:        break;
+    case TI_TASK_DEL_COLLECTION:    return rjob__del_collection(up);
+    case TI_TASK_DEL_ENUM:          break;
+    case TI_TASK_DEL_EXPIRED:       return rjob__del_expired(up);
+    case TI_TASK_DEL_MODULE:        return rjob__del_module(up);
+    case TI_TASK_DEL_NODE:          return rjob__del_node(ev, up);
+    case TI_TASK_DEL_PROCEDURE:     return rjob__del_procedure(up);
+    case TI_TASK_DEL_TIMER:         return rjob__del_timer(up);
+    case TI_TASK_DEL_TOKEN:         return rjob__del_token(up);
+    case TI_TASK_DEL_TYPE:          break;
+    case TI_TASK_DEL_USER:          return rjob__del_user(up);
+    case TI_TASK_DEPLOY_MODULE:     return rjob__deploy_module(up);
+    case TI_TASK_GRANT:             return rjob__grant(up);
+    case TI_TASK_MOD_ENUM_ADD:      break;
+    case TI_TASK_MOD_ENUM_DEF:      break;
+    case TI_TASK_MOD_ENUM_DEL:      break;
+    case TI_TASK_MOD_ENUM_MOD:      break;
+    case TI_TASK_MOD_ENUM_REN:      break;
+    case TI_TASK_MOD_TYPE_ADD:      break;
+    case TI_TASK_MOD_TYPE_DEL:      break;
+    case TI_TASK_MOD_TYPE_MOD:      break;
+    case TI_TASK_MOD_TYPE_REL_ADD:  break;
+    case TI_TASK_MOD_TYPE_REL_DEL:  break;
+    case TI_TASK_MOD_TYPE_REN:      break;
+    case TI_TASK_MOD_TYPE_WPO:      break;
+    case TI_TASK_NEW_COLLECTION:    return rjob__new_collection(up);
+    case TI_TASK_NEW_MODULE:        return rjob__new_module(up);
+    case TI_TASK_NEW_NODE:          return rjob__new_node(ev, up);
+    case TI_TASK_NEW_PROCEDURE:     return rjob__new_procedure(up);
+    case TI_TASK_NEW_TIMER:         return rjob__new_timer(up);
+    case TI_TASK_NEW_TOKEN:         return rjob__new_token(up);
+    case TI_TASK_NEW_TYPE:          break;
+    case TI_TASK_NEW_USER:          return rjob__new_user(up);
+    case TI_TASK_RENAME_COLLECTION: return rjob__rename_collection(up);
+    case TI_TASK_RENAME_ENUM:       break;
+    case TI_TASK_RENAME_MODULE:     return rjob__rename_module(up);
+    case TI_TASK_RENAME_PROCEDURE:  return rjob__rename_procedure(up);
+    case TI_TASK_RENAME_TYPE:       break;
+    case TI_TASK_RENAME_USER:       return rjob__rename_user(up);
+    case TI_TASK_RESTORE:           return rjob__restore(up);
+    case TI_TASK_REVOKE:            return rjob__revoke(up);
+    case TI_TASK_SET_ENUM:          break;
+    case TI_TASK_SET_MODULE_CONF:   return rjob__set_module_conf(up);
+    case TI_TASK_SET_MODULE_SCOPE:  return rjob__set_module_scope(up);
+    case TI_TASK_SET_PASSWORD:      return rjob__set_password(up);
+    case TI_TASK_SET_TIME_ZONE:     return rjob__set_time_zone(up);
+    case TI_TASK_SET_TIMER_ARGS:    return rjob__set_timer_args(up);
+    case TI_TASK_SET_TYPE:          break;
+    case TI_TASK_TO_TYPE:           break;
+    case TI_TASK_CLEAR_USERS:       return rjob__clear_users(up);
+    case TI_TASK_TAKE_ACCESS:       return rjob__take_access(up);
+    }
+
+    log_critical("unknown job for the thingsdb scope: %"PRIu64, mp_job.via.u64);
+    return -1;
+
+version_v0:
     switch (*mp_job.via.str.data)
     {
     case 'c':

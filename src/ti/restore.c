@@ -220,14 +220,14 @@ static void restore__user_access(void)
     msgpack_pack_uint64(&pk, thing_id);
     msgpack_pack_array(&pk, njobs);
 
-    msgpack_pack_map(&pk, 1);           /* job 1 */
+    msgpack_pack_array(&pk, 2);         /* job 1 */
 
-    mp_pack_str(&pk, "clear_users");
+    msgpack_pack_uint8(&pk, TI_TASK_CLEAR_USERS);
     msgpack_pack_true(&pk);
 
-    msgpack_pack_map(&pk, 1);           /* job 2 */
+    msgpack_pack_array(&pk, 2);         /* job 2 */
 
-    mp_pack_str(&pk, "new_user");
+    msgpack_pack_uint8(&pk, TI_TASK_NEW_USER);
     msgpack_pack_map(&pk, 3);
 
     mp_pack_str(&pk, "id");
@@ -239,17 +239,17 @@ static void restore__user_access(void)
     mp_pack_str(&pk, "created_at");
     msgpack_pack_uint64(&pk, restore__user->created_at);
 
-    msgpack_pack_map(&pk, 1);           /* job 3 */
+    msgpack_pack_array(&pk, 2);         /* job 3 */
 
-    mp_pack_str(&pk, "take_access");
+    msgpack_pack_uint8(&pk, TI_TASK_TAKE_ACCESS);
     msgpack_pack_uint64(&pk, user_id);
 
     /* restore password (if required) */
     if (restore__user->encpass)
     {
-        msgpack_pack_map(&pk, 1);
+        msgpack_pack_array(&pk, 2);
 
-        mp_pack_str(&pk, "set_password");
+        msgpack_pack_uint8(&pk, TI_TASK_SET_PASSWORD);
         msgpack_pack_map(&pk, 2);
 
         mp_pack_str(&pk, "id");
@@ -262,9 +262,9 @@ static void restore__user_access(void)
     /* restore tokens (if required) */
     for (vec_each(restore__user->tokens, ti_token_t, token))
     {
-        msgpack_pack_map(&pk, 1);
+        msgpack_pack_array(&pk, 2);
 
-        mp_pack_str(&pk, "new_token");
+        msgpack_pack_uint8(&pk, TI_TASK_NEW_TOKEN);
         msgpack_pack_map(&pk, 5);
 
         mp_pack_str(&pk, "id");

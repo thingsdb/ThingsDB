@@ -20,4 +20,9 @@ struct ti_vbool_s
 ti_vbool_t * ti_vbool_get(_Bool b);
 _Bool ti_vbool_no_ref(void);
 
+static inline int ti_vbool_to_pk(ti_vbool_t * v, msgpack_packer * pk)
+{
+    return v->bool_ ? msgpack_pack_true(pk) : msgpack_pack_false(pk);
+}
+
 #endif  /* TI_VBOOL_H_ */

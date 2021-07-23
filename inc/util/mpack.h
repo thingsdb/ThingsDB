@@ -146,7 +146,7 @@ static int __attribute__((unused))mp_pack_fmt(msgpack_packer * x, const char * f
     if (n < 0 || msgpack_pack_str(x, n))
         return -1;
 
-    if (n < sizeof(buffer))
+    if ((size_t) n < sizeof(buffer))
     {
         va_end(args2);
         return msgpack_pack_str_body(x, buffer, n);
@@ -816,13 +816,7 @@ static inline void * mp_strdup(mp_obj_t * o)
     return strndup(o->via.str.data, o->via.str.n);
 }
 
-static inline int mp_store_uint64(msgpack_packer * pk, uint64_t u)
-{
-    unsigned char buf[8];
-    _msgpack_store64(buf, u);
-    return msgpack_pack_append_buffer(pk, buf, 8);
-}
-
+#define mp_store_uint64(u, b) _msgpack_store64(b, u)
 #define mp_read_uint64(o, u) _msgpack_load64(uint64_t, o, u)
 
 

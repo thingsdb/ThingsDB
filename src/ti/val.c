@@ -22,6 +22,7 @@
 #include <ti/raw.h>
 #include <ti/raw.inline.h>
 #include <ti/regex.h>
+#include <ti/room.h>
 #include <ti/scope.h>
 #include <ti/template.h>
 #include <ti/thing.inline.h>
@@ -563,6 +564,7 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
                         : TI_QBIND_FLAG_THINGSDB,
             };
             return (ti_val_t *) ti_closure_from_strn(
+                    &syntax,
                     obj.via.ext.data,
                     obj.via.ext.n,
                     e);
@@ -1632,25 +1634,25 @@ int ti_val_to_pk(ti_val_t * val, ti_vp_t * vp, int options)
     case TI_VAL_BYTES:
         return ti_raw_bytes_to_pk((ti_raw_t *) val, &vp->pk);
     case TI_VAL_REGEX:
-        return ti_regex_to_pk((ti_regex_t *) val, &vp->pk);
+        return ti_regex_to_pk((ti_regex_t *) val, &vp->pk, options);
     case TI_VAL_THING:
         return ti_thing_to_pk((ti_thing_t *) val, vp, options);
     case TI_VAL_WRAP:
         return ti_wrap_to_pk((ti_wrap_t *) val, vp, options);
     case TI_VAL_ROOM:
-        return ti_room_to_pk((ti_room_t *) val, &vp->pk);
+        return ti_room_to_pk((ti_room_t *) val, &vp->pk, options);
     case TI_VAL_ARR:
         return ti_varr_to_pk((ti_varr_t *) val, vp, options);
     case TI_VAL_SET:
         return ti_vset_to_pk((ti_vset_t *) val, vp, options);
     case TI_VAL_ERROR:
-        return ti_verror_to_pk((ti_verror_t *) val, &vp->pk);
+        return ti_verror_to_pk((ti_verror_t *) val, &vp->pk, options);
     case TI_VAL_MEMBER:
         return ti_member_to_pk((ti_member_t *) val, vp, options);
     case TI_VAL_MPDATA:
         return ti_raw_mpdata_to_pk((ti_raw_t *) val, &vp->pk, options);
     case TI_VAL_CLOSURE:
-        return ti_closure_to_pk((ti_closure_t *) val, &vp->pk);
+        return ti_closure_to_pk((ti_closure_t *) val, &vp->pk, options);
     case TI_VAL_FUTURE:
         return ti_future_to_pk((ti_future_t * ) val, vp, options);
     case TI_VAL_TEMPLATE:

@@ -399,22 +399,6 @@ int ti_events_resize_dropped(void)
             : vec_resize(&events->dropped, EVENTS__INIT_DROPPED_SZ);
 }
 
-vec_t * ti_events_pkgs_from_queue(ti_thing_t * thing)
-{
-    uint64_t next_event = ti.node->cevid;
-    vec_t * pkgs = NULL;
-
-    for (queue_each(events->queue, ti_event_t, ev))
-    {
-        if (ev->id != ++next_event)
-            break;
-
-        if (ev->flags & TI_EVENT_FLAG_WATCHED)
-            (void) ti_event_append_pkgs(ev, thing, &pkgs);
-    }
-    return pkgs;
-}
-
 static void events__destroy(uv_handle_t * UNUSED(handle))
 {
     if (!events)

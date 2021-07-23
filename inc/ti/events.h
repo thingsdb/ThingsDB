@@ -22,7 +22,6 @@ ti_proto_enum_t ti_events_accept_id(uint64_t event_id, uint8_t * n);
 void ti_events_set_next_missing_id(uint64_t * event_id);
 void ti_events_free_dropped(void);
 int ti_events_resize_dropped(void);
-vec_t * ti_events_pkgs_from_queue(ti_thing_t * thing);
 
 static inline void ti_events_keep_dropped(void)
 {

@@ -754,7 +754,7 @@ int ti_type_methods_to_pk(ti_type_t * type, msgpack_packer * pk)
     for (vec_each(type->methods, ti_method_t, method))
     {
         if (mp_pack_strn(pk, method->name->str, method->name->n) ||
-            ti_closure_to_pk(method->closure, pk)
+            ti_closure_to_pk(method->closure, pk, TI_VAL_PACK_TASK)
         ) return -1;
     }
 

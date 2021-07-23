@@ -86,67 +86,6 @@ void ti_event_drop(ti_event_t * ev)
     free(ev);
 }
 
-int ti_event_append_pkgs(ti_event_t * ev, ti_thing_t * thing, vec_t ** pkgs)
-{
-    ti_pkg_t * pkg = ev->via.epkg->pkg;
-    mp_unp_t up;
-    size_t i;
-    mp_obj_t obj, mp_scope, mp_id;
-    const char * jobs_position;
-
-    mp_unp_init(&up, pkg->data, pkg->n);
-
-    if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 1 ||
-        /* key */
-        mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
-        mp_skip(&up) != MP_U64 ||                       /* event id */
-        mp_next(&up, &mp_scope) != MP_U64 ||            /* scope id */
-        /* value */
-        mp_next(&up, &obj) != MP_MAP)           /* map with thing_id:task */
-    {
-        log_critical("invalid or corrupt: "TI_EVENT_ID, ev->id);
-        return -1;
-    }
-
-    if (mp_scope.via.u64 != thing->collection->root->id)
-        return 0;  /* not a collection scope */
-
-    for (i = obj.via.sz; i--;)
-    {
-        if (mp_next(&up, &mp_id) != MP_U64)
-            goto fail_mp_data;
-
-        /* keep the current position so we can update watchers */
-        jobs_position = up.pt;
-
-        if (mp_skip(&up) != MP_ARR)
-            goto fail_mp_data;
-
-        if (mp_id.via.u64 == thing->id)
-        {
-            size_t n = up.pt - jobs_position;
-            ti_pkg_t * pkg = ti_watch_pkg(
-                    thing->id,
-                    ev->id,
-                    (const unsigned char *) jobs_position, n);
-
-            if (!pkg ||
-                (*pkgs == NULL && !(*pkgs = vec_new(7))) ||
-                vec_push(pkgs, pkg))
-            {
-                ++ti.counters->watcher_failed;
-                log_critical(EX_MEMORY_S);
-            }
-        }
-    }
-
-    return 0;
-
-fail_mp_data:
-    log_critical("msgpack event data incorrect for "TI_EVENT_ID, ev->id);
-    return -1;
-}
-
 void ti_event_missing_event(uint64_t event_id)
 {
     ti_pkg_t * pkg;

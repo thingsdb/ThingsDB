@@ -15,7 +15,6 @@ ti_event_t * ti_event_create(ti_event_tp_enum tp);
 ti_event_t * ti_event_epkg(ti_epkg_t * epkg);
 ti_event_t * ti_event_initial(void);
 void ti_event_drop(ti_event_t * ev);
-int ti_event_append_pkgs(ti_event_t * ev, ti_thing_t * thing, vec_t ** pkgs);
 void ti_event_missing_event(uint64_t event_id);
 int ti_event_run(ti_event_t * ev);
 static inline void ti_event_log(

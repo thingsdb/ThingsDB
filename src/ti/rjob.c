@@ -12,6 +12,7 @@
 #include <ti/raw.inline.h>
 #include <ti/restore.h>
 #include <ti/rjob.h>
+#include <ti/task.t.h>
 #include <ti/timer.h>
 #include <ti/timer.inline.h>
 #include <ti/token.h>

@@ -954,7 +954,7 @@ int ti_task_add_new_procedure(ti_task_t * task, ti_procedure_t * procedure)
     msgpack_pack_uint64(&pk, procedure->created_at);
 
     mp_pack_str(&pk, "closure");
-    if (ti_closure_to_pk(procedure->closure, &pk))
+    if (ti_closure_to_pk(procedure->closure, &pk, TI_VAL_PACK_TASK))
         goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
@@ -1004,7 +1004,7 @@ int ti_task_add_new_timer(ti_task_t * task, ti_timer_t * timer)
     msgpack_pack_uint64(&vp.pk, timer->user->id);
 
     if (mp_pack_str(&vp.pk, "closure") ||
-        ti_closure_to_pk(timer->closure, &vp.pk) ||
+        ti_closure_to_pk(timer->closure, &vp.pk, TI_VAL_PACK_TASK) ||
 
         mp_pack_str(&vp.pk, "args") ||
         msgpack_pack_array(&vp.pk, timer->args->n))
@@ -1257,7 +1257,7 @@ int ti_task_add_mod_type_add_method(ti_task_t * task, ti_type_t * type)
     mp_pack_strn(&pk, method->name->str, method->name->n);
 
     mp_pack_str(&pk, "closure");
-    if (ti_closure_to_pk(method->closure, &pk))
+    if (ti_closure_to_pk(method->closure, &pk, TI_VAL_PACK_TASK))
         goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
@@ -1483,7 +1483,7 @@ int ti_task_add_mod_type_mod_method(
     mp_pack_strn(&pk, method->name->str, method->name->n);
 
     mp_pack_str(&pk, "closure");
-    ti_closure_to_pk(method->closure, &pk);
+    ti_closure_to_pk(method->closure, &pk, TI_VAL_PACK_TASK);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

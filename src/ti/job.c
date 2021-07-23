@@ -18,6 +18,7 @@
 #include <ti/procedures.h>
 #include <ti/qbind.h>
 #include <ti/raw.inline.h>
+#include <ti/task.t.h>
 #include <ti/thing.inline.h>
 #include <ti/timer.h>
 #include <ti/timer.inline.h>

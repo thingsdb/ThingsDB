@@ -11,6 +11,7 @@
 #include <ti/method.t.h>
 #include <ti/prop.h>
 #include <ti/regex.h>
+#include <ti/room.inline.h>
 #include <ti/types.inline.h>
 #include <ti/val.inline.h>
 #include <ti/vbool.h>
@@ -102,7 +103,7 @@ static int wrap__field_val(
     case TI_VAL_BYTES:
         return ti_raw_bytes_to_pk((ti_raw_t *) val, &vp->pk);
     case TI_VAL_REGEX:
-        return ti_regex_to_pk((ti_regex_t *) val, &vp->pk);
+        return ti_regex_to_pk((ti_regex_t *) val, &vp->pk, options);
     case TI_VAL_THING:
         return ti__wrap_field_thing(
                 (ti_thing_t *) val,
@@ -116,7 +117,7 @@ static int wrap__field_val(
                 *spec,
                 options);
     case TI_VAL_ROOM:
-        return ti_room_to_pk((ti_room_t *) val, &vp->pk);
+        return ti_room_to_pk((ti_room_t *) val, &vp->pk, options);
     case TI_VAL_ARR:
     {
         ti_varr_t * varr = (ti_varr_t *) val;
@@ -141,7 +142,7 @@ static int wrap__field_val(
                 t_field->nested_spec,
                 options);
     case TI_VAL_ERROR:
-        return ti_verror_to_pk((ti_verror_t *) val, &vp->pk);
+        return ti_verror_to_pk((ti_verror_t *) val, &vp->pk, options);
     case TI_VAL_MEMBER:
         return wrap__field_val(
                 t_field,
@@ -152,7 +153,7 @@ static int wrap__field_val(
     case TI_VAL_MPDATA:
         return ti_raw_mpdata_to_pk((ti_raw_t *) val, &vp->pk, options);
     case TI_VAL_CLOSURE:
-        return ti_closure_to_pk((ti_closure_t *) val, &vp->pk);
+        return ti_closure_to_pk((ti_closure_t *) val, &vp->pk, options);
     case TI_VAL_FUTURE:
         return VFUT(val)
                 ? wrap__field_val(

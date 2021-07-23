@@ -40,7 +40,7 @@ int ti_store_timers_store(vec_t * timers, const char * fn)
             msgpack_pack_uint64(&vp.pk, timer->next_run) ||
             msgpack_pack_uint32(&vp.pk, timer->repeat) ||
             msgpack_pack_uint64(&vp.pk, timer->user ? timer->user->id : 0) ||
-            ti_closure_to_pk(timer->closure, &vp.pk) ||
+            ti_closure_to_pk(timer->closure, &vp.pk, TI_VAL_PACK_FILE) ||
             msgpack_pack_array(&vp.pk, timer->args->n))
             goto fail;
 

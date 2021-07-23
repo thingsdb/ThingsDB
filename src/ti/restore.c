@@ -10,6 +10,7 @@
 #include <ti/event.h>
 #include <ti/modules.h>
 #include <ti/restore.h>
+#include <ti/task.t.h>
 #include <util/buf.h>
 #include <util/vec.h>
 #include <uv.h>

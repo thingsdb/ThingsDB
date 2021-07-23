@@ -10,6 +10,7 @@
 #include <ti/raw.h>
 #include <ti/thing.h>
 #include <ti/val.h>
+#include <ti/varr.h>
 #include <util/mpack.h>
 #include <util/vec.h>
 

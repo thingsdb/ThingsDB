@@ -6,8 +6,9 @@
 
 #include <stdlib.h>
 #include <inttypes.h>
-#include <room.t.h>
+#include <ti/room.t.h>
 #include <util/imap.h>
+#include <util/mpack.h>
 
 /* returns IMAP_ERR_EXIST if the thing is already in the map */
 static inline int ti_room_to_map(ti_room_t * room)
@@ -28,11 +29,17 @@ ti_raw_t * ti_room_str(ti_room_t * room)
 }
 
 static inline int ti_room_to_pk(
-        ti_wrap_t * wrap,
+        ti_room_t * room,
         msgpack_packer * pk,
         int options)
 {
+    unsigned char buf[8];
+    mp_store_uint64(room->id, buf);
     return options >= 0
-            ?
+            ? room->id
+            ? mp_pack_fmt(pk, "room:%"PRIu64, room->id)
+            : mp_pack_str(pk, "room:nil")
+            : mp_pack_ext(pk, MPACK_EXT_ROOM, buf, sizeof(buf));
 }
+
 #endif  /* TI_ROOM_INLINE_H_ */

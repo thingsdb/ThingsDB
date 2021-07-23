@@ -36,6 +36,8 @@ typedef union ti_thing_via ti_thing_via_t;
 
 #include <stdint.h>
 #include <ti/collection.t.h>
+#include <ti/field.t.h>
+#include <ti/type.t.h>
 #include <util/vec.h>
 
 extern vec_t * ti_thing_gc_vec;

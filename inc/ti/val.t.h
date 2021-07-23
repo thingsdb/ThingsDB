@@ -70,7 +70,6 @@ TI_VAL_TEMPLATE | N.A.        | *Never returned to the client as template*
 #define TI_KIND_S_SET       "$"
 #define TI_KIND_S_ERROR     "!"
 #define TI_KIND_S_WRAP      "&"
-#define TI_KIND_S_ROOM      "("
 #define TI_KIND_S_MEMBER    "%"
 #define TI_KIND_S_DATETIME  "'"
 #define TI_KIND_S_TIMEVAL   "\""
@@ -130,7 +129,6 @@ typedef enum
     TI_KIND_C_SET       ='$',
     TI_KIND_C_ERROR     ='!',
     TI_KIND_C_WRAP      ='&',
-    TI_KIND_C_ROOOM     ='(',
     TI_KIND_C_MEMBER    ='%',
     TI_KIND_C_DATETIME  ='\'',
     TI_KIND_C_TIMEVAL   ='"',

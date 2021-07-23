@@ -18,15 +18,8 @@ typedef struct ti_verror_s ti_verror_t;
 void ti_verror_init(void);
 ti_verror_t * ti_verror_create(const char * msg, size_t n, int8_t code);
 ti_verror_t * ti_verror_from_code(int8_t code);
-static inline ti_verror_t * ti_verror_from_raw(int8_t code, ti_raw_t * raw);
-static inline ti_verror_t * ti_verror_from_e(ex_t * e);
-static inline ti_verror_t * ti_verror_ensure_from_e(ex_t * e);
 void ti_verror_to_e(ti_verror_t * verror, ex_t * e);
 int ti_verror_check_msg(const char * msg, size_t n, ex_t * e);
-static inline int ti_verror_to_pk(
-        ti_verror_t * verror,
-        msgpack_packer * pk,
-        int options);
 
 struct ti_verror_s
 {

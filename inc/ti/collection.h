@@ -39,5 +39,10 @@ ti_pkg_t * ti_collection_join_rooms(
         ti_stream_t * stream,
         ti_pkg_t * pkg,
         ex_t * e);
+ti_pkg_t * ti_collection_leave_rooms(
+        ti_collection_t * collection,
+        ti_stream_t * stream,
+        ti_pkg_t * pkg,
+        ex_t * e);
 
 #endif /* TI_COLLECTION_H_ */

@@ -14,7 +14,7 @@
 #include <ti/thing.h>
 #include <ti/thing.inline.h>
 #include <ti/val.h>
-#include <ti/varr.h>
+#include <ti/varr.inline.h>
 #include <ti/vset.h>
 
 static inline void ti_val_drop(ti_val_t * val)

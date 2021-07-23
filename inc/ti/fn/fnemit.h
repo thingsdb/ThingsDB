@@ -70,6 +70,15 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     revent = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
+    if (revent->n < TI_ROOM_ENAME_MIN || revent->n > TI_ROOM_ENAME_MAX)
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "function `emit` expects the `event` argument to be between %d "
+            "and %d characters",
+            TI_ROOM_ENAME_MIN, TI_ROOM_ENAME_MAX);
+        goto fail1;
+    }
+
     if (nargs > sargs)
     {
         child = child->next->next;
@@ -92,12 +101,8 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         while (child->next && (child = child->next->next));
     }
 
-    if (room->id)
-    {
-        ti_task_t * task = ti_task_get_task(query->ev, thing);
-        if (!task || ti_task_add_event(task, query, revent, vec, deep))
-            ex_set_mem(e);
-    }
+    if (room->id && ti_room_emit(room, query, revent, vec, deep))
+        ex_set_mem(e);
 
     query->rval = (ti_val_t *) ti_nil_get();
 
@@ -106,6 +111,6 @@ fail2:
 fail1:
     ti_val_unsafe_drop((ti_val_t *) revent);
 fail0:
-    ti_val_unsafe_drop((ti_val_t *) thing);
+    ti_val_unsafe_drop((ti_val_t *) room);
     return e->nr;
 }

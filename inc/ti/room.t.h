@@ -9,6 +9,9 @@
 #include <ti/collection.t.h>
 #include <util/vec.h>
 
+#define TI_ROOM_ENAME_MIN 1
+#define TI_ROOM_ENAME_MAX 255
+
 typedef struct ti_room_s ti_room_t;
 
 struct ti_room_s

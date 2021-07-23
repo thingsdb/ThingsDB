@@ -10,12 +10,14 @@
 #include <ti/args.h>
 #include <ti/auth.h>
 #include <ti/away.h>
+#include <ti/collection.inline.h>
 #include <ti/fwd.h>
 #include <ti/nodes.h>
 #include <ti/proto.h>
 #include <ti/qcache.h>
 #include <ti/query.inline.h>
 #include <ti/room.h>
+#include <ti/scope.h>
 #include <ti/syncarchive.h>
 #include <ti/syncevents.h>
 #include <ti/syncfull.h>
@@ -1327,7 +1329,7 @@ static void nodes__on_room_emit(ti_stream_t * stream, ti_pkg_t * pkg)
 
     room = ti_collection_room_by_id(collection, mp_room_id.via.u64);
     if (room)
-        ti_room_emit_event(room, mp_data.via.bin, mp_data.via.sz);
+        ti_room_emit_event_data(room, mp_data.via.bin.data, mp_data.via.bin.n);
     else
         log_warning("cannot find "TI_ROOM_ID, mp_room_id.via.u64);
 

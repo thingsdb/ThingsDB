@@ -739,14 +739,7 @@ int ti_away_syncer(ti_stream_t * stream, uint64_t first)
         goto failed;
 
 finish:
-    if (!stream->watching)
-    {
-        stream->watching = vec_new(1);
-        if (!stream->watching)
-            goto failed;
-        VEC_push(stream->watching, syncer);
-    }
-    else if (vec_push(&stream->watching, syncer))
+    if (vec_push_create(&stream->listeners, syncer))
         goto failed;
 
     return 0;

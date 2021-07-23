@@ -92,10 +92,10 @@ void ti_stream_close(ti_stream_t * stream)
 
 void ti_stream_stop_watching(ti_stream_t * stream)
 {
-    if (!stream || !stream->watching)
+    if (!stream || !stream->listeners)
         return;
-    vec_destroy(stream->watching, (vec_destroy_cb) ti_watch_drop);
-    stream->watching = NULL;
+    vec_destroy(stream->listeners, (vec_destroy_cb) ti_watch_drop);
+    stream->listeners = NULL;
 }
 
 void ti_stream_set_node(ti_stream_t * stream, ti_node_t * node)

@@ -22,6 +22,7 @@
 #include <ti/events.h>
 #include <ti/node.t.h>
 #include <ti/nodes.h>
+#include <ti/room.t.h>
 #include <ti/store.h>
 #include <ti/sync.h>
 #include <ti/tcp.h>
@@ -123,6 +124,12 @@ struct ti_s
 static inline uint64_t ti_next_free_id(void)
 {
     return ti.node->next_free_id++;
+}
+
+/* Returns true when ThingsDB is shutting down */
+static inline _Bool ti_is_shutting_down(void)
+{
+    return ti.flags & TI_FLAG_SIGNAL;
 }
 
 /*

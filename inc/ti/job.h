@@ -8,6 +8,6 @@
 #include <ti/collection.h>
 #include <ti/thing.h>
 
-int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id);
+int ti_job_run(ti_thing_t * thing, mp_unp_t * up);
 
 #endif  /* TI_JOB_H_ */

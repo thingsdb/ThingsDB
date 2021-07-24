@@ -21,6 +21,7 @@
 #include <ti/qbind.h>
 #include <ti/qcache.h>
 #include <ti/regex.h>
+#include <ti/room.h>
 #include <ti/signals.h>
 #include <ti/store.h>
 #include <ti/sync.h>

@@ -23,6 +23,7 @@
 #include <ti/raw.inline.h>
 #include <ti/regex.h>
 #include <ti/room.h>
+#include <ti/room.inline.h>
 #include <ti/scope.h>
 #include <ti/template.h>
 #include <ti/thing.inline.h>
@@ -552,7 +553,7 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
         }
         case MPACK_EXT_REGEX:
             return (ti_val_t *) ti_regex_from_strn(
-                    obj.via.ext.data,
+                    (const char *) obj.via.ext.data,
                     obj.via.ext.n,
                     e);
         case MPACK_EXT_CLOSURE:
@@ -565,7 +566,7 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
             };
             return (ti_val_t *) ti_closure_from_strn(
                     &syntax,
-                    obj.via.ext.data,
+                    (const char *) obj.via.ext.data,
                     obj.via.ext.n,
                     e);
         }

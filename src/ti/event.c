@@ -208,7 +208,7 @@ int ti_event_run(ti_event_t * ev)
 
         if (ev->collection) for (ii = obj.via.sz; ii--;)
         {
-            if (ti_job_run(thing, &up, ev->id))
+            if (ti_job_run(thing, &up))
             {
                 log_critical(
                         "job for thing "TI_THING_ID" in "

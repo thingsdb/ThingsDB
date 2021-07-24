@@ -47,6 +47,8 @@
 #include <ti/raw.inline.h>
 #include <ti/regex.h>
 #include <ti/restore.h>
+#include <ti/room.h>
+#include <ti/room.inline.h>
 #include <ti/scope.h>
 #include <ti/spec.inline.h>
 #include <ti/task.h>

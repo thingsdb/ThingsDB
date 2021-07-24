@@ -344,6 +344,7 @@ ti_member_t * ti_enum_member_by_val_e(
     case TI_VAL_MPDATA:
     case TI_VAL_REGEX:
     case TI_VAL_WRAP:
+    case TI_VAL_ROOM:
     case TI_VAL_ARR:
     case TI_VAL_SET:
     case TI_VAL_CLOSURE:

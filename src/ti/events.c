@@ -556,20 +556,6 @@ static int events__push(ti_event_t * ev)
     return queue_insert(&events->queue, idx, ev);
 }
 
-static void events__watch_queue(void)
-{
-    uint64_t next_event = ti.node->cevid;
-
-    for (queue_each(events->queue, ti_event_t, ev))
-    {
-        if (ev->id != ++next_event)
-            return;
-
-        if (ti_event_require_watch_upd(ev))
-            (void) ti_event_watch(ev);
-    }
-}
-
 static void events__loop(uv_async_t * UNUSED(handle))
 {
     ti_event_t * ev;
@@ -578,10 +564,7 @@ static void events__loop(uv_async_t * UNUSED(handle))
     int process_events = 5;
 
     if (uv_mutex_trylock(events->lock))
-    {
-        events__watch_queue();
         return;
-    }
 
     if (clock_gettime(TI_CLOCK_MONOTONIC, &timing))
         goto stop;

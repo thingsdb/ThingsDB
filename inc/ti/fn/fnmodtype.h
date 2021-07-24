@@ -513,7 +513,7 @@ static void type__add(
      * instances; it must run after task generation so the task contains
      * possible self references according the `old` type definition;
      */
-    if (ti_field_init_things(field, &dval, query->ev->id))
+    if (ti_field_init_things(field, &dval))
     {
         ex_set_mem(e);
         goto panic;
@@ -638,7 +638,7 @@ static void type__del(
         return;
     }
 
-    if (ti_field_del(field, query->ev->id))
+    if (ti_field_del(field))
     {
         ex_set_mem(e);
         return;

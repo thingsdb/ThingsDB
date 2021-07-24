@@ -35,7 +35,7 @@ static int do__f_room(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    query->rval = (ti_val_t *) ti_room_create(0);
+    query->rval = (ti_val_t *) ti_room_create(0, query->collection);
 
     if (!query->rval)
         ex_set_mem(e);

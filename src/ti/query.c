@@ -1202,21 +1202,21 @@ static int query__get_things(ti_val_t * val, imap_t * imap)
     switch((ti_val_enum) val->tp)
     {
     case TI_VAL_NIL:
-    case TI_VAL_BOOL:
-    case TI_VAL_DATETIME:
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
-    case TI_VAL_MPDATA:
+    case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
+    case TI_VAL_NAME:
     case TI_VAL_STR:
     case TI_VAL_BYTES:
-    case TI_VAL_ERROR:
-    case TI_VAL_NAME:
     case TI_VAL_REGEX:
         break;
     case TI_VAL_THING:
         return query__var_walk_thing((ti_thing_t *) val, imap);
     case TI_VAL_WRAP:
         return query__var_walk_thing(((ti_wrap_t *) val)->thing, imap);
+    case TI_VAL_ROOM:
+        break;
     case TI_VAL_ARR:
         if (ti_varr_may_have_things((ti_varr_t *) val))
             for (vec_each(VARR(val), ti_val_t, v))
@@ -1225,12 +1225,15 @@ static int query__get_things(ti_val_t * val, imap_t * imap)
         break;
     case TI_VAL_SET:
         return imap_walk(VSET(val), (imap_cb) query__var_walk_thing, imap);
-    case TI_VAL_CLOSURE:
+    case TI_VAL_ERROR:
     case TI_VAL_MEMBER:  /* things as a member have an id */
-    case TI_VAL_TEMPLATE:
+    case TI_VAL_MPDATA:
+    case TI_VAL_CLOSURE:
         break;
     case TI_VAL_FUTURE:
         return VFUT(val) ? query__get_things(VFUT(val), imap) : 0;
+    case TI_VAL_TEMPLATE:
+        break;
     }
 
     return 0;

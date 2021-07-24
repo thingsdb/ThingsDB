@@ -623,6 +623,7 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_SET:
     case TI_VAL_WRAP:
+    case TI_VAL_ROOM:
         if (do_slice)
             goto slice_error;
         goto index_error;

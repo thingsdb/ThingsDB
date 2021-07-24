@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <inttypes.h>
 #include <ti/room.t.h>
+#include <ti/raw.t.h>
+#include <ti/raw.inline.h>
 #include <util/imap.h>
 #include <util/mpack.h>
 
@@ -21,7 +23,7 @@ static inline _Bool ti_room_has_listeners(ti_room_t * room)
     return room->listeners->n;
 }
 
-ti_raw_t * ti_room_str(ti_room_t * room)
+static inline ti_raw_t * ti_room_str(ti_room_t * room)
 {
     return room->id
             ? ti_str_from_fmt("room:%"PRIu64, room->id)

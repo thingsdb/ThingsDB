@@ -359,7 +359,7 @@ ti_collection_t * ti_scope_get_collection(ti_scope_t * scope, ex_t * e)
     {
     case TI_SCOPE_THINGSDB:
     case TI_SCOPE_NODE:
-        ex_set(&e, EX_BAD_DATA, "expecting a `collection` scope");
+        ex_set(e, EX_BAD_DATA, "expecting a `collection` scope");
         return NULL;
     case TI_SCOPE_COLLECTION_NAME:
         collection = ti_collections_get_by_strn(

@@ -9,6 +9,7 @@
 #include <ti/room.t.h>
 #include <ti/rpkg.h>
 #include <ti/rpkg.t.h>
+#include <ti/val.inline.h>
 #include <ti/watch.h>
 #include <ti/watch.t.h>
 #include <ti/stream.h>
@@ -150,7 +151,7 @@ int ti_room_emit(
 
     msgpack_pack_map(&vp.pk, 3);
 
-    mp_pack_str(&vp.pk, "id") ||
+    mp_pack_str(&vp.pk, "id");
     msgpack_pack_uint64(&vp.pk, room->id);
 
     mp_pack_str(&vp.pk, "event");

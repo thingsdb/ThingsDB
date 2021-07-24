@@ -18,12 +18,13 @@
 #include <ti/names.h>
 #include <ti/procedure.h>
 #include <ti/raw.inline.h>
+#include <ti/room.h>
 #include <ti/thing.h>
-#include <ti/timer.inline.h>
-#include <ti/wrap.h>
 #include <ti/things.h>
+#include <ti/timer.inline.h>
 #include <ti/types.h>
 #include <ti/val.inline.h>
+#include <ti/wrap.h>
 #include <util/fx.h>
 #include <util/strx.h>
 
@@ -592,7 +593,7 @@ ti_pkg_t * ti_collection_join_rooms(
         return NULL;
     }
 
-    pkg = (ti_pkg_t *) buffer.data;
+    resp = (ti_pkg_t *) buffer.data;
     pkg_init(resp, pkg->id, TI_PROTO_CLIENT_RES_JOIN, buffer.size);
 
     return resp;
@@ -654,7 +655,7 @@ ti_pkg_t * ti_collection_leave_rooms(
         return NULL;
     }
 
-    pkg = (ti_pkg_t *) buffer.data;
+    resp = (ti_pkg_t *) buffer.data;
     pkg_init(resp, pkg->id, TI_PROTO_CLIENT_RES_JOIN, buffer.size);
 
     return resp;

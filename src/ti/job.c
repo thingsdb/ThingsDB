@@ -776,10 +776,7 @@ static int job__mod_enum_ren(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
-static int job__mod_type_add(
-        ti_thing_t * thing,
-        mp_unp_t * up,
-        uint64_t ev_id)
+static int job__mod_type_add(ti_thing_t * thing, mp_unp_t * up)
 {
     ex_t e = {0};
     ti_type_t * type;
@@ -914,7 +911,7 @@ static int job__mod_type_add(
         goto fail1;
     }
 
-    if (val && ti_field_init_things(field, &val, ev_id))
+    if (val && ti_field_init_things(field, &val))
     {
         ti_panic("unrecoverable state after `mod_type_add` job");
         goto fail1;
@@ -939,10 +936,7 @@ fail0:
 /*
  * Returns 0 on success
  */
-static int job__mod_type_del(
-        ti_thing_t * thing,
-        mp_unp_t * up,
-        uint64_t ev_id)
+static int job__mod_type_del(ti_thing_t * thing, mp_unp_t * up)
 {
     ti_collection_t * collection = thing->collection;
     ti_type_t * type;
@@ -988,7 +982,7 @@ static int job__mod_type_del(
     field = ti_field_by_name(type, name);
     if (field)
     {
-        if (ti_field_del(field, ev_id))
+        if (ti_field_del(field))
         {
             log_critical(EX_MEMORY_S);
             return -1;
@@ -2201,7 +2195,7 @@ static int job__splice(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Unpacker should be at point 'job': ...
  */
-int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
+int ti_job_run(ti_thing_t * thing, mp_unp_t * up)
 {
     mp_obj_t obj, mp_job;
     if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||
@@ -2242,8 +2236,8 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up, uint64_t ev_id)
     case TI_TASK_MOD_ENUM_DEL:      return job__mod_enum_del(thing, up);
     case TI_TASK_MOD_ENUM_MOD:      return job__mod_enum_mod(thing, up);
     case TI_TASK_MOD_ENUM_REN:      return job__mod_enum_ren(thing, up);
-    case TI_TASK_MOD_TYPE_ADD:      return job__mod_type_add(thing, up, ev_id);
-    case TI_TASK_MOD_TYPE_DEL:      return job__mod_type_del(thing, up, ev_id);
+    case TI_TASK_MOD_TYPE_ADD:      return job__mod_type_add(thing, up);
+    case TI_TASK_MOD_TYPE_DEL:      return job__mod_type_del(thing, up);
     case TI_TASK_MOD_TYPE_MOD:      return job__mod_type_mod(thing, up);
     case TI_TASK_MOD_TYPE_REL_ADD:  return job__mod_type_rel_add(thing, up);
     case TI_TASK_MOD_TYPE_REL_DEL:  return job__mod_type_rel_del(thing, up);
@@ -2323,9 +2317,9 @@ version_v0:
         if (mp_str_eq(&mp_job, "mod_enum_ren"))
             return job__mod_enum_ren(thing, up);
         if (mp_str_eq(&mp_job, "mod_type_add"))
-            return job__mod_type_add(thing, up, ev_id);
+            return job__mod_type_add(thing, up);
         if (mp_str_eq(&mp_job, "mod_type_del"))
-            return job__mod_type_del(thing, up, ev_id);
+            return job__mod_type_del(thing, up);
         if (mp_str_eq(&mp_job, "mod_type_mod"))
             return job__mod_type_mod(thing, up);
         if (mp_str_eq(&mp_job, "mod_type_rel_add"))

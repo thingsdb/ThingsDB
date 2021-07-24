@@ -18,6 +18,7 @@
 #include <ti/names.h>
 #include <ti/nil.h>
 #include <ti/query.h>
+#include <ti/room.h>
 #include <ti/spec.h>
 #include <ti/spec.inline.h>
 #include <ti/thing.inline.h>
@@ -224,6 +225,11 @@ static ti_val_t * field__dval_closure(ti_field_t * UNUSED(field))
 static ti_val_t * field__dval_error(ti_field_t * UNUSED(field))
 {
     return (ti_val_t *) ti_verror_from_code(-100);
+}
+
+static ti_val_t * field__dval_room(ti_field_t * field)
+{
+    return (ti_val_t *) ti_room_create(0, field->type->types->collection);
 }
 
 static ti_val_t * field__dval_datetime(ti_field_t * field)
@@ -468,6 +474,13 @@ skip_nesting:
         {
             *spec |= TI_SPEC_REGEX;
             field__set_cb(field, field__dval_regex);
+            goto found;
+        }
+        break;
+        if (field__cmp(str, n, "room"))
+        {
+            *spec |= TI_SPEC_ROOM;
+            field__set_cb(field, field__dval_room);
             goto found;
         }
         break;
@@ -933,7 +946,7 @@ fail0:
     return e->nr;
 }
 
-int ti_field_del(ti_field_t * field, uint64_t ev_id)
+int ti_field_del(ti_field_t * field)
 {
     vec_t * vec = imap_vec_ref(field->type->types->collection->things);
     if (!vec)
@@ -1297,6 +1310,7 @@ int ti_field_make_assignable(
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_WRAP:
+        case TI_VAL_ROOM:
             break;
         case TI_VAL_ARR:
             return field__varr_assign(field, (ti_varr_t **) val, parent, e);
@@ -1388,6 +1402,10 @@ int ti_field_make_assignable(
         goto type_error;
     case TI_SPEC_ERROR:
         if (ti_val_is_error(*val))
+            return 0;
+        goto type_error;
+    case TI_SPEC_ROOM:
+        if (ti_val_is_room(*val))
             return 0;
         goto type_error;
     case TI_SPEC_ARR:
@@ -1619,6 +1637,8 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
         return ti_val_is_closure(val);
     case TI_SPEC_ERROR:
         return ti_val_is_error(val);
+    case TI_SPEC_ROOM:
+        return ti_val_is_room(val);
     case TI_SPEC_ARR:
         /* we can map a set to an array */
         return ((
@@ -1718,6 +1738,7 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_REGEX:
     case TI_SPEC_CLOSURE:
     case TI_SPEC_ERROR:
+    case TI_SPEC_ROOM:
     case TI_SPEC_ARR:
     case TI_SPEC_SET:
     case TI_SPEC_REMATCH:
@@ -1854,6 +1875,7 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_REGEX:
     case TI_SPEC_CLOSURE:
     case TI_SPEC_ERROR:
+    case TI_SPEC_ROOM:
         return f_spec == t_spec;
     case TI_SPEC_ARR:
         return (
@@ -1915,7 +1937,6 @@ typedef struct
 {
     ti_field_t * field;
     ti_val_t ** vaddr;
-    uint64_t event_id;
     uint16_t type_id;
     ex_t e;
 } field__add_t;
@@ -1941,14 +1962,13 @@ static int field__add(ti_thing_t * thing, field__add_t * w)
  *       function
  * error: can only fail in case of a memory allocation error
  */
-int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr, uint64_t ev_id)
+int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr)
 {
     assert (field == vec_last(field->type->fields));
     int rc;
     field__add_t addjob = {
             .field = field,
             .vaddr = vaddr,
-            .event_id = ev_id,
             .type_id = field->type->type_id,
             .e = {0}
     };

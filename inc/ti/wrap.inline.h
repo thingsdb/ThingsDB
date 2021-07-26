@@ -55,7 +55,7 @@ static inline int ti_wrap_to_pk(
             : options == 0
             ? ti_thing_id_to_pk(wrap->thing, &vp->pk)
 
-            /* when packing for an event or store to disk */
+            /* when packing for a change or store to disk */
             : (
                     msgpack_pack_map(&vp->pk, 1) ||
                     mp_pack_strn(&vp->pk, TI_KIND_S_WRAP, 1) ||

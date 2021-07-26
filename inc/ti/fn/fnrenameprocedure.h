@@ -49,7 +49,7 @@ static int do__f_rename_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * 
     }
 
     task = ti_task_get_task(
-            query->ev,
+            query->change,
             query->collection ? query->collection->root : ti.thing0);
 
     if (!task ||

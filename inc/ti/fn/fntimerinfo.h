@@ -19,7 +19,7 @@ static int do__f_timer_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = ti_timer_as_mpval(timer, ti_access_check(
             ti_query_access(query),
             query->user,
-            TI_AUTH_EVENT));
+            TI_AUTH_CHANGE));
 
     if (!query->rval)
         ex_set_mem(e);

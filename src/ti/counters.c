@@ -33,27 +33,27 @@ void ti_counters_reset(void)
     counters->timers_success = 0;
     counters->timers_with_error = 0;
     counters->watcher_failed = 0;
-    counters->events_with_gap = 0;
-    counters->events_skipped = 0;
-    counters->events_failed = 0;
-    counters->events_killed = 0;
-    counters->events_committed = 0;
-    counters->events_quorum_lost = 0;
-    counters->events_unaligned = 0;
+    counters->changes_with_gap = 0;
+    counters->changes_skipped = 0;
+    counters->changes_failed = 0;
+    counters->changes_killed = 0;
+    counters->changes_committed = 0;
+    counters->changes_quorum_lost = 0;
+    counters->changes_unaligned = 0;
     counters->largest_result_size = 0;
     counters->queries_from_cache = 0;
     ti_counters_zero_garbage_collected();
     ti_counters_zero_wasted_cache();
     counters->longest_query_duration = 0.0;
-    counters->longest_event_duration = 0.0;
+    counters->longest_change_duration = 0.0;
     counters->total_query_duration = 0.0;
-    counters->total_event_duration = 0.0;
+    counters->total_change_duration = 0.0;
 }
 
 /*
  * Returns the duration
  */
-double ti_counters_upd_commit_event(struct timespec * start)
+double ti_counters_upd_commit_change(struct timespec * start)
 {
     struct timespec timing;
     double duration;
@@ -64,12 +64,12 @@ double ti_counters_upd_commit_event(struct timespec * start)
 
     assert (duration > 0);
 
-    ++counters->events_committed;
+    ++counters->changes_committed;
 
-    if (duration > counters->longest_event_duration)
-        counters->longest_event_duration = duration;
+    if (duration > counters->longest_change_duration)
+        counters->longest_change_duration = duration;
 
-    counters->total_event_duration += duration;
+    counters->total_change_duration += duration;
     return duration;
 }
 
@@ -116,26 +116,26 @@ int ti_counters_to_pk(msgpack_packer * pk)
         mp_pack_str(pk, "watcher_failed") ||
         msgpack_pack_uint16(pk, counters->watcher_failed) ||
 
-        mp_pack_str(pk, "events_with_gap") ||
-        msgpack_pack_uint64(pk, counters->events_with_gap) ||
+        mp_pack_str(pk, "changes_with_gap") ||
+        msgpack_pack_uint64(pk, counters->changes_with_gap) ||
 
-        mp_pack_str(pk, "events_skipped") ||
-        msgpack_pack_uint64(pk, counters->events_skipped) ||
+        mp_pack_str(pk, "changes_skipped") ||
+        msgpack_pack_uint64(pk, counters->changes_skipped) ||
 
-        mp_pack_str(pk, "events_failed") ||
-        msgpack_pack_uint64(pk, counters->events_failed) ||
+        mp_pack_str(pk, "changes_failed") ||
+        msgpack_pack_uint64(pk, counters->changes_failed) ||
 
-        mp_pack_str(pk, "events_killed") ||
-        msgpack_pack_uint64(pk, counters->events_killed) ||
+        mp_pack_str(pk, "changes_killed") ||
+        msgpack_pack_uint64(pk, counters->changes_killed) ||
 
-        mp_pack_str(pk, "events_committed") ||
-        msgpack_pack_uint64(pk, counters->events_committed) ||
+        mp_pack_str(pk, "changes_committed") ||
+        msgpack_pack_uint64(pk, counters->changes_committed) ||
 
-        mp_pack_str(pk, "events_quorum_lost") ||
-        msgpack_pack_uint64(pk, counters->events_quorum_lost) ||
+        mp_pack_str(pk, "changes_quorum_lost") ||
+        msgpack_pack_uint64(pk, counters->changes_quorum_lost) ||
 
-        mp_pack_str(pk, "events_unaligned") ||
-        msgpack_pack_uint64(pk, counters->events_unaligned) ||
+        mp_pack_str(pk, "changes_unaligned") ||
+        msgpack_pack_uint64(pk, counters->changes_unaligned) ||
 
         mp_pack_str(pk, "garbage_collected") ||
         msgpack_pack_uint64(pk, ti_counters_garbage_collected()) ||
@@ -154,12 +154,12 @@ int ti_counters_to_pk(msgpack_packer * pk)
             ? counters->total_query_duration / counters->queries_success
             : 0.0) ||
 
-        mp_pack_str(pk, "longest_event_duration") ||
-        msgpack_pack_double(pk, counters->longest_event_duration) ||
+        mp_pack_str(pk, "longest_change_duration") ||
+        msgpack_pack_double(pk, counters->longest_change_duration) ||
 
-        mp_pack_str(pk, "average_event_duration") ||
-        msgpack_pack_double(pk, counters->events_committed
-            ? counters->total_event_duration / counters->events_committed
+        mp_pack_str(pk, "average_change_duration") ||
+        msgpack_pack_double(pk, counters->changes_committed
+            ? counters->total_change_duration / counters->changes_committed
             : 0.0) ||
 
         mp_pack_str(pk, "started_at") ||

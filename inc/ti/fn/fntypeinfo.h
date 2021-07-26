@@ -19,7 +19,7 @@ static int do__f_type_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = ti_type_as_mpval(type, ti_access_check(
             query->collection->access,
             query->user,
-            TI_AUTH_EVENT));
+            TI_AUTH_CHANGE));
 
     if (!query->rval)
         ex_set_mem(e);

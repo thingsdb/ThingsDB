@@ -42,7 +42,7 @@ static int do__f_rename_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
     }
 
-    task = ti_task_get_task(query->ev, ti.thing0);
+    task = ti_task_get_task(query->change, ti.thing0);
     if (!task ||
         ti_task_add_rename_module(task, module, nname) ||
         ti_modules_rename(module, (const char *) nname->data, nname->n))

@@ -1581,7 +1581,7 @@ static int job__del_timer(ti_thing_t * thing, mp_unp_t * up)
     }
 
     /*
-     * For a timer event it may occur that a timer is already marked for
+     * For a timer with change it may occur that a timer is already marked for
      * deletion and the timer may even be removed.
      */
     return 0;

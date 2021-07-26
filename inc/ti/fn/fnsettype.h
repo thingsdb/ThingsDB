@@ -133,7 +133,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_type_init_from_thing(type, thing, e))
         goto fail2;
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
         ex_set_mem(e);
@@ -152,7 +152,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!is_new_type)
         /* only required when this is an existing type, note that nodes which
-         * run this by event make this call anyway */
+         * run this from a CPKG make this call anyway */
         ti_type_map_cleanup(type);
 
     is_new_type = false;  /* set always to false to prevent cleanup */

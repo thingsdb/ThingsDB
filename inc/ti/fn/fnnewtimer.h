@@ -182,7 +182,7 @@ skip_repeat:
     VEC_push(*timers, timer);
 
     task = ti_task_get_task(
-            query->ev,
+            query->change,
             query->collection ? query->collection->root : ti.thing0);
 
     if (!task || ti_task_add_new_timer(task, timer))

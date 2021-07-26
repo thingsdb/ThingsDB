@@ -352,14 +352,14 @@ void ti_collection_gc_clear(ti_collection_t * collection)
 typedef struct
 {
     ti_collection_t * collection;
-    uint64_t cevid;
+    uint64_t ccid;
 } collection__gc_t;
 
 static int collection__gc_thing(ti_thing_t * thing, collection__gc_t * w)
 {
     if (thing->flags & TI_THING_FLAG_SWEEP)
     {
-        ti_gc_t * gc = ti_gc_create(w->cevid, thing);
+        ti_gc_t * gc = ti_gc_create(w->ccid, thing);
 
         /*
          * Things are removed from the collection after the walk because we
@@ -405,12 +405,12 @@ void ti_collection_stop_futures(ti_collection_t * collection)
 int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
 {
     size_t n = 0, m = 0, idx = 0;
-    uint64_t sevid = ti.global_stored_event_id;
+    uint64_t scid = ti.global_stored_change_id;
     struct timespec start, stop;
     double duration;
     collection__gc_t w = {
             .collection = collection,
-            .cevid = ti.node ? ti.node->cevid : 0,
+            .ccid = ti.node ? ti.node->ccid : 0,
     };
 
     (void) clock_gettime(TI_CLOCK_MONOTONIC, &start);
@@ -442,10 +442,10 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
 
     for (queue_each(collection->gc, ti_gc_t, gc))
     {
-        if (gc->event_id > sevid)
+        if (gc->change_id > scid)
         {
             /*
-             * For all collected things above the stored event id need to
+             * For all collected things above the stored change id need to
              * have the `TI_THING_FLAG_SWEEP` which might be removed by the
              * earlier markings.
              */
@@ -594,7 +594,7 @@ ti_pkg_t * ti_collection_join_rooms(
     }
 
     resp = (ti_pkg_t *) buffer.data;
-    pkg_init(resp, pkg->id, TI_PROTO_CLIENT_RES_JOIN, buffer.size);
+    pkg_init(resp, pkg->id, TI_PROTO_CLIENT_RES_DATA, buffer.size);
 
     return resp;
 }
@@ -656,7 +656,7 @@ ti_pkg_t * ti_collection_leave_rooms(
     }
 
     resp = (ti_pkg_t *) buffer.data;
-    pkg_init(resp, pkg->id, TI_PROTO_CLIENT_RES_JOIN, buffer.size);
+    pkg_init(resp, pkg->id, TI_PROTO_CLIENT_RES_DATA, buffer.size);
 
     return resp;
 }

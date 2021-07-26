@@ -42,8 +42,8 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     mask = (uint64_t) VINT(query->rval);
 
-    /* make sure EVENT when GRANT */
-    if (mask & TI_AUTH_EVENT)
+    /* make sure CHANGE when GRANT */
+    if (mask & TI_AUTH_CHANGE)
         mask |= TI_AUTH_GRANT;
 
     if (query->user == user && (mask & TI_AUTH_GRANT))
@@ -56,7 +56,7 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_access_revoke(*access_, user, mask);
 
-    task = ti_task_get_task(query->ev, ti.thing0);
+    task = ti_task_get_task(query->change, ti.thing0);
     if (!task || ti_task_add_revoke(task, scope_id, user, mask))
         ex_set_mem(e);  /* task cleanup is not required */
 

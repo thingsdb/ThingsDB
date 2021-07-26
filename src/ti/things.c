@@ -79,7 +79,7 @@ ti_thing_t * ti_things_thing_o_from_vup(
          * TODO: injection from specials is deprecated, once removed, this
          *       check can be removed as well.
          *
-         * If not unpacking from an event, then new things should be created
+         * If not unpacking from a change, then new things should be created
          * without an id.
          */
         ex_set(e, EX_LOOKUP_ERROR,

@@ -30,8 +30,6 @@ typedef enum
     TI_PROTO_CLIENT_RES_OK      =17,    /* empty */
     TI_PROTO_CLIENT_RES_DATA    =18,    /* ... */
     TI_PROTO_CLIENT_RES_ERROR   =19,    /* {error_msg:..., error_code: x} */
-    TI_PROTO_CLIENT_RES_JOIN    =20,    /* [Id's / nil...] */
-    TI_PROTO_CLIENT_RES_LEAVE   =21,    /* [Id's / nil...] */
 
     /*
      * 0x0010xxxx  32..63 client requests
@@ -40,6 +38,9 @@ typedef enum
     TI_PROTO_CLIENT_REQ_AUTH    =33,    /* [user, pass] or token            */
     TI_PROTO_CLIENT_REQ_QUERY   =34,    /* [scope, query, {variable}]       */
     /* 35..36 : Old watch protocol */
+    _TI_PROTO_CLIENT_DEP_35     =35,    /* TODO (COMPAT) */
+    _TI_PROTO_CLIENT_DEP_36     =36,    /* TODO (COMPAT) */
+
     TI_PROTO_CLIENT_REQ_RUN     =37,    /* [scope, procedure, arguments...] */
     TI_PROTO_CLIENT_REQ_JOIN    =38,    /* [scope, room id's....]}         */
     TI_PROTO_CLIENT_REQ_LEAVE   =39,    /* [scope, room id's....]}         */
@@ -61,15 +62,15 @@ typedef enum
     /*
      * 128..159 node fire and forgets
      */
-    TI_PROTO_NODE_EVENT         =128,   /* event */
-    TI_PROTO_NODE_INFO          =129,   /* [...] */
-    TI_PROTO_NODE_MISSING_EVENT =130,   /* event_id */
+    TI_PROTO_NODE_CHANGE            =128,   /* change */
+    TI_PROTO_NODE_INFO              =129,   /* [...] */
+    TI_PROTO_NODE_MISSING_CHANGE    =130,   /* change_id */
     /* 131..132 : Old watch protocol */
-    TI_PROTO_NODE_FWD_TIMER     =133,   /* [scope_id, timer_id] */
-    TI_PROTO_NODE_OK_TIMER      =134,   /* [scope_id, timer_id, next_ts] */
-    TI_PROTO_NODE_EX_TIMER      =135,   /* [scope_id, timer_id, next_ts,
+    TI_PROTO_NODE_FWD_TIMER         =133,   /* [scope_id, timer_id] */
+    TI_PROTO_NODE_OK_TIMER          =134,   /* [scope_id, timer_id, next_ts] */
+    TI_PROTO_NODE_EX_TIMER          =135,   /* [scope_id, timer_id, next_ts,
                                             err_code, err_msg] */
-    TI_PROTO_NODE_ROOM_EMIT     =136,   /* {id:.., args: [..]} */
+    TI_PROTO_NODE_ROOM_EMIT         =136,   /* {id:.., args: [..]} */
     /*
      * 160..191 node requests
      */
@@ -79,10 +80,10 @@ typedef enum
     TI_PROTO_NODE_REQ_RUN       =161,   /* [user_id, [original]] */
 
     TI_PROTO_NODE_REQ_CONNECT   =168,   /* [...] */
-    TI_PROTO_NODE_REQ_EVENT_ID  =169,   /* event id */
+    TI_PROTO_NODE_REQ_CHANGE_ID =169,   /* change id */
     TI_PROTO_NODE_REQ_AWAY      =170,   /* empty */
     TI_PROTO_NODE_REQ_SETUP     =171,   /* empty */
-    TI_PROTO_NODE_REQ_SYNC      =172,   /* event_id */
+    TI_PROTO_NODE_REQ_SYNC      =172,   /* change_id */
 
     /* [scope_id, file_id, offset, bytes, more]
      * more is a boolean which is set to true in case the file is not yet
@@ -92,8 +93,8 @@ typedef enum
     TI_PROTO_NODE_REQ_SYNCFDONE =174,   /* full sync completed */
     TI_PROTO_NODE_REQ_SYNCAPART =175,   /* archive sync part */
     TI_PROTO_NODE_REQ_SYNCADONE =176,   /* archive sync completed */
-    TI_PROTO_NODE_REQ_SYNCEPART =177,   /* event sync part */
-    TI_PROTO_NODE_REQ_SYNCEDONE =178,   /* event sync completed */
+    TI_PROTO_NODE_REQ_SYNCEPART =177,   /* changes sync part */
+    TI_PROTO_NODE_REQ_SYNCEDONE =178,   /* changes sync completed */
 
     /*
      * 192..223 node responses
@@ -113,7 +114,7 @@ typedef enum
                                            data for the file is required
                                          */
     TI_PROTO_NODE_RES_SYNCADONE =199,   /* empty, ack */
-    TI_PROTO_NODE_RES_SYNCEPART =200,   /* event */
+    TI_PROTO_NODE_RES_SYNCEPART =200,   /* changes */
     TI_PROTO_NODE_RES_SYNCEDONE =201,   /* empty, ack */
 
 
@@ -129,7 +130,7 @@ typedef enum
 
 #define TI_PROTO_NODE_REQ_FWD_TIMEOUT 120
 #define TI_PROTO_NODE_REQ_CONNECT_TIMEOUT 5
-#define TI_PROTO_NODE_REQ_EVENT_ID_TIMEOUT 60
+#define TI_PROTO_NODE_REQ_CHANGE_ID_TIMEOUT 60
 #define TI_PROTO_NODE_REQ_AWAY_ID_TIMEOUT 5
 #define TI_PROTO_NODE_REQ_SETUP_TIMEOUT 10
 #define TI_PROTO_NODE_REQ_SYNC_TIMEOUT 10

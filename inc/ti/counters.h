@@ -16,7 +16,7 @@ extern ti_counters_t counters_;
 int ti_counters_create(void);
 void ti_counters_destroy(void);
 void ti_counters_reset(void);
-double ti_counters_upd_commit_event(struct timespec * start);
+double ti_counters_upd_commit_change(struct timespec * start);
 double ti_counters_upd_success_query(struct timespec * start);
 int ti_counters_to_pk(msgpack_packer * pk);
 ti_val_t * ti_counters_as_mpval(void);
@@ -40,33 +40,33 @@ struct ti_counters_s
                                        the master node but the query has
                                        returned with an error
                                     */
-    uint16_t watcher_failed;        /* failed to update a watcher with an
-                                       event
+    uint16_t watcher_failed;        /* failed to update a watcher with a
+                                       change
                                     */
-    uint64_t events_with_gap;       /* events which are committed but at least
-                                       one event id was skipped
+    uint64_t changes_with_gap;      /* changes which are committed but at least
+                                       one change id was skipped
                                     */
-    uint64_t events_skipped;        /* events which cannot be committed because
-                                       an event with a higher id is already
+    uint64_t changes_skipped;       /* changes which cannot be committed because
+                                       a change with a higher id is already
                                        been committed
                                     */
-    uint64_t events_failed;         /* events failed which should be committed
-                                       from EPKG, this is a critical counter
-                                       since the EPKG events should proceed
+    uint64_t changes_failed;        /* changes failed which should be committed
+                                       from CPKG, this is a critical counter
+                                       since the CPKG changes should proceed
                                        without errors
                                     */
-    uint64_t events_killed;         /* event killed because it took too long
-                                       before the event got the READY status.
-                                       these events may later be received
+    uint64_t changes_killed;        /* changes killed because it took too long
+                                       before the change got the READY status.
+                                       these changes may later be received
                                        and still being committed or skipped
                                     */
-    uint64_t events_committed;      /* events committed */
-    uint64_t events_quorum_lost;    /* number of times a quorum was not reached
-                                       for requesting an event id
+    uint64_t changes_committed;     /* changes committed */
+    uint64_t changes_quorum_lost;   /* number of times a quorum was not reached
+                                       for requesting an change id
                                     */
-    uint64_t events_unaligned;      /* number of times an event cannot be
+    uint64_t changes_unaligned;     /* number of times a change cannot be
                                        pushed to the end of the queue because
-                                       a higher event id is already queued
+                                       a higher change id is already queued
                                     */
     uint64_t largest_result_size;   /* largest result size in bytes */
     uint64_t queries_from_cache;    /* number of queries which are loaded from
@@ -85,15 +85,15 @@ struct ti_counters_s
     double longest_query_duration;  /* longest duration it took for a
                                        successful query to process (in seconds)
                                     */
-    double longest_event_duration;  /* longest duration it took for an event
+    double longest_change_duration; /* longest duration it took for a change
                                        to complete (in seconds)
                                     */
     double total_query_duration;    /* can be used to calculate the average
                                        total_query_duration / queries_success
                                         (in seconds)
                                     */
-    double total_event_duration;    /* can be used to calculate the average
-                                       total_event_duration / events_committed
+    double total_change_duration;   /* can be used to calculate the average
+                                       total_change_duration / changes_committed
                                         (in seconds)
                                     */
 };

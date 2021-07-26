@@ -46,7 +46,7 @@ static int do__f_set_timer_args(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = (ti_val_t *) ti_nil_get();
 
     task = ti_task_get_task(
-            query->ev,
+            query->change,
             query->collection ? query->collection->root : ti.thing0);
 
     if (!task || ti_task_add_set_timer_args(task, timer))

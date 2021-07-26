@@ -19,12 +19,12 @@ const char * ti_proto_str(ti_proto_enum_t tp)
     case TI_PROTO_CLIENT_RES_OK:            return "CLIENT_RES_OK";
     case TI_PROTO_CLIENT_RES_DATA:          return "CLIENT_RES_DATA";
     case TI_PROTO_CLIENT_RES_ERROR:         return "CLIENT_RES_ERROR";
-    case TI_PROTO_CLIENT_RES_JOIN:          return "CLIENT_RES_JOIN";
-    case TI_PROTO_CLIENT_RES_LEAVE:         return "CLIENT_RES_LEAVE";
 
     case TI_PROTO_CLIENT_REQ_PING:          return "CLIENT_REQ_PING";
     case TI_PROTO_CLIENT_REQ_AUTH:          return "CLIENT_REQ_AUTH";
     case TI_PROTO_CLIENT_REQ_QUERY:         return "CLIENT_REQ_QUERY";
+    case _TI_PROTO_CLIENT_DEP_35:           return "DEPRECATED_WATCH";
+    case _TI_PROTO_CLIENT_DEP_36:           return "DEPRECATED_UNWATCH";
     case TI_PROTO_CLIENT_REQ_RUN:           return "CLIENT_REQ_RUN";
     case TI_PROTO_CLIENT_REQ_JOIN:          return "CLIENT_REQ_JOIN";
     case TI_PROTO_CLIENT_REQ_LEAVE:         return "CLIENT_REQ_LEAVE";
@@ -36,9 +36,9 @@ const char * ti_proto_str(ti_proto_enum_t tp)
     case TI_PROTO_MODULE_RES:               return "MODULE_RES";
     case TI_PROTO_MODULE_ERR:               return "MODULE_ERR";
 
-    case TI_PROTO_NODE_EVENT:               return "NODE_EVENT";
+    case TI_PROTO_NODE_CHANGE:              return "NODE_CHANGE";
     case TI_PROTO_NODE_INFO:                return "NODE_INFO";
-    case TI_PROTO_NODE_MISSING_EVENT:       return "NODE_MISSING_EVENT";
+    case TI_PROTO_NODE_MISSING_CHANGE:      return "NODE_MISSING_CHANGE";
     case TI_PROTO_NODE_FWD_TIMER:           return "NODE_FWD_TIMER";
     case TI_PROTO_NODE_OK_TIMER:            return "NODE_OK_TIMER";
     case TI_PROTO_NODE_EX_TIMER:            return "NODE_EX_TIMER";
@@ -48,7 +48,7 @@ const char * ti_proto_str(ti_proto_enum_t tp)
     case TI_PROTO_NODE_REQ_RUN:             return "NODE_REQ_RUN";
 
     case TI_PROTO_NODE_REQ_CONNECT:         return "NODE_REQ_CONNECT";
-    case TI_PROTO_NODE_REQ_EVENT_ID:        return "NODE_REQ_EVENT_ID";
+    case TI_PROTO_NODE_REQ_CHANGE_ID:       return "NODE_REQ_CHANGE_ID";
     case TI_PROTO_NODE_REQ_AWAY:            return "NODE_REQ_AWAY";
     case TI_PROTO_NODE_REQ_SETUP:           return "NODE_REQ_SETUP";
     case TI_PROTO_NODE_REQ_SYNC:            return "NODE_REQ_SYNC";

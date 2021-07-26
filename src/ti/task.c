@@ -21,13 +21,13 @@ static inline void task__upd_approx_sz(ti_task_t * task, ti_data_t * data)
     task->approx_sz += data->n;
 }
 
-ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing)
+ti_task_t * ti_task_create(uint64_t change_id, ti_thing_t * thing)
 {
     ti_task_t * task = malloc(sizeof(ti_task_t));
     if (!task)
         return NULL;
 
-    task->event_id = event_id;
+    task->change_id = change_id;
     task->thing = thing;
     task->jobs = vec_new(1);
     task->approx_sz = 11;  /* thing_id (9) + map (1) + [close map] (1) */
@@ -43,17 +43,17 @@ ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing)
     return task;
 }
 
-ti_task_t * ti_task_get_task(ti_event_t * ev, ti_thing_t * thing)
+ti_task_t * ti_task_get_task(ti_change_t * change, ti_thing_t * thing)
 {
-    ti_task_t * task = vec_last(ev->_tasks);
+    ti_task_t * task = vec_last(change->_tasks);
     if (task && task->thing == thing)
         return task;
 
-    task = ti_task_create(ev->id, thing);
+    task = ti_task_create(change->id, thing);
     if (!task)
         goto failed;
 
-    if (vec_push(&ev->_tasks, task))
+    if (vec_push(&change->_tasks, task))
         goto failed;
 
     return task;

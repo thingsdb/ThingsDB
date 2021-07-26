@@ -1577,7 +1577,7 @@ int ti_val_gen_ids(ti_val_t * val)
         if (!((ti_thing_t *) val)->id)
             return ti_thing_gen_id((ti_thing_t *) val);
         /*
-         * New things 'under' an existing thing will get their own event,
+         * New things 'under' an existing thing will get their own task,
          * so here we do not need recursion.
          */
         break;
@@ -1585,7 +1585,7 @@ int ti_val_gen_ids(ti_val_t * val)
         if (!((ti_wrap_t *) val)->thing->id)
             return ti_thing_gen_id(((ti_wrap_t *) val)->thing);
         /*
-         * New things 'under' an existing thing will get their own event,
+         * New things 'under' an existing thing will get their own task,
          * so here we do not need recursion.
          */
         break;

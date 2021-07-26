@@ -32,7 +32,12 @@
   - `regex`: From object to string (e.g. `{"*": "/.*/"}` -> `"/.*/"`).
   - `closure`: From object to string (e.g. `{"/": "||nil"}` -> `"|| nil"`).
   - `error`: From object to string (e.g. `{"!": ...}` -> `"some error msg"`).
-    
+* Backup template no longer supports `{EVENT}` as template variable. This variable
+  is replaced with `{CHANGE_ID}`.
+* All the counter properties with `*event*` are replaced with `*change*`.
+* Access to a scope should be given using `CHANGE`.(`EVENT` still works but
+  is marked as deprecated).
+   
 # v0.10.15
 
 * Added `to_type(..)` to convert a thing into a type instance, issue #205.

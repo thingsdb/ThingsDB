@@ -42,8 +42,8 @@ ti_node_t * ti_node_create(
     node->syntax_ver = 0;
     node->next_retry = 0;
     node->retry_counter = 0;
-    node->cevid = 0;
-    node->sevid = 0;
+    node->ccid = 0;
+    node->scid = 0;
     node->next_free_id = 0;
     node->stream = NULL;
     node->port = port;
@@ -316,11 +316,11 @@ int ti_node_info_to_pk(ti_node_t * node, msgpack_packer * pk)
         mp_pack_str(pk, "zone") ||
         msgpack_pack_uint8(pk, node->zone) ||
 
-        mp_pack_str(pk, "committed_event_id") ||
-        msgpack_pack_uint64(pk, node->cevid) ||
+        mp_pack_str(pk, "committed_change_id") ||
+        msgpack_pack_uint64(pk, node->ccid) ||
 
-        mp_pack_str(pk, "stored_event_id") ||
-        msgpack_pack_uint64(pk, node->sevid) ||
+        mp_pack_str(pk, "stored_change_id") ||
+        msgpack_pack_uint64(pk, node->scid) ||
 
         mp_pack_str(pk, "next_free_id") ||
         msgpack_pack_uint64(pk, node->next_free_id) ||
@@ -363,8 +363,8 @@ int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
 {
     mp_obj_t obj,
              mp_next_thing_id,
-             mp_cevid,
-             mp_sevid,
+             mp_ccid,
+             mp_scid,
              mp_status,
              mp_zone,
              mp_port,
@@ -374,8 +374,8 @@ int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
 
     if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 7 ||
         mp_next(up, &mp_next_thing_id) != MP_U64 ||
-        mp_next(up, &mp_cevid) != MP_U64 ||
-        mp_next(up, &mp_sevid) != MP_U64 ||
+        mp_next(up, &mp_ccid) != MP_U64 ||
+        mp_next(up, &mp_scid) != MP_U64 ||
         mp_next(up, &mp_status) != MP_U64 ||
         mp_next(up, &mp_zone) != MP_U64 ||
         mp_next(up, &mp_port) != MP_U64 ||
@@ -383,8 +383,8 @@ int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
     ) return -1;
 
     node->next_free_id = mp_next_thing_id.via.u64;
-    node->cevid = mp_cevid.via.u64;
-    node->sevid = mp_sevid.via.u64;
+    node->ccid = mp_ccid.via.u64;
+    node->scid = mp_scid.via.u64;
     node->status = mp_status.via.u64;
     node->zone = mp_zone.via.u64;
     syntax_ver = mp_syntax_ver.via.u64;

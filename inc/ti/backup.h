@@ -44,7 +44,7 @@ struct ti_backup_s
     uint64_t next_run;      /* Next run, UNIX time-stamp in seconds */
     uint64_t repeat;        /* Repeat every X seconds */
     uint64_t created_at;    /* UNIX time-stamp in seconds */
-    char * fn_template;     /* {EVENT} {DATE} {TIME} */
+    char * fn_template;     /* {CHANGE_ID} {DATE} {TIME} */
     char * result_msg;      /* last status message */
     ti_raw_t * work_fn;     /* current backup file name */
     queue_t * files;        /* ti_raw_t, successful files, size: >=max_files */

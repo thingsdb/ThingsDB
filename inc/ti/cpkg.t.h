@@ -1,25 +1,25 @@
 /*
- * ti/epkg.t.h
+ * ti/cpkg.t.h
  */
-#ifndef TI_EPKG_T_H_
-#define TI_EPKG_T_H_
+#ifndef TI_CPKG_T_H_
+#define TI_CPKG_T_H_
 
-typedef struct ti_epkg_s ti_epkg_t;
+typedef struct ti_cpkg_s ti_cpkg_t;
 
 #include <inttypes.h>
 #include <ti/pkg.t.h>
 
 enum
 {
-    TI_EPKG_FLAG_ALLOW_GAP = 1<<0
+    TI_CPKG_FLAG_ALLOW_GAP = 1<<0
 };
 
-struct ti_epkg_s
+struct ti_cpkg_s
 {
     uint32_t ref;
     uint32_t flags;     /* required for alignment with ti_rpkg_t */
     ti_pkg_t * pkg;     /* must align with ti_rpkg_t             */
-    uint64_t event_id;
+    uint64_t change_id;
 };
 
-#endif  /* TI_EPKG_T_H_ */
+#endif  /* TI_CPKG_T_H_ */

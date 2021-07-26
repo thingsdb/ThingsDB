@@ -18,7 +18,7 @@ static inline void ti_syncer_destroy(ti_syncer_t * syncer);
 struct ti_syncer_s
 {
     ti_stream_t * stream;       /* weak reference */
-    uint64_t first;             /* first required event */
+    uint64_t first;             /* first required change */
 };
 
 static inline void ti_syncer_destroy(ti_syncer_t * syncer)

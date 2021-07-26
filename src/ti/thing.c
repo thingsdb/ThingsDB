@@ -4,9 +4,9 @@
 #include <assert.h>
 #include <doc.h>
 #include <stdlib.h>
+#include <ti/changes.inline.h>
 #include <ti.h>
 #include <ti/enums.h>
-#include <ti/events.inline.h>
 #include <ti/field.h>
 #include <ti/item.h>
 #include <ti/item.t.h>
@@ -215,7 +215,7 @@ void ti_thing_destroy(ti_thing_t * thing)
     assert (thing);
     if (thing->id)
     {
-        if (ti_events_cache_dropped_thing(thing))
+        if (ti_changes_cache_dropped_thing(thing))
             return;
 
         (void) imap_pop(thing->collection->things, thing->id);

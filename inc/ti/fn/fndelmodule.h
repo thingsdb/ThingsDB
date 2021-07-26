@@ -16,7 +16,7 @@ static int do__f_del_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!module)
         return ti_raw_err_not_found((ti_raw_t *) query->rval, "module", e);
 
-    task = ti_task_get_task(query->ev, ti.thing0);
+    task = ti_task_get_task(query->change, ti.thing0);
     if (!task || ti_task_add_del_module(task, module))
         ex_set_mem(e);  /* task cleanup is not required */
     else

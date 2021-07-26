@@ -5,9 +5,9 @@
 #include <tiinc.h>
 #include <ti/access.h>
 #include <ti/auth.h>
-#include <ti/epkg.h>
-#include <ti/epkg.inline.h>
-#include <ti/event.h>
+#include <ti/change.h>
+#include <ti/cpkg.h>
+#include <ti/cpkg.inline.h>
 #include <ti/modules.h>
 #include <ti/restore.h>
 #include <ti/task.t.h>
@@ -161,22 +161,22 @@ static void restore__cb(void)
 
     uv_close((uv_handle_t *) &restore__timer, NULL);
 
-    /* make sure the event queue is empty */
-    queue = ti.events->queue;
+    /* make sure the change queue is empty */
+    queue = ti.changes->queue;
     while (queue->n)
-        ti_event_drop(queue_pop(queue));
+        ti_change_drop(queue_pop(queue));
 
     /* cleanup the archive queue */
     queue = ti.archive->queue;
     while (queue->n)
-        ti_epkg_drop(queue_pop(queue));
+        ti_cpkg_drop(queue_pop(queue));
 
     /* reset all node status properties */
-    ti.node->cevid = 0;
-    ti.node->sevid = 0;
+    ti.node->ccid = 0;
+    ti.node->scid = 0;
     ti.node->next_free_id = 0;
-    ti.nodes->cevid = 0;
-    ti.nodes->sevid = 0;
+    ti.nodes->ccid = 0;
+    ti.nodes->scid = 0;
 
     /* make sure we forget nodes info */
     ti.args->forget_nodes = 1;
@@ -192,13 +192,13 @@ static void restore__user_access(void)
 
     msgpack_packer pk;
     msgpack_sbuffer buffer;
-    uint64_t event_id = ti.events->next_event_id++;
+    uint64_t change_id = ti.changes->next_change_id++;
     uint64_t scope_id = 0;                      /* TI_SCOPE_THINGSDB */
     uint64_t thing_id = 0;                      /* parent root thing */
     uint64_t user_id = 1;                       /* overwrites the first user */
-    ti_epkg_t * epkg;
+    ti_cpkg_t * cpkg;
     ti_pkg_t * pkg;
-    ti_event_t * event;
+    ti_change_t * change;
     size_t njobs = 3 +
             !!restore__user->encpass +
             restore__user->tokens->n;
@@ -213,7 +213,7 @@ static void restore__user_access(void)
     msgpack_pack_map(&pk, 1);
 
     msgpack_pack_array(&pk, 2);
-    msgpack_pack_uint64(&pk, event_id);
+    msgpack_pack_uint64(&pk, change_id);
     msgpack_pack_uint64(&pk, scope_id);
 
     msgpack_pack_map(&pk, 1);
@@ -285,29 +285,29 @@ static void restore__user_access(void)
     }
 
     pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, 0, TI_PROTO_NODE_EVENT, buffer.size);
+    pkg_init(pkg, 0, TI_PROTO_NODE_CHANGE, buffer.size);
 
-    epkg = ti_epkg_create(pkg, event_id);
-    if (!epkg)
+    cpkg = ti_cpkg_create(pkg, change_id);
+    if (!cpkg)
         goto fail0;
 
-    event = ti_event_epkg(epkg);
-    if (!event)
+    change = ti_change_cpkg(cpkg);
+    if (!change)
         goto fail1;
 
-    if (queue_push(&ti.events->queue, event))
+    if (queue_push(&ti.changes->queue, change))
         goto fail2;
 
     ti_user_drop(restore__user);
     return;  /* success */
 
 fail2:
-    free(event);
+    free(change);
 fail1:
-    free(epkg);
+    free(cpkg);
 fail0:
     free(pkg);
-    ti.events->next_event_id--;
+    ti.changes->next_change_id--;
     log_critical("failed to create (users) job");
 }
 

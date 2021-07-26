@@ -42,9 +42,9 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     mask = (uint64_t) VINT(query->rval);
 
-    /* make sure EVENT when GRANT */
+    /* make sure CHANGE when GRANT */
     if (mask & TI_AUTH_GRANT)
-        mask |= TI_AUTH_EVENT;
+        mask |= TI_AUTH_CHANGE;
 
     if (ti_access_grant(access_, user, mask))
     {
@@ -52,7 +52,7 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    task = ti_task_get_task(query->ev, ti.thing0);
+    task = ti_task_get_task(query->change, ti.thing0);
     if (!task || ti_task_add_grant(task, scope_id, user, mask))
         ex_set_mem(e);  /* task cleanup is not required */
 

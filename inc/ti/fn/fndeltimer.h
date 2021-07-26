@@ -22,7 +22,7 @@ static int do__f_del_timer(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_timer_mark_del(timer);
 
     task = ti_task_get_task(
-            query->ev,
+            query->change,
             query->collection ? query->collection->root : ti.thing0);
 
     if (!task || ti_task_add_del_timer(task, timer))

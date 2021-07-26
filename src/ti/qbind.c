@@ -21,6 +21,7 @@
 #include <ti/fn/fnbool.h>
 #include <ti/fn/fnbytes.h>
 #include <ti/fn/fncall.h>
+#include <ti/fn/fnchangeid.h>
 #include <ti/fn/fnchoice.h>
 #include <ti/fn/fncode.h>
 #include <ti/fn/fncollectioninfo.h>
@@ -55,7 +56,6 @@
 #include <ti/fn/fnequals.h>
 #include <ti/fn/fnerr.h>
 #include <ti/fn/fnerrors.h>
-#include <ti/fn/fneventid.h>
 #include <ti/fn/fnevery.h>
 #include <ti/fn/fnexport.h>
 #include <ti/fn/fnextend.h>
@@ -220,12 +220,12 @@
 #include <ti/preopr.h>
 
 /*
- * Set the `event` flag in case the `TI_QBIND_FLAG_COLLECTION` flag is set.
+ * Set the `change` flag in case the `TI_QBIND_FLAG_COLLECTION` flag is set.
  *
  * Argument: flags (QBIND flags)
  */
-#define qbind__set_collection_event(__f) \
-    (__f) |= (((__f) & TI_QBIND_FLAG_COLLECTION) && 1) << TI_QBIND_BIT_EVENT
+#define qbind__set_collection_change(__f) \
+    (__f) |= (((__f) & TI_QBIND_FLAG_COLLECTION) && 1) << TI_QBIND_BIT_WSE
 
 static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
 
@@ -249,8 +249,8 @@ enum
     TOTAL_KEYWORDS = 221,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 14,
-    MAX_HASH_VALUE = 534
+    MIN_HASH_VALUE = 30,
+    MAX_HASH_VALUE = 513
 };
 
 /*
@@ -262,32 +262,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        535, 535, 535, 535, 535, 535, 535, 535, 535, 535,
-        535, 535, 535, 535, 535, 535, 535, 535, 535, 535,
-        535, 535, 535, 535, 535, 535, 535, 535, 535, 535,
-        535, 535, 535, 535, 535, 535, 535, 535, 535, 535,
-        535, 535, 535, 535, 535, 535, 535, 535, 535, 535,
-        535, 535,   8, 535,   8, 535,  12, 535, 535, 535,
-        535, 535, 535, 535, 535, 535, 535, 535, 535, 535,
-        535, 535, 535, 535, 535, 535, 535, 535, 535, 535,
-        535, 535, 535, 535, 535, 535, 535, 535, 535, 535,
-        535, 535, 535, 535, 535,   6, 535,   7,  51,  83,
-          6,   6,  76, 216, 183,   6,   8,  10,   6,  33,
-         12,  27,  69,  17,   7,   6,   9,  17, 167, 180,
-        171, 109,   7, 535, 535, 535, 535, 535, 535, 535,
-        535, 535, 535, 535, 535, 535, 535, 535, 535, 535,
-        535, 535, 535, 535, 535, 535, 535, 535, 535, 535,
-        535, 535, 535, 535, 535, 535, 535, 535, 535, 535,
-        535, 535, 535, 535, 535, 535, 535, 535, 535, 535,
-        535, 535, 535, 535, 535, 535, 535, 535, 535, 535,
-        535, 535, 535, 535, 535, 535, 535, 535, 535, 535,
-        535, 535, 535, 535, 535, 535, 535, 535, 535, 535,
-        535, 535, 535, 535, 535, 535, 535, 535, 535, 535,
-        535, 535, 535, 535, 535, 535, 535, 535, 535, 535,
-        535, 535, 535, 535, 535, 535, 535, 535, 535, 535,
-        535, 535, 535, 535, 535, 535, 535, 535, 535, 535,
-        535, 535, 535, 535, 535, 535, 535, 535, 535, 535,
-        535, 535, 535, 535, 535, 535
+        514, 514, 514, 514, 514, 514, 514, 514, 514, 514,
+        514, 514, 514, 514, 514, 514, 514, 514, 514, 514,
+        514, 514, 514, 514, 514, 514, 514, 514, 514, 514,
+        514, 514, 514, 514, 514, 514, 514, 514, 514, 514,
+        514, 514, 514, 514, 514, 514, 514, 514, 514, 514,
+        514, 514,  16, 514,  16, 514,  14, 514, 514, 514,
+        514, 514, 514, 514, 514, 514, 514, 514, 514, 514,
+        514, 514, 514, 514, 514, 514, 514, 514, 514, 514,
+        514, 514, 514, 514, 514, 514, 514, 514, 514, 514,
+        514, 514, 514, 514, 514,  14, 514,  15,  55,  81,
+         14,  14,  39, 183, 127,  14,  20,  27,  14,  23,
+         20,  20, 129,  48,  15,  14,  17,  18,  19, 130,
+        197,  85,  16, 514, 514, 514, 514, 514, 514, 514,
+        514, 514, 514, 514, 514, 514, 514, 514, 514, 514,
+        514, 514, 514, 514, 514, 514, 514, 514, 514, 514,
+        514, 514, 514, 514, 514, 514, 514, 514, 514, 514,
+        514, 514, 514, 514, 514, 514, 514, 514, 514, 514,
+        514, 514, 514, 514, 514, 514, 514, 514, 514, 514,
+        514, 514, 514, 514, 514, 514, 514, 514, 514, 514,
+        514, 514, 514, 514, 514, 514, 514, 514, 514, 514,
+        514, 514, 514, 514, 514, 514, 514, 514, 514, 514,
+        514, 514, 514, 514, 514, 514, 514, 514, 514, 514,
+        514, 514, 514, 514, 514, 514, 514, 514, 514, 514,
+        514, 514, 514, 514, 514, 514, 514, 514, 514, 514,
+        514, 514, 514, 514, 514, 514, 514, 514, 514, 514,
+        514, 514, 514, 514, 514, 514
     };
 
     register unsigned int hval = n;
@@ -358,7 +358,7 @@ typedef enum
     FN__FLAG_CHAIN      = 1<<4,
     FN__FLAG_XROOT      = 1<<5,
     FN__FLAG_AS_ON_VAR  = 1<<6, /* function result as on variable */
-    FN__FLAG_FUT        = 1<<7, /* must check for closure and do not set event
+    FN__FLAG_FUT        = 1<<7, /* must check for closure and do not set wse
                                    by itself */
 } qbind__fn_flag_t;
 
@@ -373,15 +373,15 @@ typedef struct
 /*
  * Every function which might return a pointer to a mutable value, other than
  * a thing, must start with X... This is not true if you can guarantee that or,
- * the return value does not require an event, or if the function itself is
- * already making an event. (then the optimization has no meaning anyway)
+ * the return value does not require a change, or if the function itself is
+ * already making a change. (then the optimization has no meaning anyway)
  *
  * For example:
  *   t = .my_stored_thing;
- *   t.get('arr').push(42);  // Requires an event, arr is still a pointer.
+ *   t.get('arr').push(42);  // Requires a change, arr is still a pointer.
  *
  *   arr = t.get('arr');
- *   arr.push(42);  // Does not require an event, since arr is assigned and
+ *   arr.push(42);  // Does not require a change, since arr is assigned and
  *                  // therefore copied.
  */
 
@@ -471,7 +471,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="enums_info",        .fn=do__f_enums_info,           ROOT_NE},
     {.name="equals",            .fn=do__f_equals,               CHAIN_NE},
     {.name="err",               .fn=do__f_err,                  ROOT_NE},
-    {.name="event_id",          .fn=do__f_event_id,             ROOT_NE},
+    {.name="change_id",          .fn=do__f_change_id,             ROOT_NE},
     {.name="every",             .fn=do__f_every,                CHAIN_NE},
     {.name="export",            .fn=do__f_export,               ROOT_NE},
     {.name="extend",            .fn=do__f_extend,               CHAIN_CE_XVAR},
@@ -772,12 +772,12 @@ static _Bool qbind__operations(
 }
 
 /*
- * Peek for a closure and if found, analyze the statement but ignore any event
+ * Peek for a closure and if found, analyze the statement but ignore any wse
  * flags.
  *
  * Only called in relation to a future (future,then,else).
  * If the argument is a closure, this closure be called with it's own query
- * and event (if required).
+ * and change (if required).
  */
 static void qbind__peek_statement_for_closure(
         ti_qbind_t * q,
@@ -788,9 +788,9 @@ static void qbind__peek_statement_for_closure(
     if ((node = nd->children->node)->cl_obj->gid == CLERI_GID_EXPRESSION &&
         node->children->next->node->cl_obj->gid == CLERI_GID_T_CLOSURE)
     {
-        uint8_t no_ev_flag = ~q->flags & TI_QBIND_FLAG_EVENT;
+        uint8_t no_wse_flag = ~q->flags & TI_QBIND_FLAG_WSE;
         qbind__statement(q, nd);
-        q->flags &= ~no_ev_flag;
+        q->flags &= ~no_wse_flag;
         return;
     }
 
@@ -800,7 +800,7 @@ static void qbind__peek_statement_for_closure(
 /*
  * Analyze a function call.
  *   - Arguments will be analyzed
- *   - Based on the function, the `event` flag will be set
+ *   - Based on the function, the wse flag will be set
  *   - Future (then,else) will be peeked
  *   - Immutable counter will increase for no-build-in functions
  */
@@ -825,12 +825,12 @@ static void qbind__function(
 
     nd->data = fmflags ? fmap->fn : NULL;
 
-    /* may set event flag */
+    /* may set wse flag */
     q->flags |= (
         ((FN__FLAG_EV_T|FN__FLAG_EV_C) & q->flags & fmflags) &&
         ((~fmflags & FN__FLAG_EXCL_VAR) || (~flags & FN__FLAG_EXCL_VAR)) &&
         ((~fmflags & FN__FLAG_XROOT) || (~flags & FN__FLAG_ROOT))
-    ) << TI_QBIND_BIT_EVENT;
+    ) << TI_QBIND_BIT_WSE;
 
     /* update the value cache if no build-in function is found */
     q->immutable_n += nd->data == NULL;
@@ -889,7 +889,7 @@ static void qbind__index(ti_qbind_t * qbind, cleri_node_t * nd)
 
         if (child->node->children->next->next->next)
         {
-            qbind__set_collection_event(qbind->flags);
+            qbind__set_collection_change(qbind->flags);
             qbind__statement(qbind, child->node             /* sequence */
                     ->children->next->next->next->node      /* assignment */
                     ->children->next->node);                /* statement */
@@ -1015,7 +1015,7 @@ static void qbind__name_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
                     FN__FLAG_CHAIN|qbind__is_onvar(qbind->flags));
             return;
         case CLERI_GID_ASSIGN:
-            qbind__set_collection_event(qbind->flags);
+            qbind__set_collection_change(qbind->flags);
             qbind__statement(
                     qbind,
                     nd->children->next->node->children->next->node);
@@ -1200,8 +1200,8 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
  * - array sizes (stored in node->data)
  * - number of function arguments (stored in node->data)
  * - function bindings (stored in node->data)
- * - event requirement (set as qbind flags)
- * - closure detection and event requirement (set as flag to node->data)
+ * - change requirement (set as qbind wse flag)
+ * - closure detection and change requirement (set as flag to node->data)
  * - re-arrange operations to honor compare order
  * - count immutable cache requirements
  */

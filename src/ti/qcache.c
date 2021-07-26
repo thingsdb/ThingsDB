@@ -2,7 +2,7 @@
  * ti/qcache.c
  */
 #include <ti/api.h>
-#include <ti/event.h>
+#include <ti/change.h>
 #include <ti/prop.h>
 #include <ti/qcache.h>
 #include <ti/query.h>
@@ -108,7 +108,7 @@ void ti_qcache_return(ti_query_t * query)
         ti_stream_drop(query->via.stream);
 
     ti_user_drop(query->user);
-    ti_event_drop(query->ev);
+    ti_change_drop(query->change);
     ti_val_drop(query->rval);
 
     assert (query->futures.n == 0);
@@ -136,7 +136,7 @@ void ti_qcache_return(ti_query_t * query)
             query->flags = 0;
             query->via.stream = NULL;
             query->user = NULL;
-            query->ev = NULL;
+            query->change = NULL;
             query->rval = NULL;
             query->vars = NULL;
             query->collection = NULL;

@@ -112,7 +112,7 @@ static int modtype__add_cb(ti_thing_t * thing, modtype__add_t * w)
 
         if (thing->id)
         {
-            task = ti_task_get_task(w->query->ev, thing);
+            task = ti_task_get_task(w->query->change, thing);
             if (!task || ti_task_add_set(
                     task,
                     (ti_raw_t *) w->field->name,
@@ -186,7 +186,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
 
             if (thing->id)
             {
-                task = ti_task_get_task(w->query->ev, thing);
+                task = ti_task_get_task(w->query->change, thing);
                 if (!task || ti_task_add_set(
                         task,
                         (ti_raw_t *) w->field->name,
@@ -215,7 +215,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
 
         if (thing->id)
         {
-            task = ti_task_get_task(w->query->ev, thing);
+            task = ti_task_get_task(w->query->change, thing);
             if (!task || ti_task_add_set(
                     task,
                     (ti_raw_t *) w->field->name,
@@ -262,7 +262,7 @@ static int modtype__mod_after_cb(ti_thing_t * thing, modtype__mod_t * w)
 
         if (thing->id)
         {
-            task = ti_task_get_task(w->query->ev, thing);
+            task = ti_task_get_task(w->query->change, thing);
             if (!task || ti_task_add_set(
                     task,
                     (ti_raw_t *) w->field->name,
@@ -365,7 +365,7 @@ static void type__add(
         if (ti_closure_unbound(closure, e))
             return;
 
-        task = ti_task_get_task(query->ev, query->collection->root);
+        task = ti_task_get_task(query->change, query->collection->root);
         if (!task)
         {
             ex_set_mem(e);
@@ -448,7 +448,7 @@ static void type__add(
      * Must be after all `statements` with the old definition, but before
      * running statements with the new definition.
      */
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
         ex_set_mem(e);
@@ -614,7 +614,7 @@ static void type__del(
         return;
     }
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
         ex_set_mem(e);
@@ -698,7 +698,7 @@ static int type__mod_using_callback(
         goto fail3;
     }
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
         ex_set_mem(e);
@@ -748,7 +748,7 @@ static int type__mod_using_callback(
 
     /* get a new task since the order of the task must be after the changes
      * above */
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task || ti_task_add_mod_type_mod_field(task, modjob.field))
     {
         ex_set_mem(e);
@@ -837,7 +837,7 @@ static void type__mod(
         if (ti_closure_unbound(closure, e))
             return;
 
-        task = ti_task_get_task(query->ev, query->collection->root);
+        task = ti_task_get_task(query->change, query->collection->root);
         if (!task)
         {
             ex_set_mem(e);
@@ -878,7 +878,7 @@ static void type__mod(
             if (ti_field_mod(field, spec_raw, e))
                 goto fail;
 
-            task = ti_task_get_task(query->ev, query->collection->root);
+            task = ti_task_get_task(query->change, query->collection->root);
             if (!task)
             {
                 ex_set_mem(e);
@@ -990,7 +990,7 @@ static void type__ren(
         newname = field->name;
     }
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
         ex_set_mem(e);
@@ -1114,7 +1114,7 @@ static void type__rel_add(
     if (ti_field_relation_check(field, ofield, query->vars, e))
         goto fail0;
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
         ex_set_mem(e);
@@ -1170,7 +1170,7 @@ static void type__rel_del(
         ti_type_try_lock(ofield->type, e)))
         return;
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
         ex_set_mem(e);
@@ -1300,7 +1300,7 @@ static void type__wpo(
     if (!wrap_only && ti_type_uses_wpo(type, e))
         return;
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
         ex_set_mem(e);

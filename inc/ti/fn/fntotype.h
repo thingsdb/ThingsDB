@@ -53,7 +53,7 @@ static int do__f_to_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (thing->id)
     {
-        task = ti_task_get_task(query->ev, thing);
+        task = ti_task_get_task(query->change, thing);
         if (!task || ti_task_add_to_type(task, type))
         {
             ex_set_mem(e);

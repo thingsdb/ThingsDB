@@ -24,9 +24,9 @@ enum
                                             the full query string. */
     TI_CLOSURE_FLAG_WSE     =1<<2,     /* stored closure with side effects;
                                             when closure make changes they
-                                            require an event and thus must be
+                                            require a change and thus must be
                                             wrapped by wse() so we can know
-                                            an event is created.
+                                            an change is created.
                                             (only stored closures) */
 };
 

@@ -27,7 +27,7 @@ static uv_timer_t away__uv_waiter;
 #define AWAY__RESET_COUNTER 5       /* reset expect after X times reject   */
 #define AWAY__SOON_TIMER 10000      /* in soon mode for X seconds  */
 #define AWAY__BLOCK_TIME 15000      /* block accepting for X seconds */
-#define AWAY__SKIP_COUNT 25         /* skip away mode X times when events are
+#define AWAY__SKIP_COUNT 25         /* skip away mode X times when changes are
                                        pending */
 #define AWAY__WAIT_FUTURES 30       /* wait X extra seconds before canceling
                                        running futures when going into away
@@ -170,7 +170,7 @@ static void away__accept_node_id(uint32_t node_id)
  */
 static void away__work(uv_work_t * UNUSED(work))
 {
-    uv_mutex_lock(ti.events->lock);
+    uv_mutex_lock(ti.changes->lock);
 
     if ((ti.flags & TI_FLAG_NODES_CHANGED) && ti_save() == 0)
         ti.flags &= ~TI_FLAG_NODES_CHANGED;
@@ -186,10 +186,10 @@ static void away__work(uv_work_t * UNUSED(work))
     (void) ti_collections_gc();
 
     /* shrinks dropped to a reasonable size */
-    (void) ti_events_resize_dropped();
+    (void) ti_changes_resize_dropped();
 
     if (ti_archive_to_disk())
-        log_critical("failed writing archived events to disk");
+        log_critical("failed writing archived changes to disk");
 
     /* write global status to disk */
     (void) ti_nodes_write_global_status();
@@ -197,14 +197,14 @@ static void away__work(uv_work_t * UNUSED(work))
     /* backup ThingsDB if backups are pending */
     (void) ti_backups_backup();
 
-    uv_mutex_unlock(ti.events->lock);
+    uv_mutex_unlock(ti.changes->lock);
 }
 
 static size_t away__syncers(void)
 {
     size_t count = 0;
-    uint64_t fa_event_id = ti_archive_get_first_event_id();
-    uint64_t fs_event_id = ti.store->last_stored_event_id;
+    uint64_t fa_change_id = ti_archive_get_first_change_id();
+    uint64_t fs_change_id = ti.store->last_stored_change_id;
 
     for (vec_each(away->syncers, ti_syncer_t, syncer))
     {
@@ -222,17 +222,17 @@ static size_t away__syncers(void)
 
             syncer->stream->flags |= TI_STREAM_FLAG_SYNCHRONIZING;
 
-            if (    (syncer->first < fa_event_id) &&
-                    syncer->first <= fs_event_id)
+            if (    (syncer->first < fa_change_id) &&
+                    syncer->first <= fs_change_id)
             {
                 log_info(
                     "full database sync is required for `%s` because the "
-                    "requested "TI_EVENT_ID" is not in the archive starting "
-                    "at "TI_EVENT_ID" but within the full stored "TI_EVENT_ID,
+                    "requested "TI_CHANGE_ID" is not in the archive starting "
+                    "at "TI_CHANGE_ID" but within the full stored "TI_CHANGE_ID,
                     ti_stream_name(syncer->stream),
                     syncer->first,
-                    fa_event_id == UINT64_MAX ? fs_event_id + 1 : fa_event_id,
-                    fs_event_id);
+                    fa_change_id == UINT64_MAX ? fs_change_id + 1 : fa_change_id,
+                    fs_change_id);
                 if (ti_syncfull_start(syncer->stream))
                     log_critical(EX_MEMORY_S);
                 continue;
@@ -267,19 +267,19 @@ static void away__waiter_after_cb(uv_timer_t * waiter)
     assert (away->status == AWAY__STATUS_SYNCING);
 
     size_t nsyncers;
-    ssize_t events_to_process = ti_events_trigger_loop();
+    ssize_t changes_to_process = ti_changes_trigger_loop();
 
     /*
-     * First check and process events before start with synchronizing
-     * optional nodes. This order is required so nodes will receive events
+     * First check and process changes before start with synchronizing
+     * optional nodes. This order is required so nodes will receive changes
      * from the archive queue which they might require.
      */
-    if (events_to_process)
+    if (changes_to_process)
     {
         log_info(
                 "stay in away mode since the queue contains %zd %s",
-                events_to_process,
-                events_to_process == 1 ? "event" : "events");
+                changes_to_process,
+                changes_to_process == 1 ? "change" : "changes");
         return;
     }
 
@@ -336,8 +336,8 @@ static void away__waiter_pre_close_cb(uv_handle_t * UNUSED(handle))
 {
     away->status = AWAY__STATUS_WORKING;
 
-    /* set the global stored event ID */
-    ti.global_stored_event_id = ti_nodes_sevid();
+    /* set the global stored change Id */
+    ti.global_stored_change_id = ti_nodes_scid();
 
     if (uv_queue_work(
             ti.loop,
@@ -355,7 +355,7 @@ static void away__waiter_pre_close_cb(uv_handle_t * UNUSED(handle))
 
 static void away__waiter_pre_cb(uv_timer_t * waiter)
 {
-    ssize_t events_to_process = ti_events_trigger_loop();
+    ssize_t changes_to_process = ti_changes_trigger_loop();
 
     if (ti.futures_count)
     {
@@ -378,15 +378,15 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
         return;
     }
 
-    if (events_to_process)
+    if (changes_to_process)
     {
         /* empty the queue because other nodes might wait for these evens to
          * be processed
          */
         log_info(
                 "wait for %zd %s to finish before going into away mode",
-                events_to_process,
-                events_to_process == 1 ? "event" : "events");
+                changes_to_process,
+                changes_to_process == 1 ? "change" : "changes");
         return;
     }
 
@@ -424,7 +424,7 @@ static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
             &away__uv_waiter,
             away__waiter_pre_cb,
             AWAY__SOON_TIMER,   /* x seconds we keep in AWAY_SOON mode */
-            1000                /* a little longer if events are still queued */
+            1000                /* a little longer if changes are still queued */
     ))
         goto fail2;
 
@@ -546,14 +546,14 @@ static void away__trigger_cb(uv_timer_t * UNUSED(repeat))
         return;
     }
 
-    if (ti_events_in_queue() &&
+    if (ti_changes_in_queue() &&
         sev == AWAY__SEVERITY_MINOR &&
         away->skip_count &&
         !away__has_major_severity())
     {
         log_debug(
                 "not going in away mode "
-                "(events are pending and severity is minor; "
+                "(changes are pending and severity is minor; "
                 "skip %u more time%s)",
                 away->skip_count, away->skip_count == 1 ? "" : "s");
         --away->skip_count;

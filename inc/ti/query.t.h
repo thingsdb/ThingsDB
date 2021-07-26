@@ -11,7 +11,7 @@ typedef int (*ti_query_vars_walk_cb)(void * data, void * arg);
 #include <ti/api.t.h>
 #include <ti/closure.t.h>
 #include <ti/collection.t.h>
-#include <ti/event.t.h>
+#include <ti/change.t.h>
 #include <ti/future.t.h>
 #include <ti/qbind.t.h>
 #include <ti/stream.t.h>
@@ -85,7 +85,7 @@ struct ti_query_s
     ti_user_t * user;           /* with reference, required in case stream
                                    is a node stream */
     vec_t * vars;               /* ti_prop_t - variable */
-    ti_event_t * ev;            /* with reference, only when an event is
+    ti_change_t * change;       /* with reference, only when a change is
                                    required
                                 */
     vec_t * immutable_cache;    /* ti_val_t, Only for immutable and collection

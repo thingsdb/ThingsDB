@@ -23,6 +23,8 @@ ti_room_t * ti_room_create(uint64_t id, ti_collection_t * collection)
     if (!room)
         return NULL;
 
+    room->ref = 1;
+    room->tp = TI_VAL_ROOM;
     room->id = id;
     room->collection = collection;
     room->listeners = vec_new(2);

@@ -15,7 +15,7 @@ static int do__f_del_expired(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     after_ts = util_now_usec();
 
-    task = ti_task_get_task(query->ev, ti.thing0);
+    task = ti_task_get_task(query->change, ti.thing0);
     if (!task || ti_task_add_del_expired(task, after_ts))
         ex_set_mem(e);  /* task cleanup is not required */
     else

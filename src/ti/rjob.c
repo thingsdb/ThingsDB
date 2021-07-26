@@ -187,7 +187,7 @@ static int rjob__del_timer(mp_unp_t * up)
     }
 
     /*
-     * For a timer event it may occur that a timer is already marked for
+     * For a timer with change it may occur that a timer is already marked for
      * deletion and the timer may even be removed.
      */
     return 0;
@@ -444,7 +444,7 @@ failed:
  *      'secret': encrypted
  *   }
  */
-static int rjob__new_node(ti_event_t * ev, mp_unp_t * up)
+static int rjob__new_node(ti_change_t * change, mp_unp_t * up)
 {
     mp_obj_t obj, mp_id, mp_port, mp_addr, mp_secret;
     char addr[INET6_ADDRSTRLEN];
@@ -476,7 +476,7 @@ static int rjob__new_node(ti_event_t * ev, mp_unp_t * up)
         return -1;
     }
 
-    if (ev->id <= ti.last_event_id)
+    if (change->id <= ti.last_change_id)
         return 0;  /* this job is already applied */
 
     memcpy(addr, mp_addr.via.str.data, mp_addr.via.str.n);
@@ -493,7 +493,7 @@ static int rjob__new_node(ti_event_t * ev, mp_unp_t * up)
         return -1;
     }
 
-    ev->flags |= TI_EVENT_FLAG_SAVE;
+    change->flags |= TI_CHANGE_FLAG_SAVE;
 
     return 0;
 }
@@ -726,7 +726,7 @@ static int rjob__new_user(mp_unp_t * up)
  * Returns 0 on success
  * - for example: id
  */
-static int rjob__del_node(ti_event_t * ev, mp_unp_t * up)
+static int rjob__del_node(ti_change_t * change, mp_unp_t * up)
 {
     ti_node_t * this_node = ti.node;
     mp_obj_t mp_node;
@@ -737,7 +737,7 @@ static int rjob__del_node(ti_event_t * ev, mp_unp_t * up)
         return -1;
     }
 
-    if (ev->id <= ti.last_event_id)
+    if (change->id <= ti.last_change_id)
         return 0;   /* this job is already applied */
 
     if (mp_node.via.u64 == this_node->id)
@@ -748,7 +748,7 @@ static int rjob__del_node(ti_event_t * ev, mp_unp_t * up)
 
     ti_nodes_del_node(mp_node.via.u64);
 
-    ev->flags |= TI_EVENT_FLAG_SAVE;
+    change->flags |= TI_CHANGE_FLAG_SAVE;
 
     return 0;
 }
@@ -1274,7 +1274,7 @@ static int rjob__set_password(mp_unp_t * up)
     return 0;
 }
 
-int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
+int ti_rjob_run(ti_change_t * change, mp_unp_t * up)
 {
     mp_obj_t obj, mp_job;
     if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||
@@ -1302,7 +1302,7 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
     case TI_TASK_DEL_ENUM:          break;
     case TI_TASK_DEL_EXPIRED:       return rjob__del_expired(up);
     case TI_TASK_DEL_MODULE:        return rjob__del_module(up);
-    case TI_TASK_DEL_NODE:          return rjob__del_node(ev, up);
+    case TI_TASK_DEL_NODE:          return rjob__del_node(change, up);
     case TI_TASK_DEL_PROCEDURE:     return rjob__del_procedure(up);
     case TI_TASK_DEL_TIMER:         return rjob__del_timer(up);
     case TI_TASK_DEL_TOKEN:         return rjob__del_token(up);
@@ -1324,7 +1324,7 @@ int ti_rjob_run(ti_event_t * ev, mp_unp_t * up)
     case TI_TASK_MOD_TYPE_WPO:      break;
     case TI_TASK_NEW_COLLECTION:    return rjob__new_collection(up);
     case TI_TASK_NEW_MODULE:        return rjob__new_module(up);
-    case TI_TASK_NEW_NODE:          return rjob__new_node(ev, up);
+    case TI_TASK_NEW_NODE:          return rjob__new_node(change, up);
     case TI_TASK_NEW_PROCEDURE:     return rjob__new_procedure(up);
     case TI_TASK_NEW_TIMER:         return rjob__new_timer(up);
     case TI_TASK_NEW_TOKEN:         return rjob__new_token(up);
@@ -1370,7 +1370,7 @@ version_v0:
         if (mp_str_eq(&mp_job, "del_expired"))
             return rjob__del_expired(up);
         if (mp_str_eq(&mp_job, "del_node"))
-            return rjob__del_node(ev, up);
+            return rjob__del_node(change, up);
         if (mp_str_eq(&mp_job, "del_module"))
             return rjob__del_module(up);
         if (mp_str_eq(&mp_job, "del_procedure"))
@@ -1392,7 +1392,7 @@ version_v0:
         if (mp_str_eq(&mp_job, "new_module"))
             return rjob__new_module(up);
         if (mp_str_eq(&mp_job, "new_node"))
-            return rjob__new_node(ev, up);
+            return rjob__new_node(change, up);
         if (mp_str_eq(&mp_job, "new_procedure"))
             return rjob__new_procedure(up);
         if (mp_str_eq(&mp_job, "new_token"))

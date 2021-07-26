@@ -337,7 +337,7 @@ int ti_type_init_from_thing(ti_type_t * type, ti_thing_t * thing, ex_t * e)
 
 /*
  * TODO: (COMPAT) This function can be removed when we want to stop support
- * for events containing type events using the `old map` format.
+ * for changes containing type changes using the `old map` format.
  * (Changed in version 0.3.3, 19 December 2019)
  *
  * This function is called only in case when unpacking according the new
@@ -412,7 +412,7 @@ failed:
 
 /*
  * TODO: (COMPAT) This function can be removed when we want to stop support
- * for events containing type events using the `old map` format.
+ * for changes containing type changes using the `old map` format.
  * (Changed in version 0.9.24, 25 November 2020)
  *
  * This function is called only in case when unpacking according the new

@@ -224,7 +224,7 @@ ti_closure_t * ti_closure_from_strn(
     closure->depth = 0;
     closure->future_depth = 0;
     closure->node = closure__node_from_strn(syntax, str, n, e);
-    closure->flags = syntax->flags & TI_QBIND_FLAG_EVENT
+    closure->flags = syntax->flags & TI_QBIND_FLAG_WSE
             ? TI_CLOSURE_FLAG_WSE
             : 0;
     closure->stacked = NULL;
@@ -276,7 +276,7 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
     if (!node)
         return e->nr;
 
-    closure->flags = syntax.flags & TI_QBIND_FLAG_EVENT
+    closure->flags = syntax.flags & TI_QBIND_FLAG_WSE
             ? TI_CLOSURE_FLAG_WSE
             : 0;
     closure->node = node;

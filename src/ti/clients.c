@@ -112,6 +112,16 @@ fail0:
     return -1;
 }
 
+static void clients__on_deprecated(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    ti_pkg_t * resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_OK, NULL, 0);
+    if (!resp || ti_stream_write_pkg(stream, resp))
+    {
+        free(resp);
+        log_error(EX_MEMORY_S);
+    }
+}
+
 static void clients__on_ping(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ti_pkg_t * resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_PONG, NULL, 0);
@@ -297,12 +307,12 @@ query:
         ti_query_parse(query, mp_query.via.str.data, mp_query.via.str.n, &e))
         goto finish;
 
-    if (ti_query_will_update(query))
+    if (ti_query_wse(query))
     {
         assert (scope.tp != TI_SCOPE_NODE);
 
-        if (ti_access_check_err(access_, query->user, TI_AUTH_EVENT, &e) ||
-            ti_events_create_new_event(query, &e))
+        if (ti_access_check_err(access_, query->user, TI_AUTH_CHANGE, &e) ||
+            ti_changes_create_new_change(query, &e))
             goto finish;
 
         return;
@@ -471,10 +481,10 @@ static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
     if (ti_access_check_err(access_, query->user, TI_AUTH_RUN, &e))
         goto finish;
 
-    if (ti_query_will_update(query))
+    if (ti_query_wse(query))
     {
-        if (ti_access_check_err(access_, query->user, TI_AUTH_EVENT, &e) ||
-            ti_events_create_new_event(query, &e))
+        if (ti_access_check_err(access_, query->user, TI_AUTH_CHANGE, &e) ||
+            ti_changes_create_new_change(query, &e))
             goto finish;
         return;
     }
@@ -520,7 +530,10 @@ static void clients__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_CLIENT_REQ_LEAVE:
         clients__on_leave(stream, pkg);
         break;
-
+    case _TI_PROTO_CLIENT_DEP_35:  /* deprecated watch request */
+    case _TI_PROTO_CLIENT_DEP_36:  /* deprecated watch request */
+        clients__on_deprecated(stream, pkg);
+        break;
     default:
         log_error(
                 "unexpected package type `%u` from `%s`)",

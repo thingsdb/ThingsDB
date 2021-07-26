@@ -119,8 +119,8 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
 
     ti_node = ti.node;
 
-    ti_node->cevid = 0;
-    ti_node->sevid = 0;
+    ti_node->ccid = 0;
+    ti_node->scid = 0;
     ti_node->next_free_id = 0;
     ti_node->syntax_ver = TI_VERSION_SYNTAX;
     ti_set_and_broadcast_node_status(TI_NODE_STAT_SYNCHRONIZING);

@@ -1,8 +1,8 @@
 /*
- * ti/epkg.c
+ * ti/cpkg.c
  */
 #include <assert.h>
-#include <ti/epkg.h>
+#include <ti/cpkg.h>
 #include <ti/auth.h>
 #include <ti/proto.h>
 #include <ti.h>
@@ -10,28 +10,28 @@
 #include <util/mpack.h>
 #include <util/cryptx.h>
 
-ti_epkg_t * ti_epkg_create(ti_pkg_t * pkg, uint64_t event_id)
+ti_cpkg_t * ti_cpkg_create(ti_pkg_t * pkg, uint64_t change_id)
 {
-    ti_epkg_t * epkg = malloc(sizeof(ti_epkg_t));
-    if (!epkg)
+    ti_cpkg_t * cpkg = malloc(sizeof(ti_cpkg_t));
+    if (!cpkg)
         return NULL;
-    epkg->ref = 1;
-    epkg->pkg = pkg;
-    epkg->flags = 0;
-    epkg->event_id = event_id;
-    return epkg;
+    cpkg->ref = 1;
+    cpkg->pkg = pkg;
+    cpkg->flags = 0;
+    cpkg->change_id = change_id;
+    return cpkg;
 }
 
-ti_epkg_t * ti_epkg_initial(void)
+ti_cpkg_t * ti_cpkg_initial(void)
 {
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
-    uint64_t event_id = 1;
+    uint64_t change_id = 1;
     uint64_t thing_id = 0;                      /* parent root thing */
     uint64_t user_id = ti_next_free_id();      /* id:1 */
     uint64_t stuff_id = ti_next_free_id();     /* id:2 !important: id > 1 */
-    ti_epkg_t * epkg;
+    ti_cpkg_t * cpkg;
     ti_pkg_t * pkg;
     char salt[CRYPTX_SALT_SZ];
     char encrypted[CRYPTX_SZ];
@@ -54,7 +54,7 @@ ti_epkg_t * ti_epkg_initial(void)
     msgpack_pack_map(&pk, 1);
 
     msgpack_pack_array(&pk, 2);
-    msgpack_pack_uint64(&pk, event_id);
+    msgpack_pack_uint64(&pk, change_id);
     msgpack_pack_uint64(&pk, TI_SCOPE_THINGSDB);
 
     msgpack_pack_map(&pk, 1);
@@ -133,22 +133,22 @@ ti_epkg_t * ti_epkg_initial(void)
     msgpack_pack_uint64(&pk, util_now_usec());
 
     pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, 0, TI_PROTO_NODE_EVENT, buffer.size);
+    pkg_init(pkg, 0, TI_PROTO_NODE_CHANGE, buffer.size);
 
-    epkg = ti_epkg_create(pkg, event_id);
-    if (!epkg)
+    cpkg = ti_cpkg_create(pkg, change_id);
+    if (!cpkg)
     {
         free(pkg);
         return NULL;
     }
-    return epkg;
+    return cpkg;
 }
 
-ti_epkg_t * ti_epkg_from_pkg(ti_pkg_t * pkg)
+ti_cpkg_t * ti_cpkg_from_pkg(ti_pkg_t * pkg)
 {
-    ti_epkg_t * epkg;
+    ti_cpkg_t * cpkg;
     mp_unp_t up;
-    mp_obj_t obj, mp_event_id;
+    mp_obj_t obj, mp_change_id;
 
     pkg = ti_pkg_dup(pkg);
     if (!pkg)
@@ -161,18 +161,18 @@ ti_epkg_t * ti_epkg_from_pkg(ti_pkg_t * pkg)
 
     if (mp_next(&up, &obj) != MP_MAP || !obj.via.sz ||
         mp_next(&up, &obj) != MP_ARR || !obj.via.sz ||
-        mp_next(&up, &mp_event_id) != MP_U64)
+        mp_next(&up, &mp_change_id) != MP_U64)
     {
         log_error("invalid package");
         return NULL;
     }
 
-    epkg = ti_epkg_create(pkg, mp_event_id.via.u64);
-    if (!epkg)
+    cpkg = ti_cpkg_create(pkg, mp_change_id.via.u64);
+    if (!cpkg)
     {
         free(pkg);
         log_critical(EX_MEMORY_S);
     }
 
-    return epkg;
+    return cpkg;
 }

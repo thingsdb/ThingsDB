@@ -46,7 +46,7 @@ static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (varr->parent && varr->parent->id)
             {
                 ti_task_t * task;
-                task = ti_task_get_task(query->ev, varr->parent);
+                task = ti_task_get_task(query->change, varr->parent);
                 if (!task || ti_task_add_splice(
                         task,
                         ti_varr_key(varr),
@@ -253,7 +253,7 @@ static int do__f_remove_set(
     {
         if (vset->parent->id)
         {
-            ti_task_t * task = ti_task_get_task(query->ev, vset->parent);
+            ti_task_t * task = ti_task_get_task(query->change, vset->parent);
             if (!task || ti_task_add_set_remove(
                     task,
                     ti_vset_key(vset),

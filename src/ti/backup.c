@@ -170,7 +170,7 @@ char * ti_backup_gcloud_job(ti_backup_t * backup)
 {
     struct tm * tm_info;
     uint64_t now = util_now_usec();
-    const size_t event_sz = strlen("{EVENT}");
+    const size_t change_id_sz = strlen("{CHANGE_ID}");
     const size_t date_sz = strlen("{DATE}");
     const size_t time_sz = strlen("{TIME}");
     char buffer[512];
@@ -207,12 +207,12 @@ char * ti_backup_gcloud_job(ti_backup_t * backup)
 
     while(*pt)
     {
-        if (TEMPLACE_CMP(pt, end, "{EVENT}", event_sz))
+        if (TEMPLACE_CMP(pt, end, "{CHANGE_ID}", change_id_sz))
         {
             buf_append(&gsbuf, pv, pt - pv);
-            sprintf(buffer, "%"PRIu64, ti.node->cevid);
+            sprintf(buffer, "%"PRIu64, ti.node->ccid);
             buf_append_str(&gsbuf, buffer);
-            pt += event_sz;
+            pt += change_id_sz;
             pv = pt;
             continue;
         }
@@ -278,7 +278,7 @@ char * ti_backup_job(ti_backup_t * backup)
 {
     struct tm * tm_info;
     uint64_t now = util_now_usec();
-    const size_t event_sz = strlen("{EVENT}");
+    const size_t change_id_sz = strlen("{CHANGE_ID}");
     const size_t date_sz = strlen("{DATE}");
     const size_t time_sz = strlen("{TIME}");
     char buffer[512];
@@ -304,12 +304,12 @@ char * ti_backup_job(ti_backup_t * backup)
 
     while(*pt)
     {
-        if (TEMPLACE_CMP(pt, end, "{EVENT}", event_sz))
+        if (TEMPLACE_CMP(pt, end, "{CHANGE_ID}", change_id_sz))
         {
             buf_append(&buf, pv, pt - pv);
-            sprintf(buffer, "%"PRIu64, ti.node->cevid);
+            sprintf(buffer, "%"PRIu64, ti.node->ccid);
             buf_append_str(&buf, buffer);
-            pt += event_sz;
+            pt += change_id_sz;
             pv = pt;
             continue;
         }

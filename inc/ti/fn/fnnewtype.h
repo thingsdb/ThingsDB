@@ -86,7 +86,7 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task || ti_task_add_new_type(task, type))
     {
         ex_set_mem(e);

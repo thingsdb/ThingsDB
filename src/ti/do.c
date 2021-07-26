@@ -270,7 +270,7 @@ static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (thing->id)
     {
         assert (query->collection);  /* only in a collection scope */
-        task = ti_task_get_task(query->ev, thing);
+        task = ti_task_get_task(query->change, thing);
         if (!task || ti_task_add_set(task, (ti_raw_t *) wprop.name, *wprop.val))
             ex_set_mem(e);
     }
@@ -779,10 +779,10 @@ static int do__read_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 enum
 {
-    TOTAL_KEYWORDS = 14,
+    TOTAL_KEYWORDS = 15,
     MIN_WORD_LENGTH = 3,
     MAX_WORD_LENGTH = 8,
-    MIN_HASH_VALUE = 4,
+    MIN_HASH_VALUE = 3,
     MAX_HASH_VALUE = 17
 };
 
@@ -798,9 +798,9 @@ static inline unsigned int do__hash(
         18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
         18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
         18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18,  1,  6,  1,  5,  0,
-         2,  1,  9,  0,  6, 18,  3,  0,  1,  2,
-        18,  0,  0, 18,  0,  0,  0,  0, 18,  0,
+        18, 18, 18, 18, 18,  0,  4,  0,  3,  5,
+         0,  0,  3,  0, 12, 18,  1,  4,  0,  0,
+        18,  1,  0, 18,  0,  0,  0,  0, 18,  0,
         18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
         18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
         18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
@@ -865,8 +865,9 @@ typedef struct
 do__fixed_t do__fixed_mapping[TOTAL_KEYWORDS] = {
     {.name="READ",                  .value=TI_AUTH_QUERY},  /* deprecated */
     {.name="QUERY",                 .value=TI_AUTH_QUERY},
-    {.name="MODIFY",                .value=TI_AUTH_EVENT},  /* deprecated */
-    {.name="EVENT",                 .value=TI_AUTH_EVENT},
+    {.name="MODIFY",                .value=TI_AUTH_CHANGE},  /* deprecated */
+    {.name="EVENT",                 .value=TI_AUTH_CHANGE},  /* deprecated */
+    {.name="CHANGE",                .value=TI_AUTH_CHANGE},
     {.name="WATCH",                 .value=TI_AUTH_JOIN},   /* deprecated */
     {.name="JOIN",                  .value=TI_AUTH_JOIN},
     {.name="RUN",                   .value=TI_AUTH_RUN},

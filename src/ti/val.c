@@ -7,6 +7,7 @@
 #include <string.h>
 #include <ti.h>
 #include <ti/closure.h>
+#include <ti/collection.inline.h>
 #include <ti/datetime.h>
 #include <ti/enum.h>
 #include <ti/enum.inline.h>
@@ -574,6 +575,12 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
         {
             ti_room_t * room;
             uint64_t room_id;
+            if (!vup->collection)
+            {
+                ex_set(e, EX_BAD_DATA,
+                        "cannot unpack a `room` without a collection");
+                return NULL;
+            }
             if (obj.via.ext.n != sizeof(uint64_t))
             {
                 ex_set(e, EX_BAD_DATA,
@@ -583,10 +590,19 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
             }
 
             mp_read_uint64(obj.via.ext.data, &room_id);
-
-            room = ti_room_create(room_id, vup->collection);
+            room = ti_collection_room_by_id(vup->collection, room_id);
             if (!room)
-                ex_set_mem(e);
+            {
+                room = ti_room_create(room_id, vup->collection);
+                if (!room || imap_add(vup->collection->rooms, room_id, room))
+                {
+                    ti_val_drop((ti_val_t *) room);
+                    ex_set_mem(e);
+                }
+            }
+            else
+                ti_incref(room);
+
             return (ti_val_t *) room;
         }
         }

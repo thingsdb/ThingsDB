@@ -251,4 +251,10 @@ static inline _Bool ti_thing_o_has_key(ti_thing_t * thing, ti_raw_t * key)
     return !!smap_getn(thing->items.smap, (const char *) key->data, key->n);
 }
 
+static inline void ti_thing_clear_restrict(ti_thing_t * thing, ti_field_t * field)
+{
+    if (thing->via.field == field)
+        thing->via.field = NULL;
+}
+
 #endif  /* TI_THING_INLINE_H_ */

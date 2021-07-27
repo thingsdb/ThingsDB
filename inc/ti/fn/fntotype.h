@@ -33,6 +33,18 @@ static int do__f_to_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_arg_str("to_type", DOC_THING_TO_TYPE, 1, query->rval, e))
         goto fail0;
 
+    if (thing->via.field)
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "conversion failed; "
+                "thing "TI_THING_ID" has a value restriction via "
+                "property `%s` on type `%s`",
+                thing->id,
+                thing->via.field->name->str,
+                thing->via.field->type->name);
+        goto fail0;
+    }
+
     rname = (ti_raw_t *) query->rval;
     query->rval = (ti_val_t *) ti_nil_get();
 
@@ -48,7 +60,7 @@ static int do__f_to_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_type_wrap_only_e(type, e) ||
         ti_type_use(type, e) ||
-        ti_type_convert(type, thing, e))
+        ti_type_convert(type, thing, query->change, e))
         goto fail1;
 
     if (thing->id)

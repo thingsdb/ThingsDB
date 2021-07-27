@@ -160,11 +160,12 @@ int ti_room_emit(
     mp_pack_strn(&vp.pk, event->data, event->n);
 
     mp_pack_str(&vp.pk, "args");
-    msgpack_pack_array(&vp.pk, args->n);
+    msgpack_pack_array(&vp.pk, args ? args->n : 0);
 
-    for (vec_each(args, ti_val_t, val))
-        if (ti_val_to_pk(val, &vp, deep))
-            goto fail_pack;
+    if (args)
+        for (vec_each(args, ti_val_t, val))
+            if (ti_val_to_pk(val, &vp, deep))
+                goto fail_pack;
 
     node_pkg = (ti_pkg_t *) buffer.data;
     node_rpkg = ti_rpkg_create(node_pkg);
@@ -225,6 +226,81 @@ void ti_room_emit_node_status(ti_room_t * room, const char * status)
     }
 }
 
+typedef struct
+{
+    ti_room_t * room;
+    ti_stream_t * stream;
+} room__async_t;
+
+/*
+ * Emit room leave to a given listener.
+ */
+static void room__async_emit_join_cb(uv_async_t * task)
+{
+    room__async_t * w = task->data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+    ti_pkg_t * pkg;
+
+    if (ti_stream_is_closed(w->stream))
+        goto done;
+
+    if (mp_sbuffer_alloc_init(&buffer, 32, sizeof(ti_pkg_t)))
+    {
+        log_critical(EX_MEMORY_S);
+        goto done;
+    }
+
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    if (msgpack_pack_map(&pk, 1) ||
+        mp_pack_str(&pk, "id") ||
+        msgpack_pack_uint64(&pk, w->room->id))
+    {
+        log_critical(EX_MEMORY_S);
+        goto done;
+    }
+
+    pkg = (ti_pkg_t *) buffer.data;
+    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_ROOM_JOIN, buffer.size);
+
+    if (ti_stream_write_pkg(w->stream, pkg))
+        log_critical(EX_INTERNAL_S);
+
+done:
+    ti_stream_drop(w->stream);
+    ti_val_drop((ti_val_t *) w->room);
+    free(w);
+    uv_close((uv_handle_t *) task, (uv_close_cb) free);
+}
+
+static void room__async_emit_join(ti_room_t * room, ti_stream_t * stream)
+{
+    uv_async_t * task = malloc(sizeof(uv_async_t));
+    room__async_t * w = malloc(sizeof(room__async_t));
+
+    if (!task || !w)
+        goto failed;
+
+    w->stream = stream;
+    w->room = room;
+    task->data = w;
+
+    if (uv_async_init(ti.loop, task, (uv_async_cb) room__async_emit_join_cb) ||
+        uv_async_send(task))
+        goto failed;
+
+    ti_incref(stream);
+    ti_incref(room);
+
+    return;  /* success */
+
+failed:
+    log_critical(EX_INTERNAL_S);
+    free(task);
+    free(w);
+}
+
 /*
  * Emit room leave to a given listener.
  */
@@ -270,6 +346,10 @@ void ti_room_destroy(ti_room_t * room)
         room__emit_delete(room);
 
     vec_destroy(room->listeners, (vec_destroy_cb) ti_watch_drop);
+
+    if (room->id)
+        (void) imap_pop(room->collection->rooms, room->id);
+
     free(room);
 }
 
@@ -285,14 +365,15 @@ int ti_room_join(ti_room_t * room, ti_stream_t * stream)
 {
     ti_watch_t * watch;
 
-    for (vec_each(room->listeners, ti_watch_t, watch))
+    for (vec_each(room->listeners, ti_watch_t, w))
     {
-        if (watch->stream == stream)
+        if (w->stream == stream)
             return 0;
 
-        if (!watch->stream)
+        if (!w->stream)
         {
-            watch->stream = stream;
+            w->stream = stream;
+            watch = w;
             goto finish;
         }
     }
@@ -307,6 +388,10 @@ int ti_room_join(ti_room_t * room, ti_stream_t * stream)
 finish:
     if (vec_push_create(&stream->listeners, watch))
         goto failed;
+
+    if (room->id)
+        room__async_emit_join(room, stream);
+
     return 0;
 
 failed:

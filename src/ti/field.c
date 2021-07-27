@@ -476,7 +476,6 @@ skip_nesting:
             field__set_cb(field, field__dval_regex);
             goto found;
         }
-        break;
         if (field__cmp(str, n, "room"))
         {
             *spec |= TI_SPEC_ROOM;

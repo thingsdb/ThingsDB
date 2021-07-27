@@ -17,6 +17,7 @@
 #include <ti/names.h>
 #include <ti/prop.h>
 #include <ti/raw.inline.h>
+#include <ti/task.h>
 #include <ti/thing.inline.h>
 #include <ti/type.h>
 #include <ti/types.h>
@@ -979,12 +980,17 @@ int type__convert_cb(ti_prop_t * prop, type__convert_t * w)
     return ti_field_make_assignable(field, vaddr, w->thing, w->e);
 }
 
-int ti_type_convert(ti_type_t * type, ti_thing_t * thing, ex_t * e)
+int ti_type_convert(
+        ti_type_t * type,
+        ti_thing_t * thing,
+        ti_change_t * change,   /* might be NULL */
+        ex_t * e)
 {
     type__convert_t w = {
             .vec = vec_new(type->fields->n),
             .e = e,
             .type = type,
+            .thing = thing,
     };
 
     if (!w.vec)
@@ -1013,13 +1019,31 @@ int ti_type_convert(ti_type_t * type, ti_thing_t * thing, ex_t * e)
 
     for (vec_each(type->fields, ti_field_t, field))
     {
-        ti_val_t * val = VEC_get(w.vec, field->idx);
-        if (!val)
+        ti_val_t ** val = (ti_val_t **) vec_get_addr(w.vec, field->idx);
+        if (!*val)
         {
-            ex_set(e, EX_TYPE_ERROR,
-                    "conversion failed; property `%s` is missing",
-                    field->name->str);
-            goto fail0;
+            if (change)
+            {
+                ti_task_t * task = ti_task_get_task(change, thing);
+
+                *val = field->dval_cb(field);
+                if (!*val || !task || ti_task_add_set(
+                        task,
+                        (ti_raw_t *) field->name,
+                        *val))
+                {
+                    ex_set_mem(e);
+                    goto fail0;
+                }
+                ti_val_attach(*val, thing, field);
+            }
+            else
+            {
+                ex_set(e, EX_TYPE_ERROR,
+                        "conversion failed; property `%s` is missing",
+                        field->name->str);
+                goto fail0;
+            }
         }
     }
 
@@ -1028,6 +1052,7 @@ int ti_type_convert(ti_type_t * type, ti_thing_t * thing, ex_t * e)
     /* make sure the `dictionary` flag is removed */
     thing->flags &= ~TI_THING_FLAG_DICT;
     thing->type_id = type->type_id;
+    thing->via.type = type;
     thing->items.vec = w.vec;
     return e->nr;
 

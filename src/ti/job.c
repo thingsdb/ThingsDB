@@ -454,7 +454,7 @@ static int job__to_type(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    if (ti_type_convert(type, thing, &e))
+    if (ti_type_convert(type, thing, NULL, &e))
     {
         log_critical(
             "job `to_type` for "TI_COLLECTION_ID" has failed; %s",

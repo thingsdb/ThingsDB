@@ -80,10 +80,11 @@ void ti_collection_destroy(ti_collection_t * collection)
         return;
 
     assert (collection->things->n == 0);
+    assert (collection->rooms->n == 0);
     assert (collection->gc->n == 0);
 
     imap_destroy(collection->things, NULL);
-    imap_destroy(collection->rooms, (imap_destroy_cb) ti_val_unsafe_drop);
+    imap_destroy(collection->rooms, NULL);
     queue_destroy(collection->gc, NULL);
     ti_val_drop((ti_val_t *) collection->name);
     vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);

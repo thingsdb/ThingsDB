@@ -177,7 +177,6 @@ int ti_scope_init(ti_scope_t * scope, const char * str, size_t n, ex_t * e)
     }
 
     /* everything else is invalid */
-
 invalid_scope:
     if (n == 0)
     {

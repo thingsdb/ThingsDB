@@ -321,7 +321,7 @@ class TestTypes(TestBase):
         # Test formatting
         self.assertEqual(await client.query(r'''
             c = || {x:5};
-            c.def()
+            str(c)
         '''), r"|| {x: 5}")
 
     async def test_integer(self, client):

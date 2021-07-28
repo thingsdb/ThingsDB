@@ -270,7 +270,7 @@ class TestProcedures(TestBase):
         for client in (client0, client1, client2, client3, client4):
             counters = await client.query('counters();', scope='@node')
             self.assertEqual(counters['garbage_collected'], 0)
-            self.assertEqual(counters['events_failed'], 0)
+            self.assertEqual(counters['changes_failed'], 0)
 
             client.close()
             await client.wait_closed()

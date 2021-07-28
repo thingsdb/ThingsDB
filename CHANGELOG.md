@@ -12,9 +12,8 @@
   - `TI_PROTO_CLIENT_REQ_JOIN` (38)
   - `TI_PROTO_CLIENT_REQ_LEAVE` (39)
   
-## Breaking changes from v0.x -> v1.0.0
+## Breaking changes from v0.10.x -> v1.0.0
 
-* Changed `next_thing_id` to `next_free_id` in `node_info()` and `nodes_info()`.
 * Removed `.watch()`, `.unwatch()` and `.emit()` functions on type `thing`.
 * Removed the following protocol types *(replaced with room protocol)*:
   - `TI_PROTO_CLIENT_WATCH_INI` (1)
@@ -24,19 +23,33 @@
   - `TI_PROTO_CLIENT_REQ_WATCH` (35)
   - `TI_PROTO_CLIENT_REQ_UNWATCH` (36)
 * Insert data using syntax like `{"X": ...}` *(where X is a reserved keyword)* 
-    is no longer possible.
+  is no longer possible.
 * Authentication `WATCH` is replaced with `JOIN` *(As a keyword, `WATCH` will
-    still be accepted but is marked as deprecated)*.
+  still be accepted but is marked as deprecated)*.
 * Function `.def()` on a closure is removed. Use `str(closure)` instead.
 * Changed the return values of the following types:
   - `regex`: From object to string (e.g. `{"*": "/.*/"}` -> `"/.*/"`).
-  - `closure`: From object to string (e.g. `{"/": "||nil"}` -> `"|| nil"`).
+  - `closure`: From object to string (e.g. `{"/": "||nil"}` -> `"||nil"`).
+                Note that `str(closure)` returns formatted closure code and 
+                just the type `closure` returns the closure as-is.
   - `error`: From object to string (e.g. `{"!": ...}` -> `"some error msg"`).
 * Backup template no longer supports `{EVENT}` as template variable. This variable
   is replaced with `{CHANGE_ID}`.
 * All the counter properties with `*event*` are replaced with `*change*`.
-* Access to a scope should be given using `CHANGE`.(`EVENT` still works but
-  is marked as deprecated).
+  Counter property `changes_quorum_lost` is renamed to simply `quorum_lost`.
+* All the node(s) info properties with `*event*` are replaced with `*change*`.
+  Property `next_thing_id` is changed to `next_free_id` as Ids are used 
+  for more than just things.  
+* Previous `EVENT` (or `MODIFY`) access to a scope is renamed to `CHANGE`. 
+  Both `EVENT` and `MODIFY` are marked as deprecated.
+* Previous `WATCH` access is renamed to `JOIN`. `WATCH` is marked as deprecated.
+* It is no longer possible to watch the `@node` scope. All socket connections
+  will receive `NODE_STATUS` changes as soon as the client is authenticated.
+  Watch (JOIN) privileges are no longer required on the `@node` scope for this
+  feature.
+* Protocol `TI_PROTO_CLIENT_NODE_STATUS (0)` no longer returns a plain string
+  with the status but instead a `map` with `id` containing the node Id
+  and `status` with the new node status.
    
 # v0.10.15
 

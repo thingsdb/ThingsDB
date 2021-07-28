@@ -24,6 +24,9 @@ enum
                                             while searching for rooms; */
 };
 
+#define ti_varr_may_flags(varr__) \
+    ((varr__)->flags&(TI_VARR_FLAG_MHT|TI_VARR_FLAG_MHR))
+
 #include <ex.h>
 #include <inttypes.h>
 #include <ti/name.t.h>

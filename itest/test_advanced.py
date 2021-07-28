@@ -167,11 +167,11 @@ class TestAdvanced(TestBase):
         ''')
 
         with self.assertRaisesRegex(
-                BadDataError,
-                r'cannot directly assign properties to.*'):
+                ValueError,
+                r'property `#` is reserved;'):
             await client.query(r'''
                 val;
-            ''', val=res, convert_vars=False)
+            ''', val=res)
 
     async def test_set_assign(self, client):
         res = await client.query(r'''
@@ -1235,24 +1235,24 @@ class TestAdvanced(TestBase):
         ''')
 
     async def test_events(self, client):
-        await self.assertEvent(client, r'''
+        await self.assertChange(client, r'''
             .arr = range(3);
         ''')
-        await self.assertEvent(client, r'''
+        await self.assertChange(client, r'''
             thing(.id()).arr.push(3);
         ''')
-        await self.assertEvent(client, r'''
+        await self.assertChange(client, r'''
             .get('arr').push(4);
         ''')
-        await self.assertEvent(client, r'''
+        await self.assertChange(client, r'''
             thing(.id()).set('a', []);
         ''')
 
     async def test_no_events(self, client):
-        await self.assertNoEvent(client, r'''
+        await self.assertNoChange(client, r'''
             arr = range(3);
         ''')
-        await self.assertNoEvent(client, r'''
+        await self.assertNoChange(client, r'''
             range(3).push(4);
         ''')
 
@@ -1301,6 +1301,8 @@ class TestAdvanced(TestBase):
         ''')
         root = await client.query('.root.id()')
         self.assertGreater(root, 0)
+        self.assertIsInstance(root, int)
+        self.assertNotEqual(root, None)
 
         a = await client.run('add_container', root, 'a')
         self.assertGreater(a, root)
@@ -1492,19 +1494,30 @@ class TestAdvanced(TestBase):
 
     async def test_assign_in_def(self, client):
         res = await client.query(r'''
-            (|| x+=1).def();
+            str(|| x+=1);
         ''')
         self.assertEqual(res, '|| x += 1')
 
         res = await client.query(r'''
-            (|| .x += 1).def();
+            str(|| .x += 1);
         ''')
         self.assertEqual(res, '|| .x += 1')
 
         res = await client.query(r'''
-            (|| x[0] += 1).def();
+            || x[0]+=1;
         ''')
-        self.assertEqual(res, '|| x[0] += 1')
+        self.assertEqual(res, '|| x[0]+=1')  # unbound closure
+
+        res = await client.query(r'''
+            .closure = || x[0]+=1;
+            .closure;
+        ''')
+        self.assertEqual(res, '||x[0]+=1')  # bound closure
+
+        res = await client.query(r'''
+            str(.closure);
+        ''')
+        self.assertEqual(res, '|| x[0] += 1')  # formatted closure
 
     async def test_export(self, client):
         script = r'''

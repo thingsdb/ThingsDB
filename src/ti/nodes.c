@@ -1299,7 +1299,7 @@ static void nodes__on_room_emit(ti_stream_t * stream, ti_pkg_t * pkg)
     ti_room_t * room;
     mp_unp_t up;
     ti_node_t * other_node = stream->via.node;
-    mp_obj_t obj, mp_collection_id, mp_room_id, mp_data;
+    mp_obj_t obj, mp_collection_id, mp_room_id;
 
     if (!other_node)
     {
@@ -1311,8 +1311,7 @@ static void nodes__on_room_emit(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 3 ||
         mp_next(&up, &mp_collection_id) != MP_U64 ||
-        mp_next(&up, &mp_room_id) != MP_U64 ||
-        mp_next(&up, &mp_data) != MP_BIN)
+        mp_next(&up, &mp_room_id) != MP_U64)
     {
         LOG_INVALID
         return;
@@ -1329,7 +1328,7 @@ static void nodes__on_room_emit(ti_stream_t * stream, ti_pkg_t * pkg)
 
     room = ti_collection_room_by_id(collection, mp_room_id.via.u64);
     if (room)
-        ti_room_emit_event_data(room, mp_data.via.bin.data, mp_data.via.bin.n);
+        ti_room_emit_event_data(room, up.pt, up.end-up.pt);
     else
         log_warning("cannot find "TI_ROOM_ID, mp_room_id.via.u64);
 

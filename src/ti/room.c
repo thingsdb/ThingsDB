@@ -217,6 +217,12 @@ void ti_room_emit_node_status(ti_room_t * room, const char * status)
 
         msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
+        msgpack_pack_map(&pk, 2);
+
+        mp_pack_str(&pk, "id");
+        msgpack_pack_uint32(&pk, ti.node->id);
+
+        mp_pack_str(&pk, "status");
         mp_pack_str(&pk, status);
 
         pkg = (ti_pkg_t *) buffer.data;
@@ -228,7 +234,7 @@ void ti_room_emit_node_status(ti_room_t * room, const char * status)
 
 typedef struct
 {
-    ti_room_t * room;
+    uint64_t room_id;
     ti_stream_t * stream;
 } room__async_t;
 
@@ -255,7 +261,7 @@ static void room__async_emit_join_cb(uv_async_t * task)
 
     if (msgpack_pack_map(&pk, 1) ||
         mp_pack_str(&pk, "id") ||
-        msgpack_pack_uint64(&pk, w->room->id))
+        msgpack_pack_uint64(&pk, w->room_id))
     {
         log_critical(EX_MEMORY_S);
         goto done;
@@ -269,7 +275,6 @@ static void room__async_emit_join_cb(uv_async_t * task)
 
 done:
     ti_stream_drop(w->stream);
-    ti_val_drop((ti_val_t *) w->room);
     free(w);
     uv_close((uv_handle_t *) task, (uv_close_cb) free);
 }
@@ -283,7 +288,7 @@ static void room__async_emit_join(ti_room_t * room, ti_stream_t * stream)
         goto failed;
 
     w->stream = stream;
-    w->room = room;
+    w->room_id = room->id;
     task->data = w;
 
     if (uv_async_init(ti.loop, task, (uv_async_cb) room__async_emit_join_cb) ||
@@ -291,7 +296,6 @@ static void room__async_emit_join(ti_room_t * room, ti_stream_t * stream)
         goto failed;
 
     ti_incref(stream);
-    ti_incref(room);
 
     return;  /* success */
 

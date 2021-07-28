@@ -43,33 +43,33 @@ class TestBase(unittest.TestCase):
             except NodeError:
                 pass
             else:
-                event_id = res[0]['committed_event_id']
+                event_id = res[0]['committed_change_id']
                 if all((
-                    node['stored_event_id'] == event_id
+                    node['stored_change_id'] == event_id
                     for node in res)) and all((
-                        node['committed_event_id'] == event_id
+                        node['committed_change_id'] == event_id
                         for node in res)):
                     return  # success
             attempts -= 1
             await asyncio.sleep(0.5)
 
-    async def assertEvent(self, client, query):
+    async def assertChange(self, client, query):
         before = \
-            (await client.query('counters();', scope='@n'))['events_committed']
+            (await client.query('counters()', scope='@n'))['changes_committed']
         await client.query(query)
         after = \
-            (await client.query('counters();', scope='@n'))['events_committed']
+            (await client.query('counters()', scope='@n'))['changes_committed']
         self.assertGreater(
             after-before,
             0,
             f'missing event for query: `{query}`')
 
-    async def assertNoEvent(self, client, query):
+    async def assertNoChange(self, client, query):
         before = \
-            (await client.query('counters();', scope='@n'))['events_committed']
+            (await client.query('counters()', scope='@n'))['changes_committed']
         await client.query(query)
         after = \
-            (await client.query('counters();', scope='@n'))['events_committed']
+            (await client.query('counters()', scope='@n'))['changes_committed']
         self.assertEqual(
             before,
             after,

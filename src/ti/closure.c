@@ -286,38 +286,31 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
 
 int ti_closure_to_pk(ti_closure_t * closure, msgpack_packer * pk, int options)
 {
-    int rc;
-    if (options >= 0)
+    if (closure__is_unbound(closure))
     {
-        ti_fmt_t fmt;
-        ti_fmt_init(&fmt, FMT_INDENT);
-
-        if (ti_fmt_nd(&fmt, closure->node))
-            return -1;
-
-        rc = mp_pack_strn(pk, fmt.buf.data, fmt.buf.len);
-        ti_fmt_clear(&fmt);
-    }
-    else
-    {
+        int rc;
         char * buf;
         size_t n = 0;
-
-        if (!closure__is_unbound(closure))
-            return mp_pack_ext(
-                    pk,
-                    MPACK_EXT_CLOSURE,
-                    closure->node->str,
-                    closure->node->len);
 
         buf = ti_closure_char(closure, &n);
         if (!buf)
             return -1;
 
-        rc = mp_pack_ext(pk, MPACK_EXT_CLOSURE, buf, n);
+        rc = options >= 0
+                ? mp_pack_strn(pk, buf, n)
+                : mp_pack_ext(pk, MPACK_EXT_CLOSURE, buf, n);
+
         free(buf);
+        return rc;
     }
-    return rc;
+
+    return options >= 0
+        ? mp_pack_strn(pk, closure->node->str, closure->node->len)
+        : mp_pack_ext(
+                pk,
+                MPACK_EXT_CLOSURE,
+                closure->node->str,
+                closure->node->len);
 }
 
 char * ti_closure_char(ti_closure_t * closure, size_t * n)

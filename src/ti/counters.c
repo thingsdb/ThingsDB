@@ -38,7 +38,7 @@ void ti_counters_reset(void)
     counters->changes_failed = 0;
     counters->changes_killed = 0;
     counters->changes_committed = 0;
-    counters->changes_quorum_lost = 0;
+    counters->quorum_lost = 0;
     counters->changes_unaligned = 0;
     counters->largest_result_size = 0;
     counters->queries_from_cache = 0;
@@ -131,14 +131,14 @@ int ti_counters_to_pk(msgpack_packer * pk)
         mp_pack_str(pk, "changes_committed") ||
         msgpack_pack_uint64(pk, counters->changes_committed) ||
 
-        mp_pack_str(pk, "changes_quorum_lost") ||
-        msgpack_pack_uint64(pk, counters->changes_quorum_lost) ||
-
         mp_pack_str(pk, "changes_unaligned") ||
         msgpack_pack_uint64(pk, counters->changes_unaligned) ||
 
         mp_pack_str(pk, "garbage_collected") ||
         msgpack_pack_uint64(pk, ti_counters_garbage_collected()) ||
+
+        mp_pack_str(pk, "quorum_lost") ||
+        msgpack_pack_uint64(pk, counters->quorum_lost) ||
 
         mp_pack_str(pk, "queries_from_cache") ||
         msgpack_pack_uint64(pk, counters->queries_from_cache) ||

@@ -366,7 +366,8 @@ int ti_thing_props_from_vup(
     {
         if (mp_next(vup->up, &mp_prop) != MP_STR)
         {
-            ex_set(e, EX_TYPE_ERROR, "property names must be of type string");
+            ex_set(e, EX_TYPE_ERROR,
+                    "property names must be of type `"TI_VAL_STR_S"`");
             return e->nr;
         }
 

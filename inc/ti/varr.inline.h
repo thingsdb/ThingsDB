@@ -19,6 +19,11 @@ static inline _Bool ti_varr_may_have_things(ti_varr_t * varr)
     return varr->flags & TI_VARR_FLAG_MHT;
 }
 
+static inline _Bool ti_varr_may_gen_ids(ti_varr_t * varr)
+{
+    return varr->flags & (TI_VARR_FLAG_MHT|TI_VARR_FLAG_MHR);
+}
+
 static inline _Bool ti_varr_is_list(ti_varr_t * varr)
 {
     return ~varr->flags & TI_VARR_FLAG_TUPLE;
@@ -105,5 +110,9 @@ static inline int ti_varr_to_pk(ti_varr_t * varr, ti_vp_t * vp, int options)
     return 0;
 }
 
+static inline void ti_varr_set_may_flags(ti_varr_t * to, ti_varr_t * from)
+{
+    to->flags |= from->flags & (TI_VARR_FLAG_MHT|TI_VARR_FLAG_MHR);
+}
 
 #endif  /* TI_RAW_INLINE_H_ */

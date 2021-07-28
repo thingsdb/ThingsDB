@@ -124,7 +124,9 @@ ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
         /*
          * TODO (COMPAT) For backwards compatibility with v0.x
          */
-        if (obj.tp != MP_U64 ||
+        mp_type_id = obj;
+
+        if (mp_type_id.tp != MP_U64 ||
             mp_skip(vup->up) != MP_STR ||   /* `#` */
             mp_next(vup->up, &mp_thing_id) != MP_U64 ||
             mp_skip(vup->up) != MP_STR ||   /* `` */
@@ -135,8 +137,6 @@ ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
                     "expecting an type_id, things_id and array with values");
             return NULL;
         }
-
-        mp_type_id = obj;
     }
 
     type = ti_types_by_id(vup->collection->types, mp_type_id.via.u64);
@@ -152,7 +152,7 @@ ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "invalid type data; "
-                "expecting %"PRIu32" values for type `%s` but got only %u",
+                "expecting %"PRIu32" values for type `%s` but got %zu values",
                 type->fields->n, type->name, obj.via.sz);
         return NULL;
     }

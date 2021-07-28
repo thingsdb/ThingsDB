@@ -523,7 +523,7 @@ static void changes__on_req_change_id(ti_change_t * change, _Bool accepted)
 {
     if (!accepted)
     {
-        ++ti.counters->changes_quorum_lost;
+        ++ti.counters->quorum_lost;
 
         log_debug(TI_CHANGE_ID" quorum lost :-(", change->id);
 

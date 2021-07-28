@@ -15,7 +15,7 @@ typedef enum
     /*
      * 0x0000xxxx  0..15 fire and forgets from node to client
      */
-    TI_PROTO_CLIENT_NODE_STATUS =0,     /* str_status                       */
+    TI_PROTO_CLIENT_NODE_STATUS =0,     /* {id:x status:...}                */
     /* 1..4 : Old watch protocol */
     TI_PROTO_CLIENT_WARN        =5,     /* {warn_msg:..., warn_code: x}     */
     TI_PROTO_CLIENT_ROOM_JOIN   =6,     /* {id:x data:...}                  */

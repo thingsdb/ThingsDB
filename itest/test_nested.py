@@ -43,7 +43,7 @@ class TestNested(TestBase):
 
         for i, client in enumerate((client0, client1, client2)):
             counters = await client.query('counters();', scope='@node')
-            self.assertEqual(counters['events_failed'], 0)
+            self.assertEqual(counters['changes_failed'], 0)
 
             client.close()
             await client.wait_closed()

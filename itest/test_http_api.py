@@ -65,7 +65,7 @@ class TestHTTPAPI(TestBase):
         for client in (client0, client1):
             counters = await client.query('counters();', scope='@node')
             self.assertEqual(counters['garbage_collected'], 0)
-            self.assertEqual(counters['events_failed'], 0)
+            self.assertEqual(counters['changes_failed'], 0)
 
             client.close()
             await client.wait_closed()

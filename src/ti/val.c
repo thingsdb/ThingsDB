@@ -425,11 +425,11 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
     case TI_VAL_ARR:
     {
         /* Make sure the arr is converted to a `tuple` and copy the
-         * may-have-things flags to the parent.
+         * may-have-* flags to the parent.
          */
         ti_varr_t * arr = (ti_varr_t *) val;
         arr->flags |= TI_VARR_FLAG_TUPLE;
-        varr->flags |= arr->flags & TI_VARR_FLAG_MHT;
+        ti_varr_set_may_flags(varr, arr);
         break;
     }
     case TI_VAL_SET:
@@ -1614,7 +1614,7 @@ int ti_val_gen_ids(ti_val_t * val)
          * Here the code really benefits from the `may-have-things` flag since
          * must attached arrays will contain "only" things, or no things.
          */
-        if (ti_varr_may_have_things((ti_varr_t *) val))
+        if (ti_varr_may_gen_ids((ti_varr_t *) val))
             for (vec_each(VARR(val), ti_val_t, v))
                 if (ti_val_gen_ids(v))
                     return -1;

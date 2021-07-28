@@ -102,7 +102,7 @@ class TestType(TestBase):
         self.assertEqual(await client.query('wse(.iris.to_upper());'), 'IRIS')
         self.assertEqual(await client.query('.iris.name;'), 'IRIS')
         self.assertEqual(
-            await client.query('.iris.upper.def()'),
+            await client.query('str(.iris.upper)'),
             '|this| this.name.upper()')
 
         with self.assertRaisesRegex(
@@ -182,6 +182,9 @@ class TestType(TestBase):
 
         self.assertEqual(await client0.query('.people.users.len();'), 3)
         self.assertEqual(await client1.query('.people.users.len();'), 3)
+
+        client1.close()
+        await client1.wait_closed()
 
     async def test_mod_type_add(self, client0):
         await client0.query(r'''
@@ -971,6 +974,9 @@ class TestType(TestBase):
             });
         ''')
 
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
     async def test_sync_add(self, client0):
         await client0.query(r'''
             set_type('Book', {
@@ -1154,157 +1160,167 @@ class TestType(TestBase):
 
     async def test_type_definitions(self, client):
         await client.query(r'''
-            set_type('_str', {test: 'str'});
-            set_type('_utf8', {test: 'utf8'});
-            set_type('_raw', {test: 'raw'});
-            set_type('_bytes', {test: 'bytes'});
-            set_type('_bool', {test: 'bool'});
-            set_type('_int', {test: 'int'});
-            set_type('_uint', {test: 'uint'});
-            set_type('_pint', {test: 'pint'});
-            set_type('_nint', {test: 'nint'});
-            set_type('_float', {test: 'float'});
-            set_type('_number', {test: 'number'});
-            set_type('_datetime', {test: 'datetime'});
-            set_type('_timeval', {test: 'timeval'});
-            set_type('_regex', {test: 'regex'});
-            set_type('_closure', {test: 'closure'});
-            set_type('_error', {test: 'error'});
-            set_type('_thing', {test: 'thing'});
-            set_type('_Type', {test: '_str'});
-            set_type('_array', {test: '[]'});
-            set_type('_set', {test: '{}'});
+            set_type('_Str', {test: 'str'});
+            set_type('_Utf8', {test: 'utf8'});
+            set_type('_Raw', {test: 'raw'});
+            set_type('_Bytes', {test: 'bytes'});
+            set_type('_Bool', {test: 'bool'});
+            set_type('_Int', {test: 'int'});
+            set_type('_Uint', {test: 'uint'});
+            set_type('_Pint', {test: 'pint'});
+            set_type('_Nint', {test: 'nint'});
+            set_type('_Float', {test: 'float'});
+            set_type('_Number', {test: 'number'});
+            set_type('_Datetime', {test: 'datetime'});
+            set_type('_Timeval', {test: 'timeval'});
+            set_type('_Regex', {test: 'regex'});
+            set_type('_Closure', {test: 'closure'});
+            set_type('_Error', {test: 'error'});
+            set_type('_Room', {test: 'room'});
+            set_type('_Thing', {test: 'thing'});
+            set_type('_Type', {test: '_Str'});
+            set_type('_Array', {test: '[]'});
+            set_type('_Set', {test: '{}'});
             set_type('_r_array', {test: '[str]'});
-            set_type('_r_set', {test: '{_str}'});
+            set_type('_r_set', {test: '{_Str}'});
             set_type('_o_str', {test: 'str?'});
             set_type('_o_array', {test: '[str?]'});
-            set_type('_any', {test: 'any'});
+            set_type('_Any', {test: 'any'});
         ''')
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'mismatch in type `_str`; '
+                r'mismatch in type `_Str`; '
                 r'type `bytes` is invalid for property `test` '
                 r'with definition `str`'):
-            await client.query(r'''_str{test: bytes('')};''')
+            await client.query(r'''_Str{test: bytes('')};''')
 
         self.assertEqual(
-            await client.query(r'_str{test: "x"}.test;'), 'x')
+            await client.query(r'_Str{test: "x"}.test;'), 'x')
         self.assertEqual(
-            await client.query(r'_str{test: "x"}.wrap("_utf8");'), {})
+            await client.query(r'_Str{test: "x"}.wrap("_Utf8");'), {})
         self.assertEqual(
-            await client.query(r'_str{test: "x"}.wrap("_raw");'),
+            await client.query(r'_Str{test: "x"}.wrap("_Raw");'),
             {'test': 'x'})
         self.assertEqual(
-            await client.query(r'_str{test: "x"}.wrap("_any");'),
+            await client.query(r'_Str{test: "x"}.wrap("_Any");'),
             {'test': 'x'})
 
         with self.assertRaisesRegex(
                 ValueError,
-                r'mismatch in type `_uint`; '
+                r'mismatch in type `_Uint`; '
                 r'property `test` only accepts integer values '
                 r'greater than or equal to 0'):
-            await client.query(r'''_uint{test: -1};''')
+            await client.query(r'''_Uint{test: -1};''')
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'mismatch in type `_uint`; '
+                r'mismatch in type `_Uint`; '
                 r'type `nil` is invalid for property `test` '
                 r'with definition `uint`'):
-            await client.query(r'''_uint{test: nil};''')
+            await client.query(r'''_Uint{test: nil};''')
 
         self.assertEqual(
-            await client.query(r'_uint{test: 0}.test;'), 0)
+            await client.query(r'_Uint{test: 0}.test;'), 0)
         self.assertEqual(
-            await client.query(r'_uint{test: 0}.wrap("_pint");'), {})
+            await client.query(r'_Uint{test: 0}.wrap("_Pint");'), {})
         self.assertEqual(
-            await client.query(r'_uint{test: 0}.wrap("_int");'), {'test': 0})
+            await client.query(r'_Uint{test: 0}.wrap("_Int");'), {'test': 0})
 
         with self.assertRaisesRegex(
                 ValueError,
-                r'mismatch in type `_pint`; '
+                r'mismatch in type `_Pint`; '
                 r'property `test` only accepts positive integer values'):
-            await client.query(r'''_pint{test: 0};''')
+            await client.query(r'''_Pint{test: 0};''')
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'mismatch in type `_pint`; '
+                r'mismatch in type `_Pint`; '
                 r'type `str` is invalid for property `test` '
                 r'with definition `pint`'):
-            await client.query(r'''_pint{test: '0'};''')
+            await client.query(r'''_Pint{test: '0'};''')
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'mismatch in type `_datetime`; '
+                r'mismatch in type `_Datetime`; '
                 r'type `timeval` is invalid for property `test` '
                 r'with definition `datetime`'):
-            await client.query(r'''_datetime{test: timeval()};''')
+            await client.query(r'''_Datetime{test: timeval()};''')
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'mismatch in type `_timeval`; '
+                r'mismatch in type `_Timeval`; '
                 r'type `datetime` is invalid for property `test` '
                 r'with definition `timeval`'):
-            await client.query(r'''_timeval{test: datetime()};''')
+            await client.query(r'''_Timeval{test: datetime()};''')
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'mismatch in type `_regex`; '
+                r'mismatch in type `_Regex`; '
                 r'type `str` is invalid for property `test` '
                 r'with definition `regex`'):
-            await client.query(r'''_regex{test: '\.\*'};''')
+            await client.query(r'''_Regex{test: '\.\*'};''')
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'mismatch in type `_closure`; '
+                r'mismatch in type `_Closure`; '
                 r'type `str` is invalid for property `test` '
                 r'with definition `closure`'):
-            await client.query(r'''_closure{test: '\|\|nil'};''')
+            await client.query(r'''_Closure{test: '\|\|nil'};''')
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'mismatch in type `_error`; '
+                r'mismatch in type `_Error`; '
                 r'type `str` is invalid for property `test` '
                 r'with definition `error`'):
-            await client.query(r'''_error{test: 'err'};''')
+            await client.query(r'''_Error{test: 'err'};''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `_Room`; '
+                r'type `str` is invalid for property `test` '
+                r'with definition `room`'):
+            await client.query(r'''_Room{test: 'err'};''')
 
         self.assertEqual(
-            await client.query(r'type(_regex{}.test);'), 'regex')
+            await client.query(r'type(_Regex{}.test);'), 'regex')
         self.assertEqual(
-            await client.query(r'_regex{}.test.test("bla");'), True)
+            await client.query(r'_Regex{}.test.test("bla");'), True)
         self.assertEqual(
-            await client.query(r'_closure{}.test();'), None)
+            await client.query(r'_Closure{}.test();'), None)
         self.assertEqual(
-            await client.query(r'_closure{test: ||42}.test();'), 42)
+            await client.query(r'_Closure{test: ||42}.test();'), 42)
         self.assertEqual(
-            await client.query(r'_error{test:err(-110)}.test.code();'), -110)
+            await client.query(r'_Error{test:err(-110)}.test.code();'), -110)
+        self.assertEqual(
+            await client.query(r'_Room{test:room()}.test.emit("test");'), None)
 
         self.assertEqual(
-            await client.query(r'_pint{test:42}.test;'), 42)
+            await client.query(r'_Pint{test:42}.test;'), 42)
         self.assertEqual(
-            await client.query(r'_pint{test:42}.wrap("_nint");'), {})
+            await client.query(r'_Pint{test:42}.wrap("_Nint");'), {})
         self.assertEqual(
-            await client.query(r'_pint{test:42}.wrap("_uint");'), {'test': 42})
+            await client.query(r'_Pint{test:42}.wrap("_Uint");'), {'test': 42})
 
         with self.assertRaisesRegex(
                 ValueError,
-                r'mismatch in type `_nint`; '
+                r'mismatch in type `_Nint`; '
                 r'property `test` only accepts negative integer values'):
-            await client.query(r'''_nint{test: 0};''')
+            await client.query(r'''_Nint{test: 0};''')
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'mismatch in type `_nint`; '
+                r'mismatch in type `_Nint`; '
                 r'type `str` is invalid for property `test` '
                 r'with definition `nint`'):
-            await client.query(r'''_nint{test: '0'};''')
+            await client.query(r'''_Nint{test: '0'};''')
 
         self.assertEqual(
-            await client.query(r'_nint{test:-6}.test;'), -6)
+            await client.query(r'_Nint{test:-6}.test;'), -6)
         self.assertEqual(
-            await client.query(r'_nint{test:-6}.wrap("_uint");'), {})
+            await client.query(r'_Nint{test:-6}.wrap("_Uint");'), {})
         self.assertEqual(
-            await client.query(r'_nint{test:-6}.wrap("_number")'),
+            await client.query(r'_Nint{test:-6}.wrap("_Number")'),
             {'test': -6})
 
     async def test_mod_type_add_closure_and_ts(self, client0):
@@ -1478,6 +1494,9 @@ class TestType(TestBase):
             self.assertIs(await client.query('.room_a.chat;'), None)
             self.assertIs(await client.query('.room_b.chat;'), None)
 
+        client1.close()
+        await client1.wait_closed()
+
     async def test_mod_type_mod_advanced1(self, client0):
         await client0.query(r'''
             set_type('Chat', {
@@ -1518,6 +1537,9 @@ class TestType(TestBase):
                 messages: [`Welcome in {room.name}`]
             });
         ''')
+
+        client1.close()
+        await client1.wait_closed()
 
     async def test_mod_type_mod_advanced2(self, client0):
         with self.assertRaisesRegex(
@@ -1563,6 +1585,9 @@ class TestType(TestBase):
             self.assertIs(await client.query('.room_a.chat.chat;'), None)
             self.assertIs(await client.query('.room_b.chat.chat;'), None)
 
+        client1.close()
+        await client1.wait_closed()
+
     async def test_wpo(self, client0):
         await client0.query(r'''
             new_type('A', true);
@@ -1598,6 +1623,9 @@ class TestType(TestBase):
 
         await asyncio.sleep(1.6)
 
+        client1.close()
+        await client1.wait_closed()
+
     async def test_err_handling(self, client0):
         with self.assertRaisesRegex(
                 TypeError,
@@ -1621,6 +1649,9 @@ class TestType(TestBase):
         for client in (client0, client1):
             self.assertEqual(await client.query('A{}'), {})
 
+        client1.close()
+        await client1.wait_closed()
+
     async def test_init_create(self, client0):
         await client0.query(r'''
             set_type('X', {
@@ -1636,6 +1667,9 @@ class TestType(TestBase):
 
         for client in (client0, client1):
             self.assertEqual(await client.query('X{}'), {'a': {}, 'b': {}})
+
+        client1.close()
+        await client1.wait_closed()
 
     async def test_rename(self, client0):
         await client0.query(r'''
@@ -1690,6 +1724,9 @@ class TestType(TestBase):
                 [TypeA{}, TypeB{}]
             '''), [{'i': 0}, {'a': {}}])
 
+        client1.close()
+        await client1.wait_closed()
+
     async def test_rename_prop(self, client0):
         await client0.query(r'''
             set_type('Test', {
@@ -1740,6 +1777,9 @@ class TestType(TestBase):
             self.assertEqual(await client.query(r'.test3.list[-1];'), 123)
             self.assertEqual(await client.query(r'.test3.col.len();'), 3)
 
+        client1.close()
+        await client1.wait_closed()
+
     async def test_wrap(self, client0):
         await client0.query(r'''
             new_type('_A');  // true through mod_type
@@ -1777,6 +1817,9 @@ class TestType(TestBase):
 
             res = await client.query('type_info("_E");')
             self.assertFalse(res['wrap_only'])
+
+        client1.close()
+        await client1.wait_closed()
 
 
 if __name__ == '__main__':

@@ -61,7 +61,7 @@ struct ti_counters_s
                                        and still being committed or skipped
                                     */
     uint64_t changes_committed;     /* changes committed */
-    uint64_t changes_quorum_lost;   /* number of times a quorum was not reached
+    uint64_t quorum_lost;           /* number of times a quorum was not reached
                                        for requesting an change id
                                     */
     uint64_t changes_unaligned;     /* number of times a change cannot be

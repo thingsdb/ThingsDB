@@ -20,7 +20,7 @@ struct ti_room_s
     uint8_t tp;
     uint8_t _flags;
     uint16_t _pad1;
-    int64_t id;
+    uint64_t id;
     ti_collection_t * collection;    /* NULL in non-collection scope */
     vec_t * listeners;
 };

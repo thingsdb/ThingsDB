@@ -885,7 +885,7 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         mp_pack_str(pk, "uptime") ||
         msgpack_pack_double(pk, uptime) ||
         /* 17 */
-        mp_pack_str(pk, "events_in_queue") ||
+        mp_pack_str(pk, "changes_in_queue") ||
         msgpack_pack_uint64(pk, ti.changes->queue->n) ||
         /* 18 */
         mp_pack_str(pk, "archived_in_memory") ||

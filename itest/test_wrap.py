@@ -255,11 +255,7 @@ class TestWrap(TestBase):
 
         self.assertEqual(res, {
             "name": "iris",
-            "mul": {
-                '!': 'type_err()',
-                'error_code': -61,
-                'error_msg': '`*` not supported between `Person` and `nil`'
-            }
+            "mul": '`*` not supported between `Person` and `nil`'
         })
 
         # _Pnoargs
@@ -300,12 +296,7 @@ class TestWrap(TestBase):
         ''')
 
         self.assertEqual(res, {
-            "wse": {
-                '!': 'bad_data_err()',
-                'error_code': -53,
-                'error_msg':
-                    'failed to compute property; method has side effects'
-            }
+            "wse": 'failed to compute property; method has side effects'
         })
 
         # _Pfut
@@ -318,12 +309,7 @@ class TestWrap(TestBase):
         ''')
 
         self.assertEqual(res, {
-            "fut": {
-                '!': 'bad_data_err()',
-                'error_code': -53,
-                'error_msg':
-                    'failed to compute property; method contains futures'
-            }
+            "fut": 'failed to compute property; method contains futures'
         })
 
         # Pdeep

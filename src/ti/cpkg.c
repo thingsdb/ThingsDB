@@ -159,14 +159,20 @@ ti_cpkg_t * ti_cpkg_from_pkg(ti_pkg_t * pkg)
 
     mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (mp_next(&up, &obj) != MP_MAP || !obj.via.sz ||
-        mp_next(&up, &obj) != MP_ARR || !obj.via.sz ||
+    if (mp_next(&up, &obj) != MP_ARR || !obj.via.sz ||
         mp_next(&up, &mp_change_id) != MP_U64)
     {
-        log_error("invalid package");
-        return NULL;
+        /*
+         * TODO (COMPAT) For compatibility with v0.x
+         */
+        if (obj.tp != MP_MAP || !obj.via.sz ||
+            mp_next(&up, &obj) != MP_ARR || !obj.via.sz ||
+            mp_next(&up, &mp_change_id) != MP_U64)
+        {
+            log_error("invalid package");
+            return NULL;
+        }
     }
-
     cpkg = ti_cpkg_create(pkg, mp_change_id.via.u64);
     if (!cpkg)
     {

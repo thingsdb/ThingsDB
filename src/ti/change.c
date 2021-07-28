@@ -131,14 +131,8 @@ void ti_change_missing(uint64_t change_id)
  *
  *  { [0, 0]: {0: [ {'job':...} ] } }
  */
-int ti_change_run(ti_change_t * change)
+static int change__run_deprecated_v0(ti_change_t * change)
 {
-    assert (change->tp == TI_CHANGE_TP_CPKG);
-    assert (change->via.cpkg);
-    assert (change->via.cpkg->change_id == change->id);
-    assert (change->via.cpkg->pkg->tp == TI_PROTO_NODE_CHANGE ||
-            change->via.cpkg->pkg->tp == TI_PROTO_NODE_REQ_SYNCEPART);
-
     ti_thing_t * thing;
     ti_pkg_t * pkg = change->via.cpkg->pkg;
     mp_unp_t up;
@@ -220,6 +214,106 @@ int ti_change_run(ti_change_t * change)
             }
         }
         else for (ii = obj.via.sz; ii--;)
+        {
+            if (ti_rjob_run(change, &up))
+            {
+                log_critical(
+                        "job for `root` in "TI_CHANGE_ID" failed", change->id);
+                goto fail;
+            }
+        }
+    }
+
+    ti_changes_free_dropped();
+    return 0;
+
+fail_mp_data:
+    log_critical("msgpack change data incorrect for "TI_CHANGE_ID, change->id);
+fail:
+    ti_changes_free_dropped();
+    return -1;
+}
+
+int ti_change_run(ti_change_t * change)
+{
+    assert (change->tp == TI_CHANGE_TP_CPKG);
+    assert (change->via.cpkg);
+    assert (change->via.cpkg->change_id == change->id);
+    assert (change->via.cpkg->pkg->tp == TI_PROTO_NODE_CHANGE ||
+            change->via.cpkg->pkg->tp == TI_PROTO_NODE_REQ_SYNCEPART);
+
+    ti_thing_t * thing;
+    ti_pkg_t * pkg = change->via.cpkg->pkg;
+    mp_unp_t up;
+    size_t i, ii;
+    mp_obj_t obj, mp_scope, mp_id;
+
+    mp_unp_init(&up, pkg->data, pkg->n);
+
+    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz < 2 ||
+        mp_skip(&up) != MP_U64 ||                       /* change id */
+        mp_next(&up, &mp_scope) != MP_U64)              /* scope id */
+        return change__run_deprecated_v0(change);
+
+    if (!mp_scope.via.u64)
+        change->collection = NULL;      /* scope 0 (TI_SCOPE_THINGSDB) is root */
+    else
+    {
+        change->collection = ti_collections_get_by_id(mp_scope.via.u64);
+        if (!change->collection)
+        {
+            log_error(
+                    "target "TI_COLLECTION_ID" for "TI_CHANGE_ID" not found",
+                    mp_scope.via.u64, change->id);
+            return -1;
+        }
+        ti_incref(change->collection);
+    }
+
+    ti_changes_keep_dropped();
+
+    for (i = obj.via.sz-2; i--;)
+    {
+        /*
+         * Loop over change tasks. Each iteration is a task related to a
+         * thing.
+         */
+        if (mp_next(&up, &obj) != MP_ARR || obj.via.sz == 0 ||
+            mp_next(&up, &mp_id) != MP_U64)
+            goto fail_mp_data;
+
+        thing = change->collection == NULL
+                ? ti.thing0
+                : ti_collection_find_thing(change->collection, mp_id.via.u64);
+
+        if (!thing)
+        {
+            /* can only happen if we have a collection */
+            assert (change->collection);
+            log_critical(
+                    "thing "TI_THING_ID" not found in collection `%.*s`, "
+                    "skip "TI_CHANGE_ID,
+                    mp_id.via.u64,
+                    (int) change->collection->name->n,
+                    (const char *) change->collection->name->data,
+                    change->id);
+            goto fail;
+        }
+
+        if (change->collection) for (ii = obj.via.sz-1; ii--;)
+        {
+            if (ti_job_run(thing, &up))
+            {
+                log_critical(
+                        "job for thing "TI_THING_ID" in "
+                        TI_CHANGE_ID" for collection `%.*s` failed",
+                        thing->id, change->id,
+                        (int) change->collection->name->n,
+                        (const char *) change->collection->name->data);
+                goto fail;
+            }
+        }
+        else for (ii = obj.via.sz-1; ii--;)
         {
             if (ti_rjob_run(change, &up))
             {

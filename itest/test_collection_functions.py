@@ -3888,50 +3888,6 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query(r'{a:1}.values();'), [1])
         self.assertEqual(await client.query(r'{a:1, b:2}.values();'), [1, 2])
 
-    async def test_watch(self, client):
-        with self.assertRaisesRegex(
-                LookupError,
-                'type `nil` has no function `watch`'):
-            await client.query('nil.watch();')
-
-        with self.assertRaisesRegex(
-                LookupError,
-                'function `watch` is undefined'):
-            await client.query('watch();')
-
-        with self.assertRaisesRegex(
-                NumArgumentsError,
-                'function `watch` takes 0 arguments but 1 was given'):
-            await client.query('.watch(nil);')
-
-        with self.assertRaisesRegex(
-                ValueError,
-                'thing has no `#ID`; '
-                'if you really want to watch this `thing` then you need to '
-                'assign it to a collection;'):
-            await client.query('{}.watch();')
-
-        self.assertIs(await client.query(r'.watch();'), None)
-
-    async def test_unwatch(self, client):
-        with self.assertRaisesRegex(
-                LookupError,
-                'type `nil` has no function `unwatch`'):
-            await client.query('nil.unwatch();')
-
-        with self.assertRaisesRegex(
-                LookupError,
-                'function `unwatch` is undefined'):
-            await client.query('unwatch();')
-
-        with self.assertRaisesRegex(
-                NumArgumentsError,
-                'function `unwatch` takes 0 arguments but 1 was given'):
-            await client.query('.unwatch(nil);')
-
-        self.assertIs(await client.query(r'{}.unwatch();'), None)
-        self.assertIs(await client.query(r'.unwatch();'), None)
-
     async def test_wse(self, client):
         with self.assertRaisesRegex(
                 LookupError,
@@ -4004,14 +3960,13 @@ class TestCollectionFunctions(TestBase):
                 'cancelled_err(blob);',
                 blob=pickle.dumps({}))
 
-        err = await client.query('cancelled_err();')
+        err = await client.query('cancelled_err().code();')
         self.assertEqual(err, Err.EX_CANCELLED)
-        self.assertEqual(
-            err,
-            "operation is cancelled before completion")
+
+        err = await client.query('cancelled_err();')
+        self.assertEqual(err, "operation is cancelled before completion")
 
         err = await client.query('cancelled_err("my custom error msg");')
-        self.assertEqual(err, Err.EX_CANCELLED)
         self.assertEqual(err, "my custom error msg")
 
     async def test_value_err(self, client):
@@ -4035,14 +3990,15 @@ class TestCollectionFunctions(TestBase):
                 'value_err(blob);',
                 blob=pickle.dumps({}))
 
-        err = await client.query('value_err();')
+        err = await client.query('value_err().code();')
         self.assertEqual(err, Err.EX_VALUE_ERROR)
+
+        err = await client.query('value_err();')
         self.assertEqual(
             err,
             "object has the right type but an inappropriate value")
 
         err = await client.query('value_err("my custom error msg");')
-        self.assertEqual(err, Err.EX_VALUE_ERROR)
         self.assertEqual(err, "my custom error msg")
 
     async def test_type_err(self, client):
@@ -4066,12 +4022,13 @@ class TestCollectionFunctions(TestBase):
                 'type_err(blob);',
                 blob=pickle.dumps({}))
 
-        err = await client.query('type_err();')
+        err = await client.query('type_err().code();')
         self.assertEqual(err, Err.EX_TYPE_ERROR)
+
+        err = await client.query('type_err();')
         self.assertEqual(err, "object of inappropriate type")
 
         err = await client.query('type_err("my custom error msg");')
-        self.assertEqual(err, Err.EX_TYPE_ERROR)
         self.assertEqual(err, "my custom error msg")
 
     async def test_num_arguments_err(self, client):
@@ -4095,12 +4052,13 @@ class TestCollectionFunctions(TestBase):
                 'num_arguments_err(blob);',
                 blob=pickle.dumps({}))
 
-        err = await client.query('num_arguments_err();')
+        err = await client.query('num_arguments_err().code();')
         self.assertEqual(err, Err.EX_NUM_ARGUMENTS)
+
+        err = await client.query('num_arguments_err();')
         self.assertEqual(err, "wrong number of arguments")
 
         err = await client.query('num_arguments_err("my custom error msg");')
-        self.assertEqual(err, Err.EX_NUM_ARGUMENTS)
         self.assertEqual(err, "my custom error msg")
 
     async def test_operation_err(self, client):
@@ -4124,14 +4082,13 @@ class TestCollectionFunctions(TestBase):
                 'operation_err(blob);',
                 blob=pickle.dumps({}))
 
-        err = await client.query('operation_err();')
+        err = await client.query('operation_err().code();')
         self.assertEqual(err, Err.EX_OPERATION_ERROR)
-        self.assertEqual(
-            err,
-            "operation is not valid in the current context")
+
+        err = await client.query('operation_err();')
+        self.assertEqual(err, "operation is not valid in the current context")
 
         err = await client.query('operation_err("my custom error msg");')
-        self.assertEqual(err, Err.EX_OPERATION_ERROR)
         self.assertEqual(err, "my custom error msg")
 
     async def test_copy(self, client):
@@ -4366,16 +4323,11 @@ class TestCollectionFunctions(TestBase):
             await client.query('.name = "Test"; .to_type("B");')
 
         with self.assertRaisesRegex(
-                TypeError,
-                r'conversion failed; property `a` is missing'):
-            await client.query('.del("other key"); .to_type("B");')
-
-        with self.assertRaisesRegex(
                 OperationError,
                 r'conversion failed; property `aa` is being used'):
             await client.query('.aa.map(|| .to_type("B"));')
 
-        res = await client.query('.a = A{}; .to_type("B");')
+        res = await client.query('.del("other key"); .to_type("B");')
         self.assertIs(res, None)
 
         res = await client.query('.a.id();')

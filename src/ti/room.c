@@ -97,7 +97,7 @@ static void room__emit_delete(ti_room_t * room)
     }
 }
 
-void ti_room_emit_event_data(ti_room_t * room, const void * data, size_t sz)
+void ti_room_emit_data(ti_room_t * room, const void * data, size_t sz)
 {
     if (ti_room_has_listeners(room))
     {
@@ -173,7 +173,7 @@ int ti_room_emit(
 
     client_pkg = ti_pkg_new(
             TI_PROTO_EV_ID,
-            TI_PROTO_CLIENT_ROOM_EVENT,
+            TI_PROTO_CLIENT_ROOM_EMIT,
             pt,
             buffer.size - sz);
     client_rpkg = ti_rpkg_create(client_pkg);

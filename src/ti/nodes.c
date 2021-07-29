@@ -1328,7 +1328,7 @@ static void nodes__on_room_emit(ti_stream_t * stream, ti_pkg_t * pkg)
 
     room = ti_collection_room_by_id(collection, mp_room_id.via.u64);
     if (room)
-        ti_room_emit_event_data(room, up.pt, up.end-up.pt);
+        ti_room_emit_data(room, up.pt, up.end-up.pt);
     else
         log_warning("cannot find "TI_ROOM_ID, mp_room_id.via.u64);
 

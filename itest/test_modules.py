@@ -536,10 +536,10 @@ class TestModules(TestBase):
             ''', scope='/t')
 
         res = await client.query(r'''
-            a = event_id();
+            a = change_id();
             b = 42;
             future(|a, b| {
-                c = event_id();
+                c = change_id();
                 .arr = [is_int(a), is_int(b), is_int(c)];
             });
         ''', scope='//stuff')
@@ -577,9 +577,9 @@ class TestModules(TestBase):
         self.assertEqual(res, 'future')
 
         res = await client.query(r'''
-            a = event_id();
+            a = change_id();
             future(nil, a).then(|_, a| {
-                b = event_id();
+                b = change_id();
                 .arr = [is_int(a), is_int(b)];
             });
         ''', scope='//stuff')
@@ -614,9 +614,9 @@ class TestModules(TestBase):
         self.assertEqual(res, 'future')
 
         res = await client.query(r'''
-            a = event_id();
+            a = change_id();
             future({module: "X"}, a).else(|_, a| {
-                b = event_id();
+                b = change_id();
                 .arr = [is_int(a), is_int(b)];
             });
         ''', scope='//stuff')

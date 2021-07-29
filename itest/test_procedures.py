@@ -108,17 +108,9 @@ class TestProcedures(TestBase):
         )
 
         with self.assertRaisesRegex(
-                LookupError,
-                r'thing `#42` not found; if you want to create a new thing '
-                r'then remove the id \(`#`\) and try again '
-                r'\(argument 0 for procedure `upd_list`\)'):
+                ValueError,
+                r'property `#` is reserved'):
             await client0.run('upd_list', {"#": 42})
-
-        with self.assertRaisesRegex(
-                TypeError,
-                r'sets can only contain things '
-                r'\(argument 0 for procedure `upd_list`\)'):
-            await client0.run('upd_list', {"$": [1, 2, 3]})
 
         # add another node for query validation
         await self.node1.join_until_ready(client0)
@@ -633,7 +625,7 @@ class TestProcedures(TestBase):
         await client.run('test_save_thing', {'name': 'Iris', 'age': 6})
         await client.run('as_named_args', {'name': 'Cato'})
 
-        iris = await client.query('.t')
+        iris = await client.query('.t.copy()')
 
         self.assertEqual(iris['name'], 'Iris')
         self.assertEqual(iris['age'], 6)
@@ -641,7 +633,7 @@ class TestProcedures(TestBase):
 
         await client.run('test_another_thing', iris)
 
-        self.assertTrue(await client.query('(.other == .t)'))
+        self.assertTrue(await client.query('.other.equals(.t);'))
 
 
 if __name__ == '__main__':

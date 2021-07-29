@@ -41,8 +41,10 @@
   Property `next_thing_id` is changed to `next_free_id` as Ids are used 
   for more than just things.  
 * Previous `EVENT` (or `MODIFY`) access to a scope is renamed to `CHANGE`. 
-  Both `EVENT` and `MODIFY` are marked as deprecated.
+  (Note: this is not truly breaking since both `EVENT` and `MODIFY` are marked 
+  as deprecated)
 * Previous `WATCH` access is renamed to `JOIN`. `WATCH` is marked as deprecated.
+  (Note: this is not truly breaking since `WATCH` is marked as deprecated)
 * It is no longer possible to watch the `@node` scope. All socket connections
   will receive `NODE_STATUS` changes as soon as the client is authenticated.
   Watch (JOIN) privileges are no longer required on the `@node` scope for this

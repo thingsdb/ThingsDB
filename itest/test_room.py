@@ -143,8 +143,6 @@ class TestRoom(TestBase):
             range(3).each(|i| .set(`room{i}`, room()));
         """)
 
-        await asyncio.sleep(1.5)
-
         res = await cl0._join(*range(20))
         ids = [id for id in res if id is not None]
         self.assertEqual(len(ids), 3)
@@ -153,7 +151,7 @@ class TestRoom(TestBase):
         ids = [id for id in res if id is not None]
         self.assertEqual(len(ids), 3)
 
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(0.5)
 
         res = await cl1._leave(*range(20))
         ids = [id for id in res if id is not None]

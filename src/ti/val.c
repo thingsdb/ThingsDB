@@ -599,6 +599,8 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
                     ti_val_drop((ti_val_t *) room);
                     ex_set_mem(e);
                 }
+                /* update the next free id if required */
+                ti_update_next_free_id(room_id);
             }
             else
                 ti_incref(room);

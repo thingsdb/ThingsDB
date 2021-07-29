@@ -12,7 +12,7 @@ const char * ti_proto_str(ti_proto_enum_t tp)
     case TI_PROTO_CLIENT_WARN:              return "CLIENT_WARN";
     case TI_PROTO_CLIENT_ROOM_JOIN:         return "CLIENT_ROOM_JOIN";
     case TI_PROTO_CLIENT_ROOM_LEAVE:        return "CLIENT_ROOM_LEAVE";
-    case TI_PROTO_CLIENT_ROOM_EVENT:        return "CLIENT_ROOM_EVENT";
+    case TI_PROTO_CLIENT_ROOM_EMIT:         return "CLIENT_ROOM_EMIT";
     case TI_PROTO_CLIENT_ROOM_DELETE:       return "CLIENT_ROOM_DELETE";
 
     case TI_PROTO_CLIENT_RES_PONG:          return "CLIENT_RES_PONG";

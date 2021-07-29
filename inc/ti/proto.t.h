@@ -20,7 +20,7 @@ typedef enum
     TI_PROTO_CLIENT_WARN        =5,     /* {warn_msg:..., warn_code: x}     */
     TI_PROTO_CLIENT_ROOM_JOIN   =6,     /* {id:x data:...}                  */
     TI_PROTO_CLIENT_ROOM_LEAVE  =7,     /* {id:x data:...}                  */
-    TI_PROTO_CLIENT_ROOM_EVENT  =8,     /* {id:x event:name args:[...] }    */
+    TI_PROTO_CLIENT_ROOM_EMIT   =8,     /* {id:x event:name args:[...] }    */
     TI_PROTO_CLIENT_ROOM_DELETE =9,     /* {id:x }                          */
 
     /*

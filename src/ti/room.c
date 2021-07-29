@@ -117,7 +117,7 @@ void ti_room_emit_event_data(ti_room_t * room, const void * data, size_t sz)
         mp_pack_append(&pk, data, sz);
 
         pkg = (ti_pkg_t *) buffer.data;
-        pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_ROOM_EVENT, buffer.size);
+        pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_ROOM_EMIT, buffer.size);
 
         room__write_pkg(room, pkg);  /* destroys `pkg` */
     }

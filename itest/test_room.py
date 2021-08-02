@@ -108,15 +108,21 @@ class TestRoom(TestBase):
         await asyncio.gather(*[
             TRoom(actions, id).join(cl0)
             for id in room_ids])
+
+        await asyncio.sleep(0.5)
+
         await asyncio.gather(*[
             TRoom(actions, f'.rooms[{x}].id();').join(cl1)
             for x in range(3)])
+
+        await asyncio.sleep(0.5)
 
         await cl0.query(r"""//ti
             .rooms.each(|room| room.emit("msg", "Hello!"));
         """)
 
         await asyncio.sleep(0.5)
+
         self.assertEqual(len(cl0.get_rooms()), 3)
         self.assertEqual(len(cl1.get_rooms()), 3)
         self.assertEqual(len(actions), 6*3)

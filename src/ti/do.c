@@ -853,7 +853,6 @@ static inline unsigned int do__hash(
     return hval;
 }
 
-
 typedef struct
 {
     char name[MAX_WORD_LENGTH+1];

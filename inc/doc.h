@@ -51,6 +51,7 @@
 #define DOC_IS_NIL                  DOC_SEE("collection-api/is_nil")
 #define DOC_IS_RAW                  DOC_SEE("collection-api/is_raw")
 #define DOC_IS_REGEX                DOC_SEE("collection-api/is_regex")
+#define DOC_IS_ROOM                 DOC_SEE("collection-api/is_room")
 #define DOC_IS_SET                  DOC_SEE("collection-api/is_set")
 #define DOC_IS_STR                  DOC_SEE("collection-api/is_str")
 #define DOC_IS_THING                DOC_SEE("collection-api/is_thing")

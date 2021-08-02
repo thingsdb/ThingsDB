@@ -33,17 +33,7 @@ static int do__f_to_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_arg_str("to_type", DOC_THING_TO_TYPE, 1, query->rval, e))
         goto fail0;
 
-    if (thing->via.field)
-    {
-        ex_set(e, EX_VALUE_ERROR,
-                "conversion failed; "
-                "thing "TI_THING_ID" has a value restriction via "
-                "property `%s` on type `%s`",
-                thing->id,
-                thing->via.field->name->str,
-                thing->via.field->type->name);
-        goto fail0;
-    }
+    /* TODO: check restriction when implemented */
 
     rname = (ti_raw_t *) query->rval;
     query->rval = (ti_val_t *) ti_nil_get();

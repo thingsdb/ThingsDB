@@ -1,6 +1,7 @@
 # v1.0.0
 
 * Added a `room` type to replace watching things.
+* Added `room()` and `is_room()` functions.
 * Functions for the new `room` type:
   - `id()`: Return the Id of the room.
   - `emit(..)`: Emit an event for the room.
@@ -24,8 +25,6 @@
   - `TI_PROTO_CLIENT_REQ_UNWATCH` (36)
 * Insert data using syntax like `{"X": ...}` *(where X is a reserved keyword)* 
   is no longer possible.
-* Authentication `WATCH` is replaced with `JOIN` *(As a keyword, `WATCH` will
-  still be accepted but is marked as deprecated)*.
 * Function `.def()` on a closure is removed. Use `str(closure)` instead.
 * Changed the return values of the following types:
   - `regex`: From object to string (e.g. `{"*": "/.*/"}` -> `"/.*/"`).

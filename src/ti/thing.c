@@ -97,7 +97,6 @@ ti_thing_t * ti_thing_o_create(
     thing->id = id;
     thing->collection = collection;
     thing->items.vec = vec_new(init_sz);
-    thing->via.field = NULL;
 
     if (!thing->items.vec)
     {
@@ -121,7 +120,6 @@ ti_thing_t * ti_thing_i_create(uint64_t id, ti_collection_t * collection)
     thing->id = id;
     thing->collection = collection;
     thing->items.smap = smap_create();
-    thing->via.field = NULL;
 
     if (!thing->items.smap)
     {
@@ -267,7 +265,6 @@ void ti_thing_clear(ti_thing_t * thing)
         /* convert to a simple object since the thing is not type
          * compliant anymore */
         thing->type_id = TI_SPEC_OBJECT;
-        thing->via.field = NULL;
     }
 }
 
@@ -954,7 +951,6 @@ void ti_thing_t_to_object(ti_thing_t * thing)
         *val = (ti_val_t *) prop;
     }
     thing->type_id = TI_SPEC_OBJECT;
-    thing->via.field = NULL;
 }
 
 typedef struct

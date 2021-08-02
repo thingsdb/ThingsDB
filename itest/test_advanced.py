@@ -1043,8 +1043,9 @@ class TestAdvanced(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'field `chat` on type `Room` is modified but at least one '
-                r'new instance was made with an inappropriate value which in '
-                r'response is changed to default by ThingsDB; mismatch in '
+                r'instance got an inappropriate value from the migration '
+                r'callback; to be compliant, ThingsDB has used the default '
+                r'value for this instance; callback response: mismatch in '
                 r'type `Room`; type `int` is invalid for property `chat` with '
                 r'definition `Room\?`'):
             await client.query(r'''

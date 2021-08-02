@@ -10,7 +10,7 @@
 
 /* The syntax version is used to test compatibility with functions
  * using the `ti_nodes_check_syntax()` function */
-#define TI_VERSION_SYNTAX 0
+#define TI_VERSION_SYNTAX 1
 
 /* ThingsDB can only connect with servers having at least this version. */
 #define TI_MINIMAL_VERSION "0.8.0"

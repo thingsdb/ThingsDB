@@ -160,7 +160,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
         {
             ex_set(w->e, EX_OPERATION,
                     "field `%s` on type `%s` is modified but at least one "
-                    "error has occurred using the given callback; %s",
+                    "error has occurred using the given callback: %s",
                     w->field->name->str,
                     w->field->type->name,
                     ex.msg);
@@ -199,7 +199,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
                 ex_set(w->e, EX_OPERATION,
                         "field `%s` on type `%s` is modified but at least "
                         "one failed attempt was made to keep the original "
-                        "value; %s",
+                        "value: %s",
                         w->field->name->str,
                         w->field->type->name,
                         ex.msg);
@@ -273,9 +273,10 @@ static int modtype__mod_after_cb(ti_thing_t * thing, modtype__mod_t * w)
         if (w->e->nr == 0 && ex.nr)
         {
             ex_set(w->e, EX_OPERATION,
-                    "field `%s` on type `%s` is modified but at least one new "
-                    "instance was made with an inappropriate value which in "
-                    "response is changed to default by ThingsDB; %s",
+                    "field `%s` on type `%s` is modified but at least one "
+                    "instance got an inappropriate value from the migration "
+                    "callback; to be compliant, ThingsDB has used the default "
+                    "value for this instance; callback response: %s",
                     w->field->name->str,
                     w->field->type->name,
                     ex.msg);

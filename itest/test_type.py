@@ -691,7 +691,7 @@ class TestType(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'field `hair_type` on type `Person` is modified but at least '
-                r'one error has occurred using the given callback; '
+                r'one error has occurred using the given callback: '
                 r'mismatch in type `Person`; type `int` is invalid for '
                 r'property `hair_type` with definition `str`'):
             await client.query(r'''
@@ -728,7 +728,7 @@ class TestType(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'field `hair_type` on type `Person` is modified but at least '
-                r'one failed attempt was made to keep the original value; '
+                r'one failed attempt was made to keep the original value: '
                 r'mismatch in type `Person`; type `int` is invalid for '
                 r'property `hair_type` with definition `str`'):
             await client.query(r'''
@@ -1545,8 +1545,9 @@ class TestType(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'field `chat` on type `Room` is modified but at least one '
-                r'new instance was made with an inappropriate value which in '
-                r'response is changed to default by ThingsDB; mismatch in '
+                r'instance got an inappropriate value from the migration '
+                r'callback; to be compliant, ThingsDB has used the default '
+                r'value for this instance; callback response: mismatch in '
                 r'type `Room`; type `int` is invalid for property `chat` with '
                 r'definition `Room\?`'):
             await client0.query(r'''

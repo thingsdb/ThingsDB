@@ -1103,4 +1103,5 @@ static void ti__stop(void)
     ti_connect_stop();
     ti_changes_stop();
     ti_sync_stop();
+    ti_timers_stop();  /* extra stop may be required */
 }

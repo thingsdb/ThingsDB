@@ -84,7 +84,7 @@ void ti_names_inject_common(void)
     (void) ti_names_from_str("modified_at");
     (void) ti_names_from_str("msgpack_version");
     (void) ti_names_from_str("name");
-    (void) ti_names_from_str("next_change_id");
+    (void) ti_names_from_str("next_free_id");
     (void) ti_names_from_str("next_run");
     (void) ti_names_from_str("next_thing_id");
     (void) ti_names_from_str("node_id");

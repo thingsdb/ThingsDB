@@ -249,6 +249,16 @@ curl --location --request POST 'http://localhost:9210/thingsdb' \
 
 Repeat the step above for node 2.
 
+```bash
+curl --location --request POST 'http://localhost:9210/thingsdb' \
+--header 'Content-Type: application/json' \
+--user admin:pass \
+--data-raw '{
+    "type": "query",
+    "code": "new_node(\"thingsdb-2\", \"thingsdb-2\", 9220);"
+}'
+```
+
 It might take a minute for the nodes to become ready. To view the status of the nodes the [nodes_info()](https://docs.thingsdb.net/v0/node-api/nodes_info/) function can be used.
 Note that we use `/node` for this request since the nodes_info(..) function must be used from the node scope.
 

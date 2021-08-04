@@ -948,12 +948,13 @@ fail0:
 int ti_field_del(ti_field_t * field)
 {
     vec_t * vec = imap_vec_ref(field->type->types->collection->things);
+    uint16_t type_id = field->type->type_id;
     if (!vec)
         return -1;
 
     for (vec_each(vec, ti_thing_t, thing))
     {
-        if (thing->via.type == field->type)
+        if (thing->type_id == type_id)
             ti_val_unsafe_drop(vec_swap_remove(thing->items.vec, field->idx));
 
         ti_val_unsafe_drop((ti_val_t *) thing);
@@ -965,7 +966,7 @@ int ti_field_del(ti_field_t * field)
      */
     for (queue_each(field->type->types->collection->gc, ti_gc_t, gc))
     {
-        if (gc->thing->via.type == field->type)
+        if (gc->thing->type_id == type_id)
             ti_val_unsafe_drop(vec_swap_remove(
                     gc->thing->items.vec,
                     field->idx));
@@ -2025,14 +2026,17 @@ static int field__type_rel_chk(
 
 static int field__type_rel_chk_cb(ti_thing_t * thing, field__type_rel_chk_t * w)
 {
-    if (thing->via.type == w->field->type &&
+    /* check type_id, as here we may get an object.
+     * (Objects do not use via.type)
+     */
+    if (thing->type_id == w->field->type->type_id &&
         field__type_rel_chk(thing, w->field, w->ofield, w->e))
         return w->e->nr;
 
     /* the fields may be different but of the same type, therefore
      * the code must bubble down and also check the "set" below.
      */
-    return thing->via.type == w->ofield->type
+    return thing->type_id == w->ofield->type->type_id
         ? field__type_rel_chk(thing, w->ofield, w->field, w->e)
         : 0;
 }

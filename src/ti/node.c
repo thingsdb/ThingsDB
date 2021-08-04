@@ -39,7 +39,7 @@ ti_node_t * ti_node_create(
     node->id = id;
     node->status = TI_NODE_STAT_OFFLINE;
     node->zone = zone;
-    node->syntax_ver = 0;
+    node->syntax_ver = TI_VERSION_SYNTAX;
     node->next_retry = 0;
     node->retry_counter = 0;
     node->ccid = 0;

@@ -80,7 +80,7 @@ union ti_thing_via_items
 union ti_thing_via
 {
     ti_type_t * type;
-    uint16_t _spec;  /* maybe use this in the future? */
+    uint16_t spec;  /* maybe use this in the future? */
 };
 
 struct ti_thing_s

@@ -28,7 +28,7 @@ class TRoom(Room):
     def on_init(self):
         self.actions.append('on_init')
 
-    def on_join(self):
+    async def on_join(self):
         self.actions.append('on_join')
 
     def on_leave(self):
@@ -48,7 +48,7 @@ class TRoom(Room):
 
 class TestRoom(TestBase):
 
-    title = 'Test watching thingsdb'
+    title = 'Test room type'
 
     @default_test_setup(num_nodes=3, seed=1, threshold_full_storage=100)
     async def run(self):

@@ -557,8 +557,8 @@ int ti_query_parse(ti_query_t * query, const char * str, size_t n, ex_t * e)
     if (!query->with.parseres)
     {
 
-        ex_set(e, EX_OPERATION,
-                "query has reached the maximum recursion depth of %d",
+        ex_set(e, EX_SYNTAX_ERROR,
+                "query syntax has reached the maximum recursion depth of %d",
                 MAX_RECURSION_DEPTH);
         goto failed;
     }

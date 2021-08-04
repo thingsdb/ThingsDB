@@ -1158,7 +1158,7 @@ _Bool ti_thing_equals(ti_thing_t * thing, ti_val_t * otherv, uint8_t deep)
                 return false;
         }
     }
-    else if (thing->via.type == other->via.type)
+    else if (thing->type_id == other->type_id)
     {
         size_t idx = 0;
         for (vec_each(thing->items.vec, ti_val_t, a), ++idx)

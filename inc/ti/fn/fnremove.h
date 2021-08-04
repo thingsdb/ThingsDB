@@ -3,11 +3,12 @@
 static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    size_t idx = 0;
+    uintptr_t idx = 0;
     ti_closure_t * closure;
     ti_varr_t * varr;
+    vec_t * vec;
 
-    if (fn_nargs_range("remove", DOC_LIST_REMOVE, 1, 2, nargs, e) ||
+    if (fn_nargs("remove", DOC_LIST_REMOVE, 1, nargs, e) ||
         ti_val_try_lock(query->rval, e))
         return e->nr;
 
@@ -25,6 +26,13 @@ static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ti_closure_inc(closure, query, e))
         goto fail2;
 
+    vec = vec_new(7);
+    if (!vec)
+    {
+        ex_set_mem(e);
+        goto fail3;
+    }
+
     for (vec_each(varr->vec, ti_val_t, v), ++idx)
     {
         if (ti_closure_vars_val_idx(closure, v, idx))
@@ -38,6 +46,8 @@ static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (ti_val_as_bool(query->rval))
         {
+            if (vec_push(&vec, idx))
+
             ti_val_unsafe_drop(query->rval);
             query->rval = v;  /* we can move the reference here */
 

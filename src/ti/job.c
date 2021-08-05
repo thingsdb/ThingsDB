@@ -2193,6 +2193,66 @@ static int job__splice(ti_thing_t * thing, mp_unp_t * up)
 }
 
 /*
+ * Returns 0 on success (index are written from high to low values)
+ * - for example: {'prop': [index, index, ...]}
+ */
+int job__arr_remove(ti_thing_t * thing, mp_unp_t * up)
+{
+    ti_varr_t * varr;
+    mp_obj_t obj, mp_prop, mp_idx;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        mp_next(up, &mp_prop) != MP_STR ||
+        mp_next(up, &obj) != MP_ARR)
+    {
+        log_critical(
+                "job `arr_remove` on "TI_THING_ID": "
+                "missing map, property, index, delete_count or new_count",
+                thing->id);
+        return -1;
+    }
+
+    varr = (ti_varr_t *) ti_thing_val_by_strn(
+            thing,
+            mp_prop.via.str.data,
+            mp_prop.via.str.n);
+
+    if (!varr)
+    {
+        log_critical(
+                "job `arr_remove` array on "TI_THING_ID": "
+                "missing property",
+                thing->id);
+        return -1;
+    }
+
+    if (!ti_val_is_list((ti_val_t *) varr))
+    {
+        log_critical(
+                "job `arr_remove` on "TI_THING_ID": "
+                "expecting a `"TI_VAL_LIST_S"`, got `%s`",
+                thing->id,
+                ti_val_str((ti_val_t *) varr));
+        return -1;
+    }
+
+    for (size_t i = obj.via.sz; i--;)
+    {
+        if (mp_next(up, &mp_idx) != MP_U64)
+        {
+            log_critical(
+                    "job `arr_remove` array on "TI_THING_ID": "
+                    "invalid index type",
+                    thing->id);
+            return -1;
+        }
+        ti_val_unsafe_drop(vec_remove(varr->vec, mp_idx.via.u64));
+    }
+
+    return 0;
+}
+
+/*
  * Unpacker should be at point 'job': ...
  */
 int ti_job_run(ti_thing_t * thing, mp_unp_t * up)
@@ -2269,6 +2329,7 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_TO_TYPE:           return job__to_type(thing, up);
     case TI_TASK_CLEAR_USERS:       break;
     case TI_TASK_TAKE_ACCESS:       break;
+    case TI_TASK_ARR_REMOVE:        return job__arr_remove(thing, up);
     }
 
     log_critical("unknown job for a collection scope: %"PRIu64, mp_job.via.u64);

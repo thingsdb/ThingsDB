@@ -2770,13 +2770,11 @@ class TestCollectionFunctions(TestBase):
 
     async def test_remove_list(self, client):
         await client.query('.list = [1, 2, 3];')
-        self.assertEqual(await client.query('.list.remove(|x|(x>1));'), 2)
-        self.assertEqual(await client.query('.list.remove(|x|(x>1));'), 3)
+        self.assertEqual(await client.query('.list.remove(|x|(x>1));'), [2, 3])
         self.assertEqual(await client.query('.list;'), [1])
-        self.assertIs(await client.query('.list.remove(||false);'), None)
-        self.assertEqual(await client.query('.list.remove(||false, "");'), '')
-        self.assertIs(await client.query('[].remove(||true);'), None)
-        self.assertEqual(await client.query('["pi"].remove(||true);'), 'pi')
+        self.assertEqual(await client.query('.list.remove(||false);'), [])
+        self.assertEqual(await client.query('[].remove(||true);'), [])
+        self.assertEqual(await client.query('["pi"].remove(||true);'), ['pi'])
 
         with self.assertRaisesRegex(
                 LookupError,
@@ -2790,15 +2788,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `remove` requires at least 1 argument '
-                'but 0 were given'):
+                'function `remove` takes 1 argument but 0 were given'):
             await client.query('.list.remove();')
-
-        with self.assertRaisesRegex(
-                NumArgumentsError,
-                'function `remove` takes at most 2 arguments '
-                'but 3 were given'):
-            await client.query('.list.remove(||true, 2, 3);')
 
         with self.assertRaisesRegex(
                 OperationError,

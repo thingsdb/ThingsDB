@@ -65,6 +65,7 @@ typedef enum
     TI_TASK_TO_TYPE,                        /* 52  */
     TI_TASK_CLEAR_USERS,                    /* 53  */
     TI_TASK_TAKE_ACCESS,                    /* 54  */
+    TI_TASK_ARR_REMOVE,                     /* 55  */
 
 } ti_task_enum;
 

@@ -26,7 +26,7 @@ static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ti_closure_inc(closure, query, e))
         goto fail2;
 
-    vec = vec_new(7);
+    vec = vec_new(1);
     if (!vec)
     {
         ex_set_mem(e);
@@ -44,49 +44,40 @@ static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (ti_closure_do_statement(closure, query, e))
             goto fail3;
 
-        if (ti_val_as_bool(query->rval))
+        if (ti_val_as_bool(query->rval) && vec_push(&vec, (void *) idx))
         {
-            if (vec_push(&vec, idx))
-
-            ti_val_unsafe_drop(query->rval);
-            query->rval = v;  /* we can move the reference here */
-
-            (void) vec_remove(varr->vec, idx);
-
-            if (varr->parent && varr->parent->id)
-            {
-                ti_task_t * task;
-                task = ti_task_get_task(query->change, varr->parent);
-                if (!task || ti_task_add_splice(
-                        task,
-                        ti_varr_key(varr),
-                        NULL,
-                        idx,
-                        1,
-                        0))
-                    ex_set_mem(e);
-            }
-            else
-                ti_thing_may_push_gc((ti_thing_t *) v);
-
-            goto done;
+            ex_set_mem(e);
+            goto fail3;
         }
 
         ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
     }
 
-    assert (query->rval == NULL);
-    if (nargs == 2)
-    {
-        /* lazy evaluation of the alternative value */
-        (void) ti_do_statement(query, nd->children->next->next->node, e);
-    }
-    else
-        query->rval = (ti_val_t *) ti_nil_get();
 
-done:
+    if (vec->n && varr->parent && varr->parent->id)
+    {
+        ti_task_t * task;
+        task = ti_task_get_task(query->change, varr->parent);
+        if (!task || ti_task_add_arr_remove(task, ti_varr_key(varr), vec))
+        {
+            ex_set_mem(e);
+            goto fail3;
+        }
+    }
+
+    idx = vec->n;
+    for (vec_each_rev(vec, void, pos))
+        VEC_set(vec, vec_remove(varr->vec, (uintptr_t) pos), --idx);
+
+    query->rval = (ti_val_t *) ti_varr_from_vec(vec);
+    if (query->rval)
+        vec = NULL;
+    else
+        ex_set_mem(e);
+
 fail3:
+    free(vec);
     ti_closure_dec(closure, query);
 
 fail2:

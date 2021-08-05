@@ -1981,6 +1981,43 @@ fail_pack:
     return -1;
 }
 
+int ti_task_add_arr_remove(ti_task_t * task, ti_raw_t * key, vec_t * vec)
+{
+    size_t alloc = 32 + key->n + (vec->n * 9);
+    ti_data_t * data;
+    ti_vp_t vp;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&vp.pk, 2);
+
+    msgpack_pack_uint8(&vp.pk, TI_TASK_ARR_REMOVE);
+    msgpack_pack_map(&vp.pk, 1);
+
+    mp_pack_strn(&vp.pk, key->data, key->n);
+
+    msgpack_pack_array(&vp.pk, vec->n);
+
+    for (vec_each_rev(vec, void, pos))
+        msgpack_pack_uint32(&vp.pk, (uintptr_t) pos);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
 int ti_task_add_restore(ti_task_t * task)
 {
     size_t alloc = 64;

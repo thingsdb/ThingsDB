@@ -51,6 +51,9 @@
 * Protocol `TI_PROTO_CLIENT_NODE_STATUS (0)` no longer returns a plain string
   with the status but instead a `map` with `id` containing the node Id
   and `status` with the new node status.
+* Function `remove(..)` on a `list` type will remove *all* values where a
+  given closure evaluates to `true`. The return value will be a new `list` with
+  the values which are removed. An alternative value is no longer possible.
    
 # v0.10.15
 

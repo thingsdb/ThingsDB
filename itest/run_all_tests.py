@@ -50,10 +50,10 @@ if __name__ == '__main__':
         help='skip documentation testing')
     args = parser.parse_args()
 
-    run_test(TestAdvanced())
-    run_test(TestArguments())
-    run_test(TestBackup())
-    run_test(TestCollectionFunctions())
+    #run_test(TestAdvanced())
+    #run_test(TestArguments())
+    #run_test(TestBackup())
+    #run_test(TestCollectionFunctions())
     run_test(TestDatetime())
     run_test(TestDict())
     if args.skip_doc_test is False:

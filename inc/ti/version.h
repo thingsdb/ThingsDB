@@ -16,14 +16,16 @@
 #define TI_MINIMAL_VERSION "0.8.0"
 
 /*
- * Use TI_VERSION_PRE_RELEASE for alpha release versions.
+ * Use TI_VERSION_PRE_RELEASE for alpha, beta or release candidate versions.
  * This should be an empty string when building a final release.
  * Examples:
- *  "-alpha-0"
- *  "-alpha-1"
+ *  "-alpha0"
+ *  "-alpha1"
+ *  "-beta0"
+ *  "-rc0"
  *  ""
  */
-#define TI_VERSION_PRE_RELEASE ""
+#define TI_VERSION_PRE_RELEASE "-rc0"
 
 #define TI_MAINTAINER \
     "Jeroen van der Heijden <jeroen@transceptor.technology>"

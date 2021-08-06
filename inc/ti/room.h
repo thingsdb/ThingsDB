@@ -6,6 +6,7 @@
 
 #include <inttypes.h>
 #include <ti/collection.t.h>
+#include <ti/pkg.t.h>
 #include <ti/query.t.h>
 #include <ti/raw.t.h>
 #include <ti/room.t.h>
@@ -24,9 +25,24 @@ int ti_room_copy(ti_room_t ** room);
 int ti_room_emit(
         ti_room_t * room,
         ti_query_t * query,
+        vec_t * args,
+        const char * event,
+        size_t event_n,
+        int deep);
+int ti_room_emit_from_pkg(
+        ti_collection_t * collection,
+        ti_pkg_t * pkg,
+        ex_t * e);
+
+static inline int ti_room_emit_raw(
+        ti_room_t * room,
+        ti_query_t * query,
         ti_raw_t * event,
         vec_t * args,
-        int deep);
-
+        int deep)
+{
+    return ti_room_emit(
+            room, query, args, (const char *) event->data, event->n, deep);
+}
 
 #endif  /* TI_ROOM_H_ */

@@ -80,12 +80,12 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
             deepi = VINT(deep_val);
 
-            if (deepi < 0 || deepi > MAX_DEEP_HINT)
+            if (deepi < 0 || deepi > TI_MAX_DEEP_HINT)
             {
                 ex_set(e, EX_VALUE_ERROR,
                         "expecting a `deep` value between 0 and %d "
                         "but got %"PRId64" instead",
-                        MAX_DEEP_HINT, deepi);
+                        TI_MAX_DEEP_HINT, deepi);
                 return e->nr;
             }
 

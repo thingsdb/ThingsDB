@@ -367,7 +367,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
     node->scid = mp_scid.via.u64;
     node->next_free_id = mp_next_thing_id.via.u64;
 
-    ti_nodes_update_syntax_ver(from_node_zone);
+    ti_nodes_update_syntax_ver(from_node_syntax_ver);
 
     /* Update node name and/or port if required */
     ti_node_upd_node(node, from_node_port, &mp_from_node_name);
@@ -1442,7 +1442,7 @@ int ti_nodes_write_global_status(void)
     log_debug(
             "save global committed "TI_CHANGE_ID", "
             "global stored "TI_CHANGE_ID" and "
-            "lowest known "TI_QBIND" to disk",
+            "lowest known "TI_SYNTAX" to disk",
             ccid, scid, nodes->syntax_ver);
 
     if (fwrite(&ccid, sizeof(uint64_t), 1, f) != 1 ||
@@ -1696,8 +1696,8 @@ void ti_nodes_update_syntax_ver(uint16_t syntax_ver)
     if (syntax_ver < nodes->syntax_ver)
     {
         log_error(
-                "new "TI_QBIND" is older than the current "TI_QBIND,
-                syntax_ver, nodes->syntax_ver);
+            "incoming "TI_SYNTAX" is older than the current "TI_SYNTAX,
+            syntax_ver, nodes->syntax_ver);
         nodes->syntax_ver = syntax_ver;
         return;
     }
@@ -2025,6 +2025,6 @@ int ti_nodes_check_syntax(uint16_t syntax_ver, ex_t * e)
     if (nodes_.syntax_ver >= syntax_ver)
         return 0;
     ex_set(e, EX_SYNTAX_ERROR,
-            "not all nodes are running the required "TI_QBIND, syntax_ver);
+            "not all nodes are running the required "TI_SYNTAX, syntax_ver);
     return e->nr;
 }

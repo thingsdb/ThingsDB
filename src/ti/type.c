@@ -948,7 +948,9 @@ int type__convert_cb(ti_prop_t * prop, type__convert_t * w)
     if (!field)
     {
         ex_set(w->e, EX_TYPE_ERROR,
-                "conversion failed; type `%s` has no property `%.*s`",
+                "conversion failed; "
+                "type `%s` has no property `%.*s` "
+                "but the thing you are trying to convert has",
                 w->type->name, prop->name->n, prop->name->str);
         return -1;
     }
@@ -957,7 +959,7 @@ int type__convert_cb(ti_prop_t * prop, type__convert_t * w)
     {
         ex_set(w->e, EX_TYPE_ERROR,
                 "conversion failed; property `%s` on type `%s` has a relation "
-                "and can therefore not be converted",
+                "and can therefore not be used as a type to convert to",
                 field->name->str, field->type->name);
         return -1;
     }

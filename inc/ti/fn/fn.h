@@ -1,9 +1,6 @@
 #ifndef TI_FN_FN_H_
 #define TI_FN_FN_H_
 
-/* maximum value we allow for the `deep` argument */
-#define MAX_DEEP_HINT 0x7f
-
 #include <assert.h>
 #include <ctype.h>
 #include <doc.h>

@@ -29,7 +29,7 @@ typedef enum
     TI_PROTO_CLIENT_RES_PONG    =16,    /* empty */
     TI_PROTO_CLIENT_RES_OK      =17,    /* empty */
     TI_PROTO_CLIENT_RES_DATA    =18,    /* ... */
-    TI_PROTO_CLIENT_RES_ERROR   =19,    /* {error_msg:..., error_code: x} */
+    TI_PROTO_CLIENT_RES_ERROR   =19,    /* {error_msg:..., error_code: x}   */
 
     /*
      * 0x0010xxxx  32..63 client requests
@@ -41,9 +41,10 @@ typedef enum
     _TI_PROTO_CLIENT_DEP_35     =35,    /* TODO (COMPAT) */
     _TI_PROTO_CLIENT_DEP_36     =36,    /* TODO (COMPAT) */
 
-    TI_PROTO_CLIENT_REQ_RUN     =37,    /* [scope, procedure, arguments...] */
-    TI_PROTO_CLIENT_REQ_JOIN    =38,    /* [scope, room id's....]}         */
-    TI_PROTO_CLIENT_REQ_LEAVE   =39,    /* [scope, room id's....]}         */
+    TI_PROTO_CLIENT_REQ_RUN     =37,    /* [scope, procedure, args...] */
+    TI_PROTO_CLIENT_REQ_JOIN    =38,    /* [scope, room id's....]}          */
+    TI_PROTO_CLIENT_REQ_LEAVE   =39,    /* [scope, room id's....]}          */
+    TI_PROTO_CLIENT_REQ_EMIT    =40,    /* [scope, room_id, event, args...] */
 
     /*
      * 64..127 modules range

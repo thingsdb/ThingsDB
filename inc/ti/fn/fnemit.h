@@ -39,12 +39,12 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         deepi = VINT(query->rval);
 
-        if (deepi < 0 || deepi > MAX_DEEP_HINT)
+        if (deepi < 0 || deepi > TI_MAX_DEEP_HINT)
         {
             ex_set(e, EX_VALUE_ERROR,
                     "expecting a `deep` value between 0 and %d "
                     "but got %"PRId64" instead",
-                    MAX_DEEP_HINT, deepi);
+                    TI_MAX_DEEP_HINT, deepi);
             goto fail0;
         }
 
@@ -101,7 +101,7 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         while (child->next && (child = child->next->next));
     }
 
-    if (room->id && ti_room_emit(room, query, revent, vec, deep))
+    if (room->id && ti_room_emit_raw(room, query, revent, vec, deep))
         ex_set_mem(e);
 
     query->rval = (ti_val_t *) ti_nil_get();

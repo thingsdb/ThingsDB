@@ -105,9 +105,9 @@ class TestRoom(TestBase):
             .rooms.map(|room| room.id());
         """)
         actions = []
-        await asyncio.gather(*[
-            TRoom(actions, id).join(cl0)
-            for id in room_ids])
+        rooms = [TRoom(actions, id) for id in room_ids]
+
+        await asyncio.gather(*[room.join(cl0) for room in rooms])
 
         await asyncio.sleep(0.5)
 
@@ -118,14 +118,19 @@ class TestRoom(TestBase):
         await asyncio.sleep(0.5)
 
         await cl0.query(r"""//ti
-            .rooms.each(|room| room.emit("msg", "Hello!"));
+            .rooms.each(|room| room.emit("msg", "Hey ho"));
         """)
+
+        await asyncio.sleep(0.5)
+
+        for room in rooms:
+            await room.emit('msg', "Let's Go!")
 
         await asyncio.sleep(0.5)
 
         self.assertEqual(len(cl0.get_rooms()), 3)
         self.assertEqual(len(cl1.get_rooms()), 3)
-        self.assertEqual(len(actions), 6*3)
+        self.assertEqual(len(actions), 8*3)
 
         await cl0.query(r"""//ti
             .del('rooms');
@@ -139,8 +144,10 @@ class TestRoom(TestBase):
             'on_join', 'on_join', 'on_join',
             'on_init', 'on_init', 'on_init',
             'on_join', 'on_join', 'on_join',
-            'Hello!', 'Hello!', 'Hello!',
-            'Hello!', 'Hello!', 'Hello!',
+            'Hey ho', 'Hey ho', 'Hey ho',
+            'Hey ho', 'Hey ho', 'Hey ho',
+            "Let's Go!", "Let's Go!", "Let's Go!",
+            "Let's Go!", "Let's Go!", "Let's Go!",
             'on_delete', 'on_delete', 'on_delete',
             'on_delete', 'on_delete', 'on_delete'])
 

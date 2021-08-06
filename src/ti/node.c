@@ -394,9 +394,9 @@ int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
     {
         if (syntax_ver < node->syntax_ver)
             log_warning(
-                    "got an unexpected syntax version update from "TI_NODE_ID
-                    " (current "TI_QBIND", received "TI_QBIND")",
-                    node->id, node->syntax_ver, syntax_ver);
+                "got an unexpected syntax version update from "TI_NODE_ID
+                " (current "TI_SYNTAX", received "TI_SYNTAX")",
+                node->id, node->syntax_ver, syntax_ver);
         ti_nodes_update_syntax_ver(syntax_ver);
         node->syntax_ver = mp_syntax_ver.via.u64;
     }

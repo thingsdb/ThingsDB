@@ -2769,12 +2769,21 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('x = "Test RefCount"; refs(x)'), 3)
 
     async def test_remove_list(self, client):
+        q = client.query
         await client.query('.list = [1, 2, 3];')
-        self.assertEqual(await client.query('.list.remove(|x|(x>1));'), [2, 3])
-        self.assertEqual(await client.query('.list;'), [1])
-        self.assertEqual(await client.query('.list.remove(||false);'), [])
-        self.assertEqual(await client.query('[].remove(||true);'), [])
-        self.assertEqual(await client.query('["pi"].remove(||true);'), ['pi'])
+        self.assertEqual(await q('.list.remove(|x|(x>1));'), [2, 3])
+        self.assertEqual(await q('.list;'), [1])
+        self.assertEqual(await q('.list.remove(||false);'), [])
+        self.assertEqual(await q('[].remove(||true);'), [])
+        self.assertEqual(await q('["pi"].remove(||true);'), ['pi'])
+
+        self.assertEqual(await q('range(6).remove(|x|x%2, 0);'), [])
+        self.assertEqual(await q('range(6).remove(|x|x%2, -1);'), [5])
+        self.assertEqual(await q('range(6).remove(|x|x%2, -2);'), [3, 5])
+        self.assertEqual(await q('range(6).remove(|x|x%2, -99);'), [1, 3, 5])
+        self.assertEqual(await q('range(6).remove(|x|x%2, 1);'), [1])
+        self.assertEqual(await q('range(6).remove(|x|x%2, 2);'), [1, 3])
+        self.assertEqual(await q('range(6).remove(|x|x%2, 99);'), [1, 3, 5])
 
         with self.assertRaisesRegex(
                 LookupError,
@@ -2788,8 +2797,15 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `remove` takes 1 argument but 0 were given'):
+                'function `remove` requires at least 1 argument '
+                'but 0 were given'):
             await client.query('.list.remove();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `remove` takes at most 2 arguments '
+                'but 3 were given'):
+            await client.query('.list.remove(||nil, 0, 0);')
 
         with self.assertRaisesRegex(
                 OperationError,
@@ -2801,6 +2817,12 @@ class TestCollectionFunctions(TestBase):
                 'function `remove` expects argument 1 to be of type `closure` '
                 'but got type `nil` instead'):
             await client.query('.list.remove(nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `remove` expects argument 2 to be of type `int` '
+                'but got type `nil` instead'):
+            await client.query('.list.remove(||nil, nil);')
 
     async def test_remove_set(self, client):
         await client.query(r'''
@@ -4310,7 +4332,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'conversion failed; type `B` has no property `other key`'):
+                r'conversion failed; type `B` has no property `other key` '
+                r'but the thing you are trying to convert has'):
             await client.query('.name = "Test"; .to_type("B");')
 
         with self.assertRaisesRegex(
@@ -4348,7 +4371,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'conversion failed; property `b` on type `AA` has a relation '
-                r'and can therefore not be converted'):
+                r'and can therefore not be used as a type to convert to'):
             await client.query(r"""//ti)
                 x = {b: BB{}};
                 x.to_type('AA');

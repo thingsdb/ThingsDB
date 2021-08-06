@@ -3,12 +3,13 @@
 static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    uintptr_t idx = 0;
+    intptr_t idx;
+    int64_t limit;
     ti_closure_t * closure;
     ti_varr_t * varr;
     vec_t * vec;
 
-    if (fn_nargs("remove", DOC_LIST_REMOVE, 1, nargs, e) ||
+    if (fn_nargs_range("remove", DOC_LIST_REMOVE, 1, 2, nargs, e) ||
         ti_val_try_lock(query->rval, e))
         return e->nr;
 
@@ -22,6 +23,18 @@ static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     closure = (ti_closure_t *) query->rval;
     query->rval = NULL;
 
+    if (nargs == 2)
+    {
+        if (ti_do_statement(query, nd->children->next->next->node, e) ||
+            fn_arg_int("remove", DOC_LIST_REMOVE, 2, query->rval, e))
+            goto fail2;
+        limit = VINT(query->rval);
+        ti_val_unsafe_drop(query->rval);
+        query->rval = NULL;
+    }
+    else
+        limit = LLONG_MAX;
+
     if (    ti_closure_try_wse(closure, query, e) ||
             ti_closure_inc(closure, query, e))
         goto fail2;
@@ -33,27 +46,63 @@ static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail3;
     }
 
-    for (vec_each(varr->vec, ti_val_t, v), ++idx)
+    if (limit >= 0)
     {
-        if (ti_closure_vars_val_idx(closure, v, idx))
+        idx = 0;
+        for (vec_each(varr->vec, ti_val_t, v), ++idx)
         {
-            ex_set_mem(e);
-            goto fail3;
+            if (vec->n == limit)
+                break;
+
+            if (ti_closure_vars_val_idx(closure, v, idx))
+            {
+                ex_set_mem(e);
+                goto fail3;
+            }
+
+            if (ti_closure_do_statement(closure, query, e))
+                goto fail3;
+
+            if (ti_val_as_bool(query->rval) && vec_push(&vec, (void *) idx))
+            {
+                ex_set_mem(e);
+                goto fail3;
+            }
+
+            ti_val_unsafe_drop(query->rval);
+            query->rval = NULL;
         }
-
-        if (ti_closure_do_statement(closure, query, e))
-            goto fail3;
-
-        if (ti_val_as_bool(query->rval) && vec_push(&vec, (void *) idx))
-        {
-            ex_set_mem(e);
-            goto fail3;
-        }
-
-        ti_val_unsafe_drop(query->rval);
-        query->rval = NULL;
     }
+    else
+    {
+        idx = varr->vec->n;
+        limit = limit == LLONG_MIN ? LLONG_MAX : llabs(limit);
 
+        for (vec_each_rev(varr->vec, ti_val_t, v))
+        {
+            if (vec->n == limit)
+                break;
+
+            if (ti_closure_vars_val_idx(closure, v, --idx))
+            {
+                ex_set_mem(e);
+                goto fail3;
+            }
+
+            if (ti_closure_do_statement(closure, query, e))
+                goto fail3;
+
+            if (ti_val_as_bool(query->rval) && vec_push(&vec, (void *) idx))
+            {
+                ex_set_mem(e);
+                goto fail3;
+            }
+
+            ti_val_unsafe_drop(query->rval);
+            query->rval = NULL;
+        }
+        vec_reverse(vec);
+    }
 
     if (vec->n && varr->parent && varr->parent->id)
     {

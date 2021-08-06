@@ -28,6 +28,7 @@ const char * ti_proto_str(ti_proto_enum_t tp)
     case TI_PROTO_CLIENT_REQ_RUN:           return "CLIENT_REQ_RUN";
     case TI_PROTO_CLIENT_REQ_JOIN:          return "CLIENT_REQ_JOIN";
     case TI_PROTO_CLIENT_REQ_LEAVE:         return "CLIENT_REQ_LEAVE";
+    case TI_PROTO_CLIENT_REQ_EMIT:          return "CLIENT_REQ_EMIT";
 
     case TI_PROTO_MODULE_CONF:              return "MODULE_CONF";
     case TI_PROTO_MODULE_CONF_OK:           return "MODULE_CONF_OK";

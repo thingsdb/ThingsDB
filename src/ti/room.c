@@ -2,6 +2,7 @@
  * ti/room.c
  */
 #include <ti.h>
+#include <ti/collection.inline.h>
 #include <ti/pkg.t.h>
 #include <ti/proto.t.h>
 #include <ti/room.h>
@@ -9,11 +10,11 @@
 #include <ti/room.t.h>
 #include <ti/rpkg.h>
 #include <ti/rpkg.t.h>
+#include <ti/stream.h>
+#include <ti/stream.t.h>
 #include <ti/val.inline.h>
 #include <ti/watch.h>
 #include <ti/watch.t.h>
-#include <ti/stream.h>
-#include <ti/stream.t.h>
 #include <util/vec.h>
 #include <ex.h>
 
@@ -126,8 +127,9 @@ void ti_room_emit_data(ti_room_t * room, const void * data, size_t sz)
 int ti_room_emit(
         ti_room_t * room,
         ti_query_t * query,
-        ti_raw_t * event,
         vec_t * args,
+        const char * event,
+        size_t event_n,
         int deep)
 {
     char * pt;
@@ -136,7 +138,7 @@ int ti_room_emit(
     ti_pkg_t * node_pkg, * client_pkg;
     ti_rpkg_t * node_rpkg, * client_rpkg;
     ti_vp_t vp = {
-            .query=query,
+            .query=query,  /* required for wrap type, may be NULL from API */
     };
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_pkg_t)))
@@ -157,7 +159,7 @@ int ti_room_emit(
     msgpack_pack_uint64(&vp.pk, room->id);
 
     mp_pack_str(&vp.pk, "event");
-    mp_pack_strn(&vp.pk, event->data, event->n);
+    mp_pack_strn(&vp.pk, event, event_n);
 
     mp_pack_str(&vp.pk, "args");
     msgpack_pack_array(&vp.pk, args ? args->n : 0);
@@ -198,6 +200,89 @@ fail_pkg:
 fail_pack:
     msgpack_sbuffer_destroy(&buffer);
     return -1;
+}
+
+int ti_room_emit_from_pkg(
+        ti_collection_t * collection,
+        ti_pkg_t * pkg,
+        ex_t * e)
+{
+    size_t nargs;
+    mp_unp_t up;
+    mp_obj_t obj, mp_id, mp_event;
+    ti_room_t * room;
+    vec_t * args;
+    ti_vup_t vup = {
+            .isclient = true,
+            .collection = collection,
+            .up = &up,
+    };
+
+    mp_unp_init(&up, pkg->data, pkg->n);
+
+    mp_next(&up, &obj);     /* array with at least size 1 */
+    mp_skip(&up);           /* scope */
+
+    if (obj.via.sz < 3 ||
+        mp_next(&up, &mp_id) != MP_U64 ||
+        mp_next(&up, &mp_event) != MP_STR)
+    {
+        ex_set(e, EX_BAD_DATA, "invalid emit request");
+        return e->nr;
+    }
+
+    nargs = obj.via.sz - 3;
+
+    if (nargs)
+    {
+        args = vec_new(nargs);
+        if (!args)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+    }
+    else
+        args = NULL;
+
+    uv_mutex_lock(collection->lock);
+
+    room = ti_collection_room_by_id(collection, mp_id.via.u64);
+    if (room)
+    {
+        while (nargs--)
+        {
+            ti_val_t * val = ti_val_from_vup_e(&vup, e);
+            if (!val)
+                break;
+
+            VEC_push(args, val);
+        }
+    }
+    else
+        ex_set(e, EX_LOOKUP_ERROR,
+                "collection `%.*s` has no `room` with id %"PRIu64,
+                collection->name->n,
+                (char *) collection->name->data,
+                mp_id.via.u64);
+
+    uv_mutex_unlock(collection->lock);
+
+    if (e->nr)
+        goto fail0;
+
+    if (ti_room_emit(
+            room,
+            NULL,
+            args,
+            mp_event.via.str.data,
+            mp_event.via.str.n,
+            TI_MAX_DEEP_HINT))
+        ex_set_mem(e);
+
+fail0:
+    vec_destroy(args, (vec_destroy_cb) ti_val_unsafe_drop);
+    return e->nr;
 }
 
 void ti_room_emit_node_status(ti_room_t * room, const char * status)

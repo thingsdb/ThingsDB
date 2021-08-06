@@ -427,6 +427,54 @@ done:
     }
 }
 
+static void clients__on_emit(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    ex_t e = {0};
+    ti_user_t * user = stream->via.user;
+    ti_pkg_t * resp = NULL;
+    ti_scope_t scope;
+    ti_collection_t * collection;
+
+    if (clients__check(user, &e) || ti_scope_init_pkg(&scope, pkg, &e))
+        goto on_error;
+
+    if (ti.node->status <= TI_NODE_STAT_SYNCHRONIZING)
+    {
+        ex_set(&e, EX_NODE_ERROR,
+                TI_NODE_ID" is not ready to handle emit requests",
+                ti.node->id);
+        goto on_error;
+    }
+
+    collection = ti_scope_get_collection(&scope, &e);
+    if (!collection ||
+        ti_access_check_err(collection->access, user, TI_AUTH_QUERY, &e) ||
+        ti_room_emit_from_pkg(collection, pkg, &e))
+        goto on_error;
+
+    resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_OK, NULL, 0);
+    if (resp)
+        goto done;
+
+    ex_set_mem(&e);
+
+on_error:
+    resp = ti_pkg_client_err(pkg->id, &e);
+    if (!resp)
+    {
+        log_error(EX_MEMORY_S);
+        return;
+    }
+
+done:
+    if (ti_stream_write_pkg(stream, resp))
+    {
+        /* serious error, join cannot continue */
+        free(resp);
+        log_error(EX_MEMORY_S);
+    }
+}
+
 static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t e = {0};
@@ -529,6 +577,9 @@ static void clients__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
         break;
     case TI_PROTO_CLIENT_REQ_LEAVE:
         clients__on_leave(stream, pkg);
+        break;
+    case TI_PROTO_CLIENT_REQ_EMIT:
+        clients__on_emit(stream, pkg);
         break;
     case _TI_PROTO_CLIENT_DEP_35:  /* deprecated watch request */
     case _TI_PROTO_CLIENT_DEP_36:  /* deprecated watch request */

@@ -33,7 +33,7 @@
 #define TI_TIMER_ID "`timer:%"PRIu64"`"
 #define TI_USER_ID "`user:%"PRIu64"`"
 
-#define TI_QBIND "syntax v%u"
+#define TI_SYNTAX "syntax v%u"
 
 /* Max token expiration time */
 #define TI_MAX_EXPIRATION_DOUBLE 4294967295.0
@@ -44,6 +44,9 @@
 
 /* Maximum number of timers per scope (just some arbitrary value) */
 #define TI_MAX_TIMER_COUNT 200U
+
+/* maximum value we allow for the `deep` argument */
+#define TI_MAX_DEEP_HINT 0x7f
 
 /*
  * File name schema to check version info on created files.

@@ -12,6 +12,7 @@
   - `TI_PROTO_CLIENT_ROOM_DELETE` (9) 
   - `TI_PROTO_CLIENT_REQ_JOIN` (38)
   - `TI_PROTO_CLIENT_REQ_LEAVE` (39)
+  - `TI_PROTO_CLIENT_REQ_EMIT` (40)
   
 ## Breaking changes from v0.10.x -> v1.0.0
 

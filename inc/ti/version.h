@@ -28,7 +28,7 @@
 #define TI_VERSION_PRE_RELEASE "-rc0"
 
 #define TI_MAINTAINER \
-    "Jeroen van der Heijden <jeroen@transceptor.technology>"
+    "Jeroen van der Heijden <jeroen@cesbit.com>"
 #define TI_HOME_PAGE \
     "https://thingsdb.net"
 

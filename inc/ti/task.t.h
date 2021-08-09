@@ -66,6 +66,7 @@ typedef enum
     TI_TASK_CLEAR_USERS,                    /* 53  */
     TI_TASK_TAKE_ACCESS,                    /* 54  */
     TI_TASK_ARR_REMOVE,                     /* 55  */
+    TI_TASK_SET_CLEAR,                      /* 56  */
 
 } ti_task_enum;
 

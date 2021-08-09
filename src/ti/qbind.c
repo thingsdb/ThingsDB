@@ -23,6 +23,7 @@
 #include <ti/fn/fncall.h>
 #include <ti/fn/fnchangeid.h>
 #include <ti/fn/fnchoice.h>
+#include <ti/fn/fnclear.h>
 #include <ti/fn/fncode.h>
 #include <ti/fn/fncollectioninfo.h>
 #include <ti/fn/fncollectionsinfo.h>
@@ -247,7 +248,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 222,
+    TOTAL_KEYWORDS = 223,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 7,
@@ -440,6 +441,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="call",              .fn=do__f_call,                 XCHAIN_NE},
     {.name="cancelled_err",     .fn=do__f_cancelled_err,        ROOT_NE},
     {.name="choice",            .fn=do__f_choice,               CHAIN_NE},
+    {.name="clear",             .fn=do__f_clear,                CHAIN_CE_XVAR},
     {.name="code",              .fn=do__f_code,                 CHAIN_NE},
     {.name="collection_info",   .fn=do__f_collection_info,      ROOT_NE},
     {.name="collections_info",  .fn=do__f_collections_info,     ROOT_NE},

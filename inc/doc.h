@@ -222,6 +222,7 @@
 #define DOC_ROOM_EMIT               DOC_SEE("data-types/room/emit")
 #define DOC_ROOM_ID                 DOC_SEE("data-types/room/id")
 #define DOC_SET_ADD                 DOC_SEE("data-types/set/add")
+#define DOC_SET_CLEAR               DOC_SEE("data-types/set/clear")
 #define DOC_SET_EACH                DOC_SEE("data-types/set/each")
 #define DOC_SET_EVERY               DOC_SEE("data-types/set/every")
 #define DOC_SET_FILTER              DOC_SEE("data-types/set/filter")

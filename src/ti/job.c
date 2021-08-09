@@ -99,6 +99,49 @@ static int job__set_add(ti_thing_t * thing, mp_unp_t * up)
 
 /*
  * Returns 0 on success
+ * - for example: `prop`
+ */
+static int job__set_clear(ti_thing_t * thing, mp_unp_t * up)
+{
+    ti_val_t * val;
+    mp_obj_t mp_prop;
+
+    if (mp_next(up, &mp_prop) != MP_STR)
+    {
+        log_critical(
+                "job `clear` on set on "TI_THING_ID": "
+                "missing map, property or new_count",
+                thing->id);
+        return -1;
+    }
+
+    val = ti_thing_val_by_strn(thing, mp_prop.via.str.data, mp_prop.via.str.n);
+    if (!val)
+    {
+        log_critical(
+                "job `clear` on set on "TI_THING_ID": "
+                "missing property: `%.*s`",
+                thing->id,
+                mp_prop.via.str.n, mp_prop.via.str.data);
+        return -1;
+    }
+
+    if (!ti_val_is_set(val))
+    {
+        log_critical(
+                "job `clear` on set on "TI_THING_ID": "
+                "expecting a `"TI_VAL_SET_S"`, got `%s`",
+                thing->id,
+                ti_val_str(val));
+        return -1;
+    }
+
+    imap_clear(VSET(val), (imap_destroy_cb) ti_val_unsafe_gc_drop);
+    return 0;
+}
+
+/*
+ * Returns 0 on success
  * - for example: {'prop':value}
  */
 static int job__set(ti_thing_t * thing, mp_unp_t * up)
@@ -2330,6 +2373,7 @@ int ti_job_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_CLEAR_USERS:       break;
     case TI_TASK_TAKE_ACCESS:       break;
     case TI_TASK_ARR_REMOVE:        return job__arr_remove(thing, up);
+    case TI_TASK_SET_CLEAR:         return job__set_clear(thing, up);
     }
 
     log_critical("unknown job for a collection scope: %"PRIu64, mp_job.via.u64);

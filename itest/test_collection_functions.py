@@ -153,6 +153,35 @@ class TestCollectionFunctions(TestBase):
                 'cannot add type `nil` to a set'):
             await client.query(r'.s.add(.a, .b, {}, nil);')
 
+    async def test_clear(self, client):
+        await client.query(r'.s = set(); .a = {}; .b = {}; .c = {};')
+        self.assertEqual(
+            await client.query('[.s.add(.a, .b), .s.len()]'), [2, 2])
+        self.assertEqual(
+            await client.query('[.s.add(.b, .c), .s.len()]'), [1, 3])
+        self.assertEqual(
+            await client.query(r'[.s.add({}), .s.len()]'), [1, 4])
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `clear`'):
+            await client.query('nil.clear();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `clear` takes 0 arguments but 1 was given'):
+            await client.query('.s.clear(0);')
+
+        self.assertEqual(
+            await client.query(r'[.s.clear(), .s.len()]'), [None, 0])
+
+        self.assertEqual(
+            await client.query(r"""//ti
+                s = set(.a, .b, .c);
+                s.clear();
+                s;
+            """), [])
+
     async def test_list(self, client):
         with self.assertRaisesRegex(
                 LookupError,
@@ -172,6 +201,7 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('list();'), [])
         self.assertEqual(await client.query('list( [] );'), [])
         self.assertEqual(await client.query(r'list(set([{}]));'), [{}])
+
 
     async def test_assert(self, client):
         with self.assertRaisesRegex(

@@ -2,6 +2,7 @@
 
 * Added a `room` type to replace watching things.
 * Added `room()` and `is_room()` functions.
+* Added *set*.`clear()` function.
 * Functions for the new `room` type:
   - `id()`: Return the Id of the room.
   - `emit(..)`: Emit an event for the room.

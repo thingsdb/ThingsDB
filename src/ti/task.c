@@ -115,6 +115,62 @@ fail_pack:
     return -1;
 }
 
+int ti_task_add_thing_clear(ti_task_t * task)
+{
+    size_t alloc = 32;
+    ti_data_t * data;
+    ti_vp_t vp;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t));
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&vp.pk, 1);
+    msgpack_pack_uint8(&vp.pk, TI_TASK_ARR_CLEAR);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_arr_clear(ti_task_t * task, ti_raw_t * key)
+{
+    assert (key);
+    size_t alloc = 32;
+    ti_data_t * data;
+    ti_vp_t vp;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t));
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&vp.pk, 2);
+    msgpack_pack_uint8(&vp.pk, TI_TASK_ARR_CLEAR);
+    mp_pack_strn(&vp.pk, key->data, key->n);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->jobs, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
 int ti_task_add_set_clear(ti_task_t * task, ti_raw_t * key)
 {
     assert (key);

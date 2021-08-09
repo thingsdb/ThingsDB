@@ -153,7 +153,7 @@ class TestCollectionFunctions(TestBase):
                 'cannot add type `nil` to a set'):
             await client.query(r'.s.add(.a, .b, {}, nil);')
 
-    async def test_clear(self, client):
+    async def test_clear_set(self, client):
         await client.query(r'.s = set(); .a = {}; .b = {}; .c = {};')
         self.assertEqual(
             await client.query('[.s.add(.a, .b), .s.len()]'), [2, 2])
@@ -182,6 +182,74 @@ class TestCollectionFunctions(TestBase):
                 s;
             """), [])
 
+    async def test_clear_arr(self, client):
+        await client.query(r'.arr = range(10);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `tuple` has no function `clear`'):
+            await client.query('[range(10)][0].clear();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `clear` takes 0 arguments but 1 was given'):
+            await client.query('.arr.clear(0);')
+
+        self.assertEqual(
+            await client.query(r'[.arr.len(), .arr.clear(), .arr.len()]'),
+            [10, None, 0])
+
+        self.assertEqual(
+            await client.query(r"""//ti
+                x = {};
+                x.x = x;
+                arr = [x, x, x.x];
+                x = nil;
+                arr.clear();
+                arr;
+            """), [])
+
+    async def test_clear_thing(self, client):
+        await client.query(r"""//ti
+            .t = {a: "A", b: "B"};
+            .d = {};
+            .d["some key"] = 'SOME KEY';
+            .d["other key"] = 'OTHER KEY';
+        """)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `T` has no property or method `clear`'):
+            await client.query('new_type("T"); T{}.clear();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `clear` takes 0 arguments but 1 was given'):
+            await client.query('.t.clear(0);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `clear` takes 0 arguments but 1 was given'):
+            await client.query('.d.clear(0);')
+
+        self.assertEqual(
+            await client.query(r'[.t.len(), .t.clear(), .t.len()]'),
+            [2, None, 0])
+
+        self.assertEqual(
+            await client.query(r'[.d.len(), .d.clear(), .d.len()]'),
+            [2, None, 0])
+
+        self.assertEqual(
+            await client.query(r"""//ti
+                x = {};
+                x.x = x;
+                thing = {x: x};
+                x = nil;
+                thing.clear();
+                thing;
+            """), {})
+
     async def test_list(self, client):
         with self.assertRaisesRegex(
                 LookupError,
@@ -201,7 +269,6 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('list();'), [])
         self.assertEqual(await client.query('list( [] );'), [])
         self.assertEqual(await client.query(r'list(set([{}]));'), [{}])
-
 
     async def test_assert(self, client):
         with self.assertRaisesRegex(

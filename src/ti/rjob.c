@@ -1349,6 +1349,8 @@ int ti_rjob_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_CLEAR_USERS:       return rjob__clear_users(up);
     case TI_TASK_TAKE_ACCESS:       return rjob__take_access(up);
     case TI_TASK_ARR_REMOVE:        break;
+    case TI_TASK_THING_CLEAR:       break;
+    case TI_TASK_ARR_CLEAR:         break;
     case TI_TASK_SET_CLEAR:         break;
     }
 

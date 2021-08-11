@@ -18,9 +18,9 @@ typedef enum
     TI_PROTO_CLIENT_NODE_STATUS =0,     /* {id:x status:...}                */
     /* 1..4 : Old watch protocol */
     TI_PROTO_CLIENT_WARN        =5,     /* {warn_msg:..., warn_code: x}     */
-    TI_PROTO_CLIENT_ROOM_JOIN   =6,     /* {id:x data:...}                  */
-    TI_PROTO_CLIENT_ROOM_LEAVE  =7,     /* {id:x data:...}                  */
-    TI_PROTO_CLIENT_ROOM_EMIT   =8,     /* {id:x event:name args:[...] }    */
+    TI_PROTO_CLIENT_ROOM_JOIN   =6,     /* {id:x}                           */
+    TI_PROTO_CLIENT_ROOM_LEAVE  =7,     /* {id:x}                           */
+    TI_PROTO_CLIENT_ROOM_EMIT   =8,     /* {id:x, event:name, args:[...] }  */
     TI_PROTO_CLIENT_ROOM_DELETE =9,     /* {id:x }                          */
 
     /*
@@ -41,10 +41,10 @@ typedef enum
     _TI_PROTO_CLIENT_DEP_35     =35,    /* TODO (COMPAT) */
     _TI_PROTO_CLIENT_DEP_36     =36,    /* TODO (COMPAT) */
 
-    TI_PROTO_CLIENT_REQ_RUN     =37,    /* [scope, procedure, args...] */
-    TI_PROTO_CLIENT_REQ_JOIN    =38,    /* [scope, room id's....]}          */
-    TI_PROTO_CLIENT_REQ_LEAVE   =39,    /* [scope, room id's....]}          */
-    TI_PROTO_CLIENT_REQ_EMIT    =40,    /* [scope, room_id, event, args...] */
+    TI_PROTO_CLIENT_REQ_RUN     =37,    /* [scope, procedure, [[args]/{kw}] */
+    TI_PROTO_CLIENT_REQ_JOIN    =38,    /* [scope, ...room id's]}           */
+    TI_PROTO_CLIENT_REQ_LEAVE   =39,    /* [scope, ...room id's]}           */
+    TI_PROTO_CLIENT_REQ_EMIT    =40,    /* [scope, room_id, event, ...args] */
 
     /*
      * 64..127 modules range

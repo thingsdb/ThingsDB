@@ -125,8 +125,9 @@ int ti_task_add_thing_clear(ti_task_t * task)
     mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t));
     msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_array(&vp.pk, 1);
-    msgpack_pack_uint8(&vp.pk, TI_TASK_ARR_CLEAR);
+    msgpack_pack_array(&vp.pk, 2);
+    msgpack_pack_uint8(&vp.pk, TI_TASK_THING_CLEAR);
+    msgpack_pack_nil(&vp.pk);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

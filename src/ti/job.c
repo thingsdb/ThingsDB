@@ -103,8 +103,15 @@ static int job__set_add(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: ``
  */
-static int job__thing_clear(ti_thing_t * thing, mp_unp_t * UNUSED(up))
+static int job__thing_clear(ti_thing_t * thing, mp_unp_t * up)
 {
+    if (mp_skip(up) != MP_NIL)
+    {
+        log_critical(
+                "job `clear` on "TI_THING_ID": expecting `nil`", thing->id);
+        return -1;
+    }
+
     if (ti_thing_is_dict(thing))
         smap_clear(thing->items.smap, (smap_destroy_cb) ti_item_destroy);
     else
@@ -126,7 +133,7 @@ static int job__arr_clear(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "job `clear` on array on "TI_THING_ID": "
-                "missing map, property or new_count",
+                "expecting a property name",
                 thing->id);
         return -1;
     }
@@ -169,7 +176,7 @@ static int job__set_clear(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "job `clear` on set on "TI_THING_ID": "
-                "missing map, property or new_count",
+                "expecting a property name",
                 thing->id);
         return -1;
     }

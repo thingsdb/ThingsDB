@@ -483,10 +483,15 @@ int ti_query_unp_run(
         return query__run_arr_props(query, &vup, procedure, obj.via.sz, e);
     case MP_MAP:
         return query__run_map_props(query, &vup, procedure, obj.via.sz, e);
-    default:
+    case MP_NIL:
+    case MP_END:
         break;
+    default:
+        ex_set(e, EX_BAD_DATA,
+                "run expects arguments to be of type map or array; "
+                "no arguments (or nil) is also accepted as a valid request");
     }
-    return 0;
+    return e->nr;
 }
 
 static inline int ti_query_investigate(ti_query_t * query, ex_t * e)

@@ -1,5 +1,5 @@
 /*
- * ti/rjob.c
+ * ti/ttask.c (thingsdb task)
  */
 #include <assert.h>
 #include <ti.h>
@@ -11,11 +11,11 @@
 #include <ti/qbind.h>
 #include <ti/raw.inline.h>
 #include <ti/restore.h>
-#include <ti/rjob.h>
 #include <ti/task.t.h>
 #include <ti/timer.h>
 #include <ti/timer.inline.h>
 #include <ti/token.h>
+#include <ti/ttask.h>
 #include <ti/users.h>
 #include <ti/val.h>
 #include <ti/val.inline.h>
@@ -27,11 +27,11 @@
  * Returns 0 on success
  * - for example: id
  */
-static int rjob__clear_users(mp_unp_t * up)
+static int ttask__clear_users(mp_unp_t * up)
 {
     if (mp_skip(up) != MP_BOOL)
     {
-        log_critical("job `clear_users`: invalid format");
+        log_critical("task `clear_users`: invalid format");
         return -1;
     }
 
@@ -43,14 +43,14 @@ static int rjob__clear_users(mp_unp_t * up)
     return 0;
 }
 
-static int rjob__take_access(mp_unp_t * up)
+static int ttask__take_access(mp_unp_t * up)
 {
     mp_obj_t mp_id;
     ti_user_t * user;
 
     if (mp_next(up, &mp_id) != MP_U64)
     {
-        log_critical("job `take_access`: invalid format");
+        log_critical("task `take_access`: invalid format");
         return -1;
     }
 
@@ -58,7 +58,7 @@ static int rjob__take_access(mp_unp_t * up)
     if (!user)
     {
         log_critical(
-                "job `take_access`: "TI_USER_ID" not found",
+                "task `take_access`: "TI_USER_ID" not found",
                 mp_id.via.u64);
         return -1;
     }
@@ -90,20 +90,20 @@ static int rjob__take_access(mp_unp_t * up)
  * Returns 0 on success
  * - for example: id
  */
-static int rjob__del_collection(mp_unp_t * up)
+static int ttask__del_collection(mp_unp_t * up)
 {
     mp_obj_t mp_id;
 
     if (mp_next(up, &mp_id) != MP_U64)
     {
-        log_critical("job `del_collection`: invalid format");
+        log_critical("task `del_collection`: invalid format");
         return -1;
     }
 
     if (!ti_collections_del_collection(mp_id.via.u64))
     {
         log_critical(
-                "job `del_collection`: "TI_COLLECTION_ID" not found",
+                "task `del_collection`: "TI_COLLECTION_ID" not found",
                 mp_id.via.u64);
         return -1;
     }
@@ -115,13 +115,13 @@ static int rjob__del_collection(mp_unp_t * up)
  * Returns 0 on success
  * - for example: after_is
  */
-static int rjob__del_expired(mp_unp_t * up)
+static int ttask__del_expired(mp_unp_t * up)
 {
     mp_obj_t mp_after_ts;
 
     if (mp_next(up, &mp_after_ts) != MP_U64)
     {
-        log_critical("job `del_expired`: invalid format");
+        log_critical("task `del_expired`: invalid format");
         return -1;
     }
 
@@ -133,14 +133,14 @@ static int rjob__del_expired(mp_unp_t * up)
  * Returns 0 on success
  * - for example: 'name'
  */
-static int rjob__del_procedure(mp_unp_t * up)
+static int ttask__del_procedure(mp_unp_t * up)
 {
     mp_obj_t mp_name;
     ti_procedure_t * procedure;
 
     if (mp_next(up, &mp_name) != MP_STR)
     {
-        log_critical("job `del_procedure`: missing procedure name");
+        log_critical("task `del_procedure`: missing procedure name");
         return -1;
     }
 
@@ -152,7 +152,7 @@ static int rjob__del_procedure(mp_unp_t * up)
     if (!procedure)
     {
         log_critical(
-                "job `del_procedure` cannot find `%.*s`",
+                "task `del_procedure` cannot find `%.*s`",
                 mp_name.via.str.n, mp_name.via.str.data);
         return -1;
     }
@@ -167,13 +167,13 @@ static int rjob__del_procedure(mp_unp_t * up)
  * Returns 0 on success
  * - for example: 'id'
  */
-static int rjob__del_timer(mp_unp_t * up)
+static int ttask__del_timer(mp_unp_t * up)
 {
     mp_obj_t mp_id;
 
     if (mp_next(up, &mp_id) != MP_U64)
     {
-        log_critical("job `del_timer`: missing timer id");
+        log_critical("task `del_timer`: missing timer id");
         return -1;
     }
 
@@ -197,7 +197,7 @@ static int rjob__del_timer(mp_unp_t * up)
  * Returns 0 on success
  * - for example: 'key'
  */
-static int rjob__del_token(mp_unp_t * up)
+static int ttask__del_token(mp_unp_t * up)
 {
     mp_obj_t mp_key;
     ti_token_t * token;
@@ -206,7 +206,7 @@ static int rjob__del_token(mp_unp_t * up)
         mp_key.via.str.n != sizeof(ti_token_key_t))
     {
         log_critical(
-                "job `del_token` for `.thingsdb`: "
+                "task `del_token` for `.thingsdb`: "
                 "missing or invalid token key");
         return -1;
     }
@@ -215,7 +215,7 @@ static int rjob__del_token(mp_unp_t * up)
 
     if (!token)
     {
-        log_critical("job `del_token` for `.thingsdb`: "
+        log_critical("task `del_token` for `.thingsdb`: "
                 "token key `%.*s` not found",
                 mp_key.via.str.n, mp_key.via.str.data);
         return -1;
@@ -229,21 +229,21 @@ static int rjob__del_token(mp_unp_t * up)
  * Returns 0 on success
  * - for example: id
  */
-static int rjob__del_user(mp_unp_t * up)
+static int ttask__del_user(mp_unp_t * up)
 {
     ti_user_t * user;
     mp_obj_t mp_id;
 
     if (mp_next(up, &mp_id) != MP_U64)
     {
-        log_critical("job `del_user`: invalid format");
+        log_critical("task `del_user`: invalid format");
         return -1;
     }
 
     user = ti_users_get_by_id(mp_id.via.u64);
     if (!user)
     {
-        log_critical("job `del_user`: "TI_USER_ID" not found", mp_id.via.u64);
+        log_critical("task `del_user`: "TI_USER_ID" not found", mp_id.via.u64);
         return -1;
     }
 
@@ -255,7 +255,7 @@ static int rjob__del_user(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'scope':id, 'user':name, 'mask': integer}
  */
-static int rjob__grant(mp_unp_t * up)
+static int ttask__grant(mp_unp_t * up)
 {
     ti_user_t * user;
     ti_collection_t * collection = NULL;
@@ -269,7 +269,7 @@ static int rjob__grant(mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_mask) != MP_U64)
     {
-        log_critical("job `grant`: invalid format");
+        log_critical("task `grant`: invalid format");
         return -1;
     }
 
@@ -279,7 +279,7 @@ static int rjob__grant(mp_unp_t * up)
         if (!collection)
         {
             log_critical(
-                    "job `grant`: "TI_COLLECTION_ID" not found",
+                    "task `grant`: "TI_COLLECTION_ID" not found",
                     mp_scope.via.u64);
             return -1;
         }
@@ -288,7 +288,7 @@ static int rjob__grant(mp_unp_t * up)
     user = ti_users_get_by_id(mp_user.via.u64);
     if (!user)
     {
-        log_critical("job `grant`: "TI_USER_ID" not found", mp_user.via.u64);
+        log_critical("task `grant`: "TI_USER_ID" not found", mp_user.via.u64);
         return -1;
     }
 
@@ -314,7 +314,7 @@ static int rjob__grant(mp_unp_t * up)
  *          'root': id,
  *          'created_at': ts}
  */
-static int rjob__new_collection(mp_unp_t * up)
+static int ttask__new_collection(mp_unp_t * up)
 {
     ex_t e = {0};
     mp_obj_t obj, mp_name, mp_user, mp_root, mp_created;
@@ -331,7 +331,7 @@ static int rjob__new_collection(mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_created) != MP_U64)
     {
-        log_critical("job `new_collection`: invalid format");
+        log_critical("task `new_collection`: invalid format");
         return -1;
     }
 
@@ -339,7 +339,7 @@ static int rjob__new_collection(mp_unp_t * up)
     if (!user)
     {
         log_critical(
-                "job `new_collection`: "TI_USER_ID" not found",
+                "task `new_collection`: "TI_USER_ID" not found",
                 mp_user.via.u64);
         return -1;
     }
@@ -353,7 +353,7 @@ static int rjob__new_collection(mp_unp_t * up)
             &e);
     if (!collection)
     {
-        log_critical("job `new_collection`: %s", e.msg);
+        log_critical("task `new_collection`: %s", e.msg);
         return -1;
     }
 
@@ -369,7 +369,7 @@ static int rjob__new_collection(mp_unp_t * up)
  *          'conf_pkg': configuration_package or nil,
  *          'scope_id': scope_id or nil}
  */
-static int rjob__new_module(mp_unp_t * up)
+static int ttask__new_module(mp_unp_t * up)
 {
     mp_obj_t obj, mp_name, mp_file, mp_created, mp_pkg, mp_scope;
     ti_module_t * module;
@@ -390,7 +390,7 @@ static int rjob__new_module(mp_unp_t * up)
         mp_next(up, &mp_scope) <= 0 ||
         (mp_scope.tp != MP_NIL && mp_scope.tp != MP_U64))
     {
-        log_critical("job `new_module`: invalid format");
+        log_critical("task `new_module`: invalid format");
         return -1;
     }
 
@@ -444,7 +444,7 @@ failed:
  *      'secret': encrypted
  *   }
  */
-static int rjob__new_node(ti_change_t * change, mp_unp_t * up)
+static int ttask__new_node(ti_change_t * change, mp_unp_t * up)
 {
     mp_obj_t obj, mp_id, mp_port, mp_addr, mp_secret;
     char addr[INET6_ADDRSTRLEN];
@@ -459,25 +459,25 @@ static int rjob__new_node(ti_change_t * change, mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_secret) != MP_STR)
     {
-        log_critical("job `new_node`: invalid format");
+        log_critical("task `new_node`: invalid format");
         return -1;
     }
 
     if (mp_addr.via.str.n >= INET6_ADDRSTRLEN)
     {
-        log_critical("job `new_node`: invalid address size");
+        log_critical("task `new_node`: invalid address size");
         return -1;
     }
 
     if (mp_secret.via.str.n != CRYPTX_SZ ||
         mp_secret.via.str.data[mp_secret.via.str.n-1] != '\0')
     {
-        log_critical("job `new_node`: invalid secret");
+        log_critical("task `new_node`: invalid secret");
         return -1;
     }
 
     if (change->id <= ti.last_change_id)
-        return 0;  /* this job is already applied */
+        return 0;  /* this task is already applied */
 
     memcpy(addr, mp_addr.via.str.data, mp_addr.via.str.n);
     addr[mp_addr.via.str.n] = '\0';
@@ -502,7 +502,7 @@ static int rjob__new_node(ti_change_t * change, mp_unp_t * up)
  * Returns 0 on success
  * - for example: {...}
  */
-static int rjob__new_procedure(mp_unp_t * up)
+static int ttask__new_procedure(mp_unp_t * up)
 {
     int rc;
     mp_obj_t obj, mp_name, mp_created;
@@ -522,7 +522,7 @@ static int rjob__new_procedure(mp_unp_t * up)
         mp_skip(up) != MP_STR)
     {
         log_critical(
-                "job `new_procedure` for `.thingsdb`: "
+                "task `new_procedure` for `.thingsdb`: "
                 "missing map or name");
         return -1;
     }
@@ -551,7 +551,7 @@ static int rjob__new_procedure(mp_unp_t * up)
         log_critical(EX_MEMORY_S);
     else
         log_critical(
-                "job `new_procedure` for `.thingsdb`: "
+                "task `new_procedure` for `.thingsdb`: "
                 "procedure `%s` already exists",
                 procedure->name);
 
@@ -565,7 +565,7 @@ failed:
  * Returns 0 on success
  * - for example: '{...}'
  */
-static int rjob__new_timer(mp_unp_t * up)
+static int ttask__new_timer(mp_unp_t * up)
 {
     mp_obj_t obj, mp_id, mp_next_run, mp_repeat, mp_user_id;
     ti_timer_t * timer = NULL;
@@ -589,7 +589,7 @@ static int rjob__new_timer(mp_unp_t * up)
         mp_next(up, &mp_user_id) != MP_U64 ||
         mp_skip(up) != MP_STR)
     {
-        log_critical("job `new_timer` for the @thingsdb scope: invalid data");
+        log_critical("task `new_timer` for the @thingsdb scope: invalid data");
         return -1;
     }
 
@@ -623,7 +623,7 @@ static int rjob__new_timer(mp_unp_t * up)
     return 0;
 
 fail0:
-    log_critical("job `new_timer` for the @thingsdb scope has failed");
+    log_critical("task `new_timer` for the @thingsdb scope has failed");
     ti_val_drop((ti_val_t *) varr);
     ti_val_drop((ti_val_t *) closure);
     return -1;
@@ -633,7 +633,7 @@ fail0:
  * Returns 0 on success
  * - for example: {'id': id, 'key': value}, 'expire_ts': ts, 'description':..}
  */
-static int rjob__new_token(mp_unp_t * up)
+static int ttask__new_token(mp_unp_t * up)
 {
     mp_obj_t obj, mp_user, mp_key, mp_expire, mp_desc, mp_created;
     ti_user_t * user;
@@ -651,13 +651,13 @@ static int rjob__new_token(mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_desc) != MP_STR)
     {
-        log_critical("job `new_token`: invalid format");
+        log_critical("task `new_token`: invalid format");
         return -1;
     }
 
     if (mp_key.via.str.n != sizeof(ti_token_key_t))
     {
-        log_critical("job `new_token`: invalid key size");
+        log_critical("task `new_token`: invalid key size");
         return -1;
     }
 
@@ -665,7 +665,7 @@ static int rjob__new_token(mp_unp_t * up)
     if (!user)
     {
         log_critical(
-                "job `new_token`: "TI_USER_ID" not found",
+                "task `new_token`: "TI_USER_ID" not found",
                 mp_user.via.u64);
         return -1;
     }
@@ -690,7 +690,7 @@ static int rjob__new_token(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'id': id, 'username':value}
  */
-static int rjob__new_user(mp_unp_t * up)
+static int ttask__new_user(mp_unp_t * up)
 {
     ex_t e = {0};
     mp_obj_t obj, mp_id, mp_name, mp_created;
@@ -703,7 +703,7 @@ static int rjob__new_user(mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_created) != MP_U64)
     {
-        log_critical("job `new_user`: invalid format");
+        log_critical("task `new_user`: invalid format");
         return -1;
     }
 
@@ -715,7 +715,7 @@ static int rjob__new_user(mp_unp_t * up)
             mp_created.via.u64,
             &e))
     {
-        log_critical("job `new_user`: %s", e.msg);
+        log_critical("task `new_user`: %s", e.msg);
         return -1;
     }
 
@@ -726,19 +726,19 @@ static int rjob__new_user(mp_unp_t * up)
  * Returns 0 on success
  * - for example: id
  */
-static int rjob__del_node(ti_change_t * change, mp_unp_t * up)
+static int ttask__del_node(ti_change_t * change, mp_unp_t * up)
 {
     ti_node_t * this_node = ti.node;
     mp_obj_t mp_node;
 
     if (mp_next(up, &mp_node) != MP_U64)
     {
-        log_critical("job `del_node`: invalid format");
+        log_critical("task `del_node`: invalid format");
         return -1;
     }
 
     if (change->id <= ti.last_change_id)
-        return 0;   /* this job is already applied */
+        return 0;   /* this task is already applied */
 
     if (mp_node.via.u64 == this_node->id)
     {
@@ -757,21 +757,21 @@ static int rjob__del_node(ti_change_t * change, mp_unp_t * up)
  * Returns 0 on success
  * - for example: module_name
  */
-static int rjob__del_module(mp_unp_t * up)
+static int ttask__del_module(mp_unp_t * up)
 {
     ti_module_t * module;
     mp_obj_t mp_name;
 
     if (mp_next(up, &mp_name) != MP_STR)
     {
-        log_critical("job `del_module`: invalid format");
+        log_critical("task `del_module`: invalid format");
         return -1;
     }
 
     module = ti_modules_by_strn(mp_name.via.str.data, mp_name.via.str.n);
     if (!module)
     {
-        log_error("job `del_module`: module `%.*s` not found",
+        log_error("task `del_module`: module `%.*s` not found",
                 mp_name.via.str.n,
                 mp_name.via.str.data);
         return 0;  /* error, but able to continue */
@@ -785,7 +785,7 @@ static int rjob__del_module(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {"name": module_name, "data": content}
  */
-static int rjob__deploy_module(mp_unp_t * up)
+static int ttask__deploy_module(mp_unp_t * up)
 {
     ti_module_t * module;
     mp_obj_t obj, mp_name, mp_data;
@@ -796,14 +796,14 @@ static int rjob__deploy_module(mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         (mp_next(up, &mp_data) != MP_BIN && mp_data.tp != MP_NIL))
     {
-        log_critical("job `deploy_module`: invalid format");
+        log_critical("task `deploy_module`: invalid format");
         return -1;
     }
 
     module = ti_modules_by_strn(mp_name.via.str.data, mp_name.via.str.n);
     if (!module)
     {
-        log_error("job `deploy_module`: module `%.*s` not found",
+        log_error("task `deploy_module`: module `%.*s` not found",
                 mp_name.via.str.n,
                 mp_name.via.str.data);
         return 0;  /* error, but able to continue */
@@ -822,7 +822,7 @@ static int rjob__deploy_module(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {"name": module_name, "scope_id": nil/id}
  */
-static int rjob__set_module_scope(mp_unp_t * up)
+static int ttask__set_module_scope(mp_unp_t * up)
 {
     ti_module_t * module;
     mp_obj_t obj, mp_name, mp_scope;
@@ -833,14 +833,14 @@ static int rjob__set_module_scope(mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         (mp_next(up, &mp_scope) != MP_U64 && mp_scope.tp != MP_NIL))
     {
-        log_critical("job `set_module_scope`: invalid format");
+        log_critical("task `set_module_scope`: invalid format");
         return -1;
     }
 
     module = ti_modules_by_strn(mp_name.via.str.data, mp_name.via.str.n);
     if (!module)
     {
-        log_error("job `set_module_scope`: module `%.*s` not found",
+        log_error("task `set_module_scope`: module `%.*s` not found",
                 mp_name.via.str.n,
                 mp_name.via.str.data);
         return 0;  /* error, but able to continue */
@@ -867,7 +867,7 @@ static int rjob__set_module_scope(mp_unp_t * up)
  * Returns 0 on success
  * - for example: '{...}'
  */
-static int rjob__set_timer_args(mp_unp_t * up)
+static int ttask__set_timer_args(mp_unp_t * up)
 {
     mp_obj_t obj, mp_id;
     ti_varr_t * varr;
@@ -883,7 +883,7 @@ static int rjob__set_timer_args(mp_unp_t * up)
         mp_skip(up) != MP_STR)
     {
         log_critical(
-                "job `set_timer_args` for the @thingsdb scope has failed: "
+                "task `set_timer_args` for the @thingsdb scope has failed: "
                 "invalid data");
         return -1;
     }
@@ -908,7 +908,7 @@ static int rjob__set_timer_args(mp_unp_t * up)
     return 0;
 
 fail0:
-    log_critical("job `set_timer_args` for the @thingsdb scope has failed");
+    log_critical("task `set_timer_args` for the @thingsdb scope has failed");
     ti_val_drop((ti_val_t *) varr);
     return -1;
 }
@@ -917,7 +917,7 @@ fail0:
  * Returns 0 on success
  * - for example: {"name": module_name, "conf_pkg": nil/bin}
  */
-static int rjob__set_module_conf(mp_unp_t * up)
+static int ttask__set_module_conf(mp_unp_t * up)
 {
     ti_module_t * module;
     mp_obj_t obj, mp_name, mp_pkg;
@@ -928,14 +928,14 @@ static int rjob__set_module_conf(mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         (mp_next(up, &mp_pkg) != MP_BIN && mp_pkg.tp != MP_NIL))
     {
-        log_critical("job `set_module_conf`: invalid format");
+        log_critical("task `set_module_conf`: invalid format");
         return -1;
     }
 
     module = ti_modules_by_strn(mp_name.via.str.data, mp_name.via.str.n);
     if (!module)
     {
-        log_error("job `set_module_conf`: module `%.*s` not found",
+        log_error("task `set_module_conf`: module `%.*s` not found",
                 mp_name.via.str.n,
                 mp_name.via.str.data);
         return 0;  /* error, but able to continue */
@@ -963,7 +963,7 @@ static int rjob__set_module_conf(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'id':id, 'name':name}
  */
-static int rjob__rename_collection(mp_unp_t * up)
+static int ttask__rename_collection(mp_unp_t * up)
 {
     ex_t e = {0};
     ti_collection_t * collection;
@@ -976,7 +976,7 @@ static int rjob__rename_collection(mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_name) != MP_STR)
     {
-        log_critical("job `rename_collection`: invalid format");
+        log_critical("task `rename_collection`: invalid format");
         return -1;
     }
 
@@ -984,7 +984,7 @@ static int rjob__rename_collection(mp_unp_t * up)
     if (!collection)
     {
         log_critical(
-                "job `rename_collection`: "TI_COLLECTION_ID" not found",
+                "task `rename_collection`: "TI_COLLECTION_ID" not found",
                 mp_id.via.u64);
         return -1;
     }
@@ -1006,7 +1006,7 @@ static int rjob__rename_collection(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'id':id, 'name':name}
  */
-static int rjob__set_time_zone(mp_unp_t * up)
+static int ttask__set_time_zone(mp_unp_t * up)
 {
     ti_collection_t * collection;
     mp_obj_t obj, mp_id, mp_tz;
@@ -1017,7 +1017,7 @@ static int rjob__set_time_zone(mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_tz) != MP_U64)
     {
-        log_critical("job `set_time_zone`: invalid format");
+        log_critical("task `set_time_zone`: invalid format");
         return -1;
     }
 
@@ -1025,7 +1025,7 @@ static int rjob__set_time_zone(mp_unp_t * up)
     if (!collection)
     {
         log_critical(
-                "job `set_time_zone`: "TI_COLLECTION_ID" not found",
+                "task `set_time_zone`: "TI_COLLECTION_ID" not found",
                 mp_id.via.u64);
         return -1;
     }
@@ -1038,7 +1038,7 @@ static int rjob__set_time_zone(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'old':name, 'name':name}
  */
-static int rjob__rename_module(mp_unp_t * up)
+static int ttask__rename_module(mp_unp_t * up)
 {
     ti_module_t * module;
     mp_obj_t obj, mp_old, mp_name;
@@ -1049,7 +1049,7 @@ static int rjob__rename_module(mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_name) != MP_STR)
     {
-        log_critical("job `rename_module`: invalid format");
+        log_critical("task `rename_module`: invalid format");
         return -1;
     }
 
@@ -1058,7 +1058,7 @@ static int rjob__rename_module(mp_unp_t * up)
     if (!module)
     {
         log_critical(
-                "job `rename_module` cannot find `%.*s`",
+                "task `rename_module` cannot find `%.*s`",
                 mp_old.via.str.n, mp_old.via.str.data);
         return -1;
     }
@@ -1070,7 +1070,7 @@ static int rjob__rename_module(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'old':name, 'name':name}
  */
-static int rjob__rename_procedure(mp_unp_t * up)
+static int ttask__rename_procedure(mp_unp_t * up)
 {
     ti_procedure_t * procedure;
     mp_obj_t obj, mp_old, mp_name;
@@ -1081,7 +1081,7 @@ static int rjob__rename_procedure(mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_name) != MP_STR)
     {
-        log_critical("job `rename_procedure`: invalid format");
+        log_critical("task `rename_procedure`: invalid format");
         return -1;
     }
 
@@ -1093,7 +1093,7 @@ static int rjob__rename_procedure(mp_unp_t * up)
     if (!procedure)
     {
         log_critical(
-                "job `rename_procedure` cannot find `%.*s`",
+                "task `rename_procedure` cannot find `%.*s`",
                 mp_old.via.str.n, mp_old.via.str.data);
         return -1;
     }
@@ -1109,7 +1109,7 @@ static int rjob__rename_procedure(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'id':id, 'name':name}
  */
-static int rjob__rename_user(mp_unp_t * up)
+static int ttask__rename_user(mp_unp_t * up)
 {
     ex_t e = {0};
     ti_user_t * user;
@@ -1122,7 +1122,7 @@ static int rjob__rename_user(mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_name) != MP_STR)
     {
-        log_critical("job `rename_user`: invalid format");
+        log_critical("task `rename_user`: invalid format");
         return -1;
     }
 
@@ -1130,7 +1130,7 @@ static int rjob__rename_user(mp_unp_t * up)
     if (!user)
     {
         log_critical(
-                "job `rename_user`: "TI_USER_ID" not found", mp_id.via.u64);
+                "task `rename_user`: "TI_USER_ID" not found", mp_id.via.u64);
         return -1;
     }
 
@@ -1151,7 +1151,7 @@ static int rjob__rename_user(mp_unp_t * up)
  * Returns 0 on success
  * - for example: true
  */
-static int rjob__restore(mp_unp_t * up)
+static int ttask__restore(mp_unp_t * up)
 {
     mp_obj_t obj;
 
@@ -1160,7 +1160,7 @@ static int rjob__restore(mp_unp_t * up)
     case MP_BOOL:
         break;
     default:
-        log_critical("job `restore`: invalid format");
+        log_critical("task `restore`: invalid format");
         return -1;
     }
 
@@ -1181,7 +1181,7 @@ static int rjob__restore(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'scope':id, 'user':name, 'mask': integer}
  */
-static int rjob__revoke(mp_unp_t * up)
+static int ttask__revoke(mp_unp_t * up)
 {
     ti_user_t * user;
     ti_collection_t * collection = NULL;
@@ -1195,7 +1195,7 @@ static int rjob__revoke(mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_mask) != MP_U64)
     {
-        log_critical("job `revoke`: invalid format");
+        log_critical("task `revoke`: invalid format");
         return -1;
     }
 
@@ -1205,7 +1205,7 @@ static int rjob__revoke(mp_unp_t * up)
         if (!collection)
         {
             log_critical(
-                    "job `revoke`: "TI_COLLECTION_ID" not found",
+                    "task `revoke`: "TI_COLLECTION_ID" not found",
                     mp_scope.via.u64);
             return -1;
         }
@@ -1214,7 +1214,7 @@ static int rjob__revoke(mp_unp_t * up)
     user = ti_users_get_by_id(mp_user.via.u64);
     if (!user)
     {
-        log_critical("job `revoke`: "TI_USER_ID" not found", mp_user.via.u64);
+        log_critical("task `revoke`: "TI_USER_ID" not found", mp_user.via.u64);
         return -1;
     }
 
@@ -1232,7 +1232,7 @@ static int rjob__revoke(mp_unp_t * up)
  * Returns 0 on success
  * - for example: {'id':user_id, 'password': encpass/null}
  */
-static int rjob__set_password(mp_unp_t * up)
+static int ttask__set_password(mp_unp_t * up)
 {
     ti_user_t * user;
     mp_obj_t obj, mp_user, mp_pass;
@@ -1245,7 +1245,7 @@ static int rjob__set_password(mp_unp_t * up)
         mp_next(up, &mp_pass) <= 0 ||
         (mp_pass.tp != MP_STR && mp_pass.tp != MP_NIL))
     {
-        log_critical("job `set_password`: invalid format");
+        log_critical("task `set_password`: invalid format");
         return -1;
     }
 
@@ -1253,7 +1253,7 @@ static int rjob__set_password(mp_unp_t * up)
     if (!user)
     {
         log_critical(
-                "job `set_password`: "TI_USER_ID" not found",
+                "task `set_password`: "TI_USER_ID" not found",
                 mp_user.via.u64);
         return -1;
     }
@@ -1274,14 +1274,14 @@ static int rjob__set_password(mp_unp_t * up)
     return 0;
 }
 
-int ti_rjob_run(ti_change_t * change, mp_unp_t * up)
+int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
 {
-    mp_obj_t obj, mp_job;
+    mp_obj_t obj, mp_task;
     if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||
-        mp_next(up, &mp_job) != MP_U64)
+        mp_next(up, &mp_task) != MP_U64)
     {
         if (obj.tp != MP_MAP || obj.via.sz != 1 ||
-            mp_next(up, &mp_job) != MP_STR || mp_job.via.str.n < 3)
+            mp_next(up, &mp_task) != MP_STR || mp_task.via.str.n < 3)
         {
             log_critical(
                     "job is not a `map` or `type` "
@@ -1291,25 +1291,25 @@ int ti_rjob_run(ti_change_t * change, mp_unp_t * up)
         goto version_v0;
     }
 
-    switch ((ti_task_enum) mp_job.via.u64)
+    switch ((ti_task_enum) mp_task.via.u64)
     {
     case TI_TASK_SET:               break;
     case TI_TASK_DEL:               break;
     case TI_TASK_SPLICE:            break;
     case TI_TASK_SET_ADD:           break;
     case TI_TASK_SET_REMOVE:        break;
-    case TI_TASK_DEL_COLLECTION:    return rjob__del_collection(up);
+    case TI_TASK_DEL_COLLECTION:    return ttask__del_collection(up);
     case TI_TASK_DEL_ENUM:          break;
-    case TI_TASK_DEL_EXPIRED:       return rjob__del_expired(up);
-    case TI_TASK_DEL_MODULE:        return rjob__del_module(up);
-    case TI_TASK_DEL_NODE:          return rjob__del_node(change, up);
-    case TI_TASK_DEL_PROCEDURE:     return rjob__del_procedure(up);
-    case TI_TASK_DEL_TIMER:         return rjob__del_timer(up);
-    case TI_TASK_DEL_TOKEN:         return rjob__del_token(up);
+    case TI_TASK_DEL_EXPIRED:       return ttask__del_expired(up);
+    case TI_TASK_DEL_MODULE:        return ttask__del_module(up);
+    case TI_TASK_DEL_NODE:          return ttask__del_node(change, up);
+    case TI_TASK_DEL_PROCEDURE:     return ttask__del_procedure(up);
+    case TI_TASK_DEL_TIMER:         return ttask__del_timer(up);
+    case TI_TASK_DEL_TOKEN:         return ttask__del_token(up);
     case TI_TASK_DEL_TYPE:          break;
-    case TI_TASK_DEL_USER:          return rjob__del_user(up);
-    case TI_TASK_DEPLOY_MODULE:     return rjob__deploy_module(up);
-    case TI_TASK_GRANT:             return rjob__grant(up);
+    case TI_TASK_DEL_USER:          return ttask__del_user(up);
+    case TI_TASK_DEPLOY_MODULE:     return ttask__deploy_module(up);
+    case TI_TASK_GRANT:             return ttask__grant(up);
     case TI_TASK_MOD_ENUM_ADD:      break;
     case TI_TASK_MOD_ENUM_DEF:      break;
     case TI_TASK_MOD_ENUM_DEL:      break;
@@ -1322,128 +1322,131 @@ int ti_rjob_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_MOD_TYPE_REL_DEL:  break;
     case TI_TASK_MOD_TYPE_REN:      break;
     case TI_TASK_MOD_TYPE_WPO:      break;
-    case TI_TASK_NEW_COLLECTION:    return rjob__new_collection(up);
-    case TI_TASK_NEW_MODULE:        return rjob__new_module(up);
-    case TI_TASK_NEW_NODE:          return rjob__new_node(change, up);
-    case TI_TASK_NEW_PROCEDURE:     return rjob__new_procedure(up);
-    case TI_TASK_NEW_TIMER:         return rjob__new_timer(up);
-    case TI_TASK_NEW_TOKEN:         return rjob__new_token(up);
+    case TI_TASK_NEW_COLLECTION:    return ttask__new_collection(up);
+    case TI_TASK_NEW_MODULE:        return ttask__new_module(up);
+    case TI_TASK_NEW_NODE:          return ttask__new_node(change, up);
+    case TI_TASK_NEW_PROCEDURE:     return ttask__new_procedure(up);
+    case TI_TASK_NEW_TIMER:         return ttask__new_timer(up);
+    case TI_TASK_NEW_TOKEN:         return ttask__new_token(up);
     case TI_TASK_NEW_TYPE:          break;
-    case TI_TASK_NEW_USER:          return rjob__new_user(up);
-    case TI_TASK_RENAME_COLLECTION: return rjob__rename_collection(up);
+    case TI_TASK_NEW_USER:          return ttask__new_user(up);
+    case TI_TASK_RENAME_COLLECTION: return ttask__rename_collection(up);
     case TI_TASK_RENAME_ENUM:       break;
-    case TI_TASK_RENAME_MODULE:     return rjob__rename_module(up);
-    case TI_TASK_RENAME_PROCEDURE:  return rjob__rename_procedure(up);
+    case TI_TASK_RENAME_MODULE:     return ttask__rename_module(up);
+    case TI_TASK_RENAME_PROCEDURE:  return ttask__rename_procedure(up);
     case TI_TASK_RENAME_TYPE:       break;
-    case TI_TASK_RENAME_USER:       return rjob__rename_user(up);
-    case TI_TASK_RESTORE:           return rjob__restore(up);
-    case TI_TASK_REVOKE:            return rjob__revoke(up);
+    case TI_TASK_RENAME_USER:       return ttask__rename_user(up);
+    case TI_TASK_RESTORE:           return ttask__restore(up);
+    case TI_TASK_REVOKE:            return ttask__revoke(up);
     case TI_TASK_SET_ENUM:          break;
-    case TI_TASK_SET_MODULE_CONF:   return rjob__set_module_conf(up);
-    case TI_TASK_SET_MODULE_SCOPE:  return rjob__set_module_scope(up);
-    case TI_TASK_SET_PASSWORD:      return rjob__set_password(up);
-    case TI_TASK_SET_TIME_ZONE:     return rjob__set_time_zone(up);
-    case TI_TASK_SET_TIMER_ARGS:    return rjob__set_timer_args(up);
+    case TI_TASK_SET_MODULE_CONF:   return ttask__set_module_conf(up);
+    case TI_TASK_SET_MODULE_SCOPE:  return ttask__set_module_scope(up);
+    case TI_TASK_SET_PASSWORD:      return ttask__set_password(up);
+    case TI_TASK_SET_TIME_ZONE:     return ttask__set_time_zone(up);
+    case TI_TASK_SET_TIMER_ARGS:    return ttask__set_timer_args(up);
     case TI_TASK_SET_TYPE:          break;
     case TI_TASK_TO_TYPE:           break;
-    case TI_TASK_CLEAR_USERS:       return rjob__clear_users(up);
-    case TI_TASK_TAKE_ACCESS:       return rjob__take_access(up);
+    case TI_TASK_CLEAR_USERS:       return ttask__clear_users(up);
+    case TI_TASK_TAKE_ACCESS:       return ttask__take_access(up);
     case TI_TASK_ARR_REMOVE:        break;
     case TI_TASK_THING_CLEAR:       break;
     case TI_TASK_ARR_CLEAR:         break;
     case TI_TASK_SET_CLEAR:         break;
     }
 
-    log_critical("unknown job for the thingsdb scope: %"PRIu64, mp_job.via.u64);
+    log_critical("unknown thingsdb task: %"PRIu64, mp_task.via.u64);
     return -1;
 
 version_v0:
-    switch (*mp_job.via.str.data)
+    switch (*mp_task.via.str.data)
     {
     case 'c':
-        if (mp_str_eq(&mp_job, "clear_users"))
-            return rjob__clear_users(up);
+        if (mp_str_eq(&mp_task, "clear_users"))
+            return ttask__clear_users(up);
         break;
     case 'd':
-        if (mp_str_eq(&mp_job, "del_timer"))
-            return rjob__del_timer(up);
-        if (mp_str_eq(&mp_job, "deploy_module"))
-            return rjob__deploy_module(up);
-        if (mp_str_eq(&mp_job, "del_collection"))
-            return rjob__del_collection(up);
-        if (mp_str_eq(&mp_job, "del_expired"))
-            return rjob__del_expired(up);
-        if (mp_str_eq(&mp_job, "del_node"))
-            return rjob__del_node(change, up);
-        if (mp_str_eq(&mp_job, "del_module"))
-            return rjob__del_module(up);
-        if (mp_str_eq(&mp_job, "del_procedure"))
-            return rjob__del_procedure(up);
-        if (mp_str_eq(&mp_job, "del_token"))
-            return rjob__del_token(up);
-        if (mp_str_eq(&mp_job, "del_user"))
-            return rjob__del_user(up);
+        if (mp_str_eq(&mp_task, "del_timer"))
+            return ttask__del_timer(up);
+        if (mp_str_eq(&mp_task, "deploy_module"))
+            return ttask__deploy_module(up);
+        if (mp_str_eq(&mp_task, "del_collection"))
+            return ttask__del_collection(up);
+        if (mp_str_eq(&mp_task, "del_expired"))
+            return ttask__del_expired(up);
+        if (mp_str_eq(&mp_task, "del_node"))
+            return ttask__del_node(change, up);
+        if (mp_str_eq(&mp_task, "del_module"))
+            return ttask__del_module(up);
+        if (mp_str_eq(&mp_task, "del_procedure"))
+            return ttask__del_procedure(up);
+        if (mp_str_eq(&mp_task, "del_token"))
+            return ttask__del_token(up);
+        if (mp_str_eq(&mp_task, "del_user"))
+            return ttask__del_user(up);
         break;
     case 'g':
-        if (mp_str_eq(&mp_job, "grant"))
-            return rjob__grant(up);
+        if (mp_str_eq(&mp_task, "grant"))
+            return ttask__grant(up);
         break;
     case 'n':
-        if (mp_str_eq(&mp_job, "new_timer"))
-            return rjob__new_timer(up);
-        if (mp_str_eq(&mp_job, "new_collection"))
-            return rjob__new_collection(up);
-        if (mp_str_eq(&mp_job, "new_module"))
-            return rjob__new_module(up);
-        if (mp_str_eq(&mp_job, "new_node"))
-            return rjob__new_node(change, up);
-        if (mp_str_eq(&mp_job, "new_procedure"))
-            return rjob__new_procedure(up);
-        if (mp_str_eq(&mp_job, "new_token"))
-            return rjob__new_token(up);
-        if (mp_str_eq(&mp_job, "new_user"))
-            return rjob__new_user(up);
+        if (mp_str_eq(&mp_task, "new_timer"))
+            return ttask__new_timer(up);
+        if (mp_str_eq(&mp_task, "new_collection"))
+            return ttask__new_collection(up);
+        if (mp_str_eq(&mp_task, "new_module"))
+            return ttask__new_module(up);
+        if (mp_str_eq(&mp_task, "new_node"))
+            return ttask__new_node(change, up);
+        if (mp_str_eq(&mp_task, "new_procedure"))
+            return ttask__new_procedure(up);
+        if (mp_str_eq(&mp_task, "new_token"))
+            return ttask__new_token(up);
+        if (mp_str_eq(&mp_task, "new_user"))
+            return ttask__new_user(up);
         break;
     case 'r':
-        if (mp_str_eq(&mp_job, "rename_collection"))
-            return rjob__rename_collection(up);
-        if (mp_str_eq(&mp_job, "rename_module"))
-            return rjob__rename_module(up);
-        if (mp_str_eq(&mp_job, "rename_procedure"))
-            return rjob__rename_procedure(up);
-        if (mp_str_eq(&mp_job, "rename_user"))
-            return rjob__rename_user(up);
-        if (mp_str_eq(&mp_job, "restore"))
-            return rjob__restore(up);
-        if (mp_str_eq(&mp_job, "revoke"))
-            return rjob__revoke(up);
+        if (mp_str_eq(&mp_task, "rename_collection"))
+            return ttask__rename_collection(up);
+        if (mp_str_eq(&mp_task, "rename_module"))
+            return ttask__rename_module(up);
+        if (mp_str_eq(&mp_task, "rename_procedure"))
+            return ttask__rename_procedure(up);
+        if (mp_str_eq(&mp_task, "rename_user"))
+            return ttask__rename_user(up);
+        if (mp_str_eq(&mp_task, "restore"))
+            return ttask__restore(up);
+        if (mp_str_eq(&mp_task, "revoke"))
+            return ttask__revoke(up);
         break;
     case 's':
-        if (mp_str_eq(&mp_job, "set_timer_args"))
-            return rjob__set_timer_args(up);
-        if (mp_str_eq(&mp_job, "set_module_conf"))
-            return rjob__set_module_conf(up);
-        if (mp_str_eq(&mp_job, "set_module_scope"))
-            return rjob__set_module_scope(up);
-        if (mp_str_eq(&mp_job, "set_password"))
-            return rjob__set_password(up);
-        if (mp_str_eq(&mp_job, "set_time_zone"))
-            return rjob__set_time_zone(up);
-        if (mp_str_eq(&mp_job, "set_quota"))
+        if (mp_str_eq(&mp_task, "set_timer_args"))
+            return ttask__set_timer_args(up);
+        if (mp_str_eq(&mp_task, "set_module_conf"))
+            return ttask__set_module_conf(up);
+        if (mp_str_eq(&mp_task, "set_module_scope"))
+            return ttask__set_module_scope(up);
+        if (mp_str_eq(&mp_task, "set_password"))
+            return ttask__set_password(up);
+        if (mp_str_eq(&mp_task, "set_time_zone"))
+            return ttask__set_time_zone(up);
+        if (mp_str_eq(&mp_task, "set_quota"))
         {
             /*
-             * DEPRECATED: `set_quota` is removed, skip this job
+             * DEPRECATED: `set_quota` is removed, skip this task
              */
             mp_skip(up);
             return 0;
         }
         break;
     case 't':
-        if (mp_str_eq(&mp_job, "take_access"))
-            return rjob__take_access(up);
+        if (mp_str_eq(&mp_task, "take_access"))
+            return ttask__take_access(up);
         break;
     }
 
-    log_critical("unknown job: `%.*s`", mp_job.via.str.n, mp_job.via.str.data);
+    log_critical(
+            "unknown thingsdb task: `%.*s`",
+            mp_task.via.str.n,
+            mp_task.via.str.data);
     return -1;
 }

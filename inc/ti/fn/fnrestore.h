@@ -4,7 +4,7 @@
 static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    char * job;
+    char * restore_task;
     _Bool overwrite_access = false;
     uint32_t n;
     uint64_t ccid, scid;
@@ -60,8 +60,8 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_restore_chk((const char *) rname->data, rname->n, e))
         goto fail0;
 
-    job = ti_restore_job((const char *) rname->data, rname->n);
-    if (!job)
+    restore_task = ti_restore_task((const char *) rname->data, rname->n);
+    if (!restore_task)
     {
         ex_set_mem(e);
         goto fail1;
@@ -181,7 +181,7 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
      * point, unpacking the tar file is not expected to fail unless there is
      * not enough disk space or other serious error.
      */
-    if (ti_restore_unp(job, e))
+    if (ti_restore_unp(restore_task, e))
         goto fail1;
 
     if (ti_restore_master(overwrite_access ? query->user : NULL))
@@ -200,7 +200,7 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = (ti_val_t *) ti_nil_get();
 
 fail1:
-    free(job);
+    free(restore_task);
 fail0:
     ti_val_unsafe_drop((ti_val_t *) rname);
     return e->nr;

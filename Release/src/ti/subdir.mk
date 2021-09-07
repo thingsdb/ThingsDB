@@ -26,6 +26,7 @@ C_SRCS += \
 ../src/ti/connect.c \
 ../src/ti/counters.c \
 ../src/ti/cpkg.c \
+../src/ti/ctask.c \
 ../src/ti/data.c \
 ../src/ti/datetime.c \
 ../src/ti/do.c \
@@ -41,7 +42,6 @@ C_SRCS += \
 ../src/ti/gc.c \
 ../src/ti/index.c \
 ../src/ti/item.c \
-../src/ti/job.c \
 ../src/ti/mapping.c \
 ../src/ti/member.c \
 ../src/ti/method.c \
@@ -70,7 +70,6 @@ C_SRCS += \
 ../src/ti/regex.c \
 ../src/ti/req.c \
 ../src/ti/restore.c \
-../src/ti/rjob.c \
 ../src/ti/room.c \
 ../src/ti/rooms.c \
 ../src/ti/rpkg.c \
@@ -92,6 +91,7 @@ C_SRCS += \
 ../src/ti/timer.c \
 ../src/ti/timers.c \
 ../src/ti/token.c \
+../src/ti/ttask.c \
 ../src/ti/type.c \
 ../src/ti/types.c \
 ../src/ti/tz.c \
@@ -133,6 +133,7 @@ OBJS += \
 ./src/ti/connect.o \
 ./src/ti/counters.o \
 ./src/ti/cpkg.o \
+./src/ti/ctask.o \
 ./src/ti/data.o \
 ./src/ti/datetime.o \
 ./src/ti/do.o \
@@ -148,7 +149,6 @@ OBJS += \
 ./src/ti/gc.o \
 ./src/ti/index.o \
 ./src/ti/item.o \
-./src/ti/job.o \
 ./src/ti/mapping.o \
 ./src/ti/member.o \
 ./src/ti/method.o \
@@ -177,7 +177,6 @@ OBJS += \
 ./src/ti/regex.o \
 ./src/ti/req.o \
 ./src/ti/restore.o \
-./src/ti/rjob.o \
 ./src/ti/room.o \
 ./src/ti/rooms.o \
 ./src/ti/rpkg.o \
@@ -199,6 +198,7 @@ OBJS += \
 ./src/ti/timer.o \
 ./src/ti/timers.o \
 ./src/ti/token.o \
+./src/ti/ttask.o \
 ./src/ti/type.o \
 ./src/ti/types.o \
 ./src/ti/tz.o \
@@ -240,6 +240,7 @@ C_DEPS += \
 ./src/ti/connect.d \
 ./src/ti/counters.d \
 ./src/ti/cpkg.d \
+./src/ti/ctask.d \
 ./src/ti/data.d \
 ./src/ti/datetime.d \
 ./src/ti/do.d \
@@ -255,7 +256,6 @@ C_DEPS += \
 ./src/ti/gc.d \
 ./src/ti/index.d \
 ./src/ti/item.d \
-./src/ti/job.d \
 ./src/ti/mapping.d \
 ./src/ti/member.d \
 ./src/ti/method.d \
@@ -284,7 +284,6 @@ C_DEPS += \
 ./src/ti/regex.d \
 ./src/ti/req.d \
 ./src/ti/restore.d \
-./src/ti/rjob.d \
 ./src/ti/room.d \
 ./src/ti/rooms.d \
 ./src/ti/rpkg.d \
@@ -306,6 +305,7 @@ C_DEPS += \
 ./src/ti/timer.d \
 ./src/ti/timers.d \
 ./src/ti/token.d \
+./src/ti/ttask.d \
 ./src/ti/type.d \
 ./src/ti/types.d \
 ./src/ti/tz.d \

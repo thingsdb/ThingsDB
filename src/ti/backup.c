@@ -166,7 +166,7 @@ _Bool ti_backup_is_gcloud(ti_backup_t * backup)
             s[4] == '/';
 }
 
-char * ti_backup_gcloud_job(ti_backup_t * backup)
+char * ti_backup_gcloud_task(ti_backup_t * backup)
 {
     struct tm * tm_info;
     uint64_t now = util_now_usec();
@@ -274,7 +274,7 @@ char * ti_backup_gcloud_job(ti_backup_t * backup)
     return buf.data;
 }
 
-char * ti_backup_job(ti_backup_t * backup)
+char * ti_backup_task(ti_backup_t * backup)
 {
     struct tm * tm_info;
     uint64_t now = util_now_usec();

@@ -31,8 +31,8 @@ ti_backup_t * ti_backup_create(
         uint64_t created_at,
         queue_t * files);
 _Bool ti_backup_is_gcloud(ti_backup_t * backup);
-char * ti_backup_gcloud_job(ti_backup_t * backup);
-char * ti_backup_job(ti_backup_t * backup);
+char * ti_backup_gcloud_task(ti_backup_t * backup);
+char * ti_backup_task(ti_backup_t * backup);
 void ti_backup_destroy(ti_backup_t * backup);
 int ti_backup_info_to_pk(ti_backup_t * backup, msgpack_packer * pk);
 ti_val_t * ti_backup_as_mpval(ti_backup_t * backup);

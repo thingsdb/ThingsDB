@@ -19,7 +19,7 @@ static uv_timer_t restore__timer;
 static _Bool restore__is_busy = false;
 static ti_user_t * restore__user;
 
-char * ti_restore_job(const char * fn, size_t n)
+char * ti_restore_task(const char * fn, size_t n)
 {
     char * data;
     buf_t buf;

@@ -11,11 +11,11 @@
 #include <ti/collections.h>
 #include <ti/cpkg.h>
 #include <ti/cpkg.inline.h>
-#include <ti/job.h>
+#include <ti/ctask.h>
 #include <ti/node.h>
 #include <ti/proto.h>
-#include <ti/rjob.h>
 #include <ti/task.h>
+#include <ti/ttask.h>
 #include <ti/watch.h>
 #include <util/logger.h>
 #include <util/mpack.h>
@@ -129,7 +129,7 @@ void ti_change_missing(uint64_t change_id)
  * Returns 0 when successful, or -1 in case of an error.
  * This function creates the change tasks.
  *
- *  { [0, 0]: {0: [ {'job':...} ] } }
+ *  { [0, 0]: {0: [ {'task':...} ] } }
  */
 static int change__run_deprecated_v0(ti_change_t * change)
 {
@@ -202,23 +202,24 @@ static int change__run_deprecated_v0(ti_change_t * change)
 
         if (change->collection) for (ii = obj.via.sz; ii--;)
         {
-            if (ti_job_run(thing, &up))
+            if (ti_ctask_run(thing, &up))
             {
                 log_critical(
-                        "job for thing "TI_THING_ID" in "
-                        TI_CHANGE_ID" for collection `%.*s` failed",
-                        thing->id, change->id,
+                        "task for "TI_THING_ID" in collection `%.*s` "
+                        "("TI_CHANGE_ID") failed",
+                        thing->id,
                         (int) change->collection->name->n,
-                        (const char *) change->collection->name->data);
+                        (const char *) change->collection->name->data,
+                        change->id);
                 goto fail;
             }
         }
         else for (ii = obj.via.sz; ii--;)
         {
-            if (ti_rjob_run(change, &up))
+            if (ti_ttask_run(change, &up))
             {
                 log_critical(
-                        "job for `root` in "TI_CHANGE_ID" failed", change->id);
+                        "thingsdb task ("TI_CHANGE_ID") failed", change->id);
                 goto fail;
             }
         }
@@ -302,23 +303,24 @@ int ti_change_run(ti_change_t * change)
 
         if (change->collection) for (ii = obj.via.sz-1; ii--;)
         {
-            if (ti_job_run(thing, &up))
+            if (ti_ctask_run(thing, &up))
             {
                 log_critical(
-                        "job for thing "TI_THING_ID" in "
-                        TI_CHANGE_ID" for collection `%.*s` failed",
-                        thing->id, change->id,
+                        "task for "TI_THING_ID" in collection `%.*s` "
+                        "("TI_CHANGE_ID") failed",
+                        thing->id,
                         (int) change->collection->name->n,
-                        (const char *) change->collection->name->data);
+                        (const char *) change->collection->name->data,
+                        change->id);
                 goto fail;
             }
         }
         else for (ii = obj.via.sz-1; ii--;)
         {
-            if (ti_rjob_run(change, &up))
+            if (ti_ttask_run(change, &up))
             {
                 log_critical(
-                        "job for `root` in "TI_CHANGE_ID" failed", change->id);
+                        "thingsdb task in "TI_CHANGE_ID" failed", change->id);
                 goto fail;
             }
         }

@@ -83,7 +83,7 @@ struct ti_task_s
     uint64_t change_id;
     size_t approx_sz;
     ti_thing_t * thing;     /* with reference */
-    vec_t * jobs;           /* q-pack (unsigned char *) */
+    vec_t * list;           /* q-pack (unsigned char *) */
 };
 
 #endif /* TI_TASK_T_H_ */

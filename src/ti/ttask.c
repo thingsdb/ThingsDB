@@ -1284,7 +1284,7 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
             mp_next(up, &mp_task) != MP_STR || mp_task.via.str.n < 3)
         {
             log_critical(
-                    "job is not a `map` or `type` "
+                    "task is not a `map` or `type` "
                     "for thing "TI_THING_ID" is missing", 0);
             return -1;
         }

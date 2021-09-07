@@ -53,7 +53,7 @@ char * ti_restore_task(const char * fn, size_t n)
 
 int ti_restore_chk(const char * fn, size_t n, ex_t * e)
 {
-    char * job;
+    char * check_task;
     char buffer[512];
     int rc;
     _Bool firstline = true;
@@ -83,11 +83,11 @@ int ti_restore_chk(const char * fn, size_t n, ex_t * e)
         return e->nr;
     }
 
-    job = buf.data;
+    check_task = buf.data;
 
     buf_init(&buf);
 
-    fp = popen(job, "r");
+    fp = popen(check_task, "r");
     if (!fp)
     {
         ex_set(e, EX_OPERATION, "failed to start `restore` task");
@@ -118,12 +118,12 @@ int ti_restore_chk(const char * fn, size_t n, ex_t * e)
         }
     }
 
-    free(job);
+    free(check_task);
     free(buf.data);
     return e->nr;
 }
 
-int ti_restore_unp(const char * restore_job, ex_t * e)
+int ti_restore_unp(const char * restore_task, ex_t * e)
 {
     char buffer[512];
     int rc;
@@ -131,7 +131,7 @@ int ti_restore_unp(const char * restore_job, ex_t * e)
     buf_t buf;
     buf_init(&buf);
 
-    fp = popen(restore_job, "r");
+    fp = popen(restore_task, "r");
     if (!fp)
     {
         ex_set(e, EX_OPERATION, "failed to start `restore` task");
@@ -199,11 +199,11 @@ static void restore__user_access(void)
     ti_cpkg_t * cpkg;
     ti_pkg_t * pkg;
     ti_change_t * change;
-    size_t njobs = 3 +
+    size_t ntasks = 3 +
             !!restore__user->encpass +
             restore__user->tokens->n;
 
-    if (mp_sbuffer_alloc_init(&buffer, njobs * 128, sizeof(ti_pkg_t)))
+    if (mp_sbuffer_alloc_init(&buffer, ntasks * 128, sizeof(ti_pkg_t)))
     {
         log_critical(EX_MEMORY_S);
         return;
@@ -219,14 +219,14 @@ static void restore__user_access(void)
     msgpack_pack_map(&pk, 1);
 
     msgpack_pack_uint64(&pk, thing_id);
-    msgpack_pack_array(&pk, njobs);
+    msgpack_pack_array(&pk, ntasks);
 
-    msgpack_pack_array(&pk, 2);         /* job 1 */
+    msgpack_pack_array(&pk, 2);         /* task 1 */
 
     msgpack_pack_uint8(&pk, TI_TASK_CLEAR_USERS);
     msgpack_pack_true(&pk);
 
-    msgpack_pack_array(&pk, 2);         /* job 2 */
+    msgpack_pack_array(&pk, 2);         /* task 2 */
 
     msgpack_pack_uint8(&pk, TI_TASK_NEW_USER);
     msgpack_pack_map(&pk, 3);
@@ -240,7 +240,7 @@ static void restore__user_access(void)
     mp_pack_str(&pk, "created_at");
     msgpack_pack_uint64(&pk, restore__user->created_at);
 
-    msgpack_pack_array(&pk, 2);         /* job 3 */
+    msgpack_pack_array(&pk, 2);         /* task 3 */
 
     msgpack_pack_uint8(&pk, TI_TASK_TAKE_ACCESS);
     msgpack_pack_uint64(&pk, user_id);
@@ -308,7 +308,7 @@ fail1:
 fail0:
     free(pkg);
     ti.changes->next_change_id--;
-    log_critical("failed to create (users) job");
+    log_critical("failed to create (users) task");
 }
 
 static void restore__master_cb(uv_timer_t * UNUSED(timer))

@@ -61,7 +61,7 @@ ti_cpkg_t * ti_cpkg_initial(void)
 
     msgpack_pack_uint64(&pk, thing_id);
 
-    msgpack_pack_array(&pk, 2);           /* job 1 */
+    msgpack_pack_array(&pk, 2);           /* task 1 */
 
     msgpack_pack_uint8(&pk, TI_TASK_NEW_USER);
     msgpack_pack_map(&pk, 3);
@@ -75,7 +75,7 @@ ti_cpkg_t * ti_cpkg_initial(void)
     mp_pack_str(&pk, "created_at");
     msgpack_pack_uint64(&pk, util_now_usec());
 
-    msgpack_pack_array(&pk, 2);           /* job 2 */
+    msgpack_pack_array(&pk, 2);           /* task 2 */
 
     msgpack_pack_uint8(&pk, TI_TASK_SET_PASSWORD);
     msgpack_pack_map(&pk, 2);
@@ -86,7 +86,7 @@ ti_cpkg_t * ti_cpkg_initial(void)
     mp_pack_str(&pk, "password");
     mp_pack_str(&pk, encrypted);
 
-    msgpack_pack_array(&pk, 2);           /* job 3 */
+    msgpack_pack_array(&pk, 2);           /* task 3 */
 
     msgpack_pack_uint8(&pk, TI_TASK_GRANT);
     msgpack_pack_map(&pk, 3);
@@ -100,7 +100,7 @@ ti_cpkg_t * ti_cpkg_initial(void)
     mp_pack_str(&pk, "mask");
     msgpack_pack_uint64(&pk, TI_AUTH_MASK_FULL);
 
-    msgpack_pack_array(&pk, 2);           /* job 4 */
+    msgpack_pack_array(&pk, 2);           /* task 4 */
 
     msgpack_pack_uint8(&pk, TI_TASK_GRANT);
     msgpack_pack_map(&pk, 3);
@@ -114,7 +114,7 @@ ti_cpkg_t * ti_cpkg_initial(void)
     mp_pack_str(&pk, "mask");
     msgpack_pack_uint64(&pk, TI_AUTH_MASK_FULL);
 
-    msgpack_pack_array(&pk, 2);           /* job 5 */
+    msgpack_pack_array(&pk, 2);           /* task 5 */
 
     msgpack_pack_uint8(&pk, TI_TASK_NEW_COLLECTION);
     msgpack_pack_map(&pk, 4);

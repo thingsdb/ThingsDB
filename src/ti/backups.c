@@ -273,7 +273,7 @@ done:
     uv_mutex_unlock(backups->lock);
 }
 
-void backups__run(uint64_t backup_id, const char * job)
+static void backups__run(uint64_t backup_id, const char * backup_task)
 {
     char buffer[512];
     int rc = -1;
@@ -281,7 +281,7 @@ void backups__run(uint64_t backup_id, const char * job)
     buf_t buf;
     buf_init(&buf);
 
-    fp = popen(job, "r");
+    fp = popen(backup_task, "r");
     if (!fp)
     {
         buf_append_str(&buf, "failed to open `backup` task");

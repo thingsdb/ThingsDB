@@ -55,7 +55,7 @@ ti_query_run_cb ti_query_run_map[] = {
 
 /*
  *  tasks are ordered for low to high thing ids
- *   { [0, 0]: {0: [ {'job':...} ] } }
+ *   { [0, 0]: {0: [ {'task':...} ] } }
  */
 static ti_cpkg_t * query__cpkg_event(ti_query_t * query)
 {
@@ -81,9 +81,9 @@ static ti_cpkg_t * query__cpkg_event(ti_query_t * query)
 
     for (vec_each(tasks, ti_task_t, task))
     {
-        msgpack_pack_array(&pk, task->jobs->n+1);
+        msgpack_pack_array(&pk, task->list->n+1);
         msgpack_pack_uint64(&pk, task->thing->id);
-        for (vec_each(task->jobs, ti_data_t, data))
+        for (vec_each(task->list, ti_data_t, data))
             mp_pack_append(&pk, data->data, data->n);
     }
 

@@ -29,12 +29,12 @@ ti_task_t * ti_task_create(uint64_t change_id, ti_thing_t * thing)
 
     task->change_id = change_id;
     task->thing = thing;
-    task->jobs = vec_new(1);
+    task->list = vec_new(1);
     task->approx_sz = 11;  /* thing_id (9) + map (1) + [close map] (1) */
 
     ti_incref(thing);
 
-    if (!task->jobs)
+    if (!task->list)
     {
         ti_task_destroy(task);
         return NULL;
@@ -67,7 +67,7 @@ void ti_task_destroy(ti_task_t * task)
 {
     if (!task)
         return;
-    vec_destroy(task->jobs, free);
+    vec_destroy(task->list, free);
     ti_val_unsafe_drop((ti_val_t *) task->thing);
     free(task);
 }
@@ -100,7 +100,7 @@ int ti_task_add_set_add(ti_task_t * task, ti_raw_t * key, vec_t * added)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -132,7 +132,7 @@ int ti_task_add_thing_clear(ti_task_t * task)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -161,7 +161,7 @@ int ti_task_add_arr_clear(ti_task_t * task, ti_raw_t * key)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -190,7 +190,7 @@ int ti_task_add_set_clear(ti_task_t * task, ti_raw_t * key)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -225,7 +225,7 @@ int ti_task_add_set(ti_task_t * task, ti_raw_t * key, ti_val_t * val)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -271,7 +271,7 @@ int ti_task_add_new_type(ti_task_t * task, ti_type_t * type)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -301,7 +301,7 @@ int ti_task_add_to_type(ti_task_t * task, ti_type_t * type)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -346,7 +346,7 @@ int ti_task_add_set_type(ti_task_t * task, ti_type_t * type)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -377,7 +377,7 @@ int ti_task_add_del(ti_task_t * task, ti_raw_t * rname)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -407,7 +407,7 @@ int ti_task_add_del_collection(ti_task_t * task, uint64_t collection_id)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -437,7 +437,7 @@ int ti_task_add_del_expired(ti_task_t * task, uint64_t after_ts)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -467,7 +467,7 @@ int ti_task_add_del_procedure(ti_task_t * task, ti_raw_t * name)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -497,7 +497,7 @@ int ti_task_add_del_timer(ti_task_t * task, ti_timer_t * timer)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -527,7 +527,7 @@ int ti_task_add_del_token(ti_task_t * task, ti_token_key_t * key)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -557,7 +557,7 @@ int ti_task_add_del_type(ti_task_t * task, ti_type_t * type)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -593,7 +593,7 @@ int ti_task_add_rename_type(ti_task_t * task, ti_type_t * type)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -629,7 +629,7 @@ int ti_task_add_rename_enum(ti_task_t * task, ti_enum_t * enum_)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -659,7 +659,7 @@ int ti_task_add_del_user(ti_task_t * task, ti_user_t * user)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -689,7 +689,7 @@ int ti_task_add_del_module(ti_task_t * task, ti_module_t * module)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -731,7 +731,7 @@ int ti_task_add_deploy_module(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -770,7 +770,7 @@ int ti_task_add_set_module_scope(ti_task_t * task, ti_module_t * module)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -814,7 +814,7 @@ int ti_task_add_set_module_conf(ti_task_t * task, ti_module_t * module)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -857,7 +857,7 @@ int ti_task_add_grant(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -902,7 +902,7 @@ int ti_task_add_new_collection(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -964,7 +964,7 @@ int ti_task_add_new_module(ti_task_t * task, ti_module_t * module)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1006,7 +1006,7 @@ int ti_task_add_new_node(ti_task_t * task, ti_node_t * node)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1046,7 +1046,7 @@ int ti_task_add_new_procedure(ti_task_t * task, ti_procedure_t * procedure)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1108,7 +1108,7 @@ int ti_task_add_new_timer(ti_task_t * task, ti_timer_t * timer)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1157,7 +1157,7 @@ int ti_task_add_set_timer_args(ti_task_t * task, ti_timer_t * timer)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1209,7 +1209,7 @@ int ti_task_add_new_token(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1248,7 +1248,7 @@ int ti_task_add_new_user(ti_task_t * task, ti_user_t * user)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1301,7 +1301,7 @@ int ti_task_add_mod_type_add_field(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1349,7 +1349,7 @@ int ti_task_add_mod_type_add_method(ti_task_t * task, ti_type_t * type)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1403,7 +1403,7 @@ int ti_task_add_mod_type_rel_add(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1445,7 +1445,7 @@ int ti_task_add_mod_type_rel_del(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1487,7 +1487,7 @@ int ti_task_add_mod_type_del(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1529,7 +1529,7 @@ int ti_task_add_mod_type_mod_field(ti_task_t * task, ti_field_t * field)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1574,7 +1574,7 @@ int ti_task_add_mod_type_mod_method(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1620,7 +1620,7 @@ int ti_task_add_mod_type_ren(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1659,7 +1659,7 @@ int ti_task_add_mod_type_wpo(ti_task_t * task, ti_type_t * type)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1689,7 +1689,7 @@ int ti_task_add_del_node(ti_task_t * task, uint32_t node_id)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1727,7 +1727,7 @@ int ti_task_add_set_remove(ti_task_t * task, ti_raw_t * key, vec_t * removed)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1765,7 +1765,7 @@ int ti_task_add_rename_collection(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1801,7 +1801,7 @@ int ti_task_add_set_time_zone(ti_task_t * task, ti_collection_t * collection)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1840,7 +1840,7 @@ int ti_task_add_rename_procedure(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1879,7 +1879,7 @@ int ti_task_add_rename_module(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1915,7 +1915,7 @@ int ti_task_add_rename_user(ti_task_t * task, ti_user_t * user)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1958,7 +1958,7 @@ int ti_task_add_revoke(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1997,7 +1997,7 @@ int ti_task_add_set_password(ti_task_t * task, ti_user_t * user)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -2052,7 +2052,7 @@ int ti_task_add_splice(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -2093,7 +2093,7 @@ int ti_task_add_arr_remove(ti_task_t * task, ti_raw_t * key, vec_t * vec)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -2123,7 +2123,7 @@ int ti_task_add_restore(ti_task_t * task)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -2172,7 +2172,7 @@ int ti_task_add_set_enum(ti_task_t * task, ti_enum_t * enum_)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -2222,7 +2222,7 @@ int ti_task_add_mod_enum_add(ti_task_t * task, ti_member_t * member)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -2265,7 +2265,7 @@ int ti_task_add_mod_enum_def(ti_task_t * task, ti_member_t * member)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -2304,7 +2304,7 @@ int ti_task_add_mod_enum_del(ti_task_t * task, ti_member_t * member)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -2350,7 +2350,7 @@ int ti_task_add_mod_enum_mod(ti_task_t * task, ti_member_t * member)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -2396,7 +2396,7 @@ int ti_task_add_mod_enum_ren(ti_task_t * task, ti_member_t * member)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -2426,7 +2426,7 @@ int ti_task_add_del_enum(ti_task_t * task, ti_enum_t * enum_)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);

@@ -644,7 +644,7 @@ int ti_thing_i_set_val_from_strn(
 
 /*
  * Return 0 if successful; This function makes a given `value` assignable so
- * it should not be used within a job.
+ * it should not be used within a task.
  */
 int ti_thing_o_set_val_from_valid_strn(
         ti_wprop_t * wprop,
@@ -684,7 +684,7 @@ int ti_thing_o_set_val_from_valid_strn(
 
 /*
  * Return 0 if successful; This function makes a given `value` assignable so
- * it should not be used within a job.
+ * it should not be used within a task.
  *
  * If successful, the reference counter of `val` will be increased
  */

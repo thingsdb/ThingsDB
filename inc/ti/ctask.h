@@ -1,5 +1,5 @@
 /*
- * ti/ctask.h
+ * ti/ctask.h (collection task)
  */
 #ifndef TI_CTASK_H_
 #define TI_CTASK_H_

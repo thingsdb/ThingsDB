@@ -1,5 +1,5 @@
 /*
- * ti/ttask.h
+ * ti/ttask.h (thingsdb task)
  */
 #ifndef TI_TTASK_H_
 #define TI_TTASK_H_

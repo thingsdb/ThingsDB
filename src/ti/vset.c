@@ -303,3 +303,33 @@ int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e)
     }
     return 1;
 }
+
+typedef struct
+{
+    ti_field_t * ofield;
+    ti_thing_t * parent;
+} vset__clear_t;
+
+static int vset__clear_walk_cb(ti_thing_t * thing, vset__clear_t * w)
+{
+    w->ofield->condition.rel->del_cb(
+            w->ofield,
+            thing,
+            w->parent);
+    return 0;
+}
+
+void ti_vset_clear(ti_vset_t * vset)
+{
+    if (ti_vset_has_relation(vset))
+    {
+        ti_field_t * field = vset->key_;
+        vset__clear_t w = {
+                .ofield = field->condition.rel->field,
+                .parent = vset->parent,
+        };
+        (void) imap_walk(vset->imap, (imap_cb) vset__clear_walk_cb, &w);
+    }
+    imap_clear(vset->imap, (imap_destroy_cb) ti_val_unsafe_gc_drop);
+}
+

@@ -54,7 +54,9 @@ static int do__f_clear(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ti_vset_t * vset = (ti_vset_t *) val;
         n = vset->imap->n;
-        imap_clear(vset->imap, (imap_destroy_cb) ti_val_unsafe_gc_drop);
+
+        ti_vset_clear(vset);
+
         if (n && vset->parent && vset->parent->id)
         {
             ti_task_t * task = ti_task_get_task(query->change, vset->parent);

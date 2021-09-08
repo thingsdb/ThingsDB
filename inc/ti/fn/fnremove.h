@@ -314,18 +314,15 @@ static int do__f_remove_set(
             }
         }
 
-        if (ti_thing_is_instance(vset->parent))
+        if (ti_vset_has_relation(vset))
         {
             ti_field_t * field = vset->key_;
-            if (field->condition.rel)
-            {
-                ti_field_t * ofield = field->condition.rel->field;
-                for (vec_each(removed, ti_thing_t, thing))
-                    ofield->condition.rel->del_cb(
-                            ofield,
-                            thing,
-                            vset->parent);
-            }
+            ti_field_t * ofield = field->condition.rel->field;
+            for (vec_each(removed, ti_thing_t, thing))
+                ofield->condition.rel->del_cb(
+                        ofield,
+                        thing,
+                        vset->parent);
         }
     }
 

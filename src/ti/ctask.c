@@ -202,7 +202,8 @@ static int ctask__set_clear(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    imap_clear(VSET(val), (imap_destroy_cb) ti_val_unsafe_gc_drop);
+    ti_vset_clear( (ti_vset_t *) val);
+
     return 0;
 }
 

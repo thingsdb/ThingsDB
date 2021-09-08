@@ -3,6 +3,7 @@
 * Added a `room` type to replace watching things.
 * Added `room()` and `is_room()` functions.
 * Added `clear()` function on `thing`, `set` and `list`.
+* Fixed bug with removing a self reference from a `set<->set` relation.
 * Functions for the new `room` type:
   - `id()`: Return the Id of the room.
   - `emit(..)`: Emit an event for the room.

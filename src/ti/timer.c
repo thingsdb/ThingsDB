@@ -128,10 +128,7 @@ static void timer__async_cb(uv_async_t * async)
         ti_incref(query->collection);
 
     if (timer->closure->flags & TI_CLOSURE_FLAG_WSE)
-    {
         query->qbind.flags |= TI_QBIND_FLAG_WSE;
-        query->flags |= TI_QUERY_FLAG_WSE;
-    }
 
     if (ti_access_check_err(access_, query->user, TI_AUTH_CHANGE, &e))
         goto finish;

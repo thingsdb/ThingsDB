@@ -460,6 +460,10 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
 
     if (ti.node)
     {
+        /* One time garbage collection is required to prevent restoring things
+         * from GC which are removed on other nodes */
+        ti_collections_gc();
+
         ti_modules_load();
 
         if (ti_timers_start())

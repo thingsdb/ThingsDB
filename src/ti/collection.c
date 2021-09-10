@@ -446,9 +446,9 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
         if (gc->change_id > scid)
         {
             /*
-             * For all collected things above the stored change id need to
-             * have the `TI_THING_FLAG_SWEEP` which might be removed by the
-             * earlier markings.
+             * All collected things after the stored change id need the
+             * `TI_THING_FLAG_SWEEP` flag which might be removed by the
+             * earlier mark function.
              */
             gc->thing->flags |= TI_THING_FLAG_SWEEP;
             continue;

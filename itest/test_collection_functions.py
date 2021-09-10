@@ -615,21 +615,23 @@ class TestCollectionFunctions(TestBase):
                 'function `call` is undefined'):
             await client.query('call();')
 
+        await client.query(r'''
+            .test = |x| .x = x;
+        ''')
+
         with self.assertRaisesRegex(
                 OperationError,
-                r'stored closures with side effects must be wrapped '
-                r'using `wse\(...\)`'):
+                r'closures with side effects require a change but none is '
+                r'created; use `wse\(...\)` to enforce a change;'):
             await client.query(r'''
-                .test = |x| .x = x;
                 .test.call(42);
             ''')
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'stored closures with side effects must be wrapped '
-                r'using `wse\(...\)`'):
+                r'closures with side effects require a change but none is '
+                r'created; use `wse\(...\)` to enforce a change;'):
             await client.query(r'''
-                .test = |x| .x = x;
                 .test(42);
             ''')
 

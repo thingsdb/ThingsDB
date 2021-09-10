@@ -94,8 +94,8 @@ class TestType(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'stored closures with side effects must be '
-                r'wrapped using `wse\(...\)`'):
+                r'closures with side effects require a change but none is '
+                r'created; use `wse\(...\)` to enforce a change;'):
             self.assertEqual(await client.query('.iris.to_upper();'), 'Iris')
 
         self.assertEqual(await client.query('.iris.name;'), 'Iris')

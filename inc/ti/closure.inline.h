@@ -52,16 +52,15 @@ static inline int ti_closure_try_wse(
      * scope, but nevertheless we still check explicit so this still works
      * if we later decide to change the code.
      */
-    if (    ((closure->flags & (
+    if (!query->change && ((closure->flags & (
                 TI_CLOSURE_FLAG_BTSCOPE|
                 TI_CLOSURE_FLAG_BCSCOPE|
                 TI_CLOSURE_FLAG_WSE
-            )) == TI_CLOSURE_FLAG_WSE) &&
-            (~query->flags & TI_QUERY_FLAG_WSE))
+            )) == TI_CLOSURE_FLAG_WSE))
     {
         ex_set(e, EX_OPERATION,
-                "stored closures with side effects must be "
-                "wrapped using `wse(...)`"DOC_WSE);
+            "closures with side effects require a change but none is created; "
+            "use `wse(...)` to enforce a change"DOC_WSE);
         return -1;
     }
     return 0;

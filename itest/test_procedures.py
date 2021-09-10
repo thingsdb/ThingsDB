@@ -134,8 +134,8 @@ class TestProcedures(TestBase):
         for client in (client0, client1, client2):
             with self.assertRaisesRegex(
                     OperationError,
-                    r'stored closures with side effects must be wrapped '
-                    r'using `wse\(...\)`'):
+                    r'closures with side effects require a change but none is '
+                    r'created; use `wse\(...\)` to enforce a change;'):
                 await client.run('missing_wse', 1)
 
         for client in (client0, client1, client2):
@@ -599,8 +599,8 @@ class TestProcedures(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'stored closures with side effects must be wrapped '
-                r'using `wse\(...\)`'):
+                r'closures with side effects require a change but none is '
+                r'created; use `wse\(...\)` to enforce a change;'):
             await client.query(r'''
                 run('test_wse', 42)
             ''')

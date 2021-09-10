@@ -1614,7 +1614,7 @@ new_procedure('multiply', |a, b| a * b);
                 check.id();
             });
             .checks = [];
-            wse(run('new_check', 'test'));
+            run('new_check', 'test');
         ''')
 
     async def test_with_cache_two(self, client):
@@ -1630,7 +1630,7 @@ new_procedure('multiply', |a, b| a * b);
                 check.id();
             });
             .checks = [];
-            wse(run('new_check', 'test'));
+            run('new_check', 'test');
         ''')
 
     async def test_type_set(self, client):
@@ -1838,15 +1838,20 @@ new_procedure('multiply', |a, b| a * b);
 
     async def test_closure_as_type_val(self, client):
         # bug #202
+        id = await client.query("""//ti
+            set_type('Test', {
+                func: 'any'
+            });
+            .test = Test{func: || .x = 1};
+            .test.id();
+        """)
+
         with self.assertRaisesRegex(
                 OperationError,
-                r"stored closures with side effects must be wrapped "
-                r"using `wse\(...\)`"):
-            await client.query("""//ti
-                set_type('Test', {
-                    func: 'any'
-                });
-                Test{func: || .x = 1}.func(); // requires `wse(..)`
+                r"closures with side effects require a change but none is "
+                r"created; use `wse\(...\)` to enforce a change;"):
+            await client.query(f"""//ti
+                #{id}.func(); // requires a change
             """)
 
     async def test_future_to_type(self, client):

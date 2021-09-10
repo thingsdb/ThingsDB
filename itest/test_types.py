@@ -265,21 +265,24 @@ class TestTypes(TestBase):
                 .map(.a);
             ''')
 
+        await client.query(r'''
+            .b = ||(.x = 1);
+            .a = [||.x = 1];
+        ''')
+
         with self.assertRaisesRegex(
                 OperationError,
-                r'stored closures with side effects must be '
-                r'wrapped using '):
+                r'closures with side effects require a change but none is '
+                r'created; use `wse\(...\)` to enforce a change;'):
             await client.query(r'''
-                .b = ||(.x = 1);
                 [1 ,2 ,3].map(.b);
             ''')
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'stored closures with side effects must be '
-                r'wrapped using '):
+                r'closures with side effects require a change but none is '
+                r'created; use `wse\(...\)` to enforce a change;'):
             await client.query(r'''
-                .a = [||.x = 1];
                 [1 ,2 ,3].map(.a[0]);
             ''')
 

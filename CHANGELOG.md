@@ -15,6 +15,8 @@
   - `TI_PROTO_CLIENT_REQ_JOIN` (38)
   - `TI_PROTO_CLIENT_REQ_LEAVE` (39)
   - `TI_PROTO_CLIENT_REQ_EMIT` (40)
+* Stored closures with side effects no longer require `wse` but can be used as
+  long as a change is created. It is still possible to use `wse` to enfore a change.
   
 ## Breaking changes from v0.10.x -> v1.0.0
 

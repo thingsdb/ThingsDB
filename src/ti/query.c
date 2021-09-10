@@ -457,10 +457,7 @@ int ti_query_unp_run(
     }
 
     if (procedure->closure->flags & TI_CLOSURE_FLAG_WSE)
-    {
         query->qbind.flags |= TI_QBIND_FLAG_WSE;
-        query->flags |= TI_QUERY_FLAG_WSE;
-    }
 
     query->with.closure = procedure->closure;
     ti_incref(query->with.closure);
@@ -686,10 +683,7 @@ static void query__then(ti_query_t * query, ex_t * e)
     ++ti.futures_count;
 
     if (future->then->flags & TI_CLOSURE_FLAG_WSE)
-    {
         query->qbind.flags |= TI_QBIND_FLAG_WSE;
-        query->flags |= TI_QUERY_FLAG_WSE;
-    }
 
     vecaddr = &VARR(future->rval);
     while ((*vecaddr)->n < future->then->vars->n)

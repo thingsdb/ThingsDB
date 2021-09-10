@@ -23,7 +23,6 @@ typedef int (*ti_query_vars_walk_cb)(void * data, void * arg);
 
 enum
 {
-    TI_QUERY_FLAG_WSE               =1<<3,
     TI_QUERY_FLAG_API               =1<<4,
     TI_QUERY_FLAG_CACHE             =1<<5,  /* Queries which are handled by the
                                                query change will have this

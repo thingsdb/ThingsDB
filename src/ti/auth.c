@@ -19,9 +19,9 @@ struct ti__auth_repr_s
 static struct ti__auth_repr_s ti__auth_map[TI__AUTH_REPR_SZ] = {
         {.str="FULL",           .mask=TI_AUTH_MASK_FULL},
         {.str="QUERY",          .mask=TI_AUTH_QUERY},
-        {.str="EVENT",          .mask=TI_AUTH_EVENT},
+        {.str="CHANGE",         .mask=TI_AUTH_CHANGE},
         {.str="GRANT",          .mask=TI_AUTH_GRANT},
-        {.str="WATCH",          .mask=TI_AUTH_WATCH},
+        {.str="JOIN",           .mask=TI_AUTH_JOIN},
         {.str="RUN",            .mask=TI_AUTH_RUN},
 };
 

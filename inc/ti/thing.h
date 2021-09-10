@@ -75,21 +75,9 @@ int ti_thing_get_by_raw_e(
         ti_raw_t * r,
         ex_t * e);
 int ti_thing_gen_id(ti_thing_t * thing);
-ti_watch_t * ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream);
-int ti_thing_watch_fwd(
-        ti_thing_t * thing,
-        ti_stream_t * stream,
-        uint16_t pkg_id);
-int ti_thing_unwatch_fwd(
-        ti_thing_t * thing,
-        ti_stream_t * stream,
-        uint16_t pkg_id);
-int ti_thing_watch_init(ti_thing_t * thing, ti_stream_t * stream);
-int ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream);
 int ti_thing__to_pk(ti_thing_t * thing, ti_vp_t * vp, int options);
 int ti_thing_t_to_pk(ti_thing_t * thing, ti_vp_t * vp, int options);
 ti_val_t * ti_thing_val_by_strn(ti_thing_t * thing, const char * str, size_t n);
-_Bool ti__thing_has_watchers_(ti_thing_t * thing);
 _Bool ti_thing_equals(ti_thing_t * thing, ti_val_t * other, uint8_t deep);
 int ti_thing_i_set_val_from_strn(
         ti_witem_t * witem,
@@ -141,11 +129,6 @@ static inline _Bool ti_thing_is_instance(ti_thing_t * thing)
     return thing->type_id != TI_SPEC_OBJECT;
 }
 
-static inline _Bool ti_thing_has_watchers(ti_thing_t * thing)
-{
-    return thing->watchers && ti__thing_has_watchers_(thing);
-}
-
 static inline int ti_thing_id_to_pk(ti_thing_t * thing, msgpack_packer * pk)
 {
     return -(msgpack_pack_map(pk, !!thing->id) ||
@@ -194,7 +177,7 @@ static inline ti_prop_t * ti_thing_o_prop_weak_get(
 #define thing_t_each(t__, name__, val__)                        \
     void ** v__ = t__->items.vec->data,                         \
     ** e__ = v__ + t__->items.vec->n,                           \
-    ** n__ = ti_thing_type(t__)->fields->data;                  \
+    ** n__ = (t__)->via.type->fields->data;                     \
     v__ < e__ &&                                                \
     (name__ = ((ti_field_t *) *n__)->name) &&                   \
     (val__ = *v__);                                             \
@@ -203,7 +186,7 @@ static inline ti_prop_t * ti_thing_o_prop_weak_get(
 #define thing_t_each_addr(t__, name__, val__)                   \
     void ** v__ = t__->items.vec->data,                         \
     ** e__ = v__ + t__->items.vec->n,                           \
-    ** n__ = ti_thing_type(t__)->fields->data;                  \
+    ** n__ = (t__)->via.type->fields->data;                     \
     v__ < e__ &&                                                \
     (name__ = ((ti_field_t *) *n__)->name) &&                   \
     (val__ = (ti_val_t **) v__);                                \

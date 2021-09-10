@@ -40,6 +40,7 @@ int ti_timers_create(void)
     if (!timers)
         goto failed;
 
+    timers->is_stopping = false;
     timers->is_started = false;
     timers->timer = malloc(sizeof(uv_timer_t));
     timers->n_loops = 0;
@@ -106,7 +107,7 @@ static int timers__write_to_stat(char * stat_fn)
         return -1;
     }
 
-    uv_mutex_lock(ti.timers->lock);
+    uv_mutex_lock(timers->lock);
 
     msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
 
@@ -146,7 +147,7 @@ static int timers__write_to_stat(char * stat_fn)
 fail:
     log_error("failed to write file: `%s`", stat_fn);
 done:
-    uv_mutex_unlock(ti.timers->lock);
+    uv_mutex_unlock(timers->lock);
 
     if (fclose(f))
     {
@@ -249,8 +250,10 @@ fail0:
 
 void ti_timers_stop(void)
 {
-    if (!timers)
+    if (!timers || timers->is_stopping)
         return;
+
+    timers->is_stopping = true;
 
     if (!timers->is_started)
         timers__destroy(NULL);
@@ -277,7 +280,7 @@ void ti_timers_clear(vec_t ** timers)
 
 void ti_timers_del_user(ti_user_t * user)
 {
-    for (vec_each(ti.timers->timers, ti_timer_t, timer))
+    for (vec_each(timers->timers, ti_timer_t, timer))
         if (timer->user == user)
             ti_timer_mark_del(timer);
 
@@ -289,7 +292,7 @@ void ti_timers_del_user(ti_user_t * user)
 vec_t ** ti_timers_from_scope_id(uint64_t scope_id)
 {
     if (scope_id == TI_SCOPE_THINGSDB)
-        return &ti.timers->timers;
+        return &timers->timers;
 
     for (vec_each(ti.collections->vec, ti_collection_t, collection))
         if (collection->root->id == scope_id)
@@ -312,22 +315,22 @@ static void timers__destroy(uv_handle_t * UNUSED(handle))
     timers = ti.timers = NULL;
 }
 
-static int timer__handle(vec_t * timers, uint64_t now, ti_timers_cb cb)
+static int timer__handle(vec_t * vtimers, uint64_t now, ti_timers_cb cb)
 {
     int n = 0;
-    size_t i = timers->n;
+    size_t i = vtimers->n;
     uint32_t rel_id = ti.rel_id;
     uint32_t nodes_n = ti.nodes->vec->n;
 
-    uv_mutex_lock(ti.timers->lock);
+    uv_mutex_lock(timers->lock);
 
-    for (vec_each_rev(timers, ti_timer_t, timer))
+    for (vec_each_rev(vtimers, ti_timer_t, timer))
     {
         --i;
 
         if (!timer->user)
         {
-            ti_timer_drop(vec_swap_remove(timers, i));
+            ti_timer_drop(vec_swap_remove(vtimers, i));
             continue;
         }
 
@@ -347,11 +350,11 @@ static int timer__handle(vec_t * timers, uint64_t now, ti_timers_cb cb)
             if (timer->repeat)
                 timer->next_run += timer->repeat;
             else
-                ti_timer_drop(vec_swap_remove(timers, i));
+                ti_timer_drop(vec_swap_remove(vtimers, i));
         }
     }
 
-    uv_mutex_unlock(ti.timers->lock);
+    uv_mutex_unlock(timers->lock);
 
     return n;
 }
@@ -374,7 +377,7 @@ static void timers__cb(uv_timer_t * UNUSED(handle))
 
     cb = ti.node->status == TI_NODE_STAT_READY ? ti_timer_run : ti_timer_fwd;
 
-    n = timer__handle(ti.timers->timers, now, cb);
+    n = timer__handle(timers->timers, now, cb);
 
     for (vec_each(ti.collections->vec, ti_collection_t, collection))
         n += timer__handle(collection->timers, now, cb);

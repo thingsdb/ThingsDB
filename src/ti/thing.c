@@ -4,9 +4,9 @@
 #include <assert.h>
 #include <doc.h>
 #include <stdlib.h>
+#include <ti/changes.inline.h>
 #include <ti.h>
 #include <ti/enums.h>
-#include <ti/events.inline.h>
 #include <ti/field.h>
 #include <ti/item.h>
 #include <ti/item.t.h>
@@ -80,72 +80,6 @@ static inline int thing__item_val_locked(
     return 0;
 }
 
-static void thing__unwatch(ti_thing_t * thing, ti_stream_t * stream)
-{
-    msgpack_packer pk;
-    msgpack_sbuffer buffer;
-    ti_pkg_t * pkg;
-
-    if (ti_stream_is_closed(stream))
-        return;
-
-    if (mp_sbuffer_alloc_init(&buffer, 32, sizeof(ti_pkg_t)))
-    {
-        log_critical(EX_MEMORY_S);
-        return;
-    }
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-
-    (void) ti_thing_id_to_pk(thing, &pk);
-
-    pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_WATCH_STOP, buffer.size);
-
-    if (ti_stream_write_pkg(stream, pkg))
-        log_critical(EX_INTERNAL_S);
-}
-
-static void thing__watch_del(ti_thing_t * thing)
-{
-    assert (thing->watchers);
-
-    msgpack_packer pk;
-    msgpack_sbuffer buffer;
-    ti_pkg_t * pkg;
-    ti_rpkg_t * rpkg;
-
-    if (mp_sbuffer_alloc_init(&buffer, 32, sizeof(ti_pkg_t)))
-    {
-        log_critical(EX_MEMORY_S);
-        return;
-    }
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-
-    (void) ti_thing_id_to_pk(thing, &pk);
-
-    pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_WATCH_DEL, buffer.size);
-
-    rpkg = ti_rpkg_create(pkg);
-    if (!rpkg)
-    {
-        free(pkg);
-        log_critical(EX_MEMORY_S);
-        return;
-    }
-
-    for (vec_each(thing->watchers, ti_watch_t, watch))
-    {
-        if (ti_stream_is_closed(watch->stream))
-            continue;
-
-        if (ti_stream_write_rpkg(watch->stream, rpkg))
-            log_critical(EX_INTERNAL_S);
-    }
-
-    ti_rpkg_drop(rpkg);
-}
-
 ti_thing_t * ti_thing_o_create(
         uint64_t id,
         size_t init_sz,
@@ -163,7 +97,6 @@ ti_thing_t * ti_thing_o_create(
     thing->id = id;
     thing->collection = collection;
     thing->items.vec = vec_new(init_sz);
-    thing->watchers = NULL;
 
     if (!thing->items.vec)
     {
@@ -187,7 +120,6 @@ ti_thing_t * ti_thing_i_create(uint64_t id, ti_collection_t * collection)
     thing->id = id;
     thing->collection = collection;
     thing->items.smap = smap_create();
-    thing->watchers = NULL;
 
     if (!thing->items.smap)
     {
@@ -214,7 +146,7 @@ ti_thing_t * ti_thing_t_create(
     thing->id = id;
     thing->collection = collection;
     thing->items.vec = vec_new(type->fields->n);
-    thing->watchers = NULL;
+    thing->via.type = type;
 
     if (!thing->items.vec)
     {
@@ -243,9 +175,7 @@ void ti_thing_cancel(ti_thing_t * thing)
         /* Remove SWEEP flag to prevent garbage collection */
         thing->flags &= ~TI_THING_FLAG_SWEEP;
 
-        ti_type_t * type = ti_thing_type(thing);
-
-        for (vec_each(type->fields, ti_field_t, field))
+        for (vec_each(thing->via.type->fields, ti_field_t, field))
         {
             if (!field->condition.none)
                 continue;
@@ -283,7 +213,7 @@ void ti_thing_destroy(ti_thing_t * thing)
     assert (thing);
     if (thing->id)
     {
-        if (ti_events_cache_dropped_thing(thing))
+        if (ti_changes_cache_dropped_thing(thing))
             return;
 
         (void) imap_pop(thing->collection->things, thing->id);
@@ -293,9 +223,6 @@ void ti_thing_destroy(ti_thing_t * thing)
          * will therefore never destroy.
          */
     }
-
-    if ((~ti.flags & TI_FLAG_SIGNAL) && ti_thing_has_watchers(thing))
-        thing__watch_del(thing);
 
     /*
      * While dropping, mutable variable must clear the parent; for example
@@ -311,7 +238,6 @@ void ti_thing_destroy(ti_thing_t * thing)
                 ? (vec_destroy_cb) ti_prop_destroy
                 : (vec_destroy_cb) ti_val_unassign_drop);
 
-    vec_destroy(thing->watchers, (vec_destroy_cb) ti_watch_drop);
     free(thing);
 }
 
@@ -437,7 +363,8 @@ int ti_thing_props_from_vup(
     {
         if (mp_next(vup->up, &mp_prop) != MP_STR)
         {
-            ex_set(e, EX_TYPE_ERROR, "property names must be of type string");
+            ex_set(e, EX_TYPE_ERROR,
+                    "property names must be of type `"TI_VAL_STR_S"`");
             return e->nr;
         }
 
@@ -476,18 +403,7 @@ int ti_thing_props_from_vup(
 
 ti_thing_t * ti_thing_new_from_vup(ti_vup_t * vup, size_t sz, ex_t * e)
 {
-    ti_thing_t * thing;
-
-    if (!vup->isclient && vup->collection)
-    {
-        ex_set(e, EX_BAD_DATA,
-                "new things without an id can only be created from user input "
-                "or in the thingsdb scope, and are unexpected when parsed "
-                "from node data with a collection");
-        return NULL;
-    }
-
-    thing = ti_thing_o_create(0, sz, vup->collection);
+    ti_thing_t * thing = ti_thing_o_create(0, sz, vup->collection);
     if (!thing)
     {
         ex_set_mem(e);
@@ -728,7 +644,7 @@ int ti_thing_i_set_val_from_strn(
 
 /*
  * Return 0 if successful; This function makes a given `value` assignable so
- * it should not be used within a job.
+ * it should not be used within a task.
  */
 int ti_thing_o_set_val_from_valid_strn(
         ti_wprop_t * wprop,
@@ -768,7 +684,7 @@ int ti_thing_o_set_val_from_valid_strn(
 
 /*
  * Return 0 if successful; This function makes a given `value` assignable so
- * it should not be used within a job.
+ * it should not be used within a task.
  *
  * If successful, the reference counter of `val` will be increased
  */
@@ -781,8 +697,7 @@ int ti_thing_t_set_val_from_strn(
         ex_t * e)
 {
     ti_val_t ** vaddr;
-    ti_type_t * type = ti_thing_type(thing);
-    ti_field_t * field = ti_field_by_strn_e(type, str, n, e);
+    ti_field_t * field = ti_field_by_strn_e(thing->via.type, str, n, e);
     if (!field)
         return e->nr;
 
@@ -888,18 +803,17 @@ static _Bool thing_t__get_by_name(
         ti_thing_t * thing,
         ti_name_t * name)
 {
-    ti_type_t * type = ti_thing_type(thing);
     ti_field_t * field;
     ti_method_t * method;
 
-    if ((field = ti_field_by_name(type, name)))
+    if ((field = ti_field_by_name(thing->via.type, name)))
     {
         wprop->name = name;
         wprop->val = (ti_val_t **) vec_get_addr(thing->items.vec, field->idx);
         return true;
     }
 
-    if ((method = ti_method_by_name(type, name)))
+    if ((method = ti_method_by_name(thing->via.type, name)))
     {
         wprop->name = name;
         wprop->val = (ti_val_t **) (&method->closure);
@@ -980,7 +894,7 @@ int ti_thing_gen_id(ti_thing_t * thing)
 {
     assert (!thing->id);
 
-    thing->id = ti_next_thing_id();
+    thing->id = ti_next_free_id();
     ti_thing_mark_new(thing);
 
     if (ti_thing_to_map(thing))
@@ -1009,187 +923,6 @@ int ti_thing_gen_id(ti_thing_t * thing)
         if (ti_val_gen_ids(val))
             return -1;
     return 0;
-}
-
-ti_watch_t * ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream)
-{
-    ti_watch_t * watch;
-    ti_watch_t ** empty_watch = NULL;
-    if (!thing->watchers)
-    {
-        thing->watchers = vec_new(1);
-        if (!thing->watchers)
-            return NULL;
-        watch = ti_watch_create(stream);
-        if (!watch)
-            return NULL;
-        VEC_push(thing->watchers, watch);
-        goto finish;
-    }
-    for (vec_each_addr(thing->watchers, ti_watch_t, watch))
-    {
-        if ((*watch)->stream == stream)
-            return *watch;
-        if (!(*watch)->stream)
-            empty_watch = watch;
-    }
-
-    if (empty_watch)
-    {
-        watch = *empty_watch;
-        watch->stream = stream;
-        goto finish;
-    }
-
-    watch = ti_watch_create(stream);
-    if (!watch)
-        return NULL;
-
-    if (vec_push(&thing->watchers, watch))
-        goto failed;
-
-finish:
-    if (!stream->watching)
-    {
-        stream->watching = vec_new(1);
-        if (!stream->watching)
-            goto failed;
-        VEC_push(stream->watching, watch);
-    }
-    else if (vec_push(&stream->watching, watch))
-        goto failed;
-
-    return watch;
-
-failed:
-    /* when this fails, a few bytes might leak */
-    watch->stream = NULL;
-    return NULL;
-}
-
-int ti_thing_watch_init(ti_thing_t * thing, ti_stream_t * stream)
-{
-    ti_pkg_t * pkg;
-    vec_t * pkgs_queue;
-    ti_vp_t vp;
-    msgpack_sbuffer buffer;
-    ti_collection_t * collection = thing->collection;
-    _Bool is_collection = thing == collection->root;
-     ti_watch_t * watch = ti_thing_watch(thing, stream);
-    if (!watch)
-        return -1;
-
-    if (mp_sbuffer_alloc_init(&buffer, 8192, sizeof(ti_pkg_t)))
-        return -1;
-
-    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
-
-    msgpack_pack_map(&vp.pk, is_collection ? 6 : 3);
-
-    mp_pack_str(&vp.pk, "event");
-    msgpack_pack_uint64(&vp.pk, ti.node->cevid);
-
-    mp_pack_str(&vp.pk, "thing");
-
-    if (ti_thing__to_pk(thing, &vp, TI_VAL_PACK_TASK /* options */) ||
-        mp_pack_str(&vp.pk, "collection") ||
-        mp_pack_strn(&vp.pk, collection->name->data, collection->name->n))
-    {
-        msgpack_sbuffer_destroy(&buffer);
-        return -1;
-    }
-
-    if (is_collection && (
-            mp_pack_str(&vp.pk, "enums") ||
-            ti_enums_to_pk(collection->enums, &vp) ||
-            mp_pack_str(&vp.pk, "types") ||
-            ti_types_to_pk(collection->types, &vp.pk) ||
-            mp_pack_str(&vp.pk, "procedures") ||
-            ti_procedures_to_pk(collection->procedures, &vp.pk)))
-    {
-        msgpack_sbuffer_destroy(&buffer);
-        return -1;
-    }
-
-    pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_WATCH_INI, buffer.size);
-
-    if (ti_stream_is_closed(stream) ||
-        ti_stream_write_pkg(stream, pkg))
-        free(pkg);
-
-    pkgs_queue = ti_events_pkgs_from_queue(thing);
-    if (pkgs_queue)
-    {
-        for (vec_each(pkgs_queue, ti_pkg_t, pkg))
-        {
-            if (ti_stream_is_closed(stream) ||
-                ti_stream_write_pkg(stream, pkg))
-                free(pkg);
-        }
-        vec_destroy(pkgs_queue, NULL);
-    }
-    return 0;
-}
-
-int ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream)
-{
-    size_t idx = 0;
-    if (!thing->watchers)
-        return 0;
-
-    for (vec_each(thing->watchers, ti_watch_t, watch), ++idx)
-    {
-        if (watch->stream == stream)
-        {
-            watch->stream = NULL;
-            vec_swap_remove(thing->watchers, idx);
-            thing__unwatch(thing, stream);
-            return 0;
-        }
-    }
-    return 0;
-}
-
-static ti_pkg_t * thing__fwd(
-        ti_thing_t * thing,
-        uint16_t pkg_id,
-        ti_proto_enum_t proto)
-{
-    msgpack_packer pk;
-    msgpack_sbuffer buffer;
-    ti_pkg_t * pkg;
-
-    if (mp_sbuffer_alloc_init(&buffer, 64, sizeof(ti_pkg_t)))
-        return NULL;
-
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-    msgpack_pack_array(&pk, 2);
-    msgpack_pack_uint64(&pk, thing->collection->root->id);
-    msgpack_pack_uint64(&pk, thing->id);
-
-    pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, pkg_id, proto, buffer.size);
-
-    return pkg;
-}
-
-int ti_thing_watch_fwd(
-        ti_thing_t * thing,
-        ti_stream_t * stream,
-        uint16_t pkg_id)
-{
-    ti_pkg_t * pkg = thing__fwd(thing, pkg_id, TI_PROTO_NODE_FWD_WATCH);
-    return pkg ? ti_stream_write_pkg(stream, pkg) : -1;
-}
-
-int ti_thing_unwatch_fwd(
-        ti_thing_t * thing,
-        ti_stream_t * stream,
-        uint16_t pkg_id)
-{
-    ti_pkg_t * pkg = thing__fwd(thing, pkg_id, TI_PROTO_NODE_FWD_UNWATCH);
-    return pkg ? ti_stream_write_pkg(stream, pkg) : -1;
 }
 
 void ti_thing_t_to_object(ti_thing_t * thing)
@@ -1311,12 +1044,11 @@ int ti_thing_t_to_pk(ti_thing_t * thing, ti_vp_t * vp, int options)
     assert (!ti_thing_is_object(thing));
     assert (thing->id);   /* no need to check, options < 0 must have id */
 
-    if (msgpack_pack_map(&vp->pk, 3) ||
+    if (msgpack_pack_map(&vp->pk, 1) ||
         mp_pack_strn(&vp->pk, TI_KIND_S_INSTANCE, 1) ||
+        msgpack_pack_array(&vp->pk, 3) ||
         msgpack_pack_uint16(&vp->pk, thing->type_id) ||
-        mp_pack_strn(&vp->pk, TI_KIND_S_THING, 1) ||
         msgpack_pack_uint64(&vp->pk, thing->id) ||
-        msgpack_pack_str(&vp->pk, 0) ||
         msgpack_pack_array(&vp->pk, ti_thing_n(thing)))
         return -1;
 
@@ -1344,15 +1076,6 @@ ti_val_t * ti_thing_val_by_strn(ti_thing_t * thing, const char * str, size_t n)
                 ? ti_thing_p_val_weak_get(thing, name)
                 : ti_thing_t_val_weak_get(thing, name);
     }
-}
-
-_Bool ti__thing_has_watchers_(ti_thing_t * thing)
-{
-    assert (thing->watchers);
-    for (vec_each(thing->watchers, ti_watch_t, watch))
-        if (watch->stream && (~watch->stream->flags & TI_STREAM_FLAG_CLOSED))
-            return true;
-    return false;
 }
 
 static inline _Bool thing__val_equals(ti_val_t * a, ti_val_t * b, uint8_t deep)
@@ -1661,12 +1384,8 @@ static int thing__dup_t(ti_thing_t ** taddr, uint8_t deep)
 {
     ti_val_t * val;
     ti_thing_t * thing = *taddr;
-    ti_type_t * type = ti_thing_type(thing);
-    ti_thing_t * other = ti_thing_t_create(
-            0,
-            type,
-            thing->collection);
-
+    ti_type_t * type = thing->via.type;
+    ti_thing_t * other = ti_thing_t_create(0, type, thing->collection);
     if (!other)
         return -1;
 

@@ -7,14 +7,15 @@ from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
 from thingsdb.exceptions import AssertionError
-from thingsdb.exceptions import ValueError
-from thingsdb.exceptions import TypeError
-from thingsdb.exceptions import NumArgumentsError
 from thingsdb.exceptions import BadDataError
 from thingsdb.exceptions import LookupError
-from thingsdb.exceptions import OverflowError
-from thingsdb.exceptions import ZeroDivisionError
+from thingsdb.exceptions import NumArgumentsError
 from thingsdb.exceptions import OperationError
+from thingsdb.exceptions import OverflowError
+from thingsdb.exceptions import SyntaxError
+from thingsdb.exceptions import TypeError
+from thingsdb.exceptions import ValueError
+from thingsdb.exceptions import ZeroDivisionError
 
 
 class TestAdvanced(TestBase):
@@ -38,46 +39,67 @@ class TestAdvanced(TestBase):
 
     async def test_qcache_recursion(self, client):
         with self.assertRaisesRegex(
-                OperationError,
-                r'query has reached the maximum recursion depth of 500'):
+                SyntaxError,
+                'query syntax has reached the maximum recursion depth of 500'):
             await client.query(r"""//ti
-                arr = [
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+                arr =
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]];
             """)
+
+        # The code below requires libcleri >=0.12.2, prior to this version,
+        # libcleri woulld return with a recursion depth exception because the
+        # depth was not decremented as should.
+        res = await client.query(r"""//ti
+            arr = [
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+        """)
+        self.assertEqual(len(res), 532)
 
     async def test_extend_restrict(self, client):
         res = await client.query(r"""//ti
@@ -167,11 +189,11 @@ class TestAdvanced(TestBase):
         ''')
 
         with self.assertRaisesRegex(
-                BadDataError,
-                r'cannot directly assign properties to.*'):
+                ValueError,
+                r'property `#` is reserved;'):
             await client.query(r'''
                 val;
-            ''', val=res, convert_vars=False)
+            ''', val=res)
 
     async def test_set_assign(self, client):
         res = await client.query(r'''
@@ -1043,8 +1065,9 @@ class TestAdvanced(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'field `chat` on type `Room` is modified but at least one '
-                r'new instance was made with an inappropriate value which in '
-                r'response is changed to default by ThingsDB; mismatch in '
+                r'instance got an inappropriate value from the migration '
+                r'callback; to be compliant, ThingsDB has used the default '
+                r'value for this instance; callback response: mismatch in '
                 r'type `Room`; type `int` is invalid for property `chat` with '
                 r'definition `Room\?`'):
             await client.query(r'''
@@ -1235,24 +1258,24 @@ class TestAdvanced(TestBase):
         ''')
 
     async def test_events(self, client):
-        await self.assertEvent(client, r'''
+        await self.assertChange(client, r'''
             .arr = range(3);
         ''')
-        await self.assertEvent(client, r'''
+        await self.assertChange(client, r'''
             thing(.id()).arr.push(3);
         ''')
-        await self.assertEvent(client, r'''
+        await self.assertChange(client, r'''
             .get('arr').push(4);
         ''')
-        await self.assertEvent(client, r'''
+        await self.assertChange(client, r'''
             thing(.id()).set('a', []);
         ''')
 
     async def test_no_events(self, client):
-        await self.assertNoEvent(client, r'''
+        await self.assertNoChange(client, r'''
             arr = range(3);
         ''')
-        await self.assertNoEvent(client, r'''
+        await self.assertNoChange(client, r'''
             range(3).push(4);
         ''')
 
@@ -1301,6 +1324,8 @@ class TestAdvanced(TestBase):
         ''')
         root = await client.query('.root.id()')
         self.assertGreater(root, 0)
+        self.assertIsInstance(root, int)
+        self.assertNotEqual(root, None)
 
         a = await client.run('add_container', root, 'a')
         self.assertGreater(a, root)
@@ -1492,19 +1517,30 @@ class TestAdvanced(TestBase):
 
     async def test_assign_in_def(self, client):
         res = await client.query(r'''
-            (|| x+=1).def();
+            str(|| x+=1);
         ''')
         self.assertEqual(res, '|| x += 1')
 
         res = await client.query(r'''
-            (|| .x += 1).def();
+            str(|| .x += 1);
         ''')
         self.assertEqual(res, '|| .x += 1')
 
         res = await client.query(r'''
-            (|| x[0] += 1).def();
+            || x[0]+=1;
         ''')
-        self.assertEqual(res, '|| x[0] += 1')
+        self.assertEqual(res, '|| x[0]+=1')  # unbound closure
+
+        res = await client.query(r'''
+            .closure = || x[0]+=1;
+            .closure;
+        ''')
+        self.assertEqual(res, '||x[0]+=1')  # bound closure
+
+        res = await client.query(r'''
+            str(.closure);
+        ''')
+        self.assertEqual(res, '|| x[0] += 1')  # formatted closure
 
     async def test_export(self, client):
         script = r'''
@@ -1578,7 +1614,7 @@ new_procedure('multiply', |a, b| a * b);
                 check.id();
             });
             .checks = [];
-            wse(run('new_check', 'test'));
+            run('new_check', 'test');
         ''')
 
     async def test_with_cache_two(self, client):
@@ -1594,7 +1630,7 @@ new_procedure('multiply', |a, b| a * b);
                 check.id();
             });
             .checks = [];
-            wse(run('new_check', 'test'));
+            run('new_check', 'test');
         ''')
 
     async def test_type_set(self, client):
@@ -1802,15 +1838,20 @@ new_procedure('multiply', |a, b| a * b);
 
     async def test_closure_as_type_val(self, client):
         # bug #202
+        id = await client.query("""//ti
+            set_type('Test', {
+                func: 'any'
+            });
+            .test = Test{func: || .x = 1};
+            .test.id();
+        """)
+
         with self.assertRaisesRegex(
                 OperationError,
-                r"stored closures with side effects must be wrapped "
-                r"using `wse\(...\)`"):
-            await client.query("""//ti
-                set_type('Test', {
-                    func: 'any'
-                });
-                Test{func: || .x = 1}.func(); // requires `wse(..)`
+                r"closures with side effects require a change but none is "
+                r"created; use `wse\(...\)` to enforce a change;"):
+            await client.query(f"""//ti
+                #{id}.func(); // requires a change
             """)
 
     async def test_future_to_type(self, client):

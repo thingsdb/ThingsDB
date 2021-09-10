@@ -6,6 +6,7 @@
 
 #include <ex.h>
 #include <inttypes.h>
+#include <ti/change.t.h>
 #include <ti/closure.t.h>
 #include <ti/name.t.h>
 #include <ti/thing.t.h>
@@ -39,7 +40,11 @@ int ti_type_fields_to_pk(ti_type_t * type, msgpack_packer * pk);
 ti_val_t * ti_type_as_mpval(ti_type_t * type, _Bool with_definition);
 vec_t * ti_type_map(ti_type_t * to_type, ti_type_t * from_type);
 ti_val_t * ti_type_dval(ti_type_t * type);
-int ti_type_convert(ti_type_t * type, ti_thing_t * thing, ex_t * e);
+int ti_type_convert(
+        ti_type_t * type,
+        ti_thing_t * thing,
+        ti_change_t * change,
+        ex_t * e);
 ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e);
 int ti_type_add_method(
         ti_type_t * type,

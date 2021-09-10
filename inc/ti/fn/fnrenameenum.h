@@ -65,7 +65,7 @@ static int do__f_rename_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail2;
     }
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task ||
         ti_enums_rename(query->collection->enums, enum_, nname) ||
         ti_task_add_rename_enum(task, enum_))

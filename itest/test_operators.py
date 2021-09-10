@@ -260,10 +260,10 @@ class TestOperators(TestBase):
             +false;
         '''), 0)
         self.assertEqual(await client.query(r'''
-            (|x| - ! x).def();
+            str(|x| - ! x);
         '''), "|x| -!x")
         self.assertEqual(await client.query(r'''
-            (|| - !! +5).def();
+            str(|| - !! +5);
         '''), "|| -!!+5")
 
 

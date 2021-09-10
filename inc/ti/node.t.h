@@ -40,15 +40,15 @@ typedef enum
 
     /*
      * Synchronizing: We have at least the known nodes. In this mode we can
-     *                accept (or reject) event id's, although processing events
-     *                and queries is not possible.
+     *                accept (or reject) change id's, although processing
+     *                changes and queries is not possible.
      */
     TI_NODE_STAT_SYNCHRONIZING  =1<<4,
 
     /*
      * Away: In this mode we cannot access collection data. Client queries are
      *       forwarded and changes etc. are stored to disk. We can still accept
-     *       or reject event id's and append new events to the queue.
+     *       or reject change id's and append new changes to the queue.
      */
     TI_NODE_STAT_AWAY           =1<<5,
 
@@ -70,8 +70,8 @@ typedef enum
  * Size TI_NODE_INFO_PK_SZ for node status info.
  *  {
  *      next_thing_id,
- *      cevid,
- *      sevid,
+ *      ccid,
+ *      scid,
  *      status
  *      zone,
  *      port,
@@ -100,9 +100,9 @@ struct ti_node_s
     uint32_t next_retry;            /* retry connect when >= to next retry */
     uint32_t retry_counter;         /* connection retry counter */
 
-    uint64_t cevid;                 /* last committed event id */
-    uint64_t sevid;                 /* last stored event id on disk */
-    uint64_t next_thing_id;
+    uint64_t ccid;                 /* last committed change id */
+    uint64_t scid;                 /* last stored change id on disk */
+    uint64_t next_free_id;
     ti_stream_t * stream;           /* borrowed reference */
 
     /*

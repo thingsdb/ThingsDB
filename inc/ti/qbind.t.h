@@ -12,7 +12,7 @@ typedef enum
     TI_QBIND_BIT_THINGSDB=1,      /* must be one (see qbind, FN__FLAG_EV_T) */
     TI_QBIND_BIT_COLLECTION=2,    /* must be two (see qbind, FN__FLAG_EV_C) */
 
-    TI_QBIND_BIT_EVENT,
+    TI_QBIND_BIT_WSE,
     TI_QBIND_BIT_ON_VAR,
 } ti_qbind_bit_t;
 
@@ -23,7 +23,7 @@ typedef enum
     TI_QBIND_FLAG_THINGSDB      =1<<TI_QBIND_BIT_THINGSDB,
     TI_QBIND_FLAG_COLLECTION    =1<<TI_QBIND_BIT_COLLECTION,
 
-    TI_QBIND_FLAG_EVENT         =1<<TI_QBIND_BIT_EVENT,
+    TI_QBIND_FLAG_WSE           =1<<TI_QBIND_BIT_WSE,
     TI_QBIND_FLAG_ON_VAR        =1<<TI_QBIND_BIT_ON_VAR,
 } ti_qbind_flag_t;
 

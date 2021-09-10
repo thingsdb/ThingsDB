@@ -27,10 +27,7 @@ int ti_vset_copy(ti_vset_t ** vsetaddr, uint8_t deep);
 int ti_vset_dup(ti_vset_t ** vsetaddr, uint8_t deep);
 int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e);
 _Bool ti__vset_eq(ti_vset_t * va, ti_vset_t * vb);
-static inline int ti_vset_add(ti_vset_t * vset, ti_thing_t * thing);
-static inline _Bool ti_vset_has(ti_vset_t * vset, ti_thing_t * thing);
-static inline ti_thing_t * ti_vset_pop(ti_vset_t * vset, ti_thing_t * thing);
-static inline _Bool ti_vset_eq(ti_vset_t * va, ti_vset_t * vb);
+void ti_vset_clear(ti_vset_t * vset);
 
 struct ti_vset_s
 {

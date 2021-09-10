@@ -41,7 +41,7 @@ static int do__f_set_time_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         collection->tz = tz;
 
-        task = ti_task_get_task(query->ev, ti.thing0);
+        task = ti_task_get_task(query->change, ti.thing0);
 
         if (!task || ti_task_add_set_time_zone(task, collection))
             ex_set_mem(e);  /* task cleanup is not required */

@@ -10,11 +10,14 @@
 #include <ti/args.h>
 #include <ti/auth.h>
 #include <ti/away.h>
+#include <ti/collection.inline.h>
 #include <ti/fwd.h>
 #include <ti/nodes.h>
 #include <ti/proto.h>
 #include <ti/qcache.h>
 #include <ti/query.inline.h>
+#include <ti/room.h>
+#include <ti/scope.h>
 #include <ti/syncarchive.h>
 #include <ti/syncevents.h>
 #include <ti/syncfull.h>
@@ -22,7 +25,6 @@
 #include <ti/val.inline.h>
 #include <ti/varr.h>
 #include <ti/version.h>
-#include <ti/wareq.h>
 #include <util/cryptx.h>
 #include <util/fx.h>
 #include <util/mpack.h>
@@ -102,8 +104,8 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         mp_version,
         mp_min_ver,
         mp_next_thing_id,
-        mp_cevid,
-        mp_sevid,
+        mp_ccid,
+        mp_scid,
         mp_status,
         mp_zone,
         mp_port,
@@ -140,8 +142,8 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         mp_next(&up, &obj) != MP_ARR || obj.via.sz != 7 ||
 
         mp_next(&up, &mp_next_thing_id) != MP_U64 ||
-        mp_next(&up, &mp_cevid) != MP_U64 ||
-        mp_next(&up, &mp_sevid) != MP_U64 ||
+        mp_next(&up, &mp_ccid) != MP_U64 ||
+        mp_next(&up, &mp_scid) != MP_U64 ||
         mp_next(&up, &mp_status) != MP_U64 ||
         mp_next(&up, &mp_zone) != MP_U64 ||
         mp_next(&up, &mp_port) != MP_U64 ||
@@ -269,8 +271,8 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
 
         msgpack_pack_array(&pk, 7);
         msgpack_pack_uint8(&pk, 0);                       /* next_thing_id */
-        msgpack_pack_uint8(&pk, 0);                       /* cevid */
-        msgpack_pack_uint8(&pk, 0);                       /* sevid */
+        msgpack_pack_uint8(&pk, 0);                       /* ccid */
+        msgpack_pack_uint8(&pk, 0);                       /* scid */
         msgpack_pack_uint8(&pk, TI_NODE_STAT_BUILDING);   /* status */
         msgpack_pack_uint8(&pk, ti.cfg->zone);         /* zone */
         msgpack_pack_uint16(&pk, ti.cfg->node_port);   /* port */
@@ -361,11 +363,11 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
     node->status = from_node_status;
     node->zone = from_node_zone;
     node->syntax_ver = from_node_syntax_ver;
-    node->cevid = mp_cevid.via.u64;
-    node->sevid = mp_sevid.via.u64;
-    node->next_thing_id = mp_next_thing_id.via.u64;
+    node->ccid = mp_ccid.via.u64;
+    node->scid = mp_scid.via.u64;
+    node->next_free_id = mp_next_thing_id.via.u64;
 
-    ti_nodes_update_syntax_ver(from_node_zone);
+    ti_nodes_update_syntax_ver(from_node_syntax_ver);
 
     /* Update node name and/or port if required */
     ti_node_upd_node(node, from_node_port, &mp_from_node_name);
@@ -397,14 +399,14 @@ fail:
     free(min_ver);
 }
 
-static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__on_req_change_id(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ex_t e = {0};
     mp_unp_t up;
     ti_pkg_t * resp = NULL;
     ti_node_t * other_node = stream->via.node;
     ti_node_t * this_node = ti.node;
-    mp_obj_t mp_event_id;
+    mp_obj_t mp_change_id;
     ti_proto_enum_t accepted;
     uint8_t n = 0;
 
@@ -426,7 +428,7 @@ static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
 
     mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (mp_next(&up, &mp_event_id) != MP_U64)
+    if (mp_next(&up, &mp_change_id) != MP_U64)
     {
         ex_set(&e, EX_BAD_DATA,
                 "invalid `%s` request from "TI_NODE_ID" to "TI_NODE_ID,
@@ -434,11 +436,11 @@ static void nodes__on_req_event_id(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
     }
 
-    accepted = ti_events_accept_id(mp_event_id.via.u64, &n);
+    accepted = ti_changes_accept_id(mp_change_id.via.u64, &n);
 
-    log_debug("respond with %s to requested "TI_EVENT_ID" from "TI_NODE_ID,
+    log_debug("respond with %s to requested "TI_CHANGE_ID" from "TI_NODE_ID,
             ti_proto_str(accepted),
-            mp_event_id.via.u64,
+            mp_change_id.via.u64,
             other_node->id);
 
     if (accepted == TI_PROTO_NODE_ERR_COLLISION)
@@ -614,10 +616,10 @@ static void nodes__on_req_query(ti_stream_t * stream, ti_pkg_t * pkg)
         ti_query_parse(query, mp_query.via.str.data, mp_query.via.str.n, &e))
         goto finish;
 
-    if (ti_query_will_update(query))
+    if (ti_query_wse(query))
     {
-        if (ti_access_check_err(access_, query->user, TI_AUTH_EVENT, &e) ||
-            ti_events_create_new_event(query, &e))
+        if (ti_access_check_err(access_, query->user, TI_AUTH_CHANGE, &e) ||
+            ti_changes_create_new_change(query, &e))
             goto finish;
 
         return;
@@ -724,10 +726,10 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
     if (ti_access_check_err(access_, query->user, TI_AUTH_RUN, &e))
         goto finish;
 
-    if (ti_query_will_update(query))
+    if (ti_query_wse(query))
     {
-        if (ti_access_check_err(access_, query->user, TI_AUTH_EVENT, &e) ||
-            ti_events_create_new_event(query, &e))
+        if (ti_access_check_err(access_, query->user, TI_AUTH_CHANGE, &e) ||
+            ti_changes_create_new_change(query, &e))
             goto finish;
 
         return;
@@ -1022,7 +1024,7 @@ static void nodes__on_event(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
-    ti_events_on_event(other_node, pkg);
+    ti_changes_on_change(other_node, pkg);
 }
 
 static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg)
@@ -1045,12 +1047,12 @@ static void nodes__on_info(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 }
 
-static void nodes__on_missing_event(ti_stream_t * stream, ti_pkg_t * pkg)
+static void nodes__on_missing_change(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     mp_unp_t up;
     ti_node_t * other_node = stream->via.node;
     mp_obj_t mp_id;
-    ti_epkg_t * epkg;
+    ti_cpkg_t * cpkg;
 
     if (!other_node)
     {
@@ -1066,12 +1068,12 @@ static void nodes__on_missing_event(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
-    epkg = ti_archive_get_event(mp_id.via.u64);
-    if (epkg)
-        (void) ti_stream_write_rpkg(stream, (ti_rpkg_t *) epkg);
+    cpkg = ti_archive_get_change(mp_id.via.u64);
+    if (cpkg)
+        (void) ti_stream_write_rpkg(stream, (ti_rpkg_t *) cpkg);
 
-    log_warning("%s missing "TI_EVENT_ID"; (request from "TI_NODE_ID")",
-            epkg ? "respond with event to" : "cannot find",
+    log_warning("%s missing "TI_CHANGE_ID"; (request from "TI_NODE_ID")",
+            cpkg ? "respond with change to" : "cannot find",
             mp_id.via.u64,
             other_node->id);
 }
@@ -1291,18 +1293,13 @@ unlock:
     uv_mutex_unlock(ti.timers->lock);
 }
 
-static void nodes__on_fwd_wu(
-        ti_stream_t * stream,
-        ti_pkg_t * pkg,
-        const char * action)  /* action = "watch" or "unwatch" */
+static void nodes__on_room_emit(ti_stream_t * stream, ti_pkg_t * pkg)
 {
-    ti_wareq_t * wareq;
     ti_collection_t * collection;
-    ti_fwd_t * fwd;
-    ti_req_t * req;
+    ti_room_t * room;
     mp_unp_t up;
     ti_node_t * other_node = stream->via.node;
-    mp_obj_t obj, mp_cid, mp_tid;
+    mp_obj_t obj, mp_collection_id, mp_room_id;
 
     if (!other_node)
     {
@@ -1312,51 +1309,30 @@ static void nodes__on_fwd_wu(
 
     mp_unp_init(&up, pkg->data, pkg->n);
 
-    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
-        mp_next(&up, &mp_cid) != MP_U64 ||
-        mp_next(&up, &mp_tid) != MP_U64)
+    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 3 ||
+        mp_next(&up, &mp_collection_id) != MP_U64 ||
+        mp_next(&up, &mp_room_id) != MP_U64)
     {
         LOG_INVALID
         return;
     }
 
-    req = omap_get(stream->reqmap, pkg->id);
-    if (!req || !ti_clients_is_fwd_req(req))
-    {
-        if (req && ti_api_is_fwd_req(req))
-        {
-            log_debug(
-                "function `%s()` with a HTTP API request has no effect",
-                action);
-        }
-        else
-        {
-            log_warning("unexpected or lost request (package id %u)", pkg->id);
-        }
-        return;
-    }
-
-    fwd = req->data;
-    collection = ti_collections_get_by_id(mp_cid.via.u64);
+    collection = ti_collections_get_by_id(mp_collection_id.via.u64);
     if (!collection)
     {
-        log_warning("cannot find "TI_COLLECTION_ID, mp_cid.via.u64);
+        log_warning("cannot find "TI_COLLECTION_ID, mp_collection_id.via.u64);
         return;
     }
 
-    wareq = ti_wareq_create(fwd->stream, collection, action);
-    if (!wareq || !(wareq->thing_ids = vec_new(1)))
-    {
-        ti_wareq_destroy(wareq);
-        log_critical(EX_MEMORY_S);
-        return;
-    }
+    uv_mutex_lock(collection->lock);
 
-    VEC_push(wareq->thing_ids, ti_wareq_id(mp_tid.via.u64));
+    room = ti_collection_room_by_id(collection, mp_room_id.via.u64);
+    if (room)
+        ti_room_emit_data(room, up.pt, up.end-up.pt);
+    else
+        log_warning("cannot find "TI_ROOM_ID, mp_room_id.via.u64);
 
-    if (ti_wareq_run(wareq))
-        ti_wareq_destroy(wareq);
-    return;  /* success */
+    uv_mutex_unlock(collection->lock);
 }
 
 static const char * nodes__get_status_fn(void)
@@ -1374,8 +1350,8 @@ int ti_nodes_create(void)
 
     /* make sure data is set to null, we use this on close */
     nodes->tcp.data = NULL;
-    nodes->cevid = 0;
-    nodes->sevid = 0;
+    nodes->ccid = 0;
+    nodes->scid = 0;
     nodes->status_fn = NULL;
     nodes->next_id = 0;
 
@@ -1395,10 +1371,10 @@ void ti_nodes_destroy(void)
     ti.node = NULL;
 }
 
-int ti_nodes_read_scevid(void)
+int ti_nodes_read_sccid(void)
 {
     int rc = -1;
-    uint64_t cevid, sevid;
+    uint64_t ccid, scid;
     const char * fn = nodes__get_status_fn();
     FILE * f;
 
@@ -1418,18 +1394,18 @@ int ti_nodes_read_scevid(void)
         return -1;
     }
 
-    if (fread(&cevid, sizeof(uint64_t), 1, f) != 1 ||
-        fread(&sevid, sizeof(uint64_t), 1, f) != 1)
+    if (fread(&ccid, sizeof(uint64_t), 1, f) != 1 ||
+        fread(&scid, sizeof(uint64_t), 1, f) != 1)
     {
-        log_error("error reading global event status from: `%s`", fn);
+        log_error("error reading global change status from: `%s`", fn);
         goto stop;
     }
 
-    log_debug("known committed on all nodes: "TI_EVENT_ID, cevid);
-    log_debug("known stored on all nodes: "TI_EVENT_ID, sevid);
+    log_debug("known committed on all nodes: "TI_CHANGE_ID, ccid);
+    log_debug("known stored on all nodes: "TI_CHANGE_ID, scid);
 
-    ti.nodes->cevid = cevid;
-    ti.nodes->sevid = sevid;
+    ti.nodes->ccid = ccid;
+    ti.nodes->scid = scid;
 
     rc = 0;
 
@@ -1445,8 +1421,8 @@ stop:
 int ti_nodes_write_global_status(void)
 {
     int rc = 0;
-    uint64_t cevid = ti_nodes_cevid();
-    uint64_t sevid = ti_nodes_sevid();
+    uint64_t ccid = ti_nodes_ccid();
+    uint64_t scid = ti_nodes_scid();
     const char * fn = nodes__get_status_fn();
     FILE * f;
 
@@ -1464,13 +1440,13 @@ int ti_nodes_write_global_status(void)
     }
 
     log_debug(
-            "save global committed "TI_EVENT_ID", "
-            "global stored "TI_EVENT_ID" and "
-            "lowest known "TI_QBIND" to disk",
-            cevid, sevid, nodes->syntax_ver);
+            "save global committed "TI_CHANGE_ID", "
+            "global stored "TI_CHANGE_ID" and "
+            "lowest known "TI_SYNTAX" to disk",
+            ccid, scid, nodes->syntax_ver);
 
-    if (fwrite(&cevid, sizeof(uint64_t), 1, f) != 1 ||
-        fwrite(&sevid, sizeof(uint64_t), 1, f) != 1)
+    if (fwrite(&ccid, sizeof(uint64_t), 1, f) != 1 ||
+        fwrite(&scid, sizeof(uint64_t), 1, f) != 1)
     {
         log_error("error writing to `%s`", fn);
         rc = -1;
@@ -1495,7 +1471,7 @@ uint8_t ti_nodes_quorum(void)
          * usually we want to calculate the quorum by simply dividing the
          * number of nodes by two, but it only two nodes exists, and the
          * second node is unreachable, we would never have a chance to do
-         * anything since no event could be created.
+         * anything since no change could be created.
          */
         for (vec_each(nodes->vec, ti_node_t, node))
             if (node->status <= TI_NODE_STAT_SHUTTING_DOWN)
@@ -1619,7 +1595,7 @@ int ti_nodes_from_up(mp_unp_t * up)
 
 ti_nodes_ignore_t ti_nodes_ignore_sync(uint8_t retry_offline)
 {
-    uint64_t m = ti.node->cevid;
+    uint64_t m = ti.node->ccid;
     uint8_t n = 0, offline = 0;
 
     if (!m)
@@ -1627,7 +1603,7 @@ ti_nodes_ignore_t ti_nodes_ignore_sync(uint8_t retry_offline)
 
     for (vec_each(nodes->vec, ti_node_t, node))
     {
-        if (node->cevid > m || node->status > TI_NODE_STAT_SYNCHRONIZING)
+        if (node->ccid > m || node->status > TI_NODE_STAT_SYNCHRONIZING)
             return TI_NODES_WAIT_AWAY;
 
         if (retry_offline && node->status < TI_NODE_STAT_SYNCHRONIZING)
@@ -1677,30 +1653,30 @@ int ti_nodes_check_add(ex_t * e)
     return 0;
 }
 
-uint64_t ti_nodes_cevid(void)
+uint64_t ti_nodes_ccid(void)
 {
-    uint64_t m = ti.node->cevid;
+    uint64_t m = ti.node->ccid;
     for (vec_each(nodes->vec, ti_node_t, node))
-        if (node->cevid < m)
-            m = node->cevid;
+        if (node->ccid < m)
+            m = node->ccid;
 
-    if (m > nodes->cevid)
-        nodes->cevid = m;
+    if (m > nodes->ccid)
+        nodes->ccid = m;
 
-    return nodes->cevid;
+    return nodes->ccid;
 }
 
-uint64_t ti_nodes_sevid(void)
+uint64_t ti_nodes_scid(void)
 {
-    uint64_t m = ti.node->sevid;
+    uint64_t m = ti.node->scid;
     for (vec_each(nodes->vec, ti_node_t, node))
-        if (node->sevid < m)
-            m = node->sevid;
+        if (node->scid < m)
+            m = node->scid;
 
-    if (m > nodes->sevid)
-        nodes->sevid = m;
+    if (m > nodes->scid)
+        nodes->scid = m;
 
-    return nodes->sevid;
+    return nodes->scid;
 }
 
 uint32_t ti_nodes_next_id(void)
@@ -1720,8 +1696,8 @@ void ti_nodes_update_syntax_ver(uint16_t syntax_ver)
     if (syntax_ver < nodes->syntax_ver)
     {
         log_error(
-                "new "TI_QBIND" is older than the current "TI_QBIND,
-                syntax_ver, nodes->syntax_ver);
+            "incoming "TI_SYNTAX" is older than the current "TI_SYNTAX,
+            syntax_ver, nodes->syntax_ver);
         nodes->syntax_ver = syntax_ver;
         return;
     }
@@ -1942,20 +1918,14 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_CLIENT_RES_ERROR:
         ti_stream_on_response(stream, pkg);
         break;
-    case TI_PROTO_NODE_EVENT:
+    case TI_PROTO_NODE_CHANGE:
         nodes__on_event(stream, pkg);
         break;
     case TI_PROTO_NODE_INFO:
         nodes__on_info(stream, pkg);
         break;
-    case TI_PROTO_NODE_MISSING_EVENT:
-        nodes__on_missing_event(stream, pkg);
-        break;
-    case TI_PROTO_NODE_FWD_WATCH:
-        nodes__on_fwd_wu(stream, pkg, "watch");
-        break;
-    case TI_PROTO_NODE_FWD_UNWATCH:
-        nodes__on_fwd_wu(stream, pkg, "unwatch");
+    case TI_PROTO_NODE_MISSING_CHANGE:
+        nodes__on_missing_change(stream, pkg);
         break;
     case TI_PROTO_NODE_FWD_TIMER:
         nodes__on_fwd_timer(stream, pkg);
@@ -1966,6 +1936,9 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_NODE_EX_TIMER:
         nodes__on_ex_timer(stream, pkg);
         break;
+    case TI_PROTO_NODE_ROOM_EMIT:
+        nodes__on_room_emit(stream, pkg);
+        break;
     case TI_PROTO_NODE_REQ_QUERY:
         nodes__on_req_query(stream, pkg);
         break;
@@ -1975,8 +1948,8 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_NODE_REQ_CONNECT:
         nodes__on_req_connect(stream, pkg);
         break;
-    case TI_PROTO_NODE_REQ_EVENT_ID:
-        nodes__on_req_event_id(stream, pkg);
+    case TI_PROTO_NODE_REQ_CHANGE_ID:
+        nodes__on_req_change_id(stream, pkg);
         break;
     case TI_PROTO_NODE_REQ_AWAY:
         nodes__on_req_away(stream, pkg);
@@ -2052,6 +2025,6 @@ int ti_nodes_check_syntax(uint16_t syntax_ver, ex_t * e)
     if (nodes_.syntax_ver >= syntax_ver)
         return 0;
     ex_set(e, EX_SYNTAX_ERROR,
-            "not all nodes are running the required "TI_QBIND, syntax_ver);
+            "not all nodes are running the required "TI_SYNTAX, syntax_ver);
     return e->nr;
 }

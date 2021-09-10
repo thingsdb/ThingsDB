@@ -57,7 +57,7 @@ static int do__f_set_module_scope(ti_query_t * query, cleri_node_t * nd, ex_t * 
     module->scope_id = scope_id;
     scope_id = NULL;
 
-    task = ti_task_get_task(query->ev, ti.thing0);
+    task = ti_task_get_task(query->change, ti.thing0);
     if (!task || ti_task_add_set_module_scope(task, module))
         ex_set_mem(e);  /* task cleanup is not required */
 

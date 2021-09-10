@@ -7,6 +7,7 @@
 #include <string.h>
 #include <ti.h>
 #include <ti/closure.h>
+#include <ti/collection.inline.h>
 #include <ti/datetime.h>
 #include <ti/enum.h>
 #include <ti/enum.inline.h>
@@ -22,6 +23,8 @@
 #include <ti/raw.h>
 #include <ti/raw.inline.h>
 #include <ti/regex.h>
+#include <ti/room.h>
+#include <ti/room.inline.h>
 #include <ti/scope.h>
 #include <ti/template.h>
 #include <ti/thing.inline.h>
@@ -45,25 +48,26 @@ static ti_val_t * val__empty_str;
 static ti_val_t * val__default_re;
 static ti_val_t * val__default_closure;
 static ti_val_t * val__sany;
-static ti_val_t * val__snil;
-static ti_val_t * val__strue;
-static ti_val_t * val__sfalse;
 static ti_val_t * val__sbool;
-static ti_val_t * val__sdatetime;
-static ti_val_t * val__stimeval;
-static ti_val_t * val__sint;
-static ti_val_t * val__sfloat;
-static ti_val_t * val__sstr;
 static ti_val_t * val__sbytes;
-static ti_val_t * val__smpdata;
-static ti_val_t * val__sregex;
-static ti_val_t * val__serror;
 static ti_val_t * val__sclosure;
+static ti_val_t * val__sdatetime;
+static ti_val_t * val__serror;
+static ti_val_t * val__sfalse;
+static ti_val_t * val__sfloat;
 static ti_val_t * val__sfuture;
+static ti_val_t * val__sint;
 static ti_val_t * val__slist;
-static ti_val_t * val__stuple;
+static ti_val_t * val__smpdata;
+static ti_val_t * val__snil;
+static ti_val_t * val__sregex;
+static ti_val_t * val__sroom;
 static ti_val_t * val__sset;
+static ti_val_t * val__sstr;
 static ti_val_t * val__sthing;
+static ti_val_t * val__stimeval;
+static ti_val_t * val__strue;
+static ti_val_t * val__stuple;
 static ti_val_t * val__swthing;
 static ti_val_t * val__tar_gz_str;
 static ti_val_t * val__gs_str;
@@ -87,8 +91,6 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
 {
     mp_obj_t mp_key, mp_val;
     const char * restore_point;
-    if (!sz)
-        return (ti_val_t *) ti_thing_new_from_vup(vup, sz, e);
 
     restore_point = vup->up->pt;
 
@@ -109,11 +111,6 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
     switch ((ti_val_kind) *mp_key.via.str.data)
     {
     case TI_KIND_C_THING:
-        if (vup->isclient)
-            log_warning(
-                    "variable using syntax {\"%c\": ..} is deprecated; "
-                    "use the ID to read the thing by using code",
-                    TI_KIND_C_THING);
         if (!vup->collection)
         {
             ex_set(e, EX_BAD_DATA,
@@ -131,76 +128,20 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
                 mp_val.via.u64,
                 sz,
                 e);
+
     case TI_KIND_C_INSTANCE:
-        if (vup->isclient)
-            goto reserved;
         if (!vup->collection)
         {
             ex_set(e, EX_BAD_DATA,
                     "cannot unpack a `thing` without a collection");
             return NULL;
         }
-        if (sz != 3)
-        {
-            ex_set(e, EX_TYPE_ERROR,
-                    "expecting exactly 3 key value pairs for a type");
-            return NULL;
-        }
         return (ti_val_t *) ti_things_thing_t_from_vup(vup, e);
-    case TI_KIND_C_CLOSURE:
-    if (vup->isclient)
-        goto reserved;
-    else
-    {
-        ti_qbind_t syntax = {
-                .immutable_n = 0,
-                .flags = vup->collection
-                    ? TI_QBIND_FLAG_COLLECTION
-                    : TI_QBIND_FLAG_THINGSDB,
-        };
-        if (sz != 1 || mp_next(vup->up, &mp_val) != MP_STR)
-        {
-            ex_set(e, EX_BAD_DATA,
-                    "closures must be written according the following "
-                    "syntax: {\""TI_KIND_S_CLOSURE"\": \"...\"");
-            return NULL;
-        }
-
-        return (ti_val_t *) ti_closure_from_strn(
-                &syntax,
-                mp_val.via.str.data,
-                mp_val.via.str.n, e);
-    }
-    case TI_KIND_C_REGEX:
-    {
-        if (vup->isclient)
-            log_warning(
-                    "variable using syntax {\"%c\": ..} is deprecated; "
-                    "create the regular expression in code",
-                    TI_KIND_C_REGEX);
-
-        if (sz != 1 || mp_next(vup->up, &mp_val) != MP_STR)        {
-            ex_set(e, EX_BAD_DATA,
-                    "regular expressions must be written according the "
-                    "following syntax: {\""TI_KIND_S_REGEX"\": \"...\"");
-            return NULL;
-        }
-
-        return (ti_val_t *) ti_regex_from_strn(
-                mp_val.via.str.data,
-                mp_val.via.str.n, e);
-    }
     case TI_KIND_C_SET:
     {
         ti_val_t * vthing;
         ti_vset_t * vset = ti_vset_create();
         size_t i, n;
-
-        if (vup->isclient)
-            log_warning(
-                    "variable using syntax {\"%c\": ..} is deprecated; "
-                    "create the set in code",
-                    TI_KIND_C_SET);
 
         if (!vset)
         {
@@ -237,31 +178,37 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
     case TI_KIND_C_ERROR:
     {
         ti_verror_t * verror;
-        mp_obj_t mp_msg, mp_code;
+        mp_obj_t obj, mp_msg, mp_code;
 
-        if (vup->isclient)
-            log_warning(
-                    "variable using syntax {\"%c\": ..} is deprecated; "
-                    "create the error in code",
-                    TI_KIND_C_ERROR);
-
-        if (sz != 3 ||
-            mp_skip(vup->up) != MP_STR ||       /* first value: definition */
-            mp_skip(vup->up) != MP_STR ||       /* key: error_msg */
+        if (sz != 1 ||
+            mp_next(vup->up, &obj) != MP_ARR || obj.via.sz != 2 ||
             mp_next(vup->up, &mp_msg) != MP_STR ||
-            mp_msg.via.str.n > EX_MAX_SZ ||
-            mp_skip(vup->up) != MP_STR ||       /* error_code */
             mp_next(vup->up, &mp_code) != MP_I64 ||
+            mp_msg.via.str.n > EX_MAX_SZ ||
             mp_code.via.i64 < EX_MIN_ERR ||
             mp_code.via.i64 > EX_MAX_BUILD_IN_ERR)
         {
-            ex_set(e, EX_BAD_DATA,
-                    "errors must be written according the "
-                    "following syntax: {"
-                    "\""TI_KIND_S_ERROR"\": \"..err()\","
-                    "\"error_msg\": \"..msg\","
-                    "\"error_code\": code}");
-            return NULL;
+            /*
+             * TODO (COMPAT) Compatibility with v0.x
+             */
+            if (sz != 3 ||
+                mp_skip(vup->up) != MP_STR ||       /* definition */
+                mp_skip(vup->up) != MP_STR ||       /* key: error_msg */
+                mp_next(vup->up, &mp_msg) != MP_STR ||
+                mp_skip(vup->up) != MP_STR ||       /* error_code */
+                mp_next(vup->up, &mp_code) != MP_I64 ||
+                mp_msg.via.str.n > EX_MAX_SZ ||
+                mp_code.via.i64 < EX_MIN_ERR ||
+                mp_code.via.i64 > EX_MAX_BUILD_IN_ERR)
+            {
+                ex_set(e, EX_BAD_DATA,
+                        "errors must be written according the "
+                        "following syntax: {"
+                        "\""TI_KIND_S_ERROR"\": \"..err()\","
+                        "\"error_msg\": \"..msg\","
+                        "\"error_code\": code}");
+                return NULL;
+            }
         }
 
         verror = ti_verror_create(
@@ -275,9 +222,6 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
         return (ti_val_t *) verror;
     }
     case TI_KIND_C_WRAP:
-    if (vup->isclient)
-        goto reserved;
-    else
     {
         mp_obj_t mp_type_id;
         ti_val_t * vthing;
@@ -314,9 +258,6 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
         return (ti_val_t *) wrap;
     }
     case TI_KIND_C_MEMBER:
-    if (vup->isclient)
-        goto reserved;
-    else
     {
         mp_obj_t mp_enum_id, mp_idx;
         ti_enum_t * enum_;
@@ -355,9 +296,6 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
     }
     case TI_KIND_C_DATETIME:
     case TI_KIND_C_TIMEVAL:
-    if (vup->isclient)
-        goto reserved;
-    else
     {
         mp_obj_t mp_ts, mp_offset, mp_tz;
         ti_datetime_t * dt;
@@ -408,8 +346,46 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
 
         return (ti_val_t *) dt;
     }
+    /*
+     * TODO (COMPAT) For compatibility with data from v0.x
+     */
+    case TI_KIND_C_CLOSURE_OBSOLETE_:
+    {
+        ti_qbind_t syntax = {
+                .immutable_n = 0,
+                .flags = vup->collection
+                    ? TI_QBIND_FLAG_COLLECTION
+                    : TI_QBIND_FLAG_THINGSDB,
+        };
+        if (sz != 1 || mp_next(vup->up, &mp_val) != MP_STR)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "closures must be written according the following "
+                    "syntax: {\""TI_KIND_S_CLOSURE_OBSOLETE_"\": \"...\"");
+            return NULL;
+        }
+        return (ti_val_t *) ti_closure_from_strn(
+                &syntax,
+                mp_val.via.str.data,
+                mp_val.via.str.n, e);
     }
-reserved:
+    /*
+     * TODO (COMPAT) For compatibility with data from v0.x
+     */
+    case TI_KIND_C_REGEX_OBSOLETE_:
+    {
+        if (sz != 1 || mp_next(vup->up, &mp_val) != MP_STR)        {
+            ex_set(e, EX_BAD_DATA,
+                    "regular expressions must be written according the "
+                    "following syntax: {\""TI_KIND_S_REGEX_OBSOLETE_"\": \"...\"");
+            return NULL;
+        }
+
+        return (ti_val_t *) ti_regex_from_strn(
+                mp_val.via.str.data,
+                mp_val.via.str.n, e);
+    }
+    }
     ex_set(e, EX_VALUE_ERROR, "property `%c` is reserved"DOC_PROPERTIES,
             *mp_key.via.str.data);
     return NULL;
@@ -430,6 +406,9 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
     case TI_VAL_WRAP:
         varr->flags |= TI_VARR_FLAG_MHT;
         break;
+    case TI_VAL_ROOM:
+        varr->flags |= TI_VARR_FLAG_MHR;
+        break;
     case TI_VAL_NIL:
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
@@ -446,11 +425,11 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
     case TI_VAL_ARR:
     {
         /* Make sure the arr is converted to a `tuple` and copy the
-         * may-have-things flags to the parent.
+         * may-have-* flags to the parent.
          */
         ti_varr_t * arr = (ti_varr_t *) val;
         arr->flags |= TI_VARR_FLAG_TUPLE;
-        varr->flags |= arr->flags & TI_VARR_FLAG_MHT;
+        ti_varr_set_may_flags(varr, arr);
         break;
     }
     case TI_VAL_SET:
@@ -559,20 +538,80 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
         return (ti_val_t *) varr;
     }
     case MP_MAP:
-        return val__unp_map(vup, obj.via.sz, e);
+        return vup->isclient
+                ? (ti_val_t *) ti_thing_new_from_vup(vup, obj.via.sz, e)
+                : val__unp_map(vup, obj.via.sz, e);
     case MP_EXT:
     {
-        ti_raw_t * raw;
-        if (obj.via.ext.tp != TI_STR_INFO)
+        switch((mpack_ext_t) obj.via.ext.tp)
         {
-            ex_set(e, EX_BAD_DATA,
-                    "msgpack extension type %d is not supported by ThingsDB",
-                    obj.via.ext.tp);
+        case MPACK_EXT_MPACK:
+        {
+            ti_raw_t * raw = ti_mp_create(obj.via.ext.data, obj.via.ext.n);
+            if (!raw)
+                ex_set_mem(e);
+            return (ti_val_t *) raw;
         }
-        raw = ti_mp_create(obj.via.ext.data, obj.via.ext.n);
-        if (!raw)
-            ex_set_mem(e);
-        return (ti_val_t *) raw;
+        case MPACK_EXT_REGEX:
+            return (ti_val_t *) ti_regex_from_strn(
+                    (const char *) obj.via.ext.data,
+                    obj.via.ext.n,
+                    e);
+        case MPACK_EXT_CLOSURE:
+        {
+            ti_qbind_t syntax = {
+                    .immutable_n = 0,
+                    .flags = vup->collection
+                        ? TI_QBIND_FLAG_COLLECTION
+                        : TI_QBIND_FLAG_THINGSDB,
+            };
+            return (ti_val_t *) ti_closure_from_strn(
+                    &syntax,
+                    (const char *) obj.via.ext.data,
+                    obj.via.ext.n,
+                    e);
+        }
+        case MPACK_EXT_ROOM:
+        {
+            ti_room_t * room;
+            uint64_t room_id;
+            if (!vup->collection)
+            {
+                ex_set(e, EX_BAD_DATA,
+                        "cannot unpack a `room` without a collection");
+                return NULL;
+            }
+            if (obj.via.ext.n != sizeof(uint64_t))
+            {
+                ex_set(e, EX_BAD_DATA,
+                        "expecting a room type of size %zu but got %"PRIu32,
+                        sizeof(uint64_t), obj.via.ext.n);
+                return NULL;
+            }
+
+            mp_read_uint64(obj.via.ext.data, &room_id);
+            room = ti_collection_room_by_id(vup->collection, room_id);
+            if (!room)
+            {
+                room = ti_room_create(room_id, vup->collection);
+                if (!room || imap_add(vup->collection->rooms, room_id, room))
+                {
+                    ti_val_drop((ti_val_t *) room);
+                    ex_set_mem(e);
+                }
+                /* update the next free id if required */
+                ti_update_next_free_id(room_id);
+            }
+            else
+                ti_incref(room);
+
+            return (ti_val_t *) room;
+        }
+        }
+        ex_set(e, EX_BAD_DATA,
+                "msgpack extension type %d is not supported by ThingsDB",
+                obj.via.ext.tp);
+        return NULL;
     }
     }
 
@@ -607,6 +646,7 @@ int ti_val_init_common(void)
     val__sbytes = (ti_val_t *) ti_str_from_str(TI_VAL_BYTES_S);
     val__smpdata = (ti_val_t *) ti_str_from_str(TI_VAL_MPDATA_S);
     val__sregex = (ti_val_t *) ti_str_from_str(TI_VAL_REGEX_S);
+    val__sroom = (ti_val_t *) ti_str_from_str(TI_VAL_ROOM_S);
     val__serror = (ti_val_t *) ti_str_from_str(TI_VAL_ERROR_S);
     val__sclosure = (ti_val_t *) ti_str_from_str(TI_VAL_CLOSURE_S);
     val__sfuture = (ti_val_t *) ti_str_from_str(TI_VAL_FUTURE_S);
@@ -645,7 +685,7 @@ int ti_val_init_common(void)
         !val__day_name || !val__hour_name || !val__minute_name ||
         !val__second_name || !val__gmt_offset_name || !val__sfuture ||
         !val__module_name || !val__deep_name || !val__load_name ||
-        !val__default_re || !val__default_closure)
+        !val__default_re || !val__default_closure || !val__sroom)
     {
         return -1;
     }
@@ -671,6 +711,7 @@ void ti_val_drop_common(void)
     ti_val_drop(val__sbytes);
     ti_val_drop(val__smpdata);
     ti_val_drop(val__sregex);
+    ti_val_drop(val__sroom);
     ti_val_drop(val__serror);
     ti_val_drop(val__sclosure);
     ti_val_drop(val__sfuture);
@@ -713,6 +754,9 @@ void ti_val_destroy(ti_val_t * val)
         return;
     case TI_VAL_WRAP:
         ti_wrap_destroy((ti_wrap_t *) val);
+        return;
+    case TI_VAL_ROOM:
+        ti_room_destroy((ti_room_t *) val);
         return;
     case TI_VAL_ARR:
         ti_varr_destroy((ti_varr_t *) val);
@@ -1020,12 +1064,27 @@ int ti_val_convert_to_str(ti_val_t ** val, ex_t * e)
         v = (ti_val_t *) (*(ti_regex_t **) val)->pattern;
         ti_incref(v);
         break;
+    case TI_VAL_CLOSURE:
+        v = (ti_val_t *) ti_closure_def((ti_closure_t *) *val);
+        if (!v)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        break;
+    case TI_VAL_ROOM:
+        v = (ti_val_t *) ti_room_str((ti_room_t *) *val);
+        if (!v)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        break;
     case TI_VAL_MPDATA:
     case TI_VAL_THING:
     case TI_VAL_WRAP:
     case TI_VAL_ARR:
     case TI_VAL_SET:
-    case TI_VAL_CLOSURE:
     case TI_VAL_FUTURE:
         ex_set(e, EX_TYPE_ERROR,
                 "cannot convert type `%s` to `"TI_VAL_STR_S"`",
@@ -1036,7 +1095,10 @@ int ti_val_convert_to_str(ti_val_t ** val, ex_t * e)
                 (*(ti_verror_t **) val)->msg,
                 (*(ti_verror_t **) val)->msg_n);
         if (!v)
-            return -1;
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
         break;
     case TI_VAL_MEMBER:
         v = VMEMBER(*val);
@@ -1091,6 +1153,7 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
     case TI_VAL_MPDATA:
     case TI_VAL_THING:
     case TI_VAL_WRAP:
+    case TI_VAL_ROOM:
     case TI_VAL_ARR:
     case TI_VAL_SET:
     case TI_VAL_CLOSURE:
@@ -1127,6 +1190,7 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_WRAP:
+    case TI_VAL_ROOM:
     case TI_VAL_ARR:
     case TI_VAL_SET:
     case TI_VAL_CLOSURE:
@@ -1220,6 +1284,7 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_WRAP:
+    case TI_VAL_ROOM:
     case TI_VAL_ARR:
     case TI_VAL_SET:
     case TI_VAL_CLOSURE:
@@ -1317,6 +1382,7 @@ int ti_val_convert_to_array(ti_val_t ** val, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_THING:
     case TI_VAL_WRAP:
+    case TI_VAL_ROOM:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:
@@ -1352,6 +1418,7 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
     case TI_VAL_BYTES:
     case TI_VAL_REGEX:
     case TI_VAL_WRAP:
+    case TI_VAL_ROOM:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:
@@ -1436,6 +1503,8 @@ _Bool ti_val_as_bool(ti_val_t * val)
         return !!ti_thing_n((ti_thing_t *) val);
     case TI_VAL_WRAP:
         return !!ti_thing_n(((ti_wrap_t *) val)->thing);
+    case TI_VAL_ROOM:
+        return ((ti_room_t *) val)->id;
     case TI_VAL_CLOSURE:
     case TI_VAL_FUTURE:
         return true;
@@ -1462,6 +1531,7 @@ size_t ti_val_get_len(ti_val_t * val)
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
+    case TI_VAL_ROOM:
     case TI_VAL_DATETIME:
     case TI_VAL_TEMPLATE:
         break;
@@ -1525,7 +1595,7 @@ int ti_val_gen_ids(ti_val_t * val)
         if (!((ti_thing_t *) val)->id)
             return ti_thing_gen_id((ti_thing_t *) val);
         /*
-         * New things 'under' an existing thing will get their own event,
+         * New things 'under' an existing thing will get their own task,
          * so here we do not need recursion.
          */
         break;
@@ -1533,16 +1603,20 @@ int ti_val_gen_ids(ti_val_t * val)
         if (!((ti_wrap_t *) val)->thing->id)
             return ti_thing_gen_id(((ti_wrap_t *) val)->thing);
         /*
-         * New things 'under' an existing thing will get their own event,
+         * New things 'under' an existing thing will get their own task,
          * so here we do not need recursion.
          */
+        break;
+    case TI_VAL_ROOM:
+        if (!((ti_room_t *) val)->id)
+            return ti_room_gen_id((ti_room_t *) val);
         break;
     case TI_VAL_ARR:
         /*
          * Here the code really benefits from the `may-have-things` flag since
          * must attached arrays will contain "only" things, or no things.
          */
-        if (ti_varr_may_have_things((ti_varr_t *) val))
+        if (ti_varr_may_gen_ids((ti_varr_t *) val))
             for (vec_each(VARR(val), ti_val_t, v))
                 if (ti_val_gen_ids(v))
                     return -1;
@@ -1563,27 +1637,45 @@ int ti_val_to_pk(ti_val_t * val, ti_vp_t * vp, int options)
 {
     switch ((ti_val_enum) val->tp)
     {
-    TI_VAL_PACK_CASE_IMMUTABLE(val, &vp->pk, options)
+    case TI_VAL_NIL:
+        return msgpack_pack_nil(&vp->pk);
+    case TI_VAL_INT:
+        return msgpack_pack_int64(&vp->pk, VINT(val));
+    case TI_VAL_FLOAT:
+        return msgpack_pack_double(&vp->pk, VFLOAT(val));
+    case TI_VAL_BOOL:
+        return ti_vbool_to_pk((ti_vbool_t *) val, &vp->pk);
+    case TI_VAL_DATETIME:
+        return ti_datetime_to_pk((ti_datetime_t *) val, &vp->pk, options);
+    case TI_VAL_NAME:
+    case TI_VAL_STR:
+        return ti_raw_str_to_pk((ti_raw_t *) val, &vp->pk);
+    case TI_VAL_BYTES:
+        return ti_raw_bytes_to_pk((ti_raw_t *) val, &vp->pk);
+    case TI_VAL_REGEX:
+        return ti_regex_to_pk((ti_regex_t *) val, &vp->pk, options);
     case TI_VAL_THING:
         return ti_thing_to_pk((ti_thing_t *) val, vp, options);
     case TI_VAL_WRAP:
         return ti_wrap_to_pk((ti_wrap_t *) val, vp, options);
+    case TI_VAL_ROOM:
+        return ti_room_to_pk((ti_room_t *) val, &vp->pk, options);
     case TI_VAL_ARR:
-    {
-        ti_varr_t * varr = (ti_varr_t *) val;
-        if (msgpack_pack_array(&vp->pk, varr->vec->n))
-            return -1;
-        for (vec_each(varr->vec, ti_val_t, v))
-            if (ti_val_to_pk(v, vp, options))
-                return -1;
-        return 0;
-    }
+        return ti_varr_to_pk((ti_varr_t *) val, vp, options);
     case TI_VAL_SET:
         return ti_vset_to_pk((ti_vset_t *) val, vp, options);
+    case TI_VAL_ERROR:
+        return ti_verror_to_pk((ti_verror_t *) val, &vp->pk, options);
     case TI_VAL_MEMBER:
         return ti_member_to_pk((ti_member_t *) val, vp, options);
+    case TI_VAL_MPDATA:
+        return ti_raw_mpdata_to_pk((ti_raw_t *) val, &vp->pk, options);
+    case TI_VAL_CLOSURE:
+        return ti_closure_to_pk((ti_closure_t *) val, &vp->pk, options);
     case TI_VAL_FUTURE:
         return ti_future_to_pk((ti_future_t * ) val, vp, options);
+    case TI_VAL_TEMPLATE:
+        assert (0); return -1;
     }
     assert(0);
     return -1;
@@ -1597,6 +1689,7 @@ void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz)
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
+    case TI_VAL_ROOM:
         *sz = 32;
         return;
     case TI_VAL_DATETIME:
@@ -1658,6 +1751,7 @@ const char * ti_val_str(ti_val_t * val)
                 : ti_thing_type_str((ti_thing_t *) val);
     case TI_VAL_WRAP:
         return ti_wrap_str((ti_wrap_t *) val);
+    case TI_VAL_ROOM:           return TI_VAL_ROOM_S;
     case TI_VAL_ARR:
         return ti_varr_is_list((ti_varr_t *) val)
                 ? TI_VAL_LIST_S
@@ -1698,6 +1792,7 @@ ti_val_t * ti_val_strv(ti_val_t * val)
                 : (ti_val_t *) ti_thing_type_strv((ti_thing_t *) val);
     case TI_VAL_WRAP:
         return (ti_val_t *) ti_wrap_strv((ti_wrap_t *) val);
+    case TI_VAL_ROOM:           return ti_grab(val__sroom);
     case TI_VAL_ARR:
         return ti_varr_is_list((ti_varr_t *) val)
                 ? ti_grab(val__slist)
@@ -1742,6 +1837,8 @@ int ti_val_copy(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep)
         return ti_thing_copy((ti_thing_t **) val, deep);
     case TI_VAL_WRAP:
         return ti_wrap_copy((ti_wrap_t **) val, deep);
+    case TI_VAL_ROOM:
+        return ti_room_copy((ti_room_t **) val);  /* copy a room */
     case TI_VAL_ARR:
         if (ti_varr_copy((ti_varr_t **) val, deep))
             return -1;
@@ -1797,6 +1894,8 @@ int ti_val_dup(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep)
         return ti_thing_dup((ti_thing_t **) val, deep);
     case TI_VAL_WRAP:
         return ti_wrap_dup((ti_wrap_t **) val, deep);
+    case TI_VAL_ROOM:
+        return ti_room_copy((ti_room_t **) val);  /* copy a room */
     case TI_VAL_ARR:
         if (ti_varr_dup((ti_varr_t **) val, deep))
             return -1;

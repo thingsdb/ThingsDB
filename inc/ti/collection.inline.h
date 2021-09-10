@@ -57,4 +57,14 @@ static inline void * ti_collection_thing_by_id(
     return imap_get(collection->things, thing_id);
 }
 
+/*
+ * Return a room with a borrowed reference from the collection.
+ */
+static inline void * ti_collection_room_by_id(
+        ti_collection_t * collection,
+        uint64_t room_id)
+{
+    return imap_get(collection->rooms, room_id);
+}
+
 #endif  /* TI_COLLECTION_INLINE_H_ */

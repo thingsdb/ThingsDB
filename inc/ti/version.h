@@ -4,29 +4,31 @@
 #ifndef TI_VERSION_H_
 #define TI_VERSION_H_
 
-#define TI_VERSION_MAJOR 0
-#define TI_VERSION_MINOR 10
-#define TI_VERSION_PATCH 15
+#define TI_VERSION_MAJOR 1
+#define TI_VERSION_MINOR 0
+#define TI_VERSION_PATCH 0
 
 /* The syntax version is used to test compatibility with functions
  * using the `ti_nodes_check_syntax()` function */
-#define TI_VERSION_SYNTAX 0
+#define TI_VERSION_SYNTAX 1
 
 /* ThingsDB can only connect with servers having at least this version. */
 #define TI_MINIMAL_VERSION "0.8.0"
 
 /*
- * Use TI_VERSION_PRE_RELEASE for alpha release versions.
+ * Use TI_VERSION_PRE_RELEASE for alpha, beta or release candidate versions.
  * This should be an empty string when building a final release.
  * Examples:
- *  "-alpha-0"
- *  "-alpha-1"
+ *  "-alpha0"
+ *  "-alpha1"
+ *  "-beta0"
+ *  "-rc0"
  *  ""
  */
-#define TI_VERSION_PRE_RELEASE ""
+#define TI_VERSION_PRE_RELEASE "-rc5"
 
 #define TI_MAINTAINER \
-    "Jeroen van der Heijden <jeroen@transceptor.technology>"
+    "Jeroen van der Heijden <jeroen@cesbit.com>"
 #define TI_HOME_PAGE \
     "https://thingsdb.net"
 

@@ -53,7 +53,7 @@ void ti_names_inject_common(void)
     (void) ti_names_from_str("connected_clients");
     (void) ti_names_from_str("created_at");
     (void) ti_names_from_str("created_on");
-    (void) ti_names_from_str("db_stored_event_id");
+    (void) ti_names_from_str("db_stored_change_id");
     (void) ti_names_from_str("default");
     (void) ti_names_from_str("definition");
     (void) ti_names_from_str("doc");
@@ -64,8 +64,8 @@ void ti_names_inject_common(void)
     (void) ti_names_from_str("file_template");
     (void) ti_names_from_str("file");
     (void) ti_names_from_str("files");
-    (void) ti_names_from_str("global_committed_event_id");
-    (void) ti_names_from_str("global_stored_event_id");
+    (void) ti_names_from_str("global_committed_change_id");
+    (void) ti_names_from_str("global_stored_change_id");
     (void) ti_names_from_str("has_password");
     (void) ti_names_from_str("http_api_port");
     (void) ti_names_from_str("http_status_port");
@@ -75,8 +75,8 @@ void ti_names_inject_common(void)
     (void) ti_names_from_str("libcleri_version");
     (void) ti_names_from_str("libpcre2_version");
     (void) ti_names_from_str("libuv_version");
-    (void) ti_names_from_str("local_committed_event_id");
-    (void) ti_names_from_str("local_stored_event_id");
+    (void) ti_names_from_str("local_committed_change_id");
+    (void) ti_names_from_str("local_stored_change_id");
     (void) ti_names_from_str("log_level");
     (void) ti_names_from_str("max_files");
     (void) ti_names_from_str("members");
@@ -84,7 +84,7 @@ void ti_names_inject_common(void)
     (void) ti_names_from_str("modified_at");
     (void) ti_names_from_str("msgpack_version");
     (void) ti_names_from_str("name");
-    (void) ti_names_from_str("next_event_id");
+    (void) ti_names_from_str("next_free_id");
     (void) ti_names_from_str("next_run");
     (void) ti_names_from_str("next_thing_id");
     (void) ti_names_from_str("node_id");

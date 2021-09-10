@@ -155,7 +155,7 @@ skip_repeat:
     while (m--)
         VEC_push(args, ti_nil_get());
 
-    timer_id = ti_vint_create((int64_t) ti_next_thing_id());
+    timer_id = ti_vint_create((int64_t) ti_next_free_id());
     if (!timer_id)
         goto fail2;
 
@@ -182,7 +182,7 @@ skip_repeat:
     VEC_push(*timers, timer);
 
     task = ti_task_get_task(
-            query->ev,
+            query->change,
             query->collection ? query->collection->root : ti.thing0);
 
     if (!task || ti_task_add_new_timer(task, timer))

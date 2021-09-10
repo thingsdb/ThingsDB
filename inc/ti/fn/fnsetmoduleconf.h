@@ -49,7 +49,7 @@ static int do__f_set_module_conf(ti_query_t * query, cleri_node_t * nd, ex_t * e
 
     ti_module_update_conf(module);
 
-    task = ti_task_get_task(query->ev, ti.thing0);
+    task = ti_task_get_task(query->change, ti.thing0);
     if (!task || ti_task_add_set_module_conf(task, module))
         ex_set_mem(e);  /* task cleanup is not required */
 

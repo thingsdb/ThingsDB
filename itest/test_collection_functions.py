@@ -153,6 +153,103 @@ class TestCollectionFunctions(TestBase):
                 'cannot add type `nil` to a set'):
             await client.query(r'.s.add(.a, .b, {}, nil);')
 
+    async def test_clear_set(self, client):
+        await client.query(r'.s = set(); .a = {}; .b = {}; .c = {};')
+        self.assertEqual(
+            await client.query('[.s.add(.a, .b), .s.len()]'), [2, 2])
+        self.assertEqual(
+            await client.query('[.s.add(.b, .c), .s.len()]'), [1, 3])
+        self.assertEqual(
+            await client.query(r'[.s.add({}), .s.len()]'), [1, 4])
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `clear`'):
+            await client.query('nil.clear();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `clear` takes 0 arguments but 1 was given'):
+            await client.query('.s.clear(0);')
+
+        self.assertEqual(
+            await client.query(r'[.s.clear(), .s.len()]'), [None, 0])
+
+        self.assertEqual(
+            await client.query(r"""//ti
+                s = set(.a, .b, .c);
+                s.clear();
+                s;
+            """), [])
+
+    async def test_clear_arr(self, client):
+        await client.query(r'.arr = range(10);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `tuple` has no function `clear`'):
+            await client.query('[range(10)][0].clear();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `clear` takes 0 arguments but 1 was given'):
+            await client.query('.arr.clear(0);')
+
+        self.assertEqual(
+            await client.query(r'[.arr.len(), .arr.clear(), .arr.len()]'),
+            [10, None, 0])
+
+        self.assertEqual(
+            await client.query(r"""//ti
+                x = {};
+                x.x = x;
+                arr = [x, x, x.x];
+                x = nil;
+                arr.clear();
+                arr;
+            """), [])
+
+    async def test_clear_thing(self, client):
+        await client.query(r"""//ti
+            .t = {a: "A", b: "B"};
+            .d = {};
+            .d["some key"] = 'SOME KEY';
+            .d["other key"] = 'OTHER KEY';
+        """)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `T` has no property or method `clear`'):
+            await client.query('new_type("T"); T{}.clear();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `clear` takes 0 arguments but 1 was given'):
+            await client.query('.t.clear(0);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `clear` takes 0 arguments but 1 was given'):
+            await client.query('.d.clear(0);')
+
+        self.assertEqual(
+            await client.query(r'[.t.len(), .t.clear(), .t.len()]'),
+            [2, None, 0])
+
+        self.assertEqual(
+            await client.query(r'[.d.len(), .d.clear(), .d.len()]'),
+            [2, None, 0])
+
+        self.assertEqual(
+            await client.query(r"""//ti
+                x = {};
+                x.x = x;
+                thing = {x: x};
+                x = nil;
+                thing.clear();
+                thing;
+            """), {})
+
     async def test_list(self, client):
         with self.assertRaisesRegex(
                 LookupError,
@@ -290,13 +387,14 @@ class TestCollectionFunctions(TestBase):
                 'assert_err(blob);',
                 blob=pickle.dumps({}))
 
+        err = await client.query('assert_err().code();')
+        self.assertEqual(err, Err.EX_ASSERT_ERROR)
+
         err = await client.query('assert_err();')
-        self.assertEqual(err['error_code'], Err.EX_ASSERT_ERROR)
-        self.assertEqual(err['error_msg'], "assertion statement has failed")
+        self.assertEqual(err, "assertion statement has failed")
 
         err = await client.query('assert_err("my custom error msg");')
-        self.assertEqual(err['error_code'], Err.EX_ASSERT_ERROR)
-        self.assertEqual(err['error_msg'], "my custom error msg")
+        self.assertEqual(err, "my custom error msg")
 
     async def test_auth_err(self, client):
         with self.assertRaisesRegex(
@@ -319,13 +417,14 @@ class TestCollectionFunctions(TestBase):
                 'auth_err(blob);',
                 blob=pickle.dumps({}))
 
+        err = await client.query('auth_err().code();')
+        self.assertEqual(err, Err.EX_AUTH_ERROR)
+
         err = await client.query('auth_err();')
-        self.assertEqual(err['error_code'], Err.EX_AUTH_ERROR)
-        self.assertEqual(err['error_msg'], "authentication error")
+        self.assertEqual(err, "authentication error")
 
         err = await client.query('auth_err("my custom error msg");')
-        self.assertEqual(err['error_code'], Err.EX_AUTH_ERROR)
-        self.assertEqual(err['error_msg'], "my custom error msg")
+        self.assertEqual(err, "my custom error msg")
 
     async def test_bad_data_err(self, client):
         with self.assertRaisesRegex(
@@ -348,15 +447,14 @@ class TestCollectionFunctions(TestBase):
                 'bad_data_err(blob);',
                 blob=pickle.dumps({}))
 
+        err = await client.query('bad_data_err().code();')
+        self.assertEqual(err, Err.EX_BAD_DATA)
+
         err = await client.query('bad_data_err();')
-        self.assertEqual(err['error_code'], Err.EX_BAD_DATA)
-        self.assertEqual(
-            err['error_msg'],
-            "unable to handle request due to invalid data")
+        self.assertEqual(err, "unable to handle request due to invalid data")
 
         err = await client.query('bad_data_err("my custom error msg");')
-        self.assertEqual(err['error_code'], Err.EX_BAD_DATA)
-        self.assertEqual(err['error_msg'], "my custom error msg")
+        self.assertEqual(err, "my custom error msg")
 
     async def test_base64_decode(self, client):
         with self.assertRaisesRegex(
@@ -451,29 +549,15 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(await client.query('bool(||nil);'))
 
     async def test_def(self, client):
-        with self.assertRaisesRegex(
-                LookupError,
-                'type `nil` has no function `def`'):
-            await client.query('nil.def();')
 
-        with self.assertRaisesRegex(
-                LookupError,
-                'function `def` is undefined'):
-            await client.query('def();')
-
-        with self.assertRaisesRegex(
-                NumArgumentsError,
-                'function `def` takes 0 arguments but 1 was given'):
-            await client.query('(||nil).def(1);')
-
-        self.assertEqual(await client.query('(||{nil}).def();'), r'''
+        self.assertEqual(await client.query('str(||{nil});'), r'''
 || {
     nil;
 }
 '''.strip())
 
         self.assertEqual(await client.query(r'''
-            (|| range(10)[0:9:2]).def();
+            str(|| range(10)[0:9:2]);
         '''), "|| range(10)[0:9:2]")
 
     async def test_code(self, client):
@@ -531,21 +615,23 @@ class TestCollectionFunctions(TestBase):
                 'function `call` is undefined'):
             await client.query('call();')
 
+        await client.query(r'''
+            .test = |x| .x = x;
+        ''')
+
         with self.assertRaisesRegex(
                 OperationError,
-                r'stored closures with side effects must be wrapped '
-                r'using `wse\(...\)`'):
+                r'closures with side effects require a change but none is '
+                r'created; use `wse\(...\)` to enforce a change;'):
             await client.query(r'''
-                .test = |x| .x = x;
                 .test.call(42);
             ''')
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'stored closures with side effects must be wrapped '
-                r'using `wse\(...\)`'):
+                r'closures with side effects require a change but none is '
+                r'created; use `wse\(...\)` to enforce a change;'):
             await client.query(r'''
-                .test = |x| .x = x;
                 .test(42);
             ''')
 
@@ -619,19 +705,19 @@ class TestCollectionFunctions(TestBase):
             deep();
         '''), 2)
 
-    async def test_event_id(self, client):
+    async def test_change_id(self, client):
         with self.assertRaisesRegex(
                 LookupError,
-                'type `nil` has no function `event_id`'):
-            await client.query('nil.event_id();')
+                'type `nil` has no function `change_id`'):
+            await client.query('nil.change_id();')
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `event_id` takes 0 arguments but 1 was given'):
-            await client.query('event_id(nil);')
+                'function `change_id` takes 0 arguments but 1 was given'):
+            await client.query('change_id(nil);')
 
-        self.assertIs(await client.query('event_id();'), None)
-        self.assertIsInstance(await client.query('wse(event_id());'), int)
+        self.assertIs(await client.query('change_id();'), None)
+        self.assertIsInstance(await client.query('wse(change_id());'), int)
 
     async def test_del(self, client):
         await client.query(r'.greet = "Hello world";')
@@ -753,52 +839,51 @@ class TestCollectionFunctions(TestBase):
             """)
 
     async def test_emit(self, client):
-        await client.query(r'.greet = "Hello world";')
+        await client.query(r'.chat = room();')
 
         with self.assertRaisesRegex(
                 LookupError,
                 'type `str` has no function `emit`'):
-            await client.query('.greet.emit("x");')
+            await client.query('"test".emit("x");')
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
                 'function `emit` requires at least 1 argument '
                 'but 0 were given'):
-            await client.query('.emit();')
+            await client.query('.chat.emit();')
 
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `emit` expects the `event` argument to be of '
                 r'type `str` but got type `nil` instead'):
-            await client.query('.emit(nil);')
+            await client.query('.chat.emit(nil);')
 
         with self.assertRaisesRegex(
                 ValueError,
                 r'expecting a `deep` value between 0 and 127 '
                 r'but got 200 instead'):
-            await client.query('.emit(200, "a");')
+            await client.query('.chat.emit(200, "a");')
 
         with self.assertRaisesRegex(
                 ValueError,
                 r'expecting a `deep` value between 0 and 127 '
                 r'but got -2 instead'):
-            await client.query('.emit(-2, "a");')
+            await client.query('.chat.emit(-2, "a");')
 
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `emit` expects the `event` argument to be of '
                 r'type `str` but got type `nil` instead'):
-            await client.query('.emit(nil);')
+            await client.query('.chat.emit(nil);')
 
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `emit` expects the `event` argument to be of '
                 r'type `str` but got type `int` instead'):
-            await client.query('.emit(0, 1);')
+            await client.query('.chat.emit(0, 1);')
 
-        self.assertIs(await client.query(r'.emit("greet");'), None)
-        await client.query(r'.bob = {};')
-        await client.query(r'.bob.emit("msg", .del("bob"));')
+        self.assertIs(await client.query(r'.chat.emit("greet");'), None)
+        await client.query(r'.chat.emit("msg", .del("chat"));')
 
     async def test_doc(self, client):
         with self.assertRaisesRegex(
@@ -1134,13 +1219,14 @@ class TestCollectionFunctions(TestBase):
                 'forbidden_err(blob);',
                 blob=pickle.dumps({}))
 
+        err = await client.query('forbidden_err().code();')
+        self.assertEqual(err, Err.EX_FORBIDDEN)
+
         err = await client.query('forbidden_err();')
-        self.assertEqual(err['error_code'], Err.EX_FORBIDDEN)
-        self.assertEqual(err['error_msg'], "forbidden (access denied)")
+        self.assertEqual(err, "forbidden (access denied)")
 
         err = await client.query('forbidden_err("my custom error msg");')
-        self.assertEqual(err['error_code'], Err.EX_FORBIDDEN)
-        self.assertEqual(err['error_msg'], "my custom error msg")
+        self.assertEqual(err, "my custom error msg")
 
     async def test_get(self, client):
         await client.query(r'.iris = {name: "Iris"};')
@@ -1576,13 +1662,14 @@ class TestCollectionFunctions(TestBase):
                 'lookup_err(blob);',
                 blob=pickle.dumps({}))
 
+        err = await client.query('lookup_err().code();')
+        self.assertEqual(err, Err.EX_LOOKUP_ERROR)
+
         err = await client.query('lookup_err();')
-        self.assertEqual(err['error_code'], Err.EX_LOOKUP_ERROR)
-        self.assertEqual(err['error_msg'], "requested resource not found")
+        self.assertEqual(err, "requested resource not found")
 
         err = await client.query('lookup_err("my custom error msg");')
-        self.assertEqual(err['error_code'], Err.EX_LOOKUP_ERROR)
-        self.assertEqual(err['error_msg'], "my custom error msg")
+        self.assertEqual(err, "my custom error msg")
 
     async def test_if(self, client):
         with self.assertRaisesRegex(
@@ -2237,13 +2324,14 @@ class TestCollectionFunctions(TestBase):
                 'max_quota_err(blob);',
                 blob=pickle.dumps({}))
 
+        err = await client.query('max_quota_err().code();')
+        self.assertEqual(err, Err.EX_MAX_QUOTA)
+
         err = await client.query('max_quota_err();')
-        self.assertEqual(err['error_code'], Err.EX_MAX_QUOTA)
-        self.assertEqual(err['error_msg'], "max quota is reached")
+        self.assertEqual(err, "max quota is reached")
 
         err = await client.query('max_quota_err("my custom error msg");')
-        self.assertEqual(err['error_code'], Err.EX_MAX_QUOTA)
-        self.assertEqual(err['error_msg'], "my custom error msg")
+        self.assertEqual(err, "my custom error msg")
 
     async def test_node_err(self, client):
         with self.assertRaisesRegex(
@@ -2266,15 +2354,14 @@ class TestCollectionFunctions(TestBase):
                 'node_err(blob);',
                 blob=pickle.dumps({}))
 
+        err = await client.query('node_err().code();')
+        self.assertEqual(err, Err.EX_NODE_ERROR)
+
         err = await client.query('node_err();')
-        self.assertEqual(err['error_code'], Err.EX_NODE_ERROR)
-        self.assertEqual(
-            err['error_msg'],
-            "node is temporary unable to handle the request")
+        self.assertEqual(err, "node is temporary unable to handle the request")
 
         err = await client.query('node_err("my custom error msg");')
-        self.assertEqual(err['error_code'], Err.EX_NODE_ERROR)
-        self.assertEqual(err['error_msg'], "my custom error msg")
+        self.assertEqual(err, "my custom error msg")
 
     async def test_now(self, client):
         with self.assertRaisesRegex(
@@ -2308,13 +2395,14 @@ class TestCollectionFunctions(TestBase):
                 'overflow_err(blob);',
                 blob=pickle.dumps({}))
 
+        err = await client.query('overflow_err().code();')
+        self.assertEqual(err, Err.EX_OVERFLOW)
+
         err = await client.query('overflow_err();')
-        self.assertEqual(err['error_code'], Err.EX_OVERFLOW)
-        self.assertEqual(err['error_msg'], "integer overflow")
+        self.assertEqual(err, "integer overflow")
 
         err = await client.query('overflow_err("my custom error msg");')
-        self.assertEqual(err['error_code'], Err.EX_OVERFLOW)
-        self.assertEqual(err['error_msg'], "my custom error msg")
+        self.assertEqual(err, "my custom error msg")
 
     async def test_is_unique(self, client):
         with self.assertRaisesRegex(
@@ -2780,14 +2868,21 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('x = "Test RefCount"; refs(x)'), 3)
 
     async def test_remove_list(self, client):
+        q = client.query
         await client.query('.list = [1, 2, 3];')
-        self.assertEqual(await client.query('.list.remove(|x|(x>1));'), 2)
-        self.assertEqual(await client.query('.list.remove(|x|(x>1));'), 3)
-        self.assertEqual(await client.query('.list;'), [1])
-        self.assertIs(await client.query('.list.remove(||false);'), None)
-        self.assertEqual(await client.query('.list.remove(||false, "");'), '')
-        self.assertIs(await client.query('[].remove(||true);'), None)
-        self.assertEqual(await client.query('["pi"].remove(||true);'), 'pi')
+        self.assertEqual(await q('.list.remove(|x|(x>1));'), [2, 3])
+        self.assertEqual(await q('.list;'), [1])
+        self.assertEqual(await q('.list.remove(||false);'), [])
+        self.assertEqual(await q('[].remove(||true);'), [])
+        self.assertEqual(await q('["pi"].remove(||true);'), ['pi'])
+
+        self.assertEqual(await q('range(6).remove(|x|x%2, 0);'), [])
+        self.assertEqual(await q('range(6).remove(|x|x%2, -1);'), [5])
+        self.assertEqual(await q('range(6).remove(|x|x%2, -2);'), [3, 5])
+        self.assertEqual(await q('range(6).remove(|x|x%2, -99);'), [1, 3, 5])
+        self.assertEqual(await q('range(6).remove(|x|x%2, 1);'), [1])
+        self.assertEqual(await q('range(6).remove(|x|x%2, 2);'), [1, 3])
+        self.assertEqual(await q('range(6).remove(|x|x%2, 99);'), [1, 3, 5])
 
         with self.assertRaisesRegex(
                 LookupError,
@@ -2809,7 +2904,7 @@ class TestCollectionFunctions(TestBase):
                 NumArgumentsError,
                 'function `remove` takes at most 2 arguments '
                 'but 3 were given'):
-            await client.query('.list.remove(||true, 2, 3);')
+            await client.query('.list.remove(||nil, 0, 0);')
 
         with self.assertRaisesRegex(
                 OperationError,
@@ -2821,6 +2916,12 @@ class TestCollectionFunctions(TestBase):
                 'function `remove` expects argument 1 to be of type `closure` '
                 'but got type `nil` instead'):
             await client.query('.list.remove(nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `remove` expects argument 2 to be of type `int` '
+                'but got type `nil` instead'):
+            await client.query('.list.remove(||nil, nil);')
 
     async def test_remove_set(self, client):
         await client.query(r'''
@@ -3314,11 +3415,6 @@ class TestCollectionFunctions(TestBase):
                 'cannot convert type `thing` to `str`'):
             await client.query('str({});')
 
-        with self.assertRaisesRegex(
-                TypeError,
-                'cannot convert type `closure` to `str`'):
-            await client.query('str(||nil);')
-
     async def test_syntax_err(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
@@ -3340,13 +3436,14 @@ class TestCollectionFunctions(TestBase):
                 'syntax_err(blob);',
                 blob=pickle.dumps({}))
 
+        err = await client.query('syntax_err().code();')
+        self.assertEqual(err, Err.EX_SYNTAX_ERROR)
+
         err = await client.query('syntax_err();')
-        self.assertEqual(err['error_code'], Err.EX_SYNTAX_ERROR)
-        self.assertEqual(err['error_msg'], "syntax error in query")
+        self.assertEqual(err, "syntax error in query")
 
         err = await client.query('syntax_err("my custom error msg");')
-        self.assertEqual(err['error_code'], Err.EX_SYNTAX_ERROR)
-        self.assertEqual(err['error_msg'], "my custom error msg")
+        self.assertEqual(err, "my custom error msg")
 
     async def test_test(self, client):
         with self.assertRaisesRegex(
@@ -3903,50 +4000,6 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query(r'{a:1}.values();'), [1])
         self.assertEqual(await client.query(r'{a:1, b:2}.values();'), [1, 2])
 
-    async def test_watch(self, client):
-        with self.assertRaisesRegex(
-                LookupError,
-                'type `nil` has no function `watch`'):
-            await client.query('nil.watch();')
-
-        with self.assertRaisesRegex(
-                LookupError,
-                'function `watch` is undefined'):
-            await client.query('watch();')
-
-        with self.assertRaisesRegex(
-                NumArgumentsError,
-                'function `watch` takes 0 arguments but 1 was given'):
-            await client.query('.watch(nil);')
-
-        with self.assertRaisesRegex(
-                ValueError,
-                'thing has no `#ID`; '
-                'if you really want to watch this `thing` then you need to '
-                'assign it to a collection;'):
-            await client.query('{}.watch();')
-
-        self.assertIs(await client.query(r'.watch();'), None)
-
-    async def test_unwatch(self, client):
-        with self.assertRaisesRegex(
-                LookupError,
-                'type `nil` has no function `unwatch`'):
-            await client.query('nil.unwatch();')
-
-        with self.assertRaisesRegex(
-                LookupError,
-                'function `unwatch` is undefined'):
-            await client.query('unwatch();')
-
-        with self.assertRaisesRegex(
-                NumArgumentsError,
-                'function `unwatch` takes 0 arguments but 1 was given'):
-            await client.query('.unwatch(nil);')
-
-        self.assertIs(await client.query(r'{}.unwatch();'), None)
-        self.assertIs(await client.query(r'.unwatch();'), None)
-
     async def test_wse(self, client):
         with self.assertRaisesRegex(
                 LookupError,
@@ -3989,13 +4042,14 @@ class TestCollectionFunctions(TestBase):
                 'zero_div_err(blob);',
                 blob=pickle.dumps({}))
 
+        err = await client.query('zero_div_err().code();')
+        self.assertEqual(err, Err.EX_ZERO_DIV)
+
         err = await client.query('zero_div_err();')
-        self.assertEqual(err['error_code'], Err.EX_ZERO_DIV)
-        self.assertEqual(err['error_msg'], "division or module by zero")
+        self.assertEqual(err, "division or module by zero")
 
         err = await client.query('zero_div_err("my custom error msg");')
-        self.assertEqual(err['error_code'], Err.EX_ZERO_DIV)
-        self.assertEqual(err['error_msg'], "my custom error msg")
+        self.assertEqual(err, "my custom error msg")
 
     async def test_cancelled_err(self, client):
         with self.assertRaisesRegex(
@@ -4018,15 +4072,14 @@ class TestCollectionFunctions(TestBase):
                 'cancelled_err(blob);',
                 blob=pickle.dumps({}))
 
+        err = await client.query('cancelled_err().code();')
+        self.assertEqual(err, Err.EX_CANCELLED)
+
         err = await client.query('cancelled_err();')
-        self.assertEqual(err['error_code'], Err.EX_CANCELLED)
-        self.assertEqual(
-            err['error_msg'],
-            "operation is cancelled before completion")
+        self.assertEqual(err, "operation is cancelled before completion")
 
         err = await client.query('cancelled_err("my custom error msg");')
-        self.assertEqual(err['error_code'], Err.EX_CANCELLED)
-        self.assertEqual(err['error_msg'], "my custom error msg")
+        self.assertEqual(err, "my custom error msg")
 
     async def test_value_err(self, client):
         with self.assertRaisesRegex(
@@ -4049,15 +4102,16 @@ class TestCollectionFunctions(TestBase):
                 'value_err(blob);',
                 blob=pickle.dumps({}))
 
+        err = await client.query('value_err().code();')
+        self.assertEqual(err, Err.EX_VALUE_ERROR)
+
         err = await client.query('value_err();')
-        self.assertEqual(err['error_code'], Err.EX_VALUE_ERROR)
         self.assertEqual(
-            err['error_msg'],
+            err,
             "object has the right type but an inappropriate value")
 
         err = await client.query('value_err("my custom error msg");')
-        self.assertEqual(err['error_code'], Err.EX_VALUE_ERROR)
-        self.assertEqual(err['error_msg'], "my custom error msg")
+        self.assertEqual(err, "my custom error msg")
 
     async def test_type_err(self, client):
         with self.assertRaisesRegex(
@@ -4080,13 +4134,14 @@ class TestCollectionFunctions(TestBase):
                 'type_err(blob);',
                 blob=pickle.dumps({}))
 
+        err = await client.query('type_err().code();')
+        self.assertEqual(err, Err.EX_TYPE_ERROR)
+
         err = await client.query('type_err();')
-        self.assertEqual(err['error_code'], Err.EX_TYPE_ERROR)
-        self.assertEqual(err['error_msg'], "object of inappropriate type")
+        self.assertEqual(err, "object of inappropriate type")
 
         err = await client.query('type_err("my custom error msg");')
-        self.assertEqual(err['error_code'], Err.EX_TYPE_ERROR)
-        self.assertEqual(err['error_msg'], "my custom error msg")
+        self.assertEqual(err, "my custom error msg")
 
     async def test_num_arguments_err(self, client):
         with self.assertRaisesRegex(
@@ -4109,13 +4164,14 @@ class TestCollectionFunctions(TestBase):
                 'num_arguments_err(blob);',
                 blob=pickle.dumps({}))
 
+        err = await client.query('num_arguments_err().code();')
+        self.assertEqual(err, Err.EX_NUM_ARGUMENTS)
+
         err = await client.query('num_arguments_err();')
-        self.assertEqual(err['error_code'], Err.EX_NUM_ARGUMENTS)
-        self.assertEqual(err['error_msg'], "wrong number of arguments")
+        self.assertEqual(err, "wrong number of arguments")
 
         err = await client.query('num_arguments_err("my custom error msg");')
-        self.assertEqual(err['error_code'], Err.EX_NUM_ARGUMENTS)
-        self.assertEqual(err['error_msg'], "my custom error msg")
+        self.assertEqual(err, "my custom error msg")
 
     async def test_operation_err(self, client):
         with self.assertRaisesRegex(
@@ -4138,15 +4194,14 @@ class TestCollectionFunctions(TestBase):
                 'operation_err(blob);',
                 blob=pickle.dumps({}))
 
+        err = await client.query('operation_err().code();')
+        self.assertEqual(err, Err.EX_OPERATION_ERROR)
+
         err = await client.query('operation_err();')
-        self.assertEqual(err['error_code'], Err.EX_OPERATION_ERROR)
-        self.assertEqual(
-            err['error_msg'],
-            "operation is not valid in the current context")
+        self.assertEqual(err, "operation is not valid in the current context")
 
         err = await client.query('operation_err("my custom error msg");')
-        self.assertEqual(err['error_code'], Err.EX_OPERATION_ERROR)
-        self.assertEqual(err['error_msg'], "my custom error msg")
+        self.assertEqual(err, "my custom error msg")
 
     async def test_copy(self, client):
         with self.assertRaisesRegex(
@@ -4376,20 +4431,16 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'conversion failed; type `B` has no property `other key`'):
+                r'conversion failed; type `B` has no property `other key` '
+                r'but the thing you are trying to convert has'):
             await client.query('.name = "Test"; .to_type("B");')
-
-        with self.assertRaisesRegex(
-                TypeError,
-                r'conversion failed; property `a` is missing'):
-            await client.query('.del("other key"); .to_type("B");')
 
         with self.assertRaisesRegex(
                 OperationError,
                 r'conversion failed; property `aa` is being used'):
             await client.query('.aa.map(|| .to_type("B"));')
 
-        res = await client.query('.a = A{}; .to_type("B");')
+        res = await client.query('.del("other key"); .to_type("B");')
         self.assertIs(res, None)
 
         res = await client.query('.a.id();')
@@ -4419,7 +4470,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'conversion failed; property `b` on type `AA` has a relation '
-                r'and can therefore not be converted'):
+                r'and can therefore not be used as a type to convert to'):
             await client.query(r"""//ti)
                 x = {b: BB{}};
                 x.to_type('AA');

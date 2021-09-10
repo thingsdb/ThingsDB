@@ -19,7 +19,7 @@ static int do__f_del_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     collection_id = collection->root->id;
 
-    task = ti_task_get_task(query->ev, ti.thing0);
+    task = ti_task_get_task(query->change, ti.thing0);
     if (!task || ti_task_add_del_collection(task, collection_id))
         ex_set_mem(e);  /* task cleanup is not required */
     else

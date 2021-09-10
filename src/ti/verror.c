@@ -9,8 +9,6 @@
 #define VERROR__MAX_MSG_SZ 56
 #define VERROR__CACHE_SZ ((-EX_MIN_ERR) + 1)
 
-static char verror__type_buf[14];  /* err(-000)  */
-
 typedef struct verror__s
 {
     uint32_t ref;
@@ -247,29 +245,4 @@ int ti_verror_check_msg(const char * msg, size_t n, ex_t * e)
         ex_set(e, EX_VALUE_ERROR,
                 "error messages must have valid UTF8 encoding");
     return e->nr;
-}
-
-const char * ti_verror_type_str(ti_verror_t * verror)
-{
-    switch (verror->code)
-    {
-    case EX_CANCELLED: return "cancelled_err()";
-    case EX_OPERATION: return "operation_err()";
-    case EX_NUM_ARGUMENTS: return "num_arguments_err()";
-    case EX_TYPE_ERROR: return "type_err()";
-    case EX_VALUE_ERROR: return "value_err()";
-    case EX_OVERFLOW: return "overflow_err()";
-    case EX_ZERO_DIV: return "zero_div_err()";
-    case EX_MAX_QUOTA: return "max_quota_err()";
-    case EX_AUTH_ERROR: return "auth_err()";
-    case EX_FORBIDDEN: return "forbidden_err()";
-    case EX_LOOKUP_ERROR: return "lookup_err()";
-    case EX_BAD_DATA: return "bad_data_err()";
-    case EX_SYNTAX_ERROR: return "syntax_err()";
-    case EX_NODE_ERROR: return "node_err()";
-    case EX_ASSERT_ERROR: return "assert_err()";
-    default:
-        (void) sprintf(verror__type_buf, "err(%d)", verror->code);
-        return verror__type_buf;
-    }
 }

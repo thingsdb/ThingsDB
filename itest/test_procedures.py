@@ -108,17 +108,9 @@ class TestProcedures(TestBase):
         )
 
         with self.assertRaisesRegex(
-                LookupError,
-                r'thing `#42` not found; if you want to create a new thing '
-                r'then remove the id \(`#`\) and try again '
-                r'\(argument 0 for procedure `upd_list`\)'):
+                ValueError,
+                r'property `#` is reserved'):
             await client0.run('upd_list', {"#": 42})
-
-        with self.assertRaisesRegex(
-                TypeError,
-                r'sets can only contain things '
-                r'\(argument 0 for procedure `upd_list`\)'):
-            await client0.run('upd_list', {"$": [1, 2, 3]})
 
         # add another node for query validation
         await self.node1.join_until_ready(client0)
@@ -142,8 +134,8 @@ class TestProcedures(TestBase):
         for client in (client0, client1, client2):
             with self.assertRaisesRegex(
                     OperationError,
-                    r'stored closures with side effects must be wrapped '
-                    r'using `wse\(...\)`'):
+                    r'closures with side effects require a change but none is '
+                    r'created; use `wse\(...\)` to enforce a change;'):
                 await client.run('missing_wse', 1)
 
         for client in (client0, client1, client2):
@@ -270,7 +262,7 @@ class TestProcedures(TestBase):
         for client in (client0, client1, client2, client3, client4):
             counters = await client.query('counters();', scope='@node')
             self.assertEqual(counters['garbage_collected'], 0)
-            self.assertEqual(counters['events_failed'], 0)
+            self.assertEqual(counters['changes_failed'], 0)
 
             client.close()
             await client.wait_closed()
@@ -607,8 +599,8 @@ class TestProcedures(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'stored closures with side effects must be wrapped '
-                r'using `wse\(...\)`'):
+                r'closures with side effects require a change but none is '
+                r'created; use `wse\(...\)` to enforce a change;'):
             await client.query(r'''
                 run('test_wse', 42)
             ''')
@@ -633,7 +625,7 @@ class TestProcedures(TestBase):
         await client.run('test_save_thing', {'name': 'Iris', 'age': 6})
         await client.run('as_named_args', {'name': 'Cato'})
 
-        iris = await client.query('.t')
+        iris = await client.query('.t.copy()')
 
         self.assertEqual(iris['name'], 'Iris')
         self.assertEqual(iris['age'], 6)
@@ -641,7 +633,7 @@ class TestProcedures(TestBase):
 
         await client.run('test_another_thing', iris)
 
-        self.assertTrue(await client.query('(.other == .t)'))
+        self.assertTrue(await client.query('.other.equals(.t);'))
 
 
 if __name__ == '__main__':

@@ -90,12 +90,12 @@ void ti_stream_close(ti_stream_t * stream)
     ti_stream_drop(stream);
 }
 
-void ti_stream_stop_watching(ti_stream_t * stream)
+void ti_stream_stop_listeners(ti_stream_t * stream)
 {
-    if (!stream || !stream->watching)
+    if (!stream || !stream->listeners)
         return;
-    vec_destroy(stream->watching, (vec_destroy_cb) ti_watch_drop);
-    stream->watching = NULL;
+    vec_destroy(stream->listeners, (vec_destroy_cb) ti_watch_drop);
+    stream->listeners = NULL;
 }
 
 void ti_stream_set_node(ti_stream_t * stream, ti_node_t * node)
@@ -383,7 +383,7 @@ static void stream__close_cb(uv_handle_t * uvstream)
         ti_user_drop(stream->via.user);
         break;
     }
-    ti_stream_stop_watching(stream);
+    ti_stream_stop_listeners(stream);
     free(stream->buf);
     free(stream->name_);
     free(uvstream);

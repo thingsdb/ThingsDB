@@ -16,6 +16,8 @@ C_SRCS += \
 ../src/ti/backups.c \
 ../src/ti/build.c \
 ../src/ti/cfg.c \
+../src/ti/change.c \
+../src/ti/changes.c \
 ../src/ti/clients.c \
 ../src/ti/closure.c \
 ../src/ti/collection.c \
@@ -23,15 +25,14 @@ C_SRCS += \
 ../src/ti/condition.c \
 ../src/ti/connect.c \
 ../src/ti/counters.c \
+../src/ti/cpkg.c \
+../src/ti/ctask.c \
 ../src/ti/data.c \
 ../src/ti/datetime.c \
 ../src/ti/do.c \
 ../src/ti/enum.c \
 ../src/ti/enums.c \
-../src/ti/epkg.c \
 ../src/ti/evars.c \
-../src/ti/event.c \
-../src/ti/events.c \
 ../src/ti/export.c \
 ../src/ti/field.c \
 ../src/ti/fmt.c \
@@ -41,7 +42,6 @@ C_SRCS += \
 ../src/ti/gc.c \
 ../src/ti/index.c \
 ../src/ti/item.c \
-../src/ti/job.c \
 ../src/ti/mapping.c \
 ../src/ti/member.c \
 ../src/ti/method.c \
@@ -70,7 +70,8 @@ C_SRCS += \
 ../src/ti/regex.c \
 ../src/ti/req.c \
 ../src/ti/restore.c \
-../src/ti/rjob.c \
+../src/ti/room.c \
+../src/ti/rooms.c \
 ../src/ti/rpkg.c \
 ../src/ti/scope.c \
 ../src/ti/signals.c \
@@ -90,6 +91,7 @@ C_SRCS += \
 ../src/ti/timer.c \
 ../src/ti/timers.c \
 ../src/ti/token.c \
+../src/ti/ttask.c \
 ../src/ti/type.c \
 ../src/ti/types.c \
 ../src/ti/tz.c \
@@ -103,7 +105,6 @@ C_SRCS += \
 ../src/ti/vfloat.c \
 ../src/ti/vint.c \
 ../src/ti/vset.c \
-../src/ti/wareq.c \
 ../src/ti/watch.c \
 ../src/ti/web.c \
 ../src/ti/wrap.c \
@@ -122,6 +123,8 @@ OBJS += \
 ./src/ti/backups.o \
 ./src/ti/build.o \
 ./src/ti/cfg.o \
+./src/ti/change.o \
+./src/ti/changes.o \
 ./src/ti/clients.o \
 ./src/ti/closure.o \
 ./src/ti/collection.o \
@@ -129,15 +132,14 @@ OBJS += \
 ./src/ti/condition.o \
 ./src/ti/connect.o \
 ./src/ti/counters.o \
+./src/ti/cpkg.o \
+./src/ti/ctask.o \
 ./src/ti/data.o \
 ./src/ti/datetime.o \
 ./src/ti/do.o \
 ./src/ti/enum.o \
 ./src/ti/enums.o \
-./src/ti/epkg.o \
 ./src/ti/evars.o \
-./src/ti/event.o \
-./src/ti/events.o \
 ./src/ti/export.o \
 ./src/ti/field.o \
 ./src/ti/fmt.o \
@@ -147,7 +149,6 @@ OBJS += \
 ./src/ti/gc.o \
 ./src/ti/index.o \
 ./src/ti/item.o \
-./src/ti/job.o \
 ./src/ti/mapping.o \
 ./src/ti/member.o \
 ./src/ti/method.o \
@@ -176,7 +177,8 @@ OBJS += \
 ./src/ti/regex.o \
 ./src/ti/req.o \
 ./src/ti/restore.o \
-./src/ti/rjob.o \
+./src/ti/room.o \
+./src/ti/rooms.o \
 ./src/ti/rpkg.o \
 ./src/ti/scope.o \
 ./src/ti/signals.o \
@@ -196,6 +198,7 @@ OBJS += \
 ./src/ti/timer.o \
 ./src/ti/timers.o \
 ./src/ti/token.o \
+./src/ti/ttask.o \
 ./src/ti/type.o \
 ./src/ti/types.o \
 ./src/ti/tz.o \
@@ -209,7 +212,6 @@ OBJS += \
 ./src/ti/vfloat.o \
 ./src/ti/vint.o \
 ./src/ti/vset.o \
-./src/ti/wareq.o \
 ./src/ti/watch.o \
 ./src/ti/web.o \
 ./src/ti/wrap.o \
@@ -228,6 +230,8 @@ C_DEPS += \
 ./src/ti/backups.d \
 ./src/ti/build.d \
 ./src/ti/cfg.d \
+./src/ti/change.d \
+./src/ti/changes.d \
 ./src/ti/clients.d \
 ./src/ti/closure.d \
 ./src/ti/collection.d \
@@ -235,15 +239,14 @@ C_DEPS += \
 ./src/ti/condition.d \
 ./src/ti/connect.d \
 ./src/ti/counters.d \
+./src/ti/cpkg.d \
+./src/ti/ctask.d \
 ./src/ti/data.d \
 ./src/ti/datetime.d \
 ./src/ti/do.d \
 ./src/ti/enum.d \
 ./src/ti/enums.d \
-./src/ti/epkg.d \
 ./src/ti/evars.d \
-./src/ti/event.d \
-./src/ti/events.d \
 ./src/ti/export.d \
 ./src/ti/field.d \
 ./src/ti/fmt.d \
@@ -253,7 +256,6 @@ C_DEPS += \
 ./src/ti/gc.d \
 ./src/ti/index.d \
 ./src/ti/item.d \
-./src/ti/job.d \
 ./src/ti/mapping.d \
 ./src/ti/member.d \
 ./src/ti/method.d \
@@ -282,7 +284,8 @@ C_DEPS += \
 ./src/ti/regex.d \
 ./src/ti/req.d \
 ./src/ti/restore.d \
-./src/ti/rjob.d \
+./src/ti/room.d \
+./src/ti/rooms.d \
 ./src/ti/rpkg.d \
 ./src/ti/scope.d \
 ./src/ti/signals.d \
@@ -302,6 +305,7 @@ C_DEPS += \
 ./src/ti/timer.d \
 ./src/ti/timers.d \
 ./src/ti/token.d \
+./src/ti/ttask.d \
 ./src/ti/type.d \
 ./src/ti/types.d \
 ./src/ti/tz.d \
@@ -315,7 +319,6 @@ C_DEPS += \
 ./src/ti/vfloat.d \
 ./src/ti/vint.d \
 ./src/ti/vset.d \
-./src/ti/wareq.d \
 ./src/ti/watch.d \
 ./src/ti/web.d \
 ./src/ti/wrap.d \

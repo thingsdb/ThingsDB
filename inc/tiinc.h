@@ -13,7 +13,7 @@
 /* HTTP API port binding, 0=disabled, 1-65535=enabled */
 #define TI_DEFAULT_HTTP_API_PORT 0
 
-/* Incremental events are stored until this threshold is reached */
+/* Incremental changes are stored until this threshold is reached */
 #define TI_DEFAULT_THRESHOLD_FULL_STORAGE 1000UL
 
 /* Raise an error when packing a thing and this limit (20MiB) is reached */
@@ -26,12 +26,14 @@
 #define TI_DEFAULT_CACHE_EXPIRATION_TIME 900UL
 
 #define TI_COLLECTION_ID "`collection:%"PRIu64"`"
-#define TI_TIMER_ID "`timer:%"PRIu64"`"
-#define TI_EVENT_ID "`event:%"PRIu64"`"
+#define TI_CHANGE_ID "`change:%"PRIu64"`"
 #define TI_NODE_ID "`node:%"PRIu32"`"
+#define TI_ROOM_ID "`room:%"PRIu64"`"
 #define TI_THING_ID "`#%"PRIu64"`"
+#define TI_TIMER_ID "`timer:%"PRIu64"`"
 #define TI_USER_ID "`user:%"PRIu64"`"
-#define TI_QBIND "syntax v%u"
+
+#define TI_SYNTAX "syntax v%u"
 
 /* Max token expiration time */
 #define TI_MAX_EXPIRATION_DOUBLE 4294967295.0
@@ -42,6 +44,9 @@
 
 /* Maximum number of timers per scope (just some arbitrary value) */
 #define TI_MAX_TIMER_COUNT 200U
+
+/* maximum value we allow for the `deep` argument */
+#define TI_MAX_DEEP_HINT 0x7f
 
 /*
  * File name schema to check version info on created files.
@@ -99,11 +104,6 @@ enum
     TI_FLAG_LOCKED          =1<<1,
     TI_FLAG_NODES_CHANGED   =1<<2,
 };
-
-typedef enum
-{
-    TI_STR_INFO
-} ti_ext_tp;
 
 static inline _Bool ti_is_reserved_key_strn(const char * str, size_t n)
 {

@@ -30,8 +30,8 @@ struct ti_store_s
     char * users_fn;
     char * modules_fn;
     size_t fn_offset;
-    vec_t * collection_ids;         /* stored collection id's, uint64_t */
-    uint64_t last_stored_event_id;  /* last event ID in full database store */
+    vec_t * collection_ids;             /* stored collection id's, uint64_t */
+    uint64_t last_stored_change_id;     /* last change Id in full database store */
 };
 
 #endif /* TI_STORE_H_ */

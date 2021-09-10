@@ -27,6 +27,7 @@ ti_varr_t * ti_timers_info(vec_t * timers, _Bool with_full_access);
 
 struct ti_timers_s
 {
+    _Bool is_stopping;
     _Bool is_started;
     uint32_t n_loops;       /* count number of loops */
     vec_t * timers;         /* ti_timer_t */

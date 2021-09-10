@@ -9,6 +9,7 @@
 #include <ti/thing.h>
 #include <ti/val.h>
 #include <ti/varr.h>
+#include <ti/varr.inline.h>
 
 /*
  * Some functions are available on different type. In this case we want to
@@ -136,5 +137,17 @@ static inline const char * doc_dup(ti_val_t * val)
     }
 }
 
+static inline const char * doc_clear(ti_val_t * val)
+{
+    switch ((ti_val_enum) val->tp)
+    {
+    case TI_VAL_THING:          return ti_thing_is_object((ti_thing_t *) val) ?
+                                        DOC_THING_CLEAR : NULL;
+    case TI_VAL_ARR:            return ti_varr_is_list((ti_varr_t *) val) ?
+                                        DOC_LIST_CLEAR : NULL;
+    case TI_VAL_SET:            return DOC_SET_CLEAR;
+    default:                    return NULL;
+    }
+}
 
 #endif  /* DOC_INLINE_H_ */

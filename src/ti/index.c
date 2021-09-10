@@ -259,7 +259,7 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
     if (varr->parent && varr->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, varr->parent);
+        ti_task_t * task = ti_task_get_task(query->change, varr->parent);
         if (!task || ti_task_add_splice(
                 task,
                 ti_varr_key(varr),
@@ -391,7 +391,7 @@ static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
     if (varr->parent && varr->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, varr->parent);
+        ti_task_t * task = ti_task_get_task(query->change, varr->parent);
         if (!task || ti_task_add_splice(
                 task,
                 ti_varr_key(varr),
@@ -460,10 +460,9 @@ static inline int index__t_upd_prop(
         ex_t * e)
 {
     ti_field_t * field;
-    ti_type_t * type = ti_thing_type(thing);
     ti_name_t * name = ti_names_weak_from_raw(rname);
 
-    if (name && (field = ti_field_by_name(type, name)))
+    if (name && (field = ti_field_by_name(thing->via.type, name)))
     {
         wprop->name = field->name;
         wprop->val = (ti_val_t **) vec_get_addr(thing->items.vec, field->idx);
@@ -546,7 +545,7 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 
     if (thing->id)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, thing);
+        ti_task_t * task = ti_task_get_task(query->change, thing);
         if (!task || ti_task_add_set(task, witem.key, *witem.val))
             ex_set_mem(e);
     }
@@ -624,6 +623,7 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_VAL_REGEX:
     case TI_VAL_SET:
     case TI_VAL_WRAP:
+    case TI_VAL_ROOM:
         if (do_slice)
             goto slice_error;
         goto index_error;

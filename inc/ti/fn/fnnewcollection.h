@@ -26,7 +26,7 @@ static int do__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!collection)
         goto finish;
 
-    task = ti_task_get_task(query->ev, ti.thing0);
+    task = ti_task_get_task(query->change, ti.thing0);
 
     if (!task || ti_task_add_new_collection(task, collection, query->user))
         ex_set_mem(e);

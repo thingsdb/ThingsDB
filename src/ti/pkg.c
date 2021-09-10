@@ -9,11 +9,7 @@
 #include <util/mpack.h>
 #include <util/logger.h>
 
-ti_pkg_t * ti_pkg_new(
-        uint16_t id,
-        uint8_t tp,
-        const unsigned char * data,
-        uint32_t n)
+ti_pkg_t * ti_pkg_new(uint16_t id, uint8_t tp, const void * data, uint32_t n)
 {
     ti_pkg_t * pkg = malloc(sizeof(ti_pkg_t) + n);
 

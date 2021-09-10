@@ -18,12 +18,13 @@
 #include <ti/names.h>
 #include <ti/procedure.h>
 #include <ti/raw.inline.h>
+#include <ti/room.h>
 #include <ti/thing.h>
-#include <ti/timer.inline.h>
-#include <ti/wrap.h>
 #include <ti/things.h>
+#include <ti/timer.inline.h>
 #include <ti/types.h>
 #include <ti/val.inline.h>
+#include <ti/wrap.h>
 #include <util/fx.h>
 #include <util/strx.h>
 
@@ -47,6 +48,7 @@ ti_collection_t * ti_collection_create(
     collection->root = NULL;
     collection->name = ti_str_create(name, n);
     collection->things = imap_create();
+    collection->rooms = imap_create();
     collection->gc = queue_new(20);
     collection->access = vec_new(1);
     collection->procedures = smap_create();
@@ -63,7 +65,7 @@ ti_collection_t * ti_collection_create(
     if (!collection->name || !collection->things || !collection->gc ||
         !collection->access || !collection->procedures || !collection->lock ||
         !collection->types || !collection->enums || !collection->futures ||
-        uv_mutex_init(collection->lock))
+        !collection->rooms || uv_mutex_init(collection->lock))
     {
         ti_collection_drop(collection);
         return NULL;
@@ -78,9 +80,11 @@ void ti_collection_destroy(ti_collection_t * collection)
         return;
 
     assert (collection->things->n == 0);
+    assert (collection->rooms->n == 0);
     assert (collection->gc->n == 0);
 
     imap_destroy(collection->things, NULL);
+    imap_destroy(collection->rooms, NULL);
     queue_destroy(collection->gc, NULL);
     ti_val_drop((ti_val_t *) collection->name);
     vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);
@@ -349,14 +353,14 @@ void ti_collection_gc_clear(ti_collection_t * collection)
 typedef struct
 {
     ti_collection_t * collection;
-    uint64_t cevid;
+    uint64_t ccid;
 } collection__gc_t;
 
 static int collection__gc_thing(ti_thing_t * thing, collection__gc_t * w)
 {
     if (thing->flags & TI_THING_FLAG_SWEEP)
     {
-        ti_gc_t * gc = ti_gc_create(w->cevid, thing);
+        ti_gc_t * gc = ti_gc_create(w->ccid, thing);
 
         /*
          * Things are removed from the collection after the walk because we
@@ -402,12 +406,12 @@ void ti_collection_stop_futures(ti_collection_t * collection)
 int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
 {
     size_t n = 0, m = 0, idx = 0;
-    uint64_t sevid = ti.global_stored_event_id;
+    uint64_t scid = ti.global_stored_change_id;
     struct timespec start, stop;
     double duration;
     collection__gc_t w = {
             .collection = collection,
-            .cevid = ti.node ? ti.node->cevid : 0,
+            .ccid = ti.node ? ti.node->ccid : 0,
     };
 
     (void) clock_gettime(TI_CLOCK_MONOTONIC, &start);
@@ -439,12 +443,12 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
 
     for (queue_each(collection->gc, ti_gc_t, gc))
     {
-        if (gc->event_id > sevid)
+        if (gc->change_id > scid)
         {
             /*
-             * For all collected things above the stored event id need to
-             * have the `TI_THING_FLAG_SWEEP` which might be removed by the
-             * earlier markings.
+             * All collected things after the stored change id need the
+             * `TI_THING_FLAG_SWEEP` flag which might be removed by the
+             * earlier mark function.
              */
             gc->thing->flags |= TI_THING_FLAG_SWEEP;
             continue;
@@ -532,4 +536,128 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
         duration, idx-m, n);
 
     return 0;
+}
+
+ti_pkg_t * ti_collection_join_rooms(
+        ti_collection_t * collection,
+        ti_stream_t * stream,
+        ti_pkg_t * pkg,
+        ex_t * e)
+{
+    ti_pkg_t * resp;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+    size_t i, nargs, size = pkg->n + sizeof(ti_pkg_t);
+    mp_unp_t up;
+    mp_obj_t obj, mp_id;
+    ti_room_t * room;
+
+    mp_unp_init(&up, pkg->data, pkg->n);
+
+    mp_next(&up, &obj);     /* array with at least size 1 */
+    mp_skip(&up);           /* scope */
+
+    nargs = obj.via.sz - 1;
+
+    if (mp_sbuffer_alloc_init(&buffer, size, sizeof(ti_pkg_t)))
+    {
+        ex_set_mem(e);
+        return NULL;
+    }
+
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+    msgpack_pack_array(&pk, nargs);
+
+    uv_mutex_lock(collection->lock);
+
+    for (i = 0; i < nargs; ++i)
+    {
+        if (mp_next(&up, &mp_id) <= 0 || mp_cast_u64(&mp_id))
+        {
+            ex_set(e, EX_BAD_DATA,
+                "join requests only excepts integer room id's"DOC_LISTENING);
+            break;
+        }
+
+        room = ti_collection_room_by_id(collection, mp_id.via.u64);
+        if (room && ti_room_join(room, stream) == 0)
+            msgpack_pack_uint64(&pk, room->id);
+        else
+            msgpack_pack_nil(&pk);
+    }
+
+    uv_mutex_unlock(collection->lock);
+
+    if (e->nr)
+    {
+        msgpack_sbuffer_destroy(&buffer);
+        return NULL;
+    }
+
+    resp = (ti_pkg_t *) buffer.data;
+    pkg_init(resp, pkg->id, TI_PROTO_CLIENT_RES_DATA, buffer.size);
+
+    return resp;
+}
+
+ti_pkg_t * ti_collection_leave_rooms(
+        ti_collection_t * collection,
+        ti_stream_t * stream,
+        ti_pkg_t * pkg,
+        ex_t * e)
+{
+    ti_pkg_t * resp;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+    size_t i, nargs, size = pkg->n + sizeof(ti_pkg_t);
+    mp_unp_t up;
+    mp_obj_t obj, mp_id;
+    ti_room_t * room;
+
+    mp_unp_init(&up, pkg->data, pkg->n);
+
+    mp_next(&up, &obj);     /* array with at least size 1 */
+    mp_skip(&up);           /* scope */
+
+    nargs = obj.via.sz - 1;
+
+    if (mp_sbuffer_alloc_init(&buffer, size, sizeof(ti_pkg_t)))
+    {
+        ex_set_mem(e);
+        return NULL;
+    }
+
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+    msgpack_pack_array(&pk, nargs);
+
+    uv_mutex_lock(collection->lock);
+
+    for (i = 0; i < nargs; ++i)
+    {
+        if (mp_next(&up, &mp_id) <= 0 || mp_cast_u64(&mp_id))
+        {
+            ex_set(e, EX_BAD_DATA,
+                "leave requests only excepts integer room id's"DOC_LISTENING);
+            break;
+        }
+
+        room = ti_collection_room_by_id(collection, mp_id.via.u64);
+        if (room && ti_room_leave(room, stream) == 0)
+            msgpack_pack_uint64(&pk, room->id);
+        else
+            msgpack_pack_nil(&pk);
+    }
+
+    uv_mutex_unlock(collection->lock);
+
+    if (e->nr)
+    {
+        msgpack_sbuffer_destroy(&buffer);
+        return NULL;
+    }
+
+    resp = (ti_pkg_t *) buffer.data;
+    pkg_init(resp, pkg->id, TI_PROTO_CLIENT_RES_DATA, buffer.size);
+
+    return resp;
 }

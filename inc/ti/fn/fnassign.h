@@ -96,7 +96,7 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = (ti_val_t *) thing;
     ti_incref(thing);
 
-    if (thing->id && !(task = ti_task_get_task(query->ev, thing)))
+    if (thing->id && !(task = ti_task_get_task(query->change, thing)))
     {
         ex_set_mem(e);
         goto fail1;
@@ -150,7 +150,7 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     else
     {
-        ti_type_t * type = ti_thing_type(thing);
+        ti_type_t * type = thing->via.type;
         uint32_t parent_ref = tsrc->ref;
 
         if (ti_thing_is_object(tsrc))
@@ -233,7 +233,7 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
         else
         {
-            ti_type_t * f_type = ti_thing_type(tsrc);
+            ti_type_t * f_type = tsrc->via.type;
 
             vec = NULL;
 

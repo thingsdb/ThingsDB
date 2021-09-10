@@ -18,6 +18,7 @@
 #include <ti/names.h>
 #include <ti/nil.h>
 #include <ti/query.h>
+#include <ti/room.h>
 #include <ti/spec.h>
 #include <ti/spec.inline.h>
 #include <ti/thing.inline.h>
@@ -29,7 +30,6 @@
 #include <ti/vfloat.h>
 #include <ti/vint.h>
 #include <ti/vset.h>
-#include <ti/watch.h>
 #include <util/strx.h>
 
 static void field__remove_dep(ti_field_t * field)
@@ -154,56 +154,6 @@ static _Bool field__spec_is_ascii(
 #define field__cmp(__a, __na, __str) \
         strlen(__str) == __na && memcmp(__a, __str, __na) == 0
 
-static ti_data_t * field___set_job(ti_name_t * name, ti_val_t * val)
-{
-    ti_data_t * data;
-    ti_vp_t vp;
-    msgpack_sbuffer buffer;
-
-    mp_sbuffer_alloc_init(&buffer, sizeof(ti_data_t), sizeof(ti_data_t));
-    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
-
-    if (msgpack_pack_array(&vp.pk, 1) ||
-        msgpack_pack_map(&vp.pk, 1) ||
-        mp_pack_str(&vp.pk, "set") ||
-        msgpack_pack_map(&vp.pk, 1)
-    ) goto fail_pack;
-
-    if (mp_pack_strn(&vp.pk, name->str, name->n) ||
-        ti_val_to_pk(val, &vp, 0)
-    ) goto fail_pack;
-
-    data = (ti_data_t *) buffer.data;
-    ti_data_init(data, buffer.size);
-
-    return data;
-
-fail_pack:
-    msgpack_sbuffer_destroy(&buffer);
-    return NULL;
-}
-
-static ti_data_t * field__del_job(const char * name, size_t n)
-{
-    ti_data_t * data;
-    msgpack_packer pk;
-    msgpack_sbuffer buffer;
-
-    if (mp_sbuffer_alloc_init(&buffer, 64 + n, sizeof(ti_data_t)))
-        return NULL;
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-
-    msgpack_pack_array(&pk, 1);
-    msgpack_pack_map(&pk, 1);
-    mp_pack_str(&pk, "del");
-    mp_pack_strn(&pk, name, n);
-
-    data = (ti_data_t *) buffer.data;
-    ti_data_init(data, buffer.size);
-
-    return data;
-}
-
 static ti_val_t * field__dval_nil(ti_field_t * UNUSED(field))
 {
     return (ti_val_t *) ti_nil_get();
@@ -275,6 +225,11 @@ static ti_val_t * field__dval_closure(ti_field_t * UNUSED(field))
 static ti_val_t * field__dval_error(ti_field_t * UNUSED(field))
 {
     return (ti_val_t *) ti_verror_from_code(-100);
+}
+
+static ti_val_t * field__dval_room(ti_field_t * field)
+{
+    return (ti_val_t *) ti_room_create(0, field->type->types->collection);
 }
 
 static ti_val_t * field__dval_datetime(ti_field_t * field)
@@ -519,6 +474,12 @@ skip_nesting:
         {
             *spec |= TI_SPEC_REGEX;
             field__set_cb(field, field__dval_regex);
+            goto found;
+        }
+        if (field__cmp(str, n, "room"))
+        {
+            *spec |= TI_SPEC_ROOM;
+            field__set_cb(field, field__dval_room);
             goto found;
         }
         break;
@@ -984,63 +945,18 @@ fail0:
     return e->nr;
 }
 
-static void field__del_watch(
-        ti_thing_t * thing,
-        ti_data_t * data,
-        uint64_t event_id)
-{
-    ti_rpkg_t * rpkg = ti_watch_rpkg(
-            thing->id,
-            event_id,
-            data->data,
-            data->n);
-    if (!rpkg)
-    {
-        /*
-         * Only log and continue if updating a watcher has failed
-         */
-        ++ti.counters->watcher_failed;
-        log_critical(EX_MEMORY_S);
-        return;
-    }
-
-    for (vec_each(thing->watchers, ti_watch_t, watch))
-    {
-        if (ti_stream_is_closed(watch->stream))
-            continue;
-
-        if (ti_stream_write_rpkg(watch->stream, rpkg))
-        {
-            ++ti.counters->watcher_failed;
-            log_error(EX_INTERNAL_S);
-        }
-    }
-
-    ti_rpkg_drop(rpkg);
-}
-
-int ti_field_del(ti_field_t * field, uint64_t ev_id)
+int ti_field_del(ti_field_t * field)
 {
     vec_t * vec = imap_vec_ref(field->type->types->collection->things);
     uint16_t type_id = field->type->type_id;
-    ti_data_t * data = field__del_job(field->name->str, field->name->n);
-
-    if (!data || !vec)
-    {
-        free(data);
-        vec_destroy(vec, (vec_destroy_cb) ti_val_unsafe_drop);
+    if (!vec)
         return -1;
-    }
 
     for (vec_each(vec, ti_thing_t, thing))
     {
         if (thing->type_id == type_id)
-        {
-            if (ti_thing_has_watchers(thing))
-                field__del_watch(thing, data, ev_id);
-
             ti_val_unsafe_drop(vec_swap_remove(thing->items.vec, field->idx));
-        }
+
         ti_val_unsafe_drop((ti_val_t *) thing);
     }
 
@@ -1051,17 +967,11 @@ int ti_field_del(ti_field_t * field, uint64_t ev_id)
     for (queue_each(field->type->types->collection->gc, ti_gc_t, gc))
     {
         if (gc->thing->type_id == type_id)
-        {
-            if (ti_thing_has_watchers(gc->thing))
-                field__del_watch(gc->thing, data, ev_id);
-
             ti_val_unsafe_drop(vec_swap_remove(
                     gc->thing->items.vec,
                     field->idx));
-        }
     }
 
-    free(data);
     free(vec);
     ti_field_remove(field);
     return 0;
@@ -1400,6 +1310,7 @@ int ti_field_make_assignable(
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_WRAP:
+        case TI_VAL_ROOM:
             break;
         case TI_VAL_ARR:
             return field__varr_assign(field, (ti_varr_t **) val, parent, e);
@@ -1491,6 +1402,10 @@ int ti_field_make_assignable(
         goto type_error;
     case TI_SPEC_ERROR:
         if (ti_val_is_error(*val))
+            return 0;
+        goto type_error;
+    case TI_SPEC_ROOM:
+        if (ti_val_is_room(*val))
             return 0;
         goto type_error;
     case TI_SPEC_ARR:
@@ -1722,6 +1637,8 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
         return ti_val_is_closure(val);
     case TI_SPEC_ERROR:
         return ti_val_is_error(val);
+    case TI_SPEC_ROOM:
+        return ti_val_is_room(val);
     case TI_SPEC_ARR:
         /* we can map a set to an array */
         return ((
@@ -1821,6 +1738,7 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_REGEX:
     case TI_SPEC_CLOSURE:
     case TI_SPEC_ERROR:
+    case TI_SPEC_ROOM:
     case TI_SPEC_ARR:
     case TI_SPEC_SET:
     case TI_SPEC_REMATCH:
@@ -1957,6 +1875,7 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_REGEX:
     case TI_SPEC_CLOSURE:
     case TI_SPEC_ERROR:
+    case TI_SPEC_ROOM:
         return f_spec == t_spec;
     case TI_SPEC_ARR:
         return (
@@ -2016,10 +1935,8 @@ ti_field_t * ti_field_by_strn_e(
 
 typedef struct
 {
-    ti_data_t * data;
     ti_field_t * field;
     ti_val_t ** vaddr;
-    uint64_t event_id;
     uint16_t type_id;
     ex_t e;
 } field__add_t;
@@ -2035,65 +1952,26 @@ static int field__add(ti_thing_t * thing, field__add_t * w)
         return 1;
 
     ti_incref(*w->vaddr);
-
-    if (ti_thing_has_watchers(thing))
-    {
-        ti_rpkg_t * rpkg = ti_watch_rpkg(
-                thing->id,
-                w->event_id,
-                w->data->data,
-                w->data->n);
-
-        if (rpkg)
-        {
-            for (vec_each(thing->watchers, ti_watch_t, watch))
-            {
-                if (ti_stream_is_closed(watch->stream))
-                    continue;
-
-                if (ti_stream_write_rpkg(watch->stream, rpkg))
-                {
-                    ++ti.counters->watcher_failed;
-                    log_error(EX_INTERNAL_S);
-                }
-            }
-            ti_rpkg_drop(rpkg);
-        }
-        else
-        {
-            /*
-             * Only log and continue if updating a watcher has failed
-             */
-            ++ti.counters->watcher_failed;
-            log_critical(EX_MEMORY_S);
-        }
-    }
     return 0;
 }
 
 /*
- * Use only when adding a new field, to update the existing things and
- * notify optional watchers;
+ * Use only when adding a new field, to update the existing things;
  *
  * warn: ti_val_gen_ids() must have used on the given value before using this
  *       function
  * error: can only fail in case of a memory allocation error
  */
-int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr, uint64_t ev_id)
+int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr)
 {
     assert (field == vec_last(field->type->fields));
     int rc;
     field__add_t addjob = {
-            .data = field___set_job(field->name, *vaddr),
             .field = field,
             .vaddr = vaddr,
-            .event_id = ev_id,
             .type_id = field->type->type_id,
             .e = {0}
     };
-
-    if (!addjob.data)
-        return -1;
 
     rc = imap_walk(
             field->type->types->collection->things,
@@ -2104,7 +1982,6 @@ int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr, uint64_t ev_id)
             (queue_cb) field__add,
             &addjob);
 
-    free(addjob.data);
     return rc;
 }
 
@@ -2149,6 +2026,9 @@ static int field__type_rel_chk(
 
 static int field__type_rel_chk_cb(ti_thing_t * thing, field__type_rel_chk_t * w)
 {
+    /* check type_id, as here we may get an object.
+     * (Objects do not use via.type)
+     */
     if (thing->type_id == w->field->type->type_id &&
         field__type_rel_chk(thing, w->field, w->ofield, w->e))
         return w->e->nr;

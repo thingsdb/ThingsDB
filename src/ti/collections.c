@@ -168,10 +168,10 @@ ti_collection_t * ti_collections_create_collection(
         goto fail0;
     }
 
-    if (root_id >= ti.node->next_thing_id)
-        ++ti.node->next_thing_id;
+    if (!root_id)
+        root_id = ti_next_free_id();
     else
-        root_id = ti_next_thing_id();
+        ti_update_next_free_id(root_id);
 
     guid_init(&guid, root_id);
 

@@ -19,7 +19,13 @@ enum
     TI_VARR_FLAG_MHT        =1<<1,      /* array may-have-things; some code
                                             might skip arrays without this flag
                                             while searching for things; */
+    TI_VARR_FLAG_MHR        =1<<2,      /* array may-have-rooms; some code
+                                            might skip arrays without this flag
+                                            while searching for rooms; */
 };
+
+#define ti_varr_may_flags(varr__) \
+    ((varr__)->flags&(TI_VARR_FLAG_MHT|TI_VARR_FLAG_MHR))
 
 #include <ex.h>
 #include <inttypes.h>

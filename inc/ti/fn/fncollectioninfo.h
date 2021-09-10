@@ -11,10 +11,10 @@ static int do__f_collection_info(ti_query_t * query, cleri_node_t * nd, ex_t * e
         ti_do_statement(query, nd->children->node, e))
         return e->nr;
 
-    if (ti_access_check(ti.access_thingsdb, user, TI_AUTH_EVENT))
+    if (ti_access_check(ti.access_thingsdb, user, TI_AUTH_CHANGE))
     {
         /*
-         * Only if the user has no `EVENT` permissions in the thingsdb scope,
+         * Only if the user has no `CHANGE` permissions in the thingsdb scope,
          * then only collection info for collections where the user has at
          * least read permissions are returned.
          */

@@ -79,7 +79,7 @@ ti_thing_t * ti_things_thing_o_from_vup(
          * TODO: injection from specials is deprecated, once removed, this
          *       check can be removed as well.
          *
-         * If not unpacking from an event, then new things should be created
+         * If not unpacking from a change, then new things should be created
          * without an id.
          */
         ex_set(e, EX_LOOKUP_ERROR,
@@ -99,7 +99,8 @@ ti_thing_t * ti_things_thing_o_from_vup(
         return NULL;
     }
 
-    ti_update_next_thing_id(thing_id);
+    /* Update the next free id if required */
+    ti_update_next_free_id(thing_id);
 
     if (ti_thing_props_from_vup(thing, vup, sz, e))
     {
@@ -116,16 +117,27 @@ ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
     ti_type_t * type;
     mp_obj_t obj, mp_thing_id, mp_type_id;
 
-    if (mp_next(vup->up, &mp_type_id) != MP_U64 ||
-        mp_skip(vup->up) != MP_STR ||   /* `#` */
+    if (mp_next(vup->up, &obj) != MP_ARR || obj.via.sz != 3 ||
+        mp_next(vup->up, &mp_type_id) != MP_U64 ||
         mp_next(vup->up, &mp_thing_id) != MP_U64 ||
-        mp_skip(vup->up) != MP_STR ||   /* `` */
         mp_next(vup->up, &obj) != MP_ARR)
     {
-        ex_set(e, EX_BAD_DATA,
-                "invalid type data; "
-                "expecting an type_id, things_id and array with values");
-        return NULL;
+        /*
+         * TODO (COMPAT) For backwards compatibility with v0.x
+         */
+        mp_type_id = obj;
+
+        if (mp_type_id.tp != MP_U64 ||
+            mp_skip(vup->up) != MP_STR ||   /* `#` */
+            mp_next(vup->up, &mp_thing_id) != MP_U64 ||
+            mp_skip(vup->up) != MP_STR ||   /* `` */
+            mp_next(vup->up, &obj) != MP_ARR)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "invalid type data; "
+                    "expecting an type_id, things_id and array with values");
+            return NULL;
+        }
     }
 
     type = ti_types_by_id(vup->collection->types, mp_type_id.via.u64);
@@ -141,7 +153,7 @@ ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
     {
         ex_set(e, EX_BAD_DATA,
                 "invalid type data; "
-                "expecting %"PRIu32" values for type `%s` but got only %u",
+                "expecting %"PRIu32" values for type `%s` but got %zu values",
                 type->fields->n, type->name, obj.via.sz);
         return NULL;
     }
@@ -164,8 +176,8 @@ ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
         return NULL;
     }
 
-    /* Update the next thing id if required */
-    ti_update_next_thing_id(mp_thing_id.via.u64);
+    /* Update the next free id if required */
+    ti_update_next_free_id(mp_thing_id.via.u64);
 
     for (vec_each(type->fields, ti_field_t, field))
     {

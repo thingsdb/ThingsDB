@@ -888,13 +888,13 @@ static int api__run(ti_api_request_t * ar, api__req_t * req)
     if (ti_access_check_err(access_, query->user, TI_AUTH_RUN, e))
         goto fail1;
 
-    if (ti_query_will_update(query))
+    if (ti_query_wse(query))
     {
-        if (ti_access_check_err(access_, query->user, TI_AUTH_EVENT, e) ||
-            ti_events_create_new_event(query, e))
+        if (ti_access_check_err(access_, query->user, TI_AUTH_CHANGE, e) ||
+            ti_changes_create_new_change(query, e))
             goto fail1;
 
-        /* cleanup will be done by the event */
+        /* cleanup will be done by the change */
         return 0;
     }
 
@@ -1017,15 +1017,15 @@ query:
                 e))
         goto failed;
 
-    if (ti_query_will_update(query))
+    if (ti_query_wse(query))
     {
         assert (ar->scope.tp != TI_SCOPE_NODE);
 
-        if (ti_access_check_err(access_, query->user, TI_AUTH_EVENT, e) ||
-            ti_events_create_new_event(query, e))
+        if (ti_access_check_err(access_, query->user, TI_AUTH_CHANGE, e) ||
+            ti_changes_create_new_change(query, e))
             goto failed;
 
-        /* cleanup will be done by the event */
+        /* cleanup will be done by the change */
         return 0;
     }
 

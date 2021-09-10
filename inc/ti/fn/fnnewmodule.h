@@ -76,7 +76,7 @@ static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     pkg = NULL;
 
-    task = ti_task_get_task(query->ev, ti.thing0);
+    task = ti_task_get_task(query->change, ti.thing0);
     if (!task || ti_task_add_new_module(task, module))
     {
         ti_module_destroy(smap_pop(ti.modules, module->name->str));

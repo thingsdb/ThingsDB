@@ -38,6 +38,7 @@
   :: `any`
   :: `closure`
   :: `regex`
+  :: `room`
   :: `error`
   :: `set`
   :: `tuple`
@@ -52,11 +53,11 @@
 
 enum
 {
-    TOTAL_KEYWORDS = 24,
+    TOTAL_KEYWORDS = 25,
     MIN_WORD_LENGTH = 3,
     MAX_WORD_LENGTH = 8,
-    MIN_HASH_VALUE = 6,
-    MAX_HASH_VALUE = 35
+    MIN_HASH_VALUE = 3,
+    MAX_HASH_VALUE = 30
 };
 
 static inline unsigned int spec__hash(
@@ -65,32 +66,32 @@ static inline unsigned int spec__hash(
 {
     static unsigned char asso_values[] =
     {
-        36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 18, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 36,  7,  3, 11,
-         6,  0,  3,  8,  3,  3, 36, 36,  0,  5,
-         2,  8,  1, 36,  1,  0,  3,  0,  0, 10,
-         8,  7, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
-        36, 36, 36, 36, 36, 36
+        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
+        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
+        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
+        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
+        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
+        31, 31, 31, 31, 31, 31, 12, 31, 31, 31,
+        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
+        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
+        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
+        31, 31, 31, 31, 31, 31, 31, 11,  5,  0,
+         0,  3,  0,  4, 10,  1, 31, 31,  5,  3,
+         0,  0,  8, 31,  0,  0,  0,  7,  0,  3,
+         4,  2, 31, 31, 31, 31, 31, 31, 31, 31,
+        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
+        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
+        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
+        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
+        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
+        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
+        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
+        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
+        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
+        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
+        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
+        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
+        31, 31, 31, 31, 31, 31
     };
 
     register unsigned int hval = n;
@@ -129,32 +130,33 @@ _Bool ti_spec_is_reserved(register const char * s, register size_t n)
 {
     static const char * wordlist[] =
     {
-        "", "", "", "", "", "",
-        "set",
+        "", "", "",
         "str",
-        "nil",
-        "tuple",
-        "list",
         "int",
+        "nint",
+        "set",
+        "room",
+        "error",
+        "nil",
+        "list",
+        "time",
         "uint",
         "pint",
-        "nint",
-        "time",
-        "error",
-        "number",
+        "bool",
         "bytes",
         "any",
-        "date",
         "raw",
+        "date",
         "regex",
-        "bool",
         "thing",
-        "timeval",
         "float",
         "closure",
         "utf8",
-        "", "", "", "", "", "",
-        "datetime"
+        "number",
+        "", "", "",
+        "tuple",
+        "datetime",
+        "timeval"
     };
 
     if (n <= MAX_WORD_LENGTH && n >= MIN_WORD_LENGTH)
@@ -231,6 +233,8 @@ ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t * val)
         return ti_val_is_closure(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_ERROR:
         return ti_val_is_error(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
+    case TI_SPEC_ROOM:
+        return ti_val_is_room(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_REMATCH:
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
@@ -308,6 +312,8 @@ _Bool ti__spec_maps_to_nested_val(uint16_t spec, ti_val_t * val)
         return ti_val_is_closure(val);
     case TI_SPEC_ERROR:
         return ti_val_is_error(val);
+    case TI_SPEC_ROOM:
+        return ti_val_is_room(val);
     case TI_SPEC_REMATCH:
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
@@ -349,6 +355,7 @@ const char * ti__spec_approx_type_str(uint16_t spec)
     case TI_SPEC_REGEX:         return "regex";
     case TI_SPEC_CLOSURE:       return "closure";
     case TI_SPEC_ERROR:         return "error";
+    case TI_SPEC_ROOM:         return "room";
     }
     return spec < TI_SPEC_ANY ? "thing" : "enum";
 }
@@ -445,6 +452,7 @@ ti_spec_mod_enum ti__spec_check_mod(
     case TI_SPEC_REGEX:
     case TI_SPEC_CLOSURE:
     case TI_SPEC_ERROR:
+    case TI_SPEC_ROOM:
         return ospec == nspec ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
     case TI_SPEC_REMATCH:
         return TI_SPEC_MOD_ERR;

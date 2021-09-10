@@ -21,7 +21,9 @@
 #include <ti/fn/fnbool.h>
 #include <ti/fn/fnbytes.h>
 #include <ti/fn/fncall.h>
+#include <ti/fn/fnchangeid.h>
 #include <ti/fn/fnchoice.h>
+#include <ti/fn/fnclear.h>
 #include <ti/fn/fncode.h>
 #include <ti/fn/fncollectioninfo.h>
 #include <ti/fn/fncollectionsinfo.h>
@@ -30,7 +32,6 @@
 #include <ti/fn/fncounters.h>
 #include <ti/fn/fndatetime.h>
 #include <ti/fn/fndeep.h>
-#include <ti/fn/fndef.h>
 #include <ti/fn/fndel.h>
 #include <ti/fn/fndelbackup.h>
 #include <ti/fn/fndelcollection.h>
@@ -56,7 +57,6 @@
 #include <ti/fn/fnequals.h>
 #include <ti/fn/fnerr.h>
 #include <ti/fn/fnerrors.h>
-#include <ti/fn/fneventid.h>
 #include <ti/fn/fnevery.h>
 #include <ti/fn/fnexport.h>
 #include <ti/fn/fnextend.h>
@@ -104,6 +104,7 @@
 #include <ti/fn/fnisnil.h>
 #include <ti/fn/fnisraw.h>
 #include <ti/fn/fnisregex.h>
+#include <ti/fn/fnisroom.h>
 #include <ti/fn/fnisset.h>
 #include <ti/fn/fnisstr.h>
 #include <ti/fn/fnisthing.h>
@@ -166,6 +167,7 @@
 #include <ti/fn/fnreturn.h>
 #include <ti/fn/fnreverse.h>
 #include <ti/fn/fnrevoke.h>
+#include <ti/fn/fnroom.h>
 #include <ti/fn/fnrun.h>
 #include <ti/fn/fnset.h>
 #include <ti/fn/fnsetenum.h>
@@ -204,14 +206,12 @@
 #include <ti/fn/fntypesinfo.h>
 #include <ti/fn/fnunique.h>
 #include <ti/fn/fnunshift.h>
-#include <ti/fn/fnunwatch.h>
 #include <ti/fn/fnunwrap.h>
 #include <ti/fn/fnupper.h>
 #include <ti/fn/fnuserinfo.h>
 #include <ti/fn/fnusersinfo.h>
 #include <ti/fn/fnvalue.h>
 #include <ti/fn/fnvalues.h>
-#include <ti/fn/fnwatch.h>
 #include <ti/fn/fnweek.h>
 #include <ti/fn/fnweekday.h>
 #include <ti/fn/fnwrap.h>
@@ -222,12 +222,12 @@
 #include <ti/preopr.h>
 
 /*
- * Set the `event` flag in case the `TI_QBIND_FLAG_COLLECTION` flag is set.
+ * Set the `change` flag in case the `TI_QBIND_FLAG_COLLECTION` flag is set.
  *
  * Argument: flags (QBIND flags)
  */
-#define qbind__set_collection_event(__f) \
-    (__f) |= (((__f) & TI_QBIND_FLAG_COLLECTION) && 1) << TI_QBIND_BIT_EVENT
+#define qbind__set_collection_change(__f) \
+    (__f) |= (((__f) & TI_QBIND_FLAG_COLLECTION) && 1) << TI_QBIND_BIT_WSE
 
 static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
 
@@ -251,8 +251,8 @@ enum
     TOTAL_KEYWORDS = 223,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 8,
-    MAX_HASH_VALUE = 482
+    MIN_HASH_VALUE = 7,
+    MAX_HASH_VALUE = 525
 };
 
 /*
@@ -264,32 +264,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483,   2, 483,   1, 483,   1, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483,   1, 483,   5,  36,  41,
-         14,   1,  76, 170, 115,   1,   2, 123,   9,  25,
-         18,  33, 126, 206,   2,   1,   7,   9, 197, 106,
-         36, 130,  17, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483, 483, 483, 483, 483,
-        483, 483, 483, 483, 483, 483
+        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
+        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
+        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
+        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
+        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
+        526, 526,   1, 526,   1, 526,   1, 526, 526, 526,
+        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
+        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
+        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
+        526, 526, 526, 526, 526,   0, 526,   1,  44,  50,
+         18,   0,  64, 219, 159,   0,   1, 105,  14,  36,
+         17,  39, 109,  19,   2,   0,   6,  40, 206, 132,
+        215,  38,   0, 526, 526, 526, 526, 526, 526, 526,
+        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
+        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
+        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
+        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
+        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
+        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
+        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
+        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
+        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
+        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
+        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
+        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
+        526, 526, 526, 526, 526, 526
     };
 
     register unsigned int hval = n;
@@ -360,7 +360,7 @@ typedef enum
     FN__FLAG_CHAIN      = 1<<4,
     FN__FLAG_XROOT      = 1<<5,
     FN__FLAG_AS_ON_VAR  = 1<<6, /* function result as on variable */
-    FN__FLAG_FUT        = 1<<7, /* must check for closure and do not set event
+    FN__FLAG_FUT        = 1<<7, /* must check for closure and do not set wse
                                    by itself */
 } qbind__fn_flag_t;
 
@@ -375,15 +375,15 @@ typedef struct
 /*
  * Every function which might return a pointer to a mutable value, other than
  * a thing, must start with X... This is not true if you can guarantee that or,
- * the return value does not require an event, or if the function itself is
- * already making an event. (then the optimization has no meaning anyway)
+ * the return value does not require a change, or if the function itself is
+ * already making a change. (then the optimization has no meaning anyway)
  *
  * For example:
  *   t = .my_stored_thing;
- *   t.get('arr').push(42);  // Requires an event, arr is still a pointer.
+ *   t.get('arr').push(42);  // Requires a change, arr is still a pointer.
  *
  *   arr = t.get('arr');
- *   arr.push(42);  // Does not require an event, since arr is assigned and
+ *   arr.push(42);  // Does not require a change, since arr is assigned and
  *                  // therefore copied.
  */
 
@@ -441,6 +441,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="call",              .fn=do__f_call,                 XCHAIN_NE},
     {.name="cancelled_err",     .fn=do__f_cancelled_err,        ROOT_NE},
     {.name="choice",            .fn=do__f_choice,               CHAIN_NE},
+    {.name="clear",             .fn=do__f_clear,                CHAIN_CE_XVAR},
     {.name="code",              .fn=do__f_code,                 CHAIN_NE},
     {.name="collection_info",   .fn=do__f_collection_info,      ROOT_NE},
     {.name="collections_info",  .fn=do__f_collections_info,     ROOT_NE},
@@ -449,7 +450,6 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="counters",          .fn=do__f_counters,             ROOT_NE},
     {.name="datetime",          .fn=do__f_datetime,             ROOT_NE},
     {.name="deep",              .fn=do__f_deep,                 ROOT_NE},
-    {.name="def",               .fn=do__f_def,                  CHAIN_NE},
     {.name="del_backup",        .fn=do__f_del_backup,           ROOT_NE},
     {.name="del_collection",    .fn=do__f_del_collection,       ROOT_TE},
     {.name="del_enum",          .fn=do__f_del_enum,             ROOT_CE},
@@ -467,14 +467,14 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="dup",               .fn=do__f_dup,                  CHAIN_NE},
     {.name="each",              .fn=do__f_each,                 CHAIN_NE},
     {.name="else",              .fn=do__f_else,                 CHAIN_FUT},
-    {.name="emit",              .fn=do__f_emit,                 CHAIN_CE},
+    {.name="emit",              .fn=do__f_emit,                 CHAIN_NE},
     {.name="ends_with",         .fn=do__f_ends_with,            CHAIN_NE},
     {.name="enum_info",         .fn=do__f_enum_info,            ROOT_NE},
     {.name="enum",              .fn=do__f_enum,                 ROOT_NE},
     {.name="enums_info",        .fn=do__f_enums_info,           ROOT_NE},
     {.name="equals",            .fn=do__f_equals,               CHAIN_NE},
     {.name="err",               .fn=do__f_err,                  ROOT_NE},
-    {.name="event_id",          .fn=do__f_event_id,             ROOT_NE},
+    {.name="change_id",          .fn=do__f_change_id,             ROOT_NE},
     {.name="every",             .fn=do__f_every,                CHAIN_NE},
     {.name="export",            .fn=do__f_export,               ROOT_NE},
     {.name="extend",            .fn=do__f_extend,               CHAIN_CE_XVAR},
@@ -523,6 +523,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="is_nil",            .fn=do__f_is_nil,               ROOT_NE},
     {.name="is_raw",            .fn=do__f_is_raw,               ROOT_NE},
     {.name="is_regex",          .fn=do__f_is_regex,             ROOT_NE},
+    {.name="is_room",           .fn=do__f_is_room,              ROOT_NE},
     {.name="is_set",            .fn=do__f_is_set,               ROOT_NE},
     {.name="is_str",            .fn=do__f_is_str,               ROOT_NE},
     {.name="is_thing",          .fn=do__f_is_thing,             ROOT_NE},
@@ -591,6 +592,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="return",            .fn=do__f_return,               ROOT_NE},
     {.name="reverse",           .fn=do__f_reverse,              CHAIN_NE},
     {.name="revoke",            .fn=do__f_revoke,               ROOT_TE},
+    {.name="room",              .fn=do__f_room,                 ROOT_NE},
     {.name="run",               .fn=do__f_run,                  XROOT_NE},
     {.name="set_enum",          .fn=do__f_set_enum,             ROOT_CE},
     {.name="set_log_level",     .fn=do__f_set_log_level,        ROOT_NE},
@@ -632,7 +634,6 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="types_info",        .fn=do__f_types_info,           ROOT_NE},
     {.name="unique",            .fn=do__f_unique,               CHAIN_NE},
     {.name="unshift",           .fn=do__f_unshift,              CHAIN_CE_XVAR},
-    {.name="unwatch",           .fn=do__f_unwatch,              CHAIN_NE},
     {.name="unwrap",            .fn=do__f_unwrap,               CHAIN_NE},
     {.name="upper",             .fn=do__f_upper,                CHAIN_NE},
     {.name="user_info",         .fn=do__f_user_info,            ROOT_NE},
@@ -640,7 +641,6 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="value_err",         .fn=do__f_value_err,            ROOT_NE},
     {.name="value",             .fn=do__f_value,                CHAIN_NE},
     {.name="values",            .fn=do__f_values,               CHAIN_NE},
-    {.name="watch",             .fn=do__f_watch,                CHAIN_NE},
     {.name="week",              .fn=do__f_week,                 CHAIN_NE},
     {.name="weekday",           .fn=do__f_weekday,              CHAIN_NE},
     {.name="wrap",              .fn=do__f_wrap,                 CHAIN_NE},
@@ -776,12 +776,12 @@ static _Bool qbind__operations(
 }
 
 /*
- * Peek for a closure and if found, analyze the statement but ignore any event
+ * Peek for a closure and if found, analyze the statement but ignore any wse
  * flags.
  *
  * Only called in relation to a future (future,then,else).
  * If the argument is a closure, this closure be called with it's own query
- * and event (if required).
+ * and change (if required).
  */
 static void qbind__peek_statement_for_closure(
         ti_qbind_t * q,
@@ -792,9 +792,9 @@ static void qbind__peek_statement_for_closure(
     if ((node = nd->children->node)->cl_obj->gid == CLERI_GID_EXPRESSION &&
         node->children->next->node->cl_obj->gid == CLERI_GID_T_CLOSURE)
     {
-        uint8_t no_ev_flag = ~q->flags & TI_QBIND_FLAG_EVENT;
+        uint8_t no_wse_flag = ~q->flags & TI_QBIND_FLAG_WSE;
         qbind__statement(q, nd);
-        q->flags &= ~no_ev_flag;
+        q->flags &= ~no_wse_flag;
         return;
     }
 
@@ -804,7 +804,7 @@ static void qbind__peek_statement_for_closure(
 /*
  * Analyze a function call.
  *   - Arguments will be analyzed
- *   - Based on the function, the `event` flag will be set
+ *   - Based on the function, the wse flag will be set
  *   - Future (then,else) will be peeked
  *   - Immutable counter will increase for no-build-in functions
  */
@@ -829,12 +829,12 @@ static void qbind__function(
 
     nd->data = fmflags ? fmap->fn : NULL;
 
-    /* may set event flag */
+    /* may set wse flag */
     q->flags |= (
         ((FN__FLAG_EV_T|FN__FLAG_EV_C) & q->flags & fmflags) &&
         ((~fmflags & FN__FLAG_EXCL_VAR) || (~flags & FN__FLAG_EXCL_VAR)) &&
         ((~fmflags & FN__FLAG_XROOT) || (~flags & FN__FLAG_ROOT))
-    ) << TI_QBIND_BIT_EVENT;
+    ) << TI_QBIND_BIT_WSE;
 
     /* update the value cache if no build-in function is found */
     q->immutable_n += nd->data == NULL;
@@ -893,7 +893,7 @@ static void qbind__index(ti_qbind_t * qbind, cleri_node_t * nd)
 
         if (child->node->children->next->next->next)
         {
-            qbind__set_collection_event(qbind->flags);
+            qbind__set_collection_change(qbind->flags);
             qbind__statement(qbind, child->node             /* sequence */
                     ->children->next->next->next->node      /* assignment */
                     ->children->next->node);                /* statement */
@@ -1019,7 +1019,7 @@ static void qbind__name_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
                     FN__FLAG_CHAIN|qbind__is_onvar(qbind->flags));
             return;
         case CLERI_GID_ASSIGN:
-            qbind__set_collection_event(qbind->flags);
+            qbind__set_collection_change(qbind->flags);
             qbind__statement(
                     qbind,
                     nd->children->next->node->children->next->node);
@@ -1204,8 +1204,8 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
  * - array sizes (stored in node->data)
  * - number of function arguments (stored in node->data)
  * - function bindings (stored in node->data)
- * - event requirement (set as qbind flags)
- * - closure detection and event requirement (set as flag to node->data)
+ * - change requirement (set as qbind wse flag)
+ * - closure detection and change requirement (set as flag to node->data)
  * - re-arrange operations to honor compare order
  * - count immutable cache requirements
  */

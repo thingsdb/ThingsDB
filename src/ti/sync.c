@@ -61,7 +61,7 @@ int ti_sync_start(void)
     sync_->status = SYNC__STAT_STARTED;
 
     /* give all nodes some time to connect; it is not a big issue if not
-     * all nodes are connected, except that we might miss an event from a node
+     * all nodes are connected, except that we might miss a change from a node
      * which is not connected and broadcasted between the time the sync is
      * finished and the node still not connected;
      */
@@ -128,7 +128,7 @@ static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat))
                 "ignore the synchronize step because no node is available "
                 "to synchronize with, and the quorum of nodes is in "
                 "synchronization mode, and this node has the highest "
-                "known committed event id");
+                "known committed change id");
             sync__finish();
             break;
         case TI_NODES_RETRY_OFFLINE:
@@ -153,7 +153,7 @@ static void sync__find_away_node_cb(uv_timer_t * UNUSED(repeat))
     }
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_uint64(&pk, ti.node->cevid + 1);
+    msgpack_pack_uint64(&pk, ti.node->ccid + 1);
 
     pkg = (ti_pkg_t *) buffer.data;
     pkg_init(pkg, 0, TI_PROTO_NODE_REQ_SYNC, buffer.size);

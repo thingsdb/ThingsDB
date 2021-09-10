@@ -20,7 +20,7 @@ static int store__gcollect_cb(ti_gc_t * gc, msgpack_packer * pk)
             msgpack_pack_uint64(pk, gc->thing->id) ||
             msgpack_pack_array(pk, 2) ||
             msgpack_pack_uint16(pk, gc->thing->type_id) ||
-            msgpack_pack_uint64(pk, gc->event_id)
+            msgpack_pack_uint64(pk, gc->change_id)
     );
 }
 
@@ -148,7 +148,7 @@ int ti_store_gcollect_restore(ti_collection_t * collection, const char * fn)
     size_t i;
     uint16_t type_id;
     ssize_t n;
-    mp_obj_t obj, mp_ver, mp_thing_id, mp_type_id, mp_event_id;
+    mp_obj_t obj, mp_ver, mp_thing_id, mp_type_id, mp_change_id;
     mp_unp_t up;
     ti_type_t * type;
     ti_thing_t * thing;
@@ -170,7 +170,7 @@ int ti_store_gcollect_restore(ti_collection_t * collection, const char * fn)
         if (mp_next(&up, &mp_thing_id) != MP_U64 ||
             mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
             mp_next(&up, &mp_type_id) != MP_U64 ||
-            mp_next(&up, &mp_event_id) != MP_U64
+            mp_next(&up, &mp_change_id) != MP_U64
         ) goto fail;
 
         type_id = mp_type_id.via.u64;
@@ -192,7 +192,7 @@ int ti_store_gcollect_restore(ti_collection_t * collection, const char * fn)
         if (!thing)
             goto fail;
 
-        gc = ti_gc_create(mp_event_id.via.u64, thing);
+        gc = ti_gc_create(mp_change_id.via.u64, thing);
 
         if (!gc || queue_push(&collection->gc, gc))
         {
@@ -309,7 +309,7 @@ int ti_store_gcollect_restore_data(
         }
         else
         {
-            type = ti_thing_type(thing);
+            type = thing->via.type;
 
             if (mp_next(&up, &obj) != MP_ARR || type->fields->n != obj.via.sz)
             {

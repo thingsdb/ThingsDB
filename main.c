@@ -1,9 +1,9 @@
 /*
  * main.c - ThingsDB
  *
- * author/maintainer : Jeroen van der Heijden <jeroen@transceptor.technology>
+ * author/maintainer : Jeroen van der Heijden <jeroen@cesbit.com>
  * home page         : https://thingsdb.net
- * copyright         : 2019, Jeroen van der Heijden
+ * copyright         : 2021, Jeroen van der Heijden
  *
  * This code will be release as open source but the exact license might be
  * changed to something else than MIT.

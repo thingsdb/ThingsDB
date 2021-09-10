@@ -23,11 +23,11 @@ enum
                                             own the closure string but refer
                                             the full query string. */
     TI_CLOSURE_FLAG_WSE     =1<<2,     /* stored closure with side effects;
-                                            when closure make changes they
-                                            require an event and thus must be
-                                            wrapped by wse() so we can know
-                                            an event is created.
-                                            (only stored closures) */
+                                            when closure may make changes they
+                                            require a change. Must be checked
+                                            for stored closures since only then
+                                            is is possible no change is created
+                                            */
 };
 
 #include <cleri/cleri.h>

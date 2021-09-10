@@ -22,21 +22,14 @@ static inline int ti_thing_to_map(ti_thing_t * thing)
     return imap_add(thing->collection->things, thing->id, thing);
 }
 
-static inline ti_type_t * ti_thing_type(ti_thing_t * thing)
-{
-    ti_type_t * type = imap_get(thing->collection->types->imap, thing->type_id);
-    assert (type);  /* type are guaranteed to exist */
-    return type;
-}
-
 static inline const char * ti_thing_type_str(ti_thing_t * thing)
 {
-    return ti_thing_type(thing)->name;
+    return thing->via.type->name;
 }
 
 static inline ti_raw_t * ti_thing_type_strv(ti_thing_t * thing)
 {
-    ti_raw_t * r = ti_thing_type(thing)->rname;
+    ti_raw_t * r = thing->via.type->rname;
     ti_incref(r);
     return r;
 }
@@ -135,7 +128,7 @@ static inline void ti_thing_t_set_not_found(
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no property or method `%.*s`",
-                ti_thing_type(thing)->name,
+                thing->via.type->name,
                 rname->n, (const char *) rname->data);
     }
     else

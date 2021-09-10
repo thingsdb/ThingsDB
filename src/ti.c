@@ -9,10 +9,10 @@
 #include <ti/access.h>
 #include <ti/api.h>
 #include <ti/auth.h>
+#include <ti/change.h>
 #include <ti/collection.h>
 #include <ti/collections.h>
 #include <ti/do.h>
-#include <ti/event.h>
 #include <ti/modules.h>
 #include <ti/names.h>
 #include <ti/proc.h>
@@ -21,6 +21,7 @@
 #include <ti/qbind.h>
 #include <ti/qcache.h>
 #include <ti/regex.h>
+#include <ti/room.h>
 #include <ti/signals.h>
 #include <ti/store.h>
 #include <ti/sync.h>
@@ -73,8 +74,8 @@ static void ti__stop(void);
  */
 int ti_create(void)
 {
-    ti.last_event_id = 0;
-    ti.global_stored_event_id = 0;
+    ti.last_change_id = 0;
+    ti.global_stored_change_id = 0;
     ti.flags = 0;
     ti.fn = NULL;
     ti.node_fn = NULL;
@@ -88,6 +89,7 @@ int ti_create(void)
     ti.modules = smap_create();
     ti.langdef = compile_langdef();
     ti.thing0 = ti_thing_o_create(0, 0, NULL);
+    ti.room0 = ti_room_create(0, NULL);
     if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti.boottime) ||
             ti_counters_create() ||
             ti_away_create() ||
@@ -100,7 +102,7 @@ int ti_create(void)
             ti_names_create() ||
             ti_users_create() ||
             ti_collections_create() ||
-            ti_events_create() ||
+            ti_changes_create() ||
             ti_connect_create() ||
             ti_sync_create() ||
             !ti.modules ||
@@ -148,6 +150,7 @@ void ti_destroy(void)
     ti_users_destroy();
     ti_store_destroy();
     ti_val_drop((ti_val_t *) ti.thing0);
+    ti_val_drop((ti_val_t *) ti.room0);
 
     vec_destroy(ti.access_node, (vec_destroy_cb) ti_auth_destroy);
     vec_destroy(ti.access_thingsdb, (vec_destroy_cb) ti_auth_destroy);
@@ -262,23 +265,23 @@ int ti_build_node(void)
 int ti_build(void)
 {
     int rc = -1;
-    ti_event_t * ev = NULL;
+    ti_change_t * change = NULL;
     if (ti_build_node())
         goto failed;
 
-    ti.node->cevid = 0;
-    ti.node->next_thing_id = 1;
+    ti.node->ccid = 0;
+    ti.node->next_free_id = 1;
 
-    ev = ti_event_initial();
-    if (!ev)
+    change = ti_change_initial();
+    if (!change)
         goto failed;
 
-    if (ti_event_run(ev))
+    if (ti_change_run(change))
         goto failed;
 
-    ti.node->cevid = ev->id;
-    ti.node->sevid = ev->id;
-    ti.events->next_event_id = ev->id + 1;
+    ti.node->ccid = change->id;
+    ti.node->scid = change->id;
+    ti.changes->next_change_id = change->id + 1;
 
     if (ti_store_store())
         goto failed;
@@ -297,7 +300,7 @@ failed:
     (void) vec_pop(ti.nodes->vec);
 
 done:
-    ti_event_drop(ev);
+    ti_change_drop(change);
     return rc;
 }
 
@@ -372,7 +375,7 @@ int ti_read(void)
 int ti_unpack(uchar * data, size_t n)
 {
     mp_unp_t up;
-    mp_obj_t obj, mp_schema, mp_event_id, mp_next_node_id;
+    mp_obj_t obj, mp_schema, mp_change_id, mp_next_node_id;
     uint32_t node_id;
 
     mp_unp_init(&up, data, (size_t) n);
@@ -382,8 +385,8 @@ int ti_unpack(uchar * data, size_t n)
         mp_skip(&up) != MP_STR ||  /* schema */
         mp_next(&up, &mp_schema) != MP_U64 ||
 
-        mp_skip(&up) != MP_STR ||  /* event_id */
-        mp_next(&up, &mp_event_id) != MP_U64 ||
+        mp_skip(&up) != MP_STR ||  /* change_id */
+        mp_next(&up, &mp_change_id) != MP_U64 ||
 
         mp_skip(&up) != MP_STR ||  /* next_node_id */
         mp_next(&up, &mp_next_node_id) != MP_U64 ||
@@ -396,7 +399,7 @@ int ti_unpack(uchar * data, size_t n)
         goto fail;
 
     ti.nodes->next_id = mp_next_node_id.via.u64;
-    ti.last_event_id = mp_event_id.via.u64;
+    ti.last_change_id = mp_change_id.via.u64;
     ti.node = ti_nodes_node_by_id(node_id);
     if (!ti.node)
         goto fail;
@@ -444,11 +447,11 @@ static void ti__delayed_start_stop(void)
 
 static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
 {
-    ssize_t n = ti_events_trigger_loop();
+    ssize_t n = ti_changes_trigger_loop();
 
     if (n > 0)
     {
-        log_info("wait for %zd event%s to load", n, n == 1 ? "" : "s");
+        log_info("wait for %zd change%s to load", n, n == 1 ? "" : "s");
         return;
     }
 
@@ -457,6 +460,10 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
 
     if (ti.node)
     {
+        /* One time garbage collection is required to prevent restoring things
+         * from GC which are removed on other nodes */
+        ti_collections_gc();
+
         ti_modules_load();
 
         if (ti_timers_start())
@@ -470,7 +477,7 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
 
         if (ti.nodes->vec->n == 1)
         {
-            ti.node->status = TI_NODE_STAT_READY;
+            ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
         }
         else if (ti_sync_start())
             goto failed;
@@ -537,14 +544,14 @@ int ti_run(void)
     if (ti.cfg->http_status_port && ti_web_init())
         goto failed;
 
-    if (ti_events_start())
+    if (ti_changes_start())
         goto failed;
 
     if (ti.node)
     {
         ti.node->status = TI_NODE_STAT_SYNCHRONIZING;
 
-        (void) ti_nodes_read_scevid();
+        (void) ti_nodes_read_sccid();
 
         if (ti_archive_init())
             goto failed;
@@ -651,8 +658,8 @@ int ti_save(void)
 
     msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
 
-    if (ti.node->cevid > ti.last_event_id)
-        ti.last_event_id = ti.node->cevid;
+    if (ti.node->ccid > ti.last_change_id)
+        ti.last_change_id = ti.node->ccid;
 
     if (ti_to_pk(&pk))
         goto fail;
@@ -778,34 +785,8 @@ ti_rpkg_t * ti_node_status_rpkg(void)
     return rpkg;
 }
 
-ti_rpkg_t * ti_client_status_rpkg(void)
-{
-    msgpack_packer pk;
-    msgpack_sbuffer buffer;
-    ti_pkg_t * pkg;
-    ti_rpkg_t * rpkg;
-    const char * status = ti_node_status_str(ti.node->status);
-
-    if (mp_sbuffer_alloc_init(&buffer, 64, sizeof(ti_pkg_t)))
-        return NULL;
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-
-    mp_pack_str(&pk, status);
-
-    pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_NODE_STATUS, buffer.size);
-
-    rpkg = ti_rpkg_create(pkg);
-    if (!rpkg)
-        free(pkg);
-
-    return rpkg;
-}
-
 void ti_set_and_broadcast_node_status(ti_node_status_t status)
 {
-    ti_rpkg_t * client_rpkg;
-
     if (ti.node->status == status)
         return;  /* node status is not changed */
 
@@ -816,16 +797,7 @@ void ti_set_and_broadcast_node_status(ti_node_status_t status)
     ti.node->status = status;
 
     ti_broadcast_node_info();
-
-    client_rpkg = ti_client_status_rpkg();
-    if (!client_rpkg)
-    {
-        log_critical(EX_MEMORY_S);
-        return;
-    }
-
-    ti_clients_write_rpkg(client_rpkg);
-    ti_rpkg_drop(client_rpkg);
+    ti_room_emit_node_status(ti.room0, ti_node_status_str(ti.node->status));
 }
 
 void ti_set_and_broadcast_node_zone(uint8_t zone)
@@ -917,8 +889,8 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         mp_pack_str(pk, "uptime") ||
         msgpack_pack_double(pk, uptime) ||
         /* 17 */
-        mp_pack_str(pk, "events_in_queue") ||
-        msgpack_pack_uint64(pk, ti.events->queue->n) ||
+        mp_pack_str(pk, "changes_in_queue") ||
+        msgpack_pack_uint64(pk, ti.changes->queue->n) ||
         /* 18 */
         mp_pack_str(pk, "archived_in_memory") ||
         msgpack_pack_uint64(pk, ti.archive->queue->n) ||
@@ -926,26 +898,26 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         mp_pack_str(pk, "archive_files") ||
         msgpack_pack_uint32(pk, ti.archive->archfiles->n) ||
         /* 20 */
-        mp_pack_str(pk, "local_stored_event_id") ||
-        msgpack_pack_uint64(pk, ti.node->sevid) ||
+        mp_pack_str(pk, "local_stored_change_id") ||
+        msgpack_pack_uint64(pk, ti.node->scid) ||
         /* 21 */
-        mp_pack_str(pk, "local_committed_event_id") ||
-        msgpack_pack_uint64(pk, ti.node->cevid) ||
+        mp_pack_str(pk, "local_committed_change_id") ||
+        msgpack_pack_uint64(pk, ti.node->ccid) ||
         /* 22 */
-        mp_pack_str(pk, "global_stored_event_id") ||
-        msgpack_pack_uint64(pk, ti_nodes_sevid()) ||
+        mp_pack_str(pk, "global_stored_change_id") ||
+        msgpack_pack_uint64(pk, ti_nodes_scid()) ||
         /* 23 */
-        mp_pack_str(pk, "global_committed_event_id") ||
-        msgpack_pack_uint64(pk, ti_nodes_cevid()) ||
+        mp_pack_str(pk, "global_committed_change_id") ||
+        msgpack_pack_uint64(pk, ti_nodes_ccid()) ||
         /* 24 */
-        mp_pack_str(pk, "db_stored_event_id") ||
-        msgpack_pack_uint64(pk, ti.store->last_stored_event_id) ||
+        mp_pack_str(pk, "db_stored_change_id") ||
+        msgpack_pack_uint64(pk, ti.store->last_stored_change_id) ||
         /* 25 */
-        mp_pack_str(pk, "next_event_id") ||
-        msgpack_pack_uint64(pk, ti.events->next_event_id) ||
+        mp_pack_str(pk, "next_change_id") ||
+        msgpack_pack_uint64(pk, ti.changes->next_change_id) ||
         /* 26 */
-        mp_pack_str(pk, "next_thing_id") ||
-        msgpack_pack_uint64(pk, ti.node->next_thing_id) ||
+        mp_pack_str(pk, "next_free_id") ||
+        msgpack_pack_uint64(pk, ti.node->next_free_id) ||
         /* 27 */
         mp_pack_str(pk, "cached_names") ||
         msgpack_pack_uint32(pk, ti.names->n) ||
@@ -1133,6 +1105,7 @@ static void ti__stop(void)
 {
     ti_away_stop();
     ti_connect_stop();
-    ti_events_stop();
+    ti_changes_stop();
     ti_sync_stop();
+    ti_timers_stop();  /* extra stop may be required */
 }

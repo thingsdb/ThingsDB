@@ -132,7 +132,7 @@ class TestTimers(TestBase):
                 datetime().move('seconds', 2),
                 || {.x += 8}
             );
-            wse(run(timer));
+            run(timer);
         ''')
         self.assertEqual(res, 16)
         await asyncio.sleep(8)

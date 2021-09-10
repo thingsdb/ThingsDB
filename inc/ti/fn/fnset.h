@@ -86,7 +86,7 @@ static int do__f_set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (thing->id)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, thing);
+        ti_task_t * task = ti_task_get_task(query->change, thing);
         if (!task || ti_task_add_set(task, witem.key, *witem.val))
         {
             ex_set_mem(e);

@@ -9,7 +9,7 @@ typedef struct ti_archfile_s ti_archfile_t;
 #include <inttypes.h>
 
 ti_archfile_t * ti_archfile_upsert(const char * path, const char * fn);
-ti_archfile_t * ti_archfile_from_event_ids(
+ti_archfile_t * ti_archfile_from_change_ids(
         const char * path,
         uint64_t first,
         uint64_t last);

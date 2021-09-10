@@ -182,10 +182,8 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (ti_val_as_bool(query->rval))
             {
                 ti_incref(v);
-                VEC_push(varr->vec, v);
-
-                if (ti_val_is_thing(v))
-                    varr->flags |= TI_VARR_FLAG_MHT;
+                (void) ti_varr_append(varr, (void **) &v, e);
+                assert (e->nr == 0);  /* the above should always succeed */
             }
 
             ti_val_unsafe_drop(query->rval);

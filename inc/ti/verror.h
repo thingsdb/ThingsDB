@@ -18,13 +18,8 @@ typedef struct ti_verror_s ti_verror_t;
 void ti_verror_init(void);
 ti_verror_t * ti_verror_create(const char * msg, size_t n, int8_t code);
 ti_verror_t * ti_verror_from_code(int8_t code);
-static inline ti_verror_t * ti_verror_from_raw(int8_t code, ti_raw_t * raw);
-static inline ti_verror_t * ti_verror_from_e(ex_t * e);
-static inline ti_verror_t * ti_verror_ensure_from_e(ex_t * e);
 void ti_verror_to_e(ti_verror_t * verror, ex_t * e);
 int ti_verror_check_msg(const char * msg, size_t n, ex_t * e);
-const char * ti_verror_type_str(ti_verror_t * verror);
-static inline int ti_verror_to_pk(ti_verror_t * verror, msgpack_packer * pk);
 
 struct ti_verror_s
 {
@@ -53,20 +48,20 @@ static inline ti_verror_t * ti_verror_ensure_from_e(ex_t * e)
     return verror ? verror : ti_verror_from_code(EX_MEMORY);
 }
 
-static inline int ti_verror_to_pk(ti_verror_t * verror, msgpack_packer * pk)
+static inline int ti_verror_to_pk(
+        ti_verror_t * verror,
+        msgpack_packer * pk,
+        int options)
 {
-    return -(
-        msgpack_pack_map(pk, 3) ||
+    return options >= 0
+            ? mp_pack_strn(pk, verror->msg, verror->msg_n)
+            : -(msgpack_pack_map(pk, 1) ||
 
-        mp_pack_strn(pk, TI_KIND_S_ERROR, 1) ||
-        mp_pack_str(pk, ti_verror_type_str(verror)) ||
+                mp_pack_strn(pk, TI_KIND_S_ERROR, 1) ||
+                msgpack_pack_array(pk, 2) ||
 
-        mp_pack_str(pk, "error_msg") ||
-        mp_pack_strn(pk, verror->msg, verror->msg_n) ||
-
-        mp_pack_str(pk, "error_code") ||
-        msgpack_pack_int8(pk, verror->code)
-    );
+                mp_pack_strn(pk, verror->msg, verror->msg_n) ||
+                msgpack_pack_int8(pk, verror->code));
 }
 
 #endif  /* TI_VERROR_H_ */

@@ -32,7 +32,7 @@ static int varr__to_tuple(ti_varr_t ** varr)
 
     tuple->ref = 1;
     tuple->tp = TI_VAL_ARR;
-    tuple->flags = TI_VARR_FLAG_TUPLE | ((*varr)->flags & TI_VARR_FLAG_MHT);
+    tuple->flags = TI_VARR_FLAG_TUPLE | ti_varr_may_flags(*varr);
     tuple->vec = vec_dup((*varr)->vec);
     /*
      * Note that `tuple` is allocation as a tuple but is casted as type `varr`
@@ -84,7 +84,8 @@ ti_varr_t * ti_tuple_from_vec(vec_t * vec)
 
     varr->ref = 1;
     varr->tp = TI_VAL_ARR;
-    varr->flags = TI_VARR_FLAG_TUPLE|(vec->n ? TI_VARR_FLAG_MHT:0);
+    varr->flags = \
+            TI_VARR_FLAG_TUPLE|(vec->n?(TI_VARR_FLAG_MHT|TI_VARR_FLAG_MHR):0);
     varr->vec = vec;
     varr->parent = NULL;
     return varr;
@@ -99,7 +100,7 @@ ti_varr_t * ti_varr_from_vec(vec_t * vec)
 
     varr->ref = 1;
     varr->tp = TI_VAL_ARR;
-    varr->flags = vec->n ? TI_VARR_FLAG_MHT : 0;;
+    varr->flags = vec->n?(TI_VARR_FLAG_MHT|TI_VARR_FLAG_MHR):0;
     varr->vec = vec;
     varr->parent = NULL;
     return varr;
@@ -194,7 +195,7 @@ int ti_varr_val_prepare(ti_varr_t * to, void ** v, ex_t * e)
         return e->nr;
     }
 
-    switch (((ti_val_t *) *v)->tp)
+    switch ((ti_val_enum) ((ti_val_t *) *v)->tp)
     {
     case TI_VAL_SET:
         if (ti_vset_to_tuple((ti_vset_t **) v))
@@ -202,7 +203,7 @@ int ti_varr_val_prepare(ti_varr_t * to, void ** v, ex_t * e)
             ex_set_mem(e);
             return e->nr;
         }
-        to->flags |= ((ti_varr_t *) *v)->flags & TI_VARR_FLAG_MHT;
+        ti_varr_set_may_flags(to, (ti_varr_t *) *v);
         break;
     case TI_VAL_CLOSURE:
         if (ti_closure_unbound((ti_closure_t *) *v, e))
@@ -218,14 +219,23 @@ int ti_varr_val_prepare(ti_varr_t * to, void ** v, ex_t * e)
             ex_set_mem(e);
             return e->nr;
         }
-        to->flags |= ((ti_varr_t *) *v)->flags & TI_VARR_FLAG_MHT;
+        ti_varr_set_may_flags(to, (ti_varr_t *) *v);
         break;
     case TI_VAL_THING:
         to->flags |= TI_VARR_FLAG_MHT;
         break;
+    case TI_VAL_ROOM:
+        to->flags |= TI_VARR_FLAG_MHR;
+        break;
+    case TI_VAL_MEMBER:
+        if (ti_val_is_thing(VMEMBER(*v)))
+            to->flags |= TI_VARR_FLAG_MHT;
+        break;
     case TI_VAL_FUTURE:
         ti_val_unsafe_drop(*v);
         *v = ti_nil_get();
+        break;
+    default:
         break;
     }
     return e->nr;
@@ -258,7 +268,7 @@ int ti_varr_to_list(ti_varr_t ** varr)
 
     list->ref = 1;
     list->tp = TI_VAL_ARR;
-    list->flags = (*varr)->flags & TI_VARR_FLAG_MHT;
+    list->flags = ti_varr_may_flags(*varr);
     list->vec = vec_dup((*varr)->vec);
     list->parent = NULL;
 
@@ -288,7 +298,7 @@ int ti_varr_copy(ti_varr_t ** varr, uint8_t deep)
 
     list->ref = 1;
     list->tp = TI_VAL_ARR;
-    list->flags = (*varr)->flags & TI_VARR_FLAG_MHT;
+    list->flags = ti_varr_may_flags(*varr);
     list->vec = vec_dup((*varr)->vec);
     list->parent = NULL;
 
@@ -327,7 +337,7 @@ int ti_varr_dup(ti_varr_t ** varr, uint8_t deep)
 
     list->ref = 1;
     list->tp = TI_VAL_ARR;
-    list->flags = (*varr)->flags & TI_VARR_FLAG_MHT;
+    list->flags = ti_varr_may_flags(*varr);
     list->vec = vec_dup((*varr)->vec);
     list->parent = NULL;
 

@@ -1218,6 +1218,7 @@ mod_type('D', 'rel', 'da', 'db');
             set_type('A', {
                 a: 'A?',
                 aa: '{A}',
+                aaa: '{A}',
                 bb: '{B}',
             });
 
@@ -1227,6 +1228,7 @@ mod_type('D', 'rel', 'da', 'db');
 
             mod_type('A', 'rel', 'a', 'aa');
             mod_type('A', 'rel', 'bb', 'aa');
+            mod_type('A', 'rel', 'aaa', 'aaa');
         ''')
 
         self.assertEqual(await client0.query(r'''
@@ -1275,6 +1277,46 @@ mod_type('D', 'rel', 'da', 'db');
             assert (.a1.aa == set());
             assert (.a2.aa == set(.a1, .a2));
 
+            .a2.aa.remove(||true);
+            assert (.a1.a == nil);
+            assert (.a2.a == nil);
+            assert (.a1.aa == set());
+            assert (.a2.aa == set());
+
+            .a1.aaa = set(.a1, .a2);
+            assert (.a1.aaa == set(.a1, .a2));
+            assert (.a2.aaa == set(.a1));
+
+            .a1.aaa.remove(||true);
+            assert (.a1.aaa == set());
+            assert (.a2.aaa == set());
+
+            .a2.aa |= set(.a1, .a2);
+            assert (.a1.a == .a2);
+            assert (.a2.a == .a2);
+            assert (.a1.aa == set());
+            assert (.a2.aa == set(.a1, .a2));
+
+            .a2.aa.clear();
+            assert (.a1.a == nil);
+            assert (.a2.a == nil);
+            assert (.a1.aa == set());
+            assert (.a2.aa == set());
+
+            .a1.aaa = set(.a1, .a2);
+            assert (.a1.aaa == set(.a1, .a2));
+            assert (.a2.aaa == set(.a1));
+
+            .a1.aaa.clear();
+            assert (.a1.aaa == set());
+            assert (.a2.aaa == set());
+
+            .a2.aa |= set(.a1, .a2);
+            assert (.a1.a == .a2);
+            assert (.a2.a == .a2);
+            assert (.a1.aa == set());
+            assert (.a2.aa == set(.a1, .a2));
+
             'OK';
         '''), 'OK')
 
@@ -1291,6 +1333,8 @@ mod_type('D', 'rel', 'da', 'db');
                 assert (.a2.a == .a2);
                 assert (.a1.aa == set());
                 assert (.a2.aa == set(.a1, .a2));
+                assert (.a1.aaa == set());
+                assert (.a2.aaa == set());
 
                 'OK';
             '''), 'OK')

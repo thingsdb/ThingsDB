@@ -13,7 +13,7 @@ static int do__f_timers_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     with_definition = ti_access_check(
             ti_query_access(query),
             query->user,
-            TI_AUTH_EVENT);
+            TI_AUTH_CHANGE);
 
     query->rval = (ti_val_t *) ti_timers_info(*timers, with_definition);
 

@@ -83,7 +83,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (varr->parent && varr->parent->id && (c || n))
     {
-        ti_task_t * task = ti_task_get_task(query->ev, varr->parent);
+        ti_task_t * task = ti_task_get_task(query->change, varr->parent);
         if (!task || ti_task_add_splice(
                 task,
                 ti_varr_key(varr),
@@ -92,7 +92,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 (uint32_t) c,
                 (uint32_t) n))
             goto alloc_err;  /* we do not need to cleanup task, since the task
-                                is added to `query->ev->tasks` */
+                                is added to `query->change->tasks` */
     }
 
     assert (e->nr == 0);

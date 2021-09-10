@@ -25,8 +25,7 @@ static int do__f_reverse(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_incref(val);
     }
 
-    /* set the may-have-things flags if set on the source */
-    dst->flags = src->flags & TI_VARR_FLAG_MHT;
+    ti_varr_set_may_flags(dst, src);
 
     ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) dst;

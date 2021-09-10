@@ -85,7 +85,7 @@ class TestUserAccess(TestBase):
                 OperationError,
                 'it is not possible to revoke your own `GRANT` privileges'):
             await testcl1.query(
-                r'''revoke('@:Collection', 'test1', EVENT);''')
+                r'''revoke('@:Collection', 'test1', CHANGE);''')
 
         await client.query(
             r'''revoke('@:Collection', 'test1', MODIFY);''')  # Deprecation
@@ -110,7 +110,7 @@ class TestUserAccess(TestBase):
                 'privileges': 'FULL',
                 'scope': '@collection:junk'
             }, {
-                'privileges': 'QUERY|EVENT|GRANT',
+                'privileges': 'QUERY|CHANGE|GRANT',
                 'scope': '@collection:Collection'
             }],
             'has_password': True,

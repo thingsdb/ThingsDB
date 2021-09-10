@@ -47,8 +47,7 @@ static int do__f_keys(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     else
     {
-        ti_type_t * type = ti_thing_type(thing);
-        for (vec_each(type->fields, ti_field_t, field))
+        for (vec_each(thing->via.type->fields, ti_field_t, field))
         {
             VEC_push(varr->vec, field->name);
             ti_incref(field->name);

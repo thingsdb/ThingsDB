@@ -128,17 +128,14 @@ static void timer__async_cb(uv_async_t * async)
         ti_incref(query->collection);
 
     if (timer->closure->flags & TI_CLOSURE_FLAG_WSE)
-    {
-        query->qbind.flags |= TI_QBIND_FLAG_EVENT;
-        query->flags |= TI_QUERY_FLAG_WSE;
-    }
+        query->qbind.flags |= TI_QBIND_FLAG_WSE;
 
-    if (ti_access_check_err(access_, query->user, TI_AUTH_EVENT, &e))
+    if (ti_access_check_err(access_, query->user, TI_AUTH_CHANGE, &e))
         goto finish;
 
-    if (ti_query_will_update(query))
+    if (ti_query_wse(query))
     {
-        if (ti_events_create_new_event(query, &e))
+        if (ti_changes_create_new_change(query, &e))
             goto finish;
         return;
     }
@@ -480,6 +477,7 @@ int ti_timer_check_thingsdb_args(vec_t * args, ex_t * e)
         case TI_VAL_CLOSURE:
         case TI_VAL_THING:
         case TI_VAL_WRAP:
+        case TI_VAL_ROOM:
         case TI_VAL_ARR:
         case TI_VAL_SET:
         case TI_VAL_ERROR:

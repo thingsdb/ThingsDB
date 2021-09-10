@@ -190,12 +190,18 @@ void ti_backups_destroy(void)
 
 /* this function requires a lock since it returns a `backup` which requires
  * a lock by itself;
+ *
+ * argument `id` is not exact but checks for "at least" this backup id. This
+ * is useful so the ge_pending function can be used and prevent returning the
+ * same backup more than once.
  */
-static ti_backup_t * backups__get_pending(uint64_t ts, uint64_t id)
+static ti_backup_t * backups__get_pending(uint64_t ts, uint64_t at_least_id)
 {
     omap_iter_t iter = omap_iter(backups->omap);
     for (omap_each(iter, ti_backup_t, backup))
-        if (backup->scheduled && backup->id >= id && backup->next_run < ts)
+        if (backup->scheduled &&
+            backup->id >= at_least_id &&
+            backup->next_run < ts)
             return backup;
     return NULL;
 }
@@ -267,7 +273,7 @@ done:
     uv_mutex_unlock(backups->lock);
 }
 
-void backups__run(uint64_t backup_id, const char * job)
+static void backups__run(uint64_t backup_id, const char * backup_task)
 {
     char buffer[512];
     int rc = -1;
@@ -275,7 +281,7 @@ void backups__run(uint64_t backup_id, const char * job)
     buf_t buf;
     buf_init(&buf);
 
-    fp = popen(job, "r");
+    fp = popen(backup_task, "r");
     if (!fp)
     {
         buf_append_str(&buf, "failed to open `backup` task");
@@ -554,10 +560,10 @@ int ti_backups_store(void)
 
 int ti_backups_backup(void)
 {
-    uint64_t backup_id = 0;
-    char * job = NULL;
+    char * backup_task;
     ti_backup_t * backup;
     uint64_t now = util_now_usec();
+    uint64_t backup_id = 0;  /* At least backup Id...*/
 
     do
     {
@@ -565,23 +571,23 @@ int ti_backups_backup(void)
 
         uv_mutex_lock(backups->lock);
 
+        backup_task = NULL;
         backup = backups__get_pending(now, backup_id);
         if (backup)
         {
             backup_id = backup->id;
-            job = ti_backup_is_gcloud(backup)
-                    ? ti_backup_gcloud_job(backup)
-                    : ti_backup_job(backup);
+            backup_task = ti_backup_is_gcloud(backup)
+                    ? ti_backup_gcloud_task(backup)
+                    : ti_backup_task(backup);
         }
 
         uv_mutex_unlock(backups->lock);
 
-        if (!job)
+        if (!backup_task)
             break;
 
-        backups__run(backup_id, job);
-        free(job);
-        job = NULL;
+        backups__run(backup_id, backup_task);
+        free(backup_task);
         ++backup_id;
 
     } while(1);

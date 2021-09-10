@@ -17,6 +17,7 @@
 #include <ti/names.h>
 #include <ti/prop.h>
 #include <ti/raw.inline.h>
+#include <ti/task.h>
 #include <ti/thing.inline.h>
 #include <ti/type.h>
 #include <ti/types.h>
@@ -337,7 +338,7 @@ int ti_type_init_from_thing(ti_type_t * type, ti_thing_t * thing, ex_t * e)
 
 /*
  * TODO: (COMPAT) This function can be removed when we want to stop support
- * for events containing type events using the `old map` format.
+ * for changes containing type changes using the `old map` format.
  * (Changed in version 0.3.3, 19 December 2019)
  *
  * This function is called only in case when unpacking according the new
@@ -412,7 +413,7 @@ failed:
 
 /*
  * TODO: (COMPAT) This function can be removed when we want to stop support
- * for events containing type events using the `old map` format.
+ * for changes containing type changes using the `old map` format.
  * (Changed in version 0.9.24, 25 November 2020)
  *
  * This function is called only in case when unpacking according the new
@@ -754,7 +755,7 @@ int ti_type_methods_to_pk(ti_type_t * type, msgpack_packer * pk)
     for (vec_each(type->methods, ti_method_t, method))
     {
         if (mp_pack_strn(pk, method->name->str, method->name->n) ||
-            ti_closure_to_pk(method->closure, pk)
+            ti_closure_to_pk(method->closure, pk, TI_VAL_PACK_TASK)
         ) return -1;
     }
 
@@ -947,7 +948,9 @@ int type__convert_cb(ti_prop_t * prop, type__convert_t * w)
     if (!field)
     {
         ex_set(w->e, EX_TYPE_ERROR,
-                "conversion failed; type `%s` has no property `%.*s`",
+                "conversion failed; "
+                "type `%s` has no property `%.*s` "
+                "but the thing you are trying to convert has",
                 w->type->name, prop->name->n, prop->name->str);
         return -1;
     }
@@ -956,7 +959,7 @@ int type__convert_cb(ti_prop_t * prop, type__convert_t * w)
     {
         ex_set(w->e, EX_TYPE_ERROR,
                 "conversion failed; property `%s` on type `%s` has a relation "
-                "and can therefore not be converted",
+                "and can therefore not be used as a type to convert to",
                 field->name->str, field->type->name);
         return -1;
     }
@@ -979,12 +982,17 @@ int type__convert_cb(ti_prop_t * prop, type__convert_t * w)
     return ti_field_make_assignable(field, vaddr, w->thing, w->e);
 }
 
-int ti_type_convert(ti_type_t * type, ti_thing_t * thing, ex_t * e)
+int ti_type_convert(
+        ti_type_t * type,
+        ti_thing_t * thing,
+        ti_change_t * change,   /* might be NULL */
+        ex_t * e)
 {
     type__convert_t w = {
             .vec = vec_new(type->fields->n),
             .e = e,
             .type = type,
+            .thing = thing,
     };
 
     if (!w.vec)
@@ -1013,13 +1021,31 @@ int ti_type_convert(ti_type_t * type, ti_thing_t * thing, ex_t * e)
 
     for (vec_each(type->fields, ti_field_t, field))
     {
-        ti_val_t * val = VEC_get(w.vec, field->idx);
-        if (!val)
+        ti_val_t ** val = (ti_val_t **) vec_get_addr(w.vec, field->idx);
+        if (!*val)
         {
-            ex_set(e, EX_TYPE_ERROR,
-                    "conversion failed; property `%s` is missing",
-                    field->name->str);
-            goto fail0;
+            if (change)
+            {
+                ti_task_t * task = ti_task_get_task(change, thing);
+
+                *val = field->dval_cb(field);
+                if (!*val || !task || ti_task_add_set(
+                        task,
+                        (ti_raw_t *) field->name,
+                        *val))
+                {
+                    ex_set_mem(e);
+                    goto fail0;
+                }
+                ti_val_attach(*val, thing, field);
+            }
+            else
+            {
+                ex_set(e, EX_TYPE_ERROR,
+                        "conversion failed; property `%s` is missing",
+                        field->name->str);
+                goto fail0;
+            }
         }
     }
 
@@ -1028,6 +1054,7 @@ int ti_type_convert(ti_type_t * type, ti_thing_t * thing, ex_t * e)
     /* make sure the `dictionary` flag is removed */
     thing->flags &= ~TI_THING_FLAG_DICT;
     thing->type_id = type->type_id;
+    thing->via.type = type;
     thing->items.vec = w.vec;
     return e->nr;
 
@@ -1097,14 +1124,13 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
     }
     else
     {
-        ti_type_t * f_type = ti_thing_type(from);
-        if (f_type != type)
+        if (from->via.type != type)
         {
             ex_set(e, EX_TYPE_ERROR,
                     "cannot create an instance of type `%s` from type `%s`"
                     DOC_NEW,
                     type->name,
-                    f_type->name);
+                    from->via.type->name);
             goto failed;
         }
 

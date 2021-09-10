@@ -85,7 +85,7 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cryptx_gen_salt(salt);
     cryptx(secret, salt, encrypted);
 
-    task = ti_task_get_task(query->ev, ti.thing0);
+    task = ti_task_get_task(query->change, ti.thing0);
     if (!task)
     {
         ex_set_mem(e);
@@ -102,7 +102,7 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_task_add_new_node(task, node))
         ex_set_mem(e);  /* task cleanup is not required */
 
-    query->ev->flags |= TI_EVENT_FLAG_SAVE;
+    query->change->flags |= TI_CHANGE_FLAG_SAVE;
 
     ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vint_create((int64_t) node->id);

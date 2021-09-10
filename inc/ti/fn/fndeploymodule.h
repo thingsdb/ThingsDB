@@ -42,7 +42,7 @@ static int do__f_deploy_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     mdata = (ti_raw_t *) (ti_val_is_nil(query->rval) ? NULL : query->rval);
 
-    task = ti_task_get_task(query->ev, ti.thing0);
+    task = ti_task_get_task(query->change, ti.thing0);
     if (!task || ti_task_add_deploy_module(task, module, mdata))
         ex_set_mem(e);  /* task cleanup is not required */
     else if (mdata == NULL ||

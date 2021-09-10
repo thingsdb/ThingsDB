@@ -32,7 +32,7 @@ class TestDocUrl(TestBase):
 
     @staticmethod
     def get_url(lines):
-        return 'https://docs.thingsdb.net/v0/'
+        return 'https://docs.thingsdb.net/v1/'
 
     @staticmethod
     async def test_url(lines, url):

@@ -224,7 +224,7 @@ ti_closure_t * ti_closure_from_strn(
     closure->depth = 0;
     closure->future_depth = 0;
     closure->node = closure__node_from_strn(syntax, str, n, e);
-    closure->flags = syntax->flags & TI_QBIND_FLAG_EVENT
+    closure->flags = syntax->flags & TI_QBIND_FLAG_WSE
             ? TI_CLOSURE_FLAG_WSE
             : 0;
     closure->stacked = NULL;
@@ -276,7 +276,7 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
     if (!node)
         return e->nr;
 
-    closure->flags = syntax.flags & TI_QBIND_FLAG_EVENT
+    closure->flags = syntax.flags & TI_QBIND_FLAG_WSE
             ? TI_CLOSURE_FLAG_WSE
             : 0;
     closure->node = node;
@@ -284,32 +284,33 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
     return e->nr;
 }
 
-int ti_closure_to_pk(ti_closure_t * closure, msgpack_packer * pk)
+int ti_closure_to_pk(ti_closure_t * closure, msgpack_packer * pk, int options)
 {
-    char * buf;
-    size_t n = 0;
-    int rc;
-    if (!closure__is_unbound(closure))
+    if (closure__is_unbound(closure))
     {
-        return -(
-            msgpack_pack_map(pk, 1) ||
-            mp_pack_strn(pk, TI_KIND_S_CLOSURE, 1) ||
-            mp_pack_strn(pk, closure->node->str, closure->node->len)
-        );
+        int rc;
+        char * buf;
+        size_t n = 0;
+
+        buf = ti_closure_char(closure, &n);
+        if (!buf)
+            return -1;
+
+        rc = options >= 0
+                ? mp_pack_strn(pk, buf, n)
+                : mp_pack_ext(pk, MPACK_EXT_CLOSURE, buf, n);
+
+        free(buf);
+        return rc;
     }
 
-    buf = ti_closure_char(closure, &n);
-    if (!buf)
-        return -1;
-
-    rc = -(
-        msgpack_pack_map(pk, 1) ||
-        mp_pack_strn(pk, TI_KIND_S_CLOSURE, 1) ||
-        mp_pack_strn(pk, buf, n)
-    );
-
-    free(buf);
-    return rc;
+    return options >= 0
+        ? mp_pack_strn(pk, closure->node->str, closure->node->len)
+        : mp_pack_ext(
+                pk,
+                MPACK_EXT_CLOSURE,
+                closure->node->str,
+                closure->node->len);
 }
 
 char * ti_closure_char(ti_closure_t * closure, size_t * n)

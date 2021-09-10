@@ -117,7 +117,7 @@ int ti_store_create(void)
     store->timers_fn = fx_path_join(store->tmp_path, store__timers_fn);
     store->users_fn = fx_path_join(store->tmp_path, store__users_fn);
     store->modules_fn = fx_path_join(store->tmp_path, store__modules_fn);
-    store->last_stored_event_id = 0;
+    store->last_stored_change_id = 0;
     store->collection_ids = NULL;
 
     if (    !store->prev_path ||
@@ -287,10 +287,10 @@ int ti_store_store(void)
     (void) fx_rmdir(store->prev_path);
     (void) ti_sleep(2);
 
-    store->last_stored_event_id = ti.node->cevid;
+    store->last_stored_change_id = ti.node->ccid;
 
-    log_info("stored thingsdb until "TI_EVENT_ID" to: `%s`",
-            store->last_stored_event_id, store->store_path);
+    log_info("stored thingsdb until "TI_CHANGE_ID" to: `%s`",
+            store->last_stored_change_id, store->store_path);
 
     rc = store__collection_ids();
 
@@ -438,7 +438,7 @@ int ti_store_restore(void)
          */
     }
 
-    store->last_stored_event_id = ti.node->cevid;
+    store->last_stored_change_id = ti.node->ccid;
 
     rc = store__collection_ids();
 

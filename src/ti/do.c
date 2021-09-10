@@ -114,7 +114,7 @@ static inline int do__t_get_wprop(
         cleri_node_t * nd,
         ex_t * e)
 {
-    ti_type_t * type = ti_thing_type(thing);
+    ti_type_t * type = thing->via.type;
     ti_name_t * name = nd->data ? nd->data : do__cache_name(query, nd);
 
     if (name)
@@ -183,12 +183,11 @@ static inline int do__t_upd_prop(
         ex_t * e)
 {
     ti_field_t * field;
-    ti_type_t * type = ti_thing_type(thing);
     ti_name_t * name = name_nd->data
             ? name_nd->data
             : do__cache_name(query, name_nd);
 
-    if (name && (field = ti_field_by_name(type, name)))
+    if (name && (field = ti_field_by_name(thing->via.type, name)))
     {
         wprop->name = field->name;
         wprop->val = (ti_val_t **) vec_get_addr(
@@ -203,7 +202,7 @@ static inline int do__t_upd_prop(
 
     ex_set(e, EX_LOOKUP_ERROR,
             "type `%s` has no property `%.*s`",
-            type->name, name_nd->len, name_nd->str);
+            thing->via.type->name, name_nd->len, name_nd->str);
     return e->nr;
 }
 
@@ -271,7 +270,7 @@ static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (thing->id)
     {
         assert (query->collection);  /* only in a collection scope */
-        task = ti_task_get_task(query->ev, thing);
+        task = ti_task_get_task(query->change, thing);
         if (!task || ti_task_add_set(task, (ti_raw_t *) wprop.name, *wprop.val))
             ex_set_mem(e);
     }
@@ -780,11 +779,11 @@ static int do__read_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 enum
 {
-    TOTAL_KEYWORDS = 13,
+    TOTAL_KEYWORDS = 15,
     MIN_WORD_LENGTH = 3,
     MAX_WORD_LENGTH = 8,
-    MIN_HASH_VALUE = 4,
-    MAX_HASH_VALUE = 16
+    MIN_HASH_VALUE = 3,
+    MAX_HASH_VALUE = 17
 };
 
 static inline unsigned int do__hash(
@@ -793,32 +792,32 @@ static inline unsigned int do__hash(
 {
     static unsigned char asso_values[] =
     {
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17,  1,  5,  1,  5,  0,
-         2,  1,  6,  0, 17, 17,  3,  0,  1,  2,
-        17,  0,  0, 17,  0,  0,  0,  0, 17,  0,
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
-        17, 17, 17, 17, 17, 17
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18,  0,  4,  0,  3,  5,
+         0,  0,  3,  0, 12, 18,  1,  4,  0,  0,
+        18,  1,  0, 18,  0,  0,  0,  0, 18,  0,
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
+        18, 18, 18, 18, 18, 18
     };
 
     register unsigned int hval = n;
@@ -854,7 +853,6 @@ static inline unsigned int do__hash(
     return hval;
 }
 
-
 typedef struct
 {
     char name[MAX_WORD_LENGTH+1];
@@ -866,9 +864,11 @@ typedef struct
 do__fixed_t do__fixed_mapping[TOTAL_KEYWORDS] = {
     {.name="READ",                  .value=TI_AUTH_QUERY},  /* deprecated */
     {.name="QUERY",                 .value=TI_AUTH_QUERY},
-    {.name="MODIFY",                .value=TI_AUTH_EVENT},  /* deprecated */
-    {.name="EVENT",                 .value=TI_AUTH_EVENT},
-    {.name="WATCH",                 .value=TI_AUTH_WATCH},
+    {.name="MODIFY",                .value=TI_AUTH_CHANGE},  /* deprecated */
+    {.name="EVENT",                 .value=TI_AUTH_CHANGE},  /* deprecated */
+    {.name="CHANGE",                .value=TI_AUTH_CHANGE},
+    {.name="WATCH",                 .value=TI_AUTH_JOIN},   /* deprecated */
+    {.name="JOIN",                  .value=TI_AUTH_JOIN},
     {.name="RUN",                   .value=TI_AUTH_RUN},
     {.name="GRANT",                 .value=TI_AUTH_GRANT},
     {.name="FULL",                  .value=TI_AUTH_MASK_FULL},

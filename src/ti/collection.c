@@ -549,7 +549,7 @@ ti_pkg_t * ti_collection_join_rooms(
     msgpack_sbuffer buffer;
     size_t i, nargs, size = pkg->n + sizeof(ti_pkg_t);
     mp_unp_t up;
-    mp_obj_t obj, mp_id;
+    mp_obj_t obj = {0}, mp_id;
     ti_room_t * room;
 
     mp_unp_init(&up, pkg->data, pkg->n);
@@ -611,7 +611,7 @@ ti_pkg_t * ti_collection_leave_rooms(
     msgpack_sbuffer buffer;
     size_t i, nargs, size = pkg->n + sizeof(ti_pkg_t);
     mp_unp_t up;
-    mp_obj_t obj, mp_id;
+    mp_obj_t obj = {0}, mp_id;
     ti_room_t * room;
 
     mp_unp_init(&up, pkg->data, pkg->n);

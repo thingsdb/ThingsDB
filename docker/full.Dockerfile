@@ -1,5 +1,6 @@
-FROM google/cloud-sdk:latest
+FROM google/cloud-sdk:353.0.0
 COPY ./ /tmp/thingsdb/
+
 RUN apt-get update && apt-get install -y \
     build-essential \
     git \
@@ -14,7 +15,8 @@ RUN apt-get update && apt-get install -y \
     make clean && \
     make
 
-FROM google/cloud-sdk:latest
+FROM google/cloud-sdk:353.0.0
+
 RUN mkdir -p /var/lib/thingsdb && \
     apt-get update && apt-get install -y \
     libuv1 \

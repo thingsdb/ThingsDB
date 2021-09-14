@@ -1,3 +1,6 @@
+[![CI](https://github.com/thingsdb/ThingsDB/workflows/CI/badge.svg)](https://github.com/thingsdb/ThingsDB/actions)
+[![Release Version](https://img.shields.io/github/release/thingsdb/ThingsDB)](https://github.com/thingsdb/ThingsDB/releases)
+
 # ThingsDB Node
 
 ThingsDB is an object-oriented database with event-driven features that allows

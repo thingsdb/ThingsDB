@@ -14,13 +14,14 @@ jobs:
           cd ./libcleri/Release/
           make
           sudo make install
-          cd ../../Release/
           gcc --version
       - name: Run tests
         run: |
+          cd ./Release/
           make test
       - name: Compile code
         run: |
+          cd ./Release/
           CFLAGS="-Werror -Winline -std=gnu11" make
 
 

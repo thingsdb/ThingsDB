@@ -1,0 +1,26 @@
+name: CI
+on:
+  push:
+    branches:
+      - main
+jobs:
+  build-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install dependencies
+        run: |
+          git clone https://github.com/transceptor-technology/libcleri.git
+          cd ./libcleri/Release/
+          make
+          sudo make install
+          cd ../../Release/
+          gcc --version
+      - name: Run tests
+        run: |
+          make test
+      - name: Compile code
+        run: |
+          CFLAGS="-Werror -Winline -std=gnu11" make
+
+

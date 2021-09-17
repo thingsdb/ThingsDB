@@ -41,6 +41,7 @@
 #include <util/strx.h>
 #include <util/util.h>
 #include <yajl/yajl_version.h>
+#include <sys/utsname.h>
 
 #ifndef NDEBUG
 /* these imports are required for sanity checks only */
@@ -74,6 +75,10 @@ static void ti__stop(void);
  */
 int ti_create(void)
 {
+    struct utsname uinfo;
+    uname(&uinfo);
+    printf("machine: %s sysname: %s\n", uinfo.machine, uinfo.sysname);
+
     ti.last_change_id = 0;
     ti.global_stored_change_id = 0;
     ti.flags = 0;

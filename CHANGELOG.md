@@ -1,3 +1,7 @@
+# v1.0.1
+
+* Module are callable be the module name
+
 # v1.0.0
 
 * Added a `room` type to replace watching things.

@@ -61,8 +61,6 @@ static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail2;
     }
 
-
-
     module = ti_module_create(
             (const char *) name->data,
             name->n,
@@ -79,7 +77,7 @@ static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     task = ti_task_get_task(query->change, ti.thing0);
     if (!task || ti_task_add_new_module(task, module))
     {
-        ti_module_destroy(smap_pop(ti.modules, module->name->str));
+        ti_module_drop(smap_pop(ti.modules, module->name->str));
         ex_set_mem(e);
     }
     else

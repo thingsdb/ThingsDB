@@ -38,6 +38,7 @@ enum
 
 struct ti_module_s
 {
+    uint32_t ref;
     int status;             /* 0 = success, >0 = enum, <0 = uv error */
     int flags;
     uint16_t restarts;      /* keep the number of times this module has been

@@ -33,7 +33,7 @@ int ti_version_cmp(const char * version_a, const char * version_b)
 void ti_version_print(void)
 {
     printf(
-            "ThingsDB Server %s\n"
+            "ThingsDB Node %s\n"
             "Maintainer: %s\n"
             "Home-page: %s\n",
             TI_VERSION,

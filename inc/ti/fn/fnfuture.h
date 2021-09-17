@@ -30,11 +30,7 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ti_thing_t * thing = (ti_thing_t *) query->rval;
         ti_name_t * module_name = (ti_name_t *) ti_val_borrow_module_name();
-        ti_name_t * deep_name = (ti_name_t *) ti_val_borrow_deep_name();
-        ti_name_t * load_name = (ti_name_t *) ti_val_borrow_load_name();
         ti_val_t * module_val = ti_thing_val_weak_by_name(thing, module_name);
-        ti_val_t * deep_val = ti_thing_val_weak_by_name(thing, deep_name);
-        ti_val_t * load_val = ti_thing_val_weak_by_name(thing, load_name);
 
         if (!module_val)
         {
@@ -65,41 +61,20 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
         }
 
-        if (deep_val)
-        {
-            int64_t deepi;
-
-            if (!ti_val_is_int(deep_val))
-            {
-                ex_set(e, EX_TYPE_ERROR,
-                        "expecting `deep` to be of type `"TI_VAL_INT_S"` "
-                        "but got type `%s` instead"DOC_FUTURE,
-                        ti_val_str(module_val));
-                return e->nr;
-            }
-
-            deepi = VINT(deep_val);
-
-            if (deepi < 0 || deepi > TI_MAX_DEEP_HINT)
-            {
-                ex_set(e, EX_VALUE_ERROR,
-                        "expecting a `deep` value between 0 and %d "
-                        "but got %"PRId64" instead",
-                        TI_MAX_DEEP_HINT, deepi);
-                return e->nr;
-            }
-
-            deep = (uint8_t) deepi;
-        }
-        else
-            deep = 1;
-
-        if (load_val)
-            load = ti_val_as_bool(load_val);
+        if (ti_module_read_args(thing, &load, &deep, e))
+            return e->nr;
 
         break;
     }
     case TI_VAL_CLOSURE:
+        if (nargs > 1)
+        {
+            ex_set(e, EX_NUM_ARGUMENTS,
+                    "function `future` expects no extra arguments "
+                    "when the first argument is "
+                    "of type `"TI_VAL_CLOSURE_S"`"DOC_FUTURE);
+            return e->nr;
+        }
         if (ti_closure_unbound((ti_closure_t *) query->rval, e) ||
             ti_closure_inc_future((ti_closure_t *) query->rval, e))
             return e->nr;

@@ -59,6 +59,8 @@ ti_future_t * ti_future_create(
         ti_future_destroy(future);
         return NULL;
     }
+
+    ti_incref(module);
     return future;
 }
 
@@ -71,6 +73,7 @@ void ti_future_destroy(ti_future_t * future)
     ti_future_forget_cb(future->fail);
     vec_destroy(future->args, (vec_destroy_cb) ti_val_unsafe_drop);
     ti_val_drop(future->rval);
+    ti_module_drop(future->module);
     free(future->pkg);
     free(future);
 }

@@ -4,6 +4,7 @@
 #include <ex.h>
 #include <stdlib.h>
 #include <ti.h>
+#include <ti/fn/fn.h>
 #include <ti/future.h>
 #include <ti/future.inline.h>
 #include <ti/module.h>
@@ -251,6 +252,7 @@ ti_module_t * ti_module_create(
     if (!module)
         return NULL;
 
+    module->ref = 1;
     module->status = TI_MODULE_STAT_NOT_LOADED;
     module->flags = is_py_module ? TI_MODULE_FLAG_IS_PY_MODULE : 0;
     module->restarts = 0;
@@ -272,7 +274,7 @@ ti_module_t * ti_module_create(
     if (!module->name || !module->file || !module->futures || !module->args ||
         smap_add(ti.modules, module->name->str, module))
     {
-        ti_module_destroy(module);
+        ti_module_drop(module);
         return NULL;
     }
 
@@ -428,7 +430,7 @@ void ti_module_on_exit(ti_module_t * module)
 
     if (module->flags & TI_MODULE_FLAG_DESTROY)
     {
-        ti_module_destroy(module);
+        ti_module_drop(module);
         return;
     }
 
@@ -491,7 +493,7 @@ void ti_module_stop_and_destroy(ti_module_t * module)
     if (module->flags & TI_MODULE_FLAG_IN_USE)
         (void) ti_module_stop(module);
     else
-        ti_module_destroy(module);
+        ti_module_drop(module);
 }
 
 void module__stop_cb(uv_async_t * task)
@@ -760,4 +762,134 @@ int ti_module_write(ti_module_t * module, const void * data, size_t n)
     }
 
     return 0;
+}
+
+int ti_module_read_args(
+        ti_thing_t * thing,
+        _Bool * load,
+        uint8_t * deep,
+        ex_t * e)
+{
+    ti_name_t * deep_name = (ti_name_t *) ti_val_borrow_deep_name();
+    ti_name_t * load_name = (ti_name_t *) ti_val_borrow_load_name();
+    ti_val_t * deep_val = ti_thing_val_weak_by_name(thing, deep_name);
+    ti_val_t * load_val = ti_thing_val_weak_by_name(thing, load_name);
+
+    if (deep_val)
+    {
+        int64_t deepi;
+
+        if (!ti_val_is_int(deep_val))
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                    "expecting `deep` to be of type `"TI_VAL_INT_S"` "
+                    "but got type `%s` instead"DOC_FUTURE,
+                    ti_val_str(deep_val));
+            return e->nr;
+        }
+
+        deepi = VINT(deep_val);
+
+        if (deepi < 0 || deepi > TI_MAX_DEEP_HINT)
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "expecting a `deep` value between 0 and %d "
+                    "but got %"PRId64" instead",
+                    TI_MAX_DEEP_HINT, deepi);
+            return e->nr;
+        }
+
+        *deep = (uint8_t) deepi;
+    }
+    else
+        *deep = 2;
+
+    *load = load_val ? ti_val_as_bool(load_val) : false;
+
+    return 0;
+}
+
+int ti_module_call(
+        ti_module_t * module,
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    assert (!query->rval);
+
+    const int nargs = fn_get_nargs(nd);
+    _Bool load;
+    uint8_t deep;
+    cleri_children_t * child = nd->children;
+    ti_future_t * future;
+
+    if (module->scope_id && *module->scope_id != ti_query_scope_id(query))
+    {
+        ex_set(e, EX_FORBIDDEN,
+                "module `%s` is restricted to scope `%s`",
+                module->name->str,
+                ti_scope_name_from_id(*module->scope_id));
+        return e->nr;
+    }
+
+    if (nargs < 1)
+    {
+        ex_set(e, EX_NUM_ARGUMENTS,
+                "modules must be called using at least 1 argument "
+                "but 0 were given"DOC_MODULES);
+        return e->nr;
+    }
+
+    ti_incref(module);  /* take a reference to module */
+
+    if (ti_do_statement(query, child->node, e))
+        goto fail0;
+
+    if (!ti_val_is_thing(query->rval))
+    {
+        ex_set(e, EX_TYPE_ERROR,
+                "expecting the first module argument to be of "
+                "type `"TI_VAL_THING_S"` but got type `%s` instead"DOC_MODULES,
+                ti_val_str(query->rval));
+        goto fail0;
+    }
+
+    if (ti_module_read_args((ti_thing_t *) query->rval, &load, &deep, e))
+        goto fail0;
+
+    future = ti_future_create(query, module, nargs, deep, load);
+    if (!future)
+    {
+        ex_set_mem(e);
+        goto fail0;
+    }
+
+    VEC_push(future->args, query->rval);
+    query->rval = NULL;
+
+    while ((child = child->next) && (child = child->next))
+    {
+        if (ti_do_statement(query, child->node, e))
+            goto fail1;
+
+        VEC_push(future->args, query->rval);
+        query->rval = NULL;
+    }
+
+    if (ti_future_register(future))
+    {
+        ex_set_mem(e);
+        goto fail1;
+    }
+
+    query->rval = (ti_val_t *) future;
+    ti_decref(module);  /* the future is guaranteed to have at least
+                           one reference */
+    return e->nr;
+
+fail1:
+    ti_val_unsafe_drop((ti_val_t *) future);
+fail0:
+    ti_module_drop(module);
+    return e->nr;
 }

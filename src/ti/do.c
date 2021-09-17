@@ -10,16 +10,17 @@
 #include <ti/fn/fn.h>
 #include <ti/fn/fncall.h>
 #include <ti/index.h>
+#include <ti/member.inline.h>
+#include <ti/module.h>
 #include <ti/names.h>
 #include <ti/nil.h>
 #include <ti/opr/oprinc.h>
+#include <ti/preopr.h>
 #include <ti/regex.h>
 #include <ti/task.h>
 #include <ti/template.h>
 #include <ti/thing.inline.h>
-#include <ti/member.inline.h>
 #include <ti/vint.h>
-#include <ti/preopr.h>
 #include <util/strx.h>
 
 static inline int do__no_node_scope(ti_query_t * query)
@@ -478,6 +479,7 @@ static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ->children->next->node;     /* arguments */
 
     ti_prop_t * prop;
+    ti_module_t * module;
 
     /*
      * If `rval` is set, this means it is a "chained" function call,
@@ -532,6 +534,15 @@ static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     /*
+     * Try if the function is a known module.
+     */
+    module = ti_modules_by_strn(fname->str, fname->len);
+    if (module)
+    {
+        return ti_module_call(module, query, args, e);
+    }
+
+    /*
      * If the call is not a type of enum, let's try if the function is a
      * variable of type closure which can be called. Props with build-in
      * function names, and/or exist as type/enum names are not reached and
@@ -558,8 +569,8 @@ static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     /*
-     * It is not a build-in function, not a type or enum, and not a variable
-     * so the function must be undefined.
+     * It is not a build-in function, not a type or enum, not a procedure,
+     * not a module and not a variable so the function must be undefined.
      */
     ex_set(e, EX_LOOKUP_ERROR,
             "function `%.*s` is undefined",
@@ -575,7 +586,7 @@ static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->children->next->node->cl_obj->gid == CLERI_GID_FUNCTION);
     /*
      * "Node -> data" is set for all build-in functions so they are preferred
-     * over other functions/type/enum.
+     * over other functions/type/enum/procedures/modules/variable.
      */
     return nd->data
             ? ((fn_cb) nd->data)(

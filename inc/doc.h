@@ -294,6 +294,7 @@
 #define DOC_T_TYPE                  DOC_SEE("data-types/type")
 #define DOC_T_ENUM                  DOC_SEE("data-types/enum")
 #define DOC_LISTENING               DOC_SEE("listening")
+#define DOC_MODULES                 DOC_SEE("modules")
 
 /* No functions */
 #define DOC_PROCEDURES_API          DOC_SEE("procedures-api")

@@ -20,6 +20,7 @@
 #include <ti/val.inline.h>
 #include <ti/verror.h>
 #include <util/fx.h>
+#include <curl/curl.h>
 
 #define MODULE__TOO_MANY_RESTARTS 3
 

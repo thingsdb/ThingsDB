@@ -14,7 +14,6 @@
 #include <inttypes.h>
 #include <msgpack/fbuffer.h>
 #include <stdarg.h>
-#include <util/logger.h>
 
 typedef enum
 {

@@ -46,6 +46,7 @@ struct ti_module_s
     uint16_t next_pid;      /* next package id  */
     ti_module_cb cb;        /* module callback */
     ti_name_t * name;       /* name of the module */
+    char * source;
     char * file;            /* file (full path) to start */
     char * fn;              /* just the file name (using a pointer to file) */
     char ** args;

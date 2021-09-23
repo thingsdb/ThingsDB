@@ -41,7 +41,7 @@
 #include <util/strx.h>
 #include <util/util.h>
 #include <yajl/yajl_version.h>
-#include <sys/utsname.h>
+#include <sys/utsname.h>  /* TODO: temporary import */
 
 #ifndef NDEBUG
 /* these imports are required for sanity checks only */
@@ -75,6 +75,7 @@ static void ti__stop(void);
  */
 int ti_create(void)
 {
+    /* TODO: temporary code */
     struct utsname uinfo;
     uname(&uinfo);
     printf("machine: %s sysname: %s\n", uinfo.machine, uinfo.sysname);
@@ -842,7 +843,7 @@ int ti_this_node_to_pk(msgpack_packer * pk)
     double uptime = util_time_diff(&ti.boottime, &timing);
 
     return (
-        msgpack_pack_map(pk, 37) ||
+        msgpack_pack_map(pk, 38) ||
         /* 1 */
         mp_pack_str(pk, "node_id") ||
         msgpack_pack_uint32(pk, ti.node->id) ||
@@ -959,7 +960,11 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         msgpack_pack_uint32(pk, ti.cfg->cache_expiration_time) ||
         /* 37 */
         mp_pack_str(pk, "python_interpreter") ||
-        mp_pack_str(pk, ti.cfg->python_interpreter)
+        mp_pack_str(pk, ti.cfg->python_interpreter) ||
+        /* 38 */
+        mp_pack_str(pk, "modules_path") ||
+        mp_pack_str(pk, ti.cfg->modules_path)
+
     );
 }
 

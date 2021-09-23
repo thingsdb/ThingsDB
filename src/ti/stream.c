@@ -329,11 +329,13 @@ int ti_stream_write_pkg(ti_stream_t * stream, ti_pkg_t * pkg)
 /* increases with a new reference as long as required */
 int ti_stream_write_rpkg(ti_stream_t * stream, ti_rpkg_t * rpkg)
 {
-    if (ti_write(stream, rpkg->pkg, rpkg, stream__write_rpkg_cb))
-        return -1;
-
     ti_incref(rpkg);
-    return 0;
+
+    if (ti_write(stream, rpkg->pkg, rpkg, stream__write_rpkg_cb) == 0)
+        return 0;
+
+    ti_decref(rpkg);
+    return -1;
 }
 
 size_t ti_stream_client_connections(void)

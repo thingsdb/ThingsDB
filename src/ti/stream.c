@@ -329,7 +329,7 @@ int ti_stream_write_pkg(ti_stream_t * stream, ti_pkg_t * pkg)
 /* increases with a new reference as long as required */
 int ti_stream_write_rpkg(ti_stream_t * stream, ti_rpkg_t * rpkg)
 {
-    ti_incref(rpkg);  /* BUG #214, increase before ti_write() */
+    ti_incref(rpkg);
 
     if (ti_write(stream, rpkg->pkg, rpkg, stream__write_rpkg_cb) == 0)
         return 0;

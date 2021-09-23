@@ -1,3 +1,7 @@
+# v1.0.1
+
+* Increase reference before write, issue #214.
+
 # v1.0.0
 
 * Added a `room` type to replace watching things.

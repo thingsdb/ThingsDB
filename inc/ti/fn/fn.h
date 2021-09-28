@@ -556,6 +556,25 @@ no_method_err:
     return e->nr;
 }
 
+static int fn_call_f_try_n(
+        const char * name,
+        size_t n,
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    ti_future_t * future = (ti_future_t *) query->rval;
+    ti_module_t * module = future->module;
+
+    /* TODO: search for exposed functions */
+
+    ex_set(e, EX_LOOKUP_ERROR,
+            "module `%s` has no function `%.*s`",
+            module->name->str, n, name);
+    return e->nr;
+}
+
+
 #define fn_call_try(__name, __q, __nd, __e) \
     fn_call_try_n(__name, strlen(__name), __q, __nd, __e)
 
@@ -573,6 +592,9 @@ static int fn_call_try_n(
 
     if (ti_val_is_wrap(query->rval))
         return fn_call_w_try_n(name, n, query, nd, e);
+
+    if (ti_val_is_future(query->rval))
+        return fn_call_f_try_n(name, n, query, nd, e);
 
     ex_set(e, EX_LOOKUP_ERROR,
             "type `%s` has no function `%.*s`",

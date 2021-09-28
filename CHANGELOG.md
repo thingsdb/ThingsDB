@@ -1,6 +1,10 @@
+# v1.0.2
+
+* Callable modules, issue #213.
+
 # v1.0.1
 
-* Module are callable be the module name
+* Use data from buffer to solve re-allocation pointer bug, issue #214.
 
 # v1.0.0
 

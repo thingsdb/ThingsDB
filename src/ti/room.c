@@ -132,7 +132,6 @@ int ti_room_emit(
         size_t event_n,
         int deep)
 {
-    char * pt;
     size_t sz, alloc = 8192;
     msgpack_sbuffer buffer;
     ti_pkg_t * node_pkg, * client_pkg;
@@ -151,7 +150,6 @@ int ti_room_emit(
     msgpack_pack_uint64(&vp.pk, room->id);
 
     sz = buffer.size;
-    pt = buffer.data + sz;
 
     msgpack_pack_map(&vp.pk, 3);
 
@@ -173,10 +171,11 @@ int ti_room_emit(
     node_rpkg = ti_rpkg_create(node_pkg);
     pkg_init(node_pkg, TI_PROTO_EV_ID, TI_PROTO_NODE_ROOM_EMIT, buffer.size);
 
+    /* Bug #214, use buffer.data only when finished writing */
     client_pkg = ti_pkg_new(
             TI_PROTO_EV_ID,
             TI_PROTO_CLIENT_ROOM_EMIT,
-            pt,
+            buffer.data + sz,
             buffer.size - sz);
     client_rpkg = ti_rpkg_create(client_pkg);
 

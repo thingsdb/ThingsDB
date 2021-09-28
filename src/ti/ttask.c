@@ -375,6 +375,7 @@ static int ttask__new_module(mp_unp_t * up)
     ti_module_t * module;
     uint64_t * scope_id = NULL;
     ti_pkg_t * conf_pkg = NULL;
+    ex_t e = {0};
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 5 ||
         mp_skip(up) != MP_STR ||
@@ -417,7 +418,8 @@ static int ttask__new_module(mp_unp_t * up)
             mp_file.via.str.n,
             mp_created.via.u64,
             conf_pkg,
-            scope_id);
+            scope_id,
+            &e);
     if (!module)
     {
         log_critical("module already exist or allocation error");

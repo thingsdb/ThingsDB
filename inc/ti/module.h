@@ -22,8 +22,8 @@ ti_module_t * ti_module_create(
         size_t file_n,
         uint64_t created_at,
         ti_pkg_t * conf_pkg,    /* may be NULL */
-        uint64_t * scope_id     /* may be NULL */);
-int ti_module_validate_file(const char * file, size_t file_n, ex_t * e);
+        uint64_t * scope_id,    /* may be NULL */
+        ex_t * e);
 void ti_module_destroy(ti_module_t * module);
 void ti_module_on_exit(ti_module_t * module);
 int ti_module_stop(ti_module_t * module);

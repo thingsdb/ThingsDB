@@ -7,6 +7,7 @@
 #include <ti/fn/fn.h>
 #include <ti/future.h>
 #include <ti/future.inline.h>
+#include <ti/mod/github.h>
 #include <ti/module.h>
 #include <ti/names.h>
 #include <ti/pkg.h>
@@ -20,7 +21,6 @@
 #include <ti/val.inline.h>
 #include <ti/verror.h>
 #include <util/fx.h>
-#include <curl/curl.h>
 
 #define MODULE__TOO_MANY_RESTARTS 3
 
@@ -239,66 +239,7 @@ static _Bool module__file_is_py(const char * file, size_t n)
            file[n-1] == 'y';
 }
 
-ti_module_t * ti_module_create(
-        const char * name,
-        size_t name_n,
-        const char * file,
-        size_t file_n,
-        uint64_t created_at,
-        ti_pkg_t * conf_pkg,    /* may be NULL */
-        uint64_t * scope_id     /* may be NULL */)
-{
-    _Bool is_py_module = module__file_is_py(file, file_n);
-    ti_module_t * module = malloc(sizeof(ti_module_t));
-    if (!module)
-        return NULL;
-
-    module->ref = 1;
-    module->status = TI_MODULE_STAT_NOT_LOADED;
-    module->flags = is_py_module ? TI_MODULE_FLAG_IS_PY_MODULE : 0;
-    module->restarts = 0;
-    module->next_pid = 0;
-    module->cb = (ti_module_cb) &module__cb;
-    module->name = ti_names_get(name, name_n);
-    module->file = fx_path_join_strn(
-            ti.cfg->modules_path,
-            strlen(ti.cfg->modules_path),
-            file,
-            file_n);
-    module->args = malloc(sizeof(char*) * (is_py_module ? 3 : 2));
-    module->conf_pkg = conf_pkg;
-    module->started_at = 0;
-    module->created_at = created_at;
-    module->scope_id = scope_id;
-    module->futures = omap_create();
-
-    if (!module->name || !module->file || !module->futures || !module->args ||
-        smap_add(ti.modules, module->name->str, module))
-    {
-        ti_module_drop(module);
-        return NULL;
-    }
-
-    module->fn = module->file + (strlen(module->file) - file_n);
-
-    if (is_py_module)
-    {
-        module->args[0] = ti.cfg->python_interpreter;
-        module->args[1] = module->file;
-        module->args[2] = NULL;
-    }
-    else
-    {
-        module->args[0] = module->file;
-        module->args[1] = NULL;
-    }
-
-    ti_proc_init(&module->proc, module);
-
-    return module;
-}
-
-int ti_module_validate_file(const char * file, size_t file_n, ex_t * e)
+static int module__validate_file(const char * file, size_t file_n, ex_t * e)
 {
     const char * pt = file;
 
@@ -337,6 +278,115 @@ int ti_module_validate_file(const char * file, size_t file_n, ex_t * e)
     return 0;
 }
 
+ti_module_t* ti_module_create(
+        const char * name,
+        size_t name_n,
+        const char * source,
+        size_t source_n,
+        uint64_t created_at,
+        ti_pkg_t * conf_pkg,    /* may be NULL */
+        uint64_t * scope_id,    /* may be NULL */
+        ex_t * e)
+{
+    ti_module_t * module = calloc(1, sizeof(ti_module_t));
+    if (!module)
+    {
+        ex_set_mem(e);
+        return NULL;
+    }
+
+    module->ref = 1;
+    module->status = TI_MODULE_STAT_NOT_INSTALLED;
+    module->cb = (ti_module_cb) &module__cb;
+    module->name = ti_names_get(name, name_n);
+    module->created_at = created_at;
+    module->futures = omap_create();
+
+    if (!module->name || !module->futures)
+        goto memerror;
+
+    if (ti_mod_github_test(source, source_n))
+    {
+        module->source_type = TI_MODULE_SOURCE_GITHUB;
+        module->source.github = ti_mod_github_create(source, source_n, e);
+        if (!module->source.github)
+            goto fail0;
+    }
+    else
+    {
+        if (module__validate_file(source, source_n, e))
+            goto fail0;
+
+        module->source_type = TI_MODULE_SOURCE_FILE;
+        module->source.file = strndup(source, source_n);
+        if (!module->source.file)
+            goto memerror;
+    }
+
+    switch (smap_add(ti.modules, module->name->str, module))
+    {
+    case SMAP_SUCCESS:
+        break;
+    case SMAP_ERR_ALLOC:
+        LOGC("MEM");
+        goto memerror;
+    case SMAP_ERR_EXIST:
+        ex_set(e, EX_LOOKUP_ERROR,
+                "module `%.*s` already exists", name_n, name);
+        goto fail0;
+    }
+
+    module->scope_id = scope_id;
+    module->conf_pkg = conf_pkg;
+
+    return module;
+memerror:
+    ex_set_mem(e);
+fail0:
+    ti_module_drop(module);
+    return NULL;
+}
+
+int ti_module_set_file(ti_module_t * module, const char * file, size_t n)
+{
+    _Bool is_py_module = module__file_is_py(file, n);
+    const size_t mpath_n = strlen(ti.cfg->modules_path);
+    char * str_file, ** args;
+
+    args = malloc(sizeof(char*) * (is_py_module ? 3 : 2));
+    str_file = fx_path_join_strn(ti.cfg->modules_path, mpath_n, file, n);
+
+    if (!str_file || !module->args)
+    {
+        free(str_file);
+        free(args);
+        return -1;
+    }
+
+    free(module->file);
+    free(module->args);
+
+    module->file = str_file;
+    module->args = args;
+    module->fn = module->file + (strlen(module->file) - n);
+    module->status = TI_MODULE_STAT_NOT_LOADED;
+
+    if (is_py_module)
+    {
+        module->args[0] = ti.cfg->python_interpreter;
+        module->args[1] = module->file;
+        module->args[2] = NULL;
+    }
+    else
+    {
+        module->args[0] = module->file;
+        module->args[1] = NULL;
+    }
+
+    ti_proc_init(&module->proc, module);
+    return 0;
+}
+
 static void module__conf(ti_module_t * module)
 {
     if (!module->conf_pkg)
@@ -360,6 +410,39 @@ static void module__conf(ti_module_t * module)
 
 void ti_module_load(ti_module_t * module)
 {
+    /* First check if the module is installed, if not we might need to install
+     * the module first.
+     */
+    if (module->status == TI_MODULE_STAT_NOT_INSTALLED)
+    {
+        switch (module->source_type)
+        {
+        case TI_MODULE_SOURCE_FILE:
+            {
+                const char * file = module->source.file;
+                if (ti_module_set_file(module, file, strlen(file)))
+                {
+                    log_error(EX_MEMORY_S);
+                    return;
+                }
+            }
+            /* status has been changed to TI_MODULE_STAT_NOT_LOADED */
+            break;
+        case TI_MODULE_SOURCE_GITHUB:
+            {
+                ti_mod_github_install(module);
+                return;
+            }
+        }
+    }
+
+    if (module->status != TI_MODULE_STAT_NOT_LOADED)
+    {
+        log_debug("skip loading module `%s` (status: %s)",
+                module->name->str, ti_module_status_str(module));
+        return;
+    }
+
     if (module->flags & TI_MODULE_FLAG_IN_USE)
     {
         log_debug(
@@ -421,6 +504,14 @@ void ti_module_destroy(ti_module_t * module)
     free(module->args);
     free(module->conf_pkg);
     free(module->scope_id);
+    switch (module->source_type)
+    {
+    case TI_MODULE_SOURCE_FILE:
+        free(module->source.file);
+        break;
+    case TI_MODULE_SOURCE_GITHUB:
+        ti_mod_github_destroy(module->source.github);
+    }
     free(module);
 }
 
@@ -656,10 +747,14 @@ void ti_module_on_pkg(ti_module_t * module, ti_pkg_t * pkg)
 
 const char * ti_module_status_str(ti_module_t * module)
 {
-    switch (module->status)
+    switch ((ti_module_stat_t) module->status)
     {
     case TI_MODULE_STAT_RUNNING:
         return "running";
+    case TI_MODULE_STAT_NOT_INSTALLED:
+        return "module not installed";
+    case TI_MODULE_STAT_INSTALLER_BUSY:
+        return "installing module...";
     case TI_MODULE_STAT_NOT_LOADED:
         return "module not loaded";
     case TI_MODULE_STAT_STOPPING:
@@ -672,27 +767,40 @@ const char * ti_module_status_str(ti_module_t * module)
     case TI_MODULE_STAT_CONFIGURATION_ERR:
         return "configuration error; "
                "use `set_module_conf(..)` to update the module configuration";
+    case TI_MODULE_STAT_SOURCE_ERR:
+        return module->source_err;
     }
     return uv_strerror(module->status);
 }
 
 int ti_module_info_to_pk(ti_module_t * module, msgpack_packer * pk, int flags)
 {
-    size_t sz = 5 + \
+    size_t sz = 4 + \
+            !!(module->file) + \
             !!(flags & TI_MODULE_FLAG_WITH_CONF) + \
             !!(flags & TI_MODULE_FLAG_WITH_TASKS) + \
-            !!(flags & TI_MODULE_FLAG_WITH_RESTARTS);
+            !!(flags & TI_MODULE_FLAG_WITH_RESTARTS) + \
+            !!(module->source_type == TI_MODULE_SOURCE_GITHUB)  ? 4 : 0;
     return -(
         msgpack_pack_map(pk, sz)||
 
         mp_pack_str(pk, "name") ||
         mp_pack_strn(pk, module->name->str, module->name->n) ||
 
-        mp_pack_str(pk, "file") ||
-        mp_pack_str(pk, module->file) ||
-
         mp_pack_str(pk, "created_at") ||
         msgpack_pack_uint64(pk, module->created_at) ||
+
+        mp_pack_str(pk, "status") ||
+        mp_pack_str(pk, ti_module_status_str(module)) ||
+
+        mp_pack_str(pk, "scope") ||
+        (module->scope_id
+                ? mp_pack_str(pk, ti_scope_name_from_id(*module->scope_id))
+                : msgpack_pack_nil(pk)) ||
+
+        (module->file && (
+            mp_pack_str(pk, "file") ||
+            mp_pack_str(pk, module->file))) ||
 
         ((flags & TI_MODULE_FLAG_WITH_CONF) && (
                 mp_pack_str(pk, "conf") ||
@@ -703,9 +811,6 @@ int ti_module_info_to_pk(ti_module_t * module, msgpack_packer * pk, int flags)
                             module->conf_pkg->n)
                         : msgpack_pack_nil(pk)))) ||
 
-        mp_pack_str(pk, "status") ||
-        mp_pack_str(pk, ti_module_status_str(module)) ||
-
         ((flags & TI_MODULE_FLAG_WITH_TASKS) && (
                 mp_pack_str(pk, "tasks") ||
                 msgpack_pack_uint64(pk, module->futures->n))) ||
@@ -714,10 +819,20 @@ int ti_module_info_to_pk(ti_module_t * module, msgpack_packer * pk, int flags)
                 mp_pack_str(pk, "restarts") ||
                 msgpack_pack_uint16(pk, module->restarts))) ||
 
-        mp_pack_str(pk, "scope") ||
-        (module->scope_id
-                ? mp_pack_str(pk, ti_scope_name_from_id(*module->scope_id))
-                : msgpack_pack_nil(pk))
+        ((module->source_type == TI_MODULE_SOURCE_GITHUB) && (
+                mp_pack_str(pk, "github_owner") ||
+                mp_pack_str(pk, module->source.github->owner) ||
+
+                mp_pack_str(pk, "github_repo") ||
+                mp_pack_str(pk, module->source.github->repo) ||
+
+                mp_pack_str(pk, "github_with_token") ||
+                (module->source.github->token ?
+                        msgpack_pack_true(pk) :
+                        msgpack_pack_false(pk)) ||
+
+                mp_pack_str(pk, "github_ref") ||
+                mp_pack_str(pk, module->source.github->ref)))
     );
 }
 

@@ -77,6 +77,7 @@ int ti_store_modules_restore(const char * fn)
     ti_pkg_t * conf_pkg;
     uint64_t * scope_id;
     uchar * data;
+    ex_t e = {0};
 
     if (!fx_file_exist(fn))
     {
@@ -143,10 +144,12 @@ int ti_store_modules_restore(const char * fn)
                 mp_file.via.str.n,
                 mp_created.via.u64,
                 conf_pkg,
-                scope_id);
+                scope_id,
+                &e);
 
         if (!module)
         {
+            log_critical("failed to create module (%s)", e.msg);
             free(conf_pkg);
             free(scope_id);
             goto fail;

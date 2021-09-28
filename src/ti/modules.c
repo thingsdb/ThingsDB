@@ -52,8 +52,7 @@ do_python:
 
 static int modules__load_cb(ti_module_t * module, void * UNUSED(arg))
 {
-    if (module->status == TI_MODULE_STAT_NOT_LOADED)
-        ti_module_load(module);
+    ti_module_load(module);
     return 0;
 }
 

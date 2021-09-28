@@ -123,12 +123,14 @@ yajl_gen_status mpjson_mp_to_json(
     if ((stat = mp__to_json(g, &up)) == yajl_gen_status_ok)
     {
         const unsigned char * tmp;
-        yajl_gen_get_buf(g, &tmp, dst_n);
-        *dst = malloc(*dst_n);
-        if (*dst)
-            memcpy(*dst, tmp, *dst_n);
-        else
-            stat = yajl_gen_in_error_state;
+        if ((stat = yajl_gen_get_buf(g, &tmp, dst_n)) == yajl_gen_status_ok)
+        {
+            *dst = malloc(*dst_n);
+            if (*dst)
+                memcpy(*dst, tmp, *dst_n);
+            else
+                stat = yajl_gen_in_error_state;
+        }
     }
 
     yajl_gen_free(g);
@@ -229,7 +231,7 @@ static int reformat_end_array(void * ctx)
     return 1;  /* success */
 }
 
-static yajl_callbacks callbacks = {
+static yajl_callbacks mpjson__callbacks = {
     reformat_null,
     reformat_boolean,
     reformat_integer,
@@ -262,26 +264,24 @@ yajl_status mpjson_json_to_mp(
     yajl_handle hand;
     msgpack_sbuffer buffer;
     yajl_status stat = yajl_status_error;
-    mpjson_convert_t * c = calloc(1, sizeof(mpjson_convert_t));
+    mpjson_convert_t ctx = {0};
 
-    if (!c || mp_sbuffer_alloc_init(&buffer, src_n, 0))
-        goto fail0;
+    if (mp_sbuffer_alloc_init(&buffer, src_n, 0))
+        return stat;
 
-    msgpack_packer_init(&c->pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&ctx.pk, &buffer, msgpack_sbuffer_write);
 
-    hand = yajl_alloc(&callbacks, NULL, c);
+    hand = yajl_alloc(&mpjson__callbacks, NULL, &ctx);
     if (!hand)
-        goto fail1;
+        goto fail;
 
     stat = yajl_parse(hand, src, src_n);
     if (stat == yajl_status_ok)
         take_buffer(&buffer, dst, dst_n);
 
     yajl_free(hand);
-fail1:
+fail:
     msgpack_sbuffer_destroy(&buffer);
-fail0:
-    free(c);
     return stat;
 }
 

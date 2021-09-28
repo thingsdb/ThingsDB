@@ -80,7 +80,6 @@ union ti_thing_via_items
 union ti_thing_via
 {
     ti_type_t * type;
-    uint16_t spec;  /* maybe use this in the future? */
 };
 
 struct ti_thing_s
@@ -99,9 +98,7 @@ struct ti_thing_s
                                      * ti_val_t, depending if a thing is an
                                      * object strict,  with free keys, or
                                      * instance of a type */
-
-    ti_thing_via_t via;             /* vec contains ti_watch_t,
-                                       NULL if no watchers,  */
+    ti_thing_via_t via;             /* type, maybe future restriction? */
 };
 
 

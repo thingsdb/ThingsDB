@@ -334,7 +334,7 @@ int ti_stream_write_rpkg(ti_stream_t * stream, ti_rpkg_t * rpkg)
     if (ti_write(stream, rpkg->pkg, rpkg, stream__write_rpkg_cb) == 0)
         return 0;
 
-    ti_decref(rpkg);
+    ti_decref(rpkg);  /* roll-back the reference count */
     return -1;
 }
 

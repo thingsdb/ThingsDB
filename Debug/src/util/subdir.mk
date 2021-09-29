@@ -18,6 +18,7 @@ C_SRCS += \
 ../src/util/logger.c \
 ../src/util/olist.c \
 ../src/util/omap.c \
+../src/util/osarch.c \
 ../src/util/queue.c \
 ../src/util/rbuf.c \
 ../src/util/smap.c \
@@ -41,6 +42,7 @@ OBJS += \
 ./src/util/logger.o \
 ./src/util/olist.o \
 ./src/util/omap.o \
+./src/util/osarch.o \
 ./src/util/queue.o \
 ./src/util/rbuf.o \
 ./src/util/smap.o \
@@ -64,6 +66,7 @@ C_DEPS += \
 ./src/util/logger.d \
 ./src/util/olist.d \
 ./src/util/omap.d \
+./src/util/osarch.d \
 ./src/util/queue.d \
 ./src/util/rbuf.d \
 ./src/util/smap.d \

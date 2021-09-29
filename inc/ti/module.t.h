@@ -11,6 +11,7 @@ typedef void (*ti_module_cb)(void * future);
 
 #include <inttypes.h>
 #include <ti/mod/github.t.h>
+#include <ti/mod/manifest.t.h>
 #include <ti/name.t.h>
 #include <ti/pkg.t.h>
 #include <ti/proc.t.h>

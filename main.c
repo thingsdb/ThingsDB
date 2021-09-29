@@ -23,6 +23,7 @@
 #include <time.h>
 #include <util/fx.h>
 #include <util/logger.h>
+#include <util/osarch.h>
 #include <curl/curl.h>
 
 
@@ -105,6 +106,9 @@ int main(int argc, char * argv[])
         rc = -1;
         goto stop;
     }
+
+    osarch_init();
+    log_info("running on: %s", osarch_get());
 
     if (*ti.args->config)
     {

@@ -24,6 +24,7 @@ ti_module_t * ti_module_create(
         ti_pkg_t * conf_pkg,    /* may be NULL */
         uint64_t * scope_id,    /* may be NULL */
         ex_t * e);
+int ti_module_set_file(ti_module_t * module, const char * file, size_t n);
 void ti_module_destroy(ti_module_t * module);
 void ti_module_on_exit(ti_module_t * module);
 int ti_module_stop(ti_module_t * module);
@@ -52,6 +53,7 @@ int ti_module_call(
         ti_query_t * query,
         cleri_node_t * nd,
         ex_t * e);
+void ti_module_set_source_err(ti_module_t * module, const char * fmt, ...);
 
 static inline _Bool ti_module_is_py(ti_module_t * module)
 {

@@ -8,6 +8,7 @@
 #include <ti/future.h>
 #include <ti/future.inline.h>
 #include <ti/mod/github.h>
+#include <ti/mod/manifest.h>
 #include <ti/module.h>
 #include <ti/names.h>
 #include <ti/pkg.h>
@@ -408,6 +409,91 @@ static void module__conf(ti_module_t * module)
                 ti_module_status_str(module));
 }
 
+typedef struct
+{
+    ti_module_t * module;
+    ti_mod_manifest_t manifest;
+} module__get_manifest_t;
+
+static void module__get_manifest_finish(uv_work_t * work, int status)
+{
+    module__get_manifest_t * data = work->data;
+    ti_module_t * module = data->module;
+
+    if (module->source_err[0])
+        module->status = TI_MODULE_STAT_SOURCE_ERR;
+
+    if (status)
+    {
+        log_error(uv_strerror(status));
+    }
+    else if (module->status != TI_MODULE_STAT_INSTALLER_BUSY)
+    {
+        log_error("failed to install module: `%s` (%s)",
+                module->name->str,
+                ti_module_status_str(module));
+    }
+    else if (module->ref > 1)  /* do nothing if this is the last reference */
+    {
+
+        /* copy the manifest */
+        module->manifest = data->manifest;
+
+        if (ti_module_set_file(
+                module,
+                module->manifest.main,
+                strlen(module->manifest.main)))
+        {
+            log_error(EX_MEMORY_S);
+            module->status = TI_MODULE_STAT_NOT_INSTALLED;
+        }
+        else
+        {
+            module->status = TI_MODULE_STAT_NOT_LOADED;
+            ti_module_load(module);
+        }
+        goto done;  /* no longer clear the manifest */
+    }
+
+    ti_mod_manifest_clear(&data->manifest);
+done:
+    ti_module_drop(module);
+    free(work);
+    free(data);
+}
+
+typedef void (*module__get_manifest_cb) (uv_work_t *);
+
+static void module__install(ti_module_t * module, module__get_manifest_cb cb)
+{
+    uv_work_t * work;
+    module__get_manifest_t * data;
+    int prev_status = module->status;
+
+    module->status = TI_MODULE_STAT_INSTALLER_BUSY;
+    module->source_err[0] = '\0';
+
+    ti_incref(module);
+
+    work = malloc(sizeof(uv_work_t));
+    data = calloc(1, sizeof(module__get_manifest_t));
+    if (!work || !data)
+        goto fail;
+
+    data->module = module;
+    work->data = data;
+
+    if (uv_queue_work(ti.loop, work, cb, module__get_manifest_finish) == 0)
+        return;  /* success */
+
+fail:
+    free(work);
+    free(data);
+    ti_decref(module);
+    module->status = prev_status;
+    log_error("failed install module: `%s`", module->name->str);
+}
+
 void ti_module_load(ti_module_t * module)
 {
     /* First check if the module is installed, if not we might need to install
@@ -430,7 +516,7 @@ void ti_module_load(ti_module_t * module)
             break;
         case TI_MODULE_SOURCE_GITHUB:
             {
-                ti_mod_github_install(module);
+                module__install(module, ti_mod_github_get_manifest);
                 return;
             }
         }
@@ -827,7 +913,7 @@ int ti_module_info_to_pk(ti_module_t * module, msgpack_packer * pk, int flags)
                 mp_pack_str(pk, module->source.github->repo) ||
 
                 mp_pack_str(pk, "github_with_token") ||
-                (module->source.github->token ?
+                (module->source.github->token_header ?
                         msgpack_pack_true(pk) :
                         msgpack_pack_false(pk)) ||
 
@@ -1008,4 +1094,12 @@ fail1:
 fail0:
     ti_module_drop(module);
     return e->nr;
+}
+
+void ti_module_set_source_err(ti_module_t * module, const char * fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    (void) vsnprintf(module->source_err, TI_MODULE_MAX_ERR, fmt, args);
+    va_end(args);
 }

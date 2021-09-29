@@ -41,7 +41,6 @@
 #include <util/strx.h>
 #include <util/util.h>
 #include <yajl/yajl_version.h>
-#include <sys/utsname.h>  /* TODO: temporary import */
 
 #ifndef NDEBUG
 /* these imports are required for sanity checks only */
@@ -75,11 +74,6 @@ static void ti__stop(void);
  */
 int ti_create(void)
 {
-    /* TODO: temporary code */
-    struct utsname uinfo;
-    uname(&uinfo);
-    printf("machine: %s sysname: %s\n", uinfo.machine, uinfo.sysname);
-
     ti.last_change_id = 0;
     ti.global_stored_change_id = 0;
     ti.flags = 0;
@@ -841,9 +835,11 @@ int ti_this_node_to_pk(msgpack_packer * pk)
     int yv = yajl_version();
 
     double uptime = util_time_diff(&ti.boottime, &timing);
+    const char * platform = osarch_get_os();
+    const char * architecture = osarch_get_arch();
 
     return (
-        msgpack_pack_map(pk, 38) ||
+        msgpack_pack_map(pk, 40) ||
         /* 1 */
         mp_pack_str(pk, "node_id") ||
         msgpack_pack_uint32(pk, ti.node->id) ||
@@ -963,7 +959,13 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         mp_pack_str(pk, ti.cfg->python_interpreter) ||
         /* 38 */
         mp_pack_str(pk, "modules_path") ||
-        mp_pack_str(pk, ti.cfg->modules_path)
+        mp_pack_str(pk, ti.cfg->modules_path) ||
+        /* 39 */
+        mp_pack_str(pk, "platform") ||
+        mp_pack_str(pk, platform) ||
+        /* 40 */
+        mp_pack_str(pk, "architecture") ||
+        mp_pack_str(pk, architecture)
 
     );
 }

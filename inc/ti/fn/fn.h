@@ -31,6 +31,8 @@
 #include <ti/member.h>
 #include <ti/member.inline.h>
 #include <ti/method.h>
+#include <ti/mod/expose.h>
+#include <ti/mod/expose.t.h>
 #include <ti/module.h>
 #include <ti/module.t.h>
 #include <ti/modules.h>
@@ -565,7 +567,13 @@ static int fn_call_f_try_n(
 {
     ti_future_t * future = (ti_future_t *) query->rval;
     ti_module_t * module = future->module;
+    ti_mod_expose_t * expose = ti_mod_expose_by_strn(module, name, n);
 
+    if (expose)
+    {
+        LOGC("FOUND EXPOSED");
+        return ti_mod_expose_call(module, expose, query, nd, e);
+    }
     /* TODO: search for exposed functions */
 
     ex_set(e, EX_LOOKUP_ERROR,

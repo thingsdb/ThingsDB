@@ -13,7 +13,9 @@
 #include <util/buf.h>
 #include <util/logger.h>
 
-#define GH__EXAMPLE "github.com/owner/repo[:TOKEN][@TAG/BRANCH/COMMIT]"
+#define GH__EXAMPLE "github.com/owner/repo[:token][@tag/branch]"
+#define GH__MAX_LEN 4096
+
 
 static const char * gh__str = "github.com";
 static const size_t gh__strn = 10;  /*  "github.com"         */
@@ -21,7 +23,7 @@ static const size_t gh__minn = 14;  /*  "github.com/o/r"     */
 
 _Bool ti_mod_github_test(const char * s, size_t n)
 {
-    if (n < gh__strn)
+    if (n < gh__strn || n > GH__MAX_LEN)
         return false;
     return memcmp(s, gh__str, gh__strn) == 0;
 }
@@ -33,6 +35,7 @@ static inline int gh__ischar(int c)
 
 ti_mod_github_t * ti_mod_github_create(const char * s, size_t n, ex_t * e)
 {
+    int rc = 0;
     const char * owner,
          * repo,
          * token = NULL,
@@ -132,10 +135,25 @@ ti_mod_github_t * ti_mod_github_create(const char * s, size_t n, ex_t * e)
 
     gh->owner = strndup(owner, ownern);
     gh->repo = strndup(repo, repon);
-    gh->token = strndup(token, tokenn);
-    gh->ref = strndup(ref, refn);
+    gh->ref = refn ? strndup(ref, refn) : strdup("default");
 
-    if (!gh->owner || !gh->repo || !gh->token || !gh->ref)
+    if (token)
+        rc = asprintf(
+                &gh->token_header,
+                "Authorization: token %.*s",
+                (int) tokenn, token);
+
+    rc = rc < 0 ? rc : refn
+        ? asprintf(
+                &gh->manifest_url,
+                "https://api.github.com/%s/%s/"TI_MANIFEST"?ref=%s",
+                gh->owner, gh->repo, gh->ref)
+        : asprintf(
+                &gh->manifest_url,
+                "https://api.github.com/%s/%s/"TI_MANIFEST,
+                gh->owner, gh->repo);
+
+    if (rc < 0 || !gh->owner || !gh->repo || !gh->ref)
     {
         ex_set_mem(e);
         goto fail;
@@ -164,7 +182,7 @@ static size_t gh__write_cb(
     return buf_append(buf, contents, realsize) == 0 ? realsize : 0;
 }
 
-static void gh__download_json(uv_work_t * work)
+void ti_mod_github_get_manifest(uv_work_t * work)
 {
     ti_module_t * module = work->data;
     ti_mod_github_t * gh = module->source.github;
@@ -175,16 +193,22 @@ static void gh__download_json(uv_work_t * work)
 
     buf_init(&buf);
 
-    if(!curl)
+    if (gh->token_header)
+        chunk = curl_slist_append(chunk, gh->token_header);
+
+    chunk = curl_slist_append(chunk, "Accept: application/vnd.github.v3.raw");
+
+    if(!curl || !chunk)
     {
-        ti_mod_github_set_code(gh, GH_INTERNAL_ERROR);
+        ti_module_set_source_err(
+                module,
+                "failed to download "TI_MANIFEST" (failed to initialize)");
         goto cleanup;
     }
-    chunk = curl_slist_append(chunk, "Accept:application/vnd.github.v3.raw");
 
     /* set our custom set of headers */
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
-    curl_easy_setopt(curl, CURLOPT_URL, "https://api.github.com/thingsdb/ThingsDB/README.md");
+    curl_easy_setopt(curl, CURLOPT_URL, gh->manifest_url);
     curl_easy_setopt(curl, CURLOPT_VERBOSE, 0L);
 
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, gh__write_cb);
@@ -193,15 +217,11 @@ static void gh__download_json(uv_work_t * work)
 
     curle_code = curl_easy_perform(curl);
 
-    ti_mod_github_set_curl_code(gh, curle_code);
-
     if (curle_code != CURLE_OK)
     {
-        (void) snprintf(
-                module->source_err,
-                TI_MODULE_MAX_ERR,
-                "failed to download ")
-        ti_mod_github_set_code(gh, GH_CURLE_MODULE_DOWNLOAD_ERROR);
+        ti_module_set_source_err(
+                module, "failed to download "TI_MANIFEST" (%s)",
+                curl_easy_strerror(curle_code));
         goto cleanup;
     }
 
@@ -211,85 +231,6 @@ cleanup:
     curl_slist_free_all(chunk);
 }
 
-static void gh__download_json_finish(uv_work_t * work, int status)
-{
-    ti_module_t * module = work->data;
-
-    ti_mod_manifest_t * manifest = &module->source.github->download_manifest;
-
-    if (module->source_err[0])
-        module->status = TI_MODULE_STAT_SOURCE_ERR;
-
-    if (status)
-    {
-        log_error(uv_strerror(status));
-    }
-    else if (module->status != TI_MODULE_STAT_INSTALLER_BUSY)
-    {
-        log_error("failed to install module: `%s` (%s)",
-                module->name->str,
-                ti_module_status_str(module));
-    }
-    else if (module->ref > 1)  /* do nothing if this is the last reference */
-    {
-
-        /* copy the manifest */
-        module->manifest = *manifest;
-
-        /* clear the temporary manifest */
-        memset(manifest, 0, sizeof(ti_mod_manifest_t));
-
-        if (ti_module_set_file(
-                module,
-                module->manifest.main,
-                strlen(module->manifest.main)))
-        {
-            log_error(EX_MEMORY_S);
-            module->status = TI_MODULE_STAT_NOT_INSTALLED;
-        }
-        else
-        {
-            module->status = TI_MODULE_STAT_NOT_LOADED;
-            ti_module_load(module);
-        }
-    }
-
-    ti_module_drop(module);
-    free(work);
-}
-
-void ti_mod_github_install(ti_module_t * module)
-{
-    uv_work_t * work;
-    int prev_status = module->status;
-
-    module->status = TI_MODULE_STAT_INSTALLER_BUSY;
-    module->source_err[0] = '\0';
-
-    ti_incref(module);
-
-    work = malloc(sizeof(uv_work_t));
-    if (!work)
-        goto fail0;
-
-    work->data = module;
-
-    if (uv_queue_work(
-            ti.loop,
-            work,
-            gh__download_json,
-            gh__download_json_finish))
-        goto fail1;
-
-    return;
-
-fail1:
-    free(work);
-fail0:
-    ti_decref(module);
-    module->status = prev_status;
-    log_error("failed install module: `%s`", module->name->str);
-}
 
 void ti_mod_github_destroy(ti_mod_github_t * gh)
 {
@@ -297,7 +238,9 @@ void ti_mod_github_destroy(ti_mod_github_t * gh)
         return;
     free(gh->owner);
     free(gh->repo);
-    free(gh->token);
     free(gh->ref);
+    free(gh->token_header);
+    free(gh->manifest_url);
+
     free(gh);
 }

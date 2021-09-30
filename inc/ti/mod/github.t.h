@@ -16,7 +16,7 @@ struct ti_mod_github_s
 {
     char * owner;
     char * repo;
-    char * ref;             /* tag, branch etc. */
+    char * ref;             /* NULL or tag, branch etc. */
     char * token_header;    /* NULL when public, not visible */
     char * manifest_url;
 };

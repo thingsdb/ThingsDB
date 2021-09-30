@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ti/version.h>
+#include <limits.h>
 
 int ti_version_cmp(const char * version_a, const char * version_b)
 {
@@ -19,12 +20,15 @@ int ti_version_cmp(const char * version_a, const char * version_b)
         b = strtol(str_b, &str_b, 10);
 
         if (a != b)
-            return a - b;
-        else if (!*str_a || !*str_b)
+            return a < 0 ? -1 : b < 0 ? 1 : a - b;
+
+        if (!*str_a && !*str_b)
             return 0;
 
-        str_a++;
-        str_b++;
+        if (*str_a)
+            str_a++;
+        if (*str_b)
+            str_b++;
     }
 
     return 0;

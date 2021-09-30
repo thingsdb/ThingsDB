@@ -38,6 +38,7 @@
 #include <util/fx.h>
 #include <util/lock.h>
 #include <util/mpack.h>
+#include <util/osarch.h>
 #include <util/strx.h>
 #include <util/util.h>
 #include <yajl/yajl_version.h>

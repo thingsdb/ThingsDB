@@ -1,8 +1,9 @@
 /*
  * util/osarch.c
  */
+#include <string.h>
 #include <sys/utsname.h>
-
+#include <util/strx.h>
 
 /*
 
@@ -20,16 +21,7 @@ darwin/arm64     linux/mips      netbsd/amd64   windows/386
 dragonfly/amd64  linux/mips64    netbsd/arm     windows/amd64
 freebsd/386      linux/mips64le  netbsd/arm64   windows/arm
 
- */
-
-
-static const char * osarch__os[] = {
-        "linux",
-};
-
-static const char * osarch__arch[] = {
-        "amd64"
-};
+*/
 
 static char osarch__this[130];
 static struct utsname osarch__uinfo;

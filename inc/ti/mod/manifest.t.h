@@ -14,7 +14,7 @@ typedef struct ti_mod_manifest_s ti_mod_manifest_t;
 struct ti_mod_manifest_s
 {
     char * main;                        /* required */
-    char * version;
+    char * version;                     /* required */
     char * doc;
     _Bool * load;
     uint8_t * deep;

@@ -9,6 +9,7 @@
 #include <ti/future.inline.h>
 #include <ti/mod/github.h>
 #include <ti/mod/manifest.h>
+#include <ti/mod/work.t.h>
 #include <ti/module.h>
 #include <ti/names.h>
 #include <ti/pkg.h>
@@ -240,21 +241,21 @@ static _Bool module__file_is_py(const char * file, size_t n)
            file[n-1] == 'y';
 }
 
-static int module__validate_file(const char * file, size_t file_n, ex_t * e)
+static int module__validate_source(const char * file, size_t file_n, ex_t * e)
 {
     const char * pt = file;
 
     if (!file_n)
     {
         ex_set(e, EX_VALUE_ERROR,
-                "file argument must not be an empty string"DOC_NEW_MODULE);
+                "source argument must not be an empty string"DOC_NEW_MODULE);
         return e->nr;
     }
 
     if (!strx_is_printablen((const char *) file, file_n))
     {
         ex_set(e, EX_VALUE_ERROR,
-                "file argument contains illegal characters"DOC_NEW_MODULE);
+                "source argument contains illegal characters"DOC_NEW_MODULE);
         return e->nr;
     }
 
@@ -262,7 +263,7 @@ static int module__validate_file(const char * file, size_t file_n, ex_t * e)
     if (*file == '/')
     {
         ex_set(e, EX_VALUE_ERROR,
-                "file argument must not start with a `/`"DOC_NEW_MODULE);
+                "source argument must not start with a `/`"DOC_NEW_MODULE);
         return e->nr;
     }
 
@@ -271,7 +272,7 @@ static int module__validate_file(const char * file, size_t file_n, ex_t * e)
         if (*pt == '.' && (file[i] == '.' || file[i] == '/'))
         {
             ex_set(e, EX_VALUE_ERROR,
-                    "file argument must not contain `..` or `./` to specify "
+                    "source argument must not contain `..` or `./` to specify "
                     "a relative path"DOC_NEW_MODULE);
             return e->nr;
         }
@@ -302,8 +303,13 @@ ti_module_t* ti_module_create(
     module->name = ti_names_get(name, name_n);
     module->created_at = created_at;
     module->futures = omap_create();
+    module->path = fx_path_join_strn(
+            ti.cfg->modules_path,
+            strlen(ti.cfg->modules_path),
+            name,
+            name_n);
 
-    if (!module->name || !module->futures)
+    if (!module->name || !module->futures || !module->path)
         goto memerror;
 
     if (ti_mod_github_test(source, source_n))
@@ -315,7 +321,7 @@ ti_module_t* ti_module_create(
     }
     else
     {
-        if (module__validate_file(source, source_n, e))
+        if (module__validate_source(source, source_n, e))
             goto fail0;
 
         module->source_type = TI_MODULE_SOURCE_FILE;
@@ -329,7 +335,6 @@ ti_module_t* ti_module_create(
     case SMAP_SUCCESS:
         break;
     case SMAP_ERR_ALLOC:
-        LOGC("MEM");
         goto memerror;
     case SMAP_ERR_EXIST:
         ex_set(e, EX_LOOKUP_ERROR,
@@ -351,13 +356,12 @@ fail0:
 int ti_module_set_file(ti_module_t * module, const char * file, size_t n)
 {
     _Bool is_py_module = module__file_is_py(file, n);
-    const size_t mpath_n = strlen(ti.cfg->modules_path);
     char * str_file, ** args;
 
     args = malloc(sizeof(char*) * (is_py_module ? 3 : 2));
-    str_file = fx_path_join_strn(ti.cfg->modules_path, mpath_n, file, n);
+    str_file = fx_path_join_strn(module->path, strlen(module->path), file, n);
 
-    if (!str_file || !module->args)
+    if (!str_file || !args)
     {
         free(str_file);
         free(args);
@@ -409,15 +413,9 @@ static void module__conf(ti_module_t * module)
                 ti_module_status_str(module));
 }
 
-typedef struct
-{
-    ti_module_t * module;
-    ti_mod_manifest_t manifest;
-} module__get_manifest_t;
-
 static void module__get_manifest_finish(uv_work_t * work, int status)
 {
-    module__get_manifest_t * data = work->data;
+    ti_mod_work_t * data = work->data;
     ti_module_t * module = data->module;
 
     if (module->source_err[0])
@@ -435,7 +433,6 @@ static void module__get_manifest_finish(uv_work_t * work, int status)
     }
     else if (module->ref > 1)  /* do nothing if this is the last reference */
     {
-
         /* copy the manifest */
         module->manifest = data->manifest;
 
@@ -467,7 +464,7 @@ typedef void (*module__get_manifest_cb) (uv_work_t *);
 static void module__install(ti_module_t * module, module__get_manifest_cb cb)
 {
     uv_work_t * work;
-    module__get_manifest_t * data;
+    ti_mod_work_t * data;
     int prev_status = module->status;
 
     module->status = TI_MODULE_STAT_INSTALLER_BUSY;
@@ -476,7 +473,7 @@ static void module__install(ti_module_t * module, module__get_manifest_cb cb)
     ti_incref(module);
 
     work = malloc(sizeof(uv_work_t));
-    data = calloc(1, sizeof(module__get_manifest_t));
+    data = calloc(1, sizeof(ti_mod_work_t));
     if (!work || !data)
         goto fail;
 
@@ -516,7 +513,7 @@ void ti_module_load(ti_module_t * module)
             break;
         case TI_MODULE_SOURCE_GITHUB:
             {
-                module__install(module, ti_mod_github_get_manifest);
+                module__install(module, ti_mod_github_install);
                 return;
             }
         }
@@ -584,12 +581,21 @@ void ti_module_destroy(ti_module_t * module)
 {
     if (!module)
         return;
+
     omap_destroy(module->futures, (omap_destroy_cb) ti_future_cancel);
+
+    if ((module->source_type != TI_MODULE_SOURCE_FILE) &&
+        (module->flags & TI_MODULE_FLAG_DEL) &&
+        module->path && fx_rmdir(module->path))
+        log_warning("cannot remove directory: `%s`", module->path);
+
     ti_val_drop((ti_val_t *) module->name);
+    free(module->path);
     free(module->file);
     free(module->args);
     free(module->conf_pkg);
     free(module->scope_id);
+
     switch (module->source_type)
     {
     case TI_MODULE_SOURCE_FILE:
@@ -598,6 +604,8 @@ void ti_module_destroy(ti_module_t * module)
     case TI_MODULE_SOURCE_GITHUB:
         ti_mod_github_destroy(module->source.github);
     }
+
+    ti_mod_manifest_clear(&module->manifest);
     free(module);
 }
 
@@ -684,6 +692,9 @@ void module__stop_cb(uv_async_t * task)
 void ti_module_del(ti_module_t * module)
 {
     uv_async_t * task;
+
+    /* set the DELETE flag as the module needs to be removed */
+    module->flags |= TI_MODULE_FLAG_DEL;
 
     (void) smap_pop(ti.modules, module->name->str);
 
@@ -918,7 +929,9 @@ int ti_module_info_to_pk(ti_module_t * module, msgpack_packer * pk, int flags)
                         msgpack_pack_false(pk)) ||
 
                 mp_pack_str(pk, "github_ref") ||
-                mp_pack_str(pk, module->source.github->ref)))
+                (module->source.github->ref ?
+                        mp_pack_str(pk, module->source.github->ref) :
+                        mp_pack_str(pk, "default"))))
     );
 }
 

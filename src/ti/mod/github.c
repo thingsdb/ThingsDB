@@ -8,6 +8,8 @@
 #include <string.h>
 #include <ti.h>
 #include <ti/mod/github.h>
+#include <ti/mod/manifest.h>
+#include <ti/mod/work.t.h>
 #include <ti/module.h>
 #include <tiinc.h>
 #include <util/buf.h>
@@ -15,7 +17,8 @@
 
 #define GH__EXAMPLE "github.com/owner/repo[:token][@tag/branch]"
 #define GH__MAX_LEN 4096
-
+#define GH__API "https://api.github.com/repos/%s/%s/contents/%s"
+#define GH__API_REF GH__API"?ref=%s"
 
 static const char * gh__str = "github.com";
 static const size_t gh__strn = 10;  /*  "github.com"         */
@@ -33,9 +36,19 @@ static inline int gh__ischar(int c)
     return isalnum(c) || c == '-' || c == '_' || c == '.';
 }
 
+static char * gh__url(ti_mod_github_t * gh, const char * fn)
+{
+    char * url;
+    if (gh->ref)
+        (void) asprintf(&url, GH__API_REF,gh->owner, gh->repo, fn, gh->ref);
+    else
+        (void) asprintf(&url, GH__API, gh->owner, gh->repo, fn);
+    return url;
+}
+
 ti_mod_github_t * ti_mod_github_create(const char * s, size_t n, ex_t * e)
 {
-    int rc = 0;
+    int ok = 1;
     const char * owner,
          * repo,
          * token = NULL,
@@ -135,25 +148,18 @@ ti_mod_github_t * ti_mod_github_create(const char * s, size_t n, ex_t * e)
 
     gh->owner = strndup(owner, ownern);
     gh->repo = strndup(repo, repon);
-    gh->ref = refn ? strndup(ref, refn) : strdup("default");
 
     if (token)
-        rc = asprintf(
+        ok = asprintf(
                 &gh->token_header,
                 "Authorization: token %.*s",
-                (int) tokenn, token);
+                (int) tokenn, token) > 0;
 
-    rc = rc < 0 ? rc : refn
-        ? asprintf(
-                &gh->manifest_url,
-                "https://api.github.com/%s/%s/"TI_MANIFEST"?ref=%s",
-                gh->owner, gh->repo, gh->ref)
-        : asprintf(
-                &gh->manifest_url,
-                "https://api.github.com/%s/%s/"TI_MANIFEST,
-                gh->owner, gh->repo);
+    if (ok && ref)
+        ok = (gh->ref = strndup(ref, refn)) != NULL;
 
-    if (rc < 0 || !gh->owner || !gh->repo || !gh->ref)
+    if (!ok || !gh->owner || !gh->repo ||
+        !(gh->manifest_url = gh__url(gh, TI_MANIFEST)))
     {
         ex_set_mem(e);
         goto fail;
@@ -170,7 +176,9 @@ fail:
     return NULL;
 }
 
-static size_t gh__write_cb(
+typedef size_t (*gh__write_cb) (void *, size_t, size_t, void *);
+
+static size_t gh__write_mem(
         void * contents,
         size_t size,
         size_t nmemb,
@@ -182,53 +190,197 @@ static size_t gh__write_cb(
     return buf_append(buf, contents, realsize) == 0 ? realsize : 0;
 }
 
-void ti_mod_github_get_manifest(uv_work_t * work)
+static size_t gh__write_file(
+        void * contents,
+        size_t size,
+        size_t nmemb,
+        void * userp)
 {
-    ti_module_t * module = work->data;
-    ti_mod_github_t * gh = module->source.github;
-    buf_t buf;
-    struct curl_slist * chunk = NULL;
+    return fwrite(contents, size, nmemb, userp);
+}
+
+CURLcode gh__download_url(
+        const char * url,
+        const char * token,
+        void * data,
+        gh__write_cb write_cb)
+{
+    CURLcode curle_code = CURLE_FAILED_INIT;
     CURL * curl = curl_easy_init();
-    CURLcode curle_code;
+    struct curl_slist * chunk = NULL;
+    long http_code;
 
-    buf_init(&buf);
-
-    if (gh->token_header)
-        chunk = curl_slist_append(chunk, gh->token_header);
+    if (token)
+        chunk = curl_slist_append(chunk, token);
 
     chunk = curl_slist_append(chunk, "Accept: application/vnd.github.v3.raw");
-
     if(!curl || !chunk)
-    {
-        ti_module_set_source_err(
-                module,
-                "failed to download "TI_MANIFEST" (failed to initialize)");
-        goto cleanup;
-    }
+        goto cleanup;  /* CURLE_FAILED_INIT */
 
+    LOGC(url);
     /* set our custom set of headers */
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
-    curl_easy_setopt(curl, CURLOPT_URL, gh->manifest_url);
-    curl_easy_setopt(curl, CURLOPT_VERBOSE, 0L);
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, gh__write_cb);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buf);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, data);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0");
 
     curle_code = curl_easy_perform(curl);
 
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+
+    if (http_code < 200 || http_code > 299)
+    {
+        log_error("failed downloading %s (%ld)", url, http_code);
+        curle_code = CURLE_HTTP_RETURNED_ERROR;
+    }
+
+cleanup:
+    curl_easy_cleanup(curl);
+    curl_slist_free_all(chunk);
+    return curle_code;
+}
+
+CURLcode gh__download_file(ti_module_t * module, const char * fn, mode_t mode)
+{
+    ti_mod_github_t * gh = module->source.github;
+    CURLcode curle_code;
+    FILE * fp;
+    size_t n,
+           path_n = strlen(module->path);
+    int ok;
+    const char * pt;
+    char * dest,
+         * url = gh__url(gh, fn);
+    if (!url)
+        return CURLE_FAILED_INIT;
+
+    if (!fx_is_dir(module->path) && mkdir(module->path, FX_DEFAULT_DIR_ACCESS))
+    {
+        log_warn_errno_file("cannot create directory", errno, module->path);
+        curle_code = CURLE_WRITE_ERROR;
+        goto cleanup;
+    }
+
+    for (pt = fn, n = 0; *pt; ++n, ++pt)
+    {
+        if (*pt == '/')
+        {
+            dest = fx_path_join_strn(
+                    module->path, path_n,
+                    fn, n);
+            if (!dest)
+            {
+                curle_code = CURLE_FAILED_INIT;
+                goto cleanup;
+            }
+
+            ok = fx_is_dir(dest) || mkdir(dest, FX_DEFAULT_DIR_ACCESS) == 0;
+            free(dest);
+            if (!ok)
+            {
+                log_warn_errno_file("cannot create directory", errno, dest);
+                curle_code = CURLE_WRITE_ERROR;
+                goto cleanup;
+            }
+        }
+    }
+
+    dest = fx_path_join_strn(module->path, path_n, fn, n);
+    if (!dest)
+    {
+        curle_code = CURLE_FAILED_INIT;
+        goto cleanup;
+    }
+
+    fp = fopen(dest, "w");
+    if (!fp)
+    {
+        log_errno_file("cannot open file", errno, dest);
+        curle_code = CURLE_WRITE_ERROR;
+    }
+    else
+    {
+        curle_code = gh__download_url(
+                url,
+                gh->token_header,
+                fp,
+                gh__write_file);
+
+        if ((fclose(fp) || chmod(dest, mode)) && curle_code == CURLE_OK)
+            curle_code = CURLE_WRITE_ERROR;
+    }
+
+    free(dest);
+
+cleanup:
+    free(url);
+    return curle_code;
+}
+
+int gh__download(ti_mod_work_t * data)
+{
+    ti_module_t * module = data->module;
+    ti_mod_manifest_t * manifest = &data->manifest;
+    CURLcode curle_code;
+
+    /* read, write, execute, only by owner */
+    curle_code = gh__download_file(module, manifest->main, S_IRWXU);
+    if (curle_code != CURLE_OK)
+    {
+        ti_module_set_source_err(
+                module, "failed to download `%s` (%s)",
+                manifest->main,
+                curl_easy_strerror(curle_code));
+        return -1;
+    }
+
+    return 0;
+}
+
+void ti_mod_github_install(uv_work_t * work)
+{
+    ti_mod_work_t * data = work->data;
+    ti_module_t * module = data->module;
+    ti_mod_github_t * gh = module->source.github;
+    buf_t buf;
+    CURLcode curle_code;
+
+    buf_init(&buf);
+
+    curle_code = gh__download_url(
+            gh->manifest_url,
+            gh->token_header,
+            &buf,
+            gh__write_mem);
     if (curle_code != CURLE_OK)
     {
         ti_module_set_source_err(
                 module, "failed to download "TI_MANIFEST" (%s)",
                 curl_easy_strerror(curle_code));
-        goto cleanup;
+        goto cleanup;  /* error */
     }
+
+    if (ti_mod_manifest_read(
+            &data->manifest,
+            module->source_err,
+            buf.data,
+            buf.len))
+        goto cleanup;  /* error */
+
+    if (ti_mod_manifest_skip_install(&data->manifest, module))
+        goto cleanup;  /* success, correct module is already installed */
+
+    if (gh__download(data))
+        goto cleanup;  /* error */
+
+    /* we do not even care if storing the module file succeeds */
+    (void) ti_mod_manifest_store(module->path, buf.data, buf.len);
 
 cleanup:
     free(buf.data);
-    curl_easy_cleanup(curl);
-    curl_slist_free_all(chunk);
 }
 
 

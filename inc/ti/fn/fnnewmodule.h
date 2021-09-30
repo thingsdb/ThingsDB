@@ -50,7 +50,6 @@ static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = NULL;
     }
 
-
     module = ti_module_create(
             (const char *) name->data,
             name->n,

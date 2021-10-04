@@ -34,7 +34,7 @@ void ti_modules_init(void)
 do_python:
     /* Just log information about the python interpreter */
     if (fx_is_executable(ti.cfg->python_interpreter))
-        return;  /* done */
+        goto do_pip;  /* done */
 
     path = fx_get_executable_in_path(ti.cfg->python_interpreter);
     if (!path)
@@ -43,11 +43,29 @@ do_python:
                 "cannot find Python interpreter: `%s` "
                 "(only required for running Python modules)",
                 ti.cfg->python_interpreter);
-        return;
+        goto do_pip;
     }
 
     free(ti.cfg->python_interpreter);
     ti.cfg->python_interpreter = path;
+
+do_pip:
+    /* Just log information about the python interpreter */
+    if (fx_is_executable(ti.cfg->python_pip))
+        return;  /* done */
+
+    path = fx_get_executable_in_path(ti.cfg->python_pip);
+    if (!path)
+    {
+        log_info(
+                "cannot find Python package installer: `%s` "
+                "(only required for installing Python modules)",
+                ti.cfg->python_pip);
+        return;
+    }
+
+    free(ti.cfg->python_pip);
+    ti.cfg->python_pip = path;
 }
 
 static int modules__load_cb(ti_module_t * module, void * UNUSED(arg))

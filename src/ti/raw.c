@@ -30,6 +30,7 @@ static const unsigned char base64__table[65] =
 #define RAW__AS_PRINTABLE_BUF_SZ 48
 static char raw__as_printable_buf[RAW__AS_PRINTABLE_BUF_SZ];
 
+
 ti_raw_t * ti_raw_create(uint8_t tp, const void * raw, size_t n)
 {
     ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);

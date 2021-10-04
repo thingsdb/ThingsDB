@@ -448,7 +448,7 @@ static void clients__on_emit(ti_stream_t * stream, ti_pkg_t * pkg)
 
     collection = ti_scope_get_collection(&scope, &e);
     if (!collection ||
-        ti_access_check_err(collection->access, user, TI_AUTH_QUERY, &e) ||
+        ti_access_check_err(collection->access, user, TI_AUTH_JOIN, &e) ||
         ti_room_emit_from_pkg(collection, pkg, &e))
         goto on_error;
 

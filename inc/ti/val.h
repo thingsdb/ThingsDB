@@ -26,7 +26,7 @@ ti_val_t * ti_val_borrow_any_str(void);
 ti_val_t * ti_val_borrow_tar_gz_str(void);
 ti_val_t * ti_val_borrow_gs_str(void);
 ti_val_t * ti_val_empty_bin(void);
-ti_val_t * ti_val_wthing_str(void);
+ti_val_t * ti_val_wrapped_thing_str(void);
 ti_val_t * ti_val_utc_str(void);
 ti_val_t * ti_val_year_name(void);
 ti_val_t * ti_val_month_name(void);

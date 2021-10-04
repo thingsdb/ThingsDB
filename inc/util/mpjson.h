@@ -100,7 +100,7 @@ static yajl_gen_status mp__to_json(yajl_gen g, mp_unp_t * up)
     return yajl_gen_in_error_state;
 }
 
-yajl_gen_status mpjson_mp_to_json(
+static yajl_gen_status __attribute__((unused))mpjson_mp_to_json(
         const void * src,
         size_t src_n,
         unsigned char ** dst,
@@ -255,7 +255,7 @@ static void take_buffer(
     memset(buffer, 0, sizeof(msgpack_sbuffer));
 }
 
-yajl_status mpjson_json_to_mp(
+static yajl_status __attribute__((unused))mpjson_json_to_mp(
         const void * src,
         size_t src_n,
         char ** dst,

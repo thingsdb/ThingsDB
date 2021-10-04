@@ -10,7 +10,9 @@
 #include <ti/module.t.h>
 #include <ti/query.t.h>
 #include <util/smap.h>
+#include <util/mpack.h>
 
+ti_mod_expose_t * ti_mod_expose_create(void);
 void ti_mod_expose_destroy(ti_mod_expose_t * expose);
 int ti_mod_expose_call(
         ti_module_t * module,
@@ -18,6 +20,11 @@ int ti_mod_expose_call(
         ti_query_t * query,
         cleri_node_t * nd,
         ex_t * e);
+int ti_mod_expose_info_to_pk(
+        const char * key,
+        size_t n,
+        ti_mod_expose_t * expose,
+        msgpack_packer * pk);
 
 static inline ti_mod_expose_t * ti_mod_expose_by_strn(
         ti_module_t * module,

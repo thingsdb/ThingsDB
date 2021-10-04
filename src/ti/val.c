@@ -83,7 +83,6 @@ static ti_val_t * val__module_name;
 static ti_val_t * val__deep_name;
 static ti_val_t * val__load_name;
 
-
 #define VAL__BUF_SZ 128
 static char val__buf[VAL__BUF_SZ];
 
@@ -862,7 +861,7 @@ ti_val_t * ti_val_empty_bin(void)
     return val__empty_bin;
 }
 
-ti_val_t * ti_val_wthing_str(void)
+ti_val_t * ti_val_wrapped_thing_str(void)
 {
     ti_incref(val__swthing);
     return val__swthing;

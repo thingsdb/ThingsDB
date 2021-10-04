@@ -21,6 +21,7 @@ static inline ti_raw_t * ti_bin_create(const unsigned char * bin, size_t n)
 {
     return ti_raw_create(TI_VAL_BYTES, bin, n);
 }
+
 static inline ti_raw_t * ti_mp_create(const unsigned char * bin, size_t n)
 {
     return ti_raw_create(TI_VAL_MPDATA, bin, n);

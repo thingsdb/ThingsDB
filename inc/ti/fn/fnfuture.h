@@ -61,7 +61,7 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
         }
 
-        if (ti_module_read_args(thing, &load, &deep, e))
+        if (ti_module_read_args(module, thing, &load, &deep, e))
             return e->nr;
 
         break;

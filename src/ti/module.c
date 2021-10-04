@@ -872,14 +872,21 @@ const char * ti_module_status_str(ti_module_t * module)
 
 int ti_module_info_to_pk(ti_module_t * module, msgpack_packer * pk, int flags)
 {
+    int rc;
     size_t sz = 4 + \
             !!(module->file) + \
             !!(flags & TI_MODULE_FLAG_WITH_CONF) + \
             !!(flags & TI_MODULE_FLAG_WITH_TASKS) + \
             !!(flags & TI_MODULE_FLAG_WITH_RESTARTS) + \
-            !!(module->source_type == TI_MODULE_SOURCE_GITHUB)  ? 4 : 0;
-    return -(
-        msgpack_pack_map(pk, sz)||
+            ((module->source_type == TI_MODULE_SOURCE_GITHUB) ? 4 : 0) + \
+            !!(module->manifest.doc) + \
+            !!(module->manifest.exposes) + \
+            !!( module->manifest.defaults ||
+                module->manifest.load ||
+                module->manifest.deep);
+
+    rc = -(
+        msgpack_pack_map(pk, sz) ||
 
         mp_pack_str(pk, "name") ||
         mp_pack_strn(pk, module->name->str, module->name->n) ||
@@ -931,8 +938,34 @@ int ti_module_info_to_pk(ti_module_t * module, msgpack_packer * pk, int flags)
                 mp_pack_str(pk, "github_ref") ||
                 (module->source.github->ref ?
                         mp_pack_str(pk, module->source.github->ref) :
-                        mp_pack_str(pk, "default"))))
+                        mp_pack_str(pk, "default")))) ||
+
+        (module->manifest.doc && (
+                mp_pack_str(pk, "doc") ||
+                mp_pack_str(pk, module->manifest.doc)))
     );
+
+    if (rc == 0 && module->manifest.exposes)
+    {
+        smap_t * exposes = module->manifest.exposes;
+        rc = -(
+            mp_pack_str(pk, "exposes") ||
+            msgpack_pack_array(pk, exposes->n)
+        );
+
+        if (rc == 0)
+        {
+            char namebuf[TI_NAME_MAX];
+            smap_items(
+                    exposes,
+                    namebuf,
+                    (smap_item_cb) ti_mod_expose_info_to_pk,
+                    pk);
+        }
+    }
+
+
+    return rc;
 }
 
 ti_val_t * ti_module_as_mpval(ti_module_t * module, int flags)
@@ -980,6 +1013,7 @@ int ti_module_write(ti_module_t * module, const void * data, size_t n)
 }
 
 int ti_module_read_args(
+        ti_module_t * module,
         ti_thing_t * thing,
         _Bool * load,
         uint8_t * deep,
@@ -1017,9 +1051,15 @@ int ti_module_read_args(
         *deep = (uint8_t) deepi;
     }
     else
-        *deep = 2;
+        *deep = module->manifest.deep
+            ? *module->manifest.deep
+            : 1;
 
-    *load = load_val ? ti_val_as_bool(load_val) : false;
+    *load = load_val
+            ? ti_val_as_bool(load_val)
+            : module->manifest.load
+            ? *module->manifest.load
+            : false;
 
     return 0;
 }
@@ -1069,7 +1109,12 @@ int ti_module_call(
         goto fail0;
     }
 
-    if (ti_module_read_args((ti_thing_t *) query->rval, &load, &deep, e))
+    if (ti_module_read_args(
+            module,
+            (ti_thing_t *) query->rval,
+            &load,
+            &deep,
+            e))
         goto fail0;
 
     future = ti_future_create(query, module, nargs, deep, load);

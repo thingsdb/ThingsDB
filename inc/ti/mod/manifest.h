@@ -12,6 +12,7 @@ int ti_mod_manifest_read(
         char * source_err,
         const void * data,
         size_t n);
+int ti_mod_manifest_local(ti_mod_manifest_t * manifest, ti_module_t * module);
 _Bool ti_mod_manifest_skip_install(
         ti_mod_manifest_t * manifest,
         ti_module_t * module);

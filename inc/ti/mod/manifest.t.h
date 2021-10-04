@@ -19,7 +19,7 @@ struct ti_mod_manifest_s
     _Bool * load;
     uint8_t * deep;
     vec_t * defaults;
-    vec_t * includes;
+    vec_t * includes;                   /* only used during installation */
     smap_t * exposes;
 };
 

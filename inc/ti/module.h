@@ -44,6 +44,7 @@ int ti_module_info_to_pk(
 ti_val_t * ti_module_as_mpval(ti_module_t * module, int flags);
 int ti_module_write(ti_module_t * module, const void * data, size_t n);
 int ti_module_read_args(
+        ti_module_t * module,
         ti_thing_t * thing,
         _Bool * load,
         uint8_t * deep,

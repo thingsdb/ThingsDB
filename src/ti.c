@@ -840,7 +840,7 @@ int ti_this_node_to_pk(msgpack_packer * pk)
     const char * architecture = osarch_get_arch();
 
     return (
-        msgpack_pack_map(pk, 40) ||
+        msgpack_pack_map(pk, 41) ||
         /* 1 */
         mp_pack_str(pk, "node_id") ||
         msgpack_pack_uint32(pk, ti.node->id) ||
@@ -959,12 +959,15 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         mp_pack_str(pk, "python_interpreter") ||
         mp_pack_str(pk, ti.cfg->python_interpreter) ||
         /* 38 */
+        mp_pack_str(pk, "python_pip") ||
+        mp_pack_str(pk, ti.cfg->python_pip) ||
+        /* 39 */
         mp_pack_str(pk, "modules_path") ||
         mp_pack_str(pk, ti.cfg->modules_path) ||
-        /* 39 */
+        /* 40 */
         mp_pack_str(pk, "platform") ||
         mp_pack_str(pk, platform) ||
-        /* 40 */
+        /* 41 */
         mp_pack_str(pk, "architecture") ||
         mp_pack_str(pk, architecture)
 

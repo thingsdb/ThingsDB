@@ -39,7 +39,7 @@ static inline ti_raw_t * ti_wrap_strv(ti_wrap_t * wrap)
         ti_incref(type->rwname);
         return type->rwname;
     }
-    return (ti_raw_t *) ti_val_wthing_str();
+    return (ti_raw_t *) ti_val_wrapped_thing_str();
 }
 
 static inline int ti_wrap_to_pk(

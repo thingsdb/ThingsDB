@@ -17,7 +17,6 @@ struct ti_mod_expose_s
     char * doc;
     vec_t * argmap;
     vec_t * defaults;
-
 };
 
 #endif  /* TI_MOD_EXPOSE_T_H_ */

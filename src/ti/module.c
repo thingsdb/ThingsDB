@@ -438,6 +438,7 @@ static void module__install_finish(ti_mod_work_t * data)
 
 static void module__download_finish(uv_work_t * work, int status)
 {
+    LOGC("module__download_finish");
     ti_mod_work_t * data = work->data;
     ti_module_t * module = data->module;
 
@@ -476,6 +477,7 @@ done:
 
 static void module__download(ti_mod_work_t * data)
 {
+    LOGC("module__download");
     uv_work_t * work;
 
     work = malloc(sizeof(uv_work_t));
@@ -504,6 +506,7 @@ fail:
 
 static void module__manifest_finish(uv_work_t * work, int status)
 {
+    LOGC("module__manifest_finish");
     ti_mod_work_t * data = work->data;
     ti_module_t * module = data->module;
 
@@ -515,7 +518,6 @@ static void module__manifest_finish(uv_work_t * work, int status)
         {
             log_warning(module->source_err);
             *module->source_err = '\0';
-            module__install_finish(data);
             goto done;
         }
 
@@ -546,7 +548,6 @@ static void module__manifest_finish(uv_work_t * work, int status)
             {
                 log_warning(module->source_err);
                 *module->source_err = '\0';
-                module__install_finish(data);
                 goto done;
             }
 
@@ -565,7 +566,10 @@ error:
     log_error("failed to install module: `%s` (%s)",
             module->name->str,
             ti_module_status_str(module));
+    goto fail;
 done:
+    module__install_finish(data);
+fail:
     ti_module_drop(module);
     free(data->buf.data);
     free(data);
@@ -1267,8 +1271,6 @@ int ti_module_call(
                 ti_val_str(query->rval));
         goto fail0;
     }
-
-    LOGC("REF COUNT: %u", query->rval->ref);
 
     if (ti_module_read_args(
                 module,

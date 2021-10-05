@@ -607,40 +607,6 @@ void ti_mod_github_manifest(uv_work_t * work)
                 module, "failed to download "TI_MANIFEST" (%s)",
                 curl_easy_strerror(curle_code));
     }
-//
-//
-//
-//    if (ti_mod_manifest_read(
-//            &data->manifest,
-//            module->source_err,
-//            buf.data,
-//            buf.len))
-//        goto try_local;  /* error */
-//
-//    if (ti_mod_manifest_skip_install(&data->manifest, module))
-//        goto cleanup;  /* success, correct module is already installed */
-//
-//    if (gh__download(data))
-//        goto cleanup;  /* error */
-//
-//    /* we do not even care if storing the module file succeeds */
-//    (void) ti_mod_manifest_store(module->path, buf.data, buf.len);
-//
-//    goto cleanup;  /* success */
-//
-//try_local:
-//
-//    /* first make sure the manifest is cleared */
-//    ti_mod_manifest_clear(&data->manifest);
-//
-//    if (ti_mod_manifest_local(&data->manifest, module) == 0)
-//    {
-//        log_warning(module->source_err);
-//        *module->source_err = '\0';
-//    }
-//
-//cleanup:
-//    free(buf.data);
 }
 
 void ti_mod_github_destroy(ti_mod_github_t * gh)

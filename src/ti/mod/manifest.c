@@ -346,15 +346,11 @@ static int manifest__json_boolean(void * data, int boolean)
     case MF__DEFAULTS:          return manifest__err_defaults(ctx, NBOOL);
     case MF__DEFAULTS_DEEP:     return manifest__err_deep(ctx, NBOOL);
     case MF__DEFAULTS_LOAD:
-        LOGC("SET LOAD");
         if (!ctx->manifest->load)
         {
             ctx->manifest->load = malloc(sizeof(_Bool));
             if (ctx->manifest->load)
-            {
-                LOGC("DONE");
                 *ctx->manifest->load = boolean;
-            }
         }
         return manifest__set_mode(ctx, MF__DEFAULTS_MAP);
     case MF__DEFAULTS_ITEM:

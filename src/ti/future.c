@@ -53,12 +53,19 @@ ti_future_t * ti_future_create(
     future->fail = NULL;
     future->pkg = NULL;
     future->module = module;
-    future->args = vec_new(nargs);
-    if (!future->args || future__reg(future))
+    if (nargs)
     {
-        ti_future_destroy(future);
-        return NULL;
+        future->args = vec_new(nargs);
+        if (!future->args)
+        {
+            ti_future_destroy(future);
+            return NULL;
+        }
     }
+    else
+        future->args = NULL;  /* Future arguments may stay NULL for as long as
+                                 the future is not registered. A registered
+                                 future MUST have a vector with arguments. */
 
     ti_incref(module);
     return future;

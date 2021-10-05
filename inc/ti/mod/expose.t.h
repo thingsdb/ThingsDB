@@ -12,11 +12,11 @@ typedef struct ti_mod_expose_s ti_mod_expose_t;
 
 struct ti_mod_expose_s
 {
-    uint8_t * deep;
-    _Bool * load;
-    char * doc;
-    vec_t * argmap;
-    vec_t * defaults;
+    uint8_t * deep;             /* NULL or 0..127 */
+    _Bool * load;               /* NULL or true/false */
+    char * doc;                 /* NULL or string */
+    vec_t * argmap;             /* ti_item_t */
+    vec_t * defaults;           /* ti_item_t */
 };
 
 #endif  /* TI_MOD_EXPOSE_T_H_ */

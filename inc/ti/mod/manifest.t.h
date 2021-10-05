@@ -15,12 +15,12 @@ struct ti_mod_manifest_s
 {
     char * main;                        /* required */
     char * version;                     /* required */
-    char * doc;
-    _Bool * load;
-    uint8_t * deep;
-    vec_t * defaults;
-    vec_t * includes;                   /* only used during installation */
-    smap_t * exposes;
+    char * doc;                         /* NULL or string */
+    _Bool * load;                       /* NULL or true/false */
+    uint8_t * deep;                     /* NULL or 0..127 */
+    vec_t * defaults;                   /* ti_item_t */
+    vec_t * includes;                   /* char *, only for installation */
+    smap_t * exposes;                   /* ti_mod_expose_t */
 };
 
 #endif  /* TI_MOD_MANIFEST_T_H_ */

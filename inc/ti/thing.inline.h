@@ -227,6 +227,10 @@ static inline int ti_thing_o_set(
     return -(ti_thing_to_dict(thing) || !ti_thing_i_item_set(thing, key, val));
 }
 
+/*
+ * Does not increment the `name` and `val` reference counters.
+ * Use only when you are sure the property does not yet exist.
+ */
 static inline int ti_thing_o_add(
         ti_thing_t * thing,
         ti_raw_t * key,
@@ -241,7 +245,7 @@ static inline int ti_thing_o_add(
     return -(ti_thing_to_dict(thing) || !ti_thing_i_item_add(thing, key, val));
 }
 
-static inline _Bool ti_thing_o_has_key(ti_thing_t * thing, ti_raw_t * key)
+static inline _Bool ti_thing_has_key(ti_thing_t * thing, ti_raw_t * key)
 {
     if (!ti_thing_is_dict(thing))
     {

@@ -572,7 +572,7 @@ static int fn_call_f_try_n(
     if (expose)
     {
         LOGC("FOUND EXPOSED");
-        return ti_mod_expose_call(module, expose, query, nd, e);
+        return ti_mod_expose_call(expose, query, nd, e);
     }
     /* TODO: search for exposed functions */
 

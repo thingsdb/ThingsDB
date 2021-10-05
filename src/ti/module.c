@@ -20,6 +20,7 @@
 #include <ti/raw.inline.h>
 #include <ti/raw.t.h>
 #include <ti/scope.h>
+#include <ti/thing.inline.h>
 #include <ti/val.inline.h>
 #include <ti/verror.h>
 #include <util/fx.h>
@@ -413,55 +414,172 @@ static void module__conf(ti_module_t * module)
                 ti_module_status_str(module));
 }
 
-static void module__get_manifest_finish(uv_work_t * work, int status)
+static void module__install_finish(ti_mod_work_t * data)
+{
+    ti_module_t * module = data->module;
+
+    /* copy the manifest */
+    module->manifest = data->manifest;
+
+    if (ti_module_set_file(
+            module,
+            module->manifest.main,
+            strlen(module->manifest.main)))
+    {
+        log_error(EX_MEMORY_S);
+        module->status = TI_MODULE_STAT_NOT_INSTALLED;
+    }
+    else
+    {
+        module->status = TI_MODULE_STAT_NOT_LOADED;
+        ti_module_load(module);
+    }
+}
+
+static void module__download_finish(uv_work_t * work, int status)
 {
     ti_mod_work_t * data = work->data;
     ti_module_t * module = data->module;
 
     if (module->source_err[0])
+    {
         module->status = TI_MODULE_STAT_SOURCE_ERR;
+        goto error;
+    }
 
     if (status)
     {
         log_error(uv_strerror(status));
-    }
-    else if (module->status != TI_MODULE_STAT_INSTALLER_BUSY)
-    {
-        log_error("failed to install module: `%s` (%s)",
-                module->name->str,
-                ti_module_status_str(module));
-    }
-    else if (module->ref > 1)  /* do nothing if this is the last reference */
-    {
-        /* copy the manifest */
-        module->manifest = data->manifest;
-
-        if (ti_module_set_file(
-                module,
-                module->manifest.main,
-                strlen(module->manifest.main)))
-        {
-            log_error(EX_MEMORY_S);
+        if (module->status == TI_MODULE_STAT_INSTALLER_BUSY)
             module->status = TI_MODULE_STAT_NOT_INSTALLED;
-        }
-        else
-        {
-            module->status = TI_MODULE_STAT_NOT_LOADED;
-            ti_module_load(module);
-        }
-        goto done;  /* no longer clear the manifest */
+        goto error;
     }
 
-    ti_mod_manifest_clear(&data->manifest);
+    /* store the manifest to disk */
+    ti_mod_manifest_store(module->path, data->buf.data, data->buf.len);
+
+    /* store the manifest to disk */
+    module__install_finish(data);
+    goto done;
+
+error:
+    log_error("failed to install module: `%s` (%s)",
+            data->module->name->str,
+            ti_module_status_str(data->module));
 done:
-    ti_module_drop(module);
-    free(work);
+    ti_module_drop(data->module);
+    free(data->buf.data);
     free(data);
+    free(work);
+    free(work);
 }
 
-typedef void (*module__get_manifest_cb) (uv_work_t *);
+static void module__download(ti_mod_work_t * data)
+{
+    uv_work_t * work;
 
-static void module__install(ti_module_t * module, module__get_manifest_cb cb)
+    work = malloc(sizeof(uv_work_t));
+    if (!work)
+        goto fail;
+
+    work->data = data;
+
+    if (uv_queue_work(
+            ti.loop,
+            work,
+            data->download_cb,
+            module__download_finish) == 0)
+        return;  /* success */
+
+fail:
+    data->module->status = TI_MODULE_STAT_NOT_INSTALLED;
+    log_error("failed to install module: `%s` (%s)",
+            data->module->name->str,
+            ti_module_status_str(data->module));
+    ti_module_drop(data->module);
+    free(data->buf.data);
+    free(data);
+    free(work);
+}
+
+static void module__manifest_finish(uv_work_t * work, int status)
+{
+    ti_mod_work_t * data = work->data;
+    ti_module_t * module = data->module;
+
+    ti_mod_manifest_init(&data->manifest);
+
+    if (module->source_err[0])
+    {
+        if (ti_mod_manifest_local(&data->manifest, module) == 0)
+        {
+            log_warning(module->source_err);
+            *module->source_err = '\0';
+            module__install_finish(data);
+            goto done;
+        }
+
+        module->status = TI_MODULE_STAT_SOURCE_ERR;
+        goto error;
+    }
+
+    if (status)
+    {
+        log_error(uv_strerror(status));
+        if (module->status == TI_MODULE_STAT_INSTALLER_BUSY)
+            module->status = TI_MODULE_STAT_NOT_INSTALLED;
+        goto error;
+    }
+
+    if (module->status != TI_MODULE_STAT_INSTALLER_BUSY)
+        goto error;
+
+    if (module->ref > 1)  /* do nothing if this is the last reference */
+    {
+        if (ti_mod_manifest_read(
+                &data->manifest,
+                module->source_err,
+                data->buf.data,
+                data->buf.len))
+        {
+            if (ti_mod_manifest_local(&data->manifest, module) == 0)
+            {
+                log_warning(module->source_err);
+                *module->source_err = '\0';
+                module__install_finish(data);
+                goto done;
+            }
+
+            module->status = TI_MODULE_STAT_SOURCE_ERR;
+            goto error;
+        }
+
+        if (ti_mod_manifest_skip_install(&data->manifest, module))
+            goto done;  /* success, correct module is installed */
+
+        module__download(data);
+        goto finish;
+    }
+
+error:
+    log_error("failed to install module: `%s` (%s)",
+            module->name->str,
+            ti_module_status_str(module));
+done:
+    ti_module_drop(module);
+    free(data->buf.data);
+    free(data);
+finish:
+    free(work);
+}
+
+typedef struct
+{
+    void (*manifest_cb) (uv_work_t *);
+    void (*download_cb) (uv_work_t *);
+} module__install_t;
+
+static void module__install(ti_module_t * module, module__install_t install)
 {
     uv_work_t * work;
     ti_mod_work_t * data;
@@ -473,14 +591,21 @@ static void module__install(ti_module_t * module, module__get_manifest_cb cb)
     ti_incref(module);
 
     work = malloc(sizeof(uv_work_t));
-    data = calloc(1, sizeof(ti_mod_work_t));
+    data = malloc(sizeof(ti_mod_work_t));
     if (!work || !data)
         goto fail;
 
     data->module = module;
+    data->download_cb = install.download_cb;
     work->data = data;
 
-    if (uv_queue_work(ti.loop, work, cb, module__get_manifest_finish) == 0)
+    buf_init(&data->buf);
+
+    if (uv_queue_work(
+            ti.loop,
+            work,
+            install.manifest_cb,
+            module__manifest_finish) == 0)
         return;  /* success */
 
 fail:
@@ -493,6 +618,11 @@ fail:
 
 void ti_module_load(ti_module_t * module)
 {
+    static const module__install_t module__gh_install = {
+            .manifest_cb = ti_mod_github_manifest,
+            .download_cb = ti_mod_github_download,
+    };
+
     /* First check if the module is installed, if not we might need to install
      * the module first.
      */
@@ -513,7 +643,7 @@ void ti_module_load(ti_module_t * module)
             break;
         case TI_MODULE_SOURCE_GITHUB:
             {
-                module__install(module, ti_mod_github_install);
+                module__install(module, module__gh_install);
                 return;
             }
         }
@@ -1064,19 +1194,48 @@ int ti_module_read_args(
     return 0;
 }
 
+int ti_module_set_defaults(ti_thing_t ** thing, vec_t * defaults)
+{
+    if (!defaults || !defaults->n)
+        return 0;
+
+    if ((ti_thing_is_instance(*thing) || (*thing)->ref > 1) &&
+        ti_thing_copy(thing, 1))
+        return -1;
+
+    for (vec_each(defaults, ti_item_t, item))
+    {
+        if (!ti_thing_has_key(*thing, item->key) &&
+            ti_thing_o_add(*thing, item->key, item->val))
+            return -1;
+
+        ti_incref(item->key);
+        ti_incref(item->val);
+    }
+    return 0;
+}
+
 int ti_module_call(
         ti_module_t * module,
         ti_query_t * query,
         cleri_node_t * nd,
         ex_t * e)
 {
-    assert (!query->rval);
+    assert (query->rval == NULL);
 
     const int nargs = fn_get_nargs(nd);
     _Bool load;
     uint8_t deep;
     cleri_children_t * child = nd->children;
     ti_future_t * future;
+
+    if (ti.futures_count >= TI_MAX_FUTURE_COUNT)
+    {
+        ex_set(e, EX_MAX_QUOTA,
+                "maximum number of active futures (%u) is reached",
+                TI_MAX_FUTURE_COUNT);
+        return e->nr;
+    }
 
     if (module->scope_id && *module->scope_id != ti_query_scope_id(query))
     {
@@ -1109,20 +1268,22 @@ int ti_module_call(
         goto fail0;
     }
 
+    LOGC("REF COUNT: %u", query->rval->ref);
+
     if (ti_module_read_args(
-            module,
-            (ti_thing_t *) query->rval,
-            &load,
-            &deep,
-            e))
+                module,
+                (ti_thing_t *) query->rval,
+                &load,
+                &deep,
+                e) ||
+        ti_module_set_defaults(
+                (ti_thing_t **) &query->rval,
+                module->manifest.defaults))
         goto fail0;
 
     future = ti_future_create(query, module, nargs, deep, load);
     if (!future)
-    {
-        ex_set_mem(e);
         goto fail0;
-    }
 
     VEC_push(future->args, query->rval);
     query->rval = NULL;
@@ -1130,26 +1291,25 @@ int ti_module_call(
     while ((child = child->next) && (child = child->next))
     {
         if (ti_do_statement(query, child->node, e))
-            goto fail1;
+            goto fail2;
 
         VEC_push(future->args, query->rval);
         query->rval = NULL;
     }
 
     if (ti_future_register(future))
-    {
-        ex_set_mem(e);
-        goto fail1;
-    }
+        goto fail2;
 
     query->rval = (ti_val_t *) future;
     ti_decref(module);  /* the future is guaranteed to have at least
                            one reference */
     return e->nr;
 
-fail1:
+fail2:
     ti_val_unsafe_drop((ti_val_t *) future);
 fail0:
+    if (e->nr == 0)
+        ex_set_mem(e);
     ti_module_drop(module);
     return e->nr;
 }

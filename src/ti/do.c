@@ -1249,7 +1249,9 @@ static inline int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!prop)
     {
         register uint8_t flags = query->qbind.flags;
-        return flags & TI_QBIND_FLAG_COLLECTION
+        ti_module_t * module = ti_modules_by_strn(nd->str, nd->len);
+
+        if (!module) return flags & TI_QBIND_FLAG_COLLECTION
             /* Search for procedures in the collection scope */
             ? do__get_procedure_e(query, nd, e)
             : flags & TI_QBIND_FLAG_NODE
@@ -1259,6 +1261,23 @@ static inline int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             : do__get_procedure_e(query, nd, e) && do__fixed_name(query, nd, e)
             ? e->nr
             : 0;
+
+        if (module->scope_id && *module->scope_id != ti_query_scope_id(query))
+        {
+            ex_set(e, EX_FORBIDDEN,
+                    "module `%s` is restricted to scope `%s`",
+                    module->name->str,
+                    ti_scope_name_from_id(*module->scope_id));
+            return e->nr;
+        }
+
+        query->rval = \
+                (ti_val_t *) ti_future_create(query, module, 0, 1, false);
+
+        if (!query->rval)
+            ex_set_mem(e);
+
+        return e->nr;
     }
 
     query->rval = prop->val;

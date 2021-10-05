@@ -15,7 +15,6 @@
 ti_mod_expose_t * ti_mod_expose_create(void);
 void ti_mod_expose_destroy(ti_mod_expose_t * expose);
 int ti_mod_expose_call(
-        ti_module_t * module,
         ti_mod_expose_t * expose,
         ti_query_t * query,
         cleri_node_t * nd,

@@ -1413,6 +1413,7 @@ fail:
 int ti_thing_copy(ti_thing_t ** thing, uint8_t deep)
 {
     assert (deep);
+    LOGC("COPY THING");
 
     return deep--
             ? ti_thing_is_object(*thing)

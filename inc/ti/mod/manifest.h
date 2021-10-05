@@ -4,6 +4,7 @@
 #ifndef TI_MOD_MANIFEST_H_
 #define TI_MOD_MANIFEST_H_
 
+#include <string.h>
 #include <ti/mod/manifest.t.h>
 #include <ti/module.t.h>
 
@@ -18,5 +19,10 @@ _Bool ti_mod_manifest_skip_install(
         ti_module_t * module);
 int ti_mod_manifest_store(const char * module_path, void * data, size_t n);
 void ti_mod_manifest_clear(ti_mod_manifest_t * manifest);
+
+static inline void ti_mod_manifest_init(ti_mod_manifest_t * manifest)
+{
+    memset(manifest, 0, sizeof(ti_mod_manifest_t));
+}
 
 #endif  /* TI_MOD_MANIFEST_H_ */

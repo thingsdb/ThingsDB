@@ -64,6 +64,13 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (ti_module_read_args(module, thing, &load, &deep, e))
             return e->nr;
 
+        if (ti_module_set_defaults(
+                (ti_thing_t **) &query->rval,
+                module->manifest.defaults))
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
         break;
     }
     case TI_VAL_CLOSURE:

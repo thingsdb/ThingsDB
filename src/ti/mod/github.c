@@ -195,7 +195,7 @@ static yajl_callbacks gh__callbacks = {
     NULL
 };
 
-char * gh__blob_url_from_json(
+static char * gh__blob_url_from_json(
         ti_mod_github_t * gh,
         const char * path,
         const void * data,
@@ -388,7 +388,7 @@ static size_t gh__write_file(
     return fwrite(contents, size, nmemb, userp);
 }
 
-CURLcode gh__download_url(
+static CURLcode gh__download_url(
         const char * url,
         const char * token,
         void * data,
@@ -436,7 +436,7 @@ cleanup:
     return curle_code;
 }
 
-char * gh__get_blob_url(ti_mod_github_t * gh, const char * fn)
+static char * gh__get_blob_url(ti_mod_github_t * gh, const char * fn)
 {
     assert (gh__isblob(fn));
 
@@ -468,7 +468,10 @@ char * gh__get_blob_url(ti_mod_github_t * gh, const char * fn)
     return url;
 }
 
-CURLcode gh__download_file(ti_module_t * module, const char * fn, mode_t mode)
+static CURLcode gh__download_file(
+        ti_module_t * module,
+        const char * fn,
+        mode_t mode)
 {
     ti_mod_github_t * gh = module->source.github;
     CURLcode curle_code;
@@ -545,10 +548,11 @@ cleanup:
     return curle_code;
 }
 
-int gh__download(ti_mod_work_t * data)
+void ti_mod_github_download(uv_work_t * work)
 {
-    ti_module_t * module = data->module;
+    ti_mod_work_t * data = work->data;
     ti_mod_manifest_t * manifest = &data->manifest;
+    ti_module_t * module = data->module;
     CURLcode curle_code;
 
     /* read, write, execute, only by owner */
@@ -559,7 +563,7 @@ int gh__download(ti_mod_work_t * data)
                 module, "failed to download `%s` (%s)",
                 manifest->main,
                 curl_easy_strerror(curle_code));
-        return -1;
+        return;
     }
 
     for (vec_each(manifest->includes, char, fn))
@@ -571,31 +575,29 @@ int gh__download(ti_mod_work_t * data)
                     module, "failed to download `%s` (%s)",
                     fn,
                     curl_easy_strerror(curle_code));
-            return -1;
+            return;
         }
     }
 
-    /* includes are no longer required */
+    /*
+     * Includes may be freed, they are no longer required and will not be
+     * accessed by the main thread.
+     */
     vec_destroy(manifest->includes, (vec_destroy_cb) free);
     manifest->includes = NULL;
-
-    return 0;
 }
 
-void ti_mod_github_install(uv_work_t * work)
+void ti_mod_github_manifest(uv_work_t * work)
 {
     ti_mod_work_t * data = work->data;
     ti_module_t * module = data->module;
     ti_mod_github_t * gh = module->source.github;
-    buf_t buf;
     CURLcode curle_code;
-
-    buf_init(&buf);
 
     curle_code = gh__download_url(
             gh->manifest_url,
             gh->token_header,
-            &buf,
+            &data->buf,
             gh__write_mem,
             "raw");
 
@@ -604,37 +606,41 @@ void ti_mod_github_install(uv_work_t * work)
         ti_module_set_source_err(
                 module, "failed to download "TI_MANIFEST" (%s)",
                 curl_easy_strerror(curle_code));
-        goto try_local;  /* error */
     }
-
-    if (ti_mod_manifest_read(
-            &data->manifest,
-            module->source_err,
-            buf.data,
-            buf.len))
-        goto try_local;  /* error */
-
-    if (ti_mod_manifest_skip_install(&data->manifest, module))
-        goto cleanup;  /* success, correct module is already installed */
-
-    if (gh__download(data))
-        goto cleanup;  /* error */
-
-    /* we do not even care if storing the module file succeeds */
-    (void) ti_mod_manifest_store(module->path, buf.data, buf.len);
-
-    goto cleanup;  /* success */
-
-try_local:
-
-    if (ti_mod_manifest_local(&data->manifest, module) == 0)
-    {
-        log_warning(module->source_err);
-        *module->source_err = '\0';
-    }
-
-cleanup:
-    free(buf.data);
+//
+//
+//
+//    if (ti_mod_manifest_read(
+//            &data->manifest,
+//            module->source_err,
+//            buf.data,
+//            buf.len))
+//        goto try_local;  /* error */
+//
+//    if (ti_mod_manifest_skip_install(&data->manifest, module))
+//        goto cleanup;  /* success, correct module is already installed */
+//
+//    if (gh__download(data))
+//        goto cleanup;  /* error */
+//
+//    /* we do not even care if storing the module file succeeds */
+//    (void) ti_mod_manifest_store(module->path, buf.data, buf.len);
+//
+//    goto cleanup;  /* success */
+//
+//try_local:
+//
+//    /* first make sure the manifest is cleared */
+//    ti_mod_manifest_clear(&data->manifest);
+//
+//    if (ti_mod_manifest_local(&data->manifest, module) == 0)
+//    {
+//        log_warning(module->source_err);
+//        *module->source_err = '\0';
+//    }
+//
+//cleanup:
+//    free(buf.data);
 }
 
 void ti_mod_github_destroy(ti_mod_github_t * gh)

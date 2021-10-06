@@ -9,6 +9,7 @@
 #include <ti/future.inline.h>
 #include <ti/mod/github.h>
 #include <ti/mod/manifest.h>
+#include <ti/mod/work.h>
 #include <ti/mod/work.t.h>
 #include <ti/module.h>
 #include <ti/names.h>
@@ -417,8 +418,9 @@ static void module__install_finish(ti_mod_work_t * data)
 {
     ti_module_t * module = data->module;
 
-    /* copy the manifest */
+    /* move the manifest */
     module->manifest = data->manifest;
+    ti_mod_manifest_init(&data->manifest);
 
     if (ti_module_set_file(
             module,
@@ -435,9 +437,37 @@ static void module__install_finish(ti_mod_work_t * data)
     }
 }
 
+static int module__py_requirements(ti_mod_work_t * data)
+{
+    uv_work_t * work;
+
+    work = malloc(sizeof(uv_work_t));
+    if (!work)
+        goto fail;
+
+    work->data = data;
+
+    if (uv_queue_work(
+            ti.loop,
+            work,
+            data->download_cb,
+            module__download_finish) == 0)
+        return 0;  /* success */
+
+fail:
+    data->module->status = TI_MODULE_STAT_NOT_INSTALLED;
+    log_error("failed to install module: `%s` (%s)",
+            data->module->name->str,
+            ti_module_status_str(data->module));
+    ti_module_drop(data->module);
+    free(data->buf.data);
+    free(data);
+    free(work);
+}
+
+
 static void module__download_finish(uv_work_t * work, int status)
 {
-    LOGC("module__download_finish");
     ti_mod_work_t * data = work->data;
     ti_module_t * module = data->module;
 
@@ -458,6 +488,12 @@ static void module__download_finish(uv_work_t * work, int status)
     /* store the manifest to disk */
     ti_mod_manifest_store(module->path, data->buf.data, data->buf.len);
 
+    if (module->manifest.requirements || data->rtxt)
+    {
+        if ()
+        goto finish;
+    }
+
     /* store the manifest to disk */
     module__install_finish(data);
     goto done;
@@ -467,18 +503,14 @@ error:
             data->module->name->str,
             ti_module_status_str(data->module));
 done:
-    ti_module_drop(data->module);
-    free(data->buf.data);
-    free(data);
+    ti_mod_work_destroy(data);
+finish:
     free(work);
 }
 
 static void module__download(ti_mod_work_t * data)
 {
-    LOGC("module__download");
-    uv_work_t * work;
-
-    work = malloc(sizeof(uv_work_t));
+    uv_work_t * work = malloc(sizeof(uv_work_t));
     if (!work)
         goto fail;
 
@@ -496,15 +528,12 @@ fail:
     log_error("failed to install module: `%s` (%s)",
             data->module->name->str,
             ti_module_status_str(data->module));
-    ti_module_drop(data->module);
-    free(data->buf.data);
-    free(data);
+    ti_mod_work_destroy(data);
     free(work);
 }
 
 static void module__manifest_finish(uv_work_t * work, int status)
 {
-    LOGC("module__manifest_finish");
     ti_mod_work_t * data = work->data;
     ti_module_t * module = data->module;
 
@@ -555,7 +584,7 @@ static void module__manifest_finish(uv_work_t * work, int status)
 
         if (ti_mod_manifest_skip_install(&data->manifest, module))
         {
-            LOGC("skip...");
+            log_debug("skip re-installing module `%s`", module->name->str);
             goto done;  /* success, correct module is installed */
         }
 
@@ -571,9 +600,7 @@ error:
 done:
     module__install_finish(data);
 fail:
-    ti_module_drop(module);
-    free(data->buf.data);
-    free(data);
+    ti_mod_work_destroy(data);
 finish:
     free(work);
 }
@@ -602,6 +629,7 @@ static void module__install(ti_module_t * module, module__install_t install)
 
     data->module = module;
     data->download_cb = install.download_cb;
+    data->rtxt = false;
     work->data = data;
 
     buf_init(&data->buf);
@@ -1068,12 +1096,12 @@ static int module__info_to_vp(ti_module_t * module, ti_vp_t * vp, int flags)
             !!(flags & TI_MODULE_FLAG_WITH_TASKS) + \
             !!(flags & TI_MODULE_FLAG_WITH_RESTARTS) + \
             ((module->source_type == TI_MODULE_SOURCE_GITHUB) ? 4 : 0) + \
+            !!(manifest->version) + \
             !!(manifest->doc) + \
             !!(manifest->exposes) + \
             !!defaults_n;
 
-    if (
-        msgpack_pack_map(pk, sz) ||
+    if (msgpack_pack_map(pk, sz) ||
 
         mp_pack_str(pk, "name") ||
         mp_pack_strn(pk, module->name->str, module->name->n) ||
@@ -1127,6 +1155,10 @@ static int module__info_to_vp(ti_module_t * module, ti_vp_t * vp, int flags)
                         mp_pack_str(pk, module->source.github->ref) :
                         mp_pack_str(pk, "default")))) ||
 
+        (manifest->version && (
+                mp_pack_str(pk, "version") ||
+                mp_pack_str(pk, manifest->version))) ||
+
         (manifest->doc && (
                 mp_pack_str(pk, "doc") ||
                 mp_pack_str(pk, manifest->doc))))
@@ -1159,9 +1191,8 @@ static int module__info_to_vp(ti_module_t * module, ti_vp_t * vp, int flags)
     {
         char namebuf[TI_NAME_MAX];
         smap_t * exposes = manifest->exposes;
-        if (
-            mp_pack_str(pk, "exposes") ||
-            msgpack_pack_array(pk, exposes->n) ||
+        if (mp_pack_str(pk, "exposes") ||
+            msgpack_pack_map(pk, exposes->n) ||
             smap_items(
                     exposes,
                     namebuf,
@@ -1169,7 +1200,6 @@ static int module__info_to_vp(ti_module_t * module, ti_vp_t * vp, int flags)
                     vp))
             return -1;
     }
-
 
     return 0;
 }

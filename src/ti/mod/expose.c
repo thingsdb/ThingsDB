@@ -205,11 +205,10 @@ int ti_mod_expose_info_to_vp(
     size_t defaults_n = (expose->defaults ? expose->defaults->n : 0) + \
             !!expose->deep + \
             !!expose->load;
-    size_t sz = 1 + !!expose->argmap + !!expose->doc + !!(defaults_n);
+    size_t sz = !!expose->doc + !!defaults_n + !!expose->argmap;
 
-    if (msgpack_pack_map(pk, sz) ||
-        mp_pack_str(pk, "name") ||
-        mp_pack_strn(pk, key, n))
+    if (mp_pack_strn(pk, key, n) ||
+        msgpack_pack_map(pk, sz))
         return -1;
 
     if (expose->doc && (
@@ -219,8 +218,6 @@ int ti_mod_expose_info_to_vp(
 
     if (defaults_n)
     {
-
-
         if (mp_pack_str(pk, "defaults") ||
             msgpack_pack_map(pk, defaults_n))
             return -1;
@@ -244,7 +241,8 @@ int ti_mod_expose_info_to_vp(
 
     if (expose->argmap)
     {
-        if (msgpack_pack_map(pk, expose->argmap->n))
+        if (mp_pack_str(pk, "argmap") ||
+            msgpack_pack_array(pk, expose->argmap->n))
             return -1;
 
         for (vec_each(expose->argmap, ti_item_t, item))

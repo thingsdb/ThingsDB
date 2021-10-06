@@ -48,7 +48,6 @@ struct ti_cfg_s
     char * gcloud_key_file;
     char * modules_path;                /* path to find modules */
     char * python_interpreter;          /* python interpreter */
-    char * python_pip;                  /* python package installer */
     double query_duration_warn;
     double query_duration_error;
 };

@@ -18,6 +18,7 @@ struct ti_mod_work_s
     buf_t buf;
     ti_mod_manifest_t manifest;
     void (*download_cb) (uv_work_t *);
+    _Bool rtxt;                             /* Python, requirements.txt */
 };
 
 #endif  /* TI_MOD_WORK_T_H_ */

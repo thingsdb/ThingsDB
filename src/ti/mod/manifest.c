@@ -955,7 +955,7 @@ static inline int manifest__has_key(vec_t * defaults, ti_raw_t * key)
 }
 
 /*
- * Return 0 on success, -1 allocation error, -2 double
+ * Return 0 on success, -1 allocation error
  */
 static int manifest__exposes_cb(ti_mod_expose_t * expose, vec_t * defaults)
 {
@@ -1006,25 +1006,21 @@ static int manifest__exposes_cb(ti_mod_expose_t * expose, vec_t * defaults)
 
 static int manifest__check_exposes(manifest__ctx_t * ctx)
 {
-    int rc;
-
-    if (!ctx->manifest->exposes)
-        return 1;  /* success */
-
-    rc = smap_values(
+    return ctx->manifest->exposes && smap_values(
         ctx->manifest->exposes,
         (smap_val_cb) manifest__exposes_cb,
-        ctx->manifest->defaults);
-
-    if (rc == -1)
-        return manifest__set_err(ctx, "allocation error");
-
-    if (rc == -2)
-        return manifest__set_err(ctx, "double key in `argmap` in "TI_MANIFEST);
-
-    return 1;  /* success */
+        ctx->manifest->defaults)
+            ? manifest__set_err(ctx, "allocation error")
+            : 1;  /* success */
 }
 
+static int manifest__check_py(manifest__ctx_t * ctx)
+{
+    return !ctx->manifest->is_py && ctx->manifest->requirements
+            ? manifest__set_err(ctx,
+                    "requirements are only allowed with Python modules")
+            : 1;  /* success */
+}
 
 static int manifest__check_version(manifest__ctx_t * ctx)
 {
@@ -1089,7 +1085,8 @@ int ti_mod_manifest_read(
         if (!manifest__check_main(&ctx) ||
             !manifest__check_version(&ctx) ||
             !manifest__check_includes(&ctx) ||
-            !manifest__check_exposes(&ctx))
+            !manifest__check_exposes(&ctx) ||
+            !manifest__check_py(&ctx))
         {
             stat = yajl_status_error;
 

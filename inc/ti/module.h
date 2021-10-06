@@ -40,10 +40,6 @@ _Bool ti_module_file_is_py(const char * file, size_t n);
 const char * ti_module_status_str(ti_module_t * module);
 ti_pkg_t * ti_module_conf_pkg(ti_val_t * val, ti_query_t * query);
 void ti_module_on_pkg(ti_module_t * module, ti_pkg_t * pkg);
-int ti_module_info_to_pk(
-        ti_module_t * module,
-        msgpack_packer * pk,
-        int options);
 ti_val_t * ti_module_as_mpval(ti_module_t * module, int flags);
 int ti_module_write(ti_module_t * module, const void * data, size_t n);
 int ti_module_set_deep(ti_val_t * deep_val, uint8_t * deep, ex_t * e);

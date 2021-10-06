@@ -567,6 +567,7 @@ void ti_mod_github_download(uv_work_t * work)
     ti_module_t * module = data->module;
     CURLcode curle_code;
     mode_t mode = manifest->is_py ? S_IRUSR|S_IWUSR : S_IRWXU;
+    const char rtxt[] = "requirements.txt";
 
     /*
      * Access rights file:
@@ -606,6 +607,18 @@ void ti_mod_github_download(uv_work_t * work)
      */
     vec_destroy(manifest->includes, (vec_destroy_cb) free);
     manifest->includes = NULL;
+
+    if (manifest->is_py && !manifest->requirements)
+    {
+        curle_code = gh__download_file(module, rtxt, S_IRUSR|S_IWUSR);
+        if (curle_code == CURLE_OK)
+            data->rtxt = true;
+        else
+            log_debug(
+                    module, "failed to download `%s` (%s)",
+                    rtxt,
+                    curl_easy_strerror(curle_code));
+    }
 }
 
 void ti_mod_github_manifest(uv_work_t * work)

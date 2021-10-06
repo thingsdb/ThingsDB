@@ -615,7 +615,7 @@ void ti_mod_github_download(uv_work_t * work)
             data->rtxt = true;
         else
             log_debug(
-                    module, "failed to download `%s` (%s)",
+                    "failed to download `%s` (%s)",
                     rtxt,
                     curl_easy_strerror(curle_code));
     }

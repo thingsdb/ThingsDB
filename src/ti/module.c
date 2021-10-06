@@ -437,31 +437,62 @@ static void module__install_finish(ti_mod_work_t * data)
     }
 }
 
-static int module__py_requirements(ti_mod_work_t * data)
+static void module__py_requirements_finish(uv_work_t * work, int status)
 {
-    uv_work_t * work;
+    ti_mod_work_t * data = work->data;
+    ti_module_t * module = data->module;
 
-    work = malloc(sizeof(uv_work_t));
-    if (!work)
-        goto fail;
+    if (status)
+    {
+        log_error(uv_strerror(status));
+        goto warn;
+    }
 
-    work->data = data;
+    goto done;
+
+warn:
+    log_warning("failed to install Python requirements for module `%s`",
+            module->name->str);
+
+done:
+    /* store the manifest to disk */
+    ti_mod_manifest_store(module->path, data->buf.data, data->buf.len);
+
+    /* store the manifest to disk */
+    module__install_finish(data);
+
+    ti_mod_work_destroy(data);
+    free(work);
+}
+
+static void module__py_requirements_work(uv_work_t * work)
+{
+    ti_mod_work_t * data = work->data;
+    ti_module_t * module = data->module;
+}
+
+static void module__py_requirements(uv_work_t * work)
+{
+    ti_mod_work_t * data = work->data;
 
     if (uv_queue_work(
             ti.loop,
             work,
-            data->download_cb,
-            module__download_finish) == 0)
-        return 0;  /* success */
+            module__py_requirements_work,
+            module__py_requirements_finish) == 0)
+        return;  /* success */
 
 fail:
-    data->module->status = TI_MODULE_STAT_NOT_INSTALLED;
-    log_error("failed to install module: `%s` (%s)",
-            data->module->name->str,
-            ti_module_status_str(data->module));
-    ti_module_drop(data->module);
-    free(data->buf.data);
-    free(data);
+    log_warning("failed to install Python requirements for module `%s`",
+            data->module->name->str);
+
+    /* store the manifest to disk */
+    ti_mod_manifest_store(data->module->path, data->buf.data, data->buf.len);
+
+    /* store the manifest to disk */
+    module__install_finish(data);
+
+    ti_mod_work_destroy(data);
     free(work);
 }
 
@@ -485,14 +516,15 @@ static void module__download_finish(uv_work_t * work, int status)
         goto error;
     }
 
-    /* store the manifest to disk */
-    ti_mod_manifest_store(module->path, data->buf.data, data->buf.len);
-
     if (module->manifest.requirements || data->rtxt)
     {
-        if ()
-        goto finish;
+        assert (module->manifest.is_py);
+        module__py_requirements(work);
+        return;
     }
+
+    /* store the manifest to disk */
+    ti_mod_manifest_store(module->path, data->buf.data, data->buf.len);
 
     /* store the manifest to disk */
     module__install_finish(data);
@@ -504,17 +536,12 @@ error:
             ti_module_status_str(data->module));
 done:
     ti_mod_work_destroy(data);
-finish:
     free(work);
 }
 
-static void module__download(ti_mod_work_t * data)
+static void module__download(uv_work_t * work)
 {
-    uv_work_t * work = malloc(sizeof(uv_work_t));
-    if (!work)
-        goto fail;
-
-    work->data = data;
+    ti_mod_work_t * data = work->data;
 
     if (uv_queue_work(
             ti.loop,
@@ -588,8 +615,8 @@ static void module__manifest_finish(uv_work_t * work, int status)
             goto done;  /* success, correct module is installed */
         }
 
-        module__download(data);
-        goto finish;
+        module__download(work);
+        return;
     }
 
 error:
@@ -601,7 +628,6 @@ done:
     module__install_finish(data);
 fail:
     ti_mod_work_destroy(data);
-finish:
     free(work);
 }
 

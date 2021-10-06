@@ -33,6 +33,7 @@
 #include <ti/method.h>
 #include <ti/mod/expose.h>
 #include <ti/mod/expose.t.h>
+#include <ti/mod/github.h>
 #include <ti/module.h>
 #include <ti/module.t.h>
 #include <ti/modules.h>

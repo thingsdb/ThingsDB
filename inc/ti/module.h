@@ -26,6 +26,7 @@ ti_module_t * ti_module_create(
         uint64_t * scope_id,    /* may be NULL */
         ex_t * e);
 int ti_module_set_file(ti_module_t * module, const char * file, size_t n);
+int ti_module_deploy(ti_module_t * module, const void * data, size_t n);
 void ti_module_destroy(ti_module_t * module);
 void ti_module_on_exit(ti_module_t * module);
 int ti_module_stop(ti_module_t * module);
@@ -35,6 +36,7 @@ void ti_module_cancel_futures(ti_module_t * module);
 void ti_module_load(ti_module_t * module);
 void ti_module_restart(ti_module_t * module);
 void ti_module_update_conf(ti_module_t * module);
+_Bool ti_module_file_is_py(const char * file, size_t n);
 const char * ti_module_status_str(ti_module_t * module);
 ti_pkg_t * ti_module_conf_pkg(ti_val_t * val, ti_query_t * query);
 void ti_module_on_pkg(ti_module_t * module, ti_pkg_t * pkg);
@@ -44,6 +46,7 @@ int ti_module_info_to_pk(
         int options);
 ti_val_t * ti_module_as_mpval(ti_module_t * module, int flags);
 int ti_module_write(ti_module_t * module, const void * data, size_t n);
+int ti_module_set_deep(ti_val_t * deep_val, uint8_t * deep, ex_t * e);
 int ti_module_read_args(
         ti_module_t * module,
         ti_thing_t * thing,
@@ -60,7 +63,7 @@ void ti_module_set_source_err(ti_module_t * module, const char * fmt, ...);
 
 static inline _Bool ti_module_is_py(ti_module_t * module)
 {
-    return module->flags & TI_MODULE_FLAG_IS_PY_MODULE;
+    return module->manifest.is_py;
 }
 
 static inline const char * ti_module_py_fn(ti_module_t * module)

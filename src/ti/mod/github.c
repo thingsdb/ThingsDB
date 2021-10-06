@@ -234,7 +234,11 @@ static char * gh__blob_url_from_json(
     return url;
 }
 
-ti_mod_github_t * ti_mod_github_create(const char * s, size_t n, ex_t * e)
+int ti_mod_github_init(
+        ti_mod_github_t * gh,
+        const char * s,
+        size_t n,
+        ex_t * e)
 {
     int ok = 1;
     const char * owner,
@@ -246,16 +250,8 @@ ti_mod_github_t * ti_mod_github_create(const char * s, size_t n, ex_t * e)
            tokenn = 0,
            refn = 0,
            pos = gh__strn;
-    ti_mod_github_t * gh = calloc(1, sizeof(ti_mod_github_t));
-
-    if (!gh)
-    {
-        ex_set_mem(e);
-        return NULL;
-    }
-
     if (!ti_mod_github_test(s, n) || n < gh__minn)
-        goto invalid;
+            goto invalid;
 
     if (s[pos++] != '/')
         goto invalid;
@@ -334,34 +330,50 @@ ti_mod_github_t * ti_mod_github_create(const char * s, size_t n, ex_t * e)
         while (++pos < n);
     }
 
-    gh->owner = strndup(owner, ownern);
-    gh->repo = strndup(repo, repon);
-
-    if (token)
-        ok = asprintf(
-                &gh->token_header,
-                "Authorization: token %.*s",
-                (int) tokenn, token) > 0;
-
-    if (ok && ref)
-        ok = (gh->ref = strndup(ref, refn)) != NULL;
-
-    if (!ok || !gh->owner || !gh->repo ||
-        !(gh->manifest_url = gh__url(gh, TI_MANIFEST)))
+    if (gh)
     {
-        ex_set_mem(e);
-        goto fail;
+        gh->owner = strndup(owner, ownern);
+        gh->repo = strndup(repo, repon);
+
+        if (token)
+            ok = asprintf(
+                    &gh->token_header,
+                    "Authorization: token %.*s",
+                    (int) tokenn, token) > 0;
+
+        if (ok && ref)
+            ok = (gh->ref = strndup(ref, refn)) != NULL;
+
+        if (!ok || !gh->owner || !gh->repo ||
+            !(gh->manifest_url = gh__url(gh, TI_MANIFEST)))
+            ex_set_mem(e);
     }
 
-    return gh;
+    return e->nr;
+
 invalid:
     ex_set(e, EX_VALUE_ERROR,
             "not a valid GitHub module link; "
             "expecting something like "GH__EXAMPLE" but got `%.*s`",
             n, s);
-fail:
-    ti_mod_github_destroy(gh);
-    return NULL;
+    return e->nr;
+}
+
+ti_mod_github_t * ti_mod_github_create(const char * s, size_t n, ex_t * e)
+{
+    ti_mod_github_t * gh = calloc(1, sizeof(ti_mod_github_t));
+    if (!gh)
+    {
+        ex_set_mem(e);
+        return NULL;
+    }
+
+    if (ti_mod_github_init(gh, s, n, e))
+    {
+        ti_mod_github_destroy(gh);
+        return NULL;
+    }
+    return gh;
 }
 
 typedef size_t (*gh__write_cb) (void *, size_t, size_t, void *);
@@ -554,9 +566,15 @@ void ti_mod_github_download(uv_work_t * work)
     ti_mod_manifest_t * manifest = &data->manifest;
     ti_module_t * module = data->module;
     CURLcode curle_code;
+    mode_t mode = manifest->is_py ? S_IRUSR|S_IWUSR : S_IRWXU;
 
-    /* read, write, execute, only by owner */
-    curle_code = gh__download_file(module, manifest->main, S_IRWXU);
+    /*
+     * Access rights file:
+     * - Python files:   Read / Write, only by owner.
+     * - Binaries:       Read / Write / Execute, only by owner.
+     */
+
+    curle_code = gh__download_file(module, manifest->main, mode);
     if (curle_code != CURLE_OK)
     {
         ti_module_set_source_err(
@@ -566,7 +584,10 @@ void ti_mod_github_download(uv_work_t * work)
         return;
     }
 
-    for (vec_each(manifest->includes, char, fn))
+    /*
+     * Access rights other files: Read / Write, only by owner.
+     */
+    if (manifest->includes) for (vec_each(manifest->includes, char, fn))
     {
         curle_code = gh__download_file(module, fn, S_IRUSR|S_IWUSR);
         if (curle_code != CURLE_OK)

@@ -8,12 +8,6 @@
 #include <ti/val.inline.h>
 #include <ti.h>
 
-static inline int future__reg(ti_future_t * future)
-{
-    ti_collection_t * collection = future->query->collection;
-    return collection ? vec_push(&collection->futures, future) : 0;
-}
-
 static void future__unreg(ti_future_t * future)
 {
     ti_collection_t * collection = future->query->collection;
@@ -69,6 +63,15 @@ ti_future_t * ti_future_create(
 
     ti_incref(module);
     return future;
+}
+
+int ti_future_register(ti_future_t * future)
+{
+    ti_collection_t * collection = future->query->collection;
+    int rc = collection ? vec_push(&collection->futures, future) : 0;
+    if (rc == 0 && (rc = link_insert(&future->query->futures, future)) == 0)
+        ti_incref(future);  /* reference for future->query->futures */
+    return rc;
 }
 
 void ti_future_destroy(ti_future_t * future)

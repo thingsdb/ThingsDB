@@ -159,7 +159,7 @@ void ti_proc_init(ti_proc_t * proc, ti_module_t * module)
     proc->child_stdio[2].flags = UV_INHERIT_FD;
     proc->child_stdio[2].data.fd = 2;
 
-    proc->options.file = (module->flags & TI_MODULE_FLAG_IS_PY_MODULE)
+    proc->options.file = module->manifest.is_py
             ? ti.cfg->python_interpreter
             : module->file;
 

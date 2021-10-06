@@ -40,8 +40,8 @@ enum
     TI_MODULE_FLAG_WITH_CONF        =1<<4,      /* used for info */
     TI_MODULE_FLAG_WITH_TASKS       =1<<5,      /* used for info */
     TI_MODULE_FLAG_WITH_RESTARTS    =1<<6,      /* used for info */
-    TI_MODULE_FLAG_IS_PY_MODULE     =1<<7,
-    TI_MODULE_FLAG_DEL              =1<<8,
+    TI_MODULE_FLAG_DEL              =1<<7,
+    TI_MODULE_FLAG_UPDATE           =1<<8,
 };
 
 typedef enum
@@ -52,8 +52,8 @@ typedef enum
 
 typedef union
 {
-    char * file;
-    ti_mod_github_t * github;
+    char * file;                    /* just a pointer to module->orig */
+    ti_mod_github_t * github;       /* unpacked GitHub module */
 } ti_module_source_via_t;
 
 struct ti_module_s
@@ -66,6 +66,7 @@ struct ti_module_s
     uint16_t next_pid;      /* next package id  */
     ti_module_cb cb;        /* module callback */
     ti_name_t * name;       /* name of the module */
+    char * orig;            /* original source of the module */
     char * path;            /* path with the module */
     char * file;            /* file (full path) to start */
     char * fn;              /* just the file name (using a pointer to file) */

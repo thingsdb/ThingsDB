@@ -186,6 +186,36 @@ static inline int wrap__thing_id_to_pk(
     return 0;
 }
 
+int ti__wrap_methods_to_pk_no_query(ti_type_t * t_type, ti_vp_t * vp)
+{
+    int rc = 0;
+    ex_t e = {0};
+    ti_val_t * val;
+
+    ex_set(&e, EX_BAD_DATA,
+            "failed to compute property; "
+            "methods can not be computed in the current context");
+
+    val = (ti_val_t *) ti_verror_ensure_from_e(&e);
+
+    for (vec_each(t_type->methods, ti_method_t, method))
+    {
+        rc = -(
+            mp_pack_strn(
+                &vp->pk,
+                method->name->str,
+                method->name->n) ||
+            ti_val_to_pk(val, vp, 1)
+        );
+
+        if (rc)
+            break;
+    }
+
+    ti_val_unsafe_drop(val);
+    return rc;
+}
+
 int ti__wrap_methods_to_pk(
         ti_type_t * t_type,
         ti_thing_t * thing,
@@ -386,9 +416,9 @@ int ti__wrap_field_thing(
         }
     }
 
-    assert (vp->query != NULL);
-
-    if (nm && ti__wrap_methods_to_pk(t_type, thing, vp, options))
+    if (nm && (vp->query
+            ? ti__wrap_methods_to_pk(t_type, thing, vp, options)
+            : ti__wrap_methods_to_pk_no_query(t_type, vp)))
         goto fail;
 
     thing->flags &= ~TI_VFLAG_LOCK;

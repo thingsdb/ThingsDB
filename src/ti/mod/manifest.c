@@ -21,7 +21,6 @@
 #include <ti/version.h>
 #include <ti/vfloat.h>
 #include <ti/vint.h>
-#include <tiinc.h>
 #include <util/logger.h>
 #include <util/mpjson.h>
 #include <util/osarch.h>
@@ -545,7 +544,10 @@ static int manifest__json_string(
         return manifest__set_mode(ctx, MF__ROOT_MAP);
     case MF__MAIN_OSARCH:
         if (!ctx->manifest->main)
+        {
             ctx->manifest->main = strndup((const char *) s, n);
+            ctx->manifest->is_py = ti_module_file_is_py((const char *) s, n);
+        }
         /* fall through */
     case MF__MAIN_NO_OSARCH:
         return manifest__set_mode(ctx, MF__MAIN_MAP);
@@ -625,9 +627,7 @@ static int manifest__json_string(
                 ? (ti_raw_t *) ti_names_get(str, n)
                 : ti_str_create(str, n);
 
-
-
-        return item->key && 0 == vec_push_create(&expose->argmap, item);
+        return item->key && 0 == vec_push(&expose->argmap, item);
     }
     default:                    return manifest__err_unexpected(ctx);
     }
@@ -778,12 +778,7 @@ static int manifest__json_map_key(
                     (const char *) s,
                     n,
                     &expose->defaults);
-            if (item)
-            {
-                ctx->data = item;
-                return manifest__set_mode(ctx, MF__X_DEFAULTS_ITEM);
-            }
-            return 0;  /* failed, error has been set */
+            return item ? manifest__set_mode(ctx, MF__X_DEFAULTS_ITEM) : 0;
         }
     case MF__X_DEFAULTS_PACK:
         return reformat_map_key(&((manifest__up_t *) ctx->data)->ctx, s, n);
@@ -851,7 +846,14 @@ static int manifest__json_start_array(void * data)
         /*fall through */
     case MF__X_DEFAULTS_PACK:
         return reformat_start_array(&((manifest__up_t *) ctx->data)->ctx);
-    case MF__X_ARGMAP:          return manifest__set_mode(ctx, MF__X_ARGMAP_ARR);
+    case MF__X_ARGMAP:
+    {
+        ti_mod_expose_t * expose = ctx->data;
+        expose->argmap = vec_new(3);
+        return expose->argmap
+                ? manifest__set_mode(ctx, MF__X_ARGMAP_ARR)
+                : manifest__set_err(ctx, "allocation error");
+    }
     case MF__X_ARGMAP_ARR:      return manifest__err_am_arr(ctx, NOARRAY);
     default:                    return manifest__err_unexpected(ctx);
     }
@@ -1045,6 +1047,9 @@ static int manifest__check_version(manifest__ctx_t * ctx)
 
         if (n == 0 || n > maxdigits)
             goto fail;
+
+        if (*pt == '\0')
+            return 1;  /* valid, success */
 
         if (*pt == '.')
             ++pt;

@@ -13,6 +13,7 @@ typedef struct ti_mod_manifest_s ti_mod_manifest_t;
 
 struct ti_mod_manifest_s
 {
+    _Bool is_py;                  /* true/false */
     char * main;                        /* required */
     char * version;                     /* required */
     char * doc;                         /* NULL or string */

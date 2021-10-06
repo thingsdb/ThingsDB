@@ -25,15 +25,6 @@ static inline int ti_future_to_pk(
             : msgpack_pack_nil(&vp->pk);
 }
 
-static inline int ti_future_register(ti_future_t * future)
-{
-    ti_collection_t * collection = future->query->collection;
-    int rc = collection ? vec_push(&collection->futures, future) : 0;
-    if (rc == 0 && (rc = link_insert(&future->query->futures, future)) == 0)
-        ti_incref(future);  /* reference for future->query->futures */
-    return rc;
-}
-
 static inline void ti_future_forget_cb(ti_closure_t * cb)
 {
     if (!cb)

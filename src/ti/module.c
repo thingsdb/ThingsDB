@@ -235,7 +235,7 @@ ti_pkg_t * ti_module_conf_pkg(ti_val_t * val, ti_query_t * query)
     return pkg;
 }
 
-static _Bool module__file_is_py(const char * file, size_t n)
+_Bool ti_module_file_is_py(const char * file, size_t n)
 {
     return file[n-3] == '.' &&
            file[n-2] == 'p' &&
@@ -309,8 +309,9 @@ ti_module_t* ti_module_create(
             strlen(ti.cfg->modules_path),
             name,
             name_n);
+    module->orig = strndup(source, source_n);
 
-    if (!module->name || !module->futures || !module->path)
+    if (!module->name || !module->futures || !module->path || !module->orig)
         goto memerror;
 
     if (ti_mod_github_test(source, source_n))
@@ -326,9 +327,7 @@ ti_module_t* ti_module_create(
             goto fail0;
 
         module->source_type = TI_MODULE_SOURCE_FILE;
-        module->source.file = strndup(source, source_n);
-        if (!module->source.file)
-            goto memerror;
+        module->source.file = module->orig;
     }
 
     switch (smap_add(ti.modules, module->name->str, module))
@@ -356,10 +355,10 @@ fail0:
 
 int ti_module_set_file(ti_module_t * module, const char * file, size_t n)
 {
-    _Bool is_py_module = module__file_is_py(file, n);
     char * str_file, ** args;
 
-    args = malloc(sizeof(char*) * (is_py_module ? 3 : 2));
+    module->manifest.is_py = ti_module_file_is_py(file, n);
+    args = malloc(sizeof(char*) * (module->manifest.is_py ? 3 : 2));
     str_file = fx_path_join_strn(module->path, strlen(module->path), file, n);
 
     if (!str_file || !args)
@@ -377,7 +376,7 @@ int ti_module_set_file(ti_module_t * module, const char * file, size_t n)
     module->fn = module->file + (strlen(module->file) - n);
     module->status = TI_MODULE_STAT_NOT_LOADED;
 
-    if (is_py_module)
+    if (module->manifest.is_py)
     {
         module->args[0] = ti.cfg->python_interpreter;
         module->args[1] = module->file;
@@ -472,7 +471,6 @@ done:
     free(data->buf.data);
     free(data);
     free(work);
-    free(work);
 }
 
 static void module__download(ti_mod_work_t * data)
@@ -556,7 +554,10 @@ static void module__manifest_finish(uv_work_t * work, int status)
         }
 
         if (ti_mod_manifest_skip_install(&data->manifest, module))
+        {
+            LOGC("skip...");
             goto done;  /* success, correct module is installed */
+        }
 
         module__download(data);
         goto finish;
@@ -630,8 +631,12 @@ void ti_module_load(ti_module_t * module)
     /* First check if the module is installed, if not we might need to install
      * the module first.
      */
-    if (module->status == TI_MODULE_STAT_NOT_INSTALLED)
+    if (module->status == TI_MODULE_STAT_NOT_INSTALLED ||
+        (module->flags & TI_MODULE_FLAG_UPDATE))
     {
+        /* Only this flag will be set only once */
+        module->flags &= ~TI_MODULE_FLAG_UPDATE;
+
         switch (module->source_type)
         {
         case TI_MODULE_SOURCE_FILE:
@@ -703,6 +708,51 @@ void ti_module_restart(ti_module_t * module)
     }
 }
 
+int ti_module_deploy(ti_module_t * module, const void * data, size_t n)
+{
+    if (module->status == TI_MODULE_STAT_INSTALLER_BUSY)
+    {
+        log_warning("failed to deploy module: `%s` (installer busy)",
+                module->name->str);
+        return -1;
+    }
+
+    switch (module->source_type)
+    {
+    case TI_MODULE_SOURCE_FILE:
+        if (data || ti_module_write(module, data, n))
+            return -1;
+        break;
+    case TI_MODULE_SOURCE_GITHUB:
+        if (data)
+        {
+            ex_t e = {0};
+            ti_mod_github_t * github = ti_mod_github_create(data, n, &e);
+            char * orig = strndup(data, n);
+
+            if (!github || !orig)
+            {
+                if (e.nr == 0)
+                    ex_set_mem(&e);
+                log_error(e.msg);
+                free(orig);
+                ti_mod_github_destroy(github);
+                return -1;
+            }
+
+            ti_mod_github_destroy(module->source.github);
+            free(module->orig);
+            module->orig = orig;
+            module->source.github = github;
+        }
+        module->flags |= TI_MODULE_FLAG_UPDATE;
+        break;
+    }
+
+    ti_module_restart(module);
+    return 0;
+}
+
 void ti_module_update_conf(ti_module_t * module)
 {
     if (module->flags & TI_MODULE_FLAG_IN_USE)
@@ -724,6 +774,7 @@ void ti_module_destroy(ti_module_t * module)
         log_warning("cannot remove directory: `%s`", module->path);
 
     ti_val_drop((ti_val_t *) module->name);
+    free(module->orig);
     free(module->path);
     free(module->file);
     free(module->args);
@@ -733,7 +784,6 @@ void ti_module_destroy(ti_module_t * module)
     switch (module->source_type)
     {
     case TI_MODULE_SOURCE_FILE:
-        free(module->source.file);
         break;
     case TI_MODULE_SOURCE_GITHUB:
         ti_mod_github_destroy(module->source.github);
@@ -1004,22 +1054,25 @@ const char * ti_module_status_str(ti_module_t * module)
     return uv_strerror(module->status);
 }
 
-int ti_module_info_to_pk(ti_module_t * module, msgpack_packer * pk, int flags)
+static int module__info_to_vp(ti_module_t * module, ti_vp_t * vp, int flags)
 {
-    int rc;
+    msgpack_packer * pk = &vp->pk;
+    ti_mod_manifest_t * manifest = &module->manifest;
+    size_t defaults_n = \
+            (manifest->defaults ? manifest->defaults->n : 0) + \
+            !!manifest->deep + \
+            !!manifest->load;
     size_t sz = 4 + \
             !!(module->file) + \
             !!(flags & TI_MODULE_FLAG_WITH_CONF) + \
             !!(flags & TI_MODULE_FLAG_WITH_TASKS) + \
             !!(flags & TI_MODULE_FLAG_WITH_RESTARTS) + \
             ((module->source_type == TI_MODULE_SOURCE_GITHUB) ? 4 : 0) + \
-            !!(module->manifest.doc) + \
-            !!(module->manifest.exposes) + \
-            !!( module->manifest.defaults ||
-                module->manifest.load ||
-                module->manifest.deep);
+            !!(manifest->doc) + \
+            !!(manifest->exposes) + \
+            !!defaults_n;
 
-    rc = -(
+    if (
         msgpack_pack_map(pk, sz) ||
 
         mp_pack_str(pk, "name") ||
@@ -1074,44 +1127,65 @@ int ti_module_info_to_pk(ti_module_t * module, msgpack_packer * pk, int flags)
                         mp_pack_str(pk, module->source.github->ref) :
                         mp_pack_str(pk, "default")))) ||
 
-        (module->manifest.doc && (
+        (manifest->doc && (
                 mp_pack_str(pk, "doc") ||
-                mp_pack_str(pk, module->manifest.doc)))
-    );
+                mp_pack_str(pk, manifest->doc))))
+        return -1;
 
-    if (rc == 0 && module->manifest.exposes)
+    if (defaults_n)
     {
-        smap_t * exposes = module->manifest.exposes;
-        rc = -(
-            mp_pack_str(pk, "exposes") ||
-            msgpack_pack_array(pk, exposes->n)
-        );
+        if (mp_pack_str(pk, "defaults") ||
+            msgpack_pack_map(pk, defaults_n))
+            return -1;
 
-        if (rc == 0)
-        {
-            char namebuf[TI_NAME_MAX];
+        if (manifest->deep && (
+            mp_pack_str(pk, "deep") ||
+            msgpack_pack_uint8(pk, *manifest->deep)))
+            return -1;
+
+        if (manifest->load && (
+            mp_pack_str(pk, "load") ||
+            mp_pack_bool(pk, *manifest->load)))
+            return -1;
+
+        if (manifest->defaults)
+            for (vec_each(manifest->defaults, ti_item_t, item))
+                if (mp_pack_strn(pk, item->key->data, item->key->n) ||
+                    ti_val_to_pk(item->val, vp, TI_MAX_DEEP_HINT))
+                    return -1;
+    }
+
+    if (manifest->exposes)
+    {
+        char namebuf[TI_NAME_MAX];
+        smap_t * exposes = manifest->exposes;
+        if (
+            mp_pack_str(pk, "exposes") ||
+            msgpack_pack_array(pk, exposes->n) ||
             smap_items(
                     exposes,
                     namebuf,
-                    (smap_item_cb) ti_mod_expose_info_to_pk,
-                    pk);
-        }
+                    (smap_item_cb) ti_mod_expose_info_to_vp,
+                    vp))
+            return -1;
     }
 
 
-    return rc;
+    return 0;
 }
 
 ti_val_t * ti_module_as_mpval(ti_module_t * module, int flags)
 {
     ti_raw_t * raw;
-    msgpack_packer pk;
     msgpack_sbuffer buffer;
+    ti_vp_t vp = {
+            .query = NULL
+    };
 
     mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
-    if (ti_module_info_to_pk(module, &pk, flags))
+    if (module__info_to_vp(module, &vp, flags))
     {
         msgpack_sbuffer_destroy(&buffer);
         return NULL;
@@ -1146,6 +1220,34 @@ int ti_module_write(ti_module_t * module, const void * data, size_t n)
     return 0;
 }
 
+int ti_module_set_deep(ti_val_t * deep_val, uint8_t * deep, ex_t * e)
+{
+    int64_t deepi;
+
+    if (!ti_val_is_int(deep_val))
+    {
+        ex_set(e, EX_TYPE_ERROR,
+                "expecting `deep` to be of type `"TI_VAL_INT_S"` "
+                "but got type `%s` instead"DOC_FUTURE,
+                ti_val_str(deep_val));
+        return e->nr;
+    }
+
+    deepi = VINT(deep_val);
+
+    if (deepi < 0 || deepi > TI_MAX_DEEP_HINT)
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "expecting a `deep` value between 0 and %d "
+                "but got %"PRId64" instead",
+                TI_MAX_DEEP_HINT, deepi);
+        return e->nr;
+    }
+
+    *deep = (uint8_t) deepi;
+    return 0;
+}
+
 int ti_module_read_args(
         ti_module_t * module,
         ti_thing_t * thing,
@@ -1158,36 +1260,10 @@ int ti_module_read_args(
     ti_val_t * deep_val = ti_thing_val_weak_by_name(thing, deep_name);
     ti_val_t * load_val = ti_thing_val_weak_by_name(thing, load_name);
 
-    if (deep_val)
-    {
-        int64_t deepi;
-
-        if (!ti_val_is_int(deep_val))
-        {
-            ex_set(e, EX_TYPE_ERROR,
-                    "expecting `deep` to be of type `"TI_VAL_INT_S"` "
-                    "but got type `%s` instead"DOC_FUTURE,
-                    ti_val_str(deep_val));
-            return e->nr;
-        }
-
-        deepi = VINT(deep_val);
-
-        if (deepi < 0 || deepi > TI_MAX_DEEP_HINT)
-        {
-            ex_set(e, EX_VALUE_ERROR,
-                    "expecting a `deep` value between 0 and %d "
-                    "but got %"PRId64" instead",
-                    TI_MAX_DEEP_HINT, deepi);
-            return e->nr;
-        }
-
-        *deep = (uint8_t) deepi;
-    }
-    else
-        *deep = module->manifest.deep
-            ? *module->manifest.deep
-            : 1;
+    if (!deep_val)
+        *deep = module->manifest.deep ? *module->manifest.deep : 1;
+    else if (ti_module_set_deep(deep_val, deep, e))
+        return e->nr;
 
     *load = load_val
             ? ti_val_as_bool(load_val)
@@ -1209,8 +1285,10 @@ int ti_module_set_defaults(ti_thing_t ** thing, vec_t * defaults)
 
     for (vec_each(defaults, ti_item_t, item))
     {
-        if (!ti_thing_has_key(*thing, item->key) &&
-            ti_thing_o_add(*thing, item->key, item->val))
+        if (ti_thing_has_key(*thing, item->key))
+            continue;
+
+        if (ti_thing_o_add(*thing, item->key, item->val))
             return -1;
 
         ti_incref(item->key);

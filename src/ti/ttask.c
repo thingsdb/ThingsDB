@@ -811,12 +811,10 @@ static int ttask__deploy_module(mp_unp_t * up)
         return 0;  /* error, but able to continue */
     }
 
-    if (mp_data.tp == MP_NIL || ti_module_write(
+    (void) ti_module_deploy(
                 module,
-                mp_data.via.bin.data,
-                mp_data.via.bin.n) == 0)
-            ti_module_restart(module);
-
+                mp_data.tp == MP_BIN ? mp_data.via.bin.data : NULL,
+                mp_data.tp == MP_BIN ? mp_data.via.bin.n : 0);
     return 0;
 }
 

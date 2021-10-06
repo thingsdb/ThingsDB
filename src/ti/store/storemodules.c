@@ -18,7 +18,7 @@ static int store_modules__store_cb(ti_module_t * module, msgpack_packer * pk)
     return (
         msgpack_pack_array(pk, 5) ||
         mp_pack_strn(pk, module->name->str, module->name->n) ||
-        mp_pack_str(pk, module->fn) ||
+        mp_pack_str(pk, module->orig) ||
         msgpack_pack_uint64(pk, module->created_at) ||
         (module->conf_pkg
             ? mp_pack_bin(
@@ -71,7 +71,7 @@ int ti_store_modules_restore(const char * fn)
     int rc = -1;
     size_t i;
     ssize_t n;
-    mp_obj_t obj, mp_name, mp_file, mp_created, mp_pkg, mp_scope;
+    mp_obj_t obj, mp_name, mp_orig, mp_created, mp_pkg, mp_scope;
     mp_unp_t up;
     ti_module_t * module;
     ti_pkg_t * conf_pkg;
@@ -108,7 +108,7 @@ int ti_store_modules_restore(const char * fn)
     {
         if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 5 ||
             mp_next(&up, &mp_name) != MP_STR ||
-            mp_next(&up, &mp_file) != MP_STR ||
+            mp_next(&up, &mp_orig) != MP_STR ||
             mp_next(&up, &mp_created) != MP_U64 ||
             mp_next(&up, &mp_pkg) <= MP_END ||
             mp_next(&up, &mp_scope) <= MP_END
@@ -140,8 +140,8 @@ int ti_store_modules_restore(const char * fn)
         module = ti_module_create(
                 mp_name.via.str.data,
                 mp_name.via.str.n,
-                mp_file.via.str.data,
-                mp_file.via.str.n,
+                mp_orig.via.str.data,
+                mp_orig.via.str.n,
                 mp_created.via.u64,
                 conf_pkg,
                 scope_id,

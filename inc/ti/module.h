@@ -36,6 +36,7 @@ void ti_module_cancel_futures(ti_module_t * module);
 void ti_module_load(ti_module_t * module);
 void ti_module_restart(ti_module_t * module);
 void ti_module_update_conf(ti_module_t * module);
+_Bool ti_module_is_ready(ti_module_t * module);
 _Bool ti_module_file_is_py(const char * file, size_t n);
 const char * ti_module_status_str(ti_module_t * module);
 ti_pkg_t * ti_module_conf_pkg(ti_val_t * val, ti_query_t * query);

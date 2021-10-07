@@ -61,6 +61,8 @@ typedef enum
     MF__X_DEFAULTS_PACK,
     MF__X_ARGMAP,
     MF__X_ARGMAP_ARR,
+    MF__REQUIREMENTS,
+    MF__REQUIREMENTS_ARR,
 } manifest__ctx_mode_t;
 
 typedef struct
@@ -106,6 +108,18 @@ static inline _Bool manifest__key_equals(
     return an == bn && memcmp(a, b, an) == 0;
 }
 
+static int manifest__check_reqm(const char * str, size_t n)
+{
+    for (; n; --n, ++str)
+        if (!isalnum(*str) &&
+                *str != '=' &&
+                *str != '.' &&
+                *str != '-' &&
+                *str != '_')
+            return 0;
+    return 1;
+}
+
 static inline int manifest__default_item(manifest__ctx_t * ctx, void * val)
 {
     ti_item_t * item = ctx->data;
@@ -123,6 +137,20 @@ static inline int manifest__x_default_item(manifest__ctx_t * ctx, void * val)
     return val
             ? manifest__set_mode(ctx, MF__X_DEFAULTS_MAP)
             : manifest__set_err(ctx, "allocation error");
+}
+
+static inline int manifest__set_main(
+        manifest__ctx_t * ctx,
+        manifest__ctx_mode_t mode,
+        const unsigned char * s,
+        size_t n)
+{
+    if (!ctx->manifest->main)
+    {
+        ctx->manifest->main = strndup((const char *) s, n);
+        ctx->manifest->is_py = ti_module_file_is_py((const char *) s, n);
+    }
+    return manifest__set_mode(ctx, mode);
 }
 
 static int manifest__start_pack(manifest__ctx_t * ctx, manifest__ctx_mode_t mode)
@@ -276,12 +304,21 @@ static ti_item_t * manifest__make_item(
 #define manifest__err_x(__ctx, __notv) \
     manifest__set_err(__ctx, "expecting a map as `expose` value, "__notv);
 
+
 #define manifest__err_argmap(__ctx, __notv) \
     manifest__set_err(__ctx, "expecting an array or null as `argmap` value, "__notv);
 
 
 #define manifest__err_am_arr(__ctx, __notv) \
-    manifest__set_err(__ctx, "expecting a string `argmap` item, "__notv);
+    manifest__set_err(__ctx, "expecting a string as `argmap` item, "__notv);
+
+
+#define manifest__err_reqm(__ctx, __notv) \
+    manifest__set_err(__ctx, "expecting an array as `requirements` value, "__notv);
+
+
+#define manifest__err_reqm_arr(__ctx, __notv) \
+    manifest__set_err(__ctx, "expecting a string as `requirements` item, "__notv);
 
 
 #define manifest__err_unexpected(__ctx) \
@@ -325,6 +362,8 @@ static int manifest__json_null(void * data)
         return reformat_null(&((manifest__up_t *) ctx->data)->ctx);
     case MF__X_ARGMAP:          return manifest__set_mode(ctx, MF__X_MAP);
     case MF__X_ARGMAP_ARR:      return manifest__err_am_arr(ctx, NNULL);
+    case MF__REQUIREMENTS:      return manifest__err_reqm(ctx, NNULL);
+    case MF__REQUIREMENTS_ARR:  return manifest__err_reqm_arr(ctx, NNULL);
     default:                    return manifest__err_unexpected(ctx);
     }
 }
@@ -383,6 +422,8 @@ static int manifest__json_boolean(void * data, int boolean)
         return reformat_boolean(&((manifest__up_t *) ctx->data)->ctx, boolean);
     case MF__X_ARGMAP:          return manifest__err_argmap(ctx, NBOOL);
     case MF__X_ARGMAP_ARR:      return manifest__err_am_arr(ctx, NBOOL);
+    case MF__REQUIREMENTS:      return manifest__err_reqm(ctx, NBOOL);
+    case MF__REQUIREMENTS_ARR:  return manifest__err_reqm_arr(ctx, NBOOL);
     default:                    return manifest__err_unexpected(ctx);
     }
 }
@@ -454,6 +495,8 @@ static int manifest__json_integer(void * data, long long i)
         return reformat_integer(&((manifest__up_t *) ctx->data)->ctx, i);
     case MF__X_ARGMAP:          return manifest__err_argmap(ctx, NNUMBER);
     case MF__X_ARGMAP_ARR:      return manifest__err_am_arr(ctx, NNUMBER);
+    case MF__REQUIREMENTS:      return manifest__err_reqm(ctx, NNUMBER);
+    case MF__REQUIREMENTS_ARR:  return manifest__err_reqm_arr(ctx, NNUMBER);
     default:                    return manifest__err_unexpected(ctx);
     }
 }
@@ -523,6 +566,8 @@ static int manifest__json_double(void * data, double d)
         return reformat_double(&((manifest__up_t *) ctx->data)->ctx, d);
     case MF__X_ARGMAP:          return manifest__err_argmap(ctx, NNUMBER);
     case MF__X_ARGMAP_ARR:      return manifest__err_am_arr(ctx, NNUMBER);
+    case MF__REQUIREMENTS:      return manifest__err_reqm(ctx, NNUMBER);
+    case MF__REQUIREMENTS_ARR:  return manifest__err_reqm_arr(ctx, NNUMBER);
     default:                    return manifest__err_unexpected(ctx);
     }
 }
@@ -539,16 +584,9 @@ static int manifest__json_string(
     {
     case MF__ROOT:              return manifest__err_root(ctx, NSTRING);
     case MF__MAIN:
-        if (!ctx->manifest->main)
-            ctx->manifest->main = strndup((const char *) s, n);
-        return manifest__set_mode(ctx, MF__ROOT_MAP);
+        return manifest__set_main(ctx, MF__ROOT_MAP, s, n);
     case MF__MAIN_OSARCH:
-        if (!ctx->manifest->main)
-        {
-            ctx->manifest->main = strndup((const char *) s, n);
-            ctx->manifest->is_py = ti_module_file_is_py((const char *) s, n);
-        }
-        /* fall through */
+        return manifest__set_main(ctx, MF__MAIN_MAP, s, n);
     case MF__MAIN_NO_OSARCH:
         return manifest__set_mode(ctx, MF__MAIN_MAP);
     case MF__VERSION:
@@ -629,6 +667,19 @@ static int manifest__json_string(
 
         return item->key && 0 == vec_push(&expose->argmap, item);
     }
+    case MF__REQUIREMENTS:      return manifest__err_reqm(ctx, NNUMBER);
+    case MF__REQUIREMENTS_ARR:
+    {
+        const char * str = (const char *) s;
+        char * reqm;
+
+        if (!manifest__check_reqm(str, n))
+            return manifest__set_err(ctx,
+                    "invalid characters found in one of the requirements");
+
+        reqm = strndup(str, n);
+        return reqm && 0 == vec_push(&ctx->manifest->requirements, reqm);
+    }
     default:                    return manifest__err_unexpected(ctx);
     }
 }
@@ -679,6 +730,8 @@ static int manifest__json_start_map(void * data)
         return reformat_start_map(&((manifest__up_t *) ctx->data)->ctx);
     case MF__X_ARGMAP:          return manifest__err_argmap(ctx, NOMAP);
     case MF__X_ARGMAP_ARR:      return manifest__err_am_arr(ctx, NOMAP);
+    case MF__REQUIREMENTS:      return manifest__err_reqm(ctx, NOMAP);
+    case MF__REQUIREMENTS_ARR:  return manifest__err_reqm_arr(ctx, NOMAP);
     default:                    return manifest__err_unexpected(ctx);
     }
 }
@@ -704,6 +757,9 @@ static int manifest__json_map_key(
             return manifest__set_mode(ctx, MF__INCLUDES);
         if (manifest__key_equals(s, n, "exposes", 7))
             return manifest__set_mode(ctx, MF__EXPOSES);
+        if (manifest__key_equals(s, n, "requirements", 12))
+            return manifest__set_mode(ctx, MF__REQUIREMENTS);
+
         return manifest__set_err(
                 ctx, "unsupported key `%.*s` in "TI_MANIFEST,
                 n, s);
@@ -855,6 +911,15 @@ static int manifest__json_start_array(void * data)
                 : manifest__set_err(ctx, "allocation error");
     }
     case MF__X_ARGMAP_ARR:      return manifest__err_am_arr(ctx, NOARRAY);
+    case MF__REQUIREMENTS:
+        if (!ctx->manifest->requirements)
+        {
+            ctx->manifest->requirements = vec_new(0);
+            if (!ctx->manifest->requirements)
+                return manifest__set_err(ctx, "allocation error");
+        }
+        return manifest__set_mode(ctx, MF__REQUIREMENTS_ARR);
+    case MF__REQUIREMENTS_ARR:  return manifest__err_reqm_arr(ctx, NOARRAY);
     default:                    return manifest__err_unexpected(ctx);
     }
 }
@@ -869,6 +934,8 @@ static int manifest__json_end_array(void * data)
     case MF__X_DEFAULTS_PACK:
                             return manifest__x_end_pack(ctx, reformat_end_array);
     case MF__X_ARGMAP_ARR:  return manifest__set_mode(ctx, MF__X_MAP);
+    case MF__REQUIREMENTS_ARR:
+                            return manifest__set_mode(ctx, MF__ROOT_MAP);
     default:                return manifest__err_unexpected(ctx);
     }
 }
@@ -1167,7 +1234,7 @@ _Bool ti_mod_manifest_skip_install(
         return skip_install;
     }
 
-    return ti_version_cmp(module->manifest.version, manifest->version);
+    return ti_version_cmp(module->manifest.version, manifest->version) == 0;
 }
 
 int ti_mod_manifest_store(const char * module_path, void * data, size_t n)
@@ -1197,6 +1264,8 @@ void ti_mod_manifest_clear(ti_mod_manifest_t * manifest)
     free(manifest->deep);
     vec_destroy(manifest->defaults, (vec_destroy_cb) maifest__item_destroy);
     vec_destroy(manifest->includes, (vec_destroy_cb) free);
+    vec_destroy(manifest->requirements, (vec_destroy_cb) free);
     smap_destroy(manifest->exposes, (smap_destroy_cb) ti_mod_expose_destroy);
     memset(manifest, 0, sizeof(ti_mod_manifest_t));
 }
+

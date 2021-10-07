@@ -61,6 +61,16 @@ void ti_modules_load(void)
     (void) smap_values(ti.modules, (smap_val_cb) modules__load_cb, NULL);
 }
 
+static int modules__ready_cb(ti_module_t * module, void * UNUSED(arg))
+{
+    return !ti_module_is_ready(module);
+}
+
+_Bool ti_modules_ready(void)
+{
+    return !smap_values(ti.modules, (smap_val_cb) modules__ready_cb, NULL);
+}
+
 void ti_modules_stop_and_destroy(void)
 {
     smap_destroy(ti.modules, (smap_destroy_cb) ti_module_stop_and_destroy);

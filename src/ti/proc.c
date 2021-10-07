@@ -43,10 +43,16 @@ void proc__on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * uv_buf)
 
     if (n < 0)
     {
-        log_info(
-                "module `%s` on data: %s",
-                proc->module->name->str,
-                uv_strerror(n));
+        if (n == UV_EOF)
+            log_debug(
+                    "module `%s` on data: %s",
+                    proc->module->name->str,
+                    uv_strerror(n));
+        else
+            log_warning(
+                    "module `%s` on data: %s",
+                    proc->module->name->str,
+                    uv_strerror(n));
         return;
     }
 

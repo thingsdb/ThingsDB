@@ -571,11 +571,7 @@ static int fn_call_f_try_n(
     ti_mod_expose_t * expose = ti_mod_expose_by_strn(module, name, n);
 
     if (expose)
-    {
-        LOGC("FOUND EXPOSED");
         return ti_mod_expose_call(expose, query, nd, e);
-    }
-    /* TODO: search for exposed functions */
 
     ex_set(e, EX_LOOKUP_ERROR,
             "module `%s` has no function `%.*s`",

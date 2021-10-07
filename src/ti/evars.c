@@ -6,6 +6,15 @@
 #include <ti/evars.h>
 #include <util/fx.h>
 
+static void evars__bool(const char * evar, _Bool * b)
+{
+    char * u8str = getenv(evar);
+    if (!u8str)
+        return;
+
+    *b = (_Bool) strtoul(u8str, NULL, 10);
+}
+
 static void evars__u8(const char * evar, uint8_t * u8)
 {
     char * u8str = getenv(evar);
@@ -84,6 +93,9 @@ void ti_evars_parse(void)
     evars__str(
             "THINGSDB_MODULES_PATH",
             &ti.cfg->modules_path);
+    evars__bool(
+            "THINGSDB_WAIT_FOR_MODULES",
+            &ti.cfg->wait_for_modules);
     evars__str(
             "THINGSDB_PYTHON_INTERPRETER",
             &ti.cfg->python_interpreter);

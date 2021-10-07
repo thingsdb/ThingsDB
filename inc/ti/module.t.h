@@ -29,6 +29,7 @@ typedef enum
     TI_MODULE_STAT_PY_INTERPRETER_NOT_FOUND,
     TI_MODULE_STAT_CONFIGURATION_ERR,
     TI_MODULE_STAT_SOURCE_ERR,
+    TI_MODULE_STAT_INSTALL_FAILED,
 } ti_module_stat_t;
 
 enum
@@ -67,7 +68,7 @@ struct ti_module_s
     ti_module_cb cb;        /* module callback */
     ti_name_t * name;       /* name of the module */
     char * orig;            /* original source of the module */
-    char * path;            /* path with the module */
+    char * path;            /* path with the module, without tailing `/` */
     char * file;            /* file (full path) to start */
     char * fn;              /* just the file name (using a pointer to file) */
     char ** args;           /* process arguments (main file etc.) */
@@ -87,6 +88,7 @@ struct ti_module_s
                                                the module is *not* installing,
                                                thus not being written by
                                                an installation thread;  */
+    uv_timer_t * wait_deploy;
 };
 
 

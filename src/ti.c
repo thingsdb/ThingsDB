@@ -56,6 +56,7 @@ ti_t ti;
 const char * ti__fn = "ti.mp";
 const char * ti__node_fn = ".node";
 static int shutdown_counter = 6;
+static int wait_for_modules_timeout = 120;
 static uv_timer_t * shutdown_timer = NULL;
 static uv_timer_t * delayed_start_timer = NULL;
 static uv_loop_t loop_;
@@ -77,7 +78,7 @@ int ti_create(void)
 {
     ti.last_change_id = 0;
     ti.global_stored_change_id = 0;
-    ti.flags = 0;
+    ti.flags = TI_FLAG_STARTING;
     ti.fn = NULL;
     ti.node_fn = NULL;
     ti.build = NULL;
@@ -441,6 +442,7 @@ static void ti__delayed_start_free(uv_handle_t * UNUSED(timer))
 
 static void ti__delayed_start_stop(void)
 {
+    ti.flags &= ~TI_FLAG_STARTING;
     (void) uv_timer_stop(delayed_start_timer);
     uv_close((uv_handle_t *) delayed_start_timer, ti__delayed_start_free);
 }
@@ -466,6 +468,19 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
         ti_collections_gc();
 
         ti_modules_load();
+
+        if (ti.cfg->wait_for_modules &&
+            wait_for_modules_timeout &&
+            !ti_modules_ready())
+        {
+            wait_for_modules_timeout--;
+
+            if (wait_for_modules_timeout % 10 == 0)
+                log_info(
+                    "wait until all modules are ready "
+                    "(timeout in %d seconds)", wait_for_modules_timeout);
+            return;
+        }
 
         if (ti_timers_start())
             goto failed;

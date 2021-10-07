@@ -174,4 +174,9 @@ static inline void vec_fill_null(vec_t * vec)
     (void) memset(vec->data, 0, vec->n * sizeof(void*));
 }
 
+static inline _Bool vec_empty(vec_t * vec)
+{
+    return !vec || !vec->n;
+}
+
 #endif /* VEC_H_ */

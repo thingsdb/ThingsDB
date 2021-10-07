@@ -419,6 +419,7 @@ static void module__install_finish(ti_mod_work_t * data)
     ti_module_t * module = data->module;
 
     /* move the manifest */
+    ti_mod_manifest_clear(&module->manifest);
     module->manifest = data->manifest;
     ti_mod_manifest_init(&data->manifest);
 
@@ -428,15 +429,21 @@ static void module__install_finish(ti_mod_work_t * data)
             strlen(module->manifest.main)))
     {
         log_error(EX_MEMORY_S);
-        module->status = TI_MODULE_STAT_NOT_INSTALLED;
+        module->status = TI_MODULE_STAT_INSTALL_FAILED;
     }
     else
     {
+        log_info("module `%s` (version: %s)",
+                module->name->str,
+                module->manifest.version);
         module->status = TI_MODULE_STAT_NOT_LOADED;
         ti_module_load(module);
     }
 }
 
+/*
+ * Main thread
+ */
 static void module__py_requirements_finish(uv_work_t * work, int status)
 {
     ti_mod_work_t * data = work->data;
@@ -465,12 +472,66 @@ done:
     free(work);
 }
 
+/*
+ * Work thread
+ */
 static void module__py_requirements_work(uv_work_t * work)
 {
     ti_mod_work_t * data = work->data;
     ti_module_t * module = data->module;
+
+    int rc = -1;
+    char ch;
+    FILE * fp;
+    buf_t buf;
+    buf_init(&buf);
+
+    if (data->rtxt)
+    {
+        if (buf_append_fmt(
+                &buf,
+                "%s -m pip install -r \"%s/requirements.txt\" 2>&1;",
+                ti.cfg->python_interpreter,
+                module->path))
+            goto fail0;
+    }
+    else
+    {
+        buf_append_fmt(&buf, "%s -m pip install", ti.cfg->python_interpreter);
+        for (vec_each(module->manifest.requirements, char, str))
+            if (buf_write(&buf, ' ') ||
+                buf_append_str(&buf, str))
+                goto fail0;
+    }
+
+    if (buf_write(&buf, '\0'))
+        goto fail0;
+
+    fp = popen(buf.data, "r");
+    if (!fp)
+    {
+        log_error("unable to open process (pip)");
+        goto fail0;
+    }
+
+    while((ch = fgetc(fp)) != EOF)
+        if (Logger.level == LOGGER_DEBUG)
+            putchar(ch);
+
+    if ((rc = pclose(fp)))
+        log_error("failed to install Python requirements for module `%s` (%d)",
+                module->name->str, rc);
+    else
+        log_info("successfully installed Python requirements for module `%s`",
+                module->name->str, rc);
+
+fail0:
+    free(buf.data);
 }
 
+/*
+ * Main thread
+ */
 static void module__py_requirements(uv_work_t * work)
 {
     ti_mod_work_t * data = work->data;
@@ -482,7 +543,6 @@ static void module__py_requirements(uv_work_t * work)
             module__py_requirements_finish) == 0)
         return;  /* success */
 
-fail:
     log_warning("failed to install Python requirements for module `%s`",
             data->module->name->str);
 
@@ -495,7 +555,6 @@ fail:
     ti_mod_work_destroy(data);
     free(work);
 }
-
 
 static void module__download_finish(uv_work_t * work, int status)
 {
@@ -512,11 +571,11 @@ static void module__download_finish(uv_work_t * work, int status)
     {
         log_error(uv_strerror(status));
         if (module->status == TI_MODULE_STAT_INSTALLER_BUSY)
-            module->status = TI_MODULE_STAT_NOT_INSTALLED;
+            module->status = TI_MODULE_STAT_INSTALL_FAILED;
         goto error;
     }
 
-    if (module->manifest.requirements || data->rtxt)
+    if (data->rtxt || !vec_empty(module->manifest.requirements))
     {
         assert (module->manifest.is_py);
         module__py_requirements(work);
@@ -539,6 +598,9 @@ done:
     free(work);
 }
 
+/*
+ * Main thread
+ */
 static void module__download(uv_work_t * work)
 {
     ti_mod_work_t * data = work->data;
@@ -550,8 +612,7 @@ static void module__download(uv_work_t * work)
             module__download_finish) == 0)
         return;  /* success */
 
-fail:
-    data->module->status = TI_MODULE_STAT_NOT_INSTALLED;
+    data->module->status = TI_MODULE_STAT_INSTALL_FAILED;
     log_error("failed to install module: `%s` (%s)",
             data->module->name->str,
             ti_module_status_str(data->module));
@@ -583,7 +644,7 @@ static void module__manifest_finish(uv_work_t * work, int status)
     {
         log_error(uv_strerror(status));
         if (module->status == TI_MODULE_STAT_INSTALLER_BUSY)
-            module->status = TI_MODULE_STAT_NOT_INSTALLED;
+            module->status = TI_MODULE_STAT_INSTALL_FAILED;
         goto error;
     }
 
@@ -611,7 +672,9 @@ static void module__manifest_finish(uv_work_t * work, int status)
 
         if (ti_mod_manifest_skip_install(&data->manifest, module))
         {
-            log_debug("skip re-installing module `%s`", module->name->str);
+            log_info("skip re-installing module `%s` (got version: %s)",
+                    module->name->str,
+                    data->manifest.version);
             goto done;  /* success, correct module is installed */
         }
 
@@ -686,6 +749,7 @@ void ti_module_load(ti_module_t * module)
      * the module first.
      */
     if (module->status == TI_MODULE_STAT_NOT_INSTALLED ||
+        module->status == TI_MODULE_STAT_INSTALL_FAILED ||
         (module->flags & TI_MODULE_FLAG_UPDATE))
     {
         /* Only this flag will be set only once */
@@ -762,14 +826,126 @@ void ti_module_restart(ti_module_t * module)
     }
 }
 
+typedef struct
+{
+    ti_module_t * module;
+    void * data;
+    size_t n;
+} module__wait_deploy_t;
+
+/*
+ * Ready is not the same is running, a module is ready when not installing,
+ * loading or restarting.
+ */
+_Bool ti_module_is_ready(ti_module_t * module)
+{
+    return ((~module->flags & TI_MODULE_FLAG_RESTARTING) && (
+          module->status == TI_MODULE_STAT_RUNNING ||
+          module->status == TI_MODULE_STAT_TOO_MANY_RESTARTS ||
+          module->status == TI_MODULE_STAT_PY_INTERPRETER_NOT_FOUND ||
+          module->status == TI_MODULE_STAT_CONFIGURATION_ERR ||
+          module->status == TI_MODULE_STAT_SOURCE_ERR ||
+          module->status == TI_MODULE_STAT_INSTALL_FAILED)
+    );
+}
+
+static inline _Bool module__may_deploy(ti_module_t * module)
+{
+    return !(
+        module->status == TI_MODULE_STAT_INSTALLER_BUSY ||
+        module->status == TI_MODULE_STAT_STOPPING ||
+        (module->flags & TI_MODULE_FLAG_RESTARTING));
+}
+
+static void module__wait_close_cb(uv_timer_t * timer)
+{
+    module__wait_deploy_t * wdeploy = timer->data;
+    ti_module_drop(wdeploy->module);
+    free(wdeploy->data);
+    free(wdeploy);
+    free(timer);
+}
+
+static void module__wait_cb(uv_timer_t * timer)
+{
+    module__wait_deploy_t * wdeploy = timer->data;
+    ti_module_t * module = wdeploy->module;
+
+    if (module__may_deploy(module))
+    {
+        (void) ti_module_deploy(module, wdeploy->data, wdeploy->n);
+
+        module->wait_deploy = NULL;
+        uv_timer_stop(timer);
+        uv_close((uv_handle_t *) timer, (uv_close_cb) module__wait_close_cb);
+    }
+}
+
+static int module__wait_deploy(
+        ti_module_t * module,
+        const void * data,
+        size_t n)
+{
+    module__wait_deploy_t * wdeploy;
+    void * mdata = NULL;
+
+    log_debug("delay deployment for module `%s`", module->name->str);
+
+    if (data)
+    {
+        mdata = malloc(sizeof(n));
+        if (!mdata)
+            goto fail0;
+        memcpy(mdata, data, n);
+    }
+
+    if (module->wait_deploy)
+    {
+        wdeploy = module->wait_deploy->data;
+        ti_module_drop(wdeploy->module);
+        free(wdeploy->data);
+    }
+    else
+    {
+        wdeploy = malloc(sizeof(module__wait_deploy_t));
+        if (!wdeploy)
+            goto fail0;
+
+        module->wait_deploy = malloc(sizeof(uv_timer_t));
+        if (!module->wait_deploy)
+            goto fail1;
+
+        module->wait_deploy->data = wdeploy;
+
+        if (uv_timer_init(ti.loop, module->wait_deploy))
+            goto fail2;
+
+        if (uv_timer_start(module->wait_deploy, module__wait_cb, 1000, 1000))
+            goto fail3;
+    }
+
+    wdeploy->data = mdata;
+    wdeploy->n = n;
+    wdeploy->module = module;
+    ti_incref(module);
+
+    return 0;
+fail3:
+    uv_close((uv_handle_t *) module->wait_deploy, (uv_close_cb) free);
+    goto fail1;
+fail2:
+    free(module->wait_deploy);
+fail1:
+    free(wdeploy);
+fail0:
+    free(mdata);
+    return -1;
+}
+
 int ti_module_deploy(ti_module_t * module, const void * data, size_t n)
 {
-    if (module->status == TI_MODULE_STAT_INSTALLER_BUSY)
-    {
-        log_warning("failed to deploy module: `%s` (installer busy)",
-                module->name->str);
-        return -1;
-    }
+    if (!module__may_deploy(module))
+        return module__wait_deploy(module, data, n);
 
     switch (module->source_type)
     {
@@ -803,7 +979,9 @@ int ti_module_deploy(ti_module_t * module, const void * data, size_t n)
         break;
     }
 
-    ti_module_restart(module);
+    if (~ti.flags & TI_FLAG_STARTING)
+        ti_module_restart(module);
+
     return 0;
 }
 
@@ -813,38 +991,6 @@ void ti_module_update_conf(ti_module_t * module)
         module__conf(module);
     else
         ti_module_load(module);
-}
-
-void ti_module_destroy(ti_module_t * module)
-{
-    if (!module)
-        return;
-
-    omap_destroy(module->futures, (omap_destroy_cb) ti_future_cancel);
-
-    if ((module->source_type != TI_MODULE_SOURCE_FILE) &&
-        (module->flags & TI_MODULE_FLAG_DEL) &&
-        module->path && fx_rmdir(module->path))
-        log_warning("cannot remove directory: `%s`", module->path);
-
-    ti_val_drop((ti_val_t *) module->name);
-    free(module->orig);
-    free(module->path);
-    free(module->file);
-    free(module->args);
-    free(module->conf_pkg);
-    free(module->scope_id);
-
-    switch (module->source_type)
-    {
-    case TI_MODULE_SOURCE_FILE:
-        break;
-    case TI_MODULE_SOURCE_GITHUB:
-        ti_mod_github_destroy(module->source.github);
-    }
-
-    ti_mod_manifest_clear(&module->manifest);
-    free(module);
 }
 
 void ti_module_on_exit(ti_module_t * module)
@@ -1102,6 +1248,8 @@ const char * ti_module_status_str(ti_module_t * module)
     case TI_MODULE_STAT_CONFIGURATION_ERR:
         return "configuration error; "
                "use `set_module_conf(..)` to update the module configuration";
+    case TI_MODULE_STAT_INSTALL_FAILED:
+        return "module installation has failed";
     case TI_MODULE_STAT_SOURCE_ERR:
         return module->source_err;
     }
@@ -1456,4 +1604,44 @@ void ti_module_set_source_err(ti_module_t * module, const char * fmt, ...)
     va_start(args, fmt);
     (void) vsnprintf(module->source_err, TI_MODULE_MAX_ERR, fmt, args);
     va_end(args);
+}
+
+void ti_module_destroy(ti_module_t * module)
+{
+    if (!module)
+        return;
+
+    if (module->wait_deploy)
+    {
+        uv_timer_stop(module->wait_deploy);
+        uv_close(
+                (uv_handle_t *) module->wait_deploy,
+                (uv_close_cb) module__wait_close_cb);
+    }
+
+    omap_destroy(module->futures, (omap_destroy_cb) ti_future_cancel);
+
+    if ((module->source_type != TI_MODULE_SOURCE_FILE) &&
+        (module->flags & TI_MODULE_FLAG_DEL) &&
+        module->path && fx_rmdir(module->path))
+        log_warning("cannot remove directory: `%s`", module->path);
+
+    ti_val_drop((ti_val_t *) module->name);
+    free(module->orig);
+    free(module->path);
+    free(module->file);
+    free(module->args);
+    free(module->conf_pkg);
+    free(module->scope_id);
+
+    switch (module->source_type)
+    {
+    case TI_MODULE_SOURCE_FILE:
+        break;
+    case TI_MODULE_SOURCE_GITHUB:
+        ti_mod_github_destroy(module->source.github);
+    }
+
+    ti_mod_manifest_clear(&module->manifest);
+    free(module);
 }

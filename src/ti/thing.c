@@ -1413,8 +1413,6 @@ fail:
 int ti_thing_copy(ti_thing_t ** thing, uint8_t deep)
 {
     assert (deep);
-    LOGC("COPY THING");
-
     return deep--
             ? ti_thing_is_object(*thing)
             ? ti_thing_is_dict(*thing)
@@ -1427,7 +1425,6 @@ int ti_thing_copy(ti_thing_t ** thing, uint8_t deep)
 int ti_thing_dup(ti_thing_t ** thing, uint8_t deep)
 {
     assert (deep);
-
     return deep--
             ? ti_thing_is_object(*thing)
             ? ti_thing_is_dict(*thing)

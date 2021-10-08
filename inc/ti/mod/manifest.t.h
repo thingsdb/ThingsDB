@@ -1,17 +1,17 @@
 /*
- * ti/modu/manifest.t.h
+ * ti/mod/manifest.t.h
  */
-#ifndef TI_MODU_MANIFEST_T_H_
-#define TI_MODU_MANIFEST_T_H_
+#ifndef TI_MOD_MANIFEST_T_H_
+#define TI_MOD_MANIFEST_T_H_
 
 #define TI_MANIFEST "module.json"
 
-typedef struct ti_modu_manifest_s ti_modu_manifest_t;
+typedef struct ti_mod_manifest_s ti_mod_manifest_t;
 
 #include <util/vec.h>
 #include <util/smap.h>
 
-struct ti_modu_manifest_s
+struct ti_mod_manifest_s
 {
     _Bool is_py;                        /* true/false */
     char * main;                        /* required */
@@ -22,7 +22,7 @@ struct ti_modu_manifest_s
     vec_t * defaults;                   /* ti_item_t */
     vec_t * includes;                   /* char *, only for installation */
     vec_t * requirements;               /* char *, pip requirements */
-    smap_t * exposes;                   /* ti_modu_expose_t */
+    smap_t * exposes;                   /* ti_mod_expose_t */
 };
 
-#endif  /* TI_MODU_MANIFEST_T_H_ */
+#endif  /* TI_MOD_MANIFEST_T_H_ */

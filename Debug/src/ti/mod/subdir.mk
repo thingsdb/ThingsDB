@@ -4,29 +4,29 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
-../src/ti/modu/expose.c \
-../src/ti/modu/github.c \
-../src/ti/modu/manifest.c \
-../src/ti/modu/work.c 
+../src/ti/mod/expose.c \
+../src/ti/mod/github.c \
+../src/ti/mod/manifest.c \
+../src/ti/mod/work.c 
 
 OBJS += \
-./src/ti/modu/expose.o \
-./src/ti/modu/github.o \
-./src/ti/modu/manifest.o \
-./src/ti/modu/work.o 
+./src/ti/mod/expose.o \
+./src/ti/mod/github.o \
+./src/ti/mod/manifest.o \
+./src/ti/mod/work.o 
 
 C_DEPS += \
-./src/ti/modu/expose.d \
-./src/ti/modu/github.d \
-./src/ti/modu/manifest.d \
-./src/ti/modu/work.d 
+./src/ti/mod/expose.d \
+./src/ti/mod/github.d \
+./src/ti/mod/manifest.d \
+./src/ti/mod/work.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
-src/ti/modu/%.o: ../src/ti/modu/%.c
+src/ti/mod/%.o: ../src/ti/mod/%.c
 	@echo 'Building file: $<'
 	@echo 'Invoking: GCC C Compiler'
-	gcc -std=gnu11 -DNDEBUG -I../inc -O3 -Wall -Wextra $(CFLAGS) -c -fmessage-length=0 -msse4.2 -finline-limit=4000 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
+	gcc -std=gnu11 -I../inc -O0 -g3 -Wall -Wextra -c -fmessage-length=0 -march=native -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

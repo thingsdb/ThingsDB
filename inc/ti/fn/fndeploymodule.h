@@ -58,7 +58,7 @@ static int do__f_deploy_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
 
         if (mdata &&
-            ti_modu_github_init(NULL, (const char *) mdata->data, mdata->n, e))
+            ti_mod_github_init(NULL, (const char *) mdata->data, mdata->n, e))
             goto fail0;
 
         break;

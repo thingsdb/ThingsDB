@@ -19,7 +19,7 @@ inc/msgpack \
 src \
 src/langdef \
 src/ti \
-src/ti/modu \
+src/ti/mod \
 src/ti/store \
 src/util \
 

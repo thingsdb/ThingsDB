@@ -1,6 +1,6 @@
 
 /*
- * ti/modu/manifest.c
+ * ti/mod/manifest.c
  */
 #define _GNU_SOURCE
 #include <ctype.h>
@@ -8,10 +8,10 @@
 #include <stdio.h>
 #include <ti/item.h>
 #include <ti/item.t.h>
-#include <ti/modu/expose.h>
-#include <ti/modu/expose.t.h>
-#include <ti/modu/manifest.h>
-#include <ti/modu/manifest.t.h>
+#include <ti/mod/expose.h>
+#include <ti/mod/expose.t.h>
+#include <ti/mod/manifest.h>
+#include <ti/mod/manifest.t.h>
 #include <ti/module.t.h>
 #include <ti/names.h>
 #include <ti/nil.h>
@@ -71,7 +71,7 @@ typedef enum
 typedef struct
 {
     manifest__ctx_mode_t mode;
-    ti_modu_manifest_t * manifest;
+    ti_mod_manifest_t * manifest;
     char * source_err;          /* pointer to module->source_err which is
                                    limited by (TI_MODULE_MAX_ERR */
     void * data;                /* pointer to anything */
@@ -140,7 +140,7 @@ static int manifest__default_item(manifest__ctx_t * ctx, void * val)
 
 static int manifest__x_default_item(manifest__ctx_t * ctx, void * val)
 {
-    ti_modu_expose_t * expose = ctx->data;
+    ti_mod_expose_t * expose = ctx->data;
     ti_item_t * item = VEC_last(expose->defaults);
     item->val = val;
     return val
@@ -209,7 +209,7 @@ static int manifest__x_end_pack(manifest__ctx_t * ctx, manifest__pcb cb)
     int ok = cb(&up->ctx);
     if (ok && up->ctx.deep == 0)
     {
-        ti_modu_expose_t * expose = up->data;
+        ti_mod_expose_t * expose = up->data;
         ti_item_t * item = VEC_last(expose->defaults);
         ti_raw_t * raw;
         size_t dst_n;
@@ -417,7 +417,7 @@ static int manifest__json_boolean(void * data, int boolean)
     case MF__X_DEFAULTS_DEEP:   return manifest__err_deep(ctx, TI_NBOOL);
     case MF__X_DEFAULTS_LOAD:
     {
-        ti_modu_expose_t * expose = ctx->data;
+        ti_mod_expose_t * expose = ctx->data;
         if (!expose->load)
         {
             expose->load = malloc(sizeof(_Bool));
@@ -486,7 +486,7 @@ static int manifest__json_integer(void * data, long long i)
     case MF__X_DEFAULTS:        return manifest__err_defaults(ctx, TI_NNUM);
     case MF__X_DEFAULTS_DEEP:
     {
-        ti_modu_expose_t * expose = ctx->data;
+        ti_mod_expose_t * expose = ctx->data;
         if (i < 0 || i > TI_MAX_DEEP_HINT)
             return manifest__set_err(
                     ctx,
@@ -560,7 +560,7 @@ static int manifest__json_double(void * data, double d)
     case MF__X_DEFAULTS:        return manifest__err_defaults(ctx, TI_NNUM);
     case MF__X_DEFAULTS_DEEP:
     {
-        ti_modu_expose_t * expose = ctx->data;
+        ti_mod_expose_t * expose = ctx->data;
         if (d < 0 || d > TI_MAX_DEEP_HINT)
             return manifest__set_err(
                     ctx,
@@ -638,7 +638,7 @@ static int manifest__json_string(
     case MF__X:                 return manifest__err_x(ctx, TI_NSTR);
     case MF__X_DOC:
     {
-        ti_modu_expose_t * expose = ctx->data;
+        ti_mod_expose_t * expose = ctx->data;
         if (!expose->doc)
             expose->doc = strndup((const char *) s, n);
         return manifest__set_mode(ctx, MF__X_MAP);
@@ -656,7 +656,7 @@ static int manifest__json_string(
     case MF__X_ARGMAP_ARR:
     {
         const char * str = (const char *) s;
-        ti_modu_expose_t * expose = ctx->data;
+        ti_mod_expose_t * expose = ctx->data;
         ti_item_t * item;
 
         if (!strx_is_utf8n(str, n))
@@ -823,7 +823,7 @@ static int manifest__json_map_key(
     }
     case MF__EXPOSES_MAP:
     {
-        ti_modu_expose_t * expose = ti_modu_expose_create();
+        ti_mod_expose_t * expose = ti_mod_expose_create();
         if (!expose ||
             smap_addn(ctx->manifest->exposes, (const char *) s, n, expose))
             return manifest__set_err(
@@ -850,7 +850,7 @@ static int manifest__json_map_key(
         if (manifest__key_equals(s, n, "load", 4))
             return manifest__set_mode(ctx, MF__X_DEFAULTS_LOAD);
         {
-            ti_modu_expose_t * expose = ctx->data;
+            ti_mod_expose_t * expose = ctx->data;
             ti_item_t * item = manifest__make_item(
                     ctx,
                     (const char *) s,
@@ -926,7 +926,7 @@ static int manifest__json_start_array(void * data)
         return reformat_start_array(&((manifest__up_t *) ctx->data)->ctx);
     case MF__X_ARGMAP:
     {
-        ti_modu_expose_t * expose = ctx->data;
+        ti_mod_expose_t * expose = ctx->data;
         expose->argmap = vec_new(3);
         return expose->argmap
                 ? manifest__set_mode(ctx, MF__X_ARGMAP_ARR)
@@ -1047,8 +1047,8 @@ static inline int manifest__has_key(vec_t * defaults, ti_raw_t * key)
  * Return 0 on success, -1 allocation error
  */
 static int manifest__exposes_cb(
-        ti_modu_expose_t * expose,
-        ti_modu_manifest_t * manifest)
+        ti_mod_expose_t * expose,
+        ti_mod_manifest_t * manifest)
 {
     if (manifest->defaults)
     {
@@ -1167,8 +1167,8 @@ fail:
     return manifest__set_err(ctx, "invalid `version` format in "TI_MANIFEST);
 }
 
-int ti_modu_manifest_read(
-        ti_modu_manifest_t * manifest,
+int ti_mod_manifest_read(
+        ti_mod_manifest_t * manifest,
         char * source_err,
         const void * data,
         size_t n)
@@ -1199,7 +1199,7 @@ int ti_modu_manifest_read(
             stat = yajl_status_error;
 
             /* clear manifest */
-            ti_modu_manifest_clear(manifest);
+            ti_mod_manifest_clear(manifest);
         }
     }
     else
@@ -1220,14 +1220,14 @@ int ti_modu_manifest_read(
         }
 
         /* clear manifest */
-        ti_modu_manifest_clear(manifest);
+        ti_mod_manifest_clear(manifest);
     }
 
     yajl_free(hand);
     return stat;
 }
 
-int ti_modu_manifest_local(ti_modu_manifest_t * manifest, ti_module_t * module)
+int ti_mod_manifest_local(ti_mod_manifest_t * manifest, ti_module_t * module)
 {
     ssize_t n;
     unsigned char * data = NULL;
@@ -1239,7 +1239,7 @@ int ti_modu_manifest_local(ti_modu_manifest_t * manifest, ti_module_t * module)
         goto fail;
 
     data = fx_read(tmp_fn, &n);
-    if (!data || ti_modu_manifest_read(manifest, tmp_err, data, (size_t) n))
+    if (!data || ti_mod_manifest_read(manifest, tmp_err, data, (size_t) n))
     {
         log_warning("failed to read local "TI_MANIFEST" (%s)", tmp_err);
         goto fail;
@@ -1255,8 +1255,8 @@ fail:
 /*
  * On errors, this will return `true` which in turn will trigger a new install.
  */
-_Bool ti_modu_manifest_skip_install(
-        ti_modu_manifest_t * manifest,
+_Bool ti_mod_manifest_skip_install(
+        ti_mod_manifest_t * manifest,
         ti_module_t * module)
 {
     assert (manifest->main);
@@ -1264,21 +1264,21 @@ _Bool ti_modu_manifest_skip_install(
 
     if (!module->manifest.version)
     {
-        ti_modu_manifest_t tmpm = {0};
+        ti_mod_manifest_t tmpm = {0};
         _Bool skip_install;
 
-        if (ti_modu_manifest_local(&tmpm, module))
+        if (ti_mod_manifest_local(&tmpm, module))
             return false;
 
         skip_install = ti_version_cmp(tmpm.version, manifest->version) == 0;
-        ti_modu_manifest_clear(&tmpm);
+        ti_mod_manifest_clear(&tmpm);
         return skip_install;
     }
 
     return ti_version_cmp(module->manifest.version, manifest->version) == 0;
 }
 
-int ti_modu_manifest_store(const char * module_path, void * data, size_t n)
+int ti_mod_manifest_store(const char * module_path, void * data, size_t n)
 {
     int rc;
     char * tmp_fn = fx_path_join(module_path, TI_MANIFEST);
@@ -1296,7 +1296,7 @@ static void maifest__item_destroy(ti_item_t * item)
     free(item);
 }
 
-void ti_modu_manifest_clear(ti_modu_manifest_t * manifest)
+void ti_mod_manifest_clear(ti_mod_manifest_t * manifest)
 {
     free(manifest->main);
     free(manifest->version);
@@ -1306,7 +1306,7 @@ void ti_modu_manifest_clear(ti_modu_manifest_t * manifest)
     vec_destroy(manifest->defaults, (vec_destroy_cb) maifest__item_destroy);
     vec_destroy(manifest->includes, (vec_destroy_cb) free);
     vec_destroy(manifest->requirements, (vec_destroy_cb) free);
-    smap_destroy(manifest->exposes, (smap_destroy_cb) ti_modu_expose_destroy);
-    memset(manifest, 0, sizeof(ti_modu_manifest_t));
+    smap_destroy(manifest->exposes, (smap_destroy_cb) ti_mod_expose_destroy);
+    memset(manifest, 0, sizeof(ti_mod_manifest_t));
 }
 

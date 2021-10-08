@@ -5,6 +5,7 @@ RUN apt-get update && \
         libuv1-dev \
         libpcre2-dev \
         libyajl-dev \
+        libcurl4-nss-dev \
         build-essential
 RUN git clone https://github.com/transceptor-technology/libcleri.git /tmp/libcleri && \
     cd /tmp/libcleri/Release && \
@@ -14,7 +15,7 @@ RUN git clone https://github.com/transceptor-technology/libcleri.git /tmp/libcle
 COPY ./main.c ./main.c
 COPY ./src/ ./src/
 COPY ./inc/ ./inc/
-COPY ./Release/ ./Release/    
+COPY ./Release/ ./Release/
 RUN cd ./Release && \
     make clean && \
     CFLAGS="-Werror -Winline" make

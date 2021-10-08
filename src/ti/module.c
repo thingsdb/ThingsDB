@@ -7,10 +7,10 @@
 #include <ti/fn/fn.h>
 #include <ti/future.h>
 #include <ti/future.inline.h>
-#include <ti/mod/github.h>
-#include <ti/mod/manifest.h>
-#include <ti/mod/work.h>
-#include <ti/mod/work.t.h>
+#include <ti/modu/github.h>
+#include <ti/modu/manifest.h>
+#include <ti/modu/work.h>
+#include <ti/modu/work.t.h>
 #include <ti/module.h>
 #include <ti/names.h>
 #include <ti/pkg.h>
@@ -322,10 +322,10 @@ ti_module_t* ti_module_create(
     if (!module->name || !module->futures || !module->path || !module->orig)
         goto memerror;
 
-    if (ti_mod_github_test(source, source_n))
+    if (ti_modu_github_test(source, source_n))
     {
         module->source_type = TI_MODULE_SOURCE_GITHUB;
-        module->source.github = ti_mod_github_create(source, source_n, e);
+        module->source.github = ti_modu_github_create(source, source_n, e);
         if (!module->source.github)
             goto fail0;
     }
@@ -348,7 +348,7 @@ ti_module_t* ti_module_create(
      */
     if (module->source_type != TI_MODULE_SOURCE_FILE &&
         fx_is_dir(module->path) &&
-        ti_mod_manifest_local(&module->manifest, module) == 0)
+        ti_modu_manifest_local(&module->manifest, module) == 0)
         (void) ti_module_set_file(
                 module,
                 module->manifest.main,
@@ -437,14 +437,14 @@ static void module__conf(ti_module_t * module)
                 ti_module_status_str(module));
 }
 
-static void module__install_finish(ti_mod_work_t * data)
+static void module__install_finish(ti_modu_work_t * data)
 {
     ti_module_t * module = data->module;
 
     /* move the manifest */
-    ti_mod_manifest_clear(&module->manifest);
+    ti_modu_manifest_clear(&module->manifest);
     module->manifest = data->manifest;
-    ti_mod_manifest_init(&data->manifest);
+    ti_modu_manifest_init(&data->manifest);
 
     if (ti_module_set_file(
             module,
@@ -469,7 +469,7 @@ static void module__install_finish(ti_mod_work_t * data)
  */
 static void module__py_requirements_finish(uv_work_t * work, int status)
 {
-    ti_mod_work_t * data = work->data;
+    ti_modu_work_t * data = work->data;
     ti_module_t * module = data->module;
 
     if (status)
@@ -486,12 +486,12 @@ warn:
 
 done:
     /* store the manifest to disk */
-    ti_mod_manifest_store(module->path, data->buf.data, data->buf.len);
+    ti_modu_manifest_store(module->path, data->buf.data, data->buf.len);
 
     /* store the manifest to disk */
     module__install_finish(data);
 
-    ti_mod_work_destroy(data);
+    ti_modu_work_destroy(data);
     free(work);
 }
 
@@ -500,7 +500,7 @@ done:
  */
 static void module__py_requirements_work(uv_work_t * work)
 {
-    ti_mod_work_t * data = work->data;
+    ti_modu_work_t * data = work->data;
     ti_module_t * module = data->module;
 
     int rc = -1;
@@ -556,7 +556,7 @@ fail0:
  */
 static void module__py_requirements(uv_work_t * work)
 {
-    ti_mod_work_t * data = work->data;
+    ti_modu_work_t * data = work->data;
 
     if (uv_queue_work(
             ti.loop,
@@ -569,18 +569,18 @@ static void module__py_requirements(uv_work_t * work)
             data->module->name->str);
 
     /* store the manifest to disk */
-    ti_mod_manifest_store(data->module->path, data->buf.data, data->buf.len);
+    ti_modu_manifest_store(data->module->path, data->buf.data, data->buf.len);
 
     /* store the manifest to disk */
     module__install_finish(data);
 
-    ti_mod_work_destroy(data);
+    ti_modu_work_destroy(data);
     free(work);
 }
 
 static void module__download_finish(uv_work_t * work, int status)
 {
-    ti_mod_work_t * data = work->data;
+    ti_modu_work_t * data = work->data;
     ti_module_t * module = data->module;
 
     if (module->source_err[0])
@@ -605,7 +605,7 @@ static void module__download_finish(uv_work_t * work, int status)
     }
 
     /* store the manifest to disk */
-    ti_mod_manifest_store(module->path, data->buf.data, data->buf.len);
+    ti_modu_manifest_store(module->path, data->buf.data, data->buf.len);
 
     /* store the manifest to disk */
     module__install_finish(data);
@@ -616,7 +616,7 @@ error:
             data->module->name->str,
             ti_module_status_str(data->module));
 done:
-    ti_mod_work_destroy(data);
+    ti_modu_work_destroy(data);
     free(work);
 }
 
@@ -625,7 +625,7 @@ done:
  */
 static void module__download(uv_work_t * work)
 {
-    ti_mod_work_t * data = work->data;
+    ti_modu_work_t * data = work->data;
 
     if (uv_queue_work(
             ti.loop,
@@ -638,20 +638,20 @@ static void module__download(uv_work_t * work)
     log_error("failed to install module: `%s` (%s)",
             data->module->name->str,
             ti_module_status_str(data->module));
-    ti_mod_work_destroy(data);
+    ti_modu_work_destroy(data);
     free(work);
 }
 
 static void module__manifest_finish(uv_work_t * work, int status)
 {
-    ti_mod_work_t * data = work->data;
+    ti_modu_work_t * data = work->data;
     ti_module_t * module = data->module;
 
-    ti_mod_manifest_init(&data->manifest);
+    ti_modu_manifest_init(&data->manifest);
 
     if (module->source_err[0])
     {
-        if (ti_mod_manifest_local(&data->manifest, module) == 0)
+        if (ti_modu_manifest_local(&data->manifest, module) == 0)
         {
             log_warning(module->source_err);
             *module->source_err = '\0';
@@ -675,13 +675,13 @@ static void module__manifest_finish(uv_work_t * work, int status)
 
     if (module->ref > 1)  /* do nothing if this is the last reference */
     {
-        if (ti_mod_manifest_read(
+        if (ti_modu_manifest_read(
                 &data->manifest,
                 module->source_err,
                 data->buf.data,
                 data->buf.len))
         {
-            if (ti_mod_manifest_local(&data->manifest, module) == 0)
+            if (ti_modu_manifest_local(&data->manifest, module) == 0)
             {
                 log_warning(module->source_err);
                 *module->source_err = '\0';
@@ -692,7 +692,7 @@ static void module__manifest_finish(uv_work_t * work, int status)
             goto error;
         }
 
-        if (ti_mod_manifest_skip_install(&data->manifest, module))
+        if (ti_modu_manifest_skip_install(&data->manifest, module))
         {
             log_info("skip re-installing module `%s` (got version: %s)",
                     module->name->str,
@@ -712,7 +712,7 @@ error:
 done:
     module__install_finish(data);
 fail:
-    ti_mod_work_destroy(data);
+    ti_modu_work_destroy(data);
     free(work);
 }
 
@@ -725,7 +725,7 @@ typedef struct
 static void module__install(ti_module_t * module, module__install_t install)
 {
     uv_work_t * work;
-    ti_mod_work_t * data;
+    ti_modu_work_t * data;
     int prev_status = module->status;
 
     module->status = TI_MODULE_STAT_INSTALLER_BUSY;
@@ -734,7 +734,7 @@ static void module__install(ti_module_t * module, module__install_t install)
     ti_incref(module);
 
     work = malloc(sizeof(uv_work_t));
-    data = malloc(sizeof(ti_mod_work_t));
+    data = malloc(sizeof(ti_modu_work_t));
     if (!work || !data)
         goto fail;
 
@@ -763,8 +763,8 @@ fail:
 void ti_module_load(ti_module_t * module)
 {
     static const module__install_t module__gh_install = {
-            .manifest_cb = ti_mod_github_manifest,
-            .download_cb = ti_mod_github_download,
+            .manifest_cb = ti_modu_github_manifest,
+            .download_cb = ti_modu_github_download,
     };
 
     /* First check if the module is installed, if not we might need to install
@@ -982,7 +982,7 @@ int ti_module_deploy(ti_module_t * module, const void * data, size_t n)
         if (data)
         {
             ex_t e = {0};
-            ti_mod_github_t * github = ti_mod_github_create(data, n, &e);
+            ti_modu_github_t * github = ti_modu_github_create(data, n, &e);
             char * orig = strndup(data, n);
 
             if (!github || !orig)
@@ -991,11 +991,11 @@ int ti_module_deploy(ti_module_t * module, const void * data, size_t n)
                     ex_set_mem(&e);
                 log_error(e.msg);
                 free(orig);
-                ti_mod_github_destroy(github);
+                ti_modu_github_destroy(github);
                 return -1;
             }
 
-            ti_mod_github_destroy(module->source.github);
+            ti_modu_github_destroy(module->source.github);
             free(module->orig);
             module->orig = orig;
             module->source.github = github;
@@ -1285,7 +1285,7 @@ const char * ti_module_status_str(ti_module_t * module)
 static int module__info_to_vp(ti_module_t * module, ti_vp_t * vp, int flags)
 {
     msgpack_packer * pk = &vp->pk;
-    ti_mod_manifest_t * manifest = &module->manifest;
+    ti_modu_manifest_t * manifest = &module->manifest;
     size_t defaults_n = \
             (manifest->defaults ? manifest->defaults->n : 0) + \
             !!manifest->deep + \
@@ -1396,7 +1396,7 @@ static int module__info_to_vp(ti_module_t * module, ti_vp_t * vp, int flags)
             smap_items(
                     exposes,
                     namebuf,
-                    (smap_item_cb) ti_mod_expose_info_to_vp,
+                    (smap_item_cb) ti_modu_expose_info_to_vp,
                     vp))
             return -1;
     }
@@ -1665,9 +1665,9 @@ void ti_module_destroy(ti_module_t * module)
     case TI_MODULE_SOURCE_FILE:
         break;
     case TI_MODULE_SOURCE_GITHUB:
-        ti_mod_github_destroy(module->source.github);
+        ti_modu_github_destroy(module->source.github);
     }
 
-    ti_mod_manifest_clear(&module->manifest);
+    ti_modu_manifest_clear(&module->manifest);
     free(module);
 }

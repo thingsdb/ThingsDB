@@ -10,8 +10,8 @@ typedef void (*ti_module_cb)(void * future);
 #define TI_MODULE_MAX_ERR 255
 
 #include <inttypes.h>
-#include <ti/mod/github.t.h>
-#include <ti/mod/manifest.t.h>
+#include <ti/modu/github.t.h>
+#include <ti/modu/manifest.t.h>
 #include <ti/name.t.h>
 #include <ti/pkg.t.h>
 #include <ti/proc.t.h>
@@ -54,7 +54,7 @@ typedef enum
 typedef union
 {
     char * file;                    /* just a pointer to module->orig */
-    ti_mod_github_t * github;       /* unpacked GitHub module */
+    ti_modu_github_t * github;       /* unpacked GitHub module */
 } ti_module_source_via_t;
 
 struct ti_module_s
@@ -78,7 +78,7 @@ struct ti_module_s
     uint64_t * scope_id;    /* bound to a scope, may be NULL for all scopes */
     omap_t * futures;       /* ti_future_t (no reference, parent query holds
                                a reference so no extra is needed) */
-    ti_mod_manifest_t manifest;             /* manifest from module.json */
+    ti_modu_manifest_t manifest;             /* manifest from module.json */
     ti_proc_t proc;                         /* process */
     ti_module_source_enum_t source_type;    /* source type: file/GitHub/.. */
     ti_module_source_via_t source;          /* source */

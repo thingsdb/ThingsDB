@@ -1,16 +1,16 @@
 /*
- * ti/mod/expose.c
+ * ti/modu/expose.c
  */
 #include <ti/fn/fn.h>
-#include <ti/mod/expose.h>
+#include <ti/modu/expose.h>
 #include <ti/val.inline.h>
 #include <ti/vp.t.h>
 #include <tiinc.h>
 #include <util/logger.h>
 
-ti_mod_expose_t * ti_mod_expose_create(void)
+ti_modu_expose_t * ti_modu_expose_create(void)
 {
-    ti_mod_expose_t * expose = calloc(1, sizeof(ti_mod_expose_t));
+    ti_modu_expose_t * expose = calloc(1, sizeof(ti_modu_expose_t));
     return expose;
 }
 
@@ -21,7 +21,7 @@ static void expose__item_destroy(ti_item_t * item)
     free(item);
 }
 
-void ti_mod_expose_destroy(ti_mod_expose_t * expose)
+void ti_modu_expose_destroy(ti_modu_expose_t * expose)
 {
     if (!expose)
         return;
@@ -33,8 +33,8 @@ void ti_mod_expose_destroy(ti_mod_expose_t * expose)
     free(expose);
 }
 
-int ti_mod_expose_call(
-        ti_mod_expose_t * expose,
+int ti_modu_expose_call(
+        ti_modu_expose_t * expose,
         ti_query_t * query,
         cleri_node_t * nd,
         ex_t * e)
@@ -195,10 +195,10 @@ done:
     return e->nr;
 }
 
-int ti_mod_expose_info_to_vp(
+int ti_modu_expose_info_to_vp(
         const char * key,
         size_t n,
-        ti_mod_expose_t * expose,
+        ti_modu_expose_t * expose,
         ti_vp_t * vp)
 {
     msgpack_packer * pk = &vp->pk;

@@ -1,5 +1,6 @@
+
 /*
- * ti/mod/github.c
+ * ti/modu/github.c
  */
 #define _GNU_SOURCE
 #include <ctype.h>
@@ -7,9 +8,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ti.h>
-#include <ti/mod/github.h>
-#include <ti/mod/manifest.h>
-#include <ti/mod/work.t.h>
+#include <ti/modu/github.h>
+#include <ti/modu/manifest.h>
+#include <ti/modu/work.t.h>
 #include <ti/module.h>
 #include <tiinc.h>
 #include <util/buf.h>
@@ -29,7 +30,7 @@ static const char * gh__str = "github.com";
 static const size_t gh__strn = 10;  /*  "github.com"         */
 static const size_t gh__minn = 14;  /*  "github.com/o/r"     */
 
-_Bool ti_mod_github_test(const char * s, size_t n)
+_Bool ti_modu_github_test(const char * s, size_t n)
 {
     if (n < gh__strn || n > GH__MAX_LEN)
         return false;
@@ -48,7 +49,7 @@ static inline int gh__isblob(const char * fn)
             strncmp(fn, "blobs/", 6) == 0);
 }
 
-static char * gh__url(ti_mod_github_t * gh, const char * fn)
+static char * gh__url(ti_modu_github_t * gh, const char * fn)
 {
     char * url;
     if (gh->ref)
@@ -64,7 +65,7 @@ static char * gh__url(ti_mod_github_t * gh, const char * fn)
     return url;
 }
 
-static char * gh__blob_url(ti_mod_github_t * gh, const char * sha, int n)
+static char * gh__blob_url(ti_modu_github_t * gh, const char * sha, int n)
 {
     char * url;
     if (gh->ref)
@@ -220,7 +221,7 @@ static yajl_callbacks gh__callbacks = {
 };
 
 static char * gh__blob_url_from_json(
-        ti_mod_github_t * gh,
+        ti_modu_github_t * gh,
         const char * path,
         const void * data,
         size_t n)
@@ -258,8 +259,8 @@ static char * gh__blob_url_from_json(
     return url;
 }
 
-int ti_mod_github_init(
-        ti_mod_github_t * gh,
+int ti_modu_github_init(
+        ti_modu_github_t * gh,
         const char * s,
         size_t n,
         ex_t * e)
@@ -274,7 +275,7 @@ int ti_mod_github_init(
            tokenn = 0,
            refn = 0,
            pos = gh__strn;
-    if (!ti_mod_github_test(s, n) || n < gh__minn)
+    if (!ti_modu_github_test(s, n) || n < gh__minn)
             goto invalid;
 
     if (s[pos++] != '/')
@@ -383,18 +384,18 @@ invalid:
     return e->nr;
 }
 
-ti_mod_github_t * ti_mod_github_create(const char * s, size_t n, ex_t * e)
+ti_modu_github_t * ti_modu_github_create(const char * s, size_t n, ex_t * e)
 {
-    ti_mod_github_t * gh = calloc(1, sizeof(ti_mod_github_t));
+    ti_modu_github_t * gh = calloc(1, sizeof(ti_modu_github_t));
     if (!gh)
     {
         ex_set_mem(e);
         return NULL;
     }
 
-    if (ti_mod_github_init(gh, s, n, e))
+    if (ti_modu_github_init(gh, s, n, e))
     {
-        ti_mod_github_destroy(gh);
+        ti_modu_github_destroy(gh);
         return NULL;
     }
     return gh;
@@ -472,7 +473,7 @@ cleanup:
     return curle_code;
 }
 
-static char * gh__get_blob_url(ti_mod_github_t * gh, const char * fn)
+static char * gh__get_blob_url(ti_modu_github_t * gh, const char * fn)
 {
     assert (gh__isblob(fn));
 
@@ -509,7 +510,7 @@ static CURLcode gh__download_file(
         const char * fn,
         mode_t mode)
 {
-    ti_mod_github_t * gh = module->source.github;
+    ti_modu_github_t * gh = module->source.github;
     CURLcode curle_code;
     FILE * fp;
     size_t n,
@@ -584,10 +585,10 @@ cleanup:
     return curle_code;
 }
 
-void ti_mod_github_download(uv_work_t * work)
+void ti_modu_github_download(uv_work_t * work)
 {
-    ti_mod_work_t * data = work->data;
-    ti_mod_manifest_t * manifest = &data->manifest;
+    ti_modu_work_t * data = work->data;
+    ti_modu_manifest_t * manifest = &data->manifest;
     ti_module_t * module = data->module;
     CURLcode curle_code;
     mode_t mode = manifest->is_py ? S_IRUSR|S_IWUSR : S_IRWXU;
@@ -645,11 +646,11 @@ void ti_mod_github_download(uv_work_t * work)
     }
 }
 
-void ti_mod_github_manifest(uv_work_t * work)
+void ti_modu_github_manifest(uv_work_t * work)
 {
-    ti_mod_work_t * data = work->data;
+    ti_modu_work_t * data = work->data;
     ti_module_t * module = data->module;
-    ti_mod_github_t * gh = module->source.github;
+    ti_modu_github_t * gh = module->source.github;
     CURLcode curle_code;
 
     curle_code = gh__download_url(
@@ -667,7 +668,7 @@ void ti_mod_github_manifest(uv_work_t * work)
     }
 }
 
-void ti_mod_github_destroy(ti_mod_github_t * gh)
+void ti_modu_github_destroy(ti_modu_github_t * gh)
 {
     if (!gh)
         return;

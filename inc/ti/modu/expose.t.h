@@ -1,16 +1,16 @@
 /*
- * ti/mod/expose.t.h
+ * ti/modu/expose.t.h
  */
-#ifndef TI_MOD_EXPOSE_T_H_
-#define TI_MOD_EXPOSE_T_H_
+#ifndef TI_MODU_EXPOSE_T_H_
+#define TI_MODU_EXPOSE_T_H_
 
 #define TI_EXPOSE "module.json"
 
-typedef struct ti_mod_expose_s ti_mod_expose_t;
+typedef struct ti_modu_expose_s ti_modu_expose_t;
 
 #include <util/vec.h>
 
-struct ti_mod_expose_s
+struct ti_modu_expose_s
 {
     uint8_t * deep;             /* NULL or 0..127 */
     _Bool * load;               /* NULL or true/false */
@@ -19,4 +19,4 @@ struct ti_mod_expose_s
     vec_t * defaults;           /* ti_item_t */
 };
 
-#endif  /* TI_MOD_EXPOSE_T_H_ */
+#endif  /* TI_MODU_EXPOSE_T_H_ */

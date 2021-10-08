@@ -1117,10 +1117,13 @@ int ti_val_convert_to_str(ti_val_t ** val, ex_t * e)
     return 0;
 }
 
+/*
+ * TODO: Unused function. Not sure if we ever need this.
+ */
 void ti_val_ensure_convert_to_str(ti_val_t ** val)
 {
     ex_t e = {0};
-    if (ti_val_convert_to_str(val, e))
+    if (ti_val_convert_to_str(val, &e))
     {
         ti_val_t * v = (ti_val_t *) ti_str_create(
                 (*(ti_verror_t **) val)->msg,

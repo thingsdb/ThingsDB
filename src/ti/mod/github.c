@@ -145,8 +145,11 @@ static int gh__json_string(
             ctx->flags |= GH__FLAG_FOUND;
         break;
     case GH__KEY_SHA:
-        ctx->sha = (const char *) s;
-        ctx->sha_n = n;
+        if (~ctx->flags & GH__FLAG_DONE)
+        {
+            ctx->sha = (const char *) s;
+            ctx->sha_n = n;
+        }
         break;
     }
     return 1;

@@ -112,10 +112,16 @@ static int manifest__check_reqm(const char * str, size_t n)
 {
     for (; n; --n, ++str)
         if (!isalnum(*str) &&
-                *str != '=' &&
-                *str != '.' &&
+                *str != ' ' &&
+                *str != '_' &&
                 *str != '-' &&
-                *str != '_')
+                *str != ',' &&
+                *str != '!' &&
+                *str != '.' &&
+                *str != '<' &&
+                *str != '=' &&
+                *str != '>' &&
+                *str != '~')
             return 0;
     return 1;
 }
@@ -441,7 +447,8 @@ static int manifest__json_integer(void * data, long long i)
     case MF__MAIN_NO_OSARCH:    return manifest__err_osarch(ctx, NNUMBER);
     case MF__VERSION:
         if (!ctx->manifest->version)
-            (void) asprintf(&ctx->manifest->version, "%lld", i);
+            if (asprintf(&ctx->manifest->version, "%lld", i) < 0)
+                return manifest__set_err(ctx, "allocation error");
         return manifest__set_mode(ctx, MF__ROOT_MAP);
     case MF__DOC:               return manifest__err_doc(ctx, NNUMBER);
     case MF__DEFAULTS:          return manifest__err_defaults(ctx, NNUMBER);
@@ -512,7 +519,8 @@ static int manifest__json_double(void * data, double d)
     case MF__MAIN_NO_OSARCH:    return manifest__err_osarch(ctx, NNUMBER);
     case MF__VERSION:
         if (!ctx->manifest->version)
-            (void) asprintf(&ctx->manifest->version, "%g", d);
+            if (asprintf(&ctx->manifest->version, "%g", d) < 0)
+                return manifest__set_err(ctx, "allocation error");
         return manifest__set_mode(ctx, MF__ROOT_MAP);
     case MF__DOC:               return manifest__err_doc(ctx, NNUMBER);
     case MF__DEFAULTS:          return manifest__err_defaults(ctx, NNUMBER);
@@ -1024,18 +1032,20 @@ static inline int manifest__has_key(vec_t * defaults, ti_raw_t * key)
 /*
  * Return 0 on success, -1 allocation error
  */
-static int manifest__exposes_cb(ti_mod_expose_t * expose, vec_t * defaults)
+static int manifest__exposes_cb(
+        ti_mod_expose_t * expose,
+        ti_mod_manifest_t * manifest)
 {
-    if (defaults)
+    if (manifest->defaults)
     {
         if (!expose->defaults)
         {
-            expose->defaults = vec_new(defaults->n);
+            expose->defaults = vec_new(manifest->defaults->n);
             if (!expose->defaults)
                 return -1;
         }
 
-        for (vec_each(defaults, ti_item_t, item_def))
+        for (vec_each(manifest->defaults, ti_item_t, item_def))
         {
             ti_item_t * item;
             if (manifest__has_key(expose->defaults, item_def->key))
@@ -1050,6 +1060,22 @@ static int manifest__exposes_cb(ti_mod_expose_t * expose, vec_t * defaults)
             ti_incref(item->key);
             ti_incref(item->val);
         }
+    }
+
+    if (manifest->deep && !expose->deep)
+    {
+        expose->deep = malloc(sizeof(uint8_t));
+        if (!expose->deep)
+            return -1;
+        *expose->deep = *manifest->deep;
+    }
+
+    if (manifest->load && !expose->load)
+    {
+        expose->load = malloc(sizeof(_Bool));
+        if (!expose->load)
+            return -1;
+        *expose->load = *manifest->load;
     }
 
     if (expose->argmap) for (vec_each(expose->argmap, ti_item_t, item_map))
@@ -1076,7 +1102,7 @@ static int manifest__check_exposes(manifest__ctx_t * ctx)
     return ctx->manifest->exposes && smap_values(
         ctx->manifest->exposes,
         (smap_val_cb) manifest__exposes_cb,
-        ctx->manifest->defaults)
+        ctx->manifest)
             ? manifest__set_err(ctx, "allocation error")
             : 1;  /* success */
 }

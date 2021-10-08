@@ -182,11 +182,17 @@ static void module__cb(ti_future_t * future)
         goto mem_error0;
     msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
-    if (ti_thing_to_pk(thing, &vp, ti_future_deep(future)))
+    /*
+     * Add 1 to the `deep` value as we do not count the object itself towards
+     * the `deep` value.
+     */
+    if (ti_thing_to_pk(thing, &vp, ti_future_deep(future) + 1))
         goto mem_error1;
 
     future->pkg = (ti_pkg_t *) buffer.data;
     pkg_init(future->pkg, 0, TI_PROTO_MODULE_REQ, buffer.size);
+
+    log_debug("executing future for module `%s`", future->module->name->str);
 
     uv_err = module__write_req(future);
     if (uv_err)
@@ -312,6 +318,7 @@ ti_module_t* ti_module_create(
             name_n);
     module->orig = strndup(source, source_n);
 
+
     if (!module->name || !module->futures || !module->path || !module->orig)
         goto memerror;
 
@@ -330,6 +337,22 @@ ti_module_t* ti_module_create(
         module->source_type = TI_MODULE_SOURCE_FILE;
         module->source.file = module->orig;
     }
+
+    /* The status might be changed for non-file based sources. */
+    module->status = TI_MODULE_STAT_NOT_INSTALLED;
+
+    /*
+     * For non-file based sources we can try to lead the manifest and skip
+     * the installation. Function `ti_module_set_file(..)` will set the status
+     * to `TI_MODULE_STAT_NOT_LOADED` if successful.
+     */
+    if (module->source_type != TI_MODULE_SOURCE_FILE &&
+        fx_is_dir(module->path) &&
+        ti_mod_manifest_local(&module->manifest, module) == 0)
+        (void) ti_module_set_file(
+                module,
+                module->manifest.main,
+                strlen(module->manifest.main));
 
     switch (smap_add(ti.modules, module->name->str, module))
     {
@@ -499,8 +522,7 @@ static void module__py_requirements_work(uv_work_t * work)
     {
         buf_append_fmt(&buf, "%s -m pip install", ti.cfg->python_interpreter);
         for (vec_each(module->manifest.requirements, char, str))
-            if (buf_write(&buf, ' ') ||
-                buf_append_str(&buf, str))
+            if (buf_append_fmt(&buf, " \"%s\"", str))
                 goto fail0;
     }
 
@@ -758,6 +780,7 @@ void ti_module_load(ti_module_t * module)
         switch (module->source_type)
         {
         case TI_MODULE_SOURCE_FILE:
+            if (fx_is_dir(module->path))
             {
                 const char * file = module->source.file;
                 if (ti_module_set_file(module, file, strlen(file)))
@@ -766,6 +789,8 @@ void ti_module_load(ti_module_t * module)
                     return;
                 }
             }
+            else
+                return;  /* not installed */
             /* status has been changed to TI_MODULE_STAT_NOT_LOADED */
             break;
         case TI_MODULE_SOURCE_GITHUB:
@@ -1510,8 +1535,8 @@ int ti_module_call(
     assert (query->rval == NULL);
 
     const int nargs = fn_get_nargs(nd);
-    _Bool load;
-    uint8_t deep;
+    _Bool load = false;
+    uint8_t deep = 1;
     cleri_children_t * child = nd->children;
     ti_future_t * future;
 

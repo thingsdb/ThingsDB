@@ -137,6 +137,7 @@
 #define DOC_NEW_NODE                DOC_SEE("thingsdb-api/new_node")
 #define DOC_NEW_TOKEN               DOC_SEE("thingsdb-api/new_token")
 #define DOC_NEW_USER                DOC_SEE("thingsdb-api/new_user")
+#define DOC_REFRESH_MODULE          DOC_SEE("thingsdb-api/refresh_module")
 #define DOC_RENAME_COLLECTION       DOC_SEE("thingsdb-api/rename_collection")
 #define DOC_RENAME_MODULE           DOC_SEE("thingsdb-api/rename_module")
 #define DOC_RENAME_USER             DOC_SEE("thingsdb-api/rename_user")

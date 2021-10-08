@@ -43,16 +43,24 @@ static inline int gh__ischar(int c)
 
 static inline int gh__isblob(const char * fn)
 {
-    return strncmp(fn, "bin/", 4) == 0 || strncmp(fn, "blob/", 5) == 0;
+    return (strncmp(fn, "bin/", 4) == 0 ||
+            strncmp(fn, "blob/", 5) == 0 ||
+            strncmp(fn, "blobs/", 6) == 0);
 }
 
 static char * gh__url(ti_mod_github_t * gh, const char * fn)
 {
     char * url;
     if (gh->ref)
-        (void) asprintf(&url, GH__API_REF, gh->owner, gh->repo, fn, gh->ref);
+    {
+        if (asprintf(&url, GH__API_REF, gh->owner, gh->repo, fn, gh->ref) < 0)
+            url = NULL;
+    }
     else
-        (void) asprintf(&url, GH__API, gh->owner, gh->repo, fn);
+    {
+        if (asprintf(&url, GH__API, gh->owner, gh->repo, fn) < 0)
+            url = NULL;
+    }
     return url;
 }
 
@@ -60,9 +68,22 @@ static char * gh__blob_url(ti_mod_github_t * gh, const char * sha, int n)
 {
     char * url;
     if (gh->ref)
-        asprintf(&url, GH__API_BLOB_REF, gh->owner, gh->repo, n, sha, gh->ref);
+    {
+        if (asprintf(
+                &url,
+                GH__API_BLOB_REF,
+                gh->owner,
+                gh->repo,
+                n,
+                sha,
+                gh->ref) < 0)
+            url = NULL;
+    }
     else
-        asprintf(&url, GH__API_BLOB, gh->owner, gh->repo, n, sha);
+    {
+        if (asprintf(&url, GH__API_BLOB, gh->owner, gh->repo, n, sha) < 0)
+            url = NULL;
+    }
     return url;
 }
 
@@ -459,7 +480,7 @@ static char * gh__get_blob_url(ti_mod_github_t * gh, const char * fn)
     buf_init(&buf);
 
     /* Only `bin/` and `blob/` folders are supported, see gh__isblob() */
-    url = gh__url(gh, fn[1] == 'i' ? "bin" : "blob");
+    url = gh__url(gh, fn[1] == 'i' ? "bin" : fn[4] == 's' ? "blobs" : "blob");
     if (!url)
         return NULL;
 

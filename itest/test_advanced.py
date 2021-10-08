@@ -1868,7 +1868,35 @@ new_procedure('multiply', |a, b| a * b);
                     x: future(||nil)
                 };
             """)
+    await def test_equals(self, client):
+        await client.query(r"""//ti
+            set_enum('TicketField', {
+                TITLE: 0,
+                SEVERITY: 1
+            });
 
+            set_enum('RuleOperator', {
+                CONTAINS: 0,
+                GREATER_THAN: 1
+            });
+
+            set_type('TicketCondition', {
+                field: 'TicketField',
+                operator: 'RuleOperator',
+                value: 'any'
+            });
+
+            set_enum('IgnoreRuleType', {
+                CONDITION: 0,
+                SCHEDULE: 1
+            });
+
+            set_type('IgnoreRule', {
+                type: 'IgnoreRuleType',
+                details: 'thing'
+            });
+
+        """)
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

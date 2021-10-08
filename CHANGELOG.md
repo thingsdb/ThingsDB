@@ -1,6 +1,7 @@
 # v1.0.2
 
 * Callable modules, issue #213.
+* Install modules using a GitHub repository and `module.json`, pr #216.
 
 # v1.0.1
 

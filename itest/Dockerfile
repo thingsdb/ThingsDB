@@ -26,11 +26,13 @@ RUN apt-get update && \
         valgrind \
         libuv1 \
         libpcre2-8-0 \
-        libyajl2
+        libyajl2 \
+        libcurl3-nss
 COPY --from=builder ./Release/thingsdb /Release/thingsdb
 COPY --from=builder /usr/lib/libcleri* /usr/lib/
 COPY ./itest/ /itest/
 COPY ./inc/doc.h /inc/doc.h
+COPY ./libcurl.supp /libcurl.supp
 WORKDIR /itest
 RUN pip install -r requirements.txt
 ENV THINGSDB_BIN /Release/thingsdb

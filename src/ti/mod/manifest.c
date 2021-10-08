@@ -83,7 +83,7 @@ typedef struct
     void * data;
 } manifest__up_t;
 
-static inline int manifest__set_err(
+static int manifest__set_err(
         manifest__ctx_t * ctx,
         const char * fmt,
         ...)
@@ -128,7 +128,7 @@ static int manifest__check_reqm(const char * str, size_t n)
     return 1;
 }
 
-static inline int manifest__default_item(manifest__ctx_t * ctx, void * val)
+static int manifest__default_item(manifest__ctx_t * ctx, void * val)
 {
     ti_item_t * item = ctx->data;
     item->val = val;
@@ -137,7 +137,7 @@ static inline int manifest__default_item(manifest__ctx_t * ctx, void * val)
             : manifest__set_err(ctx, manifest__err_alloc);
 }
 
-static inline int manifest__x_default_item(manifest__ctx_t * ctx, void * val)
+static int manifest__x_default_item(manifest__ctx_t * ctx, void * val)
 {
     ti_mod_expose_t * expose = ctx->data;
     ti_item_t * item = VEC_last(expose->defaults);
@@ -147,7 +147,7 @@ static inline int manifest__x_default_item(manifest__ctx_t * ctx, void * val)
             : manifest__set_err(ctx, manifest__err_alloc);
 }
 
-static inline int manifest__set_main(
+static int manifest__set_main(
         manifest__ctx_t * ctx,
         manifest__ctx_mode_t mode,
         const unsigned char * s,

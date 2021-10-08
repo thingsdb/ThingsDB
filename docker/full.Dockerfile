@@ -22,7 +22,8 @@ RUN mkdir -p /var/lib/thingsdb && \
     apt-get update && apt-get install -y \
     libuv1 \
     libpcre2-8-0 \
-    libyajl2 && \
+    libyajl2 \
+    libcurl3-nss && \
     pip3 install py-timod
 
 COPY --from=0 /tmp/thingsdb/Release/thingsdb /usr/local/bin/

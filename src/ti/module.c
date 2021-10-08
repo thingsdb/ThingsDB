@@ -1031,6 +1031,12 @@ void ti_module_on_exit(ti_module_t * module)
 
     module->flags &= ~TI_MODULE_FLAG_IN_USE;
 
+    if ((ti.flags & TI_FLAG_SIGNAL) || module->status==TI_MODULE_STAT_STOPPING)
+    {
+        module->status = TI_MODULE_STAT_NOT_LOADED;
+        return;
+    }
+
     if (module->flags & TI_MODULE_FLAG_RESTARTING)
     {
         module->restarts = 0;
@@ -1050,12 +1056,6 @@ void ti_module_on_exit(ti_module_t * module)
             return;
         }
         goto restart;
-    }
-
-    if (module->status == TI_MODULE_STAT_STOPPING)
-    {
-        module->status = TI_MODULE_STAT_NOT_LOADED;
-        return;
     }
 
 restart:
@@ -1098,12 +1098,13 @@ void module__stop_cb(uv_async_t * task)
     uv_close((uv_handle_t *) task, (uv_close_cb) free);
 }
 
-void ti_module_del(ti_module_t * module)
+void ti_module_del(ti_module_t * module, _Bool delete_files)
 {
     uv_async_t * task;
 
-    /* set the DELETE flag as the module needs to be removed */
-    module->flags |= TI_MODULE_FLAG_DEL;
+    if (delete_files)
+        /* set the DELETE flag as the module needs to be removed */
+        module->flags |= TI_MODULE_FLAG_DEL_FILES;
 
     (void) smap_pop(ti.modules, module->name->str);
 
@@ -1647,7 +1648,7 @@ void ti_module_destroy(ti_module_t * module)
     omap_destroy(module->futures, (omap_destroy_cb) ti_future_cancel);
 
     if ((module->source_type != TI_MODULE_SOURCE_FILE) &&
-        (module->flags & TI_MODULE_FLAG_DEL) &&
+        (module->flags & TI_MODULE_FLAG_DEL_FILES) &&
         module->path && fx_rmdir(module->path))
         log_warning("cannot remove directory: `%s`", module->path);
 

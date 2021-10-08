@@ -21,7 +21,7 @@ static int do__f_del_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set_mem(e);  /* task cleanup is not required */
     else
         /* this will remove the module so it cannot be used after here */
-        ti_module_del(module);
+        ti_module_del(module, true);
 
     ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();

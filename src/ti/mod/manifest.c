@@ -27,6 +27,8 @@
 #include <util/strx.h>
 #include <yajl/yajl_parse.h>
 
+#define manifest__err_alloc "allocation error while parsing "TI_MANIFEST
+
 typedef enum
 {
     MF__ROOT,
@@ -132,7 +134,7 @@ static inline int manifest__default_item(manifest__ctx_t * ctx, void * val)
     item->val = val;
     return val
             ? manifest__set_mode(ctx, MF__DEFAULTS_MAP)
-            : manifest__set_err(ctx, "allocation error");
+            : manifest__set_err(ctx, manifest__err_alloc);
 }
 
 static inline int manifest__x_default_item(manifest__ctx_t * ctx, void * val)
@@ -142,7 +144,7 @@ static inline int manifest__x_default_item(manifest__ctx_t * ctx, void * val)
     item->val = val;
     return val
             ? manifest__set_mode(ctx, MF__X_DEFAULTS_MAP)
-            : manifest__set_err(ctx, "allocation error");
+            : manifest__set_err(ctx, manifest__err_alloc);
 }
 
 static inline int manifest__set_main(
@@ -247,7 +249,7 @@ static ti_item_t * manifest__make_item(
 
     item = malloc(sizeof(ti_item_t));
     if (!item)
-        return manifest__set_err(ctx, "allocation error"), NULL;
+        return manifest__set_err(ctx, manifest__err_alloc), NULL;
 
     item->val = NULL;
     item->key = ti_name_is_valid_strn(str, n)
@@ -258,10 +260,11 @@ static ti_item_t * manifest__make_item(
     {
         ti_val_drop((ti_val_t *) item->key);
         free(item);
-        return manifest__set_err(ctx, "allocation error"), NULL;
+        return manifest__set_err(ctx, manifest__err_alloc), NULL;
     }
     return item;
 }
+
 
 #define manifest__err_root(__ctx, __notv) \
     manifest__set_err(__ctx, "expecting a map in "TI_MANIFEST", "__notv);
@@ -288,11 +291,11 @@ static ti_item_t * manifest__make_item(
 
 
 #define manifest__err_deep(__ctx, __notv) \
-    manifest__set_err(__ctx, "expecting a `deep` value between 0 and %d, "__notv, TI_MAX_DEEP_HINT);
+    manifest__set_err(__ctx, "expecting a `deep` value between 0 and %d in "TI_MANIFEST", "__notv, TI_MAX_DEEP_HINT);
 
 
 #define manifest__err_load(__ctx, __notv) \
-    manifest__set_err(__ctx, "expecting `load` to be true or false, "__notv);
+    manifest__set_err(__ctx, "expecting `load` to be true or false in "TI_MANIFEST", "__notv);
 
 
 #define manifest__err_includes(__ctx, __notv) \
@@ -300,7 +303,7 @@ static ti_item_t * manifest__make_item(
 
 
 #define manifest__err_incl_arr(__ctx, __notv) \
-    manifest__set_err(__ctx, "expecting a string or map as `include` item, "__notv);
+    manifest__set_err(__ctx, "expecting a string or map as `include` item in "TI_MANIFEST", "__notv);
 
 
 #define manifest__err_exposes(__ctx, __notv) \
@@ -308,87 +311,87 @@ static ti_item_t * manifest__make_item(
 
 
 #define manifest__err_x(__ctx, __notv) \
-    manifest__set_err(__ctx, "expecting a map as `expose` value, "__notv);
+    manifest__set_err(__ctx, "expecting a map as `expose` value in "TI_MANIFEST", "__notv);
 
 
 #define manifest__err_argmap(__ctx, __notv) \
-    manifest__set_err(__ctx, "expecting an array or null as `argmap` value, "__notv);
+    manifest__set_err(__ctx, "expecting an array or null as `argmap` value in "TI_MANIFEST", "__notv);
 
 
 #define manifest__err_am_arr(__ctx, __notv) \
-    manifest__set_err(__ctx, "expecting a string as `argmap` item, "__notv);
+    manifest__set_err(__ctx, "expecting a string as `argmap` item in "TI_MANIFEST", "__notv);
 
 
 #define manifest__err_reqm(__ctx, __notv) \
-    manifest__set_err(__ctx, "expecting an array as `requirements` value, "__notv);
+    manifest__set_err(__ctx, "expecting an array as `requirements` value in "TI_MANIFEST", "__notv);
 
 
 #define manifest__err_reqm_arr(__ctx, __notv) \
-    manifest__set_err(__ctx, "expecting a string as `requirements` item, "__notv);
+    manifest__set_err(__ctx, "expecting a string as `requirements` item in "TI_MANIFEST", "__notv);
 
 
 #define manifest__err_unexpected(__ctx) \
     manifest__set_err(__ctx, "unexpected error in "TI_MANIFEST);
 
 
-#define NNULL "not null"
+#define TI_NNULL "not null"
 
 static int manifest__json_null(void * data)
 {
     manifest__ctx_t * ctx = data;
     switch (ctx->mode)
     {
-    case MF__ROOT:              return manifest__err_root(ctx, NNULL);
-    case MF__MAIN:              return manifest__err_main(ctx, NNULL);
+    case MF__ROOT:              return manifest__err_root(ctx, TI_NNULL);
+    case MF__MAIN:              return manifest__err_main(ctx, TI_NNULL);
     case MF__MAIN_OSARCH:
-    case MF__MAIN_NO_OSARCH:    return manifest__err_osarch(ctx, NNULL);
-    case MF__VERSION:           return manifest__err_version(ctx, NNULL);
+    case MF__MAIN_NO_OSARCH:    return manifest__err_osarch(ctx, TI_NNULL);
+    case MF__VERSION:           return manifest__err_version(ctx, TI_NNULL);
     case MF__DOC:               return manifest__set_mode(ctx, MF__ROOT_MAP);
-    case MF__DEFAULTS:          return manifest__err_defaults(ctx, NNULL);
-    case MF__DEFAULTS_DEEP:     return manifest__err_deep(ctx, NNULL);
-    case MF__DEFAULTS_LOAD:     return manifest__err_load(ctx, NNULL);
+    case MF__DEFAULTS:          return manifest__err_defaults(ctx, TI_NNULL);
+    case MF__DEFAULTS_DEEP:     return manifest__err_deep(ctx, TI_NNULL);
+    case MF__DEFAULTS_LOAD:     return manifest__err_load(ctx, TI_NNULL);
     case MF__DEFAULTS_ITEM:
         return manifest__default_item(ctx, ti_nil_get());
     case MF__DEFAULTS_PACK:
         return reformat_null(&((manifest__up_t *) ctx->data)->ctx);
-    case MF__INCLUDES:          return manifest__err_includes(ctx, NNULL);
-    case MF__INCLUDES_ARR:      return manifest__err_incl_arr(ctx, NNULL);
+    case MF__INCLUDES:          return manifest__err_includes(ctx, TI_NNULL);
+    case MF__INCLUDES_ARR:      return manifest__err_incl_arr(ctx, TI_NNULL);
     case MF__INCLUDES_OSARCH:
     case MF__INCLUDES_NO_OSARCH:
-                                return manifest__err_osarch(ctx, NNULL);
-    case MF__EXPOSES:           return manifest__err_exposes(ctx, NNULL);
-    case MF__X:                 return manifest__err_x(ctx, NNULL);
+                                return manifest__err_osarch(ctx, TI_NNULL);
+    case MF__EXPOSES:           return manifest__err_exposes(ctx, TI_NNULL);
+    case MF__X:                 return manifest__err_x(ctx, TI_NNULL);
     case MF__X_DOC:             return manifest__set_mode(ctx, MF__X_MAP);
-    case MF__X_DEFAULTS:        return manifest__err_defaults(ctx, NNULL);
-    case MF__X_DEFAULTS_DEEP:   return manifest__err_deep(ctx, NNULL);
-    case MF__X_DEFAULTS_LOAD:   return manifest__err_load(ctx, NNULL);
+    case MF__X_DEFAULTS:        return manifest__err_defaults(ctx, TI_NNULL);
+    case MF__X_DEFAULTS_DEEP:   return manifest__err_deep(ctx, TI_NNULL);
+    case MF__X_DEFAULTS_LOAD:   return manifest__err_load(ctx, TI_NNULL);
     case MF__X_DEFAULTS_ITEM:
         return manifest__x_default_item(ctx, ti_nil_get());
     case MF__X_DEFAULTS_PACK:
         return reformat_null(&((manifest__up_t *) ctx->data)->ctx);
     case MF__X_ARGMAP:          return manifest__set_mode(ctx, MF__X_MAP);
-    case MF__X_ARGMAP_ARR:      return manifest__err_am_arr(ctx, NNULL);
-    case MF__REQUIREMENTS:      return manifest__err_reqm(ctx, NNULL);
-    case MF__REQUIREMENTS_ARR:  return manifest__err_reqm_arr(ctx, NNULL);
+    case MF__X_ARGMAP_ARR:      return manifest__err_am_arr(ctx, TI_NNULL);
+    case MF__REQUIREMENTS:      return manifest__err_reqm(ctx, TI_NNULL);
+    case MF__REQUIREMENTS_ARR:  return manifest__err_reqm_arr(ctx, TI_NNULL);
     default:                    return manifest__err_unexpected(ctx);
     }
 }
 
-#define NBOOL "not a boolean"
+#define TI_NBOOL "not a boolean"
 
 static int manifest__json_boolean(void * data, int boolean)
 {
     manifest__ctx_t * ctx = data;
     switch (ctx->mode)
     {
-    case MF__ROOT:              return manifest__err_root(ctx, NBOOL);
-    case MF__MAIN:              return manifest__err_main(ctx, NBOOL);
+    case MF__ROOT:              return manifest__err_root(ctx, TI_NBOOL);
+    case MF__MAIN:              return manifest__err_main(ctx, TI_NBOOL);
     case MF__MAIN_OSARCH:
-    case MF__MAIN_NO_OSARCH:    return manifest__err_osarch(ctx, NBOOL);
-    case MF__VERSION:           return manifest__err_version(ctx, NBOOL);
-    case MF__DOC:               return manifest__err_doc(ctx, NBOOL);
-    case MF__DEFAULTS:          return manifest__err_defaults(ctx, NBOOL);
-    case MF__DEFAULTS_DEEP:     return manifest__err_deep(ctx, NBOOL);
+    case MF__MAIN_NO_OSARCH:    return manifest__err_osarch(ctx, TI_NBOOL);
+    case MF__VERSION:           return manifest__err_version(ctx, TI_NBOOL);
+    case MF__DOC:               return manifest__err_doc(ctx, TI_NBOOL);
+    case MF__DEFAULTS:          return manifest__err_defaults(ctx, TI_NBOOL);
+    case MF__DEFAULTS_DEEP:     return manifest__err_deep(ctx, TI_NBOOL);
     case MF__DEFAULTS_LOAD:
         if (!ctx->manifest->load)
         {
@@ -401,16 +404,16 @@ static int manifest__json_boolean(void * data, int boolean)
         return manifest__default_item(ctx, ti_vbool_get(boolean));
     case MF__DEFAULTS_PACK:
         return reformat_boolean(&((manifest__up_t *) ctx->data)->ctx, boolean);
-    case MF__INCLUDES:          return manifest__err_includes(ctx, NBOOL);
-    case MF__INCLUDES_ARR:      return manifest__err_incl_arr(ctx, NBOOL);
+    case MF__INCLUDES:          return manifest__err_includes(ctx, TI_NBOOL);
+    case MF__INCLUDES_ARR:      return manifest__err_incl_arr(ctx, TI_NBOOL);
     case MF__INCLUDES_OSARCH:
     case MF__INCLUDES_NO_OSARCH:
-                                return manifest__err_osarch(ctx, NBOOL);
-    case MF__EXPOSES:           return manifest__err_exposes(ctx, NBOOL);
-    case MF__X:                 return manifest__err_x(ctx, NBOOL);
-    case MF__X_DOC:             return manifest__err_doc(ctx, NBOOL);
-    case MF__X_DEFAULTS:        return manifest__err_defaults(ctx, NBOOL);
-    case MF__X_DEFAULTS_DEEP:   return manifest__err_deep(ctx, NBOOL);
+                                return manifest__err_osarch(ctx, TI_NBOOL);
+    case MF__EXPOSES:           return manifest__err_exposes(ctx, TI_NBOOL);
+    case MF__X:                 return manifest__err_x(ctx, TI_NBOOL);
+    case MF__X_DOC:             return manifest__err_doc(ctx, TI_NBOOL);
+    case MF__X_DEFAULTS:        return manifest__err_defaults(ctx, TI_NBOOL);
+    case MF__X_DEFAULTS_DEEP:   return manifest__err_deep(ctx, TI_NBOOL);
     case MF__X_DEFAULTS_LOAD:
     {
         ti_mod_expose_t * expose = ctx->data;
@@ -426,37 +429,38 @@ static int manifest__json_boolean(void * data, int boolean)
         return manifest__x_default_item(ctx, ti_vbool_get(boolean));
     case MF__X_DEFAULTS_PACK:
         return reformat_boolean(&((manifest__up_t *) ctx->data)->ctx, boolean);
-    case MF__X_ARGMAP:          return manifest__err_argmap(ctx, NBOOL);
-    case MF__X_ARGMAP_ARR:      return manifest__err_am_arr(ctx, NBOOL);
-    case MF__REQUIREMENTS:      return manifest__err_reqm(ctx, NBOOL);
-    case MF__REQUIREMENTS_ARR:  return manifest__err_reqm_arr(ctx, NBOOL);
+    case MF__X_ARGMAP:          return manifest__err_argmap(ctx, TI_NBOOL);
+    case MF__X_ARGMAP_ARR:      return manifest__err_am_arr(ctx, TI_NBOOL);
+    case MF__REQUIREMENTS:      return manifest__err_reqm(ctx, TI_NBOOL);
+    case MF__REQUIREMENTS_ARR:  return manifest__err_reqm_arr(ctx, TI_NBOOL);
     default:                    return manifest__err_unexpected(ctx);
     }
 }
 
-#define NNUMBER "not a number"
+#define TI_NNUM "not a number"
 
 static int manifest__json_integer(void * data, long long i)
 {
     manifest__ctx_t * ctx = data;
     switch (ctx->mode)
     {
-    case MF__ROOT:              return manifest__err_root(ctx, NNUMBER);
-    case MF__MAIN:              return manifest__err_main(ctx, NNUMBER);
+    case MF__ROOT:              return manifest__err_root(ctx, TI_NNUM);
+    case MF__MAIN:              return manifest__err_main(ctx, TI_NNUM);
     case MF__MAIN_OSARCH:
-    case MF__MAIN_NO_OSARCH:    return manifest__err_osarch(ctx, NNUMBER);
+    case MF__MAIN_NO_OSARCH:    return manifest__err_osarch(ctx, TI_NNUM);
     case MF__VERSION:
         if (!ctx->manifest->version)
             if (asprintf(&ctx->manifest->version, "%lld", i) < 0)
-                return manifest__set_err(ctx, "allocation error");
+                return manifest__set_err(ctx, manifest__err_alloc);
         return manifest__set_mode(ctx, MF__ROOT_MAP);
-    case MF__DOC:               return manifest__err_doc(ctx, NNUMBER);
-    case MF__DEFAULTS:          return manifest__err_defaults(ctx, NNUMBER);
+    case MF__DOC:               return manifest__err_doc(ctx, TI_NNUM);
+    case MF__DEFAULTS:          return manifest__err_defaults(ctx, TI_NNUM);
     case MF__DEFAULTS_DEEP:
         if (i < 0 || i > TI_MAX_DEEP_HINT)
             return manifest__set_err(
                     ctx,
-                    "expecting a `deep` value between 0 and %d, not %lld",
+                    "expecting a `deep` value between 0 and %d "
+                    "in "TI_MANIFEST", not %lld",
                     TI_MAX_DEEP_HINT, i);
         if (!ctx->manifest->deep)
         {
@@ -465,27 +469,28 @@ static int manifest__json_integer(void * data, long long i)
                 *ctx->manifest->deep = (uint8_t) i;
         }
         return manifest__set_mode(ctx, MF__DEFAULTS_MAP);
-    case MF__DEFAULTS_LOAD:     return manifest__err_load(ctx, NNUMBER);
+    case MF__DEFAULTS_LOAD:     return manifest__err_load(ctx, TI_NNUM);
     case MF__DEFAULTS_ITEM:
         return manifest__default_item(ctx, ti_vint_create(i));
     case MF__DEFAULTS_PACK:
         return reformat_integer(&((manifest__up_t *) ctx->data)->ctx, i);
-    case MF__INCLUDES:          return manifest__err_includes(ctx, NNUMBER);
-    case MF__INCLUDES_ARR:      return manifest__err_incl_arr(ctx, NNUMBER);
+    case MF__INCLUDES:          return manifest__err_includes(ctx, TI_NNUM);
+    case MF__INCLUDES_ARR:      return manifest__err_incl_arr(ctx, TI_NNUM);
     case MF__INCLUDES_OSARCH:
     case MF__INCLUDES_NO_OSARCH:
-                                return manifest__err_osarch(ctx, NNUMBER);
-    case MF__EXPOSES:           return manifest__err_exposes(ctx, NNUMBER);
-    case MF__X:                 return manifest__err_x(ctx, NNUMBER);
-    case MF__X_DOC:             return manifest__err_doc(ctx, NNUMBER);
-    case MF__X_DEFAULTS:        return manifest__err_defaults(ctx, NNUMBER);
+                                return manifest__err_osarch(ctx, TI_NNUM);
+    case MF__EXPOSES:           return manifest__err_exposes(ctx, TI_NNUM);
+    case MF__X:                 return manifest__err_x(ctx, TI_NNUM);
+    case MF__X_DOC:             return manifest__err_doc(ctx, TI_NNUM);
+    case MF__X_DEFAULTS:        return manifest__err_defaults(ctx, TI_NNUM);
     case MF__X_DEFAULTS_DEEP:
     {
         ti_mod_expose_t * expose = ctx->data;
         if (i < 0 || i > TI_MAX_DEEP_HINT)
             return manifest__set_err(
                     ctx,
-                    "expecting a `deep` value between 0 and %d, not %lld",
+                    "expecting a `deep` value between 0 and %d "
+                    "in "TI_MANIFEST", not %lld",
                     TI_MAX_DEEP_HINT, i);
         if (!expose->deep)
         {
@@ -495,15 +500,15 @@ static int manifest__json_integer(void * data, long long i)
         }
         return manifest__set_mode(ctx, MF__X_DEFAULTS_MAP);
     }
-    case MF__X_DEFAULTS_LOAD:   return manifest__err_load(ctx, NNUMBER);
+    case MF__X_DEFAULTS_LOAD:   return manifest__err_load(ctx, TI_NNUM);
     case MF__X_DEFAULTS_ITEM:
         return manifest__x_default_item(ctx, ti_vint_create(i));
     case MF__X_DEFAULTS_PACK:
         return reformat_integer(&((manifest__up_t *) ctx->data)->ctx, i);
-    case MF__X_ARGMAP:          return manifest__err_argmap(ctx, NNUMBER);
-    case MF__X_ARGMAP_ARR:      return manifest__err_am_arr(ctx, NNUMBER);
-    case MF__REQUIREMENTS:      return manifest__err_reqm(ctx, NNUMBER);
-    case MF__REQUIREMENTS_ARR:  return manifest__err_reqm_arr(ctx, NNUMBER);
+    case MF__X_ARGMAP:          return manifest__err_argmap(ctx, TI_NNUM);
+    case MF__X_ARGMAP_ARR:      return manifest__err_am_arr(ctx, TI_NNUM);
+    case MF__REQUIREMENTS:      return manifest__err_reqm(ctx, TI_NNUM);
+    case MF__REQUIREMENTS_ARR:  return manifest__err_reqm_arr(ctx, TI_NNUM);
     default:                    return manifest__err_unexpected(ctx);
     }
 }
@@ -513,22 +518,23 @@ static int manifest__json_double(void * data, double d)
     manifest__ctx_t * ctx = data;
     switch (ctx->mode)
     {
-    case MF__ROOT:              return manifest__err_root(ctx, NNUMBER);
-    case MF__MAIN:              return manifest__err_main(ctx, NNUMBER);
+    case MF__ROOT:              return manifest__err_root(ctx, TI_NNUM);
+    case MF__MAIN:              return manifest__err_main(ctx, TI_NNUM);
     case MF__MAIN_OSARCH:
-    case MF__MAIN_NO_OSARCH:    return manifest__err_osarch(ctx, NNUMBER);
+    case MF__MAIN_NO_OSARCH:    return manifest__err_osarch(ctx, TI_NNUM);
     case MF__VERSION:
         if (!ctx->manifest->version)
             if (asprintf(&ctx->manifest->version, "%g", d) < 0)
-                return manifest__set_err(ctx, "allocation error");
+                return manifest__set_err(ctx, manifest__err_alloc);
         return manifest__set_mode(ctx, MF__ROOT_MAP);
-    case MF__DOC:               return manifest__err_doc(ctx, NNUMBER);
-    case MF__DEFAULTS:          return manifest__err_defaults(ctx, NNUMBER);
+    case MF__DOC:               return manifest__err_doc(ctx, TI_NNUM);
+    case MF__DEFAULTS:          return manifest__err_defaults(ctx, TI_NNUM);
     case MF__DEFAULTS_DEEP:
         if (d < 0 || d > TI_MAX_DEEP_HINT)
             return manifest__set_err(
                     ctx,
-                    "expecting a `deep` value between 0 and %d, not %f",
+                    "expecting a `deep` value between 0 and %d "
+                    "in "TI_MANIFEST", not %f",
                     TI_MAX_DEEP_HINT, d);
         if (!ctx->manifest->deep)
         {
@@ -537,27 +543,28 @@ static int manifest__json_double(void * data, double d)
                 *ctx->manifest->deep = (uint8_t) d;
         }
         return manifest__set_mode(ctx, MF__DEFAULTS_MAP);
-    case MF__DEFAULTS_LOAD:     return manifest__err_load(ctx, NNUMBER);
+    case MF__DEFAULTS_LOAD:     return manifest__err_load(ctx, TI_NNUM);
     case MF__DEFAULTS_ITEM:
         return manifest__default_item(ctx, ti_vfloat_create(d));
     case MF__DEFAULTS_PACK:
         return reformat_double(&((manifest__up_t *) ctx->data)->ctx, d);
-    case MF__INCLUDES:          return manifest__err_includes(ctx, NNUMBER);
-    case MF__INCLUDES_ARR:      return manifest__err_incl_arr(ctx, NNUMBER);
+    case MF__INCLUDES:          return manifest__err_includes(ctx, TI_NNUM);
+    case MF__INCLUDES_ARR:      return manifest__err_incl_arr(ctx, TI_NNUM);
     case MF__INCLUDES_OSARCH:
     case MF__INCLUDES_NO_OSARCH:
-                                return manifest__err_osarch(ctx, NNUMBER);
-    case MF__EXPOSES:           return manifest__err_exposes(ctx, NNUMBER);
-    case MF__X:                 return manifest__err_x(ctx, NNUMBER);
-    case MF__X_DOC:             return manifest__err_doc(ctx, NNUMBER);
-    case MF__X_DEFAULTS:        return manifest__err_defaults(ctx, NNUMBER);
+                                return manifest__err_osarch(ctx, TI_NNUM);
+    case MF__EXPOSES:           return manifest__err_exposes(ctx, TI_NNUM);
+    case MF__X:                 return manifest__err_x(ctx, TI_NNUM);
+    case MF__X_DOC:             return manifest__err_doc(ctx, TI_NNUM);
+    case MF__X_DEFAULTS:        return manifest__err_defaults(ctx, TI_NNUM);
     case MF__X_DEFAULTS_DEEP:
     {
         ti_mod_expose_t * expose = ctx->data;
         if (d < 0 || d > TI_MAX_DEEP_HINT)
             return manifest__set_err(
                     ctx,
-                    "expecting a `deep` value between 0 and %d, not %f",
+                    "expecting a `deep` value between 0 and %d "
+                    "in "TI_MANIFEST", not %f",
                     TI_MAX_DEEP_HINT, d);
         if (!expose->deep)
         {
@@ -567,20 +574,20 @@ static int manifest__json_double(void * data, double d)
         }
         return manifest__set_mode(ctx, MF__X_DEFAULTS_MAP);
     }
-    case MF__X_DEFAULTS_LOAD:   return manifest__err_load(ctx, NNUMBER);
+    case MF__X_DEFAULTS_LOAD:   return manifest__err_load(ctx, TI_NNUM);
     case MF__X_DEFAULTS_ITEM:
         return manifest__x_default_item(ctx, ti_vfloat_create(d));
     case MF__X_DEFAULTS_PACK:
         return reformat_double(&((manifest__up_t *) ctx->data)->ctx, d);
-    case MF__X_ARGMAP:          return manifest__err_argmap(ctx, NNUMBER);
-    case MF__X_ARGMAP_ARR:      return manifest__err_am_arr(ctx, NNUMBER);
-    case MF__REQUIREMENTS:      return manifest__err_reqm(ctx, NNUMBER);
-    case MF__REQUIREMENTS_ARR:  return manifest__err_reqm_arr(ctx, NNUMBER);
+    case MF__X_ARGMAP:          return manifest__err_argmap(ctx, TI_NNUM);
+    case MF__X_ARGMAP_ARR:      return manifest__err_am_arr(ctx, TI_NNUM);
+    case MF__REQUIREMENTS:      return manifest__err_reqm(ctx, TI_NNUM);
+    case MF__REQUIREMENTS_ARR:  return manifest__err_reqm_arr(ctx, TI_NNUM);
     default:                    return manifest__err_unexpected(ctx);
     }
 }
 
-#define NSTRING "not a string"
+#define TI_NSTR "not a string"
 
 static int manifest__json_string(
         void * data,
@@ -590,7 +597,7 @@ static int manifest__json_string(
     manifest__ctx_t * ctx = data;
     switch (ctx->mode)
     {
-    case MF__ROOT:              return manifest__err_root(ctx, NSTRING);
+    case MF__ROOT:              return manifest__err_root(ctx, TI_NSTR);
     case MF__MAIN:
         return manifest__set_main(ctx, MF__ROOT_MAP, s, n);
     case MF__MAIN_OSARCH:
@@ -605,14 +612,14 @@ static int manifest__json_string(
         if (!ctx->manifest->doc)
             ctx->manifest->doc = strndup((const char *) s, n);
         return manifest__set_mode(ctx, MF__ROOT_MAP);
-    case MF__DEFAULTS:          return manifest__err_defaults(ctx, NSTRING);
-    case MF__DEFAULTS_DEEP:     return manifest__err_deep(ctx, NSTRING);
-    case MF__DEFAULTS_LOAD:     return manifest__err_load(ctx, NSTRING);
+    case MF__DEFAULTS:          return manifest__err_defaults(ctx, TI_NSTR);
+    case MF__DEFAULTS_DEEP:     return manifest__err_deep(ctx, TI_NSTR);
+    case MF__DEFAULTS_LOAD:     return manifest__err_load(ctx, TI_NSTR);
     case MF__DEFAULTS_ITEM:
         return manifest__default_item(ctx, ti_str_create((const char *) s, n));
     case MF__DEFAULTS_PACK:
         return reformat_string(&((manifest__up_t *) ctx->data)->ctx, s, n);
-    case MF__INCLUDES:          return manifest__err_includes(ctx, NSTRING);
+    case MF__INCLUDES:          return manifest__err_includes(ctx, TI_NSTR);
     case MF__INCLUDES_ARR:
     {
         char * str = strndup((const char *) s, n);
@@ -626,8 +633,8 @@ static int manifest__json_string(
     /* fall through */
     case MF__INCLUDES_NO_OSARCH:
         return manifest__set_mode(ctx, MF__INCLUDES_MAP);
-    case MF__EXPOSES:           return manifest__err_exposes(ctx, NSTRING);
-    case MF__X:                 return manifest__err_x(ctx, NSTRING);
+    case MF__EXPOSES:           return manifest__err_exposes(ctx, TI_NSTR);
+    case MF__X:                 return manifest__err_x(ctx, TI_NSTR);
     case MF__X_DOC:
     {
         ti_mod_expose_t * expose = ctx->data;
@@ -635,14 +642,16 @@ static int manifest__json_string(
             expose->doc = strndup((const char *) s, n);
         return manifest__set_mode(ctx, MF__X_MAP);
     }
-    case MF__X_DEFAULTS:        return manifest__err_defaults(ctx, NSTRING);
-    case MF__X_DEFAULTS_DEEP:   return manifest__err_deep(ctx, NSTRING);
-    case MF__X_DEFAULTS_LOAD:   return manifest__err_load(ctx, NSTRING);
+    case MF__X_DEFAULTS:        return manifest__err_defaults(ctx, TI_NSTR);
+    case MF__X_DEFAULTS_DEEP:   return manifest__err_deep(ctx, TI_NSTR);
+    case MF__X_DEFAULTS_LOAD:   return manifest__err_load(ctx, TI_NSTR);
     case MF__X_DEFAULTS_ITEM:
-        return manifest__x_default_item(ctx, ti_str_create((const char *) s, n));
+        return manifest__x_default_item(
+                ctx,
+                ti_str_create((const char *) s, n));
     case MF__X_DEFAULTS_PACK:
         return reformat_string(&((manifest__up_t *) ctx->data)->ctx, s, n);
-    case MF__X_ARGMAP:          return manifest__err_argmap(ctx, NSTRING);
+    case MF__X_ARGMAP:          return manifest__err_argmap(ctx, TI_NSTR);
     case MF__X_ARGMAP_ARR:
     {
         const char * str = (const char *) s;
@@ -651,22 +660,25 @@ static int manifest__json_string(
 
         if (!strx_is_utf8n(str, n))
             return manifest__set_err(ctx,
-                    "argmap value must have valid UTF-8 encoding");
+                    "argmap value in "TI_MANIFEST" must have "
+                    "valid UTF-8 encoding");
 
         if (ti_is_reserved_key_strn(str, n))
             return manifest__set_err(ctx,
-                    "argmap value `%c` is reserved"DOC_PROPERTIES,
+                    "argmap value `%c` in "TI_MANIFEST" is reserved"
+                    DOC_PROPERTIES,
                     *str);
 
         if (expose->argmap) for (vec_each(expose->argmap, ti_item_t, item))
             if (ti_raw_eq_strn(item->key, str, n))
                 return manifest__set_err(ctx,
-                        "value `%.*s` exists more than once as `argmap` value",
+                        "value `%.*s` exists more than once as `argmap` "
+                        "item in "TI_MANIFEST,
                         (int) n, str);
 
         item = malloc(sizeof(ti_item_t));
         if (!item)
-            return manifest__set_err(ctx, "allocation error");
+            return manifest__set_err(ctx, manifest__err_alloc);
 
         item->val = NULL;
         item->key = ti_name_is_valid_strn(str, n)
@@ -675,7 +687,7 @@ static int manifest__json_string(
 
         return item->key && 0 == vec_push(&expose->argmap, item);
     }
-    case MF__REQUIREMENTS:      return manifest__err_reqm(ctx, NNUMBER);
+    case MF__REQUIREMENTS:      return manifest__err_reqm(ctx, TI_NNUM);
     case MF__REQUIREMENTS_ARR:
     {
         const char * str = (const char *) s;
@@ -683,7 +695,8 @@ static int manifest__json_string(
 
         if (!manifest__check_reqm(str, n))
             return manifest__set_err(ctx,
-                    "invalid characters found in one of the requirements");
+                    "invalid characters found in one of the "
+                    "requirements in "TI_MANIFEST);
 
         reqm = strndup(str, n);
         return reqm && 0 == vec_push(&ctx->manifest->requirements, reqm);
@@ -692,7 +705,7 @@ static int manifest__json_string(
     }
 }
 
-#define NOMAP "not a map"
+#define TI_NOMAP "not a map"
 
 static int manifest__json_start_map(void * data)
 {
@@ -704,42 +717,42 @@ static int manifest__json_start_map(void * data)
     case MF__MAIN:
         return manifest__set_mode(ctx, MF__MAIN_MAP);
     case MF__MAIN_OSARCH:
-    case MF__MAIN_NO_OSARCH:    return manifest__err_osarch(ctx, NOMAP);
-    case MF__VERSION:           return manifest__err_version(ctx, NOMAP);
-    case MF__DOC:               return manifest__err_doc(ctx, NOMAP);
+    case MF__MAIN_NO_OSARCH:    return manifest__err_osarch(ctx, TI_NOMAP);
+    case MF__VERSION:           return manifest__err_version(ctx, TI_NOMAP);
+    case MF__DOC:               return manifest__err_doc(ctx, TI_NOMAP);
     case MF__DEFAULTS:          return manifest__set_mode(ctx, MF__DEFAULTS_MAP);
-    case MF__DEFAULTS_DEEP:     return manifest__err_deep(ctx, NOMAP);
-    case MF__DEFAULTS_LOAD:     return manifest__err_load(ctx, NOMAP);
+    case MF__DEFAULTS_DEEP:     return manifest__err_deep(ctx, TI_NOMAP);
+    case MF__DEFAULTS_LOAD:     return manifest__err_load(ctx, TI_NOMAP);
     case MF__DEFAULTS_ITEM:
         if (manifest__start_pack(ctx, MF__DEFAULTS_PACK))
-            return manifest__set_err(ctx, "allocation error");
+            return manifest__set_err(ctx, manifest__err_alloc);
         /*fall through */
     case MF__DEFAULTS_PACK:
         return reformat_start_map(&((manifest__up_t *) ctx->data)->ctx);
-    case MF__INCLUDES:          return manifest__err_includes(ctx, NOMAP);
+    case MF__INCLUDES:          return manifest__err_includes(ctx, TI_NOMAP);
     case MF__INCLUDES_ARR:      return manifest__set_mode(ctx, MF__INCLUDES_MAP);
     case MF__INCLUDES_OSARCH:
     case MF__INCLUDES_NO_OSARCH:
-                                return manifest__err_osarch(ctx, NOMAP);
+                                return manifest__err_osarch(ctx, TI_NOMAP);
     case MF__EXPOSES:
         return ctx->manifest->exposes || (ctx->manifest->exposes = smap_create())
             ? manifest__set_mode(ctx, MF__EXPOSES_MAP)
-            : manifest__set_err(ctx, "allocation error");
+            : manifest__set_err(ctx, manifest__err_alloc);
     case MF__X:                 return manifest__set_mode(ctx, MF__X_MAP);
-    case MF__X_DOC:             return manifest__err_doc(ctx, NOMAP);
+    case MF__X_DOC:             return manifest__err_doc(ctx, TI_NOMAP);
     case MF__X_DEFAULTS:        return manifest__set_mode(ctx, MF__X_DEFAULTS_MAP);
-    case MF__X_DEFAULTS_DEEP:   return manifest__err_deep(ctx, NOMAP);
-    case MF__X_DEFAULTS_LOAD:   return manifest__err_load(ctx, NOMAP);
+    case MF__X_DEFAULTS_DEEP:   return manifest__err_deep(ctx, TI_NOMAP);
+    case MF__X_DEFAULTS_LOAD:   return manifest__err_load(ctx, TI_NOMAP);
     case MF__X_DEFAULTS_ITEM:
         if (manifest__start_pack(ctx, MF__X_DEFAULTS_PACK))
-            return manifest__set_err(ctx, "allocation error");
+            return manifest__set_err(ctx, manifest__err_alloc);
         /*fall through */
     case MF__X_DEFAULTS_PACK:
         return reformat_start_map(&((manifest__up_t *) ctx->data)->ctx);
-    case MF__X_ARGMAP:          return manifest__err_argmap(ctx, NOMAP);
-    case MF__X_ARGMAP_ARR:      return manifest__err_am_arr(ctx, NOMAP);
-    case MF__REQUIREMENTS:      return manifest__err_reqm(ctx, NOMAP);
-    case MF__REQUIREMENTS_ARR:  return manifest__err_reqm_arr(ctx, NOMAP);
+    case MF__X_ARGMAP:          return manifest__err_argmap(ctx, TI_NOMAP);
+    case MF__X_ARGMAP_ARR:      return manifest__err_am_arr(ctx, TI_NOMAP);
+    case MF__REQUIREMENTS:      return manifest__err_reqm(ctx, TI_NOMAP);
+    case MF__REQUIREMENTS_ARR:  return manifest__err_reqm_arr(ctx, TI_NOMAP);
     default:                    return manifest__err_unexpected(ctx);
     }
 }
@@ -889,7 +902,7 @@ static int manifest__json_start_array(void * data)
     case MF__DEFAULTS_LOAD:     return manifest__err_load(ctx, NOARRAY);
     case MF__DEFAULTS_ITEM:
         if (manifest__start_pack(ctx, MF__DEFAULTS_PACK))
-            return manifest__set_err(ctx, "allocation error");
+            return manifest__set_err(ctx, manifest__err_alloc);
         /*fall through */
     case MF__DEFAULTS_PACK:
         return reformat_start_array(&((manifest__up_t *) ctx->data)->ctx);
@@ -906,7 +919,7 @@ static int manifest__json_start_array(void * data)
     case MF__X_DEFAULTS_LOAD:   return manifest__err_load(ctx, NOARRAY);
     case MF__X_DEFAULTS_ITEM:
         if (manifest__start_pack(ctx, MF__X_DEFAULTS_PACK))
-            return manifest__set_err(ctx, "allocation error");
+            return manifest__set_err(ctx, manifest__err_alloc);
         /*fall through */
     case MF__X_DEFAULTS_PACK:
         return reformat_start_array(&((manifest__up_t *) ctx->data)->ctx);
@@ -916,7 +929,7 @@ static int manifest__json_start_array(void * data)
         expose->argmap = vec_new(3);
         return expose->argmap
                 ? manifest__set_mode(ctx, MF__X_ARGMAP_ARR)
-                : manifest__set_err(ctx, "allocation error");
+                : manifest__set_err(ctx, manifest__err_alloc);
     }
     case MF__X_ARGMAP_ARR:      return manifest__err_am_arr(ctx, NOARRAY);
     case MF__REQUIREMENTS:
@@ -924,7 +937,7 @@ static int manifest__json_start_array(void * data)
         {
             ctx->manifest->requirements = vec_new(0);
             if (!ctx->manifest->requirements)
-                return manifest__set_err(ctx, "allocation error");
+                return manifest__set_err(ctx, manifest__err_alloc);
         }
         return manifest__set_mode(ctx, MF__REQUIREMENTS_ARR);
     case MF__REQUIREMENTS_ARR:  return manifest__err_reqm_arr(ctx, NOARRAY);
@@ -1001,21 +1014,21 @@ static int manifest__check_includes(manifest__ctx_t * ctx)
 
         if (*str == '\0')
             return manifest__set_err(ctx,
-                    "include file must not be an empty string");
+                "include file in "TI_MANIFEST" must not be an empty string");
 
         if (!strx_is_printable(str))
             return manifest__set_err(ctx,
-                    "include file contains illegal characters");
+                "include file in "TI_MANIFEST" contains illegal characters");
 
         if (*str == '/')
             return manifest__set_err(ctx,
-                    "include file must not start with a `/`");
+                "include file in "TI_MANIFEST" must not start with a `/`");
 
         for (++file; *file; ++file, ++str)
             if (*str == '.' && (*file == '.' || *file == '/'))
                 return manifest__set_err(ctx,
-                        "include file must not contain `..` or `./` "
-                        "to specify a relative path");
+                    "include file in "TI_MANIFEST" must not contain `..` "
+                    "or `./` to specify a relative path");
     }
 
     return 1;  /* valid, success */
@@ -1103,7 +1116,7 @@ static int manifest__check_exposes(manifest__ctx_t * ctx)
         ctx->manifest->exposes,
         (smap_val_cb) manifest__exposes_cb,
         ctx->manifest)
-            ? manifest__set_err(ctx, "allocation error")
+            ? manifest__set_err(ctx, manifest__err_alloc)
             : 1;  /* success */
 }
 
@@ -1111,7 +1124,8 @@ static int manifest__check_py(manifest__ctx_t * ctx)
 {
     return !ctx->manifest->is_py && ctx->manifest->requirements
             ? manifest__set_err(ctx,
-                    "requirements are only allowed with Python modules")
+                    "requirements in "TI_MANIFEST" are only allowed "
+                    "with Python modules")
             : 1;  /* success */
 }
 
@@ -1191,7 +1205,7 @@ int ti_mod_manifest_read(
     {
         /* allocation error if no error is set */
         if (*source_err == '\0')
-            (void) manifest__set_err(&ctx, "allocation error");
+            (void) manifest__set_err(&ctx, manifest__err_alloc);
 
         /* cleanup context on error */
         if (ctx.mode == MF__DEFAULTS_PACK)

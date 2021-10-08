@@ -84,12 +84,12 @@ class TestModules(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                r'file argument must not be an empty string'):
+                r'source argument must not be an empty string'):
             await client.query('new_module("X", "");')
 
         with self.assertRaisesRegex(
                 ValueError,
-                r'file argument contains illegal characters'):
+                r'source argument contains illegal characters'):
             await client.query('new_module("X", "\n");')
 
         res = await client.query('new_module("X", "x", nil);')
@@ -335,7 +335,7 @@ class TestModules(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'module `X` is not running '
-                r'\(status: no such file or directory\)'):
+                r'\(status: module not installed\)'):
             await client.query(r'''
                 future({
                     module: 'X'
@@ -350,7 +350,7 @@ class TestModules(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'module `X` is not running '
-                r'\(status: no such file or directory\)'):
+                r'\(status: module not installed\)'):
             await client.query(r'''
                 future({
                     module: 'X'
@@ -524,7 +524,7 @@ class TestModules(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'module `X` is not running '
-                r'\(status: no such file or directory\)'):
+                r'\(status: module not installed\)'):
             await client.query('future({module: "X"});', scope='/t')
 
         with self.assertRaisesRegex(

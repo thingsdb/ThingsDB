@@ -1117,6 +1117,25 @@ int ti_val_convert_to_str(ti_val_t ** val, ex_t * e)
     return 0;
 }
 
+void ti_val_ensure_convert_to_str(ti_val_t ** val)
+{
+    ex_t e = {0};
+    if (ti_val_convert_to_str(val, e))
+    {
+        ti_val_t * v = (ti_val_t *) ti_str_create(
+                (*(ti_verror_t **) val)->msg,
+                (*(ti_verror_t **) val)->msg_n);
+        if (!v)
+        {
+            v = val__snil;
+            ti_incref(v);
+        }
+
+        ti_val_unsafe_drop(*val);
+        *val = v;
+    }
+}
+
 int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
 {
     ti_val_t * v = NULL;

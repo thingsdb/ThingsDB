@@ -41,7 +41,7 @@ enum
     TI_MODULE_FLAG_WITH_CONF        =1<<4,      /* used for info */
     TI_MODULE_FLAG_WITH_TASKS       =1<<5,      /* used for info */
     TI_MODULE_FLAG_WITH_RESTARTS    =1<<6,      /* used for info */
-    TI_MODULE_FLAG_DEL              =1<<7,
+    TI_MODULE_FLAG_DEL_FILES              =1<<7,
     TI_MODULE_FLAG_UPDATE           =1<<8,
 };
 

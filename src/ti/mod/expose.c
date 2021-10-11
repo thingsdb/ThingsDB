@@ -76,30 +76,33 @@ int ti_mod_expose_call(
             {
                 ti_thing_t * tsrc;
 
-                if (ti_do_statement(query, child->node, e))
-                    goto fail1;
-
-                switch(query->rval->tp)
+                if (child)
                 {
-                case TI_VAL_THING:
-                    tsrc = (ti_thing_t *) query->rval;
-                    if (ti_thing_assign(thing, tsrc, NULL, e))
+                    if (ti_do_statement(query, child->node, e))
                         goto fail1;
-                    break;
-                case TI_VAL_NIL:
-                    break;
-                default:
-                    ex_set(e, EX_TYPE_ERROR,
-                        "expecting argument `*` to be of "
-                        "type `"TI_VAL_THING_S"` or type `"TI_VAL_NIL_S"` "
-                        "but got type `%s` instead",
-                        ti_val_str(query->rval));
-                    goto fail1;
-                }
 
-                child = child->next ? child->next->next : NULL;
-                ti_val_unsafe_drop(query->rval);
-                query->rval = NULL;
+                    switch(query->rval->tp)
+                    {
+                    case TI_VAL_THING:
+                        tsrc = (ti_thing_t *) query->rval;
+                        if (ti_thing_assign(thing, tsrc, NULL, e))
+                            goto fail1;
+                        break;
+                    case TI_VAL_NIL:
+                        break;
+                    default:
+                        ex_set(e, EX_TYPE_ERROR,
+                            "expecting argument `*` to be of "
+                            "type `"TI_VAL_THING_S"` or `"TI_VAL_NIL_S"` "
+                            "but got type `%s` instead",
+                            ti_val_str(query->rval));
+                        goto fail1;
+                    }
+
+                    child = child->next ? child->next->next : NULL;
+                    ti_val_unsafe_drop(query->rval);
+                    query->rval = NULL;
+                }
                 continue;
             }
 

@@ -38,7 +38,7 @@ static int do__f_deploy_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_TYPE_ERROR,
                     "function `deploy_module` expects argument 2 to be of "
-                    "type `"TI_VAL_BYTES_S"` or `"TI_VAL_NIL_S"`"
+                    "type `"TI_VAL_BYTES_S"` or `"TI_VAL_NIL_S"` "
                     "but got type `"TI_VAL_STR_S"` instead; "
                     "type `"TI_VAL_STR_S"` is only allowed for Python modules"
                     DOC_DEPLOY_MODULE);
@@ -50,7 +50,7 @@ static int do__f_deploy_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_TYPE_ERROR,
                     "function `deploy_module` expects argument 2 to be of "
-                    "type `"TI_VAL_STR_S"` or `"TI_VAL_NIL_S"`"
+                    "type `"TI_VAL_STR_S"` or `"TI_VAL_NIL_S"` "
                     "but got type `"TI_VAL_BYTES_S"` instead; "
                     "type `"TI_VAL_BYTES_S"` is only allowed for file sources"
                     DOC_DEPLOY_MODULE);

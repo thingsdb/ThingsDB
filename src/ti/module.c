@@ -336,6 +336,7 @@ ti_module_t* ti_module_create(
 
         module->source_type = TI_MODULE_SOURCE_FILE;
         module->source.file = module->orig;
+        module->manifest.is_py = ti_module_file_is_py(source, source_n);
     }
 
     /* The status might be changed for non-file based sources. */
@@ -380,8 +381,6 @@ fail0:
 int ti_module_set_file(ti_module_t * module, const char * file, size_t n)
 {
     char * str_file, ** args;
-
-    module->manifest.is_py = ti_module_file_is_py(file, n);
     args = malloc(sizeof(char*) * (module->manifest.is_py ? 3 : 2));
     str_file = fx_path_join_strn(module->path, strlen(module->path), file, n);
 

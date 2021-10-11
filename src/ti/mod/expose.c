@@ -72,25 +72,66 @@ int ti_mod_expose_call(
 
         for (vec_each(expose->argmap, ti_item_t, item))
         {
+            if (item->key->n == 1 && *item->key->data == '*')
+            {
+                ti_thing_t * tsrc;
+
+                if (ti_do_statement(query, child->node, e))
+                    goto fail1;
+
+                switch(query->rval->tp)
+                {
+                case TI_VAL_THING:
+                    tsrc = (ti_thing_t *) query->rval;
+                    if (ti_thing_assign(thing, tsrc, NULL, e))
+                        goto fail1;
+                    break;
+                case TI_VAL_NIL:
+                    break;
+                default:
+                    ex_set(e, EX_TYPE_ERROR,
+                        "expecting argument `*` to be of "
+                        "type `"TI_VAL_THING_S"` or type `"TI_VAL_NIL_S"` "
+                        "but got type `%s` instead",
+                        ti_val_str(query->rval));
+                    goto fail1;
+                }
+
+                child = child->next ? child->next->next : NULL;
+                ti_val_unsafe_drop(query->rval);
+                query->rval = NULL;
+                continue;
+            }
+
             if (child)
             {
                 if (ti_do_statement(query, child->node, e))
                     goto fail1;
 
                 child = child->next ? child->next->next : NULL;
+
+                if (deep_name == (ti_name_t *) item->key)
+                {
+                    if (ti_module_set_deep(query->rval, &deep, e))
+                        goto fail1;
+                    continue;
+                }
+
+                if (load_name == (ti_name_t *) item->key)
+                {
+                    load = ti_val_as_bool(query->rval);
+                    continue;
+                }
             }
             else
             {
+                if (deep_name == (ti_name_t *) item->key ||
+                    load_name == (ti_name_t *) item->key)
+                    continue;
+
                 query->rval = item->val;
                 ti_incref(query->rval);
             }
-
-            if (deep_name == (ti_name_t *) item->key &&
-                ti_module_set_deep(item->val, &deep, e))
-                goto fail1;
-
-            if (load_name == (ti_name_t *) item->key)
-                load = ti_val_as_bool(item->val);
 
             if (ti_thing_o_add(thing, item->key, query->rval))
             {

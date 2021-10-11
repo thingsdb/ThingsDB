@@ -107,6 +107,12 @@ void ti_thing_resize_gc(void);
 int ti_thing_copy(ti_thing_t ** thing, uint8_t deep);
 int ti_thing_dup(ti_thing_t ** thing, uint8_t deep);
 void ti_thing_cancel(ti_thing_t * thing);
+int ti_thing_assign(
+        ti_thing_t * thing,
+        ti_thing_t * tsrc,
+        ti_task_t * task,
+        ex_t * e);
+
 
 #if TI_IS64BIT
 #define THING__KEY_SHIFT 3

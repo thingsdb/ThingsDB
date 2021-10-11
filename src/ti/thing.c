@@ -1503,3 +1503,241 @@ void ti_thing_clean_gc(void)
         vec_clear(tmp);
     }
 }
+
+static int thing__assign_set_o(
+        ti_thing_t * thing,
+        ti_raw_t * key,
+        ti_val_t * val,
+        ti_task_t * task,
+        ex_t * e,
+        uint32_t parent_ref)
+{
+    /*
+     * Update the reference count based on the parent. The reason we do this
+     * here is that we still require the old value.
+     */
+    val->ref += parent_ref > 1;
+
+    /*
+     * Closures are already unbound so the only possible errors are
+     * critical.
+     */
+    if (ti_val_make_assignable(&val, thing, key, e) ||
+        ti_thing_o_set(thing, key, val) ||
+        (task && ti_task_add_set(task, key, val)))
+        goto failed;
+
+    ti_incref(key);
+    val->ref += parent_ref == 1;
+    return e->nr;
+
+failed:
+    if (parent_ref > 1)
+        ti_val_unsafe_gc_drop(val);
+    if (e->nr == 0)
+        ex_set_mem(e);
+
+    return e->nr;
+}
+
+typedef struct
+{
+    ti_thing_t * thing;
+    ti_thing_t * tsrc;
+    ti_task_t * task;
+    ex_t * e;
+} thing__assign_walk_i_t;
+
+static int thing__assign_walk_i(ti_item_t * item, thing__assign_walk_i_t * w)
+{
+    return thing__assign_set_o(
+            w->thing,
+            item->key,
+            item->val,
+            w->task,
+            w->e,
+            w->tsrc->ref);
+}
+
+
+int ti_thing_assign(
+        ti_thing_t * thing,
+        ti_thing_t * tsrc,
+        ti_task_t * task,
+        ex_t * e)
+{
+    if (ti_thing_is_object(thing))
+    {
+        if (ti_thing_is_object(tsrc))
+        {
+            if (ti_thing_is_dict(tsrc))
+            {
+                thing__assign_walk_i_t w = {
+                        .thing = thing,
+                        .tsrc = tsrc,
+                        .task = task,
+                        .e = e,
+                };
+                if (smap_values(
+                        tsrc->items.smap,
+                        (smap_val_cb) thing__assign_walk_i,
+                        &w))
+                    return e->nr;
+            }
+            else
+            {
+                for(vec_each(tsrc->items.vec, ti_prop_t, p))
+                    if (thing__assign_set_o(
+                            thing,
+                            (ti_raw_t *) p->name,
+                            p->val,
+                            task,
+                            e,
+                            tsrc->ref))
+                        return e->nr;
+            }
+        }
+        else
+        {
+            ti_name_t * name;
+            ti_val_t * val;
+            for(thing_t_each(tsrc, name, val))
+                if (thing__assign_set_o(
+                        thing,
+                        (ti_raw_t *) name,
+                        val,
+                        task,
+                        e,
+                        tsrc->ref))
+                    return e->nr;
+        }
+    }
+    else
+    {
+        vec_t * vec = NULL;
+        ti_type_t * type = thing->via.type;
+        uint32_t parent_ref = tsrc->ref;
+
+        if (ti_thing_is_object(tsrc))
+        {
+            if (ti_thing_is_dict(tsrc))
+            {
+                ti_raw_t * incompatible;
+                if (ti_thing_to_strict(tsrc, &incompatible))
+                {
+                    if (incompatible)
+                        ex_set(e, EX_LOOKUP_ERROR,
+                                "type `%s` has no property `%s`",
+                                type->name,
+                                ti_raw_as_printable_str(incompatible));
+                    else
+                        ex_set_mem(e);
+
+                    return e->nr;
+                }
+            }
+            vec = vec_new(ti_thing_n(tsrc));
+            if (!vec)
+            {
+                ex_set_mem(e);
+                return e->nr;
+            }
+
+            for(vec_each(tsrc->items.vec, ti_prop_t, p))
+            {
+                ti_val_t * val = p->val;
+                ti_field_t * field = ti_field_by_name(type, p->name);
+                if (!field)
+                {
+                    ex_set(e, EX_LOOKUP_ERROR,
+                            "type `%s` has no property `%s`",
+                            type->name, p->name->str);
+                    goto fail;
+                }
+
+                if (ti_field_has_relation(field))
+                {
+                    ex_set(e, EX_TYPE_ERROR,
+                            "function `assign` is not able to set "
+                            "`%s` because a relation for this "
+                            "property is configured"DOC_THING_ASSIGN,
+                            p->name->str);
+                    goto fail;
+                }
+
+                /*
+                 * Update the reference count based on the parent.
+                 * The reason we do this here is that we still require the
+                 * old value.
+                 */
+                val->ref += parent_ref > 1;
+
+                if (ti_field_make_assignable(field, &val, thing, e))
+                {
+                    if (parent_ref > 1)
+                        ti_val_unsafe_gc_drop(val);
+                    goto fail;
+                }
+
+                val->ref += parent_ref == 1;
+
+                VEC_push(vec, val);
+            }
+
+            for(vec_each_rev(tsrc->items.vec, ti_prop_t, p))
+            {
+                ti_field_t * field = ti_field_by_name(type, p->name);
+                ti_val_t * val = VEC_pop(vec);
+                ti_thing_t_prop_set(thing, field, val);
+                if (task && ti_task_add_set(
+                        task,
+                        (ti_raw_t *) field->name,
+                        val))
+                    goto fail;
+            }
+        }
+        else
+        {
+            ti_type_t * f_type = tsrc->via.type;
+
+            vec = NULL;
+
+            if (f_type != type)
+            {
+                ex_set(e, EX_TYPE_ERROR,
+                        "cannot assign properties to instance of type `%s` "
+                        "from type `%s`"
+                        DOC_THING_ASSIGN,
+                        type->name,
+                        f_type->name);
+                return e->nr;
+            }
+
+            for (vec_each(type->fields, ti_field_t, field))
+            {
+                ti_val_t * val = VEC_get(tsrc->items.vec, field->idx);
+
+                val->ref += parent_ref > 1;
+
+                if (ti_field_make_assignable(field, &val, thing, e))
+                {
+                    if (parent_ref > 1)
+                        ti_val_unsafe_gc_drop(val);
+                    return e->nr;
+                }
+
+                val->ref += parent_ref == 1;
+
+                ti_thing_t_prop_set(thing, field, val);
+                if (task && ti_task_add_set(
+                        task,
+                        (ti_raw_t *) field->name,
+                        val))
+                    return e->nr;
+            }
+        }
+fail:
+        vec_destroy(vec, (vec_destroy_cb) ti_val_unsafe_drop);
+    }
+    return e->nr;
+}

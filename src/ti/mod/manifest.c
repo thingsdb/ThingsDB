@@ -659,12 +659,20 @@ static int manifest__json_string(
         ti_mod_expose_t * expose = ctx->data;
         ti_item_t * item;
 
+        if (!n)
+            return manifest__set_err(ctx,
+                    "argmap value in "TI_MANIFEST" must not be empty");
+
         if (!strx_is_utf8n(str, n))
             return manifest__set_err(ctx,
                     "argmap value in "TI_MANIFEST" must have "
                     "valid UTF-8 encoding");
 
-        if (ti_is_reserved_key_strn(str, n))
+        /*
+         * Do not allow reserved keys, except for `*` since it allows for a
+         * place to capture a thing.
+         */
+        if (strti_is_reserved_key_strn(str, n) && (*str != '*'))
             return manifest__set_err(ctx,
                     "argmap value `%c` in "TI_MANIFEST" is reserved"
                     DOC_PROPERTIES,

@@ -2,6 +2,9 @@
 
 * Callable modules, issue #213.
 * Install modules using a GitHub repository and `module.json`, pr #216.
+* Added `refresh_module()` function, issue #217.
+* Added `log` function, pr #218.
+* Fixed bug with nested futures, issue #219.
 
 # v1.0.1
 

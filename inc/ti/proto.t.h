@@ -72,6 +72,7 @@ typedef enum
     TI_PROTO_NODE_EX_TIMER          =135,   /* [scope_id, timer_id, next_ts,
                                             err_code, err_msg] */
     TI_PROTO_NODE_ROOM_EMIT         =136,   /* {id:.., args: [..]} */
+    TI_PROTO_NODE_FWD_WARN          =137,
     /*
      * 160..191 node requests
      */

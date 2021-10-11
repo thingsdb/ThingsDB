@@ -626,7 +626,23 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e)
     --ti.futures_count;
 
     ti_val_unsafe_drop(future->rval);
-    future->rval = query->rval;
+
+    if (ti_val_is_future(query->rval))
+    {
+        /*
+         * When nesting futures, we need to take the future result. e.g:
+         * future(|| future(|| 'OK'));
+         *
+         * Unregistered futures might not yet have a result so we need to
+         * check for NULL.
+         */
+        ti_future_t * fut = (ti_future_t *) query->rval;
+        future->rval = fut->rval ? fut->rval : (ti_val_t *) ti_nil_get();
+        fut->rval = NULL;
+        ti_val_unsafe_drop(query->rval);
+    }
+    else
+        future->rval = query->rval;
 
     ti_user_drop(query->user);
     ti_change_drop(query->change);

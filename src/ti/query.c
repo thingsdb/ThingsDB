@@ -627,7 +627,7 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e)
 
     ti_val_unsafe_drop(future->rval);
 
-    if (ti_val_is_future(query->rval))
+    if (query->rval && ti_val_is_future(query->rval))
     {
         /*
          * When nesting futures, we need to take the future result. e.g:

@@ -106,8 +106,17 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set_mem(e);
         return e->nr;
     }
+
     if (ti_val_is_closure(query->rval))
     {
+        /*
+         * We are will register this future so arguments must be set. In case
+         * of a closure this means we might have empty arguments thus may
+         * require an empty list of arguments.
+         */
+        if (!future->args && !(future->args = vec_new(0)))
+            goto fail;
+
         for(vec_each(((ti_closure_t *) query->rval)->vars, ti_prop_t, prop))
         {
             ti_prop_t * p = ti_query_var_get(query, prop->name);
@@ -121,6 +130,7 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             VEC_push(future->args, p->val);
             ti_incref(p->val);
         }
+
         future->then = (ti_closure_t *) query->rval;
         query->rval = NULL;
     }

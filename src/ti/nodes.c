@@ -1335,6 +1335,51 @@ static void nodes__on_room_emit(ti_stream_t * stream, ti_pkg_t * pkg)
     uv_mutex_unlock(collection->lock);
 }
 
+static void nodes__on_fwd_warn(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    ti_node_t * other_node = stream->via.node;
+    ti_req_t * req = omap_get(stream->reqmap, pkg->id);
+
+    if (!other_node)
+    {
+        LOG_UNAUTHORIZED_NODE
+        return;
+    }
+
+    if (!req)
+    {
+        log_warning(
+                "received a warning from `%s` on package id %u "
+                "but the corresponding request is found "
+                "(most likely the request has timed out)",
+                ti_stream_name(stream), pkg->id);
+        return;
+    }
+
+    pkg = ti_pkg_dup(pkg);
+    if (!pkg)
+    {
+        log_error(EX_MEMORY_S);
+        return;
+    }
+
+    if (Logger.level == LOGGER_DEBUG)
+    {
+        log_debug("forward warning to client:");
+        mp_print(Logger.ostream, pkg->data, pkg->n);
+        (void) fprintf(Logger.ostream, "\n");
+    }
+
+    pkg->id = TI_PROTO_EV_ID;
+    ti_pkg_set_tp(pkg, TI_PROTO_CLIENT_WARN);
+
+    if (ti_stream_write_pkg(((ti_fwd_t *) req->data)->stream, pkg))
+    {
+        log_error(EX_INTERNAL_S);
+        free(pkg);
+    }
+}
+
 static const char * nodes__get_status_fn(void)
 {
     if (nodes->status_fn)
@@ -1938,6 +1983,9 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
         break;
     case TI_PROTO_NODE_ROOM_EMIT:
         nodes__on_room_emit(stream, pkg);
+        break;
+    case TI_PROTO_NODE_FWD_WARN:
+        nodes__on_fwd_warn(stream, pkg);
         break;
     case TI_PROTO_NODE_REQ_QUERY:
         nodes__on_req_query(stream, pkg);

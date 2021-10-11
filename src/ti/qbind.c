@@ -118,6 +118,7 @@
 #include <ti/fn/fnlen.h>
 #include <ti/fn/fnlist.h>
 #include <ti/fn/fnload.h>
+#include <ti/fn/fnlog.h>
 #include <ti/fn/fnlower.h>
 #include <ti/fn/fnmap.h>
 #include <ti/fn/fnmodenum.h>
@@ -249,7 +250,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 224,
+    TOTAL_KEYWORDS = 225,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 8,
@@ -538,6 +539,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="len",               .fn=do__f_len,                  CHAIN_NE},
     {.name="list",              .fn=do__f_list,                 ROOT_NE},
     {.name="load",              .fn=do__f_load,                 CHAIN_NE},
+    {.name="log",               .fn=do__f_log,                  ROOT_NE},
     {.name="lookup_err",        .fn=do__f_lookup_err,           ROOT_NE},
     {.name="lower",             .fn=do__f_lower,                CHAIN_NE},
     {.name="map",               .fn=do__f_map,                  CHAIN_NE},

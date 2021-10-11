@@ -44,6 +44,7 @@ const char * ti_proto_str(ti_proto_enum_t tp)
     case TI_PROTO_NODE_OK_TIMER:            return "NODE_OK_TIMER";
     case TI_PROTO_NODE_EX_TIMER:            return "NODE_EX_TIMER";
     case TI_PROTO_NODE_ROOM_EMIT:           return "NODE_ROOM_EMIT";
+    case TI_PROTO_NODE_FWD_WARN:            return "NODE_FWD_WARN";
 
     case TI_PROTO_NODE_REQ_QUERY:           return "NODE_REQ_QUERY";
     case TI_PROTO_NODE_REQ_RUN:             return "NODE_REQ_RUN";

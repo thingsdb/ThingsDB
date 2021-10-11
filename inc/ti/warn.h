@@ -9,16 +9,57 @@
  */
 typedef enum
 {
-    TI_WARN_THING_NOT_FOUND=1,
-    TI_WARN_LOG_MESSAGE
+    TI_WARN_THING_NOT_FOUND =1,
+    TI_WARN_LOG_MESSAGE     =2,
 } ti_warn_enum_t;
 
-#include <ti/warn.h>
-#include <ti/proto.h>
+#include <ti/pkg.t.h>
+#include <ti/proto.t.h>
+#include <ti/raw.t.h>
+#include <ti/stream.t.h>
+#include <util/logger.h>
 #include <util/mpack.h>
 #include <stdarg.h>
 
-#define ti_warn(stream__, tp__, fmt__, ...) \
+int ti_warn(
+        ti_stream_t * stream,
+        uint16_t pid,
+        ti_proto_enum_t proto,
+        ti_warn_enum_t warn_code,
+        const void * data,
+        size_t n);
+
+static inline int ti_warn_log_fwd(
+        ti_stream_t * stream,
+        uint16_t pid,
+        const void * data,
+        size_t n)
+{
+    return ti_warn(
+            stream,
+            pid,
+            TI_PROTO_NODE_FWD_WARN,
+            TI_WARN_LOG_MESSAGE,
+            data,
+            n);
+}
+
+static inline int ti_warn_log_client(
+        ti_stream_t * stream,
+        const void * data,
+        size_t n)
+{
+
+    return ti_warn(
+            stream,
+            TI_PROTO_EV_ID,
+            TI_PROTO_CLIENT_WARN,
+            TI_WARN_LOG_MESSAGE,
+            data,
+            n);
+}
+
+#define ti_warn_fmt(stream__, tp__, fmt__, ...) \
 do { \
     ti_pkg_t * pkg; \
     msgpack_packer pk; \

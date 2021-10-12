@@ -598,7 +598,7 @@ static void module__download_finish(uv_work_t * work, int status)
 
     if (data->rtxt || !vec_empty(module->manifest.requirements))
     {
-        assert (module->manifest.is_py);
+        assert (data->manifest.is_py);
         module__py_requirements(work);
         return;
     }
@@ -766,6 +766,14 @@ void ti_module_load(ti_module_t * module)
             .download_cb = ti_mod_github_download,
     };
 
+    if (module->flags & TI_MODULE_FLAG_IN_USE)
+    {
+        log_debug(
+                "module `%s` already loaded (PID %d)",
+                module->name->str, module->proc.process.pid);
+        return;
+    }
+
     /* First check if the module is installed, if not we might need to install
      * the module first.
      */
@@ -804,14 +812,6 @@ void ti_module_load(ti_module_t * module)
     {
         log_debug("skip loading module `%s` (status: %s)",
                 module->name->str, ti_module_status_str(module));
-        return;
-    }
-
-    if (module->flags & TI_MODULE_FLAG_IN_USE)
-    {
-        log_debug(
-                "module `%s` already loaded (PID %d)",
-                module->name->str, module->proc.process.pid);
         return;
     }
 
@@ -1019,32 +1019,43 @@ void ti_module_update_conf(ti_module_t * module)
 
 void ti_module_on_exit(ti_module_t * module)
 {
-    /* first cancel all open futures */
+    /* First cancel all open futures */
     ti_module_cancel_futures(module);
+
+    module->flags &= ~TI_MODULE_FLAG_IN_USE;
 
     if (module->flags & TI_MODULE_FLAG_DESTROY)
     {
+        /* On destroy flag, just drop the module */
         ti_module_drop(module);
         return;
     }
 
-    module->flags &= ~TI_MODULE_FLAG_IN_USE;
-
-    if ((ti.flags & TI_FLAG_SIGNAL) || module->status==TI_MODULE_STAT_STOPPING)
+    if ((ti.flags & TI_FLAG_SIGNAL))
     {
+        /* Catch a signal before restart */
         module->status = TI_MODULE_STAT_NOT_LOADED;
         return;
     }
 
     if (module->flags & TI_MODULE_FLAG_RESTARTING)
     {
+        /* Catch a restart before the stopping status */
         module->restarts = 0;
         module->flags &= ~TI_MODULE_FLAG_RESTARTING;
         goto restart;
     }
 
+    if (module->status == TI_MODULE_STAT_STOPPING)
+    {
+        /* Apparently we just want to stop the module  */
+        module->status = TI_MODULE_STAT_NOT_LOADED;
+        return;
+    }
+
     if (module->status == TI_MODULE_STAT_RUNNING)
     {
+        /* Unexpected exit, maybe we can restart the module */
         if (++module->restarts > MODULE__TOO_MANY_RESTARTS)
         {
             log_error(
@@ -1056,6 +1067,11 @@ void ti_module_on_exit(ti_module_t * module)
         }
         goto restart;
     }
+
+    log_warning("module `%s` got an unexpected status on exit: %s",
+            module->name->str,
+            ti_module_status_str(module));
+    return;
 
 restart:
     module->status = TI_MODULE_STAT_NOT_LOADED;
@@ -1490,7 +1506,9 @@ int ti_module_read_args(
     ti_val_t * load_val = ti_thing_val_weak_by_name(thing, load_name);
 
     if (!deep_val)
-        *deep = module->manifest.deep ? *module->manifest.deep : 1;
+        *deep = module->manifest.deep
+            ? *module->manifest.deep
+            : TI_MODULE_DEFAULT_DEEP;
     else if (ti_module_set_deep(deep_val, deep, e))
         return e->nr;
 
@@ -1498,7 +1516,7 @@ int ti_module_read_args(
             ? ti_val_as_bool(load_val)
             : module->manifest.load
             ? *module->manifest.load
-            : false;
+            : TI_MODULE_DEFAULT_LOAD;
 
     return 0;
 }

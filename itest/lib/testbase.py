@@ -87,3 +87,13 @@ class TestBase(unittest.TestCase):
                 await f(self, *args, **kwargs)
                 client.close()
                 await client.wait_closed()
+
+    async def wait_for_module(self, client, module, timeout=30):
+        while timeout:
+            timeout -= 1
+            status = await client.query(
+                'module_info(module).load().status;',
+                module=module)
+            if status == 'running':
+                break
+            await asyncio.sleep(1)

@@ -315,28 +315,7 @@ static inline ti_procedure_t * do__get_procedure(
         ti_query_t * query,
         cleri_node_t * nd)
 {
-    smap_t * procedures = ti_query_procedures(query);
-    return ti_procedures_by_strn(procedures, nd->str, nd->len);
-}
-
-static int do__get_procedure_e(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    smap_t * procedures = ti_query_procedures(query);
-    ti_procedure_t * procedure = \
-            ti_procedures_by_strn(procedures, nd->str, nd->len);
-
-    if (!procedure)
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "variable `%.*s` is undefined",
-                nd->len, nd->str);
-        return e->nr;
-    }
-
-    query->rval = (ti_val_t *) procedure->closure;
-    ti_incref(query->rval);
-
-    return e->nr;
+    return smap_getn(ti_query_procedures(query), nd->str, nd->len);
 }
 
 /*
@@ -1251,16 +1230,20 @@ static inline int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         register uint8_t flags = query->qbind.flags;
         ti_module_t * module = ti_modules_by_strn(nd->str, nd->len);
 
-        if (!module) return flags & TI_QBIND_FLAG_COLLECTION
-            /* Search for procedures in the collection scope */
-            ? do__get_procedure_e(query, nd, e)
-            : flags & TI_QBIND_FLAG_NODE
-            /* Search for fixed names in the node scope */
-            ? do__fixed_name(query, nd, e)
-            /* Search for procedures and fixed names in the thingsdb scope */
-            : do__get_procedure_e(query, nd, e) && do__fixed_name(query, nd, e)
-            ? e->nr
-            : 0;
+        if (!module)
+        {
+            if (~flags & TI_QBIND_FLAG_NODE)
+            {
+                ti_procedure_t * procedure = do__get_procedure(query, nd);
+                if (procedure)
+                {
+                    query->rval = (ti_val_t *) procedure->closure;
+                    ti_incref(query->rval);
+                    return 0;
+                }
+            }
+            return do__fixed_name(query, nd, e);
+        }
 
         if (module->scope_id && *module->scope_id != ti_query_scope_id(query))
         {

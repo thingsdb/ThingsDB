@@ -8,7 +8,7 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_module_t * module;
     uint8_t deep;
     size_t num_args = nargs;
-    _Bool load = false;
+    _Bool load = TI_MODULE_DEFAULT_LOAD;
 
     if (fn_nargs_min("future", DOC_FUTURE, 1, nargs, e))
         return e->nr;

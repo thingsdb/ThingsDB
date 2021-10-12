@@ -14,14 +14,15 @@
 #include <ti/raw.t.h>
 #include <ti/spec.t.h>
 #include <ti/stream.t.h>
+#include <ti/task.t.h>
 #include <ti/thing.t.h>
 #include <ti/type.t.h>
 #include <ti/val.t.h>
 #include <ti/vp.t.h>
 #include <ti/vup.t.h>
 #include <ti/watch.t.h>
-#include <ti/wprop.t.h>
 #include <ti/witem.t.h>
+#include <ti/wprop.t.h>
 #include <util/mpack.h>
 #include <util/vec.h>
 

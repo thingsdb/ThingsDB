@@ -4,8 +4,8 @@
 #include <assert.h>
 #include <doc.h>
 #include <stdlib.h>
-#include <ti/changes.inline.h>
 #include <ti.h>
+#include <ti/changes.inline.h>
 #include <ti/enums.h>
 #include <ti/field.h>
 #include <ti/item.h>
@@ -17,6 +17,7 @@
 #include <ti/prop.h>
 #include <ti/proto.h>
 #include <ti/raw.inline.h>
+#include <ti/task.h>
 #include <ti/thing.h>
 #include <ti/thing.inline.h>
 #include <ti/types.h>

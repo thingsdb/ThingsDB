@@ -8,6 +8,8 @@ typedef struct ti_module_s ti_module_t;
 typedef void (*ti_module_cb)(void * future);
 
 #define TI_MODULE_MAX_ERR 255
+#define TI_MODULE_DEFAULT_LOAD false
+#define TI_MODULE_DEFAULT_DEEP 1
 
 #include <inttypes.h>
 #include <ti/mod/github.t.h>

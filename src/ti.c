@@ -57,6 +57,7 @@ const char * ti__fn = "ti.mp";
 const char * ti__node_fn = ".node";
 static int shutdown_counter = 6;
 static int wait_for_modules_timeout = 120;
+static int wait_for_modules = 0;
 static uv_timer_t * shutdown_timer = NULL;
 static uv_timer_t * delayed_start_timer = NULL;
 static uv_loop_t loop_;
@@ -463,13 +464,20 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
 
     if (ti.node)
     {
-        /* One time garbage collection is required to prevent restoring things
-         * from GC which are removed on other nodes */
-        ti_collections_gc();
+        if (!wait_for_modules)
+        {
+            /* One time garbage collection is required to prevent restoring
+             * things from GC which are removed on other nodes */
+            ti_collections_gc();
 
-        ti_modules_load();
+            /* Trigger loading the modules */
+            ti_modules_load();
 
-        if (ti.cfg->wait_for_modules &&
+            /* Next state is to wait for the modules to load */
+            wait_for_modules = ti.cfg->wait_for_modules;
+        }
+
+        if (wait_for_modules &&
             wait_for_modules_timeout &&
             !ti_modules_ready())
         {
@@ -478,7 +486,8 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
             if (wait_for_modules_timeout % 10 == 0)
                 log_info(
                     "wait until all modules are ready "
-                    "(timeout in %d seconds)", wait_for_modules_timeout);
+                    "(timeout in approximately %d seconds)",
+                    wait_for_modules_timeout);
             return;
         }
 

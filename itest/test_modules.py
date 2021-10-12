@@ -27,7 +27,6 @@ class TestModules(TestBase):
         num_nodes=2,
         seed=1,
         threshold_full_storage=100,
-        modules_path='../modules/',
         python_interpreter=sys.executable)
     async def run(self):
 
@@ -641,57 +640,34 @@ class TestModules(TestBase):
         ''')
         self.assertEqual(res, 'Got this message back: Hi ThingsDB!')
 
-    async def _OFF_test_requests_module(self, client):
-        await client.query(r'''
-            new_module('REQUESTS', 'go/requests/requests');
-        ''', scope='/t')
+    async def test_requests_module(self, client):
+        await client.query(r"""//ti
+            new_module('requests', 'github.com/thingsdb/module-go-requests');
+        """, scope='/t')
 
-        res = await client.query(r'''
-            future({
-                module: 'REQUESTS',
-                url: 'http://localhost:8080/status'
-            }).then(|resp| [str(resp.body).trim(), resp.status_code]);
-        ''')
+        await self.wait_for_module(client, 'requests')
+
+        res = await client.query(r"""//ti
+            requests.get('http://localhost:8080/status').then(|resp| {
+                resp = resp.load();
+                [str(resp.body).trim(), resp.status_code];
+            });
+        """)
         self.assertEqual(res, ['READY', 200])
 
-    async def _OFF_test_siridb_module(self, client):
-        await client.query(r'''
-            new_module('SIRIDB', 'go/siridb/siridb', {
-                username: 'iris',
-                password: 'siri',
-                database: 'dbtest',
-                servers: [{
-                    host: 'localhost',
-                    port: 9000
-                }]
-            });
-        ''', scope='/t')
+    async def test_demo_py_module(self, client):
+        await client.query(r"""//ti
+             new_module('demo', 'github.com/thingsdb/module-py-demo');
+        """, scope='/t')
 
-        await asyncio.sleep(3)
+        await self.wait_for_module(client, 'demo')
 
-        res = await client.query(r'''
-            future({
-                module: 'SIRIDB',
-                type: 'QUERY',
-                query: 'select * from *'
-            });
-        ''')
-        print(res)
-
-    async def _OFF_test_demo_py_module(self, client):
-        await client.query(r'''
-            new_module('PYDEMO', 'python/demo.py');
-        ''', scope='/t')
-
-        res = await client.query(r'''
-            future({
-                module: 'PYDEMO',
-                message: 'Hi ThingsDB!'
-            }).then(|msg| {
-                `Got this message back: {msg}`
-            });
-        ''')
-        self.assertEqual(res, 'Got this message back: Hi ThingsDB!')
+        res = await client.query(r"""//ti
+            demo.msg("hello!", {
+                uppercase: true
+            }).then(|reply| reply);
+        """)
+        self.assertEqual(res, 'HELLO!')
 
 
 if __name__ == '__main__':

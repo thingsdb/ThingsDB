@@ -47,8 +47,8 @@ int ti_mod_expose_call(
     ti_thing_t * thing;
     ti_name_t * deep_name = (ti_name_t *) ti_val_borrow_deep_name();
     ti_name_t * load_name = (ti_name_t *) ti_val_borrow_load_name();
-    _Bool load = expose->load ? *expose->load : false;
-    uint8_t deep = expose->deep ? *expose->deep : 1;
+    _Bool load = expose->load ? *expose->load : TI_MODULE_DEFAULT_LOAD;
+    uint8_t deep = expose->deep ? *expose->deep : TI_MODULE_DEFAULT_DEEP;
 
     if (ti.futures_count >= TI_MAX_FUTURE_COUNT)
     {
@@ -74,10 +74,11 @@ int ti_mod_expose_call(
         {
             if (item->key->n == 1 && *item->key->data == '*')
             {
-                ti_thing_t * tsrc;
-
                 if (child)
                 {
+                    ti_thing_t * tsrc;
+                    ti_val_t * deep_val, * load_val;
+
                     if (ti_do_statement(query, child->node, e))
                         goto fail1;
 
@@ -85,6 +86,16 @@ int ti_mod_expose_call(
                     {
                     case TI_VAL_THING:
                         tsrc = (ti_thing_t *) query->rval;
+
+                        deep_val = ti_thing_val_weak_by_name(tsrc, deep_name);
+                        load_val = ti_thing_val_weak_by_name(tsrc, load_name);
+
+                        if (deep_val && ti_module_set_deep(deep_val, &deep, e))
+                            goto fail1;
+
+                        if (load_val)
+                            load = ti_val_as_bool(load_val);
+
                         if (ti_thing_assign(thing, tsrc, NULL, e))
                             goto fail1;
                         break;
@@ -100,6 +111,7 @@ int ti_mod_expose_call(
                     }
 
                     child = child->next ? child->next->next : NULL;
+
                     ti_val_unsafe_drop(query->rval);
                     query->rval = NULL;
                 }

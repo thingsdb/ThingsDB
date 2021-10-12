@@ -672,7 +672,7 @@ static int manifest__json_string(
          * Do not allow reserved keys, except for `*` since it allows for a
          * place to capture a thing.
          */
-        if (strti_is_reserved_key_strn(str, n) && (*str != '*'))
+        if (ti_is_reserved_key_strn(str, n) && (*str != '*'))
             return manifest__set_err(ctx,
                     "argmap value `%c` in "TI_MANIFEST" is reserved"
                     DOC_PROPERTIES,

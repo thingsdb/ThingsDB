@@ -72,16 +72,18 @@ static ti_val_t * val__swthing;
 static ti_val_t * val__tar_gz_str;
 static ti_val_t * val__gs_str;
 static ti_val_t * val__charset_str;
-static ti_val_t * val__year_name;
-static ti_val_t * val__month_name;
-static ti_val_t * val__day_name;
-static ti_val_t * val__hour_name;
-static ti_val_t * val__minute_name;
-static ti_val_t * val__second_name;
-static ti_val_t * val__gmt_offset_name;
-static ti_val_t * val__module_name;
-static ti_val_t * val__deep_name;
-static ti_val_t * val__load_name;
+
+ti_val_t * val__year_name;
+ti_val_t * val__month_name;
+ti_val_t * val__day_name;
+ti_val_t * val__hour_name;
+ti_val_t * val__minute_name;
+ti_val_t * val__second_name;
+ti_val_t * val__gmt_offset_name;
+ti_val_t * val__module_name;
+ti_val_t * val__deep_name;
+ti_val_t * val__load_name;
+ti_val_t * val__beautify_name;
 
 #define VAL__BUF_SZ 128
 static char val__buf[VAL__BUF_SZ];
@@ -673,6 +675,7 @@ int ti_val_init_common(void)
     val__module_name = (ti_val_t *) ti_names_from_str("module");
     val__deep_name = (ti_val_t *) ti_names_from_str("deep");
     val__load_name = (ti_val_t *) ti_names_from_str("load");
+    val__beautify_name = (ti_val_t *) ti_names_from_str("beautify");
 
     if (!val__empty_bin || !val__empty_str || !val__snil || !val__strue ||
         !val__sfalse || !val__sbool || !val__sdatetime || !val__stimeval ||
@@ -680,11 +683,12 @@ int ti_val_init_common(void)
         !val__smpdata || !val__sregex || !val__serror || !val__sclosure ||
         !val__slist || !val__stuple || !val__sset || !val__sthing ||
         !val__swthing || !val__tar_gz_str || !val__sany || !val__gs_str ||
-        !val__charset_str || !val__year_name || !val__month_name ||
+        !val__charset_str || !val__default_re || !val__default_closure ||
+        !val__sroom || !val__year_name || !val__month_name ||
         !val__day_name || !val__hour_name || !val__minute_name ||
         !val__second_name || !val__gmt_offset_name || !val__sfuture ||
         !val__module_name || !val__deep_name || !val__load_name ||
-        !val__default_re || !val__default_closure || !val__sroom)
+        !val__beautify_name)
     {
         return -1;
     }
@@ -865,63 +869,6 @@ ti_val_t * ti_val_wrapped_thing_str(void)
 {
     ti_incref(val__swthing);
     return val__swthing;
-}
-
-ti_val_t * ti_val_year_name(void)
-{
-    ti_incref(val__year_name);
-    return val__year_name;
-}
-
-ti_val_t * ti_val_month_name(void)
-{
-    ti_incref(val__month_name);
-    return val__month_name;
-}
-
-ti_val_t * ti_val_day_name(void)
-{
-    ti_incref(val__day_name);
-    return val__day_name;
-}
-
-ti_val_t * ti_val_hour_name(void)
-{
-    ti_incref(val__hour_name);
-    return val__hour_name;
-}
-
-ti_val_t * ti_val_minute_name(void)
-{
-    ti_incref(val__minute_name);
-    return val__minute_name;
-}
-
-ti_val_t * ti_val_second_name(void)
-{
-    ti_incref(val__second_name);
-    return val__second_name;
-}
-
-ti_val_t * ti_val_gmt_offset_name(void)
-{
-    ti_incref(val__gmt_offset_name);
-    return val__gmt_offset_name;
-}
-
-ti_val_t * ti_val_borrow_module_name(void)
-{
-    return val__module_name;
-}
-
-ti_val_t * ti_val_borrow_deep_name(void)
-{
-    return val__deep_name;
-}
-
-ti_val_t * ti_val_borrow_load_name(void)
-{
-    return val__load_name;
 }
 
 /*
@@ -1702,7 +1649,7 @@ int ti_val_to_pk(ti_val_t * val, ti_vp_t * vp, int options)
     return -1;
 }
 
-void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz)
+size_t ti_val_alloc_size(ti_val_t * val)
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -1711,42 +1658,34 @@ void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz)
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
     case TI_VAL_ROOM:
-        *sz = 32;
-        return;
+        return 64;
     case TI_VAL_DATETIME:
-        *sz = 64;
-        return;
+        return 128;
     case TI_VAL_MPDATA:
     case TI_VAL_NAME:
     case TI_VAL_STR:
     case TI_VAL_BYTES:
-        *sz = ((ti_raw_t *) val)->n + 32;
-        return;
+        return ((ti_raw_t *) val)->n + 32;
     case TI_VAL_REGEX:
-        *sz = ((ti_regex_t *) val)->pattern->n + 32;
-        return;
+        return ((ti_regex_t *) val)->pattern->n + 32;
     case TI_VAL_THING:
     case TI_VAL_WRAP:
     case TI_VAL_ARR:
     case TI_VAL_SET:
-        *sz = 65536;
-        return;
+        return 65536;
     case TI_VAL_CLOSURE:
-        *sz = 8192;
-        return;
+        return 4096;
     case TI_VAL_ERROR:
-        *sz = ((ti_verror_t *) val)->msg_n + 96;
-        return;
+        return ((ti_verror_t *) val)->msg_n + 128;
     case TI_VAL_MEMBER:
-        ti_val_may_change_pack_sz(VMEMBER(val), sz);
-        return;
+        return ti_val_alloc_size(VMEMBER(val));
     case TI_VAL_FUTURE:
-        if (VFUT(val))
-            ti_val_may_change_pack_sz(VFUT(val), sz);
-        return;
+        return VFUT(val) ? ti_val_alloc_size(VFUT(val)) : 64;
     case TI_VAL_TEMPLATE:
         assert (0);
     }
+    assert (0);
+    return 0;
 }
 
 const char * ti_val_str(ti_val_t * val)

@@ -223,6 +223,101 @@ static inline _Bool ti_val_is_mut_locked(ti_val_t * val)
 }
 
 /*
+ * Names
+ */
+static inline ti_val_t * ti_val_year_name(void)
+{
+    ti_incref(val__year_name);
+    return val__year_name;
+}
+
+static inline ti_val_t * ti_val_month_name(void)
+{
+    ti_incref(val__month_name);
+    return val__month_name;
+}
+
+static inline ti_val_t * ti_val_day_name(void)
+{
+    ti_incref(val__day_name);
+    return val__day_name;
+}
+
+static inline ti_val_t * ti_val_hour_name(void)
+{
+    ti_incref(val__hour_name);
+    return val__hour_name;
+}
+
+static inline ti_val_t * ti_val_minute_name(void)
+{
+    ti_incref(val__minute_name);
+    return val__minute_name;
+}
+
+static inline ti_val_t * ti_val_second_name(void)
+{
+    ti_incref(val__second_name);
+    return val__second_name;
+}
+
+static inline ti_val_t * ti_val_gmt_offset_name(void)
+{
+    ti_incref(val__gmt_offset_name);
+    return val__gmt_offset_name;
+}
+
+static inline ti_val_t * ti_val_borrow_year_name(void)
+{
+    return val__year_name;
+}
+
+static inline ti_val_t * ti_val_borrow_month_name(void)
+{
+    return val__month_name;
+}
+
+static inline ti_val_t * ti_val_borrow_day_name(void)
+{
+    return val__day_name;
+}
+
+static inline ti_val_t * ti_val_borrow_hour_name(void)
+{
+    return val__hour_name;
+}
+
+static inline ti_val_t * ti_val_borrow_minute_name(void)
+{
+    return val__minute_name;
+}
+
+static inline ti_val_t * ti_val_borrow_second_name(void)
+{
+    return val__second_name;
+}
+
+static inline ti_val_t * ti_val_borrow_module_name(void)
+{
+    return val__module_name;
+}
+
+static inline ti_val_t * ti_val_borrow_deep_name(void)
+{
+    return val__deep_name;
+}
+
+static inline ti_val_t * ti_val_borrow_load_name(void)
+{
+    return val__load_name;
+}
+
+static inline ti_val_t * ti_val_borrow_beautify_name(void)
+{
+    return val__beautify_name;
+}
+
+/*
  * Return 0 when a new lock is set, or -1 if failed and `e` is set.
  *
  * Use `ti_val_try_lock(..)` if you require a lock but no current lock

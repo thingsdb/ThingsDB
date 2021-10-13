@@ -213,6 +213,9 @@ static inline void ti_thing_may_push_gc(ti_thing_t * thing)
     }
 }
 
+/*
+ * Does not increment the `name` and `val` reference counters.
+ */
 static inline int ti_thing_o_set(
         ti_thing_t * thing,
         ti_raw_t * key,

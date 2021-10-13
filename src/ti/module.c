@@ -1465,34 +1465,6 @@ int ti_module_write(ti_module_t * module, const void * data, size_t n)
     return 0;
 }
 
-int ti_module_set_deep(ti_val_t * deep_val, uint8_t * deep, ex_t * e)
-{
-    int64_t deepi;
-
-    if (!ti_val_is_int(deep_val))
-    {
-        ex_set(e, EX_TYPE_ERROR,
-                "expecting `deep` to be of type `"TI_VAL_INT_S"` "
-                "but got type `%s` instead"DOC_FUTURE,
-                ti_val_str(deep_val));
-        return e->nr;
-    }
-
-    deepi = VINT(deep_val);
-
-    if (deepi < 0 || deepi > TI_MAX_DEEP_HINT)
-    {
-        ex_set(e, EX_VALUE_ERROR,
-                "expecting a `deep` value between 0 and %d "
-                "but got %"PRId64" instead",
-                TI_MAX_DEEP_HINT, deepi);
-        return e->nr;
-    }
-
-    *deep = (uint8_t) deepi;
-    return 0;
-}
-
 int ti_module_read_args(
         ti_module_t * module,
         ti_thing_t * thing,
@@ -1509,7 +1481,7 @@ int ti_module_read_args(
         *deep = module->manifest.deep
             ? *module->manifest.deep
             : TI_MODULE_DEFAULT_DEEP;
-    else if (ti_module_set_deep(deep_val, deep, e))
+    else if (ti_deep_from_val(deep_val, deep, e))
         return e->nr;
 
     *load = load_val

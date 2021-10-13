@@ -576,10 +576,11 @@ ti_item_t * ti_thing_i_item_set(
             key->data, key->n);
     if (item)
     {
-        ti_val_unsafe_drop((ti_val_t *) item->key);
+        /*
+         * The key is equal, so we do not have to anything with the key.
+         */
         ti_val_unsafe_gc_drop(item->val);
         item->val = val;
-        item->key = key;
         return item;
     }
 
@@ -1741,4 +1742,47 @@ fail:
         vec_destroy(vec, (vec_destroy_cb) ti_val_unsafe_drop);
     }
     return e->nr;
+}
+
+typedef struct
+{
+    void * data;
+    ti_thing_item_cb cb;
+} thing__walk_i_t;
+
+static int thing__walk_i(ti_item_t * item, thing__walk_i_t * w)
+{
+    return w->cb(item->key, item->val, w->data);
+}
+
+int ti_thing_walk(ti_thing_t * thing, ti_thing_item_cb cb, void * data)
+{
+    int rc;
+    if (ti_thing_is_object(thing))
+    {
+        if (ti_thing_is_dict(thing))
+        {
+            thing__walk_i_t w = {
+                    .data = data,
+                    .cb = cb,
+            };
+            return smap_values(
+                    thing->items.smap,
+                    (smap_val_cb) thing__walk_i,
+                    &w);
+        }
+        for (vec_each(thing->items.vec, ti_prop_t, p))
+            if ((rc = cb((ti_raw_t *) p->name, p->val, data)))
+                return rc;
+        return 0;
+    }
+    else
+    {
+        ti_name_t * name;
+        ti_val_t * val;
+        for (thing_t_each(thing, name, val))
+            if ((rc = cb((ti_raw_t *) name, val, data)))
+                return rc;
+        return 0;
+    }
 }

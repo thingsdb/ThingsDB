@@ -190,6 +190,18 @@ class TestFuture(TestBase):
 
         self.assertEqual(res, {'messages': 3})
 
+    async def test_simple_closure(self, client):
+        res = await client.query(r'''
+            future(|| 'OK');
+        ''')
+        self.assertEqual(res, 'OK')
+
+    async def test_nest_future(self, client):
+        res = res = await client.query(r"""//ti
+            future(|| future(|| future(|| 'OK')));
+        """)
+        self.assertEqual(res, 'OK')
+
 
 if __name__ == '__main__':
     run_test(TestFuture())

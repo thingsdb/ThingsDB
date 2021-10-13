@@ -18,6 +18,7 @@
 #include <ti/collections.h>
 #include <ti/condition.h>
 #include <ti/datetime.h>
+#include <ti/deep.h>
 #include <ti/do.h>
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
@@ -31,6 +32,9 @@
 #include <ti/member.h>
 #include <ti/member.inline.h>
 #include <ti/method.h>
+#include <ti/mod/expose.h>
+#include <ti/mod/expose.t.h>
+#include <ti/mod/github.h>
 #include <ti/module.h>
 #include <ti/module.t.h>
 #include <ti/modules.h>
@@ -69,6 +73,7 @@
 #include <util/buf.h>
 #include <util/cryptx.h>
 #include <util/fx.h>
+#include <util/mpjson.h>
 #include <util/rbuf.h>
 #include <util/strx.h>
 #include <util/util.h>
@@ -556,6 +561,27 @@ no_method_err:
     return e->nr;
 }
 
+static int fn_call_f_try_n(
+        const char * name,
+        size_t n,
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    ti_future_t * future = (ti_future_t *) query->rval;
+    ti_module_t * module = future->module;
+    ti_mod_expose_t * expose = ti_mod_expose_by_strn(module, name, n);
+
+    if (expose)
+        return ti_mod_expose_call(expose, query, nd, e);
+
+    ex_set(e, EX_LOOKUP_ERROR,
+            "module `%s` has no function `%.*s`",
+            module->name->str, n, name);
+    return e->nr;
+}
+
+
 #define fn_call_try(__name, __q, __nd, __e) \
     fn_call_try_n(__name, strlen(__name), __q, __nd, __e)
 
@@ -573,6 +599,9 @@ static int fn_call_try_n(
 
     if (ti_val_is_wrap(query->rval))
         return fn_call_w_try_n(name, n, query, nd, e);
+
+    if (ti_val_is_future(query->rval))
+        return fn_call_f_try_n(name, n, query, nd, e);
 
     ex_set(e, EX_LOOKUP_ERROR,
             "type `%s` has no function `%.*s`",

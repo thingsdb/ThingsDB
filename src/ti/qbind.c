@@ -113,11 +113,14 @@
 #include <ti/fn/fnisunique.h>
 #include <ti/fn/fnisutf8.h>
 #include <ti/fn/fnjoin.h>
+#include <ti/fn/fnjsondump.h>
+#include <ti/fn/fnjsonload.h>
 #include <ti/fn/fnkeys.h>
 #include <ti/fn/fnlast.h>
 #include <ti/fn/fnlen.h>
 #include <ti/fn/fnlist.h>
 #include <ti/fn/fnload.h>
+#include <ti/fn/fnlog.h>
 #include <ti/fn/fnlower.h>
 #include <ti/fn/fnmap.h>
 #include <ti/fn/fnmodenum.h>
@@ -151,6 +154,7 @@
 #include <ti/fn/fnrandstr.h>
 #include <ti/fn/fnrange.h>
 #include <ti/fn/fnreduce.h>
+#include <ti/fn/fnrefreshmodule.h>
 #include <ti/fn/fnrefs.h>
 #include <ti/fn/fnregex.h>
 #include <ti/fn/fnremove.h>
@@ -248,11 +252,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 223,
+    TOTAL_KEYWORDS = 227,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 7,
-    MAX_HASH_VALUE = 525
+    MIN_HASH_VALUE = 8,
+    MAX_HASH_VALUE = 521
 };
 
 /*
@@ -264,32 +268,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
-        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
-        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
-        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
-        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
-        526, 526,   1, 526,   1, 526,   1, 526, 526, 526,
-        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
-        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
-        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
-        526, 526, 526, 526, 526,   0, 526,   1,  44,  50,
-         18,   0,  64, 219, 159,   0,   1, 105,  14,  36,
-         17,  39, 109,  19,   2,   0,   6,  40, 206, 132,
-        215,  38,   0, 526, 526, 526, 526, 526, 526, 526,
-        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
-        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
-        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
-        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
-        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
-        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
-        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
-        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
-        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
-        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
-        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
-        526, 526, 526, 526, 526, 526, 526, 526, 526, 526,
-        526, 526, 526, 526, 526, 526
+        522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
+        522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
+        522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
+        522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
+        522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
+        522, 522,   1, 522,   1, 522,   1, 522, 522, 522,
+        522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
+        522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
+        522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
+        522, 522, 522, 522, 522,   1, 522,   5,  30,  91,
+         14,   1,  67, 188, 125,   1,   4,  51,   9,  35,
+         18,  30,  69,  45,   2,   1,   7,  30, 171, 193,
+         77, 188,  25, 522, 522, 522, 522, 522, 522, 522,
+        522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
+        522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
+        522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
+        522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
+        522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
+        522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
+        522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
+        522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
+        522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
+        522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
+        522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
+        522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
+        522, 522, 522, 522, 522, 522
     };
 
     register unsigned int hval = n;
@@ -532,11 +536,14 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="is_unique",         .fn=do__f_is_unique,            CHAIN_NE},
     {.name="is_utf8",           .fn=do__f_is_utf8,              ROOT_NE},
     {.name="join",              .fn=do__f_join,                 CHAIN_NE},
+    {.name="json_dump",         .fn=do__f_json_dump,            ROOT_NE},
+    {.name="json_load",         .fn=do__f_json_load,            ROOT_NE},
     {.name="keys",              .fn=do__f_keys,                 CHAIN_NE},
     {.name="last",              .fn=do__f_last,                 XCHAIN_NE},
     {.name="len",               .fn=do__f_len,                  CHAIN_NE},
     {.name="list",              .fn=do__f_list,                 ROOT_NE},
     {.name="load",              .fn=do__f_load,                 CHAIN_NE},
+    {.name="log",               .fn=do__f_log,                  ROOT_NE},
     {.name="lookup_err",        .fn=do__f_lookup_err,           ROOT_NE},
     {.name="lower",             .fn=do__f_lower,                CHAIN_NE},
     {.name="map",               .fn=do__f_map,                  CHAIN_NE},
@@ -576,6 +583,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="randstr",           .fn=do__f_randstr,              ROOT_NE},
     {.name="range",             .fn=do__f_range,                ROOT_NE},
     {.name="reduce",            .fn=do__f_reduce,               XCHAIN_NE},
+    {.name="refresh_module",    .fn=do__f_refresh_module,       ROOT_TE},
     {.name="refs",              .fn=do__f_refs,                 ROOT_NE},
     {.name="regex",             .fn=do__f_regex,                ROOT_NE},
     {.name="remove",            .fn=do__f_remove,               CHAIN_CE_XVAR},

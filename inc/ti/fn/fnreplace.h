@@ -552,6 +552,11 @@ fail0:
     return e->nr;
 }
 
+typedef struct
+{
+    struct tm * tm;
+    ex_t * e;
+} replace__walk_t;
 
 /*
  * replaces the same values as exported by `as_thing()`, except for gmt_offset:
@@ -563,173 +568,165 @@ fail0:
  *      - second
  */
 static int do__replace_value(
-        struct tm * tm,
         ti_raw_t * key,
         ti_val_t * val,
-        ex_t * e)
+        replace__walk_t * w)
 {
     int64_t i;
+    ex_t * e = w->e;
+    struct tm * tm = w->tm;
 
-    switch(key->n)
+    if (key == (ti_raw_t *) ti_val_borrow_second_name())
     {
-    case 3:
-        if (memcmp(key->data, "day", 3) == 0)
+        if (!ti_val_is_int(val))
         {
-            if (!ti_val_is_int(val))
-            {
-                ex_set(e, EX_TYPE_ERROR,
-                        "day must be of type `"TI_VAL_INT_S"` but "
-                        "got type `%s` instead"DOC_DATETIME_REPLACE,
-                        ti_val_str(val));
-                return e->nr;
-            }
-
-            i = VINT(val);
-            if (i < 1 || i > 31)
-            {
-                ex_set(e, EX_VALUE_ERROR,
-                        "day %"PRId64" is out of range [1..31]"
-                        DOC_DATETIME_REPLACE,
-                        i);
-                return e->nr;
-            }
-            tm->tm_mday = (int) i;
+            ex_set(e, EX_TYPE_ERROR,
+                    "second must be of type `"TI_VAL_INT_S"` but "
+                    "got type `%s` instead"DOC_DATETIME_REPLACE,
+                    ti_val_str(val));
+            return e->nr;
         }
-        return 0;
-    case 4:
-        if (memcmp(key->data, "hour", 4) == 0)
+
+        i = VINT(val);
+        if (i < 0 || i > 59)
         {
-            if (!ti_val_is_int(val))
-            {
-                ex_set(e, EX_TYPE_ERROR,
-                        "hour must be of type `"TI_VAL_INT_S"` but "
-                        "got type `%s` instead"DOC_DATETIME_REPLACE,
-                        ti_val_str(val));
-                return e->nr;
-            }
-
-            i = VINT(val);
-            if (i < 0 || i > 23)
-            {
-                ex_set(e, EX_VALUE_ERROR,
-                        "hour %"PRId64" is out of range [0..23]"
-                        DOC_DATETIME_REPLACE,
-                        i);
-                return e->nr;
-            }
-            tm->tm_hour = (int) i;
-            return 0;
+            ex_set(e, EX_VALUE_ERROR,
+                    "second %"PRId64" is out of range [0..59]"
+                    DOC_DATETIME_REPLACE,
+                    i);
+            return e->nr;
         }
-        if (memcmp(key->data, "year", 4) == 0)
-        {
-            if (!ti_val_is_int(val))
-            {
-                ex_set(e, EX_TYPE_ERROR,
-                        "year must be of type `"TI_VAL_INT_S"` but "
-                        "got type `%s` instead"DOC_DATETIME_REPLACE,
-                        ti_val_str(val));
-                return e->nr;
-            }
 
-            i = VINT(val);
-            if (i < 1 || i > 9999)
-            {
-                ex_set(e, EX_VALUE_ERROR,
-                        "year %"PRId64" is out of range [1..9999]"
-                        DOC_DATETIME_REPLACE,
-                        i);
-                return e->nr;
-            }
-            tm->tm_year = (int) i - 1900;  /* tm_year = years since 1900 */
-        }
-        return 0;
-    case 5:
-        if (memcmp(key->data, "month", 5) == 0)
-        {
-            if (!ti_val_is_int(val))
-            {
-                ex_set(e, EX_TYPE_ERROR,
-                        "month must be of type `"TI_VAL_INT_S"` but "
-                        "got type `%s` instead"DOC_DATETIME_REPLACE,
-                        ti_val_str(val));
-                return e->nr;
-            }
-
-            i = VINT(val);
-            if (i < 1 || i > 12)
-            {
-                ex_set(e, EX_VALUE_ERROR,
-                        "month %"PRId64" is out of range [1..12]"
-                        DOC_DATETIME_REPLACE,
-                        i);
-                return e->nr;
-            }
-
-            tm->tm_mon = (int) i - 1;  /* tm_mon = months since January */
-        }
-        return 0;
-    case 6:
-        if (memcmp(key->data, "second", 6) == 0)
-        {
-            if (!ti_val_is_int(val))
-            {
-                ex_set(e, EX_TYPE_ERROR,
-                        "second must be of type `"TI_VAL_INT_S"` but "
-                        "got type `%s` instead"DOC_DATETIME_REPLACE,
-                        ti_val_str(val));
-                return e->nr;
-            }
-
-            i = VINT(val);
-            if (i < 0 || i > 59)
-            {
-                ex_set(e, EX_VALUE_ERROR,
-                        "second %"PRId64" is out of range [0..59]"
-                        DOC_DATETIME_REPLACE,
-                        i);
-                return e->nr;
-            }
-
-            tm->tm_sec = (int) i;
-            return 0;
-        }
-        if (memcmp(key->data, "minute", 6) == 0)
-        {
-            if (!ti_val_is_int(val))
-            {
-                ex_set(e, EX_TYPE_ERROR,
-                        "minute must be of type `"TI_VAL_INT_S"` but "
-                        "got type `%s` instead"DOC_DATETIME_REPLACE,
-                        ti_val_str(val));
-                return e->nr;
-            }
-
-            i = VINT(val);
-            if (i < 0 || i > 59)
-            {
-                ex_set(e, EX_VALUE_ERROR,
-                        "minute %"PRId64" is out of range [0..59]"
-                        DOC_DATETIME_REPLACE,
-                        i);
-                return e->nr;
-            }
-
-            tm->tm_min = (int) i;
-        }
+        tm->tm_sec = (int) i;
         return 0;
     }
+
+    if (key == (ti_raw_t *) ti_val_borrow_minute_name())
+    {
+        if (!ti_val_is_int(val))
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                    "minute must be of type `"TI_VAL_INT_S"` but "
+                    "got type `%s` instead"DOC_DATETIME_REPLACE,
+                    ti_val_str(val));
+            return e->nr;
+        }
+
+        i = VINT(val);
+        if (i < 0 || i > 59)
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "minute %"PRId64" is out of range [0..59]"
+                    DOC_DATETIME_REPLACE,
+                    i);
+            return e->nr;
+        }
+
+        tm->tm_min = (int) i;
+        return 0;
+    }
+
+    if (key == (ti_raw_t *) ti_val_borrow_hour_name())
+    {
+        if (!ti_val_is_int(val))
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                    "hour must be of type `"TI_VAL_INT_S"` but "
+                    "got type `%s` instead"DOC_DATETIME_REPLACE,
+                    ti_val_str(val));
+            return e->nr;
+        }
+
+        i = VINT(val);
+        if (i < 0 || i > 23)
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "hour %"PRId64" is out of range [0..23]"
+                    DOC_DATETIME_REPLACE,
+                    i);
+            return e->nr;
+        }
+        tm->tm_hour = (int) i;
+        return 0;
+    }
+
+    if (key == (ti_raw_t *) ti_val_borrow_day_name())
+    {
+        if (!ti_val_is_int(val))
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                    "day must be of type `"TI_VAL_INT_S"` but "
+                    "got type `%s` instead"DOC_DATETIME_REPLACE,
+                    ti_val_str(val));
+            return e->nr;
+        }
+
+        i = VINT(val);
+        if (i < 1 || i > 31)
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "day %"PRId64" is out of range [1..31]"
+                    DOC_DATETIME_REPLACE,
+                    i);
+            return e->nr;
+        }
+        tm->tm_mday = (int) i;
+        return 0;
+    }
+
+    if (key == (ti_raw_t *) ti_val_borrow_month_name())
+    {
+        if (!ti_val_is_int(val))
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                    "month must be of type `"TI_VAL_INT_S"` but "
+                    "got type `%s` instead"DOC_DATETIME_REPLACE,
+                    ti_val_str(val));
+            return e->nr;
+        }
+
+        i = VINT(val);
+        if (i < 1 || i > 12)
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "month %"PRId64" is out of range [1..12]"
+                    DOC_DATETIME_REPLACE,
+                    i);
+            return e->nr;
+        }
+
+        tm->tm_mon = (int) i - 1;  /* tm_mon = months since January */
+        return 0;
+    }
+
+    if (key == (ti_raw_t *) ti_val_borrow_year_name())
+    {
+        if (!ti_val_is_int(val))
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                    "year must be of type `"TI_VAL_INT_S"` but "
+                    "got type `%s` instead"DOC_DATETIME_REPLACE,
+                    ti_val_str(val));
+            return e->nr;
+        }
+
+        i = VINT(val);
+        if (i < 1 || i > 9999)
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "year %"PRId64" is out of range [1..9999]"
+                    DOC_DATETIME_REPLACE,
+                    i);
+            return e->nr;
+        }
+        tm->tm_year = (int) i - 1900;  /* tm_year = years since 1900 */
+        return 0;
+    }
+
+    /*
+     * Ignore keys with no match.
+     */
     return 0;
-}
-
-typedef struct
-{
-    struct tm * tm;
-    ex_t * e;
-} replace__walk_i_t;
-
-static int replace__walk_i(ti_item_t * item, replace__walk_i_t * w)
-{
-    return do__replace_value(w->tm, item->key, item->val, w->e);
 }
 
 static int do__replace_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
@@ -763,35 +760,13 @@ static int do__replace_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     thing = (ti_thing_t *) query->rval;
 
-    if (ti_thing_is_object(thing))
-    {
-        if (ti_thing_is_dict(thing))
-        {
-            replace__walk_i_t w = {
-                    .e = e,
-                    .tm = &tm,
-            };
-            if (smap_values(
-                    thing->items.smap,
-                    (smap_val_cb) replace__walk_i,
-                    &w))
-                return e->nr;
-        }
-        else
-        {
-            for (vec_each(thing->items.vec, ti_prop_t, p))
-                if (do__replace_value(&tm, (ti_raw_t *) p->name, p->val, e))
-                    return e->nr;
-        }
-    }
-    else
-    {
-        ti_name_t * name;
-        ti_val_t * val;
-        for (thing_t_each(thing, name, val))
-            if (do__replace_value(&tm, (ti_raw_t *) name, val, e))
-                return e->nr;
-    }
+    replace__walk_t w = {
+            .tm = &tm,
+            .e = e,
+    };
+
+    if (ti_thing_walk(thing, (ti_thing_item_cb) do__replace_value, &w))
+        return e->nr;
 
     ti_val_unsafe_drop((ti_val_t *) thing);
     query->rval = (ti_val_t *) ti_datetime_from_tm_tz(&tm, tz, e);

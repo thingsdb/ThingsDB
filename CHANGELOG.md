@@ -1,3 +1,14 @@
+# v1.0.2
+
+* Callable modules, issue #213.
+* Install modules using a GitHub repository and `module.json`, pr #216.
+* Added `refresh_module()` function, issue #217.
+* Added `log` function, pr #218.
+* Fixed bug with nested futures, issue #219.
+* Added basic JSON support, issue #220.
+  - `json_dump()`: https://docs.thingsdb.net/v1/collection-api/json_dump/
+  - `json_load()`: https://docs.thingsdb.net/v1/collection-api/json_load/
+  
 # v1.0.1
 
 * Use data from buffer to solve re-allocation pointer bug, issue #214.

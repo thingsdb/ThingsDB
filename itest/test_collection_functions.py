@@ -1357,8 +1357,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'function `equals` expects argument 2 to be of '
-                r'type `int` but got type `float` instead;'):
+                r'expecting `deep` to be of type `int` but got '
+                r'type `float` instead'):
             await client.query('{}.equals(nil, 0.5);')
 
         with self.assertRaisesRegex(
@@ -4217,8 +4217,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'function `copy` expects argument 1 to be of '
-                r'type `int` but got type `float` instead;'):
+                r'expecting `deep` to be of type `int` but got '
+                r'type `float` instead'):
             await client.query('{}.copy(0.5);')
 
         with self.assertRaisesRegex(
@@ -4287,8 +4287,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'function `dup` expects argument 1 to be of '
-                r'type `int` but got type `float` instead;'):
+                r'expecting `deep` to be of type `int` but got '
+                r'type `float` instead'):
             await client.query('{}.dup(0.5);')
 
         with self.assertRaisesRegex(
@@ -4487,6 +4487,180 @@ class TestCollectionFunctions(TestBase):
                 x = {name: 'foo'};
                 x.to_type('W');
             """)
+
+    async def test_json_dump(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `json_dump` requires at least 1 argument '
+                'but 0 were given'):
+            await client.query('json_dump();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `json_dump` takes at most 2 arguments '
+                'but 3 were given'):
+            await client.query('json_dump(true, {}, 1);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'expecting `deep` to be of type `int` but '
+                'got type `str` instead'):
+            await client.query('json_dump({}, {deep: "5"});')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `json_dump` expects argument 2 to be of '
+                'type `thing` but got type `nil` instead;'):
+            await client.query('json_dump({}, nil);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'invalid option `unknown` for function `json_dump`'):
+            await client.query('json_dump(nil, {unknown: nil});')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'expecting a `deep` value between 0 and 127 but '
+                'got 300 instead'):
+            await client.query('json_dump(nil, {deep: 300});')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'type `bytes` is not JSON serializable'):
+            await client.query('json_dump({name: bytes("iris")});')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                'JSON max depth exceeded'):
+            await client.query('''
+                json_dump(
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+            );
+            ''')
+
+        self.assertEqual(await client.query('json_dump({});'), "{}")
+        self.assertEqual(await client.query('json_dump(nil);'), "null")
+        self.assertEqual(await client.query('json_dump([]);'), "[]")
+        self.assertEqual(await client.query('json_dump(3.0);'), "3.0")
+        self.assertEqual(await client.query('json_dump(42);'), "42")
+        self.assertEqual(await client.query('json_dump(true);'), "true")
+        self.assertEqual(await client.query('json_dump(false);'), "false")
+
+        res = await client.query("""//ti
+            x = {
+                item: {
+                    color: 'RED'
+                }
+            };
+            json_dump(x);
+        """)
+        self.assertEqual(res, "{\"item\":{}}")
+
+        res = await client.query("""//ti
+            x = {
+                item: {
+                    color: 'RED'
+                }
+            };
+            json_dump(x, {deep: 2});
+        """)
+        self.assertEqual(res, "{\"item\":{\"color\":\"RED\"}}")
+
+        res = await client.query("""//ti
+            x = {
+                item: {
+                    color: 'RED'
+                }
+            };
+            json_dump(x, {beautify: true});
+        """)
+        self.assertEqual(res, "{\n    \"item\": {\n\n    }\n}\n")
+
+    async def test_json_load(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `json_load` takes 1 argument '
+                'but 0 were given'):
+            await client.query('json_load();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'expecting `deep` to be of type `int` but '
+                'got type `str` instead'):
+            await client.query('json_dump({}, {deep: "5"});')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `json_load` expects argument 1 to be of '
+                'type `str` but got type `bytes` instead;'):
+            await client.query('json_load(bytes("HELLO"));')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                'JSON max depth exceeded'):
+            await client.query('''
+                json_load("
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+            ");
+            ''')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                'JSON max depth exceeded'):
+            await client.query('''
+                json_load('
+                    {"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":
+                    {"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":
+                    {"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":
+                    {"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":
+                    {"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":
+                    {"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":
+                    {"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":
+                    {"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":
+                    {"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":
+                    {"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":
+                    {"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":
+                    {"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":
+                    {"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":
+                    {"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":
+                    {"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{"x":{}
+
+                    }}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}
+                    }}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}
+                    }}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}
+            ');
+            ''')
+
+        self.assertIs(await client.query('json_load("");'), None)
+        self.assertEqual(await client.query('json_load("{}");'), {})
+
+    async def test_log(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `log` takes 1 argument '
+                'but 0 were given'):
+            await client.query('log();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'cannot convert type `thing` to `str`'):
+            await client.query('log({});')
+
+        self.assertIs(await client.query('log(nil);'), None)
+        self.assertIs(await client.query('log(123);'), None)
+        self.assertIs(await client.query('log("");'), None)
 
 
 if __name__ == '__main__':

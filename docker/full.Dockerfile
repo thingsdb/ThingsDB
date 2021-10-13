@@ -6,7 +6,8 @@ RUN apt-get update && apt-get install -y \
     git \
     libuv1-dev \
     libpcre2-dev \
-    libyajl-dev && \
+    libyajl-dev \
+    libcurl4-nss-dev && \
     git clone https://github.com/transceptor-technology/libcleri.git /tmp/libcleri && \
     cd /tmp/libcleri/Release && \
     make all && \
@@ -21,7 +22,8 @@ RUN mkdir -p /var/lib/thingsdb && \
     apt-get update && apt-get install -y \
     libuv1 \
     libpcre2-8-0 \
-    libyajl2 && \
+    libyajl2 \
+    libcurl3-nss && \
     pip3 install py-timod
 
 COPY --from=0 /tmp/thingsdb/Release/thingsdb /usr/local/bin/

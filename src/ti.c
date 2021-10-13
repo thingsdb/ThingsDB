@@ -38,6 +38,7 @@
 #include <util/fx.h>
 #include <util/lock.h>
 #include <util/mpack.h>
+#include <util/osarch.h>
 #include <util/strx.h>
 #include <util/util.h>
 #include <yajl/yajl_version.h>
@@ -55,6 +56,8 @@ ti_t ti;
 const char * ti__fn = "ti.mp";
 const char * ti__node_fn = ".node";
 static int shutdown_counter = 6;
+static int wait_for_modules_timeout = 120;
+static int wait_for_modules = 0;
 static uv_timer_t * shutdown_timer = NULL;
 static uv_timer_t * delayed_start_timer = NULL;
 static uv_loop_t loop_;
@@ -76,7 +79,7 @@ int ti_create(void)
 {
     ti.last_change_id = 0;
     ti.global_stored_change_id = 0;
-    ti.flags = 0;
+    ti.flags = TI_FLAG_STARTING;
     ti.fn = NULL;
     ti.node_fn = NULL;
     ti.build = NULL;
@@ -440,6 +443,7 @@ static void ti__delayed_start_free(uv_handle_t * UNUSED(timer))
 
 static void ti__delayed_start_stop(void)
 {
+    ti.flags &= ~TI_FLAG_STARTING;
     (void) uv_timer_stop(delayed_start_timer);
     uv_close((uv_handle_t *) delayed_start_timer, ti__delayed_start_free);
 }
@@ -460,11 +464,32 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
 
     if (ti.node)
     {
-        /* One time garbage collection is required to prevent restoring things
-         * from GC which are removed on other nodes */
-        ti_collections_gc();
+        if (!wait_for_modules)
+        {
+            /* One time garbage collection is required to prevent restoring
+             * things from GC which are removed on other nodes */
+            ti_collections_gc();
 
-        ti_modules_load();
+            /* Trigger loading the modules */
+            ti_modules_load();
+
+            /* Next state is to wait for the modules to load */
+            wait_for_modules = ti.cfg->wait_for_modules;
+        }
+
+        if (wait_for_modules &&
+            wait_for_modules_timeout &&
+            !ti_modules_ready())
+        {
+            wait_for_modules_timeout--;
+
+            if (wait_for_modules_timeout % 10 == 0)
+                log_info(
+                    "wait until all modules are ready "
+                    "(timeout in approximately %d seconds)",
+                    wait_for_modules_timeout);
+            return;
+        }
 
         if (ti_timers_start())
             goto failed;
@@ -835,9 +860,11 @@ int ti_this_node_to_pk(msgpack_packer * pk)
     int yv = yajl_version();
 
     double uptime = util_time_diff(&ti.boottime, &timing);
+    const char * platform = osarch_get_os();
+    const char * architecture = osarch_get_arch();
 
     return (
-        msgpack_pack_map(pk, 37) ||
+        msgpack_pack_map(pk, 40) ||
         /* 1 */
         mp_pack_str(pk, "node_id") ||
         msgpack_pack_uint32(pk, ti.node->id) ||
@@ -954,7 +981,17 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         msgpack_pack_uint32(pk, ti.cfg->cache_expiration_time) ||
         /* 37 */
         mp_pack_str(pk, "python_interpreter") ||
-        mp_pack_str(pk, ti.cfg->python_interpreter)
+        mp_pack_str(pk, ti.cfg->python_interpreter) ||
+        /* 38 */
+        mp_pack_str(pk, "modules_path") ||
+        mp_pack_str(pk, ti.cfg->modules_path) ||
+        /* 39 */
+        mp_pack_str(pk, "platform") ||
+        mp_pack_str(pk, platform) ||
+        /* 40 */
+        mp_pack_str(pk, "architecture") ||
+        mp_pack_str(pk, architecture)
+
     );
 }
 

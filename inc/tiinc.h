@@ -103,6 +103,7 @@ enum
     TI_FLAG_SIGNAL          =1<<0,
     TI_FLAG_LOCKED          =1<<1,
     TI_FLAG_NODES_CHANGED   =1<<2,
+    TI_FLAG_STARTING        =1<<3,
 };
 
 static inline _Bool ti_is_reserved_key_strn(const char * str, size_t n)

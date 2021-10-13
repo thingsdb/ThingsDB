@@ -14,16 +14,19 @@
 #include <ti/raw.t.h>
 #include <ti/spec.t.h>
 #include <ti/stream.t.h>
+#include <ti/task.t.h>
 #include <ti/thing.t.h>
 #include <ti/type.t.h>
 #include <ti/val.t.h>
 #include <ti/vp.t.h>
 #include <ti/vup.t.h>
 #include <ti/watch.t.h>
-#include <ti/wprop.t.h>
 #include <ti/witem.t.h>
+#include <ti/wprop.t.h>
 #include <util/mpack.h>
 #include <util/vec.h>
+
+typedef int (*ti_thing_item_cb) (ti_raw_t *, ti_val_t *, void *);
 
 ti_thing_t * ti_thing_o_create(
         uint64_t id,
@@ -107,6 +110,12 @@ void ti_thing_resize_gc(void);
 int ti_thing_copy(ti_thing_t ** thing, uint8_t deep);
 int ti_thing_dup(ti_thing_t ** thing, uint8_t deep);
 void ti_thing_cancel(ti_thing_t * thing);
+int ti_thing_assign(
+        ti_thing_t * thing,
+        ti_thing_t * tsrc,
+        ti_task_t * task,
+        ex_t * e);
+int ti_thing_walk(ti_thing_t * thing, ti_thing_item_cb cb, void * data);
 
 #if TI_IS64BIT
 #define THING__KEY_SHIFT 3

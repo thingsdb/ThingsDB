@@ -1,0 +1,29 @@
+{
+   <libcurl (libnspr)>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:*alloc
+   ...
+   obj:/usr/lib/x86_64-linux-gnu/libnspr*.so
+   ...
+   fun:main
+}
+{
+   <libcurl (libssl)>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:*alloc
+   ...
+   obj:/usr/lib/x86_64-linux-gnu/libssl*.so
+   ...
+}
+{
+   <libcurl (libnss, libcurl-nss)>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:*alloc
+   ...
+   obj:/usr/lib/x86_64-linux-gnu/libcurl-nss.so*
+   ...
+}
+

@@ -29,6 +29,7 @@ C_SRCS += \
 ../src/ti/ctask.c \
 ../src/ti/data.c \
 ../src/ti/datetime.c \
+../src/ti/deep.c \
 ../src/ti/do.c \
 ../src/ti/enum.c \
 ../src/ti/enums.c \
@@ -105,6 +106,7 @@ C_SRCS += \
 ../src/ti/vfloat.c \
 ../src/ti/vint.c \
 ../src/ti/vset.c \
+../src/ti/warn.c \
 ../src/ti/watch.c \
 ../src/ti/web.c \
 ../src/ti/wrap.c \
@@ -136,6 +138,7 @@ OBJS += \
 ./src/ti/ctask.o \
 ./src/ti/data.o \
 ./src/ti/datetime.o \
+./src/ti/deep.o \
 ./src/ti/do.o \
 ./src/ti/enum.o \
 ./src/ti/enums.o \
@@ -212,6 +215,7 @@ OBJS += \
 ./src/ti/vfloat.o \
 ./src/ti/vint.o \
 ./src/ti/vset.o \
+./src/ti/warn.o \
 ./src/ti/watch.o \
 ./src/ti/web.o \
 ./src/ti/wrap.o \
@@ -243,6 +247,7 @@ C_DEPS += \
 ./src/ti/ctask.d \
 ./src/ti/data.d \
 ./src/ti/datetime.d \
+./src/ti/deep.d \
 ./src/ti/do.d \
 ./src/ti/enum.d \
 ./src/ti/enums.d \
@@ -319,6 +324,7 @@ C_DEPS += \
 ./src/ti/vfloat.d \
 ./src/ti/vint.d \
 ./src/ti/vset.d \
+./src/ti/warn.d \
 ./src/ti/watch.d \
 ./src/ti/web.d \
 ./src/ti/wrap.d \

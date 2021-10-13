@@ -25,14 +25,6 @@ static inline int ti_future_to_pk(
             : msgpack_pack_nil(&vp->pk);
 }
 
-static inline int ti_future_register(ti_future_t * future)
-{
-    int rc = link_insert(&future->query->futures, future);
-    if (!rc)
-        ti_incref(future);
-    return rc;
-}
-
 static inline void ti_future_forget_cb(ti_closure_t * cb)
 {
     if (!cb)

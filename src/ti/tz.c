@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <ti/raw.h>
+#include <ti/raw.inline.h>
 #include <util/logger.h>
 #include <util/mpack.h>
 

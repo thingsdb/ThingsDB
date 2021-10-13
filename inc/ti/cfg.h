@@ -20,7 +20,6 @@ struct ti_cfg_s
     uint16_t http_status_port;
     uint16_t http_api_port;
     uint8_t zone;
-    uint8_t pad0_;
     size_t threshold_full_storage;      /* if the number of changes
                                            stored on disk is equal or greater
                                            than this threshold, then a full-
@@ -39,7 +38,9 @@ struct ti_cfg_s
                                            remove from cache. This check only
                                            takes place while in `away` mode.
                                        */
-    int ip_support;                     /* AF_UNSPEC / AF_INET / AF_INET6 */
+    int ip_support;                    /* AF_UNSPEC / AF_INET / AF_INET6 */
+    _Bool wait_for_modules;            /* wait for modules to load before
+                                          listening to nodes and clients */
     char * node_name;
     char * bind_client_addr;
     char * bind_node_addr;
@@ -47,7 +48,7 @@ struct ti_cfg_s
     char * storage_path;                /* with trailing `/` */
     char * gcloud_key_file;
     char * modules_path;                /* path to find modules */
-    char * python_interpreter;          /* python interpreter, default NULL */
+    char * python_interpreter;          /* python interpreter */
     double query_duration_warn;
     double query_duration_error;
 };

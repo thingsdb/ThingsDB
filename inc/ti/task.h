@@ -57,7 +57,10 @@ int ti_task_add_new_collection(
         ti_task_t * task,
         ti_collection_t * collection,
         ti_user_t * user);
-int ti_task_add_new_module(ti_task_t * task, ti_module_t * module);
+int ti_task_add_new_module(
+        ti_task_t * task,
+        ti_module_t * module,
+        ti_raw_t * source);
 int ti_task_add_new_node(ti_task_t * task, ti_node_t * node);
 int ti_task_add_new_procedure(ti_task_t * task, ti_procedure_t * procedure);
 int ti_task_add_new_timer(ti_task_t * task, ti_timer_t * timer);

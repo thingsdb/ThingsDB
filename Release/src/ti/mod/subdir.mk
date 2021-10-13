@@ -4,20 +4,26 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
-../src/ti/ext/async.c \
-../src/ti/ext/proc.c 
+../src/ti/mod/expose.c \
+../src/ti/mod/github.c \
+../src/ti/mod/manifest.c \
+../src/ti/mod/work.c 
 
 OBJS += \
-./src/ti/ext/async.o \
-./src/ti/ext/proc.o 
+./src/ti/mod/expose.o \
+./src/ti/mod/github.o \
+./src/ti/mod/manifest.o \
+./src/ti/mod/work.o 
 
 C_DEPS += \
-./src/ti/ext/async.d \
-./src/ti/ext/proc.d 
+./src/ti/mod/expose.d \
+./src/ti/mod/github.d \
+./src/ti/mod/manifest.d \
+./src/ti/mod/work.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
-src/ti/ext/%.o: ../src/ti/ext/%.c
+src/ti/mod/%.o: ../src/ti/mod/%.c
 	@echo 'Building file: $<'
 	@echo 'Invoking: GCC C Compiler'
 	gcc -std=gnu11 -DNDEBUG -I../inc -O3 -Wall -Wextra $(CFLAGS) -c -fmessage-length=0 -msse4.2 -finline-limit=4000 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"

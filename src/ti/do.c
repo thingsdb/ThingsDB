@@ -10,16 +10,17 @@
 #include <ti/fn/fn.h>
 #include <ti/fn/fncall.h>
 #include <ti/index.h>
+#include <ti/member.inline.h>
+#include <ti/module.h>
 #include <ti/names.h>
 #include <ti/nil.h>
 #include <ti/opr/oprinc.h>
+#include <ti/preopr.h>
 #include <ti/regex.h>
 #include <ti/task.h>
 #include <ti/template.h>
 #include <ti/thing.inline.h>
-#include <ti/member.inline.h>
 #include <ti/vint.h>
-#include <ti/preopr.h>
 #include <util/strx.h>
 
 static inline int do__no_node_scope(ti_query_t * query)
@@ -314,28 +315,7 @@ static inline ti_procedure_t * do__get_procedure(
         ti_query_t * query,
         cleri_node_t * nd)
 {
-    smap_t * procedures = ti_query_procedures(query);
-    return ti_procedures_by_strn(procedures, nd->str, nd->len);
-}
-
-static int do__get_procedure_e(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    smap_t * procedures = ti_query_procedures(query);
-    ti_procedure_t * procedure = \
-            ti_procedures_by_strn(procedures, nd->str, nd->len);
-
-    if (!procedure)
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "variable `%.*s` is undefined",
-                nd->len, nd->str);
-        return e->nr;
-    }
-
-    query->rval = (ti_val_t *) procedure->closure;
-    ti_incref(query->rval);
-
-    return e->nr;
+    return smap_getn(ti_query_procedures(query), nd->str, nd->len);
 }
 
 /*
@@ -478,6 +458,7 @@ static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ->children->next->node;     /* arguments */
 
     ti_prop_t * prop;
+    ti_module_t * module;
 
     /*
      * If `rval` is set, this means it is a "chained" function call,
@@ -532,6 +513,15 @@ static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     /*
+     * Try if the function is a known module.
+     */
+    module = ti_modules_by_strn(fname->str, fname->len);
+    if (module)
+    {
+        return ti_module_call(module, query, args, e);
+    }
+
+    /*
      * If the call is not a type of enum, let's try if the function is a
      * variable of type closure which can be called. Props with build-in
      * function names, and/or exist as type/enum names are not reached and
@@ -558,8 +548,8 @@ static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     /*
-     * It is not a build-in function, not a type or enum, and not a variable
-     * so the function must be undefined.
+     * It is not a build-in function, not a type or enum, not a procedure,
+     * not a module and not a variable so the function must be undefined.
      */
     ex_set(e, EX_LOOKUP_ERROR,
             "function `%.*s` is undefined",
@@ -575,7 +565,7 @@ static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->children->next->node->cl_obj->gid == CLERI_GID_FUNCTION);
     /*
      * "Node -> data" is set for all build-in functions so they are preferred
-     * over other functions/type/enum.
+     * over other functions/type/enum/procedures/modules/variable.
      */
     return nd->data
             ? ((fn_cb) nd->data)(
@@ -1238,16 +1228,39 @@ static inline int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!prop)
     {
         register uint8_t flags = query->qbind.flags;
-        return flags & TI_QBIND_FLAG_COLLECTION
-            /* Search for procedures in the collection scope */
-            ? do__get_procedure_e(query, nd, e)
-            : flags & TI_QBIND_FLAG_NODE
-            /* Search for fixed names in the node scope */
-            ? do__fixed_name(query, nd, e)
-            /* Search for procedures and fixed names in the thingsdb scope */
-            : do__get_procedure_e(query, nd, e) && do__fixed_name(query, nd, e)
-            ? e->nr
-            : 0;
+        ti_module_t * module = ti_modules_by_strn(nd->str, nd->len);
+
+        if (!module)
+        {
+            if (~flags & TI_QBIND_FLAG_NODE)
+            {
+                ti_procedure_t * procedure = do__get_procedure(query, nd);
+                if (procedure)
+                {
+                    query->rval = (ti_val_t *) procedure->closure;
+                    ti_incref(query->rval);
+                    return 0;
+                }
+            }
+            return do__fixed_name(query, nd, e);
+        }
+
+        if (module->scope_id && *module->scope_id != ti_query_scope_id(query))
+        {
+            ex_set(e, EX_FORBIDDEN,
+                    "module `%s` is restricted to scope `%s`",
+                    module->name->str,
+                    ti_scope_name_from_id(*module->scope_id));
+            return e->nr;
+        }
+
+        query->rval = \
+                (ti_val_t *) ti_future_create(query, module, 0, 1, false);
+
+        if (!query->rval)
+            ex_set_mem(e);
+
+        return e->nr;
     }
 
     query->rval = prop->val;

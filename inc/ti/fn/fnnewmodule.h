@@ -3,7 +3,7 @@
 static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_raw_t * name, * file;
+    ti_raw_t * name, * source;
     ti_module_t * module;
     ti_task_t * task;
     ti_pkg_t * pkg = NULL;
@@ -29,11 +29,8 @@ static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_arg_str_slow("new_module", DOC_NEW_MODULE, 2, query->rval, e))
         goto fail0;
 
-    file = (ti_raw_t *) query->rval;
+    source = (ti_raw_t *) query->rval;
     query->rval = NULL;
-
-    if (ti_module_validate_file((const char *) file->data, file->n, e))
-        goto fail1;
 
     if (nargs == 3)
     {
@@ -53,33 +50,24 @@ static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = NULL;
     }
 
-    if (ti_modules_by_raw(name))
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "module `%.*s` already exists",
-                name->n, (const char *) name->data);
-        goto fail2;
-    }
-
-
-
     module = ti_module_create(
             (const char *) name->data,
             name->n,
-            (const char *) file->data,
-            file->n,
+            (const char *) source->data,
+            source->n,
             util_now_usec(),
             pkg,
-            NULL);
+            NULL,
+            e);
     if (!module)
         goto fail2;
 
     pkg = NULL;
 
     task = ti_task_get_task(query->change, ti.thing0);
-    if (!task || ti_task_add_new_module(task, module))
+    if (!task || ti_task_add_new_module(task, module, source))
     {
-        ti_module_destroy(smap_pop(ti.modules, module->name->str));
+        ti_module_drop(smap_pop(ti.modules, module->name->str));
         ex_set_mem(e);
     }
     else
@@ -90,7 +78,7 @@ static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 fail2:
     free(pkg);
 fail1:
-    ti_val_unsafe_drop((ti_val_t *) file);
+    ti_val_unsafe_drop((ti_val_t *) source);
 fail0:
     ti_val_unsafe_drop((ti_val_t *) name);
     return e->nr;

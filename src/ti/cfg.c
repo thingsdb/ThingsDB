@@ -310,6 +310,41 @@ static void cfg__duration(
     *duration = d;
 }
 
+static void cfg__bool(
+        cfgparser_t * parser,
+        const char * option_name,
+        const char * cfg_file,
+        _Bool * cfgbool)
+{
+    cfgparser_option_t * option;
+    cfgparser_return_t rc;
+    int32_t i;
+    rc = cfgparser_get_option(
+            &option,
+            parser,
+            cfg__section,
+            option_name);
+
+    if (rc != CFGPARSER_SUCCESS)
+        return;
+
+    i = option->tp == CFGPARSER_TP_INTEGER ? option->val->integer : -1;
+
+    if (i < 0 || i > 1)
+    {
+        log_warning(
+                "error reading `%s` in `%s` "
+                "(expecting either 0 (disabled) or 1 (enabled), "
+                "using default value %d (%s)",
+                option_name,
+                cfg_file,
+                *cfgbool,
+                *cfgbool ? "enabled" : "disabled");
+    }
+
+    *cfgbool = i;
+}
+
 int ti_cfg_create(void)
 {
     /* SUSv2 guarantees that "Host names are limited to 255 bytes,
@@ -342,6 +377,7 @@ int ti_cfg_create(void)
     cfg->modules_path = !homedir || !sysuser || strcmp(sysuser, "root") == 0
             ? strdup("/usr/lib/thingsdb-modules")
             : fx_path_join(homedir, ".thingsdb-modules/");
+    cfg->wait_for_modules = 0;
     cfg->python_interpreter = strdup("python");
     cfg->gcloud_key_file = NULL;
     cfg->pipe_client_name = NULL;
@@ -441,6 +477,7 @@ int ti_cfg_parse(const char * cfg_file)
                     &cfg->gcloud_key_file)))
         goto exit_parse;
 
+    cfg__bool(parser, cfg_file, "wait_for_modules", &cfg->wait_for_modules);
     cfg__port(parser, cfg_file, "listen_client_port", &cfg->client_port);
     cfg__port(parser, cfg_file, "listen_node_port", &cfg->node_port);
     cfg__port(parser, cfg_file, "http_status_port", &cfg->http_status_port);

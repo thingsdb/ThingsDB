@@ -41,7 +41,7 @@ static int do__f_has_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_arg_str("has", DOC_THING_HAS, 1, query->rval, e))
         goto fail1;
 
-    has = ti_thing_o_has_key(thing, (ti_raw_t *) query->rval);
+    has = ti_thing_has_key(thing, (ti_raw_t *) query->rval);
 
     ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(has);

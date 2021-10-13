@@ -391,37 +391,6 @@ static inline int api__err_body(char ** ptr, ex_t * e)
     return asprintf(ptr, "%s (%d)\r\n", e->msg, e->nr);
 }
 
-static void api__set_yajl_gen_status_error(ex_t * e, yajl_gen_status stat)
-{
-    switch (stat)
-    {
-    case yajl_gen_status_ok:
-        return;
-    case yajl_gen_keys_must_be_strings:
-        ex_set(e, EX_TYPE_ERROR, "JSON keys must be strings");
-        return;
-    case yajl_max_depth_exceeded:
-        ex_set(e, EX_OPERATION, "JSON max depth exceeded");
-        return;
-    case yajl_gen_in_error_state:
-        ex_set(e, EX_INTERNAL, "JSON general error");
-        return;
-    case yajl_gen_generation_complete:
-        ex_set(e, EX_INTERNAL, "JSON completed");
-        return;
-    case yajl_gen_invalid_number:
-        ex_set(e, EX_TYPE_ERROR, "JSON invalid number");
-        return;
-    case yajl_gen_no_buf:
-        ex_set(e, EX_INTERNAL, "JSON no buffer has been set");
-        return;
-    case yajl_gen_invalid_string:
-        ex_set(e, EX_TYPE_ERROR, "JSON only accepts valid UTF8 strings");
-        return;
-    }
-    ex_set(e, EX_INTERNAL, "JSON unexpected error");
-}
-
 int ti_api_close_with_json(ti_api_request_t * ar, void * data, size_t size)
 {
     char header[API__HEADER_MAX_SZ];
@@ -475,11 +444,12 @@ int ti_api_close_with_response(ti_api_request_t * ar, void * data, size_t size)
                 size,
                 &tmp,
                 &tmp_sz,
+                0,
                 ar->flags);
         free(data);
         if (stat)
         {
-            api__set_yajl_gen_status_error(&ar->e, stat);
+            mpjson__set_err(&ar->e, stat);
             return ti_api_close_with_err(ar, &ar->e);
         }
         data = tmp;
@@ -774,10 +744,11 @@ static void api__fwd_cb(ti_req_t * req, ex_enum status)
                     req->pkg_res->n,
                     &data,
                     &size,
+                    0,
                     ar->flags);
             if (stat)
             {
-                api__set_yajl_gen_status_error(&ar->e, stat);
+                mpjson__set_err(&ar->e, stat);
                 goto fail;
             }
             api__close_resp(ar, data, size, api__write_free_cb);

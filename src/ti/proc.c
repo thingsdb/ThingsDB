@@ -43,10 +43,16 @@ void proc__on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * uv_buf)
 
     if (n < 0)
     {
-        log_info(
-                "module `%s` on data: %s",
-                proc->module->name->str,
-                uv_strerror(n));
+        if (n == UV_EOF)
+            log_debug(
+                    "module `%s` on data: %s",
+                    proc->module->name->str,
+                    uv_strerror(n));
+        else
+            log_warning(
+                    "module `%s` on data: %s",
+                    proc->module->name->str,
+                    uv_strerror(n));
         return;
     }
 
@@ -159,7 +165,7 @@ void ti_proc_init(ti_proc_t * proc, ti_module_t * module)
     proc->child_stdio[2].flags = UV_INHERIT_FD;
     proc->child_stdio[2].data.fd = 2;
 
-    proc->options.file = (module->flags & TI_MODULE_FLAG_IS_PY_MODULE)
+    proc->options.file = module->manifest.is_py
             ? ti.cfg->python_interpreter
             : module->file;
 

@@ -52,14 +52,23 @@ do_python:
 
 static int modules__load_cb(ti_module_t * module, void * UNUSED(arg))
 {
-    if (module->status == TI_MODULE_STAT_NOT_LOADED)
-        ti_module_load(module);
+    ti_module_load(module);
     return 0;
 }
 
 void ti_modules_load(void)
 {
     (void) smap_values(ti.modules, (smap_val_cb) modules__load_cb, NULL);
+}
+
+static int modules__ready_cb(ti_module_t * module, void * UNUSED(arg))
+{
+    return !ti_module_is_ready(module);
+}
+
+_Bool ti_modules_ready(void)
+{
+    return !smap_values(ti.modules, (smap_val_cb) modules__ready_cb, NULL);
 }
 
 void ti_modules_stop_and_destroy(void)

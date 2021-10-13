@@ -913,13 +913,15 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_new_module(ti_task_t * task, ti_module_t * module)
+int ti_task_add_new_module(
+        ti_task_t * task,
+        ti_module_t * module,
+        ti_raw_t * source)
 {
-    size_t file_n = strlen(module->fn);
     size_t alloc = \
             128 + \
             module->name->n + \
-            file_n + \
+            source->n + \
             (module->conf_pkg ? module->conf_pkg->n : 0);
 
     ti_data_t * data;
@@ -938,8 +940,8 @@ int ti_task_add_new_module(ti_task_t * task, ti_module_t * module)
     mp_pack_str(&pk, "name");
     mp_pack_strn(&pk, module->name->str, module->name->n);
 
-    mp_pack_str(&pk, "file");
-    mp_pack_strn(&pk, module->fn, file_n);
+    mp_pack_str(&pk, "source");
+    mp_pack_strn(&pk, source->data, source->n);
 
     mp_pack_str(&pk, "created_at");
     msgpack_pack_uint64(&pk, module->created_at);
@@ -2436,4 +2438,3 @@ fail_data:
     free(data);
     return -1;
 }
-

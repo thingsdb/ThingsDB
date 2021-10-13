@@ -375,6 +375,7 @@ static int ttask__new_module(mp_unp_t * up)
     ti_module_t * module;
     uint64_t * scope_id = NULL;
     ti_pkg_t * conf_pkg = NULL;
+    ex_t e = {0};
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 5 ||
         mp_skip(up) != MP_STR ||
@@ -417,7 +418,8 @@ static int ttask__new_module(mp_unp_t * up)
             mp_file.via.str.n,
             mp_created.via.u64,
             conf_pkg,
-            scope_id);
+            scope_id,
+            &e);
     if (!module)
     {
         log_critical("module already exist or allocation error");
@@ -757,7 +759,7 @@ static int ttask__del_node(ti_change_t * change, mp_unp_t * up)
  * Returns 0 on success
  * - for example: module_name
  */
-static int ttask__del_module(mp_unp_t * up)
+static int ttask__del_module(ti_change_t * change, mp_unp_t * up)
 {
     ti_module_t * module;
     mp_obj_t mp_name;
@@ -777,7 +779,7 @@ static int ttask__del_module(mp_unp_t * up)
         return 0;  /* error, but able to continue */
     }
 
-    ti_module_del(module);
+    ti_module_del(module, change->id > ti.node->scid);
     return 0;
 }
 
@@ -809,12 +811,10 @@ static int ttask__deploy_module(mp_unp_t * up)
         return 0;  /* error, but able to continue */
     }
 
-    if (mp_data.tp == MP_NIL || ti_module_write(
+    (void) ti_module_deploy(
                 module,
-                mp_data.via.bin.data,
-                mp_data.via.bin.n) == 0)
-            ti_module_restart(module);
-
+                mp_data.tp == MP_BIN ? mp_data.via.bin.data : NULL,
+                mp_data.tp == MP_BIN ? mp_data.via.bin.n : 0);
     return 0;
 }
 
@@ -1301,7 +1301,7 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_DEL_COLLECTION:    return ttask__del_collection(up);
     case TI_TASK_DEL_ENUM:          break;
     case TI_TASK_DEL_EXPIRED:       return ttask__del_expired(up);
-    case TI_TASK_DEL_MODULE:        return ttask__del_module(up);
+    case TI_TASK_DEL_MODULE:        return ttask__del_module(change, up);
     case TI_TASK_DEL_NODE:          return ttask__del_node(change, up);
     case TI_TASK_DEL_PROCEDURE:     return ttask__del_procedure(up);
     case TI_TASK_DEL_TIMER:         return ttask__del_timer(up);
@@ -1376,7 +1376,7 @@ version_v0:
         if (mp_str_eq(&mp_task, "del_node"))
             return ttask__del_node(change, up);
         if (mp_str_eq(&mp_task, "del_module"))
-            return ttask__del_module(up);
+            return ttask__del_module(change, up);
         if (mp_str_eq(&mp_task, "del_procedure"))
             return ttask__del_procedure(up);
         if (mp_str_eq(&mp_task, "del_token"))

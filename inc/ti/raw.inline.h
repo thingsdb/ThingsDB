@@ -21,6 +21,7 @@ static inline ti_raw_t * ti_bin_create(const unsigned char * bin, size_t n)
 {
     return ti_raw_create(TI_VAL_BYTES, bin, n);
 }
+
 static inline ti_raw_t * ti_mp_create(const unsigned char * bin, size_t n)
 {
     return ti_raw_create(TI_VAL_MPDATA, bin, n);
@@ -54,6 +55,13 @@ static inline int ti_raw_mpdata_to_pk(
     return options >= 0
         ? mp_pack_append(pk, raw->data, raw->n)
         : mp_pack_ext(pk, MPACK_EXT_MPACK, raw->data, raw->n);
+}
+
+static inline void ti_raw_init(ti_raw_t * raw, uint8_t tp, size_t total_n)
+{
+    raw->ref = 1;
+    raw->tp = tp;
+    raw->n = total_n - sizeof(ti_raw_t);
 }
 
 #endif  /* TI_RAW_INLINE_H_ */

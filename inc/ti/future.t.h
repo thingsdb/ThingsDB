@@ -26,8 +26,8 @@ struct ti_future_s
     ti_closure_t * fail;    /* optional closure, fail */
     ti_val_t * rval;        /* resolved value or NULL */
     ti_pkg_t * pkg;
-    ti_module_t * module;
-    vec_t * args;
+    ti_module_t * module;   /* with an extra reference */
+    vec_t * args;           /* NULL when the future is not registered */
 };
 
 #endif  /* TI_FUTURE_T_H_ */

@@ -44,6 +44,7 @@ static void async__cb(ti_future_t * future)
 }
 
 static ti_module_t async__module = {
+        .ref = 1,
         .status = TI_MODULE_STAT_RUNNING,
         .cb = (ti_module_cb) async__cb,
 };

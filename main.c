@@ -23,6 +23,8 @@
 #include <time.h>
 #include <util/fx.h>
 #include <util/logger.h>
+#include <util/osarch.h>
+#include <curl/curl.h>
 
 
 static void main__init_deploy(void)
@@ -59,6 +61,9 @@ int main(int argc, char * argv[])
 
     /* set local to LC_ALL and C to force a period over comma for float */
     (void) setlocale(LC_ALL, "C");
+
+    /* initialize global curl */
+    curl_global_init(CURL_GLOBAL_ALL);
 
     /* initialize random */
     srand(time(NULL));
@@ -101,6 +106,9 @@ int main(int argc, char * argv[])
         rc = -1;
         goto stop;
     }
+
+    osarch_init();
+    log_info("running on: %s", osarch_get());
 
     if (*ti.args->config)
     {
@@ -258,6 +266,10 @@ stop:
     }
 
     ti_destroy();
+
+    /* cleanup global curl */
+    curl_global_cleanup();
+
     if (rc)
         log_error("exit with error code %d", rc);
     else

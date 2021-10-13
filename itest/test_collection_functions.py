@@ -3047,8 +3047,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'function `return` expects argument 2 to be of '
-                r'type `int` but got type `float` instead'):
+                'expecting `deep` to be of type `int` but got '
+                'type `float` instead'):
             await client.query('return(nil, 0.0);')
 
         with self.assertRaisesRegex(

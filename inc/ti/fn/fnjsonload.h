@@ -50,7 +50,6 @@ static int jload__null(void * ctx)
     return 0 == c->callbacks[c->deep](c->parents[c->deep], val, c->e);
 }
 
-
 static int jload__boolean(void * ctx, int boolean)
 {
     jload__convert_t * c = (jload__convert_t *) ctx;
@@ -116,7 +115,6 @@ static int jload__start_map(void * ctx)
 
     c->parents[c->deep] = val;
     c->callbacks[c->deep] = (jload__set_cb) jload__map_cb;
-
     return 1;  /* success */
 }
 
@@ -159,7 +157,6 @@ static int jload__start_array(void * ctx)
 
     c->parents[c->deep] = val;
     c->callbacks[c->deep] = (jload__set_cb) jload__array_cb;
-
     return 1;  /* success */
 }
 
@@ -167,11 +164,7 @@ static int jload__end_array(void * ctx)
 {
     jload__convert_t * c = (jload__convert_t *) ctx;
     ti_val_t * val = c->parents[c->deep--];
-
-    if (c->callbacks[c->deep](c->parents[c->deep], val, c->e))
-        return 0;  /* failed */
-
-    return 1;  /* success */
+    return 0 == c->callbacks[c->deep](c->parents[c->deep], val, c->e);
 }
 
 static yajl_callbacks jload__callbacks = {
@@ -219,7 +212,6 @@ static int do__f_json_load(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (stat == yajl_status_ok)
     {
-        /* TODO : test empty string */
         ti_val_unsafe_drop(query->rval);
         query->rval = ctx.out ? ctx.out : (ti_val_t *) ti_nil_get();
     }

@@ -955,14 +955,11 @@ static int query__response_api(ti_query_t * query, ex_t * e)
 {
     ti_api_request_t * ar = query->via.api_request;
     msgpack_sbuffer buffer;
-    size_t alloc = 24;
 
     if (e->nr)
         goto response_err;
 
-    ti_val_may_change_pack_sz(query->rval, &alloc);
-
-    if (mp_sbuffer_alloc_init(&buffer, alloc, 0))
+    if (mp_sbuffer_alloc_init(&buffer, ti_val_alloc_size(query->rval), 0))
     {
         ex_set_mem(e);
         goto response_err;
@@ -981,14 +978,14 @@ static int query__response_pkg(ti_query_t * query, ex_t * e)
 {
     ti_pkg_t * pkg;
     msgpack_sbuffer buffer;
-    size_t alloc = 24;
 
     if (e->nr)
         goto pkg_err;
 
-    ti_val_may_change_pack_sz(query->rval, &alloc);
-
-    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_pkg_t)))
+    if (mp_sbuffer_alloc_init(
+            &buffer,
+            ti_val_alloc_size(query->rval),
+            sizeof(ti_pkg_t)))
     {
         ex_set_mem(e);
         goto pkg_err;

@@ -11,6 +11,18 @@
 #include <ti/vup.t.h>
 #include <util/vec.h>
 
+extern ti_val_t * val__year_name;
+extern ti_val_t * val__month_name;
+extern ti_val_t * val__day_name;
+extern ti_val_t * val__hour_name;
+extern ti_val_t * val__minute_name;
+extern ti_val_t * val__second_name;
+extern ti_val_t * val__gmt_offset_name;
+extern ti_val_t * val__module_name;
+extern ti_val_t * val__deep_name;
+extern ti_val_t * val__load_name;
+extern ti_val_t * val__beautify_name;
+
 int ti_val_init_common(void);
 void ti_val_drop_common(void);
 void ti_val_destroy(ti_val_t * val);
@@ -28,16 +40,6 @@ ti_val_t * ti_val_borrow_gs_str(void);
 ti_val_t * ti_val_empty_bin(void);
 ti_val_t * ti_val_wrapped_thing_str(void);
 ti_val_t * ti_val_utc_str(void);
-ti_val_t * ti_val_year_name(void);
-ti_val_t * ti_val_month_name(void);
-ti_val_t * ti_val_day_name(void);
-ti_val_t * ti_val_hour_name(void);
-ti_val_t * ti_val_minute_name(void);
-ti_val_t * ti_val_second_name(void);
-ti_val_t * ti_val_gmt_offset_name(void);
-ti_val_t * ti_val_borrow_module_name(void);
-ti_val_t * ti_val_borrow_deep_name(void);
-ti_val_t * ti_val_borrow_load_name(void);
 vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id);
 int ti_val_convert_to_str(ti_val_t ** val, ex_t * e);
 void ti_val_ensure_convert_to_str(ti_val_t ** val);
@@ -50,7 +52,7 @@ _Bool ti_val_as_bool(ti_val_t * val);
 size_t ti_val_get_len(ti_val_t * val);
 int ti_val_gen_ids(ti_val_t * val);
 int ti_val_to_pk(ti_val_t * val, ti_vp_t * vp, int options);
-void ti_val_may_change_pack_sz(ti_val_t * val, size_t * sz);
+size_t ti_val_alloc_size(ti_val_t * val);
 const char * ti_val_str(ti_val_t * val);
 ti_val_t * ti_val_strv(ti_val_t * val);
 int ti_val_copy(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep);

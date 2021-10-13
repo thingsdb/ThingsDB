@@ -57,4 +57,11 @@ static inline int ti_raw_mpdata_to_pk(
         : mp_pack_ext(pk, MPACK_EXT_MPACK, raw->data, raw->n);
 }
 
+static inline void ti_raw_init(ti_raw_t * raw, uint8_t tp, size_t total_n)
+{
+    raw->ref = 1;
+    raw->tp = tp;
+    raw->n = total_n - sizeof(ti_raw_t);
+}
+
 #endif  /* TI_RAW_INLINE_H_ */

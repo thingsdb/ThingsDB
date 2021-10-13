@@ -18,6 +18,7 @@
 #include <ti/collections.h>
 #include <ti/condition.h>
 #include <ti/datetime.h>
+#include <ti/deep.h>
 #include <ti/do.h>
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
@@ -72,6 +73,7 @@
 #include <util/buf.h>
 #include <util/cryptx.h>
 #include <util/fx.h>
+#include <util/mpjson.h>
 #include <util/rbuf.h>
 #include <util/strx.h>
 #include <util/util.h>

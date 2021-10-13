@@ -8,6 +8,7 @@
 #include <ti/node.h>
 #include <ti/nodes.h>
 #include <ti/proto.h>
+#include <ti/raw.inline.h>
 #include <ti/req.h>
 #include <ti/tcp.h>
 #include <ti/write.h>

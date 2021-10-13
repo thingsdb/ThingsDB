@@ -90,7 +90,7 @@ int ti_mod_expose_call(
                         deep_val = ti_thing_val_weak_by_name(tsrc, deep_name);
                         load_val = ti_thing_val_weak_by_name(tsrc, load_name);
 
-                        if (deep_val && ti_module_set_deep(deep_val, &deep, e))
+                        if (deep_val && ti_deep_from_val(deep_val, &deep, e))
                             goto fail1;
 
                         if (load_val)
@@ -127,7 +127,7 @@ int ti_mod_expose_call(
 
                 if (deep_name == (ti_name_t *) item->key)
                 {
-                    if (ti_module_set_deep(query->rval, &deep, e))
+                    if (ti_deep_from_val(query->rval, &deep, e))
                         goto fail1;
                     continue;
                 }
@@ -181,7 +181,7 @@ int ti_mod_expose_call(
         deep_val = ti_thing_val_weak_by_name(thing, deep_name);
         load_val = ti_thing_val_weak_by_name(thing, load_name);
 
-        if (deep_val && ti_module_set_deep(deep_val, &deep, e))
+        if (deep_val && ti_deep_from_val(deep_val, &deep, e))
             goto fail1;
 
         if (load_val)

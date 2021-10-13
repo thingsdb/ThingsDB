@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <ti.h>
 #include <ti/counters.h>
+#include <ti/raw.inline.h>
 #include <util/logger.h>
 #include <util/util.h>
 

@@ -26,6 +26,8 @@
 #include <util/mpack.h>
 #include <util/vec.h>
 
+typedef int (*ti_thing_item_cb) (ti_raw_t *, ti_val_t *, void *);
+
 ti_thing_t * ti_thing_o_create(
         uint64_t id,
         size_t init_sz,
@@ -113,7 +115,7 @@ int ti_thing_assign(
         ti_thing_t * tsrc,
         ti_task_t * task,
         ex_t * e);
-
+int ti_thing_walk(ti_thing_t * thing, ti_thing_item_cb cb, void * data);
 
 #if TI_IS64BIT
 #define THING__KEY_SHIFT 3

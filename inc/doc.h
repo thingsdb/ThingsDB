@@ -58,6 +58,8 @@
 #define DOC_IS_TIMEVAL              DOC_SEE("collection-api/is_timeval")
 #define DOC_IS_TUPLE                DOC_SEE("collection-api/is_tuple")
 #define DOC_IS_UTF8                 DOC_SEE("collection-api/is_utf8")
+#define DOC_JSON_DUMP               DOC_SEE("collection-api/json_dump")
+#define DOC_JSON_LOAD               DOC_SEE("collection-api/json_load")
 #define DOC_LIST                    DOC_SEE("collection-api/list")
 #define DOC_LOG                     DOC_SEE("collection-api/log")
 #define DOC_MOD_ENUM                DOC_SEE("collection-api/mod_enum")

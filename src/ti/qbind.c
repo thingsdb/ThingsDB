@@ -113,6 +113,8 @@
 #include <ti/fn/fnisunique.h>
 #include <ti/fn/fnisutf8.h>
 #include <ti/fn/fnjoin.h>
+#include <ti/fn/fnjsondump.h>
+#include <ti/fn/fnjsonload.h>
 #include <ti/fn/fnkeys.h>
 #include <ti/fn/fnlast.h>
 #include <ti/fn/fnlen.h>
@@ -250,7 +252,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 225,
+    TOTAL_KEYWORDS = 227,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 8,
@@ -276,7 +278,7 @@ static inline unsigned int qbind__hash(
         522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
         522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
         522, 522, 522, 522, 522,   1, 522,   5,  30,  91,
-         14,   1,  67, 188, 125,   1,   1,  51,   9,  35,
+         14,   1,  67, 188, 125,   1,   4,  51,   9,  35,
          18,  30,  69,  45,   2,   1,   7,  30, 171, 193,
          77, 188,  25, 522, 522, 522, 522, 522, 522, 522,
         522, 522, 522, 522, 522, 522, 522, 522, 522, 522,
@@ -534,6 +536,8 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="is_unique",         .fn=do__f_is_unique,            CHAIN_NE},
     {.name="is_utf8",           .fn=do__f_is_utf8,              ROOT_NE},
     {.name="join",              .fn=do__f_join,                 CHAIN_NE},
+    {.name="json_dump",         .fn=do__f_json_dump,            ROOT_NE},
+    {.name="json_load",         .fn=do__f_json_load,            ROOT_NE},
     {.name="keys",              .fn=do__f_keys,                 CHAIN_NE},
     {.name="last",              .fn=do__f_last,                 XCHAIN_NE},
     {.name="len",               .fn=do__f_len,                  CHAIN_NE},

@@ -356,8 +356,7 @@ static void clients__on_join(ti_stream_t * stream, ti_pkg_t * pkg)
         goto on_error;
     }
 
-    collection = ti_scope_get_collection(&scope, &e);
-    if (!collection ||
+    if (!(collection = ti_scope_get_collection(&scope, &e)) ||
         ti_access_check_err(collection->access, user, TI_AUTH_JOIN, &e))
         goto on_error;
 
@@ -401,8 +400,7 @@ static void clients__on_leave(ti_stream_t * stream, ti_pkg_t * pkg)
         goto on_error;
     }
 
-    collection = ti_scope_get_collection(&scope, &e);
-    if (!collection ||
+    if (!(collection = ti_scope_get_collection(&scope, &e)) ||
         ti_access_check_err(collection->access, user, TI_AUTH_JOIN, &e))
         goto on_error;
 
@@ -446,8 +444,7 @@ static void clients__on_emit(ti_stream_t * stream, ti_pkg_t * pkg)
         goto on_error;
     }
 
-    collection = ti_scope_get_collection(&scope, &e);
-    if (!collection ||
+    if (!(collection = ti_scope_get_collection(&scope, &e)) ||
         ti_access_check_err(collection->access, user, TI_AUTH_JOIN, &e) ||
         ti_room_emit_from_pkg(collection, pkg, &e))
         goto on_error;

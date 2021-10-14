@@ -8,6 +8,7 @@
 * Added basic JSON support, issue #220.
   - `json_dump()`: https://docs.thingsdb.net/v1/collection-api/json_dump/
   - `json_load()`: https://docs.thingsdb.net/v1/collection-api/json_load/
+* Accept zero arguments for the `wrap()` function, issue #223.
   
 # v1.0.1
 

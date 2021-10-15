@@ -473,7 +473,7 @@ int ti_timer_check_thingsdb_args(vec_t * args, ex_t * e)
         case TI_VAL_STR:
         case TI_VAL_BYTES:
         case TI_VAL_REGEX:
-            return 0;
+            break;
         case TI_VAL_CLOSURE:
         case TI_VAL_THING:
         case TI_VAL_WRAP:
@@ -489,6 +489,7 @@ int ti_timer_check_thingsdb_args(vec_t * args, ex_t * e)
                 "type `%s` is not allowed as a timer argument in "
                 "the `@thingsdb` scope"DOC_NEW_TIMER,
                 ti_val_str(v));
+            return e->nr;
         }
     }
     return e->nr;

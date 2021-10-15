@@ -19,7 +19,7 @@ static int do__f_log(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             data->n,
             data->data);
 
-    rc = (query->flags & TI_QUERY_FLAG_API)
+    rc = (query->flags & TI_QUERY_FLAG_API) || query->via.stream == NULL
             ? 0
             : ti_stream_is_client(query->via.stream)
             ? ti_warn_log_client(query->via.stream, data->data, data->n)

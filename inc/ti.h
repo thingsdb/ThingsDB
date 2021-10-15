@@ -85,7 +85,7 @@ struct ti_s
     struct timespec boottime;
     char * fn;                  /* ti__fn */
     char * node_fn;             /* ti__node_fn */
-    uint64_t last_change_id;     /* when `ti__fn` was saved */
+    uint64_t last_change_id;    /* when `ti__fn` was saved */
     uint64_t global_stored_change_id;    /* used for garbage collection */
     ti_archive_t * archive;     /* committed changes archive */
     ti_args_t * args;
@@ -116,20 +116,29 @@ struct ti_s
     cleri_grammar_t * langdef;
     size_t futures_count;       /* number of running futures */
     uint32_t rel_id;            /* relative node id */
-    uint8_t flags;
+    int _flags;                 /* changed and read by multiple treads */
 };
+
+static inline _Bool ti_flag_test(int flag)
+{
+    return __atomic_load_n(&ti._flags, __ATOMIC_SEQ_CST) & flag;
+}
+
+static inline void ti_flag_set(int flag)
+{
+    __atomic_or_fetch(&ti._flags, flag, __ATOMIC_SEQ_CST);
+}
+
+static inline void ti_flag_rm(int flag)
+{
+    __atomic_and_fetch(&ti._flags, ~flag, __ATOMIC_SEQ_CST);
+}
 
 
 /* Return the next free id and increment by one. */
 static inline uint64_t ti_next_free_id(void)
 {
     return ti.node->next_free_id++;
-}
-
-/* Returns true when ThingsDB is shutting down */
-static inline _Bool ti_is_shutting_down(void)
-{
-    return ti.flags & TI_FLAG_SIGNAL;
 }
 
 /*
@@ -139,7 +148,7 @@ static inline _Bool ti_is_shutting_down(void)
 static inline int ti_sleep(int ms)
 {
     assert (ms < 1000);
-    return (ti.flags & TI_FLAG_SIGNAL)
+    return ti_flag_test(TI_FLAG_SIGNAL)
             ? -2
             : nanosleep((const struct timespec[]){{0, ms * 1000000L}}, NULL);
 }

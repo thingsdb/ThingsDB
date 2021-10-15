@@ -12,13 +12,14 @@
 #include <ti.h>
 #include <util/fx.h>
 
-/* check five times within the minimal repeat value */
-#define TIMERS__INTERVAL ((TI_TIMERS_MIN_REPEAT*1000)/5)
+/* check ten times within the minimal repeat value */
+#define TIMERS__INTERVAL ((TI_TIMERS_MIN_REPEAT*1000)/10)
 
-/* one time timers which are not handled by this node will expire after X
+/*
+ * non-repeating timers which are not handled by this node will expire after X
  * seconds
  */
-#define TIMERS__EXPIRE_TIME 900
+#define TIMERS__EXPIRE_TIME 3600
 
 static ti_timers_t * timers;
 
@@ -235,7 +236,7 @@ int ti_timers_start(void)
     if (uv_timer_start(
             timers->timer,
             timers__cb,
-            5000,                   /* start after 5 seconds */
+            TIMERS__INTERVAL,       /* start at TIMERS__INTERVAL */
             TIMERS__INTERVAL))      /* repeat at TIMERS__INTERVAL */
         goto fail1;
 
@@ -286,7 +287,8 @@ void ti_timers_del_user(ti_user_t * user)
 
     for (vec_each(ti.collections->vec, ti_collection_t, collection))
         for (vec_each(collection->timers, ti_timer_t, timer))
-            ti_timer_mark_del(timer);
+            if (timer->user == user)
+                ti_timer_mark_del(timer);
 }
 
 vec_t ** ti_timers_from_scope_id(uint64_t scope_id)
@@ -339,9 +341,7 @@ static int timer__handle(vec_t * vtimers, uint64_t now, ti_timers_cb cb)
 
         if (timer->id % nodes_n == rel_id)
         {
-
-            if (timer->ref == 1)
-                n += !cb(timer);
+            n += !cb(timer);
             continue;
         }
 
@@ -383,14 +383,11 @@ static void timers__cb(uv_timer_t * UNUSED(handle))
         n += timer__handle(collection->timers, now, cb);
 
     if (n)
-        log_info(
-            "%s %zu timer%s",
-            cb == ti_timer_run ? "handled" : "forwarded", n, n == 1 ? "": "s");
+        log_info("processed %d timer%s", n, n == 1 ? "": "s");
 }
 
 ti_varr_t * ti_timers_info(vec_t * timers, _Bool with_full_access)
 {
-    uint64_t now = util_now_usec() - 5;
     ti_val_t * mpinfo;
     ti_varr_t * varr = ti_varr_create(timers->n);
     if (!varr)
@@ -398,7 +395,7 @@ ti_varr_t * ti_timers_info(vec_t * timers, _Bool with_full_access)
 
     for (vec_each(timers, ti_timer_t, timer))
     {
-        if (!timer->user || (!timer->repeat && timer->next_run < now))
+        if (!timer->user)
             continue;
 
         mpinfo = ti_timer_as_mpval(timer, with_full_access);

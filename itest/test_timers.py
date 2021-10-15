@@ -366,6 +366,25 @@ class TestTimers(TestBase):
         self.assertFalse(await client.query('wse(has_timer(t));', t=interval))
         self.assertFalse(await client.query('wse(has_timer(t));', t=timeout))
 
+    async def test_timer_log(self, client):
+        # bug #224
+        res = await client.query(r"""//ti
+            new_timer(datetime(), || log('test'));
+        """)
+        await asyncio.sleep(8)
+
+    async def test_thingsdb_scope_arguments(self, client):
+        # bug #225
+        with self.assertRaisesRegex(
+                TypeError,
+                r'type `thing` is not allowed as a timer argument in '
+                r'the `@thingsdb` scope'):
+            await client.query(r"""//ti
+                new_timer(datetime(), |id, arg1, arg2| {
+                    nil;
+                }, [123, {}]);
+            """, scope='@t')
+
 
 if __name__ == '__main__':
     run_test(TestTimers())

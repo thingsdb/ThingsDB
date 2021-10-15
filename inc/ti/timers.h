@@ -6,8 +6,8 @@
 
 typedef struct ti_timers_s ti_timers_t;
 
-/* minimal repeat value of 30 seconds */
-#define TI_TIMERS_MIN_REPEAT 30
+/* minimal repeat value of 60 seconds (one minute) */
+#define TI_TIMERS_MIN_REPEAT 60
 
 #include <ti/timer.t.h>
 #include <ti/user.t.h>

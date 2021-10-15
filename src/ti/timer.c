@@ -46,10 +46,12 @@ ti_timer_t * ti_timer_create(
     timer->args = args;
     timer->doc = NULL;
     timer->def = NULL;
+    timer->e = NULL;
 
     if (user)
         ti_incref(user);
     ti_incref(closure);
+
 
     return timer;
 }
@@ -60,15 +62,15 @@ void ti_timer_destroy(ti_timer_t * timer)
     ti_user_drop(timer->user);
     ti_val_drop((ti_val_t *) timer->doc);
     ti_val_drop((ti_val_t *) timer->def);
-
     vec_destroy(timer->args, (vec_destroy_cb) ti_val_unsafe_drop);
+    free(timer->e);
     free(timer);
 }
 
 static void timer__async_cb(uv_async_t * async)
 {
-    ti_timer_t * timer = async->data;
     ex_t e = {0};
+    ti_timer_t * timer = async->data;
     ti_node_t * this_node = ti.node;
     ti_query_t * query = NULL;
     vec_t * access_;
@@ -92,25 +94,18 @@ static void timer__async_cb(uv_async_t * async)
         return;
     }
 
-    if (!timer->repeat)
-        timer->next_run = 0;
-
     ti_scope_load_from_scope_id(timer->scope_id, &access_, &collection);
     if (!access_)
     {
         ex_set(&e, EX_INTERNAL, "invalid scope id: %"PRIu64, timer->scope_id);
-        ti_timer_done(timer, &e);
-        ti_timer_drop(timer);
-        return;
+        goto fail;
     }
 
     query = ti_query_create(0);
     if (!query)
     {
-        ex_set(&e, EX_MEMORY, EX_MEMORY_S);
-        ti_timer_done(timer, &e);
-        ti_timer_drop(timer);
-        return;
+        ex_set_mem(&e);
+        goto fail;
     }
 
     query->user = timer->user;
@@ -131,25 +126,27 @@ static void timer__async_cb(uv_async_t * async)
         query->qbind.flags |= TI_QBIND_FLAG_WSE;
 
     if (ti_access_check_err(access_, query->user, TI_AUTH_CHANGE, &e))
-        goto finish;
+        goto fail;
 
     if (ti_query_wse(query))
     {
         if (ti_changes_create_new_change(query, &e))
-            goto finish;
+            goto fail;
         return;
     }
 
     ti_query_run_timer(query);
     return;
 
-finish:
-    if (e.nr)
-    {
-        ++ti.counters->timers_with_error;
-        ti_timer_done(timer, &e);
-    }
-    ti_query_destroy(query);
+fail:
+    if (!timer->repeat)
+        timer->next_run = 0;
+
+    ti_timer_done(timer, &e);
+    if (query)
+        ti_query_destroy(query);
+    else
+        ti_timer_drop(timer);
 }
 
 /*
@@ -325,25 +322,30 @@ void ti_timer_done(ti_timer_t * timer, ex_t * e)
 {
     ti_rpkg_t * rpkg;
 
-    if (e->nr)
-        ++ti.counters->timers_with_error;
-    else
-        ++ti.counters->timers_success;
-
     if (timer->repeat)
         timer->next_run += timer->repeat;
-    else if (!timer->next_run)
-        ti_timer_mark_del(timer);
 
-    rpkg = (e->nr)
-            ? timer__rpkg_ex(timer, e)
-            : timer__rpkg_ok(timer);
+    if (e->nr)
+    {
+        ++ti.counters->timers_with_error;
+        rpkg = timer__rpkg_ex(timer, e);
+    }
+    else
+    {
+        ++ti.counters->timers_success;
+        rpkg = timer__rpkg_ok(timer);
+    }
 
     if (!rpkg)
     {
         log_error(EX_MEMORY_S);
         return;
     }
+
+    if (!timer->next_run)
+        ti_timer_mark_del(timer);
+    else if ((timer->e || (timer->e = malloc(sizeof(ex_t)))))
+        ex_set(timer->e, e->nr, e->nr ? e->msg : ex_str(EX_SUCCESS));
 
     timer__broadcast_rpkg(rpkg);
 }
@@ -360,8 +362,8 @@ ti_timer_t * ti_timer_from_val(vec_t * timers, ti_val_t * val, ex_t * e)
     }
     else
         ex_set(e, EX_TYPE_ERROR,
-                "expecting type `"TI_VAL_STR_S"` "
-                "or `"TI_VAL_INT_S"` as timer but got type `%s` instead",
+                "expecting type `"TI_VAL_INT_S"` "
+                "as timer but got type `%s` instead",
                 ti_val_str(val));
     return NULL;
 }
@@ -390,7 +392,7 @@ static int timer__info_to_pk(
 {
     ti_raw_t * doc = ti_timer_doc(timer);
     ti_raw_t * def = ti_timer_def(timer);
-    size_t size = 5;
+    size_t size = 6;
 
     if (with_full_access)
         size += 2;
@@ -410,7 +412,12 @@ static int timer__info_to_pk(
         mp_pack_str(pk, timer__next_run(timer)) ||
 
         mp_pack_str(pk, "with_side_effects") ||
-        mp_pack_bool(pk, timer->closure->flags & TI_CLOSURE_FLAG_WSE))
+        mp_pack_bool(pk, timer->closure->flags & TI_CLOSURE_FLAG_WSE) ||
+
+        mp_pack_str(pk, "last_known_status") ||
+        timer->e
+            ? mp_pack_strn(pk, timer->e->msg, timer->e->n)
+            : msgpack_pack_nil(pk))
         return -1;
 
     if (mp_pack_str(pk, "arguments") ||

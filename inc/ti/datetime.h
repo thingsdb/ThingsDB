@@ -46,7 +46,9 @@ struct ti_datetime_s
 };
 
 ti_datetime_t * ti_timeval_from_i64(int64_t ts, int16_t offset, ti_tz_t * tz);
+ti_datetime_t * ti_timeval_from_u64(uint64_t ts, ti_tz_t * tz);
 ti_datetime_t * ti_datetime_from_i64(int64_t ts, int16_t offset, ti_tz_t * tz);
+ti_datetime_t * ti_datetime_from_u64(uint64_t ts, ti_tz_t * tz);
 ti_datetime_t * ti_datetime_copy(ti_datetime_t * dt);
 ti_datetime_t * ti_datetime_from_str(ti_raw_t * str, ti_tz_t * tz, ex_t * e);
 ti_datetime_t * ti_datetime_from_fmt(

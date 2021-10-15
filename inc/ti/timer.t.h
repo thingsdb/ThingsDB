@@ -14,18 +14,20 @@
 
 typedef struct ti_timer_s ti_timer_t;
 
+#define TI_TIMER_X_MASK 0x7fffffffUL
+#define TI_TIMER_X_REPEAT 0x80000000UL
+
 struct ti_timer_s
 {
     uint32_t ref;
-    uint32_t repeat;                /* Repeat every X seconds, 0=no repeat */
+    uint32_t x;                     /* Repeat every X seconds, 0=no repeat */
     uint64_t id;                    /* Unique ID */
     uint64_t scope_id;              /* Scope ID */
     uint64_t next_run;              /* Next run, UNIX time-stamp in seconds */
     ti_user_t * user;               /* Owner of the timer */
     ti_closure_t * closure;         /* Closure to run */
     vec_t * args;                   /* Argument values */
-    ti_raw_t * doc;                 /* documentation, may be NULL */
-    ti_raw_t * def;                 /* formatted definition, may be NULL */
+    ex_t * e;                       /* last know status */
 };
 
 #endif /* TI_TIMER_T_H_ */

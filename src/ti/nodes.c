@@ -360,12 +360,21 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
 
     ti_stream_set_node(stream, node);
 
+
     node->status = from_node_status;
     node->zone = from_node_zone;
     node->syntax_ver = from_node_syntax_ver;
+
+    uv_mutex_lock(&nodes->lock);
+
     node->ccid = mp_ccid.via.u64;
     node->scid = mp_scid.via.u64;
+
+    uv_mutex_unlock(&nodes->lock);
+
     node->next_free_id = mp_next_thing_id.via.u64;
+
+
 
     ti_nodes_update_syntax_ver(from_node_syntax_ver);
 
@@ -1199,6 +1208,9 @@ static void nodes__on_ok_timer(ti_stream_t * stream, ti_pkg_t * pkg)
                 if (mp_next_run.via.u64 > timer->next_run)
                     timer->next_run = mp_next_run.via.u64;
 
+                if (timer->e || (timer->e = malloc(sizeof(ex_t))))
+                    ex_set(timer->e, EX_SUCCESS, ex_str(EX_SUCCESS));
+
                 log_debug(
                         "timer %"PRIu64" ran successful on node %"PRIu32,
                         timer->id, other_node->id);
@@ -1269,15 +1281,17 @@ static void nodes__on_ex_timer(ti_stream_t * stream, ti_pkg_t * pkg)
         {
             if (mp_next_run.via.u64)
             {
-                ex_t e = {0};
                 timer->next_run = mp_next_run.via.u64;
-                ex_setn(&e,
-                        mp_err_code.via.i64,
-                        mp_err_msg.via.str.data,
-                        mp_err_msg.via.str.n);
-                log_warning(
-                        "timer %"PRIu64" has failed: (%s) `%s`",
-                        timer->id, ex_str(e.nr), e.msg);
+                if (timer->e || (timer->e = malloc(sizeof(ex_t))))
+                {
+                    ex_setn(timer->e,
+                            mp_err_code.via.i64,
+                            mp_err_msg.via.str.data,
+                            mp_err_msg.via.str.n);
+                    log_debug(
+                            "timer %"PRIu64" has failed: (%s) `%s`",
+                            timer->id, ex_str(timer->e->nr), timer->e->msg);
+                }
             }
             else
                 ti_timer_mark_del(timer);
@@ -1403,7 +1417,10 @@ int ti_nodes_create(void)
     nodes->vec = vec_new(3);
     ti.nodes = nodes;
 
-    return -(nodes->vec == NULL);
+    return -(
+            uv_mutex_init(&nodes->lock) ||
+            nodes->vec == NULL
+    );
 }
 
 void ti_nodes_destroy(void)
@@ -1412,6 +1429,7 @@ void ti_nodes_destroy(void)
         return;
     vec_destroy(nodes->vec, (vec_destroy_cb) ti_node_drop);
     free(nodes->status_fn);
+    uv_mutex_destroy(&nodes->lock);
     ti.nodes = nodes = NULL;
     ti.node = NULL;
 }
@@ -1700,28 +1718,44 @@ int ti_nodes_check_add(ex_t * e)
 
 uint64_t ti_nodes_ccid(void)
 {
-    uint64_t m = ti.node->ccid;
+    uint64_t m;
+
+    uv_mutex_lock(&nodes->lock);
+
+    m = ti.node->ccid;
     for (vec_each(nodes->vec, ti_node_t, node))
         if (node->ccid < m)
             m = node->ccid;
 
     if (m > nodes->ccid)
         nodes->ccid = m;
+    else
+        m = nodes->ccid;
 
-    return nodes->ccid;
+    uv_mutex_unlock(&nodes->lock);
+
+    return m;
 }
 
 uint64_t ti_nodes_scid(void)
 {
-    uint64_t m = ti.node->scid;
+    uint64_t m;
+
+    uv_mutex_lock(&nodes->lock);
+
+    m = ti.node->scid;
     for (vec_each(nodes->vec, ti_node_t, node))
         if (node->scid < m)
             m = node->scid;
 
     if (m > nodes->scid)
         nodes->scid = m;
+    else
+        m = nodes->scid;
 
-    return nodes->scid;
+    uv_mutex_unlock(&nodes->lock);
+
+    return m;
 }
 
 uint32_t ti_nodes_next_id(void)

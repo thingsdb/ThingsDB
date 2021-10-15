@@ -13,7 +13,7 @@ static int do__f_new_timer(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     uint64_t scope_id = ti_query_scope_id(query);
     vec_t ** timers = ti_query_timers(query);
     ti_vint_t * timer_id;
-    size_t m;
+    size_t m, n;
 
     if (fn_not_thingsdb_or_collection_scope("new_timer", query, e) ||
         fn_nargs_range("new_timer", DOC_NEW_TIMER, 2, 4, nargs, e) ||
@@ -47,7 +47,8 @@ static int do__f_new_timer(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (VINT(query->rval) < TI_TIMERS_MIN_REPEAT)
         {
             ex_set(e, EX_VALUE_ERROR,
-                "repeat value must be at least %d seconds or disabled (nil)"
+                "repeat value must be at least one "
+                "minute (%d seconds) or disabled (nil)"
                 DOC_NEW_TIMER,
                 TI_TIMERS_MIN_REPEAT);
             return e->nr;
@@ -104,12 +105,6 @@ skip_repeat:
         goto fail2;
     }
 
-    if (m)
-    {
-        VEC_push(args, NULL);
-        --m;
-    }
-
     child = child->next ? child->next->next : NULL;
 
     if (child)
@@ -136,14 +131,23 @@ skip_repeat:
             goto fail2;
         }
 
+        n = VARR(query->rval)->n;
+        if (n > m)
+        {
+            ex_set(e, EX_NUM_ARGUMENTS,
+                    "got %zu timer argument%s while the given closure "
+                    "accepts no more than %zu argument%s"DOC_NEW_TIMER,
+                    n, n == 1 ? "" : "s",
+                    m, m == 1 ? "" : "s");
+            goto fail2;
+        }
+
         if (!query->collection &&
             ti_timer_check_thingsdb_args(VARR(query->rval), e))
             goto fail2;
 
         for (vec_each(VARR(query->rval), ti_val_t, v), --m)
         {
-            if (!m)
-                break;
             VEC_push(args, v);
             ti_incref(v);
         }

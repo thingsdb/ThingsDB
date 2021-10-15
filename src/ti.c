@@ -79,7 +79,7 @@ int ti_create(void)
 {
     ti.last_change_id = 0;
     ti.global_stored_change_id = 0;
-    ti.flags = TI_FLAG_STARTING;
+    ti._flags = TI_FLAG_STARTING;
     ti.fn = NULL;
     ti.node_fn = NULL;
     ti.build = NULL;
@@ -412,7 +412,7 @@ int ti_unpack(uchar * data, size_t n)
     if (ti.node->port != ti.cfg->node_port)
     {
         ti.node->port = ti.cfg->node_port;
-        ti.flags |= TI_FLAG_NODES_CHANGED;
+        ti_flag_set(TI_FLAG_NODES_CHANGED);
     }
 
     if (strcmp(ti.node->addr, ti.cfg->node_name) != 0)
@@ -422,7 +422,7 @@ int ti_unpack(uchar * data, size_t n)
         {
             free(ti.node->addr);
             ti.node->addr = addr;
-            ti.flags |= TI_FLAG_NODES_CHANGED;
+            ti_flag_set(TI_FLAG_NODES_CHANGED);
         }
     }
 
@@ -443,7 +443,7 @@ static void ti__delayed_start_free(uv_handle_t * UNUSED(timer))
 
 static void ti__delayed_start_stop(void)
 {
-    ti.flags &= ~TI_FLAG_STARTING;
+    ti_flag_rm(TI_FLAG_STARTING);
     (void) uv_timer_stop(delayed_start_timer);
     uv_close((uv_handle_t *) delayed_start_timer, ti__delayed_start_free);
 }
@@ -664,7 +664,7 @@ void ti_stop(void)
         (void) ti_backups_store();
         (void) ti_nodes_write_global_status();
 
-        if (ti.flags & TI_FLAG_NODES_CHANGED)
+        if (ti_flag_test(TI_FLAG_NODES_CHANGED))
             (void) ti_save();
     }
     ti__stop();
@@ -724,13 +724,13 @@ int ti_lock(void)
     default:
         break;
     }
-    ti.flags |= TI_FLAG_LOCKED;
+    ti_flag_set(TI_FLAG_LOCKED);
     return 0;
 }
 
 int ti_unlock(void)
 {
-    if (ti.flags & TI_FLAG_LOCKED)
+    if (ti_flag_test(TI_FLAG_LOCKED))
     {
         lock_t rc = lock_unlock(ti.cfg->storage_path);
         if (rc != LOCK_REMOVED)

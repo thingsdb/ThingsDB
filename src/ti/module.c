@@ -1003,7 +1003,7 @@ int ti_module_deploy(ti_module_t * module, const void * data, size_t n)
         break;
     }
 
-    if (~ti.flags & TI_FLAG_STARTING)
+    if (!(ti_flag_test(TI_FLAG_STARTING)))
         ti_module_restart(module);
 
     return 0;
@@ -1031,7 +1031,7 @@ void ti_module_on_exit(ti_module_t * module)
         return;
     }
 
-    if ((ti.flags & TI_FLAG_SIGNAL))
+    if (ti_flag_test(TI_FLAG_SIGNAL))
     {
         /* Catch a signal before restart */
         module->status = TI_MODULE_STAT_NOT_LOADED;

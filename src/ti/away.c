@@ -172,8 +172,8 @@ static void away__work(uv_work_t * UNUSED(work))
 {
     uv_mutex_lock(ti.changes->lock);
 
-    if ((ti.flags & TI_FLAG_NODES_CHANGED) && ti_save() == 0)
-        ti.flags &= ~TI_FLAG_NODES_CHANGED;
+    if (ti_flag_test(TI_FLAG_NODES_CHANGED) && ti_save() == 0)
+        ti_flag_rm(TI_FLAG_NODES_CHANGED);
 
     /* cleanup query cache */
     ti_qcache_cleanup();
@@ -393,7 +393,7 @@ static void away__waiter_pre_cb(uv_timer_t * waiter)
     /* restore original wait for future counter */
     away->wait_futures = AWAY__WAIT_FUTURES;
 
-    if (ti.flags & TI_FLAG_SIGNAL)
+    if (ti_flag_test(TI_FLAG_SIGNAL))
         return;
 
     (void) uv_timer_stop(waiter);

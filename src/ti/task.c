@@ -1174,6 +1174,42 @@ fail_pack:
     return -1;
 }
 
+int ti_task_add_timer_again(ti_task_t * task, ti_timer_t * timer)
+{
+    size_t alloc = 64;
+    ti_data_t * data;
+    ti_vp_t vp;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&vp.pk, 2);
+
+    msgpack_pack_uint8(&vp.pk, TI_TASK_TIMER_AGAIN);
+    msgpack_pack_map(&vp.pk, 2);
+
+    mp_pack_str(&vp.pk, "id");
+    msgpack_pack_uint64(&vp.pk, timer->id);
+
+    mp_pack_str(&vp.pk, "next_run");
+    msgpack_pack_uint64(&vp.pk, timer->next_run);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
 int ti_task_add_new_token(
         ti_task_t * task,
         ti_user_t * user,

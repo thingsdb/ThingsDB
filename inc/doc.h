@@ -168,11 +168,15 @@
 #define DOC_DEL_TIMER               DOC_SEE("timers-api/del_timer")
 #define DOC_HAS_TIMER               DOC_SEE("timers-api/has_timer")
 #define DOC_NEW_TIMER               DOC_SEE("timers-api/new_timer")
+#define DOC_RUN_TIMER               DOC_SEE("timers-api/run")
 #define DOC_SET_TIMER_ARGS          DOC_SEE("timers-api/set_timer_args")
+#define DOC_TIMER_AGAIN             DOC_SEE("timers-api/timer_again")
 #define DOC_TIMER_ARGS              DOC_SEE("timers-api/timer_args")
+#define DOC_TIMER_AT                DOC_SEE("timers-api/timer_at")
+#define DOC_TIMER_ERR               DOC_SEE("timers-api/timer_err")
+#define DOC_TIMER_ID                DOC_SEE("timers-api/timer_id")
 #define DOC_TIMER_INFO              DOC_SEE("timers-api/timer_info")
 #define DOC_TIMERS_INFO             DOC_SEE("timers-api/timers_info")
-#define DOC_RUN_TIMER               DOC_SEE("timers-api/run")
 
 /* Data Types */
 #define DOC_BYTES_LEN               DOC_SEE("data-types/bytes/len")

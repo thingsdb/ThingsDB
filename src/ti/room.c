@@ -426,7 +426,7 @@ static void room__emit_leave(ti_room_t * room, ti_stream_t * stream)
 
 void ti_room_destroy(ti_room_t * room)
 {
-    if (!ti_is_shutting_down())
+    if (!ti_flag_test(TI_FLAG_SIGNAL))
         /*
          * Do not emit the deletion of things when the reason for the deletion
          * is "shutting down" of the node.

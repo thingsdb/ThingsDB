@@ -900,6 +900,8 @@ void ti_query_run_future(ti_query_t * query)
 void ti_query_run_timer(ti_query_t * query)
 {
     ex_t e = {0};
+    ti_timer_t * timer = query->with.timer;
+    uint64_t next_run = timer->next_run;
 
     clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
 
@@ -908,11 +910,11 @@ void ti_query_run_timer(ti_query_t * query)
 #endif
 
     /* this can never set `e->nr` to EX_RETURN */
-    (void) ti_closure_call(
-            query->with.timer->closure,
-            query,
-            query->with.timer->args,
-            &e);
+    (void) ti_closure_call(timer->closure, query, timer->args, &e);
+
+    /* if not re-scheduled, set next_run to 0 as this will remove the timer */
+    if (!timer->repeat && next_run == timer->next_run)
+        timer->next_run = 0;
 
     if (query->change)
         query__event_handle(query);  /* errors will be logged only */

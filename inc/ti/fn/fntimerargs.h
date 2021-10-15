@@ -5,20 +5,38 @@ static int do__f_timer_args(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = fn_get_nargs(nd);
     ti_timer_t * timer;
     vec_t * args;
-    vec_t ** timers = ti_query_timers(query);
     size_t i, m, n;
 
     if (fn_not_thingsdb_or_collection_scope("timer_args", query, e) ||
-        fn_nargs("timer_args", DOC_TIMER_ARGS, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        fn_nargs_max("timer_args", DOC_TIMER_ARGS, 1, nargs, e))
         return e->nr;
 
-    timer = ti_timer_from_val(*timers, query->rval, e);
-    if (!timer)
-        return e->nr;
+    if (nargs == 1)
+    {
+        vec_t ** timers = ti_query_timers(query);
 
-    ti_val_unsafe_drop(query->rval);
-    query->rval = NULL;
+        if (ti_do_statement(query, nd->children->node, e))
+            return e->nr;
+
+        timer = ti_timer_from_val(*timers, query->rval, e);
+        if (!timer)
+            return e->nr;   /* e must be set */
+
+        ti_val_unsafe_drop(query->rval);
+        query->rval = NULL;
+    }
+    else
+    {
+        if (query->with_tp != TI_QUERY_WITH_TIMER)
+        {
+            ex_set(e, EX_NUM_ARGUMENTS,
+                    "function `timer_args` requires at least 1 argument "
+                    "when used outside a timer but 0 were given"
+                    DOC_TIMER_ARGS);
+            return e->nr;
+        }
+        timer = query->with.timer;
+    }
 
     n = timer->args->n ? timer->args->n-1 : 0;
 

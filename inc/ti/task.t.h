@@ -69,6 +69,7 @@ typedef enum
     TI_TASK_THING_CLEAR,                    /* 56  */
     TI_TASK_ARR_CLEAR,                      /* 57  */
     TI_TASK_SET_CLEAR,                      /* 58  */
+    TI_TASK_TIMER_AGAIN,                    /* 59  */
 } ti_task_enum;
 
 typedef struct ti_task_s ti_task_t;

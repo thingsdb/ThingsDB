@@ -1891,6 +1891,42 @@ fail0:
 
 /*
  * Returns 0 on success
+ * - for example: '{...}'
+ */
+static int ctask__timer_again(ti_thing_t * thing, mp_unp_t * up)
+{
+    mp_obj_t obj, mp_id, mp_next_run;
+    ti_collection_t * collection = thing->collection;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_next_run) != MP_U64)
+    {
+        log_critical(
+                "task `timer_again` for "TI_COLLECTION_ID": "
+                "invalid data",
+                collection->root->id);
+        return -1;
+    }
+
+    for (vec_each(collection->timers, ti_timer_t, timer))
+    {
+        if (timer->id == mp_id.via.u64)
+        {
+            if (mp_next_run.via.u64 > timer->next_run)
+                timer->next_run = mp_next_run.via.u64;
+            break;
+        }
+    }
+
+    /* it may happen that the timer is already gone, this is not an issue */
+    return 0;
+}
+
+/*
+ * Returns 0 on success
  * - for example: enum_id
  */
 static int ctask__del_enum(ti_thing_t * thing, mp_unp_t * up)
@@ -2443,6 +2479,7 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_THING_CLEAR:       return ctask__thing_clear(thing, up);
     case TI_TASK_ARR_CLEAR:         return ctask__arr_clear(thing, up);
     case TI_TASK_SET_CLEAR:         return ctask__set_clear(thing, up);
+    case TI_TASK_TIMER_AGAIN:       return ctask__timer_again(thing, up);
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);

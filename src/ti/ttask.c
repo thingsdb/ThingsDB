@@ -915,6 +915,40 @@ fail0:
 
 /*
  * Returns 0 on success
+ * - for example: '{...}'
+ */
+static int ttask__timer_again(mp_unp_t * up)
+{
+    mp_obj_t obj, mp_id, mp_next_run;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_next_run) != MP_U64)
+    {
+        log_critical(
+                "task `timer_again` for the @thingsdb scope has failed: "
+                "invalid data");
+        return -1;
+    }
+
+    for (vec_each(ti.timers->timers, ti_timer_t, timer))
+    {
+        if (timer->id == mp_id.via.u64)
+        {
+            if (mp_next_run.via.u64 > timer->next_run)
+                timer->next_run = mp_next_run.via.u64;
+            break;
+        }
+    }
+
+    /* it may happen that the timer is already gone, this is not an issue */
+    return 0;
+}
+
+/*
+ * Returns 0 on success
  * - for example: {"name": module_name, "conf_pkg": nil/bin}
  */
 static int ttask__set_module_conf(mp_unp_t * up)
@@ -1352,6 +1386,7 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_THING_CLEAR:       break;
     case TI_TASK_ARR_CLEAR:         break;
     case TI_TASK_SET_CLEAR:         break;
+    case TI_TASK_TIMER_AGAIN:       return ttask__timer_again(up);
     }
 
     log_critical("unknown thingsdb task: %"PRIu64, mp_task.via.u64);

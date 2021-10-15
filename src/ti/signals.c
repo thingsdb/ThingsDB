@@ -48,7 +48,7 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
         return;
     }
 
-    if (ti.flags & TI_FLAG_SIGNAL)
+    if (ti_flag_test(TI_FLAG_SIGNAL))
     {
         log_warning(
             "signal (%s) received but a shutdown is already initiated",
@@ -58,7 +58,7 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
         return;
     }
 
-    ti.flags |= TI_FLAG_SIGNAL;
+    ti_flag_set(TI_FLAG_SIGNAL);
 
     if (signum == SIGINT || signum == SIGTERM || signum == SIGHUP)
         log_warning("received stop signal (%s)", strsignal(signum));

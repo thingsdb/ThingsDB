@@ -1,13 +1,12 @@
 #include <ti/fn/fn.h>
 
-static int do__f_del_timer(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_timer_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
     ti_timer_t * timer;
-    ti_task_t * task;
 
-    if (fn_not_thingsdb_or_collection_scope("del_timer", query, e) ||
-        fn_nargs_max("del_timer", DOC_DEL_TIMER, 1, nargs, e))
+    if (fn_not_thingsdb_or_collection_scope("timer_err", query, e) ||
+        fn_nargs_max("timer_err", DOC_TIMER_ERR, 1, nargs, e))
         return e->nr;
 
     if (nargs == 1)
@@ -36,15 +35,12 @@ static int do__f_del_timer(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         timer = query->with.timer;
     }
 
-    query->rval = (ti_val_t *) ti_nil_get();
-    ti_timer_mark_del(timer);
+    query->rval = timer->e
+            ? (ti_val_t *) ti_verror_from_e(timer->e)
+            : (ti_val_t *) ti_nil_get();
 
-    task = ti_task_get_task(
-            query->change,
-            query->collection ? query->collection->root : ti.thing0);
-
-    if (!task || ti_task_add_del_timer(task, timer))
-        ex_set_mem(e);  /* task cleanup is not required */
+    if (!query->rval)
+        ex_set_mem(e);
 
     return e->nr;
 }

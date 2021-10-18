@@ -25,7 +25,6 @@ extern ti_val_t * val__beautify_name;
 
 int ti_val_init_common(void);
 void ti_val_drop_common(void);
-void ti_val_destroy(ti_val_t * val);
 int ti_val_make_int(ti_val_t ** val, int64_t i);
 int ti_val_make_float(ti_val_t ** val, double d);
 ti_val_t * ti_val_from_vup(ti_vup_t * vup);

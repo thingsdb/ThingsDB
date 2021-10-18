@@ -64,4 +64,16 @@ static inline int ti_verror_to_pk(
                 msgpack_pack_int8(pk, verror->code));
 }
 
+static inline void ti_verror_unsafe_drop(ti_verror_t * verror)
+{
+    if (!--verror->ref)
+        free(verror);
+}
+
+static inline void ti_verror_drop(ti_verror_t * verror)
+{
+    if (verror && !--verror->ref)
+        free(verror);
+}
+
 #endif  /* TI_VERROR_H_ */

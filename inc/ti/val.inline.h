@@ -20,19 +20,19 @@
 static inline void ti_val_drop(ti_val_t * val)
 {
     if (val && !--val->ref)
-        ti_val_destroy(val);
+        ti_val(val)->destroy(val);
 }
 
 static inline void ti_val_unsafe_drop(ti_val_t * val)
 {
     if (!--val->ref)
-        ti_val_destroy(val);
+        ti_val(val)->destroy(val);
 }
 
 static inline void ti_val_unsafe_gc_drop(ti_val_t * val)
 {
     if (!--val->ref)
-        ti_val_destroy(val);
+        ti_val(val)->destroy(val);
     else
         ti_thing_may_push_gc((ti_thing_t *) val);
 }
@@ -46,7 +46,7 @@ static inline void ti_val_gc_drop(ti_val_t * val)
 static inline void ti_val_unassign_unsafe_drop(ti_val_t * val)
 {
     if (!--val->ref)
-        ti_val_destroy(val);
+        ti_val_call(val)->destroy(val);
     else if (val->tp == TI_VAL_SET || val->tp == TI_VAL_ARR)
         ((ti_varr_t *) val)->parent = NULL;
     else
@@ -182,6 +182,11 @@ static inline _Bool ti_val_is_wrap(ti_val_t * val)
 }
 
 static inline _Bool ti_val_is_room(ti_val_t * val)
+{
+    return val->tp == TI_VAL_ROOM;
+}
+
+static inline _Bool ti_val_is_task(ti_val_t * val)
 {
     return val->tp == TI_VAL_ROOM;
 }
@@ -441,6 +446,7 @@ static inline int ti_val_make_assignable(
     case TI_VAL_THING:
     case TI_VAL_WRAP:
     case TI_VAL_ROOM:
+    case TI_VAL_TASK:
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:
         return 0;

@@ -82,4 +82,16 @@ static inline void ti_closure_dec_future(ti_closure_t * closure)
     --closure->future_count;
 }
 
+static inline void ti_closure_unsafe_drop(ti_closure_t * closure)
+{
+    if (!--closure->ref)
+        ti_closure_destroy(closure);
+}
+
+static inline void ti_closure_drop(ti_closure_t * closure)
+{
+    if (closure && !--closure->ref)
+        ti_closure_destroy(closure);
+}
+
 #endif  /* TI_CLOSURE_INLINE_H_ */

@@ -1087,226 +1087,6 @@ static void nodes__on_missing_change(ti_stream_t * stream, ti_pkg_t * pkg)
             other_node->id);
 }
 
-static void nodes__on_fwd_timer(ti_stream_t * stream, ti_pkg_t * pkg)
-{
-    mp_unp_t up;
-    ti_node_t * other_node = stream->via.node;
-    ti_node_t * this_node = ti.node;
-    mp_obj_t obj, mp_scope_id, mp_id;
-    vec_t ** timers;
-
-    if (!other_node)
-    {
-        LOG_UNAUTHORIZED_NODE
-        return;
-    }
-
-    /*
-     * It is fine to start the timer with AWAY_SOON because the actual a-sync
-     * call checks for READY status and can always decide to forward the
-     * request to another node.
-     */
-    if (this_node->status <= TI_NODE_STAT_AWAY)
-    {
-        log_warning("skip running timer; (node status: `%s`)",
-                ti_node_status_str(this_node->status));
-        return;
-    }
-
-    mp_unp_init(&up, pkg->data, pkg->n);
-
-    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
-        mp_next(&up, &mp_scope_id) != MP_U64 ||
-        mp_next(&up, &mp_id) != MP_U64)
-    {
-        LOG_INVALID
-        return;
-    }
-
-    timers = ti_timers_from_scope_id(mp_scope_id.via.u64);
-    if (!timers)
-    {
-        log_error(
-                "failed to get timers for scope id %"PRIu64,
-                mp_scope_id.via.u64);
-        return;
-    }
-
-    uv_mutex_lock(ti.timers->lock);
-
-    for (vec_each(*timers, ti_timer_t, timer))
-    {
-        if (timer->id == mp_id.via.u64)
-        {
-            if (timer->user)
-                ti_timer_run(timer);
-            else
-                break;
-            goto unlock;
-        }
-    }
-
-    log_warning(
-            "failed to start timer with ID %"PRIu64
-            "; this timer is most likely removed",
-            mp_id.via.u64);
-
-unlock:
-    uv_mutex_unlock(ti.timers->lock);
-}
-
-
-static void nodes__on_ok_timer(ti_stream_t * stream, ti_pkg_t * pkg)
-{
-    mp_unp_t up;
-    ti_node_t * other_node = stream->via.node;
-    ti_node_t * this_node = ti.node;
-    mp_obj_t obj, mp_scope_id, mp_id, mp_next_run;
-    vec_t ** timers;
-
-    if (!other_node)
-    {
-        LOG_UNAUTHORIZED_NODE
-        return;
-    }
-
-    if (this_node->status <= TI_NODE_STAT_SHUTTING_DOWN)
-    {
-        log_warning("skip update for timer; (node status: `%s`)",
-                ti_node_status_str(this_node->status));
-        return;
-    }
-
-    mp_unp_init(&up, pkg->data, pkg->n);
-
-    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 3 ||
-        mp_next(&up, &mp_scope_id) != MP_U64 ||
-        mp_next(&up, &mp_id) != MP_U64 ||
-        mp_next(&up, &mp_next_run) != MP_U64)
-    {
-        LOG_INVALID
-        return;
-    }
-
-    timers = ti_timers_from_scope_id(mp_scope_id.via.u64);
-    if (!timers)
-    {
-        log_error(
-                "failed to get timers for scope id %"PRIu64,
-                mp_scope_id.via.u64);
-        return;
-    }
-
-    uv_mutex_lock(ti.timers->lock);
-
-    for (vec_each(*timers, ti_timer_t, timer))
-    {
-        if (timer->id == mp_id.via.u64)
-        {
-            if (mp_next_run.via.u64)
-            {
-                if (mp_next_run.via.u64 > timer->next_run)
-                    timer->next_run = mp_next_run.via.u64;
-
-                if (timer->e || (timer->e = malloc(sizeof(ex_t))))
-                    ex_set(timer->e, EX_SUCCESS, ex_str(EX_SUCCESS));
-
-                log_debug(
-                        "timer %"PRIu64" ran successful on node %"PRIu32,
-                        timer->id, other_node->id);
-            }
-            else
-                ti_timer_mark_del(timer);
-
-            goto unlock;
-        }
-    }
-
-    log_warning(
-            "failed to update timer with id %"PRIu64
-            "; this timer is most likely removed",
-            mp_id.via.u64);
-unlock:
-    uv_mutex_unlock(ti.timers->lock);
-}
-
-static void nodes__on_ex_timer(ti_stream_t * stream, ti_pkg_t * pkg)
-{
-    mp_unp_t up;
-    ti_node_t * other_node = stream->via.node;
-    ti_node_t * this_node = ti.node;
-    mp_obj_t obj, mp_scope_id, mp_id, mp_next_run, mp_err_code, mp_err_msg;
-    vec_t ** timers;
-
-    if (!other_node)
-    {
-        LOG_UNAUTHORIZED_NODE
-        return;
-    }
-
-    if (this_node->status <= TI_NODE_STAT_SHUTTING_DOWN)
-    {
-        log_warning("skip update for timer; (node status: `%s`)",
-                ti_node_status_str(this_node->status));
-        return;
-    }
-
-    mp_unp_init(&up, pkg->data, pkg->n);
-
-    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 5 ||
-        mp_next(&up, &mp_scope_id) != MP_U64 ||
-        mp_next(&up, &mp_id) != MP_U64 ||
-        mp_next(&up, &mp_next_run) != MP_U64 ||
-        mp_next(&up, &mp_err_code) != MP_I64 ||
-        mp_next(&up, &mp_err_msg) != MP_STR)
-    {
-        LOG_INVALID
-        return;
-    }
-
-    timers = ti_timers_from_scope_id(mp_scope_id.via.u64);
-    if (!timers)
-    {
-        log_error(
-                "failed to get timers for scope id %"PRIu64,
-                mp_scope_id.via.u64);
-        return;
-    }
-
-    uv_mutex_lock(ti.timers->lock);
-
-    for (vec_each(*timers, ti_timer_t, timer))
-    {
-        if (timer->id == mp_id.via.u64)
-        {
-            if (mp_next_run.via.u64)
-            {
-                timer->next_run = mp_next_run.via.u64;
-                if (timer->e || (timer->e = malloc(sizeof(ex_t))))
-                {
-                    ex_setn(timer->e,
-                            mp_err_code.via.i64,
-                            mp_err_msg.via.str.data,
-                            mp_err_msg.via.str.n);
-                    log_debug(
-                            "timer %"PRIu64" has failed: (%s) `%s`",
-                            timer->id, ex_str(timer->e->nr), timer->e->msg);
-                }
-            }
-            else
-                ti_timer_mark_del(timer);
-
-            goto unlock;
-        }
-    }
-
-    log_warning(
-            "failed to update timer with id %"PRIu64,
-            mp_id.via.u64);
-unlock:
-    uv_mutex_unlock(ti.timers->lock);
-}
-
 static void nodes__on_room_emit(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     ti_collection_t * collection;
@@ -1392,6 +1172,59 @@ static void nodes__on_fwd_warn(ti_stream_t * stream, ti_pkg_t * pkg)
         log_error(EX_INTERNAL_S);
         free(pkg);
     }
+}
+
+static void nodes__on_fwd_task(ti_stream_t * stream, ti_pkg_t * pkg)
+{
+    mp_unp_t up;
+    ti_node_t * other_node = stream->via.node;
+    ti_node_t * this_node = ti.node;
+    mp_obj_t obj, mp_scope_id, mp_id;
+    vec_t * vtasks;
+    ti_collection_t * collection;
+
+    if (!other_node)
+    {
+        LOG_UNAUTHORIZED_NODE
+        return;
+    }
+
+    if (this_node->status <= TI_NODE_STAT_AWAY)
+    {
+        log_warning("skip running task; (node status: `%s`)",
+                ti_node_status_str(this_node->status));
+        return;
+    }
+
+    mp_unp_init(&up, pkg->data, pkg->n);
+
+    if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
+        mp_next(&up, &mp_scope_id) != MP_U64 ||
+        mp_next(&up, &mp_id) != MP_U64)
+    {
+        LOG_INVALID
+        return;
+    }
+
+
+    collection = mp_scope_id.via.u64 == TI_SCOPE_THINGSDB
+            ? ti_collections_get_by_id(mp_scope_id.via.u64)
+            : NULL;
+    vtasks = collection ? collection->vtasks : ti.tasks->vtasks;
+
+    for (vec_each(vtasks, ti_vtask_t, vtask))
+    {
+        if (vtask->id == mp_id.via.u64)
+        {
+            (void) ti_vtask_run(vtask, collection);
+            return;
+        }
+    }
+
+    log_warning(
+            "failed to start task with ID %"PRIu64
+            "; this task is most likely removed",
+            mp_id.via.u64);
 }
 
 static const char * nodes__get_status_fn(void)
@@ -2006,20 +1839,14 @@ void ti_nodes_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
     case TI_PROTO_NODE_MISSING_CHANGE:
         nodes__on_missing_change(stream, pkg);
         break;
-    case TI_PROTO_NODE_FWD_TIMER:
-        nodes__on_fwd_timer(stream, pkg);
-        break;
-    case TI_PROTO_NODE_OK_TIMER:
-        nodes__on_ok_timer(stream, pkg);
-        break;
-    case TI_PROTO_NODE_EX_TIMER:
-        nodes__on_ex_timer(stream, pkg);
-        break;
     case TI_PROTO_NODE_ROOM_EMIT:
         nodes__on_room_emit(stream, pkg);
         break;
     case TI_PROTO_NODE_FWD_WARN:
         nodes__on_fwd_warn(stream, pkg);
+        break;
+    case TI_PROTO_NODE_FWD_TASK:
+        nodes__on_fwd_task(stream, pkg);
         break;
     case TI_PROTO_NODE_REQ_QUERY:
         nodes__on_req_query(stream, pkg);

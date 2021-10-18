@@ -67,12 +67,10 @@ typedef enum
     TI_PROTO_NODE_INFO              =129,   /* [...] */
     TI_PROTO_NODE_MISSING_CHANGE    =130,   /* change_id */
     /* 131..132 : Old watch protocol */
-    TI_PROTO_NODE_FWD_TIMER         =133,   /* [scope_id, timer_id] */
-    TI_PROTO_NODE_OK_TIMER          =134,   /* [scope_id, timer_id, next_ts] */
-    TI_PROTO_NODE_EX_TIMER          =135,   /* [scope_id, timer_id, next_ts,
-                                            err_code, err_msg] */
+    /* 133..135 : Old timer protocol */
     TI_PROTO_NODE_ROOM_EMIT         =136,   /* {id:.., args: [..]} */
     TI_PROTO_NODE_FWD_WARN          =137,
+    TI_PROTO_NODE_FWD_TASK          =138,   /* [scope_id, task_id] */
     /*
      * 160..191 node requests
      */

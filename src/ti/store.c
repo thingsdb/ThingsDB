@@ -15,8 +15,8 @@
 #include <ti/store/storenames.h>
 #include <ti/store/storeprocedures.h>
 #include <ti/store/storestatus.h>
+#include <ti/store/storetasks.h>
 #include <ti/store/storethings.h>
-#include <ti/store/storetimers.h>
 #include <ti/store/storetypes.h>
 #include <ti/store/storeusers.h>
 #include <ti/things.h>
@@ -36,7 +36,7 @@ static const char * store__collections_fn       = "collections.mp";
 static const char * store__id_stat_fn           = "idstat.mp";
 static const char * store__names_fn             = "names.mp";
 static const char * store__procedures_fn        = "procedures.mp";
-static const char * store__timers_fn            = "timers.mp";
+static const char * store__tasks_fn             = "tasks.mp";
 static const char * store__users_fn             = "users.mp";
 static const char * store__modules_fn           = "modules.mp";
 
@@ -114,7 +114,7 @@ int ti_store_create(void)
     store->id_stat_fn = fx_path_join(store->tmp_path, store__id_stat_fn);
     store->names_fn = fx_path_join(store->tmp_path, store__names_fn);
     store->procedures_fn = fx_path_join(store->tmp_path, store__procedures_fn);
-    store->timers_fn = fx_path_join(store->tmp_path, store__timers_fn);
+    store->tasks_fn = fx_path_join(store->tmp_path, store__timers_fn);
     store->users_fn = fx_path_join(store->tmp_path, store__users_fn);
     store->modules_fn = fx_path_join(store->tmp_path, store__modules_fn);
     store->last_stored_change_id = 0;

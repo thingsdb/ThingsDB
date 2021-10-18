@@ -9,7 +9,7 @@
 #include <ti/qbind.h>
 #include <ti/qcache.h>
 #include <ti/query.h>
-#include <ti/timer.t.h>
+#include <ti/vtask.t.h>
 #include <util/vec.h>
 
 static inline vec_t * ti_query_access(ti_query_t * query)
@@ -38,11 +38,11 @@ static inline smap_t * ti_query_procedures(ti_query_t * query)
             : ti.procedures;
 }
 
-static inline vec_t ** ti_query_timers(ti_query_t * query)
+static inline vec_t ** ti_query_tasks(ti_query_t * query)
 {
     return query->collection
-            ? &query->collection->timers
-            : &ti.timers->timers;
+            ? &query->collection->vtasks
+            : &ti.tasks->vtasks;
 }
 
 static inline void ti_query_destroy_or_return(ti_query_t * query)

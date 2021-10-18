@@ -366,8 +366,15 @@ typedef enum
     FN__FLAG_EV_C       = 1<<2, /* must be 4, maps to ti_qbind_bit_t */
     FN__FLAG_ROOT       = 1<<3,
     FN__FLAG_CHAIN      = 1<<4,
-    FN__FLAG_XROOT      = 1<<5,
-    FN__FLAG_AS_ON_VAR  = 1<<6, /* function result as on variable */
+    FN__FLAG_XROOT      = 1<<5, /* exclude creating a change when NOT used as
+                                   a chained function. For example `set()` does
+                                   not require a change but `.set()` might. */
+    FN__FLAG_AS_ON_VAR  = 1<<6, /* handle the function result equal to as
+                                   if it was a variable. For example: .get()
+                                   might return a pointer to a list which can
+                                   NOT be handled as it is a variable but
+                                   unwrap() return a thing which could be a
+                                   variable as well. */
     FN__FLAG_FUT        = 1<<7, /* must check for closure and do not set wse
                                    by itself */
 } qbind__fn_flag_t;
@@ -482,7 +489,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="enums_info",        .fn=do__f_enums_info,           ROOT_NE},
     {.name="equals",            .fn=do__f_equals,               CHAIN_NE},
     {.name="err",               .fn=do__f_err,                  ROOT_NE},
-    {.name="change_id",          .fn=do__f_change_id,             ROOT_NE},
+    {.name="change_id",         .fn=do__f_change_id,            ROOT_NE},
     {.name="every",             .fn=do__f_every,                CHAIN_NE},
     {.name="export",            .fn=do__f_export,               ROOT_NE},
     {.name="extend",            .fn=do__f_extend,               CHAIN_CE_XVAR},

@@ -21,6 +21,7 @@ typedef enum
     MPACK_EXT_REGEX,
     MPACK_EXT_CLOSURE,
     MPACK_EXT_ROOM,
+    MPACK_EXT_TASK,
 } mpack_ext_t;
 
 typedef struct
@@ -503,10 +504,10 @@ static mp_enum_t __attribute__((unused))mp_next(mp_unp_t * up, mp_obj_t * o)
     return (o->tp = MP_ERR);
 }
 
-static mp_enum_t __attribute__((unused))mp_peek(mp_unp_t * up, mp_obj_t * o)
+static mp_enum_t __attribute__((unused))mp_peek(mp_unp_t * up)
 {
     const char * keep = up->pt;
-    mp_enum_t tp = mp_next(up, o);
+    mp_enum_t tp = mp_skip(up);
     up->pt = keep;
     return tp;
 }

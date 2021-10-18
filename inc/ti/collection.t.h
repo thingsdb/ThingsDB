@@ -34,7 +34,7 @@ struct ti_collection_s
     ti_enums_t * enums;
     uv_mutex_t * lock;      /* only for watch/ unwatch/ away-mode */
     vec_t * futures;        /* no reference, type: ti_future_t */
-    vec_t * timers;         /* timers, type: ti_timer_t */
+    vec_t * vtasks;         /* tasks, type: ti_vtask_t */
 };
 
 #endif /* TI_COLLECTION_T_H_ */

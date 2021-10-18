@@ -21,7 +21,7 @@ typedef enum
     TI_TASK_DEL_MODULE,                     /* 8   */
     TI_TASK_DEL_NODE,                       /* 9  */
     TI_TASK_DEL_PROCEDURE,                  /* 10  */
-    TI_TASK_DEL_TIMER,                      /* 11  */
+    _TI_TASK_DEL_TIMER,                     /* 11  Obsolete*/
     TI_TASK_DEL_TOKEN,                      /* 12  */
     TI_TASK_DEL_TYPE,                       /* 13  */
     TI_TASK_DEL_USER,                       /* 14  */
@@ -43,7 +43,7 @@ typedef enum
     TI_TASK_NEW_MODULE,                     /* 30  */
     TI_TASK_NEW_NODE,                       /* 31  */
     TI_TASK_NEW_PROCEDURE,                  /* 32  */
-    TI_TASK_NEW_TIMER,                      /* 33  */
+    _TI_TASK_NEW_TIMER,                     /* 33  Obsolete */
     TI_TASK_NEW_TOKEN,                      /* 34  */
     TI_TASK_NEW_TYPE,                       /* 35  */
     TI_TASK_NEW_USER,                       /* 36  */
@@ -60,7 +60,7 @@ typedef enum
     TI_TASK_SET_MODULE_SCOPE,               /* 47  */
     TI_TASK_SET_PASSWORD,                   /* 48  */
     TI_TASK_SET_TIME_ZONE,                  /* 49  */
-    TI_TASK_SET_TIMER_ARGS,                 /* 50  */
+    _TI_TASK_SET_TIMER_ARGS,                /* 50  Obsolete */
     TI_TASK_SET_TYPE,                       /* 51  */
     TI_TASK_TO_TYPE,                        /* 52  */
     TI_TASK_CLEAR_USERS,                    /* 53  */
@@ -69,7 +69,13 @@ typedef enum
     TI_TASK_THING_CLEAR,                    /* 56  */
     TI_TASK_ARR_CLEAR,                      /* 57  */
     TI_TASK_SET_CLEAR,                      /* 58  */
-    TI_TASK_TIMER_AGAIN,                    /* 59  */
+    TI_TASK_NEW_VTASK,                      /* 59  */
+    TI_TASK_DEL_VTASK,                      /* 60  */
+    TI_TASK_CANCEL_VTASK,                   /* 61  */
+    TI_TASK_SET_VTASK_VERR,                 /* 62  */
+    TI_TASK_SET_VTASK_ARGS,                 /* 63  */
+    TI_TASK_SET_VTASK_OWNER,                /* 64  */
+    TI_TASK_VTASK_AGAIN_AT,                 /* 65  */
 } ti_task_enum;
 
 typedef struct ti_task_s ti_task_t;

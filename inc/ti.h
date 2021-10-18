@@ -25,8 +25,8 @@
 #include <ti/room.t.h>
 #include <ti/store.h>
 #include <ti/sync.h>
+#include <ti/tasks.h>
 #include <ti/tcp.h>
-#include <ti/timers.h>
 #include <ti/users.h>
 #include <ti/val.t.h>
 #include <tiinc.h>
@@ -105,7 +105,7 @@ struct ti_s
     ti_room_t * room0;          /* room with id 0 */
     ti_users_t * users;
     ti_backups_t * backups;
-    ti_timers_t * timers;
+    ti_tasks_t * tasks;
     vec_t * access_node;        /* ti_access_t */
     vec_t * access_thingsdb;    /* ti_access_t */
     smap_t * procedures;        /* ti_procedure_t */

@@ -478,36 +478,6 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_del_timer(ti_task_t * task, ti_timer_t * timer)
-{
-    size_t alloc = 64;
-    ti_data_t * data;
-    msgpack_packer pk;
-    msgpack_sbuffer buffer;
-
-    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
-        return -1;
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-
-    msgpack_pack_array(&pk, 2);
-
-    msgpack_pack_uint8(&pk, TI_TASK_DEL_TIMER);
-    msgpack_pack_uint64(&pk, timer->id);
-
-    data = (ti_data_t *) buffer.data;
-    ti_data_init(data, buffer.size);
-
-    if (vec_push(&task->list, data))
-        goto fail_data;
-
-    task__upd_approx_sz(task, data);
-    return 0;
-
-fail_data:
-    free(data);
-    return -1;
-}
-
 int ti_task_add_del_token(ti_task_t * task, ti_token_key_t * key)
 {
     size_t alloc = 128;
@@ -1063,7 +1033,7 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_new_timer(ti_task_t * task, ti_timer_t * timer)
+int ti_task_add_new_vtask(ti_task_t * task, ti_vtask_t * vtask)
 {
     size_t alloc = 1024;
     ti_data_t * data;
@@ -1076,33 +1046,30 @@ int ti_task_add_new_timer(ti_task_t * task, ti_timer_t * timer)
 
     msgpack_pack_array(&vp.pk, 2);
 
-    msgpack_pack_uint8(&vp.pk, TI_TASK_NEW_TIMER);
-    msgpack_pack_map(&vp.pk, 6);
+    msgpack_pack_uint8(&vp.pk, TI_TASK_NEW_VTASK);
+    msgpack_pack_map(&vp.pk, 5);
 
     mp_pack_str(&vp.pk, "id");
-    msgpack_pack_uint64(&vp.pk, timer->id);
+    msgpack_pack_uint64(&vp.pk, vtask->id);
 
-    mp_pack_str(&vp.pk, "next_run");
-    msgpack_pack_uint64(&vp.pk, timer->next_run);
-
-    mp_pack_str(&vp.pk, "repeat");
-    msgpack_pack_uint32(&vp.pk, timer->repeat);
+    mp_pack_str(&vp.pk, "run_at");
+    msgpack_pack_uint64(&vp.pk, vtask->run_at);
 
     mp_pack_str(&vp.pk, "user_id");
-    msgpack_pack_uint64(&vp.pk, timer->user->id);
+    msgpack_pack_uint64(&vp.pk, vtask->user->id);
 
     if (mp_pack_str(&vp.pk, "closure") ||
-        ti_closure_to_pk(timer->closure, &vp.pk, TI_VAL_PACK_TASK) ||
+        ti_closure_to_pk(vtask->closure, &vp.pk, TI_VAL_PACK_TASK) ||
 
         mp_pack_str(&vp.pk, "args") ||
-        msgpack_pack_array(&vp.pk, timer->args->n))
+        msgpack_pack_array(&vp.pk, vtask->args->n))
         goto fail_pack;
 
     /*
      * In the @thingsdb scope there are no things allowed as arguments so
      * the code below should run fine
      */
-    for (vec_each(timer->args, ti_val_t, val))
+    for (vec_each(vtask->args, ti_val_t, val))
         if (ti_val_gen_ids(val) ||
             ti_val_to_pk(val, &vp, TI_VAL_PACK_TASK))
             goto fail_pack;
@@ -1125,7 +1092,73 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_set_timer_args(ti_task_t * task, ti_timer_t * timer)
+int ti_task_add_del_vtask(ti_task_t * task, ti_vtask_t * vtask)
+{
+    size_t alloc = 64;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_DEL_VTASK);
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, vtask->id);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_cancel_vtask(ti_task_t * task, ti_vtask_t * vtask)
+{
+    size_t alloc = 64;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_CANCEL_VTASK);
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, vtask->id);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_set_vtask_verr(ti_task_t * task, ti_vtask_t * vtask)
 {
     size_t alloc = 1024;
     ti_data_t * data;
@@ -1138,20 +1171,61 @@ int ti_task_add_set_timer_args(ti_task_t * task, ti_timer_t * timer)
 
     msgpack_pack_array(&vp.pk, 2);
 
-    msgpack_pack_uint8(&vp.pk, TI_TASK_SET_TIMER_ARGS);
+    msgpack_pack_uint8(&vp.pk, TI_TASK_SET_VTASK_VERR);
     msgpack_pack_map(&vp.pk, 2);
 
     mp_pack_str(&vp.pk, "id");
-    msgpack_pack_uint64(&vp.pk, timer->id);
+    msgpack_pack_uint64(&vp.pk, vtask->id);
+
+    mp_pack_str(&vp.pk, "verr");
+    if (ti_val_to_pk(&vp.pk, vtask->verr))
+        goto fail_pack;
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+
+fail_pack:
+    msgpack_sbuffer_destroy(&buffer);
+    return -1;
+}
+
+int ti_task_add_set_vtask_args(ti_task_t * task, ti_vtask_t * vtask)
+{
+    size_t alloc = 1024;
+    ti_data_t * data;
+    ti_vp_t vp;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&vp.pk, 2);
+
+    msgpack_pack_uint8(&vp.pk, TI_TASK_SET_VTASK_ARGS);
+    msgpack_pack_map(&vp.pk, 2);
+
+    mp_pack_str(&vp.pk, "id");
+    msgpack_pack_uint64(&vp.pk, vtask->id);
 
     mp_pack_str(&vp.pk, "args");
-    msgpack_pack_array(&vp.pk, timer->args->n);
+    msgpack_pack_array(&vp.pk, vtask->args->n);
 
     /*
      * In the @thingsdb scope there are no things allowed as arguments so
      * the code below should run fine
      */
-    for (vec_each(timer->args, ti_val_t, val))
+    for (vec_each(vtask->args, ti_val_t, val))
         if (ti_val_gen_ids(val) ||
             ti_val_to_pk(val, &vp, TI_VAL_PACK_TASK))
             goto fail_pack;
@@ -1174,7 +1248,43 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_timer_again(ti_task_t * task, ti_timer_t * timer)
+int ti_task_add_set_vtask_owner(ti_task_t * task, ti_vtask_t * vtask)
+{
+    size_t alloc = 128;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_SET_VTASK_VERR);
+    msgpack_pack_map(&pk, 2);
+
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, vtask->id);
+
+    mp_pack_str(&pk, "owner");
+    msgpack_pack_uint64(&pk, vtask->user->id);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_vtask_again_at(ti_task_t * task, ti_vtask_t * vtask)
 {
     size_t alloc = 64;
     ti_data_t * data;
@@ -1187,14 +1297,14 @@ int ti_task_add_timer_again(ti_task_t * task, ti_timer_t * timer)
 
     msgpack_pack_array(&vp.pk, 2);
 
-    msgpack_pack_uint8(&vp.pk, TI_TASK_TIMER_AGAIN);
+    msgpack_pack_uint8(&vp.pk, TI_TASK_VTASK_AGAIN_AT);
     msgpack_pack_map(&vp.pk, 2);
 
     mp_pack_str(&vp.pk, "id");
-    msgpack_pack_uint64(&vp.pk, timer->id);
+    msgpack_pack_uint64(&vp.pk, vtask->id);
 
-    mp_pack_str(&vp.pk, "next_run");
-    msgpack_pack_uint64(&vp.pk, timer->next_run);
+    mp_pack_str(&vp.pk, "run_at");
+    msgpack_pack_uint64(&vp.pk, vtask->run_at);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

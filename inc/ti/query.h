@@ -33,7 +33,7 @@ int ti_query_parse(ti_query_t * query, const char * str, size_t n, ex_t * e);
 void ti_query_run_parseres(ti_query_t * query);
 void ti_query_run_procedure(ti_query_t * query);
 void ti_query_run_future(ti_query_t * query);
-void ti_query_run_timer(ti_query_t * query);
+void ti_query_run_task(ti_query_t * query);
 void ti_query_send_response(ti_query_t * query, ex_t * e);
 void ti_query_on_then_result(ti_query_t * query, ex_t * e);
 void ti_query_timer_result(ti_query_t * query, ex_t * e);
@@ -56,6 +56,7 @@ int ti_query_vars_walk(
         ti_collection_t * collection,
         imap_cb cb,
         void * args);
+int ti_query_task_context(ti_query_t * query, ti_vtask_t * vtask, ex_t * e);
 
 static inline _Bool ti_query_wse(ti_query_t * query)
 {

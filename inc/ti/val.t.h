@@ -60,6 +60,8 @@ TI_VAL_TEMPLATE | N.A.        | *Never returned to the client as template*
 #define TI_VAL_DATETIME_S   "datetime"
 #define TI_VAL_TIMEVAL_S    "timeval"
 #define TI_VAL_FUTURE_S     "future"
+#define TI_VAL_TASK_S       "task"
+
 
 /* negative value is used for packing tasks */
 #define TI_VAL_PACK_TASK -1
@@ -90,6 +92,7 @@ typedef enum
     TI_VAL_THING,       /* instance or object */
     TI_VAL_WRAP,
     TI_VAL_ROOM,
+    TI_VAL_TASK,
     TI_VAL_ARR,         /* array, list or tuple */
     TI_VAL_SET,         /* set of things */
     TI_VAL_ERROR,
@@ -147,5 +150,125 @@ struct ti_val_s
     uint8_t flags;
     uint16_t _pad16;
 };
+
+typedef (*ti_val_destroy_cb) (ti_val_t *);
+/* TODO  typedef (*ti_val_to_pk_cb) (ti_val_t *, ti_vp_t *, int); */
+
+typedef struct
+{
+    ti_val_destroy_cb destroy;
+    _Bool allowed_as_vtask_arg;     /* allowed in the @thingsdb scope */
+} ti_val_type_t;
+
+
+static ti_val_type_t ti_val_type_props[20] = {
+    /* TI_VAL_NIL */
+    {
+        .destroy = (ti_val_destroy_cb) free,
+        .allowed_as_vtask_arg = true,
+    },
+    /* TI_VAL_INT */
+    {
+        .destroy = (ti_val_destroy_cb) free,
+        .allowed_as_vtask_arg = true,
+    },
+    /* TI_VAL_FLOAT */
+    {
+        .destroy = (ti_val_destroy_cb) free,
+        .allowed_as_vtask_arg = true,
+    },
+    /* TI_VAL_BOOL */
+    {
+        .destroy = (ti_val_destroy_cb) free,
+        .allowed_as_vtask_arg = true,
+    },
+    /* TI_VAL_DATETIME */
+    {
+        .destroy = (ti_val_destroy_cb) free,
+        .allowed_as_vtask_arg = true,
+    },
+    /* TI_VAL_NAME */
+    {
+        .destroy = (ti_val_destroy_cb) ti_name_destroy,
+        .allowed_as_vtask_arg = true,
+    },
+    /* TI_VAL_STR */
+    {
+        .destroy = (ti_val_destroy_cb) free,
+        .allowed_as_vtask_arg = true,
+    },
+    /* TI_VAL_BYTES */
+    {
+        .destroy = (ti_val_destroy_cb) free,
+        .allowed_as_vtask_arg = true,
+    },
+    /* TI_VAL_REGEX */
+    {
+        .destroy = (ti_val_destroy_cb) ti_regex_destroy,
+        .allowed_as_vtask_arg = true,
+    },
+    /* TI_VAL_THING */
+    {
+        .destroy = (ti_val_destroy_cb) ti_thing_destroy,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_WRAP */
+    {
+        .destroy = (ti_val_destroy_cb) ti_wrap_destroy,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_ROOM */
+    {
+        .destroy = (ti_val_destroy_cb) ti_room_destroy,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_TASK */
+    {
+        .destroy = (ti_val_destroy_cb) ti_vtask_destroy,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_ARR */
+    {
+        .destroy = (ti_val_destroy_cb) ti_varr_destroy,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_SET */
+    {
+        .destroy = (ti_val_destroy_cb) ti_vset_destroy,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_ERROR */
+    {
+        .destroy = (ti_val_destroy_cb) free,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_MEMBER */
+    {
+        .destroy = (ti_val_destroy_cb) ti_member_destroy,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_MPDATA */
+    {
+        .destroy = (ti_val_destroy_cb) free,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_CLOSURE */
+    {
+        .destroy = (ti_val_destroy_cb) ti_closure_destroy,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_FUTURE */
+    {
+        .destroy = (ti_val_destroy_cb) ti_future_destroy,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_TEMPLATE */
+    {
+        .destroy = (ti_val_destroy_cb) ti_template_destroy,
+        .allowed_as_vtask_arg = false,
+    },
+};
+
+#define ti_val(__val) (ti_val_type_props[(__val)->tp])
 
 #endif /* TI_VAL_T_H_ */

@@ -50,14 +50,14 @@ ti_query_run_cb ti_query_run_map[] = {
         &ti_query_run_parseres,
         &ti_query_run_procedure,
         &ti_query_run_future,
-        &ti_query_run_timer,
+        &ti_query_run_task,
 };
 
 /*
  *  tasks are ordered for low to high thing ids
  *   { [0, 0]: {0: [ {'task':...} ] } }
  */
-static ti_cpkg_t * query__cpkg_event(ti_query_t * query)
+static ti_cpkg_t * query__cpkg_change(ti_query_t * query)
 {
     size_t init_buffer_sz = 40;
     msgpack_packer pk;
@@ -105,9 +105,9 @@ static ti_cpkg_t * query__cpkg_event(ti_query_t * query)
  * Void function, although errors can happen. Each error is critical since this
  * results in nodes and subscribers inconsistency.
  */
-static void query__event_handle(ti_query_t * query)
+static void query__change_handle(ti_query_t * query)
 {
-    ti_cpkg_t * cpkg = query__cpkg_event(query);
+    ti_cpkg_t * cpkg = query__cpkg_change(query);
     if (!cpkg)
     {
         log_critical(EX_MEMORY_S);
@@ -216,13 +216,13 @@ void ti_query_destroy(ti_query_t * query)
         }
         break;
     case TI_QUERY_WITH_PROCEDURE:
-        ti_val_drop((ti_val_t *) query->with.closure);
+        ti_closure_drop(query->with.closure);
         break;
     case TI_QUERY_WITH_FUTURE:
         ti_val_drop((ti_val_t *) query->with.future);
         break;
-    case TI_QUERY_WITH_TIMER:
-        ti_timer_drop(query->with.timer);
+    case TI_QUERY_WITH_TASK:
+        ti_vtask_drop(query->with.vtask);
         break;
     }
 
@@ -605,10 +605,10 @@ static void query__duration_log(
                 duration,
                 query->with.future->then->node->str);
         return;
-    case TI_QUERY_WITH_TIMER:
-        log_with_level(log_level, "timer took %f seconds to process: `%s`",
+    case TI_QUERY_WITH_TASK:
+        log_with_level(log_level, "task took %f seconds to process: `%s`",
                 duration,
-                query->with.timer->closure->node->str);
+                query->with.vtask->closure->node->str);
         return;
     }
 }
@@ -853,7 +853,7 @@ void ti_query_run_parseres(ti_query_t * query)
 
 stop:
     if (query->change)
-        query__event_handle(query);  /* errors will be logged only */
+        query__change_handle(query);  /* errors will be logged only */
 
     ti_query_done(query, &e, &ti_query_send_response);
 }
@@ -876,7 +876,7 @@ void ti_query_run_procedure(ti_query_t * query)
             &e);
 
     if (query->change)
-        query__event_handle(query);  /* errors will be logged only */
+        query__change_handle(query);  /* errors will be logged only */
 
     ti_query_done(query, &e, &ti_query_send_response);
 }
@@ -892,32 +892,43 @@ void ti_query_run_future(ti_query_t * query)
     (void) ti_closure_call(query->with.future->then, query, vec, &e);
 
     if (query->change)
-        query__event_handle(query);  /* errors will be logged only */
+        query__change_handle(query);  /* errors will be logged only */
 
     ti_query_done(query, &e, &ti_query_on_then_result);
 }
 
-void ti_query_run_timer(ti_query_t * query)
+void ti_query_run_task(ti_query_t * query)
 {
     ex_t e = {0};
-    ti_timer_t * timer = query->with.timer;
-    uint64_t next_run = timer->next_run;
+    ti_vtask_t * vtask = query->with.vtask;
+    uint64_t run_at = vtask->run_at;
 
-    clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
+    /* TODO: check task before run, increase closure ref count? */
+    if (vtask->run_at)
+    {
+        clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
 
 #ifndef NDEBUG
-    log_debug("[DEBUG] run timer: %s", query->with.timer->closure->node->str);
+        log_debug(
+                "[DEBUG] run task: %s",
+                query->with.vtask->closure->node->str);
 #endif
 
-    /* this can never set `e->nr` to EX_RETURN */
-    (void) ti_closure_call(timer->closure, query, timer->args, &e);
+        /* this can never set `e->nr` to EX_RETURN */
+        (void) ti_closure_call(vtask->closure, query, vtask->args, &e);
 
-    /* if not re-scheduled, set next_run to 0 as this will remove the timer */
-    if (!timer->repeat && next_run == timer->next_run)
-        timer->next_run = 0;
+        /* if task Id is 0, then a DELETE task is created */
+        if (vtask->id)
+        {
+            /* TODO : create to correct tasks */
+        }
 
-    if (query->change)
-        query__event_handle(query);  /* errors will be logged only */
+        query__change_handle(query);  /* errors will be logged only */
+    }
+    else
+    {
+        ex_set(e, EX_CANCELLED, str(EX_CANCELLED));
+    }
 
     ti_query_done(query, &e, &ti_query_timer_result);
 }
@@ -1044,7 +1055,7 @@ void ti_query_send_response(ti_query_t * query, ex_t * e)
                     e->msg);
             break;
         case TI_QUERY_WITH_FUTURE:
-        case TI_QUERY_WITH_TIMER:
+        case TI_QUERY_WITH_TASK:
             assert(0);
             break;
         }
@@ -1320,5 +1331,28 @@ int ti_query_vars_walk(
 fail:
     imap_destroy(imap, (imap_destroy_cb) ti_val_unsafe_drop);
     return rc;
+}
+
+int ti_query_task_context(ti_query_t * query, ti_vtask_t * vtask, ex_t * e)
+{
+    do
+    {
+        if (query->with_tp == TI_QUERY_WITH_TASK)
+        {
+            if (query->with.vtask != vtask)
+                ex_set(e, EX_OPERATION,
+                        "task does not match the current task context");
+            return e->nr;
+        }
+        if (query->with_tp != TI_QUERY_WITH_FUTURE)
+        {
+            ex_set(e, EX_OPERATION, "requires a task context");
+            return e->nr;
+        }
+        query = query->with->future->query;
+    }
+    while(query);
+    ex_set_internal(e);
+    return e->nr;
 }
 

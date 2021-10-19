@@ -192,22 +192,6 @@ void ti_vtask_del(uint64_t vtask_id, ti_collection_t * collection)
     }
 }
 
-int ti_vtask_check_thingsdb_args(vec_t * args, ex_t * e)
-{
-    for (vec_each(args, ti_val_t, v))
-    {
-        if (!ti_val(v)->allowed_as_vtask_arg)
-        {
-            ex_set(e, EX_TYPE_ERROR,
-                "type `%s` is not allowed as a task argument in "
-                "the `@thingsdb` scope"DOC_TASK,
-                ti_val_str(v));
-            return e->nr;
-        }
-    }
-    return 0;
-}
-
 ti_raw_t * ti_vtask_str(ti_vtask_t * vtask)
 {
     if (vtask->id)
@@ -261,4 +245,34 @@ int ti_vtask_to_pk(ti_vtask_t * vtask, msgpack_packer * pk, int options)
     }
 
     return mp_pack_str(pk, "task:nil");
+}
+
+int ti_vtask_check_args(vec_t * args, size_t m, _Bool ti_scope, ex_t * e)
+{
+    size_t n = args->n;
+
+    if (n >= m)
+    {
+        ex_set(e, EX_NUM_ARGUMENTS,
+                "got %zu task argument%s while the given closure "
+                "accepts no more than %zu argument%s "
+                "(first closure argument will be the task)"DOC_TASK,
+                n, n == 1 ? "" : "s",
+                m ? m-1 : 0, m == 2 ? "" : "s");
+        return e->nr;
+    }
+
+    if (ti_scope) for (vec_each(args, ti_val_t, v))
+    {
+        if (!ti_val(v)->allowed_as_vtask_arg)
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                "type `%s` is not allowed as a task argument in "
+                "the `@thingsdb` scope"DOC_TASK,
+                ti_val_str(v));
+            return e->nr;
+        }
+    }
+
+    return 0;
 }

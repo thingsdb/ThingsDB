@@ -32,7 +32,7 @@ static int do__f_del_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (member->ref > 1)
         {
             ex_set(e, EX_OPERATION,
-                    "enum member `%s{%s}` is still being used"DOC_DEL_ENUM,
+                    "enum member `%s{%s}` is still in use"DOC_DEL_ENUM,
                     enum_->name, member->name->str);
             return e->nr;
         }

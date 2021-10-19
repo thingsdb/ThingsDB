@@ -1033,7 +1033,7 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_new_vtask(ti_task_t * task, ti_vtask_t * vtask)
+int ti_task_add_vtask_new(ti_task_t * task, ti_vtask_t * vtask)
 {
     size_t alloc = 1024;
     ti_data_t * data;
@@ -1046,7 +1046,7 @@ int ti_task_add_new_vtask(ti_task_t * task, ti_vtask_t * vtask)
 
     msgpack_pack_array(&vp.pk, 2);
 
-    msgpack_pack_uint8(&vp.pk, TI_TASK_NEW_VTASK);
+    msgpack_pack_uint8(&vp.pk, TI_TASK_VTASK_NEW);
     msgpack_pack_map(&vp.pk, 5);
 
     mp_pack_str(&vp.pk, "id");
@@ -1092,7 +1092,7 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_del_vtask(ti_task_t * task, ti_vtask_t * vtask)
+int ti_task_add_vtask_del(ti_task_t * task, ti_vtask_t * vtask)
 {
     size_t alloc = 64;
     ti_data_t * data;
@@ -1105,7 +1105,7 @@ int ti_task_add_del_vtask(ti_task_t * task, ti_vtask_t * vtask)
 
     msgpack_pack_array(&pk, 2);
 
-    msgpack_pack_uint8(&pk, TI_TASK_DEL_VTASK);
+    msgpack_pack_uint8(&pk, TI_TASK_VTASK_DEL);
     msgpack_pack_map(&pk, 1);
 
     mp_pack_str(&pk, "id");
@@ -1125,7 +1125,7 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_cancel_vtask(ti_task_t * task, ti_vtask_t * vtask)
+int ti_task_add_vtask_cancel(ti_task_t * task, ti_vtask_t * vtask)
 {
     size_t alloc = 64;
     ti_data_t * data;
@@ -1138,7 +1138,7 @@ int ti_task_add_cancel_vtask(ti_task_t * task, ti_vtask_t * vtask)
 
     msgpack_pack_array(&pk, 2);
 
-    msgpack_pack_uint8(&pk, TI_TASK_CANCEL_VTASK);
+    msgpack_pack_uint8(&pk, TI_TASK_VTASK_CANCEL);
     msgpack_pack_map(&pk, 1);
 
     mp_pack_str(&pk, "id");
@@ -1158,7 +1158,7 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_set_vtask_verr(ti_task_t * task, ti_vtask_t * vtask)
+int ti_task_add_vtask_set_verr(ti_task_t * task, ti_vtask_t * vtask)
 {
     size_t alloc = 1024;
     ti_data_t * data;
@@ -1171,7 +1171,7 @@ int ti_task_add_set_vtask_verr(ti_task_t * task, ti_vtask_t * vtask)
 
     msgpack_pack_array(&vp.pk, 2);
 
-    msgpack_pack_uint8(&vp.pk, TI_TASK_SET_VTASK_VERR);
+    msgpack_pack_uint8(&vp.pk, TI_TASK_VTASK_SET_VERR);
     msgpack_pack_map(&vp.pk, 2);
 
     mp_pack_str(&vp.pk, "id");
@@ -1199,7 +1199,7 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_set_vtask_args(ti_task_t * task, ti_vtask_t * vtask)
+int ti_task_add_vtask_set_args(ti_task_t * task, ti_vtask_t * vtask)
 {
     size_t alloc = 1024;
     ti_data_t * data;
@@ -1212,7 +1212,7 @@ int ti_task_add_set_vtask_args(ti_task_t * task, ti_vtask_t * vtask)
 
     msgpack_pack_array(&vp.pk, 2);
 
-    msgpack_pack_uint8(&vp.pk, TI_TASK_SET_VTASK_ARGS);
+    msgpack_pack_uint8(&vp.pk, TI_TASK_VTASK_SET_ARGS);
     msgpack_pack_map(&vp.pk, 2);
 
     mp_pack_str(&vp.pk, "id");
@@ -1248,7 +1248,7 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_set_vtask_owner(ti_task_t * task, ti_vtask_t * vtask)
+int ti_task_add_vtask_set_owner(ti_task_t * task, ti_vtask_t * vtask)
 {
     size_t alloc = 128;
     ti_data_t * data;
@@ -1261,7 +1261,7 @@ int ti_task_add_set_vtask_owner(ti_task_t * task, ti_vtask_t * vtask)
 
     msgpack_pack_array(&pk, 2);
 
-    msgpack_pack_uint8(&pk, TI_TASK_SET_VTASK_VERR);
+    msgpack_pack_uint8(&pk, TI_TASK_VTASK_SET_OWNER);
     msgpack_pack_map(&pk, 2);
 
     mp_pack_str(&pk, "id");

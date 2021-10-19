@@ -272,7 +272,7 @@ class TestAdvanced(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'invalid declaration for `a` on type `B`; '
-                r'cannot assign type `A` while the type is being used;'):
+                r'cannot assign type `A` while the type is in use;'):
             await client.query(r'''
                 set_type('A', {
                     x: 'int',
@@ -1161,7 +1161,7 @@ class TestAdvanced(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change type `X` while one of the '
-                r'instances is being used'):
+                r'instances is in use'):
             res = await client.query('''
                 set_type('X', {
                     a: 'int',

@@ -967,7 +967,7 @@ int type__convert_cb(ti_prop_t * prop, type__convert_t * w)
     if (ti_val_is_mut_locked(prop->val))
     {
         ex_set(w->e, EX_OPERATION,
-                "conversion failed; property `%s` is being used",
+                "conversion failed; property `%s` is in use",
                 field->name->str);
         return -1;
     }

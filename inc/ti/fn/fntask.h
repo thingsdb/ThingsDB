@@ -95,24 +95,10 @@ static int do__f_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (nargs == 3)
         {
+            const _Bool ti_scope = query->collection==NULL;
             if (ti_do_statement(query, (child = child->next->next)->node, e) ||
-                fn_arg_array("task", DOC_TASK, 3, query->rval, e))
-                goto fail2;
-
-            n = VARR(query->rval)->n;
-            if (n >= m)
-            {
-                ex_set(e, EX_NUM_ARGUMENTS,
-                        "got %zu task argument%s while the given closure "
-                        "accepts no more than %zu argument%s "
-                        "(first closure argument will be the task)"DOC_TASK,
-                        n, n == 1 ? "" : "s",
-                        m ? m-1 : 0, m == 2 ? "" : "s");
-                goto fail2;
-            }
-
-            if (!query->collection &&
-                ti_timer_check_thingsdb_args(VARR(query->rval), e))
+                fn_arg_array("task", DOC_TASK, 3, query->rval, e) ||
+                ti_vtask_check_args(VARR(query->rval), m, ti_scope, e))
                 goto fail2;
 
             for (vec_each(VARR(query->rval), ti_val_t, v), --m)

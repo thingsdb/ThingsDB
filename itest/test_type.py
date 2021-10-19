@@ -604,7 +604,7 @@ class TestType(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change type `Person` while the type '
-                r'is being used'):
+                r'is in use'):
             await client.query(r'''
                 mod_type("Person", "add", "hair_type", {
                     mod_type("Person", "add", "hair_type", "str", "blonde");

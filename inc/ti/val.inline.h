@@ -336,7 +336,7 @@ static inline int ti_val_try_lock(ti_val_t * val, ex_t * e)
     if (val->flags & TI_VFLAG_LOCK)
     {
         ex_set(e, EX_OPERATION,
-            "cannot change type `%s` while the value is being used",
+            "cannot change type `%s` while the value is in use",
             ti_val_str(val));
         return -1;
     }

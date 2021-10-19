@@ -18,7 +18,7 @@ struct ti_vtask_s
 {
     uint32_t ref;
     uint8_t tp;
-    uint8_t _flags;
+    uint8_t flags;
     uint16_t _pad1;
     uint64_t id;                    /* Unique ID */
     uint64_t run_at;                /* Run at UNIX time-stamp in seconds */

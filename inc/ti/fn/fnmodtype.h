@@ -1037,7 +1037,7 @@ static int modtype__has_lock(ti_query_t * query, ti_type_t * type, ex_t * e)
 
 locked:
     ex_set(e, EX_OPERATION,
-        "cannot change type `%s` while one of the instances is being used",
+        "cannot change type `%s` while one of the instances is in use",
         type->name);
     return e->nr;
 memerror:

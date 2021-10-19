@@ -129,7 +129,7 @@ static void enum__del(
     if (member->ref > 1)
     {
         ex_set(e, EX_OPERATION,
-                "enum member `%s{%s}` is still being used",
+                "enum member `%s{%s}` is still in use",
                 enum_->name, name->str);
         return;
     }

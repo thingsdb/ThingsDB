@@ -69,12 +69,12 @@ typedef enum
     TI_TASK_THING_CLEAR,                    /* 56  */
     TI_TASK_ARR_CLEAR,                      /* 57  */
     TI_TASK_SET_CLEAR,                      /* 58  */
-    TI_TASK_NEW_VTASK,                      /* 59  */
-    TI_TASK_DEL_VTASK,                      /* 60  */
-    TI_TASK_CANCEL_VTASK,                   /* 61  */
-    TI_TASK_SET_VTASK_VERR,                 /* 62  */
-    TI_TASK_SET_VTASK_ARGS,                 /* 63  */
-    TI_TASK_SET_VTASK_OWNER,                /* 64  */
+    TI_TASK_VTASK_NEW,                      /* 59  */
+    TI_TASK_VTASK_DEL,                      /* 60  */
+    TI_TASK_VTASK_CANCEL,                   /* 61  */
+    TI_TASK_VTASK_SET_VERR,                 /* 62  */
+    TI_TASK_VTASK_SET_ARGS,                 /* 63  */
+    TI_TASK_VTASK_SET_OWNER,                /* 64  */
     TI_TASK_VTASK_AGAIN_AT,                 /* 65  */
 } ti_task_enum;
 

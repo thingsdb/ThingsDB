@@ -554,7 +554,7 @@ skip_nesting:
             {
                 ex_set(e, EX_OPERATION,
                     "invalid declaration for `%s` on type `%s`; "
-                    "cannot assign enum type `%s` while the enum is being used"
+                    "cannot assign enum type `%s` while the enum is in use"
                     DOC_T_TYPE,
                     field->name->str, field->type->name,
                     enum_->name);
@@ -582,7 +582,7 @@ skip_nesting:
             {
                 ex_set(e, EX_OPERATION,
                     "invalid declaration for `%s` on type `%s`; "
-                    "cannot assign type `%s` while the type is being used"
+                    "cannot assign type `%s` while the type is in use"
                     DOC_T_TYPE,
                     field->name->str, field->type->name,
                     dep->name);

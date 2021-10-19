@@ -185,7 +185,7 @@ class TestNested(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change or remove property `arr` on `#\d+` while '
-                r'the `list` is being used'):
+                r'the `list` is in use'):
             await client0.query(r"""//ti
                 .arr = ['a', 'b'];
                 .arr.push({
@@ -198,7 +198,7 @@ class TestNested(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change or remove property `arr` on `#\d+` while '
-                r'the `list` is being used'):
+                r'the `list` is in use'):
             await client0.query(r'''
                 .arr = ['a', 'b'];
                 .arr.push({
@@ -241,7 +241,7 @@ class TestNested(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change or remove property `a` on `#\d+` while '
-                r'the `list` is being used'):
+                r'the `list` is in use'):
             await client0.query(r'''
                 .store = {};
                 .store.a = [1, 2, 3];
@@ -252,7 +252,7 @@ class TestNested(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change or remove property `a` on `#\d+` while '
-                r'the `list` is being used'):
+                r'the `list` is in use'):
             await client0.query(r'''
                 .store = {};
                 store = .store;
@@ -266,7 +266,7 @@ class TestNested(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change or remove property `a` on `#\d+` while '
-                r'the `set` is being used'):
+                r'the `set` is in use'):
             await client0.query(r'''
                 .store = {};
                 .store.a = set([{}, {}, {}]);
@@ -277,7 +277,7 @@ class TestNested(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change or remove property `a` on `#\d+` while '
-                r'the `set` is being used'):
+                r'the `set` is in use'):
             await client0.query(r'''
                 .store = {};
                 store = .store;

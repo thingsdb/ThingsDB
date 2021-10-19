@@ -1731,7 +1731,7 @@ failed:
  * Returns 0 on success
  * - for example: '{id: 123, run_at: ...}'
  */
-static int ctask__new_vtask(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__vtask_new(ti_thing_t * thing, mp_unp_t * up)
 {
     mp_obj_t obj, mp_id, mp_run_at, mp_user_id;
     ti_collection_t * collection = thing->collection;
@@ -1802,7 +1802,7 @@ fail0:
  * Returns 0 on success
  * - for example: '{id: 123}'
  */
-static int ctask__del_vtask(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__vtask_del(ti_thing_t * thing, mp_unp_t * up)
 {
     mp_obj_t obj, mp_id;
     ti_collection_t * collection = thing->collection;
@@ -1826,7 +1826,7 @@ static int ctask__del_vtask(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: '{id: 123}'
  */
-static int ctask__cancel_vtask(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__vtask_cancel(ti_thing_t * thing, mp_unp_t * up)
 {
     mp_obj_t obj, mp_id;
     ti_collection_t * collection = thing->collection;
@@ -1849,7 +1849,7 @@ static int ctask__cancel_vtask(ti_thing_t * thing, mp_unp_t * up)
     return 0;
 }
 
-static int ctask__set_vtask_verr(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__vtask_set_verr(ti_thing_t * thing, mp_unp_t * up)
 {
     mp_obj_t obj, mp_id;
     ti_collection_t * collection = thing->collection;
@@ -1893,7 +1893,7 @@ fail0:
     return -1;
 }
 
-static int ctask__set_vtask_args(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__vtask_set_args(ti_thing_t * thing, mp_unp_t * up)
 {
     mp_obj_t obj, mp_id;
     ti_collection_t * collection = thing->collection;
@@ -1940,7 +1940,7 @@ fail0:
     return -1;
 }
 
-static int ctask__set_vtask_owner(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__vtask_set_owner(ti_thing_t * thing, mp_unp_t * up)
 {
     mp_obj_t obj, mp_id, mp_user_id;
     ti_collection_t * collection = thing->collection;
@@ -2589,12 +2589,12 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_THING_CLEAR:       return ctask__thing_clear(thing, up);
     case TI_TASK_ARR_CLEAR:         return ctask__arr_clear(thing, up);
     case TI_TASK_SET_CLEAR:         return ctask__set_clear(thing, up);
-    case TI_TASK_NEW_VTASK:         return ctask__new_vtask(thing, up);
-    case TI_TASK_DEL_VTASK:         return ctask__del_vtask(thing, up);
-    case TI_TASK_CANCEL_VTASK:      return ctask__cancel_vtask(thing, up);
-    case TI_TASK_SET_VTASK_VERR:    return ctask__set_vtask_verr(thing, up);
-    case TI_TASK_SET_VTASK_ARGS:    return ctask__set_vtask_args(thing, up);
-    case TI_TASK_SET_VTASK_OWNER:   return ctask__set_vtask_owner(thing, up);
+    case TI_TASK_VTASK_NEW:         return ctask__vtask_new(thing, up);
+    case TI_TASK_VTASK_DEL:         return ctask__vtask_del(thing, up);
+    case TI_TASK_VTASK_CANCEL:      return ctask__vtask_cancel(thing, up);
+    case TI_TASK_VTASK_SET_VERR:    return ctask__vtask_set_verr(thing, up);
+    case TI_TASK_VTASK_SET_ARGS:    return ctask__vtask_set_args(thing, up);
+    case TI_TASK_VTASK_SET_OWNER:   return ctask__vtask_set_owner(thing, up);
     case TI_TASK_VTASK_AGAIN_AT:    return ctask__vtask_again_at(thing, up);
     }
 

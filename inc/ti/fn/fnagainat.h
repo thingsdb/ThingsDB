@@ -11,6 +11,9 @@ static int do__f_again_at(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return fn_call_try("again_at", query, nd, e);
 
     vtask = (ti_vtask_t *) query->rval;
+    if (ti_vtask_lock(vtask, e))
+        return e->nr;
+
     query->rval = NULL;
 
     if (ti_query_task_context(query, vtask, e) ||
@@ -49,6 +52,7 @@ static int do__f_again_at(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         (void) ti_task_add_vtask_again_at(task, vtask);
 
 fail0:
+    ti_vtask_unlock(vtask);
     ti_vtask_unsafe_drop(vtask);
     return e->nr;
 }

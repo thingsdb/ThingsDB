@@ -28,6 +28,7 @@
 #include <ti/val.h>
 #include <ti/val.inline.h>
 #include <ti/varr.h>
+#include <ti/verror.h>
 #include <ti/vset.h>
 #include <ti/vup.t.h>
 #include <util/mpack.h>
@@ -1755,7 +1756,7 @@ static int ctask__vtask_new(ti_thing_t * thing, mp_unp_t * up)
         mp_skip(up) != MP_STR)
     {
         log_critical(
-                "task `new_timer` for "TI_COLLECTION_ID": "
+                "task `vtask_new` for "TI_COLLECTION_ID": "
                 "invalid data",
                 collection->root->id);
         return -1;
@@ -1880,7 +1881,10 @@ static int ctask__vtask_finish(ti_thing_t * thing, mp_unp_t * up)
         goto fail0;
 
     if (ti_val_is_nil(val))
-        val = ti_verror_from_e(EX_SUCCESS);
+    {
+        ti_decref(val);
+        val = (ti_val_t *) ti_verror_from_code(EX_SUCCESS);
+    }
     else if (!ti_val_is_error(val))
         goto fail0;
 
@@ -1956,11 +1960,6 @@ static int ctask__vtask_set_owner(ti_thing_t * thing, mp_unp_t * up)
     ti_collection_t * collection = thing->collection;
     ti_user_t * user;
     ti_vtask_t * vtask;
-    ti_vup_t vup = {
-            .isclient = false,
-            .collection = collection,
-            .up = up,
-    };
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
         mp_skip(up) != MP_STR ||

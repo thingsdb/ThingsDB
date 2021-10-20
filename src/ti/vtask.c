@@ -6,6 +6,7 @@
 #include <ti.h>
 #include <ti/access.h>
 #include <ti/auth.h>
+#include <ti/closure.inline.h>
 #include <ti/name.h>
 #include <ti/node.t.h>
 #include <ti/node.t.h>
@@ -21,7 +22,7 @@
 #include <ti/vint.h>
 #include <ti/val.inline.h>
 
-static const ti_vtask_t vtask__nil = {
+static ti_vtask_t vtask__nil = {
         .ref=1,
         .tp=TI_VAL_TASK,
 };
@@ -67,7 +68,7 @@ void ti_vtask_destroy(ti_vtask_t * vtask)
     {
         ti_user_drop(vtask->user);
         ti_closure_unsafe_drop(vtask->closure);
-        ti_verror_unsafe_drop(vtask->verr);
+        ti_verror_drop(vtask->verr);
         vec_destroy(vtask->args, (vec_destroy_cb) ti_val_unsafe_drop);
     }
     free(vtask);

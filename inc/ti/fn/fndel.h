@@ -102,6 +102,6 @@ static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return ti_val_is_thing(query->rval)
             ? do__f_del_thing(query, nd, e)
             : ti_val_is_task(query->rval)
-            ? do__f_del_task(query, nd, e)
+            ? do__f_del_vtask(query, nd, e)
             : fn_call_try("del", query, nd, e);
 }

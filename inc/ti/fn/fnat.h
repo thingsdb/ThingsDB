@@ -3,6 +3,7 @@
 static int do__f_at(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
+    ti_tz_t * tz = query->collection ? query->collection->tz : ti_tz_utc();
     ti_vtask_t * vtask;
 
     if (!ti_val_is_task(query->rval))
@@ -15,7 +16,7 @@ static int do__f_at(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (vtask->run_at)
     {
-        ti_datetime_t * dt = ti_datetime_from_u64(vtask->run_at);
+        ti_datetime_t * dt = ti_datetime_from_u64(vtask->run_at, tz);
         query->rval = (ti_val_t *) dt;
         if (!dt)
             ex_set_mem(e);

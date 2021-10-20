@@ -21,6 +21,7 @@ ti_vtask_t * ti_vtask_create(
 ti_vtask_t * ti_vtask_nil(void);
 void ti_vtask_destroy(ti_vtask_t * vtask);
 int ti_vtask_run(ti_vtask_t * vtask, ti_collection_t * collection);
+void ti_vtask_del(uint64_t vtask_id, ti_collection_t * collection);
 ti_raw_t * ti_vtask_str(ti_vtask_t * vtask);
 int ti_vtask_to_pk(ti_vtask_t * vtask, msgpack_packer * pk, int options);
 int ti_vtask_check_args(vec_t * args, size_t m, _Bool ti_scope, ex_t * e);

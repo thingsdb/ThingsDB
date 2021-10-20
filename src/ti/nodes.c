@@ -21,7 +21,7 @@
 #include <ti/syncarchive.h>
 #include <ti/syncevents.h>
 #include <ti/syncfull.h>
-#include <ti/timer.h>
+#include <ti/vtask.h>
 #include <ti/val.inline.h>
 #include <ti/varr.h>
 #include <ti/version.h>

@@ -25,7 +25,7 @@ static int do__f_cancel(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 query->collection ? query->collection->root : ti.thing0);
 
         if (task && ti_task_add_vtask_cancel(task, vtask) == 0)
-            vtask->run_at = 0;
+            ti_vtask_cancel(vtask);
         else
             ex_set_mem(e);
     }

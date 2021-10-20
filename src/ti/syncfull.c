@@ -25,7 +25,7 @@ typedef enum
     SYNCFULL__ACCESS_NODE_FILE,
     SYNCFULL__ACCESS_THINGSDB_FILE,
     SYNCFULL__PROCEDURES_FILE,
-    SYNCFULL__TIMERS_FILE,
+    SYNCFULL__TASKS_FILE,
     SYNCFULL__NAMES_FILE,
     SYNCFULL__COLLECTIONS_FILE,
     SYNCFULL__MODULES_FILE,
@@ -38,7 +38,7 @@ typedef enum
     SYNCFULL__COLLECTION_GCTHINGS_FILE,
     SYNCFULL__COLLECTION_ACCESS_FILE,
     SYNCFULL__COLLECTION_PROCEDURES_FILE,
-    SYNCFULL__COLLECTION_TIMERS_FILE,
+    SYNCFULL__COLLECTION_TASKS_FILE,
     SYNCFULL__COLLECTION_THINGS_FILE,
     SYNCFULL__COLLECTION_PROPS_FILE,
     /* end */
@@ -59,8 +59,8 @@ static char * syncfull__get_fn(uint64_t scope_id, syncfull__file_t ft)
         return strdup(ti.store->access_thingsdb_fn);
     case SYNCFULL__PROCEDURES_FILE:
         return strdup(ti.store->procedures_fn);
-    case SYNCFULL__TIMERS_FILE:
-        return strdup(ti.store->timers_fn);
+    case SYNCFULL__TASKS_FILE:
+        return strdup(ti.store->tasks_fn);
     case SYNCFULL__NAMES_FILE:
         return strdup(ti.store->names_fn);
     case SYNCFULL__COLLECTIONS_FILE:
@@ -83,8 +83,8 @@ static char * syncfull__get_fn(uint64_t scope_id, syncfull__file_t ft)
         return ti_store_collection_access_fn(path, scope_id);
     case SYNCFULL__COLLECTION_PROCEDURES_FILE:
         return ti_store_collection_procedures_fn(path, scope_id);
-    case SYNCFULL__COLLECTION_TIMERS_FILE:
-        return ti_store_collection_timers_fn(path, scope_id);
+    case SYNCFULL__COLLECTION_TASKS_FILE:
+        return ti_store_collection_tasks_fn(path, scope_id);
     case SYNCFULL__COLLECTION_THINGS_FILE:
         return ti_store_collection_things_fn(path, scope_id);
     case SYNCFULL__COLLECTION_PROPS_FILE:

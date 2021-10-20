@@ -705,7 +705,7 @@ void ti_query_task_result(ti_query_t * query, ex_t * e)
         query->change = NULL;
         query->with_tp = TI_QUERY_WITH_TASK_FINISH;
 
-        ti_val_drop(vtask->verr);
+        ti_val_drop((ti_val_t *) vtask->verr);
         vtask->verr = e->nr == 0
                 ? ti_verror_from_code(0)
                 : ti_verror_ensure_from_e(e);
@@ -933,6 +933,7 @@ void ti_query_run_future(ti_query_t * query)
 void query__task_finish(ti_query_t * query, const ex_t * e)
 {
     ti_vtask_t * vtask = query->with.vtask;
+    LOGC("HERE");
     if (vtask->id)
     {
         ti_task_t * task = ti_task_get_task(
@@ -945,6 +946,7 @@ void query__task_finish(ti_query_t * query, const ex_t * e)
 
         if (!vtask->run_at && !e->nr)
         {
+            LOGC("DEL");
             if (ti_task_add_vtask_del(task, vtask))
                 log_critical("failed to add task delete change");
 
@@ -953,7 +955,8 @@ void query__task_finish(ti_query_t * query, const ex_t * e)
         }
         else
         {
-            ti_val_drop(vtask->verr);
+            LOGC("FIN");
+            ti_val_drop((ti_val_t *) vtask->verr);
             vtask->verr = e->nr == 0
                     ? ti_verror_from_code(0)
                     : ti_verror_ensure_from_e(e);
@@ -963,14 +966,14 @@ void query__task_finish(ti_query_t * query, const ex_t * e)
                 log_critical("failed to add task finish change");
         }
     }
-    query |= TI_QUERY_FLAG_TASK_CHANGES;
+    query->flags |= TI_QUERY_FLAG_TASK_CHANGES;
 }
 
 void ti_query_run_task_finish(ti_query_t * query)
 {
     ex_t e;
     ti_vtask_t * vtask = query->with.vtask;
-    ex_setn(e, vtask->verr->code, vtask->verr->msg, vtask->verr->msg_n);
+    ex_setn(&e, vtask->verr->code, vtask->verr->msg, vtask->verr->msg_n);
     query__task_finish(query, &e);
     query__change_handle(query);  /* errors will be logged only */
 }
@@ -979,7 +982,6 @@ void ti_query_run_task(ti_query_t * query)
 {
     ex_t e = {0};
     ti_vtask_t * vtask = query->with.vtask;
-    uint64_t run_at = vtask->run_at;
 
     if (vtask->run_at)
     {
@@ -996,15 +998,17 @@ void ti_query_run_task(ti_query_t * query)
         (void) ti_closure_call(vtask->closure, query, vtask->args, &e);
 
         ti_closure_unsafe_drop(vtask->closure);
-    }
 
-    if (query->change)
-    {
-        if (query->futures.n == 0)
-            query__task_finish(query, e);
+        if (query->change)
+        {
+            if (query->futures.n == 0)
+                query__task_finish(query, &e);
 
-        query__change_handle(query);  /* errors will be logged only */
+            query__change_handle(query);  /* errors will be logged only */
+        }
     }
+    else
+        vtask->flags |= TI_QUERY_FLAG_TASK_CHANGES;
 
     ti_query_done(query, &e, &ti_query_task_result);
 }
@@ -1132,6 +1136,7 @@ void ti_query_send_response(ti_query_t * query, ex_t * e)
             break;
         case TI_QUERY_WITH_FUTURE:
         case TI_QUERY_WITH_TASK:
+        case TI_QUERY_WITH_TASK_FINISH:
             assert(0);
             break;
         }
@@ -1310,6 +1315,7 @@ static int query__get_things(ti_val_t * val, imap_t * imap)
     case TI_VAL_WRAP:
         return query__var_walk_thing(((ti_wrap_t *) val)->thing, imap);
     case TI_VAL_ROOM:
+    case TI_VAL_TASK: /* do not check task arguments as tasks are checked */
         break;
     case TI_VAL_ARR:
         if (ti_varr_may_have_things((ti_varr_t *) val))
@@ -1402,6 +1408,11 @@ int ti_query_vars_walk(
             if ((rc = query__get_things(val, imap)))
                 goto fail;
 
+    for (vec_each(collection->vtasks, ti_vtask_t, vtask))
+        for (vec_each(vtask->args, ti_val_t, val))
+            if ((rc = query__get_things(val, imap)))
+                goto fail;
+
     rc = imap_walk(imap, cb, args);
 
 fail:
@@ -1435,7 +1446,7 @@ int ti_query_task_context(ti_query_t * query, ti_vtask_t * vtask, ex_t * e)
             ex_set(e, EX_OPERATION, "requires a task context");
             return e->nr;
         }
-        query = query->with->future->query;
+        query = query->with.future->query;
     }
     while(query);
     ex_set_internal(e);

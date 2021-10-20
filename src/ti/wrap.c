@@ -118,6 +118,8 @@ static int wrap__field_val(
                 options);
     case TI_VAL_ROOM:
         return ti_room_to_pk((ti_room_t *) val, &vp->pk, options);
+    case TI_VAL_TASK:
+        return ti_vtask_to_pk((ti_vtask_t *) val, &vp->pk, options);
     case TI_VAL_ARR:
     {
         ti_varr_t * varr = (ti_varr_t *) val;

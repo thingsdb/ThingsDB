@@ -85,7 +85,7 @@ int ti_create(void)
     ti.build = NULL;
     ti.node = NULL;
     ti.store = NULL;
-    ti.timers = NULL;
+    ti.tasks = NULL;
     ti.access_node = vec_new(0);
     ti.access_thingsdb = vec_new(0);
     ti.procedures = smap_create();
@@ -95,6 +95,7 @@ int ti_create(void)
     ti.room0 = ti_room_create(0, NULL);
     if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti.boottime) ||
             ti_counters_create() ||
+            ti_tasks_create() ||
             ti_away_create() ||
             ti_args_create() ||
             ti_cfg_create() ||
@@ -230,8 +231,7 @@ int ti_init(void)
     if (ti_qcache_create() ||
         ti_do_init() ||
         ti_val_init_common() ||
-        ti_thing_init_gc() ||
-        ti_timers_create())
+        ti_thing_init_gc())
         return -1;
 
     ti.fn = strx_cat(ti.cfg->storage_path, ti__fn);
@@ -491,7 +491,7 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
             return;
         }
 
-        if (ti_timers_start())
+        if (ti_tasks_start())
             goto failed;
 
         if (ti_away_start())
@@ -653,7 +653,7 @@ void ti_offline(void)
          * to write the modules to disk as well.
          */
         ti_modules_stop_and_destroy();
-        ti_timers_stop();
+        ti_tasks_stop();
     }
 }
 
@@ -1144,5 +1144,5 @@ static void ti__stop(void)
     ti_connect_stop();
     ti_changes_stop();
     ti_sync_stop();
-    ti_timers_stop();  /* extra stop may be required */
+    ti_tasks_stop();  /* extra stop may be required */
 }

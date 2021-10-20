@@ -1162,28 +1162,28 @@ int ti_task_add_vtask_finish(ti_task_t * task, ti_vtask_t * vtask)
 {
     size_t alloc = 1024;
     ti_data_t * data;
-    ti_vp_t vp;
+    msgpack_packer pk;
     msgpack_sbuffer buffer;
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_array(&vp.pk, 2);
+    msgpack_pack_array(&pk, 2);
 
-    msgpack_pack_uint8(&vp.pk, TI_TASK_VTASK_FINISH);
-    msgpack_pack_map(&vp.pk, 2);
+    msgpack_pack_uint8(&pk, TI_TASK_VTASK_FINISH);
+    msgpack_pack_map(&pk, 2);
 
-    mp_pack_str(&vp.pk, "id");
-    msgpack_pack_uint64(&vp.pk, vtask->id);
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, vtask->id);
 
-    mp_pack_str(&vp.pk, "run_at");
-    msgpack_pack_uint64(&vp.pk, vtask->run_at);
+    mp_pack_str(&pk, "run_at");
+    msgpack_pack_uint64(&pk, vtask->run_at);
 
-    mp_pack_str(&vp.pk, "verr");
+    mp_pack_str(&pk, "verr");
     if (vtask->verr->code == 0)
-        msgpack_pack_nil(&vp.pk);
-    else if (ti_val_to_pk(&vp.pk, vtask->verr))
+        msgpack_pack_nil(&pk);
+    else if (ti_verror_to_pk(vtask->verr, &pk, TI_VAL_PACK_TASK))
         goto fail_pack;
 
     data = (ti_data_t *) buffer.data;

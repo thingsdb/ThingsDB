@@ -41,7 +41,7 @@ static int do__f_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_closure_t * closure;
         vec_t * args;
         ti_task_t * task;
-        size_t m, n;
+        size_t m;
 
         if (fn_arg_datetime("task", DOC_TASK, 1, query->rval, e))
             return e->nr;
@@ -132,15 +132,17 @@ static int do__f_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 query->change,
                 query->collection ? query->collection->root : ti.thing0);
 
-        if (!task || ti_task_add_new_vtask(task, vtask))
+        if (!task || ti_task_add_vtask_new(task, vtask))
             goto undo;
 
         query->rval = (ti_val_t *) vtask;
+        ti_incref(vtask);
+
         goto done;
 
     undo:
         ex_set_mem(e);
-        VEC_pop(*tasks);
+        (void) VEC_pop(*tasks);
     fail3:
         ti_vtask_drop(vtask);
     fail2:

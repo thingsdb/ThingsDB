@@ -7,6 +7,7 @@
 #include <ex.h>
 #include <ti/vtask.t.h>
 #include <ti/vtask.h>
+#include <ti/val.inline.h>
 #include <util/vec.h>
 
 static inline void ti_vtask_drop(ti_vtask_t * vtask)
@@ -24,6 +25,8 @@ static inline void ti_vtask_unsafe_drop(ti_vtask_t * vtask)
 static inline void ti_vtask_cancel(ti_vtask_t * vtask)
 {
     vtask->run_at = 0;
+    ti_val_drop((ti_val_t *) vtask->verr);
+    vtask->verr = ti_verror_from_code(EX_CANCELLED);
 }
 
 static inline ti_vtask_t * ti_vtask_by_id(vec_t * vtasks, uint64_t id)

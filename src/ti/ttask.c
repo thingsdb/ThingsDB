@@ -12,13 +12,14 @@
 #include <ti/raw.inline.h>
 #include <ti/restore.h>
 #include <ti/task.t.h>
-#include <ti/timer.h>
-#include <ti/timer.inline.h>
 #include <ti/token.h>
 #include <ti/ttask.h>
 #include <ti/users.h>
 #include <ti/val.h>
 #include <ti/val.inline.h>
+#include <ti/verror.h>
+#include <ti/vtask.h>
+#include <ti/vtask.inline.h>
 #include <util/cryptx.h>
 #include <util/fx.h>
 #include <util/mpack.h>
@@ -161,36 +162,6 @@ static int ttask__del_procedure(mp_unp_t * up)
 
     ti_procedure_destroy(procedure);
     return 0;  /* success */
-}
-
-/*
- * Returns 0 on success
- * - for example: 'id'
- */
-static int ttask__del_timer(mp_unp_t * up)
-{
-    mp_obj_t mp_id;
-
-    if (mp_next(up, &mp_id) != MP_U64)
-    {
-        log_critical("task `del_timer`: missing timer id");
-        return -1;
-    }
-
-    for (vec_each(ti.timers->timers, ti_timer_t, timer))
-    {
-        if (timer->id == mp_id.via.u64)
-        {
-            ti_timer_mark_del(timer);
-            break;
-        }
-    }
-
-    /*
-     * For a timer with change it may occur that a timer is already marked for
-     * deletion and the timer may even be removed.
-     */
-    return 0;
 }
 
 /*
@@ -565,74 +536,6 @@ failed:
 
 /*
  * Returns 0 on success
- * - for example: '{...}'
- */
-static int ttask__new_timer(mp_unp_t * up)
-{
-    mp_obj_t obj, mp_id, mp_next_run, mp_repeat, mp_user_id;
-    ti_timer_t * timer = NULL;
-    ti_varr_t * varr = NULL;
-    ti_closure_t * closure;
-    ti_user_t * user;
-    ti_vup_t vup = {
-            .isclient = false,
-            .collection = NULL,
-            .up = up,
-    };
-
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 6 ||
-        mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_id) != MP_U64 ||
-        mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_next_run) != MP_U64 ||
-        mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_repeat) != MP_U64 ||
-        mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_user_id) != MP_U64 ||
-        mp_skip(up) != MP_STR)
-    {
-        log_critical("task `new_timer` for the @thingsdb scope: invalid data");
-        return -1;
-    }
-
-    user = ti_users_get_by_id(mp_user_id.via.u64);
-    closure = (ti_closure_t *) ti_val_from_vup(&vup);
-
-    if (!closure || !ti_val_is_closure((ti_val_t *) closure) ||
-        mp_skip(up) != MP_STR ||
-        vec_reserve(&ti.timers->timers, 1))
-        goto fail0;
-
-    varr = (ti_varr_t *) ti_val_from_vup(&vup);
-    if (!varr || !ti_val_is_array((ti_val_t *) varr))
-        goto fail0;
-
-    timer = ti_timer_create(
-                mp_id.via.u64,
-                mp_next_run.via.u64,
-                mp_repeat.via.u64,
-                TI_SCOPE_THINGSDB,
-                user,
-                closure,
-                varr->vec);
-    if (!timer)
-        goto fail0;
-
-    ti_update_next_free_id(timer->id);
-    VEC_push(ti.timers->timers, timer);
-    free(varr);
-    ti_decref(closure);
-    return 0;
-
-fail0:
-    log_critical("task `new_timer` for the @thingsdb scope has failed");
-    ti_val_drop((ti_val_t *) varr);
-    ti_val_drop((ti_val_t *) closure);
-    return -1;
-}
-
-/*
- * Returns 0 on success
  * - for example: {'id': id, 'key': value}, 'expire_ts': ts, 'description':..}
  */
 static int ttask__new_token(mp_unp_t * up)
@@ -865,12 +768,173 @@ static int ttask__set_module_scope(mp_unp_t * up)
 
 /*
  * Returns 0 on success
- * - for example: '{...}'
+ * - for example: '{id: 123, run_at: ...}'
  */
-static int ttask__set_timer_args(mp_unp_t * up)
+static int ttask__vtask_new(mp_unp_t * up)
+{
+    mp_obj_t obj, mp_id, mp_run_at, mp_user_id;
+    ti_vtask_t * vtask = NULL;
+    ti_varr_t * varr = NULL;
+    ti_closure_t * closure;
+    ti_user_t * user;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = NULL,
+            .up = up,
+    };
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 5 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_run_at) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_user_id) != MP_U64 ||
+        mp_skip(up) != MP_STR)
+    {
+        log_critical(
+                "task `vtask_new` for the `@thingsdb` scope: invalid data");
+        return -1;
+    }
+
+    user = ti_users_get_by_id(mp_user_id.via.u64);
+    closure = (ti_closure_t *) ti_val_from_vup(&vup);
+
+    if (!closure || !ti_val_is_closure((ti_val_t *) closure) ||
+        mp_skip(up) != MP_STR ||
+        vec_reserve(&ti.tasks->vtasks, 1))
+        goto fail0;
+
+    varr = (ti_varr_t *) ti_val_from_vup(&vup);
+    if (!varr || !ti_val_is_array((ti_val_t *) varr))
+        goto fail0;
+
+    vtask = ti_vtask_create(
+                mp_id.via.u64,
+                mp_run_at.via.u64,
+                user,
+                closure,
+                NULL,
+                varr->vec);
+    if (!vtask)
+        goto fail0;
+
+    ti_update_next_free_id(vtask->id);
+    VEC_push(ti.tasks->vtasks, vtask);
+    free(varr);
+    ti_decref(closure);
+    return 0;
+
+fail0:
+    log_critical("task `new_task` for for the `@thingsdb` scope has failed");
+    ti_val_drop((ti_val_t *) varr);
+    ti_val_drop((ti_val_t *) closure);
+    return -1;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: '{id: 123}'
+ */
+static int ttask__vtask_del(mp_unp_t * up)
+{
+    mp_obj_t obj, mp_id;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64)
+    {
+        log_critical(
+                "task `del_vtask` for the `@thingsdb` scope: invalid data");
+        return -1;
+    }
+
+    ti_vtask_del(mp_id.via.u64, NULL);
+    return 0;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: '{id: 123}'
+ */
+static int ttask__vtask_cancel(mp_unp_t * up)
+{
+    mp_obj_t obj, mp_id;
+    ti_vtask_t * vtask;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64)
+    {
+        log_critical(
+                "task `cancel_vtask` for the `@thingsdb` scope: invalid data");
+        return -1;
+    }
+
+    vtask = ti_vtask_by_id(ti.tasks->vtasks, mp_id.via.u64);
+    if (vtask)
+        ti_vtask_cancel(vtask);
+    return 0;
+}
+
+static int ttask__vtask_finish(mp_unp_t * up)
+{
+    mp_obj_t obj, mp_id, mp_run_at;
+    ti_val_t * val;
+    ti_vtask_t * vtask;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = NULL,
+            .up = up,
+    };
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_run_at) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR)
+    {
+        log_critical(
+            "task `set_vtask_verr` for the `@thingsdb` scope: invalid data");
+        return -1;
+    }
+
+    val = ti_val_from_vup(&vup);
+    if (!val)
+        goto fail0;
+
+    if (ti_val_is_nil(val))
+    {
+        ti_decref(val);
+        val = (ti_val_t *) ti_verror_from_code(EX_SUCCESS);
+    }
+    else if (!ti_val_is_error(val))
+        goto fail0;
+
+    vtask = ti_vtask_by_id(ti.tasks->vtasks, mp_id.via.u64);
+    if (!vtask)
+        goto fail0;
+
+    vtask->run_at = mp_run_at.via.u64;
+    vtask->flags &= ~(TI_VTASK_FLAG_RUNNING|TI_VTASK_FLAG_AGAIN);
+
+    ti_val_drop((ti_val_t *) vtask->verr);
+    vtask->verr = (ti_verror_t *) val;
+    return 0;
+
+fail0:
+    log_critical(
+            "task `set_vtask_verr` for the `@thingsdb` scope has failed");
+    ti_val_drop(val);
+    return -1;
+}
+
+static int ttask__vtask_set_args(mp_unp_t * up)
 {
     mp_obj_t obj, mp_id;
     ti_varr_t * varr;
+    ti_vtask_t * vtask;
     ti_vup_t vup = {
             .isclient = false,
             .collection = NULL,
@@ -883,8 +947,7 @@ static int ttask__set_timer_args(mp_unp_t * up)
         mp_skip(up) != MP_STR)
     {
         log_critical(
-                "task `set_timer_args` for the @thingsdb scope has failed: "
-                "invalid data");
+            "task `set_vtask_args` for the `@thingsdb` scope: invalid data");
         return -1;
     }
 
@@ -892,58 +955,73 @@ static int ttask__set_timer_args(mp_unp_t * up)
     if (!varr || !ti_val_is_array((ti_val_t *) varr))
         goto fail0;
 
-    for (vec_each(ti.timers->timers, ti_timer_t, timer))
+    vtask = ti_vtask_by_id(ti.tasks->vtasks, mp_id.via.u64);
+    if (vtask)
     {
-        if (timer->id == mp_id.via.u64)
-        {
-            vec_t * tmp = timer->args;
-            timer->args = varr->vec;
-            varr->vec = tmp;
-            break;
-        }
+        vec_t * tmp = vtask->args;
+        vtask->args = varr->vec;
+        varr->vec = tmp;
     }
 
-    /* it may happen that the timer is already gone, this is not an issue */
-    ti_val_drop((ti_val_t *) varr);
+    ti_val_unsafe_drop((ti_val_t *) varr);
     return 0;
 
 fail0:
-    log_critical("task `set_timer_args` for the @thingsdb scope has failed");
+    log_critical(
+            "task `set_vtask_args` for the `@thingsdb` scope has failed");
     ti_val_drop((ti_val_t *) varr);
     return -1;
 }
 
-/*
- * Returns 0 on success
- * - for example: '{...}'
- */
-static int ttask__timer_again(mp_unp_t * up)
+static int ttask__vtask_set_owner(mp_unp_t * up)
 {
-    mp_obj_t obj, mp_id, mp_next_run;
+    mp_obj_t obj, mp_id, mp_user_id;
+    ti_user_t * user;
+    ti_vtask_t * vtask;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
         mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_next_run) != MP_U64)
+        mp_next(up, &mp_user_id) != MP_U64)
     {
         log_critical(
-                "task `timer_again` for the @thingsdb scope has failed: "
-                "invalid data");
+            "task `set_vtask_owner` for the `@thingsdb` scope: invalid data");
         return -1;
     }
 
-    for (vec_each(ti.timers->timers, ti_timer_t, timer))
+    user = ti_users_get_by_id(mp_user_id.via.u64);
+    vtask = ti_vtask_by_id(ti.tasks->vtasks, mp_id.via.u64);
+    if (vtask)
     {
-        if (timer->id == mp_id.via.u64)
-        {
-            if (mp_next_run.via.u64 > timer->next_run)
-                timer->next_run = mp_next_run.via.u64;
-            break;
-        }
+        ti_user_drop(vtask->user);
+        vtask->user = user;
     }
 
-    /* it may happen that the timer is already gone, this is not an issue */
+    return 0;
+}
+
+/* TODO (COMPAT): Obsolete task */
+static int ttask__del_timer(mp_unp_t * up)
+{
+    log_warning("task `del_timer` is obsolete");
+    mp_skip(up);
+    return 0;
+}
+
+/* TODO (COMPAT): Obsolete task */
+static int ttask__new_timer(mp_unp_t * up)
+{
+    log_warning("task `new_timer` is obsolete");
+    mp_skip(up);
+    return 0;
+}
+
+/* TODO (COMPAT): Obsolete task */
+static int ttask__set_timer_args(mp_unp_t * up)
+{
+    log_warning("task `set_timer_args` is obsolete");
+    mp_skip(up);
     return 0;
 }
 
@@ -1338,7 +1416,7 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_DEL_MODULE:        return ttask__del_module(change, up);
     case TI_TASK_DEL_NODE:          return ttask__del_node(change, up);
     case TI_TASK_DEL_PROCEDURE:     return ttask__del_procedure(up);
-    case TI_TASK_DEL_TIMER:         return ttask__del_timer(up);
+    case _TI_TASK_DEL_TIMER:        return ttask__del_timer(up);
     case TI_TASK_DEL_TOKEN:         return ttask__del_token(up);
     case TI_TASK_DEL_TYPE:          break;
     case TI_TASK_DEL_USER:          return ttask__del_user(up);
@@ -1360,7 +1438,7 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_NEW_MODULE:        return ttask__new_module(up);
     case TI_TASK_NEW_NODE:          return ttask__new_node(change, up);
     case TI_TASK_NEW_PROCEDURE:     return ttask__new_procedure(up);
-    case TI_TASK_NEW_TIMER:         return ttask__new_timer(up);
+    case _TI_TASK_NEW_TIMER:        return ttask__new_timer(up);
     case TI_TASK_NEW_TOKEN:         return ttask__new_token(up);
     case TI_TASK_NEW_TYPE:          break;
     case TI_TASK_NEW_USER:          return ttask__new_user(up);
@@ -1377,7 +1455,7 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_SET_MODULE_SCOPE:  return ttask__set_module_scope(up);
     case TI_TASK_SET_PASSWORD:      return ttask__set_password(up);
     case TI_TASK_SET_TIME_ZONE:     return ttask__set_time_zone(up);
-    case TI_TASK_SET_TIMER_ARGS:    return ttask__set_timer_args(up);
+    case _TI_TASK_SET_TIMER_ARGS:   return ttask__set_timer_args(up);
     case TI_TASK_SET_TYPE:          break;
     case TI_TASK_TO_TYPE:           break;
     case TI_TASK_CLEAR_USERS:       return ttask__clear_users(up);
@@ -1386,7 +1464,12 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_THING_CLEAR:       break;
     case TI_TASK_ARR_CLEAR:         break;
     case TI_TASK_SET_CLEAR:         break;
-    case TI_TASK_TIMER_AGAIN:       return ttask__timer_again(up);
+    case TI_TASK_VTASK_NEW:         return ttask__vtask_new(up);
+    case TI_TASK_VTASK_DEL:         return ttask__vtask_del(up);
+    case TI_TASK_VTASK_CANCEL:      return ttask__vtask_cancel(up);
+    case TI_TASK_VTASK_FINISH:      return ttask__vtask_finish(up);
+    case TI_TASK_VTASK_SET_ARGS:    return ttask__vtask_set_args(up);
+    case TI_TASK_VTASK_SET_OWNER:   return ttask__vtask_set_owner(up);
     }
 
     log_critical("unknown thingsdb task: %"PRIu64, mp_task.via.u64);

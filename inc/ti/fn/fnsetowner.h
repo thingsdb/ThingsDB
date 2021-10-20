@@ -7,7 +7,6 @@ static int do__f_set_owner(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_vtask_t * vtask;
     ti_raw_t * ruser;
     ti_user_t * user;
-    size_t m, n, idx = 1;
 
     if (!ti_val_is_task(query->rval))
         return fn_call_try("set_owner", query, nd, e);
@@ -17,8 +16,6 @@ static int do__f_set_owner(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     query->rval = NULL;
-
-    m = vtask->closure->vars->n;
 
     if (fn_not_thingsdb_or_collection_scope("set_args", query, e) ||
         fn_nargs("set_owner", DOC_TASK_SET_OWNER, 1, nargs, e) ||

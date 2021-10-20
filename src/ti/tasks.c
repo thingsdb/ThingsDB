@@ -48,7 +48,8 @@ int ti_tasks_start(void)
 {
     assert (tasks->is_started == false);
 
-    if (uv_timer_start(
+    if (uv_timer_init(ti.loop, tasks->timer) ||
+        uv_timer_start(
             tasks->timer,
             tasks__cb,
             VTASKS__INTERVAL,       /* start at VTASKS__INTERVAL */
@@ -77,7 +78,7 @@ void ti_tasks_stop(void)
     else
     {
         tasks->is_started = false;
-        uv_vtask_stop(tasks->timer);
+        uv_timer_stop(tasks->timer);
         uv_close((uv_handle_t *) tasks->timer, tasks__destroy);
     }
 }
@@ -140,20 +141,24 @@ static void tasks__cb(uv_timer_t * UNUSED(handle))
  */
 void ti_tasks_clear_dropped(vec_t ** vtasks)
 {
-    vec_destroy(*vtasks, (vec_destroy_cb) ti_vtask_unsafe_drop);
-    *vtasks = NULL;
+    ti_vtask_t * vtask;
+    while ((vtask = vec_pop(*vtasks)))
+    {
+        ti_vtask_unsafe_drop(vtask);
+    }
+    vec_shrink(vtasks);
 }
 
 void ti_tasks_del_user(ti_user_t * user)
 {
-    for (vec_each(tasks->vtasks, ti_vtask_t, vtask))
+    for (vec_each_rev(tasks->vtasks, ti_vtask_t, vtask))
         if (vtask->user == user)
-            ti_vtask_del(vtask);
+            ti_vtask_del(vtask->id, NULL);
 
     for (vec_each(ti.collections->vec, ti_collection_t, collection))
         for (vec_each(collection->vtasks, ti_vtask_t, vtask))
             if (vtask->user == user)
-                ti_vtask_del(vtask);
+                ti_vtask_del(vtask->id, collection);
 }
 
 ti_varr_t * ti_tasks_list(vec_t * tasks)

@@ -1309,6 +1309,7 @@ int ti_field_make_assignable(
         case TI_VAL_THING:
         case TI_VAL_WRAP:
         case TI_VAL_ROOM:
+        case TI_VAL_TASK:
             break;
         case TI_VAL_ARR:
             return field__varr_assign(field, (ti_varr_t **) val, parent, e);

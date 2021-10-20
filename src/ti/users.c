@@ -9,7 +9,6 @@
 #include <ti/access.h>
 #include <ti/auth.h>
 #include <ti/proto.h>
-#include <ti/timers.h>
 #include <ti/token.h>
 #include <ti/users.h>
 #include <ti/val.inline.h>

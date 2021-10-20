@@ -5,7 +5,7 @@ static int do__f_set_args(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = fn_get_nargs(nd);
     ti_task_t * task;
     ti_vtask_t * vtask;
-    size_t m, n, idx = 1;
+    size_t m, idx = 1;
 
     if (!ti_val_is_task(query->rval))
         return fn_call_try("again_at", query, nd, e);

@@ -3,6 +3,7 @@
 static int do__f_again_in(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
+    ti_tz_t * tz = query->collection ? query->collection->tz : ti_tz_utc();
     ti_vtask_t * vtask;
     time_t again_at;
     ti_datetime_t * dt;
@@ -24,7 +25,7 @@ static int do__f_again_in(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_arg_str("again_in", DOC_TASK_AGAIN_IN, 1, query->rval, e))
         goto fail0;
 
-    dt = ti_datetime_from_u64(vtask->run_at);
+    dt = ti_datetime_from_u64(vtask->run_at, tz);
     if (!dt)
         goto fail0;
 

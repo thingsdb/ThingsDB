@@ -416,13 +416,14 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
     case TI_VAL_DATETIME:
-    case TI_VAL_MPDATA:
     case TI_VAL_NAME:
     case TI_VAL_STR:
     case TI_VAL_BYTES:
     case TI_VAL_REGEX:
-    case TI_VAL_CLOSURE:
+    case TI_VAL_TASK:
     case TI_VAL_ERROR:
+    case TI_VAL_MPDATA:
+    case TI_VAL_CLOSURE:
         break;
     case TI_VAL_ARR:
     {
@@ -631,7 +632,7 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
                 if (vtask->id == task_id)
                 {
                     ti_incref(vtask);
-                    return vtask;
+                    return (ti_val_t *) vtask;
                 }
             }
             return (ti_val_t *) ti_vtask_nil();

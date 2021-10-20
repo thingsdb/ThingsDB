@@ -39,6 +39,7 @@ ti_vtask_t * ti_vtask_create(
         return NULL;
 
     vtask->ref = 1;
+    vtask->tp = TI_VAL_TASK;
     vtask->id = id;
     vtask->run_at = run_at;
     vtask->user = user;
@@ -117,45 +118,76 @@ static int vtask__fwd(ti_vtask_t * vtask, ti_collection_t * collection)
     return 0;
 }
 
+void vtask__run_async_cb(uv_async_t * handle)
+{
+    ti_query_t * query = handle->data;
+    uv_close((uv_handle_t *) handle, (uv_close_cb) free);
+    ti_query_run_task(query);
+}
+
+int vtask__run_async(ti_query_t * query, ex_t * e)
+{
+    uv_async_t * handle = malloc(sizeof(uv_async_t));
+    if (!handle)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    handle->data = query;
+
+    if (uv_async_init(ti.loop, handle, vtask__run_async_cb) ||
+        uv_async_send(handle))
+        ex_set_internal(e);
+    return e->nr;
+}
+
 int ti_vtask_run(ti_vtask_t * vtask, ti_collection_t * collection)
 {
-    ex_t e = {0};
     ti_node_t * this_node = ti.node;
-    ti_query_t * query = NULL;
 
-    if (this_node->status != TI_NODE_STAT_READY)
-        return vtask__fwd(vtask, collection);
-
-    query = ti_query_create(0);
-    if (!query)
+    if (this_node->status == TI_NODE_STAT_READY)
     {
-        log_error(EX_MEMORY_S);
-        return -1;
+        ex_t e = {0};
+        ti_query_t * query = ti_query_create(0);
+        if (!query)
+        {
+            log_error(EX_MEMORY_S);
+            return -1;
+        }
+
+        query->user = vtask->user;
+        query->with_tp = TI_QUERY_WITH_TASK;
+        query->pkg_id = 0;
+        query->with.vtask = vtask;
+        query->collection = collection;     /* may be NULL */
+        query->qbind.flags |= collection
+            ? TI_QBIND_FLAG_COLLECTION
+            : TI_QBIND_FLAG_THINGSDB;
+
+        ti_incref(vtask);
+        ti_incref(query->user);
+
+        if (query->collection)
+            ti_incref(query->collection);
+
+        if (vtask->closure->flags & TI_CLOSURE_FLAG_WSE)
+            query->qbind.flags |= TI_QBIND_FLAG_WSE;
+
+        if (ti_query_wse(query)
+                ? ti_changes_create_new_change(query, &e)
+                : vtask__run_async(query, &e))
+        {
+            log_error(e.msg);
+            ti_query_destroy(query);
+            return -1;
+        }
+
     }
-
-    query->user = vtask->user;
-    query->with_tp = TI_QUERY_WITH_TIMER;
-    query->pkg_id = 0;
-    query->with.vtask = vtask;          /* move the vtask reference */
-    query->collection = collection;     /* may be NULL */
-    query->qbind.flags |= collection
-        ? TI_QBIND_FLAG_COLLECTION
-        : TI_QBIND_FLAG_THINGSDB;
-
-    ti_incref(query->user);
-
-    if (query->collection)
-        ti_incref(query->collection);
-
-    if (vtask->closure->flags & TI_CLOSURE_FLAG_WSE)
-        query->qbind.flags |= TI_QBIND_FLAG_WSE;
-
-    if (ti_changes_create_new_change(query, &e))
-    {
-        log_error(e.msg);
-        ti_query_destroy(query);
+    else if (vtask__fwd(vtask, collection))
         return -1;
-    }
+
+    vtask->flags |= TI_VTASK_FLAG_RUNNING;
     return 0;
 }
 

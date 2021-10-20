@@ -30,8 +30,8 @@
 #include <ti/query.h>
 #include <ti/query.inline.h>
 #include <ti/task.h>
-#include <ti/timer.h>
-#include <ti/timer.inline.h>
+#include <ti/vtask.h>
+#include <ti/vtask.inline.h>
 #include <ti/val.inline.h>
 #include <ti/varr.h>
 #include <ti/verror.h>
@@ -43,7 +43,8 @@ ti_query_done_cb ti_query_done_map[] = {
         &ti_query_send_response,
         &ti_query_send_response,
         &ti_query_on_then_result,
-        &ti_query_timer_result,
+        &ti_query_task_result,
+        &ti_query_task_result,
 };
 
 ti_query_run_cb ti_query_run_map[] = {
@@ -51,6 +52,7 @@ ti_query_run_cb ti_query_run_map[] = {
         &ti_query_run_procedure,
         &ti_query_run_future,
         &ti_query_run_task,
+        &ti_query_run_task_finish,
 };
 
 /*
@@ -222,6 +224,7 @@ void ti_query_destroy(ti_query_t * query)
         ti_val_drop((ti_val_t *) query->with.future);
         break;
     case TI_QUERY_WITH_TASK:
+    case TI_QUERY_WITH_TASK_FINISH:
         ti_vtask_drop(query->with.vtask);
         break;
     }
@@ -606,6 +609,7 @@ static void query__duration_log(
                 query->with.future->then->node->str);
         return;
     case TI_QUERY_WITH_TASK:
+    case TI_QUERY_WITH_TASK_FINISH:
         log_with_level(log_level, "task took %f seconds to process: `%s`",
                 duration,
                 query->with.vtask->closure->node->str);
@@ -676,17 +680,46 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e)
     }
 }
 
-void ti_query_timer_result(ti_query_t * query, ex_t * e)
+void ti_query_task_result(ti_query_t * query, ex_t * e)
 {
-    ti_timer_t * timer = query->with.timer;
-    if (e->nr)
-        log_debug("timer failed: `%s`, %s: `%s`",
-                timer->closure->node->str,
-                ex_str(e->nr),
-                e->msg);
+    ti_vtask_t * vtask = query->with.vtask;
 
-    ti_timer_done(timer, e);
-    ti_query_destroy(query);
+    if (query->flags & TI_QUERY_FLAG_TASK_CHANGES)
+    {
+        if (e->nr)
+        {
+            ++ti.counters->tasks_with_error;
+            log_debug("task failed: `%s`, %s: `%s`",
+                    vtask->closure->node->str,
+                    ex_str(e->nr),
+                    e->msg);
+        }
+        else
+            ++ti.counters->queries_success;
+
+        ti_query_destroy(query);
+    }
+    else
+    {
+        ti_change_drop(query->change);
+        query->change = NULL;
+        query->with_tp = TI_QUERY_WITH_TASK_FINISH;
+
+        ti_val_drop(vtask->verr);
+        vtask->verr = e->nr == 0
+                ? ti_verror_from_code(0)
+                : ti_verror_ensure_from_e(e);
+
+        ex_clear(e);
+        if (ti_changes_create_new_change(query, e))
+        {
+            log_critical(
+                    "failed to create finish changes for task Id %"PRIu64,
+                    vtask->id);
+            /* TODO : can we do more ? */
+            ti_query_destroy(query);
+        }
+    }
 }
 
 static void query__then(ti_query_t * query, ex_t * e)
@@ -897,13 +930,57 @@ void ti_query_run_future(ti_query_t * query)
     ti_query_done(query, &e, &ti_query_on_then_result);
 }
 
+void query__task_finish(ti_query_t * query, const ex_t * e)
+{
+    ti_vtask_t * vtask = query->with.vtask;
+    if (vtask->id)
+    {
+        ti_task_t * task = ti_task_get_task(
+                query->change,
+                query->collection ? query->collection->root : ti.thing0);
+
+        /* first reset the run at value */
+        if (~vtask->flags & TI_VTASK_FLAG_AGAIN)
+            vtask->run_at = 0;
+
+        if (!vtask->run_at && !e->nr)
+        {
+            if (ti_task_add_vtask_del(task, vtask))
+                log_critical("failed to add task delete change");
+
+            /* task is successful and no re-schedule so delete */
+            ti_vtask_del(vtask->id, query->collection);
+        }
+        else
+        {
+            ti_val_drop(vtask->verr);
+            vtask->verr = e->nr == 0
+                    ? ti_verror_from_code(0)
+                    : ti_verror_ensure_from_e(e);
+            vtask->flags &= ~(TI_VTASK_FLAG_RUNNING|TI_VTASK_FLAG_AGAIN);
+
+            if (ti_task_add_vtask_finish(task, vtask))
+                log_critical("failed to add task finish change");
+        }
+    }
+    query |= TI_QUERY_FLAG_TASK_CHANGES;
+}
+
+void ti_query_run_task_finish(ti_query_t * query)
+{
+    ex_t e;
+    ti_vtask_t * vtask = query->with.vtask;
+    ex_setn(e, vtask->verr->code, vtask->verr->msg, vtask->verr->msg_n);
+    query__task_finish(query, &e);
+    query__change_handle(query);  /* errors will be logged only */
+}
+
 void ti_query_run_task(ti_query_t * query)
 {
     ex_t e = {0};
     ti_vtask_t * vtask = query->with.vtask;
     uint64_t run_at = vtask->run_at;
 
-    /* TODO: check task before run, increase closure ref count? */
     if (vtask->run_at)
     {
         clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
@@ -913,24 +990,23 @@ void ti_query_run_task(ti_query_t * query)
                 "[DEBUG] run task: %s",
                 query->with.vtask->closure->node->str);
 #endif
+        ti_incref(vtask->closure);
 
         /* this can never set `e->nr` to EX_RETURN */
         (void) ti_closure_call(vtask->closure, query, vtask->args, &e);
 
-        /* if task Id is 0, then a DELETE task is created */
-        if (vtask->id)
-        {
-            /* TODO : create to correct tasks */
-        }
+        ti_closure_unsafe_drop(vtask->closure);
+    }
+
+    if (query->change)
+    {
+        if (query->futures.n == 0)
+            query__task_finish(query, e);
 
         query__change_handle(query);  /* errors will be logged only */
     }
-    else
-    {
-        ex_set(e, EX_CANCELLED, str(EX_CANCELLED));
-    }
 
-    ti_query_done(query, &e, &ti_query_timer_result);
+    ti_query_done(query, &e, &ti_query_task_result);
 }
 
 static inline int query__pack_response(
@@ -1333,15 +1409,25 @@ fail:
     return rc;
 }
 
+/*
+ * Checks if the given task matches the current context and makes sure the
+ * task is not cancelled. The task must have been checked to have an Id before
+ * calling this function.
+ */
 int ti_query_task_context(ti_query_t * query, ti_vtask_t * vtask, ex_t * e)
 {
+    assert (vtask->id);  /* must not be called with `empty` tasks */
     do
     {
         if (query->with_tp == TI_QUERY_WITH_TASK)
         {
             if (query->with.vtask != vtask)
                 ex_set(e, EX_OPERATION,
-                        "task does not match the current task context");
+                        "task Id %"PRIu64" does not match the "
+                        "current task context", vtask->id);
+            else if (vtask->run_at == 0)
+                ex_set(e, EX_OPERATION,
+                        "task Id %"PRIu64" is cancelled", vtask->id);
             return e->nr;
         }
         if (query->with_tp != TI_QUERY_WITH_FUTURE)

@@ -9,13 +9,148 @@
 #include <ti/collection.h>
 #include <ti/datetime.h>
 #include <ti/datetime.h>
+#include <ti/future.h>
+#include <ti/member.h>
 #include <ti/name.h>
 #include <ti/nil.h>
+#include <ti/regex.h>
+#include <ti/room.h>
+#include <ti/template.h>
 #include <ti/thing.h>
 #include <ti/thing.inline.h>
 #include <ti/val.h>
 #include <ti/varr.inline.h>
 #include <ti/vset.h>
+#include <ti/vtask.h>
+#include <ti/wrap.h>
+
+/*
+ * -------------------------  Start value methods ----------------------------
+ */
+
+typedef void (*ti_val_destroy_cb) (ti_val_t *);
+/* TODO  typedef (*ti_val_to_pk_cb) (ti_val_t *, ti_vp_t *, int); */
+
+typedef struct
+{
+    ti_val_destroy_cb destroy;
+    _Bool allowed_as_vtask_arg;     /* allowed in the @thingsdb scope */
+} ti_val_type_t;
+
+
+static ti_val_type_t ti_val_type_props[21] = {
+    /* TI_VAL_NIL */
+    {
+        .destroy = (ti_val_destroy_cb) free,
+        .allowed_as_vtask_arg = true,
+    },
+    /* TI_VAL_INT */
+    {
+        .destroy = (ti_val_destroy_cb) free,
+        .allowed_as_vtask_arg = true,
+    },
+    /* TI_VAL_FLOAT */
+    {
+        .destroy = (ti_val_destroy_cb) free,
+        .allowed_as_vtask_arg = true,
+    },
+    /* TI_VAL_BOOL */
+    {
+        .destroy = (ti_val_destroy_cb) free,
+        .allowed_as_vtask_arg = true,
+    },
+    /* TI_VAL_DATETIME */
+    {
+        .destroy = (ti_val_destroy_cb) free,
+        .allowed_as_vtask_arg = true,
+    },
+    /* TI_VAL_NAME */
+    {
+        .destroy = (ti_val_destroy_cb) ti_name_destroy,
+        .allowed_as_vtask_arg = true,
+    },
+    /* TI_VAL_STR */
+    {
+        .destroy = (ti_val_destroy_cb) free,
+        .allowed_as_vtask_arg = true,
+    },
+    /* TI_VAL_BYTES */
+    {
+        .destroy = (ti_val_destroy_cb) free,
+        .allowed_as_vtask_arg = true,
+    },
+    /* TI_VAL_REGEX */
+    {
+        .destroy = (ti_val_destroy_cb) ti_regex_destroy,
+        .allowed_as_vtask_arg = true,
+    },
+    /* TI_VAL_THING */
+    {
+        .destroy = (ti_val_destroy_cb) ti_thing_destroy,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_WRAP */
+    {
+        .destroy = (ti_val_destroy_cb) ti_wrap_destroy,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_ROOM */
+    {
+        .destroy = (ti_val_destroy_cb) ti_room_destroy,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_TASK */
+    {
+        .destroy = (ti_val_destroy_cb) ti_vtask_destroy,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_ARR */
+    {
+        .destroy = (ti_val_destroy_cb) ti_varr_destroy,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_SET */
+    {
+        .destroy = (ti_val_destroy_cb) ti_vset_destroy,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_ERROR */
+    {
+        .destroy = (ti_val_destroy_cb) free,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_MEMBER */
+    {
+        .destroy = (ti_val_destroy_cb) ti_member_destroy,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_MPDATA */
+    {
+        .destroy = (ti_val_destroy_cb) free,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_CLOSURE */
+    {
+        .destroy = (ti_val_destroy_cb) ti_closure_destroy,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_FUTURE */
+    {
+        .destroy = (ti_val_destroy_cb) ti_future_destroy,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_TEMPLATE */
+    {
+        .destroy = (ti_val_destroy_cb) ti_template_destroy,
+        .allowed_as_vtask_arg = false,
+    },
+};
+
+#define ti_val(__val) (&ti_val_type_props[(__val)->tp])
+
+/*
+ * -------------------------  End value methods ----------------------------
+ */
 
 static inline void ti_val_drop(ti_val_t * val)
 {
@@ -46,7 +181,7 @@ static inline void ti_val_gc_drop(ti_val_t * val)
 static inline void ti_val_unassign_unsafe_drop(ti_val_t * val)
 {
     if (!--val->ref)
-        ti_val_call(val)->destroy(val);
+        ti_val(val)->destroy(val);
     else if (val->tp == TI_VAL_SET || val->tp == TI_VAL_ARR)
         ((ti_varr_t *) val)->parent = NULL;
     else
@@ -396,6 +531,7 @@ static inline void ti_val_attach(
     case TI_VAL_THING:
     case TI_VAL_WRAP:
     case TI_VAL_ROOM:
+    case TI_VAL_TASK:
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:
     case TI_VAL_CLOSURE:
@@ -498,6 +634,7 @@ static inline int ti_val_make_variable(ti_val_t ** val, ex_t * e)
     case TI_VAL_THING:
     case TI_VAL_WRAP:
     case TI_VAL_ROOM:
+    case TI_VAL_TASK:
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:
     case TI_VAL_FUTURE:
@@ -520,6 +657,7 @@ static inline int ti_val_make_variable(ti_val_t ** val, ex_t * e)
     assert(0);
     return -1;
 }
+
 
 #endif  /* TI_VAL_INLINE_H_ */
 

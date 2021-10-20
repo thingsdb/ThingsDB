@@ -32,17 +32,8 @@ struct ti_counters_s
                                        the master node but the query has
                                        returned with an error
                                     */
-    uint64_t timers_success;        /* node queries where this node acted as
-                                       the master node and the query was
-                                       successful finished
-                                    */
-    uint64_t timers_with_error;     /* node queries where this node acted as
-                                       the master node but the query has
-                                       returned with an error
-                                    */
-    uint16_t watcher_failed;        /* failed to update a watcher with a
-                                       change
-                                    */
+    uint64_t tasks_success;         /* number of processed tasks (success) */
+    uint64_t tasks_with_error;      /* number of processed tasks (error) */
     uint64_t changes_with_gap;      /* changes which are committed but at least
                                        one change id was skipped
                                     */

@@ -1158,7 +1158,7 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_vtask_set_verr(ti_task_t * task, ti_vtask_t * vtask)
+int ti_task_add_vtask_finish(ti_task_t * task, ti_vtask_t * vtask)
 {
     size_t alloc = 1024;
     ti_data_t * data;
@@ -1171,14 +1171,19 @@ int ti_task_add_vtask_set_verr(ti_task_t * task, ti_vtask_t * vtask)
 
     msgpack_pack_array(&vp.pk, 2);
 
-    msgpack_pack_uint8(&vp.pk, TI_TASK_VTASK_SET_VERR);
+    msgpack_pack_uint8(&vp.pk, TI_TASK_VTASK_FINISH);
     msgpack_pack_map(&vp.pk, 2);
 
     mp_pack_str(&vp.pk, "id");
     msgpack_pack_uint64(&vp.pk, vtask->id);
 
+    mp_pack_str(&vp.pk, "run_at");
+    msgpack_pack_uint64(&vp.pk, vtask->run_at);
+
     mp_pack_str(&vp.pk, "verr");
-    if (ti_val_to_pk(&vp.pk, vtask->verr))
+    if (vtask->verr->code == 0)
+        msgpack_pack_nil(&vp.pk);
+    else if (ti_val_to_pk(&vp.pk, vtask->verr))
         goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
@@ -1269,42 +1274,6 @@ int ti_task_add_vtask_set_owner(ti_task_t * task, ti_vtask_t * vtask)
 
     mp_pack_str(&pk, "owner");
     msgpack_pack_uint64(&pk, vtask->user->id);
-
-    data = (ti_data_t *) buffer.data;
-    ti_data_init(data, buffer.size);
-
-    if (vec_push(&task->list, data))
-        goto fail_data;
-
-    task__upd_approx_sz(task, data);
-    return 0;
-
-fail_data:
-    free(data);
-    return -1;
-}
-
-int ti_task_add_vtask_again_at(ti_task_t * task, ti_vtask_t * vtask)
-{
-    size_t alloc = 64;
-    ti_data_t * data;
-    ti_vp_t vp;
-    msgpack_sbuffer buffer;
-
-    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
-        return -1;
-    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
-
-    msgpack_pack_array(&vp.pk, 2);
-
-    msgpack_pack_uint8(&vp.pk, TI_TASK_VTASK_AGAIN_AT);
-    msgpack_pack_map(&vp.pk, 2);
-
-    mp_pack_str(&vp.pk, "id");
-    msgpack_pack_uint64(&vp.pk, vtask->id);
-
-    mp_pack_str(&vp.pk, "run_at");
-    msgpack_pack_uint64(&vp.pk, vtask->run_at);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

@@ -18,14 +18,17 @@ static int do__f_cancel(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_nargs("cancel", DOC_TASK_CANCEL, 0, nargs, e))
         goto fail0;
 
-    task = ti_task_get_task(
-            query->change,
-            query->collection ? query->collection->root : ti.thing0);
+    if (vtask->run_at)
+    {
+        task = ti_task_get_task(
+                query->change,
+                query->collection ? query->collection->root : ti.thing0);
 
-    if (task && ti_task_add_vtask_cancel(task, vtask) == 0)
-        vtask->run_at = 0;
-    else
-        ex_set_mem(e);
+        if (task && ti_task_add_vtask_cancel(task, vtask) == 0)
+            vtask->run_at = 0;
+        else
+            ex_set_mem(e);
+    }
 
 fail0:
     ti_vtask_unsafe_drop(vtask);

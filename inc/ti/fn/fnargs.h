@@ -11,7 +11,7 @@ static int do__f_args(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return fn_call_try("args", query, nd, e);
 
     vtask = (ti_vtask_t *) query->rval;
-    if (ti_vtask_is_locked(vtask, e))
+    if (ti_vtask_is_nil(vtask, e))
         return e->nr;
 
     query->rval = NULL;

@@ -10,7 +10,14 @@
 #include <ti/name.t.h>
 #include <ti/pkg.t.h>
 #include <ti/user.t.h>
+#include <ti/verror.h>
 #include <ti/vtask.t.h>
+
+enum
+{
+    TI_VTASK_FLAG_RUNNING   =1<<0,      /* task is running */
+    TI_VTASK_FLAG_AGAIN     =1<<1,      /* task is re-scheduled */
+};
 
 typedef struct ti_vtask_s ti_vtask_t;
 

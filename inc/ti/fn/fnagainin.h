@@ -3,7 +3,6 @@
 static int do__f_again_in(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_task_t * task;
     ti_vtask_t * vtask;
     time_t again_at;
     ti_datetime_t * dt;
@@ -63,14 +62,7 @@ static int do__f_again_in(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
     }
 
-    vtask->run_at = (uint64_t) again_at;
-
-    task = ti_task_get_task(
-            query->change,
-            query->collection ? query->collection->root : ti.thing0);
-
-    if (task)
-        (void) ti_task_add_vtask_again_at(task, vtask);
+    ti_vtask_again_at(vtask, (uint64_t) again_at);
 
 fail1:
     ti_val_unsafe_drop((ti_val_t *) dt);

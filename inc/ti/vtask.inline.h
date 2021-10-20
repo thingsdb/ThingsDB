@@ -36,22 +36,22 @@ static inline ti_vtask_t * ti_vtask_by_id(vec_t * vtasks, uint64_t id)
 
 static inline int ti_vtask_lock(ti_vtask_t * vtask, ex_t * e)
 {
-    if (vtask->run_at == 0)
-    {
-        ex_set(e, EX_VALUE_ERROR,
-            "task Id %"PRIu64" is cancelled",
-            vtask->id);
-        return e->nr;
-    }
-    if (vtask->flags & TI_VFLAG_LOCK)
-    {
+    if (vtask->id == 0)
+        ex_set(e, EX_VALUE_ERROR, "empty task");
+    else if (vtask->flags & TI_VFLAG_LOCK)
         ex_set(e, EX_OPERATION,
             "cannot use task Id %"PRIu64" while the task is locked",
             vtask->id);
-        return e->nr;
-    }
-    vtask->flags |= TI_VFLAG_LOCK;
-    return 0;
+    else
+        vtask->flags |= TI_VFLAG_LOCK;
+    return e->nr;
+}
+
+static inline int ti_vtask_is_nil(ti_vtask_t * vtask, ex_t * e)
+{
+    if (vtask->id == 0)
+        ex_set(e, EX_VALUE_ERROR, "empty task");
+    return e->nr;
 }
 
 static inline int ti_vtask_is_locked(ti_vtask_t * vtask, ex_t * e)
@@ -68,5 +68,13 @@ static inline void ti_vtask_unlock(ti_vtask_t * vtask)
     vtask->flags &= ~TI_VFLAG_LOCK;
 }
 
+/*
+ * Use only from the master, not when handling a change.
+ */
+static inline void ti_vtask_again_at(ti_vtask_t * vtask, uint64_t again)
+{
+    vtask->run_at = (uint64_t) again;
+    vtask->flags |= TI_VTASK_FLAG_AGAIN;
+}
 
 #endif /* TI_VTASK_INLINE_H_ */

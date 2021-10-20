@@ -42,7 +42,7 @@ static inline ti_verror_t * ti_verror_from_e(ex_t * e)
     return ti_verror_create(e->msg, e->n, (int8_t) e->nr);
 }
 
-static inline ti_verror_t * ti_verror_ensure_from_e(ex_t * e)
+static inline ti_verror_t * ti_verror_ensure_from_e(const ex_t * e)
 {
     ti_verror_t * verror = ti_verror_create(e->msg, e->n, (int8_t) e->nr);
     return verror ? verror : ti_verror_from_code(EX_MEMORY);

@@ -504,14 +504,6 @@ static mp_enum_t __attribute__((unused))mp_next(mp_unp_t * up, mp_obj_t * o)
     return (o->tp = MP_ERR);
 }
 
-static mp_enum_t __attribute__((unused))mp_peek(mp_unp_t * up)
-{
-    const char * keep = up->pt;
-    mp_enum_t tp = mp_skip(up);
-    up->pt = keep;
-    return tp;
-}
-
 static mp_enum_t __attribute__((unused))mp_skip(mp_unp_t * up)
 {
     if (up->pt >= up->end)
@@ -680,6 +672,14 @@ static mp_enum_t __attribute__((unused))mp_skip(mp_unp_t * up)
     }
 
     return MP_ERR;
+}
+
+static mp_enum_t __attribute__((unused))mp_peek(mp_unp_t * up)
+{
+    const char * keep = up->pt;
+    mp_enum_t tp = mp_skip(up);
+    up->pt = keep;
+    return tp;
 }
 
 static void __attribute__((unused))mp_print_up(FILE * out, mp_unp_t * up)

@@ -15,15 +15,18 @@ static int do__f_del_vtask(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_nargs("del", DOC_TASK_DEL, 0, nargs, e))
         goto fail0;
 
-    task = ti_task_get_task(
-            query->change,
-            query->collection ? query->collection->root : ti.thing0);
+    if (vtask->id)
+    {
+        task = ti_task_get_task(
+                query->change,
+                query->collection ? query->collection->root : ti.thing0);
 
-    if (task && ti_task_add_vtask_del(task, vtask) == 0)
-        /* must be after creating the task, otherwise the task Id is lost */
-        ti_vtask_del(vtask->id, query->collection);
-    else
-        ex_set_mem(e);
+        if (task && ti_task_add_vtask_del(task, vtask) == 0)
+            /* must be after creating the task or the task Id is lost */
+            ti_vtask_del(vtask->id, query->collection);
+        else
+            ex_set_mem(e);
+    }
 
 fail0:
     ti_vtask_unsafe_drop(vtask);

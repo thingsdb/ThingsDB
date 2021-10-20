@@ -22,7 +22,7 @@ char * ti_store_collection_access_fn(
 char * ti_store_collection_procedures_fn(
         const char * path,
         uint64_t collection_id);
-char * ti_store_collection_timers_fn(
+char * ti_store_collection_tasks_fn(
         const char * path,
         uint64_t collection_id);
 char * ti_store_collection_dat_fn(
@@ -55,7 +55,7 @@ struct ti_store_collection_s
     char * collection_path;
     char * names_fn;
     char * procedures_fn;
-    char * timers_fn;
+    char * tasks_fn;
     char * things_fn;
     char * types_fn;
     char * enums_fn;

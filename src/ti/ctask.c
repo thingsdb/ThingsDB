@@ -1849,11 +1849,11 @@ static int ctask__vtask_cancel(ti_thing_t * thing, mp_unp_t * up)
     return 0;
 }
 
-static int ctask__vtask_set_verr(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__vtask_finish(ti_thing_t * thing, mp_unp_t * up)
 {
-    mp_obj_t obj, mp_id;
+    mp_obj_t obj, mp_id, mp_run_at;
     ti_collection_t * collection = thing->collection;
-    ti_verror_t * verr;
+    ti_val_t * val;
     ti_vtask_t * vtask;
     ti_vup_t vup = {
             .isclient = false,
@@ -1861,7 +1861,9 @@ static int ctask__vtask_set_verr(ti_thing_t * thing, mp_unp_t * up)
             .up = up,
     };
 
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_run_at) != MP_U64 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
         mp_skip(up) != MP_STR)
@@ -1873,23 +1875,31 @@ static int ctask__vtask_set_verr(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    verr = (ti_verror_t *) ti_val_from_vup(&vup);
-    if (!verr || !ti_val_is_error((ti_val_t *) verr))
+    val = ti_val_from_vup(&vup);
+    if (!val)
+        goto fail0;
+
+    if (ti_val_is_nil(val))
+        val = ti_verror_from_e(EX_SUCCESS);
+    else if (!ti_val_is_error(val))
         goto fail0;
 
     vtask = ti_vtask_by_id(collection->vtasks, mp_id.via.u64);
     if (!vtask)
         goto fail0;
 
-    ti_val_drop(vtask->verr);
-    vtask->verr = verr;
+    vtask->run_at = mp_run_at.via.u64;
+    vtask->flags &= ~(TI_VTASK_FLAG_RUNNING|TI_VTASK_FLAG_AGAIN);
+
+    ti_val_drop((ti_val_t *) vtask->verr);
+    vtask->verr = (ti_verror_t *) val;
     return 0;
 
 fail0:
     log_critical(
             "task `set_vtask_verr` for "TI_COLLECTION_ID" has failed",
             collection->root->id);
-    ti_val_drop((ti_val_t *) verr);
+    ti_val_drop(val);
     return -1;
 }
 
@@ -1971,41 +1981,6 @@ static int ctask__vtask_set_owner(ti_thing_t * thing, mp_unp_t * up)
     {
         ti_user_drop(vtask->user);
         vtask->user = user;
-    }
-
-    return 0;
-}
-
-static int ctask__vtask_again_at(ti_thing_t * thing, mp_unp_t * up)
-{
-    mp_obj_t obj, mp_id, mp_run_at;
-    ti_collection_t * collection = thing->collection;
-    ti_vtask_t * vtask;
-    ti_vup_t vup = {
-            .isclient = false,
-            .collection = collection,
-            .up = up,
-    };
-
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
-        mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_id) != MP_U64 ||
-        mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_run_at) != MP_U64)
-    {
-        log_critical(
-                "task `vtask_again_at` for "TI_COLLECTION_ID": "
-                "invalid data",
-                collection->root->id);
-        return -1;
-    }
-
-    vtask = ti_vtask_by_id(collection->vtasks, mp_id.via.u64);
-    if (vtask)
-    {
-        ti_verror_drop(vtask->verr);
-        vtask->verr = ti_verror_from_code(EX_SUCCESS);
-        vtask->run_at = mp_run_at.via.u64;
     }
 
     return 0;
@@ -2592,10 +2567,9 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_VTASK_NEW:         return ctask__vtask_new(thing, up);
     case TI_TASK_VTASK_DEL:         return ctask__vtask_del(thing, up);
     case TI_TASK_VTASK_CANCEL:      return ctask__vtask_cancel(thing, up);
-    case TI_TASK_VTASK_SET_VERR:    return ctask__vtask_set_verr(thing, up);
+    case TI_TASK_VTASK_FINISH:      return ctask__vtask_finish(thing, up);
     case TI_TASK_VTASK_SET_ARGS:    return ctask__vtask_set_args(thing, up);
     case TI_TASK_VTASK_SET_OWNER:   return ctask__vtask_set_owner(thing, up);
-    case TI_TASK_VTASK_AGAIN_AT:    return ctask__vtask_again_at(thing, up);
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);
@@ -2612,7 +2586,7 @@ version_v0:
         if (mp_str_eq(&mp_task, "del"))
             return ctask__del(thing, up);
         if (mp_str_eq(&mp_task, "del_timer"))
-            return ctask__del_timer(thing, up);
+            return ctask__del_timer(up);
         if (mp_str_eq(&mp_task, "del_enum"))
             return ctask__del_enum(thing, up);
         if (mp_str_eq(&mp_task, "del_type"))
@@ -2626,7 +2600,7 @@ version_v0:
         break;
     case 'n':
         if (mp_str_eq(&mp_task, "new_timer"))
-            return ctask__new_timer(thing, up);
+            return ctask__new_timer(up);
         if (mp_str_eq(&mp_task, "new_type"))
             return ctask__new_type(thing, up);
         if (mp_str_eq(&mp_task, "new_procedure"))
@@ -2674,7 +2648,7 @@ version_v0:
         if (mp_str_eq(&mp_task, "splice"))
             return ctask__splice(thing, up);
         if (mp_str_eq(&mp_task, "set_timer_args"))
-            return ctask__set_timer_args(thing, up);
+            return ctask__set_timer_args(up);
         if (mp_str_eq(&mp_task, "set_enum"))
             return ctask__set_enum(thing, up);
         if (mp_str_eq(&mp_task, "set_type"))

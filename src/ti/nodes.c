@@ -1206,7 +1206,6 @@ static void nodes__on_fwd_task(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
-
     collection = mp_scope_id.via.u64 == TI_SCOPE_THINGSDB
             ? ti_collections_get_by_id(mp_scope_id.via.u64)
             : NULL;

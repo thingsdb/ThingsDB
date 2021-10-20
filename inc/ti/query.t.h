@@ -23,16 +23,18 @@ typedef int (*ti_query_vars_walk_cb)(void * data, void * arg);
 
 enum
 {
-    TI_QUERY_FLAG_API               =1<<4,
-    TI_QUERY_FLAG_CACHE             =1<<5,  /* Queries which are handled by the
+    TI_QUERY_FLAG_API               =1<<0,
+    TI_QUERY_FLAG_CACHE             =1<<1,  /* Queries which are handled by the
                                                query change will have this
                                                flags. Also the first query,
                                                which has not yet a cache item.
                                             */
-    TI_QUERY_FLAG_DO_CACHE          =1<<6,  /* mark the query for caching */
-    TI_QUERY_FLAG_RAISE_ERR         =1<<7,  /* query->rval contains an error
+    TI_QUERY_FLAG_DO_CACHE          =1<<2,  /* mark the query for caching */
+    TI_QUERY_FLAG_RAISE_ERR         =1<<3,  /* query->rval contains an error
                                                from a future which must raised
                                                once all futures are done */
+    TI_QUERY_FLAG_TASK_CHANGES      =1<<4,  /* mark when this query has handled
+                                               all required task changes */
 };
 
 typedef enum
@@ -41,6 +43,7 @@ typedef enum
     TI_QUERY_WITH_PROCEDURE,
     TI_QUERY_WITH_FUTURE,
     TI_QUERY_WITH_TASK,
+    TI_QUERY_WITH_TASK_FINISH,
 } ti_query_with_enum;
 
 typedef int (*ti_query_unpack_cb) (

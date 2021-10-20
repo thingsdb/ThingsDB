@@ -31,9 +31,8 @@ void ti_counters_reset(void)
     counters->started_at = util_now_usec();
     counters->queries_success = 0;
     counters->queries_with_error = 0;
-    counters->timers_success = 0;
-    counters->timers_with_error = 0;
-    counters->watcher_failed = 0;
+    counters->tasks_success = 0;
+    counters->tasks_with_error = 0;
     counters->changes_with_gap = 0;
     counters->changes_skipped = 0;
     counters->changes_failed = 0;
@@ -100,7 +99,7 @@ double ti_counters_upd_success_query(struct timespec * start)
 int ti_counters_to_pk(msgpack_packer * pk)
 {
     return -(
-        msgpack_pack_map(pk, 21) ||
+        msgpack_pack_map(pk, 20) ||
 
         mp_pack_str(pk, "queries_success") ||
         msgpack_pack_uint64(pk, counters->queries_success) ||
@@ -108,14 +107,11 @@ int ti_counters_to_pk(msgpack_packer * pk)
         mp_pack_str(pk, "queries_with_error") ||
         msgpack_pack_uint64(pk, counters->queries_with_error) ||
 
-        mp_pack_str(pk, "timers_success") ||
-        msgpack_pack_uint64(pk, counters->timers_success) ||
+        mp_pack_str(pk, "tasks_success") ||
+        msgpack_pack_uint64(pk, counters->tasks_success) ||
 
-        mp_pack_str(pk, "timers_with_error") ||
-        msgpack_pack_uint64(pk, counters->timers_with_error) ||
-
-        mp_pack_str(pk, "watcher_failed") ||
-        msgpack_pack_uint16(pk, counters->watcher_failed) ||
+        mp_pack_str(pk, "tasks_with_error") ||
+        msgpack_pack_uint64(pk, counters->tasks_with_error) ||
 
         mp_pack_str(pk, "changes_with_gap") ||
         msgpack_pack_uint64(pk, counters->changes_with_gap) ||

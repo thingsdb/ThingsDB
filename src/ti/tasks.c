@@ -114,7 +114,8 @@ static void tasks__cb(uv_timer_t * UNUSED(handle))
     {
         if (vtask->run_at &&
             vtask->run_at <= now &&
-            (vtask->id % nodes_n == rel_id))
+            (vtask->id % nodes_n == rel_id) &&
+            (~vtask->flags & TI_VTASK_FLAG_RUNNING))
             n += ti_vtask_run(vtask, NULL) == 0;
     }
 
@@ -124,7 +125,8 @@ static void tasks__cb(uv_timer_t * UNUSED(handle))
         {
             if (vtask->run_at &&
                 vtask->run_at <= now &&
-                (vtask->id % nodes_n == rel_id))
+                (vtask->id % nodes_n == rel_id) &&
+                (~vtask->flags & TI_VTASK_FLAG_RUNNING))
                 n += ti_vtask_run(vtask, collection) == 0;
         }
     }

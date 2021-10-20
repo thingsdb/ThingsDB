@@ -72,10 +72,9 @@ typedef enum
     TI_TASK_VTASK_NEW,                      /* 59  */
     TI_TASK_VTASK_DEL,                      /* 60  */
     TI_TASK_VTASK_CANCEL,                   /* 61  */
-    TI_TASK_VTASK_SET_VERR,                 /* 62  */
+    TI_TASK_VTASK_FINISH,                   /* 62  */
     TI_TASK_VTASK_SET_ARGS,                 /* 63  */
     TI_TASK_VTASK_SET_OWNER,                /* 64  */
-    TI_TASK_VTASK_AGAIN_AT,                 /* 65  */
 } ti_task_enum;
 
 typedef struct ti_task_s ti_task_t;

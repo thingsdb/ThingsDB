@@ -85,12 +85,11 @@ C_SRCS += \
 ../src/ti/syncevents.c \
 ../src/ti/syncfull.c \
 ../src/ti/task.c \
+../src/ti/tasks.c \
 ../src/ti/tcp.c \
 ../src/ti/template.c \
 ../src/ti/thing.c \
 ../src/ti/things.c \
-../src/ti/timer.c \
-../src/ti/timers.c \
 ../src/ti/token.c \
 ../src/ti/ttask.c \
 ../src/ti/type.c \
@@ -106,6 +105,7 @@ C_SRCS += \
 ../src/ti/vfloat.c \
 ../src/ti/vint.c \
 ../src/ti/vset.c \
+../src/ti/vtask.c \
 ../src/ti/warn.c \
 ../src/ti/watch.c \
 ../src/ti/web.c \
@@ -194,12 +194,11 @@ OBJS += \
 ./src/ti/syncevents.o \
 ./src/ti/syncfull.o \
 ./src/ti/task.o \
+./src/ti/tasks.o \
 ./src/ti/tcp.o \
 ./src/ti/template.o \
 ./src/ti/thing.o \
 ./src/ti/things.o \
-./src/ti/timer.o \
-./src/ti/timers.o \
 ./src/ti/token.o \
 ./src/ti/ttask.o \
 ./src/ti/type.o \
@@ -215,6 +214,7 @@ OBJS += \
 ./src/ti/vfloat.o \
 ./src/ti/vint.o \
 ./src/ti/vset.o \
+./src/ti/vtask.o \
 ./src/ti/warn.o \
 ./src/ti/watch.o \
 ./src/ti/web.o \
@@ -303,12 +303,11 @@ C_DEPS += \
 ./src/ti/syncevents.d \
 ./src/ti/syncfull.d \
 ./src/ti/task.d \
+./src/ti/tasks.d \
 ./src/ti/tcp.d \
 ./src/ti/template.d \
 ./src/ti/thing.d \
 ./src/ti/things.d \
-./src/ti/timer.d \
-./src/ti/timers.d \
 ./src/ti/token.d \
 ./src/ti/ttask.d \
 ./src/ti/type.d \
@@ -324,6 +323,7 @@ C_DEPS += \
 ./src/ti/vfloat.d \
 ./src/ti/vint.d \
 ./src/ti/vset.d \
+./src/ti/vtask.d \
 ./src/ti/warn.d \
 ./src/ti/watch.d \
 ./src/ti/web.d \

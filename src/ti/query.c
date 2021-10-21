@@ -701,6 +701,7 @@ void ti_query_task_result(ti_query_t * query, ex_t * e)
     }
     else
     {
+        /* change might be NULL but not in case some futures were handled */
         ti_change_drop(query->change);
         query->change = NULL;
         query->with_tp = TI_QUERY_WITH_TASK_FINISH;
@@ -933,7 +934,6 @@ void ti_query_run_future(ti_query_t * query)
 void query__task_finish(ti_query_t * query, const ex_t * e)
 {
     ti_vtask_t * vtask = query->with.vtask;
-    LOGC("HERE");
     if (vtask->id)
     {
         ti_task_t * task = ti_task_get_task(
@@ -946,7 +946,6 @@ void query__task_finish(ti_query_t * query, const ex_t * e)
 
         if (!vtask->run_at && !e->nr)
         {
-            LOGC("DEL");
             if (ti_task_add_vtask_del(task, vtask))
                 log_critical("failed to add task delete change");
 
@@ -955,7 +954,6 @@ void query__task_finish(ti_query_t * query, const ex_t * e)
         }
         else
         {
-            LOGC("FIN");
             ti_val_drop((ti_val_t *) vtask->verr);
             vtask->verr = e->nr == 0
                     ? ti_verror_from_code(0)
@@ -976,6 +974,7 @@ void ti_query_run_task_finish(ti_query_t * query)
     ex_setn(&e, vtask->verr->code, vtask->verr->msg, vtask->verr->msg_n);
     query__task_finish(query, &e);
     query__change_handle(query);  /* errors will be logged only */
+    ti_query_done(query, &e, &ti_query_task_result);
 }
 
 void ti_query_run_task(ti_query_t * query)
@@ -985,18 +984,28 @@ void ti_query_run_task(ti_query_t * query)
 
     if (vtask->run_at)
     {
+        uint32_t n = vtask->args ? vtask->args->n : 0;
+
         clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
+
+        if (n)
+        {
+            ti_val_unsafe_drop(vec_set(vtask->args, vtask, 0));
+            ti_incref(vtask);
+        }
+        ti_incref(vtask->closure);
 
 #ifndef NDEBUG
         log_debug(
                 "[DEBUG] run task: %s",
                 query->with.vtask->closure->node->str);
 #endif
-        ti_incref(vtask->closure);
 
         /* this can never set `e->nr` to EX_RETURN */
         (void) ti_closure_call(vtask->closure, query, vtask->args, &e);
 
+        if (n)
+            ti_val_unsafe_drop(vec_set(vtask->args, ti_nil_get(), 0));
         ti_closure_unsafe_drop(vtask->closure);
 
         if (query->change)

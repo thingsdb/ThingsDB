@@ -826,7 +826,7 @@ static int ttask__vtask_new(mp_unp_t * up)
     return 0;
 
 fail0:
-    log_critical("task `new_task` for for the `@thingsdb` scope has failed");
+    log_critical("task `vtask_new` for for the `@thingsdb` scope has failed");
     ti_val_drop((ti_val_t *) varr);
     ti_val_drop((ti_val_t *) closure);
     return -1;
@@ -845,7 +845,7 @@ static int ttask__vtask_del(mp_unp_t * up)
         mp_next(up, &mp_id) != MP_U64)
     {
         log_critical(
-                "task `del_vtask` for the `@thingsdb` scope: invalid data");
+                "task `vtask_del` for the `@thingsdb` scope: invalid data");
         return -1;
     }
 
@@ -867,7 +867,7 @@ static int ttask__vtask_cancel(mp_unp_t * up)
         mp_next(up, &mp_id) != MP_U64)
     {
         log_critical(
-                "task `cancel_vtask` for the `@thingsdb` scope: invalid data");
+                "task `vtask_cancel` for the `@thingsdb` scope: invalid data");
         return -1;
     }
 
@@ -890,13 +890,13 @@ static int ttask__vtask_finish(mp_unp_t * up)
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
         mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_run_at) != MP_U64 ||
-        mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_run_at) != MP_U64 ||
         mp_skip(up) != MP_STR)
     {
         log_critical(
-            "task `set_vtask_verr` for the `@thingsdb` scope: invalid data");
+            "task `vtask_finish` for the `@thingsdb` scope: invalid data");
         return -1;
     }
 
@@ -925,7 +925,7 @@ static int ttask__vtask_finish(mp_unp_t * up)
 
 fail0:
     log_critical(
-            "task `set_vtask_verr` for the `@thingsdb` scope has failed");
+            "task `vtask_finish` for the `@thingsdb` scope has failed");
     ti_val_drop(val);
     return -1;
 }
@@ -947,7 +947,7 @@ static int ttask__vtask_set_args(mp_unp_t * up)
         mp_skip(up) != MP_STR)
     {
         log_critical(
-            "task `set_vtask_args` for the `@thingsdb` scope: invalid data");
+            "task `vtask_set_args` for the `@thingsdb` scope: invalid data");
         return -1;
     }
 
@@ -968,7 +968,7 @@ static int ttask__vtask_set_args(mp_unp_t * up)
 
 fail0:
     log_critical(
-            "task `set_vtask_args` for the `@thingsdb` scope has failed");
+            "task `vtask_set_args` for the `@thingsdb` scope has failed");
     ti_val_drop((ti_val_t *) varr);
     return -1;
 }
@@ -986,7 +986,7 @@ static int ttask__vtask_set_owner(mp_unp_t * up)
         mp_next(up, &mp_user_id) != MP_U64)
     {
         log_critical(
-            "task `set_vtask_owner` for the `@thingsdb` scope: invalid data");
+            "task `vtask_set_owner` for the `@thingsdb` scope: invalid data");
         return -1;
     }
 

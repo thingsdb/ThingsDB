@@ -1792,7 +1792,7 @@ static int ctask__vtask_new(ti_thing_t * thing, mp_unp_t * up)
 
 fail0:
     log_critical(
-            "task `new_task` for "TI_COLLECTION_ID" has failed",
+            "task `vtask_new` for "TI_COLLECTION_ID" has failed",
             collection->root->id);
     ti_val_drop((ti_val_t *) varr);
     ti_val_drop((ti_val_t *) closure);
@@ -1813,7 +1813,7 @@ static int ctask__vtask_del(ti_thing_t * thing, mp_unp_t * up)
         mp_next(up, &mp_id) != MP_U64)
     {
         log_critical(
-                "task `del_vtask` for "TI_COLLECTION_ID": "
+                "task `vtask_del` for "TI_COLLECTION_ID": "
                 "invalid data",
                 collection->root->id);
         return -1;
@@ -1838,7 +1838,7 @@ static int ctask__vtask_cancel(ti_thing_t * thing, mp_unp_t * up)
         mp_next(up, &mp_id) != MP_U64)
     {
         log_critical(
-                "task `cancel_vtask` for "TI_COLLECTION_ID": "
+                "task `vtask_cancel` for "TI_COLLECTION_ID": "
                 "invalid data",
                 collection->root->id);
         return -1;
@@ -1864,13 +1864,13 @@ static int ctask__vtask_finish(ti_thing_t * thing, mp_unp_t * up)
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
         mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_run_at) != MP_U64 ||
-        mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_run_at) != MP_U64 ||
         mp_skip(up) != MP_STR)
     {
         log_critical(
-                "task `set_vtask_verr` for "TI_COLLECTION_ID": "
+                "task `vtask_finish` for "TI_COLLECTION_ID": "
                 "invalid data",
                 collection->root->id);
         return -1;
@@ -1901,7 +1901,7 @@ static int ctask__vtask_finish(ti_thing_t * thing, mp_unp_t * up)
 
 fail0:
     log_critical(
-            "task `set_vtask_verr` for "TI_COLLECTION_ID" has failed",
+            "task `vtask_finish` for "TI_COLLECTION_ID" has failed",
             collection->root->id);
     ti_val_drop(val);
     return -1;
@@ -1925,7 +1925,7 @@ static int ctask__vtask_set_args(ti_thing_t * thing, mp_unp_t * up)
         mp_skip(up) != MP_STR)
     {
         log_critical(
-                "task `set_vtask_args` for "TI_COLLECTION_ID": "
+                "task `vtask_set_args` for "TI_COLLECTION_ID": "
                 "invalid data",
                 collection->root->id);
         return -1;
@@ -1948,7 +1948,7 @@ static int ctask__vtask_set_args(ti_thing_t * thing, mp_unp_t * up)
 
 fail0:
     log_critical(
-            "task `set_vtask_args` for "TI_COLLECTION_ID" has failed",
+            "task `vtask_set_args` for "TI_COLLECTION_ID" has failed",
             collection->root->id);
     ti_val_drop((ti_val_t *) varr);
     return -1;
@@ -1968,7 +1968,7 @@ static int ctask__vtask_set_owner(ti_thing_t * thing, mp_unp_t * up)
         mp_next(up, &mp_user_id) != MP_U64)
     {
         log_critical(
-                "task `set_vtask_owner` for "TI_COLLECTION_ID": "
+                "task `vtask_set_owner` for "TI_COLLECTION_ID": "
                 "invalid data",
                 collection->root->id);
         return -1;

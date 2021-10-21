@@ -1172,7 +1172,7 @@ int ti_task_add_vtask_finish(ti_task_t * task, ti_vtask_t * vtask)
     msgpack_pack_array(&pk, 2);
 
     msgpack_pack_uint8(&pk, TI_TASK_VTASK_FINISH);
-    msgpack_pack_map(&pk, 2);
+    msgpack_pack_map(&pk, 3);
 
     mp_pack_str(&pk, "id");
     msgpack_pack_uint64(&pk, vtask->id);

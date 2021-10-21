@@ -41,6 +41,7 @@ ti_vtask_t * ti_vtask_create(
 
     vtask->ref = 1;
     vtask->tp = TI_VAL_TASK;
+    vtask->flags = 0;
     vtask->id = id;
     vtask->run_at = run_at;
     vtask->user = user;
@@ -284,7 +285,7 @@ int ti_vtask_check_args(vec_t * args, size_t m, _Bool ti_scope, ex_t * e)
 {
     size_t n = args->n;
 
-    if (n >= m)
+    if (n && n >= m)
     {
         ex_set(e, EX_NUM_ARGUMENTS,
                 "got %zu task argument%s while the given closure "

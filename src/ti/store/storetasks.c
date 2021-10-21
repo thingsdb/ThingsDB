@@ -115,7 +115,7 @@ int ti_store_tasks_restore(
 
     for (i = obj.via.sz; i--;)
     {
-        if (mp_next(&up, &mp_id) != MP_ARR || obj.via.sz != 6 ||
+        if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 6 ||
             mp_next(&up, &mp_id) != MP_U64 ||
             mp_next(&up, &mp_run_at) != MP_U64 ||
             mp_next(&up, &mp_user_id) != MP_U64

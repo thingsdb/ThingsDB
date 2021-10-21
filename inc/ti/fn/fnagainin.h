@@ -48,7 +48,7 @@ static int do__f_again_in(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     (void) ti_datetime_move(dt, unit, num, e);
 
     again_at = DATETIME(dt);
-    if ((uint64_t) again_at <= vtask->run_at + TI_TASKS_MIN_REPEAT)
+    if ((uint64_t) again_at < vtask->run_at + TI_TASKS_MIN_REPEAT)
     {
         ex_set(e, EX_VALUE_ERROR,
                 "new start time must be at least one minute (%d seconds) "

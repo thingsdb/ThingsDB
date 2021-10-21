@@ -90,7 +90,7 @@ static int do__f_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             goto fail2;
         }
 
-        if (args->n)
+        if (m && m--)
             VEC_push(args, ti_nil_get());
 
         if (nargs == 3)

@@ -323,7 +323,7 @@ static inline _Bool ti_val_is_room(ti_val_t * val)
 
 static inline _Bool ti_val_is_task(ti_val_t * val)
 {
-    return val->tp == TI_VAL_ROOM;
+    return val->tp == TI_VAL_TASK;
 }
 
 static inline _Bool ti_val_is_member(ti_val_t * val)

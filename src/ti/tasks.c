@@ -168,7 +168,10 @@ ti_varr_t * ti_tasks_list(vec_t * tasks)
         return NULL;
 
     for (vec_each(tasks, ti_vtask_t, vtask))
+    {
         VEC_push(varr->vec, vtask);
+        ti_incref(vtask);
+    }
 
     return varr;
 }

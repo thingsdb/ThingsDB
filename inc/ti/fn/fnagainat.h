@@ -21,9 +21,8 @@ static int do__f_again_at(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_arg_datetime("again_at", DOC_TASK_AGAIN_AT, 1, query->rval, e))
         goto fail0;
 
-
     again_at = DATETIME(query->rval);
-    if ((uint64_t) again_at <= vtask->run_at + TI_TASKS_MIN_REPEAT)
+    if ((uint64_t) again_at < vtask->run_at + TI_TASKS_MIN_REPEAT)
     {
         ex_set(e, EX_VALUE_ERROR,
                 "new start time must be at least one minute (%d seconds) "

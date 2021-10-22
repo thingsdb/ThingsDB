@@ -33,7 +33,7 @@ ti_vtask_t * ti_vtask_create(
         ti_user_t * user,
         ti_closure_t * closure,
         ti_verror_t * verr,     /* may be NULL */
-        vec_t * args)
+        vec_t * args /* may be NULL temporary when loading tasks */)
 {
     ti_vtask_t * vtask = malloc(sizeof(ti_vtask_t));
     if (!vtask)
@@ -197,7 +197,7 @@ static void vtask__clear(ti_vtask_t * vtask)
 {
     ti_user_drop(vtask->user);
     ti_closure_unsafe_drop(vtask->closure);
-    ti_verror_unsafe_drop(vtask->verr);
+    ti_verror_drop(vtask->verr);
     vec_destroy(vtask->args, (vec_destroy_cb) ti_val_unsafe_drop);
     vtask->id = 0;
     vtask->run_at = 0;

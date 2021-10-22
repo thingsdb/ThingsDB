@@ -701,11 +701,19 @@ void ti_query_task_result(ti_query_t * query, ex_t * e)
     }
     else
     {
-        /* change might be NULL but not in case some futures were handled */
+        /* It is possible we have a change we need to clear, but it can be
+         * NULL as well.  */
         ti_change_drop(query->change);
         query->change = NULL;
+
+        /* We will create a change with the query which does not execute the
+         * query, but instead applies the finishing changes for the task.
+         */
         query->with_tp = TI_QUERY_WITH_TASK_FINISH;
 
+        /*
+         * Set the error to the task which we will read later.
+         */
         ti_val_drop((ti_val_t *) vtask->verr);
         vtask->verr = e->nr == 0
                 ? ti_verror_from_code(0)
@@ -715,9 +723,11 @@ void ti_query_task_result(ti_query_t * query, ex_t * e)
         if (ti_changes_create_new_change(query, e))
         {
             log_critical(
-                    "failed to create finish changes for task Id %"PRIu64,
-                    vtask->id);
+                    "failed to create finish changes for task Id %"PRIu64
+                    " (%s)",
+                    vtask->id, e->msg);
             /* TODO : can we do more ? */
+            ++ti.counters->tasks_with_error;
             ti_query_destroy(query);
         }
     }
@@ -931,7 +941,7 @@ void ti_query_run_future(ti_query_t * query)
     ti_query_done(query, &e, &ti_query_on_then_result);
 }
 
-void query__task_finish(ti_query_t * query, const ex_t * e)
+void query__task_finish(ti_query_t * query, const ex_t * e, _Bool set_err)
 {
     ti_vtask_t * vtask = query->with.vtask;
     if (vtask->id)
@@ -954,11 +964,20 @@ void query__task_finish(ti_query_t * query, const ex_t * e)
         }
         else
         {
-            ti_val_drop((ti_val_t *) vtask->verr);
-            vtask->verr = e->nr == 0
-                    ? ti_verror_from_code(0)
-                    : ti_verror_ensure_from_e(e);
-            vtask->flags &= ~(TI_VTASK_FLAG_RUNNING|TI_VTASK_FLAG_AGAIN);
+            if (set_err)
+            {
+                /*
+                 * The error might be already equal to `e`, in this case
+                 * the argument `set_err` should be false as there is no point
+                 * in removing and re-creating the same error.
+                 */
+                ti_val_drop((ti_val_t *) vtask->verr);
+                vtask->verr = e->nr == 0
+                        ? ti_verror_from_code(0)
+                        : ti_verror_ensure_from_e(e);
+            }
+
+            ti_tasks_vtask_finish(vtask);
 
             if (ti_task_add_vtask_finish(task, vtask))
                 log_critical("failed to add task finish change");
@@ -972,9 +991,12 @@ void ti_query_run_task_finish(ti_query_t * query)
     ex_t e;
     ti_vtask_t * vtask = query->with.vtask;
     ex_setn(&e, vtask->verr->code, vtask->verr->msg, vtask->verr->msg_n);
-    query__task_finish(query, &e);
+    query__task_finish(query, &e, false /* do not set the task error */);
     query__change_handle(query);  /* errors will be logged only */
-    ti_query_done(query, &e, &ti_query_task_result);
+
+    /* The query (and futures) are already processed to we can run
+     * function `ti_query_task_result` without using `ti_query_done()`. */
+    ti_query_task_result(query, &e);
 }
 
 void ti_query_run_task(ti_query_t * query)
@@ -1011,7 +1033,7 @@ void ti_query_run_task(ti_query_t * query)
         if (query->change)
         {
             if (query->futures.n == 0)
-                query__task_finish(query, &e);
+                query__task_finish(query, &e, true /* set the task error */);
 
             query__change_handle(query);  /* errors will be logged only */
         }

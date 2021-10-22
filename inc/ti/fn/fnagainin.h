@@ -3,9 +3,9 @@
 static int do__f_again_in(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
+    time_t run_at, now = util_now_tsec();
     ti_tz_t * tz = query->collection ? query->collection->tz : ti_tz_utc();
     ti_vtask_t * vtask;
-    time_t again_at;
     ti_datetime_t * dt;
     datetime_unit_e unit;
     int64_t num;
@@ -47,23 +47,27 @@ static int do__f_again_in(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     (void) ti_datetime_move(dt, unit, num, e);
 
-    again_at = DATETIME(dt);
-    if ((uint64_t) again_at < vtask->run_at + TI_TASKS_MIN_REPEAT)
+    run_at = DATETIME(dt);
+
+    /*
+     * When using again-in, we want the new time to be relative to the last
+     * run_at time so we can nicely move a task exactly a month, day, etc.
+     *
+     * If we want to move by a low value like one second, then we might get
+     * into trouble as the new value might be less than now. In this case it
+     * is OK to adjust the time to now as this lower value in time has already
+     * passed.
+     */
+    if (run_at < now && run_at > (int64_t) vtask->run_at)
+        run_at = now;
+
+    if (run_at < now || run_at > UINT32_MAX)
     {
-        ex_set(e, EX_VALUE_ERROR,
-                "new start time must be at least one minute (%d seconds) "
-                "after the previous start time"DOC_TASK_AGAIN_IN,
-                TI_TASKS_MIN_REPEAT);
+        ex_set(e, EX_VALUE_ERROR, "start time out-of-range"DOC_TASK);
         goto fail1;
     }
 
-    if (again_at > UINT32_MAX)
-    {
-        ex_set(e, EX_VALUE_ERROR, "start time out-of-range"DOC_TASK_AGAIN_IN);
-        goto fail1;
-    }
-
-    ti_vtask_again_at(vtask, (uint64_t) again_at);
+    ti_vtask_again_at(vtask, (uint64_t) run_at);
 
 fail1:
     ti_val_unsafe_drop((ti_val_t *) dt);

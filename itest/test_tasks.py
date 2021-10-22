@@ -17,11 +17,11 @@ from thingsdb.exceptions import ZeroDivisionError
 from thingsdb.exceptions import OperationError
 
 
-class TestTimers(TestBase):
+class TestTasks(TestBase):
 
-    title = 'Test timers'
+    title = 'Test tasks'
 
-    @default_test_setup(num_nodes=2, seed=1, threshold_full_storage=10)
+    @default_test_setup(num_nodes=1, seed=1, threshold_full_storage=10)
     async def run(self):
 
         await self.node0.init_and_run()
@@ -38,24 +38,24 @@ class TestTimers(TestBase):
         client.close()
         await client.wait_closed()
 
-    async def test_new_timer(self, client):
+    async def test_task_new(self, client):
         with self.assertRaisesRegex(
                 LookupError,
-                r'function `new_timer` is undefined in the `@node` scope; '
+                r'function `task` is undefined in the `@node` scope; '
                 r'you might want to query the `@thingsdb` or '
                 r'a `@collection` scope\?'):
-            await client.query('new_timer();', scope='/n')
+            await client.query('task();', scope='/n')
 
         with self.assertRaisesRegex(
                 LookupError,
-                'type `nil` has no function `new_timer`'):
-            await client.query('nil.new_timer();')
+                'type `nil` has no function `task`'):
+            await client.query('nil.task();')
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `new_timer` requires at least 2 arguments '
+                'function `task` requires at least 2 arguments '
                 'but 0 were given'):
-            await client.query('new_timer();')
+            await client.query('task();')
 
         with self.assertRaisesRegex(
                 NumArgumentsError,

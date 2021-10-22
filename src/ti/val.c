@@ -188,7 +188,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
             mp_next(vup->up, &mp_code) != MP_I64 ||
             mp_msg.via.str.n > EX_MAX_SZ ||
             mp_code.via.i64 < EX_MIN_ERR ||
-            mp_code.via.i64 > EX_MAX_BUILD_IN_ERR)
+            mp_code.via.i64 > 0)
         {
             /*
              * TODO (COMPAT) Compatibility with v0.x
@@ -201,7 +201,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
                 mp_next(vup->up, &mp_code) != MP_I64 ||
                 mp_msg.via.str.n > EX_MAX_SZ ||
                 mp_code.via.i64 < EX_MIN_ERR ||
-                mp_code.via.i64 > EX_MAX_BUILD_IN_ERR)
+                mp_code.via.i64 > 0)
             {
                 ex_set(e, EX_BAD_DATA,
                         "errors must be written according the "

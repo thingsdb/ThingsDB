@@ -1785,7 +1785,7 @@ static int ctask__vtask_new(ti_thing_t * thing, mp_unp_t * up)
         goto fail0;
 
     ti_update_next_free_id(vtask->id);
-    VEC_push(collection->vtasks, vtask);
+    (void) ti_tasks_append(&collection->vtasks, vtask);
     free(varr);
     ti_decref(closure);
     return 0;
@@ -1893,7 +1893,7 @@ static int ctask__vtask_finish(ti_thing_t * thing, mp_unp_t * up)
         goto fail0;
 
     vtask->run_at = mp_run_at.via.u64;
-    vtask->flags &= ~(TI_VTASK_FLAG_RUNNING|TI_VTASK_FLAG_AGAIN);
+    ti_tasks_vtask_finish(vtask);
 
     ti_val_drop((ti_val_t *) vtask->verr);
     vtask->verr = (ti_verror_t *) val;

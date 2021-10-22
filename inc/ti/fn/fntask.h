@@ -41,7 +41,7 @@ static int do__f_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_closure_t * closure;
         vec_t * args;
         ti_task_t * task;
-        size_t m;
+        size_t m, mm;
 
         if (fn_arg_datetime("task", DOC_TASK, 1, query->rval, e))
             return e->nr;
@@ -82,7 +82,7 @@ static int do__f_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (ti_closure_unbound(closure, e))
             goto fail1;
 
-        m = closure->vars->n;
+        mm = m = closure->vars->n;
 
         if (!(args = vec_new(m)))
         {
@@ -98,7 +98,7 @@ static int do__f_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             const _Bool ti_scope = query->collection==NULL;
             if (ti_do_statement(query, (child = child->next->next)->node, e) ||
                 fn_arg_array("task", DOC_TASK, 3, query->rval, e) ||
-                ti_vtask_check_args(VARR(query->rval), m, ti_scope, e))
+                ti_vtask_check_args(VARR(query->rval), mm, ti_scope, e))
                 goto fail2;
 
             for (vec_each(VARR(query->rval), ti_val_t, v), --m)
@@ -122,7 +122,7 @@ static int do__f_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 NULL,
                 args);
 
-        if (!vtask || vec_push(tasks, vtask))
+        if (!vtask || ti_tasks_append(tasks, vtask))
         {
             ex_set_mem(e);
             goto fail3;

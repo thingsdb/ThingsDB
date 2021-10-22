@@ -74,9 +74,9 @@ static inline void ti_vtask_unlock(ti_vtask_t * vtask)
 /*
  * Use only from the master, not when handling a change.
  */
-static inline void ti_vtask_again_at(ti_vtask_t * vtask, uint64_t again)
+static inline void ti_vtask_again_at(ti_vtask_t * vtask, uint64_t run_at)
 {
-    vtask->run_at = (uint64_t) again;
+    vtask->run_at = run_at;
     vtask->flags |= TI_VTASK_FLAG_AGAIN;
 }
 

@@ -4,11 +4,12 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <ti.h>
-#include <ti/vtask.h>
-#include <ti/tasks.h>
 #include <ti/raw.inline.h>
 #include <ti/store/storetasks.h>
+#include <ti/tasks.h>
 #include <ti/val.inline.h>
+#include <ti/vtask.h>
+#include <ti/vtask.inline.h>
 #include <util/fx.h>
 #include <util/mpack.h>
 
@@ -70,8 +71,9 @@ int ti_store_tasks_restore(
         ti_collection_t * collection)  /* collection may be NULL */
 {
     int rc = -1;
+    const char * keep;
     fx_mmap_t fmap;
-    size_t i;
+    size_t i, j;
     mp_obj_t obj, mp_ver, mp_id, mp_run_at, mp_user_id;
     mp_unp_t up;
     ti_closure_t * closure;
@@ -113,7 +115,9 @@ int ti_store_tasks_restore(
     if (vec_reserve(vtasks, obj.via.sz))
         goto fail1;
 
-    for (i = obj.via.sz; i--;)
+    keep = up.pt;
+
+    for (j = i = obj.via.sz; i--;)
     {
         if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 6 ||
             mp_next(&up, &mp_id) != MP_U64 ||
@@ -126,12 +130,12 @@ int ti_store_tasks_restore(
         verr = mp_peek(&up) == MP_NIL
                 ? NULL
                 : (ti_verror_t *) ti_val_from_vup(&vup);
-        varr = (ti_varr_t *) ti_val_from_vup(&vup);
+
+        mp_skip(&up);  /* varr */
 
         if (!user ||
             (!closure || !ti_val_is_closure((ti_val_t *) closure)) ||
-            (verr && !ti_val_is_error((ti_val_t *) verr)) ||
-            (!varr || !ti_val_is_array((ti_val_t *) varr)))
+            (verr && !ti_val_is_error((ti_val_t *) verr)))
             goto fail2;
 
         vtask = ti_vtask_create(
@@ -140,17 +144,41 @@ int ti_store_tasks_restore(
                     user,
                     closure,
                     verr,
-                    varr->vec);
+                    NULL);
         if (!vtask)
             goto fail2;
 
         ti_decref(closure);
         if (verr)
             ti_decref(verr);
-        free(varr);
 
         /* push the task to the list */
         VEC_push(*vtasks, vtask);
+    }
+
+    up.pt = keep;
+
+    for (; j--;)
+    {
+        if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 6 ||
+            mp_next(&up, &mp_id) != MP_U64
+        ) goto fail1;
+
+        mp_skip(&up);  /* run_at */
+        mp_skip(&up);  /* user_id */
+        mp_skip(&up);  /* closure */
+        mp_skip(&up);  /* verr */
+
+        varr = (ti_varr_t *) ti_val_from_vup(&vup);
+
+        if (!varr || !ti_val_is_array((ti_val_t *) varr))
+            goto fail2;
+
+        vtask = ti_vtask_by_id(*vtasks, mp_id.via.u64);
+        if (!vtask)
+            goto fail2;
+        vtask->args = varr->vec;
+        free(varr);
     }
 
     rc = 0;

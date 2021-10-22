@@ -1636,6 +1636,7 @@ ti_node_t * ti_nodes_new_node(
 
     /* update relative node id */
     ti_update_rel_id();
+    ti_tasks_reset_lowest_run_at();
 
     return node;
 }

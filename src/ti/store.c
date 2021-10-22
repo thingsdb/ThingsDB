@@ -403,6 +403,14 @@ int ti_store_restore(void)
                 ti_store_gcollect_restore(
                         collection,
                         store_collection->gcthings_fn) ||
+                /*
+                 * Load tasks before data as task may refer to things
+                 * and data may refer to tasks.
+                 */
+                ti_store_tasks_restore(
+                        &collection->vtasks,
+                        store_collection->tasks_fn,
+                        collection) ||
                 ti_store_things_restore_data(
                         collection,
                         namesmap,
@@ -414,10 +422,6 @@ int ti_store_restore(void)
                 ti_store_procedures_restore(
                         collection->procedures,
                         store_collection->procedures_fn,
-                        collection) ||
-                ti_store_tasks_restore(
-                        &collection->vtasks,
-                        store_collection->tasks_fn,
                         collection)
         );
 

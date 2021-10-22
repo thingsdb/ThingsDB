@@ -61,7 +61,7 @@ static inline int ti_verror_to_pk(
                 msgpack_pack_array(pk, 2) ||
 
                 mp_pack_strn(pk, verror->msg, verror->msg_n) ||
-                msgpack_pack_int8(pk, verror->code));
+                msgpack_pack_fix_int8(pk, verror->code));
 }
 
 static inline void ti_verror_unsafe_drop(ti_verror_t * verror)

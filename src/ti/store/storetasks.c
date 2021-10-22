@@ -74,7 +74,7 @@ int ti_store_tasks_restore(
     const char * keep;
     fx_mmap_t fmap;
     size_t i, j;
-    mp_obj_t obj, mp_ver, mp_id, mp_run_at, mp_user_id;
+    mp_obj_t obj, mp_id, mp_run_at, mp_user_id;
     mp_unp_t up;
     ti_closure_t * closure;
     ti_varr_t * varr = NULL;
@@ -108,7 +108,7 @@ int ti_store_tasks_restore(
     mp_unp_init(&up, fmap.data, fmap.n);
 
     if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 1 ||
-        mp_next(&up, &mp_ver) != MP_STR ||
+        mp_skip(&up) != MP_STR ||
         mp_next(&up, &obj) != MP_ARR
     ) goto fail1;
 

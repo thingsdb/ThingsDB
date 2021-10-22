@@ -45,7 +45,8 @@ static int do__f_again_in(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_unsafe_drop(query->rval);  /* this destroys `integer value` */
     query->rval = (ti_val_t *) ti_nil_get();
 
-    (void) ti_datetime_move(dt, unit, num, e);
+    if (ti_datetime_move(dt, unit, num, e))
+        goto fail1;
 
     run_at = DATETIME(dt);
 
@@ -53,13 +54,21 @@ static int do__f_again_in(ti_query_t * query, cleri_node_t * nd, ex_t * e)
      * When using again-in, we want the new time to be relative to the last
      * run_at time so we can nicely move a task exactly a month, day, etc.
      *
-     * If we want to move by a low value like one second, then we might get
-     * into trouble as the new value might be less than now. In this case it
-     * is OK to adjust the time to now as this lower value in time has already
-     * passed.
+     * Especially if we use a low value, it might happen that the new time
+     * does not exceed the current time. In this case we can do extra `steps`
+     * to reach at least the current time but we should at least step towards
+     * the future.
      */
     if (run_at < now && run_at > (int64_t) vtask->run_at)
-        run_at = now;
+    {
+        do
+        {
+            if (ti_datetime_move(dt, unit, num, e))
+                goto fail1;
+            run_at = DATETIME(dt);
+        }
+        while (run_at < now);
+    }
 
     if (run_at < now || run_at > UINT32_MAX)
     {

@@ -37,7 +37,7 @@ static int do__f_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     else
     {
-        time_t run_at, now = util_now_tsec();
+        time_t run_at;
         ti_closure_t * closure;
         vec_t * args;
         ti_task_t * task;
@@ -58,7 +58,7 @@ static int do__f_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
         }
 
-        if (run_at < now || run_at > UINT32_MAX)
+        if (run_at < 0 || run_at > UINT32_MAX)
         {
             ex_set(e, EX_VALUE_ERROR, "start time out-of-range"DOC_TASK);
             return e->nr;

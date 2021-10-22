@@ -77,7 +77,7 @@ int ti_store_tasks_restore(
     mp_obj_t obj, mp_ver, mp_id, mp_run_at, mp_user_id;
     mp_unp_t up;
     ti_closure_t * closure;
-    ti_varr_t * varr;
+    ti_varr_t * varr = NULL;
     ti_vtask_t * vtask;
     ti_verror_t * verr;
     ti_user_t * user;

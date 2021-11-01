@@ -253,6 +253,7 @@
 #define DOC_TASK_ID                 DOC_SEE("data-types/task/id")
 #define DOC_TASK_OWNER              DOC_SEE("data-types/task/owner")
 #define DOC_TASK_SET_ARGS           DOC_SEE("data-types/task/set_args")
+#define DOC_TASK_SET_CLOSURE        DOC_SEE("data-types/task/set_closure")
 #define DOC_TASK_SET_OWNER          DOC_SEE("data-types/task/set_owner")
 #define DOC_THING_ASSIGN            DOC_SEE("data-types/thing/assign")
 #define DOC_THING_CLEAR             DOC_SEE("data-types/thing/clear")

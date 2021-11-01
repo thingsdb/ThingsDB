@@ -285,16 +285,8 @@ int ti_vtask_check_args(vec_t * args, size_t m, _Bool ti_scope, ex_t * e)
 {
     size_t n = args->n;
 
-    if (n && n >= m)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "got %zu task argument%s while the given closure "
-                "accepts no more than %zu argument%s "
-                "(first closure argument will be the task)"DOC_TASK,
-                n, n == 1 ? "" : "s",
-                m ? m-1 : 0, m == 2 ? "" : "s");
+    if (ti_vtask_num_args(n, m, e))
         return e->nr;
-    }
 
     if (ti_scope) for (vec_each(args, ti_val_t, v))
     {

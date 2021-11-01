@@ -80,4 +80,16 @@ static inline void ti_vtask_again_at(ti_vtask_t * vtask, uint64_t run_at)
     vtask->flags |= TI_VTASK_FLAG_AGAIN;
 }
 
+static inline int ti_vtask_num_args(size_t n, size_t m, ex_t * e)
+{
+    if (n && n >= m)
+        ex_set(e, EX_NUM_ARGUMENTS,
+                "got %zu task argument%s while the given closure "
+                "accepts no more than %zu argument%s "
+                "(first closure argument will be the task)"DOC_TASK,
+                n, n == 1 ? "" : "s",
+                m ? m-1 : 0, m == 2 ? "" : "s");
+    return e->nr;
+}
+
 #endif /* TI_VTASK_INLINE_H_ */

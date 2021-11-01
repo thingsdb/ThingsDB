@@ -1985,6 +1985,53 @@ static int ctask__vtask_set_owner(ti_thing_t * thing, mp_unp_t * up)
     return 0;
 }
 
+static int ctask__vtask_set_closure(ti_thing_t * thing, mp_unp_t * up)
+{
+    mp_obj_t obj, mp_id;
+    ti_collection_t * collection = thing->collection;
+    ti_closure_t * closure;
+    ti_vtask_t * vtask;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = collection,
+            .up = up,
+    };
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR)
+    {
+        log_critical(
+                "task `vtask_set_closure` for "TI_COLLECTION_ID": "
+                "invalid data",
+                collection->root->id);
+        return -1;
+    }
+
+    closure = (ti_closure_t *) ti_val_from_vup(&vup);
+    if (!closure || !ti_val_is_closure((ti_val_t *) closure))
+        goto fail0;
+
+    vtask = ti_vtask_by_id(collection->vtasks, mp_id.via.u64);
+    if (vtask)
+    {
+        ti_val_unsafe_drop((ti_val_t *) vtask->closure);
+        vtask->closure = closure;
+    }
+    else
+        ti_val_unsafe_drop((ti_val_t *) closure);
+
+    return 0;
+
+fail0:
+    log_critical(
+            "task `vtask_set_closure` for "TI_COLLECTION_ID" has failed",
+            collection->root->id);
+    ti_val_drop((ti_val_t *) closure);
+    return -1;
+}
+
 /* TODO (COMPAT): Obsolete task */
 static int ctask__del_timer(mp_unp_t * up)
 {
@@ -2569,6 +2616,7 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_VTASK_FINISH:      return ctask__vtask_finish(thing, up);
     case TI_TASK_VTASK_SET_ARGS:    return ctask__vtask_set_args(thing, up);
     case TI_TASK_VTASK_SET_OWNER:   return ctask__vtask_set_owner(thing, up);
+    case TI_TASK_VTASK_SET_CLOSURE: return ctask__vtask_set_closure(thing, up);
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);

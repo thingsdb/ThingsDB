@@ -26,7 +26,6 @@ static int do__f_set_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (vtask->args && ti_vtask_num_args(vtask->args->n, closure->vars->n, e))
         goto fail0;
 
-
     if (closure != vtask->closure)
     {
         ti_val_unsafe_drop((ti_val_t *) vtask->closure);

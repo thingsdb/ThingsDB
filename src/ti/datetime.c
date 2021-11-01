@@ -638,6 +638,10 @@ static void datetime__correct_max_mday(struct tm * tm)
     }
 }
 
+/*
+ * Type datetime is immutable so this function must only be used on datetime
+ * objects with no bindings. (usually a reference count of one)
+ */
 int ti_datetime_move(
         ti_datetime_t * dt,
         datetime_unit_e unit,

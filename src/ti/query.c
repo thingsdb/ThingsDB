@@ -723,8 +723,7 @@ void ti_query_task_result(ti_query_t * query, ex_t * e)
         if (ti_changes_create_new_change(query, e))
         {
             log_critical(
-                    "failed to create finish changes for task Id %"PRIu64
-                    " (%s)",
+                    "failed to create finish changes for "TI_TASK_ID" (%s)",
                     vtask->id, e->msg);
             /* TODO : can we do more ? */
             ++ti.counters->tasks_with_error;
@@ -1465,11 +1464,10 @@ int ti_query_task_context(ti_query_t * query, ti_vtask_t * vtask, ex_t * e)
         {
             if (query->with.vtask != vtask)
                 ex_set(e, EX_OPERATION,
-                        "task Id %"PRIu64" does not match the "
-                        "current task context", vtask->id);
+                        TI_TASK_ID" does not match the current task context",
+                        vtask->id);
             else if (vtask->run_at == 0)
-                ex_set(e, EX_OPERATION,
-                        "task Id %"PRIu64" is cancelled", vtask->id);
+                ex_set(e, EX_OPERATION, TI_TASK_ID" is cancelled", vtask->id);
             return e->nr;
         }
         if (query->with_tp != TI_QUERY_WITH_FUTURE)

@@ -39,8 +39,8 @@ static inline int ti_room_to_pk(
     mp_store_uint64(room->id, buf);
     return options >= 0
             ? room->id
-            ? mp_pack_fmt(pk, "room:%"PRIu64, room->id)
-            : mp_pack_str(pk, "room:nil")
+            ? mp_pack_fmt(pk, "<room:%"PRIu64">", room->id)
+            : mp_pack_str(pk, "<room:nil>")
             : mp_pack_ext(pk, MPACK_EXT_ROOM, buf, sizeof(buf));
 }
 

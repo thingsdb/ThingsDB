@@ -36,6 +36,7 @@
 #include <ti/vfloat.h>
 #include <ti/vint.h>
 #include <ti/vset.h>
+#include <ti/vtask.inline.h>
 #include <ti/wrap.inline.h>
 #include <tiinc.h>
 #include <util/logger.h>

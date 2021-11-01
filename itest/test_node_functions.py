@@ -42,7 +42,7 @@ class TestNodeFunctions(TestBase):
 
         counters = await client.query('counters();')
 
-        self.assertEqual(len(counters), 21)
+        self.assertEqual(len(counters), 20)
 
         self.assertIn("average_change_duration", counters)
         self.assertIn("average_query_duration", counters)
@@ -61,10 +61,9 @@ class TestNodeFunctions(TestBase):
         self.assertIn("queries_with_error", counters)
         self.assertIn("quorum_lost", counters)
         self.assertIn("started_at", counters)
-        self.assertIn("timers_success", counters)
-        self.assertIn("timers_with_error", counters)
+        self.assertIn("tasks_success", counters)
+        self.assertIn("tasks_with_error", counters)
         self.assertIn("wasted_cache", counters)
-        self.assertIn("watcher_failed", counters)
 
         self.assertTrue(isinstance(counters["average_change_duration"], float))
         self.assertTrue(isinstance(counters["average_query_duration"], float))
@@ -83,10 +82,9 @@ class TestNodeFunctions(TestBase):
         self.assertTrue(isinstance(counters["queries_with_error"], int))
         self.assertTrue(isinstance(counters["quorum_lost"], int))
         self.assertTrue(isinstance(counters["started_at"], int))
-        self.assertTrue(isinstance(counters["timers_success"], int))
-        self.assertTrue(isinstance(counters["timers_with_error"], int))
+        self.assertTrue(isinstance(counters["tasks_success"], int))
+        self.assertTrue(isinstance(counters["tasks_with_error"], int))
         self.assertTrue(isinstance(counters["wasted_cache"], int))
-        self.assertTrue(isinstance(counters["watcher_failed"], int))
 
     async def test_node_info(self, client):
         with self.assertRaisesRegex(

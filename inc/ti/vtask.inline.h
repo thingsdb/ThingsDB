@@ -5,9 +5,10 @@
 #define TI_VTASK_INLINE_H_
 
 #include <ex.h>
-#include <ti/vtask.t.h>
-#include <ti/vtask.h>
 #include <ti/val.inline.h>
+#include <ti/vtask.h>
+#include <ti/vtask.t.h>
+#include <tiinc.h>
 #include <util/vec.h>
 
 static inline void ti_vtask_drop(ti_vtask_t * vtask)
@@ -43,7 +44,7 @@ static inline int ti_vtask_lock(ti_vtask_t * vtask, ex_t * e)
         ex_set(e, EX_VALUE_ERROR, "empty task");
     else if (vtask->flags & TI_VFLAG_LOCK)
         ex_set(e, EX_OPERATION,
-            "cannot use task Id %"PRIu64" while the task is locked",
+            "cannot use "TI_TASK_ID" while the task is locked",
             vtask->id);
     else
         vtask->flags |= TI_VFLAG_LOCK;
@@ -61,7 +62,7 @@ static inline int ti_vtask_is_locked(ti_vtask_t * vtask, ex_t * e)
 {
     if (vtask->flags & TI_VFLAG_LOCK)
         ex_set(e, EX_OPERATION,
-            "cannot use task Id %"PRIu64" while the task is locked",
+            "cannot use "TI_TASK_ID" while the task is locked",
             vtask->id);
     return e->nr;
 }
@@ -85,11 +86,17 @@ static inline int ti_vtask_num_args(size_t n, size_t m, ex_t * e)
     if (n && n >= m)
         ex_set(e, EX_NUM_ARGUMENTS,
                 "got %zu task argument%s while the given closure "
-                "accepts no more than %zu argument%s "
-                "(first closure argument will be the task)"DOC_TASK,
+                "takes at most %zu argument%s"DOC_TASK,
                 n, n == 1 ? "" : "s",
                 m ? m-1 : 0, m == 2 ? "" : "s");
     return e->nr;
+}
+
+static inline ti_raw_t * ti_vtask_str(ti_vtask_t * vtask)
+{
+    return vtask->id
+        ? ti_str_from_fmt("task:%"PRIu64, vtask->id)
+        : ti_str_from_str("task:nil");
 }
 
 #endif /* TI_VTASK_INLINE_H_ */

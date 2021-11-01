@@ -31,6 +31,7 @@
 #define TI_ROOM_ID "`room:%"PRIu64"`"
 #define TI_THING_ID "`#%"PRIu64"`"
 #define TI_USER_ID "`user:%"PRIu64"`"
+#define TI_TASK_ID "`task:%"PRIu64"`"
 
 #define TI_SYNTAX "syntax v%u"
 

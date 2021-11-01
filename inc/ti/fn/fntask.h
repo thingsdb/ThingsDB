@@ -27,7 +27,8 @@ static int do__f_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         vtask = ti_vtask_by_id(*tasks, task_id);
         if (!vtask)
         {
-            ex_set(e, EX_LOOKUP_ERROR, "task Id %"PRId64" not found", task_id);
+            ex_set(e, EX_LOOKUP_ERROR,
+                    "task with id %"PRId64" not found", task_id);
             return e->nr;
         }
         ti_incref(vtask);

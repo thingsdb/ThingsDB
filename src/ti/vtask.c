@@ -226,30 +226,6 @@ void ti_vtask_del(uint64_t vtask_id, ti_collection_t * collection)
     }
 }
 
-ti_raw_t * ti_vtask_str(ti_vtask_t * vtask)
-{
-    if (vtask->id)
-    {
-        const char * status, * run_at;
-
-        run_at = vtask->run_at
-                ? ti_datetime_ts_str((const time_t *) &vtask->run_at)
-                : "nil";
-        status = vtask->verr
-                ? vtask->verr->code
-                ? "err"
-                : "ok"
-                : "nil";
-        return ti_str_from_fmt(
-                "task:<id:%"PRIu64" owner:%.*s run_at:%s status:%s>",
-                vtask->id,
-                vtask->user->name->n, vtask->user->name->data,
-                run_at,
-                status);
-    }
-    return ti_str_from_str("task:nil");
-}
-
 int ti_vtask_to_pk(ti_vtask_t * vtask, msgpack_packer * pk, int options)
 {
     if (options < 0)
@@ -271,7 +247,7 @@ int ti_vtask_to_pk(ti_vtask_t * vtask, msgpack_packer * pk, int options)
                 : "ok"
                 : "nil";
         return mp_pack_fmt(pk,
-                "task:<id:%"PRIu64" owner:%.*s run_at:%s status:%s>",
+                "<task:%"PRIu64" owner:%.*s run_at:%s status:%s>",
                 vtask->id,
                 vtask->user->name->n, vtask->user->name->data,
                 run_at,

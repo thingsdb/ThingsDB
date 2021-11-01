@@ -31,6 +31,13 @@ static int do__f_set_owner(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
     }
 
+    if (ti_access_check_err(
+            query->collection ? query->collection->access : ti.access_thingsdb,
+            user,
+            TI_AUTH_CHANGE,
+            e))
+        goto fail0;
+
     ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();
 

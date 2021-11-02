@@ -14,17 +14,6 @@
 #define TI_FUTURE_DEEP_MASK 0x7f
 #define TI_FUTURE_LOAD_FLAG 0x80
 
-static inline int ti_future_to_pk(
-        ti_future_t * future,
-        ti_vp_t * vp,
-        int options)
-{
-    assert (options >= 0);
-    return future->rval
-            ? ti_val_to_pk(future->rval, vp, options)
-            : msgpack_pack_nil(&vp->pk);
-}
-
 static inline void ti_future_forget_cb(ti_closure_t * cb)
 {
     if (!cb)

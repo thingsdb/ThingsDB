@@ -1,3 +1,13 @@
+# v1.0.3
+
+* Replace `timers` with `tasks`, pr #230.
+* Fixed bug in checking arguments for scheduled tasks, issue #225.
+* Fixed bug with updating properties in different threads, issue #226.
+* Fixed using `log()` in a scheduled closure, issue #224.
+* Allow things and wrapped things to string conversion, issue #231.
+* Store task errors so they can be viewed, issue #227.
+* Deprecate the hash (`#..`) syntax, issue #232.
+
 # v1.0.2
 
 * Callable modules, issue #213.

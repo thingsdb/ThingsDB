@@ -206,12 +206,7 @@ int ti_varr_val_prepare(ti_varr_t * to, void ** v, ex_t * e)
         ti_varr_set_may_flags(to, (ti_varr_t *) *v);
         break;
     case TI_VAL_CLOSURE:
-        if (ti_closure_unbound((ti_closure_t *) *v, e))
-        {
-            ex_set_mem(e);
-            return e->nr;
-        }
-        break;
+        return ti_closure_unbound((ti_closure_t *) *v, e);
     case TI_VAL_ARR:
         if (ti_varr_is_list((ti_varr_t *) *v) &&
             varr__to_tuple((ti_varr_t **) v))

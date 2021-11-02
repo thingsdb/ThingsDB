@@ -8,32 +8,180 @@
 #include <ti/closure.h>
 #include <ti/collection.h>
 #include <ti/datetime.h>
-#include <ti/datetime.h>
 #include <ti/future.h>
 #include <ti/member.h>
+#include <ti/member.inline.h>
 #include <ti/name.h>
 #include <ti/nil.h>
 #include <ti/regex.h>
 #include <ti/room.h>
+#include <ti/room.inline.h>
 #include <ti/template.h>
 #include <ti/thing.h>
 #include <ti/thing.inline.h>
 #include <ti/val.h>
 #include <ti/varr.inline.h>
+#include <ti/vbool.h>
+#include <ti/vint.h>
+#include <ti/vfloat.h>
 #include <ti/vset.h>
 #include <ti/vtask.h>
 #include <ti/wrap.h>
+#include <ti/wrap.inline.h>
 
-/*
- * -------------------------  Start value methods ----------------------------
- */
+static inline int val__str_to_str(ti_val_t ** UNUSED(v), ex_t * UNUSED(e));
+static inline int val__no_to_str(ti_val_t ** val, ex_t * e);
+
+static inline const char * val__nil_type_str(ti_val_t * UNUSED(val))
+{
+    return TI_VAL_NIL_S;
+}
+static inline const char * val__int_type_str(ti_val_t * UNUSED(val))
+{
+    return TI_VAL_INT_S;
+}
+static inline const char * val__float_type_str(ti_val_t * UNUSED(val))
+{
+    return TI_VAL_FLOAT_S;
+}
+static inline const char * val__bool_type_str(ti_val_t * UNUSED(val))
+{
+    return TI_VAL_BOOL_S;
+}
+static inline const char * val__datetime_type_str(ti_val_t * val)
+{
+    return ti_datetime_is_timeval((ti_datetime_t *) val)
+            ? TI_VAL_TIMEVAL_S
+            : TI_VAL_DATETIME_S;
+}
+static inline const char * val__str_type_str(ti_val_t * UNUSED(val))
+{
+    return TI_VAL_STR_S;
+}
+static inline const char * val__bytes_type_str(ti_val_t * UNUSED(val))
+{
+    return TI_VAL_BYTES_S;
+}
+static inline const char * val__regex_type_str(ti_val_t * UNUSED(val))
+{
+    return TI_VAL_REGEX_S;
+}
+static inline const char * val__thing_type_str(ti_val_t * val)
+{
+    return ti_thing_is_object((ti_thing_t *) val)
+            ? TI_VAL_THING_S
+            : ti_thing_type_str((ti_thing_t *) val);
+}
+static inline const char * val__wrap_type_str(ti_val_t * val)
+{
+    return ti_wrap_type_str((ti_wrap_t *) val);
+}
+static inline const char * val__room_type_str(ti_val_t * UNUSED(val))
+{
+    return TI_VAL_ROOM_S;
+}
+static inline const char * val__task_type_str(ti_val_t * UNUSED(val))
+{
+    return TI_VAL_TASK_S;
+}
+static inline const char * val__arr_type_str(ti_val_t * val)
+{
+    return ti_varr_is_list((ti_varr_t *) val)
+            ? TI_VAL_LIST_S
+            : TI_VAL_TUPLE_S;
+}
+static inline const char * val__set_type_str(ti_val_t * UNUSED(val))
+{
+    return TI_VAL_SET_S;
+}
+static inline const char * val__error_type_str(ti_val_t * UNUSED(val))
+{
+    return TI_VAL_ERROR_S;
+}
+static inline const char * val__member_type_str(ti_val_t * val)
+{
+    return ti_member_enum_name((ti_member_t *) val);
+}
+static inline const char * val__mpdata_type_str(ti_val_t * UNUSED(val))
+{
+    return TI_VAL_MPDATA_S;
+}
+static inline const char * val__closure_type_str(ti_val_t * UNUSED(val))
+{
+    return TI_VAL_CLOSURE_S;
+}
+static inline const char * val__future_type_str(ti_val_t * UNUSED(val))
+{
+    return TI_VAL_FUTURE_S;
+}
+
+static inline int val__nil_to_pk(ti_val_t * UNUSED(v), ti_vp_t * vp, int UNUSED(o))
+{
+    return msgpack_pack_nil(&vp->pk);
+}
+static inline int val__int_to_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(o))
+{
+    return msgpack_pack_int64(&vp->pk, VINT(val));
+}
+static inline int val__float_to_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(o))
+{
+    return msgpack_pack_double(&vp->pk, VFLOAT(val));
+}
+static inline int val__bool_to_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(o))
+{
+    return ti_vbool_to_pk((ti_vbool_t *) val, &vp->pk);
+}
+static inline int val__datetime_to_pk(ti_val_t * val, ti_vp_t * vp, int options)
+{
+    return ti_datetime_to_pk((ti_datetime_t *) val, &vp->pk, options);
+}
+static inline int val__str_to_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(o))
+{
+    return ti_raw_str_to_pk((ti_raw_t *) val, &vp->pk);
+}
+static inline int val__bytes_to_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(o))
+{
+    return ti_raw_bytes_to_pk((ti_raw_t *) val, &vp->pk);
+}
+static inline int val__regex_to_pk(ti_val_t * val, ti_vp_t * vp, int options)
+{
+    return ti_regex_to_pk((ti_regex_t *) val, &vp->pk, options);
+}
+static inline int val__room_to_pk(ti_val_t * val, ti_vp_t * vp, int options)
+{
+    return ti_room_to_pk((ti_room_t *) val, &vp->pk, options);
+}
+static inline int val__task_to_pk(ti_val_t * val, ti_vp_t * vp, int options)
+{
+    return ti_vtask_to_pk((ti_vtask_t *) val, &vp->pk, options);
+}
+static inline int val__error_to_pk(ti_val_t * val, ti_vp_t * vp, int options)
+{
+    return ti_verror_to_pk((ti_verror_t *) val, &vp->pk, options);
+}
+static inline int val__mpdata_to_pk(ti_val_t * val, ti_vp_t * vp, int options)
+{
+    return ti_raw_mpdata_to_pk((ti_raw_t *) val, &vp->pk, options);
+}
+static inline int val__closure_to_pk(ti_val_t * val, ti_vp_t * vp, int options)
+{
+    return ti_closure_to_pk((ti_closure_t *) val, &vp->pk, options);
+}
+static inline int val__future_to_pk(ti_future_t * future, ti_vp_t * vp, int options);
+static inline int val__member_to_pk(ti_member_t * member, ti_vp_t * vp, int options);
+static inline int val__varr_to_pk(ti_varr_t * varr, ti_vp_t * vp, int options);
 
 typedef void (*ti_val_destroy_cb) (ti_val_t *);
-/* TODO  typedef (*ti_val_to_pk_cb) (ti_val_t *, ti_vp_t *, int); */
+typedef int (*ti_val_to_str_cb) (ti_val_t **, ex_t *);
+typedef int (*ti_val_to_pk_cb) (ti_val_t *, ti_vp_t *, int);
+typedef const char * (*ti_val_type_str_cb) (ti_val_t *);
 
 typedef struct
 {
     ti_val_destroy_cb destroy;
+    ti_val_to_str_cb to_str;
+    ti_val_to_pk_cb to_pk;
+    ti_val_type_str_cb get_type_str;
     _Bool allowed_as_vtask_arg;     /* allowed in the @thingsdb scope */
 } ti_val_type_t;
 
@@ -42,101 +190,161 @@ static ti_val_type_t ti_val_type_props[21] = {
     /* TI_VAL_NIL */
     {
         .destroy = (ti_val_destroy_cb) free,
+        .to_str = ti_val_nil_to_str,
+        .to_pk = val__nil_to_pk,
+        .get_type_str = val__nil_type_str,
         .allowed_as_vtask_arg = true,
     },
     /* TI_VAL_INT */
     {
         .destroy = (ti_val_destroy_cb) free,
+        .to_str = ti_val_int_to_str,
+        .to_pk = val__int_to_pk,
+        .get_type_str = val__int_type_str,
         .allowed_as_vtask_arg = true,
     },
     /* TI_VAL_FLOAT */
     {
         .destroy = (ti_val_destroy_cb) free,
+        .to_str = ti_val_float_to_str,
+        .to_pk = val__float_to_pk,
+        .get_type_str = val__float_type_str,
         .allowed_as_vtask_arg = true,
     },
     /* TI_VAL_BOOL */
     {
         .destroy = (ti_val_destroy_cb) free,
+        .to_str = ti_val_bool_to_str,
+        .to_pk = val__bool_to_pk,
+        .get_type_str = val__bool_type_str,
         .allowed_as_vtask_arg = true,
     },
     /* TI_VAL_DATETIME */
     {
         .destroy = (ti_val_destroy_cb) free,
+        .to_str = ti_val_datetime_to_str,
+        .to_pk = val__datetime_to_pk,
+        .get_type_str = val__datetime_type_str,
         .allowed_as_vtask_arg = true,
     },
     /* TI_VAL_NAME */
     {
         .destroy = (ti_val_destroy_cb) ti_name_destroy,
+        .to_str = val__str_to_str,
+        .to_pk = val__str_to_pk,
+        .get_type_str = val__str_type_str,
         .allowed_as_vtask_arg = true,
     },
     /* TI_VAL_STR */
     {
         .destroy = (ti_val_destroy_cb) free,
+        .to_str = val__str_to_str,
+        .to_pk = val__str_to_pk,
+        .get_type_str = val__str_type_str,
         .allowed_as_vtask_arg = true,
     },
     /* TI_VAL_BYTES */
     {
         .destroy = (ti_val_destroy_cb) free,
+        .to_str = ti_val_bytes_to_str,
+        .to_pk = val__bytes_to_pk,
+        .get_type_str = val__bytes_type_str,
         .allowed_as_vtask_arg = true,
     },
     /* TI_VAL_REGEX */
     {
         .destroy = (ti_val_destroy_cb) ti_regex_destroy,
+        .to_str = ti_val_regex_to_str,
+        .to_pk = val__regex_to_pk,
+        .get_type_str = val__regex_type_str,
         .allowed_as_vtask_arg = true,
     },
     /* TI_VAL_THING */
     {
         .destroy = (ti_val_destroy_cb) ti_thing_destroy,
+        .to_str = ti_val_thing_to_str,
+        .to_pk = (ti_val_to_pk_cb) ti_thing_to_pk,
+        .get_type_str = val__thing_type_str,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_WRAP */
     {
         .destroy = (ti_val_destroy_cb) ti_wrap_destroy,
+        .to_str = ti_val_wrap_to_str,
+        .to_pk = (ti_val_to_pk_cb) ti_wrap_to_pk,
+        .get_type_str = val__wrap_type_str,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_ROOM */
     {
         .destroy = (ti_val_destroy_cb) ti_room_destroy,
+        .to_str = ti_val_room_to_str,
+        .to_pk = val__room_to_pk,
+        .get_type_str = val__room_type_str,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_TASK */
     {
         .destroy = (ti_val_destroy_cb) ti_vtask_destroy,
+        .to_str = ti_val_vtask_to_str,
+        .to_pk = val__task_to_pk,
+        .get_type_str = val__task_type_str,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_ARR */
     {
         .destroy = (ti_val_destroy_cb) ti_varr_destroy,
+        .to_str = val__no_to_str,
+        .to_pk = (ti_val_to_pk_cb) val__varr_to_pk,
+        .get_type_str = val__arr_type_str,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_SET */
     {
         .destroy = (ti_val_destroy_cb) ti_vset_destroy,
+        .to_str = val__no_to_str,
+        .to_pk = (ti_val_to_pk_cb) ti_vset_to_pk,
+        .get_type_str = val__set_type_str,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_ERROR */
     {
         .destroy = (ti_val_destroy_cb) free,
+        .to_str = ti_val_error_to_str,
+        .to_pk = val__error_to_pk,
+        .get_type_str = val__error_type_str,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_MEMBER */
     {
         .destroy = (ti_val_destroy_cb) ti_member_destroy,
+        .to_str = ti_val_member_to_str,
+        .to_pk = (ti_val_to_pk_cb) val__member_to_pk,
+        .get_type_str = val__member_type_str,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_MPDATA */
     {
         .destroy = (ti_val_destroy_cb) free,
+        .to_str = val__no_to_str,
+        .to_pk = val__mpdata_to_pk,
+        .get_type_str = val__mpdata_type_str,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_CLOSURE */
     {
         .destroy = (ti_val_destroy_cb) ti_closure_destroy,
+        .to_str = ti_val_closure_to_str,
+        .to_pk = val__closure_to_pk,
+        .get_type_str = val__closure_type_str,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_FUTURE */
     {
         .destroy = (ti_val_destroy_cb) ti_future_destroy,
+        .to_str = val__no_to_str,
+        .to_pk = (ti_val_to_pk_cb) val__future_to_pk,
+        .get_type_str = val__future_type_str,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_TEMPLATE */
@@ -147,6 +355,16 @@ static ti_val_type_t ti_val_type_props[21] = {
 };
 
 #define ti_val(__val) (&ti_val_type_props[(__val)->tp])
+
+static inline const char * ti_val_str(ti_val_t * val)
+{
+    return ti_val(val)->get_type_str(val);
+}
+
+static inline int ti_val_to_pk(ti_val_t * val, ti_vp_t * vp, int options)
+{
+    return ti_val(val)->to_pk(val, vp, options);
+}
 
 /*
  * -------------------------  End value methods ----------------------------
@@ -457,6 +675,24 @@ static inline ti_val_t * ti_val_borrow_beautify_name(void)
     return val__beautify_name;
 }
 
+static inline ti_val_t * ti_val_nil_str(void)
+{
+    ti_incref(val__snil);
+    return val__snil;
+}
+
+static inline ti_val_t * ti_val_true_str(void)
+{
+    ti_incref(val__strue);
+    return val__strue;
+}
+
+static inline ti_val_t * ti_val_false_str(void)
+{
+    ti_incref(val__sfalse);
+    return val__sfalse;
+}
+
 /*
  * Return 0 when a new lock is set, or -1 if failed and `e` is set.
  *
@@ -658,6 +894,45 @@ static inline int ti_val_make_variable(ti_val_t ** val, ex_t * e)
     return -1;
 }
 
+static inline int val__str_to_str(ti_val_t ** UNUSED(v), ex_t * UNUSED(e))
+{
+    return 0;
+}
+static inline int val__no_to_str(ti_val_t ** val, ex_t * e)
+{
+    ex_set(e, EX_TYPE_ERROR,
+            "cannot convert type `%s` to `"TI_VAL_STR_S"`",
+            ti_val_str(*val));
+    return e->nr;
+}
+static inline int val__future_to_pk(ti_future_t * future, ti_vp_t * vp, int options)
+{
+    assert (options >= 0);
+    return future->rval
+            ? ti_val_to_pk(future->rval, vp, options)
+            : msgpack_pack_nil(&vp->pk);
+}
+
+static inline int val__member_to_pk(ti_member_t * member, ti_vp_t * vp, int options)
+{
+    return options >= 0
+        ? ti_val(member->val)->to_pk(member->val, vp, options)
+        : -(msgpack_pack_map(&vp->pk, 1) ||
+            mp_pack_strn(&vp->pk, TI_KIND_S_MEMBER, 1) ||
+            msgpack_pack_array(&vp->pk, 2) ||
+            msgpack_pack_uint16(&vp->pk, member->enum_->enum_id) ||
+            msgpack_pack_uint16(&vp->pk, member->idx));
+}
+
+static inline int val__varr_to_pk(ti_varr_t * varr, ti_vp_t * vp, int options)
+{
+    if (msgpack_pack_array(&vp->pk, varr->vec->n))
+        return -1;
+    for (vec_each(varr->vec, ti_val_t, v))
+        if (ti_val_to_pk(v, vp, options))
+            return -1;
+    return 0;
+}
 
 #endif  /* TI_VAL_INLINE_H_ */
 

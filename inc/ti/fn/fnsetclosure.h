@@ -23,13 +23,18 @@ static int do__f_set_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
 
     closure = (ti_closure_t *) query->rval;
-    if (vtask->args && ti_vtask_num_args(vtask->args->n, closure->vars->n, e))
+    if (ti_closure_unbound(closure, e) ||
+        (vtask->args && ti_vtask_num_args(vtask->args->n, closure->vars->n, e)))
         goto fail0;
 
     if (closure != vtask->closure)
     {
-        ti_val_unsafe_drop((ti_val_t *) vtask->closure);
-        vtask->closure = closure;
+        if (ti_vtask_set_closure(vtask, closure))
+        {
+            ex_set_mem(e);
+            goto fail0;
+        }
+
         ti_incref(closure);
 
         task = ti_task_get_task(

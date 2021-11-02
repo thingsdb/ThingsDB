@@ -2014,15 +2014,14 @@ static int ctask__vtask_set_closure(ti_thing_t * thing, mp_unp_t * up)
         goto fail0;
 
     vtask = ti_vtask_by_id(collection->vtasks, mp_id.via.u64);
-    if (vtask)
-    {
-        ti_val_unsafe_drop((ti_val_t *) vtask->closure);
-        vtask->closure = closure;
-    }
-    else
-        ti_val_unsafe_drop((ti_val_t *) closure);
+    if (vtask && ti_vtask_set_closure(vtask, closure) == 0)
+        return 0;
 
-    return 0;
+    ti_val_unsafe_drop((ti_val_t *) closure);
+
+    if (!vtask)
+        return 0;
+    closure = NULL;
 
 fail0:
     log_critical(

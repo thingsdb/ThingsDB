@@ -278,3 +278,29 @@ int ti_vtask_check_args(vec_t * args, size_t m, _Bool ti_scope, ex_t * e)
 
     return 0;
 }
+
+int ti_vtask_set_closure(ti_vtask_t * vtask, ti_closure_t * closure)
+{
+    uint32_t m = closure->vars->n;
+
+    if (m > vtask->args->n)
+    {
+        if (vec_resize(&vtask->args, m))
+            return -1;
+
+        for (m -= vtask->args->n; m; --m)
+            VEC_push(vtask->args, ti_nil_get());
+    }
+    else if (m < vtask->args->n)
+    {
+        for (m = vtask->args->n - m; m; --m)
+            ti_val_unsafe_drop(VEC_pop(vtask->args));
+
+        (void) vec_shrink(&vtask->args);
+    }
+
+    ti_val_unsafe_drop((ti_val_t *) vtask->closure);
+    vtask->closure = closure;
+
+    return 0;
+}

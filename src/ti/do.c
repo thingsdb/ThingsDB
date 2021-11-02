@@ -731,6 +731,9 @@ static inline int do__thing_by_id(
      * This syntax is probably not used frequently so do not worry a lot about
      * performance here; (and this is already pretty fast anyway...)
      */
+    log_warning(
+            "The `#..` syntax is deprecated and will be removed in a "
+            "future release; use function `thing(..)` instead");
     intptr_t thing_id = (intptr_t) nd->data;
     query->rval = (ti_val_t *) ti_query_thing_from_id(query, thing_id, e);
     return e->nr;

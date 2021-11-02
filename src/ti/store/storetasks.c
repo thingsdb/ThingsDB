@@ -122,12 +122,12 @@ int ti_store_tasks_restore(
         if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 6 ||
             mp_next(&up, &mp_id) != MP_U64 ||
             mp_next(&up, &mp_run_at) != MP_U64 ||
-            mp_next(&up, &mp_user_id) != MP_U64
-        ) goto fail1;
+            mp_next(&up, &mp_user_id) != MP_U64)
+            goto fail1;
 
         user = ti_users_get_by_id(mp_user_id.via.u64);
         closure = (ti_closure_t *) ti_val_from_vup(&vup);
-        verr = mp_peek(&up) == MP_NIL
+        verr = mp_skip_nil(&up)
                 ? NULL
                 : (ti_verror_t *) ti_val_from_vup(&vup);
 
@@ -161,8 +161,8 @@ int ti_store_tasks_restore(
     for (; j--;)
     {
         if (mp_next(&up, &obj) != MP_ARR || obj.via.sz != 6 ||
-            mp_next(&up, &mp_id) != MP_U64
-        ) goto fail1;
+            mp_next(&up, &mp_id) != MP_U64)
+            goto fail1;
 
         mp_skip(&up);  /* run_at */
         mp_skip(&up);  /* user_id */
@@ -177,6 +177,7 @@ int ti_store_tasks_restore(
         vtask = ti_vtask_by_id(*vtasks, mp_id.via.u64);
         if (!vtask)
             goto fail2;
+
         vtask->args = varr->vec;
         free(varr);
     }

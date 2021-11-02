@@ -171,7 +171,7 @@ int ti_template_compile(ti_template_t * tmplate, ti_query_t * query, ex_t * e)
         }
 
         if (ti_do_statement(query, nd->children->next->node, e) ||
-            ti_val_convert_to_str(&query->rval, e))
+            ti_val(query->rval)->to_str(&query->rval, e))
             goto failed;
 
         n += ((ti_raw_t *) query->rval)->n;

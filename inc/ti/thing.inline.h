@@ -258,4 +258,15 @@ static inline _Bool ti_thing_has_key(ti_thing_t * thing, ti_raw_t * key)
     return !!smap_getn(thing->items.smap, (const char *) key->data, key->n);
 }
 
+static inline ti_raw_t * ti_thing_str(ti_thing_t * thing)
+{
+    return ti_thing_is_object(thing)
+        ? thing->id
+        ? ti_str_from_fmt("thing:%"PRIu64, thing->id)
+        : ti_str_from_str("thing:nil")
+        : thing->id
+        ? ti_str_from_fmt("%s:%"PRIu64, thing->via.type->name, thing->id)
+        : ti_str_from_fmt("%s:nil", thing->via.type->name);
+}
+
 #endif  /* TI_THING_INLINE_H_ */

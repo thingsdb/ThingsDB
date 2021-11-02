@@ -10,8 +10,7 @@ static int do__f_err_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     vtask = (ti_vtask_t *) query->rval;
 
-    if (ti_vtask_is_nil(vtask, e) ||
-        fn_nargs("err", DOC_TASK_ERR, 0, nargs, e))
+    if (fn_nargs("err", DOC_TASK_ERR, 0, nargs, e))
         return e->nr;
 
     if (vtask->verr)

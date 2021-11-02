@@ -146,6 +146,53 @@ class TestTasks(TestBase):
         await asyncio.sleep(3)
         self.assertEqual(await client.query('.result'), 'WoW!!')
 
+    async def test_is_task(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `is_task` takes 1 argument but 0 were given'):
+            await client.query('is_task();')
+
+        self.assertTrue(await client.query('is_task(task(datetime(), ||0));'))
+        self.assertFalse(await client.query('is_task( "bla" ); '))
+
+    async def test_task_bool(self, client):
+        self.assertTrue(await client.query('bool(task(datetime(), ||0));'))
+        await client.query("""//ti
+            .t = task(datetime(), ||1/1);
+            .f = task(datetime(), ||0/0);
+        """)
+        self.assertTrue(await client.query('bool(.t);'))
+        self.assertTrue(await client.query('bool(.f);'))
+        self.assertFalse(await client.query('is_err(.t.err());'))
+        self.assertFalse(await client.query('is_err(.f.err());'))
+        await asyncio.sleep(3)
+        self.assertFalse(await client.query('bool(.t);'))
+        self.assertFalse(await client.query('bool(.f);'))
+        self.assertFalse(await client.query('is_err(.t.err());'))
+        self.assertTrue(await client.query('is_err(.f.err());'))
+
+    async def test_tasks(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                r'function `tasks` is undefined in the `@node` scope; '
+                r'you might want to query the `@thingsdb` or '
+                r'a `@collection` scope\?'):
+            await client.query('tasks();', scope='/n')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `tasks`'):
+            await client.query('nil.tasks();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `tasks` takes 0 arguments '
+                'but 2 were given'):
+            await client.query('tasks(0, 1);')
+
+        self.assertEqual(await client.query('tasks();', scope='/t'), [])
+        self.assertEqual(await client.query('tasks();', scope='//stuff'), [])
+
 
 if __name__ == '__main__':
     run_test(TestTasks())

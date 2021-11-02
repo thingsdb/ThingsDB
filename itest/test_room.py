@@ -78,6 +78,15 @@ class TestRoom(TestBase):
             client.close()
             await client.wait_closed()
 
+    async def test_is_room(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `is_room` takes 1 argument but 0 were given'):
+            await client.query('is_room();')
+
+        self.assertTrue(await client.query('is_room( room() ); '))
+        self.assertFalse(await client.query('is_room( "bla" ); '))
+
     async def test_room_err(self, cl0, cl1, cl2):
         with self.assertRaisesRegex(
                 ValueError,

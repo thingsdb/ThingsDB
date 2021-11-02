@@ -3404,6 +3404,8 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('str("abc");'), "abc")
         self.assertEqual(await client.query('str("");'), "")
         self.assertEqual(await client.query('str(/.*/i);'), "/.*/i")
+        self.assertEqual(await client.query('str({});'), "thing:nil")
+        self.assertEqual(await client.query('str(room());'), "room:nil")
 
         with self.assertRaisesRegex(
                 TypeError,
@@ -3412,8 +3414,13 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                'cannot convert type `thing` to `str`'):
-            await client.query('str({});')
+                'cannot convert type `set` to `str`'):
+            await client.query('str(set());')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'cannot convert type `mpdata` to `str`'):
+            await client.query('str(user_info("admin"));', scope='@t')
 
     async def test_syntax_err(self, client):
         with self.assertRaisesRegex(
@@ -4655,8 +4662,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                'cannot convert type `thing` to `str`'):
-            await client.query('log({});')
+                'cannot convert type `list` to `str`'):
+            await client.query('log([]);')
 
         self.assertIs(await client.query('log(nil);'), None)
         self.assertIs(await client.query('log(123);'), None)

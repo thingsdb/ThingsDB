@@ -1,12 +1,14 @@
-# v1.0.3
+# v1.1.0
 
 * Replace `timers` with `tasks`, pr #230.
 * Fixed bug in checking arguments for scheduled tasks, issue #225.
 * Fixed bug with updating properties in different threads, issue #226.
-* Fixed using `log()` in a scheduled closure, issue #224.
-* Allow things and wrapped things to string conversion, issue #231.
+* Fixed bug with `log()` in a scheduled closure, issue #224.
+* Added `things` to string conversion, issue #231.
 * Store task errors so they can be viewed, issue #227.
 * Deprecate the hash (`#..`) syntax, issue #232.
+* Removed deprecated `READ`, `MODIFY`, `EVENT` and `WATCH`, issue #233.
+* Removed deprecated `test()` on type `str`, issue #234.
 
 # v1.0.2
 

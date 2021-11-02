@@ -3475,13 +3475,6 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query(r'/hi/.test("Hi");'))
         self.assertFalse(await client.query(r'/hello!.*/.test("hello");'))
 
-        # test deprecated
-        self.assertTrue(await client.query(r'"".test(/.*/);'))
-        self.assertTrue(await client.query(r'"Hi".test(/hi/i);'))
-        self.assertTrue(await client.query(r'"hello!".test(/hello.*/);'))
-        self.assertFalse(await client.query(r'"Hi".test(/hi/);'))
-        self.assertFalse(await client.query(r'"hello".test(/hello!.*/);'))
-
     async def test_thing(self, client):
         with self.assertRaisesRegex(
                 LookupError,

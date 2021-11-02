@@ -23,8 +23,7 @@ static int do__f_set_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
 
     closure = (ti_closure_t *) query->rval;
-    if (ti_closure_unbound(closure, e) ||
-        (vtask->args && ti_vtask_num_args(vtask->args->n, closure->vars->n, e)))
+    if (ti_closure_unbound(closure, e))
         goto fail0;
 
     if (closure != vtask->closure)

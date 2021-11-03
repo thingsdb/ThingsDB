@@ -1207,8 +1207,8 @@ static void nodes__on_fwd_task(ti_stream_t * stream, ti_pkg_t * pkg)
     }
 
     collection = mp_scope_id.via.u64 == TI_SCOPE_THINGSDB
-            ? ti_collections_get_by_id(mp_scope_id.via.u64)
-            : NULL;
+            ? NULL
+            : ti_collections_get_by_id(mp_scope_id.via.u64);
     vtasks = collection ? collection->vtasks : ti.tasks->vtasks;
 
     for (vec_each(vtasks, ti_vtask_t, vtask))

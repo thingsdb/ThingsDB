@@ -22,7 +22,7 @@ static inline ti_type_t * ti_wrap_maybe_type(ti_wrap_t * wrap)
     return type;
 }
 
-static inline const char * ti_wrap_str(ti_wrap_t * wrap)
+static inline const char * ti_wrap_type_str(ti_wrap_t * wrap)
 {
     ti_type_t * type = ti_wrap_maybe_type(wrap);
     return type ? type->wname : "<thing>";
@@ -31,7 +31,7 @@ static inline const char * ti_wrap_str(ti_wrap_t * wrap)
 /*
  * Returns the wrapped name as a a raw type with a new reference.
  */
-static inline ti_raw_t * ti_wrap_strv(ti_wrap_t * wrap)
+static inline ti_raw_t * ti_wrap_type_strv(ti_wrap_t * wrap)
 {
     ti_type_t * type = ti_wrap_maybe_type(wrap);
     if (type)
@@ -63,6 +63,15 @@ static inline int ti_wrap_to_pk(
                     msgpack_pack_uint16(&vp->pk, wrap->type_id) ||
                     ti_thing_to_pk(wrap->thing, vp, options)
     );
+}
+
+static inline ti_raw_t * ti_wrap_str(ti_wrap_t * wrap)
+{
+    ti_type_t * type = ti_wrap_maybe_type(wrap);
+    char * wname = type ? type->wname : "<thing>";
+    return wrap->thing->id
+        ? ti_str_from_fmt("%s:%"PRIu64, wname, wrap->thing->id)
+        : ti_str_from_fmt("%s:nil", wname);
 }
 
 #endif  /* TI_WRAP_INLINE_H_ */

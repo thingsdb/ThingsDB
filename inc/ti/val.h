@@ -11,6 +11,7 @@
 #include <ti/vup.t.h>
 #include <util/vec.h>
 
+/* name */
 extern ti_val_t * val__year_name;
 extern ti_val_t * val__month_name;
 extern ti_val_t * val__day_name;
@@ -23,9 +24,14 @@ extern ti_val_t * val__deep_name;
 extern ti_val_t * val__load_name;
 extern ti_val_t * val__beautify_name;
 
+/* string */
+extern ti_val_t * val__snil;
+extern ti_val_t * val__strue;
+extern ti_val_t * val__sfalse;
+
+
 int ti_val_init_common(void);
 void ti_val_drop_common(void);
-void ti_val_destroy(ti_val_t * val);
 int ti_val_make_int(ti_val_t ** val, int64_t i);
 int ti_val_make_float(ti_val_t ** val, double d);
 ti_val_t * ti_val_from_vup(ti_vup_t * vup);
@@ -41,8 +47,6 @@ ti_val_t * ti_val_empty_bin(void);
 ti_val_t * ti_val_wrapped_thing_str(void);
 ti_val_t * ti_val_utc_str(void);
 vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id);
-int ti_val_convert_to_str(ti_val_t ** val, ex_t * e);
-void ti_val_ensure_convert_to_str(ti_val_t ** val);
 int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e);
 int ti_val_convert_to_int(ti_val_t ** val, ex_t * e);
 int ti_val_convert_to_float(ti_val_t ** val, ex_t * e);
@@ -51,11 +55,25 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e);
 _Bool ti_val_as_bool(ti_val_t * val);
 size_t ti_val_get_len(ti_val_t * val);
 int ti_val_gen_ids(ti_val_t * val);
-int ti_val_to_pk(ti_val_t * val, ti_vp_t * vp, int options);
 size_t ti_val_alloc_size(ti_val_t * val);
-const char * ti_val_str(ti_val_t * val);
 ti_val_t * ti_val_strv(ti_val_t * val);
 int ti_val_copy(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep);
 int ti_val_dup(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep);
+
+/* `to_str` functions */
+int ti_val_nil_to_str(ti_val_t ** val, ex_t * e);
+int ti_val_int_to_str(ti_val_t ** val, ex_t * e);
+int ti_val_float_to_str(ti_val_t ** val, ex_t * e);
+int ti_val_bool_to_str(ti_val_t ** val, ex_t * e);
+int ti_val_datetime_to_str(ti_val_t ** val, ex_t * e);
+int ti_val_bytes_to_str(ti_val_t ** val, ex_t * e);
+int ti_val_regex_to_str(ti_val_t ** val, ex_t * e);
+int ti_val_thing_to_str(ti_val_t ** val, ex_t * e);
+int ti_val_wrap_to_str(ti_val_t ** val, ex_t * e);
+int ti_val_room_to_str(ti_val_t ** val, ex_t * e);
+int ti_val_vtask_to_str(ti_val_t ** val, ex_t * e);
+int ti_val_error_to_str(ti_val_t ** val, ex_t * e);
+int ti_val_member_to_str(ti_val_t ** val, ex_t * e);
+int ti_val_closure_to_str(ti_val_t ** val, ex_t * e);
 
 #endif /* TI_VAL_H_ */

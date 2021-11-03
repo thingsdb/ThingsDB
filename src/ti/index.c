@@ -574,6 +574,7 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             slice->children->node->cl_obj->tp == CLERI_TP_TOKEN
     );
 
+    /* TODO: check if we can support slice on bytes type */
     switch ((ti_val_enum) val->tp)
     {
     case TI_VAL_NAME:
@@ -609,21 +610,22 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_VAL_TEMPLATE:
         assert(0);
         /* fall through */
-    case TI_VAL_BYTES:
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
     case TI_VAL_DATETIME:
-    case TI_VAL_CLOSURE:
-    case TI_VAL_ERROR:
-    case TI_VAL_MEMBER:
-    case TI_VAL_FUTURE:
-    case TI_VAL_FLOAT:
-    case TI_VAL_INT:
-    case TI_VAL_MPDATA:
-    case TI_VAL_NIL:
+    case TI_VAL_BYTES:
     case TI_VAL_REGEX:
-    case TI_VAL_SET:
     case TI_VAL_WRAP:
     case TI_VAL_ROOM:
+    case TI_VAL_TASK:
+    case TI_VAL_SET:
+    case TI_VAL_ERROR:
+    case TI_VAL_MEMBER:
+    case TI_VAL_MPDATA:
+    case TI_VAL_CLOSURE:
+    case TI_VAL_FUTURE:
         if (do_slice)
             goto slice_error;
         goto index_error;

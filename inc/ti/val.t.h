@@ -60,6 +60,8 @@ TI_VAL_TEMPLATE | N.A.        | *Never returned to the client as template*
 #define TI_VAL_DATETIME_S   "datetime"
 #define TI_VAL_TIMEVAL_S    "timeval"
 #define TI_VAL_FUTURE_S     "future"
+#define TI_VAL_TASK_S       "task"
+
 
 /* negative value is used for packing tasks */
 #define TI_VAL_PACK_TASK -1
@@ -90,6 +92,7 @@ typedef enum
     TI_VAL_THING,       /* instance or object */
     TI_VAL_WRAP,
     TI_VAL_ROOM,
+    TI_VAL_TASK,
     TI_VAL_ARR,         /* array, list or tuple */
     TI_VAL_SET,         /* set of things */
     TI_VAL_ERROR,

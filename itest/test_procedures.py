@@ -42,8 +42,8 @@ class TestProcedures(TestBase):
                 "Create a user with a token and basic privileges.";
                 new_user(user);
                 token = new_token(user);
-                grant('@node', user, (QUERY|WATCH));
-                grant('@:stuff', user, (QUERY|EVENT|RUN));
+                grant('@node', user, (QUERY|JOIN));
+                grant('@:stuff', user, (QUERY|CHANGE|RUN));
                 token;
             });
         ''', scope='@thingsdb')
@@ -390,7 +390,7 @@ class TestProcedures(TestBase):
             new_user('read');
             new_user('write');
             grant('//stuff', 'read', RUN);
-            grant('//stuff', 'write', RUN|EVENT);
+            grant('//stuff', 'write', RUN|CHANGE);
             [new_token('read'), new_token('write')];
         ''', scope='@t')
 
@@ -582,9 +582,8 @@ class TestProcedures(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'function `run` expects argument 1 to be of '
-                r'type `str` \(procedure\) or `int` \(timer\) but got '
-                r'type `nil` instead'):
+                r'function `run` expects argument 1 to be of type `str` '
+                r'but got type `nil` instead'):
             await client.query('run(nil);')
 
         with self.assertRaisesRegex(

@@ -1,6 +1,39 @@
 #include <ti/fn/fn.h>
 
-static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_del_vtask(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    const int nargs = fn_get_nargs(nd);
+    ti_task_t * task;
+    ti_vtask_t * vtask;
+
+    vtask = (ti_vtask_t *) query->rval;
+    if (ti_vtask_is_locked(vtask, e))
+        return e->nr;
+
+    query->rval = (ti_val_t *) ti_nil_get();;
+
+    if (fn_nargs("del", DOC_TASK_DEL, 0, nargs, e))
+        goto fail0;
+
+    if (vtask->id)
+    {
+        task = ti_task_get_task(
+                query->change,
+                query->collection ? query->collection->root : ti.thing0);
+
+        if (task && ti_task_add_vtask_del(task, vtask) == 0)
+            /* must be after creating the task or the task Id is lost */
+            ti_vtask_del(vtask->id, query->collection);
+        else
+            ex_set_mem(e);
+    }
+
+fail0:
+    ti_vtask_unsafe_drop(vtask);
+    return e->nr;
+}
+
+static int do__f_del_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
     ti_task_t * task;
@@ -62,4 +95,13 @@ fail0:
     ti_val_unlock((ti_val_t *) thing, true  /* lock was set */);
     ti_val_unsafe_drop((ti_val_t *) thing);
     return e->nr;
+}
+
+static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    return ti_val_is_thing(query->rval)
+            ? do__f_del_thing(query, nd, e)
+            : ti_val_is_task(query->rval)
+            ? do__f_del_vtask(query, nd, e)
+            : fn_call_try("del", query, nd, e);
 }

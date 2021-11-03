@@ -735,7 +735,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'cannot change type `thing` while the value is being used'):
+                r'cannot change type `thing` while the value is in use'):
             await client.query('.map( ||.del("greet") );')
 
         with self.assertRaisesRegex(
@@ -776,7 +776,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'cannot change type `thing` while the value is being used'):
+                r'cannot change type `thing` while the value is in use'):
             await client.query('.x = 1; .map(|| .assign( {} ) );')
 
         with self.assertRaisesRegex(
@@ -963,7 +963,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'cannot change type `list` while the value is being used'):
+                r'cannot change type `list` while the value is in use'):
             await client.query('.list.map(||.list.extend([4]));')
 
     async def test_filter(self, client):
@@ -2519,7 +2519,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'cannot change type `list` while the value is being used'):
+                r'cannot change type `list` while the value is in use'):
             await client.query('.list.map(||.list.pop());')
 
         with self.assertRaisesRegex(
@@ -2551,7 +2551,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'cannot change type `list` while the value is being used'):
+                r'cannot change type `list` while the value is in use'):
             await client.query('.list.map(||.list.shift());')
 
         with self.assertRaisesRegex(
@@ -2583,7 +2583,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'cannot change type `list` while the value is being used'):
+                r'cannot change type `list` while the value is in use'):
             await client.query('.list.map(||.list.push(4));')
 
     async def test_unshift(self, client):
@@ -2610,7 +2610,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'cannot change type `list` while the value is being used'):
+                r'cannot change type `list` while the value is in use'):
             await client.query('.list.map(||.list.unshift(4));')
 
     async def test_raise(self, client):
@@ -2908,7 +2908,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'cannot change type `list` while the value is being used'):
+                r'cannot change type `list` while the value is in use'):
             await client.query('.list.map(||.list.remove(||true));')
 
         with self.assertRaisesRegex(
@@ -2974,7 +2974,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'cannot change type `set` while the value is being used'):
+                r'cannot change type `set` while the value is in use'):
             await client.query('.s.map(||.s.remove(||true));')
 
         with self.assertRaisesRegex(
@@ -3115,13 +3115,13 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'cannot change type `thing` while the value is being used'):
+                r'cannot change type `thing` while the value is in use'):
             await client.query('.map(||.set("a", 42));')
 
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change or remove property `arr` on `#\d+` while '
-                r'the `list` is being used'):
+                r'the `list` is in use'):
             await client.query(r'''
                 .arr = ['a', 'b'];
                 .arr.push({
@@ -3337,7 +3337,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'cannot change type `list` while the value is being used'):
+                r'cannot change type `list` while the value is in use'):
             await client.query('.li.map(||.li.splice(0, 1));')
 
         with self.assertRaisesRegex(
@@ -3404,6 +3404,8 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('str("abc");'), "abc")
         self.assertEqual(await client.query('str("");'), "")
         self.assertEqual(await client.query('str(/.*/i);'), "/.*/i")
+        self.assertEqual(await client.query('str({});'), "thing:nil")
+        self.assertEqual(await client.query('str(room());'), "room:nil")
 
         with self.assertRaisesRegex(
                 TypeError,
@@ -3412,8 +3414,13 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                'cannot convert type `thing` to `str`'):
-            await client.query('str({});')
+                'cannot convert type `set` to `str`'):
+            await client.query('str(set());')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'cannot convert type `mpdata` to `str`'):
+            await client.query('str(user_info("admin"));', scope='@t')
 
     async def test_syntax_err(self, client):
         with self.assertRaisesRegex(
@@ -3467,13 +3474,6 @@ class TestCollectionFunctions(TestBase):
         self.assertTrue(await client.query(r'/hello.*/.test("hello!");'))
         self.assertFalse(await client.query(r'/hi/.test("Hi");'))
         self.assertFalse(await client.query(r'/hello!.*/.test("hello");'))
-
-        # test deprecated
-        self.assertTrue(await client.query(r'"".test(/.*/);'))
-        self.assertTrue(await client.query(r'"Hi".test(/hi/i);'))
-        self.assertTrue(await client.query(r'"hello!".test(/hello.*/);'))
-        self.assertFalse(await client.query(r'"Hi".test(/hi/);'))
-        self.assertFalse(await client.query(r'"hello".test(/hello!.*/);'))
 
     async def test_thing(self, client):
         with self.assertRaisesRegex(
@@ -4437,7 +4437,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'conversion failed; property `aa` is being used'):
+                r'conversion failed; property `aa` is in use'):
             await client.query('.aa.map(|| .to_type("B"));')
 
         res = await client.query('.del("other key"); .to_type("B");')
@@ -4655,8 +4655,8 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                'cannot convert type `thing` to `str`'):
-            await client.query('log({});')
+                'cannot convert type `list` to `str`'):
+            await client.query('log([]);')
 
         self.assertIs(await client.query('log(nil);'), None)
         self.assertIs(await client.query('log(123);'), None)

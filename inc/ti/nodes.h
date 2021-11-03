@@ -59,6 +59,7 @@ struct ti_nodes_s
 {
     vec_t * vec;            /* store the nodes */
     uv_tcp_t tcp;
+    uv_mutex_t lock;
     uint64_t ccid;         /* last committed change id by ALL nodes,
                                ti_archive_t saves this value to disk at
                                cleanup and is therefore responsible to set

@@ -30,8 +30,8 @@
 #define TI_NODE_ID "`node:%"PRIu32"`"
 #define TI_ROOM_ID "`room:%"PRIu64"`"
 #define TI_THING_ID "`#%"PRIu64"`"
-#define TI_TIMER_ID "`timer:%"PRIu64"`"
 #define TI_USER_ID "`user:%"PRIu64"`"
+#define TI_TASK_ID "`task:%"PRIu64"`"
 
 #define TI_SYNTAX "syntax v%u"
 
@@ -42,8 +42,8 @@
 /* Maximum number of active futures (just some arbitrary value) */
 #define TI_MAX_FUTURE_COUNT 500U
 
-/* Maximum number of timers per scope (just some arbitrary value) */
-#define TI_MAX_TIMER_COUNT 200U
+/* Maximum number of tasks per scope (just some arbitrary value) */
+#define TI_MAX_TASK_COUNT 200U
 
 /* maximum value we allow for the `deep` argument */
 #define TI_MAX_DEEP_HINT 0x7f

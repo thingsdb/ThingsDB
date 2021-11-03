@@ -365,11 +365,12 @@ void ti__change_log_(const char * prefix, ti_change_t * change, int log_level)
                     "<future: `%s`>",
                     change->via.query->with.future->then->node->str);
             break;
-        case TI_QUERY_WITH_TIMER:
+        case TI_QUERY_WITH_TASK:
+        case TI_QUERY_WITH_TASK_FINISH:
             (void) fprintf(
                     Logger.ostream,
-                    "<timer: `%s`>",
-                    change->via.query->with.timer->closure->node->str);
+                    "<task: `%s`>",
+                    change->via.query->with.vtask->closure->node->str);
             break;
         }
         break;

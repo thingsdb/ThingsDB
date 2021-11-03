@@ -21,7 +21,7 @@
 #include <ti/room.h>
 #include <ti/thing.h>
 #include <ti/things.h>
-#include <ti/timer.inline.h>
+#include <ti/vtask.inline.h>
 #include <ti/types.h>
 #include <ti/val.inline.h>
 #include <ti/wrap.h>
@@ -58,7 +58,7 @@ ti_collection_t * ti_collection_create(
     collection->created_at = created_at;
     collection->tz = tz;
     collection->futures = vec_new(4);
-    collection->timers = vec_new(4);
+    collection->vtasks = vec_new(4);
 
     memcpy(&collection->guid, guid, sizeof(guid_t));
 
@@ -88,7 +88,7 @@ void ti_collection_destroy(ti_collection_t * collection)
     queue_destroy(collection->gc, NULL);
     ti_val_drop((ti_val_t *) collection->name);
     vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);
-    vec_destroy(collection->timers, (vec_destroy_cb) ti_timer_drop);
+    vec_destroy(collection->vtasks, (vec_destroy_cb) ti_vtask_drop);
     smap_destroy(collection->procedures, (smap_destroy_cb) ti_procedure_destroy);
     ti_types_destroy(collection->types);
     ti_enums_destroy(collection->enums);
@@ -423,8 +423,8 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
         /* Take a lock because flags are not atomic and might be changed */
         uv_mutex_lock(collection->lock);
 
-        for (vec_each(collection->timers, ti_timer_t, timer))
-            for (vec_each(timer->args, ti_val_t, val))
+        for (vec_each(collection->vtasks, ti_vtask_t, vtask))
+            for (vec_each(vtask->args, ti_val_t, val))
                 collection__gc_val(val);
 
         imap_walk(

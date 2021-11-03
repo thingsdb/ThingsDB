@@ -13,8 +13,8 @@ C_SRCS += \
 ../src/ti/store/storenames.c \
 ../src/ti/store/storeprocedures.c \
 ../src/ti/store/storestatus.c \
+../src/ti/store/storetasks.c \
 ../src/ti/store/storethings.c \
-../src/ti/store/storetimers.c \
 ../src/ti/store/storetypes.c \
 ../src/ti/store/storeusers.c 
 
@@ -28,8 +28,8 @@ OBJS += \
 ./src/ti/store/storenames.o \
 ./src/ti/store/storeprocedures.o \
 ./src/ti/store/storestatus.o \
+./src/ti/store/storetasks.o \
 ./src/ti/store/storethings.o \
-./src/ti/store/storetimers.o \
 ./src/ti/store/storetypes.o \
 ./src/ti/store/storeusers.o 
 
@@ -43,8 +43,8 @@ C_DEPS += \
 ./src/ti/store/storenames.d \
 ./src/ti/store/storeprocedures.d \
 ./src/ti/store/storestatus.d \
+./src/ti/store/storetasks.d \
 ./src/ti/store/storethings.d \
-./src/ti/store/storetimers.d \
 ./src/ti/store/storetypes.d \
 ./src/ti/store/storeusers.d 
 

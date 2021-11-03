@@ -48,6 +48,7 @@
   :: `time`
   :: `datetime`
   :: `timeval`
+  :: `task`
 
  */
 

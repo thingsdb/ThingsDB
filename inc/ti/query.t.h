@@ -15,7 +15,7 @@ typedef int (*ti_query_vars_walk_cb)(void * data, void * arg);
 #include <ti/future.t.h>
 #include <ti/qbind.t.h>
 #include <ti/stream.t.h>
-#include <ti/timer.t.h>
+#include <ti/vtask.t.h>
 #include <ti/user.t.h>
 #include <ti/val.t.h>
 #include <util/util.h>
@@ -23,16 +23,18 @@ typedef int (*ti_query_vars_walk_cb)(void * data, void * arg);
 
 enum
 {
-    TI_QUERY_FLAG_API               =1<<4,
-    TI_QUERY_FLAG_CACHE             =1<<5,  /* Queries which are handled by the
+    TI_QUERY_FLAG_API               =1<<0,
+    TI_QUERY_FLAG_CACHE             =1<<1,  /* Queries which are handled by the
                                                query change will have this
                                                flags. Also the first query,
                                                which has not yet a cache item.
                                             */
-    TI_QUERY_FLAG_DO_CACHE          =1<<6,  /* mark the query for caching */
-    TI_QUERY_FLAG_RAISE_ERR         =1<<7,  /* query->rval contains an error
+    TI_QUERY_FLAG_DO_CACHE          =1<<2,  /* mark the query for caching */
+    TI_QUERY_FLAG_RAISE_ERR         =1<<3,  /* query->rval contains an error
                                                from a future which must raised
                                                once all futures are done */
+    TI_QUERY_FLAG_TASK_CHANGES      =1<<4,  /* mark when this query has handled
+                                               all required task changes */
 };
 
 typedef enum
@@ -40,7 +42,8 @@ typedef enum
     TI_QUERY_WITH_PARSERES,
     TI_QUERY_WITH_PROCEDURE,
     TI_QUERY_WITH_FUTURE,
-    TI_QUERY_WITH_TIMER,
+    TI_QUERY_WITH_TASK,
+    TI_QUERY_WITH_TASK_FINISH,
 } ti_query_with_enum;
 
 typedef int (*ti_query_unpack_cb) (
@@ -64,7 +67,7 @@ typedef union
     cleri_parse_t * parseres;   /* parse result */
     ti_closure_t * closure;     /* when called as procedure */
     ti_future_t * future;       /* when called as future->then */
-    ti_timer_t * timer;         /* when called as timer */
+    ti_vtask_t * vtask;         /* when called as task */
 } ti_query_with_t;
 
 

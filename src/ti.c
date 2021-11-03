@@ -79,13 +79,13 @@ int ti_create(void)
 {
     ti.last_change_id = 0;
     ti.global_stored_change_id = 0;
-    ti.flags = TI_FLAG_STARTING;
+    ti._flags = TI_FLAG_STARTING;
     ti.fn = NULL;
     ti.node_fn = NULL;
     ti.build = NULL;
     ti.node = NULL;
     ti.store = NULL;
-    ti.timers = NULL;
+    ti.tasks = NULL;
     ti.access_node = vec_new(0);
     ti.access_thingsdb = vec_new(0);
     ti.procedures = smap_create();
@@ -95,6 +95,7 @@ int ti_create(void)
     ti.room0 = ti_room_create(0, NULL);
     if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti.boottime) ||
             ti_counters_create() ||
+            ti_tasks_create() ||
             ti_away_create() ||
             ti_args_create() ||
             ti_cfg_create() ||
@@ -230,8 +231,7 @@ int ti_init(void)
     if (ti_qcache_create() ||
         ti_do_init() ||
         ti_val_init_common() ||
-        ti_thing_init_gc() ||
-        ti_timers_create())
+        ti_thing_init_gc())
         return -1;
 
     ti.fn = strx_cat(ti.cfg->storage_path, ti__fn);
@@ -412,7 +412,7 @@ int ti_unpack(uchar * data, size_t n)
     if (ti.node->port != ti.cfg->node_port)
     {
         ti.node->port = ti.cfg->node_port;
-        ti.flags |= TI_FLAG_NODES_CHANGED;
+        ti_flag_set(TI_FLAG_NODES_CHANGED);
     }
 
     if (strcmp(ti.node->addr, ti.cfg->node_name) != 0)
@@ -422,7 +422,7 @@ int ti_unpack(uchar * data, size_t n)
         {
             free(ti.node->addr);
             ti.node->addr = addr;
-            ti.flags |= TI_FLAG_NODES_CHANGED;
+            ti_flag_set(TI_FLAG_NODES_CHANGED);
         }
     }
 
@@ -443,7 +443,7 @@ static void ti__delayed_start_free(uv_handle_t * UNUSED(timer))
 
 static void ti__delayed_start_stop(void)
 {
-    ti.flags &= ~TI_FLAG_STARTING;
+    ti_flag_rm(TI_FLAG_STARTING);
     (void) uv_timer_stop(delayed_start_timer);
     uv_close((uv_handle_t *) delayed_start_timer, ti__delayed_start_free);
 }
@@ -491,7 +491,7 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
             return;
         }
 
-        if (ti_timers_start())
+        if (ti_tasks_start())
             goto failed;
 
         if (ti_away_start())
@@ -653,7 +653,7 @@ void ti_offline(void)
          * to write the modules to disk as well.
          */
         ti_modules_stop_and_destroy();
-        ti_timers_stop();
+        ti_tasks_stop();
     }
 }
 
@@ -664,7 +664,7 @@ void ti_stop(void)
         (void) ti_backups_store();
         (void) ti_nodes_write_global_status();
 
-        if (ti.flags & TI_FLAG_NODES_CHANGED)
+        if (ti_flag_test(TI_FLAG_NODES_CHANGED))
             (void) ti_save();
     }
     ti__stop();
@@ -724,13 +724,13 @@ int ti_lock(void)
     default:
         break;
     }
-    ti.flags |= TI_FLAG_LOCKED;
+    ti_flag_set(TI_FLAG_LOCKED);
     return 0;
 }
 
 int ti_unlock(void)
 {
-    if (ti.flags & TI_FLAG_LOCKED)
+    if (ti_flag_test(TI_FLAG_LOCKED))
     {
         lock_t rc = lock_unlock(ti.cfg->storage_path);
         if (rc != LOCK_REMOVED)
@@ -1144,5 +1144,5 @@ static void ti__stop(void)
     ti_connect_stop();
     ti_changes_stop();
     ti_sync_stop();
-    ti_timers_stop();  /* extra stop may be required */
+    ti_tasks_stop();  /* extra stop may be required */
 }

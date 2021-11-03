@@ -11,8 +11,8 @@
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/access.h>
-#include <ti/auth.h>
 #include <ti/async.h>
+#include <ti/auth.h>
 #include <ti/closure.h>
 #include <ti/closure.inline.h>
 #include <ti/collections.h>
@@ -53,9 +53,8 @@
 #include <ti/scope.h>
 #include <ti/spec.inline.h>
 #include <ti/task.h>
+#include <ti/tasks.h>
 #include <ti/thing.inline.h>
-#include <ti/timer.h>
-#include <ti/timer.inline.h>
 #include <ti/token.h>
 #include <ti/types.inline.h>
 #include <ti/users.h>
@@ -65,6 +64,8 @@
 #include <ti/vfloat.h>
 #include <ti/vint.h>
 #include <ti/vset.h>
+#include <ti/vtask.h>
+#include <ti/vtask.inline.h>
 #include <ti/warn.h>
 #include <ti/wprop.t.h>
 #include <ti/wrap.h>

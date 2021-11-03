@@ -22,12 +22,13 @@
 #include <ti/raw.inline.h>
 #include <ti/task.t.h>
 #include <ti/thing.inline.h>
-#include <ti/timer.h>
-#include <ti/timer.inline.h>
+#include <ti/vtask.h>
+#include <ti/vtask.inline.h>
 #include <ti/types.inline.h>
 #include <ti/val.h>
 #include <ti/val.inline.h>
 #include <ti/varr.h>
+#include <ti/verror.h>
 #include <ti/vset.h>
 #include <ti/vup.t.h>
 #include <util/mpack.h>
@@ -1665,40 +1666,6 @@ static int ctask__del_procedure(ti_thing_t * thing, mp_unp_t * up)
 
 /*
  * Returns 0 on success
- * - for example: 'id'
- */
-static int ctask__del_timer(ti_thing_t * thing, mp_unp_t * up)
-{
-    ti_collection_t * collection = thing->collection;
-    mp_obj_t mp_id;
-
-    if (mp_next(up, &mp_id) != MP_U64)
-    {
-        log_critical(
-                "task `del_timer` in "TI_COLLECTION_ID": "
-                "missing timer id",
-                collection->root->id);
-        return -1;
-    }
-
-    for (vec_each(collection->timers, ti_timer_t, timer))
-    {
-        if (timer->id == mp_id.via.u64)
-        {
-            ti_timer_mark_del(timer);
-            break;
-        }
-    }
-
-    /*
-     * For a timer with change it may occur that a timer is already marked for
-     * deletion and the timer may even be removed.
-     */
-    return 0;
-}
-
-/*
- * Returns 0 on success
  * - for example: '{name: closure}'
  */
 static int ctask__new_procedure(ti_thing_t * thing, mp_unp_t * up)
@@ -1763,13 +1730,13 @@ failed:
 
 /*
  * Returns 0 on success
- * - for example: '{...}'
+ * - for example: '{id: 123, run_at: ...}'
  */
-static int ctask__new_timer(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__vtask_new(ti_thing_t * thing, mp_unp_t * up)
 {
-    mp_obj_t obj, mp_id, mp_next_run, mp_repeat, mp_user_id;
+    mp_obj_t obj, mp_id, mp_run_at, mp_user_id;
     ti_collection_t * collection = thing->collection;
-    ti_timer_t * timer = NULL;
+    ti_vtask_t * vtask = NULL;
     ti_varr_t * varr = NULL;
     ti_closure_t * closure;
     ti_user_t * user;
@@ -1779,19 +1746,17 @@ static int ctask__new_timer(ti_thing_t * thing, mp_unp_t * up)
             .up = up,
     };
 
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 6 ||
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 5 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
         mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_next_run) != MP_U64 ||
-        mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_repeat) != MP_U64 ||
+        mp_next(up, &mp_run_at) != MP_U64 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_user_id) != MP_U64 ||
         mp_skip(up) != MP_STR)
     {
         log_critical(
-                "task `new_timer` for "TI_COLLECTION_ID": "
+                "task `vtask_new` for "TI_COLLECTION_ID": "
                 "invalid data",
                 collection->root->id);
         return -1;
@@ -1802,33 +1767,32 @@ static int ctask__new_timer(ti_thing_t * thing, mp_unp_t * up)
 
     if (!closure || !ti_val_is_closure((ti_val_t *) closure) ||
         mp_skip(up) != MP_STR ||
-        vec_reserve(&collection->timers, 1))
+        vec_reserve(&collection->vtasks, 1))
         goto fail0;
 
     varr = (ti_varr_t *) ti_val_from_vup(&vup);
     if (!varr || !ti_val_is_array((ti_val_t *) varr))
         goto fail0;
 
-    timer = ti_timer_create(
+    vtask = ti_vtask_create(
                 mp_id.via.u64,
-                mp_next_run.via.u64,
-                mp_repeat.via.u64,
-                collection->root->id,
+                mp_run_at.via.u64,
                 user,
                 closure,
+                NULL,
                 varr->vec);
-    if (!timer)
+    if (!vtask)
         goto fail0;
 
-    ti_update_next_free_id(timer->id);
-    VEC_push(collection->timers, timer);
+    ti_update_next_free_id(vtask->id);
+    (void) ti_tasks_append(&collection->vtasks, vtask);
     free(varr);
     ti_decref(closure);
     return 0;
 
 fail0:
     log_critical(
-            "task `new_timer` for "TI_COLLECTION_ID" has failed",
+            "task `vtask_new` for "TI_COLLECTION_ID" has failed",
             collection->root->id);
     ti_val_drop((ti_val_t *) varr);
     ti_val_drop((ti_val_t *) closure);
@@ -1837,13 +1801,118 @@ fail0:
 
 /*
  * Returns 0 on success
- * - for example: '{...}'
+ * - for example: '{id: 123}'
  */
-static int ctask__set_timer_args(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__vtask_del(ti_thing_t * thing, mp_unp_t * up)
+{
+    mp_obj_t obj, mp_id;
+    ti_collection_t * collection = thing->collection;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64)
+    {
+        log_critical(
+                "task `vtask_del` for "TI_COLLECTION_ID": "
+                "invalid data",
+                collection->root->id);
+        return -1;
+    }
+
+    ti_vtask_del(mp_id.via.u64, collection);
+    return 0;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: '{id: 123}'
+ */
+static int ctask__vtask_cancel(ti_thing_t * thing, mp_unp_t * up)
+{
+    mp_obj_t obj, mp_id;
+    ti_collection_t * collection = thing->collection;
+    ti_vtask_t * vtask;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64)
+    {
+        log_critical(
+                "task `vtask_cancel` for "TI_COLLECTION_ID": "
+                "invalid data",
+                collection->root->id);
+        return -1;
+    }
+
+    vtask = ti_vtask_by_id(collection->vtasks, mp_id.via.u64);
+    if (vtask)
+        ti_vtask_cancel(vtask);
+    return 0;
+}
+
+static int ctask__vtask_finish(ti_thing_t * thing, mp_unp_t * up)
+{
+    mp_obj_t obj, mp_id, mp_run_at;
+    ti_collection_t * collection = thing->collection;
+    ti_val_t * val;
+    ti_vtask_t * vtask;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = collection,
+            .up = up,
+    };
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_run_at) != MP_U64 ||
+        mp_skip(up) != MP_STR)
+    {
+        log_critical(
+                "task `vtask_finish` for "TI_COLLECTION_ID": "
+                "invalid data",
+                collection->root->id);
+        return -1;
+    }
+
+    val = ti_val_from_vup(&vup);
+    if (!val)
+        goto fail0;
+
+    if (ti_val_is_nil(val))
+    {
+        ti_decref(val);
+        val = (ti_val_t *) ti_verror_from_code(EX_SUCCESS);
+    }
+    else if (!ti_val_is_error(val))
+        goto fail0;
+
+    vtask = ti_vtask_by_id(collection->vtasks, mp_id.via.u64);
+    if (!vtask)
+        goto fail0;
+
+    vtask->run_at = mp_run_at.via.u64;
+    ti_tasks_vtask_finish(vtask);
+
+    ti_val_drop((ti_val_t *) vtask->verr);
+    vtask->verr = (ti_verror_t *) val;
+    return 0;
+
+fail0:
+    log_critical(
+            "task `vtask_finish` for "TI_COLLECTION_ID" has failed",
+            collection->root->id);
+    ti_val_drop(val);
+    return -1;
+}
+
+static int ctask__vtask_set_args(ti_thing_t * thing, mp_unp_t * up)
 {
     mp_obj_t obj, mp_id;
     ti_collection_t * collection = thing->collection;
     ti_varr_t * varr;
+    ti_vtask_t * vtask;
     ti_vup_t vup = {
             .isclient = false,
             .collection = collection,
@@ -1856,7 +1925,7 @@ static int ctask__set_timer_args(ti_thing_t * thing, mp_unp_t * up)
         mp_skip(up) != MP_STR)
     {
         log_critical(
-                "task `set_timer_args` for "TI_COLLECTION_ID": "
+                "task `vtask_set_args` for "TI_COLLECTION_ID": "
                 "invalid data",
                 collection->root->id);
         return -1;
@@ -1866,27 +1935,124 @@ static int ctask__set_timer_args(ti_thing_t * thing, mp_unp_t * up)
     if (!varr || !ti_val_is_array((ti_val_t *) varr))
         goto fail0;
 
-    for (vec_each(collection->timers, ti_timer_t, timer))
+    vtask = ti_vtask_by_id(collection->vtasks, mp_id.via.u64);
+    if (vtask)
     {
-        if (timer->id == mp_id.via.u64)
-        {
-            vec_t * tmp = timer->args;
-            timer->args = varr->vec;
-            varr->vec = tmp;
-            break;
-        }
+        vec_t * tmp = vtask->args;
+        vtask->args = varr->vec;
+        varr->vec = tmp;
     }
 
-    /* it may happen that the timer is already gone, this is not an issue */
-    ti_val_drop((ti_val_t *) varr);
+    ti_val_unsafe_drop((ti_val_t *) varr);
     return 0;
 
 fail0:
     log_critical(
-            "task `set_timer_args` for "TI_COLLECTION_ID" has failed",
+            "task `vtask_set_args` for "TI_COLLECTION_ID" has failed",
             collection->root->id);
     ti_val_drop((ti_val_t *) varr);
     return -1;
+}
+
+static int ctask__vtask_set_owner(ti_thing_t * thing, mp_unp_t * up)
+{
+    mp_obj_t obj, mp_id, mp_user_id;
+    ti_collection_t * collection = thing->collection;
+    ti_user_t * user;
+    ti_vtask_t * vtask;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_user_id) != MP_U64)
+    {
+        log_critical(
+                "task `vtask_set_owner` for "TI_COLLECTION_ID": "
+                "invalid data",
+                collection->root->id);
+        return -1;
+    }
+
+    user = ti_users_get_by_id(mp_user_id.via.u64);
+    vtask = ti_vtask_by_id(collection->vtasks, mp_id.via.u64);
+    if (vtask)
+    {
+        ti_user_drop(vtask->user);
+        vtask->user = user;
+    }
+
+    return 0;
+}
+
+static int ctask__vtask_set_closure(ti_thing_t * thing, mp_unp_t * up)
+{
+    mp_obj_t obj, mp_id;
+    ti_collection_t * collection = thing->collection;
+    ti_closure_t * closure;
+    ti_vtask_t * vtask;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = collection,
+            .up = up,
+    };
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR)
+    {
+        log_critical(
+                "task `vtask_set_closure` for "TI_COLLECTION_ID": "
+                "invalid data",
+                collection->root->id);
+        return -1;
+    }
+
+    closure = (ti_closure_t *) ti_val_from_vup(&vup);
+    if (!closure || !ti_val_is_closure((ti_val_t *) closure))
+        goto fail0;
+
+    vtask = ti_vtask_by_id(collection->vtasks, mp_id.via.u64);
+    if (vtask && ti_vtask_set_closure(vtask, closure) == 0)
+        return 0;
+
+    ti_val_unsafe_drop((ti_val_t *) closure);
+
+    if (!vtask)
+        return 0;
+    closure = NULL;
+
+fail0:
+    log_critical(
+            "task `vtask_set_closure` for "TI_COLLECTION_ID" has failed",
+            collection->root->id);
+    ti_val_drop((ti_val_t *) closure);
+    return -1;
+}
+
+/* TODO (COMPAT): Obsolete task */
+static int ctask__del_timer(mp_unp_t * up)
+{
+    log_warning("task `del_timer` is obsolete");
+    mp_skip(up);
+    return 0;
+}
+
+/* TODO (COMPAT): Obsolete task */
+static int ctask__new_timer(mp_unp_t * up)
+{
+    log_warning("task `new_timer` is obsolete");
+    mp_skip(up);
+    return 0;
+}
+
+/* TODO (COMPAT): Obsolete task */
+static int ctask__set_timer_args(mp_unp_t * up)
+{
+    log_warning("task `set_timer_args` is obsolete");
+    mp_skip(up);
+    return 0;
 }
 
 /*
@@ -2395,7 +2561,7 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_DEL_MODULE:        break;
     case TI_TASK_DEL_NODE:          break;
     case TI_TASK_DEL_PROCEDURE:     return ctask__del_procedure(thing, up);
-    case TI_TASK_DEL_TIMER:         return ctask__del_timer(thing, up);
+    case _TI_TASK_DEL_TIMER:        return ctask__del_timer(up);
     case TI_TASK_DEL_TOKEN:         break;
     case TI_TASK_DEL_TYPE:          return ctask__del_type(thing, up);
     case TI_TASK_DEL_USER:          break;
@@ -2417,7 +2583,7 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_NEW_MODULE:        break;
     case TI_TASK_NEW_NODE:          break;
     case TI_TASK_NEW_PROCEDURE:     return ctask__new_procedure(thing, up);
-    case TI_TASK_NEW_TIMER:         return ctask__new_timer(thing, up);
+    case _TI_TASK_NEW_TIMER:        return ctask__new_timer(up);
     case TI_TASK_NEW_TOKEN:         break;
     case TI_TASK_NEW_TYPE:          return ctask__new_type(thing, up);
     case TI_TASK_NEW_USER:          break;
@@ -2434,7 +2600,7 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_SET_MODULE_SCOPE:  break;
     case TI_TASK_SET_PASSWORD:      break;
     case TI_TASK_SET_TIME_ZONE:     break;
-    case TI_TASK_SET_TIMER_ARGS:    return ctask__set_timer_args(thing, up);
+    case _TI_TASK_SET_TIMER_ARGS:   return ctask__set_timer_args(up);
     case TI_TASK_SET_TYPE:          return ctask__set_type(thing, up);
     case TI_TASK_TO_TYPE:           return ctask__to_type(thing, up);
     case TI_TASK_CLEAR_USERS:       break;
@@ -2443,6 +2609,13 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_THING_CLEAR:       return ctask__thing_clear(thing, up);
     case TI_TASK_ARR_CLEAR:         return ctask__arr_clear(thing, up);
     case TI_TASK_SET_CLEAR:         return ctask__set_clear(thing, up);
+    case TI_TASK_VTASK_NEW:         return ctask__vtask_new(thing, up);
+    case TI_TASK_VTASK_DEL:         return ctask__vtask_del(thing, up);
+    case TI_TASK_VTASK_CANCEL:      return ctask__vtask_cancel(thing, up);
+    case TI_TASK_VTASK_FINISH:      return ctask__vtask_finish(thing, up);
+    case TI_TASK_VTASK_SET_ARGS:    return ctask__vtask_set_args(thing, up);
+    case TI_TASK_VTASK_SET_OWNER:   return ctask__vtask_set_owner(thing, up);
+    case TI_TASK_VTASK_SET_CLOSURE: return ctask__vtask_set_closure(thing, up);
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);
@@ -2459,7 +2632,7 @@ version_v0:
         if (mp_str_eq(&mp_task, "del"))
             return ctask__del(thing, up);
         if (mp_str_eq(&mp_task, "del_timer"))
-            return ctask__del_timer(thing, up);
+            return ctask__del_timer(up);
         if (mp_str_eq(&mp_task, "del_enum"))
             return ctask__del_enum(thing, up);
         if (mp_str_eq(&mp_task, "del_type"))
@@ -2473,7 +2646,7 @@ version_v0:
         break;
     case 'n':
         if (mp_str_eq(&mp_task, "new_timer"))
-            return ctask__new_timer(thing, up);
+            return ctask__new_timer(up);
         if (mp_str_eq(&mp_task, "new_type"))
             return ctask__new_type(thing, up);
         if (mp_str_eq(&mp_task, "new_procedure"))
@@ -2521,7 +2694,7 @@ version_v0:
         if (mp_str_eq(&mp_task, "splice"))
             return ctask__splice(thing, up);
         if (mp_str_eq(&mp_task, "set_timer_args"))
-            return ctask__set_timer_args(thing, up);
+            return ctask__set_timer_args(up);
         if (mp_str_eq(&mp_task, "set_enum"))
             return ctask__set_enum(thing, up);
         if (mp_str_eq(&mp_task, "set_type"))

@@ -731,6 +731,9 @@ static inline int do__thing_by_id(
      * This syntax is probably not used frequently so do not worry a lot about
      * performance here; (and this is already pretty fast anyway...)
      */
+    log_warning(
+            "The `#..` syntax is deprecated and will be removed in a "
+            "future release; use function `thing(..)` instead");
     intptr_t thing_id = (intptr_t) nd->data;
     query->rval = (ti_val_t *) ti_query_thing_from_id(query, thing_id, e);
     return e->nr;
@@ -769,11 +772,11 @@ static int do__read_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 enum
 {
-    TOTAL_KEYWORDS = 15,
+    TOTAL_KEYWORDS = 11,
     MIN_WORD_LENGTH = 3,
     MAX_WORD_LENGTH = 8,
     MIN_HASH_VALUE = 3,
-    MAX_HASH_VALUE = 17
+    MAX_HASH_VALUE = 14
 };
 
 static inline unsigned int do__hash(
@@ -782,32 +785,32 @@ static inline unsigned int do__hash(
 {
     static unsigned char asso_values[] =
     {
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18,  0,  4,  0,  3,  5,
-         0,  0,  3,  0, 12, 18,  1,  4,  0,  0,
-        18,  1,  0, 18,  0,  0,  0,  0, 18,  0,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15,  1,  4,  1,  4,  0,
+         3,  1,  3,  0,  5, 15,  2, 15,  0,  1,
+        15,  0,  0, 15,  0,  0, 15,  0, 15,  0,
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+        15, 15, 15, 15, 15, 15
     };
 
     register unsigned int hval = n;
@@ -852,12 +855,8 @@ typedef struct
 } do__fixed_t;
 
 do__fixed_t do__fixed_mapping[TOTAL_KEYWORDS] = {
-    {.name="READ",                  .value=TI_AUTH_QUERY},  /* deprecated */
     {.name="QUERY",                 .value=TI_AUTH_QUERY},
-    {.name="MODIFY",                .value=TI_AUTH_CHANGE},  /* deprecated */
-    {.name="EVENT",                 .value=TI_AUTH_CHANGE},  /* deprecated */
     {.name="CHANGE",                .value=TI_AUTH_CHANGE},
-    {.name="WATCH",                 .value=TI_AUTH_JOIN},   /* deprecated */
     {.name="JOIN",                  .value=TI_AUTH_JOIN},
     {.name="RUN",                   .value=TI_AUTH_RUN},
     {.name="GRANT",                 .value=TI_AUTH_GRANT},

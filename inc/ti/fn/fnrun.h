@@ -1,68 +1,21 @@
 #include <ti/fn/fn.h>
 
-static int run__timer(
-        ti_query_t * query,
-        cleri_children_t * child,
-        ex_t * e)
+
+static int do__f_run(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    vec_t ** timers = ti_query_timers(query);
-    ti_timer_t * timer;
-    ti_closure_t * closure;
-    uint8_t prev_with_tp;
-    ti_query_with_t prev_with;
-
-    timer = ti_timer_from_val(*timers, query->rval, e);
-    if (!timer)
-        return e->nr;
-
-    ti_val_unsafe_drop((ti_val_t *) query->rval);
-    query->rval = NULL;
-
-    if (child->next && child->next->next)
-    {
-        ex_set(e, EX_NUM_ARGUMENTS,
-                "no arguments are allowed when using `run` with a `timer`"
-                DOC_RUN_TIMER);
-        return e->nr;
-    }
-
-    closure = timer->closure;
-
-    ti_incref(closure);  /* take a reference */
-    ti_incref(timer);  /* take a reference */
-
-    /*
-     * Mock the query as if the query is started as a timer.
-     */
-    prev_with_tp = query->with_tp;
-    prev_with = query->with;
-
-    query->with_tp = TI_QUERY_WITH_TIMER;
-    query->with.timer = timer;
-
-    (void) ti_closure_call(closure, query, timer->args, e);
-
-    /*
-     * Restore Mock
-     */
-    query->with_tp = prev_with_tp;
-    query->with = prev_with;
-
-    ti_timer_drop(timer);
-    ti_val_unsafe_drop((ti_val_t *) closure);
-    return e->nr;
-}
-
-static int run__procedure(
-        ti_query_t * query,
-        cleri_children_t * child,
-        ex_t * e)
-{
+    const int nargs = fn_get_nargs(nd);
     smap_t * procedures = ti_query_procedures(query);
     ti_procedure_t * procedure;
     ti_closure_t * closure;
     vec_t * args;
     size_t n;
+    cleri_children_t * child = nd->children;    /* first in argument list */
+
+    if (fn_not_thingsdb_or_collection_scope("run", query, e) ||
+        fn_nargs_min("run", DOC_RUN_PROCEDURE, 1, nargs, e) ||
+        ti_do_statement(query, child->node, e) ||
+        fn_arg_str("run", DOC_RUN_PROCEDURE, 1, query->rval, e))
+        return e->nr;
 
     procedure = ti_procedures_by_name(procedures, (ti_raw_t *) query->rval);
     if (!procedure)
@@ -100,31 +53,5 @@ static int run__procedure(
 failed:
     ti_val_unsafe_drop((ti_val_t *) closure);
     vec_destroy(args, (vec_destroy_cb) ti_val_unsafe_drop);
-    return e->nr;
-}
-
-static int do__f_run(ti_query_t * query, cleri_node_t * nd, ex_t * e)
-{
-    const int nargs = fn_get_nargs(nd);
-    cleri_children_t * child = nd->children;    /* first in argument list */
-
-    if (fn_not_thingsdb_or_collection_scope("run", query, e) ||
-        fn_nargs_min("run", DOC_RUN_PROCEDURE""DOC_RUN_TIMER, 1, nargs, e) ||
-        ti_do_statement(query, child->node, e))
-        return e->nr;
-
-    switch ((ti_val_enum) query->rval->tp)
-    {
-    case TI_VAL_STR:
-        return run__procedure(query, child, e);
-    case TI_VAL_INT:
-        return run__timer(query, child, e);
-    default:
-        ex_set(e, EX_TYPE_ERROR,
-                "function `run` expects argument 1 to be of "
-                "type `"TI_VAL_STR_S"` (procedure) "
-                "or `"TI_VAL_INT_S"` (timer) but got type `%s` instead"
-                DOC_RUN_PROCEDURE""DOC_RUN_TIMER, ti_val_str(query->rval));
-    }
     return e->nr;
 }

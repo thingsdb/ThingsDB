@@ -21,6 +21,13 @@ typedef struct verror__s
 
 static verror__t verror__cache[VERROR__CACHE_SZ] = {};
 
+static const verror__t verror__success = {
+        .ref=1,
+        .tp=TI_VAL_ERROR,
+        .code=EX_SUCCESS,
+        .msg_n=strlen(EX_SUCCESS_X),
+        .msg=EX_SUCCESS_X
+};
 static const verror__t verror__internal = {
         .ref=1,
         .tp=TI_VAL_ERROR,
@@ -164,9 +171,12 @@ static const verror__t verror__cancelled_err = {
 
 void ti_verror_init(void)
 {
-    memcpy(&verror__cache[-EX_INTERNAL], &verror__internal, sizeof(verror__t));
-    memcpy(&verror__cache[-EX_MEMORY], &verror__memory, sizeof(verror__t));
+    /* internal */
+    verror__cache[-EX_SUCCESS]          = verror__success;
+    verror__cache[-EX_INTERNAL]         = verror__internal;
+    verror__cache[-EX_MEMORY]           = verror__memory;
 
+    /* other */
     verror__cache[-EX_WRITE_UV]         = verror__write_uv;
     verror__cache[-EX_REQUEST_CANCEL]   = verror__request_cancel;
     verror__cache[-EX_REQUEST_TIMEOUT]  = verror__request_timeout;

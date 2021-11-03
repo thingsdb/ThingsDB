@@ -66,10 +66,9 @@ class TestUserAccess(TestBase):
         with self.assertRaisesRegex(ForbiddenError, error_msg):
             await testcl1.query(r'''.map(||nil);''', scope='@:junk')
 
-        # Deprecation `READ` privileges
         await client.query(r'''
             grant('@thingsdb', "test1", QUERY|GRANT);
-            grant('@collection:junk', 'test1', READ);
+            grant('@collection:junk', 'test1', QUERY);
         ''')
 
         await testcl1.query(r'''
@@ -88,7 +87,7 @@ class TestUserAccess(TestBase):
                 r'''revoke('@:Collection', 'test1', CHANGE);''')
 
         await client.query(
-            r'''revoke('@:Collection', 'test1', MODIFY);''')  # Deprecation
+            r'''revoke('@:Collection', 'test1', CHANGE);''')
 
         users_access = await testcl1.query(r'''user_info('admin');''')
 
@@ -132,7 +131,7 @@ class TestUserAccess(TestBase):
         with self.assertRaisesRegex(ForbiddenError, error_msg):
             await testcl1.query(r'''reset_counters();''', scope='@node')
 
-        await client.query(r'''grant('@n', "test1", EVENT);''')
+        await client.query(r'''grant('@n', "test1", CHANGE);''')
 
         await testcl1.query(r'''reset_counters();''', scope='@node')
 

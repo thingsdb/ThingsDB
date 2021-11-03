@@ -299,9 +299,8 @@ static int do__datetime(
     case 0:
         /* Return the current date/time. */
         assert (query->rval == NULL);
-        query->rval = (ti_val_t *) ti_datetime_from_i64(
-                (int64_t) util_now_usec(),
-                0,
+        query->rval = (ti_val_t *) ti_datetime_from_u64(
+                util_now_usec(),
                 tz);
         if (!query->rval)
             ex_set_mem(e);

@@ -113,8 +113,8 @@ int ti_collections_gc_collect_dropped(void)
         /* stop exiting futures */
         ti_collection_stop_futures(collection);
 
-        /* clear existing timers */
-        ti_timers_clear(&collection->timers);
+        /* clear existing tasks */
+        ti_tasks_clear_dropped(&collection->vtasks);
 
         /* drop enumerators; this is required since we no longer mark the
          * enumerators when they contain things so they need to be dropped

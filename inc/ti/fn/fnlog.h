@@ -8,7 +8,7 @@ static int do__f_log(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_nargs("log", DOC_LOG, 1, nargs, e) ||
         ti_do_statement(query, nd->children->node, e) ||
-        ti_val_convert_to_str(&query->rval, e))
+        ti_val(query->rval)->to_str(&query->rval, e))
         return e->nr;
 
     data = (ti_raw_t *) query->rval;
@@ -19,7 +19,7 @@ static int do__f_log(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             data->n,
             data->data);
 
-    rc = (query->flags & TI_QUERY_FLAG_API)
+    rc = (query->flags & TI_QUERY_FLAG_API) || query->via.stream == NULL
             ? 0
             : ti_stream_is_client(query->via.stream)
             ? ti_warn_log_client(query->via.stream, data->data, data->n)

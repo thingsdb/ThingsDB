@@ -42,7 +42,7 @@ static inline ti_verror_t * ti_verror_from_e(ex_t * e)
     return ti_verror_create(e->msg, e->n, (int8_t) e->nr);
 }
 
-static inline ti_verror_t * ti_verror_ensure_from_e(ex_t * e)
+static inline ti_verror_t * ti_verror_ensure_from_e(const ex_t * e)
 {
     ti_verror_t * verror = ti_verror_create(e->msg, e->n, (int8_t) e->nr);
     return verror ? verror : ti_verror_from_code(EX_MEMORY);
@@ -61,7 +61,19 @@ static inline int ti_verror_to_pk(
                 msgpack_pack_array(pk, 2) ||
 
                 mp_pack_strn(pk, verror->msg, verror->msg_n) ||
-                msgpack_pack_int8(pk, verror->code));
+                msgpack_pack_fix_int8(pk, verror->code));
+}
+
+static inline void ti_verror_unsafe_drop(ti_verror_t * verror)
+{
+    if (!--verror->ref)
+        free(verror);
+}
+
+static inline void ti_verror_drop(ti_verror_t * verror)
+{
+    if (verror && !--verror->ref)
+        free(verror);
 }
 
 #endif  /* TI_VERROR_H_ */

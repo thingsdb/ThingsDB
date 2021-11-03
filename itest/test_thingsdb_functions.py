@@ -57,7 +57,7 @@ class TestThingsDBFunctions(TestBase):
             new_user('user1');
             set_password('user1', 'pass1');
             grant('@t', 'user1', QUERY);
-            grant('@n', 'user1', WATCH);
+            grant('@n', 'user1', JOIN);
         ''', scope='@t')
 
         user1_cl = await get_client(self.node0, auth=['user1', 'pass1'])
@@ -108,7 +108,7 @@ class TestThingsDBFunctions(TestBase):
             new_user('user2');
             set_password('user2', 'pass2');
             grant('@t', 'user2', QUERY);
-            grant('@n', 'user2', WATCH);
+            grant('@n', 'user2', JOIN);
         ''', scope='@t')
 
         user1_cl = await get_client(self.node0, auth=['user2', 'pass2'])
@@ -284,7 +284,7 @@ class TestThingsDBFunctions(TestBase):
             new_user('has_token');
             set_password('has_token', 'pass');
             grant('@t', 'has_token', QUERY);
-            grant('@n', 'has_token', WATCH);
+            grant('@n', 'has_token', JOIN);
             new_token('admin');
         ''', scope='@t')
 
@@ -328,7 +328,7 @@ class TestThingsDBFunctions(TestBase):
             new_user('has_user');
             set_password('has_user', 'pass');
             grant('@t', 'has_user', QUERY);
-            grant('@n', 'has_user', WATCH);
+            grant('@n', 'has_user', JOIN);
         ''', scope='@t')
 
         cl = await get_client(self.node0, auth=['has_user', 'pass'])

@@ -234,17 +234,15 @@ static ti_val_t * field__dval_room(ti_field_t * field)
 
 static ti_val_t * field__dval_datetime(ti_field_t * field)
 {
-    return (ti_val_t *) ti_datetime_from_i64(
-            (int64_t) util_now_usec(),
-            0,
+    return (ti_val_t *) ti_datetime_from_u64(
+            util_now_usec(),
             field->type->types->collection->tz);
 }
 
 static ti_val_t * field__dval_timeval(ti_field_t * field)
 {
-    return (ti_val_t *) ti_timeval_from_i64(
-            (int64_t) util_now_usec(),
-            0,
+    return (ti_val_t *) ti_timeval_from_u64(
+            util_now_usec(),
             field->type->types->collection->tz);
 }
 
@@ -556,7 +554,7 @@ skip_nesting:
             {
                 ex_set(e, EX_OPERATION,
                     "invalid declaration for `%s` on type `%s`; "
-                    "cannot assign enum type `%s` while the enum is being used"
+                    "cannot assign enum type `%s` while the enum is in use"
                     DOC_T_TYPE,
                     field->name->str, field->type->name,
                     enum_->name);
@@ -584,7 +582,7 @@ skip_nesting:
             {
                 ex_set(e, EX_OPERATION,
                     "invalid declaration for `%s` on type `%s`; "
-                    "cannot assign type `%s` while the type is being used"
+                    "cannot assign type `%s` while the type is in use"
                     DOC_T_TYPE,
                     field->name->str, field->type->name,
                     dep->name);
@@ -1311,6 +1309,7 @@ int ti_field_make_assignable(
         case TI_VAL_THING:
         case TI_VAL_WRAP:
         case TI_VAL_ROOM:
+        case TI_VAL_TASK:
             break;
         case TI_VAL_ARR:
             return field__varr_assign(field, (ti_varr_t **) val, parent, e);

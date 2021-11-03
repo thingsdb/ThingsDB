@@ -67,7 +67,7 @@ static inline int ti_type_use(ti_type_t * type, ex_t * e)
     if (type->flags & TI_TYPE_FLAG_LOCK)
     {
         ex_set(e, EX_OPERATION,
-            "cannot use type `%s` while the type is being locked",
+            "cannot use type `%s` while the type is locked",
             type->name);
         return e->nr;
     }
@@ -79,13 +79,16 @@ static inline int ti_type_try_lock(ti_type_t * type, ex_t * e)
     if (type->flags & TI_TYPE_FLAG_LOCK)
     {
         ex_set(e, EX_OPERATION,
-            "cannot change type `%s` while the type is being used",
+            "cannot change type `%s` while the type is in use",
             type->name);
         return e->nr;
     }
     return (type->flags |= TI_TYPE_FLAG_LOCK) & 0;
 }
 
+/*
+ * Returns `0` if a lock was already set and `1` if locked by this call.
+ */
 static inline int ti_type_ensure_lock(ti_type_t * type)
 {
     return (type->flags & TI_TYPE_FLAG_LOCK)

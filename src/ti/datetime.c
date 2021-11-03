@@ -43,6 +43,23 @@ ti_datetime_t * ti_timeval_from_i64(int64_t ts, int16_t offset, ti_tz_t * tz)
 /*
  * Arguments `ts` is in seconds, `offset` in minutes.
  */
+ti_datetime_t * ti_timeval_from_u64(uint64_t ts, ti_tz_t * tz)
+{
+    ti_datetime_t * dt = malloc(sizeof(ti_datetime_t));
+    if (!dt)
+        return NULL;
+    dt->ref = 1;
+    dt->flags = DT_AS_TIMEVAL;
+    dt->tp = TI_VAL_DATETIME;
+    dt->ts = (time_t) ts;
+    dt->offset = 0;
+    dt->tz = tz;  /* may be NULL */
+    return dt;
+}
+
+/*
+ * Arguments `ts` is in seconds, `offset` in minutes.
+ */
 ti_datetime_t * ti_datetime_from_i64(int64_t ts, int16_t offset, ti_tz_t * tz)
 {
     ti_datetime_t * dt = malloc(sizeof(ti_datetime_t));
@@ -53,6 +70,23 @@ ti_datetime_t * ti_datetime_from_i64(int64_t ts, int16_t offset, ti_tz_t * tz)
     dt->tp = TI_VAL_DATETIME;
     dt->ts = (time_t) ts;
     dt->offset = offset;
+    dt->tz = tz;  /* may be NULL */
+    return dt;
+}
+
+/*
+ * Arguments `ts` is in seconds, `offset` in minutes.
+ */
+ti_datetime_t * ti_datetime_from_u64(uint64_t ts, ti_tz_t * tz)
+{
+    ti_datetime_t * dt = malloc(sizeof(ti_datetime_t));
+    if (!dt)
+        return NULL;
+    dt->ref = 1;
+    dt->flags = 0;
+    dt->tp = TI_VAL_DATETIME;
+    dt->ts = (time_t) ts;
+    dt->offset = 0;
     dt->tz = tz;  /* may be NULL */
     return dt;
 }
@@ -604,6 +638,10 @@ static void datetime__correct_max_mday(struct tm * tm)
     }
 }
 
+/*
+ * Type datetime is immutable so this function must only be used on datetime
+ * objects with no bindings. (usually a reference count of one)
+ */
 int ti_datetime_move(
         ti_datetime_t * dt,
         datetime_unit_e unit,

@@ -47,7 +47,7 @@ static inline int thing__val_locked(
     {
         ex_set(e, EX_OPERATION,
             "cannot change or remove property `%s` on "TI_THING_ID
-            " while the `%s` is being used",
+            " while the `%s` is in use",
             name->str,
             thing->id,
             ti_val_str(val));
@@ -72,7 +72,7 @@ static inline int thing__item_val_locked(
     {
         ex_set(e, EX_OPERATION,
             "cannot change or remove property `%s` on "TI_THING_ID
-            " while the `%s` is being used",
+            " while the `%s` is in use",
             ti_raw_as_printable_str(key),
             thing->id,
             ti_val_str(val));

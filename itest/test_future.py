@@ -147,7 +147,7 @@ class TestFuture(TestBase):
             new_user('read');
             new_user('write');
             grant('//stuff', 'read', RUN);
-            grant('//stuff', 'write', RUN|EVENT);
+            grant('//stuff', 'write', RUN|CHANGE);
             [new_token('read'), new_token('write')];
         ''', scope='@t')
 

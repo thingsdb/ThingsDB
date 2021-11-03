@@ -42,8 +42,8 @@ class TestProcedures(TestBase):
                 "Create a user with a token and basic privileges.";
                 new_user(user);
                 token = new_token(user);
-                grant('@node', user, (QUERY|WATCH));
-                grant('@:stuff', user, (QUERY|EVENT|RUN));
+                grant('@node', user, (QUERY|JOIN));
+                grant('@:stuff', user, (QUERY|CHANGE|RUN));
                 token;
             });
         ''', scope='@thingsdb')
@@ -390,7 +390,7 @@ class TestProcedures(TestBase):
             new_user('read');
             new_user('write');
             grant('//stuff', 'read', RUN);
-            grant('//stuff', 'write', RUN|EVENT);
+            grant('//stuff', 'write', RUN|CHANGE);
             [new_token('read'), new_token('write')];
         ''', scope='@t')
 

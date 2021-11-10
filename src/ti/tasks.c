@@ -125,7 +125,7 @@ static void tasks__cb(uv_timer_t * UNUSED(handle))
     const uint32_t nodes_n = ti.nodes->vec->n;
     int n = 0;
 
-    /* ThingsDB known the first time-stamp it should handle, thus this call is
+    /* ThingsDB knows the first time-stamp it should handle, thus this call is
      * usually very sort as it will return immediately. Only when required, it
      * will loop through the tasks.
      */

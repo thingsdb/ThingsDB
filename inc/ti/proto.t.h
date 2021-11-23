@@ -36,7 +36,7 @@ typedef enum
      */
     TI_PROTO_CLIENT_REQ_PING    =32,    /* empty                            */
     TI_PROTO_CLIENT_REQ_AUTH    =33,    /* [user, pass] or token            */
-    TI_PROTO_CLIENT_REQ_QUERY   =34,    /* [scope, query, {variable}]       */
+    TI_PROTO_CLIENT_REQ_QUERY   =34,    /* [scope, code, {variable}]       */
     /* 35..36 : Old watch protocol */
     _TI_PROTO_CLIENT_DEP_35     =35,    /* TODO (COMPAT) */
     _TI_PROTO_CLIENT_DEP_36     =36,    /* TODO (COMPAT) */

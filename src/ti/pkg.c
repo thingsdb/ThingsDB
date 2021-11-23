@@ -60,6 +60,9 @@ ti_pkg_t * ti_pkg_client_err(uint16_t id, ex_t * e)
 
     msgpack_pack_map(&pk, 2);
 
+    /* Order is important here as this is documented  and clients might depend
+     * on getting the error_code first, and error_msg second.
+     */
     mp_pack_str(&pk, "error_code");
     msgpack_pack_int8(&pk, e->nr);
 

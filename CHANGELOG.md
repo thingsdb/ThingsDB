@@ -1,3 +1,9 @@
+# v1.1.1
+
+* Remove scope restriction from `time_zones_info()` function, issue #236.
+
+
+
 # v1.1.0
 
 * Replace `timers` with `tasks`, pr #230.

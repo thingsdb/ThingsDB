@@ -1,7 +1,9 @@
 # v1.1.1
 
 * Remove scope restriction from `time_zones_info()` function, issue #236.
-
+* Function `deep(..)` can now be used to *set* the *deep* value, issue #237.
+* Remove the deprecated hash (`#..`) syntax, issue #232.
+* Added `all` action to the `mod_type(..)` function, issue #235.
 
 
 # v1.1.0

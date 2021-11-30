@@ -720,25 +720,6 @@ int ti_do_operations(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static inline int do__thing_by_id(
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e)
-{
-    /*
-     * Set node -> data to the actual thing when this is a normal query but
-     * when used in a stored procedure, the `int` value is stored instead;
-     * This syntax is probably not used frequently so do not worry a lot about
-     * performance here; (and this is already pretty fast anyway...)
-     */
-    log_warning(
-            "The `#..` syntax is deprecated and will be removed in a "
-            "future release; use function `thing(..)` instead");
-    intptr_t thing_id = (intptr_t) nd->data;
-    query->rval = (ti_val_t *) ti_query_thing_from_id(query, thing_id, e);
-    return e->nr;
-}
-
 static int do__read_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     if (!nd->data)
@@ -1470,13 +1451,6 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         /* nothing is possible after a chain */
         goto preopr;
-    case CLERI_GID_THING_BY_ID:
-        /*
-         * Get a thing by ID using the hash (#) syntax, for example: #123;
-         */
-        if (do__thing_by_id(query, nd, e))
-            return e->nr;
-        break;
     case CLERI_GID_T_CLOSURE:
         if (do__read_closure(query, nd, e))
             return e->nr;

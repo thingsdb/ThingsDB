@@ -1508,8 +1508,8 @@ class TestAdvanced(TestBase):
     async def test_thing_id_closure(self, client):
         res = await client.query(r'''
             .x = || {
-                #9999999999999999999999999999999999999999999;
-                #3;
+                thing(9999999999999999999999999999999999999999999);
+                thing(3);
             };
             assert (is_closure(.x) );
         ''')

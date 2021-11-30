@@ -1100,12 +1100,6 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
     case CLERI_GID_CHAIN:
         qbind__chain(qbind, nd);        /* chain */
         return;
-    case CLERI_GID_THING_BY_ID:
-    {
-        intptr_t thing_id = strtoll(nd->str + 1, NULL, 10);
-        nd->data = (void *) thing_id;
-        return;
-    }
     case CLERI_GID_T_CLOSURE:
         /* investigate the statement, the rest can be skipped */
         qbind__statement(

@@ -98,6 +98,7 @@ ti_thing_t * ti_thing_o_create(
     thing->id = id;
     thing->collection = collection;
     thing->items.vec = vec_new(init_sz);
+    thing->via.spec = TI_SPEC_ANY;
 
     if (!thing->items.vec)
     {

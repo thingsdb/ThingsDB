@@ -356,7 +356,7 @@ const char * ti__spec_approx_type_str(uint16_t spec)
     case TI_SPEC_REGEX:         return "regex";
     case TI_SPEC_CLOSURE:       return "closure";
     case TI_SPEC_ERROR:         return "error";
-    case TI_SPEC_ROOM:         return "room";
+    case TI_SPEC_ROOM:          return "room";
     }
     return spec < TI_SPEC_ANY ? "thing" : "enum";
 }

@@ -3507,7 +3507,7 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('thing();'), {})
         stuff, t = await client.query(f'return([thing(.id()), #{id}], 2);')
         self.assertEqual(stuff['t'], t)
-        self.assertTrue(await client.query(f'( #{id} == thing(#{id}) );'))
+        self.assertTrue(await client.query(f'( thing({id}) == thing({id}) );'))
 
     async def test_try(self, client):
         with self.assertRaisesRegex(

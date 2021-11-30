@@ -71,6 +71,7 @@
 #define DOC_MOD_ENUM_REN            DOC_SEE("collection-api/mod_enum/ren")
 #define DOC_MOD_TYPE                DOC_SEE("collection-api/mod_type")
 #define DOC_MOD_TYPE_ADD            DOC_SEE("collection-api/mod_type/add")
+#define DOC_MOD_TYPE_ALL            DOC_SEE("collection-api/mod_type/all")
 #define DOC_MOD_TYPE_DEL            DOC_SEE("collection-api/mod_type/del")
 #define DOC_MOD_TYPE_MOD            DOC_SEE("collection-api/mod_type/mod")
 #define DOC_MOD_TYPE_REL            DOC_SEE("collection-api/mod_type/rel")

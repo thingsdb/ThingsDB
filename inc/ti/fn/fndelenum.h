@@ -50,6 +50,8 @@ static int do__f_del_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
+    // TODO: walk variable and remove restrictions like in del_type
+
     /* this will remove the `enum` so it cannot be used after here */
     ti_enums_del(query->collection->enums, enum_);
     ti_enum_destroy(enum_);

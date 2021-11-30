@@ -21,6 +21,7 @@
 
 ti_thing_t * ti_things_create_thing_o(
         uint64_t id,
+        uint16_t spec,
         size_t init_sz,
         ti_collection_t * collection)
 {
@@ -31,6 +32,7 @@ ti_thing_t * ti_things_create_thing_o(
         ti_val_drop((ti_val_t *) thing);
         return NULL;
     }
+    thing->via.spec = spec;
     return thing;
 }
 

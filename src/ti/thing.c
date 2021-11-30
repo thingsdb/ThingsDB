@@ -122,6 +122,7 @@ ti_thing_t * ti_thing_i_create(uint64_t id, ti_collection_t * collection)
     thing->id = id;
     thing->collection = collection;
     thing->items.smap = smap_create();
+    thing->via.spec = TI_SPEC_ANY;
 
     if (!thing->items.smap)
     {
@@ -314,7 +315,7 @@ typedef struct
     vec_t * vec;
 } thing__to_stric_t;
 
-static int thing__to_strict_cb(ti_item_t * item, thing__to_stric_t * w)
+static int thing__i_to_o_cb(ti_item_t * item, thing__to_stric_t * w)
 {
     if (ti_raw_is_name(item->key))
     {
@@ -325,7 +326,7 @@ static int thing__to_strict_cb(ti_item_t * item, thing__to_stric_t * w)
     return -1;
 }
 
-int ti_thing_to_strict(ti_thing_t * thing, ti_raw_t ** incompatible)
+int ti_thing_i_to_o(ti_thing_t * thing, ti_raw_t ** incompatible)
 {
     vec_t * vec = vec_new(ti_thing_n(thing));
     if (!vec)
@@ -339,7 +340,7 @@ int ti_thing_to_strict(ti_thing_t * thing, ti_raw_t ** incompatible)
     };
     if (smap_values(
             thing->items.smap,
-            (smap_val_cb) thing__to_strict_cb,
+            (smap_val_cb) thing__i_to_o_cb,
             &w))
     {
         free(vec);
@@ -1229,6 +1230,8 @@ static int thing__dup_p(ti_thing_t ** taddr, uint8_t deep)
     if (!other)
         return -1;
 
+    other->via.spec = thing->via.spec;
+
     for (vec_each(thing->items.vec, ti_prop_t, prop))
     {
         ti_prop_t * p = ti_prop_dup(prop);
@@ -1329,6 +1332,8 @@ static int thing__dup_i(ti_thing_t ** taddr, uint8_t deep)
 
     if (!other)
         return -1;
+
+    other->via.spec = thing->via.spec;
 
     if (smap_values(thing->items.smap, (smap_val_cb) thing__dup_cb, &w))
         goto fail;
@@ -1626,7 +1631,7 @@ int ti_thing_assign(
             if (ti_thing_is_dict(tsrc))
             {
                 ti_raw_t * incompatible;
-                if (ti_thing_to_strict(tsrc, &incompatible))
+                if (ti_thing_i_to_o(tsrc, &incompatible))
                 {
                     if (incompatible)
                         ex_set(e, EX_LOOKUP_ERROR,

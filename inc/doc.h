@@ -271,6 +271,7 @@
 #define DOC_THING_KEYS              DOC_SEE("data-types/thing/keys")
 #define DOC_THING_LEN               DOC_SEE("data-types/thing/len")
 #define DOC_THING_MAP               DOC_SEE("data-types/thing/map")
+#define DOC_THING_RESTRICT          DOC_SEE("data-types/thing/restrict")
 #define DOC_THING_SET               DOC_SEE("data-types/thing/set")
 #define DOC_THING_TO_TYPE           DOC_SEE("data-types/thing/to_type")
 #define DOC_THING_VALUES            DOC_SEE("data-types/thing/values")

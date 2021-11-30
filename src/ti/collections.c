@@ -182,7 +182,11 @@ ti_collection_t * ti_collections_create_collection(
         goto fail0;
     }
 
-    collection->root = ti_things_create_thing_o(root_id, 8, collection);
+    collection->root = ti_things_create_thing_o(
+            root_id,
+            TI_SPEC_ANY,
+            8,
+            collection);
 
     if (!collection->root || ti_access_grant(
             &collection->access,

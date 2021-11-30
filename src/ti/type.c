@@ -114,6 +114,9 @@ static int type__conv(ti_thing_t * thing, uint16_t * type_id)
 {
     if (thing->type_id == *type_id)
         ti_thing_t_to_object(thing);
+    else if (ti_thing_is_object(thing) &&
+            (thing->via.spec & TI_SPEC_MASK_NILLABLE) == *type_id)
+        thing->via.spec = TI_SPEC_ANY;
     return 0;
 }
 

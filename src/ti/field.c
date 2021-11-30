@@ -177,6 +177,17 @@ static ti_val_t * field__dval_thing(ti_field_t * field)
             field->type->types->collection);
 }
 
+static ti_val_t * field__dval_restricted(ti_field_t * field)
+{
+     ti_thing_t * thing = ti_thing_o_create(
+            0,      /* id */
+            0,      /* initial size */
+            field->type->types->collection);
+     if (thing)
+         thing->via.spec = field->nested_spec;
+     return (ti_val_t *) thing;
+}
+
 static ti_val_t * field__dval_str(ti_field_t * UNUSED(field))
 {
     return ti_val_empty_str();
@@ -264,11 +275,158 @@ static inline void field__set_cb(ti_field_t * field, ti_field_dval_cb cb)
         field->dval_cb = cb;
 }
 
+/*
+ * The following `enum` and `asso_values` are generated using `gperf` and
+ * the utility `pcregrep` to generate the input.
+ *
+ * Command:
+ *
+ *    pcregrep -o1 '\.name\=\"(\w+)' field.c | gperf -E -k '*,1,$' -m 200
+ */
+enum
+{
+    TOTAL_KEYWORDS = 19,
+    MIN_WORD_LENGTH = 3,
+    MAX_WORD_LENGTH = 8,
+    MIN_HASH_VALUE = 3,
+    MAX_HASH_VALUE = 22
+};
+
+static inline unsigned int field__hash(
+        register const char * s,
+        register size_t n)
+{
+    static unsigned short asso_values[] =
+    {
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 16, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23,  5,  0,  0,
+         1,  2,  0,  3,  7,  0, 23, 23,  7,  1,
+         1,  1,  9, 23,  0,  0,  0,  0,  0,  4,
+         3,  2, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23
+    };
+
+    register unsigned int hval = n;
+
+    switch (hval)
+    {
+        default:
+            hval += asso_values[(unsigned char)s[7]];
+            /*fall through*/
+        case 7:
+            hval += asso_values[(unsigned char)s[6]];
+            /*fall through*/
+        case 6:
+            hval += asso_values[(unsigned char)s[5]];
+            /*fall through*/
+        case 5:
+            hval += asso_values[(unsigned char)s[4]];
+            /*fall through*/
+        case 4:
+            hval += asso_values[(unsigned char)s[3]];
+            /*fall through*/
+        case 3:
+            hval += asso_values[(unsigned char)s[2]];
+            /*fall through*/
+        case 2:
+            hval += asso_values[(unsigned char)s[1]];
+            /*fall through*/
+        case 1:
+            hval += asso_values[(unsigned char)s[0]];
+            break;
+    }
+    return hval;
+}
+
+ti_field_map_t field__mapping[TOTAL_KEYWORDS] = {
+    {.name="any",       .spec=TI_SPEC_ANY,      .dval_cb=field__dval_nil},
+    {.name="thing",     .spec=TI_SPEC_OBJECT,   .dval_cb=field__dval_thing},
+    {.name="raw",       .spec=TI_SPEC_RAW,      .dval_cb=field__dval_str},
+    {.name="str",       .spec=TI_SPEC_STR,      .dval_cb=field__dval_str},
+    {.name="utf8",      .spec=TI_SPEC_UTF8,     .dval_cb=field__dval_str},
+    {.name="bytes",     .spec=TI_SPEC_BYTES,    .dval_cb=field__dval_bin},
+    {.name="int",       .spec=TI_SPEC_INT,      .dval_cb=field__dval_int},
+    {.name="uint",      .spec=TI_SPEC_UINT,     .dval_cb=field__dval_int},
+    {.name="pint",      .spec=TI_SPEC_PINT,     .dval_cb=field__dval_pint},
+    {.name="nint",      .spec=TI_SPEC_NINT,     .dval_cb=field__dval_nint},
+    {.name="float",     .spec=TI_SPEC_FLOAT,    .dval_cb=field__dval_float},
+    {.name="number",    .spec=TI_SPEC_NUMBER,   .dval_cb=field__dval_int},
+    {.name="bool",      .spec=TI_SPEC_BOOL,     .dval_cb=field__dval_bool},
+    {.name="[]",        .spec=TI_SPEC_ARR,      .dval_cb=field__dval_arr},
+    {.name="{}",        .spec=TI_SPEC_SET,      .dval_cb=field__dval_set},
+    {.name="datetime",  .spec=TI_SPEC_DATETIME, .dval_cb=field__dval_datetime},
+    {.name="timeval",   .spec=TI_SPEC_TIMEVAL,  .dval_cb=field__dval_timeval},
+    {.name="regex",     .spec=TI_SPEC_REGEX,    .dval_cb=field__dval_regex},
+    {.name="closure",   .spec=TI_SPEC_CLOSURE,  .dval_cb=field__dval_closure},
+    {.name="error",     .spec=TI_SPEC_ERROR,    .dval_cb=field__dval_error},
+    {.name="room",      .spec=TI_SPEC_ROOM,     .dval_cb=field__dval_room},
+};
+
+static ti_field_map_t * field__map[MAX_HASH_VALUE+1];
+
+/*
+ * Initializes ThingsDB function mapping.
+ *
+ * Note: must be called exactly once when starting ThingsDB.
+ */
+void ti_field_init(void)
+{
+    for (size_t i = 0, n = TOTAL_KEYWORDS; i < n; ++i)
+    {
+        uint32_t key;
+        ti_field_map_t * fmap = &field__mapping[i];
+
+        fmap->n = strlen(fmap->name);
+        key = field__hash(fmap->name, fmap->n);
+
+        assert (field__map[key] == NULL);
+        assert (key <= MAX_HASH_VALUE);
+
+        field__map[key] = fmap;
+    }
+}
+
+ti_field_map_t * ti_field_map_by_strn(const char * s, size_t n)
+{
+    register uint32_t key = field__hash(s, n);
+    ti_field_map_t * fmap = key <= MAX_HASH_VALUE
+            ? field__map[key] : NULL;
+    return fmap && memcmp(s, fmap->name, n) == 0 ? fmap : NULL;
+}
+
+ti_field_map_t * ti_field_map_by_spec(const uint16_t spec)
+{
+    if (spec < TI_SPEC_ANY || spec >= TI_SPEC_ANY + TOTAL_KEYWORDS)
+        return NULL;
+    return field__mapping[spec-TI_SPEC_ANY];
+}
+
 static int field__init(ti_field_t * field, ex_t * e)
 {
     const char * str = (const char *) field->spec_raw->data;
     size_t n = field->spec_raw->n;
     uint16_t * spec = &field->spec;
+    ti_field_map_t * fmap;
 
     field->spec = 0;
     field->nested_spec = 0;
@@ -306,6 +464,14 @@ static int field__init(ti_field_t * field, ex_t * e)
         field->spec |= TI_SPEC_SET;
         field__set_cb(field, field__dval_set);
     }
+    else if (n >= 7 && memcmp(str, "thing<", 6) == 0)
+    {
+        if (str[n-1] != '>')
+            goto invalid;
+        field->spec |= TI_SPEC_OBJECT;
+        field__set_cb(field, field__dval_restricted);
+        str += 5;
+    }
     else
     {
         field->nested_spec = TI_SPEC_ANY;  /* must default to any */
@@ -317,7 +483,7 @@ static int field__init(ti_field_t * field, ex_t * e)
     if (!(n -= 2))
     {
         field->nested_spec = TI_SPEC_ANY;  /* must default to any */
-        return 0;  /* dval_cb is set to nil,  array or set */
+        return 0;  /* dval_cb is set to nil, array, set or restricted */
     }
 
     spec = &field->nested_spec;
@@ -352,171 +518,37 @@ skip_nesting:
 
     assert (n);
 
-    if (*str == '[')
+    switch (*str)
     {
+    case '[':
         ex_set(e, EX_VALUE_ERROR,
             "invalid declaration for `%s` on type `%s`; "
             "unexpected `[`; nested array declarations are not allowed"
             DOC_T_TYPE, field->name->str, field->type->name);
         return e->nr;
-    }
-
-    if (*str == '{')
-    {
+    case '{':
         ex_set(e, EX_VALUE_ERROR,
             "invalid declaration for `%s` on type `%s`; "
             "unexpected `{`; nested set declarations are not allowed"
             DOC_T_TYPE, field->name->str, field->type->name);
         return e->nr;
-    }
-
-    if (*str != '/' && str[n-1] == '>')
-        return ti_condition_field_range_init(field, str, n, e);
-
-    switch(*str)
-    {
     case '/':
         return ti_condition_field_re_init(field, str, n, e);
-    case 'a':
-        if (field__cmp(str, n, "any"))
-        {
-            *spec = TI_SPEC_ANY;  /* overwrite */
-            field__set_cb(field, field__dval_nil);
-            goto found;
-        }
-        break;
-    case 'b':
-        if (field__cmp(str, n, "bool"))
-        {
-            *spec |= TI_SPEC_BOOL;
-            field__set_cb(field, field__dval_bool);
-            goto found;
-        }
-        if (field__cmp(str, n, "bytes"))
-        {
-            *spec |= TI_SPEC_BYTES;
-            field__set_cb(field, field__dval_bin);
-            goto found;
-        }
-        break;
-    case 'c':
-        if (field__cmp(str, n, "closure"))
-        {
-            *spec |= TI_SPEC_CLOSURE;
-            field__set_cb(field, field__dval_closure);
-            goto found;
-        }
-        break;
-    case 'd':
-        if (field__cmp(str, n, "datetime"))
-        {
-            *spec |= TI_SPEC_DATETIME;
-            field__set_cb(field, field__dval_datetime);
-            goto found;
-        }
-        break;
-    case 'e':
-        if (field__cmp(str, n, "error"))
-        {
-            *spec |= TI_SPEC_ERROR;
-            field__set_cb(field, field__dval_error);
-            goto found;
-        }
-        break;
-    case 'f':
-        if (field__cmp(str, n, "float"))
-        {
-            *spec |= TI_SPEC_FLOAT;
-            field__set_cb(field, field__dval_float);
-            goto found;
-        }
-        break;
-    case 'i':
-        if (field__cmp(str, n, "int"))
-        {
-            *spec |= TI_SPEC_INT;
-            field__set_cb(field, field__dval_int);
-            goto found;
-        }
-        break;
-    case 'n':
-        if (field__cmp(str, n, "nint"))
-        {
-            *spec |= TI_SPEC_NINT;
-            field__set_cb(field, field__dval_nint);
-            goto found;
-        }
-        if (field__cmp(str, n, "number"))
-        {
-            *spec |= TI_SPEC_NUMBER;
-            field__set_cb(field, field__dval_int);
-            goto found;
-        }
-        break;
-    case 'p':
-        if (field__cmp(str, n, "pint"))
-        {
-            *spec |= TI_SPEC_PINT;
-            field__set_cb(field, field__dval_pint);
-            goto found;
-        }
-        break;
-    case 'r':
-        if (field__cmp(str, n, "raw"))
-        {
-            *spec |= TI_SPEC_RAW;
-            field__set_cb(field, field__dval_str);
-            goto found;
-        }
-        if (field__cmp(str, n, "regex"))
-        {
-            *spec |= TI_SPEC_REGEX;
-            field__set_cb(field, field__dval_regex);
-            goto found;
-        }
-        if (field__cmp(str, n, "room"))
-        {
-            *spec |= TI_SPEC_ROOM;
-            field__set_cb(field, field__dval_room);
-            goto found;
-        }
-        break;
-    case 's':
-        if (field__cmp(str, n, "str"))
-        {
-            *spec |= TI_SPEC_STR;
-            field__set_cb(field, field__dval_str);
-            goto found;
-        }
-        break;
-    case 't':
-        if (field__cmp(str, n, "thing"))
-        {
-            *spec |= TI_SPEC_OBJECT;
-            field__set_cb(field, field__dval_thing);
-            goto found;
-        }
-        if (field__cmp(str, n, "timeval"))
-        {
-            *spec |= TI_SPEC_TIMEVAL;
-            field__set_cb(field, field__dval_timeval);
-            goto found;
-        }
-        break;
-    case 'u':
-        if (field__cmp(str, n, "utf8"))
-        {
-            *spec |= TI_SPEC_UTF8;
-            field__set_cb(field, field__dval_str);
-            goto found;
-        }
-        if (field__cmp(str, n, "uint"))
-        {
-            *spec |= TI_SPEC_UINT;
-            field__set_cb(field, field__dval_int);
-            goto found;
-        }
-        break;
+    }
+
+    if (str[n-1] == '>')
+        return ti_condition_field_range_init(field, str, n, e);
+
+    fmap = ti_field_map_by_strn(str, n);
+    if (fmap)
+    {
+        if (fmap->spec == TI_SPEC_ANY)
+            *spec = TI_SPEC_ANY;  /* overwrite any */
+        else
+            *spec |= fmap->spec;  /* append all the rest */
+
+        field__set_cb(field, fmap->dval_cb);
+        goto found;
     }
 
     if (field__cmp(str, n, field->type->name))
@@ -639,7 +671,7 @@ found:
                 "type `"TI_VAL_SET_S"` cannot contain type `%s`"
                 DOC_T_TYPE,
                 field->name->str, field->type->name,
-                ti__spec_approx_type_str(field->nested_spec));
+                ti_spec_approx_type_str(field->nested_spec));
         else if (field->nested_spec == TI_SPEC_OBJECT)
             field->nested_spec = TI_SPEC_ANY;
     }
@@ -835,7 +867,7 @@ int ti_field_mod(
     if (ti_type_is_wrap_only(field->type))
         goto done;
 
-    switch (ti__spec_check_mod(
+    switch (ti_spec_check_mod(
             prev_spec,
             field->spec,
             prev_condition,
@@ -845,7 +877,7 @@ int ti_field_mod(
     case TI_SPEC_MOD_ERR:               goto incompatible;
     case TI_SPEC_MOD_NILLABLE_ERR:      goto nillable;
     case TI_SPEC_MOD_NESTED:
-        switch (ti__spec_check_mod(
+        switch (ti_spec_check_mod(
                 prev_nested_spec,
                 field->nested_spec,
                 prev_condition,

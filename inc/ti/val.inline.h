@@ -675,6 +675,12 @@ static inline ti_val_t * ti_val_borrow_beautify_name(void)
     return val__beautify_name;
 }
 
+static inline ti_val_t * ti_val_any_str(void)
+{
+    ti_incref(val__sany);
+    return val__sany;
+}
+
 static inline ti_val_t * ti_val_nil_str(void)
 {
     ti_incref(val__snil);

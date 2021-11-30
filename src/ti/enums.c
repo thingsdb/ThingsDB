@@ -84,6 +84,7 @@ int ti_enums_rename(ti_enums_t * enums, ti_enum_t * enum_, ti_raw_t * nname)
 
 void ti_enums_del(ti_enums_t * enums, ti_enum_t * enum_)
 {
+    // TODO: remove restriction (like in ti_type_del())
     (void) imap_pop(enums->imap, enum_->enum_id);
     (void) smap_pop(enums->smap, enum_->name);
 }

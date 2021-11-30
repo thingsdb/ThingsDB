@@ -48,7 +48,6 @@ static ti_val_t * val__empty_bin;
 static ti_val_t * val__empty_str;
 static ti_val_t * val__default_re;
 static ti_val_t * val__default_closure;
-static ti_val_t * val__sany;
 static ti_val_t * val__sbool;
 static ti_val_t * val__sbytes;
 static ti_val_t * val__sclosure;
@@ -86,6 +85,7 @@ ti_val_t * val__load_name;
 ti_val_t * val__beautify_name;
 
 /* string */
+ti_val_t * val__sany;
 ti_val_t * val__snil;
 ti_val_t * val__strue;
 ti_val_t * val__sfalse;

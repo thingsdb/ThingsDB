@@ -182,7 +182,7 @@ int ti_store_things_restore(ti_collection_t * collection, const char * fn)
         mp_next(&up, &obj) != MP_MAP
     ) goto fail;
 
-    is_v0 = mp_str_eq(mp_ver, things_v0);
+    is_v0 = mp_str_eq(&mp_ver, things_v0);
 
     for (i = obj.via.sz; i--;)
     {

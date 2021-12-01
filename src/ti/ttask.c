@@ -1513,6 +1513,7 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_VTASK_SET_ARGS:    return ttask__vtask_set_args(up);
     case TI_TASK_VTASK_SET_OWNER:   return ttask__vtask_set_owner(up);
     case TI_TASK_VTASK_SET_CLOSURE: return ttask__vtask_set_closure(up);
+    case TI_TASK_RESTRICT:          break;
     }
 
     log_critical("unknown thingsdb task: %"PRIu64, mp_task.via.u64);

@@ -17,6 +17,7 @@
 #include <ti/prop.h>
 #include <ti/proto.h>
 #include <ti/raw.inline.h>
+#include <ti/spec.inline.h>
 #include <ti/task.h>
 #include <ti/thing.h>
 #include <ti/thing.inline.h>
@@ -646,6 +647,51 @@ int ti_thing_i_set_val_from_strn(
     return 0;
 }
 
+int ti_thing_o_set_val_from_strn(
+        ti_witem_t * witem,
+        ti_thing_t * thing,
+        const char * str,
+        size_t n,
+        ti_val_t ** val,
+        ex_t * e)
+{
+    if (ti_name_is_valid_strn(str, n))
+        /* Create a name when the key is a valid name, this is required since
+         * some logic, for example in `do.c` checks if a name exists, and from
+         * that result might decide a property exists or not.
+         */
+        return ti_thing_o_set_val_from_valid_strn(
+                (ti_wprop_t *) witem,
+                thing, str, n, val, e);
+
+    if (!ti_val_is_spec(*val, thing->via.spec))
+    {
+        ex_set(e, EX_TYPE_ERROR, "restriction mismatch");
+        return e->nr;
+    }
+
+    if (!strx_is_utf8n(str, n))
+    {
+        ex_set(e, EX_VALUE_ERROR, "properties must have valid UTF-8 encoding");
+        return e->nr;
+    }
+
+    if (ti_is_reserved_key_strn(str, n))
+    {
+        ex_set(e, EX_VALUE_ERROR, "property `%c` is reserved"DOC_PROPERTIES,
+                *str);
+        return e->nr;
+    }
+
+    if (!ti_thing_is_dict(thing) && ti_thing_to_dict(thing))
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    return ti_thing_i_set_val_from_strn(witem, thing, str, n, val, e);
+}
+
 /*
  * Return 0 if successful; This function makes a given `value` assignable so
  * it should not be used within a task.
@@ -658,7 +704,15 @@ int ti_thing_o_set_val_from_valid_strn(
         ti_val_t ** val,
         ex_t * e)
 {
-    ti_name_t * name = ti_names_get(str, n);
+    ti_name_t * name;
+
+    if (!ti_val_is_spec(*val, thing->via.spec))
+    {
+        ex_set(e, EX_TYPE_ERROR, "restriction mismatch");
+        return e->nr;
+    }
+
+    name = ti_names_get(str, n);
     if (!name)
     {
         ex_set_mem(e);

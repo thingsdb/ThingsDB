@@ -6,11 +6,14 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <ti/enum.h>
+#include <ti/enums.inline.h>
+#include <ti/field.h>
 #include <ti/member.inline.h>
 #include <ti/prop.h>
 #include <ti/spec.h>
 #include <ti/spec.inline.h>
 #include <ti/type.h>
+#include <ti/types.inline.h>
 #include <ti/val.inline.h>
 #include <ti/vint.h>
 #include <util/strx.h>
@@ -310,10 +313,9 @@ ti_raw_t * ti_spec_raw_from_spec(uint16_t spec, ti_collection_t * collection)
     typestr = fmap
          ? fmap->name
          : spec >= TI_ENUM_ID_FLAG
-         ? ti_enums_by_id(collection->enums, spec)->name
-         : ti_types_by_id(collection->enums, spec)->name;
+         ? ti_enums_by_id(collection->enums, spec & TI_ENUM_ID_MASK)->name
+         : ti_types_by_id(collection->types, spec)->name;
 
-done:
     return ti_str_from_fmt("%s%s", typestr, nillable);
 }
 

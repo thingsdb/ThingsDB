@@ -77,7 +77,12 @@ ti_thing_t * ti_things_thing_o_from_vup(
 
     --sz;  /* decrease one to unpack the remaining properties */
 
-    thing = ti_things_create_thing_o(thing_id, sz, vup->collection);
+    /* new things are always unrestricted */
+    thing = ti_things_create_thing_o(
+            thing_id,
+            TI_SPEC_ANY,
+            sz,
+            vup->collection);
     if (!thing)
     {
         ex_set_mem(e);

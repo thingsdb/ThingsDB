@@ -33,7 +33,13 @@ static int do__f_to_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_arg_str("to_type", DOC_THING_TO_TYPE, 1, query->rval, e))
         goto fail0;
 
-    /* TODO: check restriction when implemented */
+    if (ti_thing_o_is_restricted(thing))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "conversion failed; "
+                "the thing you try to convert has a value restriction");
+        goto fail0;
+    }
 
     rname = (ti_raw_t *) query->rval;
     query->rval = (ti_val_t *) ti_nil_get();

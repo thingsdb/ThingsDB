@@ -16,6 +16,7 @@
 #include <ti/regex.h>
 #include <ti/room.h>
 #include <ti/room.inline.h>
+#include <ti/str.h>
 #include <ti/template.h>
 #include <ti/thing.h>
 #include <ti/thing.inline.h>
@@ -28,6 +29,7 @@
 #include <ti/vtask.h>
 #include <ti/wrap.h>
 #include <ti/wrap.inline.h>
+#include <util/strx.h>
 
 static inline int val__str_to_str(ti_val_t ** UNUSED(v), ex_t * UNUSED(e));
 static inline int val__no_to_str(ti_val_t ** val, ex_t * e);
@@ -464,6 +466,21 @@ static inline _Bool ti_val_is_int(ti_val_t * val)
     return val->tp == TI_VAL_INT;
 }
 
+static inline _Bool ti_val_is_uint(ti_val_t * val)
+{
+    return val->tp == TI_VAL_INT && VINT(val) >= 0;
+}
+
+static inline _Bool ti_val_is_pint(ti_val_t * val)
+{
+    return val->tp == TI_VAL_INT && VINT(val) > 0;
+}
+
+static inline _Bool ti_val_is_nint(ti_val_t * val)
+{
+    return val->tp == TI_VAL_INT && VINT(val) < 0;
+}
+
 static inline _Bool ti_val_is_nil(ti_val_t * val)
 {
     return val->tp == TI_VAL_NIL;
@@ -472,6 +489,20 @@ static inline _Bool ti_val_is_nil(ti_val_t * val)
 static inline _Bool ti_val_is_str(ti_val_t * val)
 {
     return val->tp == TI_VAL_STR || val->tp == TI_VAL_NAME;
+}
+
+static inline _Bool ti_val_is_utf8(ti_val_t * val)
+{
+    return (val->tp == TI_VAL_STR || val->tp == TI_VAL_NAME) && strx_is_utf8n(
+        ((ti_str_t *) val)->str,
+        ((ti_str_t *) val)->n);
+}
+
+static inline _Bool ti_val_is_str_nil(ti_val_t * val)
+{
+    return val->tp == TI_VAL_STR ||
+           val->tp == TI_VAL_NAME ||
+           val->tp == TI_VAL_NIL;
 }
 
 static inline _Bool ti_val_is_str_regex(ti_val_t * val)
@@ -938,6 +969,61 @@ static inline int val__varr_to_pk(ti_varr_t * varr, ti_vp_t * vp, int options)
         if (ti_val_to_pk(v, vp, options))
             return -1;
     return 0;
+}
+
+
+typedef _Bool (*ti_val_spec_cb) (ti_val_t *);
+
+typedef struct
+{
+    ti_val_spec_cb is_spec;
+} ti_val_spec_t;
+
+
+static inline _Bool val__spec_enum_eq_to_val(uint16_t spec, ti_val_t * val)
+{
+    return (
+        ti_val_is_member(val) &&
+        ti_member_enum_id((ti_member_t *) val) == (spec & TI_ENUM_ID_MASK)
+    );
+}
+
+static ti_val_spec_t ti_val_spec_map[20] = {
+        {.is_spec=ti_val_is_thing},
+        {.is_spec=ti_val_is_raw},
+        {.is_spec=ti_val_is_str},
+        {.is_spec=ti_val_is_utf8},
+        {.is_spec=ti_val_is_bytes},
+        {.is_spec=ti_val_is_int},
+        {.is_spec=ti_val_is_uint},
+        {.is_spec=ti_val_is_pint},
+        {.is_spec=ti_val_is_nint},
+        {.is_spec=ti_val_is_float},
+        {.is_spec=ti_val_is_number},
+        {.is_spec=ti_val_is_bool},
+        {.is_spec=ti_val_is_array},
+        {.is_spec=ti_val_is_set},
+        {.is_spec=ti_val_is_datetime_strict},
+        {.is_spec=ti_val_is_timeval},
+        {.is_spec=ti_val_is_regex},
+        {.is_spec=ti_val_is_closure},
+        {.is_spec=ti_val_is_error},
+        {.is_spec=ti_val_is_room},
+};
+
+static inline _Bool ti_val_is_spec(ti_val_t * val, uint16_t spec)
+{
+    if (spec == TI_SPEC_ANY ||
+        ((spec & TI_SPEC_NILLABLE) && ti_val_is_nil(val)))
+        return true;
+
+    if (spec > TI_SPEC_ANY)
+        return ti_val_spec_map[spec-TI_SPEC_OBJECT].is_spec(val);
+
+    if (spec >= TI_ENUM_ID_FLAG)
+        return val__spec_enum_eq_to_val(spec, val);
+
+    return ti_val_is_thing(val) && ((ti_thing_t *) val)->type_id == spec;
 }
 
 #endif  /* TI_VAL_INLINE_H_ */

@@ -33,44 +33,7 @@ static inline ti_raw_t * ti_thing_type_strv(ti_thing_t * thing)
     ti_incref(r);
     return r;
 }
-static inline int ti_thing_o_set_val_from_strn(
-        ti_witem_t * witem,
-        ti_thing_t * thing,
-        const char * str,
-        size_t n,
-        ti_val_t ** val,
-        ex_t * e)
-{
-    if (ti_name_is_valid_strn(str, n))
-        /* Create a name when the key is a valid name, this is required since
-         * some logic, for example in `do.c` checks if a name exists, and from
-         * that result might decide a property exists or not.
-         */
-        return ti_thing_o_set_val_from_valid_strn(
-                (ti_wprop_t *) witem,
-                thing, str, n, val, e);
 
-    if (!strx_is_utf8n(str, n))
-    {
-        ex_set(e, EX_VALUE_ERROR, "properties must have valid UTF-8 encoding");
-        return e->nr;
-    }
-
-    if (ti_is_reserved_key_strn(str, n))
-    {
-        ex_set(e, EX_VALUE_ERROR, "property `%c` is reserved"DOC_PROPERTIES,
-                *str);
-        return e->nr;
-    }
-
-    if (!ti_thing_is_dict(thing) && ti_thing_to_dict(thing))
-    {
-        ex_set_mem(e);
-        return e->nr;
-    }
-
-    return ti_thing_i_set_val_from_strn(witem, thing, str, n, val, e);
-}
 static inline int ti_thing_set_val_from_strn(
         ti_witem_t * witem,
         ti_thing_t * thing,

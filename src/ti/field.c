@@ -281,14 +281,14 @@ static inline void field__set_cb(ti_field_t * field, ti_field_dval_cb cb)
  *
  * Command:
  *
- *    pcregrep -o1 '\.name\=\"(\w+)' field.c | gperf -E -k '*,1,$' -m 200
+ *    pcregrep -o1 '\.name\=\"([\w\{\}\[\]]+)' field.c | gperf -E -k '*,1,$' -m 200
  */
 enum
 {
-    TOTAL_KEYWORDS = 19,
-    MIN_WORD_LENGTH = 3,
+    TOTAL_KEYWORDS = 21,
+    MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 8,
-    MIN_HASH_VALUE = 3,
+    MIN_HASH_VALUE = 2,
     MAX_HASH_VALUE = 22
 };
 
@@ -303,14 +303,14 @@ static inline unsigned int field__hash(
         23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
         23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
         23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 16, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 17, 23, 23, 23,
         23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
         23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
         23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 23,  5,  0,  0,
+        23,  9, 23,  9, 23, 23, 23,  5,  0,  0,
          1,  2,  0,  3,  7,  0, 23, 23,  7,  1,
          1,  1,  9, 23,  0,  0,  0,  0,  0,  4,
-         3,  2, 23, 23, 23, 23, 23, 23, 23, 23,
+         3,  2, 23,  0, 23,  0, 23, 23, 23, 23,
         23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
         23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
         23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
@@ -418,7 +418,7 @@ ti_field_map_t * ti_field_map_by_spec(const uint16_t spec)
 {
     if (spec < TI_SPEC_ANY || spec >= TI_SPEC_ANY + TOTAL_KEYWORDS)
         return NULL;
-    return field__mapping[spec-TI_SPEC_ANY];
+    return &field__mapping[spec-TI_SPEC_ANY];
 }
 
 static int field__init(ti_field_t * field, ex_t * e)
@@ -471,6 +471,7 @@ static int field__init(ti_field_t * field, ex_t * e)
         field->spec |= TI_SPEC_OBJECT;
         field__set_cb(field, field__dval_restricted);
         str += 5;
+        n -= 5;
     }
     else
     {
@@ -1239,6 +1240,101 @@ done:
     return ti_val_make_assignable((ti_val_t **) varr, parent, field, e);
 }
 
+static int field__restrict_cb(ti_prop_t * prop, ti_field_t * field)
+{
+    return ti_spec_check_nested_val(field->nested_spec, prop->val);
+}
+
+static int field__thing_assign(
+        ti_field_t * field,
+        ti_thing_t * thing,
+        ex_t * e)
+{
+    ti_spec_rval_enum rc = TI_SPEC_RVAL_SUCCESS;
+
+    if (ti_thing_is_instance(thing))
+    {
+        ex_set(e, EX_TYPE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` requires a non-typed thing but got type `%s`",
+            field->type->name,
+            field->name->str,
+            thing->via.type->name);
+        return e->nr;
+    }
+
+    if (thing->via.spec == field->nested_spec)
+        return 0;  /* already the appropriate restriction */
+
+    if (thing->via.spec != TI_SPEC_ANY)
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s` on property `%s`; "
+            "restriction mismatch",
+            field->type->name,
+            field->name->str);
+        return e->nr;
+    }
+
+    if (ti_thing_is_dict(thing))
+    {
+        rc = (ti_spec_rval_enum) smap_values(
+                thing->items.smap,
+                (smap_val_cb) field__restrict_cb,
+                field);
+    }
+    else for (vec_each(thing->items.vec, ti_prop_t, prop))
+        if ((rc = ti_spec_check_nested_val(field->nested_spec, prop->val)))
+            break;
+
+    switch (rc)
+    {
+    case TI_SPEC_RVAL_SUCCESS:
+        thing->via.spec = field->nested_spec;
+        return 0;
+    case TI_SPEC_RVAL_TYPE_ERROR:
+        ex_set(e, EX_TYPE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` requires a thing with values that matches "
+            "definition `%.*s`",
+            field->type->name,
+            field->name->str,
+            field->spec_raw->n, (const char *) field->spec_raw->data);
+        return e->nr;
+    case TI_SPEC_RVAL_UTF8_ERROR:
+        ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` requires a thing with UTF8 string values",
+            field->type->name,
+            field->name->str);
+        return e->nr;
+    case TI_SPEC_RVAL_UINT_ERROR:
+        ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` requires a thing with integer values "
+            "greater than or equal to 0",
+            field->type->name,
+            field->name->str);
+        return e->nr;
+    case TI_SPEC_RVAL_PINT_ERROR:
+        ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` requires a thing with positive integer values",
+            field->type->name,
+            field->name->str);
+        return e->nr;
+    case TI_SPEC_RVAL_NINT_ERROR:
+        ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` requires a thing with negative integer values",
+            field->type->name,
+            field->name->str);
+        return e->nr;
+    }
+    assert(0);
+    return 0;
+}
+
 static _Bool field__maps_arr_to_arr(ti_field_t * field, ti_varr_t * varr)
 {
     if (field->nested_spec == TI_SPEC_ANY ||
@@ -1248,6 +1344,35 @@ static _Bool field__maps_arr_to_arr(ti_field_t * field, ti_varr_t * varr)
 
     for (vec_each(varr->vec, ti_val_t, val))
         if (!ti_spec_maps_to_nested_val(field->nested_spec, val))
+            return false;
+
+    return true;
+}
+
+static int field__map_restrict_cb(ti_prop_t * prop, ti_field_t * field)
+{
+    return !ti_spec_maps_to_nested_val(field->nested_spec, prop->val);
+}
+
+static _Bool field__maps_restricted(ti_field_t * field, ti_thing_t * thing)
+{
+    if (field->nested_spec == TI_SPEC_ANY)
+        return true;
+
+    if (ti_thing_is_instance(thing))
+        return false;
+
+    if (thing->via.spec == field->nested_spec)
+        return true;
+
+    if (ti_thing_is_dict(thing))
+        return !smap_values(
+                thing->items.smap,
+                (smap_val_cb) field__map_restrict_cb,
+                field);
+
+    for (vec_each(thing->items.vec, ti_prop_t, prop))
+        if (!ti_spec_maps_to_nested_val(field->nested_spec, prop->val))
             return false;
 
     return true;
@@ -1359,7 +1484,9 @@ int ti_field_make_assignable(
         return 0;
     case TI_SPEC_OBJECT:
         if (ti_val_is_thing(*val))
-            return 0;
+            return field->nested_spec == TI_SPEC_ANY
+                    ? 0
+                    : field__thing_assign(field, (ti_thing_t *) val, e);
         goto type_error;
     case TI_SPEC_RAW:
         if (ti_val_is_raw(*val))
@@ -1633,7 +1760,8 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
     case TI_SPEC_ANY:
         return true;
     case TI_SPEC_OBJECT:
-        return ti_val_is_thing(val);
+        return (ti_val_is_thing(val) &&
+                field__maps_restricted(field, (ti_thing_t *) val));
     case TI_SPEC_RAW:
         return ti_val_is_raw(val);
     case TI_SPEC_STR:

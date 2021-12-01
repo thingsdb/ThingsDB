@@ -534,10 +534,6 @@ static int ctask__set_type(ti_thing_t * thing, mp_unp_t * up)
 
 /*
  * Returns 0 on success
- * - for example: {'type_id':.., 'thing_id':.. }
- *
- * Note: decided to `panic` in case of failures since it might mess up
- *       the database in case of failure.
  */
 static int ctask__to_type(ti_thing_t * thing, mp_unp_t * up)
 {
@@ -572,6 +568,28 @@ static int ctask__to_type(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
+    return 0;
+}
+
+/*
+ * Returns 0 on success
+ */
+static int ctask__restrict(ti_thing_t * thing, mp_unp_t * up)
+{
+    ti_collection_t * collection = thing->collection;
+    uint16_t spec;
+    mp_obj_t mp_spec;
+
+    if (mp_next(up, &mp_spec) != MP_U64)
+    {
+        log_critical(
+            "task `restrict` for "TI_COLLECTION_ID" is invalid",
+            collection->root->id);
+        return -1;
+    }
+
+    spec = mp_spec.via.u64;
+    thing->via.spec = spec;
     return 0;
 }
 
@@ -2615,6 +2633,7 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_VTASK_SET_ARGS:    return ctask__vtask_set_args(thing, up);
     case TI_TASK_VTASK_SET_OWNER:   return ctask__vtask_set_owner(thing, up);
     case TI_TASK_VTASK_SET_CLOSURE: return ctask__vtask_set_closure(thing, up);
+    case TI_TASK_RESTRICT:          return ctask__restrict(thing, up);
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);

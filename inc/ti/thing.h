@@ -89,6 +89,13 @@ int ti_thing_i_set_val_from_strn(
         size_t n,
         ti_val_t ** val,
         ex_t * e);
+int ti_thing_o_set_val_from_strn(
+        ti_witem_t * witem,
+        ti_thing_t * thing,
+        const char * str,
+        size_t n,
+        ti_val_t ** val,
+        ex_t * e);
 int ti_thing_o_set_val_from_valid_strn(
         ti_wprop_t * wprop,
         ti_thing_t * thing,
@@ -126,6 +133,11 @@ int ti_thing_walk(ti_thing_t * thing, ti_thing_item_cb cb, void * data);
 static inline _Bool ti_thing_is_object(ti_thing_t * thing)
 {
     return thing->type_id == TI_SPEC_OBJECT;
+}
+
+static inline _Bool ti_thing_o_is_restricted(ti_thing_t * thing)
+{
+    return thing->via.spec != TI_SPEC_ANY;
 }
 
 static inline _Bool ti_thing_is_dict(ti_thing_t * thing)

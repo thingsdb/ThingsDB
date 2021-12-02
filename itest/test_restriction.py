@@ -46,14 +46,18 @@ class TestRestriction(TestBase):
             await client.query('.x.lookup.name = "test";')
 
         res = await client.query(r"""//ti
+            assert (.x.lookup.restriction() == 'float');
+
             mod_type(
                 'X',
                 'mod',
                 'lookup',
                 'thing<int>',
                 |x| {pi: int(x.lookup.pi)});
+
             assert (.x.lookup.len() == 1);
             assert (.x.lookup.pi == 3);
+            assert (.x.lookup.restriction() == 'int');
 
             mod_type(
                 'X',
@@ -63,6 +67,7 @@ class TestRestriction(TestBase):
                 || thing());
 
             assert (.x.lookup.len() == 0);
+            assert (.x.lookup.restriction() == 'X');
 
             'OK';
         """)

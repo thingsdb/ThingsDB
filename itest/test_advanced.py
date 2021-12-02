@@ -1508,7 +1508,6 @@ class TestAdvanced(TestBase):
     async def test_thing_id_closure(self, client):
         res = await client.query(r'''
             .x = || {
-                thing(9999999999999999999999999999999999999999999);
                 thing(3);
             };
             assert (is_closure(.x) );
@@ -1851,7 +1850,7 @@ new_procedure('multiply', |a, b| a * b);
                 r"closures with side effects require a change but none is "
                 r"created; use `wse\(...\)` to enforce a change;"):
             await client.query(f"""//ti
-                #{id}.func(); // requires a change
+                thing({id}).func(); // requires a change
             """)
 
     async def test_future_to_type(self, client):

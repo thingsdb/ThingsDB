@@ -296,7 +296,7 @@ empty:
     return e->nr;
 }
 
-ti_raw_t * ti_spec_raw_from_spec(uint16_t spec, ti_collection_t * collection)
+ti_raw_t * ti_spec_raw(uint16_t spec, ti_collection_t * collection)
 {
     char * typestr;
     char * nillable;

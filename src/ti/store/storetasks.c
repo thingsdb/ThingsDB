@@ -15,7 +15,7 @@
 
 int ti_store_tasks_store(vec_t * vtasks, const char * fn)
 {
-    ti_vp_t vp;
+    msgpack_packer pk;
     FILE * f = fopen(fn, "w");
     if (!f)
     {
@@ -23,30 +23,30 @@ int ti_store_tasks_store(vec_t * vtasks, const char * fn)
         return -1;
     }
 
-    msgpack_packer_init(&vp.pk, f, msgpack_fbuffer_write);
+    msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
 
     if (
-        msgpack_pack_map(&vp.pk, 1) ||
-        mp_pack_str(&vp.pk, "tasks") ||
-        msgpack_pack_array(&vp.pk, vtasks->n)
+        msgpack_pack_map(&pk, 1) ||
+        mp_pack_str(&pk, "tasks") ||
+        msgpack_pack_array(&pk, vtasks->n)
     ) goto fail;
 
     for (vec_each(vtasks, ti_vtask_t, vtask))
     {
         assert (vtask->id);  /* only tasks with an Id exist in the vector */
-        if (msgpack_pack_array(&vp.pk, 6) ||
-            msgpack_pack_uint64(&vp.pk, vtask->id) ||
-            msgpack_pack_uint64(&vp.pk, vtask->run_at) ||
-            msgpack_pack_uint64(&vp.pk, vtask->user->id) ||
-            ti_closure_to_pk(vtask->closure, &vp.pk, TI_VAL_PACK_FILE) ||
+        if (msgpack_pack_array(&pk, 6) ||
+            msgpack_pack_uint64(&pk, vtask->id) ||
+            msgpack_pack_uint64(&pk, vtask->run_at) ||
+            msgpack_pack_uint64(&pk, vtask->user->id) ||
+            ti_closure_to_client_pk(vtask->closure, &pk) ||
             (vtask->verr
-                ? ti_verror_to_pk(vtask->verr, &vp.pk, TI_VAL_PACK_FILE)
-                : msgpack_pack_nil(&vp.pk)) ||
-            msgpack_pack_array(&vp.pk, vtask->args->n))
+                ? ti_verror_to_client_pk(vtask->verr, &pk)
+                : msgpack_pack_nil(&pk)) ||
+            msgpack_pack_array(&pk, vtask->args->n))
             goto fail;
 
         for (vec_each(vtask->args, ti_val_t, val))
-            if (ti_val_to_pk(val, &vp, TI_VAL_PACK_FILE))
+            if (ti_val_to_store_pk(val, &pk))
                 goto fail;
     }
 

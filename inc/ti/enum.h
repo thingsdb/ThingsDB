@@ -28,7 +28,8 @@ int ti_enum_add_member(ti_enum_t * enum_, ti_member_t * member, ex_t * e);
 void ti_enum_del_member(ti_enum_t * enum_, ti_member_t * member);
 int ti_enum_init_from_thing(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e);
 int ti_enum_init_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e);
-int ti_enum_members_to_pk(ti_enum_t * enum_, ti_vp_t * vp, int options);
+int ti_enum_members_to_client_pk(ti_enum_t * enum_, ti_vp_t * vp, int deep);
+int ti_enum_members_to_store_pk(ti_enum_t * enum_, msgpack_packer * pk);
 ti_member_t * ti_enum_member_by_val(ti_enum_t * enum_, ti_val_t * val);
 ti_member_t * ti_enum_member_by_val_e(
         ti_enum_t * enum_,

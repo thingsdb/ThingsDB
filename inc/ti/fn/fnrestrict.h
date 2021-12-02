@@ -10,7 +10,6 @@ static int do__f_restrict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = fn_get_nargs(nd);
     ti_task_t * task;
     ti_thing_t * thing;
-    ti_type_t * type;
     uint16_t spec = TI_SPEC_ANY;
 
     if (!ti_val_is_object(query->rval))

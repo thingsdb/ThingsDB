@@ -26,6 +26,6 @@ int ti_spec_from_raw(
         ti_raw_t * raw,
         ti_collection_t * collection,
         ex_t * e);
-ti_raw_t * ti_spec_raw_from_spec(uint16_t spec, ti_collection_t * collection);
+ti_raw_t * ti_spec_raw(uint16_t spec, ti_collection_t * collection);
 
 #endif  /* TI_SPEC_H_ */

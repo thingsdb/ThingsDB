@@ -62,12 +62,8 @@ TI_VAL_TEMPLATE | N.A.        | *Never returned to the client as template*
 #define TI_VAL_FUTURE_S     "future"
 #define TI_VAL_TASK_S       "task"
 
-
-/* negative value is used for packing tasks */
-#define TI_VAL_PACK_TASK -1
-#define TI_VAL_PACK_FILE -2
-
 #define TI_KIND_S_INSTANCE  "."
+#define TI_KIND_S_OBJECT    ","
 #define TI_KIND_S_THING     "#"
 #define TI_KIND_S_SET       "$"
 #define TI_KIND_S_ERROR     "!"
@@ -128,7 +124,8 @@ typedef enum
      *   - negative big type
      */
     TI_KIND_C_INSTANCE  ='.',
-    TI_KIND_C_THING     ='#',
+    TI_KIND_C_OBJECT    =',',
+    TI_KIND_C_THING_OBSOLETE        ='#',
     TI_KIND_C_SET       ='$',
     TI_KIND_C_ERROR     ='!',
     TI_KIND_C_WRAP      ='&',

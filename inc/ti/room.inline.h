@@ -30,18 +30,18 @@ static inline ti_raw_t * ti_room_str(ti_room_t * room)
             : ti_str_from_str("room:nil");
 }
 
-static inline int ti_room_to_pk(
-        ti_room_t * room,
-        msgpack_packer * pk,
-        int options)
+static inline int ti_room_to_client_pk(ti_room_t * room, msgpack_packer * pk)
+{
+    return room->id
+        ? mp_pack_fmt(pk, "<room:%"PRIu64">", room->id)
+        : mp_pack_str(pk, "<room:nil>");
+}
+
+static inline int ti_room_to_store_pk(ti_room_t * room, msgpack_packer * pk)
 {
     unsigned char buf[8];
     mp_store_uint64(room->id, buf);
-    return options >= 0
-            ? room->id
-            ? mp_pack_fmt(pk, "<room:%"PRIu64">", room->id)
-            : mp_pack_str(pk, "<room:nil>")
-            : mp_pack_ext(pk, MPACK_EXT_ROOM, buf, sizeof(buf));
+    return mp_pack_ext(pk, MPACK_EXT_ROOM, buf, sizeof(buf));
 }
 
 #endif  /* TI_ROOM_INLINE_H_ */

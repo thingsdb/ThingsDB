@@ -1053,7 +1053,7 @@ static inline int query__pack_response(
     };
     msgpack_packer_init(&vp.pk, buffer, msgpack_sbuffer_write);
 
-    if (ti_val_to_pk(query->rval, &vp, (int) query->qbind.deep))
+    if (ti_val_to_client_pk(query->rval, &vp, (int) query->qbind.deep))
     {
         if (buffer->size > ti.cfg->result_size_limit)
             ex_set(e, EX_RESULT_TOO_LARGE,

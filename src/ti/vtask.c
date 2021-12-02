@@ -226,18 +226,11 @@ void ti_vtask_del(uint64_t vtask_id, ti_collection_t * collection)
     }
 }
 
-int ti_vtask_to_pk(ti_vtask_t * vtask, msgpack_packer * pk, int options)
+int ti_vtask_to_client_pk(ti_vtask_t * vtask, msgpack_packer * pk)
 {
-    if (options < 0)
-    {
-        unsigned char buf[8];
-        mp_store_uint64(vtask->id, buf);
-        return mp_pack_ext(pk, MPACK_EXT_TASK, buf, sizeof(buf));
-    }
-    else if (vtask->id)
+    if (vtask->id)
     {
         const char * status, * run_at;
-
         run_at = vtask->run_at
                 ? ti_datetime_ts_str((const time_t *) &vtask->run_at)
                 : "nil";
@@ -253,8 +246,14 @@ int ti_vtask_to_pk(ti_vtask_t * vtask, msgpack_packer * pk, int options)
                 run_at,
                 status);
     }
-
     return mp_pack_str(pk, "task:nil");
+}
+
+int ti_vtask_to_store_pk(ti_vtask_t * vtask, msgpack_packer * pk)
+{
+    unsigned char buf[8];
+    mp_store_uint64(vtask->id, buf);
+    return mp_pack_ext(pk, MPACK_EXT_TASK, buf, sizeof(buf));
 }
 
 int ti_vtask_check_args(vec_t * args, size_t m, _Bool ti_scope, ex_t * e)

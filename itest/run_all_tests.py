@@ -23,6 +23,7 @@ from test_nodes import TestNodes
 from test_operators import TestOperators
 from test_procedures import TestProcedures
 from test_relations import TestRelations
+from test_restriction import TestRestriction
 from test_room import TestRoom
 from test_scopes import TestScopes
 from test_syntax import TestSyntax
@@ -72,6 +73,7 @@ if __name__ == '__main__':
     run_test(TestOperators())
     run_test(TestProcedures())
     run_test(TestRelations())
+    run_test(TestRestriction())
     run_test(TestRoom())
     run_test(TestScopes())
     run_test(TestSyntax())

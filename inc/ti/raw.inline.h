@@ -47,14 +47,18 @@ static inline int ti_raw_str_to_pk(ti_raw_t * raw, msgpack_packer * pk)
     return mp_pack_strn(pk, raw->data, raw->n); \
 }
 
-static inline int ti_raw_mpdata_to_pk(
+static inline int ti_raw_mpdata_to_client_pk(
         ti_raw_t * raw,
-        msgpack_packer * pk,
-        int options)
+        msgpack_packer * pk)
 {
-    return options >= 0
-        ? mp_pack_append(pk, raw->data, raw->n)
-        : mp_pack_ext(pk, MPACK_EXT_MPACK, raw->data, raw->n);
+    return mp_pack_append(pk, raw->data, raw->n);
+}
+
+static inline int ti_raw_mpdata_to_store_pk(
+        ti_raw_t * raw,
+        msgpack_packer * pk)
+{
+    return mp_pack_ext(pk, MPACK_EXT_MPACK, raw->data, raw->n);
 }
 
 static inline void ti_raw_init(ti_raw_t * raw, uint8_t tp, size_t total_n)

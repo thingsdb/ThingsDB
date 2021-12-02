@@ -42,26 +42,24 @@ static inline ti_raw_t * ti_wrap_type_strv(ti_wrap_t * wrap)
     return (ti_raw_t *) ti_val_wrapped_thing_str();
 }
 
-static inline int ti_wrap_to_pk(
+static inline int ti_wrap_to_client_pk(
         ti_wrap_t * wrap,
         ti_vp_t * vp,
-        int options)
+        int deep)
 {
-    return  /* for a client */
-            options > 0
-            ? ti__wrap_field_thing(wrap->thing, vp, wrap->type_id, options)
+    return deep > 0
+        ? ti__wrap_field_thing(wrap->thing, vp, wrap->type_id, deep)
+        : ti_thing_id_to_client_pk(wrap->thing, &vp->pk);
+}
 
-            /* no nesting, just the id */
-            : options == 0
-            ? ti_thing_id_to_pk(wrap->thing, &vp->pk)
-
-            /* when packing for a change or store to disk */
-            : (
-                    msgpack_pack_map(&vp->pk, 1) ||
-                    mp_pack_strn(&vp->pk, TI_KIND_S_WRAP, 1) ||
-                    msgpack_pack_array(&vp->pk, 2) ||
-                    msgpack_pack_uint16(&vp->pk, wrap->type_id) ||
-                    ti_thing_to_pk(wrap->thing, vp, options)
+static inline int ti_wrap_to_store_pk(ti_wrap_t * wrap, msgpack_packer * pk)
+{
+    return -(
+            msgpack_pack_map(pk, 1) ||
+            mp_pack_strn(pk, TI_KIND_S_WRAP, 1) ||
+            msgpack_pack_array(pk, 2) ||
+            msgpack_pack_uint16(pk, wrap->type_id) ||
+            ti_thing_to_store_pk(wrap->thing, pk)
     );
 }
 

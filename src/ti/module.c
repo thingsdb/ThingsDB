@@ -186,7 +186,7 @@ static void module__cb(ti_future_t * future)
      * Add 1 to the `deep` value as we do not count the object itself towards
      * the `deep` value.
      */
-    if (ti_thing_to_pk(thing, &vp, ti_future_deep(future) + 1))
+    if (ti_thing_to_client_pk(thing, &vp, ti_future_deep(future) + 1))
         goto mem_error1;
 
     future->pkg = (ti_pkg_t *) buffer.data;
@@ -230,7 +230,7 @@ ti_pkg_t * ti_module_conf_pkg(ti_val_t * val, ti_query_t * query)
      * Module configuration will be packed 2 levels deep. This is a fixed
      * setting and should be sufficient to configure a module.
      */
-    if (ti_val_to_pk(val, &vp, 2))
+    if (ti_val_to_client_pk(val, &vp, 2))
     {
         msgpack_sbuffer_destroy(&buffer);
         return NULL;
@@ -1398,7 +1398,7 @@ static int module__info_to_vp(ti_module_t * module, ti_vp_t * vp, int flags)
         if (manifest->defaults)
             for (vec_each(manifest->defaults, ti_item_t, item))
                 if (mp_pack_strn(pk, item->key->data, item->key->n) ||
-                    ti_val_to_pk(item->val, vp, TI_MAX_DEEP_HINT))
+                    ti_val_to_client_pk(item->val, vp, TI_MAX_DEEP_HINT))
                     return -1;
     }
 

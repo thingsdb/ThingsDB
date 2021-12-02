@@ -1013,35 +1013,30 @@ void ti_thing_t_to_object(ti_thing_t * thing)
 
 typedef struct
 {
-    int options;
+    int deep;
     ti_vp_t * vp;
 } thing__pk_cb_t;
 
-static int thing__pk_cb(ti_item_t * item, thing__pk_cb_t * w)
+static inline int thing__client_pk_cb(ti_item_t * item, thing__pk_cb_t * w)
 {
-    return (
+    return -(
         mp_pack_strn(&w->vp->pk, item->key->data, item->key->n) ||
-        ti_val_to_pk(item->val, w->vp, w->options)
+        ti_val_to_client_pk(item->val, w->vp, w->deep)
     );
 }
 
-int ti_thing__to_pk(ti_thing_t * thing, ti_vp_t * vp, int options)
+int ti_thing__to_client_pk(ti_thing_t * thing, ti_vp_t * vp, int deep)
 {
-    assert (options);  /* should be either positive or negative, not 0 */
+    /*
+     * Only when packing for a client the result size is checked;
+     * The correct error is not set here, but instead the size should be
+     * checked again to set either a `memory` or `too_much_data` error.
+     */
+    if (((msgpack_sbuffer *) vp->pk.data)->size >
+                ti.cfg->result_size_limit)
+        return -1;
 
-    if (options > 0)
-    {
-        /*
-         * Only when packing for a client the result size is checked;
-         * The correct error is not set here, but instead the size should be
-         * checked again to set either a `memory` or `too_much_data` error.
-         */
-        if (((msgpack_sbuffer *) vp->pk.data)->size >
-                    ti.cfg->result_size_limit)
-            return -1;
-
-        --options;
-    }
+    --deep;
 
     if (msgpack_pack_map(&vp->pk, (!!thing->id) + ti_thing_n(thing)))
         return -1;
@@ -1058,12 +1053,12 @@ int ti_thing__to_pk(ti_thing_t * thing, ti_vp_t * vp, int options)
         if (ti_thing_is_dict(thing))
         {
             thing__pk_cb_t w = {
-                    .options = options,
+                    .deep = deep,
                     .vp = vp,
             };
             if (smap_values(
                     thing->items.smap,
-                    (smap_val_cb) thing__pk_cb,
+                    (smap_val_cb) thing__client_pk_cb,
                     &w))
                 goto fail;
         }
@@ -1072,7 +1067,7 @@ int ti_thing__to_pk(ti_thing_t * thing, ti_vp_t * vp, int options)
             for (vec_each(thing->items.vec, ti_prop_t, prop))
             {
                 if (mp_pack_strn(&vp->pk, prop->name->str, prop->name->n) ||
-                    ti_val_to_pk(prop->val, vp, options)
+                    ti_val_to_client_pk(prop->val, vp, deep)
                 ) goto fail;
             }
         }
@@ -1084,7 +1079,7 @@ int ti_thing__to_pk(ti_thing_t * thing, ti_vp_t * vp, int options)
         for (thing_t_each(thing, name, val))
         {
             if (mp_pack_strn(&vp->pk, name->str, name->n) ||
-                ti_val_to_pk(val, vp, options)
+                ti_val_to_client_pk(val, vp, deep)
             ) goto fail;
         }
     }
@@ -1096,22 +1091,56 @@ fail:
     return -1;
 }
 
-int ti_thing_t_to_pk(ti_thing_t * thing, ti_vp_t * vp, int options)
+static inline int thing__store_pk_cb(ti_item_t * item, msgpack_packer * pk)
 {
-    assert (options < 0);  /* should only be called when options < 0 */
+    return -(
+        mp_pack_strn(pk, item->key->data, item->key->n) ||
+        ti_val_to_store_pk(item->val, pk)
+    );
+}
+
+int ti_thing_o_to_pk(ti_thing_t * thing, msgpack_packer * pk)
+{
+    assert (ti_thing_is_object(thing));
+    assert (thing->id);   /* no need to check, options < 0 must have id */
+
+    if (msgpack_pack_map(pk, 1) ||
+        mp_pack_strn(pk, TI_KIND_S_OBJECT, 1) ||
+        msgpack_pack_array(pk, 3) ||
+        msgpack_pack_uint16(pk, thing->via.spec) ||
+        msgpack_pack_uint64(pk, thing->id) ||
+        msgpack_pack_map(pk, ti_thing_n(thing)))
+        return -1;
+
+    if (ti_thing_is_dict(thing))
+        return smap_values(
+                thing->items.smap,
+                (smap_val_cb) thing__store_pk_cb,
+                pk);
+
+    for (vec_each(thing->items.vec, ti_prop_t, prop))
+        if (mp_pack_strn(pk, prop->name->str, prop->name->n) ||
+            ti_val_to_store_pk(prop->val, pk))
+            return -1;
+
+    return 0;
+}
+
+int ti_thing_t_to_pk(ti_thing_t * thing, msgpack_packer * pk)
+{
     assert (!ti_thing_is_object(thing));
     assert (thing->id);   /* no need to check, options < 0 must have id */
 
-    if (msgpack_pack_map(&vp->pk, 1) ||
-        mp_pack_strn(&vp->pk, TI_KIND_S_INSTANCE, 1) ||
-        msgpack_pack_array(&vp->pk, 3) ||
-        msgpack_pack_uint16(&vp->pk, thing->type_id) ||
-        msgpack_pack_uint64(&vp->pk, thing->id) ||
-        msgpack_pack_array(&vp->pk, ti_thing_n(thing)))
+    if (msgpack_pack_map(pk, 1) ||
+        mp_pack_strn(pk, TI_KIND_S_INSTANCE, 1) ||
+        msgpack_pack_array(pk, 3) ||
+        msgpack_pack_uint16(pk, thing->type_id) ||
+        msgpack_pack_uint64(pk, thing->id) ||
+        msgpack_pack_array(pk, ti_thing_n(thing)))
         return -1;
 
     for (vec_each(thing->items.vec, ti_val_t, val))
-        if (ti_val_to_pk(val, vp, options))
+        if (ti_val_to_store_pk(val, pk))
             return -1;
 
     return 0;

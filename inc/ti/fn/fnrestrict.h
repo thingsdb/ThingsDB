@@ -52,7 +52,8 @@ static int do__f_restrict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (spec != TI_SPEC_ANY)
     {
-        ti_spec_rval_enum rc;
+        ti_spec_rval_enum rc = 0;
+
         if (ti_thing_is_dict(thing))
         {
             rc = (ti_spec_rval_enum) smap_values(

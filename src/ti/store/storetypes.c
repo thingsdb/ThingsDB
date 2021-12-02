@@ -54,7 +54,7 @@ static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
     {
         p = (uintptr_t) method->name;
         if (msgpack_pack_uint64(pk, p) ||
-            ti_closure_to_client_pk(method->closure, pk)
+            ti_closure_to_store_pk(method->closure, pk)
         ) return -1;
     }
 

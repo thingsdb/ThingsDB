@@ -38,9 +38,9 @@ int ti_store_tasks_store(vec_t * vtasks, const char * fn)
             msgpack_pack_uint64(&pk, vtask->id) ||
             msgpack_pack_uint64(&pk, vtask->run_at) ||
             msgpack_pack_uint64(&pk, vtask->user->id) ||
-            ti_closure_to_client_pk(vtask->closure, &pk) ||
+            ti_closure_to_store_pk(vtask->closure, &pk) ||
             (vtask->verr
-                ? ti_verror_to_client_pk(vtask->verr, &pk)
+                ? ti_verror_to_store_pk(vtask->verr, &pk)
                 : msgpack_pack_nil(&pk)) ||
             msgpack_pack_array(&pk, vtask->args->n))
             goto fail;

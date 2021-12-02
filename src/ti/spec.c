@@ -527,7 +527,7 @@ ti_spec_mod_enum ti_spec_check_mod(
         return TI_SPEC_MOD_SUCCESS;
     case TI_SPEC_OBJECT:
         return ospec < TI_SPEC_ANY || ospec == TI_SPEC_OBJECT
-                ? TI_SPEC_MOD_SUCCESS
+                ? TI_SPEC_MOD_NESTED
                 : TI_SPEC_MOD_ERR;
     case TI_SPEC_RAW:
         return (

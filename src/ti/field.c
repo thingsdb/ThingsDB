@@ -1486,7 +1486,7 @@ int ti_field_make_assignable(
         if (ti_val_is_thing(*val))
             return field->nested_spec == TI_SPEC_ANY
                     ? 0
-                    : field__thing_assign(field, (ti_thing_t *) val, e);
+                    : field__thing_assign(field, (ti_thing_t *) *val, e);
         goto type_error;
     case TI_SPEC_RAW:
         if (ti_val_is_raw(*val))

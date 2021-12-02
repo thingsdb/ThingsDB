@@ -5,7 +5,6 @@ static int restrict__cb(ti_prop_t * prop, uint16_t * spec)
     return ti_spec_check_nested_val(*spec, prop->val);
 }
 
-
 static int do__f_restrict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);

@@ -1082,7 +1082,7 @@ static ti_type_t * modtype__type_from_field(ti_field_t * field, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "relations may only be configured between restricted "
-                "sets and/or nillable types"DOC_MOD_TYPE_REL);
+                "sets and/or nillable typed"DOC_MOD_TYPE_REL);
         return NULL;
     }
 

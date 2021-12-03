@@ -813,9 +813,17 @@ ti_item_t * ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
         if (!item)
             goto not_found;
 
-        return thing__item_val_locked(thing, item->key, item->val, e)
-                ? NULL
-                : item;
+        if (thing__item_val_locked(thing, item->key, item->val, e))
+        {
+            if (smap_addn(
+                    thing->items.smap,
+                    (const char *) rname->data,
+                    rname->n,
+                    item))
+                log_critical("failed to restore item");
+            return NULL;
+        }
+        return item;
     }
     else
     {

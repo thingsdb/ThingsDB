@@ -1868,6 +1868,21 @@ new_procedure('multiply', |a, b| a * b);
                 };
             """)
 
+    async def test_in_use_on_dict(self, client):
+        # bug #242
+        await client.query(".set('non name key', nil);")
+        with self.assertRaisesRegex(
+                OperationError,
+                r'cannot change or remove property `arr` on `#\d+` while '
+                r'the `list` is in use'):
+            await client.query(r"""//ti
+                .arr = ['a', 'b'];
+                .arr.push({
+                    .del('arr');
+                    'c';
+                })
+            """)
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

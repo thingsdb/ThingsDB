@@ -179,7 +179,7 @@ class TestRelations(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'relations may only be configured between restricted '
-                r'sets and/or nillable types'):
+                r'sets and/or nillable typed'):
             await client.query(r'''
                 mod_type('A', 'rel', 'c', 'astrict');
             ''')
@@ -187,7 +187,7 @@ class TestRelations(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'relations may only be configured between restricted '
-                r'sets and/or nillable types'):
+                r'sets and/or nillable typed'):
             await client.query(r'''
                 mod_type('A', 'rel', 'bstrict', 'a');
             ''')

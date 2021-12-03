@@ -166,6 +166,26 @@ class TestRestriction(TestBase):
                 'type `str` or `nil` but got type `int` instead'):
             await client.query('{}.restrict(123);')
 
+        with self.assertRaisesRegex(
+                ValueError,
+                "current restriction is enforced by at least one type"):
+            await client.query(r"""//ti
+                a = {};
+                set_type('X', {strict: 'thing<int>'});
+                b = X{strict: a};
+                a.restrict(nil);
+            """)
+
+        res = await client.query(r"""//ti
+            a = {};
+            set_type('Y', {strict: 'thing<int>'});
+            b = Y{strict: a};
+            del_type('Y');
+            a.restrict(nil);
+            'OK';
+        """)
+
+        self.assertEqual(res, 'OK')
 
 
 if __name__ == '__main__':

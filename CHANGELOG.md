@@ -7,7 +7,8 @@
 * Fixed unexpected behavior with unassigned typed things, issue #239.
 * Added `restrict(..)` function and restrictions on non-typed things, issue #210.
 * Added `restriction()` function, issue #240.
-# Fixed bug with deploying static module files, issue #241.
+* Fixed bug with deploying static module files, issue #241.
+* Fixed memory leak when deleting a locked value from a *(dict)* thing, issue #242.
 
 # v1.1.0
 

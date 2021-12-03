@@ -103,7 +103,7 @@ fail2:
     ti_enum_unlock(enum_, true /* lock is set for sure */);
 fail1:
     if (e->nr)
-        ti_enums_del(query->collection->enums, enum_);
+        ti_enums_del(query->collection->enums, enum_, NULL);
 fail0:
     if (e->nr)
         ti_enum_destroy(enum_);

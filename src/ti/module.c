@@ -974,8 +974,20 @@ int ti_module_deploy(ti_module_t * module, const void * data, size_t n)
     switch (module->source_type)
     {
     case TI_MODULE_SOURCE_FILE:
-        if (data || ti_module_write(module, data, n))
+        if (!module->file)
+        {
+            const char * file = module->source.file;
+            if (ti_module_set_file(module, file, strlen(file)))
+            {
+                log_error("failed to set module file");
+                return -1;
+            }
+        }
+        if (!data || ti_module_write(module, data, n))
+        {
+            log_error("failed to write data to module");
             return -1;
+        }
         break;
     case TI_MODULE_SOURCE_GITHUB:
         if (data)
@@ -1444,17 +1456,29 @@ ti_val_t * ti_module_as_mpval(ti_module_t * module, int flags)
 
 int ti_module_write(ti_module_t * module, const void * data, size_t n)
 {
-    if (ti_module_is_py(module))
-        return fx_write(module->file, data, n);
 
-    if (fx_file_exist(module->file) && unlink(module->file))
+    if (fx_file_exist(module->file))
     {
-        log_errno_file("cannot delete file", errno, module->file);
-        return -1;
+        if (unlink(module->file))
+        {
+            log_errno_file("cannot delete file", errno, module->file);
+            return -1;
+        }
+    }
+    else
+    {
+        if (!fx_is_dir(module->path) && mkdir(module->path, FX_DEFAULT_DIR_ACCESS))
+        {
+            log_warn_errno_file("cannot create directory", errno, module->path);
+            return -1;
+        }
     }
 
     if (fx_write(module->file, data, n))
         return -1;
+
+    if (ti_module_is_py(module))
+        return 0;
 
     if (chmod(module->file, S_IRWXU))
     {

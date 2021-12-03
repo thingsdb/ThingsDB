@@ -2,7 +2,7 @@
 
 static int restrict__cb(ti_prop_t * prop, uint16_t * spec)
 {
-    return ti_spec_check_nested_val(*spec, prop->val);
+    return !ti_val_is_spec(prop->val, *spec);
 }
 
 static int do__f_restrict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
@@ -30,29 +30,30 @@ static int do__f_restrict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_do_statement(query, nd->children->node, e) ||
         fn_arg_str_nil("restrict", DOC_THING_RESTRICT, 1, query->rval, e))
-        goto fail0;
+        goto done;
 
     if (ti_val_is_str(query->rval) &&
         ti_spec_from_raw(&spec, (ti_raw_t *) query->rval, query->collection, e))
-        goto fail0;
+        goto done;
 
     ti_val_unsafe_drop(query->rval);
-    query->rval = (ti_val_t *) ti_nil_get();
+    query->rval = (ti_val_t *) thing;
+    ti_incref(thing);
 
     if (spec == thing->via.spec)
-        return e->nr;
+        goto done;
 
-    if (thing->via.spec != TI_SPEC_ANY)
+    if (thing->via.spec != TI_SPEC_ANY &&
+            !ti_query_thing_can_change_spec(query, thing))
     {
-        /* TODO: this thing is restricted, in this case we have to check
-         *       for all types with the current restriction to see if it is
-         *       possible to change the restriction.
-         */
+        ex_set(e, EX_OPERATION,
+                "current restriction is enforced by at least one type");
+        goto done;
     }
 
     if (spec != TI_SPEC_ANY)
     {
-        ti_spec_rval_enum rc = 0;
+        int rc = 0;
 
         if (ti_thing_is_dict(thing))
         {
@@ -62,7 +63,7 @@ static int do__f_restrict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     &spec);
         }
         else for (vec_each(thing->items.vec, ti_prop_t, prop))
-            if ((rc = ti_spec_check_nested_val(spec, prop->val)))
+            if ((rc = !ti_val_is_spec(prop->val, spec)))
                 break;
 
         if (rc)
@@ -70,7 +71,7 @@ static int do__f_restrict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ex_set(e, EX_VALUE_ERROR,
                     "at least one of the existing values does not match the "
                     "desired restriction");
-            goto fail0;
+            goto done;
         }
     }
 
@@ -80,13 +81,13 @@ static int do__f_restrict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!task || ti_task_add_restrict(task, spec))
         {
             ex_set_mem(e);
-            goto fail0;
+            goto done;
         }
     }
 
     thing->via.spec = spec;
 
-fail0:
+done:
     ti_val_unlock((ti_val_t *) thing, true  /* lock was set */);
     ti_val_unsafe_drop((ti_val_t *) thing);
     return e->nr;

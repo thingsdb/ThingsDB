@@ -55,7 +55,43 @@ class TestRestriction(TestBase):
         with self.assertRaisesRegex(TypeError, "restriction mismatch"):
             await client.query('.x.lookup.name = "test";')
 
+        with self.assertRaisesRegex(TypeError, "restriction mismatch"):
+            await client.query('X{}.lookup.name = "test";')
+
+        with self.assertRaisesRegex(TypeError, "restriction mismatch"):
+            await client.query(r"""//ti
+                t = X{lookup: thing()};
+                t.lookup.name = "test";
+            """)
+
         res = await client.query(r"""//ti
+            .t = X{};
+            .t.lookup = thing();
+            'OK';
+        """)
+        self.assertEqual(res, 'OK')
+
+        with self.assertRaisesRegex(TypeError, "restriction mismatch"):
+            await client.query(r"""//ti
+                .t.lookup.name = "test";
+            """)
+
+        with self.assertRaisesRegex(
+                ValueError,
+                "mismatch in type `X` on property `lookup`; "
+                "restriction mismatch"):
+            await client.query(r"""//ti
+                .t.lookup = thing().restrict('room')
+            """)
+
+        res = await client.query(r"""//ti
+            .t.lookup = thing().restrict('float');
+            'OK';
+        """)
+        self.assertEqual(res, 'OK')
+
+        res = await client.query(r"""//ti
+            .del('t');
             assert (.x.lookup.restriction() == 'float');
 
             mod_type(
@@ -82,6 +118,54 @@ class TestRestriction(TestBase):
             'OK';
         """)
         self.assertEqual(res, 'OK')
+
+    async def test_restriction_migration(self, client):
+        res = await client.query(r"""//ti
+            set_type('N', {name: 'str'});
+            set_type('L', {lookup: 'thing'});
+            .to_type('L');
+            .lookup.iris = N{name: 'Iris'};
+            .lookup.cato = N{name: 'Cato'};
+            .lookup.tess = N{name: 'Tess'};
+            'OK';
+        """)
+        self.assertEqual(res, 'OK')
+
+        res = await client.query(r"""//ti
+            mod_type('L', 'mod', 'lookup', 'thing<N>', ||nil);
+            assert (.lookup.iris.name == 'Iris');
+            assert (.lookup.cato.name == 'Cato');
+            assert (.lookup.tess.name == 'Tess');
+
+            err = try(.lookup.number = 123);
+            assert (is_err(err));
+
+            'OK';
+        """)
+        self.assertEqual(res, 'OK')
+
+    async def test_restrict_function(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `list` has no function `restrict`'):
+            await client.query('[].restrict();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `restrict` takes 1 argument but 0 were given'):
+            await client.query('{}.restrict();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `restrict` takes 1 argument but 2 were given'):
+            await client.query('{}.restrict(nil, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `restrict` expects argument 1 to be of '
+                'type `str` or `nil` but got type `int` instead'):
+            await client.query('{}.restrict(123);')
+
 
 
 if __name__ == '__main__':

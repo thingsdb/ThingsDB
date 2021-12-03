@@ -16,6 +16,7 @@
 #include <ti/method.h>
 #include <ti/names.h>
 #include <ti/prop.h>
+#include <ti/query.h>
 #include <ti/raw.inline.h>
 #include <ti/task.h>
 #include <ti/thing.inline.h>
@@ -120,13 +121,14 @@ static int type__del(ti_thing_t * thing, uint16_t * type_id)
     return 0;
 }
 
-void ti_type_del(ti_type_t * type)
+void ti_type_del(ti_type_t * type, vec_t * vars)
 {
     assert (!type->refcount);
-
-    ti_collection_t * collection = type->types->collection;
     uint16_t type_id = type->type_id;
+    ti_collection_t * collection = type->types->collection;
 
+    if (vars)
+        ti_query_vars_walk(vars, collection, (imap_cb) type__del, &type_id);
     (void) imap_walk(collection->things, (imap_cb) type__del, &type_id);
     (void) ti_gc_walk(collection->gc, (queue_cb) type__del, &type_id);
 

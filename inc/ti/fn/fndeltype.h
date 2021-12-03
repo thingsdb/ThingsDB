@@ -53,7 +53,7 @@ static int do__f_del_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     /* this will remove the `type` so it cannot be used after here */
-    ti_type_del(type);
+    ti_type_del(type, query->vars);
 
     ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();

@@ -4,7 +4,10 @@
 * Function `deep(..)` can now be used to *set* the *deep* value, issue #237.
 * Remove the deprecated hash (`#..`) syntax, issue #232.
 * Added `all` action to the `mod_type(..)` function, issue #235.
-
+* Fixed unexpected behavior with unassigned typed things, issue #239.
+* Added `restrict(..)` function and restrictions on non-typed things, issue #210.
+* Added `restriction()` function, issue #240.
+# Fixed bug with deploying static module files, issue #241.
 
 # v1.1.0
 

@@ -1482,3 +1482,57 @@ int ti_query_task_context(ti_query_t * query, ti_vtask_t * vtask, ex_t * e)
     return e->nr;
 }
 
+typedef struct
+{
+    ti_thing_t * thing;
+    vec_t * fields_to_check;
+} query__thing_spec_cb_t;
+
+static int query__spec_cb(ti_thing_t * thing, query__thing_spec_cb_t * w)
+{
+    for (vec_each(w->fields_to_check, ti_field_t, field))
+        if (thing->type_id == field->type->type_id &&
+            VEC_get(thing->items.vec, field->idx) == w->thing)
+            return -1;
+    return 0;
+}
+
+static int query__type_spec_cp(ti_type_t * type, query__thing_spec_cb_t * w)
+{
+    for (vec_each(type->fields, ti_field_t, field))
+    {
+        if (w->thing->via.spec == field->nested_spec &&
+            (field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_OBJECT)
+        {
+            if (vec_push_create(&w->fields_to_check, field))
+                return -1;
+        }
+    }
+    return 0;
+}
+
+_Bool ti_query_thing_can_change_spec(ti_query_t * query, ti_thing_t * thing)
+{
+    int rc;
+    ti_collection_t * collection = thing->collection;
+    query__thing_spec_cb_t w = {
+            .thing = thing,
+            .fields_to_check = NULL,
+    };
+
+    if (!collection)
+        return true;
+
+    rc = imap_walk(collection->types->imap, (imap_cb) query__type_spec_cp, &w);
+
+    if (rc == 0 && w.fields_to_check)
+        rc = (
+            ti_query_vars_walk(
+                    query->vars, collection, (imap_cb) query__spec_cb, &w) ||
+            imap_walk(collection->things, (imap_cb) query__spec_cb, &w) ||
+            ti_gc_walk(collection->gc, (queue_cb) query__spec_cb, &w));
+
+    free(w.fields_to_check);
+    return rc == 0;
+}
+

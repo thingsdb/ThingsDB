@@ -8,6 +8,7 @@
 #include <ti/enums.h>
 #include <ti/enums.inline.h>
 #include <ti/gc.h>
+#include <ti/query.h>
 #include <ti/types.h>
 #include <ti/val.h>
 #include <ti/val.inline.h>
@@ -91,12 +92,16 @@ static int enums__del(ti_thing_t * thing, uint16_t * spec)
     return 0;
 }
 
-void ti_enums_del(ti_enums_t * enums, ti_enum_t * enum_)
+void ti_enums_del(ti_enums_t * enums, ti_enum_t * enum_, vec_t * vars)
 {
     uint16_t spec = enum_->enum_id | TI_ENUM_ID_FLAG;
+    ti_collection_t * collection = enums->collection;
 
-    (void) imap_walk(enums->collection->things, (imap_cb) enums__del, &spec);
-    (void) ti_gc_walk(enums->collection->gc, (queue_cb) enums__del, &spec);
+    if (vars)
+        ti_query_vars_walk(vars, collection, (imap_cb) enums__del, &spec);
+
+    (void) imap_walk(collection->things, (imap_cb) enums__del, &spec);
+    (void) ti_gc_walk(collection->gc, (queue_cb) enums__del, &spec);
 
     (void) imap_pop(enums->imap, enum_->enum_id);
     (void) smap_pop(enums->smap, enum_->name);

@@ -212,7 +212,7 @@ static inline int fn_arg_str_nil(
     if (!ti_val_is_str_nil(val))
         ex_set(e, EX_TYPE_ERROR,
             "function `%s` expects argument %d to be of "
-            "type `"TI_VAL_STR_S"` or `"TI_VAL_NIL_S"`"
+            "type `"TI_VAL_STR_S"` or `"TI_VAL_NIL_S"` "
             "but got type `%s` instead%s",
             name, argn, ti_val_str(val), doc);
     return e->nr;
@@ -228,7 +228,7 @@ static inline int fn_arg_str_bytes_nil(
     if (!ti_val_is_str_bytes_nil(val))
         ex_set(e, EX_TYPE_ERROR,
             "function `%s` expects argument %d to be of "
-            "type `"TI_VAL_STR_S"`, `"TI_VAL_BYTES_S"` or `"TI_VAL_NIL_S"`"
+            "type `"TI_VAL_STR_S"`, `"TI_VAL_BYTES_S"` or `"TI_VAL_NIL_S"` "
             "but got type `%s` instead%s",
             name, argn, ti_val_str(val), doc);
     return e->nr;

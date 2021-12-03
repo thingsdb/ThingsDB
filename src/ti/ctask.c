@@ -456,7 +456,7 @@ static int ctask__set_enum(ti_thing_t * thing, mp_unp_t * up)
     return 0;
 
 fail1:
-    ti_enums_del(collection->enums, enum_);
+    ti_enums_del(collection->enums, enum_, NULL);
 fail0:
     ti_enum_destroy(enum_);
     return -1;
@@ -519,7 +519,7 @@ static int ctask__set_type(ti_thing_t * thing, mp_unp_t * up)
             "task `set_type` for "TI_COLLECTION_ID" has failed; "
             "%s; remove type `%s`...",
             collection->root->id, e.msg, type->name);
-        (void) ti_type_del(type);
+        (void) ti_type_del(type, NULL);
         return -1;
     }
 
@@ -2115,7 +2115,7 @@ static int ctask__del_enum(ti_thing_t * thing, mp_unp_t * up)
      *       values.
      */
 
-    ti_enums_del(collection->enums, enum_);
+    ti_enums_del(collection->enums, enum_, NULL);
     ti_enum_destroy(enum_);
 
     return 0;
@@ -2160,7 +2160,7 @@ static int ctask__del_type(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    ti_type_del(type);
+    ti_type_del(type, NULL);
     return 0;
 }
 

@@ -66,7 +66,7 @@ static int do__f_del_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     /* this will remove the `enum` so it cannot be used after here */
-    ti_enums_del(query->collection->enums, enum_);
+    ti_enums_del(query->collection->enums, enum_, query->vars);
     ti_enum_destroy(enum_);
 
     ti_val_unsafe_drop(query->rval);

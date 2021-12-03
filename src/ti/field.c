@@ -1276,6 +1276,12 @@ static int field__thing_assign(
         return e->nr;
     }
 
+    if (ti_thing_n(thing) == 0)
+    {
+        thing->via.spec = field->nested_spec;
+        return 0;
+    }
+
     if (ti_thing_is_dict(thing))
     {
         rc = (ti_spec_rval_enum) smap_values(

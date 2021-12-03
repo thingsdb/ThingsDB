@@ -44,7 +44,7 @@
 * Added `clear()` function on `thing`, `set` and `list`.
 * Fixed bug with removing a self reference from a `set<->set` relation.
 * Functions for the new `room` type:
-  - `id()`: Return the Id of the room.
+  - `id()`: Return the Id of the room.git@github.com:transceptor-technology/oversight.website.git
   - `emit(..)`: Emit an event for the room.
 * Protocol types for the new `room` type:
   - `TI_PROTO_CLIENT_ROOM_JOIN` (6)

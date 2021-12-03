@@ -35,6 +35,16 @@ class TestRestriction(TestBase):
         client.close()
         await client.wait_closed()
 
+    async def test_array_restriction(self, client):
+        # bug #239
+        with self.assertRaisesRegex(
+                TypeError,
+                "type `str` is not allowed in restricted array"):
+            await client.query(r"""//ti
+                set_type('T', {arr: '[int]'});
+                T{}.arr.push('test');
+            """)
+
     async def test_restriction_type(self, client):
         await client.query(r"""//ti
             set_type('X', {lookup: 'thing<float>'});

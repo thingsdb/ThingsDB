@@ -640,17 +640,25 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         query->rval = *wprop.val;
         ti_incref(query->rval);
+
+        /*
+         * Do the chain *before* dropping the thing as this otherwise might
+         * result in unexpected behavior (bug #239).
+         */
+        if (do__index(query, index_node, e) == 0 && child)
+            (void) do__chain(query, child->node, e);
+
         ti_val_unsafe_drop((ti_val_t *) thing);
+        return e->nr;
     }
-    else switch (node->children->next->node->cl_obj->gid)
-    {
-    case CLERI_GID_ASSIGN:
-        /* nothing is possible after assign since it ends with a scope */
+
+    if (node->children->next->node->cl_obj->gid == CLERI_GID_ASSIGN)
         return do__name_assign(query, node, e);
-    case CLERI_GID_FUNCTION:
-        if (do__function(query, node, e))
-            return e->nr;
-    } /* no other case statements are possible */
+
+    assert (node->children->next->node->cl_obj->gid == CLERI_GID_FUNCTION);
+
+    if (do__function(query, node, e))
+        return e->nr;
 
     if (do__index(query, index_node, e) == 0 && child)
         (void) do__chain(query, child->node, e);
@@ -1079,7 +1087,6 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     ex_set_mem(e);
                     goto fail;
                 }
-
                 ti_val_attach(val, thing, field);
                 vec_set(thing->items.vec, val, field->idx);
             }

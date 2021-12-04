@@ -138,6 +138,7 @@ int ti_task_add_splice(
         uint32_t n);             /* number of items to add */
 int ti_task_add_restore(ti_task_t * task);
 int ti_task_add_arr_remove(ti_task_t * task, ti_raw_t * key, vec_t * vec);
+int ti_task_add_thing_remove(ti_task_t * task, vec_t * vec, size_t alloc_sz);
 int ti_task_add_set_enum(ti_task_t * task, ti_enum_t * enum_);
 int ti_task_add_mod_enum_add(ti_task_t * task, ti_member_t * member);
 int ti_task_add_mod_enum_def(ti_task_t * task, ti_member_t * member);

@@ -12,7 +12,7 @@
 #include <tiinc.h>
 #include <util/logger.h>
 
-static int varr__to_tuple(ti_varr_t ** varr)
+int ti_varr_to_tuple(ti_varr_t ** varr)
 {
     ti_varr_t * tuple = *varr;
 
@@ -91,18 +91,31 @@ ti_varr_t * ti_tuple_from_vec(vec_t * vec)
     return varr;
 }
 
-
+/*
+ * Should only be used when it is `ti_val_to_arr()` should succeed in normal
+ * conditions.
+ */
 ti_varr_t * ti_varr_from_vec(vec_t * vec)
 {
+    ex_t e = {0};
     ti_varr_t * varr = malloc(sizeof(ti_varr_t));
     if (!varr)
         return NULL;
 
     varr->ref = 1;
     varr->tp = TI_VAL_ARR;
-    varr->flags = vec->n?(TI_VARR_FLAG_MHT|TI_VARR_FLAG_MHR):0;
+    varr->flags = 0;
     varr->vec = vec;
     varr->parent = NULL;
+    for (vec_each_addr(vec, ti_val_t, v))
+    {
+        if (ti_val_to_arr(v, varr, &e))
+        {
+            log_critical(e.msg);
+            free(varr);
+            return NULL;
+        }
+    }
     return varr;
 }
 
@@ -163,18 +176,16 @@ _Bool ti_varr_has_val(ti_varr_t * varr, ti_val_t * val)
     return false;
 }
 
-int ti_varr_val_prepare(ti_varr_t * to, void ** v, ex_t * e)
+int ti_varr_nested_spec_err(ti_varr_t * varr, ti_val_t * val, ex_t * e)
 {
-    assert (ti_varr_is_list(to));  /* `to` must be a list */
-
-    switch (ti_spec_check_nested_val(ti_varr_spec(to), (ti_val_t *) *v))
+    switch (ti_spec_check_nested_val(ti_varr_spec(varr), val))
     {
     case TI_SPEC_RVAL_SUCCESS:
-        break;
+        return 0;
     case TI_SPEC_RVAL_TYPE_ERROR:
         ex_set(e, EX_TYPE_ERROR,
                 "type `%s` is not allowed in restricted array",
-                ti_val_str((ti_val_t *) *v));
+                ti_val_str(val));
         return e->nr;
     case TI_SPEC_RVAL_UTF8_ERROR:
         ex_set(e, EX_VALUE_ERROR,
@@ -194,59 +205,7 @@ int ti_varr_val_prepare(ti_varr_t * to, void ** v, ex_t * e)
                 "array is restricted to negative integer values");
         return e->nr;
     }
-
-    switch ((ti_val_enum) ((ti_val_t *) *v)->tp)
-    {
-    case TI_VAL_SET:
-        if (ti_vset_to_tuple((ti_vset_t **) v))
-        {
-            ex_set_mem(e);
-            return e->nr;
-        }
-        ti_varr_set_may_flags(to, (ti_varr_t *) *v);
-        break;
-    case TI_VAL_CLOSURE:
-        return ti_closure_unbound((ti_closure_t *) *v, e);
-    case TI_VAL_ARR:
-        if (ti_varr_is_list((ti_varr_t *) *v) &&
-            varr__to_tuple((ti_varr_t **) v))
-        {
-            ex_set_mem(e);
-            return e->nr;
-        }
-        ti_varr_set_may_flags(to, (ti_varr_t *) *v);
-        break;
-    case TI_VAL_THING:
-        to->flags |= TI_VARR_FLAG_MHT;
-        break;
-    case TI_VAL_ROOM:
-        to->flags |= TI_VARR_FLAG_MHR;
-        break;
-    case TI_VAL_MEMBER:
-        if (ti_val_is_thing(VMEMBER(*v)))
-            to->flags |= TI_VARR_FLAG_MHT;
-        break;
-    case TI_VAL_FUTURE:
-        ti_val_unsafe_drop(*v);
-        *v = ti_nil_get();
-        break;
-    default:
-        break;
-    }
-    return e->nr;
-}
-
-/*
- * does not increment `*v` reference counter but the value might change to
- * a (new) tuple pointer.
- */
-int ti_varr_set(ti_varr_t * to, void ** v, size_t idx, ex_t * e)
-{
-    if (ti_varr_val_prepare(to, v, e))
-        return e->nr;
-
-    ti_val_unsafe_gc_drop((ti_val_t *) VEC_get(to->vec, idx));
-    to->vec->data[idx] = *v;
+    assert(0);
     return 0;
 }
 

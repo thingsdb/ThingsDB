@@ -76,7 +76,9 @@ typedef enum
     TI_TASK_VTASK_SET_ARGS,                 /* 63  */
     TI_TASK_VTASK_SET_OWNER,                /* 64  */
     TI_TASK_VTASK_SET_CLOSURE,              /* 65  */
-    TI_TASK_RESTRICT,                       /* 66  */
+    TI_TASK_THING_RESTRICT,                 /* 66  */
+    TI_TASK_THING_REMOVE,                   /* 55  */
+
 } ti_task_enum;
 
 typedef struct ti_task_s ti_task_t;

@@ -43,7 +43,7 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     for (vec_each(varr_source->vec, ti_val_t, v))
     {
         ti_incref(v);
-        if (ti_varr_append(varr_dest, (void **) &v, e))
+        if (ti_val_varr_append(varr_dest, &v, e))
         {
             ti_decref(v);
             goto undo;

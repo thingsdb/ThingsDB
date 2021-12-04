@@ -384,7 +384,7 @@ static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
         ti_val_unsafe_drop(val);
         varr->vec->data[idx] = query->rval;
     }
-    else if(ti_varr_set(varr, (void **) &query->rval, idx, e))
+    else if(ti_val_varr_set(varr, &query->rval, idx, e))
         goto fail1;
 
     ti_incref(query->rval);

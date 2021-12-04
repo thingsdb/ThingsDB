@@ -9,6 +9,9 @@
 * Added `restriction()` function, issue #240.
 * Fixed bug with deploying static module files, issue #241.
 * Fixed memory leak when deleting a locked value from a *(dict)* thing, issue #242.
+* Fixed generating Id for wrapped thing in list, issue #243.
+* Added optional limit argument to `set().remove(..)`, issue #244.
+* Added `remove()` function for non-typed things, issue #245.
 
 # v1.1.0
 

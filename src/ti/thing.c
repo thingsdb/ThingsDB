@@ -33,55 +33,6 @@ static vec_t * thing__gc_swp;
 vec_t * ti_thing_gc_vec;
 
 
-static inline int thing__val_locked(
-        ti_thing_t * thing,
-        ti_name_t * name,
-        ti_val_t * val,
-        ex_t * e)
-{
-    /*
-     * Array and Sets are the only two values with are mutable and not set
-     * by reference (like things). An array is always type `list` since it
-     * is a value attached to a `prop` type.
-     */
-    if (ti_val_is_mut_locked(val))
-    {
-        ex_set(e, EX_OPERATION,
-            "cannot change or remove property `%s` on "TI_THING_ID
-            " while the `%s` is in use",
-            name->str,
-            thing->id,
-            ti_val_str(val));
-        return -1;
-    }
-    return 0;
-}
-
-static inline int thing__item_val_locked(
-        ti_thing_t * thing,
-        ti_raw_t * key,
-        ti_val_t * val,
-        ex_t * e)
-{
-    /*
-     * Array and Sets are the only two values with are mutable and not set
-     * by reference (like things). An array is always type `list` since it
-     * is a value attached to a `prop` type.
-     */
-    if (    (val->tp == TI_VAL_ARR || val->tp == TI_VAL_SET) &&
-            (val->flags & TI_VFLAG_LOCK))
-    {
-        ex_set(e, EX_OPERATION,
-            "cannot change or remove property `%s` on "TI_THING_ID
-            " while the `%s` is in use",
-            ti_raw_as_printable_str(key),
-            thing->id,
-            ti_val_str(val));
-        return -1;
-    }
-    return 0;
-}
-
 ti_thing_t * ti_thing_o_create(
         uint64_t id,
         size_t init_sz,
@@ -479,7 +430,7 @@ static int thing_p__prop_set_e(
     {
         if (p->name == name)
         {
-            if (thing__val_locked(thing, p->name, p->val, e))
+            if (ti_val_tlocked(p->val, thing, p->name, e))
                 return e->nr;
 
             ti_decref(name);
@@ -515,8 +466,9 @@ static int thing_i__item_set_e(
             key->data, key->n);
     if (item)
     {
-        if (thing__item_val_locked(thing, item->key, item->val, e))
+        if (ti_val_tlocked(item->val, thing, (ti_name_t *) item->key, e))
             return e->nr;
+
         ti_val_unsafe_drop((ti_val_t *) item->key);
         ti_val_unsafe_gc_drop(item->val);
         item->val = val;
@@ -760,7 +712,7 @@ int ti_thing_t_set_val_from_strn(
         return e->nr;
 
     vaddr = (ti_val_t **) vec_get_addr(thing->items.vec, field->idx);
-    if (thing__val_locked(thing, field->name, *vaddr, e) ||
+    if (ti_val_tlocked(*vaddr, thing, field->name, e) ||
         ti_field_make_assignable(field, val, thing, e))
         return e->nr;
 
@@ -813,7 +765,7 @@ ti_item_t * ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
         if (!item)
             goto not_found;
 
-        if (thing__item_val_locked(thing, item->key, item->val, e))
+        if (ti_val_tlocked(item->val, thing, (ti_name_t *) item->key, e))
         {
             if (smap_addn(
                     thing->items.smap,
@@ -835,7 +787,7 @@ ti_item_t * ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
             for (vec_each(thing->items.vec, ti_prop_t, prop), ++i)
             {
                 if (prop->name == name)
-                    return thing__val_locked(thing, prop->name, prop->val, e)
+                    return ti_val_tlocked(prop->val, thing, prop->name, e)
                         ? NULL
                         : vec_swap_remove(thing->items.vec, i);
             }

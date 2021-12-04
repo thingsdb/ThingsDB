@@ -115,9 +115,8 @@ static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
     }
 
-    idx = vec->n;
     for (vec_each_rev(vec, void, pos))
-        VEC_set(vec, vec_remove(varr->vec, (uintptr_t) pos), --idx);
+        *v__ = vec_remove(varr->vec, (uintptr_t) pos);
 
     query->rval = (ti_val_t *) ti_varr_from_vec(vec);
     if (query->rval)
@@ -144,9 +143,10 @@ typedef struct
     ti_closure_t * closure;
     ti_query_t * query;
     vec_t ** removed;
-} remove__walk_t;
+    int64_t limit;
+} remove__walk_set_t;
 
-static int remove__walk(ti_thing_t * t, remove__walk_t * w)
+static int remove__walk(ti_thing_t * t, remove__walk_set_t * w)
 {
     if (ti_closure_vars_vset(w->closure, t))
     {
@@ -165,50 +165,65 @@ static int remove__walk(ti_thing_t * t, remove__walk_t * w)
 
     ti_val_unsafe_drop(w->query->rval);
     w->query->rval = NULL;
-    return 0;
+
+    return (*w->removed)->n == w->limit;
 }
 
 static int do__f_remove_set_from_closure(
         vec_t ** removed,
         ti_vset_t * vset,
         ti_query_t * query,
-        const int nargs,
+        cleri_node_t * nd,
         ex_t * e)
 {
+    const int nargs = fn_get_nargs(nd);
     ti_closure_t * closure = (ti_closure_t *) query->rval;
+    int64_t limit;
     query->rval = NULL;
 
-    /* do not use the usual arguments check since we want a special message */
-    if (nargs > 1)
+    if (nargs == 2)
+    {
+        if (ti_do_statement(query, nd->children->next->next->node, e) ||
+            fn_arg_int("remove", DOC_SET_REMOVE, 2, query->rval, e))
+            goto fail;
+
+        limit = VINT(query->rval);
+        ti_val_unsafe_drop(query->rval);
+        query->rval = NULL;
+    }
+    else if (nargs > 2)
     {
         ex_set(e, EX_NUM_ARGUMENTS,
-                "function `remove` takes at most 1 argument when using a `"
+                "function `remove` takes at most 2 arguments when using a `"
                 TI_VAL_CLOSURE_S"` but %d were given"DOC_SET_REMOVE,
                 nargs);
         goto fail;
     }
+    else
+        limit = LLONG_MAX;
 
     if (    ti_closure_try_wse(closure, query, e) ||
             ti_closure_inc(closure, query, e))
         goto fail;
 
-    remove__walk_t w = {
+    remove__walk_set_t w = {
             .e = e,
             .closure = closure,
             .query = query,
             .removed = removed,
+            .limit = limit,
     };
 
     if (ti_vset_has_relation(vset))
     {
-        if (imap_walk_cp(
+        if (limit && imap_walk_cp(
                 vset->imap,
                 (imap_cb) remove__walk,
                 &w,
                 (imap_destroy_cb) ti_val_unsafe_drop) && !e->nr)
             ex_set_mem(e);
     }
-    else
+    else if (limit)
         (void) imap_walk(vset->imap, (imap_cb) remove__walk, &w);
 
     ti_closure_dec(closure, query);
@@ -218,10 +233,7 @@ fail:
     return e->nr;
 }
 
-static int do__f_remove_set(
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e)
+static int do__f_remove_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     vec_t * removed = NULL;
     const int nargs = fn_get_nargs(nd);
@@ -246,7 +258,7 @@ static int do__f_remove_set(
             goto fail1;
         }
 
-        if (do__f_remove_set_from_closure(&removed, vset, query, nargs, e))
+        if (do__f_remove_set_from_closure(&removed, vset, query, nd, e))
             goto fail2;
 
         assert (query->rval == NULL);
@@ -349,11 +361,185 @@ done:
     return e->nr;
 }
 
+typedef struct
+{
+    ex_t * e;
+    ti_closure_t * closure;
+    ti_query_t * query;
+    vec_t ** removed;
+    ti_thing_t * thing;
+    int64_t limit;
+    size_t * alloc_sz;
+} remove__walk_i_t;
+
+static int remove__walk_i(ti_item_t * item, remove__walk_i_t * w)
+{
+    if (ti_closure_vars_item(w->closure, item, w->e) ||
+        ti_closure_do_statement(w->closure, w->query, w->e))
+        return -1;
+
+    if (ti_val_as_bool(w->query->rval))
+    {
+        if (ti_val_tlocked(
+                item->val,
+                w->thing,
+                (ti_name_t *) item->key,
+                w->e))
+            return -1;
+
+        if (vec_push(w->removed, item))
+        {
+            ex_set_mem(w->e);
+            return -1;
+        }
+        /* add to size for later allocation */
+        *w->alloc_sz += item->key->n;
+    }
+
+    ti_val_unsafe_drop(w->query->rval);
+    w->query->rval = NULL;
+    return (*w->removed)->n == w->limit;
+}
+
+static int do__f_remove_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    const int nargs = fn_get_nargs(nd);
+    int64_t limit;
+    ti_closure_t * closure;
+    ti_thing_t * thing;
+    vec_t * vec;
+    size_t alloc_sz = 0;
+
+    if (fn_nargs_range("remove", DOC_THING_REMOVE, 1, 2, nargs, e) ||
+        ti_val_try_lock(query->rval, e))
+        return e->nr;
+
+    thing = (ti_thing_t *) query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->node, e) ||
+        fn_arg_closure("remove", DOC_THING_REMOVE, 1, query->rval, e))
+        goto fail1;
+
+    closure = (ti_closure_t *) query->rval;
+    query->rval = NULL;
+
+    if (nargs == 2)
+    {
+        if (ti_do_statement(query, nd->children->next->next->node, e) ||
+            fn_arg_int("remove", DOC_THING_REMOVE, 2, query->rval, e))
+            goto fail2;
+        limit = VINT(query->rval);
+        ti_val_unsafe_drop(query->rval);
+        query->rval = NULL;
+    }
+    else
+        limit = LLONG_MAX;
+
+    if (    ti_closure_try_wse(closure, query, e) ||
+            ti_closure_inc(closure, query, e))
+        goto fail2;
+
+    vec = vec_new(1);
+    if (!vec)
+    {
+        ex_set_mem(e);
+        goto fail3;
+    }
+
+    if (ti_thing_is_dict(thing))
+    {
+        remove__walk_i_t w = {
+                .e = e,
+                .closure = closure,
+                .query = query,
+                .removed = &vec,
+                .thing = thing,
+                .limit = limit,
+                .alloc_sz = &alloc_sz,
+        };
+
+        if (limit && smap_values(
+                thing->items.smap,
+                (smap_val_cb) remove__walk_i,
+                &w) < 0)
+            goto fail3;
+    }
+    else
+    {
+        for (vec_each(thing->items.vec, ti_prop_t, prop))
+        {
+            if (vec->n == limit)
+                break;
+
+            if (ti_closure_vars_prop(closure, prop, e) ||
+                ti_closure_do_statement(closure, query, e))
+                goto fail3;
+
+            if (ti_val_as_bool(query->rval))
+            {
+                if (ti_val_tlocked(prop->val, thing, prop->name, e))
+                    goto fail3;
+
+                if (vec_push(&vec, prop))
+                {
+                    ex_set_mem(e);
+                    goto fail3;
+                }
+                alloc_sz += prop->name->n;
+            }
+
+            ti_val_unsafe_drop(query->rval);
+            query->rval = NULL;
+        }
+    }
+
+
+    if (vec->n && thing->id)
+    {
+        ti_task_t * task;
+        task = ti_task_get_task(query->change, thing);
+        if (!task || ti_task_add_thing_remove(task, vec, alloc_sz))
+        {
+            ex_set_mem(e);
+            goto fail3;
+        }
+    }
+
+    for (vec_each(vec, ti_prop_t, prop))
+    {
+        *v__ = (void *) prop->val;
+        ti_incref(prop->val);
+        ti_thing_o_del(thing, prop->name->str, prop->name->n);
+    }
+
+
+    query->rval = (ti_val_t *) ti_varr_from_vec(vec);
+    if (query->rval)
+        vec = NULL;
+    else
+        ex_set_mem(e);
+
+fail3:
+    free(vec);
+    ti_closure_dec(closure, query);
+
+fail2:
+    ti_val_unsafe_drop((ti_val_t *) closure);
+
+fail1:
+    ti_val_unlock((ti_val_t *) thing, true  /* lock was set */);
+    ti_val_unsafe_drop((ti_val_t *) thing);
+    return e->nr;
+}
+
 static inline int do__f_remove(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     return ti_val_is_list(query->rval)
             ? do__f_remove_list(query, nd, e)
             : ti_val_is_set(query->rval)
             ? do__f_remove_set(query, nd, e)
+            : ti_val_is_object(query->rval)
+            ? do__f_remove_thing(query, nd, e)
             : fn_call_try("remove", query, nd, e);
 }

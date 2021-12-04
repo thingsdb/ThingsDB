@@ -325,7 +325,7 @@ int ti_task_add_restrict(ti_task_t * task, uint16_t spec)
 
     msgpack_pack_array(&pk, 2);
 
-    msgpack_pack_uint8(&pk, TI_TASK_RESTRICT);
+    msgpack_pack_uint8(&pk, TI_TASK_THING_RESTRICT);
     msgpack_pack_uint16(&pk, spec);
 
     data = (ti_data_t *) buffer.data;
@@ -2289,6 +2289,45 @@ int ti_task_add_arr_remove(ti_task_t * task, ti_raw_t * key, vec_t * vec)
 
 fail_data:
     free(data);
+    return -1;
+}
+
+int ti_task_add_thing_remove(ti_task_t * task, vec_t * vec, size_t alloc_sz)
+{
+    size_t alloc = 32 + alloc_sz + (vec->n << 1);
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_THING_REMOVE);
+    msgpack_pack_array(&pk, vec->n);
+
+    for (vec_each(vec, ti_raw_t, key))
+        if (mp_pack_strn(&pk, key->data, key->n))
+            goto fail_pack;  /* very unlikely,
+                                only possible with keys > 255 chars */
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+
+fail_pack:
+    msgpack_sbuffer_destroy(&buffer);
     return -1;
 }
 

@@ -574,7 +574,7 @@ static int ctask__to_type(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
-static int ctask__restrict(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__thing_restrict(ti_thing_t * thing, mp_unp_t * up)
 {
     ti_collection_t * collection = thing->collection;
     uint16_t spec;
@@ -583,13 +583,45 @@ static int ctask__restrict(ti_thing_t * thing, mp_unp_t * up)
     if (mp_next(up, &mp_spec) != MP_U64)
     {
         log_critical(
-            "task `restrict` for "TI_COLLECTION_ID" is invalid",
+            "task `thing_restrict` for "TI_COLLECTION_ID" is invalid",
             collection->root->id);
         return -1;
     }
 
     spec = mp_spec.via.u64;
     thing->via.spec = spec;
+    return 0;
+}
+
+/*
+ * Returns 0 on success
+ */
+static int ctask__thing_remove(ti_thing_t * thing, mp_unp_t * up)
+{
+    ti_collection_t * collection = thing->collection;
+    mp_obj_t obj, mp_key;
+    size_t i;
+
+    if (mp_next(up, &obj) != MP_ARR)
+    {
+        log_critical(
+            "task `thing_remove` for "TI_COLLECTION_ID" is invalid",
+            collection->root->id);
+        return -1;
+    }
+
+    for (i = obj.via.sz; i--;)
+    {
+        if (mp_next(up, &mp_key) != MP_STR)
+        {
+            log_critical(
+                    "task `thing_remove` from "TI_THING_ID": "
+                    "invalid property data",
+                    thing->id);
+            continue;
+        }
+        ti_thing_o_del(thing, mp_key.via.str.data, mp_key.via.str.n);
+    }
     return 0;
 }
 
@@ -1626,19 +1658,18 @@ static int ctask__del(ti_thing_t * thing, mp_unp_t * up)
 {
     assert (ti_thing_is_object(thing));
 
-    mp_obj_t mp_prop;
+    mp_obj_t mp_key;
 
-    if (mp_next(up, &mp_prop) != MP_STR)
+    if (mp_next(up, &mp_key) != MP_STR)
     {
         log_critical(
-                "task `del` property from "TI_THING_ID": "
+                "task `del` from "TI_THING_ID": "
                 "missing property data",
                 thing->id);
         return -1;
     }
 
-    ti_thing_o_del(thing, mp_prop.via.str.data, mp_prop.via.str.n);
-
+    ti_thing_o_del(thing, mp_key.via.str.data, mp_key.via.str.n);
     return 0;
 }
 
@@ -2467,7 +2498,7 @@ static int ctask__splice(ti_thing_t * thing, mp_unp_t * up)
             return -1;
         }
 
-        if (ti_varr_append(varr, (void **) &val, &e))
+        if (ti_val_varr_append(varr, &val, &e))
         {
             log_critical("task `splice` array on "TI_THING_ID": %s",
                     thing->id,
@@ -2633,7 +2664,8 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_VTASK_SET_ARGS:    return ctask__vtask_set_args(thing, up);
     case TI_TASK_VTASK_SET_OWNER:   return ctask__vtask_set_owner(thing, up);
     case TI_TASK_VTASK_SET_CLOSURE: return ctask__vtask_set_closure(thing, up);
-    case TI_TASK_RESTRICT:          return ctask__restrict(thing, up);
+    case TI_TASK_THING_RESTRICT:    return ctask__thing_restrict(thing, up);
+    case TI_TASK_THING_REMOVE:      return ctask__thing_remove(thing, up);;
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);

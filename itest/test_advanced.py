@@ -1883,6 +1883,18 @@ new_procedure('multiply', |a, b| a * b);
                 })
             """)
 
+    async def test_in_use_on_dict(self, client):
+        # bug #243
+        res = await client.query(r"""//ti
+            new_type('A');
+            t = [A{}.wrap()];
+            .list = [];
+            .list.push(t);
+            // should return an Id
+            .list[0][0].unwrap().id();
+        """)
+        self.assertIsInstance(res, int)
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

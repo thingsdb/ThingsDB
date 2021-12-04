@@ -49,7 +49,7 @@ static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     for (; child; child = child->next->next)
     {
         if (ti_do_statement(query, child->node, e) ||
-            ti_varr_append(varr, (void **) &query->rval, e))
+            ti_val_varr_append(varr, &query->rval, e))
             goto failed;
 
         query->rval = NULL;

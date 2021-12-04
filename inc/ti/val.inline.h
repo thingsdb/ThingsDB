@@ -13,6 +13,7 @@
 #include <ti/member.inline.h>
 #include <ti/name.h>
 #include <ti/nil.h>
+#include <ti/nil.h>
 #include <ti/regex.h>
 #include <ti/room.h>
 #include <ti/room.inline.h>
@@ -187,8 +188,59 @@ static inline int val__member_to_store_pk(ti_member_t * member, msgpack_packer *
 static inline int val__varr_to_client_pk(ti_varr_t * varr, ti_vp_t * vp, int deep);
 static inline int val__varr_to_store_pk(ti_varr_t * varr, msgpack_packer * pk);
 
+static inline int val__to_arr_cb(ti_val_t ** UNUSED(v), ti_varr_t * UNUSED(varr), ex_t * UNUSED(e))
+{
+    return 0;
+}
+
+static inline int val__thing_to_arr(ti_val_t ** UNUSED(v), ti_varr_t * varr, ex_t * UNUSED(e))
+{
+    varr->flags |= TI_VARR_FLAG_MHT;
+    return 0;
+}
+
+static inline int val__wrap_to_arr(ti_val_t ** UNUSED(v), ti_varr_t * varr, ex_t * UNUSED(e))
+{
+    varr->flags |= TI_VARR_FLAG_MHT;
+    return 0;
+}
+
+static inline int val__room_to_arr(ti_val_t ** UNUSED(v), ti_varr_t * varr, ex_t * UNUSED(e))
+{
+    varr->flags |= TI_VARR_FLAG_MHR;
+    return 0;
+}
+
+static inline int val__arr_to_arr(ti_val_t ** v, ti_varr_t * varr, ex_t * e)
+{
+    if (ti_varr_is_list((ti_varr_t *) *v) &&
+        ti_varr_to_tuple((ti_varr_t **) v))
+        ex_set_mem(e);
+    else
+        ti_varr_set_may_flags(varr, (ti_varr_t *) *v);
+    return e->nr;
+}
+
+static inline int val__set_to_arr(ti_val_t ** v, ti_varr_t * varr, ex_t * e)
+{
+    if (ti_vset_to_tuple((ti_vset_t **) v))
+        ex_set_mem(e);
+    else
+        ti_varr_set_may_flags(varr, (ti_varr_t *) *v);
+    return e->nr;
+}
+
+static inline int val__member_to_arr(ti_val_t ** v, ti_varr_t * varr, ex_t * e);
+static inline int val__future_to_arr(ti_val_t ** v, ti_varr_t * UNUSED(varr), ex_t * UNUSED(e));
+
+static inline int val__closure_to_arr(ti_val_t ** v, ti_varr_t * UNUSED(varr), ex_t * e)
+{
+    return ti_closure_unbound((ti_closure_t *) *v, e);
+}
+
 typedef void (*ti_val_destroy_cb) (ti_val_t *);
 typedef int (*ti_val_to_str_cb) (ti_val_t **, ex_t *);
+typedef int (*ti_val_to_arr_cb) (ti_val_t ** v, ti_varr_t * varr, ex_t * e);
 typedef int (*ti_val_to_client_pk_cb) (ti_val_t *, ti_vp_t *, int);
 typedef int (*ti_val_to_store_pk_cb) (ti_val_t *, msgpack_packer * pk);
 typedef const char * (*ti_val_type_str_cb) (ti_val_t *);
@@ -197,6 +249,7 @@ typedef struct
 {
     ti_val_destroy_cb destroy;
     ti_val_to_str_cb to_str;
+    ti_val_to_arr_cb to_arr_cb;
     ti_val_to_client_pk_cb to_client_pk;
     ti_val_to_store_pk_cb to_store_pk;
     ti_val_type_str_cb get_type_str;
@@ -209,6 +262,7 @@ static ti_val_type_t ti_val_type_props[21] = {
     {
         .destroy = (ti_val_destroy_cb) free,
         .to_str = ti_val_nil_to_str,
+        .to_arr_cb = val__to_arr_cb,
         .to_client_pk = val__nil_to_client_pk,
         .to_store_pk = val__nil_to_store_pk,
         .get_type_str = val__nil_type_str,
@@ -218,6 +272,7 @@ static ti_val_type_t ti_val_type_props[21] = {
     {
         .destroy = (ti_val_destroy_cb) free,
         .to_str = ti_val_int_to_str,
+        .to_arr_cb = val__to_arr_cb,
         .to_client_pk = val__int_to_client_pk,
         .to_store_pk = val__int_to_store_pk,
         .get_type_str = val__int_type_str,
@@ -227,6 +282,7 @@ static ti_val_type_t ti_val_type_props[21] = {
     {
         .destroy = (ti_val_destroy_cb) free,
         .to_str = ti_val_float_to_str,
+        .to_arr_cb = val__to_arr_cb,
         .to_client_pk = val__float_to_client_pk,
         .to_store_pk = val__float_to_store_pk,
         .get_type_str = val__float_type_str,
@@ -236,6 +292,7 @@ static ti_val_type_t ti_val_type_props[21] = {
     {
         .destroy = (ti_val_destroy_cb) free,
         .to_str = ti_val_bool_to_str,
+        .to_arr_cb = val__to_arr_cb,
         .to_client_pk = val__bool_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_vbool_to_pk,
         .get_type_str = val__bool_type_str,
@@ -245,6 +302,7 @@ static ti_val_type_t ti_val_type_props[21] = {
     {
         .destroy = (ti_val_destroy_cb) free,
         .to_str = ti_val_datetime_to_str,
+        .to_arr_cb = val__to_arr_cb,
         .to_client_pk = val__datetime_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_datetime_to_store_pk,
         .get_type_str = val__datetime_type_str,
@@ -254,6 +312,7 @@ static ti_val_type_t ti_val_type_props[21] = {
     {
         .destroy = (ti_val_destroy_cb) ti_name_destroy,
         .to_str = val__str_to_str,
+        .to_arr_cb = val__to_arr_cb,
         .to_client_pk = val__str_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_raw_str_to_pk,
         .get_type_str = val__str_type_str,
@@ -263,6 +322,7 @@ static ti_val_type_t ti_val_type_props[21] = {
     {
         .destroy = (ti_val_destroy_cb) free,
         .to_str = val__str_to_str,
+        .to_arr_cb = val__to_arr_cb,
         .to_client_pk = val__str_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_raw_str_to_pk,
         .get_type_str = val__str_type_str,
@@ -272,6 +332,7 @@ static ti_val_type_t ti_val_type_props[21] = {
     {
         .destroy = (ti_val_destroy_cb) free,
         .to_str = ti_val_bytes_to_str,
+        .to_arr_cb = val__to_arr_cb,
         .to_client_pk = val__bytes_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_raw_bytes_to_pk,
         .get_type_str = val__bytes_type_str,
@@ -281,6 +342,7 @@ static ti_val_type_t ti_val_type_props[21] = {
     {
         .destroy = (ti_val_destroy_cb) ti_regex_destroy,
         .to_str = ti_val_regex_to_str,
+        .to_arr_cb = val__to_arr_cb,
         .to_client_pk = val__regex_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_regex_to_store_pk,
         .get_type_str = val__regex_type_str,
@@ -290,6 +352,7 @@ static ti_val_type_t ti_val_type_props[21] = {
     {
         .destroy = (ti_val_destroy_cb) ti_thing_destroy,
         .to_str = ti_val_thing_to_str,
+        .to_arr_cb = val__thing_to_arr,
         .to_client_pk = (ti_val_to_client_pk_cb) ti_thing_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_thing_to_store_pk,
         .get_type_str = val__thing_type_str,
@@ -299,6 +362,7 @@ static ti_val_type_t ti_val_type_props[21] = {
     {
         .destroy = (ti_val_destroy_cb) ti_wrap_destroy,
         .to_str = ti_val_wrap_to_str,
+        .to_arr_cb = val__wrap_to_arr,
         .to_client_pk = (ti_val_to_client_pk_cb) ti_wrap_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_wrap_to_store_pk,
         .get_type_str = val__wrap_type_str,
@@ -308,6 +372,7 @@ static ti_val_type_t ti_val_type_props[21] = {
     {
         .destroy = (ti_val_destroy_cb) ti_room_destroy,
         .to_str = ti_val_room_to_str,
+        .to_arr_cb = val__room_to_arr,
         .to_client_pk = val__room_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_room_to_store_pk,
         .get_type_str = val__room_type_str,
@@ -317,6 +382,7 @@ static ti_val_type_t ti_val_type_props[21] = {
     {
         .destroy = (ti_val_destroy_cb) ti_vtask_destroy,
         .to_str = ti_val_vtask_to_str,
+        .to_arr_cb = val__to_arr_cb,
         .to_client_pk = val__task_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_vtask_to_store_pk,
         .get_type_str = val__task_type_str,
@@ -326,6 +392,7 @@ static ti_val_type_t ti_val_type_props[21] = {
     {
         .destroy = (ti_val_destroy_cb) ti_varr_destroy,
         .to_str = val__no_to_str,
+        .to_arr_cb = val__arr_to_arr,
         .to_client_pk = (ti_val_to_client_pk_cb) val__varr_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) val__varr_to_store_pk,
         .get_type_str = val__arr_type_str,
@@ -335,6 +402,7 @@ static ti_val_type_t ti_val_type_props[21] = {
     {
         .destroy = (ti_val_destroy_cb) ti_vset_destroy,
         .to_str = val__no_to_str,
+        .to_arr_cb = val__set_to_arr,
         .to_client_pk = (ti_val_to_client_pk_cb) ti_vset_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_vset_to_store_pk,
         .get_type_str = val__set_type_str,
@@ -344,6 +412,7 @@ static ti_val_type_t ti_val_type_props[21] = {
     {
         .destroy = (ti_val_destroy_cb) free,
         .to_str = ti_val_error_to_str,
+        .to_arr_cb = val__to_arr_cb,
         .to_client_pk = val__error_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_verror_to_store_pk,
         .get_type_str = val__error_type_str,
@@ -353,6 +422,7 @@ static ti_val_type_t ti_val_type_props[21] = {
     {
         .destroy = (ti_val_destroy_cb) ti_member_destroy,
         .to_str = ti_val_member_to_str,
+        .to_arr_cb = val__member_to_arr,
         .to_client_pk = (ti_val_to_client_pk_cb) val__member_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) val__member_to_store_pk,
         .get_type_str = val__member_type_str,
@@ -362,6 +432,7 @@ static ti_val_type_t ti_val_type_props[21] = {
     {
         .destroy = (ti_val_destroy_cb) free,
         .to_str = val__no_to_str,
+        .to_arr_cb = val__to_arr_cb,
         .to_client_pk = val__mpdata_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_raw_mpdata_to_store_pk,
         .get_type_str = val__mpdata_type_str,
@@ -371,6 +442,7 @@ static ti_val_type_t ti_val_type_props[21] = {
     {
         .destroy = (ti_val_destroy_cb) ti_closure_destroy,
         .to_str = ti_val_closure_to_str,
+        .to_arr_cb = val__closure_to_arr,
         .to_client_pk = val__closure_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_closure_to_store_pk,
         .get_type_str = val__closure_type_str,
@@ -380,6 +452,7 @@ static ti_val_type_t ti_val_type_props[21] = {
     {
         .destroy = (ti_val_destroy_cb) ti_future_destroy,
         .to_str = val__no_to_str,
+        .to_arr_cb = val__future_to_arr,
         .to_client_pk = (ti_val_to_client_pk_cb) val__future_to_pk,
         .get_type_str = val__future_type_str,
         .allowed_as_vtask_arg = false,
@@ -406,6 +479,11 @@ static inline int ti_val_to_client_pk(ti_val_t * val, ti_vp_t * vp, int deep)
 static inline int ti_val_to_store_pk(ti_val_t * val, msgpack_packer * pk)
 {
     return ti_val(val)->to_store_pk(val, pk);
+}
+
+static inline int ti_val_to_arr(ti_val_t ** val, ti_varr_t * varr, ex_t * e)
+{
+    return ti_val(*val)->to_arr_cb(val, varr, e);
 }
 
 /*
@@ -1080,6 +1158,106 @@ static inline _Bool ti_val_is_spec(ti_val_t * val, uint16_t spec)
         return val__spec_enum_eq_to_val(spec, val);
 
     return ti_val_is_thing(val) && ((ti_thing_t *) val)->type_id == spec;
+}
+
+static inline int ti_val_varr_prepare(ti_val_t ** v, ti_varr_t * to, ex_t * e)
+{
+    return !ti_val_is_spec((ti_val_t *) *v, ti_varr_spec(to))
+            ? ti_varr_nested_spec_err(to, *v, e)
+            : ti_val(*v)->to_arr_cb(v, to, e);
+}
+
+static inline int ti_val_tlocked(
+        ti_val_t * val,
+        ti_thing_t * thing,
+        ti_name_t * name,  /* may be type raw */
+        ex_t * e)
+{
+    /*
+     * Array and Sets are the only two values with are mutable and not set
+     * by reference (like things). An array is always type `list` since it
+     * is a value attached to a `prop` type.
+     */
+    if (ti_val_is_mut_locked(val))
+    {
+        ex_set(e, EX_OPERATION,
+            "cannot change or remove property `%s` on "TI_THING_ID
+            " while the `%s` is in use",
+            name->tp == TI_VAL_NAME
+                ? name->str
+                : ti_raw_as_printable_str((ti_raw_t *) name),
+            thing->id,
+            ti_val_str(val));
+        return -1;
+    }
+    return 0;
+}
+
+static inline int val__member_to_arr(ti_val_t ** v, ti_varr_t * varr, ex_t * e)
+{
+    if (ti_val_is_thing(VMEMBER(*v)))
+        varr->flags |= TI_VARR_FLAG_MHT;
+    return e->nr;
+}
+
+static inline int val__future_to_arr(ti_val_t ** v, ti_varr_t * UNUSED(varr), ex_t * UNUSED(e))
+{
+    ti_val_unsafe_drop(*v);
+    *v = (ti_val_t *) ti_nil_get();
+    return 0;
+}
+
+/*
+ * does not increment `*v` reference counter but the value might change to
+ * a (new) tuple pointer.
+ */
+static inline int ti_val_varr_set(ti_varr_t * to, ti_val_t ** v, size_t idx, ex_t * e)
+{
+    if (ti_val_varr_prepare(v, to, e))
+        return e->nr;
+
+    ti_val_unsafe_gc_drop(vec_set(to->vec, *v, idx));
+    return 0;
+}
+
+/*
+ * does not increment `*v` reference counter but the value might change to
+ * a (new) tuple pointer.
+ */
+static inline int ti_val_varr_append(ti_varr_t * to, ti_val_t ** v, ex_t * e)
+{
+    if (vec_reserve(&to->vec, 1))
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+    if (ti_val_varr_prepare(v, to, e))
+        return e->nr;
+
+    VEC_push(to->vec, *v);
+    return 0;
+}
+
+/*
+ * does not increment `*v` reference counter but the value might change to
+ * a (new) tuple pointer.
+ */
+static inline int ti_val_varr_insert(
+        ti_varr_t * to,
+        ti_val_t ** v,
+        ex_t * e,
+        uint32_t i)
+{
+    if (vec_reserve(&to->vec, 1))
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+    if (ti_val_varr_prepare(v, to, e))
+        return e->nr;
+
+    (void) vec_insert(&to->vec, *v, i);
+    return e->nr;
 }
 
 #endif  /* TI_VAL_INLINE_H_ */

@@ -36,7 +36,7 @@ static int do__f_unshift(ti_query_t * query, cleri_node_t * nd, ex_t * e)
          * the current solution requires a call to memmove() on each iteration.
          */
         if (ti_do_statement(query, child->node, e) ||
-            ti_varr_insert(varr, (void **) &query->rval, e, idx))
+            ti_val_varr_insert(varr, &query->rval, e, idx))
             goto fail1;
         ++idx;
         query->rval = NULL;

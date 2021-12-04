@@ -2308,8 +2308,8 @@ int ti_task_add_thing_remove(ti_task_t * task, vec_t * vec, size_t alloc_sz)
     msgpack_pack_uint8(&pk, TI_TASK_THING_REMOVE);
     msgpack_pack_array(&pk, vec->n);
 
-    for (vec_each(vec, ti_raw_t, key))
-        if (mp_pack_strn(&pk, key->data, key->n))
+    for (vec_each(vec, ti_item_t, item))
+        if (mp_pack_strn(&pk, item->key->data, item->key->n))
             goto fail_pack;  /* very unlikely,
                                 only possible with keys > 255 chars */
 

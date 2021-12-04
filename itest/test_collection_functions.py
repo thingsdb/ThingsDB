@@ -2991,8 +2991,14 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `remove` takes at most 1 argument '
-                'when using a `closure` but 2 were given'):
+                'function `remove` takes at most 2 arguments '
+                'when using a `closure` but 3 were given'):
+            await client.query('.s.remove(||true, 1, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `remove` expects argument 2 to be of '
+                'type `int` but got type `nil` instead'):
             await client.query('.s.remove(||true, nil);')
 
         with self.assertRaisesRegex(
@@ -3014,6 +3020,72 @@ class TestCollectionFunctions(TestBase):
 
         # check if `t` is restored
         self.assertEqual(await client.query('.s.len();'), 3)
+
+        res = await client.query('.s.remove(||true, 0);')
+        self.assertEqual(res, [])
+
+        res = await client.query('.s.remove(||true, 2).len();')
+        self.assertEqual(res, 2)
+        self.assertEqual(await client.query('.s.len();'), 1)
+
+    async def _OFF_test_remove_thing(self, client):
+        await client.query(r"""//ti
+            .t = {
+                a: 1,
+                b: 2,
+                c: 3,
+                d: 4,
+            };
+        """)
+
+        removed = await client.query('.t.remove(|k| k == "a");')
+        self.assertEqual(len(removed), 1)
+        self.assertEqual(removed[0], 1)
+        self.assertEqual(await client.query('.t.remove(||nil);'), [])
+        self.assertEqual(await client.query('.t.remove(||true, 0);'), [])
+
+        removed = await client.query('.t.remove(|_, v| v > 2);')
+        self.assertEqual(set(removed), set([3, 4]))
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `remove`'):
+            await client.query('nil.remove(||true);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `remove` requires at least 1 argument '
+                'but 0 were given'):
+            await client.query('.t.remove();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `remove` takes at most 2 arguments '
+                'but 3 were given'):
+            await client.query('.t.remove(||true, 1, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `remove` expects argument 2 to be of '
+                'type `int` but got type `nil` instead'):
+            await client.query('.t.remove(||true, nil);')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'cannot change type `thing` while the value is in use'):
+            await client.query('.t.map(||.t.remove(||true));')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `remove` expects argument 1 to be of type `closure` '
+                'but got type `nil` instead'):
+            await client.query('.t.remove(nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `remove` expects argument 2 to be of type `int` '
+                'but got type `nil` instead'):
+            await client.query('.t.remove(||nil, nil);')
 
     async def test_range(self, client):
         with self.assertRaisesRegex(

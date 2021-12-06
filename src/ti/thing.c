@@ -1563,11 +1563,7 @@ static int thing__assign_set_o(
         ex_t * e,
         uint32_t parent_ref)
 {
-    if (!ti_val_is_spec(val, thing->via.spec))
-    {
-        ex_set(e, EX_TYPE_ERROR, "restriction mismatch");
-        return e->nr;
-    }
+    assert (ti_val_is_spec(val, thing->via.spec));
 
     /*
      * Update the reference count based on the parent. The reason we do this
@@ -1616,6 +1612,10 @@ static int thing__assign_walk_i(ti_item_t * item, thing__assign_walk_i_t * w)
             w->tsrc->ref);
 }
 
+static int thing__assign_restr_i(ti_item_t * item, thing__assign_walk_i_t * w)
+{
+    return !ti_val_is_spec(item->val, w->thing->via.spec);
+}
 
 int ti_thing_assign(
         ti_thing_t * thing,
@@ -1635,6 +1635,13 @@ int ti_thing_assign(
                         .task = task,
                         .e = e,
                 };
+
+                if (thing->via.spec != TI_SPEC_ANY && smap_values(
+                        tsrc->items.smap,
+                        (smap_val_cb) thing__assign_restr_i,
+                        &w))
+                    goto mismatch;
+
                 if (smap_values(
                         tsrc->items.smap,
                         (smap_val_cb) thing__assign_walk_i,
@@ -1643,6 +1650,11 @@ int ti_thing_assign(
             }
             else
             {
+                if (thing->via.spec != TI_SPEC_ANY)
+                    for(vec_each(tsrc->items.vec, ti_prop_t, p))
+                        if (!ti_val_is_spec(p->val, thing->via.spec))
+                            goto mismatch;
+
                 for(vec_each(tsrc->items.vec, ti_prop_t, p))
                     if (thing__assign_set_o(
                             thing,
@@ -1658,6 +1670,12 @@ int ti_thing_assign(
         {
             ti_name_t * name;
             ti_val_t * val;
+
+            if (thing->via.spec != TI_SPEC_ANY)
+                for(thing_t_each(tsrc, name, val))
+                    if (!ti_val_is_spec(val, thing->via.spec))
+                        goto mismatch;
+
             for(thing_t_each(tsrc, name, val))
                 if (thing__assign_set_o(
                         thing,
@@ -1796,6 +1814,10 @@ int ti_thing_assign(
 fail:
         vec_destroy(vec, (vec_destroy_cb) ti_val_unsafe_drop);
     }
+    return e->nr;
+
+mismatch:
+    ex_set(e, EX_TYPE_ERROR, "restriction mismatch");
     return e->nr;
 }
 

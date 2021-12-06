@@ -104,6 +104,32 @@ class TestRestriction(TestBase):
             });
             'OK';
         """)
+        self.assertEqual(res, 'OK')
+
+        await client.query(r"""//ti
+            .t.lookup['force dict'] = 2.2;
+            .t.lookup.assign({
+                d: 0.1,
+                e: 0.2,
+                f: 0.3,
+            });
+            'OK';
+        """)
+        self.assertEqual(res, 'OK')
+
+        size = await client.query(r".t.lookup.len();")
+
+        with self.assertRaisesRegex(TypeError, "restriction mismatch"):
+            await client.query(r"""//ti
+                .t.lookup.assign({
+                    g: 0.1,
+                    h: 'mismatch',
+                    i: 0.2
+                });
+            """)
+
+        # The size should be the same
+        self.assertEqual(size, await client.query(r".t.lookup.len();"))
 
         with self.assertRaisesRegex(
                 ValueError,

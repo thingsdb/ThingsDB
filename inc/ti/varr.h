@@ -12,7 +12,8 @@
 
 ti_varr_t * ti_varr_create(size_t sz);
 ti_varr_t * ti_varr_from_vec(vec_t * vec);
-ti_varr_t * ti_tuple_from_vec(vec_t * vec);
+ti_varr_t * ti_varr_from_vec_unsafe(vec_t * vec);
+ti_varr_t * ti_tuple_from_vec_unsafe(vec_t * vec);
 ti_varr_t * ti_varr_from_slice(
         ti_varr_t * source,
         ssize_t start,

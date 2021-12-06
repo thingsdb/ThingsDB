@@ -76,7 +76,7 @@ ti_varr_t * ti_varr_create(size_t sz)
     return varr;
 }
 
-ti_varr_t * ti_tuple_from_vec(vec_t * vec)
+ti_varr_t * ti_tuple_from_vec_unsafe(vec_t * vec)
 {
     ti_varr_t * varr = malloc(sizeof(ti_varr_t));
     if (!varr)
@@ -86,6 +86,26 @@ ti_varr_t * ti_tuple_from_vec(vec_t * vec)
     varr->tp = TI_VAL_ARR;
     varr->flags = \
             TI_VARR_FLAG_TUPLE|(vec->n?(TI_VARR_FLAG_MHT|TI_VARR_FLAG_MHR):0);
+    varr->vec = vec;
+    varr->parent = NULL;
+    return varr;
+}
+
+/*
+ * No conversion from list to tuples etc. so this should only be used when
+ * possible. For example when a future result is set as this required no
+ * conversion because the result of a future can only be used in combination
+ * with `then` or `else`.
+ */
+ti_varr_t * ti_varr_from_vec_unsafe(vec_t * vec)
+{
+    ti_varr_t * varr = malloc(sizeof(ti_varr_t));
+    if (!varr)
+        return NULL;
+
+    varr->ref = 1;
+    varr->tp = TI_VAL_ARR;
+    varr->flags = vec->n?(TI_VARR_FLAG_MHT|TI_VARR_FLAG_MHR):0;
     varr->vec = vec;
     varr->parent = NULL;
     return varr;

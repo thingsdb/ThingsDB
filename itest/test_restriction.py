@@ -167,7 +167,7 @@ class TestRestriction(TestBase):
             await client.query('{}.restrict(123);')
 
         with self.assertRaisesRegex(
-                ValueError,
+                OperationError,
                 "current restriction is enforced by at least one type"):
             await client.query(r"""//ti
                 a = {};

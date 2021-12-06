@@ -11,7 +11,12 @@ static void async__uv_cb(uv_async_t * task)
     ex_t e = {0};
     ti_future_t * future = task->data;
 
-    future->rval = (ti_val_t *) ti_varr_from_vec(future->args);
+    /*
+     * We never "use" the array directly, only the members in combination with
+     * a `then` or `else` case. Therefore it is not required to perform for
+     * example a list -> tuple conversion.
+     */
+    future->rval = (ti_val_t *) ti_varr_from_vec_unsafe(future->args);
     if (future->rval)
         future->args = NULL;
     else

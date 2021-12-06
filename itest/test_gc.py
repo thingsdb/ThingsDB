@@ -68,7 +68,7 @@ class TestGC(TestBase):
         with self.assertRaisesRegex(
                 LookupError,
                 r'collection `stuff` has no `thing` with id [0-9]+'):
-            await client.query(f'#{other_id};', scope=stuff)
+            await client.query(f'thing({other_id});', scope=stuff)
 
         await self.node0.shutdown()
         await self.node0.run()

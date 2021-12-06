@@ -789,7 +789,7 @@ void ti_query_on_future_result(ti_future_t * future, ex_t * e)
         {
             ti_verror_t * verror = ti_verror_ensure_from_e(e);
             ti_val_unsafe_drop(vec_set(future->args, verror, 0));
-            future->rval = (ti_val_t *) ti_varr_from_vec(future->args);
+            future->rval = (ti_val_t *) ti_varr_from_vec_unsafe(future->args);
             if (future->rval)
             {
                 ex_clear(e);

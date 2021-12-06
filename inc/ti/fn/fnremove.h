@@ -118,7 +118,7 @@ static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     for (vec_each_rev(vec, void, pos))
         *v__ = vec_remove(varr->vec, (uintptr_t) pos);
 
-    query->rval = (ti_val_t *) ti_varr_from_vec(vec);
+    query->rval = (ti_val_t *) ti_varr_from_vec_unsafe(vec);
     if (query->rval)
         vec = NULL;
     else
@@ -339,7 +339,7 @@ static int do__f_remove_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     assert (query->rval == NULL);
-    query->rval = (ti_val_t *) ti_varr_from_vec(removed);
+    query->rval = (ti_val_t *) ti_varr_from_vec_unsafe(removed);
     if (query->rval)
         goto done;
 
@@ -512,7 +512,6 @@ static int do__f_remove_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_incref(prop->val);
         ti_thing_o_del(thing, prop->name->str, prop->name->n);
     }
-
 
     query->rval = (ti_val_t *) ti_varr_from_vec(vec);
     if (query->rval)

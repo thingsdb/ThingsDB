@@ -76,12 +76,48 @@ class TestRestriction(TestBase):
                 .t.lookup.name = "test";
             """)
 
+        with self.assertRaisesRegex(TypeError, "restriction mismatch"):
+            await client.query(r"""//ti
+                .t.lookup.set('name', 'test');
+            """)
+
+        with self.assertRaisesRegex(TypeError, "restriction mismatch"):
+            await client.query(r"""//ti
+                .t.lookup['name'] = 'test';
+            """)
+
+        with self.assertRaisesRegex(TypeError, "restriction mismatch"):
+            await client.query(r"""//ti
+                .t.lookup.assign({
+                    name: 'test'
+                });
+            """)
+
+        await client.query(r"""//ti
+            .t.lookup['y'] = 2.2;
+            .t.lookup.z = 3.3;
+            .t.lookup.set('x', 1.1);
+            .t.lookup.assign({
+                a: 0.1,
+                b: 0.2,
+                c: 0.3,
+            });
+            'OK';
+        """)
+
         with self.assertRaisesRegex(
                 ValueError,
                 "mismatch in type `X` on property `lookup`; "
                 "restriction mismatch"):
             await client.query(r"""//ti
                 .t.lookup = thing().restrict('room')
+            """)
+
+        with self.assertRaisesRegex(
+                OperationError,
+                "current restriction is enforced by at least one type"):
+            await client.query(r"""//ti
+                .t.lookup.restrict(nil)
             """)
 
         res = await client.query(r"""//ti
@@ -167,6 +203,12 @@ class TestRestriction(TestBase):
             await client.query('{}.restrict(123);')
 
         with self.assertRaisesRegex(
+                ValueError,
+                'at least one of the existing values does not match the '
+                'desired restriction'):
+            await client.query('{a: -1}.restrict("pint");')
+
+        with self.assertRaisesRegex(
                 OperationError,
                 "current restriction is enforced by at least one type"):
             await client.query(r"""//ti
@@ -186,6 +228,25 @@ class TestRestriction(TestBase):
         """)
 
         self.assertEqual(res, 'OK')
+
+    async def test_dup_and_copy(self, client):
+        res = await client.query(r"""//ti
+            .t = {a: 10}.restrict('int');
+            'OK';
+        """)
+        self.assertEqual(res, 'OK')
+
+        res = await client.query(r"""//ti
+            d = .t.dup();  // duplicate keeps the restriction
+            d.restriction();
+        """)
+        self.assertEqual(res, 'int')
+
+        res = await client.query(r"""//ti
+            c = .t.copy();  // copy is a new thing without restriction
+            c.restriction();
+        """)
+        self.assertIs(res, None)
 
 
 if __name__ == '__main__':

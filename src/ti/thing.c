@@ -1563,6 +1563,12 @@ static int thing__assign_set_o(
         ex_t * e,
         uint32_t parent_ref)
 {
+    if (!ti_val_is_spec(val, thing->via.spec))
+    {
+        ex_set(e, EX_TYPE_ERROR, "restriction mismatch");
+        return e->nr;
+    }
+
     /*
      * Update the reference count based on the parent. The reason we do this
      * here is that we still require the old value.

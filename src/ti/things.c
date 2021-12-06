@@ -21,6 +21,7 @@
 
 ti_thing_t * ti_things_create_thing_o(
         uint64_t id,
+        uint16_t spec,
         size_t init_sz,
         ti_collection_t * collection)
 {
@@ -31,6 +32,7 @@ ti_thing_t * ti_things_create_thing_o(
         ti_val_drop((ti_val_t *) thing);
         return NULL;
     }
+    thing->via.spec = spec;
     return thing;
 }
 
@@ -50,7 +52,7 @@ ti_thing_t * ti_things_create_thing_t(
 }
 
 /* Returns a thing with a new reference or NULL in case of an error */
-ti_thing_t * ti_things_thing_o_from_vup(
+ti_thing_t * ti_things_thing_o_from_vup__deprecated(
         ti_vup_t * vup,
         uint64_t thing_id,
         size_t sz,
@@ -75,7 +77,12 @@ ti_thing_t * ti_things_thing_o_from_vup(
 
     --sz;  /* decrease one to unpack the remaining properties */
 
-    thing = ti_things_create_thing_o(thing_id, sz, vup->collection);
+    /* new things are always unrestricted */
+    thing = ti_things_create_thing_o(
+            thing_id,
+            TI_SPEC_ANY,
+            sz,
+            vup->collection);
     if (!thing)
     {
         ex_set_mem(e);
@@ -92,6 +99,54 @@ ti_thing_t * ti_things_thing_o_from_vup(
     }
     return thing;
 }
+
+/* Returns a thing with a new reference or NULL in case of an error */
+ti_thing_t * ti_things_thing_o_from_vup(ti_vup_t * vup, ex_t * e)
+{
+    ti_thing_t * thing;
+    mp_obj_t obj, mp_thing_id, mp_spec;
+
+    if (mp_next(vup->up, &obj) != MP_ARR || obj.via.sz != 3 ||
+        mp_next(vup->up, &mp_spec) != MP_U64 ||
+        mp_next(vup->up, &mp_thing_id) != MP_U64 ||
+        mp_next(vup->up, &obj) != MP_MAP)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "invalid type data; "
+                "expecting an type_id, things_id and array with values");
+        return NULL;
+    }
+
+    thing = ti_things_create_thing_o(
+            mp_thing_id.via.u64,
+            mp_spec.via.u64,
+            obj.via.sz,
+            vup->collection);
+
+    if (!thing)
+    {
+        /* No need to check for garbage collected things */
+        if (ti_collection_thing_by_id(vup->collection, mp_thing_id.via.u64))
+            ex_set(e, EX_LOOKUP_ERROR,
+                    "error while loading non-typed thing; "
+                    "thing "TI_THING_ID" already exists",
+                    mp_thing_id.via.u64);
+        else
+            ex_set_mem(e);
+        return NULL;
+    }
+
+    /* Update the next free id if required */
+    ti_update_next_free_id(mp_thing_id.via.u64);
+
+    if (ti_thing_props_from_vup(thing, vup, obj.via.sz, e))
+    {
+        ti_val_unsafe_drop((ti_val_t *) thing);
+        return NULL;
+    }
+    return thing;
+}
+
 
 /* Returns a thing with a new reference or NULL in case of an error */
 ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)

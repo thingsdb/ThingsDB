@@ -422,27 +422,27 @@ ti_raw_t * ti_datetime_to_str_fmt(ti_datetime_t * dt, ti_raw_t * fmt, ex_t * e)
 /*
  * This function is not thread safe.
  */
-int ti_datetime_to_pk(ti_datetime_t * dt, msgpack_packer * pk, int options)
+int ti_datetime_to_client_pk(ti_datetime_t * dt, msgpack_packer * pk)
 {
-    if (options >= 0)
+    if (ti_datetime_is_datetime(dt))
     {
-        if (ti_datetime_is_datetime(dt))
-        {
-            /* pack client result, convert to string */
-            ex_t e = {0};
-            size_t sz = datetime__write(
-                    dt,
-                    datetime__buf,
-                    DATETIME__BUF_SZ,
-                    datetime__fmt(dt),
-                    &e);
-            return sz
-                ? mp_pack_strn(pk, datetime__buf, sz)
-                : mp_pack_str(pk, "1970-01-01T00:00:00Z");
-        }
-        return msgpack_pack_int64(pk, dt->ts);
+        /* pack client result, convert to string */
+        ex_t e = {0};
+        size_t sz = datetime__write(
+                dt,
+                datetime__buf,
+                DATETIME__BUF_SZ,
+                datetime__fmt(dt),
+                &e);
+        return sz
+            ? mp_pack_strn(pk, datetime__buf, sz)
+            : mp_pack_str(pk, "1970-01-01T00:00:00Z");
     }
+    return msgpack_pack_int64(pk, dt->ts);
+}
 
+int ti_datetime_to_store_pk(ti_datetime_t * dt, msgpack_packer * pk)
+{
     return (
         msgpack_pack_map(pk, 1) ||
         mp_pack_strn(

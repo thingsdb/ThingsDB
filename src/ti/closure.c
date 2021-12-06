@@ -284,7 +284,7 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
     return e->nr;
 }
 
-int ti_closure_to_pk(ti_closure_t * closure, msgpack_packer * pk, int options)
+int ti_closure_to_client_pk(ti_closure_t * closure, msgpack_packer * pk)
 {
     if (closure__is_unbound(closure))
     {
@@ -296,21 +296,38 @@ int ti_closure_to_pk(ti_closure_t * closure, msgpack_packer * pk, int options)
         if (!buf)
             return -1;
 
-        rc = options >= 0
-                ? mp_pack_strn(pk, buf, n)
-                : mp_pack_ext(pk, MPACK_EXT_CLOSURE, buf, n);
+        rc = mp_pack_strn(pk, buf, n);
 
         free(buf);
         return rc;
     }
 
-    return options >= 0
-        ? mp_pack_strn(pk, closure->node->str, closure->node->len)
-        : mp_pack_ext(
-                pk,
-                MPACK_EXT_CLOSURE,
-                closure->node->str,
-                closure->node->len);
+    return mp_pack_strn(pk, closure->node->str, closure->node->len);
+}
+
+int ti_closure_to_store_pk(ti_closure_t * closure, msgpack_packer * pk)
+{
+    if (closure__is_unbound(closure))
+    {
+        int rc;
+        char * buf;
+        size_t n = 0;
+
+        buf = ti_closure_char(closure, &n);
+        if (!buf)
+            return -1;
+
+        rc = mp_pack_ext(pk, MPACK_EXT_CLOSURE, buf, n);
+
+        free(buf);
+        return rc;
+    }
+
+    return mp_pack_ext(
+            pk,
+            MPACK_EXT_CLOSURE,
+            closure->node->str,
+            closure->node->len);
 }
 
 char * ti_closure_char(ti_closure_t * closure, size_t * n)

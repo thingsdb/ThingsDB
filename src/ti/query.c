@@ -789,7 +789,7 @@ void ti_query_on_future_result(ti_future_t * future, ex_t * e)
         {
             ti_verror_t * verror = ti_verror_ensure_from_e(e);
             ti_val_unsafe_drop(vec_set(future->args, verror, 0));
-            future->rval = (ti_val_t *) ti_varr_from_vec(future->args);
+            future->rval = (ti_val_t *) ti_varr_from_vec_unsafe(future->args);
             if (future->rval)
             {
                 ex_clear(e);
@@ -1053,7 +1053,7 @@ static inline int query__pack_response(
     };
     msgpack_packer_init(&vp.pk, buffer, msgpack_sbuffer_write);
 
-    if (ti_val_to_pk(query->rval, &vp, (int) query->qbind.deep))
+    if (ti_val_to_client_pk(query->rval, &vp, (int) query->qbind.deep))
     {
         if (buffer->size > ti.cfg->result_size_limit)
             ex_set(e, EX_RESULT_TOO_LARGE,
@@ -1480,5 +1480,59 @@ int ti_query_task_context(ti_query_t * query, ti_vtask_t * vtask, ex_t * e)
     while(query);
     ex_set_internal(e);
     return e->nr;
+}
+
+typedef struct
+{
+    ti_thing_t * thing;
+    vec_t * fields_to_check;
+} query__thing_spec_cb_t;
+
+static int query__spec_cb(ti_thing_t * thing, query__thing_spec_cb_t * w)
+{
+    for (vec_each(w->fields_to_check, ti_field_t, field))
+        if (thing->type_id == field->type->type_id &&
+            VEC_get(thing->items.vec, field->idx) == w->thing)
+            return -1;
+    return 0;
+}
+
+static int query__type_spec_cp(ti_type_t * type, query__thing_spec_cb_t * w)
+{
+    for (vec_each(type->fields, ti_field_t, field))
+    {
+        if (w->thing->via.spec == field->nested_spec &&
+            (field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_OBJECT)
+        {
+            if (vec_push_create(&w->fields_to_check, field))
+                return -1;
+        }
+    }
+    return 0;
+}
+
+_Bool ti_query_thing_can_change_spec(ti_query_t * query, ti_thing_t * thing)
+{
+    int rc;
+    ti_collection_t * collection = thing->collection;
+    query__thing_spec_cb_t w = {
+            .thing = thing,
+            .fields_to_check = NULL,
+    };
+
+    if (!collection)
+        return true;
+
+    rc = imap_walk(collection->types->imap, (imap_cb) query__type_spec_cp, &w);
+
+    if (rc == 0 && w.fields_to_check)
+        rc = (
+            ti_query_vars_walk(
+                    query->vars, collection, (imap_cb) query__spec_cb, &w) ||
+            imap_walk(collection->things, (imap_cb) query__spec_cb, &w) ||
+            ti_gc_walk(collection->gc, (queue_cb) query__spec_cb, &w));
+
+    free(w.fields_to_check);
+    return rc == 0;
 }
 

@@ -17,6 +17,7 @@
 #include <ti/prop.h>
 #include <ti/proto.h>
 #include <ti/raw.inline.h>
+#include <ti/spec.inline.h>
 #include <ti/task.h>
 #include <ti/thing.h>
 #include <ti/thing.inline.h>
@@ -31,55 +32,6 @@
 static vec_t * thing__gc_swp;
 vec_t * ti_thing_gc_vec;
 
-
-static inline int thing__val_locked(
-        ti_thing_t * thing,
-        ti_name_t * name,
-        ti_val_t * val,
-        ex_t * e)
-{
-    /*
-     * Array and Sets are the only two values with are mutable and not set
-     * by reference (like things). An array is always type `list` since it
-     * is a value attached to a `prop` type.
-     */
-    if (ti_val_is_mut_locked(val))
-    {
-        ex_set(e, EX_OPERATION,
-            "cannot change or remove property `%s` on "TI_THING_ID
-            " while the `%s` is in use",
-            name->str,
-            thing->id,
-            ti_val_str(val));
-        return -1;
-    }
-    return 0;
-}
-
-static inline int thing__item_val_locked(
-        ti_thing_t * thing,
-        ti_raw_t * key,
-        ti_val_t * val,
-        ex_t * e)
-{
-    /*
-     * Array and Sets are the only two values with are mutable and not set
-     * by reference (like things). An array is always type `list` since it
-     * is a value attached to a `prop` type.
-     */
-    if (    (val->tp == TI_VAL_ARR || val->tp == TI_VAL_SET) &&
-            (val->flags & TI_VFLAG_LOCK))
-    {
-        ex_set(e, EX_OPERATION,
-            "cannot change or remove property `%s` on "TI_THING_ID
-            " while the `%s` is in use",
-            ti_raw_as_printable_str(key),
-            thing->id,
-            ti_val_str(val));
-        return -1;
-    }
-    return 0;
-}
 
 ti_thing_t * ti_thing_o_create(
         uint64_t id,
@@ -98,6 +50,7 @@ ti_thing_t * ti_thing_o_create(
     thing->id = id;
     thing->collection = collection;
     thing->items.vec = vec_new(init_sz);
+    thing->via.spec = TI_SPEC_ANY;
 
     if (!thing->items.vec)
     {
@@ -121,6 +74,7 @@ ti_thing_t * ti_thing_i_create(uint64_t id, ti_collection_t * collection)
     thing->id = id;
     thing->collection = collection;
     thing->items.smap = smap_create();
+    thing->via.spec = TI_SPEC_ANY;
 
     if (!thing->items.smap)
     {
@@ -313,7 +267,7 @@ typedef struct
     vec_t * vec;
 } thing__to_stric_t;
 
-static int thing__to_strict_cb(ti_item_t * item, thing__to_stric_t * w)
+static int thing__i_to_o_cb(ti_item_t * item, thing__to_stric_t * w)
 {
     if (ti_raw_is_name(item->key))
     {
@@ -324,7 +278,7 @@ static int thing__to_strict_cb(ti_item_t * item, thing__to_stric_t * w)
     return -1;
 }
 
-int ti_thing_to_strict(ti_thing_t * thing, ti_raw_t ** incompatible)
+int ti_thing_i_to_o(ti_thing_t * thing, ti_raw_t ** incompatible)
 {
     vec_t * vec = vec_new(ti_thing_n(thing));
     if (!vec)
@@ -338,7 +292,7 @@ int ti_thing_to_strict(ti_thing_t * thing, ti_raw_t ** incompatible)
     };
     if (smap_values(
             thing->items.smap,
-            (smap_val_cb) thing__to_strict_cb,
+            (smap_val_cb) thing__i_to_o_cb,
             &w))
     {
         free(vec);
@@ -476,7 +430,7 @@ static int thing_p__prop_set_e(
     {
         if (p->name == name)
         {
-            if (thing__val_locked(thing, p->name, p->val, e))
+            if (ti_val_tlocked(p->val, thing, p->name, e))
                 return e->nr;
 
             ti_decref(name);
@@ -512,8 +466,9 @@ static int thing_i__item_set_e(
             key->data, key->n);
     if (item)
     {
-        if (thing__item_val_locked(thing, item->key, item->val, e))
+        if (ti_val_tlocked(item->val, thing, (ti_name_t *) item->key, e))
             return e->nr;
+
         ti_val_unsafe_drop((ti_val_t *) item->key);
         ti_val_unsafe_gc_drop(item->val);
         item->val = val;
@@ -644,6 +599,51 @@ int ti_thing_i_set_val_from_strn(
     return 0;
 }
 
+int ti_thing_o_set_val_from_strn(
+        ti_witem_t * witem,
+        ti_thing_t * thing,
+        const char * str,
+        size_t n,
+        ti_val_t ** val,
+        ex_t * e)
+{
+    if (ti_name_is_valid_strn(str, n))
+        /* Create a name when the key is a valid name, this is required since
+         * some logic, for example in `do.c` checks if a name exists, and from
+         * that result might decide a property exists or not.
+         */
+        return ti_thing_o_set_val_from_valid_strn(
+                (ti_wprop_t *) witem,
+                thing, str, n, val, e);
+
+    if (!ti_val_is_spec(*val, thing->via.spec))
+    {
+        ex_set(e, EX_TYPE_ERROR, "restriction mismatch");
+        return e->nr;
+    }
+
+    if (!strx_is_utf8n(str, n))
+    {
+        ex_set(e, EX_VALUE_ERROR, "properties must have valid UTF-8 encoding");
+        return e->nr;
+    }
+
+    if (ti_is_reserved_key_strn(str, n))
+    {
+        ex_set(e, EX_VALUE_ERROR, "property `%c` is reserved"DOC_PROPERTIES,
+                *str);
+        return e->nr;
+    }
+
+    if (!ti_thing_is_dict(thing) && ti_thing_to_dict(thing))
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    return ti_thing_i_set_val_from_strn(witem, thing, str, n, val, e);
+}
+
 /*
  * Return 0 if successful; This function makes a given `value` assignable so
  * it should not be used within a task.
@@ -656,7 +656,15 @@ int ti_thing_o_set_val_from_valid_strn(
         ti_val_t ** val,
         ex_t * e)
 {
-    ti_name_t * name = ti_names_get(str, n);
+    ti_name_t * name;
+
+    if (!ti_val_is_spec(*val, thing->via.spec))
+    {
+        ex_set(e, EX_TYPE_ERROR, "restriction mismatch");
+        return e->nr;
+    }
+
+    name = ti_names_get(str, n);
     if (!name)
     {
         ex_set_mem(e);
@@ -704,7 +712,7 @@ int ti_thing_t_set_val_from_strn(
         return e->nr;
 
     vaddr = (ti_val_t **) vec_get_addr(thing->items.vec, field->idx);
-    if (thing__val_locked(thing, field->name, *vaddr, e) ||
+    if (ti_val_tlocked(*vaddr, thing, field->name, e) ||
         ti_field_make_assignable(field, val, thing, e))
         return e->nr;
 
@@ -757,9 +765,17 @@ ti_item_t * ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
         if (!item)
             goto not_found;
 
-        return thing__item_val_locked(thing, item->key, item->val, e)
-                ? NULL
-                : item;
+        if (ti_val_tlocked(item->val, thing, (ti_name_t *) item->key, e))
+        {
+            if (smap_addn(
+                    thing->items.smap,
+                    (const char *) rname->data,
+                    rname->n,
+                    item))
+                log_critical("failed to restore item");
+            return NULL;
+        }
+        return item;
     }
     else
     {
@@ -771,7 +787,7 @@ ti_item_t * ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
             for (vec_each(thing->items.vec, ti_prop_t, prop), ++i)
             {
                 if (prop->name == name)
-                    return thing__val_locked(thing, prop->name, prop->val, e)
+                    return ti_val_tlocked(prop->val, thing, prop->name, e)
                         ? NULL
                         : vec_swap_remove(thing->items.vec, i);
             }
@@ -957,35 +973,30 @@ void ti_thing_t_to_object(ti_thing_t * thing)
 
 typedef struct
 {
-    int options;
+    int deep;
     ti_vp_t * vp;
 } thing__pk_cb_t;
 
-static int thing__pk_cb(ti_item_t * item, thing__pk_cb_t * w)
+static inline int thing__client_pk_cb(ti_item_t * item, thing__pk_cb_t * w)
 {
-    return (
+    return -(
         mp_pack_strn(&w->vp->pk, item->key->data, item->key->n) ||
-        ti_val_to_pk(item->val, w->vp, w->options)
+        ti_val_to_client_pk(item->val, w->vp, w->deep)
     );
 }
 
-int ti_thing__to_pk(ti_thing_t * thing, ti_vp_t * vp, int options)
+int ti_thing__to_client_pk(ti_thing_t * thing, ti_vp_t * vp, int deep)
 {
-    assert (options);  /* should be either positive or negative, not 0 */
+    /*
+     * Only when packing for a client the result size is checked;
+     * The correct error is not set here, but instead the size should be
+     * checked again to set either a `memory` or `too_much_data` error.
+     */
+    if (((msgpack_sbuffer *) vp->pk.data)->size >
+                ti.cfg->result_size_limit)
+        return -1;
 
-    if (options > 0)
-    {
-        /*
-         * Only when packing for a client the result size is checked;
-         * The correct error is not set here, but instead the size should be
-         * checked again to set either a `memory` or `too_much_data` error.
-         */
-        if (((msgpack_sbuffer *) vp->pk.data)->size >
-                    ti.cfg->result_size_limit)
-            return -1;
-
-        --options;
-    }
+    --deep;
 
     if (msgpack_pack_map(&vp->pk, (!!thing->id) + ti_thing_n(thing)))
         return -1;
@@ -1002,12 +1013,12 @@ int ti_thing__to_pk(ti_thing_t * thing, ti_vp_t * vp, int options)
         if (ti_thing_is_dict(thing))
         {
             thing__pk_cb_t w = {
-                    .options = options,
+                    .deep = deep,
                     .vp = vp,
             };
             if (smap_values(
                     thing->items.smap,
-                    (smap_val_cb) thing__pk_cb,
+                    (smap_val_cb) thing__client_pk_cb,
                     &w))
                 goto fail;
         }
@@ -1016,7 +1027,7 @@ int ti_thing__to_pk(ti_thing_t * thing, ti_vp_t * vp, int options)
             for (vec_each(thing->items.vec, ti_prop_t, prop))
             {
                 if (mp_pack_strn(&vp->pk, prop->name->str, prop->name->n) ||
-                    ti_val_to_pk(prop->val, vp, options)
+                    ti_val_to_client_pk(prop->val, vp, deep)
                 ) goto fail;
             }
         }
@@ -1028,7 +1039,7 @@ int ti_thing__to_pk(ti_thing_t * thing, ti_vp_t * vp, int options)
         for (thing_t_each(thing, name, val))
         {
             if (mp_pack_strn(&vp->pk, name->str, name->n) ||
-                ti_val_to_pk(val, vp, options)
+                ti_val_to_client_pk(val, vp, deep)
             ) goto fail;
         }
     }
@@ -1040,22 +1051,56 @@ fail:
     return -1;
 }
 
-int ti_thing_t_to_pk(ti_thing_t * thing, ti_vp_t * vp, int options)
+static inline int thing__store_pk_cb(ti_item_t * item, msgpack_packer * pk)
 {
-    assert (options < 0);  /* should only be called when options < 0 */
+    return -(
+        mp_pack_strn(pk, item->key->data, item->key->n) ||
+        ti_val_to_store_pk(item->val, pk)
+    );
+}
+
+int ti_thing_o_to_pk(ti_thing_t * thing, msgpack_packer * pk)
+{
+    assert (ti_thing_is_object(thing));
+    assert (thing->id);   /* no need to check, options < 0 must have id */
+
+    if (msgpack_pack_map(pk, 1) ||
+        mp_pack_strn(pk, TI_KIND_S_OBJECT, 1) ||
+        msgpack_pack_array(pk, 3) ||
+        msgpack_pack_uint16(pk, thing->via.spec) ||
+        msgpack_pack_uint64(pk, thing->id) ||
+        msgpack_pack_map(pk, ti_thing_n(thing)))
+        return -1;
+
+    if (ti_thing_is_dict(thing))
+        return smap_values(
+                thing->items.smap,
+                (smap_val_cb) thing__store_pk_cb,
+                pk);
+
+    for (vec_each(thing->items.vec, ti_prop_t, prop))
+        if (mp_pack_strn(pk, prop->name->str, prop->name->n) ||
+            ti_val_to_store_pk(prop->val, pk))
+            return -1;
+
+    return 0;
+}
+
+int ti_thing_t_to_pk(ti_thing_t * thing, msgpack_packer * pk)
+{
     assert (!ti_thing_is_object(thing));
     assert (thing->id);   /* no need to check, options < 0 must have id */
 
-    if (msgpack_pack_map(&vp->pk, 1) ||
-        mp_pack_strn(&vp->pk, TI_KIND_S_INSTANCE, 1) ||
-        msgpack_pack_array(&vp->pk, 3) ||
-        msgpack_pack_uint16(&vp->pk, thing->type_id) ||
-        msgpack_pack_uint64(&vp->pk, thing->id) ||
-        msgpack_pack_array(&vp->pk, ti_thing_n(thing)))
+    if (msgpack_pack_map(pk, 1) ||
+        mp_pack_strn(pk, TI_KIND_S_INSTANCE, 1) ||
+        msgpack_pack_array(pk, 3) ||
+        msgpack_pack_uint16(pk, thing->type_id) ||
+        msgpack_pack_uint64(pk, thing->id) ||
+        msgpack_pack_array(pk, ti_thing_n(thing)))
         return -1;
 
     for (vec_each(thing->items.vec, ti_val_t, val))
-        if (ti_val_to_pk(val, vp, options))
+        if (ti_val_to_store_pk(val, pk))
             return -1;
 
     return 0;
@@ -1228,6 +1273,8 @@ static int thing__dup_p(ti_thing_t ** taddr, uint8_t deep)
     if (!other)
         return -1;
 
+    other->via.spec = thing->via.spec;
+
     for (vec_each(thing->items.vec, ti_prop_t, prop))
     {
         ti_prop_t * p = ti_prop_dup(prop);
@@ -1328,6 +1375,8 @@ static int thing__dup_i(ti_thing_t ** taddr, uint8_t deep)
 
     if (!other)
         return -1;
+
+    other->via.spec = thing->via.spec;
 
     if (smap_values(thing->items.smap, (smap_val_cb) thing__dup_cb, &w))
         goto fail;
@@ -1514,6 +1563,12 @@ static int thing__assign_set_o(
         ex_t * e,
         uint32_t parent_ref)
 {
+    if (!ti_val_is_spec(val, thing->via.spec))
+    {
+        ex_set(e, EX_TYPE_ERROR, "restriction mismatch");
+        return e->nr;
+    }
+
     /*
      * Update the reference count based on the parent. The reason we do this
      * here is that we still require the old value.
@@ -1625,7 +1680,7 @@ int ti_thing_assign(
             if (ti_thing_is_dict(tsrc))
             {
                 ti_raw_t * incompatible;
-                if (ti_thing_to_strict(tsrc, &incompatible))
+                if (ti_thing_i_to_o(tsrc, &incompatible))
                 {
                     if (incompatible)
                         ex_set(e, EX_LOOKUP_ERROR,

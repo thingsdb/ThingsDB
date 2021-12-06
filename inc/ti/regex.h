@@ -43,14 +43,14 @@ struct ti_regex_s
     ti_raw_t * pattern;
 };
 
-static inline int ti_regex_to_pk(
-        ti_regex_t * re,
-        msgpack_packer * pk,
-        int options)
+static inline int ti_regex_to_client_pk(ti_regex_t * re, msgpack_packer * pk)
 {
-    return options >= 0
-        ? mp_pack_strn(pk, re->pattern->data, re->pattern->n)
-        : mp_pack_ext(pk, MPACK_EXT_REGEX, re->pattern->data, re->pattern->n);
+    return mp_pack_strn(pk, re->pattern->data, re->pattern->n);
+}
+
+static inline int ti_regex_to_store_pk(ti_regex_t * re, msgpack_packer * pk)
+{
+    return mp_pack_ext(pk, MPACK_EXT_REGEX, re->pattern->data, re->pattern->n);
 }
 
 static inline _Bool ti_regex_test(ti_regex_t * regex, ti_raw_t * raw)

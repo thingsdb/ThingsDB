@@ -186,7 +186,7 @@ static void module__cb(ti_future_t * future)
      * Add 1 to the `deep` value as we do not count the object itself towards
      * the `deep` value.
      */
-    if (ti_thing_to_pk(thing, &vp, ti_future_deep(future) + 1))
+    if (ti_thing_to_client_pk(thing, &vp, ti_future_deep(future) + 1))
         goto mem_error1;
 
     future->pkg = (ti_pkg_t *) buffer.data;
@@ -230,7 +230,7 @@ ti_pkg_t * ti_module_conf_pkg(ti_val_t * val, ti_query_t * query)
      * Module configuration will be packed 2 levels deep. This is a fixed
      * setting and should be sufficient to configure a module.
      */
-    if (ti_val_to_pk(val, &vp, 2))
+    if (ti_val_to_client_pk(val, &vp, 2))
     {
         msgpack_sbuffer_destroy(&buffer);
         return NULL;
@@ -974,8 +974,20 @@ int ti_module_deploy(ti_module_t * module, const void * data, size_t n)
     switch (module->source_type)
     {
     case TI_MODULE_SOURCE_FILE:
-        if (data || ti_module_write(module, data, n))
+        if (!module->file)
+        {
+            const char * file = module->source.file;
+            if (ti_module_set_file(module, file, strlen(file)))
+            {
+                log_error("failed to set module file");
+                return -1;
+            }
+        }
+        if (!data || ti_module_write(module, data, n))
+        {
+            log_error("failed to write data to module");
             return -1;
+        }
         break;
     case TI_MODULE_SOURCE_GITHUB:
         if (data)
@@ -1171,7 +1183,12 @@ static void module__on_res(ti_future_t * future, ti_pkg_t * pkg)
     }
 
     ti_val_unsafe_drop(vec_set(future->args, val, 0));
-    future->rval = (ti_val_t *) ti_varr_from_vec(future->args);
+    /*
+     * We never "use" the array directly, only the members in combination with
+     * a `then` or `else` case. Therefore it is not required to perform for
+     * example a list -> tuple conversion.
+     */
+    future->rval = (ti_val_t *) ti_varr_from_vec_unsafe(future->args);
     if (!future->rval)
         ex_set_mem(&e);
     else
@@ -1398,7 +1415,7 @@ static int module__info_to_vp(ti_module_t * module, ti_vp_t * vp, int flags)
         if (manifest->defaults)
             for (vec_each(manifest->defaults, ti_item_t, item))
                 if (mp_pack_strn(pk, item->key->data, item->key->n) ||
-                    ti_val_to_pk(item->val, vp, TI_MAX_DEEP_HINT))
+                    ti_val_to_client_pk(item->val, vp, TI_MAX_DEEP_HINT))
                     return -1;
     }
 
@@ -1444,17 +1461,29 @@ ti_val_t * ti_module_as_mpval(ti_module_t * module, int flags)
 
 int ti_module_write(ti_module_t * module, const void * data, size_t n)
 {
-    if (ti_module_is_py(module))
-        return fx_write(module->file, data, n);
 
-    if (fx_file_exist(module->file) && unlink(module->file))
+    if (fx_file_exist(module->file))
     {
-        log_errno_file("cannot delete file", errno, module->file);
-        return -1;
+        if (unlink(module->file))
+        {
+            log_errno_file("cannot delete file", errno, module->file);
+            return -1;
+        }
+    }
+    else
+    {
+        if (!fx_is_dir(module->path) && mkdir(module->path, FX_DEFAULT_DIR_ACCESS))
+        {
+            log_warn_errno_file("cannot create directory", errno, module->path);
+            return -1;
+        }
     }
 
     if (fx_write(module->file, data, n))
         return -1;
+
+    if (ti_module_is_py(module))
+        return 0;
 
     if (chmod(module->file, S_IRWXU))
     {

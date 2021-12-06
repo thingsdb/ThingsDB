@@ -38,6 +38,7 @@ typedef union ti_thing_via ti_thing_via_t;
 #include <ti/collection.t.h>
 #include <ti/field.t.h>
 #include <ti/type.t.h>
+#include <ti/spec.t.h>
 #include <util/vec.h>
 
 extern vec_t * ti_thing_gc_vec;
@@ -80,7 +81,9 @@ union ti_thing_via_items
 union ti_thing_via
 {
     ti_type_t * type;
+    ti_spec_enum_t spec;
 };
+
 
 struct ti_thing_s
 {

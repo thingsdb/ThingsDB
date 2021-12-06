@@ -43,29 +43,34 @@ void ti_vset_destroy(ti_vset_t * vset)
 typedef struct
 {
     ti_vp_t * vp;
-    int options;
+    int deep;
 } vset__walk_to_pk_t;
 
-static inline int vset__walk_to_pk(ti_thing_t * thing, vset__walk_to_pk_t * w)
+static inline int vset__walk_to_client_pk(ti_thing_t * thing, vset__walk_to_pk_t * w)
 {
-    return ti_thing_to_pk(thing, w->vp, w->options);
+    return ti_thing_to_client_pk(thing, w->vp, w->deep);
 }
 
-int ti_vset_to_pk(ti_vset_t * vset, ti_vp_t * vp, int options)
+int ti_vset_to_client_pk(ti_vset_t * vset, ti_vp_t * vp, int deep)
 {
     vset__walk_to_pk_t w = {
             .vp = vp,
-            .options = options,
+            .deep = deep,
     };
-    /*
-     * Pack as a `map` when options < 0, otherwise pack the set as an array.
-     */
-    return ((options < 0 && (
-                msgpack_pack_map(&vp->pk, 1) ||
-                mp_pack_strn(&vp->pk, TI_KIND_S_SET, 1)
-        )) ||
-        msgpack_pack_array(&vp->pk, vset->imap->n)
-    ) ? -1 : imap_walk(vset->imap, (imap_cb) vset__walk_to_pk, &w);
+    return -(
+        msgpack_pack_array(&vp->pk, vset->imap->n) ||
+        imap_walk(vset->imap, (imap_cb) vset__walk_to_client_pk, &w)
+    );
+}
+
+int ti_vset_to_store_pk(ti_vset_t * vset, msgpack_packer * pk)
+{
+    return -(
+            msgpack_pack_map(pk, 1) ||
+            mp_pack_strn(pk, TI_KIND_S_SET, 1) ||
+            msgpack_pack_array(pk, vset->imap->n) ||
+            imap_walk(vset->imap, (imap_cb) ti_thing_to_store_pk, pk)
+    );
 }
 
 int ti_vset_to_list(ti_vset_t ** vsetaddr)

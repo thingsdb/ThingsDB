@@ -17,9 +17,9 @@ from thingsdb.exceptions import ZeroDivisionError
 from thingsdb.exceptions import OperationError
 
 
-class TestEvents(TestBase):
+class TestChanges(TestBase):
 
-    title = 'Test with multiple events at the same time'
+    title = 'Test with multiple changes at the same time'
 
     @default_test_setup(num_nodes=4, seed=1, threshold_full_storage=1000000)
     async def run(self):
@@ -181,4 +181,4 @@ class TestEvents(TestBase):
 
 
 if __name__ == '__main__':
-    run_test(TestEvents())
+    run_test(TestChanges())

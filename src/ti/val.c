@@ -48,7 +48,6 @@ static ti_val_t * val__empty_bin;
 static ti_val_t * val__empty_str;
 static ti_val_t * val__default_re;
 static ti_val_t * val__default_closure;
-static ti_val_t * val__sany;
 static ti_val_t * val__sbool;
 static ti_val_t * val__sbytes;
 static ti_val_t * val__sclosure;
@@ -86,6 +85,7 @@ ti_val_t * val__load_name;
 ti_val_t * val__beautify_name;
 
 /* string */
+ti_val_t * val__sany;
 ti_val_t * val__snil;
 ti_val_t * val__strue;
 ti_val_t * val__sfalse;
@@ -96,58 +96,38 @@ static char val__buf[VAL__BUF_SZ];
 static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
 {
     mp_obj_t mp_key, mp_val;
-    const char * restore_point;
 
-    restore_point = vup->up->pt;
-
-    if (mp_next(vup->up, &mp_key) != MP_STR)
+    if (mp_next(vup->up, &mp_key) != MP_STR || mp_key.via.str.n != 1)
     {
-        ex_set(e, EX_TYPE_ERROR,
-                "property names must be of type `"TI_VAL_STR_S"`");
+        ex_set(e, EX_TYPE_ERROR, "expecting a reserved key");
         return NULL;
-    }
-
-    if (!ti_is_reserved_key_strn(mp_key.via.str.data, mp_key.via.str.n))
-    {
-        /* restore the unpack pointer to the first property */
-        vup->up->pt = restore_point;
-        return (ti_val_t *) ti_thing_new_from_vup(vup, sz, e);
     }
 
     switch ((ti_val_kind) *mp_key.via.str.data)
     {
-    case TI_KIND_C_THING:
-        if (!vup->collection)
-        {
-            ex_set(e, EX_BAD_DATA,
-                    "cannot unpack a `thing` without a collection");
-            return NULL;
-        }
-        if (mp_next(vup->up, &mp_val) <= 0 || mp_cast_u64(&mp_val))
-        {
-            ex_set(e, EX_TYPE_ERROR,
-                    "expecting an integer value as thing id");
-            return NULL;
-        }
-        return (ti_val_t *) ti_things_thing_o_from_vup(
-                vup,
-                mp_val.via.u64,
-                sz,
-                e);
-
     case TI_KIND_C_INSTANCE:
         if (!vup->collection)
         {
             ex_set(e, EX_BAD_DATA,
-                    "cannot unpack a `thing` without a collection");
+                    "cannot unpack a `typed thing` without a collection");
             return NULL;
         }
         return (ti_val_t *) ti_things_thing_t_from_vup(vup, e);
+
+    case TI_KIND_C_OBJECT:
+        if (!vup->collection)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "cannot unpack a `non-typed thing` without a collection");
+            return NULL;
+        }
+        return (ti_val_t *) ti_things_thing_o_from_vup(vup, e);
+
     case TI_KIND_C_SET:
     {
         ti_val_t * vthing;
         ti_vset_t * vset = ti_vset_create();
-        size_t i, n;
+        size_t i;
 
         if (!vset)
         {
@@ -162,16 +142,9 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
             return NULL;
         }
 
-        for (i = 0, n = mp_val.via.sz; i < n; ++i)
+        for (i = mp_val.via.sz; i--;)
         {
-            if (mp_next(vup->up, &mp_val) != MP_MAP)
-            {
-                ti_vset_destroy(vset);
-                ex_set(e, EX_TYPE_ERROR, "sets can only contain things");
-                return NULL;
-            }
-
-            vthing = val__unp_map(vup, mp_val.via.sz, e);
+            vthing = ti_val_from_vup_e(vup, e);
             if (!vthing || (ti_vset_add_val(vset, vthing, e) < 0))
             {
                 ti_vset_destroy(vset);
@@ -235,8 +208,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
 
         if (sz != 1 ||
             mp_next(vup->up, &mp_val) != MP_ARR || mp_val.via.sz != 2 ||
-            mp_next(vup->up, &mp_type_id) != MP_U64 ||
-            mp_next(vup->up, &mp_val) != MP_MAP || mp_val.via.sz < 1)
+            mp_next(vup->up, &mp_type_id) != MP_U64)
         {
             ex_set(e, EX_BAD_DATA,
                 "wrap type must be written according the "
@@ -244,7 +216,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
             return NULL;
         }
 
-        vthing = val__unp_map(vup, mp_val.via.sz, e);
+        vthing = ti_val_from_vup_e(vup, e);
         if (!vthing)
             return NULL;
 
@@ -353,6 +325,27 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
         return (ti_val_t *) dt;
     }
     /*
+     * TODO (COMPAT) For compatibility with data from before v1.1.1
+     */
+    case TI_KIND_C_THING_OBSOLETE:
+        if (!vup->collection)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "cannot unpack a `thing` without a collection");
+            return NULL;
+        }
+        if (mp_next(vup->up, &mp_val) <= 0 || mp_cast_u64(&mp_val))
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                    "expecting an integer value as thing id");
+            return NULL;
+        }
+        return (ti_val_t *) ti_things_thing_o_from_vup__deprecated(
+                vup,
+                mp_val.via.u64,
+                sz,
+                e);
+    /*
      * TODO (COMPAT) For compatibility with data from v0.x
      */
     case TI_KIND_C_CLOSURE_OBSOLETE_:
@@ -392,8 +385,11 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
                 mp_val.via.str.n, e);
     }
     }
-    ex_set(e, EX_VALUE_ERROR, "property `%c` is reserved"DOC_PROPERTIES,
+
+    ex_set(e, EX_VALUE_ERROR,
+            "unsupported reserved key `%c`",
             *mp_key.via.str.data);
+
     return NULL;
 }
 
@@ -640,6 +636,38 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
                 }
             }
             return (ti_val_t *) ti_vtask_nil();
+        }
+        case MPACK_EXT_THING:
+        {
+            uint64_t thing_id;
+            ti_thing_t * thing;
+
+            if (obj.via.ext.n != sizeof(uint64_t))
+            {
+                ex_set(e, EX_BAD_DATA,
+                        "expecting a thing id of size %zu but got %"PRIu32,
+                        sizeof(uint64_t), obj.via.ext.n);
+                return NULL;
+            }
+
+            if (!vup->collection)
+            {
+                ex_set(e, EX_BAD_DATA,
+                        "cannot unpack a `thing` without a collection");
+                return NULL;
+            }
+
+            mp_read_uint64(obj.via.ext.data, &thing_id);
+
+            thing = ti_collection_find_thing(vup->collection, thing_id);
+
+            if (thing)
+                ti_incref(thing);
+            else
+                ex_set(e, EX_LOOKUP_ERROR,
+                    "cannot unpack find `thing` with id %"PRIu64, thing_id);
+
+            return (ti_val_t *) thing;
         }
         }
         ex_set(e, EX_BAD_DATA,

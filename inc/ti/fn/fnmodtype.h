@@ -286,6 +286,31 @@ static int modtype__mod_after_cb(ti_thing_t * thing, modtype__mod_t * w)
     return 0;
 }
 
+typedef struct
+{
+    ti_closure_t * closure;
+    ti_query_t * query;
+    ex_t * e;
+} modtype__all_t;
+
+static int modtype__all_cb(ti_thing_t * thing, modtype__all_t * w)
+{
+    if (w->closure->vars->n)
+    {
+        ti_prop_t * prop = VEC_get(w->closure->vars, 0);
+        ti_incref(thing);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = (ti_val_t *) thing;
+    }
+
+    (void) ti_closure_do_statement(w->closure, w->query, w->e);
+
+    ti_val_drop(w->query->rval);
+    w->query->rval = NULL;
+
+    return w->e->nr;
+}
+
 static imap_t * modtype__collect_things(ti_query_t * query, ti_type_t * type)
 {
     modtype__collect_t collect = {
@@ -1057,7 +1082,7 @@ static ti_type_t * modtype__type_from_field(ti_field_t * field, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "relations may only be configured between restricted "
-                "sets and/or nillable types"DOC_MOD_TYPE_REL);
+                "sets and/or nillable typed"DOC_MOD_TYPE_REL);
         return NULL;
     }
 
@@ -1252,6 +1277,64 @@ static void type__rel(
         fnname, ti_val_str(query->rval));
 }
 
+static void type__all(
+        ti_query_t * query,
+        ti_type_t * type,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    static const char * fnname = "mod_type` with task `all";
+    const int nargs = fn_get_nargs(nd);
+
+    ti_closure_t * closure;
+    ti_task_t * task;
+    imap_t * imap;
+
+    nd = nd->children->next->next->next->next->node;
+
+    if (fn_nargs(fnname, DOC_MOD_TYPE_ALL, 3, nargs, e) ||
+        ti_do_statement(query, nd, e) ||
+        fn_arg_closure(fnname, DOC_MOD_TYPE_ALL, 3, query->rval, e))
+        return;
+
+    closure = (ti_closure_t *) query->rval;
+    query->rval = NULL;
+
+    if (ti_closure_try_wse(closure, query, e) ||
+        ti_closure_inc(closure, query, e))
+        goto fail0;
+
+    imap = modtype__collect_things(query, type);
+    if (!imap)
+    {
+        ex_set_mem(e);
+        goto fail1;
+    }
+
+    task = ti_task_get_task(query->change, query->collection->root);
+    if (!task)
+    {
+        ex_set_mem(e);
+        goto fail2;
+    }
+
+    modtype__all_t w = {
+            .query = query,
+            .e = e,
+            .closure = closure,
+    };
+
+    (void) imap_walk(imap, (imap_cb) modtype__all_cb, &w);
+
+fail2:
+    imap_destroy(imap, (imap_destroy_cb) ti_val_unsafe_drop);
+fail1:
+    ti_closure_dec(closure, query);
+fail0:
+    ti_val_unsafe_drop((ti_val_t *) closure);
+    return;
+}
+
 static void type__wpo(
         ti_query_t * query,
         ti_type_t * type,
@@ -1264,13 +1347,11 @@ static void type__wpo(
     ti_task_t * task;
     ssize_t n;
 
-    if (fn_nargs(fnname, DOC_MOD_TYPE_WPO, 3, nargs, e))
-        return;
+    nd = nd->children->next->next->next->next->node;
 
-    if (ti_do_statement(
-            query,
-            nd->children->next->next->next->next->node,
-            e) || fn_arg_bool(fnname, DOC_MOD_TYPE_WPO, 3, query->rval, e))
+    if (fn_nargs(fnname, DOC_MOD_TYPE_WPO, 3, nargs, e) ||
+        ti_do_statement(query, nd, e) ||
+        fn_arg_bool(fnname, DOC_MOD_TYPE_WPO, 3, query->rval, e))
         return;
 
     wrap_only = ti_val_as_bool(query->rval);
@@ -1356,6 +1437,12 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_raw_eq_strn(rmod, "wpo", 3))
     {
         type__wpo(query, type, nd, e);
+        goto done;
+    }
+
+    if (ti_raw_eq_strn(rmod, "all", 3))
+    {
+        type__all(query, type, nd, e);
         goto done;
     }
 

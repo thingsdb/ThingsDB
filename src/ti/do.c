@@ -49,7 +49,7 @@ static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     for (; child; child = child->next->next)
     {
         if (ti_do_statement(query, child->node, e) ||
-            ti_varr_append(varr, (void **) &query->rval, e))
+            ti_val_varr_append(varr, &query->rval, e))
             goto failed;
 
         query->rval = NULL;
@@ -640,17 +640,25 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         query->rval = *wprop.val;
         ti_incref(query->rval);
+
+        /*
+         * Do the chain *before* dropping the thing as this otherwise might
+         * result in unexpected behavior (bug #239).
+         */
+        if (do__index(query, index_node, e) == 0 && child)
+            (void) do__chain(query, child->node, e);
+
         ti_val_unsafe_drop((ti_val_t *) thing);
+        return e->nr;
     }
-    else switch (node->children->next->node->cl_obj->gid)
-    {
-    case CLERI_GID_ASSIGN:
-        /* nothing is possible after assign since it ends with a scope */
+
+    if (node->children->next->node->cl_obj->gid == CLERI_GID_ASSIGN)
         return do__name_assign(query, node, e);
-    case CLERI_GID_FUNCTION:
-        if (do__function(query, node, e))
-            return e->nr;
-    } /* no other case statements are possible */
+
+    assert (node->children->next->node->cl_obj->gid == CLERI_GID_FUNCTION);
+
+    if (do__function(query, node, e))
+        return e->nr;
 
     if (do__index(query, index_node, e) == 0 && child)
         (void) do__chain(query, child->node, e);
@@ -717,25 +725,6 @@ int ti_do_operations(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     assert (0);
-    return e->nr;
-}
-
-static inline int do__thing_by_id(
-        ti_query_t * query,
-        cleri_node_t * nd,
-        ex_t * e)
-{
-    /*
-     * Set node -> data to the actual thing when this is a normal query but
-     * when used in a stored procedure, the `int` value is stored instead;
-     * This syntax is probably not used frequently so do not worry a lot about
-     * performance here; (and this is already pretty fast anyway...)
-     */
-    log_warning(
-            "The `#..` syntax is deprecated and will be removed in a "
-            "future release; use function `thing(..)` instead");
-    intptr_t thing_id = (intptr_t) nd->data;
-    query->rval = (ti_val_t *) ti_query_thing_from_id(query, thing_id, e);
     return e->nr;
 }
 
@@ -1098,7 +1087,6 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     ex_set_mem(e);
                     goto fail;
                 }
-
                 ti_val_attach(val, thing, field);
                 vec_set(thing->items.vec, val, field->idx);
             }
@@ -1470,13 +1458,6 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         /* nothing is possible after a chain */
         goto preopr;
-    case CLERI_GID_THING_BY_ID:
-        /*
-         * Get a thing by ID using the hash (#) syntax, for example: #123;
-         */
-        if (do__thing_by_id(query, nd, e))
-            return e->nr;
-        break;
     case CLERI_GID_T_CLOSURE:
         if (do__read_closure(query, nd, e))
             return e->nr;

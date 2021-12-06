@@ -25,7 +25,7 @@ ti_type_t * ti_type_create(
         uint64_t created_at,
         uint64_t modified_at);
 void ti_type_drop(ti_type_t * type);
-void ti_type_del(ti_type_t * type);
+void ti_type_del(ti_type_t * type, vec_t * vars);
 void ti_type_destroy(ti_type_t * type);
 void ti_type_map_cleanup(ti_type_t * type);
 size_t ti_type_fields_approx_pack_sz(ti_type_t * type);

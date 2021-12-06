@@ -35,7 +35,11 @@ static int do__f_args(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_incref(v);
     }
 
-    query->rval = (ti_val_t *) ti_tuple_from_vec(args);
+    /*
+     * All the args were tuple member to begin with, thus it is safe to create
+     * a tuple from these arguments.
+     */
+    query->rval = (ti_val_t *) ti_tuple_from_vec_unsafe(args);
     if (!query->rval)
     {
         ex_set_mem(e);

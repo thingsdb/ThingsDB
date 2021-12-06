@@ -690,8 +690,21 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `deep` takes 0 arguments but 1 was given'):
+                'function `deep` takes at most 1 argument '
+                'but 2 were given'):
+            await client.query('deep(0, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'expecting `deep` to be of type `int` '
+                'but got type `nil` instead'):
             await client.query('deep(nil);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'expecting a `deep` value between 0 and 127 '
+                'but got -1 instead'):
+            await client.query('deep(-1);')
 
         self.assertEqual(await client.query('deep();'), 1)
 
@@ -702,6 +715,16 @@ class TestCollectionFunctions(TestBase):
 
         self.assertEqual(await client.query(r'''
             ( ||return(nil, 2) ).call();
+            deep();
+        '''), 2)
+
+        self.assertEqual(await client.query(r'''
+            deep(0);
+            deep();
+        '''), 0)
+
+        self.assertEqual(await client.query(r'''
+            deep(2);
             deep();
         '''), 2)
 
@@ -2096,7 +2119,7 @@ class TestCollectionFunctions(TestBase):
 
         id = await client.query('.id();')
 
-        self.assertTrue(await client.query(f'is_thing( #{id} ); '))
+        self.assertTrue(await client.query(f'is_thing( thing({id}) ); '))
         self.assertTrue(await client.query(r'is_thing( {} ); '))
         self.assertTrue(await client.query(r'is_thing( thing(.id()) ); '))
         self.assertFalse(await client.query('is_thing( [] ); '))
@@ -2968,8 +2991,14 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `remove` takes at most 1 argument '
-                'when using a `closure` but 2 were given'):
+                'function `remove` takes at most 2 arguments '
+                'when using a `closure` but 3 were given'):
+            await client.query('.s.remove(||true, 1, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `remove` expects argument 2 to be of '
+                'type `int` but got type `nil` instead'):
             await client.query('.s.remove(||true, nil);')
 
         with self.assertRaisesRegex(
@@ -2991,6 +3020,72 @@ class TestCollectionFunctions(TestBase):
 
         # check if `t` is restored
         self.assertEqual(await client.query('.s.len();'), 3)
+
+        res = await client.query('.s.remove(||true, 0);')
+        self.assertEqual(res, [])
+
+        res = await client.query('.s.remove(||true, 2).len();')
+        self.assertEqual(res, 2)
+        self.assertEqual(await client.query('.s.len();'), 1)
+
+    async def test_remove_thing(self, client):
+        await client.query(r"""//ti
+            .t = {
+                a: 1,
+                b: 2,
+                c: 3,
+                d: 4,
+            };
+        """)
+
+        removed = await client.query('.t.remove(|k| k == "a");')
+        self.assertEqual(len(removed), 1)
+        self.assertEqual(removed[0], 1)
+        self.assertEqual(await client.query('.t.remove(||nil);'), [])
+        self.assertEqual(await client.query('.t.remove(||true, 0);'), [])
+
+        removed = await client.query('.t.remove(|_, v| v > 2);')
+        self.assertEqual(set(removed), set([3, 4]))
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `remove`'):
+            await client.query('nil.remove(||true);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `remove` requires at least 1 argument '
+                'but 0 were given'):
+            await client.query('.t.remove();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `remove` takes at most 2 arguments '
+                'but 3 were given'):
+            await client.query('.t.remove(||true, 1, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `remove` expects argument 2 to be of '
+                'type `int` but got type `nil` instead'):
+            await client.query('.t.remove(||true, nil);')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'cannot change type `thing` while the value is in use'):
+            await client.query('.t.map(||.t.remove(||true));')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `remove` expects argument 1 to be of type `closure` '
+                'but got type `nil` instead'):
+            await client.query('.t.remove(nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `remove` expects argument 2 to be of type `int` '
+                'but got type `nil` instead'):
+            await client.query('.t.remove(||nil, nil);')
 
     async def test_range(self, client):
         with self.assertRaisesRegex(
@@ -3505,9 +3600,9 @@ class TestCollectionFunctions(TestBase):
         t = await client.query(f'thing({id});')
         self.assertEqual(t['x'], 42)
         self.assertEqual(await client.query('thing();'), {})
-        stuff, t = await client.query(f'return([thing(.id()), #{id}], 2);')
+        stuff, t = await client.query(f'return([thing(.id()),thing({id})],2);')
         self.assertEqual(stuff['t'], t)
-        self.assertTrue(await client.query(f'( #{id} == thing(#{id}) );'))
+        self.assertTrue(await client.query(f'( thing({id}) == thing({id}) );'))
 
     async def test_try(self, client):
         with self.assertRaisesRegex(

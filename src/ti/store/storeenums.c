@@ -12,26 +12,25 @@
 #include <ti/store/storeenums.h>
 #include <ti/things.h>
 #include <ti/val.inline.h>
-#include <ti/vp.t.h>
 #include <util/fx.h>
 #include <util/mpack.h>
 
-static int mkenum_cb(ti_enum_t * enum_, ti_vp_t * vp)
+static int mkenum_cb(ti_enum_t * enum_, msgpack_packer * pk)
 {
     uintptr_t p;
-    if (msgpack_pack_array(&vp->pk, 5) ||
-        msgpack_pack_uint16(&vp->pk, enum_->enum_id) ||
-        msgpack_pack_uint64(&vp->pk, enum_->created_at) ||
-        msgpack_pack_uint64(&vp->pk, enum_->modified_at) ||
-        mp_pack_strn(&vp->pk, enum_->rname->data, enum_->rname->n) ||
-        msgpack_pack_map(&vp->pk, enum_->members->n)
+    if (msgpack_pack_array(pk, 5) ||
+        msgpack_pack_uint16(pk, enum_->enum_id) ||
+        msgpack_pack_uint64(pk, enum_->created_at) ||
+        msgpack_pack_uint64(pk, enum_->modified_at) ||
+        mp_pack_strn(pk, enum_->rname->data, enum_->rname->n) ||
+        msgpack_pack_map(pk, enum_->members->n)
     ) return -1;
 
     for (vec_each(enum_->members, ti_member_t, member))
     {
         p = (uintptr_t) member->name;
-        if (msgpack_pack_uint64(&vp->pk, p) ||
-            ti_val_to_pk(member->val, vp, TI_VAL_PACK_FILE)
+        if (msgpack_pack_uint64(pk, p) ||
+            ti_val_to_store_pk(member->val, pk)
         ) return -1;
     }
 
@@ -40,7 +39,7 @@ static int mkenum_cb(ti_enum_t * enum_, ti_vp_t * vp)
 
 int ti_store_enums_store(ti_enums_t * enums, const char * fn)
 {
-    ti_vp_t vp;
+    msgpack_packer pk;
     FILE * f = fopen(fn, "w");
     if (!f)
     {
@@ -48,13 +47,13 @@ int ti_store_enums_store(ti_enums_t * enums, const char * fn)
         return -1;
     }
 
-    msgpack_packer_init(&vp.pk, f, msgpack_fbuffer_write);
+    msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
 
-    if (msgpack_pack_map(&vp.pk, 1) ||
+    if (msgpack_pack_map(&pk, 1) ||
         /* active enums */
-        mp_pack_str(&vp.pk, "enums") ||
-        msgpack_pack_array(&vp.pk, enums->imap->n) ||
-        imap_walk(enums->imap, (imap_cb) mkenum_cb, &vp)
+        mp_pack_str(&pk, "enums") ||
+        msgpack_pack_array(&pk, enums->imap->n) ||
+        imap_walk(enums->imap, (imap_cb) mkenum_cb, &pk)
     ) goto fail;
 
     log_debug("stored enumerators to file: `%s`", fn);

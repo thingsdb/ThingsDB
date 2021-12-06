@@ -40,14 +40,20 @@ static int do__f_del_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     for (vec_each(query->vars, ti_prop_t, prop))
     {
-        ti_thing_t * thing = (ti_thing_t *) prop->val;
-        if (thing->tp == TI_VAL_THING &&
-            thing->type_id == type->type_id)
-            ti_thing_t_to_object(thing);
+        if (ti_val_is_thing(prop->val))
+        {
+            ti_thing_t * thing = (ti_thing_t *) prop->val;
+
+            if (thing->type_id == type->type_id)
+                ti_thing_t_to_object(thing);
+            else if (ti_thing_is_object(thing) &&
+                    (thing->via.spec & TI_SPEC_MASK_NILLABLE) == type->type_id)
+                thing->via.spec = TI_SPEC_ANY;
+        }
     }
 
     /* this will remove the `type` so it cannot be used after here */
-    ti_type_del(type);
+    ti_type_del(type, query->vars);
 
     ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();

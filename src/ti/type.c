@@ -16,6 +16,7 @@
 #include <ti/method.h>
 #include <ti/names.h>
 #include <ti/prop.h>
+#include <ti/query.h>
 #include <ti/raw.inline.h>
 #include <ti/task.h>
 #include <ti/thing.inline.h>
@@ -110,22 +111,26 @@ void ti_type_drop(ti_type_t * type)
     ti_type_destroy(type);
 }
 
-static int type__conv(ti_thing_t * thing, uint16_t * type_id)
+static int type__del(ti_thing_t * thing, uint16_t * type_id)
 {
     if (thing->type_id == *type_id)
         ti_thing_t_to_object(thing);
+    else if (ti_thing_is_object(thing) &&
+            (thing->via.spec & TI_SPEC_MASK_NILLABLE) == *type_id)
+        thing->via.spec = TI_SPEC_ANY;
     return 0;
 }
 
-void ti_type_del(ti_type_t * type)
+void ti_type_del(ti_type_t * type, vec_t * vars)
 {
     assert (!type->refcount);
-
-    ti_collection_t * collection = type->types->collection;
     uint16_t type_id = type->type_id;
+    ti_collection_t * collection = type->types->collection;
 
-    (void) imap_walk(collection->things, (imap_cb) type__conv, &type_id);
-    (void) ti_gc_walk(collection->gc, (queue_cb) type__conv, &type_id);
+    if (vars)
+        ti_query_vars_walk(vars, collection, (imap_cb) type__del, &type_id);
+    (void) imap_walk(collection->things, (imap_cb) type__del, &type_id);
+    (void) ti_gc_walk(collection->gc, (queue_cb) type__del, &type_id);
 
     ti_type_drop(type);
 }
@@ -755,7 +760,7 @@ int ti_type_methods_to_pk(ti_type_t * type, msgpack_packer * pk)
     for (vec_each(type->methods, ti_method_t, method))
     {
         if (mp_pack_strn(pk, method->name->str, method->name->n) ||
-            ti_closure_to_pk(method->closure, pk, TI_VAL_PACK_TASK)
+            ti_closure_to_store_pk(method->closure, pk)
         ) return -1;
     }
 

@@ -26,7 +26,7 @@ static int jload__root_cb(
 
 static int jload__array_cb(ti_varr_t * parent, ti_val_t * val, ex_t * e)
 {
-    if (ti_varr_append(parent, (void **) &val, e))
+    if (ti_val_varr_append(parent, &val, e))
         ti_val_unsafe_drop(val);
     return e->nr;
 }

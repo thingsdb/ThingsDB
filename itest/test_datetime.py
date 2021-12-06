@@ -631,13 +631,6 @@ class TestDatetime(TestBase):
                 'but 1 was given'):
             await client.query('time_zones_info(nil);', scope='@t')
 
-        with self.assertRaisesRegex(
-                LookupError,
-                r'function `time_zones_info` is undefined '
-                r'in the `@collection` '
-                r'scope; you might want to query the `@thingsdb` scope\?'):
-            await client.query('time_zones_info();')
-
         res = await client.query('time_zones_info();', scope='@t')
         self.assertEqual(len(res), 440)
 

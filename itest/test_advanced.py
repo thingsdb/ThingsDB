@@ -1508,8 +1508,7 @@ class TestAdvanced(TestBase):
     async def test_thing_id_closure(self, client):
         res = await client.query(r'''
             .x = || {
-                #9999999999999999999999999999999999999999999;
-                #3;
+                thing(3);
             };
             assert (is_closure(.x) );
         ''')
@@ -1851,7 +1850,7 @@ new_procedure('multiply', |a, b| a * b);
                 r"closures with side effects require a change but none is "
                 r"created; use `wse\(...\)` to enforce a change;"):
             await client.query(f"""//ti
-                #{id}.func(); // requires a change
+                thing({id}).func(); // requires a change
             """)
 
     async def test_future_to_type(self, client):
@@ -1868,6 +1867,33 @@ new_procedure('multiply', |a, b| a * b);
                     x: future(||nil)
                 };
             """)
+
+    async def test_in_use_on_dict(self, client):
+        # bug #242
+        await client.query(".set('non name key', nil);")
+        with self.assertRaisesRegex(
+                OperationError,
+                r'cannot change or remove property `arr` on `#\d+` while '
+                r'the `list` is in use'):
+            await client.query(r"""//ti
+                .arr = ['a', 'b'];
+                .arr.push({
+                    .del('arr');
+                    'c';
+                })
+            """)
+
+    async def test_in_use_on_dict(self, client):
+        # bug #243
+        res = await client.query(r"""//ti
+            new_type('A');
+            t = [A{}.wrap()];
+            .list = [];
+            .list.push(t);
+            // should return an Id
+            .list[0][0].unwrap().id();
+        """)
+        self.assertIsInstance(res, int)
 
 
 if __name__ == '__main__':

@@ -58,6 +58,8 @@ int ti_query_vars_walk(
         imap_cb cb,
         void * args);
 int ti_query_task_context(ti_query_t * query, ti_vtask_t * vtask, ex_t * e);
+_Bool ti_query_thing_can_change_spec(ti_query_t * query, ti_thing_t * thing);
+
 
 static inline _Bool ti_query_wse(ti_query_t * query)
 {
@@ -74,4 +76,5 @@ static inline const char * ti_query_scope_name(ti_query_t * query)
             ? "@collection"
             : "<unknown>";
 }
-#endif /* TI_QUERY_H_ */
+
+#endif  /* TI_QUERY_H_ */

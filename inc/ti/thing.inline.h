@@ -33,44 +33,7 @@ static inline ti_raw_t * ti_thing_type_strv(ti_thing_t * thing)
     ti_incref(r);
     return r;
 }
-static inline int ti_thing_o_set_val_from_strn(
-        ti_witem_t * witem,
-        ti_thing_t * thing,
-        const char * str,
-        size_t n,
-        ti_val_t ** val,
-        ex_t * e)
-{
-    if (ti_name_is_valid_strn(str, n))
-        /* Create a name when the key is a valid name, this is required since
-         * some logic, for example in `do.c` checks if a name exists, and from
-         * that result might decide a property exists or not.
-         */
-        return ti_thing_o_set_val_from_valid_strn(
-                (ti_wprop_t *) witem,
-                thing, str, n, val, e);
 
-    if (!strx_is_utf8n(str, n))
-    {
-        ex_set(e, EX_VALUE_ERROR, "properties must have valid UTF-8 encoding");
-        return e->nr;
-    }
-
-    if (ti_is_reserved_key_strn(str, n))
-    {
-        ex_set(e, EX_VALUE_ERROR, "property `%c` is reserved"DOC_PROPERTIES,
-                *str);
-        return e->nr;
-    }
-
-    if (!ti_thing_is_dict(thing) && ti_thing_to_dict(thing))
-    {
-        ex_set_mem(e);
-        return e->nr;
-    }
-
-    return ti_thing_i_set_val_from_strn(witem, thing, str, n, val, e);
-}
 static inline int ti_thing_set_val_from_strn(
         ti_witem_t * witem,
         ti_thing_t * thing,
@@ -181,24 +144,30 @@ static inline ti_val_t * ti_thing_val_weak_by_name(
             : ti_thing_t_val_weak_get(thing, name);
 }
 
-static inline int ti_thing_to_pk(
+static inline int ti_thing_to_client_pk(
         ti_thing_t * thing,
         ti_vp_t * vp,
-        int options)
+        int deep)
 {
-    if (options == TI_VAL_PACK_TASK)
+    return !deep || (thing->flags & TI_VFLAG_LOCK)
+            ? ti_thing_id_to_client_pk(thing, &vp->pk)
+            : ti_thing__to_client_pk(thing, vp, deep);
+}
+
+static inline int ti_thing_to_store_pk(ti_thing_t * thing, msgpack_packer * pk)
+{
+    if (!ti_thing_is_new(thing))
     {
-        if (ti_thing_is_new(thing))
-        {
-            ti_thing_unmark_new(thing);
-            return ti_thing_is_object(thing)
-                    ? ti_thing__to_pk(thing, vp, options)
-                    : ti_thing_t_to_pk(thing, vp, options);
-        }
+        unsigned char buf[8];
+        mp_store_uint64(thing->id, buf);
+        return mp_pack_ext(pk, MPACK_EXT_THING, buf, sizeof(buf));
     }
-    return options <= 0 || (thing->flags & TI_VFLAG_LOCK)
-            ? ti_thing_id_to_pk(thing, &vp->pk)
-            : ti_thing__to_pk(thing, vp, options);
+
+    ti_thing_unmark_new(thing);
+
+    return ti_thing_is_object(thing)
+            ? ti_thing_o_to_pk(thing, pk)
+            : ti_thing_t_to_pk(thing, pk);
 }
 
 static inline void ti_thing_may_push_gc(ti_thing_t * thing)

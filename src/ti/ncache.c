@@ -326,12 +326,6 @@ static int ncache__expr_choice(
     {
     case CLERI_GID_CHAIN:
         return ncache__chain(syntax, vcache, nd, e);
-    case CLERI_GID_THING_BY_ID:
-    {
-        intptr_t thing_id = strtoll(nd->str + 1, NULL, 10);
-        nd->data = (void *) thing_id;
-        return e->nr;
-    }
     case CLERI_GID_T_CLOSURE:
         if (ncache__statement(
                     syntax,

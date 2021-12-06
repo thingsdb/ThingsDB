@@ -25,10 +25,10 @@ extern ti_val_t * val__load_name;
 extern ti_val_t * val__beautify_name;
 
 /* string */
+extern ti_val_t * val__sany;
 extern ti_val_t * val__snil;
 extern ti_val_t * val__strue;
 extern ti_val_t * val__sfalse;
-
 
 int ti_val_init_common(void);
 void ti_val_drop_common(void);

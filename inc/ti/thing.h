@@ -41,7 +41,7 @@ void ti_thing_destroy(ti_thing_t * thing);
 void ti_thing_clear(ti_thing_t * thing);
 void ti_thing_o_items_destroy(ti_thing_t * thing);
 int ti_thing_to_dict(ti_thing_t * thing);
-int ti_thing_to_strict(ti_thing_t * thing, ti_raw_t ** incompatible);
+int ti_thing_i_to_o(ti_thing_t * thing, ti_raw_t ** incompatible);
 int ti_thing_props_from_vup(
         ti_thing_t * thing,
         ti_vup_t * vup,
@@ -78,11 +78,19 @@ int ti_thing_get_by_raw_e(
         ti_raw_t * r,
         ex_t * e);
 int ti_thing_gen_id(ti_thing_t * thing);
-int ti_thing__to_pk(ti_thing_t * thing, ti_vp_t * vp, int options);
-int ti_thing_t_to_pk(ti_thing_t * thing, ti_vp_t * vp, int options);
+int ti_thing__to_client_pk(ti_thing_t * thing, ti_vp_t * vp, int deep);
+int ti_thing_o_to_pk(ti_thing_t * thing, msgpack_packer * pk);
+int ti_thing_t_to_pk(ti_thing_t * thing, msgpack_packer * pk);
 ti_val_t * ti_thing_val_by_strn(ti_thing_t * thing, const char * str, size_t n);
 _Bool ti_thing_equals(ti_thing_t * thing, ti_val_t * other, uint8_t deep);
 int ti_thing_i_set_val_from_strn(
+        ti_witem_t * witem,
+        ti_thing_t * thing,
+        const char * str,
+        size_t n,
+        ti_val_t ** val,
+        ex_t * e);
+int ti_thing_o_set_val_from_strn(
         ti_witem_t * witem,
         ti_thing_t * thing,
         const char * str,
@@ -128,6 +136,11 @@ static inline _Bool ti_thing_is_object(ti_thing_t * thing)
     return thing->type_id == TI_SPEC_OBJECT;
 }
 
+static inline _Bool ti_thing_o_is_restricted(ti_thing_t * thing)
+{
+    return thing->via.spec != TI_SPEC_ANY;
+}
+
 static inline _Bool ti_thing_is_dict(ti_thing_t * thing)
 {
     return thing->flags & TI_THING_FLAG_DICT;
@@ -138,7 +151,7 @@ static inline _Bool ti_thing_is_instance(ti_thing_t * thing)
     return thing->type_id != TI_SPEC_OBJECT;
 }
 
-static inline int ti_thing_id_to_pk(ti_thing_t * thing, msgpack_packer * pk)
+static inline int ti_thing_id_to_client_pk(ti_thing_t * thing, msgpack_packer * pk)
 {
     return -(msgpack_pack_map(pk, !!thing->id) ||
         (thing->id && (

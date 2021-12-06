@@ -29,7 +29,7 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     do
     {
         if (ti_do_statement(query, child->node, e) ||
-            ti_varr_append(varr, (void **) &query->rval, e))
+            ti_val_varr_append(varr, &query->rval, e))
             goto fail1;
 
         query->rval = NULL;

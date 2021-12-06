@@ -32,6 +32,7 @@ int ti_task_add_set_clear(ti_task_t * task, ti_raw_t * key);
 int ti_task_add_set(ti_task_t * task, ti_raw_t * key, ti_val_t * val);
 int ti_task_add_new_type(ti_task_t * task, ti_type_t * type);
 int ti_task_add_to_type(ti_task_t * task, ti_type_t * type);
+int ti_task_add_restrict(ti_task_t * task, uint16_t spec);
 int ti_task_add_set_type(ti_task_t * task, ti_type_t * type);
 int ti_task_add_del(ti_task_t * task, ti_raw_t * name);
 int ti_task_add_del_collection(ti_task_t * task, uint64_t collection_id);
@@ -137,6 +138,7 @@ int ti_task_add_splice(
         uint32_t n);             /* number of items to add */
 int ti_task_add_restore(ti_task_t * task);
 int ti_task_add_arr_remove(ti_task_t * task, ti_raw_t * key, vec_t * vec);
+int ti_task_add_thing_remove(ti_task_t * task, vec_t * vec, size_t alloc_sz);
 int ti_task_add_set_enum(ti_task_t * task, ti_enum_t * enum_);
 int ti_task_add_mod_enum_add(ti_task_t * task, ti_member_t * member);
 int ti_task_add_mod_enum_def(ti_task_t * task, ti_member_t * member);

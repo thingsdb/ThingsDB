@@ -164,7 +164,7 @@ int ti_room_emit(
 
     if (args)
         for (vec_each(args, ti_val_t, val))
-            if (ti_val_to_pk(val, &vp, deep))
+            if (ti_val_to_client_pk(val, &vp, deep))
                 goto fail_pack;
 
     node_pkg = (ti_pkg_t *) buffer.data;

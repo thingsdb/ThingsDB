@@ -13,6 +13,7 @@
 #include <ti/collection.h>
 #include <ti/collections.h>
 #include <ti/do.h>
+#include <ti/field.h>
 #include <ti/modules.h>
 #include <ti/names.h>
 #include <ti/proc.h>
@@ -223,6 +224,7 @@ int ti_init(void)
     ti_names_inject_common();
     ti_verror_init();
     ti_qbind_init();
+    ti_field_init();
     ti_modules_init();
 
     if (ti.cfg->query_duration_error > ti.cfg->query_duration_warn)

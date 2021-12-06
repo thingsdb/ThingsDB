@@ -182,7 +182,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (ti_val_as_bool(query->rval))
             {
                 ti_incref(v);
-                (void) ti_varr_append(varr, (void **) &v, e);
+                (void) ti_val_varr_append(varr, &v, e);
                 assert (e->nr == 0);  /* the above should always succeed */
             }
 

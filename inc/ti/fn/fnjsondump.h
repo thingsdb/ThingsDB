@@ -76,7 +76,7 @@ static int do__f_json_dump(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
-    if (ti_val_to_pk(val, &vp, options.deep))
+    if (ti_val_to_client_pk(val, &vp, options.deep))
     {
         ex_set_mem(e);
         goto fail1;

@@ -5,6 +5,7 @@ static int do__f_del_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = fn_get_nargs(nd);
     ti_enum_t * enum_;
     ti_task_t * task;
+    uint16_t spec;
 
     if (fn_not_collection_scope("del_enum", query, e) ||
         fn_nargs("del_enum", DOC_DEL_ENUM, 1, nargs, e) ||
@@ -50,8 +51,22 @@ static int do__f_del_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
+    spec = enum_->enum_id | TI_ENUM_ID_FLAG;
+
+    for (vec_each(query->vars, ti_prop_t, prop))
+    {
+        if (ti_val_is_thing(prop->val))
+        {
+            ti_thing_t * thing = (ti_thing_t *) prop->val;
+
+            if (ti_thing_is_object(thing) &&
+                    (thing->via.spec & TI_SPEC_MASK_NILLABLE) == spec)
+                thing->via.spec = TI_SPEC_ANY;
+        }
+    }
+
     /* this will remove the `enum` so it cannot be used after here */
-    ti_enums_del(query->collection->enums, enum_);
+    ti_enums_del(query->collection->enums, enum_, query->vars);
     ti_enum_destroy(enum_);
 
     ti_val_unsafe_drop(query->rval);

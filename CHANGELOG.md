@@ -1,8 +1,17 @@
 # v1.1.1
 
 * Remove scope restriction from `time_zones_info()` function, issue #236.
-
-
+* Function `deep(..)` can now be used to *set* the *deep* value, issue #237.
+* Remove the deprecated hash (`#..`) syntax, issue #232.
+* Added `all` action to the `mod_type(..)` function, issue #235.
+* Fixed unexpected behavior with unassigned typed things, issue #239.
+* Added `restrict(..)` function and restrictions on non-typed things, issue #210.
+* Added `restriction()` function, issue #240.
+* Fixed bug with deploying static module files, issue #241.
+* Fixed memory leak when deleting a locked value from a *(dict)* thing, issue #242.
+* Fixed generating Id for wrapped thing in list, issue #243.
+* Added optional limit argument to `set().remove(..)`, issue #244.
+* Added `remove()` function for non-typed things, issue #245.
 
 # v1.1.0
 
@@ -39,7 +48,7 @@
 * Added `clear()` function on `thing`, `set` and `list`.
 * Fixed bug with removing a self reference from a `set<->set` relation.
 * Functions for the new `room` type:
-  - `id()`: Return the Id of the room.
+  - `id()`: Return the Id of the room.git@github.com:transceptor-technology/oversight.website.git
   - `emit(..)`: Emit an event for the room.
 * Protocol types for the new `room` type:
   - `TI_PROTO_CLIENT_ROOM_JOIN` (6)

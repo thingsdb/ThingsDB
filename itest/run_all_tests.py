@@ -5,12 +5,12 @@ from lib import run_test, vars
 from test_advanced import TestAdvanced
 from test_arguments import TestArguments
 from test_backup import TestBackup
+from test_changes import TestChanges
 from test_collection_functions import TestCollectionFunctions
 from test_datetime import TestDatetime
 from test_dict import TestDict
 from test_doc_url import TestDocUrl
 from test_enum import TestEnum
-from test_events import TestEvents
 from test_future import TestFuture
 from test_gc import TestGC
 from test_http_api import TestHTTPAPI
@@ -23,6 +23,7 @@ from test_nodes import TestNodes
 from test_operators import TestOperators
 from test_procedures import TestProcedures
 from test_relations import TestRelations
+from test_restriction import TestRestriction
 from test_room import TestRoom
 from test_scopes import TestScopes
 from test_syntax import TestSyntax
@@ -53,13 +54,13 @@ if __name__ == '__main__':
     run_test(TestAdvanced())
     run_test(TestArguments())
     run_test(TestBackup())
+    run_test(TestChanges())
     run_test(TestCollectionFunctions())
     run_test(TestDatetime())
     run_test(TestDict())
     if args.skip_doc_test is False:
         run_test(TestDocUrl())
     run_test(TestEnum())
-    run_test(TestEvents())
     run_test(TestFuture())
     run_test(TestGC())
     run_test(TestHTTPAPI())
@@ -72,6 +73,7 @@ if __name__ == '__main__':
     run_test(TestOperators())
     run_test(TestProcedures())
     run_test(TestRelations())
+    run_test(TestRestriction())
     run_test(TestRoom())
     run_test(TestScopes())
     run_test(TestSyntax())

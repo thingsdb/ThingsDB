@@ -6,11 +6,14 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <ti/enum.h>
+#include <ti/enums.inline.h>
+#include <ti/field.h>
 #include <ti/member.inline.h>
 #include <ti/prop.h>
 #include <ti/spec.h>
 #include <ti/spec.inline.h>
 #include <ti/type.h>
+#include <ti/types.inline.h>
 #include <ti/val.inline.h>
 #include <ti/vint.h>
 #include <util/strx.h>
@@ -49,16 +52,22 @@
   :: `datetime`
   :: `timeval`
   :: `task`
+  :: `if`
+  :: `else`
+  :: `try`
+  :: `catch`
+  :: `final`
+  :: `return`
 
  */
 
 enum
 {
-    TOTAL_KEYWORDS = 25,
-    MIN_WORD_LENGTH = 3,
+    TOTAL_KEYWORDS = 32,
+    MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 8,
-    MIN_HASH_VALUE = 3,
-    MAX_HASH_VALUE = 30
+    MIN_HASH_VALUE = 2,
+    MAX_HASH_VALUE = 50
 };
 
 static inline unsigned int spec__hash(
@@ -67,32 +76,32 @@ static inline unsigned int spec__hash(
 {
     static unsigned char asso_values[] =
     {
-        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
-        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
-        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
-        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
-        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
-        31, 31, 31, 31, 31, 31, 12, 31, 31, 31,
-        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
-        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
-        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
-        31, 31, 31, 31, 31, 31, 31, 11,  5,  0,
-         0,  3,  0,  4, 10,  1, 31, 31,  5,  3,
-         0,  0,  8, 31,  0,  0,  0,  7,  0,  3,
-         4,  2, 31, 31, 31, 31, 31, 31, 31, 31,
-        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
-        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
-        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
-        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
-        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
-        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
-        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
-        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
-        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
-        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
-        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
-        31, 31, 31, 31, 31, 31, 31, 31, 31, 31,
-        31, 31, 31, 31, 31, 31
+        51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+        51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+        51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+        51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+        51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+        51, 51, 51, 51, 51, 51, 20, 51, 51, 51,
+        51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+        51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+        51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+        51, 51, 51, 51, 51, 51, 51, 17,  2,  5,
+         0,  1,  0, 16,  0,  0, 51,  4,  3,  7,
+         0,  5,  6, 51,  2,  1,  8,  3,  0, 11,
+         7, 11, 51, 51, 51, 51, 51, 51, 51, 51,
+        51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+        51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+        51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+        51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+        51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+        51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+        51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+        51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+        51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+        51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+        51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+        51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+        51, 51, 51, 51, 51, 51
     };
 
     register unsigned int hval = n;
@@ -131,33 +140,45 @@ _Bool ti_spec_is_reserved(register const char * s, register size_t n)
 {
     static const char * wordlist[] =
     {
+        "", "",
+        "if",
         "", "", "",
-        "str",
+        "nil",
+        "", "", "",
+        "else",
         "int",
         "nint",
         "set",
-        "room",
-        "error",
-        "nil",
-        "list",
-        "time",
+        "str",
         "uint",
+        "list",
+        "error",
         "pint",
         "bool",
-        "bytes",
-        "any",
-        "raw",
-        "date",
-        "regex",
-        "thing",
-        "float",
-        "closure",
-        "utf8",
+        "time",
         "number",
-        "", "", "",
+        "return",
+        "room",
+        "try",
+        "final",
         "tuple",
-        "datetime",
-        "timeval"
+        "closure",
+        "bytes",
+        "thing",
+        "date",
+        "any",
+        "regex",
+        "raw",
+        "task",
+        "utf8",
+        "", "",
+        "float",
+        "",
+        "catch",
+        "", "",
+        "timeval",
+        "", "", "", "", "", "",
+        "datetime"
     };
 
     if (n <= MAX_WORD_LENGTH && n >= MIN_WORD_LENGTH)
@@ -172,6 +193,130 @@ _Bool ti_spec_is_reserved(register const char * s, register size_t n)
         }
     }
     return false;
+}
+
+int ti_spec_from_raw(
+        uint16_t * spec,
+        ti_raw_t * raw,
+        ti_collection_t * collection,
+        ex_t * e)
+{
+    const char * str = (const char *) raw->data;
+    size_t n = raw->n;
+    ti_field_map_t * fmap;
+
+    *spec = 0;
+
+    if (!n)
+        goto empty;
+
+    if (str[n-1] == '?')
+    {
+        *spec |= TI_SPEC_NILLABLE;
+        if (!--n)
+            goto empty;
+    }
+
+    if (*spec == '/')
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "restriction must not contain a pattern condition"
+                DOC_THING_RESTRICT);
+        return e->nr;
+    }
+
+    if (str[n-1] == '>')
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "restriction must not contain a range condition"
+                DOC_THING_RESTRICT);
+        return e->nr;
+    }
+
+    fmap = ti_field_map_by_strn(str, n);
+
+    if (fmap)
+    {
+        if (fmap->spec == TI_SPEC_ANY)
+            *spec = TI_SPEC_ANY;
+        else
+            *spec = fmap->spec;
+        return 0;
+    }
+
+    if (collection)
+    {
+        ti_enum_t * enum_;
+        ti_type_t * type_ = ti_types_by_strn(collection->types, str, n);
+        if (type_)
+        {
+            if (type_->flags & TI_TYPE_FLAG_LOCK)
+            {
+                ex_set(e, EX_OPERATION,
+                    "failed to set restriction; type `%s` is in use",
+                    type_->name);
+                return e->nr;
+            }
+
+            *spec |= type_->type_id;
+            return 0;
+        }
+
+        enum_ = ti_enums_by_strn(collection->enums, str, n);
+        if (enum_)
+        {
+            if (enum_->flags & TI_ENUM_FLAG_LOCK)
+            {
+                ex_set(e, EX_OPERATION,
+                    "failed to set restriction; enum type `%s` is in use",
+                    enum_->name);
+                return e->nr;
+            }
+
+            *spec |= enum_->enum_id | TI_ENUM_ID_FLAG;
+            return 0;
+        }
+    }
+
+    if (!strx_is_asciin(str, n))
+        ex_set(e, EX_VALUE_ERROR,
+                "restriction must only contain valid ASCII characters"
+                DOC_THING_RESTRICT);
+    else
+        ex_set(e, EX_VALUE_ERROR,
+                "failed to set restriction; unknown type `%.*s`"
+                DOC_THING_RESTRICT,
+                n, str);
+
+    return e->nr;
+
+empty:
+    ex_set(e, EX_VALUE_ERROR,
+            "restriction must not be empty"DOC_THING_RESTRICT);
+    return e->nr;
+}
+
+ti_raw_t * ti_spec_raw(uint16_t spec, ti_collection_t * collection)
+{
+    char * typestr;
+    char * nillable;
+    ti_field_map_t * fmap;
+
+    if (spec == TI_SPEC_ANY)
+        return (ti_raw_t *) ti_val_any_str();
+
+    nillable = (spec & TI_SPEC_NILLABLE) ? "?" : "";
+    spec &= TI_SPEC_MASK_NILLABLE;
+
+    fmap = ti_field_map_by_spec(spec);
+
+    typestr = fmap
+         ? fmap->name
+         : spec >= TI_ENUM_ID_FLAG
+         ? ti_enums_by_id(collection->enums, spec & TI_ENUM_ID_MASK)->name
+         : ti_types_by_id(collection->types, spec)->name;
+
+    return ti_str_from_fmt("%s%s", typestr, nillable);
 }
 
 /*
@@ -327,7 +472,7 @@ _Bool ti__spec_maps_to_nested_val(uint16_t spec, ti_val_t * val)
     return ti_val_is_thing(val);
 }
 
-const char * ti__spec_approx_type_str(uint16_t spec)
+const char * ti_spec_approx_type_str(uint16_t spec)
 {
     spec &= TI_SPEC_MASK_NILLABLE;
     switch ((ti_spec_enum_t) spec)
@@ -356,12 +501,12 @@ const char * ti__spec_approx_type_str(uint16_t spec)
     case TI_SPEC_REGEX:         return "regex";
     case TI_SPEC_CLOSURE:       return "closure";
     case TI_SPEC_ERROR:         return "error";
-    case TI_SPEC_ROOM:         return "room";
+    case TI_SPEC_ROOM:          return "room";
     }
     return spec < TI_SPEC_ANY ? "thing" : "enum";
 }
 
-ti_spec_mod_enum ti__spec_check_mod(
+ti_spec_mod_enum ti_spec_check_mod(
         uint16_t ospec,
         uint16_t nspec,
         ti_condition_via_t ocondition,
@@ -382,7 +527,7 @@ ti_spec_mod_enum ti__spec_check_mod(
         return TI_SPEC_MOD_SUCCESS;
     case TI_SPEC_OBJECT:
         return ospec < TI_SPEC_ANY || ospec == TI_SPEC_OBJECT
-                ? TI_SPEC_MOD_SUCCESS
+                ? TI_SPEC_MOD_NESTED
                 : TI_SPEC_MOD_ERR;
     case TI_SPEC_RAW:
         return (

@@ -15,6 +15,9 @@
 #include <ti/query.t.h>
 #include <util/vec.h>
 
+void ti_field_init(void);
+ti_field_map_t * ti_field_map_by_strn(const char * s, size_t n);
+ti_field_map_t * ti_field_map_by_spec(const uint16_t spec);
 ti_field_t * ti_field_create(
         ti_name_t * name,
         ti_raw_t * spec_raw,

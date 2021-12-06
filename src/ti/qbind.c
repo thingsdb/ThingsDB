@@ -173,6 +173,8 @@
 #include <ti/fn/fnresetcounters.h>
 #include <ti/fn/fnrestartmodule.h>
 #include <ti/fn/fnrestore.h>
+#include <ti/fn/fnrestrict.h>
+#include <ti/fn/fnrestriction.h>
 #include <ti/fn/fnreturn.h>
 #include <ti/fn/fnreverse.h>
 #include <ti/fn/fnrevoke.h>
@@ -258,11 +260,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 233,
+    TOTAL_KEYWORDS = 235,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 28,
-    MAX_HASH_VALUE = 583
+    MIN_HASH_VALUE = 18,
+    MAX_HASH_VALUE = 622
 };
 
 /*
@@ -274,32 +276,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
-        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
-        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
-        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
-        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
-        584, 584,  13, 584,  12, 584,  13, 584, 584, 584,
-        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
-        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
-        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
-        584, 584, 584, 584, 584,  12, 584,  13,  77,  87,
-         14,  12,  38, 221,  96,  12,  32,  57,  16,  22,
-         17,  46, 143,  59,  13,  12,  15,  16,  38, 139,
-        143, 157,  64, 584, 584, 584, 584, 584, 584, 584,
-        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
-        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
-        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
-        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
-        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
-        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
-        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
-        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
-        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
-        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
-        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
-        584, 584, 584, 584, 584, 584, 584, 584, 584, 584,
-        584, 584, 584, 584, 584, 584
+        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
+        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
+        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
+        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
+        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
+        623, 623,   7, 623,   6, 623,   6, 623, 623, 623,
+        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
+        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
+        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
+        623, 623, 623, 623, 623,   6, 623,   7,  99,  39,
+         14,   6, 108, 292, 126,   6,  32, 131,  10,  34,
+         11,  28, 102,  50,   7,   6,   9,  20, 177, 191,
+        185, 151,   9, 623, 623, 623, 623, 623, 623, 623,
+        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
+        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
+        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
+        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
+        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
+        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
+        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
+        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
+        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
+        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
+        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
+        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
+        623, 623, 623, 623, 623, 623
     };
 
     register unsigned int hval = n;
@@ -468,7 +470,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="cancelled_err",     .fn=do__f_cancelled_err,        ROOT_NE},
     {.name="change_id",         .fn=do__f_change_id,            ROOT_NE},
     {.name="choice",            .fn=do__f_choice,               CHAIN_NE},
-    {.name="clear",             .fn=do__f_clear,                CHAIN_CE},  /* cannot exclude variable as clear works on things too */
+    {.name="clear",             .fn=do__f_clear,                CHAIN_CE},
     {.name="closure",           .fn=do__f_closure,              CHAIN_NE},
     {.name="code",              .fn=do__f_code,                 CHAIN_NE},
     {.name="collection_info",   .fn=do__f_collection_info,      ROOT_NE},
@@ -608,7 +610,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="refresh_module",    .fn=do__f_refresh_module,       ROOT_TE},
     {.name="refs",              .fn=do__f_refs,                 ROOT_NE},
     {.name="regex",             .fn=do__f_regex,                ROOT_NE},
-    {.name="remove",            .fn=do__f_remove,               CHAIN_CE_XVAR},
+    {.name="remove",            .fn=do__f_remove,               CHAIN_CE},
     {.name="rename_collection", .fn=do__f_rename_collection,    ROOT_TE},
     {.name="rename_enum",       .fn=do__f_rename_enum,          ROOT_CE},
     {.name="rename_module",     .fn=do__f_rename_module,        ROOT_TE},
@@ -619,6 +621,8 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="reset_counters",    .fn=do__f_reset_counters,       ROOT_NE},
     {.name="restart_module",    .fn=do__f_restart_module,       ROOT_NE},
     {.name="restore",           .fn=do__f_restore,              ROOT_TE},
+    {.name="restrict",          .fn=do__f_restrict,             CHAIN_CE},
+    {.name="restriction",       .fn=do__f_restriction,          CHAIN_NE},
     {.name="return",            .fn=do__f_return,               ROOT_NE},
     {.name="reverse",           .fn=do__f_reverse,              CHAIN_NE},
     {.name="revoke",            .fn=do__f_revoke,               ROOT_TE},
@@ -1100,12 +1104,6 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
     case CLERI_GID_CHAIN:
         qbind__chain(qbind, nd);        /* chain */
         return;
-    case CLERI_GID_THING_BY_ID:
-    {
-        intptr_t thing_id = strtoll(nd->str + 1, NULL, 10);
-        nd->data = (void *) thing_id;
-        return;
-    }
     case CLERI_GID_T_CLOSURE:
         /* investigate the statement, the rest can be skipped */
         qbind__statement(

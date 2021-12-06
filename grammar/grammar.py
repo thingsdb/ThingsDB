@@ -63,8 +63,6 @@ class LangDef(Grammar):
         '`'
     )
 
-    thing_by_id = Regex(r'#[0-9]+')
-
     t_false = Keyword('false')
     t_float = Regex(
         r'[-+]?((inf|nan)([^0-9A-Za-z_]|$)|[0-9]*\.[0-9]+(e[+-][0-9]+)?)')
@@ -151,7 +149,6 @@ class LangDef(Grammar):
         x_preopr,
         Choice(
             chain,
-            thing_by_id,
             # start immutable values
             t_false,
             t_nil,

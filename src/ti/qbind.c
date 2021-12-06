@@ -470,7 +470,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="cancelled_err",     .fn=do__f_cancelled_err,        ROOT_NE},
     {.name="change_id",         .fn=do__f_change_id,            ROOT_NE},
     {.name="choice",            .fn=do__f_choice,               CHAIN_NE},
-    {.name="clear",             .fn=do__f_clear,                CHAIN_CE},  /* cannot exclude variable as clear works on things too */
+    {.name="clear",             .fn=do__f_clear,                CHAIN_CE},
     {.name="closure",           .fn=do__f_closure,              CHAIN_NE},
     {.name="code",              .fn=do__f_code,                 CHAIN_NE},
     {.name="collection_info",   .fn=do__f_collection_info,      ROOT_NE},
@@ -610,7 +610,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="refresh_module",    .fn=do__f_refresh_module,       ROOT_TE},
     {.name="refs",              .fn=do__f_refs,                 ROOT_NE},
     {.name="regex",             .fn=do__f_regex,                ROOT_NE},
-    {.name="remove",            .fn=do__f_remove,               CHAIN_CE_XVAR},
+    {.name="remove",            .fn=do__f_remove,               CHAIN_CE},
     {.name="rename_collection", .fn=do__f_rename_collection,    ROOT_TE},
     {.name="rename_enum",       .fn=do__f_rename_enum,          ROOT_CE},
     {.name="rename_module",     .fn=do__f_rename_module,        ROOT_TE},

@@ -328,12 +328,30 @@ class TestNested(TestBase):
             );
         '''), [userb])
 
-    async def test_set_assign(self, client0, client1, client2):
+    async def test_set_assign_and_rm_props(self, client0, client1, client2):
         await client0.query(r'''
             x = {n: 0}; y = {n: 1}; z = {n: 2};
             .a = set(x, y);
             .b = set(x, z);
             .a ^= .b;
+            .t1 = {
+                a: 0,
+                b: 1,
+            };
+            .t2 = {
+                a: 0,
+                b: 1,
+            };
+        ''')
+
+        # make sure both remove() and clear() always create a change
+        await client0.query(r'''
+            t1 = .t1;
+            t1.remove(|| true);
+        ''')
+        await client0.query(r'''
+            t2 = .t2;
+            t2.clear();
         ''')
 
         await asyncio.sleep(1.0)
@@ -341,6 +359,9 @@ class TestNested(TestBase):
         for client in (client0, client1, client2):
             res = await client.query(r'.a.map(|x| x.n);')
             self.assertEqual(set(res), {1, 2})
+
+            res = await client.query(r'.t1.len() + .t2.len();')
+            self.assertEqual(res, 0)
 
     async def test_ids(self, client0, client1, client2):
         nones, ids = await client0.query(r'''

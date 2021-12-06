@@ -3028,7 +3028,7 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(res, 2)
         self.assertEqual(await client.query('.s.len();'), 1)
 
-    async def _OFF_test_remove_thing(self, client):
+    async def test_remove_thing(self, client):
         await client.query(r"""//ti
             .t = {
                 a: 1,

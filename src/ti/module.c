@@ -1185,8 +1185,10 @@ static void module__on_res(ti_future_t * future, ti_pkg_t * pkg)
     ti_val_unsafe_drop(vec_set(future->args, val, 0));
     /*
      * We never "use" the array directly, only the members in combination with
-     * a `then` or `else` case. Therefore it is not required to perform for
-     * example a list -> tuple conversion.
+     * a `then` or `else` case.
+     * For these `then` and `else` cases we do not want to convert
+     * lists to tuples, therefore we should make this a "special"
+     * array where items are explicitly *not* converted.
      */
     future->rval = (ti_val_t *) ti_varr_from_vec_unsafe(future->args);
     if (!future->rval)

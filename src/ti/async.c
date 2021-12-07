@@ -13,8 +13,10 @@ static void async__uv_cb(uv_async_t * task)
 
     /*
      * We never "use" the array directly, only the members in combination with
-     * a `then` or `else` case. Therefore it is not required to perform for
-     * example a list -> tuple conversion.
+     * a `then` or `else` case.
+     * For these `then` and `else` cases we do not want to convert
+     * lists to tuples, therefore we should make this a "special"
+     * array where items are explicitly *not* converted.
      */
     future->rval = (ti_val_t *) ti_varr_from_vec_unsafe(future->args);
     if (future->rval)

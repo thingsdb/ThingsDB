@@ -468,7 +468,9 @@ _Bool ti__spec_maps_to_nested_val(uint16_t spec, ti_val_t * val)
         return false;
     }
 
-    /* any *thing* can be mapped */
+    /* Any *thing* can be mapped. Why? Because for each thing we look at the
+     * individual properties of that thing so in general we can always map a
+     * thing. */
     return ti_val_is_thing(val);
 }
 

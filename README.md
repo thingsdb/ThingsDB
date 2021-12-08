@@ -16,7 +16,7 @@ ThingsDB documentation: https://docs.thingsdb.net
 
 ## Installation
 
-- From source: https://docs.thingsdb.net/v0/getting-started/build-from-source/
+- From source: https://docs.thingsdb.net/v1/getting-started/build-from-source/
 - Image on docker hub: https://hub.docker.com/repository/docker/thingsdb/node
 
 ## Docker
@@ -40,7 +40,7 @@ docker run \
 
 > :point_up: **Note:** The `--init` argument is technically only required when running ThingsDB for the first time.
 
-Replace the `latest` tag or build your own Docker image if you want to test using Python modules or Google Cloud support *(see the [getting started page](https://docs.thingsdb.net/v0/getting-started/) for more info)*
+Replace the `latest` tag or build your own Docker image if you want to test using Python modules or Google Cloud support *(see the [getting started page](https://docs.thingsdb.net/v1/getting-started/) for more info)*
 
 ## Run integration tests
 

@@ -1,5 +1,7 @@
 /*
  * util/rbuf.h
+ *
+ * Write data in reverse order to a buffer.
  */
 #include <util/logger.h>
 #include <stdlib.h>
@@ -53,7 +55,8 @@ int rbuf_write(rbuf_t * buf, const char c)
         size_t nsize = buf->cap ? buf->cap << 1 : 8192;
         size_t len = rbuf_len(buf);
 
-        tmp = realloc(buf->data, nsize);
+        /* this used to be a re-allocation but we need new memory, bug #253 */
+        tmp = malloc(nsize);
         if (!tmp)
             return -1;
 

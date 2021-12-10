@@ -1917,6 +1917,14 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(res, b'ceg')
 
+    async def test_replace_rev_large(self, client):
+        # bug #253
+        s = 'x'*17000
+        res = await client.query(r"""//ti
+            s.replace('z', ||nil, -1);
+        """, s=s)
+        self.assertEqual(s, res)
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

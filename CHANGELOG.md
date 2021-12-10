@@ -1,3 +1,7 @@
+# v1.1.3
+
+* Fixed allocation bug in reverse buffer, issue #253. 
+
 # v1.1.2
 
 * Added `is_time_zone(..)` function, issue #247.

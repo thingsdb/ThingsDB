@@ -327,7 +327,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
     /*
      * TODO (COMPAT) For compatibility with data from before v1.1.1
      */
-    case TI_KIND_C_THING_OBSOLETE:
+    case TI_KIND_C_THING_OBSOLETE_:
         if (!vup->collection)
         {
             ex_set(e, EX_BAD_DATA,

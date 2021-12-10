@@ -6,42 +6,6 @@
 
 #define VAL__CAST_MAX 9223372036854775808.0
 
-/*
-
-## Return values
-
-Type            | MessagePack | Examples
---------------- | ----------- | -------
-TI_VAL_NIL      | MP_NIL      | `null`
-TI_VAL_INT      | MP_INT      | `123` / `0`
-TI_VAL_FLOAT    | MP_FLOAT    | `3.14`
-TI_VAL_BOOL     | MP_BOOL     | `true` / `false`
-TI_VAL_DATETIME | MP_STR      | `"2021-07-22T11:23:46Z"`
-TI_VAL_NAME     | MP_STR      | `"some string value"`
-TI_VAL_STR      | MP_STR      | `"some string value"`
-TI_VAL_BYTES    | MP_BIN      | `b"some_bytes"` *(JSON requires encoding)*
-TI_VAL_REGEX    | ?           | ?
-TI_VAL_THING    | MP_OBJ      | `{"#": 123}` / `{"name": "some test"}`
-TI_VAL_WRAP     | MP_OBJ      | `{"#": 123}` / `{"name": "some test"}`
-TI_VAL_ROOM     | ?           | ?
-TI_VAL_ARR      | MP_ARR      | `[...]` *(Array with values)*
-TI_VAL_SET      | MP_ARR      | `[...]` *(Array with things)*
-TI_VAL_ERROR    | ?           | ?
-TI_VAL_MEMBER   | MP_X        | *Enumerator value*
-TI_VAL_MPDATA   | MP_X        | *Packed data*
-TI_VAL_CLOSURE  | ?           | ?
-TI_VAL_FUTURE   | MP_ARR      | `[..]` *(Array with future result)*
-TI_VAL_TEMPLATE | N.A.        | *Never returned to the client as template*
-
-*/
-
-
-/*
- * enum cache is not a real value type but used for stored closure to pre-cache
- *
- */
-#define TI_VAL_ENUM_CACHE 255
-
 #define TI_VAL_NIL_S        "nil"
 #define TI_VAL_INT_S        "int"
 #define TI_VAL_FLOAT_S      "float"
@@ -62,15 +26,15 @@ TI_VAL_TEMPLATE | N.A.        | *Never returned to the client as template*
 #define TI_VAL_FUTURE_S     "future"
 #define TI_VAL_TASK_S       "task"
 
-#define TI_KIND_S_INSTANCE  "."
-#define TI_KIND_S_OBJECT    ","
-#define TI_KIND_S_THING     "#"
-#define TI_KIND_S_SET       "$"
-#define TI_KIND_S_ERROR     "!"
-#define TI_KIND_S_WRAP      "&"
-#define TI_KIND_S_MEMBER    "%"
-#define TI_KIND_S_DATETIME  "'"
-#define TI_KIND_S_TIMEVAL   "\""
+#define TI_KIND_S_INSTANCE  "."     /* Internally, New typed thing */
+#define TI_KIND_S_OBJECT    ","     /* Internally, New thing */
+#define TI_KIND_S_THING     "#"     /* Externally, Thing */
+#define TI_KIND_S_SET       "$"     /* Internally, Set */
+#define TI_KIND_S_ERROR     "!"     /* Internally, Error */
+#define TI_KIND_S_WRAP      "&"     /* Internally, Wrapped thing */
+#define TI_KIND_S_MEMBER    "%"     /* Internally, Enum member */
+#define TI_KIND_S_DATETIME  "'"     /* Internally, Date/Time */
+#define TI_KIND_S_TIMEVAL   "\""    /* Internally, Time value */
 #define TI_KIND_S_CLOSURE_OBSOLETE_   "/"
 #define TI_KIND_S_REGEX_OBSOLETE_     "*"
 
@@ -105,7 +69,7 @@ typedef enum
 
 enum
 {
-    TI_VFLAG_LOCK            =1<<7,      /* thing or value in use;
+    TI_VFLAG_LOCK            =1<<7,      /* value in use;
                                             used to prevent illegal changes */
 };
 
@@ -119,13 +83,14 @@ typedef enum
      */
     TI_KIND_C_INSTANCE  ='.',
     TI_KIND_C_OBJECT    =',',
-    TI_KIND_C_THING_OBSOLETE        ='#',
     TI_KIND_C_SET       ='$',
     TI_KIND_C_ERROR     ='!',
     TI_KIND_C_WRAP      ='&',
     TI_KIND_C_MEMBER    ='%',
     TI_KIND_C_DATETIME  ='\'',
     TI_KIND_C_TIMEVAL   ='"',
+    /* Obsolete, but still required for backwards compatibility */
+    TI_KIND_C_THING_OBSOLETE_       ='#',
     TI_KIND_C_CLOSURE_OBSOLETE_     ='/',
     TI_KIND_C_REGEX_OBSOLETE_       ='*',
 } ti_val_kind;
@@ -136,6 +101,12 @@ typedef struct ti_val_s ti_val_t;
 
 struct ti_val_s
 {
+    /*
+     * Both `ref` and `tp` MUST be implemented by all value type.
+     *
+     * Flags MUST be implemented when a type can be locked and in this case
+     * the flag `TI_VFLAG_LOCK` MUST handle this lock.
+     */
     uint32_t ref;
     uint8_t tp;
     uint8_t flags;

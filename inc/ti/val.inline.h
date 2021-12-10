@@ -195,20 +195,17 @@ static inline int val__to_arr_cb(ti_val_t ** UNUSED(v), ti_varr_t * UNUSED(varr)
 
 static inline int val__thing_to_arr(ti_val_t ** UNUSED(v), ti_varr_t * varr, ex_t * UNUSED(e))
 {
-    varr->flags |= TI_VARR_FLAG_MHT;
-    return 0;
+    return varr->flags |= TI_VARR_FLAG_MHT, 0;
 }
 
 static inline int val__wrap_to_arr(ti_val_t ** UNUSED(v), ti_varr_t * varr, ex_t * UNUSED(e))
 {
-    varr->flags |= TI_VARR_FLAG_MHT;
-    return 0;
+    return varr->flags |= TI_VARR_FLAG_MHT, 0;
 }
 
 static inline int val__room_to_arr(ti_val_t ** UNUSED(v), ti_varr_t * varr, ex_t * UNUSED(e))
 {
-    varr->flags |= TI_VARR_FLAG_MHR;
-    return 0;
+    return varr->flags |= TI_VARR_FLAG_MHR, 0;
 }
 
 static inline int val__arr_to_arr(ti_val_t ** v, ti_varr_t * varr, ex_t * e)
@@ -734,44 +731,37 @@ static inline _Bool ti_val_is_mut_locked(ti_val_t * val)
  */
 static inline ti_val_t * ti_val_year_name(void)
 {
-    ti_incref(val__year_name);
-    return val__year_name;
+    return ti_incref(val__year_name), val__year_name;
 }
 
 static inline ti_val_t * ti_val_month_name(void)
 {
-    ti_incref(val__month_name);
-    return val__month_name;
+    return ti_incref(val__month_name), val__month_name;
 }
 
 static inline ti_val_t * ti_val_day_name(void)
 {
-    ti_incref(val__day_name);
-    return val__day_name;
+    return ti_incref(val__day_name), val__day_name;
 }
 
 static inline ti_val_t * ti_val_hour_name(void)
 {
-    ti_incref(val__hour_name);
-    return val__hour_name;
+    return ti_incref(val__hour_name), val__hour_name;
 }
 
 static inline ti_val_t * ti_val_minute_name(void)
 {
-    ti_incref(val__minute_name);
-    return val__minute_name;
+    return ti_incref(val__minute_name), val__minute_name;
 }
 
 static inline ti_val_t * ti_val_second_name(void)
 {
-    ti_incref(val__second_name);
-    return val__second_name;
+    return ti_incref(val__second_name), val__second_name;
 }
 
 static inline ti_val_t * ti_val_gmt_offset_name(void)
 {
-    ti_incref(val__gmt_offset_name);
-    return val__gmt_offset_name;
+    return ti_incref(val__gmt_offset_name), val__gmt_offset_name;
 }
 
 static inline ti_val_t * ti_val_borrow_year_name(void)
@@ -826,26 +816,22 @@ static inline ti_val_t * ti_val_borrow_beautify_name(void)
 
 static inline ti_val_t * ti_val_any_str(void)
 {
-    ti_incref(val__sany);
-    return val__sany;
+    return ti_incref(val__sany), val__sany;
 }
 
 static inline ti_val_t * ti_val_nil_str(void)
 {
-    ti_incref(val__snil);
-    return val__snil;
+    return ti_incref(val__snil), val__snil;
 }
 
 static inline ti_val_t * ti_val_true_str(void)
 {
-    ti_incref(val__strue);
-    return val__strue;
+    return ti_incref(val__strue), val__strue;
 }
 
 static inline ti_val_t * ti_val_false_str(void)
 {
-    ti_incref(val__sfalse);
-    return val__sfalse;
+    return ti_incref(val__sfalse), val__sfalse;
 }
 
 /*

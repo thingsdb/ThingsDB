@@ -56,6 +56,7 @@
 #define DOC_IS_STR                  DOC_SEE("collection-api/is_str")
 #define DOC_IS_TASK                 DOC_SEE("collection-api/is_task")
 #define DOC_IS_THING                DOC_SEE("collection-api/is_thing")
+#define DOC_IS_TIME_ZONE            DOC_SEE("collection-api/is_time_zone")
 #define DOC_IS_TIMEVAL              DOC_SEE("collection-api/is_timeval")
 #define DOC_IS_TUPLE                DOC_SEE("collection-api/is_tuple")
 #define DOC_IS_UTF8                 DOC_SEE("collection-api/is_utf8")

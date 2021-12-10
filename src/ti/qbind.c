@@ -114,6 +114,7 @@
 #include <ti/fn/fnistask.h>
 #include <ti/fn/fnisthing.h>
 #include <ti/fn/fnistimeval.h>
+#include <ti/fn/fnistimezone.h>
 #include <ti/fn/fnistuple.h>
 #include <ti/fn/fnisunique.h>
 #include <ti/fn/fnisutf8.h>
@@ -260,7 +261,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 235,
+    TOTAL_KEYWORDS = 236,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 18,
@@ -287,8 +288,8 @@ static inline unsigned int qbind__hash(
         623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
         623, 623, 623, 623, 623,   6, 623,   7,  99,  39,
          14,   6, 108, 292, 126,   6,  32, 131,  10,  34,
-         11,  28, 102,  50,   7,   6,   9,  20, 177, 191,
-        185, 151,   9, 623, 623, 623, 623, 623, 623, 623,
+         11,  28, 102,  81,   7,   6,   9,  20, 177, 191,
+        185, 151,  77, 623, 623, 623, 623, 623, 623, 623,
         623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
         623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
         623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
@@ -555,6 +556,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="is_str",            .fn=do__f_is_str,               ROOT_NE},
     {.name="is_task",           .fn=do__f_is_task,              ROOT_NE},
     {.name="is_thing",          .fn=do__f_is_thing,             ROOT_NE},
+    {.name="is_time_zone",      .fn=do__f_is_time_zone,         ROOT_NE},
     {.name="is_timeval",        .fn=do__f_is_timeval,           ROOT_NE},
     {.name="is_tuple",          .fn=do__f_is_tuple,             ROOT_NE},
     {.name="is_unique",         .fn=do__f_is_unique,            CHAIN_NE},

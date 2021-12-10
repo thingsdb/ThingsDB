@@ -153,7 +153,7 @@ int ti_store_tasks_restore(
             ti_decref(verr);
 
         /* push the task to the list */
-        VEC_push(*vtasks, vtask);
+        (void) ti_tasks_append(vtasks, vtask);
     }
 
     up.pt = keep;

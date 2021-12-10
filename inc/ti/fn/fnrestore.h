@@ -67,6 +67,7 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
     }
 
+    /* check for tasks in the @thingsdb scope, bug #249 */
     if ((n = ti.tasks->vtasks->n))
     {
         ex_set(e, EX_LOOKUP_ERROR,

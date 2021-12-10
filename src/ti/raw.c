@@ -208,7 +208,7 @@ done:
     return r;
 }
 
-ti_raw_t * ti_raw_from_slice(
+ti_raw_t * ti_str_from_slice(
         ti_raw_t * source,
         ssize_t start,
         ssize_t stop,
@@ -229,7 +229,42 @@ ti_raw_t * ti_raw_from_slice(
         return NULL;
 
     raw->ref = 1;
-    raw->tp = source->tp;
+    raw->tp = TI_VAL_STR;
+    raw->n = n;
+
+    dest = raw->data;
+    from = source->data + start;
+
+    *dest = *from;
+
+    while (--n)
+        *(++dest) = *(from += step);
+
+    return raw;
+}
+
+ti_raw_t * ti_bytes_from_slice(
+        ti_raw_t * source,
+        ssize_t start,
+        ssize_t stop,
+        ssize_t step)
+{
+    ti_raw_t * raw;
+    uchar * dest;
+    uchar * from;
+    ssize_t n = stop - start;
+
+    n = n / step + !!(n % step);
+
+    if (n <= 0)
+        return (ti_raw_t *) ti_val_empty_bin();
+
+    raw = malloc(sizeof(ti_raw_t) + n);
+    if (!raw)
+        return NULL;
+
+    raw->ref = 1;
+    raw->tp = TI_VAL_BYTES;
     raw->n = n;
 
     dest = raw->data;

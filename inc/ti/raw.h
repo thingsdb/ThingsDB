@@ -16,7 +16,12 @@ ti_raw_t * ti_bytes_from_base64(const void * data, size_t n);
 ti_raw_t * ti_str_base64_from_raw(ti_raw_t * src);
 ti_raw_t * ti_str_from_ti_string(const char * src, size_t n);
 ti_raw_t * ti_str_from_fmt(const char * fmt, ...);
-ti_raw_t * ti_raw_from_slice(
+ti_raw_t * ti_str_from_slice(
+        ti_raw_t * source,
+        ssize_t start,
+        ssize_t stop,
+        ssize_t step);
+ti_raw_t * ti_bytes_from_slice(
         ti_raw_t * source,
         ssize_t start,
         ssize_t stop,

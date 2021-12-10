@@ -960,7 +960,7 @@ int ti_field_set_name(
         ti_method_by_name(field->type, name))
     {
         ex_set(e, EX_VALUE_ERROR,
-            "property or method `%s` already exists on type `%s`"DOC_T_TYPE,
+            "property or method `%s` already exists on type `%s`"DOC_T_TYPED,
             name->str,
             field->type->name);
         goto fail0;

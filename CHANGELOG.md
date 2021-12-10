@@ -1,3 +1,11 @@
+# v1.1.2
+
+* Added `is_time_zone(..)` function, issue #247.
+* Fixed task scheduling when restoring from file, issue #248.
+* Prevent restore when tasks are created in the `@thingsdb` scope, issue #249. 
+* Added support for slice and index notation on bytes, issue #251.
+* Fixed bug with slice and index notation on internal names, issue #252.
+
 # v1.1.1
 
 * Remove scope restriction from `time_zones_info()` function, issue #236.

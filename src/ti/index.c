@@ -140,7 +140,7 @@ static int index__read_slice_indices(
     return e->nr;
 }
 
-static int index__slice_raw(ti_query_t * query, cleri_node_t * slice, ex_t * e)
+static int index__slice_str(ti_query_t * query, cleri_node_t * slice, ex_t * e)
 {
     ti_raw_t * source = (ti_raw_t *) query->rval;
     ssize_t start = 0, stop = (ssize_t) source->n, step = 1;
@@ -150,7 +150,26 @@ static int index__slice_raw(ti_query_t * query, cleri_node_t * slice, ex_t * e)
     if (index__read_slice_indices(query, slice, &start, &stop, &step, e))
         goto done;
 
-    query->rval = (ti_val_t *) ti_raw_from_slice(source, start, stop, step);
+    query->rval = (ti_val_t *) ti_str_from_slice(source, start, stop, step);
+    if (!query->rval)
+        ex_set_mem(e);
+
+done:
+    ti_val_unsafe_drop((ti_val_t *) source);
+    return e->nr;
+}
+
+static int index__slice_bin(ti_query_t * query, cleri_node_t * slice, ex_t * e)
+{
+    ti_raw_t * source = (ti_raw_t *) query->rval;
+    ssize_t start = 0, stop = (ssize_t) source->n, step = 1;
+
+    query->rval = NULL;
+
+    if (index__read_slice_indices(query, slice, &start, &stop, &step, e))
+        goto done;
+
+    query->rval = (ti_val_t *) ti_bytes_from_slice(source, start, stop, step);
     if (!query->rval)
         ex_set_mem(e);
 
@@ -314,7 +333,29 @@ static int index__numeric(
     return e->nr;
 }
 
-static int index__index_raw(
+static int index__index_str(
+        ti_query_t * query,
+        cleri_node_t * statement,
+        ex_t * e)
+{
+    ti_str_t * source = (ti_str_t *) query->rval;
+    size_t idx = 0;  /* only set to prevent warning */
+
+    query->rval = NULL;
+
+    if (index__numeric(query, statement, &idx, source->n, e))
+        goto done;
+
+    query->rval = (ti_val_t *) ti_str_create(source->str+idx, 1);
+    if (!query->rval)
+        ex_set_mem(e);
+
+done:
+    ti_val_unsafe_drop((ti_val_t *) source);
+    return e->nr;
+}
+
+static int index__index_bin(
         ti_query_t * query,
         cleri_node_t * statement,
         ex_t * e)
@@ -327,7 +368,7 @@ static int index__index_raw(
     if (index__numeric(query, statement, &idx, source->n, e))
         goto done;
 
-    query->rval = (ti_val_t *) ti_raw_create(source->tp, source->data+idx, 1);
+    query->rval = (ti_val_t *) ti_bin_create(source->data+idx, 1);
     if (!query->rval)
         ex_set_mem(e);
 
@@ -574,7 +615,6 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             slice->children->node->cl_obj->tp == CLERI_TP_TOKEN
     );
 
-    /* TODO: check if we can support slice on bytes type */
     switch ((ti_val_enum) val->tp)
     {
     case TI_VAL_NAME:
@@ -583,8 +623,16 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             goto assign_error;
 
         return do_slice
-                ? index__slice_raw(query, slice, e)
-                : index__index_raw(query, slice->children->node, e);
+                ? index__slice_str(query, slice, e)
+                : index__index_str(query, slice->children->node, e);
+
+    case TI_VAL_BYTES:
+        if (do_assign)
+            goto assign_error;
+
+        return do_slice
+                ? index__slice_bin(query, slice, e)
+                : index__index_bin(query, slice->children->node, e);
 
     case TI_VAL_ARR:
         if (do_assign && ti_varr_is_tuple((ti_varr_t *) val))
@@ -615,7 +663,6 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
     case TI_VAL_DATETIME:
-    case TI_VAL_BYTES:
     case TI_VAL_REGEX:
     case TI_VAL_WRAP:
     case TI_VAL_ROOM:

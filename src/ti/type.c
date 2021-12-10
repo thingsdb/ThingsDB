@@ -266,7 +266,7 @@ static inline int type__assign(
     ex_set(e, EX_TYPE_ERROR,
             "expecting a method of type `"TI_VAL_CLOSURE_S"` "
             "or a definition of type `"TI_VAL_STR_S"` "
-            "but got type `%s` instead"DOC_T_TYPE,
+            "but got type `%s` instead"DOC_T_TYPED,
             ti_val_str(val));
 
     return e->nr;

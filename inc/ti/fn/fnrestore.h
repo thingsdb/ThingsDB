@@ -67,6 +67,18 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
     }
 
+    /* check for tasks in the @thingsdb scope, bug #249 */
+    if ((n = ti.tasks->vtasks->n))
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "restore requires all existing tasks to be removed; "
+                "there %s still %"PRIu32" task%s found"DOC_RESTORE,
+                n == 1 ? "is" : "are",
+                n,
+                n == 1 ? "" : "s");
+        goto fail1;
+    }
+
     if ((n = ti.modules->n))
     {
         ex_set(e, EX_LOOKUP_ERROR,

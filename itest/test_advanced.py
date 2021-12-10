@@ -1895,6 +1895,28 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertIsInstance(res, int)
 
+    async def test_index_name(self, client):
+        # bug #252
+        res = await client.query(r"""//ti
+            {xxx: ''}.keys()[0][1];
+        """)
+        self.assertEqual(res, 'x')
+        res = await client.query(r"""//ti
+            {abcdefghij: ''}.keys()[0][2:8:2];
+        """)
+        self.assertEqual(res, 'ceg')
+
+    async def test_slice_bytes(self, client):
+        # feature #251
+        res = await client.query(r"""//ti
+            bytes('abc')[1];
+        """)
+        self.assertEqual(res, b'b')
+        res = await client.query(r"""//ti
+            bytes('abcdefghij')[2:8:2];
+        """)
+        self.assertEqual(res, b'ceg')
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

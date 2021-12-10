@@ -1884,6 +1884,16 @@ class TestCollectionFunctions(TestBase):
                 'is_ascii(blob);',
                 blob=pickle.dumps('binary')))
 
+    async def test_is_time_zone(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `is_time_zone` takes 1 argument but 0 were given'):
+            await client.query('is_time_zone();')
+
+        self.assertTrue(await client.query('is_time_zone("Europe/Kiev");'))
+        self.assertFalse(await client.query('is_time_zone("");'))
+        self.assertFalse(await client.query('is_time_zone(nil);'))
+
     async def test_is_bool(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,

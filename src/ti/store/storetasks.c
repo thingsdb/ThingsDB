@@ -152,8 +152,9 @@ int ti_store_tasks_restore(
         if (verr)
             ti_decref(verr);
 
-        /* push the task to the list */
-        VEC_push(*vtasks, vtask);
+        /* push the task to the list, use ti_tasks_appen() to re-schedule
+         * at startup, bug #248 */
+        (void) ti_tasks_append(vtasks, vtask);
     }
 
     up.pt = keep;

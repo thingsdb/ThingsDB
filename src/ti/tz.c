@@ -665,8 +665,14 @@ ti_tz_t * ti_tz_from_index(size_t tz_index)
  */
 ti_tz_t * ti_tz_from_strn(register const char * s, register size_t n)
 {
-    register unsigned int key = tz__hash(s, n);
-    ti_tz_t * tz = key <= MAX_HASH_VALUE ? tz__mapping[key] : NULL;
+    register unsigned int key;
+    ti_tz_t * tz;
+
+    if (n == 0)
+        return NULL;
+
+    key = tz__hash(s, n);
+    tz = key <= MAX_HASH_VALUE ? tz__mapping[key] : NULL;
     return tz && memcmp(tz->name, s, n) == 0 ? tz : NULL;
 }
 

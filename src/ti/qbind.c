@@ -530,7 +530,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="has_user",          .fn=do__f_has_user,             ROOT_NE},
     {.name="has",               .fn=do__f_has,                  CHAIN_NE},
     {.name="id",                .fn=do__f_id,                   CHAIN_NE},
-    {.name="if",                .fn=do__f_if,                   ROOT_NE},
+    {.name="if",                .fn=do__f_if,                   ROOT_NE},  /* DEPRECATED */
     {.name="index_of",          .fn=do__f_index_of,             CHAIN_NE},
     {.name="int",               .fn=do__f_int,                  ROOT_NE},
     {.name="is_array",          .fn=do__f_is_array,             ROOT_NE},
@@ -625,7 +625,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="restore",           .fn=do__f_restore,              ROOT_TE},
     {.name="restrict",          .fn=do__f_restrict,             CHAIN_CE},
     {.name="restriction",       .fn=do__f_restriction,          CHAIN_NE},
-    {.name="return",            .fn=do__f_return,               ROOT_NE},
+    {.name="return",            .fn=do__f_return,               ROOT_NE},  /* DEPRECATED */
     {.name="reverse",           .fn=do__f_reverse,              CHAIN_NE},
     {.name="revoke",            .fn=do__f_revoke,               ROOT_TE},
     {.name="room",              .fn=do__f_room,                 ROOT_NE},
@@ -837,8 +837,7 @@ static void qbind__peek_statement_for_closure(
 {
     cleri_node_t * node;
 
-    if ((node = nd->children->node)->cl_obj->gid == CLERI_GID_EXPRESSION &&
-        node->children->next->node->cl_obj->gid == CLERI_GID_T_CLOSURE)
+    if ((node = nd->children->node)->cl_obj->gid == CLERI_GID_CLOSURE)
     {
         uint8_t no_wse_flag = ~q->flags & TI_QBIND_FLAG_WSE;
         qbind__statement(q, nd);
@@ -979,6 +978,19 @@ static inline void qbind__thing(ti_qbind_t * qbind, cleri_node_t * nd)
     nd->data = (void *) sz;
 }
 
+static inline void qbind__closure(ti_qbind_t * qbind, cleri_node_t * nd)
+{
+    nd->data = ti_do_closure;
+    nd->children->node->data = NULL;
+
+    /* investigate the statement, the rest can be skipped */
+    qbind__statement(
+            qbind,
+            nd->children->next->next->next->node);
+
+    ++qbind->immutable_n;
+}
+
 /*
  * Analyze enumerator.
  *
@@ -994,13 +1006,8 @@ static inline void qbind__thing(ti_qbind_t * qbind, cleri_node_t * nd)
 static inline void qbind__enum(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     nd = nd->children->next->node;
-
-    if (nd->cl_obj->gid == CLERI_GID_T_CLOSURE)
-    {
-        nd->data = NULL;    /* closure */
-        ++qbind->immutable_n;
-        qbind__statement(qbind, nd->children->next->next->next->node);
-    }
+    if (nd->cl_obj->gid == CLERI_GID_CLOSURE)
+        qbind__closure(qbind, nd);
 }
 
 /*
@@ -1117,12 +1124,6 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
     case CLERI_GID_CHAIN:
         qbind__chain(qbind, nd);        /* chain */
         return;
-    case CLERI_GID_T_CLOSURE:
-        /* investigate the statement, the rest can be skipped */
-        qbind__statement(
-                qbind,
-                nd->children->next->next->next->node);
-        /* fall through */
     case CLERI_GID_T_INT:
     case CLERI_GID_T_FLOAT:
     case CLERI_GID_T_STRING:
@@ -1217,6 +1218,47 @@ static inline void qbind__expression(ti_qbind_t * qbind, cleri_node_t * nd)
         qbind__chain(qbind, nd->children->next->next->next->node);
 }
 
+static inline void qbind__if_statement(ti_qbind_t * qbind, cleri_node_t * nd)
+{
+    qbind__statement(qbind, nd->children->next->next->node);
+
+    /* set true node */
+    nd->children->node->data = nd->children->next->next->next->next->node;
+
+    qbind__statement(qbind, nd->children->node->data);
+
+    /* set else node */
+    nd->children->next->node->data = nd->children->next->next->next->next->next
+        ? nd->children->next->next->next->next->next->
+                node->children->next->node
+        : NULL;
+
+    if (nd->children->next->node->data)
+        qbind__statement(qbind, nd->children->next->node->data);
+
+    nd->data = ti_do_if_statement;
+}
+
+static inline void qbind__return_statement(
+        ti_qbind_t * qbind,
+        cleri_node_t * nd)
+{
+    qbind__statement(qbind, nd->children->next->node);
+
+    if (nd->children->next->next)
+    {
+        nd->children->node->data = \
+                nd->children->next->next->node->children->next->node;
+        qbind__statement(qbind, nd->children->node->data);
+        nd->data = ti_do_return_alt_deep;
+    }
+    else
+    {
+        nd->data = ti_do_return_val;
+        nd->children->node->data = NULL;
+    }
+}
+
 /*
  * Entry point for analyzing a statement.
  *
@@ -1231,6 +1273,15 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
     node = nd->children->node;
     switch (node->cl_obj->gid)
     {
+    case CLERI_GID_IF_STATEMENT:
+        qbind__if_statement(qbind, node);
+        return;
+    case CLERI_GID_RETURN_STATEMENT:
+        qbind__return_statement(qbind, node);
+        return;
+    case CLERI_GID_CLOSURE:
+        qbind__closure(qbind, node);
+        return;
     case CLERI_GID_EXPRESSION:
         qbind->flags &= ~TI_QBIND_FLAG_ON_VAR;
         qbind__expression(qbind, node);

@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2021-11-29 17:34:08
+ * Created at: 2021-12-11 18:30:25
  */
 
 #include <langdef/langdef.h>
@@ -74,8 +74,8 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * name = cleri_regex(CLERI_GID_NAME, "^[A-Za-z_][0-9A-Za-z_]{0,254}");
     cleri_t * var = cleri_regex(CLERI_GID_VAR, "^[A-Za-z_][0-9A-Za-z_]{0,254}");
     cleri_t * chain = cleri_ref();
-    cleri_t * t_closure = cleri_sequence(
-        CLERI_GID_T_CLOSURE,
+    cleri_t * closure = cleri_sequence(
+        CLERI_GID_CLOSURE,
         4,
         x_closure,
         cleri_list(CLERI_NONE, var, cleri_token(CLERI_NONE, ","), 0, 0, 1),
@@ -119,7 +119,7 @@ cleri_grammar_t * compile_langdef(void)
             CLERI_FIRST_MATCH,
             2,
             name,
-            t_closure
+            closure
         ),
         cleri_token(CLERI_NONE, "}")
     );
@@ -224,6 +224,36 @@ cleri_grammar_t * compile_langdef(void)
         CLERI_THIS,
         cleri_token(CLERI_NONE, ")")
     );
+    cleri_t * k_if = cleri_keyword(CLERI_GID_K_IF, "if", CLERI_CASE_SENSITIVE);
+    cleri_t * k_else = cleri_keyword(CLERI_GID_K_ELSE, "else", CLERI_CASE_SENSITIVE);
+    cleri_t * k_return = cleri_keyword(CLERI_GID_K_RETURN, "return", CLERI_CASE_SENSITIVE);
+    cleri_t * if_statement = cleri_sequence(
+        CLERI_GID_IF_STATEMENT,
+        6,
+        k_if,
+        cleri_token(CLERI_NONE, "("),
+        CLERI_THIS,
+        cleri_token(CLERI_NONE, ")"),
+        CLERI_THIS,
+        cleri_optional(CLERI_NONE, cleri_sequence(
+            CLERI_NONE,
+            2,
+            k_else,
+            CLERI_THIS
+        ))
+    );
+    cleri_t * return_statement = cleri_sequence(
+        CLERI_GID_RETURN_STATEMENT,
+        3,
+        k_return,
+        CLERI_THIS,
+        cleri_optional(CLERI_NONE, cleri_sequence(
+            CLERI_NONE,
+            2,
+            cleri_token(CLERI_NONE, ","),
+            CLERI_THIS
+        ))
+    );
     cleri_t * expression = cleri_sequence(
         CLERI_GID_EXPRESSION,
         4,
@@ -231,7 +261,7 @@ cleri_grammar_t * compile_langdef(void)
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            15,
+            14,
             chain,
             t_false,
             t_nil,
@@ -240,7 +270,6 @@ cleri_grammar_t * compile_langdef(void)
             t_int,
             t_string,
             t_regex,
-            t_closure,
             template,
             var_opt_more,
             thing,
@@ -253,7 +282,10 @@ cleri_grammar_t * compile_langdef(void)
     );
     cleri_t * statement = cleri_prio(
         CLERI_GID_STATEMENT,
-        2,
+        5,
+        if_statement,
+        return_statement,
+        closure,
         expression,
         operations
     );

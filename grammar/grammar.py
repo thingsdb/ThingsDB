@@ -83,13 +83,13 @@ class LangDef(Grammar):
 
     chain = Ref()
 
-    t_closure = Sequence(x_closure, List(var), '|', THIS)
+    closure = Sequence(x_closure, List(var), '|', THIS)
 
     thing = Sequence(x_thing, List(Sequence(name, ':', THIS)), '}')
     array = Sequence(x_array, List(THIS), ']')
     function = Sequence(x_function, List(THIS), ')')
     instance = Repeat(thing, mi=1, ma=1)  # will be exported as `cleri_dup_t`
-    enum_ = Sequence(x_thing, Choice(name, t_closure), '}')
+    enum_ = Sequence(x_thing, Choice(name, closure), '}')
 
     opr0_mul_div_mod = Tokens('* / %')
     opr1_add_sub = Tokens('+ -')
@@ -145,6 +145,33 @@ class LangDef(Grammar):
 
     parenthesis = Sequence(x_parenthesis, THIS, ')')
 
+    k_if = Keyword('if')
+    k_else = Keyword('else')
+    k_return = Keyword('return')
+
+    if_statement = Sequence(
+        k_if,
+        '(',
+        THIS,
+        ')',
+        THIS,
+        Optional(Sequence(k_else, THIS)))
+
+    return_statement = Sequence(
+        k_return,
+        THIS,
+        Optional(Sequence(',', THIS)))
+
+    # for_statement = Sequence(
+    #     Keyword('for'),
+    #     '(',
+    #     var,
+    #     Optional(Sequence(',', var)),
+    #     Keyword('in'),
+    #     THIS,
+    #     ')',
+    #     THIS)
+
     expression = Sequence(
         x_preopr,
         Choice(
@@ -157,7 +184,6 @@ class LangDef(Grammar):
             t_int,
             t_string,
             t_regex,
-            t_closure,
             # end immutable values
             template,
             var_opt_more,
@@ -170,7 +196,13 @@ class LangDef(Grammar):
         Optional(chain),
     )
 
-    statement = Prio(expression, operations)
+    statement = Prio(
+        if_statement,
+        # for_statement,
+        return_statement,
+        closure,
+        expression,
+        operations)
     statements = List(statement, delimiter=Sequence(';', comments))
 
     START = Sequence(comments, statements)
@@ -178,17 +210,32 @@ class LangDef(Grammar):
 
 if __name__ == '__main__':
     langdef = LangDef()
-    # res = langdef.parse(r'''x = /./;''')
-    # print(res.is_valid)
+    res = langdef.parse(r'''x = /./;''')
+    print(res.is_valid)
 
-    # res = langdef.parse(r'''/./;''')
-    # print(res.is_valid)
+    res = langdef.parse(r'''/./;''')
+    print(res.is_valid)
 
-    # res = langdef.parse(r'''|x|...)''')
-    # print(res.is_valid)
+    res = langdef.parse(r'''|x|...)''')
+    print(res.is_valid)
 
-    # res = langdef.parse(r'''a = 5;''')
-    # print(res.is_valid)
+    res = langdef.parse(r'''a = 5;''')
+    print(res.is_valid)
+
+    res = langdef.parse(r"""//ti
+        if (x > 5) {
+            return {x: x}, 5;
+        }
+    """)
+    print(res.is_valid)
+
+    res = langdef.parse(r"""//ti
+        for (x in range(3)) {
+            if (x < 2) continue;
+            return {x: x}, 5;
+        }
+    """)
+    print(res.is_valid)
 
     # exit(0)
 

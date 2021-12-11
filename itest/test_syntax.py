@@ -81,6 +81,14 @@ class TestSyntax(TestBase):
                 r'expecting: ; or end_of_statemen'):
             await client.query('1 1;' * 150)
 
+    async def test_weird_closure(self, client):
+        with self.assertRaisesRegex(
+                SyntaxError,
+                r'error at line 1, position 1, unexpected character `\|`.*'):
+            await client.query("""//ti
+                !||nil;
+            """)
+
 
 if __name__ == '__main__':
     run_test(TestSyntax())

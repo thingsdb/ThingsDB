@@ -12,8 +12,8 @@
  * using the `ti_nodes_check_syntax()` function */
 #define TI_VERSION_SYNTAX 1
 
-/* ThingsDB can only connect with servers having at least this version. */
-#define TI_MINIMAL_VERSION "0.8.0"
+/* ThingsDB can only connect with nodes having at least this version. */
+#define TI_MINIMAL_VERSION "1.0.0"
 
 /*
  * Use TI_VERSION_PRE_RELEASE for alpha, beta or release candidate versions.
@@ -25,7 +25,7 @@
  *  "-rc0"
  *  ""
  */
-#define TI_VERSION_PRE_RELEASE "-alpha0"
+#define TI_VERSION_PRE_RELEASE "-alpha4"
 
 #define TI_MAINTAINER \
     "Jeroen van der Heijden <jeroen@cesbit.com>"

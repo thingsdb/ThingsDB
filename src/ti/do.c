@@ -719,26 +719,63 @@ int ti_do_ternary(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return ti_do_statement(query, nd, e);
 }
 
-static int do__read_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+int ti_do_if_statement(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    if (!nd->data)
+    if (ti_do_statement(query, nd->children->next->next->node, e))
+        return e->nr;
+
+    if (ti_val_as_bool(query->rval))
+        nd = nd->children->node->data;
+    else if (!(nd = nd->children->next->node->data))
+        return e->nr;
+
+    ti_val_unsafe_drop(query->rval);
+    query->rval = NULL;
+    return ti_do_statement(query, nd, e);
+}
+
+int ti_do_return_val(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    if (ti_do_statement(query, nd->children->next->node, e) == 0)
+        ex_set_return(e);  /* on success */
+    return e->nr;
+}
+
+int ti_do_return_alt_deep(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    if (ti_do_statement(query, nd->children->node->data, e) ||
+        ti_deep_from_val(query->rval, &query->qbind.deep, e))
+        return e->nr;
+
+    ti_val_unsafe_drop(query->rval);
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->node, e) == 0)
+        ex_set_return(e);  /* on success */
+    return e->nr;
+}
+
+int ti_do_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    void ** data = &nd->children->node->data;
+
+    if (!*data)
     {
-        nd->data = (ti_val_t *) ti_closure_from_node(
+        *data = (ti_val_t *) ti_closure_from_node(
                 nd,
                 (query->qbind.flags & TI_QBIND_FLAG_THINGSDB)
                     ? TI_CLOSURE_FLAG_BTSCOPE
                     : TI_CLOSURE_FLAG_BCSCOPE);
-        if (!nd->data)
+        if (!*data)
         {
             ex_set_mem(e);
             return e->nr;
         }
         assert (vec_space(query->immutable_cache));
-        VEC_push(query->immutable_cache, nd->data);
+        VEC_push(query->immutable_cache, *data);
     }
-    query->rval = nd->data;
+    query->rval = *data;
     ti_incref(query->rval);
-
     return e->nr;
 }
 
@@ -1133,13 +1170,13 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     nd->len,
                     nd->str);
         return e->nr;
-    case CLERI_GID_T_CLOSURE:
+    case CLERI_GID_CLOSURE:
     {
         ti_closure_t * closure;
         vec_t * args = NULL;
         ti_raw_t * rname;
 
-        if (do__read_closure(query, nd, e))
+        if (ti_do_closure(query, nd, e))
             return e->nr;
 
         closure = (ti_closure_t *) query->rval;
@@ -1449,10 +1486,6 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         /* nothing is possible after a chain */
         goto preopr;
-    case CLERI_GID_T_CLOSURE:
-        if (do__read_closure(query, nd, e))
-            return e->nr;
-        break;
     case CLERI_GID_T_FALSE:
         query->rval = (ti_val_t *) ti_vbool_get(false);
         break;

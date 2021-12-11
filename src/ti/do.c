@@ -666,66 +666,57 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-int ti_do_operations(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+int ti_do_operation(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert( nd->cl_obj->gid == CLERI_GID_OPERATIONS );
-    assert (query->rval == NULL);
-
-    switch (nd->children->next->node->cl_obj->gid)
-    {
-    case CLERI_GID_OPR0_MUL_DIV_MOD:
-    case CLERI_GID_OPR1_ADD_SUB:
-    case CLERI_GID_OPR2_BITWISE_AND:
-    case CLERI_GID_OPR3_BITWISE_XOR:
-    case CLERI_GID_OPR4_BITWISE_OR:
-    case CLERI_GID_OPR5_COMPARE:
-    {
-        ti_val_t * a;
-
-        if (ti_do_statement(query, nd->children->node, e))
-            return e->nr;
-
-        a = query->rval;
-        query->rval = NULL;
-
-        if (ti_do_statement(query, nd->children->next->next->node, e) == 0)
-            (void) ti_opr_a_to_b(a, nd->children->next->node, &query->rval, e);
-
-        ti_val_unsafe_drop(a);
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children->node, e))
         return e->nr;
-    }
-    case CLERI_GID_OPR6_CMP_AND:
-        if (    ti_do_statement(query, nd->children->node, e) ||
-                !ti_val_as_bool(query->rval))
-            return e->nr;
 
-        ti_val_unsafe_drop(query->rval);
-        query->rval = NULL;
-        return ti_do_statement(query, nd->children->next->next->node, e);
-    case CLERI_GID_OPR7_CMP_OR:
-        if (    ti_do_statement(query, nd->children->node, e) ||
-                ti_val_as_bool(query->rval))
-            return e->nr;
+    a = query->rval;
+    query->rval = NULL;
 
-        ti_val_unsafe_drop(query->rval);
-        query->rval = NULL;
-        return ti_do_statement(query, nd->children->next->next->node, e);
-    case CLERI_GID_OPR8_TERNARY:
-        if (ti_do_statement(query, nd->children->node, e))
-            return e->nr;
+    if (ti_do_statement(query, nd->children->next->next->node, e) == 0)
+        (void) ti_opr_a_to_b(a, nd->children->next->node, &query->rval, e);
 
-        nd = ti_val_as_bool(query->rval)
-                ? nd->children->next->node->children->next->node
-                : nd->children->next->next->node;
-
-        ti_val_unsafe_drop(query->rval);
-        query->rval = NULL;
-
-        return ti_do_statement(query, nd, e);
-    }
-
-    assert (0);
+    ti_val_unsafe_drop(a);
     return e->nr;
+}
+
+int ti_do_compare_and(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    if (ti_do_statement(query, nd->children->node, e) ||
+        !ti_val_as_bool(query->rval))
+        return e->nr;
+
+    ti_val_unsafe_drop(query->rval);
+    query->rval = NULL;
+    return ti_do_statement(query, nd->children->next->next->node, e);
+}
+
+int ti_do_compare_or(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    if (ti_do_statement(query, nd->children->node, e) ||
+        ti_val_as_bool(query->rval))
+        return e->nr;
+
+    ti_val_unsafe_drop(query->rval);
+    query->rval = NULL;
+    return ti_do_statement(query, nd->children->next->next->node, e);
+}
+
+int ti_do_ternary(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    if (ti_do_statement(query, nd->children->node, e))
+        return e->nr;
+
+    nd = ti_val_as_bool(query->rval)
+            ? nd->children->next->node->children->next->node
+            : nd->children->next->next->node;
+
+    ti_val_unsafe_drop(query->rval);
+    query->rval = NULL;
+
+    return ti_do_statement(query, nd, e);
 }
 
 static int do__read_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)

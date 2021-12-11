@@ -763,10 +763,21 @@ static _Bool qbind__operations(
         cleri_children_t * parent,
         uint32_t parent_gid)
 {
+    static const ti_do_cb operation_cb[9] = {
+            ti_do_operation,    /* CLERI_GID_OPR0_MUL_DIV_MOD */
+            ti_do_operation,    /* CLERI_GID_OPR1_ADD_SUB */
+            ti_do_operation,    /* CLERI_GID_OPR2_BITWISE_AND */
+            ti_do_operation,    /* CLERI_GID_OPR3_BITWISE_XOR */
+            ti_do_operation,    /* CLERI_GID_OPR4_BITWISE_OR */
+            ti_do_operation,    /* CLERI_GID_OPR5_COMPARE */
+            ti_do_compare_and,  /* CLERI_GID_OPR6_CMP_AND */
+            ti_do_compare_or,   /* CLERI_GID_OPR7_CMP_OR */
+            ti_do_ternary,      /* CLERI_GID_OPR8_TERNARY */
+    };
     uint32_t gid = parent->node->children->next->node->cl_obj->gid;
     cleri_children_t * childb = parent->node->children->next->next;
 
-    parent->node->data = ti_do_operations;
+    parent->node->data = operation_cb[gid - CLERI_GID_OPR0_MUL_DIV_MOD];
 
     assert (gid >= CLERI_GID_OPR0_MUL_DIV_MOD &&
             gid <= CLERI_GID_OPR8_TERNARY);

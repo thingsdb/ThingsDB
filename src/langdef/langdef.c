@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2021-11-29 17:34:08
+ * Created at: 2021-12-11 12:36:22
  */
 
 #include <langdef/langdef.h>
@@ -224,6 +224,33 @@ cleri_grammar_t * compile_langdef(void)
         CLERI_THIS,
         cleri_token(CLERI_NONE, ")")
     );
+    cleri_t * if_statement = cleri_sequence(
+        CLERI_GID_IF_STATEMENT,
+        6,
+        cleri_keyword(CLERI_NONE, "if", CLERI_CASE_SENSITIVE),
+        cleri_token(CLERI_NONE, "("),
+        CLERI_THIS,
+        cleri_token(CLERI_NONE, ")"),
+        CLERI_THIS,
+        cleri_optional(CLERI_NONE, cleri_sequence(
+            CLERI_NONE,
+            2,
+            cleri_keyword(CLERI_NONE, "else", CLERI_CASE_SENSITIVE),
+            CLERI_THIS
+        ))
+    );
+    cleri_t * return_statement = cleri_sequence(
+        CLERI_GID_RETURN_STATEMENT,
+        3,
+        cleri_keyword(CLERI_NONE, "return", CLERI_CASE_SENSITIVE),
+        CLERI_THIS,
+        cleri_optional(CLERI_NONE, cleri_sequence(
+            CLERI_NONE,
+            2,
+            cleri_token(CLERI_NONE, ","),
+            CLERI_THIS
+        ))
+    );
     cleri_t * expression = cleri_sequence(
         CLERI_GID_EXPRESSION,
         4,
@@ -253,7 +280,9 @@ cleri_grammar_t * compile_langdef(void)
     );
     cleri_t * statement = cleri_prio(
         CLERI_GID_STATEMENT,
-        2,
+        4,
+        if_statement,
+        return_statement,
         expression,
         operations
     );

@@ -719,6 +719,42 @@ int ti_do_ternary(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return ti_do_statement(query, nd, e);
 }
 
+int ti_do_if_statemnt(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    if (ti_do_statement(query, nd->children->next->next->node, e))
+        return e->nr;
+
+    if (ti_val_as_bool(query->rval))
+        nd = nd->children->node->data;
+    else if (!(nd = nd->children->next->node->data))
+        return e->nr;
+
+    ti_val_unsafe_drop(query->rval);
+    query->rval = NULL;
+    return ti_do_statement(query, nd, e);
+}
+
+int ti_do_return_val(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    if (ti_do_statement(query, nd->children->next->node, e) == 0)
+        ex_set_return(e);  /* on success */
+    return e->nr;
+}
+
+int ti_do_return_alt_deep(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    if (ti_do_statement(query, nd->children->node->data, e) ||
+        ti_deep_from_val(query->rval, &query->qbind.deep, e))
+        return e->nr;
+
+    ti_val_unsafe_drop(query->rval);
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->node, e) == 0)
+        ex_set_return(e);  /* on success */
+    return e->nr;
+}
+
 static int do__read_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     if (!nd->data)

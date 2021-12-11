@@ -5,6 +5,10 @@ static int do__f_if(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = fn_get_nargs(nd);
     _Bool tobool;
 
+    log_debug(
+            "function if() is deprecated; "
+            "use the `if [..else]` statement instead");  /* TODO add doc */
+
     if (fn_nargs_range("if", DOC_IF, 2, 3, nargs, e) ||
         ti_do_statement(query, nd->children->node, e))
         return e->nr;

@@ -145,6 +145,29 @@ class LangDef(Grammar):
 
     parenthesis = Sequence(x_parenthesis, THIS, ')')
 
+    if_statement = Sequence(
+        Keyword('if'),
+        '(',
+        THIS,
+        ')',
+        THIS,
+        Optional(Sequence(Keyword('else'), THIS)))
+
+    return_statement = Sequence(
+        Keyword('return'),
+        THIS,
+        Optional(Sequence(',', THIS)))
+
+    # for_statement = Sequence(
+    #     Keyword('for'),
+    #     '(',
+    #     var,
+    #     Optional(Sequence(',', var)),
+    #     Keyword('in'),
+    #     THIS,
+    #     ')',
+    #     THIS)
+
     expression = Sequence(
         x_preopr,
         Choice(
@@ -170,7 +193,12 @@ class LangDef(Grammar):
         Optional(chain),
     )
 
-    statement = Prio(expression, operations)
+    statement = Prio(
+        if_statement,
+        # for_statement,
+        return_statement,
+        expression,
+        operations)
     statements = List(statement, delimiter=Sequence(';', comments))
 
     START = Sequence(comments, statements)
@@ -178,17 +206,32 @@ class LangDef(Grammar):
 
 if __name__ == '__main__':
     langdef = LangDef()
-    # res = langdef.parse(r'''x = /./;''')
-    # print(res.is_valid)
+    res = langdef.parse(r'''x = /./;''')
+    print(res.is_valid)
 
-    # res = langdef.parse(r'''/./;''')
-    # print(res.is_valid)
+    res = langdef.parse(r'''/./;''')
+    print(res.is_valid)
 
-    # res = langdef.parse(r'''|x|...)''')
-    # print(res.is_valid)
+    res = langdef.parse(r'''|x|...)''')
+    print(res.is_valid)
 
-    # res = langdef.parse(r'''a = 5;''')
-    # print(res.is_valid)
+    res = langdef.parse(r'''a = 5;''')
+    print(res.is_valid)
+
+    res = langdef.parse(r"""//ti
+        if (x > 5) {
+            return {x: x}, 5;
+        }
+    """)
+    print(res.is_valid)
+
+    res = langdef.parse(r"""//ti
+        for (x in range(3)) {
+            if (x < 2) continue;
+            return {x: x}, 5;
+        }
+    """)
+    print(res.is_valid)
 
     # exit(0)
 

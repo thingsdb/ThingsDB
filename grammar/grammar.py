@@ -83,13 +83,13 @@ class LangDef(Grammar):
 
     chain = Ref()
 
-    t_closure = Sequence(x_closure, List(var), '|', THIS)
+    closure = Sequence(x_closure, List(var), '|', THIS)
 
     thing = Sequence(x_thing, List(Sequence(name, ':', THIS)), '}')
     array = Sequence(x_array, List(THIS), ']')
     function = Sequence(x_function, List(THIS), ')')
     instance = Repeat(thing, mi=1, ma=1)  # will be exported as `cleri_dup_t`
-    enum_ = Sequence(x_thing, Choice(name, t_closure), '}')
+    enum_ = Sequence(x_thing, Choice(name, closure), '}')
 
     opr0_mul_div_mod = Tokens('* / %')
     opr1_add_sub = Tokens('+ -')
@@ -184,7 +184,6 @@ class LangDef(Grammar):
             t_int,
             t_string,
             t_regex,
-            t_closure,
             # end immutable values
             template,
             var_opt_more,
@@ -201,6 +200,7 @@ class LangDef(Grammar):
         if_statement,
         # for_statement,
         return_statement,
+        closure,
         expression,
         operations)
     statements = List(statement, delimiter=Sequence(';', comments))

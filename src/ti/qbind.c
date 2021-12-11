@@ -837,8 +837,7 @@ static void qbind__peek_statement_for_closure(
 {
     cleri_node_t * node;
 
-    if ((node = nd->children->node)->cl_obj->gid == CLERI_GID_EXPRESSION &&
-        node->children->next->node->cl_obj->gid == CLERI_GID_T_CLOSURE)
+    if ((node = nd->children->node)->cl_obj->gid == CLERI_GID_CLOSURE)
     {
         uint8_t no_wse_flag = ~q->flags & TI_QBIND_FLAG_WSE;
         qbind__statement(q, nd);
@@ -995,7 +994,7 @@ static inline void qbind__enum(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     nd = nd->children->next->node;
 
-    if (nd->cl_obj->gid == CLERI_GID_T_CLOSURE)
+    if (nd->cl_obj->gid == CLERI_GID_CLOSURE)
     {
         nd->data = NULL;    /* closure */
         ++qbind->immutable_n;
@@ -1117,12 +1116,6 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
     case CLERI_GID_CHAIN:
         qbind__chain(qbind, nd);        /* chain */
         return;
-    case CLERI_GID_T_CLOSURE:
-        /* investigate the statement, the rest can be skipped */
-        qbind__statement(
-                qbind,
-                nd->children->next->next->next->node);
-        /* fall through */
     case CLERI_GID_T_INT:
     case CLERI_GID_T_FLOAT:
     case CLERI_GID_T_STRING:
@@ -1256,6 +1249,19 @@ static void qbind__return_statement(ti_qbind_t * qbind, cleri_node_t * nd)
     }
 }
 
+static void qbind__closure(ti_qbind_t * qbind, cleri_node_t * nd)
+{
+    nd->data = ti_do_closure;
+    nd->children->node->data = NULL;
+
+    /* investigate the statement, the rest can be skipped */
+    qbind__statement(
+            qbind,
+            nd->children->next->next->next->node);
+
+    ++qbind->immutable_n;
+}
+
 /*
  * Entry point for analyzing a statement.
  *
@@ -1275,6 +1281,9 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
         return;
     case CLERI_GID_RETURN_STATEMENT:
         qbind__return_statement(qbind, node);
+        return;
+    case CLERI_GID_CLOSURE:
+        qbind__closure(qbind, node);
         return;
     case CLERI_GID_EXPRESSION:
         qbind->flags &= ~TI_QBIND_FLAG_ON_VAR;

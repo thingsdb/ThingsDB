@@ -70,10 +70,9 @@ static cleri_node_t * closure__node_from_strn(
 
     node = node                             /* List of statements */
             ->children->node                /* Sequence - statement */
-            ->children->node                /* expression */
-            ->children->next->node;         /* Choice - closure */
+            ->children->node;               /* closure */
 
-    if (node->cl_obj->gid != CLERI_GID_T_CLOSURE)
+    if (node->cl_obj->gid != CLERI_GID_CLOSURE)
     {
         ex_set(e, EX_LOOKUP_ERROR, "node is not a closure");
         goto fail1;
@@ -114,24 +113,21 @@ static void closure__node_to_buf(cleri_node_t * nd, char * buf, size_t * n)
     switch (nd->cl_obj->tp)
     {
     case CLERI_TP_KEYWORD:
-        if (nd->cl_obj->gid == CLERI_GID_K_ELSE)
+        switch (nd->cl_obj->gid)
         {
+        case CLERI_GID_K_ELSE:
             /* the else keyword always has "something" before, so if this is
              * white space, we should also add white space to identify the
              * start of `else ...`.
              */
-            char c = nd->str[-1];
-            if (isspace(c))
+            if (isspace(nd->str[-1]))
                 buf[(*n)++] = ' ';
-        }
-        if (nd->cl_obj->gid == CLERI_GID_K_RETURN ||
-            nd->cl_obj->gid == CLERI_GID_K_ELSE)
-        {
+            /* fall through */
+        case CLERI_GID_K_RETURN:
             /* both return and else have "something" after, so if this is
              * white space, we should also add white space.
              */
-            char c = nd->str[nd->len];
-            if (isspace(c))
+            if (isspace(nd->str[nd->len]))
             {
                 memcpy(buf + (*n), nd->str, nd->len);
                 (*n) += nd->len;

@@ -144,7 +144,7 @@ static int fmt__enum(ti_fmt_t * fmt, cleri_node_t * nd)
             return -1;
         break;
 
-    case CLERI_GID_T_CLOSURE:
+    case CLERI_GID_CLOSURE:
         if (fmt__closure(fmt, nd))
             return -1;
         break;
@@ -380,8 +380,6 @@ static int fmt__expr_choice(ti_fmt_t * fmt, cleri_node_t * nd)
     {
     case CLERI_GID_CHAIN:
         return fmt__chain(fmt, nd, false);
-    case CLERI_GID_T_CLOSURE:
-        return fmt__closure(fmt, nd);
     case CLERI_GID_T_FALSE:
     case CLERI_GID_T_FLOAT:
     case CLERI_GID_T_INT:
@@ -419,8 +417,6 @@ static int fmt__preopr(ti_fmt_t * fmt, cleri_node_t * nd)
 
 static int fmt__expression(ti_fmt_t * fmt, cleri_node_t * nd)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_EXPRESSION);
-
     if (fmt__preopr(fmt, nd->children->node))
         return -1;
 
@@ -442,30 +438,9 @@ static int fmt__expression(ti_fmt_t * fmt, cleri_node_t * nd)
 
 static int fmt__operations(ti_fmt_t * fmt, cleri_node_t * nd)
 {
-    assert( nd->cl_obj->gid == CLERI_GID_OPERATIONS );
-    assert (nd->cl_obj->tp == CLERI_TP_SEQUENCE);
+    cleri_node_t * node;
 
-
-    switch (nd->children->next->node->cl_obj->gid)
-    {
-    case CLERI_GID_OPR0_MUL_DIV_MOD:
-    case CLERI_GID_OPR1_ADD_SUB:
-    case CLERI_GID_OPR2_BITWISE_AND:
-    case CLERI_GID_OPR3_BITWISE_XOR:
-    case CLERI_GID_OPR4_BITWISE_OR:
-    case CLERI_GID_OPR5_COMPARE:
-    case CLERI_GID_OPR6_CMP_AND:
-    case CLERI_GID_OPR7_CMP_OR:
-    {
-        cleri_node_t * node;
-        node = nd->children->next->node;
-        if (fmt__statement(fmt, nd->children->node) ||
-            buf_append_fmt(&fmt->buf, " %.*s ", node->len, node->str) ||
-            fmt__statement(fmt, nd->children->next->next->node))
-            return -1;
-        return 0;
-    }
-    case CLERI_GID_OPR8_TERNARY:
+    if (nd->children->next->node->cl_obj->gid == CLERI_GID_OPR8_TERNARY)
     {
         cleri_node_t
             * nd_true = nd->children->next->node->children->next->node,
@@ -496,12 +471,16 @@ static int fmt__operations(ti_fmt_t * fmt, cleri_node_t * nd)
             buf_append_str(&fmt->buf, " : ") ||
             fmt__statement(fmt, nd_false))
             return -1;
+
         return 0;
     }
-    }
 
-    assert (0);
-    return -1;
+    node = nd->children->next->node;
+    if (fmt__statement(fmt, nd->children->node) ||
+        buf_append_fmt(&fmt->buf, " %.*s ", node->len, node->str) ||
+        fmt__statement(fmt, nd->children->next->next->node))
+        return -1;
+    return 0;
 }
 
 static int fmt__if_statement(ti_fmt_t * fmt, cleri_node_t * nd)
@@ -544,6 +523,8 @@ static int fmt__statement(ti_fmt_t * fmt, cleri_node_t * nd)
         return fmt__if_statement(fmt, node);
     case CLERI_GID_RETURN_STATEMENT:
         return fmt__return_statement(fmt, node);
+    case CLERI_GID_CLOSURE:
+        return fmt__closure(fmt, node);
     case CLERI_GID_EXPRESSION:
         return fmt__expression(fmt, node);
     case CLERI_GID_OPERATIONS:
@@ -572,7 +553,7 @@ int ti_fmt_nd(ti_fmt_t * fmt, cleri_node_t * nd)
 {
     switch(nd->cl_obj->gid)
     {
-    case CLERI_GID_T_CLOSURE:
+    case CLERI_GID_CLOSURE:
         return fmt__closure(fmt, nd);
     }
     assert(0);  /* unsupported node to format */

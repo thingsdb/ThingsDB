@@ -19,6 +19,7 @@ int ti_do_ternary(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_if_statemnt(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_return_val(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_return_alt_deep(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_init(void);
 void ti_do_drop(void);
 

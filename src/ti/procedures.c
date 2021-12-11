@@ -40,10 +40,7 @@ ti_varr_t * ti_procedures_info(smap_t * procedures, _Bool with_definition)
     varr->flags = with_definition;
 
     if (smap_values(procedures, (smap_val_cb) procedures__info_cb, varr))
-    {
-        ti_val_unsafe_drop((ti_val_t *) varr);
-        return NULL;
-    }
+        return ti_val_unsafe_drop((ti_val_t *) varr), NULL;
 
     varr->flags = flags;
     return varr;
@@ -73,10 +70,8 @@ int ti_procedures_rename(
 {
     char * tmp = strndup(name, n);
     if (!tmp || smap_add(procedures, tmp, procedure))
-    {
-        free(tmp);
-        return -1;
-    }
+        return free(tmp), -1;
+
     (void) smap_pop(procedures, procedure->name);
 
     free(procedure->name);

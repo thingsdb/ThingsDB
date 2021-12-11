@@ -665,7 +665,7 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e)
     /* drop the future first since it might require the query */
     ti_val_unsafe_drop((ti_val_t *) future);
 
-    if (!--query->fcount)
+    if (!--query->qbind.fut_count)
     {
         if (query->flags & TI_QUERY_FLAG_RAISE_ERR)
             ti_verror_to_e((ti_verror_t *) query->rval, e);
@@ -845,7 +845,7 @@ done:
     /* drop the future first since it might require the query */
     ti_val_unsafe_drop((ti_val_t *) future);
 
-    if (!--query->fcount)
+    if (!--query->qbind.fut_count)
     {
         if (query->flags & TI_QUERY_FLAG_RAISE_ERR)
             ti_verror_to_e((ti_verror_t *) query->rval, e);
@@ -1198,7 +1198,14 @@ void ti_query_done(ti_query_t * query, ex_t * e, ti_query_done_cb cb)
         {
             /* increase the number of running futures */
             ti.futures_count += query->futures.n;
-            query->fcount = query->futures.n;
+
+            /* kick-off the futures; futures.n will be zero so we need to keep
+             * the number of "running" futures on the query to verify when all
+             * futures are done. The size is of running futures is at most
+             * TI_MAX_FUTURE_COUNT so uint16_t is more than enough to store
+             * this number.
+             */
+            query->qbind.fut_count = query->futures.n;
 
             link_clear(&query->futures, (link_destroy_cb) query__future_cb);
             return;

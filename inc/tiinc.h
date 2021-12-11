@@ -39,7 +39,9 @@
 #define TI_MAX_EXPIRATION_DOUBLE 4294967295.0
 #define TI_MAX_EXPIRATION_LONG 4294967295L
 
-/* Maximum number of active futures (just some arbitrary value) */
+/* Maximum number of active futures (just some arbitrary value)
+ * The number should fit in uint16_t as the query stores the total
+ * number of running futures by this type. */
 #define TI_MAX_FUTURE_COUNT 500U
 
 /* Maximum number of tasks per scope (just some arbitrary value) */

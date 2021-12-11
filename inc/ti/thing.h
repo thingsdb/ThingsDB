@@ -41,7 +41,7 @@ void ti_thing_destroy(ti_thing_t * thing);
 void ti_thing_clear(ti_thing_t * thing);
 void ti_thing_o_items_destroy(ti_thing_t * thing);
 int ti_thing_to_dict(ti_thing_t * thing);
-int ti_thing_i_to_o(ti_thing_t * thing, ti_raw_t ** incompatible);
+int ti_thing_i_to_p(ti_thing_t * thing, ti_raw_t ** incompatible);
 int ti_thing_props_from_vup(
         ti_thing_t * thing,
         ti_vup_t * vup,

@@ -31,10 +31,7 @@ ti_room_t * ti_room_create(uint64_t id, ti_collection_t * collection)
     room->listeners = vec_new(2);
 
     if (!room->listeners)
-    {
-        free(room);
-        return NULL;
-    }
+        return free(room), NULL;
 
     return room;
 }
@@ -236,10 +233,7 @@ int ti_room_emit_from_pkg(
     {
         args = vec_new(nargs);
         if (!args)
-        {
-            ex_set_mem(e);
-            return e->nr;
-        }
+            return ex_set_mem(e), e->nr;
     }
     else
         args = NULL;

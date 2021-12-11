@@ -267,7 +267,7 @@ typedef struct
     vec_t * vec;
 } thing__to_stric_t;
 
-static int thing__i_to_o_cb(ti_item_t * item, thing__to_stric_t * w)
+static int thing__i_to_p_cb(ti_item_t * item, thing__to_stric_t * w)
 {
     if (ti_raw_is_name(item->key))
     {
@@ -278,7 +278,7 @@ static int thing__i_to_o_cb(ti_item_t * item, thing__to_stric_t * w)
     return -1;
 }
 
-int ti_thing_i_to_o(ti_thing_t * thing, ti_raw_t ** incompatible)
+int ti_thing_i_to_p(ti_thing_t * thing, ti_raw_t ** incompatible)
 {
     vec_t * vec = vec_new(ti_thing_n(thing));
     if (!vec)
@@ -292,7 +292,7 @@ int ti_thing_i_to_o(ti_thing_t * thing, ti_raw_t ** incompatible)
     };
     if (smap_values(
             thing->items.smap,
-            (smap_val_cb) thing__i_to_o_cb,
+            (smap_val_cb) thing__i_to_p_cb,
             &w))
     {
         free(vec);
@@ -509,10 +509,7 @@ ti_prop_t * ti_thing_p_prop_set(
 
     prop = ti_prop_create(name, val);
     if (!prop || vec_push(&thing->items.vec, prop))
-    {
-        free(prop);
-        return NULL;
-    }
+        return free(prop), NULL;
 
     return prop;
 }
@@ -541,10 +538,7 @@ ti_item_t * ti_thing_i_item_set(
 
     item = ti_item_create(key, val);
     if (smap_addn(thing->items.smap, (const char *) key->data, key->n, item))
-    {
-        free(item);
-        return NULL;
-    }
+        return free(item), NULL;
 
     return item;
 }
@@ -574,19 +568,13 @@ int ti_thing_i_set_val_from_strn(
 {
     ti_raw_t * key = ti_str_create(str, n);
     if (!key)
-    {
-        ex_set_mem(e);
-        return e->nr;
-    }
-
-    assert (ti_thing_is_dict(thing));
+        return ex_set_mem(e), e->nr;
 
     if (ti_val_make_assignable(val, thing, key, e))
         return e->nr;
 
     if (thing_i__item_set_e(thing, key, *val, e))
     {
-        assert (e->nr);
         ti_val_unsafe_drop((ti_val_t *) key);
         return e->nr;
     }
@@ -636,10 +624,7 @@ int ti_thing_o_set_val_from_strn(
     }
 
     if (!ti_thing_is_dict(thing) && ti_thing_to_dict(thing))
-    {
-        ex_set_mem(e);
-        return e->nr;
-    }
+        return ex_set_mem(e), e->nr;
 
     return ti_thing_i_set_val_from_strn(witem, thing, str, n, val, e);
 }
@@ -666,10 +651,7 @@ int ti_thing_o_set_val_from_valid_strn(
 
     name = ti_names_get(str, n);
     if (!name)
-    {
-        ex_set_mem(e);
-        return e->nr;
-    }
+        return ex_set_mem(e), e->nr;
 
     if (ti_val_make_assignable(val, thing, name, e))
         return e->nr;
@@ -1698,7 +1680,7 @@ int ti_thing_assign(
             if (ti_thing_is_dict(tsrc))
             {
                 ti_raw_t * incompatible;
-                if (ti_thing_i_to_o(tsrc, &incompatible))
+                if (ti_thing_i_to_p(tsrc, &incompatible))
                 {
                     if (incompatible)
                         ex_set(e, EX_LOOKUP_ERROR,

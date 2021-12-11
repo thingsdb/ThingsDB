@@ -1236,7 +1236,7 @@ static inline void qbind__if_statement(ti_qbind_t * qbind, cleri_node_t * nd)
     if (nd->children->next->node->data)
         qbind__statement(qbind, nd->children->next->node->data);
 
-    nd->data = ti_do_if_statemnt;
+    nd->data = ti_do_if_statement;
 }
 
 static inline void qbind__return_statement(

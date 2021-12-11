@@ -719,7 +719,7 @@ int ti_do_ternary(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return ti_do_statement(query, nd, e);
 }
 
-int ti_do_if_statemnt(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+int ti_do_if_statement(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     if (ti_do_statement(query, nd->children->next->next->node, e))
         return e->nr;

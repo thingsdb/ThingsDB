@@ -978,6 +978,19 @@ static inline void qbind__thing(ti_qbind_t * qbind, cleri_node_t * nd)
     nd->data = (void *) sz;
 }
 
+static inline void qbind__closure(ti_qbind_t * qbind, cleri_node_t * nd)
+{
+    nd->data = ti_do_closure;
+    nd->children->node->data = NULL;
+
+    /* investigate the statement, the rest can be skipped */
+    qbind__statement(
+            qbind,
+            nd->children->next->next->next->node);
+
+    ++qbind->immutable_n;
+}
+
 /*
  * Analyze enumerator.
  *
@@ -993,13 +1006,8 @@ static inline void qbind__thing(ti_qbind_t * qbind, cleri_node_t * nd)
 static inline void qbind__enum(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     nd = nd->children->next->node;
-
     if (nd->cl_obj->gid == CLERI_GID_CLOSURE)
-    {
-        nd->data = NULL;    /* closure */
-        ++qbind->immutable_n;
-        qbind__statement(qbind, nd->children->next->next->next->node);
-    }
+        qbind__closure(qbind, nd);
 }
 
 /*
@@ -1210,7 +1218,7 @@ static inline void qbind__expression(ti_qbind_t * qbind, cleri_node_t * nd)
         qbind__chain(qbind, nd->children->next->next->next->node);
 }
 
-static void qbind__if_statement(ti_qbind_t * qbind, cleri_node_t * nd)
+static inline void qbind__if_statement(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     qbind__statement(qbind, nd->children->next->next->node);
 
@@ -1231,7 +1239,9 @@ static void qbind__if_statement(ti_qbind_t * qbind, cleri_node_t * nd)
     nd->data = ti_do_if_statemnt;
 }
 
-static void qbind__return_statement(ti_qbind_t * qbind, cleri_node_t * nd)
+static inline void qbind__return_statement(
+        ti_qbind_t * qbind,
+        cleri_node_t * nd)
 {
     qbind__statement(qbind, nd->children->next->node);
 
@@ -1247,19 +1257,6 @@ static void qbind__return_statement(ti_qbind_t * qbind, cleri_node_t * nd)
         nd->data = ti_do_return_val;
         nd->children->node->data = NULL;
     }
-}
-
-static void qbind__closure(ti_qbind_t * qbind, cleri_node_t * nd)
-{
-    nd->data = ti_do_closure;
-    nd->children->node->data = NULL;
-
-    /* investigate the statement, the rest can be skipped */
-    qbind__statement(
-            qbind,
-            nd->children->next->next->next->node);
-
-    ++qbind->immutable_n;
 }
 
 /*

@@ -1250,7 +1250,10 @@ static void qbind__return_statement(ti_qbind_t * qbind, cleri_node_t * nd)
         nd->data = ti_do_return_alt_deep;
     }
     else
+    {
         nd->data = ti_do_return_val;
+        nd->children->node->data = NULL;
+    }
 }
 
 /*

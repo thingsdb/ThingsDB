@@ -504,6 +504,34 @@ static int fmt__operations(ti_fmt_t * fmt, cleri_node_t * nd)
     return -1;
 }
 
+static int fmt__if_statement(ti_fmt_t * fmt, cleri_node_t * nd)
+{
+    assert (nd->cl_obj->gid == CLERI_GID_IF_STATEMENT);
+
+    if (buf_append_str(&fmt->buf, "if (") ||
+        fmt__statement(fmt, nd->children->next->next->node) ||
+        buf_append_str(&fmt->buf, ") ") ||
+        fmt__statement(fmt, nd->children->node->data))
+        return -1;
+
+    return nd->children->next->node->data
+        ? (buf_append_str(&fmt->buf, " else ") ||
+            fmt__statement(fmt, nd->children->next->node->data))
+        : 0;
+}
+
+static int fmt__return_statement(ti_fmt_t * fmt, cleri_node_t * nd)
+{
+    if (buf_append_str(&fmt->buf, "return ") ||
+            fmt__statement(fmt, nd->children->next->node))
+        return -1;
+
+    return nd->children->node->data
+        ? (buf_append_str(&fmt->buf, ", ") ||
+                fmt__statement(fmt, nd->children->node->data))
+        : 0;
+}
+
 static int fmt__statement(ti_fmt_t * fmt, cleri_node_t * nd)
 {
     cleri_node_t * node;
@@ -512,6 +540,10 @@ static int fmt__statement(ti_fmt_t * fmt, cleri_node_t * nd)
     node = nd->children->node;
     switch (node->cl_obj->gid)
     {
+    case CLERI_GID_IF_STATEMENT:
+        return fmt__if_statement(fmt, node);
+    case CLERI_GID_RETURN_STATEMENT:
+        return fmt__return_statement(fmt, node);
     case CLERI_GID_EXPRESSION:
         return fmt__expression(fmt, node);
     case CLERI_GID_OPERATIONS:

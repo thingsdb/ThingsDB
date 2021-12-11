@@ -458,6 +458,37 @@ static int ncache__operations(
     ) ? e->nr : 0;
 }
 
+static int ncache__if_statement(
+        ti_qbind_t * syntax,
+        vec_t * vcache,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    assert (nd->cl_obj->gid == CLERI_GID_IF_STATEMENT);
+
+    if (ncache__statement(syntax, vcache, nd->children->next->next->node, e) ||
+        ncache__statement(syntax, vcache, nd->children->node->data, e))
+        return -1;
+
+    return nd->children->next->node->data
+        ? ncache__statement(syntax, vcache, nd->children->next->node->data, e)
+        : 0;
+}
+
+static int ncache__return_statement(
+        ti_qbind_t * syntax,
+        vec_t * vcache,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    if (ncache__statement(syntax, vcache, nd->children->next->node, e))
+        return -1;
+
+    return nd->children->node->data
+        ? ncache__statement(syntax, vcache, nd->children->node->data, e)
+        : 0;
+}
+
 static int ncache__statement(
         ti_qbind_t * syntax,
         vec_t * vcache,
@@ -465,9 +496,19 @@ static int ncache__statement(
         ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_STATEMENT);
-    return (nd = nd->children->node)->cl_obj->gid == CLERI_GID_EXPRESSION
-            ? ncache__expression(syntax, vcache, nd, e)
-            : ncache__operations(syntax, vcache, nd, e);
+    switch ((nd = nd->children->node)->cl_obj->gid)
+    {
+        case CLERI_GID_IF_STATEMENT:
+            return ncache__if_statement(syntax, vcache, nd, e);
+        case CLERI_GID_RETURN_STATEMENT:
+            return ncache__return_statement(syntax, vcache, nd, e);
+        case CLERI_GID_EXPRESSION:
+            return ncache__expression(syntax, vcache, nd, e);
+        case CLERI_GID_OPERATIONS:
+            return ncache__operations(syntax, vcache, nd, e);
+    }
+    assert (0);
+    return -1;
 }
 
 int ti_ncache_gen_node_data(

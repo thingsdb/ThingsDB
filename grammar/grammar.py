@@ -145,16 +145,20 @@ class LangDef(Grammar):
 
     parenthesis = Sequence(x_parenthesis, THIS, ')')
 
+    k_if = Keyword('if')
+    k_else = Keyword('else')
+    k_return = Keyword('return')
+
     if_statement = Sequence(
-        Keyword('if'),
+        k_if,
         '(',
         THIS,
         ')',
         THIS,
-        Optional(Sequence(Keyword('else'), THIS)))
+        Optional(Sequence(k_else, THIS)))
 
     return_statement = Sequence(
-        Keyword('return'),
+        k_return,
         THIS,
         Optional(Sequence(',', THIS)))
 

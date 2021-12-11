@@ -2,6 +2,7 @@
  * ti/closure.h
  */
 #include <assert.h>
+#include <ctype.h>
 #include <langdef/langdef.h>
 #include <ti/closure.h>
 #include <ti/closure.inline.h>
@@ -113,6 +114,32 @@ static void closure__node_to_buf(cleri_node_t * nd, char * buf, size_t * n)
     switch (nd->cl_obj->tp)
     {
     case CLERI_TP_KEYWORD:
+        if (nd->cl_obj->gid == CLERI_GID_K_ELSE)
+        {
+            /* the else keyword always has "something" before, so if this is
+             * white space, we should also add white space to identify the
+             * start of `else ...`.
+             */
+            char c = nd->str[-1];
+            if (isspace(c))
+                buf[(*n)++] = ' ';
+        }
+        if (nd->cl_obj->gid == CLERI_GID_K_RETURN ||
+            nd->cl_obj->gid == CLERI_GID_K_ELSE)
+        {
+            /* both return and else have "something" after, so if this is
+             * white space, we should also add white space.
+             */
+            char c = nd->str[nd->len];
+            if (isspace(c))
+            {
+                memcpy(buf + (*n), nd->str, nd->len);
+                (*n) += nd->len;
+                buf[(*n)++] = ' ';
+                return;
+            }
+        }
+        /* fall through */
     case CLERI_TP_TOKEN:
     case CLERI_TP_TOKENS:
     case CLERI_TP_REGEX:

@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2021-12-11 12:36:22
+ * Created at: 2021-12-11 16:32:18
  */
 
 #include <langdef/langdef.h>
@@ -224,10 +224,13 @@ cleri_grammar_t * compile_langdef(void)
         CLERI_THIS,
         cleri_token(CLERI_NONE, ")")
     );
+    cleri_t * k_if = cleri_keyword(CLERI_GID_K_IF, "if", CLERI_CASE_SENSITIVE);
+    cleri_t * k_else = cleri_keyword(CLERI_GID_K_ELSE, "else", CLERI_CASE_SENSITIVE);
+    cleri_t * k_return = cleri_keyword(CLERI_GID_K_RETURN, "return", CLERI_CASE_SENSITIVE);
     cleri_t * if_statement = cleri_sequence(
         CLERI_GID_IF_STATEMENT,
         6,
-        cleri_keyword(CLERI_NONE, "if", CLERI_CASE_SENSITIVE),
+        k_if,
         cleri_token(CLERI_NONE, "("),
         CLERI_THIS,
         cleri_token(CLERI_NONE, ")"),
@@ -235,14 +238,14 @@ cleri_grammar_t * compile_langdef(void)
         cleri_optional(CLERI_NONE, cleri_sequence(
             CLERI_NONE,
             2,
-            cleri_keyword(CLERI_NONE, "else", CLERI_CASE_SENSITIVE),
+            k_else,
             CLERI_THIS
         ))
     );
     cleri_t * return_statement = cleri_sequence(
         CLERI_GID_RETURN_STATEMENT,
         3,
-        cleri_keyword(CLERI_NONE, "return", CLERI_CASE_SENSITIVE),
+        k_return,
         CLERI_THIS,
         cleri_optional(CLERI_NONE, cleri_sequence(
             CLERI_NONE,

@@ -27,6 +27,10 @@
 
 int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t ** b, ex_t * e)
 {
+    /*
+     * TODO: this code can be pre-compiled and bind the correct function so
+     *       a call to this function is no longer required;
+     */
     switch (*nd->str)
     {
     case '!':

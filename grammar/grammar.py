@@ -148,6 +148,10 @@ class LangDef(Grammar):
     k_if = Keyword('if')
     k_else = Keyword('else')
     k_return = Keyword('return')
+    k_for = Keyword('for')
+    k_in = Keyword('in')
+    k_continue = Keyword('continue')
+    k_break = Keyword('break')
 
     if_statement = Sequence(
         k_if,
@@ -162,15 +166,14 @@ class LangDef(Grammar):
         THIS,
         Optional(Sequence(',', THIS)))
 
-    # for_statement = Sequence(
-    #     Keyword('for'),
-    #     '(',
-    #     var,
-    #     Optional(Sequence(',', var)),
-    #     Keyword('in'),
-    #     THIS,
-    #     ')',
-    #     THIS)
+    for_statement = Sequence(
+        k_for,
+        '(',
+        List(var, mi=1),
+        k_in,
+        THIS,
+        ')',
+        THIS)
 
     expression = Sequence(
         x_preopr,
@@ -198,8 +201,10 @@ class LangDef(Grammar):
 
     statement = Prio(
         if_statement,
-        # for_statement,
         return_statement,
+        for_statement,
+        k_continue,
+        k_break,
         closure,
         expression,
         operations)

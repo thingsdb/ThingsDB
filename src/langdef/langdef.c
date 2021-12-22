@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2021-12-11 18:30:25
+ * Created at: 2021-12-22 20:21:08
  */
 
 #include <langdef/langdef.h>
@@ -227,6 +227,10 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * k_if = cleri_keyword(CLERI_GID_K_IF, "if", CLERI_CASE_SENSITIVE);
     cleri_t * k_else = cleri_keyword(CLERI_GID_K_ELSE, "else", CLERI_CASE_SENSITIVE);
     cleri_t * k_return = cleri_keyword(CLERI_GID_K_RETURN, "return", CLERI_CASE_SENSITIVE);
+    cleri_t * k_for = cleri_keyword(CLERI_GID_K_FOR, "for", CLERI_CASE_SENSITIVE);
+    cleri_t * k_in = cleri_keyword(CLERI_GID_K_IN, "in", CLERI_CASE_SENSITIVE);
+    cleri_t * k_continue = cleri_keyword(CLERI_GID_K_CONTINUE, "continue", CLERI_CASE_SENSITIVE);
+    cleri_t * k_break = cleri_keyword(CLERI_GID_K_BREAK, "break", CLERI_CASE_SENSITIVE);
     cleri_t * if_statement = cleri_sequence(
         CLERI_GID_IF_STATEMENT,
         6,
@@ -253,6 +257,17 @@ cleri_grammar_t * compile_langdef(void)
             cleri_token(CLERI_NONE, ","),
             CLERI_THIS
         ))
+    );
+    cleri_t * for_statement = cleri_sequence(
+        CLERI_GID_FOR_STATEMENT,
+        7,
+        k_for,
+        cleri_token(CLERI_NONE, "("),
+        cleri_list(CLERI_NONE, var, cleri_token(CLERI_NONE, ","), 1, 0, 1),
+        k_in,
+        CLERI_THIS,
+        cleri_token(CLERI_NONE, ")"),
+        CLERI_THIS
     );
     cleri_t * expression = cleri_sequence(
         CLERI_GID_EXPRESSION,
@@ -282,9 +297,12 @@ cleri_grammar_t * compile_langdef(void)
     );
     cleri_t * statement = cleri_prio(
         CLERI_GID_STATEMENT,
-        5,
+        8,
         if_statement,
         return_statement,
+        for_statement,
+        k_continue,
+        k_break,
         closure,
         expression,
         operations

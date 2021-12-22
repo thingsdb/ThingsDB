@@ -1259,6 +1259,30 @@ static inline void qbind__return_statement(
     }
 }
 
+static inline void qbind__for_statement(
+        ti_qbind_t * qbind,
+        cleri_node_t * nd)
+{
+    register intptr_t nargs = 0;
+    cleri_children_t * tmp, * child = nd->
+            children->              /* for  */
+            next->                  /* (    */
+            next;                   /* List(variable) */
+
+    nd->data = ti_do_for_loop;
+
+    /* count number of arguments (variable) */
+    nd = child->node;
+    tmp = nd->children;
+    for(; tmp; tmp = tmp->next ? tmp->next->next : NULL, ++nargs)
+        tmp->node->data = NULL;
+
+    nd->data = (void *) nargs;
+
+    qbind__statement(qbind, (child = child->next->next)->node);
+    qbind__statement(qbind, (child = child->next->next)->node);
+}
+
 /*
  * Entry point for analyzing a statement.
  *
@@ -1278,6 +1302,15 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
         return;
     case CLERI_GID_RETURN_STATEMENT:
         qbind__return_statement(qbind, node);
+        return;
+    case CLERI_GID_FOR_STATEMENT:
+        qbind__for_statement(qbind, node);
+        return;
+    case CLERI_GID_K_CONTINUE:
+        node->data = ti_do_continue;
+        return;
+    case CLERI_GID_K_BREAK:
+        node->data = ti_do_break;
         return;
     case CLERI_GID_CLOSURE:
         qbind__closure(qbind, node);

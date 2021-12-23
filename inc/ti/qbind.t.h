@@ -14,6 +14,10 @@ typedef enum
 
     TI_QBIND_BIT_WSE,
     TI_QBIND_BIT_ON_VAR,
+
+    TI_QBIND_BIT_FOR_LOOP,
+    TI_QBIND_BIT_ILL_CONTINUE,
+    TI_QBIND_BIT_ILL_BREAK,
 } ti_qbind_bit_t;
 
 typedef enum
@@ -25,6 +29,10 @@ typedef enum
 
     TI_QBIND_FLAG_WSE           =1<<TI_QBIND_BIT_WSE,
     TI_QBIND_FLAG_ON_VAR        =1<<TI_QBIND_BIT_ON_VAR,
+
+    TI_QBIND_FLAG_FOR_LOOP      =1<<TI_QBIND_BIT_FOR_LOOP,
+    TI_QBIND_FLAG_ILL_CONTINUE  =1<<TI_QBIND_BIT_ILL_CONTINUE,
+    TI_QBIND_FLAG_ILL_BREAK     =1<<TI_QBIND_BIT_ILL_BREAK,
 } ti_qbind_flag_t;
 
 typedef struct ti_qbind_s ti_qbind_t;

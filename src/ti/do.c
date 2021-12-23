@@ -9,6 +9,7 @@
 #include <ti/enums.inline.h>
 #include <ti/fn/fn.h>
 #include <ti/fn/fncall.h>
+#include <ti/forloop.h>
 #include <ti/index.h>
 #include <ti/member.inline.h>
 #include <ti/module.h>
@@ -753,6 +754,34 @@ int ti_do_return_alt_deep(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->next->node, e) == 0)
         ex_set_return(e);  /* on success */
     return e->nr;
+}
+
+int ti_do_for_loop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    cleri_children_t * child = nd->
+            children->              /* for  */
+            next->                  /* (    */
+            next;                   /* List(variable) */
+    nd = child->node;
+
+    if (ti_do_statement(query, (child = child->next->next)->node, e))
+        return e->nr;
+
+    return ti_forloop_call(
+            query,
+            nd,
+            (child = child->next->next)->node,
+            e);
+}
+
+int ti_do_continue(ti_query_t * UNUSED(q), cleri_node_t * UNUSED(nd), ex_t * e)
+{
+    return ex_set_continue(e), e->nr;
+}
+
+int ti_do_break(ti_query_t * UNUSED(q), cleri_node_t * UNUSED(nd), ex_t * e)
+{
+    return ex_set_break(e), e->nr;
 }
 
 int ti_do_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)

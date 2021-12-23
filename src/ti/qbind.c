@@ -980,8 +980,12 @@ static inline void qbind__thing(ti_qbind_t * qbind, cleri_node_t * nd)
 
 static inline void qbind__closure(ti_qbind_t * qbind, cleri_node_t * nd)
 {
+    uint8_t for_loop_flag = qbind->flags & TI_QBIND_FLAG_FOR_LOOP;
+
     nd->data = ti_do_closure;
     nd->children->node->data = NULL;
+
+    qbind->flags &= ~TI_QBIND_FLAG_FOR_LOOP;
 
     /* investigate the statement, the rest can be skipped */
     qbind__statement(
@@ -989,6 +993,7 @@ static inline void qbind__closure(ti_qbind_t * qbind, cleri_node_t * nd)
             nd->children->next->next->next->node);
 
     ++qbind->immutable_n;
+    qbind->flags |= for_loop_flag;
 }
 
 /*
@@ -1259,11 +1264,10 @@ static inline void qbind__return_statement(
     }
 }
 
-static inline void qbind__for_statement(
-        ti_qbind_t * qbind,
-        cleri_node_t * nd)
+static inline void qbind__for_statement(ti_qbind_t * q, cleri_node_t * nd)
 {
     register intptr_t nargs = 0;
+    register uint8_t no_for_loop = ~q->flags & TI_QBIND_FLAG_FOR_LOOP;
     cleri_children_t * tmp, * child = nd->
             children->              /* for  */
             next->                  /* (    */
@@ -1279,8 +1283,11 @@ static inline void qbind__for_statement(
 
     nd->data = (void *) nargs;
 
-    qbind__statement(qbind, (child = child->next->next)->node);
-    qbind__statement(qbind, (child = child->next->next)->node);
+    qbind__statement(q, (child = child->next->next)->node);
+
+    q->flags |= TI_QBIND_FLAG_FOR_LOOP;
+    qbind__statement(q, (child = child->next->next)->node);
+    q->flags &= ~no_for_loop;
 }
 
 /*
@@ -1307,9 +1314,17 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
         qbind__for_statement(qbind, node);
         return;
     case CLERI_GID_K_CONTINUE:
+        if (~qbind->flags & TI_QBIND_FLAG_FOR_LOOP)
+            qbind->flags |= TI_QBIND_FLAG_ILL_CONTINUE;
         node->data = ti_do_continue;
         return;
     case CLERI_GID_K_BREAK:
+        LOGC("HERE");
+        if (~qbind->flags & TI_QBIND_FLAG_FOR_LOOP)
+        {
+            LOGC("SET FLAG");
+            qbind->flags |= TI_QBIND_FLAG_ILL_BREAK;
+        }
         node->data = ti_do_break;
         return;
     case CLERI_GID_CLOSURE:

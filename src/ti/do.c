@@ -1459,7 +1459,7 @@ int ti_do_prepare_for_loop(ti_query_t * query, cleri_node_t * vars_nd)
     ti_prop_t * prop;
     ti_nil_t * nil = ti_nil_get();
     cleri_children_t * child = vars_nd->children;
-    int nargs = 1;
+    int nargs = 1;  /* one argument is guaranteed */
 
     do
     {
@@ -1471,8 +1471,8 @@ int ti_do_prepare_for_loop(ti_query_t * query, cleri_node_t * vars_nd)
 
         /*
          * Check if the `prop` already is available in this scope on the
-         * stack, and if * this is the case, then update the `prop` value with the
-         * new value and return.
+         * stack, and if * this is the case, then update the `prop` value with
+         * the new value.
          */
         prop = do__prop_scope(query, name);
         if (prop)
@@ -1500,7 +1500,7 @@ int ti_do_prepare_for_loop(ti_query_t * query, cleri_node_t * vars_nd)
         child = child->next->next;  /* this child must exist */
 
         ++nargs;
-        ti_incref(nil);  /* we need one more nil value */
+        ti_incref(nil);  /* we need at least one more nil value */
     }
     while(1);
 

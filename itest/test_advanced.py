@@ -1925,6 +1925,22 @@ new_procedure('multiply', |a, b| a * b);
         """, s=s)
         self.assertEqual(s, res)
 
+    async def test_loop_gc(self, client):
+        res = await client.query(r"""//ti
+            for (x in range(10)) {
+                x = {};
+                x.me = x;
+            };
+        """)
+        # bug #259
+        res = await client.query(r"""//ti
+            range(10).sort(|a, b| {
+                a = {};  // overwrite the closure argument
+                a.me = a;  // create a self reference
+                1;
+            });
+        """)
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

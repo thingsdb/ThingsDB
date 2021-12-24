@@ -1,5 +1,8 @@
 /*
  * ti/forloop.c
+ *
+ * Note: in a for.in loop we always need to use `ti_val_unsafe_gc_drop` on
+ *       props as an iteration does not have its own local stack scope.
  */
 #include <ti/do.h>
 #include <ti/forloop.h>
@@ -33,7 +36,7 @@ static int forloop__set_prop(
     case 2:
         prop = vars_nd->children->next->node->data;
         ti_incref(val);
-        ti_val_unsafe_drop(prop->val);
+        ti_val_unsafe_gc_drop(prop->val);
         prop->val = val;
         /*
          * Re-assign variable since we require a copy of lists and sets.
@@ -44,7 +47,7 @@ static int forloop__set_prop(
     case 1:
         prop = vars_nd->data;
         ti_incref(name);
-        ti_val_unsafe_drop(prop->val);
+        ti_val_unsafe_gc_drop(prop->val);
         prop->val = (ti_val_t *) name;
         /* fall through */
     case 0:
@@ -89,7 +92,7 @@ static int forloop__walk_set(ti_thing_t * t, forloop__walk_t * w)
     default:
     case 2:
         prop = w->vars_nd->children->next->node->data;
-        ti_val_unsafe_drop(prop->val);
+        ti_val_unsafe_gc_drop(prop->val);
         prop->val = t->id
                 ? (ti_val_t *) ti_vint_create((int64_t) t->id)
                 : (ti_val_t *) ti_nil_get();
@@ -100,7 +103,7 @@ static int forloop__walk_set(ti_thing_t * t, forloop__walk_t * w)
     case 1:
         prop = w->vars_nd->data;
         ti_incref(t);
-        ti_val_unsafe_drop(prop->val);
+        ti_val_unsafe_gc_drop(prop->val);
         prop->val = (ti_val_t *) t;
         /* fall through */
     case 0:
@@ -164,7 +167,7 @@ int ti_forloop_arr(
         default:
         case 2:
             prop = vars_nd->children->next->node->data;
-            ti_val_unsafe_drop(prop->val);
+            ti_val_unsafe_gc_drop(prop->val);
             prop->val = (ti_val_t *) ti_vint_create(idx);
             if (!prop->val)
             {
@@ -175,7 +178,7 @@ int ti_forloop_arr(
         case 1:
             prop = vars_nd->data;
             ti_incref(v);
-            ti_val_unsafe_drop(prop->val);
+            ti_val_unsafe_gc_drop(prop->val);
             prop->val = v;
             /* fall through */
         case 0:

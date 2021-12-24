@@ -20,6 +20,7 @@ typedef struct ti_collection_s  ti_collection_t;
 struct ti_collection_s
 {
     uint32_t ref;
+    uint8_t deep;
     guid_t guid;            /* derived from collection->root->id */
     uint64_t created_at;    /* UNIX time-stamp in seconds */
     ti_tz_t * tz;

@@ -1557,7 +1557,7 @@ int ti_module_call(
 
     const int nargs = fn_get_nargs(nd);
     _Bool load = false;
-    uint8_t deep = 1;
+    uint8_t deep = query->qbind.deep;
     cleri_children_t * child = nd->children;
     ti_future_t * future;
 

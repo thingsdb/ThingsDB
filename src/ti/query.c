@@ -593,6 +593,7 @@ int ti_query_parse(ti_query_t * query, const char * str, size_t n, ex_t * e)
         return 0;
 
     /* prevent caching */
+    cleri_parse_free(query->with.parseres);
     query->with.parseres = NULL;
 failed:
     free(querystr);

@@ -15,13 +15,14 @@ from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import ZeroDivisionError
 from thingsdb.exceptions import OperationError
+from thingsdb.exceptions import SyntaxError
 
 
 class TestStatements(TestBase):
 
     title = 'Test statements'
 
-    @default_test_setup(num_nodes=2, seed=1, threshold_full_storage=10)
+    @default_test_setup(num_nodes=1, seed=1, threshold_full_storage=10)
     async def run(self):
 
         await self.node0.init_and_run()
@@ -29,8 +30,9 @@ class TestStatements(TestBase):
         client = await get_client(self.node0)
         client.set_default_scope('//stuff')
 
-        # add another node for query validation
-        await self.node1.join_until_ready(client)
+        if hasattr(self, 'node1'):
+            # add another node for query validation
+            await self.node1.join_until_ready(client)
 
         await self.run_tests(client)
 
@@ -160,6 +162,81 @@ class TestStatements(TestBase):
                 return nil, nil;
             """)
 
+    async def test_for_loop(self, client):
+        with self.assertRaisesRegex(
+                SyntaxError,
+                r'illegal `break` statement; '
+                r'no surrounding `for..in` statement'):
+            res = await client.query("""//ti
+                break;
+            """)
+
+        with self.assertRaisesRegex(
+                SyntaxError,
+                r'illegal `continue` statement; '
+                r'no surrounding `for..in` statement'):
+            res = await client.query("""//ti
+                continue;
+            """)
+
+        with self.assertRaisesRegex(
+                SyntaxError,
+                r'illegal `break` statement; '
+                r'no surrounding `for..in` statement'):
+            res = await client.query("""//ti
+                for(x in range(10)) ||break;
+            """)
+
+        with self.assertRaisesRegex(
+                SyntaxError,
+                r'illegal `continue` statement; '
+                r'no surrounding `for..in` statement'):
+            res = await client.query("""//ti
+                for(x in range(10)) ||continue;
+            """)
+
+        res = await client.query("""//ti
+            x = 123;
+            for(x in range(0)) nil; // x should not change
+            x;
+        """)
+        self.assertEqual(res, 123)
+
+        res = await client.query("""//ti
+            for(x in range(10)) if(x==7) break;
+            x; // x is set to the last in
+        """)
+        self.assertEqual(res, 7)
+
+        res = await client.query("""//ti
+            for(x in range(10)) if(x==7) break;
+            x; // x is set to the last in
+        """)
+        self.assertEqual(res, 7)
+
+        res = await client.query("""//ti
+            for(x, y in ['a', 'b', 'c', 'd']) if(y==2) return x;
+            nil; // should not be reached
+        """)
+        self.assertEqual(res, 'c')
+
+        res = await client.query("""//ti
+            for(k, v in {a: 0, b: 1, c: 2, d: 3}) if(v==2) return k;
+            nil; // should not be reached
+        """)
+        self.assertEqual(res, 'c')
+
+        res = await client.query("""//ti
+            .a = {a: 0};
+            .b = {b: 1};
+            c = {c: 2};
+            .d = {d: 3};
+
+            for(t, id in set(.a, .b, c, .d)) if(id==nil) return t;
+            nil; // should not be reached
+        """)
+        self.assertEqual(res, {'c': 2})
+
     async def test_format(self, client):
         res = await client.query("""//ti
             x = || {
@@ -198,10 +275,35 @@ class TestStatements(TestBase):
             "if(x)return{x}else{return y;};"
             "return{1},0;}")
 
-        client1 = await get_client(self.node1)
-        client1.set_default_scope('//stuff')
+        res = await client.query("""//ti
+            y = || {
+                for(x,y in range(10)) {
+                    if(x<3)continue else break;
+                };
+            };
+            .y = y;
+            str(y);
+        """)
+        self.assertEqual(res, """|| {
+    for (x, y in range(10)) {
+        if (x < 3) continue else break;
+    };
+}""")
+        res = await client.query("""//ti
+            new_procedure('y', .y);
+            .y;
+        """)
+        self.assertEqual(
+            res,
+            "||{for(x,y in range(10)){if(x<3)continue else break;};}")
 
-        await self.wait_nodes_ready(client1)
+        if hasattr(self, 'node1'):
+            client1 = await get_client(self.node1)
+            client1.set_default_scope('//stuff')
+
+            await self.wait_nodes_ready(client1)
+        else:
+            client1 = client
 
         res = await client1.query("""//ti
             .x;
@@ -231,6 +333,21 @@ class TestStatements(TestBase):
     return {
         1;
     }, 0;
+}""")
+        res = await client1.query("""//ti
+            .y;
+        """)
+        self.assertEqual(
+            res,
+            "||{for(x,y in range(10)){if(x<3)continue else break;};}")
+
+        res = await client1.query("""
+            procedure_info('y').load().definition;
+        """)
+        self.assertEqual(res, """|| {
+    for (x, y in range(10)) {
+        if (x < 3) continue else break;
+    };
 }""")
 
 

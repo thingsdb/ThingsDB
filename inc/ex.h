@@ -13,12 +13,20 @@
 #define EX_RETURN_S \
     "return"
 
+#define EX_CONTINUE_S \
+    "continue"
+
+#define EX_BREAK_S \
+    "break"
+
 #define EX_MAX_SZ 16383
 
 #define EX_MIN_ERR -127
 #define EX_MAX_BUILD_IN_ERR -50
 
 /* success */
+#define EX_BREAK_X              "success break"
+#define EX_CONTINUE_X           "success continue"
 #define EX_RETURN_X             "success return"
 #define EX_SUCCESS_X            "success"
 
@@ -82,8 +90,9 @@ typedef enum
 
     /* success */
     EX_SUCCESS              =0,
-    EX_RETURN               =1,     /* internal, set by the return function */
-
+    EX_RETURN               =1,     /* internal, `return` statement     */
+    EX_CONTINUE             =2,     /* internal, `continue` statement   */
+    EX_BREAK                =3,     /* internal, `break` statement      */
 } ex_enum;
 
 typedef struct ex_s ex_t;
@@ -110,6 +119,8 @@ struct ex_s
 #define ex_set_mem(e__) ex_set((e__), EX_MEMORY, EX_MEMORY_S)
 #define ex_set_internal(e__) ex_set((e__), EX_INTERNAL, EX_INTERNAL_S)
 #define ex_set_return(e__) ex_setn((e__), EX_RETURN, EX_RETURN_S, 6)
+#define ex_set_continue(e__) ex_setn((e__), EX_CONTINUE, EX_CONTINUE_S, 8)
+#define ex_set_break(e__) ex_setn((e__), EX_BREAK, EX_BREAK_S, 5)
 
 static inline void ex_clear(ex_t * e)
 {

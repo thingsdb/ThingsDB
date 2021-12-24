@@ -86,6 +86,8 @@ const char * ex_str(ex_enum errnr)
     /* success */
     case EX_SUCCESS:            return EX_SUCCESS_X;
     case EX_RETURN:             return EX_RETURN_X;
+    case EX_CONTINUE:           return EX_CONTINUE_X;
+    case EX_BREAK:              return EX_BREAK_X;
     }
     /* probably a custom error */
     return "error";

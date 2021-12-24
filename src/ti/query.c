@@ -506,6 +506,16 @@ static inline int ti_query_investigate(ti_query_t * query, ex_t * e)
     /* list statements */
     ti_qbind_probe(&query->qbind, seqchildren->next->node);
 
+    /* check if illegal statements are found */
+    if (query->qbind.flags & TI_QBIND_FLAG_ILL_CONTINUE)
+        ex_set(e, EX_SYNTAX_ERROR,
+                "illegal `continue` statement; "
+                "no surrounding `for..in` statement");
+    else if (query->qbind.flags & TI_QBIND_FLAG_ILL_BREAK)
+        ex_set(e, EX_SYNTAX_ERROR,
+                "illegal `break` statement; "
+                "no surrounding `for..in` statement");
+
     /*
      * Create value cache for immutable, names and things.
      */
@@ -579,8 +589,12 @@ int ti_query_parse(ti_query_t * query, const char * str, size_t n, ex_t * e)
         return query__syntax_err(query, e);
     }
 
-    return ti_query_investigate(query, e);
+    if (ti_query_investigate(query, e) == 0)
+        return 0;
 
+    /* prevent caching */
+    cleri_parse_free(query->with.parseres);
+    query->with.parseres = NULL;
 failed:
     free(querystr);
     return e->nr;

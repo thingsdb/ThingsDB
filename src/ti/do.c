@@ -9,6 +9,7 @@
 #include <ti/enums.inline.h>
 #include <ti/fn/fn.h>
 #include <ti/fn/fncall.h>
+#include <ti/forloop.h>
 #include <ti/index.h>
 #include <ti/member.inline.h>
 #include <ti/module.h>
@@ -755,6 +756,34 @@ int ti_do_return_alt_deep(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
+int ti_do_for_loop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    cleri_children_t * child = nd->
+            children->              /* for  */
+            next->                  /* (    */
+            next;                   /* List(variable) */
+    nd = child->node;
+
+    if (ti_do_statement(query, (child = child->next->next)->node, e))
+        return e->nr;
+
+    return ti_forloop_call(
+            query,
+            nd,
+            (child = child->next->next)->node,
+            e);
+}
+
+int ti_do_continue(ti_query_t * UNUSED(q), cleri_node_t * UNUSED(nd), ex_t * e)
+{
+    return ex_set_continue(e), e->nr;
+}
+
+int ti_do_break(ti_query_t * UNUSED(q), cleri_node_t * UNUSED(nd), ex_t * e)
+{
+    return ex_set_break(e), e->nr;
+}
+
 int ti_do_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     void ** data = &nd->children->node->data;
@@ -1422,6 +1451,62 @@ alloc_err:
 failed:
     ti_name_drop(name);
     return e->nr;
+}
+
+int ti_do_prepare_for_loop(ti_query_t * query, cleri_node_t * vars_nd)
+{
+    ti_name_t * name;
+    ti_prop_t * prop;
+    ti_nil_t * nil = ti_nil_get();
+    cleri_children_t * child = vars_nd->children;
+    int nargs = 1;  /* one argument is guaranteed */
+
+    do
+    {
+        name = child->node->data
+                ? child->node->data
+                : do__ensure_name_cache(query, child->node);
+        if (!name)
+            goto failed;
+
+        /*
+         * Check if the `prop` already is available in this scope on the
+         * stack, and if * this is the case, then update the `prop` value with
+         * the new value.
+         */
+        prop = do__prop_scope(query, name);
+        if (prop)
+        {
+            ti_val_unsafe_gc_drop(prop->val);
+            prop->val = (ti_val_t *) nil;
+        }
+        else
+        {
+            prop = ti_prop_create(name, (ti_val_t *) nil);
+            if (!prop || vec_push(&query->vars, prop))
+            {
+                free(prop);
+                goto failed;
+            }
+            ti_incref(name);
+        }
+
+        vars_nd->data = prop;
+
+        if (!child->next)
+            return nargs;  /* done */
+
+        vars_nd = child->next->node;
+        child = child->next->next;  /* this child must exist */
+
+        ++nargs;
+        ti_incref(nil);  /* we need at least one more nil value */
+    }
+    while(1);
+
+failed:
+    ti_decref(nil);
+    return -1;
 }
 
 static inline int do__template(ti_query_t * query, cleri_node_t * nd, ex_t * e)

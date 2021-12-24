@@ -21,8 +21,13 @@ static inline int ti_closure_do_statement(
     /*
      * Keep the "position" in the variable stack so we can later break down
      * all used variable inside the closure body.
+     *
+     * bug #259, we used to decrement the local stack with `closure->vars->n`
+     * but this would require a GC drop on each iteration of the closure vars.
+     * Instead, we can adjust the local_stack and do not count the closure
+     * vars as local scope.
      */
-    query->local_stack = n - closure->vars->n;
+    query->local_stack = n;
 
     if (ti_do_statement(query, ti_closure_statement(closure), e) == EX_RETURN)
         e->nr = 0;

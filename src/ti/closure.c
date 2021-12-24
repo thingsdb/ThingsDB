@@ -116,9 +116,12 @@ static void closure__node_to_buf(cleri_node_t * nd, char * buf, size_t * n)
         switch (nd->cl_obj->gid)
         {
         case CLERI_GID_K_ELSE:
-            /* the else keyword always has "something" before, so if this is
+        case CLERI_GID_K_IN:
+            /* the `else` keyword always has "something" before, so if this is
              * white space, we should also add white space to identify the
              * start of `else ...`.
+             * the `in` keyword always has white space before, but this rule
+             * will also work so don't make an exception for `in`.
              */
             if (isspace(nd->str[-1]))
                 buf[(*n)++] = ' ';

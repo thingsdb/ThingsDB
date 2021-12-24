@@ -91,7 +91,7 @@ ti_query_t * ti_qcache_get_query(const char * str, size_t n, uint8_t flags)
         return qcache__from_cache(item, flags);
 
     flags |= TI_QUERY_FLAG_CACHE|TI_QUERY_FLAG_DO_CACHE;
-    return ti_query_create(flags);
+    return ti_query_create(flags);  /* TODO: make sure deep is set */
 }
 
 /*

@@ -129,32 +129,39 @@ int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
     switch (scope->tp)
     {
     case TI_SCOPE_COLLECTION_NAME:
-        query->qbind.flags |= TI_QBIND_FLAG_COLLECTION;
         query->collection = ti_collections_get_by_strn(
                 scope->via.collection_name.name,
                 scope->via.collection_name.sz);
-
         if (query->collection)
+        {
+            query->qbind.flags |= TI_QBIND_FLAG_COLLECTION;
+            query->qbind.deep = query->collection->deep;
             ti_incref(query->collection);
+        }
         else
             ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
                 scope->via.collection_name.sz,
                 scope->via.collection_name.name);
         return e->nr;
     case TI_SCOPE_COLLECTION_ID:
-        query->qbind.flags |= TI_QBIND_FLAG_COLLECTION;
         query->collection = ti_collections_get_by_id(scope->via.collection_id);
         if (query->collection)
+        {
+            query->qbind.flags |= TI_QBIND_FLAG_COLLECTION;
+            query->qbind.deep = query->collection->deep;
             ti_incref(query->collection);
+        }
         else
             ex_set(e, EX_LOOKUP_ERROR, TI_COLLECTION_ID" not found",
                     scope->via.collection_id);
         return e->nr;
     case TI_SCOPE_NODE:
         query->qbind.flags |= TI_QBIND_FLAG_NODE;
+        query->qbind.deep = ti.n_deep;
         return e->nr;
     case TI_SCOPE_THINGSDB:
         query->qbind.flags |= TI_QBIND_FLAG_THINGSDB;
+        query->qbind.deep = ti.t_deep;
         return e->nr;
     }
 
@@ -168,7 +175,6 @@ ti_query_t * ti_query_create(uint8_t flags)
     if (!query)
         return NULL;
 
-    query->qbind.deep = 1;
     query->flags = flags;
     query->vars = vec_new(7);  /* with some initial size; we could find the
                                 * exact number in the syntax (maybe), but then
@@ -434,6 +440,7 @@ int ti_query_unp_run(
         return e->nr;
     case TI_SCOPE_THINGSDB:
         query->qbind.flags |= TI_QBIND_FLAG_THINGSDB;
+        query->qbind.deep = ti.t_deep;
         procedures = ti.procedures;
         vup.collection = NULL;
         break;
@@ -842,6 +849,7 @@ then:
                 TI_QBIND_FLAG_NODE|
                 TI_QBIND_FLAG_THINGSDB|
                 TI_QBIND_FLAG_COLLECTION);
+        then_query->qbind.deep = query->qbind.deep;
         then_query->user = ti_grab(query->user);
         then_query->collection = ti_grab(query->collection);
         then_query->with_tp = TI_QUERY_WITH_FUTURE;

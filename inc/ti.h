@@ -117,7 +117,8 @@ struct ti_s
     size_t futures_count;       /* number of running futures */
     uint32_t rel_id;            /* relative node id */
     int _flags;                 /* changed and read by multiple treads */
-    uint8_t deep;
+    uint8_t t_deep;             /* @thingsdb scope default deep */
+    uint8_t n_deep;             /* @node scope default deep */
 };
 
 static inline _Bool ti_flag_test(int flag)

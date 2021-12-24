@@ -3,6 +3,7 @@
 * Fixed allocation bug in reverse buffer, issue #253.
 * Added `if..else` as statement *(marked `if()` as deprecated)*, issue #254.
 * Added `return` as statement *(marked `return()` as deprecated)*, issue #255.
+* Added `for..in` with `break` and `continue` statements, issue #257.
 
 # v1.1.2
 

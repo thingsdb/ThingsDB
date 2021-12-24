@@ -38,6 +38,7 @@ C_SRCS += \
 ../src/ti/field.c \
 ../src/ti/fmt.c \
 ../src/ti/fn.c \
+../src/ti/forloop.c \
 ../src/ti/future.c \
 ../src/ti/fwd.c \
 ../src/ti/gc.c \
@@ -147,6 +148,7 @@ OBJS += \
 ./src/ti/field.o \
 ./src/ti/fmt.o \
 ./src/ti/fn.o \
+./src/ti/forloop.o \
 ./src/ti/future.o \
 ./src/ti/fwd.o \
 ./src/ti/gc.o \
@@ -256,6 +258,7 @@ C_DEPS += \
 ./src/ti/field.d \
 ./src/ti/fmt.d \
 ./src/ti/fn.d \
+./src/ti/forloop.d \
 ./src/ti/future.d \
 ./src/ti/fwd.d \
 ./src/ti/gc.d \

@@ -9,29 +9,35 @@
 #include <tiinc.h>
 #include <ti/query.h>
 
+int ti_forloop_no_iter(
+        ti_query_t * query,
+        cleri_node_t * vars_nd,
+        cleri_node_t * code_nd,
+        ex_t * e);
+
 int ti_forloop_arr(
         ti_query_t * query,
         cleri_node_t * vars_nd,
         cleri_node_t * code_nd,
         ex_t * e);
 
-static inline int ti_forloop_no_iter(
+int ti_forloop_set(
         ti_query_t * query,
-        cleri_node_t * UNUSED(vars_nd),
-        cleri_node_t * UNUSED(code_nd),
-        ex_t * e)
-{
-    ex_set(e, EX_TYPE_ERROR,
-            "type `%s` is not iterable", ti_val_str(query->rval));
-    return e->nr;
-}
+        cleri_node_t * vars_nd,
+        cleri_node_t * code_nd,
+        ex_t * e);
+
+int ti_forloop_thing(
+        ti_query_t * query,
+        cleri_node_t * vars_nd,
+        cleri_node_t * code_nd,
+        ex_t * e);
 
 typedef int (*ti_forloop_t) (
         ti_query_t *,
         cleri_node_t *,
         cleri_node_t *,
         ex_t *);
-
 
 static ti_forloop_t ti_forloop_callbacks[21] = {
         ti_forloop_no_iter,         /* TI_VAL_NIL */
@@ -43,12 +49,12 @@ static ti_forloop_t ti_forloop_callbacks[21] = {
         ti_forloop_no_iter,         /* TI_VAL_STR */
         ti_forloop_no_iter,         /* TI_VAL_BYTES */
         ti_forloop_no_iter,         /* TI_VAL_REGEX */
-        ti_forloop_no_iter,         /* TI_VAL_THING */
+        ti_forloop_thing,           /* TI_VAL_THING */
         ti_forloop_no_iter,         /* TI_VAL_WRAP */
         ti_forloop_no_iter,         /* TI_VAL_ROOM */
         ti_forloop_no_iter,         /* TI_VAL_TASK */
         ti_forloop_arr,             /* TI_VAL_ARR */
-        ti_forloop_no_iter,         /* TI_VAL_SET */
+        ti_forloop_set,             /* TI_VAL_SET */
         ti_forloop_no_iter,         /* TI_VAL_ERROR */
         ti_forloop_no_iter,         /* TI_VAL_MEMBER */
         ti_forloop_no_iter,         /* TI_VAL_MPDATA */
@@ -57,7 +63,13 @@ static ti_forloop_t ti_forloop_callbacks[21] = {
         ti_forloop_no_iter,         /* TI_VAL_TEMPLATE */
 };
 
-#define ti_forloop_call(__q, __vars, __code, __e) \
-    ti_forloop_callbacks[(__q)->rval->tp]((__q), (__vars), (__code),  (__e))
+static inline int ti_forloop_call(
+        ti_query_t * query,
+        cleri_node_t * vars_nd,
+        cleri_node_t * code_nd,
+        ex_t * e)
+{
+    return ti_forloop_callbacks[query->rval->tp](query, vars_nd, code_nd, e);
+}
 
 #endif  /* TI_VAL_INLINE_H_ */

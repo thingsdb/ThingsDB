@@ -169,7 +169,7 @@ class LangDef(Grammar):
     for_statement = Sequence(
         k_for,
         '(',
-        List(var, mi=1),
+        List(var, mi=1, opt=False),
         k_in,
         THIS,
         ')',

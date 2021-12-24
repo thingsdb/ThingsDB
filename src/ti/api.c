@@ -541,6 +541,8 @@ int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
 
     case EX_SUCCESS:
     case EX_RETURN:
+    case EX_CONTINUE:
+    case EX_BREAK:
         assert (0);
     }
 

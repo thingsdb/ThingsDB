@@ -411,7 +411,7 @@ static int ncache__if_statement(
 
     if (ncache__statement(syntax, vcache, nd->children->next->next->node, e) ||
         ncache__statement(syntax, vcache, nd->children->node->data, e))
-        return -1;
+        return e->nr;
 
     return nd->children->next->node->data
         ? ncache__statement(syntax, vcache, nd->children->next->node->data, e)
@@ -432,6 +432,27 @@ static int ncache__return_statement(
         : 0;
 }
 
+static int ncache__for_statement(
+        ti_qbind_t * syntax,
+        vec_t * vcache,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    cleri_children_t * tmp, * child = nd->
+            children->              /* for  */
+            next->                  /* (    */
+            next;                   /* List(variable) */
+
+    nd = child->node;
+    for(tmp = nd->children; tmp; tmp = tmp->next ? tmp->next->next : NULL)
+        if (ncache__gen_name(vcache, tmp->node, e))
+            return e->nr;
+
+    ncache__statement(syntax, vcache, (child = child->next->next)->node, e);
+    ncache__statement(syntax, vcache, (child = child->next->next)->node, e);
+    return e->nr;
+}
+
 static int ncache__statement(
         ti_qbind_t * syntax,
         vec_t * vcache,
@@ -445,6 +466,11 @@ static int ncache__statement(
             return ncache__if_statement(syntax, vcache, nd, e);
         case CLERI_GID_RETURN_STATEMENT:
             return ncache__return_statement(syntax, vcache, nd, e);
+        case CLERI_GID_FOR_STATEMENT:
+            return ncache__for_statement(syntax, vcache, nd, e);
+        case CLERI_GID_K_CONTINUE:
+        case CLERI_GID_K_BREAK:
+            return 0;
         case CLERI_GID_CLOSURE:
             return ncache__closure(syntax, vcache, nd, e);
         case CLERI_GID_EXPRESSION:

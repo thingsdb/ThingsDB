@@ -1266,7 +1266,6 @@ static inline void qbind__return_statement(
 
 static inline void qbind__for_statement(ti_qbind_t * q, cleri_node_t * nd)
 {
-    register intptr_t nargs = 0;
     register uint8_t no_for_loop = ~q->flags & TI_QBIND_FLAG_FOR_LOOP;
     cleri_children_t * tmp, * child = nd->
             children->              /* for  */
@@ -1277,14 +1276,12 @@ static inline void qbind__for_statement(ti_qbind_t * q, cleri_node_t * nd)
 
     /* count number of arguments (variable) */
     nd = child->node;
-    tmp = nd->children;
-    for(; tmp; tmp = tmp->next ? tmp->next->next : NULL, ++nargs)
+    for(tmp = nd->children;
+        tmp;
+        tmp = tmp->next ? tmp->next->next : NULL, ++q->immutable_n)
         tmp->node->data = NULL;
 
-    nd->data = (void *) nargs;
-
     qbind__statement(q, (child = child->next->next)->node);
-
     q->flags |= TI_QBIND_FLAG_FOR_LOOP;
     qbind__statement(q, (child = child->next->next)->node);
     q->flags &= ~no_for_loop;
@@ -1319,12 +1316,8 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
         node->data = ti_do_continue;
         return;
     case CLERI_GID_K_BREAK:
-        LOGC("HERE");
         if (~qbind->flags & TI_QBIND_FLAG_FOR_LOOP)
-        {
-            LOGC("SET FLAG");
             qbind->flags |= TI_QBIND_FLAG_ILL_BREAK;
-        }
         node->data = ti_do_break;
         return;
     case CLERI_GID_CLOSURE:

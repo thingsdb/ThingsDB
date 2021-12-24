@@ -1453,6 +1453,62 @@ failed:
     return e->nr;
 }
 
+int ti_do_prepare_for_loop(ti_query_t * query, cleri_node_t * vars_nd)
+{
+    ti_name_t * name;
+    ti_prop_t * prop;
+    ti_nil_t * nil = ti_nil_get();
+    cleri_children_t * child = vars_nd->children;
+    int nargs = 1;
+
+    do
+    {
+        name = child->node->data
+                ? child->node->data
+                : do__ensure_name_cache(query, child->node);
+        if (!name)
+            goto failed;
+
+        /*
+         * Check if the `prop` already is available in this scope on the
+         * stack, and if * this is the case, then update the `prop` value with the
+         * new value and return.
+         */
+        prop = do__prop_scope(query, name);
+        if (prop)
+        {
+            ti_val_unsafe_gc_drop(prop->val);
+            prop->val = (ti_val_t *) nil;
+        }
+        else
+        {
+            prop = ti_prop_create(name, (ti_val_t *) nil);
+            if (!prop || vec_push(&query->vars, prop))
+            {
+                free(prop);
+                goto failed;
+            }
+            ti_incref(name);
+        }
+
+        vars_nd->data = prop;
+
+        if (!child->next)
+            return nargs;  /* done */
+
+        vars_nd = child->next->node;
+        child = child->next->next;  /* this child must exist */
+
+        ++nargs;
+        ti_incref(nil);  /* we need one more nil value */
+    }
+    while(1);
+
+failed:
+    ti_decref(nil);
+    return -1;
+}
+
 static inline int do__template(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     /*

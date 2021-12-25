@@ -276,6 +276,8 @@ int ti_build(void)
 
     ti.node->ccid = 0;
     ti.node->next_free_id = 1;
+    ti.t_deep = TI_MAX_DEEP;
+    ti.n_deep = TI_MAX_DEEP;
 
     change = ti_change_initial();
     if (!change)
@@ -380,15 +382,25 @@ int ti_read(void)
 int ti_unpack(uchar * data, size_t n)
 {
     mp_unp_t up;
-    mp_obj_t obj, mp_schema, mp_change_id, mp_next_node_id;
+    mp_obj_t obj,
+             mp_change_id,
+             mp_next_node_id,
+             mp_t_deep,
+             mp_n_deep;
     uint32_t node_id;
 
     mp_unp_init(&up, data, (size_t) n);
 
-    if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 4 ||
+    if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 5 ||
 
         mp_skip(&up) != MP_STR ||  /* schema */
-        mp_next(&up, &mp_schema) != MP_U64 ||
+        mp_skip(&up) != MP_U64 ||
+
+        mp_skip(&up) != MP_STR ||  /* deep */
+        mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
+
+        mp_next(&up, &mp_t_deep) != MP_U64 ||
+        mp_next(&up, &mp_n_deep) != MP_U64 ||
 
         mp_skip(&up) != MP_STR ||  /* change_id */
         mp_next(&up, &mp_change_id) != MP_U64 ||
@@ -398,15 +410,41 @@ int ti_unpack(uchar * data, size_t n)
 
         mp_skip(&up) != MP_STR ||  /* nodes */
         ti_nodes_from_up(&up)
-    ) goto fail;
+    ) {
+        /*
+         * TODO (COMPAT) For compatibility with < v1.1.3 (schema 0)
+         */
+        if (obj.via.sz != 4 ||
+
+            mp_skip(&up) != MP_STR ||  /* schema */
+            mp_skip(&up) != MP_U64 ||
+
+            mp_skip(&up) != MP_STR ||  /* change_id */
+            mp_next(&up, &mp_change_id) != MP_U64 ||
+
+            mp_skip(&up) != MP_STR ||  /* next_node_id */
+            mp_next(&up, &mp_next_node_id) != MP_U64 ||
+
+            mp_skip(&up) != MP_STR ||  /* nodes */
+            ti_nodes_from_up(&up)
+        ) goto fail;
+        log_warning(
+                "migrating from schema 0; "
+                "set both @thingsdb and @node deep to 1");
+        mp_t_deep.via.u64 = 1;
+        mp_n_deep.via.u64 = 1;
+    }
 
     if (ti_read_node_id(&node_id))
         goto fail;
 
+    ti.t_deep = mp_t_deep.via.u64;
+    ti.n_deep = mp_n_deep.via.u64;
     ti.nodes->next_id = mp_next_node_id.via.u64;
     ti.last_change_id = mp_change_id.via.u64;
     ti.node = ti_nodes_node_by_id(node_id);
-    if (!ti.node)
+
+    if (!ti.node || ti.t_deep > TI_MAX_DEEP || ti.n_deep > TI_MAX_DEEP)
         goto fail;
 
     ti.node->zone = ti.cfg->zone;
@@ -414,7 +452,7 @@ int ti_unpack(uchar * data, size_t n)
     if (ti.node->port != ti.cfg->node_port)
     {
         ti.node->port = ti.cfg->node_port;
-        ti_flag_set(TI_FLAG_NODES_CHANGED);
+        ti_flag_set(TI_FLAG_TI_CHANGED);
     }
 
     if (strcmp(ti.node->addr, ti.cfg->node_name) != 0)
@@ -424,7 +462,7 @@ int ti_unpack(uchar * data, size_t n)
         {
             free(ti.node->addr);
             ti.node->addr = addr;
-            ti_flag_set(TI_FLAG_NODES_CHANGED);
+            ti_flag_set(TI_FLAG_TI_CHANGED);
         }
     }
 
@@ -666,7 +704,7 @@ void ti_stop(void)
         (void) ti_backups_store();
         (void) ti_nodes_write_global_status();
 
-        if (ti_flag_test(TI_FLAG_NODES_CHANGED))
+        if (ti_flag_test(TI_FLAG_TI_CHANGED))
             (void) ti_save();
     }
     ti__stop();

@@ -82,7 +82,6 @@ static inline int ti_to_pk(msgpack_packer * pk);
 
 struct ti_s
 {
-    struct timespec boottime;
     char * fn;                  /* ti__fn */
     char * node_fn;             /* ti__node_fn */
     uint64_t last_change_id;    /* when `ti__fn` was saved */
@@ -117,6 +116,7 @@ struct ti_s
     size_t futures_count;       /* number of running futures */
     uint32_t rel_id;            /* relative node id */
     int _flags;                 /* changed and read by multiple treads */
+    struct timespec boottime;   /* keep the up-time */
     uint8_t t_deep;             /* @thingsdb scope default deep */
     uint8_t n_deep;             /* @node scope default deep */
 };
@@ -162,6 +162,11 @@ static inline int ti_to_pk(msgpack_packer * pk)
 
         mp_pack_str(pk, "schema") ||
         msgpack_pack_uint8(pk, TI_FN_SCHEMA) ||
+
+        mp_pack_str(pk, "deep") ||
+        msgpack_pack_array(pk, 2) ||
+        msgpack_pack_uint8(pk, ti.t_deep) ||
+        msgpack_pack_uint8(pk, ti.n_deep) ||
 
         mp_pack_str(pk, "change_id") ||
         msgpack_pack_uint64(pk, ti.last_change_id) ||

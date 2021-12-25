@@ -48,12 +48,12 @@
 #define TI_MAX_TASK_COUNT 200U
 
 /* maximum value we allow for the `deep` argument */
-#define TI_MAX_DEEP_HINT 0x7f
+#define TI_MAX_DEEP 0x7f
 
 /*
  * File name schema to check version info on created files.
  */
-#define TI_FN_SCHEMA 0
+#define TI_FN_SCHEMA 1
 
 /*
  * If a system has a WORDSIZE of 64 bits, we can take advantage of storing
@@ -104,7 +104,7 @@ enum
 {
     TI_FLAG_SIGNAL          =1<<0,
     TI_FLAG_LOCKED          =1<<1,
-    TI_FLAG_NODES_CHANGED   =1<<2,
+    TI_FLAG_TI_CHANGED      =1<<2,
     TI_FLAG_STARTING        =1<<3,
 };
 

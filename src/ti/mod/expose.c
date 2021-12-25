@@ -291,7 +291,7 @@ int ti_mod_expose_info_to_vp(
         if (expose->defaults)
             for (vec_each(expose->defaults, ti_item_t, item))
                 if (mp_pack_strn(pk, item->key->data, item->key->n) ||
-                    ti_val_to_client_pk(item->val, vp, TI_MAX_DEEP_HINT))
+                    ti_val_to_client_pk(item->val, vp, TI_MAX_DEEP))
                     return -1;
     }
 

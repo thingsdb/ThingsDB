@@ -270,7 +270,7 @@ int ti_room_emit_from_pkg(
             args,
             mp_event.via.str.data,
             mp_event.via.str.n,
-            TI_MAX_DEEP_HINT))
+            TI_MAX_DEEP))
         ex_set_mem(e);
 
 fail0:

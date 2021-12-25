@@ -1417,7 +1417,7 @@ static int module__info_to_vp(ti_module_t * module, ti_vp_t * vp, int flags)
         if (manifest->defaults)
             for (vec_each(manifest->defaults, ti_item_t, item))
                 if (mp_pack_strn(pk, item->key->data, item->key->n) ||
-                    ti_val_to_client_pk(item->val, vp, TI_MAX_DEEP_HINT))
+                    ti_val_to_client_pk(item->val, vp, TI_MAX_DEEP))
                     return -1;
     }
 

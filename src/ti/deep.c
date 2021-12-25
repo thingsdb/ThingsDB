@@ -20,12 +20,12 @@ int ti_deep_from_val(ti_val_t * val, uint8_t * deep, ex_t * e)
 
     deepi = VINT(val);
 
-    if (deepi < 0 || deepi > TI_MAX_DEEP_HINT)
+    if (deepi < 0 || deepi > TI_MAX_DEEP)
     {
         ex_set(e, EX_VALUE_ERROR,
                 "expecting a `deep` value between 0 and %d "
                 "but got %"PRId64" instead",
-                TI_MAX_DEEP_HINT, deepi);
+                TI_MAX_DEEP, deepi);
         return e->nr;
     }
 

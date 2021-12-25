@@ -6,7 +6,7 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_children_t * child = nd->children;
     ti_future_t * future;
     ti_module_t * module;
-    uint8_t deep;
+    uint8_t deep = query->qbind.deep;
     size_t num_args = nargs;
     _Bool load = TI_MODULE_DEFAULT_LOAD;
 

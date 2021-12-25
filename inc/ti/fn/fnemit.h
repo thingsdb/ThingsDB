@@ -5,7 +5,7 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
     int sargs = 1;
-    int deep = 1;
+    int deep = query->qbind.deep;
     ti_room_t * room;
     ti_raw_t * revent;
     vec_t * vec = NULL;

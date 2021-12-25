@@ -42,7 +42,7 @@ static int do__f_json_dump(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             .query=query,
     };
     json_dumps__options_t options = {
-            .deep = 1,
+            .deep = query->qbind->deep,
             .flags = 0,
             .e = e,
     };

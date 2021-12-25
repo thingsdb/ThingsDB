@@ -1499,8 +1499,8 @@ int ti_module_write(ti_module_t * module, const void * data, size_t n)
 int ti_module_read_args(
         ti_module_t * module,
         ti_thing_t * thing,
-        _Bool * load,
-        uint8_t * deep,
+        _Bool * load,       /* load may be undefined */
+        uint8_t * deep,     /* deep must have a default value */
         ex_t * e)
 {
     ti_name_t * deep_name = (ti_name_t *) ti_val_borrow_deep_name();
@@ -1511,7 +1511,7 @@ int ti_module_read_args(
     if (!deep_val)
         *deep = module->manifest.deep
             ? *module->manifest.deep
-            : TI_MODULE_DEFAULT_DEEP;
+            : *deep;
     else if (ti_deep_from_val(deep_val, deep, e))
         return e->nr;
 

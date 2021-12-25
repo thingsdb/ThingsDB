@@ -1,6 +1,6 @@
 #include <ti/fn/fn.h>
 
-static int do__f_set_time_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_set_default_deep(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
     ti_task_t * task;
@@ -8,8 +8,8 @@ static int do__f_set_time_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * str;
     ti_tz_t * tz;
 
-    if (fn_not_thingsdb_scope("set_time_zone", query, e) ||
-        fn_nargs("set_time_zone", DOC_SET_TIME_ZONE, 2, nargs, e) ||
+    if (fn_not_thingsdb_scope("set_default_deep", query, e) ||
+        fn_nargs("set_default_deep", DOC_SET_DEFAULT_DEEP, 2, nargs, e) ||
         ti_do_statement(query, nd->children->node, e))
         return e->nr;
 

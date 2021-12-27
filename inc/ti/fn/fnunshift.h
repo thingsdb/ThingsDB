@@ -3,7 +3,7 @@
 static int do__f_unshift(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    cleri_children_t * child = nd->children;    /* first in argument list */
+    cleri_node_t * child = nd->children;    /* first in argument list */
     uint32_t current_n, new_n, idx = 0;
     ti_varr_t * varr;
 
@@ -35,7 +35,7 @@ static int do__f_unshift(ti_query_t * query, cleri_node_t * nd, ex_t * e)
          * at once. This is especially useful for the insert function since
          * the current solution requires a call to memmove() on each iteration.
          */
-        if (ti_do_statement(query, child->node, e) ||
+        if (ti_do_statement(query, child, e) ||
             ti_val_varr_insert(varr, &query->rval, e, idx))
             goto fail1;
         ++idx;

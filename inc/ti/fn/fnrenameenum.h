@@ -9,14 +9,14 @@ static int do__f_rename_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_collection_scope("rename_enum", query, e) ||
         fn_nargs("rename_enum", DOC_RENAME_ENUM, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str("rename_enum", DOC_RENAME_ENUM, 1, query->rval, e))
         return e->nr;
 
     oname = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+    if (ti_do_statement(query, nd->children->next->next, e) ||
         fn_arg_str("rename_enum", DOC_RENAME_ENUM, 2, query->rval, e))
         goto fail0;
 

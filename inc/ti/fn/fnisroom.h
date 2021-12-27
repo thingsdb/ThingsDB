@@ -6,7 +6,7 @@ static int do__f_is_room(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool is_room;
 
     if (fn_nargs("is_room", DOC_IS_ROOM, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     is_room = ti_val_is_room(query->rval);

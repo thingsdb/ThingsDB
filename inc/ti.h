@@ -160,7 +160,7 @@ static inline int ti_sleep(int ms)
 static inline int ti_to_pk(msgpack_packer * pk)
 {
     return -(
-        msgpack_pack_map(pk, 4) ||
+        msgpack_pack_map(pk, 5) ||
 
         mp_pack_str(pk, "schema") ||
         msgpack_pack_uint8(pk, TI_FN_SCHEMA) ||

@@ -720,23 +720,23 @@ void ti_qbind_init(void)
  *       work because the function may visit a node multiple times since it
  *       may be called recursive. *
  */
-static _Bool qbind__swap(cleri_children_t * parent, uint32_t parent_gid)
+static _Bool qbind__swap(cleri_node_t * parent, uint32_t parent_gid)
 {
-    uint32_t gid = parent->node->children->next->node->cl_obj->gid;
-    cleri_children_t * childb = parent->node->children->next->next;
+    uint32_t gid = parent->children->next->cl_obj->gid;
+    cleri_node_t * childb = parent->children->next->next;
 
-    if (childb->node->children->node->cl_obj->gid == CLERI_GID_OPERATIONS &&
-        qbind__swap(childb->node->children, gid))
+    if (childb->children->cl_obj->gid == CLERI_GID_OPERATIONS &&
+        qbind__swap(childb->children, gid))
     {
         /* Swap operations */
-        cleri_children_t * syntax_childa;
-        cleri_node_t * tmp = parent->node;  /* operations */
-        parent->node = childb->node->children->node;  /* operations */
+        cleri_node_t * syntax_childa;
+        cleri_node_t * tmp = parent;  /* operations */
+        parent = childb->children;  /* operations */
 
-        gid = parent->node->children->next->node->cl_obj->gid;
-        syntax_childa = parent->node->children->node->children;
-        childb->node->children->node = syntax_childa->node;
-        syntax_childa->node = tmp;
+        gid = parent->children->next->cl_obj->gid;
+        syntax_childa = parent->children->children;
+        childb->children = syntax_childa;
+        syntax_childa = tmp;
 
         /* Recursive swapping */
         qbind__swap(syntax_childa, gid);
@@ -760,7 +760,7 @@ static _Bool qbind__swap(cleri_children_t * parent, uint32_t parent_gid)
  */
 static _Bool qbind__operations(
         ti_qbind_t * qbind,
-        cleri_children_t * parent,
+        cleri_node_t * parent,
         uint32_t parent_gid)
 {
     static const ti_do_cb operation_cb[9] = {
@@ -774,40 +774,40 @@ static _Bool qbind__operations(
             ti_do_compare_or,   /* CLERI_GID_OPR7_CMP_OR */
             ti_do_ternary,      /* CLERI_GID_OPR8_TERNARY */
     };
-    uint32_t gid = parent->node->children->next->node->cl_obj->gid;
-    cleri_children_t * childb = parent->node->children->next->next;
+    uint32_t gid = parent->children->next->cl_obj->gid;
+    cleri_node_t * childb = parent->children->next->next;
 
-    parent->node->data = operation_cb[gid - CLERI_GID_OPR0_MUL_DIV_MOD];
+    parent->data = operation_cb[gid - CLERI_GID_OPR0_MUL_DIV_MOD];
 
     assert (gid >= CLERI_GID_OPR0_MUL_DIV_MOD &&
             gid <= CLERI_GID_OPR8_TERNARY);
 
-    qbind__statement(qbind, parent->node->children->node);
+    qbind__statement(qbind, parent->children);
 
     if (gid == CLERI_GID_OPR8_TERNARY)
         qbind__statement(
                 qbind,
-                parent->node->children->next->node->children->next->node);
+                parent->children->next->children->next);
 
-    if (childb->node->children->node->cl_obj->gid != CLERI_GID_OPERATIONS)
+    if (childb->children->cl_obj->gid != CLERI_GID_OPERATIONS)
     {
-        qbind__statement(qbind, childb->node);
+        qbind__statement(qbind, childb);
     }
-    else if (qbind__operations(qbind, childb->node->children, gid))
+    else if (qbind__operations(qbind, childb->children, gid))
     {
         /* Swap operations */
-        cleri_children_t * syntax_childa;
-        cleri_node_t * tmp = parent->node;  /* operations */
-        parent->node = childb->node->children->node;  /* operations */
+        cleri_node_t * syntax_childa;
+        cleri_node_t * tmp = parent;  /* operations */
+        parent = childb->children;  /* operations */
 
-        gid = parent->node->children->next->node->cl_obj->gid;
+        gid = parent->children->next->cl_obj->gid;
 
         assert (gid >= CLERI_GID_OPR0_MUL_DIV_MOD &&
                 gid <= CLERI_GID_OPR8_TERNARY);
 
-        syntax_childa = parent->node->children->node->children;
-        childb->node->children->node = syntax_childa->node;
-        syntax_childa->node = tmp;
+        syntax_childa = parent->children->children;
+        childb->children = syntax_childa;
+        syntax_childa = tmp;
 
         /* This is required for recursive swapping.
          * For example the order:
@@ -837,7 +837,7 @@ static void qbind__peek_statement_for_closure(
 {
     cleri_node_t * node;
 
-    if ((node = nd->children->node)->cl_obj->gid == CLERI_GID_CLOSURE)
+    if ((node = nd->children)->cl_obj->gid == CLERI_GID_CLOSURE)
     {
         uint8_t no_wse_flag = ~q->flags & TI_QBIND_FLAG_WSE;
         qbind__statement(q, nd);
@@ -860,8 +860,8 @@ static void qbind__function(
         cleri_node_t * nd,
         int flags)
 {
-    cleri_children_t * child;
-    cleri_node_t * fnname = nd->children->node;
+    cleri_node_t * child;
+    cleri_node_t * fnname = nd->children;
     register intptr_t nargs = 0;
     register size_t n = fnname->len;
     register uint32_t key = qbind__hash(fnname->str, n);
@@ -890,21 +890,21 @@ static void qbind__function(
     fnname->data = NULL;
 
     /* list (arguments) */
-    nd = nd->children->next->node->children->next->node;
+    nd = nd->children->next->children->next;
 
     if (fmflags & FN__FLAG_FUT)
     {
         child = nd->children;
         if  (child)
         {
-            qbind__peek_statement_for_closure(q, child->node);
+            qbind__peek_statement_for_closure(q, child);
             nargs = 1;
             child = child->next ? child->next->next : NULL;
         }
         /* only care about the first argument */
         for(; child; child = child->next ? child->next->next : NULL, ++nargs)
         {
-            qbind__statement(q, child->node);  /* statement */
+            qbind__statement(q, child);  /* statement */
         }
     }
     /* for all other, investigate arguments */
@@ -912,7 +912,7 @@ static void qbind__function(
         child;
         child = child->next ? child->next->next : NULL, ++nargs)
     {
-        qbind__statement(q, child->node);  /* statement */
+        qbind__statement(q, child);  /* statement */
     }
 
     q->flags |= ((fmflags & FN__FLAG_AS_ON_VAR) && 1) << TI_QBIND_BIT_ON_VAR;
@@ -930,25 +930,25 @@ static void qbind__function(
  */
 static void qbind__index(ti_qbind_t * qbind, cleri_node_t * nd)
 {
-    cleri_children_t * child = nd->children;
+    cleri_node_t * child = nd->children;
     assert (child);
     do
     {
-        cleri_children_t * c = child->node     /* sequence */
-                ->children->next->node         /* slice */
+        cleri_node_t * c = child        /* sequence */
+                ->children->next        /* slice */
                 ->children;
 
-        if (child->node->children->next->next->next)
+        if (child->children->next->next->next)
         {
             qbind__set_collection_change(qbind->flags);
-            qbind__statement(qbind, child->node             /* sequence */
-                    ->children->next->next->next->node      /* assignment */
-                    ->children->next->node);                /* statement */
+            qbind__statement(qbind, child             /* sequence */
+                    ->children->next->next->next      /* assignment */
+                    ->children->next);                /* statement */
         }
 
         for (; c; c = c->next)
-            if (c->node->cl_obj->gid == CLERI_GID_STATEMENT)
-                qbind__statement(qbind, c->node);
+            if (c->cl_obj->gid == CLERI_GID_STATEMENT)
+                qbind__statement(qbind, c);
     }
     while ((child = child->next));
 }
@@ -962,15 +962,15 @@ static void qbind__index(ti_qbind_t * qbind, cleri_node_t * nd)
 static inline void qbind__thing(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     uintptr_t sz = 0;
-    cleri_children_t * child = nd           /* sequence */
-            ->children->next->node          /* list */
+    cleri_node_t * child = nd           /* sequence */
+            ->children->next            /* list */
             ->children;
     for (; child; child = child->next->next)
     {
         /* sequence(name: statement) (only investigate the statements */
         qbind__statement(
                 qbind,
-                child->node->children->next->next->node);  /* statement */
+                child->children->next->next);  /* statement */
         ++sz;
         if (!child->next)
             break;
@@ -983,14 +983,14 @@ static inline void qbind__closure(ti_qbind_t * qbind, cleri_node_t * nd)
     uint8_t for_loop_flag = qbind->flags & TI_QBIND_FLAG_FOR_LOOP;
 
     nd->data = ti_do_closure;
-    nd->children->node->data = NULL;
+    nd->children->data = NULL;
 
     qbind->flags &= ~TI_QBIND_FLAG_FOR_LOOP;
 
     /* investigate the statement, the rest can be skipped */
     qbind__statement(
             qbind,
-            nd->children->next->next->next->node);
+            nd->children->next->next->next);
 
     ++qbind->immutable_n;
     qbind->flags |= for_loop_flag;
@@ -1010,8 +1010,7 @@ static inline void qbind__closure(ti_qbind_t * qbind, cleri_node_t * nd)
  */
 static inline void qbind__enum(ti_qbind_t * qbind, cleri_node_t * nd)
 {
-    nd = nd->children->next->node;
-    if (nd->cl_obj->gid == CLERI_GID_CLOSURE)
+    if ((nd = nd->children->next)->cl_obj->gid == CLERI_GID_CLOSURE)
         qbind__closure(qbind, nd);
 }
 
@@ -1029,7 +1028,7 @@ static void qbind__var_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     if (nd->children->next)
     {
-        switch (nd->children->next->node->cl_obj->gid)
+        switch (nd->children->next->cl_obj->gid)
         {
         case CLERI_GID_FUNCTION:
             qbind__function(qbind, nd, FN__FLAG_ROOT);
@@ -1037,13 +1036,13 @@ static void qbind__var_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
         case CLERI_GID_ASSIGN:
             qbind__statement(
                     qbind,
-                    nd->children->next->node->children->next->node);
+                    nd->children->next->children->next);
             break;
         case CLERI_GID_INSTANCE:
-            qbind__thing(qbind, nd->children->next->node);
+            qbind__thing(qbind, nd->children->next);
             return;
         case CLERI_GID_ENUM_:
-            qbind__enum(qbind, nd->children->next->node);
+            qbind__enum(qbind, nd->children->next);
             return;
         default:
             assert (0);
@@ -1053,7 +1052,7 @@ static void qbind__var_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
     else
         qbind->flags |= TI_QBIND_FLAG_ON_VAR;
 
-    nd->children->node->data = NULL;
+    nd->children->data = NULL;
     ++qbind->immutable_n;
 }
 
@@ -1070,7 +1069,7 @@ static void qbind__name_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     if (nd->children->next)
     {
-        switch (nd->children->next->node->cl_obj->gid)
+        switch (nd->children->next->cl_obj->gid)
         {
         case CLERI_GID_FUNCTION:
             qbind__function(
@@ -1082,14 +1081,14 @@ static void qbind__name_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
             qbind__set_collection_change(qbind->flags);
             qbind__statement(
                     qbind,
-                    nd->children->next->node->children->next->node);
+                    nd->children->next->children->next);
             break;
         default:
             assert (0);
             return;
         }
     }
-    nd->children->node->data = NULL;
+    nd->children->data = NULL;
     ++qbind->immutable_n;
 }
 
@@ -1102,19 +1101,19 @@ static void qbind__name_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
  */
 static inline void qbind__chain(ti_qbind_t * qbind, cleri_node_t * nd)
 {
-    cleri_children_t * child = nd->children->next;
+    cleri_node_t * child = nd->children->next;
 
-    qbind__name_opt_fa(qbind, child->node);
+    qbind__name_opt_fa(qbind, child);
 
     qbind->flags &= ~TI_QBIND_FLAG_ON_VAR;
 
     /* index */
-    if ((child = child->next)->node->children)
-        qbind__index(qbind, child->node);
+    if ((child = child->next)->children)
+        qbind__index(qbind, child);
 
     /* chain */
     if (child->next)
-        qbind__chain(qbind, child->next->node);
+        qbind__chain(qbind, child->next);
 }
 
 /*
@@ -1122,10 +1121,7 @@ static inline void qbind__chain(ti_qbind_t * qbind, cleri_node_t * nd)
  *
  * This function analyzes things, enumerators, immutable values and more.
  */
-static void qbind__expr_choice(
-        ti_qbind_t * qbind,
-        cleri_node_t * nd,
-        cleri_children_t ** parent)
+static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     switch (nd->cl_obj->gid)
     {
@@ -1141,17 +1137,17 @@ static void qbind__expr_choice(
         return;
     case CLERI_GID_TEMPLATE:
     {
-        cleri_children_t * child = nd          /* sequence */
-                ->children->next->node         /* repeat */
+        cleri_node_t * child = nd           /* sequence */
+                ->children->next            /* repeat */
                 ->children;
 
         for (; child; child = child->next)
         {
-            if (child->node->cl_obj->tp == CLERI_TP_SEQUENCE)
+            if (child->cl_obj->tp == CLERI_TP_SEQUENCE)
                 qbind__statement(
                         qbind,
-                        child->node->children->next->node);
-            child->node->data = NULL;
+                        child->children->next);
+            child->data = NULL;
         }
 
         ++qbind->immutable_n;
@@ -1167,41 +1163,34 @@ static void qbind__expr_choice(
     case CLERI_GID_ARRAY:
     {
         uintptr_t sz = 0;
-        cleri_children_t * child = nd          /* sequence */
-                ->children->next->node         /* list */
+        cleri_node_t * child = nd       /* sequence */
+                ->children->next        /* list */
                 ->children;
         for (; child; child = child->next ? child->next->next : NULL, ++sz)
-            qbind__statement(qbind, child->node);  /* statement */
+            qbind__statement(qbind, child);  /* statement */
         nd->data = (void *) sz;
         qbind->flags |= TI_QBIND_FLAG_ON_VAR;   /* enable var mode */
         return;
     }
     case CLERI_GID_BLOCK:
     {
-        cleri_children_t * child = nd           /* seq<{, comment, list, }> */
-                ->children->next->next->node    /* list statements */
-                ->children;                     /* first child, not empty */
+        cleri_node_t * child = nd       /* seq<{, comment, list, }> */
+                ->children->next->next  /* list statements */
+                ->children;             /* first child, not empty */
         do
         {
-            qbind__statement(qbind, child->node);  /* statement */
+            qbind__statement(qbind, child);  /* statement */
         }
         while (child->next && (child = child->next->next));
 
         if ((child = nd->children->next->next->next->next))
         {
-            if (parent)
-            {
-
-                cleri_children_t * tmp = (*parent)->next;
-                (*parent)->next = NULL;
-            }
-            else
-                qbind->flags |= TI_QBIND_BIT_ILL_BLOCK;
+            qbind->flags |= TI_QBIND_BIT_ILL_BLOCK;
         }
         return;
     }
     case CLERI_GID_PARENTHESIS:
-        qbind__statement(qbind, nd->children->next->node);
+        qbind__statement(qbind, nd->children->next);
     }
 }
 
@@ -1214,10 +1203,7 @@ static void qbind__expr_choice(
  * -x;
  * my_var[idx].func();
  */
-static inline void qbind__expression(
-        ti_qbind_t * qbind,
-        cleri_node_t * nd,
-        cleri_children_t ** parent)
+static inline void qbind__expression(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     cleri_node_t * node;
     intptr_t preopr;
@@ -1226,38 +1212,37 @@ static inline void qbind__expression(
 
     nd->data = ti_do_expression;
 
-    node = nd->children->node;
+    node = nd->children;
     preopr = (intptr_t) ti_preopr_bind(node->str, node->len);
     node->data = (void *) preopr;
 
-    qbind__expr_choice(qbind, nd->children->next->node, parent);
+    qbind__expr_choice(qbind, nd->children->next);
 
     /* index */
-    if (nd->children->next->next->node->children)
-        qbind__index(qbind, nd->children->next->next->node);
+    if (nd->children->next->next->children)
+        qbind__index(qbind, nd->children->next->next);
 
     /* chain */
     if (nd->children->next->next->next)
-        qbind__chain(qbind, nd->children->next->next->next->node);
+        qbind__chain(qbind, nd->children->next->next->next);
 }
 
 static inline void qbind__if_statement(ti_qbind_t * qbind, cleri_node_t * nd)
 {
-    qbind__statement(qbind, nd->children->next->next->node);
+    qbind__statement(qbind, nd->children->next->next);
 
     /* set true node */
-    nd->children->node->data = nd->children->next->next->next->next->node;
+    nd->children->data = nd->children->next->next->next->next;
 
-    qbind__statement(qbind, nd->children->node->data);
+    qbind__statement(qbind, nd->children->data);
 
     /* set else node */
-    nd->children->next->node->data = nd->children->next->next->next->next->next
-        ? nd->children->next->next->next->next->next->
-                node->children->next->node
+    nd->children->next->data = nd->children->next->next->next->next->next
+        ? nd->children->next->next->next->next->next->children->next
         : NULL;
 
-    if (nd->children->next->node->data)
-        qbind__statement(qbind, nd->children->next->node->data);
+    if (nd->children->next->data)
+        qbind__statement(qbind, nd->children->next->data);
 
     nd->data = ti_do_if_statement;
 }
@@ -1266,26 +1251,26 @@ static inline void qbind__return_statement(
         ti_qbind_t * qbind,
         cleri_node_t * nd)
 {
-    qbind__statement(qbind, nd->children->next->node);
+    qbind__statement(qbind, nd->children->next);
 
     if (nd->children->next->next)
     {
-        nd->children->node->data = \
-                nd->children->next->next->node->children->next->node;
-        qbind__statement(qbind, nd->children->node->data);
+        nd->children->data = \
+                nd->children->next->next->children->next;
+        qbind__statement(qbind, nd->children->data);
         nd->data = ti_do_return_alt_deep;
     }
     else
     {
         nd->data = ti_do_return_val;
-        nd->children->node->data = NULL;
+        nd->children->data = NULL;
     }
 }
 
 static inline void qbind__for_statement(ti_qbind_t * q, cleri_node_t * nd)
 {
     register uint8_t no_for_loop = ~q->flags & TI_QBIND_FLAG_FOR_LOOP;
-    cleri_children_t * tmp, * child = nd->
+    cleri_node_t * tmp, * child = nd->
             children->              /* for  */
             next->                  /* (    */
             next;                   /* List(variable) */
@@ -1293,15 +1278,15 @@ static inline void qbind__for_statement(ti_qbind_t * q, cleri_node_t * nd)
     nd->data = ti_do_for_loop;
 
     /* count number of arguments (variable) */
-    nd = child->node;
+    nd = child;
     for(tmp = nd->children;
         tmp;
         tmp = tmp->next ? tmp->next->next : NULL, ++q->immutable_n)
-        tmp->node->data = NULL;
+        tmp->data = NULL;
 
-    qbind__statement(q, (child = child->next->next)->node);
+    qbind__statement(q, (child = child->next->next));
     q->flags |= TI_QBIND_FLAG_FOR_LOOP;
-    qbind__statement(q, (child = child->next->next)->node);
+    qbind__statement(q, (child = child->next->next));
     q->flags &= ~no_for_loop;
 }
 
@@ -1311,45 +1296,41 @@ static inline void qbind__for_statement(ti_qbind_t * q, cleri_node_t * nd)
  * Almost anything in the grammar may call this function since statements
  * can exist on may places in the ThingsDB language.
  */
-static void qbind__statement(
-        ti_qbind_t * qbind,
-        cleri_node_t * nd,
-        cleri_children_t ** parent)
+static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
 {
-    cleri_node_t * node;
     assert (nd->cl_obj->gid == CLERI_GID_STATEMENT);
 
-    node = nd->children->node;
-    switch (node->cl_obj->gid)
+    nd = nd->children;
+    switch (nd->cl_obj->gid)
     {
     case CLERI_GID_IF_STATEMENT:
-        qbind__if_statement(qbind, node);
+        qbind__if_statement(qbind, nd);
         return;
     case CLERI_GID_RETURN_STATEMENT:
-        qbind__return_statement(qbind, node);
+        qbind__return_statement(qbind, nd);
         return;
     case CLERI_GID_FOR_STATEMENT:
-        qbind__for_statement(qbind, node);
+        qbind__for_statement(qbind, nd);
         return;
     case CLERI_GID_K_CONTINUE:
         if (~qbind->flags & TI_QBIND_FLAG_FOR_LOOP)
             qbind->flags |= TI_QBIND_FLAG_ILL_CONTINUE;
-        node->data = ti_do_continue;
+        nd->data = ti_do_continue;
         return;
     case CLERI_GID_K_BREAK:
         if (~qbind->flags & TI_QBIND_FLAG_FOR_LOOP)
             qbind->flags |= TI_QBIND_FLAG_ILL_BREAK;
-        node->data = ti_do_break;
+        nd->data = ti_do_break;
         return;
     case CLERI_GID_CLOSURE:
-        qbind__closure(qbind, node);
+        qbind__closure(qbind, nd);
         return;
     case CLERI_GID_EXPRESSION:
         qbind->flags &= ~TI_QBIND_FLAG_ON_VAR;
-        qbind__expression(qbind, node, parent);
+        qbind__expression(qbind, nd);
         return;
     case CLERI_GID_OPERATIONS:
-        qbind__operations(qbind, nd->children, 0);
+        qbind__operations(qbind, nd, 0);
     }
 }
 
@@ -1371,13 +1352,13 @@ void ti_qbind_probe(ti_qbind_t * qbind, cleri_node_t * nd)
 
     if (nd->cl_obj->gid == CLERI_GID_STATEMENTS)
     {
-        for (cleri_children_t * child = nd->children;
-             child;
-             child = child->next->next)
+        for (nd = nd->children;
+             nd;
+             nd = nd->next->next)
         {
-            qbind__statement(qbind, child->node);   /* statement */
+            qbind__statement(qbind, nd);   /* statement */
 
-            if (!child->next)
+            if (!nd->next)
                 return;
         }
         return;

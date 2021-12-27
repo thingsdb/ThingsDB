@@ -20,7 +20,7 @@ static int do__f_return(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 2)
     {
-        if (ti_do_statement(query, nd->children->next->next->node, e) ||
+        if (ti_do_statement(query, nd->children->next->next, e) ||
             ti_deep_from_val(query->rval, &query->qbind.deep, e))
             return e->nr;
 
@@ -28,7 +28,7 @@ static int do__f_return(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = NULL;
     }
 
-    if (ti_do_statement(query, nd->children->node, e) == 0)
+    if (ti_do_statement(query, nd->children, e) == 0)
         ex_set_return(e);  /* on success */
 
     return e->nr;

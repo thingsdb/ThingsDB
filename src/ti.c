@@ -271,13 +271,15 @@ int ti_build(void)
 {
     int rc = -1;
     ti_change_t * change = NULL;
+
+    ti.t_deep = TI_MAX_DEEP;
+    ti.n_deep = TI_MAX_DEEP;
+
     if (ti_build_node())
         goto failed;
 
     ti.node->ccid = 0;
     ti.node->next_free_id = 1;
-    ti.t_deep = TI_MAX_DEEP;
-    ti.n_deep = TI_MAX_DEEP;
 
     change = ti_change_initial();
     if (!change)

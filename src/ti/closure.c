@@ -19,7 +19,7 @@
 #include <ti/fmt.h>
 #include <util/logger.h>
 #include <util/strx.h>
-#include <cleri/node.inline.h>
+#include <cleri/node.h>
 
 #define CLOSURE__QBOUND (TI_CLOSURE_FLAG_BTSCOPE|TI_CLOSURE_FLAG_BCSCOPE)
 
@@ -58,8 +58,8 @@ static cleri_node_t * closure__node_from_strn(
         goto fail1;
     }
 
-    node = res->tree->children->node        /* Sequence (START) */
-            ->children->next->node;         /* List of statements */
+    node = res->tree->children              /* Sequence (START) */
+            ->children->next;               /* List of statements */
 
     /* we should have exactly one statement */
     if (!node->children || node->children->next)
@@ -69,8 +69,8 @@ static cleri_node_t * closure__node_from_strn(
     }
 
     node = node                             /* List of statements */
-            ->children->node                /* Sequence - statement */
-            ->children->node;               /* closure */
+            ->children                      /* Sequence - statement */
+            ->children;                     /* closure */
 
     if (node->cl_obj->gid != CLERI_GID_CLOSURE)
     {
@@ -79,7 +79,7 @@ static cleri_node_t * closure__node_from_strn(
     }
 
     /*  closure = Sequence('|', List(name, opt=True), '|', statement)  */
-    statement = node->children->next->next->next->node;
+    statement = node->children->next->next->next;
     ti_qbind_probe(syntax, statement);
 
     ncache = ti_ncache_create(query, syntax->immutable_n);
@@ -158,18 +158,18 @@ static void closure__node_to_buf(cleri_node_t * nd, char * buf, size_t * n)
         break;
     }
 
-    for (cleri_children_t * child = nd->children; child; child = child->next)
-        closure__node_to_buf(child->node, buf, n);
+    for (cleri_node_t * child = nd->children; child; child = child->next)
+        closure__node_to_buf(child, buf, n);
 }
 
 static vec_t * closure__create_vars(ti_closure_t * closure)
 {
     vec_t * vars;
     size_t n;
-    cleri_children_t * child, * first;
+    cleri_node_t * child, * first;
 
     first = closure->node               /* sequence */
-            ->children->next->node      /* list */
+            ->children->next            /* list */
             ->children;                 /* first child */
 
     for(n = 0, child = first;
@@ -183,7 +183,7 @@ static vec_t * closure__create_vars(ti_closure_t * closure)
     for (child = first; child; child = child->next->next)
     {
         ti_val_t * val = (ti_val_t *) ti_nil_get();
-        ti_name_t * name = ti_names_get(child->node->str, child->node->len);
+        ti_name_t * name = ti_names_get(child->str, child->len);
         ti_prop_t * prop;
         if (!name)
             goto failed;
@@ -702,14 +702,14 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
      *       since in that case the other checks are compatible
      */
     cleri_node_t * node = ti_closure_statement(closure)
-            ->children->node                /* expression */
-            ->children->next->node;         /* the choice */
+            ->children                /* expression */
+            ->children->next;         /* the choice */
 
     while ((node->cl_obj->gid == CLERI_GID_VAR_OPT_MORE ||
             node->cl_obj->gid == CLERI_GID_NAME_OPT_MORE
         ) &&
             node->children->next &&
-            node->children->next->node->cl_obj->gid == CLERI_GID_FUNCTION)
+            node->children->next->cl_obj->gid == CLERI_GID_FUNCTION)
     {
         /*
          * If the scope is a function, get the first argument, for example:
@@ -717,13 +717,13 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
          *      "Read this doc string...";
          *   });
          */
-        node = node->children->next->node       /* function */
-                ->children->next->node;         /* arguments */
+        node = node->children->next     /* function */
+                ->children->next;       /* arguments */
 
         if (node->children)
-            node = node->children->node         /* statement */
-            ->children->node                    /* expression */
-            ->children->next->node;             /* the choice */
+            node = node->children       /* statement */
+            ->children                  /* expression */
+            ->children->next;           /* the choice */
         assert (node);
     }
 
@@ -731,10 +731,10 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
         goto done;
 
     node = node->children->next->next   /* node=block */
-            ->node->children            /* node=list mi=1 */
-            ->node->children            /* node=statement */
-            ->node->children->next      /* node=expression */
-            ->node;                     /* node=the choice */
+            ->children                  /* node=list mi=1 */
+            ->children                  /* node=statement */
+            ->children                  /* node=expression */
+            ->next;                     /* node=the choice */
 
     if (node->cl_obj->gid != CLERI_GID_T_STRING)
         goto done;

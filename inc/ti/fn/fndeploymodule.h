@@ -10,14 +10,14 @@ static int do__f_deploy_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_scope("deploy_module", query, e) ||
         fn_nargs("deploy_module", DOC_DEPLOY_MODULE, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str_slow("deploy_module", DOC_DEPLOY_MODULE, 1, query->rval, e))
         return e->nr;
 
     rname = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+    if (ti_do_statement(query, nd->children->next->next, e) ||
         fn_arg_str_bytes_nil(
                 "deploy_module", DOC_DEPLOY_MODULE, 2, query->rval, e))
         goto fail0;

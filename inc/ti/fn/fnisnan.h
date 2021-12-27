@@ -6,7 +6,7 @@ static int do__f_is_nan(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool is_nan;
 
     if (fn_nargs("is_nan", DOC_IS_NAN, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     switch (query->rval->tp)

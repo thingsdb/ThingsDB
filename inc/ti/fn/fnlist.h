@@ -10,7 +10,7 @@ static int do__f_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs == 1)
     {
         return (
-            ti_do_statement(query, nd->children->node, e) ||
+            ti_do_statement(query, nd->children, e) ||
             ti_val_convert_to_array(&query->rval, e)
         );
     }

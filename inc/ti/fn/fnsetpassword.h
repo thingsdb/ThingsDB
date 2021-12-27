@@ -10,7 +10,7 @@ static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_scope("set_password", query, e) ||
         fn_nargs("set_password", DOC_SET_PASSWORD, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str_slow("set_password", DOC_SET_PASSWORD, 1, query->rval, e))
         return e->nr;
 
@@ -28,7 +28,7 @@ static int do__f_set_password(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e))
+    if (ti_do_statement(query, nd->children->next->next, e))
         goto done;
 
     if (ti_val_is_str(query->rval))

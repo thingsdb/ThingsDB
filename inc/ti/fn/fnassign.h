@@ -29,7 +29,7 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    name_nd = nd->children->node;
+    name_nd = nd->children;
 
     if (ti_do_statement(query, name_nd, e) ||
         fn_arg_thing("assign", DOC_THING_ASSIGN, 1, query->rval, e))

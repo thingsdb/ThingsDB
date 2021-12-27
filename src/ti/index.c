@@ -37,16 +37,16 @@ static int index__read_slice_indices(
     assert (query->rval == NULL);
 
     const ssize_t n = *stop;
-    cleri_children_t * child = slice->children;
+    cleri_node_t * child = slice->children;
     ssize_t * start_ = NULL;
     ssize_t * stop_ = NULL;
 
     if (!child || !(*stop))
         return e->nr;
 
-    if (child->node->cl_obj->gid == CLERI_GID_STATEMENT)
+    if (child->cl_obj->gid == CLERI_GID_STATEMENT)
     {
-        if (ti_do_statement(query, child->node, e))
+        if (ti_do_statement(query, child, e))
             return e->nr;
 
         if (ti_val_is_int(query->rval))
@@ -77,9 +77,9 @@ static int index__read_slice_indices(
     if (!child)
         return e->nr;
 
-    if (child->node->cl_obj->gid == CLERI_GID_STATEMENT)
+    if (child->cl_obj->gid == CLERI_GID_STATEMENT)
     {
-        if (ti_do_statement(query, child->node, e))
+        if (ti_do_statement(query, child, e))
             return e->nr;
 
         if (ti_val_is_int(query->rval))
@@ -108,9 +108,9 @@ static int index__read_slice_indices(
 
     if (child)  /* must be a statement since no more indices are allowed */
     {
-        assert (child->node->cl_obj->gid == CLERI_GID_STATEMENT);
+        assert (child->cl_obj->gid == CLERI_GID_STATEMENT);
 
-        if (ti_do_statement(query, child->node, e))
+        if (ti_do_statement(query, child, e))
             return e->nr;
 
         if (ti_val_is_int(query->rval))
@@ -199,9 +199,9 @@ done:
 
 static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 {
-    cleri_node_t * slice = inode->children->next->node;
-    cleri_node_t * ass_statem = inode->children->next->next->next->node;
-    cleri_node_t * ass_tokens = ass_statem->children->node;
+    cleri_node_t * slice = inode->children->next;
+    cleri_node_t * ass_statem = inode->children->next->next->next;
+    cleri_node_t * ass_tokens = ass_statem->children;
     ti_varr_t * evarr, * varr = (ti_varr_t *) query->rval;
     ssize_t c, n;
     ssize_t start = 0, stop = (ssize_t) varr->vec->n, step = 1;
@@ -232,7 +232,7 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
         goto fail1;
     }
 
-    if (ti_do_statement(query, ass_statem->children->next->node, e))
+    if (ti_do_statement(query, ass_statem->children->next, e))
         goto fail1;
 
     if (!ti_val_is_array(query->rval))
@@ -400,9 +400,9 @@ done:
 
 static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 {
-    cleri_node_t * idx_statem = inode->children->next->node->children->node;
-    cleri_node_t * ass_statem = inode->children->next->next->next->node;
-    cleri_node_t * ass_tokens = ass_statem->children->node;
+    cleri_node_t * idx_statem = inode->children->next->children;
+    cleri_node_t * ass_statem = inode->children->next->next->next;
+    cleri_node_t * ass_tokens = ass_statem->children;
     ti_varr_t * varr;
     size_t idx = 0;  /* only set to prevent warning */
 
@@ -413,7 +413,7 @@ static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     query->rval = NULL;
 
     if (index__numeric(query, idx_statem, &idx, varr->vec->n, e) ||
-        ti_do_statement(query, ass_statem->children->next->node, e))
+        ti_do_statement(query, ass_statem->children->next, e))
         goto fail1;
 
     if (ass_tokens->len == 2)
@@ -542,9 +542,9 @@ static inline int index__upd_prop(
 
 static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 {
-    cleri_node_t * idx_statem = inode->children->next->node->children->node;
-    cleri_node_t * ass_statem = inode->children->next->next->next->node;
-    cleri_node_t * ass_tokens = ass_statem->children->node;
+    cleri_node_t * idx_statem = inode->children->next->children;
+    cleri_node_t * ass_statem = inode->children->next->next->next;
+    cleri_node_t * ass_tokens = ass_statem->children;
     ti_witem_t witem;
     ti_thing_t * thing;
     ti_raw_t * rname;
@@ -570,7 +570,7 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     rname = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, ass_statem->children->next->node, e))
+    if (ti_do_statement(query, ass_statem->children->next, e))
         goto fail1;
 
     if (ass_tokens->len == 2
@@ -604,7 +604,7 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (query->rval);
 
     ti_val_t * val = query->rval;
-    cleri_node_t * slice = nd->children->next->node;
+    cleri_node_t * slice = nd->children->next;
 
     assert (slice->cl_obj->gid == CLERI_GID_SLICE);
 
@@ -612,7 +612,7 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool do_slice = (
             !slice->children ||
             slice->children->next ||
-            slice->children->node->cl_obj->tp == CLERI_TP_TOKEN
+            slice->children->cl_obj->tp == CLERI_TP_TOKEN
     );
 
     switch ((ti_val_enum) val->tp)
@@ -624,7 +624,7 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         return do_slice
                 ? index__slice_str(query, slice, e)
-                : index__index_str(query, slice->children->node, e);
+                : index__index_str(query, slice->children, e);
 
     case TI_VAL_BYTES:
         if (do_assign)
@@ -632,7 +632,7 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         return do_slice
                 ? index__slice_bin(query, slice, e)
-                : index__index_bin(query, slice->children->node, e);
+                : index__index_bin(query, slice->children, e);
 
     case TI_VAL_ARR:
         if (do_assign && ti_varr_is_tuple((ti_varr_t *) val))
@@ -644,7 +644,7 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     : index__array_ass(query, nd, e)
                 : do_slice
                     ? index__slice_arr(query, slice, e)
-                    : index__index_arr(query, slice->children->node, e);
+                    : index__index_arr(query, slice->children, e);
 
     case TI_VAL_THING:
         if (do_slice)
@@ -652,7 +652,7 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         return do_assign
                 ? index__set(query, nd, e)
-                : index__get(query, slice->children->node, e);
+                : index__get(query, slice->children, e);
 
         break;
     case TI_VAL_TEMPLATE:

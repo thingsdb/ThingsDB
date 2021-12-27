@@ -10,7 +10,7 @@ static int do__f_randstr(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     unsigned char * buffer;
 
     if (fn_nargs_range("randstr", DOC_RANDSTR, 1, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     if (fn_arg_int("randstr", DOC_RANDSTR, 1, query->rval, e))
@@ -31,7 +31,7 @@ static int do__f_randstr(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 2)
     {
-        if (ti_do_statement(query, nd->children->next->next->node, e) ||
+        if (ti_do_statement(query, nd->children->next->next, e) ||
             fn_arg_str("randstr", DOC_RANDSTR, 2, query->rval, e))
             return e->nr;
 

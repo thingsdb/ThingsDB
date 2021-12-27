@@ -10,7 +10,7 @@ static int do__f_alt_raise(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_nargs_range("alt_raise", DOC_ALT_RAISE, 2, 3, nargs, e))
         return e->nr;
 
-    errnr = ti_do_statement(query, nd->children->node, e);
+    errnr = ti_do_statement(query, nd->children, e);
 
     if (errnr > EX_MAX_BUILD_IN_ERR && errnr <= EX_RETURN)
         return errnr;   /* do not catch success or internal errors */
@@ -19,7 +19,7 @@ static int do__f_alt_raise(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, &ex) ||
+    if (ti_do_statement(query, nd->children->next->next, &ex) ||
         fn_arg_int("alt_raise", DOC_ALT_RAISE, 2, query->rval, &ex))
         goto exerr;
 
@@ -42,7 +42,7 @@ static int do__f_alt_raise(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_raw_t * msg;
         if (ti_do_statement(
                 query,
-                nd->children->next->next->next->next->node,
+                nd->children->next->next->next->next,
                 &ex) ||
             fn_arg_str("alt_raise", DOC_ALT_RAISE, 3, query->rval, &ex))
             goto exerr;

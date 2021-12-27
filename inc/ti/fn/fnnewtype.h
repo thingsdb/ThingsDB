@@ -11,7 +11,7 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_collection_scope("new_type", query, e) ||
             fn_nargs_range("new_type", DOC_NEW_TYPE, 1, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str("new_type", DOC_NEW_TYPE, 1, query->rval, e))
         return e->nr;
 
@@ -52,7 +52,7 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         query->rval = NULL;
 
-        if (ti_do_statement(query, nd->children->next->next->node, e) ||
+        if (ti_do_statement(query, nd->children->next->next, e) ||
             fn_arg_bool("new_type", DOC_NEW_TYPE, 2, query->rval, e))
         {
             ti_val_unsafe_drop((ti_val_t *) rname);

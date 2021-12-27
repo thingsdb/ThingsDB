@@ -4,17 +4,17 @@ static int do__f_type_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
     ti_val_t * type_str;
-    cleri_children_t * child = nd->children;    /* first in argument list */
+    cleri_node_t * child = nd->children;    /* first in argument list */
 
     if (fn_nargs_range("type_assert", DOC_TYPE_ASSERT, 2, 3, nargs, e) ||
-        ti_do_statement(query, child->node, e))
+        ti_do_statement(query, child, e))
         return e->nr;
 
     type_str = ti_val_strv(query->rval);
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_statement(query, (child = child->next->next)->node, e))
+    if (ti_do_statement(query, (child = child->next->next), e))
         goto done;
 
     if (ti_val_is_str(query->rval))
@@ -62,7 +62,7 @@ invalid:
     {
         ti_raw_t * msg;
 
-        if (ti_do_statement(query, child->next->next->node, e) ||
+        if (ti_do_statement(query, child->next->next, e) ||
             fn_arg_str("type_assert", DOC_STR_CONTAINS, 3, query->rval, e))
             goto done;
 

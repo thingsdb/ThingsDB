@@ -10,7 +10,7 @@ static int do__f_set_module_scope(ti_query_t * query, cleri_node_t * nd, ex_t * 
 
     if (fn_not_thingsdb_scope("set_module_scope", query, e) ||
         fn_nargs("set_module_scope", DOC_SET_MODULE_SCOPE, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str_slow(
                 "set_module_scope", DOC_SET_MODULE_SCOPE, 1, query->rval, e))
         return e->nr;
@@ -18,7 +18,7 @@ static int do__f_set_module_scope(ti_query_t * query, cleri_node_t * nd, ex_t * 
     rname = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e))
+    if (ti_do_statement(query, nd->children->next->next, e))
         goto fail0;
 
     /* All statements are parsed, now check if the module (still) exists) */

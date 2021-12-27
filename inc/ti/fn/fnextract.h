@@ -30,7 +30,7 @@ static int do__f_extract(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
 
-        if (ti_do_statement(query, nd->children->node, e) ||
+        if (ti_do_statement(query, nd->children, e) ||
             fn_arg_str_slow("extract", DOC_DATETIME_EXTRACT, 1, query->rval, e))
             return e->nr;
 

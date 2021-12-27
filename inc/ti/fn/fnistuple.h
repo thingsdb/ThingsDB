@@ -6,7 +6,7 @@ static int do__f_is_tuple(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool is_tuple;
 
     if (fn_nargs("is_tuple", DOC_IS_TUPLE, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     is_tuple = ti_val_is_tuple(query->rval);

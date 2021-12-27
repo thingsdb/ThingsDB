@@ -10,7 +10,7 @@ static int do__f_set_time_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_scope("set_time_zone", query, e) ||
         fn_nargs("set_time_zone", DOC_SET_TIME_ZONE, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     collection = ti_collections_get_by_val(query->rval, e);
@@ -24,7 +24,7 @@ static int do__f_set_time_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+    if (ti_do_statement(query, nd->children->next->next, e) ||
         fn_arg_str_slow("set_time_zone", DOC_SET_TIME_ZONE, 2, query->rval, e))
         return e->nr;
 

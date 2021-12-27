@@ -6,7 +6,7 @@ static int do__f_is_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool is_enum;
 
     if (fn_nargs("is_enum", DOC_IS_ENUM, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     is_enum = ti_val_is_member(query->rval);

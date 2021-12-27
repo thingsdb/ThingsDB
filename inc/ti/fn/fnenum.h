@@ -9,7 +9,7 @@ static int do__f_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_collection_scope("enum", query, e) ||
         fn_nargs_range("enum", DOC_ENUM, 1, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     if (!ti_val_is_str(query->rval))
@@ -36,7 +36,7 @@ static int do__f_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     lock_was_set = ti_enum_ensure_lock(enum_);
 
-    (void) ti_do_statement(query, nd->children->next->next->node, e);
+    (void) ti_do_statement(query, nd->children->next->next, e);
 
     ti_enum_unlock(enum_, lock_was_set);
 

@@ -17,7 +17,7 @@ static int do__f_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 1)
     {
-        if (ti_do_statement(query, nd->children->node, e) ||
+        if (ti_do_statement(query, nd->children, e) ||
             fn_arg_str("wrap", DOC_THING_WRAP, 1, query->rval, e))
             goto fail0;
 

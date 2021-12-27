@@ -6,7 +6,7 @@ static int do__f_is_bytes(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool is_bytes;
 
     if (fn_nargs("is_bytes", DOC_IS_BYTES, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     is_bytes = ti_val_is_bytes(query->rval);

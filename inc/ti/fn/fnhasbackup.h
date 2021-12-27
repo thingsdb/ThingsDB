@@ -7,7 +7,7 @@ static int do__f_has_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_node_scope("has_backup", query, e) ||
         fn_nargs("has_backup", DOC_HAS_BACKUP, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_int("has_backup", DOC_HAS_BACKUP, 1, query->rval, e))
         return e->nr;
 

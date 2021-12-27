@@ -1558,7 +1558,7 @@ int ti_module_call(
     const int nargs = fn_get_nargs(nd);
     _Bool load = false;
     uint8_t deep = query->qbind.deep;
-    cleri_children_t * child = nd->children;
+    cleri_node_t * child = nd->children;
     ti_future_t * future;
 
     if (ti.futures_count >= TI_MAX_FUTURE_COUNT)
@@ -1588,7 +1588,7 @@ int ti_module_call(
 
     ti_incref(module);  /* take a reference to module */
 
-    if (ti_do_statement(query, child->node, e))
+    if (ti_do_statement(query, child, e))
         goto fail0;
 
     if (!ti_val_is_thing(query->rval))
@@ -1620,7 +1620,7 @@ int ti_module_call(
 
     while ((child = child->next) && (child = child->next))
     {
-        if (ti_do_statement(query, child->node, e))
+        if (ti_do_statement(query, child, e))
             goto fail2;
 
         VEC_push(future->args, query->rval);

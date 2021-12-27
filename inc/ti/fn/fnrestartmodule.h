@@ -10,7 +10,7 @@ static int do__f_restart_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     ti.access_node,
                     query->user, TI_AUTH_CHANGE, e) ||
         fn_nargs("restart_module", DOC_RESTART_MODULE, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str("restart_module", DOC_RESTART_MODULE, 1, query->rval, e))
         return e->nr;
 

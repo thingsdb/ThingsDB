@@ -197,7 +197,7 @@ fail:
 
 static int do__split_get_int(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+    if (ti_do_statement(query, nd->children->next->next, e) ||
         fn_arg_int("split", DOC_STR_SPLIT, 2, query->rval, e))
         return e->nr;
 
@@ -210,7 +210,7 @@ static int do__split_get_int(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 static int do__split_get_rint(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
 
-    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+    if (ti_do_statement(query, nd->children->next->next, e) ||
         fn_arg_int("split", DOC_STR_SPLIT, 2, query->rval, e))
         return e->nr;
 
@@ -246,7 +246,7 @@ static int do__f_split(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children, e))
         goto fail0;
 
     switch((ti_val_enum) query->rval->tp)

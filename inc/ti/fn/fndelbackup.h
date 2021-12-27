@@ -9,7 +9,7 @@ static int do__f_del_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_node_scope("del_backup", query, e) ||
         ti_access_check_err(ti.access_node, query->user, TI_AUTH_CHANGE, e) ||
         fn_nargs_range("del_backup", DOC_DEL_BACKUP, 1, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_int("del_backup", DOC_DEL_BACKUP, 1, query->rval, e))
         return e->nr;
 
@@ -27,7 +27,7 @@ static int do__f_del_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
 
-        if (ti_do_statement(query, nd->children->next->next->node, e) ||
+        if (ti_do_statement(query, nd->children->next->next, e) ||
             fn_arg_bool("del_backup", DOC_DEL_BACKUP, 2, query->rval, e))
             return e->nr;
 

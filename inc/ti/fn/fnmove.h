@@ -30,7 +30,7 @@ static int do__f_move(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = NULL;
     }
 
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         fn_arg_str("move", DOC_DATETIME_MOVE, 1, query->rval, e))
         goto fail;
 
@@ -41,7 +41,7 @@ static int do__f_move(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_unsafe_drop(query->rval);  /* this destroys `raw_unit` */
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+    if (ti_do_statement(query, nd->children->next->next, e) ||
         fn_arg_int("move", DOC_DATETIME_MOVE, 2, query->rval, e))
         goto fail;
 

@@ -49,7 +49,7 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     iterval = query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         fn_arg_closure("find", doc, 1, query->rval, e))
         goto fail0;
 
@@ -121,7 +121,7 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs == 2)
     {
         /* lazy evaluation of the alternative value */
-        (void) ti_do_statement(query, nd->children->next->next->node, e);
+        (void) ti_do_statement(query, nd->children->next->next, e);
     }
     else
     {

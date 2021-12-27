@@ -6,7 +6,7 @@ static int do__f_regex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * pattern, * flags;
 
     if (fn_nargs_range("regex", DOC_REGEX, 1, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str("regex", DOC_REGEX, 1, query->rval, e))
         return e->nr;
 
@@ -15,7 +15,7 @@ static int do__f_regex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 2)
     {
-        if (ti_do_statement(query, nd->children->next->next->node, e) ||
+        if (ti_do_statement(query, nd->children->next->next, e) ||
             fn_arg_str("regex", DOC_REGEX, 2, query->rval, e))
             goto fail0;
         flags = (ti_raw_t *) query->rval;

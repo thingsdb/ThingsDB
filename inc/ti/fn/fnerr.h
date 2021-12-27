@@ -43,7 +43,7 @@ static int do__f_err_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         fn_arg_int("err", DOC_ERR, 1, query->rval, e))
         return e->nr;
 
@@ -68,7 +68,7 @@ static int do__f_err_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+    if (ti_do_statement(query, nd->children->next->next, e) ||
         fn_arg_str("err", DOC_ERR, 2, query->rval, e))
         return e->nr;
 

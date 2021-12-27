@@ -16,7 +16,7 @@ static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     varr = (ti_varr_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         fn_arg_closure("remove", DOC_LIST_REMOVE, 1, query->rval, e))
         goto fail1;
 
@@ -25,7 +25,7 @@ static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 2)
     {
-        if (ti_do_statement(query, nd->children->next->next->node, e) ||
+        if (ti_do_statement(query, nd->children->next->next, e) ||
             fn_arg_int("remove", DOC_LIST_REMOVE, 2, query->rval, e))
             goto fail2;
         limit = VINT(query->rval);
@@ -183,7 +183,7 @@ static int do__f_remove_set_from_closure(
 
     if (nargs == 2)
     {
-        if (ti_do_statement(query, nd->children->next->next->node, e) ||
+        if (ti_do_statement(query, nd->children->next->next, e) ||
             fn_arg_int("remove", DOC_SET_REMOVE, 2, query->rval, e))
             goto fail;
 
@@ -246,7 +246,7 @@ static int do__f_remove_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     vset = (ti_vset_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children, e))
         goto fail1;
 
     if (ti_val_is_closure(query->rval))
@@ -269,7 +269,7 @@ static int do__f_remove_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     else
     {
         size_t narg;
-        cleri_children_t * child = nd->children;
+        cleri_node_t * child = nd->children;
 
         removed = vec_new(nargs);
         if (!removed)
@@ -306,7 +306,7 @@ static int do__f_remove_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (!child->next || !(child = child->next->next))
                 break;
 
-            if (ti_do_statement(query, child->node, e))
+            if (ti_do_statement(query, child, e))
                 goto fail2;
         }
     }
@@ -417,7 +417,7 @@ static int do__f_remove_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         fn_arg_closure("remove", DOC_THING_REMOVE, 1, query->rval, e))
         goto fail1;
 
@@ -426,7 +426,7 @@ static int do__f_remove_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 2)
     {
-        if (ti_do_statement(query, nd->children->next->next->node, e) ||
+        if (ti_do_statement(query, nd->children->next->next, e) ||
             fn_arg_int("remove", DOC_THING_REMOVE, 2, query->rval, e))
             goto fail2;
         limit = VINT(query->rval);

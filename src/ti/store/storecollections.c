@@ -103,7 +103,7 @@ int ti_store_collections_restore(const char * fn)
         case 5:
             if (mp_next(&up, &mp_tz) != MP_U64 ||
                 mp_next(&up, &mp_deep) != MP_U64 ||
-                mp_deep.via.u64 < 0 || mp_deep.via.u64 > TI_MAX_DEEP)
+                mp_deep.via.u64 > TI_MAX_DEEP)
                 goto fail;
 
             tz = ti_tz_from_index(mp_tz.via.u64);

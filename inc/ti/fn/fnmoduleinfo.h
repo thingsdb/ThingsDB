@@ -7,7 +7,7 @@ static int do__f_module_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_module_t * module;
 
     if (fn_nargs("module_info", DOC_MODULE_INFO, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str("module_info", DOC_MODULE_INFO, 1, query->rval, e))
         return e->nr;
 

@@ -6,7 +6,7 @@ static int do__f_is_bool(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool is_bool;
 
     if (fn_nargs("is_bool", DOC_IS_BOOL, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     is_bool = ti_val_is_bool(query->rval);

@@ -6,7 +6,7 @@ static int do__f_is_int(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool is_isint;
 
     if (fn_nargs("is_int", DOC_IS_INT, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     is_isint = ti_val_is_int(query->rval);

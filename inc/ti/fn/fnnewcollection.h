@@ -9,7 +9,7 @@ static int do__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_scope("new_collection", query, e) ||
         fn_nargs("new_collection", DOC_NEW_COLLECTION, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str_slow("new_collection", DOC_NEW_COLLECTION, 1, query->rval, e))
         return e->nr;
 

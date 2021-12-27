@@ -18,7 +18,7 @@ static int do__f_set_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_or_collection_scope("set_closure", query, e) ||
         fn_nargs("set_closure", DOC_TASK_SET_CLOSURE, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_closure("set_closure", DOC_TASK_SET_CLOSURE, 1, query->rval, e))
         goto fail0;
 

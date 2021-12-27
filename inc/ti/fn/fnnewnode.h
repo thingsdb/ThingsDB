@@ -10,13 +10,13 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * rsecret;
     ti_raw_t * raddr;
     ti_task_t * task;
-    cleri_children_t * child = nd->children;
+    cleri_node_t * child = nd->children;
     char * addrstr;
     int port;
 
     if (fn_not_thingsdb_scope("new_node", query, e) ||
         fn_nargs_range("new_node", DOC_NEW_NODE, 2, 3, nargs, e) ||
-        ti_do_statement(query, child->node, e) ||
+        ti_do_statement(query, child, e) ||
         fn_arg_str("new_node", DOC_NEW_NODE, 1, query->rval, e))
         return e->nr;
 
@@ -39,7 +39,7 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+    if (ti_do_statement(query, (child = child->next->next), e) ||
         fn_arg_str("new_node", DOC_NEW_NODE, 2, query->rval, e))
         goto fail0;
 
@@ -58,7 +58,7 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = NULL;
 
         /* Read the port number from arguments */
-        if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+        if (ti_do_statement(query, (child = child->next->next), e) ||
             fn_arg_int("new_node", DOC_NEW_NODE, 3, query->rval, e))
             goto fail1;
 

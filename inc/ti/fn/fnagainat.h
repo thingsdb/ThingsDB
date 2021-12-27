@@ -17,7 +17,7 @@ static int do__f_again_at(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_query_task_context(query, vtask, e) ||
         fn_nargs("again_at", DOC_TASK_AGAIN_AT, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_datetime("again_at", DOC_TASK_AGAIN_AT, 1, query->rval, e))
         goto fail0;
 

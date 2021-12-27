@@ -7,7 +7,7 @@ static int do__f_backup_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_node_scope("backup_info", query, e) ||
         fn_nargs("backup_info", DOC_BACKUP_INFO, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_int("backup_info", DOC_BACKUP_INFO, 1, query->rval, e))
         return e->nr;
 

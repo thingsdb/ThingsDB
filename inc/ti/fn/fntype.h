@@ -8,7 +8,7 @@ static int do__f_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_nargs("type", DOC_TYPE, 1, nargs, e))
         return e->nr;
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children, e))
         return e->nr;
 
     type_str = ti_val_strv(query->rval);

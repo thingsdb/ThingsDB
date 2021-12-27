@@ -18,9 +18,7 @@ static inline vec_t * ti_query_access(ti_query_t * query)
             ? query->collection->access
             : query->qbind.flags & TI_QBIND_FLAG_THINGSDB
             ? ti.access_thingsdb
-            : query->qbind.flags & TI_QBIND_FLAG_NODE
-            ? ti.access_node
-            : NULL;
+            : ti.access_node;
 }
 
 static inline _Bool ti_query_is_fwd(ti_query_t * query)

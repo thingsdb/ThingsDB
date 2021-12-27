@@ -686,9 +686,7 @@ int ti_val_init_common(void)
     ex_t e = {0};
     ti_qbind_t syntax = {
             .immutable_n = 0,
-            .flags = TI_QBIND_FLAG_COLLECTION|
-                     TI_QBIND_FLAG_THINGSDB|
-                     TI_QBIND_FLAG_NODE
+            .flags = TI_QBIND_FLAG_COLLECTION|TI_QBIND_FLAG_THINGSDB,
     };
     val__default_closure = \
             (ti_val_t *) ti_closure_from_strn(&syntax, "||nil", 5, &e);

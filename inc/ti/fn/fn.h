@@ -108,7 +108,7 @@ static inline int fn_not_node_scope(
         ti_query_t * query,
         ex_t * e)
 {
-    if (~query->qbind.flags & TI_QBIND_FLAG_NODE)
+    if (query->qbind.flags & (TI_QBIND_FLAG_THINGSDB|TI_QBIND_BIT_COLLECTION))
         ex_set(e, EX_LOOKUP_ERROR,
             "function `%s` is undefined in the `%s` scope; "
             "you might want to query a `@node` scope?"DOC_SCOPES,

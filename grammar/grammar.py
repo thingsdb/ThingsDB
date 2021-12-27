@@ -73,6 +73,8 @@ class LangDef(Grammar):
     t_string = Choice(r_single_quote, r_double_quote)
     t_true = Keyword('true')
 
+    # It would be nice if the leri family had support for advanced white space.
+    # If so, the comments could be set as white space instead.
     comments = Repeat(Choice(
         Regex(r'(?s)//.*?(\r?\n|$)'),  # Single line comment
         Regex(r'(?s)/\*.*?\*/'),  # Block comment
@@ -137,6 +139,12 @@ class LangDef(Grammar):
         Optional(chain),
     )
 
+    # By adding an optional THIS at the end of this sequence, we are able
+    # to support a block without explicit ending with `;`. In qbind, we then
+    # should add the address of the child to `qbind__statement` which can be
+    # NULL everywhere except for in `ti_qbind_probe` and parsing `BLOCK`
+    # statements. In a block statement, we then should "insert" the THIS part
+    # to the parent.
     block = Sequence(
         x_block,
         comments,

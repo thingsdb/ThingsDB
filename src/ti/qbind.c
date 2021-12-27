@@ -1122,7 +1122,10 @@ static inline void qbind__chain(ti_qbind_t * qbind, cleri_node_t * nd)
  *
  * This function analyzes things, enumerators, immutable values and more.
  */
-static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
+static void qbind__expr_choice(
+        ti_qbind_t * qbind,
+        cleri_node_t * nd,
+        cleri_children_t ** parent)
 {
     switch (nd->cl_obj->gid)
     {
@@ -1183,6 +1186,18 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
             qbind__statement(qbind, child->node);  /* statement */
         }
         while (child->next && (child = child->next->next));
+
+        if ((child = nd->children->next->next->next->next))
+        {
+            if (parent)
+            {
+
+                cleri_children_t * tmp = (*parent)->next;
+                (*parent)->next = NULL;
+            }
+            else
+                qbind->flags |= TI_QBIND_BIT_ILL_BLOCK;
+        }
         return;
     }
     case CLERI_GID_PARENTHESIS:
@@ -1199,7 +1214,10 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
  * -x;
  * my_var[idx].func();
  */
-static inline void qbind__expression(ti_qbind_t * qbind, cleri_node_t * nd)
+static inline void qbind__expression(
+        ti_qbind_t * qbind,
+        cleri_node_t * nd,
+        cleri_children_t ** parent)
 {
     cleri_node_t * node;
     intptr_t preopr;
@@ -1212,7 +1230,7 @@ static inline void qbind__expression(ti_qbind_t * qbind, cleri_node_t * nd)
     preopr = (intptr_t) ti_preopr_bind(node->str, node->len);
     node->data = (void *) preopr;
 
-    qbind__expr_choice(qbind, nd->children->next->node);
+    qbind__expr_choice(qbind, nd->children->next->node, parent);
 
     /* index */
     if (nd->children->next->next->node->children)
@@ -1293,7 +1311,10 @@ static inline void qbind__for_statement(ti_qbind_t * q, cleri_node_t * nd)
  * Almost anything in the grammar may call this function since statements
  * can exist on may places in the ThingsDB language.
  */
-static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
+static void qbind__statement(
+        ti_qbind_t * qbind,
+        cleri_node_t * nd,
+        cleri_children_t ** parent)
 {
     cleri_node_t * node;
     assert (nd->cl_obj->gid == CLERI_GID_STATEMENT);
@@ -1325,7 +1346,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
         return;
     case CLERI_GID_EXPRESSION:
         qbind->flags &= ~TI_QBIND_FLAG_ON_VAR;
-        qbind__expression(qbind, node);
+        qbind__expression(qbind, node, parent);
         return;
     case CLERI_GID_OPERATIONS:
         qbind__operations(qbind, nd->children, 0);

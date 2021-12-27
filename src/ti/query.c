@@ -156,7 +156,6 @@ int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
                     scope->via.collection_id);
         return e->nr;
     case TI_SCOPE_NODE:
-        query->qbind.flags |= TI_QBIND_FLAG_NODE;
         query->qbind.deep = ti.n_deep;
         return e->nr;
     case TI_SCOPE_THINGSDB:
@@ -514,14 +513,25 @@ static inline int ti_query_investigate(ti_query_t * query, ex_t * e)
     ti_qbind_probe(&query->qbind, seqchildren->next->node);
 
     /* check if illegal statements are found */
-    if (query->qbind.flags & TI_QBIND_FLAG_ILL_CONTINUE)
-        ex_set(e, EX_SYNTAX_ERROR,
-                "illegal `continue` statement; "
-                "no surrounding `for..in` statement");
-    else if (query->qbind.flags & TI_QBIND_FLAG_ILL_BREAK)
-        ex_set(e, EX_SYNTAX_ERROR,
-                "illegal `break` statement; "
-                "no surrounding `for..in` statement");
+    if (query->qbind.flags & (
+            TI_QBIND_FLAG_ILL_BLOCK|
+            TI_QBIND_FLAG_ILL_CONTINUE|
+            TI_QBIND_FLAG_ILL_BREAK))
+    {
+        if (query->qbind.flags & TI_QBIND_FLAG_ILL_BLOCK)
+            ex_set(e, EX_SYNTAX_ERROR,
+                    "illegal use of `block` statement; "
+                    "most likely a semicolon or surrounding parenthesis are "
+                    "missing");
+        else if (query->qbind.flags & TI_QBIND_FLAG_ILL_CONTINUE)
+            ex_set(e, EX_SYNTAX_ERROR,
+                    "illegal `continue` statement; "
+                    "no surrounding `for..in` statement");
+        else if (query->qbind.flags & TI_QBIND_FLAG_ILL_BREAK)
+            ex_set(e, EX_SYNTAX_ERROR,
+                    "illegal `break` statement; "
+                    "no surrounding `for..in` statement");
+    }
 
     /*
      * Create value cache for immutable, names and things.
@@ -846,7 +856,6 @@ then:
         }
 
         then_query->qbind.flags |= query->qbind.flags & (
-                TI_QBIND_FLAG_NODE|
                 TI_QBIND_FLAG_THINGSDB|
                 TI_QBIND_FLAG_COLLECTION);
         then_query->qbind.deep = query->qbind.deep;

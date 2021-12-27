@@ -82,14 +82,14 @@ void ti_node_upd_node(ti_node_t * node, uint16_t port, mp_obj_t * node_name)
     if (node->port != port)
     {
         node->port = port;
-        ti_flag_set(TI_FLAG_NODES_CHANGED);
+        ti_flag_set(TI_FLAG_TI_CHANGED);
     }
 
     if (!mp_str_eq(node_name, node->addr) && (addr = mp_strdup(node_name)))
     {
         free(node->addr);
         node->addr = addr;
-        ti_flag_set(TI_FLAG_NODES_CHANGED);
+        ti_flag_set(TI_FLAG_TI_CHANGED);
     }
 }
 
@@ -411,7 +411,7 @@ int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
     if (node_port != node->port)
     {
         node->port = node_port;
-        ti_flag_set(TI_FLAG_NODES_CHANGED);
+        ti_flag_set(TI_FLAG_TI_CHANGED);
     }
 
     if (node->status == TI_NODE_STAT_AWAY)

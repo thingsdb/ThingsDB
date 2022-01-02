@@ -117,9 +117,9 @@ struct ti_s
     uint32_t rel_id;            /* relative node id */
     int _flags;                 /* changed and read by multiple treads */
     struct timespec boottime;   /* keep the up-time */
-    ti_tz_t * t_tz;             /* @thingsdb scope time zone (unchangeable) */
+    ti_tz_t * t_tz;             /* @thingsdb scope time zone */
     ti_tz_t * n_tz;             /* @node scope time zone (unchangeable) */
-    uint8_t t_deep;             /* @thingsdb scope default deep (unchangeable)*/
+    uint8_t t_deep;             /* @thingsdb scope default deep */
     uint8_t n_deep;             /* @node scope default deep (unchangeable)*/
 };
 

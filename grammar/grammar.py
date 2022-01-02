@@ -208,13 +208,15 @@ class LangDef(Grammar):
     )
 
     statement = Prio(
-        if_statement,
-        return_statement,
-        for_statement,
         k_continue,
         k_break,
-        closure,
-        expression,
+        Choice(
+            if_statement,
+            return_statement,
+            for_statement,
+            closure,
+            expression,
+        ),
         operations)
     statements = List(statement, delimiter=Sequence(';', comments))
 

@@ -35,5 +35,7 @@ static inline _Bool ti_scope_is_collection(ti_scope_t * scope)
 const char * ti_scope_name_from_id(uint64_t scope_id);
 int ti_scope_id(ti_scope_t * scope, uint64_t * scope_id, ex_t * e);
 ti_collection_t * ti_scope_get_collection(ti_scope_t * scope, ex_t * e);
+void ti_scope_set_tz(uint64_t scope_id, ti_tz_t * tz);
+void ti_scope_set_deep(uint64_t scope_id, uint8_t deep);
 
 #endif /* TI_SCOPE_H_ */

@@ -111,7 +111,14 @@ int ti_task_add_set_remove(ti_task_t * task, ti_raw_t * key, vec_t * removed);
 int ti_task_add_rename_collection(
         ti_task_t * task,
         ti_collection_t * collection);
-int ti_task_add_set_time_zone(ti_task_t * task, ti_collection_t * collection);
+int ti_task_add_set_time_zone(
+        ti_task_t * task,
+        uint64_t scope_id,
+        uint64_t tz_index);
+int ti_task_add_set_default_deep(
+        ti_task_t * task,
+        uint64_t scope_id,
+        uint8_t deep);
 int ti_task_add_rename_procedure(
         ti_task_t * task,
         ti_procedure_t * procedure,

@@ -1964,9 +1964,12 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_set_time_zone(ti_task_t * task, ti_collection_t * collection)
+int ti_task_add_set_time_zone(
+        ti_task_t * task,
+        uint64_t scope_id,
+        uint64_t tz_index)
 {
-    size_t alloc = 128;
+    size_t alloc = 64;
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -1981,10 +1984,49 @@ int ti_task_add_set_time_zone(ti_task_t * task, ti_collection_t * collection)
     msgpack_pack_map(&pk, 2);
 
     mp_pack_str(&pk, "id");
-    msgpack_pack_uint64(&pk, collection->root->id);
+    msgpack_pack_uint64(&pk, scope_id);
 
     mp_pack_str(&pk, "tz");
-    msgpack_pack_uint64(&pk, collection->tz->index);
+    msgpack_pack_uint64(&pk, tz_index);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_set_default_deep(
+        ti_task_t * task,
+        uint64_t scope_id,
+        uint8_t deep)
+{
+    size_t alloc = 64;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_SET_DEFAULT_DEEP);
+    msgpack_pack_map(&pk, 2);
+
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, scope_id);
+
+    mp_pack_str(&pk, "deep");
+    msgpack_pack_uint8(&pk, deep);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

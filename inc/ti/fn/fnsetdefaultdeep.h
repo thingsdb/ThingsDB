@@ -4,7 +4,6 @@ static int do__f_set_default_deep(ti_query_t * query, cleri_node_t * nd, ex_t * 
 {
     const int nargs = fn_get_nargs(nd);
     ti_task_t * task;
-    ti_raw_t * str;
     uint8_t deep;
     uint64_t scope_id;
     vec_t ** access_;

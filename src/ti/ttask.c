@@ -11,6 +11,7 @@
 #include <ti/qbind.h>
 #include <ti/raw.inline.h>
 #include <ti/restore.h>
+#include <ti/scope.h>
 #include <ti/task.t.h>
 #include <ti/token.h>
 #include <ti/ttask.h>
@@ -1162,7 +1163,6 @@ static int ttask__rename_collection(mp_unp_t * up)
  */
 static int ttask__set_time_zone(mp_unp_t * up)
 {
-    ti_collection_t * collection;
     mp_obj_t obj, mp_id, mp_tz;
     ti_tz_t * tz;
 
@@ -1188,7 +1188,6 @@ static int ttask__set_time_zone(mp_unp_t * up)
  */
 static int ttask__set_default_deep(mp_unp_t * up)
 {
-    ti_collection_t * collection;
     mp_obj_t obj, mp_id, mp_deep;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||

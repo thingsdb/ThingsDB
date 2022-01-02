@@ -27,7 +27,7 @@
 static inline int do__no_node_scope(ti_query_t * query)
 {
     return \
-        query->qbind.flags & (TI_QBIND_FLAG_THINGSDB|TI_QBIND_BIT_COLLECTION);
+        query->qbind.flags & (TI_QBIND_FLAG_THINGSDB|TI_QBIND_FLAG_COLLECTION);
 }
 
 static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
@@ -1255,7 +1255,7 @@ static inline int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (!module)
         {
-            if (flags & (TI_QBIND_FLAG_THINGSDB|TI_QBIND_BIT_COLLECTION))
+            if (flags & (TI_QBIND_FLAG_THINGSDB|TI_QBIND_FLAG_COLLECTION))
             {
                 ti_procedure_t * procedure = do__get_procedure(query, nd);
                 if (procedure)

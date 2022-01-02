@@ -103,12 +103,18 @@ static inline int fn_get_nargs(cleri_node_t * nd)
     return (int) ((intptr_t) nd->data);
 }
 
+static inline int fn_is_not_node_scope(ti_query_t * query)
+{
+    return \
+        query->qbind.flags & (TI_QBIND_FLAG_THINGSDB|TI_QBIND_FLAG_COLLECTION);
+}
+
 static inline int fn_not_node_scope(
         const char * name,
         ti_query_t * query,
         ex_t * e)
 {
-    if (query->qbind.flags & (TI_QBIND_FLAG_THINGSDB|TI_QBIND_BIT_COLLECTION))
+    if (fn_is_not_node_scope(query))
         ex_set(e, EX_LOOKUP_ERROR,
             "function `%s` is undefined in the `%s` scope; "
             "you might want to query a `@node` scope?"DOC_SCOPES,

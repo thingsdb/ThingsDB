@@ -184,6 +184,7 @@
 #include <ti/fn/fnset.h>
 #include <ti/fn/fnsetargs.h>
 #include <ti/fn/fnsetclosure.h>
+#include <ti/fn/fnsetdefaultdeep.h>
 #include <ti/fn/fnsetenum.h>
 #include <ti/fn/fnsetloglevel.h>
 #include <ti/fn/fnsetmoduleconf.h>
@@ -261,11 +262,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 236,
+    TOTAL_KEYWORDS = 237,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 18,
-    MAX_HASH_VALUE = 622
+    MIN_HASH_VALUE = 22,
+    MAX_HASH_VALUE = 587
 };
 
 /*
@@ -277,32 +278,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
-        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
-        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
-        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
-        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
-        623, 623,   7, 623,   6, 623,   6, 623, 623, 623,
-        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
-        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
-        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
-        623, 623, 623, 623, 623,   6, 623,   7,  99,  39,
-         14,   6, 108, 292, 126,   6,  32, 131,  10,  34,
-         11,  28, 102,  81,   7,   6,   9,  20, 177, 191,
-        185, 151,  77, 623, 623, 623, 623, 623, 623, 623,
-        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
-        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
-        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
-        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
-        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
-        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
-        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
-        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
-        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
-        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
-        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
-        623, 623, 623, 623, 623, 623, 623, 623, 623, 623,
-        623, 623, 623, 623, 623, 623
+        588, 588, 588, 588, 588, 588, 588, 588, 588, 588,
+        588, 588, 588, 588, 588, 588, 588, 588, 588, 588,
+        588, 588, 588, 588, 588, 588, 588, 588, 588, 588,
+        588, 588, 588, 588, 588, 588, 588, 588, 588, 588,
+        588, 588, 588, 588, 588, 588, 588, 588, 588, 588,
+        588, 588,  10, 588,  10, 588,  13, 588, 588, 588,
+        588, 588, 588, 588, 588, 588, 588, 588, 588, 588,
+        588, 588, 588, 588, 588, 588, 588, 588, 588, 588,
+        588, 588, 588, 588, 588, 588, 588, 588, 588, 588,
+        588, 588, 588, 588, 588,   9, 588,  10,  36,  69,
+         11,   9,  90, 298,  97,   9,  15, 153,  13,  22,
+         14,  37,  57,  30,  10,   9,  12,  47,  81, 173,
+        142, 158,  40, 588, 588, 588, 588, 588, 588, 588,
+        588, 588, 588, 588, 588, 588, 588, 588, 588, 588,
+        588, 588, 588, 588, 588, 588, 588, 588, 588, 588,
+        588, 588, 588, 588, 588, 588, 588, 588, 588, 588,
+        588, 588, 588, 588, 588, 588, 588, 588, 588, 588,
+        588, 588, 588, 588, 588, 588, 588, 588, 588, 588,
+        588, 588, 588, 588, 588, 588, 588, 588, 588, 588,
+        588, 588, 588, 588, 588, 588, 588, 588, 588, 588,
+        588, 588, 588, 588, 588, 588, 588, 588, 588, 588,
+        588, 588, 588, 588, 588, 588, 588, 588, 588, 588,
+        588, 588, 588, 588, 588, 588, 588, 588, 588, 588,
+        588, 588, 588, 588, 588, 588, 588, 588, 588, 588,
+        588, 588, 588, 588, 588, 588, 588, 588, 588, 588,
+        588, 588, 588, 588, 588, 588
     };
 
     register unsigned int hval = n;
@@ -632,6 +633,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="run",               .fn=do__f_run,                  XROOT_NE},
     {.name="set_args",          .fn=do__f_set_args,             CHAIN_BE},
     {.name="set_closure",       .fn=do__f_set_closure,          CHAIN_BE},
+    {.name="set_default_deep",  .fn=do__f_set_default_deep,     ROOT_TE},
     {.name="set_enum",          .fn=do__f_set_enum,             ROOT_CE},
     {.name="set_log_level",     .fn=do__f_set_log_level,        ROOT_NE},
     {.name="set_module_conf",   .fn=do__f_set_module_conf,      ROOT_TE},
@@ -720,23 +722,23 @@ void ti_qbind_init(void)
  *       work because the function may visit a node multiple times since it
  *       may be called recursive. *
  */
-static _Bool qbind__swap(cleri_node_t * parent, uint32_t parent_gid)
+static _Bool qbind__swap(cleri_node_t ** parent, uint32_t parent_gid)
 {
-    uint32_t gid = parent->children->next->cl_obj->gid;
-    cleri_node_t * childb = parent->children->next->next;
+    uint32_t gid = (*parent)->children->next->cl_obj->gid;
+    cleri_node_t * childb = (*parent)->children->next->next;
 
     if (childb->children->cl_obj->gid == CLERI_GID_OPERATIONS &&
-        qbind__swap(childb->children, gid))
+        qbind__swap(&childb->children, gid))
     {
         /* Swap operations */
-        cleri_node_t * syntax_childa;
-        cleri_node_t * tmp = parent;  /* operations */
-        parent = childb->children;  /* operations */
+        cleri_node_t ** syntax_childa;
+        cleri_node_t * tmp = *parent;  /* operations */
+        *parent = childb->children;  /* operations */
 
-        gid = parent->children->next->cl_obj->gid;
-        syntax_childa = parent->children->children;
-        childb->children = syntax_childa;
-        syntax_childa = tmp;
+        gid = (*parent)->children->next->cl_obj->gid;
+        syntax_childa = &(*parent)->children->children;
+        childb->children = *syntax_childa;
+        *syntax_childa = tmp;
 
         /* Recursive swapping */
         qbind__swap(syntax_childa, gid);
@@ -760,7 +762,7 @@ static _Bool qbind__swap(cleri_node_t * parent, uint32_t parent_gid)
  */
 static _Bool qbind__operations(
         ti_qbind_t * qbind,
-        cleri_node_t * parent,
+        cleri_node_t ** parent,
         uint32_t parent_gid)
 {
     static const ti_do_cb operation_cb[9] = {
@@ -774,40 +776,40 @@ static _Bool qbind__operations(
             ti_do_compare_or,   /* CLERI_GID_OPR7_CMP_OR */
             ti_do_ternary,      /* CLERI_GID_OPR8_TERNARY */
     };
-    uint32_t gid = parent->children->next->cl_obj->gid;
-    cleri_node_t * childb = parent->children->next->next;
+    uint32_t gid = (*parent)->children->next->cl_obj->gid;
+    cleri_node_t * childb = (*parent)->children->next->next;
 
-    parent->data = operation_cb[gid - CLERI_GID_OPR0_MUL_DIV_MOD];
+    (*parent)->data = operation_cb[gid - CLERI_GID_OPR0_MUL_DIV_MOD];
 
     assert (gid >= CLERI_GID_OPR0_MUL_DIV_MOD &&
             gid <= CLERI_GID_OPR8_TERNARY);
 
-    qbind__statement(qbind, parent->children);
+    qbind__statement(qbind, (*parent)->children);
 
     if (gid == CLERI_GID_OPR8_TERNARY)
         qbind__statement(
                 qbind,
-                parent->children->next->children->next);
+                (*parent)->children->next->children->next);
 
     if (childb->children->cl_obj->gid != CLERI_GID_OPERATIONS)
     {
         qbind__statement(qbind, childb);
     }
-    else if (qbind__operations(qbind, childb->children, gid))
+    else if (qbind__operations(qbind, &childb->children, gid))
     {
         /* Swap operations */
-        cleri_node_t * syntax_childa;
-        cleri_node_t * tmp = parent;  /* operations */
-        parent = childb->children;  /* operations */
+        cleri_node_t ** syntax_childa;
+        cleri_node_t * tmp = (*parent);  /* operations */
+        *parent = childb->children;  /* operations */
 
-        gid = parent->children->next->cl_obj->gid;
+        gid = (*parent)->children->next->cl_obj->gid;
 
         assert (gid >= CLERI_GID_OPR0_MUL_DIV_MOD &&
                 gid <= CLERI_GID_OPR8_TERNARY);
 
-        syntax_childa = parent->children->children;
-        childb->children = syntax_childa;
-        syntax_childa = tmp;
+        syntax_childa = &(*parent)->children->children;
+        childb->children = *syntax_childa;
+        *syntax_childa = tmp;
 
         /* This is required for recursive swapping.
          * For example the order:
@@ -1300,37 +1302,36 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     assert (nd->cl_obj->gid == CLERI_GID_STATEMENT);
 
-    nd = nd->children;
-    switch (nd->cl_obj->gid)
+    switch (nd->children->cl_obj->gid)
     {
     case CLERI_GID_IF_STATEMENT:
-        qbind__if_statement(qbind, nd);
+        qbind__if_statement(qbind, nd->children);
         return;
     case CLERI_GID_RETURN_STATEMENT:
-        qbind__return_statement(qbind, nd);
+        qbind__return_statement(qbind, nd->children);
         return;
     case CLERI_GID_FOR_STATEMENT:
-        qbind__for_statement(qbind, nd);
+        qbind__for_statement(qbind, nd->children);
         return;
     case CLERI_GID_K_CONTINUE:
         if (~qbind->flags & TI_QBIND_FLAG_FOR_LOOP)
             qbind->flags |= TI_QBIND_FLAG_ILL_CONTINUE;
-        nd->data = ti_do_continue;
+        nd->children->data = ti_do_continue;
         return;
     case CLERI_GID_K_BREAK:
         if (~qbind->flags & TI_QBIND_FLAG_FOR_LOOP)
             qbind->flags |= TI_QBIND_FLAG_ILL_BREAK;
-        nd->data = ti_do_break;
+        nd->children->data = ti_do_break;
         return;
     case CLERI_GID_CLOSURE:
-        qbind__closure(qbind, nd);
+        qbind__closure(qbind, nd->children);
         return;
     case CLERI_GID_EXPRESSION:
         qbind->flags &= ~TI_QBIND_FLAG_ON_VAR;
-        qbind__expression(qbind, nd);
+        qbind__expression(qbind, nd->children);
         return;
     case CLERI_GID_OPERATIONS:
-        qbind__operations(qbind, nd, 0);
+        qbind__operations(qbind, &nd->children, 0);
     }
 }
 

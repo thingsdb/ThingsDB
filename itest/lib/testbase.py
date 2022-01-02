@@ -82,7 +82,7 @@ class TestBase(unittest.TestCase):
                 await client.query(r"""//ti
                     del_collection('stuff');
                     new_collection('stuff');
-                    // set_default_deep('//stuff', 1);
+                    set_default_deep('//stuff', 1);
                 """)
                 await self.wait_nodes_ready(client, success_count=1)
                 await f(self, *args, **kwargs)

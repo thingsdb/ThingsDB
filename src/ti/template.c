@@ -60,20 +60,13 @@ str_t * template_str(const char * s, size_t n, size_t nn)
 
 int template_child(cleri_node_t ** childaddr, const char * str, size_t n)
 {
-    cleri_node_t * ichild = malloc(sizeof(cleri_node_t));
     cleri_node_t * inode = cleri__node_new(&regex_t, str, n);
-    if (!ichild || !inode)
-    {
-        free(ichild);
-        free(inode);
+    if (!inode)
         return -1;
-    }
 
     inode->data = NULL;
-    ichild->next = *childaddr;
-    ichild = inode;
-
-    *childaddr = ichild;
+    inode->next = *childaddr;
+    *childaddr = inode;
     return 0;
 }
 

@@ -28,6 +28,11 @@ class TestProcedures(TestBase):
         await self.node0.init_and_run()
 
         client0 = await get_client(self.node0)
+
+        await client0.query("""//ti
+            set_default_deep('//stuff', 1);
+        """)
+
         client0.set_default_scope('@:stuff')
 
         with self.assertRaisesRegex(

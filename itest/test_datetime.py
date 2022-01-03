@@ -584,8 +584,8 @@ class TestDatetime(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'expecting type `str` or `int` as collection '
-                r'but got type `nil` instead'):
+                r'expecting a scope to be of type `str` but got '
+                r'type `nil` instead'):
             await client.query('set_time_zone(nil, "");', scope='@t')
 
         with self.assertRaisesRegex(
@@ -595,8 +595,8 @@ class TestDatetime(TestBase):
             await client.query('set_time_zone("stuff", nil);', scope='@t')
 
         with self.assertRaisesRegex(
-                LookupError,
-                'collection `` not found'):
+                ValueError,
+                'invalid scope; scopes must not be empty;'):
             await client.query('set_time_zone("", "UTC");', scope='@t')
 
         with self.assertRaisesRegex(

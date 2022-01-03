@@ -4,7 +4,7 @@ static int do__f_again_in(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
     time_t run_at, now = util_now_tsec();
-    ti_tz_t * tz = query->collection ? query->collection->tz : ti_tz_utc();
+    ti_tz_t * tz = fn_default_tz(query);
     ti_vtask_t * vtask;
     ti_datetime_t * dt;
     datetime_unit_e unit;

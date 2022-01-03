@@ -18,8 +18,8 @@ ti_collection_t * ti_collection_create(
         guid_t * guid,
         const char * name,
         size_t n,
-        ti_tz_t * tz,
         uint64_t created_at,
+        ti_tz_t * tz,
         uint8_t deep);
 void ti_collection_destroy(ti_collection_t * collection);
 void ti_collection_drop(ti_collection_t * collection);

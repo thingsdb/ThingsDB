@@ -227,10 +227,10 @@ ti_pkg_t * ti_module_conf_pkg(ti_val_t * val, ti_query_t * query)
     msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
     /*
-     * Module configuration will be packed 2 levels deep. This is a fixed
+     * Module configuration will be packed 3 levels deep. This is a fixed
      * setting and should be sufficient to configure a module.
      */
-    if (ti_val_to_client_pk(val, &vp, 2))
+    if (ti_val_to_client_pk(val, &vp, 3))
     {
         msgpack_sbuffer_destroy(&buffer);
         return NULL;

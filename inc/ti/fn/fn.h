@@ -109,6 +109,15 @@ static inline int fn_is_not_node_scope(ti_query_t * query)
         query->qbind.flags & (TI_QBIND_FLAG_THINGSDB|TI_QBIND_FLAG_COLLECTION);
 }
 
+static inline ti_tz_t * fn_default_tz(ti_query_t * query)
+{
+    return query->collection
+            ? query->collection->tz
+            : query->qbind.flags & TI_QBIND_FLAG_THINGSDB
+            ? ti.t_tz
+            : ti.n_tz;
+}
+
 static inline int fn_not_node_scope(
         const char * name,
         ti_query_t * query,

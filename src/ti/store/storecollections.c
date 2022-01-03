@@ -133,8 +133,8 @@ int ti_store_collections_restore(const char * fn)
                 &guid,
                 mp_name.via.str.data,
                 mp_name.via.str.n,
-                tz,
                 mp_created.via.u64,
+                tz,
                 mp_deep.via.u64);
         if (!collection || vec_push(&ti.collections->vec, collection))
             goto fail;  /* might leak a few bytes for the time zone */

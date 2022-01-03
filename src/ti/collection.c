@@ -37,8 +37,8 @@ ti_collection_t * ti_collection_create(
         guid_t * guid,
         const char * name,
         size_t n,
-        ti_tz_t * tz,
         uint64_t created_at,
+        ti_tz_t * tz,
         uint8_t deep)
 {
     ti_collection_t * collection = malloc(sizeof(ti_collection_t));

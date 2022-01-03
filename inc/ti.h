@@ -160,7 +160,7 @@ static inline int ti_sleep(int ms)
 static inline int ti_to_pk(msgpack_packer * pk)
 {
     return -(
-        msgpack_pack_map(pk, 5) ||
+        msgpack_pack_map(pk, 6) ||
 
         mp_pack_str(pk, "schema") ||
         msgpack_pack_uint8(pk, TI_FN_SCHEMA) ||
@@ -169,6 +169,11 @@ static inline int ti_to_pk(msgpack_packer * pk)
         msgpack_pack_array(pk, 2) ||
         msgpack_pack_uint8(pk, ti.t_deep) ||
         msgpack_pack_uint8(pk, ti.n_deep) ||
+
+        mp_pack_str(pk, "tz") ||
+        msgpack_pack_array(pk, 2) ||
+        msgpack_pack_uint64(pk, ti.t_tz->index) ||
+        msgpack_pack_uint64(pk, ti.n_tz->index) ||
 
         mp_pack_str(pk, "change_id") ||
         msgpack_pack_uint64(pk, ti.last_change_id) ||

@@ -272,8 +272,16 @@ int ti_build(void)
     int rc = -1;
     ti_change_t * change = NULL;
 
+    /* In ThingsDB versions before 1.2.0 the deep value was set to one (1) but
+     * is changed to make it easier for new users. The need for a "low" deep
+     * value is also less needed as ThingsDB got protection for large results
+     * and ensures that nested self-references are only exported by Id, thus
+     * without content.
+     */
     ti.t_deep = TI_MAX_DEEP;
     ti.n_deep = TI_MAX_DEEP;
+    ti.t_tz = ti_tz_utc();
+    ti.n_tz = ti_tz_utc();
 
     if (ti_build_node())
         goto failed;
@@ -388,12 +396,14 @@ int ti_unpack(uchar * data, size_t n)
              mp_change_id,
              mp_next_node_id,
              mp_t_deep,
-             mp_n_deep;
+             mp_n_deep,
+             mp_t_tz,
+             mp_n_tz;
     uint32_t node_id;
 
     mp_unp_init(&up, data, (size_t) n);
 
-    if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 5 ||
+    if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 6 ||
 
         mp_skip(&up) != MP_STR ||  /* schema */
         mp_skip(&up) != MP_U64 ||
@@ -403,6 +413,12 @@ int ti_unpack(uchar * data, size_t n)
 
         mp_next(&up, &mp_t_deep) != MP_U64 ||
         mp_next(&up, &mp_n_deep) != MP_U64 ||
+
+        mp_skip(&up) != MP_STR ||  /* time zone */
+        mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
+
+        mp_next(&up, &mp_t_tz) != MP_U64 ||
+        mp_next(&up, &mp_n_tz) != MP_U64 ||
 
         mp_skip(&up) != MP_STR ||  /* change_id */
         mp_next(&up, &mp_change_id) != MP_U64 ||
@@ -432,9 +448,12 @@ int ti_unpack(uchar * data, size_t n)
         ) goto fail;
         log_warning(
                 "migrating from schema 0; "
-                "set both @thingsdb and @node deep to 1");
+                "set both @thingsdb and @node `deep` to 1; "
+                "set both @thingsdb and @node `time-zone` to UTC");
         mp_t_deep.via.u64 = 1;
         mp_n_deep.via.u64 = 1;
+        mp_t_tz.via.u64 = TI_TZ_UTC_INDEX;
+        mp_n_tz.via.u64 = TI_TZ_UTC_INDEX;
     }
 
     if (ti_read_node_id(&node_id))
@@ -442,6 +461,8 @@ int ti_unpack(uchar * data, size_t n)
 
     ti.t_deep = mp_t_deep.via.u64;
     ti.n_deep = mp_n_deep.via.u64;
+    ti.t_tz = ti_tz_from_index(mp_t_tz.via.u64);
+    ti.n_tz = ti_tz_from_index(mp_n_tz.via.u64);
     ti.nodes->next_id = mp_next_node_id.via.u64;
     ti.last_change_id = mp_change_id.via.u64;
     ti.node = ti_nodes_node_by_id(node_id);

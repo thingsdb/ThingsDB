@@ -274,7 +274,7 @@ done:
     }
     else
     {
-        ti_tz_t * tz = query->collection ? query->collection->tz : ti_tz_utc();
+        ti_tz_t * tz = fn_default_tz(query);
         query->rval = (ti_val_t *) ti_datetime_from_tm_tz(&tm, tz, e);
     }
 
@@ -289,7 +289,7 @@ static int do__datetime(
         ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_tz_t * tz = query->collection ? query->collection->tz : ti_tz_utc();
+    ti_tz_t * tz = fn_default_tz(query);
 
     if (fn_nargs_max(fname, doc, 7, nargs, e))
         return e->nr;

@@ -1,10 +1,13 @@
-# v1.1.3
+# v1.2.0
 
 * Fixed allocation bug in reverse buffer, issue #253.
 * Added `if..else` as statement *(marked `if()` as deprecated)*, issue #254.
 * Added `return` as statement *(marked `return()` as deprecated)*, issue #255.
 * Added `for..in` with `break` and `continue` statements, issue #257.
 * Fixed memory leak with re-assigning closure variable, issue #259.
+* Upgrade to **libcleri v1.0.0**, issue #263.
+* Configurable `deep` value per scope and changed defaults, issue #261.
+* Set time zone per scope instead of collection only, issue #260.
 
 # v1.1.2
 

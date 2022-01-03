@@ -124,19 +124,21 @@ class TestThingsDBFunctions(TestBase):
 
         collections = await client.query('collections_info();')
         self.assertEqual(len(collections), 1)
-        self.assertEqual(len(collections[0]), 5)
+        self.assertEqual(len(collections[0]), 6)
 
         self.assertIn("collection_id", collections[0])
         self.assertIn("name", collections[0])
         self.assertIn("things", collections[0])
         self.assertIn("created_at", collections[0])
         self.assertIn("time_zone", collections[0])
+        self.assertIn("default_deep", collections[0])
 
         self.assertTrue(isinstance(collections[0]["collection_id"], int))
         self.assertTrue(isinstance(collections[0]["name"], str))
         self.assertTrue(isinstance(collections[0]["things"], int))
         self.assertTrue(isinstance(collections[0]["created_at"], int))
         self.assertTrue(isinstance(collections[0]["time_zone"], str))
+        self.assertTrue(isinstance(collections[0]["default_deep"], int))
 
         # at least one info should be checked for a correct created_at info
         self.assertGreater(collections[0]['created_at'], now - 60)

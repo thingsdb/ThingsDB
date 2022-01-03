@@ -8,7 +8,7 @@ static int do__f_type_count(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_collection_scope("type_count", query, e) ||
         fn_nargs("type_count", DOC_TYPE_COUNT, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str("type_count", DOC_TYPE_COUNT, 1, query->rval, e))
         return e->nr;
 

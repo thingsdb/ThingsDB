@@ -34,7 +34,7 @@ static int forloop__set_prop(
     {
     default:
     case 2:
-        prop = vars_nd->children->next->node->data;
+        prop = vars_nd->children->next->data;
         ti_incref(val);
         ti_val_unsafe_gc_drop(prop->val);
         prop->val = val;
@@ -91,7 +91,7 @@ static int forloop__walk_set(ti_thing_t * t, forloop__walk_t * w)
     {
     default:
     case 2:
-        prop = w->vars_nd->children->next->node->data;
+        prop = w->vars_nd->children->next->data;
         ti_val_unsafe_gc_drop(prop->val);
         prop->val = t->id
                 ? (ti_val_t *) ti_vint_create((int64_t) t->id)
@@ -166,7 +166,7 @@ int ti_forloop_arr(
         {
         default:
         case 2:
-            prop = vars_nd->children->next->node->data;
+            prop = vars_nd->children->next->data;
             ti_val_unsafe_gc_drop(prop->val);
             prop->val = (ti_val_t *) ti_vint_create(idx);
             if (!prop->val)

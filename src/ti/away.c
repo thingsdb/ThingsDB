@@ -172,8 +172,8 @@ static void away__work(uv_work_t * UNUSED(work))
 {
     uv_mutex_lock(ti.changes->lock);
 
-    if (ti_flag_test(TI_FLAG_NODES_CHANGED) && ti_save() == 0)
-        ti_flag_rm(TI_FLAG_NODES_CHANGED);
+    if (ti_flag_test(TI_FLAG_TI_CHANGED) && ti_save() == 0)
+        ti_flag_rm(TI_FLAG_TI_CHANGED);
 
     /* cleanup query cache */
     ti_qcache_cleanup();

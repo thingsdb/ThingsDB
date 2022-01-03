@@ -12,7 +12,7 @@ static int do__f_set_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_collection_scope("set_enum", query, e) ||
         fn_nargs("set_enum", DOC_SET_ENUM, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str("set_enum", DOC_SET_ENUM, 1, query->rval, e))
         return e->nr;
 
@@ -78,7 +78,7 @@ static int do__f_set_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+    if (ti_do_statement(query, nd->children->next->next, e) ||
         fn_arg_thing("set_enum", DOC_SET_ENUM, 2, query->rval, e))
         goto fail2;
 

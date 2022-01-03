@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2021-12-24 12:32:44
+ * Created at: 2022-01-02 15:00:42
  */
 
 #include <langdef/langdef.h>
@@ -297,14 +297,19 @@ cleri_grammar_t * compile_langdef(void)
     );
     cleri_t * statement = cleri_prio(
         CLERI_GID_STATEMENT,
-        8,
-        if_statement,
-        return_statement,
-        for_statement,
+        4,
         k_continue,
         k_break,
-        closure,
-        expression,
+        cleri_choice(
+            CLERI_NONE,
+            CLERI_FIRST_MATCH,
+            5,
+            if_statement,
+            return_statement,
+            for_statement,
+            closure,
+            expression
+        ),
         operations
     );
     cleri_t * statements = cleri_list(CLERI_GID_STATEMENTS, statement, cleri_sequence(

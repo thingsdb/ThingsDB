@@ -418,7 +418,7 @@ static int do__replace_str(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * str;
     ti_val_t * old, * new;
     ti_vint_t * vnum = NULL;
-    cleri_children_t * child;
+    cleri_node_t * child;
 
     if (fn_nargs_range("replace", DOC_STR_REPLACE, 2, 3, nargs, e))
         return e->nr;
@@ -426,14 +426,14 @@ static int do__replace_str(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     str = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, (child = nd->children)->node, e) ||
+    if (ti_do_statement(query, (child = nd->children), e) ||
         fn_arg_str_regex("replace", DOC_STR_REPLACE, 1, query->rval, e))
         goto fail0;
 
     old = query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+    if (ti_do_statement(query, (child = child->next->next), e) ||
         fn_arg_str_closure("replace", DOC_STR_REPLACE, 2, query->rval, e))
         goto fail1;
 
@@ -442,7 +442,7 @@ static int do__replace_str(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 3)
     {
-        if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+        if (ti_do_statement(query, (child = child->next->next), e) ||
             fn_arg_int("replace", DOC_STR_REPLACE, 2, query->rval, e))
             goto fail2;
 
@@ -754,7 +754,7 @@ static int do__replace_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_unsafe_drop((ti_val_t *) dt);
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         fn_arg_thing("replace", DOC_DATETIME_REPLACE, 1, query->rval, e))
         return e->nr;
 

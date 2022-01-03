@@ -15,7 +15,7 @@ static int do__f_starts_with(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     raw = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         fn_arg_str("starts_with", DOC_STR_STARTS_WITH, 1, query->rval, e))
         goto failed;
 

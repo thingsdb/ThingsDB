@@ -5,11 +5,11 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
     int sargs = 1;
-    int deep = 1;
+    int deep = query->qbind.deep;
     ti_room_t * room;
     ti_raw_t * revent;
     vec_t * vec = NULL;
-    cleri_children_t * child = nd->children;
+    cleri_node_t * child = nd->children;
 
     if (!ti_val_is_room(query->rval))
         return fn_call_try("emit", query, nd, e);
@@ -20,7 +20,7 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     room = (ti_room_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, child->node, e))
+    if (ti_do_statement(query, child, e))
         goto fail0;
 
     if (ti_val_is_int(query->rval))
@@ -39,12 +39,12 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         deepi = VINT(query->rval);
 
-        if (deepi < 0 || deepi > TI_MAX_DEEP_HINT)
+        if (deepi < 0 || deepi > TI_MAX_DEEP)
         {
             ex_set(e, EX_VALUE_ERROR,
                     "expecting a `deep` value between 0 and %d "
                     "but got %"PRId64" instead",
-                    TI_MAX_DEEP_HINT, deepi);
+                    TI_MAX_DEEP, deepi);
             goto fail0;
         }
 
@@ -53,7 +53,7 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
 
-        if (ti_do_statement(query, (child = child->next->next)->node, e))
+        if (ti_do_statement(query, (child = child->next->next), e))
             goto fail0;
     }
 
@@ -92,7 +92,7 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         do
         {
-            if (ti_do_statement(query, child->node, e))
+            if (ti_do_statement(query, child, e))
                 goto fail2;
 
             VEC_push(vec, query->rval);

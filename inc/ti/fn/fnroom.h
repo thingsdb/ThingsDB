@@ -12,7 +12,7 @@ static int do__f_room(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         int64_t id;
         ti_room_t * room;
 
-        if (ti_do_statement(query, nd->children->node, e) ||
+        if (ti_do_statement(query, nd->children, e) ||
             ti_val_is_room(query->rval))
             return e->nr;
 

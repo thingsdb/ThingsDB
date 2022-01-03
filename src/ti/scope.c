@@ -357,3 +357,39 @@ ti_collection_t * ti_scope_get_collection(ti_scope_t * scope, ex_t * e)
         return collection;
     }
 }
+
+void ti_scope_set_tz(uint64_t scope_id, ti_tz_t * tz)
+{
+    ti_collection_t * collection;
+    switch (scope_id)
+    {
+    case TI_SCOPE_THINGSDB:
+        ti.t_tz = tz;
+        return;
+    case TI_SCOPE_NODE:
+        ti.n_tz = tz;
+        return;
+    }
+
+    collection = ti_collections_get_by_id(scope_id);
+    if (collection)
+        collection->tz = tz;
+}
+
+void ti_scope_set_deep(uint64_t scope_id, uint8_t deep)
+{
+    ti_collection_t * collection;
+    switch (scope_id)
+    {
+    case TI_SCOPE_THINGSDB:
+        ti.t_deep = deep;
+        return;
+    case TI_SCOPE_NODE:
+        ti.n_deep = deep;
+        return;
+    }
+
+    collection = ti_collections_get_by_id(scope_id);
+    if (collection)
+        collection->deep = deep;
+}

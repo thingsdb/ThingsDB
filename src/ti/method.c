@@ -71,7 +71,7 @@ int ti_method_call(
         cleri_node_t * nd,
         ex_t * e)
 {
-    cleri_children_t * child = nd->children;    /* first in argument list */
+    cleri_node_t * child = nd->children;        /* first in argument list */
     vec_t * args = NULL;
     uint32_t n = method->closure->vars->n;
     ti_thing_t * thing = (ti_thing_t *) query->rval;
@@ -95,7 +95,7 @@ int ti_method_call(
         {
             --n;  // outside `while` so we do not go below zero
 
-            if (ti_do_statement(query, child->node, e) ||
+            if (ti_do_statement(query, child, e) ||
                 ti_val_make_variable(&query->rval, e))
                 goto fail1;
 

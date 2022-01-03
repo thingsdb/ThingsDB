@@ -68,13 +68,11 @@ static inline _Bool ti_query_wse(ti_query_t * query)
 
 static inline const char * ti_query_scope_name(ti_query_t * query)
 {
-    return query->qbind.flags & TI_QBIND_FLAG_NODE
-            ? "@node"
-            : query->qbind.flags & TI_QBIND_FLAG_THINGSDB
+    return query->qbind.flags & TI_QBIND_FLAG_THINGSDB
             ? "@thingsdb"
             : query->qbind.flags & TI_QBIND_FLAG_COLLECTION
             ? "@collection"
-            : "<unknown>";
+            : "@node";
 }
 
 #endif  /* TI_QUERY_H_ */

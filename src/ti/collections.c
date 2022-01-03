@@ -145,7 +145,6 @@ ti_collection_t * ti_collections_create_collection(
 {
     guid_t guid;
     ti_collection_t * collection = NULL;
-    ti_tz_t * tz = ti_tz_utc();
 
     if (!ti_name_is_valid_strn(name, name_n))
     {
@@ -175,7 +174,16 @@ ti_collection_t * ti_collections_create_collection(
 
     guid_init(&guid, root_id);
 
-    collection = ti_collection_create(&guid, name, name_n, tz, created_at);
+    /* By default, the time zone and deep level will be inherited from the
+     * @thingsdb scope.
+     */
+    collection = ti_collection_create(
+            &guid,
+            name,
+            name_n,
+            created_at,
+            ti.t_tz,
+            ti.t_deep);
     if (!collection || vec_push(&collections->vec, collection))
     {
         ex_set_mem(e);

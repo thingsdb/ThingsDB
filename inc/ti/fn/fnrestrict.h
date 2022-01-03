@@ -28,7 +28,7 @@ static int do__f_restrict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         fn_arg_str_nil("restrict", DOC_THING_RESTRICT, 1, query->rval, e))
         goto done;
 

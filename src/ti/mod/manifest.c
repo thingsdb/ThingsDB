@@ -292,7 +292,7 @@ static ti_item_t * manifest__make_item(
 
 
 #define manifest__err_deep(__ctx, __notv) \
-    manifest__set_err(__ctx, "expecting a `deep` value between 0 and %d in "TI_MANIFEST", "__notv, TI_MAX_DEEP_HINT);
+    manifest__set_err(__ctx, "expecting a `deep` value between 0 and %d in "TI_MANIFEST", "__notv, TI_MAX_DEEP);
 
 
 #define manifest__err_load(__ctx, __notv) \
@@ -457,12 +457,12 @@ static int manifest__json_integer(void * data, long long i)
     case MF__DOC:               return manifest__err_doc(ctx, TI_NNUM);
     case MF__DEFAULTS:          return manifest__err_defaults(ctx, TI_NNUM);
     case MF__DEFAULTS_DEEP:
-        if (i < 0 || i > TI_MAX_DEEP_HINT)
+        if (i < 0 || i > TI_MAX_DEEP)
             return manifest__set_err(
                     ctx,
                     "expecting a `deep` value between 0 and %d "
                     "in "TI_MANIFEST", not %lld",
-                    TI_MAX_DEEP_HINT, i);
+                    TI_MAX_DEEP, i);
         if (!ctx->manifest->deep)
         {
             ctx->manifest->deep = malloc(sizeof(uint8_t));
@@ -487,12 +487,12 @@ static int manifest__json_integer(void * data, long long i)
     case MF__X_DEFAULTS_DEEP:
     {
         ti_mod_expose_t * expose = ctx->data;
-        if (i < 0 || i > TI_MAX_DEEP_HINT)
+        if (i < 0 || i > TI_MAX_DEEP)
             return manifest__set_err(
                     ctx,
                     "expecting a `deep` value between 0 and %d "
                     "in "TI_MANIFEST", not %lld",
-                    TI_MAX_DEEP_HINT, i);
+                    TI_MAX_DEEP, i);
         if (!expose->deep)
         {
             expose->deep = malloc(sizeof(uint8_t));
@@ -531,12 +531,12 @@ static int manifest__json_double(void * data, double d)
     case MF__DOC:               return manifest__err_doc(ctx, TI_NNUM);
     case MF__DEFAULTS:          return manifest__err_defaults(ctx, TI_NNUM);
     case MF__DEFAULTS_DEEP:
-        if (d < 0 || d > TI_MAX_DEEP_HINT)
+        if (d < 0 || d > TI_MAX_DEEP)
             return manifest__set_err(
                     ctx,
                     "expecting a `deep` value between 0 and %d "
                     "in "TI_MANIFEST", not %f",
-                    TI_MAX_DEEP_HINT, d);
+                    TI_MAX_DEEP, d);
         if (!ctx->manifest->deep)
         {
             ctx->manifest->deep = malloc(sizeof(uint8_t));
@@ -561,12 +561,12 @@ static int manifest__json_double(void * data, double d)
     case MF__X_DEFAULTS_DEEP:
     {
         ti_mod_expose_t * expose = ctx->data;
-        if (d < 0 || d > TI_MAX_DEEP_HINT)
+        if (d < 0 || d > TI_MAX_DEEP)
             return manifest__set_err(
                     ctx,
                     "expecting a `deep` value between 0 and %d "
                     "in "TI_MANIFEST", not %f",
-                    TI_MAX_DEEP_HINT, d);
+                    TI_MAX_DEEP, d);
         if (!expose->deep)
         {
             expose->deep = malloc(sizeof(uint8_t));

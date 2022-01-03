@@ -74,7 +74,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     iterval = query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         fn_arg_closure("filter", doc, 1, query->rval, e))
         goto fail0;
 

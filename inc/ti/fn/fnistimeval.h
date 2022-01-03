@@ -6,7 +6,7 @@ static int do__f_is_timeval(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool is_timeval;
 
     if (fn_nargs("is_timeval", DOC_IS_TIMEVAL, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     is_timeval = ti_val_is_timeval(query->rval);

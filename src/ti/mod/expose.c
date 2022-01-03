@@ -41,7 +41,7 @@ int ti_mod_expose_call(
 {
     unsigned int nargs = (unsigned int) fn_get_nargs(nd);
     ti_future_t * future = (ti_future_t *) query->rval;
-    cleri_children_t * child = nd->children;
+    cleri_node_t * child = nd->children;
     ti_module_t * module = future->module;
     size_t defaults_n = expose->defaults ? expose->defaults->n : 0;
     ti_thing_t * thing;
@@ -79,7 +79,7 @@ int ti_mod_expose_call(
                     ti_thing_t * tsrc;
                     ti_val_t * deep_val, * load_val;
 
-                    if (ti_do_statement(query, child->node, e))
+                    if (ti_do_statement(query, child, e))
                         goto fail1;
 
                     switch(query->rval->tp)
@@ -120,7 +120,7 @@ int ti_mod_expose_call(
 
             if (child)
             {
-                if (ti_do_statement(query, child->node, e))
+                if (ti_do_statement(query, child, e))
                     goto fail1;
 
                 child = child->next ? child->next->next : NULL;
@@ -163,7 +163,7 @@ int ti_mod_expose_call(
     {
         ti_val_t * deep_val, * load_val;
 
-        if (ti_do_statement(query, child->node, e))
+        if (ti_do_statement(query, child, e))
             goto fail0;
 
         if (!ti_val_is_thing(query->rval))
@@ -230,7 +230,7 @@ int ti_mod_expose_call(
 
     for (;child; child = child->next ? child->next->next : NULL)
     {
-        if (ti_do_statement(query, child->node, e))
+        if (ti_do_statement(query, child, e))
             goto fail1;
 
         VEC_push(future->args, query->rval);
@@ -291,7 +291,7 @@ int ti_mod_expose_info_to_vp(
         if (expose->defaults)
             for (vec_each(expose->defaults, ti_item_t, item))
                 if (mp_pack_strn(pk, item->key->data, item->key->n) ||
-                    ti_val_to_client_pk(item->val, vp, TI_MAX_DEEP_HINT))
+                    ti_val_to_client_pk(item->val, vp, TI_MAX_DEEP))
                     return -1;
     }
 

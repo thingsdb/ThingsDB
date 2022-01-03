@@ -75,7 +75,7 @@ struct ti_query_s
 {
     uint32_t local_stack;       /* variable scopes start here */
     uint16_t pkg_id;            /* package id to return the query to */
-    uint8_t with_tp;
+    uint8_t with_tp;            /* one of ti_query_with_enum */
     uint8_t flags;
     ti_qbind_t qbind;               /* query binding */
     ti_val_t * rval;                /* return value of a statement */

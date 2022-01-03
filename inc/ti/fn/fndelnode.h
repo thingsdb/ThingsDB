@@ -9,7 +9,7 @@ static int do__f_del_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_scope("del_node", query, e) ||
         fn_nargs("del_node", DOC_DEL_NODE, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_int("del_node", DOC_DEL_NODE, 1, query->rval, e))
         return e->nr;
 

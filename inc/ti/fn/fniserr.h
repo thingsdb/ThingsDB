@@ -6,7 +6,7 @@ static int do__f_is_err(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool is_error;
 
     if (fn_nargs("is_err", DOC_IS_ERR, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     is_error = ti_val_is_error(query->rval);

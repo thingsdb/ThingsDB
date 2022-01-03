@@ -8,7 +8,7 @@ static int do__f_collection_info(ti_query_t * query, cleri_node_t * nd, ex_t * e
 
     if (fn_not_thingsdb_scope("collection_info", query, e) ||
         fn_nargs("collection_info", DOC_COLLECTION_INFO, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     if (ti_access_check(ti.access_thingsdb, user, TI_AUTH_CHANGE))

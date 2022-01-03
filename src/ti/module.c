@@ -227,10 +227,10 @@ ti_pkg_t * ti_module_conf_pkg(ti_val_t * val, ti_query_t * query)
     msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
     /*
-     * Module configuration will be packed 2 levels deep. This is a fixed
+     * Module configuration will be packed 3 levels deep. This is a fixed
      * setting and should be sufficient to configure a module.
      */
-    if (ti_val_to_client_pk(val, &vp, 2))
+    if (ti_val_to_client_pk(val, &vp, 3))
     {
         msgpack_sbuffer_destroy(&buffer);
         return NULL;
@@ -1417,7 +1417,7 @@ static int module__info_to_vp(ti_module_t * module, ti_vp_t * vp, int flags)
         if (manifest->defaults)
             for (vec_each(manifest->defaults, ti_item_t, item))
                 if (mp_pack_strn(pk, item->key->data, item->key->n) ||
-                    ti_val_to_client_pk(item->val, vp, TI_MAX_DEEP_HINT))
+                    ti_val_to_client_pk(item->val, vp, TI_MAX_DEEP))
                     return -1;
     }
 
@@ -1499,8 +1499,8 @@ int ti_module_write(ti_module_t * module, const void * data, size_t n)
 int ti_module_read_args(
         ti_module_t * module,
         ti_thing_t * thing,
-        _Bool * load,
-        uint8_t * deep,
+        _Bool * load,       /* load may be undefined */
+        uint8_t * deep,     /* deep must have a default value */
         ex_t * e)
 {
     ti_name_t * deep_name = (ti_name_t *) ti_val_borrow_deep_name();
@@ -1511,7 +1511,7 @@ int ti_module_read_args(
     if (!deep_val)
         *deep = module->manifest.deep
             ? *module->manifest.deep
-            : TI_MODULE_DEFAULT_DEEP;
+            : *deep;
     else if (ti_deep_from_val(deep_val, deep, e))
         return e->nr;
 
@@ -1557,8 +1557,8 @@ int ti_module_call(
 
     const int nargs = fn_get_nargs(nd);
     _Bool load = false;
-    uint8_t deep = 1;
-    cleri_children_t * child = nd->children;
+    uint8_t deep = query->qbind.deep;
+    cleri_node_t * child = nd->children;
     ti_future_t * future;
 
     if (ti.futures_count >= TI_MAX_FUTURE_COUNT)
@@ -1588,7 +1588,7 @@ int ti_module_call(
 
     ti_incref(module);  /* take a reference to module */
 
-    if (ti_do_statement(query, child->node, e))
+    if (ti_do_statement(query, child, e))
         goto fail0;
 
     if (!ti_val_is_thing(query->rval))
@@ -1620,7 +1620,7 @@ int ti_module_call(
 
     while ((child = child->next) && (child = child->next))
     {
-        if (ti_do_statement(query, child->node, e))
+        if (ti_do_statement(query, child, e))
             goto fail2;
 
         VEC_push(future->args, query->rval);

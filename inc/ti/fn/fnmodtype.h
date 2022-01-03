@@ -350,7 +350,7 @@ static void type__add(
         ex_t * e)
 {
     static const char * fnname = "mod_type` with task `add";
-    cleri_children_t * child;
+    cleri_node_t * child;
     ti_task_t * task;
     ti_raw_t * spec_raw;
     ti_val_t * dval;
@@ -372,7 +372,7 @@ static void type__add(
 
     child = nd->children->next->next->next->next->next->next;
 
-    if (ti_do_statement(query, child->node, e))
+    if (ti_do_statement(query, child, e))
         return;
 
     if (ti_val_is_closure(query->rval))
@@ -437,7 +437,7 @@ static void type__add(
          * potentially generated instances of this type must be without the
          * new field.
          */
-        if (ti_do_statement(query, child->next->next->node, e))
+        if (ti_do_statement(query, child->next->next, e))
             goto fail0;
     }
 
@@ -810,7 +810,7 @@ static void type__mod(
     ti_field_t * field = ti_field_by_name(type, name);
     ti_method_t * method = field ? NULL : ti_method_by_name(type, name);
 
-    cleri_children_t * child;
+    cleri_node_t * child;
 
     if (fn_nargs_range(fnname, DOC_MOD_TYPE_MOD, 4, 5, nargs, e))
         return;
@@ -835,7 +835,7 @@ static void type__mod(
 
     child = nd->children->next->next->next->next->next->next;
 
-    if (ti_do_statement(query, child->node, e))
+    if (ti_do_statement(query, child, e))
         return;
 
     if (ti_val_is_closure(query->rval))
@@ -934,7 +934,7 @@ static void type__mod(
             (void) type__mod_using_callback(
                     fnname,
                     query,
-                    child->next->next->node,
+                    child->next->next,
                     field,
                     spec_raw,
                     e);
@@ -980,7 +980,7 @@ static void type__ren(
 
     if (ti_do_statement(
             query,
-            nd->children->next->next->next->next->next->next->node,
+            nd->children->next->next->next->next->next->next,
             e) ||
             fn_arg_str_slow(fnname, DOC_MOD_TYPE_REN, 4, query->rval, e))
         return;
@@ -1247,7 +1247,7 @@ static void type__rel(
 
     if (ti_do_statement(
             query,
-            nd->children->next->next->next->next->next->next->node,
+            nd->children->next->next->next->next->next->next,
             e))
         return;
 
@@ -1290,7 +1290,7 @@ static void type__all(
     ti_task_t * task;
     imap_t * imap;
 
-    nd = nd->children->next->next->next->next->node;
+    nd = nd->children->next->next->next->next;
 
     if (fn_nargs(fnname, DOC_MOD_TYPE_ALL, 3, nargs, e) ||
         ti_do_statement(query, nd, e) ||
@@ -1347,7 +1347,7 @@ static void type__wpo(
     ti_task_t * task;
     ssize_t n;
 
-    nd = nd->children->next->next->next->next->node;
+    nd = nd->children->next->next->next->next;
 
     if (fn_nargs(fnname, DOC_MOD_TYPE_WPO, 3, nargs, e) ||
         ti_do_statement(query, nd, e) ||
@@ -1403,12 +1403,12 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_type_t * type;
     ti_raw_t * rmod;
     ti_name_t * name = NULL;
-    cleri_children_t * child = nd->children;
+    cleri_node_t * child = nd->children;
     const int nargs = fn_get_nargs(nd);
 
     if (fn_not_collection_scope("mod_type", query, e) ||
         fn_nargs_min("mod_type", DOC_MOD_TYPE, 3, nargs, e) ||
-        ti_do_statement(query, child->node, e) ||
+        ti_do_statement(query, child, e) ||
         fn_arg_str_slow("mod_type", DOC_MOD_TYPE, 1, query->rval, e))
         return e->nr;
 
@@ -1427,7 +1427,7 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+    if (ti_do_statement(query, (child = child->next->next), e) ||
         fn_arg_name_check("mod_type", DOC_MOD_TYPE, 2, query->rval, e))
         goto fail0;
 
@@ -1446,7 +1446,7 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+    if (ti_do_statement(query, (child = child->next->next), e) ||
         fn_arg_name_check("mod_type", DOC_MOD_TYPE, 3, query->rval, e))
         goto fail1;
 

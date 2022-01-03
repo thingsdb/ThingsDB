@@ -4,7 +4,7 @@ static int do__f_again_in(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
     time_t run_at, now = util_now_tsec();
-    ti_tz_t * tz = query->collection ? query->collection->tz : ti_tz_utc();
+    ti_tz_t * tz = fn_default_tz(query);
     ti_vtask_t * vtask;
     ti_datetime_t * dt;
     datetime_unit_e unit;
@@ -21,7 +21,7 @@ static int do__f_again_in(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_query_task_context(query, vtask, e) ||
         fn_nargs("again_in", DOC_TASK_AGAIN_IN, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str("again_in", DOC_TASK_AGAIN_IN, 1, query->rval, e))
         goto fail0;
 
@@ -36,7 +36,7 @@ static int do__f_again_in(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_unsafe_drop(query->rval);  /* this destroys `raw_unit` */
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+    if (ti_do_statement(query, nd->children->next->next, e) ||
         fn_arg_int("again_in", DOC_TASK_AGAIN_IN, 2, query->rval, e))
         goto fail1;
 

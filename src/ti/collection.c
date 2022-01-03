@@ -37,14 +37,16 @@ ti_collection_t * ti_collection_create(
         guid_t * guid,
         const char * name,
         size_t n,
+        uint64_t created_at,
         ti_tz_t * tz,
-        uint64_t created_at)
+        uint8_t deep)
 {
     ti_collection_t * collection = malloc(sizeof(ti_collection_t));
     if (!collection)
         return NULL;
 
     collection->ref = 1;
+    collection->deep = deep;
     collection->root = NULL;
     collection->name = ti_str_create(name, n);
     collection->things = imap_create();

@@ -8,7 +8,7 @@ static int do__f_del_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_scope("del_module", query, e) ||
         fn_nargs("del_module", DOC_DEL_MODULE, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str_slow("del_module", DOC_DEL_MODULE, 1, query->rval, e))
         return e->nr;
 

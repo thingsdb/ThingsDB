@@ -4,7 +4,7 @@
 static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    cleri_children_t * child = nd->children;
+    cleri_node_t * child = nd->children;
     ti_raw_t * rname;
     uint64_t backup_id;
     uint64_t timestamp = 0;
@@ -18,7 +18,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_not_node_scope("new_backup", query, e) ||
         ti_access_check_err(ti.access_node, query->user, TI_AUTH_CHANGE, e) ||
         fn_nargs_range("new_backup", DOC_NEW_BACKUP, 1, 4, nargs, e) ||
-        ti_do_statement(query, child->node, e) ||
+        ti_do_statement(query, child, e) ||
         fn_arg_str("new_backup", DOC_NEW_BACKUP, 1, query->rval, e))
         return e->nr;
 
@@ -47,7 +47,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         max_files = TI_BACKUP_DEFAULT_MAX_FILES;
 
-        if (ti_do_statement(query, (child = child->next->next)->node, e))
+        if (ti_do_statement(query, (child = child->next->next), e))
             goto fail0;
 
         if (ti_val_is_datetime(query->rval))
@@ -107,7 +107,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs >= 3)
     {
-        if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+        if (ti_do_statement(query, (child = child->next->next), e) ||
             fn_arg_int("new_backup", DOC_NEW_BACKUP, 3, query->rval, e))
             goto fail0;
 
@@ -119,7 +119,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 4)
     {
-        if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+        if (ti_do_statement(query, (child = child->next->next), e) ||
             fn_arg_int("new_backup", DOC_NEW_BACKUP, 4, query->rval, e))
             goto fail0;
 

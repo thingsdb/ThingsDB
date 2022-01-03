@@ -18,9 +18,7 @@ static inline vec_t * ti_query_access(ti_query_t * query)
             ? query->collection->access
             : query->qbind.flags & TI_QBIND_FLAG_THINGSDB
             ? ti.access_thingsdb
-            : query->qbind.flags & TI_QBIND_FLAG_NODE
-            ? ti.access_node
-            : NULL;
+            : ti.access_node;
 }
 
 static inline _Bool ti_query_is_fwd(ti_query_t * query)
@@ -65,15 +63,11 @@ static inline void ti_query_response(ti_query_t * query, ex_t * e)
 
 static inline uint64_t ti_query_scope_id(ti_query_t * query)
 {
-    if (query->collection)
-        return query->collection->root->id;
-    if (query->qbind.flags & TI_QBIND_FLAG_THINGSDB)
-        return TI_SCOPE_THINGSDB;
-    if (query->qbind.flags & TI_QBIND_FLAG_NODE)
-        return TI_SCOPE_NODE;
-
-    assert (0);
-    return 0;
+    return query->collection
+            ?  query->collection->root->id
+            : (query->qbind.flags & TI_QBIND_FLAG_THINGSDB)
+            ? TI_SCOPE_THINGSDB
+            : TI_SCOPE_NODE;
 }
 
 #endif  /* TI_QUERY_INLINE_H_ */

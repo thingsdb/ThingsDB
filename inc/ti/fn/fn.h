@@ -103,12 +103,27 @@ static inline int fn_get_nargs(cleri_node_t * nd)
     return (int) ((intptr_t) nd->data);
 }
 
+static inline int fn_is_not_node_scope(ti_query_t * query)
+{
+    return \
+        query->qbind.flags & (TI_QBIND_FLAG_THINGSDB|TI_QBIND_FLAG_COLLECTION);
+}
+
+static inline ti_tz_t * fn_default_tz(ti_query_t * query)
+{
+    return query->collection
+            ? query->collection->tz
+            : query->qbind.flags & TI_QBIND_FLAG_THINGSDB
+            ? ti.t_tz
+            : ti.n_tz;
+}
+
 static inline int fn_not_node_scope(
         const char * name,
         ti_query_t * query,
         ex_t * e)
 {
-    if (~query->qbind.flags & TI_QBIND_FLAG_NODE)
+    if (fn_is_not_node_scope(query))
         ex_set(e, EX_LOOKUP_ERROR,
             "function `%s` is undefined in the `%s` scope; "
             "you might want to query a `@node` scope?"DOC_SCOPES,
@@ -410,7 +425,7 @@ static inline int fn_not_thingsdb_or_collection_scope(
 
 static int fn_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    cleri_children_t * child = nd->children;    /* first in argument list */
+    cleri_node_t * child = nd->children;    /* first in argument list */
     ti_closure_t * closure;
     vec_t * args = NULL;
 
@@ -435,7 +450,7 @@ static int fn_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             --n;  // outside `while` so we do not go below zero
 
-            if (ti_do_statement(query, child->node, e) ||
+            if (ti_do_statement(query, child, e) ||
                 ti_val_make_variable(&query->rval, e))
                 goto fail1;
 

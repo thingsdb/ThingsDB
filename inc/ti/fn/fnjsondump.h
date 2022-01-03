@@ -42,13 +42,13 @@ static int do__f_json_dump(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             .query=query,
     };
     json_dumps__options_t options = {
-            .deep = 1,
+            .deep = query->qbind.deep,
             .flags = 0,
             .e = e,
     };
 
     if (fn_nargs_range("json_dump", DOC_JSON_DUMP, 1, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     val = query->rval;
@@ -56,7 +56,7 @@ static int do__f_json_dump(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 2)
     {
-        if (ti_do_statement(query, nd->children->next->next->node, e) ||
+        if (ti_do_statement(query, nd->children->next->next, e) ||
             fn_arg_thing("json_dump", DOC_JSON_DUMP, 2, query->rval, e) ||
             ti_thing_walk(
                     (ti_thing_t *) query->rval,

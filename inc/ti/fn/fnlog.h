@@ -7,7 +7,7 @@ static int do__f_log(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * data;
 
     if (fn_nargs("log", DOC_LOG, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         ti_val(query->rval)->to_str(&query->rval, e))
         return e->nr;
 

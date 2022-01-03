@@ -152,6 +152,7 @@
 #define DOC_RENAME_USER             DOC_SEE("thingsdb-api/rename_user")
 #define DOC_RESTORE                 DOC_SEE("thingsdb-api/restore")
 #define DOC_REVOKE                  DOC_SEE("thingsdb-api/revoke")
+#define DOC_SET_DEFAULT_DEEP        DOC_SEE("thingsdb-api/set_default_deep")
 #define DOC_SET_MODULE_CONF         DOC_SEE("thingsdb-api/set_module_conf")
 #define DOC_SET_MODULE_SCOPE        DOC_SEE("thingsdb-api/set_module_scope")
 #define DOC_SET_PASSWORD            DOC_SEE("thingsdb-api/set_password")

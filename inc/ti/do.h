@@ -33,7 +33,7 @@ static inline int ti_do_statement(
         ex_t * e)
 {
     /* Calls ti_do_expression(..) or one of the operations(..) */
-    return ((ti_do_cb) nd->children->node->data)(query, nd->children->node, e);
+    return ((ti_do_cb) nd->children->data)(query, nd->children, e);
 }
 
 #endif /* TI_DO_H_ */

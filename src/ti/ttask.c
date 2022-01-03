@@ -11,6 +11,7 @@
 #include <ti/qbind.h>
 #include <ti/raw.inline.h>
 #include <ti/restore.h>
+#include <ti/scope.h>
 #include <ti/task.t.h>
 #include <ti/token.h>
 #include <ti/ttask.h>
@@ -1162,8 +1163,8 @@ static int ttask__rename_collection(mp_unp_t * up)
  */
 static int ttask__set_time_zone(mp_unp_t * up)
 {
-    ti_collection_t * collection;
     mp_obj_t obj, mp_id, mp_tz;
+    ti_tz_t * tz;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
         mp_skip(up) != MP_STR ||
@@ -1175,16 +1176,31 @@ static int ttask__set_time_zone(mp_unp_t * up)
         return -1;
     }
 
-    collection = ti_collections_get_by_id(mp_id.via.u64);
-    if (!collection)
+    tz = ti_tz_from_index(mp_tz.via.u64);
+    ti_scope_set_tz(mp_id.via.u64, tz);
+
+    return 0;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: {'id':id, 'name':name}
+ */
+static int ttask__set_default_deep(mp_unp_t * up)
+{
+    mp_obj_t obj, mp_id, mp_deep;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_deep) != MP_U64)
     {
-        log_critical(
-                "task `set_time_zone`: "TI_COLLECTION_ID" not found",
-                mp_id.via.u64);
+        log_critical("task `set_default_deep`: invalid format");
         return -1;
     }
 
-    collection->tz = ti_tz_from_index(mp_tz.via.u64);
+    ti_scope_set_deep(mp_id.via.u64, mp_deep.via.u64);
     return 0;
 }
 
@@ -1515,6 +1531,7 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_VTASK_SET_CLOSURE: return ttask__vtask_set_closure(up);
     case TI_TASK_THING_RESTRICT:    break;
     case TI_TASK_THING_REMOVE:      break;
+    case TI_TASK_SET_DEFAULT_DEEP:  return ttask__set_default_deep(up);
     }
 
     log_critical("unknown thingsdb task: %"PRIu64, mp_task.via.u64);

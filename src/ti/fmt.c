@@ -27,17 +27,17 @@ static inline int fmt__indent_str(ti_fmt_t * fmt, const char * str)
 
 static inline _Bool fmt__has_next_chain(cleri_node_t * nd)
 {
-    cleri_children_t * child = nd->children->next->next->next;
-    return  child && child->node->children->next->node->children->next;
+    cleri_node_t * child = nd->children->next->next->next;
+    return  child && child->children->next->children->next;
 }
 
 static int fmt__index(ti_fmt_t * fmt, cleri_node_t * nd)
 {
-    cleri_children_t * child = nd->children;
+    cleri_node_t * child = nd->children;
     do
     {
-        cleri_children_t * c = child->node     /* sequence */
-                ->children->next->node         /* slice */
+        cleri_node_t * c = child        /* sequence */
+                ->children->next        /* slice */
                 ->children;
 
         if (buf_write(&fmt->buf, '['))
@@ -45,8 +45,8 @@ static int fmt__index(ti_fmt_t * fmt, cleri_node_t * nd)
 
         for (; c; c = c->next)
         {
-            if (c->node->cl_obj->gid == CLERI_GID_STATEMENT)
-                fmt__statement(fmt, c->node);
+            if (c->cl_obj->gid == CLERI_GID_STATEMENT)
+                fmt__statement(fmt, c);
             else
                 buf_write(&fmt->buf, ':');
         }
@@ -54,15 +54,15 @@ static int fmt__index(ti_fmt_t * fmt, cleri_node_t * nd)
         if (buf_write(&fmt->buf, ']'))
             return -1;
 
-        if ((c = child->node->children->next->next->next) && (
+        if ((c = child->children->next->next->next) && (
             buf_append_fmt(
                     &fmt->buf,
                     " %.*s ",
-                    c->node->children->node->len,
-                    c->node->children->node->str) ||
+                    c->children->len,
+                    c->children->str) ||
             fmt__statement(
                     fmt,
-                    c->node->children->next->node)))
+                    c->children->next)))
             return -1;
     }
     while ((child = child->next));
@@ -72,14 +72,14 @@ static int fmt__index(ti_fmt_t * fmt, cleri_node_t * nd)
 
 static int fmt__closure(ti_fmt_t * fmt, cleri_node_t * nd)
 {
-    cleri_children_t * first, * child;
+    cleri_node_t * first, * child;
 
     if (buf_write(&fmt->buf, '|'))
         return -1;
 
-    first = nd                          /* sequence */
-            ->children->next->node      /* list */
-            ->children;                 /* first child */
+    first = nd                      /* sequence */
+            ->children->next        /* list */
+            ->children;             /* first child */
 
     for(child = first; child; child = child->next ? child->next->next : NULL)
     {
@@ -87,31 +87,31 @@ static int fmt__closure(ti_fmt_t * fmt, cleri_node_t * nd)
             if (buf_append_str(&fmt->buf, ", "))
                 return -1;
 
-        if (buf_append(&fmt->buf, child->node->str, child->node->len))
+        if (buf_append(&fmt->buf, child->str, child->len))
             return -1;
     }
 
     if (buf_append_str(&fmt->buf, "| "))
         return -1;
 
-    return fmt__statement(fmt, nd->children->next->next->next->node);
+    return fmt__statement(fmt, nd->children->next->next->next);
 }
 
 static int fmt__function(ti_fmt_t * fmt, cleri_node_t * nd)
 {
-    cleri_children_t * child = nd->children;
+    cleri_node_t * child = nd->children;
 
     /* function name */
-    if (buf_append(&fmt->buf, child->node->str, child->node->len) ||
+    if (buf_append(&fmt->buf, child->str, child->len) ||
         buf_write(&fmt->buf, '('))
         return -1;
 
     /* list (arguments) */
-    child = child->next->node->children->next->node->children;
+    child = child->next->children->next->children;
 
     while(child)
     {
-        if (fmt__statement(fmt, child->node))
+        if (fmt__statement(fmt, child))
             return -1;
 
         if (!(child = child->next ? child->next->next : NULL))
@@ -126,11 +126,11 @@ static int fmt__function(ti_fmt_t * fmt, cleri_node_t * nd)
 
 static int fmt__enum(ti_fmt_t * fmt, cleri_node_t * nd)
 {
-    cleri_node_t * name_nd = nd                 /* sequence */
-            ->children->node;                   /* name */
-    nd = nd                                     /* sequence */
-            ->children->next->node              /* enum node */
-            ->children->next->node;             /* name or closure */
+    cleri_node_t * name_nd = nd             /* sequence */
+            ->children;                     /* name */
+    nd = nd                                 /* sequence */
+            ->children->next                /* enum node */
+            ->children->next;               /* name or closure */
 
     /* enum name */
     if (buf_append(&fmt->buf, name_nd->str, name_nd->len) ||
@@ -156,8 +156,8 @@ static int fmt__enum(ti_fmt_t * fmt, cleri_node_t * nd)
 
 static int fmt__thing(ti_fmt_t * fmt, cleri_node_t * nd)
 {
-    cleri_children_t * child = nd          /* sequence */
-            ->children->next->node         /* list */
+    cleri_node_t * child = nd           /* sequence */
+            ->children->next            /* list */
             ->children;
     cleri_node_t * key, * val;
 
@@ -171,8 +171,8 @@ static int fmt__thing(ti_fmt_t * fmt, cleri_node_t * nd)
         ++fmt->indent;
         do
         {
-            key = child->node->children->node;
-            val = child->node->children->next->next->node;
+            key = child->children;
+            val = child->children->next->next;
 
             if (fmt__indent(fmt) ||
                 buf_append(&fmt->buf, key->str, key->len) ||
@@ -187,8 +187,8 @@ static int fmt__thing(ti_fmt_t * fmt, cleri_node_t * nd)
         return fmt__indent_str(fmt, "}");
     }
 
-    key = child ? child->node->children->node : NULL;
-    val = child ? child->node->children->next->next->node : NULL;
+    key = child ? child->children : NULL;
+    val = child ? child->children->next->next : NULL;
 
     if (buf_write(&fmt->buf, '{') ||
         (child && (
@@ -204,27 +204,27 @@ static int fmt__thing(ti_fmt_t * fmt, cleri_node_t * nd)
 
 static int fmt__var_opt_fa(ti_fmt_t * fmt, cleri_node_t * nd)
 {
-    cleri_children_t * child = nd->children;
+    cleri_node_t * child = nd->children;
 
     if (child->next)
     {
-        switch(child->next->node->cl_obj->gid)
+        switch(child->next->cl_obj->gid)
         {
         case CLERI_GID_FUNCTION:
             return fmt__function(fmt, nd);
         case CLERI_GID_ASSIGN:
-            if (buf_append(&fmt->buf, child->node->str, child->node->len) ||
+            if (buf_append(&fmt->buf, child->str, child->len) ||
                 buf_append_fmt(
                         &fmt->buf,
                         " %.*s ",
-                        child->next->node->children->node->len,
-                        child->next->node->children->node->str) ||
-                fmt__statement(fmt, child->next->node->children->next->node))
+                        child->next->children->len,
+                        child->next->children->str) ||
+                fmt__statement(fmt, child->next->children->next))
                 return -1;
             break;
         case CLERI_GID_INSTANCE:
-            if (buf_append(&fmt->buf, child->node->str, child->node->len) ||
-                fmt__thing(fmt, child->next->node))
+            if (buf_append(&fmt->buf, child->str, child->len) ||
+                fmt__thing(fmt, child->next))
                 return -1;
             break;
         case CLERI_GID_ENUM_:
@@ -232,39 +232,39 @@ static int fmt__var_opt_fa(ti_fmt_t * fmt, cleri_node_t * nd)
         }
         return 0;
     }
-    return buf_append(&fmt->buf, child->node->str, child->node->len);
+    return buf_append(&fmt->buf, child->str, child->len);
 }
 
 static int fmt__name_opt_fa(ti_fmt_t * fmt, cleri_node_t * nd)
 {
-    cleri_children_t * child = nd->children;
+    cleri_node_t * child = nd->children;
 
     if (child->next)
     {
-        switch(child->next->node->cl_obj->gid)
+        switch(child->next->cl_obj->gid)
         {
         case CLERI_GID_FUNCTION:
             return fmt__function(fmt, nd);
         case CLERI_GID_ASSIGN:
-            if (buf_append(&fmt->buf, child->node->str, child->node->len) ||
+            if (buf_append(&fmt->buf, child->str, child->len) ||
                 buf_append_fmt(
                         &fmt->buf,
                         " %.*s ",
-                        child->next->node->children->node->len,
-                        child->next->node->children->node->str) ||
-                fmt__statement(fmt, child->next->node->children->next->node))
+                        child->next->children->len,
+                        child->next->children->str) ||
+                fmt__statement(fmt, child->next->children->next))
                 return -1;
             break;
         }
         return 0;
     }
-    return buf_append(&fmt->buf, child->node->str, child->node->len);
+    return buf_append(&fmt->buf, child->str, child->len);
 }
 
 
 static int fmt__chain(ti_fmt_t * fmt, cleri_node_t * nd, _Bool with_indent)
 {
-    cleri_children_t * child = nd->children->next;
+    cleri_node_t * child = nd->children->next;
     _Bool set_indent = false;
 
     if (!with_indent && fmt__has_next_chain(nd) && nd->len > INDENT_THRESHOLD)
@@ -282,17 +282,17 @@ static int fmt__chain(ti_fmt_t * fmt, cleri_node_t * nd, _Bool with_indent)
     else if (buf_write(&fmt->buf, '.'))
         return -1;
 
-    if (fmt__name_opt_fa(fmt, child->node))
+    if (fmt__name_opt_fa(fmt, child))
         return -1;
 
     /* index */
-    if ((child = child->next)->node->children && fmt__index(fmt, child->node))
+    if ((child = child->next)->children && fmt__index(fmt, child))
         return -1;
 
     /* chain */
     if (child->next && fmt__chain(
             fmt,
-            child->next->node,
+            child->next,
             with_indent||set_indent))
         return -1;
 
@@ -304,8 +304,8 @@ static int fmt__chain(ti_fmt_t * fmt, cleri_node_t * nd, _Bool with_indent)
 
 static int fmt__array(ti_fmt_t * fmt, cleri_node_t * nd)
 {
-    cleri_children_t * child = nd          /* sequence */
-            ->children->next->node         /* list */
+    cleri_node_t * child = nd           /* sequence */
+            ->children->next            /* list */
             ->children;
     /* Use indentation if more than 1 element */
     _Bool with_indent = child && child->next && child->next->next;
@@ -318,7 +318,7 @@ static int fmt__array(ti_fmt_t * fmt, cleri_node_t * nd)
         do
         {
             if (fmt__indent(fmt) ||
-                fmt__statement(fmt, child->node) ||
+                fmt__statement(fmt, child) ||
                 buf_append_str(&fmt->buf, ",\n"))
                 return -1;
         }
@@ -330,7 +330,7 @@ static int fmt__array(ti_fmt_t * fmt, cleri_node_t * nd)
 
 
     if (buf_write(&fmt->buf, '[') ||
-        (child && fmt__statement(fmt, child->node)) ||
+        (child && fmt__statement(fmt, child)) ||
         buf_write(&fmt->buf, ']'))
         return -1;
 
@@ -339,9 +339,9 @@ static int fmt__array(ti_fmt_t * fmt, cleri_node_t * nd)
 
 static int fmt__block(ti_fmt_t * fmt, cleri_node_t * nd)
 {
-    cleri_children_t * child = nd           /* seq<{, comment, list, }> */
-            ->children->next->next->node    /* list statements */
-            ->children;                     /* first child, not empty */
+    cleri_node_t * child = nd           /* seq<{, comment, list, }> */
+            ->children->next->next      /* list statements */
+            ->children;                 /* first child, not empty */
 
 
     /* Blocks are guaranteed to have at least one statement, otherwise it
@@ -354,7 +354,7 @@ static int fmt__block(ti_fmt_t * fmt, cleri_node_t * nd)
     do
     {
         if (fmt__indent(fmt) ||
-            fmt__statement(fmt, child->node) ||
+            fmt__statement(fmt, child) ||
             buf_append_str(&fmt->buf, ";\n"))
             return -1;
     }
@@ -368,7 +368,7 @@ static int fmt__block(ti_fmt_t * fmt, cleri_node_t * nd)
 static int fmt__parenthesis(ti_fmt_t * fmt, cleri_node_t * nd)
 {
     if (buf_write(&fmt->buf, '(') ||
-        fmt__statement(fmt, nd->children->next->node) ||
+        fmt__statement(fmt, nd->children->next) ||
         buf_write(&fmt->buf, ')'))
         return -1;
     return 0;
@@ -417,20 +417,20 @@ static int fmt__preopr(ti_fmt_t * fmt, cleri_node_t * nd)
 
 static int fmt__expression(ti_fmt_t * fmt, cleri_node_t * nd)
 {
-    if (fmt__preopr(fmt, nd->children->node))
+    if (fmt__preopr(fmt, nd->children))
         return -1;
 
-    if (fmt__expr_choice(fmt, nd->children->next->node))
+    if (fmt__expr_choice(fmt, nd->children->next))
         return -1;
 
     /* index */
-    if (nd->children->next->next->node->children &&
-        fmt__index(fmt, nd->children->next->next->node))
+    if (nd->children->next->next->children &&
+        fmt__index(fmt, nd->children->next->next))
         return -1;
 
     /* chain */
     if (nd->children->next->next->next &&
-        fmt__chain(fmt, nd->children->next->next->next->node, false))
+        fmt__chain(fmt, nd->children->next->next->next, false))
         return -1;
 
     return 0;
@@ -440,13 +440,13 @@ static int fmt__operations(ti_fmt_t * fmt, cleri_node_t * nd)
 {
     cleri_node_t * node;
 
-    if (nd->children->next->node->cl_obj->gid == CLERI_GID_OPR8_TERNARY)
+    if (nd->children->next->cl_obj->gid == CLERI_GID_OPR8_TERNARY)
     {
         cleri_node_t
-            * nd_true = nd->children->next->node->children->next->node,
-            * nd_false = nd->children->next->next->node;
+            * nd_true = nd->children->next->children->next,
+            * nd_false = nd->children->next->next;
 
-        if (fmt__statement(fmt, nd->children->node))
+        if (fmt__statement(fmt, nd->children))
             return -1;
 
         if (nd->len > INDENT_THRESHOLD)
@@ -475,10 +475,10 @@ static int fmt__operations(ti_fmt_t * fmt, cleri_node_t * nd)
         return 0;
     }
 
-    node = nd->children->next->node;
-    if (fmt__statement(fmt, nd->children->node) ||
+    node = nd->children->next;
+    if (fmt__statement(fmt, nd->children) ||
         buf_append_fmt(&fmt->buf, " %.*s ", node->len, node->str) ||
-        fmt__statement(fmt, nd->children->next->next->node))
+        fmt__statement(fmt, nd->children->next->next))
         return -1;
     return 0;
 }
@@ -488,32 +488,32 @@ static int fmt__if_statement(ti_fmt_t * fmt, cleri_node_t * nd)
     assert (nd->cl_obj->gid == CLERI_GID_IF_STATEMENT);
 
     if (buf_append_str(&fmt->buf, "if (") ||
-        fmt__statement(fmt, nd->children->next->next->node) ||
+        fmt__statement(fmt, nd->children->next->next) ||
         buf_append_str(&fmt->buf, ") ") ||
-        fmt__statement(fmt, nd->children->node->data))
+        fmt__statement(fmt, nd->children->data))
         return -1;
 
-    return nd->children->next->node->data
+    return nd->children->next->data
         ? (buf_append_str(&fmt->buf, " else ") ||
-            fmt__statement(fmt, nd->children->next->node->data))
+            fmt__statement(fmt, nd->children->next->data))
         : 0;
 }
 
 static int fmt__return_statement(ti_fmt_t * fmt, cleri_node_t * nd)
 {
     if (buf_append_str(&fmt->buf, "return ") ||
-            fmt__statement(fmt, nd->children->next->node))
+            fmt__statement(fmt, nd->children->next))
         return -1;
 
-    return nd->children->node->data
+    return nd->children->data
         ? (buf_append_str(&fmt->buf, ", ") ||
-                fmt__statement(fmt, nd->children->node->data))
+                fmt__statement(fmt, nd->children->data))
         : 0;
 }
 
 static int fmt__for_statement(ti_fmt_t * fmt, cleri_node_t * nd)
 {
-    cleri_children_t * tmp, * child = nd->
+    cleri_node_t * tmp, * child = nd->
             children->              /* for  */
             next->                  /* (    */
             next;                   /* List(variable) */
@@ -521,10 +521,10 @@ static int fmt__for_statement(ti_fmt_t * fmt, cleri_node_t * nd)
     if (buf_append_str(&fmt->buf, "for ("))
         return -1;
 
-    tmp = child->node->children;
+    tmp = child->children;
     do
     {
-        if (buf_append(&fmt->buf, tmp->node->str, tmp->node->len))
+        if (buf_append(&fmt->buf, tmp->str, tmp->len))
             return -1;
 
         if (!(tmp = tmp->next ? tmp->next->next : NULL))
@@ -536,9 +536,9 @@ static int fmt__for_statement(ti_fmt_t * fmt, cleri_node_t * nd)
     while(1);
 
     if (buf_append_str(&fmt->buf, " in ") ||
-        fmt__statement(fmt, (child = child->next->next)->node) ||
+        fmt__statement(fmt, (child = child->next->next)) ||
         buf_append_str(&fmt->buf, ") ") ||
-        fmt__statement(fmt, (child = child->next->next)->node))
+        fmt__statement(fmt, (child = child->next->next)))
         return -1;
 
     return 0;
@@ -546,28 +546,27 @@ static int fmt__for_statement(ti_fmt_t * fmt, cleri_node_t * nd)
 
 static int fmt__statement(ti_fmt_t * fmt, cleri_node_t * nd)
 {
-    cleri_node_t * node;
     assert (nd->cl_obj->gid == CLERI_GID_STATEMENT);
 
-    node = nd->children->node;
-    switch (node->cl_obj->gid)
+    nd = nd->children;
+    switch (nd->cl_obj->gid)
     {
     case CLERI_GID_IF_STATEMENT:
-        return fmt__if_statement(fmt, node);
+        return fmt__if_statement(fmt, nd);
     case CLERI_GID_RETURN_STATEMENT:
-        return fmt__return_statement(fmt, node);
+        return fmt__return_statement(fmt, nd);
     case CLERI_GID_FOR_STATEMENT:
-        return fmt__for_statement(fmt, node);
+        return fmt__for_statement(fmt, nd);
     case CLERI_GID_K_CONTINUE:
         return buf_append_str(&fmt->buf, "continue");
     case CLERI_GID_K_BREAK:
         return buf_append_str(&fmt->buf, "break");
     case CLERI_GID_CLOSURE:
-        return fmt__closure(fmt, node);
+        return fmt__closure(fmt, nd);
     case CLERI_GID_EXPRESSION:
-        return fmt__expression(fmt, node);
+        return fmt__expression(fmt, nd);
     case CLERI_GID_OPERATIONS:
-        return fmt__operations(fmt, node);
+        return fmt__operations(fmt, nd);
     }
     assert (0);
     return -1;

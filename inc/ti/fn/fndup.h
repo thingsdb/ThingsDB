@@ -19,7 +19,7 @@ static int do__f_dup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         val = query->rval;
         query->rval = NULL;
 
-        if (ti_do_statement(query, nd->children->node, e) ||
+        if (ti_do_statement(query, nd->children, e) ||
             ti_deep_from_val(query->rval, &deep, e))
             goto fail0;
 

@@ -82,7 +82,6 @@ static inline int ti_to_pk(msgpack_packer * pk);
 
 struct ti_s
 {
-    struct timespec boottime;
     char * fn;                  /* ti__fn */
     char * node_fn;             /* ti__node_fn */
     uint64_t last_change_id;    /* when `ti__fn` was saved */
@@ -117,6 +116,11 @@ struct ti_s
     size_t futures_count;       /* number of running futures */
     uint32_t rel_id;            /* relative node id */
     int _flags;                 /* changed and read by multiple treads */
+    struct timespec boottime;   /* keep the up-time */
+    ti_tz_t * t_tz;             /* @thingsdb scope time zone */
+    ti_tz_t * n_tz;             /* @node scope time zone (unchangeable) */
+    uint8_t t_deep;             /* @thingsdb scope default deep */
+    uint8_t n_deep;             /* @node scope default deep (unchangeable)*/
 };
 
 static inline _Bool ti_flag_test(int flag)
@@ -156,10 +160,20 @@ static inline int ti_sleep(int ms)
 static inline int ti_to_pk(msgpack_packer * pk)
 {
     return -(
-        msgpack_pack_map(pk, 4) ||
+        msgpack_pack_map(pk, 6) ||
 
         mp_pack_str(pk, "schema") ||
         msgpack_pack_uint8(pk, TI_FN_SCHEMA) ||
+
+        mp_pack_str(pk, "deep") ||
+        msgpack_pack_array(pk, 2) ||
+        msgpack_pack_uint8(pk, ti.t_deep) ||
+        msgpack_pack_uint8(pk, ti.n_deep) ||
+
+        mp_pack_str(pk, "tz") ||
+        msgpack_pack_array(pk, 2) ||
+        msgpack_pack_uint64(pk, ti.t_tz->index) ||
+        msgpack_pack_uint64(pk, ti.n_tz->index) ||
 
         mp_pack_str(pk, "change_id") ||
         msgpack_pack_uint64(pk, ti.last_change_id) ||

@@ -23,7 +23,7 @@ static int do__make_err(
 
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         fn_arg_str(fn_name, fn_doc, 1, query->rval, e))
         return e->nr;
 

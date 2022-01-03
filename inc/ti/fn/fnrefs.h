@@ -6,7 +6,7 @@ static int do__f_refs(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     uint32_t ref;
 
     if (fn_nargs("refs", DOC_REFS, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     ref = query->rval->ref;

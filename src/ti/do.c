@@ -26,7 +26,8 @@
 
 static inline int do__no_node_scope(ti_query_t * query)
 {
-    return ~query->qbind.flags & TI_QBIND_FLAG_NODE;
+    return \
+        query->qbind.flags & (TI_QBIND_FLAG_THINGSDB|TI_QBIND_FLAG_COLLECTION);
 }
 
 static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
@@ -36,9 +37,9 @@ static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_varr_t * varr;
     uintptr_t sz = (uintptr_t) nd->data;
-    cleri_children_t * child = nd          /* sequence */
-            ->children->next->node         /* list */
-            ->children;
+    cleri_node_t * child = nd           /* sequence */
+            ->children->next            /* list */
+            ->children;                 /* list items */
 
     varr = ti_varr_create(sz);
     if (!varr)
@@ -49,7 +50,7 @@ static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     for (; child; child = child->next->next)
     {
-        if (ti_do_statement(query, child->node, e) ||
+        if (ti_do_statement(query, child, e) ||
             ti_val_varr_append(varr, &query->rval, e))
             goto failed;
 
@@ -236,11 +237,9 @@ static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_thing_t * thing;
     ti_task_t * task;
     ti_wprop_t wprop;
-    cleri_node_t * name_nd = nd                 /* sequence */
-            ->children->node;                   /* name */
-    cleri_children_t * assign_seq = nd                  /* sequence */
-            ->children->next->node->children;           /* first child */
-    cleri_node_t * tokens_nd = assign_seq->node;        /* tokens */
+    cleri_node_t * name_nd = nd->children;          /* name */
+    cleri_node_t * tokens_nd = nd                   /* sequence */
+            ->children->next->children;             /* first child */
 
     if (!ti_val_is_thing(query->rval))
     {
@@ -255,7 +254,7 @@ static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, assign_seq->next->node, e))
+    if (ti_do_statement(query, tokens_nd->next, e))
         goto done;
 
     if (tokens_nd->len == 2
@@ -341,7 +340,7 @@ static int do__get_type_instance(
         ti_thing_t * thing;
         int lock_was_set = ti_type_ensure_lock(type);
 
-        (void) ti_do_statement(query, nd->children->node, e);
+        (void) ti_do_statement(query, nd->children, e);
 
         ti_type_unlock(type, lock_was_set);
 
@@ -416,7 +415,7 @@ static int do__get_enum_member(
         ti_member_t * member;
         int lock_was_set = ti_enum_ensure_lock(enum_);
 
-        (void) ti_do_statement(query, nd->children->node, e);
+        (void) ti_do_statement(query, nd->children, e);
 
         ti_enum_unlock(enum_, lock_was_set);
 
@@ -452,11 +451,11 @@ static int do__get_enum_member(
 static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     cleri_node_t * fname = nd       /* sequence */
-            ->children->node;       /* name node */
+            ->children;             /* name node */
 
     cleri_node_t * args = nd        /* sequence */
-        ->children->next->node      /* function sequence */
-        ->children->next->node;     /* arguments */
+        ->children->next            /* function sequence */
+        ->children->next;           /* arguments */
 
     ti_prop_t * prop;
     ti_module_t * module;
@@ -563,7 +562,7 @@ static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (e->nr == 0);
-    assert (nd->children->next->node->cl_obj->gid == CLERI_GID_FUNCTION);
+    assert (nd->children->next->cl_obj->gid == CLERI_GID_FUNCTION);
     /*
      * "Node -> data" is set for all build-in functions so they are preferred
      * over other functions/type/enum/procedures/modules/variable.
@@ -572,8 +571,8 @@ static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ? ((fn_cb) nd->data)(
                     query,
                     nd                              /* sequence */
-                        ->children->next->node      /* function sequence */
-                        ->children->next->node,     /* arguments */
+                        ->children->next            /* function sequence */
+                        ->children->next,           /* arguments */
                     e)
             : do__function_call(query, nd, e);
 }
@@ -582,12 +581,12 @@ static inline int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert (nd->cl_obj->gid == CLERI_GID_BLOCK);
 
-    cleri_children_t * child= nd->children->next->next
-            ->node->children;  /* first child, not empty */
+    /* first child, not empty */
+    cleri_node_t * child= nd->children->next->next->children;
 
     do
     {
-        if (ti_do_statement(query, child->node, e) ||
+        if (ti_do_statement(query, child, e) ||
             !child->next ||
             !(child = child->next->next))
             break;
@@ -602,10 +601,10 @@ static inline int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static inline int do__index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    cleri_children_t * child = nd->children;
+    cleri_node_t * child = nd->children;
 
     for (child = nd->children; child; child = child->next)
-        if (ti_index(query, child->node, e))
+        if (ti_index(query, child, e))
             return e->nr;
     return 0;
 }
@@ -615,10 +614,10 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->cl_obj->gid == CLERI_GID_CHAIN);
     assert (query->rval);
 
-    cleri_children_t * child = nd           /* sequence */
-                    ->children->next;       /* first is .(dot), next choice */
-    cleri_node_t * node = child->node;      /* function, assignment, name */
-    cleri_node_t * index_node = child->next->node;
+    cleri_node_t * child = nd           /* sequence */
+                    ->children->next;   /* first is .(dot), next choice */
+    cleri_node_t * node = child;        /* function, assignment, name */
+    cleri_node_t * index_node = child->next;
 
     child = child->next->next;          /* set to chain child (or NULL) */
 
@@ -636,7 +635,7 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         thing = (ti_thing_t *) query->rval;
 
-        if (do__get_wprop(&wprop, query, thing, node->children->node, e))
+        if (do__get_wprop(&wprop, query, thing, node->children, e))
             return e->nr;
 
         query->rval = *wprop.val;
@@ -647,22 +646,22 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
          * result in unexpected behavior (bug #239).
          */
         if (do__index(query, index_node, e) == 0 && child)
-            (void) do__chain(query, child->node, e);
+            (void) do__chain(query, child, e);
 
         ti_val_unsafe_drop((ti_val_t *) thing);
         return e->nr;
     }
 
-    if (node->children->next->node->cl_obj->gid == CLERI_GID_ASSIGN)
+    if (node->children->next->cl_obj->gid == CLERI_GID_ASSIGN)
         return do__name_assign(query, node, e);
 
-    assert (node->children->next->node->cl_obj->gid == CLERI_GID_FUNCTION);
+    assert (node->children->next->cl_obj->gid == CLERI_GID_FUNCTION);
 
     if (do__function(query, node, e))
         return e->nr;
 
     if (do__index(query, index_node, e) == 0 && child)
-        (void) do__chain(query, child->node, e);
+        (void) do__chain(query, child, e);
 
     return e->nr;
 }
@@ -670,14 +669,14 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 int ti_do_operation(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     ti_val_t * a;
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children, e))
         return e->nr;
 
     a = query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e) == 0)
-        (void) ti_opr_a_to_b(a, nd->children->next->node, &query->rval, e);
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) ti_opr_a_to_b(a, nd->children->next, &query->rval, e);
 
     ti_val_unsafe_drop(a);
     return e->nr;
@@ -685,34 +684,34 @@ int ti_do_operation(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 int ti_do_compare_and(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         !ti_val_as_bool(query->rval))
         return e->nr;
 
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
-    return ti_do_statement(query, nd->children->next->next->node, e);
+    return ti_do_statement(query, nd->children->next->next, e);
 }
 
 int ti_do_compare_or(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         ti_val_as_bool(query->rval))
         return e->nr;
 
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
-    return ti_do_statement(query, nd->children->next->next->node, e);
+    return ti_do_statement(query, nd->children->next->next, e);
 }
 
 int ti_do_ternary(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children, e))
         return e->nr;
 
     nd = ti_val_as_bool(query->rval)
-            ? nd->children->next->node->children->next->node
-            : nd->children->next->next->node;
+            ? nd->children->next->children->next
+            : nd->children->next->next;
 
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
@@ -722,12 +721,12 @@ int ti_do_ternary(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 int ti_do_if_statement(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    if (ti_do_statement(query, nd->children->next->next->node, e))
+    if (ti_do_statement(query, nd->children->next->next, e))
         return e->nr;
 
     if (ti_val_as_bool(query->rval))
-        nd = nd->children->node->data;
-    else if (!(nd = nd->children->next->node->data))
+        nd = nd->children->data;
+    else if (!(nd = nd->children->next->data))
         return e->nr;
 
     ti_val_unsafe_drop(query->rval);
@@ -737,40 +736,40 @@ int ti_do_if_statement(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 int ti_do_return_val(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    if (ti_do_statement(query, nd->children->next->node, e) == 0)
+    if (ti_do_statement(query, nd->children->next, e) == 0)
         ex_set_return(e);  /* on success */
     return e->nr;
 }
 
 int ti_do_return_alt_deep(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    if (ti_do_statement(query, nd->children->node->data, e) ||
+    if (ti_do_statement(query, nd->children->data, e) ||
         ti_deep_from_val(query->rval, &query->qbind.deep, e))
         return e->nr;
 
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->node, e) == 0)
+    if (ti_do_statement(query, nd->children->next, e) == 0)
         ex_set_return(e);  /* on success */
     return e->nr;
 }
 
 int ti_do_for_loop(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    cleri_children_t * child = nd->
+    cleri_node_t * child = nd->
             children->              /* for  */
             next->                  /* (    */
             next;                   /* List(variable) */
-    nd = child->node;
+    nd = child;
 
-    if (ti_do_statement(query, (child = child->next->next)->node, e))
+    if (ti_do_statement(query, (child = child->next->next), e))
         return e->nr;
 
     return ti_forloop_call(
             query,
             nd,
-            (child = child->next->next)->node,
+            (child = child->next->next),
             e);
 }
 
@@ -786,7 +785,7 @@ int ti_do_break(ti_query_t * UNUSED(q), cleri_node_t * UNUSED(nd), ex_t * e)
 
 int ti_do_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    void ** data = &nd->children->node->data;
+    void ** data = &nd->children->data;
 
     if (!*data)
     {
@@ -990,7 +989,7 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (e->nr == 0);
 
     ti_thing_t * thing;
-    cleri_children_t * child;
+    cleri_node_t * child;
     uintptr_t sz = (uintptr_t) nd->data;
 
     thing = ti_thing_o_create(0, sz, query->collection);
@@ -998,24 +997,15 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto failed;
 
     child = nd                                  /* sequence */
-            ->children->next->node              /* list */
+            ->children->next                    /* list */
             ->children;                         /* list items */
 
     for (; child; child = child->next->next)
     {
-        cleri_node_t * name_nd;
-        cleri_node_t * scope;
-        ti_name_t * name;
-
-        name_nd = child->node                       /* sequence */
-                ->children->node;                   /* name */
-
-        scope = child->node                         /* sequence */
-                ->children->next->next->node;       /* scope */
-
-        name = ti_names_get(name_nd->str, name_nd->len);
+        cleri_node_t * name_nd = child->children;   /* sequence/name */
+        ti_name_t * name = ti_names_get(name_nd->str, name_nd->len);
         if (    !name||
-                ti_do_statement(query, scope, e) ||
+                ti_do_statement(query, name_nd->next->next, e) ||
                 ti_val_make_assignable(&query->rval, thing, name, e) ||
                 !ti_thing_p_prop_set(thing, name, query->rval))
         {
@@ -1046,10 +1036,9 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
      */
     assert (e->nr == 0);
 
-    cleri_node_t * name_nd = nd                 /* sequence */
-            ->children->node;                   /* name */
+    cleri_node_t * name_nd = nd->children;      /* sequence/name */
     ti_thing_t * thing;
-    cleri_children_t * child;
+    cleri_node_t * child;
     size_t n;
     ti_type_t * type;
     int lock_was_set;
@@ -1091,23 +1080,16 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     lock_was_set = ti_type_ensure_lock(type);
 
     child = nd                                  /* sequence (var_opt_more) */
-            ->children->next->node              /* sequence (instance) */
-            ->children->next->node              /* list */
+            ->children->next                    /* sequence (instance) */
+            ->children->next                    /* list */
             ->children;                         /* list items */
 
     for (n = 0; child; child = child->next ? child->next->next: NULL)
     {
-        cleri_node_t * name_nd;
-        cleri_node_t * scope;
+        cleri_node_t * name_nd = child->children;   /* sequence/name */
         ti_name_t * name;
         ti_field_t * field;
         ti_val_t * val;
-
-        name_nd = child->node                       /* sequence */
-                ->children->node;                   /* name */
-
-        scope = child->node                         /* sequence */
-                ->children->next->next->node;       /* scope */
 
         name = ti_names_weak_get_strn(name_nd->str, name_nd->len);
         if (!name)
@@ -1117,7 +1099,7 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!field)
             continue;
 
-        if (    ti_do_statement(query, scope, e) ||
+        if (    ti_do_statement(query, name_nd->next->next, e) ||
                 ti_field_make_assignable(field, &query->rval, thing, e))
             goto fail;
 
@@ -1164,11 +1146,8 @@ done:
 static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     ti_enum_t * enum_;
-    cleri_node_t * name_nd = nd                 /* sequence */
-            ->children->node;                   /* name */
-    nd = nd                                     /* sequence */
-            ->children->next->node              /* enum node */
-            ->children->next->node;             /* name or closure */
+    cleri_node_t * name_nd = nd->children;      /* sequence/name */
+    nd = name_nd->next->children->next;         /* name or closure */
 
     enum_ = ti_enums_by_strn(
             query->collection->enums,
@@ -1276,7 +1255,7 @@ static inline int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (!module)
         {
-            if (~flags & TI_QBIND_FLAG_NODE)
+            if (flags & (TI_QBIND_FLAG_THINGSDB|TI_QBIND_FLAG_COLLECTION))
             {
                 ti_procedure_t * procedure = do__get_procedure(query, nd);
                 if (procedure)
@@ -1355,13 +1334,10 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_name_t * name = NULL;
     ti_prop_t * prop = NULL;     /* assign to prevent warning */
-    cleri_node_t * name_nd = nd                 /* sequence */
-            ->children->node;                   /* name */
-    cleri_children_t * assign_seq = nd                  /* sequence */
-            ->children->next->node->children;           /* first child */
-    cleri_node_t * tokens_nd = assign_seq->node;        /* sequence */
+    cleri_node_t * name_nd = nd->children;                  /* sequence/name */
+    cleri_node_t * tokens_nd = name_nd->next->children;     /* first child */
 
-    if (ti_do_statement(query, assign_seq->next->node, e))
+    if (ti_do_statement(query, tokens_nd->next, e))
         return e->nr;
 
     /*
@@ -1458,14 +1434,14 @@ int ti_do_prepare_for_loop(ti_query_t * query, cleri_node_t * vars_nd)
     ti_name_t * name;
     ti_prop_t * prop;
     ti_nil_t * nil = ti_nil_get();
-    cleri_children_t * child = vars_nd->children;
+    cleri_node_t * child = vars_nd->children;
     int nargs = 1;  /* one argument is guaranteed */
 
     do
     {
-        name = child->node->data
-                ? child->node->data
-                : do__ensure_name_cache(query, child->node);
+        name = child->data
+                ? child->data
+                : do__ensure_name_cache(query, child);
         if (!name)
             goto failed;
 
@@ -1496,7 +1472,7 @@ int ti_do_prepare_for_loop(ti_query_t * query, cleri_node_t * vars_nd)
         if (!child->next)
             return nargs;  /* done */
 
-        vars_nd = child->next->node;
+        vars_nd = child->next;
         child = child->next->next;  /* this child must exist */
 
         ++nargs;
@@ -1537,14 +1513,8 @@ static inline int do__template(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    int preopr = (int) ((intptr_t) nd->children->node->data);
-    cleri_children_t * child = nd               /* sequence */
-            ->children                          /* first child, not */
-            ->next;
-
-    nd = child->node;                   /* immutable, function,
-                                           assignment, name, thing,
-                                           array, compare, closure */
+    int preopr = (int) ((intptr_t) nd->children->data);
+    nd = nd->children->next;
 
     switch (nd->cl_obj->gid)
     {
@@ -1650,12 +1620,12 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case CLERI_GID_VAR_OPT_MORE:
         if (!nd->children->next)
         {
-            if (do__var(query, nd->children->node, e))
+            if (do__var(query, nd->children, e))
                 return e->nr;
             break;
         }
 
-        switch (nd->children->next->node->cl_obj->gid)
+        switch (nd->children->next->cl_obj->gid)
         {
         case CLERI_GID_FUNCTION:
             if (do__function(query, nd, e))
@@ -1693,7 +1663,7 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
         break;
     case CLERI_GID_PARENTHESIS:
-        if (ti_do_statement(query, nd->children->next->node, e))
+        if (ti_do_statement(query, nd->children->next, e))
             return e->nr;
         break;
     default:
@@ -1701,15 +1671,12 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return -1;
     }
 
-    child = child->next;
-    nd = child->node;
-
     /* handle index */
-    if (do__index(query, nd, e))
+    if (do__index(query, (nd = nd->next), e))
         return e->nr;
 
     /* chain */
-    if (child->next && do__chain(query, child->next->node, e))
+    if (nd->next && do__chain(query, nd->next, e))
         return e->nr;
 
 preopr:

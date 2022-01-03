@@ -3,10 +3,10 @@
 static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    cleri_children_t * child = nd->children;
+    cleri_node_t * child = nd->children;
     ti_future_t * future;
     ti_module_t * module;
-    uint8_t deep;
+    uint8_t deep = query->qbind.deep;
     size_t num_args = nargs;
     _Bool load = TI_MODULE_DEFAULT_LOAD;
 
@@ -21,7 +21,7 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_do_statement(query, child->node, e))
+    if (ti_do_statement(query, child, e))
         return e->nr;
 
     switch(query->rval->tp)
@@ -141,7 +141,7 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         while ((child = child->next) && (child = child->next))
         {
-            if (ti_do_statement(query, child->node, e))
+            if (ti_do_statement(query, child, e))
                 goto fail;
 
             VEC_push(future->args, query->rval);

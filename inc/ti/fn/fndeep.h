@@ -9,7 +9,7 @@ static int do__f_deep(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 1)
     {
-        return ti_do_statement(query, nd->children->node, e)
+        return ti_do_statement(query, nd->children, e)
             ? e->nr
             : ti_deep_from_val(query->rval, &query->qbind.deep, e);
     }

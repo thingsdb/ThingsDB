@@ -79,10 +79,11 @@ class TestBase(unittest.TestCase):
         for attr, f in self.__class__.__dict__.items():
             if attr.startswith('test_') and callable(f):
                 client = await get_client(self.node0)
-                await client.query(r'''
+                await client.query(r"""//ti
                     del_collection('stuff');
                     new_collection('stuff');
-                ''')
+                    set_default_deep('//stuff', 1);
+                """)
                 await self.wait_nodes_ready(client, success_count=1)
                 await f(self, *args, **kwargs)
                 client.close()

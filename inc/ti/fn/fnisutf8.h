@@ -7,7 +7,7 @@ static int do__f_is_utf8(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * raw;
 
     if (fn_nargs("is_utf8", DOC_IS_UTF8, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     raw = (ti_raw_t *) query->rval;

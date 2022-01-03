@@ -13,7 +13,7 @@ static inline int ti_collection_to_pk(
         msgpack_packer * pk)
 {
     return -(
-        msgpack_pack_map(pk, 5) ||
+        msgpack_pack_map(pk, 6) ||
 
         mp_pack_str(pk, "collection_id") ||
         msgpack_pack_uint64(pk, collection->root->id) ||
@@ -28,7 +28,11 @@ static inline int ti_collection_to_pk(
         msgpack_pack_uint64(pk, collection->things->n + collection->gc->n) ||
 
         mp_pack_str(pk, "time_zone") ||
-        mp_pack_strn(pk, collection->tz->name, collection->tz->n)
+        mp_pack_strn(pk, collection->tz->name, collection->tz->n) ||
+
+        mp_pack_str(pk, "default_deep") ||
+        msgpack_pack_uint64(pk, collection->deep)
+
     );
 }
 

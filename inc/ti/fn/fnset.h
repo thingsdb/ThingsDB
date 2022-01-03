@@ -7,14 +7,14 @@ static int do__f_set_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs == 1 && nd->children->next == NULL)
     {
         return (
-            ti_do_statement(query, nd->children->node, e) ||
+            ti_do_statement(query, nd->children, e) ||
             ti_val_convert_to_set(&query->rval, e)
         );
     }
 
     if (nargs)
     {
-        cleri_children_t * child = nd->children;
+        cleri_node_t * child = nd->children;
         ti_vset_t * vset = ti_vset_create();
 
         if (!vset)
@@ -25,7 +25,7 @@ static int do__f_set_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         do
         {
-            if (ti_do_statement(query, child->node, e) ||
+            if (ti_do_statement(query, child, e) ||
                 ti_vset_add_val(vset, query->rval, e) < 0)
             {
                 ti_vset_destroy(vset);
@@ -66,14 +66,14 @@ static int do__f_set_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         fn_arg_str("set", DOC_THING_SET, 1, query->rval, e))
         goto fail0;
 
     rname = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e))
+    if (ti_do_statement(query, nd->children->next->next, e))
         goto fail1;
 
     if (ti_thing_set_val_from_strn(

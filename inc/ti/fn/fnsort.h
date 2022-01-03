@@ -133,7 +133,7 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children, e))
         goto fail0;
 
     if (nargs == 1 && ti_val_is_bool(query->rval))
@@ -173,7 +173,7 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 2)
     {
-        if (ti_do_statement(query, nd->children->next->next->node, e) ||
+        if (ti_do_statement(query, nd->children->next->next, e) ||
             fn_arg_bool("sort", DOC_LIST_SORT, 2, query->rval, e))
             goto fail1;
 

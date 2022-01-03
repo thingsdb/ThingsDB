@@ -10,7 +10,7 @@ static int do__f_rename_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * 
 
     if (fn_not_thingsdb_or_collection_scope("rename_procedure", query, e) ||
         fn_nargs("rename_procedure", DOC_RENAME_PROCEDURE, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str("rename_procedure", DOC_RENAME_PROCEDURE, 1, query->rval, e))
         return e->nr;
 
@@ -21,7 +21,7 @@ static int do__f_rename_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * 
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+    if (ti_do_statement(query, nd->children->next->next, e) ||
         fn_arg_str_slow(
                 "rename_procedure",
                 DOC_RENAME_PROCEDURE,

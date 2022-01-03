@@ -7,11 +7,11 @@ static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_module_t * module;
     ti_task_t * task;
     ti_pkg_t * pkg = NULL;
-    cleri_children_t * child;
+    cleri_node_t * child;
 
     if (fn_not_thingsdb_scope("new_module", query, e) ||
         fn_nargs_range("new_module", DOC_NEW_MODULE, 2, 3, nargs, e) ||
-        ti_do_statement(query, (child = nd->children)->node, e) ||
+        ti_do_statement(query, (child = nd->children), e) ||
         fn_arg_str_slow("new_module", DOC_NEW_MODULE, 1, query->rval, e))
         return e->nr;
 
@@ -25,7 +25,7 @@ static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
     }
 
-    if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+    if (ti_do_statement(query, (child = child->next->next), e) ||
         fn_arg_str_slow("new_module", DOC_NEW_MODULE, 2, query->rval, e))
         goto fail0;
 
@@ -34,7 +34,7 @@ static int do__f_new_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 3)
     {
-        if (ti_do_statement(query, (child = child->next->next)->node, e))
+        if (ti_do_statement(query, (child = child->next->next), e))
             goto fail1;
 
         if (!ti_val_is_nil(query->rval))

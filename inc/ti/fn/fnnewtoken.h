@@ -9,7 +9,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * uname;
     ti_user_t * user;
     ti_task_t * task;
-    cleri_children_t * child = nd->children;
+    cleri_node_t * child = nd->children;
     uint64_t exp_time = 0;
     ti_token_t * token;
     size_t description_sz = 0;
@@ -17,7 +17,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_scope("new_token", query, e) ||
         fn_nargs_range("new_token", DOC_NEW_TOKEN, 1, 3, nargs, e) ||
-        ti_do_statement(query, child->node, e) ||
+        ti_do_statement(query, child, e) ||
         fn_arg_str("new_token", DOC_NEW_TOKEN, 1, query->rval, e))
         return e->nr;
 
@@ -45,7 +45,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
 
-        if (ti_do_statement(query, (child = child->next->next)->node, e))
+        if (ti_do_statement(query, (child = child->next->next), e))
             return e->nr;
 
         if (ti_val_is_datetime(query->rval))
@@ -124,7 +124,7 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
 
-        if (ti_do_statement(query, (child = child->next->next)->node, e))
+        if (ti_do_statement(query, (child = child->next->next), e))
             return e->nr;
 
         if (!ti_val_is_str(query->rval))

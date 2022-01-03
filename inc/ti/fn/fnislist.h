@@ -6,7 +6,7 @@ static int do__f_is_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool is_list;
 
     if (fn_nargs("is_list", DOC_IS_LIST, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     is_list = ti_val_is_list(query->rval);

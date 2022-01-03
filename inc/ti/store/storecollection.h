@@ -50,8 +50,8 @@ char * ti_store_collection_gcthings_fn(
 struct ti_store_collection_s
 {
     char * access_fn;
-    char * props_fn;
     char * collection_fn;
+    char * props_fn;
     char * collection_path;
     char * names_fn;
     char * procedures_fn;

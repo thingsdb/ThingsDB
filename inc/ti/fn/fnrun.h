@@ -9,11 +9,11 @@ static int do__f_run(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_closure_t * closure;
     vec_t * args;
     size_t n;
-    cleri_children_t * child = nd->children;    /* first in argument list */
+    cleri_node_t * child = nd->children;    /* first in argument list */
 
     if (fn_not_thingsdb_or_collection_scope("run", query, e) ||
         fn_nargs_min("run", DOC_RUN_PROCEDURE, 1, nargs, e) ||
-        ti_do_statement(query, child->node, e) ||
+        ti_do_statement(query, child, e) ||
         fn_arg_str("run", DOC_RUN_PROCEDURE, 1, query->rval, e))
         return e->nr;
 
@@ -37,7 +37,7 @@ static int do__f_run(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     while (child->next && (child = child->next->next) && n)
     {
         --n;  // outside while so we do not go below zero
-        if (ti_do_statement(query, child->node, e) ||
+        if (ti_do_statement(query, child, e) ||
             ti_val_make_variable(&query->rval, e))
             goto failed;
 

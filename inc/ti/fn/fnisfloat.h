@@ -6,7 +6,7 @@ static int do__f_is_float(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool is_float;
 
     if (fn_nargs("is_float", DOC_IS_FLOAT, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     is_float = ti_val_is_float(query->rval);

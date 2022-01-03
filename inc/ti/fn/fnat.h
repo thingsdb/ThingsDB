@@ -3,7 +3,7 @@
 static int do__f_at(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_tz_t * tz = query->collection ? query->collection->tz : ti_tz_utc();
+    ti_tz_t * tz = fn_default_tz(query);
     ti_vtask_t * vtask;
 
     if (!ti_val_is_task(query->rval))

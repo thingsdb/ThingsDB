@@ -16,7 +16,7 @@ static int do__f_test(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     regex = (ti_regex_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children, e))
         goto failed;
 
     if (!ti_val_is_str(query->rval))

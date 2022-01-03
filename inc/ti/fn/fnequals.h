@@ -17,7 +17,7 @@ static int do__f_equals(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children, e))
         goto fail0;
 
     other = query->rval;
@@ -25,7 +25,7 @@ static int do__f_equals(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 2)
     {
-        if (ti_do_statement(query, nd->children->next->next->node, e) ||
+        if (ti_do_statement(query, nd->children->next->next, e) ||
             ti_deep_from_val(query->rval, &deep, e))
             goto fail1;
 

@@ -26,7 +26,7 @@ static int do__f_user_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 query->user, TI_AUTH_GRANT, e))
             return e->nr;
 
-        if (ti_do_statement(query, nd->children->node, e) ||
+        if (ti_do_statement(query, nd->children, e) ||
             fn_arg_str("user_info", DOC_USER_INFO, 1, query->rval, e))
             return e->nr;
 

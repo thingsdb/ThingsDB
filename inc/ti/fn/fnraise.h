@@ -14,7 +14,7 @@ static int do__f_raise(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children, e))
         return e->nr;
 
     if (ti_val_is_raw(query->rval))

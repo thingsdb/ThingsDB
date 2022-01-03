@@ -9,7 +9,7 @@ static int do__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_nargs_range("assert", DOC_ASSERT, 1, 2, nargs, e))
         return e->nr;
 
-    assert_node = nd->children->node;
+    assert_node = nd->children;
 
     if (ti_do_statement(query, assert_node, e))
         return e->nr;
@@ -32,7 +32,7 @@ static int do__f_assert(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+    if (ti_do_statement(query, nd->children->next->next, e) ||
         fn_arg_str("assert", DOC_ASSERT, 2, query->rval, e))
         return e->nr;
 

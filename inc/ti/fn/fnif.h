@@ -10,15 +10,15 @@ static int do__f_if(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             "use the `if [..else]` statement instead");  /* TODO add doc */
 
     if (fn_nargs_range("if", DOC_IF, 2, 3, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     tobool = ti_val_as_bool(query->rval);
 
     if (tobool)
-        nd = nd->children->next->next->node;
+        nd = nd->children->next->next;
     else if (nargs == 3)
-        nd = nd->children->next->next->next->next->node;
+        nd = nd->children->next->next->next->next;
     else
         goto done;
 

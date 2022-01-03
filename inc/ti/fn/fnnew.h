@@ -9,7 +9,7 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_collection_scope("new", query, e) ||
         fn_nargs_range("new", DOC_NEW, 1, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     if (!ti_val_is_str(query->rval))
@@ -41,7 +41,7 @@ static int do__f_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     lock_was_set = ti_type_ensure_lock(type);
 
-    (void) ti_do_statement(query, nd->children->next->next->node, e);
+    (void) ti_do_statement(query, nd->children->next->next, e);
     /* make sure we unlock */
     ti_type_unlock(type, lock_was_set);
 

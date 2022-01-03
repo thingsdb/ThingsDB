@@ -166,6 +166,7 @@ int ti_vtask_run(ti_vtask_t * vtask, ti_collection_t * collection)
         query->qbind.flags |= collection
             ? TI_QBIND_FLAG_COLLECTION
             : TI_QBIND_FLAG_THINGSDB;
+        query->qbind.deep = collection ? collection->deep : ti.t_deep;
 
         ti_incref(vtask);
         ti_incref(query->user);

@@ -18,7 +18,7 @@ static int do__f_extend_unique(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     current_n = varr_dest->vec->n;
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children, e))
         goto fail1;
 
     if (!ti_val_is_array(query->rval))

@@ -20,7 +20,7 @@ static int do__f_set_args(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_or_collection_scope("set_args", query, e) ||
         fn_nargs("set_args", DOC_TASK_SET_ARGS, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_array("set_args", DOC_TASK_SET_ARGS, 1, query->rval, e) ||
         ti_vtask_check_args(VARR(query->rval), m, query->collection==NULL, e))
         goto fail0;

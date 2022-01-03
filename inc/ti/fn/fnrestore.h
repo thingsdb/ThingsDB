@@ -17,7 +17,7 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     ti.access_thingsdb,
                     query->user, TI_AUTH_MASK_FULL, e) ||
         fn_nargs_range("restore", DOC_RESTORE, 1, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str_slow("restore", DOC_RESTORE, 1, query->rval, e))
         return e->nr;
 
@@ -26,7 +26,7 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 2)
     {
-        if (ti_do_statement(query, nd->children->next->next->node, e) ||
+        if (ti_do_statement(query, nd->children->next->next, e) ||
             fn_arg_bool("restore", DOC_RESTORE, 2, query->rval, e))
             goto fail0;
 

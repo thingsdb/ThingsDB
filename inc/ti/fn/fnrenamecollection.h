@@ -8,7 +8,7 @@ static int do__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
 
     if (fn_not_thingsdb_scope("rename_collection", query, e) ||
         fn_nargs("rename_collection", DOC_RENAME_COLLECTION, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     collection = ti_collections_get_by_val(query->rval, e);
@@ -19,7 +19,7 @@ static int do__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+    if (ti_do_statement(query, nd->children->next->next, e) ||
         fn_arg_str_slow(
                 "rename_collection",
                 DOC_RENAME_COLLECTION,

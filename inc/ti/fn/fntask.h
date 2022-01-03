@@ -4,12 +4,12 @@ static int do__f_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
     vec_t ** tasks = ti_query_tasks(query);
-    cleri_children_t * child;
+    cleri_node_t * child;
     ti_vtask_t * vtask;
 
     if (fn_not_thingsdb_or_collection_scope("task", query, e) ||
         fn_nargs_range("task", DOC_TASK, 1, 3, nargs, e) ||
-        ti_do_statement(query, (child = nd->children)->node, e))
+        ti_do_statement(query, (child = nd->children), e))
         return e->nr;
 
     if (nargs == 1)
@@ -73,7 +73,7 @@ static int do__f_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
         }
 
-        if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+        if (ti_do_statement(query, (child = child->next->next), e) ||
             fn_arg_closure("task", DOC_TASK, 2, query->rval, e))
             return e->nr;
 
@@ -97,7 +97,7 @@ static int do__f_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (nargs == 3)
         {
             const _Bool ti_scope = query->collection==NULL;
-            if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+            if (ti_do_statement(query, (child = child->next->next), e) ||
                 fn_arg_array("task", DOC_TASK, 3, query->rval, e) ||
                 ti_vtask_check_args(VARR(query->rval), mm, ti_scope, e))
                 goto fail2;

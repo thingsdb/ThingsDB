@@ -18,7 +18,7 @@ static int do__f_find_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     varr = (ti_varr_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         fn_arg_closure("find_index", DOC_LIST_FIND_INDEX, 1, query->rval, e))
         goto fail0;
 

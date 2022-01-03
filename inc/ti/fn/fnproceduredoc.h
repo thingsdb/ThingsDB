@@ -8,7 +8,7 @@ static int do__f_procedure_doc(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_or_collection_scope("procedure_doc", query, e) ||
         fn_nargs("procedure_doc", DOC_PROCEDURE_DOC, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str("procedure_doc", DOC_PROCEDURE_DOC, 1, query->rval, e))
         return e->nr;
 

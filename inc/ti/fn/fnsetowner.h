@@ -19,7 +19,7 @@ static int do__f_set_owner(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_or_collection_scope("set_owner", query, e) ||
         fn_nargs("set_owner", DOC_TASK_SET_OWNER, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str("set_owner", DOC_TASK_SET_OWNER, 1, query->rval, e))
         goto fail0;
 

@@ -89,7 +89,7 @@ static inline int ti_closure_vars_item(
 static inline cleri_node_t * ti_closure_statement(ti_closure_t * closure)
 {
     /*  closure = Sequence('|', List(name, opt=True), '|', statement)  */
-    return closure->node->children->next->next->next->node;
+    return closure->node->children->next->next->next;
 }
 
 #endif  /* TI_CLOSURE_H_ */

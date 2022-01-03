@@ -196,7 +196,7 @@ static int do__f_json_load(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ctx.parents[0] = &ctx;
 
     if (fn_nargs("json_load", DOC_JSON_LOAD, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str("json_load", DOC_JSON_LOAD, 1, query->rval, e))
         return e->nr;
 

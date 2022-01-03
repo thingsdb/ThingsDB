@@ -231,6 +231,9 @@ class TestModules(TestBase):
                     name: "Level2",
                     level3: {
                         name: "Level3",
+                        level4: {
+                            name: "Level4",
+                        }
                     }
                 }]
             });
@@ -241,7 +244,10 @@ class TestModules(TestBase):
             "name": "Level1",
             "level2": [{
                 "name": "Level2",
-                "level3": {}  # Only 2 deep will be packed
+                "level3": {
+                    "name": "Level3",
+                    "level4": {}  # Only 3 levels will be packed
+                }
             }]
         })
 

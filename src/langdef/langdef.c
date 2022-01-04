@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2022-01-02 15:00:42
+ * Created at: 2022-01-04 14:10:52
  */
 
 #include <langdef/langdef.h>
@@ -204,18 +204,15 @@ cleri_grammar_t * compile_langdef(void)
             CLERI_THIS
         ))
     ), 0, 0);
+    cleri_t * end_statement = cleri_regex(CLERI_GID_END_STATEMENT, "^(;\\s*)*((((?s)\\/\\/.*?(\\r?\\n|$))|((?s)\\/\\*.*?\\*\\/))\\s*)*");
     cleri_t * block = cleri_sequence(
         CLERI_GID_BLOCK,
-        4,
+        5,
         x_block,
         comments,
-        cleri_list(CLERI_NONE, CLERI_THIS, cleri_sequence(
-            CLERI_NONE,
-            2,
-            cleri_token(CLERI_NONE, ";"),
-            comments
-        ), 1, 0, 1),
-        cleri_token(CLERI_NONE, "}")
+        cleri_list(CLERI_NONE, CLERI_THIS, end_statement, 1, 0, 1),
+        cleri_token(CLERI_NONE, "}"),
+        cleri_optional(CLERI_NONE, CLERI_THIS)
     );
     cleri_t * parenthesis = cleri_sequence(
         CLERI_GID_PARENTHESIS,
@@ -312,12 +309,7 @@ cleri_grammar_t * compile_langdef(void)
         ),
         operations
     );
-    cleri_t * statements = cleri_list(CLERI_GID_STATEMENTS, statement, cleri_sequence(
-        CLERI_NONE,
-        2,
-        cleri_token(CLERI_NONE, ";"),
-        comments
-    ), 0, 0, 1);
+    cleri_t * statements = cleri_list(CLERI_GID_STATEMENTS, statement, end_statement, 0, 0, 1);
     cleri_t * START = cleri_sequence(
         CLERI_GID_START,
         2,

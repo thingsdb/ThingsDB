@@ -139,6 +139,9 @@ class LangDef(Grammar):
         Optional(chain),
     )
 
+    end_statement = \
+        Regex(r'(;\s*)*((((?s)\/\/.*?(\r?\n|$))|((?s)\/\*.*?\*\/))\s*)*')
+
     # By adding an optional THIS at the end of this sequence, we are able
     # to support a block without explicit ending with `;`. In qbind, we then
     # should add the address of the child to `qbind__statement` which can be
@@ -148,8 +151,9 @@ class LangDef(Grammar):
     block = Sequence(
         x_block,
         comments,
-        List(THIS, delimiter=Sequence(';', comments), mi=1),
-        '}')
+        List(THIS, delimiter=end_statement, mi=1),
+        '}',
+        Optional(THIS))
 
     parenthesis = Sequence(x_parenthesis, THIS, ')')
 
@@ -218,7 +222,7 @@ class LangDef(Grammar):
             expression,
         ),
         operations)
-    statements = List(statement, delimiter=Sequence(';', comments))
+    statements = List(statement, delimiter=end_statement)
 
     START = Sequence(comments, statements)
 

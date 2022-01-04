@@ -62,7 +62,7 @@ static cleri_node_t * closure__node_from_strn(
             ->children->next;               /* List of statements */
 
     /* we should have exactly one statement */
-    if (!node->children || node->children->next)
+    if (!node->children)
     {
         ex_set(e, EX_BAD_DATA, "closure is expecting exactly one node");
         goto fail1;

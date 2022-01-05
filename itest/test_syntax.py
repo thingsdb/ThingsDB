@@ -71,6 +71,41 @@ class TestSyntax(TestBase):
                 !||nil;
             """)
 
+    async def test_closure_store(self, client):
+        res = await client.query("""//ti
+            .fun = || {
+                // This is a test
+                // with comments on top.
+                nil;
+            }
+            .fun;
+        """)
+        self.assertEqual(res, """||{// This is a test
+// with comments on top.
+nil;}""")
+
+        res = await client.query("""//ti
+            .fun = || {
+                for (x in range(10)) {4}5;
+            };
+            .fun;
+        """)
+        self.assertEqual(res, "||{for(x in range(10)){4}5;}")
+
+    async def test_missing_semicolon(self, client):
+        res = await client.query("""//ti
+            123 456;
+        """)
+        self.assertEqual(res, 456)
+
+        with self.assertRaisesRegex(
+                SyntaxError,
+                r'error at line 1, position 0, unexpected character `1`, '
+                r'expecting: if, return, for or end_of_statement'):
+            await client.query("""//ti
+                1.2.3;
+            """)
+
 
 if __name__ == '__main__':
     run_test(TestSyntax())

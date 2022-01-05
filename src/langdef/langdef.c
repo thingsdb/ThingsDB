@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2022-01-04 18:35:59
+ * Created at: 2022-01-05 11:56:22
  */
 
 #include <langdef/langdef.h>
@@ -30,10 +30,11 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * x_preopr = cleri_regex(CLERI_GID_X_PREOPR, "^(\\s*!|\\s*[\\-+](?=[^0-9]))*");
     cleri_t * x_ternary = cleri_token(CLERI_GID_X_TERNARY, "?");
     cleri_t * x_thing = cleri_token(CLERI_GID_X_THING, "{");
+    cleri_t * x_template = cleri_token(CLERI_GID_X_TEMPLATE, "`");
     cleri_t * template = cleri_sequence(
         CLERI_GID_TEMPLATE,
         3,
-        cleri_token(CLERI_NONE, "`"),
+        x_template,
         cleri_repeat(CLERI_NONE, cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
@@ -47,11 +48,11 @@ cleri_grammar_t * compile_langdef(void)
                 cleri_token(CLERI_NONE, "}")
             )
         ), 0, 0),
-        cleri_token(CLERI_NONE, "`")
+        x_template
     );
     cleri_t * t_false = cleri_keyword(CLERI_GID_T_FALSE, "false", CLERI_CASE_SENSITIVE);
-    cleri_t * t_float = cleri_regex(CLERI_GID_T_FLOAT, "^[-+]?(inf|nan|[0-9]*\\.[0-9]+(e[+-][0-9]+)?)(?![0-9A-Za-z_])");
-    cleri_t * t_int = cleri_regex(CLERI_GID_T_INT, "^[-+]?((0b[01]+)|(0o[0-8]+)|(0x[0-9a-fA-F]+)|([0-9]+))(?![0-9A-Za-z_])");
+    cleri_t * t_float = cleri_regex(CLERI_GID_T_FLOAT, "^[-+]?(inf|nan|[0-9]*\\.[0-9]+(e[+-][0-9]+)?)(?![0-9A-Za-z_\\.])");
+    cleri_t * t_int = cleri_regex(CLERI_GID_T_INT, "^[-+]?((0b[01]+)|(0o[0-8]+)|(0x[0-9a-fA-F]+)|([0-9]+))(?![0-9A-Za-z_\\.])");
     cleri_t * t_nil = cleri_keyword(CLERI_GID_T_NIL, "nil", CLERI_CASE_SENSITIVE);
     cleri_t * t_regex = cleri_regex(CLERI_GID_T_REGEX, "^/((?:.(?!(?<![\\\\])/))*.?)/[a-z]*");
     cleri_t * t_string = cleri_regex(CLERI_GID_T_STRING, "^(((?:\'(?:[^\']*)\')+)|((?:\"(?:[^\"]*)\")+))");

@@ -50,23 +50,24 @@ class LangDef(Grammar):
     x_preopr = Regex(r'(\s*!|\s*[\-+](?=[^0-9]))*')
     x_ternary = Token('?')
     x_thing = Token('{')
+    x_template = Token('`')
 
     template = Sequence(
-        '`',
+        x_template,
         Repeat(Choice(
             Regex(r"([^`{}]|``|{{|}})+"),
             Sequence('{', THIS, '}')
         )),
-        '`'
+        x_template
     )
 
     t_false = Keyword('false')
     t_float = Regex(
         r'[-+]?(inf|nan|[0-9]*\.[0-9]+(e[+-][0-9]+)?)'
-        r'(?![0-9A-Za-z_])')
+        r'(?![0-9A-Za-z_\.])')
     t_int = Regex(
         r'[-+]?((0b[01]+)|(0o[0-8]+)|(0x[0-9a-fA-F]+)|([0-9]+))'
-        r'(?![0-9A-Za-z_])')
+        r'(?![0-9A-Za-z_\.])')
 
     t_nil = Keyword('nil')
     t_regex = Regex(r'/((?:.(?!(?<![\\])/))*.?)/[a-z]*')

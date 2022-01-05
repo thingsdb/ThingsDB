@@ -40,16 +40,12 @@ class TestSyntax(TestBase):
 
         with self.assertRaisesRegex(
                 SyntaxError,
-                r'error at line 1, position 256, '
-                r'unexpected `aaaaaaaaaaaaaaaaaaaa...`, '
-                r'expecting: ; or end_of_statement'):
+                r'error at line 1, position 1, unexpected character `a`'):
             await client.query('.{} = 1'.format('a'*1000))
 
         with self.assertRaisesRegex(
                 SyntaxError,
-                r'error at line 1, position 256, '
-                r'unexpected character `a`, '
-                r'expecting: ; or end_of_statement'):
+                r'error at line 1, position 1, unexpected character `a`'):
             await client.query('.{} = 1'.format('a'*256))
 
         await client.query('thing(.id())[prop] = 1', prop='b'*255)
@@ -66,20 +62,6 @@ class TestSyntax(TestBase):
                 SyntaxError,
                 r'error at line 1, position 17, expecting: :'):
             await client.query('|x| is_err(x)?x+2')
-
-    async def test_other_invalid_syntax(self, client):
-
-        with self.assertRaisesRegex(
-                SyntaxError,
-                r'error at line 1, position 2, unexpected character `1`, '
-                r'expecting: ; or end_of_statemen'):
-            await client.query('1 1;' * 150)
-
-        with self.assertRaisesRegex(
-                SyntaxError,
-                r'error at line 1, position 2, unexpected character `1`, '
-                r'expecting: ; or end_of_statemen'):
-            await client.query('1 1;' * 150)
 
     async def test_weird_closure(self, client):
         with self.assertRaisesRegex(

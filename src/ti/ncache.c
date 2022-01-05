@@ -332,12 +332,6 @@ static int ncache__expr_choice(
                 vcache,
                 nd->children->next->children,
                 e);
-    case CLERI_GID_BLOCK:
-        return ncache__list(
-                syntax,
-                vcache,
-                nd->children->next->next->children,
-                e);
     case CLERI_GID_PARENTHESIS:
         return ncache__statement(syntax, vcache, nd->children->next, e);
     default:
@@ -473,6 +467,12 @@ static int ncache__statement(
             return 0;
         case CLERI_GID_CLOSURE:
             return ncache__closure(syntax, vcache, nd, e);
+        case CLERI_GID_BLOCK:
+            return ncache__list(
+                    syntax,
+                    vcache,
+                    nd->children->next->next->children,
+                    e);
         case CLERI_GID_EXPRESSION:
             return ncache__expression(syntax, vcache, nd, e);
         case CLERI_GID_OPERATIONS:

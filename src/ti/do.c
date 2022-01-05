@@ -577,12 +577,10 @@ static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             : do__function_call(query, nd, e);
 }
 
-static inline int do__block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+int ti_do_block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_BLOCK);
-
     /* first child, not empty */
-    cleri_node_t * child= nd->children->next->next->children;
+    cleri_node_t * child = nd->children->next->next->children;
 
     do
     {
@@ -1656,10 +1654,6 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         break;
     case CLERI_GID_ARRAY:
         if (do__array(query, nd, e))
-            return e->nr;
-        break;
-    case CLERI_GID_BLOCK:
-        if (do__block(query, nd, e))
             return e->nr;
         break;
     case CLERI_GID_PARENTHESIS:

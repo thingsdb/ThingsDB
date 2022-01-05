@@ -1174,23 +1174,6 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
         qbind->flags |= TI_QBIND_FLAG_ON_VAR;   /* enable var mode */
         return;
     }
-    case CLERI_GID_BLOCK:
-    {
-        cleri_node_t * child = nd       /* seq<{, comment, list, }> */
-                ->children->next->next  /* list statements */
-                ->children;             /* first child, not empty */
-        do
-        {
-            qbind__statement(qbind, child);  /* statement */
-        }
-        while (child->next && (child = child->next->next));
-
-        if ((child = nd->children->next->next->next->next))
-        {
-            qbind->flags |= TI_QBIND_BIT_ILL_BLOCK;
-        }
-        return;
-    }
     case CLERI_GID_PARENTHESIS:
         qbind__statement(qbind, nd->children->next);
     }
@@ -1292,6 +1275,26 @@ static inline void qbind__for_statement(ti_qbind_t * q, cleri_node_t * nd)
     q->flags &= ~no_for_loop;
 }
 
+static inline void qbind__block(ti_qbind_t * qbind, cleri_node_t * nd)
+{
+    cleri_node_t * child = nd       /* seq<{, comment, list, }> */
+            ->children->next->next  /* list statements */
+            ->children;             /* first child, not empty */
+
+    nd->data = ti_do_block;
+
+    do
+    {
+        qbind__statement(qbind, child);  /* statement */
+        if (!child->next)
+            break;
+    }
+    while ((child = child->next->next));
+
+    return;
+}
+
+
 /*
  * Entry point for analyzing a statement.
  *
@@ -1329,6 +1332,9 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
     case CLERI_GID_EXPRESSION:
         qbind->flags &= ~TI_QBIND_FLAG_ON_VAR;
         qbind__expression(qbind, nd->children);
+        return;
+    case CLERI_GID_BLOCK:
+        qbind__block(qbind, nd->children);
         return;
     case CLERI_GID_OPERATIONS:
         qbind__operations(qbind, &nd->children, 0);

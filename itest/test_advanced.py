@@ -1019,11 +1019,11 @@ class TestAdvanced(TestBase):
         '''), 5)
 
         self.assertIs(await client.query(r'''
-            !!{
+            !!({
                 x = [{}];
                 bool(x[0].x = x[0]);
                 x.pop()
-            };
+            });
         '''), True)
 
         self.assertIs(await client.query(r'''
@@ -1035,11 +1035,11 @@ class TestAdvanced(TestBase):
         '''), True)
 
         self.assertIs(await client.query(r'''
-            {
+            ({
                 x = [{}];
                 bool(x[0].x = x[0]);
                 x.pop()
-            }.id();
+            }).id();
         '''), None)
 
         self.assertEqual(await client.query(r'''
@@ -1057,7 +1057,7 @@ class TestAdvanced(TestBase):
             x = {};
             x.  y = {};
             x.y.y = x.y;
-            {x.del('y')}.id();
+            {x.del('y')}
             5;
         '''), 5)
 

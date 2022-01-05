@@ -228,7 +228,7 @@ class TestTypes(TestBase):
         '''), 4)
 
         self.assertEqual(await client.query(r'''
-            {{}.t = [1, 2, 3]}.push(4);
+            ({{}.t = [1, 2, 3]}).push(4);
         '''), 4)
 
         self.assertEqual(await client.query(r'''
@@ -236,7 +236,7 @@ class TestTypes(TestBase):
         '''), 4)
 
         self.assertEqual(await client.query(r'''
-            {{}['some key'] = [1, 2, 3]}.push(4);
+            ({{}['some key'] = [1, 2, 3]}).push(4);
         '''), 4)
 
         await client.query(r'''
@@ -248,7 +248,7 @@ class TestTypes(TestBase):
         '''), 4)
 
         self.assertEqual(await client.query(r'''
-            {T{}.arr = [1, 2, 3]}.push(4);
+            ({T{}.arr = [1, 2, 3]}).push(4);
         '''), 4)
 
     async def test_closure(self, client):

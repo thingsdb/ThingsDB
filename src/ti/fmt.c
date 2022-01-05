@@ -395,8 +395,6 @@ static int fmt__expr_choice(ti_fmt_t * fmt, cleri_node_t * nd)
         return fmt__thing(fmt, nd);
     case CLERI_GID_ARRAY:
         return fmt__array(fmt, nd);
-    case CLERI_GID_BLOCK:
-        return fmt__block(fmt, nd);
     case CLERI_GID_PARENTHESIS:
         return fmt__parenthesis(fmt, nd);
     }
@@ -563,6 +561,8 @@ static int fmt__statement(ti_fmt_t * fmt, cleri_node_t * nd)
         return buf_append_str(&fmt->buf, "break");
     case CLERI_GID_CLOSURE:
         return fmt__closure(fmt, nd);
+    case CLERI_GID_BLOCK:
+        return fmt__block(fmt, nd);
     case CLERI_GID_EXPRESSION:
         return fmt__expression(fmt, nd);
     case CLERI_GID_OPERATIONS:

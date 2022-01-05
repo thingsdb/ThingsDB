@@ -8,8 +8,7 @@ const char * langdef_translate(cleri_t * elem)
 {
     switch (elem->gid)
     {
-    case CLERI_GID_R_DOUBLE_QUOTE:
-    case CLERI_GID_R_SINGLE_QUOTE:
+    case CLERI_GID_T_STRING:
     case CLERI_GID_T_INT:
     case CLERI_GID_T_TRUE:
     case CLERI_GID_T_FALSE:

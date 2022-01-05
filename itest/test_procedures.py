@@ -58,7 +58,7 @@ class TestProcedures(TestBase):
             'iris',
             scope='@thingsdb')
 
-        await client0.query(r'''
+        await client0.query(r"""//ti
             // First set properties which we can later verify
             .r = 'Test Raw String';
             .t = {test: 'Thing', nested: {found: true}};
@@ -73,11 +73,13 @@ class TestProcedures(TestBase):
             .upd_list = |i| .l = .l.map(|x| (x + i));
 
             // Create a procedure which calls a closure
-            new_procedure('upd_list', |i| wse({
+            new_procedure('upd_list', |i| {
                 "Add a given value `i` to all values in `.l`";
-                .upd_list.call(i);
+                wse({
+                    .upd_list.call(i);
+                });
                 nil;  // Return nil
-            }));
+            });
 
             /*********************************
              * Create some extra procedures. *
@@ -105,7 +107,7 @@ class TestProcedures(TestBase):
                 "Return two levels deep.";
                 return(thing(.t.id()), 2);
             });
-        ''')
+        """)
 
         self.assertEqual(
             await client0.query('procedure_doc("upd_list");'),

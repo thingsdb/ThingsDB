@@ -922,12 +922,6 @@ class TestCollectionFunctions(TestBase):
 
         self.assertEqual(await client.query('(||{"test!"}).doc();'), 'test!')
         self.assertEqual(await client.query('(||nil).doc();'), '')
-        self.assertEqual(await client.query(r'''
-            (||wse(return({
-                "Test!";
-                nil;
-            }, 2))).doc();
-        '''), 'Test!')
 
     async def test_ends_with(self, client):
         with self.assertRaisesRegex(

@@ -743,7 +743,7 @@ int ti_val_init_common(void)
         !val__smpdata || !val__sregex || !val__serror || !val__sclosure ||
         !val__slist || !val__stuple || !val__sset || !val__sthing ||
         !val__swthing || !val__tar_gz_str || !val__sany || !val__gs_str ||
-        !val__charset_str || !val__default_re || // !val__default_closure ||
+        !val__charset_str || !val__default_re || !val__default_closure ||
         !val__sroom || !val__stask || !val__year_name || !val__month_name ||
         !val__day_name || !val__hour_name || !val__minute_name ||
         !val__second_name || !val__gmt_offset_name || !val__sfuture ||

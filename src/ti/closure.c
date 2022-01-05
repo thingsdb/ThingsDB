@@ -139,9 +139,18 @@ static void closure__node_to_buf(cleri_node_t * nd, char * buf, size_t * n)
             }
         }
         /* fall through */
+    case CLERI_TP_REGEX:
+        if (nd->cl_obj->gid == CLERI_GID_END_STATEMENT)
+        {
+            if (nd->len || ((*n) && isspace(nd->str[-1])))
+            {
+                buf[(*n)++] = ';';
+            }
+            return;
+        }
+        /* fall through */
     case CLERI_TP_TOKEN:
     case CLERI_TP_TOKENS:
-    case CLERI_TP_REGEX:
         memcpy(buf + (*n), nd->str, nd->len);
         (*n) += nd->len;
         return;
@@ -310,6 +319,17 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
     return e->nr;
 }
 
+static char * closure__char(ti_closure_t * closure, size_t * n)
+{
+    char * buf;
+    buf = malloc(closure->node->len);
+    if (!buf)
+        return NULL;
+
+    closure__node_to_buf(closure->node, buf, n);
+    return buf;
+}
+
 int ti_closure_to_client_pk(ti_closure_t * closure, msgpack_packer * pk)
 {
     if (closure__is_unbound(closure))
@@ -317,8 +337,7 @@ int ti_closure_to_client_pk(ti_closure_t * closure, msgpack_packer * pk)
         int rc;
         char * buf;
         size_t n = 0;
-
-        buf = ti_closure_char(closure, &n);
+        buf = closure__char(closure, &n);
         if (!buf)
             return -1;
 
@@ -338,8 +357,7 @@ int ti_closure_to_store_pk(ti_closure_t * closure, msgpack_packer * pk)
         int rc;
         char * buf;
         size_t n = 0;
-
-        buf = ti_closure_char(closure, &n);
+        buf = closure__char(closure, &n);
         if (!buf)
             return -1;
 
@@ -354,17 +372,6 @@ int ti_closure_to_store_pk(ti_closure_t * closure, msgpack_packer * pk)
             MPACK_EXT_CLOSURE,
             closure->node->str,
             closure->node->len);
-}
-
-char * ti_closure_char(ti_closure_t * closure, size_t * n)
-{
-    char * buf;
-    buf = malloc(closure->node->len);
-    if (!buf)
-        return NULL;
-
-    closure__node_to_buf(closure->node, buf, n);
-    return buf;
 }
 
 int ti_closure_inc(ti_closure_t * closure, ti_query_t * query, ex_t * e)
@@ -697,35 +704,7 @@ int ti_closure_call_one_arg(
 ti_raw_t * ti_closure_doc(ti_closure_t * closure)
 {
     ti_raw_t * doc = NULL;
-
-    /* Note: expression might be `operations` as well which happen to be fine
-     *       since in that case the other checks are compatible
-     */
-    cleri_node_t * node = ti_closure_statement(closure)
-            ->children                /* expression */
-            ->children->next;         /* the choice */
-
-    while ((node->cl_obj->gid == CLERI_GID_VAR_OPT_MORE ||
-            node->cl_obj->gid == CLERI_GID_NAME_OPT_MORE
-        ) &&
-            node->children->next &&
-            node->children->next->cl_obj->gid == CLERI_GID_FUNCTION)
-    {
-        /*
-         * If the scope is a function, get the first argument, for example:
-         *   || wse({
-         *      "Read this doc string...";
-         *   });
-         */
-        node = node->children->next     /* function */
-                ->children->next;       /* arguments */
-
-        if (node->children)
-            node = node->children       /* statement */
-            ->children                  /* expression */
-            ->children->next;           /* the choice */
-        assert (node);
-    }
+    cleri_node_t * node = ti_closure_statement(closure)->children;
 
     if (node->cl_obj->gid != CLERI_GID_BLOCK)
         goto done;
@@ -741,7 +720,8 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
 
     doc = node->data;
     if (doc)
-        /* from cache */
+        /* from query cache; we can not set a new cache as we need some place
+         * to register the cached string */
         ti_incref(doc);
     else
         /* create and return a new string */

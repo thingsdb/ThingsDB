@@ -514,16 +514,10 @@ static inline int ti_query_investigate(ti_query_t * query, ex_t * e)
 
     /* check if illegal statements are found */
     if (query->qbind.flags & (
-            TI_QBIND_FLAG_ILL_BLOCK|
             TI_QBIND_FLAG_ILL_CONTINUE|
             TI_QBIND_FLAG_ILL_BREAK))
     {
-        if (query->qbind.flags & TI_QBIND_FLAG_ILL_BLOCK)
-            ex_set(e, EX_SYNTAX_ERROR,
-                    "illegal use of `block` statement; "
-                    "most likely a semicolon or surrounding parenthesis are "
-                    "missing");
-        else if (query->qbind.flags & TI_QBIND_FLAG_ILL_CONTINUE)
+        if (query->qbind.flags & TI_QBIND_FLAG_ILL_CONTINUE)
             ex_set(e, EX_SYNTAX_ERROR,
                     "illegal `continue` statement; "
                     "no surrounding `for..in` statement");

@@ -8,7 +8,7 @@ typedef enum
 {
     /* Flag THINGSDB and COLLECTION are exclusive, only one may be set.
      * The order is important since the order is used in function binding */
-    TI_QBIND_BIT_ILL_BLOCK,
+    TI_QBIND_BIT_UNUSED,
 
     TI_QBIND_BIT_THINGSDB=1,      /* must be one (see qbind, FN__FLAG_EV_T) */
     TI_QBIND_BIT_COLLECTION=2,    /* must be two (see qbind, FN__FLAG_EV_C) */
@@ -24,7 +24,7 @@ typedef enum
 typedef enum
 {
     /* first three flags are exclusive, only one may be set */
-    TI_QBIND_FLAG_ILL_BLOCK     =1<<TI_QBIND_BIT_ILL_BLOCK,
+    TI_QBIND_FLAG_UNUSED        =1<<TI_QBIND_BIT_UNUSED,
 
     TI_QBIND_FLAG_THINGSDB      =1<<TI_QBIND_BIT_THINGSDB,
     TI_QBIND_FLAG_COLLECTION    =1<<TI_QBIND_BIT_COLLECTION,

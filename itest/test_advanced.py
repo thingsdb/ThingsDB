@@ -1019,11 +1019,11 @@ class TestAdvanced(TestBase):
         '''), 5)
 
         self.assertIs(await client.query(r'''
-            !!{
+            !!({
                 x = [{}];
                 bool(x[0].x = x[0]);
                 x.pop()
-            };
+            });
         '''), True)
 
         self.assertIs(await client.query(r'''

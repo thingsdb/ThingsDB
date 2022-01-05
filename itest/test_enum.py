@@ -633,13 +633,13 @@ class TestEnum(TestBase):
             '''), None)
 
         with self.assertRaisesRegex(
-                SyntaxError,
-                r'error at line 1, position 6, unexpected character `1`'):
+                LookupError,
+                r'variable `Color` is undefined'):
             await client.query('Color{1};')
 
         with self.assertRaisesRegex(
-                SyntaxError,
-                r'error at line 1, position 6, unexpected character'):
+                LookupError,
+                r'variable `Color` is undefined'):
             await client.query('Color{"RED"};')
 
         with self.assertRaisesRegex(

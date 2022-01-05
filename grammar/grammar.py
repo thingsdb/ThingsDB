@@ -19,7 +19,7 @@ from pyleri import (
 )
 
 # names have a max length of 255 characters
-RE_NAME = r'^[A-Za-z_][0-9A-Za-z_]{0,254}'
+RE_NAME = r'^[A-Za-z_][0-9A-Za-z_]{0,254}(?![0-9A-Za-z_])'
 
 
 class Choice(Choice_):
@@ -51,8 +51,8 @@ class LangDef(Grammar):
     x_ternary = Token('?')
     x_thing = Token('{')
 
-    r_single_quote = Regex(r"(?:'(?:[^']*)')+")
-    r_double_quote = Regex(r'(?:"(?:[^"]*)")+')
+    # r_single_quote =
+    # r_double_quote = Regex(r'')
 
     template = Sequence(
         '`',
@@ -65,12 +65,15 @@ class LangDef(Grammar):
 
     t_false = Keyword('false')
     t_float = Regex(
-        r'[-+]?((inf|nan)([^0-9A-Za-z_]|$)|[0-9]*\.[0-9]+(e[+-][0-9]+)?)')
+        r'[-+]?(inf|nan|[0-9]*\.[0-9]+(e[+-][0-9]+)?)'
+        r'(?![0-9A-Za-z_])')
     t_int = Regex(
-        r'[-+]?((0b[01]+)|(0o[0-8]+)|(0x[0-9a-fA-F]+)|([0-9]+))')
+        r'[-+]?((0b[01]+)|(0o[0-8]+)|(0x[0-9a-fA-F]+)|([0-9]+))'
+        r'(?![0-9A-Za-z_])')
+
     t_nil = Keyword('nil')
     t_regex = Regex(r'/((?:.(?!(?<![\\])/))*.?)/[a-z]*')
-    t_string = Choice(r_single_quote, r_double_quote)
+    t_string = Regex(r"""(((?:'(?:[^']*)')+)|((?:"(?:[^"]*)")+))""")
     t_true = Keyword('true')
 
     # It would be nice if the leri family had support for advanced white space.
@@ -140,20 +143,13 @@ class LangDef(Grammar):
     )
 
     end_statement = \
-        Regex(r'(;\s*)*((((?s)\/\/.*?(\r?\n|$))|((?s)\/\*.*?\*\/))\s*)*')
+        Regex(r'((;|((?s)\/\/.*?(\r?\n|$))|((?s)\/\*.*?\*\/))\s*)*')
 
-    # By adding an optional THIS at the end of this sequence, we are able
-    # to support a block without explicit ending with `;`. In qbind, we then
-    # should add the address of the child to `qbind__statement` which can be
-    # NULL everywhere except for in `ti_qbind_probe` and parsing `BLOCK`
-    # statements. In a block statement, we then should "insert" the THIS part
-    # to the parent.
     block = Sequence(
         x_block,
         comments,
         List(THIS, delimiter=end_statement, mi=1),
-        '}',
-        Optional(THIS))
+        '}')
 
     parenthesis = Sequence(x_parenthesis, THIS, ')')
 
@@ -204,7 +200,6 @@ class LangDef(Grammar):
             var_opt_more,
             thing,
             array,
-            block,
             parenthesis,
         ),
         index,
@@ -220,6 +215,7 @@ class LangDef(Grammar):
             for_statement,
             closure,
             expression,
+            block,
         ),
         operations)
     statements = List(statement, delimiter=end_statement)

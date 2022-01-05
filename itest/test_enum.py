@@ -643,6 +643,16 @@ class TestEnum(TestBase):
             await client.query('Color{"RED"};')
 
         with self.assertRaisesRegex(
+                LookupError,
+                r'enum `Unknown` is undefined'):
+            await client.query('Unknown{RED};')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'enum `Unknown` is undefined'):
+            await client.query('Unknown{||"RED"};')
+
+        with self.assertRaisesRegex(
                 TypeError,
                 r'enumerator lookup is expecting type `str` but '
                 r'got type `int` instead'):

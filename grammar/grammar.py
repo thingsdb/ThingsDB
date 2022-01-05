@@ -51,9 +51,6 @@ class LangDef(Grammar):
     x_ternary = Token('?')
     x_thing = Token('{')
 
-    # r_single_quote =
-    # r_double_quote = Regex(r'')
-
     template = Sequence(
         '`',
         Repeat(Choice(

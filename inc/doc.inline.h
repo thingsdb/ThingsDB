@@ -123,6 +123,8 @@ static inline const char * doc_copy(ti_val_t * val)
     {
     case TI_VAL_THING:          return DOC_THING_COPY;
     case TI_VAL_WRAP:           return DOC_WTYPE_COPY;
+    case TI_VAL_ARR:            return DOC_LIST_COPY;
+    case TI_VAL_SET:            return DOC_SET_COPY;
     default:                    return NULL;
     }
 }
@@ -133,6 +135,8 @@ static inline const char * doc_dup(ti_val_t * val)
     {
     case TI_VAL_THING:          return DOC_THING_DUP;
     case TI_VAL_WRAP:           return DOC_WTYPE_DUP;
+    case TI_VAL_ARR:            return DOC_LIST_DUP;
+    case TI_VAL_SET:            return DOC_SET_DUP;
     default:                    return NULL;
     }
 }

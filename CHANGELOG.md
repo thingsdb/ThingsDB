@@ -9,6 +9,7 @@
 * Configurable `deep` value per scope and changed defaults, issue #261.
 * Set time zone per scope instead of collection only, issue #260.
 * Syntax changes, pr #264.
+* Added `dup(..)` and `copy(..)` to *set*, *list* and *tuple* type, issue #265.
 
 # v1.1.2
 

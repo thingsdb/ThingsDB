@@ -38,6 +38,11 @@
 #define TI_KIND_S_CLOSURE_OBSOLETE_   "/"
 #define TI_KIND_S_REGEX_OBSOLETE_     "*"
 
+/*
+ * Both copy() and dup() use the following code to set the default deep value:
+ *    !(type & 0x4);  THING/WRAP: 1 ARR/SET: 0
+ * Be careful when changing the order in the enumerator.
+ */
 typedef enum
 {
     TI_VAL_NIL,

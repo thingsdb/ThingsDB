@@ -5,7 +5,7 @@ static int do__f_copy(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const char * doc;
     const int nargs = fn_get_nargs(nd);
     ti_val_t * val;
-    uint8_t deep = 1;
+    uint8_t deep = !(query->rval->tp & 0x4);  /* THING/WRAP: 1, ARR/SET: 0 */
 
     doc = doc_copy(query->rval);
     if (!doc)

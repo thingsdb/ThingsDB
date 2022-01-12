@@ -4372,6 +4372,44 @@ class TestCollectionFunctions(TestBase):
 
         self.assertEqual(res, {"just a key": {'name': 'Foo'}})
 
+        res = await client.query(r"""//ti
+            a = {b: {c : {}}};
+            x = a.copy();
+            assert ( a != x );
+            assert ( a.b == x.b );
+            assert ( a.b.c == x.b.c );
+
+            x = a.copy(0);
+            assert ( a == x );
+            assert ( a.b == x.b );
+            assert ( a.b.c == x.b.c );
+
+            x = a.copy(2);
+            assert ( a != x );
+            assert ( a.b != x.b );
+            assert ( a.b.c == x.b.c );
+
+            s = set(A{}, A{});
+            x = s.copy();
+            y = s;
+            assert ( s == x );
+            assert ( s == y );
+            assert ( x.every(|i| type(i) == 'A' ) )
+
+            x.add(A{})
+            y.add(A{})
+            assert ( s != x );
+            assert ( s == y );
+
+            x = s.copy(1);
+            assert ( s != x );
+            assert ( s.len() == x.len() );
+            assert ( x.every(|i| type(i) == 'thing' ) )
+
+            'OK';
+        """)
+        self.assertEqual(res, 'OK')
+
     async def test_dup(self, client):
         with self.assertRaisesRegex(
                 LookupError,
@@ -4442,6 +4480,44 @@ class TestCollectionFunctions(TestBase):
         ''')
 
         self.assertEqual(res, {"just a key": {'name': 'Foo'}})
+
+        res = await client.query(r"""//ti
+            a = {b: {c : {}}};
+            x = a.dup();
+            assert ( a != x );
+            assert ( a.b == x.b );
+            assert ( a.b.c == x.b.c );
+
+            x = a.dup(0);
+            assert ( a == x );
+            assert ( a.b == x.b );
+            assert ( a.b.c == x.b.c );
+
+            x = a.dup(2);
+            assert ( a != x );
+            assert ( a.b != x.b );
+            assert ( a.b.c == x.b.c );
+
+            s = set(A{}, A{});
+            x = s.dup();
+            y = s;
+            assert ( s == x );
+            assert ( s == y );
+            assert ( x.every(|i| type(i) == 'A' ) )
+
+            x.add(A{})
+            y.add(A{})
+            assert ( s != x );
+            assert ( s == y );
+
+            x = s.dup(1);
+            assert ( s != x );
+            assert ( s.len() == x.len() );
+            assert ( x.every(|i| type(i) == 'A' ) )
+
+            'OK';
+        """)
+        self.assertEqual(res, 'OK')
 
     async def test_load(self, client):
         await client.query(r'''

@@ -632,7 +632,7 @@ class TestDatetime(TestBase):
             await client.query('time_zones_info(nil);', scope='@t')
 
         res = await client.query('time_zones_info();', scope='@t')
-        self.assertEqual(len(res), 440)
+        self.assertEqual(len(res), 593)
 
         for tz in res:
             self.assertIsInstance(tz, str)
@@ -958,6 +958,13 @@ class TestDatetime(TestBase):
 
         self.assertEqual(
             await client.query('.dt.zone();'), 'Europe/Amsterdam')
+
+    async def test_all_time_zones(self, client):
+        # bug #267
+        res = await client.query(r"""//ti
+            is_time_zone('America/Argentina/ComodRivadavia');
+        """)
+        self.assertTrue(res)
 
 
 if __name__ == '__main__':

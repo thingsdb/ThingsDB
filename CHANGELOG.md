@@ -1,3 +1,7 @@
+# v1.2.1
+
+* Switch from common to all time-zones, issue #267.
+
 # v1.2.0
 
 * Fixed allocation bug in reverse buffer, issue #253.

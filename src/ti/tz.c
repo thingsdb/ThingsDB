@@ -12,11 +12,11 @@
 
 enum
 {
-    TOTAL_KEYWORDS = 440,
-    MIN_WORD_LENGTH = 3,
-    MAX_WORD_LENGTH = 30,
-    MIN_HASH_VALUE = 102,
-    MAX_HASH_VALUE = 1454
+    TOTAL_KEYWORDS = 593,
+    MIN_WORD_LENGTH = 2,
+    MAX_WORD_LENGTH = 32,
+    MIN_HASH_VALUE = 13,
+    MAX_HASH_VALUE = 2688
 };
 
 
@@ -26,32 +26,32 @@ static inline unsigned int tz__hash(
 {
     static unsigned short asso_values[] =
     {
-        1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455,
-        1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455,
-        1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455,
-        1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455,
-        1455, 1455, 1455, 1455, 1455,   30, 1455,   28, 1455, 1455,
-        1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455,
-        1455, 1455, 1455, 1455, 1455,    8,   57,   46,  129,    7,
-         337,  184,  481,  366,  426,  248,  327,    7,  282,   83,
-          81,   12,  440,  117,  156,  213,  398,  370, 1455,  176,
-          41, 1455, 1455, 1455, 1455,   42, 1455,    7,  214,    7,
-           9,    7,   81,   52,   28,   10,  159,   99,    9,    7,
-           8,    7,   13,  285,    7,    8,    7,    7,  104,  208,
-          25,  181,  283, 1455, 1455, 1455, 1455, 1455, 1455, 1455,
-        1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455,
-        1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455,
-        1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455,
-        1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455,
-        1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455,
-        1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455,
-        1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455,
-        1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455,
-        1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455,
-        1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455,
-        1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455,
-        1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455,
-        1455, 1455, 1455, 1455, 1455, 1455
+        2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689,
+        2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689,
+        2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689,
+        2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689,
+        2689, 2689, 2689,  113, 2689,   64,    2,    2,   38,    2,
+          16,   78,   36,   34,   26,   22,    9,   35, 2689, 2689,
+        2689, 2689, 2689, 2689, 2689,   10,  136,    2,  463,   13,
+         451,  196,  730,  366,  641,  484,  640,    6,  466,   41,
+          13,    8,  520,  213,  195,  396,  483,   54, 2689,  291,
+         147, 2689, 2689, 2689, 2689,  170, 2689,    3,   13,    2,
+          39,    2,    4,   95,   49,    8,    2,  182,   44,    3,
+           3,    3,   43,  358,    2,    4,    2,    2,  174,  361,
+           2,  304,  250,    7, 2689, 2689, 2689, 2689, 2689, 2689,
+        2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689,
+        2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689,
+        2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689,
+        2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689,
+        2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689,
+        2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689,
+        2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689,
+        2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689,
+        2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689,
+        2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689,
+        2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689,
+        2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689, 2689,
+        2689, 2689, 2689, 2689, 2689, 2689, 2689
     };
 
     register unsigned int hval = n;
@@ -59,6 +59,12 @@ static inline unsigned int tz__hash(
     switch (hval)
     {
         default:
+            hval += asso_values[(unsigned char)s[31]];
+            /*fall through*/
+        case 31:
+            hval += asso_values[(unsigned char)s[30]];
+            /*fall through*/
+        case 30:
             hval += asso_values[(unsigned char)s[29]];
             /*fall through*/
         case 29:
@@ -128,7 +134,7 @@ static inline unsigned int tz__hash(
             hval += asso_values[(unsigned char)s[7]];
             /*fall through*/
         case 7:
-            hval += asso_values[(unsigned char)s[6]];
+            hval += asso_values[(unsigned char)s[6]+1];
             /*fall through*/
         case 6:
             hval += asso_values[(unsigned char)s[5]];
@@ -140,7 +146,7 @@ static inline unsigned int tz__hash(
             hval += asso_values[(unsigned char)s[3]];
             /*fall through*/
         case 3:
-            hval += asso_values[(unsigned char)s[2]];
+            hval += asso_values[(unsigned char)s[2]+1];
             /*fall through*/
         case 2:
             hval += asso_values[(unsigned char)s[1]];
@@ -602,6 +608,159 @@ static ti_tz_t tz__list[TOTAL_KEYWORDS] = {
     {.name="US/Hawaii"},
     {.name="US/Mountain"},
     {.name="US/Pacific"},
+    {.name="Africa/Asmera"},
+    {.name="Africa/Timbuktu"},
+    {.name="America/Argentina/ComodRivadavia"},
+    {.name="America/Atka"},
+    {.name="America/Buenos_Aires"},
+    {.name="America/Catamarca"},
+    {.name="America/Coral_Harbour"},
+    {.name="America/Cordoba"},
+    {.name="America/Ensenada"},
+    {.name="America/Fort_Wayne"},
+    {.name="America/Godthab"},
+    {.name="America/Indianapolis"},
+    {.name="America/Jujuy"},
+    {.name="America/Knox_IN"},
+    {.name="America/Louisville"},
+    {.name="America/Mendoza"},
+    {.name="America/Montreal"},
+    {.name="America/Porto_Acre"},
+    {.name="America/Rosario"},
+    {.name="America/Santa_Isabel"},
+    {.name="America/Shiprock"},
+    {.name="America/Virgin"},
+    {.name="Antarctica/South_Pole"},
+    {.name="Asia/Ashkhabad"},
+    {.name="Asia/Calcutta"},
+    {.name="Asia/Chongqing"},
+    {.name="Asia/Chungking"},
+    {.name="Asia/Dacca"},
+    {.name="Asia/Harbin"},
+    {.name="Asia/Istanbul"},
+    {.name="Asia/Kashgar"},
+    {.name="Asia/Katmandu"},
+    {.name="Asia/Macao"},
+    {.name="Asia/Rangoon"},
+    {.name="Asia/Saigon"},
+    {.name="Asia/Tel_Aviv"},
+    {.name="Asia/Thimbu"},
+    {.name="Asia/Ujung_Pandang"},
+    {.name="Asia/Ulan_Bator"},
+    {.name="Atlantic/Faeroe"},
+    {.name="Atlantic/Jan_Mayen"},
+    {.name="Australia/ACT"},
+    {.name="Australia/Canberra"},
+    {.name="Australia/LHI"},
+    {.name="Australia/NSW"},
+    {.name="Australia/North"},
+    {.name="Australia/Queensland"},
+    {.name="Australia/South"},
+    {.name="Australia/Tasmania"},
+    {.name="Australia/Victoria"},
+    {.name="Australia/West"},
+    {.name="Australia/Yancowinna"},
+    {.name="Brazil/Acre"},
+    {.name="Brazil/DeNoronha"},
+    {.name="Brazil/East"},
+    {.name="Brazil/West"},
+    {.name="CET"},
+    {.name="CST6CDT"},
+    {.name="Canada/Saskatchewan"},
+    {.name="Canada/Yukon"},
+    {.name="Chile/Continental"},
+    {.name="Chile/EasterIsland"},
+    {.name="Cuba"},
+    {.name="EET"},
+    {.name="EST"},
+    {.name="EST5EDT"},
+    {.name="Egypt"},
+    {.name="Eire"},
+    {.name="Etc/GMT"},
+    {.name="Etc/GMT+0"},
+    {.name="Etc/GMT+1"},
+    {.name="Etc/GMT+10"},
+    {.name="Etc/GMT+11"},
+    {.name="Etc/GMT+12"},
+    {.name="Etc/GMT+2"},
+    {.name="Etc/GMT+3"},
+    {.name="Etc/GMT+4"},
+    {.name="Etc/GMT+5"},
+    {.name="Etc/GMT+6"},
+    {.name="Etc/GMT+7"},
+    {.name="Etc/GMT+8"},
+    {.name="Etc/GMT+9"},
+    {.name="Etc/GMT-0"},
+    {.name="Etc/GMT-1"},
+    {.name="Etc/GMT-10"},
+    {.name="Etc/GMT-11"},
+    {.name="Etc/GMT-12"},
+    {.name="Etc/GMT-13"},
+    {.name="Etc/GMT-14"},
+    {.name="Etc/GMT-2"},
+    {.name="Etc/GMT-3"},
+    {.name="Etc/GMT-4"},
+    {.name="Etc/GMT-5"},
+    {.name="Etc/GMT-6"},
+    {.name="Etc/GMT-7"},
+    {.name="Etc/GMT-8"},
+    {.name="Etc/GMT-9"},
+    {.name="Etc/GMT0"},
+    {.name="Etc/Greenwich"},
+    {.name="Etc/UCT"},
+    {.name="Etc/UTC"},
+    {.name="Etc/Universal"},
+    {.name="Etc/Zulu"},
+    {.name="Europe/Belfast"},
+    {.name="Europe/Nicosia"},
+    {.name="Europe/Tiraspol"},
+    {.name="GB"},
+    {.name="GB-Eire"},
+    {.name="GMT+0"},
+    {.name="GMT-0"},
+    {.name="GMT0"},
+    {.name="Greenwich"},
+    {.name="HST"},
+    {.name="Hongkong"},
+    {.name="Iceland"},
+    {.name="Iran"},
+    {.name="Israel"},
+    {.name="Jamaica"},
+    {.name="Japan"},
+    {.name="Kwajalein"},
+    {.name="Libya"},
+    {.name="MET"},
+    {.name="MST"},
+    {.name="MST7MDT"},
+    {.name="Mexico/BajaNorte"},
+    {.name="Mexico/BajaSur"},
+    {.name="Mexico/General"},
+    {.name="NZ"},
+    {.name="NZ-CHAT"},
+    {.name="Navajo"},
+    {.name="PRC"},
+    {.name="PST8PDT"},
+    {.name="Pacific/Johnston"},
+    {.name="Pacific/Ponape"},
+    {.name="Pacific/Samoa"},
+    {.name="Pacific/Truk"},
+    {.name="Pacific/Yap"},
+    {.name="Poland"},
+    {.name="Portugal"},
+    {.name="ROC"},
+    {.name="ROK"},
+    {.name="Singapore"},
+    {.name="Turkey"},
+    {.name="UCT"},
+    {.name="US/Aleutian"},
+    {.name="US/East-Indiana"},
+    {.name="US/Indiana-Starke"},
+    {.name="US/Michigan"},
+    {.name="US/Samoa"},
+    {.name="Universal"},
+    {.name="W-SU"},
+    {.name="WET"},
+    {.name="Zulu"},
 };
 
 

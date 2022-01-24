@@ -4,9 +4,9 @@ static int do__f_return(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
 
-    log_debug(
+    log_warning(
             "function return() is deprecated; "
-            "use the `return` statement instead");  /* TODO add doc */
+            "use the `return` statement instead");
 
     if (fn_nargs_max("return", DOC_RETURN, 2, nargs, e))
         return e->nr;

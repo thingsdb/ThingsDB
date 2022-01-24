@@ -959,6 +959,13 @@ class TestDatetime(TestBase):
         self.assertEqual(
             await client.query('.dt.zone();'), 'Europe/Amsterdam')
 
+    async def test_all_time_zones(self, client):
+        # bug #267
+        res = await client.query(r"""//ti
+            is_time_zone('America/Argentina/ComodRivadavia');
+        """)
+        self.assertTrue(res)
+
 
 if __name__ == '__main__':
     run_test(TestDatetime())

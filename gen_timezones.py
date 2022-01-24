@@ -11,7 +11,7 @@ import pprint
 import re
 
 TZ_LINE = re.compile(
-    '^\s+\{\.name\=\"([\w\_\/\-]+)\"\}\,.*')
+    '^\s+\{\.name\=\"([\w\_\/\-\+]+)\"\}\,.*')
 
 def update_info(lines):
     last_line = False
@@ -30,7 +30,7 @@ def update_info(lines):
     if last_line is None:
         raise 'no matching lines are found'
 
-    for zone in pytz.common_timezones:
+    for zone in pytz.all_timezones:
         if zone not in lookup:
             new_zones.append(f'    {{.name="{zone}"}},\n')
 

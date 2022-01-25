@@ -1,6 +1,6 @@
 # v1.2.1
 
-* Switch from common to all time-zones, issue #267.
+* Switch from *common-* to *all-* time-zones, issue #267.
 
 # v1.2.0
 

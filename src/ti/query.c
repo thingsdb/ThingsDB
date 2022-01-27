@@ -611,6 +611,35 @@ failed:
     return e->nr;
 }
 
+void ti_query_warn_log(ti_query_t * query, const char * msg)
+{
+    switch ((ti_query_with_enum) query->with_tp)
+    {
+    case TI_QUERY_WITH_PARSERES:
+        log_warning("%s; source: query; code: `%s`",
+                msg,
+                query->with.parseres->str);
+        return;
+    case TI_QUERY_WITH_PROCEDURE:
+        log_warning("%s; source: procedure; code: `%s`",
+                msg,
+                query->with.closure->node->str);
+        return;
+    case TI_QUERY_WITH_FUTURE:
+        log_warning("%s; source: future; code: `%s`",
+                msg,
+                query->with.future->then->node->str);
+        return;
+    case TI_QUERY_WITH_TASK:
+    case TI_QUERY_WITH_TASK_FINISH:
+        log_warning("%s; source: task; code: `%s`",
+                msg,
+                query->with.vtask->closure->node->str);
+        return;
+    }
+    log_warning(msg);
+}
+
 static void query__duration_log(
         ti_query_t * query,
         double duration,

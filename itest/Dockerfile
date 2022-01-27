@@ -7,7 +7,7 @@ RUN apt-get update && \
         libyajl-dev \
         libcurl4-nss-dev \
         build-essential
-RUN git clone https://github.com/transceptor-technology/libcleri.git /tmp/libcleri && \
+RUN git clone https://github.com/cesbit/libcleri.git /tmp/libcleri && \
     cd /tmp/libcleri/Release && \
     make clean && \
     make && \

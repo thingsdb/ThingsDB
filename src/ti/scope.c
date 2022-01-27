@@ -365,15 +365,17 @@ void ti_scope_set_tz(uint64_t scope_id, ti_tz_t * tz)
     {
     case TI_SCOPE_THINGSDB:
         ti.t_tz = tz;
-        return;
+        break;
     case TI_SCOPE_NODE:
         ti.n_tz = tz;
+        break;
+    default:
+        collection = ti_collections_get_by_id(scope_id);
+        if (collection)
+            collection->tz = tz;
         return;
     }
-
-    collection = ti_collections_get_by_id(scope_id);
-    if (collection)
-        collection->tz = tz;
+    ti_flag_set(TI_FLAG_TI_CHANGED);  /* bug #269 */
 }
 
 void ti_scope_set_deep(uint64_t scope_id, uint8_t deep)
@@ -383,13 +385,15 @@ void ti_scope_set_deep(uint64_t scope_id, uint8_t deep)
     {
     case TI_SCOPE_THINGSDB:
         ti.t_deep = deep;
-        return;
+        break;
     case TI_SCOPE_NODE:
         ti.n_deep = deep;
+        break;
+    default:
+        collection = ti_collections_get_by_id(scope_id);
+        if (collection)
+            collection->deep = deep;
         return;
     }
-
-    collection = ti_collections_get_by_id(scope_id);
-    if (collection)
-        collection->deep = deep;
+    ti_flag_set(TI_FLAG_TI_CHANGED);  /* bug #269 */
 }

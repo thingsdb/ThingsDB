@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
     libpcre2-dev \
     libyajl-dev \
     libcurl4-nss-dev && \
-    git clone https://github.com/transceptor-technology/libcleri.git /tmp/libcleri && \
+    git clone https://github.com/cesbit/libcleri.git /tmp/libcleri && \
     cd /tmp/libcleri/Release && \
     make all && \
     make install && \

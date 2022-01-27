@@ -19,7 +19,7 @@
 
 * Added `is_time_zone(..)` function, issue #247.
 * Fixed task scheduling when restoring from file, issue #248.
-* Prevent restore when tasks are created in the `@thingsdb` scope, issue #249. 
+* Prevent restore when tasks are created in the `@thingsdb` scope, issue #249.
 * Added support for slice and index notation on bytes, issue #251.
 * Fixed bug with slice and index notation on internal names, issue #252.
 
@@ -61,7 +61,7 @@
   - `json_dump()`: https://docs.thingsdb.net/v1/collection-api/json_dump/
   - `json_load()`: https://docs.thingsdb.net/v1/collection-api/json_load/
 * Accept zero arguments for the `wrap()` function, issue #223.
-  
+
 # v1.0.1
 
 * Use data from buffer to solve re-allocation pointer bug, issue #214.
@@ -73,19 +73,19 @@
 * Added `clear()` function on `thing`, `set` and `list`.
 * Fixed bug with removing a self reference from a `set<->set` relation.
 * Functions for the new `room` type:
-  - `id()`: Return the Id of the room.git@github.com:transceptor-technology/oversight.website.git
+  - `id()`: Return the Id of the room.git@github.com:cesbit/oversight.website.git
   - `emit(..)`: Emit an event for the room.
 * Protocol types for the new `room` type:
   - `TI_PROTO_CLIENT_ROOM_JOIN` (6)
   - `TI_PROTO_CLIENT_ROOM_LEAVE` (7)
   - `TI_PROTO_CLIENT_ROOM_EMIT` (8)
-  - `TI_PROTO_CLIENT_ROOM_DELETE` (9) 
+  - `TI_PROTO_CLIENT_ROOM_DELETE` (9)
   - `TI_PROTO_CLIENT_REQ_JOIN` (38)
   - `TI_PROTO_CLIENT_REQ_LEAVE` (39)
   - `TI_PROTO_CLIENT_REQ_EMIT` (40)
 * Stored closures with side effects no longer require `wse` but can be used as
   long as a change is created. It is still possible to use `wse` to enfore a change.
-  
+
 ## Breaking changes from v0.10.x -> v1.0.0
 
 * Removed `.watch()`, `.unwatch()` and `.emit()` functions on type `thing`.
@@ -96,13 +96,13 @@
   - `TI_PROTO_CLIENT_WATCH_STOP` (4)
   - `TI_PROTO_CLIENT_REQ_WATCH` (35)
   - `TI_PROTO_CLIENT_REQ_UNWATCH` (36)
-* Insert data using syntax like `{"X": ...}` *(where X is a reserved keyword)* 
+* Insert data using syntax like `{"X": ...}` *(where X is a reserved keyword)*
   is no longer possible.
 * Function `.def()` on a closure is removed. Use `str(closure)` instead.
 * Changed the return values of the following types:
   - `regex`: From object to string (e.g. `{"*": "/.*/"}` -> `"/.*/"`).
   - `closure`: From object to string (e.g. `{"/": "||nil"}` -> `"||nil"`).
-                Note that `str(closure)` returns formatted closure code and 
+                Note that `str(closure)` returns formatted closure code and
                 just the type `closure` returns the closure as-is.
   - `error`: From object to string (e.g. `{"!": ...}` -> `"some error msg"`).
 * Backup template no longer supports `{EVENT}` as template variable. This variable
@@ -110,10 +110,10 @@
 * All the counter properties with `*event*` are replaced with `*change*`.
   Counter property `changes_quorum_lost` is renamed to simply `quorum_lost`.
 * All the node(s) info properties with `*event*` are replaced with `*change*`.
-  Property `next_thing_id` is changed to `next_free_id` as Ids are used 
-  for more than just things.  
-* Previous `EVENT` (or `MODIFY`) access to a scope is renamed to `CHANGE`. 
-  (Note: this is not truly breaking since both `EVENT` and `MODIFY` are marked 
+  Property `next_thing_id` is changed to `next_free_id` as Ids are used
+  for more than just things.
+* Previous `EVENT` (or `MODIFY`) access to a scope is renamed to `CHANGE`.
+  (Note: this is not truly breaking since both `EVENT` and `MODIFY` are marked
   as deprecated)
 * Previous `WATCH` access is renamed to `JOIN`. `WATCH` is marked as deprecated.
   (Note: this is not truly breaking since `WATCH` is marked as deprecated)
@@ -127,7 +127,7 @@
 * Function `remove(..)` on a `list` type will remove *all* values where a
   given closure evaluates to `true`. The return value will be a new `list` with
   the values which are removed. An alternative value is no longer possible.
-   
+
 # v0.10.15
 
 * Added `to_type(..)` to convert a thing into a type instance, issue #205.
@@ -274,7 +274,7 @@
 * Ordered procedures, types and enumerators by name, issue #130.
 * Added query caching, issue #131.
 * Honor IP configuration for HTTP API and health checkes, issue #133.
-* Functions `new_token` and `new_backup` now accept date/time type, issue #134. 
+* Functions `new_token` and `new_backup` now accept date/time type, issue #134.
 
 # v0.10.0
 
@@ -318,7 +318,7 @@
 # v0.9.18
 
 * Added `result_size_limit` to prevent large return data, issue #101.
-* Added `largest_result_size` counter, issue #102. 
+* Added `largest_result_size` counter, issue #102.
 
 # v0.9.17
 
@@ -427,7 +427,7 @@
 * Added a new function `assign(..)`, issue #32.
 * Fixed incorrect type count when using thing as variable, issue #42.
 * Fixed missing Thing ID after receiving a new thing by an event, issue #41.
-* Changed the return value for function `.del(..)`, issue #40. 
+* Changed the return value for function `.del(..)`, issue #40.
 * Fixed instances may be in use while changing a type, issue #39.
 * Fixed `list` or `set` may keep restriction after using mod_type(), issue #38.
 * Allow the `mod` action for function `mod_type(..)` to use a closure and remove specification restriction, issue #34.

@@ -59,7 +59,7 @@ int ti_query_vars_walk(
         void * args);
 int ti_query_task_context(ti_query_t * query, ti_vtask_t * vtask, ex_t * e);
 _Bool ti_query_thing_can_change_spec(ti_query_t * query, ti_thing_t * thing);
-
+void ti_query_warn_log(ti_query_t * query, const char * msg);
 
 static inline _Bool ti_query_wse(ti_query_t * query)
 {

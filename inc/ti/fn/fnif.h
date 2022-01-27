@@ -5,7 +5,8 @@ static int do__f_if(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = fn_get_nargs(nd);
     _Bool tobool;
 
-    log_warning(
+    ti_query_warn_log(
+            query,
             "function if() is deprecated; "
             "use the `if [..else]` statement instead");
 

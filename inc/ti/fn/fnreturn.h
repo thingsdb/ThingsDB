@@ -4,7 +4,8 @@ static int do__f_return(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
 
-    log_warning(
+    ti_query_warn_log(
+            query,
             "function return() is deprecated; "
             "use the `return` statement instead");
 

@@ -450,10 +450,13 @@ int ti_unpack(uchar * data, size_t n)
                 "migrating from schema 0; "
                 "set both @thingsdb and @node `deep` to 1; "
                 "set both @thingsdb and @node `time-zone` to UTC");
+
         mp_t_deep.via.u64 = 1;
         mp_n_deep.via.u64 = 1;
         mp_t_tz.via.u64 = TI_TZ_UTC_INDEX;
         mp_n_tz.via.u64 = TI_TZ_UTC_INDEX;
+
+        ti_flag_set(TI_FLAG_TI_CHANGED);  /* bug #269 */
     }
 
     if (ti_read_node_id(&node_id))

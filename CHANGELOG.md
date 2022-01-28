@@ -1,3 +1,7 @@
+# v1.2.2
+
+* Fixed storing migration change for *non-collection* scopes, issue #269.
+
 # v1.2.1
 
 * Switch from *common-* to *all-* time-zones, issue #267.

@@ -82,9 +82,18 @@ class TestUserAccess(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                'it is not possible to revoke your own `GRANT` privileges'):
+                'it is not possible to revoke your own `GRANT` and/or `QUERY` '
+                'privileges'):
             await testcl1.query(
                 r'''revoke('@:Collection', 'test1', CHANGE);''')
+
+        # bug #270
+        with self.assertRaisesRegex(
+                OperationError,
+                'it is not possible to revoke your own `GRANT` and/or `QUERY` '
+                'privileges'):
+            await testcl1.query(
+                r'''revoke('@:Collection', 'test1', QUERY);''')
 
         await client.query(
             r'''revoke('@:Collection', 'test1', CHANGE);''')

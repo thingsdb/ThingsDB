@@ -46,10 +46,12 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (mask & TI_AUTH_CHANGE)
         mask |= TI_AUTH_GRANT;
 
-    if (query->user == user && (mask & TI_AUTH_GRANT))
+    /* bug #270, no longer allow the removal of own QUERY access */
+    if (query->user == user && (mask & (TI_AUTH_GRANT|TI_AUTH_QUERY)))
     {
         ex_set(e, EX_OPERATION,
-                "it is not possible to revoke your own `GRANT` privileges"
+                "it is not possible to revoke your own `GRANT` and/or `QUERY` "
+                "privileges"
                 DOC_REVOKE);
         return e->nr;
     }

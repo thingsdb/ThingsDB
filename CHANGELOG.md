@@ -2,6 +2,7 @@
 
 * Fixed storing migration change for *non-collection* scopes, issue #269.
 * Deny revoking your own `QUERY` privileges to prevent lockout, issue #270.
+* Fixed evaluation from *left-to-right*, issue #271.
 
 # v1.2.1
 

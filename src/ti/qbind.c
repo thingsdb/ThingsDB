@@ -744,7 +744,11 @@ static _Bool qbind__swap(cleri_node_t ** parent, uint32_t parent_gid)
         qbind__swap(syntax_childa, gid);
     }
 
-    return gid > parent_gid;
+    /* Ternary operations require handing from right-to-left, whereas the other
+     * operations must be handled from left-to-right. # bug #271
+     */
+    return gid > parent_gid || (
+            gid == parent_gid && gid != CLERI_GID_OPR8_TERNARY);
 }
 
 /*
@@ -822,7 +826,12 @@ static _Bool qbind__operations(
          */
         qbind__swap(syntax_childa, gid);
     }
-    return gid > parent_gid;
+
+    /* Ternary operations require handing from right-to-left, whereas the other
+     * operations must be handled from left-to-right. # bug #271
+     */
+    return gid > parent_gid || (
+            gid == parent_gid && gid != CLERI_GID_OPR8_TERNARY);
 }
 
 /*

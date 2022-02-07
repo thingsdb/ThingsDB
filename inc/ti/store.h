@@ -12,6 +12,7 @@ typedef struct ti_store_s ti_store_t;
 int ti_store_create(void);
 int ti_store_init(void);
 void ti_store_destroy(void);
+int ti_store_skip_task_id(void);
 int ti_store_store(void);
 int ti_store_restore(void);
 

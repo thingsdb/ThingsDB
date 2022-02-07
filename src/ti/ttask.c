@@ -798,6 +798,14 @@ static int ttask__vtask_new(mp_unp_t * up)
         return -1;
     }
 
+    if (mp_id.via.u64 < ti.skip_task_id)
+    {
+        mp_skip(up);  /* closure */
+        mp_skip(up);  /* str */
+        mp_skip(up);  /* varr */
+        return 0;
+    }
+
     user = ti_users_get_by_id(mp_user_id.via.u64);
     closure = (ti_closure_t *) ti_val_from_vup(&vup);
 
@@ -850,6 +858,9 @@ static int ttask__vtask_del(mp_unp_t * up)
         return -1;
     }
 
+    if (mp_id.via.u64 < ti.skip_task_id)
+        return 0;
+
     ti_vtask_del(mp_id.via.u64, NULL);
     return 0;
 }
@@ -871,6 +882,9 @@ static int ttask__vtask_cancel(mp_unp_t * up)
                 "task `vtask_cancel` for the `@thingsdb` scope: invalid data");
         return -1;
     }
+
+    if (mp_id.via.u64 < ti.skip_task_id)
+        return 0;
 
     vtask = ti_vtask_by_id(ti.tasks->vtasks, mp_id.via.u64);
     if (vtask)
@@ -899,6 +913,12 @@ static int ttask__vtask_finish(mp_unp_t * up)
         log_critical(
             "task `vtask_finish` for the `@thingsdb` scope: invalid data");
         return -1;
+    }
+
+    if (mp_id.via.u64 < ti.skip_task_id)
+    {
+        mp_skip(up);    /* val */
+        return 0;
     }
 
     val = ti_val_from_vup(&vup);
@@ -952,6 +972,12 @@ static int ttask__vtask_set_args(mp_unp_t * up)
         return -1;
     }
 
+    if (mp_id.via.u64 < ti.skip_task_id)
+    {
+        mp_skip(up);    /* varr */
+        return 0;
+    }
+
     varr = (ti_varr_t *) ti_val_from_vup(&vup);
     if (!varr || !ti_val_is_array((ti_val_t *) varr))
         goto fail0;
@@ -991,6 +1017,9 @@ static int ttask__vtask_set_owner(mp_unp_t * up)
         return -1;
     }
 
+    if (mp_id.via.u64 < ti.skip_task_id)
+        return 0;
+
     user = ti_users_get_by_id(mp_user_id.via.u64);
     vtask = ti_vtask_by_id(ti.tasks->vtasks, mp_id.via.u64);
     if (vtask)
@@ -1021,6 +1050,12 @@ static int ttask__vtask_set_closure(mp_unp_t * up)
         log_critical(
             "task `vtask_set_closure` for the `@thingsdb` scope: invalid data");
         return -1;
+    }
+
+    if (mp_id.via.u64 < ti.skip_task_id)
+    {
+        mp_skip(up);    /* closure */
+        return 0;
     }
 
     closure = (ti_closure_t *) ti_val_from_vup(&vup);

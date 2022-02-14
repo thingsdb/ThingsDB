@@ -1804,7 +1804,9 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 SyntaxError,
                 'invalid syntax in closure'):
-            await client.query('closure("||");')
+            await client.query("""//ti
+                closure("||");
+            """)
 
         self.assertEqual(await client.query('closure();'), '||nil')
         self.assertIs(await client.query('c=closure(); c();'), None)

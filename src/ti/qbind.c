@@ -473,7 +473,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="change_id",         .fn=do__f_change_id,            ROOT_NE},
     {.name="choice",            .fn=do__f_choice,               CHAIN_NE},
     {.name="clear",             .fn=do__f_clear,                CHAIN_CE},
-    {.name="closure",           .fn=do__f_closure,              CHAIN_NE},
+    {.name="closure",           .fn=do__f_closure,              BOTH_NE},
     {.name="code",              .fn=do__f_code,                 CHAIN_NE},
     {.name="collection_info",   .fn=do__f_collection_info,      ROOT_NE},
     {.name="collections_info",  .fn=do__f_collections_info,     ROOT_NE},

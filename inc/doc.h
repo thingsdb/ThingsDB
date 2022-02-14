@@ -14,11 +14,12 @@
 /* Collection API */
 #define DOC_ALT_RAISE               DOC_SEE("collection-api/alt_raise")
 #define DOC_ASSERT                  DOC_SEE("collection-api/assert")
-#define DOC_BASE64_ENCODE           DOC_SEE("collection-api/base64_encode")
 #define DOC_BASE64_DECODE           DOC_SEE("collection-api/base64_decode")
+#define DOC_BASE64_ENCODE           DOC_SEE("collection-api/base64_encode")
 #define DOC_BOOL                    DOC_SEE("collection-api/bool")
 #define DOC_BYTES                   DOC_SEE("collection-api/bytes")
 #define DOC_CHANGE_ID               DOC_SEE("collection-api/change_id")
+#define DOC_CLOSURE                 DOC_SEE("collection-api/closure")
 #define DOC_DATETIME                DOC_SEE("collection-api/datetime")
 #define DOC_DEEP                    DOC_SEE("collection-api/deep")
 #define DOC_DEL_ENUM                DOC_SEE("collection-api/del_enum")
@@ -320,7 +321,7 @@
 
 /* No functions */
 #define DOC_PROCEDURES_API          DOC_SEE("procedures-api")
-#define DOC_CLOSURE                 DOC_SEE("data-types/closure")
+#define DOC_TYPE_CLOSURE            DOC_SEE("data-types/closure")
 #define DOC_HTTP_API                DOC_SEE("connect/http-api")
 #define DOC_CONFIGURATION           DOC_SEE("getting-started/configuration")
 

@@ -1,3 +1,7 @@
+# v1.2.3
+
+* Added `closure(..)` function to create closures from string, issue #273.
+
 # v1.2.2
 
 * Fixed storing migration change for *non-collection* scopes, issue #269.

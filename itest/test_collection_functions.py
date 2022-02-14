@@ -710,12 +710,12 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('deep();'), 1)
 
         self.assertEqual(await client.query(r'''
-            ( ||return(nil, 0) ).call();
+            ( ||return nil, 0 ).call();
             deep();
         '''), 0)
 
         self.assertEqual(await client.query(r'''
-            ( ||return(nil, 2) ).call();
+            ( ||return nil, 2 ).call();
             deep();
         '''), 2)
 
@@ -3204,41 +3204,41 @@ class TestCollectionFunctions(TestBase):
                 ValueError,
                 r'expecting a `deep` value between 0 and 127 '
                 r'but got 200 instead'):
-            await client.query('return(nil, 200);')
+            await client.query('return nil, 200;')
 
         with self.assertRaisesRegex(
                 ValueError,
                 r'expecting a `deep` value between 0 and 127 '
                 r'but got -2 instead'):
-            await client.query('return(nil, -2);')
+            await client.query('return nil, -2;')
 
         self.assertIs(await client.query(r'''
-            return();
+            return nil;
             "Not returned";
         '''), None)
 
         self.assertEqual(await client.query(r'''
-            return(42);
+            return 42;
             "Not returned";
         '''), 42)
 
         self.assertEqual(await client.query(r'''
             [0, 1, 2].map(|x| {
-                return((x + 1));
+                return x + 1;
                 0;
             });
         '''), [1, 2, 3])
 
         self.assertEqual(await client.query(r'''
             (|x| {
-                try(return((x + 1)));
+                try(return x + 1);
                 0;
             }).call(41);
         '''), 42)
 
         self.assertEqual(await client.query(r'''
             .a = 10;
-            .a = return(11);  // Return, so do not overwrite a
+            .a = return 11;  // Return, so do not overwrite a
         '''), 11)
 
         self.assertEqual(await client.query('.a'), 10)
@@ -3654,7 +3654,7 @@ class TestCollectionFunctions(TestBase):
         t = await client.query(f'thing({id});')
         self.assertEqual(t['x'], 42)
         self.assertEqual(await client.query('thing();'), {})
-        stuff, t = await client.query(f'return([thing(.id()),thing({id})],2);')
+        stuff, t = await client.query(f'return [thing(.id()),thing({id})], 2;')
         self.assertEqual(stuff['t'], t)
         self.assertTrue(await client.query(f'( thing({id}) == thing({id}) );'))
 
@@ -4417,7 +4417,7 @@ class TestCollectionFunctions(TestBase):
             x = {};
             x["just a key"] = A{name: 'Foo'};
 
-            return(x.copy(2), 2);
+            return x.copy(2), 2;
         ''')
 
         self.assertEqual(res, {"just a key": {'name': 'Foo'}})
@@ -4526,7 +4526,7 @@ class TestCollectionFunctions(TestBase):
             x = {};
             x["just a key"] = A{name: 'Foo'};
 
-            return(x.dup(2), 2);
+            return x.dup(2), 2;
         ''')
 
         self.assertEqual(res, {"just a key": {'name': 'Foo'}})

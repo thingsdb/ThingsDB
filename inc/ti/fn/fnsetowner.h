@@ -51,7 +51,7 @@ static int do__f_set_owner(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 query->change,
                 query->collection ? query->collection->root : ti.thing0);
 
-        if (!task || ti_task_add_vtask_set_args(task, vtask))
+        if (!task || ti_task_add_vtask_set_owner(task, vtask))
             ex_set_mem(e);  /* task cleanup is not required */
     }
 fail0:

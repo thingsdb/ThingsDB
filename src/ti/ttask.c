@@ -997,6 +997,7 @@ static int ttask__vtask_set_owner(mp_unp_t * up)
     {
         ti_user_drop(vtask->user);
         vtask->user = user;
+        ti_incref(user);
     }
 
     return 0;

@@ -105,7 +105,7 @@ class TestProcedures(TestBase):
 
             new_procedure('deep_two', || {
                 "Return two levels deep.";
-                return(thing(.t.id()), 2);
+                return thing(.t.id()), 2;
             });
         """)
 

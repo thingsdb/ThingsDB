@@ -2028,6 +2028,7 @@ static int ctask__vtask_set_owner(ti_thing_t * thing, mp_unp_t * up)
     {
         ti_user_drop(vtask->user);
         vtask->user = user;
+        ti_incref(user);
     }
 
     return 0;

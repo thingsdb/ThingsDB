@@ -247,7 +247,7 @@ class TestTasks(TestBase):
             .x = 1;
             task(datetime(), |t| {
                 if (.x >= 3, {
-                    return();
+                    return;
                 });
                 .x += 1;
                 t.again_in('seconds', 1);
@@ -292,7 +292,7 @@ class TestTasks(TestBase):
             .x = 1;
             task(datetime(), |t| {
                 if (.x >= 3, {
-                    return();
+                    return;
                 });
                 .x += 1;
                 t.again_at(datetime().move('seconds', 1));
@@ -306,7 +306,7 @@ class TestTasks(TestBase):
             .x = 1;
             task(datetime(), |t| {
                 if (.x >= 3, {
-                    return();
+                    return;
                 });
 
                 // no change id, yet...
@@ -327,7 +327,7 @@ class TestTasks(TestBase):
             .y = 1;
             task(datetime(), |t| {
                 if (.y >= 3, {
-                    return();
+                    return;
                 });
 
                 .y += 1;
@@ -375,6 +375,22 @@ class TestTasks(TestBase):
 
         closure = await client1.query('.task.closure();')
         self.assertEqual(closure, '||false')
+
+    async def test_set_owner(self, client):
+        # bug #275
+        task_id = await client.query("""//ti
+            new_user('iris');
+            grant('/t', 'iris', FULL);
+            task = task(datetime().move('days', 1), ||true);
+            task.set_owner('iris');
+            task.id();
+        """, scope='/t')
+
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('/t')
+
+        owner = await client1.query('task(id).owner();', id=task_id)
+        self.assertEqual(owner, 'iris')
 
 
 if __name__ == '__main__':

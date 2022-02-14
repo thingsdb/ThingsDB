@@ -1171,7 +1171,7 @@ class TestAdvanced(TestBase):
                 .x = X{};
                 i = 0;
                 .x.map(|k, v| {
-                    if(i == 0, mod_type('X', 'del', 'c'));
+                    if (i == 0) mod_type('X', 'del', 'c');
                     i += 1;
                 });
             ''')

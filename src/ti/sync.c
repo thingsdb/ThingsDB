@@ -194,6 +194,7 @@ static void sync__on_res_sync(ti_req_t * req, ex_enum status)
 static void sync__finish(void)
 {
     ti_sync_stop();
+
     if (ti.node->status == TI_NODE_STAT_SYNCHRONIZING)
     {
         ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);

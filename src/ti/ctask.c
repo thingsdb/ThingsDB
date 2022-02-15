@@ -2668,6 +2668,7 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_THING_RESTRICT:    return ctask__thing_restrict(thing, up);
     case TI_TASK_THING_REMOVE:      return ctask__thing_remove(thing, up);
     case TI_TASK_SET_DEFAULT_DEEP:  break;
+    case TI_TASK_RESTORE_FINISHED:  break;
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);

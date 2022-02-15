@@ -18,6 +18,7 @@ void ti_tasks_stop(void);
 int ti_tasks_append(vec_t ** vtasks, ti_vtask_t * vtask);
 void ti_tasks_clear_dropped(vec_t ** vtasks);
 void ti_tasks_del_user(ti_user_t * user);
+void ti_tasks_clear_all(void);
 ti_varr_t * ti_tasks_list(vec_t * tasks);
 vec_t * ti_tasks_from_scope_id(uint64_t scope_id);
 void ti_tasks_reset_lowest_run_at(void);

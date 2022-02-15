@@ -1,11 +1,59 @@
 #include <ti/fn/fn.h>
 #include <util/iso8601.h>
 
+typedef struct
+{
+    _Bool * take_access;
+    _Bool * restore_tasks;
+    ex_t * e;
+} restore__walk_t;
+
+static int do__restore_option(
+        ti_raw_t * key,
+        ti_val_t * val,
+        restore__walk_t * w)
+{
+    if (ti_raw_eq_strn(key, "take_access", 11))
+    {
+        if (!ti_val_is_bool(val))
+        {
+            ex_set(w->e, EX_TYPE_ERROR,
+                    "take_access must be of type `"TI_VAL_BOOL_S"` but "
+                    "got type `%s` instead"DOC_RESTORE,
+                    ti_val_str(val));
+            return w->e->nr;
+        }
+        *w->take_access = ti_val_as_bool(val);
+        return 0;
+    }
+
+    if (ti_raw_eq_strn(key, "restore_tasks", 13))
+    {
+        if (!ti_val_is_bool(val))
+        {
+            ex_set(w->e, EX_TYPE_ERROR,
+                    "restore_tasks must be of type `"TI_VAL_BOOL_S"` but "
+                    "got type `%s` instead"DOC_RESTORE,
+                    ti_val_str(val));
+            return w->e->nr;
+        }
+        *w->restore_tasks = ti_val_as_bool(val);
+        return 0;
+
+    }
+
+    ex_set(w->e, EX_VALUE_ERROR,
+            "invalid option `%.*s`"DOC_RESTORE, key->n, key->data);
+
+    return w->e->nr;
+}
+
 static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
     char * restore_task;
-    _Bool overwrite_access = false;
+    _Bool take_access = false;
+    _Bool restore_tasks = false;
     uint32_t n;
     uint64_t ccid, scid;
     ti_task_t * task;
@@ -26,13 +74,33 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 2)
     {
+        ti_thing_t * thing;
+
         if (ti_do_statement(query, nd->children->next->next, e) ||
-            fn_arg_bool("restore", DOC_RESTORE, 2, query->rval, e))
+            fn_arg_thing("restore", DOC_RESTORE, 2, query->rval, e))
             goto fail0;
 
-        overwrite_access = ti_val_as_bool(query->rval);
+        thing = (ti_thing_t *) query->rval;
+
+        restore__walk_t w = {
+                .take_access = &take_access,
+                .restore_tasks = &restore_tasks,
+                .e = e,
+        };
+
+        if (ti_thing_walk(thing, (ti_thing_item_cb) do__restore_option, &w))
+            goto fail0;
+
         ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
+
+        if (take_access && restore_tasks)
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "take_access and restore_tasks cannot both be set to "
+                    "true"DOC_RESTORE);
+            goto fail0;
+        }
     }
 
     if ((node = ti_nodes_not_ready()))
@@ -196,7 +264,7 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_restore_unp(restore_task, e))
         goto fail1;
 
-    if (ti_restore_master(overwrite_access ? query->user : NULL))
+    if (ti_restore_master(take_access ? query->user : NULL, restore_tasks))
     {
         ex_set_internal(e);
         goto fail1;

@@ -87,6 +87,7 @@ int ti_store_tasks_restore(
             .up = &up,
     };
 
+
     /* clear existing vtasks (may exist in the thingsdb scope) */
     ti_tasks_clear_dropped(vtasks);
 

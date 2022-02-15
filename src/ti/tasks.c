@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <ti.h>
 #include <ti/node.h>
+#include <ti/restore.h>
 #include <ti/tasks.h>
 #include <ti/val.inline.h>
 #include <ti/varr.h>
@@ -106,7 +107,11 @@ static inline int tasks__handle_vtask(
         (~vtask->flags & TI_VTASK_FLAG_RUNNING))
     {
         if (vtask->run_at <= now)
-            return ti_vtask_run(vtask, collection) == 0;
+        {
+            if (ti_vtask_run(vtask, collection) == 0)
+                return 1;
+            /* re-schedule on error */
+        }
 
         /* update the next lowest run */
         if (vtask->run_at < tasks->lowest_run_at)
@@ -129,9 +134,8 @@ static void tasks__cb(uv_timer_t * UNUSED(handle))
      * usually very sort as it will return immediately. Only when required, it
      * will loop through the tasks.
      */
-    if (tasks->lowest_run_at > now || (
+    if (tasks->lowest_run_at > now || ti_restore_is_busy() || (
         ti.node->status & (
-            TI_NODE_STAT_SYNCHRONIZING|
             TI_NODE_STAT_AWAY|
             TI_NODE_STAT_AWAY_SOON|
             TI_NODE_STAT_READY)) == 0)
@@ -187,6 +191,16 @@ void ti_tasks_del_user(ti_user_t * user)
         for (vec_each(collection->vtasks, ti_vtask_t, vtask))
             if (vtask->user == user)
                 ti_vtask_del(vtask->id, collection);
+}
+
+void ti_tasks_clear_all(void)
+{
+    for (vec_each_rev(tasks->vtasks, ti_vtask_t, vtask))
+        ti_vtask_del(vtask->id, NULL);
+
+    for (vec_each(ti.collections->vec, ti_collection_t, collection))
+        for (vec_each(collection->vtasks, ti_vtask_t, vtask))
+            ti_vtask_del(vtask->id, collection);
 }
 
 ti_varr_t * ti_tasks_list(vec_t * tasks)

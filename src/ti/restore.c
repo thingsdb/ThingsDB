@@ -17,6 +17,7 @@
 
 static uv_timer_t restore__timer;
 static _Bool restore__is_busy = false;
+static _Bool restore__tasks;
 static ti_user_t * restore__user;
 
 char * ti_restore_task(const char * fn, size_t n)
@@ -185,11 +186,8 @@ static void restore__cb(void)
     (void) ti_nodes_write_global_status();
 }
 
-static void restore__user_access(void)
+static void restore__after_changes(void)
 {
-    if (!restore__user)
-        return;
-
     msgpack_packer pk;
     msgpack_sbuffer buffer;
     uint64_t change_id = ti.changes->next_change_id++;
@@ -199,9 +197,9 @@ static void restore__user_access(void)
     ti_cpkg_t * cpkg;
     ti_pkg_t * pkg;
     ti_change_t * change;
-    size_t ntasks = 3 +
-            !!restore__user->encpass +
-            restore__user->tokens->n;
+    size_t ntasks = (restore__user
+        ? 4 + !!restore__user->encpass + restore__user->tokens->n
+        : 1);
 
     if (mp_sbuffer_alloc_init(&buffer, ntasks * 128, sizeof(ti_pkg_t)))
     {
@@ -221,68 +219,83 @@ static void restore__user_access(void)
     msgpack_pack_uint64(&pk, thing_id);
     msgpack_pack_array(&pk, ntasks);
 
-    msgpack_pack_array(&pk, 2);         /* task 1 */
-
-    msgpack_pack_uint8(&pk, TI_TASK_CLEAR_USERS);
-    msgpack_pack_true(&pk);
-
-    msgpack_pack_array(&pk, 2);         /* task 2 */
-
-    msgpack_pack_uint8(&pk, TI_TASK_NEW_USER);
-    msgpack_pack_map(&pk, 3);
-
-    mp_pack_str(&pk, "id");
-    msgpack_pack_uint64(&pk, user_id);
-
-    mp_pack_str(&pk, "username");
-    mp_pack_strn(&pk, restore__user->name->data, restore__user->name->n);
-
-    mp_pack_str(&pk, "created_at");
-    msgpack_pack_uint64(&pk, restore__user->created_at);
-
-    msgpack_pack_array(&pk, 2);         /* task 3 */
-
-    msgpack_pack_uint8(&pk, TI_TASK_TAKE_ACCESS);
-    msgpack_pack_uint64(&pk, user_id);
-
-    /* restore password (if required) */
-    if (restore__user->encpass)
+    if (restore__user)
     {
         msgpack_pack_array(&pk, 2);
 
-        msgpack_pack_uint8(&pk, TI_TASK_SET_PASSWORD);
-        msgpack_pack_map(&pk, 2);
+        msgpack_pack_uint8(&pk, TI_TASK_CLEAR_USERS);
+        msgpack_pack_true(&pk);
+
+        msgpack_pack_array(&pk, 2);
+
+        msgpack_pack_uint8(&pk, TI_TASK_NEW_USER);
+        msgpack_pack_map(&pk, 3);
 
         mp_pack_str(&pk, "id");
         msgpack_pack_uint64(&pk, user_id);
 
-        mp_pack_str(&pk, "password");
-        mp_pack_str(&pk, restore__user->encpass);
-    }
-
-    /* restore tokens (if required) */
-    for (vec_each(restore__user->tokens, ti_token_t, token))
-    {
-        msgpack_pack_array(&pk, 2);
-
-        msgpack_pack_uint8(&pk, TI_TASK_NEW_TOKEN);
-        msgpack_pack_map(&pk, 5);
-
-        mp_pack_str(&pk, "id");
-        msgpack_pack_uint64(&pk, user_id);
-
-        mp_pack_str(&pk, "key");
-        mp_pack_strn(&pk, token->key, sizeof(ti_token_key_t));
-
-        mp_pack_str(&pk, "expire_ts");
-        msgpack_pack_uint64(&pk, token->expire_ts);
+        mp_pack_str(&pk, "username");
+        mp_pack_strn(&pk, restore__user->name->data, restore__user->name->n);
 
         mp_pack_str(&pk, "created_at");
-        msgpack_pack_uint64(&pk, token->created_at);
+        msgpack_pack_uint64(&pk, restore__user->created_at);
 
-        mp_pack_str(&pk, "description");
-        mp_pack_str(&pk, token->description);
+        msgpack_pack_array(&pk, 2);
+
+        msgpack_pack_uint8(&pk, TI_TASK_TAKE_ACCESS);
+        msgpack_pack_uint64(&pk, user_id);
+
+        /* restore password (if required) */
+        if (restore__user->encpass)
+        {
+            msgpack_pack_array(&pk, 2);
+
+            msgpack_pack_uint8(&pk, TI_TASK_SET_PASSWORD);
+            msgpack_pack_map(&pk, 2);
+
+            mp_pack_str(&pk, "id");
+            msgpack_pack_uint64(&pk, user_id);
+
+            mp_pack_str(&pk, "password");
+            mp_pack_str(&pk, restore__user->encpass);
+        }
+
+        /* restore tokens (if required) */
+        for (vec_each(restore__user->tokens, ti_token_t, token))
+        {
+            msgpack_pack_array(&pk, 2);
+
+            msgpack_pack_uint8(&pk, TI_TASK_NEW_TOKEN);
+            msgpack_pack_map(&pk, 5);
+
+            mp_pack_str(&pk, "id");
+            msgpack_pack_uint64(&pk, user_id);
+
+            mp_pack_str(&pk, "key");
+            mp_pack_strn(&pk, token->key, sizeof(ti_token_key_t));
+
+            mp_pack_str(&pk, "expire_ts");
+            msgpack_pack_uint64(&pk, token->expire_ts);
+
+            mp_pack_str(&pk, "created_at");
+            msgpack_pack_uint64(&pk, token->created_at);
+
+            mp_pack_str(&pk, "description");
+            mp_pack_str(&pk, token->description);
+        }
     }
+
+    /*
+     * This MUST be the last task
+     */
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_RESTORE_FINISHED);
+    if (restore__tasks)
+        msgpack_pack_false(&pk);  /* do not clear tasks */
+    else
+        msgpack_pack_true(&pk);  /* clear tasks */
+
 
     pkg = (ti_pkg_t *) buffer.data;
     pkg_init(pkg, 0, TI_PROTO_NODE_CHANGE, buffer.size);
@@ -321,12 +334,10 @@ static void restore__master_cb(uv_timer_t * UNUSED(timer))
         return;
     }
 
-    restore__user_access();
+    restore__after_changes();
 
     /* write global status (write loaded status) */
     (void) ti_nodes_write_global_status();
-
-    restore__is_busy = false;
 }
 
 static void restore__slave_cb(uv_timer_t * UNUSED(timer))
@@ -345,8 +356,6 @@ static void restore__slave_cb(uv_timer_t * UNUSED(timer))
 
     if (ti_sync_create() == 0)
         ti_sync_start();
-
-    restore__is_busy = false;
 }
 
 _Bool ti_restore_is_busy(void)
@@ -354,9 +363,15 @@ _Bool ti_restore_is_busy(void)
     return restore__is_busy;
 }
 
-int ti_restore_master(ti_user_t * user /* may be NULL */)
+void ti_restore_finished(void)
+{
+    restore__is_busy = false;
+}
+
+int ti_restore_master(ti_user_t * user /* may be NULL */, _Bool restore_tasks)
 {
     restore__is_busy = true;
+    restore__tasks = restore_tasks;
     restore__user = ti_grab(user);
 
     if (uv_timer_init(ti.loop, &restore__timer))

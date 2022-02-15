@@ -1207,6 +1207,27 @@ static int ttask__set_default_deep(mp_unp_t * up)
 
 /*
  * Returns 0 on success
+ * - for example: {'id':id, 'name':name}
+ */
+static int ttask__restore_finished(mp_unp_t * up)
+{
+    mp_obj_t clear_tasks;
+    if (mp_next(up, &clear_tasks) != MP_BOOL)
+    {
+        log_critical("task `sks`: invalid format");
+        return -1;
+    }
+
+    if (clear_tasks.via.bool_)
+        ti_tasks_clear_all();
+
+    ti_restore_finished();
+    return 0;
+}
+
+
+/*
+ * Returns 0 on success
  * - for example: {'old':name, 'name':name}
  */
 static int ttask__rename_module(mp_unp_t * up)
@@ -1533,6 +1554,7 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_THING_RESTRICT:    break;
     case TI_TASK_THING_REMOVE:      break;
     case TI_TASK_SET_DEFAULT_DEEP:  return ttask__set_default_deep(up);
+    case TI_TASK_RESTORE_FINISHED:  return ttask__restore_finished(up);
     }
 
     log_critical("unknown thingsdb task: %"PRIu64, mp_task.via.u64);

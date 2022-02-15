@@ -58,7 +58,7 @@ class TestArguments(TestBase):
             }]
         }
         self.assertEqual(
-            await client.query('return(iris, 2);', iris=iris),
+            await client.query('return iris, 2;', iris=iris),
             iris)
 
         await client.query('.iris = iris;', iris=iris)

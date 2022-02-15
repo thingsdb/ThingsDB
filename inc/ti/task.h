@@ -69,6 +69,7 @@ int ti_task_add_vtask_cancel(ti_task_t * task, ti_vtask_t * vtask);
 int ti_task_add_vtask_finish(ti_task_t * task, ti_vtask_t * vtask);
 int ti_task_add_vtask_set_args(ti_task_t * task, ti_vtask_t * vtask);
 int ti_task_add_vtask_set_owner(ti_task_t * task, ti_vtask_t * vtask);
+int ti_task_add_vtask_set_closure(ti_task_t * task, ti_vtask_t * vtask);
 int ti_task_add_new_token(
         ti_task_t * task,
         ti_user_t * user,

@@ -169,15 +169,15 @@ class TestTypes(TestBase):
         '''), 0)
 
         self.assertEqual(await client.query(r'''
-           return({a: {t: 0}}, 0);
+           return {a: {t: 0}}, 0;
         '''), {})
 
         self.assertEqual(await client.query(r'''
-           return({a: {t: 0}}, 1);
+           return {a: {t: 0}}, 1;
         '''), {'a': {}})
 
         self.assertEqual(await client.query(r'''
-           return({a: {t: 0}}, 2);
+           return {a: {t: 0}}, 2;
         '''), {'a': {'t': 0}})
 
         self.assertGreater(await client.query(r'''
@@ -292,18 +292,18 @@ class TestTypes(TestBase):
             .map(.b);
         '''), [["aa", "ab"], ["ba", "bb"]])
 
-        self.assertEqual(await client.query(r'''
+        self.assertEqual(await client.query(r"""//ti
             res = [];
-            closure = || {
+            c = || {
                 a = 1;
-                .c = closure;  /* store the closure, this will unbound the
-                                * closure from the query */
+                .c = c;  /* store the closure, this will unbound the
+                          * closure from the query */
                 a += 1;
                 res.push(a);
             };
-            closure();
+            c();
             res;
-        '''), [2])
+        """), [2])
 
         self.assertEqual(await client.query(r'''
             res = [];

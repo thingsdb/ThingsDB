@@ -231,8 +231,8 @@ class TestType(TestBase):
         client1.set_default_scope('//stuff')
 
         await self.wait_nodes_ready(client0)
-        iris_node0 = await client0.query('return(.iris, 2);')
-        iris_node1 = await client1.query('return(.iris, 2);')
+        iris_node0 = await client0.query('return .iris, 2;')
+        iris_node1 = await client1.query('return .iris, 2;')
 
         client1.close()
         await client1.wait_closed()
@@ -310,7 +310,7 @@ class TestType(TestBase):
         ''')
 
         brick_color_names = await client0.query(r'''
-            return(.bricks.map(|b| b.wrap('_ColorName')), 2);
+            return .bricks.map(|b| b.wrap('_ColorName')), 2;
         ''')
 
         self.assertEqual(len(brick_color_names), 5)
@@ -369,7 +369,7 @@ class TestType(TestBase):
         ''')
 
         bricks = await client0.query(r'''
-            return(.bricks.map(|b| b.wrap('_Color')), 2);
+            return .bricks.map(|b| b.wrap('_Color')), 2;
         ''')
 
         self.assertEqual(len(bricks), 4)

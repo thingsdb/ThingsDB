@@ -17,6 +17,7 @@ from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import ZeroDivisionError
 from thingsdb.exceptions import OperationError
 from thingsdb.exceptions import ThingsDBError
+from thingsdb.exceptions import SyntaxError
 from thingsdb.client.protocol import Err
 
 
@@ -709,12 +710,12 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('deep();'), 1)
 
         self.assertEqual(await client.query(r'''
-            ( ||return(nil, 0) ).call();
+            ( ||return nil, 0 ).call();
             deep();
         '''), 0)
 
         self.assertEqual(await client.query(r'''
-            ( ||return(nil, 2) ).call();
+            ( ||return nil, 2 ).call();
             deep();
         '''), 2)
 
@@ -1762,6 +1763,55 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('int(false);'), 0)
         self.assertEqual(await client.query('int("3.14");'), 3)
         self.assertEqual(await client.query('int("-3.14");'), -3)
+
+    async def test_closure(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `closure`'):
+            await client.query('nil.closure();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `closure` takes at most 1 argument '
+                'but 2 were given'):
+            await client.query('closure("||42", nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'cannot convert type `regex` to `closure`'):
+            await client.query('closure(/.*/);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'cannot convert type `nil` to `closure`'):
+            await client.query('closure(nil);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'node is not a closure'):
+            await client.query('closure("nil")')
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'closure is expecting exactly one statement'):
+            await client.query('closure("||123; 42")')
+
+        with self.assertRaisesRegex(
+                SyntaxError,
+                'invalid syntax in closure'):
+            await client.query('closure("||(");')
+
+        with self.assertRaisesRegex(
+                SyntaxError,
+                'invalid syntax in closure'):
+            await client.query("""//ti
+                closure("||");
+            """)
+
+        self.assertEqual(await client.query('closure();'), '||nil')
+        self.assertIs(await client.query('c=closure(); c();'), None)
+        self.assertEqual(await client.query('c=closure(||42); c();'), 42)
+        self.assertEqual(await client.query('c=closure(|x|x*2); c(21);'), 42)
 
     async def test_regex(self, client):
         with self.assertRaisesRegex(
@@ -3154,41 +3204,41 @@ class TestCollectionFunctions(TestBase):
                 ValueError,
                 r'expecting a `deep` value between 0 and 127 '
                 r'but got 200 instead'):
-            await client.query('return(nil, 200);')
+            await client.query('return nil, 200;')
 
         with self.assertRaisesRegex(
                 ValueError,
                 r'expecting a `deep` value between 0 and 127 '
                 r'but got -2 instead'):
-            await client.query('return(nil, -2);')
+            await client.query('return nil, -2;')
 
         self.assertIs(await client.query(r'''
-            return();
+            return nil;
             "Not returned";
         '''), None)
 
         self.assertEqual(await client.query(r'''
-            return(42);
+            return 42;
             "Not returned";
         '''), 42)
 
         self.assertEqual(await client.query(r'''
             [0, 1, 2].map(|x| {
-                return((x + 1));
+                return x + 1;
                 0;
             });
         '''), [1, 2, 3])
 
         self.assertEqual(await client.query(r'''
             (|x| {
-                try(return((x + 1)));
+                try(return x + 1);
                 0;
             }).call(41);
         '''), 42)
 
         self.assertEqual(await client.query(r'''
             .a = 10;
-            .a = return(11);  // Return, so do not overwrite a
+            .a = return 11;  // Return, so do not overwrite a
         '''), 11)
 
         self.assertEqual(await client.query('.a'), 10)
@@ -3604,7 +3654,7 @@ class TestCollectionFunctions(TestBase):
         t = await client.query(f'thing({id});')
         self.assertEqual(t['x'], 42)
         self.assertEqual(await client.query('thing();'), {})
-        stuff, t = await client.query(f'return([thing(.id()),thing({id})],2);')
+        stuff, t = await client.query(f'return [thing(.id()),thing({id})], 2;')
         self.assertEqual(stuff['t'], t)
         self.assertTrue(await client.query(f'( thing({id}) == thing({id}) );'))
 
@@ -4367,7 +4417,7 @@ class TestCollectionFunctions(TestBase):
             x = {};
             x["just a key"] = A{name: 'Foo'};
 
-            return(x.copy(2), 2);
+            return x.copy(2), 2;
         ''')
 
         self.assertEqual(res, {"just a key": {'name': 'Foo'}})
@@ -4476,7 +4526,7 @@ class TestCollectionFunctions(TestBase):
             x = {};
             x["just a key"] = A{name: 'Foo'};
 
-            return(x.dup(2), 2);
+            return x.dup(2), 2;
         ''')
 
         self.assertEqual(res, {"just a key": {'name': 'Foo'}})

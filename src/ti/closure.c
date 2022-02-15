@@ -62,9 +62,9 @@ static cleri_node_t * closure__node_from_strn(
             ->children->next;               /* List of statements */
 
     /* we should have exactly one statement */
-    if (!node->children)
+    if (!node->children || (node->children->next && node->children->next->next))
     {
-        ex_set(e, EX_BAD_DATA, "closure is expecting exactly one node");
+        ex_set(e, EX_BAD_DATA, "closure is expecting exactly one statement");
         goto fail1;
     }
 
@@ -382,7 +382,7 @@ int ti_closure_inc(ti_closure_t * closure, ti_query_t * query, ex_t * e)
     {
     case TI_CLOSURE_MAX_RECURSION_DEPTH:
         ex_set(e, EX_OPERATION,
-                "maximum recursion depth exceeded"DOC_CLOSURE);
+                "maximum recursion depth exceeded"DOC_TYPE_CLOSURE);
         return -1;
     case 0:
         if (n && vec_extend(&query->vars, closure->vars->data, n))

@@ -771,9 +771,9 @@ class TestEnum(TestBase):
         await client.query(r'''
             .get_color = |i| {
                 i = is_int(i) ? i : randint(0, 3);
-                i == 0 && return(Color{RED});
-                i == 1 && return(Color{GREEN});
-                i == 2 && return(Color{BLUE});
+                i == 0 && return Color{RED};
+                i == 1 && return Color{GREEN};
+                i == 2 && return Color{BLUE};
                 nil;
             }
         ''')

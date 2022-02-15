@@ -17,7 +17,7 @@ from thingsdb.exceptions import ZeroDivisionError
 from thingsdb.exceptions import OperationError
 
 
-num_nodes = 1
+num_nodes = 2
 
 
 class TestTasks(TestBase):
@@ -30,11 +30,12 @@ class TestTasks(TestBase):
         await self.node0.init_and_run()
 
         client = await get_client(self.node0)
-        client.set_default_scope('//stuff')
 
         # add another node otherwise backups are not possible
         if hasattr(self, 'node1'):
             await self.node1.join_until_ready(client)
+
+        client.set_default_scope('//stuff')
 
         await self.run_tests(client)
 
@@ -246,7 +247,7 @@ class TestTasks(TestBase):
             .x = 1;
             task(datetime(), |t| {
                 if (.x >= 3, {
-                    return();
+                    return;
                 });
                 .x += 1;
                 t.again_in('seconds', 1);
@@ -291,7 +292,7 @@ class TestTasks(TestBase):
             .x = 1;
             task(datetime(), |t| {
                 if (.x >= 3, {
-                    return();
+                    return;
                 });
                 .x += 1;
                 t.again_at(datetime().move('seconds', 1));
@@ -305,7 +306,7 @@ class TestTasks(TestBase):
             .x = 1;
             task(datetime(), |t| {
                 if (.x >= 3, {
-                    return();
+                    return;
                 });
 
                 // no change id, yet...
@@ -326,7 +327,7 @@ class TestTasks(TestBase):
             .y = 1;
             task(datetime(), |t| {
                 if (.y >= 3, {
-                    return();
+                    return;
                 });
 
                 .y += 1;
@@ -361,6 +362,35 @@ class TestTasks(TestBase):
         self.assertNotEqual(f'task:nil', tasks[0])
         self.assertEqual(f'task:nil', tasks[1])
         self.assertNotEqual(f'task:nil', tasks[2])
+
+    async def test_set_closure(self, client):
+        # bug #274
+        task = await client.query("""//ti
+            .task = task(datetime().move('days', 1), ||true);
+            .task.set_closure(||false);
+        """)
+
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        closure = await client1.query('.task.closure();')
+        self.assertEqual(closure, '||false')
+
+    async def test_set_owner(self, client):
+        # bug #275
+        task_id = await client.query("""//ti
+            new_user('iris');
+            grant('/t', 'iris', FULL);
+            task = task(datetime().move('days', 1), ||true);
+            task.set_owner('iris');
+            task.id();
+        """, scope='/t')
+
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('/t')
+
+        owner = await client1.query('task(id).owner();', id=task_id)
+        self.assertEqual(owner, 'iris')
 
 
 if __name__ == '__main__':

@@ -84,7 +84,7 @@ class TestGC(TestBase):
         await asyncio.sleep(4)
 
         x, other = await client.query(
-            r'return([.x, .a.other], 2);', scope=stuff)
+            r'return [.x, .a.other], 2;', scope=stuff)
         self.assertEqual(x['theanswer'], 42)
         self.assertEqual(x, other)
 
@@ -164,7 +164,7 @@ class TestGC(TestBase):
                     t = thing(id);
                     t.id = id;
                     .b.push(t);
-                    return(true);
+                    return true;
                 });
                 false;
             ''', id=id):

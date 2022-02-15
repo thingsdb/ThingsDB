@@ -43,7 +43,7 @@ static int do__restore_option(
     }
 
     ex_set(w->e, EX_VALUE_ERROR,
-            "invalid option `%.*s`"DOC_RESTORE, key->n, key->data);
+            "invalid restore option `%.*s`"DOC_RESTORE, key->n, key->data);
 
     return w->e->nr;
 }

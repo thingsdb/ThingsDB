@@ -3,6 +3,7 @@
 * Added `closure(..)` function to create closures from string, issue #273.
 * Fixed task replication bug in `set_closure(..)` function, issue #274.
 * Fixed task replication bug in `set_owner(..)` function, issue #275.
+* Added the option to `restore_tasks` explicitly at restore, issue #246.
 
 # v1.2.2
 

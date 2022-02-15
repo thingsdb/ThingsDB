@@ -46,7 +46,7 @@ class TestMigrate(TestBase):
             for collection in collections:
                 await query('del_collection(c);', c=collection['name'])
 
-            await query('restore(fn, true);', fn=fn)
+            await query('restore(fn, {take_access: true});', fn=fn)
 
             await asyncio.sleep(10)
             await client.authenticate('admin', 'pass')

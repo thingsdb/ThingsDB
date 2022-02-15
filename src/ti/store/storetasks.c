@@ -91,10 +91,6 @@ int ti_store_tasks_restore(
     /* clear existing vtasks (may exist in the thingsdb scope) */
     ti_tasks_clear_dropped(vtasks);
 
-    /* do not load any tasks from full storage if tasks may be skipped */
-    if (ti.skip_task_id)
-        return 0;
-
     if (!fx_file_exist(fn))
     {
         /*

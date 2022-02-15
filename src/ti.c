@@ -80,7 +80,6 @@ int ti_create(void)
 {
     ti.last_change_id = 0;
     ti.global_stored_change_id = 0;
-    ti.skip_task_id = 0;
     ti._flags = TI_FLAG_STARTING;
     ti.fn = NULL;
     ti.node_fn = NULL;

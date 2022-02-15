@@ -1810,14 +1810,6 @@ static int ctask__vtask_new(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    if (mp_id.via.u64 < ti.skip_task_id)
-    {
-        mp_skip(up);  /* closure */
-        mp_skip(up);  /* str */
-        mp_skip(up);  /* varr */
-        return 0;
-    }
-
     user = ti_users_get_by_id(mp_user_id.via.u64);
     closure = (ti_closure_t *) ti_val_from_vup(&vup);
 
@@ -1875,9 +1867,6 @@ static int ctask__vtask_del(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    if (mp_id.via.u64 < ti.skip_task_id)
-        return 0;
-
     ti_vtask_del(mp_id.via.u64, collection);
     return 0;
 }
@@ -1902,9 +1891,6 @@ static int ctask__vtask_cancel(ti_thing_t * thing, mp_unp_t * up)
                 collection->root->id);
         return -1;
     }
-
-    if (mp_id.via.u64 < ti.skip_task_id)
-        return 0;
 
     vtask = ti_vtask_by_id(collection->vtasks, mp_id.via.u64);
     if (vtask)
@@ -1936,12 +1922,6 @@ static int ctask__vtask_finish(ti_thing_t * thing, mp_unp_t * up)
                 "invalid data",
                 collection->root->id);
         return -1;
-    }
-
-    if (mp_id.via.u64 < ti.skip_task_id)
-    {
-        mp_skip(up);    /* val */
-        return 0;
     }
 
     val = ti_val_from_vup(&vup);
@@ -1999,12 +1979,6 @@ static int ctask__vtask_set_args(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    if (mp_id.via.u64 < ti.skip_task_id)
-    {
-        mp_skip(up);    /* varr */
-        return 0;
-    }
-
     varr = (ti_varr_t *) ti_val_from_vup(&vup);
     if (!varr || !ti_val_is_array((ti_val_t *) varr))
         goto fail0;
@@ -2048,9 +2022,6 @@ static int ctask__vtask_set_owner(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    if (mp_id.via.u64 < ti.skip_task_id)
-        return 0;
-
     user = ti_users_get_by_id(mp_user_id.via.u64);
     vtask = ti_vtask_by_id(collection->vtasks, mp_id.via.u64);
     if (vtask)
@@ -2085,12 +2056,6 @@ static int ctask__vtask_set_closure(ti_thing_t * thing, mp_unp_t * up)
                 "invalid data",
                 collection->root->id);
         return -1;
-    }
-
-    if (mp_id.via.u64 < ti.skip_task_id)
-    {
-        mp_skip(up);    /* closure */
-        return 0;
     }
 
     closure = (ti_closure_t *) ti_val_from_vup(&vup);
@@ -2703,6 +2668,7 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_THING_RESTRICT:    return ctask__thing_restrict(thing, up);
     case TI_TASK_THING_REMOVE:      return ctask__thing_remove(thing, up);
     case TI_TASK_SET_DEFAULT_DEEP:  break;
+    case TI_TASK_RESTORE_FINISHED:  break;
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);

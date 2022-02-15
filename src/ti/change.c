@@ -367,10 +367,15 @@ void ti__change_log_(const char * prefix, ti_change_t * change, int log_level)
             break;
         case TI_QUERY_WITH_TASK:
         case TI_QUERY_WITH_TASK_FINISH:
+            /*
+             * Although unlikely, the task might have been changed.
+             */
             (void) fprintf(
                     Logger.ostream,
                     "<task: `%s`>",
-                    change->via.query->with.vtask->closure->node->str);
+                    change->via.query->with.vtask->id == 0
+                    ? "nil"
+                    : change->via.query->with.vtask->closure->node->str);
             break;
         }
         break;

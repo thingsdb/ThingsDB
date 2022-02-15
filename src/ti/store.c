@@ -39,8 +39,6 @@ static const char * store__procedures_fn        = "procedures.mp";
 static const char * store__tasks_fn             = "tasks.mp";
 static const char * store__users_fn             = "users.mp";
 static const char * store__modules_fn           = "modules.mp";
-static const char * store__skip_task_fn         = ".skip_task_id";
-
 
 static ti_store_t * store;
 static ti_store_t store_;
@@ -85,53 +83,6 @@ static int store__collection_ids(void)
         VEC_push(store->collection_ids, id);
     }
     return 0;
-}
-
-int ti_store_skip_task_id(void)
-{
-    int rc = -1;
-    FILE * f;
-    char * fn = fx_path_join(store->store_path, store__skip_task_fn);
-    if (!fn)
-        return -1;
-
-    f = fopen(fn, "w");
-    if (!f)
-        goto finish;
-
-    rc = -(fprintf(f, "%"PRIu64, ti.skip_task_id) < 0);
-    rc = -(fclose(f) || rc);
-
-finish:
-    if (rc)
-        log_error("error writing skip-task_id `%s`", fn);
-
-    free(fn);
-    return rc;
-}
-
-int ti_read_skip_task_id(uint32_t * node_id)
-{
-    assert (ti.node_fn);
-
-    unsigned int unode_id = 0;
-    int rc = -1;
-    FILE * f = fopen(ti.node_fn, "r");
-    if (!f)
-        goto finish;
-
-    rc = -(fscanf(f, TI_NODE_ID, &unode_id) != 1);
-    rc = -(fclose(f) || rc);
-
-    *node_id = (uint32_t) unode_id;
-
-finish:
-    if (rc)
-        log_critical("error reading node id from `%s`", ti.node_fn);
-    else
-        log_debug("found node id `%u` in file: `%s`", *node_id, ti.node_fn);
-
-    return rc;
 }
 
 int ti_store_create(void)

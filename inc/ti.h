@@ -86,7 +86,6 @@ struct ti_s
     char * node_fn;             /* ti__node_fn */
     uint64_t last_change_id;    /* when `ti__fn` was saved */
     uint64_t global_stored_change_id;    /* used for garbage collection */
-    uint64_t skip_task_id;      /* skip tasks with id before.. */
     ti_archive_t * archive;     /* committed changes archive */
     ti_args_t * args;
     ti_away_t * away;

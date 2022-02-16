@@ -31,7 +31,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
         with:
-          images: ${{ env.REGISTRY }}/node
+          images: ${{ env.REGISTRY }}/thingsdb/node
 
       - name: Get the version
         id: get_version
@@ -43,7 +43,7 @@ jobs:
           context: .
           push: true
           file: docker/Dockerfile
-          tags: thingsdb/node:latest,thingsdb/node:${{ steps.get_version.outputs.VERSION }}
+          tags: ghcr.io/thingsdb/node:latest,ghcr.io/thingsdb/node:${{ steps.get_version.outputs.VERSION }}
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Build and push Docker image (gcloud)
@@ -52,7 +52,7 @@ jobs:
           context: .
           push: true
           file: docker/gcloud.Dockerfile
-          tags: thingsdb/node:gcloud-${{ steps.get_version.outputs.VERSION }}
+          tags: ghcr.io/thingsdb/node:gcloud-${{ steps.get_version.outputs.VERSION }}
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Build and push Docker image (full)
@@ -61,5 +61,5 @@ jobs:
           context: .
           push: true
           file: docker/full.Dockerfile
-          tags: thingsdb/node:full-${{ steps.get_version.outputs.VERSION }}
+          tags: ghcr.io/thingsdb/node:full-${{ steps.get_version.outputs.VERSION }}
           labels: ${{ steps.meta.outputs.labels }}

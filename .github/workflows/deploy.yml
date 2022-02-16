@@ -6,8 +6,12 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
-      tags:
-        - "v*"
+      environment:
+        description: 'Environment to run'
+        required: true
+        default: 'development'
+      mode:
+        description: 'Running mode'
 
 env:
   REGISTRY: ghcr.io

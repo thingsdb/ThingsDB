@@ -17,7 +17,7 @@ ThingsDB documentation: https://docs.thingsdb.net
 ## Installation
 
 - From source: https://docs.thingsdb.net/v1/getting-started/build-from-source/
-- Image on docker hub: https://hub.docker.com/repository/docker/thingsdb/node
+- Image GitHub: https://github.com/thingsdb/ThingsDB/pkgs/container/node/
 
 ## Docker
 
@@ -34,7 +34,7 @@ docker run \
     -p 8080:8080 \
     -v ~/thingsdb-data:/data \
     -v ~/thingsdb-modules:/modules \
-    thingsdb/node:latest \
+    ghcr.io/thingsdb/node:latest \
     --init
 ```
 

@@ -37,15 +37,6 @@ jobs:
         id: get_version
         run: echo ::set-output name=VERSION::$(echo $GITHUB_REF | cut -d / -f 3)
 
-      - name: Build and push Docker image (minimal)
-        uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
-        with:
-          context: .
-          push: true
-          file: docker/Dockerfile
-          tags: ghcr.io/thingsdb/node:latest,ghcr.io/thingsdb/node:${{ steps.get_version.outputs.VERSION }}
-          labels: ${{ steps.meta.outputs.labels }}
-
       - name: Build and push Docker image (gcloud)
         uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
         with:
@@ -62,4 +53,13 @@ jobs:
           push: true
           file: docker/full.Dockerfile
           tags: ghcr.io/thingsdb/node:full-${{ steps.get_version.outputs.VERSION }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Build and push Docker image (minimal)
+        uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
+        with:
+          context: .
+          push: true
+          file: docker/Dockerfile
+          tags: ghcr.io/thingsdb/node:${{ steps.get_version.outputs.VERSION }},ghcr.io/thingsdb/node:latest
           labels: ${{ steps.meta.outputs.labels }}

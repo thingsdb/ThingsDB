@@ -46,9 +46,7 @@ jobs:
           context: .
           push: true
           file: docker/Dockerfile
-          tags:
-            - thingsdb/node:latest
-            - thingsdb/node:${{ env.GIT_TAG }}
+          tags: thingsdb/node:latest thingsdb/node:${{ env.GIT_TAG }}
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Build and push Docker image (gcloud)
@@ -57,8 +55,7 @@ jobs:
           context: .
           push: true
           file: docker/gcloud.Dockerfile
-          tags:
-            - thingsdb/node:gcloud-${{ env.GIT_TAG }}
+          tags: thingsdb/node:gcloud-${{ env.GIT_TAG }}
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Build and push Docker image (full)
@@ -67,6 +64,5 @@ jobs:
           context: .
           push: true
           file: docker/full.Dockerfile
-          tags:
-            - thingsdb/node:full-${{ env.GIT_TAG }}
+          tags: thingsdb/node:full-${{ env.GIT_TAG }}
           labels: ${{ steps.meta.outputs.labels }}

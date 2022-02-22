@@ -208,6 +208,7 @@
 #include <ti/fn/fnthing.h>
 #include <ti/fn/fntimezonesinfo.h>
 #include <ti/fn/fnto.h>
+#include <ti/fn/fntothing.h>
 #include <ti/fn/fntotype.h>
 #include <ti/fn/fntrim.h>
 #include <ti/fn/fntrimleft.h>
@@ -262,7 +263,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 237,
+    TOTAL_KEYWORDS = 238,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 22,
@@ -659,6 +660,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="thing",             .fn=do__f_thing,                ROOT_NE},
     {.name="time_zones_info",   .fn=do__f_time_zones_info,      ROOT_NE},
     {.name="timeval",           .fn=do__f_timeval,              ROOT_NE},
+    {.name="to_thing",          .fn=do__f_to_thing,             CHAIN_CE},
     {.name="to_type",           .fn=do__f_to_type,              CHAIN_CE},
     {.name="to",                .fn=do__f_to,                   CHAIN_NE},
     {.name="trim_left",         .fn=do__f_trim_left,            CHAIN_NE},

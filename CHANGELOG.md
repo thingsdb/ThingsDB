@@ -1,3 +1,7 @@
+# v1.2.4
+
+* Added `to_thing()` function, issue #.
+
 # v1.2.3
 
 * Added `closure(..)` function to create closures from string, issue #273.

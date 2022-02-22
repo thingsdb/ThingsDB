@@ -31,6 +31,7 @@ int ti_task_add_arr_clear(ti_task_t * task, ti_raw_t * key);
 int ti_task_add_set_clear(ti_task_t * task, ti_raw_t * key);
 int ti_task_add_set(ti_task_t * task, ti_raw_t * key, ti_val_t * val);
 int ti_task_add_new_type(ti_task_t * task, ti_type_t * type);
+int ti_task_add_to_thing(ti_task_t * task);
 int ti_task_add_to_type(ti_task_t * task, ti_type_t * type);
 int ti_task_add_restrict(ti_task_t * task, uint16_t spec);
 int ti_task_add_set_type(ti_task_t * task, ti_type_t * type);

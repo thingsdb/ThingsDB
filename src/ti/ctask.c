@@ -535,6 +535,29 @@ static int ctask__set_type(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
+static int ctask__to_thing(ti_thing_t * thing, mp_unp_t * up)
+{
+    ti_collection_t * collection = thing->collection;
+
+    if (mp_skip(up) != MP_BOOL)
+    {
+        log_critical(
+            "task `to_thing` for "TI_COLLECTION_ID" is invalid",
+            collection->root->id);
+        return -1;
+    }
+
+    if (ti_thing_is_instance(thing))
+        ti_thing_t_to_object(thing);
+    else
+        log_error("thing "TI_THING_ID" is not an instance", thing->id);
+
+    return 0;
+}
+
+/*
+ * Returns 0 on success
+ */
 static int ctask__to_type(ti_thing_t * thing, mp_unp_t * up)
 {
     ex_t e = {0};
@@ -2669,6 +2692,7 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_THING_REMOVE:      return ctask__thing_remove(thing, up);
     case TI_TASK_SET_DEFAULT_DEEP:  break;
     case TI_TASK_RESTORE_FINISHED:  break;
+    case TI_TASK_TO_THING:          return ctask__to_thing(thing, up);
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);

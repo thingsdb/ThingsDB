@@ -62,8 +62,10 @@ decref_enum:
 decref_type:
     type = ti_types_by_id(field->type->types, spec);
     if (type == field->type)
+    {
+        type->selfref--;
         return;  /* self references are not counted within dependencies */
-
+    }
 decref:
     idx = 0;
     for(vec_each(field->type->dependencies, ti_type_t, t), ++idx)
@@ -123,7 +125,8 @@ incref_enum:
 incref_type:
     type = ti_types_by_id(field->type->types, spec);
     if (type == field->type)
-        return 0;  /* self references are not counted within dependencies */
+        /* self references are not counted within dependencies */
+        return ++type->selfref, 0;
 
 incref:
     if (vec_push(&field->type->dependencies, type))
@@ -557,7 +560,19 @@ skip_nesting:
         *spec |= field->type->type_id;
         if (&field->spec == spec && (~field->spec & TI_SPEC_NILLABLE))
             goto circular_dep;
+
+        if (field->type->selfref == UINT8_MAX)
+        {
+            ex_set(e, EX_MAX_QUOTA,
+                    "invalid declaration for `%s` on type `%s`; "
+                    "maximum number of self references has been reached"
+                    DOC_T_TYPE,
+                    field->name->str, field->type->name);
+            return e->nr;
+        }
+
         field__set_cb(field, field__dval_type);
+        ++field->type->selfref;
     }
     else
     {

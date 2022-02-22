@@ -9,6 +9,7 @@ from lib.client import get_client
 from thingsdb.exceptions import AssertionError
 from thingsdb.exceptions import BadDataError
 from thingsdb.exceptions import LookupError
+from thingsdb.exceptions import MaxQuotaError
 from thingsdb.exceptions import NumArgumentsError
 from thingsdb.exceptions import OperationError
 from thingsdb.exceptions import OverflowError
@@ -1940,6 +1941,39 @@ new_procedure('multiply', |a, b| a * b);
                 1;
             });
         """)
+
+    async def test_convert_to_thing(self, client):
+        # bug #277
+        res = await client.query(r"""//ti
+            set_type('Root', {
+                name: 'str'
+            });
+            .to_type('Root');
+        """)
+        res = await client.query(r"""//ti
+            del_type('Root');
+            .x = 123;  // should work as type Root is removed
+                       // thus the collection must be a thing again.
+            'OK';
+        """)
+        self.assertEqual(res, 'OK')
+
+    async def test_self_ref_max(self, client):
+        await client.query(r"""//ti
+            set_type('A', {});
+        """)
+        for x in range(255):
+            await client.query(r"""//ti
+                mod_type('A', 'add', prop, 'A?');
+            """, prop=f'p{x}')
+
+        with self.assertRaisesRegex(
+                MaxQuotaError,
+                r'invalid declaration for `too_much` on type `A`; '
+                r'maximum number of self references has been reached'):
+            await client.query(r"""//ti
+                mod_type('A', 'add', prop, 'A?');
+            """, prop='too_much')
 
 
 if __name__ == '__main__':

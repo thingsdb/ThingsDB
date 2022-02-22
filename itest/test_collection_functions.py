@@ -25,7 +25,7 @@ class TestCollectionFunctions(TestBase):
 
     title = 'Test collection scope functions'
 
-    @default_test_setup(num_nodes=2, seed=1)
+    @default_test_setup(num_nodes=2, seed=1, threshold_full_storage=50000)
     async def run(self):
 
         await self.node0.init_and_run()
@@ -4886,6 +4886,44 @@ class TestCollectionFunctions(TestBase):
         self.assertIs(await client.query('log(nil);'), None)
         self.assertIs(await client.query('log(123);'), None)
         self.assertIs(await client.query('log("");'), None)
+
+    async def test_to_thing(self, client):
+        res = await client.query(r"""//ti
+            set_type('Root', {
+                name: 'str'
+            });
+            .to_type('Root');
+        """)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'thing `#0` has no property or method `to_thing`'):
+            await client.query('{}.to_thing();')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `to_thing` is undefined'):
+            await client.query('to_thing();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `to_thing` takes 0 arguments '
+                r'but 1 was given'):
+            await client.query('Root{}.to_thing(nil);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `to_thing` takes 0 arguments '
+                r'but 1 was given'):
+            await client.query('Root{}.to_thing(nil);')
+
+        res = await client.query(r"""//ti
+            .to_thing();
+            .x = 123;  // should work as type Root is removed
+                       // thus the collection must be a thing again.
+            'OK';
+        """)
+        self.assertEqual(res, 'OK')
 
 
 if __name__ == '__main__':

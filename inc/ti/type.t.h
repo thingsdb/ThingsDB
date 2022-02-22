@@ -28,7 +28,7 @@ struct ti_type_s
                                included in this counter */
     uint16_t type_id;       /* type id */
     uint8_t flags;          /* type flags */
-    uint8_t pad0_;
+    uint8_t selfref;        /* self reference counter */
     uint64_t created_at;    /* UNIX time-stamp in seconds */
     uint64_t modified_at;   /* UNIX time-stamp in seconds */
     char * name;            /* name (null terminated) */

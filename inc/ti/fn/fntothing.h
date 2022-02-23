@@ -16,6 +16,8 @@ static int do__f_to_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_try_lock(query->rval, e))
         return e->nr;
 
+    query->rval = (ti_val_t *) ti_nil_get();
+
     if (thing->via.type->selfref || thing->via.type->refcount)
     {
         ex_set(e, EX_OPERATION,
@@ -37,5 +39,6 @@ static int do__f_to_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 fail0:
     ti_val_unlock((ti_val_t *) thing, true  /* lock was set */);
+    ti_val_unsafe_drop((ti_val_t *) thing);
     return e->nr;
 }

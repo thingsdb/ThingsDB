@@ -80,6 +80,7 @@ typedef enum
     TI_TASK_THING_REMOVE,                   /* 67  */
     TI_TASK_SET_DEFAULT_DEEP,               /* 68  */
     TI_TASK_RESTORE_FINISHED,               /* 69  */
+    TI_TASK_TO_THING,                       /* 70  */
 } ti_task_enum;
 
 typedef struct ti_task_s ti_task_t;

@@ -951,6 +951,7 @@ void ti_thing_t_to_object(ti_thing_t * thing)
         *val = (ti_val_t *) prop;
     }
     thing->type_id = TI_SPEC_OBJECT;
+    thing->via.spec = TI_SPEC_ANY;  /* fixes bug #277 */
 }
 
 typedef struct

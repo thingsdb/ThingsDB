@@ -1,3 +1,8 @@
+# v1.2.4
+
+* Fixed restriction mismatch after type removal, issue #277.
+* Added `to_thing()` function, issue #278.
+
 # v1.2.3
 
 * Added `closure(..)` function to create closures from string, issue #273.

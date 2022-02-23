@@ -48,6 +48,7 @@ ti_type_t * ti_type_create(
 
     type->refcount = 0;  /* only incremented when this type
                             is used by another type */
+    type->selfref = 0;  /* increment on self references */
     type->type_id = type_id;
     type->flags = flags;
     type->name = strndup(name, name_n);

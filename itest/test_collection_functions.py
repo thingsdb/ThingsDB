@@ -4925,6 +4925,11 @@ class TestCollectionFunctions(TestBase):
         """)
         self.assertEqual(res, 'OK')
 
+        res = await client.query(r"""//ti
+            Root{}.to_thing();  // test return value
+        """)
+        self.assertIs(res, None)
+
 
 if __name__ == '__main__':
     run_test(TestCollectionFunctions())

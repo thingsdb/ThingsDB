@@ -125,6 +125,15 @@ spec:
       dnsConfig:
         searches:
         - thingsdb.default.svc.cluster.local
+      tolerations:  # wait 10 miniutes as synchronizing might take some time
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 600
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 600
       containers:
       - name: thingsdb
         image: thingsdb/node:gcloud-v0.10.0  # Latest version at the time of writing
@@ -164,15 +173,16 @@ spec:
           httpGet:
             path: /healthy
             port: 8080
-          periodSeconds: 10
+          initialDelaySeconds: 60
+          periodSeconds: 20
           timeoutSeconds: 5
         readinessProbe:
           httpGet:
             path: /ready
             port: 8080
-          initialDelaySeconds: 5
+          initialDelaySeconds: 10
           periodSeconds: 10
-          timeoutSeconds: 2
+          timeoutSeconds: 3
       volumes:
         - name: ti-config-volume
           configMap:

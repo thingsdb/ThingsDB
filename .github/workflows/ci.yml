@@ -30,5 +30,3 @@ jobs:
         run: |
           cd ./Release/
           CFLAGS="-Werror -Winline -std=gnu11" make
-
-

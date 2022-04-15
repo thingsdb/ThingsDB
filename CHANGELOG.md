@@ -1,3 +1,7 @@
+# v1.2.5
+
+* Use `/dev/urandom` for a seed to initialize random, issue #280.
+
 # v1.2.4
 
 * Fixed restriction mismatch after type removal, issue #277.

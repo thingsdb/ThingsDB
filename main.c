@@ -8,16 +8,19 @@
  * This code will be release as open source but the exact license might be
  * changed to something else than MIT.
  */
+#include <fcntl.h>
 #include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <ti.h>
 #include <ti/archive.h>
 #include <ti/args.h>
 #include <ti/cfg.h>
-#include <ti/tz.h>
 #include <ti/evars.h>
 #include <ti/store.h>
+#include <ti/tz.h>
 #include <ti/user.h>
 #include <ti/version.h>
 #include <time.h>
@@ -57,16 +60,24 @@ static void main__init_deploy(void)
 
 int main(int argc, char * argv[])
 {
-    int rc = EXIT_SUCCESS;
+    int seed, fd, rc = EXIT_SUCCESS;
 
     /* set local to LC_ALL and C to force a period over comma for float */
     (void) setlocale(LC_ALL, "C");
 
+    /* initialize random */
+    seed = 0;
+    fd = open("/dev/urandom", O_RDONLY);
+    if (fd == -1 || read(fd, &seed, sizeof(int)) == -1)
+    {
+        printf("error reading /dev/urandom\n");
+        return -1;
+    }
+    (void) close(fd);
+    srand(seed);
+
     /* initialize global curl */
     curl_global_init(CURL_GLOBAL_ALL);
-
-    /* initialize random */
-    srand(time(NULL));
 
     /* set thread-pool size to 4 (default=4) */
     putenv("UV_THREADPOOL_SIZE=4");

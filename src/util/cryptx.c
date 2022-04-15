@@ -92,9 +92,6 @@ void cryptx(const char * password, const char * salt, char * encrypted)
 
 /*
  * Generate a random salt.
- *
- * Make sure random is initialized, for example using:
- *  srand(time(NULL));
  */
 void cryptx_gen_salt(char * salt)
 {

@@ -3624,6 +3624,183 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query(r'/hi/.test("Hi");'))
         self.assertFalse(await client.query(r'/hello!.*/.test("hello");'))
 
+    async def test_search(self, client):
+        r, x, t, a, w, b = await client.query(r"""//ti
+            set_type('A', {
+                a: '[]',
+                s: '{}',
+                x: 'any',
+                t: 'thing'
+            });
+
+            set_type('W', {});
+            b = {
+                text: 'BLUE'
+            };
+            set_enum('E', {
+                blue: b
+            });
+
+            .blue = E{blue};
+
+            .wr = A{}.wrap('W');
+
+            .t = {};
+            .a = A{};
+            .arr = [{}, {}, A{}, A{}, .t, .a, .a.wrap('W')];
+            .set = set(.t, .a);
+            .a.t = .t;
+            .nested = {
+                arr: .arr
+            };
+            [.id(), .arr[0].id(), .t.id(), .a.id(), .wr.unwrap().id(), b.id()];
+        """)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `search`'):
+            await client.query('nil.search();')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                '...'):
+            await client.query('search();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `search` takes at '
+                'most 2 arguments but 3 were given'):
+            await client.query('.search(thing(.id()), {}, nil);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `search` requires at least '
+                '1 argument but 0 were given'):
+            await client.query('.search();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `search` expects argument 1 to be of '
+                'type `thing` but got type `nil` instead;'):
+            await client.query('.search(nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `search` expects argument 2 to be of '
+                'type `thing` but got type `nil` instead;'):
+            await client.query('.search({}, nil);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'invalid search option `unknown`'):
+            await client.query('.search({}, {unknown: 123});')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'expecting `deep` to be of type `int` but '
+                'got type `nil` instead'):
+            await client.query('.search({}, {deep: nil});')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'expecting `limit` to be of type `int` but '
+                'got type `nil` instead;'):
+            await client.query('.search({}, {limit: nil});')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'expecting a `limit` value '
+                r'between 0 and 255 but got -1 instead'):
+            await client.query('.search({}, {limit: -1});')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'expecting a `limit` value '
+                r'between 0 and 255 but got 256 instead'):
+            await client.query('.search({}, {limit: 256});')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'expecting a `deep` value '
+                r'between 0 and 127 but got 128 instead'):
+            await client.query('.search({}, {deep: 128});')
+
+        res = await client.query(r"""//ti
+            .search(thing());
+        """)
+        self.assertEqual(res, [])
+
+        res = await client.query(r"""//ti
+            .search(A(a), {limit: 0});
+        """, a=a)
+        self.assertEqual(res, [])
+
+        res = await client.query(r"""//ti
+            .search(A(a), {deep: 0});
+        """, a=a)
+        self.assertEqual(res, [])
+
+        res = await client.query(r"""//ti
+            .search(A(a)).len();
+        """, a=a)
+        self.assertEqual(res, 1)
+
+        res = await client.query(r"""//ti
+            .search(A(a), {limit: 99}).len();
+        """, a=a)
+        self.assertEqual(res, 4)
+
+        res = await client.query(r"""//ti
+            .search(A(a), {limit: 99, deep: 99}).len();
+        """, a=a)
+        self.assertEqual(res, 6)
+
+        res = await client.query(r"""//ti
+            .search(A(a), {limit: 99, deep: 99}).len();
+        """, a=a)
+        self.assertEqual(res, 6)
+
+        res = await client.query(r"""//ti
+            .search(thing(t), {limit: 99, deep: 99}).len();
+        """, t=t)
+        self.assertEqual(res, 9)
+
+        res = await client.query(r"""//ti
+            .search(thing(w));
+        """, w=w)
+        self.assertEqual(res, [{
+            'parent': {
+                '#': r
+            },
+            'parent_type': 'thing',
+            'key': 'wr',
+            'key_type': '<W>'
+        }])
+
+        res = await client.query(r"""//ti
+            .search(thing(x));
+        """, x=x)
+        self.assertEqual(res, [{
+            'parent': {
+                '#': r
+            },
+            'parent_type': 'thing',
+            'key': 'arr',
+            'key_type': 'list'
+        }])
+
+        res = await client.query(r"""//ti
+            .search(thing(b));
+        """, b=b)
+        self.assertEqual(res, [{
+            'parent': {
+                '#': r
+            },
+            'parent_type': 'thing',
+            'key': 'blue',
+            'key_type': 'E'
+        }])
+
     async def test_thing(self, client):
         with self.assertRaisesRegex(
                 LookupError,

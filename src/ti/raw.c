@@ -11,6 +11,7 @@
 #include <ti/name.h>
 #include <ti/raw.h>
 #include <ti/val.h>
+#include <ti/raw.inline.h>
 #include <util/logger.h>
 #include <util/strx.h>
 
@@ -276,6 +277,30 @@ ti_raw_t * ti_bytes_from_slice(
         *(++dest) = *(from += step);
 
     return raw;
+}
+
+ti_raw_t * ti_str_from_vec(vec_t * vec)
+{
+    void * buffer;
+    size_t n = sizeof(ti_raw_t);
+
+    for (vec_each(vec, ti_val_t, val))
+        n += ((ti_raw_t *) val)->n;
+
+    buffer = malloc(n);
+    if (!buffer)
+        return NULL;
+
+    ti_raw_init(buffer, TI_VAL_STR, n);
+    buffer += sizeof(ti_raw_t);
+
+    for (vec_each(vec, ti_raw_t, raw))
+    {
+        memcpy(buffer, raw->data, raw->n);
+        buffer += raw->n;
+    }
+
+    return (ti_raw_t *) buffer;
 }
 
 ti_raw_t * ti_str_trim(ti_raw_t * raw)

@@ -83,6 +83,10 @@ ti_val_t * val__module_name;
 ti_val_t * val__deep_name;
 ti_val_t * val__load_name;
 ti_val_t * val__beautify_name;
+ti_val_t * val__parent_name;
+ti_val_t * val__parent_type_name;
+ti_val_t * val__key_name;
+ti_val_t * val__key_type_name;
 
 /* string */
 ti_val_t * val__sany;
@@ -736,6 +740,11 @@ int ti_val_init_common(void)
     val__deep_name = (ti_val_t *) ti_names_from_str("deep");
     val__load_name = (ti_val_t *) ti_names_from_str("load");
     val__beautify_name = (ti_val_t *) ti_names_from_str("beautify");
+    val__parent_name = (ti_val_t *) ti_names_from_str("parent");
+    val__parent_type_name = (ti_val_t *) ti_names_from_str("parent_type");
+    val__key_name = (ti_val_t *) ti_names_from_str("key");
+    val__key_type_name = (ti_val_t *) ti_names_from_str("key_type");
+
 
     if (!val__empty_bin || !val__empty_str || !val__snil || !val__strue ||
         !val__sfalse || !val__sbool || !val__sdatetime || !val__stimeval ||
@@ -748,7 +757,8 @@ int ti_val_init_common(void)
         !val__day_name || !val__hour_name || !val__minute_name ||
         !val__second_name || !val__gmt_offset_name || !val__sfuture ||
         !val__module_name || !val__deep_name || !val__load_name ||
-        !val__beautify_name)
+        !val__beautify_name || !val__parent_name || !val__parent_type_name ||
+        !val__key_name || !val__key_type_name)
     {
         return -1;
     }

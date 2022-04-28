@@ -10,6 +10,7 @@
 #include <string.h>
 #include <ti/raw.t.h>
 #include <tiinc.h>
+#include <util/vec.h>
 
 ti_raw_t * ti_raw_create(uint8_t tp, const void * raw, size_t n);
 ti_raw_t * ti_bytes_from_base64(const void * data, size_t n);
@@ -26,6 +27,7 @@ ti_raw_t * ti_bytes_from_slice(
         ssize_t start,
         ssize_t stop,
         ssize_t step);
+ti_raw_t * ti_str_from_vec(vec_t * vec);
 ti_raw_t * ti_str_trim(ti_raw_t * raw);
 ti_raw_t * ti_str_trim_left(ti_raw_t * raw);
 ti_raw_t * ti_str_trim_right(ti_raw_t * raw);

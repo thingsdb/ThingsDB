@@ -814,6 +814,26 @@ static inline ti_val_t * ti_val_borrow_beautify_name(void)
     return val__beautify_name;
 }
 
+static inline ti_val_t * ti_val_borrow_parent_name(void)
+{
+    return val__parent_name;
+}
+
+static inline ti_val_t * ti_val_borrow_parent_type_name(void)
+{
+    return val__parent_type_name;
+}
+
+static inline ti_val_t * ti_val_borrow_key_name(void)
+{
+    return val__key_name;
+}
+
+static inline ti_val_t * ti_val_borrow_key_type_name(void)
+{
+    return val__key_type_name;
+}
+
 static inline ti_val_t * ti_val_any_str(void)
 {
     return ti_incref(val__sany), val__sany;

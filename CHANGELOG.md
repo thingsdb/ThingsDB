@@ -1,6 +1,7 @@
 # v1.2.5
 
 * Use `/dev/urandom` for a seed to initialize random, issue #280.
+* Added `search(..)` function for debugging purpose, issue #281.
 
 # v1.2.4
 

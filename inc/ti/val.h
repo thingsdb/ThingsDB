@@ -23,6 +23,10 @@ extern ti_val_t * val__module_name;
 extern ti_val_t * val__deep_name;
 extern ti_val_t * val__load_name;
 extern ti_val_t * val__beautify_name;
+extern ti_val_t * val__parent_name;
+extern ti_val_t * val__parent_type_name;
+extern ti_val_t * val__key_name;
+extern ti_val_t * val__key_type_name;
 
 /* string */
 extern ti_val_t * val__sany;

@@ -50,6 +50,9 @@
 /* maximum value we allow for the `deep` argument */
 #define TI_MAX_DEEP 0x7f
 
+/* maximum number of search results */
+#define TI_MAX_SEARCH_LIMIT 0xff
+
 /*
  * File name schema to check version info on created files.
  */

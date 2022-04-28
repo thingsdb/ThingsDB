@@ -282,6 +282,7 @@
 #define DOC_THING_REMOVE            DOC_SEE("data-types/thing/remove")
 #define DOC_THING_RESTRICT          DOC_SEE("data-types/thing/restrict")
 #define DOC_THING_RESTRICTION       DOC_SEE("data-types/thing/restriction")
+#define DOC_THING_SEARCH            DOC_SEE("data-types/thing/search")
 #define DOC_THING_SET               DOC_SEE("data-types/thing/set")
 #define DOC_THING_TO_THING          DOC_SEE("data-types/thing/to_thing")
 #define DOC_THING_TO_TYPE           DOC_SEE("data-types/thing/to_type")

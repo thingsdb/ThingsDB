@@ -3763,7 +3763,7 @@ class TestCollectionFunctions(TestBase):
         res = await client.query(r"""//ti
             .search(thing(t), {limit: 99, deep: 99}).len();
         """, t=t)
-        self.assertEqual(res, 9)
+        self.assertEqual(res, 10)
 
         res = await client.query(r"""//ti
             .search(thing(w));

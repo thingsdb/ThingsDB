@@ -118,90 +118,14 @@ static int search__add_result(
     return --w->limit == 0;
 }
 
-static inline int search__walk_set(ti_thing_t * thing, search__walk_set_t * w)
-{
-    int rc;
-    ti_thing_t * prev;
-
-    if (thing->flags & TI_VFLAG_LOCK)
-        return 0;
-
-    if (thing == w->search->needle)
-        if (search__add_result(w->search->parent, w->key, w->root, w->search))
-            return 1;
-
-    thing->flags |= TI_VFLAG_LOCK;
-    prev = w->search->parent;
-    w->search->parent = thing;
-    rc = ti_thing_walk(
-            (ti_thing_t *) thing,
-            (ti_thing_item_cb) do__search_walk,
-            w);
-    w->search->parent = prev;
-    thing->flags &= ~TI_VFLAG_LOCK;
-    return rc;
-}
-
-static int do__search_thing(
-        ti_raw_t * key,
+static int search__do_thing(
+        ti_thing_t * thing,
         ti_val_t * root,
-        ti_val_t * val,
+        ti_raw_t * key,
         search__walk_t * w)
 {
-    int rc;
-    ti_thing_t * thing = NULL;
     ti_thing_t * prev;
-
-    switch ((ti_val_enum) val->tp)
-    {
-    /* TODO: maybe implement search for room/task ? */
-    case TI_VAL_NIL:
-    case TI_VAL_INT:
-    case TI_VAL_FLOAT:
-    case TI_VAL_BOOL:
-    case TI_VAL_DATETIME:
-    case TI_VAL_NAME:
-    case TI_VAL_STR:
-    case TI_VAL_BYTES:
-    case TI_VAL_REGEX:
-    case TI_VAL_ROOM:
-    case TI_VAL_TASK:
-    case TI_VAL_ERROR:
-    case TI_VAL_MPDATA:
-    case TI_VAL_CLOSURE:
-        return 0;
-    case TI_VAL_WRAP:
-        thing = ((ti_wrap_t *) val)->thing;
-        break;
-    case TI_VAL_THING:
-        thing = (ti_thing_t *) val;
-        break;
-    case TI_VAL_MEMBER:
-        if (ti_val_is_thing(VMEMBER(val)))
-        {
-            thing = (ti_thing_t *) VMEMBER(val);
-            break;
-        }
-        return 0;
-    case TI_VAL_ARR:
-        if (ti_varr_may_have_things((ti_varr_t *) val))
-            for (vec_each(VARR(val), ti_val_t, v))
-                if (do__search_thing(key, val, v, w))
-                    return 1;
-        return 0;
-    case TI_VAL_SET:
-    {
-        search__walk_set_t ws = {
-                .key = key,
-                .root = root,
-                .search = w,
-        };
-        return imap_walk(VSET(val), (imap_cb) search__walk_set, &ws);
-    }
-    case TI_VAL_FUTURE:
-    case TI_VAL_TEMPLATE:
-        return 0;
-    }
+    int rc;
 
     if (thing->flags & TI_VFLAG_LOCK)
         return 0;
@@ -227,6 +151,66 @@ static int do__search_thing(
     return rc;
 }
 
+static inline int search__walk_set(ti_thing_t * thing, search__walk_set_t * w)
+{
+    return search__do_thing(thing, w->root, w->key, w->search);
+}
+
+static int do__search_thing(
+        ti_raw_t * key,
+        ti_val_t * root,
+        ti_val_t * val,
+        search__walk_t * w)
+{
+    switch ((ti_val_enum) val->tp)
+    {
+    /* TODO: maybe implement search for room/task ? */
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
+    case TI_VAL_NAME:
+    case TI_VAL_STR:
+    case TI_VAL_BYTES:
+    case TI_VAL_REGEX:
+    case TI_VAL_ROOM:
+    case TI_VAL_TASK:
+    case TI_VAL_ERROR:
+    case TI_VAL_MPDATA:
+    case TI_VAL_CLOSURE:
+        return 0;
+    case TI_VAL_WRAP:
+        return search__do_thing(((ti_wrap_t *) val)->thing, root, key, w);
+    case TI_VAL_THING:
+        return search__do_thing((ti_thing_t *) val, root, key, w);
+    case TI_VAL_MEMBER:
+        return ti_val_is_thing(VMEMBER(val))
+            ? search__do_thing((ti_thing_t *) VMEMBER(val), root, key, w)
+            : 0;
+    case TI_VAL_ARR:
+        if (ti_varr_may_have_things((ti_varr_t *) val))
+            for (vec_each(VARR(val), ti_val_t, v))
+                if (do__search_thing(key, val, v, w))
+                    return 1;
+        return 0;
+    case TI_VAL_SET:
+    {
+        search__walk_set_t ws = {
+                .key = key,
+                .root = root,
+                .search = w,
+        };
+        return imap_walk(VSET(val), (imap_cb) search__walk_set, &ws);
+    }
+    case TI_VAL_TEMPLATE:
+    case TI_VAL_FUTURE:
+        return 0;
+    }
+    assert(0);
+    return 0;
+}
+
 static int do__search_walk(
         ti_raw_t * key,
         ti_val_t * val,
@@ -244,7 +228,7 @@ static int do__f_search(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             .e = e,
     };
 
-    if (!ti_val_is_object(query->rval))
+    if (!ti_val_is_thing(query->rval))
         return fn_call_try("search", query, nd, e);
 
     if (fn_nargs_range("search", DOC_THING_SEARCH, 1, 2, nargs, e))

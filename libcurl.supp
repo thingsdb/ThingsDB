@@ -26,4 +26,13 @@
    obj:/usr/lib/x86_64-linux-gnu/libcurl-nss.so*
    ...
 }
+{
+   <libcurl (libnss3)>
+   Memcheck:Cond
+   ...
+   fun:PK11_ImportPublicKey
+   ...
+   obj:/usr/lib/x86_64-linux-gnu/libnss3.so*
+   ...
+}
 

@@ -709,6 +709,9 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e)
     while(query->vars->n)
         ti_prop_destroy(VEC_pop(query->vars));
 
+    /* Drop the stream. This is never an API request (API is not copied) */
+    ti_stream_drop(query->via.stream);
+
     free(query->vars);
     ti_collection_drop(query->collection);
 
@@ -881,6 +884,13 @@ then:
         then_query->qbind.flags |= query->qbind.flags & (
                 TI_QBIND_FLAG_THINGSDB|
                 TI_QBIND_FLAG_COLLECTION);
+
+        /* If not API, we need the stream for logging. Note that we explicitly
+         * NOT copy an API request and we bluntly drop the stream later so it
+         * must be NULL in case not a stream  */
+        if (~query->flags & TI_QUERY_FLAG_API)
+            then_query->via.stream = ti_grab(query->via.stream);
+
         then_query->qbind.deep = query->qbind.deep;
         then_query->user = ti_grab(query->user);
         then_query->collection = ti_grab(query->collection);

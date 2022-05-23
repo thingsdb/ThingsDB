@@ -1,3 +1,7 @@
+# v1.2.6
+
+* Fixed using `log(..)` within a future, issue #282.
+
 # v1.2.5
 
 * Use `/dev/urandom` for a seed to initialize random, issue #280.

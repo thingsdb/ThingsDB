@@ -1,5 +1,7 @@
 /*
  * ti/api.c
+ *
+ * Exposes a HTTP API to the end user.
  */
 #define _GNU_SOURCE
 #include <doc.h>

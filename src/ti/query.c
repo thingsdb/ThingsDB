@@ -899,7 +899,7 @@ then:
 
         query__then(then_query, e);
         /*
-         * Note that `fcount` is not decremented, this has to be done then the
+         * Note that `fcount` is not decremented, this has to be done when the
          * `then` logic is completed.
          */
         return;

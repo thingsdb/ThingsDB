@@ -93,6 +93,7 @@ void remove_connection_from_queue(tls_uv_connection_state_t* cur) {
 
 void abort_connection_on_error(tls_uv_connection_state_t* state)
 {
+    LOGC("Abort SSL...");
     uv_close((uv_handle_t*)state->handle, NULL);
     SSL_free(state->ssl);
     // implicitly freed by SSL_free
@@ -119,16 +120,20 @@ void maybe_flush_ssl(tls_uv_connection_state_t* state)
     state->server->pending_writes = state;
 }
 
-void handle_read(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {
-    tls_uv_connection_state_t* state = client->data;
+void handle_read(uv_stream_t * client, ssize_t nread, const uv_buf_t * buf)
+{
+    tls_uv_connection_state_t * state = client->data;
 
     BIO_write(state->read, buf->base, nread);
     while (1)
     {
-        int rc = SSL_read(state->ssl, buf->base, buf->len);
+        LOGC("SSL read...%p, %d", buf->base, buf->len);
+        int rc = SSL_read(state->ssl, buf->base, buf->len-1);
         if (rc <= 0)
         {
+            LOGC("SSL read error...%d", rc);
             rc = SSL_get_error(state->ssl, rc);
+            LOGC("SSL read get error...%d", rc);
             if (rc != SSL_ERROR_WANT_READ)
             {
                 state->server->protocol.connection_closed(state, rc);
@@ -173,6 +178,7 @@ void flush_ssl_buffer(tls_uv_connection_state_t* cur) {
 
 
 void try_flush_ssl_state(uv_handle_t * handle) {
+    LOGC("Flush SSL");
     tls_uv_server_state_t* server_state = handle->data;
     tls_uv_connection_state_t** head = &server_state->pending_writes;
 
@@ -241,6 +247,7 @@ void check_if_need_to_flush_ssl_state(uv_check_t * handle)
 }
 
 int connection_write(tls_uv_connection_state_t* state, void* buf, int size) {
+    LOGC("Write SSL...");
     int rc = SSL_write(state->ssl, buf, size);
     if (rc > 0)
     {
@@ -927,7 +934,8 @@ failed:
 }
 
 tls_uv_connection_state_t * on_create_connection(ti_stream_t * stream) {
-    return calloc(1, sizeof(tls_uv_connection_state_t));
+    LOGC("on create connection");
+    tls_uv_connection_state_t * state = calloc(1, sizeof(tls_uv_connection_state_t));
 }
 
 int on_connection_established(tls_uv_connection_state_t * connection) {
@@ -977,6 +985,8 @@ static void clients__ssl_connection(uv_stream_t * uvstream, int status)
 
     tls_uv_connection_state_t * state = server_state->protocol.create_connection(stream);
 
+    stream->uvstream->data = state;
+
     state->ssl = SSL_new(server_state->ctx);
     SSL_set_accept_state(state->ssl);
     state->server = server_state;
@@ -990,7 +1000,7 @@ static void clients__ssl_connection(uv_stream_t * uvstream, int status)
 
     rc = uv_read_start(
             stream->uvstream,
-            ti_stream_alloc_buf,
+            alloc_buffer,
             handle_read);
     if (rc)
         goto failed;
@@ -1023,13 +1033,13 @@ void ti_clients_destroy(void)
 
 int ti_clients_listen(void)
 {
-    int rc;
+    int rc, aa, bb;
     ti_cfg_t * cfg = ti.cfg;
     struct sockaddr_storage addr = {0};
     _Bool is_ipv6 = false;
     char * ip;
     char * cert = "/home/joente/workspace/thingsdb/certs/cert.pem";
-    char * key = "/home/joente/workspace/thingsdb/certs/ky.pem";
+    char * key = "/home/joente/workspace/thingsdb/certs/key.pem";
 
     OPENSSL_init_ssl(0, NULL);
     uv_tcp_init(ti.loop, &clients->tcp);
@@ -1039,8 +1049,10 @@ int ti_clients_listen(void)
 
     SSL_CTX * ctx = SSL_CTX_new(method);
 
-    SSL_CTX_use_certificate_file(ctx, cert, SSL_FILETYPE_PEM);
-    SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM);
+    aa = SSL_CTX_use_certificate_file(ctx, cert, SSL_FILETYPE_PEM);
+    bb = SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM);
+
+    LOGC("AA: %d, BB: %d", aa, bb);
 
     // TODO: free SSL_CTX_free(ctx);
 

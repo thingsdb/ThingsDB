@@ -5,16 +5,21 @@ static int do__f_if(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = fn_get_nargs(nd);
     _Bool tobool;
 
+    ti_query_warn_log(
+            query,
+            "function if() is deprecated; "
+            "use the `if [..else]` statement instead");
+
     if (fn_nargs_range("if", DOC_IF, 2, 3, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     tobool = ti_val_as_bool(query->rval);
 
     if (tobool)
-        nd = nd->children->next->next->node;
+        nd = nd->children->next->next;
     else if (nargs == 3)
-        nd = nd->children->next->next->next->next->node;
+        nd = nd->children->next->next->next->next;
     else
         goto done;
 

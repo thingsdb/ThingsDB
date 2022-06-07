@@ -6,7 +6,7 @@ static int do__f_is_inf(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool is_inf;
 
     if (fn_nargs("is_inf", DOC_IS_INF, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     switch (query->rval->tp)

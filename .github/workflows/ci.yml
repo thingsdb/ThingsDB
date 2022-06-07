@@ -1,0 +1,32 @@
+name: CI
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install libcleri
+        run: |
+          git clone https://github.com/cesbit/libcleri.git
+          cd ./libcleri/Release/
+          make
+          sudo make install
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libuv1-dev libpcre2-dev libyajl-dev libcurl4-nss-dev valgrind
+      - name: Run tests
+        run: |
+          cd ./Release/
+          make test
+      - name: Compile code
+        run: |
+          cd ./Release/
+          CFLAGS="-Werror -Winline -std=gnu11" make

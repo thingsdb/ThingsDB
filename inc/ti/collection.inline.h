@@ -13,7 +13,7 @@ static inline int ti_collection_to_pk(
         msgpack_packer * pk)
 {
     return -(
-        msgpack_pack_map(pk, 5) ||
+        msgpack_pack_map(pk, 6) ||
 
         mp_pack_str(pk, "collection_id") ||
         msgpack_pack_uint64(pk, collection->root->id) ||
@@ -28,7 +28,11 @@ static inline int ti_collection_to_pk(
         msgpack_pack_uint64(pk, collection->things->n + collection->gc->n) ||
 
         mp_pack_str(pk, "time_zone") ||
-        mp_pack_strn(pk, collection->tz->name, collection->tz->n)
+        mp_pack_strn(pk, collection->tz->name, collection->tz->n) ||
+
+        mp_pack_str(pk, "default_deep") ||
+        msgpack_pack_uint64(pk, collection->deep)
+
     );
 }
 
@@ -55,6 +59,16 @@ static inline void * ti_collection_thing_by_id(
         uint64_t thing_id)
 {
     return imap_get(collection->things, thing_id);
+}
+
+/*
+ * Return a room with a borrowed reference from the collection.
+ */
+static inline void * ti_collection_room_by_id(
+        ti_collection_t * collection,
+        uint64_t room_id)
+{
+    return imap_get(collection->rooms, room_id);
 }
 
 #endif  /* TI_COLLECTION_INLINE_H_ */

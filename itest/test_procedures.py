@@ -28,6 +28,11 @@ class TestProcedures(TestBase):
         await self.node0.init_and_run()
 
         client0 = await get_client(self.node0)
+
+        await client0.query("""//ti
+            set_default_deep('//stuff', 1);
+        """)
+
         client0.set_default_scope('@:stuff')
 
         with self.assertRaisesRegex(
@@ -42,8 +47,8 @@ class TestProcedures(TestBase):
                 "Create a user with a token and basic privileges.";
                 new_user(user);
                 token = new_token(user);
-                grant('@node', user, (QUERY|WATCH));
-                grant('@:stuff', user, (QUERY|EVENT|RUN));
+                grant('@node', user, (QUERY|JOIN));
+                grant('@:stuff', user, (QUERY|CHANGE|RUN));
                 token;
             });
         ''', scope='@thingsdb')
@@ -53,7 +58,7 @@ class TestProcedures(TestBase):
             'iris',
             scope='@thingsdb')
 
-        await client0.query(r'''
+        await client0.query(r"""//ti
             // First set properties which we can later verify
             .r = 'Test Raw String';
             .t = {test: 'Thing', nested: {found: true}};
@@ -68,11 +73,13 @@ class TestProcedures(TestBase):
             .upd_list = |i| .l = .l.map(|x| (x + i));
 
             // Create a procedure which calls a closure
-            new_procedure('upd_list', |i| wse({
+            new_procedure('upd_list', |i| {
                 "Add a given value `i` to all values in `.l`";
-                .upd_list.call(i);
+                wse({
+                    .upd_list.call(i);
+                });
                 nil;  // Return nil
-            }));
+            });
 
             /*********************************
              * Create some extra procedures. *
@@ -98,9 +105,9 @@ class TestProcedures(TestBase):
 
             new_procedure('deep_two', || {
                 "Return two levels deep.";
-                return(thing(.t.id()), 2);
+                return thing(.t.id()), 2;
             });
-        ''')
+        """)
 
         self.assertEqual(
             await client0.query('procedure_doc("upd_list");'),
@@ -108,17 +115,9 @@ class TestProcedures(TestBase):
         )
 
         with self.assertRaisesRegex(
-                LookupError,
-                r'thing `#42` not found; if you want to create a new thing '
-                r'then remove the id \(`#`\) and try again '
-                r'\(argument 0 for procedure `upd_list`\)'):
+                ValueError,
+                r'property `#` is reserved'):
             await client0.run('upd_list', {"#": 42})
-
-        with self.assertRaisesRegex(
-                TypeError,
-                r'sets can only contain things '
-                r'\(argument 0 for procedure `upd_list`\)'):
-            await client0.run('upd_list', {"$": [1, 2, 3]})
 
         # add another node for query validation
         await self.node1.join_until_ready(client0)
@@ -142,8 +141,8 @@ class TestProcedures(TestBase):
         for client in (client0, client1, client2):
             with self.assertRaisesRegex(
                     OperationError,
-                    r'stored closures with side effects must be wrapped '
-                    r'using `wse\(...\)`'):
+                    r'closures with side effects require a change but none is '
+                    r'created; use `wse\(...\)` to enforce a change;'):
                 await client.run('missing_wse', 1)
 
         for client in (client0, client1, client2):
@@ -270,7 +269,7 @@ class TestProcedures(TestBase):
         for client in (client0, client1, client2, client3, client4):
             counters = await client.query('counters();', scope='@node')
             self.assertEqual(counters['garbage_collected'], 0)
-            self.assertEqual(counters['events_failed'], 0)
+            self.assertEqual(counters['changes_failed'], 0)
 
             client.close()
             await client.wait_closed()
@@ -398,7 +397,7 @@ class TestProcedures(TestBase):
             new_user('read');
             new_user('write');
             grant('//stuff', 'read', RUN);
-            grant('//stuff', 'write', RUN|EVENT);
+            grant('//stuff', 'write', RUN|CHANGE);
             [new_token('read'), new_token('write')];
         ''', scope='@t')
 
@@ -430,7 +429,7 @@ class TestProcedures(TestBase):
             self.assertEqual(await cl_read.run('read_x'), x)
 
     async def test_procedure_doc(self, client):
-        await client.query(r'''
+        await client.query(r"""//ti
             new_procedure('square', |x| {
                 "No side effects.";
                 (x * x);
@@ -439,7 +438,7 @@ class TestProcedures(TestBase):
                 "With side effects.";
                 .a = a;
             });
-        ''')
+        """)
 
         with self.assertRaisesRegex(
                 LookupError,
@@ -477,7 +476,7 @@ class TestProcedures(TestBase):
 
     async def test_procedure_info(self, client):
         now = time.time()
-        await client.query(r'''
+        await client.query(r"""//ti
             new_procedure('square', |x| {
                 "No side effects.";
                 (x * x);
@@ -486,7 +485,7 @@ class TestProcedures(TestBase):
                 "With side effects.";
                 .a = a;
             });
-        ''')
+        """)
 
         with self.assertRaisesRegex(
                 LookupError,
@@ -538,7 +537,7 @@ class TestProcedures(TestBase):
         self.assertTrue(isinstance(procedure_info['definition'], str))
 
     async def test_procedures_info(self, client):
-        await client.query(r'''
+        await client.query(r"""//ti
             new_procedure('square', |x| {
                 "No side effects.";
                 (x * x);
@@ -547,7 +546,7 @@ class TestProcedures(TestBase):
                 "With side effects.";
                 .a = a;
             });
-        ''')
+        """)
 
         with self.assertRaisesRegex(
                 LookupError,
@@ -572,10 +571,10 @@ class TestProcedures(TestBase):
             self.assertTrue(isinstance(info['definition'], str))
 
     async def test_run(self, client):
-        await client.query(r'''
+        await client.query(r"""//ti
             new_procedure('test', |x| (x * 10));
             new_procedure('test_wse', |x| .x = x);
-        ''')
+        """)
 
         with self.assertRaisesRegex(
                 LookupError,
@@ -590,9 +589,8 @@ class TestProcedures(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'function `run` expects argument 1 to be of '
-                r'type `str` \(procedure\) or `int` \(timer\) but got '
-                r'type `nil` instead'):
+                r'function `run` expects argument 1 to be of type `str` '
+                r'but got type `nil` instead'):
             await client.query('run(nil);')
 
         with self.assertRaisesRegex(
@@ -607,8 +605,8 @@ class TestProcedures(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'stored closures with side effects must be wrapped '
-                r'using `wse\(...\)`'):
+                r'closures with side effects require a change but none is '
+                r'created; use `wse\(...\)` to enforce a change;'):
             await client.query(r'''
                 run('test_wse', 42)
             ''')
@@ -624,16 +622,16 @@ class TestProcedures(TestBase):
         self.assertEqual(await client.query('wse(run("test_wse", 42));'), 42)
 
     async def test_thing_argument(self, client):
-        await client.query(r'''
+        await client.query(r"""//ti
             new_procedure('test_save_thing', |t| .t = t);
             new_procedure('test_another_thing', |t| .other = t);
             new_procedure('as_named_args', |options| .name = options.name);
-        ''')
+        """)
 
         await client.run('test_save_thing', {'name': 'Iris', 'age': 6})
         await client.run('as_named_args', {'name': 'Cato'})
 
-        iris = await client.query('.t')
+        iris = await client.query('.t.copy()')
 
         self.assertEqual(iris['name'], 'Iris')
         self.assertEqual(iris['age'], 6)
@@ -641,7 +639,7 @@ class TestProcedures(TestBase):
 
         await client.run('test_another_thing', iris)
 
-        self.assertTrue(await client.query('(.other == .t)'))
+        self.assertTrue(await client.query('.other.equals(.t);'))
 
 
 if __name__ == '__main__':

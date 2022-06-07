@@ -4,5 +4,4 @@
 
 USER_OBJS :=
 
-LIBS := -luv -lcrypto -lssl -lpcre2-8 -lcleri -lm -lyajl
-
+LIBS := -luv -lpcre2-8 -lcleri -lm -lyajl -lcurl -lcrypto -lssl

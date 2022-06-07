@@ -7,7 +7,7 @@ static int do__f_has_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_collection_scope("has_type", query, e) ||
         fn_nargs("has_type", DOC_HAS_TYPE, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str("has_type", DOC_HAS_TYPE, 1, query->rval, e))
         return e->nr;
 

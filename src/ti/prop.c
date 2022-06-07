@@ -43,3 +43,9 @@ void ti_prop_destroy(ti_prop_t * prop)
     ti_val_unassign_unsafe_drop(prop->val);
     free(prop);
 }
+
+void ti_prop_unsafe_vdestroy(ti_prop_t * prop)
+{
+    ti_name_unsafe_drop(prop->name);
+    free(prop);
+}

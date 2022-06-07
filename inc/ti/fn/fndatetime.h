@@ -9,7 +9,7 @@ static int fn__datetime(
         ex_t * e)
 {
     struct tm tm;
-    cleri_children_t * child = nd->children;
+    cleri_node_t * child = nd->children;
     int64_t i;
 
     assert (fn_get_nargs(nd) >= 3);
@@ -20,7 +20,7 @@ static int fn__datetime(
      * Read year
      */
 
-    if (ti_do_statement(query, child->node, e))
+    if (ti_do_statement(query, child, e))
         return e->nr;
 
     if (!ti_val_is_int(query->rval))
@@ -53,7 +53,7 @@ static int fn__datetime(
      */
     child = child->next->next;
 
-    if (ti_do_statement(query, child->node, e))
+    if (ti_do_statement(query, child, e))
         return e->nr;
 
     if (!ti_val_is_int(query->rval))
@@ -86,7 +86,7 @@ static int fn__datetime(
      */
     child = child->next->next;
 
-    if (ti_do_statement(query, child->node, e))
+    if (ti_do_statement(query, child, e))
         return e->nr;
 
     if (!ti_val_is_int(query->rval))
@@ -120,7 +120,7 @@ static int fn__datetime(
     if (!child->next || !(child = child->next->next))
         goto done;
 
-    if (ti_do_statement(query, child->node, e))
+    if (ti_do_statement(query, child, e))
         return e->nr;
 
     switch ((ti_val_enum) query->rval->tp)
@@ -159,7 +159,7 @@ static int fn__datetime(
     if (!child->next || !(child = child->next->next))
         goto done;
 
-    if (ti_do_statement(query, child->node, e))
+    if (ti_do_statement(query, child, e))
         return e->nr;
 
     switch ((ti_val_enum) query->rval->tp)
@@ -198,7 +198,7 @@ static int fn__datetime(
     if (!child->next || !(child = child->next->next))
         goto done;
 
-    if (ti_do_statement(query, child->node, e))
+    if (ti_do_statement(query, child, e))
         return e->nr;
 
     switch ((ti_val_enum) query->rval->tp)
@@ -237,7 +237,7 @@ static int fn__datetime(
     if (!child->next || !(child = child->next->next))
         goto done;
 
-    if (ti_do_statement(query, child->node, e))
+    if (ti_do_statement(query, child, e))
         return e->nr;
 
     if (!ti_val_is_str(query->rval))
@@ -274,7 +274,7 @@ done:
     }
     else
     {
-        ti_tz_t * tz = query->collection ? query->collection->tz : ti_tz_utc();
+        ti_tz_t * tz = fn_default_tz(query);
         query->rval = (ti_val_t *) ti_datetime_from_tm_tz(&tm, tz, e);
     }
 
@@ -289,7 +289,7 @@ static int do__datetime(
         ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_tz_t * tz = query->collection ? query->collection->tz : ti_tz_utc();
+    ti_tz_t * tz = fn_default_tz(query);
 
     if (fn_nargs_max(fname, doc, 7, nargs, e))
         return e->nr;
@@ -299,9 +299,8 @@ static int do__datetime(
     case 0:
         /* Return the current date/time. */
         assert (query->rval == NULL);
-        query->rval = (ti_val_t *) ti_datetime_from_i64(
-                (int64_t) util_now_usec(),
-                0,
+        query->rval = (ti_val_t *) ti_datetime_from_u64(
+                util_now_usec(),
                 tz);
         if (!query->rval)
             ex_set_mem(e);
@@ -312,7 +311,7 @@ static int do__datetime(
          * An integer or float representing a time-stamp, a datetime type,
          * or a string representing a datetime.
          */
-        if (ti_do_statement(query, nd->children->node, e))
+        if (ti_do_statement(query, nd->children, e))
             return e->nr;
 
         switch ((ti_val_enum) query->rval->tp)
@@ -371,7 +370,7 @@ static int do__datetime(
         /*
          * Accept datetime(string, format);
          */
-        if (ti_do_statement(query, nd->children->node, e))
+        if (ti_do_statement(query, nd->children, e))
             return e->nr;
 
         if (!ti_val_is_str(query->rval))
@@ -387,7 +386,7 @@ static int do__datetime(
         str = (ti_raw_t *) query->rval;
         query->rval = NULL;
 
-        if (ti_do_statement(query, nd->children->next->next->node, e))
+        if (ti_do_statement(query, nd->children->next->next, e))
             goto fail0;
 
         if (!ti_val_is_str(query->rval))

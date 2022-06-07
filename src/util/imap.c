@@ -136,7 +136,6 @@ void imap_clear(imap_t * imap, imap_destroy_cb cb)
     }
 }
 
-
 /*
  * Add data by id to the map. Data is not allowed to be NULL.
  *

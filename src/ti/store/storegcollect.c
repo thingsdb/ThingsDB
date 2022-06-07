@@ -20,7 +20,7 @@ static int store__gcollect_cb(ti_gc_t * gc, msgpack_packer * pk)
             msgpack_pack_uint64(pk, gc->thing->id) ||
             msgpack_pack_array(pk, 2) ||
             msgpack_pack_uint16(pk, gc->thing->type_id) ||
-            msgpack_pack_uint64(pk, gc->event_id)
+            msgpack_pack_uint64(pk, gc->change_id)
     );
 }
 
@@ -59,49 +59,49 @@ done:
     return 0;
 }
 
-static int store__walk_i(ti_item_t * item, ti_vp_t * vp)
+static int store__walk_i(ti_item_t * item, msgpack_packer * pk)
 {
     uintptr_t p = (uintptr_t) item->key;
 
     return -((ti_raw_is_name(item->key)
-        ? msgpack_pack_uint64(&vp->pk, p)
-        : mp_pack_strn(&vp->pk, item->key->data, item->key->n)) ||
-        ti_val_to_pk(item->val, vp, TI_VAL_PACK_FILE));
+        ? msgpack_pack_uint64(pk, p)
+        : mp_pack_strn(pk, item->key->data, item->key->n)) ||
+        ti_val_to_store_pk(item->val, pk));
 }
 
 
-static int store__walk_data(ti_thing_t * thing, ti_vp_t * vp)
+static int store__walk_data(ti_thing_t * thing, msgpack_packer * pk)
 {
-    if (msgpack_pack_uint64(&vp->pk, thing->id))
+    if (msgpack_pack_uint64(pk, thing->id))
         return -1;
 
     if (ti_thing_is_object(thing))
     {
-        if (msgpack_pack_map(&vp->pk, ti_thing_n(thing)))
+        if (msgpack_pack_map(pk, ti_thing_n(thing)))
             return -1;
 
         if (ti_thing_is_dict(thing))
             return smap_values(
                     thing->items.smap,
                     (smap_val_cb) store__walk_i,
-                    vp);
+                    pk);
 
 
         for (vec_each(thing->items.vec, ti_prop_t, prop))
         {
             uintptr_t p = (uintptr_t) prop->name;
-            if (msgpack_pack_uint64(&vp->pk, p) ||
-                ti_val_to_pk(prop->val, vp, TI_VAL_PACK_FILE)
+            if (msgpack_pack_uint64(pk, p) ||
+                ti_val_to_store_pk(prop->val, pk)
             ) return -1;
         }
         return 0;
     }
     /* type */
-    if (msgpack_pack_array(&vp->pk, ti_thing_n(thing)))
+    if (msgpack_pack_array(pk, ti_thing_n(thing)))
         return -1;
 
     for (vec_each(thing->items.vec, ti_val_t, val))
-        if (ti_val_to_pk(val, vp, TI_VAL_PACK_FILE))
+        if (ti_val_to_store_pk(val, pk))
             return -1;
 
     return 0;
@@ -109,7 +109,7 @@ static int store__walk_data(ti_thing_t * thing, ti_vp_t * vp)
 
 int ti_store_gcollect_store_data(queue_t * queue, const char * fn)
 {
-    ti_vp_t vp;
+    msgpack_packer pk;
     FILE * f = fopen(fn, "w");
     if (!f)
     {
@@ -117,15 +117,15 @@ int ti_store_gcollect_store_data(queue_t * queue, const char * fn)
         return -1;
     }
 
-    msgpack_packer_init(&vp.pk, f, msgpack_fbuffer_write);
+    msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
 
     if (
-        msgpack_pack_map(&vp.pk, 1) ||
-        mp_pack_str(&vp.pk, "data") ||
-        msgpack_pack_map(&vp.pk, queue->n)
+        msgpack_pack_map(&pk, 1) ||
+        mp_pack_str(&pk, "data") ||
+        msgpack_pack_map(&pk, queue->n)
     ) goto fail;
 
-    if (ti_gc_walk(queue, (queue_cb) store__walk_data, &vp))
+    if (ti_gc_walk(queue, (queue_cb) store__walk_data, &pk))
         goto fail;
 
     log_debug("stored garbage collected data to file: `%s`", fn);
@@ -148,7 +148,7 @@ int ti_store_gcollect_restore(ti_collection_t * collection, const char * fn)
     size_t i;
     uint16_t type_id;
     ssize_t n;
-    mp_obj_t obj, mp_ver, mp_thing_id, mp_type_id, mp_event_id;
+    mp_obj_t obj, mp_ver, mp_thing_id, mp_type_id, mp_change_id;
     mp_unp_t up;
     ti_type_t * type;
     ti_thing_t * thing;
@@ -170,7 +170,7 @@ int ti_store_gcollect_restore(ti_collection_t * collection, const char * fn)
         if (mp_next(&up, &mp_thing_id) != MP_U64 ||
             mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
             mp_next(&up, &mp_type_id) != MP_U64 ||
-            mp_next(&up, &mp_event_id) != MP_U64
+            mp_next(&up, &mp_change_id) != MP_U64
         ) goto fail;
 
         type_id = mp_type_id.via.u64;
@@ -192,7 +192,7 @@ int ti_store_gcollect_restore(ti_collection_t * collection, const char * fn)
         if (!thing)
             goto fail;
 
-        gc = ti_gc_create(mp_event_id.via.u64, thing);
+        gc = ti_gc_create(mp_change_id.via.u64, thing);
 
         if (!gc || queue_push(&collection->gc, gc))
         {
@@ -309,7 +309,7 @@ int ti_store_gcollect_restore_data(
         }
         else
         {
-            type = ti_thing_type(thing);
+            type = thing->via.type;
 
             if (mp_next(&up, &obj) != MP_ARR || type->fields->n != obj.via.sz)
             {

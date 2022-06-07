@@ -14,8 +14,10 @@
 #include <util/smap.h>
 
 ti_varr_t * ti_modules_info(_Bool with_conf);
+void ti_modules_init(void);
 void ti_modules_load(void);
 void ti_modules_cancel_futures(void);
+_Bool ti_modules_ready(void);
 void ti_modules_stop_and_destroy(void);
 int ti_modules_rename(ti_module_t * module, const char * s, size_t n);
 

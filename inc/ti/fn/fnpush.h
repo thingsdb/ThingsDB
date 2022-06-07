@@ -3,7 +3,7 @@
 static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    cleri_children_t * child = nd->children;    /* first in argument list */
+    cleri_node_t * child = nd->children;    /* first in argument list */
     uint32_t current_n, new_n;
     ti_varr_t * varr;
 
@@ -28,8 +28,8 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     do
     {
-        if (ti_do_statement(query, child->node, e) ||
-            ti_varr_append(varr, (void **) &query->rval, e))
+        if (ti_do_statement(query, child, e) ||
+            ti_val_varr_append(varr, &query->rval, e))
             goto fail1;
 
         query->rval = NULL;
@@ -38,7 +38,7 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (varr->parent && varr->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, varr->parent);
+        ti_task_t * task = ti_task_get_task(query->change, varr->parent);
         if (!task || ti_task_add_splice(
                 task,
                 ti_varr_key(varr),
@@ -47,7 +47,7 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 0,
                 (uint32_t) nargs))
             goto alloc_err;  /* we do not need to cleanup task, since the task
-                                is added to `query->ev->tasks` */
+                                is added to `query->change->tasks` */
     }
 
     assert (e->nr == 0);

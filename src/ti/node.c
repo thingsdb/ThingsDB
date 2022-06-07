@@ -8,6 +8,7 @@
 #include <ti/node.h>
 #include <ti/nodes.h>
 #include <ti/proto.h>
+#include <ti/raw.inline.h>
 #include <ti/req.h>
 #include <ti/tcp.h>
 #include <ti/write.h>
@@ -39,12 +40,12 @@ ti_node_t * ti_node_create(
     node->id = id;
     node->status = TI_NODE_STAT_OFFLINE;
     node->zone = zone;
-    node->syntax_ver = 0;
+    node->syntax_ver = TI_VERSION_SYNTAX;
     node->next_retry = 0;
     node->retry_counter = 0;
-    node->cevid = 0;
-    node->sevid = 0;
-    node->next_thing_id = 0;
+    node->ccid = 0;
+    node->scid = 0;
+    node->next_free_id = 0;
     node->stream = NULL;
     node->port = port;
     node->addr = strdup(addr);
@@ -81,14 +82,14 @@ void ti_node_upd_node(ti_node_t * node, uint16_t port, mp_obj_t * node_name)
     if (node->port != port)
     {
         node->port = port;
-        ti.flags |= TI_FLAG_NODES_CHANGED;
+        ti_flag_set(TI_FLAG_TI_CHANGED);
     }
 
     if (!mp_str_eq(node_name, node->addr) && (addr = mp_strdup(node_name)))
     {
         free(node->addr);
         node->addr = addr;
-        ti.flags |= TI_FLAG_NODES_CHANGED;
+        ti_flag_set(TI_FLAG_TI_CHANGED);
     }
 }
 
@@ -316,14 +317,14 @@ int ti_node_info_to_pk(ti_node_t * node, msgpack_packer * pk)
         mp_pack_str(pk, "zone") ||
         msgpack_pack_uint8(pk, node->zone) ||
 
-        mp_pack_str(pk, "committed_event_id") ||
-        msgpack_pack_uint64(pk, node->cevid) ||
+        mp_pack_str(pk, "committed_change_id") ||
+        msgpack_pack_uint64(pk, node->ccid) ||
 
-        mp_pack_str(pk, "stored_event_id") ||
-        msgpack_pack_uint64(pk, node->sevid) ||
+        mp_pack_str(pk, "stored_change_id") ||
+        msgpack_pack_uint64(pk, node->scid) ||
 
-        mp_pack_str(pk, "next_thing_id") ||
-        msgpack_pack_uint64(pk, node->next_thing_id) ||
+        mp_pack_str(pk, "next_free_id") ||
+        msgpack_pack_uint64(pk, node->next_free_id) ||
 
         mp_pack_str(pk, "node_name") ||
         mp_pack_str(pk, node->addr) ||
@@ -363,8 +364,8 @@ int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
 {
     mp_obj_t obj,
              mp_next_thing_id,
-             mp_cevid,
-             mp_sevid,
+             mp_ccid,
+             mp_scid,
              mp_status,
              mp_zone,
              mp_port,
@@ -374,17 +375,23 @@ int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
 
     if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 7 ||
         mp_next(up, &mp_next_thing_id) != MP_U64 ||
-        mp_next(up, &mp_cevid) != MP_U64 ||
-        mp_next(up, &mp_sevid) != MP_U64 ||
+        mp_next(up, &mp_ccid) != MP_U64 ||
+        mp_next(up, &mp_scid) != MP_U64 ||
         mp_next(up, &mp_status) != MP_U64 ||
         mp_next(up, &mp_zone) != MP_U64 ||
         mp_next(up, &mp_port) != MP_U64 ||
         mp_next(up, &mp_syntax_ver) != MP_U64
     ) return -1;
 
-    node->next_thing_id = mp_next_thing_id.via.u64;
-    node->cevid = mp_cevid.via.u64;
-    node->sevid = mp_sevid.via.u64;
+    node->next_free_id = mp_next_thing_id.via.u64;
+
+    uv_mutex_lock(&ti.nodes->lock);
+
+    node->ccid = mp_ccid.via.u64;
+    node->scid = mp_scid.via.u64;
+
+    uv_mutex_unlock(&ti.nodes->lock);
+
     node->status = mp_status.via.u64;
     node->zone = mp_zone.via.u64;
     syntax_ver = mp_syntax_ver.via.u64;
@@ -394,9 +401,9 @@ int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
     {
         if (syntax_ver < node->syntax_ver)
             log_warning(
-                    "got an unexpected syntax version update from "TI_NODE_ID
-                    " (current "TI_QBIND", received "TI_QBIND")",
-                    node->id, node->syntax_ver, syntax_ver);
+                "got an unexpected syntax version update from "TI_NODE_ID
+                " (current "TI_SYNTAX", received "TI_SYNTAX")",
+                node->id, node->syntax_ver, syntax_ver);
         ti_nodes_update_syntax_ver(syntax_ver);
         node->syntax_ver = mp_syntax_ver.via.u64;
     }
@@ -404,7 +411,7 @@ int ti_node_status_from_unp(ti_node_t * node, mp_unp_t * up)
     if (node_port != node->port)
     {
         node->port = node_port;
-        ti.flags |= TI_FLAG_NODES_CHANGED;
+        ti_flag_set(TI_FLAG_TI_CHANGED);
     }
 
     if (node->status == TI_NODE_STAT_AWAY)

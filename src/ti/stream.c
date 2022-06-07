@@ -90,12 +90,12 @@ void ti_stream_close(ti_stream_t * stream)
     ti_stream_drop(stream);
 }
 
-void ti_stream_stop_watching(ti_stream_t * stream)
+void ti_stream_stop_listeners(ti_stream_t * stream)
 {
-    if (!stream || !stream->watching)
+    if (!stream || !stream->listeners)
         return;
-    vec_destroy(stream->watching, (vec_destroy_cb) ti_watch_drop);
-    stream->watching = NULL;
+    vec_destroy(stream->listeners, (vec_destroy_cb) ti_watch_drop);
+    stream->listeners = NULL;
 }
 
 void ti_stream_set_node(ti_stream_t * stream, ti_node_t * node)
@@ -329,11 +329,13 @@ int ti_stream_write_pkg(ti_stream_t * stream, ti_pkg_t * pkg)
 /* increases with a new reference as long as required */
 int ti_stream_write_rpkg(ti_stream_t * stream, ti_rpkg_t * rpkg)
 {
-    if (ti_write(stream, rpkg->pkg, rpkg, stream__write_rpkg_cb))
-        return -1;
-
     ti_incref(rpkg);
-    return 0;
+
+    if (ti_write(stream, rpkg->pkg, rpkg, stream__write_rpkg_cb) == 0)
+        return 0;
+
+    ti_decref(rpkg);  /* roll-back the reference count */
+    return -1;
 }
 
 size_t ti_stream_client_connections(void)
@@ -383,7 +385,7 @@ static void stream__close_cb(uv_handle_t * uvstream)
         ti_user_drop(stream->via.user);
         break;
     }
-    ti_stream_stop_watching(stream);
+    ti_stream_stop_listeners(stream);
     free(stream->buf);
     free(stream->name_);
     free(uvstream);

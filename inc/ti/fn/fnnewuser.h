@@ -12,7 +12,7 @@ static int do__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     ti.access_thingsdb,
                     query->user, TI_AUTH_GRANT, e) ||
         fn_nargs("new_user", DOC_NEW_USER, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str("new_user", DOC_NEW_USER, 1, query->rval, e))
         return e->nr;
 
@@ -26,7 +26,7 @@ static int do__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!nuser)
         return e->nr;
 
-    task = ti_task_get_task(query->ev, ti.thing0);
+    task = ti_task_get_task(query->change, ti.thing0);
     if (!task || ti_task_add_new_user(task, nuser))
         ex_set_mem(e);  /* task cleanup is not required */
 

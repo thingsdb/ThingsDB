@@ -43,7 +43,7 @@ class TestNested(TestBase):
 
         for i, client in enumerate((client0, client1, client2)):
             counters = await client.query('counters();', scope='@node')
-            self.assertEqual(counters['events_failed'], 0)
+            self.assertEqual(counters['changes_failed'], 0)
 
             client.close()
             await client.wait_closed()
@@ -143,7 +143,7 @@ class TestNested(TestBase):
             self.assertEqual(await client.query('.arr'), [123])
 
     async def test_assign_del(self, client0, client1, client2):
-        await client0.query(r'''
+        await client0.query(r"""//ti
             .x = {
                 y: {
                     z: {}
@@ -160,7 +160,7 @@ class TestNested(TestBase):
             };
 
             x.test = 'Test';
-        ''')
+        """)
 
         await asyncio.sleep(0.1)
         for client in (client0, client1, client2):
@@ -168,7 +168,7 @@ class TestNested(TestBase):
             self.assertEqual(x['test'], 'Test')
 
     async def test_nested_pop(self, client0, client1, client2):
-        await client0.query(r'''
+        await client0.query(r"""//ti
             .arr = [[{
                 name: 'Iris'
             }]];
@@ -176,7 +176,7 @@ class TestNested(TestBase):
                 .arr.pop();
                 6;
             };
-        ''')
+        """)
         await asyncio.sleep(0.1)
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.arr'), [])
@@ -185,20 +185,20 @@ class TestNested(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change or remove property `arr` on `#\d+` while '
-                r'the `list` is being used'):
-            await client0.query(r'''
+                r'the `list` is in use'):
+            await client0.query(r"""//ti
                 .arr = ['a', 'b'];
                 .arr.push({
                     .arr = [1, 2, 3];
                     'c';
                 })
-            ''')
+            """)
 
     async def test_list_lock_del(self, client0, client1, client2):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change or remove property `arr` on `#\d+` while '
-                r'the `list` is being used'):
+                r'the `list` is in use'):
             await client0.query(r'''
                 .arr = ['a', 'b'];
                 .arr.push({
@@ -241,7 +241,7 @@ class TestNested(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change or remove property `a` on `#\d+` while '
-                r'the `list` is being used'):
+                r'the `list` is in use'):
             await client0.query(r'''
                 .store = {};
                 .store.a = [1, 2, 3];
@@ -252,7 +252,7 @@ class TestNested(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change or remove property `a` on `#\d+` while '
-                r'the `list` is being used'):
+                r'the `list` is in use'):
             await client0.query(r'''
                 .store = {};
                 store = .store;
@@ -266,7 +266,7 @@ class TestNested(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change or remove property `a` on `#\d+` while '
-                r'the `set` is being used'):
+                r'the `set` is in use'):
             await client0.query(r'''
                 .store = {};
                 .store.a = set([{}, {}, {}]);
@@ -277,7 +277,7 @@ class TestNested(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change or remove property `a` on `#\d+` while '
-                r'the `set` is being used'):
+                r'the `set` is in use'):
             await client0.query(r'''
                 .store = {};
                 store = .store;
@@ -328,12 +328,30 @@ class TestNested(TestBase):
             );
         '''), [userb])
 
-    async def test_set_assign(self, client0, client1, client2):
+    async def test_set_assign_and_rm_props(self, client0, client1, client2):
         await client0.query(r'''
             x = {n: 0}; y = {n: 1}; z = {n: 2};
             .a = set(x, y);
             .b = set(x, z);
             .a ^= .b;
+            .t1 = {
+                a: 0,
+                b: 1,
+            };
+            .t2 = {
+                a: 0,
+                b: 1,
+            };
+        ''')
+
+        # make sure both remove() and clear() always create a change
+        await client0.query(r'''
+            t1 = .t1;
+            t1.remove(|| true);
+        ''')
+        await client0.query(r'''
+            t2 = .t2;
+            t2.clear();
         ''')
 
         await asyncio.sleep(1.0)
@@ -341,6 +359,9 @@ class TestNested(TestBase):
         for client in (client0, client1, client2):
             res = await client.query(r'.a.map(|x| x.n);')
             self.assertEqual(set(res), {1, 2})
+
+            res = await client.query(r'.t1.len() + .t2.len();')
+            self.assertEqual(res, 0)
 
     async def test_ids(self, client0, client1, client2):
         nones, ids = await client0.query(r'''

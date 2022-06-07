@@ -303,7 +303,7 @@ failed:
 }
 
 /* adds a map with key/value pairs */
-int ti_enum_members_to_pk(ti_enum_t * enum_, ti_vp_t * vp, int options)
+int ti_enum_members_to_client_pk(ti_enum_t * enum_, ti_vp_t * vp, int deep)
 {
     if (msgpack_pack_array(&vp->pk, enum_->members->n))
         return -1;
@@ -312,7 +312,23 @@ int ti_enum_members_to_pk(ti_enum_t * enum_, ti_vp_t * vp, int options)
     {
         if (msgpack_pack_array(&vp->pk, 2) ||
             mp_pack_strn(&vp->pk, member->name->str, member->name->n) ||
-            ti_val_to_pk(member->val, vp, options))
+            ti_val_to_client_pk(member->val, vp, deep))
+            return -1;
+    }
+
+    return 0;
+}
+
+int ti_enum_members_to_store_pk(ti_enum_t * enum_, msgpack_packer * pk)
+{
+    if (msgpack_pack_array(pk, enum_->members->n))
+        return -1;
+
+    for (vec_each(enum_->members, ti_member_t, member))
+    {
+        if (msgpack_pack_array(pk, 2) ||
+            mp_pack_strn(pk, member->name->str, member->name->n) ||
+            ti_val_to_store_pk(member->val, pk))
             return -1;
     }
 
@@ -344,6 +360,8 @@ ti_member_t * ti_enum_member_by_val_e(
     case TI_VAL_MPDATA:
     case TI_VAL_REGEX:
     case TI_VAL_WRAP:
+    case TI_VAL_ROOM:
+    case TI_VAL_TASK:
     case TI_VAL_ARR:
     case TI_VAL_SET:
     case TI_VAL_CLOSURE:
@@ -459,7 +477,7 @@ int ti_enum_to_pk(ti_enum_t * enum_, ti_vp_t * vp)
             : msgpack_pack_nil(&vp->pk)) ||
 
         mp_pack_str(&vp->pk, "members") ||
-        ti_enum_members_to_pk(enum_, vp, 0)  /* only ID's for one level */
+        ti_enum_members_to_client_pk(enum_, vp, 0)  /* only ID's for one level */
     );
 }
 

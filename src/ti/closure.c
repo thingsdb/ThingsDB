@@ -2,6 +2,7 @@
  * ti/closure.h
  */
 #include <assert.h>
+#include <ctype.h>
 #include <langdef/langdef.h>
 #include <ti/closure.h>
 #include <ti/closure.inline.h>
@@ -18,7 +19,7 @@
 #include <ti/fmt.h>
 #include <util/logger.h>
 #include <util/strx.h>
-#include <cleri/node.inline.h>
+#include <cleri/node.h>
 
 #define CLOSURE__QBOUND (TI_CLOSURE_FLAG_BTSCOPE|TI_CLOSURE_FLAG_BCSCOPE)
 
@@ -57,29 +58,28 @@ static cleri_node_t * closure__node_from_strn(
         goto fail1;
     }
 
-    node = res->tree->children->node        /* Sequence (START) */
-            ->children->next->node;         /* List of statements */
+    node = res->tree->children              /* Sequence (START) */
+            ->children->next;               /* List of statements */
 
     /* we should have exactly one statement */
-    if (!node->children || node->children->next)
+    if (!node->children || (node->children->next && node->children->next->next))
     {
-        ex_set(e, EX_BAD_DATA, "closure is expecting exactly one node");
+        ex_set(e, EX_BAD_DATA, "closure is expecting exactly one statement");
         goto fail1;
     }
 
     node = node                             /* List of statements */
-            ->children->node                /* Sequence - statement */
-            ->children->node                /* expression */
-            ->children->next->node;         /* Choice - closure */
+            ->children                      /* Sequence - statement */
+            ->children;                     /* closure */
 
-    if (node->cl_obj->gid != CLERI_GID_T_CLOSURE)
+    if (node->cl_obj->gid != CLERI_GID_CLOSURE)
     {
         ex_set(e, EX_LOOKUP_ERROR, "node is not a closure");
         goto fail1;
     }
 
     /*  closure = Sequence('|', List(name, opt=True), '|', statement)  */
-    statement = node->children->next->next->next->node;
+    statement = node->children->next->next->next;
     ti_qbind_probe(syntax, statement);
 
     ncache = ti_ncache_create(query, syntax->immutable_n);
@@ -113,9 +113,44 @@ static void closure__node_to_buf(cleri_node_t * nd, char * buf, size_t * n)
     switch (nd->cl_obj->tp)
     {
     case CLERI_TP_KEYWORD:
+        switch (nd->cl_obj->gid)
+        {
+        case CLERI_GID_K_ELSE:
+        case CLERI_GID_K_IN:
+            /* the `else` keyword always has "something" before, so if this is
+             * white space, we should also add white space to identify the
+             * start of `else ...`.
+             * the `in` keyword always has white space before, but this rule
+             * will also work so don't make an exception for `in`.
+             */
+            if (isspace(nd->str[-1]))
+                buf[(*n)++] = ' ';
+            /* fall through */
+        case CLERI_GID_K_RETURN:
+            /* both return and else have "something" after, so if this is
+             * white space, we should also add white space.
+             */
+            if (isspace(nd->str[nd->len]))
+            {
+                memcpy(buf + (*n), nd->str, nd->len);
+                (*n) += nd->len;
+                buf[(*n)++] = ' ';
+                return;
+            }
+        }
+        /* fall through */
+    case CLERI_TP_REGEX:
+        if (nd->cl_obj->gid == CLERI_GID_END_STATEMENT)
+        {
+            if (nd->len || ((*n) && isspace(nd->str[-1])))
+            {
+                buf[(*n)++] = ';';
+            }
+            return;
+        }
+        /* fall through */
     case CLERI_TP_TOKEN:
     case CLERI_TP_TOKENS:
-    case CLERI_TP_REGEX:
         memcpy(buf + (*n), nd->str, nd->len);
         (*n) += nd->len;
         return;
@@ -132,18 +167,18 @@ static void closure__node_to_buf(cleri_node_t * nd, char * buf, size_t * n)
         break;
     }
 
-    for (cleri_children_t * child = nd->children; child; child = child->next)
-        closure__node_to_buf(child->node, buf, n);
+    for (cleri_node_t * child = nd->children; child; child = child->next)
+        closure__node_to_buf(child, buf, n);
 }
 
 static vec_t * closure__create_vars(ti_closure_t * closure)
 {
     vec_t * vars;
     size_t n;
-    cleri_children_t * child, * first;
+    cleri_node_t * child, * first;
 
     first = closure->node               /* sequence */
-            ->children->next->node      /* list */
+            ->children->next            /* list */
             ->children;                 /* first child */
 
     for(n = 0, child = first;
@@ -157,7 +192,7 @@ static vec_t * closure__create_vars(ti_closure_t * closure)
     for (child = first; child; child = child->next->next)
     {
         ti_val_t * val = (ti_val_t *) ti_nil_get();
-        ti_name_t * name = ti_names_get(child->node->str, child->node->len);
+        ti_name_t * name = ti_names_get(child->str, child->len);
         ti_prop_t * prop;
         if (!name)
             goto failed;
@@ -198,7 +233,7 @@ ti_closure_t * ti_closure_from_node(cleri_node_t * node, uint8_t flags)
     closure->tp = TI_VAL_CLOSURE;
     closure->flags = flags;
     closure->depth = 0;
-    closure->future_depth = 0;
+    closure->future_count = 0;
     closure->node = node;
     closure->stacked = NULL;
     closure->vars = closure__create_vars(closure);
@@ -222,9 +257,9 @@ ti_closure_t * ti_closure_from_strn(
     closure->ref = 1;
     closure->tp = TI_VAL_CLOSURE;
     closure->depth = 0;
-    closure->future_depth = 0;
+    closure->future_count = 0;
     closure->node = closure__node_from_strn(syntax, str, n, e);
-    closure->flags = syntax->flags & TI_QBIND_FLAG_EVENT
+    closure->flags = syntax->flags & TI_QBIND_FLAG_WSE
             ? TI_CLOSURE_FLAG_WSE
             : 0;
     closure->stacked = NULL;
@@ -276,7 +311,7 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
     if (!node)
         return e->nr;
 
-    closure->flags = syntax.flags & TI_QBIND_FLAG_EVENT
+    closure->flags = syntax.flags & TI_QBIND_FLAG_WSE
             ? TI_CLOSURE_FLAG_WSE
             : 0;
     closure->node = node;
@@ -284,35 +319,7 @@ int ti_closure_unbound(ti_closure_t * closure, ex_t * e)
     return e->nr;
 }
 
-int ti_closure_to_pk(ti_closure_t * closure, msgpack_packer * pk)
-{
-    char * buf;
-    size_t n = 0;
-    int rc;
-    if (!closure__is_unbound(closure))
-    {
-        return -(
-            msgpack_pack_map(pk, 1) ||
-            mp_pack_strn(pk, TI_KIND_S_CLOSURE, 1) ||
-            mp_pack_strn(pk, closure->node->str, closure->node->len)
-        );
-    }
-
-    buf = ti_closure_char(closure, &n);
-    if (!buf)
-        return -1;
-
-    rc = -(
-        msgpack_pack_map(pk, 1) ||
-        mp_pack_strn(pk, TI_KIND_S_CLOSURE, 1) ||
-        mp_pack_strn(pk, buf, n)
-    );
-
-    free(buf);
-    return rc;
-}
-
-char * ti_closure_char(ti_closure_t * closure, size_t * n)
+static char * closure__char(ti_closure_t * closure, size_t * n)
 {
     char * buf;
     buf = malloc(closure->node->len);
@@ -323,6 +330,50 @@ char * ti_closure_char(ti_closure_t * closure, size_t * n)
     return buf;
 }
 
+int ti_closure_to_client_pk(ti_closure_t * closure, msgpack_packer * pk)
+{
+    if (closure__is_unbound(closure))
+    {
+        int rc;
+        char * buf;
+        size_t n = 0;
+        buf = closure__char(closure, &n);
+        if (!buf)
+            return -1;
+
+        rc = mp_pack_strn(pk, buf, n);
+
+        free(buf);
+        return rc;
+    }
+
+    return mp_pack_strn(pk, closure->node->str, closure->node->len);
+}
+
+int ti_closure_to_store_pk(ti_closure_t * closure, msgpack_packer * pk)
+{
+    if (closure__is_unbound(closure))
+    {
+        int rc;
+        char * buf;
+        size_t n = 0;
+        buf = closure__char(closure, &n);
+        if (!buf)
+            return -1;
+
+        rc = mp_pack_ext(pk, MPACK_EXT_CLOSURE, buf, n);
+
+        free(buf);
+        return rc;
+    }
+
+    return mp_pack_ext(
+            pk,
+            MPACK_EXT_CLOSURE,
+            closure->node->str,
+            closure->node->len);
+}
+
 int ti_closure_inc(ti_closure_t * closure, ti_query_t * query, ex_t * e)
 {
     uint32_t n = closure->vars->n;
@@ -331,7 +382,7 @@ int ti_closure_inc(ti_closure_t * closure, ti_query_t * query, ex_t * e)
     {
     case TI_CLOSURE_MAX_RECURSION_DEPTH:
         ex_set(e, EX_OPERATION,
-                "maximum recursion depth exceeded"DOC_CLOSURE);
+                "maximum recursion depth exceeded"DOC_TYPE_CLOSURE);
         return -1;
     case 0:
         if (n && vec_extend(&query->vars, closure->vars->data, n))
@@ -460,6 +511,113 @@ int ti_closure_vars_val_idx(ti_closure_t * closure, ti_val_t * v, int64_t i)
     return 0;
 }
 
+int ti_closure_vars_replace_str(
+        ti_closure_t * closure,
+        size_t pos,
+        size_t n,
+        ti_raw_t * vstr)
+{
+    ti_prop_t * prop;
+    switch(closure->vars->n)
+    {
+    default:
+    case 3:
+        prop = VEC_get(closure->vars, 2);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = (ti_val_t *) vstr;
+        ti_incref(vstr);
+        /* fall through */
+    case 2:
+        prop = VEC_get(closure->vars, 1);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = (ti_val_t *) ti_vint_create(pos + n);
+        if (!prop->val)
+            return -1;
+        /* fall through */
+    case 1:
+        prop = VEC_get(closure->vars, 0);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = (ti_val_t *) ti_vint_create(pos);
+        if (!prop->val)
+            return -1;
+        /* fall through */
+    case 0:
+        break;
+    }
+    return 0;
+}
+
+int ti_closure_vars_replace_regex(
+        ti_closure_t * closure,
+        ti_raw_t * vstr,
+        PCRE2_SIZE * ovector,
+        uint32_t sz)
+{
+    ti_prop_t * prop;
+    uint32_t m = closure->vars->n;
+    uint32_t i = 1, j = 0;
+
+    /*
+     * First, add the capture groups
+     */
+    for (; i < sz && j < m; ++i, ++j)
+    {
+        PCRE2_SPTR pt = vstr->data + ovector[2*i];
+        PCRE2_SIZE n =  ovector[2*i+1] - ovector[2*i];
+
+        prop = VEC_get(closure->vars, j);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = (ti_val_t *) ti_str_create((const char *) pt, n);
+        if (!prop->val)
+            return -1;
+    }
+    m -= j;
+
+    switch(m)
+    {
+    default:
+    case 4:
+        prop = VEC_get(closure->vars, j+3);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = (ti_val_t *) vstr;
+        ti_incref(vstr);
+        /* fall through */
+    case 3:
+        prop = VEC_get(closure->vars, j+2);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = (ti_val_t *) ti_vint_create(ovector[1]);
+        if (!prop->val)
+            return -1;
+        /* fall through */
+    case 2:
+        prop = VEC_get(closure->vars, j+1);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = (ti_val_t *) ti_vint_create(ovector[0]);
+        if (!prop->val)
+            return -1;
+        /* fall through */
+    case 1:
+        /*
+         * After the capture groups, the complete match will be added
+         */
+        {
+            PCRE2_SPTR pt = vstr->data + ovector[0];
+            PCRE2_SIZE n =  ovector[1] - ovector[0];
+
+            prop = VEC_get(closure->vars, j);
+            ti_val_unsafe_drop(prop->val);
+            prop->val = (ti_val_t *) ti_str_create((const char *) pt, n);
+            if (!prop->val)
+                return -1;
+        }
+        /* fall through */
+    case 0:
+        break;
+    }
+    return 0;
+}
+
+
 int ti_closure_vars_vset(ti_closure_t * closure, ti_thing_t * t)
 {
     ti_prop_t * prop;
@@ -546,51 +704,24 @@ int ti_closure_call_one_arg(
 ti_raw_t * ti_closure_doc(ti_closure_t * closure)
 {
     ti_raw_t * doc = NULL;
-
-    /* Note: expression might be `operations` as well which happen to be fine
-     *       since in that case the other checks are compatible
-     */
-    cleri_node_t * node = ti_closure_statement(closure)
-            ->children->node                /* expression */
-            ->children->next->node;         /* the choice */
-
-    while ((node->cl_obj->gid == CLERI_GID_VAR_OPT_MORE ||
-            node->cl_obj->gid == CLERI_GID_NAME_OPT_MORE
-        ) &&
-            node->children->next &&
-            node->children->next->node->cl_obj->gid == CLERI_GID_FUNCTION)
-    {
-        /*
-         * If the scope is a function, get the first argument, for example:
-         *   || wse({
-         *      "Read this doc string...";
-         *   });
-         */
-        node = node->children->next->node       /* function */
-                ->children->next->node;         /* arguments */
-
-        if (node->children)
-            node = node->children->node         /* statement */
-            ->children->node                    /* expression */
-            ->children->next->node;             /* the choice */
-        assert (node);
-    }
+    cleri_node_t * node = ti_closure_statement(closure)->children;
 
     if (node->cl_obj->gid != CLERI_GID_BLOCK)
         goto done;
 
     node = node->children->next->next   /* node=block */
-            ->node->children            /* node=list mi=1 */
-            ->node->children            /* node=statement */
-            ->node->children->next      /* node=expression */
-            ->node;                     /* node=the choice */
+            ->children                  /* node=list mi=1 */
+            ->children                  /* node=statement */
+            ->children                  /* node=expression */
+            ->next;                     /* node=the choice */
 
     if (node->cl_obj->gid != CLERI_GID_T_STRING)
         goto done;
 
     doc = node->data;
     if (doc)
-        /* from cache */
+        /* from query cache; we can not set a new cache as we need some place
+         * to register the cached string */
         ti_incref(doc);
     else
         /* create and return a new string */

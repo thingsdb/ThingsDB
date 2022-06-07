@@ -6,6 +6,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <ti.h>
+#include <ti/closure.h>
 #include <ti/condition.h>
 #include <ti/data.h>
 #include <ti/enum.h>
@@ -17,6 +18,7 @@
 #include <ti/names.h>
 #include <ti/nil.h>
 #include <ti/query.h>
+#include <ti/room.h>
 #include <ti/spec.h>
 #include <ti/spec.inline.h>
 #include <ti/thing.inline.h>
@@ -24,10 +26,10 @@
 #include <ti/val.inline.h>
 #include <ti/varr.h>
 #include <ti/vbool.h>
+#include <ti/verror.h>
 #include <ti/vfloat.h>
 #include <ti/vint.h>
 #include <ti/vset.h>
-#include <ti/watch.h>
 #include <util/strx.h>
 
 static void field__remove_dep(ti_field_t * field)
@@ -60,8 +62,10 @@ decref_enum:
 decref_type:
     type = ti_types_by_id(field->type->types, spec);
     if (type == field->type)
+    {
+        type->selfref--;
         return;  /* self references are not counted within dependencies */
-
+    }
 decref:
     idx = 0;
     for(vec_each(field->type->dependencies, ti_type_t, t), ++idx)
@@ -121,7 +125,8 @@ incref_enum:
 incref_type:
     type = ti_types_by_id(field->type->types, spec);
     if (type == field->type)
-        return 0;  /* self references are not counted within dependencies */
+        /* self references are not counted within dependencies */
+        return ++type->selfref, 0;
 
 incref:
     if (vec_push(&field->type->dependencies, type))
@@ -152,56 +157,6 @@ static _Bool field__spec_is_ascii(
 #define field__cmp(__a, __na, __str) \
         strlen(__str) == __na && memcmp(__a, __str, __na) == 0
 
-static ti_data_t * field___set_job(ti_name_t * name, ti_val_t * val)
-{
-    ti_data_t * data;
-    ti_vp_t vp;
-    msgpack_sbuffer buffer;
-
-    mp_sbuffer_alloc_init(&buffer, sizeof(ti_data_t), sizeof(ti_data_t));
-    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
-
-    if (msgpack_pack_array(&vp.pk, 1) ||
-        msgpack_pack_map(&vp.pk, 1) ||
-        mp_pack_str(&vp.pk, "set") ||
-        msgpack_pack_map(&vp.pk, 1)
-    ) goto fail_pack;
-
-    if (mp_pack_strn(&vp.pk, name->str, name->n) ||
-        ti_val_to_pk(val, &vp, 0)
-    ) goto fail_pack;
-
-    data = (ti_data_t *) buffer.data;
-    ti_data_init(data, buffer.size);
-
-    return data;
-
-fail_pack:
-    msgpack_sbuffer_destroy(&buffer);
-    return NULL;
-}
-
-static ti_data_t * field__del_job(const char * name, size_t n)
-{
-    ti_data_t * data;
-    msgpack_packer pk;
-    msgpack_sbuffer buffer;
-
-    if (mp_sbuffer_alloc_init(&buffer, 64 + n, sizeof(ti_data_t)))
-        return NULL;
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-
-    msgpack_pack_array(&pk, 1);
-    msgpack_pack_map(&pk, 1);
-    mp_pack_str(&pk, "del");
-    mp_pack_strn(&pk, name, n);
-
-    data = (ti_data_t *) buffer.data;
-    ti_data_init(data, buffer.size);
-
-    return data;
-}
-
 static ti_val_t * field__dval_nil(ti_field_t * UNUSED(field))
 {
     return (ti_val_t *) ti_nil_get();
@@ -223,6 +178,17 @@ static ti_val_t * field__dval_thing(ti_field_t * field)
             0,      /* id */
             0,      /* initial size */
             field->type->types->collection);
+}
+
+static ti_val_t * field__dval_restricted(ti_field_t * field)
+{
+     ti_thing_t * thing = ti_thing_o_create(
+            0,      /* id */
+            0,      /* initial size */
+            field->type->types->collection);
+     if (thing)
+         thing->via.spec = field->nested_spec;
+     return (ti_val_t *) thing;
 }
 
 static ti_val_t * field__dval_str(ti_field_t * UNUSED(field))
@@ -260,19 +226,37 @@ static ti_val_t * field__dval_bool(ti_field_t * UNUSED(field))
     return (ti_val_t *) ti_vbool_get(false);
 }
 
+static ti_val_t * field__dval_regex(ti_field_t * UNUSED(field))
+{
+    return ti_val_default_re();
+}
+
+static ti_val_t * field__dval_closure(ti_field_t * UNUSED(field))
+{
+    return ti_val_default_closure();
+}
+
+static ti_val_t * field__dval_error(ti_field_t * UNUSED(field))
+{
+    return (ti_val_t *) ti_verror_from_code(-100);
+}
+
+static ti_val_t * field__dval_room(ti_field_t * field)
+{
+    return (ti_val_t *) ti_room_create(0, field->type->types->collection);
+}
+
 static ti_val_t * field__dval_datetime(ti_field_t * field)
 {
-    return (ti_val_t *) ti_datetime_from_i64(
-            (int64_t) util_now_usec(),
-            0,
+    return (ti_val_t *) ti_datetime_from_u64(
+            util_now_usec(),
             field->type->types->collection->tz);
 }
 
 static ti_val_t * field__dval_timeval(ti_field_t * field)
 {
-    return (ti_val_t *) ti_timeval_from_i64(
-            (int64_t) util_now_usec(),
-            0,
+    return (ti_val_t *) ti_timeval_from_u64(
+            util_now_usec(),
             field->type->types->collection->tz);
 }
 
@@ -294,15 +278,163 @@ static inline void field__set_cb(ti_field_t * field, ti_field_dval_cb cb)
         field->dval_cb = cb;
 }
 
+/*
+ * The following `enum` and `asso_values` are generated using `gperf` and
+ * the utility `pcregrep` to generate the input.
+ *
+ * Command:
+ *
+ *    pcregrep -o1 '\.name\=\"([\w\{\}\[\]]+)' field.c | gperf -E -k '*,1,$' -m 200
+ */
+enum
+{
+    TOTAL_KEYWORDS = 21,
+    MIN_WORD_LENGTH = 2,
+    MAX_WORD_LENGTH = 8,
+    MIN_HASH_VALUE = 2,
+    MAX_HASH_VALUE = 22
+};
+
+static inline unsigned int field__hash(
+        register const char * s,
+        register size_t n)
+{
+    static unsigned short asso_values[] =
+    {
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 17, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23,  9, 23,  9, 23, 23, 23,  5,  0,  0,
+         1,  2,  0,  3,  7,  0, 23, 23,  7,  1,
+         1,  1,  9, 23,  0,  0,  0,  0,  0,  4,
+         3,  2, 23,  0, 23,  0, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+        23, 23, 23, 23, 23, 23
+    };
+
+    register unsigned int hval = n;
+
+    switch (hval)
+    {
+        default:
+            hval += asso_values[(unsigned char)s[7]];
+            /*fall through*/
+        case 7:
+            hval += asso_values[(unsigned char)s[6]];
+            /*fall through*/
+        case 6:
+            hval += asso_values[(unsigned char)s[5]];
+            /*fall through*/
+        case 5:
+            hval += asso_values[(unsigned char)s[4]];
+            /*fall through*/
+        case 4:
+            hval += asso_values[(unsigned char)s[3]];
+            /*fall through*/
+        case 3:
+            hval += asso_values[(unsigned char)s[2]];
+            /*fall through*/
+        case 2:
+            hval += asso_values[(unsigned char)s[1]];
+            /*fall through*/
+        case 1:
+            hval += asso_values[(unsigned char)s[0]];
+            break;
+    }
+    return hval;
+}
+
+ti_field_map_t field__mapping[TOTAL_KEYWORDS] = {
+    {.name="any",       .spec=TI_SPEC_ANY,      .dval_cb=field__dval_nil},
+    {.name="thing",     .spec=TI_SPEC_OBJECT,   .dval_cb=field__dval_thing},
+    {.name="raw",       .spec=TI_SPEC_RAW,      .dval_cb=field__dval_str},
+    {.name="str",       .spec=TI_SPEC_STR,      .dval_cb=field__dval_str},
+    {.name="utf8",      .spec=TI_SPEC_UTF8,     .dval_cb=field__dval_str},
+    {.name="bytes",     .spec=TI_SPEC_BYTES,    .dval_cb=field__dval_bin},
+    {.name="int",       .spec=TI_SPEC_INT,      .dval_cb=field__dval_int},
+    {.name="uint",      .spec=TI_SPEC_UINT,     .dval_cb=field__dval_int},
+    {.name="pint",      .spec=TI_SPEC_PINT,     .dval_cb=field__dval_pint},
+    {.name="nint",      .spec=TI_SPEC_NINT,     .dval_cb=field__dval_nint},
+    {.name="float",     .spec=TI_SPEC_FLOAT,    .dval_cb=field__dval_float},
+    {.name="number",    .spec=TI_SPEC_NUMBER,   .dval_cb=field__dval_int},
+    {.name="bool",      .spec=TI_SPEC_BOOL,     .dval_cb=field__dval_bool},
+    {.name="[]",        .spec=TI_SPEC_ARR,      .dval_cb=field__dval_arr},
+    {.name="{}",        .spec=TI_SPEC_SET,      .dval_cb=field__dval_set},
+    {.name="datetime",  .spec=TI_SPEC_DATETIME, .dval_cb=field__dval_datetime},
+    {.name="timeval",   .spec=TI_SPEC_TIMEVAL,  .dval_cb=field__dval_timeval},
+    {.name="regex",     .spec=TI_SPEC_REGEX,    .dval_cb=field__dval_regex},
+    {.name="closure",   .spec=TI_SPEC_CLOSURE,  .dval_cb=field__dval_closure},
+    {.name="error",     .spec=TI_SPEC_ERROR,    .dval_cb=field__dval_error},
+    {.name="room",      .spec=TI_SPEC_ROOM,     .dval_cb=field__dval_room},
+};
+
+static ti_field_map_t * field__map[MAX_HASH_VALUE+1];
+
+/*
+ * Initializes ThingsDB function mapping.
+ *
+ * Note: must be called exactly once when starting ThingsDB.
+ */
+void ti_field_init(void)
+{
+    for (size_t i = 0, n = TOTAL_KEYWORDS; i < n; ++i)
+    {
+        uint32_t key;
+        ti_field_map_t * fmap = &field__mapping[i];
+
+        fmap->n = strlen(fmap->name);
+        key = field__hash(fmap->name, fmap->n);
+
+        assert (field__map[key] == NULL);
+        assert (key <= MAX_HASH_VALUE);
+
+        field__map[key] = fmap;
+    }
+}
+
+ti_field_map_t * ti_field_map_by_strn(const char * s, size_t n)
+{
+    register uint32_t key = field__hash(s, n);
+    ti_field_map_t * fmap = key <= MAX_HASH_VALUE
+            ? field__map[key] : NULL;
+    return fmap && memcmp(s, fmap->name, n) == 0 ? fmap : NULL;
+}
+
+ti_field_map_t * ti_field_map_by_spec(const uint16_t spec)
+{
+    if (spec < TI_SPEC_ANY || spec >= TI_SPEC_ANY + TOTAL_KEYWORDS)
+        return NULL;
+    return &field__mapping[spec-TI_SPEC_ANY];
+}
+
 static int field__init(ti_field_t * field, ex_t * e)
 {
     const char * str = (const char *) field->spec_raw->data;
     size_t n = field->spec_raw->n;
     uint16_t * spec = &field->spec;
+    ti_field_map_t * fmap;
 
     field->spec = 0;
     field->nested_spec = 0;
     field->dval_cb = NULL;
+    field->condition.none = NULL;
 
     if (!n)
     {
@@ -335,6 +467,15 @@ static int field__init(ti_field_t * field, ex_t * e)
         field->spec |= TI_SPEC_SET;
         field__set_cb(field, field__dval_set);
     }
+    else if (n >= 7 && memcmp(str, "thing<", 6) == 0)
+    {
+        if (str[n-1] != '>')
+            goto invalid;
+        field->spec |= TI_SPEC_OBJECT;
+        field__set_cb(field, field__dval_restricted);
+        str += 5;
+        n -= 5;
+    }
     else
     {
         field->nested_spec = TI_SPEC_ANY;  /* must default to any */
@@ -346,7 +487,7 @@ static int field__init(ti_field_t * field, ex_t * e)
     if (!(n -= 2))
     {
         field->nested_spec = TI_SPEC_ANY;  /* must default to any */
-        return 0;  /* dval_cb is set to nil,  array or set */
+        return 0;  /* dval_cb is set to nil, array, set or restricted */
     }
 
     spec = &field->nested_spec;
@@ -381,143 +522,37 @@ skip_nesting:
 
     assert (n);
 
-    if (*str == '[')
+    switch (*str)
     {
+    case '[':
         ex_set(e, EX_VALUE_ERROR,
             "invalid declaration for `%s` on type `%s`; "
             "unexpected `[`; nested array declarations are not allowed"
             DOC_T_TYPE, field->name->str, field->type->name);
         return e->nr;
-    }
-
-    if (*str == '{')
-    {
+    case '{':
         ex_set(e, EX_VALUE_ERROR,
             "invalid declaration for `%s` on type `%s`; "
             "unexpected `{`; nested set declarations are not allowed"
             DOC_T_TYPE, field->name->str, field->type->name);
         return e->nr;
-    }
-
-    if (*str != '/' && str[n-1] == '>')
-        return ti_condition_field_range_init(field, str, n, e);
-
-    switch(*str)
-    {
     case '/':
         return ti_condition_field_re_init(field, str, n, e);
-    case 'a':
-        if (field__cmp(str, n, "any"))
-        {
-            *spec = TI_SPEC_ANY;  /* overwrite */
-            field__set_cb(field, field__dval_nil);
-            goto found;
-        }
-        break;
-    case 'b':
-        if (field__cmp(str, n, "bool"))
-        {
-            *spec |= TI_SPEC_BOOL;
-            field__set_cb(field, field__dval_bool);
-            goto found;
-        }
-        if (field__cmp(str, n, "bytes"))
-        {
-            *spec |= TI_SPEC_BYTES;
-            field__set_cb(field, field__dval_bin);
-            goto found;
-        }
-        break;
-    case 'd':
-        if (field__cmp(str, n, "datetime"))
-        {
-            *spec |= TI_SPEC_DATETIME;
-            field__set_cb(field, field__dval_datetime);
-            goto found;
-        }
-        break;
-    case 'f':
-        if (field__cmp(str, n, "float"))
-        {
-            *spec |= TI_SPEC_FLOAT;
-            field__set_cb(field, field__dval_float);
-            goto found;
-        }
-        break;
-    case 'i':
-        if (field__cmp(str, n, "int"))
-        {
-            *spec |= TI_SPEC_INT;
-            field__set_cb(field, field__dval_int);
-            goto found;
-        }
-        break;
-    case 'n':
-        if (field__cmp(str, n, "nint"))
-        {
-            *spec |= TI_SPEC_NINT;
-            field__set_cb(field, field__dval_nint);
-            goto found;
-        }
-        if (field__cmp(str, n, "number"))
-        {
-            *spec |= TI_SPEC_NUMBER;
-            field__set_cb(field, field__dval_int);
-            goto found;
-        }
-        break;
-    case 'p':
-        if (field__cmp(str, n, "pint"))
-        {
-            *spec |= TI_SPEC_PINT;
-            field__set_cb(field, field__dval_pint);
-            goto found;
-        }
-        break;
-    case 'r':
-        if (field__cmp(str, n, "raw"))
-        {
-            *spec |= TI_SPEC_RAW;
-            field__set_cb(field, field__dval_str);
-            goto found;
-        }
-        break;
-    case 's':
-        if (field__cmp(str, n, "str"))
-        {
-            *spec |= TI_SPEC_STR;
-            field__set_cb(field, field__dval_str);
-            goto found;
-        }
-        break;
-    case 't':
-        if (field__cmp(str, n, "thing"))
-        {
-            *spec |= TI_SPEC_OBJECT;
-            field__set_cb(field, field__dval_thing);
-            goto found;
-        }
-        if (field__cmp(str, n, "timeval"))
-        {
-            *spec |= TI_SPEC_TIMEVAL;
-            field__set_cb(field, field__dval_timeval);
-            goto found;
-        }
-        break;
-    case 'u':
-        if (field__cmp(str, n, "utf8"))
-        {
-            *spec |= TI_SPEC_UTF8;
-            field__set_cb(field, field__dval_str);
-            goto found;
-        }
-        if (field__cmp(str, n, "uint"))
-        {
-            *spec |= TI_SPEC_UINT;
-            field__set_cb(field, field__dval_int);
-            goto found;
-        }
-        break;
+    }
+
+    if (str[n-1] == '>')
+        return ti_condition_field_range_init(field, str, n, e);
+
+    fmap = ti_field_map_by_strn(str, n);
+    if (fmap)
+    {
+        if (fmap->spec == TI_SPEC_ANY)
+            *spec = TI_SPEC_ANY;  /* overwrite any */
+        else
+            *spec |= fmap->spec;  /* append all the rest */
+
+        field__set_cb(field, fmap->dval_cb);
+        goto found;
     }
 
     if (field__cmp(str, n, field->type->name))
@@ -525,7 +560,19 @@ skip_nesting:
         *spec |= field->type->type_id;
         if (&field->spec == spec && (~field->spec & TI_SPEC_NILLABLE))
             goto circular_dep;
+
+        if (field->type->selfref == UINT8_MAX)
+        {
+            ex_set(e, EX_MAX_QUOTA,
+                    "invalid declaration for `%s` on type `%s`; "
+                    "maximum number of self references has been reached"
+                    DOC_T_TYPE,
+                    field->name->str, field->type->name);
+            return e->nr;
+        }
+
         field__set_cb(field, field__dval_type);
+        ++field->type->selfref;
     }
     else
     {
@@ -555,7 +602,7 @@ skip_nesting:
             {
                 ex_set(e, EX_OPERATION,
                     "invalid declaration for `%s` on type `%s`; "
-                    "cannot assign enum type `%s` while the enum is being used"
+                    "cannot assign enum type `%s` while the enum is in use"
                     DOC_T_TYPE,
                     field->name->str, field->type->name,
                     enum_->name);
@@ -583,7 +630,7 @@ skip_nesting:
             {
                 ex_set(e, EX_OPERATION,
                     "invalid declaration for `%s` on type `%s`; "
-                    "cannot assign type `%s` while the type is being used"
+                    "cannot assign type `%s` while the type is in use"
                     DOC_T_TYPE,
                     field->name->str, field->type->name,
                     dep->name);
@@ -640,7 +687,7 @@ found:
                 "type `"TI_VAL_SET_S"` cannot contain type `%s`"
                 DOC_T_TYPE,
                 field->name->str, field->type->name,
-                ti__spec_approx_type_str(field->nested_spec));
+                ti_spec_approx_type_str(field->nested_spec));
         else if (field->nested_spec == TI_SPEC_OBJECT)
             field->nested_spec = TI_SPEC_ANY;
     }
@@ -775,6 +822,7 @@ void ti_field_replace(ti_field_t * field, ti_field_t ** with_field)
     field->nested_spec = (*with_field)->nested_spec;
     field->spec_raw = (*with_field)->spec_raw;
     field->condition = (*with_field)->condition;
+    field->dval_cb = (*with_field)->dval_cb;
 
     (*with_field)->condition.none = NULL;
 
@@ -790,6 +838,7 @@ int ti_field_mod_force(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e)
     ti_condition_via_t prev_condition = field->condition;
     uint16_t prev_spec = field->spec;
     uint16_t prev_nested_spec = field->nested_spec;
+    ti_field_dval_cb prev_dval_cb = field->dval_cb;
 
     field__remove_dep(field);
 
@@ -808,6 +857,7 @@ undo:
     field->spec = prev_spec;
     field->nested_spec = prev_nested_spec;
     field->condition = prev_condition;
+    field->dval_cb = prev_dval_cb;
     (void) field__add_dep(field);
 
     return e->nr;
@@ -822,6 +872,7 @@ int ti_field_mod(
     ti_condition_via_t prev_condition = field->condition;
     uint16_t prev_spec = field->spec;
     uint16_t prev_nested_spec = field->nested_spec;
+    ti_field_dval_cb prev_dval_cb = field->dval_cb;
 
     field__remove_dep(field);
 
@@ -832,7 +883,7 @@ int ti_field_mod(
     if (ti_type_is_wrap_only(field->type))
         goto done;
 
-    switch (ti__spec_check_mod(
+    switch (ti_spec_check_mod(
             prev_spec,
             field->spec,
             prev_condition,
@@ -842,7 +893,7 @@ int ti_field_mod(
     case TI_SPEC_MOD_ERR:               goto incompatible;
     case TI_SPEC_MOD_NILLABLE_ERR:      goto nillable;
     case TI_SPEC_MOD_NESTED:
-        switch (ti__spec_check_mod(
+        switch (ti_spec_check_mod(
                 prev_nested_spec,
                 field->nested_spec,
                 prev_condition,
@@ -879,12 +930,14 @@ incompatible:
 
 undo_dep:
     field__remove_dep(field);
+    ti_condition_destroy(field->condition, field->spec);
 
 undo:
     field->spec_raw = prev_spec_raw;
     field->spec = prev_spec;
     field->nested_spec = prev_nested_spec;
     field->condition = prev_condition;
+    field->dval_cb = prev_dval_cb;
     (void) field__add_dep(field);
 
     return e->nr;
@@ -922,7 +975,7 @@ int ti_field_set_name(
         ti_method_by_name(field->type, name))
     {
         ex_set(e, EX_VALUE_ERROR,
-            "property or method `%s` already exists on type `%s`"DOC_T_TYPE,
+            "property or method `%s` already exists on type `%s`"DOC_T_TYPED,
             name->str,
             field->type->name);
         goto fail0;
@@ -938,63 +991,18 @@ fail0:
     return e->nr;
 }
 
-static void field__del_watch(
-        ti_thing_t * thing,
-        ti_data_t * data,
-        uint64_t event_id)
-{
-    ti_rpkg_t * rpkg = ti_watch_rpkg(
-            thing->id,
-            event_id,
-            data->data,
-            data->n);
-    if (!rpkg)
-    {
-        /*
-         * Only log and continue if updating a watcher has failed
-         */
-        ++ti.counters->watcher_failed;
-        log_critical(EX_MEMORY_S);
-        return;
-    }
-
-    for (vec_each(thing->watchers, ti_watch_t, watch))
-    {
-        if (ti_stream_is_closed(watch->stream))
-            continue;
-
-        if (ti_stream_write_rpkg(watch->stream, rpkg))
-        {
-            ++ti.counters->watcher_failed;
-            log_error(EX_INTERNAL_S);
-        }
-    }
-
-    ti_rpkg_drop(rpkg);
-}
-
-int ti_field_del(ti_field_t * field, uint64_t ev_id)
+int ti_field_del(ti_field_t * field)
 {
     vec_t * vec = imap_vec_ref(field->type->types->collection->things);
     uint16_t type_id = field->type->type_id;
-    ti_data_t * data = field__del_job(field->name->str, field->name->n);
-
-    if (!data || !vec)
-    {
-        free(data);
-        vec_destroy(vec, (vec_destroy_cb) ti_val_unsafe_drop);
+    if (!vec)
         return -1;
-    }
 
     for (vec_each(vec, ti_thing_t, thing))
     {
         if (thing->type_id == type_id)
-        {
-            if (ti_thing_has_watchers(thing))
-                field__del_watch(thing, data, ev_id);
-
             ti_val_unsafe_drop(vec_swap_remove(thing->items.vec, field->idx));
-        }
+
         ti_val_unsafe_drop((ti_val_t *) thing);
     }
 
@@ -1005,17 +1013,11 @@ int ti_field_del(ti_field_t * field, uint64_t ev_id)
     for (queue_each(field->type->types->collection->gc, ti_gc_t, gc))
     {
         if (gc->thing->type_id == type_id)
-        {
-            if (ti_thing_has_watchers(gc->thing))
-                field__del_watch(gc->thing, data, ev_id);
-
             ti_val_unsafe_drop(vec_swap_remove(
                     gc->thing->items.vec,
                     field->idx));
-        }
     }
 
-    free(data);
     free(vec);
     ti_field_remove(field);
     return 0;
@@ -1253,6 +1255,107 @@ done:
     return ti_val_make_assignable((ti_val_t **) varr, parent, field, e);
 }
 
+static int field__restrict_cb(ti_prop_t * prop, ti_field_t * field)
+{
+    return ti_spec_check_nested_val(field->nested_spec, prop->val);
+}
+
+static int field__thing_assign(
+        ti_field_t * field,
+        ti_thing_t * thing,
+        ex_t * e)
+{
+    ti_spec_rval_enum rc = TI_SPEC_RVAL_SUCCESS;
+
+    if (ti_thing_is_instance(thing))
+    {
+        ex_set(e, EX_TYPE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` requires a non-typed thing but got type `%s`",
+            field->type->name,
+            field->name->str,
+            thing->via.type->name);
+        return e->nr;
+    }
+
+    if (thing->via.spec == field->nested_spec)
+        return 0;  /* already the appropriate restriction */
+
+    if (thing->via.spec != TI_SPEC_ANY)
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s` on property `%s`; "
+            "restriction mismatch",
+            field->type->name,
+            field->name->str);
+        return e->nr;
+    }
+
+    if (ti_thing_n(thing) == 0)
+    {
+        thing->via.spec = field->nested_spec;
+        return 0;
+    }
+
+    if (ti_thing_is_dict(thing))
+    {
+        rc = (ti_spec_rval_enum) smap_values(
+                thing->items.smap,
+                (smap_val_cb) field__restrict_cb,
+                field);
+    }
+    else for (vec_each(thing->items.vec, ti_prop_t, prop))
+        if ((rc = ti_spec_check_nested_val(field->nested_spec, prop->val)))
+            break;
+
+    switch (rc)
+    {
+    case TI_SPEC_RVAL_SUCCESS:
+        thing->via.spec = field->nested_spec;
+        return 0;
+    case TI_SPEC_RVAL_TYPE_ERROR:
+        ex_set(e, EX_TYPE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` requires a thing with values that matches "
+            "definition `%.*s`",
+            field->type->name,
+            field->name->str,
+            field->spec_raw->n, (const char *) field->spec_raw->data);
+        return e->nr;
+    case TI_SPEC_RVAL_UTF8_ERROR:
+        ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` requires a thing with UTF8 string values",
+            field->type->name,
+            field->name->str);
+        return e->nr;
+    case TI_SPEC_RVAL_UINT_ERROR:
+        ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` requires a thing with integer values "
+            "greater than or equal to 0",
+            field->type->name,
+            field->name->str);
+        return e->nr;
+    case TI_SPEC_RVAL_PINT_ERROR:
+        ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` requires a thing with positive integer values",
+            field->type->name,
+            field->name->str);
+        return e->nr;
+    case TI_SPEC_RVAL_NINT_ERROR:
+        ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` requires a thing with negative integer values",
+            field->type->name,
+            field->name->str);
+        return e->nr;
+    }
+    assert(0);
+    return 0;
+}
+
 static _Bool field__maps_arr_to_arr(ti_field_t * field, ti_varr_t * varr)
 {
     if (field->nested_spec == TI_SPEC_ANY ||
@@ -1262,6 +1365,35 @@ static _Bool field__maps_arr_to_arr(ti_field_t * field, ti_varr_t * varr)
 
     for (vec_each(varr->vec, ti_val_t, val))
         if (!ti_spec_maps_to_nested_val(field->nested_spec, val))
+            return false;
+
+    return true;
+}
+
+static int field__map_restrict_cb(ti_prop_t * prop, ti_field_t * field)
+{
+    return !ti_spec_maps_to_nested_val(field->nested_spec, prop->val);
+}
+
+static _Bool field__maps_restricted(ti_field_t * field, ti_thing_t * thing)
+{
+    if (field->nested_spec == TI_SPEC_ANY)
+        return true;
+
+    if (ti_thing_is_instance(thing))
+        return false;
+
+    if (thing->via.spec == field->nested_spec)
+        return true;
+
+    if (ti_thing_is_dict(thing))
+        return !smap_values(
+                thing->items.smap,
+                (smap_val_cb) field__map_restrict_cb,
+                field);
+
+    for (vec_each(thing->items.vec, ti_prop_t, prop))
+        if (!ti_spec_maps_to_nested_val(field->nested_spec, prop->val))
             return false;
 
     return true;
@@ -1354,26 +1486,28 @@ int ti_field_make_assignable(
         case TI_VAL_REGEX:
         case TI_VAL_THING:
         case TI_VAL_WRAP:
+        case TI_VAL_ROOM:
+        case TI_VAL_TASK:
             break;
         case TI_VAL_ARR:
             return field__varr_assign(field, (ti_varr_t **) val, parent, e);
         case TI_VAL_SET:
             return field__vset_assign(field, (ti_vset_t **) val, parent, e);
         case TI_VAL_CLOSURE:
-            return ti_val_is_closure(*val);
+            return ti_closure_unbound((ti_closure_t *) *val, e);
         case TI_VAL_ERROR:
         case TI_VAL_MEMBER:
         case TI_VAL_TEMPLATE:
             break;
         case TI_VAL_FUTURE:
-            ti_val_unsafe_drop(*val);
-            *val = (ti_val_t *) ti_nil_get();
-            break;
+            goto future_error;
         }
         return 0;
     case TI_SPEC_OBJECT:
         if (ti_val_is_thing(*val))
-            return 0;
+            return field->nested_spec == TI_SPEC_ANY
+                    ? 0
+                    : field__thing_assign(field, (ti_thing_t *) *val, e);
         goto type_error;
     case TI_SPEC_RAW:
         if (ti_val_is_raw(*val))
@@ -1437,6 +1571,22 @@ int ti_field_make_assignable(
         if (ti_val_is_timeval(*val))
             return 0;
         goto type_error;
+    case TI_SPEC_REGEX:
+        if (ti_val_is_regex(*val))
+            return 0;
+        goto type_error;
+    case TI_SPEC_CLOSURE:
+        if (ti_val_is_closure(*val))
+            return ti_closure_unbound((ti_closure_t *) *val, e);
+        goto type_error;
+    case TI_SPEC_ERROR:
+        if (ti_val_is_error(*val))
+            return 0;
+        goto type_error;
+    case TI_SPEC_ROOM:
+        if (ti_val_is_room(*val))
+            return 0;
+        goto type_error;
     case TI_SPEC_ARR:
         if (ti_val_is_array(*val))
             return field__varr_assign(field, (ti_varr_t **) val, parent, e);
@@ -1482,6 +1632,15 @@ int ti_field_make_assignable(
         return 0;
 
     goto type_error;
+
+future_error:
+    ex_set(e, EX_TYPE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` allows `any` type with the exception "
+            "of the `future` type",
+            field->type->name,
+            field->name->str);
+    return e->nr;
 
 irange_error:
     ex_set(e, EX_VALUE_ERROR,
@@ -1622,7 +1781,8 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
     case TI_SPEC_ANY:
         return true;
     case TI_SPEC_OBJECT:
-        return ti_val_is_thing(val);
+        return (ti_val_is_thing(val) &&
+                field__maps_restricted(field, (ti_thing_t *) val));
     case TI_SPEC_RAW:
         return ti_val_is_raw(val);
     case TI_SPEC_STR:
@@ -1651,6 +1811,14 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
         return ti_val_is_datetime_strict(val);
     case TI_SPEC_TIMEVAL:
         return ti_val_is_timeval(val);
+    case TI_SPEC_REGEX:
+        return ti_val_is_regex(val);
+    case TI_SPEC_CLOSURE:
+        return ti_val_is_closure(val);
+    case TI_SPEC_ERROR:
+        return ti_val_is_error(val);
+    case TI_SPEC_ROOM:
+        return ti_val_is_room(val);
     case TI_SPEC_ARR:
         /* we can map a set to an array */
         return ((
@@ -1747,6 +1915,10 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_BOOL:
     case TI_SPEC_DATETIME:
     case TI_SPEC_TIMEVAL:
+    case TI_SPEC_REGEX:
+    case TI_SPEC_CLOSURE:
+    case TI_SPEC_ERROR:
+    case TI_SPEC_ROOM:
     case TI_SPEC_ARR:
     case TI_SPEC_SET:
     case TI_SPEC_REMATCH:
@@ -1880,6 +2052,10 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_BOOL:
     case TI_SPEC_DATETIME:
     case TI_SPEC_TIMEVAL:
+    case TI_SPEC_REGEX:
+    case TI_SPEC_CLOSURE:
+    case TI_SPEC_ERROR:
+    case TI_SPEC_ROOM:
         return f_spec == t_spec;
     case TI_SPEC_ARR:
         return (
@@ -1939,10 +2115,8 @@ ti_field_t * ti_field_by_strn_e(
 
 typedef struct
 {
-    ti_data_t * data;
     ti_field_t * field;
     ti_val_t ** vaddr;
-    uint64_t event_id;
     uint16_t type_id;
     ex_t e;
 } field__add_t;
@@ -1958,65 +2132,26 @@ static int field__add(ti_thing_t * thing, field__add_t * w)
         return 1;
 
     ti_incref(*w->vaddr);
-
-    if (ti_thing_has_watchers(thing))
-    {
-        ti_rpkg_t * rpkg = ti_watch_rpkg(
-                thing->id,
-                w->event_id,
-                w->data->data,
-                w->data->n);
-
-        if (rpkg)
-        {
-            for (vec_each(thing->watchers, ti_watch_t, watch))
-            {
-                if (ti_stream_is_closed(watch->stream))
-                    continue;
-
-                if (ti_stream_write_rpkg(watch->stream, rpkg))
-                {
-                    ++ti.counters->watcher_failed;
-                    log_error(EX_INTERNAL_S);
-                }
-            }
-            ti_rpkg_drop(rpkg);
-        }
-        else
-        {
-            /*
-             * Only log and continue if updating a watcher has failed
-             */
-            ++ti.counters->watcher_failed;
-            log_critical(EX_MEMORY_S);
-        }
-    }
     return 0;
 }
 
 /*
- * Use only when adding a new field, to update the existing things and
- * notify optional watchers;
+ * Use only when adding a new field, to update the existing things;
  *
  * warn: ti_val_gen_ids() must have used on the given value before using this
  *       function
  * error: can only fail in case of a memory allocation error
  */
-int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr, uint64_t ev_id)
+int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr)
 {
     assert (field == vec_last(field->type->fields));
     int rc;
     field__add_t addjob = {
-            .data = field___set_job(field->name, *vaddr),
             .field = field,
             .vaddr = vaddr,
-            .event_id = ev_id,
             .type_id = field->type->type_id,
             .e = {0}
     };
-
-    if (!addjob.data)
-        return -1;
 
     rc = imap_walk(
             field->type->types->collection->things,
@@ -2027,7 +2162,6 @@ int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr, uint64_t ev_id)
             (queue_cb) field__add,
             &addjob);
 
-    free(addjob.data);
     return rc;
 }
 
@@ -2072,6 +2206,9 @@ static int field__type_rel_chk(
 
 static int field__type_rel_chk_cb(ti_thing_t * thing, field__type_rel_chk_t * w)
 {
+    /* check type_id, as here we may get an object.
+     * (Objects do not use via.type)
+     */
     if (thing->type_id == w->field->type->type_id &&
         field__type_rel_chk(thing, w->field, w->ofield, w->e))
         return w->e->nr;

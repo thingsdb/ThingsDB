@@ -74,7 +74,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     iterval = query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         fn_arg_closure("filter", doc, 1, query->rval, e))
         goto fail0;
 
@@ -182,10 +182,8 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (ti_val_as_bool(query->rval))
             {
                 ti_incref(v);
-                VEC_push(varr->vec, v);
-
-                if (ti_val_is_thing(v))
-                    varr->flags |= TI_VARR_FLAG_MHT;
+                (void) ti_val_varr_append(varr, &v, e);
+                assert (e->nr == 0);  /* the above should always succeed */
             }
 
             ti_val_unsafe_drop(query->rval);

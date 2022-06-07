@@ -118,7 +118,7 @@ class TestEnum(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change enum `Color` while the enumerator '
-                r'is being used'):
+                r'is in use'):
             await client.query(r'''
                 enum('Color', {
                     mod_enum('Color', 'add', 'YELLOW', '...');
@@ -128,7 +128,7 @@ class TestEnum(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change enum `Color` while the enumerator '
-                r'is being used'):
+                r'is in use'):
             await client.query(r'''
                 Color({
                     del_enum('Color');
@@ -241,7 +241,7 @@ class TestEnum(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'enum member `Color{GREEN}` is still being used'):
+                r'enum member `Color{GREEN}` is still in use'):
             await client.query(r'del_enum("Color");')
 
         await client.query(r'''.del("color");''')
@@ -335,7 +335,7 @@ class TestEnum(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change enum `Color` while the enumerator '
-                r'is being used'):
+                r'is in use'):
             await client.query(r'''
                 mod_enum("Color", "add", "YELLOW", {
                     mod_enum("Color", "add", "YELLOW", "#FFFF00");
@@ -466,7 +466,7 @@ class TestEnum(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'enum member `Color{ORANGE}` is still being used'):
+                r'enum member `Color{ORANGE}` is still in use'):
             await client.query(r'mod_enum("Color", "del", "ORANGE");')
 
         self.assertIs(await client.query(r'''
@@ -633,14 +633,24 @@ class TestEnum(TestBase):
             '''), None)
 
         with self.assertRaisesRegex(
-                SyntaxError,
-                r'error at line 1, position 6, unexpected character `1`'):
+                LookupError,
+                r'variable `Color` is undefined'):
             await client.query('Color{1};')
 
         with self.assertRaisesRegex(
-                SyntaxError,
-                r'error at line 1, position 6, unexpected character'):
+                LookupError,
+                r'variable `Color` is undefined'):
             await client.query('Color{"RED"};')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'enum `Unknown` is undefined'):
+            await client.query('Unknown{RED};')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'enum `Unknown` is undefined'):
+            await client.query('Unknown{||"RED"};')
 
         with self.assertRaisesRegex(
                 TypeError,
@@ -761,9 +771,9 @@ class TestEnum(TestBase):
         await client.query(r'''
             .get_color = |i| {
                 i = is_int(i) ? i : randint(0, 3);
-                i == 0 && return(Color{RED});
-                i == 1 && return(Color{GREEN});
-                i == 2 && return(Color{BLUE});
+                i == 0 && return Color{RED};
+                i == 1 && return Color{GREEN};
+                i == 2 && return Color{BLUE};
                 nil;
             }
         ''')

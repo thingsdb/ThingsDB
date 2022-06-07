@@ -13,7 +13,7 @@ static int do__f_int(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children, e))
         return e->nr;
 
     return ti_val_convert_to_int(&query->rval, e);

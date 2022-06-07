@@ -6,6 +6,7 @@
 
 #include <ex.h>
 #include <inttypes.h>
+#include <ti/change.t.h>
 #include <ti/closure.t.h>
 #include <ti/name.t.h>
 #include <ti/thing.t.h>
@@ -24,7 +25,7 @@ ti_type_t * ti_type_create(
         uint64_t created_at,
         uint64_t modified_at);
 void ti_type_drop(ti_type_t * type);
-void ti_type_del(ti_type_t * type);
+void ti_type_del(ti_type_t * type, vec_t * vars);
 void ti_type_destroy(ti_type_t * type);
 void ti_type_map_cleanup(ti_type_t * type);
 size_t ti_type_fields_approx_pack_sz(ti_type_t * type);
@@ -39,6 +40,11 @@ int ti_type_fields_to_pk(ti_type_t * type, msgpack_packer * pk);
 ti_val_t * ti_type_as_mpval(ti_type_t * type, _Bool with_definition);
 vec_t * ti_type_map(ti_type_t * to_type, ti_type_t * from_type);
 ti_val_t * ti_type_dval(ti_type_t * type);
+int ti_type_convert(
+        ti_type_t * type,
+        ti_thing_t * thing,
+        ti_change_t * change,
+        ex_t * e);
 ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e);
 int ti_type_add_method(
         ti_type_t * type,
@@ -56,18 +62,33 @@ int ti_type_required_by_non_wpo(ti_type_t * type, ex_t * e);
 int ti_type_uses_wpo(ti_type_t * type, ex_t * e);
 int ti_type_rename(ti_type_t * type, ti_raw_t * nname);
 
+static inline int ti_type_use(ti_type_t * type, ex_t * e)
+{
+    if (type->flags & TI_TYPE_FLAG_LOCK)
+    {
+        ex_set(e, EX_OPERATION,
+            "cannot use type `%s` while the type is locked",
+            type->name);
+        return e->nr;
+    }
+    return 0;
+}
+
 static inline int ti_type_try_lock(ti_type_t * type, ex_t * e)
 {
     if (type->flags & TI_TYPE_FLAG_LOCK)
     {
         ex_set(e, EX_OPERATION,
-            "cannot change type `%s` while the type is being used",
+            "cannot change type `%s` while the type is in use",
             type->name);
-        return -1;
+        return e->nr;
     }
     return (type->flags |= TI_TYPE_FLAG_LOCK) & 0;
 }
 
+/*
+ * Returns `0` if a lock was already set and `1` if locked by this call.
+ */
 static inline int ti_type_ensure_lock(ti_type_t * type)
 {
     return (type->flags & TI_TYPE_FLAG_LOCK)

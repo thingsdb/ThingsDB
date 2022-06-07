@@ -2,7 +2,7 @@
  * ti/qcache.c
  */
 #include <ti/api.h>
-#include <ti/event.h>
+#include <ti/change.h>
 #include <ti/prop.h>
 #include <ti/qcache.h>
 #include <ti/query.h>
@@ -94,16 +94,21 @@ ti_query_t * ti_qcache_get_query(const char * str, size_t n, uint8_t flags)
     return ti_query_create(flags);
 }
 
+/*
+ * Only call this function when having a parse result
+ */
 void ti_qcache_return(ti_query_t * query)
 {
     assert (query->with_tp == TI_QUERY_WITH_PARSERES);
+    assert (query->with.parseres);
+
     if (query->flags & TI_QUERY_FLAG_API)
         ti_api_release(query->via.api_request);
     else
         ti_stream_drop(query->via.stream);
 
     ti_user_drop(query->user);
-    ti_event_drop(query->ev);
+    ti_change_drop(query->change);
     ti_val_drop(query->rval);
 
     assert (query->futures.n == 0);
@@ -131,16 +136,16 @@ void ti_qcache_return(ti_query_t * query)
             query->flags = 0;
             query->via.stream = NULL;
             query->user = NULL;
-            query->ev = NULL;
+            query->change = NULL;
             query->rval = NULL;
             query->vars = NULL;
             query->collection = NULL;
             item->query = query;
             item->used = 0;
             item->last = (uint32_t) util_now_usec();
+            if (smap_add(qcache, query->with.parseres->str, item))
+                qcache__item_destroy(item);
         }
-        if (smap_add(qcache, query->with.parseres->str, item))
-            qcache__item_destroy(item);
         return;
     }
 

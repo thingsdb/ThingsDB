@@ -9,7 +9,7 @@ static int do__f_del_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_scope("del_node", query, e) ||
         fn_nargs("del_node", DOC_DEL_NODE, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_int("del_node", DOC_DEL_NODE, 1, query->rval, e))
         return e->nr;
 
@@ -34,9 +34,9 @@ static int do__f_del_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (node != ti.node);
 
     ti_nodes_del_node(node_id);
-    query->ev->flags |= TI_EVENT_FLAG_SAVE;
+    query->change->flags |= TI_CHANGE_FLAG_SAVE;
 
-    task = ti_task_get_task(query->ev, ti.thing0);
+    task = ti_task_get_task(query->change, ti.thing0);
     if (!task || ti_task_add_del_node(task, node_id))
         ex_set_mem(e);  /* task cleanup is not required */
 

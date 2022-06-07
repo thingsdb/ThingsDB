@@ -6,7 +6,7 @@ static int do__f_has_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_scope("has_collection", query, e) ||
         fn_nargs("has_collection", DOC_HAS_COLLECTION, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     (void) ti_collections_get_by_val(query->rval, e);

@@ -169,15 +169,15 @@ class TestTypes(TestBase):
         '''), 0)
 
         self.assertEqual(await client.query(r'''
-           return({a: {t: 0}}, 0);
+           return {a: {t: 0}}, 0;
         '''), {})
 
         self.assertEqual(await client.query(r'''
-           return({a: {t: 0}}, 1);
+           return {a: {t: 0}}, 1;
         '''), {'a': {}})
 
         self.assertEqual(await client.query(r'''
-           return({a: {t: 0}}, 2);
+           return {a: {t: 0}}, 2;
         '''), {'a': {'t': 0}})
 
         self.assertGreater(await client.query(r'''
@@ -228,7 +228,7 @@ class TestTypes(TestBase):
         '''), 4)
 
         self.assertEqual(await client.query(r'''
-            {{}.t = [1, 2, 3]}.push(4);
+            ({{}.t = [1, 2, 3]}).push(4);
         '''), 4)
 
         self.assertEqual(await client.query(r'''
@@ -236,7 +236,7 @@ class TestTypes(TestBase):
         '''), 4)
 
         self.assertEqual(await client.query(r'''
-            {{}['some key'] = [1, 2, 3]}.push(4);
+            ({{}['some key'] = [1, 2, 3]}).push(4);
         '''), 4)
 
         await client.query(r'''
@@ -248,7 +248,7 @@ class TestTypes(TestBase):
         '''), 4)
 
         self.assertEqual(await client.query(r'''
-            {T{}.arr = [1, 2, 3]}.push(4);
+            ({T{}.arr = [1, 2, 3]}).push(4);
         '''), 4)
 
     async def test_closure(self, client):
@@ -265,21 +265,24 @@ class TestTypes(TestBase):
                 .map(.a);
             ''')
 
+        await client.query(r'''
+            .b = ||(.x = 1);
+            .a = [||.x = 1];
+        ''')
+
         with self.assertRaisesRegex(
                 OperationError,
-                r'stored closures with side effects must be '
-                r'wrapped using '):
+                r'closures with side effects require a change but none is '
+                r'created; use `wse\(...\)` to enforce a change;'):
             await client.query(r'''
-                .b = ||(.x = 1);
                 [1 ,2 ,3].map(.b);
             ''')
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'stored closures with side effects must be '
-                r'wrapped using '):
+                r'closures with side effects require a change but none is '
+                r'created; use `wse\(...\)` to enforce a change;'):
             await client.query(r'''
-                .a = [||.x = 1];
                 [1 ,2 ,3].map(.a[0]);
             ''')
 
@@ -289,18 +292,18 @@ class TestTypes(TestBase):
             .map(.b);
         '''), [["aa", "ab"], ["ba", "bb"]])
 
-        self.assertEqual(await client.query(r'''
+        self.assertEqual(await client.query(r"""//ti
             res = [];
-            closure = || {
+            c = || {
                 a = 1;
-                .c = closure;  /* store the closure, this will unbound the
-                                * closure from the query */
+                .c = c;  /* store the closure, this will unbound the
+                          * closure from the query */
                 a += 1;
                 res.push(a);
             };
-            closure();
+            c();
             res;
-        '''), [2])
+        """), [2])
 
         self.assertEqual(await client.query(r'''
             res = [];
@@ -321,7 +324,7 @@ class TestTypes(TestBase):
         # Test formatting
         self.assertEqual(await client.query(r'''
             c = || {x:5};
-            c.def()
+            str(c)
         '''), r"|| {x: 5}")
 
     async def test_integer(self, client):

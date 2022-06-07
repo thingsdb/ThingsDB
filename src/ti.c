@@ -9,10 +9,11 @@
 #include <ti/access.h>
 #include <ti/api.h>
 #include <ti/auth.h>
+#include <ti/change.h>
 #include <ti/collection.h>
 #include <ti/collections.h>
 #include <ti/do.h>
-#include <ti/event.h>
+#include <ti/field.h>
 #include <ti/modules.h>
 #include <ti/names.h>
 #include <ti/proc.h>
@@ -21,6 +22,7 @@
 #include <ti/qbind.h>
 #include <ti/qcache.h>
 #include <ti/regex.h>
+#include <ti/room.h>
 #include <ti/signals.h>
 #include <ti/store.h>
 #include <ti/sync.h>
@@ -37,6 +39,7 @@
 #include <util/fx.h>
 #include <util/lock.h>
 #include <util/mpack.h>
+#include <util/osarch.h>
 #include <util/strx.h>
 #include <util/util.h>
 #include <yajl/yajl_version.h>
@@ -54,6 +57,8 @@ ti_t ti;
 const char * ti__fn = "ti.mp";
 const char * ti__node_fn = ".node";
 static int shutdown_counter = 6;
+static int wait_for_modules_timeout = 120;
+static int wait_for_modules = 0;
 static uv_timer_t * shutdown_timer = NULL;
 static uv_timer_t * delayed_start_timer = NULL;
 static uv_loop_t loop_;
@@ -64,25 +69,34 @@ static void ti__shutdown_cb(uv_timer_t * shutdown);
 static void ti__close_handles(uv_handle_t * handle, void * arg);
 static void ti__stop(void);
 
+/*
+ * Allocate and set-up ThingsDB.
+ *
+ * This function will create the basics required for ThingsDB. At this point
+ * there is no configuration yet, and no event loop so only parts which do not
+ * require configuration will be loaded.
+ */
 int ti_create(void)
 {
-    ti.last_event_id = 0;
-    ti.global_stored_event_id = 0;
-    ti.flags = 0;
+    ti.last_change_id = 0;
+    ti.global_stored_change_id = 0;
+    ti._flags = TI_FLAG_STARTING;
     ti.fn = NULL;
     ti.node_fn = NULL;
     ti.build = NULL;
     ti.node = NULL;
     ti.store = NULL;
-    ti.timers = NULL;
+    ti.tasks = NULL;
     ti.access_node = vec_new(0);
     ti.access_thingsdb = vec_new(0);
     ti.procedures = smap_create();
     ti.modules = smap_create();
     ti.langdef = compile_langdef();
     ti.thing0 = ti_thing_o_create(0, 0, NULL);
+    ti.room0 = ti_room_create(0, NULL);
     if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti.boottime) ||
             ti_counters_create() ||
+            ti_tasks_create() ||
             ti_away_create() ||
             ti_args_create() ||
             ti_cfg_create() ||
@@ -93,7 +107,7 @@ int ti_create(void)
             ti_names_create() ||
             ti_users_create() ||
             ti_collections_create() ||
-            ti_events_create() ||
+            ti_changes_create() ||
             ti_connect_create() ||
             ti_sync_create() ||
             !ti.modules ||
@@ -141,6 +155,7 @@ void ti_destroy(void)
     ti_users_destroy();
     ti_store_destroy();
     ti_val_drop((ti_val_t *) ti.thing0);
+    ti_val_drop((ti_val_t *) ti.room0);
 
     vec_destroy(ti.access_node, (vec_destroy_cb) ti_auth_destroy);
     vec_destroy(ti.access_thingsdb, (vec_destroy_cb) ti_auth_destroy);
@@ -209,6 +224,8 @@ int ti_init(void)
     ti_names_inject_common();
     ti_verror_init();
     ti_qbind_init();
+    ti_field_init();
+    ti_modules_init();
 
     if (ti.cfg->query_duration_error > ti.cfg->query_duration_warn)
         ti.cfg->query_duration_warn = ti.cfg->query_duration_error;
@@ -216,8 +233,7 @@ int ti_init(void)
     if (ti_qcache_create() ||
         ti_do_init() ||
         ti_val_init_common() ||
-        ti_thing_init_gc() ||
-        ti_timers_create())
+        ti_thing_init_gc())
         return -1;
 
     ti.fn = strx_cat(ti.cfg->storage_path, ti__fn);
@@ -254,23 +270,35 @@ int ti_build_node(void)
 int ti_build(void)
 {
     int rc = -1;
-    ti_event_t * ev = NULL;
+    ti_change_t * change = NULL;
+
+    /* In ThingsDB versions before 1.2.0 the deep value was set to one (1) but
+     * is changed to make it easier for new users. The need for a "low" deep
+     * value is also less needed as ThingsDB got protection for large results
+     * and ensures that nested self-references are only exported by Id, thus
+     * without content.
+     */
+    ti.t_deep = TI_MAX_DEEP;
+    ti.n_deep = TI_MAX_DEEP;
+    ti.t_tz = ti_tz_utc();
+    ti.n_tz = ti_tz_utc();
+
     if (ti_build_node())
         goto failed;
 
-    ti.node->cevid = 0;
-    ti.node->next_thing_id = 1;
+    ti.node->ccid = 0;
+    ti.node->next_free_id = 1;
 
-    ev = ti_event_initial();
-    if (!ev)
+    change = ti_change_initial();
+    if (!change)
         goto failed;
 
-    if (ti_event_run(ev))
+    if (ti_change_run(change))
         goto failed;
 
-    ti.node->cevid = ev->id;
-    ti.node->sevid = ev->id;
-    ti.events->next_event_id = ev->id + 1;
+    ti.node->ccid = change->id;
+    ti.node->scid = change->id;
+    ti.changes->next_change_id = change->id + 1;
 
     if (ti_store_store())
         goto failed;
@@ -289,7 +317,7 @@ failed:
     (void) vec_pop(ti.nodes->vec);
 
 done:
-    ti_event_drop(ev);
+    ti_change_drop(change);
     return rc;
 }
 
@@ -364,33 +392,85 @@ int ti_read(void)
 int ti_unpack(uchar * data, size_t n)
 {
     mp_unp_t up;
-    mp_obj_t obj, mp_schema, mp_event_id, mp_next_node_id;
+    mp_obj_t obj,
+             mp_change_id,
+             mp_next_node_id,
+             mp_t_deep,
+             mp_n_deep,
+             mp_t_tz,
+             mp_n_tz;
     uint32_t node_id;
 
     mp_unp_init(&up, data, (size_t) n);
 
-    if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 4 ||
+    if (mp_next(&up, &obj) != MP_MAP || obj.via.sz != 6 ||
 
         mp_skip(&up) != MP_STR ||  /* schema */
-        mp_next(&up, &mp_schema) != MP_U64 ||
+        mp_skip(&up) != MP_U64 ||
 
-        mp_skip(&up) != MP_STR ||  /* event_id */
-        mp_next(&up, &mp_event_id) != MP_U64 ||
+        mp_skip(&up) != MP_STR ||  /* deep */
+        mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
+
+        mp_next(&up, &mp_t_deep) != MP_U64 ||
+        mp_next(&up, &mp_n_deep) != MP_U64 ||
+
+        mp_skip(&up) != MP_STR ||  /* time zone */
+        mp_next(&up, &obj) != MP_ARR || obj.via.sz != 2 ||
+
+        mp_next(&up, &mp_t_tz) != MP_U64 ||
+        mp_next(&up, &mp_n_tz) != MP_U64 ||
+
+        mp_skip(&up) != MP_STR ||  /* change_id */
+        mp_next(&up, &mp_change_id) != MP_U64 ||
 
         mp_skip(&up) != MP_STR ||  /* next_node_id */
         mp_next(&up, &mp_next_node_id) != MP_U64 ||
 
         mp_skip(&up) != MP_STR ||  /* nodes */
         ti_nodes_from_up(&up)
-    ) goto fail;
+    ) {
+        /*
+         * TODO (COMPAT) For compatibility with < v1.1.3 (schema 0)
+         */
+        if (obj.via.sz != 4 ||
+
+            mp_skip(&up) != MP_STR ||  /* schema */
+            mp_skip(&up) != MP_U64 ||
+
+            mp_skip(&up) != MP_STR ||  /* change_id */
+            mp_next(&up, &mp_change_id) != MP_U64 ||
+
+            mp_skip(&up) != MP_STR ||  /* next_node_id */
+            mp_next(&up, &mp_next_node_id) != MP_U64 ||
+
+            mp_skip(&up) != MP_STR ||  /* nodes */
+            ti_nodes_from_up(&up)
+        ) goto fail;
+        log_warning(
+                "migrating from schema 0; "
+                "set both @thingsdb and @node `deep` to 1; "
+                "set both @thingsdb and @node `time-zone` to UTC");
+
+        mp_t_deep.via.u64 = 1;
+        mp_n_deep.via.u64 = 1;
+        mp_t_tz.via.u64 = TI_TZ_UTC_INDEX;
+        mp_n_tz.via.u64 = TI_TZ_UTC_INDEX;
+
+        ti_flag_set(TI_FLAG_TI_CHANGED);  /* bug #269 */
+    }
 
     if (ti_read_node_id(&node_id))
         goto fail;
 
+    ti.t_deep = mp_t_deep.via.u64;
+    ti.n_deep = mp_n_deep.via.u64;
+    ti.t_tz = ti_tz_from_index(mp_t_tz.via.u64);
+    ti.n_tz = ti_tz_from_index(mp_n_tz.via.u64);
     ti.nodes->next_id = mp_next_node_id.via.u64;
-    ti.last_event_id = mp_event_id.via.u64;
+    ti.last_change_id = mp_change_id.via.u64;
     ti.node = ti_nodes_node_by_id(node_id);
-    if (!ti.node)
+
+    if (!ti.node || ti.t_deep > TI_MAX_DEEP || ti.n_deep > TI_MAX_DEEP)
         goto fail;
 
     ti.node->zone = ti.cfg->zone;
@@ -398,7 +478,7 @@ int ti_unpack(uchar * data, size_t n)
     if (ti.node->port != ti.cfg->node_port)
     {
         ti.node->port = ti.cfg->node_port;
-        ti.flags |= TI_FLAG_NODES_CHANGED;
+        ti_flag_set(TI_FLAG_TI_CHANGED);
     }
 
     if (strcmp(ti.node->addr, ti.cfg->node_name) != 0)
@@ -408,7 +488,7 @@ int ti_unpack(uchar * data, size_t n)
         {
             free(ti.node->addr);
             ti.node->addr = addr;
-            ti.flags |= TI_FLAG_NODES_CHANGED;
+            ti_flag_set(TI_FLAG_TI_CHANGED);
         }
     }
 
@@ -429,6 +509,7 @@ static void ti__delayed_start_free(uv_handle_t * UNUSED(timer))
 
 static void ti__delayed_start_stop(void)
 {
+    ti_flag_rm(TI_FLAG_STARTING);
     (void) uv_timer_stop(delayed_start_timer);
     uv_close((uv_handle_t *) delayed_start_timer, ti__delayed_start_free);
 }
@@ -436,11 +517,11 @@ static void ti__delayed_start_stop(void)
 
 static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
 {
-    ssize_t n = ti_events_trigger_loop();
+    ssize_t n = ti_changes_trigger_loop();
 
     if (n > 0)
     {
-        log_info("wait for %zd event%s to load", n, n == 1 ? "" : "s");
+        log_info("wait for %zd change%s to load", n, n == 1 ? "" : "s");
         return;
     }
 
@@ -449,7 +530,34 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
 
     if (ti.node)
     {
-        if (ti_timers_start())
+        if (!wait_for_modules)
+        {
+            /* One time garbage collection is required to prevent restoring
+             * things from GC which are removed on other nodes */
+            ti_collections_gc();
+
+            /* Trigger loading the modules */
+            ti_modules_load();
+
+            /* Next state is to wait for the modules to load */
+            wait_for_modules = ti.cfg->wait_for_modules;
+        }
+
+        if (wait_for_modules &&
+            wait_for_modules_timeout &&
+            !ti_modules_ready())
+        {
+            wait_for_modules_timeout--;
+
+            if (wait_for_modules_timeout % 10 == 0)
+                log_info(
+                    "wait until all modules are ready "
+                    "(timeout in approximately %d seconds)",
+                    wait_for_modules_timeout);
+            return;
+        }
+
+        if (ti_tasks_start())
             goto failed;
 
         if (ti_away_start())
@@ -460,7 +568,7 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
 
         if (ti.nodes->vec->n == 1)
         {
-            ti.node->status = TI_NODE_STAT_READY;
+            ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
         }
         else if (ti_sync_start())
             goto failed;
@@ -527,14 +635,14 @@ int ti_run(void)
     if (ti.cfg->http_status_port && ti_web_init())
         goto failed;
 
-    if (ti_events_start())
+    if (ti_changes_start())
         goto failed;
 
     if (ti.node)
     {
         ti.node->status = TI_NODE_STAT_SYNCHRONIZING;
 
-        (void) ti_nodes_read_scevid();
+        (void) ti_nodes_read_sccid();
 
         if (ti_archive_init())
             goto failed;
@@ -611,7 +719,7 @@ void ti_offline(void)
          * to write the modules to disk as well.
          */
         ti_modules_stop_and_destroy();
-        ti_timers_stop();
+        ti_tasks_stop();
     }
 }
 
@@ -622,7 +730,7 @@ void ti_stop(void)
         (void) ti_backups_store();
         (void) ti_nodes_write_global_status();
 
-        if (ti.flags & TI_FLAG_NODES_CHANGED)
+        if (ti_flag_test(TI_FLAG_TI_CHANGED))
             (void) ti_save();
     }
     ti__stop();
@@ -641,8 +749,8 @@ int ti_save(void)
 
     msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
 
-    if (ti.node->cevid > ti.last_event_id)
-        ti.last_event_id = ti.node->cevid;
+    if (ti.node->ccid > ti.last_change_id)
+        ti.last_change_id = ti.node->ccid;
 
     if (ti_to_pk(&pk))
         goto fail;
@@ -682,13 +790,13 @@ int ti_lock(void)
     default:
         break;
     }
-    ti.flags |= TI_FLAG_LOCKED;
+    ti_flag_set(TI_FLAG_LOCKED);
     return 0;
 }
 
 int ti_unlock(void)
 {
-    if (ti.flags & TI_FLAG_LOCKED)
+    if (ti_flag_test(TI_FLAG_LOCKED))
     {
         lock_t rc = lock_unlock(ti.cfg->storage_path);
         if (rc != LOCK_REMOVED)
@@ -768,34 +876,8 @@ ti_rpkg_t * ti_node_status_rpkg(void)
     return rpkg;
 }
 
-ti_rpkg_t * ti_client_status_rpkg(void)
-{
-    msgpack_packer pk;
-    msgpack_sbuffer buffer;
-    ti_pkg_t * pkg;
-    ti_rpkg_t * rpkg;
-    const char * status = ti_node_status_str(ti.node->status);
-
-    if (mp_sbuffer_alloc_init(&buffer, 64, sizeof(ti_pkg_t)))
-        return NULL;
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-
-    mp_pack_str(&pk, status);
-
-    pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_NODE_STATUS, buffer.size);
-
-    rpkg = ti_rpkg_create(pkg);
-    if (!rpkg)
-        free(pkg);
-
-    return rpkg;
-}
-
 void ti_set_and_broadcast_node_status(ti_node_status_t status)
 {
-    ti_rpkg_t * client_rpkg;
-
     if (ti.node->status == status)
         return;  /* node status is not changed */
 
@@ -806,16 +888,7 @@ void ti_set_and_broadcast_node_status(ti_node_status_t status)
     ti.node->status = status;
 
     ti_broadcast_node_info();
-
-    client_rpkg = ti_client_status_rpkg();
-    if (!client_rpkg)
-    {
-        log_critical(EX_MEMORY_S);
-        return;
-    }
-
-    ti_clients_write_rpkg(client_rpkg);
-    ti_rpkg_drop(client_rpkg);
+    ti_room_emit_node_status(ti.room0, ti_node_status_str(ti.node->status));
 }
 
 void ti_set_and_broadcast_node_zone(uint8_t zone)
@@ -853,9 +926,11 @@ int ti_this_node_to_pk(msgpack_packer * pk)
     int yv = yajl_version();
 
     double uptime = util_time_diff(&ti.boottime, &timing);
+    const char * platform = osarch_get_os();
+    const char * architecture = osarch_get_arch();
 
     return (
-        msgpack_pack_map(pk, 36) ||
+        msgpack_pack_map(pk, 40) ||
         /* 1 */
         mp_pack_str(pk, "node_id") ||
         msgpack_pack_uint32(pk, ti.node->id) ||
@@ -907,8 +982,8 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         mp_pack_str(pk, "uptime") ||
         msgpack_pack_double(pk, uptime) ||
         /* 17 */
-        mp_pack_str(pk, "events_in_queue") ||
-        msgpack_pack_uint64(pk, ti.events->queue->n) ||
+        mp_pack_str(pk, "changes_in_queue") ||
+        msgpack_pack_uint64(pk, ti.changes->queue->n) ||
         /* 18 */
         mp_pack_str(pk, "archived_in_memory") ||
         msgpack_pack_uint64(pk, ti.archive->queue->n) ||
@@ -916,26 +991,26 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         mp_pack_str(pk, "archive_files") ||
         msgpack_pack_uint32(pk, ti.archive->archfiles->n) ||
         /* 20 */
-        mp_pack_str(pk, "local_stored_event_id") ||
-        msgpack_pack_uint64(pk, ti.node->sevid) ||
+        mp_pack_str(pk, "local_stored_change_id") ||
+        msgpack_pack_uint64(pk, ti.node->scid) ||
         /* 21 */
-        mp_pack_str(pk, "local_committed_event_id") ||
-        msgpack_pack_uint64(pk, ti.node->cevid) ||
+        mp_pack_str(pk, "local_committed_change_id") ||
+        msgpack_pack_uint64(pk, ti.node->ccid) ||
         /* 22 */
-        mp_pack_str(pk, "global_stored_event_id") ||
-        msgpack_pack_uint64(pk, ti_nodes_sevid()) ||
+        mp_pack_str(pk, "global_stored_change_id") ||
+        msgpack_pack_uint64(pk, ti_nodes_scid()) ||
         /* 23 */
-        mp_pack_str(pk, "global_committed_event_id") ||
-        msgpack_pack_uint64(pk, ti_nodes_cevid()) ||
+        mp_pack_str(pk, "global_committed_change_id") ||
+        msgpack_pack_uint64(pk, ti_nodes_ccid()) ||
         /* 24 */
-        mp_pack_str(pk, "db_stored_event_id") ||
-        msgpack_pack_uint64(pk, ti.store->last_stored_event_id) ||
+        mp_pack_str(pk, "db_stored_change_id") ||
+        msgpack_pack_uint64(pk, ti.store->last_stored_change_id) ||
         /* 25 */
-        mp_pack_str(pk, "next_event_id") ||
-        msgpack_pack_uint64(pk, ti.events->next_event_id) ||
+        mp_pack_str(pk, "next_change_id") ||
+        msgpack_pack_uint64(pk, ti.changes->next_change_id) ||
         /* 26 */
-        mp_pack_str(pk, "next_thing_id") ||
-        msgpack_pack_uint64(pk, ti.node->next_thing_id) ||
+        mp_pack_str(pk, "next_free_id") ||
+        msgpack_pack_uint64(pk, ti.node->next_free_id) ||
         /* 27 */
         mp_pack_str(pk, "cached_names") ||
         msgpack_pack_uint32(pk, ti.names->n) ||
@@ -969,7 +1044,20 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         msgpack_pack_uint32(pk, ti.cfg->threshold_query_cache) ||
         /* 36 */
         mp_pack_str(pk, "cache_expiration_time") ||
-        msgpack_pack_uint32(pk, ti.cfg->cache_expiration_time)
+        msgpack_pack_uint32(pk, ti.cfg->cache_expiration_time) ||
+        /* 37 */
+        mp_pack_str(pk, "python_interpreter") ||
+        mp_pack_str(pk, ti.cfg->python_interpreter) ||
+        /* 38 */
+        mp_pack_str(pk, "modules_path") ||
+        mp_pack_str(pk, ti.cfg->modules_path) ||
+        /* 39 */
+        mp_pack_str(pk, "platform") ||
+        mp_pack_str(pk, platform) ||
+        /* 40 */
+        mp_pack_str(pk, "architecture") ||
+        mp_pack_str(pk, architecture)
+
     );
 }
 
@@ -1120,6 +1208,7 @@ static void ti__stop(void)
 {
     ti_away_stop();
     ti_connect_stop();
-    ti_events_stop();
+    ti_changes_stop();
     ti_sync_stop();
+    ti_tasks_stop();  /* extra stop may be required */
 }

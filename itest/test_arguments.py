@@ -36,23 +36,14 @@ class TestArguments(TestBase):
 
     async def test_invalid(self, client):
         with self.assertRaisesRegex(
-                LookupError,
-                r'thing `#1` not found; if you want to create a new thing '
-                r'then remove the id \(`#`\) and try again '
-                r'\(in argument `blob`\)'):
-            await client.query(r'blob;', blob={'#': 1})
-
-        with self.assertRaisesRegex(
                 TypeError,
                 r'property names must be of type `str` '
                 r'\(in argument `blob`\)'):
             await client.query(r'blob;', blob={0: 1})
 
         with self.assertRaisesRegex(
-                LookupError,
-                r'thing `#1` not found; if you want to create a new thing '
-                r'then remove the id \(`#`\) and try again '
-                r'\(in argument `blob`\)'):
+                ValueError,
+                r'property `#` is reserved;'):
             await client.query(r'blob;', blob=[{'#': 1}])
 
     async def test_valid(self, client):
@@ -67,7 +58,7 @@ class TestArguments(TestBase):
             }]
         }
         self.assertEqual(
-            await client.query('return(iris, 2);', iris=iris),
+            await client.query('return iris, 2;', iris=iris),
             iris)
 
         await client.query('.iris = iris;', iris=iris)

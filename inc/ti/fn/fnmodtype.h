@@ -112,7 +112,7 @@ static int modtype__add_cb(ti_thing_t * thing, modtype__add_t * w)
 
         if (thing->id)
         {
-            task = ti_task_get_task(w->query->ev, thing);
+            task = ti_task_get_task(w->query->change, thing);
             if (!task || ti_task_add_set(
                     task,
                     (ti_raw_t *) w->field->name,
@@ -160,7 +160,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
         {
             ex_set(w->e, EX_OPERATION,
                     "field `%s` on type `%s` is modified but at least one "
-                    "error has occurred using the given callback; %s",
+                    "error has occurred using the given callback: %s",
                     w->field->name->str,
                     w->field->type->name,
                     ex.msg);
@@ -186,7 +186,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
 
             if (thing->id)
             {
-                task = ti_task_get_task(w->query->ev, thing);
+                task = ti_task_get_task(w->query->change, thing);
                 if (!task || ti_task_add_set(
                         task,
                         (ti_raw_t *) w->field->name,
@@ -199,7 +199,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
                 ex_set(w->e, EX_OPERATION,
                         "field `%s` on type `%s` is modified but at least "
                         "one failed attempt was made to keep the original "
-                        "value; %s",
+                        "value: %s",
                         w->field->name->str,
                         w->field->type->name,
                         ex.msg);
@@ -215,7 +215,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
 
         if (thing->id)
         {
-            task = ti_task_get_task(w->query->ev, thing);
+            task = ti_task_get_task(w->query->change, thing);
             if (!task || ti_task_add_set(
                     task,
                     (ti_raw_t *) w->field->name,
@@ -262,7 +262,7 @@ static int modtype__mod_after_cb(ti_thing_t * thing, modtype__mod_t * w)
 
         if (thing->id)
         {
-            task = ti_task_get_task(w->query->ev, thing);
+            task = ti_task_get_task(w->query->change, thing);
             if (!task || ti_task_add_set(
                     task,
                     (ti_raw_t *) w->field->name,
@@ -273,9 +273,10 @@ static int modtype__mod_after_cb(ti_thing_t * thing, modtype__mod_t * w)
         if (w->e->nr == 0 && ex.nr)
         {
             ex_set(w->e, EX_OPERATION,
-                    "field `%s` on type `%s` is modified but at least one new "
-                    "instance was made with an inappropriate value which in "
-                    "response is changed to default by ThingsDB; %s",
+                    "field `%s` on type `%s` is modified but at least one "
+                    "instance got an inappropriate value from the migration "
+                    "callback; to be compliant, ThingsDB has used the default "
+                    "value for this instance; callback response: %s",
                     w->field->name->str,
                     w->field->type->name,
                     ex.msg);
@@ -283,6 +284,31 @@ static int modtype__mod_after_cb(ti_thing_t * thing, modtype__mod_t * w)
     }
 
     return 0;
+}
+
+typedef struct
+{
+    ti_closure_t * closure;
+    ti_query_t * query;
+    ex_t * e;
+} modtype__all_t;
+
+static int modtype__all_cb(ti_thing_t * thing, modtype__all_t * w)
+{
+    if (w->closure->vars->n)
+    {
+        ti_prop_t * prop = VEC_get(w->closure->vars, 0);
+        ti_incref(thing);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = (ti_val_t *) thing;
+    }
+
+    (void) ti_closure_do_statement(w->closure, w->query, w->e);
+
+    ti_val_drop(w->query->rval);
+    w->query->rval = NULL;
+
+    return w->e->nr;
 }
 
 static imap_t * modtype__collect_things(ti_query_t * query, ti_type_t * type)
@@ -324,7 +350,7 @@ static void type__add(
         ex_t * e)
 {
     static const char * fnname = "mod_type` with task `add";
-    cleri_children_t * child;
+    cleri_node_t * child;
     ti_task_t * task;
     ti_raw_t * spec_raw;
     ti_val_t * dval;
@@ -346,7 +372,7 @@ static void type__add(
 
     child = nd->children->next->next->next->next->next->next;
 
-    if (ti_do_statement(query, child->node, e))
+    if (ti_do_statement(query, child, e))
         return;
 
     if (ti_val_is_closure(query->rval))
@@ -365,7 +391,7 @@ static void type__add(
         if (ti_closure_unbound(closure, e))
             return;
 
-        task = ti_task_get_task(query->ev, query->collection->root);
+        task = ti_task_get_task(query->change, query->collection->root);
         if (!task)
         {
             ex_set_mem(e);
@@ -411,7 +437,7 @@ static void type__add(
          * potentially generated instances of this type must be without the
          * new field.
          */
-        if (ti_do_statement(query, child->next->next->node, e))
+        if (ti_do_statement(query, child->next->next, e))
             goto fail0;
     }
 
@@ -448,7 +474,7 @@ static void type__add(
      * Must be after all `statements` with the old definition, but before
      * running statements with the new definition.
      */
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
         ex_set_mem(e);
@@ -513,7 +539,7 @@ static void type__add(
      * instances; it must run after task generation so the task contains
      * possible self references according the `old` type definition;
      */
-    if (ti_field_init_things(field, &dval, query->ev->id))
+    if (ti_field_init_things(field, &dval))
     {
         ex_set_mem(e);
         goto panic;
@@ -614,7 +640,7 @@ static void type__del(
         return;
     }
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
         ex_set_mem(e);
@@ -638,7 +664,7 @@ static void type__del(
         return;
     }
 
-    if (ti_field_del(field, query->ev->id))
+    if (ti_field_del(field))
     {
         ex_set_mem(e);
         return;
@@ -698,7 +724,7 @@ static int type__mod_using_callback(
         goto fail3;
     }
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
         ex_set_mem(e);
@@ -748,7 +774,7 @@ static int type__mod_using_callback(
 
     /* get a new task since the order of the task must be after the changes
      * above */
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task || ti_task_add_mod_type_mod_field(task, modjob.field))
     {
         ex_set_mem(e);
@@ -784,7 +810,7 @@ static void type__mod(
     ti_field_t * field = ti_field_by_name(type, name);
     ti_method_t * method = field ? NULL : ti_method_by_name(type, name);
 
-    cleri_children_t * child;
+    cleri_node_t * child;
 
     if (fn_nargs_range(fnname, DOC_MOD_TYPE_MOD, 4, 5, nargs, e))
         return;
@@ -809,7 +835,7 @@ static void type__mod(
 
     child = nd->children->next->next->next->next->next->next;
 
-    if (ti_do_statement(query, child->node, e))
+    if (ti_do_statement(query, child, e))
         return;
 
     if (ti_val_is_closure(query->rval))
@@ -837,7 +863,7 @@ static void type__mod(
         if (ti_closure_unbound(closure, e))
             return;
 
-        task = ti_task_get_task(query->ev, query->collection->root);
+        task = ti_task_get_task(query->change, query->collection->root);
         if (!task)
         {
             ex_set_mem(e);
@@ -878,7 +904,7 @@ static void type__mod(
             if (ti_field_mod(field, spec_raw, e))
                 goto fail;
 
-            task = ti_task_get_task(query->ev, query->collection->root);
+            task = ti_task_get_task(query->change, query->collection->root);
             if (!task)
             {
                 ex_set_mem(e);
@@ -908,7 +934,7 @@ static void type__mod(
             (void) type__mod_using_callback(
                     fnname,
                     query,
-                    child->next->next->node,
+                    child->next->next,
                     field,
                     spec_raw,
                     e);
@@ -954,7 +980,7 @@ static void type__ren(
 
     if (ti_do_statement(
             query,
-            nd->children->next->next->next->next->next->next->node,
+            nd->children->next->next->next->next->next->next,
             e) ||
             fn_arg_str_slow(fnname, DOC_MOD_TYPE_REN, 4, query->rval, e))
         return;
@@ -990,7 +1016,7 @@ static void type__ren(
         newname = field->name;
     }
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
         ex_set_mem(e);
@@ -1036,7 +1062,7 @@ static int modtype__has_lock(ti_query_t * query, ti_type_t * type, ex_t * e)
 
 locked:
     ex_set(e, EX_OPERATION,
-        "cannot change type `%s` while one of the instances is being used",
+        "cannot change type `%s` while one of the instances is in use",
         type->name);
     return e->nr;
 memerror:
@@ -1056,7 +1082,7 @@ static ti_type_t * modtype__type_from_field(ti_field_t * field, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
                 "relations may only be configured between restricted "
-                "sets and/or nillable types"DOC_MOD_TYPE_REL);
+                "sets and/or nillable typed"DOC_MOD_TYPE_REL);
         return NULL;
     }
 
@@ -1114,7 +1140,7 @@ static void type__rel_add(
     if (ti_field_relation_check(field, ofield, query->vars, e))
         goto fail0;
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
         ex_set_mem(e);
@@ -1170,7 +1196,7 @@ static void type__rel_del(
         ti_type_try_lock(ofield->type, e)))
         return;
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
         ex_set_mem(e);
@@ -1221,7 +1247,7 @@ static void type__rel(
 
     if (ti_do_statement(
             query,
-            nd->children->next->next->next->next->next->next->node,
+            nd->children->next->next->next->next->next->next,
             e))
         return;
 
@@ -1251,6 +1277,64 @@ static void type__rel(
         fnname, ti_val_str(query->rval));
 }
 
+static void type__all(
+        ti_query_t * query,
+        ti_type_t * type,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    static const char * fnname = "mod_type` with task `all";
+    const int nargs = fn_get_nargs(nd);
+
+    ti_closure_t * closure;
+    ti_task_t * task;
+    imap_t * imap;
+
+    nd = nd->children->next->next->next->next;
+
+    if (fn_nargs(fnname, DOC_MOD_TYPE_ALL, 3, nargs, e) ||
+        ti_do_statement(query, nd, e) ||
+        fn_arg_closure(fnname, DOC_MOD_TYPE_ALL, 3, query->rval, e))
+        return;
+
+    closure = (ti_closure_t *) query->rval;
+    query->rval = NULL;
+
+    if (ti_closure_try_wse(closure, query, e) ||
+        ti_closure_inc(closure, query, e))
+        goto fail0;
+
+    imap = modtype__collect_things(query, type);
+    if (!imap)
+    {
+        ex_set_mem(e);
+        goto fail1;
+    }
+
+    task = ti_task_get_task(query->change, query->collection->root);
+    if (!task)
+    {
+        ex_set_mem(e);
+        goto fail2;
+    }
+
+    modtype__all_t w = {
+            .query = query,
+            .e = e,
+            .closure = closure,
+    };
+
+    (void) imap_walk(imap, (imap_cb) modtype__all_cb, &w);
+
+fail2:
+    imap_destroy(imap, (imap_destroy_cb) ti_val_unsafe_drop);
+fail1:
+    ti_closure_dec(closure, query);
+fail0:
+    ti_val_unsafe_drop((ti_val_t *) closure);
+    return;
+}
+
 static void type__wpo(
         ti_query_t * query,
         ti_type_t * type,
@@ -1263,13 +1347,11 @@ static void type__wpo(
     ti_task_t * task;
     ssize_t n;
 
-    if (fn_nargs(fnname, DOC_MOD_TYPE_WPO, 3, nargs, e))
-        return;
+    nd = nd->children->next->next->next->next;
 
-    if (ti_do_statement(
-            query,
-            nd->children->next->next->next->next->node,
-            e) || fn_arg_bool(fnname, DOC_MOD_TYPE_WPO, 3, query->rval, e))
+    if (fn_nargs(fnname, DOC_MOD_TYPE_WPO, 3, nargs, e) ||
+        ti_do_statement(query, nd, e) ||
+        fn_arg_bool(fnname, DOC_MOD_TYPE_WPO, 3, query->rval, e))
         return;
 
     wrap_only = ti_val_as_bool(query->rval);
@@ -1300,7 +1382,7 @@ static void type__wpo(
     if (!wrap_only && ti_type_uses_wpo(type, e))
         return;
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
         ex_set_mem(e);
@@ -1321,12 +1403,12 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_type_t * type;
     ti_raw_t * rmod;
     ti_name_t * name = NULL;
-    cleri_children_t * child = nd->children;
+    cleri_node_t * child = nd->children;
     const int nargs = fn_get_nargs(nd);
 
     if (fn_not_collection_scope("mod_type", query, e) ||
         fn_nargs_min("mod_type", DOC_MOD_TYPE, 3, nargs, e) ||
-        ti_do_statement(query, child->node, e) ||
+        ti_do_statement(query, child, e) ||
         fn_arg_str_slow("mod_type", DOC_MOD_TYPE, 1, query->rval, e))
         return e->nr;
 
@@ -1345,7 +1427,7 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+    if (ti_do_statement(query, (child = child->next->next), e) ||
         fn_arg_name_check("mod_type", DOC_MOD_TYPE, 2, query->rval, e))
         goto fail0;
 
@@ -1358,7 +1440,13 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+    if (ti_raw_eq_strn(rmod, "all", 3))
+    {
+        type__all(query, type, nd, e);
+        goto done;
+    }
+
+    if (ti_do_statement(query, (child = child->next->next), e) ||
         fn_arg_name_check("mod_type", DOC_MOD_TYPE, 3, query->rval, e))
         goto fail1;
 

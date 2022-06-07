@@ -43,29 +43,34 @@ void ti_vset_destroy(ti_vset_t * vset)
 typedef struct
 {
     ti_vp_t * vp;
-    int options;
+    int deep;
 } vset__walk_to_pk_t;
 
-static inline int vset__walk_to_pk(ti_thing_t * thing, vset__walk_to_pk_t * w)
+static inline int vset__walk_to_client_pk(ti_thing_t * thing, vset__walk_to_pk_t * w)
 {
-    return ti_thing_to_pk(thing, w->vp, w->options);
+    return ti_thing_to_client_pk(thing, w->vp, w->deep);
 }
 
-int ti_vset_to_pk(ti_vset_t * vset, ti_vp_t * vp, int options)
+int ti_vset_to_client_pk(ti_vset_t * vset, ti_vp_t * vp, int deep)
 {
     vset__walk_to_pk_t w = {
             .vp = vp,
-            .options = options,
+            .deep = deep,
     };
-    /*
-     * Pack as a `map` when options < 0, otherwise pack the set as an array.
-     */
-    return ((options < 0 && (
-                msgpack_pack_map(&vp->pk, 1) ||
-                mp_pack_strn(&vp->pk, TI_KIND_S_SET, 1)
-        )) ||
-        msgpack_pack_array(&vp->pk, vset->imap->n)
-    ) ? -1 : imap_walk(vset->imap, (imap_cb) vset__walk_to_pk, &w);
+    return -(
+        msgpack_pack_array(&vp->pk, vset->imap->n) ||
+        imap_walk(vset->imap, (imap_cb) vset__walk_to_client_pk, &w)
+    );
+}
+
+int ti_vset_to_store_pk(ti_vset_t * vset, msgpack_packer * pk)
+{
+    return -(
+            msgpack_pack_map(pk, 1) ||
+            mp_pack_strn(pk, TI_KIND_S_SET, 1) ||
+            msgpack_pack_array(pk, vset->imap->n) ||
+            imap_walk(vset->imap, (imap_cb) ti_thing_to_store_pk, pk)
+    );
 }
 
 int ti_vset_to_list(ti_vset_t ** vsetaddr)
@@ -303,3 +308,33 @@ int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e)
     }
     return 1;
 }
+
+typedef struct
+{
+    ti_field_t * ofield;
+    ti_thing_t * parent;
+} vset__clear_t;
+
+static int vset__clear_walk_cb(ti_thing_t * thing, vset__clear_t * w)
+{
+    w->ofield->condition.rel->del_cb(
+            w->ofield,
+            thing,
+            w->parent);
+    return 0;
+}
+
+void ti_vset_clear(ti_vset_t * vset)
+{
+    if (ti_vset_has_relation(vset))
+    {
+        ti_field_t * field = vset->key_;
+        vset__clear_t w = {
+                .ofield = field->condition.rel->field,
+                .parent = vset->parent,
+        };
+        (void) imap_walk(vset->imap, (imap_cb) vset__clear_walk_cb, &w);
+    }
+    imap_clear(vset->imap, (imap_destroy_cb) ti_val_unsafe_gc_drop);
+}
+

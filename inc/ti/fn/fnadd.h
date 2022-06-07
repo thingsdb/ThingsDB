@@ -3,7 +3,7 @@
 static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    cleri_children_t * child = nd->children;    /* first in argument list */
+    cleri_node_t * child = nd->children;        /* first in argument list */
     vec_t * added;
     ti_vset_t * vset;
 
@@ -27,9 +27,9 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     do
     {
         int rc;
-        assert (child->node->cl_obj->gid == CLERI_GID_STATEMENT);
+        assert (child->cl_obj->gid == CLERI_GID_STATEMENT);
 
-        if (ti_do_statement(query, child->node, e))
+        if (ti_do_statement(query, child, e))
             goto fail1;
 
         rc = ti_vset_add_val(vset, query->rval, e);
@@ -47,13 +47,13 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (added->n && vset->parent && vset->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, vset->parent);
-        if (!task || ti_task_add_add(
+        ti_task_t * task = ti_task_get_task(query->change, vset->parent);
+        if (!task || ti_task_add_set_add(
                 task,
                 ti_vset_key(vset),
                 added))
             goto alloc_err;  /* we do not need to cleanup task, since the task
-                                is added to `query->ev->tasks` */
+                                is added to `query->change->tasks` */
     }
 
     assert (e->nr == 0);

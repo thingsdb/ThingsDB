@@ -1,13 +1,61 @@
 #include <ti/fn/fn.h>
 #include <util/iso8601.h>
 
+typedef struct
+{
+    _Bool * take_access;
+    _Bool * restore_tasks;
+    ex_t * e;
+} restore__walk_t;
+
+static int do__restore_option(
+        ti_raw_t * key,
+        ti_val_t * val,
+        restore__walk_t * w)
+{
+    if (ti_raw_eq_strn(key, "take_access", 11))
+    {
+        if (!ti_val_is_bool(val))
+        {
+            ex_set(w->e, EX_TYPE_ERROR,
+                    "take_access must be of type `"TI_VAL_BOOL_S"` but "
+                    "got type `%s` instead"DOC_RESTORE,
+                    ti_val_str(val));
+            return w->e->nr;
+        }
+        *w->take_access = ti_val_as_bool(val);
+        return 0;
+    }
+
+    if (ti_raw_eq_strn(key, "restore_tasks", 13))
+    {
+        if (!ti_val_is_bool(val))
+        {
+            ex_set(w->e, EX_TYPE_ERROR,
+                    "restore_tasks must be of type `"TI_VAL_BOOL_S"` but "
+                    "got type `%s` instead"DOC_RESTORE,
+                    ti_val_str(val));
+            return w->e->nr;
+        }
+        *w->restore_tasks = ti_val_as_bool(val);
+        return 0;
+
+    }
+
+    ex_set(w->e, EX_VALUE_ERROR,
+            "invalid restore option `%.*s`"DOC_RESTORE, key->n, key->data);
+
+    return w->e->nr;
+}
+
 static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    char * job;
-    _Bool overwrite_access = false;
+    char * restore_task;
+    _Bool take_access = false;
+    _Bool restore_tasks = false;
     uint32_t n;
-    uint64_t cevid, sevid;
+    uint64_t ccid, scid;
     ti_task_t * task;
     ti_raw_t * rname;
     ti_node_t * node;
@@ -17,7 +65,7 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     ti.access_thingsdb,
                     query->user, TI_AUTH_MASK_FULL, e) ||
         fn_nargs_range("restore", DOC_RESTORE, 1, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str_slow("restore", DOC_RESTORE, 1, query->rval, e))
         return e->nr;
 
@@ -26,13 +74,33 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 2)
     {
-        if (ti_do_statement(query, nd->children->next->next->node, e) ||
-            fn_arg_bool("restore", DOC_RESTORE, 2, query->rval, e))
+        ti_thing_t * thing;
+
+        if (ti_do_statement(query, nd->children->next->next, e) ||
+            fn_arg_thing("restore", DOC_RESTORE, 2, query->rval, e))
             goto fail0;
 
-        overwrite_access = ti_val_as_bool(query->rval);
+        thing = (ti_thing_t *) query->rval;
+
+        restore__walk_t w = {
+                .take_access = &take_access,
+                .restore_tasks = &restore_tasks,
+                .e = e,
+        };
+
+        if (ti_thing_walk(thing, (ti_thing_item_cb) do__restore_option, &w))
+            goto fail0;
+
         ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
+
+        if (take_access && restore_tasks)
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "take_access and restore_tasks cannot both be set to "
+                    "true"DOC_RESTORE);
+            goto fail0;
+        }
     }
 
     if ((node = ti_nodes_not_ready()))
@@ -60,10 +128,22 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_restore_chk((const char *) rname->data, rname->n, e))
         goto fail0;
 
-    job = ti_restore_job((const char *) rname->data, rname->n);
-    if (!job)
+    restore_task = ti_restore_task((const char *) rname->data, rname->n);
+    if (!restore_task)
     {
         ex_set_mem(e);
+        goto fail1;
+    }
+
+    /* check for tasks in the @thingsdb scope, bug #249 */
+    if ((n = ti.tasks->vtasks->n))
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "restore requires all existing tasks to be removed; "
+                "there %s still %"PRIu32" task%s found"DOC_RESTORE,
+                n == 1 ? "is" : "are",
+                n,
+                n == 1 ? "" : "s");
         goto fail1;
     }
 
@@ -100,52 +180,52 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
     }
 
-    if ((n = ti.events->queue->n - 1))
+    if ((n = ti.changes->queue->n - 1))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "restore requires an empty event queue; "
-                "there %s still %"PRIu32" events%s pending"DOC_RESTORE,
+                "restore requires an empty change queue; "
+                "there %s still %"PRIu32" change%s pending"DOC_RESTORE,
                 n == 1 ? "is" : "are",
                 n,
                 n == 1 ? "" : "s");
         goto fail1;
     }
 
-    if (ti.events->next_event_id - 1 > query->ev->id)
+    if (ti.changes->next_change_id - 1 > query->change->id)
     {
         ex_set(e, EX_OPERATION,
-                "restore is expecting to have the last event id but it seems "
-                "another event is claiming the last event id"DOC_RESTORE);
+                "restore is expecting to have the last change id but it seems "
+                "another change is claiming the last change id"DOC_RESTORE);
         goto fail1;
     }
 
-    cevid = ti_nodes_cevid();
-    sevid = ti_nodes_sevid();
+    ccid = ti_nodes_ccid();
+    scid = ti_nodes_scid();
 
-    if (cevid != sevid && ti.nodes->vec->n > 1)
+    if (ccid != scid && ti.nodes->vec->n > 1)
     {
         ex_set(e, EX_OPERATION,
-                "restore requires the committed "TI_EVENT_ID
-                "to be equal to the stored "TI_EVENT_ID""DOC_RESTORE,
-                cevid, sevid);
+                "restore requires the committed "TI_CHANGE_ID
+                "to be equal to the stored "TI_CHANGE_ID""DOC_RESTORE,
+                ccid, scid);
         goto fail1;
     }
 
-    if (cevid != ti.node->cevid)
+    if (ccid != ti.node->ccid)
     {
         ex_set(e, EX_OPERATION,
-                "restore requires the global committed "TI_EVENT_ID
-                "to be equal to the local committed "TI_EVENT_ID""DOC_RESTORE,
-                cevid, ti.node->cevid);
+                "restore requires the global committed "TI_CHANGE_ID
+                "to be equal to the local committed "TI_CHANGE_ID""DOC_RESTORE,
+                ccid, ti.node->ccid);
         goto fail1;
     }
 
-    if (sevid != ti.node->sevid)
+    if (scid != ti.node->scid)
     {
         ex_set(e, EX_OPERATION,
-                "restore requires the global stored "TI_EVENT_ID
-                "to be equal to the local stored "TI_EVENT_ID""DOC_RESTORE,
-                sevid, ti.node->sevid);
+                "restore requires the global stored "TI_CHANGE_ID
+                "to be equal to the local stored "TI_CHANGE_ID""DOC_RESTORE,
+                scid, ti.node->scid);
         goto fail1;
     }
 
@@ -181,16 +261,16 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
      * point, unpacking the tar file is not expected to fail unless there is
      * not enough disk space or other serious error.
      */
-    if (ti_restore_unp(job, e))
+    if (ti_restore_unp(restore_task, e))
         goto fail1;
 
-    if (ti_restore_master(overwrite_access ? query->user : NULL))
+    if (ti_restore_master(take_access ? query->user : NULL, restore_tasks))
     {
         ex_set_internal(e);
         goto fail1;
     }
 
-    task = ti_task_get_task(query->ev, ti.thing0);
+    task = ti_task_get_task(query->change, ti.thing0);
     if (!task || ti_task_add_restore(task))
     {
         ex_set_mem(e);
@@ -200,7 +280,7 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = (ti_val_t *) ti_nil_get();
 
 fail1:
-    free(job);
+    free(restore_task);
 fail0:
     ti_val_unsafe_drop((ti_val_t *) rname);
     return e->nr;

@@ -68,7 +68,7 @@ class TestGC(TestBase):
         with self.assertRaisesRegex(
                 LookupError,
                 r'collection `stuff` has no `thing` with id [0-9]+'):
-            await client.query(f'#{other_id};', scope=stuff)
+            await client.query(f'thing({other_id});', scope=stuff)
 
         await self.node0.shutdown()
         await self.node0.run()
@@ -84,7 +84,7 @@ class TestGC(TestBase):
         await asyncio.sleep(4)
 
         x, other = await client.query(
-            r'return([.x, .a.other], 2);', scope=stuff)
+            r'return [.x, .a.other], 2;', scope=stuff)
         self.assertEqual(x['theanswer'], 42)
         self.assertEqual(x, other)
 
@@ -164,7 +164,7 @@ class TestGC(TestBase):
                     t = thing(id);
                     t.id = id;
                     .b.push(t);
-                    return(true);
+                    return true;
                 });
                 false;
             ''', id=id):

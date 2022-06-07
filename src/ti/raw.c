@@ -11,6 +11,7 @@
 #include <ti/name.h>
 #include <ti/raw.h>
 #include <ti/val.h>
+#include <ti/raw.inline.h>
 #include <util/logger.h>
 #include <util/strx.h>
 
@@ -30,6 +31,7 @@ static const unsigned char base64__table[65] =
 #define RAW__AS_PRINTABLE_BUF_SZ 48
 static char raw__as_printable_buf[RAW__AS_PRINTABLE_BUF_SZ];
 
+
 ti_raw_t * ti_raw_create(uint8_t tp, const void * raw, size_t n)
 {
     ti_raw_t * r = malloc(sizeof(ti_raw_t) + n);
@@ -40,13 +42,6 @@ ti_raw_t * ti_raw_create(uint8_t tp, const void * raw, size_t n)
     r->n = n;
     memcpy(r->data, raw, n);
     return r;
-}
-
-void ti_raw_init(ti_raw_t * raw, uint8_t tp, size_t total_n)
-{
-    raw->ref = 1;
-    raw->tp = tp;
-    raw->n = total_n - sizeof(ti_raw_t);
 }
 
 /*
@@ -214,7 +209,7 @@ done:
     return r;
 }
 
-ti_raw_t * ti_raw_from_slice(
+ti_raw_t * ti_str_from_slice(
         ti_raw_t * source,
         ssize_t start,
         ssize_t stop,
@@ -235,7 +230,7 @@ ti_raw_t * ti_raw_from_slice(
         return NULL;
 
     raw->ref = 1;
-    raw->tp = source->tp;
+    raw->tp = TI_VAL_STR;
     raw->n = n;
 
     dest = raw->data;
@@ -247,6 +242,65 @@ ti_raw_t * ti_raw_from_slice(
         *(++dest) = *(from += step);
 
     return raw;
+}
+
+ti_raw_t * ti_bytes_from_slice(
+        ti_raw_t * source,
+        ssize_t start,
+        ssize_t stop,
+        ssize_t step)
+{
+    ti_raw_t * raw;
+    uchar * dest;
+    uchar * from;
+    ssize_t n = stop - start;
+
+    n = n / step + !!(n % step);
+
+    if (n <= 0)
+        return (ti_raw_t *) ti_val_empty_bin();
+
+    raw = malloc(sizeof(ti_raw_t) + n);
+    if (!raw)
+        return NULL;
+
+    raw->ref = 1;
+    raw->tp = TI_VAL_BYTES;
+    raw->n = n;
+
+    dest = raw->data;
+    from = source->data + start;
+
+    *dest = *from;
+
+    while (--n)
+        *(++dest) = *(from += step);
+
+    return raw;
+}
+
+ti_raw_t * ti_str_from_vec(vec_t * vec)
+{
+    void * buffer;
+    size_t n = sizeof(ti_raw_t);
+
+    for (vec_each(vec, ti_val_t, val))
+        n += ((ti_raw_t *) val)->n;
+
+    buffer = malloc(n);
+    if (!buffer)
+        return NULL;
+
+    ti_raw_init(buffer, TI_VAL_STR, n);
+    buffer += sizeof(ti_raw_t);
+
+    for (vec_each(vec, ti_raw_t, raw))
+    {
+        memcpy(buffer, raw->data, raw->n);
+        buffer += raw->n;
+    }
+
+    return (ti_raw_t *) buffer;
 }
 
 ti_raw_t * ti_str_trim(ti_raw_t * raw)

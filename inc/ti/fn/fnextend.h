@@ -18,7 +18,7 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     current_n = varr_dest->vec->n;
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children, e))
         goto fail1;
 
     if (!ti_val_is_array(query->rval))
@@ -37,24 +37,22 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     source_n = varr_source->vec->n;
 
-    if (vec_extend(&varr_dest->vec, varr_source->vec->data, source_n))
-    {
-        ex_set_mem(e);
-        goto fail2;
-    }
+    if (vec_reserve(&varr_dest->vec, source_n))
+        goto alloc_err;
 
-    /*
-     * If this is the last one we can just clear the source and otherwise it is
-     * required to increase the references of each value
-     */
-    if (varr_source->ref == 1)
-        vec_clear(varr_source->vec);
-    else for (vec_each(varr_source->vec, ti_val_t, v))
+    for (vec_each(varr_source->vec, ti_val_t, v))
+    {
         ti_incref(v);
+        if (ti_val_varr_append(varr_dest, &v, e))
+        {
+            ti_decref(v);
+            goto undo;
+        }
+    }
 
     if (varr_dest->parent && varr_dest->parent->id && source_n)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, varr_dest->parent);
+        ti_task_t * task = ti_task_get_task(query->change, varr_dest->parent);
         if (!task || ti_task_add_splice(
                 task,
                 ti_varr_key(varr_dest),
@@ -63,7 +61,7 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 0,
                 source_n))
             goto alloc_err;  /* we do not need to cleanup task, since the task
-                                is added to `query->ev->tasks` */
+                                is added to `query->change->tasks` */
     }
 
     assert (e->nr == 0);
@@ -73,14 +71,13 @@ static int do__f_extend(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 alloc_err:
     ex_set_mem(e);
-
+undo:
     while (varr_dest->vec->n > current_n)
         ti_val_unsafe_drop(VEC_pop(varr_dest->vec));
 
     (void) vec_shrink(&varr_dest->vec);
 
 done:
-fail2:
     ti_val_unsafe_drop((ti_val_t *) varr_source);
 
 fail1:

@@ -31,8 +31,8 @@ ti_backup_t * ti_backup_create(
         uint64_t created_at,
         queue_t * files);
 _Bool ti_backup_is_gcloud(ti_backup_t * backup);
-char * ti_backup_gcloud_job(ti_backup_t * backup);
-char * ti_backup_job(ti_backup_t * backup);
+char * ti_backup_gcloud_task(ti_backup_t * backup);
+char * ti_backup_task(ti_backup_t * backup);
 void ti_backup_destroy(ti_backup_t * backup);
 int ti_backup_info_to_pk(ti_backup_t * backup, msgpack_packer * pk);
 ti_val_t * ti_backup_as_mpval(ti_backup_t * backup);
@@ -44,7 +44,7 @@ struct ti_backup_s
     uint64_t next_run;      /* Next run, UNIX time-stamp in seconds */
     uint64_t repeat;        /* Repeat every X seconds */
     uint64_t created_at;    /* UNIX time-stamp in seconds */
-    char * fn_template;     /* {EVENT} {DATE} {TIME} */
+    char * fn_template;     /* {CHANGE_ID} {DATE} {TIME} */
     char * result_msg;      /* last status message */
     ti_raw_t * work_fn;     /* current backup file name */
     queue_t * files;        /* ti_raw_t, successful files, size: >=max_files */

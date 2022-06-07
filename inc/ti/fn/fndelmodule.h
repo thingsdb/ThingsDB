@@ -8,7 +8,7 @@ static int do__f_del_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_scope("del_module", query, e) ||
         fn_nargs("del_module", DOC_DEL_MODULE, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str_slow("del_module", DOC_DEL_MODULE, 1, query->rval, e))
         return e->nr;
 
@@ -16,12 +16,12 @@ static int do__f_del_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!module)
         return ti_raw_err_not_found((ti_raw_t *) query->rval, "module", e);
 
-    task = ti_task_get_task(query->ev, ti.thing0);
+    task = ti_task_get_task(query->change, ti.thing0);
     if (!task || ti_task_add_del_module(task, module))
         ex_set_mem(e);  /* task cleanup is not required */
     else
         /* this will remove the module so it cannot be used after here */
-        ti_module_del(module);
+        ti_module_del(module, true);
 
     ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();

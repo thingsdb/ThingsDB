@@ -22,7 +22,7 @@ typedef enum
 
 int ti_nodes_create(void);
 void ti_nodes_destroy(void);
-int ti_nodes_read_scevid(void);
+int ti_nodes_read_sccid(void);
 int ti_nodes_write_global_status(void);
 int ti_nodes_listen(void);
 uint8_t ti_nodes_quorum(void);
@@ -35,8 +35,8 @@ int ti_nodes_from_up(mp_unp_t * up);
 ti_nodes_ignore_t ti_nodes_ignore_sync(uint8_t retry_offline);
 _Bool ti_nodes_require_sync(void);
 int ti_nodes_check_add(ex_t * e);
-uint64_t ti_nodes_cevid(void);
-uint64_t ti_nodes_sevid(void);
+uint64_t ti_nodes_ccid(void);
+uint64_t ti_nodes_scid(void);
 uint32_t ti_nodes_next_id(void);
 void ti_nodes_update_syntax_ver(uint16_t syntax_ver);
 ti_node_t * ti_nodes_new_node(
@@ -59,11 +59,12 @@ struct ti_nodes_s
 {
     vec_t * vec;            /* store the nodes */
     uv_tcp_t tcp;
-    uint64_t cevid;         /* last committed event id by ALL nodes,
+    uv_mutex_t lock;
+    uint64_t ccid;         /* last committed change id by ALL nodes,
                                ti_archive_t saves this value to disk at
                                cleanup and is therefore responsible to set
                                the initial value at startup */
-    uint64_t sevid;         /* last stored event id by ALL nodes,
+    uint64_t scid;         /* last stored change id by ALL nodes,
                                ti_archive_t saves this value to disk at
                                cleanup and is therefore responsible to set
                                the initial value at startup */
@@ -71,7 +72,7 @@ struct ti_nodes_s
     uint16_t syntax_ver;    /* lowest syntax version by ALL nodes */
     uint16_t pad0_;
     char * status_fn;       /* this file contains the last known committed
-                               and stored event id's by ALL nodes, and the
+                               and stored change id's by ALL nodes, and the
                                lowest known syntax version */
 };
 

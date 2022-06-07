@@ -28,7 +28,7 @@ static int do__f_to(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = NULL;
     }
 
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         fn_arg_str("to", DOC_DATETIME_TO, 1, query->rval, e) ||
         ti_datetime_to_zone(dt, (ti_raw_t *) query->rval, e))
         goto fail0;

@@ -16,7 +16,7 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         fn_arg_str("get", DOC_THING_GET, 1, query->rval, e))
         goto done;
 
@@ -29,7 +29,7 @@ static int do__f_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (nargs == 2)
         {
             query->rval = NULL;
-            (void) ti_do_statement(query, nd->children->next->next->node, e);
+            (void) ti_do_statement(query, nd->children->next->next, e);
             goto done;
         }
 

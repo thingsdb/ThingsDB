@@ -3,7 +3,7 @@
 static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    cleri_children_t * child = nd->children;
+    cleri_node_t * child = nd->children;
     ti_user_t * user;
     ti_raw_t * uname;
     ti_task_t * task;
@@ -12,7 +12,7 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_scope("revoke", query, e) ||
         fn_nargs("revoke", DOC_REVOKE, 3, nargs, e) ||
-        ti_do_statement(query, child->node, e))
+        ti_do_statement(query, child, e))
         return e->nr;
 
     access_ = ti_val_get_access(query->rval, e, &scope_id);
@@ -23,7 +23,7 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
 
     /* read user */
-    if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+    if (ti_do_statement(query, (child = child->next->next), e) ||
         fn_arg_str_slow("revoke", DOC_REVOKE, 2, query->rval, e))
         return e->nr;
 
@@ -36,27 +36,29 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
 
     /* read mask */
-    if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+    if (ti_do_statement(query, (child = child->next->next), e) ||
         fn_arg_int("revoke", DOC_REVOKE, 3, query->rval, e))
         return e->nr;
 
     mask = (uint64_t) VINT(query->rval);
 
-    /* make sure EVENT when GRANT */
-    if (mask & TI_AUTH_EVENT)
+    /* make sure CHANGE when GRANT */
+    if (mask & TI_AUTH_CHANGE)
         mask |= TI_AUTH_GRANT;
 
-    if (query->user == user && (mask & TI_AUTH_GRANT))
+    /* bug #270, no longer allow the removal of own QUERY access */
+    if (query->user == user && (mask & (TI_AUTH_GRANT|TI_AUTH_QUERY)))
     {
         ex_set(e, EX_OPERATION,
-                "it is not possible to revoke your own `GRANT` privileges"
+                "it is not possible to revoke your own `GRANT` and/or `QUERY` "
+                "privileges"
                 DOC_REVOKE);
         return e->nr;
     }
 
     ti_access_revoke(*access_, user, mask);
 
-    task = ti_task_get_task(query->ev, ti.thing0);
+    task = ti_task_get_task(query->change, ti.thing0);
     if (!task || ti_task_add_revoke(task, scope_id, user, mask))
         ex_set_mem(e);  /* task cleanup is not required */
 

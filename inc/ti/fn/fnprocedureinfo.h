@@ -8,7 +8,7 @@ static int do__f_procedure_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_or_collection_scope("procedure_info", query, e) ||
         fn_nargs("procedure_info", DOC_PROCEDURE_INFO, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str("procedure_info", DOC_PROCEDURE_INFO, 1, query->rval, e))
         return e->nr;
 
@@ -20,7 +20,7 @@ static int do__f_procedure_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = ti_procedure_as_mpval(procedure, ti_access_check(
             ti_query_access(query),
             query->user,
-            TI_AUTH_EVENT));
+            TI_AUTH_CHANGE));
 
     if (!query->rval)
         ex_set_mem(e);

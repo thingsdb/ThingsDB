@@ -38,7 +38,7 @@ class TestFuture(TestBase):
     async def test_recursion(self, client):
         with self.assertRaisesRegex(
                 OperationError,
-                r'maximum recursion depth exceeded'):
+                r'maximum nested future count has been reached;'):
             await client.query(r'''
                 fut = || {
                     future(nil, fut).then(|_, fut| {
@@ -147,7 +147,7 @@ class TestFuture(TestBase):
             new_user('read');
             new_user('write');
             grant('//stuff', 'read', RUN);
-            grant('//stuff', 'write', RUN|EVENT);
+            grant('//stuff', 'write', RUN|CHANGE);
             [new_token('read'), new_token('write')];
         ''', scope='@t')
 
@@ -189,6 +189,18 @@ class TestFuture(TestBase):
         ''')
 
         self.assertEqual(res, {'messages': 3})
+
+    async def test_simple_closure(self, client):
+        res = await client.query(r'''
+            future(|| 'OK');
+        ''')
+        self.assertEqual(res, 'OK')
+
+    async def test_nest_future(self, client):
+        res = res = await client.query(r"""//ti
+            future(|| future(|| future(|| 'OK')));
+        """)
+        self.assertEqual(res, 'OK')
 
 
 if __name__ == '__main__':

@@ -21,20 +21,20 @@ static inline void task__upd_approx_sz(ti_task_t * task, ti_data_t * data)
     task->approx_sz += data->n;
 }
 
-ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing)
+ti_task_t * ti_task_create(uint64_t change_id, ti_thing_t * thing)
 {
     ti_task_t * task = malloc(sizeof(ti_task_t));
     if (!task)
         return NULL;
 
-    task->event_id = event_id;
+    task->change_id = change_id;
     task->thing = thing;
-    task->jobs = vec_new(1);
+    task->list = vec_new(1);
     task->approx_sz = 11;  /* thing_id (9) + map (1) + [close map] (1) */
 
     ti_incref(thing);
 
-    if (!task->jobs)
+    if (!task->list)
     {
         ti_task_destroy(task);
         return NULL;
@@ -43,17 +43,17 @@ ti_task_t * ti_task_create(uint64_t event_id, ti_thing_t * thing)
     return task;
 }
 
-ti_task_t * ti_task_get_task(ti_event_t * ev, ti_thing_t * thing)
+ti_task_t * ti_task_get_task(ti_change_t * change, ti_thing_t * thing)
 {
-    ti_task_t * task = vec_last(ev->_tasks);
+    ti_task_t * task = vec_last(change->_tasks);
     if (task && task->thing == thing)
         return task;
 
-    task = ti_task_create(ev->id, thing);
+    task = ti_task_create(change->id, thing);
     if (!task)
         goto failed;
 
-    if (vec_push(&ev->_tasks, task))
+    if (vec_push(&change->_tasks, task))
         goto failed;
 
     return task;
@@ -67,71 +67,40 @@ void ti_task_destroy(ti_task_t * task)
 {
     if (!task)
         return;
-    vec_destroy(task->jobs, free);
+    vec_destroy(task->list, free);
     ti_val_unsafe_drop((ti_val_t *) task->thing);
     free(task);
 }
 
-ti_pkg_t * ti_task_pkg_watch(ti_task_t * task)
-{
-    ti_pkg_t * pkg;
-    msgpack_packer pk;
-    msgpack_sbuffer buffer;
-
-    if (mp_sbuffer_alloc_init(&buffer, task->approx_sz, sizeof(ti_pkg_t)))
-        return NULL;
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-
-    msgpack_pack_map(&pk, 3);
-
-    mp_pack_strn(&pk, TI_KIND_S_THING, 1);
-    msgpack_pack_uint64(&pk, task->thing->id);
-
-    mp_pack_str(&pk, "event");
-    msgpack_pack_uint64(&pk, task->event_id);
-
-    mp_pack_str(&pk, "jobs");
-    msgpack_pack_array(&pk, task->jobs->n);
-    for (vec_each(task->jobs, ti_data_t, data))
-    {
-        mp_pack_append(&pk, data->data, data->n);
-    }
-
-    pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_WATCH_UPD, buffer.size);
-
-    return pkg;
-}
-
-int ti_task_add_add(ti_task_t * task, ti_raw_t * key, vec_t * added)
+int ti_task_add_set_add(ti_task_t * task, ti_raw_t * key, vec_t * added)
 {
     assert (added->n);
     assert (key);
     ti_data_t * data;
-    ti_vp_t vp;
+    msgpack_packer pk;
     msgpack_sbuffer buffer;
 
     mp_sbuffer_alloc_init(&buffer, sizeof(ti_data_t), sizeof(ti_data_t));
-    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    if (msgpack_pack_map(&vp.pk, 1) ||
-        mp_pack_str(&vp.pk, "add") ||
-        msgpack_pack_map(&vp.pk, 1)
+    if (msgpack_pack_array(&pk, 2) ||
+        msgpack_pack_uint8(&pk, TI_TASK_SET_ADD) ||
+        msgpack_pack_map(&pk, 1)
     ) goto fail_pack;
 
-    if (mp_pack_strn(&vp.pk, key->data, key->n) ||
-        msgpack_pack_array(&vp.pk, added->n)
+    if (mp_pack_strn(&pk, key->data, key->n) ||
+        msgpack_pack_array(&pk, added->n)
     ) goto fail_pack;
 
     for (vec_each(added, ti_thing_t, thing))
         if ((!thing->id && ti_thing_gen_id(thing)) ||
-            ti_val_to_pk((ti_val_t *) thing, &vp, TI_VAL_PACK_TASK)
+            ti_val_to_store_pk((ti_val_t *) thing, &pk)
         ) goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -146,31 +115,117 @@ fail_pack:
     return -1;
 }
 
+int ti_task_add_thing_clear(ti_task_t * task)
+{
+    size_t alloc = 32;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+    msgpack_pack_uint8(&pk, TI_TASK_THING_CLEAR);
+    msgpack_pack_nil(&pk);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_arr_clear(ti_task_t * task, ti_raw_t * key)
+{
+    assert (key);
+    size_t alloc = 32;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+    msgpack_pack_uint8(&pk, TI_TASK_ARR_CLEAR);
+    mp_pack_strn(&pk, key->data, key->n);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_set_clear(ti_task_t * task, ti_raw_t * key)
+{
+    assert (key);
+    size_t alloc = 32;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+    msgpack_pack_uint8(&pk, TI_TASK_SET_CLEAR);
+    mp_pack_strn(&pk, key->data, key->n);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
 int ti_task_add_set(ti_task_t * task, ti_raw_t * key, ti_val_t * val)
 {
     ti_data_t * data;
-    ti_vp_t vp;
+    msgpack_packer pk;
     msgpack_sbuffer buffer;
 
     mp_sbuffer_alloc_init(&buffer, sizeof(ti_data_t), sizeof(ti_data_t));
-    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
     if (ti_val_gen_ids(val))
         return -1;
 
-    if (msgpack_pack_map(&vp.pk, 1) ||
-        mp_pack_str(&vp.pk, "set") ||
-        msgpack_pack_map(&vp.pk, 1)
+    if (msgpack_pack_array(&pk, 2) ||
+        msgpack_pack_uint8(&pk, TI_TASK_SET) ||
+        msgpack_pack_map(&pk, 1)
     ) goto fail_pack;
 
-    if (mp_pack_strn(&vp.pk, key->data, key->n) ||
-        ti_val_to_pk(val, &vp, TI_VAL_PACK_TASK)
+    if (mp_pack_strn(&pk, key->data, key->n) ||
+        ti_val_to_store_pk(val, &pk)
     ) goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -196,9 +251,9 @@ int ti_task_add_new_type(ti_task_t * task, ti_type_t * type)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "new_type");
+    msgpack_pack_uint8(&pk, TI_TASK_NEW_TYPE);
     msgpack_pack_map(&pk, 4);
 
     mp_pack_str(&pk, "type_id");
@@ -216,7 +271,7 @@ int ti_task_add_new_type(ti_task_t * task, ti_type_t * type)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -226,6 +281,97 @@ fail_data:
     free(data);
     return -1;
 }
+
+int ti_task_add_to_thing(ti_task_t * task)
+{
+    size_t alloc = 32;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_TO_THING);
+    msgpack_pack_true(&pk);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_to_type(ti_task_t * task, ti_type_t * type)
+{
+    size_t alloc = 32;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_TO_TYPE);
+    msgpack_pack_uint16(&pk, type->type_id);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_restrict(ti_task_t * task, uint16_t spec)
+{
+    size_t alloc = 32;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_THING_RESTRICT);
+    msgpack_pack_uint16(&pk, spec);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
 
 int ti_task_add_set_type(ti_task_t * task, ti_type_t * type)
 {
@@ -238,9 +384,9 @@ int ti_task_add_set_type(ti_task_t * task, ti_type_t * type)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "set_type");
+    msgpack_pack_uint8(&pk, TI_TASK_SET_TYPE);
     msgpack_pack_map(&pk, 5);
 
     mp_pack_str(&pk, "type_id");
@@ -261,7 +407,7 @@ int ti_task_add_set_type(ti_task_t * task, ti_type_t * type)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -283,14 +429,16 @@ int ti_task_add_del(ti_task_t * task, ti_raw_t * rname)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
-    mp_pack_str(&pk, "del");
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_DEL);
+
     mp_pack_strn(&pk, rname->data, rname->n);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -312,15 +460,15 @@ int ti_task_add_del_collection(ti_task_t * task, uint64_t collection_id)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "del_collection");
+    msgpack_pack_uint8(&pk, TI_TASK_DEL_COLLECTION);
     msgpack_pack_uint64(&pk, collection_id);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -342,15 +490,15 @@ int ti_task_add_del_expired(ti_task_t * task, uint64_t after_ts)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "del_expired");
+    msgpack_pack_uint8(&pk, TI_TASK_DEL_EXPIRED);
     msgpack_pack_uint64(&pk, after_ts);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -372,43 +520,15 @@ int ti_task_add_del_procedure(ti_task_t * task, ti_raw_t * name)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
-    mp_pack_str(&pk, "del_procedure");
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_DEL_PROCEDURE);
     mp_pack_strn(&pk, name->data, name->n);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
-        goto fail_data;
-
-    task__upd_approx_sz(task, data);
-    return 0;
-
-fail_data:
-    free(data);
-    return -1;
-}
-
-int ti_task_add_del_timer(ti_task_t * task, ti_timer_t * timer)
-{
-    size_t alloc = 64;
-    ti_data_t * data;
-    msgpack_packer pk;
-    msgpack_sbuffer buffer;
-
-    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
-        return -1;
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-
-    msgpack_pack_map(&pk, 1);
-    mp_pack_str(&pk, "del_timer");
-    msgpack_pack_uint64(&pk, timer->id);
-
-    data = (ti_data_t *) buffer.data;
-    ti_data_init(data, buffer.size);
-
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -430,14 +550,15 @@ int ti_task_add_del_token(ti_task_t * task, ti_token_key_t * key)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
-    mp_pack_str(&pk, "del_token");
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_DEL_TOKEN);
     mp_pack_strn(&pk, key, sizeof(ti_token_key_t));
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -459,14 +580,15 @@ int ti_task_add_del_type(ti_task_t * task, ti_type_t * type)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
-    mp_pack_str(&pk, "del_type");
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_DEL_TYPE);
     msgpack_pack_uint16(&pk, type->type_id);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -488,9 +610,9 @@ int ti_task_add_rename_type(ti_task_t * task, ti_type_t * type)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
-    mp_pack_str(&pk, "rename_type");
+    msgpack_pack_array(&pk, 2);
 
+    msgpack_pack_uint8(&pk, TI_TASK_RENAME_TYPE);
     msgpack_pack_map(&pk, 2);
 
     mp_pack_str(&pk, "id");
@@ -502,7 +624,7 @@ int ti_task_add_rename_type(ti_task_t * task, ti_type_t * type)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -524,9 +646,9 @@ int ti_task_add_rename_enum(ti_task_t * task, ti_enum_t * enum_)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
-    mp_pack_str(&pk, "rename_enum");
+    msgpack_pack_array(&pk, 2);
 
+    msgpack_pack_uint8(&pk, TI_TASK_RENAME_ENUM);
     msgpack_pack_map(&pk, 2);
 
     mp_pack_str(&pk, "id");
@@ -538,7 +660,7 @@ int ti_task_add_rename_enum(ti_task_t * task, ti_enum_t * enum_)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -560,15 +682,15 @@ int ti_task_add_del_user(ti_task_t * task, ti_user_t * user)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "del_user");
+    msgpack_pack_uint8(&pk, TI_TASK_DEL_USER);
     msgpack_pack_uint64(&pk, user->id);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -590,15 +712,57 @@ int ti_task_add_del_module(ti_task_t * task, ti_module_t * module)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "del_module");
+    msgpack_pack_uint8(&pk, TI_TASK_DEL_MODULE);
     mp_pack_strn(&pk, module->name->str, module->name->n);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_deploy_module(
+        ti_task_t * task,
+        ti_module_t * module,
+        ti_raw_t * mdata)  /* mdata may be NULL */
+{
+    size_t alloc = 64 + module->name->n + (mdata ? mdata->n : 0);
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_DEPLOY_MODULE);
+    msgpack_pack_map(&pk, 2);
+
+    mp_pack_str(&pk, "name");
+    mp_pack_strn(&pk, module->name->str, module->name->n);
+
+    mp_pack_str(&pk, "data");
+    if (mdata)
+        mp_pack_bin(&pk, mdata->data, mdata->n);
+    else
+        msgpack_pack_nil(&pk);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -620,9 +784,9 @@ int ti_task_add_set_module_scope(ti_task_t * task, ti_module_t * module)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "set_module_scope");
+    msgpack_pack_uint8(&pk, TI_TASK_SET_MODULE_SCOPE);
     msgpack_pack_map(&pk, 2);
 
     mp_pack_str(&pk, "name");
@@ -637,7 +801,7 @@ int ti_task_add_set_module_scope(ti_task_t * task, ti_module_t * module)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -659,9 +823,9 @@ int ti_task_add_set_module_conf(ti_task_t * task, ti_module_t * module)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "set_module_conf");
+    msgpack_pack_uint8(&pk, TI_TASK_SET_MODULE_CONF);
     msgpack_pack_map(&pk, 2);
 
     mp_pack_str(&pk, "name");
@@ -681,7 +845,7 @@ int ti_task_add_set_module_conf(ti_task_t * task, ti_module_t * module)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -707,9 +871,9 @@ int ti_task_add_grant(
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "grant");
+    msgpack_pack_uint8(&pk, TI_TASK_GRANT);
     msgpack_pack_map(&pk, 3);
 
     mp_pack_str(&pk, "scope");
@@ -724,7 +888,7 @@ int ti_task_add_grant(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -749,9 +913,9 @@ int ti_task_add_new_collection(
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "new_collection");
+    msgpack_pack_uint8(&pk, TI_TASK_NEW_COLLECTION);
     msgpack_pack_map(&pk, 4);
 
     mp_pack_str(&pk, "name");
@@ -769,7 +933,7 @@ int ti_task_add_new_collection(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -780,13 +944,15 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_new_module(ti_task_t * task, ti_module_t * module)
+int ti_task_add_new_module(
+        ti_task_t * task,
+        ti_module_t * module,
+        ti_raw_t * source)
 {
-    size_t file_n = strlen(module->fn);
     size_t alloc = \
             128 + \
             module->name->n + \
-            file_n + \
+            source->n + \
             (module->conf_pkg ? module->conf_pkg->n : 0);
 
     ti_data_t * data;
@@ -797,16 +963,16 @@ int ti_task_add_new_module(ti_task_t * task, ti_module_t * module)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "new_module");
+    msgpack_pack_uint8(&pk, TI_TASK_NEW_MODULE);
     msgpack_pack_map(&pk, 5);
 
     mp_pack_str(&pk, "name");
     mp_pack_strn(&pk, module->name->str, module->name->n);
 
-    mp_pack_str(&pk, "file");
-    mp_pack_strn(&pk, module->fn, file_n);
+    mp_pack_str(&pk, "source");
+    mp_pack_strn(&pk, source->data, source->n);
 
     mp_pack_str(&pk, "created_at");
     msgpack_pack_uint64(&pk, module->created_at);
@@ -831,7 +997,7 @@ int ti_task_add_new_module(ti_task_t * task, ti_module_t * module)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -853,9 +1019,9 @@ int ti_task_add_new_node(ti_task_t * task, ti_node_t * node)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "new_node");
+    msgpack_pack_uint8(&pk, TI_TASK_NEW_NODE);
     msgpack_pack_map(&pk, 4);
 
     mp_pack_str(&pk, "id");
@@ -873,7 +1039,7 @@ int ti_task_add_new_node(ti_task_t * task, ti_node_t * node)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -895,9 +1061,9 @@ int ti_task_add_new_procedure(ti_task_t * task, ti_procedure_t * procedure)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "new_procedure");
+    msgpack_pack_uint8(&pk, TI_TASK_NEW_PROCEDURE);
     msgpack_pack_map(&pk, 3);
 
     mp_pack_str(&pk, "name");
@@ -907,13 +1073,13 @@ int ti_task_add_new_procedure(ti_task_t * task, ti_procedure_t * procedure)
     msgpack_pack_uint64(&pk, procedure->created_at);
 
     mp_pack_str(&pk, "closure");
-    if (ti_closure_to_pk(procedure->closure, &pk))
+    if (ti_closure_to_store_pk(procedure->closure, &pk))
         goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -928,54 +1094,51 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_new_timer(ti_task_t * task, ti_timer_t * timer)
+int ti_task_add_vtask_new(ti_task_t * task, ti_vtask_t * vtask)
 {
     size_t alloc = 1024;
     ti_data_t * data;
-    ti_vp_t vp;
+    msgpack_packer pk;
     msgpack_sbuffer buffer;
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&vp.pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&vp.pk, "new_timer");
-    msgpack_pack_map(&vp.pk, 6);
+    msgpack_pack_uint8(&pk, TI_TASK_VTASK_NEW);
+    msgpack_pack_map(&pk, 5);
 
-    mp_pack_str(&vp.pk, "id");
-    msgpack_pack_uint64(&vp.pk, timer->id);
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, vtask->id);
 
-    mp_pack_str(&vp.pk, "next_run");
-    msgpack_pack_uint64(&vp.pk, timer->next_run);
+    mp_pack_str(&pk, "run_at");
+    msgpack_pack_uint64(&pk, vtask->run_at);
 
-    mp_pack_str(&vp.pk, "repeat");
-    msgpack_pack_uint32(&vp.pk, timer->repeat);
+    mp_pack_str(&pk, "user_id");
+    msgpack_pack_uint64(&pk, vtask->user->id);
 
-    mp_pack_str(&vp.pk, "user_id");
-    msgpack_pack_uint64(&vp.pk, timer->user->id);
+    if (mp_pack_str(&pk, "closure") ||
+        ti_closure_to_store_pk(vtask->closure, &pk) ||
 
-    if (mp_pack_str(&vp.pk, "closure") ||
-        ti_closure_to_pk(timer->closure, &vp.pk) ||
-
-        mp_pack_str(&vp.pk, "args") ||
-        msgpack_pack_array(&vp.pk, timer->args->n))
+        mp_pack_str(&pk, "args") ||
+        msgpack_pack_array(&pk, vtask->args->n))
         goto fail_pack;
 
     /*
      * In the @thingsdb scope there are no things allowed as arguments so
      * the code below should run fine
      */
-    for (vec_each(timer->args, ti_val_t, val))
+    for (vec_each(vtask->args, ti_val_t, val))
         if (ti_val_gen_ids(val) ||
-            ti_val_to_pk(val, &vp, TI_VAL_PACK_TASK))
+            ti_val_to_store_pk(val, &pk))
             goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -990,41 +1153,153 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_set_timer_args(ti_task_t * task, ti_timer_t * timer)
+int ti_task_add_vtask_del(ti_task_t * task, ti_vtask_t * vtask)
 {
-    size_t alloc = 1024;
+    size_t alloc = 64;
     ti_data_t * data;
-    ti_vp_t vp;
+    msgpack_packer pk;
     msgpack_sbuffer buffer;
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&vp.pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&vp.pk, "set_timer_args");
-    msgpack_pack_map(&vp.pk, 2);
+    msgpack_pack_uint8(&pk, TI_TASK_VTASK_DEL);
+    msgpack_pack_map(&pk, 1);
 
-    mp_pack_str(&vp.pk, "id");
-    msgpack_pack_uint64(&vp.pk, timer->id);
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, vtask->id);
 
-    mp_pack_str(&vp.pk, "args");
-    msgpack_pack_array(&vp.pk, timer->args->n);
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_vtask_cancel(ti_task_t * task, ti_vtask_t * vtask)
+{
+    size_t alloc = 64;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_VTASK_CANCEL);
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, vtask->id);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_vtask_finish(ti_task_t * task, ti_vtask_t * vtask)
+{
+    size_t alloc = 1024;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_VTASK_FINISH);
+    msgpack_pack_map(&pk, 3);
+
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, vtask->id);
+
+    mp_pack_str(&pk, "run_at");
+    msgpack_pack_uint64(&pk, vtask->run_at);
+
+    mp_pack_str(&pk, "verr");
+    if (vtask->verr->code == 0)
+        msgpack_pack_nil(&pk);
+    else if (ti_verror_to_store_pk(vtask->verr, &pk))
+        goto fail_pack;
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+
+fail_pack:
+    msgpack_sbuffer_destroy(&buffer);
+    return -1;
+}
+
+int ti_task_add_vtask_set_args(ti_task_t * task, ti_vtask_t * vtask)
+{
+    size_t alloc = 1024;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_VTASK_SET_ARGS);
+    msgpack_pack_map(&pk, 2);
+
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, vtask->id);
+
+    mp_pack_str(&pk, "args");
+    msgpack_pack_array(&pk, vtask->args->n);
 
     /*
      * In the @thingsdb scope there are no things allowed as arguments so
      * the code below should run fine
      */
-    for (vec_each(timer->args, ti_val_t, val))
+    for (vec_each(vtask->args, ti_val_t, val))
         if (ti_val_gen_ids(val) ||
-            ti_val_to_pk(val, &vp, TI_VAL_PACK_TASK))
+            ti_val_to_store_pk(val, &pk))
             goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1039,6 +1314,82 @@ fail_pack:
     return -1;
 }
 
+int ti_task_add_vtask_set_owner(ti_task_t * task, ti_vtask_t * vtask)
+{
+    size_t alloc = 128;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_VTASK_SET_OWNER);
+    msgpack_pack_map(&pk, 2);
+
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, vtask->id);
+
+    mp_pack_str(&pk, "owner");
+    msgpack_pack_uint64(&pk, vtask->user->id);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_vtask_set_closure(ti_task_t * task, ti_vtask_t * vtask)
+{
+    size_t alloc = 64 + vtask->closure->node->len;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_VTASK_SET_CLOSURE);
+    msgpack_pack_map(&pk, 2);
+
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, vtask->id);
+
+    mp_pack_str(&pk, "closure");
+    if (ti_closure_to_store_pk(vtask->closure, &pk))
+        goto fail_pack;
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+
+fail_pack:
+    msgpack_sbuffer_destroy(&buffer);
+    return -1;
+}
 int ti_task_add_new_token(
         ti_task_t * task,
         ti_user_t * user,
@@ -1053,9 +1404,9 @@ int ti_task_add_new_token(
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "new_token");
+    msgpack_pack_uint8(&pk, TI_TASK_NEW_TOKEN);
     msgpack_pack_map(&pk, 5);
 
     mp_pack_str(&pk, "id");
@@ -1076,7 +1427,7 @@ int ti_task_add_new_token(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1098,9 +1449,9 @@ int ti_task_add_new_user(ti_task_t * task, ti_user_t * user)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "new_user");
+    msgpack_pack_uint8(&pk, TI_TASK_NEW_USER);
     msgpack_pack_map(&pk, 3);
 
     mp_pack_str(&pk, "id");
@@ -1115,7 +1466,7 @@ int ti_task_add_new_user(ti_task_t * task, ti_user_t * user)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1134,41 +1485,41 @@ int ti_task_add_mod_type_add_field(
     ti_field_t * field = VEC_last(type->fields);
     size_t alloc = dval ? 8192 : 64 + field->name->n + field->spec_raw->n;
     ti_data_t * data;
-    ti_vp_t vp;
+    msgpack_packer pk;
     msgpack_sbuffer buffer;
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&vp.pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&vp.pk, "mod_type_add");
-    msgpack_pack_map(&vp.pk, dval ? 5 : 4);
+    msgpack_pack_uint8(&pk, TI_TASK_MOD_TYPE_ADD);
+    msgpack_pack_map(&pk, dval ? 5 : 4);
 
-    mp_pack_str(&vp.pk, "type_id");
-    msgpack_pack_uint16(&vp.pk, type->type_id);
+    mp_pack_str(&pk, "type_id");
+    msgpack_pack_uint16(&pk, type->type_id);
 
-    mp_pack_str(&vp.pk, "modified_at");
-    msgpack_pack_uint64(&vp.pk, type->modified_at);
+    mp_pack_str(&pk, "modified_at");
+    msgpack_pack_uint64(&pk, type->modified_at);
 
-    mp_pack_str(&vp.pk, "name");
-    mp_pack_strn(&vp.pk, field->name->str, field->name->n);
+    mp_pack_str(&pk, "name");
+    mp_pack_strn(&pk, field->name->str, field->name->n);
 
-    mp_pack_str(&vp.pk, "spec");
-    mp_pack_strn(&vp.pk, field->spec_raw->data, field->spec_raw->n);
+    mp_pack_str(&pk, "spec");
+    mp_pack_strn(&pk, field->spec_raw->data, field->spec_raw->n);
 
     if (dval)
     {
-        mp_pack_str(&vp.pk, "dval");
-        if (ti_val_to_pk(dval, &vp, TI_VAL_PACK_TASK))
+        mp_pack_str(&pk, "dval");
+        if (ti_val_to_store_pk(dval, &pk))
             goto fail_pack;
     }
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1195,9 +1546,9 @@ int ti_task_add_mod_type_add_method(ti_task_t * task, ti_type_t * type)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "mod_type_add");
+    msgpack_pack_uint8(&pk, TI_TASK_MOD_TYPE_ADD);
     msgpack_pack_map(&pk, 4);
 
     mp_pack_str(&pk, "type_id");
@@ -1210,13 +1561,13 @@ int ti_task_add_mod_type_add_method(ti_task_t * task, ti_type_t * type)
     mp_pack_strn(&pk, method->name->str, method->name->n);
 
     mp_pack_str(&pk, "closure");
-    if (ti_closure_to_pk(method->closure, &pk))
+    if (ti_closure_to_store_pk(method->closure, &pk))
         goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1247,9 +1598,9 @@ int ti_task_add_mod_type_rel_add(
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "mod_type_rel_add");
+    msgpack_pack_uint8(&pk, TI_TASK_MOD_TYPE_REL_ADD);
     msgpack_pack_map(&pk, 5);
 
     mp_pack_str(&pk, "modified_at");
@@ -1270,7 +1621,7 @@ int ti_task_add_mod_type_rel_add(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1295,9 +1646,9 @@ int ti_task_add_mod_type_rel_del(
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "mod_type_rel_del");
+    msgpack_pack_uint8(&pk, TI_TASK_MOD_TYPE_REL_DEL);
     msgpack_pack_map(&pk, 3);
 
     mp_pack_str(&pk, "modified_at");
@@ -1312,7 +1663,7 @@ int ti_task_add_mod_type_rel_del(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1337,9 +1688,9 @@ int ti_task_add_mod_type_del(
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "mod_type_del");
+    msgpack_pack_uint8(&pk, TI_TASK_MOD_TYPE_DEL);
     msgpack_pack_map(&pk, 3);
 
     mp_pack_str(&pk, "type_id");
@@ -1354,7 +1705,7 @@ int ti_task_add_mod_type_del(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1376,9 +1727,9 @@ int ti_task_add_mod_type_mod_field(ti_task_t * task, ti_field_t * field)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "mod_type_mod");
+    msgpack_pack_uint8(&pk, TI_TASK_MOD_TYPE_MOD);
     msgpack_pack_map(&pk, 4);
 
     mp_pack_str(&pk, "type_id");
@@ -1396,7 +1747,7 @@ int ti_task_add_mod_type_mod_field(ti_task_t * task, ti_field_t * field)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1421,9 +1772,9 @@ int ti_task_add_mod_type_mod_method(
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "mod_type_mod");
+    msgpack_pack_uint8(&pk, TI_TASK_MOD_TYPE_MOD);
     msgpack_pack_map(&pk, 4);
 
     mp_pack_str(&pk, "type_id");
@@ -1436,12 +1787,12 @@ int ti_task_add_mod_type_mod_method(
     mp_pack_strn(&pk, method->name->str, method->name->n);
 
     mp_pack_str(&pk, "closure");
-    ti_closure_to_pk(method->closure, &pk);
+    ti_closure_to_store_pk(method->closure, &pk);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1467,9 +1818,9 @@ int ti_task_add_mod_type_ren(
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "mod_type_ren");
+    msgpack_pack_uint8(&pk, TI_TASK_MOD_TYPE_REN);
     msgpack_pack_map(&pk, 4);
 
     mp_pack_str(&pk, "type_id");
@@ -1487,7 +1838,7 @@ int ti_task_add_mod_type_ren(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1509,9 +1860,9 @@ int ti_task_add_mod_type_wpo(ti_task_t * task, ti_type_t * type)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "mod_type_wpo");
+    msgpack_pack_uint8(&pk, TI_TASK_MOD_TYPE_WPO);
     msgpack_pack_map(&pk, 3);
 
     mp_pack_str(&pk, "type_id");
@@ -1526,7 +1877,7 @@ int ti_task_add_mod_type_wpo(ti_task_t * task, ti_type_t * type)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1548,15 +1899,15 @@ int ti_task_add_del_node(ti_task_t * task, uint32_t node_id)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "del_node");
+    msgpack_pack_uint8(&pk, TI_TASK_DEL_NODE);
     msgpack_pack_uint32(&pk, node_id);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1567,7 +1918,7 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_remove(ti_task_t * task, ti_raw_t * key, vec_t * removed)
+int ti_task_add_set_remove(ti_task_t * task, ti_raw_t * key, vec_t * removed)
 {
     assert (removed->n);
     assert (key);
@@ -1580,9 +1931,9 @@ int ti_task_add_remove(ti_task_t * task, ti_raw_t * key, vec_t * removed)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "remove");
+    msgpack_pack_uint8(&pk, TI_TASK_SET_REMOVE);
     msgpack_pack_map(&pk, 1);
 
     mp_pack_strn(&pk, key->data, key->n);
@@ -1594,7 +1945,7 @@ int ti_task_add_remove(ti_task_t * task, ti_raw_t * key, vec_t * removed)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1618,9 +1969,9 @@ int ti_task_add_rename_collection(
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "rename_collection");
+    msgpack_pack_uint8(&pk, TI_TASK_RENAME_COLLECTION);
     msgpack_pack_map(&pk, 2);
 
     mp_pack_str(&pk, "id");
@@ -1632,7 +1983,7 @@ int ti_task_add_rename_collection(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1643,9 +1994,12 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_set_time_zone(ti_task_t * task, ti_collection_t * collection)
+int ti_task_add_set_time_zone(
+        ti_task_t * task,
+        uint64_t scope_id,
+        uint64_t tz_index)
 {
-    size_t alloc = 128;
+    size_t alloc = 64;
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -1654,21 +2008,60 @@ int ti_task_add_set_time_zone(ti_task_t * task, ti_collection_t * collection)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "set_time_zone");
+    msgpack_pack_uint8(&pk, TI_TASK_SET_TIME_ZONE);
     msgpack_pack_map(&pk, 2);
 
     mp_pack_str(&pk, "id");
-    msgpack_pack_uint64(&pk, collection->root->id);
+    msgpack_pack_uint64(&pk, scope_id);
 
     mp_pack_str(&pk, "tz");
-    msgpack_pack_uint64(&pk, collection->tz->index);
+    msgpack_pack_uint64(&pk, tz_index);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_set_default_deep(
+        ti_task_t * task,
+        uint64_t scope_id,
+        uint8_t deep)
+{
+    size_t alloc = 64;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_SET_DEFAULT_DEEP);
+    msgpack_pack_map(&pk, 2);
+
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, scope_id);
+
+    mp_pack_str(&pk, "deep");
+    msgpack_pack_uint8(&pk, deep);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1693,9 +2086,9 @@ int ti_task_add_rename_procedure(
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "rename_procedure");
+    msgpack_pack_uint8(&pk, TI_TASK_RENAME_PROCEDURE);
     msgpack_pack_map(&pk, 2);
 
     mp_pack_str(&pk, "old");
@@ -1707,7 +2100,7 @@ int ti_task_add_rename_procedure(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1732,9 +2125,9 @@ int ti_task_add_rename_module(
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "rename_module");
+    msgpack_pack_uint8(&pk, TI_TASK_RENAME_MODULE);
     msgpack_pack_map(&pk, 2);
 
     mp_pack_str(&pk, "old");
@@ -1746,7 +2139,7 @@ int ti_task_add_rename_module(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1768,9 +2161,9 @@ int ti_task_add_rename_user(ti_task_t * task, ti_user_t * user)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "rename_user");
+    msgpack_pack_uint8(&pk, TI_TASK_RENAME_USER);
     msgpack_pack_map(&pk, 2);
 
     mp_pack_str(&pk, "id");
@@ -1782,7 +2175,7 @@ int ti_task_add_rename_user(ti_task_t * task, ti_user_t * user)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1808,9 +2201,9 @@ int ti_task_add_revoke(
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "revoke");
+    msgpack_pack_uint8(&pk, TI_TASK_REVOKE);
     msgpack_pack_map(&pk, 3);
 
     mp_pack_str(&pk, "scope");
@@ -1825,7 +2218,7 @@ int ti_task_add_revoke(
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1847,9 +2240,9 @@ int ti_task_add_set_password(ti_task_t * task, ti_user_t * user)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "set_password");
+    msgpack_pack_uint8(&pk, TI_TASK_SET_PASSWORD);
     msgpack_pack_map(&pk, 2);
 
     mp_pack_str(&pk, "id");
@@ -1864,7 +2257,7 @@ int ti_task_add_set_password(ti_task_t * task, ti_user_t * user)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1889,36 +2282,113 @@ int ti_task_add_splice(
     ti_val_t * val;
     size_t alloc = n ? 8192 : (key->n + 64);
     ti_data_t * data;
-    ti_vp_t vp;
+    msgpack_packer pk;
     msgpack_sbuffer buffer;
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&vp.pk, 1);
-    mp_pack_str(&vp.pk, "splice");
+    msgpack_pack_array(&pk, 2);
 
-    msgpack_pack_map(&vp.pk, 1);
-    mp_pack_strn(&vp.pk, key->data, key->n);
+    msgpack_pack_uint8(&pk, TI_TASK_SPLICE);
+    msgpack_pack_map(&pk, 1);
 
-    msgpack_pack_array(&vp.pk, 2 + n);
+    mp_pack_strn(&pk, key->data, key->n);
 
-    msgpack_pack_uint32(&vp.pk, i);
-    msgpack_pack_uint32(&vp.pk, c);
+    msgpack_pack_array(&pk, 2 + n);
+
+    msgpack_pack_uint32(&pk, i);
+    msgpack_pack_uint32(&pk, c);
 
     for (c = i + n; i < c; ++i)
     {
         val = VEC_get(varr->vec, i);
 
-        if (ti_val_gen_ids(val) || ti_val_to_pk(val, &vp, TI_VAL_PACK_TASK))
+        if (ti_val_gen_ids(val) || ti_val_to_store_pk(val, &pk))
             goto fail_pack;
     }
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+
+fail_pack:
+    msgpack_sbuffer_destroy(&buffer);
+    return -1;
+}
+
+int ti_task_add_arr_remove(ti_task_t * task, ti_raw_t * key, vec_t * vec)
+{
+    size_t alloc = 32 + key->n + (vec->n * 9);
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_ARR_REMOVE);
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_strn(&pk, key->data, key->n);
+
+    msgpack_pack_array(&pk, vec->n);
+
+    for (vec_each_rev(vec, void, pos))
+        msgpack_pack_uint32(&pk, (uintptr_t) pos);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_thing_remove(ti_task_t * task, vec_t * vec, size_t alloc_sz)
+{
+    size_t alloc = 32 + alloc_sz + (vec->n << 1);
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_THING_REMOVE);
+    msgpack_pack_array(&pk, vec->n);
+
+    for (vec_each(vec, ti_item_t, item))
+        if (mp_pack_strn(&pk, item->key->data, item->key->n))
+            goto fail_pack;  /* very unlikely,
+                                only possible with keys > 255 chars */
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1944,14 +2414,15 @@ int ti_task_add_restore(ti_task_t * task)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
-    mp_pack_str(&pk, "restore");
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_RESTORE);
     msgpack_pack_true(&pk);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -1966,7 +2437,7 @@ int ti_task_add_set_enum(ti_task_t * task, ti_enum_t * enum_)
 {
     size_t alloc = 8192;
     ti_data_t * data;
-    ti_vp_t vp;
+    msgpack_packer pk;
     msgpack_sbuffer buffer;
 
     if (enum_->enum_tp == TI_ENUM_THING)
@@ -1977,30 +2448,30 @@ int ti_task_add_set_enum(ti_task_t * task, ti_enum_t * enum_)
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
 
-    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&vp.pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&vp.pk, "set_enum");
-    msgpack_pack_map(&vp.pk, 4);
+    msgpack_pack_uint8(&pk, TI_TASK_SET_ENUM);
+    msgpack_pack_map(&pk, 4);
 
-    mp_pack_str(&vp.pk, "enum_id");
-    msgpack_pack_uint16(&vp.pk, enum_->enum_id);
+    mp_pack_str(&pk, "enum_id");
+    msgpack_pack_uint16(&pk, enum_->enum_id);
 
-    mp_pack_str(&vp.pk, "created_at");
-    msgpack_pack_uint64(&vp.pk, enum_->created_at);
+    mp_pack_str(&pk, "created_at");
+    msgpack_pack_uint64(&pk, enum_->created_at);
 
-    mp_pack_str(&vp.pk, "name");
-    mp_pack_strn(&vp.pk, enum_->rname->data, enum_->rname->n);
+    mp_pack_str(&pk, "name");
+    mp_pack_strn(&pk, enum_->rname->data, enum_->rname->n);
 
-    mp_pack_str(&vp.pk, "members");
-    if (ti_enum_members_to_pk(enum_, &vp, TI_VAL_PACK_TASK))
+    mp_pack_str(&pk, "members");
+    if (ti_enum_members_to_store_pk(enum_, &pk))
         goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -2019,7 +2490,7 @@ int ti_task_add_mod_enum_add(ti_task_t * task, ti_member_t * member)
 {
     size_t alloc = 8192;
     ti_data_t * data;
-    ti_vp_t vp;
+    msgpack_packer pk;
     msgpack_sbuffer buffer;
 
     if (ti_val_gen_ids(member->val))
@@ -2027,30 +2498,30 @@ int ti_task_add_mod_enum_add(ti_task_t * task, ti_member_t * member)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&vp.pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&vp.pk, "mod_enum_add");
-    msgpack_pack_map(&vp.pk, 4);
+    msgpack_pack_uint8(&pk, TI_TASK_MOD_ENUM_ADD);
+    msgpack_pack_map(&pk, 4);
 
-    mp_pack_str(&vp.pk, "enum_id");
-    msgpack_pack_uint16(&vp.pk, member->enum_->enum_id);
+    mp_pack_str(&pk, "enum_id");
+    msgpack_pack_uint16(&pk, member->enum_->enum_id);
 
-    mp_pack_str(&vp.pk, "modified_at");
-    msgpack_pack_uint64(&vp.pk, member->enum_->modified_at);
+    mp_pack_str(&pk, "modified_at");
+    msgpack_pack_uint64(&pk, member->enum_->modified_at);
 
-    mp_pack_str(&vp.pk, "name");
-    mp_pack_strn(&vp.pk, member->name->str, member->name->n);
+    mp_pack_str(&pk, "name");
+    mp_pack_strn(&pk, member->name->str, member->name->n);
 
-    mp_pack_str(&vp.pk, "value");
-    if (ti_val_to_pk(member->val, &vp, TI_VAL_PACK_TASK))
+    mp_pack_str(&pk, "value");
+    if (ti_val_to_store_pk(member->val, &pk))
         goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -2076,9 +2547,9 @@ int ti_task_add_mod_enum_def(ti_task_t * task, ti_member_t * member)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "mod_enum_def");
+    msgpack_pack_uint8(&pk, TI_TASK_MOD_ENUM_DEF);
     msgpack_pack_map(&pk, 3);
 
     mp_pack_str(&pk, "enum_id");
@@ -2093,7 +2564,7 @@ int ti_task_add_mod_enum_def(ti_task_t * task, ti_member_t * member)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -2115,9 +2586,9 @@ int ti_task_add_mod_enum_del(ti_task_t * task, ti_member_t * member)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "mod_enum_del");
+    msgpack_pack_uint8(&pk, TI_TASK_MOD_ENUM_DEL);
     msgpack_pack_map(&pk, 3);
 
     mp_pack_str(&pk, "enum_id");
@@ -2132,7 +2603,7 @@ int ti_task_add_mod_enum_del(ti_task_t * task, ti_member_t * member)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -2147,7 +2618,7 @@ int ti_task_add_mod_enum_mod(ti_task_t * task, ti_member_t * member)
 {
     size_t alloc = 8192;
     ti_data_t * data;
-    ti_vp_t vp;
+    msgpack_packer pk;
     msgpack_sbuffer buffer;
 
     if (ti_val_gen_ids(member->val))
@@ -2155,30 +2626,30 @@ int ti_task_add_mod_enum_mod(ti_task_t * task, ti_member_t * member)
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
         return -1;
-    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&vp.pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&vp.pk, "mod_enum_mod");
-    msgpack_pack_map(&vp.pk, 4);
+    msgpack_pack_uint8(&pk, TI_TASK_MOD_ENUM_MOD);
+    msgpack_pack_map(&pk, 4);
 
-    mp_pack_str(&vp.pk, "enum_id");
-    msgpack_pack_uint16(&vp.pk, member->enum_->enum_id);
+    mp_pack_str(&pk, "enum_id");
+    msgpack_pack_uint16(&pk, member->enum_->enum_id);
 
-    mp_pack_str(&vp.pk, "modified_at");
-    msgpack_pack_uint64(&vp.pk, member->enum_->modified_at);
+    mp_pack_str(&pk, "modified_at");
+    msgpack_pack_uint64(&pk, member->enum_->modified_at);
 
-    mp_pack_str(&vp.pk, "index");
-    msgpack_pack_uint16(&vp.pk, member->idx);
+    mp_pack_str(&pk, "index");
+    msgpack_pack_uint16(&pk, member->idx);
 
-    mp_pack_str(&vp.pk, "value");
-    if (ti_val_to_pk(member->val, &vp, TI_VAL_PACK_TASK))
+    mp_pack_str(&pk, "value");
+    if (ti_val_to_store_pk(member->val, &pk))
         goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -2204,9 +2675,9 @@ int ti_task_add_mod_enum_ren(ti_task_t * task, ti_member_t * member)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
+    msgpack_pack_array(&pk, 2);
 
-    mp_pack_str(&pk, "mod_enum_ren");
+    msgpack_pack_uint8(&pk, TI_TASK_MOD_ENUM_REN);
     msgpack_pack_map(&pk, 4);
 
     mp_pack_str(&pk, "enum_id");
@@ -2224,7 +2695,7 @@ int ti_task_add_mod_enum_ren(ti_task_t * task, ti_member_t * member)
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -2246,14 +2717,15 @@ int ti_task_add_del_enum(ti_task_t * task, ti_enum_t * enum_)
         return -1;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
-    mp_pack_str(&pk, "del_enum");
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_DEL_ENUM);
     msgpack_pack_uint16(&pk, enum_->enum_id);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
 
-    if (vec_push(&task->jobs, data))
+    if (vec_push(&task->list, data))
         goto fail_data;
 
     task__upd_approx_sz(task, data);
@@ -2263,55 +2735,3 @@ fail_data:
     free(data);
     return -1;
 }
-
-int ti_task_add_event(
-        ti_task_t * task,
-        ti_query_t * query,
-        ti_raw_t * revent,
-        vec_t * vec,
-        int deep)
-{
-    size_t alloc = 8192;
-    ti_data_t * data;
-    ti_vp_t vp = {
-            .query=query,
-    };
-    msgpack_sbuffer buffer;
-
-    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
-        return -1;
-    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
-
-    msgpack_pack_map(&vp.pk, 1);
-    mp_pack_str(&vp.pk, "event");
-
-    msgpack_pack_array(&vp.pk, 1 + (vec ? vec->n : 0));
-
-    /* the first in the array is the event, followed by optional data */
-    if (mp_pack_strn(&vp.pk, revent->data, revent->n))
-        goto fail_pack;
-
-    /* no need to generate ID's since the values might not be stored */
-    if (vec)
-        for (vec_each(vec, ti_val_t, val))
-            if (ti_val_to_pk(val, &vp, deep))
-                goto fail_pack;
-
-    data = (ti_data_t *) buffer.data;
-    ti_data_init(data, buffer.size);
-
-    if (vec_push(&task->jobs, data))
-        goto fail_data;
-
-    task__upd_approx_sz(task, data);
-    return 0;
-
-fail_data:
-    free(data);
-    return -1;
-
-fail_pack:
-    msgpack_sbuffer_destroy(&buffer);
-    return -1;
-}
-

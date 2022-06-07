@@ -4,7 +4,6 @@ static int do__f_move(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
     ti_datetime_t * dt;
-    ti_raw_t * raw_unit;
     datetime_unit_e unit;
     int64_t num;
 
@@ -31,25 +30,23 @@ static int do__f_move(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = NULL;
     }
 
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         fn_arg_str("move", DOC_DATETIME_MOVE, 1, query->rval, e))
         goto fail;
 
-    raw_unit = (ti_raw_t *) query->rval;
-
-    unit = ti_datetime_get_unit(raw_unit, e);
+    unit = ti_datetime_get_unit((ti_raw_t *) query->rval, e);
     if (e->nr)
         goto fail;
 
     ti_val_unsafe_drop(query->rval);  /* this destroys `raw_unit` */
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+    if (ti_do_statement(query, nd->children->next->next, e) ||
         fn_arg_int("move", DOC_DATETIME_MOVE, 2, query->rval, e))
         goto fail;
 
     num = VINT(query->rval);
-    ti_val_unsafe_drop(query->rval);  /* this destroys `raw_unit` */
+    ti_val_unsafe_drop(query->rval);  /* this destroys `integer value` */
 
     (void) ti_datetime_move(dt, unit, num, e);
     query->rval = (ti_val_t *) dt;

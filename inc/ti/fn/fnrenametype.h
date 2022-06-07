@@ -10,14 +10,14 @@ static int do__f_rename_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_collection_scope("rename_type", query, e) ||
         fn_nargs("rename_type", DOC_RENAME_TYPE, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str("rename_type", DOC_RENAME_TYPE, 1, query->rval, e))
         return e->nr;
 
     oname = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+    if (ti_do_statement(query, nd->children->next->next, e) ||
         fn_arg_str("rename_type", DOC_RENAME_TYPE, 2, query->rval, e))
         goto fail0;
 
@@ -66,7 +66,7 @@ static int do__f_rename_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail2;
     }
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task ||
         ti_type_rename(type, nname) ||
         ti_task_add_rename_type(task, type))

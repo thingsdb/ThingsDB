@@ -15,7 +15,7 @@ static int do__f_format(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     dt = (ti_datetime_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         fn_arg_str("format", DOC_DATETIME_FORMAT, 1, query->rval, e))
         goto fail;
 

@@ -2,7 +2,7 @@
 
 static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    cleri_children_t * child = nd->children;    /* first in argument list */
+    cleri_node_t * child = nd->children;    /* first in argument list */
     const int nargs = fn_get_nargs(nd);
     ex_enum errnr;
     ti_verror_t * verror;
@@ -10,7 +10,7 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_nargs_min("try", DOC_TRY, 1, nargs, e))
         return e->nr;
 
-    errnr = ti_do_statement(query, child->node, e);
+    errnr = ti_do_statement(query, child, e);
 
     if (errnr > EX_MAX_BUILD_IN_ERR && errnr <= EX_RETURN)
         return errnr;   /* do not catch success or internal errors */
@@ -39,7 +39,7 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     do
     {
-        if (ti_do_statement(query, child->node, e))
+        if (ti_do_statement(query, child, e))
             goto failed;
 
         if (!ti_val_is_error(query->rval))

@@ -10,7 +10,7 @@ static int do__f_set_module_conf(ti_query_t * query, cleri_node_t * nd, ex_t * e
 
     if (fn_not_thingsdb_scope("set_module_conf", query, e) ||
         fn_nargs("set_module_conf", DOC_SET_MODULE_CONF, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str_slow(
                 "set_module_conf", DOC_SET_MODULE_CONF, 1, query->rval, e))
         return e->nr;
@@ -18,7 +18,7 @@ static int do__f_set_module_conf(ti_query_t * query, cleri_node_t * nd, ex_t * e
     rname = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e))
+    if (ti_do_statement(query, nd->children->next->next, e))
         goto fail0;
 
     /* All statements are parsed, now check if the module (still) exists) */
@@ -49,7 +49,7 @@ static int do__f_set_module_conf(ti_query_t * query, cleri_node_t * nd, ex_t * e
 
     ti_module_update_conf(module);
 
-    task = ti_task_get_task(query->ev, ti.thing0);
+    task = ti_task_get_task(query->change, ti.thing0);
     if (!task || ti_task_add_set_module_conf(task, module))
         ex_set_mem(e);  /* task cleanup is not required */
 

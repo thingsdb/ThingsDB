@@ -85,7 +85,7 @@ class TestNodes(TestBase):
         client = await get_client(self.node0)
         nodes = await client.query(r'nodes_info();', scope='@node')
         for node in nodes:
-            self.assertEqual(node['committed_event_id'], 9)
+            self.assertEqual(node['committed_change_id'], 9)
 
         client.close()
         await client.wait_closed()

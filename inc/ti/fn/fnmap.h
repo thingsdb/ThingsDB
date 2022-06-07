@@ -12,7 +12,7 @@ static int map__walk_set(ti_thing_t * t, map__walk_t * w)
 {
     if (ti_closure_vars_vset(w->closure, t) ||
         ti_closure_do_statement(w->closure, w->query, w->e) ||
-        ti_varr_append(w->varr, (void **) &w->query->rval, w->e))
+        ti_val_varr_append(w->varr, &w->query->rval, w->e))
         return -1;
     w->query->rval = NULL;
     return 0;
@@ -22,7 +22,7 @@ static int map__walk_i(ti_item_t * item, map__walk_t * w)
 {
     if (ti_closure_vars_item(w->closure, item, w->e) ||
         ti_closure_do_statement(w->closure, w->query, w->e) ||
-        ti_varr_append(w->varr, (void **) &w->query->rval, w->e))
+        ti_val_varr_append(w->varr, &w->query->rval, w->e))
         return -1;
     w->query->rval = NULL;
     return 0;
@@ -49,7 +49,7 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     iterval = query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         fn_arg_closure("map", doc, 1, query->rval, e))
         goto fail0;
 
@@ -95,7 +95,7 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 {
                     if (ti_closure_vars_prop(closure, p, e) ||
                         ti_closure_do_statement(closure, query, e) ||
-                        ti_varr_append(retvarr, (void **) &query->rval, e))
+                        ti_val_varr_append(retvarr, &query->rval, e))
                         goto fail2;
                     query->rval = NULL;
                 }
@@ -109,7 +109,7 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             {
                 if (ti_closure_vars_nameval(closure, (ti_val_t *) name, val, e) ||
                     ti_closure_do_statement(closure, query, e) ||
-                    ti_varr_append(retvarr, (void **) &query->rval, e))
+                    ti_val_varr_append(retvarr, &query->rval, e))
                     goto fail2;
                 query->rval = NULL;
             }
@@ -123,7 +123,7 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             if (ti_closure_vars_val_idx(closure, v, idx) ||
                 ti_closure_do_statement(closure, query, e) ||
-                ti_varr_append(retvarr, (void **) &query->rval, e))
+                ti_val_varr_append(retvarr, &query->rval, e))
                 goto fail2;
             query->rval = NULL;
         }

@@ -15,7 +15,7 @@ static int do__f_contains(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     raw = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         fn_arg_str("contains", DOC_STR_CONTAINS, 1, query->rval, e))
         goto failed;
 

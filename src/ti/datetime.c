@@ -43,6 +43,23 @@ ti_datetime_t * ti_timeval_from_i64(int64_t ts, int16_t offset, ti_tz_t * tz)
 /*
  * Arguments `ts` is in seconds, `offset` in minutes.
  */
+ti_datetime_t * ti_timeval_from_u64(uint64_t ts, ti_tz_t * tz)
+{
+    ti_datetime_t * dt = malloc(sizeof(ti_datetime_t));
+    if (!dt)
+        return NULL;
+    dt->ref = 1;
+    dt->flags = DT_AS_TIMEVAL;
+    dt->tp = TI_VAL_DATETIME;
+    dt->ts = (time_t) ts;
+    dt->offset = 0;
+    dt->tz = tz;  /* may be NULL */
+    return dt;
+}
+
+/*
+ * Arguments `ts` is in seconds, `offset` in minutes.
+ */
 ti_datetime_t * ti_datetime_from_i64(int64_t ts, int16_t offset, ti_tz_t * tz)
 {
     ti_datetime_t * dt = malloc(sizeof(ti_datetime_t));
@@ -53,6 +70,23 @@ ti_datetime_t * ti_datetime_from_i64(int64_t ts, int16_t offset, ti_tz_t * tz)
     dt->tp = TI_VAL_DATETIME;
     dt->ts = (time_t) ts;
     dt->offset = offset;
+    dt->tz = tz;  /* may be NULL */
+    return dt;
+}
+
+/*
+ * Arguments `ts` is in seconds, `offset` in minutes.
+ */
+ti_datetime_t * ti_datetime_from_u64(uint64_t ts, ti_tz_t * tz)
+{
+    ti_datetime_t * dt = malloc(sizeof(ti_datetime_t));
+    if (!dt)
+        return NULL;
+    dt->ref = 1;
+    dt->flags = 0;
+    dt->tp = TI_VAL_DATETIME;
+    dt->ts = (time_t) ts;
+    dt->offset = 0;
     dt->tz = tz;  /* may be NULL */
     return dt;
 }
@@ -388,27 +422,27 @@ ti_raw_t * ti_datetime_to_str_fmt(ti_datetime_t * dt, ti_raw_t * fmt, ex_t * e)
 /*
  * This function is not thread safe.
  */
-int ti_datetime_to_pk(ti_datetime_t * dt, msgpack_packer * pk, int options)
+int ti_datetime_to_client_pk(ti_datetime_t * dt, msgpack_packer * pk)
 {
-    if (options >= 0)
+    if (ti_datetime_is_datetime(dt))
     {
-        if (ti_datetime_is_datetime(dt))
-        {
-            /* pack client result, convert to string */
-            ex_t e = {0};
-            size_t sz = datetime__write(
-                    dt,
-                    datetime__buf,
-                    DATETIME__BUF_SZ,
-                    datetime__fmt(dt),
-                    &e);
-            return sz
-                ? mp_pack_strn(pk, datetime__buf, sz)
-                : mp_pack_str(pk, "1970-01-01T00:00:00Z");
-        }
-        return msgpack_pack_int64(pk, dt->ts);
+        /* pack client result, convert to string */
+        ex_t e = {0};
+        size_t sz = datetime__write(
+                dt,
+                datetime__buf,
+                DATETIME__BUF_SZ,
+                datetime__fmt(dt),
+                &e);
+        return sz
+            ? mp_pack_strn(pk, datetime__buf, sz)
+            : mp_pack_str(pk, "1970-01-01T00:00:00Z");
     }
+    return msgpack_pack_int64(pk, dt->ts);
+}
 
+int ti_datetime_to_store_pk(ti_datetime_t * dt, msgpack_packer * pk)
+{
     return (
         msgpack_pack_map(pk, 1) ||
         mp_pack_strn(
@@ -604,6 +638,10 @@ static void datetime__correct_max_mday(struct tm * tm)
     }
 }
 
+/*
+ * Type datetime is immutable so this function must only be used on datetime
+ * objects with no bindings. (usually a reference count of one)
+ */
 int ti_datetime_move(
         ti_datetime_t * dt,
         datetime_unit_e unit,

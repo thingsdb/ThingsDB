@@ -1,9 +1,6 @@
 #ifndef TI_FN_FN_H_
 #define TI_FN_FN_H_
 
-/* maximum value we allow for the `deep` argument */
-#define MAX_DEEP_HINT 0x7f
-
 #include <assert.h>
 #include <ctype.h>
 #include <doc.h>
@@ -14,13 +11,14 @@
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/access.h>
-#include <ti/auth.h>
 #include <ti/async.h>
+#include <ti/auth.h>
 #include <ti/closure.h>
 #include <ti/closure.inline.h>
 #include <ti/collections.h>
 #include <ti/condition.h>
 #include <ti/datetime.h>
+#include <ti/deep.h>
 #include <ti/do.h>
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
@@ -34,6 +32,9 @@
 #include <ti/member.h>
 #include <ti/member.inline.h>
 #include <ti/method.h>
+#include <ti/mod/expose.h>
+#include <ti/mod/expose.t.h>
+#include <ti/mod/github.h>
 #include <ti/module.h>
 #include <ti/module.t.h>
 #include <ti/modules.h>
@@ -47,12 +48,13 @@
 #include <ti/raw.inline.h>
 #include <ti/regex.h>
 #include <ti/restore.h>
+#include <ti/room.h>
+#include <ti/room.inline.h>
 #include <ti/scope.h>
 #include <ti/spec.inline.h>
 #include <ti/task.h>
+#include <ti/tasks.h>
 #include <ti/thing.inline.h>
-#include <ti/timer.h>
-#include <ti/timer.inline.h>
 #include <ti/token.h>
 #include <ti/types.inline.h>
 #include <ti/users.h>
@@ -62,13 +64,18 @@
 #include <ti/vfloat.h>
 #include <ti/vint.h>
 #include <ti/vset.h>
+#include <ti/vtask.h>
+#include <ti/vtask.inline.h>
 #include <ti/warn.h>
 #include <ti/wprop.t.h>
 #include <ti/wrap.h>
 #include <ti/wrap.inline.h>
 #include <tiinc.h>
+#include <util/buf.h>
 #include <util/cryptx.h>
 #include <util/fx.h>
+#include <util/mpjson.h>
+#include <util/rbuf.h>
 #include <util/strx.h>
 #include <util/util.h>
 #include <uv.h>
@@ -96,12 +103,27 @@ static inline int fn_get_nargs(cleri_node_t * nd)
     return (int) ((intptr_t) nd->data);
 }
 
+static inline int fn_is_not_node_scope(ti_query_t * query)
+{
+    return \
+        query->qbind.flags & (TI_QBIND_FLAG_THINGSDB|TI_QBIND_FLAG_COLLECTION);
+}
+
+static inline ti_tz_t * fn_default_tz(ti_query_t * query)
+{
+    return query->collection
+            ? query->collection->tz
+            : query->qbind.flags & TI_QBIND_FLAG_THINGSDB
+            ? ti.t_tz
+            : ti.n_tz;
+}
+
 static inline int fn_not_node_scope(
         const char * name,
         ti_query_t * query,
         ex_t * e)
 {
-    if (~query->qbind.flags & TI_QBIND_FLAG_NODE)
+    if (fn_is_not_node_scope(query))
         ex_set(e, EX_LOOKUP_ERROR,
             "function `%s` is undefined in the `%s` scope; "
             "you might want to query a `@node` scope?"DOC_SCOPES,
@@ -195,6 +217,38 @@ static inline int fn_arg_str(
     return e->nr;
 }
 
+static inline int fn_arg_str_nil(
+        const char * name,
+        const char * doc,
+        int argn,
+        ti_val_t * val,
+        ex_t * e)
+{
+    if (!ti_val_is_str_nil(val))
+        ex_set(e, EX_TYPE_ERROR,
+            "function `%s` expects argument %d to be of "
+            "type `"TI_VAL_STR_S"` or `"TI_VAL_NIL_S"` "
+            "but got type `%s` instead%s",
+            name, argn, ti_val_str(val), doc);
+    return e->nr;
+}
+
+static inline int fn_arg_str_bytes_nil(
+        const char * name,
+        const char * doc,
+        int argn,
+        ti_val_t * val,
+        ex_t * e)
+{
+    if (!ti_val_is_str_bytes_nil(val))
+        ex_set(e, EX_TYPE_ERROR,
+            "function `%s` expects argument %d to be of "
+            "type `"TI_VAL_STR_S"`, `"TI_VAL_BYTES_S"` or `"TI_VAL_NIL_S"` "
+            "but got type `%s` instead%s",
+            name, argn, ti_val_str(val), doc);
+    return e->nr;
+}
+
 static inline int fn_arg_int(
         const char * name,
         const char * doc,
@@ -272,6 +326,38 @@ static inline int fn_arg_datetime(
     return e->nr;
 }
 
+static inline int fn_arg_str_regex(
+        const char * name,
+        const char * doc,
+        int argn,
+        ti_val_t * val,
+        ex_t * e)
+{
+    if (!ti_val_is_str_regex(val))
+        ex_set(e, EX_TYPE_ERROR,
+            "function `%s` expects argument %d to be of "
+            "type `"TI_VAL_STR_S"` or `"TI_VAL_REGEX_S"` "
+            "but got type `%s` instead%s",
+            name, argn, ti_val_str(val), doc);
+    return e->nr;
+}
+
+static inline int fn_arg_str_closure(
+        const char * name,
+        const char * doc,
+        int argn,
+        ti_val_t * val,
+        ex_t * e)
+{
+    if (!ti_val_is_str_closure(val))
+        ex_set(e, EX_TYPE_ERROR,
+            "function `%s` expects argument %d to be of "
+            "type `"TI_VAL_STR_S"` or `"TI_VAL_CLOSURE_S"` "
+            "but got type `%s` instead%s",
+            name, argn, ti_val_str(val), doc);
+    return e->nr;
+}
+
 static inline int fn_arg_array(
         const char * name,
         const char * doc,
@@ -339,7 +425,7 @@ static inline int fn_not_thingsdb_or_collection_scope(
 
 static int fn_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    cleri_children_t * child = nd->children;    /* first in argument list */
+    cleri_node_t * child = nd->children;    /* first in argument list */
     ti_closure_t * closure;
     vec_t * args = NULL;
 
@@ -364,7 +450,7 @@ static int fn_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             --n;  // outside `while` so we do not go below zero
 
-            if (ti_do_statement(query, child->node, e) ||
+            if (ti_do_statement(query, child, e) ||
                 ti_val_make_variable(&query->rval, e))
                 goto fail1;
 
@@ -432,15 +518,14 @@ static int fn_call_t_try_n(
 {
     ti_name_t * name_ = ti_names_weak_get_strn(name, n);
     ti_thing_t * thing = (ti_thing_t *) query->rval;
-    ti_type_t * type = ti_thing_type(thing);
     ti_method_t * method;
     ti_val_t * val;
 
     if (!name_)
         goto no_prop_err;
 
-    if ((method = ti_method_by_name(type, name_)))
-        return ti_method_call(method, type, query, nd, e);
+    if ((method = ti_method_by_name(thing->via.type, name_)))
+        return ti_method_call(method, thing->via.type, query, nd, e);
 
     if ((val = ti_thing_t_val_weak_get(thing, name_)))
     {
@@ -462,7 +547,7 @@ static int fn_call_t_try_n(
 no_prop_err:
     ex_set(e, EX_LOOKUP_ERROR,
             "type `%s` has no property or method `%.*s`",
-            type->name, n, name);
+            thing->via.type->name, n, name);
     return e->nr;
 }
 
@@ -508,6 +593,27 @@ no_method_err:
     return e->nr;
 }
 
+static int fn_call_f_try_n(
+        const char * name,
+        size_t n,
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    ti_future_t * future = (ti_future_t *) query->rval;
+    ti_module_t * module = future->module;
+    ti_mod_expose_t * expose = ti_mod_expose_by_strn(module, name, n);
+
+    if (expose)
+        return ti_mod_expose_call(expose, query, nd, e);
+
+    ex_set(e, EX_LOOKUP_ERROR,
+            "module `%s` has no function `%.*s`",
+            module->name->str, n, name);
+    return e->nr;
+}
+
+
 #define fn_call_try(__name, __q, __nd, __e) \
     fn_call_try_n(__name, strlen(__name), __q, __nd, __e)
 
@@ -525,6 +631,9 @@ static int fn_call_try_n(
 
     if (ti_val_is_wrap(query->rval))
         return fn_call_w_try_n(name, n, query, nd, e);
+
+    if (ti_val_is_future(query->rval))
+        return fn_call_f_try_n(name, n, query, nd, e);
 
     ex_set(e, EX_LOOKUP_ERROR,
             "type `%s` has no function `%.*s`",

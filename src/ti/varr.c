@@ -12,7 +12,7 @@
 #include <tiinc.h>
 #include <util/logger.h>
 
-static int varr__to_tuple(ti_varr_t ** varr)
+int ti_varr_to_tuple(ti_varr_t ** varr)
 {
     ti_varr_t * tuple = *varr;
 
@@ -32,7 +32,7 @@ static int varr__to_tuple(ti_varr_t ** varr)
 
     tuple->ref = 1;
     tuple->tp = TI_VAL_ARR;
-    tuple->flags = TI_VARR_FLAG_TUPLE | ((*varr)->flags & TI_VARR_FLAG_MHT);
+    tuple->flags = TI_VARR_FLAG_TUPLE | ti_varr_may_flags(*varr);
     tuple->vec = vec_dup((*varr)->vec);
     /*
      * Note that `tuple` is allocation as a tuple but is casted as type `varr`
@@ -76,7 +76,7 @@ ti_varr_t * ti_varr_create(size_t sz)
     return varr;
 }
 
-ti_varr_t * ti_tuple_from_vec(vec_t * vec)
+ti_varr_t * ti_tuple_from_vec_unsafe(vec_t * vec)
 {
     ti_varr_t * varr = malloc(sizeof(ti_varr_t));
     if (!varr)
@@ -84,14 +84,20 @@ ti_varr_t * ti_tuple_from_vec(vec_t * vec)
 
     varr->ref = 1;
     varr->tp = TI_VAL_ARR;
-    varr->flags = TI_VARR_FLAG_TUPLE|(vec->n ? TI_VARR_FLAG_MHT:0);
+    varr->flags = \
+            TI_VARR_FLAG_TUPLE|(vec->n?(TI_VARR_FLAG_MHT|TI_VARR_FLAG_MHR):0);
     varr->vec = vec;
     varr->parent = NULL;
     return varr;
 }
 
-
-ti_varr_t * ti_varr_from_vec(vec_t * vec)
+/*
+ * No conversion from list to tuples etc. so this should only be used when
+ * possible. For example when a future result is set as this required no
+ * conversion because the result of a future can only be used in combination
+ * with `then` or `else`.
+ */
+ti_varr_t * ti_varr_from_vec_unsafe(vec_t * vec)
 {
     ti_varr_t * varr = malloc(sizeof(ti_varr_t));
     if (!varr)
@@ -99,9 +105,37 @@ ti_varr_t * ti_varr_from_vec(vec_t * vec)
 
     varr->ref = 1;
     varr->tp = TI_VAL_ARR;
-    varr->flags = vec->n ? TI_VARR_FLAG_MHT : 0;;
+    varr->flags = vec->n?(TI_VARR_FLAG_MHT|TI_VARR_FLAG_MHR):0;
     varr->vec = vec;
     varr->parent = NULL;
+    return varr;
+}
+
+/*
+ * Should only be used when it is `ti_val_to_arr()` should succeed in normal
+ * conditions.
+ */
+ti_varr_t * ti_varr_from_vec(vec_t * vec)
+{
+    ex_t e = {0};
+    ti_varr_t * varr = malloc(sizeof(ti_varr_t));
+    if (!varr)
+        return NULL;
+
+    varr->ref = 1;
+    varr->tp = TI_VAL_ARR;
+    varr->flags = 0;
+    varr->vec = vec;
+    varr->parent = NULL;
+    for (vec_each_addr(vec, ti_val_t, v))
+    {
+        if (ti_val_to_arr(v, varr, &e))
+        {
+            log_critical(e.msg);
+            free(varr);
+            return NULL;
+        }
+    }
     return varr;
 }
 
@@ -154,18 +188,24 @@ void ti_varr_destroy(ti_varr_t * varr)
     free(varr);
 }
 
-int ti_varr_val_prepare(ti_varr_t * to, void ** v, ex_t * e)
+_Bool ti_varr_has_val(ti_varr_t * varr, ti_val_t * val)
 {
-    assert (ti_varr_is_list(to));  /* `to` must be a list */
+    for (vec_each(varr->vec, ti_val_t, v))
+        if (ti_opr_eq(v, val))
+            return true;
+    return false;
+}
 
-    switch (ti_spec_check_nested_val(ti_varr_spec(to), (ti_val_t *) *v))
+int ti_varr_nested_spec_err(ti_varr_t * varr, ti_val_t * val, ex_t * e)
+{
+    switch (ti_spec_check_nested_val(ti_varr_spec(varr), val))
     {
     case TI_SPEC_RVAL_SUCCESS:
-        break;
+        return 0;
     case TI_SPEC_RVAL_TYPE_ERROR:
         ex_set(e, EX_TYPE_ERROR,
                 "type `%s` is not allowed in restricted array",
-                ti_val_str((ti_val_t *) *v));
+                ti_val_str(val));
         return e->nr;
     case TI_SPEC_RVAL_UTF8_ERROR:
         ex_set(e, EX_VALUE_ERROR,
@@ -185,55 +225,7 @@ int ti_varr_val_prepare(ti_varr_t * to, void ** v, ex_t * e)
                 "array is restricted to negative integer values");
         return e->nr;
     }
-
-    switch (((ti_val_t *) *v)->tp)
-    {
-    case TI_VAL_SET:
-        if (ti_vset_to_tuple((ti_vset_t **) v))
-        {
-            ex_set_mem(e);
-            return e->nr;
-        }
-        to->flags |= ((ti_varr_t *) *v)->flags & TI_VARR_FLAG_MHT;
-        break;
-    case TI_VAL_CLOSURE:
-        if (ti_closure_unbound((ti_closure_t *) *v, e))
-        {
-            ex_set_mem(e);
-            return e->nr;
-        }
-        break;
-    case TI_VAL_ARR:
-        if (ti_varr_is_list((ti_varr_t *) *v) &&
-            varr__to_tuple((ti_varr_t **) v))
-        {
-            ex_set_mem(e);
-            return e->nr;
-        }
-        to->flags |= ((ti_varr_t *) *v)->flags & TI_VARR_FLAG_MHT;
-        break;
-    case TI_VAL_THING:
-        to->flags |= TI_VARR_FLAG_MHT;
-        break;
-    case TI_VAL_FUTURE:
-        ti_val_unsafe_drop(*v);
-        *v = ti_nil_get();
-        break;
-    }
-    return e->nr;
-}
-
-/*
- * does not increment `*v` reference counter but the value might change to
- * a (new) tuple pointer.
- */
-int ti_varr_set(ti_varr_t * to, void ** v, size_t idx, ex_t * e)
-{
-    if (ti_varr_val_prepare(to, v, e))
-        return e->nr;
-
-    ti_val_unsafe_gc_drop((ti_val_t *) VEC_get(to->vec, idx));
-    to->vec->data[idx] = *v;
+    assert(0);
     return 0;
 }
 
@@ -250,7 +242,7 @@ int ti_varr_to_list(ti_varr_t ** varr)
 
     list->ref = 1;
     list->tp = TI_VAL_ARR;
-    list->flags = (*varr)->flags & TI_VARR_FLAG_MHT;
+    list->flags = ti_varr_may_flags(*varr);
     list->vec = vec_dup((*varr)->vec);
     list->parent = NULL;
 
@@ -280,7 +272,7 @@ int ti_varr_copy(ti_varr_t ** varr, uint8_t deep)
 
     list->ref = 1;
     list->tp = TI_VAL_ARR;
-    list->flags = (*varr)->flags & TI_VARR_FLAG_MHT;
+    list->flags = ti_varr_may_flags(*varr);
     list->vec = vec_dup((*varr)->vec);
     list->parent = NULL;
 
@@ -319,7 +311,7 @@ int ti_varr_dup(ti_varr_t ** varr, uint8_t deep)
 
     list->ref = 1;
     list->tp = TI_VAL_ARR;
-    list->flags = (*varr)->flags & TI_VARR_FLAG_MHT;
+    list->flags = ti_varr_may_flags(*varr);
     list->vec = vec_dup((*varr)->vec);
     list->parent = NULL;
 

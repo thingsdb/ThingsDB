@@ -46,7 +46,7 @@ class TestWrap(TestBase):
             t = {
                 people: set({name: 'Iris'})
             };
-            return(t.wrap('People'), 2);
+            return t.wrap('People'), 2;
         ''')
         self.assertEqual(res, {"people": [{"name": "Iris"}]})
 
@@ -54,7 +54,7 @@ class TestWrap(TestBase):
             t = PS{
                 people: set({name: 'Iris'})
             };
-            return(t.wrap('People'), 2);
+            return t.wrap('People'), 2;
         ''')
         self.assertEqual(res, {"people": [{"name": "Iris"}]})
 
@@ -62,7 +62,7 @@ class TestWrap(TestBase):
             t = {
                 people: set({firstname: 'Iris'})
             };
-           return(t.wrap('People'), 2);
+           return t.wrap('People'), 2;
         ''')
         self.assertEqual(res, {"people": [{}]})
 
@@ -70,7 +70,7 @@ class TestWrap(TestBase):
             t = PS{
                 people: set({firstname: 'Iris'})
             };
-           return(t.wrap('People'), 2);
+           return t.wrap('People'), 2;
         ''')
         self.assertEqual(res, {"people": [{}]})
 
@@ -78,7 +78,7 @@ class TestWrap(TestBase):
             t = {
                 people: set(Person{name: 'Iris'})
             };
-            return(t.wrap('Other'), 2);
+            return t.wrap('Other'), 2;
         ''')
         self.assertEqual(res, {})
 
@@ -86,7 +86,7 @@ class TestWrap(TestBase):
             t = PS{
                 people: set(Person{name: 'Iris'})
             };
-            return(t.wrap('Other'), 2);
+            return t.wrap('Other'), 2;
         ''')
         self.assertEqual(res, {})
 
@@ -178,7 +178,7 @@ class TestWrap(TestBase):
 
             .notes = set(.note);
 
-            return(.notesSummary = .wrap('_NotesSummary'), 3);
+            return .notesSummary = .wrap('_NotesSummary'), 3;
         ''')
 
         ids = await client.query('[.id(), .note.id(), .iris.id()];')
@@ -226,7 +226,7 @@ class TestWrap(TestBase):
             }, true);
             set_type('_Pdeep', {
                 dict: 'any',
-                deep: || return({a: {b: 5}}, 2)
+                deep: || return {a: {b: 5}}, 2
             }, true);
         ''')
 
@@ -255,11 +255,7 @@ class TestWrap(TestBase):
 
         self.assertEqual(res, {
             "name": "iris",
-            "mul": {
-                '!': 'type_err()',
-                'error_code': -61,
-                'error_msg': '`*` not supported between `Person` and `nil`'
-            }
+            "mul": '`*` not supported between `Person` and `nil`'
         })
 
         # _Pnoargs
@@ -282,7 +278,7 @@ class TestWrap(TestBase):
                 name: 'iris',
                 messages: ['hi', 'hello', 'bye']
             };
-            return(p.wrap('_Pmore'), 2);
+            return p.wrap('_Pmore'), 2;
         ''')
 
         self.assertEqual(res, {
@@ -300,12 +296,7 @@ class TestWrap(TestBase):
         ''')
 
         self.assertEqual(res, {
-            "wse": {
-                '!': 'bad_data_err()',
-                'error_code': -53,
-                'error_msg':
-                    'failed to compute property; method has side effects'
-            }
+            "wse": 'failed to compute property; method has side effects'
         })
 
         # _Pfut
@@ -318,12 +309,7 @@ class TestWrap(TestBase):
         ''')
 
         self.assertEqual(res, {
-            "fut": {
-                '!': 'bad_data_err()',
-                'error_code': -53,
-                'error_msg':
-                    'failed to compute property; method contains futures'
-            }
+            "fut": 'failed to compute property; method contains futures'
         })
 
         # Pdeep

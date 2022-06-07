@@ -20,10 +20,10 @@ int ti_store_status_store(const char * fn)
 
     if (
         msgpack_pack_map(&pk, 2) ||
-        mp_pack_str(&pk, "cevid") ||
-        msgpack_pack_uint64(&pk, ti.node->cevid) ||
+        mp_pack_str(&pk, "ccid") ||
+        msgpack_pack_uint64(&pk, ti.node->ccid) ||
         mp_pack_str(&pk, "next_thing_id") ||
-        msgpack_pack_uint64(&pk, ti.node->next_thing_id)
+        msgpack_pack_uint64(&pk, ti.node->next_free_id)
     ) goto fail;
 
     log_debug("stored status to file: `%s`", fn);
@@ -44,7 +44,7 @@ int ti_store_status_restore(const char * fn)
 {
     int rc = -1;
     ssize_t n;
-    mp_obj_t obj, mp_cevid, mp_next_thing_id;
+    mp_obj_t obj, mp_ccid, mp_next_thing_id;
     mp_unp_t up;
     uchar * data = fx_read(fn, &n);
     if (!data)
@@ -55,14 +55,14 @@ int ti_store_status_restore(const char * fn)
     if (
         mp_next(&up, &obj) != MP_MAP || obj.via.sz != 2 ||
         mp_skip(&up) != MP_STR ||
-        mp_next(&up, &mp_cevid) != MP_U64 ||
+        mp_next(&up, &mp_ccid) != MP_U64 ||
         mp_skip(&up) != MP_STR ||
         mp_next(&up, &mp_next_thing_id) != MP_U64
     ) goto fail;
 
-    ti.node->sevid = ti.node->cevid = mp_cevid.via.u64;
-    ti.events->next_event_id = mp_cevid.via.u64 + 1;
-    ti.node->next_thing_id = mp_next_thing_id.via.u64;
+    ti.node->scid = ti.node->ccid = mp_ccid.via.u64;
+    ti.changes->next_change_id = mp_ccid.via.u64 + 1;
+    ti.node->next_free_id = mp_next_thing_id.via.u64;
 
     rc = 0;
 fail:

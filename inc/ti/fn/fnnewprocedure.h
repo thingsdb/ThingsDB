@@ -12,7 +12,7 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_or_collection_scope("new_procedure", query, e) ||
         fn_nargs("new_procedure", DOC_NEW_PROCEDURE, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str("new_procedure", DOC_NEW_PROCEDURE, 1, query->rval, e))
         return e->nr;
 
@@ -26,7 +26,7 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
     }
 
-    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+    if (ti_do_statement(query, nd->children->next->next, e) ||
         fn_arg_closure("new_procedure", DOC_NEW_PROCEDURE, 2, query->rval, e))
         goto fail0;
 
@@ -56,7 +56,7 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     task = ti_task_get_task(
-            query->ev,
+            query->change,
             query->collection ? query->collection->root : ti.thing0);
     if (!task || ti_task_add_new_procedure(task, procedure))
         goto undo;

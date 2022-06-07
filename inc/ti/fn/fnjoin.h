@@ -20,7 +20,7 @@ static int do__f_join(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs == 1 && arr->vec->n > 1)
     {
         /* Only read the separator when the array contains at least 2 items */
-        if (ti_do_statement(query, nd->children->node, e) ||
+        if (ti_do_statement(query, nd->children, e) ||
             fn_arg_str("join", DOC_LIST_JOIN, 1, query->rval, e))
             goto fail0;
 

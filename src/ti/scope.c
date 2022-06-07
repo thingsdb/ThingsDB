@@ -177,7 +177,6 @@ int ti_scope_init(ti_scope_t * scope, const char * str, size_t n, ex_t * e)
     }
 
     /* everything else is invalid */
-
 invalid_scope:
     if (n == 0)
     {
@@ -330,23 +329,71 @@ int ti_scope_id(ti_scope_t * scope, uint64_t * scope_id, ex_t * e)
     return e->nr;
 }
 
-void ti_scope_load_from_scope_id(
-        uint64_t scope_id,
-        vec_t ** access_,
-        ti_collection_t ** collection)
+ti_collection_t * ti_scope_get_collection(ti_scope_t * scope, ex_t * e)
 {
+    ti_collection_t * collection;
+
+    switch (scope->tp)
+    {
+    case TI_SCOPE_THINGSDB:
+    case TI_SCOPE_NODE:
+        ex_set(e, EX_BAD_DATA, "expecting a `collection` scope");
+        return NULL;
+    case TI_SCOPE_COLLECTION_NAME:
+        collection = ti_collections_get_by_strn(
+                scope->via.collection_name.name,
+                scope->via.collection_name.sz);
+        if (!collection)
+            ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
+                scope->via.collection_name.sz,
+                scope->via.collection_name.name);
+
+        return collection;
+    default:
+        collection = ti_collections_get_by_id(scope->via.collection_id);
+        if (!collection)
+            ex_set(e, EX_LOOKUP_ERROR, TI_COLLECTION_ID" not found",
+                    scope->via.collection_id);
+        return collection;
+    }
+}
+
+void ti_scope_set_tz(uint64_t scope_id, ti_tz_t * tz)
+{
+    ti_collection_t * collection;
     switch (scope_id)
     {
     case TI_SCOPE_THINGSDB:
-        *collection = NULL;
-        *access_ = ti.access_thingsdb;
-        return;
+        ti.t_tz = tz;
+        break;
     case TI_SCOPE_NODE:
-        *collection = NULL;
-        *access_ = ti.access_node;
-        return;
+        ti.n_tz = tz;
+        break;
     default:
-        *collection = ti_collections_get_by_id(scope_id);
-        *access_ = *collection ? (*collection)->access : NULL;
+        collection = ti_collections_get_by_id(scope_id);
+        if (collection)
+            collection->tz = tz;
+        return;
     }
+    ti_flag_set(TI_FLAG_TI_CHANGED);  /* bug #269 */
+}
+
+void ti_scope_set_deep(uint64_t scope_id, uint8_t deep)
+{
+    ti_collection_t * collection;
+    switch (scope_id)
+    {
+    case TI_SCOPE_THINGSDB:
+        ti.t_deep = deep;
+        break;
+    case TI_SCOPE_NODE:
+        ti.n_deep = deep;
+        break;
+    default:
+        collection = ti_collections_get_by_id(scope_id);
+        if (collection)
+            collection->deep = deep;
+        return;
+    }
+    ti_flag_set(TI_FLAG_TI_CHANGED);  /* bug #269 */
 }

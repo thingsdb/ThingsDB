@@ -11,6 +11,7 @@
 #include <ti/prop.t.h>
 #include <ti/qbind.t.h>
 #include <ti/query.t.h>
+#include <ti/room.t.h>
 #include <ti/scope.t.h>
 #include <ti/type.t.h>
 #include <ti/user.t.h>
@@ -32,10 +33,11 @@ int ti_query_parse(ti_query_t * query, const char * str, size_t n, ex_t * e);
 void ti_query_run_parseres(ti_query_t * query);
 void ti_query_run_procedure(ti_query_t * query);
 void ti_query_run_future(ti_query_t * query);
-void ti_query_run_timer(ti_query_t * query);
+void ti_query_run_task_finish(ti_query_t * query);
+void ti_query_run_task(ti_query_t * query);
 void ti_query_send_response(ti_query_t * query, ex_t * e);
 void ti_query_on_then_result(ti_query_t * query, ex_t * e);
-void ti_query_timer_result(ti_query_t * query, ex_t * e);
+void ti_query_task_result(ti_query_t * query, ex_t * e);
 void ti_query_done(ti_query_t * query, ex_t * e, ti_query_done_cb cb);
 void ti_query_on_future_result(ti_future_t * future, ex_t * e);
 int ti_query_unpack_args(ti_query_t * query, mp_unp_t * up, ex_t * e);
@@ -45,28 +47,32 @@ ti_thing_t * ti_query_thing_from_id(
         ti_query_t * query,
         int64_t thing_id,
         ex_t * e);
+ti_room_t * ti_query_room_from_id(
+        ti_query_t * query,
+        int64_t room_id,
+        ex_t * e);
 ssize_t ti_query_count_type(ti_query_t * query, ti_type_t * type);
-static inline _Bool ti_query_will_update(ti_query_t * query);
-static inline const char * ti_query_scope_name(ti_query_t * query);
 int ti_query_vars_walk(
         vec_t * vars,
         ti_collection_t * collection,
         imap_cb cb,
         void * args);
+int ti_query_task_context(ti_query_t * query, ti_vtask_t * vtask, ex_t * e);
+_Bool ti_query_thing_can_change_spec(ti_query_t * query, ti_thing_t * thing);
+void ti_query_warn_log(ti_query_t * query, const char * msg);
 
-static inline _Bool ti_query_will_update(ti_query_t * query)
+static inline _Bool ti_query_wse(ti_query_t * query)
 {
-    return query->qbind.flags & TI_QBIND_FLAG_EVENT;
+    return query->qbind.flags & TI_QBIND_FLAG_WSE;
 }
 
 static inline const char * ti_query_scope_name(ti_query_t * query)
 {
-    return query->qbind.flags & TI_QBIND_FLAG_NODE
-            ? "@node"
-            : query->qbind.flags & TI_QBIND_FLAG_THINGSDB
+    return query->qbind.flags & TI_QBIND_FLAG_THINGSDB
             ? "@thingsdb"
             : query->qbind.flags & TI_QBIND_FLAG_COLLECTION
             ? "@collection"
-            : "<unknown>";
+            : "@node";
 }
-#endif /* TI_QUERY_H_ */
+
+#endif  /* TI_QUERY_H_ */

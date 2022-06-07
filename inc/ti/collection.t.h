@@ -20,11 +20,14 @@ typedef struct ti_collection_s  ti_collection_t;
 struct ti_collection_s
 {
     uint32_t ref;
-    guid_t guid;            /* derived from collection->root->id */
+    uint16_t _pad16;
+    uint8_t _pad8;
+    uint8_t deep;
     uint64_t created_at;    /* UNIX time-stamp in seconds */
     ti_tz_t * tz;
     ti_raw_t * name;
     imap_t * things;        /* weak map for ti_thing_t */
+    imap_t * rooms;         /* weak map for ti_room_t */
     queue_t * gc;           /* ti_gc_t */
     vec_t * access;         /* ti_auth_t */
     smap_t * procedures;    /* ti_procedure_t */
@@ -33,7 +36,8 @@ struct ti_collection_s
     ti_enums_t * enums;
     uv_mutex_t * lock;      /* only for watch/ unwatch/ away-mode */
     vec_t * futures;        /* no reference, type: ti_future_t */
-    vec_t * timers;         /* timers, type: ti_timer_t */
+    vec_t * vtasks;         /* tasks, type: ti_vtask_t */
+    guid_t guid;            /* derived from collection->root->id */
 };
 
 #endif /* TI_COLLECTION_T_H_ */

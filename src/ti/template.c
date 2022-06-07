@@ -1,7 +1,7 @@
 /*
  * ti/template.c
  */
-#include <cleri/node.inline.h>
+#include <cleri/node.h>
 #include <ti/do.h>
 #include <ti/template.h>
 #include <ti/val.h>
@@ -58,29 +58,22 @@ str_t * template_str(const char * s, size_t n, size_t nn)
     return nstr;
 }
 
-int template_child(cleri_children_t ** childaddr, const char * str, size_t n)
+int template_child(cleri_node_t ** childaddr, const char * str, size_t n)
 {
-    cleri_children_t * ichild = malloc(sizeof(cleri_children_t));
     cleri_node_t * inode = cleri__node_new(&regex_t, str, n);
-    if (!ichild || !inode)
-    {
-        free(ichild);
-        free(inode);
+    if (!inode)
         return -1;
-    }
 
     inode->data = NULL;
-    ichild->next = *childaddr;
-    ichild->node = inode;
-
-    *childaddr = ichild;
+    inode->next = *childaddr;
+    *childaddr = inode;
     return 0;
 }
 
 int ti_template_build(cleri_node_t * node)
 {
     ti_template_t * tmplate = malloc(sizeof(ti_template_t));
-    cleri_children_t ** childaddr;
+    cleri_node_t ** childaddr;
     size_t count, diff = 0;
     const char * node_end;
 
@@ -91,16 +84,16 @@ int ti_template_build(cleri_node_t * node)
     tmplate->ref = 1;
     tmplate->node = node;
 
-    tmplate->node->ref++;              /* take a reference */
+    tmplate->node->ref++;               /* take a reference */
     node_end = node->str + 1;           /* take node start (`) + 1 */
 
     childaddr = &node                   /* sequence */
-            ->children->next->node      /* repeat */
+            ->children->next            /* repeat */
             ->children;
 
     for (; *childaddr; childaddr = &(*childaddr)->next)
     {
-        cleri_node_t * nd = (*childaddr)->node;
+        cleri_node_t * nd = (*childaddr);
 
         diff = nd->str - node_end;
 
@@ -146,7 +139,7 @@ failed:
 int ti_template_compile(ti_template_t * tmplate, ti_query_t * query, ex_t * e)
 {
     cleri_node_t * node = tmplate->node;
-    cleri_children_t * child;
+    cleri_node_t * child;
     size_t n = 0;
     ti_raw_t * raw;
     unsigned char * ptr;
@@ -158,20 +151,19 @@ int ti_template_compile(ti_template_t * tmplate, ti_query_t * query, ex_t * e)
      * convert the result to string if required.
      */
     child = node                        /* sequence */
-            ->children->next->node      /* repeat */
+            ->children->next            /* repeat */
             ->children;
 
     for (; child; child = child->next)
     {
-        cleri_node_t * nd = child->node;
-        if (nd->cl_obj->tp == CLERI_TP_REGEX)
+        if (child->cl_obj->tp == CLERI_TP_REGEX)
         {
-            n += nd->data ? ((str_t *) nd->data)->n : nd->len;
+            n += child->data ? ((str_t *) child->data)->n : child->len;
             continue;
         }
 
-        if (ti_do_statement(query, nd->children->next->node, e) ||
-            ti_val_convert_to_str(&query->rval, e))
+        if (ti_do_statement(query, child->children->next, e) ||
+            ti_val(query->rval)->to_str(&query->rval, e))
             goto failed;
 
         n += ((ti_raw_t *) query->rval)->n;
@@ -180,7 +172,7 @@ int ti_template_compile(ti_template_t * tmplate, ti_query_t * query, ex_t * e)
          * the value to build the actual string. Make sure to clean those
          * both when successful and on failure.
          */
-        nd->data = query->rval;
+        child->data = query->rval;
         query->rval = NULL;
     }
 
@@ -197,34 +189,33 @@ int ti_template_compile(ti_template_t * tmplate, ti_query_t * query, ex_t * e)
     raw->n = n;
     ptr = raw->data;
     child = node                        /* sequence */
-            ->children->next->node      /* repeat */
+            ->children->next            /* repeat */
             ->children;
 
     for (; child; child = child->next)
     {
-        cleri_node_t * nd = child->node;
-        if (nd->cl_obj->tp == CLERI_TP_REGEX)
+        if (child->cl_obj->tp == CLERI_TP_REGEX)
         {
             /* Copy literal part */
-            if (nd->data)
+            if (child->data)
             {
                 /* Removed escaping copy */
-                str_t * str = nd->data;
+                str_t * str = child->data;
                 memcpy(ptr, str->s, str->n);
                 ptr += str->n;
             }
             else
             {
                 /* Original */
-                memcpy(ptr, nd->str, nd->len);
-                ptr += nd->len;
+                memcpy(ptr, child->str, child->len);
+                ptr += child->len;
             }
         }
         else
         {
             /* Copy expression value (as string) */
-            ti_raw_t * expr = nd->data;
-            nd->data = NULL;
+            ti_raw_t * expr = child->data;
+            child->data = NULL;
             memcpy(ptr, expr->data, expr->n);
             ptr += expr->n;
             ti_val_unsafe_drop((ti_val_t *) expr);
@@ -240,16 +231,15 @@ failed:
      * which must be destroyed. Make sure to free this memory.
      */
     child = tmplate->node               /* sequence */
-            ->children->next->node      /* repeat */
+            ->children->next            /* repeat */
             ->children;
 
     for (; child; child = child->next)
     {
-        if (child->node->cl_obj->tp == CLERI_TP_SEQUENCE)
+        if (child->cl_obj->tp == CLERI_TP_SEQUENCE)
         {
-            cleri_node_t * nd = child->node;
-            ti_val_drop(nd->data);
-            nd->data = NULL;
+            ti_val_drop(child->data);
+            child->data = NULL;
         }
     }
     return e->nr;
@@ -257,20 +247,18 @@ failed:
 
 void ti_template_destroy(ti_template_t * tmplate)
 {
-    cleri_children_t * child;
+    cleri_node_t * child;
 
     child = tmplate->node               /* sequence */
-            ->children->next->node      /* repeat */
+            ->children->next            /* repeat */
             ->children;
 
     for (; child; child = child->next)
     {
-        cleri_node_t * nd = child->node;
-
-        if (nd->cl_obj->tp == CLERI_TP_REGEX)
-            free(nd->data);
+        if (child->cl_obj->tp == CLERI_TP_REGEX)
+            free(child->data);
         else
-            ti_val_drop(nd->data);
+            ti_val_drop(child->data);
     }
 
     cleri__node_free(tmplate->node);

@@ -179,7 +179,7 @@ class TestRelations(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'relations may only be configured between restricted '
-                r'sets and/or nillable types'):
+                r'sets and/or nillable typed'):
             await client.query(r'''
                 mod_type('A', 'rel', 'c', 'astrict');
             ''')
@@ -187,7 +187,7 @@ class TestRelations(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'relations may only be configured between restricted '
-                r'sets and/or nillable types'):
+                r'sets and/or nillable typed'):
             await client.query(r'''
                 mod_type('A', 'rel', 'bstrict', 'a');
             ''')
@@ -1218,6 +1218,7 @@ mod_type('D', 'rel', 'da', 'db');
             set_type('A', {
                 a: 'A?',
                 aa: '{A}',
+                aaa: '{A}',
                 bb: '{B}',
             });
 
@@ -1227,6 +1228,7 @@ mod_type('D', 'rel', 'da', 'db');
 
             mod_type('A', 'rel', 'a', 'aa');
             mod_type('A', 'rel', 'bb', 'aa');
+            mod_type('A', 'rel', 'aaa', 'aaa');
         ''')
 
         self.assertEqual(await client0.query(r'''
@@ -1275,6 +1277,46 @@ mod_type('D', 'rel', 'da', 'db');
             assert (.a1.aa == set());
             assert (.a2.aa == set(.a1, .a2));
 
+            .a2.aa.remove(||true);
+            assert (.a1.a == nil);
+            assert (.a2.a == nil);
+            assert (.a1.aa == set());
+            assert (.a2.aa == set());
+
+            .a1.aaa = set(.a1, .a2);
+            assert (.a1.aaa == set(.a1, .a2));
+            assert (.a2.aaa == set(.a1));
+
+            .a1.aaa.remove(||true);
+            assert (.a1.aaa == set());
+            assert (.a2.aaa == set());
+
+            .a2.aa |= set(.a1, .a2);
+            assert (.a1.a == .a2);
+            assert (.a2.a == .a2);
+            assert (.a1.aa == set());
+            assert (.a2.aa == set(.a1, .a2));
+
+            .a2.aa.clear();
+            assert (.a1.a == nil);
+            assert (.a2.a == nil);
+            assert (.a1.aa == set());
+            assert (.a2.aa == set());
+
+            .a1.aaa = set(.a1, .a2);
+            assert (.a1.aaa == set(.a1, .a2));
+            assert (.a2.aaa == set(.a1));
+
+            .a1.aaa.clear();
+            assert (.a1.aaa == set());
+            assert (.a2.aaa == set());
+
+            .a2.aa |= set(.a1, .a2);
+            assert (.a1.a == .a2);
+            assert (.a2.a == .a2);
+            assert (.a1.aa == set());
+            assert (.a2.aa == set(.a1, .a2));
+
             'OK';
         '''), 'OK')
 
@@ -1291,6 +1333,8 @@ mod_type('D', 'rel', 'da', 'db');
                 assert (.a2.a == .a2);
                 assert (.a1.aa == set());
                 assert (.a2.aa == set(.a1, .a2));
+                assert (.a1.aaa == set());
+                assert (.a2.aaa == set());
 
                 'OK';
             '''), 'OK')
@@ -1477,7 +1521,7 @@ mod_type('D', 'rel', 'da', 'db');
             w = W{};
             p = P{w: set(w)};
 
-            return([p.w.len(), w.p.len()])
+            return [p.w.len(), w.p.len()];
         '''), [1, 1])
 
     async def test_iteration_tset(self, client):
@@ -1496,13 +1540,13 @@ mod_type('D', 'rel', 'da', 'db');
         self.assertEqual(await client.query(r'''
             w = W{};
             p = P{w: w};
-            return(w.p.len())
+            return w.p.len()
         '''), 1)
 
         self.assertEqual(await client.query(r'''
             p = P{};
             w = W{p: set(p)};
-            return(p.w.len())
+            return p.w.len()
         '''), 1)
 
 

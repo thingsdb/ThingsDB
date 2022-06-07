@@ -9,11 +9,11 @@ const char * ti_proto_str(ti_proto_enum_t tp)
     switch (tp)
     {
     case TI_PROTO_CLIENT_NODE_STATUS:       return "CLIENT_NODE_STATUS";
-    case TI_PROTO_CLIENT_WATCH_INI:         return "CLIENT_WATCH_INI";
-    case TI_PROTO_CLIENT_WATCH_UPD:         return "CLIENT_WATCH_UPD";
-    case TI_PROTO_CLIENT_WATCH_DEL:         return "CLIENT_WATCH_DEL";
-    case TI_PROTO_CLIENT_WATCH_STOP:        return "CLIENT_WATCH_STOP";
     case TI_PROTO_CLIENT_WARN:              return "CLIENT_WARN";
+    case TI_PROTO_CLIENT_ROOM_JOIN:         return "CLIENT_ROOM_JOIN";
+    case TI_PROTO_CLIENT_ROOM_LEAVE:        return "CLIENT_ROOM_LEAVE";
+    case TI_PROTO_CLIENT_ROOM_EMIT:         return "CLIENT_ROOM_EMIT";
+    case TI_PROTO_CLIENT_ROOM_DELETE:       return "CLIENT_ROOM_DELETE";
 
     case TI_PROTO_CLIENT_RES_PONG:          return "CLIENT_RES_PONG";
     case TI_PROTO_CLIENT_RES_OK:            return "CLIENT_RES_OK";
@@ -23,9 +23,12 @@ const char * ti_proto_str(ti_proto_enum_t tp)
     case TI_PROTO_CLIENT_REQ_PING:          return "CLIENT_REQ_PING";
     case TI_PROTO_CLIENT_REQ_AUTH:          return "CLIENT_REQ_AUTH";
     case TI_PROTO_CLIENT_REQ_QUERY:         return "CLIENT_REQ_QUERY";
-    case TI_PROTO_CLIENT_REQ_WATCH:         return "CLIENT_REQ_WATCH";
-    case TI_PROTO_CLIENT_REQ_UNWATCH:       return "CLIENT_REQ_UNWATCH";
+    case _TI_PROTO_CLIENT_DEP_35:           return "DEPRECATED_WATCH";
+    case _TI_PROTO_CLIENT_DEP_36:           return "DEPRECATED_UNWATCH";
     case TI_PROTO_CLIENT_REQ_RUN:           return "CLIENT_REQ_RUN";
+    case TI_PROTO_CLIENT_REQ_JOIN:          return "CLIENT_REQ_JOIN";
+    case TI_PROTO_CLIENT_REQ_LEAVE:         return "CLIENT_REQ_LEAVE";
+    case TI_PROTO_CLIENT_REQ_EMIT:          return "CLIENT_REQ_EMIT";
 
     case TI_PROTO_MODULE_CONF:              return "MODULE_CONF";
     case TI_PROTO_MODULE_CONF_OK:           return "MODULE_CONF_OK";
@@ -34,20 +37,18 @@ const char * ti_proto_str(ti_proto_enum_t tp)
     case TI_PROTO_MODULE_RES:               return "MODULE_RES";
     case TI_PROTO_MODULE_ERR:               return "MODULE_ERR";
 
-    case TI_PROTO_NODE_EVENT:               return "NODE_EVENT";
+    case TI_PROTO_NODE_CHANGE:              return "NODE_CHANGE";
     case TI_PROTO_NODE_INFO:                return "NODE_INFO";
-    case TI_PROTO_NODE_MISSING_EVENT:       return "NODE_MISSING_EVENT";
-    case TI_PROTO_NODE_FWD_WATCH:           return "NODE_FWD_WATCH";
-    case TI_PROTO_NODE_FWD_UNWATCH:         return "NODE_FWD_UNWATCH";
-    case TI_PROTO_NODE_FWD_TIMER:           return "NODE_FWD_TIMER";
-    case TI_PROTO_NODE_OK_TIMER:            return "NODE_OK_TIMER";
-    case TI_PROTO_NODE_EX_TIMER:            return "NODE_EX_TIMER";
+    case TI_PROTO_NODE_MISSING_CHANGE:      return "NODE_MISSING_CHANGE";
+    case TI_PROTO_NODE_ROOM_EMIT:           return "NODE_ROOM_EMIT";
+    case TI_PROTO_NODE_FWD_WARN:            return "NODE_FWD_WARN";
+    case TI_PROTO_NODE_FWD_TASK:            return "NODE_FWD_TASK";
 
     case TI_PROTO_NODE_REQ_QUERY:           return "NODE_REQ_QUERY";
     case TI_PROTO_NODE_REQ_RUN:             return "NODE_REQ_RUN";
 
     case TI_PROTO_NODE_REQ_CONNECT:         return "NODE_REQ_CONNECT";
-    case TI_PROTO_NODE_REQ_EVENT_ID:        return "NODE_REQ_EVENT_ID";
+    case TI_PROTO_NODE_REQ_CHANGE_ID:       return "NODE_REQ_CHANGE_ID";
     case TI_PROTO_NODE_REQ_AWAY:            return "NODE_REQ_AWAY";
     case TI_PROTO_NODE_REQ_SETUP:           return "NODE_REQ_SETUP";
     case TI_PROTO_NODE_REQ_SYNC:            return "NODE_REQ_SYNC";

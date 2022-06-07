@@ -584,8 +584,8 @@ class TestDatetime(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'expecting type `str` or `int` as collection '
-                r'but got type `nil` instead'):
+                r'expecting a scope to be of type `str` but got '
+                r'type `nil` instead'):
             await client.query('set_time_zone(nil, "");', scope='@t')
 
         with self.assertRaisesRegex(
@@ -595,8 +595,8 @@ class TestDatetime(TestBase):
             await client.query('set_time_zone("stuff", nil);', scope='@t')
 
         with self.assertRaisesRegex(
-                LookupError,
-                'collection `` not found'):
+                ValueError,
+                'invalid scope; scopes must not be empty;'):
             await client.query('set_time_zone("", "UTC");', scope='@t')
 
         with self.assertRaisesRegex(
@@ -631,15 +631,8 @@ class TestDatetime(TestBase):
                 'but 1 was given'):
             await client.query('time_zones_info(nil);', scope='@t')
 
-        with self.assertRaisesRegex(
-                LookupError,
-                r'function `time_zones_info` is undefined '
-                r'in the `@collection` '
-                r'scope; you might want to query the `@thingsdb` scope\?'):
-            await client.query('time_zones_info();')
-
         res = await client.query('time_zones_info();', scope='@t')
-        self.assertEqual(len(res), 440)
+        self.assertEqual(len(res), 593)
 
         for tz in res:
             self.assertIsInstance(tz, str)
@@ -965,6 +958,13 @@ class TestDatetime(TestBase):
 
         self.assertEqual(
             await client.query('.dt.zone();'), 'Europe/Amsterdam')
+
+    async def test_all_time_zones(self, client):
+        # bug #267
+        res = await client.query(r"""//ti
+            is_time_zone('America/Argentina/ComodRivadavia');
+        """)
+        self.assertTrue(res)
 
 
 if __name__ == '__main__':

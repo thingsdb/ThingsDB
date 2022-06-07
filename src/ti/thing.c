@@ -5,8 +5,8 @@
 #include <doc.h>
 #include <stdlib.h>
 #include <ti.h>
+#include <ti/changes.inline.h>
 #include <ti/enums.h>
-#include <ti/events.inline.h>
 #include <ti/field.h>
 #include <ti/item.h>
 #include <ti/item.t.h>
@@ -17,6 +17,8 @@
 #include <ti/prop.h>
 #include <ti/proto.h>
 #include <ti/raw.inline.h>
+#include <ti/spec.inline.h>
+#include <ti/task.h>
 #include <ti/thing.h>
 #include <ti/thing.inline.h>
 #include <ti/types.h>
@@ -30,122 +32,6 @@
 static vec_t * thing__gc_swp;
 vec_t * ti_thing_gc_vec;
 
-
-static inline int thing__val_locked(
-        ti_thing_t * thing,
-        ti_name_t * name,
-        ti_val_t * val,
-        ex_t * e)
-{
-    /*
-     * Array and Sets are the only two values with are mutable and not set
-     * by reference (like things). An array is always type `list` since it
-     * is a value attached to a `prop` type.
-     */
-    if (    (val->tp == TI_VAL_ARR || val->tp == TI_VAL_SET) &&
-            (val->flags & TI_VFLAG_LOCK))
-    {
-        ex_set(e, EX_OPERATION,
-            "cannot change or remove property `%s` on "TI_THING_ID
-            " while the `%s` is being used",
-            name->str,
-            thing->id,
-            ti_val_str(val));
-        return -1;
-    }
-    return 0;
-}
-
-static inline int thing__item_val_locked(
-        ti_thing_t * thing,
-        ti_raw_t * key,
-        ti_val_t * val,
-        ex_t * e)
-{
-    /*
-     * Array and Sets are the only two values with are mutable and not set
-     * by reference (like things). An array is always type `list` since it
-     * is a value attached to a `prop` type.
-     */
-    if (    (val->tp == TI_VAL_ARR || val->tp == TI_VAL_SET) &&
-            (val->flags & TI_VFLAG_LOCK))
-    {
-        ex_set(e, EX_OPERATION,
-            "cannot change or remove property `%s` on "TI_THING_ID
-            " while the `%s` is being used",
-            ti_raw_as_printable_str(key),
-            thing->id,
-            ti_val_str(val));
-        return -1;
-    }
-    return 0;
-}
-
-static void thing__unwatch(ti_thing_t * thing, ti_stream_t * stream)
-{
-    msgpack_packer pk;
-    msgpack_sbuffer buffer;
-    ti_pkg_t * pkg;
-
-    if (ti_stream_is_closed(stream))
-        return;
-
-    if (mp_sbuffer_alloc_init(&buffer, 32, sizeof(ti_pkg_t)))
-    {
-        log_critical(EX_MEMORY_S);
-        return;
-    }
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-
-    (void) ti_thing_id_to_pk(thing, &pk);
-
-    pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_WATCH_STOP, buffer.size);
-
-    if (ti_stream_write_pkg(stream, pkg))
-        log_critical(EX_INTERNAL_S);
-}
-
-static void thing__watch_del(ti_thing_t * thing)
-{
-    assert (thing->watchers);
-
-    msgpack_packer pk;
-    msgpack_sbuffer buffer;
-    ti_pkg_t * pkg;
-    ti_rpkg_t * rpkg;
-
-    if (mp_sbuffer_alloc_init(&buffer, 32, sizeof(ti_pkg_t)))
-    {
-        log_critical(EX_MEMORY_S);
-        return;
-    }
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-
-    (void) ti_thing_id_to_pk(thing, &pk);
-
-    pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_WATCH_DEL, buffer.size);
-
-    rpkg = ti_rpkg_create(pkg);
-    if (!rpkg)
-    {
-        free(pkg);
-        log_critical(EX_MEMORY_S);
-        return;
-    }
-
-    for (vec_each(thing->watchers, ti_watch_t, watch))
-    {
-        if (ti_stream_is_closed(watch->stream))
-            continue;
-
-        if (ti_stream_write_rpkg(watch->stream, rpkg))
-            log_critical(EX_INTERNAL_S);
-    }
-
-    ti_rpkg_drop(rpkg);
-}
 
 ti_thing_t * ti_thing_o_create(
         uint64_t id,
@@ -164,7 +50,7 @@ ti_thing_t * ti_thing_o_create(
     thing->id = id;
     thing->collection = collection;
     thing->items.vec = vec_new(init_sz);
-    thing->watchers = NULL;
+    thing->via.spec = TI_SPEC_ANY;
 
     if (!thing->items.vec)
     {
@@ -188,7 +74,7 @@ ti_thing_t * ti_thing_i_create(uint64_t id, ti_collection_t * collection)
     thing->id = id;
     thing->collection = collection;
     thing->items.smap = smap_create();
-    thing->watchers = NULL;
+    thing->via.spec = TI_SPEC_ANY;
 
     if (!thing->items.smap)
     {
@@ -215,7 +101,7 @@ ti_thing_t * ti_thing_t_create(
     thing->id = id;
     thing->collection = collection;
     thing->items.vec = vec_new(type->fields->n);
-    thing->watchers = NULL;
+    thing->via.type = type;
 
     if (!thing->items.vec)
     {
@@ -225,12 +111,64 @@ ti_thing_t * ti_thing_t_create(
     return thing;
 }
 
+typedef struct
+{
+    ti_field_t * field;
+    ti_thing_t * thing;
+} thing__clear_rel_t;
+
+int thing__clear_rel_cb(ti_thing_t * other, thing__clear_rel_t * w)
+{
+    w->field->condition.rel->del_cb(w->field, other, w->thing);
+    return 0;
+}
+
+void ti_thing_cancel(ti_thing_t * thing)
+{
+    if (ti_thing_is_instance(thing))
+    {
+        /* Remove SWEEP flag to prevent garbage collection */
+        thing->flags &= ~TI_THING_FLAG_SWEEP;
+
+        for (vec_each(thing->via.type->fields, ti_field_t, field))
+        {
+            if (!field->condition.none)
+                continue;
+
+            if (field->spec == TI_SPEC_SET)
+            {
+                ti_field_t * ofield = field->condition.rel->field;
+                ti_vset_t * vset = VEC_get(thing->items.vec, field->idx);
+                if (!vset)
+                    continue;
+                thing__clear_rel_t w = {
+                        .field = ofield,
+                        .thing = thing
+                };
+                (void) imap_walk(vset->imap, (imap_cb) thing__clear_rel_cb, &w);
+            }
+            else if ((field->spec & TI_SPEC_MASK_NILLABLE) < TI_SPEC_ANY)
+            {
+                ti_field_t * ofield = field->condition.rel->field;
+                ti_thing_t * other = VEC_get(thing->items.vec, field->idx);
+
+                if (!other || ti_val_is_nil((ti_val_t *) other))
+                    continue;
+
+                ofield->condition.rel->del_cb(ofield, other, thing);
+                field->condition.rel->del_cb(field, thing, NULL);
+            }
+        }
+    }
+    ti_thing_destroy(thing);
+}
+
 void ti_thing_destroy(ti_thing_t * thing)
 {
     assert (thing);
     if (thing->id)
     {
-        if (ti_events_cache_dropped_thing(thing))
+        if (ti_changes_cache_dropped_thing(thing))
             return;
 
         (void) imap_pop(thing->collection->things, thing->id);
@@ -240,9 +178,6 @@ void ti_thing_destroy(ti_thing_t * thing)
          * will therefore never destroy.
          */
     }
-
-    if ((~ti.flags & TI_FLAG_SIGNAL) && ti_thing_has_watchers(thing))
-        thing__watch_del(thing);
 
     /*
      * While dropping, mutable variable must clear the parent; for example
@@ -258,7 +193,6 @@ void ti_thing_destroy(ti_thing_t * thing)
                 ? (vec_destroy_cb) ti_prop_destroy
                 : (vec_destroy_cb) ti_val_unassign_drop);
 
-    vec_destroy(thing->watchers, (vec_destroy_cb) ti_watch_drop);
     free(thing);
 }
 
@@ -289,6 +223,24 @@ void ti_thing_clear(ti_thing_t * thing)
     }
 }
 
+void ti_thing_o_items_destroy(ti_thing_t * thing)
+{
+    assert(ti_thing_is_object(thing));
+
+    if (ti_thing_is_dict(thing))
+    {
+        smap_destroy(
+                thing->items.smap,
+                (smap_destroy_cb) ti_prop_unsafe_vdestroy);
+    }
+    else
+    {
+        vec_destroy(
+                thing->items.vec,
+                (vec_destroy_cb) ti_prop_unsafe_vdestroy);
+    }
+}
+
 int ti_thing_to_dict(ti_thing_t * thing)
 {
     smap_t * smap = smap_create();
@@ -315,7 +267,7 @@ typedef struct
     vec_t * vec;
 } thing__to_stric_t;
 
-static int thing__to_strict_cb(ti_item_t * item, thing__to_stric_t * w)
+static int thing__i_to_p_cb(ti_item_t * item, thing__to_stric_t * w)
 {
     if (ti_raw_is_name(item->key))
     {
@@ -326,7 +278,7 @@ static int thing__to_strict_cb(ti_item_t * item, thing__to_stric_t * w)
     return -1;
 }
 
-int ti_thing_to_strict(ti_thing_t * thing, ti_raw_t ** incompatible)
+int ti_thing_i_to_p(ti_thing_t * thing, ti_raw_t ** incompatible)
 {
     vec_t * vec = vec_new(ti_thing_n(thing));
     if (!vec)
@@ -340,7 +292,7 @@ int ti_thing_to_strict(ti_thing_t * thing, ti_raw_t ** incompatible)
     };
     if (smap_values(
             thing->items.smap,
-            (smap_val_cb) thing__to_strict_cb,
+            (smap_val_cb) thing__i_to_p_cb,
             &w))
     {
         free(vec);
@@ -366,7 +318,8 @@ int ti_thing_props_from_vup(
     {
         if (mp_next(vup->up, &mp_prop) != MP_STR)
         {
-            ex_set(e, EX_TYPE_ERROR, "property names must be of type string");
+            ex_set(e, EX_TYPE_ERROR,
+                    "property names must be of type `"TI_VAL_STR_S"`");
             return e->nr;
         }
 
@@ -405,18 +358,7 @@ int ti_thing_props_from_vup(
 
 ti_thing_t * ti_thing_new_from_vup(ti_vup_t * vup, size_t sz, ex_t * e)
 {
-    ti_thing_t * thing;
-
-    if (!vup->isclient && vup->collection)
-    {
-        ex_set(e, EX_BAD_DATA,
-                "new things without an id can only be created from user input "
-                "or in the thingsdb scope, and are unexpected when parsed "
-                "from node data with a collection");
-        return NULL;
-    }
-
-    thing = ti_thing_o_create(0, sz, vup->collection);
+    ti_thing_t * thing = ti_thing_o_create(0, sz, vup->collection);
     if (!thing)
     {
         ex_set_mem(e);
@@ -488,7 +430,7 @@ static int thing_p__prop_set_e(
     {
         if (p->name == name)
         {
-            if (thing__val_locked(thing, p->name, p->val, e))
+            if (ti_val_tlocked(p->val, thing, p->name, e))
                 return e->nr;
 
             ti_decref(name);
@@ -524,8 +466,9 @@ static int thing_i__item_set_e(
             key->data, key->n);
     if (item)
     {
-        if (thing__item_val_locked(thing, item->key, item->val, e))
+        if (ti_val_tlocked(item->val, thing, (ti_name_t *) item->key, e))
             return e->nr;
+
         ti_val_unsafe_drop((ti_val_t *) item->key);
         ti_val_unsafe_gc_drop(item->val);
         item->val = val;
@@ -566,10 +509,7 @@ ti_prop_t * ti_thing_p_prop_set(
 
     prop = ti_prop_create(name, val);
     if (!prop || vec_push(&thing->items.vec, prop))
-    {
-        free(prop);
-        return NULL;
-    }
+        return free(prop), NULL;
 
     return prop;
 }
@@ -588,19 +528,17 @@ ti_item_t * ti_thing_i_item_set(
             key->data, key->n);
     if (item)
     {
-        ti_val_unsafe_drop((ti_val_t *) item->key);
+        /*
+         * The key is equal, so we do not have to anything with the key.
+         */
         ti_val_unsafe_gc_drop(item->val);
         item->val = val;
-        item->key = key;
         return item;
     }
 
     item = ti_item_create(key, val);
     if (smap_addn(thing->items.smap, (const char *) key->data, key->n, item))
-    {
-        free(item);
-        return NULL;
-    }
+        return free(item), NULL;
 
     return item;
 }
@@ -630,19 +568,13 @@ int ti_thing_i_set_val_from_strn(
 {
     ti_raw_t * key = ti_str_create(str, n);
     if (!key)
-    {
-        ex_set_mem(e);
-        return e->nr;
-    }
-
-    assert (ti_thing_is_dict(thing));
+        return ex_set_mem(e), e->nr;
 
     if (ti_val_make_assignable(val, thing, key, e))
         return e->nr;
 
     if (thing_i__item_set_e(thing, key, *val, e))
     {
-        assert (e->nr);
         ti_val_unsafe_drop((ti_val_t *) key);
         return e->nr;
     }
@@ -655,9 +587,51 @@ int ti_thing_i_set_val_from_strn(
     return 0;
 }
 
+int ti_thing_o_set_val_from_strn(
+        ti_witem_t * witem,
+        ti_thing_t * thing,
+        const char * str,
+        size_t n,
+        ti_val_t ** val,
+        ex_t * e)
+{
+    if (ti_name_is_valid_strn(str, n))
+        /* Create a name when the key is a valid name, this is required since
+         * some logic, for example in `do.c` checks if a name exists, and from
+         * that result might decide a property exists or not.
+         */
+        return ti_thing_o_set_val_from_valid_strn(
+                (ti_wprop_t *) witem,
+                thing, str, n, val, e);
+
+    if (!ti_val_is_spec(*val, thing->via.spec))
+    {
+        ex_set(e, EX_TYPE_ERROR, "restriction mismatch");
+        return e->nr;
+    }
+
+    if (!strx_is_utf8n(str, n))
+    {
+        ex_set(e, EX_VALUE_ERROR, "properties must have valid UTF-8 encoding");
+        return e->nr;
+    }
+
+    if (ti_is_reserved_key_strn(str, n))
+    {
+        ex_set(e, EX_VALUE_ERROR, "property `%c` is reserved"DOC_PROPERTIES,
+                *str);
+        return e->nr;
+    }
+
+    if (!ti_thing_is_dict(thing) && ti_thing_to_dict(thing))
+        return ex_set_mem(e), e->nr;
+
+    return ti_thing_i_set_val_from_strn(witem, thing, str, n, val, e);
+}
+
 /*
  * Return 0 if successful; This function makes a given `value` assignable so
- * it should not be used within a job.
+ * it should not be used within a task.
  */
 int ti_thing_o_set_val_from_valid_strn(
         ti_wprop_t * wprop,
@@ -667,12 +641,17 @@ int ti_thing_o_set_val_from_valid_strn(
         ti_val_t ** val,
         ex_t * e)
 {
-    ti_name_t * name = ti_names_get(str, n);
-    if (!name)
+    ti_name_t * name;
+
+    if (!ti_val_is_spec(*val, thing->via.spec))
     {
-        ex_set_mem(e);
+        ex_set(e, EX_TYPE_ERROR, "restriction mismatch");
         return e->nr;
     }
+
+    name = ti_names_get(str, n);
+    if (!name)
+        return ex_set_mem(e), e->nr;
 
     if (ti_val_make_assignable(val, thing, name, e))
         return e->nr;
@@ -697,7 +676,7 @@ int ti_thing_o_set_val_from_valid_strn(
 
 /*
  * Return 0 if successful; This function makes a given `value` assignable so
- * it should not be used within a job.
+ * it should not be used within a task.
  *
  * If successful, the reference counter of `val` will be increased
  */
@@ -710,13 +689,12 @@ int ti_thing_t_set_val_from_strn(
         ex_t * e)
 {
     ti_val_t ** vaddr;
-    ti_type_t * type = ti_thing_type(thing);
-    ti_field_t * field = ti_field_by_strn_e(type, str, n, e);
+    ti_field_t * field = ti_field_by_strn_e(thing->via.type, str, n, e);
     if (!field)
         return e->nr;
 
     vaddr = (ti_val_t **) vec_get_addr(thing->items.vec, field->idx);
-    if (thing__val_locked(thing, field->name, *vaddr, e) ||
+    if (ti_val_tlocked(*vaddr, thing, field->name, e) ||
         ti_field_make_assignable(field, val, thing, e))
         return e->nr;
 
@@ -769,9 +747,17 @@ ti_item_t * ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
         if (!item)
             goto not_found;
 
-        return thing__item_val_locked(thing, item->key, item->val, e)
-                ? NULL
-                : item;
+        if (ti_val_tlocked(item->val, thing, (ti_name_t *) item->key, e))
+        {
+            if (smap_addn(
+                    thing->items.smap,
+                    (const char *) rname->data,
+                    rname->n,
+                    item))
+                log_critical("failed to restore item");
+            return NULL;
+        }
+        return item;
     }
     else
     {
@@ -783,7 +769,7 @@ ti_item_t * ti_thing_o_del_e(ti_thing_t * thing, ti_raw_t * rname, ex_t * e)
             for (vec_each(thing->items.vec, ti_prop_t, prop), ++i)
             {
                 if (prop->name == name)
-                    return thing__val_locked(thing, prop->name, prop->val, e)
+                    return ti_val_tlocked(prop->val, thing, prop->name, e)
                         ? NULL
                         : vec_swap_remove(thing->items.vec, i);
             }
@@ -817,18 +803,17 @@ static _Bool thing_t__get_by_name(
         ti_thing_t * thing,
         ti_name_t * name)
 {
-    ti_type_t * type = ti_thing_type(thing);
     ti_field_t * field;
     ti_method_t * method;
 
-    if ((field = ti_field_by_name(type, name)))
+    if ((field = ti_field_by_name(thing->via.type, name)))
     {
         wprop->name = name;
         wprop->val = (ti_val_t **) vec_get_addr(thing->items.vec, field->idx);
         return true;
     }
 
-    if ((method = ti_method_by_name(type, name)))
+    if ((method = ti_method_by_name(thing->via.type, name)))
     {
         wprop->name = name;
         wprop->val = (ti_val_t **) (&method->closure);
@@ -909,7 +894,7 @@ int ti_thing_gen_id(ti_thing_t * thing)
 {
     assert (!thing->id);
 
-    thing->id = ti_next_thing_id();
+    thing->id = ti_next_free_id();
     ti_thing_mark_new(thing);
 
     if (ti_thing_to_map(thing))
@@ -940,187 +925,6 @@ int ti_thing_gen_id(ti_thing_t * thing)
     return 0;
 }
 
-ti_watch_t * ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream)
-{
-    ti_watch_t * watch;
-    ti_watch_t ** empty_watch = NULL;
-    if (!thing->watchers)
-    {
-        thing->watchers = vec_new(1);
-        if (!thing->watchers)
-            return NULL;
-        watch = ti_watch_create(stream);
-        if (!watch)
-            return NULL;
-        VEC_push(thing->watchers, watch);
-        goto finish;
-    }
-    for (vec_each_addr(thing->watchers, ti_watch_t, watch))
-    {
-        if ((*watch)->stream == stream)
-            return *watch;
-        if (!(*watch)->stream)
-            empty_watch = watch;
-    }
-
-    if (empty_watch)
-    {
-        watch = *empty_watch;
-        watch->stream = stream;
-        goto finish;
-    }
-
-    watch = ti_watch_create(stream);
-    if (!watch)
-        return NULL;
-
-    if (vec_push(&thing->watchers, watch))
-        goto failed;
-
-finish:
-    if (!stream->watching)
-    {
-        stream->watching = vec_new(1);
-        if (!stream->watching)
-            goto failed;
-        VEC_push(stream->watching, watch);
-    }
-    else if (vec_push(&stream->watching, watch))
-        goto failed;
-
-    return watch;
-
-failed:
-    /* when this fails, a few bytes might leak */
-    watch->stream = NULL;
-    return NULL;
-}
-
-int ti_thing_watch_init(ti_thing_t * thing, ti_stream_t * stream)
-{
-    ti_pkg_t * pkg;
-    vec_t * pkgs_queue;
-    ti_vp_t vp;
-    msgpack_sbuffer buffer;
-    ti_collection_t * collection = thing->collection;
-    _Bool is_collection = thing == collection->root;
-     ti_watch_t * watch = ti_thing_watch(thing, stream);
-    if (!watch)
-        return -1;
-
-    if (mp_sbuffer_alloc_init(&buffer, 8192, sizeof(ti_pkg_t)))
-        return -1;
-
-    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
-
-    msgpack_pack_map(&vp.pk, is_collection ? 6 : 3);
-
-    mp_pack_str(&vp.pk, "event");
-    msgpack_pack_uint64(&vp.pk, ti.node->cevid);
-
-    mp_pack_str(&vp.pk, "thing");
-
-    if (ti_thing__to_pk(thing, &vp, TI_VAL_PACK_TASK /* options */) ||
-        mp_pack_str(&vp.pk, "collection") ||
-        mp_pack_strn(&vp.pk, collection->name->data, collection->name->n))
-    {
-        msgpack_sbuffer_destroy(&buffer);
-        return -1;
-    }
-
-    if (is_collection && (
-            mp_pack_str(&vp.pk, "enums") ||
-            ti_enums_to_pk(collection->enums, &vp) ||
-            mp_pack_str(&vp.pk, "types") ||
-            ti_types_to_pk(collection->types, &vp.pk) ||
-            mp_pack_str(&vp.pk, "procedures") ||
-            ti_procedures_to_pk(collection->procedures, &vp.pk)))
-    {
-        msgpack_sbuffer_destroy(&buffer);
-        return -1;
-    }
-
-    pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_WATCH_INI, buffer.size);
-
-    if (ti_stream_is_closed(stream) ||
-        ti_stream_write_pkg(stream, pkg))
-        free(pkg);
-
-    pkgs_queue = ti_events_pkgs_from_queue(thing);
-    if (pkgs_queue)
-    {
-        for (vec_each(pkgs_queue, ti_pkg_t, pkg))
-        {
-            if (ti_stream_is_closed(stream) ||
-                ti_stream_write_pkg(stream, pkg))
-                free(pkg);
-        }
-        vec_destroy(pkgs_queue, NULL);
-    }
-    return 0;
-}
-
-int ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream)
-{
-    size_t idx = 0;
-    if (!thing->watchers)
-        return 0;
-
-    for (vec_each(thing->watchers, ti_watch_t, watch), ++idx)
-    {
-        if (watch->stream == stream)
-        {
-            watch->stream = NULL;
-            vec_swap_remove(thing->watchers, idx);
-            thing__unwatch(thing, stream);
-            return 0;
-        }
-    }
-    return 0;
-}
-
-static ti_pkg_t * thing__fwd(
-        ti_thing_t * thing,
-        uint16_t pkg_id,
-        ti_proto_enum_t proto)
-{
-    msgpack_packer pk;
-    msgpack_sbuffer buffer;
-    ti_pkg_t * pkg;
-
-    if (mp_sbuffer_alloc_init(&buffer, 64, sizeof(ti_pkg_t)))
-        return NULL;
-
-    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
-    msgpack_pack_array(&pk, 2);
-    msgpack_pack_uint64(&pk, thing->collection->root->id);
-    msgpack_pack_uint64(&pk, thing->id);
-
-    pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, pkg_id, proto, buffer.size);
-
-    return pkg;
-}
-
-int ti_thing_watch_fwd(
-        ti_thing_t * thing,
-        ti_stream_t * stream,
-        uint16_t pkg_id)
-{
-    ti_pkg_t * pkg = thing__fwd(thing, pkg_id, TI_PROTO_NODE_FWD_WATCH);
-    return pkg ? ti_stream_write_pkg(stream, pkg) : -1;
-}
-
-int ti_thing_unwatch_fwd(
-        ti_thing_t * thing,
-        ti_stream_t * stream,
-        uint16_t pkg_id)
-{
-    ti_pkg_t * pkg = thing__fwd(thing, pkg_id, TI_PROTO_NODE_FWD_UNWATCH);
-    return pkg ? ti_stream_write_pkg(stream, pkg) : -1;
-}
-
 void ti_thing_t_to_object(ti_thing_t * thing)
 {
     assert (!ti_thing_is_object(thing));
@@ -1147,39 +951,35 @@ void ti_thing_t_to_object(ti_thing_t * thing)
         *val = (ti_val_t *) prop;
     }
     thing->type_id = TI_SPEC_OBJECT;
+    thing->via.spec = TI_SPEC_ANY;  /* fixes bug #277 */
 }
 
 typedef struct
 {
-    int options;
+    int deep;
     ti_vp_t * vp;
 } thing__pk_cb_t;
 
-static int thing__pk_cb(ti_item_t * item, thing__pk_cb_t * w)
+static inline int thing__client_pk_cb(ti_item_t * item, thing__pk_cb_t * w)
 {
-    return (
+    return -(
         mp_pack_strn(&w->vp->pk, item->key->data, item->key->n) ||
-        ti_val_to_pk(item->val, w->vp, w->options)
+        ti_val_to_client_pk(item->val, w->vp, w->deep)
     );
 }
 
-int ti_thing__to_pk(ti_thing_t * thing, ti_vp_t * vp, int options)
+int ti_thing__to_client_pk(ti_thing_t * thing, ti_vp_t * vp, int deep)
 {
-    assert (options);  /* should be either positive or negative, not 0 */
+    /*
+     * Only when packing for a client the result size is checked;
+     * The correct error is not set here, but instead the size should be
+     * checked again to set either a `memory` or `too_much_data` error.
+     */
+    if (((msgpack_sbuffer *) vp->pk.data)->size >
+                ti.cfg->result_size_limit)
+        return -1;
 
-    if (options > 0)
-    {
-        /*
-         * Only when packing for a client the result size is checked;
-         * The correct error is not set here, but instead the size should be
-         * checked again to set either a `memory` or `too_much_data` error.
-         */
-        if (((msgpack_sbuffer *) vp->pk.data)->size >
-                    ti.cfg->result_size_limit)
-            return -1;
-
-        --options;
-    }
+    --deep;
 
     if (msgpack_pack_map(&vp->pk, (!!thing->id) + ti_thing_n(thing)))
         return -1;
@@ -1196,12 +996,12 @@ int ti_thing__to_pk(ti_thing_t * thing, ti_vp_t * vp, int options)
         if (ti_thing_is_dict(thing))
         {
             thing__pk_cb_t w = {
-                    .options = options,
+                    .deep = deep,
                     .vp = vp,
             };
             if (smap_values(
                     thing->items.smap,
-                    (smap_val_cb) thing__pk_cb,
+                    (smap_val_cb) thing__client_pk_cb,
                     &w))
                 goto fail;
         }
@@ -1210,7 +1010,7 @@ int ti_thing__to_pk(ti_thing_t * thing, ti_vp_t * vp, int options)
             for (vec_each(thing->items.vec, ti_prop_t, prop))
             {
                 if (mp_pack_strn(&vp->pk, prop->name->str, prop->name->n) ||
-                    ti_val_to_pk(prop->val, vp, options)
+                    ti_val_to_client_pk(prop->val, vp, deep)
                 ) goto fail;
             }
         }
@@ -1222,7 +1022,7 @@ int ti_thing__to_pk(ti_thing_t * thing, ti_vp_t * vp, int options)
         for (thing_t_each(thing, name, val))
         {
             if (mp_pack_strn(&vp->pk, name->str, name->n) ||
-                ti_val_to_pk(val, vp, options)
+                ti_val_to_client_pk(val, vp, deep)
             ) goto fail;
         }
     }
@@ -1234,23 +1034,56 @@ fail:
     return -1;
 }
 
-int ti_thing_t_to_pk(ti_thing_t * thing, ti_vp_t * vp, int options)
+static inline int thing__store_pk_cb(ti_item_t * item, msgpack_packer * pk)
 {
-    assert (options < 0);  /* should only be called when options < 0 */
+    return -(
+        mp_pack_strn(pk, item->key->data, item->key->n) ||
+        ti_val_to_store_pk(item->val, pk)
+    );
+}
+
+int ti_thing_o_to_pk(ti_thing_t * thing, msgpack_packer * pk)
+{
+    assert (ti_thing_is_object(thing));
+    assert (thing->id);   /* no need to check, options < 0 must have id */
+
+    if (msgpack_pack_map(pk, 1) ||
+        mp_pack_strn(pk, TI_KIND_S_OBJECT, 1) ||
+        msgpack_pack_array(pk, 3) ||
+        msgpack_pack_uint16(pk, thing->via.spec) ||
+        msgpack_pack_uint64(pk, thing->id) ||
+        msgpack_pack_map(pk, ti_thing_n(thing)))
+        return -1;
+
+    if (ti_thing_is_dict(thing))
+        return smap_values(
+                thing->items.smap,
+                (smap_val_cb) thing__store_pk_cb,
+                pk);
+
+    for (vec_each(thing->items.vec, ti_prop_t, prop))
+        if (mp_pack_strn(pk, prop->name->str, prop->name->n) ||
+            ti_val_to_store_pk(prop->val, pk))
+            return -1;
+
+    return 0;
+}
+
+int ti_thing_t_to_pk(ti_thing_t * thing, msgpack_packer * pk)
+{
     assert (!ti_thing_is_object(thing));
     assert (thing->id);   /* no need to check, options < 0 must have id */
 
-    if (msgpack_pack_map(&vp->pk, 3) ||
-        mp_pack_strn(&vp->pk, TI_KIND_S_INSTANCE, 1) ||
-        msgpack_pack_uint16(&vp->pk, thing->type_id) ||
-        mp_pack_strn(&vp->pk, TI_KIND_S_THING, 1) ||
-        msgpack_pack_uint64(&vp->pk, thing->id) ||
-        msgpack_pack_str(&vp->pk, 0) ||
-        msgpack_pack_array(&vp->pk, ti_thing_n(thing)))
+    if (msgpack_pack_map(pk, 1) ||
+        mp_pack_strn(pk, TI_KIND_S_INSTANCE, 1) ||
+        msgpack_pack_array(pk, 3) ||
+        msgpack_pack_uint16(pk, thing->type_id) ||
+        msgpack_pack_uint64(pk, thing->id) ||
+        msgpack_pack_array(pk, ti_thing_n(thing)))
         return -1;
 
     for (vec_each(thing->items.vec, ti_val_t, val))
-        if (ti_val_to_pk(val, vp, options))
+        if (ti_val_to_store_pk(val, pk))
             return -1;
 
     return 0;
@@ -1273,15 +1106,6 @@ ti_val_t * ti_thing_val_by_strn(ti_thing_t * thing, const char * str, size_t n)
                 ? ti_thing_p_val_weak_get(thing, name)
                 : ti_thing_t_val_weak_get(thing, name);
     }
-}
-
-_Bool ti__thing_has_watchers_(ti_thing_t * thing)
-{
-    assert (thing->watchers);
-    for (vec_each(thing->watchers, ti_watch_t, watch))
-        if (watch->stream && (~watch->stream->flags & TI_STREAM_FLAG_CLOSED))
-            return true;
-    return false;
 }
 
 static inline _Bool thing__val_equals(ti_val_t * a, ti_val_t * b, uint8_t deep)
@@ -1432,6 +1256,8 @@ static int thing__dup_p(ti_thing_t ** taddr, uint8_t deep)
     if (!other)
         return -1;
 
+    other->via.spec = thing->via.spec;
+
     for (vec_each(thing->items.vec, ti_prop_t, prop))
     {
         ti_prop_t * p = ti_prop_dup(prop);
@@ -1533,6 +1359,8 @@ static int thing__dup_i(ti_thing_t ** taddr, uint8_t deep)
     if (!other)
         return -1;
 
+    other->via.spec = thing->via.spec;
+
     if (smap_values(thing->items.smap, (smap_val_cb) thing__dup_cb, &w))
         goto fail;
 
@@ -1590,12 +1418,8 @@ static int thing__dup_t(ti_thing_t ** taddr, uint8_t deep)
 {
     ti_val_t * val;
     ti_thing_t * thing = *taddr;
-    ti_type_t * type = ti_thing_type(thing);
-    ti_thing_t * other = ti_thing_t_create(
-            0,
-            type,
-            thing->collection);
-
+    ti_type_t * type = thing->via.type;
+    ti_thing_t * other = ti_thing_t_create(0, type, thing->collection);
     if (!other)
         return -1;
 
@@ -1623,7 +1447,6 @@ fail:
 int ti_thing_copy(ti_thing_t ** thing, uint8_t deep)
 {
     assert (deep);
-
     return deep--
             ? ti_thing_is_object(*thing)
             ? ti_thing_is_dict(*thing)
@@ -1636,7 +1459,6 @@ int ti_thing_copy(ti_thing_t ** thing, uint8_t deep)
 int ti_thing_dup(ti_thing_t ** thing, uint8_t deep)
 {
     assert (deep);
-
     return deep--
             ? ti_thing_is_object(*thing)
             ? ti_thing_is_dict(*thing)
@@ -1713,5 +1535,314 @@ void ti_thing_clean_gc(void)
             ti_val_unsafe_drop((ti_val_t *) thing);
         }
         vec_clear(tmp);
+    }
+}
+
+static int thing__assign_set_o(
+        ti_thing_t * thing,
+        ti_raw_t * key,
+        ti_val_t * val,
+        ti_task_t * task,
+        ex_t * e,
+        uint32_t parent_ref)
+{
+    assert (ti_val_is_spec(val, thing->via.spec));
+
+    /*
+     * Update the reference count based on the parent. The reason we do this
+     * here is that we still require the old value.
+     */
+    val->ref += parent_ref > 1;
+
+    /*
+     * Closures are already unbound so the only possible errors are
+     * critical.
+     */
+    if (ti_val_make_assignable(&val, thing, key, e) ||
+        ti_thing_o_set(thing, key, val) ||
+        (task && ti_task_add_set(task, key, val)))
+        goto failed;
+
+    ti_incref(key);
+    val->ref += parent_ref == 1;
+    return e->nr;
+
+failed:
+    if (parent_ref > 1)
+        ti_val_unsafe_gc_drop(val);
+    if (e->nr == 0)
+        ex_set_mem(e);
+
+    return e->nr;
+}
+
+typedef struct
+{
+    ti_thing_t * thing;
+    ti_thing_t * tsrc;
+    ti_task_t * task;
+    ex_t * e;
+} thing__assign_walk_i_t;
+
+static int thing__assign_walk_i(ti_item_t * item, thing__assign_walk_i_t * w)
+{
+    return thing__assign_set_o(
+            w->thing,
+            item->key,
+            item->val,
+            w->task,
+            w->e,
+            w->tsrc->ref);
+}
+
+static int thing__assign_restr_i(ti_item_t * item, thing__assign_walk_i_t * w)
+{
+    return !ti_val_is_spec(item->val, w->thing->via.spec);
+}
+
+int ti_thing_assign(
+        ti_thing_t * thing,
+        ti_thing_t * tsrc,
+        ti_task_t * task,
+        ex_t * e)
+{
+    if (ti_thing_is_object(thing))
+    {
+        if (ti_thing_is_object(tsrc))
+        {
+            if (ti_thing_is_dict(tsrc))
+            {
+                thing__assign_walk_i_t w = {
+                        .thing = thing,
+                        .tsrc = tsrc,
+                        .task = task,
+                        .e = e,
+                };
+
+                if (thing->via.spec != TI_SPEC_ANY && smap_values(
+                        tsrc->items.smap,
+                        (smap_val_cb) thing__assign_restr_i,
+                        &w))
+                    goto mismatch;
+
+                if (smap_values(
+                        tsrc->items.smap,
+                        (smap_val_cb) thing__assign_walk_i,
+                        &w))
+                    return e->nr;
+            }
+            else
+            {
+                if (thing->via.spec != TI_SPEC_ANY)
+                    for(vec_each(tsrc->items.vec, ti_prop_t, p))
+                        if (!ti_val_is_spec(p->val, thing->via.spec))
+                            goto mismatch;
+
+                for(vec_each(tsrc->items.vec, ti_prop_t, p))
+                    if (thing__assign_set_o(
+                            thing,
+                            (ti_raw_t *) p->name,
+                            p->val,
+                            task,
+                            e,
+                            tsrc->ref))
+                        return e->nr;
+            }
+        }
+        else
+        {
+            ti_name_t * name;
+            ti_val_t * val;
+
+            if (thing->via.spec != TI_SPEC_ANY)
+                for(thing_t_each(tsrc, name, val))
+                    if (!ti_val_is_spec(val, thing->via.spec))
+                        goto mismatch;
+
+            for(thing_t_each(tsrc, name, val))
+                if (thing__assign_set_o(
+                        thing,
+                        (ti_raw_t *) name,
+                        val,
+                        task,
+                        e,
+                        tsrc->ref))
+                    return e->nr;
+        }
+    }
+    else
+    {
+        vec_t * vec = NULL;
+        ti_type_t * type = thing->via.type;
+        uint32_t parent_ref = tsrc->ref;
+
+        if (ti_thing_is_object(tsrc))
+        {
+            if (ti_thing_is_dict(tsrc))
+            {
+                ti_raw_t * incompatible;
+                if (ti_thing_i_to_p(tsrc, &incompatible))
+                {
+                    if (incompatible)
+                        ex_set(e, EX_LOOKUP_ERROR,
+                                "type `%s` has no property `%s`",
+                                type->name,
+                                ti_raw_as_printable_str(incompatible));
+                    else
+                        ex_set_mem(e);
+
+                    return e->nr;
+                }
+            }
+            vec = vec_new(ti_thing_n(tsrc));
+            if (!vec)
+            {
+                ex_set_mem(e);
+                return e->nr;
+            }
+
+            for(vec_each(tsrc->items.vec, ti_prop_t, p))
+            {
+                ti_val_t * val = p->val;
+                ti_field_t * field = ti_field_by_name(type, p->name);
+                if (!field)
+                {
+                    ex_set(e, EX_LOOKUP_ERROR,
+                            "type `%s` has no property `%s`",
+                            type->name, p->name->str);
+                    goto fail;
+                }
+
+                if (ti_field_has_relation(field))
+                {
+                    ex_set(e, EX_TYPE_ERROR,
+                            "function `assign` is not able to set "
+                            "`%s` because a relation for this "
+                            "property is configured"DOC_THING_ASSIGN,
+                            p->name->str);
+                    goto fail;
+                }
+
+                /*
+                 * Update the reference count based on the parent.
+                 * The reason we do this here is that we still require the
+                 * old value.
+                 */
+                val->ref += parent_ref > 1;
+
+                if (ti_field_make_assignable(field, &val, thing, e))
+                {
+                    if (parent_ref > 1)
+                        ti_val_unsafe_gc_drop(val);
+                    goto fail;
+                }
+
+                val->ref += parent_ref == 1;
+
+                VEC_push(vec, val);
+            }
+
+            for(vec_each_rev(tsrc->items.vec, ti_prop_t, p))
+            {
+                ti_field_t * field = ti_field_by_name(type, p->name);
+                ti_val_t * val = VEC_pop(vec);
+                ti_thing_t_prop_set(thing, field, val);
+                if (task && ti_task_add_set(
+                        task,
+                        (ti_raw_t *) field->name,
+                        val))
+                    goto fail;
+            }
+        }
+        else
+        {
+            ti_type_t * f_type = tsrc->via.type;
+
+            vec = NULL;
+
+            if (f_type != type)
+            {
+                ex_set(e, EX_TYPE_ERROR,
+                        "cannot assign properties to instance of type `%s` "
+                        "from type `%s`"
+                        DOC_THING_ASSIGN,
+                        type->name,
+                        f_type->name);
+                return e->nr;
+            }
+
+            for (vec_each(type->fields, ti_field_t, field))
+            {
+                ti_val_t * val = VEC_get(tsrc->items.vec, field->idx);
+
+                val->ref += parent_ref > 1;
+
+                if (ti_field_make_assignable(field, &val, thing, e))
+                {
+                    if (parent_ref > 1)
+                        ti_val_unsafe_gc_drop(val);
+                    return e->nr;
+                }
+
+                val->ref += parent_ref == 1;
+
+                ti_thing_t_prop_set(thing, field, val);
+                if (task && ti_task_add_set(
+                        task,
+                        (ti_raw_t *) field->name,
+                        val))
+                    return e->nr;
+            }
+        }
+fail:
+        vec_destroy(vec, (vec_destroy_cb) ti_val_unsafe_drop);
+    }
+    return e->nr;
+
+mismatch:
+    ex_set(e, EX_TYPE_ERROR, "restriction mismatch");
+    return e->nr;
+}
+
+typedef struct
+{
+    void * data;
+    ti_thing_item_cb cb;
+} thing__walk_i_t;
+
+static int thing__walk_i(ti_item_t * item, thing__walk_i_t * w)
+{
+    return w->cb(item->key, item->val, w->data);
+}
+
+int ti_thing_walk(ti_thing_t * thing, ti_thing_item_cb cb, void * data)
+{
+    int rc;
+    if (ti_thing_is_object(thing))
+    {
+        if (ti_thing_is_dict(thing))
+        {
+            thing__walk_i_t w = {
+                    .data = data,
+                    .cb = cb,
+            };
+            return smap_values(
+                    thing->items.smap,
+                    (smap_val_cb) thing__walk_i,
+                    &w);
+        }
+        for (vec_each(thing->items.vec, ti_prop_t, p))
+            if ((rc = cb((ti_raw_t *) p->name, p->val, data)))
+                return rc;
+        return 0;
+    }
+    else
+    {
+        ti_name_t * name;
+        ti_val_t * val;
+        for (thing_t_each(thing, name, val))
+            if ((rc = cb((ti_raw_t *) name, val, data)))
+                return rc;
+        return 0;
     }
 }

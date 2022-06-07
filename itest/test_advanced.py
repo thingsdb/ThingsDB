@@ -7,14 +7,16 @@ from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
 from thingsdb.exceptions import AssertionError
-from thingsdb.exceptions import ValueError
-from thingsdb.exceptions import TypeError
-from thingsdb.exceptions import NumArgumentsError
 from thingsdb.exceptions import BadDataError
 from thingsdb.exceptions import LookupError
-from thingsdb.exceptions import OverflowError
-from thingsdb.exceptions import ZeroDivisionError
+from thingsdb.exceptions import MaxQuotaError
+from thingsdb.exceptions import NumArgumentsError
 from thingsdb.exceptions import OperationError
+from thingsdb.exceptions import OverflowError
+from thingsdb.exceptions import SyntaxError
+from thingsdb.exceptions import TypeError
+from thingsdb.exceptions import ValueError
+from thingsdb.exceptions import ZeroDivisionError
 
 
 class TestAdvanced(TestBase):
@@ -35,6 +37,82 @@ class TestAdvanced(TestBase):
 
         client.close()
         await client.wait_closed()
+
+    async def test_qcache_recursion(self, client):
+        with self.assertRaisesRegex(
+                SyntaxError,
+                'query syntax has reached the maximum recursion depth of 500'):
+            await client.query(r"""//ti
+                arr =
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+                    ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]];
+            """)
+
+        # The code below requires libcleri >=0.12.2, prior to this version,
+        # libcleri woulld return with a recursion depth exception because the
+        # depth was not decremented as should.
+        res = await client.query(r"""//ti
+            arr = [
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+        """)
+        self.assertEqual(len(res), 532)
+
+    async def test_extend_restrict(self, client):
+        res = await client.query(r"""//ti
+            set_type('A', {arr: '[str]'});
+        """)
+        with self.assertRaisesRegex(
+                TypeError,
+                r'type `int` is not allowed in restricted array'):
+            await client.query(r"""//ti
+                a = A{};
+                a.arr.extend(range(3));
+            """)
 
     async def test_closure_scope(self, client):
         res = await client.query(r'''
@@ -112,11 +190,11 @@ class TestAdvanced(TestBase):
         ''')
 
         with self.assertRaisesRegex(
-                BadDataError,
-                r'cannot directly assign properties to.*'):
+                ValueError,
+                r'property `#` is reserved;'):
             await client.query(r'''
                 val;
-            ''', val=res, convert_vars=False)
+            ''', val=res)
 
     async def test_set_assign(self, client):
         res = await client.query(r'''
@@ -195,7 +273,7 @@ class TestAdvanced(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'invalid declaration for `a` on type `B`; '
-                r'cannot assign type `A` while the type is being used;'):
+                r'cannot assign type `A` while the type is in use;'):
             await client.query(r'''
                 set_type('A', {
                     x: 'int',
@@ -942,11 +1020,11 @@ class TestAdvanced(TestBase):
         '''), 5)
 
         self.assertIs(await client.query(r'''
-            !!{
+            !!({
                 x = [{}];
                 bool(x[0].x = x[0]);
                 x.pop()
-            };
+            });
         '''), True)
 
         self.assertIs(await client.query(r'''
@@ -958,11 +1036,11 @@ class TestAdvanced(TestBase):
         '''), True)
 
         self.assertIs(await client.query(r'''
-            {
+            ({
                 x = [{}];
                 bool(x[0].x = x[0]);
                 x.pop()
-            }.id();
+            }).id();
         '''), None)
 
         self.assertEqual(await client.query(r'''
@@ -980,7 +1058,7 @@ class TestAdvanced(TestBase):
             x = {};
             x.  y = {};
             x.y.y = x.y;
-            {x.del('y')}.id();
+            {x.del('y')}
             5;
         '''), 5)
 
@@ -988,8 +1066,9 @@ class TestAdvanced(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'field `chat` on type `Room` is modified but at least one '
-                r'new instance was made with an inappropriate value which in '
-                r'response is changed to default by ThingsDB; mismatch in '
+                r'instance got an inappropriate value from the migration '
+                r'callback; to be compliant, ThingsDB has used the default '
+                r'value for this instance; callback response: mismatch in '
                 r'type `Room`; type `int` is invalid for property `chat` with '
                 r'definition `Room\?`'):
             await client.query(r'''
@@ -1083,7 +1162,7 @@ class TestAdvanced(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change type `X` while one of the '
-                r'instances is being used'):
+                r'instances is in use'):
             res = await client.query('''
                 set_type('X', {
                     a: 'int',
@@ -1093,7 +1172,7 @@ class TestAdvanced(TestBase):
                 .x = X{};
                 i = 0;
                 .x.map(|k, v| {
-                    if(i == 0, mod_type('X', 'del', 'c'));
+                    if (i == 0) mod_type('X', 'del', 'c');
                     i += 1;
                 });
             ''')
@@ -1180,24 +1259,24 @@ class TestAdvanced(TestBase):
         ''')
 
     async def test_events(self, client):
-        await self.assertEvent(client, r'''
+        await self.assertChange(client, r'''
             .arr = range(3);
         ''')
-        await self.assertEvent(client, r'''
+        await self.assertChange(client, r'''
             thing(.id()).arr.push(3);
         ''')
-        await self.assertEvent(client, r'''
+        await self.assertChange(client, r'''
             .get('arr').push(4);
         ''')
-        await self.assertEvent(client, r'''
+        await self.assertChange(client, r'''
             thing(.id()).set('a', []);
         ''')
 
     async def test_no_events(self, client):
-        await self.assertNoEvent(client, r'''
+        await self.assertNoChange(client, r'''
             arr = range(3);
         ''')
-        await self.assertNoEvent(client, r'''
+        await self.assertNoChange(client, r'''
             range(3).push(4);
         ''')
 
@@ -1246,6 +1325,8 @@ class TestAdvanced(TestBase):
         ''')
         root = await client.query('.root.id()')
         self.assertGreater(root, 0)
+        self.assertIsInstance(root, int)
+        self.assertNotEqual(root, None)
 
         a = await client.run('add_container', root, 'a')
         self.assertGreater(a, root)
@@ -1428,8 +1509,7 @@ class TestAdvanced(TestBase):
     async def test_thing_id_closure(self, client):
         res = await client.query(r'''
             .x = || {
-                #9999999999999999999999999999999999999999999;
-                #3;
+                thing(3);
             };
             assert (is_closure(.x) );
         ''')
@@ -1437,19 +1517,30 @@ class TestAdvanced(TestBase):
 
     async def test_assign_in_def(self, client):
         res = await client.query(r'''
-            (|| x+=1).def();
+            str(|| x+=1);
         ''')
         self.assertEqual(res, '|| x += 1')
 
         res = await client.query(r'''
-            (|| .x += 1).def();
+            str(|| .x += 1);
         ''')
         self.assertEqual(res, '|| .x += 1')
 
         res = await client.query(r'''
-            (|| x[0] += 1).def();
+            || x[0]+=1;
         ''')
-        self.assertEqual(res, '|| x[0] += 1')
+        self.assertEqual(res, '|| x[0]+=1')  # unbound closure
+
+        res = await client.query(r'''
+            .closure = || x[0]+=1;
+            .closure;
+        ''')
+        self.assertEqual(res, '||x[0]+=1')  # bound closure
+
+        res = await client.query(r'''
+            str(.closure);
+        ''')
+        self.assertEqual(res, '|| x[0] += 1')  # formatted closure
 
     async def test_export(self, client):
         script = r'''
@@ -1523,7 +1614,7 @@ new_procedure('multiply', |a, b| a * b);
                 check.id();
             });
             .checks = [];
-            wse(run('new_check', 'test'));
+            run('new_check', 'test');
         ''')
 
     async def test_with_cache_two(self, client):
@@ -1539,7 +1630,7 @@ new_procedure('multiply', |a, b| a * b);
                 check.id();
             });
             .checks = [];
-            wse(run('new_check', 'test'));
+            run('new_check', 'test');
         ''')
 
     async def test_type_set(self, client):
@@ -1567,6 +1658,322 @@ new_procedure('multiply', |a, b| a * b);
         self.assertIn('f', methods)
         self.assertNotIn('m', methods)
         self.assertEqual(len(methods), 1)
+
+    async def test_mod_with_restriction(self, client):
+        # bug #199
+        res = await client.query(r"""//ti
+            set_type('Test', {i: 'pint'});
+            mod_type('Test', 'mod', 'i', 'int<0:200>', || 0);
+            Test{};
+        """)
+        self.assertEqual(res, {"i": 0})
+
+    async def test_mod_with_restriction(self, client):
+        # bug #200
+        with self.assertRaisesRegex(
+                OperationError,
+                r'cannot apply type declaration `int<0:200>` to `i` on '
+                r'type `Test` without a closure to migrate existing '
+                r'instances'):
+            await client.query(r"""//ti
+                set_type('Test', {i: 'pint'});
+                mod_type('Test', 'mod', 'i', 'int<0:200>');
+            """)
+
+        res = await client.query(r"""//ti
+            Test{};
+        """)
+        self.assertEqual(res, {"i": 1})
+        # The above should not introduce a memory leak.
+
+    async def test_fail_relations(self, client):
+        # bug #203
+        await client.query(r"""//ti
+            new_type("A");
+            new_type("B");
+            set_type("A", {
+                b: 'B?',
+                bb: '{B}',
+                c: 'B?',
+                name: 'str'
+            });
+            set_type("B", {
+                a: 'A?',
+                aa: '{A}',
+                cc: '{A}',
+                name: 'str'
+            });
+            mod_type('A', 'rel', 'b', 'a');
+            mod_type('A', 'rel', 'bb', 'aa');
+            mod_type('A', 'rel', 'c', 'cc');
+        """)
+
+        res = await client.query(r"""//ti
+            a = A{name: 'mr A'};
+            try(b = B{
+                a: a,
+                name: 123
+            });
+            a.b;
+        """)
+
+        self.assertEqual(res, None)
+
+        res = await client.query(r"""//ti
+            a = A{name: 'mr A'};
+            try(b = B{
+                aa: set(a),
+                name: 123
+            });
+            a.bb;
+        """)
+        self.assertEqual(res, [])
+
+        res = await client.query(r"""//ti
+            a = A{name: 'mr A'};
+            try(b = B{
+                cc: set(a),
+                name: 123
+            });
+            a.c;
+        """)
+        self.assertEqual(res, None)
+
+        res = await client.query(r"""//ti
+            b = B{name: 'mr B'};
+            try(a = A{
+                c: b,
+                name: 123
+            });
+            b.cc;
+        """)
+        self.assertEqual(res, [])
+
+        res = await client.query(r"""//ti
+            a = A{name: 'mr A'};
+            x = new('B', {
+                a: a,
+                aa: set(a),
+                cc: set(a),
+                name: 'mr X'
+            });
+            try(b = new('B', {
+                a: a,
+                aa: set(a),
+                cc: set(a),
+                name: 123
+            }));
+            [a.b, a.bb.len(), a.c, x.a, x.aa.len(), x.cc];
+        """)
+        self.assertEqual(res, [None, 1, None, None, 1, []])
+
+        res = await client.query(r"""//ti
+            b = B{name: 'mr B'};
+            x = A({
+                b: b,
+                bb: set(b),
+                c: b,
+                name: 'mr X'
+            });
+            try(a = A({
+                b: b,
+                bb: set(b),
+                c: b,
+                name: 123
+            }));
+            [b.a, b.aa.len(), b.cc.len(), x.b, x.bb.len(), is_thing(x.c)];
+        """)
+        self.assertEqual(res, [None, 1, 1, None, 1, True])
+
+        res = await client.query(r"""//ti
+            b = B{name: 'mr B'};
+            x = A({
+                b: b,
+                bb: set(b),
+                c: b,
+                name: 'mr X'
+            });
+            try(x.assign({
+                name: 'spy',
+                b: nil
+            }));
+            x.name;
+        """)
+        self.assertEqual(res, 'mr X')
+
+        res = await client.query(r"""//ti
+            b = B{name: 'mr B'};
+            x = A({
+                b: b,
+                bb: set(b),
+                c: b,
+                name: 'mr X'
+            });
+            x.assign(A{
+                name: 'spy',
+            });
+            [x.name, x.b, x.bb, x.c, b.a];
+        """)
+        self.assertEqual(res, ['spy', None, [], None, None])
+
+        res = await client.query(r"""//ti
+            b = B{name: 'mr B'};
+            x = A({
+                b: b,
+                bb: set(b),
+                c: b,
+                name: 'mr X'
+            });
+            d = B{name: 'md D'};
+            c = A{
+                name: 'spy',
+                b: d,
+                bb: set(d),
+                c: d,
+            };
+            x.assign(c);
+            [x.name, x.b == d, x.bb.len(), x.c == d, d.a == x, c.b];
+        """)
+        self.assertEqual(res, ['spy', True, 1, True, True, None])
+
+    async def test_closure_as_type_val(self, client):
+        # bug #202
+        id = await client.query("""//ti
+            set_type('Test', {
+                func: 'any'
+            });
+            .test = Test{func: || .x = 1};
+            .test.id();
+        """)
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r"closures with side effects require a change but none is "
+                r"created; use `wse\(...\)` to enforce a change;"):
+            await client.query(f"""//ti
+                thing({id}).func(); // requires a change
+            """)
+
+    async def test_future_to_type(self, client):
+        await client.query(r"""//ti
+            set_type('A', {x: 'any'});
+        """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `A`; property `x` allows `any` type '
+                r"with the exception of the `future` type"):
+            await client.query("""//ti
+                A{
+                    x: future(||nil)
+                };
+            """)
+
+    async def test_in_use_on_dict(self, client):
+        # bug #242
+        await client.query(".set('non name key', nil);")
+        with self.assertRaisesRegex(
+                OperationError,
+                r'cannot change or remove property `arr` on `#\d+` while '
+                r'the `list` is in use'):
+            await client.query(r"""//ti
+                .arr = ['a', 'b'];
+                .arr.push({
+                    .del('arr');
+                    'c';
+                })
+            """)
+
+    async def test_in_use_on_dict(self, client):
+        # bug #243
+        res = await client.query(r"""//ti
+            new_type('A');
+            t = [A{}.wrap()];
+            .list = [];
+            .list.push(t);
+            // should return an Id
+            .list[0][0].unwrap().id();
+        """)
+        self.assertIsInstance(res, int)
+
+    async def test_index_name(self, client):
+        # bug #252
+        res = await client.query(r"""//ti
+            {xxx: ''}.keys()[0][1];
+        """)
+        self.assertEqual(res, 'x')
+        res = await client.query(r"""//ti
+            {abcdefghij: ''}.keys()[0][2:8:2];
+        """)
+        self.assertEqual(res, 'ceg')
+
+    async def test_slice_bytes(self, client):
+        # feature #251
+        res = await client.query(r"""//ti
+            bytes('abc')[1];
+        """)
+        self.assertEqual(res, b'b')
+        res = await client.query(r"""//ti
+            bytes('abcdefghij')[2:8:2];
+        """)
+        self.assertEqual(res, b'ceg')
+
+    async def test_replace_rev_large(self, client):
+        # bug #253
+        s = 'x'*17000
+        res = await client.query(r"""//ti
+            s.replace('z', ||nil, -1);
+        """, s=s)
+        self.assertEqual(s, res)
+
+    async def test_loop_gc(self, client):
+        res = await client.query(r"""//ti
+            for (x in range(10)) {
+                x = {};
+                x.me = x;
+            };
+        """)
+        # bug #259
+        res = await client.query(r"""//ti
+            range(10).sort(|a, b| {
+                a = {};  // overwrite the closure argument
+                a.me = a;  // create a self reference
+                1;
+            });
+        """)
+
+    async def test_convert_to_thing(self, client):
+        # bug #277
+        res = await client.query(r"""//ti
+            set_type('Root', {
+                name: 'str'
+            });
+            .to_type('Root');
+        """)
+        res = await client.query(r"""//ti
+            del_type('Root');
+            .x = 123;  // should work as type Root is removed
+                       // thus the collection must be a thing again.
+            'OK';
+        """)
+        self.assertEqual(res, 'OK')
+
+    async def test_self_ref_max(self, client):
+        await client.query(r"""//ti
+            set_type('A', {});
+        """)
+        for x in range(255):
+            await client.query(r"""//ti
+                mod_type('A', 'add', prop, 'A?');
+            """, prop=f'p{x}')
+
+        with self.assertRaisesRegex(
+                MaxQuotaError,
+                r'invalid declaration for `too_much` on type `A`; '
+                r'maximum number of self references has been reached'):
+            await client.query(r"""//ti
+                mod_type('A', 'add', prop, 'A?');
+            """, prop='too_much')
 
 
 if __name__ == '__main__':

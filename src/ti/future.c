@@ -8,12 +8,6 @@
 #include <ti/val.inline.h>
 #include <ti.h>
 
-static inline int future__reg(ti_future_t * future)
-{
-    ti_collection_t * collection = future->query->collection;
-    return collection ? vec_push(&collection->futures, future) : 0;
-}
-
 static void future__unreg(ti_future_t * future)
 {
     ti_collection_t * collection = future->query->collection;
@@ -53,13 +47,35 @@ ti_future_t * ti_future_create(
     future->fail = NULL;
     future->pkg = NULL;
     future->module = module;
-    future->args = vec_new(nargs);
-    if (!future->args || future__reg(future))
+    if (nargs)
     {
-        ti_future_destroy(future);
-        return NULL;
+        future->args = vec_new(nargs);
+        if (!future->args)
+        {
+            ti_future_destroy(future);
+            return NULL;
+        }
     }
+    else
+        future->args = NULL;  /* Future arguments may stay NULL for as long as
+                                 the future is not registered. A registered
+                                 future MUST have a vector with arguments. */
+
+    ti_incref(module);
     return future;
+}
+
+/*
+ * Arguments *must* be set before calling the register function.
+ */
+int ti_future_register(ti_future_t * future)
+{
+    assert (future->args);
+    ti_collection_t * collection = future->query->collection;
+    int rc = collection ? vec_push(&collection->futures, future) : 0;
+    if (rc == 0 && (rc = link_insert(&future->query->futures, future)) == 0)
+        ti_incref(future);  /* reference for future->query->futures */
+    return rc;
 }
 
 void ti_future_destroy(ti_future_t * future)
@@ -71,6 +87,7 @@ void ti_future_destroy(ti_future_t * future)
     ti_future_forget_cb(future->fail);
     vec_destroy(future->args, (vec_destroy_cb) ti_val_unsafe_drop);
     ti_val_drop(future->rval);
+    ti_module_drop(future->module);
     free(future->pkg);
     free(future);
 }

@@ -12,7 +12,19 @@
 typedef int (*ti_do_cb)(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 
 int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e);
-int ti_do_operations(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_operation(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_compare_and(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_compare_or(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_ternary(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_if_statement(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_return_val(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_return_alt_deep(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_for_loop(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_continue(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_break(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_block(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_prepare_for_loop(ti_query_t * query, cleri_node_t * vars_nd);
 int ti_do_init(void);
 void ti_do_drop(void);
 
@@ -21,8 +33,8 @@ static inline int ti_do_statement(
         cleri_node_t * nd,
         ex_t * e)
 {
-    /* Calls ti_do_expression(..) or ti_do_operations(..) */
-    return ((ti_do_cb) nd->children->node->data)(query, nd->children->node, e);
+    /* Calls ti_do_expression(..) or one of the operations(..) */
+    return ((ti_do_cb) nd->children->data)(query, nd->children, e);
 }
 
 #endif /* TI_DO_H_ */

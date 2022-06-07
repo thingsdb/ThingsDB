@@ -66,10 +66,9 @@ class TestUserAccess(TestBase):
         with self.assertRaisesRegex(ForbiddenError, error_msg):
             await testcl1.query(r'''.map(||nil);''', scope='@:junk')
 
-        # Deprecation `READ` privileges
         await client.query(r'''
             grant('@thingsdb', "test1", QUERY|GRANT);
-            grant('@collection:junk', 'test1', READ);
+            grant('@collection:junk', 'test1', QUERY);
         ''')
 
         await testcl1.query(r'''
@@ -83,12 +82,21 @@ class TestUserAccess(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                'it is not possible to revoke your own `GRANT` privileges'):
+                'it is not possible to revoke your own `GRANT` and/or `QUERY` '
+                'privileges'):
             await testcl1.query(
-                r'''revoke('@:Collection', 'test1', EVENT);''')
+                r'''revoke('@:Collection', 'test1', CHANGE);''')
+
+        # bug #270
+        with self.assertRaisesRegex(
+                OperationError,
+                'it is not possible to revoke your own `GRANT` and/or `QUERY` '
+                'privileges'):
+            await testcl1.query(
+                r'''revoke('@:Collection', 'test1', QUERY);''')
 
         await client.query(
-            r'''revoke('@:Collection', 'test1', MODIFY);''')  # Deprecation
+            r'''revoke('@:Collection', 'test1', CHANGE);''')
 
         users_access = await testcl1.query(r'''user_info('admin');''')
 
@@ -110,7 +118,7 @@ class TestUserAccess(TestBase):
                 'privileges': 'FULL',
                 'scope': '@collection:junk'
             }, {
-                'privileges': 'QUERY|EVENT|GRANT',
+                'privileges': 'QUERY|CHANGE|GRANT',
                 'scope': '@collection:Collection'
             }],
             'has_password': True,
@@ -132,7 +140,7 @@ class TestUserAccess(TestBase):
         with self.assertRaisesRegex(ForbiddenError, error_msg):
             await testcl1.query(r'''reset_counters();''', scope='@node')
 
-        await client.query(r'''grant('@n', "test1", EVENT);''')
+        await client.query(r'''grant('@n', "test1", CHANGE);''')
 
         await testcl1.query(r'''reset_counters();''', scope='@node')
 

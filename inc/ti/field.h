@@ -15,6 +15,9 @@
 #include <ti/query.t.h>
 #include <util/vec.h>
 
+void ti_field_init(void);
+ti_field_map_t * ti_field_map_by_strn(const char * s, size_t n);
+ti_field_map_t * ti_field_map_by_spec(const uint16_t spec);
 ti_field_t * ti_field_create(
         ti_name_t * name,
         ti_raw_t * spec_raw,
@@ -32,7 +35,7 @@ int ti_field_set_name(
         const char * s,
         size_t n,
         ex_t * e);
-int ti_field_del(ti_field_t * field, uint64_t ev_id);
+int ti_field_del(ti_field_t * field);
 void ti_field_remove(ti_field_t * field);
 void ti_field_destroy(ti_field_t * field);
 void ti_field_destroy_dep(ti_field_t * field);
@@ -48,7 +51,7 @@ ti_field_t * ti_field_by_strn_e(
         const char * str,
         size_t n,
         ex_t * e);
-int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr, uint64_t ev_id);
+int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr);
 int ti_field_relation_check(
         ti_field_t * field,
         ti_field_t * ofield,

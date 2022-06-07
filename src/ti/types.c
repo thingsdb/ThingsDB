@@ -60,7 +60,8 @@ int ti_types_add(ti_types_t * types, ti_type_t * type)
 
 /*
  * Do not use this function directly; Call ti_type_del(..) so
- * existing things using this type will be converted to objects.
+ * existing things using this type will be converted to objects and
+ * restrictions will be removed.
  */
 void ti_types_del(ti_types_t * types, ti_type_t * type)
 {

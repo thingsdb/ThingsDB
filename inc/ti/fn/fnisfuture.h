@@ -6,7 +6,7 @@ static int do__f_is_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool is_future;
 
     if (fn_nargs("is_future", DOC_IS_FUTURE, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     is_future = ti_val_is_future(query->rval);

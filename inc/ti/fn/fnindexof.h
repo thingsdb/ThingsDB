@@ -15,7 +15,7 @@ static int do__f_index_of(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     varr = (ti_varr_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e))
+    if (ti_do_statement(query, nd->children, e))
         goto done;
 
     for (vec_each(varr->vec, ti_val_t, v), ++idx)

@@ -25,7 +25,7 @@ typedef enum
     SYNCFULL__ACCESS_NODE_FILE,
     SYNCFULL__ACCESS_THINGSDB_FILE,
     SYNCFULL__PROCEDURES_FILE,
-    SYNCFULL__TIMERS_FILE,
+    SYNCFULL__TASKS_FILE,
     SYNCFULL__NAMES_FILE,
     SYNCFULL__COLLECTIONS_FILE,
     SYNCFULL__MODULES_FILE,
@@ -38,7 +38,7 @@ typedef enum
     SYNCFULL__COLLECTION_GCTHINGS_FILE,
     SYNCFULL__COLLECTION_ACCESS_FILE,
     SYNCFULL__COLLECTION_PROCEDURES_FILE,
-    SYNCFULL__COLLECTION_TIMERS_FILE,
+    SYNCFULL__COLLECTION_TASKS_FILE,
     SYNCFULL__COLLECTION_THINGS_FILE,
     SYNCFULL__COLLECTION_PROPS_FILE,
     /* end */
@@ -59,8 +59,8 @@ static char * syncfull__get_fn(uint64_t scope_id, syncfull__file_t ft)
         return strdup(ti.store->access_thingsdb_fn);
     case SYNCFULL__PROCEDURES_FILE:
         return strdup(ti.store->procedures_fn);
-    case SYNCFULL__TIMERS_FILE:
-        return strdup(ti.store->timers_fn);
+    case SYNCFULL__TASKS_FILE:
+        return strdup(ti.store->tasks_fn);
     case SYNCFULL__NAMES_FILE:
         return strdup(ti.store->names_fn);
     case SYNCFULL__COLLECTIONS_FILE:
@@ -83,8 +83,8 @@ static char * syncfull__get_fn(uint64_t scope_id, syncfull__file_t ft)
         return ti_store_collection_access_fn(path, scope_id);
     case SYNCFULL__COLLECTION_PROCEDURES_FILE:
         return ti_store_collection_procedures_fn(path, scope_id);
-    case SYNCFULL__COLLECTION_TIMERS_FILE:
-        return ti_store_collection_timers_fn(path, scope_id);
+    case SYNCFULL__COLLECTION_TASKS_FILE:
+        return ti_store_collection_tasks_fn(path, scope_id);
     case SYNCFULL__COLLECTION_THINGS_FILE:
         return ti_store_collection_things_fn(path, scope_id);
     case SYNCFULL__COLLECTION_PROPS_FILE:
@@ -135,16 +135,16 @@ static _Bool syncfull__next_file(uint64_t * scope_id, syncfull__file_t * ft)
 static void syncfull__done_cb(ti_req_t * req, ex_enum status)
 {
     int rc;
-    uint64_t next_event_id = ti.store->last_stored_event_id + 1;
+    uint64_t next_change_id = ti.store->last_stored_change_id + 1;
 
     if (status)
         log_error("failed response: `%s` (%s)", ex_str(status), status);
 
-    rc = ti_syncarchive_init(req->stream, next_event_id);
+    rc = ti_syncarchive_init(req->stream, next_change_id);
 
     if (rc > 0)
     {
-        rc = ti_syncevents_init(req->stream, next_event_id);
+        rc = ti_syncevents_init(req->stream, next_change_id);
 
         if (rc > 0)
         {
@@ -155,9 +155,9 @@ static void syncfull__done_cb(ti_req_t * req, ex_enum status)
     if (rc < 0)
     {
         log_error(
-                "failed creating request for stream `%s` and "TI_EVENT_ID,
+                "failed creating request for stream `%s` and "TI_CHANGE_ID,
                 ti_stream_name(req->stream),
-                next_event_id);
+                next_change_id);
     }
 
     ti_req_destroy(req);
@@ -288,7 +288,7 @@ static void syncfull__push_cb(ti_req_t * req, ex_enum status)
     goto done;
 
 failed:
-    ti_stream_stop_watching(req->stream);
+    ti_stream_stop_listeners(req->stream);
 done:
     ti_req_destroy(req);
 }

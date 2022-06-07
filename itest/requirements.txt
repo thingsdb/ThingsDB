@@ -1,6 +1,6 @@
 psutil
 pycodestyle
 msgpack
-python-thingsdb
+python-thingsdb==1.0.2
 requests
 pytz

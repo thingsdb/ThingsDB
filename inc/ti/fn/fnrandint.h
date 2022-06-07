@@ -6,7 +6,7 @@ static int do__f_randint(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     int64_t a, b;
 
     if (fn_nargs("randint", DOC_RANDINT, 2, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     if (fn_arg_int("randint", DOC_RANDINT, 1, query->rval, e))
@@ -17,7 +17,7 @@ static int do__f_randint(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e) ||
+    if (ti_do_statement(query, nd->children->next->next, e) ||
         fn_arg_int("randint", DOC_RANDINT, 2, query->rval, e))
         return e->nr;
 

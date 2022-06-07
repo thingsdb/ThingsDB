@@ -71,7 +71,7 @@ int ti_method_call(
         cleri_node_t * nd,
         ex_t * e)
 {
-    cleri_children_t * child = nd->children;    /* first in argument list */
+    cleri_node_t * child = nd->children;        /* first in argument list */
     vec_t * args = NULL;
     uint32_t n = method->closure->vars->n;
     ti_thing_t * thing = (ti_thing_t *) query->rval;
@@ -95,7 +95,7 @@ int ti_method_call(
         {
             --n;  // outside `while` so we do not go below zero
 
-            if (ti_do_statement(query, child->node, e) ||
+            if (ti_do_statement(query, child, e) ||
                 ti_val_make_variable(&query->rval, e))
                 goto fail1;
 
@@ -150,7 +150,7 @@ int ti_method_set_name(
     if (ti_field_by_name(type, name) || ti_method_by_name(type, name))
     {
         ex_set(e, EX_VALUE_ERROR,
-            "property or method `%s` already exists on type `%s`"DOC_T_TYPE,
+            "property or method `%s` already exists on type `%s`"DOC_T_TYPED,
             name->str,
             type->name);
         goto fail0;

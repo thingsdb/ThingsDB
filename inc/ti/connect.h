@@ -16,7 +16,7 @@ void ti_connect_force_sync(void);
 struct ti_connect_s
 {
     _Bool is_started;
-    _Bool _sync_changes;     /* set to `true` after events are processed */
+    _Bool _sync_changes;     /* set to `true` after changes are processed */
     uint32_t n_loops;       /* count number of loops */
     uv_timer_t * timer;
 };

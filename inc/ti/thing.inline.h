@@ -22,62 +22,18 @@ static inline int ti_thing_to_map(ti_thing_t * thing)
     return imap_add(thing->collection->things, thing->id, thing);
 }
 
-static inline ti_type_t * ti_thing_type(ti_thing_t * thing)
-{
-    ti_type_t * type = imap_get(thing->collection->types->imap, thing->type_id);
-    assert (type);  /* type are guaranteed to exist */
-    return type;
-}
-
 static inline const char * ti_thing_type_str(ti_thing_t * thing)
 {
-    return ti_thing_type(thing)->name;
+    return thing->via.type->name;
 }
 
 static inline ti_raw_t * ti_thing_type_strv(ti_thing_t * thing)
 {
-    ti_raw_t * r = ti_thing_type(thing)->rname;
+    ti_raw_t * r = thing->via.type->rname;
     ti_incref(r);
     return r;
 }
-static inline int ti_thing_o_set_val_from_strn(
-        ti_witem_t * witem,
-        ti_thing_t * thing,
-        const char * str,
-        size_t n,
-        ti_val_t ** val,
-        ex_t * e)
-{
-    if (ti_name_is_valid_strn(str, n))
-        /* Create a name when the key is a valid name, this is required since
-         * some logic, for example in `do.c` checks if a name exists, and from
-         * that result might decide a property exists or not.
-         */
-        return ti_thing_o_set_val_from_valid_strn(
-                (ti_wprop_t *) witem,
-                thing, str, n, val, e);
 
-    if (!strx_is_utf8n(str, n))
-    {
-        ex_set(e, EX_VALUE_ERROR, "properties must have valid UTF-8 encoding");
-        return e->nr;
-    }
-
-    if (ti_is_reserved_key_strn(str, n))
-    {
-        ex_set(e, EX_VALUE_ERROR, "property `%c` is reserved"DOC_PROPERTIES,
-                *str);
-        return e->nr;
-    }
-
-    if (!ti_thing_is_dict(thing) && ti_thing_to_dict(thing))
-    {
-        ex_set_mem(e);
-        return e->nr;
-    }
-
-    return ti_thing_i_set_val_from_strn(witem, thing, str, n, val, e);
-}
 static inline int ti_thing_set_val_from_strn(
         ti_witem_t * witem,
         ti_thing_t * thing,
@@ -135,7 +91,7 @@ static inline void ti_thing_t_set_not_found(
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no property or method `%.*s`",
-                ti_thing_type(thing)->name,
+                thing->via.type->name,
                 rname->n, (const char *) rname->data);
     }
     else
@@ -188,24 +144,30 @@ static inline ti_val_t * ti_thing_val_weak_by_name(
             : ti_thing_t_val_weak_get(thing, name);
 }
 
-static inline int ti_thing_to_pk(
+static inline int ti_thing_to_client_pk(
         ti_thing_t * thing,
         ti_vp_t * vp,
-        int options)
+        int deep)
 {
-    if (options == TI_VAL_PACK_TASK)
+    return !deep || (thing->flags & TI_VFLAG_LOCK)
+            ? ti_thing_id_to_client_pk(thing, &vp->pk)
+            : ti_thing__to_client_pk(thing, vp, deep);
+}
+
+static inline int ti_thing_to_store_pk(ti_thing_t * thing, msgpack_packer * pk)
+{
+    if (!ti_thing_is_new(thing))
     {
-        if (ti_thing_is_new(thing))
-        {
-            ti_thing_unmark_new(thing);
-            return ti_thing_is_object(thing)
-                    ? ti_thing__to_pk(thing, vp, options)
-                    : ti_thing_t_to_pk(thing, vp, options);
-        }
+        unsigned char buf[8];
+        mp_store_uint64(thing->id, buf);
+        return mp_pack_ext(pk, MPACK_EXT_THING, buf, sizeof(buf));
     }
-    return options <= 0 || (thing->flags & TI_VFLAG_LOCK)
-            ? ti_thing_id_to_pk(thing, &vp->pk)
-            : ti_thing__to_pk(thing, vp, options);
+
+    ti_thing_unmark_new(thing);
+
+    return ti_thing_is_object(thing)
+            ? ti_thing_o_to_pk(thing, pk)
+            : ti_thing_t_to_pk(thing, pk);
 }
 
 static inline void ti_thing_may_push_gc(ti_thing_t * thing)
@@ -220,6 +182,9 @@ static inline void ti_thing_may_push_gc(ti_thing_t * thing)
     }
 }
 
+/*
+ * Does not increment the `name` and `val` reference counters.
+ */
 static inline int ti_thing_o_set(
         ti_thing_t * thing,
         ti_raw_t * key,
@@ -234,6 +199,10 @@ static inline int ti_thing_o_set(
     return -(ti_thing_to_dict(thing) || !ti_thing_i_item_set(thing, key, val));
 }
 
+/*
+ * Does not increment the `name` and `val` reference counters.
+ * Use only when you are sure the property does not yet exist.
+ */
 static inline int ti_thing_o_add(
         ti_thing_t * thing,
         ti_raw_t * key,
@@ -248,7 +217,7 @@ static inline int ti_thing_o_add(
     return -(ti_thing_to_dict(thing) || !ti_thing_i_item_add(thing, key, val));
 }
 
-static inline _Bool ti_thing_o_has_key(ti_thing_t * thing, ti_raw_t * key)
+static inline _Bool ti_thing_has_key(ti_thing_t * thing, ti_raw_t * key)
 {
     if (!ti_thing_is_dict(thing))
     {
@@ -256,6 +225,17 @@ static inline _Bool ti_thing_o_has_key(ti_thing_t * thing, ti_raw_t * key)
         return name && ti_thing_val_weak_by_name(thing, name);
     }
     return !!smap_getn(thing->items.smap, (const char *) key->data, key->n);
+}
+
+static inline ti_raw_t * ti_thing_str(ti_thing_t * thing)
+{
+    return ti_thing_is_object(thing)
+        ? thing->id
+        ? ti_str_from_fmt("thing:%"PRIu64, thing->id)
+        : ti_str_from_str("thing:nil")
+        : thing->id
+        ? ti_str_from_fmt("%s:%"PRIu64, thing->via.type->name, thing->id)
+        : ti_str_from_fmt("%s:nil", thing->via.type->name);
 }
 
 #endif  /* TI_THING_INLINE_H_ */

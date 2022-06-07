@@ -10,7 +10,7 @@ static void enum__add(
     const int nargs = fn_get_nargs(nd);
 
     static const char * fnname = "mod_enum` with task `add";
-    cleri_children_t * child;
+    cleri_node_t * child;
     ti_task_t * task;
     ti_member_t * member;
 
@@ -19,14 +19,14 @@ static void enum__add(
 
     child = nd->children->next->next->next->next->next->next;
 
-    if (ti_do_statement(query, child->node, e))
+    if (ti_do_statement(query, child, e))
         return;
 
     member = ti_member_create(enum_, name, query->rval, e);
     if (!member)
         return;
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
         ex_set_mem(e);
@@ -75,7 +75,7 @@ static void enum__def(
     if (!member->idx)
         return;  /* already set as default */
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
         ex_set_mem(e);
@@ -129,12 +129,12 @@ static void enum__del(
     if (member->ref > 1)
     {
         ex_set(e, EX_OPERATION,
-                "enum member `%s{%s}` is still being used",
+                "enum member `%s{%s}` is still in use",
                 enum_->name, name->str);
         return;
     }
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
         ex_set_mem(e);
@@ -159,7 +159,7 @@ static void enum__mod(
 {
     const int nargs = fn_get_nargs(nd);
     static const char * fnname = "mod_enum` with task `mod";
-    cleri_children_t * child;
+    cleri_node_t * child;
     ti_member_t * member = ti_enum_member_by_strn(enum_, name->str, name->n);
     ti_task_t * task;
 
@@ -176,7 +176,7 @@ static void enum__mod(
         return;
     }
 
-    if (ti_do_statement(query, child->node, e))
+    if (ti_do_statement(query, child, e))
         return;
 
     if (ti_opr_eq(member->val, query->rval))
@@ -185,7 +185,7 @@ static void enum__mod(
     if (ti_member_set_value(member, query->rval, e))
         return;
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
         ex_set_mem(e);
@@ -208,7 +208,7 @@ static void enum__ren(
 {
     const int nargs = fn_get_nargs(nd);
     static const char * fnname = "mod_enum` with task `ren";
-    cleri_children_t * child;
+    cleri_node_t * child;
     ti_member_t * member = ti_enum_member_by_strn(enum_, name->str, name->n);
     ti_task_t * task;
     ti_raw_t * rname;
@@ -226,7 +226,7 @@ static void enum__ren(
         return;
     }
 
-    if (ti_do_statement(query, child->node, e) ||
+    if (ti_do_statement(query, child, e) ||
         fn_arg_str_slow(fnname, DOC_MOD_ENUM_REN, 4, query->rval, e))
         return;
 
@@ -238,7 +238,7 @@ static void enum__ren(
     if (ti_member_set_name(member, (const char *) rname->data, rname->n, e))
         return;
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
         ex_set_mem(e);
@@ -257,12 +257,12 @@ static int do__f_mod_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_enum_t * enum_;
     ti_name_t * name;
     ti_raw_t * rmod;
-    cleri_children_t * child = nd->children;
+    cleri_node_t * child = nd->children;
     const int nargs = fn_get_nargs(nd);
 
     if (fn_not_collection_scope("mod_enum", query, e) ||
         fn_nargs_min("mod_enum", DOC_MOD_ENUM, 3, nargs, e) ||
-        ti_do_statement(query, child->node, e) ||
+        ti_do_statement(query, child, e) ||
         fn_arg_str_slow("mod_enum", DOC_MOD_ENUM, 1, query->rval, e))
         return e->nr;
 
@@ -276,14 +276,14 @@ static int do__f_mod_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+    if (ti_do_statement(query, (child = child->next->next), e) ||
         fn_arg_name_check("mod_enum", DOC_MOD_ENUM, 2, query->rval, e))
         goto fail0;
 
     rmod = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+    if (ti_do_statement(query, (child = child->next->next), e) ||
         fn_arg_name_check("mod_enum", DOC_MOD_ENUM, 3, query->rval, e))
         goto fail1;
 

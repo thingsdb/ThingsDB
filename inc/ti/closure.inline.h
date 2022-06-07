@@ -21,8 +21,13 @@ static inline int ti_closure_do_statement(
     /*
      * Keep the "position" in the variable stack so we can later break down
      * all used variable inside the closure body.
+     *
+     * bug #259, we used to decrement the local stack with `closure->vars->n`
+     * but this would require a GC drop on each iteration of the closure vars.
+     * Instead, we can adjust the local_stack and do not count the closure
+     * vars as local scope.
      */
-    query->local_stack = n - closure->vars->n;
+    query->local_stack = n;
 
     if (ti_do_statement(query, ti_closure_statement(closure), e) == EX_RETURN)
         e->nr = 0;
@@ -52,16 +57,15 @@ static inline int ti_closure_try_wse(
      * scope, but nevertheless we still check explicit so this still works
      * if we later decide to change the code.
      */
-    if (    ((closure->flags & (
+    if (!query->change && ((closure->flags & (
                 TI_CLOSURE_FLAG_BTSCOPE|
                 TI_CLOSURE_FLAG_BCSCOPE|
                 TI_CLOSURE_FLAG_WSE
-            )) == TI_CLOSURE_FLAG_WSE) &&
-            (~query->flags & TI_QUERY_FLAG_WSE))
+            )) == TI_CLOSURE_FLAG_WSE))
     {
         ex_set(e, EX_OPERATION,
-                "stored closures with side effects must be "
-                "wrapped using `wse(...)`"DOC_WSE);
+            "closures with side effects require a change but none is created; "
+            "use `wse(...)` to enforce a change"DOC_WSE);
         return -1;
     }
     return 0;
@@ -69,18 +73,30 @@ static inline int ti_closure_try_wse(
 
 static inline int ti_closure_inc_future(ti_closure_t * closure, ex_t * e)
 {
-    if (closure->future_depth == TI_CLOSURE_MAX_FUTURE_RECURSION_DEPTH)
+    if (closure->future_count == TI_CLOSURE_MAX_FUTURE_COUNT)
         ex_set(e, EX_OPERATION,
-                "maximum recursion depth exceeded"DOC_CLOSURE);
+                "maximum nested future count has been reached"DOC_TYPE_CLOSURE);
     else
-        closure->future_depth++;
+        closure->future_count++;
     return e->nr;
 }
 
 static inline void ti_closure_dec_future(ti_closure_t * closure)
 {
-    assert(closure->future_depth);
-    --closure->future_depth;
+    assert(closure->future_count);
+    --closure->future_count;
+}
+
+static inline void ti_closure_unsafe_drop(ti_closure_t * closure)
+{
+    if (!--closure->ref)
+        ti_closure_destroy(closure);
+}
+
+static inline void ti_closure_drop(ti_closure_t * closure)
+{
+    if (closure && !--closure->ref)
+        ti_closure_destroy(closure);
 }
 
 #endif  /* TI_CLOSURE_INLINE_H_ */

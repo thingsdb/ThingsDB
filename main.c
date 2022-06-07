@@ -1,28 +1,33 @@
 /*
  * main.c - ThingsDB
  *
- * author/maintainer : Jeroen van der Heijden <jeroen@transceptor.technology>
+ * author/maintainer : Jeroen van der Heijden <jeroen@cesbit.com>
  * home page         : https://thingsdb.net
- * copyright         : 2019, Jeroen van der Heijden
+ * copyright         : 2021, Jeroen van der Heijden
  *
  * This code will be release as open source but the exact license might be
  * changed to something else than MIT.
  */
+#include <fcntl.h>
 #include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <ti.h>
 #include <ti/archive.h>
 #include <ti/args.h>
 #include <ti/cfg.h>
-#include <ti/tz.h>
 #include <ti/evars.h>
 #include <ti/store.h>
+#include <ti/tz.h>
 #include <ti/user.h>
 #include <ti/version.h>
 #include <time.h>
 #include <util/fx.h>
 #include <util/logger.h>
+#include <util/osarch.h>
+#include <curl/curl.h>
 
 
 static void main__init_deploy(void)
@@ -55,13 +60,24 @@ static void main__init_deploy(void)
 
 int main(int argc, char * argv[])
 {
-    int rc = EXIT_SUCCESS;
+    int seed, fd, rc = EXIT_SUCCESS;
 
     /* set local to LC_ALL and C to force a period over comma for float */
     (void) setlocale(LC_ALL, "C");
 
     /* initialize random */
-    srand(time(NULL));
+    seed = 0;
+    fd = open("/dev/urandom", O_RDONLY);
+    if (fd == -1 || read(fd, &seed, sizeof(int)) == -1)
+    {
+        printf("error reading /dev/urandom\n");
+        return -1;
+    }
+    (void) close(fd);
+    srand(seed);
+
+    /* initialize global curl */
+    curl_global_init(CURL_GLOBAL_ALL);
 
     /* set thread-pool size to 4 (default=4) */
     putenv("UV_THREADPOOL_SIZE=4");
@@ -101,6 +117,9 @@ int main(int argc, char * argv[])
         rc = -1;
         goto stop;
     }
+
+    osarch_init();
+    log_info("running on: %s", osarch_get());
 
     if (*ti.args->config)
     {
@@ -258,6 +277,10 @@ stop:
     }
 
     ti_destroy();
+
+    /* cleanup global curl */
+    curl_global_cleanup();
+
     if (rc)
         log_error("exit with error code %d", rc);
     else

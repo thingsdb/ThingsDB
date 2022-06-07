@@ -3,7 +3,7 @@
 static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    cleri_children_t * child = nd->children;
+    cleri_node_t * child = nd->children;
     ti_user_t * user;
     ti_task_t * task;
     ti_raw_t * ruser;
@@ -12,7 +12,7 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_scope("grant", query, e) ||
         fn_nargs("grant", DOC_GRANT, 3, nargs, e) ||
-        ti_do_statement(query, child->node, e))
+        ti_do_statement(query, child, e))
         return e->nr;
 
     access_ = ti_val_get_access(query->rval, e, &scope_id);
@@ -23,7 +23,7 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
 
     /* read user */
-    if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+    if (ti_do_statement(query, (child = child->next->next), e) ||
         fn_arg_str_slow("grant", DOC_GRANT, 2, query->rval, e))
         return e->nr;
 
@@ -36,15 +36,15 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
 
     /* read mask */
-    if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+    if (ti_do_statement(query, (child = child->next->next), e) ||
         fn_arg_int("grant", DOC_GRANT, 3, query->rval, e))
         return e->nr;
 
     mask = (uint64_t) VINT(query->rval);
 
-    /* make sure EVENT when GRANT */
+    /* make sure CHANGE when GRANT */
     if (mask & TI_AUTH_GRANT)
-        mask |= TI_AUTH_EVENT;
+        mask |= TI_AUTH_CHANGE;
 
     if (ti_access_grant(access_, user, mask))
     {
@@ -52,7 +52,7 @@ static int do__f_grant(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    task = ti_task_get_task(query->ev, ti.thing0);
+    task = ti_task_get_task(query->change, ti.thing0);
     if (!task || ti_task_add_grant(task, scope_id, user, mask))
         ex_set_mem(e);  /* task cleanup is not required */
 

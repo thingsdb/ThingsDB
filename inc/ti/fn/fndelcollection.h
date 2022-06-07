@@ -10,7 +10,7 @@ static int do__f_del_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_scope("del_collection", query, e) ||
         fn_nargs("del_collection", DOC_DEL_COLLECTION, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e))
+        ti_do_statement(query, nd->children, e))
         return e->nr;
 
     collection = ti_collections_get_by_val(query->rval, e);
@@ -19,7 +19,7 @@ static int do__f_del_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     collection_id = collection->root->id;
 
-    task = ti_task_get_task(query->ev, ti.thing0);
+    task = ti_task_get_task(query->change, ti.thing0);
     if (!task || ti_task_add_del_collection(task, collection_id))
         ex_set_mem(e);  /* task cleanup is not required */
     else

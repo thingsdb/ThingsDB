@@ -11,14 +11,14 @@
 #include <ti/access.h>
 #include <ti/api.h>
 #include <ti/auth.h>
+#include <ti/change.h>
 #include <ti/closure.h>
 #include <ti/collection.inline.h>
 #include <ti/collections.h>
 #include <ti/data.h>
 #include <ti/do.h>
-#include <ti/epkg.h>
-#include <ti/epkg.inline.h>
-#include <ti/event.h>
+#include <ti/cpkg.h>
+#include <ti/cpkg.inline.h>
 #include <ti/future.h>
 #include <ti/future.inline.h>
 #include <ti/gc.h>
@@ -30,8 +30,8 @@
 #include <ti/query.h>
 #include <ti/query.inline.h>
 #include <ti/task.h>
-#include <ti/timer.h>
-#include <ti/timer.inline.h>
+#include <ti/vtask.h>
+#include <ti/vtask.inline.h>
 #include <ti/val.inline.h>
 #include <ti/varr.h>
 #include <ti/verror.h>
@@ -43,29 +43,30 @@ ti_query_done_cb ti_query_done_map[] = {
         &ti_query_send_response,
         &ti_query_send_response,
         &ti_query_on_then_result,
-        &ti_query_timer_result,
+        &ti_query_task_result,
+        &ti_query_task_result,
 };
 
 ti_query_run_cb ti_query_run_map[] = {
         &ti_query_run_parseres,
         &ti_query_run_procedure,
         &ti_query_run_future,
-        &ti_query_run_timer,
+        &ti_query_run_task,
+        &ti_query_run_task_finish,
 };
-
 
 /*
  *  tasks are ordered for low to high thing ids
- *   { [0, 0]: {0: [ {'job':...} ] } }
+ *   { [0, 0]: {0: [ {'task':...} ] } }
  */
-static ti_epkg_t * query__epkg_event(ti_query_t * query)
+static ti_cpkg_t * query__cpkg_change(ti_query_t * query)
 {
     size_t init_buffer_sz = 40;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
-    ti_epkg_t * epkg;
+    ti_cpkg_t * cpkg;
     ti_pkg_t * pkg;
-    vec_t * tasks = query->ev->_tasks;
+    vec_t * tasks = query->change->_tasks;
 
     for (vec_each(tasks, ti_task_t, task))
         init_buffer_sz += task->approx_sz;
@@ -74,99 +75,53 @@ static ti_epkg_t * query__epkg_event(ti_query_t * query)
         return NULL;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_map(&pk, 1);
-
-    /* key */
-    msgpack_pack_array(&pk, 2);
-    msgpack_pack_uint64(&pk, query->ev->id);
+    msgpack_pack_array(&pk, tasks->n+2);
+    msgpack_pack_uint64(&pk, query->change->id);
     msgpack_pack_uint64(&pk, tasks->n && query->collection
             ? query->collection->root->id
             : 0);
 
-    /* value */
-    msgpack_pack_map(&pk, tasks->n);
     for (vec_each(tasks, ti_task_t, task))
     {
+        msgpack_pack_array(&pk, task->list->n+1);
         msgpack_pack_uint64(&pk, task->thing->id);
-        msgpack_pack_array(&pk, task->jobs->n);
-        for (vec_each(task->jobs, ti_data_t, data))
+        for (vec_each(task->list, ti_data_t, data))
             mp_pack_append(&pk, data->data, data->n);
     }
 
     pkg = (ti_pkg_t *) buffer.data;
-    pkg_init(pkg, 0, TI_PROTO_NODE_EVENT, buffer.size);
+    pkg_init(pkg, 0, TI_PROTO_NODE_CHANGE, buffer.size);
 
     assert(pkg->n <= init_buffer_sz);
 
-    epkg = ti_epkg_create(pkg, query->ev->id);
-    if (!epkg)
+    cpkg = ti_cpkg_create(pkg, query->change->id);
+    if (!cpkg)
     {
         free(pkg);
         return NULL;
     }
-    return epkg;
-}
-
-/*
- * Void function, although errors can happen. Each error is critical since this
- * results in subscribers inconsistency.
- */
-static void query__task_to_watchers(ti_query_t * query)
-{
-    vec_t * tasks = query->ev->_tasks;
-    for (vec_each(tasks, ti_task_t, task))
-    {
-        if (ti_thing_has_watchers(task->thing))
-        {
-            ti_rpkg_t * rpkg;
-            ti_pkg_t * pkg = ti_task_pkg_watch(task);
-            if (!pkg || !(rpkg = ti_rpkg_create(pkg)))
-            {
-                ++ti.counters->watcher_failed;
-                log_critical(EX_MEMORY_S);
-                free(pkg);
-                break;
-            }
-
-            for (vec_each(task->thing->watchers, ti_watch_t, watch))
-            {
-                if (ti_stream_is_closed(watch->stream))
-                    continue;
-
-                if (ti_stream_write_rpkg(watch->stream, rpkg))
-                {
-                    ++ti.counters->watcher_failed;
-                    log_error(EX_INTERNAL_S);
-                }
-            }
-            ti_rpkg_drop(rpkg);
-        }
-    }
+    return cpkg;
 }
 
 /*
  * Void function, although errors can happen. Each error is critical since this
  * results in nodes and subscribers inconsistency.
  */
-static void query__event_handle(ti_query_t * query)
+static void query__change_handle(ti_query_t * query)
 {
-    ti_epkg_t * epkg = query__epkg_event(query);
-    if (!epkg)
+    ti_cpkg_t * cpkg = query__cpkg_change(query);
+    if (!cpkg)
     {
         log_critical(EX_MEMORY_S);
         return;
     }
 
-    /* send tasks to watchers if required */
-    if (query->collection)
-        query__task_to_watchers(query);
-
-    /* store event package in archive */
-    if (ti_archive_push(epkg))
+    /* store change package in archive */
+    if (ti_archive_push(cpkg))
         log_critical(EX_MEMORY_S);
 
-    ti_nodes_write_rpkg((ti_rpkg_t *) epkg);
-    ti_epkg_drop(epkg);
+    ti_nodes_write_rpkg((ti_rpkg_t *) cpkg);
+    ti_cpkg_drop(cpkg);
 }
 
 int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
@@ -174,32 +129,38 @@ int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
     switch (scope->tp)
     {
     case TI_SCOPE_COLLECTION_NAME:
-        query->qbind.flags |= TI_QBIND_FLAG_COLLECTION;
         query->collection = ti_collections_get_by_strn(
                 scope->via.collection_name.name,
                 scope->via.collection_name.sz);
-
         if (query->collection)
+        {
+            query->qbind.flags |= TI_QBIND_FLAG_COLLECTION;
+            query->qbind.deep = query->collection->deep;
             ti_incref(query->collection);
+        }
         else
             ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
                 scope->via.collection_name.sz,
                 scope->via.collection_name.name);
         return e->nr;
     case TI_SCOPE_COLLECTION_ID:
-        query->qbind.flags |= TI_QBIND_FLAG_COLLECTION;
         query->collection = ti_collections_get_by_id(scope->via.collection_id);
         if (query->collection)
+        {
+            query->qbind.flags |= TI_QBIND_FLAG_COLLECTION;
+            query->qbind.deep = query->collection->deep;
             ti_incref(query->collection);
+        }
         else
             ex_set(e, EX_LOOKUP_ERROR, TI_COLLECTION_ID" not found",
                     scope->via.collection_id);
         return e->nr;
     case TI_SCOPE_NODE:
-        query->qbind.flags |= TI_QBIND_FLAG_NODE;
+        query->qbind.deep = ti.n_deep;
         return e->nr;
     case TI_SCOPE_THINGSDB:
         query->qbind.flags |= TI_QBIND_FLAG_THINGSDB;
+        query->qbind.deep = ti.t_deep;
         return e->nr;
     }
 
@@ -213,7 +174,6 @@ ti_query_t * ti_query_create(uint8_t flags)
     if (!query)
         return NULL;
 
-    query->qbind.deep = 1;
     query->flags = flags;
     query->vars = vec_new(7);  /* with some initial size; we could find the
                                 * exact number in the syntax (maybe), but then
@@ -241,7 +201,7 @@ void ti_query_destroy(ti_query_t * query)
         ti_stream_drop(query->via.stream);
 
     ti_user_drop(query->user);
-    ti_event_drop(query->ev);
+    ti_change_drop(query->change);
     ti_val_drop(query->rval);
 
     assert (query->futures.n == 0);
@@ -263,13 +223,14 @@ void ti_query_destroy(ti_query_t * query)
         }
         break;
     case TI_QUERY_WITH_PROCEDURE:
-        ti_val_drop((ti_val_t *) query->with.closure);
+        ti_closure_drop(query->with.closure);
         break;
     case TI_QUERY_WITH_FUTURE:
         ti_val_drop((ti_val_t *) query->with.future);
         break;
-    case TI_QUERY_WITH_TIMER:
-        ti_timer_drop(query->with.timer);
+    case TI_QUERY_WITH_TASK:
+    case TI_QUERY_WITH_TASK_FINISH:
+        ti_vtask_drop(query->with.vtask);
         break;
     }
 
@@ -478,6 +439,7 @@ int ti_query_unp_run(
         return e->nr;
     case TI_SCOPE_THINGSDB:
         query->qbind.flags |= TI_QBIND_FLAG_THINGSDB;
+        query->qbind.deep = ti.t_deep;
         procedures = ti.procedures;
         vup.collection = NULL;
         break;
@@ -504,10 +466,7 @@ int ti_query_unp_run(
     }
 
     if (procedure->closure->flags & TI_CLOSURE_FLAG_WSE)
-    {
-        query->qbind.flags |= TI_QBIND_FLAG_EVENT;
-        query->flags |= TI_QUERY_FLAG_WSE;
-    }
+        query->qbind.flags |= TI_QBIND_FLAG_WSE;
 
     query->with.closure = procedure->closure;
     ti_incref(query->with.closure);
@@ -530,23 +489,43 @@ int ti_query_unp_run(
         return query__run_arr_props(query, &vup, procedure, obj.via.sz, e);
     case MP_MAP:
         return query__run_map_props(query, &vup, procedure, obj.via.sz, e);
-    default:
+    case MP_NIL:
+    case MP_END:
         break;
+    default:
+        ex_set(e, EX_BAD_DATA,
+                "run expects arguments to be of type map or array; "
+                "no arguments (or nil) is also accepted as a valid request");
     }
-    return 0;
+    return e->nr;
 }
 
 static inline int ti_query_investigate(ti_query_t * query, ex_t * e)
 {
-    cleri_children_t * seqchildren;
+    cleri_node_t * seqchildren;
     assert (e->nr == 0);
 
     seqchildren = query->with.parseres->tree    /* root */
-            ->children->node                    /* sequence <comment, list> */
+            ->children                          /* sequence <comment, list> */
             ->children;
 
     /* list statements */
-    ti_qbind_probe(&query->qbind, seqchildren->next->node);
+    ti_qbind_probe(&query->qbind, seqchildren->next);
+
+    /* check if illegal statements are found */
+    if (query->qbind.flags & (
+            TI_QBIND_FLAG_ILL_CONTINUE|
+            TI_QBIND_FLAG_ILL_BREAK))
+    {
+        if (query->qbind.flags & TI_QBIND_FLAG_ILL_CONTINUE)
+            ex_set(e, EX_SYNTAX_ERROR,
+                    "illegal `continue` statement; "
+                    "no surrounding `for..in` statement");
+        else if (query->qbind.flags & TI_QBIND_FLAG_ILL_BREAK)
+            ex_set(e, EX_SYNTAX_ERROR,
+                    "illegal `break` statement; "
+                    "no surrounding `for..in` statement");
+    }
 
     /*
      * Create value cache for immutable, names and things.
@@ -593,7 +572,7 @@ int ti_query_parse(ti_query_t * query, const char * str, size_t n, ex_t * e)
     if (!querystr)
     {
         ex_set_mem(e);
-        return e->nr;
+        goto failed;
     }
 
     query->with.parseres = cleri_parse2(
@@ -603,28 +582,62 @@ int ti_query_parse(ti_query_t * query, const char * str, size_t n, ex_t * e)
 
     if (!query->with.parseres)
     {
-        free(querystr);
-        ex_set(e, EX_OPERATION,
-                "query has reached the maximum recursion depth of %d",
+        ex_set(e, EX_SYNTAX_ERROR,
+                "query syntax has reached the maximum recursion depth of %d",
                 MAX_RECURSION_DEPTH);
-        return e->nr;
+        goto failed;
     }
 
     if (!query->with.parseres->is_valid)
     {
         cleri_parse_free(query->with.parseres);
-
         query->with.parseres = cleri_parse2(ti.langdef, querystr, 0);
         if (!query->with.parseres)
         {
-            free(querystr);
             ex_set_mem(e);
-            return e->nr;
+            goto failed;
         }
         return query__syntax_err(query, e);
     }
 
-    return ti_query_investigate(query, e);
+    if (ti_query_investigate(query, e) == 0)
+        return 0;
+
+    /* prevent caching */
+    cleri_parse_free(query->with.parseres);
+    query->with.parseres = NULL;
+failed:
+    free(querystr);
+    return e->nr;
+}
+
+void ti_query_warn_log(ti_query_t * query, const char * msg)
+{
+    switch ((ti_query_with_enum) query->with_tp)
+    {
+    case TI_QUERY_WITH_PARSERES:
+        log_warning("%s; source: query; code: `%s`",
+                msg,
+                query->with.parseres->str);
+        return;
+    case TI_QUERY_WITH_PROCEDURE:
+        log_warning("%s; source: procedure; code: `%s`",
+                msg,
+                query->with.closure->node->str);
+        return;
+    case TI_QUERY_WITH_FUTURE:
+        log_warning("%s; source: future; code: `%s`",
+                msg,
+                query->with.future->then->node->str);
+        return;
+    case TI_QUERY_WITH_TASK:
+    case TI_QUERY_WITH_TASK_FINISH:
+        log_warning("%s; source: task; code: `%s`",
+                msg,
+                query->with.vtask->closure->node->str);
+        return;
+    }
+    log_warning(msg);
 }
 
 static void query__duration_log(
@@ -649,10 +662,11 @@ static void query__duration_log(
                 duration,
                 query->with.future->then->node->str);
         return;
-    case TI_QUERY_WITH_TIMER:
-        log_with_level(log_level, "timer took %f seconds to process: `%s`",
+    case TI_QUERY_WITH_TASK:
+    case TI_QUERY_WITH_TASK_FINISH:
+        log_with_level(log_level, "task took %f seconds to process: `%s`",
                 duration,
-                query->with.timer->closure->node->str);
+                query->with.vtask->closure->node->str);
         return;
     }
 }
@@ -669,15 +683,34 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e)
     --ti.futures_count;
 
     ti_val_unsafe_drop(future->rval);
-    future->rval = query->rval;
+
+    if (query->rval && ti_val_is_future(query->rval))
+    {
+        /*
+         * When nesting futures, we need to take the future result. e.g:
+         * future(|| future(|| 'OK'));
+         *
+         * Unregistered futures might not yet have a result so we need to
+         * check for NULL.
+         */
+        ti_future_t * fut = (ti_future_t *) query->rval;
+        future->rval = fut->rval ? fut->rval : (ti_val_t *) ti_nil_get();
+        fut->rval = NULL;
+        ti_val_unsafe_drop(query->rval);
+    }
+    else
+        future->rval = query->rval;
 
     ti_user_drop(query->user);
-    ti_event_drop(query->ev);
+    ti_change_drop(query->change);
 
     assert (query->futures.n == 0);
 
     while(query->vars->n)
         ti_prop_destroy(VEC_pop(query->vars));
+
+    /* Drop the stream. This is never an API request (API is not copied) */
+    ti_stream_drop(query->via.stream);
 
     free(query->vars);
     ti_collection_drop(query->collection);
@@ -689,7 +722,7 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e)
     /* drop the future first since it might require the query */
     ti_val_unsafe_drop((ti_val_t *) future);
 
-    if (!--query->fcount)
+    if (!--query->qbind.fut_count)
     {
         if (query->flags & TI_QUERY_FLAG_RAISE_ERR)
             ti_verror_to_e((ti_verror_t *) query->rval, e);
@@ -704,17 +737,56 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e)
     }
 }
 
-void ti_query_timer_result(ti_query_t * query, ex_t * e)
+void ti_query_task_result(ti_query_t * query, ex_t * e)
 {
-    ti_timer_t * timer = query->with.timer;
-    if (e->nr)
-        log_debug("timer failed: `%s`, %s: `%s`",
-                timer->closure->node->str,
-                ex_str(e->nr),
-                e->msg);
+    ti_vtask_t * vtask = query->with.vtask;
 
-    ti_timer_done(timer, e);
-    ti_query_destroy(query);
+    if (query->flags & TI_QUERY_FLAG_TASK_CHANGES)
+    {
+        if (e->nr)
+        {
+            ++ti.counters->tasks_with_error;
+            log_debug("task failed: `%s`, %s: `%s`",
+                    vtask->closure->node->str,
+                    ex_str(e->nr),
+                    e->msg);
+        }
+        else
+            ++ti.counters->queries_success;
+
+        ti_query_destroy(query);
+    }
+    else
+    {
+        /* It is possible we have a change we need to clear, but it can be
+         * NULL as well.  */
+        ti_change_drop(query->change);
+        query->change = NULL;
+
+        /* We will create a change with the query which does not execute the
+         * query, but instead applies the finishing changes for the task.
+         */
+        query->with_tp = TI_QUERY_WITH_TASK_FINISH;
+
+        /*
+         * Set the error to the task which we will read later.
+         */
+        ti_val_drop((ti_val_t *) vtask->verr);
+        vtask->verr = e->nr == 0
+                ? ti_verror_from_code(0)
+                : ti_verror_ensure_from_e(e);
+
+        ex_clear(e);
+        if (ti_changes_create_new_change(query, e))
+        {
+            log_critical(
+                    "failed to create finish changes for "TI_TASK_ID" (%s)",
+                    vtask->id, e->msg);
+            /* TODO : can we do more ? */
+            ++ti.counters->tasks_with_error;
+            ti_query_destroy(query);
+        }
+    }
 }
 
 static void query__then(ti_query_t * query, ex_t * e)
@@ -726,10 +798,7 @@ static void query__then(ti_query_t * query, ex_t * e)
     ++ti.futures_count;
 
     if (future->then->flags & TI_CLOSURE_FLAG_WSE)
-    {
-        query->qbind.flags |= TI_QBIND_FLAG_EVENT;
-        query->flags |= TI_QUERY_FLAG_WSE;
-    }
+        query->qbind.flags |= TI_QBIND_FLAG_WSE;
 
     vecaddr = &VARR(future->rval);
     while ((*vecaddr)->n < future->then->vars->n)
@@ -741,13 +810,13 @@ static void query__then(ti_query_t * query, ex_t * e)
         }
     }
 
-    if (ti_query_will_update(query))
+    if (ti_query_wse(query))
     {
         access_ = ti_query_access(query);
         assert (access_);
 
-        if (ti_access_check_err(access_, query->user, TI_AUTH_EVENT, e) ||
-            ti_events_create_new_event(query, e))
+        if (ti_access_check_err(access_, query->user, TI_AUTH_CHANGE, e) ||
+            ti_changes_create_new_change(query, e))
             goto finish;
 
         return;
@@ -777,7 +846,7 @@ void ti_query_on_future_result(ti_future_t * future, ex_t * e)
         {
             ti_verror_t * verror = ti_verror_ensure_from_e(e);
             ti_val_unsafe_drop(vec_set(future->args, verror, 0));
-            future->rval = (ti_val_t *) ti_varr_from_vec(future->args);
+            future->rval = (ti_val_t *) ti_varr_from_vec_unsafe(future->args);
             if (future->rval)
             {
                 ex_clear(e);
@@ -813,9 +882,16 @@ then:
         }
 
         then_query->qbind.flags |= query->qbind.flags & (
-                TI_QBIND_FLAG_NODE|
                 TI_QBIND_FLAG_THINGSDB|
                 TI_QBIND_FLAG_COLLECTION);
+
+        /* If not API, we need the stream for logging. Note that we explicitly
+         * NOT copy an API request and we bluntly drop the stream later so it
+         * must be NULL in case not a stream  */
+        if (~query->flags & TI_QUERY_FLAG_API)
+            then_query->via.stream = ti_grab(query->via.stream);
+
+        then_query->qbind.deep = query->qbind.deep;
         then_query->user = ti_grab(query->user);
         then_query->collection = ti_grab(query->collection);
         then_query->with_tp = TI_QUERY_WITH_FUTURE;
@@ -823,7 +899,7 @@ then:
 
         query__then(then_query, e);
         /*
-         * Note that `fcount` is not decremented, this has to be done then the
+         * Note that `fcount` is not decremented, this has to be done when the
          * `then` logic is completed.
          */
         return;
@@ -833,7 +909,7 @@ done:
     /* drop the future first since it might require the query */
     ti_val_unsafe_drop((ti_val_t *) future);
 
-    if (!--query->fcount)
+    if (!--query->qbind.fut_count)
     {
         if (query->flags & TI_QUERY_FLAG_RAISE_ERR)
             ti_verror_to_e((ti_verror_t *) query->rval, e);
@@ -844,7 +920,7 @@ done:
 
 void ti_query_run_parseres(ti_query_t * query)
 {
-    cleri_children_t * child, * seqchild;
+    cleri_node_t * child, * seqchild;
     ex_t e = {0};
 
     clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
@@ -854,10 +930,10 @@ void ti_query_run_parseres(ti_query_t * query)
 #endif
 
     seqchild = query->with.parseres->tree   /* root */
-        ->children->node                    /* sequence <comment, list, [deep]> */
-        ->children->next;                   /* list */
+        ->children              /* sequence <comment, list, [deep]> */
+        ->children->next;       /* list */
 
-    child = seqchild->node->children;   /* first child or NULL */
+    child = seqchild->children; /* first child or NULL */
 
     if (!child)
     {
@@ -867,9 +943,9 @@ void ti_query_run_parseres(ti_query_t * query)
 
     while (1)
     {
-        assert (child->node->cl_obj->gid == CLERI_GID_STATEMENT);
+        assert (child->cl_obj->gid == CLERI_GID_STATEMENT);
 
-        if (ti_do_statement(query, child->node, &e))
+        if (ti_do_statement(query, child, &e))
             break;
 
         if (!child->next || !(child = child->next->next))
@@ -883,8 +959,8 @@ void ti_query_run_parseres(ti_query_t * query)
         e.nr = 0;
 
 stop:
-    if (query->ev)
-        query__event_handle(query);  /* errors will be logged only */
+    if (query->change)
+        query__change_handle(query);  /* errors will be logged only */
 
     ti_query_done(query, &e, &ti_query_send_response);
 }
@@ -906,8 +982,8 @@ void ti_query_run_procedure(ti_query_t * query)
             query->immutable_cache,
             &e);
 
-    if (query->ev)
-        query__event_handle(query);  /* errors will be logged only */
+    if (query->change)
+        query__change_handle(query);  /* errors will be logged only */
 
     ti_query_done(query, &e, &ti_query_send_response);
 }
@@ -922,33 +998,113 @@ void ti_query_run_future(ti_query_t * query)
     /* this can never set `e->nr` to EX_RETURN */
     (void) ti_closure_call(query->with.future->then, query, vec, &e);
 
-    if (query->ev)
-        query__event_handle(query);  /* errors will be logged only */
+    if (query->change)
+        query__change_handle(query);  /* errors will be logged only */
 
     ti_query_done(query, &e, &ti_query_on_then_result);
 }
 
-void ti_query_run_timer(ti_query_t * query)
+void query__task_finish(ti_query_t * query, const ex_t * e, _Bool set_err)
+{
+    ti_vtask_t * vtask = query->with.vtask;
+    if (vtask->id)
+    {
+        ti_task_t * task = ti_task_get_task(
+                query->change,
+                query->collection ? query->collection->root : ti.thing0);
+
+        /* first reset the run at value */
+        if (~vtask->flags & TI_VTASK_FLAG_AGAIN)
+            vtask->run_at = 0;
+
+        if (!vtask->run_at && !e->nr)
+        {
+            if (ti_task_add_vtask_del(task, vtask))
+                log_critical("failed to add task delete change");
+
+            /* task is successful and no re-schedule so delete */
+            ti_vtask_del(vtask->id, query->collection);
+        }
+        else
+        {
+            if (set_err)
+            {
+                /*
+                 * The error might be already equal to `e`, in this case
+                 * the argument `set_err` should be false as there is no point
+                 * in removing and re-creating the same error.
+                 */
+                ti_val_drop((ti_val_t *) vtask->verr);
+                vtask->verr = e->nr == 0
+                        ? ti_verror_from_code(0)
+                        : ti_verror_ensure_from_e(e);
+            }
+
+            ti_tasks_vtask_finish(vtask);
+
+            if (ti_task_add_vtask_finish(task, vtask))
+                log_critical("failed to add task finish change");
+        }
+    }
+    query->flags |= TI_QUERY_FLAG_TASK_CHANGES;
+}
+
+void ti_query_run_task_finish(ti_query_t * query)
+{
+    ex_t e;
+    ti_vtask_t * vtask = query->with.vtask;
+    ex_setn(&e, vtask->verr->code, vtask->verr->msg, vtask->verr->msg_n);
+    query__task_finish(query, &e, false /* do not set the task error */);
+    query__change_handle(query);  /* errors will be logged only */
+
+    /* The query (and futures) are already processed to we can run
+     * function `ti_query_task_result` without using `ti_query_done()`. */
+    ti_query_task_result(query, &e);
+}
+
+void ti_query_run_task(ti_query_t * query)
 {
     ex_t e = {0};
+    ti_vtask_t * vtask = query->with.vtask;
 
-    clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
+    if (vtask->run_at)
+    {
+        uint32_t n = vtask->args ? vtask->args->n : 0;
+
+        clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
+
+        if (n)
+        {
+            ti_val_unsafe_drop(vec_set(vtask->args, vtask, 0));
+            ti_incref(vtask);
+        }
+        ti_incref(vtask->closure);
 
 #ifndef NDEBUG
-    log_debug("[DEBUG] run timer: %s", query->with.timer->closure->node->str);
+        log_debug(
+                "[DEBUG] run task: %s",
+                query->with.vtask->closure->node->str);
 #endif
 
-    /* this can never set `e->nr` to EX_RETURN */
-    (void) ti_closure_call(
-            query->with.timer->closure,
-            query,
-            query->with.timer->args,
-            &e);
+        /* this can never set `e->nr` to EX_RETURN */
+        (void) ti_closure_call(vtask->closure, query, vtask->args, &e);
 
-    if (query->ev)
-        query__event_handle(query);  /* errors will be logged only */
+        if (n)
+            ti_val_unsafe_drop(vec_set(vtask->args, ti_nil_get(), 0));
+        ti_closure_unsafe_drop(vtask->closure);
 
-    ti_query_done(query, &e, &ti_query_timer_result);
+        if (query->change)
+        {
+            if (query->futures.n == 0)
+                query__task_finish(query, &e, true /* set the task error */);
+
+            query__change_handle(query);  /* errors will be logged only */
+        }
+    }
+    else
+        vtask->flags |= TI_QUERY_FLAG_TASK_CHANGES;
+
+    ti_query_done(query, &e, &ti_query_task_result);
 }
 
 static inline int query__pack_response(
@@ -961,7 +1117,7 @@ static inline int query__pack_response(
     };
     msgpack_packer_init(&vp.pk, buffer, msgpack_sbuffer_write);
 
-    if (ti_val_to_pk(query->rval, &vp, (int) query->qbind.deep))
+    if (ti_val_to_client_pk(query->rval, &vp, (int) query->qbind.deep))
     {
         if (buffer->size > ti.cfg->result_size_limit)
             ex_set(e, EX_RESULT_TOO_LARGE,
@@ -985,14 +1141,11 @@ static int query__response_api(ti_query_t * query, ex_t * e)
 {
     ti_api_request_t * ar = query->via.api_request;
     msgpack_sbuffer buffer;
-    size_t alloc = 24;
 
     if (e->nr)
         goto response_err;
 
-    ti_val_may_change_pack_sz(query->rval, &alloc);
-
-    if (mp_sbuffer_alloc_init(&buffer, alloc, 0))
+    if (mp_sbuffer_alloc_init(&buffer, ti_val_alloc_size(query->rval), 0))
     {
         ex_set_mem(e);
         goto response_err;
@@ -1011,14 +1164,14 @@ static int query__response_pkg(ti_query_t * query, ex_t * e)
 {
     ti_pkg_t * pkg;
     msgpack_sbuffer buffer;
-    size_t alloc = 24;
 
     if (e->nr)
         goto pkg_err;
 
-    ti_val_may_change_pack_sz(query->rval, &alloc);
-
-    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_pkg_t)))
+    if (mp_sbuffer_alloc_init(
+            &buffer,
+            ti_val_alloc_size(query->rval),
+            sizeof(ti_pkg_t)))
     {
         ex_set_mem(e);
         goto pkg_err;
@@ -1076,7 +1229,8 @@ void ti_query_send_response(ti_query_t * query, ex_t * e)
                     e->msg);
             break;
         case TI_QUERY_WITH_FUTURE:
-        case TI_QUERY_WITH_TIMER:
+        case TI_QUERY_WITH_TASK:
+        case TI_QUERY_WITH_TASK_FINISH:
             assert(0);
             break;
         }
@@ -1108,7 +1262,14 @@ void ti_query_done(ti_query_t * query, ex_t * e, ti_query_done_cb cb)
         {
             /* increase the number of running futures */
             ti.futures_count += query->futures.n;
-            query->fcount = query->futures.n;
+
+            /* kick-off the futures; futures.n will be zero so we need to keep
+             * the number of "running" futures on the query to verify when all
+             * futures are done. The size is of running futures is at most
+             * TI_MAX_FUTURE_COUNT so uint16_t is more than enough to store
+             * this number.
+             */
+            query->qbind.fut_count = query->futures.n;
 
             link_clear(&query->futures, (link_destroy_cb) query__future_cb);
             return;
@@ -1162,6 +1323,41 @@ ti_thing_t * ti_query_thing_from_id(
     return thing;
 }
 
+ti_room_t * ti_query_room_from_id(
+        ti_query_t * query,
+        int64_t room_id,
+        ex_t * e)
+{
+    ti_room_t * room;
+
+    if (!query->collection)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "scope `%s` has no stored rooms; "
+                "you might want to query a `@collection` scope?",
+                ti_query_scope_name(query));
+        return NULL;
+    }
+
+    /* No need to check for garbage collected things */
+    room = room_id
+            ? ti_collection_room_by_id(query->collection, (uint64_t) room_id)
+            : NULL;
+
+    if (!room)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "collection `%.*s` has no `room` with id %"PRId64,
+                query->collection->name->n,
+                (char *) query->collection->name->data,
+                room_id);
+        return NULL;
+    }
+
+    ti_incref(room);
+    return room;
+}
+
 typedef struct
 {
     ssize_t n;
@@ -1206,21 +1402,22 @@ static int query__get_things(ti_val_t * val, imap_t * imap)
     switch((ti_val_enum) val->tp)
     {
     case TI_VAL_NIL:
-    case TI_VAL_BOOL:
-    case TI_VAL_DATETIME:
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
-    case TI_VAL_MPDATA:
+    case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
+    case TI_VAL_NAME:
     case TI_VAL_STR:
     case TI_VAL_BYTES:
-    case TI_VAL_ERROR:
-    case TI_VAL_NAME:
     case TI_VAL_REGEX:
         break;
     case TI_VAL_THING:
         return query__var_walk_thing((ti_thing_t *) val, imap);
     case TI_VAL_WRAP:
         return query__var_walk_thing(((ti_wrap_t *) val)->thing, imap);
+    case TI_VAL_ROOM:
+    case TI_VAL_TASK: /* do not check task arguments as tasks are checked */
+        break;
     case TI_VAL_ARR:
         if (ti_varr_may_have_things((ti_varr_t *) val))
             for (vec_each(VARR(val), ti_val_t, v))
@@ -1229,12 +1426,15 @@ static int query__get_things(ti_val_t * val, imap_t * imap)
         break;
     case TI_VAL_SET:
         return imap_walk(VSET(val), (imap_cb) query__var_walk_thing, imap);
-    case TI_VAL_CLOSURE:
+    case TI_VAL_ERROR:
     case TI_VAL_MEMBER:  /* things as a member have an id */
-    case TI_VAL_TEMPLATE:
+    case TI_VAL_MPDATA:
+    case TI_VAL_CLOSURE:
         break;
     case TI_VAL_FUTURE:
         return VFUT(val) ? query__get_things(VFUT(val), imap) : 0;
+    case TI_VAL_TEMPLATE:
+        break;
     }
 
     return 0;
@@ -1309,10 +1509,101 @@ int ti_query_vars_walk(
             if ((rc = query__get_things(val, imap)))
                 goto fail;
 
+    for (vec_each(collection->vtasks, ti_vtask_t, vtask))
+        for (vec_each(vtask->args, ti_val_t, val))
+            if ((rc = query__get_things(val, imap)))
+                goto fail;
+
     rc = imap_walk(imap, cb, args);
 
 fail:
     imap_destroy(imap, (imap_destroy_cb) ti_val_unsafe_drop);
     return rc;
+}
+
+/*
+ * Checks if the given task matches the current context and makes sure the
+ * task is not cancelled. The task must have been checked to have an Id before
+ * calling this function.
+ */
+int ti_query_task_context(ti_query_t * query, ti_vtask_t * vtask, ex_t * e)
+{
+    assert (vtask->id);  /* must not be called with `empty` tasks */
+    do
+    {
+        if (query->with_tp == TI_QUERY_WITH_TASK)
+        {
+            if (query->with.vtask != vtask)
+                ex_set(e, EX_OPERATION,
+                        TI_TASK_ID" does not match the current task context",
+                        vtask->id);
+            else if (vtask->run_at == 0)
+                ex_set(e, EX_OPERATION, TI_TASK_ID" is cancelled", vtask->id);
+            return e->nr;
+        }
+        if (query->with_tp != TI_QUERY_WITH_FUTURE)
+        {
+            ex_set(e, EX_OPERATION, "requires a task context");
+            return e->nr;
+        }
+        query = query->with.future->query;
+    }
+    while(query);
+    ex_set_internal(e);
+    return e->nr;
+}
+
+typedef struct
+{
+    ti_thing_t * thing;
+    vec_t * fields_to_check;
+} query__thing_spec_cb_t;
+
+static int query__spec_cb(ti_thing_t * thing, query__thing_spec_cb_t * w)
+{
+    for (vec_each(w->fields_to_check, ti_field_t, field))
+        if (thing->type_id == field->type->type_id &&
+            VEC_get(thing->items.vec, field->idx) == w->thing)
+            return -1;
+    return 0;
+}
+
+static int query__type_spec_cp(ti_type_t * type, query__thing_spec_cb_t * w)
+{
+    for (vec_each(type->fields, ti_field_t, field))
+    {
+        if (w->thing->via.spec == field->nested_spec &&
+            (field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_OBJECT)
+        {
+            if (vec_push_create(&w->fields_to_check, field))
+                return -1;
+        }
+    }
+    return 0;
+}
+
+_Bool ti_query_thing_can_change_spec(ti_query_t * query, ti_thing_t * thing)
+{
+    int rc;
+    ti_collection_t * collection = thing->collection;
+    query__thing_spec_cb_t w = {
+            .thing = thing,
+            .fields_to_check = NULL,
+    };
+
+    if (!collection)
+        return true;
+
+    rc = imap_walk(collection->types->imap, (imap_cb) query__type_spec_cp, &w);
+
+    if (rc == 0 && w.fields_to_check)
+        rc = (
+            ti_query_vars_walk(
+                    query->vars, collection, (imap_cb) query__spec_cb, &w) ||
+            imap_walk(collection->things, (imap_cb) query__spec_cb, &w) ||
+            ti_gc_walk(collection->gc, (queue_cb) query__spec_cb, &w));
+
+    free(w.fields_to_check);
+    return rc == 0;
 }
 

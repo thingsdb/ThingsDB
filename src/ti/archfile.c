@@ -13,7 +13,7 @@
 
 /*
  * Archive file format: < hex_first_event >_< hex_last_event >.mp
- * Both the first and last event are inclusive inside the file.
+ * Both the first and last changes are inclusive inside the file.
  */
 #define ARCHIVE__FILE_FMT "%016"PRIx64"_%016"PRIx64".mp"
 /*
@@ -23,7 +23,7 @@
 
 ti_archfile_t * ti_archfile_upsert(const char * path, const char * fn)
 {
-    /* Read the first and last event id from file name,
+    /* Read the first and last change id from file name,
      * using format 16 hex digits + underscore + 16 hex digits */
     uint64_t first = strtoull(fn, NULL, 16);
     uint64_t last = strtoull(fn + 16 + 1, NULL, 16);
@@ -48,7 +48,7 @@ ti_archfile_t * ti_archfile_upsert(const char * path, const char * fn)
     return archfile;
 }
 
-ti_archfile_t * ti_archfile_from_event_ids(
+ti_archfile_t * ti_archfile_from_change_ids(
         const char * path,
         uint64_t first,
         uint64_t last)
@@ -96,7 +96,7 @@ _Bool ti_archfile_is_valid_fn(const char * fn)
     if (len != ARCHIVE__FILE_LEN)
         return false;
 
-    /* twenty digits as start event_id */
+    /* twenty digits as start change_id */
     for (size_t i = 0; i < 16; ++i, ++fn)
         if (!isxdigit(*fn))
             return false;
@@ -107,7 +107,7 @@ _Bool ti_archfile_is_valid_fn(const char * fn)
 
     ++fn;
 
-    /* twenty digits as last event_id */
+    /* twenty digits as last change_id */
     for (size_t i = 0; i < 16; ++i, ++fn)
         if (!isxdigit(*fn))
             return false;

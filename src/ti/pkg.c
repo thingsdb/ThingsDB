@@ -9,11 +9,7 @@
 #include <util/mpack.h>
 #include <util/logger.h>
 
-ti_pkg_t * ti_pkg_new(
-        uint16_t id,
-        uint8_t tp,
-        const unsigned char * data,
-        uint32_t n)
+ti_pkg_t * ti_pkg_new(uint16_t id, uint8_t tp, const void * data, uint32_t n)
 {
     ti_pkg_t * pkg = malloc(sizeof(ti_pkg_t) + n);
 
@@ -64,6 +60,9 @@ ti_pkg_t * ti_pkg_client_err(uint16_t id, ex_t * e)
 
     msgpack_pack_map(&pk, 2);
 
+    /* Order is important here as this is documented  and clients might depend
+     * on getting the error_code first, and error_msg second.
+     */
     mp_pack_str(&pk, "error_code");
     msgpack_pack_int8(&pk, e->nr);
 

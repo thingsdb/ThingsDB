@@ -14,16 +14,19 @@
 #include <ti/raw.t.h>
 #include <ti/spec.t.h>
 #include <ti/stream.t.h>
+#include <ti/task.t.h>
 #include <ti/thing.t.h>
 #include <ti/type.t.h>
 #include <ti/val.t.h>
 #include <ti/vp.t.h>
 #include <ti/vup.t.h>
 #include <ti/watch.t.h>
-#include <ti/wprop.t.h>
 #include <ti/witem.t.h>
+#include <ti/wprop.t.h>
 #include <util/mpack.h>
 #include <util/vec.h>
+
+typedef int (*ti_thing_item_cb) (ti_raw_t *, ti_val_t *, void *);
 
 ti_thing_t * ti_thing_o_create(
         uint64_t id,
@@ -36,8 +39,9 @@ ti_thing_t * ti_thing_t_create(
         ti_collection_t * collection);
 void ti_thing_destroy(ti_thing_t * thing);
 void ti_thing_clear(ti_thing_t * thing);
+void ti_thing_o_items_destroy(ti_thing_t * thing);
 int ti_thing_to_dict(ti_thing_t * thing);
-int ti_thing_to_strict(ti_thing_t * thing, ti_raw_t ** incompatible);
+int ti_thing_i_to_p(ti_thing_t * thing, ti_raw_t ** incompatible);
 int ti_thing_props_from_vup(
         ti_thing_t * thing,
         ti_vup_t * vup,
@@ -74,23 +78,19 @@ int ti_thing_get_by_raw_e(
         ti_raw_t * r,
         ex_t * e);
 int ti_thing_gen_id(ti_thing_t * thing);
-ti_watch_t * ti_thing_watch(ti_thing_t * thing, ti_stream_t * stream);
-int ti_thing_watch_fwd(
-        ti_thing_t * thing,
-        ti_stream_t * stream,
-        uint16_t pkg_id);
-int ti_thing_unwatch_fwd(
-        ti_thing_t * thing,
-        ti_stream_t * stream,
-        uint16_t pkg_id);
-int ti_thing_watch_init(ti_thing_t * thing, ti_stream_t * stream);
-int ti_thing_unwatch(ti_thing_t * thing, ti_stream_t * stream);
-int ti_thing__to_pk(ti_thing_t * thing, ti_vp_t * vp, int options);
-int ti_thing_t_to_pk(ti_thing_t * thing, ti_vp_t * vp, int options);
+int ti_thing__to_client_pk(ti_thing_t * thing, ti_vp_t * vp, int deep);
+int ti_thing_o_to_pk(ti_thing_t * thing, msgpack_packer * pk);
+int ti_thing_t_to_pk(ti_thing_t * thing, msgpack_packer * pk);
 ti_val_t * ti_thing_val_by_strn(ti_thing_t * thing, const char * str, size_t n);
-_Bool ti__thing_has_watchers_(ti_thing_t * thing);
 _Bool ti_thing_equals(ti_thing_t * thing, ti_val_t * other, uint8_t deep);
 int ti_thing_i_set_val_from_strn(
+        ti_witem_t * witem,
+        ti_thing_t * thing,
+        const char * str,
+        size_t n,
+        ti_val_t ** val,
+        ex_t * e);
+int ti_thing_o_set_val_from_strn(
         ti_witem_t * witem,
         ti_thing_t * thing,
         const char * str,
@@ -117,6 +117,13 @@ void ti_thing_clean_gc(void);
 void ti_thing_resize_gc(void);
 int ti_thing_copy(ti_thing_t ** thing, uint8_t deep);
 int ti_thing_dup(ti_thing_t ** thing, uint8_t deep);
+void ti_thing_cancel(ti_thing_t * thing);
+int ti_thing_assign(
+        ti_thing_t * thing,
+        ti_thing_t * tsrc,
+        ti_task_t * task,
+        ex_t * e);
+int ti_thing_walk(ti_thing_t * thing, ti_thing_item_cb cb, void * data);
 
 #if TI_IS64BIT
 #define THING__KEY_SHIFT 3
@@ -129,6 +136,11 @@ static inline _Bool ti_thing_is_object(ti_thing_t * thing)
     return thing->type_id == TI_SPEC_OBJECT;
 }
 
+static inline _Bool ti_thing_o_is_restricted(ti_thing_t * thing)
+{
+    return thing->via.spec != TI_SPEC_ANY;
+}
+
 static inline _Bool ti_thing_is_dict(ti_thing_t * thing)
 {
     return thing->flags & TI_THING_FLAG_DICT;
@@ -139,12 +151,7 @@ static inline _Bool ti_thing_is_instance(ti_thing_t * thing)
     return thing->type_id != TI_SPEC_OBJECT;
 }
 
-static inline _Bool ti_thing_has_watchers(ti_thing_t * thing)
-{
-    return thing->watchers && ti__thing_has_watchers_(thing);
-}
-
-static inline int ti_thing_id_to_pk(ti_thing_t * thing, msgpack_packer * pk)
+static inline int ti_thing_id_to_client_pk(ti_thing_t * thing, msgpack_packer * pk)
 {
     return -(msgpack_pack_map(pk, !!thing->id) ||
         (thing->id && (
@@ -192,7 +199,7 @@ static inline ti_prop_t * ti_thing_o_prop_weak_get(
 #define thing_t_each(t__, name__, val__)                        \
     void ** v__ = t__->items.vec->data,                         \
     ** e__ = v__ + t__->items.vec->n,                           \
-    ** n__ = ti_thing_type(t__)->fields->data;                  \
+    ** n__ = (t__)->via.type->fields->data;                     \
     v__ < e__ &&                                                \
     (name__ = ((ti_field_t *) *n__)->name) &&                   \
     (val__ = *v__);                                             \
@@ -201,7 +208,7 @@ static inline ti_prop_t * ti_thing_o_prop_weak_get(
 #define thing_t_each_addr(t__, name__, val__)                   \
     void ** v__ = t__->items.vec->data,                         \
     ** e__ = v__ + t__->items.vec->n,                           \
-    ** n__ = ti_thing_type(t__)->fields->data;                  \
+    ** n__ = (t__)->via.type->fields->data;                     \
     v__ < e__ &&                                                \
     (name__ = ((ti_field_t *) *n__)->name) &&                   \
     (val__ = (ti_val_t **) v__);                                \

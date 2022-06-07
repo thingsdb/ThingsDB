@@ -521,6 +521,31 @@ static void condition__del_set_cb(
     ti_val_gc_drop(imap_pop(vset->imap, ti_thing_key(relation)));
 }
 
+/*
+ * When using a set<->set relation on the same property, the set and related
+ * set might be the same set when a self reference is created. The set's might
+ * also be different. For example:
+ *
+ *   set_type('A', {
+ *     foo: '{A}'
+ *   });
+ *   mod_type('A', 'rel', 'foo', 'foo');  // a set <-> set relation
+ *   a = A{};
+ *   a.foo.add(a);  // a self-reference
+ *
+ */
+static void condition__del_same_set_cb(
+        ti_field_t * field,
+        ti_thing_t * thing,
+        ti_thing_t * relation)
+{
+    if (thing != relation)
+    {
+        ti_vset_t * vset = VEC_get(thing->items.vec, field->idx);
+        ti_val_gc_drop(imap_pop(vset->imap, ti_thing_key(relation)));
+    }
+}
+
 static void condition__add_set_cb(
         ti_field_t * field,
         ti_thing_t * thing,
@@ -553,26 +578,34 @@ int ti_condition_field_rel_init(
         goto mem_error;
 
     a->field = ofield;
+    b->field = field;
+
+    field->condition.rel = a;
+    ofield->condition.rel = b;
+
     a->del_cb = field->spec == TI_SPEC_SET
-            ? condition__del_set_cb
+            ? field == ofield
+            ? condition__del_same_set_cb
+            : condition__del_set_cb
             : condition__del_type_cb;
     a->add_cb = field->spec == TI_SPEC_SET
             ? condition__add_set_cb
             : condition__add_type_cb;
-    field->condition.rel = a;
 
-    b->field = field;
     b->del_cb = ofield->spec == TI_SPEC_SET
-            ? condition__del_set_cb
+            ? field == ofield
+            ? condition__del_same_set_cb
+            : condition__del_set_cb
             : condition__del_type_cb;
     b->add_cb = ofield->spec == TI_SPEC_SET
             ? condition__add_set_cb
             : condition__add_type_cb;
-    ofield->condition.rel = b;
 
     return 0;
 
 mem_error:
+    if (a != b)
+        free(a);
     free(b);
     ex_set_mem(e);
     return e->nr;

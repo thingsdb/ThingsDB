@@ -26,7 +26,7 @@ static int do__f_first(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     query->rval = NULL;
-    (void) ti_do_statement(query, nd->children->node, e);
+    (void) ti_do_statement(query, nd->children, e);
 
 done:
     ti_val_unsafe_drop((ti_val_t *) varr);

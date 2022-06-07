@@ -9,7 +9,6 @@
 #include <ti/access.h>
 #include <ti/auth.h>
 #include <ti/proto.h>
-#include <ti/timers.h>
 #include <ti/token.h>
 #include <ti/users.h>
 #include <ti/val.inline.h>
@@ -61,7 +60,7 @@ ti_user_t * ti_users_new_user(
     if (passstr && !ti_user_pass_check(passstr, e))
         goto done;
 
-    user = ti_user_create(ti_next_thing_id(), name, name_n, NULL, created_at);
+    user = ti_user_create(ti_next_free_id(), name, name_n, NULL, created_at);
 
     if (!user ||
         ti_user_set_pass(user, passstr) ||
@@ -97,7 +96,7 @@ ti_user_t * ti_users_load_user(
         goto done;
     }
 
-    ti_update_next_thing_id(user_id);
+    ti_update_next_free_id(user_id);
 
     user = ti_user_create(user_id, name, name_n, encrypted, created_at);
 
@@ -135,8 +134,8 @@ void ti_users_del_user(ti_user_t * user)
     /* remove thingsdb access */
     ti_access_revoke(ti.access_thingsdb, user, TI_AUTH_MASK_FULL);
 
-    /* remove user from timers */
-    ti_timers_del_user(user);
+    /* remove user from tasks */
+    ti_tasks_del_user(user);
 
     /* remove collection access */
     for (vec_each(ti.collections->vec, ti_collection_t, collection))

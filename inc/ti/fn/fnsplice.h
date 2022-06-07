@@ -3,7 +3,7 @@
 static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     int32_t n, x, l;
-    cleri_children_t * child = nd->children;    /* first in argument list */
+    cleri_node_t * child = nd->children;    /* first in argument list */
     uint32_t current_n, new_n;
     int64_t i, c;
     ti_varr_t * retv;
@@ -20,7 +20,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     varr = (ti_varr_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, child->node, e) ||
+    if (ti_do_statement(query, child, e) ||
         fn_arg_int("splice", DOC_LIST_SPLICE, 1, query->rval, e))
         goto fail1;
 
@@ -29,7 +29,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
     child = child->next->next;
 
-    if (ti_do_statement(query, child->node, e) ||
+    if (ti_do_statement(query, child, e) ||
         fn_arg_int("splice", DOC_LIST_SPLICE, 2, query->rval, e))
         goto fail1;
 
@@ -74,8 +74,8 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         child = child->next->next;
 
-        if (ti_do_statement(query, child->node, e) ||
-            ti_varr_append(varr, (void **) &query->rval, e))
+        if (ti_do_statement(query, child, e) ||
+            ti_val_varr_append(varr, &query->rval, e))
             goto fail2;
 
         query->rval = NULL;
@@ -83,7 +83,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (varr->parent && varr->parent->id && (c || n))
     {
-        ti_task_t * task = ti_task_get_task(query->ev, varr->parent);
+        ti_task_t * task = ti_task_get_task(query->change, varr->parent);
         if (!task || ti_task_add_splice(
                 task,
                 ti_varr_key(varr),
@@ -92,7 +92,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 (uint32_t) c,
                 (uint32_t) n))
             goto alloc_err;  /* we do not need to cleanup task, since the task
-                                is added to `query->ev->tasks` */
+                                is added to `query->change->tasks` */
     }
 
     assert (e->nr == 0);

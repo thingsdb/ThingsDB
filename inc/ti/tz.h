@@ -8,6 +8,8 @@
 #include <ti/val.t.h>
 typedef struct ti_tz_s ti_tz_t;
 
+#define TI_TZ_UTC_INDEX 0
+
 struct ti_tz_s
 {
     char * name;    /* null terminated string */

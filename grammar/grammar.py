@@ -19,7 +19,7 @@ from pyleri import (
 )
 
 # names have a max length of 255 characters
-RE_NAME = r'^[A-Za-z_][0-9A-Za-z_]{0,254}'
+RE_NAME = r'^[A-Za-z_][0-9A-Za-z_]{0,254}(?![0-9A-Za-z_])'
 
 
 class Choice(Choice_):
@@ -50,31 +50,32 @@ class LangDef(Grammar):
     x_preopr = Regex(r'(\s*!|\s*[\-+](?=[^0-9]))*')
     x_ternary = Token('?')
     x_thing = Token('{')
-
-    r_single_quote = Regex(r"(?:'(?:[^']*)')+")
-    r_double_quote = Regex(r'(?:"(?:[^"]*)")+')
+    x_template = Token('`')
 
     template = Sequence(
-        '`',
+        x_template,
         Repeat(Choice(
             Regex(r"([^`{}]|``|{{|}})+"),
             Sequence('{', THIS, '}')
         )),
-        '`'
+        x_template
     )
-
-    thing_by_id = Regex(r'#[0-9]+')
 
     t_false = Keyword('false')
     t_float = Regex(
-        r'[-+]?((inf|nan)([^0-9A-Za-z_]|$)|[0-9]*\.[0-9]+(e[+-][0-9]+)?)')
+        r'[-+]?(inf|nan|[0-9]*\.[0-9]+(e[+-][0-9]+)?)'
+        r'(?![0-9A-Za-z_\.])')
     t_int = Regex(
-        r'[-+]?((0b[01]+)|(0o[0-8]+)|(0x[0-9a-fA-F]+)|([0-9]+))')
+        r'[-+]?((0b[01]+)|(0o[0-8]+)|(0x[0-9a-fA-F]+)|([0-9]+))'
+        r'(?![0-9A-Za-z_\.])')
+
     t_nil = Keyword('nil')
-    t_regex = Regex('/[^/\\\\]+(?:\\\\.[^/\\\\]*)*/[a-z]*')
-    t_string = Choice(r_single_quote, r_double_quote)
+    t_regex = Regex(r'/((?:.(?!(?<![\\])/))*.?)/[a-z]*')
+    t_string = Regex(r"""(((?:'(?:[^']*)')+)|((?:"(?:[^"]*)")+))""")
     t_true = Keyword('true')
 
+    # It would be nice if the leri family had support for advanced white space.
+    # If so, the comments could be set as white space instead.
     comments = Repeat(Choice(
         Regex(r'(?s)//.*?(\r?\n|$)'),  # Single line comment
         Regex(r'(?s)/\*.*?\*/'),  # Block comment
@@ -85,13 +86,13 @@ class LangDef(Grammar):
 
     chain = Ref()
 
-    t_closure = Sequence(x_closure, List(var), '|', THIS)
+    closure = Sequence(x_closure, List(var), '|', THIS)
 
     thing = Sequence(x_thing, List(Sequence(name, ':', THIS)), '}')
     array = Sequence(x_array, List(THIS), ']')
     function = Sequence(x_function, List(THIS), ')')
     instance = Repeat(thing, mi=1, ma=1)  # will be exported as `cleri_dup_t`
-    enum_ = Sequence(x_thing, Choice(name, t_closure), '}')
+    enum_ = Sequence(x_thing, Choice(name, closure), '}')
 
     opr0_mul_div_mod = Tokens('* / %')
     opr1_add_sub = Tokens('+ -')
@@ -139,19 +140,51 @@ class LangDef(Grammar):
         Optional(chain),
     )
 
+    end_statement = \
+        Regex(r'((;|((?s)\/\/.*?(\r?\n|$))|((?s)\/\*.*?\*\/))\s*)*')
+
     block = Sequence(
         x_block,
         comments,
-        List(THIS, delimiter=Sequence(';', comments), mi=1),
+        List(THIS, delimiter=end_statement, mi=1),
         '}')
 
     parenthesis = Sequence(x_parenthesis, THIS, ')')
+
+    k_if = Keyword('if')
+    k_else = Keyword('else')
+    k_return = Keyword('return')
+    k_for = Keyword('for')
+    k_in = Keyword('in')
+    k_continue = Keyword('continue')
+    k_break = Keyword('break')
+
+    if_statement = Sequence(
+        k_if,
+        '(',
+        THIS,
+        ')',
+        THIS,
+        Optional(Sequence(k_else, THIS)))
+
+    return_statement = Sequence(
+        k_return,
+        THIS,
+        Optional(Sequence(',', THIS)))
+
+    for_statement = Sequence(
+        k_for,
+        '(',
+        List(var, mi=1, opt=False),
+        k_in,
+        THIS,
+        ')',
+        THIS)
 
     expression = Sequence(
         x_preopr,
         Choice(
             chain,
-            thing_by_id,
             # start immutable values
             t_false,
             t_nil,
@@ -160,39 +193,62 @@ class LangDef(Grammar):
             t_int,
             t_string,
             t_regex,
-            t_closure,
             # end immutable values
             template,
             var_opt_more,
             thing,
             array,
-            block,
             parenthesis,
         ),
         index,
         Optional(chain),
     )
 
-    statement = Prio(expression, operations)
-    statements = List(statement, delimiter=Sequence(';', comments))
+    statement = Prio(
+        k_continue,
+        k_break,
+        Choice(
+            if_statement,
+            return_statement,
+            for_statement,
+            closure,
+            expression,
+            block,
+        ),
+        operations)
+    statements = List(statement, delimiter=end_statement)
 
     START = Sequence(comments, statements)
 
 
 if __name__ == '__main__':
     langdef = LangDef()
+    res = langdef.parse(r'''x = /./;''')
+    print(res.is_valid)
 
-    # res = langdef.parse(r'''x = /./;''')
-    # print(res.is_valid)
+    res = langdef.parse(r'''/./;''')
+    print(res.is_valid)
 
-    # res = langdef.parse(r'''/./;''')
-    # print(res.is_valid)
+    res = langdef.parse(r'''|x|...)''')
+    print(res.is_valid)
 
-    # res = langdef.parse(r'''|x|...)''')
-    # print(res.is_valid)
+    res = langdef.parse(r'''a = 5;''')
+    print(res.is_valid)
 
-    # res = langdef.parse(r'''a = 5;''')
-    # print(res.is_valid)
+    res = langdef.parse(r"""//ti
+        if (x > 5) {
+            return {x: x}, 5;
+        }
+    """)
+    print(res.is_valid)
+
+    res = langdef.parse(r"""//ti
+        for (x in range(3)) {
+            if (x < 2) continue;
+            return {x: x}, 5;
+        }
+    """)
+    print(res.is_valid)
 
     # exit(0)
 

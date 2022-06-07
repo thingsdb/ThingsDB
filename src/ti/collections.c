@@ -113,8 +113,8 @@ int ti_collections_gc_collect_dropped(void)
         /* stop exiting futures */
         ti_collection_stop_futures(collection);
 
-        /* clear existing timers */
-        ti_timers_clear(&collection->timers);
+        /* clear existing tasks */
+        ti_tasks_clear_dropped(&collection->vtasks);
 
         /* drop enumerators; this is required since we no longer mark the
          * enumerators when they contain things so they need to be dropped
@@ -145,7 +145,6 @@ ti_collection_t * ti_collections_create_collection(
 {
     guid_t guid;
     ti_collection_t * collection = NULL;
-    ti_tz_t * tz = ti_tz_utc();
 
     if (!ti_name_is_valid_strn(name, name_n))
     {
@@ -168,21 +167,34 @@ ti_collection_t * ti_collections_create_collection(
         goto fail0;
     }
 
-    if (root_id >= ti.node->next_thing_id)
-        ++ti.node->next_thing_id;
+    if (!root_id)
+        root_id = ti_next_free_id();
     else
-        root_id = ti_next_thing_id();
+        ti_update_next_free_id(root_id);
 
     guid_init(&guid, root_id);
 
-    collection = ti_collection_create(&guid, name, name_n, tz, created_at);
+    /* By default, the time zone and deep level will be inherited from the
+     * @thingsdb scope.
+     */
+    collection = ti_collection_create(
+            &guid,
+            name,
+            name_n,
+            created_at,
+            ti.t_tz,
+            ti.t_deep);
     if (!collection || vec_push(&collections->vec, collection))
     {
         ex_set_mem(e);
         goto fail0;
     }
 
-    collection->root = ti_things_create_thing_o(root_id, 8, collection);
+    collection->root = ti_things_create_thing_o(
+            root_id,
+            TI_SPEC_ANY,
+            8,
+            collection);
 
     if (!collection->root || ti_access_grant(
             &collection->access,

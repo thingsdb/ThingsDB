@@ -125,6 +125,15 @@ spec:
       dnsConfig:
         searches:
         - thingsdb.default.svc.cluster.local
+      tolerations:  # wait 10 miniutes as synchronizing might take some time
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 600
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 600
       containers:
       - name: thingsdb
         image: thingsdb/node:gcloud-v0.10.0  # Latest version at the time of writing
@@ -164,15 +173,16 @@ spec:
           httpGet:
             path: /healthy
             port: 8080
-          periodSeconds: 10
+          initialDelaySeconds: 60
+          periodSeconds: 20
           timeoutSeconds: 5
         readinessProbe:
           httpGet:
             path: /ready
             port: 8080
-          initialDelaySeconds: 5
+          initialDelaySeconds: 10
           periodSeconds: 10
-          timeoutSeconds: 2
+          timeoutSeconds: 3
       volumes:
         - name: ti-config-volume
           configMap:
@@ -248,6 +258,16 @@ curl --location --request POST 'http://localhost:9210/thingsdb' \
 ```
 
 Repeat the step above for node 2.
+
+```bash
+curl --location --request POST 'http://localhost:9210/thingsdb' \
+--header 'Content-Type: application/json' \
+--user admin:pass \
+--data-raw '{
+    "type": "query",
+    "code": "new_node(\"thingsdb-2\", \"thingsdb-2\", 9220);"
+}'
+```
 
 It might take a minute for the nodes to become ready. To view the status of the nodes the [nodes_info()](https://docs.thingsdb.net/v0/node-api/nodes_info/) function can be used.
 Note that we use `/node` for this request since the nodes_info(..) function must be used from the node scope.

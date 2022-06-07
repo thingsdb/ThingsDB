@@ -4,7 +4,7 @@ static int do__f_user_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
     ti_user_t * user;
-    ti_raw_t * uname;
+    ti_raw_t * ruser;
 
     if (fn_not_thingsdb_scope("user_info", query, e) ||
         fn_nargs_max("user_info", DOC_USER_INFO, 1, nargs, e))
@@ -26,14 +26,14 @@ static int do__f_user_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 query->user, TI_AUTH_GRANT, e))
             return e->nr;
 
-        if (ti_do_statement(query, nd->children->node, e) ||
+        if (ti_do_statement(query, nd->children, e) ||
             fn_arg_str("user_info", DOC_USER_INFO, 1, query->rval, e))
             return e->nr;
 
-        uname = (ti_raw_t *) query->rval;
-        user = ti_users_get_by_namestrn((const char *) uname->data, uname->n);
+        ruser = (ti_raw_t *) query->rval;
+        user = ti_users_get_by_namestrn((const char *) ruser->data, ruser->n);
         if (!user)
-            return ti_raw_err_not_found(uname, "user", e);
+            return ti_raw_err_not_found(ruser, "user", e);
 
         ti_val_unsafe_drop(query->rval);
     }

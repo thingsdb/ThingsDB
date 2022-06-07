@@ -11,7 +11,14 @@ static void async__uv_cb(uv_async_t * task)
     ex_t e = {0};
     ti_future_t * future = task->data;
 
-    future->rval = (ti_val_t *) ti_varr_from_vec(future->args);
+    /*
+     * We never "use" the array directly, only the members in combination with
+     * a `then` or `else` case.
+     * For these `then` and `else` cases we do not want to convert
+     * lists to tuples, therefore we should make this a "special"
+     * array where items are explicitly *not* converted.
+     */
+    future->rval = (ti_val_t *) ti_varr_from_vec_unsafe(future->args);
     if (future->rval)
         future->args = NULL;
     else
@@ -44,6 +51,7 @@ static void async__cb(ti_future_t * future)
 }
 
 static ti_module_t async__module = {
+        .ref = 1,
         .status = TI_MODULE_STAT_RUNNING,
         .cb = (ti_module_cb) async__cb,
 };

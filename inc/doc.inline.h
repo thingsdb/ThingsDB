@@ -9,6 +9,7 @@
 #include <ti/thing.h>
 #include <ti/val.h>
 #include <ti/varr.h>
+#include <ti/varr.inline.h>
 
 /*
  * Some functions are available on different type. In this case we want to
@@ -122,6 +123,8 @@ static inline const char * doc_copy(ti_val_t * val)
     {
     case TI_VAL_THING:          return DOC_THING_COPY;
     case TI_VAL_WRAP:           return DOC_WTYPE_COPY;
+    case TI_VAL_ARR:            return DOC_LIST_COPY;
+    case TI_VAL_SET:            return DOC_SET_COPY;
     default:                    return NULL;
     }
 }
@@ -132,9 +135,23 @@ static inline const char * doc_dup(ti_val_t * val)
     {
     case TI_VAL_THING:          return DOC_THING_DUP;
     case TI_VAL_WRAP:           return DOC_WTYPE_DUP;
+    case TI_VAL_ARR:            return DOC_LIST_DUP;
+    case TI_VAL_SET:            return DOC_SET_DUP;
     default:                    return NULL;
     }
 }
 
+static inline const char * doc_clear(ti_val_t * val)
+{
+    switch ((ti_val_enum) val->tp)
+    {
+    case TI_VAL_THING:          return ti_thing_is_object((ti_thing_t *) val) ?
+                                        DOC_THING_CLEAR : NULL;
+    case TI_VAL_ARR:            return ti_varr_is_list((ti_varr_t *) val) ?
+                                        DOC_LIST_CLEAR : NULL;
+    case TI_VAL_SET:            return DOC_SET_CLEAR;
+    default:                    return NULL;
+    }
+}
 
 #endif  /* DOC_INLINE_H_ */

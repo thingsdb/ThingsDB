@@ -1,0 +1,38 @@
+{
+   <libcurl (libnspr)>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:*alloc
+   ...
+   obj:/usr/lib/x86_64-linux-gnu/libnspr*.so
+   ...
+   fun:main
+}
+{
+   <libcurl (libssl)>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:*alloc
+   ...
+   obj:/usr/lib/x86_64-linux-gnu/libssl*.so
+   ...
+}
+{
+   <libcurl (libnss, libcurl-nss)>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:*alloc
+   ...
+   obj:/usr/lib/x86_64-linux-gnu/libcurl-nss.so*
+   ...
+}
+{
+   <libcurl (libnss3)>
+   Memcheck:Cond
+   ...
+   fun:PK11_ImportPublicKey
+   ...
+   obj:/usr/lib/x86_64-linux-gnu/libnss3.so*
+   ...
+}
+

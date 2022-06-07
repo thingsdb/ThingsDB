@@ -1,5 +1,7 @@
 /*
  * ti/web.c
+ *
+ * Exposes a status, healthy and ready handler.
  */
 #include <ti/web.h>
 #include <ti.h>
@@ -163,7 +165,7 @@ static uv_buf_t * web__get_ready_response(void)
 
     /*
      * Exclude SYNCHRONIZATION although clients could connect
-     * during this status, this is because the `ready` handler
+     * during this status, this is because the `readiness` handler
      * can be used to indicate a shutdown of another node during
      * an upgrade cycle.
      */

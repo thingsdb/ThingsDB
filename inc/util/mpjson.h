@@ -13,6 +13,7 @@
 #include <yajl/yajl_parse.h>
 #include <inttypes.h>
 #include <util/mpack.h>
+#include <ex.h>
 
 enum
 {
@@ -100,11 +101,12 @@ static yajl_gen_status mp__to_json(yajl_gen g, mp_unp_t * up)
     return yajl_gen_in_error_state;
 }
 
-yajl_gen_status mpjson_mp_to_json(
+static yajl_gen_status __attribute__((unused))mpjson_mp_to_json(
         const void * src,
         size_t src_n,
         unsigned char ** dst,
         size_t * dst_n,
+        size_t offset,
         int flags)
 {
     mp_unp_t up;
@@ -123,16 +125,50 @@ yajl_gen_status mpjson_mp_to_json(
     if ((stat = mp__to_json(g, &up)) == yajl_gen_status_ok)
     {
         const unsigned char * tmp;
-        yajl_gen_get_buf(g, &tmp, dst_n);
-        *dst = malloc(*dst_n);
-        if (*dst)
-            memcpy(*dst, tmp, *dst_n);
-        else
-            stat = yajl_gen_in_error_state;
+        if ((stat = yajl_gen_get_buf(g, &tmp, dst_n)) == yajl_gen_status_ok)
+        {
+            *dst_n += offset;
+            *dst = malloc(*dst_n);
+            if (*dst)
+                memcpy(*dst + offset, tmp, *dst_n - offset);
+            else
+                stat = yajl_gen_in_error_state;
+        }
     }
 
     yajl_gen_free(g);
     return stat;
+}
+
+static void __attribute__((unused))mpjson__set_err(ex_t * e, yajl_gen_status stat)
+{
+    switch (stat)
+    {
+    case yajl_gen_status_ok:
+        return;
+    case yajl_gen_keys_must_be_strings:
+        ex_set(e, EX_TYPE_ERROR, "JSON keys must be strings");
+        return;
+    case yajl_max_depth_exceeded:
+        ex_set(e, EX_OPERATION, "JSON max depth exceeded");
+        return;
+    case yajl_gen_in_error_state:
+        ex_set(e, EX_INTERNAL, "JSON general error");
+        return;
+    case yajl_gen_generation_complete:
+        ex_set(e, EX_INTERNAL, "JSON completed");
+        return;
+    case yajl_gen_invalid_number:
+        ex_set(e, EX_TYPE_ERROR, "JSON invalid number");
+        return;
+    case yajl_gen_no_buf:
+        ex_set(e, EX_INTERNAL, "JSON no buffer has been set");
+        return;
+    case yajl_gen_invalid_string:
+        ex_set(e, EX_TYPE_ERROR, "type `"TI_VAL_BYTES_S"` is not JSON serializable");
+        return;
+    }
+    ex_set(e, EX_INTERNAL, "JSON unexpected error");
 }
 
 static int reformat_null(void * ctx)
@@ -170,19 +206,13 @@ static int reformat_string(void * ctx, const unsigned char * s, size_t n)
     return 0 == mp_pack_strn(&c->pk, s, n);
 }
 
-static int reformat_map_key(void * ctx, const unsigned char * s, size_t n)
-{
-    mpjson_convert_t * c = (mpjson_convert_t *) ctx;
-    return 0 == mp_pack_strn(&c->pk, s, n);
-}
-
 static int reformat_start_map(void * ctx)
 {
     mpjson_convert_t * c = (mpjson_convert_t *) ctx;
     msgpack_sbuffer * buffer = c->pk.data;
 
     ++c->count[c->deep];
-    if (++c->deep > YAJL_MAX_DEPTH)
+    if (++c->deep >= YAJL_MAX_DEPTH)
         return 0;  /* error */
 
     c->count[c->deep] = 0;
@@ -191,6 +221,11 @@ static int reformat_start_map(void * ctx)
     return 0 == msgpack_pack_map(&c->pk, 0x10000UL);
 }
 
+static int reformat_map_key(void * ctx, const unsigned char * s, size_t n)
+{
+    mpjson_convert_t * c = (mpjson_convert_t *) ctx;
+    return 0 == mp_pack_strn(&c->pk, s, n);
+}
 
 static int reformat_end_map(void * ctx)
 {
@@ -209,7 +244,7 @@ static int reformat_start_array(void * ctx)
     msgpack_sbuffer * buffer = c->pk.data;
 
     ++c->count[c->deep];
-    if (++c->deep > YAJL_MAX_DEPTH)
+    if (++c->deep >= YAJL_MAX_DEPTH)
         return 0;  /* error */
 
     c->count[c->deep] = 0;
@@ -229,7 +264,7 @@ static int reformat_end_array(void * ctx)
     return 1;  /* success */
 }
 
-static yajl_callbacks callbacks = {
+static yajl_callbacks mpjson__callbacks = {
     reformat_null,
     reformat_boolean,
     reformat_integer,
@@ -253,7 +288,7 @@ static void take_buffer(
     memset(buffer, 0, sizeof(msgpack_sbuffer));
 }
 
-yajl_status mpjson_json_to_mp(
+static yajl_status __attribute__((unused))mpjson_json_to_mp(
         const void * src,
         size_t src_n,
         char ** dst,
@@ -262,26 +297,24 @@ yajl_status mpjson_json_to_mp(
     yajl_handle hand;
     msgpack_sbuffer buffer;
     yajl_status stat = yajl_status_error;
-    mpjson_convert_t * c = calloc(1, sizeof(mpjson_convert_t));
+    mpjson_convert_t ctx = {0};
 
-    if (!c || mp_sbuffer_alloc_init(&buffer, src_n, 0))
-        goto fail0;
+    if (mp_sbuffer_alloc_init(&buffer, src_n, 0))
+        return stat;
 
-    msgpack_packer_init(&c->pk, &buffer, msgpack_sbuffer_write);
+    msgpack_packer_init(&ctx.pk, &buffer, msgpack_sbuffer_write);
 
-    hand = yajl_alloc(&callbacks, NULL, c);
+    hand = yajl_alloc(&mpjson__callbacks, NULL, &ctx);
     if (!hand)
-        goto fail1;
+        goto fail;
 
     stat = yajl_parse(hand, src, src_n);
     if (stat == yajl_status_ok)
         take_buffer(&buffer, dst, dst_n);
 
     yajl_free(hand);
-fail1:
+fail:
     msgpack_sbuffer_destroy(&buffer);
-fail0:
-    free(c);
     return stat;
 }
 

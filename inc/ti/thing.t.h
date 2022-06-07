@@ -31,10 +31,14 @@
 #define TI_THING_T_H_
 
 typedef struct ti_thing_s  ti_thing_t;
+typedef union ti_thing_via_items ti_thing_via_items_t;
 typedef union ti_thing_via ti_thing_via_t;
 
 #include <stdint.h>
 #include <ti/collection.t.h>
+#include <ti/field.t.h>
+#include <ti/type.t.h>
+#include <ti/spec.t.h>
 #include <util/vec.h>
 
 extern vec_t * ti_thing_gc_vec;
@@ -54,7 +58,7 @@ enum
                                            stored in the smap_t. */
 };
 
-union ti_thing_via
+union ti_thing_via_items
 {
     vec_t * vec;                /* contains:
                                  *  - ti_prop_t :
@@ -74,6 +78,13 @@ union ti_thing_via
                                  */
 };
 
+union ti_thing_via
+{
+    ti_type_t * type;
+    ti_spec_enum_t spec;
+};
+
+
 struct ti_thing_s
 {
     uint32_t ref;
@@ -86,12 +97,11 @@ struct ti_thing_s
                                      * only `null` when in thingsdb or node
                                      * scope, but never in a collection scope
                                      */
-    ti_thing_via_t items;           /* contains ti_prop_t, ti_item_t or
+    ti_thing_via_items_t items;     /* contains ti_prop_t, ti_item_t or
                                      * ti_val_t, depending if a thing is an
                                      * object strict,  with free keys, or
                                      * instance of a type */
-    vec_t * watchers;               /* vec contains ti_watch_t,
-                                       NULL if no watchers,  */
+    ti_thing_via_t via;             /* type, maybe future restriction? */
 };
 
 

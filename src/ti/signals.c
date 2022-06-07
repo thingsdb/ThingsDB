@@ -5,8 +5,8 @@
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/away.h>
+#include <ti/changes.h>
 #include <ti/connect.h>
-#include <ti/events.h>
 #include <ti/signals.h>
 #include <util/logger.h>
 #include <uv.h>
@@ -26,7 +26,7 @@ static uv_signal_t signals[signals__nsigs];
 
 int ti_signals_init(void)
 {
-    /* bind signals to the event loop */
+    /* bind signals to the libuv event loop */
     for (int i = 0; i < signals__nsigs; i++)
     {
         if (uv_signal_init(ti.loop, &signals[i]) ||
@@ -48,7 +48,7 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
         return;
     }
 
-    if (ti.flags & TI_FLAG_SIGNAL)
+    if (ti_flag_test(TI_FLAG_SIGNAL))
     {
         log_warning(
             "signal (%s) received but a shutdown is already initiated",
@@ -58,7 +58,7 @@ static void signals__handler(uv_signal_t * UNUSED(sig), int signum)
         return;
     }
 
-    ti.flags |= TI_FLAG_SIGNAL;
+    ti_flag_set(TI_FLAG_SIGNAL);
 
     if (signum == SIGINT || signum == SIGTERM || signum == SIGHUP)
         log_warning("received stop signal (%s)", strsignal(signum));

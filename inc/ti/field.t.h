@@ -4,6 +4,7 @@
 #ifndef TI_FIELD_T_H_
 #define TI_FIELD_T_H_
 
+typedef struct ti_field_map_s ti_field_map_t;
 typedef struct ti_field_s ti_field_t;
 
 #include <stdint.h>
@@ -14,6 +15,14 @@ typedef struct ti_field_s ti_field_t;
 #include <ti/val.t.h>
 
 typedef ti_val_t *  (*ti_field_dval_cb) (ti_field_t *);
+
+struct ti_field_map_s
+{
+    char name[9];   /* MAX_WORD_LENGTH+1 */
+    uint16_t n;
+    uint16_t spec;
+    ti_field_dval_cb dval_cb;
+};
 
 struct ti_field_s
 {

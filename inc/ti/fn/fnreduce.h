@@ -75,7 +75,7 @@ static int do__f_reduce(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     lockval = query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         fn_arg_closure("reduce", doc, 1, query->rval, e))
         goto fail0;
 
@@ -94,7 +94,7 @@ static int do__f_reduce(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (nargs == 2)
         {
-            if (ti_do_statement(query, nd->children->next->next->node, e))
+            if (ti_do_statement(query, nd->children->next->next, e))
                 goto fail2;
         }
         else if (vec->n == 0)
@@ -157,7 +157,7 @@ static int do__f_reduce(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (nargs == 2)
         {
-            if (ti_do_statement(query, nd->children->next->next->node, e))
+            if (ti_do_statement(query, nd->children->next->next, e))
                 goto fail2;
         }
         else if (imap->n == 0)

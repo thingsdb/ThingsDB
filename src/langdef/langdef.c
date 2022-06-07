@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2021-02-01 14:01:23
+ * Created at: 2022-01-05 11:56:22
  */
 
 #include <langdef/langdef.h>
@@ -30,12 +30,11 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * x_preopr = cleri_regex(CLERI_GID_X_PREOPR, "^(\\s*!|\\s*[\\-+](?=[^0-9]))*");
     cleri_t * x_ternary = cleri_token(CLERI_GID_X_TERNARY, "?");
     cleri_t * x_thing = cleri_token(CLERI_GID_X_THING, "{");
-    cleri_t * r_single_quote = cleri_regex(CLERI_GID_R_SINGLE_QUOTE, "^(?:\'(?:[^\']*)\')+");
-    cleri_t * r_double_quote = cleri_regex(CLERI_GID_R_DOUBLE_QUOTE, "^(?:\"(?:[^\"]*)\")+");
+    cleri_t * x_template = cleri_token(CLERI_GID_X_TEMPLATE, "`");
     cleri_t * template = cleri_sequence(
         CLERI_GID_TEMPLATE,
         3,
-        cleri_token(CLERI_NONE, "`"),
+        x_template,
         cleri_repeat(CLERI_NONE, cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
@@ -49,21 +48,14 @@ cleri_grammar_t * compile_langdef(void)
                 cleri_token(CLERI_NONE, "}")
             )
         ), 0, 0),
-        cleri_token(CLERI_NONE, "`")
+        x_template
     );
-    cleri_t * thing_by_id = cleri_regex(CLERI_GID_THING_BY_ID, "^#[0-9]+");
     cleri_t * t_false = cleri_keyword(CLERI_GID_T_FALSE, "false", CLERI_CASE_SENSITIVE);
-    cleri_t * t_float = cleri_regex(CLERI_GID_T_FLOAT, "^[-+]?((inf|nan)([^0-9A-Za-z_]|$)|[0-9]*\\.[0-9]+(e[+-][0-9]+)?)");
-    cleri_t * t_int = cleri_regex(CLERI_GID_T_INT, "^[-+]?((0b[01]+)|(0o[0-8]+)|(0x[0-9a-fA-F]+)|([0-9]+))");
+    cleri_t * t_float = cleri_regex(CLERI_GID_T_FLOAT, "^[-+]?(inf|nan|[0-9]*\\.[0-9]+(e[+-][0-9]+)?)(?![0-9A-Za-z_\\.])");
+    cleri_t * t_int = cleri_regex(CLERI_GID_T_INT, "^[-+]?((0b[01]+)|(0o[0-8]+)|(0x[0-9a-fA-F]+)|([0-9]+))(?![0-9A-Za-z_\\.])");
     cleri_t * t_nil = cleri_keyword(CLERI_GID_T_NIL, "nil", CLERI_CASE_SENSITIVE);
-    cleri_t * t_regex = cleri_regex(CLERI_GID_T_REGEX, "^/[^/\\\\]+(?:\\\\.[^/\\\\]*)*/[a-z]*");
-    cleri_t * t_string = cleri_choice(
-        CLERI_GID_T_STRING,
-        CLERI_FIRST_MATCH,
-        2,
-        r_single_quote,
-        r_double_quote
-    );
+    cleri_t * t_regex = cleri_regex(CLERI_GID_T_REGEX, "^/((?:.(?!(?<![\\\\])/))*.?)/[a-z]*");
+    cleri_t * t_string = cleri_regex(CLERI_GID_T_STRING, "^(((?:\'(?:[^\']*)\')+)|((?:\"(?:[^\"]*)\")+))");
     cleri_t * t_true = cleri_keyword(CLERI_GID_T_TRUE, "true", CLERI_CASE_SENSITIVE);
     cleri_t * comments = cleri_repeat(CLERI_GID_COMMENTS, cleri_choice(
         CLERI_NONE,
@@ -72,11 +64,11 @@ cleri_grammar_t * compile_langdef(void)
         cleri_regex(CLERI_NONE, "^(?s)//.*?(\\r?\\n|$)"),
         cleri_regex(CLERI_NONE, "^(?s)/\\*.*?\\*/")
     ), 0, 0);
-    cleri_t * name = cleri_regex(CLERI_GID_NAME, "^[A-Za-z_][0-9A-Za-z_]{0,254}");
-    cleri_t * var = cleri_regex(CLERI_GID_VAR, "^[A-Za-z_][0-9A-Za-z_]{0,254}");
+    cleri_t * name = cleri_regex(CLERI_GID_NAME, "^[A-Za-z_][0-9A-Za-z_]{0,254}(?![0-9A-Za-z_])");
+    cleri_t * var = cleri_regex(CLERI_GID_VAR, "^[A-Za-z_][0-9A-Za-z_]{0,254}(?![0-9A-Za-z_])");
     cleri_t * chain = cleri_ref();
-    cleri_t * t_closure = cleri_sequence(
-        CLERI_GID_T_CLOSURE,
+    cleri_t * closure = cleri_sequence(
+        CLERI_GID_CLOSURE,
         4,
         x_closure,
         cleri_list(CLERI_NONE, var, cleri_token(CLERI_NONE, ","), 0, 0, 1),
@@ -120,7 +112,7 @@ cleri_grammar_t * compile_langdef(void)
             CLERI_FIRST_MATCH,
             2,
             name,
-            t_closure
+            closure
         ),
         cleri_token(CLERI_NONE, "}")
     );
@@ -205,17 +197,13 @@ cleri_grammar_t * compile_langdef(void)
             CLERI_THIS
         ))
     ), 0, 0);
+    cleri_t * end_statement = cleri_regex(CLERI_GID_END_STATEMENT, "^((;|((?s)\\/\\/.*?(\\r?\\n|$))|((?s)\\/\\*.*?\\*\\/))\\s*)*");
     cleri_t * block = cleri_sequence(
         CLERI_GID_BLOCK,
         4,
         x_block,
         comments,
-        cleri_list(CLERI_NONE, CLERI_THIS, cleri_sequence(
-            CLERI_NONE,
-            2,
-            cleri_token(CLERI_NONE, ";"),
-            comments
-        ), 1, 0, 1),
+        cleri_list(CLERI_NONE, CLERI_THIS, end_statement, 1, 0, 1),
         cleri_token(CLERI_NONE, "}")
     );
     cleri_t * parenthesis = cleri_sequence(
@@ -225,6 +213,51 @@ cleri_grammar_t * compile_langdef(void)
         CLERI_THIS,
         cleri_token(CLERI_NONE, ")")
     );
+    cleri_t * k_if = cleri_keyword(CLERI_GID_K_IF, "if", CLERI_CASE_SENSITIVE);
+    cleri_t * k_else = cleri_keyword(CLERI_GID_K_ELSE, "else", CLERI_CASE_SENSITIVE);
+    cleri_t * k_return = cleri_keyword(CLERI_GID_K_RETURN, "return", CLERI_CASE_SENSITIVE);
+    cleri_t * k_for = cleri_keyword(CLERI_GID_K_FOR, "for", CLERI_CASE_SENSITIVE);
+    cleri_t * k_in = cleri_keyword(CLERI_GID_K_IN, "in", CLERI_CASE_SENSITIVE);
+    cleri_t * k_continue = cleri_keyword(CLERI_GID_K_CONTINUE, "continue", CLERI_CASE_SENSITIVE);
+    cleri_t * k_break = cleri_keyword(CLERI_GID_K_BREAK, "break", CLERI_CASE_SENSITIVE);
+    cleri_t * if_statement = cleri_sequence(
+        CLERI_GID_IF_STATEMENT,
+        6,
+        k_if,
+        cleri_token(CLERI_NONE, "("),
+        CLERI_THIS,
+        cleri_token(CLERI_NONE, ")"),
+        CLERI_THIS,
+        cleri_optional(CLERI_NONE, cleri_sequence(
+            CLERI_NONE,
+            2,
+            k_else,
+            CLERI_THIS
+        ))
+    );
+    cleri_t * return_statement = cleri_sequence(
+        CLERI_GID_RETURN_STATEMENT,
+        3,
+        k_return,
+        CLERI_THIS,
+        cleri_optional(CLERI_NONE, cleri_sequence(
+            CLERI_NONE,
+            2,
+            cleri_token(CLERI_NONE, ","),
+            CLERI_THIS
+        ))
+    );
+    cleri_t * for_statement = cleri_sequence(
+        CLERI_GID_FOR_STATEMENT,
+        7,
+        k_for,
+        cleri_token(CLERI_NONE, "("),
+        cleri_list(CLERI_NONE, var, cleri_token(CLERI_NONE, ","), 1, 0, 0),
+        k_in,
+        CLERI_THIS,
+        cleri_token(CLERI_NONE, ")"),
+        CLERI_THIS
+    );
     cleri_t * expression = cleri_sequence(
         CLERI_GID_EXPRESSION,
         4,
@@ -232,9 +265,8 @@ cleri_grammar_t * compile_langdef(void)
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            16,
+            13,
             chain,
-            thing_by_id,
             t_false,
             t_nil,
             t_true,
@@ -242,12 +274,10 @@ cleri_grammar_t * compile_langdef(void)
             t_int,
             t_string,
             t_regex,
-            t_closure,
             template,
             var_opt_more,
             thing,
             array,
-            block,
             parenthesis
         ),
         index,
@@ -255,16 +285,23 @@ cleri_grammar_t * compile_langdef(void)
     );
     cleri_t * statement = cleri_prio(
         CLERI_GID_STATEMENT,
-        2,
-        expression,
+        4,
+        k_continue,
+        k_break,
+        cleri_choice(
+            CLERI_NONE,
+            CLERI_FIRST_MATCH,
+            6,
+            if_statement,
+            return_statement,
+            for_statement,
+            closure,
+            expression,
+            block
+        ),
         operations
     );
-    cleri_t * statements = cleri_list(CLERI_GID_STATEMENTS, statement, cleri_sequence(
-        CLERI_NONE,
-        2,
-        cleri_token(CLERI_NONE, ";"),
-        comments
-    ), 0, 0, 1);
+    cleri_t * statements = cleri_list(CLERI_GID_STATEMENTS, statement, end_statement, 0, 0, 1);
     cleri_t * START = cleri_sequence(
         CLERI_GID_START,
         2,
@@ -280,7 +317,7 @@ cleri_grammar_t * compile_langdef(void)
         cleri_optional(CLERI_NONE, chain)
     ));
 
-    cleri_grammar_t * grammar = cleri_grammar(START, "^[A-Za-z_][0-9A-Za-z_]{0,254}");
+    cleri_grammar_t * grammar = cleri_grammar(START, "^[A-Za-z_][0-9A-Za-z_]{0,254}(?![0-9A-Za-z_])");
 
     return grammar;
 }

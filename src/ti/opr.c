@@ -27,6 +27,10 @@
 
 int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t ** b, ex_t * e)
 {
+    /*
+     * TODO: this code can be pre-compiled and bind the correct function so
+     *       a call to this function is no longer required;
+     */
     switch (*nd->str)
     {
     case '!':
@@ -179,9 +183,9 @@ int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
     case OPR_BYTES_STR:
     case OPR_BYTES_BYTES:
         return ti_raw_cmp((ti_raw_t *) a, (ti_raw_t *) b);
-    case OPR_ENUM_NIL ... OPR_ENUM_ERROR:
+    case OPR_MEMBER_NIL ... OPR_MEMBER_ERROR:
         return ti_opr_compare(VMEMBER(a), b, e);
-    case OPR_ENUM_ENUM:
+    case OPR_MEMBER_MEMBER:
         return ti_opr_compare(VMEMBER(a), VMEMBER(b), e);
     }
     return 0;

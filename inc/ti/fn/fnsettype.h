@@ -8,13 +8,13 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_task_t * task;
     ssize_t n;
     uint64_t ts_now = util_now_usec();
-    cleri_children_t * child = nd->children;
+    cleri_node_t * child = nd->children;
     _Bool is_new_type = false;
     _Bool wpo = false;
 
     if (fn_not_collection_scope("set_type", query, e) ||
         fn_nargs_range("set_type", DOC_SET_TYPE, 2, 3, nargs, e) ||
-        ti_do_statement(query, child->node, e) ||
+        ti_do_statement(query, child, e) ||
         fn_arg_str("set_type", DOC_SET_TYPE, 1, query->rval, e))
         return e->nr;
 
@@ -83,7 +83,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+    if (ti_do_statement(query, (child = child->next->next), e) ||
         fn_arg_thing("set_type", DOC_SET_TYPE, 2, query->rval, e))
         goto fail1;
 
@@ -92,7 +92,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 3)
     {
-        if (ti_do_statement(query, (child = child->next->next)->node, e) ||
+        if (ti_do_statement(query, (child = child->next->next), e) ||
             fn_arg_bool("set_type", DOC_SET_TYPE, 3, query->rval, e))
             goto fail2;
 
@@ -133,7 +133,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_type_init_from_thing(type, thing, e))
         goto fail2;
 
-    task = ti_task_get_task(query->ev, query->collection->root);
+    task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
         ex_set_mem(e);
@@ -152,7 +152,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!is_new_type)
         /* only required when this is an existing type, note that nodes which
-         * run this by event make this call anyway */
+         * run this from a CPKG make this call anyway */
         ti_type_map_cleanup(type);
 
     is_new_type = false;  /* set always to false to prevent cleanup */

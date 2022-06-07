@@ -50,6 +50,12 @@ class TestOperators(TestBase):
         self.assertTrue(await client.query('2 && 0 == 2 + 2 * 2 + 2 & 1'))
         self.assertTrue(await client.query('1 && 2 & 2 * 2 + 2 & 1 == 0 && 2'))
 
+        # Ternary operations require handing from right-to-left, whereas the
+        # other operations must be handled from left-to-right. # bug #271
+        self.assertEqual(await client.query('81 / 9 / 3'), 3)
+        self.assertEqual(await client.query('20 - 8 - 5'), 7)
+        self.assertEqual(await client.query('20 - 5 - 3 - 1'), 11)
+
     async def test_ternary(self, client):
         """Make sure we do this better than PHP ;-)"""
         self.assertEqual(await client.query(r'''
@@ -70,10 +76,10 @@ class TestOperators(TestBase):
 
         self.assertEqual(await client.query(r'''
            initial = 'J';
-           name = (initial == 'M') ? 'Mike'
-            : (initial == 'J') ? 'John'
-            : (initial == 'C') ? 'Catherina'
-            : (initial == 'T') ? 'Thomas'
+           name = initial == 'M' ? 'Mike'
+            : initial == 'J' ? 'John'
+            : initial == 'C' ? 'Catherina'
+            : initial == 'T' ? 'Thomas'
             : 'unknown';
         '''), 'John')
 
@@ -260,10 +266,10 @@ class TestOperators(TestBase):
             +false;
         '''), 0)
         self.assertEqual(await client.query(r'''
-            (|x| - ! x).def();
+            str(|x| - ! x);
         '''), "|x| -!x")
         self.assertEqual(await client.query(r'''
-            (|| - !! +5).def();
+            str(|| - !! +5);
         '''), "|| -!!+5")
 
 

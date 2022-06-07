@@ -13,11 +13,35 @@
 #include <util/fx.h>
 #include <util/mpack.h>
 
+/*
+ * No suffix was added for the first version of this file.
+ * Thus "things" and "data" are considered to be the first versions (v0).
+ */
+const char * things_v0 = "things";
+const char * things_v1 = "things_v1";
+
+const char * data_v0 = "data";
+
 static int store__things_cb(ti_thing_t * thing, msgpack_packer * pk)
 {
+    /*
+     * Store both the `spec` and `type_id` in a single value. This way we can
+     * use two values for both typed and non-typed things and still store info
+     * about an optional spec.
+     */
+    uint32_t value;
+    if (thing->type_id == TI_SPEC_OBJECT)
+    {
+        value = thing->via.spec;
+        value <<= 16;
+        value += thing->type_id;
+    }
+    else
+        value = thing->type_id;
+
     return (
             msgpack_pack_uint64(pk, thing->id) ||
-            msgpack_pack_uint16(pk, thing->type_id)
+            msgpack_pack_uint32(pk, value)
     );
 }
 
@@ -35,7 +59,7 @@ int ti_store_things_store(imap_t * things, const char * fn)
 
     if (
         msgpack_pack_map(&pk, 1) ||
-        mp_pack_str(&pk, "things") ||
+        mp_pack_str(&pk, things_v1) ||
         msgpack_pack_map(&pk, things->n)
     ) goto fail;
 
@@ -56,54 +80,53 @@ done:
     return 0;
 }
 
-static int store__walk_i(ti_item_t * item, ti_vp_t * vp)
+static int store__walk_i(ti_item_t * item, msgpack_packer * pk)
 {
     uintptr_t p = (uintptr_t) item->key;
 
     return -((ti_raw_is_name(item->key)
-        ? msgpack_pack_uint64(&vp->pk, p)
-        : mp_pack_strn(&vp->pk, item->key->data, item->key->n)) ||
-        ti_val_to_pk(item->val, vp, TI_VAL_PACK_FILE));
+        ? msgpack_pack_uint64(pk, p)
+        : mp_pack_strn(pk, item->key->data, item->key->n)) ||
+        ti_val_to_store_pk(item->val, pk));
 }
 
-static int store__walk_data(ti_thing_t * thing, ti_vp_t * vp)
+static int store__walk_data(ti_thing_t * thing, msgpack_packer * pk)
 {
-    if (msgpack_pack_uint64(&vp->pk, thing->id))
+    if (msgpack_pack_uint64(pk, thing->id))
         return -1;
 
     if (ti_thing_is_object(thing))
     {
-        if (msgpack_pack_map(&vp->pk, ti_thing_n(thing)))
+        if (msgpack_pack_map(pk, ti_thing_n(thing)))
             return -1;
 
         if (ti_thing_is_dict(thing))
             return smap_values(
                     thing->items.smap,
                     (smap_val_cb) store__walk_i,
-                    vp);
+                    pk);
 
         for (vec_each(thing->items.vec, ti_prop_t, prop))
         {
             uintptr_t p = (uintptr_t) prop->name;
-            if (msgpack_pack_uint64(&vp->pk, p) ||
-                ti_val_to_pk(prop->val, vp, TI_VAL_PACK_FILE)
-            ) return -1;
+            if (msgpack_pack_uint64(pk, p) || ti_val_to_store_pk(prop->val, pk))
+                return -1;
         }
         return 0;
     }
     /* type */
-    if (msgpack_pack_array(&vp->pk, ti_thing_n(thing)))
+    if (msgpack_pack_array(pk, ti_thing_n(thing)))
         return -1;
 
     for (vec_each(thing->items.vec, ti_val_t, val))
-        if (ti_val_to_pk(val, vp, TI_VAL_PACK_FILE))
+        if (ti_val_to_store_pk(val, pk))
             return -1;
     return 0;
 }
 
 int ti_store_things_store_data(imap_t * things, const char * fn)
 {
-    ti_vp_t vp;
+    msgpack_packer pk;
     FILE * f = fopen(fn, "w");
     if (!f)
     {
@@ -111,15 +134,15 @@ int ti_store_things_store_data(imap_t * things, const char * fn)
         return -1;
     }
 
-    msgpack_packer_init(&vp.pk, f, msgpack_fbuffer_write);
+    msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
 
     if (
-        msgpack_pack_map(&vp.pk, 1) ||
-        mp_pack_str(&vp.pk, "data") ||
-        msgpack_pack_map(&vp.pk, things->n)
+        msgpack_pack_map(&pk, 1) ||
+        mp_pack_str(&pk, data_v0) ||
+        msgpack_pack_map(&pk, things->n)
     ) goto fail;
 
-    if (imap_walk(things, (imap_cb) store__walk_data, &vp))
+    if (imap_walk(things, (imap_cb) store__walk_data, &pk))
         goto fail;
 
     log_debug("stored things data to file: `%s`", fn);
@@ -140,7 +163,7 @@ int ti_store_things_restore(ti_collection_t * collection, const char * fn)
 {
     int rc = -1;
     size_t i;
-    uint16_t type_id;
+    uint16_t type_id, spec;
     ssize_t n;
     mp_obj_t obj, mp_ver, mp_thing_id, mp_type_id;
     mp_unp_t up;
@@ -148,6 +171,7 @@ int ti_store_things_restore(ti_collection_t * collection, const char * fn)
     uchar * data = fx_read(fn, &n);
     if (!data)
         return -1;
+    int is_v0;
 
     mp_unp_init(&up, data, (size_t) n);
 
@@ -156,6 +180,8 @@ int ti_store_things_restore(ti_collection_t * collection, const char * fn)
         mp_next(&up, &mp_ver) != MP_STR ||
         mp_next(&up, &obj) != MP_MAP
     ) goto fail;
+
+    is_v0 = mp_str_eq(&mp_ver, things_v0);
 
     for (i = obj.via.sz; i--;)
     {
@@ -166,8 +192,16 @@ int ti_store_things_restore(ti_collection_t * collection, const char * fn)
         type_id = mp_type_id.via.u64;
         if (type_id == TI_SPEC_OBJECT)
         {
-            if (!ti_things_create_thing_o(mp_thing_id.via.u64, 0, collection))
+            /* TODO (COMPAT) For compatibility with versions before  v1.1.1 */
+            spec = is_v0 ? TI_SPEC_ANY : (mp_type_id.via.u64 >> 16);
+
+            if (!ti_things_create_thing_o(
+                    mp_thing_id.via.u64,
+                    spec,
+                    0,
+                    collection))
                 goto fail;
+
             continue;
         }
 
@@ -279,7 +313,7 @@ int ti_store_things_restore_data(
         }
         else
         {
-            type = ti_thing_type(thing);
+            type = thing->via.type;
 
             if (mp_next(&up, &obj) != MP_ARR || type->fields->n != obj.via.sz)
             {

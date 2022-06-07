@@ -209,7 +209,7 @@ class TestDict(TestBase):
         key = 'a ' * 50
         with self.assertRaisesRegex(
                 OperationError,
-                'cannot change type `list` while the value is being used'):
+                'cannot change type `list` while the value is in use'):
             await client.query(r'''
                 x = {};
                 x.set(key, []);
@@ -222,7 +222,7 @@ class TestDict(TestBase):
                 OperationError,
                 'cannot change or remove property `a a a a a a a a a a a a a '
                 'a a a a a a a a a ...` on `#0` while '
-                'the `list` is being used'):
+                'the `list` is in use'):
             await client.query(r'''
                 x = {};
                 x.set(key, []);

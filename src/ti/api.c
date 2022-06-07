@@ -1,5 +1,7 @@
 /*
  * ti/api.c
+ *
+ * Exposes a HTTP API to the end user.
  */
 #define _GNU_SOURCE
 #include <doc.h>
@@ -391,37 +393,6 @@ static inline int api__err_body(char ** ptr, ex_t * e)
     return asprintf(ptr, "%s (%d)\r\n", e->msg, e->nr);
 }
 
-static void api__set_yajl_gen_status_error(ex_t * e, yajl_gen_status stat)
-{
-    switch (stat)
-    {
-    case yajl_gen_status_ok:
-        return;
-    case yajl_gen_keys_must_be_strings:
-        ex_set(e, EX_TYPE_ERROR, "JSON keys must be strings");
-        return;
-    case yajl_max_depth_exceeded:
-        ex_set(e, EX_OPERATION, "JSON max depth exceeded");
-        return;
-    case yajl_gen_in_error_state:
-        ex_set(e, EX_INTERNAL, "JSON general error");
-        return;
-    case yajl_gen_generation_complete:
-        ex_set(e, EX_INTERNAL, "JSON completed");
-        return;
-    case yajl_gen_invalid_number:
-        ex_set(e, EX_TYPE_ERROR, "JSON invalid number");
-        return;
-    case yajl_gen_no_buf:
-        ex_set(e, EX_INTERNAL, "JSON no buffer has been set");
-        return;
-    case yajl_gen_invalid_string:
-        ex_set(e, EX_TYPE_ERROR, "JSON only accepts valid UTF8 strings");
-        return;
-    }
-    ex_set(e, EX_INTERNAL, "JSON unexpected error");
-}
-
 int ti_api_close_with_json(ti_api_request_t * ar, void * data, size_t size)
 {
     char header[API__HEADER_MAX_SZ];
@@ -475,11 +446,12 @@ int ti_api_close_with_response(ti_api_request_t * ar, void * data, size_t size)
                 size,
                 &tmp,
                 &tmp_sz,
+                0,
                 ar->flags);
         free(data);
         if (stat)
         {
-            api__set_yajl_gen_status_error(&ar->e, stat);
+            mpjson__set_err(&ar->e, stat);
             return ti_api_close_with_err(ar, &ar->e);
         }
         data = tmp;
@@ -571,6 +543,8 @@ int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
 
     case EX_SUCCESS:
     case EX_RETURN:
+    case EX_CONTINUE:
+    case EX_BREAK:
         assert (0);
     }
 
@@ -774,10 +748,11 @@ static void api__fwd_cb(ti_req_t * req, ex_enum status)
                     req->pkg_res->n,
                     &data,
                     &size,
+                    0,
                     ar->flags);
             if (stat)
             {
-                api__set_yajl_gen_status_error(&ar->e, stat);
+                mpjson__set_err(&ar->e, stat);
                 goto fail;
             }
             api__close_resp(ar, data, size, api__write_free_cb);
@@ -888,13 +863,13 @@ static int api__run(ti_api_request_t * ar, api__req_t * req)
     if (ti_access_check_err(access_, query->user, TI_AUTH_RUN, e))
         goto fail1;
 
-    if (ti_query_will_update(query))
+    if (ti_query_wse(query))
     {
-        if (ti_access_check_err(access_, query->user, TI_AUTH_EVENT, e) ||
-            ti_events_create_new_event(query, e))
+        if (ti_access_check_err(access_, query->user, TI_AUTH_CHANGE, e) ||
+            ti_changes_create_new_change(query, e))
             goto fail1;
 
-        /* cleanup will be done by the event */
+        /* cleanup will be done by the change */
         return 0;
     }
 
@@ -1017,15 +992,15 @@ query:
                 e))
         goto failed;
 
-    if (ti_query_will_update(query))
+    if (ti_query_wse(query))
     {
         assert (ar->scope.tp != TI_SCOPE_NODE);
 
-        if (ti_access_check_err(access_, query->user, TI_AUTH_EVENT, e) ||
-            ti_events_create_new_event(query, e))
+        if (ti_access_check_err(access_, query->user, TI_AUTH_CHANGE, e) ||
+            ti_changes_create_new_change(query, e))
             goto failed;
 
-        /* cleanup will be done by the event */
+        /* cleanup will be done by the change */
         return 0;
     }
 

@@ -1,3 +1,189 @@
+# v1.2.6
+
+* Fixed using `log(..)` within a future, issue #282.
+
+# v1.2.5
+
+* Use `/dev/urandom` for a seed to initialize random, issue #280.
+* Added `search(..)` function for debugging purpose, issue #281.
+
+# v1.2.4
+
+* Fixed restriction mismatch after type removal, issue #277.
+* Added `to_thing()` function, issue #278.
+
+# v1.2.3
+
+* Added `closure(..)` function to create closures from string, issue #273.
+* Fixed task replication bug in `set_closure(..)` function, issue #274.
+* Fixed task replication bug in `set_owner(..)` function, issue #275.
+* Added the option to `restore_tasks` explicitly at restore, issue #246.
+
+# v1.2.2
+
+* Fixed storing migration change for *non-collection* scopes, issue #269.
+* Deny revoking your own `QUERY` privileges to prevent lockout, issue #270.
+* Fixed evaluation from *left-to-right*, issue #271.
+
+# v1.2.1
+
+* Switch from *common-* to *all-* time-zones, issue #267.
+
+# v1.2.0
+
+* Fixed allocation bug in reverse buffer, issue #253.
+* Added `if..else` as statement *(marked `if()` as deprecated)*, issue #254.
+* Added `return` as statement *(marked `return()` as deprecated)*, issue #255.
+* Added `for..in` with `break` and `continue` statements, issue #257.
+* Fixed memory leak with re-assigning closure variable, issue #259.
+* Upgrade to **libcleri v1.0.0**, issue #263.
+* Configurable `deep` value per scope and changed defaults, issue #261.
+* Set time zone per scope instead of collection only, issue #260.
+* Syntax changes, pr #264.
+* Added `dup(..)` and `copy(..)` to *set*, *list* and *tuple* type, issue #265.
+
+# v1.1.2
+
+* Added `is_time_zone(..)` function, issue #247.
+* Fixed task scheduling when restoring from file, issue #248.
+* Prevent restore when tasks are created in the `@thingsdb` scope, issue #249.
+* Added support for slice and index notation on bytes, issue #251.
+* Fixed bug with slice and index notation on internal names, issue #252.
+
+# v1.1.1
+
+* Remove scope restriction from `time_zones_info()` function, issue #236.
+* Function `deep(..)` can now be used to *set* the *deep* value, issue #237.
+* Remove the deprecated hash (`#..`) syntax, issue #232.
+* Added `all` action to the `mod_type(..)` function, issue #235.
+* Fixed unexpected behavior with unassigned typed things, issue #239.
+* Added `restrict(..)` function and restrictions on non-typed things, issue #210.
+* Added `restriction()` function, issue #240.
+* Fixed bug with deploying static module files, issue #241.
+* Fixed memory leak when deleting a locked value from a *(dict)* thing, issue #242.
+* Fixed generating Id for wrapped thing in list, issue #243.
+* Added optional limit argument to `set().remove(..)`, issue #244.
+* Added `remove()` function for non-typed things, issue #245.
+
+# v1.1.0
+
+* Replace `timers` with `tasks`, pr #230.
+* Fixed bug in checking arguments for scheduled tasks, issue #225.
+* Fixed bug with updating properties in different threads, issue #226.
+* Fixed bug with `log()` in a scheduled closure, issue #224.
+* Added `things` to string conversion, issue #231.
+* Store task errors so they can be viewed, issue #227.
+* Deprecate the hash (`#..`) syntax, issue #232.
+* Removed deprecated `READ`, `MODIFY`, `EVENT` and `WATCH`, issue #233.
+* Removed deprecated `test()` on type `str`, issue #234.
+
+# v1.0.2
+
+* Callable modules, issue #213.
+* Install modules using a GitHub repository and `module.json`, pr #216.
+* Added `refresh_module()` function, issue #217.
+* Added `log` function, pr #218.
+* Fixed bug with nested futures, issue #219.
+* Added basic JSON support, issue #220.
+  - `json_dump()`: https://docs.thingsdb.net/v1/collection-api/json_dump/
+  - `json_load()`: https://docs.thingsdb.net/v1/collection-api/json_load/
+* Accept zero arguments for the `wrap()` function, issue #223.
+
+# v1.0.1
+
+* Use data from buffer to solve re-allocation pointer bug, issue #214.
+
+# v1.0.0
+
+* Added a `room` type to replace watching things.
+* Added `room()` and `is_room()` functions.
+* Added `clear()` function on `thing`, `set` and `list`.
+* Fixed bug with removing a self reference from a `set<->set` relation.
+* Functions for the new `room` type:
+  - `id()`: Return the Id of the room.git@github.com:cesbit/oversight.website.git
+  - `emit(..)`: Emit an event for the room.
+* Protocol types for the new `room` type:
+  - `TI_PROTO_CLIENT_ROOM_JOIN` (6)
+  - `TI_PROTO_CLIENT_ROOM_LEAVE` (7)
+  - `TI_PROTO_CLIENT_ROOM_EMIT` (8)
+  - `TI_PROTO_CLIENT_ROOM_DELETE` (9)
+  - `TI_PROTO_CLIENT_REQ_JOIN` (38)
+  - `TI_PROTO_CLIENT_REQ_LEAVE` (39)
+  - `TI_PROTO_CLIENT_REQ_EMIT` (40)
+* Stored closures with side effects no longer require `wse` but can be used as
+  long as a change is created. It is still possible to use `wse` to enfore a change.
+
+## Breaking changes from v0.10.x -> v1.0.0
+
+* Removed `.watch()`, `.unwatch()` and `.emit()` functions on type `thing`.
+* Removed the following protocol types *(replaced with room protocol)*:
+  - `TI_PROTO_CLIENT_WATCH_INI` (1)
+  - `TI_PROTO_CLIENT_WATCH_UPD` (2)
+  - `TI_PROTO_CLIENT_WATCH_DEL` (3)
+  - `TI_PROTO_CLIENT_WATCH_STOP` (4)
+  - `TI_PROTO_CLIENT_REQ_WATCH` (35)
+  - `TI_PROTO_CLIENT_REQ_UNWATCH` (36)
+* Insert data using syntax like `{"X": ...}` *(where X is a reserved keyword)*
+  is no longer possible.
+* Function `.def()` on a closure is removed. Use `str(closure)` instead.
+* Changed the return values of the following types:
+  - `regex`: From object to string (e.g. `{"*": "/.*/"}` -> `"/.*/"`).
+  - `closure`: From object to string (e.g. `{"/": "||nil"}` -> `"||nil"`).
+                Note that `str(closure)` returns formatted closure code and
+                just the type `closure` returns the closure as-is.
+  - `error`: From object to string (e.g. `{"!": ...}` -> `"some error msg"`).
+* Backup template no longer supports `{EVENT}` as template variable. This variable
+  is replaced with `{CHANGE_ID}`.
+* All the counter properties with `*event*` are replaced with `*change*`.
+  Counter property `changes_quorum_lost` is renamed to simply `quorum_lost`.
+* All the node(s) info properties with `*event*` are replaced with `*change*`.
+  Property `next_thing_id` is changed to `next_free_id` as Ids are used
+  for more than just things.
+* Previous `EVENT` (or `MODIFY`) access to a scope is renamed to `CHANGE`.
+  (Note: this is not truly breaking since both `EVENT` and `MODIFY` are marked
+  as deprecated)
+* Previous `WATCH` access is renamed to `JOIN`. `WATCH` is marked as deprecated.
+  (Note: this is not truly breaking since `WATCH` is marked as deprecated)
+* It is no longer possible to watch the `@node` scope. All socket connections
+  will receive `NODE_STATUS` changes as soon as the client is authenticated.
+  Watch (JOIN) privileges are no longer required on the `@node` scope for this
+  feature.
+* Protocol `TI_PROTO_CLIENT_NODE_STATUS (0)` no longer returns a plain string
+  with the status but instead a `map` with `id` containing the node Id
+  and `status` with the new node status.
+* Function `remove(..)` on a `list` type will remove *all* values where a
+  given closure evaluates to `true`. The return value will be a new `list` with
+  the values which are removed. An alternative value is no longer possible.
+
+# v0.10.15
+
+* Added `to_type(..)` to convert a thing into a type instance, issue #205.
+* Added definable properties: `regex`, `closure` and `error`, issue #204.
+* Fixed bug with relations after invalid type creation, issue #203.
+* Fixed bug when adding a closure to an `any` type property, issue #202.
+* Changed default modules path, issue #207.
+
+# v0.10.14
+
+* Fixed bug with `replace(..)` using an empty regular expression, issue #198.
+* Fixed incorrect default value bug after using `mod_type(..)`, issue #199.
+* Fixed memory leak after invalid `mod_type(..)` usage, issue #200.
+* Added regular expression support on `str.split(..)` function, issue #201.
+
+# v0.10.13
+
+* Added `extend_unique(..)` function, issue #189.
+* Lookup procedures by name, issue #192.
+* Fixed bug with regular expression syntax, issue #193.
+* Added regular expression support on `str.replace(..)` function, issue #194.
+* Fixed bug with storing modules during a full database store, issue #195.
+* Search for Python interpreter in `PATH` when no absolute path is given, issue #196.
+* Added `deploy_module(..)` function, issue #197.
+
+# v0.10.12
+
+* Fixed bug in query-cache when hitting the query-recursion-depth, issue #188.
+
 # v0.10.11
 
 * Added `is_unique()` and `unique()` functions, issue #185.
@@ -115,7 +301,7 @@
 * Ordered procedures, types and enumerators by name, issue #130.
 * Added query caching, issue #131.
 * Honor IP configuration for HTTP API and health checkes, issue #133.
-* Functions `new_token` and `new_backup` now accept date/time type, issue #134. 
+* Functions `new_token` and `new_backup` now accept date/time type, issue #134.
 
 # v0.10.0
 
@@ -159,7 +345,7 @@
 # v0.9.18
 
 * Added `result_size_limit` to prevent large return data, issue #101.
-* Added `largest_result_size` counter, issue #102. 
+* Added `largest_result_size` counter, issue #102.
 
 # v0.9.17
 
@@ -268,7 +454,7 @@
 * Added a new function `assign(..)`, issue #32.
 * Fixed incorrect type count when using thing as variable, issue #42.
 * Fixed missing Thing ID after receiving a new thing by an event, issue #41.
-* Changed the return value for function `.del(..)`, issue #40. 
+* Changed the return value for function `.del(..)`, issue #40.
 * Fixed instances may be in use while changing a type, issue #39.
 * Fixed `list` or `set` may keep restriction after using mod_type(), issue #38.
 * Allow the `mod` action for function `mod_type(..)` to use a closure and remove specification restriction, issue #34.

@@ -3,7 +3,7 @@
 static int do__f_unshift(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    cleri_children_t * child = nd->children;    /* first in argument list */
+    cleri_node_t * child = nd->children;    /* first in argument list */
     uint32_t current_n, new_n, idx = 0;
     ti_varr_t * varr;
 
@@ -29,13 +29,14 @@ static int do__f_unshift(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     do
     {
         /*
-         * Technically the insert performance could be improved by replacing
-         * the `ti_varr_insert` by a single memmove() function call, followed
-         * by a ti_varr_val_prepare() and vec_set() function call for each
-         * value.
+         * TODO (Performance)
+         * Technically, the insert performance could be improved by replacing
+         * the `ti_varr_insert` with an optimized function to insert a bulk
+         * at once. This is especially useful for the insert function since
+         * the current solution requires a call to memmove() on each iteration.
          */
-        if (ti_do_statement(query, child->node, e) ||
-            ti_varr_insert(varr, (void **) &query->rval, e, idx))
+        if (ti_do_statement(query, child, e) ||
+            ti_val_varr_insert(varr, &query->rval, e, idx))
             goto fail1;
         ++idx;
         query->rval = NULL;
@@ -44,7 +45,7 @@ static int do__f_unshift(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (varr->parent && varr->parent->id)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, varr->parent);
+        ti_task_t * task = ti_task_get_task(query->change, varr->parent);
         if (!task || ti_task_add_splice(
                 task,
                 ti_varr_key(varr),
@@ -53,7 +54,7 @@ static int do__f_unshift(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 0,
                 (uint32_t) nargs))
             goto alloc_err;  /* we do not need to cleanup task, since the task
-                                is added to `query->ev->tasks` */
+                                is added to `query->change->tasks` */
     }
 
     assert (e->nr == 0);

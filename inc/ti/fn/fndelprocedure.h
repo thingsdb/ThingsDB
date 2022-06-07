@@ -9,7 +9,7 @@ static int do__f_del_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_not_thingsdb_or_collection_scope("del_procedure", query, e) ||
         fn_nargs("del_procedure", DOC_DEL_PROCEDURE, 1, nargs, e) ||
-        ti_do_statement(query, nd->children->node, e) ||
+        ti_do_statement(query, nd->children, e) ||
         fn_arg_str("del_procedure", DOC_DEL_PROCEDURE, 1, query->rval, e))
         return e->nr;
 
@@ -22,7 +22,7 @@ static int do__f_del_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_procedure_destroy(procedure);
 
     task = ti_task_get_task(
-            query->ev,
+            query->change,
             query->collection ? query->collection->root : ti.thing0);
     if (!task || ti_task_add_del_procedure(task, (ti_raw_t *) query->rval))
         ex_set_mem(e);  /* task cleanup is not required */

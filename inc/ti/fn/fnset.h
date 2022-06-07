@@ -1,20 +1,20 @@
 #include <ti/fn/fn.h>
 
-static int do__f_set_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_set_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
 
     if (nargs == 1 && nd->children->next == NULL)
     {
         return (
-            ti_do_statement(query, nd->children->node, e) ||
+            ti_do_statement(query, nd->children, e) ||
             ti_val_convert_to_set(&query->rval, e)
         );
     }
 
     if (nargs)
     {
-        cleri_children_t * child = nd->children;
+        cleri_node_t * child = nd->children;
         ti_vset_t * vset = ti_vset_create();
 
         if (!vset)
@@ -25,7 +25,7 @@ static int do__f_set_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         do
         {
-            if (ti_do_statement(query, child->node, e) ||
+            if (ti_do_statement(query, child, e) ||
                 ti_vset_add_val(vset, query->rval, e) < 0)
             {
                 ti_vset_destroy(vset);
@@ -49,7 +49,7 @@ static int do__f_set_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static int do__f_set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_set_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
     ti_witem_t witem;
@@ -66,14 +66,14 @@ static int do__f_set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->node, e) ||
+    if (ti_do_statement(query, nd->children, e) ||
         fn_arg_str("set", DOC_THING_SET, 1, query->rval, e))
         goto fail0;
 
     rname = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next->next->node, e))
+    if (ti_do_statement(query, nd->children->next->next, e))
         goto fail1;
 
     if (ti_thing_set_val_from_strn(
@@ -86,7 +86,7 @@ static int do__f_set_property(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (thing->id)
     {
-        ti_task_t * task = ti_task_get_task(query->ev, thing);
+        ti_task_t * task = ti_task_get_task(query->change, thing);
         if (!task || ti_task_add_set(task, witem.key, *witem.val))
         {
             ex_set_mem(e);
@@ -105,6 +105,6 @@ fail0:
 static inline int do__f_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     return query->rval
-            ? do__f_set_property(query, nd, e)
-            : do__f_set_new_type(query, nd, e);
+            ? do__f_set_thing(query, nd, e)
+            : do__f_set_new(query, nd, e);
 }

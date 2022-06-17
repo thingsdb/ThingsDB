@@ -9,6 +9,7 @@ C_SRCS += \
 ../src/util/buf.c \
 ../src/util/cfgparser.c \
 ../src/util/cryptx.c \
+../src/util/evt_tls.c \
 ../src/util/fx.c \
 ../src/util/guid.c \
 ../src/util/imap.c \
@@ -25,6 +26,7 @@ C_SRCS += \
 ../src/util/strx.c \
 ../src/util/syncpart.c \
 ../src/util/util.c \
+../src/util/uv_tls.c \
 ../src/util/vec.c 
 
 OBJS += \
@@ -33,6 +35,7 @@ OBJS += \
 ./src/util/buf.o \
 ./src/util/cfgparser.o \
 ./src/util/cryptx.o \
+./src/util/evt_tls.o \
 ./src/util/fx.o \
 ./src/util/guid.o \
 ./src/util/imap.o \
@@ -49,6 +52,7 @@ OBJS += \
 ./src/util/strx.o \
 ./src/util/syncpart.o \
 ./src/util/util.o \
+./src/util/uv_tls.o \
 ./src/util/vec.o 
 
 C_DEPS += \
@@ -57,6 +61,7 @@ C_DEPS += \
 ./src/util/buf.d \
 ./src/util/cfgparser.d \
 ./src/util/cryptx.d \
+./src/util/evt_tls.d \
 ./src/util/fx.d \
 ./src/util/guid.d \
 ./src/util/imap.d \
@@ -73,6 +78,7 @@ C_DEPS += \
 ./src/util/strx.d \
 ./src/util/syncpart.d \
 ./src/util/util.d \
+./src/util/uv_tls.d \
 ./src/util/vec.d 
 
 

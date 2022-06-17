@@ -26,7 +26,7 @@ class TestSimple(TestBase):
 
         await self.node0.init_and_run()
 
-        client = await get_client(self.node0)
+        client = await get_client(self.node0, ssl=True)
         client.set_default_scope('//stuff')
 
         await self.run_tests(client)

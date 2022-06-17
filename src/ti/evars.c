@@ -132,4 +132,11 @@ void ti_evars_parse(void)
     evars__str(
             "THINGSDB_GCLOUD_KEY_FILE",
             &ti.cfg->gcloud_key_file);
+    evars__str(
+            "THINGSDB_SSL_CERT_FILE",
+            &ti.cfg->ssl_cert_file);
+    evars__str(
+            "THINGSDB_SSL_KEY_FILE",
+            &ti.cfg->ssl_key_file);
+
 }

@@ -130,6 +130,13 @@ int main(int argc, char * argv[])
 
     ti_evars_parse();
 
+    if (!ti.cfg->ssl_cert_file ^ !ti.cfg->ssl_key_file)
+    {
+        log_warning(
+                "to enable SSL/TLS both a `key.pem` and `cert.pem` must be "
+                "configured");
+    }
+
     rc = ti_cfg_ensure_storage_path();
     if (rc)
         goto stop;

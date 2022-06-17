@@ -474,7 +474,18 @@ int ti_cfg_parse(const char * cfg_file)
                     parser,
                     cfg_file,
                     "gcloud_key_file",
-                    &cfg->gcloud_key_file)))
+                    &cfg->gcloud_key_file)) ||
+            (rc = cfg__str(
+                    parser,
+                    cfg_file,
+                    "ssl_cert_file",
+                    &cfg->ssl_cert_file)) ||
+            (rc = cfg__str(
+                    parser,
+                    cfg_file,
+                    "ssl_key_file",
+                    &cfg->ssl_key_file)))
+
         goto exit_parse;
 
     cfg__bool(parser, cfg_file, "wait_for_modules", &cfg->wait_for_modules);

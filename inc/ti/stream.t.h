@@ -16,6 +16,7 @@ typedef enum
     TI_STREAM_TCP_IN_NODE,      /* TCP connection from other node */
     TI_STREAM_TCP_IN_CLIENT,    /* TCP connection from client */
     TI_STREAM_PIPE_IN_CLIENT,   /* PIPE connection from client */
+    TI_STREAM_SSL_IN_CLIENT,    /* TCP/SSL/TLS connection from client */
 } ti_stream_enum;
 
 typedef struct ti_stream_s  ti_stream_t;

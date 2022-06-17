@@ -13,10 +13,13 @@
 #include <ti/watch.h>
 #include <ti/write.h>
 #include <util/logger.h>
+#include <util/uv_tls.h>
 
 static void stream__write_pkg_cb(ti_write_t * req, ex_enum status);
 static void stream__write_rpkg_cb(ti_write_t * req, ex_enum status);
-static void stream__close_cb(uv_handle_t * uvstream);
+static void stream__node_close_cb(uv_handle_t * uvstream);
+static void stream__client_close_cb(uv_handle_t * uvstream);
+static void stream__ssl_close_cb(uv_handle_t * uvstream);
 
 #define STREAM__UNRESOLVED "unresolved";
 
@@ -57,6 +60,13 @@ ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
             break;
         return stream;
 
+
+    case TI_STREAM_SSL_IN_CLIENT:
+        ++stream__client_connections;
+        if (uv_tcp_init(ti.loop, (uv_tcp_t *) stream->uvstream))
+            break;
+        return stream;
+
     case TI_STREAM_PIPE_IN_CLIENT:
         ++stream__client_connections;
         if (uv_pipe_init(ti.loop, (uv_pipe_t *) stream->uvstream, 0))
@@ -69,13 +79,23 @@ ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
     return NULL;
 }
 
+static uv_close_cb stream__close_cbs[5] = {
+        stream__node_close_cb,
+        stream__node_close_cb,
+        stream__client_close_cb,
+        stream__client_close_cb,
+        stream__ssl_close_cb,
+};
+
 void ti_stream_drop(ti_stream_t * stream)
 {
     if (stream && !--stream->ref)
     {
         assert (stream->flags & TI_STREAM_FLAG_CLOSED);
         log_info("closing stream `%s`", ti_stream_name(stream));
-        uv_close((uv_handle_t *) stream->uvstream, stream__close_cb);
+        uv_close(
+                (uv_handle_t *) stream->uvstream,
+                stream__close_cbs[stream->tp]);
     }
 }
 
@@ -159,6 +179,7 @@ void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf)
     ti_pkg_t * pkg;
     size_t total_sz;
 
+    LOGC("HERE1");
     if (stream->flags & TI_STREAM_FLAG_CLOSED)
     {
         log_error(
@@ -169,19 +190,26 @@ void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf)
 
     if (n < 0)
     {
+        LOGC("HERE2");
         if (n != UV_EOF)
             log_error(uv_strerror(n));
         ti_stream_close(stream);
         return;
     }
 
+    LOGC("HERE3");
+
     stream->n += n;
     if (stream->n < sizeof(ti_pkg_t))
         return;
 
+    LOGC("HERE4");
+
     pkg = (ti_pkg_t *) stream->buf;
+    LOGC("HERE5");
     if (!ti_pkg_check(pkg))
     {
+        LOGC("HERE6");
         log_error(
                 "invalid package (type=%u invert=%u size=%u) from `%s`, "
                 "closing connection",
@@ -189,6 +217,11 @@ void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf)
         ti_stream_close(stream);
         return;
     }
+    LOGC("HERE7");
+
+
+    LOGC("package (type=%u invert=%u size=%u) from `%s`, ",
+        pkg->tp, pkg->ntp, pkg->n, ti_stream_name(stream));
 
     total_sz = sizeof(ti_pkg_t) + pkg->n;
 
@@ -209,6 +242,7 @@ void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf)
         return;
     }
 
+    LOGC("package!!");
     stream->pkg_cb(stream, pkg);
 
     stream->n -= total_sz;
@@ -292,6 +326,13 @@ const char * ti_stream_name(ti_stream_t * stream)
             sprintf(prefix, "<client:not authorized> ");
         stream->name_ = ti_tcp_name(prefix, (uv_tcp_t *) stream->uvstream);
         return stream->name_ ? stream->name_ : "<client> "STREAM__UNRESOLVED;
+    case TI_STREAM_SSL_IN_CLIENT:
+        if (stream->via.user)
+            sprintf(prefix, "<client[SSL]:%"PRIu64"> ", stream->via.user->id);
+        else
+            sprintf(prefix, "<client[SSL]:not authorized> ");
+        stream->name_ = ti_tcp_name(prefix, (uv_tcp_t *) stream->uvstream);
+        return stream->name_ ? stream->name_ : "<client> "STREAM__UNRESOLVED;
     case TI_STREAM_PIPE_IN_CLIENT:
         if (stream->via.user)
             sprintf(prefix, "<client:%"PRIu64"> ", stream->via.user->id);
@@ -357,37 +398,61 @@ static void stream__write_rpkg_cb(ti_write_t * req, ex_enum status)
     ti_write_destroy(req);
 }
 
-static void stream__close_cb(uv_handle_t * uvstream)
+static void stream__node_close_cb(uv_handle_t * uvstream)
 {
     ti_stream_t * stream = uvstream->data;
+
+    assert (stream);
+    assert (stream->flags & TI_STREAM_FLAG_CLOSED);
+    assert (stream->reqmap == NULL);
+    assert (stream->listeners == NULL);
+
+    if (stream->via.node)
+    {
+        assert (stream->via.node->stream == stream);
+        stream->via.node->status = TI_NODE_STAT_OFFLINE;
+        stream->via.node->stream = NULL;
+        ti_node_drop(stream->via.node);
+    }
+
+    free(stream->buf);
+    free(stream->name_);
+    free(uvstream);
+    free(stream);
+}
+
+static void stream__client_close_cb(uv_handle_t * uvstream)
+{
+    ti_stream_t * stream = uvstream->data;
+
     assert (stream);
     assert (stream->flags & TI_STREAM_FLAG_CLOSED);
     assert (stream->reqmap == NULL);
 
-    switch ((ti_stream_enum) stream->tp)
-    {
-    case TI_STREAM_TCP_OUT_NODE:
-    case TI_STREAM_TCP_IN_NODE:
-        if (!stream->via.node)
-            break;
-
-        assert (stream->via.node->stream == stream);
-
-        stream->via.node->status = TI_NODE_STAT_OFFLINE;
-        stream->via.node->stream = NULL;
-
-        ti_node_drop(stream->via.node);
-
-        break;
-    case TI_STREAM_TCP_IN_CLIENT:
-    case TI_STREAM_PIPE_IN_CLIENT:
-        --stream__client_connections;
-        ti_user_drop(stream->via.user);
-        break;
-    }
+    --stream__client_connections;
+    ti_user_drop(stream->via.user);
     ti_stream_stop_listeners(stream);
     free(stream->buf);
     free(stream->name_);
     free(uvstream);
     free(stream);
 }
+
+static void stream__ssl_close_cb(uv_handle_t * uvstream)
+{
+    uv_tls_t * utls = uvstream->data;
+    ti_stream_t * stream = utls->stream;
+
+    assert (stream);
+    assert (stream->flags & TI_STREAM_FLAG_CLOSED);
+    assert (stream->reqmap == NULL);
+
+    --stream__client_connections;
+    ti_user_drop(stream->via.user);
+    ti_stream_stop_listeners(stream);
+    free(stream->buf);
+    free(stream->name_);
+    free(stream);
+    uv_tls_close(utls, (uv_tls_close_cb) free);
+}
+

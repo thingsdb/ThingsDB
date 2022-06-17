@@ -34,9 +34,7 @@ static inline _Bool ti_stream_is_closed(ti_stream_t * stream)
 
 static inline _Bool ti_stream_is_client(ti_stream_t * stream)
 {
-    return stream && (
-            stream->tp == TI_STREAM_TCP_IN_CLIENT ||
-            stream->tp == TI_STREAM_PIPE_IN_CLIENT);
+    return stream && stream->tp >= TI_STREAM_TCP_IN_CLIENT;
 }
 
 #endif /* TI_STREAM_H_ */

@@ -1,3 +1,8 @@
+# v1.2.7
+
+* Reduce indentation from four spaces to a single `TAB`, issue #284.
+* Implement short syntax for init thing or instance, issue #283.
+
 # v1.2.6
 
 * Fixed using `log(..)` within a future, issue #282.

@@ -735,7 +735,7 @@ ti_raw_t * ti_closure_def(ti_closure_t * closure)
 {
     ti_raw_t * def;
     ti_fmt_t fmt;
-    ti_fmt_init(&fmt, FMT_INDENT);
+    ti_fmt_init(&fmt, TI_FMT_SPACES);
 
     if (ti_fmt_nd(&fmt, closure->node))
         return NULL;

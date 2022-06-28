@@ -992,7 +992,7 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     thing = ti_thing_o_create(0, sz, query->collection);
     if (!thing)
-        goto failed;
+        goto failed_save;
 
     child = nd                                  /* sequence */
             ->children->next                    /* list */
@@ -1000,17 +1000,42 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     for (; child; child = child->next->next)
     {
-        cleri_node_t * name_nd = child->children;   /* sequence/name */
-        ti_name_t * name = ti_names_get(name_nd->str, name_nd->len);
-        if (    !name||
-                ti_do_statement(query, name_nd->next->next, e) ||
-                ti_val_make_assignable(&query->rval, thing, name, e) ||
-                !ti_thing_p_prop_set(thing, name, query->rval))
-        {
-            ti_name_drop(name);
-            goto failed;
-        }
+        cleri_node_t * name_nd = child->children;
 
+        if (name_nd->next->next == NULL)
+        {
+            ti_prop_t * prop = do__get_var_e(query, name_nd, e);
+            if (!prop)
+                goto failed;
+
+            query->rval = prop->val;
+            ti_incref(query->rval);
+
+            if (ti_val_make_assignable(&query->rval, thing, prop->name, e))
+                goto failed;
+
+            if (!ti_thing_p_prop_set(thing, prop->name, query->rval))
+                goto failed_save;
+
+            ti_incref(prop->name);
+        }
+        else
+        {
+            cleri_node_t * name_nd = child->children;
+            ti_name_t * name;
+
+            if (ti_do_statement(query, name_nd->next->next, e))
+                goto failed;
+
+            name = ti_names_get(name_nd->str, name_nd->len);
+            if (    !name ||
+                    ti_val_make_assignable(&query->rval, thing, name, e) ||
+                    !ti_thing_p_prop_set(thing, name, query->rval))
+            {
+                ti_name_drop(name);
+                goto failed_save;
+            }
+        }
         query->rval = NULL;
 
         if (!child->next)
@@ -1020,9 +1045,10 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = (ti_val_t *) thing;
     return 0;
 
-failed:
+failed_save:
     if (!e->nr)
         ex_set_mem(e);
+failed:
     ti_val_unsafe_drop((ti_val_t *) thing);
     return e->nr;
 }
@@ -1084,22 +1110,41 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     for (n = 0; child; child = child->next ? child->next->next: NULL)
     {
-        cleri_node_t * name_nd = child->children;   /* sequence/name */
-        ti_name_t * name;
-        ti_field_t * field;
         ti_val_t * val;
+        ti_field_t * field;
+        cleri_node_t * name_nd = child->children;
+        if (name_nd->next->next == NULL)
+        {
+            ti_prop_t * prop = do__get_var_e(query, name_nd, e);
+            if (!prop)
+                goto fail;
 
-        name = ti_names_weak_get_strn(name_nd->str, name_nd->len);
-        if (!name)
-            continue;
+            field = ti_field_by_name(type, prop->name);
+            if (!field)
+                continue;
 
-        field = ti_field_by_name(type, name);
-        if (!field)
-            continue;
+            query->rval = prop->val;
+            ti_incref(query->rval);
 
-        if (    ti_do_statement(query, name_nd->next->next, e) ||
-                ti_field_make_assignable(field, &query->rval, thing, e))
-            goto fail;
+            if (ti_field_make_assignable(field, &query->rval, thing, e))
+                goto fail;
+        }
+        else
+        {
+            ti_name_t * name = \
+                    ti_names_weak_get_strn(name_nd->str, name_nd->len);
+
+            if (!name)
+                continue;
+
+            field = ti_field_by_name(type, name);
+            if (!field)
+                continue;
+
+            if (    ti_do_statement(query, name_nd->next->next, e) ||
+                    ti_field_make_assignable(field, &query->rval, thing, e))
+                goto fail;
+        }
 
         val = VEC_get(thing->items.vec, field->idx);
         if (val)

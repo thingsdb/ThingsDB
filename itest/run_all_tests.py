@@ -47,9 +47,9 @@ def no_mem_test(test_class):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--skip-doc-test',
+        '--doc-test',
         action='store_true',
-        help='skip documentation testing')
+        help='nclude documentation testing')
     args = parser.parse_args()
 
     run_test(TestAdvanced())
@@ -59,7 +59,7 @@ if __name__ == '__main__':
     run_test(TestCollectionFunctions())
     run_test(TestDatetime())
     run_test(TestDict())
-    if args.skip_doc_test is False:
+    if args.skip_doc_test is True:
         run_test(TestDocUrl())
     run_test(TestEnum())
     run_test(TestFuture())

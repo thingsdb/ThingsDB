@@ -553,9 +553,9 @@ class TestCollectionFunctions(TestBase):
 
         self.assertEqual(await client.query('str(||{nil});'), r'''
 || {
-    nil;
+  nil;
 }
-'''.strip())
+'''.strip().replace('  ', '\t'))
 
         self.assertEqual(await client.query(r'''
             str(|| range(10)[0:9:2]);

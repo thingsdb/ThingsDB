@@ -49,7 +49,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--doc-test',
         action='store_true',
-        help='nclude documentation testing')
+        help='include documentation testing')
     args = parser.parse_args()
 
     run_test(TestAdvanced())

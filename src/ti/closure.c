@@ -453,6 +453,32 @@ void ti_closure_dec(ti_closure_t * closure, ti_query_t * query)
     }
 }
 
+int ti_closure_vars_val(
+        ti_closure_t * closure,
+        ti_val_t * val,
+        ex_t * e)
+{
+    ti_prop_t * prop;
+    switch(closure->vars->n)
+    {
+    default:
+    case 1:
+        prop = VEC_get(closure->vars, 0);
+        ti_incref(val);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = val;
+        /*
+         * Re-assign variable since we require a copy of lists and sets.
+         */
+        if (ti_val_make_variable(&prop->val, e))
+            return e->nr;
+        /* fall through */
+    case 0:
+        break;
+    }
+    return 0;
+}
+
 int ti_closure_vars_nameval(
         ti_closure_t * closure,
         ti_val_t * name,

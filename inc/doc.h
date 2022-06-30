@@ -286,6 +286,7 @@
 #define DOC_THING_SET               DOC_SEE("data-types/thing/set")
 #define DOC_THING_TO_TYPE           DOC_SEE("data-types/thing/to_type")
 #define DOC_THING_VALUES            DOC_SEE("data-types/thing/values")
+#define DOC_THING_VMAP              DOC_SEE("data-types/thing/vmap")
 #define DOC_THING_WRAP              DOC_SEE("data-types/thing/wrap")
 #define DOC_TYPED_TO_THING          DOC_SEE("data-types/typed/to_thing")
 #define DOC_WTYPE_COPY              DOC_SEE("data-types/wtype/copy")

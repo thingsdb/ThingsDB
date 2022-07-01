@@ -983,9 +983,15 @@ static inline void qbind__thing(ti_qbind_t * qbind, cleri_node_t * nd)
     for (; child; child = child->next->next)
     {
         /* sequence(name: statement) (only investigate the statements */
-        qbind__statement(
-                qbind,
-                child->children->next->next);  /* statement */
+        if (child->children->next->next == NULL)
+        {
+            child->children->data = NULL;
+            ++qbind->immutable_n;
+        }
+        else
+            qbind__statement(
+                    qbind,
+                    child->children->next->next);  /* statement */
         ++sz;
         if (!child->next)
             break;

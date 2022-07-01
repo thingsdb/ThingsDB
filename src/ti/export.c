@@ -33,7 +33,6 @@ static int export__new_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
 
 static int export__set_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
 {
-    int spaces;
     if (type_->fields->n == 0 && type_->methods->n == 0)
         return 0;
 
@@ -47,14 +46,13 @@ static int export__set_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
     ) return -1;
 
     ++fmt->indent;
-    spaces = fmt->indent * fmt->indent_spaces;
 
     /*
      * TOFO: test quotes etc. in definition
      */
     for (vec_each(type_->fields, ti_field_t, field))
     {
-        if (buf_append_fmt(&fmt->buf, "%*s", spaces, "") ||
+        if (ti_fmt_indent(fmt) ||
             buf_append(&fmt->buf, field->name->str, field->name->n) ||
             buf_append_str(&fmt->buf, ": ") ||
             ti_fmt_ti_string(fmt, field->spec_raw) ||
@@ -64,7 +62,7 @@ static int export__set_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
 
     for (vec_each(type_->methods, ti_method_t, method))
     {
-        if (buf_append_fmt(&fmt->buf, "%*s", spaces, "") ||
+        if (ti_fmt_indent(fmt) ||
             buf_append(&fmt->buf, method->name->str, method->name->n) ||
             buf_append_str(&fmt->buf, ": ") ||
             ti_fmt_nd(fmt, method->closure->node) ||
@@ -159,17 +157,14 @@ static int export__set_enum_cb(ti_enum_t * enum_, ti_fmt_t * fmt)
 
     if (enum_->members->n)
     {
-        int spaces;
-
         ++fmt->indent;
-        spaces = fmt->indent * fmt->indent_spaces;
 
         if (buf_write(&fmt->buf, '\n'))
             return -1;
 
         for (vec_each(enum_->members, ti_member_t, member))
         {
-            if (buf_append_fmt(&fmt->buf, "%*s", spaces, "") ||
+            if (ti_fmt_indent(fmt) ||
                 buf_append(&fmt->buf, member->name->str, member->name->n) ||
                 buf_append_str(&fmt->buf, ": ")
             ) return -1;
@@ -305,7 +300,7 @@ ti_raw_t * ti_export_collection(ti_collection_t * collection)
 {
     ti_raw_t * str;
     ti_fmt_t fmt;
-    ti_fmt_init(&fmt, FMT_INDENT);
+    ti_fmt_init(&fmt, TI_FMT_SPACES);
 
     if (export__collection(&fmt, collection))
         return NULL;

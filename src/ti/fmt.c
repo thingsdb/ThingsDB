@@ -11,18 +11,9 @@
 
 static int fmt__statement(ti_fmt_t * fmt, cleri_node_t * nd);
 
-static inline int fmt__indent(ti_fmt_t * fmt)
-{
-    int spaces = fmt->indent * fmt->indent_spaces;
-    return spaces
-            ? buf_append_fmt(&fmt->buf, "%*s", spaces, "")
-            : 0;
-}
-
 static inline int fmt__indent_str(ti_fmt_t * fmt, const char * str)
 {
-    int spaces = fmt->indent * fmt->indent_spaces;
-    return buf_append_fmt(&fmt->buf, "%*s%s", spaces, "", str);
+    return ti_fmt_indent(fmt) || buf_append_str(&fmt->buf, str);
 }
 
 static inline _Bool fmt__has_next_chain(cleri_node_t * nd)
@@ -174,11 +165,17 @@ static int fmt__thing(ti_fmt_t * fmt, cleri_node_t * nd)
             key = child->children;
             val = child->children->next->next;
 
-            if (fmt__indent(fmt) ||
+            if (ti_fmt_indent(fmt) ||
                 buf_append(&fmt->buf, key->str, key->len) ||
-                buf_append_str(&fmt->buf, ": ") ||
-                fmt__statement(fmt, val) ||
-                buf_append_str(&fmt->buf, ",\n"))
+                buf_write(&fmt->buf, ':'))
+                return 1;
+
+            if (val && (
+                buf_write(&fmt->buf, ' ') ||
+                fmt__statement(fmt, val)))
+                return -1;
+
+            if (buf_append_str(&fmt->buf, ",\n"))
                 return -1;
         }
         while (child->next && (child = child->next->next));
@@ -317,7 +314,7 @@ static int fmt__array(ti_fmt_t * fmt, cleri_node_t * nd)
         ++fmt->indent;
         do
         {
-            if (fmt__indent(fmt) ||
+            if (ti_fmt_indent(fmt) ||
                 fmt__statement(fmt, child) ||
                 buf_append_str(&fmt->buf, ",\n"))
                 return -1;
@@ -353,7 +350,7 @@ static int fmt__block(ti_fmt_t * fmt, cleri_node_t * nd)
     ++fmt->indent;
     do
     {
-        if (fmt__indent(fmt) ||
+        if (ti_fmt_indent(fmt) ||
             fmt__statement(fmt, child) ||
             buf_append_str(&fmt->buf, ";\n"))
             return -1;
@@ -572,10 +569,10 @@ static int fmt__statement(ti_fmt_t * fmt, cleri_node_t * nd)
     return -1;
 }
 
-void ti_fmt_init(ti_fmt_t * fmt, int indent_spaces)
+void ti_fmt_init(ti_fmt_t * fmt, int spaces)
 {
     buf_init(&fmt->buf);
-    fmt->indent_spaces = indent_spaces;
+    fmt->spaces = spaces;
     fmt->indent = 0;
 }
 

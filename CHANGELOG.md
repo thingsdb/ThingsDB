@@ -2,6 +2,7 @@
 
 * Reduce indentation from four spaces to a single `TAB`, issue #284.
 * Implement short syntax for init thing or instance, issue #283.
+* Added `vmap(..)` function, issue #286.
 
 # v1.2.6
 

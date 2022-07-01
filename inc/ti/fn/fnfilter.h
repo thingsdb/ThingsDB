@@ -160,7 +160,6 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ti_val_unsafe_drop(query->rval);
                 query->rval = NULL;
             }
-
         }
         break;
     }

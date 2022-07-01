@@ -2380,6 +2380,82 @@ class TestCollectionFunctions(TestBase):
             set([iris_id, cato_id])
         )
 
+    async def test_vmap(self, client):
+        await client.query(r'''
+            .t = {
+                a: 'Iris',
+                b: 'Cato',
+            };
+            .f = {
+                a: 'Iris',
+                b: 6,
+            };
+
+            .lt = {};
+            .lt['a key'] = 'Iris';
+            .lt['b key'] = 'Cato';
+
+            .lf = {};
+            .lf['a key'] = 'Iris';
+            .lf['b key'] = 6;
+
+            set_type('T', {
+                a: 'str',
+                b: 'str',
+            });
+            set_type('F', {
+                a: 'str',
+                b: 'int',
+            });
+            .tt = T(.t);
+            .ff = F(.f);
+        ''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `vmap`'):
+            await client.query('nil.vmap(||nil);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `vmap` takes 1 argument but 0 were given'):
+            await client.query('.vmap();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `vmap` takes 1 argument but 2 were given'):
+            await client.query('.vmap(||nil, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `vmap` expects argument 1 to be of type `closure` '
+                'but got type `nil` instead'):
+            await client.query('.vmap(nil);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `int` has no function `upper`'):
+            await client.query('.f.vmap(|s| s.upper());')
+
+        res = await client.query('.t.vmap(|s| s.upper());')
+        self.assertEqual(res, {"a": "IRIS", "b": "CATO"})
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `int` has no function `upper`'):
+            await client.query('.ff.vmap(|s| s.upper());')
+
+        res = await client.query('.tt.vmap(|s| s.upper());')
+        self.assertEqual(res, {"a": "IRIS", "b": "CATO"})
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `int` has no function `upper`'):
+            await client.query('.lf.vmap(|s| s.upper());')
+
+        res = await client.query('.lt.vmap(|s| s.upper());')
+        self.assertEqual(res, {"a key": "IRIS", "b key": "CATO"})
+
     async def test_max_quota_err(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,

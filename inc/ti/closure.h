@@ -31,6 +31,10 @@ int ti_closure_to_client_pk(ti_closure_t * closure, msgpack_packer * pk);
 int ti_closure_to_store_pk(ti_closure_t * closure, msgpack_packer * pk);
 int ti_closure_inc(ti_closure_t * closure, ti_query_t * query, ex_t * e);
 void ti_closure_dec(ti_closure_t * closure, ti_query_t * query);
+int ti_closure_vars_val(
+        ti_closure_t * closure,
+        ti_val_t * val,
+        ex_t * e);
 int ti_closure_vars_nameval(
         ti_closure_t * closure,
         ti_val_t * name,

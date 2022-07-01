@@ -59,7 +59,7 @@ if __name__ == '__main__':
     run_test(TestCollectionFunctions())
     run_test(TestDatetime())
     run_test(TestDict())
-    if args.skip_doc_test is True:
+    if args.doc_test is True:
         run_test(TestDocUrl())
     run_test(TestEnum())
     run_test(TestFuture())

@@ -1185,7 +1185,7 @@ static int ttask__set_time_zone(mp_unp_t * up)
 
 /*
  * Returns 0 on success
- * - for example: {'id':id, 'name':name}
+ * - for example: {'id':id, 'deep':1}
  */
 static int ttask__set_default_deep(mp_unp_t * up)
 {
@@ -1207,14 +1207,14 @@ static int ttask__set_default_deep(mp_unp_t * up)
 
 /*
  * Returns 0 on success
- * - for example: {'id':id, 'name':name}
+ * - for example: true
  */
 static int ttask__restore_finished(mp_unp_t * up)
 {
     mp_obj_t clear_tasks;
     if (mp_next(up, &clear_tasks) != MP_BOOL)
     {
-        log_critical("task `sks`: invalid format");
+        log_critical("task `restore_finished`: invalid format");
         return -1;
     }
 

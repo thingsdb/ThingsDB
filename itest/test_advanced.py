@@ -1549,23 +1549,23 @@ class TestAdvanced(TestBase):
  */
 
 set_enum('B', {
-    A: base64_decode('YUFh'),
-    B: base64_decode('YkJi'),
-    C: base64_decode('Y0Nj'),
+  A: base64_decode('YUFh'),
+  B: base64_decode('YkJi'),
+  C: base64_decode('Y0Nj'),
 });
 set_enum('Colors', {
-    RED: '#f00',
-    GREEN: '#0f0',
-    BLUE: '#00f',
+  RED: '#f00',
+  GREEN: '#0f0',
+  BLUE: '#00f',
 });
 set_enum('Math', {
-    PI: 3.140000,
-    E: 2.718000,
+  PI: 3.140000,
+  E: 2.718000,
 });
 set_enum('Str', {
-    sq: "Hi 'Iris'!",
-    dq: 'Hi "Cato"!',
-    bq: 'Hi ''"Tess"''!',
+  sq: "Hi 'Iris'!",
+  dq: 'Hi "Cato"!',
+  bq: 'Hi ''"Tess"''!',
 });
 
 /*
@@ -1576,12 +1576,12 @@ new_type('Friend');
 new_type('Person');
 
 set_type('Friend', {
-    person: 'Person',
-    friend: 'Person',
+  person: 'Person',
+  friend: 'Person',
 });
 set_type('Person', {
-    name: 'str',
-    age: 'int',
+  name: 'str',
+  age: 'int',
 });
 
 
@@ -1590,13 +1590,13 @@ set_type('Person', {
  */
 
 new_procedure('more', |a, b| {
-    .answers.push(a * b);
-    .answers[-1];
+  .answers.push(a * b);
+  .answers[-1];
 });
 new_procedure('multiply', |a, b| a * b);
 
 'DONE';
-'''.lstrip()
+'''.lstrip().replace('  ', '\t')
         await client.query(script)
         res = await client.query('export();')
         self.assertEqual(res, script)

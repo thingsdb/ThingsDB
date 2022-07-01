@@ -481,17 +481,17 @@ new_type('C');
 new_type('D');
 
 set_type('A', {
-    bb: '{B}',
+  bb: '{B}',
 });
 set_type('B', {
-    aa: '{A}',
+  aa: '{A}',
 });
 set_type('C', {
-    cc: '{C}',
+  cc: '{C}',
 });
 set_type('D', {
-    da: '{D}',
-    db: '{D}',
+  da: '{D}',
+  db: '{D}',
 });
 
 mod_type('A', 'rel', 'bb', 'aa');
@@ -504,7 +504,7 @@ mod_type('D', 'rel', 'da', 'db');
 
 
 'DONE';
-'''.lstrip())
+'''.lstrip().replace('  ', '\t'))
 
     async def test_type_type_init_state(self, client0):
         if not self.with_node1():

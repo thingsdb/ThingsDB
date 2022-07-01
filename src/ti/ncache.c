@@ -127,11 +127,13 @@ static inline int ncache__thing(
     for (; nd; nd = nd->next ? nd->next->next : NULL)
     {
         /* sequence(name: statement) (only investigate the statements */
-        if (ncache__statement(
-                syntax,
-                vcache,
-                nd->children->next->next,
-                e))
+        if (nd->children->next->next == NULL
+                ? ncache__gen_name(vcache, nd->children, e)
+                : ncache__statement(
+                    syntax,
+                    vcache,
+                    nd->children->next->next,
+                    e))
             return e->nr;
     }
     return e->nr;
@@ -317,11 +319,13 @@ static int ncache__expr_choice(
         for (; child; child = child->next ? child->next->next : NULL)
         {
             /* sequence(name: statement) (only investigate the statements */
-            if (ncache__statement(
-                    syntax,
-                    vcache,
-                    child->children->next->next,
-                    e))
+            if (child->children->next->next == NULL
+                    ? ncache__gen_name(vcache, child->children, e)
+                    : ncache__statement(
+                        syntax,
+                        vcache,
+                        child->children->next->next,
+                        e))
                 return e->nr;
         }
         return e->nr;

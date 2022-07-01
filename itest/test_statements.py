@@ -249,21 +249,21 @@ class TestStatements(TestBase):
             str(x);
         """)
         self.assertEqual(res, """|| {
-    if (true) 0 else 1;
-    if (1) {
-        0;
-    } else {
-        1;
-    };
-    if (x) return {
-        x;
-    } else {
-        return y;
-    };
-    return {
-        1;
-    }, 0;
-}""")
+  if (true) 0 else 1;
+  if (1) {
+    0;
+  } else {
+    1;
+  };
+  if (x) return {
+    x;
+  } else {
+    return y;
+  };
+  return {
+    1;
+  }, 0;
+}""".replace('  ', '\t'))
         res = await client.query("""//ti
             new_procedure('x', .x);
             .x;
@@ -285,10 +285,10 @@ class TestStatements(TestBase):
             str(y);
         """)
         self.assertEqual(res, """|| {
-    for (x, y in range(10)) {
-        if (x < 3) continue else break;
-    };
-}""")
+  for (x, y in range(10)) {
+    if (x < 3) continue else break;
+  };
+}""".replace('  ', '\t'))
         res = await client.query("""//ti
             new_procedure('y', .y);
             .y;
@@ -319,21 +319,21 @@ class TestStatements(TestBase):
             procedure_info('x').load().definition;
         """)
         self.assertEqual(res, """|| {
-    if (true) 0 else 1;
-    if (1) {
-        0;
-    } else {
-        1;
-    };
-    if (x) return {
-        x;
-    } else {
-        return y;
-    };
-    return {
-        1;
-    }, 0;
-}""")
+  if (true) 0 else 1;
+  if (1) {
+    0;
+  } else {
+    1;
+  };
+  if (x) return {
+    x;
+  } else {
+    return y;
+  };
+  return {
+    1;
+  }, 0;
+}""".replace('  ', '\t'))
         res = await client1.query("""//ti
             .y;
         """)
@@ -345,10 +345,10 @@ class TestStatements(TestBase):
             procedure_info('y').load().definition;
         """)
         self.assertEqual(res, """|| {
-    for (x, y in range(10)) {
-        if (x < 3) continue else break;
-    };
-}""")
+  for (x, y in range(10)) {
+    if (x < 3) continue else break;
+  };
+}""".replace('  ', '\t'))
 
 
 if __name__ == '__main__':

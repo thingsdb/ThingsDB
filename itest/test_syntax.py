@@ -106,6 +106,49 @@ nil;}""")
                 1.2.3;
             """)
 
+    async def test_short_syntax(self, client):
+        await client.query("""//ti
+            set_type('Person', {
+                name: 'str',
+                age: 'int',
+            });
+            .test = |name, age| [
+                {name:, age:},
+                {name: name, age: age},
+                Person{name:, age:},
+                Person{name: name, age: age}
+            ];
+        """)
+
+        res = await client.query("""//ti
+            .test('Iris', 9);
+        """)
+        self.assertEqual(res, [
+            {'name': 'Iris', 'age': 9} for _ in range(4)
+        ])
+
+        res = await client.query('str(.test)')
+        self.assertEqual(res, """
+|name, age| [
+  {
+    name:,
+    age:,
+  },
+  {
+    name: name,
+    age: age,
+  },
+  Person{
+    name:,
+    age:,
+  },
+  Person{
+    name: name,
+    age: age,
+  },
+]
+""".strip().replace('  ', '\t'))
+
 
 if __name__ == '__main__':
     run_test(TestSyntax())

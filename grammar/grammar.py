@@ -88,7 +88,7 @@ class LangDef(Grammar):
 
     closure = Sequence(x_closure, List(var), '|', THIS)
 
-    thing = Sequence(x_thing, List(Sequence(name, ':', THIS)), '}')
+    thing = Sequence(x_thing, List(Sequence(name, ':', Optional(THIS))), '}')
     array = Sequence(x_array, List(THIS), ']')
     function = Sequence(x_function, List(THIS), ')')
     instance = Repeat(thing, mi=1, ma=1)  # will be exported as `cleri_dup_t`

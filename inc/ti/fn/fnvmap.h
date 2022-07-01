@@ -52,14 +52,14 @@ static int do__f_vmap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_thing_is_dict(othing))
     {
+        nthing = ti_thing_i_create(0, query->collection);
+
         vmap__walk_i_t w = {
                 .closure = closure,
                 .e = e,
                 .query = query,
                 .thing = nthing,
         };
-
-        nthing = ti_thing_i_create(0, query->collection);
 
         if (!nthing || smap_values(
                 othing->items.smap,

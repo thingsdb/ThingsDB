@@ -24,10 +24,7 @@ static int do__f_clear(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ti_thing_t * thing = (ti_thing_t *) val;
         n = ti_thing_n(thing);
-        if (ti_thing_is_dict(thing))
-            smap_clear(thing->items.smap, (smap_destroy_cb) ti_item_destroy);
-        else
-            vec_clear_cb(thing->items.vec, (vec_destroy_cb) ti_prop_destroy);
+        ti_thing_clear(thing);  /* always an object in this case */
 
         if (n && thing->id)
         {

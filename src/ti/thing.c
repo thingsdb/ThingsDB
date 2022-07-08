@@ -201,25 +201,18 @@ void ti_thing_clear(ti_thing_t * thing)
     if (ti_thing_is_object(thing))
     {
         if (ti_thing_is_dict(thing))
-        {
             smap_clear(thing->items.smap, (smap_destroy_cb) ti_item_destroy);
-        }
         else
-        {
-            ti_prop_t * prop;
-            while ((prop = vec_pop(thing->items.vec)))
-                ti_prop_destroy(prop);
-        }
+            vec_clear_cb(thing->items.vec, (vec_destroy_cb) ti_prop_destroy);
     }
     else
     {
-        ti_val_t * val;
-        while ((val = vec_pop(thing->items.vec)))
-            ti_val_unsafe_gc_drop(val);
+        vec_clear_cb(thing->items.vec, (vec_destroy_cb) ti_val_unsafe_gc_drop);
 
         /* convert to a simple object since the thing is not type
          * compliant anymore */
         thing->type_id = TI_SPEC_OBJECT;
+        thing->via.spec = TI_SPEC_ANY;
     }
 }
 

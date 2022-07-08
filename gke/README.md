@@ -330,7 +330,7 @@ The output will be something similar to this:
 Set a pod disruption budget to make sure high availability while managing Kubernetes nodes.
 
 ```yaml
-apiVersion: policy/v1beta1
+apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: thingsdb-pdb

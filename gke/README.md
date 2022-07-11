@@ -58,7 +58,7 @@ To create a service account:
 1. Open [Service accounts](https://console.cloud.google.com/iam-admin/serviceaccounts) on the Google Cloud Platform.
 2. Click `+ CREATE SERVICE ACCOUNT` to create a new service account.
 3. Enter a display name and service account ID, for example `thingsdb-sa`. (optionally enter a description)
-4. On the next screen, select the role `Storage Object Creator` which should be sufficient for writing objects to Google Cloud Storage.
+4. On the next screen, select the role `Storage Object Admin` which is required for writing and deleting objects to and from Google Cloud Storage.
 5. We do not require to grant users access to the service account. In addition, leave the *user* and *admin* roles empty and press `DONE`.
 6. At this point, the service account is created and by using the action `Create key` we can create our key file.
 7. Choose `JSON` as the key type and you are done.

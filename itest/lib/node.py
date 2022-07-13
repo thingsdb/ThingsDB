@@ -58,6 +58,7 @@ class Node:
         self.ip_support = options.pop('ip_support', 'ALL')
         self.pipe_client_name = options.pop('pipe_client_name', None)
         self.threshold_full_storage = options.pop('threshold_full_storage', 10)
+        self.gcloud_key_file = options.pop('gcloud_key_file', None)
 
         self.storage_path = os.path.join(THINGSDB_TESTDIR, f'tdb{n}')
         self.cfgfile = os.path.join(THINGSDB_TESTDIR, f't{n}.conf')
@@ -162,6 +163,9 @@ class Node:
 
         if self.pipe_client_name is not None:
             config.set('thingsdb', 'pipe_client_name',  self.pipe_client_name)
+
+        if self.gcloud_key_file is not None:
+            config.set('thingsdb', 'gcloud_key_file',  self.gcloud_key_file)
 
         config.set('thingsdb', 'storage_path', self.storage_path)
 

@@ -281,6 +281,8 @@ static void backups__run(uint64_t backup_id, const char * backup_task)
     buf_t buf;
     buf_init(&buf);
 
+    log_debug(backup_task);
+
     fp = popen(backup_task, "r");
     if (!fp)
     {
@@ -296,6 +298,8 @@ static void backups__run(uint64_t backup_id, const char * backup_task)
         }
 
         rc = pclose(fp);
+
+        log_debug("%.*s", buf.len, buf.data);
 
         if (rc == 0)
         {

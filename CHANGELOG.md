@@ -1,3 +1,7 @@
+# v1.2.8
+
+* Fixed gcloud backup return message when failed, issue #288.
+
 # v1.2.7
 
 * Reduce indentation from four spaces to a single `TAB`, issue #284.

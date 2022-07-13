@@ -21,7 +21,10 @@ class TestBackup(TestBase):
 
     title = 'Test backup'
 
-    @default_test_setup(num_nodes=2, seed=1, threshold_full_storage=100)
+    @default_test_setup(
+        num_nodes=2, seed=1,
+        threshold_full_storage=100,
+        gcloud_key_file='/tmp/_test_ti.json')
     async def run(self):
 
         await self.node0.init_and_run()
@@ -117,6 +120,21 @@ class TestBackup(TestBase):
         bar = await client.query('.foo;', scope='//stuff')
 
         self.assertEqual(bar, 'bar')
+
+    async def test_error_gcs(self, client):
+        # bug #288
+        backup_id = await client.query("""//ti
+            new_backup('gs://some_bucket/some_file.tar.gz');
+        """)
+
+        # in 50 seconds both nodes should have been in `away` mode
+        await asyncio.sleep(50)
+
+        res = await client.query("""//ti
+            backup_info(backup_id);
+        """, backup_id=backup_id)
+
+        self.assertEqual(res['result_message'][:5], 'ERROR')
 
 
 if __name__ == '__main__':

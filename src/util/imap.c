@@ -217,6 +217,40 @@ void * imap_get(imap_t * imap, uint64_t id)
     return NULL;
 }
 
+void * imap__one(imap_node_t * node)
+{
+    imap_node_t * nd = node->nodes, * end = nd + imap__node_size(node);
+    do
+    {
+        if (nd->data)
+            return  nd->data;
+
+        if (nd->nodes)
+            return imap__one(nd);
+    }
+    while (++nd < end);
+    assert(0);  /* should always have data */
+    return NULL;
+}
+
+void * imap_one(imap_t * imap)
+{
+    if (imap->n)
+    {
+        imap_node_t * nd = imap->nodes, * end = nd + IMAP_NODE_SZ;
+        do
+        {
+            if (nd->data)
+                return  nd->data;
+
+            if (nd->nodes)
+                return imap__one(nd);
+        }
+        while (++nd < end);
+    }
+    return NULL;
+}
+
 /*
  * Remove and return an item by id or return NULL in case the id is not found.
  */

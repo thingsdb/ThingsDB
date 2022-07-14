@@ -148,6 +148,7 @@
 #include <ti/fn/fnnodeinfo.h>
 #include <ti/fn/fnnodesinfo.h>
 #include <ti/fn/fnnow.h>
+#include <ti/fn/fnone.h>
 #include <ti/fn/fnowner.h>
 #include <ti/fn/fnpop.h>
 #include <ti/fn/fnproceduredoc.h>
@@ -265,7 +266,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 240,
+    TOTAL_KEYWORDS = 241,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 5,
@@ -291,7 +292,7 @@ static inline unsigned int qbind__hash(
         585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
         585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
         585, 585, 585, 585, 585,   0, 585,   8,  17,  43,
-         23,   2, 102, 278, 125,   0,   1,  57,  16,  25,
+         23,   2, 102, 278, 125,   0,  10,  57,  16,  25,
          11,  31, 127,  46,   0,   0,   6,  44, 177, 211,
         229, 204,  23, 585, 585, 585, 585, 585, 585, 585,
         585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
@@ -599,6 +600,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="nodes_info",        .fn=do__f_nodes_info,           ROOT_NE},
     {.name="now",               .fn=do__f_now,                  ROOT_NE},
     {.name="num_arguments_err", .fn=do__f_num_arguments_err,    ROOT_NE},
+    {.name="one",               .fn=do__f_one,                  CHAIN_NE},
     {.name="operation_err",     .fn=do__f_operation_err,        ROOT_NE},
     {.name="overflow_err",      .fn=do__f_overflow_err,         ROOT_NE},
     {.name="owner",             .fn=do__f_owner,                CHAIN_NE},

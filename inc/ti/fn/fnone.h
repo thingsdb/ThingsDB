@@ -13,7 +13,6 @@ static int do__f_one(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     vset = (ti_vset_t *) query->rval;
-
     value = imap_one(vset->imap);
 
     if (!value)

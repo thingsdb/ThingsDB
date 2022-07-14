@@ -2934,12 +2934,36 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(res, "a")
 
         values = set()
-        for _ in range(200):
+        for _ in range(300):
             values.add(await client.query('["a", "b", "c"].choice();'))
         self.assertEqual(3, len(values))
         self.assertIn("a", values)
         self.assertIn("b", values)
         self.assertIn('c', values)
+
+    async def test_one(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `list` has no function `one`'):
+            await client.query('list().one();')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `one` is undefined'):
+            await client.query('one();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `one` takes 0 arguments but 2 were given'):
+            await client.query('set({}).one(1, 2);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'one from empty set'):
+            await client.query('set().one();')
+
+        res = await client.query(r'set({a: 1}).one();')
+        self.assertEqual(res, {"a": 1})
 
     async def test_reduce(self, client):
         arr = [2, 3, 5, 7, 11]

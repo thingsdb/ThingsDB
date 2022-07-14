@@ -134,7 +134,7 @@ class TestBackup(TestBase):
             backup_info(backup_id);
         """, backup_id=backup_id)
 
-        self.assertEqual(res['result_message'][:5], 'ERROR')
+        self.assertNotEqual(res['result_code'], 0)
 
 
 if __name__ == '__main__':

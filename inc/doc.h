@@ -237,6 +237,7 @@
 #define DOC_SET_HAS                 DOC_SEE("data-types/set/has")
 #define DOC_SET_LEN                 DOC_SEE("data-types/set/len")
 #define DOC_SET_MAP                 DOC_SEE("data-types/set/map")
+#define DOC_SET_ONE                 DOC_SEE("data-types/set/one")
 #define DOC_SET_REDUCE              DOC_SEE("data-types/set/reduce")
 #define DOC_SET_REMOVE              DOC_SEE("data-types/set/remove")
 #define DOC_SET_RESTRICTION         DOC_SEE("data-types/set/restriction")

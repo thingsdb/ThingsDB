@@ -32,6 +32,7 @@ void * imap_set(imap_t * imap, uint64_t id, void * data);
 int imap_add(imap_t * imap, uint64_t id, void * data);
 void * imap_get(imap_t * imap, uint64_t id);
 void * imap_pop(imap_t * imap, uint64_t id);
+void * imap_one(imap_t * imap);
 int imap_walk(imap_t * imap, imap_cb cb, void * arg);
 int imap_walk_cp(
         imap_t * imap,

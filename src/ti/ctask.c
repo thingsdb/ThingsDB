@@ -285,8 +285,9 @@ static int ctask__set(ti_thing_t * thing, mp_unp_t * up)
                     "cannot find field",
                     thing->id);
             goto fail;
-
         }
+        /* we no longer need the key */
+        ti_val_unsafe_drop((ti_val_t *) key);
 
         if (ti_field_make_assignable(field, &val, thing, &e))
         {

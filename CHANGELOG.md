@@ -2,6 +2,7 @@
 
 * Fixed gcloud backup return message when failed, issue #288.
 * Added `one()` function, pr #290.
+* Fixed potential memory leak with keys, issue #291.
 
 # v1.2.7
 

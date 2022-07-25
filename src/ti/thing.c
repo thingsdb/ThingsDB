@@ -510,7 +510,7 @@ ti_prop_t * ti_thing_p_prop_set(
 /*
  * Does not increment the `name` and `val` reference counters.
  */
-ti_item_t * ti_thing_i_item_set(
+ti_item_t* ti_thing_i_item_set(
         ti_thing_t * thing,
         ti_raw_t * key,
         ti_val_t * val)
@@ -524,6 +524,10 @@ ti_item_t * ti_thing_i_item_set(
         /*
          * The key is equal, so we do not have to anything with the key.
          */
+
+        /* bug #291 */
+        ti_val_unsafe_drop((ti_val_t *) key);
+
         ti_val_unsafe_gc_drop(item->val);
         item->val = val;
         return item;

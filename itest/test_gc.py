@@ -120,6 +120,13 @@ class TestGC(TestBase):
             .del('x');
         ''', scope=stuff)
 
+        # bug #291
+        await client.query(r"""//ti
+            .t = thing();
+            .t['this is a test'] = 'abc';
+            .t['this is a test'] = 'def';
+        """, scope=stuff)
+
         # add another node so away node and gc is forced
         await self.node1.join_until_ready(client)
 

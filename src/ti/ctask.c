@@ -286,7 +286,7 @@ static int ctask__set(ti_thing_t * thing, mp_unp_t * up)
                     thing->id);
             goto fail;
         }
-        /* we no longer need the key */
+        /* we no longer need the key, bug #291 (see extra comment issue) */
         ti_val_unsafe_drop((ti_val_t *) key);
 
         if (ti_field_make_assignable(field, &val, thing, &e))

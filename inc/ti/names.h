@@ -13,6 +13,7 @@
 extern smap_t * names;
 
 int ti_names_create(void);
+_Bool ti_names_no_ref(void);
 void ti_names_destroy(void);
 void ti_names_inject_common(void);
 ti_name_t * ti_names_new(const char * str, size_t n);

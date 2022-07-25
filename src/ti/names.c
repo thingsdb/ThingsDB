@@ -18,6 +18,16 @@ int ti_names_create(void)
     return -(names == NULL);
 }
 
+int names__no_ref_cb(ti_name_t * name, void * UNUSED(arg))
+{
+    return name->ref == 1 ? 0 : -1;
+}
+
+_Bool ti_names_no_ref(void)
+{
+    return smap_values(names, (smap_val_cb) names__no_ref_cb, NULL) == 0;
+}
+
 void ti_names_destroy(void)
 {
     if (!names)

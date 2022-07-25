@@ -164,6 +164,9 @@ void ti_destroy(void)
     /* remove late since counters can be updated */
     ti_counters_destroy();
 
+    /* sanity check to see if names are removed as expected; */
+    assert(ti_names_no_ref());
+
     /* names must be removed late since they are
      * used by for example procedures */
     ti_names_destroy();

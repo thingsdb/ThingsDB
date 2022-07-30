@@ -1,3 +1,7 @@
+# v1.2.9
+
+* Fixef rename type when used with restricted things, issue #292.
+
 # v1.2.8
 
 * Fixed gcloud backup return message when failed, issue #288.

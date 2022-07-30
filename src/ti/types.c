@@ -105,20 +105,24 @@ static int types__rename_cb(ti_type_t * type, types__rename_t * w)
         else if ((field->nested_spec & TI_SPEC_MASK_NILLABLE) == w->id)
         {
             ti_raw_t * spec_raw;
-            char begin, end;
-            if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ARR)
+            uint16_t spec = field->spec & TI_SPEC_MASK_NILLABLE;
+            char * begin, end;
+            switch (spec)
             {
-                begin = '[';
+            case TI_SPEC_ARR:
+                begin = "[";
                 end = ']';
-            }
-            else
-            {
-                assert((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET);
-                begin = '{';
+                break;
+            case TI_SPEC_SET:
+                begin = "{";
                 end = '}';
+                break;
+            case TI_SPEC_OBJECT:
+                begin = "thing<";
+                end = '>';
             }
             spec_raw = ti_str_from_fmt(
-                    "%c%.*s%s%c%s",
+                    "%s%.*s%s%c%s",
                     begin,
                     w->nname->n,
                     (const char *) w->nname->data,

@@ -1975,6 +1975,95 @@ new_procedure('multiply', |a, b| a * b);
                 mod_type('A', 'add', prop, 'A?');
             """, prop='too_much')
 
+    async def test_ren_type_typed(self, client):
+        # bug #292 (rename with a restricted type)
+        await client.query(r"""//ti
+            new_type('A');
+            new_type('B');
+            new_type('C');
+            new_type('D');
+
+            set_type('A', {
+                a: 'A?',
+                b: 'B',
+                ta: 'thing<A>',
+                tb: 'thing<B>?',
+                tc: 'thing<C?>',
+                td: 'thing<D?>?',
+                la: '[A]',
+                lb: '[B]?',
+                lc: '[C?]',
+                ld: '[D?]?',
+                sa: '{A}',
+                sb: '{B}?',
+            });
+        """)
+
+        aa = await client.query(r"""//ti
+            set_type('W', {
+                name: 'any',
+                fields: 'any'
+            });
+            rename_type('A', 'AA');
+            rename_type('B', 'BB');
+            rename_type('C', 'CC');
+            rename_type('D', 'DD');
+            type_info('AA').load().wrap('W'));
+        """)
+        self.assertEqual(types_info, {
+            "fields": [
+                [
+                    "a",
+                    "AA?"
+                ],
+                [
+                    "b",
+                    "BB"
+                ],
+                [
+                    "ta",
+                    "thing<AA>"
+                ],
+                [
+                    "tb",
+                    "thing<BB>?"
+                ],
+                [
+                    "tc",
+                    "thing<CC?>"
+                ],
+                [
+                    "td",
+                    "thing<DD?>?"
+                ],
+                [
+                    "la",
+                    "[AA]"
+                ],
+                [
+                    "lb",
+                    "[BB]?"
+                ],
+                [
+                    "lc",
+                    "[CC?]"
+                ],
+                [
+                    "ld",
+                    "[DD?]?"
+                ],
+                [
+                    "sa",
+                    "{AA}"
+                ],
+                [
+                    "sb",
+                    "{BB}?"
+                ]
+            ],
+            "name": "AA"
+        })
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

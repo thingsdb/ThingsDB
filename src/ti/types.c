@@ -120,6 +120,11 @@ static int types__rename_cb(ti_type_t * type, types__rename_t * w)
             case TI_SPEC_OBJECT:
                 begin = "thing<";
                 end = '>';
+                break;
+            default:
+                assert(0);
+                begin = "";
+                end = '_';
             }
             spec_raw = ti_str_from_fmt(
                     "%s%.*s%s%c%s",

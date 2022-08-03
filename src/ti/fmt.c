@@ -497,12 +497,20 @@ static int fmt__if_statement(ti_fmt_t * fmt, cleri_node_t * nd)
 static int fmt__return_statement(ti_fmt_t * fmt, cleri_node_t * nd)
 {
     if (buf_append_str(&fmt->buf, "return ") ||
-            fmt__statement(fmt, nd->children->next))
+            fmt__statement(fmt, nd->children->next->children))
         return -1;
 
-    return nd->children->data
+    nd = (cleri_node_t *) nd->children->data;
+
+    if (!nd)
+        return 0;
+
+    if ((buf_append_str(&fmt->buf, ", ") || fmt__statement(fmt, nd)))
+        return -1;
+
+    return nd->next
         ? (buf_append_str(&fmt->buf, ", ") ||
-                fmt__statement(fmt, nd->children->data))
+                fmt__statement(fmt, nd->next->next))
         : 0;
 }
 

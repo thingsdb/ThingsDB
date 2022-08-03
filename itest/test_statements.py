@@ -237,6 +237,36 @@ class TestStatements(TestBase):
         """)
         self.assertEqual(res, {'c': 2})
 
+    async def test_return_flags(self, client):
+        res = await client.query("""//ti
+            set_type('A', {
+                nested: 'thing'
+            });
+            .a = A();
+            return .a, 2, NO_IDS;
+        """)
+        self.assertEqual(res, {nested: {}})
+
+        res = await client.query("""//ti
+            set_type('A', {
+                nested: 'thing'
+            });
+            .a = A();
+            return .a, 2, 1;
+        """)
+        self.assertIn('#', res)
+        self.assertIn('#', res['nested'])
+
+        res = await client.query("""//ti
+            str(|| return 'value', 0, NO_IDS);
+        """)
+        self.assertEqual(res, 'xxx')
+
+        res = await client.query("""//ti
+            || return 'value', 0, NO_IDS;
+        """)
+        self.assertEqual(res, 'xxx')
+
     async def test_format(self, client):
         res = await client.query("""//ti
             x = || {

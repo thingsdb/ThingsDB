@@ -4,6 +4,7 @@
 #include <ex.h>
 #include <stdlib.h>
 #include <ti.h>
+#include <ti/flags.h>
 #include <ti/fn/fn.h>
 #include <ti/future.h>
 #include <ti/future.inline.h>
@@ -185,8 +186,9 @@ static void module__cb(ti_future_t * future)
     /*
      * Add 1 to the `deep` value as we do not count the object itself towards
      * the `deep` value.
+     * Future have fixed pack flags; thus always with ID's etc.
      */
-    if (ti_thing_to_client_pk(thing, &vp, ti_future_deep(future) + 1))
+    if (ti_thing_to_client_pk(thing, &vp, ti_future_deep(future) + 1, 0))
         goto mem_error1;
 
     future->pkg = (ti_pkg_t *) buffer.data;
@@ -230,7 +232,7 @@ ti_pkg_t * ti_module_conf_pkg(ti_val_t * val, ti_query_t * query)
      * Module configuration will be packed 3 levels deep. This is a fixed
      * setting and should be sufficient to configure a module.
      */
-    if (ti_val_to_client_pk(val, &vp, 3))
+    if (ti_val_to_client_pk(val, &vp, 3, TI_FLAGS_NO_IDS))
     {
         msgpack_sbuffer_destroy(&buffer);
         return NULL;
@@ -1417,7 +1419,7 @@ static int module__info_to_vp(ti_module_t * module, ti_vp_t * vp, int flags)
         if (manifest->defaults)
             for (vec_each(manifest->defaults, ti_item_t, item))
                 if (mp_pack_strn(pk, item->key->data, item->key->n) ||
-                    ti_val_to_client_pk(item->val, vp, TI_MAX_DEEP))
+                    ti_val_to_client_pk(item->val, vp, TI_MAX_DEEP, 0))
                     return -1;
     }
 

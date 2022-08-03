@@ -40,7 +40,7 @@ class TestType(TestBase):
     async def test_wrap_only(self, client):
         self.assertFalse(await client.query(r'''
             try(set_type('X', {arr: '[str?]'}, {1/0}));
-            /* tests if type is correctly broken down on error */
+            // tests if type is correctly broken down on error
             has_type('X');
         '''))
 

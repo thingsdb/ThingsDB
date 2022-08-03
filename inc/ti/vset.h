@@ -18,7 +18,7 @@ typedef struct ti_vset_s ti_vset_t;
 
 ti_vset_t * ti_vset_create(void);
 void ti_vset_destroy(ti_vset_t * vset);
-int ti_vset_to_client_pk(ti_vset_t * vset, ti_vp_t * vp, int deep);
+int ti_vset_to_client_pk(ti_vset_t * vset, ti_vp_t * vp, int deep, int flags);
 int ti_vset_to_store_pk(ti_vset_t * vset, msgpack_packer * pk);
 int ti_vset_to_list(ti_vset_t ** vsetaddr);
 int ti_vset_to_tuple(ti_vset_t ** vsetaddr);

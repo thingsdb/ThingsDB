@@ -118,7 +118,7 @@ static inline const char * val__future_type_str(ti_val_t * UNUSED(val))
     return TI_VAL_FUTURE_S;
 }
 
-static inline int val__nil_to_client_pk(ti_val_t * UNUSED(v), ti_vp_t * vp, int UNUSED(d))
+static inline int val__nil_to_client_pk(ti_val_t * UNUSED(v), ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
 {
     return msgpack_pack_nil(&vp->pk);
 }
@@ -126,7 +126,7 @@ static inline int val__nil_to_store_pk(ti_val_t * UNUSED(v), msgpack_packer * pk
 {
     return msgpack_pack_nil(pk);
 }
-static inline int val__int_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d))
+static inline int val__int_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
 {
     return msgpack_pack_int64(&vp->pk, VINT(val));
 }
@@ -134,7 +134,7 @@ static inline int val__int_to_store_pk(ti_val_t * val, msgpack_packer * pk)
 {
     return msgpack_pack_int64(pk, VINT(val));
 }
-static inline int val__float_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d))
+static inline int val__float_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
 {
     return msgpack_pack_double(&vp->pk, VFLOAT(val));
 }
@@ -142,50 +142,50 @@ static inline int val__float_to_store_pk(ti_val_t * val, msgpack_packer * pk)
 {
     return msgpack_pack_double(pk, VFLOAT(val));
 }
-static inline int val__bool_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d))
+static inline int val__bool_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_vbool_to_pk((ti_vbool_t *) val, &vp->pk);
 }
-static inline int val__datetime_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d))
+static inline int val__datetime_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_datetime_to_client_pk((ti_datetime_t *) val, &vp->pk);
 }
-static inline int val__str_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d))
+static inline int val__str_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_raw_str_to_pk((ti_raw_t *) val, &vp->pk);
 }
-static inline int val__bytes_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d))
+static inline int val__bytes_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_raw_bytes_to_pk((ti_raw_t *) val, &vp->pk);
 }
-static inline int val__regex_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d))
+static inline int val__regex_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_regex_to_client_pk((ti_regex_t *) val, &vp->pk);
 }
-static inline int val__room_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d))
+static inline int val__room_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_room_to_client_pk((ti_room_t *) val, &vp->pk);
 }
-static inline int val__task_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d))
+static inline int val__task_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_vtask_to_client_pk((ti_vtask_t *) val, &vp->pk);
 }
-static inline int val__error_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d))
+static inline int val__error_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_verror_to_client_pk((ti_verror_t *) val, &vp->pk);
 }
-static inline int val__mpdata_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d))
+static inline int val__mpdata_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_raw_mpdata_to_client_pk((ti_raw_t *) val, &vp->pk);
 }
-static inline int val__closure_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d))
+static inline int val__closure_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_closure_to_client_pk((ti_closure_t *) val, &vp->pk);
 }
-static inline int val__future_to_pk(ti_future_t * future, ti_vp_t * vp, int deep);
-static inline int val__member_to_client_pk(ti_member_t * member, ti_vp_t * vp, int deep);
+static inline int val__future_to_client_pk(ti_future_t * future, ti_vp_t * vp, int deep, int flags);
+static inline int val__member_to_client_pk(ti_member_t * member, ti_vp_t * vp, int deep, int flags);
 static inline int val__member_to_store_pk(ti_member_t * member, msgpack_packer * pk);
-static inline int val__varr_to_client_pk(ti_varr_t * varr, ti_vp_t * vp, int deep);
+static inline int val__varr_to_client_pk(ti_varr_t * varr, ti_vp_t * vp, int deep, int flags);
 static inline int val__varr_to_store_pk(ti_varr_t * varr, msgpack_packer * pk);
 
 static inline int val__to_arr_cb(ti_val_t ** UNUSED(v), ti_varr_t * UNUSED(varr), ex_t * UNUSED(e))
@@ -238,7 +238,7 @@ static inline int val__closure_to_arr(ti_val_t ** v, ti_varr_t * UNUSED(varr), e
 typedef void (*ti_val_destroy_cb) (ti_val_t *);
 typedef int (*ti_val_to_str_cb) (ti_val_t **, ex_t *);
 typedef int (*ti_val_to_arr_cb) (ti_val_t ** v, ti_varr_t * varr, ex_t * e);
-typedef int (*ti_val_to_client_pk_cb) (ti_val_t *, ti_vp_t *, int);
+typedef int (*ti_val_to_client_pk_cb) (ti_val_t *, ti_vp_t *, int, int);
 typedef int (*ti_val_to_store_pk_cb) (ti_val_t *, msgpack_packer * pk);
 typedef const char * (*ti_val_type_str_cb) (ti_val_t *);
 
@@ -450,7 +450,7 @@ static ti_val_type_t ti_val_type_props[21] = {
         .destroy = (ti_val_destroy_cb) ti_future_destroy,
         .to_str = val__no_to_str,
         .to_arr_cb = val__future_to_arr,
-        .to_client_pk = (ti_val_to_client_pk_cb) val__future_to_pk,
+        .to_client_pk = (ti_val_to_client_pk_cb) val__future_to_client_pk,
         .get_type_str = val__future_type_str,
         .allowed_as_vtask_arg = false,
     },
@@ -468,9 +468,9 @@ static inline const char * ti_val_str(ti_val_t * val)
     return ti_val(val)->get_type_str(val);
 }
 
-static inline int ti_val_to_client_pk(ti_val_t * val, ti_vp_t * vp, int deep)
+static inline int ti_val_to_client_pk(ti_val_t * val, ti_vp_t * vp, int deep, int flags)
 {
-    return ti_val(val)->to_client_pk(val, vp, deep);
+    return ti_val(val)->to_client_pk(val, vp, deep, flags);
 }
 
 static inline int ti_val_to_store_pk(ti_val_t * val, msgpack_packer * pk)
@@ -804,6 +804,11 @@ static inline ti_val_t * ti_val_borrow_deep_name(void)
     return val__deep_name;
 }
 
+static inline ti_val_t * ti_val_borrow_flags_name(void)
+{
+    return val__flags_name;
+}
+
 static inline ti_val_t * ti_val_borrow_load_name(void)
 {
     return val__load_name;
@@ -1068,17 +1073,17 @@ static inline int val__no_to_str(ti_val_t ** val, ex_t * e)
     return e->nr;
 }
 
-static inline int val__future_to_pk(ti_future_t * future, ti_vp_t * vp, int deep)
+static inline int val__future_to_client_pk(ti_future_t * future, ti_vp_t * vp, int deep, int flags)
 {
     /* Only for client to pk */
     return future->rval
-            ? ti_val_to_client_pk(future->rval, vp, deep)
+            ? ti_val_to_client_pk(future->rval, vp, deep, flags)
             : msgpack_pack_nil(&vp->pk);
 }
 
-static inline int val__member_to_client_pk(ti_member_t * member, ti_vp_t * vp, int deep)
+static inline int val__member_to_client_pk(ti_member_t * member, ti_vp_t * vp, int deep, int flags)
 {
-    return ti_val(member->val)->to_client_pk(member->val, vp, deep);
+    return ti_val(member->val)->to_client_pk(member->val, vp, deep, flags);
 }
 
 static inline int val__member_to_store_pk(ti_member_t * member, msgpack_packer * pk)
@@ -1092,12 +1097,12 @@ static inline int val__member_to_store_pk(ti_member_t * member, msgpack_packer *
     );
 }
 
-static inline int val__varr_to_client_pk(ti_varr_t * varr, ti_vp_t * vp, int deep)
+static inline int val__varr_to_client_pk(ti_varr_t * varr, ti_vp_t * vp, int deep, int flags)
 {
     if (msgpack_pack_array(&vp->pk, varr->vec->n))
         return -1;
     for (vec_each(varr->vec, ti_val_t, v))
-        if (ti_val_to_client_pk(v, vp, deep))
+        if (ti_val_to_client_pk(v, vp, deep, flags))
             return -1;
     return 0;
 }

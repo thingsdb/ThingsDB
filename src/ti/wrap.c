@@ -53,23 +53,26 @@ typedef struct
     uint16_t spec;
     uint16_t _pad0;
     int deep;
+    int flags;
 } wrap__walk_t;
 
 static int wrap__walk(ti_thing_t * thing, wrap__walk_t * w)
 {
-    return ti__wrap_field_thing(thing, w->vp, w->spec, w->deep);
+    return ti__wrap_field_thing(thing, w->vp, w->spec, w->deep, w->flags);
 }
 
 static int wrap__set(
         ti_vset_t * vset,
         ti_vp_t * vp,
         uint16_t spec,
-        int deep)
+        int deep,
+        int flags)
 {
     wrap__walk_t w = {
             .vp = vp,
             .spec = spec,
             .deep = deep,
+            .flags = flags,
     };
 
     return (
@@ -83,7 +86,8 @@ static int wrap__field_val(
         uint16_t * spec,    /* points to t_field->spec or t_field->nested */
         ti_val_t * val,
         ti_vp_t * vp,
-        int deep)
+        int deep,
+        int flags)
 {
     switch ((ti_val_enum) val->tp)
     {
@@ -109,13 +113,15 @@ static int wrap__field_val(
                 (ti_thing_t *) val,
                 vp,
                 *spec,
-                deep);
+                deep,
+                flags);
     case TI_VAL_WRAP:
         return ti__wrap_field_thing(
                 ((ti_wrap_t *) val)->thing,
                 vp,
                 *spec,
-                deep);
+                deep,
+                flags);
     case TI_VAL_ROOM:
         return ti_room_to_client_pk((ti_room_t *) val, &vp->pk);
     case TI_VAL_TASK:
@@ -132,7 +138,8 @@ static int wrap__field_val(
                     &t_field->nested_spec,
                     v,
                     vp,
-                    deep))
+                    deep,
+                    flags))
                 return -1;
         }
         return 0;
@@ -142,7 +149,8 @@ static int wrap__field_val(
                 (ti_vset_t *) val,
                 vp,
                 t_field->nested_spec,
-                deep);
+                deep,
+                flags);
     case TI_VAL_ERROR:
         return ti_verror_to_client_pk((ti_verror_t *) val, &vp->pk);
     case TI_VAL_MEMBER:
@@ -151,7 +159,8 @@ static int wrap__field_val(
                 spec,
                 VMEMBER(val),
                 vp,
-                deep);
+                deep,
+                flags);
     case TI_VAL_MPDATA:
         return ti_raw_mpdata_to_client_pk((ti_raw_t *) val, &vp->pk);
     case TI_VAL_CLOSURE:
@@ -163,7 +172,8 @@ static int wrap__field_val(
                         spec,
                         VFUT(val),
                         vp,
-                        deep)
+                        deep,
+                        flags)
                 : msgpack_pack_nil(&vp->pk);
     case TI_VAL_TEMPLATE:
         break;
@@ -207,7 +217,7 @@ int ti__wrap_methods_to_pk_no_query(ti_type_t * t_type, ti_vp_t * vp)
                 &vp->pk,
                 method->name->str,
                 method->name->n) ||
-            ti_val_to_client_pk(val, vp, 1)
+            ti_val_to_client_pk(val, vp, 1, 0)
         );
 
         if (rc)
@@ -222,17 +232,21 @@ int ti__wrap_methods_to_pk(
         ti_type_t * t_type,
         ti_thing_t * thing,
         ti_vp_t * vp,
-        int deep)
+        int deep,
+        int flags)
 {
     int rc = 0;
     ex_t e = {0};
     ti_val_t * rval = vp->query->rval;
-    uint8_t deep_ = vp->query->qbind.deep;
+    register const uint8_t deep_ = vp->query->qbind.deep;
+    register const uint8_t flags_ = vp->query->flags;
 
     for (vec_each(t_type->methods, ti_method_t, method))
     {
         vp->query->rval = NULL;
         vp->query->qbind.deep = (uint8_t) deep;
+        vp->query->flags = \
+                (uint8_t) ((vp->query->flags & TI_FLAGS_QUERY_MASK) | flags);
 
         if (method->closure->flags & TI_CLOSURE_FLAG_WSE)
         {
@@ -270,7 +284,11 @@ int ti__wrap_methods_to_pk(
                 &vp->pk,
                 method->name->str,
                 method->name->n) ||
-            ti_val_to_client_pk(vp->query->rval, vp, vp->query->qbind.deep);
+            ti_val_to_client_pk(
+                    vp->query->rval,
+                    vp,
+                    vp->query->qbind.deep,
+                    vp->query->flags);
 
         ti_val_unsafe_gc_drop(vp->query->rval);
 
@@ -279,6 +297,7 @@ int ti__wrap_methods_to_pk(
     }
 
     vp->query->qbind.deep = deep_;
+    vp->query->flags = flags_;
     vp->query->rval = rval;
     return rc;
 }
@@ -290,7 +309,8 @@ int ti__wrap_field_thing(
         ti_thing_t * thing,
         ti_vp_t * vp,
         uint16_t spec,
-        int deep)
+        int deep,
+        int flags)
 {
     size_t nm;
     ti_type_t * t_type;
@@ -303,7 +323,9 @@ int ti__wrap_field_thing(
      * Just return the ID when locked or if `deep` has reached zero.
      */
     if ((thing->flags & TI_VFLAG_LOCK) || !deep)
-        return ti_thing_id_to_client_pk(thing, &vp->pk);
+        return (!thing->id || (flags & TI_FLAGS_NO_IDS))
+            ? ti_thing_empty_to_client_pk(thing, &vp->pk)
+            : ti_thing_id_to_client_pk(thing, &vp->pk);
 
     /*
      * If `spec` is not a type or a none existing type (thus ANY or OBJECT),
@@ -311,7 +333,7 @@ int ti__wrap_field_thing(
      */
     if (spec >= TI_SPEC_ANY ||  /* TI_SPEC_ANY || TI_SPEC_OBJECT */
         !(t_type = ti_types_by_id(thing->collection->types, spec)))
-        return ti_thing__to_client_pk(thing, vp, deep);
+        return ti_thing__to_client_pk(thing, vp, deep, flags);
 
     /* decrement `deep` by one */
     --deep;
@@ -381,7 +403,8 @@ int ti__wrap_field_thing(
                         &map_get->field->spec,
                         map_get->prop->val,
                         vp,
-                        deep)
+                        deep,
+                        flags)
             ) {
                 free(map_props);
                 goto fail;
@@ -412,13 +435,14 @@ int ti__wrap_field_thing(
                         &mapping->t_field->spec,
                         VEC_get(thing->items.vec, mapping->f_field->idx),
                         vp,
-                        deep)
+                        deep,
+                        flags)
             ) goto fail;
         }
     }
 
     if (nm && (vp->query
-            ? ti__wrap_methods_to_pk(t_type, thing, vp, deep)
+            ? ti__wrap_methods_to_pk(t_type, thing, vp, deep, flags)
             : ti__wrap_methods_to_pk_no_query(t_type, vp)))
         goto fail;
 

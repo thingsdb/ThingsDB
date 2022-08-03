@@ -1544,9 +1544,7 @@ class TestAdvanced(TestBase):
 
     async def test_export(self, client):
         script = r'''
-/*
- * Enums
- */
+// Enums
 
 set_enum('B', {
   A: base64_decode('YUFh'),
@@ -1568,9 +1566,7 @@ set_enum('Str', {
   bq: 'Hi ''"Tess"''!',
 });
 
-/*
- * Types
- */
+// Types
 
 new_type('Friend');
 new_type('Person');
@@ -1585,9 +1581,7 @@ set_type('Person', {
 });
 
 
-/*
- * Procedures
- */
+// Procedures
 
 new_procedure('more', |a, b| {
   .answers.push(a * b);
@@ -2008,9 +2002,9 @@ new_procedure('multiply', |a, b| a * b);
             rename_type('B', 'BB');
             rename_type('C', 'CC');
             rename_type('D', 'DD');
-            type_info('AA').load().wrap('W'));
+            type_info('AA').load().wrap('W');
         """)
-        self.assertEqual(types_info, {
+        self.assertEqual(aa, {
             "fields": [
                 [
                     "a",
@@ -2063,6 +2057,18 @@ new_procedure('multiply', |a, b| a * b);
             ],
             "name": "AA"
         })
+
+    async def test_reserved_enum_union(self, client):
+        # bug #294
+        with self.assertRaisesRegex(
+                ValueError,
+                'name `enum` is reserved'):
+            await client.query('new_type("enum");')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'name `union` is reserved'):
+            await client.query('new_type("union");')
 
 
 if __name__ == '__main__':

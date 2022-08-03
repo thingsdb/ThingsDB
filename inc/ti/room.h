@@ -28,7 +28,8 @@ int ti_room_emit(
         vec_t * args,
         const char * event,
         size_t event_n,
-        int deep);
+        int deep,
+        int flags);
 int ti_room_emit_from_pkg(
         ti_collection_t * collection,
         ti_pkg_t * pkg,
@@ -39,10 +40,11 @@ static inline int ti_room_emit_raw(
         ti_query_t * query,
         ti_raw_t * event,
         vec_t * args,
-        int deep)
+        int deep,
+        int flags)
 {
     return ti_room_emit(
-            room, query, args, (const char *) event->data, event->n, deep);
+        room, query, args, (const char *) event->data, event->n, deep, flags);
 }
 
 #endif  /* TI_ROOM_H_ */

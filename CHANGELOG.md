@@ -1,6 +1,8 @@
 # v1.2.9
 
-* Fixef rename type when used with restricted things, issue #292.
+* Fixed rename type when used with restricted things, issue #292.
+* Added `enum` and `union` as reserved names, issue #294.
+* Support `NO_IDS` flag on _return_ statement, issue #293.
 
 # v1.2.8
 

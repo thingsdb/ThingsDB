@@ -6,6 +6,7 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = fn_get_nargs(nd);
     int sargs = 1;
     int deep = query->qbind.deep;
+    int flags = 0;
     ti_room_t * room;
     ti_raw_t * revent;
     vec_t * vec = NULL;
@@ -55,6 +56,28 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (ti_do_statement(query, (child = child->next->next), e))
             goto fail0;
+
+        if (ti_val_is_int(query->rval))
+        {
+            if (nargs == 2)
+            {
+                ex_set(e, EX_NUM_ARGUMENTS,
+                    "function `emit` requires at least 3 arguments "
+                    "when both `deep` and `flags` are used but 2 were given"
+                    DOC_ROOM_EMIT);
+                goto fail0;
+            }
+
+            ++sargs;
+
+            flags = VINT(query->rval) & TI_FLAGS_NO_IDS;
+
+            ti_val_unsafe_drop(query->rval);
+            query->rval = NULL;
+
+            if (ti_do_statement(query, (child = child->next->next), e))
+                goto fail0;
+        }
     }
 
     if (!ti_val_is_str(query->rval))
@@ -101,7 +124,7 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         while (child->next && (child = child->next->next));
     }
 
-    if (room->id && ti_room_emit_raw(room, query, revent, vec, deep))
+    if (room->id && ti_room_emit_raw(room, query, revent, vec, deep, flags))
         ex_set_mem(e);
 
     query->rval = (ti_val_t *) ti_nil_get();

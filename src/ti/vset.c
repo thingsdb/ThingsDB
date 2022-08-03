@@ -44,18 +44,20 @@ typedef struct
 {
     ti_vp_t * vp;
     int deep;
+    int flags;
 } vset__walk_to_pk_t;
 
 static inline int vset__walk_to_client_pk(ti_thing_t * thing, vset__walk_to_pk_t * w)
 {
-    return ti_thing_to_client_pk(thing, w->vp, w->deep);
+    return ti_thing_to_client_pk(thing, w->vp, w->deep, w->flags);
 }
 
-int ti_vset_to_client_pk(ti_vset_t * vset, ti_vp_t * vp, int deep)
+int ti_vset_to_client_pk(ti_vset_t * vset, ti_vp_t * vp, int deep, int flags)
 {
     vset__walk_to_pk_t w = {
             .vp = vp,
             .deep = deep,
+            .flags = flags,
     };
     return -(
         msgpack_pack_array(&vp->pk, vset->imap->n) ||

@@ -3,7 +3,8 @@
 typedef struct
 {
     uint8_t deep;
-    int flags;
+    uint8_t flags;
+    int json_flags;
     ex_t * e;
 } json_dumps__options_t;
 
@@ -15,12 +16,15 @@ static int json_dump__walk_cb(
     if (key == (ti_raw_t *) ti_val_borrow_deep_name())
         return ti_deep_from_val(val, &options->deep, options->e);
 
+    if (key == (ti_raw_t *) ti_val_borrow_flags_name())
+        return ti_flags_set_from_val(val, &options->flags, options->e);
+
     if (key == (ti_raw_t *) ti_val_borrow_beautify_name())
     {
         if (ti_val_as_bool(val))
-            options->flags |= MPJSON_FLAG_BEAUTIFY;
+            options->json_flags |= MPJSON_FLAG_BEAUTIFY;
         else
-            options->flags &= ~MPJSON_FLAG_BEAUTIFY;
+            options->json_flags &= ~MPJSON_FLAG_BEAUTIFY;
         return 0;
     }
 
@@ -44,6 +48,7 @@ static int do__f_json_dump(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     json_dumps__options_t options = {
             .deep = query->qbind.deep,
             .flags = 0,
+            .json_flags = 0,
             .e = e,
     };
 
@@ -76,7 +81,7 @@ static int do__f_json_dump(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
-    if (ti_val_to_client_pk(val, &vp, options.deep))
+    if (ti_val_to_client_pk(val, &vp, options.deep, options.flags))
     {
         ex_set_mem(e);
         goto fail1;
@@ -88,7 +93,7 @@ static int do__f_json_dump(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 (unsigned char **) &raw,
                 &total_n,
                 sizeof(ti_raw_t),
-                options.flags);
+                options.json_flags);
     if (stat)
     {
         mpjson__set_err(e, stat);

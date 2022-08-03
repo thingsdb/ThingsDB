@@ -12,6 +12,7 @@ typedef int (*ti_query_vars_walk_cb)(void * data, void * arg);
 #include <ti/closure.t.h>
 #include <ti/collection.t.h>
 #include <ti/change.t.h>
+#include <ti/flags.h>
 #include <ti/future.t.h>
 #include <ti/qbind.t.h>
 #include <ti/stream.t.h>
@@ -23,8 +24,8 @@ typedef int (*ti_query_vars_walk_cb)(void * data, void * arg);
 
 enum
 {
-    TI_QUERY_FLAG_API               =1<<0,
-    TI_QUERY_FLAG_CACHE             =1<<1,  /* Queries which are handled by the
+    TI_QUERY_FLAG_API               =1<<0,  /* query comes from HTTP API */
+    TI_QUERY_FLAG_CACHE             =1<<1,  /* queries which are handled by the
                                                query change will have this
                                                flags. Also the first query,
                                                which has not yet a cache item.
@@ -35,6 +36,7 @@ enum
                                                once all futures are done */
     TI_QUERY_FLAG_TASK_CHANGES      =1<<4,  /* mark when this query has handled
                                                all required task changes */
+    TI_QUERY_FLAG_RETURN_NO_IDS     =TI_FLAGS_NO_IDS,  /* return no id's */
 };
 
 typedef enum

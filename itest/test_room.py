@@ -19,6 +19,16 @@ from thingsdb.exceptions import OperationError
 from thingsdb.room import Room, event
 
 
+class ORoom(Room):
+    def __init__(self, actions, *args, **kwargs):
+        self.actions = actions
+        super().__init__(*args, **kwargs)
+
+    @event('add')
+    def on_add(self, obj):
+        self.actions.append(obj)
+
+
 class TRoom(Room):
 
     def __init__(self, actions, *args, **kwargs):
@@ -178,6 +188,28 @@ class TestRoom(TestBase):
         res = await cl1._leave(*range(20))
         ids = [id for id in res if id is not None]
         self.assertEqual(len(ids), 3)
+
+    async def test_object_to_room(self, cl0, cl1, cl2):
+        await cl0.query(r"""//ti
+            .oroom = room();
+        """)
+        actions = []
+        oroom = ORoom(actions, '.oroom.id();')
+        await oroom.join(cl0)
+        await cl0.query(r"""//ti
+            .x = {y: {z: 123}};
+            .oroom.emit('add', .x);
+            .oroom.emit(3, 'add', .x);
+            .oroom.emit(3, NO_IDS, 'add', .x);
+        """)
+
+        r0 = await cl0.query('return .x;')
+        r1 = await cl0.query('return .x, 3;')
+        r2 = await cl0.query('return .x, 3, NO_IDS;')
+
+        await asyncio.sleep(0.5)
+
+        self.assertEqual([r0, r1, r2], actions)
 
 
 if __name__ == '__main__':

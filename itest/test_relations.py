@@ -466,14 +466,10 @@ class TestRelations(TestBase):
 
         res = await client.query(r'''wse(); export();''')
         self.assertEqual(res, r'''
-/*
- * Enums
- */
+// Enums
 
 
-/*
- * Types
- */
+// Types
 
 new_type('A');
 new_type('B');
@@ -498,9 +494,7 @@ mod_type('A', 'rel', 'bb', 'aa');
 mod_type('C', 'rel', 'cc', 'cc');
 mod_type('D', 'rel', 'da', 'db');
 
-/*
- * Procedures
- */
+// Procedures
 
 
 'DONE';

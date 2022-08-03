@@ -53,10 +53,10 @@ class TestIndexSlice(TestBase):
         res = await client0.query(r'''
             months = ['January', 'February', 'XXX', 'May'];
 
-            /* Replace 'XXX' with 'March' and 'April' */
+            // Replace 'XXX' with 'March' and 'April'
             months[2:3] = ['March', 'April'];
 
-            /* Return result */
+            // Return result
             months;
         ''')
 

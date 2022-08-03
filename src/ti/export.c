@@ -116,9 +116,7 @@ static int export__write_types(ti_fmt_t * fmt, ti_types_t * types)
     return (
         buf_append_str(&fmt->buf,
 "\n"
-"/*\n"
-" * Types\n"
-" */\n"
+"// Types\n"
 "\n") ||
         smap_values(types->smap, (smap_val_cb) export__new_type_cb, fmt) ||
         buf_write(&fmt->buf, '\n') ||
@@ -137,11 +135,10 @@ static int export__set_enum_cb(ti_enum_t * enum_, ti_fmt_t * fmt)
         {
             buf_append_str(&fmt->buf,
 "\n"
-"/*\n"
-" * WARNING: The following enumerator is of type `things` and since data is not\n"
-" *          exported by this function, the enumerator is created with empty\n"
-" *          things instead!\n"
-" */\n"
+"// WARNING: The following enumerator is of type `things` and since data is not\n"
+"//          exported by this function, the enumerator is created with empty\n"
+"//          things instead!\n"
+"\n"
 );
         }
     }
@@ -247,9 +244,7 @@ static int export__write_enums(ti_fmt_t * fmt, ti_enums_t * enums)
 {
     return (
         buf_append_str(&fmt->buf,
-"/*\n"
-" * Enums\n"
-" */\n"
+"// Enums\n"
 "\n") ||
         smap_values(enums->smap, (smap_val_cb) export__set_enum_cb, fmt)
     );
@@ -274,9 +269,7 @@ static int export__write_procedures(ti_fmt_t * fmt, smap_t * procedures)
 {
     if (buf_append_str(&fmt->buf,
 "\n"
-"/*\n"
-" * Procedures\n"
-" */\n"
+"// Procedures\n"
 "\n")) return -1;
 
     return smap_values(procedures, (smap_val_cb) export__procedure_cb, fmt);

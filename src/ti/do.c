@@ -7,6 +7,7 @@
 #include <ti/auth.h>
 #include <ti/do.h>
 #include <ti/enums.inline.h>
+#include <ti/flags.h>
 #include <ti/fn/fn.h>
 #include <ti/fn/fncall.h>
 #include <ti/forloop.h>
@@ -930,7 +931,7 @@ do__fixed_t do__fixed_mapping[TOTAL_KEYWORDS] = {
     {.name="WARNING",               .value=LOGGER_WARNING},
     {.name="ERROR",                 .value=LOGGER_ERROR},
     {.name="CRITICAL",              .value=LOGGER_CRITICAL},
-    {.name="NO_IDS",                .value=TI_QUERY_FLAG_RETURN_NO_IDS},
+    {.name="NO_IDS",                .value=TI_FLAGS_NO_IDS},
 };
 
 static do__fixed_t * do__fixed_map[MAX_HASH_VALUE+1];

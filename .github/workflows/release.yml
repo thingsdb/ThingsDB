@@ -1,9 +1,10 @@
-name: Deploy
+name: Release
 
 on:
   push:
     tags:
-      - "v*-*"  # v1.2.3-alpha0 etc.
+      - "v*"
+      - "!v*-*"  # v1.2.3-alphd0
 
 env:
   REGISTRY: ghcr.io
@@ -61,5 +62,5 @@ jobs:
           context: .
           push: true
           file: docker/Dockerfile
-          tags: ghcr.io/thingsdb/node:${{ steps.get_version.outputs.VERSION }}
+          tags: ghcr.io/thingsdb/node:${{ steps.get_version.outputs.VERSION }},ghcr.io/thingsdb/node:latest
           labels: ${{ steps.meta.outputs.labels }}

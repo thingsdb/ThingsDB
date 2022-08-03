@@ -81,9 +81,7 @@ class TestProcedures(TestBase):
                 nil;  // Return nil
             });
 
-            /*********************************
-             * Create some extra procedures. *
-             *********************************/
+            // Create some extra procedures.
             new_procedure('missing_wse', |i| .upd_list.call(i));
 
             new_procedure('get_first', ||.l[0]);

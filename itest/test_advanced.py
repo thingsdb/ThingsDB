@@ -1544,9 +1544,7 @@ class TestAdvanced(TestBase):
 
     async def test_export(self, client):
         script = r'''
-/*
- * Enums
- */
+// Enums
 
 set_enum('B', {
   A: base64_decode('YUFh'),
@@ -1568,9 +1566,7 @@ set_enum('Str', {
   bq: 'Hi ''"Tess"''!',
 });
 
-/*
- * Types
- */
+// Types
 
 new_type('Friend');
 new_type('Person');
@@ -1585,9 +1581,7 @@ set_type('Person', {
 });
 
 
-/*
- * Procedures
- */
+// Procedures
 
 new_procedure('more', |a, b| {
   .answers.push(a * b);

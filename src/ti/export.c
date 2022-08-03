@@ -244,7 +244,6 @@ static int export__write_enums(ti_fmt_t * fmt, ti_enums_t * enums)
 {
     return (
         buf_append_str(&fmt->buf,
-"\n"
 "// Enums\n"
 "\n") ||
         smap_values(enums->smap, (smap_val_cb) export__set_enum_cb, fmt)

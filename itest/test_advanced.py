@@ -2008,9 +2008,9 @@ new_procedure('multiply', |a, b| a * b);
             rename_type('B', 'BB');
             rename_type('C', 'CC');
             rename_type('D', 'DD');
-            type_info('AA').load().wrap('W'));
+            type_info('AA').load().wrap('W');
         """)
-        self.assertEqual(types_info, {
+        self.assertEqual(aa, {
             "fields": [
                 [
                     "a",

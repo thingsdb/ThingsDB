@@ -240,7 +240,6 @@ static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_node_t * name_nd = nd->children;          /* name */
     cleri_node_t * tokens_nd = nd                   /* sequence */
             ->children->next->children;             /* first child */
-
     if (!ti_val_is_thing(query->rval))
     {
         ex_set(e, EX_TYPE_ERROR, "cannot assign properties to `%s` type",

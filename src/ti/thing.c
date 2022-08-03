@@ -651,13 +651,15 @@ int ti_thing_o_set_val_from_valid_strn(
         return ex_set_mem(e), e->nr;
 
     if (ti_val_make_assignable(val, thing, name, e))
+    {
+        ti_name_unsafe_drop(name);
         return e->nr;
+    }
 
     if (ti_thing_is_dict(thing)
             ? thing_i__item_set_e(thing, (ti_raw_t *) name, *val, e)
             : thing_p__prop_set_e(thing, name, *val, e))
     {
-        assert (e->nr);
         ti_name_unsafe_drop(name);
         return e->nr;
     }

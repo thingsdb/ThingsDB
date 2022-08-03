@@ -255,7 +255,7 @@ class TestTypes(TestBase):
         with self.assertRaisesRegex(
                 OverflowError,
                 'integer overflow'):
-            await client.query('.x = ||(1+999999999999999999999);')
+            await client.query('.x = ||1+999999999999999999999;')
 
         with self.assertRaisesRegex(
                 OperationError,

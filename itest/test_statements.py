@@ -245,27 +245,23 @@ class TestStatements(TestBase):
             .a = A();
             return .a, 2, NO_IDS;
         """)
-        self.assertEqual(res, {nested: {}})
+        self.assertEqual(res, {'nested': {}})
 
         res = await client.query("""//ti
-            set_type('A', {
-                nested: 'thing'
-            });
-            .a = A();
             return .a, 2, 1;
         """)
         self.assertIn('#', res)
         self.assertIn('#', res['nested'])
 
         res = await client.query("""//ti
-            str(|| return 'value', 0, NO_IDS);
+            str(|| return 'value',0,NO_IDS);
         """)
-        self.assertEqual(res, 'xxx')
+        self.assertEqual(res, "|| return 'value', 0, NO_IDS")
 
         res = await client.query("""//ti
-            || return 'value', 0, NO_IDS;
+            || return 'value',0,NO_IDS;
         """)
-        self.assertEqual(res, 'xxx')
+        self.assertEqual(res, "|| return 'value',0,NO_IDS")
 
     async def test_format(self, client):
         res = await client.query("""//ti

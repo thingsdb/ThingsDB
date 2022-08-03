@@ -903,8 +903,26 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `emit` expects the `event` argument to be of '
-                r'type `str` but got type `int` instead'):
+                r'type `str` but got type `nil` instead'):
+            await client.query('.chat.emit(0, nil);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `emit` requires at least 3 arguments when '
+                r'both `deep` and `flags` are used but 2 were given;'):
             await client.query('.chat.emit(0, 1);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `emit` expects the `event` argument to be of '
+                r'type `str` but got type `nil` instead;'):
+            await client.query('.chat.emit(0, 1, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `emit` expects the `event` argument to be of '
+                r'type `str` but got type `int` instead'):
+            await client.query('.chat.emit(0, 1, 2);')
 
         self.assertIs(await client.query(r'.chat.emit("greet");'), None)
         await client.query(r'.chat.emit("msg", .del("chat"));')
@@ -5011,6 +5029,12 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
+                'expecting `flags` to be of type `int` but '
+                'got type `str` instead'):
+            await client.query('json_dump({}, {flags: "5"});')
+
+        with self.assertRaisesRegex(
+                TypeError,
                 'function `json_dump` expects argument 2 to be of '
                 'type `thing` but got type `nil` instead;'):
             await client.query('json_dump({}, nil);')
@@ -5084,18 +5108,32 @@ class TestCollectionFunctions(TestBase):
         """)
         self.assertEqual(res, "{\n    \"item\": {\n\n    }\n}\n")
 
+        res = await client.query("""//ti
+            .x = {
+                item: {
+                    color: 'RED'
+                }
+            };
+            json_dump(.x, {flags: NO_IDS, deep: 2});
+        """)
+        self.assertEqual(res, "{\"item\":{\"color\":\"RED\"}}")
+
+        id, res = await client.query("""//ti
+            return [.x.id(), json_dump(.x, {flags: 1, deep: 0})];
+        """)
+        self.assertEqual(res, f"{{\"#\":{id}}}")
+
+        id, res = await client.query("""//ti
+            return [.x.id(), json_dump(.x, {flags: NO_IDS, deep: 0})];
+        """)
+        self.assertEqual(res, f"{{\"#\":{id}}}")
+
     async def test_json_load(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
                 'function `json_load` takes 1 argument '
                 'but 0 were given'):
             await client.query('json_load();')
-
-        with self.assertRaisesRegex(
-                TypeError,
-                'expecting `deep` to be of type `int` but '
-                'got type `str` instead'):
-            await client.query('json_dump({}, {deep: "5"});')
 
         with self.assertRaisesRegex(
                 TypeError,

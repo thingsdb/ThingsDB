@@ -63,7 +63,7 @@ static int do__f_emit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             {
                 ex_set(e, EX_NUM_ARGUMENTS,
                     "function `emit` requires at least 3 arguments "
-                    "when both `deep` and `flags` are used but 2 were given "
+                    "when both `deep` and `flags` are used but 2 were given"
                     DOC_ROOM_EMIT);
                 goto fail0;
             }

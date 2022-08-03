@@ -1259,14 +1259,21 @@ static inline void qbind__return_statement(
         ti_qbind_t * qbind,
         cleri_node_t * nd)
 {
-    qbind__statement(qbind, nd->children->next);
-
-    if (nd->children->next->next)
+    cleri_node_t * node = nd->children->next->children;
+    qbind__statement(qbind, node);
+    if (node->next)
     {
-        nd->children->data = \
-                nd->children->next->next->children->next;
-        qbind__statement(qbind, nd->children->data);
-        nd->data = ti_do_return_alt_deep;
+        node = nd->children->data = node->next->next;
+        qbind__statement(qbind, node);
+        if (node->next)
+        {
+            qbind__statement(qbind, node->next->next);
+            nd->data = ti_do_return_alt_flags;
+        }
+        else
+        {
+            nd->data = ti_do_return_alt_deep;
+        }
     }
     else
     {

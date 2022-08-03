@@ -17,7 +17,8 @@ int ti__wrap_field_thing(
         ti_thing_t * thing,
         ti_vp_t * vp,
         uint16_t spec,
-        int options);
+        int deep,
+        int flags);
 int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep);
 int ti_wrap_dup(ti_wrap_t ** wrap, uint8_t deep);
 

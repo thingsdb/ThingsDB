@@ -303,7 +303,11 @@ failed:
 }
 
 /* adds a map with key/value pairs */
-int ti_enum_members_to_client_pk(ti_enum_t * enum_, ti_vp_t * vp, int deep)
+int ti_enum_members_to_client_pk(
+        ti_enum_t * enum_,
+        ti_vp_t * vp,
+        int deep,
+        int flags)
 {
     if (msgpack_pack_array(&vp->pk, enum_->members->n))
         return -1;
@@ -312,7 +316,7 @@ int ti_enum_members_to_client_pk(ti_enum_t * enum_, ti_vp_t * vp, int deep)
     {
         if (msgpack_pack_array(&vp->pk, 2) ||
             mp_pack_strn(&vp->pk, member->name->str, member->name->n) ||
-            ti_val_to_client_pk(member->val, vp, deep))
+            ti_val_to_client_pk(member->val, vp, deep, flags))
             return -1;
     }
 
@@ -477,7 +481,7 @@ int ti_enum_to_pk(ti_enum_t * enum_, ti_vp_t * vp)
             : msgpack_pack_nil(&vp->pk)) ||
 
         mp_pack_str(&vp->pk, "members") ||
-        ti_enum_members_to_client_pk(enum_, vp, 0)  /* only ID's for one level */
+        ti_enum_members_to_client_pk(enum_, vp, 0, 0)  /* only ID; one level */
     );
 }
 

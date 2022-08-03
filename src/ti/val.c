@@ -81,6 +81,7 @@ ti_val_t * val__second_name;
 ti_val_t * val__gmt_offset_name;
 ti_val_t * val__module_name;
 ti_val_t * val__deep_name;
+ti_val_t * val__flags_name;
 ti_val_t * val__load_name;
 ti_val_t * val__beautify_name;
 ti_val_t * val__parent_name;
@@ -738,6 +739,7 @@ int ti_val_init_common(void)
     val__gmt_offset_name = (ti_val_t *) ti_names_from_str("gmt_offset");
     val__module_name = (ti_val_t *) ti_names_from_str("module");
     val__deep_name = (ti_val_t *) ti_names_from_str("deep");
+    val__flags_name = (ti_val_t *) ti_names_from_str("flags");
     val__load_name = (ti_val_t *) ti_names_from_str("load");
     val__beautify_name = (ti_val_t *) ti_names_from_str("beautify");
     val__parent_name = (ti_val_t *) ti_names_from_str("parent");
@@ -758,7 +760,7 @@ int ti_val_init_common(void)
         !val__second_name || !val__gmt_offset_name || !val__sfuture ||
         !val__module_name || !val__deep_name || !val__load_name ||
         !val__beautify_name || !val__parent_name || !val__parent_type_name ||
-        !val__key_name || !val__key_type_name)
+        !val__key_name || !val__key_type_name || !val__flags_name)
     {
         return -1;
     }

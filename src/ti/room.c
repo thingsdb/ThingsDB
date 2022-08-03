@@ -127,7 +127,8 @@ int ti_room_emit(
         vec_t * args,
         const char * event,
         size_t event_n,
-        int deep)
+        int deep,
+        int flags)
 {
     size_t sz, alloc = 8192;
     msgpack_sbuffer buffer;
@@ -161,7 +162,7 @@ int ti_room_emit(
 
     if (args)
         for (vec_each(args, ti_val_t, val))
-            if (ti_val_to_client_pk(val, &vp, deep))
+            if (ti_val_to_client_pk(val, &vp, deep, flags))
                 goto fail_pack;
 
     node_pkg = (ti_pkg_t *) buffer.data;
@@ -270,7 +271,8 @@ int ti_room_emit_from_pkg(
             args,
             mp_event.via.str.data,
             mp_event.via.str.n,
-            TI_MAX_DEEP))
+            TI_MAX_DEEP,
+            0))
         ex_set_mem(e);
 
 fail0:

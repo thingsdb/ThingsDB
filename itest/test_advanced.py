@@ -2064,6 +2064,18 @@ new_procedure('multiply', |a, b| a * b);
             "name": "AA"
         })
 
+    async def test_reserved_enum_union(self, client):
+        # bug #294
+        with self.assertRaisesRegex(
+                ValueError,
+                'name `enum` is reserved'):
+            await client.query('new_type("enum");')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'name `union` is reserved'):
+            await client.query('new_type("union");')
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

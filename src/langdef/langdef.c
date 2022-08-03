@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2022-06-28 11:31:22
+ * Created at: 2022-08-03 14:34:20
  */
 
 #include <langdef/langdef.h>
@@ -61,8 +61,8 @@ cleri_grammar_t * compile_langdef(void)
         CLERI_NONE,
         CLERI_FIRST_MATCH,
         2,
-        cleri_regex(CLERI_NONE, "^(?s)//.*?(\\r?\\n|$)"),
-        cleri_regex(CLERI_NONE, "^(?s)/\\*.*?\\*/")
+        cleri_regex(CLERI_NONE, "(?s)^//.*?(\\r?\\n|$)"),
+        cleri_regex(CLERI_NONE, "(?s)^/\\*.*?\\*/")
     ), 0, 0);
     cleri_t * name = cleri_regex(CLERI_GID_NAME, "^[A-Za-z_][0-9A-Za-z_]{0,254}(?![0-9A-Za-z_])");
     cleri_t * var = cleri_regex(CLERI_GID_VAR, "^[A-Za-z_][0-9A-Za-z_]{0,254}(?![0-9A-Za-z_])");
@@ -237,15 +237,9 @@ cleri_grammar_t * compile_langdef(void)
     );
     cleri_t * return_statement = cleri_sequence(
         CLERI_GID_RETURN_STATEMENT,
-        3,
+        2,
         k_return,
-        CLERI_THIS,
-        cleri_optional(CLERI_NONE, cleri_sequence(
-            CLERI_NONE,
-            2,
-            cleri_token(CLERI_NONE, ","),
-            CLERI_THIS
-        ))
+        cleri_list(CLERI_NONE, CLERI_THIS, cleri_token(CLERI_NONE, ","), 1, 3, 0)
     );
     cleri_t * for_statement = cleri_sequence(
         CLERI_GID_FOR_STATEMENT,

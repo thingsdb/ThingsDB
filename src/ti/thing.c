@@ -954,6 +954,7 @@ void ti_thing_t_to_object(ti_thing_t * thing)
 typedef struct
 {
     int deep;
+    int flags;
     ti_vp_t * vp;
 } thing__pk_cb_t;
 
@@ -961,12 +962,17 @@ static inline int thing__client_pk_cb(ti_item_t * item, thing__pk_cb_t * w)
 {
     return -(
         mp_pack_strn(&w->vp->pk, item->key->data, item->key->n) ||
-        ti_val_to_client_pk(item->val, w->vp, w->deep)
+        ti_val_to_client_pk(item->val, w->vp, w->deep, w->flags)
     );
 }
 
-int ti_thing__to_client_pk(ti_thing_t * thing, ti_vp_t * vp, int deep)
+int ti_thing__to_client_pk(
+        ti_thing_t * thing,
+        ti_vp_t * vp,
+        int deep,
+        int flags)
 {
+    register const uint8_t with_id = thing->id && (~flags & TI_FLAGS_NO_IDS);
     /*
      * Only when packing for a client the result size is checked;
      * The correct error is not set here, but instead the size should be
@@ -978,10 +984,10 @@ int ti_thing__to_client_pk(ti_thing_t * thing, ti_vp_t * vp, int deep)
 
     --deep;
 
-    if (msgpack_pack_map(&vp->pk, (!!thing->id) + ti_thing_n(thing)))
+    if (msgpack_pack_map(&vp->pk, with_id + ti_thing_n(thing)))
         return -1;
 
-    if (thing->id && (
+    if (with_id && (
             mp_pack_strn(&vp->pk, TI_KIND_S_THING, 1) ||
             msgpack_pack_uint64(&vp->pk, thing->id)
     )) return -1;
@@ -994,6 +1000,7 @@ int ti_thing__to_client_pk(ti_thing_t * thing, ti_vp_t * vp, int deep)
         {
             thing__pk_cb_t w = {
                     .deep = deep,
+                    .flags = flags,
                     .vp = vp,
             };
             if (smap_values(
@@ -1007,7 +1014,7 @@ int ti_thing__to_client_pk(ti_thing_t * thing, ti_vp_t * vp, int deep)
             for (vec_each(thing->items.vec, ti_prop_t, prop))
             {
                 if (mp_pack_strn(&vp->pk, prop->name->str, prop->name->n) ||
-                    ti_val_to_client_pk(prop->val, vp, deep)
+                    ti_val_to_client_pk(prop->val, vp, deep, flags)
                 ) goto fail;
             }
         }
@@ -1019,7 +1026,7 @@ int ti_thing__to_client_pk(ti_thing_t * thing, ti_vp_t * vp, int deep)
         for (thing_t_each(thing, name, val))
         {
             if (mp_pack_strn(&vp->pk, name->str, name->n) ||
-                ti_val_to_client_pk(val, vp, deep)
+                ti_val_to_client_pk(val, vp, deep, flags)
             ) goto fail;
         }
     }

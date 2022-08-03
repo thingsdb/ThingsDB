@@ -21,6 +21,7 @@ extern ti_val_t * val__second_name;
 extern ti_val_t * val__gmt_offset_name;
 extern ti_val_t * val__module_name;
 extern ti_val_t * val__deep_name;
+extern ti_val_t * val__flags_name;
 extern ti_val_t * val__load_name;
 extern ti_val_t * val__beautify_name;
 extern ti_val_t * val__parent_name;

@@ -734,7 +734,7 @@ int ti_do_if_statement(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 int ti_do_return_val(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    if (ti_do_statement(query, nd->children->next, e) == 0)
+    if (ti_do_statement(query, nd->children->next->children, e) == 0)
         ex_set_return(e);  /* on success */
     return e->nr;
 }
@@ -748,7 +748,29 @@ int ti_do_return_alt_deep(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
-    if (ti_do_statement(query, nd->children->next, e) == 0)
+    if (ti_do_statement(query, nd->children->next->children, e) == 0)
+        ex_set_return(e);  /* on success */
+    return e->nr;
+}
+
+int ti_do_return_alt_flags(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    cleri_node_t * node = nd->children->data;
+    if (ti_do_statement(query, node, e) ||
+        ti_deep_from_val(query->rval, &query->qbind.deep, e))
+        return e->nr;
+
+    ti_val_unsafe_drop(query->rval);
+    query->rval = NULL;
+
+    if (ti_do_statement(query, node->next->next, e) ||
+        ti_flags_set_from_val(query->rval, &query->flags, e))
+        return e->nr;
+
+    ti_val_unsafe_drop(query->rval);
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->children, e) == 0)
         ex_set_return(e);  /* on success */
     return e->nr;
 }
@@ -815,11 +837,11 @@ int ti_do_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 enum
 {
-    TOTAL_KEYWORDS = 11,
+    TOTAL_KEYWORDS = 12,
     MIN_WORD_LENGTH = 3,
     MAX_WORD_LENGTH = 8,
     MIN_HASH_VALUE = 3,
-    MAX_HASH_VALUE = 14
+    MAX_HASH_VALUE = 15
 };
 
 static inline unsigned int do__hash(
@@ -828,32 +850,32 @@ static inline unsigned int do__hash(
 {
     static unsigned char asso_values[] =
     {
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15,  1,  4,  1,  4,  0,
-         3,  1,  3,  0,  5, 15,  2, 15,  0,  1,
-        15,  0,  0, 15,  0,  0, 15,  0, 15,  0,
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15
+        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+        16, 16, 16, 16, 16,  1,  6,  1,  3,  0,
+         3,  1,  3,  0,  5, 16,  2, 16,  0,  1,
+        16,  0,  0,  2,  0,  0, 16,  0, 16,  0,
+        16, 16, 16, 16, 16,  2, 16, 16, 16, 16,
+        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+        16, 16, 16, 16, 16, 16
     };
 
     register unsigned int hval = n;
@@ -909,6 +931,7 @@ do__fixed_t do__fixed_mapping[TOTAL_KEYWORDS] = {
     {.name="WARNING",               .value=LOGGER_WARNING},
     {.name="ERROR",                 .value=LOGGER_ERROR},
     {.name="CRITICAL",              .value=LOGGER_CRITICAL},
+    {.name="NO_IDS",                .value=TI_QUERY_FLAG_RETURN_NO_IDS},
 };
 
 static do__fixed_t * do__fixed_map[MAX_HASH_VALUE+1];

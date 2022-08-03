@@ -36,6 +36,7 @@ C_SRCS += \
 ../src/ti/evars.c \
 ../src/ti/export.c \
 ../src/ti/field.c \
+../src/ti/flags.c \
 ../src/ti/fmt.c \
 ../src/ti/fn.c \
 ../src/ti/forloop.c \
@@ -146,6 +147,7 @@ OBJS += \
 ./src/ti/evars.o \
 ./src/ti/export.o \
 ./src/ti/field.o \
+./src/ti/flags.o \
 ./src/ti/fmt.o \
 ./src/ti/fn.o \
 ./src/ti/forloop.o \
@@ -256,6 +258,7 @@ C_DEPS += \
 ./src/ti/evars.d \
 ./src/ti/export.d \
 ./src/ti/field.d \
+./src/ti/flags.d \
 ./src/ti/fmt.d \
 ./src/ti/fn.d \
 ./src/ti/forloop.d \

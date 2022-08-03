@@ -19,6 +19,7 @@ int ti_do_ternary(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_if_statement(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_return_val(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_return_alt_deep(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_return_alt_flags(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_for_loop(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_continue(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_break(ti_query_t * query, cleri_node_t * nd, ex_t * e);

@@ -24,6 +24,7 @@
 #include <ti/enums.inline.h>
 #include <ti/export.h>
 #include <ti/field.h>
+#include <ti/flags.h>
 #include <ti/future.h>
 #include <ti/future.inline.h>
 #include <ti/gc.h>

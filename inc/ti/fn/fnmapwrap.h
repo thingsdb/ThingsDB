@@ -2,9 +2,9 @@
 
 typedef struct
 {
-    ex_t * e;
     ti_type_t * type;
     ti_varr_t * varr;
+    ex_t * e;
 } map_wrap__walk_t;
 
 static int map_wrap__walk_set(ti_thing_t * thing, map_wrap__walk_t * w)
@@ -133,6 +133,7 @@ static int do__f_map_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         map_wrap__walk_t w = {
                 .type=type,
                 .varr=varr,
+                .e=e,
         };
         if (imap_walk(VSET(iterable), (imap_cb) map_wrap__walk_set, &w))
         {

@@ -136,10 +136,7 @@ static int do__f_map_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 .e=e,
         };
         if (imap_walk(VSET(iterable), (imap_cb) map_wrap__walk_set, &w))
-        {
-            ex_set_mem(e);
             goto fail1;
-        }
         break;
     }
     }

@@ -1,3 +1,8 @@
+# v1.3.0
+
+* Removed deprecated functions `return(..)` and `if(..)`, pr #297.
+* Added Id (`'#'`) definition for Id mapping on typed things, issue #296.
+
 # v1.2.9
 
 * Fixed rename type when used with restricted things, issue #292.

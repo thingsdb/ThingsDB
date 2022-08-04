@@ -989,15 +989,15 @@ int ti_thing__to_client_pk(
     if (msgpack_pack_map(&vp->pk, with_id + ti_thing_n(thing)))
         return -1;
 
-    if (with_id && (
-            mp_pack_strn(&vp->pk, TI_KIND_S_THING, 1) ||
-            msgpack_pack_uint64(&vp->pk, thing->id)
-    )) return -1;
-
     thing->flags |= TI_VFLAG_LOCK;
 
     if (ti_thing_is_object(thing))
     {
+        if (with_id && (
+                mp_pack_strn(&vp->pk, TI_KIND_S_THING, 1) ||
+                msgpack_pack_uint64(&vp->pk, thing->id)
+        )) goto fail;
+
         if (ti_thing_is_dict(thing))
         {
             thing__pk_cb_t w = {
@@ -1023,8 +1023,15 @@ int ti_thing__to_client_pk(
     }
     else
     {
-        ti_name_t * name;
+        ti_name_t * name = thing->via.type->idname;
         ti_val_t * val;
+
+        if (with_id && ((name
+                    ? mp_pack_strn(&vp->pk, name->str, name->n)
+                    : mp_pack_strn(&vp->pk, TI_KIND_S_THING, 1)) ||
+                msgpack_pack_uint64(&vp->pk, thing->id)
+        )) goto fail;
+
         for (thing_t_each(thing, name, val))
         {
             if (mp_pack_strn(&vp->pk, name->str, name->n) ||

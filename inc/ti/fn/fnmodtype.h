@@ -362,7 +362,7 @@ static void type__add(
     if (fn_nargs_range(fnname, DOC_MOD_TYPE_ADD, 4, 5, nargs, e))
         return;
 
-    if (field || method)
+    if (type->idname == name || field || method)
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "property or method `%s` already exists on type `%s`",
@@ -420,6 +420,47 @@ static void type__add(
     }
 
     spec_raw = (ti_raw_t *) query->rval;
+    if (spec_raw->n == 1 && spec_raw->data[0] == '#')
+    {
+        if (nargs == 5)
+        {
+            ex_set(e, EX_NUM_ARGUMENTS,
+                    "function `%s` takes at most 4 arguments when adding "
+                    "an Id ('#') definition"DOC_MOD_TYPE_ADD,
+                    fnname);
+            return;
+        }
+
+        if (type->idname)
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                    "multiple Id ('#') definitions on type `%s`",
+                    type->name);
+            return;
+        }
+
+        task = ti_task_get_task(query->change, query->collection->root);
+        if (!task)
+        {
+            ex_set_mem(e);
+            return;
+        }
+
+        /* update modified time-stamp */
+        type->modified_at = util_now_usec();
+        type->idname = name;
+        ti_incref(name);
+
+        if (ti_task_add_mod_type_add_idname(task, type))
+        {
+            /* modified is wrong; the rest we can revert */
+            type->idname = NULL;
+            ti_decref(name);
+            ex_set_mem(e);
+        }
+        return;
+    }
+
     query->rval = NULL;
 
     if (nargs == 5)
@@ -622,7 +663,7 @@ static void type__del(
     if (fn_nargs(fnname, DOC_MOD_TYPE_DEL, 3, nargs, e))
         return;
 
-    if (!field && !method)
+    if (type->idname != name && !field && !method)
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no property or method `%s`",
@@ -645,6 +686,13 @@ static void type__del(
     {
         ex_set_mem(e);
         return;
+    }
+
+    if (type->idname == name)
+    {
+        ti_name_unsafe_drop(type->idname);
+        type->idname = NULL;
+        goto done;
     }
 
     if (method)
@@ -815,6 +863,13 @@ static void type__mod(
     if (fn_nargs_range(fnname, DOC_MOD_TYPE_MOD, 4, 5, nargs, e))
         return;
 
+    if (type->idname == name)
+    {
+        ex_set(e, EX_TYPE_ERROR,
+                "cannot modify a property with an Id ('#') specification");
+        return;
+    }
+
     if (!field && !method)
     {
         ex_set(e, EX_LOOKUP_ERROR,
@@ -970,7 +1025,7 @@ static void type__ren(
     if (fn_nargs(fnname, DOC_MOD_TYPE_REN, 4, nargs, e))
         return;
 
-    if (!field && !method)
+    if (type->idname != name && !field && !method)
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no property or method `%s`",
@@ -987,14 +1042,28 @@ static void type__ren(
 
     rname = (ti_raw_t *) query->rval;
 
-    oldname = field ? field->name : method->name;
+    oldname = field
+            ? field->name
+            : method
+            ? method->name
+            : type->idname;
     ti_incref(oldname);
 
     /* method */
     if (ti_opr_eq((ti_val_t *) oldname, query->rval))
         goto done;  /* do nothing, name is equal to current name */
 
-    if (method)
+    if (field)
+    {
+        if (ti_field_set_name(
+                field,
+                (const char *) rname->data,
+                rname->n,
+                e))
+            goto done;
+        newname = field->name;
+    }
+    else if (method)
     {
         if (ti_method_set_name(
                 method,
@@ -1007,13 +1076,13 @@ static void type__ren(
     }
     else
     {
-        if (ti_field_set_name(
-                field,
+        if (ti_type_set_idname(
+                type,
                 (const char *) rname->data,
                 rname->n,
                 e))
             goto done;
-        newname = field->name;
+        newname = type->idname;
     }
 
     task = ti_task_get_task(query->change, query->collection->root);

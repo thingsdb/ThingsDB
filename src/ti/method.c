@@ -147,7 +147,9 @@ int ti_method_set_name(
         return e->nr;
     }
 
-    if (ti_field_by_name(type, name) || ti_method_by_name(type, name))
+    if (type->idname == name ||
+        ti_field_by_name(type, name) ||
+        ti_method_by_name(type, name))
     {
         ex_set(e, EX_VALUE_ERROR,
             "property or method `%s` already exists on type `%s`"DOC_T_TYPED,

@@ -971,7 +971,8 @@ int ti_field_set_name(
         return e->nr;
     }
 
-    if (ti_field_by_name(field->type, name) ||
+    if (field->type->idname == name ||
+        ti_field_by_name(field->type, name) ||
         ti_method_by_name(field->type, name))
     {
         ex_set(e, EX_VALUE_ERROR,

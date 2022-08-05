@@ -152,7 +152,7 @@ static inline int ti_thing_to_client_pk(
 {
     return (!deep || (thing->flags & TI_VFLAG_LOCK))
             ? (!thing->id || (flags & TI_FLAGS_NO_IDS))
-            ? ti_thing_empty_to_client_pk(thing, &vp->pk)
+            ? ti_thing_empty_to_client_pk(&vp->pk)
             : ti_thing_id_to_client_pk(thing, &vp->pk)
             : ti_thing__to_client_pk(thing, vp, deep, flags);
 }

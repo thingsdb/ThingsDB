@@ -51,7 +51,7 @@ static inline int ti_wrap_to_client_pk(
     return deep > 0
         ? ti__wrap_field_thing(wrap->thing, vp, wrap->type_id, deep, flags)
         : (!wrap->thing->id || (flags & TI_FLAGS_NO_IDS))
-        ? ti_thing_empty_to_client_pk(wrap->thing, &vp->pk)
+        ? ti_thing_empty_to_client_pk(&vp->pk)
         : ti_thing_id_to_client_pk(wrap->thing, &vp->pk);
 }
 

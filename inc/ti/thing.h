@@ -157,22 +157,20 @@ static inline _Bool ti_thing_is_instance(ti_thing_t * thing)
 
 static inline int ti_thing_id_to_client_pk(ti_thing_t * thing, msgpack_packer * pk)
 {
-    assert (thing->id);
+    register const ti_name_t * name = ti_thing_is_instance(thing)
+            ? thing->via.type->idname
+            : NULL;
     return -(
-            msgpack_pack_map(pk,1) ||
-            mp_pack_strn(pk, TI_KIND_S_THING, 1) ||
+            msgpack_pack_map(pk,1) || (name
+                ? mp_pack_strn(pk, name->str, name->n)
+                : mp_pack_strn(pk, TI_KIND_S_THING, 1)) ||
             msgpack_pack_uint64(pk, thing->id)
     );
 }
 
-static inline int ti_thing_empty_to_client_pk(ti_thing_t * thing, msgpack_packer * pk)
+static inline int ti_thing_empty_to_client_pk(msgpack_packer * pk)
 {
-    return -(msgpack_pack_map(pk, !!thing->id) ||
-        (thing->id && (
-            mp_pack_strn(pk, TI_KIND_S_THING, 1) ||
-            msgpack_pack_uint64(pk, thing->id)
-        ))
-    );
+    return msgpack_pack_map(pk, 0);
 }
 
 static inline _Bool ti_thing_is_new(ti_thing_t * thing)

@@ -182,28 +182,16 @@ static int wrap__field_val(
     return -1;
 }
 
-static inline int wrap__thing_o_id_to_pk(
+static inline int wrap__id_to_pk(
         ti_thing_t * thing,
-        msgpack_packer * pk,
-        size_t n,
-        int flags)
-{
-    return (thing->id && (~flags & TI_FLAGS_NO_IDS))
-            ? -(msgpack_pack_map(pk, 1 + n) ||
-                mp_pack_strn(pk, TI_KIND_S_THING, 1) ||
-                msgpack_pack_uint64(pk, thing->id))
-            : msgpack_pack_map(pk, n);
-}
-
-static inline int wrap__thing_t_id_to_pk(
-        ti_thing_t * thing,
+        ti_type_t * type,
         msgpack_packer * pk,
         size_t n,
         int flags)
 {
     if (thing->id && (~flags & TI_FLAGS_NO_IDS))
     {
-        register const ti_name_t * name = thing->via.type->idname;
+        register const ti_name_t * name = type->idname;
         return -(
             msgpack_pack_map(pk, 1 + n) || (name
                 ? mp_pack_strn(pk, name->str, name->n)
@@ -339,9 +327,31 @@ int ti__wrap_field_thing(
      * Just return the ID when locked or if `deep` has reached zero.
      */
     if ((thing->flags & TI_VFLAG_LOCK) || !deep)
-        return (!thing->id || (flags & TI_FLAGS_NO_IDS))
-            ? ti_thing_empty_to_client_pk(&vp->pk)
-            : ti_thing_id_to_client_pk(thing, &vp->pk);
+    {
+        if (!thing->id || (flags & TI_FLAGS_NO_IDS))
+            return ti_thing_empty_to_client_pk(&vp->pk);
+
+        if (spec < TI_SPEC_ANY)
+        {
+            t_type = ti_types_by_id(thing->collection->types, spec);
+            if (t_type)
+            {
+                register const ti_name_t * name = t_type->idname;
+                return -(
+                    msgpack_pack_map(&vp->pk, 1) || (name
+                        ? mp_pack_strn(&vp->pk, name->str, name->n)
+                        : mp_pack_strn(&vp->pk, TI_KIND_S_THING, 1)) ||
+                    msgpack_pack_uint64(&vp->pk, thing->id)
+                );
+            }
+        }
+
+        return -(
+            msgpack_pack_map(&vp->pk, 1) ||
+            mp_pack_strn(&vp->pk, TI_KIND_S_THING, 1) ||
+            msgpack_pack_uint64(&vp->pk, thing->id)
+        );
+    }
 
     /*
      * If `spec` is not a type or a none existing type (thus ANY or OBJECT),
@@ -399,7 +409,7 @@ int ti__wrap_field_thing(
         /*
          * Now we can pack, let's start with the ID.
          */
-        if (wrap__thing_o_id_to_pk(thing, &vp->pk, n + nm, flags))
+        if (wrap__id_to_pk(thing, t_type, &vp->pk, n + nm, flags))
         {
             free(map_props);
             goto fail;
@@ -439,7 +449,7 @@ int ti__wrap_field_thing(
         register const vec_t * mappings = ti_type_map(t_type, thing->via.type);
 
         if (!mappings ||
-            wrap__thing_t_id_to_pk(thing, &vp->pk, mappings->n + nm, flags))
+            wrap__id_to_pk(thing, t_type, &vp->pk, mappings->n + nm, flags))
             goto fail;
 
         for (vec_each(mappings, ti_mapping_t, mapping))

@@ -429,7 +429,7 @@ int ti__wrap_field_thing(
                         &map_get->field->spec,
                         map_get->prop->val,
                         vp,
-                        deep,
+                        deep + ti_field_same_deep(map_get->field),
                         flags)
             ) {
                 free(map_props);
@@ -463,7 +463,7 @@ int ti__wrap_field_thing(
                         &mapping->t_field->spec,
                         VEC_get(thing->items.vec, mapping->f_field->idx),
                         vp,
-                        deep,
+                        deep + ti_field_same_deep(mapping->t_field),
                         flags)
             ) goto fail;
         }

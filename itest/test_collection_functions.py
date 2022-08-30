@@ -1707,29 +1707,6 @@ class TestCollectionFunctions(TestBase):
         err = await client.query('lookup_err("my custom error msg");')
         self.assertEqual(err, "my custom error msg")
 
-    async def test_if(self, client):
-        with self.assertRaisesRegex(
-                LookupError,
-                'type `nil` has no function `if`'):
-            await client.query('nil.if();')
-
-        with self.assertRaisesRegex(
-                NumArgumentsError,
-                'function `if` requires at least 2 arguments '
-                'but 0 were given'):
-            await client.query('if();')
-
-        with self.assertRaisesRegex(
-                NumArgumentsError,
-                'function `if` takes at most 3 arguments but 4 were given'):
-            await client.query('if(1, 2, 3, 4);')
-
-        self.assertIs(await client.query('if(2 > 1, a=1, a=0);'), None)
-        self.assertEqual(await client.query('if(2>1, a=1, a=0); a;'), 1)
-        self.assertEqual(await client.query('if(1>2, a=1, a=0); a;'), 0)
-        self.assertEqual(await client.query('a=2; if(2>1, a=1); a;'), 1)
-        self.assertEqual(await client.query('a=0; if(1>2, a=1); a;'), 0)
-
     async def test_int(self, client):
         with self.assertRaisesRegex(
                 LookupError,
@@ -2396,6 +2373,177 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(
             set(await client.query('.girls.map(|_, id| id);')),
             set([iris_id, cato_id])
+        )
+
+    async def test_map_id(self, client):
+        await client.query(r'''
+            .iris = {
+                name: 'Iris',
+                age: 6,
+                likes: ['k3', 'swimming', 'red', 6],
+            };
+            .cato = {
+                name: 'Cato',
+                age: 5,
+            };
+            .arr = [.iris, .cato];
+            .set = set(.arr);
+        ''')
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `map_id`'):
+            await client.query('nil.map_id(||nil);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `map_id` takes 0 arguments but 1 was given'):
+            await client.query('.arr.map_id(nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `map_id` requires a list with items of '
+                r'type `thing` but found an item of type `nil` instead;'):
+            await client.query('[nil].map_id();')
+
+        self.assertEqual(await client.query(r'[].map_id()'), [])
+        self.assertEqual(await client.query(r'[[]][0].map_id()'), [])
+        self.assertEqual(await client.query(r'set().map_id()'), [])
+        self.assertEqual(
+            await client.query(r'[{}, {}].map_id()'), [None, None])
+
+        iris_id, cato_id = await client.query('[.iris.id(), .cato.id()];')
+
+        self.assertEqual(
+            set(await client.query('.set.map_id()')),
+            set([iris_id, cato_id])
+        )
+
+        self.assertEqual(
+            await client.query('.arr.map_id()'),
+            [iris_id, cato_id]
+        )
+
+    async def test_map_wrap(self, client):
+        await client.query(r'''
+            set_type('P', {name: 'str'});
+            .iris = {
+                name: 'Iris',
+                age: 6,
+                likes: ['k3', 'swimming', 'red', 6],
+            };
+            .cato = {
+                name: 'Cato',
+                age: 5,
+            };
+            .arr = [.iris, .cato];
+            .set = set(.iris);
+        ''')
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `map_wrap`'):
+            await client.query('nil.map_wrap();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `map_wrap` takes at most 1 argument '
+                'but 2 were given'):
+            await client.query('.arr.map_wrap("P", nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `map_wrap` requires a list with items of '
+                r'type `thing` but found an item of type `nil` instead;'):
+            await client.query('[nil].map_wrap();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `map_wrap` on a list with a non-typed `thing` '
+                r'requires 1 argument but 0 were given;'):
+            await client.query('[{}].map_wrap();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `map_wrap` on a set with a non-typed `thing` '
+                r'requires 1 argument but 0 were given;'):
+            await client.query('set({}).map_wrap();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `map_wrap` expects argument 1 to be of '
+                r'type `str` but got type `nil` instead;'):
+            await client.query('[].map_wrap(nil);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `Unknown` not found'):
+            await client.query('[].map_wrap("Unknown");')
+
+        self.assertEqual(await client.query(r'[].map_wrap()'), [])
+        self.assertEqual(await client.query(r'[[]][0].map_wrap()'), [])
+        self.assertEqual(await client.query(r'set().map_wrap()'), [])
+        self.assertEqual(
+            await client.query(r'[{}, {}].map_wrap("P")'), [{}, {}])
+
+        self.assertEqual(
+            await client.query('return .set.map_wrap("P"), 1, NO_IDS;'),
+            [{"name": "Iris"}]
+        )
+
+        self.assertEqual(
+            await client.query('return .arr.map_wrap("P"), 1, NO_IDS;'),
+            [{"name": "Iris"}, {"name": "Cato"}]
+        )
+
+    async def test_map_type(self, client):
+        await client.query(r'''
+            set_type('P', {name: 'str'});
+            .iris = {
+                name: 'Iris',
+                age: 6,
+                likes: ['k3', 'swimming', 'red', 6],
+            };
+            .cato = {
+                name: 'Cato',
+                age: 5,
+            };
+            .arr = [.iris, .cato];
+        ''')
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `set` has no function `map_type`'):
+            await client.query('set().map_type("P");')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `map_type` takes 1 argument '
+                'but 0 were given'):
+            await client.query('.arr.map_type();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `map_type` cannot convert type `nil` to `P`'):
+            await client.query('[nil].map_type("P");')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `map_type` expects argument 1 to be of '
+                r'type `str` but got type `nil` instead;'):
+            await client.query('[].map_type(nil);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `Unknown` not found'):
+            await client.query('[].map_type("Unknown");')
+
+        self.assertEqual(await client.query(r'[].map_type("P")'), [])
+        self.assertEqual(await client.query(r'[[]][0].map_type("P")'), [])
+        self.assertEqual(
+            await client.query(r'[{}, {}].map_type("P")'),
+            [{"name": ""}, {"name": ""}])
+
+        self.assertEqual(
+            await client.query('return .arr.map_type("P"), 1, NO_IDS;'),
+            [{"name": "Iris"}, {"name": "Cato"}]
         )
 
     async def test_vmap(self, client):
@@ -3307,16 +3455,10 @@ class TestCollectionFunctions(TestBase):
 
     async def test_return(self, client):
         with self.assertRaisesRegex(
-                NumArgumentsError,
-                'function `return` takes at most 2 arguments '
-                'but 3 were given'):
-            await client.query('return(1, 2 ,3);')
-
-        with self.assertRaisesRegex(
                 TypeError,
                 'expecting `deep` to be of type `int` but got '
                 'type `float` instead'):
-            await client.query('return(nil, 0.0);')
+            await client.query('return nil, 0.0;')
 
         with self.assertRaisesRegex(
                 ValueError,
@@ -5126,7 +5268,7 @@ class TestCollectionFunctions(TestBase):
         id, res = await client.query("""//ti
             return [.x.id(), json_dump(.x, {flags: NO_IDS, deep: 0})];
         """)
-        self.assertEqual(res, f"{{\"#\":{id}}}")
+        self.assertEqual(res, "{}")
 
     async def test_json_load(self, client):
         with self.assertRaisesRegex(

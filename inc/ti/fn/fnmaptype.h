@@ -67,7 +67,7 @@ static int do__f_map_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_TYPE_ERROR,
                     "function `map_type` cannot convert type `%s` to `%s`",
-                    ti_val_str(query->rval),
+                    ti_val_str(val),
                     type->name);
             goto fail1;
         }

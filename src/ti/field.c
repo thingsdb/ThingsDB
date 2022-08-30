@@ -445,6 +445,12 @@ static int field__init(ti_field_t * field, ex_t * e)
         return e->nr;
     }
 
+    if (*str == '&')
+    {
+        ++str;
+        --n;
+    }
+
     if (str[n-1] == '?')
     {
         field->spec |= TI_SPEC_NILLABLE;

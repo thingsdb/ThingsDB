@@ -1822,6 +1822,89 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
+    async def test_same_deep(self, client):
+        res = await client.query(r"""//ti
+            new_type('User');
+            set_type('User', {
+                name: 'str',
+                friend: '&User?',
+                other: '&any',
+                arr: '&[User]',
+                set: '&{}',
+                nosamedeep: 'any'
+            });
+            iris = User{
+                name: 'Iris',
+                friend: User{
+                    name: 'Cato'
+                },
+                other: User{
+                    name: 'Tess'
+                },
+                arr: [User{name: 'Cato'}, User{name: 'Tess'}],
+                set: [{color: 'Blue'}],
+                nosamedeep: {color: 'Transparent'}
+            };
+            return iris.wrap(), 1;  // ensure deep 1
+        """)
+        self.assertEqual(res, {
+            "name": "Iris",
+            "friend": {
+                "name": "Cato"
+            },
+            "other": {
+                "name": "Tess"
+            },
+            "arr": [{"name": "Cato"}, {"name": "Tess"}],
+            "set": [{"color": "Blue"}],
+            "nosamedeep": {},
+        })
+
+    async def test_type_name_id(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                r'xxx'):
+            res = await client.query(r"""//ti
+                set_type('User', {
+                    id: '#',
+                    key: '#',
+                    name: 'str',
+                });
+            """)
+
+        user_id, person_id = await client.query(r"""//ti
+            set_type('User', {
+                id: '#',
+                name: 'str',
+            });
+            set_type('Person', {
+                name: 'str',
+            });
+            .user = User{name: 'Iris'};
+            .person = Person(name: 'Cato');
+            [.user, .person].map_id();
+        """)
+
+        user = await client.query(r"""//ti
+            .user;
+        """)
+        self.assertEqual(user, {"id": user_id, "name": "Iris"})
+
+        person = await client.query(r"""//ti
+            .person;
+        """)
+        self.assertEqual(person, {"#": person_id, "name": "Cato"})
+
+        user = await client.query(r"""//ti
+            .user.wrap('_Person');
+        """)
+        self.assertEqual(user, {"#": user_id, "name": "Iris"})
+
+        person = await client.query(r"""//ti
+            .person.wrap('_User');
+        """)
+        self.assertEqual(person, {"id": person_id, "name": "Cato"})
+
 
 if __name__ == '__main__':
     run_test(TestType())

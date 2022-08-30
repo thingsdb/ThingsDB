@@ -21,7 +21,7 @@ static int map_wrap__walk_set(ti_thing_t * thing, map_wrap__walk_t * w)
     }
     else
     {
-        ex_set(w->e, EX_NUM_ARGUMENTS,
+        ex_set(w->e, EX_TYPE_ERROR,
             "function `map_wrap` on a set with a "
             "non-typed `"TI_VAL_THING_S"` "
             "requires 1 argument but 0 were given"DOC_SET_MAP_WRAP);
@@ -113,7 +113,7 @@ static int do__f_map_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             }
             else
             {
-                ex_set(e, EX_NUM_ARGUMENTS,
+                ex_set(e, EX_TYPE_ERROR,
                     "function `map_wrap` on a list with a "
                     "non-typed `"TI_VAL_THING_S"` "
                     "requires 1 argument but 0 were given"DOC_LIST_MAP_WRAP);

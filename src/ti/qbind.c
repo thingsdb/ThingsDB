@@ -87,7 +87,6 @@
 #include <ti/fn/fnhastype.h>
 #include <ti/fn/fnhasuser.h>
 #include <ti/fn/fnid.h>
-#include <ti/fn/fnif.h>
 #include <ti/fn/fnindexof.h>
 #include <ti/fn/fnint.h>
 #include <ti/fn/fnisarray.h>
@@ -129,6 +128,9 @@
 #include <ti/fn/fnlog.h>
 #include <ti/fn/fnlower.h>
 #include <ti/fn/fnmap.h>
+#include <ti/fn/fnmapid.h>
+#include <ti/fn/fnmaptype.h>
+#include <ti/fn/fnmapwrap.h>
 #include <ti/fn/fnmodenum.h>
 #include <ti/fn/fnmodtype.h>
 #include <ti/fn/fnmoduleinfo.h>
@@ -177,7 +179,6 @@
 #include <ti/fn/fnrestore.h>
 #include <ti/fn/fnrestrict.h>
 #include <ti/fn/fnrestriction.h>
-#include <ti/fn/fnreturn.h>
 #include <ti/fn/fnreverse.h>
 #include <ti/fn/fnrevoke.h>
 #include <ti/fn/fnroom.h>
@@ -266,11 +267,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 241,
+    TOTAL_KEYWORDS = 242,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 5,
-    MAX_HASH_VALUE = 584
+    MIN_HASH_VALUE = 18,
+    MAX_HASH_VALUE = 592
 };
 
 /*
@@ -282,32 +283,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
-        585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
-        585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
-        585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
-        585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
-        585, 585,   0, 585,   0, 585,   0, 585, 585, 585,
-        585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
-        585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
-        585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
-        585, 585, 585, 585, 585,   0, 585,   8,  17,  43,
-         23,   2, 102, 278, 125,   0,  10,  57,  16,  25,
-         11,  31, 127,  46,   0,   0,   6,  44, 177, 211,
-        229, 204,  23, 585, 585, 585, 585, 585, 585, 585,
-        585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
-        585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
-        585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
-        585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
-        585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
-        585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
-        585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
-        585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
-        585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
-        585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
-        585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
-        585, 585, 585, 585, 585, 585, 585, 585, 585, 585,
-        585, 585, 585, 585, 585, 585
+        593, 593, 593, 593, 593, 593, 593, 593, 593, 593,
+        593, 593, 593, 593, 593, 593, 593, 593, 593, 593,
+        593, 593, 593, 593, 593, 593, 593, 593, 593, 593,
+        593, 593, 593, 593, 593, 593, 593, 593, 593, 593,
+        593, 593, 593, 593, 593, 593, 593, 593, 593, 593,
+        593, 593,   8, 593,   8, 593,   6, 593, 593, 593,
+        593, 593, 593, 593, 593, 593, 593, 593, 593, 593,
+        593, 593, 593, 593, 593, 593, 593, 593, 593, 593,
+        593, 593, 593, 593, 593, 593, 593, 593, 593, 593,
+        593, 593, 593, 593, 593,   6, 593,   7, 107,  56,
+         42,   7,  70, 237, 109,   6,  17,  57,  15,  47,
+          9,  17, 129,  65,   6,   6,   9,  33, 208, 171,
+        204, 176,  74, 593, 593, 593, 593, 593, 593, 593,
+        593, 593, 593, 593, 593, 593, 593, 593, 593, 593,
+        593, 593, 593, 593, 593, 593, 593, 593, 593, 593,
+        593, 593, 593, 593, 593, 593, 593, 593, 593, 593,
+        593, 593, 593, 593, 593, 593, 593, 593, 593, 593,
+        593, 593, 593, 593, 593, 593, 593, 593, 593, 593,
+        593, 593, 593, 593, 593, 593, 593, 593, 593, 593,
+        593, 593, 593, 593, 593, 593, 593, 593, 593, 593,
+        593, 593, 593, 593, 593, 593, 593, 593, 593, 593,
+        593, 593, 593, 593, 593, 593, 593, 593, 593, 593,
+        593, 593, 593, 593, 593, 593, 593, 593, 593, 593,
+        593, 593, 593, 593, 593, 593, 593, 593, 593, 593,
+        593, 593, 593, 593, 593, 593, 593, 593, 593, 593,
+        593, 593, 593, 593, 593, 593
     };
 
     register unsigned int hval = n;
@@ -535,7 +536,6 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="has_user",          .fn=do__f_has_user,             ROOT_NE},
     {.name="has",               .fn=do__f_has,                  CHAIN_NE},
     {.name="id",                .fn=do__f_id,                   CHAIN_NE},
-    {.name="if",                .fn=do__f_if,                   ROOT_NE},  /* DEPRECATED */
     {.name="index_of",          .fn=do__f_index_of,             CHAIN_NE},
     {.name="int",               .fn=do__f_int,                  ROOT_NE},
     {.name="is_array",          .fn=do__f_is_array,             ROOT_NE},
@@ -578,6 +578,9 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="lookup_err",        .fn=do__f_lookup_err,           ROOT_NE},
     {.name="lower",             .fn=do__f_lower,                CHAIN_NE},
     {.name="map",               .fn=do__f_map,                  CHAIN_NE},
+    {.name="map_id",            .fn=do__f_map_id,               CHAIN_NE},
+    {.name="map_type",          .fn=do__f_map_type,             CHAIN_NE},
+    {.name="map_wrap",          .fn=do__f_map_wrap,             CHAIN_NE},
     {.name="max_quota_err",     .fn=do__f_max_quota_err,        ROOT_NE},
     {.name="mod_enum",          .fn=do__f_mod_enum,             ROOT_CE},
     {.name="mod_type",          .fn=do__f_mod_type,             ROOT_CE},
@@ -631,7 +634,6 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="restore",           .fn=do__f_restore,              ROOT_TE},
     {.name="restrict",          .fn=do__f_restrict,             CHAIN_CE},
     {.name="restriction",       .fn=do__f_restriction,          CHAIN_NE},
-    {.name="return",            .fn=do__f_return,               ROOT_NE},  /* DEPRECATED */
     {.name="reverse",           .fn=do__f_reverse,              CHAIN_NE},
     {.name="revoke",            .fn=do__f_revoke,               ROOT_TE},
     {.name="room",              .fn=do__f_room,                 ROOT_NE},

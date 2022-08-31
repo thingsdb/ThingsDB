@@ -55,6 +55,7 @@ ti_type_t * ti_type_create(
     type->wname = type__wrap_name(name, name_n);
     type->rname = ti_str_create(name, name_n);
     type->rwname = ti_str_from_str(type->wname);
+    type->idname = NULL;
     type->dependencies = vec_new(0);
     type->fields = vec_new(0);
     type->types = types;
@@ -146,6 +147,7 @@ void ti_type_destroy(ti_type_t * type)
     imap_destroy(type->t_mappings, type__map_free);
     ti_val_drop((ti_val_t *) type->rname);
     ti_val_drop((ti_val_t *) type->rwname);
+    ti_val_drop((ti_val_t *) type->idname);
     free(type->dependencies);
     free(type->name);
     free(type->wname);
@@ -249,6 +251,48 @@ void ti_type_remove_method(ti_type_t * type, ti_name_t * name)
     }
 }
 
+int ti_type_set_idname(
+        ti_type_t * type,
+        const char * s,
+        size_t n,
+        ex_t * e)
+{
+    ti_name_t * name;
+
+    if (!ti_name_is_valid_strn(s, n))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "property name must follow the naming rules"DOC_NAMES);
+        return e->nr;
+    }
+
+    name = ti_names_get(s, n);
+    if (!name)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    if (type->idname == name ||
+        ti_field_by_name(type, name) ||
+        ti_method_by_name(type, name))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "property or method `%s` already exists on type `%s`"DOC_T_TYPED,
+            name->str,
+            type->name);
+        goto fail0;
+    }
+
+    ti_name_unsafe_drop(type->idname);
+    type->idname = name;
+    return 0;
+
+fail0:
+    ti_name_unsafe_drop(name);
+    return e->nr;
+}
+
 static inline int type__assign(
         ti_type_t * type,
         ti_name_t * name,
@@ -257,7 +301,23 @@ static inline int type__assign(
 {
     if (ti_val_is_str(val))
     {
-        (void) ti_field_create(name, (ti_raw_t *) val, type, e);
+        register ti_raw_t * raw = (ti_raw_t *) val;
+        if (raw->n == 1 && raw->data[0] == '#')
+        {
+            if (type->idname)
+            {
+                ex_set(e, EX_LOOKUP_ERROR,
+                        "multiple Id ('#') definitions on type `%s`",
+                        type->name);
+                return e->nr;
+            }
+
+            type->idname = name;
+            ti_incref(name);
+            return 0;
+        }
+
+        (void) ti_field_create(name, raw, type, e);
         return e->nr;
     }
 
@@ -613,7 +673,7 @@ int ti_type_init_from_unp(
             return type__deprecated_init_map(type, up, &obj, e);
 
         ex_set(e, EX_BAD_DATA,
-                "failed unpacking fields for type `%s`;"
+                "failed unpacking fields for type `%s`; "
                 "expecting the field as an array",
                 type->name);
         return e->nr;
@@ -628,7 +688,7 @@ int ti_type_init_from_unp(
     if (mp_skip(up) != MP_STR || mp_next(up, &obj) != MP_ARR)
     {
         ex_set(e, EX_BAD_DATA,
-                "failed unpacking fields for type `%s`;"
+                "failed unpacking fields for type `%s`; "
                 "expecting the field as an array",
                 type->name);
         return e->nr;
@@ -641,7 +701,7 @@ int ti_type_init_from_unp(
             mp_next(up, &mp_spec) != MP_STR)
         {
             ex_set(e, EX_BAD_DATA,
-                    "failed unpacking fields for type `%s`;"
+                    "failed unpacking fields for type `%s`; "
                     "expecting an array with two string values",
                     type->name);
             return e->nr;
@@ -650,17 +710,32 @@ int ti_type_init_from_unp(
         if (!ti_name_is_valid_strn(mp_name.via.str.data, mp_name.via.str.n))
         {
             ex_set(e, EX_VALUE_ERROR,
-                    "failed unpacking fields for type `%s`;"
+                    "failed unpacking fields for type `%s`; "
                     "fields must follow the naming rules"DOC_NAMES,
                     type->name);
             return e->nr;
         }
 
         name = ti_names_get(mp_name.via.str.data, mp_name.via.str.n);
-        spec_raw = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
+        if (!name)
+            return e->nr;
 
-        if (!name || !spec_raw ||
-            !ti_field_create(name, spec_raw, type, e))
+        if (mp_spec.via.str.n == 1 && mp_spec.via.str.data[0] == '#')
+        {
+            if (type->idname)
+            {
+                ex_set(e, EX_LOOKUP_ERROR,
+                        "multiple Id ('#') definitions on type `%s`",
+                        type->name);
+                ti_name_unsafe_drop(name);
+                return e->nr;
+            }
+            type->idname = name;
+            continue;
+        }
+
+        spec_raw = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
+        if (!spec_raw || !ti_field_create(name, spec_raw, type, e))
             goto failed;
 
         ti_decref(name);
@@ -670,7 +745,7 @@ int ti_type_init_from_unp(
     if (mp_skip(up) != MP_STR || mp_next(up, &obj) != MP_MAP)
     {
         ex_set(e, EX_BAD_DATA,
-                "failed unpacking methods for type `%s`;"
+                "failed unpacking methods for type `%s`; "
                 "expecting the methods as a map",
                 type->name);
         return e->nr;
@@ -681,7 +756,7 @@ int ti_type_init_from_unp(
         if (mp_next(up, &mp_name) != MP_STR)
         {
             ex_set(e, EX_BAD_DATA,
-                    "failed unpacking methods for type `%s`;"
+                    "failed unpacking methods for type `%s`; "
                     "expecting a map with a string a method name",
                     type->name);
             return e->nr;
@@ -690,7 +765,7 @@ int ti_type_init_from_unp(
         if (!ti_name_is_valid_strn(mp_name.via.str.data, mp_name.via.str.n))
         {
             ex_set(e, EX_VALUE_ERROR,
-                    "failed unpacking methods for type `%s`;"
+                    "failed unpacking methods for type `%s`; "
                     "methods must follow the naming rules"DOC_NAMES,
                     type->name);
             return e->nr;
@@ -707,7 +782,7 @@ int ti_type_init_from_unp(
         if (!ti_val_is_closure(val))
         {
             ex_set(e, EX_VALUE_ERROR,
-                    "failed unpacking methods for type `%s`;"
+                    "failed unpacking methods for type `%s`; "
                     "methods must have type `"TI_VAL_CLOSURE_S"` as value "
                     "but got type `%s` instead",
                     type->name,
@@ -738,8 +813,16 @@ failed:
 /* adds a map with key/value pairs */
 int ti_type_fields_to_pk(ti_type_t * type, msgpack_packer * pk)
 {
-    if (msgpack_pack_array(pk, type->fields->n))
+    if (msgpack_pack_array(pk, type->fields->n + !!type->idname))
         return -1;
+
+    if (type->idname)
+    {
+        if (msgpack_pack_array(pk, 2) ||
+            mp_pack_strn(pk, type->idname->str, type->idname->n) ||
+            mp_pack_strn(pk, "#", 1))
+            return -1;
+    }
 
     for (vec_each(type->fields, ti_field_t, field))
     {

@@ -279,9 +279,11 @@ int ti_build(void)
      * is changed to make it easier for new users. The need for a "low" deep
      * value is also less needed as ThingsDB got protection for large results
      * and ensures that nested self-references are only exported by Id, thus
-     * without content.
+     * without content. In 1.2.x the default value was set to TI_MAX_DEEP but
+     * experience learns that the original default value of 1 used to be a
+     * better default. Thus, from 1.3.x we changed back to a default of 1.
      */
-    ti.t_deep = TI_MAX_DEEP;
+    ti.t_deep = 1;
     ti.n_deep = TI_MAX_DEEP;
     ti.t_tz = ti_tz_utc();
     ti.n_tz = ti_tz_utc();

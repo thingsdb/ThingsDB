@@ -14,6 +14,7 @@ typedef struct ti_type_s ti_type_t;
 
 #include <inttypes.h>
 #include <ti/raw.t.h>
+#include <ti/name.t.h>
 #include <ti/types.t.h>
 #include <util/imap.h>
 #include <util/smap.h>
@@ -35,6 +36,7 @@ struct ti_type_s
     char * wname;           /* wrapped name (null terminated) */
     ti_raw_t * rname;       /* name as raw type */
     ti_raw_t * rwname;      /* wrapped name as raw type */
+    ti_name_t * idname;     /* use this as the id field */
     ti_types_t * types;
     vec_t * dependencies;   /* ti_type_t/ti_enum_t; contains type and enum
                                where this type is depended on. A type or enum

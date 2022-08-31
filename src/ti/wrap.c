@@ -22,6 +22,7 @@
 #include <ti/wrap.h>
 #include <ti/wrap.inline.h>
 #include <util/vec.h>
+#include <util/logger.h>
 
 ti_wrap_t * ti_wrap_create(ti_thing_t * thing, uint16_t type_id)
 {
@@ -182,20 +183,24 @@ static int wrap__field_val(
     return -1;
 }
 
-static inline int wrap__thing_id_to_pk(
+static inline int wrap__id_to_pk(
         ti_thing_t * thing,
+        ti_type_t * type,
         msgpack_packer * pk,
-        size_t n)
+        size_t n,
+        int flags)
 {
-    if (msgpack_pack_map(pk, (!!thing->id) + n))
-        return -1;
-
-    if (thing->id && (
-            mp_pack_strn(pk, TI_KIND_S_THING, 1) ||
+    if (thing->id && (~flags & TI_FLAGS_NO_IDS))
+    {
+        register const ti_name_t * name = type->idname;
+        return -(
+            msgpack_pack_map(pk, 1 + n) || (name
+                ? mp_pack_strn(pk, name->str, name->n)
+                : mp_pack_strn(pk, TI_KIND_S_THING, 1)) ||
             msgpack_pack_uint64(pk, thing->id)
-    )) return -1;
-
-    return 0;
+        );
+    }
+    return msgpack_pack_map(pk, n);
 }
 
 int ti__wrap_methods_to_pk_no_query(ti_type_t * t_type, ti_vp_t * vp)
@@ -323,9 +328,31 @@ int ti__wrap_field_thing(
      * Just return the ID when locked or if `deep` has reached zero.
      */
     if ((thing->flags & TI_VFLAG_LOCK) || !deep)
-        return (!thing->id || (flags & TI_FLAGS_NO_IDS))
-            ? ti_thing_empty_to_client_pk(thing, &vp->pk)
-            : ti_thing_id_to_client_pk(thing, &vp->pk);
+    {
+        if (!thing->id || (flags & TI_FLAGS_NO_IDS))
+            return ti_thing_empty_to_client_pk(&vp->pk);
+
+        if (spec < TI_SPEC_ANY)
+        {
+            t_type = ti_types_by_id(thing->collection->types, spec);
+            if (t_type)
+            {
+                register const ti_name_t * name = t_type->idname;
+                return -(
+                    msgpack_pack_map(&vp->pk, 1) || (name
+                        ? mp_pack_strn(&vp->pk, name->str, name->n)
+                        : mp_pack_strn(&vp->pk, TI_KIND_S_THING, 1)) ||
+                    msgpack_pack_uint64(&vp->pk, thing->id)
+                );
+            }
+        }
+
+        return -(
+            msgpack_pack_map(&vp->pk, 1) ||
+            mp_pack_strn(&vp->pk, TI_KIND_S_THING, 1) ||
+            msgpack_pack_uint64(&vp->pk, thing->id)
+        );
+    }
 
     /*
      * If `spec` is not a type or a none existing type (thus ANY or OBJECT),
@@ -383,7 +410,7 @@ int ti__wrap_field_thing(
         /*
          * Now we can pack, let's start with the ID.
          */
-        if (wrap__thing_id_to_pk(thing, &vp->pk, n + nm))
+        if (wrap__id_to_pk(thing, t_type, &vp->pk, n + nm, flags))
         {
             free(map_props);
             goto fail;
@@ -403,7 +430,7 @@ int ti__wrap_field_thing(
                         &map_get->field->spec,
                         map_get->prop->val,
                         vp,
-                        deep,
+                        deep + ti_field_same_deep(map_get->field),
                         flags)
             ) {
                 free(map_props);
@@ -420,8 +447,10 @@ int ti__wrap_field_thing(
          * `to_type` -> `from_type` is asked so most likely the mappings are
          * returned from cache.
          */
-        vec_t * mappings = ti_type_map(t_type, thing->via.type);
-        if (!mappings || wrap__thing_id_to_pk(thing, &vp->pk, mappings->n + nm))
+        register const vec_t * mappings = ti_type_map(t_type, thing->via.type);
+
+        if (!mappings ||
+            wrap__id_to_pk(thing, t_type, &vp->pk, mappings->n + nm, flags))
             goto fail;
 
         for (vec_each(mappings, ti_mapping_t, mapping))
@@ -435,12 +464,16 @@ int ti__wrap_field_thing(
                         &mapping->t_field->spec,
                         VEC_get(thing->items.vec, mapping->f_field->idx),
                         vp,
-                        deep,
+                        deep + ti_field_same_deep(mapping->t_field),
                         flags)
             ) goto fail;
         }
     }
 
+    /*
+     * Pack methods; Note that when packing a type with named Id field; The
+     * method might have the same name and thus will "overwrite" the Id field;
+     */
     if (nm && (vp->query
             ? ti__wrap_methods_to_pk(t_type, thing, vp, deep, flags)
             : ti__wrap_methods_to_pk_no_query(t_type, vp)))
@@ -542,7 +575,6 @@ fail:
     ti_val_unsafe_drop((ti_val_t *) other);
     return -1;
 }
-
 
 int ti_wrap_dup(ti_wrap_t ** wrap, uint8_t deep)
 {

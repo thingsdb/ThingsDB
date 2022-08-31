@@ -36,8 +36,15 @@ static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
         msgpack_pack_uint64(pk, type->created_at) ||
         msgpack_pack_uint64(pk, type->modified_at) ||
         mp_pack_strn(pk, type->rname->data, type->rname->n) ||
-        msgpack_pack_map(pk, type->fields->n)
+        msgpack_pack_map(pk, type->fields->n + !!type->idname)
     ) return -1;
+
+    if (type->idname)
+    {
+        p = (uintptr_t) type->idname;
+        if (msgpack_pack_uint64(pk, p) || mp_pack_strn(pk, "#", 1))
+            return -1;
+    }
 
     for (vec_each(type->fields, ti_field_t, field))
     {
@@ -317,6 +324,14 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             name = imap_get(names, mp_id.via.u64);
             if (!name)
                 goto fail1;
+
+            if (mp_spec.via.str.n == 1 && mp_spec.via.str.data[0] == '#')
+            {
+                if (type->idname)
+                    goto fail1;
+                type->idname = name;
+                continue;
+            }
 
             spec = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
             if (!spec)

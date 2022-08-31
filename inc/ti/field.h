@@ -81,4 +81,9 @@ static inline _Bool ti_field_has_relation(ti_field_t * field)
             (field->spec & TI_SPEC_MASK_NILLABLE) < TI_SPEC_ANY);
 }
 
+static inline _Bool ti_field_same_deep(ti_field_t * field)
+{
+    return field->spec_raw->data[0] == '&';
+}
+
 #endif  /* TI_FIELD_H_ */

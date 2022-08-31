@@ -1060,6 +1060,21 @@ static int ctask__mod_type_add(ti_thing_t * thing, mp_unp_t * up)
         goto fail0;
     }
 
+    if (mp_spec.via.str.n == 1 && mp_spec.via.str.data[0] == '#')
+    {
+        if (type->idname)
+        {
+            log_critical(
+                    "task `mod_type_add` for "TI_COLLECTION_ID" has failed; "
+                    "duplicate id field (#)",
+                    vup.collection->root->id);
+            /* we can recover but this must not happen */
+            ti_name_unsafe_drop(type->idname);
+        }
+        type->idname = name;
+        return 0;
+    }
+
     if (obj.via.sz == 5)
     {
         if (mp_skip(up) != MP_STR )
@@ -1185,6 +1200,17 @@ static int ctask__mod_type_del(ti_thing_t * thing, mp_unp_t * up)
     if (method)
     {
         ti_type_remove_method(type, name);
+
+        /* update modified time-stamp */
+        type->modified_at = mp_modified.via.u64;
+
+        return 0;
+    }
+
+    if (type->idname == name)
+    {
+        ti_name_unsafe_drop(type->idname);
+        type->idname = NULL;
 
         /* update modified time-stamp */
         type->modified_at = mp_modified.via.u64;
@@ -1614,6 +1640,21 @@ static int ctask__mod_type_ren(ti_thing_t * thing, mp_unp_t * up)
     {
         if (ti_method_set_name(
                 method,
+                type,
+                mp_to.via.str.data,
+                mp_to.via.str.n,
+                &e))
+            log_critical(e.msg);
+        else
+            /* update modified time-stamp */
+            type->modified_at = mp_modified.via.u64;
+
+        return e.nr;
+    }
+
+    if (type->idname == name)
+    {
+        if (ti_type_set_idname(
                 type,
                 mp_to.via.str.data,
                 mp_to.via.str.n,

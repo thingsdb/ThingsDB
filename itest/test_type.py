@@ -37,14 +37,14 @@ class TestType(TestBase):
         client.close()
         await client.wait_closed()
 
-    async def _test_wrap_only(self, client):
+    async def test_wrap_only(self, client):
         self.assertFalse(await client.query(r'''
             try(set_type('X', {arr: '[str?]'}, {1/0}));
             // tests if type is correctly broken down on error
             has_type('X');
         '''))
 
-    async def _test_mod_arr(self, client):
+    async def test_mod_arr(self, client):
         await client.query(r'''
             set_type('X', {arr: '[str?]'});
             x = X{arr: [nil]};
@@ -52,7 +52,7 @@ class TestType(TestBase):
             mod_type('X', 'add', 'arr2', '[str]', [""]);
         ''')
 
-    async def _test_set_prop(self, client):
+    async def test_set_prop(self, client):
         await client.query(r'''
             set_type('Pet', {});
             set_type('setPet', {animal: '{Pet}'});
@@ -80,7 +80,7 @@ class TestType(TestBase):
                 .t.p.animal.add({});
             ''')
 
-    async def _test_method(self, client):
+    async def test_method(self, client):
         await client.query(r'''
             set_type('Person', {
                 name: 'str',
@@ -136,7 +136,7 @@ class TestType(TestBase):
 
         await client.query('''types_info();''')
 
-    async def _test_new_type(self, client0):
+    async def test_new_type(self, client0):
 
         with self.assertRaisesRegex(
                 ValueError,
@@ -186,7 +186,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def _test_mod_type_add(self, client0):
+    async def test_mod_type_add(self, client0):
         await client0.query(r'''
             set_type(new_type('User'), {
                 name: 'str',
@@ -241,7 +241,7 @@ class TestType(TestBase):
         self.assertIs(iris_node0.get('age'), None)
         self.assertEqual(iris_node0.get('friend').get('name'), 'Anne')
 
-    async def _test_enum_wrap_thing(self, client0):
+    async def test_enum_wrap_thing(self, client0):
         await client0.query(r'''
             set_type('TColor', {
                 name: 'str',
@@ -323,7 +323,7 @@ class TestType(TestBase):
             self.assertIn('name', color)
             self.assertEqual(len(color), 2)
 
-    async def _test_enum_wrap_int(self, client0):
+    async def test_enum_wrap_int(self, client0):
         await client0.query(r'''
             set_type('TColor', {
                 name: 'str',
@@ -379,7 +379,7 @@ class TestType(TestBase):
             self.assertIn('color', brick)
             self.assertIsInstance(brick['color'], int)
 
-    async def _test_wrap(self, client0):
+    async def test_wrap(self, client0):
         only_name = await client0.query(r'''
             set_type('_Name', {name: 'any'});
             .only_name = {
@@ -415,7 +415,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def _test_circular_dep(self, client):
+    async def test_circular_dep(self, client):
         await client.query(r'''
             new_type('Tic');
             new_type('Tac');
@@ -472,7 +472,7 @@ class TestType(TestBase):
             mod_type('Toe', 'add', 'alt', 'Tic');
         ''')
 
-    async def _test_mod_del(self, client):
+    async def test_mod_del(self, client):
         await client.query(r'''
             new_type('Foo');
             set_type('Foo', {
@@ -491,7 +491,7 @@ class TestType(TestBase):
             mod_type('Foo', 'del', 'foo');
         ''')
 
-    async def _test_mod(self, client):
+    async def test_mod(self, client):
         await client.query(r'''
             set_type('Person', {
                 name: 'str',
@@ -859,7 +859,7 @@ class TestType(TestBase):
                 r'type `Person` have been found'):
             await client.query(r'mod_type("Person", "wpo", true);')
 
-    async def _test_del_type(self, client):
+    async def test_del_type(self, client):
         await client.query(r'''
             new_type('Tic');
             new_type('Tac');
@@ -909,7 +909,7 @@ class TestType(TestBase):
             del_type('Bar');
         ''')
 
-    async def _test_type_mismatch(self, client):
+    async def test_type_mismatch(self, client):
         await client.query(r'''
             new_type('Tic');
             new_type('Tac');
@@ -946,7 +946,7 @@ class TestType(TestBase):
                 });
             ''')
 
-    async def _test_migrate(self, client0):
+    async def test_migrate(self, client0):
 
         client1 = await get_client(self.node1)
         client1.set_default_scope('//stuff')
@@ -977,7 +977,7 @@ class TestType(TestBase):
         client1 = await get_client(self.node1)
         client1.set_default_scope('//stuff')
 
-    async def _test_sync_add(self, client0):
+    async def test_sync_add(self, client0):
         await client0.query(r'''
             set_type('Book', {
                 title: 'str',
@@ -1050,7 +1050,7 @@ class TestType(TestBase):
         self.assertEqual(books0, {"own": [], "fav": None, "unique": []})
         self.assertEqual(books1, {"own": [], "fav": None, "unique": []})
 
-    async def _test_circular_del(self, client):
+    async def test_circular_del(self, client):
         await client.query(r'''
             new_type('Foo');
             new_type('Bar');
@@ -1075,7 +1075,7 @@ class TestType(TestBase):
         ''')
         self.assertIs(res, None)
 
-    async def _test_del_type(self, client):
+    async def test_del_type(self, client):
         await client.query(r'''
             new_type('Tic');
             new_type('Tac');
@@ -1158,7 +1158,7 @@ class TestType(TestBase):
             del_type('Toe');
         ''')
 
-    async def _test_type_definitions(self, client):
+    async def test_type_definitions(self, client):
         await client.query(r'''
             set_type('_Str', {test: 'str'});
             set_type('_Utf8', {test: 'utf8'});
@@ -1323,7 +1323,7 @@ class TestType(TestBase):
             await client.query(r'_Nint{test:-6}.wrap("_Number")'),
             {'test': -6})
 
-    async def _test_mod_type_add_closure_and_ts(self, client0):
+    async def test_mod_type_add_closure_and_ts(self, client0):
         now = int(time.time())
 
         await client0.query(r'''
@@ -1393,7 +1393,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def _test_mod_type_mod_closure(self, client0):
+    async def test_mod_type_mod_closure(self, client0):
         await client0.query(r'''
             set_type('Chat', {
                 name: 'str',
@@ -1461,7 +1461,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def _test_mod_type_mod_advanced0(self, client0):
+    async def test_mod_type_mod_advanced0(self, client0):
         with self.assertRaisesRegex(
                 OperationError,
                 r'field `chat` is added to type `Room` but at least one '
@@ -1497,7 +1497,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def _test_mod_type_mod_advanced1(self, client0):
+    async def test_mod_type_mod_advanced1(self, client0):
         await client0.query(r'''
             set_type('Chat', {
                 messages: '[str]'
@@ -1541,7 +1541,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def _test_mod_type_mod_advanced2(self, client0):
+    async def test_mod_type_mod_advanced2(self, client0):
         with self.assertRaisesRegex(
                 OperationError,
                 r'field `chat` on type `Room` is modified but at least one '
@@ -1589,7 +1589,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def _test_wpo(self, client0):
+    async def test_wpo(self, client0):
         await client0.query(r'''
             new_type('A', true);
             new_type('B', false);
@@ -1627,7 +1627,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def _test_err_handling(self, client0):
+    async def test_err_handling(self, client0):
         with self.assertRaisesRegex(
                 TypeError,
                 r'invalid declaration for `x` on type `A`; '
@@ -1653,7 +1653,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def _test_init_create(self, client0):
+    async def test_init_create(self, client0):
         await client0.query(r'''
             set_type('X', {
                 a: new_type('A'),
@@ -1672,7 +1672,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def _test_rename(self, client0):
+    async def test_rename(self, client0):
         await client0.query(r'''
             set_type('A', {i: 'int'});
             set_type('B', {a: 'A'});
@@ -1728,7 +1728,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def _test_rename_prop(self, client0):
+    async def test_rename_prop(self, client0):
         await client0.query(r'''
             set_type('Test', {
                 arr: '[]',
@@ -1781,7 +1781,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def _test_wrap(self, client0):
+    async def test_wrap(self, client0):
         await client0.query(r'''
             new_type('_A');  // true through mod_type
             new_type('_B');  // true through set_type
@@ -1822,7 +1822,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def _test_same_deep(self, client):
+    async def test_same_deep(self, client):
         res = await client.query(r"""//ti
             new_type('User');
             set_type('User', {

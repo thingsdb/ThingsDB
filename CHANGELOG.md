@@ -8,7 +8,7 @@
   - _list_.`map_type(..)`: https://docs.thingsdb.net/v1/data-types/list/map_type
   - _set_.`map_id()`: https://docs.thingsdb.net/v1/data-types/set/map_id
   - _set_.`map_wrap(..)`: https://docs.thingsdb.net/v1/data-types/set/map_wrap
-* Change the default *deep* value back to `1` (one), issue #300.
+* Changed the default *deep* value back to `1` (one), issue #300.
 * Allow `&` to prefix a definition for the same deep level when wrapping a *thing*, issue #301.
 
 # v1.2.9

@@ -330,6 +330,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
                 if (type->idname)
                     goto fail1;
                 type->idname = name;
+                ti_incref(name);
                 continue;
             }
 

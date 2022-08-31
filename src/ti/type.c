@@ -306,7 +306,7 @@ static inline int type__assign(
         {
             if (type->idname)
             {
-                ex_set(e, EX_TYPE_ERROR,
+                ex_set(e, EX_LOOKUP_ERROR,
                         "multiple Id ('#') definitions on type `%s`",
                         type->name);
                 return e->nr;
@@ -724,7 +724,7 @@ int ti_type_init_from_unp(
         {
             if (type->idname)
             {
-                ex_set(e, EX_TYPE_ERROR,
+                ex_set(e, EX_LOOKUP_ERROR,
                         "multiple Id ('#') definitions on type `%s`",
                         type->name);
                 ti_name_unsafe_drop(name);

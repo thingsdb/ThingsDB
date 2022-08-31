@@ -3453,56 +3453,6 @@ class TestCollectionFunctions(TestBase):
                 await client.query('range(0, 10, step)', step=step),
                 list(range(0, 10, step)))
 
-    async def test_return(self, client):
-        with self.assertRaisesRegex(
-                TypeError,
-                'expecting `deep` to be of type `int` but got '
-                'type `float` instead'):
-            await client.query('return nil, 0.0;')
-
-        with self.assertRaisesRegex(
-                ValueError,
-                r'expecting a `deep` value between 0 and 127 '
-                r'but got 200 instead'):
-            await client.query('return nil, 200;')
-
-        with self.assertRaisesRegex(
-                ValueError,
-                r'expecting a `deep` value between 0 and 127 '
-                r'but got -2 instead'):
-            await client.query('return nil, -2;')
-
-        self.assertIs(await client.query(r'''
-            return nil;
-            "Not returned";
-        '''), None)
-
-        self.assertEqual(await client.query(r'''
-            return 42;
-            "Not returned";
-        '''), 42)
-
-        self.assertEqual(await client.query(r'''
-            [0, 1, 2].map(|x| {
-                return x + 1;
-                0;
-            });
-        '''), [1, 2, 3])
-
-        self.assertEqual(await client.query(r'''
-            (|x| {
-                try(return x + 1);
-                0;
-            }).call(41);
-        '''), 42)
-
-        self.assertEqual(await client.query(r'''
-            .a = 10;
-            .a = return 11;  // Return, so do not overwrite a
-        '''), 11)
-
-        self.assertEqual(await client.query('.a'), 10)
-
     async def test_set_property(self, client):
         await client.query('.a = 1;')
 

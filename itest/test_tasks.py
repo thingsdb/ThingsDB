@@ -246,9 +246,9 @@ class TestTasks(TestBase):
         await client.query("""//ti
             .x = 1;
             task(datetime(), |t| {
-                if (.x >= 3, {
+                if (.x >= 3) {
                     return;
-                });
+                };
                 .x += 1;
                 t.again_in('seconds', 1);
             });
@@ -291,9 +291,9 @@ class TestTasks(TestBase):
         await client.query("""//ti
             .x = 1;
             task(datetime(), |t| {
-                if (.x >= 3, {
+                if (.x >= 3) {
                     return;
-                });
+                };
                 .x += 1;
                 t.again_at(datetime().move('seconds', 1));
             });
@@ -305,9 +305,9 @@ class TestTasks(TestBase):
         await client.query("""//ti
             .x = 1;
             task(datetime(), |t| {
-                if (.x >= 3, {
+                if (.x >= 3) {
                     return;
-                });
+                };
 
                 // no change id, yet...
                 assert(is_nil(change_id()));
@@ -326,9 +326,9 @@ class TestTasks(TestBase):
         await client.query("""//ti
             .y = 1;
             task(datetime(), |t| {
-                if (.y >= 3, {
+                if (.y >= 3) {
                     return;
-                });
+                };
 
                 .y += 1;
 

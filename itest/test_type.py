@@ -37,14 +37,14 @@ class TestType(TestBase):
         client.close()
         await client.wait_closed()
 
-    async def test_wrap_only(self, client):
+    async def _test_wrap_only(self, client):
         self.assertFalse(await client.query(r'''
             try(set_type('X', {arr: '[str?]'}, {1/0}));
             // tests if type is correctly broken down on error
             has_type('X');
         '''))
 
-    async def test_mod_arr(self, client):
+    async def _test_mod_arr(self, client):
         await client.query(r'''
             set_type('X', {arr: '[str?]'});
             x = X{arr: [nil]};
@@ -52,7 +52,7 @@ class TestType(TestBase):
             mod_type('X', 'add', 'arr2', '[str]', [""]);
         ''')
 
-    async def test_set_prop(self, client):
+    async def _test_set_prop(self, client):
         await client.query(r'''
             set_type('Pet', {});
             set_type('setPet', {animal: '{Pet}'});
@@ -80,7 +80,7 @@ class TestType(TestBase):
                 .t.p.animal.add({});
             ''')
 
-    async def test_method(self, client):
+    async def _test_method(self, client):
         await client.query(r'''
             set_type('Person', {
                 name: 'str',
@@ -136,7 +136,7 @@ class TestType(TestBase):
 
         await client.query('''types_info();''')
 
-    async def test_new_type(self, client0):
+    async def _test_new_type(self, client0):
 
         with self.assertRaisesRegex(
                 ValueError,
@@ -186,7 +186,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def test_mod_type_add(self, client0):
+    async def _test_mod_type_add(self, client0):
         await client0.query(r'''
             set_type(new_type('User'), {
                 name: 'str',
@@ -241,7 +241,7 @@ class TestType(TestBase):
         self.assertIs(iris_node0.get('age'), None)
         self.assertEqual(iris_node0.get('friend').get('name'), 'Anne')
 
-    async def test_enum_wrap_thing(self, client0):
+    async def _test_enum_wrap_thing(self, client0):
         await client0.query(r'''
             set_type('TColor', {
                 name: 'str',
@@ -323,7 +323,7 @@ class TestType(TestBase):
             self.assertIn('name', color)
             self.assertEqual(len(color), 2)
 
-    async def test_enum_wrap_int(self, client0):
+    async def _test_enum_wrap_int(self, client0):
         await client0.query(r'''
             set_type('TColor', {
                 name: 'str',
@@ -379,7 +379,7 @@ class TestType(TestBase):
             self.assertIn('color', brick)
             self.assertIsInstance(brick['color'], int)
 
-    async def test_wrap(self, client0):
+    async def _test_wrap(self, client0):
         only_name = await client0.query(r'''
             set_type('_Name', {name: 'any'});
             .only_name = {
@@ -415,7 +415,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def test_circular_dep(self, client):
+    async def _test_circular_dep(self, client):
         await client.query(r'''
             new_type('Tic');
             new_type('Tac');
@@ -472,7 +472,7 @@ class TestType(TestBase):
             mod_type('Toe', 'add', 'alt', 'Tic');
         ''')
 
-    async def test_mod_del(self, client):
+    async def _test_mod_del(self, client):
         await client.query(r'''
             new_type('Foo');
             set_type('Foo', {
@@ -491,7 +491,7 @@ class TestType(TestBase):
             mod_type('Foo', 'del', 'foo');
         ''')
 
-    async def test_mod(self, client):
+    async def _test_mod(self, client):
         await client.query(r'''
             set_type('Person', {
                 name: 'str',
@@ -859,7 +859,7 @@ class TestType(TestBase):
                 r'type `Person` have been found'):
             await client.query(r'mod_type("Person", "wpo", true);')
 
-    async def test_del_type(self, client):
+    async def _test_del_type(self, client):
         await client.query(r'''
             new_type('Tic');
             new_type('Tac');
@@ -909,7 +909,7 @@ class TestType(TestBase):
             del_type('Bar');
         ''')
 
-    async def test_type_mismatch(self, client):
+    async def _test_type_mismatch(self, client):
         await client.query(r'''
             new_type('Tic');
             new_type('Tac');
@@ -946,7 +946,7 @@ class TestType(TestBase):
                 });
             ''')
 
-    async def test_migrate(self, client0):
+    async def _test_migrate(self, client0):
 
         client1 = await get_client(self.node1)
         client1.set_default_scope('//stuff')
@@ -977,7 +977,7 @@ class TestType(TestBase):
         client1 = await get_client(self.node1)
         client1.set_default_scope('//stuff')
 
-    async def test_sync_add(self, client0):
+    async def _test_sync_add(self, client0):
         await client0.query(r'''
             set_type('Book', {
                 title: 'str',
@@ -1050,7 +1050,7 @@ class TestType(TestBase):
         self.assertEqual(books0, {"own": [], "fav": None, "unique": []})
         self.assertEqual(books1, {"own": [], "fav": None, "unique": []})
 
-    async def test_circular_del(self, client):
+    async def _test_circular_del(self, client):
         await client.query(r'''
             new_type('Foo');
             new_type('Bar');
@@ -1075,7 +1075,7 @@ class TestType(TestBase):
         ''')
         self.assertIs(res, None)
 
-    async def test_del_type(self, client):
+    async def _test_del_type(self, client):
         await client.query(r'''
             new_type('Tic');
             new_type('Tac');
@@ -1158,7 +1158,7 @@ class TestType(TestBase):
             del_type('Toe');
         ''')
 
-    async def test_type_definitions(self, client):
+    async def _test_type_definitions(self, client):
         await client.query(r'''
             set_type('_Str', {test: 'str'});
             set_type('_Utf8', {test: 'utf8'});
@@ -1323,7 +1323,7 @@ class TestType(TestBase):
             await client.query(r'_Nint{test:-6}.wrap("_Number")'),
             {'test': -6})
 
-    async def test_mod_type_add_closure_and_ts(self, client0):
+    async def _test_mod_type_add_closure_and_ts(self, client0):
         now = int(time.time())
 
         await client0.query(r'''
@@ -1393,7 +1393,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def test_mod_type_mod_closure(self, client0):
+    async def _test_mod_type_mod_closure(self, client0):
         await client0.query(r'''
             set_type('Chat', {
                 name: 'str',
@@ -1461,7 +1461,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def test_mod_type_mod_advanced0(self, client0):
+    async def _test_mod_type_mod_advanced0(self, client0):
         with self.assertRaisesRegex(
                 OperationError,
                 r'field `chat` is added to type `Room` but at least one '
@@ -1497,7 +1497,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def test_mod_type_mod_advanced1(self, client0):
+    async def _test_mod_type_mod_advanced1(self, client0):
         await client0.query(r'''
             set_type('Chat', {
                 messages: '[str]'
@@ -1541,7 +1541,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def test_mod_type_mod_advanced2(self, client0):
+    async def _test_mod_type_mod_advanced2(self, client0):
         with self.assertRaisesRegex(
                 OperationError,
                 r'field `chat` on type `Room` is modified but at least one '
@@ -1589,7 +1589,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def test_wpo(self, client0):
+    async def _test_wpo(self, client0):
         await client0.query(r'''
             new_type('A', true);
             new_type('B', false);
@@ -1627,7 +1627,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def test_err_handling(self, client0):
+    async def _test_err_handling(self, client0):
         with self.assertRaisesRegex(
                 TypeError,
                 r'invalid declaration for `x` on type `A`; '
@@ -1653,7 +1653,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def test_init_create(self, client0):
+    async def _test_init_create(self, client0):
         await client0.query(r'''
             set_type('X', {
                 a: new_type('A'),
@@ -1672,7 +1672,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def test_rename(self, client0):
+    async def _test_rename(self, client0):
         await client0.query(r'''
             set_type('A', {i: 'int'});
             set_type('B', {a: 'A'});
@@ -1728,7 +1728,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def test_rename_prop(self, client0):
+    async def _test_rename_prop(self, client0):
         await client0.query(r'''
             set_type('Test', {
                 arr: '[]',
@@ -1781,7 +1781,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def test_wrap(self, client0):
+    async def _test_wrap(self, client0):
         await client0.query(r'''
             new_type('_A');  // true through mod_type
             new_type('_B');  // true through set_type
@@ -1822,7 +1822,7 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
-    async def test_same_deep(self, client):
+    async def _test_same_deep(self, client):
         res = await client.query(r"""//ti
             new_type('User');
             set_type('User', {
@@ -1842,7 +1842,7 @@ class TestType(TestBase):
                     name: 'Tess'
                 },
                 arr: [User{name: 'Cato'}, User{name: 'Tess'}],
-                set: [{color: 'Blue'}],
+                set: set({color: 'Blue'}),
                 nosamedeep: {color: 'Transparent'}
             };
             return iris.wrap(), 1;  // ensure deep 1
@@ -1850,12 +1850,39 @@ class TestType(TestBase):
         self.assertEqual(res, {
             "name": "Iris",
             "friend": {
-                "name": "Cato"
+                "arr": [],
+                "friend": None,
+                "name": "Cato",
+                "nosamedeep": None,
+                "other": None,
+                "set": []
             },
             "other": {
-                "name": "Tess"
+                "arr": [],
+                "friend": None,
+                "name": "Tess",
+                "nosamedeep": None,
+                "other": None,
+                "set": []
             },
-            "arr": [{"name": "Cato"}, {"name": "Tess"}],
+            "arr": [
+                {
+                    "arr": [],
+                    "friend": None,
+                    "name": "Cato",
+                    "nosamedeep": None,
+                    "other": None,
+                    "set": []
+                },
+                {
+                    "arr": [],
+                    "friend": None,
+                    "name": "Tess",
+                    "nosamedeep": None,
+                    "other": None,
+                    "set": []
+                }
+            ],
             "set": [{"color": "Blue"}],
             "nosamedeep": {},
         })
@@ -1863,7 +1890,7 @@ class TestType(TestBase):
     async def test_type_name_id(self, client):
         with self.assertRaisesRegex(
                 LookupError,
-                r'xxx'):
+                r'multiple Id \(\'#\'\) definitions on type `User`'):
             res = await client.query(r"""//ti
                 set_type('User', {
                     id: '#',
@@ -1881,7 +1908,7 @@ class TestType(TestBase):
                 name: 'str',
             });
             .user = User{name: 'Iris'};
-            .person = Person(name: 'Cato');
+            .person = Person{name: 'Cato'};
             [.user, .person].map_id();
         """)
 
@@ -1896,14 +1923,92 @@ class TestType(TestBase):
         self.assertEqual(person, {"#": person_id, "name": "Cato"})
 
         user = await client.query(r"""//ti
-            .user.wrap('_Person');
+            .uw = .user.wrap('Person');
         """)
         self.assertEqual(user, {"#": user_id, "name": "Iris"})
 
         person = await client.query(r"""//ti
-            .person.wrap('_User');
+            .pw = .person.wrap('User');
         """)
         self.assertEqual(person, {"id": person_id, "name": "Cato"})
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'multiple Id \(\'#\'\) definitions on type `User`'):
+            await client.query(r"""//ti
+                mod_type('User', 'add', 'key', '#');
+            """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'cannot convert a property into an Id \(\'#\'\) definition'):
+            await client.query(r"""//ti
+                mod_type('Person', 'mod', 'name', '#');
+            """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'cannot modify an Id \(\'#\'\) definition'):
+            await client.query(r"""//ti
+                mod_type('User', 'mod', 'id', 'str');
+            """)
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `mod_type` with task `add` takes at '
+                r'most 4 arguments when adding an Id \(\'#\'\) definition;'):
+            await client.query(r"""//ti
+                mod_type('Person', 'add', 'id', '#', ||nil);
+            """)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `User` has no property `id`'):
+            await client.query(r"""//ti
+                mod_type('User', 'rel', 'id', 'id');
+            """)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `User` has no property `id`'):
+            await client.query(r"""//ti
+            set_type('R', {
+                user: 'User?'
+            });
+            mod_type('R', 'rel', 'user', 'id');
+            """)
+
+        await client.query(r"""//ti
+            mod_type('User', 'ren', 'id', 'key');
+            mod_type('Person', 'add', 'id', '#');
+        """)
+
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await asyncio.sleep(1.6)
+
+        for cl in (client, client1):
+            self.assertEqual(
+                await cl.query(r'.pw'),
+                {"key": person_id, "name": "Cato"})
+            self.assertEqual(
+                await cl.query(r'.uw'),
+                {"id": user_id, "name": "Iris"})
+
+        await client.query(r"""//ti
+            mod_type('Person', 'del', 'id');
+        """)
+
+        await asyncio.sleep(1.6)
+
+        for cl in (client, client1):
+            self.assertEqual(
+                await cl.query(r'.uw'),
+                {"#": user_id, "name": "Iris"})
+
+        client1.close()
+        await client1.wait_closed()
 
 
 if __name__ == '__main__':

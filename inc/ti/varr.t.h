@@ -29,7 +29,6 @@ enum
 
 #include <ex.h>
 #include <inttypes.h>
-#include <ti/name.t.h>
 #include <ti/thing.t.h>
 #include <util/vec.h>
 

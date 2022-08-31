@@ -311,9 +311,9 @@ class TestTypes(TestBase):
                 a = x + i;
                 b = y + i;
                 i = i + 1;  // writes a variable `i` in the local scope
-                if (i < 4, {
+                if (i < 4) {
                     c(x, y, i, c);
-                });
+                };
                 c = a + b;
                 res.push([i-1, c]);
             };

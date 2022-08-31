@@ -433,7 +433,7 @@ static void type__add(
 
         if (type->idname)
         {
-            ex_set(e, EX_TYPE_ERROR,
+            ex_set(e, EX_LOOKUP_ERROR,
                     "multiple Id ('#') definitions on type `%s`",
                     type->name);
             return;
@@ -866,7 +866,7 @@ static void type__mod(
     if (type->idname == name)
     {
         ex_set(e, EX_TYPE_ERROR,
-                "cannot modify a property with an Id ('#') specification");
+                "cannot modify an Id ('#') definition");
         return;
     }
 
@@ -910,8 +910,7 @@ static void type__mod(
         if (!method)
         {
             ex_set(e, EX_TYPE_ERROR,
-                "cannot convert a property into a method"DOC_MOD_TYPE_MOD,
-                fnname, ti_val_str(query->rval));
+                "cannot convert a property into a method"DOC_MOD_TYPE_MOD);
             return;
         }
 
@@ -943,13 +942,19 @@ static void type__mod(
         if (!field)
         {
             ex_set(e, EX_TYPE_ERROR,
-                "cannot convert a method into a property"DOC_MOD_TYPE_MOD,
-                fnname, ti_val_str(query->rval));
+                "cannot convert a method into a property"DOC_MOD_TYPE_MOD);
             return;
         }
         /* continue modifying a field */
 
         spec_raw = (ti_raw_t *) query->rval;
+        if (spec_raw->n == 1 && spec_raw->data[0] == '#')
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                "cannot convert a property into an Id ('#') definition");
+            return;
+        }
+
         query->rval = NULL;
 
         if (nargs == 4)

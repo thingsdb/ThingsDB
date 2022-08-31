@@ -22,6 +22,7 @@
 #include <ti/wrap.h>
 #include <ti/wrap.inline.h>
 #include <util/vec.h>
+#include <util/logger.h>
 
 ti_wrap_t * ti_wrap_create(ti_thing_t * thing, uint16_t type_id)
 {

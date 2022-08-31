@@ -20,11 +20,15 @@ int ti_names_create(void)
 
 int names__no_ref_cb(ti_name_t * name, void * UNUSED(arg))
 {
+    /* actually, only common variable should exist in here; */
     return name->ref == 1 ? 0 : -1;
 }
 
 _Bool ti_names_no_ref(void)
 {
+    const uint32_t COMMON_NAMES = 24;
+    if (names->n != COMMON_NAMES)
+        return -1;
     return smap_values(names, (smap_val_cb) names__no_ref_cb, NULL) == 0;
 }
 

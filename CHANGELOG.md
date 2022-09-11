@@ -1,3 +1,7 @@
+# v1.3.1
+
+* Fixed potential memory bug with relations, issue #302.
+
 # v1.3.0
 
 * Removed deprecated functions `return(..)` and `if(..)`, pr #297.

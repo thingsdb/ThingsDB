@@ -2070,6 +2070,39 @@ new_procedure('multiply', |a, b| a * b);
                 'name `union` is reserved'):
             await client.query('new_type("union");')
 
+    async def test_reserved_enum_union(self, client):
+        # bug #294
+        with self.assertRaisesRegex(
+                ValueError,
+                'name `enum` is reserved'):
+            await client.query('new_type("enum");')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'name `union` is reserved'):
+            await client.query('new_type("union");')
+
+    async def test_loop_set_relation_error(self, client):
+        # bug 302
+        with self.assertRaises(AssertionError):
+            await client.query("""//ti
+                something = {};
+                new_type('Workspace');
+                new_type('Person');
+                set_type('Workspace', {
+                    people: '{Person}'
+                });
+                set_type('Person', {
+                    workspace: 'Workspace?'
+                });
+                mod_type('Person', 'rel', 'workspace', 'people');
+                foo = Workspace{};
+                alice = Person{
+                    workspace: foo
+                };
+                foo.people.some(|| assert(0));
+            """)
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

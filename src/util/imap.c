@@ -467,7 +467,8 @@ int imap_walk_cp(
         return -1;
     for (vec_each(vec, void, data))
     {
-        rc = rc || cb(data, arg);
+        if (!rc)  /* fixed bug #302 */
+            rc = cb(data, arg);
         destroy_cb(data);
     }
     free(vec);

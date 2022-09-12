@@ -2103,6 +2103,34 @@ new_procedure('multiply', |a, b| a * b);
                 foo.people.some(|| assert(0));
             """)
 
+    async def test_cope_on_wse_relation(self, client):
+        await client.query("""//ti
+            new_type('A');
+            new_type('B');
+
+            set_type('A', {
+                b: '{B}'
+            });
+
+            set_type('B', {
+                a: '{A}'
+            });
+
+            mod_type('A', 'rel', 'b', 'a');
+        """)
+
+        res = await client.query("""//ti
+            a = A{};
+            b = B{a: set(a)};
+
+            b.a.each(|| {
+                a.b.clear();
+            });
+
+            b.a.len();  // 0
+        """)
+        self.assertEqual(res, 0)
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

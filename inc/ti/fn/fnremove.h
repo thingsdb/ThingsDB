@@ -214,7 +214,7 @@ static int do__f_remove_set_from_closure(
             .limit = limit,
     };
 
-    if (ti_vset_has_relation(vset))
+    if (ti_closure_wse(closure) && ti_vset_has_relation(vset))
     {
         if (limit && imap_walk_cp(
                 vset->imap,

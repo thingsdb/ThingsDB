@@ -91,7 +91,9 @@ static int do__f_every(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 .closure = closure,
                 .query = query,
         };
-        int rc = ti_vset_has_relation((ti_vset_t *) iterval)
+        int rc = (
+            ti_closure_wse(closure) &&
+            ti_vset_has_relation((ti_vset_t *) iterval))
                 ? imap_walk_cp(VSET(iterval),
                         (imap_cb) every__walk_set,
                         &w,

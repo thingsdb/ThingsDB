@@ -98,7 +98,9 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 .query = query,
         };
 
-        rc = ti_vset_has_relation((ti_vset_t *) iterval)
+        rc = (
+            ti_closure_wse(closure) &&
+            ti_vset_has_relation((ti_vset_t *) iterval))
                 ? imap_walk_cp(VSET(iterval),
                         (imap_cb) find__walk_set,
                         &w,

@@ -809,11 +809,14 @@ int ti_do_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!*data)
     {
+        intptr_t closure_wse = (intptr_t) nd->children->next->data;
+
         *data = (ti_val_t *) ti_closure_from_node(
                 nd,
-                (query->qbind.flags & TI_QBIND_FLAG_THINGSDB)
+                ((query->qbind.flags & TI_QBIND_FLAG_THINGSDB)
                     ? TI_CLOSURE_FLAG_BTSCOPE
-                    : TI_CLOSURE_FLAG_BCSCOPE);
+                    : TI_CLOSURE_FLAG_BCSCOPE) | closure_wse);
+
         if (!*data)
         {
             ex_set_mem(e);

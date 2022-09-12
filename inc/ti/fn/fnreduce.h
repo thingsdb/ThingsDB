@@ -173,7 +173,8 @@ static int do__f_reduce(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 .query = query,
         };
 
-        if (ti_vset_has_relation((ti_vset_t *) lockval))
+        if (ti_closure_wse(closure) &&
+            ti_vset_has_relation((ti_vset_t *) lockval))
         {
             if (imap_walk_cp(
                     imap,

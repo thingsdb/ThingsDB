@@ -32,7 +32,7 @@ ti_node_t * ti_node_create(
     assert (strlen(secret) == CRYPTX_SZ - 1);
     assert (strlen(addr) < INET6_ADDRSTRLEN);
 
-    ti_node_t * node = (ti_node_t *) malloc(sizeof(ti_node_t));
+    ti_node_t * node = malloc(sizeof(ti_node_t));
     if (!node)
         return NULL;
 

@@ -375,7 +375,7 @@ char * strx_cat(const char * s1, const char * s2)
     size_t n1 = strlen(s1);
     size_t n2 = strlen(s2);
 
-    char * s = (char *) malloc(n1 + n2 + 1);
+    char * s = malloc(n1 + n2 + 1);
     if (!s)
         return NULL;
 

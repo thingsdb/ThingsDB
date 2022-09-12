@@ -169,8 +169,7 @@ cfgparser_section_t * cfgparser_section(
 
     if (!current)
     {
-        cfgparser->sections =
-                (cfgparser_section_t *) malloc(sizeof(cfgparser_section_t));
+        cfgparser->sections = malloc(sizeof(cfgparser_section_t));
         if (!cfgparser->sections) return NULL;
 
         cfgparser->sections->options = NULL;
@@ -193,8 +192,7 @@ cfgparser_section_t * cfgparser_section(
         }
         current = current->next;
     }
-    current->next =
-            (cfgparser_section_t *) malloc(sizeof(cfgparser_section_t));
+    current->next = malloc(sizeof(cfgparser_section_t));
     if (!current->next) return NULL;
 
     current->next->options = NULL;
@@ -220,10 +218,8 @@ cfgparser_option_t * cfgparser_string_option(
         const char * val,
         const char * def)
 {
-    cfgparser_via_t * val_u =
-            (cfgparser_via_t *) malloc(sizeof(cfgparser_via_t));
-    cfgparser_via_t * def_u =
-            (cfgparser_via_t *) malloc(sizeof(cfgparser_via_t));
+    cfgparser_via_t * val_u = malloc(sizeof(cfgparser_via_t));
+    cfgparser_via_t * def_u = malloc(sizeof(cfgparser_via_t));
 
     if (!val_u || !def_u)
     {
@@ -264,10 +260,8 @@ cfgparser_option_t * cfgparser_integer_option(
         int32_t val,
         int32_t def)
 {
-    cfgparser_via_t * val_u =
-            (cfgparser_via_t *) malloc(sizeof(cfgparser_via_t));
-    cfgparser_via_t * def_u =
-            (cfgparser_via_t *) malloc(sizeof(cfgparser_via_t));
+    cfgparser_via_t * val_u = malloc(sizeof(cfgparser_via_t));
+    cfgparser_via_t * def_u = malloc(sizeof(cfgparser_via_t));
     if (!val_u || !def_u)
     {
         free(val_u);
@@ -298,10 +292,8 @@ cfgparser_option_t * cfgparser_real_option(
         double val,
         double def)
 {
-    cfgparser_via_t * val_u =
-            (cfgparser_via_t *) malloc(sizeof(cfgparser_via_t));
-    cfgparser_via_t * def_u =
-            (cfgparser_via_t *) malloc(sizeof(cfgparser_via_t));
+    cfgparser_via_t * val_u = malloc(sizeof(cfgparser_via_t));
+    cfgparser_via_t * def_u = malloc(sizeof(cfgparser_via_t));
     if (!val_u|| !def_u)
     {
         free(val_u);
@@ -419,8 +411,7 @@ static cfgparser_option_t * cfgparser__new_option(
 
     if (current == NULL)
     {
-        section->options =
-                (cfgparser_option_t *) malloc(sizeof(cfgparser_option_t));
+        section->options = malloc(sizeof(cfgparser_option_t));
         if (!section->options) return NULL;
 
         section->options->tp = tp;
@@ -454,7 +445,7 @@ static cfgparser_option_t * cfgparser__new_option(
         current = current->next;
     }
 
-    prev->next = (cfgparser_option_t *) malloc(sizeof(cfgparser_option_t));
+    prev->next = malloc(sizeof(cfgparser_option_t));
     if (!prev->next) return NULL;
 
     prev->next->tp = tp;

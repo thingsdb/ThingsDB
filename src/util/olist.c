@@ -10,7 +10,7 @@ static olist__t * olist__new(uint64_t id, olist__t * next);
 
 olist_t * olist_create(void)
 {
-    olist_t * olist = (olist_t *) malloc(sizeof(olist_t));
+    olist_t * olist = malloc(sizeof(olist_t));
     if (!olist)
         return NULL;
 

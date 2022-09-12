@@ -10,7 +10,7 @@ static omap__t * omap__new(uint64_t id, void * data, omap__t * next);
 
 omap_t * omap_create(void)
 {
-    omap_t * omap = (omap_t *) malloc(sizeof(omap_t));
+    omap_t * omap = malloc(sizeof(omap_t));
     if (!omap)
         return NULL;
 

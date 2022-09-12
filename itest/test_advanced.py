@@ -2117,17 +2117,19 @@ new_procedure('multiply', |a, b| a * b);
             });
 
             mod_type('A', 'rel', 'b', 'a');
+
+            .a = A{};
+            .b = B{};
+            .b.a.add(.a);
+            .clr = || {
+                .a.b.clear();
+            }
         """)
 
         res = await client.query("""//ti
-            a = A{};
-            b = B{a: set(a)};
-
-            b.a.each(|| {
-                a.b.clear();
-            });
-
-            b.a.len();  // 0
+            wse();
+            .b.a.each(|| .clr());
+            .b.a.len();  // 0
         """)
         self.assertEqual(res, 0)
 

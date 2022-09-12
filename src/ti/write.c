@@ -12,7 +12,7 @@ static void ti__write_cb(uv_write_t * req, int status);
 int ti_write(ti_stream_t * stream, ti_pkg_t * pkg, void * data, ti_write_cb cb)
 {
     uv_buf_t wrbuf;
-    ti_write_t * req = (ti_write_t *) malloc(sizeof(uv_write_t));
+    ti_write_t * req = malloc(sizeof(ti_write_t));
     if (!req)
         return -1;
 

@@ -47,11 +47,6 @@ static inline int ti_closure_do_statement(
     return e->nr;
 }
 
-static inline _Bool ti_closure_wse(ti_closure_t * closure)
-{
-    return closure->flags & TI_CLOSURE_FLAG_WSE;
-}
-
 static inline int ti_closure_try_wse(
         ti_closure_t * closure,
         ti_query_t * query,

@@ -2135,6 +2135,7 @@ new_procedure('multiply', |a, b| a * b);
         await client.query('.b.a.add(.a);')
 
         with self.assertRaises(OperationError):
+            # see pr #303
             res = await client.query("""//ti
                 wse();
                 .b.a.each(|| .clr());

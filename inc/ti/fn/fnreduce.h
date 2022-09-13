@@ -153,14 +153,13 @@ static int do__f_reduce(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     case TI_VAL_SET:
     {
-        imap_t * imap = VSET(lockval);
 
         if (nargs == 2)
         {
             if (ti_do_statement(query, nd->children->next->next, e))
                 goto fail2;
         }
-        else if (imap->n == 0)
+        else if (VSET(lockval)->n == 0)
         {
             ex_set(e, EX_LOOKUP_ERROR,
                     "reduce on empty set with no initial value set");
@@ -172,19 +171,13 @@ static int do__f_reduce(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 .closure = closure,
                 .query = query,
         };
-
-        if (ti_closure_wse(closure) &&
-            ti_vset_has_relation((ti_vset_t *) lockval))
-        {
-            if (imap_walk_cp(
-                    imap,
-                    (imap_cb) reduce__walk_set,
-                    &w,
-                    (imap_destroy_cb) ti_val_unsafe_drop) && !e->nr)
-                ex_set_mem(e);
-        }
-        else
-            (void) imap_walk(imap, (imap_cb) reduce__walk_set, &w);
+        if (ti_vset_walk(
+                (ti_vset_t *) lockval,
+                query,
+                closure,
+                (imap_cb) reduce__walk_set,
+                &w) && !e->nr)
+            ex_set_mem(e);
     }
     }
 

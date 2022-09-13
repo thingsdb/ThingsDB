@@ -213,13 +213,12 @@ static int do__f_remove_set_from_closure(
             .removed = removed,
             .limit = limit,
     };
-
     if (limit && ti_vset_walk(
             vset,
             query,
             closure,
             (imap_cb) remove__walk,
-            &w) && !e->nr)
+            &w) < 0 && !e->nr)
         ex_set_mem(e);
 
     ti_closure_dec(closure, query);

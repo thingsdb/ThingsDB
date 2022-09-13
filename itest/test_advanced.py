@@ -2141,6 +2141,43 @@ new_procedure('multiply', |a, b| a * b);
                 .b.a.each(|| .clr());
             """)
 
+    async def test_type_wrap_change(self, client):
+        res = await client.query("""//ti
+            set_type('A', {
+                name: 'str',
+                calc: |this| wse(.change())
+            });
+            .change = || {
+                .a.name = 'mrX';
+            };
+            .a = A{name: 'msY'};
+            return .a.wrap(), 1, NO_IDS;
+        """)
+        self.assertEqual(res, {
+            "name": "msY",
+            'calc': 'failed to compute property; method has side effects'
+        })
+
+        res = await client.query("""//ti
+            set_type('B', {
+                name: 'str',
+                calc: |this| .change()
+            });
+            .change = || {
+                .name = 'mrX';
+            };
+            .b = B{name: 'msY'};
+            return .b.wrap(), 1, NO_IDS;
+        """)
+        self.assertEqual(res, {
+            "name": "msY",
+            'calc': (
+                'closures with side effects require a change but '
+                'none is created; use '
+                '`wse(...)` to enforce a change; see '
+                'https://docs.thingsdb.net/v1/collection-api/wse')
+        })
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

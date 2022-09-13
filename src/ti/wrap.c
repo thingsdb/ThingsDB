@@ -3,6 +3,7 @@
  */
 #include <assert.h>
 #include <stdlib.h>
+#include <ti/change.t.h>
 #include <ti/closure.h>
 #include <ti/field.h>
 #include <ti/future.h>
@@ -245,6 +246,9 @@ int ti__wrap_methods_to_pk(
     ti_val_t * rval = vp->query->rval;
     register const uint8_t deep_ = vp->query->qbind.deep;
     register const uint8_t flags_ = vp->query->flags;
+    register ti_change_t * change_ = vp->query->change;
+
+    vp->query->change = NULL;
 
     for (vec_each(t_type->methods, ti_method_t, method))
     {
@@ -301,6 +305,7 @@ int ti__wrap_methods_to_pk(
             break;
     }
 
+    vp->query->change = change_;
     vp->query->qbind.deep = deep_;
     vp->query->flags = flags_;
     vp->query->rval = rval;

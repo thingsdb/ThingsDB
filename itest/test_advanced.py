@@ -2127,11 +2127,18 @@ new_procedure('multiply', |a, b| a * b);
         """)
 
         res = await client.query("""//ti
-            wse();
-            .b.a.each(|| .clr());
+            .b.a.each(|| wse(.clr()));
             .b.a.len();  // 0
         """)
         self.assertEqual(res, 0)
+
+        await client.query('.b.a.add(.a);')
+
+        with self.assertRaises(OperationError):
+            res = await client.query("""//ti
+                wse();
+                .b.a.each(|| .clr());
+            """)
 
 
 if __name__ == '__main__':

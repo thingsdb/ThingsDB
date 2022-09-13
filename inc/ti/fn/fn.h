@@ -65,6 +65,7 @@
 #include <ti/vfloat.h>
 #include <ti/vint.h>
 #include <ti/vset.h>
+#include <ti/vset.inline.h>
 #include <ti/vtask.h>
 #include <ti/vtask.inline.h>
 #include <ti/warn.h>

@@ -14,7 +14,7 @@
 
 int ti_varr_to_tuple(ti_varr_t ** varr)
 {
-    ti_varr_t * tuple = *varr;
+    ti_tuple_t * tuple = *((ti_tuple_t **) varr);
 
     if (tuple->flags & TI_VARR_FLAG_TUPLE)
         return 0;  /* tuples cannot change so we do not require a copy */
@@ -22,7 +22,7 @@ int ti_varr_to_tuple(ti_varr_t ** varr)
     if (tuple->ref == 1)
     {
         tuple->flags |= TI_VARR_FLAG_TUPLE;
-        tuple->parent = NULL;  /* make sure no parent is set */
+        ((ti_varr_t *) tuple)->parent = NULL;  /* make sure no parent is set */
         return 0;  /* with only one reference we do not require a copy */
     }
 
@@ -51,7 +51,7 @@ int ti_varr_to_tuple(ti_varr_t ** varr)
 
     assert ((*varr)->ref > 1);
     ti_decref(*varr);
-    *varr = tuple;
+    *varr = (ti_varr_t *) tuple;
     return 0;
 }
 

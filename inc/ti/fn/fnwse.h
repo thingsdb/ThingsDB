@@ -13,7 +13,5 @@ static int do__f_wse(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    (void) ti_do_statement(query, nd->children, e);
-
-    return e->nr;
+    return ti_do_statement(query, nd->children, e);
 }

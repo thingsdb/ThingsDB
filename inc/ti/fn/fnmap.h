@@ -137,12 +137,12 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 .query = query,
                 .varr = retvarr,
         };
-        if (ti_vset_has_relation((ti_vset_t *) iterval)
-                ? imap_walk_cp(VSET(iterval),
-                        (imap_cb) map__walk_set,
-                        &w,
-                        (imap_destroy_cb) ti_val_unsafe_drop)
-                : imap_walk(VSET(iterval), (imap_cb) map__walk_set, &w))
+        if (ti_vset_walk(
+                (ti_vset_t *) iterval,
+                query,
+                closure,
+                (imap_cb) map__walk_set,
+                &w))
             goto fail2;
         break;
     }

@@ -145,7 +145,13 @@ static int ncache__closure(
         cleri_node_t * nd,
         ex_t * e)
 {
+    /* as the outer closure is always unbound from a scope and thus the WSE
+     * flag has been set correctly, it is technically not required to set the
+     * WSE flag at this point; however, I think its best to set the flag
+     * anyway as some future logic might depend on the flag;
+     */
     void ** data = &nd->children->data;
+    intptr_t closure_wse = (intptr_t) nd->children->next->data;
 
     if (ncache__statement(
                 syntax,
@@ -156,9 +162,9 @@ static int ncache__closure(
 
     *data = ti_closure_from_node(
             nd,
-            (syntax->flags & TI_QBIND_FLAG_THINGSDB)
+            ((syntax->flags & TI_QBIND_FLAG_THINGSDB)
                         ? TI_CLOSURE_FLAG_BTSCOPE
-                        : TI_CLOSURE_FLAG_BCSCOPE);
+                        : TI_CLOSURE_FLAG_BCSCOPE) | closure_wse);
 
     assert (vec_space(vcache));
 

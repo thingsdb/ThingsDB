@@ -1007,20 +1007,24 @@ static inline void qbind__thing(ti_qbind_t * qbind, cleri_node_t * nd)
 
 static inline void qbind__closure(ti_qbind_t * qbind, cleri_node_t * nd)
 {
-    uint8_t for_loop_flag = qbind->flags & TI_QBIND_FLAG_FOR_LOOP;
+    intptr_t closure_wse;
+    uint8_t flags = qbind->flags & (TI_QBIND_FLAG_FOR_LOOP|TI_QBIND_FLAG_WSE);
 
     nd->data = ti_do_closure;
     nd->children->data = NULL;
 
-    qbind->flags &= ~TI_QBIND_FLAG_FOR_LOOP;
+    qbind->flags &= ~(TI_QBIND_FLAG_FOR_LOOP|TI_QBIND_FLAG_WSE);
 
     /* investigate the statement, the rest can be skipped */
     qbind__statement(
             qbind,
             nd->children->next->next->next);
 
+    closure_wse = (qbind->flags & TI_QBIND_FLAG_WSE) ? TI_CLOSURE_FLAG_WSE : 0;
+    nd->children->next->data = (void *) closure_wse;
+
     ++qbind->immutable_n;
-    qbind->flags |= for_loop_flag;
+    qbind->flags |= flags;
 }
 
 /*

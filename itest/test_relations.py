@@ -1543,6 +1543,41 @@ mod_type('D', 'rel', 'da', 'db');
             return p.w.len()
         '''), 1)
 
+    async def test_wse_on_closure(self, client):
+        await client.query("""//ti
+            new_type('A');
+            new_type('B');
+
+            set_type('A', {
+                b: '{B}'
+            });
+
+            set_type('B', {
+                a: '{A}'
+            });
+
+            mod_type('A', 'rel', 'b', 'a');
+
+            .a = A{};
+            .b = B{};
+            .b.a.add(.a);
+            .clr = || (||.a.b.clear()).call();
+            .check = || {
+                .b.a.each(|| .clr());
+            };
+        """)
+
+        await self.node0.shutdown()
+        await self.node0.run()
+        await self.wait_nodes_ready()
+
+        with self.assertRaises(OperationError):
+            # see pr #303
+            res = await client.query("""//ti
+                wse();
+                .check();
+            """)
+
 
 if __name__ == '__main__':
     run_test(TestRelations())

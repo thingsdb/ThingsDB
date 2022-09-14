@@ -2103,6 +2103,81 @@ new_procedure('multiply', |a, b| a * b);
                 foo.people.some(|| assert(0));
             """)
 
+    async def test_cope_on_wse_relation(self, client):
+        await client.query("""//ti
+            new_type('A');
+            new_type('B');
+
+            set_type('A', {
+                b: '{B}'
+            });
+
+            set_type('B', {
+                a: '{A}'
+            });
+
+            mod_type('A', 'rel', 'b', 'a');
+
+            .a = A{};
+            .b = B{};
+            .b.a.add(.a);
+            .clr = || {
+                .a.b.clear();
+            }
+        """)
+
+        res = await client.query("""//ti
+            .b.a.each(|| wse(.clr()));
+            .b.a.len();  // 0
+        """)
+        self.assertEqual(res, 0)
+
+        await client.query('.b.a.add(.a);')
+
+        with self.assertRaises(OperationError):
+            # see pr #303
+            res = await client.query("""//ti
+                wse();
+                .b.a.each(|| .clr());
+            """)
+
+    async def test_type_wrap_change(self, client):
+        res = await client.query("""//ti
+            set_type('A', {
+                name: 'str',
+                calc: |this| wse(.change())
+            });
+            .change = || {
+                .a.name = 'mrX';
+            };
+            .a = A{name: 'msY'};
+            return .a.wrap(), 1, NO_IDS;
+        """)
+        self.assertEqual(res, {
+            "name": "msY",
+            'calc': 'failed to compute property; method has side effects'
+        })
+
+        res = await client.query("""//ti
+            set_type('B', {
+                name: 'str',
+                calc: |this| .change()
+            });
+            .change = || {
+                .name = 'mrX';
+            };
+            .b = B{name: 'msY'};
+            return .b.wrap(), 1, NO_IDS;
+        """)
+        self.assertEqual(res, {
+            "name": "msY",
+            'calc': (
+                'closures with side effects require a change but '
+                'none is created; use '
+                '`wse(...)` to enforce a change; see '
+                'https://docs.thingsdb.net/v1/collection-api/wse')
+        })
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

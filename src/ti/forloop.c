@@ -239,7 +239,7 @@ int ti_forloop_set(
             .e = e,
     };
 
-    if ((ti_vset_has_relation(vset)
+    if (((query->change && ti_vset_has_relation(vset))
             ? imap_walk_cp(vset->imap,
                     (imap_cb) forloop__walk_set,
                     &w,

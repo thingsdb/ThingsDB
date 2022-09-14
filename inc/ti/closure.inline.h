@@ -52,16 +52,7 @@ static inline int ti_closure_try_wse(
         ti_query_t * query,
         ex_t * e)
 {
-    /*
-     * The current implementation never sets the `WSE` flag when bound to a
-     * scope, but nevertheless we still check explicit so this still works
-     * if we later decide to change the code.
-     */
-    if (!query->change && ((closure->flags & (
-                TI_CLOSURE_FLAG_BTSCOPE|
-                TI_CLOSURE_FLAG_BCSCOPE|
-                TI_CLOSURE_FLAG_WSE
-            )) == TI_CLOSURE_FLAG_WSE))
+    if (!query->change && (closure->flags & TI_CLOSURE_FLAG_WSE))
     {
         ex_set(e, EX_OPERATION,
             "closures with side effects require a change but none is created; "

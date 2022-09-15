@@ -1614,7 +1614,8 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ex_set(e, EX_VALUE_ERROR,
             "function `mod_type` expects argument 2 to be "
-            "`add`, `del`, `mod`, `rel`, `ren` or `wpo` but got `%.*s` instead"
+            "`all`, `add`, `del`, `hid`, `mod`, `rel`, `ren` or `wpo` "
+            "but got `%.*s` instead"
             DOC_MOD_TYPE,
             rmod->n, (const char *) rmod->data);
 

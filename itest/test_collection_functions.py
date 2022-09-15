@@ -3494,7 +3494,7 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('.set("foo", "bar");'), "bar")
         self.assertEqual(await client.query('.foo;'), "bar")
 
-    async def test_set_new_type(self, client):
+    async def test_create_set_type(self, client):
         with self.assertRaisesRegex(
                 LookupError,
                 'type `nil` has no function `set`'):
@@ -3522,6 +3522,217 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(
             await client.query(r'set({});'),
             [{}])
+
+    async def test_new_type(self, client):
+        await client.query("""//ti
+            set_type('T', {});
+            set_enum('E', {v0: 0});
+        """)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `new_type`'):
+            await client.query('nil.new_type();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `new_type` requires at least 1 argument '
+                'but 0 were given;'):
+            await client.query('new_type();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `new_type` takes at most 3 arguments '
+                'but 4 were given;'):
+            await client.query('new_type("A", true, true, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `new_type` expects argument 1 to be of '
+                'type `str` but got type `nil` instead;'):
+            await client.query(r'new_type(nil);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'function `new_type` expects argument 1 to be a '
+                'valid type name;'):
+            await client.query(r'new_type("123");')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `T` already exists'):
+            await client.query(r'new_type("T");')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'enum `E` already exists'):
+            await client.query(r'new_type("E");')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'name `int` is reserved'):
+            await client.query(r'new_type("int");')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `new_type` expects argument 2 to be of '
+                'type `bool` but got type `int` instead;'):
+            await client.query(r'new_type("A", 0);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `new_type` expects argument 3 to be of '
+                'type `bool` but got type `int` instead;'):
+            await client.query(r'new_type("A", false, 0);')
+
+        res = await client.query("""//ti
+            t = type_info(new_type("A")).load();
+            [t.name, t.wrap_only, t.hide_id];
+        """)
+        self.assertEqual(res, ["A", False, False])
+
+        res = await client.query("""//ti
+            t = type_info(new_type("A0", true)).load();
+            [t.name, t.wrap_only, t.hide_id];
+        """)
+        self.assertEqual(res, ["A0", True, False])
+
+        res = await client.query("""//ti
+            t = type_info(new_type("A1", false, true)).load();
+            [t.name, t.wrap_only, t.hide_id];
+        """)
+        self.assertEqual(res, ["A1", False, True])
+
+    async def test_set_type(self, client):
+        await client.query("""//ti
+            set_enum('E', {v0: 0});
+            set_type('T0', {name: 'str'});
+            new_type('T1');
+            new_type('T2', true, true);
+            new_type('T3');
+            .t3 = T3{};
+        """)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `set_type`'):
+            await client.query('nil.set_type();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `set_type` requires at least 2 arguments '
+                'but 0 were given;'):
+            await client.query('set_type();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `set_type` takes at most 4 arguments '
+                'but 5 were given;'):
+            await client.query('set_type("A", {}, true, true, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `set_type` expects argument 1 to be of '
+                'type `str` but got type `nil` instead;'):
+            await client.query(r'set_type(nil, {});')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'function `set_type` expects argument 1 to be a '
+                'valid type name;'):
+            await client.query(r'set_type("123", {});')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'function `set_type` works only on a new type; '
+                r'use `mod_type\(\)` if you want to change an existing type;'):
+            await client.query(r'set_type("T0", {});')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                'function `set_type` can only be used on a type without '
+                'active instances; '
+                '1 active instance of type `T1` has been found;'):
+            await client.query(r't1 = T1{}; set_type("T1", {});')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                'function `set_type` can only be used on a type without '
+                'active instances; '
+                '2 active instances of type `T3` have been found;'):
+            await client.query(r't3 = T3{}; set_type("T3", {});')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'enum `E` already exists'):
+            await client.query(r'set_type("E", {});')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'name `int` is reserved'):
+            await client.query(r'set_type("int", {});')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `set_type` expects argument 3 to be of '
+                'type `bool` but got type `int` instead;'):
+            await client.query(r'set_type("A", {}, 0);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `set_type` expects argument 4 to be of '
+                'type `bool` but got type `int` instead;'):
+            await client.query(r'set_type("A", {}, false, 0);')
+
+        res = await client.query("""//ti
+            set_type("T1", {});
+            t = type_info("T1").load();
+            [t.name, t.wrap_only, t.hide_id];
+        """)
+        self.assertEqual(res, ["T1", False, False])
+
+        res = await client.query("""//ti
+            set_type("T2", {});
+            t = type_info("T2").load();
+            [t.name, t.wrap_only, t.hide_id];
+        """)
+        self.assertEqual(res, ["T2", True, True])
+
+        res = await client.query("""//ti
+            set_type("T1", {}, true, true);
+            t = type_info("T1").load();
+            [t.name, t.wrap_only, t.hide_id];
+        """)
+        self.assertEqual(res, ["T1", True, True])
+
+        res = await client.query("""//ti
+            set_type("T2", {}, false, false);
+            t = type_info("T2").load();
+            [t.name, t.wrap_only, t.hide_id];
+        """)
+        self.assertEqual(res, ["T2", False, False])
+
+        pid = await client.query("""//ti
+            set_type("P", {
+                name: 'str'
+            });
+            mod_type("P", "hid", true);
+            .p = P{name: 'Iris'};
+            .p.id();
+        """)
+        self.assertIsInstance(pid, int)
+        res = await client.query("""//ti
+            {p: .p};
+        """)
+        self.assertEqual(res, {"p": {"#": pid}})
+        res = await client.query("""//ti
+            return {p: .p}, 1, NO_IDS;
+        """)
+        self.assertEqual(res, {"p": {}})
+        res = await client.query("""//ti
+            .p;
+        """)
+        self.assertEqual(res, {"name": "Iris"})
 
     async def test_every(self, client):
         with self.assertRaisesRegex(

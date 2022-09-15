@@ -1472,6 +1472,48 @@ static void type__wpo(
         ex_set_mem(e);
 }
 
+static void type__hid(
+        ti_query_t * query,
+        ti_type_t * type,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    static const char * fnname = "mod_type` with task `hid";
+    const int nargs = fn_get_nargs(nd);
+    _Bool hide_id;
+    ti_task_t * task;
+
+    nd = nd->children->next->next->next->next;
+
+    if (fn_nargs(fnname, DOC_MOD_TYPE_NID, 3, nargs, e) ||
+        ti_do_statement(query, nd, e) ||
+        fn_arg_bool(fnname, DOC_MOD_TYPE_NID, 3, query->rval, e))
+        return;
+
+    hide_id = ti_val_as_bool(query->rval);
+
+    ti_val_unsafe_drop(query->rval);
+    query->rval = NULL;
+
+    if (hide_id == ti_type_hide_id(type))
+        return;  /* nothing to do */
+
+    task = ti_task_get_task(query->change, query->collection->root);
+    if (!task)
+    {
+        ex_set_mem(e);
+        return;
+    }
+
+    ti_type_set_hide_id(type, hide_id);
+
+    /* update modified time-stamp */
+    type->modified_at = util_now_usec();
+
+    if (ti_task_add_mod_type_hid(task, type))
+        ex_set_mem(e);
+}
+
 static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     ti_type_t * type;
@@ -1511,6 +1553,12 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_raw_eq_strn(rmod, "wpo", 3))
     {
         type__wpo(query, type, nd, e);
+        goto done;
+    }
+
+    if (ti_raw_eq_strn(rmod, "hid", 3))
+    {
+        type__hid(query, type, nd, e);
         goto done;
     }
 

@@ -191,7 +191,9 @@ static inline int wrap__id_to_pk(
         size_t n,
         int flags)
 {
-    if (thing->id && (~flags & TI_FLAGS_NO_IDS))
+    if (thing->id &&
+            (~flags & TI_FLAGS_NO_IDS) &&
+            (~type->flags & TI_TYPE_FLAG_HIDE_ID))
     {
         register const ti_name_t * name = type->idname;
         return -(

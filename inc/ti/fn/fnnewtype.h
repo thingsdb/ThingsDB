@@ -3,6 +3,7 @@
 static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
+    cleri_node_t * child = nd->children;
     ti_raw_t * rname;
     ti_type_t * type;
     ti_task_t * task;
@@ -10,8 +11,8 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     uint8_t flags = 0;
 
     if (fn_not_collection_scope("new_type", query, e) ||
-            fn_nargs_range("new_type", DOC_NEW_TYPE, 1, 2, nargs, e) ||
-        ti_do_statement(query, nd->children, e) ||
+        fn_nargs_range("new_type", DOC_NEW_TYPE, 1, 3, nargs, e) ||
+        ti_do_statement(query, child, e) ||
         fn_arg_str("new_type", DOC_NEW_TYPE, 1, query->rval, e))
         return e->nr;
 
@@ -48,11 +49,10 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (nargs == 2)
+    if (nargs >= 2)
     {
         query->rval = NULL;
-
-        if (ti_do_statement(query, nd->children->next->next, e) ||
+        if (ti_do_statement(query, (child = child->next->next), e) ||
             fn_arg_bool("new_type", DOC_NEW_TYPE, 2, query->rval, e))
         {
             ti_val_unsafe_drop((ti_val_t *) rname);
@@ -60,10 +60,28 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
 
         if (ti_val_as_bool(query->rval))
-            flags = TI_TYPE_FLAG_WRAP_ONLY;
+            flags |= TI_TYPE_FLAG_WRAP_ONLY;
 
         /* drop the current return value and restore the name */
         ti_val_unsafe_drop(query->rval);
+
+        if (nargs == 3)
+        {
+            query->rval = NULL;
+            if (ti_do_statement(query, (child = child->next->next), e) ||
+                fn_arg_bool("new_type", DOC_NEW_TYPE, 3, query->rval, e))
+            {
+                ti_val_unsafe_drop((ti_val_t *) rname);
+                return e->nr;
+            }
+
+            if (ti_val_as_bool(query->rval))
+                flags |= TI_TYPE_FLAG_HIDE_ID;
+
+            /* drop the current return value and restore the name */
+            ti_val_unsafe_drop(query->rval);
+        }
+
         query->rval = (ti_val_t *) rname;
     }
 

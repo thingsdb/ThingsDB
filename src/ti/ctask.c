@@ -1682,7 +1682,7 @@ static int ctask__mod_type_wpo(ti_thing_t * thing, mp_unp_t * up)
 {
     ti_collection_t * collection = thing->collection;
     ti_type_t * type;
-    mp_obj_t obj, mp_id, mp_modified, mp_wo;
+    mp_obj_t obj, mp_id, mp_modified, mp_wpo;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
         mp_skip(up) != MP_STR ||
@@ -1690,7 +1690,7 @@ static int ctask__mod_type_wpo(ti_thing_t * thing, mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_modified) != MP_U64 ||
         mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_wo) != MP_BOOL)
+        mp_next(up, &mp_wpo) != MP_BOOL)
     {
         log_critical(
                 "task `mod_type_wpo` for "TI_COLLECTION_ID" is invalid",
@@ -1708,12 +1708,53 @@ static int ctask__mod_type_wpo(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    ti_type_set_wrap_only_mode(type, mp_wo.via.bool_);
+    ti_type_set_wrap_only_mode(type, mp_wpo.via.bool_);
 
     type->modified_at = mp_modified.via.u64;
 
     return 0;
 }
+
+/*
+ * Returns 0 on success
+ */
+static int ctask__mod_type_hid(ti_thing_t * thing, mp_unp_t * up)
+{
+    ti_collection_t * collection = thing->collection;
+    ti_type_t * type;
+    mp_obj_t obj, mp_id, mp_modified, mp_hid;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_modified) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_hid) != MP_BOOL)
+    {
+        log_critical(
+                "task `mod_type_hid` for "TI_COLLECTION_ID" is invalid",
+                collection->root->id);
+        return -1;
+    }
+
+    type = ti_types_by_id(collection->types, mp_id.via.u64);
+    if (!type)
+    {
+        log_critical(
+                "task `mod_type_hid` for "TI_COLLECTION_ID" is invalid; "
+                "type with id %"PRIu64" not found",
+                collection->root->id, mp_id.via.u64);
+        return -1;
+    }
+
+    ti_type_set_hide_id(type, mp_hid.via.bool_);
+
+    type->modified_at = mp_modified.via.u64;
+
+    return 0;
+}
+
 
 /*
  * Returns 0 on success
@@ -2735,6 +2776,7 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_SET_DEFAULT_DEEP:  break;
     case TI_TASK_RESTORE_FINISHED:  break;
     case TI_TASK_TO_THING:          return ctask__to_thing(thing, up);
+    case TI_TASK_MOD_TYPE_HID:      return ctask__mod_type_hid(thing, up);
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);

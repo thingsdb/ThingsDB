@@ -30,9 +30,10 @@ static int rmtype_cb(
 static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
 {
     uintptr_t p;
-    if (msgpack_pack_array(pk, 7) ||
+    if (msgpack_pack_array(pk, 8) ||
         msgpack_pack_uint16(pk, type->type_id) ||
         mp_pack_bool(pk, type->flags & TI_TYPE_FLAG_WRAP_ONLY) ||
+        mp_pack_bool(pk, type->flags & TI_TYPE_FLAG_HIDE_ID) ||
         msgpack_pack_uint64(pk, type->created_at) ||
         msgpack_pack_uint64(pk, type->modified_at) ||
         mp_pack_strn(pk, type->rname->data, type->rname->n) ||
@@ -163,6 +164,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     int rc = -1;
     _Bool with_methods = true;
     _Bool with_wrap_only = true;
+    _Bool with_hide_id = true;
     _Bool with_relations = true;
     fx_mmap_t fmap;
     ex_t e = {0};
@@ -172,7 +174,8 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     uint16_t type_id;
     uintptr_t utype_id;
     ti_raw_t * spec;
-    mp_obj_t obj, mp_id, mp_name, mp_wo, mp_spec, mp_created, mp_modified;
+    mp_obj_t obj, mp_id, mp_name, mp_wpo, mp_hid,
+             mp_spec, mp_created, mp_modified;
     mp_unp_t up;
     ti_vup_t vup = {
             .isclient = false,
@@ -238,8 +241,11 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
              */
             with_methods = false;
             with_wrap_only = false;
-            mp_wo.tp = MP_BOOL;
-            mp_wo.via.bool_ = false;
+            with_hide_id = false;
+            mp_wpo.tp = MP_BOOL;
+            mp_wpo.via.bool_ = false;
+            mp_hid.tp = MP_BOOL;
+            mp_hid.via.bool_ = false;
             if (mp_next(&up, &mp_id) != MP_U64 ||
                 mp_next(&up, &mp_created) != MP_U64 ||
                 mp_next(&up, &mp_modified) != MP_U64 ||
@@ -253,8 +259,11 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
              *       versions before v0.9.7.
              */
             with_wrap_only = false;
-            mp_wo.tp = MP_BOOL;
-            mp_wo.via.bool_ = false;
+            with_hide_id = false;
+            mp_wpo.tp = MP_BOOL;
+            mp_wpo.via.bool_ = false;
+            mp_hid.tp = MP_BOOL;
+            mp_hid.via.bool_ = false;
             if (mp_next(&up, &mp_id) != MP_U64 ||
                 mp_next(&up, &mp_created) != MP_U64 ||
                 mp_next(&up, &mp_modified) != MP_U64 ||
@@ -264,8 +273,26 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
            ) goto fail1;
             break;
         case 7:
+            /*
+             * TODO: (COMPAT) This code is for compatibility with ThingsDB
+             *       versions before v1.3.2.
+             */
+            with_hide_id = false;
+            mp_hid.tp = MP_BOOL;
+            mp_hid.via.bool_ = false;
             if (mp_next(&up, &mp_id) != MP_U64 ||
-                mp_next(&up, &mp_wo) != MP_BOOL ||
+                mp_next(&up, &mp_wpo) != MP_BOOL ||
+                mp_next(&up, &mp_created) != MP_U64 ||
+                mp_next(&up, &mp_modified) != MP_U64 ||
+                mp_next(&up, &mp_name) != MP_STR ||
+                mp_skip(&up) != MP_MAP ||   /* fields */
+                mp_skip(&up) != MP_MAP      /* methods */
+           ) goto fail1;
+            break;
+        case 8:
+            if (mp_next(&up, &mp_id) != MP_U64 ||
+                mp_next(&up, &mp_wpo) != MP_BOOL ||
+                mp_next(&up, &mp_hid) != MP_BOOL ||
                 mp_next(&up, &mp_created) != MP_U64 ||
                 mp_next(&up, &mp_modified) != MP_U64 ||
                 mp_next(&up, &mp_name) != MP_STR ||
@@ -280,7 +307,10 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
         if (!ti_type_create(
                 types,
                 mp_id.via.u64,
-                mp_wo.via.bool_ ? TI_TYPE_FLAG_WRAP_ONLY : 0,
+                (
+                    (mp_wpo.via.bool_ ? TI_TYPE_FLAG_WRAP_ONLY : 0) |
+                    (mp_hid.via.bool_ ? TI_TYPE_FLAG_HIDE_ID : 0)
+                ),
                 mp_name.via.str.data,
                 mp_name.via.str.n,
                 mp_created.via.u64,
@@ -300,16 +330,18 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     {
         /*
          * TODO: (COMPAT) This code is for compatibility with ThingsDB version
-         *       before v0.9.6 and might be changed to obj.via.sz != 7 when
+         *       before v0.9.6 and might be changed to obj.via.sz != 8 when
          *       backwards compatibility may be dropped.
          */
         if (mp_next(&up, &obj) != MP_ARR || obj.via.sz < 5 ||
             mp_next(&up, &mp_id) != MP_U64 ||
             (with_wrap_only && mp_skip(&up) != MP_BOOL) ||
+            (with_hide_id && mp_skip(&up) != MP_BOOL) ||
             mp_skip(&up) != MP_U64 ||  /* created */
             mp_skip(&up) != MP_U64 ||  /* modified */
             mp_skip(&up) != MP_STR ||  /* name */
             mp_next(&up, &obj) != MP_MAP
+            /* methods will be skipped later */
         ) goto fail1;
 
         type = ti_types_by_id(types, mp_id.via.u64);

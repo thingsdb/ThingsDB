@@ -1,3 +1,8 @@
+# v1.3.2
+
+* Improve performance when looping sets with relations, pr #303.
+* Add option to hide an Id for a Type, pr #304.
+
 # v1.3.1
 
 * Fixed potential memory bug with relations, issue #302.

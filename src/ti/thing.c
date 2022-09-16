@@ -974,7 +974,7 @@ int ti_thing__to_client_pk(
         int deep,
         int flags)
 {
-    register const uint8_t with_id = thing->id && (~flags & TI_FLAGS_NO_IDS);
+    register uint8_t with_id = thing->id && (~flags & TI_FLAGS_NO_IDS);
     /*
      * Only when packing for a client the result size is checked;
      * The correct error is not set here, but instead the size should be
@@ -986,13 +986,13 @@ int ti_thing__to_client_pk(
 
     --deep;
 
-    if (msgpack_pack_map(&vp->pk, with_id + ti_thing_n(thing)))
-        return -1;
-
     thing->flags |= TI_VFLAG_LOCK;
 
     if (ti_thing_is_object(thing))
     {
+        if (msgpack_pack_map(&vp->pk, with_id + ti_thing_n(thing)))
+            return -1;
+
         if (with_id && (
                 mp_pack_strn(&vp->pk, TI_KIND_S_THING, 1) ||
                 msgpack_pack_uint64(&vp->pk, thing->id)
@@ -1025,6 +1025,11 @@ int ti_thing__to_client_pk(
     {
         ti_name_t * name = thing->via.type->idname;
         ti_val_t * val;
+
+        with_id = with_id && !(thing->via.type->flags & TI_TYPE_FLAG_HIDE_ID);
+
+        if (msgpack_pack_map(&vp->pk, with_id + ti_thing_n(thing)))
+            return -1;
 
         if (with_id && ((name
                     ? mp_pack_strn(&vp->pk, name->str, name->n)

@@ -112,13 +112,18 @@ static inline _Bool ti_type_is_wrap_only(ti_type_t * type)
     return type->flags & TI_TYPE_FLAG_WRAP_ONLY;
 }
 
+static inline _Bool ti_type_hide_id(ti_type_t * type)
+{
+    return type->flags & TI_TYPE_FLAG_HIDE_ID;
+}
+
 static inline int ti_type_to_pk(
         ti_type_t * type,
         msgpack_packer * pk,
         _Bool with_definition)
 {
     return (
-        msgpack_pack_map(pk, 8) ||
+        msgpack_pack_map(pk, 9) ||
         mp_pack_str(pk, "type_id") ||
         msgpack_pack_uint16(pk, type->type_id) ||
 
@@ -127,6 +132,9 @@ static inline int ti_type_to_pk(
 
         mp_pack_str(pk, "wrap_only") ||
         mp_pack_bool(pk, ti_type_is_wrap_only(type)) ||
+
+        mp_pack_str(pk, "hide_id") ||
+        mp_pack_bool(pk, ti_type_hide_id(type)) ||
 
         mp_pack_str(pk, "created_at") ||
         msgpack_pack_uint64(pk, type->created_at) ||
@@ -154,6 +162,15 @@ static inline void ti_type_set_wrap_only_mode(ti_type_t * type, _Bool wpo)
     else
         type->flags &= ~TI_TYPE_FLAG_WRAP_ONLY;
 }
+
+static inline void ti_type_set_hide_id(ti_type_t * type, _Bool nid)
+{
+    if (nid)
+        type->flags |= TI_TYPE_FLAG_HIDE_ID;
+    else
+        type->flags &= ~TI_TYPE_FLAG_HIDE_ID;
+}
+
 
 static inline int ti_type_wrap_only_e(ti_type_t * type, ex_t * e)
 {

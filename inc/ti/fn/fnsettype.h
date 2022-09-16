@@ -11,9 +11,10 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_node_t * child = nd->children;
     _Bool is_new_type = false;
     _Bool wpo = false;
+    _Bool hid = false;
 
     if (fn_not_collection_scope("set_type", query, e) ||
-        fn_nargs_range("set_type", DOC_SET_TYPE, 2, 3, nargs, e) ||
+        fn_nargs_range("set_type", DOC_SET_TYPE, 2, 4, nargs, e) ||
         ti_do_statement(query, child, e) ||
         fn_arg_str("set_type", DOC_SET_TYPE, 1, query->rval, e))
         return e->nr;
@@ -43,7 +44,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!ti_name_is_valid_strn((const char *) rname->data, rname->n))
         {
             ex_set(e, EX_VALUE_ERROR,
-                "function `new_type` expects "
+                "function `set_type` expects "
                 "argument 1 to be a valid type name"DOC_NAMES);
             return e->nr;
         }
@@ -90,16 +91,26 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    if (nargs == 3)
+    if (nargs >= 3)
     {
         if (ti_do_statement(query, (child = child->next->next), e) ||
             fn_arg_bool("set_type", DOC_SET_TYPE, 3, query->rval, e))
             goto fail2;
 
         wpo = ti_val_as_bool(query->rval);
-
-        ti_val_drop(query->rval);
+        ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
+
+        if (nargs == 4)
+        {
+            if (ti_do_statement(query, (child = child->next->next), e) ||
+                fn_arg_bool("set_type", DOC_SET_TYPE, 4, query->rval, e))
+                goto fail2;
+
+            hid = ti_val_as_bool(query->rval);
+            ti_val_unsafe_drop(query->rval);
+            query->rval = NULL;
+        }
     }
 
     n = ti_query_count_type(query, type);
@@ -116,7 +127,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail2;
     }
 
-    if (nargs == 3)
+    if (nargs >= 3)
     {
         if (wpo && ti_type_required_by_non_wpo(type, e))
             goto fail2;
@@ -126,6 +137,8 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
          * setting.
          */
         ti_type_set_wrap_only_mode(type, wpo);
+        if (nargs == 4)
+            ti_type_set_hide_id(type, hid);
     }
     else if (is_new_type)
         ti_type_set_wrap_only_mode(type, false);

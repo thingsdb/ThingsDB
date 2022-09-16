@@ -91,7 +91,8 @@ static int types__rename_cb(ti_type_t * type, types__rename_t * w)
     {
         if ((field->spec & TI_SPEC_MASK_NILLABLE) == w->id)
         {
-            if (field->spec == w->id && field->flags == TI_FIELD_FLAG_DEEP)
+            int flags_pos = types__spec_flags_pos(field->spec_raw->data);
+            if (field->spec == w->id && !flags_pos)
             {
                 ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
                 field->spec_raw = w->nname;
@@ -99,10 +100,9 @@ static int types__rename_cb(ti_type_t * type, types__rename_t * w)
             }
             else
             {
-                int flag_pos = types__spec_flags_pos(field->spec_raw->data);
                 ti_raw_t * spec_raw = ti_str_from_fmt(
                         "%.*s%.*s%s",
-                        flag_pos,
+                        flags_pos,
                         (const char *) field->spec_raw->data,
                         w->nname->n,
                         (const char *) w->nname->data,
@@ -118,7 +118,7 @@ static int types__rename_cb(ti_type_t * type, types__rename_t * w)
         {
             ti_raw_t * spec_raw;
             uint16_t spec = field->spec & TI_SPEC_MASK_NILLABLE;
-            int flag_pos = types__spec_flags_pos(field->spec_raw->data);
+            int flags_pos = types__spec_flags_pos(field->spec_raw->data);
             char * begin, end;
             switch (spec)
             {
@@ -141,7 +141,7 @@ static int types__rename_cb(ti_type_t * type, types__rename_t * w)
             }
             spec_raw = ti_str_from_fmt(
                     "%.*s%s%.*s%s%c%s",
-                    flag_pos,
+                    flags_pos,
                     (const char *) field->spec_raw->data,
                     begin,
                     w->nname->n,

@@ -483,7 +483,7 @@ done_flags:
     case TI_FIELD_MIN_MAX:
         ex_set(e, EX_VALUE_ERROR,
                 "invalid declaration for `%s` on type `%s`; "
-                "both minimum and maximum deep flag"DOC_T_TYPE,
+                "conflicting flags `-` and `+`"DOC_T_TYPE,
                 field->name->str, field->type->name);
         return e->nr;
     case 0:

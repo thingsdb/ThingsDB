@@ -2024,7 +2024,7 @@ class TestType(TestBase):
         with self.assertRaisesRegex(
                 ValueError,
                 r'invalid declaration for `name` on type `User`; '
-                r'both minimum and maximum deep flag;'):
+                r'conflicting flags `-` and `+`;'):
             await client.query(r"""//ti
                 set_type('User', {name: '-+any'});
             """)

@@ -81,9 +81,21 @@ static inline _Bool ti_field_has_relation(ti_field_t * field)
             (field->spec & TI_SPEC_MASK_NILLABLE) < TI_SPEC_ANY);
 }
 
-static inline _Bool ti_field_same_deep(ti_field_t * field)
+static inline uint8_t ti_field_deep(ti_field_t * field, uint8_t deep)
 {
-    return field->spec_raw->data[0] == '&';
+   return (
+       (field->flags & TI_FIELD_FLAG_DEEP)
+       ? deep
+       : (field->flags & TI_FIELD_FLAG_MAX_DEEP)
+       ? TI_MAX_DEEP-1
+       : 0
+   ) + (field->flags & TI_FIELD_FLAG_SAME_DEEP);
 }
+
+static inline int ti_field_ret_flags(ti_field_t * field)
+{
+   return field->flags & TI_FIELD_FLAG_NO_IDS;
+}
+
 
 #endif  /* TI_FIELD_H_ */

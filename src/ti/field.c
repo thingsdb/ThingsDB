@@ -431,6 +431,7 @@ static int field__init(ti_field_t * field, ex_t * e)
     uint16_t * spec = &field->spec;
     ti_field_map_t * fmap;
 
+    field->flags = 0;
     field->spec = 0;
     field->nested_spec = 0;
     field->dval_cb = NULL;
@@ -445,10 +446,48 @@ static int field__init(ti_field_t * field, ex_t * e)
         return e->nr;
     }
 
-    if (*str == '&')
+    do
     {
+        switch(*str)
+        {
+        case '&':
+            if (field->flags & TI_FIELD_FLAG_SAME_DEEP)
+                goto duplicate_flag;
+            field->flags |= TI_FIELD_FLAG_SAME_DEEP;
+            break;
+        case '-':
+            if (field->flags & TI_FIELD_FLAG_MIN_DEEP)
+                goto duplicate_flag;
+            field->flags |= TI_FIELD_FLAG_MIN_DEEP;
+            break;
+        case '+':
+            if (field->flags & TI_FIELD_FLAG_MAX_DEEP)
+                goto duplicate_flag;
+            field->flags |= TI_FIELD_FLAG_MAX_DEEP;
+            break;
+        case '^':
+            if (field->flags & TI_FIELD_FLAG_NO_IDS)
+                goto duplicate_flag;
+            field->flags |= TI_FIELD_FLAG_NO_IDS;
+            break;
+        default:
+            goto done_flags;
+        }
         ++str;
-        --n;
+    }
+    while (--n);
+
+done_flags:
+    switch (field->flags & TI_FIELD_MIN_MAX)
+    {
+    case TI_FIELD_MIN_MAX:
+        ex_set(e, EX_VALUE_ERROR,
+                "invalid declaration for `%s` on type `%s`; "
+                "both minimum and maximum deep flag"DOC_T_TYPE,
+                field->name->str, field->type->name);
+        return e->nr;
+    case 0:
+        field->flags |= TI_FIELD_FLAG_DEEP;  /* most common, first check */
     }
 
     if (str[n-1] == '?')
@@ -728,6 +767,13 @@ circular_dep:
         field->name->str, field->type->name,
         field->spec_raw->n, (const char *) field->spec_raw->data);
     return e->nr;
+
+duplicate_flag:
+    ex_set(e, EX_VALUE_ERROR,
+        "invalid declaration for `%s` on type `%s`; "
+        "duplicate flags"DOC_T_TYPE,
+        field->name->str, field->type->name);
+    return e->nr;
 }
 
 /*
@@ -829,6 +875,7 @@ void ti_field_replace(ti_field_t * field, ti_field_t ** with_field)
     field->spec_raw = (*with_field)->spec_raw;
     field->condition = (*with_field)->condition;
     field->dval_cb = (*with_field)->dval_cb;
+    field->flags = (*with_field)->flags;
 
     (*with_field)->condition.none = NULL;
 

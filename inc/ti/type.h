@@ -163,9 +163,9 @@ static inline void ti_type_set_wrap_only_mode(ti_type_t * type, _Bool wpo)
         type->flags &= ~TI_TYPE_FLAG_WRAP_ONLY;
 }
 
-static inline void ti_type_set_hide_id(ti_type_t * type, _Bool nid)
+static inline void ti_type_set_hide_id(ti_type_t * type, _Bool hid)
 {
-    if (nid)
+    if (hid)
         type->flags |= TI_TYPE_FLAG_HIDE_ID;
     else
         type->flags &= ~TI_TYPE_FLAG_HIDE_ID;

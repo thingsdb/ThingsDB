@@ -1485,9 +1485,9 @@ static void type__hid(
 
     nd = nd->children->next->next->next->next;
 
-    if (fn_nargs(fnname, DOC_MOD_TYPE_NID, 3, nargs, e) ||
+    if (fn_nargs(fnname, DOC_MOD_TYPE_HID, 3, nargs, e) ||
         ti_do_statement(query, nd, e) ||
-        fn_arg_bool(fnname, DOC_MOD_TYPE_NID, 3, query->rval, e))
+        fn_arg_bool(fnname, DOC_MOD_TYPE_HID, 3, query->rval, e))
         return;
 
     hide_id = ti_val_as_bool(query->rval);

@@ -20,9 +20,12 @@ typedef ti_val_t *  (*ti_field_dval_cb) (ti_field_t *);
 enum
 {
     TI_FIELD_FLAG_SAME_DEEP=1,
+
+    /* exactly one of the DEEP flags below will be set on a field */
     TI_FIELD_FLAG_MIN_DEEP=2,
     TI_FIELD_FLAG_MAX_DEEP=4,
-    TI_FIELD_FLAG_DEEP=8,
+    TI_FIELD_FLAG_DEEP=8,  /* this flag returns deep as-is */
+
     TI_FIELD_FLAG_NO_IDS=TI_FLAGS_NO_IDS,
 };
 

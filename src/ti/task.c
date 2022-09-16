@@ -254,7 +254,7 @@ int ti_task_add_new_type(ti_task_t * task, ti_type_t * type)
     msgpack_pack_array(&pk, 2);
 
     msgpack_pack_uint8(&pk, TI_TASK_NEW_TYPE);
-    msgpack_pack_map(&pk, 4);
+    msgpack_pack_map(&pk, 5);
 
     mp_pack_str(&pk, "type_id");
     msgpack_pack_uint16(&pk, type->type_id);
@@ -267,6 +267,9 @@ int ti_task_add_new_type(ti_task_t * task, ti_type_t * type)
 
     mp_pack_str(&pk, "wrap_only");
     mp_pack_bool(&pk, ti_type_is_wrap_only(type));
+
+    mp_pack_str(&pk, "hide_id");
+    mp_pack_bool(&pk, ti_type_hide_id(type));
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
@@ -387,7 +390,7 @@ int ti_task_add_set_type(ti_task_t * task, ti_type_t * type)
     msgpack_pack_array(&pk, 2);
 
     msgpack_pack_uint8(&pk, TI_TASK_SET_TYPE);
-    msgpack_pack_map(&pk, 5);
+    msgpack_pack_map(&pk, 6);
 
     mp_pack_str(&pk, "type_id");
     msgpack_pack_uint16(&pk, type->type_id);
@@ -397,6 +400,9 @@ int ti_task_add_set_type(ti_task_t * task, ti_type_t * type)
 
     mp_pack_str(&pk, "wrap_only");
     mp_pack_bool(&pk, ti_type_is_wrap_only(type));
+
+    mp_pack_str(&pk, "hide_id");
+    mp_pack_bool(&pk, ti_type_hide_id(type));
 
     mp_pack_str(&pk, "fields");
     ti_type_fields_to_pk(type, &pk);

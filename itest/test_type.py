@@ -2011,6 +2011,118 @@ class TestType(TestBase):
         client1.close()
         await client1.wait_closed()
 
+    async def test_prefix_flags(self, client):
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `name` on type `User`; '
+                r'duplicate flags;'):
+            await client.query(r"""//ti
+                set_type('User', {name: '&&any'});
+            """)
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `name` on type `User`; '
+                r'conflicting flags `\-` and `\+`;'):
+            await client.query(r"""//ti
+                set_type('User', {name: '-+any'});
+            """)
+
+        res = await client.query(r"""//ti
+            set_type('A', {
+                max: '+any',
+                min: '-any',
+                no_ids: '^any',
+                combi: '&-^any',
+            });
+            .deep = {
+                end: 'test'
+            };
+            .nested = {
+                deep: .deep
+            };
+            .more = {
+                nested: .nested
+            };
+            .a = A{
+                max: .more,
+                min: .more,
+                no_ids: .more,
+                combi: .more,
+            };
+            return [
+                .deep.id(), .nested.id(), .more.id(), .a.id(), .a.wrap()], 3;
+        """)
+
+        deep_id, nested_id, more_id, a_id, res = res
+
+        self.assertEqual(res, {
+            "#": a_id,
+            "max": {
+                "#": more_id,
+                "nested": {
+                    "#": nested_id,
+                    "deep": {
+                        "#": deep_id,
+                        "end": "test"
+                    }
+                }
+            },
+            "min": {
+                "#": more_id,
+            },
+            "no_ids": {
+                "nested": {
+                    "deep": {}
+                }
+            },
+            "combi": {
+                "nested": {}
+            }
+        })
+
+        res = await client.query(r"""//ti
+            mod_type('A', 'mod', 'combi', '+^any');
+            mod_type('A', 'del', 'min');
+            mod_type('A', 'del', 'max');
+            mod_type('A', 'del', 'no_ids');
+            .a.wrap();
+        """)
+        self.assertEqual(res, {
+            "#": a_id,
+            "combi": {
+                "nested": {
+                    "deep": {
+                        "end": "test"
+                    }
+                }
+            },
+        })
+
+    async def test_rename_type_with_flags(self, client):
+        res = await client.query(r"""//ti
+            new_type('A');
+            set_type('B', {
+                a0: 'A',
+                a1: 'A?',
+                a2: '^A',
+                a3: '&+^[A?]?'
+            });
+
+            set_type('A', {
+                a: '^-&A?'
+            });
+            rename_type('A', 'AA');
+            types_info()
+                .map(|ti| ti.load())
+                .sort(|ti| ti.name)
+                .map(|ti| ti.fields);
+        """)
+        self.assertEqual(res, [
+            [['a', '^-&AA?']],
+            [['a0', 'AA'], ['a1', 'AA?'], ['a2', '^AA'], ['a3', '&+^[AA?]?']]
+        ])
+
 
 if __name__ == '__main__':
     run_test(TestType())

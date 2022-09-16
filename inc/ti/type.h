@@ -35,7 +35,8 @@ int ti_type_init_from_unp(
         mp_unp_t * up,
         ex_t * e,
         _Bool with_methods,
-        _Bool with_wrap_only);
+        _Bool with_wrap_only,
+        _Bool with_hide_id);
 int ti_type_fields_to_pk(ti_type_t * type, msgpack_packer * pk);
 ti_val_t * ti_type_as_mpval(ti_type_t * type, _Bool with_definition);
 vec_t * ti_type_map(ti_type_t * to_type, ti_type_t * from_type);
@@ -163,9 +164,9 @@ static inline void ti_type_set_wrap_only_mode(ti_type_t * type, _Bool wpo)
         type->flags &= ~TI_TYPE_FLAG_WRAP_ONLY;
 }
 
-static inline void ti_type_set_hide_id(ti_type_t * type, _Bool nid)
+static inline void ti_type_set_hide_id(ti_type_t * type, _Bool hid)
 {
-    if (nid)
+    if (hid)
         type->flags |= TI_TYPE_FLAG_HIDE_ID;
     else
         type->flags &= ~TI_TYPE_FLAG_HIDE_ID;

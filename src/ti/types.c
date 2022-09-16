@@ -77,13 +77,22 @@ typedef struct
     ti_raw_t * nname;
 } types__rename_t;
 
+int types__spec_flags_pos(const unsigned char * x)
+{
+    int i = 0;
+    while (x[i] == '^' || x[i] == '&' || x[i] == '-' || x[i] == '+')
+       i++;
+    return i;
+}
+
 static int types__rename_cb(ti_type_t * type, types__rename_t * w)
 {
     for (vec_each(type->fields, ti_field_t, field))
     {
         if ((field->spec & TI_SPEC_MASK_NILLABLE) == w->id)
         {
-            if (field->spec == w->id)
+            int flags_pos = types__spec_flags_pos(field->spec_raw->data);
+            if (field->spec == w->id && !flags_pos)
             {
                 ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
                 field->spec_raw = w->nname;
@@ -92,9 +101,12 @@ static int types__rename_cb(ti_type_t * type, types__rename_t * w)
             else
             {
                 ti_raw_t * spec_raw = ti_str_from_fmt(
-                        "%.*s?",
+                        "%.*s%.*s%s",
+                        flags_pos,
+                        (const char *) field->spec_raw->data,
                         w->nname->n,
-                        (const char *) w->nname->data);
+                        (const char *) w->nname->data,
+                        (field->spec & TI_SPEC_NILLABLE) ? "?": "");
                 if (!spec_raw)
                     return -1;
 
@@ -106,6 +118,7 @@ static int types__rename_cb(ti_type_t * type, types__rename_t * w)
         {
             ti_raw_t * spec_raw;
             uint16_t spec = field->spec & TI_SPEC_MASK_NILLABLE;
+            int flags_pos = types__spec_flags_pos(field->spec_raw->data);
             char * begin, end;
             switch (spec)
             {
@@ -127,7 +140,9 @@ static int types__rename_cb(ti_type_t * type, types__rename_t * w)
                 end = '_';
             }
             spec_raw = ti_str_from_fmt(
-                    "%s%.*s%s%c%s",
+                    "%.*s%s%.*s%s%c%s",
+                    flags_pos,
+                    (const char *) field->spec_raw->data,
                     begin,
                     w->nname->n,
                     (const char *) w->nname->data,

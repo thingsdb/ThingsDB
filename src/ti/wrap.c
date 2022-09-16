@@ -437,8 +437,8 @@ int ti__wrap_field_thing(
                         &map_get->field->spec,
                         map_get->prop->val,
                         vp,
-                        deep + ti_field_same_deep(map_get->field),
-                        flags)
+                        ti_field_deep(map_get->field, deep),
+                        flags | ti_field_ret_flags(map_get->field))
             ) {
                 free(map_props);
                 goto fail;
@@ -471,8 +471,8 @@ int ti__wrap_field_thing(
                         &mapping->t_field->spec,
                         VEC_get(thing->items.vec, mapping->f_field->idx),
                         vp,
-                        deep + ti_field_same_deep(mapping->t_field),
-                        flags)
+                        ti_field_deep(mapping->t_field, deep),
+                        flags | ti_field_ret_flags(mapping->t_field))
             ) goto fail;
         }
     }

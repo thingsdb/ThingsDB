@@ -448,6 +448,9 @@ static int field__init(ti_field_t * field, ex_t * e)
 
     do
     {
+        /* WARNING: do not forget to update types.c when modifying the flags in
+         * this code; (types__spec_flags_pos)
+         */
         switch(*str)
         {
         case '&':

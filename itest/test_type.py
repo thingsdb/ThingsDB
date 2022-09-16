@@ -2012,7 +2012,6 @@ class TestType(TestBase):
         await client1.wait_closed()
 
     async def test_prefix_flags(self, client):
-
         with self.assertRaisesRegex(
                 ValueError,
                 r'invalid declaration for `name` on type `User`; '
@@ -2099,6 +2098,30 @@ class TestType(TestBase):
                 }
             },
         })
+
+    async def test_rename_type_with_flags(self, client):
+        res = await client.query(r"""//ti
+            new_type('A');
+            set_type('B', {
+                a0: 'A',
+                a1: 'A?',
+                a2: '^A',
+                a3: '&+^[A?]?'
+            });
+
+            set_type('A', {
+                a: '^-&A?'
+            });
+            rename_type('A', 'AA');
+            types_info()
+                .map(|ti| ti.load())
+                .sort(|ti| ti.name)
+                .map(|ti| ti.fields);
+        """)
+        self.assertEqual(res, [
+            [['a', '^-&AA?']],
+            [['a0', 'AA'], ['a1', 'AA?'], ['a2', '^AA'], ['a3', '&+^[AA?]?']]
+        ])
 
 
 if __name__ == '__main__':

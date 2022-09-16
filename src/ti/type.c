@@ -645,7 +645,8 @@ int ti_type_init_from_unp(
         mp_unp_t * up,
         ex_t * e,
         _Bool with_methods,
-        _Bool with_wrap_only)
+        _Bool with_wrap_only,
+        _Bool with_hide_id)
 {
     ti_name_t * name;
     mp_obj_t obj, mp_name, mp_spec;
@@ -684,6 +685,19 @@ int ti_type_init_from_unp(
      * setting.
      */
     ti_type_set_wrap_only_mode(type, obj.via.bool_);
+
+    if (with_hide_id)
+    {
+        if (mp_skip(up) != MP_STR || mp_next(up, &obj) != MP_BOOL)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "failed unpacking fields for type `%s`; "
+                    "expecting a boolean as hide-id property",
+                    type->name);
+            return e->nr;
+        }
+        ti_type_set_hide_id(type, obj.via.bool_);
+    }
 
     if (mp_skip(up) != MP_STR || mp_next(up, &obj) != MP_ARR)
     {

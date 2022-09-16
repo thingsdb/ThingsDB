@@ -328,7 +328,7 @@ static int ctask__new_type(ti_thing_t * thing, mp_unp_t * up)
      *       Some code can be simplified once backwards dependency may
      *       be dropped.
      */
-    if (mp_next(up, &obj) != MP_MAP || (obj.via.sz != 4 && obj.via.sz != 3) ||
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz < 3 || obj.via.sz > 5 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
         mp_skip(up) != MP_STR ||
@@ -342,11 +342,11 @@ static int ctask__new_type(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    if (obj.via.sz == 4)
+    if (obj.via.sz >= 4)
     {
-        mp_obj_t mp_wo;
+        mp_obj_t mp_wpo;
 
-        if (mp_skip(up) != MP_STR || mp_next(up, &mp_wo) != MP_BOOL)
+        if (mp_skip(up) != MP_STR || mp_next(up, &mp_wpo) != MP_BOOL)
         {
             log_critical(
                 "task `new_type` for "TI_COLLECTION_ID" is invalid",
@@ -354,8 +354,24 @@ static int ctask__new_type(ti_thing_t * thing, mp_unp_t * up)
             return -1;
         }
 
-        if (mp_wo.via.bool_)
+        if (mp_wpo.via.bool_)
             flags |= TI_TYPE_FLAG_WRAP_ONLY;
+
+        if (obj.via.sz == 5)
+        {
+            mp_obj_t mp_hid;
+
+            if (mp_skip(up) != MP_STR || mp_next(up, &mp_hid) != MP_BOOL)
+            {
+                log_critical(
+                    "task `new_type` for "TI_COLLECTION_ID" is invalid",
+                    collection->root->id);
+                return -1;
+            }
+
+            if (mp_hid.via.bool_)
+                flags |= TI_TYPE_FLAG_WRAP_ONLY;
+        }
     }
 
     if (mp_id.via.u64 >= TI_SPEC_ANY)
@@ -479,10 +495,7 @@ static int ctask__set_type(ti_thing_t * thing, mp_unp_t * up)
 
     /* TODO: (COMPAT) For compatibility with versions before v0.9.6 */
     /* TODO: (COMPAT) For compatibility with versions before v0.9.23 */
-    if (mp_next(up, &obj) != MP_MAP || (
-            obj.via.sz != 5 &&
-            obj.via.sz != 4 &&
-            obj.via.sz != 3) ||
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz < 3 || obj.via.sz > 6 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
         mp_skip(up) != MP_STR ||
@@ -514,7 +527,12 @@ static int ctask__set_type(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    if (ti_type_init_from_unp(type, up, &e, obj.via.sz >= 4, obj.via.sz == 5))
+    if (ti_type_init_from_unp(
+            type, up,
+            &e,
+            obj.via.sz >= 4,
+            obj.via.sz >= 5,
+            obj.via.sz == 6))
     {
         log_critical(
             "task `set_type` for "TI_COLLECTION_ID" has failed; "

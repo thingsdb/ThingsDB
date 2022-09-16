@@ -25,7 +25,7 @@
  *  "-rc0"
  *  ""
  */
-#define TI_VERSION_PRE_RELEASE "-alpha4"
+#define TI_VERSION_PRE_RELEASE "-alpha5"
 
 #define TI_MAINTAINER \
     "Jeroen van der Heijden <jeroen@cesbit.com>"
@@ -58,5 +58,6 @@
 
 int ti_version_cmp(const char * version_a, const char * version_b);
 void ti_version_print(void);
+
 
 #endif /* TI_VERSION_H_ */

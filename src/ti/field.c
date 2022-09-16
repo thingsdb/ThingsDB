@@ -892,6 +892,7 @@ int ti_field_mod_force(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e)
     uint16_t prev_spec = field->spec;
     uint16_t prev_nested_spec = field->nested_spec;
     ti_field_dval_cb prev_dval_cb = field->dval_cb;
+    int prev_flags = field->flags;
 
     field__remove_dep(field);
 
@@ -911,6 +912,7 @@ undo:
     field->nested_spec = prev_nested_spec;
     field->condition = prev_condition;
     field->dval_cb = prev_dval_cb;
+    field->flags = prev_flags;
     (void) field__add_dep(field);
 
     return e->nr;
@@ -926,6 +928,7 @@ int ti_field_mod(
     uint16_t prev_spec = field->spec;
     uint16_t prev_nested_spec = field->nested_spec;
     ti_field_dval_cb prev_dval_cb = field->dval_cb;
+    int prev_flags = field->flags;
 
     field__remove_dep(field);
 
@@ -991,6 +994,7 @@ undo:
     field->nested_spec = prev_nested_spec;
     field->condition = prev_condition;
     field->dval_cb = prev_dval_cb;
+    field->flags = prev_flags;
     (void) field__add_dep(field);
 
     return e->nr;

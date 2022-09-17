@@ -480,6 +480,12 @@ static int field__init(ti_field_t * field, ex_t * e)
     }
     while (--n);
 
+    ex_set(e, EX_VALUE_ERROR,
+            "invalid declaration for `%s` on type `%s`; "
+            "missing declaration after flags"DOC_T_TYPE,
+            field->name->str, field->type->name);
+    return e->nr;
+
 done_flags:
     switch (field->flags & TI_FIELD_MIN_MAX)
     {

@@ -1,3 +1,7 @@
+# v1.3.3
+
+* Definition must follow flags, issue #306.
+
 # v1.3.2
 
 * Improve performance when looping over sets with relations, pr #303.

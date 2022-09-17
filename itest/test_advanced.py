@@ -2178,6 +2178,16 @@ new_procedure('multiply', |a, b| a * b);
                 'https://docs.thingsdb.net/v1/collection-api/wse')
         })
 
+    async def test_no_declaration_after_flags(self, client):
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `x` on type `A`; '
+                r'missing declaration after flags;'):
+            # bug #306
+            await client.query(r"""//ti
+                set_type("A", {x: "&"});
+            """)
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

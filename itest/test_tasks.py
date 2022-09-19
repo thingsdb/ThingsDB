@@ -161,14 +161,22 @@ class TestTasks(TestBase):
 
     async def test_task_bool(self, client):
         self.assertTrue(await client.query('bool(task(datetime(), ||0));'))
-        await client.query("""//ti
+        res = await client.query("""//ti
             .t = task(datetime(), ||1/1);
             .f = task(datetime(), ||0/0);
+            [
+                bool(.t),
+                bool(.f),
+                is_nil(.t.err()),
+                is_nil(.f.err()),
+            ];
         """)
-        self.assertTrue(await client.query('bool(.t);'))
-        self.assertTrue(await client.query('bool(.f);'))
-        self.assertFalse(await client.query('is_err(.t.err());'))
-        self.assertFalse(await client.query('is_err(.f.err());'))
+        self.assertEqual(res, [
+            True,
+            True,
+            True,
+            True,
+        ])
         await asyncio.sleep(num_nodes*3)
         self.assertFalse(await client.query('bool(.t);'))
         self.assertFalse(await client.query('bool(.f);'))

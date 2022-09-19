@@ -53,7 +53,7 @@ struct ti_api_request_s
     ex_t e;
     size_t content_n;
     char * content;
-    char * collection_name;     /* temporary store collection name */
+    char * collection_name;     /* temporary store the collection name */
     ti_user_t * user;
 };
 

@@ -238,21 +238,23 @@ static int api__url_cb(http_parser * parser, const char * at, size_t n)
     }
     else if (ar->scope.tp == TI_SCOPE_COLLECTION_NAME)
     {
+        /* we must store the collection name as it might be freed before the
+         * collection scope will be read;
+         */
         ar->collection_name = strndup(
                 ar->scope.via.collection_name.name,
                 ar->scope.via.collection_name.sz);
-        if (!ar->collection_name)
+        if (ar->collection_name)
+        {
+            ar->scope.via.collection_name.name = ar->collection_name;
+        }
+        else
         {
             log_error(EX_MEMORY_S);
             ar->flags |= TI_API_FLAG_INVALID_SCOPE;
         }
-        else
-        {
-            ar->scope.via.collection_name.name = ar->collection_name;
-        }
 
     }
-
     return 0;
 }
 

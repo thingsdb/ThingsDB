@@ -1,6 +1,7 @@
 # v1.3.3
 
 * Definition must follow flags, issue #306.
+* API request might free collection name before reading, issue #307.
 
 # v1.3.2
 

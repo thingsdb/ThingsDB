@@ -92,6 +92,7 @@ static void api__close_cb(uv_handle_t * handle)
     log_debug("API connection closed");
     ti_user_drop(ar->user);
     free(ar->content);
+    free(ar->collection_name);
     free(ar);
 }
 
@@ -107,11 +108,13 @@ static void api__alloc_cb(
 static void api__reset(ti_api_request_t * ar)
 {
     free(ar->content);
+    free(ar->collection_name);
+
     ar->content = NULL;
+    ar->collection_name = NULL;
     ar->content_n = 0;
     ar->content_type = TI_API_CT_TEXT_PLAIN;
     ar->state = TI_API_STATE_NONE;
-    ar->scope.tp = TI_SCOPE_NODE;
 
     ti_user_drop(ar->user);
     ar->user = NULL;
@@ -232,6 +235,22 @@ static int api__url_cb(http_parser * parser, const char * at, size_t n)
     {
         log_debug("URI (scope) not found: %s", ar->e.msg);
         ar->flags |= TI_API_FLAG_INVALID_SCOPE;
+    }
+    else if (ar->scope.tp == TI_SCOPE_COLLECTION_NAME)
+    {
+        ar->collection_name = strndup(
+                ar->scope.via.collection_name.name,
+                ar->scope.via.collection_name.sz);
+        if (!ar->collection_name)
+        {
+            log_error(EX_MEMORY_S);
+            ar->flags |= TI_API_FLAG_INVALID_SCOPE;
+        }
+        else
+        {
+            ar->scope.via.collection_name.name = ar->collection_name;
+        }
+
     }
 
     return 0;

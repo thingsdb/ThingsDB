@@ -393,25 +393,6 @@ static inline int api__err_body(char ** ptr, ex_t * e)
     return asprintf(ptr, "%s (%d)\r\n", e->msg, e->nr);
 }
 
-int ti_api_close_with_json(ti_api_request_t * ar, void * data, size_t size)
-{
-    char header[API__HEADER_MAX_SZ];
-    int header_size = 0;
-
-    header_size = api__header(header, E200_OK, TI_API_CT_MSGPACK, size);
-
-    uv_buf_t uvbufs[2] = {
-            uv_buf_init(header, (unsigned int) header_size),
-            uv_buf_init(data, size),
-    };
-
-    /* bind response to request to we can free in the callback */
-    ar->req.data = data;
-
-    uv_write(&ar->req, &ar->uvstream, uvbufs, 2, api__write_free_cb);
-    return 0;
-}
-
 static int api__close_resp(
         ti_api_request_t * ar,
         void * data,

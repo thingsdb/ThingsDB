@@ -35,4 +35,12 @@
    obj:/usr/lib/x86_64-linux-gnu/libnss3.so*
    ...
 }
+{
+   <libcurl (dl_open)>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   ...
+   fun:dlopen_implementation
+   fun:dlopen@@GLIBC_2.3*
+}
 

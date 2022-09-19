@@ -111,6 +111,7 @@ static void api__reset(ti_api_request_t * ar)
     ar->content_n = 0;
     ar->content_type = TI_API_CT_TEXT_PLAIN;
     ar->state = TI_API_STATE_NONE;
+    ar->scope.tp = TI_SCOPE_NODE;
 
     ti_user_drop(ar->user);
     ar->user = NULL;

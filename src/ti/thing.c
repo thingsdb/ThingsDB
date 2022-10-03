@@ -1747,6 +1747,8 @@ int ti_thing_assign(
                  * old value.
                  */
                 val->ref += parent_ref > 1;
+                LOGC("ASSIGN...%u", parent_ref);
+                LOGC("thing id: %u", thing->id);
 
                 if (ti_field_make_assignable(field, &val, thing, e))
                 {
@@ -1756,6 +1758,7 @@ int ti_thing_assign(
                 }
 
                 val->ref += parent_ref == 1;
+                LOGC("val ref : %u", val->ref);
 
                 VEC_push(vec, val);
             }
@@ -1794,6 +1797,7 @@ int ti_thing_assign(
                 ti_val_t * val = VEC_get(tsrc->items.vec, field->idx);
 
                 val->ref += parent_ref > 1;
+                LOGC("thing id: %u", thing->id);
 
                 if (ti_field_make_assignable(field, &val, thing, e))
                 {
@@ -1803,6 +1807,8 @@ int ti_thing_assign(
                 }
 
                 val->ref += parent_ref == 1;
+
+                LOGC("val ref : %u", val->ref);
 
                 ti_thing_t_prop_set(thing, field, val);
                 if (task && ti_task_add_set(

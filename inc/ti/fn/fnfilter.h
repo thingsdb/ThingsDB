@@ -127,6 +127,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
                 if (ti_val_as_bool(query->rval))
                 {
+                    LOGC("HERE!!!!");
                     if (    ti_val_make_variable(&p->val, e) ||
                             !ti_thing_p_prop_add(thing, p->name, p->val))
                         goto fail2;

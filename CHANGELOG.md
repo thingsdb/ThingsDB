@@ -1,3 +1,8 @@
+# v1.3.4
+
+* Fixed mismatch in refcount, issue #309.
+* Fixed bug with relations between things without Id , issue #308.
+
 # v1.3.3
 
 * Definition must follow flags, issue #306.

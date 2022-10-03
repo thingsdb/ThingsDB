@@ -15,7 +15,6 @@ static int do__f_value(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_incref(val);
     ti_val_unsafe_drop(query->rval);
     query->rval = val;
-    LOGC("REFS: %u", val->ref);
 
     return 0;
 }

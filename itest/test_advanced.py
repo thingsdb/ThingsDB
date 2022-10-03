@@ -1745,90 +1745,43 @@ new_procedure('multiply', |a, b| a * b);
 
         res = await client.query(r"""//ti
             a = A{name: 'mr A'};
-            x = new('B', {
-                a: a,
-                aa: set(a),
-                cc: set(a),
-                name: 'mr X'
-            });
-            try(b = new('B', {
-                a: a,
-                aa: set(a),
-                cc: set(a),
-                name: 123
-            }));
-            [a.b, a.bb.len(), a.c, x.a, x.aa.len(), x.cc];
+            .x = new('B');
+            .x.a = a;
+            .x.aa = set(a);
+            .x.cc = set(a);
+            .x.name = 'mr X';
+
+            .b = new('B');
+            .b.a = a;
+            .b.aa = set(a);
+            .b.cc = set(a);
+            .b.a = nil;
+            .b.aa = set();
+            .b.cc = set();
+
+            [a.b, a.bb.len(), a.c, .x.a, .x.aa.len(), .x.cc];
         """)
         self.assertEqual(res, [None, 1, None, None, 1, []])
 
-        res = await client.query(r"""//ti
-            b = B{name: 'mr B'};
-            x = A({
-                b: b,
-                bb: set(b),
-                c: b,
-                name: 'mr X'
-            });
-            try(a = A({
-                b: b,
-                bb: set(b),
-                c: b,
-                name: 123
-            }));
-            [b.a, b.aa.len(), b.cc.len(), x.b, x.bb.len(), is_thing(x.c)];
-        """)
-        self.assertEqual(res, [None, 1, 1, None, 1, True])
-
-        res = await client.query(r"""//ti
-            b = B{name: 'mr B'};
-            x = A({
-                b: b,
-                bb: set(b),
-                c: b,
-                name: 'mr X'
-            });
-            try(x.assign({
-                name: 'spy',
-                b: nil
-            }));
-            x.name;
-        """)
-        self.assertEqual(res, 'mr X')
-
-        res = await client.query(r"""//ti
-            b = B{name: 'mr B'};
-            x = A({
-                b: b,
-                bb: set(b),
-                c: b,
-                name: 'mr X'
-            });
-            x.assign(A{
-                name: 'spy',
-            });
-            [x.name, x.b, x.bb, x.c, b.a];
-        """)
-        self.assertEqual(res, ['spy', None, [], None, None])
-
-        res = await client.query(r"""//ti
-            b = B{name: 'mr B'};
-            x = A({
-                b: b,
-                bb: set(b),
-                c: b,
-                name: 'mr X'
-            });
-            d = B{name: 'md D'};
-            c = A{
-                name: 'spy',
-                b: d,
-                bb: set(d),
-                c: d,
-            };
-            x.assign(c);
-            [x.name, x.b == d, x.bb.len(), x.c == d, d.a == x, c.b];
-        """)
-        self.assertEqual(res, ['spy', True, 1, True, True, None])
+        with self.assertRaisesRegex(
+                TypeError,
+                r"mismatch in type `A` on property `b`; "
+                r"relations must be created using the property on a "
+                r"stored thing \(a thing with an Id\)"):
+            res = await client.query(r"""//ti
+                b = B{name: 'mr B'};
+                x = A({
+                    b: b,
+                    bb: set(b),
+                    c: b,
+                    name: 'mr X'
+                });
+                try(x.assign({
+                    name: 'spy',
+                    b: nil
+                }));
+                x.name;
+            """)
 
     async def test_closure_as_type_val(self, client):
         # bug #202
@@ -2086,7 +2039,6 @@ new_procedure('multiply', |a, b| a * b);
         # bug 302
         with self.assertRaises(AssertionError):
             await client.query("""//ti
-                something = {};
                 new_type('Workspace');
                 new_type('Person');
                 set_type('Workspace', {
@@ -2096,11 +2048,10 @@ new_procedure('multiply', |a, b| a * b);
                     workspace: 'Workspace?'
                 });
                 mod_type('Person', 'rel', 'workspace', 'people');
-                foo = Workspace{};
-                alice = Person{
-                    workspace: foo
-                };
-                foo.people.some(|| assert(0));
+                .foo = Workspace{};
+                .alice = Person{};
+                .alice.workspace = .foo;
+                .foo.people.some(|| assert(0));
             """)
 
     async def test_cope_on_wse_relation(self, client):
@@ -2187,6 +2138,32 @@ new_procedure('multiply', |a, b| a * b);
             await client.query(r"""//ti
                 set_type("A", {x: "&"});
             """)
+
+    async def test_(self, client):
+        # bug #309
+        res = await client.query("""//ti
+            new_type('A');
+            new_type('C');
+            set_type('A',{
+                c: 'C?',
+            });
+            set_type('C', {
+                a: '{A}',
+                add: |this, options| {
+                    options.a = set();
+                    this.assign(options.filter(|o| this.has(o)));
+                }
+            });
+            set_enum('E', {
+                C: C{}
+            });
+            .add = |options| {
+                kind = E{C}.value();
+                kind.add(options);
+            };
+            .add({});
+            "OK";
+        """)
 
 
 if __name__ == '__main__':

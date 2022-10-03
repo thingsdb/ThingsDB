@@ -1436,10 +1436,7 @@ mod_type('D', 'rel', 'da', 'db');
         ''')
 
         err_msg = (
-            r'failed to create relation; '
-            r'relations between stored and non-stored things must be '
-            r'created using the property on the the stored thing '
-            r'\(the thing with an ID\)')
+            r'xxx')
 
         with self.assertRaisesRegex(TypeError, err_msg):
             await client.query(r'''

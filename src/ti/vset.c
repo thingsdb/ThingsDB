@@ -135,6 +135,17 @@ static int vset__walk_assign(ti_thing_t * t, ti_vset_t * vset)
     return 0;
 }
 
+ti_vset_t * ti_vset_cp(ti_vset_t * vset)
+{
+    ti_vset_t * nvset;
+    if (!(nvset = ti_vset_create()))
+        return NULL;
+
+    return imap_walk(vset->imap, (imap_cb) vset__walk_assign, nvset)
+            ? NULL  /* new set is destroyed if walk has failed */
+            : nvset;
+}
+
 int ti_vset_assign(ti_vset_t ** vsetaddr)
 {
     ti_vset_t * nvset, * ovset = *vsetaddr;

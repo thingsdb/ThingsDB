@@ -36,18 +36,13 @@ typedef struct
 
 static int filter__walk_i(ti_item_t * item, filter__walk_i_t * w)
 {
-    if (ti_closure_vars_item(w->closure, item, w->e) ||
-        ti_closure_do_statement(w->closure, w->query, w->e))
+    ti_closure_vars_item(w->closure, item);
+    if (ti_closure_do_statement(w->closure, w->query, w->e))
         return -1;
 
-    if (ti_val_as_bool(w->query->rval))
-    {
-        if (ti_val_make_variable(&item->val, w->e) ||
-            !ti_thing_i_item_add(w->thing, item->key, item->val))
-            return -1;
-        ti_incref(item->key);
-        ti_incref(item->val);
-    }
+    if (ti_val_as_bool(w->query->rval) &&
+        ti_thing_i_item_add_assign(w->thing, item->key, item->val, w->e))
+        return -1;
 
     ti_val_unsafe_drop(w->query->rval);
     w->query->rval = NULL;
@@ -121,18 +116,13 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             for (vec_each(t->items.vec, ti_prop_t, p))
             {
-                if (ti_closure_vars_prop(closure, p, e) ||
-                    ti_closure_do_statement(closure, query, e))
+                ti_closure_vars_prop(closure, p);
+                if (ti_closure_do_statement(closure, query, e))
                     goto fail2;
 
-                if (ti_val_as_bool(query->rval))
-                {
-                    if (    ti_val_make_variable(&p->val, e) ||
-                            !ti_thing_p_prop_add(thing, p->name, p->val))
-                        goto fail2;
-                    ti_incref(p->name);
-                    ti_incref(p->val);
-                }
+                if (ti_val_as_bool(query->rval) &&
+                    ti_thing_p_prop_add_assign(thing, p->name, p->val, e))
+                    goto fail2;
 
                 ti_val_unsafe_drop(query->rval);
                 query->rval = NULL;
@@ -144,18 +134,13 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ti_val_t * val;
             for (thing_t_each(t, name, val))
             {
-                if (ti_closure_vars_nameval(closure, (ti_val_t *) name, val, e) ||
-                    ti_closure_do_statement(closure, query, e))
+                ti_closure_vars_nameval(closure, (ti_val_t *) name, val);
+                if (ti_closure_do_statement(closure, query, e))
                     goto fail2;
 
-                if (ti_val_as_bool(query->rval))
-                {
-                    if (    ti_val_make_variable(&val, e) ||
-                            !ti_thing_p_prop_add(thing, name, val))
-                        goto fail2;
-                    ti_incref(name);
-                    ti_incref(val);
-                }
+                if (ti_val_as_bool(query->rval) &&
+                    ti_thing_p_prop_add_assign(thing, name, val, e))
+                    goto fail2;
 
                 ti_val_unsafe_drop(query->rval);
                 query->rval = NULL;

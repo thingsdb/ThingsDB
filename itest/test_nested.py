@@ -52,12 +52,12 @@ class TestNested(TestBase):
         await client0.query(r'''
             .arr = [1, 2];
             .map(|k, v| {
-                v.push(3, 4);  // changes the copy, not the original
+                v.push(3, 4);  // this is a reference
             });
         ''')
         await asyncio.sleep(0.1)
         for client in (client0, client1, client2):
-            self.assertEqual(await client.query('.arr'), [1, 2])
+            self.assertEqual(await client.query('.arr'), [1, 2, 3, 4])
 
     async def test_set_and_push(self, client0, client1, client2):
         await client0.query(r'''
@@ -108,11 +108,11 @@ class TestNested(TestBase):
             arr = .arr;
             arr.push(4);
             .arr;
-        '''), [1, 2, 3])
+        '''), [1, 2, 3, 4])
 
         await asyncio.sleep(0.1)
         for client in (client0, client1, client2):
-            self.assertEqual(await client.query('.arr'), [1, 2, 3])
+            self.assertEqual(await client.query('.arr'), [1, 2, 3, 4])
 
     async def test_assign_pop(self, client0, client1, client2):
         await client0.query(r'''

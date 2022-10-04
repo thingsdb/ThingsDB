@@ -120,6 +120,9 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
     }
 
+    ti_val_unsafe_drop(query->rval);
+    query->rval = NULL;
+
     if (varr->vec->n <= 1)
         goto done;  /* nothing to sort */
 

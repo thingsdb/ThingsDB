@@ -189,10 +189,12 @@ void ti_thing_destroy(ti_thing_t * thing)
      * In this case the `thing` will be removed while the list stays alive.
      */
     if (ti_thing_is_dict(thing))
-        smap_destroy(thing->items.smap, (smap_destroy_cb) ti_item_destroy);
+        smap_destroy(
+                thing->items.smap,
+                (smap_destroy_cb) ti_item_unassign_destroy);
     else
         vec_destroy(thing->items.vec, ti_thing_is_object(thing)
-                ? (vec_destroy_cb) ti_prop_destroy
+                ? (vec_destroy_cb) ti_prop_unassign_destroy
                 : (vec_destroy_cb) ti_val_unassign_drop);
 
     free(thing);
@@ -203,13 +205,19 @@ void ti_thing_clear(ti_thing_t * thing)
     if (ti_thing_is_object(thing))
     {
         if (ti_thing_is_dict(thing))
-            smap_clear(thing->items.smap, (smap_destroy_cb) ti_item_destroy);
+            smap_clear(
+                    thing->items.smap,
+                    (smap_destroy_cb) ti_item_unassign_destroy);
         else
-            vec_clear_cb(thing->items.vec, (vec_destroy_cb) ti_prop_destroy);
+            vec_clear_cb(
+                    thing->items.vec,
+                    (vec_destroy_cb) ti_prop_unassign_destroy);
     }
     else
     {
-        vec_clear_cb(thing->items.vec, (vec_destroy_cb) ti_val_unsafe_gc_drop);
+        vec_clear_cb(
+                thing->items.vec,
+                (vec_destroy_cb) ti_val_unassign_unsafe_drop);
 
         /* convert to a simple object since the thing is not type
          * compliant anymore */
@@ -874,7 +882,7 @@ void ti_thing_o_del(ti_thing_t * thing, const char * str, size_t n)
     if (ti_thing_is_dict(thing))
     {
         ti_item_t * item = smap_popn(thing->items.smap, str, n);
-        ti_item_destroy(item);
+        ti_item_unassign_destroy(item);
     }
     else
     {
@@ -887,7 +895,8 @@ void ti_thing_o_del(ti_thing_t * thing, const char * str, size_t n)
         {
             if (prop->name == name)
             {
-                ti_prop_destroy(vec_swap_remove(thing->items.vec, idx));
+                ti_prop_unassign_destroy(
+                        vec_swap_remove(thing->items.vec, idx));
                 return;
             }
         }
@@ -1407,7 +1416,7 @@ static int thing__copy_p(ti_thing_t ** taddr, uint8_t deep)
 
         if (!p || ti_val_copy(&p->val, other, p->name, deep))
         {
-            ti_prop_destroy(p);
+            ti_prop_unassign_destroy(p);
             goto fail;
         }
 
@@ -1442,7 +1451,7 @@ static int thing__dup_p(ti_thing_t ** taddr, uint8_t deep)
 
         if (!p || ti_val_dup(&p->val, other, p->name, deep))
         {
-            ti_prop_destroy(p);
+            ti_prop_unassign_destroy(p);
             goto fail;
         }
 
@@ -1475,7 +1484,7 @@ static int thing__copy_cb(ti_item_t * item, thing__wcd_t * w)
                 i->key->n,
                 i))
     {
-        ti_item_destroy(i);
+        ti_item_unassign_destroy(i);
         return -1;
     }
 
@@ -1493,7 +1502,7 @@ static int thing__dup_cb(ti_item_t * item, thing__wcd_t * w)
                 i->key->n,
                 i))
     {
-        ti_item_destroy(i);
+        ti_item_unassign_destroy(i);
         return -1;
     }
 
@@ -1576,7 +1585,7 @@ static int thing__copy_t(ti_thing_t ** taddr, uint8_t deep)
 
         if (ti_val_copy(&p->val, other, p->name, deep))
         {
-            ti_prop_destroy(p);
+            ti_prop_unassign_destroy(p);
             goto fail;
         }
 

@@ -56,6 +56,7 @@ static int do__f_clear(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (n && vset->parent && vset->parent->id)
         {
+            /* clear must have a task as this is enforced */
             ti_task_t * task = ti_task_get_task(query->change, vset->parent);
             if (!task || ti_task_add_set_clear(task, ti_vset_key(vset)))
                 ex_set_mem(e);

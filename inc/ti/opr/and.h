@@ -34,6 +34,9 @@ static int opr__and(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
          * available in both `a` and `b`, therefore a "shortcut" can be made
          * if this is an in-place modification or if `a` is not used  anymore.
          */
+        if (ti_val_test_unlocked(a, e))
+            return e->nr;
+
         if (ti_vset_is_unrestricted((ti_vset_t *) a) &&
             (inplace || a->ref == 1))
         {
@@ -52,6 +55,11 @@ static int opr__and(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
                 goto alloc_err;
             ti_val_unsafe_drop(*b);
             *b = (ti_val_t *) vset;
+            if (inplace)
+            {
+                vset->parent = ((ti_vset_t *) a)->parent;
+                vset->key_ = ((ti_vset_t *) a)->key_;
+            }
         }
         return e->nr;
     }

@@ -14,8 +14,6 @@
 #include <util/mpack.h>
 #include <util/vec.h>
 
-static inline int ti_val_varr_prepare(ti_val_t ** v, ti_varr_t * to, ex_t * e);
-
 static inline _Bool ti_varr_may_have_things(ti_varr_t * varr)
 {
     return varr->flags & TI_VARR_FLAG_MHT;
@@ -65,6 +63,11 @@ static inline void * ti_varr_key(ti_varr_t * varr)
 static inline void ti_varr_set_may_flags(ti_varr_t * to, ti_varr_t * from)
 {
     to->flags |= from->flags & (TI_VARR_FLAG_MHT|TI_VARR_FLAG_MHR);
+}
+
+static inline _Bool ti_varr_is_stored(ti_varr_t * varr)
+{
+    return varr->parent && varr->parent->id;
 }
 
 #endif  /* TI_RAW_INLINE_H_ */

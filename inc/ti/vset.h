@@ -106,4 +106,9 @@ static inline _Bool ti_vset_is_unrestricted(ti_vset_t * vset)
             ((ti_field_t *) vset->key_)->nested_spec == TI_SPEC_ANY;
 }
 
+static inline _Bool ti_vset_is_stored(ti_vset_t * vset)
+{
+    return vset->parent && vset->parent->id;
+}
+
 #endif  /* TI_VSET_H_ */

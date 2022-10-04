@@ -11,6 +11,7 @@ static int do__f_push(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return fn_call_try("push", query, nd, e);
 
     if (fn_nargs_min("push", DOC_LIST_PUSH, 1, nargs, e) ||
+        ti_query_test_varr_operation(query, e) ||
         ti_val_try_lock(query->rval, e))
         return e->nr;
 

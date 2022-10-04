@@ -14,6 +14,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     n = fn_get_nargs(nd);
     if (fn_nargs_min("splice", DOC_LIST_SPLICE, 2, n, e) ||
+        ti_query_test_varr_operation(query, e) ||
         ti_val_try_lock(query->rval, e))
         return e->nr;
 

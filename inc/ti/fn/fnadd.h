@@ -18,6 +18,7 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     if (fn_nargs_min("add", DOC_SET_ADD, 1, nargs, e) ||
+        ti_query_test_vset_operation(query, e) ||
         ti_val_try_lock(query->rval, e))
         goto fail0;
 

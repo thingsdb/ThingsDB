@@ -1427,6 +1427,44 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!prop)
             return e->nr;
 
+        if (ti_val_is_set(prop->val))
+        {
+            ti_thing_t * thing = ((ti_vset_t *) prop->val)->parent;
+            if (thing)
+            {
+                ti_wprop_t wprop;
+                if (thing->id && !query->change)
+                {
+                    ex_set(e, EX_OPERATION,
+                            "operation on a stored set; "
+                            "use `wse(...)` to enforce a change");
+                    return e->nr;
+                }
+
+                if (do__upd_prop(
+                        &wprop,
+                        query,
+                        thing,
+                        name_nd,
+                        tokens_nd,
+                        e))
+                    return e->nr;
+
+                if (thing->id)
+                {
+                    ti_task_t * task = ti_task_get_task(query->change, thing);
+                    if (!task || ti_task_add_set(
+                            task,
+                            (ti_raw_t *) wprop.name,
+                            *wprop.val))
+                    {
+                        ex_set_mem(e);
+                        ti_panic("failed to create task without undo");
+                    }
+                }
+            }
+        }
+
         /* update value `a` with value `b` but store the value in `b` */
         if (ti_opr_a_to_b(prop->val, tokens_nd, &query->rval, e))
             return e->nr;

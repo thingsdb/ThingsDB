@@ -111,11 +111,13 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    varr = ti_varr_cp((ti_varr_t *) query->rval);
-    if (!varr)
+    varr = (ti_varr_t *) query->rval;
+    query->rval = NULL;
+
+    if (ti_varr_to_list(&varr))
     {
         ex_set_mem(e);
-        return e->nr;
+        goto fail0;
     }
 
     ti_val_unsafe_drop(query->rval);

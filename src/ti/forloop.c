@@ -22,7 +22,7 @@ typedef struct
     ex_t * e;
 } forloop__walk_t;
 
-static void forloop__set_prop(
+static inline void forloop__set_prop(
         int nargs,
         cleri_node_t * vars_nd,
         ti_name_t * name,

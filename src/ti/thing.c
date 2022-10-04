@@ -138,7 +138,7 @@ void ti_thing_cancel(ti_thing_t * thing)
             if (field->spec == TI_SPEC_SET)
             {
                 ti_field_t * ofield = field->condition.rel->field;
-                ti_vset_t * vset = VEC_get(thing->items.vec, field->idx);
+                ti_vset_t * vset = vec_get(thing->items.vec, field->idx);
                 if (!vset)
                     continue;
                 thing__clear_rel_t w = {
@@ -150,7 +150,7 @@ void ti_thing_cancel(ti_thing_t * thing)
             else if ((field->spec & TI_SPEC_MASK_NILLABLE) < TI_SPEC_ANY)
             {
                 ti_field_t * ofield = field->condition.rel->field;
-                ti_thing_t * other = VEC_get(thing->items.vec, field->idx);
+                ti_thing_t * other = vec_get(thing->items.vec, field->idx);
 
                 if (!other || ti_val_is_nil((ti_val_t *) other))
                     continue;
@@ -1561,16 +1561,10 @@ static int thing__assign_set_o(
         ti_raw_t * key,
         ti_val_t * val,
         ti_task_t * task,
-        ex_t * e,
-        uint32_t parent_ref)
+        ex_t * e)
 {
     assert (ti_val_is_spec(val, thing->via.spec));
-
-    /*
-     * Update the reference count based on the parent. The reason we do this
-     * here is that we still require the old value.
-     */
-    val->ref += parent_ref > 1;
+    ti_incref(val);
 
     /*
      * Closures are already unbound so the only possible errors are
@@ -1582,12 +1576,10 @@ static int thing__assign_set_o(
         goto failed;
 
     ti_incref(key);
-    val->ref += parent_ref == 1;
     return e->nr;
 
 failed:
-    if (parent_ref > 1)
-        ti_val_unsafe_gc_drop(val);
+    ti_val_unsafe_gc_drop(val);
     if (e->nr == 0)
         ex_set_mem(e);
 
@@ -1609,8 +1601,7 @@ static int thing__assign_walk_i(ti_item_t * item, thing__assign_walk_i_t * w)
             item->key,
             item->val,
             w->task,
-            w->e,
-            w->tsrc->ref);
+            w->e);
 }
 
 static int thing__assign_restr_i(ti_item_t * item, thing__assign_walk_i_t * w)
@@ -1662,8 +1653,7 @@ int ti_thing_assign(
                             (ti_raw_t *) p->name,
                             p->val,
                             task,
-                            e,
-                            tsrc->ref))
+                            e))
                         return e->nr;
             }
         }
@@ -1683,8 +1673,7 @@ int ti_thing_assign(
                         (ti_raw_t *) name,
                         val,
                         task,
-                        e,
-                        tsrc->ref))
+                        e))
                     return e->nr;
         }
     }
@@ -1692,7 +1681,6 @@ int ti_thing_assign(
     {
         vec_t * vec = NULL;
         ti_type_t * type = thing->via.type;
-        uint32_t parent_ref = tsrc->ref;
 
         if (ti_thing_is_object(tsrc))
         {
@@ -1741,22 +1729,12 @@ int ti_thing_assign(
                     goto fail;
                 }
 
-                /*
-                 * Update the reference count based on the parent.
-                 * The reason we do this here is that we still require the
-                 * old value.
-                 */
-                val->ref += parent_ref > 1;
-
+                ti_incref(val);
                 if (ti_field_make_assignable(field, &val, thing, e))
                 {
-                    if (parent_ref > 1)
-                        ti_val_unsafe_gc_drop(val);
+                    ti_val_unsafe_gc_drop(val);
                     goto fail;
                 }
-
-                val->ref += parent_ref == 1;
-
                 VEC_push(vec, val);
             }
 
@@ -1775,9 +1753,7 @@ int ti_thing_assign(
         else
         {
             ti_type_t * f_type = tsrc->via.type;
-
             vec = NULL;
-
             if (f_type != type)
             {
                 ex_set(e, EX_TYPE_ERROR,
@@ -1793,17 +1769,12 @@ int ti_thing_assign(
             {
                 ti_val_t * val = VEC_get(tsrc->items.vec, field->idx);
 
-                val->ref += parent_ref > 1;
-
+                ti_incref(val);
                 if (ti_field_make_assignable(field, &val, thing, e))
                 {
-                    if (parent_ref > 1)
-                        ti_val_unsafe_gc_drop(val);
+                    ti_val_unsafe_gc_drop(val);
                     return e->nr;
                 }
-
-                val->ref += parent_ref == 1;
-
                 ti_thing_t_prop_set(thing, field, val);
                 if (task && ti_task_add_set(
                         task,

@@ -1135,11 +1135,6 @@ static inline int field__walk_assign(ti_thing_t * thing, ti_field_t * field)
     return thing->type_id != field->nested_spec;
 }
 
-static inline int field__walk_rel_check(ti_thing_t * thing, void * UNUSED(arg))
-{
-    return thing->id != 0;
-}
-
 typedef struct
 {
     ti_field_t * field;
@@ -1220,17 +1215,13 @@ static int field__vset_assign(
 done:
     if (with_relation && !parent->id)
     {
-        if (imap_walk((*vset)->imap, (imap_cb) field__walk_rel_check, NULL))
-        {
-            ex_set(e, EX_TYPE_ERROR,
-                    "mismatch in type `%s` on property `%s`; "
-                    "relations between stored and non-stored things must be "
-                    "created using the property on the the stored thing "
-                    "(the thing with an ID)",
-                    field->type->name,
-                    field->name->str);
-            return e->nr;
-        }
+        ex_set(e, EX_TYPE_ERROR,
+                "mismatch in type `%s` on property `%s`; "
+                "relations must be created using a property "
+                "on a stored thing (a thing with an Id)",
+                field->type->name,
+                field->name->str);
+        return e->nr;
     }
 
     if (ti_val_make_assignable((ti_val_t **) vset, parent, field, e))
@@ -1501,9 +1492,7 @@ int ti_field_make_assignable(
                 ((ti_thing_t *) *val)->type_id != spec))
                 goto type_error;
 
-            if (!parent->id &&
-                ti_val_is_thing(*val) &&
-                ((ti_thing_t *) *val)->id)
+            if (!parent->id && ti_val_is_thing(*val))
                 goto relation_error;
 
             if (relation && relation->tp == TI_VAL_THING)
@@ -1820,9 +1809,8 @@ type_error:
 relation_error:
     ex_set(e, EX_TYPE_ERROR,
             "mismatch in type `%s` on property `%s`; "
-            "relations between stored and non-stored things must be "
-            "created using the property on the the stored thing "
-            "(the thing with an ID)",
+            "relations must be created using a property "
+            "on a stored thing (a thing with an Id)",
             field->type->name,
             field->name->str);
     return e->nr;
@@ -2367,48 +2355,15 @@ static int field__walk_things(
     );
 }
 
-static int field__chk_id(ti_thing_t * thing, void * UNUSED(arg))
-{
-    return thing->id != 0;
-}
-
-static int field__field_id_chk(ti_thing_t * thing, ti_field_t * field)
-{
-    if (field->spec == TI_SPEC_SET)
-    {
-        ti_vset_t * vset = VEC_get(thing->items.vec, field->idx);
-        return imap_walk(vset->imap, (imap_cb) field__chk_id, NULL);
-    }
-    else
-    {
-        ti_thing_t * other = VEC_get(thing->items.vec, field->idx);
-        return (other->tp == TI_VAL_THING && other->id);
-    }
-
-    return 0;
-}
-
 static int field__non_id_chk(ti_thing_t * thing, field__set_rel_chk_t * w)
 {
     if (thing->id)
         return 0;
 
-    if (thing->type_id == w->field->type->type_id &&
-        field__field_id_chk(thing, w->field))
-        goto failed;
-
-    if (thing->type_id == w->ofield->type->type_id &&
-        field__field_id_chk(thing, w->ofield))
-        goto failed;
-
-    return 0;
-
-failed:
     ex_set(w->e, EX_TYPE_ERROR,
             "failed to create relation; "
-            "relations between stored and non-stored things must be "
-            "created using the property on the the stored thing "
-            "(the thing with an ID)");
+            "relations must be created using a property on a stored thing "
+            "(a thing with an Id)");
     return w->e->nr;
 }
 

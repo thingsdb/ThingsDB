@@ -215,9 +215,8 @@ class TestRelations(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'failed to create relation; '
-                r'property `cx` on a `thing` is referring to a second '
-                r'`thing` while property `cy` on that second thing is '
-                r'referring to a third `thing`'):
+                r'relations must be created using a property on a stored '
+                r'thing \(a thing with an Id\)'):
             await client.query(r'''
                 c1 = C{};
                 c2 = C{};
@@ -230,33 +229,16 @@ class TestRelations(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'failed to create relation; '
-                r'property `cy` on a `thing` is referring to a second '
-                r'`thing` while property `cx` on that second thing is '
-                r'referring to a third `thing`'):
+                r'property `cy` on `#\d+` is referring to `#\d+` '
+                r'while property `cx` on `#\d+` is '
+                r'referring to `#\d+`'):
             await client.query(r'''
-                c1 = C{};
-                c2 = C{};
-                c1.cx = c2;
-                c1.cy = c1;
+                .c1 = C{};
+                .c2 = C{};
+                .c1.cx = .c2;
+                .c1.cy = .c1;
 
                 mod_type('C', 'rel', 'cx', 'cy');
-            ''')
-
-        with self.assertRaisesRegex(
-                TypeError,
-                r'failed to create relation; '
-                r'property `b` on a `thing` is referring to a second '
-                r'`thing` while property `a` on that second thing is '
-                r'referring to a third `thing`'):
-            await client.query(r'''
-                a1 = A{};
-                a2 = A{};
-                b1 = B{};
-
-                a1.b = b1;
-                b1.a = a2;
-
-                mod_type('A', 'rel', 'b', 'a');
             ''')
 
         with self.assertRaisesRegex(
@@ -291,8 +273,8 @@ class TestRelations(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'failed to create relation; at least one thing belongs to '
-                r'at least two different sets; \(property `aa` on type `B`'):
+                r'failed to create relation; relations must be created using '
+                r'a property on a stored thing \(a thing with an Id\)'):
             await client.query(r'''
                 a1 = A{};
                 b1 = B{};
@@ -332,22 +314,6 @@ class TestRelations(TestBase):
                 aa: '{A}'
             });
         ''')
-
-        with self.assertRaisesRegex(
-                TypeError,
-                r'failed to create relation; at least one thing belongs '
-                r'to a set \(`B.aa`\) of a different thing than the thing '
-                r'it is referring to \(`A.b`\)'):
-            await client.query(r'''
-                a1 = A{};
-                b1 = B{};
-                b2 = B{};
-
-                a1.b = b1;
-                b2.aa.add(a1);
-
-                mod_type('A', 'rel', 'b', 'aa');
-            ''')
 
         with self.assertRaisesRegex(
                 TypeError,
@@ -402,33 +368,20 @@ class TestRelations(TestBase):
             .c1.cc.add(.c1);
             .c2.cc.add(.c1);
 
-            a1 = A{};
-            a2 = A{};
-            b1 = B{};
-            b2 = B{};
-            c1 = C{};
-            c2 = C{};
-
-            a1.bb.add(b1, b2);
-            b1.aa.add(a1);
-            b2.aa.add(a2);
-            c1.cc.add(c1);
-            c2.cc.add(c1);
-
             mod_type('A', 'rel', 'bb', 'aa');
             mod_type('C', 'rel', 'cc', 'cc');
 
-            assert(a1.bb.has(b1));
-            assert(a1.bb.has(b2));
+            assert(.a1.bb.has(.b1));
+            assert(.a1.bb.has(.b2));
 
-            assert(!a2.bb.has(b1));
-            assert(a2.bb.has(b2));
+            assert(!.a2.bb.has(.b1));
+            assert(.a2.bb.has(.b2));
 
-            assert(b1.aa.has(a1));
-            assert(!b1.aa.has(a2));
+            assert(.b1.aa.has(.a1));
+            assert(!.b1.aa.has(.a2));
 
-            assert(b2.aa.has(a1));
-            assert(b2.aa.has(a2));
+            assert(.b2.aa.has(.a1));
+            assert(.b2.aa.has(.a2));
 
             'OK';
         '''), 'OK')
@@ -549,41 +502,9 @@ mod_type('D', 'rel', 'da', 'db');
             .d1.dx = .d2;
             .d3.dx = .d3;
 
-            a1 = A{};
-            a2 = A{};
-            a3 = A{};
-            b1 = B{};
-            b2 = B{};
-            c1 = C{};
-            c2 = C{};
-            d1 = D{};
-            d2 = D{};
-            d3 = D{};
-
-            a1.b = b1;
-            a2.b = b2;
-            b2.a = a2;
-            c1.c = c1;
-            d1.dx = d2;
-            d3.dx = d3;
-
             mod_type('A', 'rel', 'b', 'a');
             mod_type('C', 'rel', 'c', 'c');
             mod_type('D', 'rel', 'dx', 'dy');
-
-            assert(a1.b == b1);
-            assert(a2.b == b2);
-            assert(a3.b == nil);
-            assert(b1.a == a1);
-            assert(b2.a == a2);
-            assert(c1.c == c1);
-            assert(c2.c == nil);
-            assert(d1.dx == d2);
-            assert(d1.dy == nil);
-            assert(d2.dx == nil);
-            assert(d2.dy == d1);
-            assert(d3.dx == d3);
-            assert(d3.dy == d3);
 
             'OK';
         '''), 'OK')
@@ -657,56 +578,8 @@ mod_type('D', 'rel', 'da', 'db');
             .c1.cc.add(.c3);
             .c4.cc.add(.c5);
 
-            a1 = A{};
-            a2 = A{};
-            a3 = A{};
-            a4 = A{};
-            b1 = B{};
-            b2 = B{};
-            c1 = C{};
-            c2 = C{};
-            c3 = C{};
-            c4 = C{};
-            c5 = C{};
-
-            a1.b = b1;
-            a2.b = b1;
-            b1.aa.add(a2);
-            b2.aa.add(a3);
-            c1.c = c1;
-            c2.c = c1;
-            c1.cc.add(c2);
-            c1.cc.add(c3);
-            c4.cc.add(c5);
-
             mod_type('A', 'rel', 'b', 'aa');
             mod_type('C', 'rel', 'c', 'cc');
-
-            assert(a1.b == b1);
-            assert(a2.b == b1);
-            assert(a3.b == b2);
-            assert(a4.b == nil);
-            assert(c1.c == c1);
-            assert(c2.c == c1);
-            assert(c3.c == c1);
-            assert(c4.c == nil);
-            assert(c5.c == c4);
-
-            assert(b1.aa.has(a1));
-            assert(b1.aa.has(a2));
-            assert(b1.aa.len() == 2);
-            assert(b2.aa.has(a3));
-            assert(b2.aa.len() == 1);
-
-            assert(c1.cc.has(c1));
-            assert(c1.cc.has(c2));
-            assert(c1.cc.has(c3));
-            assert(c1.cc.len() == 3);
-            assert(c2.cc.len() == 0);
-            assert(c3.cc.len() == 0);
-            assert(c4.cc.has(c5));
-            assert(c4.cc.len() == 1);
-            assert(c5.cc.len() == 0);
 
             assert(types_info().len(), 3);
 
@@ -763,34 +636,34 @@ mod_type('D', 'rel', 'da', 'db');
         ''')
 
         self.assertTrue(await client.query(r'''
-            u = User{};
-            u.space = Space{};
-            u.space.user == u;
+            .u = User{};
+            .u.space = Space{};
+            .u.space.user == .u;
         '''))
 
         self.assertEqual(await client.query(r'''
-            u1 = User{};
+            .u1 = User{};
             s1 = Space{};
-            u1.space = s1;
-            assert (s1.user == u1);
-            assert (u1.space == s1);
+            .u1.space = s1;
+            assert (s1.user == .u1);
+            assert (.u1.space == s1);
 
             u2 = User{};
-            s2 = Space{};
-            s2.user = u2;
-            assert (s2.user == u2);
-            assert (u2.space == s2);
+            .s2 = Space{};
+            .s2.user = u2;
+            assert (.s2.user == u2);
+            assert (u2.space == .s2);
 
-            u = User{};
+            .u = User{};
             s = Space{};
-            u.space = s;
-            assert (s.user == u);
-            assert (u.space == s);
+            .u.space = s;
+            assert (s.user == .u);
+            assert (.u.space == s);
 
-            u.space = s2;
+            .u.space = .s2;
             assert (s.user == nil);
-            assert (u.space == s2);
-            assert (s2.user == u);
+            assert (.u.space == .s2);
+            assert (.s2.user == .u);
             assert (u2.space == nil);
 
             'OK';
@@ -807,34 +680,34 @@ mod_type('D', 'rel', 'da', 'db');
         ''')
 
         self.assertEqual(await client.query(r'''
-            s1 = Self{};
+            .s1 = Self{};
             s2 = Self{};
-            s1.self = s2;
-            assert (s1.self == s2);
-            assert (s2.self == s1);
+            .s1.self = s2;
+            assert (.s1.self == s2);
+            assert (s2.self == .s1);
 
             // a second time shoudl work as well
-            s1.self = s2;
-            assert (s1.self == s2);
-            assert (s2.self == s1);
+            .s1.self = s2;
+            assert (.s1.self == s2);
+            assert (s2.self == .s1);
 
             // remove assignment
-            s1.self = nil;
-            assert(is_nil(s1.self));
+            .s1.self = nil;
+            assert(is_nil(.s1.self));
             assert(is_nil(s2.self));
 
             // Restore assigmment
-            s1.self = s2;
-            assert (s1.self == s2);
-            assert (s2.self == s1);
+            .s1.self = s2;
+            assert (.s1.self == s2);
+            assert (s2.self == .s1);
 
             // Remove relation
             mod_type('Self', 'rel', 'self', nil);
 
             // Check is relation is removed
-            s1.self = nil;
-            assert(is_nil(s1.self));
-            assert(s2.self == s1);
+            .s1.self = nil;
+            assert(is_nil(.s1.self));
+            assert(s2.self == .s1);
 
             'OK';
         '''), 'OK')
@@ -881,30 +754,30 @@ mod_type('D', 'rel', 'da', 'db');
         self.assertEqual(await client.query(r'''
             a1 = A{};
             a2 = A{};
-            b1 = B{};
-            b2 = B{};
+            .b1 = B{};
+            .b2 = B{};
 
-            b1.a = a1;
-            b2.a = a1;
+            .b1.a = a1;
+            .b2.a = a1;
 
-            assert(a1.b.has(b1));
-            assert(a1.b.has(b2));
-            assert(!a2.b.has(b1));
-            assert(!a2.b.has(b2));
+            assert(a1.b.has(.b1));
+            assert(a1.b.has(.b2));
+            assert(!a2.b.has(.b1));
+            assert(!a2.b.has(.b2));
 
-            b2.a = a2;
+            .b2.a = a2;
 
-            assert(a1.b.has(b1));
-            assert(!a1.b.has(b2));
-            assert(!a2.b.has(b1));
-            assert(a2.b.has(b2));
+            assert(a1.b.has(.b1));
+            assert(!a1.b.has(.b2));
+            assert(!a2.b.has(.b1));
+            assert(a2.b.has(.b2));
 
-            a2.b.add(b1);
+            a2.b.add(.b1);
 
-            assert(!a1.b.has(b1));
-            assert(!a1.b.has(b2));
-            assert(a2.b.has(b1));
-            assert(a2.b.has(b2));
+            assert(!a1.b.has(.b1));
+            assert(!a1.b.has(.b2));
+            assert(a2.b.has(.b1));
+            assert(a2.b.has(.b2));
 
             'OK';
         '''), 'OK')
@@ -933,16 +806,16 @@ mod_type('D', 'rel', 'da', 'db');
 
         self.assertEqual(await client.query(r'''
             a = A{};
-            b = B{};
-            b.a.add(a);
+            .b = B{};
+            .b.a.add(a);
 
-            assert(a.b.has(b));
-            assert(b.a.has(a));
+            assert(a.b.has(.b));
+            assert(.b.a.has(a));
 
-            b.a.remove(a);
+            .b.a.remove(a);
 
-            assert(!a.b.has(b));
-            assert(!b.a.has(a));
+            assert(!a.b.has(.b));
+            assert(!.b.a.has(a));
 
             'OK';
         '''), 'OK')
@@ -1437,9 +1310,8 @@ mod_type('D', 'rel', 'da', 'db');
 
         err_msg = (
             r'failed to create relation; '
-            r'relations between stored and non-stored things must be '
-            r'created using the property on the the stored thing '
-            r'\(the thing with an ID\)')
+            r'relations must be created using a property on a stored '
+            r'thing \(a thing with an Id\)')
 
         with self.assertRaisesRegex(TypeError, err_msg):
             await client.query(r'''
@@ -1513,9 +1385,10 @@ mod_type('D', 'rel', 'da', 'db');
 
         self.assertEqual(await client.query(r'''
             w = W{};
-            p = P{w: set(w)};
+            .p = P{};
+            .p.w.add(w);
 
-            return [p.w.len(), w.p.len()];
+            return [.p.w.len(), w.p.len()];
         '''), [1, 1])
 
     async def test_iteration_tset(self, client):
@@ -1533,13 +1406,15 @@ mod_type('D', 'rel', 'da', 'db');
 
         self.assertEqual(await client.query(r'''
             w = W{};
-            p = P{w: w};
+            .p = P{};
+            .p.w = w;
             return w.p.len()
         '''), 1)
 
         self.assertEqual(await client.query(r'''
             p = P{};
-            w = W{p: set(p)};
+            .w = W{};
+            .w.p.add(p);
             return p.w.len()
         '''), 1)
 

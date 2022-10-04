@@ -1385,9 +1385,10 @@ mod_type('D', 'rel', 'da', 'db');
 
         self.assertEqual(await client.query(r'''
             w = W{};
-            p = P{w: set(w)};
+            .p = P{};
+            .p.w.add(w);
 
-            return [p.w.len(), w.p.len()];
+            return [.p.w.len(), w.p.len()];
         '''), [1, 1])
 
     async def test_iteration_tset(self, client):
@@ -1405,13 +1406,15 @@ mod_type('D', 'rel', 'da', 'db');
 
         self.assertEqual(await client.query(r'''
             w = W{};
-            p = P{w: w};
+            .p = P{};
+            .p.w = w;
             return w.p.len()
         '''), 1)
 
         self.assertEqual(await client.query(r'''
             p = P{};
-            w = W{p: set(p)};
+            .w = W{};
+            .w.p.add(p);
             return p.w.len()
         '''), 1)
 

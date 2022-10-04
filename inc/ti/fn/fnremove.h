@@ -369,8 +369,8 @@ typedef struct
 
 static int remove__walk_i(ti_item_t * item, remove__walk_i_t * w)
 {
-    ti_closure_vars_item(w->closure, item);
-    if (ti_closure_do_statement(w->closure, w->query, w->e))
+    if (ti_closure_vars_item(w->closure, item, w->e) ||
+        ti_closure_do_statement(w->closure, w->query, w->e))
         return -1;
 
     if (ti_val_as_bool(w->query->rval))
@@ -467,8 +467,8 @@ static int do__f_remove_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (vec->n == limit)
                 break;
 
-            ti_closure_vars_prop(closure, prop);
-            if (ti_closure_do_statement(closure, query, e))
+            if (ti_closure_vars_prop(closure, prop, e) ||
+                ti_closure_do_statement(closure, query, e))
                 goto fail3;
 
             if (ti_val_as_bool(query->rval))

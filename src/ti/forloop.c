@@ -22,11 +22,12 @@ typedef struct
     ex_t * e;
 } forloop__walk_t;
 
-static inline void forloop__set_prop(
+static int forloop__set_prop(
         int nargs,
         cleri_node_t * vars_nd,
         ti_name_t * name,
-        ti_val_t * val)
+        ti_val_t * val,
+        ex_t * e)
 {
     ti_prop_t * prop;
     switch(nargs)
@@ -37,6 +38,11 @@ static inline void forloop__set_prop(
         ti_incref(val);
         ti_val_unsafe_gc_drop(prop->val);
         prop->val = val;
+        /*
+         * Re-assign variable since we require a copy of lists and sets.
+         */
+        if (ti_val_make_variable(&prop->val, e))
+            return e->nr;
         /* fall through */
     case 1:
         prop = vars_nd->data;
@@ -47,15 +53,18 @@ static inline void forloop__set_prop(
     case 0:
         break;
     }
+    return 0;
 }
 
 static int forloop__walk_thing(ti_item_t * item, forloop__walk_t * w)
 {
-    forloop__set_prop(
+    if (forloop__set_prop(
             w->nargs,
             w->vars_nd,
             (ti_name_t *) item->key,
-            item->val);
+            item->val,
+            w->e))
+        return w->e->nr;
 
     w->query->rval = NULL;
     switch (ti_do_statement(w->query, w->code_nd, w->e))
@@ -268,7 +277,8 @@ int ti_forloop_thing(
         ti_val_t * val;
         for (thing_t_each(thing, name, val))
         {
-            forloop__set_prop(nargs, vars_nd, name, val);
+            if (forloop__set_prop(nargs, vars_nd, name, val, e))
+                goto fail0;
 
             query->rval = NULL;
             switch (ti_do_statement(query, code_nd, e))
@@ -310,7 +320,8 @@ int ti_forloop_thing(
 
     for (vec_each(thing->items.vec, ti_prop_t, p))
     {
-        forloop__set_prop(nargs, vars_nd, p->name, p->val);
+        if (forloop__set_prop(nargs, vars_nd, p->name, p->val, e))
+            goto fail0;
 
         query->rval = NULL;
         switch (ti_do_statement(query, code_nd, e))

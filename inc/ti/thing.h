@@ -52,20 +52,10 @@ ti_prop_t * ti_thing_p_prop_add(    /* only when property does not exists */
         ti_thing_t * thing,
         ti_name_t * name,
         ti_val_t * val);
-int ti_thing_p_prop_add_assign(
-        ti_thing_t * thing,
-        ti_name_t * name,
-        ti_val_t * val,
-        ex_t * e);
 ti_item_t * ti_thing_i_item_add(
         ti_thing_t * thing,
         ti_raw_t * key,
         ti_val_t * val);
-int ti_thing_i_item_add_assign(
-        ti_thing_t * thing,
-        ti_raw_t * key,
-        ti_val_t * val,
-        ex_t * e);
 ti_prop_t * ti_thing_p_prop_set(
         ti_thing_t * thing,
         ti_name_t * name,

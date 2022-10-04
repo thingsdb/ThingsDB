@@ -1,8 +1,7 @@
 # v1.3.4
 
 * Fixed mismatch in refcount, issue #309.
-* Fixed bug with relations between things without Id, issue #308.
-* Improve performance, pr #311.
+* Fixed bug with relations between things without Id , issue #308.
 
 # v1.3.3
 

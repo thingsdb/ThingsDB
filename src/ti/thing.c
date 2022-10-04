@@ -137,7 +137,6 @@ void ti_thing_cancel(ti_thing_t * thing)
 
             if (field->spec == TI_SPEC_SET)
             {
-                /* bug #309, use vec_get instead of VEC_get */
                 ti_field_t * ofield = field->condition.rel->field;
                 ti_vset_t * vset = vec_get(thing->items.vec, field->idx);
                 if (!vset)
@@ -150,7 +149,6 @@ void ti_thing_cancel(ti_thing_t * thing)
             }
             else if ((field->spec & TI_SPEC_MASK_NILLABLE) < TI_SPEC_ANY)
             {
-                /* bug #309, use vec_get instead of VEC_get */
                 ti_field_t * ofield = field->condition.rel->field;
                 ti_thing_t * other = vec_get(thing->items.vec, field->idx);
 
@@ -388,84 +386,6 @@ ti_prop_t * ti_thing_p_prop_add(
 }
 
 /*
- * Increments the `key` and `val` reference counters on success.
- * Use only when you are sure the property does not yet exist.
- */
-int ti_thing_p_prop_add_assign(
-        ti_thing_t * thing,
-        ti_name_t * name,
-        ti_val_t * val,
-        ex_t * e)
-{
-    ti_prop_t * prop;
-
-    switch ((ti_val_enum) val->tp)
-    {
-    case TI_VAL_NIL:
-    case TI_VAL_INT:
-    case TI_VAL_FLOAT:
-    case TI_VAL_BOOL:
-    case TI_VAL_DATETIME:
-    case TI_VAL_MPDATA:
-    case TI_VAL_NAME:
-    case TI_VAL_STR:
-    case TI_VAL_BYTES:
-    case TI_VAL_REGEX:
-    case TI_VAL_THING:
-    case TI_VAL_WRAP:
-    case TI_VAL_ROOM:
-    case TI_VAL_TASK:
-    case TI_VAL_ERROR:
-    case TI_VAL_MEMBER:
-        ti_incref(val);
-        break;
-    case TI_VAL_ARR:
-        val = (ti_val_t *) ti_varr_cp((ti_varr_t *) val);
-        if (!val)
-        {
-            ex_set_mem(e);
-            return e->nr;
-        }
-        ((ti_varr_t *) val)->parent = thing;
-        ((ti_varr_t *) val)->key_ = name;
-        break;
-    case TI_VAL_SET:
-        val = (ti_val_t *) ti_vset_cp((ti_vset_t *) val);
-        if (!val)
-        {
-            ex_set_mem(e);
-            return e->nr;
-        }
-        ((ti_vset_t *) val)->parent = thing;
-        ((ti_vset_t *) val)->key_ = name;
-        break;
-    case TI_VAL_CLOSURE:
-        if (ti_closure_unbound((ti_closure_t *) val, e))
-            return e->nr;
-        ti_incref(val);
-        break;
-    case TI_VAL_FUTURE:
-        val = (ti_val_t *) ti_nil_get();
-        break;
-    case TI_VAL_TEMPLATE:
-        assert (0);
-        break;
-    }
-
-    prop = ti_prop_create(name, val);
-    if (!prop || vec_push(&thing->items.vec, prop))
-    {
-        ti_val_unsafe_drop(val);
-        free(prop);
-        ex_set_mem(e);
-        return e->nr;
-    }
-
-    ti_incref(name);
-    return 0;
-}
-
-/*
  * Does not increment the `key` and `val` reference counters.
  * Use only when you are sure the property does not yet exist.
  */
@@ -487,86 +407,6 @@ ti_item_t * ti_thing_i_item_add(
     return item;
 }
 
-/*
- * Increments the `key` and `val` reference counters on success.
- * Use only when you are sure the property does not yet exist.
- */
-int ti_thing_i_item_add_assign(
-        ti_thing_t * thing,
-        ti_raw_t * key,
-        ti_val_t * val,
-        ex_t * e)
-{
-    ti_item_t * item;
-
-    switch ((ti_val_enum) val->tp)
-    {
-    case TI_VAL_NIL:
-    case TI_VAL_INT:
-    case TI_VAL_FLOAT:
-    case TI_VAL_BOOL:
-    case TI_VAL_DATETIME:
-    case TI_VAL_MPDATA:
-    case TI_VAL_NAME:
-    case TI_VAL_STR:
-    case TI_VAL_BYTES:
-    case TI_VAL_REGEX:
-    case TI_VAL_THING:
-    case TI_VAL_WRAP:
-    case TI_VAL_ROOM:
-    case TI_VAL_TASK:
-    case TI_VAL_ERROR:
-    case TI_VAL_MEMBER:
-        ti_incref(val);
-        break;
-    case TI_VAL_ARR:
-        val = (ti_val_t *) ti_varr_cp((ti_varr_t *) val);
-        if (!val)
-        {
-            ex_set_mem(e);
-            return e->nr;
-        }
-        ((ti_varr_t *) val)->parent = thing;
-        ((ti_varr_t *) val)->key_ = key;
-        break;
-    case TI_VAL_SET:
-        val = (ti_val_t *) ti_vset_cp((ti_vset_t *) val);
-        if (!val)
-        {
-            ex_set_mem(e);
-            return e->nr;
-        }
-        ((ti_vset_t *) val)->parent = thing;
-        ((ti_vset_t *) val)->key_ = key;
-        break;
-    case TI_VAL_CLOSURE:
-        if (ti_closure_unbound((ti_closure_t *) val, e))
-            return e->nr;
-        ti_incref(val);
-        break;
-    case TI_VAL_FUTURE:
-        val = (ti_val_t *) ti_nil_get();
-        break;
-    case TI_VAL_TEMPLATE:
-        assert (0);
-        break;
-    }
-
-    item = ti_item_create(key, val);
-    if (!item || smap_addn(
-            thing->items.smap,
-            (const char *) key->data,
-            key->n,
-            item))
-    {
-        ti_val_unsafe_drop(val);
-        free(item);
-        ex_set_mem(e);
-        return e->nr;
-    }
-    ti_incref(key);
-    return 0;
-}
 
 /*
  * It takes a reference on `name` and `val` when successful
@@ -1724,10 +1564,6 @@ static int thing__assign_set_o(
         ex_t * e)
 {
     assert (ti_val_is_spec(val, thing->via.spec));
-    /* must increase the reference here, even if the value is no longer
-     * required after this function, it might break the parent relation;
-     * bug #309
-     */
     ti_incref(val);
 
     /*
@@ -1893,11 +1729,6 @@ int ti_thing_assign(
                     goto fail;
                 }
 
-                /* must increase the reference here, even if the value is no
-                 * longer required after this function, it might break the
-                 * parent relation;
-                 * bug #309
-                 */
                 ti_incref(val);
                 if (ti_field_make_assignable(field, &val, thing, e))
                 {
@@ -1938,11 +1769,6 @@ int ti_thing_assign(
             {
                 ti_val_t * val = VEC_get(tsrc->items.vec, field->idx);
 
-                /* must increase the reference here, even if the value is no
-                 * longer required after this function, it might break the
-                 * parent relation;
-                 * bug #309
-                 */
                 ti_incref(val);
                 if (ti_field_make_assignable(field, &val, thing, e))
                 {

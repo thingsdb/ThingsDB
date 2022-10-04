@@ -95,7 +95,8 @@ int ti_method_call(
         {
             --n;  // outside `while` so we do not go below zero
 
-            if (ti_do_statement(query, child, e))
+            if (ti_do_statement(query, child, e) ||
+                ti_val_make_variable(&query->rval, e))
                 goto fail1;
 
             VEC_push(args, query->rval);

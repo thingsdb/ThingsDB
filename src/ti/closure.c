@@ -453,7 +453,10 @@ void ti_closure_dec(ti_closure_t * closure, ti_query_t * query)
     }
 }
 
-void ti_closure_vars_val(ti_closure_t * closure, ti_val_t * val)
+int ti_closure_vars_val(
+        ti_closure_t * closure,
+        ti_val_t * val,
+        ex_t * e)
 {
     ti_prop_t * prop;
     switch(closure->vars->n)
@@ -464,16 +467,23 @@ void ti_closure_vars_val(ti_closure_t * closure, ti_val_t * val)
         ti_incref(val);
         ti_val_unsafe_drop(prop->val);
         prop->val = val;
+        /*
+         * Re-assign variable since we require a copy of lists and sets.
+         */
+        if (ti_val_make_variable(&prop->val, e))
+            return e->nr;
         /* fall through */
     case 0:
         break;
     }
+    return 0;
 }
 
-void ti_closure_vars_nameval(
+int ti_closure_vars_nameval(
         ti_closure_t * closure,
         ti_val_t * name,
-        ti_val_t * val)
+        ti_val_t * val,
+        ex_t * e)
 {
     ti_prop_t * prop;
     switch(closure->vars->n)
@@ -484,6 +494,11 @@ void ti_closure_vars_nameval(
         ti_incref(val);
         ti_val_unsafe_drop(prop->val);
         prop->val = val;
+        /*
+         * Re-assign variable since we require a copy of lists and sets.
+         */
+        if (ti_val_make_variable(&prop->val, e))
+            return e->nr;
         /* fall through */
     case 1:
         prop = VEC_get(closure->vars, 0);
@@ -494,6 +509,7 @@ void ti_closure_vars_nameval(
     case 0:
         break;
     }
+    return 0;
 }
 
 int ti_closure_vars_val_idx(ti_closure_t * closure, ti_val_t * v, int64_t i)

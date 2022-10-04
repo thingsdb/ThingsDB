@@ -20,8 +20,8 @@ static int map__walk_set(ti_thing_t * t, map__walk_t * w)
 
 static int map__walk_i(ti_item_t * item, map__walk_t * w)
 {
-    ti_closure_vars_item(w->closure, item);
-    if (ti_closure_do_statement(w->closure, w->query, w->e) ||
+    if (ti_closure_vars_item(w->closure, item, w->e) ||
+        ti_closure_do_statement(w->closure, w->query, w->e) ||
         ti_val_varr_append(w->varr, &w->query->rval, w->e))
         return -1;
     w->query->rval = NULL;
@@ -93,8 +93,8 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             {
                 for (vec_each(thing->items.vec, ti_prop_t, p))
                 {
-                    ti_closure_vars_prop(closure, p);
-                    if (ti_closure_do_statement(closure, query, e) ||
+                    if (ti_closure_vars_prop(closure, p, e) ||
+                        ti_closure_do_statement(closure, query, e) ||
                         ti_val_varr_append(retvarr, &query->rval, e))
                         goto fail2;
                     query->rval = NULL;
@@ -107,8 +107,8 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ti_val_t * val;
             for (thing_t_each(thing, name, val))
             {
-                ti_closure_vars_nameval(closure, (ti_val_t *) name, val);
-                if (ti_closure_do_statement(closure, query, e) ||
+                if (ti_closure_vars_nameval(closure, (ti_val_t *) name, val, e) ||
+                    ti_closure_do_statement(closure, query, e) ||
                     ti_val_varr_append(retvarr, &query->rval, e))
                     goto fail2;
                 query->rval = NULL;

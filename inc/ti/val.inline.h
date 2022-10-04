@@ -1019,6 +1019,47 @@ static inline int ti_val_make_assignable(
     return -1;
 }
 
+static inline int ti_val_make_variable(ti_val_t ** val, ex_t * e)
+{
+    switch ((ti_val_enum) (*val)->tp)
+    {
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
+    case TI_VAL_MPDATA:
+    case TI_VAL_NAME:
+    case TI_VAL_STR:
+    case TI_VAL_BYTES:
+    case TI_VAL_REGEX:
+    case TI_VAL_THING:
+    case TI_VAL_WRAP:
+    case TI_VAL_ROOM:
+    case TI_VAL_TASK:
+    case TI_VAL_ERROR:
+    case TI_VAL_MEMBER:
+    case TI_VAL_FUTURE:
+        return 0;
+    case TI_VAL_ARR:
+        if (((ti_varr_t *) *val)->parent &&
+            ti_varr_is_list((ti_varr_t *) *val) &&
+            ti_varr_to_list((ti_varr_t **) val))
+            ex_set_mem(e);
+        return e->nr;
+    case TI_VAL_SET:
+        if (((ti_vset_t *) *val)->parent && ti_vset_assign((ti_vset_t **) val))
+            ex_set_mem(e);
+        return e->nr;
+    case TI_VAL_CLOSURE:
+        return ti_closure_unbound((ti_closure_t * ) *val, e);
+    case TI_VAL_TEMPLATE:
+        break;
+    }
+    assert(0);
+    return -1;
+}
+
 static inline int val__str_to_str(ti_val_t ** UNUSED(v), ex_t * UNUSED(e))
 {
     return 0;

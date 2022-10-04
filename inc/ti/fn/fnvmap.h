@@ -10,9 +10,9 @@ typedef struct
 
 static int vmap__walk_i(ti_item_t * item, vmap__walk_i_t * w)
 {
-    ti_closure_vars_val(w->closure, item->val);
-    if (ti_closure_do_statement(w->closure, w->query, w->e) ||
-        ti_val_make_assignable(&w->query->rval, w->thing, item->key, w->e) ||
+    if (ti_closure_vars_val(w->closure, item->val, w->e) ||
+        ti_closure_do_statement(w->closure, w->query, w->e) ||
+        ti_val_make_variable(&w->query->rval, w->e) ||
         !ti_thing_i_item_add(w->thing, item->key, w->query->rval))
         return -1;
 
@@ -77,9 +77,9 @@ static int do__f_vmap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             /* the original thing is an object */
             for (vec_each(othing->items.vec, ti_prop_t, prop))
             {
-                ti_closure_vars_val(closure, prop->val);
-                if (ti_closure_do_statement(closure, query, e) ||
-                    ti_val_make_assignable(&query->rval, nthing, prop->name, e) ||
+                if (ti_closure_vars_val(closure, prop->val, e) ||
+                    ti_closure_do_statement(closure, query, e) ||
+                    ti_val_make_variable(&query->rval, e) ||
                     !ti_thing_p_prop_add(nthing, prop->name, query->rval))
                     goto fail2;
 
@@ -94,9 +94,9 @@ static int do__f_vmap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ti_val_t * val;
             for (thing_t_each(othing, name, val))
             {
-                ti_closure_vars_val(closure, val);
-                if (ti_closure_do_statement(closure, query, e) ||
-                    ti_val_make_assignable(&query->rval, nthing, name, e) ||
+                if (ti_closure_vars_val(closure, val, e) ||
+                    ti_closure_do_statement(closure, query, e) ||
+                    ti_val_make_variable(&query->rval, e) ||
                     !ti_thing_p_prop_add(nthing, name, query->rval))
                     goto fail2;
 

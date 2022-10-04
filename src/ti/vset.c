@@ -32,6 +32,20 @@ ti_vset_t * ti_vset_create(void)
     return vset;
 }
 
+ti_vset_t * ti_vset_create_imap(imap_t * imap)
+{
+    ti_vset_t * vset = malloc(sizeof(ti_vset_t));
+    if (!vset)
+        return NULL;
+
+    vset->ref = 1;
+    vset->tp = TI_VAL_SET;
+    vset->flags = 0;
+    vset->parent = NULL;
+    vset->imap = imap;
+    return vset;
+}
+
 void ti_vset_destroy(ti_vset_t * vset)
 {
     if (!vset)

@@ -379,6 +379,55 @@ class TestNested(TestBase):
         self.assertGreater(ids[2], ids[1])
         self.assertGreater(ids[3], ids[2])
 
+    async def test_set_and_list_on_var(self, client0, client1, client2):
+        await client0.query(r"""//ti
+            .myset = set();
+            .myarr = list();
+        """)
+
+        await client0.query(r"""//ti
+            a = .myarr;
+            wse(a.push({name: 'a'}));
+        """)
+
+        await client0.query(r"""//ti
+            a = .myarr;
+            wse(a.extend([{name: 'b'}, {name: 'c'}]));
+        """)
+
+        await client0.query(r"""//ti
+            a = .myarr;
+            wse(a.extend_unique([{name: 'd'}, {name: 'e'}]));
+        """)
+
+        await client0.query(r"""//ti
+            a = .myarr;
+            wse(a.pop());
+        """)
+
+        await client0.query(r"""//ti
+            s = .myset;
+            wse(s.add(.myarr[0], .myarr[1]));
+        """)
+
+        await client0.query(r"""//ti
+            s = .myset;
+            wse(s ^= set(.myarr));
+        """)
+
+        ids = await client0.query('.myarr.map_id();')
+        self.assertEqual(len(ids), 5)
+
+        await asyncio.sleep(1.0)
+        for client in (client0, client1, client2):
+            size, myset = await client.query('[.myarr.len(), .myset;')
+            self.assertEqual(size, 5)
+            self.assertEqual(set(myset), {
+                {'#': ids[2], 'name': 'c'},
+                {'#': ids[3], 'name': 'd'},
+                {'#': ids[4], 'name': 'e'},
+            })
+
 
 if __name__ == '__main__':
     run_test(TestNested())

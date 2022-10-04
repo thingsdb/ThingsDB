@@ -23,6 +23,7 @@
 #include <ti/template.h>
 #include <ti/thing.inline.h>
 #include <ti/vint.h>
+#include <ti/xprop.t.h>
 #include <util/strx.h>
 
 static inline int do__no_node_scope(ti_query_t * query)
@@ -198,10 +199,7 @@ static inline int do__t_upd_prop(
                 thing->items.vec,
                 field->idx);
 
-        return (
-            ti_opr_a_to_b(*wprop->val, tokens_nd, &query->rval, e) ||
-            ti_field_make_assignable(field, &query->rval, thing, e)
-        ) ? e->nr : 0;
+        return ti_opr_a_to_b(*wprop->val, tokens_nd, &query->rval, e);
     }
 
     ex_set(e, EX_LOOKUP_ERROR,
@@ -223,10 +221,25 @@ static inline int do__upd_prop(
             : do__t_upd_prop(wprop, query, thing, name_nd, tokens_nd, e))
         return e->nr;
 
-    ti_val_unsafe_gc_drop(*wprop->val);
+    ti_val_unassign_unsafe_drop(*wprop->val);
     *wprop->val = query->rval;
     ti_incref(query->rval);
 
+    return 0;
+}
+
+static inline int do__upd_vaddr(
+        ti_val_t ** vaddr,
+        ti_query_t * query,
+        cleri_node_t * tokens_nd,
+        ex_t * e)
+{
+    if (ti_opr_a_to_b(*vaddr, tokens_nd, &query->rval, e))
+        return e->nr;
+
+    ti_val_unsafe_gc_drop(*vaddr);
+    *vaddr = query->rval;
+    ti_incref(query->rval);
     return 0;
 }
 
@@ -1432,7 +1445,7 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ti_thing_t * thing = ((ti_vset_t *) prop->val)->parent;
             if (thing)
             {
-                ti_wprop_t wprop;
+
                 if (thing->id && !query->change)
                 {
                     ex_set(e, EX_OPERATION,
@@ -1441,11 +1454,9 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     return e->nr;
                 }
 
-                if (do__upd_prop(
-                        &wprop,
+                if (do__upd_vaddr(
+                        &prop->val,
                         query,
-                        thing,
-                        name_nd,
                         tokens_nd,
                         e))
                     return e->nr;
@@ -1454,9 +1465,9 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 {
                     ti_task_t * task = ti_task_get_task(query->change, thing);
                     if (!task || ti_task_add_set(
-                            task,
-                            (ti_raw_t *) wprop.name,
-                            *wprop.val))
+                        task,
+                        ti_vset_key((ti_vset_t *) prop->val),
+                        prop->val))
                     {
                         ex_set_mem(e);
                         ti_panic("failed to create task without undo");

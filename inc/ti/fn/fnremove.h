@@ -10,7 +10,6 @@ static int do__f_remove_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     vec_t * vec;
 
     if (fn_nargs_range("remove", DOC_LIST_REMOVE, 1, 2, nargs, e) ||
-        ti_query_test_varr_operation(query, e) ||
         ti_val_try_lock(query->rval, e))
         return e->nr;
 
@@ -236,7 +235,6 @@ static int do__f_remove_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_vset_t * vset;
 
     if (fn_nargs_min("remove", DOC_SET_REMOVE, 1, nargs, e) ||
-        ti_query_test_vset_operation(query, e) ||
         ti_val_try_lock(query->rval, e))
         return e->nr;
 

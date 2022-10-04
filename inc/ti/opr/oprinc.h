@@ -4,6 +4,8 @@
 #define CAST_MAX 9223372036854775808.0
 
 #include <assert.h>
+#include <ti/datetime.h>
+#include <ti/field.h>
 #include <ti/opr.h>
 #include <ti/raw.h>
 #include <ti/val.inline.h>
@@ -11,7 +13,6 @@
 #include <ti/vfloat.h>
 #include <ti/vint.h>
 #include <ti/vset.h>
-#include <ti/datetime.h>
 #include <util/logger.h>
 
 #define TI_OPR_PERM(_a, _b) ((_a)->tp<<5|(_b)->tp)

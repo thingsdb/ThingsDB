@@ -17,6 +17,7 @@ typedef struct ti_vset_s ti_vset_t;
 #include <util/mpack.h>
 
 ti_vset_t * ti_vset_create(void);
+ti_vset_t * ti_vset_create_imap(imap_t * imap);
 void ti_vset_destroy(ti_vset_t * vset);
 int ti_vset_to_client_pk(ti_vset_t * vset, ti_vp_t * vp, int deep, int flags);
 int ti_vset_to_store_pk(ti_vset_t * vset, msgpack_packer * pk);
@@ -109,6 +110,13 @@ static inline _Bool ti_vset_is_unrestricted(ti_vset_t * vset)
 static inline _Bool ti_vset_is_stored(ti_vset_t * vset)
 {
     return vset->parent && vset->parent->id;
+}
+
+static inline void * ti_vset_field(ti_vset_t * vset)
+{
+    return vset->parent && ti_thing_is_instance(vset->parent)
+        ? vset->key_
+        : NULL;
 }
 
 #endif  /* TI_VSET_H_ */

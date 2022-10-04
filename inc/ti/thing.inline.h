@@ -111,6 +111,16 @@ static inline ti_val_t * ti_thing_p_val_weak_get(
     return NULL;
 }
 
+static inline ti_val_t ** ti_thing_p_val_addr_get(
+        ti_thing_t * thing,
+        ti_name_t * name)
+{
+    for (vec_each(thing->items.vec, ti_prop_t, prop))
+        if (prop->name == name)
+            return &prop->val;
+    return NULL;
+}
+
 static inline ti_val_t * ti_thing_o_val_weak_get(
         ti_thing_t * thing,
         ti_name_t * name)
@@ -119,6 +129,18 @@ static inline ti_val_t * ti_thing_o_val_weak_get(
     {
         ti_item_t * item = smap_get(thing->items.smap, name->str);
         return item ? item->val : NULL;
+    }
+    return ti_thing_p_val_weak_get(thing, name);
+}
+
+static inline ti_val_t ** ti_thing_o_val_addr_get(
+        ti_thing_t * thing,
+        ti_name_t * name)
+{
+    if (ti_thing_is_dict(thing))
+    {
+        ti_item_t * item = smap_get(thing->items.smap, name->str);
+        return item ? &item->val : NULL;
     }
     return ti_thing_p_val_weak_get(thing, name);
 }
@@ -138,6 +160,15 @@ static inline ti_val_t * ti_thing_t_val_weak_get(
 static inline ti_val_t * ti_thing_val_weak_by_name(
         ti_thing_t * thing,
         ti_name_t * name)
+{
+    return ti_thing_is_object(thing)
+            ? ti_thing_o_val_weak_get(thing, name)
+            : ti_thing_t_val_weak_get(thing, name);
+}
+
+static inline ti_val_t * ti_thing_val_addr_by_key(
+        ti_thing_t * thing,
+        void * key)
 {
     return ti_thing_is_object(thing)
             ? ti_thing_o_val_weak_get(thing, name)

@@ -1439,17 +1439,6 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     /*
-     * Must make variable assignable because we require a copy and need to
-     * convert for example a tuple to a list.
-     *
-     * Closures can be ignored here because they are not mutable and will
-     * unbound from the query if the `variable` is assigned or pushed to a list
-     */
-    if (    !ti_val_is_closure(query->rval) &&
-            ti_val_make_variable(&query->rval, e))
-        goto failed;
-
-    /*
      * Try to get the name from cache, else ensure it is set on the cache for
      * the next time the code visits this same point.
      */
@@ -1494,8 +1483,6 @@ alloc_err_with_prop:
 
 alloc_err:
     ex_set_mem(e);
-
-failed:
     ti_name_drop(name);
     return e->nr;
 }

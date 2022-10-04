@@ -1207,14 +1207,14 @@ class TestAdvanced(TestBase):
             run('add', .arr, 3);
             .arr;
         ''')
-        self.assertEqual(res, list(range(3)))
+        self.assertEqual(res, list(range(4)))
 
         res = await client.query('''
             .arr = range(5);
             (|arr, v| arr.push(v)).call(.arr, 5);
             .arr;
         ''')
-        self.assertEqual(res, list(range(5)))
+        self.assertEqual(res, list(range(6)))
 
     async def test_type_mod(self, client):
         await client.query('''
@@ -2165,6 +2165,16 @@ new_procedure('multiply', |a, b| a * b);
             "OK";
         """)
 
+    async def test_filter_assign(self, client):
+        res = await client.query("""//ti
+            a = {
+                arr: [1, 2, 3]
+            };
+            b = a.filter(||true);
+            b.arr.push(4);
+            a.arr;
+        """)
+        self.assertEqual(res, [1, 2, 3])
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

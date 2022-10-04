@@ -19,8 +19,8 @@ static int each__walk_set(ti_thing_t * t, each__walk_t * w)
 
 static int each__walk_i(ti_item_t * item, each__walk_t * w)
 {
-    if (ti_closure_vars_item(w->closure, item, w->e) ||
-        ti_closure_do_statement(w->closure, w->query, w->e))
+    ti_closure_vars_item(w->closure, item);
+    if (ti_closure_do_statement(w->closure, w->query, w->e))
         return -1;
     ti_val_unsafe_drop(w->query->rval);
     w->query->rval = NULL;
@@ -82,8 +82,8 @@ static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             {
                 for (vec_each(thing->items.vec, ti_prop_t, p))
                 {
-                    if (ti_closure_vars_prop(closure, p, e) ||
-                        ti_closure_do_statement(closure, query, e))
+                    ti_closure_vars_prop(closure, p);
+                    if (ti_closure_do_statement(closure, query, e))
                         goto fail2;
                     ti_val_unsafe_drop(query->rval);
                     query->rval = NULL;
@@ -96,8 +96,8 @@ static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ti_val_t * val;
             for (thing_t_each(thing, name, val))
             {
-                if (ti_closure_vars_nameval(closure, (ti_val_t *) name, val, e) ||
-                    ti_closure_do_statement(closure, query, e))
+                ti_closure_vars_nameval(closure, (ti_val_t *) name, val);
+                if (ti_closure_do_statement(closure, query, e))
                     goto fail2;
                 ti_val_unsafe_drop(query->rval);
                 query->rval = NULL;

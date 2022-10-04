@@ -229,6 +229,30 @@ int ti_varr_nested_spec_err(ti_varr_t * varr, ti_val_t * val, ex_t * e)
     return 0;
 }
 
+ti_varr_t * ti_varr_cp(ti_varr_t * varr)
+{
+    ti_varr_t * list = malloc(sizeof(ti_varr_t));
+    if (!list)
+        return NULL;
+
+    list->ref = 1;
+    list->tp = TI_VAL_ARR;
+    list->flags = ti_varr_may_flags(varr);
+    list->vec = vec_dup(varr->vec);
+    list->parent = NULL;
+
+    if (!list->vec)
+    {
+        free(list);
+        return NULL;
+    }
+
+    for (vec_each(list->vec, ti_val_t, val))
+        ti_incref(val);
+
+    return list;
+}
+
 int ti_varr_to_list(ti_varr_t ** varr)
 {
     ti_varr_t * list = *varr;

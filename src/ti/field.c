@@ -1217,7 +1217,7 @@ done:
     {
         ex_set(e, EX_TYPE_ERROR,
                 "mismatch in type `%s` on property `%s`; "
-                "relations must be created using the property "
+                "relations must be created using a property "
                 "on a stored thing (a thing with an Id)",
                 field->type->name,
                 field->name->str);
@@ -1809,7 +1809,7 @@ type_error:
 relation_error:
     ex_set(e, EX_TYPE_ERROR,
             "mismatch in type `%s` on property `%s`; "
-            "relations must be created using the property "
+            "relations must be created using a property "
             "on a stored thing (a thing with an Id)",
             field->type->name,
             field->name->str);
@@ -2362,7 +2362,7 @@ static int field__non_id_chk(ti_thing_t * thing, field__set_rel_chk_t * w)
 
     ex_set(w->e, EX_TYPE_ERROR,
             "failed to create relation; "
-            "relations must be created using the property on a stored thing "
+            "relations must be created using a property on a stored thing "
             "(a thing with an Id)");
     return w->e->nr;
 }

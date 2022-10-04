@@ -215,7 +215,7 @@ class TestRelations(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'failed to create relation; '
-                r'relations must be created using the property on a stored '
+                r'relations must be created using a property on a stored '
                 r'thing \(a thing with an Id\)'):
             await client.query(r'''
                 c1 = C{};
@@ -274,7 +274,7 @@ class TestRelations(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'failed to create relation; relations must be created using '
-                r'the property on a stored thing \(a thing with an Id\)'):
+                r'a property on a stored thing \(a thing with an Id\)'):
             await client.query(r'''
                 a1 = A{};
                 b1 = B{};
@@ -1310,7 +1310,7 @@ mod_type('D', 'rel', 'da', 'db');
 
         err_msg = (
             r'failed to create relation; '
-            r'relations must be created using the property on a stored '
+            r'relations must be created using a property on a stored '
             r'thing \(a thing with an Id\)')
 
         with self.assertRaisesRegex(TypeError, err_msg):

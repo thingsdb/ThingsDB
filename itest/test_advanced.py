@@ -1766,7 +1766,7 @@ new_procedure('multiply', |a, b| a * b);
         with self.assertRaisesRegex(
                 TypeError,
                 r"mismatch in type `A` on property `b`; "
-                r"relations must be created using the property on a "
+                r"relations must be created using a property on a "
                 r"stored thing \(a thing with an Id\)"):
             res = await client.query(r"""//ti
                 b = B{name: 'mr B'};

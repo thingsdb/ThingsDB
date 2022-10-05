@@ -508,10 +508,7 @@ static inline int index__t_upd_prop(
         wprop->name = field->name;
         wprop->val = (ti_val_t **) vec_get_addr(thing->items.vec, field->idx);
 
-        return (
-            ti_opr_a_to_b(*wprop->val, tokens_nd, &query->rval, e) ||
-            ti_field_make_assignable(field, &query->rval, thing, e)
-        ) ? e->nr : 0;
+        return ti_opr_a_to_b(*wprop->val, tokens_nd, &query->rval, e);
     }
 
     ti_thing_t_set_not_found(thing, name, rname, e);

@@ -1,4 +1,4 @@
-# v1.3.4
+# v1.4.0
 
 * Fixed mismatch in refcount, issue #309.
 * Fixed bug with relations between things without Id, issue #308.

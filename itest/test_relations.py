@@ -45,7 +45,7 @@ class TestRelations(TestBase):
         client.close()
         await client.wait_closed()
 
-    async def _test_errors(self, client):
+    async def test_errors(self, client):
         await client.query(r'''
             new_type('A');
             new_type('B');
@@ -192,7 +192,7 @@ class TestRelations(TestBase):
                 mod_type('A', 'rel', 'bstrict', 'a');
             ''')
 
-    async def _test_type_state_error(self, client):
+    async def test_type_state_error(self, client):
         await client.query(r'''
             new_type('A');
             new_type('B');
@@ -257,7 +257,7 @@ class TestRelations(TestBase):
                 mod_type('A', 'rel', 'b', 'a');
             ''')
 
-    async def _test_set_state_error_1(self, client):
+    async def test_set_state_error_1(self, client):
         await client.query(r'''
             new_type('A');
             new_type('B');
@@ -301,7 +301,7 @@ class TestRelations(TestBase):
                 mod_type('A', 'rel', 'b', 'aa');
             ''')
 
-    async def _test_set_state_error_2(self, client):
+    async def test_set_state_error_2(self, client):
         await client.query(r'''
             new_type('A');
             new_type('B');
@@ -330,7 +330,7 @@ class TestRelations(TestBase):
                 mod_type('A', 'rel', 'b', 'aa');
             ''')
 
-    async def _test_set_set_init_state(self, client0):
+    async def test_set_set_init_state(self, client0):
         if not self.with_node1():
             return
         client1 = await get_client(self.node1)
@@ -453,7 +453,7 @@ mod_type('D', 'rel', 'da', 'db');
 'DONE';
 '''.lstrip().replace('  ', '\t'))
 
-    async def _test_type_type_init_state(self, client0):
+    async def test_type_type_init_state(self, client0):
         if not self.with_node1():
             return
         client1 = await get_client(self.node1)
@@ -530,7 +530,7 @@ mod_type('D', 'rel', 'da', 'db');
                 'OK';
             '''), 'OK')
 
-    async def _test_type_set_init_state(self, client0):
+    async def test_type_set_init_state(self, client0):
         if not self.with_node1():
             return
         client1 = await get_client(self.node1)
@@ -619,7 +619,7 @@ mod_type('D', 'rel', 'da', 'db');
                 'OK';
             '''), 'OK')
 
-    async def _test_type_to_type(self, client):
+    async def test_type_to_type(self, client):
         await client.query(r'''
             new_type('User');
             new_type('Space');
@@ -669,7 +669,7 @@ mod_type('D', 'rel', 'da', 'db');
             'OK';
         '''), 'OK')
 
-    async def _test_type_to_self(self, client):
+    async def test_type_to_self(self, client):
         await client.query(r'''
             new_type('Self');
             set_type('Self', {
@@ -728,7 +728,7 @@ mod_type('D', 'rel', 'da', 'db');
             'OK';
         '''), 'OK')
 
-    async def _test_type_to_set(self, client):
+    async def test_type_to_set(self, client):
         await client.query(r'''
             new_type('A');
             new_type('B');
@@ -782,7 +782,7 @@ mod_type('D', 'rel', 'da', 'db');
             'OK';
         '''), 'OK')
 
-    async def _test_set_to_set(self, client):
+    async def test_set_to_set(self, client):
         await client.query(r'''
             new_type('A');
             new_type('B');
@@ -841,7 +841,7 @@ mod_type('D', 'rel', 'da', 'db');
             'OK';
         '''), 'OK')
 
-    async def _test_set_to_set_multi_node(self, client0):
+    async def test_set_to_set_multi_node(self, client0):
         if not self.with_node1():
             return
         client1 = await get_client(self.node1)
@@ -939,7 +939,7 @@ mod_type('D', 'rel', 'da', 'db');
                 'OK';
             '''), 'OK')
 
-    async def _test_mod_type_multi_node(self, client0):
+    async def test_mod_type_multi_node(self, client0):
         if not self.with_node1():
             return
         client1 = await get_client(self.node1)
@@ -1020,7 +1020,7 @@ mod_type('D', 'rel', 'da', 'db');
                 'OK';
             '''), 'OK')
 
-    async def _test_multi_node_replace_val(self, client0):
+    async def test_multi_node_replace_val(self, client0):
         if not self.with_node1():
             return
         client1 = await get_client(self.node1)
@@ -1072,7 +1072,7 @@ mod_type('D', 'rel', 'da', 'db');
                 'OK';
             '''), 'OK')
 
-    async def _test_set_operations(self, client0):
+    async def test_set_operations(self, client0):
         if not self.with_node1():
             return
         client1 = await get_client(self.node1)
@@ -1228,7 +1228,7 @@ mod_type('D', 'rel', 'da', 'db');
                 'OK';
             '''), 'OK')
 
-    async def _test_full_store(self, client0):
+    async def test_full_store(self, client0):
         await client0.query(r'''
             new_type('A');
             new_type('B');
@@ -1289,7 +1289,7 @@ mod_type('D', 'rel', 'da', 'db');
             'OK';
         '''), 'OK')
 
-    async def _test_relation_init_non_id(self, client):
+    async def test_relation_init_non_id(self, client):
         await client.query(r'''
             new_type('P');
             new_type('W');
@@ -1337,7 +1337,7 @@ mod_type('D', 'rel', 'da', 'db');
                 mod_type('S', 'rel', 's', 's');
             ''')
 
-    async def _test_iteration_id(self, client):
+    async def test_iteration_id(self, client):
         await client.query(r'''
             new_type('P');
             new_type('W');
@@ -1391,7 +1391,7 @@ mod_type('D', 'rel', 'da', 'db');
             return [.p.w.len(), w.p.len()];
         '''), [1, 1])
 
-    async def _test_iteration_tset(self, client):
+    async def test_iteration_tset(self, client):
         await client.query(r'''
             new_type('P');
             new_type('W');
@@ -1418,7 +1418,7 @@ mod_type('D', 'rel', 'da', 'db');
             return p.w.len()
         '''), 1)
 
-    async def _test_wse_on_closure(self, client):
+    async def test_wse_on_closure(self, client):
         await client.query("""//ti
             new_type('A');
             new_type('B');
@@ -1497,6 +1497,7 @@ mod_type('D', 'rel', 'da', 'db');
             """)
 
         await client0.query("""//ti
+            .sp = S{};
             .so = S{};
             .so.p |= .S2.p;
             assert (.so.p == .S2.p);
@@ -1507,6 +1508,20 @@ mod_type('D', 'rel', 'da', 'db');
             .ro.f |= set(.RIris, .RCato);
             assert (.RIris.f.has(.ro));
             assert (.RCato.f.has(.ro));
+        """)
+
+        with self.assertRaisesRegex(OperationError, r'enforce a change'):
+            await client0.query("""//ti
+                s = .sp.p;
+                s |= (.S2.p - .S3.p);
+                assert (.sp.p == set(.Iris));
+            """)
+
+        await client0.query("""//ti
+            wse();
+            s = .sp.p;
+            s |= (.S2.p - .S3.p);
+            assert (.sp.p == set(.Iris));
         """)
 
         await client0.query("""//ti
@@ -1526,6 +1541,7 @@ mod_type('D', 'rel', 'da', 'db');
                 assert (.RIris.f.has(.ro));
                 assert (.RCato.f.has(.ro));
                 assert (.ro.f = set(.RIris, .RCato));
+                assert (.sp.p == set(.Iris));
             """)
 
 

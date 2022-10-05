@@ -2194,6 +2194,7 @@ new_procedure('multiply', |a, b| a * b);
         self.assertEqual(res, 3)
 
     async def test_list_copy_dup(self, client):
+        # bug #314
         res = await client.query(r"""//ti
             la = [[[1, 2, 3]]];
             lb = la.copy(1);

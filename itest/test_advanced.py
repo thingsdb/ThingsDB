@@ -2227,6 +2227,25 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(res, [1, 2, 3, {'x': 1}])
 
+    async def test_conversion_type_call(self, client):
+        # feature request, issue #315
+        res = await client.query(r"""//ti
+            set_type('Person', {name: 'str'});
+            .alice = Person{name: 'Alice'};
+            a = Person(.alice);
+            assert (a == .alice);
+            'OK';
+        """)
+        self.assertEqual(res, 'OK')
+
+        res = await client.query(r"""//ti
+            .bob = {name: 'Bob'};
+            b = Person(.bob);
+            assert (b != .bob);
+            'OK';
+        """)
+        self.assertEqual(res, 'OK')
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

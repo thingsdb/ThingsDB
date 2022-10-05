@@ -370,6 +370,10 @@ static int do__get_type_instance(
                 return e->nr;
             }
 
+            /* issue #315, return the instance on matching type */
+            if (((ti_thing_t *) query->rval)->type_id == type->type_id)
+                return e->nr;
+
             thing = ti_type_from_thing(type, (ti_thing_t *) query->rval, e);
 
             ti_val_unsafe_drop(query->rval);  /* from_thing */

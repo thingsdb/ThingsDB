@@ -1,3 +1,7 @@
+# v1.4.1
+
+* Return same instance on type match, issue #315.
+
 # v1.4.0
 
 * Fixed mismatch in refcount, issue #309.

@@ -595,7 +595,7 @@ static int thing_p__prop_set_e(
                 return e->nr;
 
             ti_decref(name);
-            ti_val_unsafe_gc_drop(p->val);
+            ti_val_replace_drop(p->val, val);
             p->val = val;
 
             return e->nr;
@@ -631,7 +631,7 @@ static int thing_i__item_set_e(
             return e->nr;
 
         ti_val_unsafe_drop((ti_val_t *) item->key);
-        ti_val_unsafe_gc_drop(item->val);
+        ti_val_replace_drop(item->val, val);
         item->val = val;
         item->key = key;
         return e->nr;
@@ -662,7 +662,7 @@ ti_prop_t * ti_thing_p_prop_set(
         if (p->name == name)
         {
             ti_decref(name);
-            ti_val_unsafe_gc_drop(p->val);
+            ti_val_replace_drop(p->val, val);
             p->val = val;
             return p;
         }
@@ -696,7 +696,7 @@ ti_item_t* ti_thing_i_item_set(
         /* bug #291 */
         ti_val_unsafe_drop((ti_val_t *) key);
 
-        ti_val_unsafe_gc_drop(item->val);
+        ti_val_replace_drop(item->val, val);
         item->val = val;
         return item;
     }
@@ -719,7 +719,7 @@ void ti_thing_t_prop_set(
     ti_val_t ** vaddr = (ti_val_t **) vec_get_addr(
             thing->items.vec,
             field->idx);
-    ti_val_unsafe_gc_drop(*vaddr);
+    ti_val_replace_drop(*vaddr, val);
     *vaddr = val;
 }
 
@@ -865,7 +865,7 @@ int ti_thing_t_set_val_from_strn(
         ti_field_make_assignable(field, val, thing, e))
         return e->nr;
 
-    ti_val_unsafe_gc_drop(*vaddr);
+    ti_val_replace_drop(*vaddr, *val);
     *vaddr = *val;
 
     ti_incref(*val);
@@ -1752,7 +1752,7 @@ static int thing__assign_set_o(
     return e->nr;
 
 failed:
-    ti_val_unsafe_gc_drop(val);
+    ti_val_unassign_unsafe_drop(val);
     if (e->nr == 0)
         ex_set_mem(e);
 

@@ -220,7 +220,7 @@ static inline int do__upd_prop(
             : do__t_upd_prop(wprop, query, thing, name_nd, tokens_nd, e))
         return e->nr;
 
-    ti_val_unassign_unsafe_drop(*wprop->val);
+    ti_val_unsafe_gc_drop(*wprop->val);
     *wprop->val = query->rval;
     ti_incref(query->rval);
 
@@ -1472,6 +1472,7 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                         ti_panic("failed to create task without undo");
                     }
                 }
+                return e->nr;
             }
         }
 

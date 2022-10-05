@@ -2176,6 +2176,23 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(res, [1, 2, 3])
 
+    async def test_fast_set_update(self, client):
+        res = await client.query("""//ti
+            .myarr = [
+                {name: 'a'},
+                {name: 'b'},
+                {name: 'c'},
+                {name: 'd'},
+                {name: 'e'}];
+            .myset = set(.myarr[:2]);
+
+            s = .myset;
+            s ^= set(.myarr);
+
+            .myset.len();
+        """)
+        self.assertEqual(res, 3)
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

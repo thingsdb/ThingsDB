@@ -523,6 +523,16 @@ static inline void ti_val_unassign_unsafe_drop(ti_val_t * val)
         ti_thing_may_push_gc((ti_thing_t *) val);
 }
 
+static inline void ti_val_replace_drop(ti_val_t * oval, ti_val_t * nval)
+{
+    if (!--oval->ref)
+        ti_val(oval)->destroy(oval);
+    else if (oval != nval && (oval->tp == TI_VAL_SET || oval->tp == TI_VAL_ARR))
+        ((ti_varr_t *) oval)->parent = NULL;
+    else
+        ti_thing_may_push_gc((ti_thing_t *) oval);
+}
+
 static inline void ti_val_unassign_drop(ti_val_t * val)
 {
     if (val)

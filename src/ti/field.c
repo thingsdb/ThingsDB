@@ -1185,7 +1185,8 @@ int ti_field_vset_pre_assign(
         ti_field_t * field,
         imap_t * imap,
         ti_thing_t * parent,
-        ex_t * e)
+        ex_t * e,
+        _Bool do_type_check)
 {
     /*
      * This method may be called when field is either `any` or a `set.
@@ -1198,7 +1199,7 @@ int ti_field_vset_pre_assign(
     if (field->nested_spec == TI_SPEC_ANY || imap->n == 0)
         goto done;
 
-    if (imap_walk(imap, (imap_cb) field__walk_assign, field))
+    if (do_type_check && imap_walk(imap, (imap_cb) field__walk_assign, field))
     {
         ex_set(e, EX_TYPE_ERROR,
                 "mismatch in type `%s`; "
@@ -1210,7 +1211,6 @@ int ti_field_vset_pre_assign(
         return e->nr;
     }
 
-done:
     if (with_relation && !parent->id)
     {
         ex_set(e, EX_TYPE_ERROR,
@@ -1222,6 +1222,7 @@ done:
         return e->nr;
     }
 
+done:
     if (with_relation)
     {
         oset = VEC_get(parent->items.vec, field->idx);
@@ -1272,7 +1273,6 @@ static int field__vset_assign(
         return e->nr;
     }
 
-done:
     if (with_relation && !parent->id)
     {
         ex_set(e, EX_TYPE_ERROR,
@@ -1284,6 +1284,7 @@ done:
         return e->nr;
     }
 
+done:
     if (ti_vset_assign(vset))
     {
         ex_set_mem(e);

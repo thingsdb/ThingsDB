@@ -23,7 +23,6 @@
 #include <ti/template.h>
 #include <ti/thing.inline.h>
 #include <ti/vint.h>
-#include <ti/xprop.t.h>
 #include <util/strx.h>
 
 static inline int do__no_node_scope(ti_query_t * query)

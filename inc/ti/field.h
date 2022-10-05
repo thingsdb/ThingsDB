@@ -65,7 +65,8 @@ int ti_field_vset_pre_assign(
         ti_field_t * field,
         imap_t * imap,
         ti_thing_t * parent,
-        ex_t * e);
+        ex_t * e,
+        _Bool do_type_check);
 
 static inline ti_field_t * ti_field_by_name(ti_type_t * type, ti_name_t * name)
 {

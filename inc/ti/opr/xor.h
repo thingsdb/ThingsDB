@@ -58,24 +58,26 @@ static int opr__xor(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
             if (!imap || imap_symmdiff_make(imap, VSET(a), VSET(*b)))
                 goto alloc_err;
 
-            ti_val_unsafe_drop(*b);
             if (inplace)
             {
-                ti_incref(a);
-                *b = a;
                 if (field && ti_field_vset_pre_assign(
                             field,
                             imap,
                             ((ti_vset_t *) a)->parent,
-                            e))
+                            e,
+                            true /* do type check */))
                 {
                     imap_destroy(imap, (imap_destroy_cb) ti_val_unsafe_drop);
                     return e->nr;
                 }
+                ti_val_unsafe_drop(*b);
                 imap_destroy(VSET(a), (imap_destroy_cb) ti_val_unsafe_gc_drop);
                 VSET(a) = imap;
+                ti_incref(a);
+                *b = a;
                 return e->nr;
             }
+            ti_val_unsafe_drop(*b);
             *b = (ti_val_t *) ti_vset_create_imap(imap);
             if (!*b)
             {

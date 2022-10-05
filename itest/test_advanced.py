@@ -2193,6 +2193,39 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(res, 3)
 
+    async def test_list_copy_dup(self, client):
+        res = await client.query(r"""//ti
+            la = [[[1, 2, 3]]];
+            lb = la.copy(1);
+            [type(lb[0]), type(lb[0][0])];
+        """)
+        self.assertEqual(res, ['tuple', 'tuple'])
+
+        res = await client.query(r"""//ti
+            la = [[1, 2, 3]];
+            lb = la.dup(1);
+            type(lb[0]);
+        """)
+        self.assertEqual(res, 'tuple')
+
+        res = await client.query(r"""//ti
+            la = [1, 2, 3, {x: 1}];
+            lb = la.copy();
+            lb.push(4);
+            lb[-2].x = 2;
+            la;
+        """)
+        self.assertEqual(res, [1, 2, 3, {'x': 2}])
+
+        res = await client.query(r"""//ti
+            la = [1, 2, 3, {x: 1}];
+            lb = la.copy(1);
+            lb.push(4);
+            lb[-2].x = 2;
+            la;
+        """)
+        self.assertEqual(res, [1, 2, 3, {'x': 1}])
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

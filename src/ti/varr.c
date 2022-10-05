@@ -398,7 +398,6 @@ static int varr__dup(ti_val_t ** val, uint8_t deep)
 int ti_varr_copy(ti_varr_t ** varr, uint8_t deep)
 {
     assert (deep);
-
     int rc = 0;
     ti_varr_t * list = malloc(sizeof(ti_varr_t));
     if (!list)
@@ -419,7 +418,7 @@ int ti_varr_copy(ti_varr_t ** varr, uint8_t deep)
     for (vec_each_addr(list->vec, ti_val_t, val))
     {
         ti_incref(*val);
-        if (deep && varr__copy(val, deep))
+        if (varr__copy(val, deep))
             rc = -1;
     }
 
@@ -438,7 +437,6 @@ int ti_varr_copy(ti_varr_t ** varr, uint8_t deep)
 int ti_varr_dup(ti_varr_t ** varr, uint8_t deep)
 {
     assert (deep);
-
     int rc = 0;
     ti_varr_t * list = malloc(sizeof(ti_varr_t));
     if (!list)
@@ -459,7 +457,7 @@ int ti_varr_dup(ti_varr_t ** varr, uint8_t deep)
     for (vec_each_addr(list->vec, ti_val_t, val))
     {
         ti_incref(*val);
-        if (deep && varr__dup(val, deep))
+        if (varr__dup(val, deep))
             rc = -1;
     }
 
@@ -474,7 +472,6 @@ int ti_varr_dup(ti_varr_t ** varr, uint8_t deep)
 
     return 0;
 }
-
 
 /*
  * Do not use this method, but the in-line method ti_varr_eq() instead since

@@ -3,7 +3,7 @@
 * Fixed mismatch in refcount, issue #309.
 * Fixed bug with relations between things without Id, issue #308.
 * Improve performance, pr #313.
-# Fixed bug with nested tuples after copy or duplicate, issue #314.
+* Fixed bug with nested tuples after copy or duplicate, issue #314.
 
 # v1.3.3
 

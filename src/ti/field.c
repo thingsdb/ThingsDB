@@ -1181,6 +1181,67 @@ static int field__walk_tset_cb(ti_thing_t * thing, field__walk_set_t * w)
     return 0;
 }
 
+int ti_field_vset_pre_assign(
+        ti_field_t * field,
+        imap_t * imap,
+        ti_thing_t * parent,
+        ex_t * e,
+        _Bool do_type_check)
+{
+    /*
+     * This method may be called when field is either `any` or a `set.
+     * In case of `any`, we have to make sure the specification will be
+     * OBJECT, not ANY.
+     */
+    ti_vset_t * oset;
+    _Bool with_relation = field->condition.rel && parent;
+
+    if (field->nested_spec == TI_SPEC_ANY || imap->n == 0)
+        goto done;
+
+    if (do_type_check && imap_walk(imap, (imap_cb) field__walk_assign, field))
+    {
+        ex_set(e, EX_TYPE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` has definition `%.*s` but got a set with "
+                "at least one thing of another type",
+                field->type->name,
+                field->name->str,
+                field->spec_raw->n, (const char *) field->spec_raw->data);
+        return e->nr;
+    }
+
+    if (with_relation && !parent->id)
+    {
+        ex_set(e, EX_TYPE_ERROR,
+                "mismatch in type `%s` on property `%s`; "
+                "relations must be created using a property "
+                "on a stored thing (a thing with an Id)",
+                field->type->name,
+                field->name->str);
+        return e->nr;
+    }
+
+done:
+    if (with_relation)
+    {
+        oset = VEC_get(parent->items.vec, field->idx);
+        field__walk_set_t w = {
+                .field = field->condition.rel->field,
+                .relation = parent,
+                .imap = oset->imap,
+        };
+
+        (void) imap_walk(imap, w.field->spec == TI_SPEC_SET
+                ? (imap_cb) field__walk_set_cb
+                : (imap_cb) field__walk_tset_cb, &w);
+
+        w.imap = imap;
+        (void) imap_walk(oset->imap, (imap_cb) field__walk_unset_cb, &w);
+    }
+    return 0;
+}
+
 static int field__vset_assign(
         ti_field_t * field,
         ti_vset_t ** vset,
@@ -1212,7 +1273,6 @@ static int field__vset_assign(
         return e->nr;
     }
 
-done:
     if (with_relation && !parent->id)
     {
         ex_set(e, EX_TYPE_ERROR,
@@ -1224,8 +1284,14 @@ done:
         return e->nr;
     }
 
-    if (ti_val_make_assignable((ti_val_t **) vset, parent, field, e))
+done:
+    if (ti_vset_assign(vset))
+    {
+        ex_set_mem(e);
         return e->nr;
+    }
+    (*vset)->parent = parent;
+    (*vset)->key_ = field;
 
     if (with_relation)
     {

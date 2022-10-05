@@ -154,6 +154,12 @@ class TestCollectionFunctions(TestBase):
                 'cannot add type `nil` to a set'):
             await client.query(r'.s.add(.a, .b, {}, nil);')
 
+        with self.assertRaisesRegex(
+                OperationError,
+                'operation on a stored set; '
+                r'use `wse\(...\)` to enforce a change'):
+            await client.query('s = .s; s.add({});')
+
     async def test_clear_set(self, client):
         await client.query(r'.s = set(); .a = {}; .b = {}; .c = {};')
         self.assertEqual(
@@ -1001,6 +1007,12 @@ class TestCollectionFunctions(TestBase):
                 OperationError,
                 r'cannot change type `list` while the value is in use'):
             await client.query('.list.map(||.list.extend([4]));')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                'operation on a stored list; '
+                r'use `wse\(...\)` to enforce a change'):
+            await client.query('a = .list; a.extend([123]);')
 
     async def test_filter(self, client):
         await client.query(r'''
@@ -2814,6 +2826,12 @@ class TestCollectionFunctions(TestBase):
             """)
         self.assertEqual(await client.query('.a.arr;'), ['foo', 'bar'])
 
+        with self.assertRaisesRegex(
+                OperationError,
+                'operation on a stored list; '
+                r'use `wse\(...\)` to enforce a change'):
+            await client.query('a = .a.arr; a.extend_unique([123]);')
+
     async def test_pop(self, client):
         await client.query('.list = [1, 2, 3];')
         self.assertEqual(await client.query('.list.pop()'), 3)
@@ -2845,6 +2863,12 @@ class TestCollectionFunctions(TestBase):
                 LookupError,
                 'pop from empty list'):
             await client.query('[].pop();')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                'operation on a stored list; '
+                r'use `wse\(...\)` to enforce a change'):
+            await client.query('a = .a; a.pop();')
 
     async def test_shift(self, client):
         await client.query('.list = [1, 2, 3];')
@@ -2878,6 +2902,12 @@ class TestCollectionFunctions(TestBase):
                 'shift from empty list'):
             await client.query('[].shift();')
 
+        with self.assertRaisesRegex(
+                OperationError,
+                'operation on a stored list; '
+                r'use `wse\(...\)` to enforce a change'):
+            await client.query('a = .a; a.shift();')
+
     async def test_push(self, client):
         await client.query('.list = [];')
         self.assertEqual(await client.query('.list.push("a")'), 1)
@@ -2905,6 +2935,12 @@ class TestCollectionFunctions(TestBase):
                 r'cannot change type `list` while the value is in use'):
             await client.query('.list.map(||.list.push(4));')
 
+        with self.assertRaisesRegex(
+                OperationError,
+                'operation on a stored list; '
+                r'use `wse\(...\)` to enforce a change'):
+            await client.query('a = .a; a.push(123);')
+
     async def test_unshift(self, client):
         await client.query('.list = [];')
         self.assertEqual(await client.query('.list.unshift("c")'), 1)
@@ -2931,6 +2967,12 @@ class TestCollectionFunctions(TestBase):
                 OperationError,
                 r'cannot change type `list` while the value is in use'):
             await client.query('.list.map(||.list.unshift(4));')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                'operation on a stored list; '
+                r'use `wse\(...\)` to enforce a change'):
+            await client.query('a = .a; a.unshift(123);')
 
     async def test_raise(self, client):
         with self.assertRaisesRegex(

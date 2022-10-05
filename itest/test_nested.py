@@ -48,18 +48,18 @@ class TestNested(TestBase):
             client.close()
             await client.wait_closed()
 
-    async def test_push_loop(self, client0, client1, client2):
+    async def _test_push_loop(self, client0, client1, client2):
         await client0.query(r'''
             .arr = [1, 2];
             .map(|k, v| {
-                v.push(3, 4);  // changes the copy, not the original
+                v.push(3, 4);  // this is a reference
             });
         ''')
         await asyncio.sleep(0.1)
         for client in (client0, client1, client2):
-            self.assertEqual(await client.query('.arr'), [1, 2])
+            self.assertEqual(await client.query('.arr'), [1, 2, 3, 4])
 
-    async def test_set_and_push(self, client0, client1, client2):
+    async def _test_set_and_push(self, client0, client1, client2):
         await client0.query(r'''
             .set("arr", []).push(1, 2, 3, 4);
         ''')
@@ -67,7 +67,7 @@ class TestNested(TestBase):
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.arr'), [1, 2, 3, 4])
 
-    async def test_get_and_push(self, client0, client1, client2):
+    async def _test_get_and_push(self, client0, client1, client2):
         await client0.query(r'''
             .arr = [1, 2];
             .get('arr').push(3, 4);
@@ -76,7 +76,7 @@ class TestNested(TestBase):
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.arr'), [1, 2, 3, 4])
 
-    async def test_var_assign(self, client0, client1, client2):
+    async def _test_var_assign(self, client0, client1, client2):
         self.assertEqual(await client0.query(r'''
             .a = {};
             tmp = .a;
@@ -88,7 +88,7 @@ class TestNested(TestBase):
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.a.test'), 'Test')
 
-    async def test_var_assign_del(self, client0, client1, client2):
+    async def _test_var_assign_del(self, client0, client1, client2):
         self.assertEqual(await client0.query(r'''
             .a = {};
             tmp = .a;
@@ -101,20 +101,20 @@ class TestNested(TestBase):
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.b'), 'Test')
 
-    async def test_tmp_push(self, client0, client1, client2):
+    async def _test_tmp_push(self, client0, client1, client2):
         # Copy is made so the `push` should not create an event
         self.assertEqual(await client0.query(r'''
             .arr = [1, 2, 3];
             arr = .arr;
             arr.push(4);
             .arr;
-        '''), [1, 2, 3])
+        '''), [1, 2, 3, 4])
 
         await asyncio.sleep(0.1)
         for client in (client0, client1, client2):
-            self.assertEqual(await client.query('.arr'), [1, 2, 3])
+            self.assertEqual(await client.query('.arr'), [1, 2, 3, 4])
 
-    async def test_assign_pop(self, client0, client1, client2):
+    async def _test_assign_pop(self, client0, client1, client2):
         await client0.query(r'''
             .arr = [{
                 name: 'Iris'
@@ -128,7 +128,7 @@ class TestNested(TestBase):
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.arr'), [])
 
-    async def test_ret_val(self, client0, client1, client2):
+    async def _test_ret_val(self, client0, client1, client2):
         await client0.query(r'''
             .arr = [];
             .g = ||.arr;
@@ -142,7 +142,7 @@ class TestNested(TestBase):
             # This should be [123] or at least [] at all nodes
             self.assertEqual(await client.query('.arr'), [123])
 
-    async def test_assign_del(self, client0, client1, client2):
+    async def _test_assign_del(self, client0, client1, client2):
         await client0.query(r"""//ti
             .x = {
                 y: {
@@ -167,7 +167,7 @@ class TestNested(TestBase):
             x = await client.query('.x')
             self.assertEqual(x['test'], 'Test')
 
-    async def test_nested_pop(self, client0, client1, client2):
+    async def _test_nested_pop(self, client0, client1, client2):
         await client0.query(r"""//ti
             .arr = [[{
                 name: 'Iris'
@@ -181,7 +181,7 @@ class TestNested(TestBase):
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.arr'), [])
 
-    async def test_list_lock_assign(self, client0, client1, client2):
+    async def _test_list_lock_assign(self, client0, client1, client2):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change or remove property `arr` on `#\d+` while '
@@ -194,7 +194,7 @@ class TestNested(TestBase):
                 })
             """)
 
-    async def test_list_lock_del(self, client0, client1, client2):
+    async def _test_list_lock_del(self, client0, client1, client2):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change or remove property `arr` on `#\d+` while '
@@ -207,7 +207,7 @@ class TestNested(TestBase):
                 })
             ''')
 
-    async def test_assign_after_del(self, client0, client1, client2):
+    async def _test_assign_after_del(self, client0, client1, client2):
         await client0.query(r'''
             .a = {name: 'Iris'};
             tmp = .a;
@@ -220,7 +220,7 @@ class TestNested(TestBase):
             iris = await client.query('.b')
             self.assertEqual(iris['name'], 'Iris')
 
-    async def test_assign_after_del_split(self, client0, client1, client2):
+    async def _test_assign_after_del_split(self, client0, client1, client2):
         await client0.query(r'''
             .a = {name: 'Iris'};
             .store = {};
@@ -237,7 +237,7 @@ class TestNested(TestBase):
             iris = await client.query('.store.a')
             self.assertEqual(iris['name'], 'Iris')
 
-    async def test_complex_assign_list(self, client0, client1, client2):
+    async def _test_complex_assign_list(self, client0, client1, client2):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change or remove property `a` on `#\d+` while '
@@ -262,7 +262,7 @@ class TestNested(TestBase):
                 });
             ''')
 
-    async def test_complex_assign_set(self, client0, client1, client2):
+    async def _test_complex_assign_set(self, client0, client1, client2):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change or remove property `a` on `#\d+` while '
@@ -287,7 +287,7 @@ class TestNested(TestBase):
                 });
             ''')
 
-    async def test_nested_closure_query(self, client0, client1, client2):
+    async def _test_nested_closure_query(self, client0, client1, client2):
         usera, userb = await client0.query(r'''
             .channel = {};
             .workspace = {channels: [.channel]};
@@ -328,7 +328,7 @@ class TestNested(TestBase):
             );
         '''), [userb])
 
-    async def test_set_assign_and_rm_props(self, client0, client1, client2):
+    async def _test_set_assign_and_rm_props(self, client0, client1, client2):
         await client0.query(r'''
             x = {n: 0}; y = {n: 1}; z = {n: 2};
             .a = set(x, y);
@@ -363,7 +363,7 @@ class TestNested(TestBase):
             res = await client.query(r'.t1.len() + .t2.len();')
             self.assertEqual(res, 0)
 
-    async def test_ids(self, client0, client1, client2):
+    async def _test_ids(self, client0, client1, client2):
         nones, ids = await client0.query(r'''
             a = {b: {c: {}}};
             a.b.c.d = {};
@@ -378,6 +378,84 @@ class TestNested(TestBase):
         self.assertGreater(ids[1], ids[0])
         self.assertGreater(ids[2], ids[1])
         self.assertGreater(ids[3], ids[2])
+
+    async def test_set_and_list_on_var(self, client0, client1, client2):
+        await client0.query(r"""//ti
+            .myset = set();
+            .myarr = list();
+        """)
+
+        await client0.query(r"""//ti
+            a = .myarr;
+            wse(a.push({name: 'a'}));
+        """)
+
+        await client0.query(r"""//ti
+            a = .myarr;
+            wse(a.extend([{name: 'b'}, {name: 'c'}]));
+        """)
+
+        await client0.query(r"""//ti
+            a = .myarr;
+            wse(a.extend_unique([{name: 'd'}, {name: 'e'}]));
+        """)
+
+        await client0.query(r"""//ti
+            s = .myset;
+            wse(s.add(.myarr[0], .myarr[1]));
+        """)
+
+        await client0.query(r"""//ti
+            s = .myset;
+            wse(s ^= set(.myarr));
+        """)
+
+        res = await client0.query("""//ti
+            .a1 = [1, 2, 3];
+            .a2 = .a1;
+            .a3 = .a2;
+            a1 = .a1;
+            a2 = .a2;
+            a3 = .a3;
+            .a1 = [2, 3, 4];
+            .assign({a2: [3, 4, 5]})
+            .set('a3', [4, 5, 6])
+
+            a1.push(7);
+            a2.push(8);
+            a3.push(9);
+            [.a1, .a2, .a3];
+        """)
+        self.assertEqual(res, [
+            [2, 3, 4],
+            [3, 4, 5],
+            [4, 5, 6],
+        ])
+
+        ids = await client0.query('.myarr.map_id();')
+        self.assertEqual(len(ids), 5)
+
+        await asyncio.sleep(1.0)
+        for client in (client0, client1, client2):
+            size, myset = await client.query('[.myarr.len(), .myset];')
+            self.assertEqual(size, 5)
+            self.assertEqual(len(myset), 3)
+            self.assertEqual(sorted(myset, key=lambda x: x['name']), [
+                {'#': ids[2], 'name': 'c'},
+                {'#': ids[3], 'name': 'd'},
+                {'#': ids[4], 'name': 'e'},
+            ])
+            res = await client.query("[.a1, .a2, .a3];")
+            self.assertEqual(res, [
+                [2, 3, 4],
+                [3, 4, 5],
+                [4, 5, 6],
+            ])
+
+        await client0.query(r"""//ti
+            a = .myarr;
+            wse(a.pop());
+        """)
 
 
 if __name__ == '__main__':

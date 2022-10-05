@@ -114,9 +114,13 @@ static int ctask__thing_clear(ti_thing_t * thing, mp_unp_t * up)
     }
 
     if (ti_thing_is_dict(thing))
-        smap_clear(thing->items.smap, (smap_destroy_cb) ti_item_destroy);
+        smap_clear(
+                thing->items.smap,
+                (smap_destroy_cb) ti_item_unassign_destroy);
     else
-        vec_clear_cb(thing->items.vec, (vec_destroy_cb) ti_prop_destroy);
+        vec_clear_cb(
+                thing->items.vec,
+                (vec_destroy_cb) ti_prop_unassign_destroy);
 
     return 0;
 }

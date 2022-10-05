@@ -75,8 +75,7 @@ static int do__f_del_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = item->val;
     ti_incref(query->rval);
 
-    ti_val_attach(query->rval, NULL, NULL);
-    ti_item_destroy(item);
+    ti_item_unassign_destroy(item);
 
     if (thing->id)
     {

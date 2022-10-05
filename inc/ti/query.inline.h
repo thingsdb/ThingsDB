@@ -10,6 +10,8 @@
 #include <ti/qcache.h>
 #include <ti/query.h>
 #include <ti/vtask.t.h>
+#include <ti/vset.h>
+#include <ti/varr.inline.h>
 #include <util/vec.h>
 
 static inline vec_t * ti_query_access(ti_query_t * query)
@@ -68,6 +70,24 @@ static inline uint64_t ti_query_scope_id(ti_query_t * query)
             : (query->qbind.flags & TI_QBIND_FLAG_THINGSDB)
             ? TI_SCOPE_THINGSDB
             : TI_SCOPE_NODE;
+}
+
+static inline int ti_query_test_vset_operation(ti_query_t * query, ex_t * e)
+{
+    if (!query->change && ti_vset_is_stored((ti_vset_t *) query->rval))
+        ex_set(e, EX_OPERATION,
+                "operation on a stored set; "
+                "use `wse(...)` to enforce a change");
+    return e->nr;
+}
+
+static inline int ti_query_test_varr_operation(ti_query_t * query, ex_t * e)
+{
+    if (!query->change && ti_varr_is_stored((ti_varr_t *) query->rval))
+        ex_set(e, EX_OPERATION,
+                "operation on a stored list; "
+                "use `wse(...)` to enforce a change");
+    return e->nr;
 }
 
 #endif  /* TI_QUERY_INLINE_H_ */

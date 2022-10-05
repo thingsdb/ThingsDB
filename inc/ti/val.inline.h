@@ -523,6 +523,16 @@ static inline void ti_val_unassign_unsafe_drop(ti_val_t * val)
         ti_thing_may_push_gc((ti_thing_t *) val);
 }
 
+static inline void ti_val_replace_drop(ti_val_t * oval, ti_val_t * nval)
+{
+    if (!--oval->ref)
+        ti_val(oval)->destroy(oval);
+    else if (oval != nval && (oval->tp == TI_VAL_SET || oval->tp == TI_VAL_ARR))
+        ((ti_varr_t *) oval)->parent = NULL;
+    else
+        ti_thing_may_push_gc((ti_thing_t *) oval);
+}
+
 static inline void ti_val_unassign_drop(ti_val_t * val)
 {
     if (val)
@@ -880,6 +890,19 @@ static inline int ti_val_try_lock(ti_val_t * val, ex_t * e)
     return (val->flags |= TI_VFLAG_LOCK) & 0;
 }
 
+
+static inline int ti_val_test_unlocked(ti_val_t * val, ex_t * e)
+{
+    if (val->flags & TI_VFLAG_LOCK)
+    {
+        ex_set(e, EX_OPERATION,
+            "cannot change type `%s` while the value is in use",
+            ti_val_str(val));
+        return -1;
+    }
+    return 0;
+}
+
 /*
  * Returns `lock_was_set`: 0 if already locked, 1 if a new lock is set
  *
@@ -1012,47 +1035,6 @@ static inline int ti_val_make_assignable(
         ti_val_unsafe_drop(*val);
         *val = (ti_val_t *) ti_nil_get();
         return 0;
-    case TI_VAL_TEMPLATE:
-        break;
-    }
-    assert(0);
-    return -1;
-}
-
-static inline int ti_val_make_variable(ti_val_t ** val, ex_t * e)
-{
-    switch ((ti_val_enum) (*val)->tp)
-    {
-    case TI_VAL_NIL:
-    case TI_VAL_INT:
-    case TI_VAL_FLOAT:
-    case TI_VAL_BOOL:
-    case TI_VAL_DATETIME:
-    case TI_VAL_MPDATA:
-    case TI_VAL_NAME:
-    case TI_VAL_STR:
-    case TI_VAL_BYTES:
-    case TI_VAL_REGEX:
-    case TI_VAL_THING:
-    case TI_VAL_WRAP:
-    case TI_VAL_ROOM:
-    case TI_VAL_TASK:
-    case TI_VAL_ERROR:
-    case TI_VAL_MEMBER:
-    case TI_VAL_FUTURE:
-        return 0;
-    case TI_VAL_ARR:
-        if (((ti_varr_t *) *val)->parent &&
-            ti_varr_is_list((ti_varr_t *) *val) &&
-            ti_varr_to_list((ti_varr_t **) val))
-            ex_set_mem(e);
-        return e->nr;
-    case TI_VAL_SET:
-        if (((ti_vset_t *) *val)->parent && ti_vset_assign((ti_vset_t **) val))
-            ex_set_mem(e);
-        return e->nr;
-    case TI_VAL_CLOSURE:
-        return ti_closure_unbound((ti_closure_t * ) *val, e);
     case TI_VAL_TEMPLATE:
         break;
     }

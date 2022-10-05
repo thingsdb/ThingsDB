@@ -35,7 +35,7 @@ ti_item_t * ti_item_dup(ti_item_t * item)
     return dup;
 }
 
-void ti_item_destroy(ti_item_t * item)
+void ti_item_unassign_destroy(ti_item_t * item)
 {
     if (!item)
         return;
@@ -43,6 +43,7 @@ void ti_item_destroy(ti_item_t * item)
     ti_val_unassign_unsafe_drop(item->val);
     free(item);
 }
+
 
 void ti_item_unsafe_vdestroy(ti_item_t * item)
 {

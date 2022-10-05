@@ -1453,6 +1453,97 @@ mod_type('D', 'rel', 'da', 'db');
                 .check();
             """)
 
+    async def test_set_operation_complex(self, client0):
+        if not self.with_node1():
+            return
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await client0.query("""//ti
+            set_type('P', {name: 'str'});
+            set_type('S', {p: '{P}'});
+            set_type('R', {name: 'str', f:'{R}'});
+            mod_type('R', 'rel', 'f', 'f');
+
+            .iris = {name: 'iris'};
+            .cato = {name: 'cato'};
+            .tess = {name: 'tess'};
+
+            .Iris = P{name: 'Iris'};
+            .Cato = P{name: 'Cato'};
+            .Tess = P{name: 'Tess'};
+
+            .s1 = set(.iris, .tess);
+            .s2 = set(.iris, .cato);
+            .s3 = set(.cato, .tess);
+
+            .S1 = S{p: set(.Iris, .Tess)};
+            .S2 = S{p: set(.Iris, .Cato)};
+            .S3 = S{p: set(.Cato, .Tess)};
+
+            .RIris = R{name: 'Iris', f: set()};
+            .RCato = R{name: 'Cato', f: set()};
+            .RTess = R{name: 'Tess', f: set()};
+        """)
+
+        with self.assertRaisesRegex(TypeError, r'another type'):
+            await client0.query("""//ti
+                .S1.p ^= .s2;
+            """)
+
+        with self.assertRaisesRegex(TypeError, r'a thing with an Id'):
+            await client0.query("""//ti
+                r = R{}; r.f |= set(.RIris);  // thing without an Id
+            """)
+
+        await client0.query("""//ti
+            .sp = S{};
+            .so = S{};
+            .so.p |= .S2.p;
+            assert (.so.p == .S2.p);
+        """)
+
+        await client0.query("""//ti
+            .ro = R{name: 'other'};
+            .ro.f |= set(.RIris, .RCato);
+            assert (.RIris.f.has(.ro));
+            assert (.RCato.f.has(.ro));
+        """)
+
+        with self.assertRaisesRegex(OperationError, r'enforce a change'):
+            await client0.query("""//ti
+                s = .sp.p;
+                s |= (.S2.p - .S3.p);
+                assert (.sp.p == set(.Iris));
+            """)
+
+        await client0.query("""//ti
+            wse();
+            s = .sp.p;
+            s |= (.S2.p - .S3.p);
+            assert (.sp.p == set(.Iris));
+        """)
+
+        await client0.query("""//ti
+            s1 = .ro.f & set(.RIris, .RCato, .RTess);
+            s2 = set(.RIris, .RCato, .RTess) | .ro.f;
+            s3 = set(.RIris, .RCato, .RTess) - .ro.f;
+            assert (s1 == set(.RIris, .RCato));
+            assert (s2 == set(.RIris, .RCato, .RTess));
+            assert (s3 == set(.RTess));
+        """)
+
+        await asyncio.sleep(0.2)
+        await self.wait_nodes_ready()
+
+        for client in (client0, client1):
+            await client.query(r"""//ti
+                assert (.RIris.f.has(.ro));
+                assert (.RCato.f.has(.ro));
+                assert (.ro.f = set(.RIris, .RCato));
+                assert (.sp.p == set(.Iris));
+            """)
+
 
 if __name__ == '__main__':
     run_test(TestRelations())

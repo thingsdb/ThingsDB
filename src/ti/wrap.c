@@ -537,7 +537,7 @@ int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep)
 
             if (!p || ti_val_copy(&p->val, other, p->name, deep))
             {
-                ti_prop_destroy(p);
+                ti_prop_unassign_destroy(p);
                 goto fail;
             }
 
@@ -566,7 +566,7 @@ int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep)
 
             if (ti_val_copy(&p->val, other, p->name, deep))
             {
-                ti_prop_destroy(p);
+                ti_prop_unassign_destroy(p);
                 goto fail;
             }
 

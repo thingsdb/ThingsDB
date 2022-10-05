@@ -137,6 +137,7 @@ void ti_thing_cancel(ti_thing_t * thing)
 
             if (field->spec == TI_SPEC_SET)
             {
+                /* bug #309, use vec_get instead of VEC_get */
                 ti_field_t * ofield = field->condition.rel->field;
                 ti_vset_t * vset = vec_get(thing->items.vec, field->idx);
                 if (!vset)
@@ -149,6 +150,7 @@ void ti_thing_cancel(ti_thing_t * thing)
             }
             else if ((field->spec & TI_SPEC_MASK_NILLABLE) < TI_SPEC_ANY)
             {
+                /* bug #309, use vec_get instead of VEC_get */
                 ti_field_t * ofield = field->condition.rel->field;
                 ti_thing_t * other = vec_get(thing->items.vec, field->idx);
 
@@ -187,10 +189,12 @@ void ti_thing_destroy(ti_thing_t * thing)
      * In this case the `thing` will be removed while the list stays alive.
      */
     if (ti_thing_is_dict(thing))
-        smap_destroy(thing->items.smap, (smap_destroy_cb) ti_item_destroy);
+        smap_destroy(
+                thing->items.smap,
+                (smap_destroy_cb) ti_item_unassign_destroy);
     else
         vec_destroy(thing->items.vec, ti_thing_is_object(thing)
-                ? (vec_destroy_cb) ti_prop_destroy
+                ? (vec_destroy_cb) ti_prop_unassign_destroy
                 : (vec_destroy_cb) ti_val_unassign_drop);
 
     free(thing);
@@ -201,13 +205,19 @@ void ti_thing_clear(ti_thing_t * thing)
     if (ti_thing_is_object(thing))
     {
         if (ti_thing_is_dict(thing))
-            smap_clear(thing->items.smap, (smap_destroy_cb) ti_item_destroy);
+            smap_clear(
+                    thing->items.smap,
+                    (smap_destroy_cb) ti_item_unassign_destroy);
         else
-            vec_clear_cb(thing->items.vec, (vec_destroy_cb) ti_prop_destroy);
+            vec_clear_cb(
+                    thing->items.vec,
+                    (vec_destroy_cb) ti_prop_unassign_destroy);
     }
     else
     {
-        vec_clear_cb(thing->items.vec, (vec_destroy_cb) ti_val_unsafe_gc_drop);
+        vec_clear_cb(
+                thing->items.vec,
+                (vec_destroy_cb) ti_val_unassign_unsafe_drop);
 
         /* convert to a simple object since the thing is not type
          * compliant anymore */
@@ -386,6 +396,84 @@ ti_prop_t * ti_thing_p_prop_add(
 }
 
 /*
+ * Increments the `key` and `val` reference counters on success.
+ * Use only when you are sure the property does not yet exist.
+ */
+int ti_thing_p_prop_add_assign(
+        ti_thing_t * thing,
+        ti_name_t * name,
+        ti_val_t * val,
+        ex_t * e)
+{
+    ti_prop_t * prop;
+
+    switch ((ti_val_enum) val->tp)
+    {
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
+    case TI_VAL_MPDATA:
+    case TI_VAL_NAME:
+    case TI_VAL_STR:
+    case TI_VAL_BYTES:
+    case TI_VAL_REGEX:
+    case TI_VAL_THING:
+    case TI_VAL_WRAP:
+    case TI_VAL_ROOM:
+    case TI_VAL_TASK:
+    case TI_VAL_ERROR:
+    case TI_VAL_MEMBER:
+        ti_incref(val);
+        break;
+    case TI_VAL_ARR:
+        val = (ti_val_t *) ti_varr_cp((ti_varr_t *) val);
+        if (!val)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        ((ti_varr_t *) val)->parent = thing;
+        ((ti_varr_t *) val)->key_ = name;
+        break;
+    case TI_VAL_SET:
+        val = (ti_val_t *) ti_vset_cp((ti_vset_t *) val);
+        if (!val)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        ((ti_vset_t *) val)->parent = thing;
+        ((ti_vset_t *) val)->key_ = name;
+        break;
+    case TI_VAL_CLOSURE:
+        if (ti_closure_unbound((ti_closure_t *) val, e))
+            return e->nr;
+        ti_incref(val);
+        break;
+    case TI_VAL_FUTURE:
+        val = (ti_val_t *) ti_nil_get();
+        break;
+    case TI_VAL_TEMPLATE:
+        assert (0);
+        break;
+    }
+
+    prop = ti_prop_create(name, val);
+    if (!prop || vec_push(&thing->items.vec, prop))
+    {
+        ti_val_unsafe_drop(val);
+        free(prop);
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    ti_incref(name);
+    return 0;
+}
+
+/*
  * Does not increment the `key` and `val` reference counters.
  * Use only when you are sure the property does not yet exist.
  */
@@ -407,6 +495,86 @@ ti_item_t * ti_thing_i_item_add(
     return item;
 }
 
+/*
+ * Increments the `key` and `val` reference counters on success.
+ * Use only when you are sure the property does not yet exist.
+ */
+int ti_thing_i_item_add_assign(
+        ti_thing_t * thing,
+        ti_raw_t * key,
+        ti_val_t * val,
+        ex_t * e)
+{
+    ti_item_t * item;
+
+    switch ((ti_val_enum) val->tp)
+    {
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
+    case TI_VAL_MPDATA:
+    case TI_VAL_NAME:
+    case TI_VAL_STR:
+    case TI_VAL_BYTES:
+    case TI_VAL_REGEX:
+    case TI_VAL_THING:
+    case TI_VAL_WRAP:
+    case TI_VAL_ROOM:
+    case TI_VAL_TASK:
+    case TI_VAL_ERROR:
+    case TI_VAL_MEMBER:
+        ti_incref(val);
+        break;
+    case TI_VAL_ARR:
+        val = (ti_val_t *) ti_varr_cp((ti_varr_t *) val);
+        if (!val)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        ((ti_varr_t *) val)->parent = thing;
+        ((ti_varr_t *) val)->key_ = key;
+        break;
+    case TI_VAL_SET:
+        val = (ti_val_t *) ti_vset_cp((ti_vset_t *) val);
+        if (!val)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        ((ti_vset_t *) val)->parent = thing;
+        ((ti_vset_t *) val)->key_ = key;
+        break;
+    case TI_VAL_CLOSURE:
+        if (ti_closure_unbound((ti_closure_t *) val, e))
+            return e->nr;
+        ti_incref(val);
+        break;
+    case TI_VAL_FUTURE:
+        val = (ti_val_t *) ti_nil_get();
+        break;
+    case TI_VAL_TEMPLATE:
+        assert (0);
+        break;
+    }
+
+    item = ti_item_create(key, val);
+    if (!item || smap_addn(
+            thing->items.smap,
+            (const char *) key->data,
+            key->n,
+            item))
+    {
+        ti_val_unsafe_drop(val);
+        free(item);
+        ex_set_mem(e);
+        return e->nr;
+    }
+    ti_incref(key);
+    return 0;
+}
 
 /*
  * It takes a reference on `name` and `val` when successful
@@ -427,7 +595,7 @@ static int thing_p__prop_set_e(
                 return e->nr;
 
             ti_decref(name);
-            ti_val_unsafe_gc_drop(p->val);
+            ti_val_replace_drop(p->val, val);
             p->val = val;
 
             return e->nr;
@@ -463,7 +631,7 @@ static int thing_i__item_set_e(
             return e->nr;
 
         ti_val_unsafe_drop((ti_val_t *) item->key);
-        ti_val_unsafe_gc_drop(item->val);
+        ti_val_replace_drop(item->val, val);
         item->val = val;
         item->key = key;
         return e->nr;
@@ -494,7 +662,7 @@ ti_prop_t * ti_thing_p_prop_set(
         if (p->name == name)
         {
             ti_decref(name);
-            ti_val_unsafe_gc_drop(p->val);
+            ti_val_replace_drop(p->val, val);
             p->val = val;
             return p;
         }
@@ -528,7 +696,7 @@ ti_item_t* ti_thing_i_item_set(
         /* bug #291 */
         ti_val_unsafe_drop((ti_val_t *) key);
 
-        ti_val_unsafe_gc_drop(item->val);
+        ti_val_replace_drop(item->val, val);
         item->val = val;
         return item;
     }
@@ -551,7 +719,7 @@ void ti_thing_t_prop_set(
     ti_val_t ** vaddr = (ti_val_t **) vec_get_addr(
             thing->items.vec,
             field->idx);
-    ti_val_unsafe_gc_drop(*vaddr);
+    ti_val_replace_drop(*vaddr, val);
     *vaddr = val;
 }
 
@@ -697,7 +865,7 @@ int ti_thing_t_set_val_from_strn(
         ti_field_make_assignable(field, val, thing, e))
         return e->nr;
 
-    ti_val_unsafe_gc_drop(*vaddr);
+    ti_val_replace_drop(*vaddr, *val);
     *vaddr = *val;
 
     ti_incref(*val);
@@ -714,7 +882,7 @@ void ti_thing_o_del(ti_thing_t * thing, const char * str, size_t n)
     if (ti_thing_is_dict(thing))
     {
         ti_item_t * item = smap_popn(thing->items.smap, str, n);
-        ti_item_destroy(item);
+        ti_item_unassign_destroy(item);
     }
     else
     {
@@ -727,7 +895,8 @@ void ti_thing_o_del(ti_thing_t * thing, const char * str, size_t n)
         {
             if (prop->name == name)
             {
-                ti_prop_destroy(vec_swap_remove(thing->items.vec, idx));
+                ti_prop_unassign_destroy(
+                        vec_swap_remove(thing->items.vec, idx));
                 return;
             }
         }
@@ -1247,7 +1416,7 @@ static int thing__copy_p(ti_thing_t ** taddr, uint8_t deep)
 
         if (!p || ti_val_copy(&p->val, other, p->name, deep))
         {
-            ti_prop_destroy(p);
+            ti_prop_unassign_destroy(p);
             goto fail;
         }
 
@@ -1282,7 +1451,7 @@ static int thing__dup_p(ti_thing_t ** taddr, uint8_t deep)
 
         if (!p || ti_val_dup(&p->val, other, p->name, deep))
         {
-            ti_prop_destroy(p);
+            ti_prop_unassign_destroy(p);
             goto fail;
         }
 
@@ -1315,7 +1484,7 @@ static int thing__copy_cb(ti_item_t * item, thing__wcd_t * w)
                 i->key->n,
                 i))
     {
-        ti_item_destroy(i);
+        ti_item_unassign_destroy(i);
         return -1;
     }
 
@@ -1333,7 +1502,7 @@ static int thing__dup_cb(ti_item_t * item, thing__wcd_t * w)
                 i->key->n,
                 i))
     {
-        ti_item_destroy(i);
+        ti_item_unassign_destroy(i);
         return -1;
     }
 
@@ -1416,7 +1585,7 @@ static int thing__copy_t(ti_thing_t ** taddr, uint8_t deep)
 
         if (ti_val_copy(&p->val, other, p->name, deep))
         {
-            ti_prop_destroy(p);
+            ti_prop_unassign_destroy(p);
             goto fail;
         }
 
@@ -1564,6 +1733,10 @@ static int thing__assign_set_o(
         ex_t * e)
 {
     assert (ti_val_is_spec(val, thing->via.spec));
+    /* must increase the reference here, even if the value is no longer
+     * required after this function, it might break the parent relation;
+     * bug #309
+     */
     ti_incref(val);
 
     /*
@@ -1579,7 +1752,7 @@ static int thing__assign_set_o(
     return e->nr;
 
 failed:
-    ti_val_unsafe_gc_drop(val);
+    ti_val_unassign_unsafe_drop(val);
     if (e->nr == 0)
         ex_set_mem(e);
 
@@ -1729,6 +1902,11 @@ int ti_thing_assign(
                     goto fail;
                 }
 
+                /* must increase the reference here, even if the value is no
+                 * longer required after this function, it might break the
+                 * parent relation;
+                 * bug #309
+                 */
                 ti_incref(val);
                 if (ti_field_make_assignable(field, &val, thing, e))
                 {
@@ -1769,6 +1947,11 @@ int ti_thing_assign(
             {
                 ti_val_t * val = VEC_get(tsrc->items.vec, field->idx);
 
+                /* must increase the reference here, even if the value is no
+                 * longer required after this function, it might break the
+                 * parent relation;
+                 * bug #309
+                 */
                 ti_incref(val);
                 if (ti_field_make_assignable(field, &val, thing, e))
                 {

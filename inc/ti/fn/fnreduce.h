@@ -40,8 +40,6 @@ static int reduce__walk_set(ti_thing_t * t, reduce__walk_t * w)
         prop->val = (ti_val_t *) t;
         /* fall through */
     case 1:
-        if (ti_val_make_variable(&w->query->rval, w->e))
-            return w->e->nr;
         prop = VEC_get(w->closure->vars, 0);
         ti_val_unsafe_drop(prop->val);
         prop->val = w->query->rval;
@@ -134,8 +132,6 @@ static int do__f_reduce(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 prop->val = v;
                 /* fall through */
             case 1:
-                if (ti_val_make_variable(&query->rval, e))
-                    goto fail2;
                 prop = VEC_get(closure->vars, 0);
                 ti_val_unsafe_drop(prop->val);
                 prop->val = query->rval;

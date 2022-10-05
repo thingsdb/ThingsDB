@@ -198,10 +198,7 @@ static inline int do__t_upd_prop(
                 thing->items.vec,
                 field->idx);
 
-        return (
-            ti_opr_a_to_b(*wprop->val, tokens_nd, &query->rval, e) ||
-            ti_field_make_assignable(field, &query->rval, thing, e)
-        ) ? e->nr : 0;
+        return ti_opr_a_to_b(*wprop->val, tokens_nd, &query->rval, e);
     }
 
     ex_set(e, EX_LOOKUP_ERROR,
@@ -227,6 +224,21 @@ static inline int do__upd_prop(
     *wprop->val = query->rval;
     ti_incref(query->rval);
 
+    return 0;
+}
+
+static inline int do__upd_vaddr(
+        ti_val_t ** vaddr,
+        ti_query_t * query,
+        cleri_node_t * tokens_nd,
+        ex_t * e)
+{
+    if (ti_opr_a_to_b(*vaddr, tokens_nd, &query->rval, e))
+        return e->nr;
+
+    ti_val_unsafe_gc_drop(*vaddr);
+    *vaddr = query->rval;
+    ti_incref(query->rval);
     return 0;
 }
 
@@ -1427,6 +1439,43 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!prop)
             return e->nr;
 
+        if (ti_val_is_set(prop->val))
+        {
+            ti_thing_t * thing = ((ti_vset_t *) prop->val)->parent;
+            if (thing)
+            {
+
+                if (thing->id && !query->change)
+                {
+                    ex_set(e, EX_OPERATION,
+                            "operation on a stored set; "
+                            "use `wse(...)` to enforce a change");
+                    return e->nr;
+                }
+
+                if (do__upd_vaddr(
+                        &prop->val,
+                        query,
+                        tokens_nd,
+                        e))
+                    return e->nr;
+
+                if (thing->id)
+                {
+                    ti_task_t * task = ti_task_get_task(query->change, thing);
+                    if (!task || ti_task_add_set(
+                        task,
+                        ti_vset_key((ti_vset_t *) prop->val),
+                        prop->val))
+                    {
+                        ex_set_mem(e);
+                        ti_panic("failed to create task without undo");
+                    }
+                }
+                return e->nr;
+            }
+        }
+
         /* update value `a` with value `b` but store the value in `b` */
         if (ti_opr_a_to_b(prop->val, tokens_nd, &query->rval, e))
             return e->nr;
@@ -1437,17 +1486,6 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_incref(prop->val);
         return e->nr;
     }
-
-    /*
-     * Must make variable assignable because we require a copy and need to
-     * convert for example a tuple to a list.
-     *
-     * Closures can be ignored here because they are not mutable and will
-     * unbound from the query if the `variable` is assigned or pushed to a list
-     */
-    if (    !ti_val_is_closure(query->rval) &&
-            ti_val_make_variable(&query->rval, e))
-        goto failed;
 
     /*
      * Try to get the name from cache, else ensure it is set on the cache for
@@ -1494,8 +1532,6 @@ alloc_err_with_prop:
 
 alloc_err:
     ex_set_mem(e);
-
-failed:
     ti_name_drop(name);
     return e->nr;
 }

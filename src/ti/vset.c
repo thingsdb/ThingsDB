@@ -32,6 +32,20 @@ ti_vset_t * ti_vset_create(void)
     return vset;
 }
 
+ti_vset_t * ti_vset_create_imap(imap_t * imap)
+{
+    ti_vset_t * vset = malloc(sizeof(ti_vset_t));
+    if (!vset)
+        return NULL;
+
+    vset->ref = 1;
+    vset->tp = TI_VAL_SET;
+    vset->flags = 0;
+    vset->parent = NULL;
+    vset->imap = imap;
+    return vset;
+}
+
 void ti_vset_destroy(ti_vset_t * vset)
 {
     if (!vset)
@@ -133,6 +147,17 @@ static int vset__walk_assign(ti_thing_t * t, ti_vset_t * vset)
     }
     ti_incref(t);
     return 0;
+}
+
+ti_vset_t * ti_vset_cp(ti_vset_t * vset)
+{
+    ti_vset_t * nvset;
+    if (!(nvset = ti_vset_create()))
+        return NULL;
+
+    return imap_walk(vset->imap, (imap_cb) vset__walk_assign, nvset)
+            ? NULL  /* new set is destroyed if walk has failed */
+            : nvset;
 }
 
 int ti_vset_assign(ti_vset_t ** vsetaddr)

@@ -370,6 +370,29 @@ const char * strx_from_int64(const int64_t i, size_t * n)
     return strx__buf;
 }
 
+const char * strx_printable(const char * s, size_t n)
+{
+    const size_t m = STRX__MAX_CONV_SZ-4;
+    size_t nn = n <= m ? n : m;
+    char * pt = strx__buf;
+
+    if (!strx_is_printablen(s, nn))
+    {
+        strcpy(pt, "<non-printable sting>");
+        return pt;
+    }
+
+    memcpy(pt, s, n);
+    if (nn > n)
+    {
+        strcpy(pt + n, "...");
+        return pt;
+    }
+
+    pt[n] = '\0';
+    return pt;
+}
+
 char * strx_cat(const char * s1, const char * s2)
 {
     size_t n1 = strlen(s1);

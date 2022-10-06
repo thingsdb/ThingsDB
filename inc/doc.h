@@ -285,6 +285,7 @@
 #define DOC_THING_LEN               DOC_SEE("data-types/thing/len")
 #define DOC_THING_MAP               DOC_SEE("data-types/thing/map")
 #define DOC_THING_REMOVE            DOC_SEE("data-types/thing/remove")
+#define DOC_THING_REN               DOC_SEE("data-types/thing/ren")
 #define DOC_THING_RESTRICT          DOC_SEE("data-types/thing/restrict")
 #define DOC_THING_RESTRICTION       DOC_SEE("data-types/thing/restriction")
 #define DOC_THING_SEARCH            DOC_SEE("data-types/thing/search")

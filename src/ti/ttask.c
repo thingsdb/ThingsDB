@@ -1557,6 +1557,7 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_RESTORE_FINISHED:  return ttask__restore_finished(up);
     case TI_TASK_TO_THING:          break;
     case TI_TASK_MOD_TYPE_HID:      break;
+    case TI_TASK_REN:               break;
     }
 
     log_critical("unknown thingsdb task: %"PRIu64, mp_task.via.u64);

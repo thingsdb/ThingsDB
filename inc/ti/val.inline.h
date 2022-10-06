@@ -939,7 +939,7 @@ static inline _Bool ti_val_is_instance(ti_val_t * val)
 static inline void ti_val_attach(
         ti_val_t * val,
         ti_thing_t * parent,
-        void * key)  /* ti_raw_t or ti_name_t */
+        void * key)  /* ti_raw_t or ti_name_t or ti_field_t */
 {
     switch ((ti_val_enum) val->tp)
     {

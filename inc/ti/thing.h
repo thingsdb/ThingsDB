@@ -138,6 +138,13 @@ int ti_thing_assign(
         ti_task_t * task,
         ex_t * e);
 int ti_thing_walk(ti_thing_t * thing, ti_thing_item_cb cb, void * data);
+int ti_thing_o_ren(
+        ti_thing_t * thing,
+        const char * ostr,
+        size_t on,
+        const char * nstr,
+        size_t nn,
+        ex_t * e);
 
 #if TI_IS64BIT
 #define THING__KEY_SHIFT 3

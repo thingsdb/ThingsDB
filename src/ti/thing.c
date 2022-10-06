@@ -949,6 +949,104 @@ not_found:
     return NULL;
 }
 
+int ti_thing_o_ren(
+        ti_thing_t * thing,
+        const char * ostr,
+        size_t on,
+        const char * nstr,
+        size_t nn,
+        ex_t * e)
+{
+    ti_val_t * val = NULL;
+    ti_raw_t * nkey;
+
+    if (!strx_is_utf8n(nstr, nn))
+    {
+        ex_set(e, EX_VALUE_ERROR, "properties must have valid UTF-8 encoding");
+        return e->nr;
+    }
+
+    if (ti_is_reserved_key_strn(nstr, nn))
+    {
+        ex_set(e, EX_VALUE_ERROR, "property `%c` is reserved"DOC_PROPERTIES,
+                *nstr);
+        return e->nr;
+    }
+
+    nkey = ti_name_is_valid_strn(nstr, nn)
+        ? (ti_raw_t *) ti_names_get(nstr, nn)
+        : ti_str_create(nstr, nn);
+
+    if (!nkey)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    if (ti_thing_has_key(thing, nkey))
+    {
+        ex_set(e, EX_LOOKUP_ERROR, "property `%.*s` already exists",
+                nn, nstr);
+        goto fail0;
+    }
+
+    if (ti_thing_is_dict(thing))
+    {
+        ti_item_t * item = smap_popn(thing->items.smap, ostr, on);
+        if (!item)
+            goto not_found;
+        val = item->val;
+        ti_item_unsafe_vdestroy(item);
+    }
+    else
+    {
+        uint32_t idx = 0;
+        ti_name_t * name = ti_names_weak_get_strn(ostr, on);
+        if (!name)
+            goto not_found;
+
+        for (vec_each(thing->items.vec, ti_prop_t, prop), ++idx)
+        {
+            if (prop->name == name)
+            {
+                vec_swap_remove(thing->items.vec, idx);
+                val = prop->val;
+                ti_prop_unsafe_vdestroy(prop);
+                break;
+            }
+        }
+        if (!val)
+            goto not_found;
+    }
+
+    ti_val_attach(val, thing, nkey);
+    if (ti_thing_o_add(thing, nkey, val))
+    {
+        ti_val_unassign_unsafe_drop(val);
+        ex_set_mem(e);
+        ti_panic("unable to recover from rename error");
+        goto fail0;
+    }
+
+    return e->nr;  /* success */
+
+not_found:
+    if (!strx_is_utf8n(ostr, on))
+    {
+        ex_set(e, EX_VALUE_ERROR, "properties must have valid UTF-8 encoding");
+    }
+    else
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "thing "TI_THING_ID" has no property `%s`",
+                thing->id,
+                strx_printable(ostr, on));
+    }
+fail0:
+    ti_val_unsafe_drop((ti_val_t *) nkey);
+    return e->nr;
+}
+
 static _Bool thing_p__get_by_name(
         ti_wprop_t * wprop,
         ti_thing_t * thing,

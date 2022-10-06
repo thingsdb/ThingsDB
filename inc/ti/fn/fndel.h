@@ -44,19 +44,8 @@ static int do__f_del_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_object(query->rval))
         return fn_call_try("del", query, nd, e);
 
-    if (fn_nargs("del", DOC_THING_DEL, 1, nargs, e))
-        return e->nr;
-
-    /*
-     * This is a check for `iteration`.
-     *
-     * // without lock it breaks even with normal variable, luckily map puts
-     * // a lock.
-     * tmp.map(|| {
-     *     tmp.del('x');
-     * }
-     */
-    if (ti_val_try_lock(query->rval, e))
+    if (fn_nargs("del", DOC_THING_DEL, 1, nargs, e) ||
+        ti_val_try_lock(query->rval, e))
         return e->nr;
 
     thing = (ti_thing_t *) query->rval;

@@ -1,6 +1,7 @@
 # v1.4.1
 
 * Return same instance on type match, issue #315.
+* Added `ren(..)` function, issue  #316.
 
 # v1.4.0
 

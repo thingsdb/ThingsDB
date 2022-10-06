@@ -30,7 +30,7 @@ static int do__f_clear(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ti_task_t * task = ti_task_get_task(query->change, thing);
             if (!task || ti_task_add_thing_clear(task))
-                ex_set_mem(e);
+                ti_panic("task clear");
         }
         break;
     }
@@ -43,7 +43,7 @@ static int do__f_clear(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ti_task_t * task = ti_task_get_task(query->change, varr->parent);
             if (!task || ti_task_add_arr_clear(task, ti_varr_key(varr)))
-                ex_set_mem(e);
+                ti_panic("task clear");
         }
         break;
     }
@@ -59,7 +59,7 @@ static int do__f_clear(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             /* clear must have a task as this is enforced */
             ti_task_t * task = ti_task_get_task(query->change, vset->parent);
             if (!task || ti_task_add_set_clear(task, ti_vset_key(vset)))
-                ex_set_mem(e);
+                ti_panic("task clear");
         }
         break;
     }

@@ -44,10 +44,7 @@ static int do__f_ren(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         task = ti_task_get_task(query->change, thing);
         if (!task || ti_task_add_ren(task, oname, nname))
-        {
-            ex_set_mem(e);
-            goto fail2;
-        }
+            ti_panic("failed to create rename task");
     }
 
 fail2:

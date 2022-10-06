@@ -60,8 +60,9 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (e->nr == 0);
 
     query->rval = (ti_val_t *) ti_vint_create((int64_t) added->n);
-    if (query->rval)
-        goto done;
+    if (!query->rval)
+        ex_set_mem(e);  /* set error but no undo as the task is created */
+    goto done;
 
 alloc_err:
     ex_set_mem(e);

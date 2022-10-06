@@ -817,6 +817,31 @@ class TestEnum(TestBase):
 
         self.assertEqual(await client.query('Colors()'), '#FF0000')
 
+    async def test_enum_map(self, client):
+        # feature request, issue #318
+        res = await client.query("""//ti
+            set_enum('Color', {
+                RED: '#FF0000',
+                GREEN: '#00FF00',
+                BLUE: '#0000FF',
+            });
+            enum_map('Color');
+        """)
+        self.assertEqual(res, {
+            "RED": "#FF0000",
+            "GREEN": "#00FF00",
+            "BLUE": "#0000FF"
+        })
+
+        with self.assertRaisesRegex(NumArgumentsError, r'takes 1 argument'):
+            await client.query('enum_map();')
+
+        with self.assertRaisesRegex(TypeError, r'1 to be of type `str`'):
+            await client.query('enum_map(nil);')
+
+        with self.assertRaisesRegex(LookupError, r'enum `X` not found'):
+            await client.query('enum_map("X");')
+
 
 if __name__ == '__main__':
     run_test(TestEnum())

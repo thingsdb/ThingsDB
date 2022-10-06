@@ -1852,7 +1852,7 @@ static int thing__assign_set_o(
 failed:
     ti_val_unassign_unsafe_drop(val);
     if (e->nr == 0)
-        ex_set_mem(e);
+        ti_panic("failed to assign value or task creation");
 
     return e->nr;
 }
@@ -2023,7 +2023,7 @@ int ti_thing_assign(
                         task,
                         (ti_raw_t *) field->name,
                         val))
-                    goto fail;
+                    ti_panic("failed on object assign task");
             }
         }
         else
@@ -2061,7 +2061,7 @@ int ti_thing_assign(
                         task,
                         (ti_raw_t *) field->name,
                         val))
-                    return e->nr;
+                    ti_panic("failed on type assign task");
             }
         }
 fail:

@@ -1,7 +1,8 @@
 # v1.4.1
 
 * Return same instance on type match, issue #315.
-* Added `ren(..)` function, issue  #316.
+* Added `ren(..)` function, issue #316.
+* Added `enum_map(..)` function, issue #318.
 
 # v1.4.0
 

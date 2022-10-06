@@ -36,6 +36,7 @@ int ti_task_add_to_type(ti_task_t * task, ti_type_t * type);
 int ti_task_add_restrict(ti_task_t * task, uint16_t spec);
 int ti_task_add_set_type(ti_task_t * task, ti_type_t * type);
 int ti_task_add_del(ti_task_t * task, ti_raw_t * name);
+int ti_task_add_ren(ti_task_t * task, ti_raw_t * oname, ti_raw_t * nname);
 int ti_task_add_del_collection(ti_task_t * task, uint64_t collection_id);
 int ti_task_add_del_expired(ti_task_t * task, uint64_t after_ts);
 int ti_task_add_del_procedure(ti_task_t * task, ti_raw_t * name);

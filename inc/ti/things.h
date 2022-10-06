@@ -27,5 +27,4 @@ ti_thing_t * ti_things_thing_o_from_vup(ti_vup_t * vup, ex_t * e);
 ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e);
 int ti_things_gc(imap_t * things, ti_thing_t * root);
 
-
 #endif /* TI_THINGS_H_ */

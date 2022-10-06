@@ -30,6 +30,7 @@ double strx_to_double(const char * str, char **restrict endptr);
 int64_t strx_to_int64(const char * str, char **restrict endptr);
 const char * strx_from_double(const double d, size_t * n);  /* not thread safe */
 const char * strx_from_int64(const int64_t i, size_t * n);  /* not thread safe */
+const char * strx_printable(const char * s, size_t n); /* not thread safe */
 char * strx_cat(const char * s1, const char * s2);
 
 #endif /* TI_STRX_H_ */

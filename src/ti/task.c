@@ -455,6 +455,40 @@ fail_data:
     return -1;
 }
 
+int ti_task_add_ren(ti_task_t * task, ti_raw_t * oname, ti_raw_t * nname)
+{
+    size_t alloc = 64 + oname->n + nname->n;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_REN);
+
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_strn(&pk, oname->data, oname->n);
+    mp_pack_strn(&pk, nname->data, nname->n);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
 int ti_task_add_del_collection(ti_task_t * task, uint64_t collection_id)
 {
     size_t alloc = 64;

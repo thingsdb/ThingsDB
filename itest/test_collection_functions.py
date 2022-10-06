@@ -5590,6 +5590,77 @@ class TestCollectionFunctions(TestBase):
         """)
         self.assertIs(res, None)
 
+    async def test_ren(self, client):
+        # feature request, issue #316
+        await client.query("""//ti
+            .old = 42;
+            .other = 'other';
+        """)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `str` has no function `ren`'):
+            await client.query('"test".ren("x", "y");')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `ren` takes 2 arguments '
+                'but 0 were given'):
+            await client.query('.ren();')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'cannot change type `thing` while the value is in use'):
+            await client.query('.map( ||.ren("old", "new") );')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `ren` expects argument 1 to be of type `str` '
+                r'but got type `nil` instead'):
+            await client.query('.ren(nil, "y");')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `ren` expects argument 2 to be of type `str` '
+                r'but got type `nil` instead'):
+            await client.query('.ren("old", nil);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'thing `#\d+` has no property `x`'):
+            await client.query('.ren("x", "y");')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'property `old` already exists'):
+            await client.query('.ren("old", "old");')
+
+        with self.assertRaisesRegex(ValueError, r'property `#` is reserved'):
+            await client.query('.ren("old", "#");')
+
+        res = await client.query("""//ti
+            .ren('old', 'new');
+        """)
+        self.assertIs(res, None)
+
+        with self.assertRaisesRegex(LookupError, "has no property `old`"):
+            res = await client.query("""//ti
+                .old;
+            """)
+
+        res = await client.query("""//ti
+            .new;
+        """)
+        self.assertEqual(res, 42)
+
+        res = await client.query("""//ti
+            .arr = [1, 2, 3];
+            .ren('arr', 'a2');
+            .a2.push(4);  // see if array is re-attached
+            .a2;
+        """)
+        self.assertEqual(res, [1, 2, 3, 4])
+
 
 if __name__ == '__main__':
     run_test(TestCollectionFunctions())

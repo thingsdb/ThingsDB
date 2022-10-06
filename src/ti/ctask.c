@@ -1803,6 +1803,42 @@ static int ctask__del(ti_thing_t * thing, mp_unp_t * up)
 
 /*
  * Returns 0 on success
+ * - for example: '{key: nkey}'
+ */
+static int ctask__ren(ti_thing_t * thing, mp_unp_t * up)
+{
+    ex_t e = {0};
+    mp_obj_t obj, mp_okey, mp_nkey;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        mp_next(up, &mp_okey) != MP_STR ||
+        mp_next(up, &mp_nkey) != MP_STR)
+    {
+        log_critical(
+                "task `ren` for "TI_THING_ID": "
+                "missing old or new key",
+                thing->id);
+        return -1;
+    }
+
+    if (ti_thing_o_ren(
+            thing,
+            mp_okey.via.str.data,
+            mp_okey.via.str.n,
+            mp_nkey.via.str.data,
+            mp_nkey.via.str.n,
+            &e))
+    {
+        log_critical("task `ren` on "TI_THING_ID": %s",
+                thing->id,
+                e.msg);
+        return -1;
+    }
+    return 0;
+}
+
+/*
+ * Returns 0 on success
  * - for example: 'name'
  */
 static int ctask__del_procedure(ti_thing_t * thing, mp_unp_t * up)
@@ -2799,6 +2835,7 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_RESTORE_FINISHED:  break;
     case TI_TASK_TO_THING:          return ctask__to_thing(thing, up);
     case TI_TASK_MOD_TYPE_HID:      return ctask__mod_type_hid(thing, up);
+    case TI_TASK_REN:               return ctask__ren(thing, up);
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);

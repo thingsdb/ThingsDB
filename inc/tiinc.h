@@ -42,10 +42,10 @@
 /* Maximum number of active futures (just some arbitrary value)
  * The number should fit in uint16_t as the query stores the total
  * number of running futures by this type. */
-#define TI_MAX_FUTURE_COUNT 500U
+#define TI_MAX_FUTURE_COUNT 2000U
 
 /* Maximum number of tasks per scope (just some arbitrary value) */
-#define TI_MAX_TASK_COUNT 200U
+#define TI_MAX_TASK_COUNT 500U
 
 /* maximum value we allow for the `deep` argument */
 #define TI_MAX_DEEP 0x7f

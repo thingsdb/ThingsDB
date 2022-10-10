@@ -29,7 +29,7 @@ static uv_timer_t away__uv_waiter;
 #define AWAY__BLOCK_TIME 15000      /* block accepting for X seconds */
 #define AWAY__SKIP_COUNT 25         /* skip away mode X times when changes are
                                        pending */
-#define AWAY__WAIT_FUTURES 30       /* wait X extra seconds before canceling
+#define AWAY__WAIT_FUTURES 60       /* wait X extra seconds before canceling
                                        running futures when going into away
                                        mode */
 
@@ -423,8 +423,9 @@ static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
     if (uv_timer_start(
             &away__uv_waiter,
             away__waiter_pre_cb,
-            AWAY__SOON_TIMER,   /* x seconds we keep in AWAY_SOON mode */
-            1000                /* a little longer if changes are still queued */
+            ti.nodes->vec->n == 1 ? 0 : AWAY__SOON_TIMER,
+                                /* x seconds we keep in AWAY_SOON mode */
+            1000                /* a little longer if changes are queued */
     ))
         goto fail2;
 
@@ -495,7 +496,9 @@ static void away__trigger_cb(uv_timer_t * UNUSED(repeat))
     ti_node_t * node;
     enum away__severity sev;
 
-    if (ti.nodes->vec->n == 1 && !ti_backups_require_away())
+    if (ti.nodes->vec->n == 1 &&
+            ti.archive->queue->n < ti.cfg->threshold_full_storage &&
+            !ti_backups_require_away())
     {
         log_debug(away__skip_msg, "running as single node");
         return;

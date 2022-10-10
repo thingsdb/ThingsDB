@@ -1,3 +1,8 @@
+# v1.4.2
+
+* Added `fill(..)` function, issue #320.
+* Allow away mode on a single node, issue #321.
+
 # v1.4.1
 
 * Return same instance on type match, issue #315.

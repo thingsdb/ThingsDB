@@ -1232,6 +1232,26 @@ static inline int ti_val_varr_append(ti_varr_t * to, ti_val_t ** v, ex_t * e)
 }
 
 /*
+ * Fill an array with a given value; this will increase the reference counter
+ * of the value accordingly. As the pointer may have been changed you might
+ * need to handle the new pointer.
+ */
+static inline int ti_val_varr_fill(ti_varr_t * to, ti_val_t ** v, ex_t * e)
+{
+    uint32_t idx = 0;
+    if (ti_val_varr_prepare(v, to, e))
+        return e->nr;
+
+    for (vec_each(to->vec, ti_val_t, val), ++idx)
+    {
+        ti_val_unsafe_gc_drop(val);
+        VEC_set(to->vec, *v, idx);
+        ti_incref(*v);
+    }
+    return 0;
+}
+
+/*
  * does not increment `*v` reference counter but the value might change to
  * a (new) tuple pointer.
  */

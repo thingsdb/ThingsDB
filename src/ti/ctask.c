@@ -2568,6 +2568,79 @@ static int ctask__rename_type(ti_thing_t * thing, mp_unp_t * up)
 
 /*
  * Returns 0 on success
+ * - for example: {'prop': value}
+ */
+static int ctask__fill(ti_thing_t * thing, mp_unp_t * up)
+{
+    ex_t e = {0};
+    ti_val_t * val;
+    ti_varr_t * varr;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = thing->collection,
+            .up = up,
+    };
+
+    mp_obj_t obj, mp_prop;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        mp_next(up, &mp_prop) != MP_STR)
+    {
+        log_critical(
+                "task `fill` on "TI_THING_ID": "
+                "missing map or property",
+                thing->id);
+        return -1;
+    }
+
+    varr = (ti_varr_t *) ti_thing_val_by_strn(
+            thing,
+            mp_prop.via.str.data,
+            mp_prop.via.str.n);
+    if (!varr)
+    {
+        log_critical(
+                "task `fill` array on "TI_THING_ID": "
+                "missing property",
+                thing->id);
+        return -1;
+    }
+
+    if (!ti_val_is_list((ti_val_t *) varr))
+    {
+        log_critical(
+                "task `fill` on "TI_THING_ID": "
+                "expecting a `"TI_VAL_LIST_S"`, got `%s`",
+                thing->id,
+                ti_val_str((ti_val_t *) varr));
+        return -1;
+    }
+
+    val = ti_val_from_vup(&vup);
+
+    if (!val)  /* both <0 and >0 are not correct since we should have n values */
+    {
+        log_critical(
+                "task `fill` array on "TI_THING_ID": "
+                "error reading value for property",
+                thing->id);
+        return -1;
+    }
+
+    if (ti_val_varr_fill(varr, &val, &e))
+    {
+        log_critical(
+                "task `fill` array on "TI_THING_ID": "
+                "fill failed: %s",
+                thing->id, e.msg);
+    }
+
+    ti_val_unsafe_drop(val);
+    return 0;
+}
+
+/*
+ * Returns 0 on success
  * - for example: {'prop': [index, del_count, new_count, values...]}
  */
 static int ctask__splice(ti_thing_t * thing, mp_unp_t * up)
@@ -2836,6 +2909,7 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_TO_THING:          return ctask__to_thing(thing, up);
     case TI_TASK_MOD_TYPE_HID:      return ctask__mod_type_hid(thing, up);
     case TI_TASK_REN:               return ctask__ren(thing, up);
+    case TI_TASK_FILL:              return ctask__fill(thing, up);;
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);

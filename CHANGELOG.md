@@ -1,7 +1,8 @@
 # v1.4.2
 
 * Added `fill(..)` function, issue #320.
-* Allow away mode on a single node, issue #321.
+* Allow away mode (blocking) on a single node, issue #321.
+* Increase `range(..)` limitation, issue #322.
 
 # v1.4.1
 

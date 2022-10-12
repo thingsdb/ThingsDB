@@ -423,8 +423,7 @@ static void away__on_req_away_id(void * UNUSED(data), _Bool accepted)
     if (uv_timer_start(
             &away__uv_waiter,
             away__waiter_pre_cb,
-            ti.nodes->vec->n == 1 ? 0 : AWAY__SOON_TIMER,
-                                /* x seconds we keep in AWAY_SOON mode */
+            AWAY__SOON_TIMER,   /* x seconds we keep in AWAY_SOON mode */
             1000                /* a little longer if changes are queued */
     ))
         goto fail2;
@@ -496,10 +495,18 @@ static void away__trigger_cb(uv_timer_t * UNUSED(repeat))
     ti_node_t * node;
     enum away__severity sev;
 
-    if (ti.nodes->vec->n == 1 &&
-            ti.archive->queue->n < ti.cfg->threshold_full_storage &&
-            !ti_backups_require_away())
+    if (ti.nodes->vec->n == 1)
     {
+        if (ti_backups_require_away() ||
+            ti.archive->queue->n >= ti.cfg->threshold_full_storage)
+        {
+                log_debug("start single node away loop (blocking)");
+                ti_flag_set(TI_FLAG_NO_SLEEP);
+                away__work(NULL);
+                ti_flag_rm(TI_FLAG_NO_SLEEP);
+                log_debug("finished single node away loop");
+                return;
+        }
         log_debug(away__skip_msg, "running as single node");
         return;
     }

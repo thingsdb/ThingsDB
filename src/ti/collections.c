@@ -79,7 +79,7 @@ int ti_collections_gc(void)
             rc = -1;
         }
 
-        ti_sleep(100);
+        (void) ti_sleep(100);
     }
 
     return rc;

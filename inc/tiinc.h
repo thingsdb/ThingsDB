@@ -109,6 +109,7 @@ enum
     TI_FLAG_LOCKED          =1<<1,
     TI_FLAG_TI_CHANGED      =1<<2,
     TI_FLAG_STARTING        =1<<3,
+    TI_FLAG_NO_SLEEP        =1<<4,
 };
 
 static inline _Bool ti_is_reserved_key_strn(const char * str, size_t n)

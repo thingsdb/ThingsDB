@@ -5661,6 +5661,50 @@ class TestCollectionFunctions(TestBase):
         """)
         self.assertEqual(res, [1, 2, 3, 4])
 
+    async def test_fill(self, client):
+        # feature request, issue #320
+        await client.query("""//ti
+            .arr = range(5);
+            set_type('Arr', {
+                arr: '[str]'
+            });
+        """)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `str` has no function `fill`'):
+            await client.query('"test".fill("x");')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `fill` takes 1 argument '
+                'but 0 were given'):
+            await client.query('[].fill();')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'cannot change type `list` while the value is in use'):
+            await client.query('.arr.map(||.arr.fill(nil));')
+
+        with self.assertRaisesRegex(TypeError, r'type `int` is not allowed'):
+            await client.query("""//ti
+                a = Arr{arr: range(5).fill("x")};
+                a.arr.fill(123);
+            """)
+
+        res = await client.query("""//ti
+            .arr.fill(nil);
+        """)
+        self.assertEqual(res, [None] * 5)
+        res = await client.query("""//ti
+            .arr.fill(range(2));
+        """)
+        self.assertEqual(res, [[0, 1]] * 5)
+        res = await client.query("""//ti
+            type(.arr[0]);
+        """)
+        self.assertEqual(res, 'tuple')
+
 
 if __name__ == '__main__':
     run_test(TestCollectionFunctions())

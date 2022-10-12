@@ -6,7 +6,7 @@
 
 #define TI_VERSION_MAJOR 1
 #define TI_VERSION_MINOR 4
-#define TI_VERSION_PATCH 1
+#define TI_VERSION_PATCH 2
 
 /* The syntax version is used to test compatibility with functions
  * using the `ti_nodes_check_syntax()` function */
@@ -25,7 +25,7 @@
  *  "-rc0"
  *  ""
  */
-#define TI_VERSION_PRE_RELEASE ""
+#define TI_VERSION_PRE_RELEASE "-alpha3"
 
 #define TI_MAINTAINER \
     "Jeroen van der Heijden <jeroen@cesbit.com>"

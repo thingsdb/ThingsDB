@@ -63,7 +63,7 @@
   :: `tuple`
   :: `uint`
   :: `union`
-  :: `utf8
+  :: `utf8`
 
  */
 

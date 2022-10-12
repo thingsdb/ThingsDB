@@ -42,10 +42,10 @@
 /* Maximum number of active futures (just some arbitrary value)
  * The number should fit in uint16_t as the query stores the total
  * number of running futures by this type. */
-#define TI_MAX_FUTURE_COUNT 500U
+#define TI_MAX_FUTURE_COUNT 2000U
 
 /* Maximum number of tasks per scope (just some arbitrary value) */
-#define TI_MAX_TASK_COUNT 200U
+#define TI_MAX_TASK_COUNT 500U
 
 /* maximum value we allow for the `deep` argument */
 #define TI_MAX_DEEP 0x7f
@@ -109,6 +109,7 @@ enum
     TI_FLAG_LOCKED          =1<<1,
     TI_FLAG_TI_CHANGED      =1<<2,
     TI_FLAG_STARTING        =1<<3,
+    TI_FLAG_NO_SLEEP        =1<<4,
 };
 
 static inline _Bool ti_is_reserved_key_strn(const char * str, size_t n)

@@ -423,7 +423,7 @@ int ti_archive_to_disk(void)
         (void) ti_store_store();
 
     /* sleep a little before archiving */
-    ti_sleep(200);
+    (void) ti_sleep(200);
 
     /* archive changes, even after full store for synchronizing `other` nodes */
     if (archive__to_disk())
@@ -431,7 +431,7 @@ int ti_archive_to_disk(void)
 
     ti.node->scid = leid;  /* last_cpkg cannot be used, it's cleared */
 
-    ti_sleep(100);
+    (void) ti_sleep(100);
 done:
     (void) archive__remove_files();
     return 0;

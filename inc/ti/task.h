@@ -141,6 +141,7 @@ int ti_task_add_revoke(
         ti_user_t * user,
         uint64_t mask);
 int ti_task_add_set_password(ti_task_t * task, ti_user_t * user);
+int ti_task_add_fill(ti_task_t * task, ti_raw_t * key, ti_val_t * val);
 int ti_task_add_splice(
         ti_task_t * task,
         ti_raw_t * key,

@@ -1,3 +1,7 @@
+# v1.4.3
+
+* Added authentication mask `USER`, issue #xxx.
+
 # v1.4.2
 
 * Added `fill(..)` function, issue #320.

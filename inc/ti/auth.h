@@ -15,10 +15,14 @@ enum
     TI_AUTH_GRANT       =1<<2,  /* grant/revoke */
     TI_AUTH_JOIN        =1<<3,  /* join/leave rooms */
     TI_AUTH_RUN         =1<<4,  /* run    */
+    TI_AUTH_MASK_USER   =1<<0|  /* QUERY  */
+                         1<<1|  /* CHANGE */
+                         1<<3|  /* JOIN  */
+                         1<<4,  /* RUN    */
     TI_AUTH_MASK_FULL   =1<<0|  /* QUERY  */
                          1<<1|  /* CHANGE */
                          1<<2|  /* GRANT  */
-                         1<<3|  /* WATCH  */
+                         1<<3|  /* JOIN  */
                          1<<4,  /* RUN    */
 };
 

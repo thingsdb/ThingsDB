@@ -155,6 +155,12 @@ class TestUserAccess(TestBase):
             await get_client(
                 self.node0, auth=['test1', 'test'], auto_reconnect=False)
 
+        await client.query(r"""//ti
+            new_user('test5')
+            grant('@:junk', "test5", USER);
+            assert (USER == JOIN|RUN|QUERY|CHANGE);
+        """)
+
         testcl1.close()
         client.close()
         await testcl1.wait_closed()

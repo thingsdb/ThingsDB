@@ -1,7 +1,7 @@
 # v1.4.3
 
-* Added authentication mask `USER`, issue #xxx.
-* Added _shutdown perion_ configuration option, issue #xxx.
+* Added _shutdown-period_ configuration option, issue #324.
+* Added authentication mask `USER`, issue #325.
 
 # v1.4.2
 

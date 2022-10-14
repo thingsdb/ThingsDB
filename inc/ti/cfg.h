@@ -20,6 +20,8 @@ struct ti_cfg_s
     uint16_t http_status_port;
     uint16_t http_api_port;
     uint8_t zone;
+    uint8_t shutdown_period;            /* Wait for X seconds before shutdown;
+                                          (only used with multiple nodes) */
     size_t threshold_full_storage;      /* if the number of changes
                                            stored on disk is equal or greater
                                            than this threshold, then a full-

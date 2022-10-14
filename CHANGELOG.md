@@ -1,6 +1,7 @@
 # v1.4.3
 
 * Added authentication mask `USER`, issue #xxx.
+* Added _shutdown perion_ configuration option, issue #xxx.
 
 # v1.4.2
 

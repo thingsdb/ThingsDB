@@ -56,7 +56,7 @@ ti_t ti;
 /* settings, nodes etc. */
 const char * ti__fn = "ti.mp";
 const char * ti__node_fn = ".node";
-static int shutdown_counter = 6;
+static int shutdown_counter = 6;  /* overwritten by ti.cfg->shutdown_period */
 static int wait_for_modules_timeout = 120;
 static int wait_for_modules = 0;
 static uv_timer_t * shutdown_timer = NULL;
@@ -239,6 +239,7 @@ int ti_init(void)
         ti_thing_init_gc())
         return -1;
 
+    shutdown_counter = (int) ti.cfg->shutdown_period;
     ti.fn = strx_cat(ti.cfg->storage_path, ti__fn);
     ti.node_fn = strx_cat(ti.cfg->storage_path, ti__node_fn);
 

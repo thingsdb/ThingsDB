@@ -1,3 +1,8 @@
+# v1.4.3
+
+* Added _shutdown-period_ configuration option, issue #324.
+* Added authentication mask `USER`, issue #325.
+
 # v1.4.2
 
 * Added `fill(..)` function, issue #320.

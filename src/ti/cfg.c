@@ -86,6 +86,38 @@ static void cfg__zone(
     *zone = (uint8_t) option->val->integer;
 }
 
+static void cfg__shutdown_period(
+        cfgparser_t * parser,
+        const char * cfg_file,
+        uint8_t * shutdown_period)
+{
+    const int min_ = 0;
+    const int max_ = 255;
+
+    cfgparser_option_t * option;
+    cfgparser_return_t rc;
+    rc = cfgparser_get_option(&option, parser, cfg__section, "shutdown_period");
+
+    if (rc != CFGPARSER_SUCCESS)
+        return;
+
+    if (    option->tp != CFGPARSER_TP_INTEGER ||
+            option->val->integer < min_ ||
+            option->val->integer > max_)
+    {
+        log_warning(
+                "error reading `shutdown_period` in `%s` "
+                "(expecting a value between %d and %d), "
+                "using default value %u",
+                cfg_file,
+                min_,
+                max_,
+                *shutdown_period);
+        return;
+    }
+
+    *shutdown_period = (uint8_t) option->val->integer;
+}
 
 static void cfg__ip_support(cfgparser_t * parser, const char * cfg_file)
 {
@@ -382,6 +414,7 @@ int ti_cfg_create(void)
     cfg->gcloud_key_file = NULL;
     cfg->pipe_client_name = NULL;
     cfg->zone = 0;
+    cfg->shutdown_period = 6;
     cfg->query_duration_warn = 0;
     cfg->query_duration_error = 0;
     cfg->node_name = strdup(hostname);
@@ -483,6 +516,7 @@ int ti_cfg_parse(const char * cfg_file)
     cfg__port(parser, cfg_file, "http_status_port", &cfg->http_status_port);
     cfg__port(parser, cfg_file, "http_api_port", &cfg->http_api_port);
     cfg__zone(parser, cfg_file, &cfg->zone);
+    cfg__shutdown_period(parser, cfg_file, &cfg->shutdown_period);
     cfg__ip_support(parser, cfg_file);
     cfg__threshold_full_storage(parser, cfg_file);
     cfg__result_size_limit(parser, cfg_file);

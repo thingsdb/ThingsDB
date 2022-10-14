@@ -856,7 +856,7 @@ int ti_do_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 enum
 {
-    TOTAL_KEYWORDS = 12,
+    TOTAL_KEYWORDS = 13,
     MIN_WORD_LENGTH = 3,
     MAX_WORD_LENGTH = 8,
     MIN_HASH_VALUE = 3,
@@ -875,10 +875,10 @@ static inline unsigned int do__hash(
         16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
         16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
         16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16,  1,  6,  1,  3,  0,
+        16, 16, 16, 16, 16,  1,  5,  1,  4,  0,
          3,  1,  3,  0,  5, 16,  2, 16,  0,  1,
-        16,  0,  0,  2,  0,  0, 16,  0, 16,  0,
-        16, 16, 16, 16, 16,  2, 16, 16, 16, 16,
+        16,  0,  0,  0,  0,  0, 16,  0, 16,  0,
+        16, 16, 16, 16, 16,  3, 16, 16, 16, 16,
         16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
         16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
         16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
@@ -944,6 +944,7 @@ do__fixed_t do__fixed_mapping[TOTAL_KEYWORDS] = {
     {.name="JOIN",                  .value=TI_AUTH_JOIN},
     {.name="RUN",                   .value=TI_AUTH_RUN},
     {.name="GRANT",                 .value=TI_AUTH_GRANT},
+    {.name="USER",                  .value=TI_AUTH_MASK_USER},
     {.name="FULL",                  .value=TI_AUTH_MASK_FULL},
     {.name="DEBUG",                 .value=LOGGER_DEBUG},
     {.name="INFO",                  .value=LOGGER_INFO},

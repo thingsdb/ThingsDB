@@ -123,6 +123,9 @@ void ti_evars_parse(void)
     evars__u8(
             "THINGSDB_ZONE",
             &ti.cfg->zone);
+    evars__u8(
+            "THINGSDB_SHUTDOWN_PERIOD",
+            &ti.cfg->shutdown_period);
     evars__abs_double(
             "THINGSDB_QUERY_DURATION_WARN",
             &ti.cfg->query_duration_warn);

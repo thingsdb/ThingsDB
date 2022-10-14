@@ -5,7 +5,7 @@
 #include <ti/auth.h>
 #include <ti.h>
 
-#define TI__AUTH_REPR_SZ 6
+#define TI__AUTH_REPR_SZ 7
 
 /* allocate temporary buffer with enough space for storing an auth string */
 static char ti__auth_str[512];
@@ -18,6 +18,7 @@ struct ti__auth_repr_s
 
 static struct ti__auth_repr_s ti__auth_map[TI__AUTH_REPR_SZ] = {
         {.str="FULL",           .mask=TI_AUTH_MASK_FULL},
+        {.str="USER",           .mask=TI_AUTH_MASK_USER},
         {.str="QUERY",          .mask=TI_AUTH_QUERY},
         {.str="CHANGE",         .mask=TI_AUTH_CHANGE},
         {.str="GRANT",          .mask=TI_AUTH_GRANT},

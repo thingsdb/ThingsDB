@@ -41,6 +41,26 @@ static int do__f_id_room(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
+static int do__f_id_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    const int nargs = fn_get_nargs(nd);
+    ti_wrap_t * wtype;
+
+    if (fn_nargs("id", DOC_WTYPE_ID, 0, nargs, e))
+        return e->nr;
+
+    wtype = (ti_wrap_t *) query->rval;
+    query->rval = wtype->thing->id
+            ? (ti_val_t *) ti_vint_create((int64_t) wtype->thing->id)
+            : (ti_val_t *) ti_nil_get();
+
+    if (!query->rval)
+        ex_set_mem(e);
+
+    ti_val_unsafe_drop((ti_val_t *) wtype);
+    return e->nr;
+}
+
 static int do__f_id_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
@@ -67,6 +87,8 @@ static inline int do__f_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ? do__f_id_thing(query, nd, e)
             : ti_val_is_room(query->rval)
             ? do__f_id_room(query, nd, e)
+            : ti_val_is_wrap(query->rval)
+            ? do__f_id_wrap(query, nd, e)
             : ti_val_is_task(query->rval)
             ? do__f_id_task(query, nd, e)
             : fn_call_try("id", query, nd, e);

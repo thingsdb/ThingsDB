@@ -2227,24 +2227,26 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(res, [1, 2, 3, {'x': 1}])
 
-    async def test_conversion_type_call(self, client):
-        # feature request, issue #315
+    async def test_general_id_and_map_id(self, client):
+        # feature request, issue #327
         res = await client.query(r"""//ti
-            set_type('Person', {name: 'str'});
-            .alice = Person{name: 'Alice'};
-            a = Person(.alice);
-            assert (a == .alice);
-            'OK';
+            new_type('A');
+            A{}.wrap().id();   // id() should work on a wrapped type
         """)
-        self.assertEqual(res, 'OK')
+        self.assertEqual(res, None)
+
+        wrap_id, thing_id, task_id, room_id = await client.query("""//ti
+            .wa = A{}.wrap();
+            .ti = {id: || 'test'};  // build-in id() wins from this id()
+            .ta = task(datetime().move('seconds', 30), ||'bla');
+            .ro = room();
+            [.wa.id(), .ti.id(), .ta.id(), .ro.id()];
+        """)
 
         res = await client.query(r"""//ti
-            .bob = {name: 'Bob'};
-            b = Person(.bob);
-            assert (b != .bob);
-            'OK';
+            [.wa, .ti, .ta, .ro].map_id();  // map_id() more general
         """)
-        self.assertEqual(res, 'OK')
+        self.assertEqual(res, [wrap_id, thing_id, task_id, room_id])
 
 
 if __name__ == '__main__':

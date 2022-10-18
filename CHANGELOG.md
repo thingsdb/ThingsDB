@@ -2,6 +2,7 @@
 
 * Added _shutdown-period_ configuration option, issue #324.
 * Added authentication mask `USER`, issue #325.
+* Add `id()` to wrapped type and update `map_id()` function, issue #327.
 
 # v1.4.2
 

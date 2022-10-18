@@ -36,20 +36,36 @@ static int do__f_map_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_VAL_ARR:
         for (vec_each(VARR(query->rval), ti_val_t, val))
         {
-            ti_thing_t * thing;
-            if (!ti_val_is_thing(val))
+            uint64_t id;
+            if (ti_val_is_thing(val))
             {
-                ex_set(e, EX_TYPE_ERROR,
-                        "function `map_id` requires a list with items of "
-                        "type `thing` but found an item of type `%s` instead"
-                        DOC_LIST_MAP_ID,
+                ti_thing_t * thing = (ti_thing_t *) val;
+                id = thing->id;
+            }
+            else if (ti_val_is_wrap(val))
+            {
+                ti_wrap_t * wtype = (ti_wrap_t *) val;
+                id = wtype->thing->id;
+            }
+            else if (ti_val_is_room(val))
+            {
+                ti_room_t * room = (ti_room_t *) val;
+                id = room->id;
+            }
+            else if (ti_val_is_task(val))
+            {
+                ti_vtask_t * vtask = (ti_vtask_t *) val;
+                id = vtask->id;
+            }
+            else
+            {
+                ex_set(e, EX_LOOKUP_ERROR,
+                        "type `%s` has no function `id`",
                         ti_val_str(val));
                 goto fail0;
             }
-
-            thing = (ti_thing_t *) val;
-            val = thing->id
-                    ? (ti_val_t *) ti_vint_create((int64_t) thing->id)
+            val = id
+                    ? (ti_val_t *) ti_vint_create((int64_t) id)
                     : (ti_val_t *) ti_nil_get();
             if (!val)
             {

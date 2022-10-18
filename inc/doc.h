@@ -299,6 +299,7 @@
 #define DOC_TYPED_TO_THING          DOC_SEE("data-types/typed/to_thing")
 #define DOC_WTYPE_COPY              DOC_SEE("data-types/wtype/copy")
 #define DOC_WTYPE_DUP               DOC_SEE("data-types/wtype/dup")
+#define DOC_WTYPE_ID                DOC_SEE("data-types/wtype/id")
 #define DOC_WTYPE_UNWRAP            DOC_SEE("data-types/wtype/unwrap")
 
 /* Errors */

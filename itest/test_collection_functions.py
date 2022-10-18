@@ -2412,9 +2412,8 @@ class TestCollectionFunctions(TestBase):
             await client.query('.arr.map_id(nil);')
 
         with self.assertRaisesRegex(
-                TypeError,
-                r'function `map_id` requires a list with items of '
-                r'type `thing` but found an item of type `nil` instead;'):
+                LookupError,
+                r'type `nil` has no function `id`'):
             await client.query('[nil].map_id();')
 
         self.assertEqual(await client.query(r'[].map_id()'), [])

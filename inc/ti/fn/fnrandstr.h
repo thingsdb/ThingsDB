@@ -84,7 +84,7 @@ static int do__f_randstr(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         /*
          * Depending on the length of the character length we can use this
-         * optimal code. This only works well if 265 module the length is 0
+         * optimal code. This only works well if 256 module the length is 0
          * since only then each character in the set has the same change to
          * appear in result.
          */

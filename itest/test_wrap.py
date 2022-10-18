@@ -112,13 +112,6 @@ class TestWrap(TestBase):
                 XY{}.wrap("Math").sqrt();
             ''')
 
-        with self.assertRaisesRegex(
-                LookupError,
-                r'type `Math` has no method `id`'):
-            await client.query(r'''
-                XY{}.wrap("Math").id();
-            ''')
-
         res = await client.query(r'''
             XY{x: 1.5, y: 2.5}.wrap('Math').add();
         ''')

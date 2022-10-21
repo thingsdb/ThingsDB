@@ -1,3 +1,7 @@
+# v1.4.4
+
+* Fixed bug with assertion test (debug mode), issue #329.
+
 # v1.4.3
 
 * Added _shutdown-period_ configuration option, issue #324.

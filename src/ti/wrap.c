@@ -329,7 +329,6 @@ int ti__wrap_field_thing(
     spec &= TI_SPEC_MASK_NILLABLE;
 
     assert (thing->tp == TI_VAL_THING);
-    assert (spec <= TI_SPEC_OBJECT);
 
     /*
      * Just return the ID when locked or if `deep` has reached zero.
@@ -365,7 +364,7 @@ int ti__wrap_field_thing(
      * If `spec` is not a type or a none existing type (thus ANY or OBJECT),
      * then pack the thing as normal.
      */
-    if (spec >= TI_SPEC_ANY ||  /* TI_SPEC_ANY || TI_SPEC_OBJECT */
+    if (spec >= TI_SPEC_ANY ||  /* TI_SPEC_ANY || TI_SPEC_OBJECT || ENUM */
         !(t_type = ti_types_by_id(thing->collection->types, spec)))
         return ti_thing__to_client_pk(thing, vp, deep, flags);
 

@@ -2248,6 +2248,36 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(res, [wrap_id, thing_id, task_id, room_id])
 
+    async def test_wrap_enum_thing(self, client):
+        # bug #329
+        ida, idb = await client.query("""//ti
+            set_type('_P', {
+                id: '#',
+                name: |this| this.name.upper()
+            }, true);
+            set_type('_W', {
+                e: '&_P'
+            }, true);
+            set_enum('E', {
+                a: {name: 'Alice'},
+                b: {name: 'Bob'},
+            });
+            set_type('T', {
+                e: 'E'
+            });
+            [E{a}.value().id(), E{b}.value().id()];
+        """)
+
+        res = await client.query("""//ti
+            T{}.wrap();
+        """)
+        self.assertEqual(res, {"e": {"#": ida}})
+
+        res = await client.query("""//ti
+            T{}.wrap('_W');
+        """)
+        self.assertEqual(res, {"e": {"id": ida, "name": "ALICE"}})
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

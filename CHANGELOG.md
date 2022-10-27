@@ -1,6 +1,7 @@
 # v1.4.4
 
-* Fixed bug with assertion test (debug mode), issue #329.
+* Fixed minor bug with assertion test (debug mode), issue #329.
+* Fixed minor bug with deep level in computed properties, issue #331.
 
 # v1.4.3
 

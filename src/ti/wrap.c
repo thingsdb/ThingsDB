@@ -240,7 +240,6 @@ int ti__wrap_methods_to_pk(
         ti_type_t * t_type,
         ti_thing_t * thing,
         ti_vp_t * vp,
-        int deep,
         int flags)
 {
     int rc = 0;
@@ -255,7 +254,7 @@ int ti__wrap_methods_to_pk(
     for (vec_each(t_type->methods, ti_method_t, method))
     {
         vp->query->rval = NULL;
-        vp->query->qbind.deep = (uint8_t) deep;
+        vp->query->qbind.deep = vp->query->collection->deep;
         vp->query->flags = \
                 (uint8_t) ((vp->query->flags & TI_FLAGS_QUERY_MASK) | flags);
 
@@ -481,7 +480,7 @@ int ti__wrap_field_thing(
      * method might have the same name and thus will "overwrite" the Id field;
      */
     if (nm && (vp->query
-            ? ti__wrap_methods_to_pk(t_type, thing, vp, deep, flags)
+            ? ti__wrap_methods_to_pk(t_type, thing, vp, flags)
             : ti__wrap_methods_to_pk_no_query(t_type, vp)))
         goto fail;
 

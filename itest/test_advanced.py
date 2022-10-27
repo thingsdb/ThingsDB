@@ -2278,6 +2278,44 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(res, {"e": {"id": ida, "name": "ALICE"}})
 
+    async def test_deep_computed_props(self, client):
+        # bug #331
+        res = await client.query("""//ti
+            set_type('_C', {
+                cc: 'int'
+            }, true);
+            set_type('_B', {
+                bb: 'int',
+                c: '&_C'
+            }, true);
+            set_type('_A', {
+                aa: 'int',
+                b: |this| this.b.wrap('_B')
+            }, true);
+            set_type('C', {
+                cc: 'int<::3>'
+            });
+            set_type('B', {
+                bb: 'int<::2>',
+                c: 'C'
+            });
+            set_type('A', {
+                aa: 'int<::1>',
+                b: 'B'
+            });
+            a = A{};
+            a.wrap('_A');
+        """)
+        self.assertEqual(res, {
+            "aa": 1,
+            "b": {
+                "bb": 2,
+                "c": {
+                    "cc": 3
+                }
+            }
+        })
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

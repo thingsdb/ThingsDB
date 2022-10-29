@@ -253,6 +253,7 @@ int ti__wrap_methods_to_pk(
 
     for (vec_each(t_type->methods, ti_method_t, method))
     {
+        _Bool is_success = true;  /* bug #332 */
         vp->query->rval = NULL;
         vp->query->qbind.deep = vp->query->collection->deep;
         vp->query->flags = \
@@ -264,6 +265,7 @@ int ti__wrap_methods_to_pk(
                     "failed to compute property; "
                     "method has side effects");
             vp->query->rval = (ti_val_t *) ti_verror_ensure_from_e(&e);
+            is_success = false;
         }
         else if (ti_closure_call_one_arg(
                 method->closure,
@@ -273,6 +275,7 @@ int ti__wrap_methods_to_pk(
         {
             ti_val_gc_drop((ti_val_t *) vp->query->rval);
             vp->query->rval = (ti_val_t *) ti_verror_ensure_from_e(&e);
+            is_success = false;
         }
 
         if (vp->query->futures.n)
@@ -301,6 +304,9 @@ int ti__wrap_methods_to_pk(
                     vp->query->flags);
 
         ti_val_unsafe_gc_drop(vp->query->rval);
+
+        if (is_success)
+            ti_closure_dec(method->closure, vp->query);
 
         if (rc)
             break;

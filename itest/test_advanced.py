@@ -2316,6 +2316,16 @@ new_procedure('multiply', |a, b| a * b);
             }
         })
 
+    async def test_recustion_wrap_computed(self, client):
+        # bug #332
+        res = await client.query("""//ti
+            set_type('T', {
+                r: || T{}.wrap('T')
+            });
+            T{}.wrap();
+        """)
+        self.assertIn('r', res)
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

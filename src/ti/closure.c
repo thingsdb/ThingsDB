@@ -684,6 +684,13 @@ int ti_closure_call(
     return e->nr;
 }
 
+/*
+ * When success, a call must be made to ti_closure_dec(closure, query);
+ * This is because this function is used by wrap(..) which might be called
+ * recursive *after* the closure is called;
+ *
+ * bug #332
+ */
 int ti_closure_call_one_arg(
         ti_closure_t * closure,
         ti_query_t * query,
@@ -705,8 +712,8 @@ int ti_closure_call_one_arg(
         ti_incref(arg);
     }
 
-    (void) ti_closure_do_statement(closure, query, e);
-    ti_closure_dec(closure, query);
+    if (ti_closure_do_statement(closure, query, e))
+        ti_closure_dec(closure, query);
 
     return e->nr;
 }

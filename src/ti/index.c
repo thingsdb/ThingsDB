@@ -408,7 +408,8 @@ static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     ti_varr_t * varr;
     size_t idx = 0;  /* only set to prevent warning */
 
-    if (ti_val_try_lock(query->rval, e))
+    if (ti_query_test_varr_operation(query, e) ||
+        ti_val_try_lock(query->rval, e))
         return e->nr;
 
     varr = (ti_varr_t *) query->rval;

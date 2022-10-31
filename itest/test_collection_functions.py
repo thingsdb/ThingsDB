@@ -5727,9 +5727,7 @@ class TestCollectionFunctions(TestBase):
                 r'remove `nse\(...\)` to enforce a change'):
             await client.query('nse(.x = 1);')
 
-        res = await client.query("""//ti
-            nse();
-            x = {};
+        queries = """//ti
             x.a = 1;
             x.set('b', 2);
             x['c'] = 3;
@@ -5753,10 +5751,33 @@ class TestCollectionFunctions(TestBase):
             x.arr.splice(1, 2, 5);
             x.arr.remove(|i| i == 2);
             x.arr[0] = 99;
+            x.arr[0:1] = [99];
             x.arr.clear();
+        """.strip().split('\n')[1:]
+
+        self.assertEqual(len(queries), 25)
+
+        res = await client.query("""//ti
+            nse();
+            x = {};
+        """ + "".join(queries) + """//ti
             change_id();
         """)
         self.assertIs(res, None)
+
+        await client.query("""//ti
+            .x = {t: {a: 123}, s: set({}, {}, {}), arr: [1, 2, 3]};
+        """)
+
+        for query in queries:
+            with self.assertRaisesRegex(
+                    OperationError,
+                    r'operation on a stored (thing|list|set); '
+                    r'remove `nse\(...\)` to enforce a change'):
+                await client.query("""//ti
+                    nse();
+                    x = .x;
+                """ + query)
 
 
 if __name__ == '__main__':

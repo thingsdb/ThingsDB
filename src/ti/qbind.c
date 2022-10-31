@@ -376,7 +376,7 @@ static inline unsigned int qbind__hash(
 
 typedef enum
 {
-    FN__FLAG_XVAR   = 1<<0, /* must be 1, see qbind__is_onvar() */
+    FN__FLAG_XVAR       = 1<<0, /* must be 1, see qbind__is_onvar() */
     FN__FLAG_EV_T       = 1<<1, /* must be 2, maps to ti_qbind_bit_t */
     FN__FLAG_EV_C       = 1<<2, /* must be 4, maps to ti_qbind_bit_t */
     FN__FLAG_ROOT       = 1<<3,

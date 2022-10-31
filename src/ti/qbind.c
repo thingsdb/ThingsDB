@@ -152,6 +152,7 @@
 #include <ti/fn/fnnodeinfo.h>
 #include <ti/fn/fnnodesinfo.h>
 #include <ti/fn/fnnow.h>
+#include <ti/fn/fnnse.h>
 #include <ti/fn/fnone.h>
 #include <ti/fn/fnowner.h>
 #include <ti/fn/fnpop.h>
@@ -248,8 +249,8 @@
  *
  * Argument: flags (QBIND flags)
  */
-#define qbind__set_collection_change(__f) \
-    (__f) |= (((__f) & TI_QBIND_FLAG_COLLECTION) && 1) << TI_QBIND_BIT_WSE
+#define qbind__set_collection_soft_change(__f) \
+    (__f) |= (((__f) & TI_QBIND_FLAG_COLLECTION) && (~(__f) & TI_QBIND_FLAG_NSE)) << TI_QBIND_BIT_WSE
 
 static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
 
@@ -391,6 +392,7 @@ typedef enum
                                    variable as well. */
     FN__FLAG_FUT        = 1<<7, /* must check for closure and do not set wse
                                    by itself */
+    FN__FLAG_SOFT       = 1<<8, /* no change for some */
 } qbind__fn_flag_t;
 
 typedef struct
@@ -456,6 +458,8 @@ typedef struct
         .flags=FN__FLAG_CHAIN|FN__FLAG_EXCL_VAR|FN__FLAG_EV_C
 #define XBOTH_CE_XROOT \
         .flags=FN__FLAG_ROOT|FN__FLAG_CHAIN|FN__FLAG_EV_C|FN__FLAG_XROOT
+#define ROOO_NSE \
+        .flags=FN__FLAG_ROOT|FN__FLAG_SOFT
 
 qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="add",               .fn=do__f_add,                  CHAIN_CE_XVAR},
@@ -603,6 +607,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="new_type",          .fn=do__f_new_type,             ROOT_CE},
     {.name="new_user",          .fn=do__f_new_user,             ROOT_TE},
     {.name="new",               .fn=do__f_new,                  ROOT_NE},
+    {.name="nse",               .fn=do__f_nse,                  ROOO_NSE},
     {.name="node_err",          .fn=do__f_node_err,             ROOT_NE},
     {.name="node_info",         .fn=do__f_node_info,            ROOT_NE},
     {.name="nodes_info",        .fn=do__f_nodes_info,           ROOT_NE},
@@ -895,7 +900,7 @@ static void qbind__function(
     register qbind__fmap_t * fmap = key <= MAX_HASH_VALUE
             ? qbind__fn_map[key]
             : NULL;
-    register uint8_t fmflags = (
+    register qbind__fn_flag_t fmflags = (
             fmap &&
             fmap->n == n &&
             ((FN__FLAG_ROOT|FN__FLAG_CHAIN) & flags & fmap->flags) &&
@@ -907,7 +912,8 @@ static void qbind__function(
     q->flags |= (
         ((FN__FLAG_EV_T|FN__FLAG_EV_C) & q->flags & fmflags) &&
         ((~fmflags & FN__FLAG_EXCL_VAR) || (~flags & FN__FLAG_EXCL_VAR)) &&
-        ((~fmflags & FN__FLAG_XROOT) || (~flags & FN__FLAG_ROOT))
+        ((~fmflags & FN__FLAG_XROOT) || (~flags & FN__FLAG_ROOT)) &&
+        ((~fmflags & FN__FLAG_SOFT) || (~flags & FN__FLAG_SOFT))
     ) << TI_QBIND_BIT_WSE;
 
     /* update the value cache if no build-in function is found */
@@ -967,7 +973,7 @@ static void qbind__index(ti_qbind_t * qbind, cleri_node_t * nd)
 
         if (child->children->next->next->next)
         {
-            qbind__set_collection_change(qbind->flags);
+            qbind__set_collection_soft_change(qbind->flags);
             qbind__statement(qbind, child             /* sequence */
                     ->children->next->next->next      /* assignment */
                     ->children->next);                /* statement */
@@ -1115,7 +1121,7 @@ static void qbind__name_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
                     FN__FLAG_CHAIN|qbind__is_onvar(qbind->flags));
             return;
         case CLERI_GID_ASSIGN:
-            qbind__set_collection_change(qbind->flags);
+            qbind__set_collection_soft_change(qbind->flags);
             qbind__statement(
                     qbind,
                     nd->children->next->children->next);

@@ -215,7 +215,8 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
         return e->nr;
     }
 
-    if (ti_val_try_lock(query->rval, e))
+    if (ti_query_test_varr_operation(query, e) ||
+        ti_val_try_lock(query->rval, e))
         return e->nr;
 
     query->rval = NULL;
@@ -546,7 +547,8 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     ti_thing_t * thing;
     ti_raw_t * rname;
 
-    if (ti_val_try_lock(query->rval, e))
+    if (ti_query_test_thing_operation(query, e) ||
+        ti_val_try_lock(query->rval, e))
         return e->nr;
 
     thing = (ti_thing_t *) query->rval;

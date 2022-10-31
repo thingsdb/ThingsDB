@@ -5704,6 +5704,60 @@ class TestCollectionFunctions(TestBase):
         """)
         self.assertEqual(res, 'tuple')
 
+    async def test_nse(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `nse`'):
+            await client.query('nil.nse();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `nse` takes at most 1 argument '
+                'but 2 were given'):
+            await client.query('nse(nil, nil);')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                'function `nse` failed; at least one side-effect is enforced'):
+            await client.query('.x = 1; nse();')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'operation on a stored thing; '
+                r'remove `nse\(...\)` to enforce a change'):
+            await client.query('nse(.x = 1);')
+
+        res = await client.query("""//ti
+            nse();
+            x = {};
+            x.a = 1;
+            x.set('b', 2);
+            x['c'] = 3;
+            x.d = 4;
+            x.ren('d', 'e');
+            x.del('e');
+            x.t = {};
+            x.t.restrict('int');
+            x.t.a = 1;
+            x.t.clear();
+            x.s = set();
+            x.s.add({});
+            x.s.remove(|| true);
+            x.s.clear();
+            x.remove(|k, v| x == 'c');
+            x.arr = [];
+            x.arr.push(1, 2, 3);
+            x.arr.pop();
+            x.arr.unshift(0);
+            x.arr.shift();
+            x.arr.splice(1, 2, 5);
+            x.arr.remove(|i| i == 2);
+            x.arr[0] = 99;
+            x.arr.clear();
+            change_id();
+        """)
+        self.assertIs(res, None)
+
 
 if __name__ == '__main__':
     run_test(TestCollectionFunctions())

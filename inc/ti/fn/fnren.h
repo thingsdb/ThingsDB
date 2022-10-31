@@ -11,6 +11,7 @@ static int do__f_ren(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return fn_call_try("ren", query, nd, e);
 
     if (fn_nargs("ren", DOC_THING_REN, 2, nargs, e) ||
+        ti_query_test_thing_operation(query, e) ||
         ti_val_try_lock(query->rval, e))
         return e->nr;
 

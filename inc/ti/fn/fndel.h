@@ -6,6 +6,17 @@ static int do__f_del_vtask(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_task_t * task;
     ti_vtask_t * vtask;
 
+    if (!query->change)
+    {
+        ex_set(e, EX_OPERATION,
+                "operation on a task; "
+                "%s(...)` to enforce a change",
+                (query->qbind.flags & TI_QBIND_FLAG_NSE)
+                    ? "remove `nse"
+                    : "use `wse");
+        return e->nr;
+    }
+
     vtask = (ti_vtask_t *) query->rval;
     if (ti_vtask_is_locked(vtask, e))
         return e->nr;
@@ -45,6 +56,7 @@ static int do__f_del_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return fn_call_try("del", query, nd, e);
 
     if (fn_nargs("del", DOC_THING_DEL, 1, nargs, e) ||
+        ti_query_test_thing_operation(query, e) ||
         ti_val_try_lock(query->rval, e))
         return e->nr;
 

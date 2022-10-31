@@ -11,6 +11,7 @@
 #include <ti/nil.h>
 #include <ti/opr/oprinc.h>
 #include <ti/prop.h>
+#include <ti/query.inline.h>
 #include <ti/task.h>
 #include <ti/thing.inline.h>
 #include <ti/val.inline.h>

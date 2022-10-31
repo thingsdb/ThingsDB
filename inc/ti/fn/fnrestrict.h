@@ -15,7 +15,8 @@ static int do__f_restrict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_object(query->rval))
         return fn_call_try("restrict", query, nd, e);
 
-    if (fn_nargs("restrict", DOC_THING_RESTRICT, 1, nargs, e))
+    if (fn_nargs("restrict", DOC_THING_RESTRICT, 1, nargs, e) ||
+        ti_query_test_thing_operation(query, e))
         return e->nr;
 
     /*

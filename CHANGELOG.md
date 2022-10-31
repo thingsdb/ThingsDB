@@ -1,6 +1,7 @@
 # v1.4.5
 
 * Fixed bug with recursion in computed properties, issue #332.
+* Added `nse(..)` function, pr #.
 
 # v1.4.4
 

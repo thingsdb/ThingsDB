@@ -2,6 +2,7 @@
 
 * Fixed bug with recursion in computed properties, issue #332.
 * Added `nse(..)` function, pr #333.
+* Fixed bug with short syntax in closure, issue #334.
 
 # v1.4.4
 

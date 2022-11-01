@@ -2331,10 +2331,11 @@ new_procedure('multiply', |a, b| a * b);
         res = await client.query("""//ti
             new_procedure('test', |a| {
                 T{a:};
+                T{a:a};
             });
             procedure_info('test');
         """)
-        self.assertEqual(res['definition'], '|a| {\n\tT{a: };\n}')
+        self.assertEqual(res['definition'], '|a| {\n\tT{a: };\n\tT{a: a};\n}')
 
 
 if __name__ == '__main__':

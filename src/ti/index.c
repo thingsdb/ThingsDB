@@ -11,6 +11,7 @@
 #include <ti/nil.h>
 #include <ti/opr/oprinc.h>
 #include <ti/prop.h>
+#include <ti/query.inline.h>
 #include <ti/task.h>
 #include <ti/thing.inline.h>
 #include <ti/val.inline.h>
@@ -215,7 +216,8 @@ static int index__slice_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
         return e->nr;
     }
 
-    if (ti_val_try_lock(query->rval, e))
+    if (ti_query_test_varr_operation(query, e) ||
+        ti_val_try_lock(query->rval, e))
         return e->nr;
 
     query->rval = NULL;
@@ -406,7 +408,8 @@ static int index__array_ass(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     ti_varr_t * varr;
     size_t idx = 0;  /* only set to prevent warning */
 
-    if (ti_val_try_lock(query->rval, e))
+    if (ti_query_test_varr_operation(query, e) ||
+        ti_val_try_lock(query->rval, e))
         return e->nr;
 
     varr = (ti_varr_t *) query->rval;
@@ -546,7 +549,8 @@ static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     ti_thing_t * thing;
     ti_raw_t * rname;
 
-    if (ti_val_try_lock(query->rval, e))
+    if (ti_query_test_thing_operation(query, e) ||
+        ti_val_try_lock(query->rval, e))
         return e->nr;
 
     thing = (ti_thing_t *) query->rval;

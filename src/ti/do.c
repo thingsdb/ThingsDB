@@ -260,7 +260,8 @@ static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (ti_val_try_lock(query->rval, e))
+    if (ti_query_test_thing_operation(query, e) ||
+        ti_val_try_lock(query->rval, e))
         return e->nr;
 
     thing = (ti_thing_t *) query->rval;

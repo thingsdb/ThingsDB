@@ -77,7 +77,10 @@ static inline int ti_query_test_vset_operation(ti_query_t * query, ex_t * e)
     if (!query->change && ti_vset_is_stored((ti_vset_t *) query->rval))
         ex_set(e, EX_OPERATION,
                 "operation on a stored set; "
-                "use `wse(...)` to enforce a change");
+                "%s(...)` to enforce a change",
+                (query->qbind.flags & TI_QBIND_FLAG_NSE)
+                    ? "remove `nse"
+                    : "use `wse");
     return e->nr;
 }
 
@@ -86,8 +89,24 @@ static inline int ti_query_test_varr_operation(ti_query_t * query, ex_t * e)
     if (!query->change && ti_varr_is_stored((ti_varr_t *) query->rval))
         ex_set(e, EX_OPERATION,
                 "operation on a stored list; "
-                "use `wse(...)` to enforce a change");
+                "%s(...)` to enforce a change",
+                (query->qbind.flags & TI_QBIND_FLAG_NSE)
+                    ? "remove `nse"
+                    : "use `wse");
     return e->nr;
 }
+
+static inline int ti_query_test_thing_operation(ti_query_t * query, ex_t * e)
+{
+    if (!query->change && ((ti_thing_t *) query->rval)->id)
+        ex_set(e, EX_OPERATION,
+                "operation on a stored thing; "
+                "%s(...)` to enforce a change",
+                (query->qbind.flags & TI_QBIND_FLAG_NSE)
+                    ? "remove `nse"
+                    : "use `wse");
+    return e->nr;
+}
+
 
 #endif  /* TI_QUERY_INLINE_H_ */

@@ -11,7 +11,8 @@ static int do__f_to_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_object(query->rval))
         return fn_call_try("to_type", query, nd, e);
 
-    if (fn_nargs("to_type", DOC_THING_TO_TYPE, 1, nargs, e))
+    if (fn_nargs("to_type", DOC_THING_TO_TYPE, 1, nargs, e) ||
+        ti_query_test_thing_operation(query, e))
         return e->nr;
 
     /*

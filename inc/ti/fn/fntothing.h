@@ -13,6 +13,7 @@ static int do__f_to_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (fn_nargs("to_thing", DOC_TYPED_TO_THING, 0, nargs, e) ||
         ti_type_use(thing->via.type, e) ||
+        ti_query_test_thing_operation(query, e) ||
         ti_val_try_lock(query->rval, e))
         return e->nr;
 

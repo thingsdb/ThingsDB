@@ -23,7 +23,8 @@ static int do__f_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
      *     tmp.assign({x: 1});
      * }
      */
-    if (ti_val_try_lock(query->rval, e))
+    if (ti_query_test_thing_operation(query, e) ||
+        ti_val_try_lock(query->rval, e))
         return e->nr;
 
     thing = (ti_thing_t *) query->rval;

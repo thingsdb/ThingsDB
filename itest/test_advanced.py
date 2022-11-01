@@ -2326,6 +2326,16 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertIn('r', res)
 
+    async def test_procedure_with_future(self, client):
+        # bug #334
+        res = await client.query("""//ti
+            new_procedure('test', |a| {
+                T{a:};
+            });
+            procedure_info('test');
+        """)
+        self.assertEqual(res['definition'], '|a| {\n\tT{a: };\n}')
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

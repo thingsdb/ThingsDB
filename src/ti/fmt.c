@@ -191,7 +191,7 @@ static int fmt__thing(ti_fmt_t * fmt, cleri_node_t * nd)
         (child && (
                 buf_append(&fmt->buf, key->str, key->len) ||
                 buf_append_str(&fmt->buf, ": ") ||
-                fmt__statement(fmt, val)
+                (val && fmt__statement(fmt, val))  /* bug #334 */
         )) ||
         buf_write(&fmt->buf, '}')
     ) return -1;

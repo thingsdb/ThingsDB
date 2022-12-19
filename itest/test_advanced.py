@@ -1578,7 +1578,7 @@ set_type('Friend', {
 set_type('Person', {
   name: 'str',
   age: 'int',
-  upper: |this| this.name..upper()
+  upper: |this| this.name..upper(),
 });
 
 

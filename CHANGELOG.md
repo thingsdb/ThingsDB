@@ -1,6 +1,6 @@
 # v1.4.6
 
-* Implemented `..` syntax, issue #339.
+* Implemented **optional chaining** _(double dot, `..`)_ syntax, issue #339.
 
 # v1.4.5
 

@@ -262,6 +262,7 @@ static int fmt__name_opt_fa(ti_fmt_t * fmt, cleri_node_t * nd)
 static int fmt__chain(ti_fmt_t * fmt, cleri_node_t * nd, _Bool with_indent)
 {
     cleri_node_t * child = nd->children->next;
+    _Bool opt = nd->children->len == 2;
     _Bool set_indent = false;
 
     if (!with_indent && fmt__has_next_chain(nd) && nd->len > INDENT_THRESHOLD)
@@ -273,10 +274,10 @@ static int fmt__chain(ti_fmt_t * fmt, cleri_node_t * nd, _Bool with_indent)
     if (with_indent)
     {
         if (buf_write(&fmt->buf, '\n') ||
-            fmt__indent_str(fmt, "."))
+            fmt__indent_str(fmt, opt ? ".." : "."))
             return -1;
     }
-    else if (buf_write(&fmt->buf, '.'))
+    else if (buf_write(&fmt->buf, '.') || (opt && buf_write(&fmt->buf, '.')))
         return -1;
 
     if (fmt__name_opt_fa(fmt, child))

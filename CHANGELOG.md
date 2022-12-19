@@ -1,3 +1,7 @@
+# v1.4.6
+
+* Implemented `..` syntax, issue #339.
+
 # v1.4.5
 
 * Fixed bug with recursion in computed properties, issue #332.

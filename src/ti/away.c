@@ -256,10 +256,18 @@ static size_t away__syncers(void)
     return count;
 }
 
+static void away__done(void)
+{
+    if (ti_flag_test(TI_FLAG_SIGNAL))
+        ti_shutdown();
+    else
+        ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
+}
+
 static void away__waiter_after_close_cb(uv_handle_t * UNUSED(handle))
 {
     away->status = AWAY__STATUS_IDLE;
-    ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
+    away__done();
 }
 
 static void away__waiter_after_cb(uv_timer_t * waiter)
@@ -329,7 +337,7 @@ fail2:
 fail1:
     log_error("cannot start `away` waiter: `%s`", uv_strerror(rc));
     away->status = AWAY__STATUS_IDLE;
-    ti_set_and_broadcast_node_status(TI_NODE_STAT_READY);
+    away__done();
 }
 
 static void away__waiter_pre_close_cb(uv_handle_t * UNUSED(handle))

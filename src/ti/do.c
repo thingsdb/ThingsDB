@@ -629,10 +629,14 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert (nd->cl_obj->gid == CLERI_GID_CHAIN);
     assert (query->rval);
 
+    _Bool opt = nd->children->len == 2;
     cleri_node_t * child = nd           /* sequence */
                     ->children->next;   /* first is .(dot), next choice */
     cleri_node_t * node = child;        /* function, assignment, name */
     cleri_node_t * index_node = child->next;
+
+    if (opt && (ti_val_is_nil(query->rval) || ti_val_is_error(query->rval)))
+        return 0;
 
     child = child->next->next;          /* set to chain child (or NULL) */
 

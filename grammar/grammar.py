@@ -42,7 +42,7 @@ class LangDef(Grammar):
     x_array = Token('[')
     x_assign = Tokens('= += -= *= /= %= &= ^= |=')
     x_block = Token('{')
-    x_chain = Token('.')
+    x_chain = Tokens('.. .')
     x_closure = Token('|')
     x_function = Token('(')
     x_index = Token('[')

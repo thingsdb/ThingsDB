@@ -30,7 +30,7 @@ class TestTmp(TestBase):
         client.set_default_scope('//stuff')
 
         # add another node for query validation
-        # await self.node1.join_until_ready(client)
+        await self.node1.join_until_ready(client)
 
         await self.run_tests(client)
 
@@ -87,6 +87,30 @@ class TestTmp(TestBase):
         #     self.assertIn('#', color)
         #     self.assertIn('name', color)
         #     self.assertEqual(len(color), 2)
+
+    async def test_stress(self, client):
+        await client.query("""//ti
+            .arr = [];
+        """)
+        start = time.time()
+        while True:
+            await client.query("""//ti
+                n = randint(1, 10);
+                for (_ in range(n)) {
+                    .arr.push({test: `n:{n}`});
+                };
+                n = randint(1, .arr.len());
+                for (_ in range(n)) {
+                    if (randint(0, 2)) {
+                        .arr.pop();
+                    } else {
+                        .arr.shift();
+                    };
+                };
+            """)
+            now = time.time()
+            if now - start > 120:
+                break
 
 
 if __name__ == '__main__':

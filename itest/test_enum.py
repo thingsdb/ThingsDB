@@ -842,6 +842,32 @@ class TestEnum(TestBase):
         with self.assertRaisesRegex(LookupError, r'enum `X` not found'):
             await client.query('enum_map("X");')
 
+    async def test_enum_ret_name_flag(self, client):
+        # feature request, issue #338
+        res = await client.query("""//ti
+                set_enum('Color', {
+                    Red: 0,
+                    Green: 1,
+                    Blue: 2
+                });
+
+                set_type('_N', {
+                    color: '*Color',
+                });
+                set_type('_V', {
+                    color: 'Color',
+                });
+        """)
+        res = await client.query("""//ti
+            _N{}.wrap();
+        """)
+        self.assertEqual(res, {'color': 'Red'})
+
+        res = await client.query("""//ti
+            _V{}.wrap();
+        """)
+        self.assertEqual(res, {'color': 0})
+
 
 if __name__ == '__main__':
     run_test(TestEnum())

@@ -480,6 +480,11 @@ static int field__init(ti_field_t * field, ex_t * e)
                 goto duplicate_flag;
             field->flags |= TI_FIELD_FLAG_NO_IDS;
             break;
+        case '*':
+            if (field->flags & TI_FIELD_FLAG_ENAME)
+                goto duplicate_flag;
+            field->flags |= TI_FIELD_FLAG_ENAME;
+            break;
         default:
             goto done_flags;
         }

@@ -156,13 +156,15 @@ static int wrap__field_val(
     case TI_VAL_ERROR:
         return ti_verror_to_client_pk((ti_verror_t *) val, &vp->pk);
     case TI_VAL_MEMBER:
-        return wrap__field_val(
-                t_field,
-                spec,
-                VMEMBER(val),
-                vp,
-                deep,
-                flags);
+        return t_field->flags & TI_FIELD_FLAG_ENAME
+                ? ti_raw_str_to_pk(((ti_member_t *) val)->name, &vp->pk)
+                : wrap__field_val(
+                    t_field,
+                    spec,
+                    VMEMBER(val),
+                    vp,
+                    deep,
+                    flags);
     case TI_VAL_MPDATA:
         return ti_raw_mpdata_to_client_pk((ti_raw_t *) val, &vp->pk);
     case TI_VAL_CLOSURE:

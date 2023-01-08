@@ -80,7 +80,11 @@ typedef struct
 int types__spec_flags_pos(const unsigned char * x)
 {
     int i = 0;
-    while (x[i] == '^' || x[i] == '&' || x[i] == '-' || x[i] == '+')
+    while (x[i] == '^' ||
+           x[i] == '&' ||
+           x[i] == '-' ||
+           x[i] == '+' ||
+           x[i] == '*')
        i++;
     return i;
 }

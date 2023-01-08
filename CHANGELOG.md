@@ -1,6 +1,8 @@
 # v1.4.6
 
 * Implemented **optional chaining** _(double dot, `..`)_ syntax, issue #339.
+* Implemented type definition `task`, issue #336.
+* Implemented enumerator member flag `*`, issue #338.
 
 # v1.4.5
 

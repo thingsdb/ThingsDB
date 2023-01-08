@@ -24,7 +24,8 @@ enum
     /* exactly one of the DEEP flags below will be set on a field */
     TI_FIELD_FLAG_MIN_DEEP=2,
     TI_FIELD_FLAG_MAX_DEEP=4,
-    TI_FIELD_FLAG_DEEP=8,  /* this flag returns deep as-is */
+    TI_FIELD_FLAG_DEEP=8,   /* this flag returns deep as-is */
+    TI_FIELD_FLAG_ENAME=16, /* return enumerator names instead of value */
 
     TI_FIELD_FLAG_NO_IDS=TI_FLAGS_NO_IDS,
 };

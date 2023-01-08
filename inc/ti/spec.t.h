@@ -35,6 +35,7 @@ typedef enum
     TI_SPEC_CLOSURE,        /* `closure`            */
     TI_SPEC_ERROR,          /* `error`              */
     TI_SPEC_ROOM,           /* `room`               */
+    TI_SPEC_TASK,           /* `task`               */
 
     TI_SPEC_REMATCH=0x5000, /* `/.../`              */
     TI_SPEC_INT_RANGE,      /* `int<:>              */

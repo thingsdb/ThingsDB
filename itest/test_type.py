@@ -1178,6 +1178,7 @@ class TestType(TestBase):
             set_type('_Closure', {test: 'closure'});
             set_type('_Error', {test: 'error'});
             set_type('_Room', {test: 'room'});
+            set_type('_Task', {test: 'task'});
             set_type('_Thing', {test: 'thing'});
             set_type('_Type', {test: '_Str'});
             set_type('_Array', {test: '[]'});
@@ -1283,6 +1284,13 @@ class TestType(TestBase):
                 r'with definition `room`'):
             await client.query(r'''_Room{test: 'err'};''')
 
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `_Task`; '
+                r'type `str` is invalid for property `test` '
+                r'with definition `task`'):
+            await client.query(r'''_Task{test: 'err'};''')
+
         self.assertEqual(
             await client.query(r'type(_Regex{}.test);'), 'regex')
         self.assertEqual(
@@ -1295,6 +1303,8 @@ class TestType(TestBase):
             await client.query(r'_Error{test:err(-110)}.test.code();'), -110)
         self.assertEqual(
             await client.query(r'_Room{test:room()}.test.emit("test");'), None)
+        self.assertEqual(
+            await client.query(r'_Task{}.id();'), None)
 
         self.assertEqual(
             await client.query(r'_Pint{test:42}.test;'), 42)

@@ -30,6 +30,7 @@
 #include <ti/vfloat.h>
 #include <ti/vint.h>
 #include <ti/vset.h>
+#include <ti/vtask.h>
 #include <util/strx.h>
 
 static void field__remove_dep(ti_field_t * field)
@@ -246,6 +247,11 @@ static ti_val_t * field__dval_room(ti_field_t * field)
     return (ti_val_t *) ti_room_create(0, field->type->types->collection);
 }
 
+static ti_val_t * field__dval_task(ti_field_t * UNUSED(field))
+{
+    return (ti_val_t *) ti_vtask_nil();
+}
+
 static ti_val_t * field__dval_datetime(ti_field_t * field)
 {
     return (ti_val_t *) ti_datetime_from_u64(
@@ -288,11 +294,11 @@ static inline void field__set_cb(ti_field_t * field, ti_field_dval_cb cb)
  */
 enum
 {
-    TOTAL_KEYWORDS = 21,
+    TOTAL_KEYWORDS = 22,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 8,
     MIN_HASH_VALUE = 2,
-    MAX_HASH_VALUE = 22
+    MAX_HASH_VALUE = 23
 };
 
 static inline unsigned int field__hash(
@@ -301,32 +307,32 @@ static inline unsigned int field__hash(
 {
     static unsigned short asso_values[] =
     {
-        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 17, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23,  9, 23,  9, 23, 23, 23,  5,  0,  0,
-         1,  2,  0,  3,  7,  0, 23, 23,  7,  1,
-         1,  1,  9, 23,  0,  0,  0,  0,  0,  4,
-         3,  2, 23,  0, 23,  0, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-        23, 23, 23, 23, 23, 23
+        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+        24, 24, 24, 24, 24, 24, 19, 24, 24, 24,
+        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+        24, 10, 24,  9, 24, 24, 24,  5,  0,  3,
+         1,  2,  0,  4,  7,  0, 24,  6,  7,  1,
+         1,  1,  9, 24,  0,  0,  0,  0,  0,  4,
+         3,  2, 24,  0, 24,  0, 24, 24, 24, 24,
+        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+        24, 24, 24, 24, 24, 24
     };
 
     register unsigned int hval = n;
@@ -383,6 +389,7 @@ ti_field_map_t field__mapping[TOTAL_KEYWORDS] = {
     {.name="closure",   .spec=TI_SPEC_CLOSURE,  .dval_cb=field__dval_closure},
     {.name="error",     .spec=TI_SPEC_ERROR,    .dval_cb=field__dval_error},
     {.name="room",      .spec=TI_SPEC_ROOM,     .dval_cb=field__dval_room},
+    {.name="task",      .spec=TI_SPEC_TASK,     .dval_cb=field__dval_task},
 };
 
 static ti_field_map_t * field__map[MAX_HASH_VALUE+1];
@@ -1709,6 +1716,10 @@ int ti_field_make_assignable(
         if (ti_val_is_room(*val))
             return 0;
         goto type_error;
+    case TI_SPEC_TASK:
+        if (ti_val_is_task(*val))
+            return 0;
+        goto type_error;
     case TI_SPEC_ARR:
         if (ti_val_is_array(*val))
             return field__varr_assign(field, (ti_varr_t **) val, parent, e);
@@ -1940,6 +1951,8 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
         return ti_val_is_error(val);
     case TI_SPEC_ROOM:
         return ti_val_is_room(val);
+    case TI_SPEC_TASK:
+        return ti_val_is_task(val);
     case TI_SPEC_ARR:
         /* we can map a set to an array */
         return ((
@@ -2040,6 +2053,7 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_CLOSURE:
     case TI_SPEC_ERROR:
     case TI_SPEC_ROOM:
+    case TI_SPEC_TASK:
     case TI_SPEC_ARR:
     case TI_SPEC_SET:
     case TI_SPEC_REMATCH:
@@ -2177,6 +2191,7 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_CLOSURE:
     case TI_SPEC_ERROR:
     case TI_SPEC_ROOM:
+    case TI_SPEC_TASK:
         return f_spec == t_spec;
     case TI_SPEC_ARR:
         return (

@@ -9,6 +9,7 @@
 #include <ti/future.h>
 #include <ti/mapping.h>
 #include <ti/member.h>
+#include <ti/member.t.h>
 #include <ti/method.t.h>
 #include <ti/prop.h>
 #include <ti/regex.h>
@@ -157,7 +158,8 @@ static int wrap__field_val(
         return ti_verror_to_client_pk((ti_verror_t *) val, &vp->pk);
     case TI_VAL_MEMBER:
         return t_field->flags & TI_FIELD_FLAG_ENAME
-                ? ti_raw_str_to_pk(((ti_member_t *) val)->name, &vp->pk)
+                ? ti_raw_str_to_pk(
+                        (ti_raw_t *) ((ti_member_t *) val)->name, &vp->pk)
                 : wrap__field_val(
                     t_field,
                     spec,

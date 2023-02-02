@@ -406,7 +406,11 @@ ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t * val)
      * Just compare the definition with the type since the nillable mask is
      * removed the definition
      */
-    return ti_val_is_thing(val) && ((ti_thing_t *) val)->type_id == spec
+    return ti_val_is_thing(val) && (
+                ((ti_thing_t *) val)->type_id == spec || (
+                        ((ti_thing_t *) val)->type_id != TI_SPEC_OBJECT &&
+                        ((ti_thing_t *) val)->via.type->imp &&
+                        ((ti_thing_t *) val)->via.type->imp->type_id == spec))
             ? 0
             : TI_SPEC_RVAL_TYPE_ERROR;
 }

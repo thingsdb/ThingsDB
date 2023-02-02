@@ -761,6 +761,9 @@ static ti_tz_t tz__list[TOTAL_KEYWORDS] = {
     {.name="W-SU"},
     {.name="WET"},
     {.name="Zulu"},
+    {.name="America/Ciudad_Juarez"},
+    {.name="Europe/Kyiv"},
+    {.name="Pacific/Kanton"},
 };
 
 

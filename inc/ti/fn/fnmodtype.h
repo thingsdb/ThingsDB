@@ -1351,6 +1351,53 @@ static void type__rel(
         fnname, ti_val_str(query->rval));
 }
 
+static void type__imp(
+        ti_query_t * query,
+        ti_type_t * type,
+        ti_name_t * name,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    static const char * fnname = "mod_type` with task `imp";
+    const int nargs = fn_get_nargs(nd);
+    ti_type_t * itype;
+    ti_task_t * task;
+
+    nd = nd->children->next->next->next->next;
+
+    if (fn_nargs(fnname, DOC_MOD_TYPE_IMP, 3, nargs, e) ||
+        ti_do_statement(query, nd, e))
+        return;
+
+    if (ti_val_is_str(query->rval))
+    {
+        itype = ti_types_by_raw(query->collection->types, (ti_raw_t *) query->rval);
+        if (!itype)
+        {
+            ex_set(e, EX_LOOKUP_ERROR, "type `%.*s` not found",
+                   name->n, name->str);
+            return;
+        }
+        /* TODO: set imp */
+        type->imp = itype;
+        return;
+    }
+
+    if (ti_val_is_nil(query->rval))
+    {
+        /* TODO: unset imp */
+        type->imp = NULL;
+        return;
+    }
+
+    ex_set(e, EX_TYPE_ERROR,
+        "function `%s` expects argument 3 to be of "
+        "type `"TI_VAL_STR_S"` or type `"TI_VAL_NIL_S"` "
+        "but got type `%s` instead"DOC_MOD_TYPE_IMP,
+        fnname, ti_val_str(query->rval));
+}
+
+
 static void type__all(
         ti_query_t * query,
         ti_type_t * type,
@@ -1565,6 +1612,12 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_raw_eq_strn(rmod, "all", 3))
     {
         type__all(query, type, nd, e);
+        goto done;
+    }
+
+    if (ti_raw_eq_strn(rmod, "imp", 3))
+    {
+        type__imp(query, type, name, nd, e);
         goto done;
     }
 

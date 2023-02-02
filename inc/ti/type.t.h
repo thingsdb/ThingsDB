@@ -39,6 +39,7 @@ struct ti_type_s
     ti_raw_t * rwname;      /* wrapped name as raw type */
     ti_name_t * idname;     /* use this as the id field */
     ti_types_t * types;
+    ti_type_t * imp;        /* type used as interface implementation or NULL */
     vec_t * dependencies;   /* ti_type_t/ti_enum_t; contains type and enum
                                where this type is depended on. A type or enum
                                may be more than once inside this vector

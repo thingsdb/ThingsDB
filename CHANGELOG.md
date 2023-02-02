@@ -1,3 +1,8 @@
+# v1.4.7
+
+* Added timezone **Europe/Kyiv** for the correct spelling, _Fuck ruZZia_.
+* Fixed Docker builds to include timezone data.
+
 # v1.4.6
 
 * Implemented **optional chaining** _(double dot, `..`)_ syntax, issue #339.

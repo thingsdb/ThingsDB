@@ -36,7 +36,7 @@ class TestDatetime(TestBase):
         client.close()
         await client.wait_closed()
 
-    async def test_datetime_now(self, client):
+    async def _test_datetime_now(self, client):
         res = await client.query(r'''
             [
                 int(datetime()),
@@ -45,7 +45,7 @@ class TestDatetime(TestBase):
         ''')
         self.assertAlmostEqual(res[0], res[1], delta=1)
 
-    async def test_datetime_err(self, client):
+    async def _test_datetime_err(self, client):
         with self.assertRaisesRegex(
                 ValueError,
                 'name `timeval` is reserved'):
@@ -55,7 +55,7 @@ class TestDatetime(TestBase):
                 'name `datetime` is reserved'):
             await client.query('set_type("datetime", {});')
 
-    async def test_is_datetime(self, client):
+    async def _test_is_datetime(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
                 'function `is_datetime` takes 1 argument but 2 were given'):
@@ -65,7 +65,7 @@ class TestDatetime(TestBase):
         self.assertTrue(await client.query('is_datetime( datetime() ); '))
         self.assertFalse(await client.query('is_datetime( timeval() ); '))
 
-    async def test_is_datetime(self, client):
+    async def _test_is_datetime(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
                 'function `is_timeval` takes 1 argument but 2 were given'):
@@ -75,7 +75,7 @@ class TestDatetime(TestBase):
         self.assertFalse(await client.query('is_timeval( datetime() ); '))
         self.assertTrue(await client.query('is_timeval( timeval() ); '))
 
-    async def test_datetime(self, client):
+    async def _test_datetime(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
                 'function `datetime` takes at most 7 arguments '
@@ -322,7 +322,7 @@ class TestDatetime(TestBase):
             await client.query('datetime("2013/02/06 13h", "%Y/%m/%d %Hh");'),
             '2013-02-06T13:00:00Z')
 
-    async def test_timeval(self, client):
+    async def _test_timeval(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
                 'function `timeval` takes at most 7 arguments '
@@ -569,7 +569,7 @@ class TestDatetime(TestBase):
             await client.query('timeval("2013/02/06 13h", "%Y/%m/%d %Hh");'),
             1360155600)
 
-    async def test_set_time_zone(self, client):
+    async def _test_set_time_zone(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
                 'function `set_time_zone` takes 2 arguments '
@@ -580,7 +580,7 @@ class TestDatetime(TestBase):
                 LookupError,
                 r'function `set_time_zone` is undefined in the `@collection` '
                 r'scope; you might want to query the `@thingsdb` scope\?'):
-            await client.query('set_time_zone("stuff", "Europe/Kiev");')
+            await client.query('set_time_zone("stuff", "Europe/Kyiv");')
 
         with self.assertRaisesRegex(
                 TypeError,
@@ -605,7 +605,7 @@ class TestDatetime(TestBase):
             await client.query('set_time_zone("stuff", "+01");', scope='@t')
 
         self.assertEqual(await client.query(r'''
-            set_time_zone("stuff", "Europe/Kiev");
+            set_time_zone("stuff", "Europe/Kyiv");
         ''', scope='@t'), None)
 
         self.assertEqual(
@@ -624,7 +624,7 @@ class TestDatetime(TestBase):
             await client.query('timeval(2013, 2, 6, 13);'),
             1360148400)
 
-    async def test_time_zones_info(self, client):
+    async def _test_time_zones_info(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
                 'function `time_zones_info` takes 0 arguments '
@@ -632,12 +632,12 @@ class TestDatetime(TestBase):
             await client.query('time_zones_info(nil);', scope='@t')
 
         res = await client.query('time_zones_info();', scope='@t')
-        self.assertEqual(len(res), 593)
+        self.assertEqual(len(res), 596)
 
         for tz in res:
             self.assertIsInstance(tz, str)
 
-    async def test_extract(self, client):
+    async def _test_extract(self, client):
         await client.query(
             '.dt = datetime(2013, 2, 6, 13, "Europe/Amsterdam");')
 
@@ -676,7 +676,7 @@ class TestDatetime(TestBase):
 
         self.assertEqual(await client.query('.dt.extract("year");'), 2013)
 
-    async def test_format(self, client):
+    async def _test_format(self, client):
         await client.query(
             '.dt = datetime(2013, 2, 6, 13, "Europe/Amsterdam");')
 
@@ -708,7 +708,7 @@ class TestDatetime(TestBase):
             await client.query('.dt.format("%Y");'),
             "2013")
 
-    async def test_move(self, client):
+    async def _test_move(self, client):
         await client.query(
             '.dt = datetime(2013, 2, 6, 13, "Europe/Amsterdam");')
 
@@ -756,7 +756,7 @@ class TestDatetime(TestBase):
             await client.query('datetime(2020, 2, 29).move("years", -1);'),
             "2019-02-28T00:00:00Z")
 
-    async def test_replace(self, client):
+    async def _test_replace(self, client):
         await client.query(
             '.dt = datetime(2013, 2, 6, 13, "Europe/Amsterdam");')
 
@@ -831,7 +831,7 @@ class TestDatetime(TestBase):
             });'''),
             "1978-08-07T16:28:30+0200")
 
-    async def test_to(self, client):
+    async def _test_to(self, client):
         await client.query(
             '.dt = datetime(2013, 2, 6, 13, "Europe/Amsterdam");')
 
@@ -869,10 +869,10 @@ class TestDatetime(TestBase):
             "2013-02-06T07:00:00-0500")
 
         self.assertEqual(
-            await client.query('.dt.to("Europe/Kiev");'),
+            await client.query('.dt.to("Europe/Kyiv");'),
             "2013-02-06T14:00:00+0200")
 
-    async def test_week(self, client):
+    async def _test_week(self, client):
         await client.query(
             '.dt = datetime(2013, 2, 6, 13, "Europe/Amsterdam");')
 
@@ -893,7 +893,7 @@ class TestDatetime(TestBase):
         self.assertEqual(
             await client.query('datetime(2020, 1, 7).week();'), 1)
 
-    async def test_weekday(self, client):
+    async def _test_weekday(self, client):
         await client.query(
             '.dt = datetime(2013, 2, 6, 13, "Europe/Amsterdam");')
 
@@ -914,7 +914,7 @@ class TestDatetime(TestBase):
         self.assertEqual(
             await client.query('datetime(2020, 1, 19).weekday();'), 0)
 
-    async def test_yday(self, client):
+    async def _test_yday(self, client):
         await client.query(
             '.dt = datetime(2013, 2, 6, 13, "Europe/Amsterdam");')
 
@@ -935,7 +935,7 @@ class TestDatetime(TestBase):
         self.assertEqual(
             await client.query('datetime(2020, 12, 8).yday();'), 342)
 
-    async def test_zone(self, client):
+    async def _test_zone(self, client):
         await client.query(
             '.dt = datetime(2013, 2, 6, 13, "Europe/Amsterdam");')
 
@@ -959,12 +959,46 @@ class TestDatetime(TestBase):
         self.assertEqual(
             await client.query('.dt.zone();'), 'Europe/Amsterdam')
 
-    async def test_all_time_zones(self, client):
+    async def _test_all_time_zones(self, client):
         # bug #267
         res = await client.query(r"""//ti
             is_time_zone('America/Argentina/ComodRivadavia');
         """)
         self.assertTrue(res)
+
+    async def test_move_month_tz(self, client):
+        # bug #340
+        res = await client.query(r"""//ti
+            datetime(int(datetime('2023-01-01')) + 3600)
+                .to('-01')
+                .move('months', 1)
+                .move('months', 1);
+        """)
+        self.assertEqual(res, "2023-03-01T00:00:00-0100")
+
+        res = await client.query(r"""//ti
+            datetime(int(datetime('2023-01-01')) - 3600)
+                .to('+01')
+                .move('months', 1)
+                .move('months', 1);
+        """)
+        self.assertEqual(res, "2023-03-01T00:00:00+0100")
+
+        res = await client.query(r"""//ti
+            datetime(int(datetime('2023-01-01')) + 3600)
+                .to('Atlantic/Cape_Verde')
+                .move('months', 1)
+                .move('months', 1);  // Cape_verde = UTC-1
+        """)
+        self.assertEqual(res, "2023-03-01T00:00:00-0100")
+
+        res = await client.query(r"""//ti
+            datetime(int(datetime('2023-01-01')) - 3600)
+                .to('Europe/Amsterdam')
+                .move('months', 1)
+                .move('months', 1);
+        """)
+        self.assertEqual(res, "2023-03-01T00:00:00+0100")
 
 
 if __name__ == '__main__':

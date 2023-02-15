@@ -1,3 +1,7 @@
+# v1.4.8
+
+* Fixed bug with `move(..)` function with timezone information, issue #340.
+
 # v1.4.7
 
 * Added timezone **Europe/Kyiv** for the correct spelling, _Fuck ruZZia_.

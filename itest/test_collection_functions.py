@@ -1941,7 +1941,7 @@ class TestCollectionFunctions(TestBase):
                 'function `is_time_zone` takes 1 argument but 0 were given'):
             await client.query('is_time_zone();')
 
-        self.assertTrue(await client.query('is_time_zone("Europe/Kiev");'))
+        self.assertTrue(await client.query('is_time_zone("Europe/Kyiv");'))
         self.assertFalse(await client.query('is_time_zone("");'))
         self.assertFalse(await client.query('is_time_zone(nil);'))
 

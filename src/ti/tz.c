@@ -769,6 +769,7 @@ static ti_tz_t tz__list[TOTAL_KEYWORDS] = {
 
 static ti_tz_t * tz__mapping[MAX_HASH_VALUE+1];
 static char tz__env[MAX_WORD_LENGTH+5];
+static char * tz__write_chr = tz__env + 3;
 static char * tz__write_env = tz__env + 4;
 
 void ti_tz_init(void)
@@ -795,12 +796,22 @@ void ti_tz_init(void)
 
 void ti_tz_set_utc(void)
 {
+    *tz__write_chr = ':';
     memcpy(tz__write_env, "UTC", 4);
 }
 
 void ti_tz_set(ti_tz_t * tz)
 {
+    *tz__write_chr = ':';
     memcpy(tz__write_env, tz->name, tz->n+1);
+}
+
+void ti_tz_set_offset(int16_t offset)
+{
+    int hours = abs(offset / 60);
+    int minutes = abs(offset % 60);
+    char sign = offset < 0 ? '+' : '-';  /* offset works in reverse here */
+    sprintf(tz__write_chr, "UTC%c%02d:%02d", sign, hours, minutes);
 }
 
 ti_tz_t * ti_tz_utc(void)

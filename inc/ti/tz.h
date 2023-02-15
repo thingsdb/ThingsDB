@@ -20,6 +20,7 @@ struct ti_tz_s
 void ti_tz_init(void);
 void ti_tz_set_utc(void);
 void ti_tz_set(ti_tz_t * tz);
+void ti_tz_set_offset(int16_t offset);
 ti_tz_t * ti_tz_utc(void);
 ti_tz_t * ti_tz_from_index(size_t tz_index);
 ti_tz_t * ti_tz_from_strn(register const char * s, register size_t n);

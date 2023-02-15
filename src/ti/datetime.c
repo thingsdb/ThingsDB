@@ -110,20 +110,9 @@ int ti_datetime_time(ti_datetime_t * dt, struct tm * tm)
 
     if (dt->offset)
     {
-        long int offset = ((long int) dt->offset) * 60;
-        time_t ts = dt->ts;
-
-        if ((offset > 0 && ts > LLONG_MAX - offset) ||
-            (offset < 0 && ts < LLONG_MIN - offset))
-            return -1;
-
-        ts += offset;
-
-        if (gmtime_r(&ts, tm) != tm)
-            return -1;
-
-        tm->tm_gmtoff = offset;
-        return 0;
+        ti_tz_set_offset(dt->offset);
+        tzset();
+        return -(localtime_r(&dt->ts, tm) != tm);
     }
 
     return -(gmtime_r(&dt->ts, tm) != tm);

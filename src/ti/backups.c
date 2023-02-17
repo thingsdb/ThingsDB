@@ -672,6 +672,22 @@ stop:
     return varr;
 }
 
+_Bool ti_backups_ok(void)
+{
+    omap_iter_t iter;
+    _Bool backups_ok = true;
+
+    uv_mutex_lock(backups->lock);
+
+    iter = omap_iter(backups->omap);
+    for (omap_each(iter, ti_backup_t, backup))
+        if (backup->result_msg && backup->result_code != 0)
+            backups_ok = false;
+
+    uv_mutex_unlock(backups->lock);
+    return backups_ok;
+}
+
 void ti_backups_del_backup(uint64_t backup_id, _Bool delete_files, ex_t * e)
 {
     ti_backup_t * backup;

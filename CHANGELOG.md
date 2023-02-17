@@ -1,3 +1,7 @@
+# v1.4.9
+
+* Added `backups_ok()` function for the _node_ scope, issue #341.
+
 # v1.4.8
 
 * Fixed bug with `move(..)` function with timezone information, issue #340.

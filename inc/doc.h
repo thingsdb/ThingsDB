@@ -114,6 +114,7 @@
 /* Node API */
 #define DOC_BACKUP_INFO             DOC_SEE("node-api/backup_info")
 #define DOC_BACKUPS_INFO            DOC_SEE("node-api/backups_info")
+#define DOC_BACKUPS_OK              DOC_SEE("node-api/backups_ok")
 #define DOC_COUNTERS                DOC_SEE("node-api/counters")
 #define DOC_DEL_BACKUP              DOC_SEE("node-api/del_backup")
 #define DOC_HAS_BACKUP              DOC_SEE("node-api/has_backup")

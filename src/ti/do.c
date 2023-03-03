@@ -617,8 +617,7 @@ int ti_do_block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 static inline int do__index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     cleri_node_t * child = nd->children;
-
-    for (child = nd->children; child; child = child->next)
+    for (; child; child = child->next)
         if (ti_index(query, child, e))
             return e->nr;
     return 0;

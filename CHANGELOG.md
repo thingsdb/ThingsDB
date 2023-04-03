@@ -1,3 +1,7 @@
+# v1.4.10
+
+* Fixed daylight saving times bug in `move(..)` function, issue #342.
+
 # v1.4.9
 
 * Added `backups_ok()` function for the _node_ scope, issue #341.

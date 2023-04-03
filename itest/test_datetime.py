@@ -985,20 +985,62 @@ class TestDatetime(TestBase):
         self.assertEqual(res, "2023-03-01T00:00:00+0100")
 
         res = await client.query(r"""//ti
-            datetime(int(datetime('2023-01-01')) + 3600)
+            datetime(int(datetime('2022-12-01')) + 3600)
                 .to('Atlantic/Cape_Verde')
+                .move('months', 1)
+                .move('months', 1)
                 .move('months', 1)
                 .move('months', 1);  // Cape_verde = UTC-1
         """)
-        self.assertEqual(res, "2023-03-01T00:00:00-0100")
+        self.assertEqual(res, "2023-04-01T00:00:00-0100")
 
         res = await client.query(r"""//ti
-            datetime(int(datetime('2023-01-01')) - 3600)
+            datetime(int(datetime('2022-12-01')) - 3600)
                 .to('Europe/Amsterdam')
+                .move('months', 1)
+                .move('months', 1)
                 .move('months', 1)
                 .move('months', 1);
         """)
-        self.assertEqual(res, "2023-03-01T00:00:00+0100")
+        self.assertEqual(res, "2023-04-01T00:00:00+0200")
+
+        # bug #342
+        res = await client.query(r"""//ti
+            datetime(int(datetime('2023-04-01')) - 7200)
+                .to('Europe/Amsterdam')
+                .move('months', -4);
+        """)
+        self.assertEqual(res, "2022-12-01T00:00:00+0100")
+
+        res = await client.query(r"""//ti
+            datetime(int(datetime('2022-12-01')) + 3600)
+                .to('Atlantic/Cape_Verde')
+                .move('days', 121);  // Cape_verde = UTC-1
+        """)
+        self.assertEqual(res, "2023-04-01T00:00:00-0100")
+
+        res = await client.query(r"""//ti
+            datetime(int(datetime('2022-12-01')) - 3600)
+                .to('Europe/Amsterdam')
+                .move('days', 121);
+        """)
+        self.assertEqual(res, "2023-04-01T00:00:00+0200")
+
+        res = await client.query(r"""//ti
+            datetime(int(datetime('2022-12-01')) + 3600)
+                .to('Atlantic/Cape_Verde')
+                .move('weeks', 17)
+                .move('days', 2);  // Cape_verde = UTC-1
+        """)
+        self.assertEqual(res, "2023-04-01T00:00:00-0100")
+
+        res = await client.query(r"""//ti
+            datetime(int(datetime('2022-12-01')) - 3600)
+                .to('Europe/Amsterdam')
+                .move('weeks', 17)
+                .move('days', 2);
+        """)
+        self.assertEqual(res, "2023-04-01T00:00:00+0200")
 
 
 if __name__ == '__main__':

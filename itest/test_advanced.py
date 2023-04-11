@@ -2354,13 +2354,13 @@ new_procedure('multiply', |a, b| a * b);
 
     async def test_enum_membet_to_str(self, client):
         # bug #344
-        res = await client.query("""//ti
+        t, tid = await client.query("""//ti
             set_enum('E', {
-                x: 'Test'
+                x: {test: 123}
             });
-            str(E());  // fails
+            [str(E()), E().value().id()];  // fails
         """)
-        self.assertEqual(res, 'Test')
+        self.assertEqual(t, f'thing:{tid}')
 
 
 if __name__ == '__main__':

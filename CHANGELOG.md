@@ -1,6 +1,7 @@
 # v1.4.11
 
 * Fixed bug with computed methods, issue #343.
+* Fixed bug with enumerator member to string converion, issue #344.
 
 # v1.4.10
 

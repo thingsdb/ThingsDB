@@ -1830,7 +1830,7 @@ int ti_val_member_to_str(ti_val_t ** val, ex_t * e)
 {
     ti_val_t * v = VMEMBER(*val);
     ti_incref(v);
-    if (ti_val(*val)->to_str(&v, e))
+    if (ti_val(v)->to_str(&v, e))  /* bug #344 */
     {
         ti_decref(v);
         return e->nr;

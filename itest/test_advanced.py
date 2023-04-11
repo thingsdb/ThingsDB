@@ -2352,6 +2352,16 @@ new_procedure('multiply', |a, b| a * b);
             "b": "division or modulo by zero"
         })
 
+    async def test_enum_membet_to_str(self, client):
+        # bug #344
+        res = await client.query("""//ti
+            set_enum('E', {
+                x: 'Test'
+            });
+            str(E());  // fails
+        """)
+        self.assertEqual(res, 'Test')
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

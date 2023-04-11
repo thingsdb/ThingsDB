@@ -247,7 +247,6 @@ int ti__wrap_methods_to_pk(
         int flags)
 {
     int rc = 0;
-    ex_t e = {0};
     ti_val_t * rval = vp->query->rval;
     register const uint8_t deep_ = vp->query->qbind.deep;
     register const uint8_t flags_ = vp->query->flags;
@@ -257,6 +256,7 @@ int ti__wrap_methods_to_pk(
 
     for (vec_each(t_type->methods, ti_method_t, method))
     {
+        ex_t e = {0};  /* bug #343 */
         _Bool is_success = true;  /* bug #332 */
         vp->query->rval = NULL;
         vp->query->qbind.deep = vp->query->collection->deep;

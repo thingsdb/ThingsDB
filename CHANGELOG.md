@@ -1,3 +1,7 @@
+# v1.4.11
+
+* Fixed bug with computed methods, issue #343.
+
 # v1.4.10
 
 * Fixed daylight saving times bug in `move(..)` function, issue #342.

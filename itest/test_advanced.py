@@ -2338,6 +2338,20 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(res['definition'], '|a| {\n\tT{a: };\n\tT{a: a};\n}')
 
+    async def test_multiple_methods(self, client):
+        # bug #343
+        res = await client.query("""//ti
+            set_type('T', {
+                a: |this| {this; 1/0;},
+                b: |this| {this; 1/0;},
+            });
+            T{}.wrap();
+        """)
+        self.assertEqual(res, {
+            "a": "division or modulo by zero",
+            "b": "division or modulo by zero"
+        })
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

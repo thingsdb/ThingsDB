@@ -107,7 +107,6 @@ void ex_setv(ex_t * e, ex_enum errnr, const char * errmsg, va_list args);
 void ex_setn(ex_t * e, ex_enum errnr, const char * errmsg, size_t n);
 void ex_append(ex_t * e, const char * errmsg, ...);
 const char * ex_str(ex_enum errnr);
-_Bool ex_int64_is_errnr(int64_t i);
 
 struct ex_s
 {

@@ -19,7 +19,7 @@
 
 int ti_users_create(void)
 {
-    ti.users = vec_new(1);;
+    ti.users = vec_new(1);
     return ti.users ? 0 : -1;
 }
 

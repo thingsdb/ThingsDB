@@ -251,7 +251,7 @@ int ti_user_set_pass(ti_user_t * user, const char * pass)
     return 0;
 }
 
-size_t user__count_access(ti_user_t * user)
+static size_t user__count_access(ti_user_t * user)
 {
     size_t n = 0;
     for (vec_each(ti.access_node, ti_auth_t, auth))

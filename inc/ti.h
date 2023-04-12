@@ -102,9 +102,9 @@ struct ti_s
     ti_sync_t * sync;
     ti_thing_t * thing0;        /* thing with id 0 */
     ti_room_t * room0;          /* room with id 0 */
-    ti_users_t * users;
     ti_backups_t * backups;
     ti_tasks_t * tasks;
+    vec_t * users;              /* ti_user_t */
     vec_t * access_node;        /* ti_access_t */
     vec_t * access_thingsdb;    /* ti_access_t */
     smap_t * procedures;        /* ti_procedure_t */

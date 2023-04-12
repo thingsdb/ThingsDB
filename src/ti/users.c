@@ -17,31 +17,17 @@
 #include <util/util.h>
 #include <util/vec.h>
 
-static ti_users_t * users;
-static ti_users_t users_;
-
 int ti_users_create(void)
 {
-    users = &users_;
-
-    users->vec = vec_new(1);
-    if (!users->vec)
-        goto failed;
-
-    ti.users = users;
-    return 0;
-
-failed:
-    users = NULL;
-    return -1;
+    ti.users = vec_new(1);;
+    return ti.users ? 0 : -1;
 }
 
 void ti_users_destroy(void)
 {
-    if (!users)
+    if (!ti.users)
         return;
-    vec_destroy(users->vec, (vec_destroy_cb) ti_user_drop);
-    ti.users = users = NULL;
+    vec_destroy(ti.users, (vec_destroy_cb) ti_user_drop);
 }
 
 ti_user_t * ti_users_new_user(
@@ -64,7 +50,7 @@ ti_user_t * ti_users_new_user(
 
     if (!user ||
         ti_user_set_pass(user, passstr) ||
-        vec_push(&users->vec, user))
+        vec_push(&ti.users, user))
     {
         ti_user_drop(user);
         user = NULL;
@@ -100,7 +86,7 @@ ti_user_t * ti_users_load_user(
 
     user = ti_user_create(user_id, name, name_n, encrypted, created_at);
 
-    if (!user || vec_push(&users->vec, user))
+    if (!user || vec_push(&ti.users, user))
     {
         ti_user_drop(user);
         user = NULL;
@@ -116,7 +102,7 @@ done:
 int ti_users_clear(void)
 {
     /* we need a copy since `del_user` will change the vec */
-    vec_t * vec = vec_dup(users->vec);
+    vec_t * vec = vec_dup(ti.users);
     if (!vec)
         return -1;
 
@@ -144,11 +130,11 @@ void ti_users_del_user(ti_user_t * user)
     }
 
     /* remove user */
-    for (vec_each(users->vec, ti_user_t, usr), ++i)
+    for (vec_each(ti.users, ti_user_t, usr), ++i)
     {
         if (usr == user)
         {
-            ti_user_drop(vec_swap_remove(users->vec, i));
+            ti_user_drop(vec_swap_remove(ti.users, i));
             return;
         }
     }
@@ -172,7 +158,7 @@ ti_user_t * ti_users_auth(mp_obj_t * mp_name, mp_obj_t * mp_pass, ex_t * e)
     if (mp_pass->via.str.n < ti_min_pass || mp_pass->via.str.n >= ti_max_pass)
         goto failed;
 
-    for (vec_each(users->vec, ti_user_t, user))
+    for (vec_each(ti.users, ti_user_t, user))
     {
         if (ti_raw_eq_strn(
                 user->name,
@@ -208,7 +194,7 @@ ti_user_t * ti_users_auth_by_token(mp_obj_t * mp_token, ex_t * e)
     if (mp_token->tp != MP_STR || mp_token->via.str.n != key_sz)
         goto invalid;
 
-    for (vec_each(users->vec, ti_user_t, user))
+    for (vec_each(ti.users, ti_user_t, user))
     {
         for (vec_each(user->tokens, ti_token_t, token))
         {
@@ -275,7 +261,7 @@ done:
 /* Returns a borrowed reference */
 ti_user_t * ti_users_get_by_id(uint64_t id)
 {
-    for (vec_each(users->vec, ti_user_t, user))
+    for (vec_each(ti.users, ti_user_t, user))
         if (user->id == id)
             return user;
     return NULL;
@@ -284,7 +270,7 @@ ti_user_t * ti_users_get_by_id(uint64_t id)
 /* Returns a borrowed reference */
 ti_user_t * ti_users_get_by_namestrn(const char * name, size_t n)
 {
-    for (vec_each(users->vec, ti_user_t, user))
+    for (vec_each(ti.users, ti_user_t, user))
         if (ti_raw_eq_strn(user->name, name, n))
             return user;
     return NULL;
@@ -292,7 +278,7 @@ ti_user_t * ti_users_get_by_namestrn(const char * name, size_t n)
 
 ti_varr_t * ti_users_info(void)
 {
-    vec_t * vec = users->vec;
+    vec_t * vec = ti.users;
     ti_varr_t * varr = ti_varr_create(vec->n);
     if (!varr)
         return NULL;
@@ -312,13 +298,13 @@ ti_varr_t * ti_users_info(void)
 
 void ti_users_del_expired(uint64_t after_ts)
 {
-    for (vec_each(users->vec, ti_user_t, user))
+    for (vec_each(ti.users, ti_user_t, user))
         ti_user_del_expired(user, after_ts);
 }
 
 _Bool ti_users_has_token(ti_token_key_t * key)
 {
-    for (vec_each(users->vec, ti_user_t, user))
+    for (vec_each(ti.users, ti_user_t, user))
         for (vec_each(user->tokens, ti_token_t, token))
             if (memcmp(token->key, key, sizeof(ti_token_key_t)) == 0)
                 return true;
@@ -328,7 +314,7 @@ _Bool ti_users_has_token(ti_token_key_t * key)
 ti_token_t * ti_users_pop_token_by_key(ti_token_key_t * key)
 {
     ti_token_t * token;
-    for (vec_each(users->vec, ti_user_t, user))
+    for (vec_each(ti.users, ti_user_t, user))
         if ((token = ti_user_pop_token_by_key(user, key)))
             return token;
     return NULL;

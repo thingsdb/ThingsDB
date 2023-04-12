@@ -4,8 +4,6 @@
 #ifndef TI_USERS_H_
 #define TI_USERS_H_
 
-typedef struct ti_users_s ti_users_t;
-
 #include <ex.h>
 #include <stdint.h>
 #include <ti/raw.h>
@@ -40,10 +38,5 @@ ti_varr_t * ti_users_info(void);
 void ti_users_del_expired(uint64_t after_ts);
 _Bool ti_users_has_token(ti_token_key_t * key);
 ti_token_t * ti_users_pop_token_by_key(ti_token_key_t * key);
-
-struct ti_users_s
-{
-    vec_t * vec;        /* ti_user_t with reference */
-};
 
 #endif /* TI_USERS_H_ */

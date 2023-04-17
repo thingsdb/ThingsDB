@@ -739,6 +739,16 @@ static inline _Bool ti_val_is_mut_locked(ti_val_t * val)
 /*
  * Names
  */
+static inline ti_val_t * ti_val_data_name(void)
+{
+    return ti_incref(val__data_name), val__data_name;
+}
+
+static inline ti_val_t * ti_val_time_name(void)
+{
+    return ti_incref(val__time_name), val__time_name;
+}
+
 static inline ti_val_t * ti_val_year_name(void)
 {
     return ti_incref(val__year_name), val__year_name;

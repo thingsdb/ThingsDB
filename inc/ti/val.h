@@ -12,6 +12,8 @@
 #include <util/vec.h>
 
 /* name */
+extern ti_val_t * val__data_name;
+extern ti_val_t * val__time_name;
 extern ti_val_t * val__year_name;
 extern ti_val_t * val__month_name;
 extern ti_val_t * val__day_name;

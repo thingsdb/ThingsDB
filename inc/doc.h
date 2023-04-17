@@ -102,6 +102,7 @@
 #define DOC_TASKS                   DOC_SEE("collection-api/tasks")
 #define DOC_THING                   DOC_SEE("collection-api/thing")
 #define DOC_TIME_ZONES_INFO         DOC_SEE("collection-api/time_zones_info")
+#define DOC_TIMEIT                  DOC_SEE("collection-api/timeit")
 #define DOC_TIMEVAL                 DOC_SEE("collection-api/timeval")
 #define DOC_TRY                     DOC_SEE("collection-api/try")
 #define DOC_TYPE                    DOC_SEE("collection-api/type")

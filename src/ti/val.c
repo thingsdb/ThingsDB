@@ -72,6 +72,8 @@ static ti_val_t * val__gs_str;
 static ti_val_t * val__charset_str;
 
 /* name */
+ti_val_t * val__data_name;
+ti_val_t * val__time_name;
 ti_val_t * val__year_name;
 ti_val_t * val__month_name;
 ti_val_t * val__day_name;
@@ -730,6 +732,8 @@ int ti_val_init_common(void)
             "-_");
 
     /* names */
+    val__data_name = (ti_val_t *) ti_names_from_str("data");
+    val__time_name = (ti_val_t *) ti_names_from_str("time");
     val__year_name = (ti_val_t *) ti_names_from_str("year");
     val__month_name = (ti_val_t *) ti_names_from_str("month");
     val__day_name = (ti_val_t *) ti_names_from_str("day");
@@ -760,7 +764,8 @@ int ti_val_init_common(void)
         !val__second_name || !val__gmt_offset_name || !val__sfuture ||
         !val__module_name || !val__deep_name || !val__load_name ||
         !val__beautify_name || !val__parent_name || !val__parent_type_name ||
-        !val__key_name || !val__key_type_name || !val__flags_name)
+        !val__key_name || !val__key_type_name || !val__flags_name ||
+        !val__data_name || !val__time_name)
     {
         return -1;
     }

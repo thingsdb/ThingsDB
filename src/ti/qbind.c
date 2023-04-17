@@ -214,6 +214,7 @@
 #include <ti/fn/fntest.h>
 #include <ti/fn/fnthen.h>
 #include <ti/fn/fnthing.h>
+#include <ti/fn/fntimeit.h>
 #include <ti/fn/fntimezonesinfo.h>
 #include <ti/fn/fnto.h>
 #include <ti/fn/fntothing.h>
@@ -272,7 +273,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 247,
+    TOTAL_KEYWORDS = 248,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 22,
@@ -666,12 +667,13 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="starts_with",       .fn=do__f_starts_with,          CHAIN_NE},
     {.name="str",               .fn=do__f_str,                  ROOT_NE},
     {.name="syntax_err",        .fn=do__f_syntax_err,           ROOT_NE},
-    {.name="test",              .fn=do__f_test,                 CHAIN_NE},
     {.name="task",              .fn=do__f_task,                 ROOT_BE},
     {.name="tasks",             .fn=do__f_tasks,                ROOT_NE},
+    {.name="test",              .fn=do__f_test,                 CHAIN_NE},
     {.name="then",              .fn=do__f_then,                 CHAIN_FUT},
     {.name="thing",             .fn=do__f_thing,                ROOT_NE},
     {.name="time_zones_info",   .fn=do__f_time_zones_info,      ROOT_NE},
+    {.name="timeit",            .fn=do__f_timeit,               ROOT_NE},
     {.name="timeval",           .fn=do__f_timeval,              ROOT_NE},
     {.name="to_thing",          .fn=do__f_to_thing,             CHAIN_CE_X},
     {.name="to_type",           .fn=do__f_to_type,              CHAIN_CE_X},

@@ -27,7 +27,6 @@ C_SRCS += \
 ../src/ti/counters.c \
 ../src/ti/cpkg.c \
 ../src/ti/ctask.c \
-../src/ti/data.c \
 ../src/ti/datetime.c \
 ../src/ti/deep.c \
 ../src/ti/do.c \
@@ -138,7 +137,6 @@ OBJS += \
 ./src/ti/counters.o \
 ./src/ti/cpkg.o \
 ./src/ti/ctask.o \
-./src/ti/data.o \
 ./src/ti/datetime.o \
 ./src/ti/deep.o \
 ./src/ti/do.o \
@@ -249,7 +247,6 @@ C_DEPS += \
 ./src/ti/counters.d \
 ./src/ti/cpkg.d \
 ./src/ti/ctask.d \
-./src/ti/data.d \
 ./src/ti/datetime.d \
 ./src/ti/deep.d \
 ./src/ti/do.d \

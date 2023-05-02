@@ -1935,6 +1935,54 @@ class TestCollectionFunctions(TestBase):
                 'is_ascii(blob);',
                 blob=pickle.dumps('binary')))
 
+    async def test_is_email(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `is_email` takes 1 argument but 0 were given'):
+            await client.query('is_email();')
+
+        self.assertTrue(await client.query('is_email( "a@a.com" ); '))
+        self.assertTrue(await client.query(
+            'is_email( "info@transceptor.technology" ); '))
+
+        self.assertFalse(await client.query('is_email( "@" ); '))
+        self.assertFalse(await client.query('is_email( "info@" ); '))
+        self.assertFalse(await client.query('is_email( "info@test@com" ); '))
+
+    async def test_is_url(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `is_url` takes 1 argument but 0 were given'):
+            await client.query('is_url();')
+
+        self.assertTrue(await client.query(
+            'is_url( "http://thingsdb.io" ); '))
+        self.assertTrue(await client.query(
+            'is_url( "ftp://thingsdb.io" ); '))
+        self.assertTrue(await client.query(
+            'is_url( "https://thingsdb.io" ); '))
+        self.assertTrue(await client.query(
+            'is_url( "http://127.0.0.1:8000/t/a/?a=1&b=2#c=3" ); '))
+
+        self.assertFalse(await client.query(
+            'is_url( "www.thingsdb.io" ); '))
+
+    async def test_is_tel(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `is_tel` takes 1 argument but 0 were given'):
+            await client.query('is_tel();')
+
+        self.assertTrue(await client.query(
+            'is_tel( "+31 6 1279 8880" ); '))
+        self.assertTrue(await client.query(
+            'is_tel( "(0011) 038 44-123-4567" ); '))
+        self.assertTrue(await client.query(
+            'is_tel( "112" ); '))
+
+        self.assertFalse(await client.query(
+            'is_tel( "01" ); '))
+
     async def test_is_time_zone(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,

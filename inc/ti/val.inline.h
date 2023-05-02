@@ -859,6 +859,21 @@ static inline ti_val_t * ti_val_borrow_key_type_name(void)
     return val__key_type_name;
 }
 
+static inline ti_val_t * ti_val_borrow_re_email(void)
+{
+    return val__re_email;
+}
+
+static inline ti_val_t * ti_val_borrow_re_url(void)
+{
+    return val__re_url;
+}
+
+static inline ti_val_t * ti_val_borrow_re_tel(void)
+{
+    return val__re_tel;
+}
+
 static inline ti_val_t * ti_val_any_str(void)
 {
     return ti_incref(val__sany), val__sany;

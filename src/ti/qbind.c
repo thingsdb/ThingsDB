@@ -98,6 +98,7 @@
 #include <ti/fn/fnisbytes.h>
 #include <ti/fn/fnisclosure.h>
 #include <ti/fn/fnisdatetime.h>
+#include <ti/fn/fnisemail.h>
 #include <ti/fn/fnisenum.h>
 #include <ti/fn/fniserr.h>
 #include <ti/fn/fnisfloat.h>
@@ -114,11 +115,13 @@
 #include <ti/fn/fnisset.h>
 #include <ti/fn/fnisstr.h>
 #include <ti/fn/fnistask.h>
+#include <ti/fn/fnistel.h>
 #include <ti/fn/fnisthing.h>
 #include <ti/fn/fnistimeval.h>
 #include <ti/fn/fnistimezone.h>
 #include <ti/fn/fnistuple.h>
 #include <ti/fn/fnisunique.h>
+#include <ti/fn/fnisurl.h>
 #include <ti/fn/fnisutf8.h>
 #include <ti/fn/fnjoin.h>
 #include <ti/fn/fnjsondump.h>
@@ -273,11 +276,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 248,
+    TOTAL_KEYWORDS = 251,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 22,
-    MAX_HASH_VALUE = 607
+    MIN_HASH_VALUE = 23,
+    MAX_HASH_VALUE = 651
 };
 
 /*
@@ -289,32 +292,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        608, 608, 608, 608, 608, 608, 608, 608, 608, 608,
-        608, 608, 608, 608, 608, 608, 608, 608, 608, 608,
-        608, 608, 608, 608, 608, 608, 608, 608, 608, 608,
-        608, 608, 608, 608, 608, 608, 608, 608, 608, 608,
-        608, 608, 608, 608, 608, 608, 608, 608, 608, 608,
-        608, 608,   9, 608,   9, 608,   8, 608, 608, 608,
-        608, 608, 608, 608, 608, 608, 608, 608, 608, 608,
-        608, 608, 608, 608, 608, 608, 608, 608, 608, 608,
-        608, 608, 608, 608, 608, 608, 608, 608, 608, 608,
-        608, 608, 608, 608, 608,   8, 608,   9, 110,  76,
-         18,   8, 115, 240, 139,   8,  21, 121,  12,  20,
-         13,  36,  55,  78,   9,   8,  11,  36, 215,  66,
-        115, 190,  12, 608, 608, 608, 608, 608, 608, 608,
-        608, 608, 608, 608, 608, 608, 608, 608, 608, 608,
-        608, 608, 608, 608, 608, 608, 608, 608, 608, 608,
-        608, 608, 608, 608, 608, 608, 608, 608, 608, 608,
-        608, 608, 608, 608, 608, 608, 608, 608, 608, 608,
-        608, 608, 608, 608, 608, 608, 608, 608, 608, 608,
-        608, 608, 608, 608, 608, 608, 608, 608, 608, 608,
-        608, 608, 608, 608, 608, 608, 608, 608, 608, 608,
-        608, 608, 608, 608, 608, 608, 608, 608, 608, 608,
-        608, 608, 608, 608, 608, 608, 608, 608, 608, 608,
-        608, 608, 608, 608, 608, 608, 608, 608, 608, 608,
-        608, 608, 608, 608, 608, 608, 608, 608, 608, 608,
-        608, 608, 608, 608, 608, 608, 608, 608, 608, 608,
-        608, 608, 608, 608, 608, 608
+        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
+        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
+        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
+        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
+        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
+        652, 652,  12, 652,  12, 652,  11, 652, 652, 652,
+        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
+        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
+        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
+        652, 652, 652, 652, 652,  10, 652,  11,  21,  47,
+         35,  11,  70, 236, 179,  10,  11, 174,  15,  21,
+         13,  50,  96,  22,  12,  10,  10,  30, 223, 163,
+        126, 182,  40, 652, 652, 652, 652, 652, 652, 652,
+        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
+        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
+        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
+        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
+        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
+        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
+        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
+        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
+        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
+        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
+        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
+        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
+        652, 652, 652, 652, 652, 652
     };
 
     register unsigned int hval = n;
@@ -549,6 +552,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="is_bytes",          .fn=do__f_is_bytes,             ROOT_NE},
     {.name="is_closure",        .fn=do__f_is_closure,           ROOT_NE},
     {.name="is_datetime",       .fn=do__f_is_datetime,          ROOT_NE},
+    {.name="is_email",          .fn=do__f_is_email,             ROOT_NE},
     {.name="is_enum",           .fn=do__f_is_enum,              ROOT_NE},
     {.name="is_err",            .fn=do__f_is_err,               ROOT_NE},
     {.name="is_float",          .fn=do__f_is_float,             ROOT_NE},
@@ -570,7 +574,9 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="is_timeval",        .fn=do__f_is_timeval,           ROOT_NE},
     {.name="is_tuple",          .fn=do__f_is_tuple,             ROOT_NE},
     {.name="is_unique",         .fn=do__f_is_unique,            CHAIN_NE},
+    {.name="is_url",            .fn=do__f_is_url,               ROOT_NE},
     {.name="is_utf8",           .fn=do__f_is_utf8,              ROOT_NE},
+    {.name="is_tel",            .fn=do__f_is_tel,               ROOT_NE},
     {.name="join",              .fn=do__f_join,                 CHAIN_NE},
     {.name="json_dump",         .fn=do__f_json_dump,            ROOT_NE},
     {.name="json_load",         .fn=do__f_json_load,            ROOT_NE},

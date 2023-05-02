@@ -37,6 +37,11 @@ extern ti_val_t * val__snil;
 extern ti_val_t * val__strue;
 extern ti_val_t * val__sfalse;
 
+/* regular expression */
+extern ti_val_t * val__re_email;
+extern ti_val_t * val__re_url;
+extern ti_val_t * val__re_tel;
+
 int ti_val_init_common(void);
 void ti_val_drop_common(void);
 int ti_val_make_int(ti_val_t ** val, int64_t i);

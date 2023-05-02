@@ -1,3 +1,12 @@
+# v1.4.12
+
+* Added `timeit(..)` function, issue #345.
+* Added type definitions: `email`, `url` and `tel`, issue #346.
+* Added corresponding functions:
+  - `is_email(..)`: Determine if a given value is an email address.
+  - `is_url(..)`: Determine if a given value is a URL.
+  - `is_tel(..)`: Determine if a given value is a telephone number.
+
 # v1.4.11
 
 * Fixed bug with computed methods, issue #343.

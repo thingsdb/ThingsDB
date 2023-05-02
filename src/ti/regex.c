@@ -10,21 +10,6 @@
 #include <ti/val.inline.h>
 #include <util/logger.h>
 
-/* Build-in regular expressions:
- *
- * Email regular expression from HTML5:
- * /^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/
- * Default: name@domain.local
- *
- * URL validation:
- * /^(https?|ftp):\/\/[-a-zA-Z0-9@:%._\+~#=]{1,256}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)$/
- * Default: http://domain.local
- *
- * Telephone number:
- * ^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?([0-9]{1,2}[-\s]?)([0-9]{3,6}[-\s]?){2,3}$
- * Default: 0123456789
- */
-
 static ti_regex_t * regex_create(ti_raw_t * re, ex_t * e)
 {
     ti_regex_t * regex;

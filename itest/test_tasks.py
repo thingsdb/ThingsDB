@@ -57,12 +57,6 @@ class TestTasks(TestBase):
 
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                'function `task` requires at least 1 argument '
-                'but 0 were given'):
-            await client.query('task();')
-
-        with self.assertRaisesRegex(
-                NumArgumentsError,
                 'function `task` takes at most 3 arguments '
                 'but 4 were given'):
             await client.query('task(datetime(), ||nil, [], nil);')

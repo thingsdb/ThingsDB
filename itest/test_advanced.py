@@ -2362,6 +2362,56 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(t, f'thing:{tid}')
 
+    async def test_array(self, client):
+        res = await client.query("""//ti
+            set_type('A', {
+                j: '[task]',
+                e: '[email]',
+                u: '[url]',
+                t: '[tel]'
+            });
+            a = A{};
+            a.j.push(task());
+            a.e.push('info@thingsdb.io');
+            a.u.push('https://thingsdb.io');
+            a.t.push('112');
+            a;
+        """)
+        self.assertEqual(res, {
+            "j": ['task:nil'],
+            "e": ['info@thingsdb.io'],
+            "u": ['https://thingsdb.io'],
+            "t": ['112']
+        })
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'type `int` is not allowed in restricted array'):
+            await client.query(r"""//ti
+                A{}.e.push(123);
+            """)
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'array is restricted to email addresses'):
+            await client.query(r"""//ti
+                A{}.e.push('test');
+            """)
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r"array is restricted to URL's"):
+            await client.query(r"""//ti
+                A{}.u.push('test');
+            """)
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'array is restricted to telephone numbers'):
+            await client.query(r"""//ti
+                A{}.t.push('test');
+            """)
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

@@ -8,8 +8,16 @@ static int do__f_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_vtask_t * vtask;
 
     if (fn_not_thingsdb_or_collection_scope("task", query, e) ||
-        fn_nargs_range("task", DOC_TASK, 1, 3, nargs, e) ||
-        ti_do_statement(query, (child = nd->children), e))
+        fn_nargs_max("task", DOC_TASK, 3, nargs, e))
+        return e->nr;
+
+    if (nargs == 0)
+    {
+        query->rval = (ti_val_t *) ti_vtask_nil();
+        return e->nr;
+    }
+
+    if (ti_do_statement(query, (child = nd->children), e))
         return e->nr;
 
     if (nargs == 1)

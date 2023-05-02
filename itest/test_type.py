@@ -1187,6 +1187,9 @@ class TestType(TestBase):
             set_type('_r_set', {test: '{_Str}'});
             set_type('_o_str', {test: 'str?'});
             set_type('_o_array', {test: '[str?]'});
+            set_type('_Email', {test: 'email'});
+            set_type('_Url', {test: 'url'});
+            set_type('_Tel', {test: 'tel'});
             set_type('_Any', {test: 'any'});
         ''')
 
@@ -2132,6 +2135,153 @@ class TestType(TestBase):
             [['a', '^-&AA?']],
             [['a0', 'AA'], ['a1', 'AA?'], ['a2', '^AA'], ['a3', '&+^[AA?]?']]
         ])
+
+    async def test_email(self, client):
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `def` on type `E`; '
+                r'expecting a `<` character after `email`'):
+            await client.query(r"""//ti
+                set_type('E', {def: 'email>'})
+            """)
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `def` on type `E`; '
+                r'the default value must be an email address;'):
+            await client.query(r"""//ti
+                set_type('E', {def: 'email<>'})
+            """)
+
+        res = await client.query(r"""//ti
+            set_type('E', {
+                email: 'email',
+                def: 'email<info@thingsdb.io>'
+            });
+            E{};
+        """)
+        self.assertEqual(res, {"email": '', "def": "info@thingsdb.io"})
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `E`; '
+                r'property `def` only accepts an email address'):
+            await client.query(r"""//ti
+                E{def: ''};
+            """)
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `E`; '
+                r'property `def` only accepts an email address'):
+            await client.query(r"""//ti
+                E{}.def = 'abc';
+            """)
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'property `email` only accepts an email address'):
+            await client.query(r"""//ti
+                E{}.email = 'abc';
+            """)
+
+    async def test_url(self, client):
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `def` on type `E`; '
+                r'expecting a `<` character after `url`'):
+            await client.query(r"""//ti
+                set_type('E', {def: 'url>'})
+            """)
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `def` on type `E`; '
+                r'the default value must be a URL;'):
+            await client.query(r"""//ti
+                set_type('E', {def: 'url<>'})
+            """)
+
+        res = await client.query(r"""//ti
+            set_type('E', {
+                url: 'url',
+                def: 'url<https://thingsdb.io>'
+            });
+            E{};
+        """)
+        self.assertEqual(res, {"url": '', "def": "https://thingsdb.io"})
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `E`; '
+                r'property `def` only accepts a URL'):
+            await client.query(r"""//ti
+                E{def: ''};
+            """)
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `E`; '
+                r'property `def` only accepts a URL'):
+            await client.query(r"""//ti
+                E{}.def = 'abc';
+            """)
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'property `url` only accepts a URL'):
+            await client.query(r"""//ti
+                E{}.url = 'abc';
+            """)
+
+    async def test_tel(self, client):
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `def` on type `E`; '
+                r'expecting a `<` character after `tel`'):
+            await client.query(r"""//ti
+                set_type('E', {def: 'tel>'})
+            """)
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `def` on type `E`; '
+                r'the default value must be a telephone number;'):
+            await client.query(r"""//ti
+                set_type('E', {def: 'tel<>'})
+            """)
+
+        res = await client.query(r"""//ti
+            set_type('E', {
+                tel: 'tel',
+                def: 'tel<123>'
+            });
+            E{};
+        """)
+        self.assertEqual(res, {"tel": '', "def": "123"})
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `E`; '
+                r'property `def` only accepts a telephone number'):
+            await client.query(r"""//ti
+                E{def: ''};
+            """)
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `E`; '
+                r'property `def` only accepts a telephone number'):
+            await client.query(r"""//ti
+                E{}.def = 'abc';
+            """)
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'property `tel` only accepts a telephone number'):
+            await client.query(r"""//ti
+                E{}.tel = 'abc';
+            """)
 
 
 if __name__ == '__main__':

@@ -36,6 +36,9 @@ typedef enum
     TI_SPEC_ERROR,          /* `error`              */
     TI_SPEC_ROOM,           /* `room`               */
     TI_SPEC_TASK,           /* `task`               */
+    TI_SPEC_EMAIL,          /* `email               */
+    TI_SPEC_URL,            /* `url `               */
+    TI_SPEC_TEL,            /* `tel `               */
 
     TI_SPEC_REMATCH=0x5000, /* `/.../`              */
     TI_SPEC_INT_RANGE,      /* `int<:>              */
@@ -51,6 +54,9 @@ typedef enum
     TI_SPEC_RVAL_UINT_ERROR,
     TI_SPEC_RVAL_PINT_ERROR,
     TI_SPEC_RVAL_NINT_ERROR,
+    TI_SPEC_RVAL_EMAIL_ERROR,
+    TI_SPEC_RVAL_URL_ERROR,
+    TI_SPEC_RVAL_TEL_ERROR,
 } ti_spec_rval_enum;
 
 typedef enum

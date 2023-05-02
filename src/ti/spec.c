@@ -390,6 +390,24 @@ ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t * val)
         return ti_val_is_room(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_TASK:
         return ti_val_is_task(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
+    case TI_SPEC_EMAIL:
+        return !ti_val_is_str(val)
+            ? TI_SPEC_RVAL_TYPE_ERROR
+            : ti_regex_test_or_empty(
+                (ti_regex_t *) ti_val_borrow_re_email(),
+                (ti_raw_t *) val) ? 0 : TI_SPEC_RVAL_EMAIL_ERROR;
+    case TI_SPEC_URL:
+        return !ti_val_is_str(val)
+            ? TI_SPEC_RVAL_TYPE_ERROR
+            : ti_regex_test_or_empty(
+                (ti_regex_t *) ti_val_borrow_re_url(),
+                (ti_raw_t *) val) ? 0 : TI_SPEC_RVAL_URL_ERROR;
+    case TI_SPEC_TEL:
+        return !ti_val_is_str(val)
+            ? TI_SPEC_RVAL_TYPE_ERROR
+            : ti_regex_test_or_empty(
+                (ti_regex_t *) ti_val_borrow_re_tel(),
+                (ti_raw_t *) val) ? 0 : TI_SPEC_RVAL_TEL_ERROR;
     case TI_SPEC_REMATCH:
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
@@ -471,6 +489,18 @@ _Bool ti__spec_maps_to_nested_val(uint16_t spec, ti_val_t * val)
         return ti_val_is_room(val);
     case TI_SPEC_TASK:
         return ti_val_is_task(val);
+    case TI_SPEC_EMAIL:
+        return ti_val_is_str(val) && ti_regex_test_or_empty(
+                (ti_regex_t *) ti_val_borrow_re_email(),
+                (ti_raw_t *) val);
+    case TI_SPEC_URL:
+        return ti_val_is_str(val) && ti_regex_test_or_empty(
+                (ti_regex_t *) ti_val_borrow_re_url(),
+                (ti_raw_t *) val);
+    case TI_SPEC_TEL:
+        return ti_val_is_str(val) && ti_regex_test_or_empty(
+                (ti_regex_t *) ti_val_borrow_re_tel(),
+                (ti_raw_t *) val);
     case TI_SPEC_REMATCH:
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
@@ -516,6 +546,9 @@ const char * ti_spec_approx_type_str(uint16_t spec)
     case TI_SPEC_ERROR:         return "error";
     case TI_SPEC_ROOM:          return "room";
     case TI_SPEC_TASK:          return "task";
+    case TI_SPEC_EMAIL:         return "email";
+    case TI_SPEC_URL:           return "url";
+    case TI_SPEC_TEL:           return "tel";
     }
     return spec < TI_SPEC_ANY ? "thing" : "enum";
 }
@@ -549,6 +582,9 @@ ti_spec_mod_enum ti_spec_check_mod(
             ospec == TI_SPEC_STR ||
             ospec == TI_SPEC_UTF8 ||
             ospec == TI_SPEC_BYTES ||
+            ospec == TI_SPEC_EMAIL ||
+            ospec == TI_SPEC_URL ||
+            ospec == TI_SPEC_TEL ||
             ospec == TI_SPEC_REMATCH ||
             ospec == TI_SPEC_STR_RANGE
         ) ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
@@ -556,6 +592,9 @@ ti_spec_mod_enum ti_spec_check_mod(
         return (
             ospec == TI_SPEC_STR ||
             ospec == TI_SPEC_UTF8 ||
+            ospec == TI_SPEC_EMAIL ||
+            ospec == TI_SPEC_URL ||
+            ospec == TI_SPEC_TEL ||
             ospec == TI_SPEC_REMATCH ||
             ospec == TI_SPEC_STR_RANGE
         ) ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
@@ -614,6 +653,9 @@ ti_spec_mod_enum ti_spec_check_mod(
     case TI_SPEC_ERROR:
     case TI_SPEC_ROOM:
     case TI_SPEC_TASK:
+    case TI_SPEC_EMAIL:
+    case TI_SPEC_URL:
+    case TI_SPEC_TEL:
         return ospec == nspec ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
     case TI_SPEC_REMATCH:
         return TI_SPEC_MOD_ERR;

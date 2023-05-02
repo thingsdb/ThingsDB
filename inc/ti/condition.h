@@ -10,7 +10,7 @@
 #include <ti/condition.t.h>
 #include <ti/field.t.h>
 
-int ti_condition_field_range_init(
+int ti_condition_field_info_init(
         ti_field_t * field,
         const char * str,
         size_t n,

@@ -432,8 +432,8 @@ class TestAdvanced(TestBase):
         with self.assertRaisesRegex(
                 ValueError,
                 r'invalid declaration for `a` on type `Foo`; '
-                r'range <..> conditions expect a minimum and maximum value '
-                r'and may only be applied to `int`, `float` or `str`'):
+                r'additional info <..> can be applied to '
+                r'`int`, `float`, `str`, `email`, `url` and `tel`;'):
             await client.query(r'''
                 set_type('Foo', {a: 'uint<0:10>'});
             ''')

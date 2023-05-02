@@ -28,6 +28,7 @@ typedef struct ti_regex_s ti_regex_t;
         PCRE2_PRERELEASE
 
 ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e);
+ti_regex_t * ti_regex_from_str(const char * str);
 ti_regex_t * ti_regex_create(ti_raw_t * pattern, ti_raw_t * flags, ex_t * e);
 void ti_regex_destroy(ti_regex_t * regex);
 
@@ -56,6 +57,18 @@ static inline int ti_regex_to_store_pk(ti_regex_t * re, msgpack_packer * pk)
 static inline _Bool ti_regex_test(ti_regex_t * regex, ti_raw_t * raw)
 {
     return pcre2_match(
+            regex->code,
+            (PCRE2_SPTR8) raw->data,
+            raw->n,
+            0,                     /* start looking at this point */
+            0,                     /* OPTIONS */
+            regex->match_data,
+            NULL) >= 0;
+}
+
+static inline _Bool ti_regex_test_or_empty(ti_regex_t * regex, ti_raw_t * raw)
+{
+    return raw->n == 0 || pcre2_match(
             regex->code,
             (PCRE2_SPTR8) raw->data,
             raw->n,

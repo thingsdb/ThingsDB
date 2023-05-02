@@ -22,13 +22,14 @@ static ti_val_t * condition__dval_cb(ti_field_t * field)
 }
 
 
-int ti_condition_field_range_init(
+int ti_condition_field_info_init(
         ti_field_t * field,
         const char * str,
         size_t n,
         ex_t * e)
 {
     ti_val_t * dval = NULL;
+    ti_regex_t * regex = NULL;
     ti_spec_enum_t spec;
     const char * end = str + n - 1;
     char * tmp;
@@ -68,6 +69,36 @@ int ti_condition_field_range_init(
             break;
         }
         goto invalid;
+    case 'e':
+        ++str;
+        if (n > 5 && memcmp(str, "mail", 4) == 0)
+        {
+            spec = TI_SPEC_REMATCH;
+            regex = (ti_regex_t *) ti_val_borrow_re_email();
+            str += 4;
+            break;
+        }
+        goto invalid;
+    case 'u':
+        ++str;
+        if (n > 3 && memcmp(str, "rl", 2) == 0)
+        {
+            spec = TI_SPEC_REMATCH;
+            regex = (ti_regex_t *) ti_val_borrow_re_url();
+            str += 2;
+            break;
+        }
+        goto invalid;
+    case 't':
+        ++str;
+        if (n > 3 && memcmp(str, "el", 2) == 0)
+        {
+            spec = TI_SPEC_REMATCH;
+            regex = (ti_regex_t *) ti_val_borrow_re_tel();
+            str += 2;
+            break;
+        }
+        goto invalid;
     default:
         goto invalid;
     }
@@ -87,6 +118,45 @@ int ti_condition_field_range_init(
 
     switch(spec)
     {
+    case TI_SPEC_REMATCH:
+    {
+        dval = (ti_val_t *) ti_str_create(str, end-str);
+        if (!dval)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+
+        if (!ti_regex_test(regex, (ti_raw_t *) dval))
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "invalid declaration for `%s` on type `%s`; "
+                    "the default value must be %s"
+                    DOC_T_TYPE,
+                    field->name->str, field->type->name,
+                    regex == (ti_regex_t *) ti_val_borrow_re_email()
+                    ? "an email address"
+                    : regex == (ti_regex_t *) ti_val_borrow_re_url()
+                    ? "a URL"
+                    : "a telephone number");
+            goto failed;
+        }
+
+        field->condition.re = malloc(sizeof(ti_condition_re_t));
+        if (!field->condition.re)
+        {
+            ex_set_mem(e);
+            goto failed;
+        }
+
+        ti_incref(regex);
+
+        field->condition.re->dval = dval;
+        field->condition.re->regex = regex;
+        field->spec |= spec;
+
+        return 0;
+    }
     case TI_SPEC_STR_RANGE:
     {
         int64_t ma, mi = strx_to_int64(str, &tmp);
@@ -340,8 +410,8 @@ int ti_condition_field_range_init(
 invalid:
     ex_set(e, EX_VALUE_ERROR,
             "invalid declaration for `%s` on type `%s`; "
-            "range <..> conditions expect a minimum and maximum value and "
-            "may only be applied to `int`, `float` or `str`"
+            "additional info <..> can be applied to "
+            "`int`, `float`, `str`, `email`, `url` and `tel`"
             DOC_T_TYPE,
             field->name->str, field->type->name);
     goto failed;
@@ -624,7 +694,7 @@ void ti_condition_destroy(ti_condition_via_t condition, uint16_t spec)
         return;  /* a field may be set to ANY while using mod_type in which
                     case a condition should be left alone */
     case TI_SPEC_REMATCH:
-        ti_regex_destroy(condition.re->regex);
+        ti_val_drop((ti_val_t *) condition.re->regex);
         /* fall through */
     case TI_SPEC_STR_RANGE:
     case TI_SPEC_INT_RANGE:

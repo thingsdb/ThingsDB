@@ -44,8 +44,6 @@ ti_wrap_t * ti_wrap_create(ti_thing_t * thing, uint16_t type_id)
 
 void ti_wrap_destroy(ti_wrap_t * wrap)
 {
-    if (!wrap)
-        return;
     ti_val_unsafe_gc_drop((ti_val_t *) wrap->thing);
     free(wrap);
 }

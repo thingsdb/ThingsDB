@@ -182,8 +182,6 @@ ti_varr_t * ti_varr_from_slice(
 
 void ti_varr_destroy(ti_varr_t * varr)
 {
-    if (!varr)
-        return;
     vec_destroy(varr->vec, (vec_destroy_cb) ti_val_unsafe_gc_drop);
     free(varr);
 }
@@ -223,6 +221,18 @@ int ti_varr_nested_spec_err(ti_varr_t * varr, ti_val_t * val, ex_t * e)
     case TI_SPEC_RVAL_NINT_ERROR:
         ex_set(e, EX_VALUE_ERROR,
                 "array is restricted to negative integer values");
+        return e->nr;
+    case TI_SPEC_RVAL_EMAIL_ERROR:
+        ex_set(e, EX_VALUE_ERROR,
+                "array is restricted to email addresses");
+        return e->nr;
+    case TI_SPEC_RVAL_URL_ERROR:
+        ex_set(e, EX_VALUE_ERROR,
+                "array is restricted to URL's");
+        return e->nr;
+    case TI_SPEC_RVAL_TEL_ERROR:
+        ex_set(e, EX_VALUE_ERROR,
+                "array is restricted to telephone numbers");
         return e->nr;
     }
     assert(0);

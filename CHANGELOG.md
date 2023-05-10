@@ -1,6 +1,6 @@
 # v1.4.13
 
-* Added function `mod_procedure(..)`, pr .
+* Added function `mod_procedure(..)`, pr #348.
 
 # v1.4.12
 

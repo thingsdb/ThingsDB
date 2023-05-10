@@ -138,6 +138,7 @@
 #include <ti/fn/fnmaptype.h>
 #include <ti/fn/fnmapwrap.h>
 #include <ti/fn/fnmodenum.h>
+#include <ti/fn/fnmodprocedure.h>
 #include <ti/fn/fnmodtype.h>
 #include <ti/fn/fnmoduleinfo.h>
 #include <ti/fn/fnmodulesinfo.h>
@@ -276,11 +277,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 251,
+    TOTAL_KEYWORDS = 252,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 23,
-    MAX_HASH_VALUE = 651
+    MIN_HASH_VALUE = 6,
+    MAX_HASH_VALUE = 645
 };
 
 /*
@@ -292,32 +293,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
-        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
-        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
-        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
-        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
-        652, 652,  12, 652,  12, 652,  11, 652, 652, 652,
-        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
-        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
-        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
-        652, 652, 652, 652, 652,  10, 652,  11,  21,  47,
-         35,  11,  70, 236, 179,  10,  11, 174,  15,  21,
-         13,  50,  96,  22,  12,  10,  10,  30, 223, 163,
-        126, 182,  40, 652, 652, 652, 652, 652, 652, 652,
-        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
-        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
-        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
-        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
-        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
-        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
-        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
-        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
-        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
-        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
-        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
-        652, 652, 652, 652, 652, 652, 652, 652, 652, 652,
-        652, 652, 652, 652, 652, 652
+        646, 646, 646, 646, 646, 646, 646, 646, 646, 646,
+        646, 646, 646, 646, 646, 646, 646, 646, 646, 646,
+        646, 646, 646, 646, 646, 646, 646, 646, 646, 646,
+        646, 646, 646, 646, 646, 646, 646, 646, 646, 646,
+        646, 646, 646, 646, 646, 646, 646, 646, 646, 646,
+        646, 646,   1, 646,   1, 646,   1, 646, 646, 646,
+        646, 646, 646, 646, 646, 646, 646, 646, 646, 646,
+        646, 646, 646, 646, 646, 646, 646, 646, 646, 646,
+        646, 646, 646, 646, 646, 646, 646, 646, 646, 646,
+        646, 646, 646, 646, 646,   0, 646,  15,  57,  51,
+         17,   4, 118, 298, 153,   0,   0, 121,  19,  54,
+          8,  33, 133,  32,   3,   0,   0,  11,  97, 235,
+         21, 115,  65, 646, 646, 646, 646, 646, 646, 646,
+        646, 646, 646, 646, 646, 646, 646, 646, 646, 646,
+        646, 646, 646, 646, 646, 646, 646, 646, 646, 646,
+        646, 646, 646, 646, 646, 646, 646, 646, 646, 646,
+        646, 646, 646, 646, 646, 646, 646, 646, 646, 646,
+        646, 646, 646, 646, 646, 646, 646, 646, 646, 646,
+        646, 646, 646, 646, 646, 646, 646, 646, 646, 646,
+        646, 646, 646, 646, 646, 646, 646, 646, 646, 646,
+        646, 646, 646, 646, 646, 646, 646, 646, 646, 646,
+        646, 646, 646, 646, 646, 646, 646, 646, 646, 646,
+        646, 646, 646, 646, 646, 646, 646, 646, 646, 646,
+        646, 646, 646, 646, 646, 646, 646, 646, 646, 646,
+        646, 646, 646, 646, 646, 646, 646, 646, 646, 646,
+        646, 646, 646, 646, 646, 646
     };
 
     register unsigned int hval = n;
@@ -588,12 +589,13 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="log",               .fn=do__f_log,                  ROOT_NE},
     {.name="lookup_err",        .fn=do__f_lookup_err,           ROOT_NE},
     {.name="lower",             .fn=do__f_lower,                CHAIN_NE},
-    {.name="map",               .fn=do__f_map,                  CHAIN_NE},
     {.name="map_id",            .fn=do__f_map_id,               CHAIN_NE},
     {.name="map_type",          .fn=do__f_map_type,             CHAIN_NE},
     {.name="map_wrap",          .fn=do__f_map_wrap,             CHAIN_NE},
+    {.name="map",               .fn=do__f_map,                  CHAIN_NE},
     {.name="max_quota_err",     .fn=do__f_max_quota_err,        ROOT_NE},
     {.name="mod_enum",          .fn=do__f_mod_enum,             ROOT_CE},
+    {.name="mod_procedure",     .fn=do__f_mod_procedure,        ROOT_BE},
     {.name="mod_type",          .fn=do__f_mod_type,             ROOT_CE},
     {.name="module_info",       .fn=do__f_module_info,          ROOT_NE},
     {.name="modules_info",      .fn=do__f_modules_info,         ROOT_NE},
@@ -609,11 +611,11 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="new_type",          .fn=do__f_new_type,             ROOT_CE},
     {.name="new_user",          .fn=do__f_new_user,             ROOT_TE},
     {.name="new",               .fn=do__f_new,                  ROOT_NE},
-    {.name="nse",               .fn=do__f_nse,                  XROOT_NSE},
     {.name="node_err",          .fn=do__f_node_err,             ROOT_NE},
     {.name="node_info",         .fn=do__f_node_info,            ROOT_NE},
     {.name="nodes_info",        .fn=do__f_nodes_info,           ROOT_NE},
     {.name="now",               .fn=do__f_now,                  ROOT_NE},
+    {.name="nse",               .fn=do__f_nse,                  XROOT_NSE},
     {.name="num_arguments_err", .fn=do__f_num_arguments_err,    ROOT_NE},
     {.name="one",               .fn=do__f_one,                  CHAIN_NE},
     {.name="operation_err",     .fn=do__f_operation_err,        ROOT_NE},

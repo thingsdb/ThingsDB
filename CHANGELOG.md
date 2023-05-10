@@ -1,3 +1,7 @@
+# v1.4.13
+
+* Added function `mod_procedure(..)`, pr .
+
 # v1.4.12
 
 * Added `timeit(..)` function, issue #345.

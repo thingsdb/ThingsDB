@@ -84,6 +84,7 @@ typedef enum
     TI_TASK_MOD_TYPE_HID,                   /* 71  */
     TI_TASK_REN,                            /* 72  */
     TI_TASK_FILL,                           /* 73  */
+    TI_TASK_MOD_PROCEDURE,                  /* 74  */
 } ti_task_enum;
 
 typedef struct ti_task_s ti_task_t;

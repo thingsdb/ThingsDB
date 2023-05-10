@@ -49,6 +49,18 @@ ti_procedure_t * ti_procedure_create(
     return procedure;
 }
 
+void ti_procedure_mod(
+        ti_procedure_t * procedure,
+        ti_closure_t * closure,
+        uint64_t created_at)
+{
+    ti_val_unsafe_drop((ti_val_t *) procedure->closure);
+    ti_val_drop((ti_val_t *) procedure->doc);
+    ti_val_drop((ti_val_t *) procedure->def);
+    procedure->closure = closure;
+    procedure->created_at = created_at;
+}
+
 void ti_procedure_destroy(ti_procedure_t * procedure)
 {
     if (!procedure)

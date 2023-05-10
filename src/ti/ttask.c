@@ -537,6 +537,59 @@ failed:
 
 /*
  * Returns 0 on success
+ * - for example: '{name: closure}'
+ */
+static int ttask__mod_procedure(mp_unp_t * up)
+{
+    mp_obj_t obj, mp_name, mp_created;
+    ti_procedure_t * procedure;
+    ti_closure_t * closure;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = NULL,
+            .up = up,
+    };
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_created) != MP_U64 ||
+        mp_skip(up) != MP_STR)
+    {
+        log_critical(
+                "task `mod_procedure` for `.thingsdb`: missing map or name");
+        return -1;
+    }
+
+    procedure = ti_procedures_by_strn(
+            ti.procedures,
+            mp_name.via.str.data,
+            mp_name.via.str.n);
+
+    if (!procedure)
+    {
+        log_critical(
+                "task `mod_procedure` cannot find `%.*s` in `.thingsdb`",
+                mp_name.via.str.n, mp_name.via.str.data);
+        return -1;
+    }
+
+    closure = (ti_closure_t *) ti_val_from_vup(&vup);
+    if (!closure || !ti_val_is_closure((ti_val_t *) closure))
+    {
+        log_critical(
+                "task `mod_procedure` invalid closure in `.thingsdb`");
+        ti_val_drop((ti_val_t *) closure);
+        return -1;
+    }
+
+    ti_procedure_mod(procedure, closure, mp_created.via.u64);
+    return 0;
+}
+
+/*
+ * Returns 0 on success
  * - for example: {'id': id, 'key': value}, 'expire_ts': ts, 'description':..}
  */
 static int ttask__new_token(mp_unp_t * up)
@@ -1559,6 +1612,7 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_MOD_TYPE_HID:      break;
     case TI_TASK_REN:               break;
     case TI_TASK_FILL:              break;
+    case TI_TASK_MOD_PROCEDURE:     return ttask__mod_procedure(up);
     }
 
     log_critical("unknown thingsdb task: %"PRIu64, mp_task.via.u64);

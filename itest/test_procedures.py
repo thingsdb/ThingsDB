@@ -255,10 +255,23 @@ class TestProcedures(TestBase):
             del_procedure('missing_wse');
         '''), None)
 
-        await asyncio.sleep(0.2)
+        await client.query("""//ti
+            mod_procedure('upd_list', |i| {
+                "Modified";
+                wse({
+                    .upd_list.call(i);
+                });
+                nil;  // Return nil
+            });
+        """)
+
+        await asyncio.sleep(1.0)
         for client in (client0, client1, client2, client3, client4):
+            self.assertEqual(
+                await client.query('procedure_doc("upd_list");'), "Modified")
+
             self.assertTrue(await client.query(
-                '(procedures_info().len() == 5);'))
+                'procedures_info().len() == 5;'))
 
         # run tests
         await self.run_tests(client0)

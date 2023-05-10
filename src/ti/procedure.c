@@ -57,6 +57,8 @@ void ti_procedure_mod(
     ti_val_unsafe_drop((ti_val_t *) procedure->closure);
     ti_val_drop((ti_val_t *) procedure->doc);
     ti_val_drop((ti_val_t *) procedure->def);
+    procedure->doc = NULL;
+    procedure->def = NULL;
     procedure->closure = closure;
     procedure->created_at = created_at;
 }

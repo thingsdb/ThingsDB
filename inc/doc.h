@@ -170,6 +170,7 @@
 /* Procedures API */
 #define DOC_DEL_PROCEDURE           DOC_SEE("procedures-api/del_procedure")
 #define DOC_HAS_PROCEDURE           DOC_SEE("procedures-api/has_procedure")
+#define DOC_MOD_PROCEDURE           DOC_SEE("procedures-api/mod_procedure")
 #define DOC_NEW_PROCEDURE           DOC_SEE("procedures-api/new_procedure")
 #define DOC_PROCEDURE_DOC           DOC_SEE("procedures-api/procedure_doc")
 #define DOC_PROCEDURE_INFO          DOC_SEE("procedures-api/procedure_info")

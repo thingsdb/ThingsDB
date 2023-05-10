@@ -65,6 +65,7 @@ int ti_task_add_new_module(
         ti_raw_t * source);
 int ti_task_add_new_node(ti_task_t * task, ti_node_t * node);
 int ti_task_add_new_procedure(ti_task_t * task, ti_procedure_t * procedure);
+int ti_task_add_mod_procedure(ti_task_t * task, ti_procedure_t * procedure);
 int ti_task_add_vtask_new(ti_task_t * task, ti_vtask_t * vtask);
 int ti_task_add_vtask_del(ti_task_t * task, ti_vtask_t * vtask);
 int ti_task_add_vtask_cancel(ti_task_t * task, ti_vtask_t * vtask);

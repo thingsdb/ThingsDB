@@ -1942,6 +1942,64 @@ failed:
 
 /*
  * Returns 0 on success
+ * - for example: '{name: closure}'
+ */
+static int ctask__mod_procedure(ti_thing_t * thing, mp_unp_t * up)
+{
+    mp_obj_t obj, mp_name, mp_created;
+    ti_collection_t * collection = thing->collection;
+    ti_procedure_t * procedure;
+    ti_closure_t * closure;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = collection,
+            .up = up,
+    };
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_created) != MP_U64 ||
+        mp_skip(up) != MP_STR)
+    {
+        log_critical(
+                "task `mod_procedure` for "TI_COLLECTION_ID": "
+                "missing map or name",
+                collection->root->id);
+        return -1;
+    }
+
+    procedure = ti_procedures_by_strn(
+            collection->procedures,
+            mp_name.via.str.data,
+            mp_name.via.str.n);
+
+    if (!procedure)
+    {
+        log_critical(
+                "task `mod_procedure` cannot find `%.*s` in "TI_COLLECTION_ID,
+                mp_name.via.str.n, mp_name.via.str.data,
+                collection->root->id);
+        return -1;
+    }
+
+    closure = (ti_closure_t *) ti_val_from_vup(&vup);
+    if (!closure || !ti_val_is_closure((ti_val_t *) closure))
+    {
+        log_critical(
+                "task `mod_procedure` invalid closure in "TI_COLLECTION_ID,
+                collection->root->id);
+        ti_val_drop((ti_val_t *) closure);
+        return -1;
+    }
+
+    ti_procedure_mod(procedure, closure, mp_created.via.u64);
+    return 0;
+}
+
+/*
+ * Returns 0 on success
  * - for example: '{id: 123, run_at: ...}'
  */
 static int ctask__vtask_new(ti_thing_t * thing, mp_unp_t * up)
@@ -2909,7 +2967,8 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_TO_THING:          return ctask__to_thing(thing, up);
     case TI_TASK_MOD_TYPE_HID:      return ctask__mod_type_hid(thing, up);
     case TI_TASK_REN:               return ctask__ren(thing, up);
-    case TI_TASK_FILL:              return ctask__fill(thing, up);;
+    case TI_TASK_FILL:              return ctask__fill(thing, up);
+    case TI_TASK_MOD_PROCEDURE:     return ctask__mod_procedure(thing, up);
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);

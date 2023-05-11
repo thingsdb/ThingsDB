@@ -1,6 +1,7 @@
 # v1.4.13
 
 * Added function `mod_procedure(..)`, pr #348.
+* Added function `flat(..)`, pr #349.
 
 # v1.4.12
 

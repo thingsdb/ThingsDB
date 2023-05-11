@@ -210,6 +210,7 @@
 #define DOC_LIST_FIND               DOC_SEE("data-types/list/find")
 #define DOC_LIST_FIND_INDEX         DOC_SEE("data-types/list/find_index")
 #define DOC_LIST_FIRST              DOC_SEE("data-types/list/first")
+#define DOC_LIST_FLAT               DOC_SEE("data-types/list/flat")
 #define DOC_LIST_HAS                DOC_SEE("data-types/list/has")
 #define DOC_LIST_INDEX_OF           DOC_SEE("data-types/list/index_of")
 #define DOC_LIST_IS_UNIQUE          DOC_SEE("data-types/list/is_unique")

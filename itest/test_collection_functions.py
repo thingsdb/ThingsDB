@@ -1602,6 +1602,29 @@ class TestCollectionFunctions(TestBase):
         # cleanup garbage, the reference to the collection
         await client.query(r'''.x.splice(2, 1);''')
 
+    async def test_flat(self, client):
+        await client.query(
+            r'.x = [1, 2, [3, 4, [5, 6]]];')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `flat`'):
+            await client.query('nil.flat();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `flat` takes at most 1 argument but 2 were given'):
+            await client.query('.x.flat(1, 2);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `flat` expects argument 1 to be of '
+                r'type `int` but got type `float` instead;'):
+            await client.query('.x.flat(inf);')
+
+        self.assertEqual(await client.query('.x.flat()'), [1, 2, 3, 4, [5, 6]])
+        self.assertEqual(await client.query('.x.flat(2)'), [1, 2, 3, 4, 5, 6])
+
     async def test_first(self, client):
         await client.query(
             r'.x = [42, ["thingsdb", false], nil];')

@@ -1624,6 +1624,7 @@ class TestCollectionFunctions(TestBase):
 
         self.assertEqual(await client.query('.x.flat()'), [1, 2, 3, 4, [5, 6]])
         self.assertEqual(await client.query('.x.flat(2)'), [1, 2, 3, 4, 5, 6])
+        self.assertEqual(await client.query('.x[2].flat()'), [3, 4, 5, 6])
 
     async def test_first(self, client):
         await client.query(

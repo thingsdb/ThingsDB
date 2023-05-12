@@ -1241,6 +1241,15 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_node_t * name_nd = nd->children;      /* sequence/name */
     nd = name_nd->next->children->next;         /* name or closure */
 
+    if (!query->collection)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "no enumerators exists in the `%s` scope; "
+                "you might want to query a `@collection` scope?",
+                ti_query_scope_name(query));
+        return e->nr;
+    }
+
     enum_ = ti_enums_by_strn(
             query->collection->enums,
             name_nd->str,

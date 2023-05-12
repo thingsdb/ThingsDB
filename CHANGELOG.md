@@ -2,6 +2,7 @@
 
 * Added function `mod_procedure(..)`, pr #348.
 * Added function `flat(..)`, pr #349.
+* Fixed enumerator lookup in wrong scope, issue #350.
 
 # v1.4.12
 

@@ -2412,6 +2412,16 @@ new_procedure('multiply', |a, b| a * b);
                 A{}.t.push('test');
             """)
 
+    async def test_enum_wrong_scope(self, client):
+        # bug #350
+        with self.assertRaisesRegex(
+                LookupError,
+                r'no enumerators exists in the `@thingsdb` scope; '
+                r'you might want to query a `@collection` scope\?'):
+            await client.query(r"""//ti
+                A{TEST};
+            """, scope='/thingsdb')
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

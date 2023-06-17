@@ -675,6 +675,36 @@ class TestModules(TestBase):
         """)
         self.assertEqual(res, 'HELLO!')
 
+    async def test_deploy(self, client):
+        # bug #351
+        await client.query(r"""//ti
+new_module("test", "test.py");
+deploy_module('test',
+"from timod import start_module, TiHandler, LookupError, ValueError
+
+class Handler(TiHandler):
+    async def on_config(self, req):
+        pass
+
+    async def on_request(self, req):
+        return 42
+
+if __name__ == '__main__':
+    start_module('test', Handler())
+");
+""", scope='/t')
+
+        await self.wait_for_module(client, 'test')
+        # The
+        res = await client.query(r"""//ti
+            set_type('W', {x: ||nil});
+            future({
+                module: 'test',
+                w: {}.wrap('W'),
+            }).then(|x| x);
+        """, scope='//stuff')
+        self.assertEqual(res, 42)
+
 
 if __name__ == '__main__':
     run_test(TestModules())

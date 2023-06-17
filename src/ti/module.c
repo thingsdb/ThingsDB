@@ -142,7 +142,9 @@ static void module__cb(ti_future_t * future)
 {
     int uv_err;
     ti_thing_t * thing = VEC_get(future->args, 0);
-    ti_vp_t vp;
+    ti_vp_t vp = {
+            .query=future->query,
+    };
     msgpack_sbuffer buffer;
     size_t alloc_sz = 1024;
 

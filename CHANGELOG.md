@@ -1,3 +1,7 @@
+# v1.4.14
+
+* Fixed bug with using function `wrap(..)` in module argument, issue #351.
+
 # v1.4.13
 
 * Added function `mod_procedure(..)`, pr #348.

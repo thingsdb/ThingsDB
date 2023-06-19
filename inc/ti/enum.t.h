@@ -48,6 +48,7 @@ struct ti_enum_s
     char * name;            /* name (null terminated) */
     ti_raw_t * rname;       /* name as raw type */
     vec_t * members;        /* members stored by index */
+    vec_t * methods;        /* ti_method_t */
     smap_t * smap;          /* member lookup by name */
 };
 

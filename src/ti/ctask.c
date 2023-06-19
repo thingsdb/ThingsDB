@@ -1218,7 +1218,7 @@ static int ctask__mod_type_del(ti_thing_t * thing, mp_unp_t * up)
         return 0;
     }
 
-    method = ti_method_by_name(type, name);
+    method = ti_type_get_method(type, name);
     if (method)
     {
         ti_type_remove_method(type, name);
@@ -1351,7 +1351,7 @@ static int ctask__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
                 .collection = collection,
                 .up = up,
         };
-        ti_method_t * method = ti_method_by_name(type, name);
+        ti_method_t * method = ti_type_get_method(type, name);
 
         if (!method)
         {
@@ -1657,7 +1657,7 @@ static int ctask__mod_type_ren(ti_thing_t * thing, mp_unp_t * up)
         return e.nr;
     }
 
-    method = ti_method_by_name(type, name);
+    method = ti_type_get_method(type, name);
     if (method)
     {
         if (ti_method_set_name(

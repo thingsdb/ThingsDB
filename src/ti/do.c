@@ -135,7 +135,7 @@ static inline int do__t_get_wprop(
             return 0;
         }
 
-        if ((method = ti_method_by_name(type, name)))
+        if ((method = ti_type_get_method(type, name)))
         {
             wprop->name = name;
             wprop->val = (ti_val_t **) (&method->closure);

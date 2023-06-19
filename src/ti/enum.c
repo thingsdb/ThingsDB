@@ -188,11 +188,13 @@ static int enum__init_cb(ti_item_t * item, enum__init_t * w)
         ex_set(w->e, EX_VALUE_ERROR,
                 "enum member must follow the naming rules"DOC_NAMES);
     else
+    {
         (void) ti_member_create(
                 w->enum_,
                 (ti_name_t *) item->key,
                 item->val,
                 w->e);
+    }
     return w->e->nr;
 }
 
@@ -207,8 +209,10 @@ static int enum__init_thing_o(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
         return smap_values(thing->items.smap, (smap_val_cb) enum__init_cb, &w);
     }
     for (vec_each(thing->items.vec, ti_prop_t, prop))
+    {
         if (!ti_member_create(enum_, prop->name, prop->val, e))
             return e->nr;
+    }
     return 0;
 }
 
@@ -217,9 +221,10 @@ static int enum__init_thing_t(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
     ti_name_t * name;
     ti_val_t * val;
     for (thing_t_each(thing, name, val))
+    {
         if (!ti_member_create(enum_, name, val, e))
             return e->nr;
-
+    }
     return e->nr;
 }
 

@@ -355,7 +355,7 @@ static void type__add(
     ti_raw_t * spec_raw;
     ti_val_t * dval;
     ti_field_t * field = ti_field_by_name(type, name);
-    ti_method_t * method = field ? NULL : ti_method_by_name(type, name);
+    ti_method_t * method = field ? NULL : ti_type_get_method(type, name);
     ti_closure_t * closure;
     const int nargs = fn_get_nargs(nd);
 
@@ -657,7 +657,7 @@ static void type__del(
     static const char * fnname = "mod_type` with task `del";
     const int nargs = fn_get_nargs(nd);
     ti_field_t * field = ti_field_by_name(type, name);
-    ti_method_t * method = field ? NULL : ti_method_by_name(type, name);
+    ti_method_t * method = field ? NULL : ti_type_get_method(type, name);
     ti_task_t * task;
 
     if (fn_nargs(fnname, DOC_MOD_TYPE_DEL, 3, nargs, e))
@@ -856,7 +856,7 @@ static void type__mod(
     static const char * fnname = "mod_type` with task `mod";
     const int nargs = fn_get_nargs(nd);
     ti_field_t * field = ti_field_by_name(type, name);
-    ti_method_t * method = field ? NULL : ti_method_by_name(type, name);
+    ti_method_t * method = field ? NULL : ti_type_get_method(type, name);
 
     cleri_node_t * child;
 
@@ -1021,7 +1021,7 @@ static void type__ren(
     static const char * fnname = "mod_type` with task `ren";
     const int nargs = fn_get_nargs(nd);
     ti_field_t * field = ti_field_by_name(type, name);
-    ti_method_t * method = field ? NULL : ti_method_by_name(type, name);
+    ti_method_t * method = field ? NULL : ti_type_get_method(type, name);
     ti_task_t * task;
     ti_name_t * oldname;
     ti_name_t * newname;

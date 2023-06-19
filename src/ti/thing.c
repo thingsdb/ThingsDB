@@ -1079,7 +1079,7 @@ static _Bool thing_t__get_by_name(
         return true;
     }
 
-    if ((method = ti_method_by_name(thing->via.type, name)))
+    if ((method = ti_type_get_method(thing->via.type, name)))
     {
         wprop->name = name;
         wprop->val = (ti_val_t **) (&method->closure);

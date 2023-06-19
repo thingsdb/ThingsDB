@@ -926,7 +926,8 @@ static int ctask__mod_enum_ren(ti_thing_t * thing, mp_unp_t * up)
     ti_collection_t * collection = thing->collection;
     ti_enum_t * enum_;
     ti_member_t * member;
-    mp_obj_t obj, mp_id, mp_index, mp_modified, mp_name;
+
+    mp_obj_t obj, mp_id, mp_name, mp_modified, mp_to;
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 4 ||
         mp_skip(up) != MP_STR ||
@@ -934,9 +935,9 @@ static int ctask__mod_enum_ren(ti_thing_t * thing, mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_modified) != MP_U64 ||
         mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_index) != MP_U64 ||
+        (mp_next(up, &mp_name) != MP_STR && mp_name.tp != MP_U64) ||
         mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_name) != MP_STR)
+        mp_next(up, &mp_to) != MP_STR)
     {
         log_critical(
                 "task `mod_enum_ren` for "TI_COLLECTION_ID" is invalid",
@@ -954,21 +955,52 @@ static int ctask__mod_enum_ren(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    member = ti_enum_member_by_idx(enum_, mp_index.via.u64);
-    if (!member)
-    {
-        log_critical(
-                "task `mod_enum_ren` for "TI_COLLECTION_ID" is invalid; "
-                "enum with id %u; index %"PRIu64" out of range",
-                collection->root->id, enum_->enum_id, mp_index.via.u64);
-        return -1;
-    }
+    if (mp_name.tp == MP_U64)
+        member = ti_enum_member_by_idx(enum_, mp_name.via.u64);
+    else
+        member = ti_enum_member_by_strn(
+                enum_,
+                mp_name.via.str.data,
+                mp_name.via.str.n);
 
-    (void) ti_member_set_name(
-            member,
-            mp_name.via.str.data,
-            mp_name.via.str.n,
-            &e);
+    if (member)
+    {
+        (void) ti_member_set_name(
+                member,
+                mp_name.via.str.data,
+                mp_name.via.str.n,
+                &e);
+    }
+    else
+    {
+        ti_method_t * method;
+        ti_name_t * name = ti_names_weak_get_strn(
+                mp_name.via.str.data,
+                mp_name.via.str.n);
+        if (!name)
+        {
+            log_critical(
+                    "task `mod_enum_ren` for "TI_COLLECTION_ID" is invalid; "
+                    "enum with id %"PRIu64"; name is missing",
+                    collection->root->id, mp_id.via.u64);
+            return -1;
+        }
+        method = ti_enum_get_method(enum_, name);
+        if (!method)
+        {
+            log_critical(
+                    "task `mod_enum_ren` for "TI_COLLECTION_ID" is invalid; "
+                    "enum with id %"PRIu64"; member or method not found",
+                    collection->root->id, mp_id.via.u64);
+            return -1;
+        }
+        (void) ti_method_set_name_e(
+                method,
+                enum_,
+                mp_name.via.str.data,
+                mp_name.via.str.n,
+                &e);
+    }
 
     if (e.nr)
         log_critical(e.msg);
@@ -1660,7 +1692,7 @@ static int ctask__mod_type_ren(ti_thing_t * thing, mp_unp_t * up)
     method = ti_type_get_method(type, name);
     if (method)
     {
-        if (ti_method_set_name(
+        if (ti_method_set_name_t(
                 method,
                 type,
                 mp_to.via.str.data,

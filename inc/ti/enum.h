@@ -26,6 +26,12 @@ int ti_enum_set_enum_tp(ti_enum_t * enum_, ti_val_t * val, ex_t * e);
 int ti_enum_check_val(ti_enum_t * enum_, ti_val_t * val, ex_t * e);
 int ti_enum_add_member(ti_enum_t * enum_, ti_member_t * member, ex_t * e);
 void ti_enum_del_member(ti_enum_t * enum_, ti_member_t * member);
+int ti_enum_add_method(
+        ti_enum_t * enum_,
+        ti_name_t * name,
+        ti_closure_t * closure,
+        ex_t * e);
+void ti_enum_remove_method(ti_enum_t * enum_, ti_name_t * name);
 int ti_enum_init_from_thing(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e);
 int ti_enum_init_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e);
 int ti_enum_members_to_client_pk(

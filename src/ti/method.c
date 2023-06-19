@@ -115,7 +115,7 @@ fail0:
     return e->nr;
 }
 
-int ti_method_set_name(
+int ti_method_set_name_t(
         ti_method_t * method,
         ti_type_t * type,
         const char * s,
@@ -146,6 +146,49 @@ int ti_method_set_name(
             "property or method `%s` already exists on type `%s`"DOC_T_TYPED,
             name->str,
             type->name);
+        goto fail0;
+    }
+
+    ti_name_unsafe_drop(method->name);
+    method->name = name;
+
+    return 0;
+
+fail0:
+    ti_name_unsafe_drop(name);
+    return e->nr;
+}
+
+int ti_method_set_name_e(
+        ti_method_t * method,
+        ti_enum_t * enum_,
+        const char * s,
+        size_t n,
+        ex_t * e)
+{
+    ti_name_t * name;
+
+    if (!ti_name_is_valid_strn(s, n))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "method name must follow the naming rules"DOC_NAMES);
+        return e->nr;
+    }
+
+    name = ti_names_get(s, n);
+    if (!name)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    if (ti_enum_member_by_strn(enum_, name->str, name->n) ||
+        ti_enum_get_method(enum_, name))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "member or method `%s` already exists on enum `%s`"DOC_T_TYPED,
+            name->str,
+            enum_->name);
         goto fail0;
     }
 

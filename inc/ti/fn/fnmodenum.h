@@ -210,6 +210,7 @@ static void enum__ren(
     static const char * fnname = "mod_enum` with task `ren";
     cleri_node_t * child;
     ti_member_t * member = ti_enum_member_by_strn(enum_, name->str, name->n);
+    ti_method_t * method = member ? NULL : ti_enum_get_method(enum_, name);
     ti_task_t * task;
     ti_raw_t * rname;
 
@@ -218,10 +219,10 @@ static void enum__ren(
 
     child = nd->children->next->next->next->next->next->next;
 
-    if (!member)
+    if (!member && !method)
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "enum `%s` has no member `%s`",
+                "enum `%s` has no member or method `%s`",
                 enum_->name, name->str);
         return;
     }
@@ -230,7 +231,7 @@ static void enum__ren(
         fn_arg_str_slow(fnname, DOC_MOD_ENUM_REN, 4, query->rval, e))
         return;
 
-    if (ti_opr_eq((ti_val_t *) member->name, query->rval))
+    if (ti_opr_eq((ti_val_t *) name, query->rval))
         return;  /* do nothing, name is equal to current name */
 
     rname = (ti_raw_t *) query->rval;

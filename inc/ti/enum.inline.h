@@ -91,4 +91,14 @@ static inline void ti_enum_unlock(ti_enum_t * enum_, int lock_was_set)
         enum_->flags &= ~TI_ENUM_FLAG_LOCK;
 }
 
+static inline ti_method_t * ti_enum_get_method(
+        ti_enum_t * enum_,
+        ti_name_t * name)
+{
+    for (vec_each(enum_->methods, ti_method_t, method))
+        if (method->name == name)
+            return method;
+    return NULL;
+}
+
 #endif  /* TI_ENUM_INLINE_H_ */

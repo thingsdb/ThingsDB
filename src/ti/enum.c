@@ -50,6 +50,7 @@ void ti_enum_destroy(ti_enum_t * enum_)
         return;
 
     smap_destroy(enum_->smap, NULL);
+    vec_destroy(enum_->methods, (vec_destroy_cb) ti_method_destroy);
     vec_destroy(enum_->members, (vec_destroy_cb) ti_member_remove);
     if (enum_->rname)
         ti_val_unsafe_drop((ti_val_t *) enum_->rname);
@@ -176,6 +177,41 @@ void ti_enum_del_member(ti_enum_t * enum_, ti_member_t * member)
     (void) smap_pop(enum_->smap, member->name->str);
 }
 
+int ti_enum_add_method(
+        ti_enum_t * enum_,
+        ti_name_t * name,
+        ti_closure_t * closure,
+        ex_t * e)
+{
+    ti_method_t * method = ti_method_create(name, closure);
+    if (!method)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    if (vec_push(&enum_->methods, method))
+    {
+        ex_set_mem(e);
+        ti_method_destroy(method);
+    }
+
+    return e->nr;
+}
+
+void ti_enum_remove_method(ti_enum_t * enum_, ti_name_t * name)
+{
+    size_t idx = 0;
+    for (vec_each(enum_->methods, ti_method_t, m), ++idx)
+    {
+        if (m->name == name)
+        {
+            ti_method_destroy(vec_swap_remove(enum_->methods, idx));
+            return;
+        }
+    }
+}
+
 typedef struct
 {
     ti_enum_t * enum_;
@@ -187,14 +223,18 @@ static int enum__init_cb(ti_item_t * item, enum__init_t * w)
     if (!ti_raw_is_name(item->key))
         ex_set(w->e, EX_VALUE_ERROR,
                 "enum member must follow the naming rules"DOC_NAMES);
+    else if (ti_val_is_closure(item->val))
+        (void) ti_enum_add_method(
+                w->enum_,
+                (ti_name_t *) item->key,
+                (ti_closure_t *) item->val,
+                w->e);
     else
-    {
         (void) ti_member_create(
                 w->enum_,
                 (ti_name_t *) item->key,
                 item->val,
                 w->e);
-    }
     return w->e->nr;
 }
 
@@ -210,7 +250,16 @@ static int enum__init_thing_o(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
     }
     for (vec_each(thing->items.vec, ti_prop_t, prop))
     {
-        if (!ti_member_create(enum_, prop->name, prop->val, e))
+        if (ti_val_is_closure(prop->val))
+        {
+            if (ti_enum_add_method(
+                    enum_,
+                    prop->name,
+                    (ti_closure_t *) prop->val,
+                    e))
+                return e->nr;
+        }
+        else if (!ti_member_create(enum_, prop->name, prop->val, e))
             return e->nr;
     }
     return 0;
@@ -222,7 +271,16 @@ static int enum__init_thing_t(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
     ti_val_t * val;
     for (thing_t_each(thing, name, val))
     {
-        if (!ti_member_create(enum_, name, val, e))
+        if (ti_val_is_closure(val))
+        {
+            if (ti_enum_add_method(
+                    enum_,
+                    name,
+                    (ti_closure_t *) val,
+                    e))
+                return e->nr;
+        }
+        else  if (!ti_member_create(enum_, name, val, e))
             return e->nr;
     }
     return e->nr;

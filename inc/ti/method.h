@@ -7,6 +7,7 @@
 #include <cleri/cleri.h>
 #include <ex.h>
 #include <ti/closure.t.h>
+#include <ti/enum.t.h>
 #include <ti/member.t.h>
 #include <ti/method.t.h>
 #include <ti/name.t.h>
@@ -30,12 +31,18 @@ int ti_method_call_on_member(
         ti_query_t * query,
         cleri_node_t * nd,
         ex_t * e);
-int ti_method_set_name(
+int ti_method_set_name_t(
         ti_method_t * method,
         ti_type_t * type,
         const char * s,
         size_t n,
         ex_t * e);
+int ti_method_set_name_e(
+        ti_method_t * method,
+        ti_enum_t * enum_,
+        const char * s,
+        size_t n,
+        ex_t * e)
 void ti_method_set_closure(ti_method_t * method, ti_closure_t * closure);
 
 #endif  /* TI_MEHTOD_H_ */

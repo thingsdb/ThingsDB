@@ -1070,7 +1070,7 @@ static void type__ren(
     }
     else if (method)
     {
-        if (ti_method_set_name(
+        if (ti_method_set_name_t(
                 method,
                 type,
                 (const char *) rname->data,

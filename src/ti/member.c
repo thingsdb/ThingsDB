@@ -25,7 +25,16 @@ ti_member_t * ti_member_create(
     {
         ex_set(e, EX_VALUE_ERROR,
                 "member `%s` on `%s` already exists"DOC_T_ENUM,
-                member->name->str,
+                name->str,
+                enum_->name);
+        return NULL;
+    }
+
+    if (ti_enum_get_method(enum_, name))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "method `%s` on `%s` already exists"DOC_T_ENUM,
+                name->str,
                 enum_->name);
         return NULL;
     }
@@ -142,6 +151,15 @@ int ti_member_set_name(
     {
         ex_set_mem(e);
         return e->nr;
+    }
+
+    if (ti_enum_get_method(member->enum_, name))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "method `%s` on `%s` already exists"DOC_T_ENUM,
+                name->str,
+                member->enum_->name);
+        goto fail0;
     }
 
     switch(smap_add(member->enum_->smap, name->str, member))

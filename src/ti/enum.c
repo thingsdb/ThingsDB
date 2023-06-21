@@ -5,6 +5,7 @@
 #include <ti/enum.h>
 #include <ti/enum.inline.h>
 #include <ti/member.h>
+#include <ti/method.h>
 #include <ti/names.h>
 #include <ti/opr.h>
 #include <ti/raw.inline.h>
@@ -183,7 +184,19 @@ int ti_enum_add_method(
         ti_closure_t * closure,
         ex_t * e)
 {
-    ti_method_t * method = ti_method_create(name, closure);
+    ti_method_t * method;
+
+    if (ti_enum_member_by_strn(enum_, name->str, name->n) ||
+        ti_enum_get_method(enum_, name))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "member or method `%s` already exists on enum `%s`"DOC_T_TYPED,
+            name->str,
+            enum_->name);
+        return e->nr;
+    }
+
+    method = ti_method_create(name, closure);
     if (!method)
     {
         ex_set_mem(e);

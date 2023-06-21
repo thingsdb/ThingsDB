@@ -2691,14 +2691,18 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_mod_enum_add(ti_task_t * task, ti_member_t * member)
+int ti_task_add_mod_enum_add(
+        ti_task_t * task,
+        ti_enum_t * enum_,
+        ti_name_t * name,
+        ti_val_t * val)
 {
     size_t alloc = 8192;
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
-    if (ti_val_gen_ids(member->val))
+    if (ti_val_gen_ids(val))
         return -1;
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
@@ -2711,16 +2715,16 @@ int ti_task_add_mod_enum_add(ti_task_t * task, ti_member_t * member)
     msgpack_pack_map(&pk, 4);
 
     mp_pack_str(&pk, "enum_id");
-    msgpack_pack_uint16(&pk, member->enum_->enum_id);
+    msgpack_pack_uint16(&pk, enum_->enum_id);
 
     mp_pack_str(&pk, "modified_at");
-    msgpack_pack_uint64(&pk, member->enum_->modified_at);
+    msgpack_pack_uint64(&pk, enum_->modified_at);
 
     mp_pack_str(&pk, "name");
-    mp_pack_strn(&pk, member->name->str, member->name->n);
+    mp_pack_strn(&pk, name->str, name->n);
 
     mp_pack_str(&pk, "value");
-    if (ti_val_to_store_pk(member->val, &pk))
+    if (ti_val_to_store_pk(val, &pk))
         goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
@@ -2780,7 +2784,10 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_mod_enum_del(ti_task_t * task, ti_member_t * member)
+int ti_task_add_mod_enum_del(
+        ti_task_t * task,
+        ti_enum_t * enum_,
+        ti_name_t * name)
 {
     size_t alloc = 64;
     ti_data_t * data;
@@ -2797,13 +2804,13 @@ int ti_task_add_mod_enum_del(ti_task_t * task, ti_member_t * member)
     msgpack_pack_map(&pk, 3);
 
     mp_pack_str(&pk, "enum_id");
-    msgpack_pack_uint16(&pk, member->enum_->enum_id);
+    msgpack_pack_uint16(&pk, enum_->enum_id);
 
     mp_pack_str(&pk, "modified_at");
-    msgpack_pack_uint64(&pk, member->enum_->modified_at);
+    msgpack_pack_uint64(&pk, enum_->modified_at);
 
-    mp_pack_str(&pk, "index");
-    msgpack_pack_uint16(&pk, member->idx);
+    mp_pack_str(&pk, "name");
+    mp_pack_strn(&pk, name->str, name->n);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
@@ -2819,14 +2826,18 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_mod_enum_mod(ti_task_t * task, ti_member_t * member)
+int ti_task_add_mod_enum_mod(
+        ti_task_t * task,
+        ti_enum_t * enum_,
+        ti_name_t * name,
+        ti_val_t * val)
 {
     size_t alloc = 8192;
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
 
-    if (ti_val_gen_ids(member->val))
+    if (ti_val_gen_ids(val))
         return -1;
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
@@ -2839,16 +2850,16 @@ int ti_task_add_mod_enum_mod(ti_task_t * task, ti_member_t * member)
     msgpack_pack_map(&pk, 4);
 
     mp_pack_str(&pk, "enum_id");
-    msgpack_pack_uint16(&pk, member->enum_->enum_id);
+    msgpack_pack_uint16(&pk, enum_->enum_id);
 
     mp_pack_str(&pk, "modified_at");
-    msgpack_pack_uint64(&pk, member->enum_->modified_at);
+    msgpack_pack_uint64(&pk, enum_->modified_at);
 
-    mp_pack_str(&pk, "index");
-    msgpack_pack_uint16(&pk, member->idx);
+    mp_pack_str(&pk, "name");
+    mp_pack_strn(&pk, name->str, name->n);
 
     mp_pack_str(&pk, "value");
-    if (ti_val_to_store_pk(member->val, &pk))
+    if (ti_val_to_store_pk(val, &pk))
         goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
@@ -2869,9 +2880,13 @@ fail_pack:
     return -1;
 }
 
-int ti_task_add_mod_enum_ren(ti_task_t * task, ti_member_t * member)
+int ti_task_add_mod_enum_ren(
+        ti_task_t * task,
+        ti_enum_t * enum_,
+        ti_name_t * oldname,
+        ti_name_t * newname)
 {
-    size_t alloc = 96 + member->name->n;
+    size_t alloc = 64 + oldname->n + newname->n;
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -2886,16 +2901,16 @@ int ti_task_add_mod_enum_ren(ti_task_t * task, ti_member_t * member)
     msgpack_pack_map(&pk, 4);
 
     mp_pack_str(&pk, "enum_id");
-    msgpack_pack_uint16(&pk, member->enum_->enum_id);
+    msgpack_pack_uint16(&pk, enum_->enum_id);
 
     mp_pack_str(&pk, "modified_at");
-    msgpack_pack_uint64(&pk, member->enum_->modified_at);
-
-    mp_pack_str(&pk, "index");
-    msgpack_pack_uint16(&pk, member->idx);
+    msgpack_pack_uint64(&pk, enum_->modified_at);
 
     mp_pack_str(&pk, "name");
-    mp_pack_strn(&pk, member->name->str, member->name->n);
+    mp_pack_strn(&pk, oldname->str, oldname->n);
+
+    mp_pack_str(&pk, "to");
+    mp_pack_strn(&pk, newname->str, newname->n);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

@@ -12,7 +12,6 @@ static void enum__add(
     static const char * fnname = "mod_enum` with task `add";
     cleri_node_t * child;
     ti_task_t * task;
-    ti_member_t * member;
 
     if (fn_nargs(fnname, DOC_MOD_ENUM_ADD, 4, nargs, e))
         return;
@@ -22,30 +21,29 @@ static void enum__add(
     if (ti_do_statement(query, child, e))
         return;
 
-    member = ti_member_create(enum_, name, query->rval, e);
-    if (!member)
+    if (ti_val_is_closure(query->rval))
+    {
+        if (ti_enum_add_method(enum_, name, (ti_closure_t *) query->rval, e))
+            return;
+    }
+    else if (!ti_member_create(enum_, name, query->rval, e))
         return;
 
     task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
-    {
-        ex_set_mem(e);
-        goto fail0;
-    }
+        goto panic;
 
     /* update modified time-stamp */
     enum_->modified_at = util_now_usec();
 
     /* query->rval might be null; when there are no instances */
-    if (ti_task_add_mod_enum_add(task, member))
-    {
-        ex_set_mem(e);
-        goto fail0;
-    }
-    return;  /* success */
+    if (ti_task_add_mod_enum_add(task, enum_, name, query->rval))
+        goto panic;
 
-fail0:
-    ti_member_del(member);  /* failed */
+    return;  /* success */
+panic:
+    ex_set_mem(e);
+    ti_panic("failed to get enum task");
 }
 
 static void enum__def(
@@ -105,33 +103,37 @@ static void enum__del(
     const int nargs = fn_get_nargs(nd);
     static const char * fnname = "mod_enum` with task `del";
     ti_member_t * member = ti_enum_member_by_strn(enum_, name->str, name->n);
+    ti_method_t * method = member ? NULL : ti_enum_get_method(enum_, name);
     ti_task_t * task;
 
     if (fn_nargs(fnname, DOC_MOD_ENUM_DEL, 3, nargs, e))
         return;
 
-    if (!member)
+    if (!member && !method)
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "enum `%s` has no member `%s`",
+                "enum `%s` has no member or method `%s`",
                 enum_->name, name->str);
         return;
     }
 
-    if (enum_->members->n == 1)
+    if (member)
     {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "cannot delete `%s{%s}` as this is the last enum member",
-                enum_->name, name->str);
-        return;
-    }
+        if (enum_->members->n == 1)
+        {
+            ex_set(e, EX_LOOKUP_ERROR,
+                    "cannot delete `%s{%s}` as this is the last enum member",
+                    enum_->name, name->str);
+            return;
+        }
 
-    if (member->ref > 1)
-    {
-        ex_set(e, EX_OPERATION,
-                "enum member `%s{%s}` is still in use",
-                enum_->name, name->str);
-        return;
+        if (member->ref > 1)
+        {
+            ex_set(e, EX_OPERATION,
+                    "enum member `%s{%s}` is still in use",
+                    enum_->name, name->str);
+            return;
+        }
     }
 
     task = ti_task_get_task(query->change, query->collection->root);
@@ -144,10 +146,13 @@ static void enum__del(
     /* update modified time-stamp */
     enum_->modified_at = util_now_usec();
 
-    if (ti_task_add_mod_enum_del(task, member))
+    if (ti_task_add_mod_enum_del(task, enum_, name))
         ex_set_mem(e);
 
-    ti_member_del(member);
+    if (member)
+        ti_member_del(member);
+    else
+        ti_enum_remove_method(enum_, name);
 }
 
 static void enum__mod(
@@ -161,6 +166,7 @@ static void enum__mod(
     static const char * fnname = "mod_enum` with task `mod";
     cleri_node_t * child;
     ti_member_t * member = ti_enum_member_by_strn(enum_, name->str, name->n);
+    ti_method_t * method = member ? NULL : ti_enum_get_method(enum_, name);
     ti_task_t * task;
 
     if (fn_nargs(fnname, DOC_MOD_ENUM_MOD, 4, nargs, e))
@@ -168,10 +174,10 @@ static void enum__mod(
 
     child = nd->children->next->next->next->next->next->next;
 
-    if (!member)
+    if (!member && !method)
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "enum `%s` has no member `%s`",
+                "enum `%s` has no member or method `%s`",
                 enum_->name, name->str);
         return;
     }
@@ -182,8 +188,27 @@ static void enum__mod(
     if (ti_opr_eq(member->val, query->rval))
         return;  /* do nothing, values are equal */
 
-    if (ti_member_set_value(member, query->rval, e))
-        return;
+    if (ti_val_is_closure(query->rval))
+    {
+        if (!method)
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                "cannot convert a member into a method"DOC_MOD_ENUM_MOD);
+            return;
+        }
+        ti_method_set_closure(method, (ti_closure_t *) query->rval);
+    }
+    else
+    {
+        if (!member)
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                "cannot convert a method into a member"DOC_MOD_ENUM_MOD);
+            return;
+        }
+        if (ti_member_set_value(member, query->rval, e))
+            return;
+    }
 
     task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
@@ -195,7 +220,7 @@ static void enum__mod(
     /* update modified time-stamp */
     enum_->modified_at = util_now_usec();
 
-    if (ti_task_add_mod_enum_mod(task, member))
+    if (ti_task_add_mod_enum_mod(task, enum_, name, query->rval))
         ex_set_mem(e);
 }
 
@@ -213,6 +238,7 @@ static void enum__ren(
     ti_method_t * method = member ? NULL : ti_enum_get_method(enum_, name);
     ti_task_t * task;
     ti_raw_t * rname;
+    ti_name_t * to;
 
     if (fn_nargs(fnname, DOC_MOD_ENUM_REN, 4, nargs, e))
         return;
@@ -236,9 +262,20 @@ static void enum__ren(
 
     rname = (ti_raw_t *) query->rval;
 
-    if (ti_member_set_name(member, (const char *) rname->data, rname->n, e))
+    if (member)
+    {
+        if (ti_member_set_name(member, (const char *) rname->data, rname->n, e))
+            return;
+    }
+    else if (ti_method_set_name_e(
+            method,
+            enum_,
+            (const char *) rname->data,
+            rname->n,
+            e))
         return;
 
+    to = member ? member->name : method->name;
     task = ti_task_get_task(query->change, query->collection->root);
     if (!task)
     {
@@ -249,7 +286,7 @@ static void enum__ren(
     /* update modified time-stamp */
     enum_->modified_at = util_now_usec();
 
-    if (ti_task_add_mod_enum_ren(task, member))
+    if (ti_task_add_mod_enum_ren(task, enum_, name, to))
         ex_set_mem(e);
 }
 

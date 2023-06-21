@@ -5,6 +5,7 @@
 #define TI_ENUM_INLINE_H_
 
 #include <ti/enum.h>
+#include <ti/method.t.h>
 #include <ti/spec.h>
 #include <ti/val.h>
 #include <tiinc.h>

@@ -5,6 +5,7 @@
 #include <doc.h>
 #include <ti/closure.h>
 #include <ti/do.h>
+#include <ti/enum.inline.h>
 #include <ti/field.h>
 #include <ti/method.h>
 #include <ti/name.h>

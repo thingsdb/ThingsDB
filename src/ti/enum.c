@@ -33,10 +33,11 @@ ti_enum_t * ti_enum_create(
     enum_->rname = ti_str_create(name, name_n);
     enum_->smap = smap_create();
     enum_->members = NULL;
+    enum_->methods = vec_new(0);
     enum_->created_at = created_at;
     enum_->modified_at = modified_at;
 
-    if (!enum_->name || !enum_->rname || !enum_->smap)
+    if (!enum_->name || !enum_->rname || !enum_->smap || !enum_->methods)
     {
         ti_enum_destroy(enum_);
         return NULL;

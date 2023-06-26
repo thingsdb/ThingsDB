@@ -23,6 +23,9 @@ static void enum__add(
 
     if (ti_val_is_closure(query->rval))
     {
+        if (ti_closure_unbound((ti_closure_t *) query->rval, e))
+            return;
+
         if (ti_enum_add_method(enum_, name, (ti_closure_t *) query->rval, e))
             return;
     }
@@ -196,6 +199,10 @@ static void enum__mod(
                 "cannot convert a member into a method"DOC_MOD_ENUM_MOD);
             return;
         }
+
+        if (ti_closure_unbound((ti_closure_t *) query->rval, e))
+            return;
+
         ti_method_set_closure(method, (ti_closure_t *) query->rval);
     }
     else

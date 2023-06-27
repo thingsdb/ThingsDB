@@ -912,7 +912,7 @@ class TestEnum(TestBase):
                 r'cannot convert a member into a method'):
             await client.query('mod_enum("Color", "mod", "Red", ||nil);')
 
-        self.assertEqual(await client.query('Color{Blue}.nVar();'), 21)
+        self.assertEqual(await client.query('Color{Blue}.nVar(1, 2, 3);'), 21)
 
 
 if __name__ == '__main__':

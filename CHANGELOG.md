@@ -1,3 +1,7 @@
+# v1.4.15
+
+* Added support for methods on an _enumerator_ type, pr #352.
+
 # v1.4.14
 
 * Fixed bug with using function `wrap(..)` in module argument, issue #351.

@@ -70,6 +70,14 @@ int ti_enum_prealloc(ti_enum_t * enum_, size_t sz, ex_t * e)
     return e->nr;
 }
 
+int ti_enum_prealloc_methods(ti_enum_t * enum_, size_t sz, ex_t * e)
+{
+    if (vec_make(&enum_->methods, sz))
+        ex_set_mem(e);
+
+    return e->nr;
+}
+
 int ti_enum_set_enum_tp(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
 {
     switch((ti_val_enum) val->tp)
@@ -310,7 +318,7 @@ int ti_enum_init_from_thing(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
         : enum__init_thing_t(enum_, thing, e);
 }
 
-int ti_enum_init_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e)
+int ti_enum_init_members_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e)
 {
     ti_name_t * name;
     ti_val_t * val;
@@ -379,6 +387,84 @@ failed:
     return e->nr;
 }
 
+int ti_enum_init_methods_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e)
+{
+    ti_name_t * name;
+    ti_val_t * val;
+    mp_obj_t obj, mp_name;
+    size_t i;
+
+    if (mp_skip(vup->up) != MP_STR || mp_next(vup->up, &obj) != MP_ARR)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "failed unpacking methods for enum `%s`;"
+                "expecting the methods as an array",
+                enum_->name);
+        return e->nr;
+    }
+
+    if (ti_enum_prealloc_methods(enum_, obj.via.sz, e))
+        return e->nr;
+
+    for (i = obj.via.sz; i--;)
+    {
+        val = NULL;
+
+        if (mp_next(vup->up, &obj) != MP_ARR || obj.via.sz != 2 ||
+            mp_next(vup->up, &mp_name) != MP_STR)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "failed unpacking methods for enum `%s`;"
+                    "expecting an array with two values",
+                    enum_->name);
+            return e->nr;
+        }
+
+        if (!ti_name_is_valid_strn(mp_name.via.str.data, mp_name.via.str.n))
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "failed unpacking methods for enum `%s`;"
+                    "methods names must follow the naming rules"DOC_NAMES,
+                    enum_->name);
+            return e->nr;
+        }
+
+        name = ti_names_get(mp_name.via.str.data, mp_name.via.str.n);
+        if (!name)
+            goto failed;
+
+        val = ti_val_from_vup_e(vup, e);
+        if (!val)
+            goto failed;
+
+        if (!ti_val_is_closure(val))
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "failed unpacking methods for enum `%s`;"
+                    "methods must be type closure",
+                    enum_->name);
+            goto failed;
+        }
+
+        if (ti_enum_add_method(enum_, name, (ti_closure_t *) val, e))
+            goto failed;
+
+        ti_decref(name);
+        ti_decref(val);
+    }
+
+    return e->nr;
+
+failed:
+    if (!e->nr)
+        ex_set_mem(e);
+
+    ti_name_drop(name);
+    ti_val_drop(val);
+
+    return e->nr;
+}
+
 /* adds a map with key/value pairs */
 int ti_enum_members_to_client_pk(
         ti_enum_t * enum_,
@@ -410,6 +496,22 @@ int ti_enum_members_to_store_pk(ti_enum_t * enum_, msgpack_packer * pk)
         if (msgpack_pack_array(pk, 2) ||
             mp_pack_strn(pk, member->name->str, member->name->n) ||
             ti_val_to_store_pk(member->val, pk))
+            return -1;
+    }
+
+    return 0;
+}
+
+int ti_enum_methods_to_store_pk(ti_enum_t * enum_, msgpack_packer * pk)
+{
+    if (msgpack_pack_array(pk, enum_->methods->n))
+        return -1;
+
+    for (vec_each(enum_->methods, ti_method_t, method))
+    {
+        if (msgpack_pack_array(pk, 2) ||
+            mp_pack_strn(pk, method->name->str, method->name->n) ||
+            ti_val_to_store_pk((ti_val_t *) method->closure, pk))
             return -1;
     }
 
@@ -535,11 +637,47 @@ ti_val_t * ti_enum_as_mpval(ti_enum_t * enum_)
     return (ti_val_t *) raw;
 }
 
+static int enum__methods_info_to_pk(ti_enum_t * enum_, msgpack_packer * pk)
+{
+    if (msgpack_pack_map(pk, enum_->methods->n))
+        return -1;
+
+    for (vec_each(enum_->methods, ti_method_t, method))
+    {
+        ti_raw_t * doc = ti_method_doc(method);
+        ti_raw_t * def;
+
+        if (mp_pack_strn(pk, method->name->str, method->name->n) ||
+
+            msgpack_pack_map(pk, 4) ||
+
+            mp_pack_str(pk, "doc") ||
+            mp_pack_strn(pk, doc->data, doc->n) ||
+
+            ((def = ti_method_def(method)) && (
+                mp_pack_str(pk, "definition") ||
+                mp_pack_strn(pk, def->data, def->n)
+            )) ||
+
+            mp_pack_str(pk, "with_side_effects") ||
+            mp_pack_bool(pk, method->closure->flags & TI_CLOSURE_FLAG_WSE) ||
+
+            mp_pack_str(pk, "arguments") ||
+            msgpack_pack_array(pk, method->closure->vars->n))
+            return -1;
+
+        for (vec_each(method->closure->vars, ti_prop_t, prop))
+            if (mp_pack_str(pk, prop->name->str))
+                return -1;
+    }
+    return 0;
+}
+
 int ti_enum_to_pk(ti_enum_t * enum_, ti_vp_t * vp)
 {
     ti_member_t * def = VEC_first(enum_->members);
     return (
-        msgpack_pack_map(&vp->pk, 6) ||
+        msgpack_pack_map(&vp->pk, 7) ||
         mp_pack_str(&vp->pk, "enum_id") ||
         msgpack_pack_uint16(&vp->pk, enum_->enum_id) ||
 
@@ -558,7 +696,10 @@ int ti_enum_to_pk(ti_enum_t * enum_, ti_vp_t * vp)
             : msgpack_pack_nil(&vp->pk)) ||
 
         mp_pack_str(&vp->pk, "members") ||
-        ti_enum_members_to_client_pk(enum_, vp, 0, 0)  /* only ID; one level */
+        ti_enum_members_to_client_pk(enum_, vp, 0, 0)  /* only ID; one level */ ||
+
+        mp_pack_str(&vp->pk, "methods") ||
+        enum__methods_info_to_pk(enum_, &vp->pk)
     );
 }
 

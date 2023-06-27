@@ -2658,7 +2658,7 @@ int ti_task_add_set_enum(ti_task_t * task, ti_enum_t * enum_)
     msgpack_pack_array(&pk, 2);
 
     msgpack_pack_uint8(&pk, TI_TASK_SET_ENUM);
-    msgpack_pack_map(&pk, 4);
+    msgpack_pack_map(&pk, 5);
 
     mp_pack_str(&pk, "enum_id");
     msgpack_pack_uint16(&pk, enum_->enum_id);
@@ -2671,6 +2671,10 @@ int ti_task_add_set_enum(ti_task_t * task, ti_enum_t * enum_)
 
     mp_pack_str(&pk, "members");
     if (ti_enum_members_to_store_pk(enum_, &pk))
+        goto fail_pack;
+
+    mp_pack_str(&pk, "methods");
+    if (ti_enum_methods_to_store_pk(enum_, &pk))
         goto fail_pack;
 
     data = (ti_data_t *) buffer.data;

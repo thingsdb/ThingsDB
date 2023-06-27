@@ -188,7 +188,7 @@ static void enum__mod(
     if (ti_do_statement(query, child, e))
         return;
 
-    if (ti_opr_eq(member->val, query->rval))
+    if (member && ti_opr_eq(member->val, query->rval))
         return;  /* do nothing, values are equal */
 
     if (ti_val_is_closure(query->rval))

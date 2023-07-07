@@ -466,7 +466,6 @@ on_error:
 done:
     if (ti_stream_write_pkg(stream, resp))
     {
-        /* serious error, join cannot continue */
         free(resp);
         log_error(EX_MEMORY_S);
     }

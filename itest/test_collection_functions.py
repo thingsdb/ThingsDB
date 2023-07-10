@@ -1602,6 +1602,25 @@ class TestCollectionFunctions(TestBase):
         # cleanup garbage, the reference to the collection
         await client.query(r'''.x.splice(2, 1);''')
 
+    async def test_count(self, client):
+        await client.query(
+            r'.x = [42, "thingsdb", thing(.id()), 42, false, 3, nil];')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `float` has no function `count`'):
+            await client.query('(1.0).count("x");')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `count` takes 1 argument but 0 were given'):
+            await client.query('.x.count();')
+
+        self.assertEqual(await client.query('.x.count(42);'), 2)
+        self.assertEqual(await client.query('.x.count("thingsdb");'), 1)
+        self.assertEqual(await client.query('.x.count(123);'), 0)
+        self.assertEqual(await client.query('.x.count(|x| is_int(x));'), 3)
+
     async def test_flat(self, client):
         await client.query(
             r'.x = [1, 2, [3, 4, [5, 6]]];')

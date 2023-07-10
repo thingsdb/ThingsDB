@@ -1,6 +1,7 @@
 # v1.4.15
 
 * Added support for methods on an _enumerator_ type, pr #352.
+* Added function `count(..)`, pr #353.
 
 # v1.4.14
 

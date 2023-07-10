@@ -200,6 +200,7 @@
 #define DOC_LIST_CHOICE             DOC_SEE("data-types/list/choice")
 #define DOC_LIST_CLEAR              DOC_SEE("data-types/list/clear")
 #define DOC_LIST_COPY               DOC_SEE("data-types/list/copy")
+#define DOC_LIST_COUNT              DOC_SEE("data-types/list/count")
 #define DOC_LIST_DUP                DOC_SEE("data-types/list/dup")
 #define DOC_LIST_EACH               DOC_SEE("data-types/list/each")
 #define DOC_LIST_EVERY              DOC_SEE("data-types/list/every")

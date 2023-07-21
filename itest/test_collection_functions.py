@@ -1616,6 +1616,11 @@ class TestCollectionFunctions(TestBase):
                 'function `count` takes 1 argument but 0 were given'):
             await client.query('.x.count();')
 
+        with self.assertRaisesRegex(
+                ZeroDivisionError,
+                'division or modulo by zero'):
+            await client.query('.x.count(|x| 1/0);')
+
         self.assertEqual(await client.query('.x.count(42);'), 2)
         self.assertEqual(await client.query('.x.count("thingsdb");'), 1)
         self.assertEqual(await client.query('.x.count(123);'), 0)
@@ -1625,7 +1630,7 @@ class TestCollectionFunctions(TestBase):
         await client.query("""//ti
             .x = [42, "thingsdb"];
             .y = [-42, -21, 9];
-            .v = ["21", "11", "10"];
+            .v = ["21", "31", "-10"];
             .w = [4.2, 2.1, 9];
         """)
 

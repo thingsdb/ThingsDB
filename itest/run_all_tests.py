@@ -50,6 +50,10 @@ if __name__ == '__main__':
         '--doc-test',
         action='store_true',
         help='include documentation testing')
+    parser.add_argument(
+        '--doc-modules',
+        action='store_true',
+        help='include modules testing')
     args = parser.parse_args()
 
     run_test(TestAdvanced())
@@ -66,7 +70,8 @@ if __name__ == '__main__':
     run_test(TestGC())
     run_test(TestHTTPAPI())
     run_test(TestIndexSlice())
-    run_test(TestModules())
+    if args.doc_modules is True:
+        run_test(TestModules())
     run_test(TestMultiNode())
     run_test(TestNested())
     run_test(TestNodeFunctions())

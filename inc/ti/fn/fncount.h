@@ -45,6 +45,9 @@ static int do__f_count(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             query->rval = NULL;
         }
 
+        query->rval = (ti_val_t *) ti_vint_create(count);
+        if (!query->rval)
+            ex_set_mem(e);
 fail2:
         ti_closure_dec(closure, query);
 fail1:
@@ -55,12 +58,12 @@ fail1:
     {
         for (vec_each(varr->vec, ti_val_t, v))
             count += ti_opr_eq(v, query->rval);
-        ti_val_unsafe_drop(query->rval);
-    }
 
-    query->rval = (ti_val_t *) ti_vint_create(count);
-    if (!query->rval)
-        ex_set_mem(e);
+        ti_val_unsafe_drop(query->rval);
+        query->rval = (ti_val_t *) ti_vint_create(count);
+        if (!query->rval)
+            ex_set_mem(e);
+    }
 
 fail0:
     ti_val_unsafe_drop((ti_val_t *) varr);

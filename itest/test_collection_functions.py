@@ -1621,6 +1621,46 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(await client.query('.x.count(123);'), 0)
         self.assertEqual(await client.query('.x.count(|x| is_int(x));'), 3)
 
+    async def test_sum(self, client):
+        await client.query("""//ti
+            .x = [42, "thingsdb"];
+            .y = [-42, -21, 9];
+            .v = ["21", "11", "10"];
+            .w = [4.2, 2.1, 9];
+        """)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `set` has no function `sum`'):
+            await client.query('set().sum("x");')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `sum` takes at most 1 argument but 2 were given'):
+            await client.query('.y.sum(||nil, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `sum` expects argument 1 to be of '
+                r'type `closure` but got type `nil` instead'):
+            await client.query('.y.sum(nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'`-/\+` not supported by type `str`'):
+            await client.query('.x.sum();')
+
+        with self.assertRaisesRegex(
+                ZeroDivisionError,
+                r'division or modulo by zero'):
+            await client.query('[1].sum(|x| x/0);')
+
+        self.assertEqual(await client.query('.y.sum();'), -54)
+        self.assertEqual(await client.query('.w.sum();'), 15.3)
+        self.assertEqual(await client.query('.v.sum(|v|int(v));'), 42)
+        self.assertEqual(await client.query('[].sum();'), 0)
+        self.assertEqual(await client.query('[].sum(||nil);'), 0)
+
     async def test_flat(self, client):
         await client.query(
             r'.x = [1, 2, [3, 4, [5, 6]]];')

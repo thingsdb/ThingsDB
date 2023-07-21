@@ -232,6 +232,7 @@
 #define DOC_LIST_SOME               DOC_SEE("data-types/list/some")
 #define DOC_LIST_SORT               DOC_SEE("data-types/list/sort")
 #define DOC_LIST_SPLICE             DOC_SEE("data-types/list/splice")
+#define DOC_LIST_SUM                DOC_SEE("data-types/list/sum")
 #define DOC_LIST_UNIQUE             DOC_SEE("data-types/list/unique")
 #define DOC_LIST_UNSHIFT            DOC_SEE("data-types/list/unshift")
 #define DOC_MPDATA_LEN              DOC_SEE("data-types/mpdata/len")

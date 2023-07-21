@@ -695,7 +695,6 @@ if __name__ == '__main__':
 """, scope='/t')
 
         await self.wait_for_module(client, 'test')
-        # The
         res = await client.query(r"""//ti
             set_type('W', {x: ||nil});
             future({

@@ -164,7 +164,6 @@ static int do__search_thing(
 {
     switch ((ti_val_enum) val->tp)
     {
-    /* TODO: maybe implement search for room/task ? */
     case TI_VAL_NIL:
     case TI_VAL_INT:
     case TI_VAL_FLOAT:

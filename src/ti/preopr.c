@@ -99,7 +99,7 @@ int ti_preopr_calc(int preopr, ti_val_t ** val, ex_t * e)
     }
 
     /*
-     * Flag PO__FLAG_CHK_NUM is set if one or more not signs (!) are used in
+     * Flag PO__FLAG_BOOL is set if one or more not signs (!) are used in
      * the sequence, meaning that the end value if one of -1, 0, 1, true or
      * false.
      */

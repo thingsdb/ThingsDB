@@ -782,7 +782,6 @@ void ti_query_task_result(ti_query_t * query, ex_t * e)
             log_critical(
                     "failed to create finish changes for "TI_TASK_ID" (%s)",
                     vtask->id, e->msg);
-            /* TODO : can we do more ? */
             ++ti.counters->tasks_with_error;
             ti_query_destroy(query);
         }

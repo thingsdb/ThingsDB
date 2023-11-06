@@ -9,7 +9,6 @@ ThingsDB is an open-source Stored-State-Distributed-Interpreter (SSDI) solution 
 
 ### Key Features:
 
-- **Scalability:** ThingsDB can be deployed across multiple nodes, allowing it to handle large datasets and high workloads efficiently.
 - **Robustness:** The state of the interpreter is always synchronized across nodes, ensuring data integrity and high availability even in the event of node failures.
 - **Ease of Use:** ThingsDB provides a simple and intuitive programming language that makes it easy to develop applications.
 - **Versatility:** ThingsDB can replace both SQL databases and message-broker solutions like RabbitMQ, simplifying application architecture.

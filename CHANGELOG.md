@@ -1,3 +1,7 @@
+# v1.4.16
+
+* Improve `dup()` and `copy()` with self references, pr #355.
+
 # v1.4.15
 
 * Added support for methods on an _enumerator_ type, pr #352.

@@ -2422,6 +2422,56 @@ new_procedure('multiply', |a, b| a * b);
                 A{TEST};
             """, scope='/thingsdb')
 
+    async def test_deep_copy_and_dup(self, client):
+        # pr #355
+        res = await client.query(r"""//ti
+            a = {};
+            a.a = a;
+            b = a.dup(10);
+            b == b.a.a.a;
+        """)
+        self.assertIs(res, True)
+        res = await client.query(r"""//ti
+            a = {};
+            a.a = a;
+            b = a.copy(10);
+            b == b.a.a.a;
+        """)
+        self.assertIs(res, True)
+        res = await client.query(r"""//ti
+            a = {};
+            a['for item thing'] = 1;
+            a.a = a;
+            b = a.copy(10);
+            b == b.a.a.a;
+        """)
+        self.assertIs(res, True)
+        res = await client.query(r"""//ti
+            a = {};
+            a['for item thing'] = 1;
+            a.a = a;
+            b = a.dup(10);
+            b == b.a.a.a;
+        """)
+        self.assertIs(res, True)
+        res = await client.query(r"""//ti
+            new_type('T');
+            set_type('T', {
+                a: 'T?'
+            });
+            a = T{};
+            a.a = a;
+            b = a.dup(10);
+            b == b.a.a.a;
+        """)
+        self.assertIs(res, True)
+        res = await client.query(r"""//ti
+            a = T{};
+            a.a = a;
+            b = a.copy(10);
+            b == b.a.a.a;
+        """)
+        self.assertIs(res, True)
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

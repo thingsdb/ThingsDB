@@ -1497,9 +1497,31 @@ _Bool ti_thing_equals(ti_thing_t * thing, ti_val_t * otherv, uint8_t deep)
     return true;
 }
 
+static inline void thing__deep_set(ti_thing_t * thing, ti_thing_t * other)
+{
+    thing->collection = (ti_collection_t *) other;
+    thing->flags |= TI_THING_FLAG_DEEP;
+}
+
+static inline void thing__deep_unset(ti_thing_t * thing, ti_collection_t * collection)
+{
+    thing->collection = collection;
+    thing->flags &= ~TI_THING_FLAG_DEEP;
+}
+
+static inline int thing__deep_use(ti_thing_t ** taddr)
+{
+    ti_thing_t * thing = *taddr;
+    *taddr = (ti_thing_t *) (*taddr)->collection;
+    ti_incref(*taddr);
+    ti_val_unsafe_gc_drop((ti_val_t *) thing);
+    return 0;
+}
+
 static int thing__copy_p(ti_thing_t ** taddr, uint8_t deep)
 {
     ti_thing_t * thing = *taddr;
+    ti_collection_t * collection = thing->collection;
     ti_thing_t * other = ti_thing_o_create(
             0,
             ti_thing_n(thing),
@@ -1508,6 +1530,7 @@ static int thing__copy_p(ti_thing_t ** taddr, uint8_t deep)
     if (!other)
         return -1;
 
+    thing__deep_set(thing, other);
     for (vec_each(thing->items.vec, ti_prop_t, prop))
     {
         ti_prop_t * p = ti_prop_dup(prop);
@@ -1521,11 +1544,13 @@ static int thing__copy_p(ti_thing_t ** taddr, uint8_t deep)
         VEC_push(other->items.vec, p);
     }
 
+    thing__deep_unset(thing, collection);
     ti_val_unsafe_gc_drop((ti_val_t *) thing);
     *taddr = other;
     return 0;
 
 fail:
+    thing__deep_unset(thing, collection);
     ti_val_unsafe_drop((ti_val_t *) other);
     return -1;
 }
@@ -1533,6 +1558,7 @@ fail:
 static int thing__dup_p(ti_thing_t ** taddr, uint8_t deep)
 {
     ti_thing_t * thing = *taddr;
+    ti_collection_t * collection = thing->collection;
     ti_thing_t * other = ti_thing_o_create(
             0,
             ti_thing_n(thing),
@@ -1542,6 +1568,7 @@ static int thing__dup_p(ti_thing_t ** taddr, uint8_t deep)
         return -1;
 
     other->via.spec = thing->via.spec;
+    thing__deep_set(thing, other);
 
     for (vec_each(thing->items.vec, ti_prop_t, prop))
     {
@@ -1556,11 +1583,13 @@ static int thing__dup_p(ti_thing_t ** taddr, uint8_t deep)
         VEC_push(other->items.vec, p);
     }
 
+    thing__deep_unset(thing, collection);
     ti_val_unsafe_gc_drop((ti_val_t *) thing);
     *taddr = other;
     return 0;
 
 fail:
+    thing__deep_unset(thing, collection);
     ti_val_unsafe_drop((ti_val_t *) other);
     return -1;
 }
@@ -1607,10 +1636,10 @@ static int thing__dup_cb(ti_item_t * item, thing__wcd_t * w)
     return 0;
 }
 
-
 static int thing__copy_i(ti_thing_t ** taddr, uint8_t deep)
 {
     ti_thing_t * thing = *taddr;
+    ti_collection_t * collection = thing->collection;
     ti_thing_t * other = ti_thing_i_create(0, thing->collection);
     thing__wcd_t w = {
             .other = other,
@@ -1620,14 +1649,18 @@ static int thing__copy_i(ti_thing_t ** taddr, uint8_t deep)
     if (!other)
         return -1;
 
+    thing__deep_set(thing, other);
+
     if (smap_values(thing->items.smap, (smap_val_cb) thing__copy_cb, &w))
         goto fail;
 
+    thing__deep_unset(thing, collection);
     ti_val_unsafe_gc_drop((ti_val_t *) thing);
     *taddr = other;
     return 0;
 
 fail:
+    thing__deep_unset(thing, collection);
     ti_val_unsafe_drop((ti_val_t *) other);
     return -1;
 }
@@ -1635,6 +1668,7 @@ fail:
 static int thing__dup_i(ti_thing_t ** taddr, uint8_t deep)
 {
     ti_thing_t * thing = *taddr;
+    ti_collection_t * collection = thing->collection;
     ti_thing_t * other = ti_thing_i_create(0, thing->collection);
     thing__wcd_t w = {
             .other = other,
@@ -1645,15 +1679,18 @@ static int thing__dup_i(ti_thing_t ** taddr, uint8_t deep)
         return -1;
 
     other->via.spec = thing->via.spec;
+    thing__deep_set(thing, other);
 
     if (smap_values(thing->items.smap, (smap_val_cb) thing__dup_cb, &w))
         goto fail;
 
+    thing__deep_unset(thing, collection);
     ti_val_unsafe_gc_drop((ti_val_t *) thing);
     *taddr = other;
     return 0;
 
 fail:
+    thing__deep_unset(thing, collection);
     ti_val_unsafe_drop((ti_val_t *) other);
     return -1;
 }
@@ -1663,6 +1700,7 @@ static int thing__copy_t(ti_thing_t ** taddr, uint8_t deep)
     ti_name_t * name;
     ti_val_t * val;
     ti_thing_t * thing = *taddr;
+    ti_collection_t * collection = thing->collection;
     ti_thing_t * other = ti_thing_o_create(
             0,
             ti_thing_n(thing),
@@ -1671,6 +1709,8 @@ static int thing__copy_t(ti_thing_t ** taddr, uint8_t deep)
 
     if (!other)
         return -1;
+
+    thing__deep_set(thing, other);
 
     for(thing_t_each(thing, name, val))
     {
@@ -1689,12 +1729,13 @@ static int thing__copy_t(ti_thing_t ** taddr, uint8_t deep)
 
         VEC_push(other->items.vec, p);
     }
-
+    thing__deep_unset(thing, collection);
     ti_val_unsafe_gc_drop((ti_val_t *) thing);
     *taddr = other;
     return 0;
 
 fail:
+    thing__deep_unset(thing, collection);
     ti_val_unsafe_drop((ti_val_t *) other);
     return -1;
 }
@@ -1703,10 +1744,13 @@ static int thing__dup_t(ti_thing_t ** taddr, uint8_t deep)
 {
     ti_val_t * val;
     ti_thing_t * thing = *taddr;
+    ti_collection_t * collection = thing->collection;
     ti_type_t * type = thing->via.type;
     ti_thing_t * other = ti_thing_t_create(0, type, thing->collection);
     if (!other)
         return -1;
+
+    thing__deep_set(thing, other);
 
     for (vec_each(type->fields, ti_field_t, field))
     {
@@ -1719,12 +1763,13 @@ static int thing__dup_t(ti_thing_t ** taddr, uint8_t deep)
         }
         VEC_push(other->items.vec, val);
     }
-
+    thing__deep_unset(thing, collection);
     ti_val_unsafe_gc_drop((ti_val_t *) thing);
     *taddr = other;
     return 0;
 
 fail:
+    thing__deep_unset(thing, collection);
     ti_val_unsafe_drop((ti_val_t *) other);
     return -1;
 }
@@ -1733,7 +1778,9 @@ int ti_thing_copy(ti_thing_t ** thing, uint8_t deep)
 {
     assert (deep);
     return deep--
-            ? ti_thing_is_object(*thing)
+            ? (*thing)->flags & TI_THING_FLAG_DEEP
+            ? thing__deep_use(thing)
+            : ti_thing_is_object(*thing)
             ? ti_thing_is_dict(*thing)
             ? thing__copy_i(thing, deep)
             : thing__copy_p(thing, deep)
@@ -1745,7 +1792,9 @@ int ti_thing_dup(ti_thing_t ** thing, uint8_t deep)
 {
     assert (deep);
     return deep--
-            ? ti_thing_is_object(*thing)
+            ? (*thing)->flags & TI_THING_FLAG_DEEP
+            ? thing__deep_use(thing)
+            : ti_thing_is_object(*thing)
             ? ti_thing_is_dict(*thing)
             ? thing__dup_i(thing, deep)
             : thing__dup_p(thing, deep)

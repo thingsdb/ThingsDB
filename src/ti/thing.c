@@ -1499,6 +1499,12 @@ _Bool ti_thing_equals(ti_thing_t * thing, ti_val_t * otherv, uint8_t deep)
 
 static inline void thing__deep_set(ti_thing_t * thing, ti_thing_t * other)
 {
+    /* During the recursive copying, we don't need the collection on the thing
+     * as we just want the newly created thing. Therefore we can temporary
+     * use the collection pointer as a placeholder for the new thing.
+     * After the "walk" has finished, a call to thing__deep_unset must be made
+     * to restore the collection.
+     */
     thing->collection = (ti_collection_t *) other;
     thing->flags |= TI_THING_FLAG_DEEP;
 }

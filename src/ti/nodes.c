@@ -30,6 +30,7 @@
 #include <util/mpack.h>
 
 #define NODES__UV_BACKLOG 64
+#define NODES__MAX 127
 
 typedef ti_pkg_t * (*nodes__part_cb) (ti_pkg_t *, ex_t *);
 
@@ -1533,6 +1534,12 @@ int ti_nodes_check_add(ex_t * e)
     uint8_t may_skip = nodes_vec->n >= 4
             ? ((uint8_t) (nodes_vec->n / 2)) - 1
             : 0;
+
+    if (nodes_vec->n == NODES__MAX)
+    {
+        ex_set(e, EX_MAX_QUOTA, "maximum number of nodes is reached");
+        return e->nr;
+    }
 
     for (vec_each(nodes_vec, ti_node_t, node))
     {

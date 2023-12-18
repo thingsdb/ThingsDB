@@ -97,6 +97,7 @@
 #define DOC_RENAME_ENUM             DOC_SEE("collection-api/rename_enum")
 #define DOC_RENAME_TYPE             DOC_SEE("collection-api/rename_type")
 #define DOC_ROOM                    DOC_SEE("collection-api/room")
+#define DOC_ROOT                    DOC_SEE("collection-api/root")
 #define DOC_SET                     DOC_SEE("collection-api/set")
 #define DOC_SET_ENUM                DOC_SEE("collection-api/set_enum")
 #define DOC_SET_TYPE                DOC_SEE("collection-api/set_type")

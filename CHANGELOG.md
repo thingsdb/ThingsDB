@@ -1,3 +1,7 @@
+# v1.4.17
+
+* Added function `root()`, issue #354.
+
 # v1.4.16
 
 * Improve `dup()` and `copy()` with self references, pr #355.

@@ -5915,6 +5915,23 @@ class TestCollectionFunctions(TestBase):
                     x = .x;
                 """ + query)
 
+    async def test_root(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `root`'):
+            await client.query('nil.root();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `root` takes 0 arguments '
+                'but 1 was given'):
+            await client.query('root(nil);')
+
+        self.assertIs(None, await client.query('root();', scope='/t'))
+        self.assertTrue(await client.query("""//ti
+            root().id() == .id();
+        """))
+
 
 if __name__ == '__main__':
     run_test(TestCollectionFunctions())

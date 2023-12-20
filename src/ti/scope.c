@@ -68,6 +68,9 @@ static int scope__collection(
 
         scope->tp = TI_SCOPE_COLLECTION_ID;
         scope->via.collection_id = (uint64_t) collection_id;
+        log_warning(
+                "using the collection Id is obsolete; "
+                "use the collection name instead");
 
         return 0;  /* success */
     }

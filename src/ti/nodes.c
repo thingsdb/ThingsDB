@@ -91,8 +91,8 @@ failed:
 
 static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
 {
-    assert (stream->tp == TI_STREAM_TCP_IN_NODE);
-    assert (stream->via.node == NULL);
+    assert(stream->tp == TI_STREAM_TCP_IN_NODE);
+    assert(stream->via.node == NULL);
 
     ti_pkg_t * resp = NULL;
     mp_unp_t up;
@@ -215,8 +215,8 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (!ti.node)
     {
-        assert (*ti.args->secret);
-        assert (ti.build);
+        assert(*ti.args->secret);
+        assert(ti.build);
 
         if (ti_version_cmp(TI_VERSION, version) < 0)
         {
@@ -328,7 +328,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (node->stream)
     {
-        assert (node->stream->via.node == node);
+        assert(node->stream->via.node == node);
 
         if (node->id < this_node->id &&
             node->status != TI_NODE_STAT_CONNECTING)
@@ -374,7 +374,6 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
     uv_mutex_unlock(&nodes->lock);
 
     node->next_free_id = mp_next_thing_id.via.u64;
-
 
 
     ti_nodes_update_syntax_ver(from_node_syntax_ver);
@@ -468,7 +467,7 @@ static void nodes__on_req_change_id(ti_stream_t * stream, ti_pkg_t * pkg)
         }
     }
 
-    assert (e.nr == 0);
+    assert(e.nr == 0);
     resp = ti_pkg_new(pkg->id, accepted, NULL, 0);
 
 finish:
@@ -507,7 +506,7 @@ static void nodes__on_req_away(ti_stream_t * stream, ti_pkg_t * pkg)
 
     accepted = ti_away_accept(other_node->id);
 
-    assert (e.nr == 0);
+    assert(e.nr == 0);
     resp = ti_pkg_new(
             pkg->id,
             accepted ? TI_PROTO_NODE_RES_ACCEPT : TI_PROTO_NODE_ERR_REJECT,
@@ -731,7 +730,7 @@ static void nodes__on_req_run(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
 
     access_ = ti_query_access(query);
-    assert (access_);
+    assert(access_);
 
     if (ti_access_check_err(access_, query->user, TI_AUTH_RUN, &e))
         goto finish;
@@ -885,7 +884,7 @@ static void nodes__on_req_syncpart(
     }
 
     resp = part_cb(pkg, &e);
-    assert (!resp ^ !e.nr);
+    assert(!resp ^ !e.nr);
 
 finish:
     if (e.nr)

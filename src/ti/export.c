@@ -236,6 +236,27 @@ static int export__set_enum_cb(ti_enum_t * enum_, ti_fmt_t * fmt)
         --fmt->indent;
     }
 
+    if (enum_->methods->n)
+    {
+        ++fmt->indent;
+
+        if (!enum_->members->n)
+            if (buf_write(&fmt->buf, '\n'))
+                return -1;
+
+        for (vec_each(enum_->methods, ti_method_t, method))
+        {
+            if (ti_fmt_indent(fmt) ||
+                buf_append(&fmt->buf, method->name->str, method->name->n) ||
+                buf_append_str(&fmt->buf, ": ") ||
+                ti_fmt_nd(fmt, method->closure->node) ||
+                buf_append_str(&fmt->buf, ",\n")
+            ) return -1;
+        }
+
+        --fmt->indent;
+    }
+
     buf_append_str(&fmt->buf, "});\n");
     return 0;
 }

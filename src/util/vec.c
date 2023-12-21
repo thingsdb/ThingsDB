@@ -60,7 +60,7 @@ void vec_move(vec_t * vec, uint32_t pos, uint32_t n, uint32_t to)
         to = _;
     }
 
-    assert (to + n <= vec->n);
+    assert(to + n <= vec->n);
 
     /* calculate the range involved in the move */
     range = to + n - pos;
@@ -106,7 +106,7 @@ void * vec_remove(vec_t * vec, uint32_t i)
 
 void * vec_swap_remove(vec_t * vec, uint32_t i)
 {
-    assert (vec->n > 0);
+    assert(vec->n > 0);
     void * data = VEC_get(vec, i);
     vec->data[i] = vec->data[--vec->n];
     return data;

@@ -28,7 +28,7 @@ static int64_t scope__read_id(const char * str, size_t n)
 {
     uint64_t result = 0;
 
-    assert (n);
+    assert(n);
 
     do
     {
@@ -53,27 +53,7 @@ static int scope__collection(
         size_t n,
         ex_t * e)
 {
-    assert (n);
-    if (isdigit(*str))
-    {
-        int64_t collection_id = scope__read_id(str, n);
-        if (collection_id < 0)
-        {
-            ex_set(e, EX_VALUE_ERROR,
-                "invalid scope; "
-                "a collection must be specified by either a name or id"
-                DOC_SCOPES);
-            return e->nr;
-        }
-
-        scope->tp = TI_SCOPE_COLLECTION_ID;
-        scope->via.collection_id = (uint64_t) collection_id;
-        log_warning(
-                "using the collection Id is obsolete; "
-                "use the collection name instead");
-
-        return 0;  /* success */
-    }
+    assert(n);
 
     if (!ti_name_is_valid_strn(str, n))
     {
@@ -84,7 +64,7 @@ static int scope__collection(
         return e->nr;
     }
 
-    scope->tp = TI_SCOPE_COLLECTION_NAME;
+    scope->tp = TI_SCOPE_COLLECTION;
     scope->via.collection_name.name = str;
     scope->via.collection_name.sz = n;
 
@@ -307,25 +287,17 @@ int ti_scope_id(ti_scope_t * scope, uint64_t * scope_id, ex_t * e)
     case TI_SCOPE_NODE:
         *scope_id = scope->tp;
         return e->nr;
-    case TI_SCOPE_COLLECTION_NAME:
+    case TI_SCOPE_COLLECTION:
         collection = ti_collections_get_by_strn(
                 scope->via.collection_name.name,
                 scope->via.collection_name.sz);
         if (collection)
-            *scope_id = collection->root->id;
+            *scope_id = collection->id;
         else
             ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
                 scope->via.collection_name.sz,
                 scope->via.collection_name.name);
 
-        return e->nr;
-    case TI_SCOPE_COLLECTION_ID:
-        collection = ti_collections_get_by_id(scope->via.collection_id);
-        if (collection)
-            *scope_id = collection->root->id;
-        else
-            ex_set(e, EX_LOOKUP_ERROR, TI_COLLECTION_ID" not found",
-                    scope->via.collection_id);
         return e->nr;
     }
     assert(0);
@@ -342,7 +314,7 @@ ti_collection_t * ti_scope_get_collection(ti_scope_t * scope, ex_t * e)
     case TI_SCOPE_NODE:
         ex_set(e, EX_BAD_DATA, "expecting a `collection` scope");
         return NULL;
-    case TI_SCOPE_COLLECTION_NAME:
+    case TI_SCOPE_COLLECTION:
         collection = ti_collections_get_by_strn(
                 scope->via.collection_name.name,
                 scope->via.collection_name.sz);
@@ -352,13 +324,9 @@ ti_collection_t * ti_scope_get_collection(ti_scope_t * scope, ex_t * e)
                 scope->via.collection_name.name);
 
         return collection;
-    default:
-        collection = ti_collections_get_by_id(scope->via.collection_id);
-        if (!collection)
-            ex_set(e, EX_LOOKUP_ERROR, TI_COLLECTION_ID" not found",
-                    scope->via.collection_id);
-        return collection;
     }
+    assert(0);
+    return NULL;
 }
 
 void ti_scope_set_tz(uint64_t scope_id, ti_tz_t * tz)

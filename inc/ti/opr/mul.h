@@ -55,7 +55,7 @@ static int opr__mul(ti_val_t * a, ti_val_t ** b, ex_t * e)
         int_ = VBOOL(a) * VBOOL(*b);
         goto type_int;
     }
-    assert (0);
+    assert(0);
 
 type_float:
     if (ti_val_make_float(b, float_))

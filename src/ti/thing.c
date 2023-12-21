@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/changes.inline.h>
+#include <ti/collection.inline.h>
 #include <ti/enums.h>
 #include <ti/field.h>
 #include <ti/item.h>
@@ -167,7 +168,7 @@ void ti_thing_cancel(ti_thing_t * thing)
 
 void ti_thing_destroy(ti_thing_t * thing)
 {
-    assert (thing);
+    assert(thing);
     if (thing->id)
     {
         if (ti_changes_cache_dropped_thing(thing))
@@ -456,7 +457,7 @@ int ti_thing_p_prop_add_assign(
         val = (ti_val_t *) ti_nil_get();
         break;
     case TI_VAL_TEMPLATE:
-        assert (0);
+        assert(0);
         break;
     }
 
@@ -556,7 +557,7 @@ int ti_thing_i_item_add_assign(
         val = (ti_val_t *) ti_nil_get();
         break;
     case TI_VAL_TEMPLATE:
-        assert (0);
+        assert(0);
         break;
     }
 
@@ -1158,9 +1159,9 @@ static inline int thing__gen_id_i_cb(ti_item_t * item, void * UNUSED(arg))
 
 int ti_thing_gen_id(ti_thing_t * thing)
 {
-    assert (!thing->id);
+    assert(!thing->id);
 
-    thing->id = ti_next_free_id();
+    thing->id = ti_collection_next_free_id(thing->collection);
     ti_thing_mark_new(thing);
 
     if (ti_thing_to_map(thing))
@@ -1193,7 +1194,7 @@ int ti_thing_gen_id(ti_thing_t * thing)
 
 void ti_thing_t_to_object(ti_thing_t * thing)
 {
-    assert (!ti_thing_is_object(thing));
+    assert(!ti_thing_is_object(thing));
     ti_name_t * name;
     ti_val_t ** val;
     ti_prop_t * prop;
@@ -1329,8 +1330,8 @@ static inline int thing__store_pk_cb(ti_item_t * item, msgpack_packer * pk)
 
 int ti_thing_o_to_pk(ti_thing_t * thing, msgpack_packer * pk)
 {
-    assert (ti_thing_is_object(thing));
-    assert (thing->id);   /* no need to check, options < 0 must have id */
+    assert(ti_thing_is_object(thing));
+    assert(thing->id);   /* no need to check, options < 0 must have id */
 
     if (msgpack_pack_map(pk, 1) ||
         mp_pack_strn(pk, TI_KIND_S_OBJECT, 1) ||
@@ -1356,8 +1357,8 @@ int ti_thing_o_to_pk(ti_thing_t * thing, msgpack_packer * pk)
 
 int ti_thing_t_to_pk(ti_thing_t * thing, msgpack_packer * pk)
 {
-    assert (!ti_thing_is_object(thing));
-    assert (thing->id);   /* no need to check, options < 0 must have id */
+    assert(!ti_thing_is_object(thing));
+    assert(thing->id);   /* no need to check, options < 0 must have id */
 
     if (msgpack_pack_map(pk, 1) ||
         mp_pack_strn(pk, TI_KIND_S_INSTANCE, 1) ||
@@ -1782,7 +1783,7 @@ fail:
 
 int ti_thing_copy(ti_thing_t ** thing, uint8_t deep)
 {
-    assert (deep);
+    assert(deep);
     return deep--
             ? (*thing)->flags & TI_THING_FLAG_DEEP
             ? thing__deep_use(thing)
@@ -1796,7 +1797,7 @@ int ti_thing_copy(ti_thing_t ** thing, uint8_t deep)
 
 int ti_thing_dup(ti_thing_t ** thing, uint8_t deep)
 {
-    assert (deep);
+    assert(deep);
     return deep--
             ? (*thing)->flags & TI_THING_FLAG_DEEP
             ? thing__deep_use(thing)
@@ -1824,8 +1825,8 @@ int ti_thing_init_gc(void)
 
 void ti_thing_resize_gc(void)
 {
-    assert (thing__gc_swp->n == 0);
-    assert (ti_thing_gc_vec->n == 0);
+    assert(thing__gc_swp->n == 0);
+    assert(ti_thing_gc_vec->n == 0);
 
     if (thing__gc_swp->sz > 2047)
     {
@@ -1885,7 +1886,7 @@ static int thing__assign_set_o(
         ti_task_t * task,
         ex_t * e)
 {
-    assert (ti_val_is_spec(val, thing->via.spec));
+    assert(ti_val_is_spec(val, thing->via.spec));
     /* must increase the reference here, even if the value is no longer
      * required after this function, it might break the parent relation;
      * bug #309

@@ -34,6 +34,7 @@ static const size_t ti_collection_min_name = 1;
 static const size_t ti_collection_max_name = 128;
 
 ti_collection_t * ti_collection_create(
+        uint64_t collection_id,
         guid_t * guid,
         const char * name,
         size_t n,
@@ -48,6 +49,8 @@ ti_collection_t * ti_collection_create(
     collection->ref = 1;
     collection->deep = deep;
     collection->root = NULL;
+    collection->id = collection_id;
+    collection->next_free_id = 1;
     collection->name = ti_str_create(name, n);
     collection->things = imap_create();
     collection->rooms = imap_create();
@@ -81,9 +84,9 @@ void ti_collection_destroy(ti_collection_t * collection)
     if (!collection)
         return;
 
-    assert (collection->things->n == 0);
-    assert (collection->rooms->n == 0);
-    assert (collection->gc->n == 0);
+    assert(collection->things->n == 0);
+    assert(collection->rooms->n == 0);
+    assert(collection->gc->n == 0);
 
     imap_destroy(collection->things, NULL);
     imap_destroy(collection->rooms, NULL);
@@ -203,8 +206,8 @@ ti_thing_t * ti_collection_thing_restore_gc(
     {
         if ((thing = gc->thing)->id == thing_id)
         {
-            assert (thing->flags & TI_THING_FLAG_SWEEP);
-            assert (thing->ref);
+            assert(thing->flags & TI_THING_FLAG_SWEEP);
+            assert(thing->ref);
 
             log_info("restoring "TI_THING_ID" from garbage", thing->id);
 
@@ -420,7 +423,7 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
 
     if (do_mark_things)
     {
-        assert (collection->futures->n == 0 && "Futures must be cancelled");
+        assert(collection->futures->n == 0 && "Futures must be cancelled");
 
         /* Take a lock because flags are not atomic and might be changed */
         uv_mutex_lock(collection->lock);
@@ -486,7 +489,7 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
         /*
          * The garbage collector has a reference and since the
          */
-        assert (thing->ref > 1);
+        assert(thing->ref > 1);
         ti_decref(thing);
 
         if (imap_add(collection->things, thing->id, thing))

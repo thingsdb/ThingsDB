@@ -38,7 +38,7 @@ int ti_condition_field_info_init(
     /* can be set even for nillable */
     field->dval_cb = condition__dval_cb;
 
-    assert (*end == '>');
+    assert(*end == '>');
 
     switch(*str)
     {
@@ -201,7 +201,7 @@ int ti_condition_field_info_init(
 
         if (*str == ':')
         {
-            assert (end > str);
+            assert(end > str);
             ssize_t n = end - (++str);
             if (n < mi || n > ma)
                 goto invalid_dval;
@@ -273,7 +273,7 @@ int ti_condition_field_info_init(
 
         if (*str == ':')
         {
-            assert (end > str);
+            assert(end > str);
             dv = strx_to_int64(++str, &tmp);
 
             str = tmp;
@@ -352,7 +352,7 @@ int ti_condition_field_info_init(
 
         if (*str == ':')
         {
-            assert (end > str);
+            assert(end > str);
             dv = strx_to_double(++str, &tmp);
 
             str = tmp;
@@ -478,7 +478,7 @@ int ti_condition_field_re_init(
     /* can be set even for nillable */
     field->dval_cb = condition__dval_cb;
 
-    assert (*str == '/');
+    assert(*str == '/');
 
     if (*end == '>')
     {

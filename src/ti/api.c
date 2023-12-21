@@ -236,7 +236,7 @@ static int api__url_cb(http_parser * parser, const char * at, size_t n)
         log_debug("URI (scope) not found: %s", ar->e.msg);
         ar->flags |= TI_API_FLAG_INVALID_SCOPE;
     }
-    else if (ar->scope.tp == TI_SCOPE_COLLECTION_NAME)
+    else if (ar->scope.tp == TI_SCOPE_COLLECTION)
     {
         /* we must store the collection name as it might be freed before the
          * collection scope will be read;
@@ -342,7 +342,7 @@ static int api__headers_complete_cb(http_parser * parser)
 {
     ti_api_request_t * ar = parser->data;
 
-    assert (!ar->content);
+    assert(!ar->content);
 
     if (parser->content_length != ULLONG_MAX)
     {
@@ -362,7 +362,7 @@ static int api__body_cb(http_parser * parser, const char * at, size_t n)
         return 0;
 
     offset = ar->content_n - (parser->content_length + n);
-    assert (offset + n <= ar->content_n);
+    assert(offset + n <= ar->content_n);
     memcpy(ar->content + offset, at, n);
 
     return 0;
@@ -465,7 +465,7 @@ int ti_api_close_with_response(ti_api_request_t * ar, void * data, size_t size)
 
 int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
 {
-    assert (e->nr);
+    assert(e->nr);
 
     char header[API__HEADER_MAX_SZ];
     char * body = NULL;
@@ -548,7 +548,7 @@ int ti_api_close_with_err(ti_api_request_t * ar, ex_t * e)
     case EX_RETURN:
     case EX_CONTINUE:
     case EX_BREAK:
-        assert (0);
+        assert(0);
     }
 
     if (header_size > 0 && body_size > 0)
@@ -593,12 +593,10 @@ static int api__gen_scope(ti_api_request_t * ar, msgpack_packer * pk)
         return mp_pack_str(pk, "@t");
     case TI_SCOPE_NODE:
         return mp_pack_fmt(pk, "@n:%d", ar->scope.via.node_id);
-    case TI_SCOPE_COLLECTION_NAME:
+    case TI_SCOPE_COLLECTION:
         return mp_pack_fmt(pk, "@:%.*s",
                 ar->scope.via.collection_name.sz,
                 ar->scope.via.collection_name.name);
-    case TI_SCOPE_COLLECTION_ID:
-        return mp_pack_fmt(pk, "@:%"PRIu64, ar->scope.via.collection_id);
     }
     return -1;
 }
@@ -861,7 +859,7 @@ static int api__run(ti_api_request_t * ar, api__req_t * req)
     free(data);
 
     access_ = ti_query_access(query);
-    assert (access_);
+    assert(access_);
 
     if (ti_access_check_err(access_, query->user, TI_AUTH_RUN, e))
         goto fail1;
@@ -985,7 +983,7 @@ query:
     }
 
     access_ = ti_query_access(query);
-    assert (access_);
+    assert(access_);
 
     if (ti_access_check_err(access_, query->user, TI_AUTH_QUERY, e) ||
         ti_query_parse(
@@ -997,7 +995,7 @@ query:
 
     if (ti_query_wse(query))
     {
-        assert (ar->scope.tp != TI_SCOPE_NODE);
+        assert(ar->scope.tp != TI_SCOPE_NODE);
 
         if (ti_access_check_err(access_, query->user, TI_AUTH_CHANGE, e) ||
             ti_changes_create_new_change(query, e))
@@ -1201,7 +1199,7 @@ static int api__message_complete_cb(http_parser * parser)
     }
     /* fall through */
     case TI_API_CT_MSGPACK:
-        assert (ar->e.nr == 0);
+        assert(ar->e.nr == 0);
         return api__from_msgpack(ar);
     }
 

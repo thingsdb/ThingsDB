@@ -29,8 +29,8 @@ ti_node_t * ti_node_create(
         const char * addr,
         const char * secret)
 {
-    assert (strlen(secret) == CRYPTX_SZ - 1);
-    assert (strlen(addr) < INET6_ADDRSTRLEN);
+    assert(strlen(secret) == CRYPTX_SZ - 1);
+    assert(strlen(addr) < INET6_ADDRSTRLEN);
 
     ti_node_t * node = malloc(sizeof(ti_node_t));
     if (!node)
@@ -303,7 +303,7 @@ int ti_node_info_to_pk(ti_node_t * node, msgpack_packer * pk)
     (void) sprintf(syntax_buf, "v%"PRIu16, node->syntax_ver);
 
     return -(
-        msgpack_pack_map(pk, 10) ||
+        msgpack_pack_map(pk, 9) ||
 
         mp_pack_str(pk, "node_id") ||
         msgpack_pack_uint32(pk, node->id) ||
@@ -322,9 +322,6 @@ int ti_node_info_to_pk(ti_node_t * node, msgpack_packer * pk)
 
         mp_pack_str(pk, "stored_change_id") ||
         msgpack_pack_uint64(pk, node->scid) ||
-
-        mp_pack_str(pk, "next_free_id") ||
-        msgpack_pack_uint64(pk, node->next_free_id) ||
 
         mp_pack_str(pk, "node_name") ||
         mp_pack_str(pk, node->addr) ||

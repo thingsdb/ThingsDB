@@ -209,7 +209,7 @@ int ti_store_enums_restore_members(
         ) goto fail1;
 
         enum_ = ti_enums_by_id(enums, mp_id.via.u64);
-        assert (enum_);
+        assert(enum_);
 
         /* this might allocate too much for the methods but never too little */
         if (ti_enum_prealloc(enum_, obj.via.sz, &e))

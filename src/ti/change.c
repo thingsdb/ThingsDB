@@ -186,7 +186,7 @@ static int change__run_deprecated_v0(ti_change_t * change)
         if (!thing)
         {
             /* can only happen if we have a collection */
-            assert (change->collection);
+            assert(change->collection);
             log_critical(
                     "thing "TI_THING_ID" not found in collection `%.*s`, "
                     "skip "TI_CHANGE_ID,
@@ -237,10 +237,10 @@ fail:
 
 int ti_change_run(ti_change_t * change)
 {
-    assert (change->tp == TI_CHANGE_TP_CPKG);
-    assert (change->via.cpkg);
-    assert (change->via.cpkg->change_id == change->id);
-    assert (change->via.cpkg->pkg->tp == TI_PROTO_NODE_CHANGE ||
+    assert(change->tp == TI_CHANGE_TP_CPKG);
+    assert(change->via.cpkg);
+    assert(change->via.cpkg->change_id == change->id);
+    assert(change->via.cpkg->pkg->tp == TI_PROTO_NODE_CHANGE ||
             change->via.cpkg->pkg->tp == TI_PROTO_NODE_REQ_SYNCEPART);
 
     ti_thing_t * thing;
@@ -290,7 +290,7 @@ int ti_change_run(ti_change_t * change)
         if (!thing)
         {
             /* can only happen if we have a collection */
-            assert (change->collection);
+            assert(change->collection);
             log_critical(
                     "thing "TI_THING_ID" not found in collection `%.*s`, "
                     "skip "TI_CHANGE_ID,

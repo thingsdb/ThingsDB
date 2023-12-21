@@ -21,7 +21,7 @@ size_t template_escaped(const char * s, size_t n)
 {
     size_t count = 0;
 
-    assert (n);
+    assert(n);
     for(; --n; ++s)
     {
         if (*s == '`' || *s == '{' || *s == '}')
@@ -144,7 +144,7 @@ int ti_template_compile(ti_template_t * tmplate, ti_query_t * query, ex_t * e)
     ti_raw_t * raw;
     unsigned char * ptr;
 
-    assert (query->rval == NULL);
+    assert(query->rval == NULL);
 
     /*
      * First calculate the exact size, and therefore run each expression and

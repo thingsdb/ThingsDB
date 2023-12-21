@@ -15,6 +15,7 @@
 #include <ti/auth.h>
 #include <ti/closure.h>
 #include <ti/closure.inline.h>
+#include <ti/collection.inline.h>
 #include <ti/collections.h>
 #include <ti/condition.h>
 #include <ti/datetime.h>

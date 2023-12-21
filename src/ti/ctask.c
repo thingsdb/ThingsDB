@@ -342,7 +342,7 @@ static int ctask__new_type(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
             "task `new_type` for "TI_COLLECTION_ID" is invalid",
-            collection->root->id);
+            collection->id);
         return -1;
     }
 
@@ -354,7 +354,7 @@ static int ctask__new_type(ti_thing_t * thing, mp_unp_t * up)
         {
             log_critical(
                 "task `new_type` for "TI_COLLECTION_ID" is invalid",
-                collection->root->id);
+                collection->id);
             return -1;
         }
 
@@ -369,7 +369,7 @@ static int ctask__new_type(ti_thing_t * thing, mp_unp_t * up)
             {
                 log_critical(
                     "task `new_type` for "TI_COLLECTION_ID" is invalid",
-                    collection->root->id);
+                    collection->id);
                 return -1;
             }
 
@@ -383,7 +383,7 @@ static int ctask__new_type(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
             "task `new_type` for "TI_COLLECTION_ID" is invalid; "
             "incorrect type id %"PRIu64,
-            collection->root->id, mp_id.via.u64);
+            collection->id, mp_id.via.u64);
         return -1;
     }
 
@@ -401,7 +401,7 @@ static int ctask__new_type(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
             "task `new_type` for "TI_COLLECTION_ID" is invalid; "
             "cannot create type id %"PRIu64,
-            collection->root->id, mp_id.via.u64);
+            collection->id, mp_id.via.u64);
         return -1;
     }
 
@@ -438,7 +438,7 @@ static int ctask__set_enum(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
             "task `set_enum` for "TI_COLLECTION_ID" is invalid",
-            collection->root->id);
+            collection->id);
         return -1;
     }
 
@@ -448,7 +448,7 @@ static int ctask__set_enum(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `set_enum` for "TI_COLLECTION_ID" is invalid; "
                 "enum with id %"PRIu64" already found",
-                collection->root->id, mp_id.via.u64);
+                collection->id, mp_id.via.u64);
         return -1;
     }
 
@@ -514,7 +514,7 @@ static int ctask__set_type(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
             "task `set_type` for "TI_COLLECTION_ID" is invalid",
-            collection->root->id);
+            collection->id);
         return -1;
     }
 
@@ -524,7 +524,7 @@ static int ctask__set_type(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `set_type` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64" not found",
-                collection->root->id, mp_id.via.u64);
+                collection->id, mp_id.via.u64);
         return -1;
     }
 
@@ -533,7 +533,7 @@ static int ctask__set_type(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `set_type` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64" is already initialized with fields",
-                collection->root->id, mp_id.via.u64);
+                collection->id, mp_id.via.u64);
         return -1;
     }
 
@@ -547,7 +547,7 @@ static int ctask__set_type(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
             "task `set_type` for "TI_COLLECTION_ID" has failed; "
             "%s; remove type `%s`...",
-            collection->root->id, e.msg, type->name);
+            collection->id, e.msg, type->name);
         (void) ti_type_del(type, NULL);
         return -1;
     }
@@ -572,7 +572,7 @@ static int ctask__to_thing(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
             "task `to_thing` for "TI_COLLECTION_ID" is invalid",
-            collection->root->id);
+            collection->id);
         return -1;
     }
 
@@ -598,7 +598,7 @@ static int ctask__to_type(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
             "task `to_type` for "TI_COLLECTION_ID" is invalid",
-            collection->root->id);
+            collection->id);
         return -1;
     }
 
@@ -608,7 +608,7 @@ static int ctask__to_type(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `to_type` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64" not found",
-                collection->root->id, mp_type_id.via.u64);
+                collection->id, mp_type_id.via.u64);
         return -1;
     }
 
@@ -616,7 +616,7 @@ static int ctask__to_type(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
             "task `to_type` for "TI_COLLECTION_ID" has failed; %s",
-            collection->root->id, e.msg);
+            collection->id, e.msg);
         return -1;
     }
 
@@ -636,7 +636,7 @@ static int ctask__thing_restrict(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
             "task `thing_restrict` for "TI_COLLECTION_ID" is invalid",
-            collection->root->id);
+            collection->id);
         return -1;
     }
 
@@ -658,7 +658,7 @@ static int ctask__thing_remove(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
             "task `thing_remove` for "TI_COLLECTION_ID" is invalid",
-            collection->root->id);
+            collection->id);
         return -1;
     }
 
@@ -705,7 +705,7 @@ static int ctask__mod_enum_add(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "task `mod_enum_add` for "TI_COLLECTION_ID" is invalid",
-                vup.collection->root->id);
+                vup.collection->id);
         return rc;
     }
 
@@ -715,7 +715,7 @@ static int ctask__mod_enum_add(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_enum_add` for "TI_COLLECTION_ID" is invalid; "
                 "enum with id %"PRIu64" not found",
-                vup.collection->root->id, mp_id.via.u64);
+                vup.collection->id, mp_id.via.u64);
         return rc;
     }
 
@@ -775,7 +775,7 @@ static int ctask__mod_enum_def(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "task `mod_enum_def` for "TI_COLLECTION_ID" is invalid",
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -785,7 +785,7 @@ static int ctask__mod_enum_def(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_enum_def` for "TI_COLLECTION_ID" is invalid; "
                 "enum with id %"PRIu64" not found",
-                collection->root->id, mp_id.via.u64);
+                collection->id, mp_id.via.u64);
         return -1;
     }
 
@@ -795,7 +795,7 @@ static int ctask__mod_enum_def(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_enum_def` for "TI_COLLECTION_ID" is invalid; "
                 "enum with id %u; index %"PRIu64" out of range",
-                collection->root->id, enum_->enum_id, mp_index.via.u64);
+                collection->id, enum_->enum_id, mp_index.via.u64);
         return -1;
     }
 
@@ -827,7 +827,7 @@ static int ctask__mod_enum_del(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "task `mod_enum_del` for "TI_COLLECTION_ID" is invalid",
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -837,7 +837,7 @@ static int ctask__mod_enum_del(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_enum_del` for "TI_COLLECTION_ID" is invalid; "
                 "enum with id %"PRIu64" not found",
-                collection->root->id, mp_id.via.u64);
+                collection->id, mp_id.via.u64);
         return -1;
     }
 
@@ -883,7 +883,7 @@ not_found:
     log_critical(
             "task `mod_enum_del` for "TI_COLLECTION_ID" is invalid; "
             "enum with id %u; member or method not found",
-            collection->root->id, enum_->enum_id);
+            collection->id, enum_->enum_id);
     return -1;
 }
 
@@ -915,7 +915,7 @@ static int ctask__mod_enum_mod(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "task `mod_enum_mod` for "TI_COLLECTION_ID" is invalid",
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -925,7 +925,7 @@ static int ctask__mod_enum_mod(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_enum_mod` for "TI_COLLECTION_ID" is invalid; "
                 "enum with id %"PRIu64" not found",
-                collection->root->id, mp_id.via.u64);
+                collection->id, mp_id.via.u64);
         return -1;
     }
 
@@ -942,7 +942,7 @@ static int ctask__mod_enum_mod(ti_thing_t * thing, mp_unp_t * up)
         {
             log_critical(
                     "task `mod_enum_mod` for "TI_COLLECTION_ID" is invalid",
-                    collection->root->id);
+                    collection->id);
             return -1;
         }
 
@@ -952,7 +952,7 @@ static int ctask__mod_enum_mod(ti_thing_t * thing, mp_unp_t * up)
             log_critical(
                     "task `mod_enum_mod` for "TI_COLLECTION_ID" is invalid; "
                     "enum with id %"PRIu64"; name is missing",
-                    collection->root->id, mp_id.via.u64);
+                    collection->id, mp_id.via.u64);
             return -1;
         }
 
@@ -962,7 +962,7 @@ static int ctask__mod_enum_mod(ti_thing_t * thing, mp_unp_t * up)
             log_critical(
                     "task `mod_enum_mod` for "TI_COLLECTION_ID" is invalid; "
                     "enum with id %"PRIu64"; member or method not found",
-                    collection->root->id, mp_id.via.u64);
+                    collection->id, mp_id.via.u64);
             return -1;
         }
 
@@ -981,7 +981,7 @@ static int ctask__mod_enum_mod(ti_thing_t * thing, mp_unp_t * up)
             log_critical(
                     "task `mod_enum_mod` for "TI_COLLECTION_ID" is invalid; "
                     "enum with id %u; member not found",
-                    collection->root->id, enum_->enum_id);
+                    collection->id, enum_->enum_id);
             return -1;
         }
         (void) ti_member_set_value(member, val, &e);
@@ -1022,7 +1022,7 @@ static int ctask__mod_enum_ren(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "task `mod_enum_ren` for "TI_COLLECTION_ID" is invalid",
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -1032,7 +1032,7 @@ static int ctask__mod_enum_ren(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_enum_ren` for "TI_COLLECTION_ID" is invalid; "
                 "enum with id %"PRIu64" not found",
-                collection->root->id, mp_id.via.u64);
+                collection->id, mp_id.via.u64);
         return -1;
     }
 
@@ -1046,7 +1046,7 @@ static int ctask__mod_enum_ren(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_enum_ren` for "TI_COLLECTION_ID" is invalid; "
                 "enum with id %"PRIu64"; member not found",
-                collection->root->id, mp_id.via.u64);
+                collection->id, mp_id.via.u64);
         return -1;
     }
 
@@ -1069,7 +1069,7 @@ static int ctask__mod_enum_ren(ti_thing_t * thing, mp_unp_t * up)
             log_critical(
                     "task `mod_enum_ren` for "TI_COLLECTION_ID" is invalid; "
                     "enum with id %"PRIu64"; name is missing",
-                    collection->root->id, mp_id.via.u64);
+                    collection->id, mp_id.via.u64);
             return -1;
         }
 
@@ -1079,7 +1079,7 @@ static int ctask__mod_enum_ren(ti_thing_t * thing, mp_unp_t * up)
             log_critical(
                     "task `mod_enum_ren` for "TI_COLLECTION_ID" is invalid; "
                     "enum with id %"PRIu64"; member or method not found",
-                    collection->root->id, mp_id.via.u64);
+                    collection->id, mp_id.via.u64);
             return -1;
         }
 
@@ -1139,7 +1139,7 @@ static int ctask__mod_type_add(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "task `mod_type_add` for "TI_COLLECTION_ID" is invalid",
-                vup.collection->root->id);
+                vup.collection->id);
         return rc;
     }
 
@@ -1149,7 +1149,7 @@ static int ctask__mod_type_add(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_type_add` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64" not found",
-                vup.collection->root->id, mp_id.via.u64);
+                vup.collection->id, mp_id.via.u64);
         return rc;
     }
 
@@ -1166,7 +1166,7 @@ static int ctask__mod_type_add(ti_thing_t * thing, mp_unp_t * up)
         {
             log_critical(
                     "task `mod_type_add` for "TI_COLLECTION_ID" is invalid",
-                    vup.collection->root->id);
+                    vup.collection->id);
             goto fail0;
         }
     }
@@ -1179,7 +1179,7 @@ static int ctask__mod_type_add(ti_thing_t * thing, mp_unp_t * up)
             log_critical(
                     "task `mod_type_add` for "TI_COLLECTION_ID" has failed; "
                     "error reading method",
-                    vup.collection->root->id);
+                    vup.collection->id);
             goto fail0;
         }
 
@@ -1188,7 +1188,7 @@ static int ctask__mod_type_add(ti_thing_t * thing, mp_unp_t * up)
             log_critical(
                     "task `mod_type_add` for "TI_COLLECTION_ID" has failed; "
                     "expecting closure as method but got `%s`",
-                    vup.collection->root->id, ti_val_str(val));
+                    vup.collection->id, ti_val_str(val));
             goto fail0;
         }
 
@@ -1208,7 +1208,7 @@ static int ctask__mod_type_add(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_type_add` for "TI_COLLECTION_ID" is invalid; "
                 "expecting `spec` or `closure`",
-                vup.collection->root->id);
+                vup.collection->id);
         goto fail0;
     }
 
@@ -1219,7 +1219,7 @@ static int ctask__mod_type_add(ti_thing_t * thing, mp_unp_t * up)
             log_critical(
                     "task `mod_type_add` for "TI_COLLECTION_ID" has failed; "
                     "duplicate id field (#)",
-                    vup.collection->root->id);
+                    vup.collection->id);
             /* we can recover but this must not happen */
             ti_name_unsafe_drop(type->idname);
         }
@@ -1233,7 +1233,7 @@ static int ctask__mod_type_add(ti_thing_t * thing, mp_unp_t * up)
         {
             log_critical(
                     "task `mod_type_add` for "TI_COLLECTION_ID" is invalid",
-                    vup.collection->root->id);
+                    vup.collection->id);
             goto fail0;
         }
 
@@ -1243,7 +1243,7 @@ static int ctask__mod_type_add(ti_thing_t * thing, mp_unp_t * up)
             log_critical(
                     "task `mod_type_add` for "TI_COLLECTION_ID" has failed; "
                     "error reading initial value",
-                    vup.collection->root->id);
+                    vup.collection->id);
             goto fail0;
         }
     }
@@ -1306,7 +1306,7 @@ static int ctask__mod_type_del(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "task `mod_type_del` for "TI_COLLECTION_ID" is invalid",
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -1316,7 +1316,7 @@ static int ctask__mod_type_del(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_type_del` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64" not found",
-                collection->root->id, mp_id.via.u64);
+                collection->id, mp_id.via.u64);
         return -1;
     }
 
@@ -1326,7 +1326,7 @@ static int ctask__mod_type_del(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_type_del` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %u; name is missing",
-                collection->root->id, type->type_id);
+                collection->id, type->type_id);
         return -1;
     }
 
@@ -1373,7 +1373,7 @@ static int ctask__mod_type_del(ti_thing_t * thing, mp_unp_t * up)
     log_critical(
             "task `mod_type_del` for "TI_COLLECTION_ID" is invalid; "
             "type `%s` has no property or method `%s`",
-            collection->root->id, type->name, name->str);
+            collection->id, type->name, name->str);
     return -1;
 }
 
@@ -1402,7 +1402,7 @@ static int ctask__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "task `mod_type_mod` for "TI_COLLECTION_ID" is invalid",
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -1412,7 +1412,7 @@ static int ctask__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_type_mod` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64" not found",
-                collection->root->id, mp_id.via.u64);
+                collection->id, mp_id.via.u64);
         return -1;
     }
 
@@ -1422,7 +1422,7 @@ static int ctask__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_type_mod` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64"; name is missing",
-                collection->root->id, mp_id.via.u64);
+                collection->id, mp_id.via.u64);
         return -1;
     }
 
@@ -1436,7 +1436,7 @@ static int ctask__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
             log_critical(
                     "task `mod_type_mod` for "TI_COLLECTION_ID" is invalid; "
                     "type `%s` has no property `%s`",
-                    collection->root->id, type->name, name->str);
+                    collection->id, type->name, name->str);
             return -1;
         }
 
@@ -1444,7 +1444,7 @@ static int ctask__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
         {
             log_critical(
                     "task `mod_type_mod` for "TI_COLLECTION_ID" is invalid",
-                    collection->root->id);
+                    collection->id);
             return -1;
         }
 
@@ -1488,7 +1488,7 @@ static int ctask__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
             log_critical(
                     "task `mod_type_mod` for "TI_COLLECTION_ID" is invalid; "
                     "type `%s` has no method `%s`",
-                    collection->root->id, type->name, name->str);
+                    collection->id, type->name, name->str);
             return -1;
         }
 
@@ -1498,7 +1498,7 @@ static int ctask__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
             log_critical(
                     "task `mod_type_mod` for "TI_COLLECTION_ID" has failed; "
                     "error reading method",
-                    collection->root->id);
+                    collection->id);
             return -1;
         }
 
@@ -1507,7 +1507,7 @@ static int ctask__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
             log_critical(
                     "task `mod_type_mod` for "TI_COLLECTION_ID" has failed; "
                     "expecting closure as method but got `%s`",
-                    collection->root->id, ti_val_str(val));
+                    collection->id, ti_val_str(val));
             ti_val_drop(val);
             return -1;
         }
@@ -1524,7 +1524,7 @@ static int ctask__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
     log_critical(
             "task `mod_type_mod` for "TI_COLLECTION_ID" is invalid; "
             "expecting `spec` or `closure`",
-            collection->root->id);
+            collection->id);
 
     return -1;
 }
@@ -1556,7 +1556,7 @@ static int ctask__mod_type_rel_add(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "task `mod_type_rel_add` for "TI_COLLECTION_ID" is invalid",
-                collection->root->id);
+                collection->id);
         return rc;
     }
 
@@ -1566,7 +1566,7 @@ static int ctask__mod_type_rel_add(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_type_rel_add` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64" not found",
-                collection->root->id, mp_id1.via.u64);
+                collection->id, mp_id1.via.u64);
         return rc;
     }
 
@@ -1576,7 +1576,7 @@ static int ctask__mod_type_rel_add(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_type_rel_add` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64" not found",
-                collection->root->id, mp_id2.via.u64);
+                collection->id, mp_id2.via.u64);
         return rc;
     }
 
@@ -1586,7 +1586,7 @@ static int ctask__mod_type_rel_add(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_type_rel_add` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64"; name is missing",
-                collection->root->id, mp_id1.via.u64);
+                collection->id, mp_id1.via.u64);
         return rc;
     }
 
@@ -1596,7 +1596,7 @@ static int ctask__mod_type_rel_add(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_type_rel_add` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64"; name is missing",
-                collection->root->id, mp_id2.via.u64);
+                collection->id, mp_id2.via.u64);
         return rc;
     }
 
@@ -1606,7 +1606,7 @@ static int ctask__mod_type_rel_add(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_type_rel_add` for "TI_COLLECTION_ID" is invalid; "
                 "type `%s` has no property `%s`",
-                collection->root->id, type->name, name->str);
+                collection->id, type->name, name->str);
         return rc;
     }
 
@@ -1616,7 +1616,7 @@ static int ctask__mod_type_rel_add(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_type_rel_add` for "TI_COLLECTION_ID" is invalid; "
                 "type `%s` has no property `%s`",
-                collection->root->id, otype->name, oname->str);
+                collection->id, otype->name, oname->str);
         return rc;
     }
 
@@ -1661,7 +1661,7 @@ static int ctask__mod_type_rel_del(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "task `mod_type_rel_del` for "TI_COLLECTION_ID" is invalid",
-                collection->root->id);
+                collection->id);
         return rc;
     }
 
@@ -1671,7 +1671,7 @@ static int ctask__mod_type_rel_del(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_type_rel_del` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64" not found",
-                collection->root->id, mp_id.via.u64);
+                collection->id, mp_id.via.u64);
         return rc;
     }
 
@@ -1681,7 +1681,7 @@ static int ctask__mod_type_rel_del(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_type_rel_del` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64"; name is missing",
-                collection->root->id, mp_id.via.u64);
+                collection->id, mp_id.via.u64);
         return rc;
     }
 
@@ -1691,7 +1691,7 @@ static int ctask__mod_type_rel_del(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_type_rel_del` for "TI_COLLECTION_ID" is invalid; "
                 "type `%s` has no property `%s`",
-                collection->root->id, type->name, name->str);
+                collection->id, type->name, name->str);
         return rc;
     }
 
@@ -1700,7 +1700,7 @@ static int ctask__mod_type_rel_del(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_type_rel_del` for "TI_COLLECTION_ID" is invalid; "
                 "type `%s` has no relation for property `%s`",
-                collection->root->id, type->name, name->str);
+                collection->id, type->name, name->str);
         return rc;
     }
 
@@ -1744,7 +1744,7 @@ static int ctask__mod_type_ren(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "task `mod_type_ren` for "TI_COLLECTION_ID" is invalid",
-                collection->root->id);
+                collection->id);
         return rc;
     }
 
@@ -1754,7 +1754,7 @@ static int ctask__mod_type_ren(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_type_ren` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64" not found",
-                collection->root->id, mp_id.via.u64);
+                collection->id, mp_id.via.u64);
         return rc;
     }
 
@@ -1764,7 +1764,7 @@ static int ctask__mod_type_ren(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_type_ren` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64"; name is missing",
-                collection->root->id, mp_id.via.u64);
+                collection->id, mp_id.via.u64);
         return rc;
     }
 
@@ -1822,7 +1822,7 @@ static int ctask__mod_type_ren(ti_thing_t * thing, mp_unp_t * up)
     log_critical(
             "task `mod_type_ren` for "TI_COLLECTION_ID" is invalid; "
             "type `%s` has no property or method `%s`",
-            collection->root->id, type->name, name->str);
+            collection->id, type->name, name->str);
 
     return rc;
 }
@@ -1846,7 +1846,7 @@ static int ctask__mod_type_wpo(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "task `mod_type_wpo` for "TI_COLLECTION_ID" is invalid",
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -1856,7 +1856,7 @@ static int ctask__mod_type_wpo(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_type_wpo` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64" not found",
-                collection->root->id, mp_id.via.u64);
+                collection->id, mp_id.via.u64);
         return -1;
     }
 
@@ -1886,7 +1886,7 @@ static int ctask__mod_type_hid(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "task `mod_type_hid` for "TI_COLLECTION_ID" is invalid",
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -1896,7 +1896,7 @@ static int ctask__mod_type_hid(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_type_hid` for "TI_COLLECTION_ID" is invalid; "
                 "type with id %"PRIu64" not found",
-                collection->root->id, mp_id.via.u64);
+                collection->id, mp_id.via.u64);
         return -1;
     }
 
@@ -1914,7 +1914,7 @@ static int ctask__mod_type_hid(ti_thing_t * thing, mp_unp_t * up)
  */
 static int ctask__del(ti_thing_t * thing, mp_unp_t * up)
 {
-    assert (ti_thing_is_object(thing));
+    assert(ti_thing_is_object(thing));
 
     mp_obj_t mp_key;
 
@@ -1982,7 +1982,7 @@ static int ctask__del_procedure(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `del_procedure` in "TI_COLLECTION_ID": "
                 "missing procedure name",
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -1996,7 +1996,7 @@ static int ctask__del_procedure(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `del_procedure` cannot find `%.*s` in "TI_COLLECTION_ID,
                 mp_name.via.str.n, mp_name.via.str.data,
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -2033,7 +2033,7 @@ static int ctask__new_procedure(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `new_procedure` for "TI_COLLECTION_ID": "
                 "missing map or name",
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -2061,7 +2061,7 @@ static int ctask__new_procedure(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `new_procedure` for "TI_COLLECTION_ID": "
                 "procedure `%s` already exists",
-                collection->root->id,
+                collection->id,
                 procedure->name);
 
 failed:
@@ -2096,7 +2096,7 @@ static int ctask__mod_procedure(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_procedure` for "TI_COLLECTION_ID": "
                 "missing map or name",
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -2110,7 +2110,7 @@ static int ctask__mod_procedure(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `mod_procedure` cannot find `%.*s` in "TI_COLLECTION_ID,
                 mp_name.via.str.n, mp_name.via.str.data,
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -2119,7 +2119,7 @@ static int ctask__mod_procedure(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "task `mod_procedure` invalid closure in "TI_COLLECTION_ID,
-                collection->root->id);
+                collection->id);
         ti_val_drop((ti_val_t *) closure);
         return -1;
     }
@@ -2158,7 +2158,7 @@ static int ctask__vtask_new(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `vtask_new` for "TI_COLLECTION_ID": "
                 "invalid data",
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -2184,7 +2184,7 @@ static int ctask__vtask_new(ti_thing_t * thing, mp_unp_t * up)
     if (!vtask)
         goto fail0;
 
-    ti_update_next_free_id(vtask->id);
+    ti_collection_update_next_free_id(collection, vtask->id);
     (void) ti_tasks_append(&collection->vtasks, vtask);
     free(varr);
     ti_decref(closure);
@@ -2193,7 +2193,7 @@ static int ctask__vtask_new(ti_thing_t * thing, mp_unp_t * up)
 fail0:
     log_critical(
             "task `vtask_new` for "TI_COLLECTION_ID" has failed",
-            collection->root->id);
+            collection->id);
     ti_val_drop((ti_val_t *) varr);
     ti_val_drop((ti_val_t *) closure);
     return -1;
@@ -2215,7 +2215,7 @@ static int ctask__vtask_del(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `vtask_del` for "TI_COLLECTION_ID": "
                 "invalid data",
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -2240,7 +2240,7 @@ static int ctask__vtask_cancel(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `vtask_cancel` for "TI_COLLECTION_ID": "
                 "invalid data",
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -2272,7 +2272,7 @@ static int ctask__vtask_finish(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `vtask_finish` for "TI_COLLECTION_ID": "
                 "invalid data",
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -2302,7 +2302,7 @@ static int ctask__vtask_finish(ti_thing_t * thing, mp_unp_t * up)
 fail0:
     log_critical(
             "task `vtask_finish` for "TI_COLLECTION_ID" has failed",
-            collection->root->id);
+            collection->id);
     ti_val_drop(val);
     return -1;
 }
@@ -2327,7 +2327,7 @@ static int ctask__vtask_set_args(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `vtask_set_args` for "TI_COLLECTION_ID": "
                 "invalid data",
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -2349,7 +2349,7 @@ static int ctask__vtask_set_args(ti_thing_t * thing, mp_unp_t * up)
 fail0:
     log_critical(
             "task `vtask_set_args` for "TI_COLLECTION_ID" has failed",
-            collection->root->id);
+            collection->id);
     ti_val_drop((ti_val_t *) varr);
     return -1;
 }
@@ -2370,7 +2370,7 @@ static int ctask__vtask_set_owner(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `vtask_set_owner` for "TI_COLLECTION_ID": "
                 "invalid data",
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -2406,7 +2406,7 @@ static int ctask__vtask_set_closure(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `vtask_set_closure` for "TI_COLLECTION_ID": "
                 "invalid data",
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -2427,7 +2427,7 @@ static int ctask__vtask_set_closure(ti_thing_t * thing, mp_unp_t * up)
 fail0:
     log_critical(
             "task `vtask_set_closure` for "TI_COLLECTION_ID" has failed",
-            collection->root->id);
+            collection->id);
     ti_val_drop((ti_val_t *) closure);
     return -1;
 }
@@ -2471,7 +2471,7 @@ static int ctask__del_enum(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `del_enum` from collection "TI_COLLECTION_ID": "
                 "expecting an integer enum id",
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -2481,7 +2481,7 @@ static int ctask__del_enum(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `del_enum` from collection "TI_COLLECTION_ID": "
                 "enum with id %"PRIu64" not found",
-                collection->root->id, mp_id.via.u64);
+                collection->id, mp_id.via.u64);
         return -1;
     }
 
@@ -2490,7 +2490,7 @@ static int ctask__del_enum(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `del_enum` from collection "TI_COLLECTION_ID": "
                 "enum with id %u still has %"PRIu64" references",
-                collection->root->id, mp_id.via.u64, enum_->refcount);
+                collection->id, mp_id.via.u64, enum_->refcount);
         return -1;
     }
 
@@ -2521,7 +2521,7 @@ static int ctask__del_type(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `del_type` from collection "TI_COLLECTION_ID": "
                 "expecting an integer type id",
-                collection->root->id);
+                collection->id);
         return -1;
     }
 
@@ -2531,7 +2531,7 @@ static int ctask__del_type(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `del_type` from collection "TI_COLLECTION_ID": "
                 "type with id %"PRIu64" not found",
-                collection->root->id, mp_id.via.u64);
+                collection->id, mp_id.via.u64);
         return -1;
     }
 
@@ -2540,7 +2540,7 @@ static int ctask__del_type(ti_thing_t * thing, mp_unp_t * up)
         log_critical(
                 "task `del_type` from collection "TI_COLLECTION_ID": "
                 "type with id %u still has %"PRIu64" references",
-                collection->root->id, mp_id.via.u64, type->refcount);
+                collection->id, mp_id.via.u64, type->refcount);
         return -1;
     }
 

@@ -81,7 +81,7 @@ static int ttask__take_access(mp_unp_t * up)
         {
             log_critical(
                     "failed to take collection access ("TI_COLLECTION_ID")",
-                    c->root->id);
+                    c->id);
         }
     }
 

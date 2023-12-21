@@ -10,7 +10,7 @@ static int do__f_bool(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 0)
     {
-        assert (query->rval == NULL);
+        assert(query->rval == NULL);
         query->rval = (ti_val_t *) ti_vbool_get(false);
         return e->nr;
     }

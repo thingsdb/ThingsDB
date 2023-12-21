@@ -241,7 +241,7 @@ void ti_backups_upd_status(uint64_t backup_id, int rc, buf_t * buf)
         {
             ti_raw_t * first_fn = queue_shift(backup->files);
 
-            assert (first_fn);  /* max_files > 0 so we always have some file */
+            assert(first_fn);  /* max_files > 0 so we always have some file */
 
             backup__delete_file(first_fn);
 

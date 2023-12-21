@@ -37,7 +37,7 @@ void olist_destroy(olist_t * olist)
  */
 int olist_set(olist_t * olist, uint64_t id)
 {
-    assert (olist);
+    assert(olist);
     olist__t * cur, * tmp;
 
     for (   cur = (olist__t *) olist;

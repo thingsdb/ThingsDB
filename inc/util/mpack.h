@@ -125,7 +125,7 @@ static inline int mp_sbuffer_alloc_init(
         size_t alloc,
         size_t size)
 {
-    assert (alloc >= size);
+    assert(alloc >= size);
     buffer->alloc = alloc;
     buffer->data = alloc == size ? NULL : malloc(alloc);
     buffer->size = size;
@@ -815,7 +815,7 @@ static inline int mp_cast_i64(mp_obj_t * o)
 
 static inline void * mp_strdup(mp_obj_t * o)
 {
-    assert (o->tp == MP_STR || o->tp == MP_BIN);
+    assert(o->tp == MP_STR || o->tp == MP_BIN);
     return strndup(o->via.str.data, o->via.str.n);
 }
 

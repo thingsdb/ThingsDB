@@ -40,7 +40,7 @@ failed:
 
 int ti_connect_start(void)
 {
-    assert (connect_loop->is_started == false);
+    assert(connect_loop->is_started == false);
 
     if (uv_timer_init(ti.loop, connect_loop->timer))
         goto fail0;

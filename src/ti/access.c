@@ -115,7 +115,7 @@ int ti_access_check_err(
         uint64_t mask,
         ex_t * e)
 {
-    assert (e->nr == 0);
+    assert(e->nr == 0);
 
     if (!ti_access_check(access, user, mask))
     {
@@ -144,7 +144,7 @@ int ti_access_check_or_err(
         uint64_t mask,
         ex_t * e)
 {
-    assert (e->nr == 0);
+    assert(e->nr == 0);
 
     if (!ti_access_check_or(access, user, mask))
     {

@@ -13,10 +13,10 @@ static inline int ti_collection_to_pk(
         msgpack_packer * pk)
 {
     return -(
-        msgpack_pack_map(pk, 6) ||
+        msgpack_pack_map(pk, 7) ||
 
         mp_pack_str(pk, "collection_id") ||
-        msgpack_pack_uint64(pk, collection->root->id) ||
+        msgpack_pack_uint64(pk, collection->id) ||
 
         mp_pack_str(pk, "name") ||
         mp_pack_strn(pk, collection->name->data, collection->name->n) ||
@@ -31,8 +31,10 @@ static inline int ti_collection_to_pk(
         mp_pack_strn(pk, collection->tz->name, collection->tz->n) ||
 
         mp_pack_str(pk, "default_deep") ||
-        msgpack_pack_uint64(pk, collection->deep)
+        msgpack_pack_uint64(pk, collection->deep) ||
 
+        mp_pack_str(pk, "next_free_id") ||
+        msgpack_pack_uint64(pk, collection->next_free_id)
     );
 }
 
@@ -69,6 +71,25 @@ static inline void * ti_collection_room_by_id(
         uint64_t room_id)
 {
     return imap_get(collection->rooms, room_id);
+}
+
+/*
+ * Return the next free id and increment by one.
+ */
+static inline uint64_t ti_collection_next_free_id(ti_collection_t * collection)
+{
+    return collection->next_free_id++;
+}
+
+/*
+ * Update the next free Id if required.
+ */
+static inline void ti_collection_update_next_free_id(
+        ti_collection_t * collection,
+        uint64_t id)
+{
+    if (id >= collection->next_free_id)
+        collection->next_free_id = id + 1;
 }
 
 #endif  /* TI_COLLECTION_INLINE_H_ */

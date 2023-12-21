@@ -47,7 +47,7 @@ failed:
 
 int ti_tasks_start(void)
 {
-    assert (tasks->is_started == false);
+    assert(tasks->is_started == false);
 
     if (uv_timer_init(ti.loop, tasks->timer) ||
         uv_timer_start(
@@ -224,7 +224,7 @@ vec_t * ti_tasks_from_scope_id(uint64_t scope_id)
         return tasks->vtasks;
 
     for (vec_each(ti.collections->vec, ti_collection_t, collection))
-        if (collection->root->id == scope_id)
+        if (collection->id == scope_id)
             return collection->vtasks;
 
     return NULL;

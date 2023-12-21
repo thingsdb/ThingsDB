@@ -412,8 +412,8 @@ void ti_field_init(void)
         fmap->n = strlen(fmap->name);
         key = field__hash(fmap->name, fmap->n);
 
-        assert (field__map[key] == NULL);
-        assert (key <= MAX_HASH_VALUE);
+        assert(field__map[key] == NULL);
+        assert(key <= MAX_HASH_VALUE);
 
         field__map[key] = fmap;
     }
@@ -589,7 +589,7 @@ done_flags:
 
 skip_nesting:
 
-    assert (n);
+    assert(n);
 
     switch (*str)
     {
@@ -761,7 +761,7 @@ found:
             field->nested_spec = TI_SPEC_ANY;
     }
 
-    assert (field->dval_cb);  /* callback must have been set */
+    assert(field->dval_cb);  /* callback must have been set */
 
     return e->nr;
 
@@ -835,12 +835,12 @@ ti_field_t * ti_field_create(
 
     if (field__init(field, e))
     {
-        assert (e->nr);        ;
+        assert(e->nr);        ;
         ti_field_destroy(vec_pop(type->fields));
         return NULL;
     }
 
-    assert (e->nr == 0);
+    assert(e->nr == 0);
     return field;
 }
 
@@ -886,8 +886,8 @@ ti_field_t * ti_field_as_new(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e)
  */
 void ti_field_replace(ti_field_t * field, ti_field_t ** with_field)
 {
-    assert (field->idx == (*with_field)->idx);
-    assert (field->type == (*with_field)->type);
+    assert(field->idx == (*with_field)->idx);
+    assert(field->type == (*with_field)->type);
 
     field__remove_dep(field);
 
@@ -986,7 +986,7 @@ int ti_field_mod(
         }
     }
 
-    assert (0);
+    assert(0);
 
 nillable:
     ex_set(e, EX_OPERATION,
@@ -1833,7 +1833,7 @@ int ti_field_make_assignable(
         return 0;
     }
 
-    assert (spec >= TI_ENUM_ID_FLAG);
+    assert(spec >= TI_ENUM_ID_FLAG);
 
     if (ti_spec_enum_eq_to_val(spec, *val))
         return 0;
@@ -2107,8 +2107,8 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     uint16_t t_spec, f_spec;
 
     /* both the t_field and f_field are either a set or array */
-    assert (ti_spec_is_arr_or_set(f_field->spec));
-    assert (ti_spec_is_arr_or_set(t_field->spec));
+    assert(ti_spec_is_arr_or_set(f_field->spec));
+    assert(ti_spec_is_arr_or_set(t_field->spec));
 
     if (t_field->nested_spec == TI_SPEC_ANY)
         return true;
@@ -2189,7 +2189,7 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
         return false;
     }
 
-    assert (t_spec < TI_SPEC_ANY);  /* enumerators are already checked */
+    assert(t_spec < TI_SPEC_ANY);  /* enumerators are already checked */
 
     return f_spec < TI_SPEC_ANY ||
            f_spec == TI_SPEC_OBJECT ||
@@ -2199,8 +2199,8 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
 _Bool field__maps_with_condition(ti_field_t * t_field, ti_field_t * f_field)
 {
     uint16_t spec = t_field->spec & TI_SPEC_MASK_NILLABLE;
-    assert (t_field->condition.none);
-    assert (f_field->condition.none);
+    assert(t_field->condition.none);
+    assert(f_field->condition.none);
 
     switch((ti_spec_enum_t) spec)
     {
@@ -2229,7 +2229,7 @@ _Bool field__maps_with_condition(ti_field_t * t_field, ti_field_t * f_field)
 _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
 {
     uint16_t t_spec, f_spec;
-    assert (t_field->name == f_field->name);
+    assert(t_field->name == f_field->name);
 
     /* return 0 when `to` accepts `any` */
     if (t_field->spec == TI_SPEC_ANY)
@@ -2356,7 +2356,7 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
             f_field->condition.srange->ma <= t_field->condition.srange->ma);
     }
 
-    assert (t_spec < TI_SPEC_ANY);
+    assert(t_spec < TI_SPEC_ANY);
 
     return f_spec < TI_SPEC_ANY || f_spec == TI_SPEC_OBJECT;
 }
@@ -2415,7 +2415,7 @@ static int field__add(ti_thing_t * thing, field__add_t * w)
  */
 int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr)
 {
-    assert (field == vec_last(field->type->fields));
+    assert(field == vec_last(field->type->fields));
     int rc;
     field__add_t addjob = {
             .field = field,

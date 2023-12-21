@@ -29,8 +29,8 @@ int ti_req_create(
 
     req->timer->data = req;
 
-    assert (timeout > 0);
-    assert (pkg_req->id == 0);
+    assert(timeout > 0);
+    assert(pkg_req->id == 0);
 
     pkg_req->id = ++stream->next_pkg_id;
 
@@ -78,7 +78,7 @@ fail0:
 
 void ti_req_destroy(ti_req_t * req)
 {
-    assert (req->timer == NULL);
+    assert(req->timer == NULL);
     ti_stream_drop(req->stream);
     free(req->pkg_req);
     free(req);

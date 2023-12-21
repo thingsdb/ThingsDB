@@ -411,7 +411,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
  */
 static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
 {
-    assert (ti_varr_is_list(varr));
+    assert(ti_varr_is_list(varr));
     /*
      * Futures can never occur at this point since they are never packed;
      */
@@ -461,7 +461,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
         break;
     case TI_VAL_FUTURE:
     case TI_VAL_TEMPLATE:
-        assert (0);
+        assert(0);
         return e->nr;
     }
 
@@ -616,7 +616,7 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
                     ex_set_mem(e);
                 }
                 /* update the next free id if required */
-                ti_update_next_free_id(room_id);
+                ti_collection_update_next_free_id(vup->collection, room_id);
             }
             else
                 ti_incref(room);
@@ -937,13 +937,13 @@ vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id)
     case TI_SCOPE_NODE:
         *scope_id = TI_SCOPE_NODE;
         return &ti.access_node;
-    case TI_SCOPE_COLLECTION_NAME:
+    case TI_SCOPE_COLLECTION:
         collection = ti_collections_get_by_strn(
                 scope.via.collection_name.name,
                 scope.via.collection_name.sz);
         if (collection)
         {
-            *scope_id = collection->root->id;
+            *scope_id = collection->id;
             return &collection->access;
         }
 
@@ -951,20 +951,8 @@ vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id)
                 scope.via.collection_name.sz,
                 scope.via.collection_name.name);
         return NULL;
-    case TI_SCOPE_COLLECTION_ID:
-        collection = ti_collections_get_by_id(scope.via.collection_id);
-        if (collection)
-        {
-            *scope_id = collection->root->id;
-            return &collection->access;
-        }
-
-        ex_set(e, EX_LOOKUP_ERROR, TI_COLLECTION_ID" not found",
-                scope.via.collection_id);
-        return NULL;
     }
-
-    assert (0);
+    assert(0);
     return NULL;
 }
 
@@ -1186,7 +1174,7 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
         }
         if (errno == ERANGE)
         {
-            assert (d == HUGE_VAL || d == -HUGE_VAL);
+            assert(d == HUGE_VAL || d == -HUGE_VAL);
             d = d == HUGE_VAL ? INFINITY : -INFINITY;
             errno = 0;
         }
@@ -1372,7 +1360,7 @@ _Bool ti_val_as_bool(ti_val_t * val)
     case TI_VAL_TEMPLATE:
         assert(0);
     }
-    assert (0);
+    assert(0);
     return false;
 }
 
@@ -1490,7 +1478,7 @@ int ti_val_gen_ids(ti_val_t * val)
         break;
     case TI_VAL_FUTURE:
     case TI_VAL_TEMPLATE:
-        assert (0);
+        assert(0);
     }
     return 0;
 }
@@ -1529,9 +1517,9 @@ size_t ti_val_alloc_size(ti_val_t * val)
     case TI_VAL_FUTURE:
         return VFUT(val) ? ti_val_alloc_size(VFUT(val)) : 64;
     case TI_VAL_TEMPLATE:
-        assert (0);
+        assert(0);
     }
-    assert (0);
+    assert(0);
     return 0;
 }
 
@@ -1571,9 +1559,9 @@ ti_val_t * ti_val_strv(ti_val_t * val)
         return (ti_val_t *) ti_member_enum_get_rname((ti_member_t *) val);
     case TI_VAL_FUTURE:         return ti_grab(val__sfuture);
     case TI_VAL_TEMPLATE:
-        assert (0);
+        assert(0);
     }
-    assert (0);
+    assert(0);
     return ti_val_empty_str();
 }
 

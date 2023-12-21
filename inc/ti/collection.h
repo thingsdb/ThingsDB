@@ -15,6 +15,7 @@
 #include <util/imap.h>
 
 ti_collection_t * ti_collection_create(
+        uint64_t collection_id,
         guid_t * guid,
         const char * name,
         size_t n,

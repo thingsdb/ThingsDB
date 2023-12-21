@@ -48,7 +48,7 @@ int ti_build_setup(
         uint16_t from_node_port,
         ti_stream_t * stream)
 {
-    assert (build->status == TI_BUILD_WAITING);
+    assert(build->status == TI_BUILD_WAITING);
 
     ti_pkg_t * pkg;
 
@@ -116,6 +116,7 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
             node->syntax_ver = build->from_node_syntax_ver;
         }
     }
+
 
     ti_node = ti.node;
 

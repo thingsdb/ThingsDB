@@ -37,10 +37,10 @@ ti_cpkg_t * ti_cpkg_initial(void)
     char salt[CRYPTX_SALT_SZ];
     char encrypted[CRYPTX_SZ];
 
-    assert (user_id == 1);  /* first user must have id 1, see restore */
+    assert(user_id == 1);  /* first user must have id 1, see restore */
 
     /* collection id must be >1, see TI_SCOPE_THINGSDB and TI_SCOPE_NODE */
-    assert (stuff_id > 1);
+    assert(stuff_id > 1);
 
     /* generate a random salt */
     cryptx_gen_salt(salt);

@@ -740,8 +740,8 @@ void ti_qbind_init(void)
         fmap->n = strlen(fmap->name);
         key = qbind__hash(fmap->name, fmap->n);
 
-        assert (qbind__fn_map[key] == NULL);
-        assert (key <= MAX_HASH_VALUE);
+        assert(qbind__fn_map[key] == NULL);
+        assert(key <= MAX_HASH_VALUE);
 
         qbind__fn_map[key] = fmap;
     }
@@ -819,7 +819,7 @@ static _Bool qbind__operations(
 
     (*parent)->data = operation_cb[gid - CLERI_GID_OPR0_MUL_DIV_MOD];
 
-    assert (gid >= CLERI_GID_OPR0_MUL_DIV_MOD &&
+    assert(gid >= CLERI_GID_OPR0_MUL_DIV_MOD &&
             gid <= CLERI_GID_OPR8_TERNARY);
 
     qbind__statement(qbind, (*parent)->children);
@@ -842,7 +842,7 @@ static _Bool qbind__operations(
 
         gid = (*parent)->children->next->cl_obj->gid;
 
-        assert (gid >= CLERI_GID_OPR0_MUL_DIV_MOD &&
+        assert(gid >= CLERI_GID_OPR0_MUL_DIV_MOD &&
                 gid <= CLERI_GID_OPR8_TERNARY);
 
         syntax_childa = &(*parent)->children->children;
@@ -980,7 +980,7 @@ static void qbind__function(
 static void qbind__index(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     cleri_node_t * child = nd->children;
-    assert (child);
+    assert(child);
     do
     {
         cleri_node_t * c = child        /* sequence */
@@ -1104,7 +1104,7 @@ static void qbind__var_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
             qbind__enum(qbind, nd->children->next);
             return;
         default:
-            assert (0);
+            assert(0);
             return;
         }
     }
@@ -1143,7 +1143,7 @@ static void qbind__name_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
                     nd->children->next->children->next);
             break;
         default:
-            assert (0);
+            assert(0);
             return;
         }
     }
@@ -1250,7 +1250,7 @@ static inline void qbind__expression(ti_qbind_t * qbind, cleri_node_t * nd)
     cleri_node_t * node;
     intptr_t preopr;
 
-    assert (nd->cl_obj->gid == CLERI_GID_EXPRESSION);
+    assert(nd->cl_obj->gid == CLERI_GID_EXPRESSION);
 
     nd->data = ti_do_expression;
 
@@ -1367,7 +1367,7 @@ static inline void qbind__block(ti_qbind_t * qbind, cleri_node_t * nd)
  */
 static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_STATEMENT);
+    assert(nd->cl_obj->gid == CLERI_GID_STATEMENT);
 
     switch (nd->children->cl_obj->gid)
     {
@@ -1418,7 +1418,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
  */
 void ti_qbind_probe(ti_qbind_t * qbind, cleri_node_t * nd)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_STATEMENT ||
+    assert(nd->cl_obj->gid == CLERI_GID_STATEMENT ||
             nd->cl_obj->gid == CLERI_GID_STATEMENTS);
 
     if (nd->cl_obj->gid == CLERI_GID_STATEMENTS)

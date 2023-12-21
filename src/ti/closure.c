@@ -34,7 +34,7 @@ static cleri_node_t * closure__node_from_strn(
         size_t n,
         ex_t * e)
 {
-    assert (e->nr == 0);
+    assert(e->nr == 0);
     ti_ncache_t * ncache;
     cleri_parse_t * res;
     cleri_node_t * node, * statement;
@@ -427,7 +427,7 @@ void ti_closure_dec(ti_closure_t * closure, ti_query_t * query)
         /* All extra props should be removed, note that this also is true
          * for the case where closure depth has reached zero
          */
-        assert (query->vars->n == pos+n);
+        assert(query->vars->n == pos+n);
 
         /* restore property values */
         for (vec_each_rev(closure->vars, ti_prop_t, p))
@@ -661,9 +661,9 @@ int ti_closure_call(
         vec_t * args,  /* NULL is allowed if the closure accepts no arguments */
         ex_t * e)
 {
-    assert (closure);
-    assert (closure->vars);
-    assert (closure->vars->n == 0 || args->n >= closure->vars->n);
+    assert(closure);
+    assert(closure->vars);
+    assert(closure->vars->n == 0 || args->n >= closure->vars->n);
 
     size_t idx = 0;
 
@@ -697,8 +697,8 @@ int ti_closure_call_one_arg(
         ti_val_t * arg,
         ex_t * e)
 {
-    assert (closure);
-    assert (closure->vars);
+    assert(closure);
+    assert(closure->vars);
 
     if (ti_closure_try_wse(closure, query, e) ||
         ti_closure_inc(closure, query, e))

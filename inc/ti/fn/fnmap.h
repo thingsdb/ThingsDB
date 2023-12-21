@@ -148,8 +148,8 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     }
 
-    assert (query->rval == NULL);
-    assert (retvarr->vec->n == n);
+    assert(query->rval == NULL);
+    assert(retvarr->vec->n == n);
 
     query->rval = (ti_val_t *) retvarr;
     goto done;

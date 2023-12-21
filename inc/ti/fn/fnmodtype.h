@@ -76,7 +76,7 @@ static int modtype__add_cb(ti_thing_t * thing, modtype__add_t * w)
     ti_prop_t * prop;
     ex_t ex = {0};
 
-    assert (thing->type_id == w->field->type->type_id);
+    assert(thing->type_id == w->field->type->type_id);
 
     if (w->closure->vars->n)
     {
@@ -141,7 +141,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
     ti_prop_t * prop;
     ex_t ex = {0};
 
-    assert (thing->type_id == w->field->type->type_id);
+    assert(thing->type_id == w->field->type->type_id);
 
     if (w->closure->vars->n)
     {
@@ -231,7 +231,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
     }
 
     /* none of the affected things may have a lock, (checked beforehand) */
-    assert (~thing->flags & TI_VFLAG_LOCK);
+    assert(~thing->flags & TI_VFLAG_LOCK);
 
     /* lock each thing so this value is final while modifying this type */
     thing->flags |= TI_VFLAG_LOCK;
@@ -246,7 +246,7 @@ static int modtype__mod_after_cb(ti_thing_t * thing, modtype__mod_t * w)
     ex_t ex = {0};
     ti_val_t * val = VEC_get(thing->items.vec, w->field->idx);
 
-    assert (thing->type_id == w->field->type->type_id);
+    assert(thing->type_id == w->field->type->type_id);
 
     /*
      * no copy is required if the value has only one reference, therefore
@@ -527,7 +527,7 @@ static void type__add(
     if (closure)
     {
         /* we must have a default value when having a closure */
-        assert (dval);
+        assert(dval);
 
         if (ti_closure_try_wse(closure, query, e) ||
             ti_closure_inc(closure, query, e))
@@ -553,7 +553,7 @@ static void type__add(
     if (ti_type_is_wrap_only(type))
     {
         /* we are finished when we do not have a default value to set */
-        assert (dval == NULL);
+        assert(dval == NULL);
         return;
     }
 
@@ -638,7 +638,7 @@ fail2:
     ti_val_unsafe_drop(dval);
 
 fail1:
-    assert (e->nr);
+    assert(e->nr);
     ti_field_remove(field);
     return;  /* failed */
 

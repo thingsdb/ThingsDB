@@ -51,6 +51,7 @@ static int do__f_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         vec_t * args;
         ti_task_t * task;
         size_t m, mm;
+        const _Bool ti_scope = query->collection==NULL;
 
         if (fn_arg_datetime("task", DOC_TASK, 1, query->rval, e))
             return e->nr;
@@ -104,7 +105,6 @@ static int do__f_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (nargs == 3)
         {
-            const _Bool ti_scope = query->collection==NULL;
             if (ti_do_statement(query, (child = child->next->next), e) ||
                 fn_arg_array("task", DOC_TASK, 3, query->rval, e) ||
                 ti_vtask_check_args(VARR(query->rval), mm, ti_scope, e))
@@ -124,7 +124,9 @@ static int do__f_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             VEC_push(args, ti_nil_get());
 
         vtask = ti_vtask_create(
-                ti_next_free_id(),
+                ti_scope
+                    ? ti_next_free_id()
+                    : ti_collection_next_free_id(query->collection),
                 (uint64_t) run_at,
                 query->user,
                 closure,

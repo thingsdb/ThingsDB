@@ -132,7 +132,7 @@ static void away__update_sleep(void)
 
 static void away__accept_close_cb(uv_handle_t * UNUSED(handle))
 {
-    assert (away->status == AWAY__STATUS_ACCEPTED_IDLE ||
+    assert(away->status == AWAY__STATUS_ACCEPTED_IDLE ||
             away->status == AWAY__STATUS_ACCEPTED_INIT);
     away->status -= 2;
 }
@@ -146,7 +146,7 @@ static void away__accept_cb(uv_timer_t * waiter)
 static void away__accept_node_id(uint32_t node_id)
 {
     int rc;
-    assert (away->status == AWAY__STATUS_IDLE ||
+    assert(away->status == AWAY__STATUS_IDLE ||
             away->status == AWAY__STATUS_INIT);
     away->status += 2;
 
@@ -272,7 +272,7 @@ static void away__waiter_after_close_cb(uv_handle_t * UNUSED(handle))
 
 static void away__waiter_after_cb(uv_timer_t * waiter)
 {
-    assert (away->status == AWAY__STATUS_SYNCING);
+    assert(away->status == AWAY__STATUS_SYNCING);
 
     size_t nsyncers;
     ssize_t changes_to_process = ti_changes_trigger_loop();
@@ -607,7 +607,7 @@ int ti_away_create(void)
 
 int ti_away_start(void)
 {
-    assert (away->status == AWAY__STATUS_INIT);
+    assert(away->status == AWAY__STATUS_INIT);
 
     away__reset_sleep();
 

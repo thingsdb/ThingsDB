@@ -1,3 +1,11 @@
+# v1.5.0
+
+* Removed syntax option for selecting a collection scope by Id.
+* Separate collection Id from collection root Id.
+* Added `next_free_id` field to collection info and removed from nodes info.
+  _(`node_info()` still contains `next_free_id` for the global free Id)_
+*
+
 # v1.4.17
 
 * Added function `root()`, issue #354.

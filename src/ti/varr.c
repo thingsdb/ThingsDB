@@ -49,7 +49,7 @@ int ti_varr_to_tuple(ti_varr_t ** varr)
     for (vec_each(tuple->vec, ti_val_t, val))
         ti_incref(val);
 
-    assert ((*varr)->ref > 1);
+    assert((*varr)->ref > 1);
     ti_decref(*varr);
     *varr = (ti_varr_t *) tuple;
     return 0;
@@ -323,7 +323,7 @@ int ti_varr_to_list(ti_varr_t ** varr)
 
 static int varr__copy(ti_val_t ** val, uint8_t deep)
 {
-    assert (deep);
+    assert(deep);
     switch ((ti_val_enum) (*val)->tp)
     {
     case TI_VAL_NIL:
@@ -365,7 +365,7 @@ static int varr__copy(ti_val_t ** val, uint8_t deep)
 
 static int varr__dup(ti_val_t ** val, uint8_t deep)
 {
-    assert (deep);
+    assert(deep);
     switch ((ti_val_enum) (*val)->tp)
     {
     case TI_VAL_NIL:
@@ -407,7 +407,7 @@ static int varr__dup(ti_val_t ** val, uint8_t deep)
 
 int ti_varr_copy(ti_varr_t ** varr, uint8_t deep)
 {
-    assert (deep);
+    assert(deep);
     int rc = 0;
     ti_varr_t * list = malloc(sizeof(ti_varr_t));
     if (!list)
@@ -446,7 +446,7 @@ int ti_varr_copy(ti_varr_t ** varr, uint8_t deep)
 
 int ti_varr_dup(ti_varr_t ** varr, uint8_t deep)
 {
-    assert (deep);
+    assert(deep);
     int rc = 0;
     ti_varr_t * list = malloc(sizeof(ti_varr_t));
     if (!list)
@@ -492,7 +492,7 @@ _Bool ti__varr_eq(ti_varr_t * varra, ti_varr_t * varrb)
 {
     size_t i = 0;
 
-    assert (varra != varrb && varra->vec->n == varrb->vec->n);
+    assert(varra != varrb && varra->vec->n == varrb->vec->n);
 
     for (vec_each(varra->vec, ti_val_t, va), ++i)
         if (!ti_opr_eq(va, VEC_get(varrb->vec, i)))

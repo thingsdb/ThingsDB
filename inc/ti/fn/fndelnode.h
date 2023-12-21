@@ -31,7 +31,7 @@ static int do__f_del_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    assert (node != ti.node);
+    assert(node != ti.node);
 
     ti_nodes_del_node(node_id);
     query->change->flags |= TI_CHANGE_FLAG_SAVE;

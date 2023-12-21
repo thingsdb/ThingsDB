@@ -258,7 +258,7 @@ static int do__f_remove_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (do__f_remove_set_from_closure(&removed, vset, query, nd, e))
             goto fail2;
 
-        assert (query->rval == NULL);
+        assert(query->rval == NULL);
 
         for (vec_each(removed, ti_thing_t, t))
             (void) ti_vset_pop(vset, t);
@@ -335,7 +335,7 @@ static int do__f_remove_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
     }
 
-    assert (query->rval == NULL);
+    assert(query->rval == NULL);
     query->rval = (ti_val_t *) ti_varr_from_vec_unsafe(removed);
     if (query->rval)
         goto done;

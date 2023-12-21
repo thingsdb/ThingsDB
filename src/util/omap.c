@@ -60,8 +60,8 @@ void omap_clear(omap_t * omap, omap_destroy_cb cb)
  */
 int omap_add(omap_t * omap, uint64_t id, void * data)
 {
-    assert (omap);
-    assert (data);
+    assert(omap);
+    assert(data);
     omap__t * cur, * tmp;
 
     for (   cur = (omap__t *) omap;
@@ -88,8 +88,8 @@ int omap_add(omap_t * omap, uint64_t id, void * data)
  */
 void * omap_set(omap_t * omap, uint64_t id, void * data)
 {
-    assert (omap);
-    assert (data);
+    assert(omap);
+    assert(data);
     omap__t * cur, * tmp;
 
     for (   cur = (omap__t *) omap;

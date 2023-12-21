@@ -74,8 +74,8 @@ void ti_task_destroy(ti_task_t * task)
 
 int ti_task_add_set_add(ti_task_t * task, ti_raw_t * key, vec_t * added)
 {
-    assert (added->n);
-    assert (key);
+    assert(added->n);
+    assert(key);
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -145,7 +145,7 @@ fail_data:
 
 int ti_task_add_arr_clear(ti_task_t * task, ti_raw_t * key)
 {
-    assert (key);
+    assert(key);
     size_t alloc = 32;
     ti_data_t * data;
     msgpack_packer pk;
@@ -174,7 +174,7 @@ fail_data:
 
 int ti_task_add_set_clear(ti_task_t * task, ti_raw_t * key)
 {
-    assert (key);
+    assert(key);
     size_t alloc = 32;
     ti_data_t * data;
     msgpack_packer pk;
@@ -964,8 +964,8 @@ int ti_task_add_new_collection(
     mp_pack_str(&pk, "user");
     msgpack_pack_uint64(&pk, user->id);
 
-    mp_pack_str(&pk, "root");
-    msgpack_pack_uint64(&pk, collection->root->id);
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, collection->id);
 
     mp_pack_str(&pk, "created_at");
     msgpack_pack_uint64(&pk, collection->created_at);
@@ -2086,8 +2086,8 @@ fail_data:
 
 int ti_task_add_set_remove(ti_task_t * task, ti_raw_t * key, vec_t * removed)
 {
-    assert (removed->n);
-    assert (key);
+    assert(removed->n);
+    assert(key);
     size_t alloc = 64 + key->n + removed->n * 9;
     ti_data_t * data;
     msgpack_packer pk;
@@ -2141,7 +2141,7 @@ int ti_task_add_rename_collection(
     msgpack_pack_map(&pk, 2);
 
     mp_pack_str(&pk, "id");
-    msgpack_pack_uint64(&pk, collection->root->id);
+    msgpack_pack_uint64(&pk, collection->id);
 
     mp_pack_str(&pk, "name");
     mp_pack_strn(&pk, collection->name->data, collection->name->n);
@@ -2481,9 +2481,9 @@ int ti_task_add_splice(
         uint32_t c,  /* number of items to remove */
         uint32_t n)  /* number of items to add */
 {
-    assert (!varr || varr->tp == TI_VAL_ARR);
-    assert ((n && varr) || !n);
-    assert (key);
+    assert(!varr || varr->tp == TI_VAL_ARR);
+    assert((n && varr) || !n);
+    assert(key);
     ti_val_t * val;
     size_t alloc = n ? 8192 : (key->n + 64);
     ti_data_t * data;

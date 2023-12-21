@@ -9,7 +9,7 @@ static int do__f_raise(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 0)
     {
-        assert (query->rval == NULL);
+        assert(query->rval == NULL);
         query->rval = (ti_val_t *) ti_verror_from_code(TI_VERROR_DEF_CODE);
         goto done;
     }

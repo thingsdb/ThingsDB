@@ -12,7 +12,7 @@ static int fn__datetime(
     cleri_node_t * child = nd->children;
     int64_t i;
 
-    assert (fn_get_nargs(nd) >= 3);
+    assert(fn_get_nargs(nd) >= 3);
 
     memset(&tm, 0, sizeof(struct tm));
 
@@ -298,7 +298,7 @@ static int do__datetime(
     {
     case 0:
         /* Return the current date/time. */
-        assert (query->rval == NULL);
+        assert(query->rval == NULL);
         query->rval = (ti_val_t *) ti_datetime_from_u64(
                 util_now_usec(),
                 tz);
@@ -419,7 +419,7 @@ static int do__f_datetime(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (do__datetime("datetime", DOC_DATETIME, query, nd, e))
         return e->nr;
 
-    assert (ti_val_is_datetime(query->rval));
+    assert(ti_val_is_datetime(query->rval));
 
     if (query->rval->ref == 1)
     {
@@ -443,7 +443,7 @@ static int do__f_timeval(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (do__datetime("timeval", DOC_TIMEVAL, query, nd, e))
         return e->nr;
 
-    assert (ti_val_is_datetime(query->rval));
+    assert(ti_val_is_datetime(query->rval));
 
     if (query->rval->ref == 1)
     {

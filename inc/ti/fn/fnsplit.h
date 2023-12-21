@@ -23,8 +23,8 @@ size_t split__whitespace_r(char * a, char * end, size_t UNUSED(_n))
 
 ti_varr_t * splitr(ti_raw_t * vstr, ti_raw_t * vsep, size_t num_splits)
 {
-    assert (!vsep || vsep->n);
-    assert (num_splits);
+    assert(!vsep || vsep->n);
+    assert(num_splits);
 
     ti_varr_t * varr;
     ti_raw_t * raw;
@@ -81,8 +81,8 @@ fail:
 
 ti_varr_t * splitn(ti_raw_t * vstr, ti_raw_t * vsep, ti_vint_t * vnum)
 {
-    assert (!vsep || vsep->n);
-    assert (!vnum || vnum->int_ >= 0);
+    assert(!vsep || vsep->n);
+    assert(!vnum || vnum->int_ >= 0);
 
     ti_varr_t * varr;
     ti_raw_t * raw;
@@ -139,7 +139,7 @@ fail:
 
 ti_varr_t * splitrn(ti_raw_t * vstr, ti_regex_t * regex, ti_vint_t * vnum)
 {
-    assert (!vnum || vnum->int_ >= 0);
+    assert(!vnum || vnum->int_ >= 0);
 
     int rc;
     size_t pos = 0, n = vnum ? (size_t) vnum->int_: SIZE_MAX;

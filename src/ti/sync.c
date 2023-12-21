@@ -51,7 +51,7 @@ int ti_sync_create(void)
 
 int ti_sync_start(void)
 {
-    assert (sync_->status == SYNC__STAT_INIT);
+    assert(sync_->status == SYNC__STAT_INIT);
 
     sync_->retry_offline = SYNC__WAIT_FOR_OFFLINE_NODES;
 

@@ -79,7 +79,7 @@ close:
 
 static int archive__init_queue(void)
 {
-    assert (ti.node);
+    assert(ti.node);
     int rc = -1;
     ti_cpkg_t * cpkg;
     const uint64_t * ccid = &ti.node->ccid;
@@ -121,7 +121,7 @@ stop:
 
 static int archive__to_disk(void)
 {
-    assert (archive->queue->n);
+    assert(archive->queue->n);
     int rc = -1;
     FILE * f;
     msgpack_packer pk;
@@ -177,7 +177,7 @@ static int archive__to_disk(void)
 
     do
     {
-        assert (cpkg->change_id > scid);  /* other are removed from queue */
+        assert(cpkg->change_id > scid);  /* other are removed from queue */
 
         if (mp_pack_bin(&pk, cpkg->pkg, ti_pkg_sz(cpkg->pkg)))
             goto fail2;
@@ -317,7 +317,7 @@ int ti_archive_rmdir(void)
 
 int ti_archive_init(void)
 {
-    assert (ti.node);
+    assert(ti.node);
 
     const char * archive_path = archive__get_path();
     if (!archive_path)
@@ -341,7 +341,7 @@ int ti_archive_load(void)
 
     log_debug("loading archive files from `%s`", archive->path);
 
-    assert (ti.node);
+    assert(ti.node);
 
     total = scandir(archive->path, &file_list, NULL, alphasort);
     if (total < 0)
@@ -391,7 +391,7 @@ int ti_archive_push(ti_cpkg_t * cpkg)
      */
     int rc = 0;
 
-    assert (
+    assert(
         !queue_last(archive->queue) ||
         cpkg->change_id > ((ti_cpkg_t *) queue_last(archive->queue))->change_id
     );

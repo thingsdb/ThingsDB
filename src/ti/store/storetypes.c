@@ -345,7 +345,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
         ) goto fail1;
 
         type = ti_types_by_id(types, mp_id.via.u64);
-        assert (type);
+        assert(type);
 
         for (ii = obj.via.sz; ii--;)
         {

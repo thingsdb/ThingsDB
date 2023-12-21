@@ -7,8 +7,8 @@ ti_raw_t * replacessr(
         ti_raw_t * vnew,
         size_t num)
 {
-    assert (vold->n && vold->n <= vstr->n);
-    assert (num);
+    assert(vold->n && vold->n <= vstr->n);
+    assert(num);
 
     ti_raw_t * raw;
     size_t strn = vstr->n;
@@ -54,8 +54,8 @@ ti_raw_t * replacessn(
         ti_raw_t * vnew,
         ti_vint_t * vnum)
 {
-    assert (!vnum || vnum->int_ > 0);
-    assert (vold->n && vold->n <= vstr->n);
+    assert(!vnum || vnum->int_ > 0);
+    assert(vold->n && vold->n <= vstr->n);
 
     ti_raw_t * raw;
     size_t strn = vstr->n;
@@ -189,8 +189,8 @@ int replacescn(
         ti_query_t * query,
         ex_t * e)
 {
-    assert (!vnum || vnum->int_ > 0);
-    assert (vold->n && vold->n <= vstr->n);
+    assert(!vnum || vnum->int_ > 0);
+    assert(vold->n && vold->n <= vstr->n);
 
     ti_raw_t * raw;
     size_t strn = vstr->n;
@@ -278,7 +278,7 @@ int replacersn(
         ti_query_t * query,
         ex_t * e)
 {
-    assert (!vnum || vnum->int_ > 0);
+    assert(!vnum || vnum->int_ > 0);
 
     ti_raw_t * raw;
     size_t n = vnum ? (size_t) vnum->int_: SIZE_MAX;
@@ -334,7 +334,7 @@ int replacercn(
         ti_query_t * query,
         ex_t * e)
 {
-    assert (!vnum || vnum->int_ > 0);
+    assert(!vnum || vnum->int_ > 0);
 
     ti_raw_t * raw;
     size_t n = vnum ? (size_t) vnum->int_: SIZE_MAX;

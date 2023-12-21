@@ -32,7 +32,7 @@ static int do__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set_mem(e);
 
     ti_val_unsafe_drop(query->rval);
-    query->rval = (ti_val_t *) ti_vint_create((int64_t) collection->root->id);
+    query->rval = (ti_val_t *) ti_vint_create((int64_t) collection->id);
     if (!query->rval)
         ex_set_mem(e);
 

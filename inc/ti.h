@@ -151,7 +151,7 @@ static inline uint64_t ti_next_free_id(void)
  * things down. */
 static inline int ti_sleep(int ms)
 {
-    assert (ms < 1000);
+    assert(ms < 1000);
     return ti_flag_test(TI_FLAG_SIGNAL|TI_FLAG_NO_SLEEP)
             ? -2
             : nanosleep((const struct timespec[]){{0, ms * 1000000L}}, NULL);

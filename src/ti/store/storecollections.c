@@ -134,6 +134,7 @@ int ti_store_collections_restore(const char * fn)
 
             tz = ti_tz_from_index(mp_tz.via.u64);
             mp_deep.via.u64 = 1;
+            mp_id.via.u64 = 0;
             break;
         case 3:
             /* TODO: (COMPAT) This check is for compatibility with ThingsDB
@@ -141,6 +142,7 @@ int ti_store_collections_restore(const char * fn)
              */
             tz = ti_tz_utc();
             mp_deep.via.u64 = 1;
+            mp_id.via.u64 = 0;
             break;
         default:
             goto fail;

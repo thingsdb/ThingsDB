@@ -1613,6 +1613,7 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_REN:               break;
     case TI_TASK_FILL:              break;
     case TI_TASK_MOD_PROCEDURE:     return ttask__mod_procedure(up);
+    case TI_TASK_NEW_ENUM:          break;
     }
 
     log_critical("unknown thingsdb task: %"PRIu64, mp_task.via.u64);

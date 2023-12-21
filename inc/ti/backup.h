@@ -41,6 +41,7 @@ ti_val_t * ti_backup_as_mpval(ti_backup_t * backup);
 struct ti_backup_s
 {
     uint64_t id;
+    uint64_t collection_id; /* When 0, a full backup will be made */
     uint64_t next_run;      /* Next run, UNIX time-stamp in seconds */
     uint64_t repeat;        /* Repeat every X seconds */
     uint64_t created_at;    /* UNIX time-stamp in seconds */

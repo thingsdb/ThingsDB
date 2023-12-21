@@ -409,6 +409,58 @@ static int ctask__new_type(ti_thing_t * thing, mp_unp_t * up)
 }
 
 /*
+ * The new_enum MUST be followed with set_enum before values are being unpacked
+ * as the enum must contain at least one member. We allow a temporary empty
+ * enumerator to be able to create types which might refer to this enum.
+ */
+static int ctask__new_enum(ti_thing_t * thing, mp_unp_t * up)
+{
+    ex_t e = {0};
+    ti_collection_t * collection = thing->collection;
+    ti_enum_t * enum_;
+    mp_obj_t obj, mp_id, mp_name, mp_created;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_created) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR)
+    {
+        log_critical(
+            "task `new_enum` for "TI_COLLECTION_ID" is invalid",
+            collection->id);
+        return -1;
+    }
+    enum_ = ti_enums_by_id(collection->enums, mp_id.via.u64);
+    if (enum_)
+    {
+        log_critical(
+                "task `set_enum` for "TI_COLLECTION_ID" is invalid; "
+                "enum with id %"PRIu64" already found",
+                collection->id, mp_id.via.u64);
+        return -1;
+    }
+    enum_ = ti_enum_create(
+            mp_id.via.u64,
+            mp_name.via.str.data,
+            mp_name.via.str.n,
+            mp_created.via.u64,
+            0);  /* modified_at = 0 */
+    if (!enum_ || ti_enums_add(collection->enums, enum_))
+    {
+        log_critical(EX_MEMORY_S);
+        goto fail0;
+    }
+    return 0;
+
+fail0:
+    ti_enum_destroy(enum_);
+    return -1;
+}
+
+/*
  * Returns 0 on success
  * - for example: {'enum_id':.., 'members':.. }
  *
@@ -445,24 +497,30 @@ static int ctask__set_enum(ti_thing_t * thing, mp_unp_t * up)
     enum_ = ti_enums_by_id(collection->enums, mp_id.via.u64);
     if (enum_)
     {
-        log_critical(
-                "task `set_enum` for "TI_COLLECTION_ID" is invalid; "
-                "enum with id %"PRIu64" already found",
-                collection->id, mp_id.via.u64);
-        return -1;
+        if (enum_->members->n || enum_->methods)
+        {
+            log_critical(
+                    "task `set_enum` for "TI_COLLECTION_ID" is invalid; "
+                    "enum with id %"PRIu64" already found",
+                    collection->id, mp_id.via.u64);
+            return -1;
+        }
+        /* task with new_enum is processed earlier */
     }
-
-    enum_ = ti_enum_create(
-            mp_id.via.u64,
-            mp_name.via.str.data,
-            mp_name.via.str.n,
-            mp_created.via.u64,
-            0);  /* modified_at = 0 */
-
-    if (!enum_ || ti_enums_add(collection->enums, enum_))
+    else
     {
-        log_critical(EX_MEMORY_S);
-        goto fail0;
+        enum_ = ti_enum_create(
+                mp_id.via.u64,
+                mp_name.via.str.data,
+                mp_name.via.str.n,
+                mp_created.via.u64,
+                0);  /* modified_at = 0 */
+
+        if (!enum_ || ti_enums_add(collection->enums, enum_))
+        {
+            log_critical(EX_MEMORY_S);
+            goto fail0;
+        }
     }
 
     if (ti_enum_init_members_from_vup(enum_, &vup, &e))
@@ -476,9 +534,6 @@ static int ctask__set_enum(ti_thing_t * thing, mp_unp_t * up)
         log_critical(e.msg);
         goto fail1;
     }
-
-    /* update created time-stamp */
-    enum_->created_at = mp_created.via.u64;
 
     return 0;
 
@@ -3099,6 +3154,7 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_REN:               return ctask__ren(thing, up);
     case TI_TASK_FILL:              return ctask__fill(thing, up);
     case TI_TASK_MOD_PROCEDURE:     return ctask__mod_procedure(thing, up);
+    case TI_TASK_NEW_ENUM:          return ctask__new_enum(thing, up);
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);

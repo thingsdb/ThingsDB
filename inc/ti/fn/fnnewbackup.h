@@ -7,6 +7,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_node_t * child = nd->children;
     ti_raw_t * rname;
     uint64_t backup_id;
+    uint64_t collection_id = 0;
     uint64_t timestamp = 0;
     uint64_t repeat = 0;
     uint64_t max_files = 1;
@@ -140,6 +141,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     backup = ti_backups_new_backup(
             backup_id,
+            collection_id,
             (const char *) rname->data,
             rname->n,
             timestamp,

@@ -23,6 +23,7 @@ typedef struct ti_backup_s ti_backup_t;
 
 ti_backup_t * ti_backup_create(
         uint64_t id,
+        uint64_t collection_id,
         const char * fn_template,
         size_t fn_templare_n,
         uint64_t next_run,

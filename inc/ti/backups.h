@@ -30,6 +30,7 @@ _Bool ti_backups_has_backup(uint64_t backup_id);
 ti_val_t * ti_backups_backup_as_mpval(uint64_t backup_id, ex_t * e);
 ti_backup_t * ti_backups_new_backup(
         uint64_t id,
+        uint64_t collection_id,
         const char * fn_template,
         size_t fn_templare_n,
         uint64_t timestamp,

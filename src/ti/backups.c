@@ -349,8 +349,9 @@ static int backups__store(void)
     for (omap_each(iter, ti_backup_t, backup))
     {
         result_msg = backup->result_msg ? backup->result_msg : empty;
-        if (msgpack_pack_array(&pk, 10) ||
+        if (msgpack_pack_array(&pk, 11) ||
             msgpack_pack_uint64(&pk, backup->id) ||
+            msgpack_pack_uint64(&pk, backup->collection_id) ||
             msgpack_pack_uint64(&pk, backup->created_at) ||
             msgpack_pack_uint64(&pk, backup->next_run) ||
             msgpack_pack_uint64(&pk, backup->repeat) ||
@@ -416,7 +417,8 @@ int ti_backups_restore(void)
     fx_mmap_t fmap;
     size_t i, ii;
     mp_obj_t obj, arr, mp_ver, mp_id, mp_ts, mp_repeat, mp_template,
-             mp_fn, mp_msg, mp_plan, mp_code, mp_created, mp_max_files;
+             mp_fn, mp_msg, mp_plan, mp_code, mp_created, mp_max_files,
+             mp_collection_id;
     mp_unp_t up;
     ti_backup_t * backup;
     uint64_t now = util_now_usec();
@@ -450,34 +452,14 @@ int ti_backups_restore(void)
             goto fail1;
 
         switch (obj.via.sz)
-
         {
-        case 8:
+        case 11:
             /*
-             * TODO: (COMPAT) Before v0.9.9 backups are stored with a
-             *       max_files value and files queue. This code may be
-             *       removed once we want to drop backwards compatibility.
+             * TODO: (COMPAT) Before v1.5.0 backups are stored without a
+             *       collection Id, as only full backups were possible.
              */
             if (mp_next(&up, &mp_id) != MP_U64 ||
-                mp_next(&up, &mp_created) != MP_U64 ||
-                mp_next(&up, &mp_ts) != MP_U64 ||
-                mp_next(&up, &mp_repeat) != MP_U64 ||
-                mp_next(&up, &mp_template) != MP_STR ||
-                mp_next(&up, &mp_msg) <= 0  ||
-                mp_next(&up, &mp_plan) != MP_BOOL ||
-                mp_next(&up, &mp_code) != MP_I64
-            ) goto fail1;
-            mp_max_files.tp = MP_U64;
-            mp_max_files.via.u64 = mp_repeat.via.u64
-                    ? TI_BACKUP_DEFAULT_MAX_FILES
-                    : 1;
-            files_queue = queue_new(mp_max_files.via.u64);
-            if (!files_queue)
-                goto fail1;
-            set_changed = true;
-            break;
-        case 10:
-            if (mp_next(&up, &mp_id) != MP_U64 ||
+                mp_next(&up, &mp_collection_id) != MP_U64 ||
                 mp_next(&up, &mp_created) != MP_U64 ||
                 mp_next(&up, &mp_ts) != MP_U64 ||
                 mp_next(&up, &mp_repeat) != MP_U64 ||
@@ -507,7 +489,70 @@ int ti_backups_restore(void)
 
                 QUEUE_push(files_queue, raw_fn);
             }
+            break;
+        case 10:
+            /*
+             * TODO: (COMPAT) Before v1.5.0 backups are stored without a
+             *       collection Id, as only full backups were possible.
+             */
+            if (mp_next(&up, &mp_id) != MP_U64 ||
+                mp_next(&up, &mp_created) != MP_U64 ||
+                mp_next(&up, &mp_ts) != MP_U64 ||
+                mp_next(&up, &mp_repeat) != MP_U64 ||
+                mp_next(&up, &mp_max_files) != MP_U64 ||
+                mp_next(&up, &mp_template) != MP_STR ||
+                mp_next(&up, &mp_msg) <= 0  ||
+                mp_next(&up, &mp_plan) != MP_BOOL ||
+                mp_next(&up, &mp_code) != MP_I64 ||
+                mp_next(&up, &arr) != MP_ARR
+            ) goto fail1;
+            mp_collection_id.tp = MP_U64;
+            mp_collection_id.via.u64 = 0;
+            files_queue = queue_new(mp_max_files.via.u64);
+            if (!files_queue)
+                goto fail1;
 
+            for (ii = arr.via.sz; ii--;)
+            {
+                if (mp_next(&up, &mp_fn) != MP_STR ||
+                    !(raw_fn = ti_str_create(
+                            (const char *) mp_fn.via.str.data,
+                            mp_fn.via.str.n)))
+                {
+                    queue_destroy(
+                            files_queue,
+                            (queue_destroy_cb) ti_val_unsafe_drop);
+                    goto fail1;
+                }
+
+                QUEUE_push(files_queue, raw_fn);
+            }
+            break;
+        case 8:
+            /*
+             * TODO: (COMPAT) Before v0.9.9 backups are stored without a
+             *       max_files value and files queue. This code may be
+             *       removed once we want to drop backwards compatibility.
+             */
+            if (mp_next(&up, &mp_id) != MP_U64 ||
+                mp_next(&up, &mp_created) != MP_U64 ||
+                mp_next(&up, &mp_ts) != MP_U64 ||
+                mp_next(&up, &mp_repeat) != MP_U64 ||
+                mp_next(&up, &mp_template) != MP_STR ||
+                mp_next(&up, &mp_msg) <= 0  ||
+                mp_next(&up, &mp_plan) != MP_BOOL ||
+                mp_next(&up, &mp_code) != MP_I64
+            ) goto fail1;
+            mp_collection_id.tp = MP_U64;
+            mp_collection_id.via.u64 = 0;
+            mp_max_files.tp = MP_U64;
+            mp_max_files.via.u64 = mp_repeat.via.u64
+                    ? TI_BACKUP_DEFAULT_MAX_FILES
+                    : 1;
+            files_queue = queue_new(mp_max_files.via.u64);
+            if (!files_queue)
+                goto fail1;
+            set_changed = true;
             break;
         default:
             goto fail1;
@@ -515,6 +560,7 @@ int ti_backups_restore(void)
 
         backup = ti_backups_new_backup(
                 mp_id.via.u64,
+                mp_collection_id.via.u64,
                 mp_template.via.str.data,
                 mp_template.via.str.n,
                 mp_ts.via.u64,
@@ -746,6 +792,7 @@ ti_val_t * ti_backups_backup_as_mpval(uint64_t backup_id, ex_t * e)
 
 ti_backup_t * ti_backups_new_backup(
         uint64_t id,
+        uint64_t collection_id,
         const char * fn_template,
         size_t fn_templare_n,
         uint64_t timestamp,
@@ -756,6 +803,7 @@ ti_backup_t * ti_backups_new_backup(
 {
     ti_backup_t * backup = ti_backup_create(
             id,
+            collection_id,
             fn_template,
             fn_templare_n,
             timestamp,

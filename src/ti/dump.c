@@ -14,7 +14,9 @@ int dump__unmark_new(ti_thing_t * thing, void * UNUSED(arg))
 }
 
 
-
+/*
+ * Runs in a different thread (away mode)
+ */
 int ti_dump_collection(ti_collection_t * collection, const char * fn)
 {
     msgpack_packer pk;

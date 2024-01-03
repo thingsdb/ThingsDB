@@ -60,6 +60,17 @@ void ti_enum_destroy(ti_enum_t * enum_)
     free(enum_);
 }
 
+int ti_enum_create_placeholders(ti_enum_t * enum_, size_t n, ex_t * e)
+{
+    assert(enum_->members->n == 0);
+    enum_->enum_tp = TI_ENUM_INT;
+
+    while (n--)
+        if (!ti_member_placeholder(enum_, e))
+            break;
+    return e->nr;
+}
+
 int ti_enum_prealloc(ti_enum_t * enum_, size_t sz, ex_t * e)
 {
     if (!sz)
@@ -317,6 +328,82 @@ int ti_enum_init_from_thing(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
         ? enum__init_thing_o(enum_, thing, e)
         : enum__init_thing_t(enum_, thing, e);
 }
+
+int ti_enum_set_members_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e)
+{
+    ti_name_t * name;
+    ti_val_t * val;
+    mp_obj_t obj, mp_name;
+
+    if (mp_next(vup->up, &obj) != MP_ARR)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "failed unpacking members for enum `%s`;"
+                "expecting the members as an array",
+                enum_->name);
+        return e->nr;
+    }
+
+    if (obj.via.sz != enum_->members->n)
+    {
+        ex_set(e, EX_BAD_DATA,
+                "the number of members for enum `%s` does not match "
+                "the array size",
+                enum_->name);
+        return e->nr;
+    }
+
+    for (vec_each(enum_->members, ti_member_t, member))
+    {
+        val = NULL;
+
+        if (mp_next(vup->up, &obj) != MP_ARR || obj.via.sz != 2 ||
+            mp_next(vup->up, &mp_name) != MP_STR)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "failed unpacking members for enum `%s`;"
+                    "expecting an array with two values",
+                    enum_->name);
+            return e->nr;
+        }
+
+        if (!ti_name_is_valid_strn(mp_name.via.str.data, mp_name.via.str.n))
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "failed unpacking members for enum `%s`;"
+                    "member names must follow the naming rules"DOC_NAMES,
+                    enum_->name);
+            return e->nr;
+        }
+
+        name = ti_names_get(mp_name.via.str.data, mp_name.via.str.n);
+        if (!name)
+            goto failed;
+
+        val = ti_val_from_vup_e(vup, e);
+        if (!val)
+            goto failed;
+
+        ti_name_drop(member->name);
+        ti_val_drop(member->val);
+
+        member->name = name;
+        member->val = val;
+    }
+
+    /* set enum type based on the last value */
+    return ti_enum_set_enum_tp(enum_, val, e);
+
+failed:
+    if (!e->nr)
+        ex_set_mem(e);
+
+    ti_name_drop(name);
+    ti_val_drop(val);
+
+    return e->nr;
+}
+
 
 int ti_enum_init_members_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e)
 {

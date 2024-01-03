@@ -59,6 +59,11 @@
 #define TI_FN_SCHEMA 1
 
 /*
+ * Export dump schema
+ */
+#define TI_EXPORT_SCHEMA_V1500 1500U
+
+/*
  * If a system has a WORDSIZE of 64 bits, we can take advantage of storing
  * some data in void pointers.
  */

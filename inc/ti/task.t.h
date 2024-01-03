@@ -86,6 +86,9 @@ typedef enum
     TI_TASK_FILL,                           /* 73  */
     TI_TASK_MOD_PROCEDURE,                  /* 74  */
     TI_TASK_NEW_ENUM,                       /* 75  */
+    TI_TASK_SET_ENUM_DATA,                  /* 76  */
+    TI_TASK_REPLACE_ROOT,                   /* 77  */
+    TI_TASK_IMPORT,                         /* 78  */
 } ti_task_enum;
 
 typedef struct ti_task_s ti_task_t;

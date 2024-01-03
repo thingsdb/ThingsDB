@@ -205,9 +205,8 @@ static int change__run_deprecated_v0(ti_change_t * change)
             if (ti_ctask_run(thing, &up))
             {
                 log_critical(
-                        "task for "TI_THING_ID" in collection `%.*s` "
+                        "task for collection `%.*s` "
                         "("TI_CHANGE_ID") failed",
-                        thing->id,
                         (int) change->collection->name->n,
                         (const char *) change->collection->name->data,
                         change->id);

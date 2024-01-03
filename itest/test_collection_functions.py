@@ -515,9 +515,9 @@ class TestCollectionFunctions(TestBase):
         src = b'TEST: ThingsDB\r\r\nDATE: 2019/12/02\r\r\n'
         enc = base64.b64encode(src)
         self.assertEqual(
-            await client.query(f'base64_decode(e);', e=enc), src)
+            await client.query('base64_decode(e);', e=enc), src)
         self.assertEqual(
-            await client.query(f'bytes(base64_encode(s));', s=src), enc)
+            await client.query('bytes(base64_encode(s));', s=src), enc)
 
     async def test_bool(self, client):
         with self.assertRaisesRegex(

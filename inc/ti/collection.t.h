@@ -33,7 +33,7 @@ struct ti_collection_s
     queue_t * gc;           /* ti_gc_t */
     vec_t * access;         /* ti_auth_t */
     smap_t * procedures;    /* ti_procedure_t */
-    ti_thing_t * root;
+    ti_thing_t * root;      /* without extra reference */
     ti_types_t * types;
     ti_enums_t * enums;
     uv_mutex_t * lock;      /* only for watch/ unwatch/ away-mode */

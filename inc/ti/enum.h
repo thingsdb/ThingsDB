@@ -21,6 +21,7 @@ ti_enum_t * ti_enum_create(
         uint64_t created_at,
         uint64_t modified_at);
 void ti_enum_destroy(ti_enum_t * enum_);
+int ti_enum_create_placeholders(ti_enum_t * enum_, size_t n, ex_t * e);
 int ti_enum_prealloc(ti_enum_t * enum_, size_t sz, ex_t * e);
 int ti_enum_set_enum_tp(ti_enum_t * enum_, ti_val_t * val, ex_t * e);
 int ti_enum_check_val(ti_enum_t * enum_, ti_val_t * val, ex_t * e);
@@ -33,6 +34,7 @@ int ti_enum_add_method(
         ex_t * e);
 void ti_enum_remove_method(ti_enum_t * enum_, ti_name_t * name);
 int ti_enum_init_from_thing(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e);
+int ti_enum_set_members_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e);
 int ti_enum_init_members_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e);
 int ti_enum_init_methods_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e);
 int ti_enum_members_to_client_pk(

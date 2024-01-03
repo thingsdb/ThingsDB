@@ -10,6 +10,7 @@
 typedef struct ti_vint_s ti_vint_t;
 
 ti_vint_t * ti_vint_create(int64_t i);
+ti_vint_t * ti_vint_borrow_zero(void);
 static inline void ti_vint_free(ti_vint_t * vint);
 _Bool ti_vint_no_ref(void);
 

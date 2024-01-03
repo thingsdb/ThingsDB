@@ -90,7 +90,7 @@ struct ti_query_s
                                    is a node stream */
     vec_t * vars;               /* ti_prop_t - variable */
     ti_change_t * change;       /* with reference, only when a change is
-                                   required
+                                   required otherwise NULL
                                 */
     vec_t * immutable_cache;    /* ti_val_t, Only for immutable and collection
                                    independent variable and temporary used for

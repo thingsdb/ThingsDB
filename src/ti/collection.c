@@ -9,6 +9,7 @@
 #include <ti/auth.h>
 #include <ti/collection.h>
 #include <ti/collection.inline.h>
+#include <ti/ctask.h>
 #include <ti/enums.h>
 #include <ti/future.h>
 #include <ti/gc.h>
@@ -167,6 +168,28 @@ int ti_collection_rename(
     collection->name = ti_grab(rname);
 
     return 0;
+}
+
+int ti_collection_check_empty(ti_collection_t * collection, ex_t * e)
+{
+    const char * pf = "collection not empty;";
+
+    if (collection->things->n != 1)
+        ex_set(e, EX_OPERATION, "%s collection contains things", pf);
+    else if (collection->types->imap->n)
+        ex_set(e, EX_OPERATION, "%s collection contains types", pf);
+    else if (ti_thing_n(collection->root))
+        ex_set(e, EX_OPERATION, "%s collection root contains properties", pf);
+    else if (collection->enums->imap->n)
+        ex_set(e, EX_OPERATION, "%s collection contains enumerators", pf);
+    else if (collection->procedures->n)
+        ex_set(e, EX_OPERATION, "%s collection contains procedures", pf);
+    else if (collection->futures->n)
+        ex_set(e, EX_OPERATION, "%s collection contains futures", pf);
+    else if (collection->vtasks->n)
+        ex_set(e, EX_OPERATION, "%s collection contains tasks", pf);
+
+    return e->nr;
 }
 
 ti_val_t * ti_collection_as_mpval(ti_collection_t * collection)
@@ -665,4 +688,80 @@ ti_pkg_t * ti_collection_leave_rooms(
     pkg_init(resp, pkg->id, TI_PROTO_CLIENT_RES_DATA, buffer.size);
 
     return resp;
+}
+
+/*
+ * When the return value (and thus e->nr) is EX_BAD_DATA or EX_SUCCESS, the
+ * collection is changed and therefore the same changes must be applied to all
+ * nodes. Any other error indicates no changes are made.
+ */
+int ti_collection_unpack(
+        ti_collection_t * collection,
+        mp_unp_t * up,
+        ex_t * e)
+{
+    mp_obj_t obj, mp_schema, mp_version;
+    char * version = NULL;
+    size_t i;
+
+    if (mp_next(up, &obj) != MP_ARR || obj.via.sz == 0 ||
+        mp_next(up, &mp_schema) != MP_U64 ||
+        mp_next(up, &mp_version) != MP_STR)
+    {
+        ex_set(e, EX_VALUE_ERROR, "not a valid export");
+        return e->nr;
+    }
+
+    if (mp_schema.via.u64 != TI_EXPORT_SCHEMA_V1500)
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "export with unknown schema `%"PRIu64"`",
+                mp_schema.via.u64);
+        return e->nr;
+    }
+
+    version = mp_strdup(&mp_version);
+    if (!version)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    if (ti_version_cmp(version, TI_VERSION) > 0)
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "export is created using ThingsDB version `%s` which is newer "
+                "than the running version `%s`");
+    }
+    else for (i = obj.via.sz-2; i--;)
+    {
+        if (ti_ctask_run(collection->root, up))
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "failed to unpack collection data; "
+                    "(more info might be available in the node log)");
+            break;
+        }
+    }
+
+    free(version);
+    return e->nr;
+}
+
+/*
+ * Shortcut to ti_collection_unpack() with bytes as input.
+ *
+ * When the return value (and thus e->nr) is EX_BAD_DATA or EX_SUCCESS, the
+ * collection is changed and therefore the same changes must be applied to all
+ * nodes. Any other error indicates no changes are made.
+ */
+int ti_collection_load(
+        ti_collection_t * collection,
+        ti_raw_t * bytes,
+        ex_t * e)
+{
+    mp_unp_t up;
+    mp_unp_init(&up, bytes->data, bytes->n);
+
+    return ti_collection_unpack(collection, &up, e);
 }

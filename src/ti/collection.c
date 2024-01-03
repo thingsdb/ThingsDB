@@ -748,6 +748,12 @@ int ti_collection_unpack(
     return e->nr;
 }
 
+void ti_collection_tasks_clear(ti_collection_t * collection)
+{
+    for (vec_each(collection->vtasks, ti_vtask_t, vtask))
+        ti_vtask_del(vtask->id, collection);
+}
+
 /*
  * Shortcut to ti_collection_unpack() with bytes as input.
  *

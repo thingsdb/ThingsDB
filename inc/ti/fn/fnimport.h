@@ -72,6 +72,13 @@ static int do__f_import(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     }
 
+    task = ti_task_get_task(query->change, query->collection->root);
+    if (!task)
+    {
+        ex_set_mem(e);
+        goto fail0;
+    }
+
     /* check late as the arguments are parsed at this point */
     if (ti_collection_check_empty(query->collection, e))
         goto fail0;
@@ -88,17 +95,32 @@ static int do__f_import(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     /* we can set the return value even when EX_BAD_DATA */
     query->rval = (ti_val_t *) ti_nil_get();
 
-    task = ti_task_get_task(query->change, query->collection->root);
-    if (!task || ti_task_add_import(task, bytes))
-        ex_set_mem(e);  /* might overwrite EX_BAD_DATA */
-    else for (vec_each(query->collection->vtasks, ti_vtask_t, vtask))
+    if (ti_task_add_import(task, bytes, import_tasks))
     {
-        /* get ownership of all the tasks */
-        ti_user_drop(vtask->user);
-        vtask->user = query->user;
-        ti_incref(query->user);
-        if (ti_task_add_vtask_set_owner(task, vtask))
-            ex_set_mem(e);  /* task cleanup is not required */
+        ex_set_mem(e);  /* might overwrite EX_BAD_DATA */
+    }
+    else if (!import_tasks)
+    {
+        ti_collection_tasks_clear(query->collection);
+    }
+    else
+    {
+        /* this is a new collection root, thus a new task list */
+        task = ti_task_new_task(query->change, query->collection->root);
+        if (!task)
+        {
+            ex_set_mem(e);
+            goto fail0;
+        }
+        for (vec_each(query->collection->vtasks, ti_vtask_t, vtask))
+        {
+            /* get ownership of all the tasks */
+            ti_user_drop(vtask->user);
+            vtask->user = query->user;
+            ti_incref(query->user);
+            if (ti_task_add_vtask_set_owner(task, vtask))
+                ex_set_mem(e);  /* task cleanup is not required */
+        }
     }
 
 fail0:

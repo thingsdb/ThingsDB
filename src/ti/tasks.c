@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <ti.h>
+#include <ti/collection.h>
 #include <ti/node.h>
 #include <ti/restore.h>
 #include <ti/tasks.h>
@@ -199,8 +200,7 @@ void ti_tasks_clear_all(void)
         ti_vtask_del(vtask->id, NULL);
 
     for (vec_each(ti.collections->vec, ti_collection_t, collection))
-        for (vec_each(collection->vtasks, ti_vtask_t, vtask))
-            ti_vtask_del(vtask->id, collection);
+        ti_collection_tasks_clear(collection);
 }
 
 ti_varr_t * ti_tasks_list(vec_t * tasks)

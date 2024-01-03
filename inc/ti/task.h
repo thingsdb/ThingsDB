@@ -23,6 +23,7 @@
 #include <util/vec.h>
 
 ti_task_t * ti_task_create(uint64_t change_id, ti_thing_t * thing);
+ti_task_t * ti_task_new_task(ti_change_t * change, ti_thing_t * thing);
 ti_task_t * ti_task_get_task(ti_change_t * change, ti_thing_t * thing);
 void ti_task_destroy(ti_task_t * task);
 int ti_task_add_set_add(ti_task_t * task, ti_raw_t * key, vec_t * added);
@@ -151,7 +152,7 @@ int ti_task_add_splice(
         uint32_t c,              /* number of items to remove */
         uint32_t n);             /* number of items to add */
 int ti_task_add_restore(ti_task_t * task);
-int ti_task_add_import(ti_task_t * task, ti_raw_t * bytes);
+int ti_task_add_import(ti_task_t * task, ti_raw_t * bytes, _Bool import_tasks);
 int ti_task_add_arr_remove(ti_task_t * task, ti_raw_t * key, vec_t * vec);
 int ti_task_add_thing_remove(ti_task_t * task, vec_t * vec, size_t alloc_sz);
 int ti_task_add_set_enum(ti_task_t * task, ti_enum_t * enum_);

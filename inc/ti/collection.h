@@ -51,6 +51,7 @@ int ti_collection_unpack(
         ti_collection_t * collection,
         mp_unp_t * up,
         ex_t * e);
+void ti_collection_tasks_clear(ti_collection_t * collection);
 int ti_collection_load(
         ti_collection_t * collection,
         ti_raw_t * bytes,

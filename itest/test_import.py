@@ -46,6 +46,10 @@ class TestNested(TestBase):
         global dump
         await client0.query(r"""//ti
             .x = 42;
+            .t = task(datetime(), |t| {
+                log('running task...');
+                t.again_in('seconds', 1);
+            });
             new_procedure('test', ||nil);
         """)
 
@@ -60,14 +64,26 @@ class TestNested(TestBase):
             import(dump);
         """, dump=dump)
 
+        for client in (client0, client1):
+            await client0.query(r"""//ti
+                wse();
+                assert(.x == 42);
+                assert(is_nil(.t.id()));
+                assert(procedures_info().len() == 1);
+            """)
+
+    async def test_import_tasks(self, client0, client1):
+        await client0.query(r"""//ti
+            import(dump, {import_tasks: true});
+        """, dump=dump)
 
         for client in (client0, client1):
             await client0.query(r"""//ti
                 wse();
-                assert (.x == 42);
-                assert (procedures_info().len() == 1);
+                assert(.x == 42);
+                assert(is_int(.t.id()));
+                assert(procedures_info().len() == 1);
             """)
-
 
 if __name__ == '__main__':
     run_test(TestNested())

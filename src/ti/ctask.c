@@ -520,15 +520,32 @@ static int ctask__set_enum_data(ti_thing_t * thing, mp_unp_t * up)
 
 static int ctask__import(ti_thing_t * thing, mp_unp_t * up)
 {
+    int rc = 0;
     ex_t e = {0};
-
+    mp_obj_t obj, mp_import_tasks;
     ti_collection_t * collection = thing->collection;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 2 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_import_tasks) != MP_BOOL ||
+        mp_skip(up) != MP_STR)
+    {
+        log_critical(
+            "task `import` for "TI_COLLECTION_ID" is invalid",
+            collection->id);
+        return -1;
+    }
+
     if (ti_collection_unpack(collection, up, &e))
     {
         log_error(e.msg);  /* not critical for sure */
-        return -1;
+        rc = -1;
     }
-    return 0;
+
+    if (!mp_import_tasks.via.bool_)
+        ti_collection_tasks_clear(collection);
+
+    return rc;
 }
 
 static int ctask__replace_root(ti_thing_t * thing, mp_unp_t * up)

@@ -1223,11 +1223,11 @@ static inline _Bool ti_val_is_spec(ti_val_t * val, uint16_t spec)
         ((spec & TI_SPEC_NILLABLE) && ti_val_is_nil(val)))
         return true;
 
-    if (spec > TI_SPEC_ANY)
-        return ti_val_spec_map[spec-TI_SPEC_OBJECT].is_spec(val);
-
     if (spec >= TI_ENUM_ID_FLAG)
         return val__spec_enum_eq_to_val(spec, val);
+
+    if (spec > TI_SPEC_ANY)
+        return ti_val_spec_map[spec-TI_SPEC_OBJECT].is_spec(val);
 
     return ti_val_is_thing(val) && ((ti_thing_t *) val)->type_id == spec;
 }

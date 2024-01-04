@@ -1555,6 +1555,7 @@ set_enum('Colors', {
   RED: '#f00',
   GREEN: '#0f0',
   BLUE: '#00f',
+  repr: |this| `{this.name()}={this.value()}`,
 });
 set_enum('Math', {
   PI: 3.140000,

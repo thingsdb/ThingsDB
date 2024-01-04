@@ -62,7 +62,9 @@ void ti_enum_destroy(ti_enum_t * enum_)
 
 int ti_enum_create_placeholders(ti_enum_t * enum_, size_t n, ex_t * e)
 {
-    assert(enum_->members->n == 0);
+    if (ti_enum_prealloc(enum_, n, e))
+        return e->nr;
+
     enum_->enum_tp = TI_ENUM_INT;
 
     while (n--)

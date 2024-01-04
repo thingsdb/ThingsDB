@@ -209,8 +209,7 @@ static int dump__write_types(ti_types_t * types, msgpack_packer * pk)
 {
     return (
             smap_values(types->smap, (smap_val_cb) dump__new_type_cb, pk) ||
-            smap_values(types->smap, (smap_val_cb) dump__set_type_cb, pk) ||
-            smap_values(types->smap, (smap_val_cb) dump__relation_cb, pk)
+            smap_values(types->smap, (smap_val_cb) dump__set_type_cb, pk)
     );
 }
 
@@ -294,6 +293,15 @@ static int dump__write_tasks_args(vec_t * vtasks, msgpack_packer * pk)
 
 }
 
+static int dump__write_relations(ti_types_t * types, msgpack_packer * pk)
+{
+    /* It is very important that relations are being restored after all the
+     * values are imported as otherwise relations will be created while
+     * loading the values;
+     */
+    return smap_values(types->smap, (smap_val_cb) dump__relation_cb, pk);
+}
+
 static int dump__write_procedures(smap_t * procedures, msgpack_packer * pk)
 {
     return smap_values(procedures, (smap_val_cb) dump__procedure_cb, pk);
@@ -344,6 +352,7 @@ ti_raw_t * ti_dump_collection(ti_collection_t * collection)
         dump__write_root(collection->root, &pk) ||
         dump__write_enums_data(collection->enums, &pk) ||
         dump__write_tasks_args(collection->vtasks, &pk) ||
+        dump__write_relations(collection->types, &pk) ||
         dump__write_procedures(collection->procedures, &pk))
     {
         /* failed, free buffer and remove marks */

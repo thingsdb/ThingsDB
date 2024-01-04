@@ -179,7 +179,7 @@ int ti_collection_check_empty(ti_collection_t * collection, ex_t * e)
     else if (collection->types->imap->n)
         ex_set(e, EX_OPERATION, "%s collection contains types", pf);
     else if (ti_thing_n(collection->root))
-        ex_set(e, EX_OPERATION, "%s collection root contains properties", pf);
+        ex_set(e, EX_OPERATION, "%s collection contains properties", pf);
     else if (collection->enums->imap->n)
         ex_set(e, EX_OPERATION, "%s collection contains enumerators", pf);
     else if (collection->procedures->n)
@@ -188,6 +188,8 @@ int ti_collection_check_empty(ti_collection_t * collection, ex_t * e)
         ex_set(e, EX_OPERATION, "%s collection contains futures", pf);
     else if (collection->vtasks->n)
         ex_set(e, EX_OPERATION, "%s collection contains tasks", pf);
+    else if (collection->root->ref > 1)
+        ex_set(e, EX_OPERATION, "collection is being used", pf);
 
     return e->nr;
 }
@@ -708,7 +710,10 @@ int ti_collection_unpack(
         mp_next(up, &mp_schema) != MP_U64 ||
         mp_next(up, &mp_version) != MP_STR)
     {
-        ex_set(e, EX_VALUE_ERROR, "not a valid export");
+        ex_set(e, EX_VALUE_ERROR,
+                "no valid import data; "
+                "make sure the bytes are created using the `export` function "
+                "with the `dump` option enabled");
         return e->nr;
     }
 

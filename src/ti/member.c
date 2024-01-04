@@ -78,6 +78,7 @@ ti_member_t * ti_member_placeholder(ti_enum_t * enum_, ex_t * e)
     member->tp = TI_VAL_MEMBER;
     member->name = NULL;
     member->val = NULL;
+    member->enum_ = enum_;
 
     /* max 65536 thus M65536 */
     r = snprintf(buf, 8, "M%"PRIu32, enum_->members->n);

@@ -4,7 +4,8 @@
 * Separate collection Id from collection root Id.
 * Added `next_free_id` field to collection info and removed from nodes info.
   _(`node_info()` still contains `next_free_id` for the global free Id)_
-* new_backup
+* Added `dump` option to the `export(..)` function for a full collection export.
+* Added function `import()` which can import a collection export dump.
 
 # v1.4.17
 

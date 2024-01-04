@@ -119,11 +119,6 @@ ti_vint_t * ti_vint_create(int64_t i)
     return vint;
 }
 
-ti_vint_t * ti_vint_borrow_zero(void)
-{
-    return &vint__cache[0];
-}
-
 _Bool ti_vint_no_ref(void)
 {
     for (size_t i = 0; i < 256; ++i)

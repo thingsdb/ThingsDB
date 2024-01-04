@@ -334,7 +334,7 @@ int ti_enum_init_from_thing(ti_enum_t * enum_, ti_thing_t * thing, ex_t * e)
 int ti_enum_set_members_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e)
 {
     ti_name_t * name;
-    ti_val_t * val;
+    ti_val_t * val = NULL;
     mp_obj_t obj, mp_name;
 
     if (mp_next(vup->up, &obj) != MP_ARR)

@@ -29,7 +29,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_raw_endswith(rname, tar_gz_str))
     {
         ex_set(e, EX_VALUE_ERROR,
-            "expecting a full backup file-name to end with `%.*s`"
+            "expecting a backup file-name to end with `%.*s`"
             DOC_NEW_BACKUP, tar_gz_str->n, (char *) tar_gz_str->data);
         goto fail0;
     }
@@ -46,10 +46,10 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs >= 2)
     {
+        max_files = TI_BACKUP_DEFAULT_MAX_FILES;
+
         if (ti_do_statement(query, (child = child->next->next), e))
             goto fail0;
-
-        max_files = TI_BACKUP_DEFAULT_MAX_FILES;
 
         if (ti_val_is_datetime(query->rval))
         {
@@ -73,8 +73,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs >= 3)
     {
         if (ti_do_statement(query, (child = child->next->next), e) ||
-            fn_arg_int("new_backup",
-                       DOC_NEW_BACKUP, 3, query->rval, e))
+            fn_arg_int("new_backup", DOC_NEW_BACKUP, 3, query->rval, e))
             goto fail0;
 
         repeat = VINT(query->rval) < 0 ? 0 : (uint64_t) VINT(query->rval);
@@ -86,8 +85,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs == 4)
     {
         if (ti_do_statement(query, (child = child->next->next), e) ||
-            fn_arg_int("new_backup",
-                       DOC_NEW_BACKUP, 4, query->rval, e))
+            fn_arg_int("new_backup", DOC_NEW_BACKUP, 4, query->rval, e))
             goto fail0;
 
         max_files = VINT(query->rval) < 1 ? 1 : (uint64_t) VINT(query->rval);

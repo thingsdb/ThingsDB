@@ -475,6 +475,39 @@ int ti_backups_restore(void)
                 goto fail1;
             set_changed = true;
             break;
+        case 10:
+            if (mp_next(&up, &mp_id) != MP_U64 ||
+                mp_next(&up, &mp_created) != MP_U64 ||
+                mp_next(&up, &mp_ts) != MP_U64 ||
+                mp_next(&up, &mp_repeat) != MP_U64 ||
+                mp_next(&up, &mp_max_files) != MP_U64 ||
+                mp_next(&up, &mp_template) != MP_STR ||
+                mp_next(&up, &mp_msg) <= 0  ||
+                mp_next(&up, &mp_plan) != MP_BOOL ||
+                mp_next(&up, &mp_code) != MP_I64 ||
+                mp_next(&up, &arr) != MP_ARR
+            ) goto fail1;
+            files_queue = queue_new(mp_max_files.via.u64);
+            if (!files_queue)
+                goto fail1;
+
+            for (ii = arr.via.sz; ii--;)
+            {
+                if (mp_next(&up, &mp_fn) != MP_STR ||
+                    !(raw_fn = ti_str_create(
+                            (const char *) mp_fn.via.str.data,
+                            mp_fn.via.str.n)))
+                {
+                    queue_destroy(
+                            files_queue,
+                            (queue_destroy_cb) ti_val_unsafe_drop);
+                    goto fail1;
+                }
+
+                QUEUE_push(files_queue, raw_fn);
+            }
+
+            break;
         default:
             goto fail1;
         }

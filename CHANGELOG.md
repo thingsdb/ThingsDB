@@ -6,6 +6,8 @@
   _(`node_info()` still contains `next_free_id` for the global free Id)_
 * Added `dump` option to the `export(..)` function for a full collection export.
 * Added function `import()` which can import a collection export dump.
+* Function `export(..)` can no longer be used in a query with a change.
+* Fixed a problem with adding enumerators to a restricted list.
 
 # v1.4.17
 

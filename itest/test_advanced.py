@@ -2474,5 +2474,6 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertIs(res, True)
 
+
 if __name__ == '__main__':
     run_test(TestAdvanced())

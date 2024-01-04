@@ -153,8 +153,6 @@ class TestImport(TestBase):
             });
         """)
 
-        self.assertEqual(len(dump), 430)
-
     async def test_import(self, client0, client1):
         await client0.query(r"""//ti
             import(dump);

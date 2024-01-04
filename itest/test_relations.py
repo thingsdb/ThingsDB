@@ -417,7 +417,8 @@ class TestRelations(TestBase):
             'OK';
         '''), 'OK')
 
-        res = await client.query(r'''wse(); export();''')
+        await client.query(r'''wse();''')
+        res = await client.query(r'''export();''')
         self.assertEqual(res, r'''
 // Enums
 

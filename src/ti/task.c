@@ -28,11 +28,9 @@ ti_task_t * ti_task_create(uint64_t change_id, ti_thing_t * thing)
         return NULL;
 
     task->change_id = change_id;
-    task->thing = thing;
+    task->thing_id = thing->id;
     task->list = vec_new(1);
     task->approx_sz = 11;  /* thing_id (9) + map (1) + [close map] (1) */
-
-    ti_incref(thing);
 
     if (!task->list)
     {
@@ -43,17 +41,33 @@ ti_task_t * ti_task_create(uint64_t change_id, ti_thing_t * thing)
     return task;
 }
 
+ti_task_t * ti_task_new_task(ti_change_t * change, ti_thing_t * thing)
+{
+    ti_task_t * task = ti_task_create(change->id, thing);
+    if (!task)
+        goto failed;
+
+    if (vec_push(&change->tasks, task))
+        goto failed;
+
+    return task;
+
+failed:
+    ti_task_destroy(task);
+    return NULL;
+}
+
 ti_task_t * ti_task_get_task(ti_change_t * change, ti_thing_t * thing)
 {
-    ti_task_t * task = vec_last(change->_tasks);
-    if (task && task->thing == thing)
+    ti_task_t * task = vec_last(change->tasks);
+    if (task && task->thing_id == thing->id)
         return task;
 
     task = ti_task_create(change->id, thing);
     if (!task)
         goto failed;
 
-    if (vec_push(&change->_tasks, task))
+    if (vec_push(&change->tasks, task))
         goto failed;
 
     return task;
@@ -68,7 +82,6 @@ void ti_task_destroy(ti_task_t * task)
     if (!task)
         return;
     vec_destroy(task->list, free);
-    ti_val_unsafe_drop((ti_val_t *) task->thing);
     free(task);
 }
 
@@ -2623,6 +2636,42 @@ int ti_task_add_restore(ti_task_t * task)
 
     msgpack_pack_uint8(&pk, TI_TASK_RESTORE);
     msgpack_pack_true(&pk);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_import(ti_task_t * task, ti_raw_t * bytes, _Bool import_tasks)
+{
+    size_t alloc = 96 + bytes->n;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_IMPORT);
+    msgpack_pack_map(&pk, 2);
+
+    mp_pack_str(&pk, "import_tasks");
+    mp_pack_bool(&pk, import_tasks);
+
+    mp_pack_str(&pk, "bytes");
+    mp_pack_append(&pk, bytes->data, bytes->n);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

@@ -66,6 +66,43 @@ ti_member_t * ti_member_create(
     return member;
 }
 
+ti_member_t * ti_member_placeholder(ti_enum_t * enum_, ex_t * e)
+{
+    int r;
+    static char buf[8];
+    ti_member_t * member = malloc(sizeof(ti_member_t));
+    if (!member)
+        goto alloc_error;
+
+    member->ref = 1;
+    member->tp = TI_VAL_MEMBER;
+    member->name = NULL;
+    member->val = NULL;
+    member->enum_ = enum_;
+
+    /* max 65536 thus M65536 */
+    r = snprintf(buf, 8, "M%"PRIu32, enum_->members->n);
+    if (r <= 1 || r > 7)
+        goto alloc_error;
+
+    member->name = ti_names_get(buf, (size_t) r);
+    member->val = (ti_val_t *) ti_vint_create(enum_->members->n);
+
+    if (!member->val || !member->name)
+        goto alloc_error;
+
+    if (ti_enum_add_member(enum_, member, e))
+        goto failed;
+
+    return member;
+
+alloc_error:
+    ex_set_mem(e);
+failed:
+    ti_member_destroy(member);
+    return NULL;
+}
+
 void ti_member_destroy(ti_member_t * member)
 {
     if (!member)

@@ -92,6 +92,7 @@
 #include <ti/fn/fnhastype.h>
 #include <ti/fn/fnhasuser.h>
 #include <ti/fn/fnid.h>
+#include <ti/fn/fnimport.h>
 #include <ti/fn/fnindexof.h>
 #include <ti/fn/fnint.h>
 #include <ti/fn/fnisarray.h>
@@ -281,7 +282,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 256,
+    TOTAL_KEYWORDS = 257,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 14,
@@ -551,6 +552,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="has_user",          .fn=do__f_has_user,             ROOT_NE},
     {.name="has",               .fn=do__f_has,                  CHAIN_NE},
     {.name="id",                .fn=do__f_id,                   CHAIN_NE},
+    {.name="import",            .fn=do__f_import,               ROOT_CE},
     {.name="index_of",          .fn=do__f_index_of,             CHAIN_NE},
     {.name="int",               .fn=do__f_int,                  ROOT_NE},
     {.name="is_array",          .fn=do__f_is_array,             ROOT_NE},

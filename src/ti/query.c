@@ -66,7 +66,7 @@ static ti_cpkg_t * query__cpkg_change(ti_query_t * query)
     msgpack_sbuffer buffer;
     ti_cpkg_t * cpkg;
     ti_pkg_t * pkg;
-    vec_t * tasks = query->change->_tasks;
+    vec_t * tasks = query->change->tasks;
 
     for (vec_each(tasks, ti_task_t, task))
         init_buffer_sz += task->approx_sz;
@@ -84,7 +84,7 @@ static ti_cpkg_t * query__cpkg_change(ti_query_t * query)
     for (vec_each(tasks, ti_task_t, task))
     {
         msgpack_pack_array(&pk, task->list->n+1);
-        msgpack_pack_uint64(&pk, task->thing->id);
+        msgpack_pack_uint64(&pk, task->thing_id);
         for (vec_each(task->list, ti_data_t, data))
             mp_pack_append(&pk, data->data, data->n);
     }

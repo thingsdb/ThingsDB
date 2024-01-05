@@ -30,6 +30,7 @@ C_SRCS += \
 ../src/ti/datetime.c \
 ../src/ti/deep.c \
 ../src/ti/do.c \
+../src/ti/dump.c \
 ../src/ti/enum.c \
 ../src/ti/enums.c \
 ../src/ti/evars.c \
@@ -140,6 +141,7 @@ OBJS += \
 ./src/ti/datetime.o \
 ./src/ti/deep.o \
 ./src/ti/do.o \
+./src/ti/dump.o \
 ./src/ti/enum.o \
 ./src/ti/enums.o \
 ./src/ti/evars.o \
@@ -250,6 +252,7 @@ C_DEPS += \
 ./src/ti/datetime.d \
 ./src/ti/deep.d \
 ./src/ti/do.d \
+./src/ti/dump.d \
 ./src/ti/enum.d \
 ./src/ti/enums.d \
 ./src/ti/evars.d \

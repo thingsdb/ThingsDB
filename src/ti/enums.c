@@ -148,4 +148,3 @@ int ti_enums_to_pk(ti_enums_t * enums, ti_vp_t * vp)
         imap_walk(enums->imap, (imap_cb) ti_enum_to_pk, vp)
     );
 }
-

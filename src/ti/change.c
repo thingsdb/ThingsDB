@@ -34,9 +34,9 @@ ti_change_t * ti_change_create(ti_change_tp_enum tp)
     change->collection = NULL;
     change->tp = tp;
     change->flags = 0;
-    change->_tasks = tp == TI_CHANGE_TP_MASTER ? vec_new(1) : NULL;
+    change->tasks = tp == TI_CHANGE_TP_MASTER ? vec_new(1) : NULL;
 
-    if (    (tp == TI_CHANGE_TP_MASTER && !change->_tasks) ||
+    if (    (tp == TI_CHANGE_TP_MASTER && !change->tasks) ||
             clock_gettime(TI_CLOCK_MONOTONIC, &change->time))
     {
         free(change);
@@ -81,7 +81,7 @@ void ti_change_drop(ti_change_t * change)
     if (change->tp == TI_CHANGE_TP_CPKG)
         ti_cpkg_drop(change->via.cpkg);
 
-    vec_destroy(change->_tasks, (vec_destroy_cb) ti_task_destroy);
+    vec_destroy(change->tasks, (vec_destroy_cb) ti_task_destroy);
 
     free(change);
 }
@@ -205,9 +205,8 @@ static int change__run_deprecated_v0(ti_change_t * change)
             if (ti_ctask_run(thing, &up))
             {
                 log_critical(
-                        "task for "TI_THING_ID" in collection `%.*s` "
+                        "task for collection `%.*s` "
                         "("TI_CHANGE_ID") failed",
-                        thing->id,
                         (int) change->collection->name->n,
                         (const char *) change->collection->name->data,
                         change->id);

@@ -1,4 +1,4 @@
-FROM google/cloud-sdk:353.0.0
+FROM google/cloud-sdk:458.0.1
 COPY ./ /tmp/thingsdb/
 
 RUN apt-get update && apt-get install -y \
@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
     make clean && \
     make
 
-FROM google/cloud-sdk:353.0.0
+FROM google/cloud-sdk:458.0.1
 
 RUN mkdir -p /var/lib/thingsdb && \
     apt-get update && apt-get install -y \

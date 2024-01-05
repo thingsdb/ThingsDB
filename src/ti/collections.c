@@ -193,7 +193,7 @@ ti_collection_t * ti_collections_create_collection(
     }
 
     collection->root = ti_things_create_thing_o(
-            ti_collection_next_free_id(collection),
+            ti_collection_next_free_id(collection),  /* id 1 */
             TI_SPEC_ANY,
             8,
             collection);

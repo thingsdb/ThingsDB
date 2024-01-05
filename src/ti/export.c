@@ -93,9 +93,9 @@ static int export__write_relation(
     );
 }
 
-static int export__relation_cb(ti_type_t * type_, ti_fmt_t * fmt)
+static int export__relation_cb(ti_type_t * type, ti_fmt_t * fmt)
 {
-    for (vec_each(type_->fields, ti_field_t, field))
+    for (vec_each(type->fields, ti_field_t, field))
     {
         if (ti_field_has_relation(field))
         {

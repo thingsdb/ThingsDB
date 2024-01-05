@@ -14,6 +14,7 @@ from test_enum import TestEnum
 from test_future import TestFuture
 from test_gc import TestGC
 from test_http_api import TestHTTPAPI
+from test_import import TestImport
 from test_index_slice import TestIndexSlice
 from test_modules import TestModules
 from test_multi_node import TestMultiNode
@@ -69,6 +70,7 @@ if __name__ == '__main__':
     run_test(TestFuture())
     run_test(TestGC())
     run_test(TestHTTPAPI())
+    run_test(TestImport())
     run_test(TestIndexSlice())
     if args.doc_modules is True:
         run_test(TestModules())

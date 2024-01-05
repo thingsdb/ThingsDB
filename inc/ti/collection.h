@@ -29,6 +29,7 @@ int ti_collection_rename(
         ti_collection_t * collection,
         ti_raw_t * rname,
         ex_t * e);
+int ti_collection_check_empty(ti_collection_t * collection, ex_t * e);
 ti_val_t * ti_collection_as_mpval(ti_collection_t * collection);
 ti_thing_t * ti_collection_thing_restore_gc(
         ti_collection_t * collection,
@@ -45,6 +46,15 @@ ti_pkg_t * ti_collection_leave_rooms(
         ti_collection_t * collection,
         ti_stream_t * stream,
         ti_pkg_t * pkg,
+        ex_t * e);
+int ti_collection_unpack(
+        ti_collection_t * collection,
+        mp_unp_t * up,
+        ex_t * e);
+void ti_collection_tasks_clear(ti_collection_t * collection);
+int ti_collection_load(
+        ti_collection_t * collection,
+        ti_raw_t * bytes,
         ex_t * e);
 
 #endif /* TI_COLLECTION_H_ */

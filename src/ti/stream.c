@@ -73,7 +73,7 @@ void ti_stream_drop(ti_stream_t * stream)
 {
     if (stream && !--stream->ref)
     {
-        assert (stream->flags & TI_STREAM_FLAG_CLOSED);
+        assert(stream->flags & TI_STREAM_FLAG_CLOSED);
         log_info("closing stream `%s`", ti_stream_name(stream));
         uv_close((uv_handle_t *) stream->uvstream, stream__close_cb);
     }
@@ -100,10 +100,10 @@ void ti_stream_stop_listeners(ti_stream_t * stream)
 
 void ti_stream_set_node(ti_stream_t * stream, ti_node_t * node)
 {
-    assert (stream->tp == TI_STREAM_TCP_OUT_NODE ||
+    assert(stream->tp == TI_STREAM_TCP_OUT_NODE ||
             stream->tp == TI_STREAM_TCP_IN_NODE);
-    assert (node->stream == NULL);
-    assert (stream->via.node == NULL);
+    assert(node->stream == NULL);
+    assert(stream->via.node == NULL);
 
     /* clear the stream name */
     free(stream->name_);
@@ -117,7 +117,7 @@ void ti_stream_set_node(ti_stream_t * stream, ti_node_t * node)
 
 void ti_stream_set_user(ti_stream_t * stream, ti_user_t * user)
 {
-    assert (stream->tp == TI_STREAM_TCP_IN_CLIENT ||
+    assert(stream->tp == TI_STREAM_TCP_IN_CLIENT ||
             stream->tp == TI_STREAM_PIPE_IN_CLIENT);
 
     if (stream->via.user)
@@ -227,7 +227,7 @@ void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf)
  */
 int ti_stream_tcp_address(ti_stream_t * stream, char * toaddr)
 {
-    assert (stream->tp == TI_STREAM_TCP_OUT_NODE ||
+    assert(stream->tp == TI_STREAM_TCP_OUT_NODE ||
             stream->tp == TI_STREAM_TCP_IN_NODE ||
             stream->tp == TI_STREAM_TCP_IN_CLIENT);
 
@@ -256,7 +256,7 @@ int ti_stream_tcp_address(ti_stream_t * stream, char * toaddr)
                 INET6_ADDRSTRLEN);
     }
 
-    assert (0);
+    assert(0);
     return -1;
 }
 
@@ -301,7 +301,7 @@ const char * ti_stream_name(ti_stream_t * stream)
         return stream->name_ ? stream->name_ : "<client> "STREAM__UNRESOLVED;
     }
 
-    assert (0);
+    assert(0);
     return STREAM__UNRESOLVED;
 }
 
@@ -360,9 +360,9 @@ static void stream__write_rpkg_cb(ti_write_t * req, ex_enum status)
 static void stream__close_cb(uv_handle_t * uvstream)
 {
     ti_stream_t * stream = uvstream->data;
-    assert (stream);
-    assert (stream->flags & TI_STREAM_FLAG_CLOSED);
-    assert (stream->reqmap == NULL);
+    assert(stream);
+    assert(stream->flags & TI_STREAM_FLAG_CLOSED);
+    assert(stream->reqmap == NULL);
 
     switch ((ti_stream_enum) stream->tp)
     {
@@ -371,7 +371,7 @@ static void stream__close_cb(uv_handle_t * uvstream)
         if (!stream->via.node)
             break;
 
-        assert (stream->via.node->stream == stream);
+        assert(stream->via.node->stream == stream);
 
         stream->via.node->status = TI_NODE_STAT_OFFLINE;
         stream->via.node->stream = NULL;

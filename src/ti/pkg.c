@@ -80,7 +80,7 @@ void ti_pkg_client_err_to_e(ex_t * e, ti_pkg_t * pkg)
     mp_unp_t up;
     mp_obj_t obj, mp_code, mp_msg;
 
-    assert (pkg->tp == TI_PROTO_CLIENT_RES_ERROR);
+    assert(pkg->tp == TI_PROTO_CLIENT_RES_ERROR);
 
     mp_unp_init(&up, pkg->data, pkg->n);
 

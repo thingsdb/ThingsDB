@@ -96,7 +96,7 @@ static int do__f_splice(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                                 is added to `query->change->tasks` */
     }
 
-    assert (e->nr == 0);
+    assert(e->nr == 0);
 
     /* required since query->rval may not be NULL */
     ti_val_drop(query->rval);

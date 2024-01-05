@@ -38,7 +38,7 @@ ti_user_t * ti_users_new_user(
         ex_t * e)
 {
     ti_user_t * user = NULL;
-    assert (e->nr == 0);
+    assert(e->nr == 0);
 
     if (!ti_user_name_check(name, name_n, e))
         goto done;
@@ -71,7 +71,7 @@ ti_user_t * ti_users_load_user(
         ex_t * e)
 {
     ti_user_t * user = NULL;
-    assert (e->nr == 0);
+    assert(e->nr == 0);
 
     if (!ti_user_name_check(name, name_n, e))
         goto done;
@@ -146,8 +146,8 @@ void ti_users_del_user(ti_user_t * user)
  */
 ti_user_t * ti_users_auth(mp_obj_t * mp_name, mp_obj_t * mp_pass, ex_t * e)
 {
-    assert (mp_name->tp == MP_STR);
-    assert (mp_pass->tp == MP_STR);
+    assert(mp_name->tp == MP_STR);
+    assert(mp_pass->tp == MP_STR);
 
     char passbuf[ti_max_pass];
     char pw[CRYPTX_SZ];

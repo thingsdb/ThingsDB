@@ -92,6 +92,7 @@
 #include <ti/fn/fnhastype.h>
 #include <ti/fn/fnhasuser.h>
 #include <ti/fn/fnid.h>
+#include <ti/fn/fnimport.h>
 #include <ti/fn/fnindexof.h>
 #include <ti/fn/fnint.h>
 #include <ti/fn/fnisarray.h>
@@ -193,6 +194,7 @@
 #include <ti/fn/fnreverse.h>
 #include <ti/fn/fnrevoke.h>
 #include <ti/fn/fnroom.h>
+#include <ti/fn/fnroot.h>
 #include <ti/fn/fnrun.h>
 #include <ti/fn/fnsearch.h>
 #include <ti/fn/fnset.h>
@@ -280,11 +282,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 255,
+    TOTAL_KEYWORDS = 257,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 15,
-    MAX_HASH_VALUE = 551
+    MIN_HASH_VALUE = 14,
+    MAX_HASH_VALUE = 655
 };
 
 /*
@@ -296,32 +298,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        552, 552, 552, 552, 552, 552, 552, 552, 552, 552,
-        552, 552, 552, 552, 552, 552, 552, 552, 552, 552,
-        552, 552, 552, 552, 552, 552, 552, 552, 552, 552,
-        552, 552, 552, 552, 552, 552, 552, 552, 552, 552,
-        552, 552, 552, 552, 552, 552, 552, 552, 552, 552,
-        552, 552,   7, 552,   7, 552,   9, 552, 552, 552,
-        552, 552, 552, 552, 552, 552, 552, 552, 552, 552,
-        552, 552, 552, 552, 552, 552, 552, 552, 552, 552,
-        552, 552, 552, 552, 552, 552, 552, 552, 552, 552,
-        552, 552, 552, 552, 552,   5, 552,   6,  66,  61,
-          8,   5,  70, 264, 128,   5,  52,  13,  30,  51,
-         10,  45, 113,  27,   6,   5,   8,  12, 101, 211,
-        190, 176,  79, 552, 552, 552, 552, 552, 552, 552,
-        552, 552, 552, 552, 552, 552, 552, 552, 552, 552,
-        552, 552, 552, 552, 552, 552, 552, 552, 552, 552,
-        552, 552, 552, 552, 552, 552, 552, 552, 552, 552,
-        552, 552, 552, 552, 552, 552, 552, 552, 552, 552,
-        552, 552, 552, 552, 552, 552, 552, 552, 552, 552,
-        552, 552, 552, 552, 552, 552, 552, 552, 552, 552,
-        552, 552, 552, 552, 552, 552, 552, 552, 552, 552,
-        552, 552, 552, 552, 552, 552, 552, 552, 552, 552,
-        552, 552, 552, 552, 552, 552, 552, 552, 552, 552,
-        552, 552, 552, 552, 552, 552, 552, 552, 552, 552,
-        552, 552, 552, 552, 552, 552, 552, 552, 552, 552,
-        552, 552, 552, 552, 552, 552, 552, 552, 552, 552,
-        552, 552, 552, 552, 552, 552
+        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
+        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
+        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
+        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
+        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
+        656, 656,   4, 656,   4, 656,   4, 656, 656, 656,
+        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
+        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
+        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
+        656, 656, 656, 656, 656,   4, 656,   5,  98,  60,
+         36,   4, 122, 320, 150,   4,   6,  63,  21,  42,
+         10,  27, 140,  28,   5,   4,   7,  27,  56, 234,
+        140, 168,  63, 656, 656, 656, 656, 656, 656, 656,
+        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
+        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
+        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
+        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
+        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
+        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
+        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
+        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
+        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
+        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
+        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
+        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
+        656, 656, 656, 656, 656, 656
     };
 
     register unsigned int hval = n;
@@ -550,6 +552,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="has_user",          .fn=do__f_has_user,             ROOT_NE},
     {.name="has",               .fn=do__f_has,                  CHAIN_NE},
     {.name="id",                .fn=do__f_id,                   CHAIN_NE},
+    {.name="import",            .fn=do__f_import,               ROOT_CE},
     {.name="index_of",          .fn=do__f_index_of,             CHAIN_NE},
     {.name="int",               .fn=do__f_int,                  ROOT_NE},
     {.name="is_array",          .fn=do__f_is_array,             ROOT_NE},
@@ -657,6 +660,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="reverse",           .fn=do__f_reverse,              CHAIN_NE},
     {.name="revoke",            .fn=do__f_revoke,               ROOT_TE},
     {.name="room",              .fn=do__f_room,                 ROOT_NE},
+    {.name="root",              .fn=do__f_root,                 ROOT_NE},
     {.name="run",               .fn=do__f_run,                  XROOT_NE},
     {.name="search",            .fn=do__f_search,               CHAIN_NE},
     {.name="set_args",          .fn=do__f_set_args,             CHAIN_BE},
@@ -738,8 +742,8 @@ void ti_qbind_init(void)
         fmap->n = strlen(fmap->name);
         key = qbind__hash(fmap->name, fmap->n);
 
-        assert (qbind__fn_map[key] == NULL);
-        assert (key <= MAX_HASH_VALUE);
+        assert(qbind__fn_map[key] == NULL);
+        assert(key <= MAX_HASH_VALUE);
 
         qbind__fn_map[key] = fmap;
     }
@@ -817,7 +821,7 @@ static _Bool qbind__operations(
 
     (*parent)->data = operation_cb[gid - CLERI_GID_OPR0_MUL_DIV_MOD];
 
-    assert (gid >= CLERI_GID_OPR0_MUL_DIV_MOD &&
+    assert(gid >= CLERI_GID_OPR0_MUL_DIV_MOD &&
             gid <= CLERI_GID_OPR8_TERNARY);
 
     qbind__statement(qbind, (*parent)->children);
@@ -840,7 +844,7 @@ static _Bool qbind__operations(
 
         gid = (*parent)->children->next->cl_obj->gid;
 
-        assert (gid >= CLERI_GID_OPR0_MUL_DIV_MOD &&
+        assert(gid >= CLERI_GID_OPR0_MUL_DIV_MOD &&
                 gid <= CLERI_GID_OPR8_TERNARY);
 
         syntax_childa = &(*parent)->children->children;
@@ -978,7 +982,7 @@ static void qbind__function(
 static void qbind__index(ti_qbind_t * qbind, cleri_node_t * nd)
 {
     cleri_node_t * child = nd->children;
-    assert (child);
+    assert(child);
     do
     {
         cleri_node_t * c = child        /* sequence */
@@ -1102,7 +1106,7 @@ static void qbind__var_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
             qbind__enum(qbind, nd->children->next);
             return;
         default:
-            assert (0);
+            assert(0);
             return;
         }
     }
@@ -1141,7 +1145,7 @@ static void qbind__name_opt_fa(ti_qbind_t * qbind, cleri_node_t * nd)
                     nd->children->next->children->next);
             break;
         default:
-            assert (0);
+            assert(0);
             return;
         }
     }
@@ -1248,7 +1252,7 @@ static inline void qbind__expression(ti_qbind_t * qbind, cleri_node_t * nd)
     cleri_node_t * node;
     intptr_t preopr;
 
-    assert (nd->cl_obj->gid == CLERI_GID_EXPRESSION);
+    assert(nd->cl_obj->gid == CLERI_GID_EXPRESSION);
 
     nd->data = ti_do_expression;
 
@@ -1365,7 +1369,7 @@ static inline void qbind__block(ti_qbind_t * qbind, cleri_node_t * nd)
  */
 static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_STATEMENT);
+    assert(nd->cl_obj->gid == CLERI_GID_STATEMENT);
 
     switch (nd->children->cl_obj->gid)
     {
@@ -1416,7 +1420,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
  */
 void ti_qbind_probe(ti_qbind_t * qbind, cleri_node_t * nd)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_STATEMENT ||
+    assert(nd->cl_obj->gid == CLERI_GID_STATEMENT ||
             nd->cl_obj->gid == CLERI_GID_STATEMENTS);
 
     if (nd->cl_obj->gid == CLERI_GID_STATEMENTS)

@@ -66,7 +66,7 @@ static ti_cpkg_t * query__cpkg_change(ti_query_t * query)
     msgpack_sbuffer buffer;
     ti_cpkg_t * cpkg;
     ti_pkg_t * pkg;
-    vec_t * tasks = query->change->_tasks;
+    vec_t * tasks = query->change->tasks;
 
     for (vec_each(tasks, ti_task_t, task))
         init_buffer_sz += task->approx_sz;
@@ -78,13 +78,13 @@ static ti_cpkg_t * query__cpkg_change(ti_query_t * query)
     msgpack_pack_array(&pk, tasks->n+2);
     msgpack_pack_uint64(&pk, query->change->id);
     msgpack_pack_uint64(&pk, tasks->n && query->collection
-            ? query->collection->root->id
+            ? query->collection->id
             : 0);
 
     for (vec_each(tasks, ti_task_t, task))
     {
         msgpack_pack_array(&pk, task->list->n+1);
-        msgpack_pack_uint64(&pk, task->thing->id);
+        msgpack_pack_uint64(&pk, task->thing_id);
         for (vec_each(task->list, ti_data_t, data))
             mp_pack_append(&pk, data->data, data->n);
     }
@@ -128,7 +128,7 @@ int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
 {
     switch (scope->tp)
     {
-    case TI_SCOPE_COLLECTION_NAME:
+    case TI_SCOPE_COLLECTION:
         query->collection = ti_collections_get_by_strn(
                 scope->via.collection_name.name,
                 scope->via.collection_name.sz);
@@ -143,18 +143,6 @@ int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
                 scope->via.collection_name.sz,
                 scope->via.collection_name.name);
         return e->nr;
-    case TI_SCOPE_COLLECTION_ID:
-        query->collection = ti_collections_get_by_id(scope->via.collection_id);
-        if (query->collection)
-        {
-            query->qbind.flags |= TI_QBIND_FLAG_COLLECTION;
-            query->qbind.deep = query->collection->deep;
-            ti_incref(query->collection);
-        }
-        else
-            ex_set(e, EX_LOOKUP_ERROR, TI_COLLECTION_ID" not found",
-                    scope->via.collection_id);
-        return e->nr;
     case TI_SCOPE_NODE:
         query->qbind.deep = ti.n_deep;
         return e->nr;
@@ -164,7 +152,7 @@ int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
         return e->nr;
     }
 
-    assert (0);
+    assert(0);
     return e->nr;
 }
 
@@ -204,7 +192,7 @@ void ti_query_destroy(ti_query_t * query)
     ti_change_drop(query->change);
     ti_val_drop(query->rval);
 
-    assert (query->futures.n == 0);
+    assert(query->futures.n == 0);
 
     if (query->vars)
     {
@@ -291,7 +279,7 @@ int ti_query_unpack_args(ti_query_t * query, mp_unp_t * up, ex_t * e)
         argval = ti_val_from_vup_e(&vup, e);
         if (!argval)
         {
-            assert (e->nr);
+            assert(e->nr);
             ex_append(e, " (in argument `%s`)", name->str);
             ti_name_unsafe_drop(name);
             return e->nr;
@@ -332,7 +320,7 @@ static int query__run_arr_props(
         ti_val_t * val = ti_val_from_vup_e(vup, e);
         if (!val)
         {
-            assert (e->nr);
+            assert(e->nr);
             ex_append(e, " (argument %zu for procedure `%s`)",
                 idx,
                 procedure->name);
@@ -378,7 +366,7 @@ static int query__run_map_props(
         val = ti_val_from_vup_e(vup, e);
         if (!val)
         {
-            assert (e->nr);
+            assert(e->nr);
             ex_append(e, " (argument `%.*s` for procedure `%s`)",
                 arg_name.via.str.n,
                 arg_name.via.str.data,
@@ -412,8 +400,8 @@ int ti_query_unp_run(
             .up = &up,
     };
 
-    assert (e->nr == 0);
-    assert (query->immutable_cache == NULL);
+    assert(e->nr == 0);
+    assert(query->immutable_cache == NULL);
 
     query->with_tp = TI_QUERY_WITH_PROCEDURE;
     query->pkg_id = pkg_id;
@@ -443,8 +431,7 @@ int ti_query_unp_run(
         procedures = ti.procedures;
         vup.collection = NULL;
         break;
-    case TI_SCOPE_COLLECTION_NAME:
-    case TI_SCOPE_COLLECTION_ID:
+    case TI_SCOPE_COLLECTION:
         if (ti_query_apply_scope(query, scope, e))
             return e->nr;
         procedures = query->collection->procedures;
@@ -503,7 +490,7 @@ int ti_query_unp_run(
 static inline int ti_query_investigate(ti_query_t * query, ex_t * e)
 {
     cleri_node_t * seqchildren;
-    assert (e->nr == 0);
+    assert(e->nr == 0);
 
     seqchildren = query->with.parseres->tree    /* root */
             ->children                          /* sequence <comment, list> */
@@ -562,7 +549,7 @@ static int query__syntax_err(ti_query_t * query, ex_t * e)
 int ti_query_parse(ti_query_t * query, const char * str, size_t n, ex_t * e)
 {
     char * querystr;
-    assert (e->nr == 0);
+    assert(e->nr == 0);
     if (query->with.parseres)  /* already parsed and investigated */
         return query->with.parseres->is_valid
                 ? e->nr
@@ -704,7 +691,7 @@ void ti_query_on_then_result(ti_query_t * query, ex_t * e)
     ti_user_drop(query->user);
     ti_change_drop(query->change);
 
-    assert (query->futures.n == 0);
+    assert(query->futures.n == 0);
 
     while(query->vars->n)
         ti_prop_destroy(VEC_pop(query->vars));
@@ -812,7 +799,7 @@ static void query__then(ti_query_t * query, ex_t * e)
     if (ti_query_wse(query))
     {
         access_ = ti_query_access(query);
-        assert (access_);
+        assert(access_);
 
         if (ti_access_check_err(access_, query->user, TI_AUTH_CHANGE, e) ||
             ti_changes_create_new_change(query, e))
@@ -839,7 +826,7 @@ void ti_query_on_future_result(ti_future_t * future, ex_t * e)
 
     if (e->nr)
     {
-        assert (future->rval == NULL);
+        assert(future->rval == NULL);
 
         if (future->fail)  /* there is an `else` case */
         {
@@ -866,7 +853,7 @@ void ti_query_on_future_result(ti_future_t * future, ex_t * e)
     }
 
 then:
-    assert (ti_val_is_array(future->rval));
+    assert(ti_val_is_array(future->rval));
 
     if (future->then)
     {
@@ -942,7 +929,7 @@ void ti_query_run_parseres(ti_query_t * query)
 
     while (1)
     {
-        assert (child->cl_obj->gid == CLERI_GID_STATEMENT);
+        assert(child->cl_obj->gid == CLERI_GID_STATEMENT);
 
         if (ti_do_statement(query, child, &e))
             break;
@@ -1531,7 +1518,7 @@ fail:
  */
 int ti_query_task_context(ti_query_t * query, ti_vtask_t * vtask, ex_t * e)
 {
-    assert (vtask->id);  /* must not be called with `empty` tasks */
+    assert(vtask->id);  /* must not be called with `empty` tasks */
     do
     {
         if (query->with_tp == TI_QUERY_WITH_TASK)

@@ -241,7 +241,7 @@ void ti_backups_upd_status(uint64_t backup_id, int rc, buf_t * buf)
         {
             ti_raw_t * first_fn = queue_shift(backup->files);
 
-            assert (first_fn);  /* max_files > 0 so we always have some file */
+            assert(first_fn);  /* max_files > 0 so we always have some file */
 
             backup__delete_file(first_fn);
 
@@ -450,11 +450,10 @@ int ti_backups_restore(void)
             goto fail1;
 
         switch (obj.via.sz)
-
         {
         case 8:
             /*
-             * TODO: (COMPAT) Before v0.9.9 backups are stored with a
+             * TODO: (COMPAT) Before v0.9.9 backups are stored without a
              *       max_files value and files queue. This code may be
              *       removed once we want to drop backwards compatibility.
              */
@@ -576,13 +575,21 @@ int ti_backups_backup(void)
         uv_mutex_lock(backups->lock);
 
         backup_task = NULL;
-        backup = backups__get_pending(now, backup_id);
+        backup = backups__get_pending(now, backup_id);  /* returns a back-up
+                                                         * with at least the
+                                                         * given backup_id, but
+                                                         * the Id might be
+                                                         * higher. Backups are
+                                                         * ordered by Id; This
+                                                         * ensures all backups
+                                                         * to be queried.
+                                                         */
         if (backup)
         {
             backup_id = backup->id;
             backup_task = ti_backup_is_gcloud(backup)
                     ? ti_backup_gcloud_task(backup)
-                    : ti_backup_task(backup);
+                    : ti_backup_file_task(backup);
         }
 
         uv_mutex_unlock(backups->lock);

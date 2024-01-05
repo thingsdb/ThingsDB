@@ -86,7 +86,7 @@ static int vtask__fwd(ti_vtask_t * vtask, ti_collection_t * collection)
     msgpack_sbuffer buffer;
     ti_pkg_t * pkg;
     ti_node_t * node = ti_nodes_random_ready_node();
-    uint64_t scope_id = collection ? collection->root->id : TI_SCOPE_THINGSDB;
+    uint64_t scope_id = collection ? collection->id : TI_SCOPE_THINGSDB;
 
     if (!node)
     {

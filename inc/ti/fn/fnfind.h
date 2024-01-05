@@ -116,7 +116,7 @@ static int do__f_find(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     }
 
-    assert (query->rval == NULL);
+    assert(query->rval == NULL);
     if (nargs == 2)
     {
         /* lazy evaluation of the alternative value */

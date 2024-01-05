@@ -91,8 +91,7 @@ class TestScopes(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                r'invalid scope; a collection must be specified by '
-                r'either a name or id;'):
+                r'invalid scope; the specified collection name is invalid;'):
             await client.query(r'''
                 grant('@collection:1a', FULL, 'iris');
             ''')

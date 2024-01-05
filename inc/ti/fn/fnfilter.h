@@ -167,7 +167,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             {
                 ti_incref(v);
                 (void) ti_val_varr_append(varr, &v, e);
-                assert (e->nr == 0);  /* the above should always succeed */
+                assert(e->nr == 0);  /* the above should always succeed */
             }
 
             ti_val_unsafe_drop(query->rval);
@@ -201,7 +201,7 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     }
 
-    assert (query->rval == NULL);
+    assert(query->rval == NULL);
     query->rval = retval;
 
     goto done;

@@ -1267,8 +1267,8 @@ _Bool ti_mod_manifest_skip_install(
         ti_mod_manifest_t * manifest,
         ti_module_t * module)
 {
-    assert (manifest->main);
-    assert (manifest->version);
+    assert(manifest->main);
+    assert(manifest->version);
 
     if (!module->manifest.version)
     {

@@ -189,6 +189,8 @@ int ti_store_things_restore(ti_collection_t * collection, const char * fn)
             mp_next(&up, &mp_type_id) != MP_U64
         ) goto fail;
 
+        ti_collection_update_next_free_id(collection, mp_thing_id.via.u64);
+
         type_id = mp_type_id.via.u64;
         if (type_id == TI_SPEC_OBJECT)
         {

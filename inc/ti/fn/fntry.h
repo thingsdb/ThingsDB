@@ -30,7 +30,7 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs == 1)
     {
         query->rval = (ti_val_t *) verror;
-        assert (e->nr == 0);
+        assert(e->nr == 0);
         return e->nr;
     }
 
@@ -55,7 +55,7 @@ static int do__f_try(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ti_val_unsafe_drop(query->rval);
             query->rval = (ti_val_t *) verror;
-            assert (e->nr == 0);
+            assert(e->nr == 0);
             return e->nr;
         }
 

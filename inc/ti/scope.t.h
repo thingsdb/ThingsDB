@@ -11,8 +11,7 @@ typedef enum
 {
     TI_SCOPE_THINGSDB,
     TI_SCOPE_NODE,
-    TI_SCOPE_COLLECTION_NAME,
-    TI_SCOPE_COLLECTION_ID,
+    TI_SCOPE_COLLECTION,
 } ti_scope_enum_t;
 
 #include <stdint.h>
@@ -27,7 +26,6 @@ typedef union
 {
     uint32_t node_id;
     ti_scope_name_t collection_name;
-    uint64_t collection_id;
 } ti_scope_via_t;
 
 struct ti_scope_s

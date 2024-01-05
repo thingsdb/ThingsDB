@@ -148,7 +148,7 @@ static void module__cb(ti_future_t * future)
     msgpack_sbuffer buffer;
     size_t alloc_sz = 1024;
 
-    assert (ti_val_is_thing((ti_val_t *) thing));
+    assert(ti_val_is_thing((ti_val_t *) thing));
 
     if (future->module->status)
     {
@@ -602,7 +602,7 @@ static void module__download_finish(uv_work_t * work, int status)
 
     if (data->rtxt || !vec_empty(module->manifest.requirements))
     {
-        assert (data->manifest.is_py);
+        assert(data->manifest.is_py);
         module__py_requirements(work);
         return;
     }
@@ -1557,7 +1557,7 @@ int ti_module_call(
         cleri_node_t * nd,
         ex_t * e)
 {
-    assert (query->rval == NULL);
+    assert(query->rval == NULL);
 
     const int nargs = fn_get_nargs(nd);
     _Bool load = false;

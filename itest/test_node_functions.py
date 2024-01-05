@@ -187,11 +187,10 @@ class TestNodeFunctions(TestBase):
         nodes = await client.query('nodes_info();')
         node = nodes.pop()
 
-        self.assertEqual(len(node), 10)
+        self.assertEqual(len(node), 9)
 
         self.assertIn("node_name", node)
         self.assertIn("committed_change_id", node)
-        self.assertIn("next_free_id", node)
         self.assertIn("node_id", node)
         self.assertIn("port", node)
         self.assertIn("status", node)
@@ -202,7 +201,6 @@ class TestNodeFunctions(TestBase):
 
         self.assertTrue(isinstance(node["node_name"], str))
         self.assertTrue(isinstance(node["committed_change_id"], int))
-        self.assertTrue(isinstance(node["next_free_id"], int))
         self.assertTrue(isinstance(node["node_id"], int))
         self.assertTrue(isinstance(node["port"], int))
         self.assertTrue(isinstance(node["status"], str))

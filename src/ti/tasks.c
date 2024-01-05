@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <ti.h>
+#include <ti/collection.h>
 #include <ti/node.h>
 #include <ti/restore.h>
 #include <ti/tasks.h>
@@ -47,7 +48,7 @@ failed:
 
 int ti_tasks_start(void)
 {
-    assert (tasks->is_started == false);
+    assert(tasks->is_started == false);
 
     if (uv_timer_init(ti.loop, tasks->timer) ||
         uv_timer_start(
@@ -199,8 +200,7 @@ void ti_tasks_clear_all(void)
         ti_vtask_del(vtask->id, NULL);
 
     for (vec_each(ti.collections->vec, ti_collection_t, collection))
-        for (vec_each(collection->vtasks, ti_vtask_t, vtask))
-            ti_vtask_del(vtask->id, collection);
+        ti_collection_tasks_clear(collection);
 }
 
 ti_varr_t * ti_tasks_list(vec_t * tasks)
@@ -224,7 +224,7 @@ vec_t * ti_tasks_from_scope_id(uint64_t scope_id)
         return tasks->vtasks;
 
     for (vec_each(ti.collections->vec, ti_collection_t, collection))
-        if (collection->root->id == scope_id)
+        if (collection->id == scope_id)
             return collection->vtasks;
 
     return NULL;

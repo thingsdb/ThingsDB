@@ -1555,6 +1555,7 @@ set_enum('Colors', {
   RED: '#f00',
   GREEN: '#0f0',
   BLUE: '#00f',
+  repr: |this| `{this.name()}={this.value()}`,
 });
 set_enum('Math', {
   PI: 3.140000,
@@ -2472,6 +2473,23 @@ new_procedure('multiply', |a, b| a * b);
             b == b.a.a.a;
         """)
         self.assertIs(res, True)
+
+    async def test_adv_rel(self, client):
+        # bug found and fixed in pull request #357
+        res = await client.query(r"""//ti
+            new_type('R');
+            set_type('R', {
+                name: 'str',
+                parent: '{R}',
+                r: 'R?'
+            });
+            .r = R{name: 'master'};
+            .r.r = R{name: 'slave'};
+            .r.r.parent.add(.r);
+            mod_type('R', 'rel', 'parent', 'r');
+        """)
+        self.assertIs(res, None)
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

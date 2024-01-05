@@ -81,7 +81,7 @@ static int ttask__take_access(mp_unp_t * up)
         {
             log_critical(
                     "failed to take collection access ("TI_COLLECTION_ID")",
-                    c->root->id);
+                    c->id);
         }
     }
 
@@ -1613,6 +1613,10 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_REN:               break;
     case TI_TASK_FILL:              break;
     case TI_TASK_MOD_PROCEDURE:     return ttask__mod_procedure(up);
+    case TI_TASK_NEW_ENUM:          break;
+    case TI_TASK_SET_ENUM_DATA:     break;
+    case TI_TASK_REPLACE_ROOT:      break;
+    case TI_TASK_IMPORT:            break;
     }
 
     log_critical("unknown thingsdb task: %"PRIu64, mp_task.via.u64);

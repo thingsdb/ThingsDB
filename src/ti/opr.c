@@ -58,7 +58,7 @@ int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t ** b, ex_t * e)
     case '|':
         return opr__or(a, b, e, nd->len == 2);
     }
-    assert (0);
+    assert(0);
     return e->nr;
 }
 
@@ -68,7 +68,7 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
     switch (perm)
     {
     default:
-        assert (a != b);
+        assert(a != b);
         return false;
     /*
     case OPR_NIL_NIL:

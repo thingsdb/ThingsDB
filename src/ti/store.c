@@ -45,7 +45,7 @@ static ti_store_t store_;
 
 static int store__thing_drop(ti_thing_t * thing, void * UNUSED(arg))
 {
-    assert (thing->ref > 1);
+    assert(thing->ref > 1);
     --thing->ref;
     return 0;
 }
@@ -79,7 +79,7 @@ static int store__collection_ids(void)
         uint64_t * id = malloc(sizeof(uint64_t));
         if (!id)
             return -1;
-        *id = collection->root->id;
+        *id = collection->id;
         VEC_push(store->collection_ids, id);
     }
     return 0;
@@ -88,7 +88,7 @@ static int store__collection_ids(void)
 int ti_store_create(void)
 {
     char * storage_path = ti.cfg->storage_path;
-    assert (storage_path);
+    assert(storage_path);
     store = &store_;
 
     /* path names */
@@ -186,7 +186,7 @@ void ti_store_destroy(void)
 int ti_store_store(void)
 {
     int rc = 0;
-    assert (store);
+    assert(store);
 
     /* not need for checking on errors */
     (void) fx_rmdir(store->prev_path);
@@ -311,7 +311,7 @@ int ti_store_restore(void)
     int rc;
     imap_t * namesmap;
 
-    assert (store);
+    assert(store);
 
     store__set_filename(/* use_tmp: */ false);
 
@@ -427,7 +427,7 @@ int ti_store_restore(void)
 
         ti_store_collection_destroy(store_collection);
 
-        assert (collection->root);
+        assert(collection->root);
 
         if (rc)
             goto stop;

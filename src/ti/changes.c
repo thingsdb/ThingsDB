@@ -253,7 +253,7 @@ int ti_changes_add_change(ti_node_t * node, ti_cpkg_t * cpkg)
             return 1;
         }
 
-        assert (change->tp != TI_CHANGE_TP_CPKG);
+        assert(change->tp != TI_CHANGE_TP_CPKG);
 
         /* change is owned by MASTER and needs to stay with MASTER */
         change = queue_rmval(changes->queue, change);
@@ -388,13 +388,13 @@ void ti_changes_free_dropped(void)
         if (!--thing->ref)
             ti_thing_destroy(thing);
 
-    assert (changes->dropped->n == 0);
+    assert(changes->dropped->n == 0);
 }
 
 /* Only call while not is use, so `n` must be zero */
 int ti_changes_resize_dropped(void)
 {
-    assert (changes->dropped->n == 0);
+    assert(changes->dropped->n == 0);
     return changes->dropped->sz == CHANGES__INIT_DROPPED_SZ
             ? 0
             : vec_resize(&changes->dropped, CHANGES__INIT_DROPPED_SZ);
@@ -451,7 +451,7 @@ fail:
 
 static int changes__req_change_id(ti_change_t * change, ex_t * e)
 {
-    assert (queue_space(changes->queue) > 0);
+    assert(queue_space(changes->queue) > 0);
 
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -573,7 +573,7 @@ static void changes__loop(uv_async_t * UNUSED(handle))
     while (process_changes-- && (change = queue_first(changes->queue)))
     {
         /* Cancelled change should be removed from the queue */
-        assert (change->status != TI_CHANGE_STAT_CACNCEL);
+        assert(change->status != TI_CHANGE_STAT_CACNCEL);
 
         if (change->id <= *ccid_p)
         {
@@ -655,7 +655,7 @@ static void changes__loop(uv_async_t * UNUSED(handle))
         }
 
 process:
-        assert (change->status == TI_CHANGE_STAT_READY);
+        assert(change->status == TI_CHANGE_STAT_READY);
 
         ti_change_log("processing", change, LOGGER_DEBUG);
 

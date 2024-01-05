@@ -98,7 +98,7 @@ class TestBackup(TestBase):
 
     async def test_restore(self, client):
         await client.query(r''' .foo = 'bar'; ''', scope='//stuff')
-        backup_id = await client.query(r'''new_backup('/tmp/test.tar.gz');''')
+        await client.query(r'''new_backup('/tmp/test.tar.gz');''')
 
         # in 50 seconds both nodes should have been in `away` mode
         await asyncio.sleep(50)

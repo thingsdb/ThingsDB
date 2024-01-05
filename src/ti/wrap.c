@@ -335,7 +335,7 @@ int ti__wrap_field_thing(
     ti_type_t * t_type;
     spec &= TI_SPEC_MASK_NILLABLE;
 
-    assert (thing->tp == TI_VAL_THING);
+    assert(thing->tp == TI_VAL_THING);
 
     /*
      * Just return the ID when locked or if `deep` has reached zero.
@@ -502,7 +502,7 @@ fail:
 
 int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep)
 {
-    assert (deep);
+    assert(deep);
     ti_thing_t * other, * thing = (*wrap)->thing;
     ti_type_t * type = ti_types_by_id(
             thing->collection->types,
@@ -591,7 +591,7 @@ fail:
 
 int ti_wrap_dup(ti_wrap_t ** wrap, uint8_t deep)
 {
-    assert (deep);
+    assert(deep);
     ti_wrap_t * nwrap = ti_wrap_create((*wrap)->thing, (*wrap)->type_id);
     if (!nwrap)
         return -1;

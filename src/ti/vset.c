@@ -215,7 +215,7 @@ static int vset__walk_dup(ti_thing_t * t, ti_vset_t * vset)
 
 int ti_vset_copy(ti_vset_t ** vsetaddr, uint8_t deep)
 {
-    assert (deep);
+    assert(deep);
 
     ti_vset_t * nvset, * ovset = *vsetaddr;
 
@@ -239,7 +239,7 @@ int ti_vset_copy(ti_vset_t ** vsetaddr, uint8_t deep)
 
 int ti_vset_dup(ti_vset_t ** vsetaddr, uint8_t deep)
 {
-    assert (deep);
+    assert(deep);
 
     ti_vset_t * nvset, * ovset = *vsetaddr;
 
@@ -292,7 +292,7 @@ int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e)
             return e->nr;
         }
 
-        assert (vset->parent);
+        assert(vset->parent);
 
         if (!vset->parent->id && thing->id)
         {

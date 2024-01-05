@@ -2,6 +2,11 @@
 
 static int do__f_room(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    /* Rooms can be created in every scope, but they have no effect in
+     * any scope other than a collection scope. This is because they must get
+     * an ID before anyone can listen to a room and an Id is only created when
+     * a room is assigned to a collection;
+     */
     int nargs = fn_get_nargs(nd);
 
     if (fn_nargs_max("room", DOC_ROOM, 1, nargs, e))

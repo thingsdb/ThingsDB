@@ -475,7 +475,7 @@ cleanup:
 
 static char * gh__get_blob_url(ti_mod_github_t * gh, const char * fn)
 {
-    assert (gh__isblob(fn));
+    assert(gh__isblob(fn));
 
     buf_t buf;
     CURLcode rc = CURLE_OK;

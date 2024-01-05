@@ -15,11 +15,13 @@
 #include <ti/auth.h>
 #include <ti/closure.h>
 #include <ti/closure.inline.h>
+#include <ti/collection.inline.h>
 #include <ti/collections.h>
 #include <ti/condition.h>
 #include <ti/datetime.h>
 #include <ti/deep.h>
 #include <ti/do.h>
+#include <ti/dump.h>
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
 #include <ti/export.h>
@@ -215,6 +217,21 @@ static inline int fn_arg_str(
         ex_set(e, EX_TYPE_ERROR,
             "function `%s` expects argument %d to be of "
             "type `"TI_VAL_STR_S"` but got type `%s` instead%s",
+            name, argn, ti_val_str(val), doc);
+    return e->nr;
+}
+
+static inline int fn_arg_bytes(
+        const char * name,
+        const char * doc,
+        int argn,
+        ti_val_t * val,
+        ex_t * e)
+{
+    if (!ti_val_is_bytes(val))
+        ex_set(e, EX_TYPE_ERROR,
+            "function `%s` expects argument %d to be of "
+            "type `"TI_VAL_BYTES_S"` but got type `%s` instead%s",
             name, argn, ti_val_str(val), doc);
     return e->nr;
 }

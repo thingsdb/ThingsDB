@@ -208,7 +208,7 @@ _Bool ti_user_pass_check(const char * passstr, ex_t * e)
  */
 int ti_user_rename(ti_user_t * user, ti_raw_t * name, ex_t * e)
 {
-    assert (e->nr == 0);
+    assert(e->nr == 0);
 
     if (!ti_user_name_check((const char *) name->data, name->n, e))
         return e->nr;

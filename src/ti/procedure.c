@@ -29,8 +29,8 @@ ti_procedure_t * ti_procedure_create(
     if (!procedure)
         return NULL;
 
-    assert (name);
-    assert (closure);
+    assert(name);
+    assert(closure);
 
     procedure->name = strndup(name, name_n);
     procedure->name_n = name_n;

@@ -331,12 +331,12 @@ ti_raw_t * ti_spec_raw(uint16_t spec, ti_collection_t * collection)
  */
 ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t * val)
 {
-    assert (~spec & TI_SPEC_NILLABLE);
+    assert(~spec & TI_SPEC_NILLABLE);
 
     switch ((ti_spec_enum_t) spec)
     {
     case TI_SPEC_ANY:
-        assert (0);
+        assert(0);
         return 0;
     case TI_SPEC_OBJECT:
         return ti_val_is_thing(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
@@ -412,14 +412,14 @@ ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t * val)
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
     case TI_SPEC_STR_RANGE:
-        assert (0);  /* not supported on nested definition */
+        assert(0);  /* not supported on nested definition */
         return false;
     }
 
     if (spec >= TI_ENUM_ID_FLAG)
         return ti_spec_enum_eq_to_val(spec, val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
 
-    assert (spec < TI_SPEC_ANY);
+    assert(spec < TI_SPEC_ANY);
     /*
      * Just compare the definition with the type since the nillable mask is
      * removed the definition
@@ -431,7 +431,7 @@ ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t * val)
 
 _Bool ti__spec_maps_to_nested_val(uint16_t spec, ti_val_t * val)
 {
-    assert (~spec & TI_SPEC_NILLABLE);
+    assert(~spec & TI_SPEC_NILLABLE);
 
     if (spec >= TI_ENUM_ID_FLAG)
         return ti_spec_enum_eq_to_val(spec, val);
@@ -442,7 +442,7 @@ _Bool ti__spec_maps_to_nested_val(uint16_t spec, ti_val_t * val)
     switch ((ti_spec_enum_t) spec)
     {
     case TI_SPEC_ANY:
-        assert (0);
+        assert(0);
         return true;
     case TI_SPEC_OBJECT:
         return ti_val_is_thing(val);
@@ -505,7 +505,7 @@ _Bool ti__spec_maps_to_nested_val(uint16_t spec, ti_val_t * val)
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
     case TI_SPEC_STR_RANGE:
-        assert (0);  /* only nested so conditions are not possible */
+        assert(0);  /* only nested so conditions are not possible */
         return false;
     }
 

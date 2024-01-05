@@ -515,9 +515,9 @@ class TestCollectionFunctions(TestBase):
         src = b'TEST: ThingsDB\r\r\nDATE: 2019/12/02\r\r\n'
         enc = base64.b64encode(src)
         self.assertEqual(
-            await client.query(f'base64_decode(e);', e=enc), src)
+            await client.query('base64_decode(e);', e=enc), src)
         self.assertEqual(
-            await client.query(f'bytes(base64_encode(s));', s=src), enc)
+            await client.query('bytes(base64_encode(s));', s=src), enc)
 
     async def test_bool(self, client):
         with self.assertRaisesRegex(
@@ -5914,6 +5914,23 @@ class TestCollectionFunctions(TestBase):
                     nse();
                     x = .x;
                 """ + query)
+
+    async def test_root(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `root`'):
+            await client.query('nil.root();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `root` takes 0 arguments '
+                'but 1 was given'):
+            await client.query('root(nil);')
+
+        self.assertIs(None, await client.query('root();', scope='/t'))
+        self.assertTrue(await client.query("""//ti
+            root().id() == .id();
+        """))
 
 
 if __name__ == '__main__':

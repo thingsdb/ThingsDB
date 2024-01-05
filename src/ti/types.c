@@ -65,7 +65,7 @@ int ti_types_add(ti_types_t * types, ti_type_t * type)
  */
 void ti_types_del(ti_types_t * types, ti_type_t * type)
 {
-    assert (!type->refcount);
+    assert(!type->refcount);
     (void) imap_pop(types->imap, type->type_id);
     (void) smap_pop(types->smap, type->name);
 }
@@ -184,7 +184,7 @@ uint16_t ti_types_get_new_id(ti_types_t * types, ti_raw_t * rname, ex_t * e)
     uintptr_t utype;
     void * ptype;
 
-    assert (rname->n <= TI_NAME_MAX);
+    assert(rname->n <= TI_NAME_MAX);
 
     ptype = smap_popn(types->removed, (const char *) rname->data, rname->n);
     if (!ptype)
@@ -199,8 +199,8 @@ uint16_t ti_types_get_new_id(ti_types_t * types, ti_raw_t * rname, ex_t * e)
     utype = (uintptr_t) ptype;
     utype &= TI_TYPES_RM_MASK;
 
-    assert (utype < types->next_id);
-    assert (ti_types_by_id(types, utype) == NULL);
+    assert(utype < types->next_id);
+    assert(ti_types_by_id(types, utype) == NULL);
 
     return (uint16_t) utype;
 }

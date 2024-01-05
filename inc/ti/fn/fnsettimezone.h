@@ -25,7 +25,7 @@ static int do__f_set_time_zone(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
 
         access_ = &collection->access;
-        scope_id = collection->root->id;
+        scope_id = collection->id;
 
         ex_clear(e);
     }

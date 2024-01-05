@@ -142,7 +142,7 @@ ti_raw_t * ti_str_base64_from_raw(ti_raw_t * src)
 
 ti_raw_t * ti_str_from_ti_string(const char * src, size_t n)
 {
-    assert (n >= 2);  /* at least "" or '' */
+    assert(n >= 2);  /* at least "" or '' */
 
     size_t i = 0;
     size_t sz = n - 2;

@@ -787,8 +787,8 @@ void ti_tz_init(void)
         tz->n = strlen(tz->name);
         key = tz__hash(tz->name, tz->n);
 
-        assert (tz__mapping[key] == NULL);
-        assert (key <= MAX_HASH_VALUE);
+        assert(tz__mapping[key] == NULL);
+        assert(key <= MAX_HASH_VALUE);
 
         tz__mapping[key] = tz;
     }

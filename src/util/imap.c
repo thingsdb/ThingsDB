@@ -138,7 +138,7 @@ void imap_destroy(imap_t * imap, imap_destroy_cb cb)
  */
 void imap_clear(imap_t * imap, imap_destroy_cb cb)
 {
-    assert (imap);
+    assert(imap);
     if (imap->n)
     {
         imap_node_t * nd = imap->nodes, * end = nd + IMAP_NODE_SZ;
@@ -202,7 +202,7 @@ static void * imap__set(imap_node_t * node, uint64_t id, void * data)
  */
 void * imap_set(imap_t * imap, uint64_t id, void * data)
 {
-    assert (data != NULL);
+    assert(data != NULL);
     void * ret;
     imap_node_t * nd = imap->nodes + (id % IMAP_NODE_SZ);
     id /= IMAP_NODE_SZ;
@@ -270,7 +270,7 @@ static int imap__add(imap_node_t * node, uint64_t id, void * data)
  */
 int imap_add(imap_t * imap, uint64_t id, void * data)
 {
-    assert (data != NULL);
+    assert(data != NULL);
     imap_node_t * nd = imap->nodes + (id % IMAP_NODE_SZ);
     id /= IMAP_NODE_SZ;
 
@@ -570,7 +570,7 @@ _Bool imap__eq_(imap_t * a, imap_t * b)
             * ndb = b->nodes,
             * end = nda + IMAP_NODE_SZ;
 
-    assert (a != b && a->n == b->n && a->n);
+    assert(a != b && a->n == b->n && a->n);
 
     for (; nda < end; ++nda, ++ndb)
         if (nda->data != ndb->data ||

@@ -31,7 +31,7 @@ ti_backup_t * ti_backup_create(
 
     /* files queue should be able to hold at least `max_files` number
      * of files. */
-    assert (files->sz >= max_files);
+    assert(files->sz >= max_files);
 
     backup->id = id;
     backup->fn_template = strndup(fn_template, fn_templare_n);
@@ -276,7 +276,7 @@ char * ti_backup_gcloud_task(ti_backup_t * backup)
     return buf.data;
 }
 
-char * ti_backup_task(ti_backup_t * backup)
+char * ti_backup_file_task(ti_backup_t * backup)
 {
     struct tm * tm_info;
     uint64_t now = util_now_usec();

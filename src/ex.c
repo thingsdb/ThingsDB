@@ -50,7 +50,7 @@ void ex_append(ex_t * e, const char * errmsg, ...)
     va_start(args, errmsg);
     n = e->n + vsnprintf(e->msg + e->n, EX_MAX_SZ - e->n, errmsg, args);
     e->n = n < EX_MAX_SZ ? n : EX_MAX_SZ;
-    assert (e->n >= 0);
+    assert(e->n >= 0);
     va_end(args);
 }
 

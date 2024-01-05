@@ -37,7 +37,7 @@ int ti_preopr_bind(const char * s, size_t n)
     if (!n)
         return preopr;  /* return 0 */
 
-    assert (!isspace(*s));  /* white space is allowed, but not at the
+    assert(!isspace(*s));  /* white space is allowed, but not at the
                                beginning or end */
 
     switch(*s)
@@ -65,7 +65,7 @@ int ti_preopr_bind(const char * s, size_t n)
         }
     }
 
-    assert (!isspace(*s));  /* white space is allowed, but not at the
+    assert(!isspace(*s));  /* white space is allowed, but not at the
                                beginning or end */
 
     preopr |= (
@@ -114,7 +114,7 @@ int ti_preopr_calc(int preopr, ti_val_t ** val, ex_t * e)
         return 0;
     }
 
-    assert (preopr & PO__FLAG_AS_NUM);
+    assert(preopr & PO__FLAG_AS_NUM);
 
     /*
      * No ! is used in the sequence, so the number is unchanged, or the

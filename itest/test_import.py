@@ -18,7 +18,7 @@ class TestImport(TestBase):
 
     title = 'Test nested and more complex queries'
 
-    @default_test_setup(num_nodes=2, seed=1, threshold_full_storage=500)
+    @default_test_setup(num_nodes=1, seed=1, threshold_full_storage=500)
     async def run(self):
 
         await self.node0.init_and_run()
@@ -135,16 +135,26 @@ class TestImport(TestBase):
                 TB: {b: E{B}},
             });
             new_type('T');
+            new_type('R');
+            set_type('R', {
+                name: 'str',
+                parent: '{R}',
+                r: 'R?'
+            });
             set_type('T', {
                 x: 'int',
                 t: 'task',
                 me: 'thing',
                 e: 'E',
-                tlist: '[EE]'
+                tlist: '[EE]',
+                r: 'R',
             });
+            mod_type('R', 'rel', 'parent', 'r');
             .to_type('T');
             mod_type('T', 'mod', 'me', 'T?', |t| t);
             .tlist.push(EE{TA}, EE{TB});
+            .r.name = 'master';
+            .r.r = R{name: 'slave'};
         """)
 
         dump = await client0.query(r"""//ti
@@ -162,6 +172,8 @@ class TestImport(TestBase):
             await client.query(r"""//ti
                 wse();
                 assert(.x == 42);
+                assert(.r.name == 'master');
+                assert(.r.r.name == 'slave');
                 assert(.me.id() == .id());
                 assert(.e.repr() == 'A:1');
                 assert(.tlist[0].value().a.repr() == 'A:1');

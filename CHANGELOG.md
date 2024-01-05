@@ -7,7 +7,8 @@
 * Added `dump` option to the `export(..)` function for a full collection export.
 * Added function `import()` which can import a collection export dump.
 * Function `export(..)` can no longer be used in a query with a change.
-* Fixed a problem with adding enumerators to a restricted list.
+* Fixed a bug with adding enumerators to a restricted list.
+* Fixed a bug with applying a new relation on existing data.
 
 # v1.4.17
 

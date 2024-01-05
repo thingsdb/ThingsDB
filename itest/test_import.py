@@ -174,6 +174,7 @@ class TestImport(TestBase):
                 assert(.x == 42);
                 assert(.r.name == 'master');
                 assert(.r.r.name == 'slave');
+                assert(.r.r.parent.one().name == 'master');
                 assert(.me.id() == .id());
                 assert(.e.repr() == 'A:1');
                 assert(.tlist[0].value().a.repr() == 'A:1');
@@ -191,6 +192,9 @@ class TestImport(TestBase):
             await client.query(r"""//ti
                 wse();
                 assert(.x == 42);
+                assert(.r.name == 'master');
+                assert(.r.r.name == 'slave');
+                assert(.r.r.parent.one().name == 'master');
                 assert(.me.id() == .id());
                 assert(.e.repr() == 'A:1');
                 assert(.tlist[0].value().a.repr() == 'A:1');

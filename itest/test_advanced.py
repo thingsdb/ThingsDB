@@ -2474,6 +2474,21 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertIs(res, True)
 
+    async def test_adv_rel(self, client):
+        res = await client.query(r"""//ti
+            new_type('R');
+            set_type('R', {
+                name: 'str',
+                parent: '{R}',
+                r: 'R?'
+            });
+            .r = R{name: 'master'};
+            .r.r = R{name: 'slave'};
+            .r.r.parent.add(.r);
+            mod_type('R', 'rel', 'parent', 'r');
+        """)
+        self.assertIs(res, None)
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

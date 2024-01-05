@@ -577,9 +577,9 @@ static void condition__add_type_cb(
 {
     ti_val_t ** vaddr = \
             (ti_val_t **) vec_get_addr(thing->items.vec, field->idx);
+    ti_incref(relation);  /* must increment before drop */
     ti_val_unsafe_gc_drop(*vaddr);
     *vaddr = (ti_val_t *) relation;
-    ti_incref(relation);
 }
 
 static void condition__del_set_cb(

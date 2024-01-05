@@ -2475,6 +2475,7 @@ new_procedure('multiply', |a, b| a * b);
         self.assertIs(res, True)
 
     async def test_adv_rel(self, client):
+        # bug found and fixed in pull request #357
         res = await client.query(r"""//ti
             new_type('R');
             set_type('R', {

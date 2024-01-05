@@ -152,7 +152,7 @@ class TestImport(TestBase):
             mod_type('R', 'rel', 'parent', 'r');
             .to_type('T');
             mod_type('T', 'mod', 'me', 'T?', |t| t);
-            .tlist.push(EE{TA}, EE{TB});
+            .tlist.push(EE{TA}, EE{TB});  // bug found ans solved in #357
             .r.name = 'master';
             .r.r = R{name: 'slave'};
         """)

@@ -299,6 +299,12 @@ static int ttask__new_collection(mp_unp_t * up)
     {
         /*
          * TODO (COMPAT): for compatibility with version before v1.5.0
+         *                In previous versions the root Id (the first next
+         *                free Id will be used for root) was equal to the
+         *                collection Id as all Id's were unique across all
+         *                existing collections; From version 1.5.0 this is
+         *                changed and Id's are now only unique within a
+         *                single collection.
          */
         if (obj.tp != MP_MAP || obj.via.sz != 4 ||
             mp_skip(up) != MP_STR ||

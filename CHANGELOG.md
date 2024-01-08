@@ -11,8 +11,8 @@
 * Fixed a bug with adding enumerators to a restricted list.
 * Fixed a bug with applying a new relation on existing data.
 * Rename change._tasks in C code, no user impact.
-* Replaces Docker images for newer versions.
-* Removed `ti_pkg_check` hack to prevent a warning for older compilers.
+* Replaced Docker images _(both tests and builds)_ with newer versions.
+* Removed `ti_pkg_check` hack for old compilers _(no longer required with recent compilers)_.
 
 # v1.4.16
 

@@ -6,13 +6,13 @@
   _(`node_info()` still contains `next_free_id` for the global free Id)_
 * Added `dump` option to the `export(..)` function for a full collection export.
 * Added function `import()` which can import a collection export dump.
+* Added function `root()` for getting the collection root as thing.
 * Function `export(..)` can no longer be used in a query with a change.
 * Fixed a bug with adding enumerators to a restricted list.
 * Fixed a bug with applying a new relation on existing data.
-
-# v1.4.17
-
-* Added function `root()`, issue #354.
+* Rename change._tasks in C code, no user impact.
+* Replaces Docker images for newer versions.
+* Removed `ti_pkg_check` hack to prevent a warning for older compilers.
 
 # v1.4.16
 

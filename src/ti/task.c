@@ -969,7 +969,7 @@ int ti_task_add_new_collection(
     msgpack_pack_array(&pk, 2);
 
     msgpack_pack_uint8(&pk, TI_TASK_NEW_COLLECTION);
-    msgpack_pack_map(&pk, 4);
+    msgpack_pack_map(&pk, 5);
 
     mp_pack_str(&pk, "name");
     mp_pack_strn(&pk, collection->name->data, collection->name->n);
@@ -979,6 +979,9 @@ int ti_task_add_new_collection(
 
     mp_pack_str(&pk, "id");
     msgpack_pack_uint64(&pk, collection->id);
+
+    mp_pack_str(&pk, "next");
+    msgpack_pack_uint64(&pk, 1);  /* fixed, next free id starts at 1 */
 
     mp_pack_str(&pk, "created_at");
     msgpack_pack_uint64(&pk, collection->created_at);

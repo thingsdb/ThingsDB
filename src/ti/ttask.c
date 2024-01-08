@@ -278,22 +278,14 @@ static int ttask__grant(mp_unp_t * up)
     return 0;
 }
 
-/*
- * Returns 0 on success
- * - for example: {
- *          'name': collection_name,
- *          'user': id,
- *          'root': id,
- *          'created_at': ts}
- */
 static int ttask__new_collection(mp_unp_t * up)
 {
     ex_t e = {0};
-    mp_obj_t obj, mp_name, mp_user, mp_root, mp_created;
+    mp_obj_t obj, mp_name, mp_user, mp_root, mp_nfid, mp_created;
     ti_user_t * user;
     ti_collection_t * collection;
 
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 4 ||
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 5 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_name) != MP_STR ||
         mp_skip(up) != MP_STR ||
@@ -301,10 +293,29 @@ static int ttask__new_collection(mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_root) != MP_U64 ||
         mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_nfid) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
         mp_next(up, &mp_created) != MP_U64)
     {
-        log_critical("task `new_collection`: invalid format");
-        return -1;
+        /*
+         * TODO (COMPAT): for compatibility with version before v1.5.0
+         */
+        if (obj.tp != MP_MAP || obj.via.sz != 4 ||
+            mp_skip(up) != MP_STR ||
+            mp_next(up, &mp_name) != MP_STR ||
+            mp_skip(up) != MP_STR ||
+            mp_next(up, &mp_user) != MP_U64 ||
+            mp_skip(up) != MP_STR ||
+            mp_next(up, &mp_root) != MP_U64 ||
+            mp_skip(up) != MP_STR ||
+            mp_next(up, &mp_created) != MP_U64)
+
+        {
+            log_critical("task `new_collection`: invalid format");
+            return -1;
+        }
+        mp_nfid.tp = mp_root.tp;
+        mp_nfid.via.u64 = mp_root.via.u64;
     }
 
     user = ti_users_get_by_id(mp_user.via.u64);
@@ -318,6 +329,7 @@ static int ttask__new_collection(mp_unp_t * up)
 
     collection = ti_collections_create_collection(
             mp_root.via.u64,
+            mp_nfid.via.u64,
             mp_name.via.str.data,
             mp_name.via.str.n,
             mp_created.via.u64,

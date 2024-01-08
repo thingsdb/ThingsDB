@@ -36,6 +36,7 @@ static const size_t ti_collection_max_name = 128;
 
 ti_collection_t * ti_collection_create(
         uint64_t collection_id,
+        uint64_t next_free_id,
         guid_t * guid,
         const char * name,
         size_t n,
@@ -43,6 +44,7 @@ ti_collection_t * ti_collection_create(
         ti_tz_t * tz,
         uint8_t deep)
 {
+    /* we need the `next_free_id` for compatibility with older versions */
     ti_collection_t * collection = malloc(sizeof(ti_collection_t));
     if (!collection)
         return NULL;
@@ -51,7 +53,7 @@ ti_collection_t * ti_collection_create(
     collection->deep = deep;
     collection->root = NULL;
     collection->id = collection_id;
-    collection->next_free_id = 1;
+    collection->next_free_id = next_free_id;
     collection->name = ti_str_create(name, n);
     collection->things = imap_create();
     collection->rooms = imap_create();

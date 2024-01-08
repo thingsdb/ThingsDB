@@ -150,6 +150,7 @@ int ti_store_collections_restore(const char * fn)
 
         collection = ti_collection_create(
                 mp_id.via.u64,
+                1,
                 &guid,
                 mp_name.via.str.data,
                 mp_name.via.str.n,

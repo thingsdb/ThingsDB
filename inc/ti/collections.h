@@ -23,6 +23,7 @@ int ti_collections_add_for_collect(ti_collection_t * collection);
 int ti_collections_gc_collect_dropped(void);
 ti_collection_t * ti_collections_create_collection(
         uint64_t collection_id,  /* when 0, a new thing id will be generated */
+        uint64_t next_free_id,
         const char * name,
         size_t name_n,
         uint64_t created_at,

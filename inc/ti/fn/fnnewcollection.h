@@ -17,6 +17,7 @@ static int do__f_new_collection(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     collection = ti_collections_create_collection(
             0,
+            1,
             (const char *) rname->data,
             rname->n,
             util_now_usec(),

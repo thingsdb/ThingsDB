@@ -149,6 +149,44 @@ nil;}""")
 ]
 """.strip().replace('  ', '\t'))
 
+    async def test_fixed_keywords(self, client):
+        res = await client.query("""//ti
+            [
+                QUERY,
+                CHANGE,
+                JOIN,
+                RUN,
+                GRANT,
+                USER,
+                FULL,
+                DEBUG,
+                INFO,
+                WARNING,
+                ERROR,
+                CRITICAL,
+                NO_IDS,
+                INT_MIN,
+                INT_MAX
+            ];
+        """)
+        self.assertEqual(res, [
+            1,
+            2,
+            8,
+            16,
+            4,
+            27,
+            31,
+            0,
+            1,
+            2,
+            3,
+            4,
+            32,
+            -9223372036854775808,
+            9223372036854775807
+        ])
+
 
 if __name__ == '__main__':
     run_test(TestSyntax())

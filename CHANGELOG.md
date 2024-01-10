@@ -13,6 +13,7 @@
 * Rename change._tasks in C code, no user impact.
 * Replaced Docker images _(both tests and builds)_ with newer versions.
 * Removed `ti_pkg_check` hack for old compilers _(no longer required with recent compilers)_.
+* Added `INT_MIN` and `INT_MAX` fixed keywords with corresponding values.
 
 # v1.4.16
 

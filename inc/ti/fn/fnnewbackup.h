@@ -28,6 +28,9 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (!ti_raw_endswith(rname, tar_gz_str))
     {
+        /* The ti_backup_is_gcloud() function depends on a filename size of at
+         * least 5 characters, this ensures 7 characters;
+         */
         ex_set(e, EX_VALUE_ERROR,
             "expecting a backup file-name to end with `%.*s`"
             DOC_NEW_BACKUP, tar_gz_str->n, (char *) tar_gz_str->data);

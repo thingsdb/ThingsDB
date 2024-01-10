@@ -158,7 +158,10 @@ ti_val_t * ti_backup_as_mpval(ti_backup_t * backup)
 _Bool ti_backup_is_gcloud(ti_backup_t * backup)
 {
     char * s = backup->fn_template;
-
+    /*
+     * This check depends on the test that each backup file ends
+     * with ".tar.gz" and therefore must have a length of at least seven;
+     */
     return  s[0] == 'g' &&
             s[1] == 's' &&
             s[2] == ':' &&

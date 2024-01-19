@@ -2128,7 +2128,7 @@ new_procedure('multiply', |a, b| a * b);
                 'closures with side effects require a change but '
                 'none is created; use '
                 '`wse(...)` to enforce a change; see '
-                'https://docs.thingsdb.net/v1/collection-api/wse')
+                'https://docs.thingsdb.io/v1/collection-api/wse')
         })
 
     async def test_no_declaration_after_flags(self, client):

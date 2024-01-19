@@ -14,6 +14,7 @@
 * Replaced Docker images _(both tests and builds)_ with newer versions.
 * Removed `ti_pkg_check` hack for old compilers _(no longer required with recent compilers)_.
 * Added `INT_MIN` and `INT_MAX` fixed keywords with corresponding values.
+* Replaced the `.net` domain with `.io` as primary domain for the thingsdb website.
 
 # v1.4.16
 

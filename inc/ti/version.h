@@ -30,7 +30,7 @@
 #define TI_MAINTAINER \
     "Jeroen van der Heijden <jeroen@cesbit.com>"
 #define TI_HOME_PAGE \
-    "https://thingsdb.net"
+    "https://thingsdb.io"
 
 /* start helpers */
 #define VERSION__STRINGIFY(num) #num

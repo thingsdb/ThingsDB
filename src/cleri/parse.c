@@ -341,16 +341,16 @@ cleri_node_t * cleri__parse_walk(
 
 static inline uint32_t parse__whitespace(cleri_parse_t * pr, const char * str)
 {
-    int pcre_exec_ret = pcre2_match(
-                pr->grammar->re_whitespace,
-                (PCRE2_SPTR8) str,
-                PCRE2_ZERO_TERMINATED,
-                0,                     // start looking at this point
-                PCRE2_ANCHORED,        // OPTIONS
-                pr->grammar->md_whitespace,
-                NULL);
-
-    return pcre_exec_ret < 0
-        ? 0
-        : pcre2_get_ovector_pointer(pr->grammar->md_whitespace)[1];
+    uint32_t n = 0;
+    for (n = 0; isspace(*str); ++str, ++n);
+    return *str != '/' || pcre2_match(
+            pr->grammar->re_whitespace,
+            (PCRE2_SPTR8) str,
+            PCRE2_ZERO_TERMINATED,
+            0,                     // start looking at this point
+            PCRE2_ANCHORED,        // OPTIONS
+            pr->grammar->md_whitespace,
+            NULL) < 0
+            ? n
+            : n + pcre2_get_ovector_pointer(pr->grammar->md_whitespace)[1];
 }

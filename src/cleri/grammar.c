@@ -25,9 +25,6 @@ cleri_grammar_t * cleri_grammar2(
     const char * re_ws = (re_whitespace == NULL) ?
             CLERI_DEFAULT_RE_WHITESPACE : re_whitespace;
 
-    /* re_keywords should start with a ^ */
-    assert (re_kw[0] == '^');
-
     if (start == NULL)
     {
         return NULL;

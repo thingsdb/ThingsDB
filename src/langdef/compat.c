@@ -1,11 +1,11 @@
 /*
- * langdef.c
+ * compat.c
  *
  * This grammar is generated using the Grammar.export_c() method and
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2024-01-20 12:46:21
+ * Created at: 2024-01-20 13:01:30
  */
 
 #include <langdef/langdef.h>
@@ -17,7 +17,7 @@
 #define CLERI_FIRST_MATCH 0
 #define CLERI_MOST_GREEDY 1
 
-cleri_grammar_t * compile_langdef(void)
+cleri_grammar_t * compile_compat(void)
 {
     cleri_t * x_array = cleri_token(CLERI_GID_X_ARRAY, "[");
     cleri_t * x_assign = cleri_tokens(CLERI_GID_X_ASSIGN, "+= -= *= /= %= &= ^= |= =");
@@ -194,7 +194,7 @@ cleri_grammar_t * compile_langdef(void)
         CLERI_GID_BLOCK,
         3,
         x_block,
-        cleri_list(CLERI_NONE, CLERI_THIS, cleri_repeat(CLERI_NONE, cleri_token(CLERI_NONE, ";"), 1, 0), 1, 0, 1),
+        cleri_list(CLERI_NONE, CLERI_THIS, cleri_repeat(CLERI_NONE, cleri_token(CLERI_NONE, ";"), 0, 0), 1, 0, 1),
         cleri_token(CLERI_NONE, "}")
     );
     cleri_t * parenthesis = cleri_sequence(
@@ -286,7 +286,7 @@ cleri_grammar_t * compile_langdef(void)
         ),
         operations
     );
-    cleri_t * START = cleri_list(CLERI_GID_START, statement, cleri_repeat(CLERI_NONE, cleri_token(CLERI_NONE, ";"), 1, 0), 0, 0, 1);
+    cleri_t * START = cleri_list(CLERI_GID_START, statement, cleri_repeat(CLERI_NONE, cleri_token(CLERI_NONE, ";"), 0, 0), 0, 0, 1);
     cleri_ref_set(chain, cleri_sequence(
         CLERI_GID_CHAIN,
         4,

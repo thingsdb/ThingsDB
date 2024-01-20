@@ -20,7 +20,7 @@ from pyleri import (
 
 # names have a max length of 255 characters
 RE_NAME = r'^[A-Za-z_][0-9A-Za-z_]{0,254}(?![0-9A-Za-z_])'
-
+STRICT = 0
 
 class Choice(Choice_):
     def __init__(self, *args, most_greedy=None, **kwargs):
@@ -135,7 +135,7 @@ class LangDef(Grammar):
 
     block = Sequence(
         x_block,
-        List(THIS, delimiter=';', mi=1),
+        List(THIS, delimiter=Repeat(';', mi=STRICT), mi=1),
         '}')
 
     parenthesis = Sequence(x_parenthesis, THIS, ')')
@@ -205,7 +205,7 @@ class LangDef(Grammar):
         ),
         operations)
 
-    START = List(statement, delimiter=';')
+    START = List(statement, delimiter=Repeat(';', mi=STRICT))
 
 
 grammar2 = r"""

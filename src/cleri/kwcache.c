@@ -48,7 +48,7 @@ uint8_t cleri__kwcache_match(cleri_parse_t * pr, const char * str)
                     (PCRE2_SPTR8) str,
                     PCRE2_ZERO_TERMINATED,
                     0,                     // start looking at this point
-                    0,                     // OPTIONS
+                    PCRE2_ANCHORED,        // OPTIONS
                     pr->grammar->md_keywords,
                     NULL);
 

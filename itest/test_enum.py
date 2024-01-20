@@ -635,13 +635,15 @@ class TestEnum(TestBase):
             '''), None)
 
         with self.assertRaisesRegex(
-                LookupError,
-                r'variable `Color` is undefined'):
+                SyntaxError,
+                r'error at line 1, position 6, '
+                r'unexpected character `1`, expecting: }'):
             await client.query('Color{1};')
 
         with self.assertRaisesRegex(
-                LookupError,
-                r'variable `Color` is undefined'):
+                SyntaxError,
+                r'error at line 1, position 6, '
+                r'unexpected character `"`, expecting: }'):
             await client.query('Color{"RED"};')
 
         with self.assertRaisesRegex(

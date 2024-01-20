@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2024-01-20 10:14:38
+ * Created at: 2024-01-20 12:46:21
  */
 #ifndef CLERI_EXPORT_LANGDEF_H_
 #define CLERI_EXPORT_LANGDEF_H_
@@ -13,8 +13,9 @@
 #include <cleri/cleri.h>
 
 cleri_grammar_t * compile_langdef(void);
+cleri_grammar_t * compile_compat(void);
 
-enum cleri_grammar_ids {
+enum cleri_grammar_compat_ids {
     CLERI_NONE,   // used for objects with no name
     CLERI_GID_ARRAY,
     CLERI_GID_ASSIGN,

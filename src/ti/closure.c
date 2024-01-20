@@ -54,8 +54,19 @@ static cleri_node_t * closure__node_from_strn(
 
     if (!res->is_valid)
     {
-        ex_set(e, EX_SYNTAX_ERROR, "invalid syntax in closure");
-        goto fail1;
+        /* TODO (COMPAT): For compatibility with < v1.5 */
+        res = cleri_parse2(ti.compat, query, TI_CLERI_PARSE_FLAGS);
+        if (!res)
+        {
+            ex_set_mem(e);
+            goto fail0;
+        }
+
+        if (!res->is_valid)
+        {
+            ex_set(e, EX_SYNTAX_ERROR, "invalid syntax in closure");
+            goto fail1;
+        }
     }
 
     node = res->tree->children;             /* Sequence (START) */

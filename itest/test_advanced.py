@@ -1058,7 +1058,7 @@ class TestAdvanced(TestBase):
             x = {};
             x.  y = {};
             x.y.y = x.y;
-            {x.del('y')}
+            {x.del('y')};
             5;
         '''), 5)
 

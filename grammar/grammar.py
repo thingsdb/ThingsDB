@@ -74,13 +74,6 @@ class LangDef(Grammar):
     t_string = Regex(r"""(((?:'(?:[^']*)')+)|((?:"(?:[^"]*)")+))""")
     t_true = Keyword('true')
 
-    # It would be nice if the leri family had support for advanced white space.
-    # If so, the comments could be set as white space instead.
-    comments = Repeat(Choice(
-        Regex(r'(?s)//.*?(\r?\n|$)'),  # Single line comment
-        Regex(r'(?s)/\*.*?\*/'),  # Block comment
-    ))
-
     name = Regex(RE_NAME)
     var = Regex(RE_NAME)
 
@@ -140,13 +133,9 @@ class LangDef(Grammar):
         Optional(chain),
     )
 
-    end_statement = \
-        Regex(r'((;|((?s)\/\/.*?(\r?\n|$))|((?s)\/\*.*?\*\/))\s*)*')
-
     block = Sequence(
         x_block,
-        comments,
-        List(THIS, delimiter=end_statement, mi=1),
+        List(THIS, delimiter=';', mi=1),
         '}')
 
     parenthesis = Sequence(x_parenthesis, THIS, ')')
@@ -215,9 +204,22 @@ class LangDef(Grammar):
             block,
         ),
         operations)
-    statements = List(statement, delimiter=end_statement)
 
-    START = Sequence(comments, statements)
+    START = List(statement, delimiter=';')
+
+
+grammar2 = r"""
+    cleri_grammar_t * grammar = cleri_grammar2(
+            START,
+            "^[A-Za-z_][0-9A-Za-z_]{0,254}(?![0-9A-Za-z_])",
+            "("
+            "(\\s+)|"
+            "((?s)\\/\\/.*?(\\r?\\n|$))|"
+            "((?s)\\/\\*.*?\\*\\/)"
+            ")*");
+    return grammar;
+}
+"""
 
 
 if __name__ == '__main__':
@@ -253,7 +255,9 @@ if __name__ == '__main__':
 
     c, h = langdef.export_c(target='langdef', headerf='<langdef/langdef.h>')
     with open('../src/langdef/langdef.c', 'w') as cfile:
-        cfile.write(c)
+        # Overwrite the old export (last 127 chars)
+        cfile.write(c[:-127])
+        cfile.write(grammar2)
 
     with open('../inc/langdef/langdef.h', 'w') as hfile:
         hfile.write(h)

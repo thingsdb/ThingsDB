@@ -121,6 +121,10 @@ int ti_create(void)
         return -1;
     }
 
+    printf("PRIO: %d", ti.langdef->start->via.list                 /* statements */
+        ->cl_obj->via.rule                      /* statement */
+        ->cl_obj->gid);
+
     /*
      * Patch statement `Prio` since the current version of libcleri does
      * not set the GID to `Prio` objects for backward compatibility reasons.
@@ -128,8 +132,7 @@ int ti_create(void)
      * TODO: This can be removed in a future release when libcleri sets the
      *       required GID.
      */
-    ti.langdef->start->via.sequence            /* START */
-        ->olist->next->cl_obj->via.list         /* statements */
+    ti.langdef->start->via.list                 /* statements */
         ->cl_obj->via.rule                      /* statement */
         ->cl_obj->gid = CLERI_GID_STATEMENT;    /* prio */
 

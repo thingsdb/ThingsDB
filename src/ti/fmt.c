@@ -337,8 +337,8 @@ static int fmt__array(ti_fmt_t * fmt, cleri_node_t * nd)
 
 static int fmt__block(ti_fmt_t * fmt, cleri_node_t * nd)
 {
-    cleri_node_t * child = nd           /* seq<{, comment, list, }> */
-            ->children->next->next      /* list statements */
+    cleri_node_t * child = nd           /* seq<token({), list, }> */
+            ->children->next            /* list statements */
             ->children;                 /* first child, not empty */
 
 

@@ -1343,8 +1343,8 @@ static inline void qbind__for_statement(ti_qbind_t * q, cleri_node_t * nd)
 
 static inline void qbind__block(ti_qbind_t * qbind, cleri_node_t * nd)
 {
-    cleri_node_t * child = nd       /* seq<{, comment, list, }> */
-            ->children->next->next  /* list statements */
+    cleri_node_t * child = nd       /* seq<token({), list, }> */
+            ->children->next        /* list statements */
             ->children;             /* first child, not empty */
 
     nd->data = ti_do_block;
@@ -1420,21 +1420,15 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
  */
 void ti_qbind_probe(ti_qbind_t * qbind, cleri_node_t * nd)
 {
-    assert(nd->cl_obj->gid == CLERI_GID_STATEMENT ||
-            nd->cl_obj->gid == CLERI_GID_STATEMENTS);
+    if (nd->cl_obj->gid == CLERI_GID_STATEMENT)
+        return qbind__statement(qbind, nd);
 
-    if (nd->cl_obj->gid == CLERI_GID_STATEMENTS)
+    for (nd = nd->children;
+         nd;
+         nd = nd->next->next)
     {
-        for (nd = nd->children;
-             nd;
-             nd = nd->next->next)
-        {
-            qbind__statement(qbind, nd);   /* statement */
-
-            if (!nd->next)
-                return;
-        }
-        return;
+        qbind__statement(qbind, nd);   /* statement */
+        if (!nd->next)
+            return;
     }
-    return qbind__statement(qbind, nd);
 }

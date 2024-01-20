@@ -2,11 +2,7 @@ FROM amd64/alpine:3.19
 COPY ./ /tmp/thingsdb/
 RUN apk update && \
     apk upgrade && \
-    apk add gcc make libuv-dev musl-dev pcre2-dev yajl-dev curl-dev util-linux-dev linux-headers git && \
-    git clone https://github.com/cesbit/libcleri.git /tmp/libcleri && \
-    cd /tmp/libcleri/Release && \
-    make all && \
-    make install && \
+    apk add gcc make libuv-dev musl-dev pcre2-dev yajl-dev curl-dev util-linux-dev linux-headers && \
     cd /tmp/thingsdb/Release && \
     make clean && \
     make
@@ -16,7 +12,6 @@ RUN apk update && \
     apk add pcre2 libuv yajl curl tzdata && \
     mkdir -p /var/lib/thingsdb
 COPY --from=0 /tmp/thingsdb/Release/thingsdb /usr/local/bin/
-COPY --from=0 /usr/lib/libcleri* /usr/lib/
 
 # Volume mounts
 VOLUME ["/data"]

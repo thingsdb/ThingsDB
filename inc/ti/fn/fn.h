@@ -206,6 +206,22 @@ static inline int fn_nargs_range(
     ) ? e->nr : 0;
 }
 
+static inline int fn_arg_number(
+        const char * name,
+        const char * doc,
+        int argn,
+        ti_val_t * val,
+        ex_t * e)
+{
+    if (!ti_val_is_number(val))
+        ex_set(e, EX_TYPE_ERROR,
+            "function `%s` expects argument %d to be of "
+            "type `"TI_VAL_INT_S"` or `"TI_VAL_FLOAT_S"` "
+            "but got type `%s` instead%s",
+            name, argn, ti_val_str(val), doc);
+    return e->nr;
+}
+
 static inline int fn_arg_str(
         const char * name,
         const char * doc,

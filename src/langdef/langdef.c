@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2022-12-19 14:59:55
+ * Created at: 2024-01-20 10:14:38
  */
 
 #include <langdef/langdef.h>
@@ -57,13 +57,6 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * t_regex = cleri_regex(CLERI_GID_T_REGEX, "^/((?:.(?!(?<![\\\\])/))*.?)/[a-z]*");
     cleri_t * t_string = cleri_regex(CLERI_GID_T_STRING, "^(((?:\'(?:[^\']*)\')+)|((?:\"(?:[^\"]*)\")+))");
     cleri_t * t_true = cleri_keyword(CLERI_GID_T_TRUE, "true", CLERI_CASE_SENSITIVE);
-    cleri_t * comments = cleri_repeat(CLERI_GID_COMMENTS, cleri_choice(
-        CLERI_NONE,
-        CLERI_FIRST_MATCH,
-        2,
-        cleri_regex(CLERI_NONE, "(?s)^//.*?(\\r?\\n|$)"),
-        cleri_regex(CLERI_NONE, "(?s)^/\\*.*?\\*/")
-    ), 0, 0);
     cleri_t * name = cleri_regex(CLERI_GID_NAME, "^[A-Za-z_][0-9A-Za-z_]{0,254}(?![0-9A-Za-z_])");
     cleri_t * var = cleri_regex(CLERI_GID_VAR, "^[A-Za-z_][0-9A-Za-z_]{0,254}(?![0-9A-Za-z_])");
     cleri_t * chain = cleri_ref();
@@ -197,13 +190,11 @@ cleri_grammar_t * compile_langdef(void)
             CLERI_THIS
         ))
     ), 0, 0);
-    cleri_t * end_statement = cleri_regex(CLERI_GID_END_STATEMENT, "^((;|((?s)\\/\\/.*?(\\r?\\n|$))|((?s)\\/\\*.*?\\*\\/))\\s*)*");
     cleri_t * block = cleri_sequence(
         CLERI_GID_BLOCK,
-        4,
+        3,
         x_block,
-        comments,
-        cleri_list(CLERI_NONE, CLERI_THIS, end_statement, 1, 0, 1),
+        cleri_list(CLERI_NONE, CLERI_THIS, cleri_token(CLERI_NONE, ";"), 1, 0, 1),
         cleri_token(CLERI_NONE, "}")
     );
     cleri_t * parenthesis = cleri_sequence(
@@ -295,13 +286,7 @@ cleri_grammar_t * compile_langdef(void)
         ),
         operations
     );
-    cleri_t * statements = cleri_list(CLERI_GID_STATEMENTS, statement, end_statement, 0, 0, 1);
-    cleri_t * START = cleri_sequence(
-        CLERI_GID_START,
-        2,
-        comments,
-        statements
-    );
+    cleri_t * START = cleri_list(CLERI_GID_START, statement, cleri_token(CLERI_NONE, ";"), 0, 0, 1);
     cleri_ref_set(chain, cleri_sequence(
         CLERI_GID_CHAIN,
         4,
@@ -311,7 +296,13 @@ cleri_grammar_t * compile_langdef(void)
         cleri_optional(CLERI_NONE, chain)
     ));
 
-    cleri_grammar_t * grammar = cleri_grammar(START, "^[A-Za-z_][0-9A-Za-z_]{0,254}(?![0-9A-Za-z_])");
-
+    cleri_grammar_t * grammar = cleri_grammar2(
+            START,
+            "^[A-Za-z_][0-9A-Za-z_]{0,254}(?![0-9A-Za-z_])",
+            "("
+            "(\\s+)|"
+            "((?s)\\/\\/.*?(\\r?\\n|$))|"
+            "((?s)\\/\\*.*?\\*\\/)"
+            ")*");
     return grammar;
 }

@@ -58,8 +58,7 @@ static cleri_node_t * closure__node_from_strn(
         goto fail1;
     }
 
-    node = res->tree->children              /* Sequence (START) */
-            ->children->next;               /* List of statements */
+    node = res->tree->children;             /* Sequence (START) */
 
     /* we should have exactly one statement */
     if (!node->children || (node->children->next && node->children->next->next))
@@ -140,15 +139,6 @@ static void closure__node_to_buf(cleri_node_t * nd, char * buf, size_t * n)
         }
         /* fall through */
     case CLERI_TP_REGEX:
-        if (nd->cl_obj->gid == CLERI_GID_END_STATEMENT)
-        {
-            if (nd->len || ((*n) && isspace(nd->str[-1])))
-            {
-                buf[(*n)++] = ';';
-            }
-            return;
-        }
-        /* fall through */
     case CLERI_TP_TOKEN:
     case CLERI_TP_TOKENS:
         memcpy(buf + (*n), nd->str, nd->len);
@@ -726,7 +716,7 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
     if (node->cl_obj->gid != CLERI_GID_BLOCK)
         goto done;
 
-    node = node->children->next->next   /* node=block */
+    node = node->children->next         /* node=block */
             ->children                  /* node=list mi=1 */
             ->children                  /* node=statement */
             ->children                  /* node=expression */

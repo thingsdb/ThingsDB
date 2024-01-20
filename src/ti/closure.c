@@ -54,7 +54,13 @@ static cleri_node_t * closure__node_from_strn(
 
     if (!res->is_valid)
     {
-        /* TODO (COMPAT): For compatibility with < v1.5 */
+        /* TODO (COMPAT): For compatibility with < v1.5
+         *                This can happen since earlier version were less
+         *                strict in handling semicolons. When one is missing,
+         *                we can parse using a syntax which in term of object
+         *                if completely compatible, but is less strict in terms
+         *                of handling missing semicolons.
+         */
         res = cleri_parse2(ti.compat, query, TI_CLERI_PARSE_FLAGS);
         if (!res)
         {
@@ -67,6 +73,7 @@ static cleri_node_t * closure__node_from_strn(
             ex_set(e, EX_SYNTAX_ERROR, "invalid syntax in closure");
             goto fail1;
         }
+        log_warning("closure with missing semicolons: %s", query);
     }
 
     node = res->tree->children;             /* Sequence (START) */

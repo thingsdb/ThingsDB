@@ -61,6 +61,7 @@ static cleri_node_t * closure__node_from_strn(
          *                if completely compatible, but is less strict in terms
          *                of handling missing semicolons.
          */
+        cleri_parse_free(res);
         res = cleri_parse2(ti.compat, query, TI_CLERI_PARSE_FLAGS);
         if (!res)
         {
@@ -256,7 +257,8 @@ ti_closure_t * ti_closure_from_node(cleri_node_t * node, uint8_t flags)
 ti_closure_t * ti_closure_from_strn(
         ti_qbind_t * syntax,
         const char * str,
-        size_t n, ex_t * e)
+        size_t n,
+        ex_t * e)
 {
     ti_closure_t * closure = malloc(sizeof(ti_closure_t));
     if (!closure)

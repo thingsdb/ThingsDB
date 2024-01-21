@@ -379,7 +379,8 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
         return (ti_val_t *) ti_closure_from_strn(
                 &syntax,
                 mp_val.via.str.data,
-                mp_val.via.str.n, e);
+                mp_val.via.str.n,
+                e);
     }
     /*
      * TODO (COMPAT) For compatibility with data from v0.x

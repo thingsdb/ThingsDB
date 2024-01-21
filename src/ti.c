@@ -92,6 +92,7 @@ int ti_create(void)
     ti.procedures = smap_create();
     ti.modules = smap_create();
     ti.langdef = compile_langdef();
+    ti.compat = compile_compat();
     ti.thing0 = ti_thing_o_create(0, 0, NULL);
     ti.room0 = ti_room_create(0, NULL);
     if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti.boottime) ||
@@ -114,7 +115,8 @@ int ti_create(void)
             !ti.access_node ||
             !ti.access_thingsdb ||
             !ti.procedures ||
-            !ti.langdef)
+            !ti.langdef ||
+            !ti.compat)
     {
         /* ti_stop() is never called */
         ti_destroy();
@@ -128,11 +130,12 @@ int ti_create(void)
      * TODO: This can be removed in a future release when libcleri sets the
      *       required GID.
      */
-    ti.langdef->start->via.sequence            /* START */
-        ->olist->next->cl_obj->via.list         /* statements */
+    ti.langdef->start->via.list                 /* statements */
         ->cl_obj->via.rule                      /* statement */
         ->cl_obj->gid = CLERI_GID_STATEMENT;    /* prio */
-
+    ti.compat->start->via.list                 /* statements */
+        ->cl_obj->via.rule                      /* statement */
+        ->cl_obj->gid = CLERI_GID_STATEMENT;    /* prio */
     return 0;
 }
 
@@ -190,6 +193,8 @@ void ti_destroy(void)
 
     if (ti.langdef)
         cleri_grammar_free(ti.langdef);
+    if (ti.compat)
+        cleri_grammar_free(ti.compat);
 
     memset(&ti, 0, sizeof(ti_t));
 }

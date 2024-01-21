@@ -10,6 +10,7 @@
 #include <util/logger.h>
 
 #include <ti/fn/fn.h>
+#include <ti/fn/fnabs.h>
 #include <ti/fn/fnadd.h>
 #include <ti/fn/fnagainat.h>
 #include <ti/fn/fnagainin.h>
@@ -27,6 +28,7 @@
 #include <ti/fn/fnbytes.h>
 #include <ti/fn/fncall.h>
 #include <ti/fn/fncancel.h>
+#include <ti/fn/fnceil.h>
 #include <ti/fn/fnchangeid.h>
 #include <ti/fn/fnchoice.h>
 #include <ti/fn/fnclear.h>
@@ -36,6 +38,7 @@
 #include <ti/fn/fncollectionsinfo.h>
 #include <ti/fn/fncontains.h>
 #include <ti/fn/fncopy.h>
+#include <ti/fn/fncos.h>
 #include <ti/fn/fncount.h>
 #include <ti/fn/fncounters.h>
 #include <ti/fn/fndatetime.h>
@@ -66,6 +69,7 @@
 #include <ti/fn/fnerr.h>
 #include <ti/fn/fnerrors.h>
 #include <ti/fn/fnevery.h>
+#include <ti/fn/fnexp.h>
 #include <ti/fn/fnexport.h>
 #include <ti/fn/fnextend.h>
 #include <ti/fn/fnextendunique.h>
@@ -77,6 +81,7 @@
 #include <ti/fn/fnfirst.h>
 #include <ti/fn/fnflat.h>
 #include <ti/fn/fnfloat.h>
+#include <ti/fn/fnfloor.h>
 #include <ti/fn/fnformat.h>
 #include <ti/fn/fnfuture.h>
 #include <ti/fn/fnget.h>
@@ -135,6 +140,9 @@
 #include <ti/fn/fnlist.h>
 #include <ti/fn/fnload.h>
 #include <ti/fn/fnlog.h>
+#include <ti/fn/fnlog10.h>
+#include <ti/fn/fnlog2.h>
+#include <ti/fn/fnloge.h>
 #include <ti/fn/fnlower.h>
 #include <ti/fn/fnmap.h>
 #include <ti/fn/fnmapid.h>
@@ -164,6 +172,7 @@
 #include <ti/fn/fnone.h>
 #include <ti/fn/fnowner.h>
 #include <ti/fn/fnpop.h>
+#include <ti/fn/fnpow.h>
 #include <ti/fn/fnproceduredoc.h>
 #include <ti/fn/fnprocedureinfo.h>
 #include <ti/fn/fnproceduresinfo.h>
@@ -211,13 +220,16 @@
 #include <ti/fn/fnsettype.h>
 #include <ti/fn/fnshift.h>
 #include <ti/fn/fnshutdown.h>
+#include <ti/fn/fnsin.h>
 #include <ti/fn/fnsome.h>
 #include <ti/fn/fnsort.h>
 #include <ti/fn/fnsplice.h>
 #include <ti/fn/fnsplit.h>
+#include <ti/fn/fnsqrt.h>
 #include <ti/fn/fnstartswith.h>
 #include <ti/fn/fnstr.h>
 #include <ti/fn/fnsum.h>
+#include <ti/fn/fntan.h>
 #include <ti/fn/fntask.h>
 #include <ti/fn/fntasks.h>
 #include <ti/fn/fntest.h>
@@ -282,11 +294,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 257,
+    TOTAL_KEYWORDS = 269,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 14,
-    MAX_HASH_VALUE = 655
+    MIN_HASH_VALUE = 30,
+    MAX_HASH_VALUE = 726
 };
 
 /*
@@ -298,32 +310,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
-        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
-        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
-        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
-        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
-        656, 656,   4, 656,   4, 656,   4, 656, 656, 656,
-        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
-        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
-        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
-        656, 656, 656, 656, 656,   4, 656,   5,  98,  60,
-         36,   4, 122, 320, 150,   4,   6,  63,  21,  42,
-         10,  27, 140,  28,   5,   4,   7,  27,  56, 234,
-        140, 168,  63, 656, 656, 656, 656, 656, 656, 656,
-        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
-        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
-        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
-        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
-        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
-        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
-        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
-        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
-        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
-        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
-        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
-        656, 656, 656, 656, 656, 656, 656, 656, 656, 656,
-        656, 656, 656, 656, 656, 656
+        727, 727, 727, 727, 727, 727, 727, 727, 727, 727,
+        727, 727, 727, 727, 727, 727, 727, 727, 727, 727,
+        727, 727, 727, 727, 727, 727, 727, 727, 727, 727,
+        727, 727, 727, 727, 727, 727, 727, 727, 727, 727,
+        727, 727, 727, 727, 727, 727, 727, 727,  12,  12,
+         17, 727,  11, 727,  11, 727,  17, 727, 727, 727,
+        727, 727, 727, 727, 727, 727, 727, 727, 727, 727,
+        727, 727, 727, 727, 727, 727, 727, 727, 727, 727,
+        727, 727, 727, 727, 727, 727, 727, 727, 727, 727,
+        727, 727, 727, 727, 727,  11, 727,  16, 188,  80,
+         37,  13, 128, 232, 182,  11,  20,  88,  24,  55,
+         16,  19, 102,  32,  12,  11,  12,  22, 193, 125,
+         98, 219,  60, 727, 727, 727, 727, 727, 727, 727,
+        727, 727, 727, 727, 727, 727, 727, 727, 727, 727,
+        727, 727, 727, 727, 727, 727, 727, 727, 727, 727,
+        727, 727, 727, 727, 727, 727, 727, 727, 727, 727,
+        727, 727, 727, 727, 727, 727, 727, 727, 727, 727,
+        727, 727, 727, 727, 727, 727, 727, 727, 727, 727,
+        727, 727, 727, 727, 727, 727, 727, 727, 727, 727,
+        727, 727, 727, 727, 727, 727, 727, 727, 727, 727,
+        727, 727, 727, 727, 727, 727, 727, 727, 727, 727,
+        727, 727, 727, 727, 727, 727, 727, 727, 727, 727,
+        727, 727, 727, 727, 727, 727, 727, 727, 727, 727,
+        727, 727, 727, 727, 727, 727, 727, 727, 727, 727,
+        727, 727, 727, 727, 727, 727, 727, 727, 727, 727,
+        727, 727, 727, 727, 727, 727
     };
 
     register unsigned int hval = n;
@@ -466,6 +478,7 @@ typedef struct
         .flags=FN__FLAG_ROOT|FN__FLAG_NSE
 
 qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
+    {.name="abs",               .fn=do__f_abs,                  ROOT_NE},
     {.name="add",               .fn=do__f_add,                  CHAIN_CE_XX},
     {.name="again_at",          .fn=do__f_again_at,             CHAIN_BE},
     {.name="again_in",          .fn=do__f_again_in,             CHAIN_BE},
@@ -487,6 +500,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="call",              .fn=do__f_call,                 XCHAIN_NE},
     {.name="cancel",            .fn=do__f_cancel,               CHAIN_BE},
     {.name="cancelled_err",     .fn=do__f_cancelled_err,        ROOT_NE},
+    {.name="ceil",              .fn=do__f_ceil,                 ROOT_NE},
     {.name="change_id",         .fn=do__f_change_id,            ROOT_NE},
     {.name="choice",            .fn=do__f_choice,               CHAIN_NE},
     {.name="clear",             .fn=do__f_clear,                CHAIN_CE_X},
@@ -496,6 +510,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="collections_info",  .fn=do__f_collections_info,     ROOT_NE},
     {.name="contains",          .fn=do__f_contains,             CHAIN_NE},
     {.name="copy",              .fn=do__f_copy,                 CHAIN_NE},
+    {.name="cos",               .fn=do__f_cos,                  ROOT_NE},
     {.name="count",             .fn=do__f_count,                CHAIN_NE},
     {.name="counters",          .fn=do__f_counters,             ROOT_NE},
     {.name="datetime",          .fn=do__f_datetime,             ROOT_NE},
@@ -525,6 +540,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="equals",            .fn=do__f_equals,               CHAIN_NE},
     {.name="err",               .fn=do__f_err,                  BOTH_NE},
     {.name="every",             .fn=do__f_every,                CHAIN_NE},
+    {.name="exp",               .fn=do__f_exp,                  ROOT_NE},
     {.name="export",            .fn=do__f_export,               ROOT_NE},
     {.name="extend_unique",     .fn=do__f_extend_unique,        CHAIN_CE_XX},
     {.name="extend",            .fn=do__f_extend,               CHAIN_CE_XX},
@@ -536,6 +552,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="first",             .fn=do__f_first,                CHAIN_NE},
     {.name="flat",              .fn=do__f_flat,                 CHAIN_NE},
     {.name="float",             .fn=do__f_float,                ROOT_NE},
+    {.name="floor",             .fn=do__f_floor,                ROOT_NE},
     {.name="forbidden_err",     .fn=do__f_forbidden_err,        ROOT_NE},
     {.name="format",            .fn=do__f_format,               CHAIN_NE},
     {.name="future",            .fn=do__f_future,               ROOT_FUT},
@@ -595,6 +612,9 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="list",              .fn=do__f_list,                 ROOT_NE},
     {.name="load",              .fn=do__f_load,                 CHAIN_NE},
     {.name="log",               .fn=do__f_log,                  ROOT_NE},
+    {.name="log10",             .fn=do__f_log10,                ROOT_NE},
+    {.name="log2",              .fn=do__f_log2,                 ROOT_NE},
+    {.name="loge",              .fn=do__f_loge,                 ROOT_NE},
     {.name="lookup_err",        .fn=do__f_lookup_err,           ROOT_NE},
     {.name="lower",             .fn=do__f_lower,                CHAIN_NE},
     {.name="map_id",            .fn=do__f_map_id,               CHAIN_NE},
@@ -630,6 +650,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="overflow_err",      .fn=do__f_overflow_err,         ROOT_NE},
     {.name="owner",             .fn=do__f_owner,                CHAIN_NE},
     {.name="pop",               .fn=do__f_pop,                  CHAIN_CE_XX},
+    {.name="pow",               .fn=do__f_pow,                  ROOT_NE},
     {.name="procedure_doc",     .fn=do__f_procedure_doc,        ROOT_NE},
     {.name="procedure_info",    .fn=do__f_procedure_info,       ROOT_NE},
     {.name="procedures_info",   .fn=do__f_procedures_info,      ROOT_NE},
@@ -677,14 +698,17 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="set",               .fn=do__f_set,                  BOTH_CE_XXROOT},
     {.name="shift",             .fn=do__f_shift,                CHAIN_CE_XX},
     {.name="shutdown",          .fn=do__f_shutdown,             ROOT_NE},
+    {.name="sin",               .fn=do__f_sin,                  ROOT_NE},
     {.name="some",              .fn=do__f_some,                 CHAIN_NE},
     {.name="sort",              .fn=do__f_sort,                 CHAIN_NE},
     {.name="splice",            .fn=do__f_splice,               CHAIN_CE_XX},
     {.name="split",             .fn=do__f_split,                CHAIN_NE},
+    {.name="sqrt",              .fn=do__f_sqrt,                 ROOT_NE},
     {.name="starts_with",       .fn=do__f_starts_with,          CHAIN_NE},
     {.name="str",               .fn=do__f_str,                  ROOT_NE},
     {.name="sum",               .fn=do__f_sum,                  CHAIN_NE},
     {.name="syntax_err",        .fn=do__f_syntax_err,           ROOT_NE},
+    {.name="tan",               .fn=do__f_tan,                  ROOT_NE},
     {.name="task",              .fn=do__f_task,                 ROOT_BE},
     {.name="tasks",             .fn=do__f_tasks,                ROOT_NE},
     {.name="test",              .fn=do__f_test,                 CHAIN_NE},
@@ -1343,8 +1367,8 @@ static inline void qbind__for_statement(ti_qbind_t * q, cleri_node_t * nd)
 
 static inline void qbind__block(ti_qbind_t * qbind, cleri_node_t * nd)
 {
-    cleri_node_t * child = nd       /* seq<{, comment, list, }> */
-            ->children->next->next  /* list statements */
+    cleri_node_t * child = nd       /* seq<token({), list, }> */
+            ->children->next        /* list statements */
             ->children;             /* first child, not empty */
 
     nd->data = ti_do_block;
@@ -1420,21 +1444,15 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd)
  */
 void ti_qbind_probe(ti_qbind_t * qbind, cleri_node_t * nd)
 {
-    assert(nd->cl_obj->gid == CLERI_GID_STATEMENT ||
-            nd->cl_obj->gid == CLERI_GID_STATEMENTS);
+    if (nd->cl_obj->gid == CLERI_GID_STATEMENT)
+        return qbind__statement(qbind, nd);
 
-    if (nd->cl_obj->gid == CLERI_GID_STATEMENTS)
+    for (nd = nd->children;
+         nd;
+         nd = nd->next->next)
     {
-        for (nd = nd->children;
-             nd;
-             nd = nd->next->next)
-        {
-            qbind__statement(qbind, nd);   /* statement */
-
-            if (!nd->next)
-                return;
-        }
-        return;
+        qbind__statement(qbind, nd);   /* statement */
+        if (!nd->next)
+            return;
     }
-    return qbind__statement(qbind, nd);
 }

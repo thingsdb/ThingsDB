@@ -489,15 +489,10 @@ int ti_query_unp_run(
 
 static inline int ti_query_investigate(ti_query_t * query, ex_t * e)
 {
-    cleri_node_t * seqchildren;
     assert(e->nr == 0);
 
-    seqchildren = query->with.parseres->tree    /* root */
-            ->children                          /* sequence <comment, list> */
-            ->children;
-
     /* list statements */
-    ti_qbind_probe(&query->qbind, seqchildren->next);
+    ti_qbind_probe(&query->qbind, query->with.parseres->tree->children);
 
     /* check if illegal statements are found */
     if (query->qbind.flags & (
@@ -906,7 +901,7 @@ done:
 
 void ti_query_run_parseres(ti_query_t * query)
 {
-    cleri_node_t * child, * seqchild;
+    cleri_node_t * child;
     ex_t e = {0};
 
     clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
@@ -915,11 +910,8 @@ void ti_query_run_parseres(ti_query_t * query)
     log_debug("[DEBUG] run query: %s", query->with.parseres->str);
 #endif
 
-    seqchild = query->with.parseres->tree   /* root */
-        ->children              /* sequence <comment, list, [deep]> */
-        ->children->next;       /* list */
-
-    child = seqchild->children; /* first child or NULL */
+    /* first child statement or NULL */
+    child = query->with.parseres->tree->children->children;
 
     if (!child)
     {

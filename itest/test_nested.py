@@ -408,8 +408,8 @@ class TestNested(TestBase):
             a2 = .a2;
             a3 = .a3;
             .a1 = [2, 3, 4];
-            .assign({a2: [3, 4, 5]})
-            .set('a3', [4, 5, 6])
+            .assign({a2: [3, 4, 5]});
+            .set('a3', [4, 5, 6]);
 
             a1.push(7);
             a2.push(8);

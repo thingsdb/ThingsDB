@@ -4,5 +4,5 @@
 
 USER_OBJS :=
 
-LIBS := -luv -lpcre2-8 -lcleri -lm -lyajl -lcurl
+LIBS := -luv -lpcre2-8 -lm -lyajl -lcurl
 

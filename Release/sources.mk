@@ -16,6 +16,7 @@ SUBDIRS := \
 inc/lib \
 inc/msgpack \
 . \
+src/cleri \
 src \
 src/langdef \
 src/ti \

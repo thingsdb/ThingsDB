@@ -25,12 +25,12 @@
  *  "-rc0"
  *  ""
  */
-#define TI_VERSION_PRE_RELEASE "-alpha5"
+#define TI_VERSION_PRE_RELEASE "-alpha6"
 
 #define TI_MAINTAINER \
     "Jeroen van der Heijden <jeroen@cesbit.com>"
 #define TI_HOME_PAGE \
-    "https://thingsdb.net"
+    "https://thingsdb.io"
 
 /* start helpers */
 #define VERSION__STRINGIFY(num) #num

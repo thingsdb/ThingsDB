@@ -2,7 +2,7 @@
  * main.c - ThingsDB
  *
  * author/maintainer : Jeroen van der Heijden <jeroen@cesbit.com>
- * home page         : https://thingsdb.net
+ * home page         : https://thingsdb.io
  * copyright         : 2024, Jeroen van der Heijden
  *
  * This code will be release as open source but the exact license might be

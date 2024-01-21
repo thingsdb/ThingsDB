@@ -489,7 +489,7 @@ static int ncache__statement(
             return ncache__list(
                     syntax,
                     vcache,
-                    nd->children->next->next->children,
+                    nd->children->next->children,
                     e);
         case CLERI_GID_EXPRESSION:
             return ncache__expression(syntax, vcache, nd, e);
@@ -506,17 +506,13 @@ int ti_ncache_gen_node_data(
         cleri_node_t * nd,
         ex_t * e)
 {
-    assert(nd->cl_obj->gid == CLERI_GID_STATEMENT ||
-            nd->cl_obj->gid == CLERI_GID_STATEMENTS);
+    if (nd->cl_obj->gid == CLERI_GID_STATEMENT)
+        return ncache__statement(syntax, vcache, nd, e);
 
-    if (nd->cl_obj->gid == CLERI_GID_STATEMENTS)
-    {
-        for (nd = nd->children; nd; nd = nd->next->next)
-            if (ncache__statement(syntax, vcache, nd, e) || !nd->next)
-                return e->nr;
-        return e->nr;
-    }
-    return ncache__statement(syntax, vcache, nd, e);
+    for (nd = nd->children; nd; nd = nd->next->next)
+        if (ncache__statement(syntax, vcache, nd, e) || !nd->next)
+            return e->nr;
+    return e->nr;
 }
 
 

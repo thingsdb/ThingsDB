@@ -22,6 +22,7 @@
 #include <ti/task.h>
 #include <ti/template.h>
 #include <ti/thing.inline.h>
+#include <ti/vfloat.h>
 #include <ti/vint.h>
 #include <util/strx.h>
 
@@ -597,7 +598,7 @@ static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 int ti_do_block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     /* first child, not empty */
-    cleri_node_t * child = nd->children->next->next->children;
+    cleri_node_t * child = nd->children->next->children;
 
     do
     {
@@ -860,11 +861,11 @@ int ti_do_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 enum
 {
-    TOTAL_KEYWORDS = 15,
+    TOTAL_KEYWORDS = 17,
     MIN_WORD_LENGTH = 3,
     MAX_WORD_LENGTH = 8,
     MIN_HASH_VALUE = 3,
-    MAX_HASH_VALUE = 17
+    MAX_HASH_VALUE = 20
 };
 
 static inline unsigned int do__hash(
@@ -873,32 +874,32 @@ static inline unsigned int do__hash(
 {
     static unsigned char asso_values[] =
     {
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18,  2,  2,  2,  9,  0,
-         6,  1,  3,  0,  8, 18,  1,  0,  0,  1,
-        18,  0,  0,  0,  0,  0, 18,  0,  0,  0,
-        18, 18, 18, 18, 18,  0, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18, 18, 18, 18, 18,
-        18, 18, 18, 18, 18, 18
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21,  0,  0,  0, 12,  0,
+         7,  3,  0,  0, 13, 21,  2,  0,  0,  0,
+         9,  5,  0,  0,  0,  0, 21,  3,  5,  4,
+        21, 21, 21, 21, 21,  0, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21
     };
 
     register unsigned int hval = n;
@@ -934,30 +935,46 @@ static inline unsigned int do__hash(
     return hval;
 }
 
+typedef union
+{
+    int64_t i;
+    double d;
+} do__fixed_u;
+
 typedef struct
 {
     char name[MAX_WORD_LENGTH+1];
-    int64_t value;
+    uint8_t tp;
+    do__fixed_u via;
     ti_val_t * val;
     size_t n;
 } do__fixed_t;
 
+#if !defined(M_PI)
+#define M_PI       3.14159265358979323846 /* pi */
+#endif
+#if !defined(M_E)
+#define M_E        2.7182818284590452354  /* e */
+#endif
+
 do__fixed_t do__fixed_mapping[TOTAL_KEYWORDS] = {
-    {.name="QUERY",                 .value=TI_AUTH_QUERY},
-    {.name="CHANGE",                .value=TI_AUTH_CHANGE},
-    {.name="JOIN",                  .value=TI_AUTH_JOIN},
-    {.name="RUN",                   .value=TI_AUTH_RUN},
-    {.name="GRANT",                 .value=TI_AUTH_GRANT},
-    {.name="USER",                  .value=TI_AUTH_MASK_USER},
-    {.name="FULL",                  .value=TI_AUTH_MASK_FULL},
-    {.name="DEBUG",                 .value=LOGGER_DEBUG},
-    {.name="INFO",                  .value=LOGGER_INFO},
-    {.name="WARNING",               .value=LOGGER_WARNING},
-    {.name="ERROR",                 .value=LOGGER_ERROR},
-    {.name="CRITICAL",              .value=LOGGER_CRITICAL},
-    {.name="NO_IDS",                .value=TI_FLAGS_NO_IDS},
-    {.name="INT_MIN",               .value=LLONG_MIN},
-    {.name="INT_MAX",               .value=LLONG_MAX},
+    {.name="QUERY",                 .tp=TI_VAL_INT, .via.i=TI_AUTH_QUERY},
+    {.name="CHANGE",                .tp=TI_VAL_INT, .via.i=TI_AUTH_CHANGE},
+    {.name="JOIN",                  .tp=TI_VAL_INT, .via.i=TI_AUTH_JOIN},
+    {.name="RUN",                   .tp=TI_VAL_INT, .via.i=TI_AUTH_RUN},
+    {.name="GRANT",                 .tp=TI_VAL_INT, .via.i=TI_AUTH_GRANT},
+    {.name="USER",                  .tp=TI_VAL_INT, .via.i=TI_AUTH_MASK_USER},
+    {.name="FULL",                  .tp=TI_VAL_INT, .via.i=TI_AUTH_MASK_FULL},
+    {.name="DEBUG",                 .tp=TI_VAL_INT, .via.i=LOGGER_DEBUG},
+    {.name="INFO",                  .tp=TI_VAL_INT, .via.i=LOGGER_INFO},
+    {.name="WARNING",               .tp=TI_VAL_INT, .via.i=LOGGER_WARNING},
+    {.name="ERROR",                 .tp=TI_VAL_INT, .via.i=LOGGER_ERROR},
+    {.name="CRITICAL",              .tp=TI_VAL_INT, .via.i=LOGGER_CRITICAL},
+    {.name="NO_IDS",                .tp=TI_VAL_INT, .via.i=TI_FLAGS_NO_IDS},
+    {.name="INT_MIN",               .tp=TI_VAL_INT, .via.i=LLONG_MIN},
+    {.name="INT_MAX",               .tp=TI_VAL_INT, .via.i=LLONG_MAX},
+    {.name="MATH_E",                .tp=TI_VAL_FLOAT, .via.d=M_E},
+    {.name="MATH_PI",               .tp=TI_VAL_FLOAT, .via.d=M_PI},
 };
 
 static do__fixed_t * do__fixed_map[MAX_HASH_VALUE+1];
@@ -974,7 +991,10 @@ int ti_do_init(void)
         do__fixed_t * fixed = &do__fixed_mapping[i];
 
         fixed->n = strlen(fixed->name);
-        fixed->val = (ti_val_t *) ti_vint_create(fixed->value);
+        if (fixed->tp == TI_VAL_INT)
+            fixed->val = (ti_val_t *) ti_vint_create(fixed->via.i);
+        else
+            fixed->val = (ti_val_t *) ti_vfloat_create(fixed->via.d);
         if (!fixed->val)
         {
             ti_do_drop();

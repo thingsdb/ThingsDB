@@ -5219,17 +5219,17 @@ class TestCollectionFunctions(TestBase):
             y = s;
             assert ( s == x );
             assert ( s == y );
-            assert ( x.every(|i| type(i) == 'A' ) )
+            assert ( x.every(|i| type(i) == 'A' ) );
 
-            x.add(A{})
-            y.add(A{})
+            x.add(A{});
+            y.add(A{});
             assert ( s != x );
             assert ( s == y );
 
             x = s.copy(1);
             assert ( s != x );
             assert ( s.len() == x.len() );
-            assert ( x.every(|i| type(i) == 'thing' ) )
+            assert ( x.every(|i| type(i) == 'thing' ) );
 
             'OK';
         """)
@@ -5328,17 +5328,17 @@ class TestCollectionFunctions(TestBase):
             y = s;
             assert ( s == x );
             assert ( s == y );
-            assert ( x.every(|i| type(i) == 'A' ) )
+            assert ( x.every(|i| type(i) == 'A' ) );
 
-            x.add(A{})
-            y.add(A{})
+            x.add(A{});
+            y.add(A{});
             assert ( s != x );
             assert ( s == y );
 
             x = s.dup(1);
             assert ( s != x );
             assert ( s.len() == x.len() );
-            assert ( x.every(|i| type(i) == 'A' ) )
+            assert ( x.every(|i| type(i) == 'A' ) );
 
             'OK';
         """)

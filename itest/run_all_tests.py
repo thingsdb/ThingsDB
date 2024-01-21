@@ -16,6 +16,7 @@ from test_gc import TestGC
 from test_http_api import TestHTTPAPI
 from test_import import TestImport
 from test_index_slice import TestIndexSlice
+from test_math import TestMath
 from test_modules import TestModules
 from test_multi_node import TestMultiNode
 from test_nested import TestNested
@@ -72,6 +73,7 @@ if __name__ == '__main__':
     # run_test(TestHTTPAPI())
     run_test(TestImport())
     run_test(TestIndexSlice())
+    run_test(TestMath())
     if args.doc_modules is True:
         run_test(TestModules())
     run_test(TestMultiNode())

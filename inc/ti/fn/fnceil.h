@@ -22,10 +22,11 @@ static int do__f_ceil(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
     i = (int64_t) d;
-    v = ti_vint_create(i);
+    v = (ti_val_t *) ti_vint_create(i);
     if (!v)
         ex_set_mem(e);
 
+    ti_val_unsafe_drop(query->rval);
     query->rval = v;
     return e->nr;
 }

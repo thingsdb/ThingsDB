@@ -192,5 +192,6 @@ class TestSyntax(TestBase):
         await client.query("")
         await client.query("nil;;;")
 
+
 if __name__ == '__main__':
     run_test(TestSyntax())

@@ -1,13 +1,13 @@
 #include <ti/fn/fn.h>
 
-static int do__f_sqrt(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_exp(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
     double d;
 
-    if (fn_nargs("sqrt", DOC_MATH_SQRT, 1, nargs, e) ||
+    if (fn_nargs("exp", DOC_MATH_EXP, 1, nargs, e) ||
         ti_do_statement(query, nd->children, e) ||
-        fn_arg_number("sqrt", DOC_MATH_SQRT, 1, query->rval, e))
+        fn_arg_number("exp", DOC_MATH_EXP, 1, query->rval, e))
         return e->nr;
 
     if (query->rval->tp == TI_VAL_INT)
@@ -21,12 +21,7 @@ static int do__f_sqrt(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (isnan(d))
             return e->nr;
     }
-    if (d < 0)
-    {
-        ex_set(e, EX_VALUE_ERROR, "math domain error");
-        return e->nr;
-    }
-    d = sqrt(d);
+    d = exp(d);
 
     ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vfloat_create(d);

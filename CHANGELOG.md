@@ -1,20 +1,30 @@
 # v1.5.0
 
+* Comments can be placed anywhere that whitespace is allowed.
+* Comments are no longer stored within closures. This behavior was previously
+  partially enforced, and now it is strictly followed.
+* Statements must be separated with semicolons. Syntax checking is now more strict.
 * Removed syntax option for selecting a collection scope by Id.
-* Separate collection Id from collection root Id.
+* The collection Id and collection root Id no longer need to be equal.
 * Added `next_free_id` field to collection info and removed from nodes info.
-  _(`node_info()` still contains `next_free_id` for the global free Id)_
+  _(The response for `node_info()` still contains the `next_free_id` for the global free Id)_
 * Added `dump` option to the `export(..)` function for a full collection export.
 * Added function `import()` which can import a collection export dump.
 * Added function `root()` for getting the collection root as thing.
-* Function `export(..)` can no longer be used in a query with a change.
-* Fixed a bug with adding enumerators to a restricted list.
-* Fixed a bug with applying a new relation on existing data.
-* Rename change._tasks in C code, no user impact.
+* Function `export(..)` can no longer be used in queries with changes.
+* A bug with adding enumerators to restricted lists has been fixed.
+* A bug with applying a new relation to existing data has been fixed.
+* The `change._tasks` structure in C code has been renamed.
+  This has no impact on user-facing functionality.
 * Replaced Docker images _(both tests and builds)_ with newer versions.
-* Removed `ti_pkg_check` hack for old compilers _(no longer required with recent compilers)_.
-* Added `INT_MIN` and `INT_MAX` fixed keywords with corresponding values.
-* Replaced the `.net` domain with `.io` as primary domain for the thingsdb website.
+* Removed `ti_pkg_check` hack for old compilers. _(this is no longer required with recent compilers)_
+* Added integer minimun `INT_MIN` and maximum `INT_MAX` constants with corresponding values.
+* The primary domain for the ThingsDB website has been changed from `.net` to `.io`.
+* Several new mathematical functions have been added: `abs(..)`, `ceil(..)`,
+  `cos(..)`, `exp()..`, `floor(..)`, `log10(..)`, `log2(..)`, `loge(..)`,
+  `pow(..)`, `sin(..)`, `sqrt(..)` and `tan(..)`.
+* Added mathematical constants `MATH_E` and `MATH_PI` with corresponding values.
+* libcleri is now integrated into the core ThingsDB codebase, eliminating the need for separate installation.
 
 # v1.4.16
 

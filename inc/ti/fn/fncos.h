@@ -1,13 +1,13 @@
 #include <ti/fn/fn.h>
 
-static int do__f_sqrt(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_cos(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
     double d;
 
-    if (fn_nargs("sqrt", DOC_MATH_SQRT, 1, nargs, e) ||
+    if (fn_nargs("cos", DOC_MATH_COS, 1, nargs, e) ||
         ti_do_statement(query, nd->children, e) ||
-        fn_arg_number("sqrt", DOC_MATH_SQRT, 1, query->rval, e))
+        fn_arg_number("cos", DOC_MATH_COS, 1, query->rval, e))
         return e->nr;
 
     if (query->rval->tp == TI_VAL_INT)
@@ -20,13 +20,13 @@ static int do__f_sqrt(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         d = VFLOAT(query->rval);
         if (isnan(d))
             return e->nr;
+        if (isinf(d))
+        {
+            ex_set(e, EX_VALUE_ERROR, "math domain error");
+            return e->nr;
+        }
     }
-    if (d < 0)
-    {
-        ex_set(e, EX_VALUE_ERROR, "math domain error");
-        return e->nr;
-    }
-    d = sqrt(d);
+    d = cos(d);
 
     ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vfloat_create(d);

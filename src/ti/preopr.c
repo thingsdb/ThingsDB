@@ -141,9 +141,9 @@ int ti_preopr_calc(int preopr, ti_val_t ** val, ex_t * e)
     case TI_VAL_FLOAT:
         if (preopr & PO__FLAG_NEGATIVE)
         {
-            double nd = -VFLOAT(v);
+            double d = -VFLOAT(v);
             ti_val_unsafe_drop(v);
-            *val = (ti_val_t *) ti_vfloat_create(nd);
+            *val = (ti_val_t *) ti_vfloat_create(d);
             if (!*val)
                 ex_set_mem(e);
         }

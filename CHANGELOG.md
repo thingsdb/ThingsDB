@@ -25,6 +25,8 @@
   `pow(..)`, `sin(..)`, `sqrt(..)` and `tan(..)`.
 * Added mathematical constants `MATH_E` and `MATH_PI` with corresponding values.
 * libcleri is now integrated into the core ThingsDB codebase, eliminating the need for separate installation.
+* The `new_backup()` function no longer accepts an `int`, `float` or `str` as start time.
+  _(This was marked as deprecated since v0.10.1)_
 
 # v1.4.16
 

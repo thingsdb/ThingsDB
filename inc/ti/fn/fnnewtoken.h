@@ -60,51 +60,6 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
             exp_time = (uint64_t) ts;
         }
-        else if (ti_val_is_float(query->rval))
-        {
-            log_warning(
-                "parsing type `float` to `new_token(..)` as second argument "
-                "is obsolete, use type `datetime` or type `timeval` instead");
-            double now = util_now();
-            double ts = VFLOAT(query->rval);
-            if (ts < now)
-                goto errpast;
-            if (ts > TI_MAX_EXPIRATION_DOUBLE)
-                goto errfuture;
-
-            exp_time = (uint64_t) ts;
-        }
-        else if (ti_val_is_int(query->rval))
-        {
-            log_warning(
-                "parsing type `int` to `new_token(..)` as second argument "
-                "is obsolete, use type `datetime` or type `timeval` instead");
-            int64_t now = (int64_t) util_now_usec();
-            int64_t ts = VINT(query->rval);
-            if (ts < now)
-                goto errpast;
-            if (ts > TI_MAX_EXPIRATION_LONG)
-                goto errfuture;
-
-            exp_time = (uint64_t) ts;
-        }
-        else if (ti_val_is_str(query->rval))
-        {
-            log_warning(
-                "parsing type `str` to `new_token(..)` as second argument "
-                "is obsolete, use type `datetime` or type `timeval` instead");
-            int64_t now = (int64_t) util_now_usec();
-            ti_raw_t * rt = (ti_raw_t *) query->rval;
-            int64_t ts = iso8601_parse_date_n((const char *) rt->data, rt->n);
-            if (ts < 0)
-                goto errinvalid;
-            if (ts < now)
-                goto errpast;
-            if (ts > TI_MAX_EXPIRATION_LONG)
-                goto errfuture;
-
-            exp_time = (uint64_t) ts;
-        }
         else if (!ti_val_is_nil(query->rval))
         {
             ex_set(e, EX_TYPE_ERROR,
@@ -114,7 +69,6 @@ static int do__f_new_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ti_val_str(query->rval));
             return e->nr;
         }
-
     }
 
     if (nargs > 2)

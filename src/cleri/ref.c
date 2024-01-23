@@ -49,5 +49,5 @@ void cleri_ref_set(cleri_t * ref, cleri_t * cl_obj)
  */
 static void ref__free(cleri_t * cl_object __attribute__((unused)))
 {
-    /* nothing todo */
+    /* nothing, this just must exist */
 }

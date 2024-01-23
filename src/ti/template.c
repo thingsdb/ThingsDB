@@ -17,7 +17,7 @@ static cleri_t regex_t = {
     .tp = CLERI_TP_REGEX,
 };
 
-size_t template_escaped(const char * s, size_t n)
+static size_t template__escaped(const char * s, size_t n)
 {
     size_t count = 0;
 
@@ -35,7 +35,7 @@ size_t template_escaped(const char * s, size_t n)
     return count;
 }
 
-str_t * template_str(const char * s, size_t n, size_t nn)
+static str_t * template__str(const char * s, size_t n, size_t nn)
 {
     char * dest;
     str_t * nstr = malloc(sizeof(str_t) + nn);
@@ -58,7 +58,7 @@ str_t * template_str(const char * s, size_t n, size_t nn)
     return nstr;
 }
 
-int template_child(cleri_node_t ** childaddr, const char * str, size_t n)
+static int template__child(cleri_node_t ** childaddr, const char * str, size_t n)
 {
     cleri_node_t * inode = cleri__node_new(&regex_t, str, n);
     if (!inode)
@@ -99,7 +99,7 @@ int ti_template_build(cleri_node_t * node)
 
         if (nd->cl_obj->tp == CLERI_TP_REGEX)
         {
-            count = template_escaped(nd->str, nd->len);
+            count = template__escaped(nd->str, nd->len);
 
             /* this will insert optional white space to this node */
             nd->len += diff;
@@ -107,7 +107,7 @@ int ti_template_build(cleri_node_t * node)
 
             if (count)
             {
-                nd->data = template_str(node_end, nd->len, nd->len - count);
+                nd->data = template__str(node_end, nd->len, nd->len - count);
                 if (!nd->data)
                     goto failed;
             }
@@ -115,7 +115,7 @@ int ti_template_build(cleri_node_t * node)
         else if (diff)
         {
             /* non-captured white space is found, add an additional node */
-            if (template_child(childaddr, node_end, diff))
+            if (template__child(childaddr, node_end, diff))
                 goto failed;
             else
                 childaddr = &(*childaddr)->next;
@@ -125,7 +125,7 @@ int ti_template_build(cleri_node_t * node)
 
     /* check for non-captured white space at the end */
     diff = (node->str + node->len - 1) - node_end;
-    if (diff && template_child(childaddr, node_end, diff))
+    if (diff && template__child(childaddr, node_end, diff))
         goto failed;
 
     node->data = tmplate;

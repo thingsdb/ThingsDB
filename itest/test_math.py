@@ -503,6 +503,80 @@ class TestMath(TestBase):
             math.pow(-1.0, 2.0),
         ])
 
+    async def test_round(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `float` has no function `round`'):
+            await client.query('a = 0.1; a.round();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `round` requires at least 1 argument '
+                r'but 0 were given'):
+            await client.query('round();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `round` takes at most 2 arguments '
+                r'but 3 were given'):
+            await client.query('round(1, 1, 1);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `round` expects argument 1 to be of type `int` or '
+                r'`float` but got type `bool` instead'):
+            await client.query('round(false);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `round` expects argument 2 to be of type `int` '
+                r'but got type `float` instead'):
+            await client.query('round(1, 1.0);')
+
+        with self.assertRaisesRegex(
+                OverflowError,
+                r'integer overflow'):
+            await client.query('round(INT_MAX, -1);')
+
+        with self.assertRaisesRegex(
+                OverflowError,
+                r'integer overflow'):
+            await client.query('round(50, INT_MAX);')
+
+        res = await client.query('round(nan);')
+        self.assertTrue(math.isnan(res))
+
+        res = await client.query('round(inf);')
+        self.assertTrue(math.isinf(res))
+
+        res = await client.query('round(-inf);')
+        self.assertTrue(math.isinf(res))
+
+        res = await client.query("""//ti
+            [
+                round(0.0),
+                round(0),
+                round(42, 2),
+                round(123456789.0, -4),
+                round(123456789.0, -6),
+                round(123456789, -4),
+                round(123456789, -6),
+                round(1.23456789, 4),
+                round(1.23456789, 6),
+            ];
+        """)
+        self.assertEqual(res, [
+            0.0,
+            round(0),
+            round(42, 2),
+            round(123456789.0, -4),
+            round(123456789.0, -6),
+            round(123456789, -4),
+            round(123456789, -6),
+            round(1.23456789, 4),
+            round(1.23456789, 6),
+        ])
+
     async def test_sin(self, client):
         with self.assertRaisesRegex(
                 LookupError,

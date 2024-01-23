@@ -141,9 +141,4 @@ errfuture:
     ex_set(e, EX_VALUE_ERROR,
         "expiration time is too far in the future"DOC_NEW_TOKEN);
     return e->nr;
-
-errinvalid:
-    ex_set(e, EX_VALUE_ERROR,
-        "invalid date/time string as expiration time"DOC_NEW_TOKEN);
-    return e->nr;
 }

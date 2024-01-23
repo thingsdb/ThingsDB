@@ -79,6 +79,7 @@
 #define DOC_MATH_LOG2               DOC_SEE("collection-api/math/log2")
 #define DOC_MATH_LOGE               DOC_SEE("collection-api/math/loge")
 #define DOC_MATH_POW                DOC_SEE("collection-api/math/pow")
+#define DOC_MATH_ROUND              DOC_SEE("collection-api/math/round")
 #define DOC_MATH_SIN                DOC_SEE("collection-api/math/sin")
 #define DOC_MATH_SQRT               DOC_SEE("collection-api/math/sqrt")
 #define DOC_MATH_TAN                DOC_SEE("collection-api/math/tan")

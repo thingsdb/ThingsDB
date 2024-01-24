@@ -22,12 +22,12 @@
 * The primary domain for the ThingsDB website has been changed from `.net` to `.io`.
 * Several new mathematical functions have been added: `abs(..)`, `ceil(..)`,
   `cos(..)`, `exp()..`, `floor(..)`, `log10(..)`, `log2(..)`, `loge(..)`,
-  `pow(..)`, `sin(..)`, `sqrt(..)` and `tan(..)`.
+  `pow(..)`, `round(..)`, `sin(..)`, `sqrt(..)` and `tan(..)`.
 * Added mathematical constants `MATH_E` and `MATH_PI` with corresponding values.
-* libcleri is now integrated into the core ThingsDB codebase, eliminating the need for separate installation.
+* The library `libcleri` is now integrated into the core ThingsDB codebase, eliminating the need for separate installation.
 * The `new_backup()` and `new_token()` functions no longer accept `int`, `float` or `str` as time.
   _(This was marked as deprecated since v0.10.1)_
-* Added set operators `<`, `<=`, `>`, `>=` for subset, proper subset, superset and proper superset checking.
+* Added set operators `<=`, `<`, `>=`, `>` for subset, proper subset, superset and proper superset checking.
 
 # v1.4.16
 

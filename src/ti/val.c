@@ -72,6 +72,7 @@ static ti_val_t * val__gs_str;
 static ti_val_t * val__charset_str;
 
 /* name */
+ti_val_t * val__async_name;
 ti_val_t * val__data_name;
 ti_val_t * val__time_name;
 ti_val_t * val__year_name;
@@ -739,6 +740,7 @@ int ti_val_init_common(void)
             "-_");
 
     /* names */
+    val__async_name = (ti_val_t *) ti_names_from_str("async");
     val__data_name = (ti_val_t *) ti_names_from_str("data");
     val__time_name = (ti_val_t *) ti_names_from_str("time");
     val__year_name = (ti_val_t *) ti_names_from_str("year");
@@ -775,7 +777,7 @@ int ti_val_init_common(void)
         !val__beautify_name || !val__parent_name || !val__parent_type_name ||
         !val__key_name || !val__key_type_name || !val__flags_name ||
         !val__data_name || !val__time_name || !val__re_email ||
-        !val__re_url || !val__re_tel)
+        !val__re_url || !val__re_tel || !val__async_name)
     {
         return -1;
     }

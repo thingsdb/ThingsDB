@@ -2478,6 +2478,25 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertIs(res, None)
 
+    async def test_future_name(self, client):
+        # bug solved in v1.5.0
+        await client.query(r"""//ti
+            new_procedure("add_user", || {
+                return future(|| {
+                    user = thing();
+                    .users.add(user);
+                    user;
+                });
+            });
+            .users = set();
+        """)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'module `async` has no function `id`'):
+            await client.query(r"""//ti
+                user = add_user(); user.id();
+            """)
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

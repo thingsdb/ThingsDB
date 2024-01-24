@@ -8,6 +8,7 @@
 #include <ti.h>
 #include <ti/access.h>
 #include <ti/api.h>
+#include <ti/async.h>
 #include <ti/auth.h>
 #include <ti/change.h>
 #include <ti/collection.h>
@@ -243,6 +244,8 @@ int ti_init(void)
         ti_val_init_common() ||
         ti_thing_init_gc())
         return -1;
+
+    ti_async_init();  /* after ti_val_init_common() */
 
     shutdown_counter = (int) ti.cfg->shutdown_period;
     ti.fn = strx_cat(ti.cfg->storage_path, ti__fn);

@@ -27,6 +27,7 @@
 * libcleri is now integrated into the core ThingsDB codebase, eliminating the need for separate installation.
 * The `new_backup()` and `new_token()` functions no longer accept `int`, `float` or `str` as time.
   _(This was marked as deprecated since v0.10.1)_
+* Added set operators `<`, `<=`, `>`, `>=` for subset, proper subset, superset and proper superset checking.
 
 # v1.4.16
 

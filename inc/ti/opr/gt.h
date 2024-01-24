@@ -64,6 +64,9 @@ static int opr__gt(ti_val_t * a, ti_val_t ** b, ex_t * e)
     case OPR_BYTES_BYTES:
         bool_ = ti_raw_cmp((ti_raw_t *) a, (ti_raw_t *) *b) > 0;
         break;
+    case OPR_SET_SET:
+        bool_ = ti_vset_gt((ti_vset_t*) a, (ti_vset_t *) *b);
+        break;
     }
 
     ti_val_unsafe_drop(*b);

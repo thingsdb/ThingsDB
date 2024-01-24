@@ -41,6 +41,7 @@ int imap_walk_cp(
         imap_destroy_cb destroy_cb);
 void imap_walkn(imap_t * imap, size_t * n, imap_cb cb, void * arg);
 _Bool imap__eq_(imap_t * a, imap_t * b);
+_Bool imap__le_(imap_t * a, imap_t * b);
 static inline _Bool imap_eq(imap_t * a, imap_t * b);
 vec_t * imap_vec(imap_t * imap);
 vec_t * imap_vec_ref(imap_t * imap);
@@ -81,6 +82,16 @@ struct imap_s
 static inline _Bool imap_eq(imap_t * a, imap_t * b)
 {
     return a == b || (a->n == b->n && (!a->n || imap__eq_(a, b)));
+}
+
+static inline _Bool imap_le(imap_t * a, imap_t * b)
+{
+    return a == b || !a->n || (a->n <= b->n && imap__le_(a, b));
+}
+
+static inline _Bool imap_lt(imap_t * a, imap_t * b)
+{
+    return (!a->n && b->n) || (a != b && a->n < b->n && imap__le_(a, b));
 }
 
 #endif /* IMAP_H_ */

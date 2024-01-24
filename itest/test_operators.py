@@ -237,6 +237,35 @@ class TestOperators(TestBase):
         ''')
         self.assertEqual(set(res), {10, 20, 30, 41, 42, 50})
 
+        res = await client.query(r"""//ti
+            [
+                set() < set(),
+                set() <= set(),
+                set() < set(.x10),
+                set(.x10, .x40, .x41) < set(.x10, .x40, .x41),
+                set(.x10, .x40, .x41) <= set(.x10, .x40, .x41),
+                set(.x10, .x40, .x41) > set(.x10, .x40, .x41),
+                set(.x10, .x40, .x41) >= set(.x10, .x40, .x41),
+                set(.x10) <= set(),
+                set(.x10) < set(),
+                set(.x10, .x40, .x41) < set(.x10, .x41, .x42, .x43),
+                set(.x10, .x41) <= set(.x10, .x11, .x41, .x42, .x43),
+            ];
+        """)
+        self.assertEqual(res, [
+            False,
+            True,
+            True,
+            False,
+            True,
+            False,
+            True,
+            False,
+            False,
+            False,
+            True,
+        ])
+
     async def test_preopr(self, client):
         self.assertIs(await client.query(r'''
             !true;

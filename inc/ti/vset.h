@@ -72,6 +72,26 @@ static inline _Bool ti_vset_eq(ti_vset_t * va, ti_vset_t * vb)
     return imap_eq(va->imap, vb->imap);
 }
 
+static inline _Bool ti_vset_le(ti_vset_t * va, ti_vset_t * vb)
+{
+    return imap_le(va->imap, vb->imap);
+}
+
+static inline _Bool ti_vset_lt(ti_vset_t * va, ti_vset_t * vb)
+{
+    return imap_lt(va->imap, vb->imap);
+}
+
+static inline _Bool ti_vset_ge(ti_vset_t * va, ti_vset_t * vb)
+{
+    return imap_le(vb->imap, va->imap);
+}
+
+static inline _Bool ti_vset_gt(ti_vset_t * va, ti_vset_t * vb)
+{
+    return imap_lt(vb->imap, va->imap);
+}
+
 static inline void * ti_vset_key(ti_vset_t * vset)
 {
     return ti_thing_is_object(vset->parent)

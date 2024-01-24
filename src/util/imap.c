@@ -560,6 +560,57 @@ static _Bool imap__eq(imap_node_t * nodea, imap_node_t * nodeb)
     }
 }
 
+static _Bool imap__le(imap_node_t * nodea, imap_node_t * nodeb)
+{
+    if (nodea->key == nodeb->key)
+    {
+        imap_node_t
+                * nda = nodea->nodes,
+                * ndb = nodeb->nodes,
+                * end = nda + imap__node_size(nodea);
+
+        for (; nda < end; ++nda, ++ndb)
+            if (nda->sz > ndb->sz ||
+                (nda->data && !ndb->data) ||
+                (nda->nodes && !ndb->nodes) ||
+                (nda->nodes && !imap__le(nda, ndb)))
+                return false;
+        return true;
+    }
+
+    if (nodea->key != IMAP_NODE_SZ && nodeb->key != IMAP_NODE_SZ)
+        return false;
+
+    if (nodeb->key == IMAP_NODE_SZ)
+    {
+        imap_node_t
+                * nda = nodea->nodes,
+                * ndb = nodeb->nodes + nodea->key;
+        return !(nda->sz > ndb->sz ||
+                (nda->data && !ndb->data) ||
+                (nda->nodes && !ndb->nodes) ||
+                (nda->nodes && !imap__le(nda, ndb)));
+    }
+    else
+    {
+        uint8_t key = 0;
+        imap_node_t
+                * nda = nodea->nodes,
+                * ndb = nodeb->nodes,
+                * end = nda + IMAP_NODE_SZ;
+
+        for (; nda < end; ++nda, ++key)
+            if ((nodeb->key == key && (
+                    nda->sz > ndb->sz ||
+                    (nda->data && !ndb->data) ||
+                    (nda->nodes && !ndb->nodes) ||
+                    (nda->nodes && !imap__le(nda, ndb))
+                )) || (nodeb->key != key && nda->sz))
+                return false;
+        return true;
+    }
+}
+
 /*
  * Returns `true` if the given imap objects are equal
  */
@@ -576,6 +627,27 @@ _Bool imap__eq_(imap_t * a, imap_t * b)
         if (nda->data != ndb->data ||
             !nda->nodes != !ndb->nodes ||
             (nda->nodes && !imap__eq(nda, ndb)))
+            return false;
+
+    return true;
+}
+
+/*
+ * Returns `true` if the given imap objects are equal
+ */
+_Bool imap__le_(imap_t * a, imap_t * b)
+{
+    imap_node_t
+            * nda = a->nodes,
+            * ndb = b->nodes,
+            * end = nda + IMAP_NODE_SZ;
+
+    assert(a != b && a->n <= b->n && a->n);
+
+    for (; nda < end; ++nda, ++ndb)
+        if ((nda->data && !ndb->data) ||
+            (nda->nodes && !ndb->nodes) ||
+            (nda->nodes && !imap__le(nda, ndb)))
             return false;
 
     return true;

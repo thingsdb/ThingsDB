@@ -2025,18 +2025,6 @@ new_procedure('multiply', |a, b| a * b);
                 'name `union` is reserved'):
             await client.query('new_type("union");')
 
-    async def test_reserved_enum_union(self, client):
-        # bug #294
-        with self.assertRaisesRegex(
-                ValueError,
-                'name `enum` is reserved'):
-            await client.query('new_type("enum");')
-
-        with self.assertRaisesRegex(
-                ValueError,
-                'name `union` is reserved'):
-            await client.query('new_type("union");')
-
     async def test_loop_set_relation_error(self, client):
         # bug 302
         with self.assertRaises(AssertionError):

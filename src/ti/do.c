@@ -634,8 +634,7 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_node_t * node = child;        /* function, assignment, name */
     cleri_node_t * index_node = child->next;
 
-    if (nd->children->len == 2 &&
-            (ti_val_is_nil(query->rval) || ti_val_is_error(query->rval)))
+    if (nd->children->len == 2 && ti_val_is_opt_chain(query->rval))
         return 0;
 
     child = child->next->next;          /* set to chain child (or NULL) */

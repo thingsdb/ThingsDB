@@ -611,6 +611,11 @@ static inline _Bool ti_val_is_nil(ti_val_t * val)
     return val->tp == TI_VAL_NIL;
 }
 
+static inline _Bool ti_val_is_opt_chain(ti_val_t * val)
+{
+    return val->tp == TI_VAL_NIL || val->tp == TI_VAL_ERROR;
+}
+
 static inline _Bool ti_val_is_str(ti_val_t * val)
 {
     return val->tp == TI_VAL_STR || val->tp == TI_VAL_NAME;

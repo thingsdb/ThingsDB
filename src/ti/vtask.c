@@ -68,7 +68,7 @@ void ti_vtask_destroy(ti_vtask_t * vtask)
     if (vtask && vtask->id)
     {
         ti_user_drop(vtask->user);
-        ti_closure_unsafe_drop(vtask->closure);
+        ti_closure_drop(vtask->closure);
         ti_verror_drop(vtask->verr);
         vec_destroy(vtask->args, (vec_destroy_cb) ti_val_unsafe_drop);
     }
@@ -197,7 +197,7 @@ int ti_vtask_run(ti_vtask_t * vtask, ti_collection_t * collection)
 static void vtask__clear(ti_vtask_t * vtask)
 {
     ti_user_drop(vtask->user);
-    ti_closure_unsafe_drop(vtask->closure);
+    ti_closure_drop(vtask->closure);
     ti_verror_drop(vtask->verr);
     vec_destroy(vtask->args, (vec_destroy_cb) ti_val_unsafe_drop);
     vtask->id = 0;
@@ -219,7 +219,15 @@ void ti_vtask_del(uint64_t vtask_id, ti_collection_t * collection)
         {
             ti_vtask_t * vtask = vec_swap_remove(vtasks, idx);
             if (--vtask->ref)
+            {
+                ++vtask->ref;  /* temporary add one reference for when tasks
+                                * are nested in the task arguments */
                 vtask__clear(vtask);
+
+                /* check again as all the references might be cleared by now */
+                if (!--vtask->ref)
+                    ti_vtask_destroy(vtask);
+            }
             else
                 ti_vtask_destroy(vtask);
             break;

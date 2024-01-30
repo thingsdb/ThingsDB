@@ -15,6 +15,7 @@
 * A bug with adding enumerators to restricted lists has been fixed.
 * A bug with applying a new relation to existing data has been fixed.
 * A bug with async future error reporting has been fixed.
+* A bug with clearing nesting tasks through arguments has been fixed.
 * The `change._tasks` structure in C code has been renamed.
   This has no impact on user-facing functionality.
 * Replaced Docker images _(both tests and builds)_ with newer versions.

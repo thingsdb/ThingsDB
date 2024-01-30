@@ -530,15 +530,14 @@ static _Bool imap__eq(imap_node_t * nodea, imap_node_t * nodeb)
         return true;
     }
 
-    if (nodea->key != IMAP_NODE_SZ && nodeb->key != IMAP_NODE_SZ)
-        return false;
-
     if (nodeb->key == IMAP_NODE_SZ)
     {
         imap_node_t * tmp = nodea;
         nodea = nodeb;
         nodeb = tmp;
     }
+    else if (nodea->key != IMAP_NODE_SZ)
+        return false;
 
     /* check if the nodes are equal unless the key's are different */
     {
@@ -578,9 +577,6 @@ static _Bool imap__le(imap_node_t * nodea, imap_node_t * nodeb)
         return true;
     }
 
-    if (nodea->key != IMAP_NODE_SZ && nodeb->key != IMAP_NODE_SZ)
-        return false;
-
     if (nodeb->key == IMAP_NODE_SZ)
     {
         imap_node_t
@@ -591,7 +587,8 @@ static _Bool imap__le(imap_node_t * nodea, imap_node_t * nodeb)
                 (nda->nodes && !ndb->nodes) ||
                 (nda->nodes && !imap__le(nda, ndb)));
     }
-    else
+
+    if (nodea->key == IMAP_NODE_SZ)
     {
         uint8_t key = 0;
         imap_node_t
@@ -609,6 +606,8 @@ static _Bool imap__le(imap_node_t * nodea, imap_node_t * nodeb)
                 return false;
         return true;
     }
+
+    return false;
 }
 
 /*

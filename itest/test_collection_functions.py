@@ -5425,8 +5425,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 ValueError,
                 r'mismatch in type `B`; property `name` requires a string '
-                r'with a length between 3 and 20 \(both inclusive\) '
-                r'characters'):
+                r'with a length between 3 and 20 \(both inclusive\)'):
             await client.query('.aa.pop(); .to_type("B");')
 
         with self.assertRaisesRegex(

@@ -458,6 +458,14 @@ class TestAdvanced(TestBase):
         with self.assertRaisesRegex(
                 ValueError,
                 r'invalid declaration for `a` on type `Foo`; '
+                r'the minimum value for a string range must not be negative'):
+            await client.query(r'''
+                set_type('Foo', {a: 'utf8<-1:5>'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
                 r'expecting the maximum value to be greater '
                 r'than or equal to the minimum value;'):
             await client.query(r'''
@@ -636,6 +644,10 @@ class TestAdvanced(TestBase):
                 str_i: '/^(e|h|i|l|o){2}$/i<Hi>',
                 str_j: 'str<5:10:empty>?',
                 str_k: 'str<5:5>?',
+                utf8_a: 'utf8<0:1>',
+                utf8_b: 'utf8<1:1>',
+                utf8_c: 'utf8<3:10>',
+                utf8_d: 'utf8<0:10:unknown>',
             });
 
             Foo();
@@ -666,6 +678,10 @@ class TestAdvanced(TestBase):
             "str_i": "Hi",
             "str_j": "empty",
             "str_k": None,
+            "utf8_a": "",
+            "utf8_b": "-",
+            "utf8_c": "---",
+            "utf8_d": "unknown",
         })
 
         self.assertEqual(await client.query(r'''
@@ -772,7 +788,7 @@ class TestAdvanced(TestBase):
                 ValueError,
                 r'mismatch in type `Foo`; '
                 r'property `str_b` requires a string with a length '
-                r'of 1 character'):
+                r'of 1'):
             await client.query(r'''
                 Foo{str_b: ""};
             ''')
@@ -781,7 +797,7 @@ class TestAdvanced(TestBase):
                 ValueError,
                 r'mismatch in type `Foo`; '
                 r'property `str_c` requires a string with a length '
-                r'between 3 and 10 \(both inclusive\) characters'):
+                r'between 3 and 10 \(both inclusive\)'):
             await client.query(r'''
                 Foo{str_c: "xx"};
             ''')
@@ -790,7 +806,7 @@ class TestAdvanced(TestBase):
                 ValueError,
                 r'mismatch in type `Foo`; '
                 r'property `str_k` requires a string with a length '
-                r'of 5 characters'):
+                r'of 5'):
             await client.query(r'''
                 Foo{str_k: "ABCDEF"};
             ''')
@@ -2497,6 +2513,85 @@ new_procedure('multiply', |a, b| a * b);
             await client.query(r"""//ti
                 user = add_user(); user.id();
             """)
+
+    async def test_utf8_range(self, client):
+        await client.query(r"""//ti
+            set_type('A', {
+                u: 'utf8'
+            });
+            set_type('B', {
+                u: 'utf8<1:>'
+            });
+            set_type('C', {
+                u: 'utf8<:2>'
+            });
+            set_type('D', {
+                u: 'utf8<1:3>'
+            });
+            set_type('E', {
+                u: 'utf8<2:2>'
+            });
+        """)
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `B`; property `u` requires a '
+                r'string with a length of at least 1'):
+            await client.query(r"""//ti
+                B{u: ""};
+            """)
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `C`; property `u` requires a string '
+                r'with a length between 0 and 2 \(both inclusive\)'):
+            await client.query(r"""//ti
+                C{u: "aaa"};
+            """)
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `D`; property `u` requires a string '
+                r'with a length between 1 and 3 \(both inclusive\)'):
+            await client.query(r"""//ti
+                D{u: ""};
+            """)
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `E`; property `u` requires a '
+                r'string with a length of 2'):
+            await client.query(r"""//ti
+                E{u: ""};
+            """)
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `B`; property `u` only accepts '
+                r'valid UTF8 data'):
+            await client.query(r"""//ti
+                B{u: "😁"[:3]};
+            """)
+
+        res = await client.query(r"""//ti
+            a = A{u: "A"};
+            a.wrap('B')
+        """)
+        self.assertEqual(res, {})
+
+        res = await client.query(r"""//ti
+            b = B{u: "B"};
+            b.wrap('A')
+        """)
+        self.assertEqual(res, {"u": "B"})
+
+        res = await client.query(r"""//ti
+            b = B{u: "B"};
+            b.wrap('D')
+        """)
+        self.assertEqual(res, {})
+
+        res = await client.query(r"""//ti
+            d = D{u: "D"};
+            d.wrap('B')
+        """)
+        self.assertEqual(res, {"u": "D"})
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

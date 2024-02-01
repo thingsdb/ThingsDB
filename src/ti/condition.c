@@ -88,6 +88,12 @@ int ti_condition_field_info_init(
             str += 2;
             break;
         }
+        if (n > 4 && memcmp(str, "tf8", 3) == 0)
+        {
+            spec = TI_SPEC_UTF8_RANGE;
+            str += 3;
+            break;
+        }
         goto invalid;
     case 't':
         ++str;
@@ -158,6 +164,7 @@ int ti_condition_field_info_init(
         return 0;
     }
     case TI_SPEC_STR_RANGE:
+    case TI_SPEC_UTF8_RANGE:
     {
         int64_t ma, mi = strx_to_int64(str, &tmp);
 
@@ -697,6 +704,7 @@ void ti_condition_destroy(ti_condition_via_t condition, uint16_t spec)
         ti_val_drop((ti_val_t *) condition.re->regex);
         /* fall through */
     case TI_SPEC_STR_RANGE:
+    case TI_SPEC_UTF8_RANGE:
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
         ti_val_drop(condition.none->dval);

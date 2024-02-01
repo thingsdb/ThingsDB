@@ -1831,6 +1831,17 @@ int ti_field_make_assignable(
             ((ti_raw_t *) *val)->n > field->condition.srange->ma)
             goto srange_error;
         return 0;
+    case TI_SPEC_UTF8_RANGE:
+        if (!ti_val_is_str(*val))
+            goto type_error;
+        if (!strx_is_utf8n(
+                (const char *) ((ti_raw_t *) *val)->data,
+                ((ti_raw_t *) *val)->n))
+            goto utf8_error;
+        if (((ti_raw_t *) *val)->n < field->condition.srange->mi ||
+            ((ti_raw_t *) *val)->n > field->condition.srange->ma)
+            goto srange_error;
+        return 0;
     }
 
     assert(spec >= TI_ENUM_ID_FLAG);
@@ -1884,20 +1895,27 @@ nan_error:
     return e->nr;
 
 srange_error:
-    if (field->condition.srange->mi == field->condition.srange->ma)
+    if (field->condition.srange->ma == INT64_MAX)
+        ex_set(e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a string with a length of at least "
+                "%zu",
+                field->type->name,
+                field->name->str,
+                field->condition.srange->mi);
+    else if (field->condition.srange->mi == field->condition.srange->ma)
         ex_set(e, EX_VALUE_ERROR,
                 "mismatch in type `%s`; "
                 "property `%s` requires a string with a length "
-                "of %zu character%s",
+                "of %zu",
                 field->type->name,
                 field->name->str,
-                field->condition.srange->mi,
-                field->condition.srange->mi == 1 ? "": "s");
+                field->condition.srange->mi);
     else
         ex_set(e, EX_VALUE_ERROR,
                 "mismatch in type `%s`; "
                 "property `%s` requires a string with a length "
-                "between %zu and %zu (both inclusive) characters",
+                "between %zu and %zu (both inclusive)",
                 field->type->name,
                 field->name->str,
                 field->condition.srange->mi,
@@ -2096,6 +2114,12 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
         return (ti_val_is_str(val) &&
                 ((ti_raw_t *) val)->n >= field->condition.srange->mi &&
                 ((ti_raw_t *) val)->n <= field->condition.srange->ma);
+    case TI_SPEC_UTF8_RANGE:
+        return (ti_val_is_str(val) && strx_is_utf8n(
+                (const char *) ((ti_raw_t *) val)->data,
+                ((ti_raw_t *) val)->n) &&
+                ((ti_raw_t *) val)->n >= field->condition.srange->mi &&
+                ((ti_raw_t *) val)->n <= field->condition.srange->ma);
     }
 
     /* any *thing* can be mapped */
@@ -2186,6 +2210,7 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
     case TI_SPEC_STR_RANGE:
+    case TI_SPEC_UTF8_RANGE:
         return false;
     }
 
@@ -2194,36 +2219,6 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     return f_spec < TI_SPEC_ANY ||
            f_spec == TI_SPEC_OBJECT ||
            ti_spec_is_set(f_field->spec);
-}
-
-_Bool field__maps_with_condition(ti_field_t * t_field, ti_field_t * f_field)
-{
-    uint16_t spec = t_field->spec & TI_SPEC_MASK_NILLABLE;
-    assert(t_field->condition.none);
-    assert(f_field->condition.none);
-
-    switch((ti_spec_enum_t) spec)
-    {
-    case TI_SPEC_REMATCH:
-        return ti_regex_eq(
-                t_field->condition.re->regex,
-                f_field->condition.re->regex);
-    case TI_SPEC_STR_RANGE:
-        return (
-            t_field->condition.srange->mi <= f_field->condition.srange->mi &&
-            t_field->condition.srange->ma >= f_field->condition.srange->ma);
-    case TI_SPEC_INT_RANGE:
-        return (
-            t_field->condition.irange->mi <= f_field->condition.irange->mi &&
-            t_field->condition.irange->ma >= f_field->condition.irange->ma);
-    case TI_SPEC_FLOAT_RANGE:
-        return (
-            t_field->condition.drange->mi <= f_field->condition.drange->mi &&
-            t_field->condition.drange->ma >= f_field->condition.drange->ma);
-    default:
-        assert(0);
-        return false;
-    }
 }
 
 _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
@@ -2270,7 +2265,8 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
                 f_spec == TI_SPEC_URL ||
                 f_spec == TI_SPEC_TEL ||
                 f_spec == TI_SPEC_REMATCH ||
-                f_spec == TI_SPEC_STR_RANGE);
+                f_spec == TI_SPEC_STR_RANGE ||
+                f_spec == TI_SPEC_UTF8_RANGE);
     case TI_SPEC_STR:
         return (f_spec == TI_SPEC_STR ||
                 f_spec == TI_SPEC_UTF8 ||
@@ -2278,8 +2274,11 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
                 f_spec == TI_SPEC_URL ||
                 f_spec == TI_SPEC_TEL ||
                 f_spec == TI_SPEC_REMATCH ||
-                f_spec == TI_SPEC_STR_RANGE);
+                f_spec == TI_SPEC_STR_RANGE ||
+                f_spec == TI_SPEC_UTF8_RANGE);
     case TI_SPEC_UTF8:
+        return (f_spec == TI_SPEC_UTF8 ||
+                f_spec == TI_SPEC_UTF8_RANGE);
     case TI_SPEC_BYTES:
         return f_spec == t_spec;
     case TI_SPEC_INT:
@@ -2351,7 +2350,12 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
             f_field->condition.drange->ma <= t_field->condition.drange->ma);
     case TI_SPEC_STR_RANGE:
         return (
-            f_spec == TI_SPEC_STR_RANGE &&
+            (f_spec == TI_SPEC_STR_RANGE || f_spec == TI_SPEC_UTF8_RANGE) &&
+            f_field->condition.srange->mi >= t_field->condition.srange->mi &&
+            f_field->condition.srange->ma <= t_field->condition.srange->ma);
+    case TI_SPEC_UTF8_RANGE:
+        return (
+            f_spec == TI_SPEC_UTF8_RANGE &&
             f_field->condition.srange->mi >= t_field->condition.srange->mi &&
             f_field->condition.srange->ma <= t_field->condition.srange->ma);
     }

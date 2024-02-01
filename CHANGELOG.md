@@ -30,6 +30,7 @@
 * The `new_backup()` and `new_token()` functions no longer accept `int`, `float` or `str` as time.
   _(This was marked as deprecated since v0.10.1)_
 * Added set operators `<=`, `<`, `>=`, `>` for subset, proper subset, superset and proper superset checking.
+* Added range support for UTF8 definition.
 
 # v1.4.16
 

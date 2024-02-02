@@ -738,7 +738,8 @@ int ti_collection_unpack(
     {
         ex_set(e, EX_VALUE_ERROR,
                 "export is created using ThingsDB version `%s` which is newer "
-                "than the running version `%s`");
+                "than the running version `"TI_VERSION"`",
+                version);
     }
     else for (i = obj.via.sz-2; i--;)
     {

@@ -191,7 +191,7 @@ int ti_collection_check_empty(ti_collection_t * collection, ex_t * e)
     else if (collection->vtasks->n)
         ex_set(e, EX_OPERATION, "%s collection contains tasks", pf);
     else if (collection->root->ref > 1)
-        ex_set(e, EX_OPERATION, "collection is being used", pf);
+        ex_set(e, EX_OPERATION, "collection is being used");
 
     return e->nr;
 }

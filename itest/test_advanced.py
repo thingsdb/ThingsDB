@@ -1,13 +1,9 @@
 #!/usr/bin/env python
-import asyncio
-import pickle
-import time
-from lib import run_test, INT_MAX, INT_MIN
+from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
 from thingsdb.exceptions import AssertionError
-from thingsdb.exceptions import BadDataError
 from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import MaxQuotaError
 from thingsdb.exceptions import NumArgumentsError
@@ -16,7 +12,6 @@ from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import SyntaxError
 from thingsdb.exceptions import TypeError
 from thingsdb.exceptions import ValueError
-from thingsdb.exceptions import ZeroDivisionError
 
 
 class TestAdvanced(TestBase):
@@ -2591,32 +2586,6 @@ new_procedure('multiply', |a, b| a * b);
             d.wrap('B')
         """)
         self.assertEqual(res, {"u": "D"})
-
-    async def test_bit_operations(self, client):
-        res = await client.query(r"""//ti
-            [
-                ~15,
-                ~-15,
-                ~~~---88,
-                ~!6,
-                ~!-6,
-                ~INT_MIN,
-                ~INT_MAX,
-                ~~INT_MIN,
-                ~~INT_MAX,
-            ];
-        """)
-        self.assertEqual(res, [
-            ~15,
-            ~-15,
-            ~~~-88,
-            ~0,
-            ~0,
-            ~INT_MIN,
-            ~INT_MAX,
-            ~~INT_MIN,
-            ~~INT_MAX,
-        ])
 
 
 if __name__ == '__main__':

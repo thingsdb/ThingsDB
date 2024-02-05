@@ -18,6 +18,7 @@ enum
     PO__AS_NUM,
     PO__CHK_NUM,
     PO__BIT_INV,
+    PO__BITWISE,
 };
 
 enum
@@ -28,6 +29,7 @@ enum
     PO__FLAG_AS_NUM   =1<<PO__AS_NUM,
     PO__FLAG_CHK_NUM  =1<<PO__CHK_NUM,
     PO__FLAG_BIT_INV  =1<<PO__BIT_INV,
+    PO__FLAG_BITWISE  =1<<PO__BITWISE,
 };
 
 int ti_preopr_bind(const char * s, size_t n)
@@ -56,7 +58,7 @@ int ti_preopr_bind(const char * s, size_t n)
         break;
     case '~':
         ++inverts;
-        preopr |= PO__FLAG_AS_NUM;
+        preopr |= PO__FLAG_AS_NUM|PO__FLAG_BITWISE;
     }
 
     while (--n)
@@ -104,7 +106,8 @@ int ti_preopr_calc(int preopr, ti_val_t ** val, ex_t * e)
         v->tp != TI_VAL_BOOL)
     {
         ex_set(e, EX_TYPE_ERROR,
-                "operation not supported by type `%s`",
+                "`%s` not supported by type `%s`",
+                (preopr & PO__FLAG_BITWISE) ? "~" : "-/+",
                 ti_val_str(v));
         return e->nr;
     }
@@ -127,9 +130,10 @@ int ti_preopr_calc(int preopr, ti_val_t ** val, ex_t * e)
         return 0;
     }
 
-    if (preopr & PO__FLAG_BIT_INV) switch(v->tp)
+    if (preopr & PO__FLAG_BITWISE) switch(v->tp)
     {
     case TI_VAL_INT:
+        if (preopr & PO__FLAG_BIT_INV)
         {
             int64_t i = VINT(v);
             if (preopr & PO__FLAG_NEGATIVE)
@@ -145,12 +149,16 @@ int ti_preopr_calc(int preopr, ti_val_t ** val, ex_t * e)
             *val = (ti_val_t *) ti_vint_create(~i);
             if (!*val)
                 ex_set_mem(e);
+            return e->nr;
         }
-        return e->nr;
+        break;
     case TI_VAL_FLOAT:
-        ex_set(e, EX_TYPE_ERROR, "bit inversion on float");
+        ex_set(e, EX_TYPE_ERROR,
+                "`~` not supported by type `%s`",
+                ti_val_str(v));
         return e->nr;
     case TI_VAL_BOOL:
+        if (preopr & PO__FLAG_BIT_INV)
         {
             _Bool b = VBOOL(v);
             if (preopr & PO__FLAG_NEGATIVE)
@@ -159,6 +167,7 @@ int ti_preopr_calc(int preopr, ti_val_t ** val, ex_t * e)
             *val = (ti_val_t *) ti_vint_create(~((int) b));
             return e->nr;
         }
+        break;
     }
 
     /*

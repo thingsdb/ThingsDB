@@ -17,6 +17,8 @@ enum
     PO__NEGATIVE,
     PO__AS_NUM,
     PO__CHK_NUM,
+    PO__BIT_INV,
+    PO__BITWISE,
 };
 
 enum
@@ -26,6 +28,8 @@ enum
     PO__FLAG_NEGATIVE =1<<PO__NEGATIVE,
     PO__FLAG_AS_NUM   =1<<PO__AS_NUM,
     PO__FLAG_CHK_NUM  =1<<PO__CHK_NUM,
+    PO__FLAG_BIT_INV  =1<<PO__BIT_INV,
+    PO__FLAG_BITWISE  =1<<PO__BITWISE,
 };
 
 int ti_preopr_bind(const char * s, size_t n)
@@ -33,6 +37,7 @@ int ti_preopr_bind(const char * s, size_t n)
     register int preopr = 0;
     register int negative = 0;
     register int nots = 0;
+    register int inverts = 0;
 
     if (!n)
         return preopr;  /* return 0 */
@@ -46,10 +51,14 @@ int ti_preopr_bind(const char * s, size_t n)
         ++negative;
         /* fall through */
     case '+':
-        preopr |= 1 << PO__AS_NUM;
+        preopr |= PO__FLAG_AS_NUM;
         break;
     case '!':
         ++nots;
+        break;
+    case '~':
+        ++inverts;
+        preopr |= PO__FLAG_AS_NUM|PO__FLAG_BITWISE;
     }
 
     while (--n)
@@ -62,6 +71,9 @@ int ti_preopr_bind(const char * s, size_t n)
             break;
         case '!':
             ++nots;
+            break;
+        case '~':
+            ++inverts;
         }
     }
 
@@ -72,7 +84,8 @@ int ti_preopr_bind(const char * s, size_t n)
         ((nots & 1)     << PO__FALSE) |
         ((!!nots)       << PO__BOOL) |
         ((negative & 1) << PO__NEGATIVE) |
-        ((*s != '!')    << PO__CHK_NUM)
+        ((*s != '!')    << PO__CHK_NUM) |
+        ((inverts & 1)  << PO__BIT_INV)
     );
 
     return preopr;
@@ -93,7 +106,8 @@ int ti_preopr_calc(int preopr, ti_val_t ** val, ex_t * e)
         v->tp != TI_VAL_BOOL)
     {
         ex_set(e, EX_TYPE_ERROR,
-                "`-/+` not supported by type `%s`",
+                "`%s` not supported by type `%s`",
+                (preopr & PO__FLAG_BITWISE) ? "~" : "-/+",
                 ti_val_str(v));
         return e->nr;
     }
@@ -107,14 +121,54 @@ int ti_preopr_calc(int preopr, ti_val_t ** val, ex_t * e)
     {
         _Bool b = (preopr & PO__FLAG_FALSE) ^ ti_val_as_bool(v);
         ti_val_unsafe_drop(v);
-        *val = preopr & PO__FLAG_AS_NUM
+        *val = (preopr & PO__FLAG_BIT_INV)
+            ? (ti_val_t *) ti_vint_create(preopr & PO__FLAG_NEGATIVE ? ~((int) -b) : ~((int) b))
+            : (preopr & PO__FLAG_AS_NUM)
             ? (ti_val_t *) ti_vint_create(preopr & PO__FLAG_NEGATIVE ? -b : b)
             : (ti_val_t *) ti_vbool_get(b);
 
         return 0;
     }
 
-    assert(preopr & PO__FLAG_AS_NUM);
+    if (preopr & PO__FLAG_BITWISE) switch(v->tp)
+    {
+    case TI_VAL_INT:
+        if (preopr & PO__FLAG_BIT_INV)
+        {
+            int64_t i = VINT(v);
+            if (preopr & PO__FLAG_NEGATIVE)
+            {
+                if (i == LLONG_MIN)
+                {
+                    ex_set(e, EX_OVERFLOW, "integer overflow");
+                    return e->nr;
+                }
+                i = -i;
+            }
+            ti_val_unsafe_drop(v);
+            *val = (ti_val_t *) ti_vint_create(~i);
+            if (!*val)
+                ex_set_mem(e);
+            return e->nr;
+        }
+        break;
+    case TI_VAL_FLOAT:
+        ex_set(e, EX_TYPE_ERROR,
+                "`~` not supported by type `%s`",
+                ti_val_str(v));
+        return e->nr;
+    case TI_VAL_BOOL:
+        if (preopr & PO__FLAG_BIT_INV)
+        {
+            _Bool b = VBOOL(v);
+            if (preopr & PO__FLAG_NEGATIVE)
+                b = -b;
+            ti_val_unsafe_drop(v);
+            *val = (ti_val_t *) ti_vint_create(~((int) b));
+            return e->nr;
+        }
+        break;
+    }
 
     /*
      * No ! is used in the sequence, so the number is unchanged, or the

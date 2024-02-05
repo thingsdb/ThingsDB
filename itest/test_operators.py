@@ -1,14 +1,10 @@
 #!/usr/bin/env python
-import asyncio
-import pickle
-import time
-from lib import run_test
+from lib import run_test, INT_MAX, INT_MIN
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
-from thingsdb.exceptions import AssertionError
-from thingsdb.exceptions import BadDataError
-from thingsdb.exceptions import LookupError
+from thingsdb.exceptions import TypeError
+from thingsdb.exceptions import SyntaxError
 from thingsdb.exceptions import OverflowError
 
 
@@ -301,6 +297,73 @@ class TestOperators(TestBase):
             str(|| - !! +5);
         '''), "|| -!!+5")
 
+    async def test_bit_operations(self, client):
+        res = await client.query(r"""//ti
+            [
+                ~15,
+                ~-15,
+                ~~~---88,
+                ~!6,
+                ~!!-6,
+                ~INT_MIN,
+                ~INT_MAX,
+                ~~INT_MIN,
+                ~~INT_MAX,
+            ];
+        """)
+        self.assertEqual(res, [
+            ~15,
+            ~-15,
+            ~~~-88,
+            ~0,
+            ~1,
+            ~INT_MIN,
+            ~INT_MAX,
+            ~~INT_MIN,
+            ~~INT_MAX,
+        ])
+
+        with self.assertRaisesRegex(
+                OverflowError,
+                r'integer overflow'):
+            await client.query(r"""//ti
+                ~-INT_MIN;
+            """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'`-/\+` not supported by type `str`'):
+            await client.query(r"""//ti
+                +"test";
+            """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'`~` not supported by type `str`'):
+            await client.query(r"""//ti
+                ~"test";
+            """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'~` not supported by type `float`'):
+            await client.query(r"""//ti
+                ~~1.0;
+            """)
+
+        with self.assertRaisesRegex(
+                SyntaxError,
+                r'error at line 1, position 1, unexpected character `~`'):
+            await client.query(r"""//ti
+                +~1;
+            """)
+
+        with self.assertRaisesRegex(
+                SyntaxError,
+                r'error at line 1, position 1, unexpected character `~`'):
+            await client.query(r"""//ti
+                !~1;
+            """)
 
 if __name__ == '__main__':
     run_test(TestOperators())

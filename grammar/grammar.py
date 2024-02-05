@@ -48,7 +48,7 @@ class LangDef(Grammar):
     x_function = Token('(')
     x_index = Token('[')
     x_parenthesis = Token('(')
-    x_preopr = Regex(r'(\s*!|\s*[\-+](?=[^0-9]))*')
+    x_preopr = Regex(r'(\s*~)*(\s*!|\s*[\-+](?=[^0-9]))*')
     x_ternary = Token('?')
     x_thing = Token('{')
     x_template = Token('`')

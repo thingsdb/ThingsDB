@@ -74,3 +74,7 @@ def run_test(test: TestBase):
     loop = asyncio.get_event_loop()
     cleanup()
     loop.run_until_complete(_run_test(test))
+
+
+INT_MIN = -9223372036854775808
+INT_MAX = 9223372036854775807

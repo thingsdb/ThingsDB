@@ -20,7 +20,7 @@ from pyleri import (
 
 # names have a max length of 255 characters
 RE_NAME = r'^[A-Za-z_][0-9A-Za-z_]{0,254}(?![0-9A-Za-z_])'
-STRICT = 0
+STRICT = 1
 
 
 class Choice(Choice_):

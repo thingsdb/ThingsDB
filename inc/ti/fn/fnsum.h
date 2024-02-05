@@ -49,7 +49,7 @@ static int sum__add(sum__t * sum, ti_val_t * val, ex_t * e)
         return 0;
     default:
         ex_set(e, EX_TYPE_ERROR,
-                "`-/+` not supported by type `%s`",
+                "operation not supported by type `%s`",
                 ti_val_str(val));
         return e->nr;
 

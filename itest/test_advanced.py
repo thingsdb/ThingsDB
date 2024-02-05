@@ -2,7 +2,7 @@
 import asyncio
 import pickle
 import time
-from lib import run_test
+from lib import run_test, INT_MAX, INT_MIN
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
@@ -2591,6 +2591,32 @@ new_procedure('multiply', |a, b| a * b);
             d.wrap('B')
         """)
         self.assertEqual(res, {"u": "D"})
+
+    async def test_bit_operations(self, client):
+        res = await client.query(r"""//ti
+            [
+                ~15,
+                ~-15,
+                ~~~---88,
+                ~!6,
+                ~!-6,
+                ~INT_MIN,
+                ~INT_MAX,
+                ~~INT_MIN,
+                ~~INT_MAX,
+            ];
+        """)
+        self.assertEqual(res, [
+            ~15,
+            ~-15,
+            ~~~-88,
+            ~0,
+            ~0,
+            ~INT_MIN,
+            ~INT_MAX,
+            ~~INT_MIN,
+            ~~INT_MAX,
+        ])
 
 
 if __name__ == '__main__':

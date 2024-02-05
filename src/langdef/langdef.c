@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2024-01-20 12:46:21
+ * Created at: 2024-02-04 14:13:28
  */
 
 #include <langdef/langdef.h>
@@ -27,7 +27,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * x_function = cleri_token(CLERI_GID_X_FUNCTION, "(");
     cleri_t * x_index = cleri_token(CLERI_GID_X_INDEX, "[");
     cleri_t * x_parenthesis = cleri_token(CLERI_GID_X_PARENTHESIS, "(");
-    cleri_t * x_preopr = cleri_regex(CLERI_GID_X_PREOPR, "^(\\s*!|\\s*[\\-+](?=[^0-9]))*");
+    cleri_t * x_preopr = cleri_regex(CLERI_GID_X_PREOPR, "^(\\s*~)*(\\s*!|\\s*[\\-+](?=[^0-9]))*");
     cleri_t * x_ternary = cleri_token(CLERI_GID_X_TERNARY, "?");
     cleri_t * x_thing = cleri_token(CLERI_GID_X_THING, "{");
     cleri_t * x_template = cleri_token(CLERI_GID_X_TEMPLATE, "`");
@@ -194,7 +194,7 @@ cleri_grammar_t * compile_langdef(void)
         CLERI_GID_BLOCK,
         3,
         x_block,
-        cleri_list(CLERI_NONE, CLERI_THIS, cleri_repeat(CLERI_NONE, cleri_token(CLERI_NONE, ";"), 1, 0), 1, 0, 1),
+        cleri_list(CLERI_NONE, CLERI_THIS, cleri_repeat(CLERI_NONE, cleri_token(CLERI_NONE, ";"), 0, 0), 1, 0, 1),
         cleri_token(CLERI_NONE, "}")
     );
     cleri_t * parenthesis = cleri_sequence(
@@ -286,7 +286,7 @@ cleri_grammar_t * compile_langdef(void)
         ),
         operations
     );
-    cleri_t * START = cleri_list(CLERI_GID_START, statement, cleri_repeat(CLERI_NONE, cleri_token(CLERI_NONE, ";"), 1, 0), 0, 0, 1);
+    cleri_t * START = cleri_list(CLERI_GID_START, statement, cleri_repeat(CLERI_NONE, cleri_token(CLERI_NONE, ";"), 0, 0), 0, 0, 1);
     cleri_ref_set(chain, cleri_sequence(
         CLERI_GID_CHAIN,
         4,

@@ -1652,7 +1652,7 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'`-/\+` not supported by type `str`'):
+                r'operation not supported by type `str`'):
             await client.query('.x.sum();')
 
         with self.assertRaisesRegex(

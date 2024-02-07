@@ -1,6 +1,6 @@
 # v1.5.0
 
-* Comments can be placed anywhere that whitespace is allowed.
+* Comments can be placed anywhere that white-space is allowed.
 * Comments are no longer stored within closures. This behavior was previously
   partially enforced, and now it is strictly followed.
 * Statements must be separated with semicolons. Syntax checking is now more strict.
@@ -20,18 +20,18 @@
   This has no impact on user-facing functionality.
 * Replaced Docker images _(both tests and builds)_ with newer versions.
 * Removed `ti_pkg_check` hack for old compilers. _(this is no longer required with recent compilers)_
-* Added integer minimun `INT_MIN` and maximum `INT_MAX` constants with corresponding values.
+* Added integer minimum `INT_MIN` and maximum `INT_MAX` constants with corresponding values.
 * The primary domain for the ThingsDB website has been changed from `.net` to `.io`.
 * Several new mathematical functions have been added: `abs(..)`, `ceil(..)`,
   `cos(..)`, `exp()..`, `floor(..)`, `log10(..)`, `log2(..)`, `loge(..)`,
   `pow(..)`, `round(..)`, `sin(..)`, `sqrt(..)` and `tan(..)`.
 * Added mathematical constants `MATH_E` and `MATH_PI` with corresponding values.
-* The library `libcleri` is now integrated into the core ThingsDB codebase, eliminating the need for separate installation.
+* The library `libcleri` is now integrated into the core ThingsDB code base, eliminating the need for separate installation.
 * The `new_backup()` and `new_token()` functions no longer accept `int`, `float` or `str` as time.
   _(This was marked as deprecated since v0.10.1)_
-* Added set operators `<=`, `<`, `>=`, `>` for subset, proper subset, superset and proper superset checking.
-* Added range `<..>` support for UTF8 type property definitions.
-* Added bitwise NOT (`~`) operator.
+* Added set operators `<=`, `<`, `>=`, `>` for subset, proper subset, super-set and proper super-set checking.
+* Added range `<..>` support for UTF-8 type property definitions.
+* Added bit-wise NOT (`~`) operator.
 * Return `nil` instead of success error when a repeating task is successful.
 * Corrected a spelling mistake in error message for integer range values.
 

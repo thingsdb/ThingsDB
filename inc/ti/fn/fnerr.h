@@ -13,7 +13,7 @@ static int do__f_err_task(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (fn_nargs("err", DOC_TASK_ERR, 0, nargs, e))
         return e->nr;
 
-    if (vtask->verr)
+    if (vtask->verr && vtask->verr->code)
     {
         query->rval = (ti_val_t *) vtask->verr;
         ti_incref(query->rval);

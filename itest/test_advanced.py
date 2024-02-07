@@ -710,7 +710,7 @@ class TestAdvanced(TestBase):
         with self.assertRaisesRegex(
                 ValueError,
                 r'mismatch in type `Foo`; '
-                r'property `int_a` requires a float value between '
+                r'property `int_a` requires an integer value between '
                 r'0 and 10 \(both inclusive\)'):
             await client.query(r'''
                 Foo{int_a: -1};
@@ -719,7 +719,7 @@ class TestAdvanced(TestBase):
         with self.assertRaisesRegex(
                 ValueError,
                 r'mismatch in type `Foo`; '
-                r'property `int_a` requires a float value between '
+                r'property `int_a` requires an integer value between '
                 r'0 and 10 \(both inclusive\)'):
             await client.query(r'''
                 Foo{int_a: 11};

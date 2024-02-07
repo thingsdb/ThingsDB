@@ -1863,7 +1863,7 @@ future_error:
 irange_error:
     ex_set(e, EX_VALUE_ERROR,
             "mismatch in type `%s`; "
-            "property `%s` requires a float value between "
+            "property `%s` requires an integer value between "
             "%"PRId64" and %"PRId64" (both inclusive)",
             field->type->name,
             field->name->str,

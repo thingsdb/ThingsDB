@@ -32,6 +32,8 @@
 * Added set operators `<=`, `<`, `>=`, `>` for subset, proper subset, superset and proper superset checking.
 * Added range `<..>` support for UTF8 type property definitions.
 * Added bitwise NOT (`~`) operator.
+* Return `nil` instead of success error when a repeating task is successful.
+* Corrected a spelling mistake in error message for integer range values.
 
 # v1.4.16
 

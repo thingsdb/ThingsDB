@@ -294,18 +294,18 @@ int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e)
 
         assert(vset->parent);
 
-        if (!vset->parent->id && thing->id)
-        {
-            ex_set(e, EX_TYPE_ERROR,
-                    "relations between stored and non-stored things must be "
-                    "created using the property on the the stored thing "
-                    "(the thing with an ID)");
-            return e->nr;
-        }
-
         if (field->condition.rel)
         {
             ti_field_t * ofield = field->condition.rel->field;
+
+            if (!vset->parent->id)
+            {
+                ex_set(e, EX_TYPE_ERROR,
+                        "relations must be created using a property "
+                        "on a stored thing (a thing with an Id)");
+                return e->nr;
+            }
+
             if (ofield->spec == TI_SPEC_SET)
             {
                 if (field != ofield || thing != vset->parent)

@@ -34,6 +34,7 @@
 * Added bit-wise NOT (`~`) operator.
 * Return `nil` instead of success error when a repeating task is successful.
 * Corrected a spelling mistake in error message for integer range values.
+* No longer allow a relation between a none-stored set and a none-stored value.
 
 # v1.4.16
 

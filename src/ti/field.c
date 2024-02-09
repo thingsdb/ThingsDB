@@ -2582,8 +2582,8 @@ static int field__non_id_chk(ti_thing_t * thing, field__set_rel_chk_t * w)
 
     ex_set(w->e, EX_TYPE_ERROR,
             "failed to create relation; "
-            "relations must be created using a property on a stored thing "
-            "(a thing with an Id)");
+            "relations must be created using a property "
+            "on a stored thing (a thing with an Id)");
     return w->e->nr;
 }
 

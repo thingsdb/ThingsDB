@@ -12,6 +12,7 @@ const char * langdef_translate(cleri_t * elem)
     case CLERI_GID_K_CONTINUE:
     case CLERI_GID_OPR0_MUL_DIV_MOD:
     case CLERI_GID_OPR1_ADD_SUB:
+    case CLERI_GID_OPR2_BITWISE_SHIFT:
     case CLERI_GID_OPR3_BITWISE_AND:
     case CLERI_GID_OPR4_BITWISE_XOR:
     case CLERI_GID_OPR5_BITWISE_OR:

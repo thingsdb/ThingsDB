@@ -810,7 +810,7 @@ static _Bool qbind__swap(cleri_node_t ** parent, uint32_t parent_gid)
      * operations must be handled from left-to-right. # bug #271
      */
     return gid > parent_gid || (
-            gid == parent_gid && gid != CLERI_GID_OPR8_TERNARY);
+            gid == parent_gid && gid != CLERI_GID_OPR9_TERNARY);
 }
 
 /*
@@ -822,7 +822,7 @@ static _Bool qbind__swap(cleri_node_t ** parent, uint32_t parent_gid)
  * The language uses keys like:
  *  - CLERI_GID_OPR0_MUL_DIV_MOD
  *  - CLERI_GID_OPR1_ADD_SUB
- *  - CLERI_GID_OPR2_BITWISE_AND,
+ *  - CLERI_GID_OPR3_BITWISE_AND,
  *  - etc....
  *  The keys are numbered so the corresponding ID's can be used as order.
  */
@@ -831,16 +831,17 @@ static _Bool qbind__operations(
         cleri_node_t ** parent,
         uint32_t parent_gid)
 {
-    static const ti_do_cb operation_cb[9] = {
+    static const ti_do_cb operation_cb[10] = {
             ti_do_operation,    /* CLERI_GID_OPR0_MUL_DIV_MOD */
             ti_do_operation,    /* CLERI_GID_OPR1_ADD_SUB */
-            ti_do_operation,    /* CLERI_GID_OPR2_BITWISE_AND */
-            ti_do_operation,    /* CLERI_GID_OPR3_BITWISE_XOR */
-            ti_do_operation,    /* CLERI_GID_OPR4_BITWISE_OR */
-            ti_do_operation,    /* CLERI_GID_OPR5_COMPARE */
-            ti_do_compare_and,  /* CLERI_GID_OPR6_CMP_AND */
-            ti_do_compare_or,   /* CLERI_GID_OPR7_CMP_OR */
-            ti_do_ternary,      /* CLERI_GID_OPR8_TERNARY */
+            ti_do_operation,    /* CLERI_GID_OPR2_BITWISE_SHIFT */
+            ti_do_operation,    /* CLERI_GID_OPR3_BITWISE_AND */
+            ti_do_operation,    /* CLERI_GID_OPR4_BITWISE_XOR */
+            ti_do_operation,    /* CLERI_GID_OPR5_BITWISE_OR */
+            ti_do_operation,    /* CLERI_GID_OPR6_COMPARE */
+            ti_do_compare_and,  /* CLERI_GID_OPR7_CMP_AND */
+            ti_do_compare_or,   /* CLERI_GID_OPR8_CMP_OR */
+            ti_do_ternary,      /* CLERI_GID_OPR9_TERNARY */
     };
     uint32_t gid = (*parent)->children->next->cl_obj->gid;
     cleri_node_t * childb = (*parent)->children->next->next;
@@ -848,11 +849,11 @@ static _Bool qbind__operations(
     (*parent)->data = operation_cb[gid - CLERI_GID_OPR0_MUL_DIV_MOD];
 
     assert(gid >= CLERI_GID_OPR0_MUL_DIV_MOD &&
-            gid <= CLERI_GID_OPR8_TERNARY);
+            gid <= CLERI_GID_OPR9_TERNARY);
 
     qbind__statement(qbind, (*parent)->children);
 
-    if (gid == CLERI_GID_OPR8_TERNARY)
+    if (gid == CLERI_GID_OPR9_TERNARY)
         qbind__statement(
                 qbind,
                 (*parent)->children->next->children->next);
@@ -871,7 +872,7 @@ static _Bool qbind__operations(
         gid = (*parent)->children->next->cl_obj->gid;
 
         assert(gid >= CLERI_GID_OPR0_MUL_DIV_MOD &&
-                gid <= CLERI_GID_OPR8_TERNARY);
+                gid <= CLERI_GID_OPR9_TERNARY);
 
         syntax_childa = &(*parent)->children->children;
         childb->children = *syntax_childa;
@@ -893,7 +894,7 @@ static _Bool qbind__operations(
      * operations must be handled from left-to-right. # bug #271
      */
     return gid > parent_gid || (
-            gid == parent_gid && gid != CLERI_GID_OPR8_TERNARY);
+            gid == parent_gid && gid != CLERI_GID_OPR9_TERNARY);
 }
 
 /*

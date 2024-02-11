@@ -390,7 +390,7 @@ static int ncache__operations(
         ex_t * e)
 {
     uint32_t gid = nd->children->next->cl_obj->gid;
-    if (gid == CLERI_GID_OPR8_TERNARY &&
+    if (gid == CLERI_GID_OPR9_TERNARY &&
         ncache__statement(
                 syntax,
                 vcache,

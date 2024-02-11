@@ -13,6 +13,8 @@
 #include <ti/opr/mul.h>
 #include <ti/opr/ne.h>
 #include <ti/opr/or.h>
+#include <ti/opr/sl.h>
+#include <ti/opr/sr.h>
 #include <ti/opr/sub.h>
 #include <ti/opr/xor.h>
 
@@ -48,11 +50,13 @@ int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t ** b, ex_t * e)
     case '/':
         return opr__div(a, b, e);
     case '<':
-        return nd->len == 1 ? opr__lt(a, b, e) : opr__le(a, b, e);
+        return nd->len == 1 ? opr__lt(a, b, e) :
+               nd->str[1] == '=' ? opr__le(a, b, e) : opr__sl(a, b, e);
     case '=':
         return opr__eq(a, b, e);
     case '>':
-        return nd->len == 1 ? opr__gt(a, b, e) : opr__ge(a, b, e);
+        return nd->len == 1 ? opr__gt(a, b, e) :
+               nd->str[1] == '=' ? opr__ge(a, b, e) : opr__sr(a, b, e);
     case '^':
         return opr__xor(a, b, e, nd->len == 2);
     case '|':

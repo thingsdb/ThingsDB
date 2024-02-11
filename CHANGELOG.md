@@ -1,6 +1,6 @@
 # v1.5.0
 
-* Comments can be placed anywhere that white-space is allowed.
+* Comments can now be placed anywhere where white-space is allowed.
 * Comments are no longer stored within closures. This behavior was previously
   partially enforced, and now it is strictly followed.
 * Statements must be separated with semicolons. Syntax checking is now more strict.
@@ -32,6 +32,7 @@
 * Added set operators `<=`, `<`, `>=`, `>` for subset, proper subset, super-set and proper super-set checking.
 * Added range `<..>` support for UTF-8 type property definitions.
 * Added bit-wise NOT (`~`) operator.
+* Added bit-wise Left (`<<`) and Right (`>>`) shifting operators.
 * Return `nil` instead of success error when a repeating task is successful.
 * Corrected a spelling mistake in error message for integer range values.
 * No longer allow a relation between a none-stored set and a none-stored value.

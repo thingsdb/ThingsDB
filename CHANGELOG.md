@@ -17,7 +17,7 @@
 * A bug with async future error reporting has been fixed.
 * A bug with clearing nesting tasks through arguments has been fixed.
 * The `change._tasks` structure in C code has been renamed.
-  This has no impact on user-facing functionality.
+  _(This has no impact on user-facing functionality)_
 * Replaced Docker images _(both tests and builds)_ with newer versions.
 * Removed `ti_pkg_check` hack for old compilers. _(this is no longer required with recent compilers)_
 * Added integer minimum `INT_MIN` and maximum `INT_MAX` constants with corresponding values.

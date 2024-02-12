@@ -1667,7 +1667,12 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 if (ti_opr_a_to_b(prop->val, tokens_nd, &query->rval, e))
                     return e->nr;
 
-                ti_val_unsafe_gc_drop(prop->val);
+                /* ti_val_unsafe_gc_drop */
+                if (!--prop->val->ref)
+                    ti_val(prop->val)->destroy(prop->val);
+                else
+                    ti_thing_may_push_gc((ti_thing_t *) prop->val);
+
                 prop->val = query->rval;
                 ti_incref(query->rval);
 

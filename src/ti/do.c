@@ -37,12 +37,12 @@
 #include <ti/vint.h>
 #include <util/strx.h>
 
+/* Use this code to enforce inlining the code; */
 static inline void do__val_unsafe_drop(ti_val_t * val)
 {
     if (!--val->ref)
         ti_val(val)->destroy(val);
 }
-
 
 static inline int do__no_node_scope(ti_query_t * query)
 {

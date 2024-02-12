@@ -37,6 +37,13 @@
 #include <ti/vint.h>
 #include <util/strx.h>
 
+static inline void do__val_unsafe_drop(ti_val_t * val)
+{
+    if (!--val->ref)
+        ti_val(val)->destroy(val);
+}
+
+
 static inline int do__no_node_scope(ti_query_t * query)
 {
     return \
@@ -77,7 +84,7 @@ static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return 0;
 
 failed:
-    ti_val_unsafe_drop((ti_val_t *) varr);
+    do__val_unsafe_drop((ti_val_t *) varr);
     return e->nr;
 }
 
@@ -303,7 +310,7 @@ static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 done:
     ti_val_unlock((ti_val_t *) thing, true /* lock_was_set */);
-    ti_val_unsafe_drop((ti_val_t *) thing);
+    do__val_unsafe_drop((ti_val_t *) thing);
     return e->nr;
 }
 
@@ -389,7 +396,7 @@ static int do__get_type_instance(
 
             thing = ti_type_from_thing(type, (ti_thing_t *) query->rval, e);
 
-            ti_val_unsafe_drop(query->rval);  /* from_thing */
+            do__val_unsafe_drop(query->rval);  /* from_thing */
             query->rval = (ti_val_t *) thing;
 
             return e->nr;
@@ -409,7 +416,7 @@ static int do__get_type_instance(
             return e->nr;
         }
 
-        ti_val_unsafe_drop(query->rval);
+        do__val_unsafe_drop(query->rval);
         query->rval = (ti_val_t *) thing;
 
         return 0;
@@ -457,7 +464,7 @@ static int do__get_enum_member(
 
         ti_incref(member);
 
-        ti_val_unsafe_drop(query->rval);
+        do__val_unsafe_drop(query->rval);
         query->rval = (ti_val_t *) member;
 
         return e->nr;
@@ -618,7 +625,7 @@ int ti_do_block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             !(child = child->next->next))
             break;
 
-        ti_val_unsafe_drop(query->rval);
+        do__val_unsafe_drop(query->rval);
         query->rval = NULL;
     }
     while (1);
@@ -677,7 +684,7 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (do__index(query, index_node, e) == 0 && child)
             (void) do__chain(query, child, e);
 
-        ti_val_unsafe_drop((ti_val_t *) thing);
+        do__val_unsafe_drop((ti_val_t *) thing);
         return e->nr;
     }
 
@@ -707,7 +714,7 @@ int ti_do_operation(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->next->next, e) == 0)
         (void) ti_opr_a_to_b(a, nd->children->next, &query->rval, e);
 
-    ti_val_unsafe_drop(a);
+    do__val_unsafe_drop(a);
     return e->nr;
 }
 
@@ -723,7 +730,7 @@ int ti_do_bit_sl(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->next->next, e) == 0)
         (void) opr__sl(a, &query->rval, e);
 
-    ti_val_unsafe_drop(a);
+    do__val_unsafe_drop(a);
     return e->nr;
 }
 
@@ -739,7 +746,7 @@ int ti_do_bit_sr(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->next->next, e) == 0)
         (void) opr__sr(a, &query->rval, e);
 
-    ti_val_unsafe_drop(a);
+    do__val_unsafe_drop(a);
     return e->nr;
 }
 
@@ -755,7 +762,7 @@ int ti_do_bit_and(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->next->next, e) == 0)
         (void) opr__and(a, &query->rval, e, false);
 
-    ti_val_unsafe_drop(a);
+    do__val_unsafe_drop(a);
     return e->nr;
 }
 
@@ -771,7 +778,7 @@ int ti_do_bit_xor(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->next->next, e) == 0)
         (void) opr__xor(a, &query->rval, e, false);
 
-    ti_val_unsafe_drop(a);
+    do__val_unsafe_drop(a);
     return e->nr;
 }
 
@@ -787,7 +794,7 @@ int ti_do_bit_or(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->next->next, e) == 0)
         (void) opr__or(a, &query->rval, e, false);
 
-    ti_val_unsafe_drop(a);
+    do__val_unsafe_drop(a);
     return e->nr;
 }
 
@@ -803,7 +810,7 @@ int ti_do_compare_eq(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->next->next, e) == 0)
         (void) opr__eq(a, &query->rval, e);
 
-    ti_val_unsafe_drop(a);
+    do__val_unsafe_drop(a);
     return e->nr;
 }
 
@@ -819,7 +826,7 @@ int ti_do_compare_ne(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->next->next, e) == 0)
         (void) opr__ne(a, &query->rval, e);
 
-    ti_val_unsafe_drop(a);
+    do__val_unsafe_drop(a);
     return e->nr;
 }
 
@@ -835,7 +842,7 @@ int ti_do_compare_lt(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->next->next, e) == 0)
         (void) opr__lt(a, &query->rval, e);
 
-    ti_val_unsafe_drop(a);
+    do__val_unsafe_drop(a);
     return e->nr;
 }
 
@@ -851,7 +858,7 @@ int ti_do_compare_le(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->next->next, e) == 0)
         (void) opr__le(a, &query->rval, e);
 
-    ti_val_unsafe_drop(a);
+    do__val_unsafe_drop(a);
     return e->nr;
 }
 
@@ -867,7 +874,7 @@ int ti_do_compare_gt(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->next->next, e) == 0)
         (void) opr__gt(a, &query->rval, e);
 
-    ti_val_unsafe_drop(a);
+    do__val_unsafe_drop(a);
     return e->nr;
 }
 
@@ -883,7 +890,7 @@ int ti_do_compare_ge(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_do_statement(query, nd->children->next->next, e) == 0)
         (void) opr__ge(a, &query->rval, e);
 
-    ti_val_unsafe_drop(a);
+    do__val_unsafe_drop(a);
     return e->nr;
 }
 
@@ -893,7 +900,7 @@ int ti_do_compare_and(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         !ti_val_as_bool(query->rval))
         return e->nr;
 
-    ti_val_unsafe_drop(query->rval);
+    do__val_unsafe_drop(query->rval);
     query->rval = NULL;
     return ti_do_statement(query, nd->children->next->next, e);
 }
@@ -904,7 +911,7 @@ int ti_do_compare_or(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_as_bool(query->rval))
         return e->nr;
 
-    ti_val_unsafe_drop(query->rval);
+    do__val_unsafe_drop(query->rval);
     query->rval = NULL;
     return ti_do_statement(query, nd->children->next->next, e);
 }
@@ -918,7 +925,7 @@ int ti_do_ternary(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ? nd->children->next->children->next
             : nd->children->next->next;
 
-    ti_val_unsafe_drop(query->rval);
+    do__val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     return ti_do_statement(query, nd, e);
@@ -934,7 +941,7 @@ int ti_do_if_statement(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     else if (!(nd = nd->children->next->data))
         return e->nr;
 
-    ti_val_unsafe_drop(query->rval);
+    do__val_unsafe_drop(query->rval);
     query->rval = NULL;
     return ti_do_statement(query, nd, e);
 }
@@ -952,7 +959,7 @@ int ti_do_return_alt_deep(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_deep_from_val(query->rval, &query->qbind.deep, e))
         return e->nr;
 
-    ti_val_unsafe_drop(query->rval);
+    do__val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (ti_do_statement(query, nd->children->next->children, e) == 0)
@@ -967,14 +974,14 @@ int ti_do_return_alt_flags(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_deep_from_val(query->rval, &query->qbind.deep, e))
         return e->nr;
 
-    ti_val_unsafe_drop(query->rval);
+    do__val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (ti_do_statement(query, node->next->next, e) ||
         ti_flags_set_from_val(query->rval, &query->flags, e))
         return e->nr;
 
-    ti_val_unsafe_drop(query->rval);
+    do__val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (ti_do_statement(query, nd->children->next->children, e) == 0)
@@ -1306,7 +1313,7 @@ failed_save:
     if (!e->nr)
         ex_set_mem(e);
 failed:
-    ti_val_unsafe_drop((ti_val_t *) thing);
+    do__val_unsafe_drop((ti_val_t *) thing);
     return e->nr;
 }
 
@@ -1516,8 +1523,8 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         (void) ti_closure_call(closure, query, args, e);
 
         /* cleanup closure and arguments */
-        ti_val_unsafe_drop((ti_val_t *) closure);
-        vec_destroy(args, (vec_destroy_cb) ti_val_unsafe_drop);
+        do__val_unsafe_drop((ti_val_t *) closure);
+        vec_destroy(args, (vec_destroy_cb) do__val_unsafe_drop);
 
         if (e->nr)
             return e->nr;
@@ -1541,7 +1548,7 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     enum_->name,
                     rname->n, (const char *) rname->data);
 
-        ti_val_unsafe_drop((ti_val_t *) rname);
+        do__val_unsafe_drop((ti_val_t *) rname);
         break;
     }
     }
@@ -1707,7 +1714,7 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
 
         /* switch `a` with `b` as the new value is set to `b` */
-        ti_val_unsafe_drop(prop->val);
+        do__val_unsafe_drop(prop->val);
         prop->val = query->rval;
         ti_incref(prop->val);
         return e->nr;

@@ -813,6 +813,34 @@ static _Bool qbind__swap(cleri_node_t ** parent, uint32_t parent_gid)
             gid == parent_gid && gid != CLERI_GID_OPR9_TERNARY);
 }
 
+static inline ti_do_cb qbind__find_operation(cleri_node_t * nd)
+{
+    switch(nd->cl_obj->gid)
+    {
+    case CLERI_GID_OPR0_MUL_DIV_MOD:
+    case CLERI_GID_OPR1_ADD_SUB: return ti_do_operation;
+    case CLERI_GID_OPR2_BITWISE_SHIFT:
+        return *nd->str == '<' ? ti_do_bit_sl : ti_do_bit_sr;
+    case CLERI_GID_OPR3_BITWISE_AND: return ti_do_bit_and;
+    case CLERI_GID_OPR4_BITWISE_XOR: return ti_do_bit_xor;
+    case CLERI_GID_OPR5_BITWISE_OR: return ti_do_bit_or;
+    case CLERI_GID_OPR6_COMPARE:
+        switch(*nd->str)
+        {
+        case '=': return ti_do_compare_eq;
+        case '!': return ti_do_compare_ne;
+        case '<': return nd->len == 1 ? ti_do_compare_lt : ti_do_compare_le;
+        case '>': return nd->len == 1 ? ti_do_compare_gt : ti_do_compare_ge;
+        }
+        break;
+    case CLERI_GID_OPR7_CMP_AND: return ti_do_compare_and;
+    case CLERI_GID_OPR8_CMP_OR: return ti_do_compare_or;
+    case CLERI_GID_OPR9_TERNARY: return ti_do_ternary;
+    }
+    assert(0);
+    return NULL;
+}
+
 /*
  * Analyze operations nodes.
  *
@@ -822,7 +850,7 @@ static _Bool qbind__swap(cleri_node_t ** parent, uint32_t parent_gid)
  * The language uses keys like:
  *  - CLERI_GID_OPR0_MUL_DIV_MOD
  *  - CLERI_GID_OPR1_ADD_SUB
- *  - CLERI_GID_OPR3_BITWISE_AND,
+ *  - CLERI_GID_OPR2_BITWISE_SHIFT,
  *  - etc....
  *  The keys are numbered so the corresponding ID's can be used as order.
  */
@@ -831,22 +859,10 @@ static _Bool qbind__operations(
         cleri_node_t ** parent,
         uint32_t parent_gid)
 {
-    static const ti_do_cb operation_cb[10] = {
-            ti_do_operation,    /* CLERI_GID_OPR0_MUL_DIV_MOD */
-            ti_do_operation,    /* CLERI_GID_OPR1_ADD_SUB */
-            ti_do_operation,    /* CLERI_GID_OPR2_BITWISE_SHIFT */
-            ti_do_operation,    /* CLERI_GID_OPR3_BITWISE_AND */
-            ti_do_operation,    /* CLERI_GID_OPR4_BITWISE_XOR */
-            ti_do_operation,    /* CLERI_GID_OPR5_BITWISE_OR */
-            ti_do_operation,    /* CLERI_GID_OPR6_COMPARE */
-            ti_do_compare_and,  /* CLERI_GID_OPR7_CMP_AND */
-            ti_do_compare_or,   /* CLERI_GID_OPR8_CMP_OR */
-            ti_do_ternary,      /* CLERI_GID_OPR9_TERNARY */
-    };
     uint32_t gid = (*parent)->children->next->cl_obj->gid;
     cleri_node_t * childb = (*parent)->children->next->next;
 
-    (*parent)->data = operation_cb[gid - CLERI_GID_OPR0_MUL_DIV_MOD];
+    (*parent)->data = qbind__find_operation((*parent)->children->next);
 
     assert(gid >= CLERI_GID_OPR0_MUL_DIV_MOD &&
             gid <= CLERI_GID_OPR9_TERNARY);

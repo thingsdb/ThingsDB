@@ -1,3 +1,6 @@
+#ifndef TI_OPR_OR_H_
+#define TI_OPR_OR_H_
+
 #include <ti/opr/oprinc.h>
 
 static int opr__or(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
@@ -92,3 +95,5 @@ alloc_err:
     ex_set_mem(e);
     return e->nr;
 }
+
+#endif /* TI_OPR_OR_H_ */

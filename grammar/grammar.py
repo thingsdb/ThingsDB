@@ -229,7 +229,6 @@ if __name__ == '__main__':
     langdef = LangDef()
     res = langdef.parse(r'''1 << 4;''')
     print(res.is_valid)
-    exit(0)
 
     res = langdef.parse(r'''/./;''')
     print(res.is_valid)

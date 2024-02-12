@@ -90,24 +90,26 @@ class LangDef(Grammar):
 
     opr0_mul_div_mod = Tokens('* / %')
     opr1_add_sub = Tokens('+ -')
-    opr2_bitwise_and = Tokens('&')
-    opr3_bitwise_xor = Tokens('^')
-    opr4_bitwise_or = Tokens('|')
-    opr5_compare = Tokens('< > == != <= >=')
-    opr6_cmp_and = Token('&&')
-    opr7_cmp_or = Token('||')
-    opr8_ternary = Sequence(x_ternary, THIS, ':')
+    opr2_bitwise_shift = Tokens('<< >>')
+    opr3_bitwise_and = Tokens('&')
+    opr4_bitwise_xor = Tokens('^')
+    opr5_bitwise_or = Tokens('|')
+    opr6_compare = Tokens('< > == != <= >=')
+    opr7_cmp_and = Token('&&')
+    opr8_cmp_or = Token('||')
+    opr9_ternary = Sequence(x_ternary, THIS, ':')
 
     operations = Sequence(THIS, Choice(
         # make sure `ternary`, `and` and `or` is on top so we can stop
-        # at the first match
-        opr8_ternary,
-        opr7_cmp_or,
-        opr6_cmp_and,
-        opr5_compare,
-        opr4_bitwise_or,
-        opr3_bitwise_xor,
-        opr2_bitwise_and,
+        # at the first match; The bitwise shift must be before compare.
+        opr9_ternary,
+        opr8_cmp_or,
+        opr7_cmp_and,
+        opr2_bitwise_shift,
+        opr6_compare,
+        opr5_bitwise_or,
+        opr4_bitwise_xor,
+        opr3_bitwise_and,
         opr1_add_sub,
         opr0_mul_div_mod,
     ), THIS)
@@ -225,7 +227,7 @@ grammar2 = r"""
 
 if __name__ == '__main__':
     langdef = LangDef()
-    res = langdef.parse(r'''x = /./;''')
+    res = langdef.parse(r'''1 << 4;''')
     print(res.is_valid)
 
     res = langdef.parse(r'''/./;''')

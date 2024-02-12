@@ -436,7 +436,7 @@ static int fmt__operations(ti_fmt_t * fmt, cleri_node_t * nd)
 {
     cleri_node_t * node;
 
-    if (nd->children->next->cl_obj->gid == CLERI_GID_OPR8_TERNARY)
+    if (nd->children->next->cl_obj->gid == CLERI_GID_OPR9_TERNARY)
     {
         cleri_node_t
             * nd_true = nd->children->next->children->next,

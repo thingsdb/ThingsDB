@@ -365,5 +365,31 @@ class TestOperators(TestBase):
                 !~1;
             """)
 
+    async def test_bitshift(self, client):
+        res = await client.query(r"""//ti
+            [
+                1 << 2,
+                2 << 3 / 3,
+                3 / 3 << 2,
+                6 >> 1,
+                10 >> 2 << 2,
+            ];
+        """)
+        self.assertEqual(res, [
+            1 << 2,
+            2 << 3 // 3,
+            3 // 3 << 2,
+            6 >> 1,
+            10 >> 2 << 2,
+        ])
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'bitwise `<<` not supported between `float` and `int`'):
+            await client.query(r"""//ti
+                3.0 << 1;
+            """)
+
+
 if __name__ == '__main__':
     run_test(TestOperators())

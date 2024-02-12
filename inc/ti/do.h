@@ -13,6 +13,17 @@ typedef int (*ti_do_cb)(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 
 int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_operation(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_bit_sl(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_bit_sr(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_bit_and(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_bit_xor(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_bit_or(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_compare_eq(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_compare_ne(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_compare_lt(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_compare_le(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_compare_gt(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_compare_ge(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_compare_and(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_compare_or(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_ternary(ti_query_t * query, cleri_node_t * nd, ex_t * e);

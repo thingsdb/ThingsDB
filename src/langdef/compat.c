@@ -111,14 +111,14 @@ cleri_grammar_t * compile_compat(void)
     );
     cleri_t * opr0_mul_div_mod = cleri_tokens(CLERI_GID_OPR0_MUL_DIV_MOD, "* / %");
     cleri_t * opr1_add_sub = cleri_tokens(CLERI_GID_OPR1_ADD_SUB, "+ -");
-    cleri_t * opr2_bitwise_and = cleri_tokens(CLERI_GID_OPR2_BITWISE_AND, "&");
-    cleri_t * opr3_bitwise_xor = cleri_tokens(CLERI_GID_OPR3_BITWISE_XOR, "^");
-    cleri_t * opr4_bitwise_or = cleri_tokens(CLERI_GID_OPR4_BITWISE_OR, "|");
-    cleri_t * opr5_compare = cleri_tokens(CLERI_GID_OPR5_COMPARE, "== != <= >= < >");
-    cleri_t * opr6_cmp_and = cleri_token(CLERI_GID_OPR6_CMP_AND, "&&");
-    cleri_t * opr7_cmp_or = cleri_token(CLERI_GID_OPR7_CMP_OR, "||");
+    cleri_t * opr2_bitwise_and = cleri_tokens(CLERI_GID_OPR3_BITWISE_AND, "&");
+    cleri_t * opr3_bitwise_xor = cleri_tokens(CLERI_GID_OPR4_BITWISE_XOR, "^");
+    cleri_t * opr4_bitwise_or = cleri_tokens(CLERI_GID_OPR5_BITWISE_OR, "|");
+    cleri_t * opr5_compare = cleri_tokens(CLERI_GID_OPR6_COMPARE, "== != <= >= < >");
+    cleri_t * opr6_cmp_and = cleri_token(CLERI_GID_OPR7_CMP_AND, "&&");
+    cleri_t * opr7_cmp_or = cleri_token(CLERI_GID_OPR8_CMP_OR, "||");
     cleri_t * opr8_ternary = cleri_sequence(
-        CLERI_GID_OPR8_TERNARY,
+        CLERI_GID_OPR9_TERNARY,
         3,
         x_ternary,
         CLERI_THIS,

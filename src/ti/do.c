@@ -17,6 +17,17 @@
 #include <ti/names.h>
 #include <ti/nil.h>
 #include <ti/opr/oprinc.h>
+#include <ti/opr/and.h>
+#include <ti/opr/eq.h>
+#include <ti/opr/ge.h>
+#include <ti/opr/gt.h>
+#include <ti/opr/le.h>
+#include <ti/opr/lt.h>
+#include <ti/opr/ne.h>
+#include <ti/opr/or.h>
+#include <ti/opr/sl.h>
+#include <ti/opr/sr.h>
+#include <ti/opr/xor.h>
 #include <ti/preopr.h>
 #include <ti/regex.h>
 #include <ti/task.h>
@@ -225,21 +236,6 @@ static inline int do__upd_prop(
     *wprop->val = query->rval;
     ti_incref(query->rval);
 
-    return 0;
-}
-
-static inline int do__upd_vaddr(
-        ti_val_t ** vaddr,
-        ti_query_t * query,
-        cleri_node_t * tokens_nd,
-        ex_t * e)
-{
-    if (ti_opr_a_to_b(*vaddr, tokens_nd, &query->rval, e))
-        return e->nr;
-
-    ti_val_unsafe_gc_drop(*vaddr);
-    *vaddr = query->rval;
-    ti_incref(query->rval);
     return 0;
 }
 
@@ -695,6 +691,182 @@ int ti_do_operation(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_do_statement(query, nd->children->next->next, e) == 0)
         (void) ti_opr_a_to_b(a, nd->children->next, &query->rval, e);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_bit_sl(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__sl(a, &query->rval, e);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_bit_sr(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__sr(a, &query->rval, e);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_bit_and(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__and(a, &query->rval, e, false);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_bit_xor(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__xor(a, &query->rval, e, false);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_bit_or(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__or(a, &query->rval, e, false);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_compare_eq(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__eq(a, &query->rval, e);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_compare_ne(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__ne(a, &query->rval, e);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_compare_lt(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__lt(a, &query->rval, e);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_compare_le(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__le(a, &query->rval, e);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_compare_gt(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__gt(a, &query->rval, e);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_compare_ge(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__ge(a, &query->rval, e);
 
     ti_val_unsafe_drop(a);
     return e->nr;
@@ -1492,12 +1664,17 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     return e->nr;
                 }
 
-                if (do__upd_vaddr(
-                        &prop->val,
-                        query,
-                        tokens_nd,
-                        e))
+                if (ti_opr_a_to_b(prop->val, tokens_nd, &query->rval, e))
                     return e->nr;
+
+                /* ti_val_unsafe_gc_drop */
+                if (!--prop->val->ref)
+                    ti_val(prop->val)->destroy(prop->val);
+                else
+                    ti_thing_may_push_gc((ti_thing_t *) prop->val);
+
+                prop->val = query->rval;
+                ti_incref(query->rval);
 
                 if (thing->id)
                 {

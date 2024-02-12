@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2024-02-05 10:13:48
+ * Created at: 2024-02-11 20:55:25
  */
 
 #include <langdef/langdef.h>
@@ -111,14 +111,15 @@ cleri_grammar_t * compile_langdef(void)
     );
     cleri_t * opr0_mul_div_mod = cleri_tokens(CLERI_GID_OPR0_MUL_DIV_MOD, "* / %");
     cleri_t * opr1_add_sub = cleri_tokens(CLERI_GID_OPR1_ADD_SUB, "+ -");
-    cleri_t * opr2_bitwise_and = cleri_tokens(CLERI_GID_OPR2_BITWISE_AND, "&");
-    cleri_t * opr3_bitwise_xor = cleri_tokens(CLERI_GID_OPR3_BITWISE_XOR, "^");
-    cleri_t * opr4_bitwise_or = cleri_tokens(CLERI_GID_OPR4_BITWISE_OR, "|");
-    cleri_t * opr5_compare = cleri_tokens(CLERI_GID_OPR5_COMPARE, "== != <= >= < >");
-    cleri_t * opr6_cmp_and = cleri_token(CLERI_GID_OPR6_CMP_AND, "&&");
-    cleri_t * opr7_cmp_or = cleri_token(CLERI_GID_OPR7_CMP_OR, "||");
-    cleri_t * opr8_ternary = cleri_sequence(
-        CLERI_GID_OPR8_TERNARY,
+    cleri_t * opr2_bitwise_shift = cleri_tokens(CLERI_GID_OPR2_BITWISE_SHIFT, "<< >>");
+    cleri_t * opr3_bitwise_and = cleri_tokens(CLERI_GID_OPR3_BITWISE_AND, "&");
+    cleri_t * opr4_bitwise_xor = cleri_tokens(CLERI_GID_OPR4_BITWISE_XOR, "^");
+    cleri_t * opr5_bitwise_or = cleri_tokens(CLERI_GID_OPR5_BITWISE_OR, "|");
+    cleri_t * opr6_compare = cleri_tokens(CLERI_GID_OPR6_COMPARE, "== != <= >= < >");
+    cleri_t * opr7_cmp_and = cleri_token(CLERI_GID_OPR7_CMP_AND, "&&");
+    cleri_t * opr8_cmp_or = cleri_token(CLERI_GID_OPR8_CMP_OR, "||");
+    cleri_t * opr9_ternary = cleri_sequence(
+        CLERI_GID_OPR9_TERNARY,
         3,
         x_ternary,
         CLERI_THIS,
@@ -131,14 +132,15 @@ cleri_grammar_t * compile_langdef(void)
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            9,
-            opr8_ternary,
-            opr7_cmp_or,
-            opr6_cmp_and,
-            opr5_compare,
-            opr4_bitwise_or,
-            opr3_bitwise_xor,
-            opr2_bitwise_and,
+            10,
+            opr9_ternary,
+            opr8_cmp_or,
+            opr7_cmp_and,
+            opr2_bitwise_shift,
+            opr6_compare,
+            opr5_bitwise_or,
+            opr4_bitwise_xor,
+            opr3_bitwise_and,
             opr1_add_sub,
             opr0_mul_div_mod
         ),

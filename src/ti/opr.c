@@ -4,14 +4,8 @@
 #include <ti/opr/add.h>
 #include <ti/opr/and.h>
 #include <ti/opr/div.h>
-#include <ti/opr/eq.h>
-#include <ti/opr/ge.h>
-#include <ti/opr/gt.h>
-#include <ti/opr/le.h>
-#include <ti/opr/lt.h>
 #include <ti/opr/mod.h>
 #include <ti/opr/mul.h>
-#include <ti/opr/ne.h>
 #include <ti/opr/or.h>
 #include <ti/opr/sub.h>
 #include <ti/opr/xor.h>
@@ -27,14 +21,8 @@
 
 int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t ** b, ex_t * e)
 {
-    /*
-     * TODO: this code can be pre-compiled and bind the correct function so
-     *       a call to this function is no longer required;
-     */
     switch (*nd->str)
     {
-    case '!':
-        return opr__ne(a, b, e);
     case '%':
         return opr__mod(a, b, e);
     case '&':
@@ -47,12 +35,6 @@ int ti_opr_a_to_b(ti_val_t * a, cleri_node_t * nd, ti_val_t ** b, ex_t * e)
         return opr__sub(a, b, e, nd->len == 2);
     case '/':
         return opr__div(a, b, e);
-    case '<':
-        return nd->len == 1 ? opr__lt(a, b, e) : opr__le(a, b, e);
-    case '=':
-        return opr__eq(a, b, e);
-    case '>':
-        return nd->len == 1 ? opr__gt(a, b, e) : opr__ge(a, b, e);
     case '^':
         return opr__xor(a, b, e, nd->len == 2);
     case '|':

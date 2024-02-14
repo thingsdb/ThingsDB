@@ -38,6 +38,7 @@
 * No longer allow a relation between a none-stored set and a none-stored value.
 * Removed the `<` and `>` from returning a room to a client to be consistent.
 * Allow explicit variable list for empty future using a direct closure.
+* Return value of `mod_procedure(..)` as changed to `nil` on success.
 
 # v1.4.16
 

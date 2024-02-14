@@ -4,7 +4,6 @@ static int do__f_mod_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
     ti_task_t * task;
-    ti_raw_t * raw;
     ti_procedure_t * procedure;
     ti_closure_t * closure;
     smap_t * procedures = ti_query_procedures(query);
@@ -19,20 +18,20 @@ static int do__f_mod_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!procedure)
         return ti_raw_err_not_found((ti_raw_t *) query->rval, "procedure", e);
 
-    raw = (ti_raw_t *) query->rval;
+    ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
     if (ti_do_statement(query, nd->children->next->next, e) ||
         fn_arg_closure("mod_procedure", DOC_MOD_PROCEDURE, 2, query->rval, e))
-        goto fail1;
+        return e->nr;
 
     closure = (ti_closure_t *) query->rval;
     if (ti_closure_unbound(closure, e))
-        goto fail1;
+        return e->nr;
 
     ti_procedure_mod(procedure, closure, util_now_usec());
 
-    query->rval = (ti_val_t *) raw;
+    query->rval = (ti_val_t *) ti_nil_get();
 
     task = ti_task_get_task(
             query->change,
@@ -42,9 +41,5 @@ static int do__f_mod_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_panic("failed to create mod_procedure task");
         ex_set_mem(e);
     }
-    return e->nr;
-
-fail1:
-    ti_val_unsafe_drop((ti_val_t *) raw);
     return e->nr;
 }

@@ -36,6 +36,8 @@
 * Return `nil` instead of success error when a repeating task is successful.
 * Corrected a spelling mistake in error message for integer range values.
 * No longer allow a relation between a none-stored set and a none-stored value.
+* Removed the `<` and `>` from returning a room to a client to be consistent.
+* Allow explicit variable list for empty future using a direct closure.
 
 # v1.4.16
 

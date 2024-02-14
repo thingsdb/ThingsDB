@@ -661,6 +661,15 @@ class TestModules(TestBase):
         """)
         self.assertEqual(res, ['READY', 200])
 
+        res = await client.query(r"""//ti
+            requests.get('http://localhost:8080/status');
+        """)
+        self.assertEqual(res, [{
+            'body': b'READY\n',
+            'status': '200 OK',
+            'status_code': 200
+        }])
+
     async def test_demo_py_module(self, client):
         await client.query(r"""//ti
              new_module('demo', 'github.com/thingsdb/module-py-demo');

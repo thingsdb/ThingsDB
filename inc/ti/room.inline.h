@@ -33,8 +33,8 @@ static inline ti_raw_t * ti_room_str(ti_room_t * room)
 static inline int ti_room_to_client_pk(ti_room_t * room, msgpack_packer * pk)
 {
     return room->id
-        ? mp_pack_fmt(pk, "<room:%"PRIu64">", room->id)
-        : mp_pack_str(pk, "<room:nil>");
+        ? mp_pack_fmt(pk, "room:%"PRIu64, room->id)
+        : mp_pack_str(pk, "room:nil");
 }
 
 static inline int ti_room_to_store_pk(ti_room_t * room, msgpack_packer * pk)

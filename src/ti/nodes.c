@@ -1527,7 +1527,7 @@ _Bool ti_nodes_require_sync(void)
  * nodes. The rule is that at least a quorum can still be reached, even if the
  * new node fails to connect.
  */
-int ti_nodes_check_add(ex_t * e)
+int ti_nodes_check_add(const char * addr, uint16_t port, ex_t * e)
 {
     vec_t * nodes_vec = nodes->vec;
     uint8_t may_skip = nodes_vec->n >= 4
@@ -1542,6 +1542,13 @@ int ti_nodes_check_add(ex_t * e)
 
     for (vec_each(nodes_vec, ti_node_t, node))
     {
+        if (node->addr == addr && node->port == port)
+        {
+            ex_set(e, EX_LOOKUP_ERROR,
+                "node with `%s:%u` already exists ("TI_NODE_ID")",
+                addr, port, node->id);
+            return e->nr;
+        }
         if (node->status <= TI_NODE_STAT_CONNECTED && !may_skip--)
         {
             ex_set(e, EX_OPERATION,

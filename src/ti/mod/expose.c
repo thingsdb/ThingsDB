@@ -60,6 +60,10 @@ int ti_mod_expose_call(
 
     query->rval = NULL;
 
+    /*
+     * We do not crash on argmap is NULL, however, the argmap is always set
+     * unless some allocation error has occurred.
+     */
     if (expose->argmap)
     {
         size_t sz = expose->argmap->n + defaults_n;

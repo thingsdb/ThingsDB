@@ -39,6 +39,8 @@
 * Removed the `<` and `>` from returning a room to a client to be consistent.
 * Allow explicit variable list for empty future using a direct closure.
 * Return value of `mod_procedure(..)` as changed to `nil` on success.
+* Enfore `argmap` property for exposed module methods.
+* Prevent adding a dupicated node _(based on address and port)_.
 
 # v1.4.16
 

@@ -569,7 +569,7 @@ static int smap__add(smap_node_t * node, const char * key, void * data)
                  */
                 k = (uint8_t) *key;
 
-                if (smap__node_resize(node, k > SMAP_BSH))
+                if (smap__node_resize(node, k >> SMAP_BSH))
                     return SMAP_ERR_ALLOC;
                 key++;
                 nd = smap__node_create(key, strlen(key), data);

@@ -1545,7 +1545,7 @@ int ti_nodes_check_add(const char * addr, uint16_t port, ex_t * e)
         if (node->addr == addr && node->port == port)
         {
             ex_set(e, EX_LOOKUP_ERROR,
-                "node with `%s:%u` already exists ("TI_NODE_ID")",
+                "node `%s:%u` already exists ("TI_NODE_ID")",
                 addr, port, node->id);
             return e->nr;
         }

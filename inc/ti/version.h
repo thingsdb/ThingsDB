@@ -25,7 +25,7 @@
  *  "-rc0"
  *  ""
  */
-#define TI_VERSION_PRE_RELEASE "-alpha17"
+#define TI_VERSION_PRE_RELEASE "-alpha18"
 
 #define TI_MAINTAINER \
     "Jeroen van der Heijden <jeroen@cesbit.com>"

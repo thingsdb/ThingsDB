@@ -1542,7 +1542,7 @@ int ti_nodes_check_add(const char * addr, uint16_t port, ex_t * e)
 
     for (vec_each(nodes_vec, ti_node_t, node))
     {
-        if (node->addr == addr && node->port == port)
+        if (strcmp(node->addr, addr) == 0 && node->port == port)
         {
             ex_set(e, EX_LOOKUP_ERROR,
                 "node `%s:%u` already exists ("TI_NODE_ID")",

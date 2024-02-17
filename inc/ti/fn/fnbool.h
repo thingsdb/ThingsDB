@@ -12,7 +12,7 @@ static int do__f_bool(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         assert(query->rval == NULL);
         query->rval = (ti_val_t *) ti_vbool_get(false);
-        return e->nr;
+        return 0;
     }
 
     if (ti_do_statement(query, nd->children, e))
@@ -22,5 +22,5 @@ static int do__f_bool(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(tobool);
 
-    return e->nr;
+    return 0;
 }

@@ -16,7 +16,6 @@ static struct link__s * link__new(void * data, struct link__s * next)
     return link;
 }
 
-
 link_t * link_create(void)
 {
     link_t * link = malloc(sizeof(link_t));

@@ -41,6 +41,7 @@
 * Return value of `mod_procedure(..)` as changed to `nil` on success.
 * Enfore `argmap` property for exposed module methods.
 * Prevent adding a dupicated node _(based on address and port)_.
+* No shutdown wait time for uninitialized nodes.
 
 # v1.4.16
 

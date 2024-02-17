@@ -1129,7 +1129,7 @@ static void ti__shutdown_cb(uv_timer_t * UNUSED(timer))
      * shutdown so request should stop in a short period. When there is only
      * one node, there is no point in waiting.
      */
-    if (shutdown_counter > 0 && ti.nodes->vec->n == 1)
+    if (shutdown_counter > 0 && ti.nodes->vec->n <= 1)
     {
         shutdown_counter = 0;
     }

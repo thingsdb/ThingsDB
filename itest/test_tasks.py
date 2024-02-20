@@ -1,20 +1,14 @@
 #!/usr/bin/env python
 import asyncio
-import pickle
-import time
 from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
-from thingsdb.exceptions import AssertionError
 from thingsdb.exceptions import ValueError
 from thingsdb.exceptions import TypeError
 from thingsdb.exceptions import NumArgumentsError
-from thingsdb.exceptions import BadDataError
+from thingsdb.exceptions import ForbiddenError
 from thingsdb.exceptions import LookupError
-from thingsdb.exceptions import OverflowError
-from thingsdb.exceptions import ZeroDivisionError
-from thingsdb.exceptions import OperationError
 
 
 num_nodes = 2
@@ -381,10 +375,10 @@ class TestTasks(TestBase):
     async def test_set_owner(self, client):
         # bug #275
         task_id = await client.query("""//ti
-            new_user('iris');
-            grant('/t', 'iris', FULL);
+            new_user('alisa');
+            grant('/t', 'alisa', FULL);
             task = task(datetime().move('days', 1), ||true);
-            task.set_owner('iris');
+            task.set_owner('alisa');
             task.id();
         """, scope='/t')
 
@@ -392,7 +386,48 @@ class TestTasks(TestBase):
         client1.set_default_scope('/t')
 
         owner = await client1.query('task(id).owner();', id=task_id)
-        self.assertEqual(owner, 'iris')
+        self.assertEqual(owner, 'alisa')
+
+    async def test_set_owner_access_too_much(self, client):
+        await client.query("""//ti
+            new_user('iris');
+            set_password('iris', 'siri');
+            grant('/t', 'iris', QUERY|CHANGE|RUN);
+            new_user('cato');
+            grant('/t', 'cato', QUERY);
+            new_user('tess');
+            grant('/t', 'tess', QUERY|CHANGE);
+        """, scope='/t')
+
+        testcl1 = await get_client(
+            self.node0,
+            auth=['iris', 'siri'],
+            auto_reconnect=False)
+
+        with self.assertRaisesRegex(
+                ForbiddenError,
+                r'user `admin` has privileges \(`GRANT|JOIN`\) that user '
+                r'iris` is missing on scope `@thingsd`'):
+            await testcl1.query("""//ti
+                task = task(datetime().move('seconds', 60), ||nil);
+                task.set_owner("admin")
+            """)
+
+        with self.assertRaisesRegex(
+                ForbiddenError,
+                r'user `cato` is missing the required '
+                r'privileges \(`CHANGE`\) on scope `@thingsdb`'):
+            await testcl1.query("""//ti
+                task = task(datetime().move('seconds', 60), ||nil);
+                task.set_owner("cato")
+            """)
+
+        owner = await testcl1.query("""//ti
+            task = task(datetime().move('seconds', 60), ||nil);
+            task.set_owner("tess");
+            task.owner();
+        """)
+        self.assertEqual(owner, 'tess')
 
 
 if __name__ == '__main__':

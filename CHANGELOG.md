@@ -16,6 +16,7 @@
 * A bug with applying a new relation to existing data has been fixed.
 * A bug with async future error reporting has been fixed.
 * A bug with clearing nesting tasks through arguments has been fixed.
+* Tasks owners must be set to owners with equal or less access flags.
 * The `change._tasks` structure in C code has been renamed.
   _(This has no impact on user-facing functionality)_
 * Replaced Docker images _(both tests and builds)_ with newer versions.
@@ -42,6 +43,7 @@
 * Enfore `argmap` property for exposed module methods.
 * Prevent adding a dupicated node _(based on address and port)_.
 * No shutdown wait time for uninitialized nodes.
+* New user and new collection return the name, not the ID.
 
 # v1.4.16
 

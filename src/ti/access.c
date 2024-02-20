@@ -134,6 +134,42 @@ int ti_access_check_err(
     return e->nr;
 }
 
+/* Returns 0 if "o" has less or equal access rights compared to "n".
+ * The value is non-zero if "n" has rights which "o" does not have
+ */
+int ti_access_more_check(
+        const vec_t * access,
+        ti_user_t * o,
+        ti_user_t * n,
+        ex_t * e)
+{
+    uint16_t om = 0;
+    uint16_t nm = 0;
+    for (vec_each(access, ti_auth_t, auth))
+    {
+        if (auth->user == o)
+            om = auth->mask;
+        else if (auth->user == n)
+            nm = auth->mask;
+    }
+    if (nm -= (om & nm))
+    {
+        char * prefix, * name;
+        size_t name_sz;
+        access__helper_str(access, &prefix, &name, &name_sz);
+
+        ex_set(e, EX_FORBIDDEN,
+                "user `%.*s` has privileges (`%s`) that user `%.*s` is "
+                "missing on scope `%s%.*s`",
+                n->name->n, (char *) n->name->data,
+                ti_auth_mask_to_str(nm),
+                o->name->n, (char *) o->name->data,
+                prefix,
+                name_sz, name);
+    }
+    return e->nr;
+}
+
 /*
  * Return 0 if the user has the required privileges or EX_FORBIDDEN if not
  * with e->msg set

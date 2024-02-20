@@ -7,6 +7,9 @@ static int do__f_set_owner(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_vtask_t * vtask;
     ti_raw_t * ruser;
     ti_user_t * user;
+    vec_t * access_ = query->collection ?
+            query->collection->access :
+            ti.access_thingsdb;
 
     if (!ti_val_is_task(query->rval))
         return fn_call_try("set_owner", query, nd, e);
@@ -31,11 +34,8 @@ static int do__f_set_owner(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
     }
 
-    if (ti_access_check_err(
-            query->collection ? query->collection->access : ti.access_thingsdb,
-            user,
-            TI_AUTH_CHANGE,
-            e))
+    if (ti_access_check_err(access_, user, TI_AUTH_CHANGE, e) ||
+        ti_access_more_check(access_, query->user, user, e))
         goto fail0;
 
     ti_val_unsafe_drop(query->rval);

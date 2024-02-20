@@ -743,6 +743,10 @@ void ti_stop(void)
     {
         (void) ti_backups_store();
         (void) ti_nodes_write_global_status();
+        (void) ti_modules_stop_and_destroy();  /* required here too; for when
+                                                * the address is still in use
+                                                * and ti_offline isn't called
+                                                */
 
         if (ti_flag_test(TI_FLAG_TI_CHANGED))
             (void) ti_save();

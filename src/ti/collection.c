@@ -186,8 +186,6 @@ int ti_collection_check_empty(ti_collection_t * collection, ex_t * e)
         ex_set(e, EX_OPERATION, "%s collection contains enumerators", pf);
     else if (collection->procedures->n)
         ex_set(e, EX_OPERATION, "%s collection contains procedures", pf);
-    else if (collection->futures->n)
-        ex_set(e, EX_OPERATION, "%s collection contains futures", pf);
     else if (collection->vtasks->n)
         ex_set(e, EX_OPERATION, "%s collection contains tasks", pf);
     else if (collection->root->ref > 1)

@@ -170,10 +170,8 @@ class TestThingsDBFunctions(TestBase):
             await client.query('del_collection(1234);')
 
         test1 = await client.query('new_collection("test1");')
-        test2 = await client.query('new_collection("test2");')
-
-        self.assertIs(await client.query('del_collection("test1");'), None)
-        self.assertIs(await client.query(f'del_collection({test2});'), None)
+        self.assertIs(
+            await client.query('del_collection(test1);', test1=test1), None)
 
     async def test_del_user(self, client):
         with self.assertRaisesRegex(

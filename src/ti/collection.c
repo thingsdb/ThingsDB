@@ -172,6 +172,12 @@ int ti_collection_rename(
     return 0;
 }
 
+/*
+ * Check if a collection is really empty. Note that futures aren't checked,
+ * this is not required but keep in mind that they might exist and want to
+ * modify the collection afterwards. Allowing futures allows for a module to
+ * load an export and use import to restore the collection.
+ */
 int ti_collection_check_empty(ti_collection_t * collection, ex_t * e)
 {
     const char * pf = "collection not empty;";

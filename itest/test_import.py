@@ -112,7 +112,8 @@ class TestImport(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                'collection not empty; collection contains properties'):
+                'collection not empty; '
+                'collection `stuff` contains properties'):
             await client0.query('.x = 1; import(bytes());')
 
     async def test_export(self, client0, client1):

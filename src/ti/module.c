@@ -1663,10 +1663,13 @@ void ti_module_destroy(ti_module_t * module)
 
     if (module->wait_deploy)
     {
-        uv_timer_stop(module->wait_deploy);
+        uv_timer_t * timer = module->wait_deploy;
+        module->wait_deploy = NULL;
+        uv_timer_stop(timer);
         uv_close(
-                (uv_handle_t *) module->wait_deploy,
+                (uv_handle_t *) timer,
                 (uv_close_cb) module__wait_close_cb);
+        return;
     }
 
     omap_destroy(module->futures, (omap_destroy_cb) ti_future_cancel);

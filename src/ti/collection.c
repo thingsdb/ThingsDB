@@ -178,24 +178,25 @@ int ti_collection_rename(
  * modify the collection afterwards. Allowing futures allows for a module to
  * load an export and use import to restore the collection.
  */
+#define TCCENM collection->name->n, (const char *) collection->name->data
 int ti_collection_check_empty(ti_collection_t * collection, ex_t * e)
 {
     const char * pf = "collection not empty;";
 
     if (collection->things->n != 1)
-        ex_set(e, EX_OPERATION, "%s collection contains things", pf);
+        ex_set(e, EX_OPERATION, "%s collection `%.*s` contains things", pf, TCCENM);
     else if (collection->types->imap->n)
-        ex_set(e, EX_OPERATION, "%s collection contains types", pf);
+        ex_set(e, EX_OPERATION, "%s collection `%.*s` contains types", pf, TCCENM);
     else if (ti_thing_n(collection->root))
-        ex_set(e, EX_OPERATION, "%s collection contains properties", pf);
+        ex_set(e, EX_OPERATION, "%s collection `%.*s` contains properties", pf, TCCENM);
     else if (collection->enums->imap->n)
-        ex_set(e, EX_OPERATION, "%s collection contains enumerators", pf);
+        ex_set(e, EX_OPERATION, "%s collection `%.*s` contains enumerators", pf, TCCENM);
     else if (collection->procedures->n)
-        ex_set(e, EX_OPERATION, "%s collection contains procedures", pf);
+        ex_set(e, EX_OPERATION, "%s collection `%.*s` contains procedures", pf, TCCENM);
     else if (collection->vtasks->n)
-        ex_set(e, EX_OPERATION, "%s collection contains tasks", pf);
+        ex_set(e, EX_OPERATION, "%s collection `%.*s` contains tasks", pf, TCCENM);
     else if (collection->root->ref > 1)
-        ex_set(e, EX_OPERATION, "collection is being used");
+        ex_set(e, EX_OPERATION, "collection `%.*s` is being used", TCCENM);
 
     return e->nr;
 }

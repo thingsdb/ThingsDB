@@ -85,6 +85,15 @@ int ti_collections_gc(void)
     return rc;
 }
 
+/* futures are not counted; this has to be done outside this function */
+int ti_collections_check_empty(ex_t * e)
+{
+    for (vec_each(collections->vec, ti_collection_t, collection))
+        if (ti_collection_check_empty(collection, e))
+            return e->nr;
+    return e->nr;
+}
+
 _Bool ti_collections_del_collection(const uint64_t collection_id)
 {
     uint32_t i = 0;

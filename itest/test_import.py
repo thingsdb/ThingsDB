@@ -216,7 +216,7 @@ class TestImport(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                'collection is being used'):
+                'collection `stuff` is being used'):
             await client0.query(r"""//ti
                 .del('msg');
                 .other = {

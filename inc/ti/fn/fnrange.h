@@ -1,6 +1,6 @@
 #include <ti/fn/fn.h>
 
-#define TI_RANGE_MAX 9999
+#define TI_RANGE_MAX 100000
 
 static int do__f_range(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {

@@ -45,6 +45,7 @@
 * No shutdown wait time for uninitialized nodes.
 * New user and new collection return the name, not the ID.
 * Ignore empty collections on restore for better user experience.
+* Increase range max from `9999` to `100000`.
 
 # v1.4.16
 

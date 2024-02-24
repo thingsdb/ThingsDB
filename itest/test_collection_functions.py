@@ -3617,7 +3617,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'maximum range length exceeded'):
-            await client.query('range(0, 30000, 2);')
+            await client.query('range(0, 300000, 2);')
 
         self.assertEqual(
             await client.query('range(8)'), list(range(8)))

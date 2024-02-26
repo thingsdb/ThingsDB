@@ -182,7 +182,7 @@ static int do__f_future(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
 
         future->then = (ti_closure_t *) query->rval;
-        query->rval = NULL;
+        query->rval = NULL;  /* must be set to null for correct future count */
     }
     else
     {

@@ -30,7 +30,7 @@ class TestFuture(TestBase):
     async def test_recursion(self, client):
         with self.assertRaisesRegex(
                 OperationError,
-                r'maximum nested future count has been reached;'):
+                r'maximum future count on closure has been reached;'):
             await client.query(r'''
                 fut = || {
                     future(nil, fut).then(|_, fut| {

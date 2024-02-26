@@ -66,7 +66,7 @@ static inline int ti_closure_inc_future(ti_closure_t * closure, ex_t * e)
 {
     if (closure->future_count == TI_CLOSURE_MAX_FUTURE_COUNT)
         ex_set(e, EX_OPERATION,
-                "maximum nested future count has been reached"DOC_TYPE_CLOSURE);
+                "maximum future count on closure has been reached"DOC_TYPE_CLOSURE);
     else
         closure->future_count++;
     return e->nr;

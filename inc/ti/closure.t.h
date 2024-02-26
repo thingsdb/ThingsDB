@@ -6,7 +6,7 @@
 #define TI_CLOSURE_T_H_
 
 #define TI_CLOSURE_MAX_RECURSION_DEPTH 24
-#define TI_CLOSURE_MAX_FUTURE_COUNT 8
+#define TI_CLOSURE_MAX_FUTURE_COUNT 255
 
 typedef struct ti_closure_s ti_closure_t;
 

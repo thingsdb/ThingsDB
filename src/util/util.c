@@ -2,7 +2,9 @@
  * util/util.c
  */
 #define _GNU_SOURCE
+#ifndef __APPLE__
 #include <linux/random.h>
+#endif
 #include <stdlib.h>
 #include <sys/syscall.h>
 #include <time.h>
@@ -39,7 +41,9 @@ time_t util_now_tsec(void)
 
 void util_get_random(void * buf, size_t n)
 {
+#ifndef __APPLE__
     if (syscall(SYS_getrandom, buf, n, GRND_NONBLOCK) != (ssize_t) n)
+#endif
     {
         log_warning(
                 "getrandom(..) has failed; "

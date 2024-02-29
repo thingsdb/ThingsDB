@@ -58,6 +58,7 @@ dkms.conf
 # Binaries
 Debug/tindb
 Release/tindb
+MacOS/tindb
 
 # Python
 .pyc
@@ -75,6 +76,7 @@ __pycache__/
 # Build
 Debug/thingsdb
 Release/thingsdb
+MacOS/thingsdb
 
 # Python building
 connectors/python3/build/

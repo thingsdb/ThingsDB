@@ -1,3 +1,7 @@
+# v1.5.1
+
+* Added support for building on MacOS.
+
 # v1.5.0
 
 * Comments can now be placed anywhere where white-space is allowed.

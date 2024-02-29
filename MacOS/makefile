@@ -37,7 +37,7 @@ all: thingsdb
 thingsdb: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C Linker'
-	gcc -L/opt/homebrew/opt/libuv/lib -L/opt/homebrew/opt/pcre2/lib -L/opt/homebrew/opt/yajl/lib -L/opt/homebrew/opt/curl/lib -o "thingsdb" $(OBJS) $(USER_OBJS) $(LIBS)
+	gcc -L/opt/homebrew/opt/libuv/lib -L/opt/homebrew/opt/pcre2/lib -L/opt/homebrew/opt/yajl/lib -L/opt/homebrew/opt/curl/lib $(LDFLAGS) -o "thingsdb" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 

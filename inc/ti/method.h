@@ -2,7 +2,7 @@
  * ti/method.h
  */
 #ifndef TI_METHOD_H_
-#define TI_MEHTOD_H_
+#define TI_METHOD_H_
 
 #include <cleri/cleri.h>
 #include <ex.h>
@@ -45,4 +45,4 @@ int ti_method_set_name_e(
         ex_t * e);
 void ti_method_set_closure(ti_method_t * method, ti_closure_t * closure);
 
-#endif  /* TI_MEHTOD_H_ */
+#endif  /* TI_METHOD_H_ */

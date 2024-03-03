@@ -1,6 +1,7 @@
 # v1.5.1
 
 * Added support for building on MacOS.
+* Fixed spelling mistake in error message.
 
 # v1.5.0
 

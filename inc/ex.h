@@ -47,7 +47,7 @@
 #define EX_FORBIDDEN_X          "forbidden (access denied)"
 #define EX_AUTH_ERROR_X         "authentication error"
 #define EX_MAX_QUOTA_X          "max quota is reached"
-#define EX_ZERO_DIV_X           "division or module by zero"
+#define EX_ZERO_DIV_X           "division or modulo by zero"
 #define EX_OVERFLOW_X           "integer overflow"
 #define EX_VALUE_ERROR_X        "object has the right type but an inappropriate value"
 #define EX_TYPE_ERROR_X         "object of inappropriate type"

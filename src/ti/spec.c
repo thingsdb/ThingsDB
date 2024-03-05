@@ -244,10 +244,7 @@ int ti_spec_from_raw(
 
     if (fmap)
     {
-        if (fmap->spec == TI_SPEC_ANY)
-            *spec = TI_SPEC_ANY;
-        else
-            *spec = fmap->spec;
+        *spec = fmap->spec;
         return 0;
     }
 

@@ -4970,7 +4970,7 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(err, Err.EX_ZERO_DIV)
 
         err = await client.query('zero_div_err();')
-        self.assertEqual(err, "division or module by zero")
+        self.assertEqual(err, "division or modulo by zero")
 
         err = await client.query('zero_div_err("my custom error msg");')
         self.assertEqual(err, "my custom error msg")

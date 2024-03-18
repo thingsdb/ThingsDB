@@ -24,6 +24,7 @@
 #define TI_VAL_DATETIME_S   "datetime"
 #define TI_VAL_TIMEVAL_S    "timeval"
 #define TI_VAL_FUTURE_S     "future"
+#define TI_VAL_MODULE_S     "module"
 #define TI_VAL_TASK_S       "task"
 
 #define TI_KIND_S_INSTANCE  "."     /* Internally, New typed thing */

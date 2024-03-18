@@ -117,7 +117,10 @@ static inline const char * val__future_type_str(ti_val_t * UNUSED(val))
 {
     return TI_VAL_FUTURE_S;
 }
-
+static inline const char * val__module_type_str(ti_val_t * UNUSED(val))
+{
+    return TI_VAL_MODULE_S;
+}
 static inline int val__nil_to_client_pk(ti_val_t * UNUSED(v), ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
 {
     return msgpack_pack_nil(&vp->pk);
@@ -461,7 +464,7 @@ static ti_val_type_t ti_val_type_props[21] = {
         .to_str = val__no_to_str,
         .to_arr_cb = val__module_to_arr,
         .to_client_pk = (ti_val_to_client_pk_cb) val__module_to_client_pk,
-        .get_type_str = val__future_type_str,
+        .get_type_str = val__module_type_str,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_TEMPLATE */

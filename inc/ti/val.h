@@ -68,6 +68,7 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e);
 _Bool ti_val_as_bool(ti_val_t * val);
 size_t ti_val_get_len(ti_val_t * val);
 int ti_val_gen_ids(ti_val_t * val);
+_Bool ti_val_has_ids(ti_val_t * val);
 size_t ti_val_alloc_size(ti_val_t * val);
 ti_val_t * ti_val_strv(ti_val_t * val);
 int ti_val_copy(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep);

@@ -245,5 +245,16 @@ class TestFuture(TestBase):
                 future(|a, b| a + b);
             """)
 
+    async def test_no_ids(self, client):
+        with self.assertRaisesRegex(
+                OperationError,
+                'context does not allow arguments which are stored by Id'):
+            await client.query("""//ti
+                .t = t = {name: 'iris'};
+                future(|t| {
+                    t.name = 'Iris';
+                });
+            """)
+
 if __name__ == '__main__':
     run_test(TestFuture())

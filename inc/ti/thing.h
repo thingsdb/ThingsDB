@@ -88,6 +88,7 @@ int ti_thing_get_by_raw_e(
         ti_raw_t * r,
         ex_t * e);
 int ti_thing_gen_id(ti_thing_t * thing);
+_Bool ti_thing_has_id(ti_thing_t * thing);
 int ti_thing__to_client_pk(
         ti_thing_t * thing,
         ti_vp_t * vp,

@@ -1410,9 +1410,14 @@ size_t ti_val_get_len(ti_val_t * val)
     return 0;
 }
 
-static inline int val__walk_set(ti_thing_t * thing, void * UNUSED(_))
+static inline int val__walk_gen_id_set(ti_thing_t * thing, void * UNUSED(_))
 {
     return !thing->id && ti_thing_gen_id(thing);
+}
+
+static inline int val__walk_has_id_set(ti_thing_t * thing, void * UNUSED(_))
+{
+    return (int) ti_thing_has_id(thing);
 }
 
 /*
@@ -1475,7 +1480,7 @@ int ti_val_gen_ids(ti_val_t * val)
                     return -1;
         break;
     case TI_VAL_SET:
-        return imap_walk(VSET(val), (imap_cb) val__walk_set, NULL);
+        return imap_walk(VSET(val), (imap_cb) val__walk_gen_id_set, NULL);
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
         break;
@@ -1484,6 +1489,48 @@ int ti_val_gen_ids(ti_val_t * val)
         assert(0);
     }
     return 0;
+}
+
+_Bool ti_val_has_ids(ti_val_t * val)
+{
+    switch ((ti_val_enum) val->tp)
+    {
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
+    case TI_VAL_MPDATA:
+    case TI_VAL_NAME:
+    case TI_VAL_STR:
+    case TI_VAL_BYTES:
+    case TI_VAL_REGEX:
+        return false;
+    case TI_VAL_TASK:
+        return ((ti_vtask_t *) val)->id != 0;
+    case TI_VAL_MEMBER:
+        return ((ti_member_t *) val)->tp == TI_ENUM_THING;
+    case TI_VAL_THING:
+        return ti_thing_has_id((ti_thing_t *) val);
+    case TI_VAL_WRAP:
+        return ti_thing_has_id(((ti_wrap_t *) val)->thing);
+    case TI_VAL_ROOM:
+        return ((ti_room_t *) val)->id != 0;
+    case TI_VAL_ARR:
+        for (vec_each(VARR(val), ti_val_t, v))
+            if (ti_val_has_ids(v))
+                return true;
+        return false;
+    case TI_VAL_SET:
+        return imap_walk(VSET(val), (imap_cb) val__walk_has_id_set, NULL);
+    case TI_VAL_CLOSURE:
+    case TI_VAL_ERROR:
+    case TI_VAL_FUTURE:
+        return false;
+    case TI_VAL_TEMPLATE:
+        assert(0);
+    }
+    return false;
 }
 
 size_t ti_val_alloc_size(ti_val_t * val)

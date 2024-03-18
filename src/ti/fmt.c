@@ -337,8 +337,8 @@ static int fmt__array(ti_fmt_t * fmt, cleri_node_t * nd)
 
 static int fmt__block(ti_fmt_t * fmt, cleri_node_t * nd)
 {
-    cleri_node_t * child = nd           /* seq<{, comment, list, }> */
-            ->children->next->next      /* list statements */
+    cleri_node_t * child = nd           /* seq<token({), list, }> */
+            ->children->next            /* list statements */
             ->children;                 /* first child, not empty */
 
 
@@ -397,7 +397,7 @@ static int fmt__expr_choice(ti_fmt_t * fmt, cleri_node_t * nd)
         return fmt__parenthesis(fmt, nd);
     }
 
-    assert (0);
+    assert(0);
     return -1;
 }
 
@@ -436,7 +436,7 @@ static int fmt__operations(ti_fmt_t * fmt, cleri_node_t * nd)
 {
     cleri_node_t * node;
 
-    if (nd->children->next->cl_obj->gid == CLERI_GID_OPR8_TERNARY)
+    if (nd->children->next->cl_obj->gid == CLERI_GID_OPR9_TERNARY)
     {
         cleri_node_t
             * nd_true = nd->children->next->children->next,
@@ -481,7 +481,7 @@ static int fmt__operations(ti_fmt_t * fmt, cleri_node_t * nd)
 
 static int fmt__if_statement(ti_fmt_t * fmt, cleri_node_t * nd)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_IF_STATEMENT);
+    assert(nd->cl_obj->gid == CLERI_GID_IF_STATEMENT);
 
     if (buf_append_str(&fmt->buf, "if (") ||
         fmt__statement(fmt, nd->children->next->next) ||
@@ -550,7 +550,7 @@ static int fmt__for_statement(ti_fmt_t * fmt, cleri_node_t * nd)
 
 static int fmt__statement(ti_fmt_t * fmt, cleri_node_t * nd)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_STATEMENT);
+    assert(nd->cl_obj->gid == CLERI_GID_STATEMENT);
 
     nd = nd->children;
     switch (nd->cl_obj->gid)
@@ -574,7 +574,7 @@ static int fmt__statement(ti_fmt_t * fmt, cleri_node_t * nd)
     case CLERI_GID_OPERATIONS:
         return fmt__operations(fmt, nd);
     }
-    assert (0);
+    assert(0);
     return -1;
 }
 

@@ -14,5 +14,5 @@ static int do__f_is_bool(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vbool_get(is_bool);
 
-    return e->nr;
+    return 0;
 }

@@ -44,8 +44,6 @@ ti_wrap_t * ti_wrap_create(ti_thing_t * thing, uint16_t type_id)
 
 void ti_wrap_destroy(ti_wrap_t * wrap)
 {
-    if (!wrap)
-        return;
     ti_val_unsafe_gc_drop((ti_val_t *) wrap->thing);
     free(wrap);
 }
@@ -247,7 +245,6 @@ int ti__wrap_methods_to_pk(
         int flags)
 {
     int rc = 0;
-    ex_t e = {0};
     ti_val_t * rval = vp->query->rval;
     register const uint8_t deep_ = vp->query->qbind.deep;
     register const uint8_t flags_ = vp->query->flags;
@@ -257,6 +254,7 @@ int ti__wrap_methods_to_pk(
 
     for (vec_each(t_type->methods, ti_method_t, method))
     {
+        ex_t e = {0};  /* bug #343 */
         _Bool is_success = true;  /* bug #332 */
         vp->query->rval = NULL;
         vp->query->qbind.deep = vp->query->collection->deep;
@@ -337,7 +335,7 @@ int ti__wrap_field_thing(
     ti_type_t * t_type;
     spec &= TI_SPEC_MASK_NILLABLE;
 
-    assert (thing->tp == TI_VAL_THING);
+    assert(thing->tp == TI_VAL_THING);
 
     /*
      * Just return the ID when locked or if `deep` has reached zero.
@@ -504,7 +502,7 @@ fail:
 
 int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep)
 {
-    assert (deep);
+    assert(deep);
     ti_thing_t * other, * thing = (*wrap)->thing;
     ti_type_t * type = ti_types_by_id(
             thing->collection->types,
@@ -593,7 +591,7 @@ fail:
 
 int ti_wrap_dup(ti_wrap_t ** wrap, uint8_t deep)
 {
-    assert (deep);
+    assert(deep);
     ti_wrap_t * nwrap = ti_wrap_create((*wrap)->thing, (*wrap)->type_id);
     if (!nwrap)
         return -1;

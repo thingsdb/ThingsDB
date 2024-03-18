@@ -12,6 +12,9 @@
 #include <util/vec.h>
 
 /* name */
+extern ti_val_t * val__async_name;
+extern ti_val_t * val__data_name;
+extern ti_val_t * val__time_name;
 extern ti_val_t * val__year_name;
 extern ti_val_t * val__month_name;
 extern ti_val_t * val__day_name;
@@ -34,6 +37,11 @@ extern ti_val_t * val__sany;
 extern ti_val_t * val__snil;
 extern ti_val_t * val__strue;
 extern ti_val_t * val__sfalse;
+
+/* regular expression */
+extern ti_val_t * val__re_email;
+extern ti_val_t * val__re_url;
+extern ti_val_t * val__re_tel;
 
 int ti_val_init_common(void);
 void ti_val_drop_common(void);

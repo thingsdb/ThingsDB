@@ -133,8 +133,16 @@ int ti_store_collection_restore(ti_collection_t * collection, const char * fn)
         log_critical("cannot find collection root: "TI_THING_ID, id);
         goto failed;
     }
-
     ti_incref(collection->root);
+
+    /* TODO: (COMPAT) This check is for compatibility with ThingsDB
+     *       versions before v1.5.0 -- the collection Id in newer versions is
+     *       stored with the collection info.
+     */
+    if (collection->id == 0)
+    {
+        collection->id = id;  /* equal to the root Id for older versions */
+    }
     goto done;
 
 failed:

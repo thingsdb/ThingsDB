@@ -35,7 +35,7 @@ static int index__read_slice_indices(
         ssize_t * step,
         ex_t * e)
 {
-    assert (query->rval == NULL);
+    assert(query->rval == NULL);
 
     const ssize_t n = *stop;
     cleri_node_t * child = slice->children;
@@ -72,7 +72,7 @@ static int index__read_slice_indices(
         child = child->next;
     }
 
-    assert (child);  /* ':' */
+    assert(child);  /* ':' */
 
     child = child->next;
     if (!child)
@@ -103,13 +103,13 @@ static int index__read_slice_indices(
             return e->nr;
     }
 
-    assert (child);  /* ':' */
+    assert(child);  /* ':' */
 
     child = child->next;
 
     if (child)  /* must be a statement since no more indices are allowed */
     {
-        assert (child->cl_obj->gid == CLERI_GID_STATEMENT);
+        assert(child->cl_obj->gid == CLERI_GID_STATEMENT);
 
         if (ti_do_statement(query, child, e))
             return e->nr;
@@ -602,12 +602,12 @@ fail0:
 
 int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (query->rval);
+    assert(query->rval);
 
     ti_val_t * val = query->rval;
     cleri_node_t * slice = nd->children->next;
 
-    assert (slice->cl_obj->gid == CLERI_GID_SLICE);
+    assert(slice->cl_obj->gid == CLERI_GID_SLICE);
 
     _Bool do_assign = !!nd->children->next->next->next;
     _Bool do_slice = (
@@ -679,7 +679,7 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto index_error;
     }
 
-    assert (0);
+    assert(0);
     return e->nr;
 
 slice_error:

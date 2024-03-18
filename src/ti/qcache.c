@@ -99,8 +99,8 @@ ti_query_t * ti_qcache_get_query(const char * str, size_t n, uint8_t flags)
  */
 void ti_qcache_return(ti_query_t * query)
 {
-    assert (query->with_tp == TI_QUERY_WITH_PARSERES);
-    assert (query->with.parseres);
+    assert(query->with_tp == TI_QUERY_WITH_PARSERES);
+    assert(query->with.parseres);
 
     if (query->flags & TI_QUERY_FLAG_API)
         ti_api_release(query->via.api_request);
@@ -111,7 +111,7 @@ void ti_qcache_return(ti_query_t * query)
     ti_change_drop(query->change);
     ti_val_drop(query->rval);
 
-    assert (query->futures.n == 0);
+    assert(query->futures.n == 0);
 
     while(query->vars->n)
         ti_prop_destroy(VEC_pop(query->vars));

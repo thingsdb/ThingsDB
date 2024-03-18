@@ -65,7 +65,7 @@ static int do__f_extend_unique(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                                 is added to `query->change->tasks` */
     }
 
-    assert (e->nr == 0);
+    assert(e->nr == 0);
     query->rval = (ti_val_t *) ti_vint_create((int64_t) varr_dest->vec->n);
     if (query->rval)
         goto done;

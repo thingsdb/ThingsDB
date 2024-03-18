@@ -34,10 +34,11 @@ int ti_store_collections_store(const char * fn)
     for (vec_each(vec, ti_collection_t, collection))
     {
         if (
-            msgpack_pack_array(&pk, 5) ||
+            msgpack_pack_array(&pk, 6) ||
             mp_pack_strn(&pk, collection->guid.guid, sizeof(guid_t)) ||
             mp_pack_strn(&pk, collection->name->data, collection->name->n) ||
             msgpack_pack_uint64(&pk, collection->created_at) ||
+            msgpack_pack_uint64(&pk, collection->id) ||
             msgpack_pack_uint64(&pk, collection->tz->index) ||
             msgpack_pack_uint8(&pk, collection->deep)
         ) goto fail;
@@ -63,7 +64,7 @@ int ti_store_collections_restore(const char * fn)
     int rc = -1;
     size_t i;
     ssize_t n;
-    mp_obj_t obj, mp_guid, mp_name, mp_created, mp_deep, mp_tz;
+    mp_obj_t obj, mp_guid, mp_name, mp_created, mp_deep, mp_tz, mp_id;
     mp_unp_t up;
     guid_t guid;
     ti_collection_t * collection;
@@ -100,13 +101,29 @@ int ti_store_collections_restore(const char * fn)
 
         switch(obj.via.sz)
         {
+        case 6:
+            if (mp_next(&up, &mp_id) != MP_U64 ||
+                mp_next(&up, &mp_tz) != MP_U64 ||
+                mp_next(&up, &mp_deep) != MP_U64 ||
+                mp_deep.via.u64 > TI_MAX_DEEP)
+                goto fail;
+            tz = ti_tz_from_index(mp_tz.via.u64);
+            break;
         case 5:
+            /* TODO: (COMPAT) This check is for compatibility with ThingsDB
+             *       versions before v1.5.0
+             */
             if (mp_next(&up, &mp_tz) != MP_U64 ||
                 mp_next(&up, &mp_deep) != MP_U64 ||
                 mp_deep.via.u64 > TI_MAX_DEEP)
                 goto fail;
 
             tz = ti_tz_from_index(mp_tz.via.u64);
+            mp_id.via.u64 = 0;  /* in previous version of ThingsDB, the root id
+                                 * was the collection id, therefore we will set
+                                 * this to 0 here and overwrite when reading
+                                 * the root Id in ti_store_collection_restore()
+                                 */
             break;
         case 4:
             /* TODO: (COMPAT) This check is for compatibility with ThingsDB
@@ -117,6 +134,7 @@ int ti_store_collections_restore(const char * fn)
 
             tz = ti_tz_from_index(mp_tz.via.u64);
             mp_deep.via.u64 = 1;
+            mp_id.via.u64 = 0;
             break;
         case 3:
             /* TODO: (COMPAT) This check is for compatibility with ThingsDB
@@ -124,12 +142,15 @@ int ti_store_collections_restore(const char * fn)
              */
             tz = ti_tz_utc();
             mp_deep.via.u64 = 1;
+            mp_id.via.u64 = 0;
             break;
         default:
             goto fail;
         }
 
         collection = ti_collection_create(
+                mp_id.via.u64,
+                1,
                 &guid,
                 mp_name.via.str.data,
                 mp_name.via.str.n,

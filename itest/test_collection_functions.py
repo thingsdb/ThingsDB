@@ -515,9 +515,9 @@ class TestCollectionFunctions(TestBase):
         src = b'TEST: ThingsDB\r\r\nDATE: 2019/12/02\r\r\n'
         enc = base64.b64encode(src)
         self.assertEqual(
-            await client.query(f'base64_decode(e);', e=enc), src)
+            await client.query('base64_decode(e);', e=enc), src)
         self.assertEqual(
-            await client.query(f'bytes(base64_encode(s));', s=src), enc)
+            await client.query('bytes(base64_encode(s));', s=src), enc)
 
     async def test_bool(self, client):
         with self.assertRaisesRegex(
@@ -1602,6 +1602,94 @@ class TestCollectionFunctions(TestBase):
         # cleanup garbage, the reference to the collection
         await client.query(r'''.x.splice(2, 1);''')
 
+    async def test_count(self, client):
+        await client.query(
+            r'.x = [42, "thingsdb", thing(.id()), 42, false, 3, nil];')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `float` has no function `count`'):
+            await client.query('(1.0).count("x");')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `count` takes 1 argument but 0 were given'):
+            await client.query('.x.count();')
+
+        with self.assertRaisesRegex(
+                ZeroDivisionError,
+                'division or modulo by zero'):
+            await client.query('.x.count(|x| 1/0);')
+
+        self.assertEqual(await client.query('.x.count(42);'), 2)
+        self.assertEqual(await client.query('.x.count("thingsdb");'), 1)
+        self.assertEqual(await client.query('.x.count(123);'), 0)
+        self.assertEqual(await client.query('.x.count(|x| is_int(x));'), 3)
+
+    async def test_sum(self, client):
+        await client.query("""//ti
+            .x = [42, "thingsdb"];
+            .y = [-42, -21, 9];
+            .v = ["21", "31", "-10"];
+            .w = [4.2, 2.1, 9];
+        """)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `set` has no function `sum`'):
+            await client.query('set().sum("x");')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `sum` takes at most 1 argument but 2 were given'):
+            await client.query('.y.sum(||nil, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `sum` expects argument 1 to be of '
+                r'type `closure` but got type `nil` instead'):
+            await client.query('.y.sum(nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'`-/\+` not supported by type `str`'):
+            await client.query('.x.sum();')
+
+        with self.assertRaisesRegex(
+                ZeroDivisionError,
+                r'division or modulo by zero'):
+            await client.query('[1].sum(|x| x/0);')
+
+        self.assertEqual(await client.query('.y.sum();'), -54)
+        self.assertEqual(await client.query('.w.sum();'), 15.3)
+        self.assertEqual(await client.query('.v.sum(|v|int(v));'), 42)
+        self.assertEqual(await client.query('[].sum();'), 0)
+        self.assertEqual(await client.query('[].sum(||nil);'), 0)
+
+    async def test_flat(self, client):
+        await client.query(
+            r'.x = [1, 2, [3, 4, [5, 6]]];')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `flat`'):
+            await client.query('nil.flat();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `flat` takes at most 1 argument but 2 were given'):
+            await client.query('.x.flat(1, 2);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `flat` expects argument 1 to be of '
+                r'type `int` but got type `float` instead;'):
+            await client.query('.x.flat(inf);')
+
+        self.assertEqual(await client.query('.x.flat()'), [1, 2, 3, 4, [5, 6]])
+        self.assertEqual(await client.query('.x.flat(2)'), [1, 2, 3, 4, 5, 6])
+        self.assertEqual(await client.query('.x[2].flat()'), [3, 4, 5, 6])
+
     async def test_first(self, client):
         await client.query(
             r'.x = [42, ["thingsdb", false], nil];')
@@ -1935,13 +2023,61 @@ class TestCollectionFunctions(TestBase):
                 'is_ascii(blob);',
                 blob=pickle.dumps('binary')))
 
+    async def test_is_email(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `is_email` takes 1 argument but 0 were given'):
+            await client.query('is_email();')
+
+        self.assertTrue(await client.query('is_email( "a@a.com" ); '))
+        self.assertTrue(await client.query(
+            'is_email( "info@transceptor.technology" ); '))
+
+        self.assertFalse(await client.query('is_email( "@" ); '))
+        self.assertFalse(await client.query('is_email( "info@" ); '))
+        self.assertFalse(await client.query('is_email( "info@test@com" ); '))
+
+    async def test_is_url(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `is_url` takes 1 argument but 0 were given'):
+            await client.query('is_url();')
+
+        self.assertTrue(await client.query(
+            'is_url( "http://thingsdb.io" ); '))
+        self.assertTrue(await client.query(
+            'is_url( "ftp://thingsdb.io" ); '))
+        self.assertTrue(await client.query(
+            'is_url( "https://thingsdb.io" ); '))
+        self.assertTrue(await client.query(
+            'is_url( "http://127.0.0.1:8000/t/a/?a=1&b=2#c=3" ); '))
+
+        self.assertFalse(await client.query(
+            'is_url( "www.thingsdb.io" ); '))
+
+    async def test_is_tel(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `is_tel` takes 1 argument but 0 were given'):
+            await client.query('is_tel();')
+
+        self.assertTrue(await client.query(
+            'is_tel( "+31 6 1279 8880" ); '))
+        self.assertTrue(await client.query(
+            'is_tel( "(0011) 038 44-123-4567" ); '))
+        self.assertTrue(await client.query(
+            'is_tel( "112" ); '))
+
+        self.assertFalse(await client.query(
+            'is_tel( "01" ); '))
+
     async def test_is_time_zone(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
                 'function `is_time_zone` takes 1 argument but 0 were given'):
             await client.query('is_time_zone();')
 
-        self.assertTrue(await client.query('is_time_zone("Europe/Kiev");'))
+        self.assertTrue(await client.query('is_time_zone("Europe/Kyiv");'))
         self.assertFalse(await client.query('is_time_zone("");'))
         self.assertFalse(await client.query('is_time_zone(nil);'))
 
@@ -3481,7 +3617,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r'maximum range length exceeded'):
-            await client.query('range(0, 30000, 2);')
+            await client.query('range(0, 300000, 2);')
 
         self.assertEqual(
             await client.query('range(8)'), list(range(8)))
@@ -4834,7 +4970,7 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(err, Err.EX_ZERO_DIV)
 
         err = await client.query('zero_div_err();')
-        self.assertEqual(err, "division or module by zero")
+        self.assertEqual(err, "division or modulo by zero")
 
         err = await client.query('zero_div_err("my custom error msg");')
         self.assertEqual(err, "my custom error msg")
@@ -5083,17 +5219,17 @@ class TestCollectionFunctions(TestBase):
             y = s;
             assert ( s == x );
             assert ( s == y );
-            assert ( x.every(|i| type(i) == 'A' ) )
+            assert ( x.every(|i| type(i) == 'A' ) );
 
-            x.add(A{})
-            y.add(A{})
+            x.add(A{});
+            y.add(A{});
             assert ( s != x );
             assert ( s == y );
 
             x = s.copy(1);
             assert ( s != x );
             assert ( s.len() == x.len() );
-            assert ( x.every(|i| type(i) == 'thing' ) )
+            assert ( x.every(|i| type(i) == 'thing' ) );
 
             'OK';
         """)
@@ -5192,17 +5328,17 @@ class TestCollectionFunctions(TestBase):
             y = s;
             assert ( s == x );
             assert ( s == y );
-            assert ( x.every(|i| type(i) == 'A' ) )
+            assert ( x.every(|i| type(i) == 'A' ) );
 
-            x.add(A{})
-            y.add(A{})
+            x.add(A{});
+            y.add(A{});
             assert ( s != x );
             assert ( s == y );
 
             x = s.dup(1);
             assert ( s != x );
             assert ( s.len() == x.len() );
-            assert ( x.every(|i| type(i) == 'A' ) )
+            assert ( x.every(|i| type(i) == 'A' ) );
 
             'OK';
         """)
@@ -5289,8 +5425,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 ValueError,
                 r'mismatch in type `B`; property `name` requires a string '
-                r'with a length between 3 and 20 \(both inclusive\) '
-                r'characters'):
+                r'with a length between 3 and 20 \(both inclusive\)'):
             await client.query('.aa.pop(); .to_type("B");')
 
         with self.assertRaisesRegex(
@@ -5778,6 +5913,23 @@ class TestCollectionFunctions(TestBase):
                     nse();
                     x = .x;
                 """ + query)
+
+    async def test_root(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `root`'):
+            await client.query('nil.root();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `root` takes 0 arguments '
+                'but 1 was given'):
+            await client.query('root(nil);')
+
+        self.assertIs(None, await client.query('root();', scope='/t'))
+        self.assertTrue(await client.query("""//ti
+            root().id() == .id();
+        """))
 
 
 if __name__ == '__main__':

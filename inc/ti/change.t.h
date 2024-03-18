@@ -48,7 +48,7 @@ struct ti_change_s
     uint64_t id;
     ti_change_via_t via;
     ti_collection_t * collection;   /* collection with reference or NULL */
-    vec_t * _tasks;                 /* ti_task_t */
+    vec_t * tasks;                 /* ti_task_t */
     util_time_t time;               /* timing a change, used for elapsed
                                      * time etc.
                                      */

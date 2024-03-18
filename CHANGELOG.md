@@ -1,3 +1,109 @@
+# v1.5.1
+
+* Added support for building on MacOS.
+* Fixed spelling mistake in error message.
+
+# v1.5.0
+
+* Comments can now be placed anywhere where white-space is allowed.
+* Comments are no longer stored within closures. This behavior was previously
+  partially enforced, and now it is strictly followed.
+* Statements must be separated with semicolons. Syntax checking is now more strict.
+* Removed syntax option for selecting a collection scope by Id.
+* The collection Id and collection root Id no longer need to be equal.
+* Added `next_free_id` field to collection info and removed from nodes info.
+  _(The response for `node_info()` still contains the `next_free_id` for the global free Id)_
+* Added `dump` option to the `export(..)` function for a full collection export.
+* Added function `import()` which can import a collection export dump.
+* Added function `root()` for getting the collection root as thing.
+* Function `export(..)` can no longer be used in queries with changes.
+* A bug with adding enumerators to restricted lists has been fixed.
+* A bug with applying a new relation to existing data has been fixed.
+* A bug with async future error reporting has been fixed.
+* A bug with clearing nesting tasks through arguments has been fixed.
+* Tasks owners must be set to owners with equal or less access flags.
+* The `change._tasks` structure in C code has been renamed.
+  _(This has no impact on user-facing functionality)_
+* Replaced Docker images _(both tests and builds)_ with newer versions.
+* Removed `ti_pkg_check` hack for old compilers. _(this is no longer required with recent compilers)_
+* Added integer minimum `INT_MIN` and maximum `INT_MAX` constants with corresponding values.
+* The primary domain for the ThingsDB website has been changed from `.net` to `.io`.
+* Several new mathematical functions have been added: `abs(..)`, `ceil(..)`,
+  `cos(..)`, `exp()..`, `floor(..)`, `log10(..)`, `log2(..)`, `loge(..)`,
+  `pow(..)`, `round(..)`, `sin(..)`, `sqrt(..)` and `tan(..)`.
+* Added mathematical constants `MATH_E` and `MATH_PI` with corresponding values.
+* The library `libcleri` is now integrated into the core ThingsDB code base, eliminating the need for separate installation.
+* The `new_backup()` and `new_token()` functions no longer accept `int`, `float` or `str` as time.
+  _(This was marked as deprecated since v0.10.1)_
+* Added set operators `<=`, `<`, `>=`, `>` for subset, proper subset, super-set and proper super-set checking.
+* Added range `<..>` support for UTF-8 type property definitions.
+* Added bit-wise NOT (`~`) operator.
+* Added bit-wise Left (`<<`) and Right (`>>`) shifting operators.
+* Return `nil` instead of success error when a repeating task is successful.
+* Corrected a spelling mistake in error message for integer range values.
+* No longer allow a relation between a none-stored set and a none-stored value.
+* Removed the `<` and `>` from returning a room to a client to be consistent.
+* Allow explicit variable list for empty future using a direct closure.
+* Return value of `mod_procedure(..)` has changed to `nil` on success.
+* Enforce `argmap` property for exposed module methods.
+* Prevent adding a duplicated node _(based on address and port)_.
+* No shutdown wait time for uninitialized nodes.
+* New user and new collection return the name, not the ID.
+* Ignore empty collections on restore for better user experience.
+* Increase range maximum from `9999` to `100000`.
+* Increase maximum future closure calls from `8` to `255`.
+
+# v1.4.16
+
+* Improve `dup()` and `copy()` with self references, pr #355.
+
+# v1.4.15
+
+* Added support for methods on an _enumerator_ type, pr #352.
+* Added function `count(..)`, pr #353 and #354.
+* Added function `sum(..)`, pr #354.
+
+# v1.4.14
+
+* Fixed bug with using function `wrap(..)` in module argument, issue #351.
+
+# v1.4.13
+
+* Added function `mod_procedure(..)`, pr #348.
+* Added function `flat(..)`, pr #349.
+* Fixed enumerator lookup in wrong scope, issue #350.
+
+# v1.4.12
+
+* Added `timeit(..)` function, issue #345.
+* Added type definitions: `email`, `url` and `tel`, issue #346.
+* Added corresponding functions:
+  - `is_email(..)`: Determine if a given value is an email address.
+  - `is_url(..)`: Determine if a given value is a URL.
+  - `is_tel(..)`: Determine if a given value is a telephone number.
+
+# v1.4.11
+
+* Fixed bug with computed methods, issue #343.
+* Fixed bug with enumerator member to string conversion, issue #344.
+
+# v1.4.10
+
+* Fixed daylight saving times bug in `move(..)` function, issue #342.
+
+# v1.4.9
+
+* Added `backups_ok()` function for the _node_ scope, issue #341.
+
+# v1.4.8
+
+* Fixed bug with `move(..)` function with timezone information, issue #340.
+
+# v1.4.7
+
+* Added timezone **Europe/Kyiv** for the correct spelling, _Fuck ruZZia_.
+* Fixed Docker builds to include timezone data.
+
 # v1.4.6
 
 * Implemented **optional chaining** _(double dot, `..`)_ syntax, issue #339.

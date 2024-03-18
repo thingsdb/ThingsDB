@@ -142,11 +142,13 @@ static void module__cb(ti_future_t * future)
 {
     int uv_err;
     ti_thing_t * thing = VEC_get(future->args, 0);
-    ti_vp_t vp;
+    ti_vp_t vp = {
+            .query=future->query,   /* bug # #351 */
+    };
     msgpack_sbuffer buffer;
     size_t alloc_sz = 1024;
 
-    assert (ti_val_is_thing((ti_val_t *) thing));
+    assert(ti_val_is_thing((ti_val_t *) thing));
 
     if (future->module->status)
     {
@@ -600,7 +602,7 @@ static void module__download_finish(uv_work_t * work, int status)
 
     if (data->rtxt || !vec_empty(module->manifest.requirements))
     {
-        assert (data->manifest.is_py);
+        assert(data->manifest.is_py);
         module__py_requirements(work);
         return;
     }
@@ -1555,7 +1557,7 @@ int ti_module_call(
         cleri_node_t * nd,
         ex_t * e)
 {
-    assert (query->rval == NULL);
+    assert(query->rval == NULL);
 
     const int nargs = fn_get_nargs(nd);
     _Bool load = false;
@@ -1661,10 +1663,13 @@ void ti_module_destroy(ti_module_t * module)
 
     if (module->wait_deploy)
     {
-        uv_timer_stop(module->wait_deploy);
+        uv_timer_t * timer = module->wait_deploy;
+        module->wait_deploy = NULL;
+        uv_timer_stop(timer);
         uv_close(
-                (uv_handle_t *) module->wait_deploy,
+                (uv_handle_t *) timer,
                 (uv_close_cb) module__wait_close_cb);
+        return;
     }
 
     omap_destroy(module->futures, (omap_destroy_cb) ti_future_cancel);

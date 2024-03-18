@@ -1,19 +1,11 @@
 #!/usr/bin/env python
-import asyncio
-import pickle
-import time
 from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
-from thingsdb.exceptions import AssertionError
-from thingsdb.exceptions import ValueError
 from thingsdb.exceptions import TypeError
 from thingsdb.exceptions import NumArgumentsError
-from thingsdb.exceptions import BadDataError
 from thingsdb.exceptions import LookupError
-from thingsdb.exceptions import OverflowError
-from thingsdb.exceptions import ZeroDivisionError
 from thingsdb.exceptions import OperationError
 from thingsdb.exceptions import ForbiddenError
 
@@ -38,7 +30,7 @@ class TestFuture(TestBase):
     async def test_recursion(self, client):
         with self.assertRaisesRegex(
                 OperationError,
-                r'maximum nested future count has been reached;'):
+                r'maximum future count on closure has been reached;'):
             await client.query(r'''
                 fut = || {
                     future(nil, fut).then(|_, fut| {
@@ -202,6 +194,56 @@ class TestFuture(TestBase):
         """)
         self.assertEqual(res, 'OK')
 
+    async def test_future_arguments(self, client):
+        res = await client.query(r"""//ti
+            a = 4; b = 5;
+            future(|a, b| a + b);
+        """)
+        self.assertEqual(res, 9)
+
+        res = await client.query(r"""//ti
+            future(|a, b| a + b, [5, 6]);
+        """)
+        self.assertEqual(res, 11)
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'number of future closure arguments must match the '
+                r'arguments in the provided list'):
+            await client.query(r"""//ti
+                future(|a, b| a + b, []);
+            """)
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'number of future closure arguments must match the '
+                r'arguments in the provided list'):
+            await client.query(r"""//ti
+                future(|a, b| a + b, [1, 2, 3]);
+            """)
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `future` expects at most 2 arguments when '
+                r'the first argument is of type `closure`'):
+            await client.query(r"""//ti
+                future(|a, b| a + b, 1, 2);
+            """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `future` expects argument 2 to be of '
+                r'type `list` or `tuple` but got type `nil` instead'):
+            await client.query(r"""//ti
+                future(|a, b| a + b, nil);
+            """)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'variable `a` is undefined'):
+            await client.query(r"""//ti
+                future(|a, b| a + b);
+            """)
 
 if __name__ == '__main__':
     run_test(TestFuture())

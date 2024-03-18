@@ -102,17 +102,18 @@ struct ti_s
     ti_sync_t * sync;
     ti_thing_t * thing0;        /* thing with id 0 */
     ti_room_t * room0;          /* room with id 0 */
-    ti_users_t * users;
     ti_backups_t * backups;
     ti_tasks_t * tasks;
-    vec_t * access_node;        /* ti_access_t */
-    vec_t * access_thingsdb;    /* ti_access_t */
+    vec_t * users;              /* ti_user_t */
+    vec_t * access_node;        /* ti_auth_t */
+    vec_t * access_thingsdb;    /* ti_auth_t */
     smap_t * procedures;        /* ti_procedure_t */
     smap_t * names;             /* weak map for ti_name_t */
     smap_t * qcache;            /* pointer to cache in stack */
     smap_t * modules;           /* ti_module_t */
     uv_loop_t * loop;
     cleri_grammar_t * langdef;
+    cleri_grammar_t * compat;   /* TODO (COMPAT): For < v1.5 */
     size_t futures_count;       /* number of running futures */
     uint32_t rel_id;            /* relative node id */
     int _flags;                 /* changed and read by multiple treads */
@@ -151,7 +152,7 @@ static inline uint64_t ti_next_free_id(void)
  * things down. */
 static inline int ti_sleep(int ms)
 {
-    assert (ms < 1000);
+    assert(ms < 1000);
     return ti_flag_test(TI_FLAG_SIGNAL|TI_FLAG_NO_SLEEP)
             ? -2
             : nanosleep((const struct timespec[]){{0, ms * 1000000L}}, NULL);

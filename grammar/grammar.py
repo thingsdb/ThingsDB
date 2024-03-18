@@ -20,6 +20,7 @@ from pyleri import (
 
 # names have a max length of 255 characters
 RE_NAME = r'^[A-Za-z_][0-9A-Za-z_]{0,254}(?![0-9A-Za-z_])'
+STRICT = 1
 
 
 class Choice(Choice_):
@@ -47,7 +48,7 @@ class LangDef(Grammar):
     x_function = Token('(')
     x_index = Token('[')
     x_parenthesis = Token('(')
-    x_preopr = Regex(r'(\s*!|\s*[\-+](?=[^0-9]))*')
+    x_preopr = Regex(r'(\s*~)*(\s*!|\s*[\-+](?=[^0-9]))*')
     x_ternary = Token('?')
     x_thing = Token('{')
     x_template = Token('`')
@@ -74,13 +75,6 @@ class LangDef(Grammar):
     t_string = Regex(r"""(((?:'(?:[^']*)')+)|((?:"(?:[^"]*)")+))""")
     t_true = Keyword('true')
 
-    # It would be nice if the leri family had support for advanced white space.
-    # If so, the comments could be set as white space instead.
-    comments = Repeat(Choice(
-        Regex(r'(?s)//.*?(\r?\n|$)'),  # Single line comment
-        Regex(r'(?s)/\*.*?\*/'),  # Block comment
-    ))
-
     name = Regex(RE_NAME)
     var = Regex(RE_NAME)
 
@@ -96,24 +90,26 @@ class LangDef(Grammar):
 
     opr0_mul_div_mod = Tokens('* / %')
     opr1_add_sub = Tokens('+ -')
-    opr2_bitwise_and = Tokens('&')
-    opr3_bitwise_xor = Tokens('^')
-    opr4_bitwise_or = Tokens('|')
-    opr5_compare = Tokens('< > == != <= >=')
-    opr6_cmp_and = Token('&&')
-    opr7_cmp_or = Token('||')
-    opr8_ternary = Sequence(x_ternary, THIS, ':')
+    opr2_bitwise_shift = Tokens('<< >>')
+    opr3_bitwise_and = Tokens('&')
+    opr4_bitwise_xor = Tokens('^')
+    opr5_bitwise_or = Tokens('|')
+    opr6_compare = Tokens('< > == != <= >=')
+    opr7_cmp_and = Token('&&')
+    opr8_cmp_or = Token('||')
+    opr9_ternary = Sequence(x_ternary, THIS, ':')
 
     operations = Sequence(THIS, Choice(
         # make sure `ternary`, `and` and `or` is on top so we can stop
-        # at the first match
-        opr8_ternary,
-        opr7_cmp_or,
-        opr6_cmp_and,
-        opr5_compare,
-        opr4_bitwise_or,
-        opr3_bitwise_xor,
-        opr2_bitwise_and,
+        # at the first match; The bitwise shift must be before compare.
+        opr9_ternary,
+        opr8_cmp_or,
+        opr7_cmp_and,
+        opr2_bitwise_shift,
+        opr6_compare,
+        opr5_bitwise_or,
+        opr4_bitwise_xor,
+        opr3_bitwise_and,
         opr1_add_sub,
         opr0_mul_div_mod,
     ), THIS)
@@ -140,13 +136,9 @@ class LangDef(Grammar):
         Optional(chain),
     )
 
-    end_statement = \
-        Regex(r'((;|((?s)\/\/.*?(\r?\n|$))|((?s)\/\*.*?\*\/))\s*)*')
-
     block = Sequence(
         x_block,
-        comments,
-        List(THIS, delimiter=end_statement, mi=1),
+        List(THIS, delimiter=Repeat(';', mi=STRICT), mi=1),
         '}')
 
     parenthesis = Sequence(x_parenthesis, THIS, ')')
@@ -215,14 +207,27 @@ class LangDef(Grammar):
             block,
         ),
         operations)
-    statements = List(statement, delimiter=end_statement)
 
-    START = Sequence(comments, statements)
+    START = List(statement, delimiter=Repeat(';', mi=STRICT))
+
+
+grammar2 = r"""
+    cleri_grammar_t * grammar = cleri_grammar2(
+            START,
+            "^[A-Za-z_][0-9A-Za-z_]{0,254}(?![0-9A-Za-z_])",
+            "("
+            "(\\s+)|"
+            "((?s)\\/\\/.*?(\\r?\\n|$))|"
+            "((?s)\\/\\*.*?\\*\\/)"
+            ")*");
+    return grammar;
+}
+"""
 
 
 if __name__ == '__main__':
     langdef = LangDef()
-    res = langdef.parse(r'''x = /./;''')
+    res = langdef.parse(r'''1 << 4;''')
     print(res.is_valid)
 
     res = langdef.parse(r'''/./;''')
@@ -253,7 +258,9 @@ if __name__ == '__main__':
 
     c, h = langdef.export_c(target='langdef', headerf='<langdef/langdef.h>')
     with open('../src/langdef/langdef.c', 'w') as cfile:
-        cfile.write(c)
+        # Overwrite the old export (last 127 chars)
+        cfile.write(c[:-127])
+        cfile.write(grammar2)
 
     with open('../inc/langdef/langdef.h', 'w') as hfile:
         hfile.write(h)

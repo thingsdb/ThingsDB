@@ -56,6 +56,7 @@ enum
                                            the `id`.*/
     TI_THING_FLAG_DICT      =1<<2,      /* thing is an object and items are
                                            stored in the smap_t. */
+    TI_THING_FLAG_DEEP      =1<<3,      /* used for deep copy/duplication */
 };
 
 union ti_thing_via_items

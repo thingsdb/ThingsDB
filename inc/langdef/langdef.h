@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2022-12-19 14:59:55
+ * Created at: 2024-02-11 20:55:25
  */
 #ifndef CLERI_EXPORT_LANGDEF_H_
 #define CLERI_EXPORT_LANGDEF_H_
@@ -13,6 +13,7 @@
 #include <cleri/cleri.h>
 
 cleri_grammar_t * compile_langdef(void);
+cleri_grammar_t * compile_compat(void);
 
 enum cleri_grammar_ids {
     CLERI_NONE,   // used for objects with no name
@@ -21,8 +22,6 @@ enum cleri_grammar_ids {
     CLERI_GID_BLOCK,
     CLERI_GID_CHAIN,
     CLERI_GID_CLOSURE,
-    CLERI_GID_COMMENTS,
-    CLERI_GID_END_STATEMENT,
     CLERI_GID_ENUM_,
     CLERI_GID_EXPRESSION,
     CLERI_GID_FOR_STATEMENT,
@@ -42,19 +41,19 @@ enum cleri_grammar_ids {
     CLERI_GID_OPERATIONS,
     CLERI_GID_OPR0_MUL_DIV_MOD,
     CLERI_GID_OPR1_ADD_SUB,
-    CLERI_GID_OPR2_BITWISE_AND,
-    CLERI_GID_OPR3_BITWISE_XOR,
-    CLERI_GID_OPR4_BITWISE_OR,
-    CLERI_GID_OPR5_COMPARE,
-    CLERI_GID_OPR6_CMP_AND,
-    CLERI_GID_OPR7_CMP_OR,
-    CLERI_GID_OPR8_TERNARY,
+    CLERI_GID_OPR2_BITWISE_SHIFT,
+    CLERI_GID_OPR3_BITWISE_AND,
+    CLERI_GID_OPR4_BITWISE_XOR,
+    CLERI_GID_OPR5_BITWISE_OR,
+    CLERI_GID_OPR6_COMPARE,
+    CLERI_GID_OPR7_CMP_AND,
+    CLERI_GID_OPR8_CMP_OR,
+    CLERI_GID_OPR9_TERNARY,
     CLERI_GID_PARENTHESIS,
     CLERI_GID_RETURN_STATEMENT,
     CLERI_GID_SLICE,
     CLERI_GID_START,
     CLERI_GID_STATEMENT,
-    CLERI_GID_STATEMENTS,
     CLERI_GID_TEMPLATE,
     CLERI_GID_THING,
     CLERI_GID_T_FALSE,

@@ -209,6 +209,7 @@ int ti_forloop_set(
         cleri_node_t * code_nd,
         ex_t * e)
 {
+    int rc;
     int nargs = 0;
     int lock_was_set;
     ti_vset_t * vset = (ti_vset_t *) query->rval;
@@ -230,13 +231,19 @@ int ti_forloop_set(
             .e = e,
     };
 
-    if (((query->change && ti_vset_has_relation(vset))
+    query->rval = NULL;
+
+    rc = (query->change && ti_vset_has_relation(vset))
             ? imap_walk_cp(vset->imap,
                     (imap_cb) forloop__walk_set,
                     &w,
                     (imap_destroy_cb) ti_val_unsafe_drop)
-            : imap_walk(vset->imap, (imap_cb) forloop__walk_set, &w)) >= 0)
+            : imap_walk(vset->imap, (imap_cb) forloop__walk_set, &w);
+
+    if (rc >= 0)
         query->rval = (ti_val_t *) ti_nil_get();
+    else if (!e->nr)
+        ex_set_mem(e);
 
     ti_val_unlock((ti_val_t *) vset, lock_was_set);
     ti_val_unsafe_drop((ti_val_t *) vset);

@@ -169,16 +169,8 @@ static int do__f_restore(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail1;
     }
 
-    if ((n = ti.collections->vec->n))
-    {
-        ex_set(e, EX_LOOKUP_ERROR,
-                "restore requires all existing collections to be removed; "
-                "there %s still %"PRIu32" collection%s found"DOC_RESTORE,
-                n == 1 ? "is" : "are",
-                n,
-                n == 1 ? "" : "s");
+    if (ti_collections_check_empty(e))
         goto fail1;
-    }
 
     if ((n = ti.changes->queue->n - 1))
     {

@@ -23,7 +23,7 @@ static int do__f_set_default_deep(ti_query_t * query, cleri_node_t * nd, ex_t * 
             return e->nr;
 
         access_ = &collection->access;
-        scope_id = collection->root->id;
+        scope_id = collection->id;
 
         ex_clear(e);
     }

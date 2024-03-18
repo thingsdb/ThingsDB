@@ -17,11 +17,23 @@
 #include <ti/names.h>
 #include <ti/nil.h>
 #include <ti/opr/oprinc.h>
+#include <ti/opr/and.h>
+#include <ti/opr/eq.h>
+#include <ti/opr/ge.h>
+#include <ti/opr/gt.h>
+#include <ti/opr/le.h>
+#include <ti/opr/lt.h>
+#include <ti/opr/ne.h>
+#include <ti/opr/or.h>
+#include <ti/opr/sl.h>
+#include <ti/opr/sr.h>
+#include <ti/opr/xor.h>
 #include <ti/preopr.h>
 #include <ti/regex.h>
 #include <ti/task.h>
 #include <ti/template.h>
 #include <ti/thing.inline.h>
+#include <ti/vfloat.h>
 #include <ti/vint.h>
 #include <util/strx.h>
 
@@ -33,8 +45,8 @@ static inline int do__no_node_scope(ti_query_t * query)
 
 static int do__array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_ARRAY);
-    assert (query->rval == NULL);
+    assert(nd->cl_obj->gid == CLERI_GID_ARRAY);
+    assert(query->rval == NULL);
 
     ti_varr_t * varr;
     uintptr_t sz = (uintptr_t) nd->data;
@@ -71,7 +83,7 @@ failed:
 
 static inline ti_name_t * do__cache_name(ti_query_t * query, cleri_node_t * nd)
 {
-    assert (nd->data == NULL);
+    assert(nd->data == NULL);
     ti_name_t * name = nd->data = ti_names_weak_get_strn(nd->str, nd->len);
     if (name)
     {
@@ -135,7 +147,7 @@ static inline int do__t_get_wprop(
             return 0;
         }
 
-        if ((method = ti_method_by_name(type, name)))
+        if ((method = ti_type_get_method(type, name)))
         {
             wprop->name = name;
             wprop->val = (ti_val_t **) (&method->closure);
@@ -227,25 +239,10 @@ static inline int do__upd_prop(
     return 0;
 }
 
-static inline int do__upd_vaddr(
-        ti_val_t ** vaddr,
-        ti_query_t * query,
-        cleri_node_t * tokens_nd,
-        ex_t * e)
-{
-    if (ti_opr_a_to_b(*vaddr, tokens_nd, &query->rval, e))
-        return e->nr;
-
-    ti_val_unsafe_gc_drop(*vaddr);
-    *vaddr = query->rval;
-    ti_incref(query->rval);
-    return 0;
-}
-
 static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_NAME_OPT_MORE);
-    assert (query->rval);
+    assert(nd->cl_obj->gid == CLERI_GID_NAME_OPT_MORE);
+    assert(query->rval);
 
     ti_thing_t * thing;
     ti_task_t * task;
@@ -283,7 +280,7 @@ static int do__name_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (thing->id)
     {
-        assert (query->collection);  /* only in a collection scope */
+        assert(query->collection);  /* only in a collection scope */
         task = ti_task_get_task(query->change, thing);
         if (!task || ti_task_add_set(task, (ti_raw_t *) wprop.name, *wprop.val))
             ex_set_mem(e);
@@ -578,8 +575,8 @@ static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (e->nr == 0);
-    assert (nd->children->next->cl_obj->gid == CLERI_GID_FUNCTION);
+    assert(e->nr == 0);
+    assert(nd->children->next->cl_obj->gid == CLERI_GID_FUNCTION);
     /*
      * "Node -> data" is set for all build-in functions so they are preferred
      * over other functions/type/enum/procedures/modules/variable.
@@ -597,7 +594,7 @@ static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 int ti_do_block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     /* first child, not empty */
-    cleri_node_t * child = nd->children->next->next->children;
+    cleri_node_t * child = nd->children->next->children;
 
     do
     {
@@ -617,8 +614,7 @@ int ti_do_block(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 static inline int do__index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     cleri_node_t * child = nd->children;
-
-    for (child = nd->children; child; child = child->next)
+    for (; child; child = child->next)
         if (ti_index(query, child, e))
             return e->nr;
     return 0;
@@ -626,16 +622,15 @@ static inline int do__index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_CHAIN);
-    assert (query->rval);
+    assert(nd->cl_obj->gid == CLERI_GID_CHAIN);
+    assert(query->rval);
 
     cleri_node_t * child = nd           /* sequence */
                     ->children->next;   /* first is .(dot), next choice */
     cleri_node_t * node = child;        /* function, assignment, name */
     cleri_node_t * index_node = child->next;
 
-    if (nd->children->len == 2 &&
-            (ti_val_is_nil(query->rval) || ti_val_is_error(query->rval)))
+    if (nd->children->len == 2 && ti_val_is_opt_chain(query->rval))
         return 0;
 
     child = child->next->next;          /* set to chain child (or NULL) */
@@ -674,7 +669,7 @@ static int do__chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (node->children->next->cl_obj->gid == CLERI_GID_ASSIGN)
         return do__name_assign(query, node, e);
 
-    assert (node->children->next->cl_obj->gid == CLERI_GID_FUNCTION);
+    assert(node->children->next->cl_obj->gid == CLERI_GID_FUNCTION);
 
     if (do__function(query, node, e))
         return e->nr;
@@ -696,6 +691,182 @@ int ti_do_operation(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (ti_do_statement(query, nd->children->next->next, e) == 0)
         (void) ti_opr_a_to_b(a, nd->children->next, &query->rval, e);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_bit_sl(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__sl(a, &query->rval, e);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_bit_sr(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__sr(a, &query->rval, e);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_bit_and(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__and(a, &query->rval, e, false);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_bit_xor(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__xor(a, &query->rval, e, false);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_bit_or(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__or(a, &query->rval, e, false);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_compare_eq(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__eq(a, &query->rval, e);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_compare_ne(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__ne(a, &query->rval, e);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_compare_lt(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__lt(a, &query->rval, e);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_compare_le(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__le(a, &query->rval, e);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_compare_gt(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__gt(a, &query->rval, e);
+
+    ti_val_unsafe_drop(a);
+    return e->nr;
+}
+
+int ti_do_compare_ge(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    ti_val_t * a;
+    if (ti_do_statement(query, nd->children, e))
+        return e->nr;
+
+    a = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e) == 0)
+        (void) opr__ge(a, &query->rval, e);
 
     ti_val_unsafe_drop(a);
     return e->nr;
@@ -843,7 +1014,7 @@ int ti_do_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ex_set_mem(e);
             return e->nr;
         }
-        assert (vec_space(query->immutable_cache));
+        assert(vec_space(query->immutable_cache));
         VEC_push(query->immutable_cache, *data);
     }
     query->rval = *data;
@@ -861,11 +1032,11 @@ int ti_do_closure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 enum
 {
-    TOTAL_KEYWORDS = 13,
+    TOTAL_KEYWORDS = 17,
     MIN_WORD_LENGTH = 3,
     MAX_WORD_LENGTH = 8,
     MIN_HASH_VALUE = 3,
-    MAX_HASH_VALUE = 15
+    MAX_HASH_VALUE = 20
 };
 
 static inline unsigned int do__hash(
@@ -874,32 +1045,32 @@ static inline unsigned int do__hash(
 {
     static unsigned char asso_values[] =
     {
-        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16,  1,  5,  1,  4,  0,
-         3,  1,  3,  0,  5, 16,  2, 16,  0,  1,
-        16,  0,  0,  0,  0,  0, 16,  0, 16,  0,
-        16, 16, 16, 16, 16,  3, 16, 16, 16, 16,
-        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
-        16, 16, 16, 16, 16, 16
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21,  0,  0,  0, 12,  0,
+         7,  3,  0,  0, 13, 21,  2,  0,  0,  0,
+         9,  5,  0,  0,  0,  0, 21,  3,  5,  4,
+        21, 21, 21, 21, 21,  0, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21
     };
 
     register unsigned int hval = n;
@@ -935,28 +1106,46 @@ static inline unsigned int do__hash(
     return hval;
 }
 
+typedef union
+{
+    int64_t i;
+    double d;
+} do__fixed_u;
+
 typedef struct
 {
     char name[MAX_WORD_LENGTH+1];
-    int value;
+    uint8_t tp;
+    do__fixed_u via;
     ti_val_t * val;
     size_t n;
 } do__fixed_t;
 
+#if !defined(M_PI)
+#define M_PI       3.14159265358979323846 /* pi */
+#endif
+#if !defined(M_E)
+#define M_E        2.7182818284590452354  /* e */
+#endif
+
 do__fixed_t do__fixed_mapping[TOTAL_KEYWORDS] = {
-    {.name="QUERY",                 .value=TI_AUTH_QUERY},
-    {.name="CHANGE",                .value=TI_AUTH_CHANGE},
-    {.name="JOIN",                  .value=TI_AUTH_JOIN},
-    {.name="RUN",                   .value=TI_AUTH_RUN},
-    {.name="GRANT",                 .value=TI_AUTH_GRANT},
-    {.name="USER",                  .value=TI_AUTH_MASK_USER},
-    {.name="FULL",                  .value=TI_AUTH_MASK_FULL},
-    {.name="DEBUG",                 .value=LOGGER_DEBUG},
-    {.name="INFO",                  .value=LOGGER_INFO},
-    {.name="WARNING",               .value=LOGGER_WARNING},
-    {.name="ERROR",                 .value=LOGGER_ERROR},
-    {.name="CRITICAL",              .value=LOGGER_CRITICAL},
-    {.name="NO_IDS",                .value=TI_FLAGS_NO_IDS},
+    {.name="QUERY",                 .tp=TI_VAL_INT, .via.i=TI_AUTH_QUERY},
+    {.name="CHANGE",                .tp=TI_VAL_INT, .via.i=TI_AUTH_CHANGE},
+    {.name="JOIN",                  .tp=TI_VAL_INT, .via.i=TI_AUTH_JOIN},
+    {.name="RUN",                   .tp=TI_VAL_INT, .via.i=TI_AUTH_RUN},
+    {.name="GRANT",                 .tp=TI_VAL_INT, .via.i=TI_AUTH_GRANT},
+    {.name="USER",                  .tp=TI_VAL_INT, .via.i=TI_AUTH_MASK_USER},
+    {.name="FULL",                  .tp=TI_VAL_INT, .via.i=TI_AUTH_MASK_FULL},
+    {.name="DEBUG",                 .tp=TI_VAL_INT, .via.i=LOGGER_DEBUG},
+    {.name="INFO",                  .tp=TI_VAL_INT, .via.i=LOGGER_INFO},
+    {.name="WARNING",               .tp=TI_VAL_INT, .via.i=LOGGER_WARNING},
+    {.name="ERROR",                 .tp=TI_VAL_INT, .via.i=LOGGER_ERROR},
+    {.name="CRITICAL",              .tp=TI_VAL_INT, .via.i=LOGGER_CRITICAL},
+    {.name="NO_IDS",                .tp=TI_VAL_INT, .via.i=TI_FLAGS_NO_IDS},
+    {.name="INT_MIN",               .tp=TI_VAL_INT, .via.i=LLONG_MIN},
+    {.name="INT_MAX",               .tp=TI_VAL_INT, .via.i=LLONG_MAX},
+    {.name="MATH_E",                .tp=TI_VAL_FLOAT, .via.d=M_E},
+    {.name="MATH_PI",               .tp=TI_VAL_FLOAT, .via.d=M_PI},
 };
 
 static do__fixed_t * do__fixed_map[MAX_HASH_VALUE+1];
@@ -973,7 +1162,10 @@ int ti_do_init(void)
         do__fixed_t * fixed = &do__fixed_mapping[i];
 
         fixed->n = strlen(fixed->name);
-        fixed->val = (ti_val_t *) ti_vint_create(fixed->value);
+        if (fixed->tp == TI_VAL_INT)
+            fixed->val = (ti_val_t *) ti_vint_create(fixed->via.i);
+        else
+            fixed->val = (ti_val_t *) ti_vfloat_create(fixed->via.d);
         if (!fixed->val)
         {
             ti_do_drop();
@@ -982,9 +1174,9 @@ int ti_do_init(void)
 
         key = do__hash(fixed->name, fixed->n);
 
-        assert (fixed->val);
-        assert (do__fixed_map[key] == NULL);
-        assert (key <= MAX_HASH_VALUE);
+        assert(fixed->val);
+        assert(do__fixed_map[key] == NULL);
+        assert(key <= MAX_HASH_VALUE);
 
         do__fixed_map[key] = fixed;
     }
@@ -1008,7 +1200,7 @@ static int do__fixed_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
      * This function is only called in a non-collection scope as all known
      * constants are only applicable in the node- and thingsdb scope.
      */
-    assert (nd->cl_obj->gid == CLERI_GID_VAR);
+    assert(nd->cl_obj->gid == CLERI_GID_VAR);
 
     register size_t n = nd->len;
     register uint32_t key = do__hash(nd->str, n);
@@ -1034,7 +1226,7 @@ static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     /*
      * Sequence('{', List(Sequence(name, ':', scope)), '}')
      */
-    assert (e->nr == 0);
+    assert(e->nr == 0);
 
     ti_thing_t * thing;
     cleri_node_t * child;
@@ -1108,7 +1300,7 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     /*
      * Sequence(Name, Sequence('{', List(Sequence(name, ':', scope)), '}')
      */
-    assert (e->nr == 0);
+    assert(e->nr == 0);
 
     cleri_node_t * name_nd = nd->children;      /* sequence/name */
     ti_thing_t * thing;
@@ -1242,6 +1434,15 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     cleri_node_t * name_nd = nd->children;      /* sequence/name */
     nd = name_nd->next->children->next;         /* name or closure */
 
+    if (!query->collection)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "no enumerators exists in the `%s` scope; "
+                "you might want to query a `@collection` scope?",
+                ti_query_scope_name(query));
+        return e->nr;
+    }
+
     enum_ = ti_enums_by_strn(
             query->collection->enums,
             name_nd->str,
@@ -1335,9 +1536,9 @@ static int do__enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 static inline int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (e->nr == 0);
-    assert (nd->cl_obj->gid == CLERI_GID_VAR);
-    assert (query->rval == NULL);
+    assert(e->nr == 0);
+    assert(nd->cl_obj->gid == CLERI_GID_VAR);
+    assert(query->rval == NULL);
 
     ti_prop_t * prop = do__get_var(query, nd);
 
@@ -1408,7 +1609,7 @@ static inline ti_name_t * do__ensure_name_cache(
         ti_query_t * query,
         cleri_node_t * nd)
 {
-    assert (nd->data == NULL);
+    assert(nd->data == NULL);
     ti_name_t * name = nd->data = ti_names_get(nd->str, nd->len);
     /*
      * Function `ti_qbind_probe(..)` has checked how much cache must be
@@ -1422,8 +1623,8 @@ static inline ti_name_t * do__ensure_name_cache(
 
 static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_VAR_OPT_MORE);
-    assert (query->rval == NULL);
+    assert(nd->cl_obj->gid == CLERI_GID_VAR_OPT_MORE);
+    assert(query->rval == NULL);
 
     ti_name_t * name = NULL;
     ti_prop_t * prop = NULL;     /* assign to prevent warning */
@@ -1463,12 +1664,17 @@ static int do__var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     return e->nr;
                 }
 
-                if (do__upd_vaddr(
-                        &prop->val,
-                        query,
-                        tokens_nd,
-                        e))
+                if (ti_opr_a_to_b(prop->val, tokens_nd, &query->rval, e))
                     return e->nr;
+
+                /* ti_val_unsafe_gc_drop */
+                if (!--prop->val->ref)
+                    ti_val(prop->val)->destroy(prop->val);
+                else
+                    ti_thing_may_push_gc((ti_thing_t *) prop->val);
+
+                prop->val = query->rval;
+                ti_incref(query->rval);
 
                 if (thing->id)
                 {
@@ -1622,7 +1828,7 @@ static inline int do__template(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ex_set_mem(e);
             return e->nr;
         }
-        assert (vec_space(query->immutable_cache));
+        assert(vec_space(query->immutable_cache));
         VEC_push(query->immutable_cache, nd->data);
     }
     return ti_template_compile(nd->data, query, e);
@@ -1670,7 +1876,7 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ex_set_mem(e);
                 return e->nr;
             }
-            assert (vec_space(query->immutable_cache));
+            assert(vec_space(query->immutable_cache));
             VEC_push(query->immutable_cache, nd->data);
         }
         query->rval = nd->data;
@@ -1691,7 +1897,7 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ex_set_mem(e);
                 return e->nr;
             }
-            assert (vec_space(query->immutable_cache));
+            assert(vec_space(query->immutable_cache));
             VEC_push(query->immutable_cache, nd->data);
         }
         query->rval = nd->data;
@@ -1706,7 +1912,7 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             nd->data = ti_regex_from_strn(nd->str, nd->len, e);
             if (!nd->data)
                 return e->nr;
-            assert (vec_space(query->immutable_cache));
+            assert(vec_space(query->immutable_cache));
             VEC_push(query->immutable_cache, nd->data);
         }
         query->rval = nd->data;
@@ -1721,7 +1927,7 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ex_set_mem(e);
                 return e->nr;
             }
-            assert (vec_space(query->immutable_cache));
+            assert(vec_space(query->immutable_cache));
             VEC_push(query->immutable_cache, nd->data);
         }
         query->rval = nd->data;
@@ -1763,7 +1969,7 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 return e->nr;
             break;
         default:
-            assert (0);
+            assert(0);
             return -1;
         }
         break;
@@ -1780,7 +1986,7 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
         break;
     default:
-        assert (0);  /* all possible should be handled */
+        assert(0);  /* all possible should be handled */
         return -1;
     }
 

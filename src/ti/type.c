@@ -125,7 +125,7 @@ static int type__del(ti_thing_t * thing, uint16_t * type_id)
 
 void ti_type_del(ti_type_t * type, vec_t * vars)
 {
-    assert (!type->refcount);
+    assert(!type->refcount);
     uint16_t type_id = type->type_id;
     ti_collection_t * collection = type->types->collection;
 
@@ -168,7 +168,7 @@ int ti_type_rename(ti_type_t * type, ti_raw_t * nname)
     char * type_name;
     char * wtype_name;
 
-    assert (nname->n <= TI_NAME_MAX);
+    assert(nname->n <= TI_NAME_MAX);
 
     ptype = smap_popn(
             type->types->removed,
@@ -275,7 +275,7 @@ int ti_type_set_idname(
 
     if (type->idname == name ||
         ti_field_by_name(type, name) ||
-        ti_method_by_name(type, name))
+        ti_type_get_method(type, name))
     {
         ex_set(e, EX_VALUE_ERROR,
             "property or method `%s` already exists on type `%s`"DOC_T_TYPED,
@@ -382,10 +382,10 @@ static int type__init_thing_t(ti_type_t * type, ti_thing_t * thing, ex_t * e)
 
 int ti_type_init_from_thing(ti_type_t * type, ti_thing_t * thing, ex_t * e)
 {
-    assert (thing->collection);  /* type are only created within a collection
+    assert(thing->collection);  /* type are only created within a collection
                                     scope and all things inside a collection
                                     scope have the collection set; */
-    assert (type->fields->n == 0);  /* no fields should exist */
+    assert(type->fields->n == 0);  /* no fields should exist */
 
     int enr = ti_thing_is_object(thing)
             ? type__init_thing_o(type, thing, e)
@@ -1012,7 +1012,7 @@ ti_val_t * ti_type_dval(ti_type_t * type)
     if (!thing)
         return NULL;
 
-    assert (!ti_type_is_wrap_only(type));
+    assert(!ti_type_is_wrap_only(type));
 
     for (vec_each(type->fields, ti_field_t, field))
     {
@@ -1181,7 +1181,7 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
         return NULL;
     }
 
-    assert (!ti_type_is_wrap_only(type));
+    assert(!ti_type_is_wrap_only(type));
 
     if (ti_thing_is_object(from))
     {
@@ -1265,7 +1265,7 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
     return thing;
 
 failed:
-    assert (e->nr);
+    assert(e->nr);
     ti_thing_cancel(thing);
     return NULL;
 }

@@ -6,13 +6,11 @@
 #include <ti/val.h>
 #include <ti/vfloat.h>
 
-
 static ti_vfloat_t vfloat__0 = {
         .ref = 1,
         .tp = TI_VAL_FLOAT,
         .float_ = 0.0,
 };
-
 
 ti_vfloat_t * ti_vfloat_create(double d)
 {

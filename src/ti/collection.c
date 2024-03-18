@@ -9,6 +9,7 @@
 #include <ti/auth.h>
 #include <ti/collection.h>
 #include <ti/collection.inline.h>
+#include <ti/ctask.h>
 #include <ti/enums.h>
 #include <ti/future.h>
 #include <ti/gc.h>
@@ -34,6 +35,8 @@ static const size_t ti_collection_min_name = 1;
 static const size_t ti_collection_max_name = 128;
 
 ti_collection_t * ti_collection_create(
+        uint64_t collection_id,
+        uint64_t next_free_id,
         guid_t * guid,
         const char * name,
         size_t n,
@@ -41,6 +44,7 @@ ti_collection_t * ti_collection_create(
         ti_tz_t * tz,
         uint8_t deep)
 {
+    /* we need the `next_free_id` for compatibility with older versions */
     ti_collection_t * collection = malloc(sizeof(ti_collection_t));
     if (!collection)
         return NULL;
@@ -48,6 +52,8 @@ ti_collection_t * ti_collection_create(
     collection->ref = 1;
     collection->deep = deep;
     collection->root = NULL;
+    collection->id = collection_id;
+    collection->next_free_id = next_free_id;
     collection->name = ti_str_create(name, n);
     collection->things = imap_create();
     collection->rooms = imap_create();
@@ -81,9 +87,9 @@ void ti_collection_destroy(ti_collection_t * collection)
     if (!collection)
         return;
 
-    assert (collection->things->n == 0);
-    assert (collection->rooms->n == 0);
-    assert (collection->gc->n == 0);
+    assert(collection->things->n == 0);
+    assert(collection->rooms->n == 0);
+    assert(collection->gc->n == 0);
 
     imap_destroy(collection->things, NULL);
     imap_destroy(collection->rooms, NULL);
@@ -166,6 +172,35 @@ int ti_collection_rename(
     return 0;
 }
 
+/*
+ * Check if a collection is really empty. Note that futures aren't checked,
+ * this is not required but keep in mind that they might exist and want to
+ * modify the collection afterwards. Allowing futures allows for a module to
+ * load an export and use import to restore the collection.
+ */
+#define TCCENM collection->name->n, (const char *) collection->name->data
+int ti_collection_check_empty(ti_collection_t * collection, ex_t * e)
+{
+    const char * pf = "collection not empty;";
+
+    if (collection->things->n != 1)
+        ex_set(e, EX_OPERATION, "%s collection `%.*s` contains things", pf, TCCENM);
+    else if (collection->types->imap->n)
+        ex_set(e, EX_OPERATION, "%s collection `%.*s` contains types", pf, TCCENM);
+    else if (ti_thing_n(collection->root))
+        ex_set(e, EX_OPERATION, "%s collection `%.*s` contains properties", pf, TCCENM);
+    else if (collection->enums->imap->n)
+        ex_set(e, EX_OPERATION, "%s collection `%.*s` contains enumerators", pf, TCCENM);
+    else if (collection->procedures->n)
+        ex_set(e, EX_OPERATION, "%s collection `%.*s` contains procedures", pf, TCCENM);
+    else if (collection->vtasks->n)
+        ex_set(e, EX_OPERATION, "%s collection `%.*s` contains tasks", pf, TCCENM);
+    else if (collection->root->ref > 1)
+        ex_set(e, EX_OPERATION, "collection `%.*s` is being used", TCCENM);
+
+    return e->nr;
+}
+
 ti_val_t * ti_collection_as_mpval(ti_collection_t * collection)
 {
     ti_raw_t * raw;
@@ -203,8 +238,8 @@ ti_thing_t * ti_collection_thing_restore_gc(
     {
         if ((thing = gc->thing)->id == thing_id)
         {
-            assert (thing->flags & TI_THING_FLAG_SWEEP);
-            assert (thing->ref);
+            assert(thing->flags & TI_THING_FLAG_SWEEP);
+            assert(thing->ref);
 
             log_info("restoring "TI_THING_ID" from garbage", thing->id);
 
@@ -420,7 +455,7 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
 
     if (do_mark_things)
     {
-        assert (collection->futures->n == 0 && "Futures must be cancelled");
+        assert(collection->futures->n == 0 && "Futures must be cancelled");
 
         /* Take a lock because flags are not atomic and might be changed */
         uv_mutex_lock(collection->lock);
@@ -486,7 +521,7 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
         /*
          * The garbage collector has a reference and since the
          */
-        assert (thing->ref > 1);
+        assert(thing->ref > 1);
         ti_decref(thing);
 
         if (imap_add(collection->things, thing->id, thing))
@@ -662,4 +697,90 @@ ti_pkg_t * ti_collection_leave_rooms(
     pkg_init(resp, pkg->id, TI_PROTO_CLIENT_RES_DATA, buffer.size);
 
     return resp;
+}
+
+/*
+ * When the return value (and thus e->nr) is EX_BAD_DATA or EX_SUCCESS, the
+ * collection is changed and therefore the same changes must be applied to all
+ * nodes. Any other error indicates no changes are made.
+ */
+int ti_collection_unpack(
+        ti_collection_t * collection,
+        mp_unp_t * up,
+        ex_t * e)
+{
+    mp_obj_t obj, mp_schema, mp_version;
+    char * version = NULL;
+    size_t i;
+
+    if (mp_next(up, &obj) != MP_ARR || obj.via.sz == 0 ||
+        mp_next(up, &mp_schema) != MP_U64 ||
+        mp_next(up, &mp_version) != MP_STR)
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "no valid import data; "
+                "make sure the bytes are created using the `export` function "
+                "with the `dump` option enabled");
+        return e->nr;
+    }
+
+    if (mp_schema.via.u64 != TI_EXPORT_SCHEMA_V1500)
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "export with unknown schema `%"PRIu64"`",
+                mp_schema.via.u64);
+        return e->nr;
+    }
+
+    version = mp_strdup(&mp_version);
+    if (!version)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    if (ti_version_cmp(version, TI_VERSION) > 0)
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "export is created using ThingsDB version `%s` which is newer "
+                "than the running version `"TI_VERSION"`",
+                version);
+    }
+    else for (i = obj.via.sz-2; i--;)
+    {
+        if (ti_ctask_run(collection->root, up))
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "failed to unpack collection data; "
+                    "(more info might be available in the node log)");
+            break;
+        }
+    }
+
+    free(version);
+    return e->nr;
+}
+
+void ti_collection_tasks_clear(ti_collection_t * collection)
+{
+    for (vec_each(collection->vtasks, ti_vtask_t, vtask))
+        ti_vtask_del(vtask->id, collection);
+}
+
+/*
+ * Shortcut to ti_collection_unpack() with bytes as input.
+ *
+ * When the return value (and thus e->nr) is EX_BAD_DATA or EX_SUCCESS, the
+ * collection is changed and therefore the same changes must be applied to all
+ * nodes. Any other error indicates no changes are made.
+ */
+int ti_collection_load(
+        ti_collection_t * collection,
+        ti_raw_t * bytes,
+        ex_t * e)
+{
+    mp_unp_t up;
+    mp_unp_init(&up, bytes->data, bytes->n);
+
+    return ti_collection_unpack(collection, &up, e);
 }

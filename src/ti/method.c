@@ -5,6 +5,7 @@
 #include <doc.h>
 #include <ti/closure.h>
 #include <ti/do.h>
+#include <ti/enum.inline.h>
 #include <ti/field.h>
 #include <ti/method.h>
 #include <ti/name.h>
@@ -39,14 +40,6 @@ void ti_method_destroy(ti_method_t * method)
     free(method);
 }
 
-ti_method_t * ti_method_by_name(ti_type_t * type, ti_name_t * name)
-{
-    for (vec_each(type->methods, ti_method_t, method))
-        if (method->name == name)
-            return method;
-    return NULL;
-}
-
 /* may return an empty string but never NULL */
 ti_raw_t * ti_method_doc(ti_method_t * method)
 {
@@ -66,7 +59,7 @@ ti_raw_t * ti_method_def(ti_method_t * method)
 
 int ti_method_call(
         ti_method_t * method,
-        ti_type_t * type,
+        ti_type_t * type_or_enum,
         ti_query_t * query,
         cleri_node_t * nd,
         ex_t * e)
@@ -74,8 +67,8 @@ int ti_method_call(
     cleri_node_t * child = nd->children;        /* first in argument list */
     vec_t * args = NULL;
     uint32_t n = method->closure->vars->n;
-    ti_thing_t * thing = (ti_thing_t *) query->rval;
-    _Bool lock_was_set = ti_type_ensure_lock(type);
+    ti_ref_t * thing_or_member = (ti_ref_t *) query->rval;
+    _Bool lock_was_set = ti_type_ensure_lock(type_or_enum);
 
     query->rval = NULL;
 
@@ -88,8 +81,8 @@ int ti_method_call(
             goto fail0;
         }
 
-        VEC_push(args, thing);
-        ti_incref(thing);
+        VEC_push(args, thing_or_member);
+        ti_incref(thing_or_member);
 
         while (child && n)
         {
@@ -117,13 +110,13 @@ fail1:
     vec_destroy(args, (vec_destroy_cb) ti_val_unsafe_drop);
 
 fail0:
-    ti_type_unlock(type, lock_was_set);
-    ti_val_unsafe_drop((ti_val_t *) thing);
+    ti_type_unlock(type_or_enum, lock_was_set);
+    ti_val_unsafe_drop((ti_val_t *) thing_or_member);
 
     return e->nr;
 }
 
-int ti_method_set_name(
+int ti_method_set_name_t(
         ti_method_t * method,
         ti_type_t * type,
         const char * s,
@@ -148,12 +141,55 @@ int ti_method_set_name(
 
     if (type->idname == name ||
         ti_field_by_name(type, name) ||
-        ti_method_by_name(type, name))
+        ti_type_get_method(type, name))
     {
         ex_set(e, EX_VALUE_ERROR,
             "property or method `%s` already exists on type `%s`"DOC_T_TYPED,
             name->str,
             type->name);
+        goto fail0;
+    }
+
+    ti_name_unsafe_drop(method->name);
+    method->name = name;
+
+    return 0;
+
+fail0:
+    ti_name_unsafe_drop(name);
+    return e->nr;
+}
+
+int ti_method_set_name_e(
+        ti_method_t * method,
+        ti_enum_t * enum_,
+        const char * s,
+        size_t n,
+        ex_t * e)
+{
+    ti_name_t * name;
+
+    if (!ti_name_is_valid_strn(s, n))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "method name must follow the naming rules"DOC_NAMES);
+        return e->nr;
+    }
+
+    name = ti_names_get(s, n);
+    if (!name)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    if (ti_enum_member_by_strn(enum_, name->str, name->n) ||
+        ti_enum_get_method(enum_, name))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "member or method `%s` already exists on enum `%s`"DOC_T_TYPED,
+            name->str,
+            enum_->name);
         goto fail0;
     }
 

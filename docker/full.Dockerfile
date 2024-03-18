@@ -1,22 +1,17 @@
-FROM google/cloud-sdk:353.0.0
+FROM google/cloud-sdk:458.0.1
 COPY ./ /tmp/thingsdb/
 
 RUN apt-get update && apt-get install -y \
     build-essential \
-    git \
     libuv1-dev \
     libpcre2-dev \
     libyajl-dev \
     libcurl4-nss-dev && \
-    git clone https://github.com/cesbit/libcleri.git /tmp/libcleri && \
-    cd /tmp/libcleri/Release && \
-    make all && \
-    make install && \
     cd /tmp/thingsdb/Release && \
     make clean && \
     make
 
-FROM google/cloud-sdk:353.0.0
+FROM google/cloud-sdk:458.0.1
 
 RUN mkdir -p /var/lib/thingsdb && \
     apt-get update && apt-get install -y \
@@ -27,7 +22,6 @@ RUN mkdir -p /var/lib/thingsdb && \
     pip3 install py-timod
 
 COPY --from=0 /tmp/thingsdb/Release/thingsdb /usr/local/bin/
-COPY --from=0 /usr/lib/libcleri* /usr/lib/
 
 # Client (Socket) connections
 EXPOSE 9200

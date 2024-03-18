@@ -34,7 +34,7 @@ static cleri_node_t * closure__node_from_strn(
         size_t n,
         ex_t * e)
 {
-    assert (e->nr == 0);
+    assert(e->nr == 0);
     ti_ncache_t * ncache;
     cleri_parse_t * res;
     cleri_node_t * node, * statement;
@@ -54,12 +54,30 @@ static cleri_node_t * closure__node_from_strn(
 
     if (!res->is_valid)
     {
-        ex_set(e, EX_SYNTAX_ERROR, "invalid syntax in closure");
-        goto fail1;
+        /* TODO (COMPAT): For compatibility with < v1.5
+         *                This can happen since earlier version were less
+         *                strict in handling semicolons. When one is missing,
+         *                we can parse using a syntax which in term of object
+         *                if completely compatible, but is less strict in terms
+         *                of handling missing semicolons.
+         */
+        cleri_parse_free(res);
+        res = cleri_parse2(ti.compat, query, TI_CLERI_PARSE_FLAGS);
+        if (!res)
+        {
+            ex_set_mem(e);
+            goto fail0;
+        }
+
+        if (!res->is_valid)
+        {
+            ex_set(e, EX_SYNTAX_ERROR, "invalid syntax in closure");
+            goto fail1;
+        }
+        log_warning("closure with missing semicolons: %s", query);
     }
 
-    node = res->tree->children              /* Sequence (START) */
-            ->children->next;               /* List of statements */
+    node = res->tree->children;             /* Sequence (START) */
 
     /* we should have exactly one statement */
     if (!node->children || (node->children->next && node->children->next->next))
@@ -140,15 +158,6 @@ static void closure__node_to_buf(cleri_node_t * nd, char * buf, size_t * n)
         }
         /* fall through */
     case CLERI_TP_REGEX:
-        if (nd->cl_obj->gid == CLERI_GID_END_STATEMENT)
-        {
-            if (nd->len || ((*n) && isspace(nd->str[-1])))
-            {
-                buf[(*n)++] = ';';
-            }
-            return;
-        }
-        /* fall through */
     case CLERI_TP_TOKEN:
     case CLERI_TP_TOKENS:
         memcpy(buf + (*n), nd->str, nd->len);
@@ -248,7 +257,8 @@ ti_closure_t * ti_closure_from_node(cleri_node_t * node, uint8_t flags)
 ti_closure_t * ti_closure_from_strn(
         ti_qbind_t * syntax,
         const char * str,
-        size_t n, ex_t * e)
+        size_t n,
+        ex_t * e)
 {
     ti_closure_t * closure = malloc(sizeof(ti_closure_t));
     if (!closure)
@@ -427,7 +437,7 @@ void ti_closure_dec(ti_closure_t * closure, ti_query_t * query)
         /* All extra props should be removed, note that this also is true
          * for the case where closure depth has reached zero
          */
-        assert (query->vars->n == pos+n);
+        assert(query->vars->n == pos+n);
 
         /* restore property values */
         for (vec_each_rev(closure->vars, ti_prop_t, p))
@@ -661,9 +671,9 @@ int ti_closure_call(
         vec_t * args,  /* NULL is allowed if the closure accepts no arguments */
         ex_t * e)
 {
-    assert (closure);
-    assert (closure->vars);
-    assert (closure->vars->n == 0 || args->n >= closure->vars->n);
+    assert(closure);
+    assert(closure->vars);
+    assert(closure->vars->n == 0 || args->n >= closure->vars->n);
 
     size_t idx = 0;
 
@@ -697,8 +707,8 @@ int ti_closure_call_one_arg(
         ti_val_t * arg,
         ex_t * e)
 {
-    assert (closure);
-    assert (closure->vars);
+    assert(closure);
+    assert(closure->vars);
 
     if (ti_closure_try_wse(closure, query, e) ||
         ti_closure_inc(closure, query, e))
@@ -726,7 +736,7 @@ ti_raw_t * ti_closure_doc(ti_closure_t * closure)
     if (node->cl_obj->gid != CLERI_GID_BLOCK)
         goto done;
 
-    node = node->children->next->next   /* node=block */
+    node = node->children->next         /* node=block */
             ->children                  /* node=list mi=1 */
             ->children                  /* node=statement */
             ->children                  /* node=expression */

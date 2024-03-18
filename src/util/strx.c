@@ -287,7 +287,7 @@ double strx_to_double(const char * str, char **restrict endptr)
 
     if (errno == ERANGE)
     {
-        assert (d == HUGE_VAL || d == -HUGE_VAL);
+        assert(d == HUGE_VAL || d == -HUGE_VAL);
 
         d = d == HUGE_VAL ? INFINITY : -INFINITY;
         errno = 0;

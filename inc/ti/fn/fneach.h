@@ -147,7 +147,7 @@ static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     }
 
-    assert (query->rval == NULL);
+    assert(query->rval == NULL);
     query->rval = (ti_val_t *) ti_nil_get();
 
 fail2:

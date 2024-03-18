@@ -25,8 +25,12 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     rname = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
+
     if (!ti_raw_endswith(rname, tar_gz_str))
     {
+        /* The ti_backup_is_gcloud() function depends on a filename size of at
+         * least 5 characters, this ensures 7 characters;
+         */
         ex_set(e, EX_VALUE_ERROR,
             "expecting a backup file-name to end with `%.*s`"
             DOC_NEW_BACKUP, tar_gz_str->n, (char *) tar_gz_str->data);
@@ -54,42 +58,6 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             int64_t ts = DATETIME(query->rval);
             timestamp = ts < 0 ? 0 : (uint64_t ) ts;
-        }
-        else if (ti_val_is_float(query->rval))
-        {
-            log_warning(
-                "parsing type `float` to `new_backup(..)` as second argument "
-                "is obsolete, use type `datetime` or type `timeval` instead");
-            double ts = VFLOAT(query->rval);
-            if (ts < 0.0)
-                ts = 0.0;
-            timestamp = (uint64_t) ts;
-        }
-        else if (ti_val_is_int(query->rval))
-        {
-            log_warning(
-                "parsing type `int` to `new_backup(..)` as second argument "
-                "is obsolete, use type `datetime` or type `timeval` instead");
-            int64_t ts = VINT(query->rval);
-            if (ts < 0)
-                ts = 0;
-            timestamp = (uint64_t) ts;
-        }
-        else if (ti_val_is_str(query->rval))
-        {
-            log_warning(
-                "parsing type `str` to `new_backup(..)` as second argument "
-                "is obsolete, use type `datetime` or type `timeval` instead");
-            ti_raw_t * rt = (ti_raw_t *) query->rval;
-            int64_t ts = iso8601_parse_date_n((const char *) rt->data, rt->n);
-            if (ts < 0)
-            {
-                ex_set(e, EX_VALUE_ERROR,
-                        "invalid date/time string as backup start time"
-                        DOC_NEW_BACKUP);
-                goto fail0;
-            }
-            timestamp = (uint64_t) ts;
         }
         else if (!ti_val_is_nil(query->rval))
         {

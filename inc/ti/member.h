@@ -17,6 +17,7 @@ ti_member_t * ti_member_create(
         ti_name_t * name,
         ti_val_t * val,
         ex_t * e);
+ti_member_t * ti_member_placeholder(ti_enum_t * enum_, ex_t * e);
 void ti_member_destroy(ti_member_t * member);
 void ti_member_drop(ti_member_t * member);
 void ti_member_remove(ti_member_t * member);

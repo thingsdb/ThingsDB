@@ -294,11 +294,11 @@ static inline void field__set_cb(ti_field_t * field, ti_field_dval_cb cb)
  */
 enum
 {
-    TOTAL_KEYWORDS = 22,
+    TOTAL_KEYWORDS = 25,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 8,
     MIN_HASH_VALUE = 2,
-    MAX_HASH_VALUE = 23
+    MAX_HASH_VALUE = 29
 };
 
 static inline unsigned int field__hash(
@@ -307,32 +307,32 @@ static inline unsigned int field__hash(
 {
     static unsigned short asso_values[] =
     {
-        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-        24, 24, 24, 24, 24, 24, 19, 24, 24, 24,
-        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-        24, 10, 24,  9, 24, 24, 24,  5,  0,  3,
-         1,  2,  0,  4,  7,  0, 24,  6,  7,  1,
-         1,  1,  9, 24,  0,  0,  0,  0,  0,  4,
-         3,  2, 24,  0, 24,  0, 24, 24, 24, 24,
-        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-        24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-        24, 24, 24, 24, 24, 24
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 13, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30,  8, 30,  8, 30, 30, 30,  9,  6,  0,
+         0,  4,  3,  1,  9,  0, 30,  4,  0,  4,
+         1,  0,  9, 30,  0,  8,  0,  0,  0,  0,
+         1,  0, 30,  0, 30,  0, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30
     };
 
     register unsigned int hval = n;
@@ -390,6 +390,9 @@ ti_field_map_t field__mapping[TOTAL_KEYWORDS] = {
     {.name="error",     .spec=TI_SPEC_ERROR,    .dval_cb=field__dval_error},
     {.name="room",      .spec=TI_SPEC_ROOM,     .dval_cb=field__dval_room},
     {.name="task",      .spec=TI_SPEC_TASK,     .dval_cb=field__dval_task},
+    {.name="email",     .spec=TI_SPEC_EMAIL,    .dval_cb=field__dval_str},
+    {.name="url",       .spec=TI_SPEC_URL,      .dval_cb=field__dval_str},
+    {.name="tel",       .spec=TI_SPEC_TEL,      .dval_cb=field__dval_str},
 };
 
 static ti_field_map_t * field__map[MAX_HASH_VALUE+1];
@@ -409,8 +412,8 @@ void ti_field_init(void)
         fmap->n = strlen(fmap->name);
         key = field__hash(fmap->name, fmap->n);
 
-        assert (field__map[key] == NULL);
-        assert (key <= MAX_HASH_VALUE);
+        assert(field__map[key] == NULL);
+        assert(key <= MAX_HASH_VALUE);
 
         field__map[key] = fmap;
     }
@@ -586,7 +589,7 @@ done_flags:
 
 skip_nesting:
 
-    assert (n);
+    assert(n);
 
     switch (*str)
     {
@@ -607,7 +610,7 @@ skip_nesting:
     }
 
     if (str[n-1] == '>')
-        return ti_condition_field_range_init(field, str, n, e);
+        return ti_condition_field_info_init(field, str, n, e);
 
     fmap = ti_field_map_by_strn(str, n);
     if (fmap)
@@ -758,7 +761,7 @@ found:
             field->nested_spec = TI_SPEC_ANY;
     }
 
-    assert (field->dval_cb);  /* callback must have been set */
+    assert(field->dval_cb);  /* callback must have been set */
 
     return e->nr;
 
@@ -832,12 +835,12 @@ ti_field_t * ti_field_create(
 
     if (field__init(field, e))
     {
-        assert (e->nr);        ;
+        assert(e->nr);        ;
         ti_field_destroy(vec_pop(type->fields));
         return NULL;
     }
 
-    assert (e->nr == 0);
+    assert(e->nr == 0);
     return field;
 }
 
@@ -883,8 +886,8 @@ ti_field_t * ti_field_as_new(ti_field_t * field, ti_raw_t * spec_raw, ex_t * e)
  */
 void ti_field_replace(ti_field_t * field, ti_field_t ** with_field)
 {
-    assert (field->idx == (*with_field)->idx);
-    assert (field->type == (*with_field)->type);
+    assert(field->idx == (*with_field)->idx);
+    assert(field->type == (*with_field)->type);
 
     field__remove_dep(field);
 
@@ -983,7 +986,7 @@ int ti_field_mod(
         }
     }
 
-    assert (0);
+    assert(0);
 
 nillable:
     ex_set(e, EX_OPERATION,
@@ -1051,7 +1054,7 @@ int ti_field_set_name(
 
     if (field->type->idname == name ||
         ti_field_by_name(field->type, name) ||
-        ti_method_by_name(field->type, name))
+        ti_type_get_method(field->type, name))
     {
         ex_set(e, EX_VALUE_ERROR,
             "property or method `%s` already exists on type `%s`"DOC_T_TYPED,
@@ -1384,6 +1387,27 @@ static int field__varr_assign(
                 field->type->name,
                 field->name->str);
             return e->nr;
+        case TI_SPEC_RVAL_EMAIL_ERROR:
+            ex_set(e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires an array with email addresses",
+                field->type->name,
+                field->name->str);
+            return e->nr;
+        case TI_SPEC_RVAL_URL_ERROR:
+            ex_set(e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires an array with URL's",
+                field->type->name,
+                field->name->str);
+            return e->nr;
+        case TI_SPEC_RVAL_TEL_ERROR:
+            ex_set(e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires an array with telephone numbers",
+                field->type->name,
+                field->name->str);
+            return e->nr;
         }
     }
 
@@ -1484,6 +1508,27 @@ static int field__thing_assign(
         ex_set(e, EX_VALUE_ERROR,
             "mismatch in type `%s`; "
             "property `%s` requires a thing with negative integer values",
+            field->type->name,
+            field->name->str);
+        return e->nr;
+    case TI_SPEC_RVAL_EMAIL_ERROR:
+        ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` requires a thing with email addresses",
+            field->type->name,
+            field->name->str);
+        return e->nr;
+    case TI_SPEC_RVAL_URL_ERROR:
+        ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` requires a thing with URL's",
+            field->type->name,
+            field->name->str);
+        return e->nr;
+    case TI_SPEC_RVAL_TEL_ERROR:
+        ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` requires a thing with telephone numbers",
             field->type->name,
             field->name->str);
         return e->nr;
@@ -1725,6 +1770,30 @@ int ti_field_make_assignable(
         if (ti_val_is_task(*val))
             return 0;
         goto type_error;
+    case TI_SPEC_EMAIL:
+        if (!ti_val_is_str(*val))
+            goto type_error;
+        if (!ti_regex_test_or_empty(
+                (ti_regex_t *) ti_val_borrow_re_email(),
+                (ti_raw_t *) *val))
+            goto email_error;
+        return 0;
+    case TI_SPEC_URL:
+        if (!ti_val_is_str(*val))
+            goto type_error;
+        if (!ti_regex_test_or_empty(
+                (ti_regex_t *) ti_val_borrow_re_url(),
+                (ti_raw_t *) *val))
+            goto url_error;
+        return 0;
+    case TI_SPEC_TEL:
+        if (!ti_val_is_str(*val))
+            goto type_error;
+        if (!ti_regex_test_or_empty(
+                (ti_regex_t *) ti_val_borrow_re_tel(),
+                (ti_raw_t *) *val))
+            goto tel_error;
+        return 0;
     case TI_SPEC_ARR:
         if (ti_val_is_array(*val))
             return field__varr_assign(field, (ti_varr_t **) val, parent, e);
@@ -1762,9 +1831,20 @@ int ti_field_make_assignable(
             ((ti_raw_t *) *val)->n > field->condition.srange->ma)
             goto srange_error;
         return 0;
+    case TI_SPEC_UTF8_RANGE:
+        if (!ti_val_is_str(*val))
+            goto type_error;
+        if (!strx_is_utf8n(
+                (const char *) ((ti_raw_t *) *val)->data,
+                ((ti_raw_t *) *val)->n))
+            goto utf8_error;
+        if (((ti_raw_t *) *val)->n < field->condition.srange->mi ||
+            ((ti_raw_t *) *val)->n > field->condition.srange->ma)
+            goto srange_error;
+        return 0;
     }
 
-    assert (spec >= TI_ENUM_ID_FLAG);
+    assert(spec >= TI_ENUM_ID_FLAG);
 
     if (ti_spec_enum_eq_to_val(spec, *val))
         return 0;
@@ -1783,7 +1863,7 @@ future_error:
 irange_error:
     ex_set(e, EX_VALUE_ERROR,
             "mismatch in type `%s`; "
-            "property `%s` requires a float value between "
+            "property `%s` requires an integer value between "
             "%"PRId64" and %"PRId64" (both inclusive)",
             field->type->name,
             field->name->str,
@@ -1815,20 +1895,27 @@ nan_error:
     return e->nr;
 
 srange_error:
-    if (field->condition.srange->mi == field->condition.srange->ma)
+    if (field->condition.srange->ma == INT64_MAX)
+        ex_set(e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a string with a length of at least "
+                "%zu",
+                field->type->name,
+                field->name->str,
+                field->condition.srange->mi);
+    else if (field->condition.srange->mi == field->condition.srange->ma)
         ex_set(e, EX_VALUE_ERROR,
                 "mismatch in type `%s`; "
                 "property `%s` requires a string with a length "
-                "of %zu character%s",
+                "of %zu",
                 field->type->name,
                 field->name->str,
-                field->condition.srange->mi,
-                field->condition.srange->mi == 1 ? "": "s");
+                field->condition.srange->mi);
     else
         ex_set(e, EX_VALUE_ERROR,
                 "mismatch in type `%s`; "
                 "property `%s` requires a string with a length "
-                "between %zu and %zu (both inclusive) characters",
+                "between %zu and %zu (both inclusive)",
                 field->type->name,
                 field->name->str,
                 field->condition.srange->mi,
@@ -1836,7 +1923,14 @@ srange_error:
     return e->nr;
 
 re_error:
-    ex_set(e, EX_VALUE_ERROR,
+    if (field->condition.re->regex == (ti_regex_t *) ti_val_borrow_re_email())
+        goto email_error;
+    else if (field->condition.re->regex == (ti_regex_t *) ti_val_borrow_re_url())
+        goto url_error;
+    else if (field->condition.re->regex == (ti_regex_t *) ti_val_borrow_re_tel())
+        goto tel_error;
+    else
+        ex_set(e, EX_VALUE_ERROR,
             "mismatch in type `%s`; "
             "property `%s` has a requirement to match pattern %.*s",
             field->type->name,
@@ -1874,6 +1968,30 @@ utf8_error:
     ex_set(e, EX_VALUE_ERROR,
             "mismatch in type `%s`; "
             "property `%s` only accepts valid UTF8 data",
+            field->type->name,
+            field->name->str);
+    return e->nr;
+
+email_error:
+    ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` only accepts an email address",
+            field->type->name,
+            field->name->str);
+    return e->nr;
+
+url_error:
+    ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` only accepts a URL",
+            field->type->name,
+            field->name->str);
+    return e->nr;
+
+tel_error:
+    ex_set(e, EX_VALUE_ERROR,
+            "mismatch in type `%s`; "
+            "property `%s` only accepts a telephone number",
             field->type->name,
             field->name->str);
     return e->nr;
@@ -1958,6 +2076,18 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
         return ti_val_is_room(val);
     case TI_SPEC_TASK:
         return ti_val_is_task(val);
+    case TI_SPEC_EMAIL:
+        return ti_val_is_str(val) && ti_regex_test_or_empty(
+                (ti_regex_t *) ti_val_borrow_re_email(),
+                (ti_raw_t *) val);
+    case TI_SPEC_URL:
+        return ti_val_is_str(val) && ti_regex_test_or_empty(
+                (ti_regex_t *) ti_val_borrow_re_url(),
+                (ti_raw_t *) val);
+    case TI_SPEC_TEL:
+        return ti_val_is_str(val) && ti_regex_test_or_empty(
+                (ti_regex_t *) ti_val_borrow_re_tel(),
+                (ti_raw_t *) val);
     case TI_SPEC_ARR:
         /* we can map a set to an array */
         return ((
@@ -1984,6 +2114,12 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
         return (ti_val_is_str(val) &&
                 ((ti_raw_t *) val)->n >= field->condition.srange->mi &&
                 ((ti_raw_t *) val)->n <= field->condition.srange->ma);
+    case TI_SPEC_UTF8_RANGE:
+        return (ti_val_is_str(val) && strx_is_utf8n(
+                (const char *) ((ti_raw_t *) val)->data,
+                ((ti_raw_t *) val)->n) &&
+                ((ti_raw_t *) val)->n >= field->condition.srange->mi &&
+                ((ti_raw_t *) val)->n <= field->condition.srange->ma);
     }
 
     /* any *thing* can be mapped */
@@ -1995,8 +2131,8 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     uint16_t t_spec, f_spec;
 
     /* both the t_field and f_field are either a set or array */
-    assert (ti_spec_is_arr_or_set(f_field->spec));
-    assert (ti_spec_is_arr_or_set(t_field->spec));
+    assert(ti_spec_is_arr_or_set(f_field->spec));
+    assert(ti_spec_is_arr_or_set(t_field->spec));
 
     if (t_field->nested_spec == TI_SPEC_ANY)
         return true;
@@ -2031,7 +2167,10 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_RAW:
         return (f_spec == TI_SPEC_STR ||
                 f_spec == TI_SPEC_UTF8 ||
-                f_spec == TI_SPEC_BYTES);
+                f_spec == TI_SPEC_BYTES ||
+                f_spec == TI_SPEC_EMAIL ||
+                f_spec == TI_SPEC_URL ||
+                f_spec == TI_SPEC_TEL);
     case TI_SPEC_INT:
         return (f_spec == TI_SPEC_UINT ||
                 f_spec == TI_SPEC_PINT ||
@@ -2045,7 +2184,10 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
                 f_spec == TI_SPEC_NINT ||
                 f_spec == TI_SPEC_FLOAT);
     case TI_SPEC_STR:
-        return f_spec == TI_SPEC_UTF8;
+        return (f_spec == TI_SPEC_UTF8 ||
+                f_spec == TI_SPEC_EMAIL ||
+                f_spec == TI_SPEC_URL ||
+                f_spec == TI_SPEC_TEL);
     case TI_SPEC_UTF8:
     case TI_SPEC_BYTES:
     case TI_SPEC_PINT:
@@ -2059,56 +2201,30 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_ERROR:
     case TI_SPEC_ROOM:
     case TI_SPEC_TASK:
+    case TI_SPEC_EMAIL:
+    case TI_SPEC_URL:
+    case TI_SPEC_TEL:
     case TI_SPEC_ARR:
     case TI_SPEC_SET:
     case TI_SPEC_REMATCH:
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
     case TI_SPEC_STR_RANGE:
+    case TI_SPEC_UTF8_RANGE:
         return false;
     }
 
-    assert (t_spec < TI_SPEC_ANY);  /* enumerators are already checked */
+    assert(t_spec < TI_SPEC_ANY);  /* enumerators are already checked */
 
     return f_spec < TI_SPEC_ANY ||
            f_spec == TI_SPEC_OBJECT ||
            ti_spec_is_set(f_field->spec);
 }
 
-_Bool field__maps_with_condition(ti_field_t * t_field, ti_field_t * f_field)
-{
-    uint16_t spec = t_field->spec & TI_SPEC_MASK_NILLABLE;
-    assert (t_field->condition.none);
-    assert (f_field->condition.none);
-
-    switch((ti_spec_enum_t) spec)
-    {
-    case TI_SPEC_REMATCH:
-        return ti_regex_eq(
-                t_field->condition.re->regex,
-                f_field->condition.re->regex);
-    case TI_SPEC_STR_RANGE:
-        return (
-            t_field->condition.srange->mi <= f_field->condition.srange->mi &&
-            t_field->condition.srange->ma >= f_field->condition.srange->ma);
-    case TI_SPEC_INT_RANGE:
-        return (
-            t_field->condition.irange->mi <= f_field->condition.irange->mi &&
-            t_field->condition.irange->ma >= f_field->condition.irange->ma);
-    case TI_SPEC_FLOAT_RANGE:
-        return (
-            t_field->condition.drange->mi <= f_field->condition.drange->mi &&
-            t_field->condition.drange->ma >= f_field->condition.drange->ma);
-    default:
-        assert(0);
-        return false;
-    }
-}
-
 _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
 {
     uint16_t t_spec, f_spec;
-    assert (t_field->name == f_field->name);
+    assert(t_field->name == f_field->name);
 
     /* return 0 when `to` accepts `any` */
     if (t_field->spec == TI_SPEC_ANY)
@@ -2145,14 +2261,24 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
                 f_spec == TI_SPEC_STR ||
                 f_spec == TI_SPEC_UTF8 ||
                 f_spec == TI_SPEC_BYTES ||
+                f_spec == TI_SPEC_EMAIL ||
+                f_spec == TI_SPEC_URL ||
+                f_spec == TI_SPEC_TEL ||
                 f_spec == TI_SPEC_REMATCH ||
-                f_spec == TI_SPEC_STR_RANGE);
+                f_spec == TI_SPEC_STR_RANGE ||
+                f_spec == TI_SPEC_UTF8_RANGE);
     case TI_SPEC_STR:
         return (f_spec == TI_SPEC_STR ||
                 f_spec == TI_SPEC_UTF8 ||
+                f_spec == TI_SPEC_EMAIL ||
+                f_spec == TI_SPEC_URL ||
+                f_spec == TI_SPEC_TEL ||
                 f_spec == TI_SPEC_REMATCH ||
-                f_spec == TI_SPEC_STR_RANGE);
+                f_spec == TI_SPEC_STR_RANGE ||
+                f_spec == TI_SPEC_UTF8_RANGE);
     case TI_SPEC_UTF8:
+        return (f_spec == TI_SPEC_UTF8 ||
+                f_spec == TI_SPEC_UTF8_RANGE);
     case TI_SPEC_BYTES:
         return f_spec == t_spec;
     case TI_SPEC_INT:
@@ -2197,6 +2323,9 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_ERROR:
     case TI_SPEC_ROOM:
     case TI_SPEC_TASK:
+    case TI_SPEC_EMAIL:
+    case TI_SPEC_URL:
+    case TI_SPEC_TEL:
         return f_spec == t_spec;
     case TI_SPEC_ARR:
         return (
@@ -2221,12 +2350,17 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
             f_field->condition.drange->ma <= t_field->condition.drange->ma);
     case TI_SPEC_STR_RANGE:
         return (
-            f_spec == TI_SPEC_STR_RANGE &&
+            (f_spec == TI_SPEC_STR_RANGE || f_spec == TI_SPEC_UTF8_RANGE) &&
+            f_field->condition.srange->mi >= t_field->condition.srange->mi &&
+            f_field->condition.srange->ma <= t_field->condition.srange->ma);
+    case TI_SPEC_UTF8_RANGE:
+        return (
+            f_spec == TI_SPEC_UTF8_RANGE &&
             f_field->condition.srange->mi >= t_field->condition.srange->mi &&
             f_field->condition.srange->ma <= t_field->condition.srange->ma);
     }
 
-    assert (t_spec < TI_SPEC_ANY);
+    assert(t_spec < TI_SPEC_ANY);
 
     return f_spec < TI_SPEC_ANY || f_spec == TI_SPEC_OBJECT;
 }
@@ -2285,7 +2419,7 @@ static int field__add(ti_thing_t * thing, field__add_t * w)
  */
 int ti_field_init_things(ti_field_t * field, ti_val_t ** vaddr)
 {
-    assert (field == vec_last(field->type->fields));
+    assert(field == vec_last(field->type->fields));
     int rc;
     field__add_t addjob = {
             .field = field,
@@ -2448,8 +2582,8 @@ static int field__non_id_chk(ti_thing_t * thing, field__set_rel_chk_t * w)
 
     ex_set(w->e, EX_TYPE_ERROR,
             "failed to create relation; "
-            "relations must be created using a property on a stored thing "
-            "(a thing with an Id)");
+            "relations must be created using a property "
+            "on a stored thing (a thing with an Id)");
     return w->e->nr;
 }
 

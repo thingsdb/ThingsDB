@@ -15,11 +15,13 @@
 #include <ti/auth.h>
 #include <ti/closure.h>
 #include <ti/closure.inline.h>
+#include <ti/collection.inline.h>
 #include <ti/collections.h>
 #include <ti/condition.h>
 #include <ti/datetime.h>
 #include <ti/deep.h>
 #include <ti/do.h>
+#include <ti/dump.h>
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
 #include <ti/export.h>
@@ -204,6 +206,22 @@ static inline int fn_nargs_range(
     ) ? e->nr : 0;
 }
 
+static inline int fn_arg_number(
+        const char * name,
+        const char * doc,
+        int argn,
+        ti_val_t * val,
+        ex_t * e)
+{
+    if (!ti_val_is_number(val))
+        ex_set(e, EX_TYPE_ERROR,
+            "function `%s` expects argument %d to be of "
+            "type `"TI_VAL_INT_S"` or `"TI_VAL_FLOAT_S"` "
+            "but got type `%s` instead%s",
+            name, argn, ti_val_str(val), doc);
+    return e->nr;
+}
+
 static inline int fn_arg_str(
         const char * name,
         const char * doc,
@@ -215,6 +233,21 @@ static inline int fn_arg_str(
         ex_set(e, EX_TYPE_ERROR,
             "function `%s` expects argument %d to be of "
             "type `"TI_VAL_STR_S"` but got type `%s` instead%s",
+            name, argn, ti_val_str(val), doc);
+    return e->nr;
+}
+
+static inline int fn_arg_bytes(
+        const char * name,
+        const char * doc,
+        int argn,
+        ti_val_t * val,
+        ex_t * e)
+{
+    if (!ti_val_is_bytes(val))
+        ex_set(e, EX_TYPE_ERROR,
+            "function `%s` expects argument %d to be of "
+            "type `"TI_VAL_BYTES_S"` but got type `%s` instead%s",
             name, argn, ti_val_str(val), doc);
     return e->nr;
 }
@@ -262,6 +295,21 @@ static inline int fn_arg_int(
         ex_set(e, EX_TYPE_ERROR,
             "function `%s` expects argument %d to be of "
             "type `"TI_VAL_INT_S"` but got type `%s` instead%s",
+            name, argn, ti_val_str(val), doc);
+    return e->nr;
+}
+
+static inline int fn_arg_float(
+        const char * name,
+        const char * doc,
+        int argn,
+        ti_val_t * val,
+        ex_t * e)
+{
+    if (!ti_val_is_float(val))
+        ex_set(e, EX_TYPE_ERROR,
+            "function `%s` expects argument %d to be of "
+            "type `"TI_VAL_FLOAT_S"` but got type `%s` instead%s",
             name, argn, ti_val_str(val), doc);
     return e->nr;
 }
@@ -525,7 +573,7 @@ static int fn_call_t_try_n(
     if (!name_)
         goto no_prop_err;
 
-    if ((method = ti_method_by_name(thing->via.type, name_)))
+    if ((method = ti_type_get_method(thing->via.type, name_)))
         return ti_method_call(method, thing->via.type, query, nd, e);
 
     if ((val = ti_thing_t_val_weak_get(thing, name_)))
@@ -577,7 +625,7 @@ static int fn_call_w_try_n(
     if (!name_)
         goto no_method_err;
 
-    method = ti_method_by_name(type, name_);
+    method = ti_type_get_method(type, name_);
     if (!method)
         goto no_method_err;
 
@@ -614,6 +662,33 @@ static int fn_call_f_try_n(
     return e->nr;
 }
 
+static int fn_call_m_try_n(
+        const char * name,
+        size_t n,
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    ti_member_t * member = (ti_member_t *) query->rval;
+    ti_name_t * needle = ti_names_weak_get_strn(name, n);
+
+    if (needle)
+    {
+        for (vec_each(member->enum_->methods, ti_method_t, method))
+        {
+            if (method->name == needle)
+            {
+                ti_type_t * type = (ti_type_t *) member->enum_;
+                return ti_method_call(method, type, query, nd, e);
+            }
+        }
+    }
+
+    ex_set(e, EX_LOOKUP_ERROR,
+            "enum `%s` has no function `%.*s`",
+            member->enum_->name, n, name);
+    return e->nr;
+}
 
 #define fn_call_try(__name, __q, __nd, __e) \
     fn_call_try_n(__name, strlen(__name), __q, __nd, __e)
@@ -635,6 +710,9 @@ static int fn_call_try_n(
 
     if (ti_val_is_future(query->rval))
         return fn_call_f_try_n(name, n, query, nd, e);
+
+    if (ti_val_is_member(query->rval))
+        return fn_call_m_try_n(name, n, query, nd, e);
 
     ex_set(e, EX_LOOKUP_ERROR,
             "type `%s` has no function `%.*s`",

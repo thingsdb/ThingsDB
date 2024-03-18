@@ -69,7 +69,7 @@ static inline const char * ti_module_py_fn(ti_module_t * module)
 
 static inline void ti_module_drop(ti_module_t * module)
 {
-    if (!--module->ref)
+    if (module && !--module->ref)
         ti_module_destroy(module);
 }
 

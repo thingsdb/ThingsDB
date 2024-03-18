@@ -28,7 +28,7 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     do
     {
         int rc;
-        assert (child->cl_obj->gid == CLERI_GID_STATEMENT);
+        assert(child->cl_obj->gid == CLERI_GID_STATEMENT);
 
         if (ti_do_statement(query, child, e))
             goto fail1;
@@ -57,7 +57,7 @@ static int do__f_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                                 is added to `query->change->tasks` */
     }
 
-    assert (e->nr == 0);
+    assert(e->nr == 0);
 
     query->rval = (ti_val_t *) ti_vint_create((int64_t) added->n);
     if (!query->rval)

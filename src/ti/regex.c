@@ -10,18 +10,6 @@
 #include <ti/val.inline.h>
 #include <util/logger.h>
 
-/* Build-in regular expressions:
- *
- * Email regular expression from HTML5:
- * /^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/
- *
- * URL validation:
- * /^(https?|ftp):\/\/(((([a-zA-Z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:)*@)?(((\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5]))|((([a-zA-Z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(([a-zA-Z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])([a-zA-Z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])*([a-zA-Z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])))\.)+(([a-zA-Z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(([a-zA-Z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])([a-zA-Z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])*([a-zA-Z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])))\.?)(:\d*)?)(\/((([a-zA-Z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)+(\/(([a-zA-Z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)*)*)?)?(\?((([a-zA-Z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)|[\uE000-\uF8FF]|\/|\?)*)?(\#((([a-zA-Z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)|\/|\?)*)?/
- *
- * Telephone number: (can be improved)
- * ^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$
- */
-
 static ti_regex_t * regex_create(ti_raw_t * re, ex_t * e)
 {
     ti_regex_t * regex;
@@ -40,7 +28,6 @@ static ti_regex_t * regex_create(ti_raw_t * re, ex_t * e)
 
     regex->ref = 1;
     regex->tp = TI_VAL_REGEX;
-
     regex->pattern = re;
 
     while(1)
@@ -160,11 +147,19 @@ ti_regex_t * ti_regex_from_strn(const char * str, size_t n, ex_t * e)
     return regex_create(re, e);
 }
 
+ti_regex_t * ti_regex_from_str(const char * str)
+{
+    ex_t e = {0};
+    ti_raw_t * re = ti_str_create(str, strlen(str));
+    if (!re)
+    {
+        return NULL;
+    }
+    return regex_create(re, &e);
+}
+
 void ti_regex_destroy(ti_regex_t * regex)
 {
-    if (!regex)
-        return;
-
     pcre2_match_data_free(regex->match_data);
     pcre2_code_free(regex->code);
     ti_val_drop((ti_val_t *) regex->pattern);

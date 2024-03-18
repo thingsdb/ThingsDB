@@ -48,7 +48,7 @@ void ti_collections_destroy(void)
     vec_destroy(collections->vec, (vec_destroy_cb) ti_collection_drop);
 
     (void) ti_collections_gc_collect_dropped();
-    assert (collections->dropped->n == 0);
+    assert(collections->dropped->n == 0);
     vec_destroy(collections->dropped, NULL);
 
     ti.collections = collections = NULL;
@@ -85,12 +85,21 @@ int ti_collections_gc(void)
     return rc;
 }
 
+/* futures are not counted; this has to be done outside this function */
+int ti_collections_check_empty(ex_t * e)
+{
+    for (vec_each(collections->vec, ti_collection_t, collection))
+        if (ti_collection_check_empty(collection, e))
+            return e->nr;
+    return e->nr;
+}
+
 _Bool ti_collections_del_collection(const uint64_t collection_id)
 {
     uint32_t i = 0;
     for (vec_each(collections->vec, ti_collection_t, collection), ++i)
     {
-        if (collection->root->id == collection_id)
+        if (collection->id == collection_id)
         {
             ti_collection_drop(vec_swap_remove(collections->vec, i));
             return true;
@@ -136,7 +145,8 @@ int ti_collections_gc_collect_dropped(void)
 }
 
 ti_collection_t * ti_collections_create_collection(
-        uint64_t root_id,
+        uint64_t collection_id,
+        uint64_t next_free_id,
         const char * name,
         size_t name_n,
         uint64_t created_at,
@@ -161,23 +171,26 @@ ti_collection_t * ti_collections_create_collection(
         goto fail0;
     }
 
-    if (root_id && ti_collections_get_by_id(root_id))
+    if (collection_id && ti_collections_get_by_id(collection_id))
     {
-        ex_set(e, EX_LOOKUP_ERROR, TI_COLLECTION_ID" already exists", root_id);
+        ex_set(e, EX_LOOKUP_ERROR,
+                TI_COLLECTION_ID" already exists", collection_id);
         goto fail0;
     }
 
-    if (!root_id)
-        root_id = ti_next_free_id();
+    if (!collection_id)
+        collection_id = ti_next_free_id();
     else
-        ti_update_next_free_id(root_id);
+        ti_update_next_free_id(collection_id);
 
-    guid_init(&guid, root_id);
+    guid_init(&guid, collection_id);
 
     /* By default, the time zone and deep level will be inherited from the
      * @thingsdb scope.
      */
     collection = ti_collection_create(
+            collection_id,
+            next_free_id,
             &guid,
             name,
             name_n,
@@ -191,7 +204,7 @@ ti_collection_t * ti_collections_create_collection(
     }
 
     collection->root = ti_things_create_thing_o(
-            root_id,
+            ti_collection_next_free_id(collection),  /* id 1 */
             TI_SPEC_ANY,
             8,
             collection);
@@ -227,7 +240,7 @@ ti_collection_t * ti_collections_get_by_strn(const char * str, size_t n)
 ti_collection_t * ti_collections_get_by_id(const uint64_t id)
 {
     for (vec_each(collections->vec, ti_collection_t, collection))
-        if (id == collection->root->id)
+        if (id == collection->id)
             return collection;
     return NULL;
 }

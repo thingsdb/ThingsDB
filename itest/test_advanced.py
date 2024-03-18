@@ -1,13 +1,9 @@
 #!/usr/bin/env python
-import asyncio
-import pickle
-import time
 from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
 from thingsdb.exceptions import AssertionError
-from thingsdb.exceptions import BadDataError
 from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import MaxQuotaError
 from thingsdb.exceptions import NumArgumentsError
@@ -16,7 +12,6 @@ from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import SyntaxError
 from thingsdb.exceptions import TypeError
 from thingsdb.exceptions import ValueError
-from thingsdb.exceptions import ZeroDivisionError
 
 
 class TestAdvanced(TestBase):
@@ -432,8 +427,8 @@ class TestAdvanced(TestBase):
         with self.assertRaisesRegex(
                 ValueError,
                 r'invalid declaration for `a` on type `Foo`; '
-                r'range <..> conditions expect a minimum and maximum value '
-                r'and may only be applied to `int`, `float` or `str`'):
+                r'additional info <..> can be applied to '
+                r'`int`, `float`, `str`, `email`, `url` and `tel`;'):
             await client.query(r'''
                 set_type('Foo', {a: 'uint<0:10>'});
             ''')
@@ -453,6 +448,14 @@ class TestAdvanced(TestBase):
                 r'the minimum value for a string range must not be negative'):
             await client.query(r'''
                 set_type('Foo', {a: 'str<-1:5>'});
+            ''')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `a` on type `Foo`; '
+                r'the minimum value for a string range must not be negative'):
+            await client.query(r'''
+                set_type('Foo', {a: 'utf8<-1:5>'});
             ''')
 
         with self.assertRaisesRegex(
@@ -636,6 +639,10 @@ class TestAdvanced(TestBase):
                 str_i: '/^(e|h|i|l|o){2}$/i<Hi>',
                 str_j: 'str<5:10:empty>?',
                 str_k: 'str<5:5>?',
+                utf8_a: 'utf8<0:1>',
+                utf8_b: 'utf8<1:1>',
+                utf8_c: 'utf8<3:10>',
+                utf8_d: 'utf8<0:10:unknown>',
             });
 
             Foo();
@@ -666,6 +673,10 @@ class TestAdvanced(TestBase):
             "str_i": "Hi",
             "str_j": "empty",
             "str_k": None,
+            "utf8_a": "",
+            "utf8_b": "-",
+            "utf8_c": "---",
+            "utf8_d": "unknown",
         })
 
         self.assertEqual(await client.query(r'''
@@ -699,7 +710,7 @@ class TestAdvanced(TestBase):
         with self.assertRaisesRegex(
                 ValueError,
                 r'mismatch in type `Foo`; '
-                r'property `int_a` requires a float value between '
+                r'property `int_a` requires an integer value between '
                 r'0 and 10 \(both inclusive\)'):
             await client.query(r'''
                 Foo{int_a: -1};
@@ -708,7 +719,7 @@ class TestAdvanced(TestBase):
         with self.assertRaisesRegex(
                 ValueError,
                 r'mismatch in type `Foo`; '
-                r'property `int_a` requires a float value between '
+                r'property `int_a` requires an integer value between '
                 r'0 and 10 \(both inclusive\)'):
             await client.query(r'''
                 Foo{int_a: 11};
@@ -772,7 +783,7 @@ class TestAdvanced(TestBase):
                 ValueError,
                 r'mismatch in type `Foo`; '
                 r'property `str_b` requires a string with a length '
-                r'of 1 character'):
+                r'of 1'):
             await client.query(r'''
                 Foo{str_b: ""};
             ''')
@@ -781,7 +792,7 @@ class TestAdvanced(TestBase):
                 ValueError,
                 r'mismatch in type `Foo`; '
                 r'property `str_c` requires a string with a length '
-                r'between 3 and 10 \(both inclusive\) characters'):
+                r'between 3 and 10 \(both inclusive\)'):
             await client.query(r'''
                 Foo{str_c: "xx"};
             ''')
@@ -790,7 +801,7 @@ class TestAdvanced(TestBase):
                 ValueError,
                 r'mismatch in type `Foo`; '
                 r'property `str_k` requires a string with a length '
-                r'of 5 characters'):
+                r'of 5'):
             await client.query(r'''
                 Foo{str_k: "ABCDEF"};
             ''')
@@ -1058,7 +1069,7 @@ class TestAdvanced(TestBase):
             x = {};
             x.  y = {};
             x.y.y = x.y;
-            {x.del('y')}
+            {x.del('y')};
             5;
         '''), 5)
 
@@ -1555,6 +1566,7 @@ set_enum('Colors', {
   RED: '#f00',
   GREEN: '#0f0',
   BLUE: '#00f',
+  repr: |this| `{this.name()}={this.value()}`,
 });
 set_enum('Math', {
   PI: 3.140000,
@@ -2024,18 +2036,6 @@ new_procedure('multiply', |a, b| a * b);
                 'name `union` is reserved'):
             await client.query('new_type("union");')
 
-    async def test_reserved_enum_union(self, client):
-        # bug #294
-        with self.assertRaisesRegex(
-                ValueError,
-                'name `enum` is reserved'):
-            await client.query('new_type("enum");')
-
-        with self.assertRaisesRegex(
-                ValueError,
-                'name `union` is reserved'):
-            await client.query('new_type("union");')
-
     async def test_loop_set_relation_error(self, client):
         # bug 302
         with self.assertRaises(AssertionError):
@@ -2127,7 +2127,7 @@ new_procedure('multiply', |a, b| a * b);
                 'closures with side effects require a change but '
                 'none is created; use '
                 '`wse(...)` to enforce a change; see '
-                'https://docs.thingsdb.net/v1/collection-api/wse')
+                'https://docs.thingsdb.io/v1/collection-api/wse')
         })
 
     async def test_no_declaration_after_flags(self, client):
@@ -2337,6 +2337,255 @@ new_procedure('multiply', |a, b| a * b);
             procedure_info('test');
         """)
         self.assertEqual(res['definition'], '|a| {\n\tT{a: };\n\tT{a: a};\n}')
+
+    async def test_multiple_methods(self, client):
+        # bug #343
+        res = await client.query("""//ti
+            set_type('T', {
+                a: |this| {this; 1/0;},
+                b: |this| {this; 1/0;},
+            });
+            T{}.wrap();
+        """)
+        self.assertEqual(res, {
+            "a": "division or modulo by zero",
+            "b": "division or modulo by zero"
+        })
+
+    async def test_enum_membet_to_str(self, client):
+        # bug #344
+        t, tid = await client.query("""//ti
+            set_enum('E', {
+                x: {test: 123}
+            });
+            [str(E()), E().value().id()];  // fails
+        """)
+        self.assertEqual(t, f'thing:{tid}')
+
+    async def test_array(self, client):
+        res = await client.query("""//ti
+            set_type('A', {
+                j: '[task]',
+                e: '[email]',
+                u: '[url]',
+                t: '[tel]'
+            });
+            a = A{};
+            a.j.push(task());
+            a.e.push('info@thingsdb.io');
+            a.u.push('https://thingsdb.io');
+            a.t.push('112');
+            a;
+        """)
+        self.assertEqual(res, {
+            "j": ['task:nil'],
+            "e": ['info@thingsdb.io'],
+            "u": ['https://thingsdb.io'],
+            "t": ['112']
+        })
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'type `int` is not allowed in restricted array'):
+            await client.query(r"""//ti
+                A{}.e.push(123);
+            """)
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'array is restricted to email addresses'):
+            await client.query(r"""//ti
+                A{}.e.push('test');
+            """)
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r"array is restricted to URL's"):
+            await client.query(r"""//ti
+                A{}.u.push('test');
+            """)
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'array is restricted to telephone numbers'):
+            await client.query(r"""//ti
+                A{}.t.push('test');
+            """)
+
+    async def test_enum_wrong_scope(self, client):
+        # bug #350
+        with self.assertRaisesRegex(
+                LookupError,
+                r'no enumerators exists in the `@thingsdb` scope; '
+                r'you might want to query a `@collection` scope\?'):
+            await client.query(r"""//ti
+                A{TEST};
+            """, scope='/thingsdb')
+
+    async def test_deep_copy_and_dup(self, client):
+        # pr #355
+        res = await client.query(r"""//ti
+            a = {};
+            a.a = a;
+            b = a.dup(10);
+            b == b.a.a.a;
+        """)
+        self.assertIs(res, True)
+        res = await client.query(r"""//ti
+            a = {};
+            a.a = a;
+            b = a.copy(10);
+            b == b.a.a.a;
+        """)
+        self.assertIs(res, True)
+        res = await client.query(r"""//ti
+            a = {};
+            a['for item thing'] = 1;
+            a.a = a;
+            b = a.copy(10);
+            b == b.a.a.a;
+        """)
+        self.assertIs(res, True)
+        res = await client.query(r"""//ti
+            a = {};
+            a['for item thing'] = 1;
+            a.a = a;
+            b = a.dup(10);
+            b == b.a.a.a;
+        """)
+        self.assertIs(res, True)
+        res = await client.query(r"""//ti
+            new_type('T');
+            set_type('T', {
+                a: 'T?'
+            });
+            a = T{};
+            a.a = a;
+            b = a.dup(10);
+            b == b.a.a.a;
+        """)
+        self.assertIs(res, True)
+        res = await client.query(r"""//ti
+            a = T{};
+            a.a = a;
+            b = a.copy(10);
+            b == b.a.a.a;
+        """)
+        self.assertIs(res, True)
+
+    async def test_adv_rel(self, client):
+        # bug found and fixed in pull request #357
+        res = await client.query(r"""//ti
+            new_type('R');
+            set_type('R', {
+                name: 'str',
+                parent: '{R}',
+                r: 'R?'
+            });
+            .r = R{name: 'master'};
+            .r.r = R{name: 'slave'};
+            .r.r.parent.add(.r);
+            mod_type('R', 'rel', 'parent', 'r');
+        """)
+        self.assertIs(res, None)
+
+    async def test_future_name(self, client):
+        # bug solved in v1.5.0
+        await client.query(r"""//ti
+            new_procedure("add_user", || {
+                return future(|| {
+                    user = thing();
+                    .users.add(user);
+                    user;
+                });
+            });
+            .users = set();
+        """)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'module `async` has no function `id`'):
+            await client.query(r"""//ti
+                user = add_user(); user.id();
+            """)
+
+    async def test_utf8_range(self, client):
+        await client.query(r"""//ti
+            set_type('A', {
+                u: 'utf8'
+            });
+            set_type('B', {
+                u: 'utf8<1:>'
+            });
+            set_type('C', {
+                u: 'utf8<:2>'
+            });
+            set_type('D', {
+                u: 'utf8<1:3>'
+            });
+            set_type('E', {
+                u: 'utf8<2:2>'
+            });
+        """)
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `B`; property `u` requires a '
+                r'string with a length of at least 1'):
+            await client.query(r"""//ti
+                B{u: ""};
+            """)
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `C`; property `u` requires a string '
+                r'with a length between 0 and 2 \(both inclusive\)'):
+            await client.query(r"""//ti
+                C{u: "aaa"};
+            """)
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `D`; property `u` requires a string '
+                r'with a length between 1 and 3 \(both inclusive\)'):
+            await client.query(r"""//ti
+                D{u: ""};
+            """)
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `E`; property `u` requires a '
+                r'string with a length of 2'):
+            await client.query(r"""//ti
+                E{u: ""};
+            """)
+        with self.assertRaisesRegex(
+                ValueError,
+                r'mismatch in type `B`; property `u` only accepts '
+                r'valid UTF8 data'):
+            await client.query(r"""//ti
+                B{u: "😁"[:3]};
+            """)
+
+        res = await client.query(r"""//ti
+            a = A{u: "A"};
+            a.wrap('B')
+        """)
+        self.assertEqual(res, {})
+
+        res = await client.query(r"""//ti
+            b = B{u: "B"};
+            b.wrap('A')
+        """)
+        self.assertEqual(res, {"u": "B"})
+
+        res = await client.query(r"""//ti
+            b = B{u: "B"};
+            b.wrap('D')
+        """)
+        self.assertEqual(res, {})
+
+        res = await client.query(r"""//ti
+            d = D{u: "D"};
+            d.wrap('B')
+        """)
+        self.assertEqual(res, {"u": "D"})
 
 
 if __name__ == '__main__':

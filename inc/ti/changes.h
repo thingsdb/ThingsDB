@@ -33,4 +33,15 @@ static inline _Bool ti_changes_in_queue(void)
     return changes_.queue->n != 0;
 }
 
+static inline _Bool ti_changes_unkeep_dropped(void)
+{
+    if (changes_.keep_dropped)
+    {
+        changes_.keep_dropped = false;
+        return true;
+    }
+    return false;
+}
+
+
 #endif /* TI_CHANGES_H_ */

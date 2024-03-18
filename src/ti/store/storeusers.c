@@ -16,7 +16,6 @@
 
 int ti_store_users_store(const char * fn)
 {
-    ti_users_t * users = ti.users;
     msgpack_packer pk;
     FILE * f = fopen(fn, "w");
     if (!f)
@@ -29,10 +28,10 @@ int ti_store_users_store(const char * fn)
 
     if (msgpack_pack_map(&pk, 1) ||
         mp_pack_str(&pk, "users") ||
-        msgpack_pack_array(&pk, users->vec->n)
+        msgpack_pack_array(&pk, ti.users->n)
     ) goto fail;
 
-    for (vec_each(users->vec, ti_user_t, user))
+    for (vec_each(ti.users, ti_user_t, user))
     {
         if (msgpack_pack_array(&pk, 5) ||
             msgpack_pack_uint64(&pk, user->id) ||

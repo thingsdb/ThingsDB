@@ -112,7 +112,7 @@ static int opr__sub(ti_val_t * a, ti_val_t ** b, ex_t * e, _Bool inplace)
         return e->nr;
     }
     }
-    assert (0);
+    assert(0);
 
 type_float:
     if (ti_val_make_float(b, float_))

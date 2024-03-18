@@ -215,7 +215,7 @@ static int vset__walk_dup(ti_thing_t * t, ti_vset_t * vset)
 
 int ti_vset_copy(ti_vset_t ** vsetaddr, uint8_t deep)
 {
-    assert (deep);
+    assert(deep);
 
     ti_vset_t * nvset, * ovset = *vsetaddr;
 
@@ -239,7 +239,7 @@ int ti_vset_copy(ti_vset_t ** vsetaddr, uint8_t deep)
 
 int ti_vset_dup(ti_vset_t ** vsetaddr, uint8_t deep)
 {
-    assert (deep);
+    assert(deep);
 
     ti_vset_t * nvset, * ovset = *vsetaddr;
 
@@ -292,20 +292,20 @@ int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e)
             return e->nr;
         }
 
-        assert (vset->parent);
-
-        if (!vset->parent->id && thing->id)
-        {
-            ex_set(e, EX_TYPE_ERROR,
-                    "relations between stored and non-stored things must be "
-                    "created using the property on the the stored thing "
-                    "(the thing with an ID)");
-            return e->nr;
-        }
+        assert(vset->parent);
 
         if (field->condition.rel)
         {
             ti_field_t * ofield = field->condition.rel->field;
+
+            if (!vset->parent->id)
+            {
+                ex_set(e, EX_TYPE_ERROR,
+                        "relations must be created using a property "
+                        "on a stored thing (a thing with an Id)");
+                return e->nr;
+            }
+
             if (ofield->spec == TI_SPEC_SET)
             {
                 if (field != ofield || thing != vset->parent)

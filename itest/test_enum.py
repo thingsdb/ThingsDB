@@ -22,7 +22,7 @@ class TestEnum(TestBase):
 
     title = 'Test enumerators'
 
-    @default_test_setup(num_nodes=1, seed=1, threshold_full_storage=10)
+    @default_test_setup(num_nodes=1, seed=1, threshold_full_storage=1000)
     async def run(self):
 
         await self.node0.init_and_run()
@@ -327,7 +327,7 @@ class TestEnum(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                r'member `GREEN` on `Color` already exists'):
+                r'member or method `GREEN` already exists on enum `Color`'):
             await client.query(r'''
                 mod_enum("Color", "add", "GREEN", "#00FF00");
             ''')
@@ -383,7 +383,7 @@ class TestEnum(TestBase):
 
         with self.assertRaisesRegex(
                 LookupError,
-                r'enum `Color` has no member `x'):
+                r'enum `Color` has no member or method `x'):
             await client.query(r'mod_enum("Color", "mod", "x", "#EEEE11");')
 
         with self.assertRaisesRegex(
@@ -417,7 +417,7 @@ class TestEnum(TestBase):
 
         with self.assertRaisesRegex(
                 LookupError,
-                r'enum `Color` has no member `x'):
+                r'enum `Color` has no member or method `x'):
             await client.query(r'mod_enum("Color", "ren", "x", "y");')
 
         with self.assertRaisesRegex(
@@ -433,7 +433,7 @@ class TestEnum(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                r'member `RED` on `Color` already exists'):
+                r'member or method `RED` already exists on enum `Color`'):
             await client.query(r'''
                 mod_enum("Color", "ren", "YELLOW", "RED");
             ''')
@@ -461,7 +461,7 @@ class TestEnum(TestBase):
 
         with self.assertRaisesRegex(
                 LookupError,
-                r'enum `Color` has no member `x`'):
+                r'enum `Color` has no member or method `x`'):
             await client.query(r'mod_enum("Color", "del", "x");')
 
         with self.assertRaisesRegex(
@@ -577,7 +577,7 @@ class TestEnum(TestBase):
 
         info = await client.query(r'enum_info("Color");')
 
-        self.assertEqual(len(info), 6)
+        self.assertEqual(len(info), 7)
         self.assertTrue(isinstance(info['enum_id'], int))
         self.assertTrue(isinstance(info['name'], str))
         self.assertTrue(isinstance(info['default'], str))
@@ -587,6 +587,8 @@ class TestEnum(TestBase):
         self.assertEqual(info['members'], [
             ['RED', '#FF0000'], ['GREEN', '#00FF00'], ['BLUE', '#0000FF']
         ])
+        self.assertTrue(isinstance(info['methods'], dict))
+        self.assertEqual(info['methods'], {})
 
     async def test_enums_info(self, client):
         self.assertIs(await client.query(r'''
@@ -612,7 +614,7 @@ class TestEnum(TestBase):
 
         info = enums_info[0]
 
-        self.assertEqual(len(info), 6)
+        self.assertEqual(len(info), 7)
         self.assertTrue(isinstance(info['enum_id'], int))
         self.assertTrue(isinstance(info['name'], str))
         self.assertTrue(isinstance(info['default'], str))
@@ -633,13 +635,15 @@ class TestEnum(TestBase):
             '''), None)
 
         with self.assertRaisesRegex(
-                LookupError,
-                r'variable `Color` is undefined'):
+                SyntaxError,
+                r'error at line 1, position 6, '
+                r'unexpected character `1`, expecting: }'):
             await client.query('Color{1};')
 
         with self.assertRaisesRegex(
-                LookupError,
-                r'variable `Color` is undefined'):
+                SyntaxError,
+                r'error at line 1, position 6, '
+                r'unexpected character `"`, expecting: }'):
             await client.query('Color{"RED"};')
 
         with self.assertRaisesRegex(
@@ -867,6 +871,50 @@ class TestEnum(TestBase):
             _V{}.wrap();
         """)
         self.assertEqual(res, {'color': 0})
+
+    async def test_enum_method(self, client):
+        await client.query("""//ti
+            set_enum('Color', {
+                Red: 0,
+                Green: 1,
+                Blue: 2,
+                isRed: |this| this == Color{Red},
+                noVar: || 42,
+                mVar: |this, other| [this, other],
+            });
+        """)
+
+        self.assertTrue(await client.query('Color{Red}.isRed();'))
+        self.assertFalse(await client.query('Color{Blue}.isRed();'))
+        self.assertEqual(await client.query('Color{Blue}.noVar();'), 42)
+        self.assertEqual(await client.query('Color{Red}.mVar(42);'), [0, 42])
+
+        fmt = await client.query("""//ti
+            mod_enum('Color', 'add', 'fmt', |this| `Color: {this.name()}`);
+            f = Color{Blue}.fmt();
+            mod_enum('Color', 'del', 'fmt');
+            mod_enum('Color', 'ren', 'noVar', 'nVar');
+            mod_enum('Color', 'mod', 'nVar', || 21);
+            f;
+        """)
+        self.assertEqual(fmt, 'Color: Blue')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'member or method `nVar` already exists on enum `Color`'):
+            await client.query('mod_enum("Color", "add", "nVar", ||nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'cannot convert a method into a member'):
+            await client.query('mod_enum("Color", "mod", "nVar", 5);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'cannot convert a member into a method'):
+            await client.query('mod_enum("Color", "mod", "Red", ||nil);')
+
+        self.assertEqual(await client.query('Color{Blue}.nVar(1, 2, 3);'), 21)
 
 
 if __name__ == '__main__':

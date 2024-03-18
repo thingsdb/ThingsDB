@@ -29,7 +29,7 @@ static inline int ti_scope_init_pkg(
 
 static inline _Bool ti_scope_is_collection(ti_scope_t * scope)
 {
-    return scope->tp >= TI_SCOPE_COLLECTION_NAME;
+    return scope->tp == TI_SCOPE_COLLECTION;
 }
 
 const char * ti_scope_name_from_id(uint64_t scope_id);

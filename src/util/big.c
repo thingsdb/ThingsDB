@@ -26,7 +26,7 @@ int big_to_str16n(const big_t * big, char * tostr, size_t size)
     if (!big->n_)
         return snprintf(tostr, size, "0");
 
-    assert (big->parts_[n]);
+    assert(big->parts_[n]);
 
     count = snprintf(tostr, size, "%"PRIx32, big->parts_[n]);
 
@@ -190,7 +190,7 @@ big_t * big_from_int64(const int64_t i)
 
 int64_t big_to_int64(const big_t * big)
 {
-    assert (big_fits_int64(big));
+    assert(big_fits_int64(big));
     int64_t i;
     uint64_t u = big->parts_[0];
 

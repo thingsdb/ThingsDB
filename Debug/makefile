@@ -13,6 +13,7 @@ RM := rm -rf
 -include src/ti/mod/subdir.mk
 -include src/ti/subdir.mk
 -include src/langdef/subdir.mk
+-include src/cleri/subdir.mk
 -include src/subdir.mk
 -include inc/msgpack/subdir.mk
 -include inc/lib/subdir.mk

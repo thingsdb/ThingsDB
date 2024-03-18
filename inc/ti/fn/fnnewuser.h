@@ -31,9 +31,8 @@ static int do__f_new_user(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set_mem(e);  /* task cleanup is not required */
 
     ti_val_unsafe_drop(query->rval);
-    query->rval = (ti_val_t *) ti_vint_create((int64_t) nuser->id);
-    if (!query->rval)
-        ex_set_mem(e);
+    query->rval = (ti_val_t *) nuser->name;
+    ti_incref(query->rval);
 
     return e->nr;
 }

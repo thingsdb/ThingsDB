@@ -144,7 +144,7 @@ int ti_room_emit(
     msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
 
     msgpack_pack_array(&vp.pk, 3);
-    msgpack_pack_uint64(&vp.pk, room->collection->root->id);
+    msgpack_pack_uint64(&vp.pk, room->collection->id);
     msgpack_pack_uint64(&vp.pk, room->id);
 
     sz = buffer.size;
@@ -439,9 +439,9 @@ void ti_room_destroy(ti_room_t * room)
 
 int ti_room_gen_id(ti_room_t * room)
 {
-    assert (!room->id);
+    assert(!room->id);
 
-    room->id = ti_next_free_id();
+    room->id = ti_collection_next_free_id(room->collection);
     return ti_room_to_map(room);
 }
 

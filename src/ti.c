@@ -8,6 +8,7 @@
 #include <ti.h>
 #include <ti/access.h>
 #include <ti/api.h>
+#include <ti/async.h>
 #include <ti/auth.h>
 #include <ti/change.h>
 #include <ti/collection.h>
@@ -92,6 +93,7 @@ int ti_create(void)
     ti.procedures = smap_create();
     ti.modules = smap_create();
     ti.langdef = compile_langdef();
+    ti.compat = compile_compat();
     ti.thing0 = ti_thing_o_create(0, 0, NULL);
     ti.room0 = ti_room_create(0, NULL);
     if (    clock_gettime(TI_CLOCK_MONOTONIC, &ti.boottime) ||
@@ -114,7 +116,8 @@ int ti_create(void)
             !ti.access_node ||
             !ti.access_thingsdb ||
             !ti.procedures ||
-            !ti.langdef)
+            !ti.langdef ||
+            !ti.compat)
     {
         /* ti_stop() is never called */
         ti_destroy();
@@ -128,11 +131,12 @@ int ti_create(void)
      * TODO: This can be removed in a future release when libcleri sets the
      *       required GID.
      */
-    ti.langdef->start->via.sequence            /* START */
-        ->olist->next->cl_obj->via.list         /* statements */
+    ti.langdef->start->via.list                 /* statements */
         ->cl_obj->via.rule                      /* statement */
         ->cl_obj->gid = CLERI_GID_STATEMENT;    /* prio */
-
+    ti.compat->start->via.list                 /* statements */
+        ->cl_obj->via.rule                      /* statement */
+        ->cl_obj->gid = CLERI_GID_STATEMENT;    /* prio */
     return 0;
 }
 
@@ -190,6 +194,8 @@ void ti_destroy(void)
 
     if (ti.langdef)
         cleri_grammar_free(ti.langdef);
+    if (ti.compat)
+        cleri_grammar_free(ti.compat);
 
     memset(&ti, 0, sizeof(ti_t));
 }
@@ -218,7 +224,7 @@ int ti_init_logger(void)
             return 0;
         }
     }
-    assert (0);
+    assert(0);
     return -1;
 }
 
@@ -238,6 +244,8 @@ int ti_init(void)
         ti_val_init_common() ||
         ti_thing_init_gc())
         return -1;
+
+    ti_async_init();  /* after ti_val_init_common() */
 
     shutdown_counter = (int) ti.cfg->shutdown_period;
     ti.fn = strx_cat(ti.cfg->storage_path, ti__fn);
@@ -341,7 +349,7 @@ int ti_rebuild(void)
 
 int ti_write_node_id(uint32_t * node_id)
 {
-    assert (ti.node_fn);
+    assert(ti.node_fn);
 
     int rc = -1;
     FILE * f = fopen(ti.node_fn, "w");
@@ -360,7 +368,7 @@ finish:
 
 int ti_read_node_id(uint32_t * node_id)
 {
-    assert (ti.node_fn);
+    assert(ti.node_fn);
 
     unsigned int unode_id = 0;
     int rc = -1;
@@ -601,7 +609,7 @@ failed:
 
 int ti_delayed_start(void)
 {
-    assert (delayed_start_timer == NULL);
+    assert(delayed_start_timer == NULL);
 
     delayed_start_timer = malloc(sizeof(uv_timer_t));
     if (!delayed_start_timer)
@@ -689,7 +697,7 @@ void ti_shutdown(void)
     if (ti.node)
         ti_set_and_broadcast_node_status(TI_NODE_STAT_SHUTTING_DOWN);
 
-    assert (shutdown_timer == NULL);
+    assert(shutdown_timer == NULL);
 
     shutdown_timer = malloc(sizeof(uv_timer_t));
     if (!shutdown_timer)
@@ -735,6 +743,10 @@ void ti_stop(void)
     {
         (void) ti_backups_store();
         (void) ti_nodes_write_global_status();
+        (void) ti_modules_stop_and_destroy();  /* required here too; for when
+                                                * the address is still in use
+                                                * and ti_offline isn't called
+                                                */
 
         if (ti_flag_test(TI_FLAG_TI_CHANGED))
             (void) ti_save();
@@ -1015,55 +1027,54 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         mp_pack_str(pk, "next_change_id") ||
         msgpack_pack_uint64(pk, ti.changes->next_change_id) ||
         /* 26 */
-        mp_pack_str(pk, "next_free_id") ||
-        msgpack_pack_uint64(pk, ti.node->next_free_id) ||
-        /* 27 */
         mp_pack_str(pk, "cached_names") ||
         msgpack_pack_uint32(pk, ti.names->n) ||
-        /* 28 */
+        /* 27 */
         mp_pack_str(pk, "http_status_port") ||
         (ti.cfg->http_status_port
                 ? msgpack_pack_uint16(pk, ti.cfg->http_status_port)
                 : mp_pack_str(pk, "disabled")) ||
-        /* 29 */
+        /* 28 */
         mp_pack_str(pk, "http_api_port") ||
         (ti.cfg->http_api_port
                 ? msgpack_pack_uint16(pk, ti.cfg->http_api_port)
                 : mp_pack_str(pk, "disabled")) ||
-        /* 30 */
+        /* 29 */
         mp_pack_str(pk, "scheduled_backups") ||
         msgpack_pack_uint64(pk, ti_backups_scheduled()) ||
-        /* 31 */
+        /* 30 */
         mp_pack_str(pk, "yajl_version") ||
         mp_pack_fmt(pk, "%d.%d.%d", yv/10000, yv%10000/100, yv%100) ||
-        /* 32 */
+        /* 31 */
         mp_pack_str(pk, "connected_clients") ||
         msgpack_pack_uint64(pk, ti_stream_client_connections()) ||
-        /* 33 */
+        /* 32 */
         mp_pack_str(pk, "result_size_limit") ||
         msgpack_pack_uint64(pk, ti.cfg->result_size_limit) ||
-        /* 34 */
+        /* 33 */
         mp_pack_str(pk, "cached_queries") ||
         msgpack_pack_uint32(pk, ti.qcache->n) ||
-        /* 35 */
+        /* 34 */
         mp_pack_str(pk, "threshold_query_cache") ||
         msgpack_pack_uint32(pk, ti.cfg->threshold_query_cache) ||
-        /* 36 */
+        /* 35 */
         mp_pack_str(pk, "cache_expiration_time") ||
         msgpack_pack_uint32(pk, ti.cfg->cache_expiration_time) ||
-        /* 37 */
+        /* 36 */
         mp_pack_str(pk, "python_interpreter") ||
         mp_pack_str(pk, ti.cfg->python_interpreter) ||
-        /* 38 */
+        /* 37 */
         mp_pack_str(pk, "modules_path") ||
         mp_pack_str(pk, ti.cfg->modules_path) ||
-        /* 39 */
+        /* 38 */
         mp_pack_str(pk, "platform") ||
         mp_pack_str(pk, platform) ||
-        /* 40 */
+        /* 39 */
         mp_pack_str(pk, "architecture") ||
-        mp_pack_str(pk, architecture)
-
+        mp_pack_str(pk, architecture) ||
+        /* 40 */
+        mp_pack_str(pk, "next_free_id") ||
+        msgpack_pack_uint64(pk, ti.node->next_free_id)
     );
 }
 
@@ -1122,7 +1133,7 @@ static void ti__shutdown_cb(uv_timer_t * UNUSED(timer))
      * shutdown so request should stop in a short period. When there is only
      * one node, there is no point in waiting.
      */
-    if (shutdown_counter > 0 && ti.nodes->vec->n == 1)
+    if (shutdown_counter > 0 && ti.nodes->vec->n <= 1)
     {
         shutdown_counter = 0;
     }

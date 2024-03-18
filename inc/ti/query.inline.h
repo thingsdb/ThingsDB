@@ -66,7 +66,7 @@ static inline void ti_query_response(ti_query_t * query, ex_t * e)
 static inline uint64_t ti_query_scope_id(ti_query_t * query)
 {
     return query->collection
-            ?  query->collection->root->id
+            ?  query->collection->id
             : (query->qbind.flags & TI_QBIND_FLAG_THINGSDB)
             ? TI_SCOPE_THINGSDB
             : TI_SCOPE_NODE;

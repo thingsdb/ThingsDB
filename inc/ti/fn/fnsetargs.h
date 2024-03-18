@@ -31,8 +31,8 @@ static int do__f_set_args(ti_query_t * query, cleri_node_t * nd, ex_t * e)
          * No garbage collection safe drop is required as all the possible
          * things are guaranteed to have Id's.
          */
-        ti_val_unsafe_drop(vec_set(vtask->args, v, idx));
         ti_incref(v);
+        ti_val_unsafe_drop(vec_set(vtask->args, v, idx));
     }
 
     while (idx < m)

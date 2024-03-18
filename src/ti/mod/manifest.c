@@ -1051,6 +1051,42 @@ static inline int manifest__has_key(vec_t * defaults, ti_raw_t * key)
     return 0;
 }
 
+static void manifest__force_argmap(ti_mod_expose_t * expose)
+{
+    /* argmap is not critical as the code works without argmap too;
+     * However, no argmap is the same as ["*"] which is helpful information
+     * to the user and we therefore should make this map. Note that an
+     * empty argmap is also possible and serves a different purpose, namely,
+     * explicitly sending no arguments to the module; we must therefore
+     * leave empty argmap alone;
+     */
+    ti_item_t * item;
+    if (expose->argmap)
+        return;
+
+    expose->argmap = vec_new(1);
+    if (!expose->argmap)
+        return;
+
+    item = malloc(sizeof(ti_item_t));
+    if (!item)
+        goto fail0;
+
+    item->val = NULL;
+    item->key = ti_str_create("*", 1);
+    if (!item->key)
+        goto fail1;
+
+    VEC_push(expose->argmap, item);
+    return;
+
+fail1:
+    free(item);
+fail0:
+    vec_destroy(expose->argmap, NULL);
+    expose->argmap = NULL;
+}
+
 /*
  * Return 0 on success, -1 allocation error
  */
@@ -1099,6 +1135,10 @@ static int manifest__exposes_cb(
             return -1;
         *expose->load = *manifest->load;
     }
+
+    /* this may fail in which case argmap is still NULL; this is okay and can
+     * be ignored; */
+    manifest__force_argmap(expose);
 
     if (expose->argmap) for (vec_each(expose->argmap, ti_item_t, item_map))
     {
@@ -1267,8 +1307,8 @@ _Bool ti_mod_manifest_skip_install(
         ti_mod_manifest_t * manifest,
         ti_module_t * module)
 {
-    assert (manifest->main);
-    assert (manifest->version);
+    assert(manifest->main);
+    assert(manifest->version);
 
     if (!module->manifest.version)
     {

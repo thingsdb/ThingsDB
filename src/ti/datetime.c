@@ -110,20 +110,9 @@ int ti_datetime_time(ti_datetime_t * dt, struct tm * tm)
 
     if (dt->offset)
     {
-        long int offset = ((long int) dt->offset) * 60;
-        time_t ts = dt->ts;
-
-        if ((offset > 0 && ts > LLONG_MAX - offset) ||
-            (offset < 0 && ts < LLONG_MIN - offset))
-            return -1;
-
-        ts += offset;
-
-        if (gmtime_r(&ts, tm) != tm)
-            return -1;
-
-        tm->tm_gmtoff = offset;
-        return 0;
+        ti_tz_set_offset(dt->offset);
+        tzset();
+        return -(localtime_r(&dt->ts, tm) != tm);
     }
 
     return -(gmtime_r(&dt->ts, tm) != tm);
@@ -612,32 +601,6 @@ ti_datetime_t * ti_datetime_from_tm_tzinfo(
     return dt;
 }
 
-static void datetime__correct_max_mday(struct tm * tm)
-{
-    int mday = tm->tm_mday;
-    int month = tm->tm_mon;
-
-    if (month == 3 || month == 5 || month == 8 || month == 10)
-    {
-        /* April, June, September, November */
-        if (mday > 30)
-            tm->tm_mday = 30;
-    }
-    else if (month == 1)
-    {
-        /* February */
-        long int y = tm->tm_year + 1900;
-        int mfeb = 28 + ((y % 4 == 0 && y % 100 != 0) || (y % 400 == 0));
-        if (mday > mfeb)
-            tm->tm_mday = mfeb;
-    }
-    else if (mday > 31)
-    {
-        /* January, March, May, July, August, October, December */
-        tm->tm_mday = 31;
-    }
-}
-
 /*
  * Type datetime is immutable so this function must only be used on datetime
  * objects with no bindings. (usually a reference count of one)
@@ -648,7 +611,7 @@ int ti_datetime_move(
         int64_t num,
         ex_t * e)
 {
-    if (unit <= DT_MONTHS)
+    if (unit <= DT_DAYS)
     {
         struct tm tm = {0};
         if (ti_datetime_time(dt, &tm))
@@ -658,8 +621,26 @@ int ti_datetime_move(
             return e->nr;
         }
 
+        if (num < INT_MIN || num > INT_MAX)
+        {
+            ex_set(e, EX_OVERFLOW, "integer overflow");
+            return e->nr;
+        }
+
         switch(unit)
         {
+        case DT_WEEKS:
+            num *= 7;
+            /* fall through */
+        case DT_DAYS:
+            if ((num > 0 && tm.tm_mday > INT_MAX - num) ||
+                (num < 0 && tm.tm_mday < INT_MIN - num))
+            {
+                ex_set(e, EX_OVERFLOW, "integer overflow");
+                return e->nr;
+            }
+            tm.tm_mday += num;
+            break;
         case DT_MONTHS:
             if ((num > 0 && tm.tm_mon > INT_MAX - num) ||
                 (num < 0 && tm.tm_mon < INT_MIN - num))
@@ -668,14 +649,7 @@ int ti_datetime_move(
                 return e->nr;
             }
             tm.tm_mon += num;
-            num = tm.tm_mon / 12;
-            tm.tm_mon %= 12;
-            if (tm.tm_mon < 0)
-            {
-                tm.tm_mon += 12;
-                num -= 1;
-            }
-            /* fall through */
+            break;
         case DT_YEARS:
             if ((num > 0 && tm.tm_year > INT_MAX - num) ||
                 (num < 0 && tm.tm_year < INT_MIN - num))
@@ -691,33 +665,25 @@ int ti_datetime_move(
             return e->nr;
         }
 
-        /* ensures the the day of the month is correct */
-        if (tm.tm_mday > 28)
-            datetime__correct_max_mday(&tm);
+        /* tm_isdst must be set to -1 so we take into account day light saving
+         * times. For example, when clock is adjusted, + one day might be
+         * 23 hours, or 25.
+         */
+        tm.tm_isdst = -1;
 
         dt->ts = mktime(&tm);
         return 0;
     }
     else
     {
-        if (num < INT_MIN || num > INT_MAX)
-        {
-            ex_set(e, EX_OVERFLOW, "integer overflow");
-            return e->nr;
-        }
-
         switch(unit)
         {
         case DT_YEARS:
         case DT_MONTHS:
-            assert(0);
-            /* fall through */
         case DT_WEEKS:
-            num *= 7;
-            /* fall through */
         case DT_DAYS:
-            num *= 24;
-            /* fall through */
+            assert(0);
+            break;
         case DT_HOURS:
             num *= 60;
             /* fall through */

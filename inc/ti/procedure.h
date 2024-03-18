@@ -21,6 +21,10 @@ ti_procedure_t * ti_procedure_create(
         size_t name_n,
         ti_closure_t * closure,
         uint64_t created_at);
+void ti_procedure_mod(
+        ti_procedure_t * procedure,
+        ti_closure_t * closure,
+        uint64_t created_at);
 void ti_procedure_destroy(ti_procedure_t * procedure);
 int ti_procedure_info_to_pk(
         ti_procedure_t * procedure,

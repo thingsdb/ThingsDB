@@ -8,6 +8,7 @@
 #include <inttypes.h>
 #include <ti/change.t.h>
 #include <ti/closure.t.h>
+#include <ti/method.t.h>
 #include <ti/name.t.h>
 #include <ti/thing.t.h>
 #include <ti/type.t.h>
@@ -179,6 +180,16 @@ static inline int ti_type_wrap_only_e(ti_type_t * type, ex_t * e)
         ex_set(e, EX_TYPE_ERROR,
                 "type `%s` has wrap-only mode enabled", type->name);
     return e->nr;
+}
+
+static inline ti_method_t * ti_type_get_method(
+        ti_type_t * type,
+        ti_name_t * name)
+{
+    for (vec_each(type->methods, ti_method_t, method))
+        if (method->name == name)
+            return method;
+    return NULL;
 }
 
 #endif  /* TI_TYPE_H_ */

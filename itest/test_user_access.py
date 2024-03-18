@@ -156,7 +156,7 @@ class TestUserAccess(TestBase):
                 self.node0, auth=['test1', 'test'], auto_reconnect=False)
 
         await client.query(r"""//ti
-            new_user('test5')
+            new_user('test5');
             grant('@:junk', "test5", USER);
             assert (USER == JOIN|RUN|QUERY|CHANGE);
         """)

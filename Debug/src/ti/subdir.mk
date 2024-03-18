@@ -27,10 +27,10 @@ C_SRCS += \
 ../src/ti/counters.c \
 ../src/ti/cpkg.c \
 ../src/ti/ctask.c \
-../src/ti/data.c \
 ../src/ti/datetime.c \
 ../src/ti/deep.c \
 ../src/ti/do.c \
+../src/ti/dump.c \
 ../src/ti/enum.c \
 ../src/ti/enums.c \
 ../src/ti/evars.c \
@@ -138,10 +138,10 @@ OBJS += \
 ./src/ti/counters.o \
 ./src/ti/cpkg.o \
 ./src/ti/ctask.o \
-./src/ti/data.o \
 ./src/ti/datetime.o \
 ./src/ti/deep.o \
 ./src/ti/do.o \
+./src/ti/dump.o \
 ./src/ti/enum.o \
 ./src/ti/enums.o \
 ./src/ti/evars.o \
@@ -249,10 +249,10 @@ C_DEPS += \
 ./src/ti/counters.d \
 ./src/ti/cpkg.d \
 ./src/ti/ctask.d \
-./src/ti/data.d \
 ./src/ti/datetime.d \
 ./src/ti/deep.d \
 ./src/ti/do.d \
+./src/ti/dump.d \
 ./src/ti/enum.d \
 ./src/ti/enums.d \
 ./src/ti/evars.d \

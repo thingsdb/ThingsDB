@@ -80,23 +80,24 @@ class TestSyntax(TestBase):
             }
             .fun;
         """)
-        self.assertEqual(res, """||{// This is a test
-// with comments on top.
-nil;}""")
+        self.assertEqual(res, """||{nil;}""")
 
         res = await client.query("""//ti
             .fun = || {
-                for (x in range(10)) {4}5;
+                for (x in range(10)) {4}; 5;
             };
             .fun;
         """)
-        self.assertEqual(res, "||{for(x in range(10)){4}5;}")
+        self.assertEqual(res, "||{for(x in range(10)){4};5;}")
 
     async def test_missing_semicolon(self, client):
-        res = await client.query("""//ti
-            123 456;
-        """)
-        self.assertEqual(res, 456)
+        with self.assertRaisesRegex(
+                SyntaxError,
+                r'error at line 1, position 4, unexpected `456`, '
+                r'expecting: ; or end_of_statement'):
+            await client.query("""//ti
+                123 456;
+            """)
 
         with self.assertRaisesRegex(
                 SyntaxError,
@@ -109,14 +110,14 @@ nil;}""")
     async def test_short_syntax(self, client):
         await client.query("""//ti
             set_type('Person', {
-                name: 'str',
-                age: 'int',
+                name: 'str',// person'n name
+                age: 'int',// person's age
             });
             .test = |name, age| [
-                {name:, age:},
-                {name: name, age: age},
-                Person{name:, age:},
-                Person{name: name, age: age}
+                {name:, age:},                  // first
+                {name: name, age: age},         // second
+                Person{name:, age:}             /* third */,
+                Person{name: name, age: age}    /* forth */,
             ];
         """)
 
@@ -148,6 +149,48 @@ nil;}""")
   },
 ]
 """.strip().replace('  ', '\t'))
+
+    async def test_fixed_keywords(self, client):
+        res = await client.query("""//ti
+            [
+                QUERY,
+                CHANGE,
+                JOIN,
+                RUN,
+                GRANT,
+                USER,
+                FULL,
+                DEBUG,
+                INFO,
+                WARNING,
+                ERROR,
+                CRITICAL,
+                NO_IDS,
+                INT_MIN,
+                INT_MAX
+            ];
+        """)
+        self.assertEqual(res, [
+            1,
+            2,
+            8,
+            16,
+            4,
+            27,
+            31,
+            0,
+            1,
+            2,
+            3,
+            4,
+            32,
+            -9223372036854775808,
+            9223372036854775807
+        ])
+
+    async def test_empty(self, client):
+        await client.query("")
+        await client.query("nil;;;")
 
 
 if __name__ == '__main__':

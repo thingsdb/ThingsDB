@@ -80,7 +80,7 @@ ti_pkg_t * ti_syncevents_on_part(ti_pkg_t * pkg, ex_t * e)
     cpkg->flags |= TI_CPKG_FLAG_ALLOW_GAP;
     next_change_id = cpkg->change_id;
     ti_changes_set_next_missing_id(&next_change_id);
-    assert (next_change_id > cpkg->change_id);
+    assert(next_change_id > cpkg->change_id);
 
     rc = cpkg->change_id > ti.node->ccid
             ? ti_changes_add_change(ti.node, cpkg)

@@ -1,0 +1,51 @@
+# Docker Compose file for local development
+x-ti-template: &ti
+  image: ghcr.io/thingsdb/node
+  environment:
+    - THINGSDB_BIND_CLIENT_ADDR = '::'
+    - THINGSDB_BIND_NODE_ADDR = '::'
+    - THINGSDB_HTTP_API_PORT = 9220
+    - THINGSDB_HTTP_STATUS_PORT = 8080
+    - THINGSDB_MODULES_PATH = /modules/
+    - THINGSDB_STORAGE_PATH = /data/
+
+services:
+  node0:
+    << : *ti
+    hostname: node0
+    container_name: node0
+    command: "--init"
+    ports:
+      - 9200:9200
+      - 9220:9220
+      - 8080:8080
+    volumes:
+      - ./tidata/node0/data:/data/
+      - ./tidata/node0/modules:/modules/
+      - ./tidata/node0/dump:/dump/
+  node1:
+    << : *ti
+    hostname: node1
+    container_name: node1
+    command: "--secret pass"
+    ports:
+      - 9201:9200
+      - 9221:9220
+      - 8081:8080
+    volumes:
+      - ./tidata/node1/data:/data/
+      - ./tidata/node1/modules:/modules/
+      - ./tidata/node1/dump:/dump/
+  node2:
+    << : *ti
+    hostname: node2
+    container_name: node2
+    command: "--secret pass"
+    ports:
+      - 9202:9200
+      - 9222:9220
+      - 8082:8080
+    volumes:
+      - ./tidata/node2/data:/data/
+      - ./tidata/node2/modules:/modules/
+      - ./tidata/node2/dump:/dump/

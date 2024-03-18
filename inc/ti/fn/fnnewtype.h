@@ -114,7 +114,7 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 
 fail:
-    assert (e->nr);
+    assert(e->nr);
     ti_type_drop(type);
     return e->nr;
 }

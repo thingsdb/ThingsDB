@@ -34,7 +34,7 @@ int ti_nodes_to_pk(msgpack_packer * pk);
 int ti_nodes_from_up(mp_unp_t * up);
 ti_nodes_ignore_t ti_nodes_ignore_sync(uint8_t retry_offline);
 _Bool ti_nodes_require_sync(void);
-int ti_nodes_check_add(ex_t * e);
+int ti_nodes_check_add(const char * addr, uint16_t port, ex_t * e);
 uint64_t ti_nodes_ccid(void);
 uint64_t ti_nodes_scid(void);
 uint32_t ti_nodes_next_id(void);

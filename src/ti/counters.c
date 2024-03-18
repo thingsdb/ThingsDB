@@ -62,7 +62,7 @@ double ti_counters_upd_commit_change(struct timespec * start)
 
     duration = util_time_diff(start, &timing);
 
-    assert (duration > 0);
+    assert(duration > 0);
 
     ++counters->changes_committed;
 
@@ -85,7 +85,7 @@ double ti_counters_upd_success_query(struct timespec * start)
 
     duration = util_time_diff(start, &timing);
 
-    assert (duration > 0);
+    assert(duration > 0);
 
     ++counters->queries_success;
 

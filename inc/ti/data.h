@@ -9,12 +9,15 @@
 
 typedef struct ti_data_s ti_data_t;
 
-void ti_data_init(ti_data_t * data, size_t total_n);
-
 struct ti_data_s
 {
     size_t n;
     unsigned char data[];
 };
+
+static inline void ti_data_init(ti_data_t * data, size_t total_n)
+{
+    data->n = total_n - sizeof(ti_data_t);
+}
 
 #endif  /* TI_DATA_H_ */

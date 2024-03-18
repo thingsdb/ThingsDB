@@ -1,20 +1,13 @@
 #!/usr/bin/env python
-import asyncio
-import pickle
-import time
 from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
-from thingsdb.exceptions import AssertionError
 from thingsdb.exceptions import ValueError
 from thingsdb.exceptions import TypeError
 from thingsdb.exceptions import NumArgumentsError
-from thingsdb.exceptions import BadDataError
 from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import OverflowError
-from thingsdb.exceptions import ZeroDivisionError
-from thingsdb.exceptions import OperationError
 
 
 class TestDatetime(TestBase):
@@ -65,7 +58,7 @@ class TestDatetime(TestBase):
         self.assertTrue(await client.query('is_datetime( datetime() ); '))
         self.assertFalse(await client.query('is_datetime( timeval() ); '))
 
-    async def test_is_datetime(self, client):
+    async def test_is_timeval(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
                 'function `is_timeval` takes 1 argument but 2 were given'):
@@ -580,7 +573,7 @@ class TestDatetime(TestBase):
                 LookupError,
                 r'function `set_time_zone` is undefined in the `@collection` '
                 r'scope; you might want to query the `@thingsdb` scope\?'):
-            await client.query('set_time_zone("stuff", "Europe/Kiev");')
+            await client.query('set_time_zone("stuff", "Europe/Kyiv");')
 
         with self.assertRaisesRegex(
                 TypeError,
@@ -605,7 +598,7 @@ class TestDatetime(TestBase):
             await client.query('set_time_zone("stuff", "+01");', scope='@t')
 
         self.assertEqual(await client.query(r'''
-            set_time_zone("stuff", "Europe/Kiev");
+            set_time_zone("stuff", "Europe/Kyiv");
         ''', scope='@t'), None)
 
         self.assertEqual(
@@ -632,7 +625,7 @@ class TestDatetime(TestBase):
             await client.query('time_zones_info(nil);', scope='@t')
 
         res = await client.query('time_zones_info();', scope='@t')
-        self.assertEqual(len(res), 593)
+        self.assertEqual(len(res), 596)
 
         for tz in res:
             self.assertIsInstance(tz, str)
@@ -742,7 +735,7 @@ class TestDatetime(TestBase):
 
         self.assertEqual(
             await client.query('.dt.move("weeks", -200);'),
-            "2009-04-08T14:00:00+0200")
+            "2009-04-08T13:00:00+0200")
 
         self.assertEqual(
             await client.query('.dt.move("days", 23);'),
@@ -750,11 +743,11 @@ class TestDatetime(TestBase):
 
         self.assertEqual(
             await client.query('datetime(2020, 1, 31).move("months", 1);'),
-            "2020-02-29T00:00:00Z")
+            "2020-03-02T00:00:00Z")
 
         self.assertEqual(
             await client.query('datetime(2020, 2, 29).move("years", -1);'),
-            "2019-02-28T00:00:00Z")
+            "2019-03-01T00:00:00Z")
 
     async def test_replace(self, client):
         await client.query(
@@ -869,7 +862,7 @@ class TestDatetime(TestBase):
             "2013-02-06T07:00:00-0500")
 
         self.assertEqual(
-            await client.query('.dt.to("Europe/Kiev");'),
+            await client.query('.dt.to("Europe/Kyiv");'),
             "2013-02-06T14:00:00+0200")
 
     async def test_week(self, client):
@@ -965,6 +958,82 @@ class TestDatetime(TestBase):
             is_time_zone('America/Argentina/ComodRivadavia');
         """)
         self.assertTrue(res)
+
+    async def test_move_month_tz(self, client):
+        # bug #340
+        res = await client.query(r"""//ti
+            datetime(int(datetime('2023-01-01')) + 3600)
+                .to('-01')
+                .move('months', 1)
+                .move('months', 1);
+        """)
+        self.assertEqual(res, "2023-03-01T00:00:00-0100")
+
+        res = await client.query(r"""//ti
+            datetime(int(datetime('2023-01-01')) - 3600)
+                .to('+01')
+                .move('months', 1)
+                .move('months', 1);
+        """)
+        self.assertEqual(res, "2023-03-01T00:00:00+0100")
+
+        res = await client.query(r"""//ti
+            datetime(int(datetime('2022-12-01')) + 3600)
+                .to('Atlantic/Cape_Verde')
+                .move('months', 1)
+                .move('months', 1)
+                .move('months', 1)
+                .move('months', 1);  // Cape_verde = UTC-1
+        """)
+        self.assertEqual(res, "2023-04-01T00:00:00-0100")
+
+        res = await client.query(r"""//ti
+            datetime(int(datetime('2022-12-01')) - 3600)
+                .to('Europe/Amsterdam')
+                .move('months', 1)
+                .move('months', 1)
+                .move('months', 1)
+                .move('months', 1);
+        """)
+        self.assertEqual(res, "2023-04-01T00:00:00+0200")
+
+        # bug #342
+        res = await client.query(r"""//ti
+            datetime(int(datetime('2023-04-01')) - 7200)
+                .to('Europe/Amsterdam')
+                .move('months', -4);
+        """)
+        self.assertEqual(res, "2022-12-01T00:00:00+0100")
+
+        res = await client.query(r"""//ti
+            datetime(int(datetime('2022-12-01')) + 3600)
+                .to('Atlantic/Cape_Verde')
+                .move('days', 121);  // Cape_verde = UTC-1
+        """)
+        self.assertEqual(res, "2023-04-01T00:00:00-0100")
+
+        res = await client.query(r"""//ti
+            datetime(int(datetime('2022-12-01')) - 3600)
+                .to('Europe/Amsterdam')
+                .move('days', 121);
+        """)
+        self.assertEqual(res, "2023-04-01T00:00:00+0200")
+
+        res = await client.query(r"""//ti
+            datetime(int(datetime('2022-12-01')) + 3600)
+                .to('Atlantic/Cape_Verde')
+                .move('weeks', 17)
+                .move('days', 2);  // Cape_verde = UTC-1
+        """)
+        self.assertEqual(res, "2023-04-01T00:00:00-0100")
+
+        res = await client.query(r"""//ti
+            datetime(int(datetime('2022-12-01')) - 3600)
+                .to('Europe/Amsterdam')
+                .move('weeks', 17)
+                .move('days', 2);
+        """)
+        self.assertEqual(res, "2023-04-01T00:00:00+0200")
 
 
 if __name__ == '__main__':

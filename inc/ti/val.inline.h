@@ -14,7 +14,7 @@
 #include <ti/name.h>
 #include <ti/nil.h>
 #include <ti/nil.h>
-#include <ti/regex.h>
+#include <ti/regex.t.h>
 #include <ti/room.h>
 #include <ti/room.inline.h>
 #include <ti/str.h>
@@ -611,6 +611,11 @@ static inline _Bool ti_val_is_nil(ti_val_t * val)
     return val->tp == TI_VAL_NIL;
 }
 
+static inline _Bool ti_val_is_opt_chain(ti_val_t * val)
+{
+    return val->tp == TI_VAL_NIL || val->tp == TI_VAL_ERROR;
+}
+
 static inline _Bool ti_val_is_str(ti_val_t * val)
 {
     return val->tp == TI_VAL_STR || val->tp == TI_VAL_NAME;
@@ -700,6 +705,27 @@ static inline _Bool ti_val_is_task(ti_val_t * val)
     return val->tp == TI_VAL_TASK;
 }
 
+static inline _Bool ti_val_is_email(ti_val_t * val)
+{
+    return val->tp == TI_VAL_STR && ti_regex_test_or_empty(
+            (ti_regex_t *) val__re_email,
+            (ti_raw_t *) val);
+}
+
+static inline _Bool ti_val_is_url(ti_val_t * val)
+{
+    return val->tp == TI_VAL_STR && ti_regex_test_or_empty(
+            (ti_regex_t *) val__re_url,
+            (ti_raw_t *) val);
+}
+
+static inline _Bool ti_val_is_tel(ti_val_t * val)
+{
+    return val->tp == TI_VAL_STR && ti_regex_test_or_empty(
+            (ti_regex_t *) val__re_tel,
+            (ti_raw_t *) val);
+}
+
 static inline _Bool ti_val_is_member(ti_val_t * val)
 {
     return val->tp == TI_VAL_MEMBER;
@@ -739,6 +765,16 @@ static inline _Bool ti_val_is_mut_locked(ti_val_t * val)
 /*
  * Names
  */
+static inline ti_val_t * ti_val_data_name(void)
+{
+    return ti_incref(val__data_name), val__data_name;
+}
+
+static inline ti_val_t * ti_val_time_name(void)
+{
+    return ti_incref(val__time_name), val__time_name;
+}
+
 static inline ti_val_t * ti_val_year_name(void)
 {
     return ti_incref(val__year_name), val__year_name;
@@ -772,6 +808,11 @@ static inline ti_val_t * ti_val_second_name(void)
 static inline ti_val_t * ti_val_gmt_offset_name(void)
 {
     return ti_incref(val__gmt_offset_name), val__gmt_offset_name;
+}
+
+static inline ti_val_t * ti_val_borrow_async_name(void)
+{
+    return val__async_name;
 }
 
 static inline ti_val_t * ti_val_borrow_year_name(void)
@@ -847,6 +888,21 @@ static inline ti_val_t * ti_val_borrow_key_name(void)
 static inline ti_val_t * ti_val_borrow_key_type_name(void)
 {
     return val__key_type_name;
+}
+
+static inline ti_val_t * ti_val_borrow_re_email(void)
+{
+    return val__re_email;
+}
+
+static inline ti_val_t * ti_val_borrow_re_url(void)
+{
+    return val__re_url;
+}
+
+static inline ti_val_t * ti_val_borrow_re_tel(void)
+{
+    return val__re_tel;
 }
 
 static inline ti_val_t * ti_val_any_str(void)
@@ -1115,7 +1171,36 @@ static inline _Bool val__spec_enum_eq_to_val(uint16_t spec, ti_val_t * val)
     );
 }
 
-static ti_val_spec_t ti_val_spec_map[20] = {
+/*
+ * For all types, a space in this list must be created:
+ *
+ *   TI_SPEC_OBJECT,
+ *   TI_SPEC_RAW,
+ *   TI_SPEC_STR,
+ *   TI_SPEC_UTF8,
+ *   TI_SPEC_BYTES,
+ *   TI_SPEC_INT,
+ *   TI_SPEC_UINT,
+ *   TI_SPEC_PINT,
+ *   TI_SPEC_NINT,
+ *   TI_SPEC_FLOAT,
+ *   TI_SPEC_NUMBER,
+ *   TI_SPEC_BOOL,
+ *   TI_SPEC_ARR,
+ *   TI_SPEC_SET,
+ *   TI_SPEC_DATETIME,
+ *   TI_SPEC_TIMEVAL,
+ *   TI_SPEC_REGEX,
+ *   TI_SPEC_CLOSURE,
+ *   TI_SPEC_ERROR,
+ *   TI_SPEC_ROOM,
+ *   TI_SPEC_TASK,
+ *   TI_SPEC_EMAIL,
+ *   TI_SPEC_URL,
+ *   TI_SPEC_TEL,
+ */
+
+static ti_val_spec_t ti_val_spec_map[24] = {
         {.is_spec=ti_val_is_thing},
         {.is_spec=ti_val_is_raw},
         {.is_spec=ti_val_is_str},
@@ -1136,6 +1221,10 @@ static ti_val_spec_t ti_val_spec_map[20] = {
         {.is_spec=ti_val_is_closure},
         {.is_spec=ti_val_is_error},
         {.is_spec=ti_val_is_room},
+        {.is_spec=ti_val_is_task},
+        {.is_spec=ti_val_is_email},
+        {.is_spec=ti_val_is_url},
+        {.is_spec=ti_val_is_tel},
 };
 
 static inline _Bool ti_val_is_spec(ti_val_t * val, uint16_t spec)
@@ -1144,11 +1233,11 @@ static inline _Bool ti_val_is_spec(ti_val_t * val, uint16_t spec)
         ((spec & TI_SPEC_NILLABLE) && ti_val_is_nil(val)))
         return true;
 
-    if (spec > TI_SPEC_ANY)
-        return ti_val_spec_map[spec-TI_SPEC_OBJECT].is_spec(val);
-
     if (spec >= TI_ENUM_ID_FLAG)
         return val__spec_enum_eq_to_val(spec, val);
+
+    if (spec > TI_SPEC_ANY)
+        return ti_val_spec_map[spec-TI_SPEC_OBJECT].is_spec(val);
 
     return ti_val_is_thing(val) && ((ti_thing_t *) val)->type_id == spec;
 }

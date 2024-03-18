@@ -56,9 +56,9 @@ void ti_ncache_destroy(ti_ncache_t * ncache)
 
 int ncache__gen_name(vec_t * vcache, cleri_node_t * nd, ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_NAME ||
+    assert(nd->cl_obj->gid == CLERI_GID_NAME ||
             nd->cl_obj->gid == CLERI_GID_VAR);
-    assert (vec_space(vcache));
+    assert(vec_space(vcache));
 
     nd->data = ti_names_get(nd->str, nd->len);
 
@@ -88,8 +88,8 @@ static int ncache__index(
         ex_t * e)
 {
     cleri_node_t * child = nd->children;
-    assert (nd->cl_obj->gid == CLERI_GID_INDEX);
-    assert (child);
+    assert(nd->cl_obj->gid == CLERI_GID_INDEX);
+    assert(child);
     do
     {
         cleri_node_t * c = child            /* sequence */
@@ -166,7 +166,7 @@ static int ncache__closure(
                         ? TI_CLOSURE_FLAG_BTSCOPE
                         : TI_CLOSURE_FLAG_BCSCOPE) | closure_wse);
 
-    assert (vec_space(vcache));
+    assert(vec_space(vcache));
 
     if (*data)
         VEC_push(vcache, *data);
@@ -221,7 +221,7 @@ static int ncache__varname_opt_fa(
         return ncache__enum(syntax, vcache, nd->children->next, e);
     }
 
-    assert (0);
+    assert(0);
     return -1;
 }
 
@@ -231,7 +231,7 @@ static int ncache__chain(
         cleri_node_t * nd,
         ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_CHAIN);
+    assert(nd->cl_obj->gid == CLERI_GID_CHAIN);
 
     if (ncache__varname_opt_fa(syntax, vcache, nd->children->next, e))
         return e->nr;
@@ -272,7 +272,7 @@ static int ncache__gen_template(
 
     if (ti_template_build(nd) == 0)
     {
-        assert (vec_space(vcache));
+        assert(vec_space(vcache));
         VEC_push(vcache, nd->data);
     }
     else
@@ -349,7 +349,7 @@ static int ncache__expr_choice(
     }
 
     /* immutable values should `break` in the switch statement above */
-    assert (vec_space(vcache));
+    assert(vec_space(vcache));
 
     if (nd->data)
         VEC_push(vcache, nd->data);
@@ -390,7 +390,7 @@ static int ncache__operations(
         ex_t * e)
 {
     uint32_t gid = nd->children->next->cl_obj->gid;
-    if (gid == CLERI_GID_OPR8_TERNARY &&
+    if (gid == CLERI_GID_OPR9_TERNARY &&
         ncache__statement(
                 syntax,
                 vcache,
@@ -410,7 +410,7 @@ static int ncache__if_statement(
         cleri_node_t * nd,
         ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_IF_STATEMENT);
+    assert(nd->cl_obj->gid == CLERI_GID_IF_STATEMENT);
 
     if (ncache__statement(syntax, vcache, nd->children->next->next, e) ||
         ncache__statement(syntax, vcache, nd->children->data, e))
@@ -471,7 +471,7 @@ static int ncache__statement(
         cleri_node_t * nd,
         ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_STATEMENT);
+    assert(nd->cl_obj->gid == CLERI_GID_STATEMENT);
     switch ((nd = nd->children)->cl_obj->gid)
     {
         case CLERI_GID_IF_STATEMENT:
@@ -489,14 +489,14 @@ static int ncache__statement(
             return ncache__list(
                     syntax,
                     vcache,
-                    nd->children->next->next->children,
+                    nd->children->next->children,
                     e);
         case CLERI_GID_EXPRESSION:
             return ncache__expression(syntax, vcache, nd, e);
         case CLERI_GID_OPERATIONS:
             return ncache__operations(syntax, vcache, nd, e);
     }
-    assert (0);
+    assert(0);
     return -1;
 }
 
@@ -506,17 +506,13 @@ int ti_ncache_gen_node_data(
         cleri_node_t * nd,
         ex_t * e)
 {
-    assert (nd->cl_obj->gid == CLERI_GID_STATEMENT ||
-            nd->cl_obj->gid == CLERI_GID_STATEMENTS);
+    if (nd->cl_obj->gid == CLERI_GID_STATEMENT)
+        return ncache__statement(syntax, vcache, nd, e);
 
-    if (nd->cl_obj->gid == CLERI_GID_STATEMENTS)
-    {
-        for (nd = nd->children; nd; nd = nd->next->next)
-            if (ncache__statement(syntax, vcache, nd, e) || !nd->next)
-                return e->nr;
-        return e->nr;
-    }
-    return ncache__statement(syntax, vcache, nd, e);
+    for (nd = nd->children; nd; nd = nd->next->next)
+        if (ncache__statement(syntax, vcache, nd, e) || !nd->next)
+            return e->nr;
+    return e->nr;
 }
 
 

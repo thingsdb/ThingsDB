@@ -17,6 +17,11 @@ int ti_access_check_err(
         ti_user_t * user,
         uint64_t mask,
         ex_t * e);
+int ti_access_more_check(
+        const vec_t * access,
+        ti_user_t * o,
+        ti_user_t * n,
+        ex_t * e);
 int ti_access_check_or_err(
         const vec_t * access,
         ti_user_t * user,

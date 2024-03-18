@@ -117,14 +117,14 @@ class TestRelations(TestBase):
             ''')
 
         res = await client.query(r'''
-            f = F{};
+            .f = F{};
             f2 = F{};
             f3 = F{};
-            f.fff.add(f);
-            f.fff.add(f2);
+            .f.fff.add(.f);
+            .f.fff.add(f2);
             mod_type('F', 'ren', 'fff', 'others');
-            f.others.add(f3);
-            [f.others.len(), f2.others.len(), f3.others.len()];
+            .f.others.add(f3);
+            [.f.others.len(), f2.others.len(), f3.others.len()];
         ''')
         self.assertEqual(res, [3, 1, 1])
 
@@ -417,7 +417,8 @@ class TestRelations(TestBase):
             'OK';
         '''), 'OK')
 
-        res = await client.query(r'''wse(); export();''')
+        await client.query(r'''wse();''')
+        res = await client.query(r'''export();''')
         self.assertEqual(res, r'''
 // Enums
 
@@ -821,7 +822,7 @@ mod_type('D', 'rel', 'da', 'db');
         '''), 'OK')
 
         self.assertEqual(await client.query(r'''
-            c = C{};
+            .c = c = C{};
             cc = C{};
             c.c.add(c);
             c.c.add(cc);
@@ -1543,6 +1544,92 @@ mod_type('D', 'rel', 'da', 'db');
                 assert (.ro.f = set(.RIris, .RCato));
                 assert (.sp.p == set(.Iris));
             """)
+
+    async def test_strict_rel(self, client):
+        await client.query(r"""//ti
+            new_type("A");
+            new_type("B");
+            new_type("C");
+            set_type("A", {one: 'A?'});
+            set_type("B", {one: 'B?', many: '{B}'});
+            set_type("C", {many: '{C}'});
+            mod_type("A", "rel", "one", "one");
+            mod_type("B", "rel", "one", "many");
+            mod_type("C", "rel", "many", "many");
+        """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `A` on property `one`; '
+                r'relations must be created using a property on '
+                r'a stored thing \(a thing with an Id\)'):
+            await client.query(r"""//ti
+                a = A{};
+                a.one = a;
+            """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `A` on property `one`; '
+                r'relations must be created using a property on '
+                r'a stored thing \(a thing with an Id\)'):
+            await client.query(r"""//ti
+                a = A{};
+                a.set("one", a);
+            """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `B` on property `one`; '
+                r'relations must be created using a property on '
+                r'a stored thing \(a thing with an Id\)'):
+            await client.query(r"""//ti
+                b = B{};
+                b.one = b;
+            """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `B` on property `many`; '
+                r'relations must be created using a property on '
+                r'a stored thing \(a thing with an Id\)'):
+            await client.query(r"""//ti
+                b = B{};
+                b.many |= set(b);
+            """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'relations must be created using a property on '
+                r'a stored thing \(a thing with an Id\)'):
+            await client.query(r"""//ti
+                c = C{};
+                c.many.add(c);
+            """)
+
+        await client.query(r"""//ti
+            a = .a = A{};
+            a.set("one", a);
+            assert(a.one == a);
+        """)
+
+        await client.query(r"""//ti
+            b = .b = B{};
+            b.set("one", b);
+            assert(b.many.has(b));
+        """)
+
+        await client.query(r"""//ti
+            b = .b = B{};
+            b.many |= set(b);
+            assert(b.one == b);
+        """)
+
+        await client.query(r"""//ti
+            c = .c = C{};
+            c.many.add(c);
+            assert(c.many.has(c));
+        """)
 
 
 if __name__ == '__main__':

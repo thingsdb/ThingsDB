@@ -81,7 +81,7 @@ static int ttask__take_access(mp_unp_t * up)
         {
             log_critical(
                     "failed to take collection access ("TI_COLLECTION_ID")",
-                    c->root->id);
+                    c->id);
         }
     }
 
@@ -278,22 +278,14 @@ static int ttask__grant(mp_unp_t * up)
     return 0;
 }
 
-/*
- * Returns 0 on success
- * - for example: {
- *          'name': collection_name,
- *          'user': id,
- *          'root': id,
- *          'created_at': ts}
- */
 static int ttask__new_collection(mp_unp_t * up)
 {
     ex_t e = {0};
-    mp_obj_t obj, mp_name, mp_user, mp_root, mp_created;
+    mp_obj_t obj, mp_name, mp_user, mp_root, mp_nfid, mp_created;
     ti_user_t * user;
     ti_collection_t * collection;
 
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 4 ||
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 5 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_name) != MP_STR ||
         mp_skip(up) != MP_STR ||
@@ -301,10 +293,35 @@ static int ttask__new_collection(mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_root) != MP_U64 ||
         mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_nfid) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
         mp_next(up, &mp_created) != MP_U64)
     {
-        log_critical("task `new_collection`: invalid format");
-        return -1;
+        /*
+         * TODO (COMPAT): for compatibility with version before v1.5.0
+         *                In previous versions the root Id (the first next
+         *                free Id will be used for root) was equal to the
+         *                collection Id as all Id's were unique across all
+         *                existing collections; From version 1.5.0 this is
+         *                changed and Id's are now only unique within a
+         *                single collection.
+         */
+        if (obj.tp != MP_MAP || obj.via.sz != 4 ||
+            mp_skip(up) != MP_STR ||
+            mp_next(up, &mp_name) != MP_STR ||
+            mp_skip(up) != MP_STR ||
+            mp_next(up, &mp_user) != MP_U64 ||
+            mp_skip(up) != MP_STR ||
+            mp_next(up, &mp_root) != MP_U64 ||
+            mp_skip(up) != MP_STR ||
+            mp_next(up, &mp_created) != MP_U64)
+
+        {
+            log_critical("task `new_collection`: invalid format");
+            return -1;
+        }
+        mp_nfid.tp = mp_root.tp;
+        mp_nfid.via.u64 = mp_root.via.u64;
     }
 
     user = ti_users_get_by_id(mp_user.via.u64);
@@ -318,6 +335,7 @@ static int ttask__new_collection(mp_unp_t * up)
 
     collection = ti_collections_create_collection(
             mp_root.via.u64,
+            mp_nfid.via.u64,
             mp_name.via.str.data,
             mp_name.via.str.n,
             mp_created.via.u64,
@@ -533,6 +551,59 @@ failed:
     ti_procedure_destroy(procedure);
     ti_val_drop((ti_val_t *) closure);
     return -1;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: '{name: closure}'
+ */
+static int ttask__mod_procedure(mp_unp_t * up)
+{
+    mp_obj_t obj, mp_name, mp_created;
+    ti_procedure_t * procedure;
+    ti_closure_t * closure;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = NULL,
+            .up = up,
+    };
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_name) != MP_STR ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_created) != MP_U64 ||
+        mp_skip(up) != MP_STR)
+    {
+        log_critical(
+                "task `mod_procedure` for `.thingsdb`: missing map or name");
+        return -1;
+    }
+
+    procedure = ti_procedures_by_strn(
+            ti.procedures,
+            mp_name.via.str.data,
+            mp_name.via.str.n);
+
+    if (!procedure)
+    {
+        log_critical(
+                "task `mod_procedure` cannot find `%.*s` in `.thingsdb`",
+                mp_name.via.str.n, mp_name.via.str.data);
+        return -1;
+    }
+
+    closure = (ti_closure_t *) ti_val_from_vup(&vup);
+    if (!closure || !ti_val_is_closure((ti_val_t *) closure))
+    {
+        log_critical(
+                "task `mod_procedure` invalid closure in `.thingsdb`");
+        ti_val_drop((ti_val_t *) closure);
+        return -1;
+    }
+
+    ti_procedure_mod(procedure, closure, mp_created.via.u64);
+    return 0;
 }
 
 /*
@@ -1559,6 +1630,11 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_MOD_TYPE_HID:      break;
     case TI_TASK_REN:               break;
     case TI_TASK_FILL:              break;
+    case TI_TASK_MOD_PROCEDURE:     return ttask__mod_procedure(up);
+    case TI_TASK_NEW_ENUM:          break;
+    case TI_TASK_SET_ENUM_DATA:     break;
+    case TI_TASK_REPLACE_ROOT:      break;
+    case TI_TASK_IMPORT:            break;
     }
 
     log_critical("unknown thingsdb task: %"PRIu64, mp_task.via.u64);

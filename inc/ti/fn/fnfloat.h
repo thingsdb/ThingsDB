@@ -8,7 +8,7 @@ static int do__f_float(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     if (nargs == 0)
     {
-        assert (query->rval == NULL);
+        assert(query->rval == NULL);
         query->rval = (ti_val_t *) ti_vfloat_create(0.0);
         return e->nr;
     }

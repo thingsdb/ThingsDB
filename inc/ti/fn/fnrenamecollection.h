@@ -14,7 +14,7 @@ static int do__f_rename_collection(ti_query_t * query, cleri_node_t * nd, ex_t *
     collection = ti_collections_get_by_val(query->rval, e);
     if (e->nr)
         return e->nr;
-    assert (collection);
+    assert(collection);
 
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;

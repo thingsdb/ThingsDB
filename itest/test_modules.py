@@ -661,6 +661,15 @@ class TestModules(TestBase):
         """)
         self.assertEqual(res, ['READY', 200])
 
+        res = await client.query(r"""//ti
+            requests.get('http://localhost:8080/status');
+        """)
+        self.assertEqual(res, [{
+            'body': b'READY\n',
+            'status': '200 OK',
+            'status_code': 200
+        }])
+
     async def test_demo_py_module(self, client):
         await client.query(r"""//ti
              new_module('demo', 'github.com/thingsdb/module-py-demo');
@@ -674,6 +683,35 @@ class TestModules(TestBase):
             }).then(|reply| reply);
         """)
         self.assertEqual(res, 'HELLO!')
+
+    async def test_deploy(self, client):
+        # bug #351
+        await client.query(r"""//ti
+new_module("test", "test.py");
+deploy_module('test',
+"from timod import start_module, TiHandler, LookupError, ValueError
+
+class Handler(TiHandler):
+    async def on_config(self, req):
+        pass
+
+    async def on_request(self, req):
+        return 42
+
+if __name__ == '__main__':
+    start_module('test', Handler())
+");
+""", scope='/t')
+
+        await self.wait_for_module(client, 'test')
+        res = await client.query(r"""//ti
+            set_type('W', {x: ||nil});
+            future({
+                module: 'test',
+                w: {}.wrap('W'),
+            }).then(|x| x);
+        """, scope='//stuff')
+        self.assertEqual(res, 42)
 
 
 if __name__ == '__main__':

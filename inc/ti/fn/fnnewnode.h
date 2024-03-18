@@ -79,7 +79,7 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         port = TI_DEFAULT_NODE_PORT;
     }
 
-    if (ti_nodes_check_add(e))
+    if (ti_nodes_check_add(addrstr, port, e))
         goto fail1;
 
     cryptx_gen_salt(salt);

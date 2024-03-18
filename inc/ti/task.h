@@ -23,6 +23,7 @@
 #include <util/vec.h>
 
 ti_task_t * ti_task_create(uint64_t change_id, ti_thing_t * thing);
+ti_task_t * ti_task_new_task(ti_change_t * change, ti_thing_t * thing);
 ti_task_t * ti_task_get_task(ti_change_t * change, ti_thing_t * thing);
 void ti_task_destroy(ti_task_t * task);
 int ti_task_add_set_add(ti_task_t * task, ti_raw_t * key, vec_t * added);
@@ -65,6 +66,7 @@ int ti_task_add_new_module(
         ti_raw_t * source);
 int ti_task_add_new_node(ti_task_t * task, ti_node_t * node);
 int ti_task_add_new_procedure(ti_task_t * task, ti_procedure_t * procedure);
+int ti_task_add_mod_procedure(ti_task_t * task, ti_procedure_t * procedure);
 int ti_task_add_vtask_new(ti_task_t * task, ti_vtask_t * vtask);
 int ti_task_add_vtask_del(ti_task_t * task, ti_vtask_t * vtask);
 int ti_task_add_vtask_cancel(ti_task_t * task, ti_vtask_t * vtask);
@@ -150,14 +152,30 @@ int ti_task_add_splice(
         uint32_t c,              /* number of items to remove */
         uint32_t n);             /* number of items to add */
 int ti_task_add_restore(ti_task_t * task);
+int ti_task_add_import(ti_task_t * task, ti_raw_t * bytes, _Bool import_tasks);
 int ti_task_add_arr_remove(ti_task_t * task, ti_raw_t * key, vec_t * vec);
 int ti_task_add_thing_remove(ti_task_t * task, vec_t * vec, size_t alloc_sz);
 int ti_task_add_set_enum(ti_task_t * task, ti_enum_t * enum_);
-int ti_task_add_mod_enum_add(ti_task_t * task, ti_member_t * member);
+int ti_task_add_mod_enum_add(
+        ti_task_t * task,
+        ti_enum_t * enum_,
+        ti_name_t * name,
+        ti_val_t * val);
 int ti_task_add_mod_enum_def(ti_task_t * task, ti_member_t * member);
-int ti_task_add_mod_enum_del(ti_task_t * task, ti_member_t * member);
-int ti_task_add_mod_enum_mod(ti_task_t * task, ti_member_t * member);
-int ti_task_add_mod_enum_ren(ti_task_t * task, ti_member_t * member);
+int ti_task_add_mod_enum_del(
+        ti_task_t * task,
+        ti_enum_t * enum_,
+        ti_name_t * name);
+int ti_task_add_mod_enum_mod(
+        ti_task_t * task,
+        ti_enum_t * enum_,
+        ti_name_t * name,
+        ti_val_t * val);
+int ti_task_add_mod_enum_ren(
+        ti_task_t * task,
+        ti_enum_t * enum_,
+        ti_name_t * oldname,
+        ti_name_t * newname);
 int ti_task_add_del_enum(ti_task_t * task, ti_enum_t * enum_);
 
 

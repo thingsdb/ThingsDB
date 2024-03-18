@@ -23,7 +23,7 @@ static int mkenum_cb(ti_enum_t * enum_, msgpack_packer * pk)
         msgpack_pack_uint64(pk, enum_->created_at) ||
         msgpack_pack_uint64(pk, enum_->modified_at) ||
         mp_pack_strn(pk, enum_->rname->data, enum_->rname->n) ||
-        msgpack_pack_map(pk, enum_->members->n)
+        msgpack_pack_map(pk, enum_->members->n + enum_->methods->n)
     ) return -1;
 
     for (vec_each(enum_->members, ti_member_t, member))
@@ -31,6 +31,14 @@ static int mkenum_cb(ti_enum_t * enum_, msgpack_packer * pk)
         p = (uintptr_t) member->name;
         if (msgpack_pack_uint64(pk, p) ||
             ti_val_to_store_pk(member->val, pk)
+        ) return -1;
+    }
+
+    for (vec_each(enum_->methods, ti_method_t, method))
+    {
+        p = (uintptr_t) method->name;
+        if (msgpack_pack_uint64(pk, p) ||
+            ti_val_to_store_pk((ti_val_t *) method->closure, pk)
         ) return -1;
     }
 
@@ -201,8 +209,9 @@ int ti_store_enums_restore_members(
         ) goto fail1;
 
         enum_ = ti_enums_by_id(enums, mp_id.via.u64);
-        assert (enum_);
+        assert(enum_);
 
+        /* this might allocate too much for the methods but never too little */
         if (ti_enum_prealloc(enum_, obj.via.sz, &e))
         {
             log_critical(e.msg);
@@ -222,7 +231,12 @@ int ti_store_enums_restore_members(
             if (!val)
                 goto fail1;
 
-            if (!ti_member_create(enum_, name, val, &e))
+            if (ti_val_is_closure(val))
+               (void) ti_enum_add_method(enum_, name, (ti_closure_t *) val, &e);
+            else
+                (void) ti_member_create(enum_, name, val, &e);
+
+            if (e.nr)
             {
                 ti_val_unsafe_drop(val);
                 log_critical(e.msg);

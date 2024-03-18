@@ -46,8 +46,8 @@
 
 static ti_val_t * val__empty_bin;
 static ti_val_t * val__empty_str;
-static ti_val_t * val__default_re;
 static ti_val_t * val__default_closure;
+static ti_val_t * val__default_re;
 static ti_val_t * val__sbool;
 static ti_val_t * val__sbytes;
 static ti_val_t * val__sclosure;
@@ -72,6 +72,9 @@ static ti_val_t * val__gs_str;
 static ti_val_t * val__charset_str;
 
 /* name */
+ti_val_t * val__async_name;
+ti_val_t * val__data_name;
+ti_val_t * val__time_name;
 ti_val_t * val__year_name;
 ti_val_t * val__month_name;
 ti_val_t * val__day_name;
@@ -94,6 +97,12 @@ ti_val_t * val__sany;
 ti_val_t * val__snil;
 ti_val_t * val__strue;
 ti_val_t * val__sfalse;
+
+/* regular expression */
+ti_val_t * val__re_email;
+ti_val_t * val__re_url;
+ti_val_t * val__re_tel;
+
 
 #define VAL__BUF_SZ 128
 static char val__buf[VAL__BUF_SZ];
@@ -371,7 +380,8 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
         return (ti_val_t *) ti_closure_from_strn(
                 &syntax,
                 mp_val.via.str.data,
-                mp_val.via.str.n, e);
+                mp_val.via.str.n,
+                e);
     }
     /*
      * TODO (COMPAT) For compatibility with data from v0.x
@@ -403,7 +413,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
  */
 static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
 {
-    assert (ti_varr_is_list(varr));
+    assert(ti_varr_is_list(varr));
     /*
      * Futures can never occur at this point since they are never packed;
      */
@@ -453,7 +463,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
         break;
     case TI_VAL_FUTURE:
     case TI_VAL_TEMPLATE:
-        assert (0);
+        assert(0);
         return e->nr;
     }
 
@@ -608,7 +618,7 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
                     ex_set_mem(e);
                 }
                 /* update the next free id if required */
-                ti_update_next_free_id(room_id);
+                ti_collection_update_next_free_id(vup->collection, room_id);
             }
             else
                 ti_incref(room);
@@ -730,6 +740,9 @@ int ti_val_init_common(void)
             "-_");
 
     /* names */
+    val__async_name = (ti_val_t *) ti_names_from_str("async");
+    val__data_name = (ti_val_t *) ti_names_from_str("data");
+    val__time_name = (ti_val_t *) ti_names_from_str("time");
     val__year_name = (ti_val_t *) ti_names_from_str("year");
     val__month_name = (ti_val_t *) ti_names_from_str("month");
     val__day_name = (ti_val_t *) ti_names_from_str("day");
@@ -746,7 +759,9 @@ int ti_val_init_common(void)
     val__parent_type_name = (ti_val_t *) ti_names_from_str("parent_type");
     val__key_name = (ti_val_t *) ti_names_from_str("key");
     val__key_type_name = (ti_val_t *) ti_names_from_str("key_type");
-
+    val__re_email = (ti_val_t *) ti_regex_from_str("/^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*$/");
+    val__re_url = (ti_val_t *) ti_regex_from_str("/^(https?|ftp):\\/\\/[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)$/");
+    val__re_tel = (ti_val_t *) ti_regex_from_str("/^[\\+]?(\\([0-9]{1,4}\\)[-\\s\\.]?){0,2}([0-9]{1,4}[-\\s]?){3,5}$/");
 
     if (!val__empty_bin || !val__empty_str || !val__snil || !val__strue ||
         !val__sfalse || !val__sbool || !val__sdatetime || !val__stimeval ||
@@ -760,7 +775,9 @@ int ti_val_init_common(void)
         !val__second_name || !val__gmt_offset_name || !val__sfuture ||
         !val__module_name || !val__deep_name || !val__load_name ||
         !val__beautify_name || !val__parent_name || !val__parent_type_name ||
-        !val__key_name || !val__key_type_name || !val__flags_name)
+        !val__key_name || !val__key_type_name || !val__flags_name ||
+        !val__data_name || !val__time_name || !val__re_email ||
+        !val__re_url || !val__re_tel || !val__async_name)
     {
         return -1;
     }
@@ -771,8 +788,8 @@ void ti_val_drop_common(void)
 {
     ti_val_drop(val__empty_bin);
     ti_val_drop(val__empty_str);
-    ti_val_drop(val__default_re);
     ti_val_drop(val__default_closure);
+    ti_val_drop(val__default_re);
     ti_val_drop(val__sany);
     ti_val_drop(val__snil);
     ti_val_drop(val__strue);
@@ -799,6 +816,9 @@ void ti_val_drop_common(void)
     ti_val_drop(val__tar_gz_str);
     ti_val_drop(val__gs_str);
     ti_val_drop(val__charset_str);
+    ti_val_drop(val__re_email);
+    ti_val_drop(val__re_url);
+    ti_val_drop(val__re_tel);
 }
 
 int ti_val_make_int(ti_val_t ** val, int64_t i)
@@ -920,13 +940,13 @@ vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id)
     case TI_SCOPE_NODE:
         *scope_id = TI_SCOPE_NODE;
         return &ti.access_node;
-    case TI_SCOPE_COLLECTION_NAME:
+    case TI_SCOPE_COLLECTION:
         collection = ti_collections_get_by_strn(
                 scope.via.collection_name.name,
                 scope.via.collection_name.sz);
         if (collection)
         {
-            *scope_id = collection->root->id;
+            *scope_id = collection->id;
             return &collection->access;
         }
 
@@ -934,20 +954,8 @@ vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id)
                 scope.via.collection_name.sz,
                 scope.via.collection_name.name);
         return NULL;
-    case TI_SCOPE_COLLECTION_ID:
-        collection = ti_collections_get_by_id(scope.via.collection_id);
-        if (collection)
-        {
-            *scope_id = collection->root->id;
-            return &collection->access;
-        }
-
-        ex_set(e, EX_LOOKUP_ERROR, TI_COLLECTION_ID" not found",
-                scope.via.collection_id);
-        return NULL;
     }
-
-    assert (0);
+    assert(0);
     return NULL;
 }
 
@@ -1169,7 +1177,7 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
         }
         if (errno == ERANGE)
         {
-            assert (d == HUGE_VAL || d == -HUGE_VAL);
+            assert(d == HUGE_VAL || d == -HUGE_VAL);
             d = d == HUGE_VAL ? INFINITY : -INFINITY;
             errno = 0;
         }
@@ -1355,7 +1363,7 @@ _Bool ti_val_as_bool(ti_val_t * val)
     case TI_VAL_TEMPLATE:
         assert(0);
     }
-    assert (0);
+    assert(0);
     return false;
 }
 
@@ -1473,7 +1481,7 @@ int ti_val_gen_ids(ti_val_t * val)
         break;
     case TI_VAL_FUTURE:
     case TI_VAL_TEMPLATE:
-        assert (0);
+        assert(0);
     }
     return 0;
 }
@@ -1512,9 +1520,9 @@ size_t ti_val_alloc_size(ti_val_t * val)
     case TI_VAL_FUTURE:
         return VFUT(val) ? ti_val_alloc_size(VFUT(val)) : 64;
     case TI_VAL_TEMPLATE:
-        assert (0);
+        assert(0);
     }
-    assert (0);
+    assert(0);
     return 0;
 }
 
@@ -1554,9 +1562,9 @@ ti_val_t * ti_val_strv(ti_val_t * val)
         return (ti_val_t *) ti_member_enum_get_rname((ti_member_t *) val);
     case TI_VAL_FUTURE:         return ti_grab(val__sfuture);
     case TI_VAL_TEMPLATE:
-        assert (0);
+        assert(0);
     }
-    assert (0);
+    assert(0);
     return ti_val_empty_str();
 }
 
@@ -1830,7 +1838,7 @@ int ti_val_member_to_str(ti_val_t ** val, ex_t * e)
 {
     ti_val_t * v = VMEMBER(*val);
     ti_incref(v);
-    if (ti_val(*val)->to_str(&v, e))
+    if (ti_val(v)->to_str(&v, e))  /* bug #344 */
     {
         ti_decref(v);
         return e->nr;

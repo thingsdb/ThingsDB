@@ -47,7 +47,7 @@
 #define EX_FORBIDDEN_X          "forbidden (access denied)"
 #define EX_AUTH_ERROR_X         "authentication error"
 #define EX_MAX_QUOTA_X          "max quota is reached"
-#define EX_ZERO_DIV_X           "division or module by zero"
+#define EX_ZERO_DIV_X           "division or modulo by zero"
 #define EX_OVERFLOW_X           "integer overflow"
 #define EX_VALUE_ERROR_X        "object has the right type but an inappropriate value"
 #define EX_TYPE_ERROR_X         "object of inappropriate type"
@@ -107,7 +107,6 @@ void ex_setv(ex_t * e, ex_enum errnr, const char * errmsg, va_list args);
 void ex_setn(ex_t * e, ex_enum errnr, const char * errmsg, size_t n);
 void ex_append(ex_t * e, const char * errmsg, ...);
 const char * ex_str(ex_enum errnr);
-_Bool ex_int64_is_errnr(int64_t i);
 
 struct ex_s
 {

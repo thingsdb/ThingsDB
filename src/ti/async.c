@@ -3,6 +3,7 @@
  */
 #include <ti/async.h>
 #include <ti/varr.h>
+#include <ti/val.inline.h>
 #include <ti/query.h>
 #include <ti.h>
 
@@ -54,7 +55,13 @@ static ti_module_t async__module = {
         .ref = 1,
         .status = TI_MODULE_STAT_RUNNING,
         .cb = (ti_module_cb) async__cb,
+        .name = NULL,
 };
+
+void ti_async_init(void)
+{
+    async__module.name = (ti_name_t *) ti_val_borrow_async_name();
+}
 
 ti_module_t * ti_async_get_module(void)
 {

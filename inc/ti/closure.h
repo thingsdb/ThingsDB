@@ -24,7 +24,8 @@ ti_closure_t * ti_closure_from_node(cleri_node_t * node, uint8_t flags);
 ti_closure_t * ti_closure_from_strn(
         ti_qbind_t * syntax,
         const char * str,
-        size_t n, ex_t * e);
+        size_t n,
+        ex_t * e);
 void ti_closure_destroy(ti_closure_t * closure);
 int ti_closure_unbound(ti_closure_t * closure, ex_t * e);
 int ti_closure_to_client_pk(ti_closure_t * closure, msgpack_packer * pk);

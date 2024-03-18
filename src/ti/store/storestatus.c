@@ -22,7 +22,7 @@ int ti_store_status_store(const char * fn)
         msgpack_pack_map(&pk, 2) ||
         mp_pack_str(&pk, "ccid") ||
         msgpack_pack_uint64(&pk, ti.node->ccid) ||
-        mp_pack_str(&pk, "next_thing_id") ||
+        mp_pack_str(&pk, "next_free_id") ||
         msgpack_pack_uint64(&pk, ti.node->next_free_id)
     ) goto fail;
 

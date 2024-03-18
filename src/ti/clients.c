@@ -158,7 +158,7 @@ static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
             : ti_users_auth(&mp_name, &mp_pass, &e);
     if (e.nr)
     {
-        assert (user == NULL);
+        assert(user == NULL);
         log_warning(
                 "authentication failed `%s` from `%s`)",
                 e.msg,
@@ -167,7 +167,7 @@ static void clients__on_auth(ti_stream_t * stream, ti_pkg_t * pkg)
     }
     else
     {
-        assert (user != NULL);
+        assert(user != NULL);
         /*
          * If below fails, it's an allocation error and the only side effect
          * will be that the steam will not re
@@ -301,7 +301,7 @@ query:
         goto finish;
 
     access_ = ti_query_access(query);
-    assert (access_);
+    assert(access_);
 
     if (ti_access_check_err(access_, query->user, TI_AUTH_QUERY, &e) ||
         ti_query_parse(query, mp_query.via.str.data, mp_query.via.str.n, &e))
@@ -309,7 +309,7 @@ query:
 
     if (ti_query_wse(query))
     {
-        assert (scope.tp != TI_SCOPE_NODE);
+        assert(scope.tp != TI_SCOPE_NODE);
 
         if (ti_access_check_err(access_, query->user, TI_AUTH_CHANGE, &e) ||
             ti_changes_create_new_change(query, &e))
@@ -466,7 +466,6 @@ on_error:
 done:
     if (ti_stream_write_pkg(stream, resp))
     {
-        /* serious error, join cannot continue */
         free(resp);
         log_error(EX_MEMORY_S);
     }
@@ -521,7 +520,7 @@ static void clients__on_run(ti_stream_t * stream, ti_pkg_t * pkg)
         goto finish;
 
     access_ = ti_query_access(query);
-    assert (access_);
+    assert(access_);
 
     if (ti_access_check_err(access_, query->user, TI_AUTH_RUN, &e))
         goto finish;

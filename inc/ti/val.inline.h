@@ -229,6 +229,7 @@ static inline int val__set_to_arr(ti_val_t ** v, ti_varr_t * varr, ex_t * e)
 
 static inline int val__member_to_arr(ti_val_t ** v, ti_varr_t * varr, ex_t * e);
 static inline int val__future_to_arr(ti_val_t ** v, ti_varr_t * UNUSED(varr), ex_t * UNUSED(e));
+static inline int val__module_to_arr(ti_val_t ** v, ti_varr_t * UNUSED(varr), ex_t * UNUSED(e));
 
 static inline int val__closure_to_arr(ti_val_t ** v, ti_varr_t * UNUSED(varr), ex_t * e)
 {
@@ -451,6 +452,15 @@ static ti_val_type_t ti_val_type_props[21] = {
         .to_str = val__no_to_str,
         .to_arr_cb = val__future_to_arr,
         .to_client_pk = (ti_val_to_client_pk_cb) val__future_to_client_pk,
+        .get_type_str = val__future_type_str,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_MODULE */
+    {
+        .destroy = (ti_val_destroy_cb) ti_module_destroy,
+        .to_str = val__no_to_str,
+        .to_arr_cb = val__module_to_arr,
+        .to_client_pk = (ti_val_to_client_pk_cb) val__module_to_client_pk,
         .get_type_str = val__future_type_str,
         .allowed_as_vtask_arg = false,
     },
@@ -1119,6 +1129,11 @@ static inline int val__future_to_client_pk(ti_future_t * future, ti_vp_t * vp, i
             : msgpack_pack_nil(&vp->pk);
 }
 
+static inline int val__module_to_client_pk(ti_module_t * UNUSED(module), ti_vp_t * vp, int UNUSED(deep), int UNUSED(flags))
+{
+    return msgpack_pack_nil(&vp->pk);
+}
+
 static inline int val__member_to_client_pk(ti_member_t * member, ti_vp_t * vp, int deep, int flags)
 {
     return ti_val(member->val)->to_client_pk(member->val, vp, deep, flags);
@@ -1283,6 +1298,13 @@ static inline int val__member_to_arr(ti_val_t ** v, ti_varr_t * varr, ex_t * e)
 }
 
 static inline int val__future_to_arr(ti_val_t ** v, ti_varr_t * UNUSED(varr), ex_t * UNUSED(e))
+{
+    ti_val_unsafe_drop(*v);
+    *v = (ti_val_t *) ti_nil_get();
+    return 0;
+}
+
+static inline int val__module_to_arr(ti_val_t ** v, ti_varr_t * UNUSED(varr), ex_t * UNUSED(e))
 {
     ti_val_unsafe_drop(*v);
     *v = (ti_val_t *) ti_nil_get();

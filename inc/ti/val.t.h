@@ -66,6 +66,7 @@ typedef enum
     TI_VAL_MPDATA,      /* msgpack data */
     TI_VAL_CLOSURE,
     TI_VAL_FUTURE,      /* future */
+    TI_VAL_MODULE,      /* module */
     TI_VAL_TEMPLATE,    /* template to generate TI_VAL_STR
                            note that a template is never stored like a value,
                            rather it may build from either a query or a stored

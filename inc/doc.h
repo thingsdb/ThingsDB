@@ -50,6 +50,7 @@
 #define DOC_IS_INF                  DOC_SEE("collection-api/is/is_inf")
 #define DOC_IS_INT                  DOC_SEE("collection-api/is/is_int")
 #define DOC_IS_LIST                 DOC_SEE("collection-api/is/is_list")
+#define DOC_IS_MODULE               DOC_SEE("collection-api/is/is_module")
 #define DOC_IS_MPDATA               DOC_SEE("collection-api/is/is_mpdata")
 #define DOC_IS_NAN                  DOC_SEE("collection-api/is/is_nan")
 #define DOC_IS_NIL                  DOC_SEE("collection-api/is/is_nil")

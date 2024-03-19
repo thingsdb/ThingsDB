@@ -204,6 +204,7 @@ static int do__search_thing(
     }
     case TI_VAL_TEMPLATE:
     case TI_VAL_FUTURE:
+    case TI_VAL_MODULE:
         return 0;
     }
     assert(0);

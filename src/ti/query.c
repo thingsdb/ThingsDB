@@ -793,6 +793,13 @@ static void query__then(ti_query_t * query, ex_t * e)
 
     if (ti_query_wse(query))
     {
+        if (ti_val_has_ids(query->with.future->rval))
+        {
+            ex_set(e, EX_OPERATION,
+                    "context does not allow arguments which are stored by Id");
+            goto finish;
+        }
+
         access_ = ti_query_access(query);
         assert(access_);
 
@@ -1415,6 +1422,7 @@ static int query__get_things(ti_val_t * val, imap_t * imap)
         break;
     case TI_VAL_FUTURE:
         return VFUT(val) ? query__get_things(VFUT(val), imap) : 0;
+    case TI_VAL_MODULE:
     case TI_VAL_TEMPLATE:
         break;
     }

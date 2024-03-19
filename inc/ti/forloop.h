@@ -39,7 +39,7 @@ typedef int (*ti_forloop_t) (
         cleri_node_t *,
         ex_t *);
 
-static const ti_forloop_t ti_forloop_callbacks[21] = {
+static const ti_forloop_t ti_forloop_callbacks[22] = {
         ti_forloop_no_iter,         /* TI_VAL_NIL */
         ti_forloop_no_iter,         /* TI_VAL_INT */
         ti_forloop_no_iter,         /* TI_VAL_FLOAT */
@@ -60,6 +60,7 @@ static const ti_forloop_t ti_forloop_callbacks[21] = {
         ti_forloop_no_iter,         /* TI_VAL_MPDATA */
         ti_forloop_no_iter,         /* TI_VAL_CLOSURE */
         ti_forloop_no_iter,         /* TI_VAL_FUTURE */
+        ti_forloop_no_iter,         /* TI_VAL_MODULE */
         ti_forloop_no_iter,         /* TI_VAL_TEMPLATE */
 };
 

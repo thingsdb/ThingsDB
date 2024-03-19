@@ -454,6 +454,7 @@ int ti_thing_p_prop_add_assign(
         ti_incref(val);
         break;
     case TI_VAL_FUTURE:
+    case TI_VAL_MODULE:
         val = (ti_val_t *) ti_nil_get();
         break;
     case TI_VAL_TEMPLATE:
@@ -554,6 +555,7 @@ int ti_thing_i_item_add_assign(
         ti_incref(val);
         break;
     case TI_VAL_FUTURE:
+    case TI_VAL_MODULE:
         val = (ti_val_t *) ti_nil_get();
         break;
     case TI_VAL_TEMPLATE:
@@ -1157,6 +1159,11 @@ static inline int thing__gen_id_i_cb(ti_item_t * item, void * UNUSED(arg))
     return ti_val_gen_ids(item->val);
 }
 
+static inline int thing__has_id_i_cb(ti_item_t * item, void * UNUSED(arg))
+{
+    return ti_val_has_ids(item->val);
+}
+
 int ti_thing_gen_id(ti_thing_t * thing)
 {
     assert(!thing->id);
@@ -1190,6 +1197,46 @@ int ti_thing_gen_id(ti_thing_t * thing)
         if (ti_val_gen_ids(val))
             return -1;
     return 0;
+}
+
+_Bool ti_thing_has_id(ti_thing_t * thing)
+{
+    if (thing->id)
+        return true;
+    if (thing->flags & TI_VFLAG_LOCK)
+        return false;
+
+    thing->flags |= TI_VFLAG_LOCK;
+
+    if (ti_thing_is_object(thing))
+    {
+        if (ti_thing_is_dict(thing))
+        {
+            if (smap_values(
+                    thing->items.smap,
+                    (smap_val_cb) thing__has_id_i_cb,
+                    NULL))
+                goto ret_true;
+            goto ret_false;
+        }
+
+        for (vec_each(thing->items.vec, ti_prop_t, prop))
+            if (ti_val_has_ids(prop->val))
+                goto ret_true;
+        goto ret_false;
+    }
+
+    /* type */
+    for (vec_each(thing->items.vec, ti_val_t, val))
+        if (ti_val_has_ids(val))
+            goto ret_true;
+
+ret_false:
+    thing->flags &= ~TI_VFLAG_LOCK;
+    return false;
+ret_true:
+    thing->flags &= ~TI_VFLAG_LOCK;
+    return true;
 }
 
 void ti_thing_t_to_object(ti_thing_t * thing)

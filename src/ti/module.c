@@ -310,6 +310,7 @@ ti_module_t* ti_module_create(
     }
 
     module->ref = 1;
+    module->tp = TI_VAL_MODULE;
     module->status = TI_MODULE_STAT_NOT_INSTALLED;
     module->cb = (ti_module_cb) &module__cb;
     module->name = ti_names_get(name, name_n);
@@ -1429,6 +1430,7 @@ static int module__info_to_vp(ti_module_t * module, ti_vp_t * vp, int flags)
     {
         char namebuf[TI_NAME_MAX];
         smap_t * exposes = manifest->exposes;
+
         if (mp_pack_str(pk, "exposes") ||
             msgpack_pack_map(pk, exposes->n) ||
             smap_items(

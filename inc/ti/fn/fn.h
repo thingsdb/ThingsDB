@@ -649,12 +649,13 @@ static int fn_call_f_try_n(
         cleri_node_t * nd,
         ex_t * e)
 {
-    ti_future_t * future = (ti_future_t *) query->rval;
-    ti_module_t * module = future->module;
+    ti_module_t * module = (ti_module_t *) query->rval;
     ti_mod_expose_t * expose = ti_mod_expose_by_strn(module, name, n);
 
     if (expose)
-        return ti_mod_expose_call(expose, query, nd, e);
+        return expose->closure
+                ? ti_mod_closure_call(expose, query, nd, e)
+                : ti_mod_expose_call(expose, query, nd, e);
 
     ex_set(e, EX_LOOKUP_ERROR,
             "module `%s` has no function `%.*s`",
@@ -708,7 +709,7 @@ static int fn_call_try_n(
     if (ti_val_is_wrap(query->rval))
         return fn_call_w_try_n(name, n, query, nd, e);
 
-    if (ti_val_is_future(query->rval))
+    if (ti_val_is_module(query->rval))
         return fn_call_f_try_n(name, n, query, nd, e);
 
     if (ti_val_is_member(query->rval))

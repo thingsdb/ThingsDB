@@ -2137,6 +2137,14 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query('is_future( 42 );'))
         self.assertFalse(await client.query('is_future( nil );'))
 
+    async def test_is_module(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `is_module` takes 1 argument but 0 were given'):
+            await client.query('is_module();')
+
+        self.assertFalse(await client.query('is_module(future(nil));'))
+
     async def test_is_inf(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,

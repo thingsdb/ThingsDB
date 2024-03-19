@@ -1,4 +1,3 @@
-
 /*
  * ti/mod/manifest.c
  */
@@ -635,7 +634,36 @@ static int manifest__json_string(
     case MF__INCLUDES_NO_OSARCH:
         return manifest__set_mode(ctx, MF__INCLUDES_MAP);
     case MF__EXPOSES:           return manifest__err_exposes(ctx, TI_NSTR);
-    case MF__X:                 return manifest__err_x(ctx, TI_NSTR);
+    case MF__X:
+    {
+        ex_t e = {0};
+        ti_raw_t * doc;
+        ti_mod_expose_t * expose = ctx->data;
+        ti_qbind_t syntax = {
+                .immutable_n = 0,
+                .flags = TI_QBIND_FLAG_COLLECTION|TI_QBIND_FLAG_THINGSDB,
+        };
+
+        expose->closure = ti_closure_from_strn(
+                &syntax,
+                (const char *) s,
+                n,
+                &e);
+        if (!expose->closure)
+            return manifest__set_err(ctx,
+                    "exposing string is not a closure: %s", e.msg);
+
+        /* both doc and the definition are none critical, so no error checking
+         * is required here; */
+        expose->def = ti_closure_def(expose->closure);
+        doc = ti_closure_doc(expose->closure);
+        if (doc)
+        {
+            expose->doc = strndup((const char *) doc->data, doc->n);
+            ti_val_unsafe_drop((ti_val_t *) doc);
+        }
+        return manifest__set_mode(ctx, MF__EXPOSES_MAP);
+    }
     case MF__X_DOC:
     {
         ti_mod_expose_t * expose = ctx->data;
@@ -832,6 +860,12 @@ static int manifest__json_map_key(
     case MF__EXPOSES_MAP:
     {
         ti_mod_expose_t * expose = ti_mod_expose_create();
+
+        if (!ti_name_is_valid_strn((const char *) s, n))
+            return manifest__set_err(
+                    ctx,
+                    "invalid expose function name in "TI_MANIFEST);
+
         if (!expose ||
             smap_addn(ctx->manifest->exposes, (const char *) s, n, expose))
             return manifest__set_err(
@@ -1061,7 +1095,7 @@ static void manifest__force_argmap(ti_mod_expose_t * expose)
      * leave empty argmap alone;
      */
     ti_item_t * item;
-    if (expose->argmap)
+    if (expose->argmap || expose->closure)
         return;
 
     expose->argmap = vec_new(1);

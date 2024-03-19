@@ -1,3 +1,10 @@
+# v1.5.2
+
+* Restrict future arguments for `then()` or `else()` to objects without an Id.
+* Module as type, no longer the workaround of exposing modules as futures.
+* Added the `is_module()` function.
+* Support ThingsDB code in exposed module functions.
+
 # v1.5.1
 
 * Added support for building on MacOS.

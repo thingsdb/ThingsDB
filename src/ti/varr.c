@@ -355,6 +355,7 @@ static int varr__copy(ti_val_t ** val, uint8_t deep)
                 return -1;
         return 0;
     case TI_VAL_FUTURE:
+    case TI_VAL_MODULE:
     case TI_VAL_SET:
     case TI_VAL_TEMPLATE:
         break;
@@ -397,6 +398,7 @@ static int varr__dup(ti_val_t ** val, uint8_t deep)
                 return -1;
         return 0;
     case TI_VAL_FUTURE:
+    case TI_VAL_MODULE:
     case TI_VAL_SET:
     case TI_VAL_TEMPLATE:
         break;

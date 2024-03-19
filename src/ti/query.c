@@ -1422,6 +1422,7 @@ static int query__get_things(ti_val_t * val, imap_t * imap)
         break;
     case TI_VAL_FUTURE:
         return VFUT(val) ? query__get_things(VFUT(val), imap) : 0;
+    case TI_VAL_MODULE:
     case TI_VAL_TEMPLATE:
         break;
     }

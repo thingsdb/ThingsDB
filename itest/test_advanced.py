@@ -1822,7 +1822,7 @@ new_procedure('multiply', |a, b| a * b);
         with self.assertRaisesRegex(
                 TypeError,
                 r'mismatch in type `A`; property `x` allows `any` type '
-                r"with the exception of the `future` type"):
+                r"with the exception of the `future` and `module` type"):
             await client.query("""//ti
                 A{
                     x: future(||nil)
@@ -2504,7 +2504,7 @@ new_procedure('multiply', |a, b| a * b);
 
         with self.assertRaisesRegex(
                 LookupError,
-                r'module `async` has no function `id`'):
+                r'type `future` has no function `id`'):
             await client.query(r"""//ti
                 user = add_user(); user.id();
             """)

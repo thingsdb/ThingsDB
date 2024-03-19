@@ -9,14 +9,17 @@
 typedef struct ti_mod_expose_s ti_mod_expose_t;
 
 #include <util/vec.h>
+#include <ti/closure.t.h>
 
 struct ti_mod_expose_s
 {
-    uint8_t * deep;             /* NULL or 0..127 */
+    uint8_t * deep;             /* NULL or 0..127     */
     _Bool * load;               /* NULL or true/false */
-    char * doc;                 /* NULL or string */
-    vec_t * argmap;             /* ti_item_t */
-    vec_t * defaults;           /* ti_item_t */
+    char * doc;                 /* NULL or string     */
+    vec_t * argmap;             /* ti_item_t          */
+    vec_t * defaults;           /* ti_item_t          */
+    ti_closure_t * closure;     /* closure            */
+    ti_raw_t * def;             /* closure definition */
 };
 
 #endif  /* TI_MOD_EXPOSE_T_H_ */

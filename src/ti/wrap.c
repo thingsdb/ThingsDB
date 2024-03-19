@@ -179,6 +179,8 @@ static int wrap__field_val(
                         deep,
                         flags)
                 : msgpack_pack_nil(&vp->pk);
+    case TI_VAL_MODULE:
+        return msgpack_pack_nil(&vp->pk);
     case TI_VAL_TEMPLATE:
         break;
     }

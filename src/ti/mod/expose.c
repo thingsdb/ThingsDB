@@ -28,9 +28,71 @@ void ti_mod_expose_destroy(ti_mod_expose_t * expose)
     free(expose->deep);
     free(expose->load);
     free(expose->doc);
+    ti_val_drop((ti_val_t *) expose->def);
+    ti_val_drop((ti_val_t *) expose->closure);
     vec_destroy(expose->argmap, (vec_destroy_cb) expose__item_destroy);
     vec_destroy(expose->defaults, (vec_destroy_cb) expose__item_destroy);
     free(expose);
+}
+
+int ti_mod_closure_call(
+        ti_mod_expose_t * expose,
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    cleri_node_t * child = nd->children;        /* first in argument list */
+    ti_closure_t * closure = expose->closure;
+    vec_t * args = NULL;
+    uint32_t n = closure->vars->n;
+    ti_module_t * module = (ti_module_t *) query->rval;
+
+    ti_incref(expose->closure);
+
+    query->rval = NULL;
+
+    if (n)
+    {
+        args = vec_new(n--);
+        if (!args)
+        {
+            ex_set_mem(e);
+            goto fail0;
+        }
+
+        VEC_push(args, module);
+        ti_incref(module);
+
+        while (child && n)
+        {
+            --n;  // outside `while` so we do not go below zero
+
+            if (ti_do_statement(query, child, e))
+                goto fail1;
+
+            VEC_push(args, query->rval);
+            query->rval = NULL;
+
+            if (!child->next)
+                break;
+
+            child = child->next->next;
+        }
+
+        while (n--)
+            VEC_push(args, ti_nil_get());
+    }
+
+    (void) ti_closure_call(closure, query, args, e);
+
+fail1:
+    vec_destroy(args, (vec_destroy_cb) ti_val_unsafe_drop);
+
+fail0:
+    ti_val_unsafe_drop((ti_val_t *) closure);
+    ti_val_unsafe_drop((ti_val_t *) module);
+
+    return e->nr;
 }
 
 int ti_mod_expose_call(
@@ -40,10 +102,10 @@ int ti_mod_expose_call(
         ex_t * e)
 {
     unsigned int nargs = (unsigned int) fn_get_nargs(nd);
-    ti_future_t * future = (ti_future_t *) query->rval;
+    ti_module_t * module = (ti_module_t *) query->rval;
     cleri_node_t * child = nd->children;
-    ti_module_t * module = future->module;
     size_t defaults_n = expose->defaults ? expose->defaults->n : 0;
+    ti_future_t * future;
     ti_thing_t * thing;
     ti_name_t * deep_name = (ti_name_t *) ti_val_borrow_deep_name();
     ti_name_t * load_name = (ti_name_t *) ti_val_borrow_load_name();
@@ -58,6 +120,14 @@ int ti_mod_expose_call(
         return e->nr;
     }
 
+    future = ti_future_create(query, module, 0, 1, false);
+    if (!future)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    ti_decref(module);
     query->rval = NULL;
 
     /*
@@ -262,16 +332,20 @@ int ti_mod_expose_info_to_vp(
         ti_vp_t * vp)
 {
     msgpack_packer * pk = &vp->pk;
-    size_t defaults_n = (expose->defaults ? expose->defaults->n : 0) + \
-            !!expose->deep + \
+    size_t defaults_n = (expose->defaults ? expose->defaults->n : 0) +\
+            !!expose->deep +\
             !!expose->load;
-    size_t sz = !!expose->doc + !!defaults_n + !!expose->argmap;
+    size_t sz = !!(expose->doc && *expose->doc) +\
+            !!defaults_n +\
+            !!expose->argmap +\
+            !!expose->def +\
+            !!expose->closure;
 
     if (mp_pack_strn(pk, key, n) ||
         msgpack_pack_map(pk, sz))
         return -1;
 
-    if (expose->doc && (
+    if (expose->doc && *expose->doc && (
         mp_pack_str(pk, "doc") ||
         mp_pack_str(pk, expose->doc)))
         return -1;
@@ -309,6 +383,16 @@ int ti_mod_expose_info_to_vp(
             if (mp_pack_strn(pk, item->key->data, item->key->n))
                 return -1;
     }
+
+    if (expose->def && (
+            mp_pack_str(pk, "definition") ||
+            mp_pack_strn(pk, expose->def->data, expose->def->n)))
+        return -1;
+
+    if (expose->closure && (
+            mp_pack_str(pk, "with_side_effects") ||
+            mp_pack_bool(pk, expose->closure->flags & TI_CLOSURE_FLAG_WSE)))
+        return -1;
 
     return 0;
 }

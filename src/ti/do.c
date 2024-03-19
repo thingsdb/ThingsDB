@@ -1571,11 +1571,8 @@ static inline int do__var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
         }
 
-        query->rval = \
-                (ti_val_t *) ti_future_create(query, module, 0, 1, false);
-
-        if (!query->rval)
-            ex_set_mem(e);
+        query->rval = (ti_val_t *) module;
+        ti_incref(module);
 
         return e->nr;
     }

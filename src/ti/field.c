@@ -1679,7 +1679,8 @@ int ti_field_make_assignable(
         case TI_VAL_TEMPLATE:
             break;
         case TI_VAL_FUTURE:
-            goto future_error;
+        case TI_VAL_MODULE:
+            goto future_module_error;
         }
         return 0;
     case TI_SPEC_OBJECT:
@@ -1851,11 +1852,11 @@ int ti_field_make_assignable(
 
     goto type_error;
 
-future_error:
+future_module_error:
     ex_set(e, EX_TYPE_ERROR,
             "mismatch in type `%s`; "
             "property `%s` allows `any` type with the exception "
-            "of the `future` type",
+            "of the `future` and `module` type",
             field->type->name,
             field->name->str);
     return e->nr;

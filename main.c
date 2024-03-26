@@ -57,7 +57,6 @@ static void main__init_deploy(void)
     }
 }
 
-
 int main(int argc, char * argv[])
 {
     int seed, fd, rc = EXIT_SUCCESS;

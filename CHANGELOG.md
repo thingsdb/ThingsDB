@@ -1,3 +1,8 @@
+# v1.5.3
+
+ * Listen to `THINGSDB_INIT`, `THINGSDB_SECRET` and `THINGSDB_DEPLOY` environment variable.
+ * Added `tls.Dockerfile` for TLS/SSL support in docker container.
+
 # v1.5.2
 
 * Restrict future arguments for `then()` or `else()` to objects without an Id.

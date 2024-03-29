@@ -96,6 +96,8 @@ int main(int argc, char * argv[])
     if (rc)
         goto stop;
 
+    ti_evars_arg_parse();
+
     /* parse arguments */
     rc = ti_args_parse(argc, argv);
     if (rc)
@@ -127,7 +129,7 @@ int main(int argc, char * argv[])
             goto stop;
     }
 
-    ti_evars_parse();
+    ti_evars_cfg_parse();
 
     rc = ti_cfg_ensure_storage_path();
     if (rc)

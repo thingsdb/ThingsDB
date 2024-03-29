@@ -61,13 +61,44 @@ static void evars__str(const char * evar, char ** straddr)
     *straddr = str;
 }
 
+static void evars__bool_arg(const char * evar, int32_t * b)
+{
+    char * u8str = getenv(evar);
+    if (!u8str)
+        return;
+
+    *b = ((int32_t) strtoul(u8str, NULL, 10)) != 0;
+}
+
+static void evars__str_arg(const char * evar, char * strarg)
+{
+    char * str = getenv(evar);
+    if (!str || strlen(str) >= ARGPARSE_MAX_LEN_ARG)
+        return;
+    (void) strcpy(strarg, str);
+}
+
 static void evars__ip_support(const char * evar, int * ip_support)
 {
     char * str = getenv(evar);
     (void) ti_tcp_ip_support_int(str, ip_support);
 }
 
-void ti_evars_parse(void)
+void ti_evars_arg_parse(void)
+{
+
+    evars__bool_arg(
+            "THINGSDB_INIT",
+            &ti.args->init);
+    evars__bool_arg(
+            "THINGSDB_DEPLOY",
+            &ti.args->deploy);
+    evars__str_arg(
+            "THINGSDB_SECRET",
+            ti.args->secret);
+}
+
+void ti_evars_cfg_parse(void)
 {
     evars__u16(
             "THINGSDB_LISTEN_CLIENT_PORT",

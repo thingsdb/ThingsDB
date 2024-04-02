@@ -151,6 +151,9 @@ void ti_evars_cfg_parse(void)
     evars__u16(
             "THINGSDB_HTTP_API_PORT",
             &ti.cfg->http_api_port);
+    evars__u16(
+            "THINGSDB_WS_PORT",
+            &ti.cfg->ws_port);
     evars__u8(
             "THINGSDB_ZONE",
             &ti.cfg->zone);
@@ -166,4 +169,10 @@ void ti_evars_cfg_parse(void)
     evars__str(
             "THINGSDB_GCLOUD_KEY_FILE",
             &ti.cfg->gcloud_key_file);
+    evars__str(
+            "THINGSDB_WS_CERT_FILE",
+            &ti.cfg->ws_cert_file);
+    evars__str(
+            "THINGSDB_WS_KEY_FILE",
+            &ti.cfg->ws_key_file);
 }

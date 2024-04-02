@@ -19,6 +19,7 @@ struct ti_cfg_s
     uint16_t node_port;
     uint16_t http_status_port;
     uint16_t http_api_port;
+    uint16_t ws_port;                   /* default 0 */
     uint8_t zone;
     uint8_t shutdown_period;            /* Wait for X seconds before shutdown;
                                           (only used with multiple nodes) */
@@ -51,6 +52,8 @@ struct ti_cfg_s
     char * gcloud_key_file;
     char * modules_path;                /* path to find modules */
     char * python_interpreter;          /* python interpreter */
+    char * ws_cert_file;                /* path to certificate file */
+    char * ws_key_file;                 /* path to private key file */
     double query_duration_warn;
     double query_duration_error;
 };

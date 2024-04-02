@@ -34,6 +34,7 @@
 #include <ti/verror.h>
 #include <ti/version.h>
 #include <ti/web.h>
+#include <ti/ws.h>
 #include <tiinc.h>
 #include <unistd.h>
 #include <util/cryptx.h>
@@ -597,6 +598,9 @@ static void ti__delayed_start_cb(uv_timer_t * UNUSED(timer))
             goto failed;
 
         if (ti_api_init())
+            goto failed;
+
+        if (ti_ws_init())
             goto failed;
     }
 
@@ -1192,6 +1196,10 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
         {
             ti_api_close((ti_api_request_t *) handle->data);
         }
+        else if (ti_ws_is_handle(handle))
+        {
+            /* TODO: ti_ws_close((ti_ws_request_t *) handle->data); */
+        }
         else if (handle->data)
         {
             ti_stream_close((ti_stream_t *) handle->data);
@@ -1225,6 +1233,7 @@ static void ti__stop(void)
 {
     ti_away_stop();
     ti_connect_stop();
+    ti_ws_destroy();
     ti_changes_stop();
     ti_sync_stop();
     ti_tasks_stop();  /* extra stop may be required */

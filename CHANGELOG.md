@@ -2,6 +2,7 @@
 
  * Listen to `THINGSDB_INIT`, `THINGSDB_SECRET` and `THINGSDB_DEPLOY` environment variable.
  * Added `tls.Dockerfile` for TLS/SSL support in docker container.
+ * TODO:  LWS_SERVER_OPTION_LIBUV  ??
 
 # v1.5.2
 

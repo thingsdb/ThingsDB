@@ -91,3 +91,6 @@ connectors/go/test/test
 
 # Kubernetes files
 kube/
+
+# Local files
+target/

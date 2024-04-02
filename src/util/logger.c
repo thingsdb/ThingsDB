@@ -104,6 +104,42 @@ void log_with_level(int log_level, const char * fmt, ...)
     LOGGER_LOG_STUFF(log_level)
 }
 
+void log_line(int log_level, const char * line)
+{
+    time_t t = time(NULL);
+    struct tm tm;
+    gmtime_r(&t, &tm);
+    if (Logger.flags & LOGGER_FLAG_COLORED)
+    {
+        fprintf(Logger.ostream,
+            "%s[%c %d-%0*d-%0*d %0*d:%0*d:%0*d]" KNRM " ",
+            LOGGER_COLOR_MAP[log_level],
+            LOGGER_CHR_MAP[log_level],
+            tm.tm_year + 1900,
+            2, tm.tm_mon + 1,
+            2, tm.tm_mday,
+            2, tm.tm_hour,
+            2, tm.tm_min,
+            2, tm.tm_sec);
+    }
+    else
+    {
+        fprintf(Logger.ostream,
+        "[%c %d-%0*d-%0*d %0*d:%0*d:%0*d] ",
+            LOGGER_CHR_MAP[log_level],
+            tm.tm_year + 1900,
+            2, tm.tm_mon + 1,
+            2, tm.tm_mday,
+            2, tm.tm_hour,
+            2, tm.tm_min,
+            2, tm.tm_sec);
+    }
+
+    /* print the actual log line */
+    fprintf(Logger.ostream, line);
+    fflush(Logger.ostream);
+}
+
 void log__debug(const char * fmt, ...)
     LOGGER_LOG_STUFF(LOGGER_DEBUG)
 

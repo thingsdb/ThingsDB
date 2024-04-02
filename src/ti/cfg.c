@@ -395,6 +395,7 @@ int ti_cfg_create(void)
     cfg->client_port = TI_DEFAULT_CLIENT_PORT;
     cfg->node_port = TI_DEFAULT_NODE_PORT;
     cfg->http_api_port = TI_DEFAULT_HTTP_API_PORT;
+    cfg->ws_port = TI_DEFAULT_WS_PORT;
     cfg->http_status_port = TI_DEFAULT_HTTP_STATUS_PORT;
     cfg->threshold_full_storage = TI_DEFAULT_THRESHOLD_FULL_STORAGE;
     cfg->result_size_limit = TI_DEFAULT_RESULT_DATA_LIMIT;
@@ -413,6 +414,8 @@ int ti_cfg_create(void)
     cfg->python_interpreter = strdup("python");
     cfg->gcloud_key_file = NULL;
     cfg->pipe_client_name = NULL;
+    cfg->ws_cert_file = NULL;
+    cfg->ws_key_file = NULL;
     cfg->zone = 0;
     cfg->shutdown_period = 6;
     cfg->query_duration_warn = 0;
@@ -507,7 +510,17 @@ int ti_cfg_parse(const char * cfg_file)
                     parser,
                     cfg_file,
                     "gcloud_key_file",
-                    &cfg->gcloud_key_file)))
+                    &cfg->gcloud_key_file)) ||
+            (rc = cfg__str(
+                    parser,
+                    cfg_file,
+                    "ws_cert_file",
+                    &cfg->ws_cert_file)) ||
+            (rc = cfg__str(
+                    parser,
+                    cfg_file,
+                    "ws_key_file",
+                    &cfg->ws_key_file)))
         goto exit_parse;
 
     cfg__bool(parser, cfg_file, "wait_for_modules", &cfg->wait_for_modules);
@@ -515,6 +528,7 @@ int ti_cfg_parse(const char * cfg_file)
     cfg__port(parser, cfg_file, "listen_node_port", &cfg->node_port);
     cfg__port(parser, cfg_file, "http_status_port", &cfg->http_status_port);
     cfg__port(parser, cfg_file, "http_api_port", &cfg->http_api_port);
+    cfg__port(parser, cfg_file, "ws_port", &cfg->ws_port);
     cfg__zone(parser, cfg_file, &cfg->zone);
     cfg__shutdown_period(parser, cfg_file, &cfg->shutdown_period);
     cfg__ip_support(parser, cfg_file);

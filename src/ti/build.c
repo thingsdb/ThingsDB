@@ -12,6 +12,7 @@
 #include <ti/req.h>
 #include <ti/sync.h>
 #include <ti/version.h>
+#include <ti/ws.h>
 #include <util/logger.h>
 
 static ti_build_t * build;
@@ -151,6 +152,9 @@ static void build__on_setup_cb(ti_req_t * req, ex_enum status)
         goto failed;
 
     if (ti_api_init())
+        goto failed;
+
+    if (ti_ws_init())
         goto failed;
 
     if (ti_connect_start())

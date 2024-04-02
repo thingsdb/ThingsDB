@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <script src="msgpack.js"></script>
+  <script>
+    window.onload = () => {
+        if ('WebSocket' in window) {
+            // Create a WebSocket connection
+            let ws = new WebSocket('ws://127.0.0.1:7681');
+            // Push a message when the connection is successfully established, and the server can start pushing data
+            ws.onopen = () => {
+                console.log('websocket success---');
+                let encoded = MessagePack.encode([0, ["admin", "pass"]]);
+                console.log('get websocket data---', encoded);
+
+                ws.send(encoded);
+            }
+            ws.onmessage = (message) => {
+                new Response(message.data).arrayBuffer().then(buffer => {
+                    const uint = [...new Uint8Array(buffer)];
+                    const decoded = MessagePack.decode(uint);
+                    console.log('get websocket data---', decoded);
+                });
+            }
+            ws.onerror = () => {
+                console.error('websocket fail');
+            }
+        } else {
+            console.error('dont support websocket');
+        };
+    };
+</script>
+
+</head>
+<body>
+
+</body>
+</html>

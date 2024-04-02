@@ -2,6 +2,7 @@
 
  * Listen to `THINGSDB_INIT`, `THINGSDB_SECRET` and `THINGSDB_DEPLOY` environment variable.
  * Added `tls.Dockerfile` for TLS/SSL support in docker container.
+ * Fixed logging from forward request with API.
 
 # v1.5.2
 

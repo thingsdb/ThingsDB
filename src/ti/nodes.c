@@ -1150,6 +1150,9 @@ static void nodes__on_fwd_warn(ti_stream_t * stream, ti_pkg_t * pkg)
         return;
     }
 
+    if (ti_api_check(req->data))
+        return;
+
     pkg = ti_pkg_dup(pkg);
     if (!pkg)
     {

@@ -16,6 +16,7 @@ void ti_clients_destroy(void);
 int ti_clients_listen(void);
 void ti_clients_write_rpkg(ti_rpkg_t * rpkg);
 _Bool ti_clients_is_fwd_req(ti_req_t * req);
+void ti_clients_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg);
 
 struct ti_clients_s
 {

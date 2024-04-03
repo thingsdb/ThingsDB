@@ -71,12 +71,12 @@ static void nodes__tcp_connection(uv_stream_t * uvstream, int status)
         return;
     }
 
-    rc = uv_accept(uvstream, stream->uvstream);
+    rc = uv_accept(uvstream, stream->with.uvstream);
     if (rc)
         goto failed;
 
     rc = uv_read_start(
-            stream->uvstream,
+            stream->with.uvstream,
             ti_stream_alloc_buf,
             ti_stream_on_data);
     if (rc)
@@ -1149,6 +1149,9 @@ static void nodes__on_fwd_warn(ti_stream_t * stream, ti_pkg_t * pkg)
                 ti_stream_name(stream), pkg->id);
         return;
     }
+
+    if (ti_api_check(req->data))
+        return;
 
     pkg = ti_pkg_dup(pkg);
     if (!pkg)

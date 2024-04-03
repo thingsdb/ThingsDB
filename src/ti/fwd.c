@@ -11,8 +11,9 @@ ti_fwd_t * ti_fwd_create(uint16_t orig_pkg_id, ti_stream_t * src_stream)
     ti_fwd_t * fwd = malloc(sizeof(ti_fwd_t));
     if (!fwd)
         return NULL;
-    fwd->stream = ti_grab(src_stream);
     fwd->orig_pkg_id = orig_pkg_id;
+    fwd->_pad0 = 0;  /* MUST be set to 0 for casting */
+    fwd->stream = ti_grab(src_stream);
     return fwd;
 }
 

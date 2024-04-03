@@ -552,7 +552,7 @@ finish:
     }
 }
 
-static void clients__pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
+void ti_clients_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
 {
     switch (pkg->tp)
     {
@@ -609,19 +609,19 @@ static void clients__tcp_connection(uv_stream_t * uvstream, int status)
 
     log_debug("received a TCP client connection");
 
-    stream = ti_stream_create(TI_STREAM_TCP_IN_CLIENT, &clients__pkg_cb);
+    stream = ti_stream_create(TI_STREAM_TCP_IN_CLIENT, &ti_clients_pkg_cb);
     if (!stream)
     {
         log_critical(EX_MEMORY_S);
         return;
     }
 
-    rc = uv_accept(uvstream, stream->uvstream);
+    rc = uv_accept(uvstream, stream->with.uvstream);
     if (rc)
         goto failed;
 
     rc = uv_read_start(
-            stream->uvstream,
+            stream->with.uvstream,
             ti_stream_alloc_buf,
             ti_stream_on_data);
     if (rc)
@@ -654,19 +654,19 @@ static void clients__pipe_connection(uv_stream_t * uvstream, int status)
 
     log_debug("received a PIPE client connection");
 
-    stream = ti_stream_create(TI_STREAM_PIPE_IN_CLIENT, &clients__pkg_cb);
+    stream = ti_stream_create(TI_STREAM_PIPE_IN_CLIENT, &ti_clients_pkg_cb);
     if (!stream)
     {
         log_critical(EX_MEMORY_S);
         return;
     }
 
-    rc = uv_accept(uvstream, stream->uvstream);
+    rc = uv_accept(uvstream, stream->with.uvstream);
     if (rc)
         goto failed;
 
     rc = uv_read_start(
-            stream->uvstream,
+            stream->with.uvstream,
             ti_stream_alloc_buf,
             ti_stream_on_data);
     if (rc)

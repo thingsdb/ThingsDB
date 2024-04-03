@@ -1196,10 +1196,6 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
         {
             ti_api_close((ti_api_request_t *) handle->data);
         }
-        else if (ti_ws_is_handle(handle))
-        {
-            /* TODO: ti_ws_close((ti_ws_request_t *) handle->data); */
-        }
         else if (handle->data)
         {
             ti_stream_close((ti_stream_t *) handle->data);

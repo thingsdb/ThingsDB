@@ -17,6 +17,7 @@ void ti_fwd_destroy(ti_fwd_t * fwd);
 struct ti_fwd_s
 {
     uint16_t orig_pkg_id;
+    uint16_t _pad0;
     ti_stream_t * stream;
 };
 

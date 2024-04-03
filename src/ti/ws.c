@@ -5,44 +5,139 @@
  */
 #include <libwebsockets.h>
 #include <ti.h>
-#include <ti/ws.h>
+#include <ti/stream.t.h>
 #include <ti/user.t.h>
+#include <ti/write.h>
+#include <ti/ws.h>
+#include <util/buf.h>
 #include <util/logger.h>
+#include <util/queue.h>
 
 static struct lws_context * ws__context;
 
-typedef struct  /* ws__msg_t */
+static int ws__callback_established(struct lws * wsi, ti_ws_t * pss)
 {
-    void * payload; /* is malloc'd */
-    size_t len;
-    char binary;
-    char first;
-    char final;
-} ws__msg_t;
+    const size_t sugsz = 8192;
 
-typedef struct  /* ws__psd_t */
-{
-    buf_t buf;
-    ti_user_t * user;
-} ws__psd_t;
+    pss->queue = queue_new(16);
+    if (!pss->queue)
+        goto fail0;
 
-static void ws__msg_destroy(void * _msg)
-{
-    ws__msg_t * msg = _msg;
+    pss->stream = ti_stream_create(TI_STREAM_WS_IN_CLIENT, &ti_clients_pkg_cb);
+    if (!pss->stream)
+        goto fail1;
 
-    free(msg->payload);
-    msg->payload = NULL;
-    msg->len = 0;
+    pss->stream->buf = malloc(sugsz);
+    if (!pss->stream->buf)
+        goto fail2;
+
+    pss->stream->with.ws = pss;
+    pss->wsi = wsi;
+    return 0;
+
+fail2:
+    ti_stream_close(pss->stream);
+fail1:
+    queue_destroy(pss->queue, NULL);
+    pss->queue = NULL;
+fail0:
+    log_error(EX_MEMORY_S);
+    return -1;
 }
 
-typedef struct {
-    struct lws_context * context;
-    struct lws_vhost * vhost;
-    int * interrupted;
-    int * options;
-} ws__vhd_t;
+static int ws__callback_server_writable(struct lws * wsi, ti_ws_t * pss)
+{
+    const size_t sugsz = 8192 - LWS_PRE;
+    int flags, m;
+    size_t n;
+    ti_pkg_t * pkg;
+    ti_write_t * req = queue_shift(pss->queue);
+    if (!req)
+        return 0;  /* nothing to write */
 
-// Callback function for WebSocket server messages
+    pkg = req->pkg;
+    flags = lws_write_ws_flags(LWS_WRITE_BINARY, 1, 1);
+
+    /* notice we allowed for LWS_PRE in the payload already */
+    n = sizeof(ti_pkg_t) + pkg->n;
+    if (n > pss->wbuf_sz)
+    {
+        size_t sz = n > sugsz ? n : sugsz;
+        unsigned char * tmp = malloc(LWS_PRE + sz);
+        if (!tmp)
+        {
+            log_error(EX_MEMORY_S);
+            req->cb_(req, EX_MEMORY);
+            return -1;
+        }
+        pss->wbuf_sz = sz;
+        free(pss->wbuf);
+        pss->wbuf = tmp;
+    }
+
+    memcpy(pss->wbuf + LWS_PRE, (unsigned char *) pkg, n);
+
+    m = lws_write(wsi, pss->wbuf + LWS_PRE, n, flags);
+    if (m < (int) n)
+    {
+        log_error("ERROR %d; writing to WebSocket", m);
+        req->cb_(req, EX_WRITE_UV);
+        return -1;
+    }
+
+    lws_callback_on_writable(wsi);
+    req->cb_(req, 0);
+    return 0;
+}
+
+static int ws__callback_receive(struct lws * wsi, ti_ws_t * pss, void * in, size_t len)
+{
+    ti_stream_t * stream = pss->stream;
+    if (lws_is_first_fragment(wsi))
+        stream->n = 0;
+
+    if (len > stream->sz - stream->n)
+    {
+        size_t sz = stream->n + len;
+        char * nbuf = realloc(stream->buf, sz);
+        if (!nbuf)
+        {
+            log_error(EX_MEMORY_S);
+            return -1;
+        }
+        stream->buf = nbuf;
+        stream->sz = sz;
+    }
+
+    memcpy(stream->buf + stream->n, in, len);
+    stream->n += len;
+
+    if (lws_is_final_fragment(wsi))
+    {
+        ti_pkg_t * pkg = (ti_pkg_t *) stream->buf;
+        stream->n = 0;  /* reset buffer */
+        if (!ti_pkg_check(pkg))
+        {
+            log_error(
+                    "invalid package (type=%u invert=%u size=%u) from `%s`, "
+                    "closing connection",
+                    pkg->tp, pkg->ntp, pkg->n, ti_stream_name(stream));
+            ti_stream_close(stream);
+            return -1;
+        }
+        stream->pkg_cb(stream, pkg);
+    }
+    lws_callback_on_writable(wsi);
+    return 0;
+}
+
+struct per_vhost_data__minimal {
+    struct lws_context *context;
+    struct lws_vhost *vhost;
+    const struct lws_protocols *protocol;
+};
+
+/* Callback function for WebSocket server messages */
 int ws__callback(
         struct lws * wsi,
         enum lws_callback_reasons reason,
@@ -50,137 +145,37 @@ int ws__callback(
         void * in,
         size_t len)
 {
-    ws__psd_t * pss = (ws__psd_t *) user;
-    ws__vhd_t * vhd = (ws__vhd_t *) lws_protocol_vh_priv_get(
-                lws_get_vhost(wsi),
-                lws_get_protocol(wsi));
-
-    const ws__msg_t * pmsg;
-    ws__msg_t amsg;
-    int m, n, flags;
+    ti_ws_t * pss = (ti_ws_t *) user;
+    struct per_vhost_data__minimal *vhd =
+            (struct per_vhost_data__minimal *)
+            lws_protocol_vh_priv_get(lws_get_vhost(wsi),
+            lws_get_protocol(wsi));
 
     switch (reason)
     {
     case LWS_CALLBACK_PROTOCOL_INIT:
-        LOGC("LWS_CALLBACK_PROTOCOL_INIT");
-        vhd = lws_protocol_vh_priv_zalloc(
-                lws_get_vhost(wsi),
+        vhd = lws_protocol_vh_priv_zalloc(lws_get_vhost(wsi),
                 lws_get_protocol(wsi),
-                sizeof(ws__vhd_t));
-        if (!vhd)
-            return -1;
-
+                sizeof(struct per_vhost_data__minimal));
         vhd->context = lws_get_context(wsi);
+        vhd->protocol = lws_get_protocol(wsi);
         vhd->vhost = lws_get_vhost(wsi);
-
-        /* get the pointers we were passed in pvo */
-
-        vhd->interrupted = (int *)lws_pvo_search(
-            (const struct lws_protocol_vhost_options *)in,
-            "interrupted")->value;
-        vhd->options = (int *)lws_pvo_search(
-            (const struct lws_protocol_vhost_options *)in,
-            "options")->value;
         break;
     case LWS_CALLBACK_ESTABLISHED:
-        LOGC("LWS_CALLBACK_ESTABLISHED");
-        buf_init(&pss->buf);
-        pss->user = NULL;
-        break;
+        return ws__callback_established(wsi, pss);
     case LWS_CALLBACK_SERVER_WRITEABLE:
-        LOGC("LWS_CALLBACK_SERVER_WRITEABLE");
-
-        flags = lws_write_ws_flags(
-                pmsg->binary ? LWS_WRITE_BINARY : LWS_WRITE_TEXT,
-                pmsg->first, pmsg->final);
-
-        /* notice we allowed for LWS_PRE in the payload already */
-        m = lws_write(
-                wsi,
-                ((unsigned char *) pmsg->payload) + LWS_PRE,
-                pmsg->len,
-                (enum lws_write_protocol)flags);
-
-        if (m < (int) pmsg->len)
-        {
-            log_error("ERROR %d writing to ws socket", m);
-            return -1;
-        }
-
-        log_debug("wrote %d: flags: 0x%x first: %d final %d",
-                m, flags, pmsg->first, pmsg->final);
-        /*
-         * Workaround deferred deflate in pmd extension by only
-         * consuming the fifo entry when we are certain it has been
-         * fully deflated at the next WRITABLE callback.  You only need
-         * this if you're using pmd.
-         */
-
-        lws_callback_on_writable(wsi);
-
-        if (pss->flow_controlled &&
-            (int)lws_ring_get_count_free_elements(pss->ring) > RING_DEPTH - 5)
-        {
-            lws_rx_flow_control(wsi, 1);
-            pss->flow_controlled = 0;
-        }
-
-        if ((*vhd->options & 1) && pmsg && pmsg->final)
-            pss->completed = 1;
-
-        break;
+        return ws__callback_server_writable(wsi, pss);
     case LWS_CALLBACK_RECEIVE:
-        LOGC("LWS_CALLBACK_RECEIVE: %4d (rpp %5d, first %d, "
-              "last %d, bin %d, msglen %d (+ %d = %d))\n",
-              (int)len, (int)lws_remaining_packet_payload(wsi),
-              lws_is_first_fragment(wsi),
-              lws_is_final_fragment(wsi),
-              lws_frame_is_binary(wsi), pss->msglen, (int)len,
-              (int)pss->msglen + (int)len);
-
-        amsg.first = (char) lws_is_first_fragment(wsi);
-        amsg.final = (char) lws_is_final_fragment(wsi);
-        amsg.binary = (char) lws_frame_is_binary(wsi);
-        n = (int) lws_ring_get_count_free_elements(pss->ring);
-        if (!n) {
-            log_info("dropping!");
-            break;
-        }
-
-        if (amsg.final)
-            pss->msglen = 0;
-        else
-            pss->msglen += (uint32_t)len;
-
-        amsg.len = len;
-        /* notice we over-allocate by LWS_PRE */
-        amsg.payload = malloc(LWS_PRE + len);
-        if (!amsg.payload)
-        {
-            log_info("OOM: dropping");
-            break;
-        }
-
-        memcpy((char *) amsg.payload + LWS_PRE, in, len);
-        if (!lws_ring_insert(pss->ring, &amsg, 1))
-        {
-            ws__msg_destroy(&amsg);
-            log_info("dropping!!");
-            break;
-        }
-
-        lws_callback_on_writable(wsi);
-
-        if (n < 3 && !pss->flow_controlled)
-        {
-            pss->flow_controlled = 1;
-            lws_rx_flow_control(wsi, 0);
-        }
-        break;
+        return ws__callback_receive(wsi, pss, in, len);
     case LWS_CALLBACK_CLOSED:
-        LOGC("LWS_CALLBACK_CLOSED");
-        lws_ring_destroy(pss->ring);
-        ti_user_drop(pss->user);
+        if (pss->stream)
+        {
+            pss->stream->flags |= TI_STREAM_FLAG_CLOSED;
+            pss->stream->with.ws = NULL;
+            free(pss->wbuf);
+            ti_stream_close(pss->stream);
+            queue_destroy(pss->queue, free);
+        }
         break;
     default:
         break;
@@ -192,7 +187,7 @@ static struct lws_protocols ws__protocols[] = {
     {
         .name                  = "thingsdb-protocol",/* Protocol name*/
         .callback              = ws__callback,       /* Protocol callback */
-        .per_session_data_size = sizeof(ws__psd_t),  /* Protocol callback 'userdata' size */
+        .per_session_data_size = sizeof(ti_ws_t),  /* Protocol callback 'userdata' size */
         .rx_buffer_size        = 0,                  /* Receve buffer size (0 = no restriction) */
         .id                    = 0,                  /* Protocol Id (version) (optional) */
         .user                  = NULL,               /* 'User data' ptr, to access in 'protocol callback */
@@ -226,7 +221,7 @@ static const struct lws_protocol_vhost_options pvo = {
     ""              /* ignored */
 };
 
-void ws__log(int level, const char *line)
+void ws__log(int level, const char * line)
 {
     switch(level)
     {
@@ -253,7 +248,7 @@ int ti_ws_init()
     /* | LLL_EXT */ /* | LLL_CLIENT */ /* | LLL_LATENCY */
     /* | LLL_DEBUG */
     case LOGGER_DEBUG:
-        // logs |= LLL_DEBUG;
+        logs |= LLL_DEBUG;
         /*fall through*/
     case LOGGER_INFO:
         logs |= LLL_USER | LLL_NOTICE;
@@ -275,18 +270,21 @@ int ti_ws_init()
     info.pvo = &pvo;
     info.foreign_loops = foreign_loops;
     info.options = \
-        LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT |
         LWS_SERVER_OPTION_HTTP_HEADERS_SECURITY_BEST_PRACTICES_ENFORCE |
         LWS_SERVER_OPTION_LIBUV;
 
 #if defined(LWS_WITH_TLS)
-    if (0 && ti.cfg->ws_cert_file && ti.cfg->ws_key_file) {
-        log_info("WebSockets server using TLS");
+    if (ti.cfg->ws_cert_file && ti.cfg->ws_key_file)
+    {
         info.options |= LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
         info.ssl_cert_filepath = ti.cfg->ws_cert_file;
         info.ssl_private_key_filepath = ti.cfg->ws_key_file;
     }
 #endif
+
+    log_info(
+            "start listening for WebSocket connections on TCP port %d",
+            info.port);
 
     lws_set_log_level(logs, &ws__log);
 
@@ -296,13 +294,33 @@ int ti_ws_init()
         log_error("lws init failed");
         return -1;
     }
-
-//    while (1) {
-//            lws_service(ws__context, 50);
-//        }
-
     return 0;
 }
+
+int ti_ws_write(ti_ws_t * pss, ti_write_t * req)
+{
+    if (!pss->wsi)
+        return 0;  /* ignore dead connections */
+    if (queue_push(&pss->queue, req))
+        return -1;
+    lws_callback_on_writable(pss->wsi);
+    return 0;
+}
+
+char * ti_ws_name(const char * prefix, ti_ws_t * pss)
+{
+    size_t n = strlen(prefix), m;
+    struct lws_vhost * vhost = lws_get_vhost(pss->wsi);
+    const char * name = lws_get_vhost_name(vhost);
+    m = strlen(name);
+    char * buffer = malloc(n + m + 1);
+
+    memcpy(buffer, prefix, n);
+    memcpy(buffer+n, name, n);
+    buffer[n+m] = '\0';
+    return buffer;
+}
+
 
 void ti_ws_destroy(void)
 {

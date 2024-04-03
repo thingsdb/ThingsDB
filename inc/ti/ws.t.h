@@ -4,18 +4,19 @@
 #ifndef TI_WS_T_H_
 #define TI_WS_T_H_
 
-typedef struct ti_ws_request_s ti_ws_request_t;
+#include <libwebsockets.h>
+#include <ti/stream.t.h>
+#include <util/queue.h>
 
-#define TI_WS_IDENTIFIER UINT32_MAX-1;
+typedef struct ti_ws_s ti_ws_t;
 
-struct ti_ws_request_s
+struct ti_ws_s
 {
-    uint32_t _id;               /* set to TI_API_IDENTIFIER */
-    ti_scope_t scope;
-    uv_write_t req;
-    uv_stream_t uvstream;
-    ex_t e;
-    ti_user_t * user;
+    queue_t * queue;          /* ti_write_t */
+    ti_stream_t * stream;
+    struct lws * wsi;
+    unsigned char * wbuf;
+    size_t wbuf_sz;
 };
 
 #endif  /* TI_WS_T_H_ */

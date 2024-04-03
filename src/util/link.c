@@ -69,6 +69,20 @@ void * link_rm(link_t * link, void * data)
     return NULL;
 }
 
+void * link_fpop(link_t * link)
+{
+    struct link__s * cur = link->next_;
+    if (cur)
+    {
+        void * data = cur->data_;
+        link->next_ = cur->next_;
+        link->n--;
+        free(cur);
+        return data;
+    }
+    return NULL;
+}
+
 /*
  * Removes the current item from the list and sets the iterator to the next
  * item in the list.

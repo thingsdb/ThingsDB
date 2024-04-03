@@ -112,7 +112,8 @@ C_SRCS += \
 ../src/ti/watch.c \
 ../src/ti/web.c \
 ../src/ti/wrap.c \
-../src/ti/write.c 
+../src/ti/write.c \
+../src/ti/ws.c 
 
 OBJS += \
 ./src/ti/access.o \
@@ -223,7 +224,8 @@ OBJS += \
 ./src/ti/watch.o \
 ./src/ti/web.o \
 ./src/ti/wrap.o \
-./src/ti/write.o 
+./src/ti/write.o \
+./src/ti/ws.o 
 
 C_DEPS += \
 ./src/ti/access.d \
@@ -334,14 +336,15 @@ C_DEPS += \
 ./src/ti/watch.d \
 ./src/ti/web.d \
 ./src/ti/wrap.d \
-./src/ti/write.d 
+./src/ti/write.d \
+./src/ti/ws.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
 src/ti/%.o: ../src/ti/%.c
 	@echo 'Building file: $<'
 	@echo 'Invoking: GCC C Compiler'
-	gcc -std=gnu11 -DNDEBUG -I../inc -O3 -Wall -Wextra $(CFLAGS) -c -fmessage-length=0 -msse4.2 -finline-limit=4000 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
+	gcc -std=gnu11 -DNDEBUG -DLWS_WITH_PLUGINS=1 -DLWS_WITH_LIBUV=1 -I../inc -O3 -Wall -Wextra $(CFLAGS) -c -fmessage-length=0 -msse4.2 -finline-limit=4000 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

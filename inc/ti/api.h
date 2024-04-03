@@ -22,6 +22,11 @@ static inline _Bool ti_api_is_closed(ti_api_request_t * ar)
     return ar->flags & TI_API_FLAG_IS_CLOSED;
 }
 
+static inline _Bool ti_api_check(void * data)
+{
+    return ((ti_api_request_t *) data)->_id == TI_API_IDENTIFIER;
+}
+
 static inline _Bool ti_api_is_handle(uv_handle_t * handle)
 {
     return

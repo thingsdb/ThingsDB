@@ -12,15 +12,26 @@
 #include <ti/tcp.h>
 #include <ti/watch.h>
 #include <ti/write.h>
+#include <ti/ws.h>
 #include <util/logger.h>
 
 static void stream__write_pkg_cb(ti_write_t * req, ex_enum status);
 static void stream__write_rpkg_cb(ti_write_t * req, ex_enum status);
+static void stream__close(ti_stream_t * stream);
 static void stream__close_cb(uv_handle_t * uvstream);
 
 #define STREAM__UNRESOLVED "unresolved";
 
 static size_t stream__client_connections;
+
+static int stream__init_uvstream(ti_stream_t * stream)
+{
+    stream->with.uvstream = malloc(sizeof(uv_stream_t));
+    if (!stream->with.uvstream)
+        return -1;
+    stream->with.uvstream->data = stream;
+    return 0;
+}
 
 ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
 {
@@ -28,17 +39,9 @@ ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
     if (!stream)
         return NULL;
 
-    stream->uvstream = malloc(sizeof(uv_stream_t));
-    if (!stream->uvstream)
-    {
-        free(stream);
-        return NULL;
-    }
-
     stream->ref = 1;
     stream->tp = tp;
     stream->pkg_cb = cb;
-    stream->uvstream->data = stream;
 
     switch (tp)
     {
@@ -47,24 +50,31 @@ ti_stream_t * ti_stream_create(ti_stream_enum tp, ti_stream_pkg_cb cb)
         stream->reqmap = omap_create();
         if (!stream->reqmap)
             break;
-        if (uv_tcp_init(ti.loop, (uv_tcp_t *) stream->uvstream))
+        if (stream__init_uvstream(stream) ||
+            uv_tcp_init(ti.loop, (uv_tcp_t *) stream->with.uvstream))
             break;
         return stream;
 
     case TI_STREAM_TCP_IN_CLIENT:
         ++stream__client_connections;
-        if (uv_tcp_init(ti.loop, (uv_tcp_t *) stream->uvstream))
+        if (stream__init_uvstream(stream) ||
+            uv_tcp_init(ti.loop, (uv_tcp_t *) stream->with.uvstream))
             break;
         return stream;
 
     case TI_STREAM_PIPE_IN_CLIENT:
         ++stream__client_connections;
-        if (uv_pipe_init(ti.loop, (uv_pipe_t *) stream->uvstream, 0))
+        if (stream__init_uvstream(stream) ||
+            uv_pipe_init(ti.loop, (uv_pipe_t *) stream->with.uvstream, 0))
             break;
         return stream;
+    case TI_STREAM_WS_IN_CLIENT:
+        ++stream__client_connections;
+        return stream;  /* WebSocket stream is set outside */
     }
 
     omap_destroy(stream->reqmap, NULL);
+    free(stream->with.uvstream);  /* works, but not reached for WebSockets */
     free(stream);
     return NULL;
 }
@@ -75,7 +85,14 @@ void ti_stream_drop(ti_stream_t * stream)
     {
         assert(stream->flags & TI_STREAM_FLAG_CLOSED);
         log_info("closing stream `%s`", ti_stream_name(stream));
-        uv_close((uv_handle_t *) stream->uvstream, stream__close_cb);
+        if (stream->tp == TI_STREAM_WS_IN_CLIENT)
+        {
+            stream__close(stream);
+        }
+        else
+        {
+            uv_close((uv_handle_t *) stream->with.uvstream, stream__close_cb);
+        }
     }
 }
 
@@ -118,7 +135,8 @@ void ti_stream_set_node(ti_stream_t * stream, ti_node_t * node)
 void ti_stream_set_user(ti_stream_t * stream, ti_user_t * user)
 {
     assert(stream->tp == TI_STREAM_TCP_IN_CLIENT ||
-            stream->tp == TI_STREAM_PIPE_IN_CLIENT);
+           stream->tp == TI_STREAM_PIPE_IN_CLIENT ||
+           stream->tp == TI_STREAM_WS_IN_CLIENT);
 
     if (stream->via.user)
         ti_user_drop(stream->via.user);
@@ -220,46 +238,6 @@ void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf)
     }
 }
 
-/*
- * Returns 0 on success
- *
- *  - `toaddr` should be able to store at least INET6_ADDRSTRLEN
- */
-int ti_stream_tcp_address(ti_stream_t * stream, char * toaddr)
-{
-    assert(stream->tp == TI_STREAM_TCP_OUT_NODE ||
-            stream->tp == TI_STREAM_TCP_IN_NODE ||
-            stream->tp == TI_STREAM_TCP_IN_CLIENT);
-
-    struct sockaddr_storage name;
-    int len = sizeof(name);     /* len is used both for input and output */
-
-    if (uv_tcp_getpeername(
-            (uv_tcp_t *) stream->uvstream,
-            (struct sockaddr *) &name,
-            &len))
-        return -1;
-
-    switch (name.ss_family)
-    {
-    case AF_INET:
-        return uv_inet_ntop(
-                AF_INET,
-                &((struct sockaddr_in *) &name)->sin_addr,
-                toaddr,
-                INET6_ADDRSTRLEN);
-    case AF_INET6:
-        return uv_inet_ntop(
-                AF_INET6,
-                &((struct sockaddr_in6 *) &name)->sin6_addr,
-                toaddr,
-                INET6_ADDRSTRLEN);
-    }
-
-    assert(0);
-    return -1;
-}
-
 const char * ti_stream_name(ti_stream_t * stream)
 {
     char prefix[30];
@@ -276,28 +254,35 @@ const char * ti_stream_name(ti_stream_t * stream)
             sprintf(prefix, "<node-out:%u> ", stream->via.node->id);
         else
             sprintf(prefix, "<node-out:not authorized> ");
-        stream->name_ = ti_tcp_name(prefix, (uv_tcp_t *) stream->uvstream);
+        stream->name_ = ti_tcp_name(prefix, (uv_tcp_t *) stream->with.uvstream);
         return stream->name_ ? stream->name_ : "<node-out> "STREAM__UNRESOLVED;
     case TI_STREAM_TCP_IN_NODE:
         if (stream->via.node)
             sprintf(prefix, "<node-in:%u> ", stream->via.node->id);
         else
             sprintf(prefix, "<node-in:not authorized> ");
-        stream->name_ = ti_tcp_name(prefix, (uv_tcp_t *) stream->uvstream);
+        stream->name_ = ti_tcp_name(prefix, (uv_tcp_t *) stream->with.uvstream);
         return stream->name_ ? stream->name_ : "<node-in> "STREAM__UNRESOLVED;
     case TI_STREAM_TCP_IN_CLIENT:
         if (stream->via.user)
             sprintf(prefix, "<client:%"PRIu64"> ", stream->via.user->id);
         else
             sprintf(prefix, "<client:not authorized> ");
-        stream->name_ = ti_tcp_name(prefix, (uv_tcp_t *) stream->uvstream);
+        stream->name_ = ti_tcp_name(prefix, (uv_tcp_t *) stream->with.uvstream);
         return stream->name_ ? stream->name_ : "<client> "STREAM__UNRESOLVED;
     case TI_STREAM_PIPE_IN_CLIENT:
         if (stream->via.user)
             sprintf(prefix, "<client:%"PRIu64"> ", stream->via.user->id);
         else
             sprintf(prefix, "<client:not authorized> ");
-        stream->name_ = ti_pipe_name(prefix, (uv_pipe_t *) stream->uvstream);
+        stream->name_ = ti_pipe_name(prefix, (uv_pipe_t *) stream->with.uvstream);
+        return stream->name_ ? stream->name_ : "<client> "STREAM__UNRESOLVED;
+    case TI_STREAM_WS_IN_CLIENT:
+        if (stream->via.user)
+            sprintf(prefix, "<client:%"PRIu64"> ", stream->via.user->id);
+        else
+            sprintf(prefix, "<client:not authorized> ");
+        stream->name_ = ti_ws_name(prefix, (ti_ws_t *) stream->with.ws);
         return stream->name_ ? stream->name_ : "<client> "STREAM__UNRESOLVED;
     }
 
@@ -357,12 +342,14 @@ static void stream__write_rpkg_cb(ti_write_t * req, ex_enum status)
     ti_write_destroy(req);
 }
 
-static void stream__close_cb(uv_handle_t * uvstream)
+static void stream__close(ti_stream_t * stream)
 {
-    ti_stream_t * stream = uvstream->data;
     assert(stream);
     assert(stream->flags & TI_STREAM_FLAG_CLOSED);
     assert(stream->reqmap == NULL);
+
+    stream->with.uvstream = NULL;  /* doesn't matter which we set to NULL,
+                                    * WebSockets or UV stream */
 
     switch ((ti_stream_enum) stream->tp)
     {
@@ -381,6 +368,7 @@ static void stream__close_cb(uv_handle_t * uvstream)
         break;
     case TI_STREAM_TCP_IN_CLIENT:
     case TI_STREAM_PIPE_IN_CLIENT:
+    case TI_STREAM_WS_IN_CLIENT:
         --stream__client_connections;
         ti_user_drop(stream->via.user);
         break;
@@ -388,6 +376,11 @@ static void stream__close_cb(uv_handle_t * uvstream)
     ti_stream_stop_listeners(stream);
     free(stream->buf);
     free(stream->name_);
-    free(uvstream);
     free(stream);
+}
+
+static void stream__close_cb(uv_handle_t * uvstream)
+{
+    stream__close((ti_stream_t *) uvstream->data);
+    free(uvstream);
 }

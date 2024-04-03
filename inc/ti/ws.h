@@ -6,19 +6,13 @@
 
 #include <ex.h>
 #include <ti/ws.t.h>
+#include <ti/write.h>
 #include <ti/req.t.h>
 #include <uv.h>
 
 int ti_ws_init(void);
-void ti_ws_close(ti_ws_request_t * ws_request);
-
-
-static inline _Bool ti_ws_is_handle(uv_handle_t * handle)
-{
-    return
-        handle->type == UV_TCP &&
-        handle->data &&
-        ((ti_ws_request_t *) handle->data)->_id == TI_WS_IDENTIFIER;
-}
+int ti_ws_write(ti_ws_t * pss, ti_write_t * req);
+char * ti_ws_name(const char * prefix, ti_ws_t * pss);
+void ti_ws_destroy(void);
 
 #endif /* TI_WS_H_ */

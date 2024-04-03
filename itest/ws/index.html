@@ -14,20 +14,53 @@
             // Push a message when the connection is successfully established, and the server can start pushing data
             ws.onopen = () => {
                 console.log('websocket success---');
-                let encoded = MessagePack.encode([0, ["admin", "pass"]]);
-                console.log('get websocket data---', encoded);
-
-                ws.send(encoded);
+                const data = ["admin", "pass"];
+                const encoded = MessagePack.encode(data);
+                const view = new DataView(new ArrayBuffer(encoded.length + 8));
+                const bytes = new Uint8Array(view.buffer);
+                view.setUint32(0, encoded.length, true);
+                view.setUint16(4, 0, true);
+                view.setUint8(6, 33);
+                view.setUint8(7, 33 ^ 0xff);
+                bytes.set(encoded, 8);
+                ws.send(bytes);
             }
             ws.onmessage = (message) => {
                 new Response(message.data).arrayBuffer().then(buffer => {
-                    const uint = [...new Uint8Array(buffer)];
-                    const decoded = MessagePack.decode(uint);
-                    console.log('get websocket data---', decoded);
+                    console.log(buffer);
+                    const view = new DataView(buffer);
+                    const bytes = new Uint8Array(view.buffer);
+
+                    console.assert(bytes.length >= 8);  /* minimal package header */
+                    const size = view.getUint32(0, true);
+                    const pid = view.getUint16(4, true);
+                    const tp = view.getUint8(6);
+                    const chk = view.getUint8(7);
+                    console.assert(tp === chk ^ 0x77);
+                    console.log('get websocket data---', tp, size);
+                    if (size)
+                    {
+                        const encoded = bytes.subarray(8);
+                        const decoded = MessagePack.decode(encoded);
+                        console.log('data:', decoded);
+                    }
+                    if (tp == 17)
+                    {
+                        const data = ["//stuff", "'Hello World!'.upper();"];
+                        const encoded = MessagePack.encode(data);
+                        const view = new DataView(new ArrayBuffer(encoded.length + 8));
+                        const bytes = new Uint8Array(view.buffer);
+                        view.setUint32(0, encoded.length, true);
+                        view.setUint16(4, 0, true);
+                        view.setUint8(6, 34);
+                        view.setUint8(7, 34 ^ 0xff);
+                        bytes.set(encoded, 8);
+                        ws.send(bytes);
+                    }
                 });
             }
-            ws.onerror = () => {
-                console.error('websocket fail');
+            ws.onerror = (err) => {
+                console.error('websocket fail', err);
             }
         } else {
             console.error('dont support websocket');

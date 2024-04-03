@@ -5,6 +5,7 @@
 #include <ti.h>
 #include <ti/proto.h>
 #include <ti/write.h>
+#include <ti/ws.h>
 #include <util/logger.h>
 
 static void ti__write_cb(uv_write_t * req, int status);
@@ -23,10 +24,15 @@ int ti_write(ti_stream_t * stream, ti_pkg_t * pkg, void * data, ti_write_cb cb)
     req->cb_ = cb;
 
     ti_incref(stream);
-
-    wrbuf = uv_buf_init((char *) pkg, sizeof(ti_pkg_t) + pkg->n);
-    uv_write(&req->req_, stream->uvstream, &wrbuf, 1, &ti__write_cb);
-
+    if (stream->tp == TI_STREAM_WS_IN_CLIENT)
+    {
+        ti_ws_write(stream->with.ws, req);
+    }
+    else
+    {
+        wrbuf = uv_buf_init((char *) pkg, sizeof(ti_pkg_t) + pkg->n);
+        uv_write(&req->req_, stream->with.uvstream, &wrbuf, 1, &ti__write_cb);
+    }
     return 0;
 }
 

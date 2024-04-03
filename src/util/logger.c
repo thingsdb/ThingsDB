@@ -136,7 +136,7 @@ void log_line(int log_level, const char * line)
     }
 
     /* print the actual log line */
-    fprintf(Logger.ostream, line);
+    fprintf(Logger.ostream, "%s", line);
     fflush(Logger.ostream);
 }
 

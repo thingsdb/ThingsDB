@@ -14,14 +14,6 @@ void buf_init(buf_t * buf)
     buf->data = NULL;
 }
 
-void buf_reset(buf_t * buf)
-{
-    free(buf->data);
-    buf->cap = 0;
-    buf->len = 0;
-    buf->data = NULL;
-}
-
 int buf_append(buf_t * buf, const char * s, size_t n)
 {
     size_t rsize = buf->len + n;

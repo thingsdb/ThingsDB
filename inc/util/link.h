@@ -22,7 +22,7 @@ void link_destroy(link_t * link, link_destroy_cb cb);
 void link_clear(link_t * link, link_destroy_cb cb);
 void * link_rm(link_t * link, void * data);
 int link_insert(link_t * link, void * data);
-void * link_fpop(link_t * link);  /* remove the first */
+
 
 /* loop using the iterator */
 #define link_each(iter__, dt__, var__) \
@@ -41,11 +41,6 @@ struct link_s
 static inline link_iter_t link_iter(link_t * link)
 {
     return &link->next_;
-}
-
-static inline void * link_first(link_t * link)
-{
-    return link->next_ ? link->next_->data_ : NULL;
 }
 
 #endif /* LINK_H_ */

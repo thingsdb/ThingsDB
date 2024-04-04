@@ -11,7 +11,7 @@ FROM ghcr.io/cesbit/tlsproxy:v0.1.1
 
 FROM amd64/alpine:latest
 RUN apk update && \
-    apk add pcre2 libuv yajl curl tzdata && \
+    apk add pcre2 libuv yajl curl libwebsockets tzdata && \
     mkdir -p /var/lib/thingsdb
 COPY --from=0 /tmp/thingsdb/Release/thingsdb /usr/local/bin/
 COPY --from=1 /tlsproxy /usr/local/bin/

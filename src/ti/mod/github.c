@@ -540,13 +540,14 @@ static CURLcode gh__download_file(
             }
 
             ok = fx_is_dir(dest) || mkdir(dest, FX_DEFAULT_DIR_ACCESS) == 0;
-            free(dest);
             if (!ok)
             {
                 log_warn_errno_file("cannot create directory", errno, dest);
                 curle_code = CURLE_WRITE_ERROR;
+                free(dest);
                 goto cleanup;
             }
+            free(dest);
         }
     }
 

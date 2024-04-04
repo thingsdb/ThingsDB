@@ -19,8 +19,16 @@ void ti_pkg_log(ti_pkg_t * pkg);
 void ti_pkg_set_tp(ti_pkg_t * pkg, uint8_t tp);
 static inline size_t ti_pkg_sz(ti_pkg_t * pkg);
 
+/*
+In fact, this code should work but gives an annoying warning due to a bug in
+the gcc compiler.
 #define ti_pkg_check(pkg__) (\
         (pkg__)->tp == ((pkg__)->ntp ^ 0xff) && \
+        (pkg__)->n <= TI_PKG_MAX_SIZE)
+*/
+
+#define ti_pkg_check(pkg__) (\
+        (pkg__)->tp + (pkg__)->ntp == 0xff && \
         (pkg__)->n <= TI_PKG_MAX_SIZE)
 
 /* return total package size, header + data size */

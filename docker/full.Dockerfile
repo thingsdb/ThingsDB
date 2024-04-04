@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y \
     libuv1-dev \
     libpcre2-dev \
     libyajl-dev \
-    libcurl4-nss-dev && \
+    libcurl4-nss-dev \
     libwebsockets-dev && \
     cd /tmp/thingsdb/Release && \
     make clean && \
@@ -19,7 +19,8 @@ RUN mkdir -p /var/lib/thingsdb && \
     libuv1 \
     libpcre2-8-0 \
     libyajl2 \
-    libcurl3-nss && \
+    libcurl3-nss \
+    libwebsockets16 && \
     pip3 install py-timod
 
 COPY --from=0 /tmp/thingsdb/Release/thingsdb /usr/local/bin/

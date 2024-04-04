@@ -1,4 +1,4 @@
-FROM ubuntu:22.04 as builder
+FROM python as builder
 RUN apt-get update && \
     apt-get install -y \
         libuv1-dev \
@@ -23,7 +23,7 @@ RUN apt-get update && \
         libpcre2-8-0 \
         libyajl2 \
         libcurl3-nss \
-        libwebsockets
+        libwebsockets17
 COPY --from=builder ./Release/thingsdb /Release/thingsdb
 COPY ./itest/ /itest/
 COPY ./inc/doc.h /inc/doc.h

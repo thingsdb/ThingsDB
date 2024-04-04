@@ -12,6 +12,7 @@
 #include <util/buf.h>
 #include <util/logger.h>
 #include <util/queue.h>
+#include <util/fx.h>
 
 static struct lws_context * ws__context;
 
@@ -233,6 +234,62 @@ void ws__log(int level, const char * line)
     }
 }
 
+static int ws__with_certificates(void)
+{
+    if (ti.cfg->ws_cert_file && !ti.cfg->ws_key_file)
+    {
+        log_warning("got a certificate file but no private key file");
+        return 0;
+    }
+    if (!ti.cfg->ws_cert_file && ti.cfg->ws_key_file)
+    {
+        log_warning("got a private key file but no certificate file");
+        return 0;
+    }
+
+    if (ti.cfg->ws_cert_file && ti.cfg->ws_key_file)
+    {
+        if (!fx_file_exist(ti.cfg->ws_cert_file))
+        {
+            log_error("file does not exist: %s", ti.cfg->ws_cert_file);
+            return 0;
+        }
+
+        if (!fx_file_exist(ti.cfg->ws_key_file))
+        {
+            log_error("file does not exist: %s", ti.cfg->ws_key_file);
+            return 0;
+        }
+
+        if (!fx_starts_with(
+                ti.cfg->ws_cert_file,
+                "-----BEGIN CERTIFICATE-----\n"))
+        {
+            log_error(
+                    "not a certificate file: `%s`; "
+                    "content of this file must start with: "
+                    "-----BEGIN CERTIFICATE-----",
+                    ti.cfg->ws_cert_file);
+            return 0;
+        }
+
+        if (!fx_starts_with(
+                ti.cfg->ws_key_file,
+                "-----BEGIN PRIVATE KEY-----\n"))
+        {
+            log_error(
+                    "not a private key file: `%s`; "
+                    "content of this file must start with: "
+                    "-----BEGIN PRIVATE KEY-----",
+                    ti.cfg->ws_key_file);
+            return 0;
+        }
+
+        return 1;  /* success sanity check */
+    }
+    return 0;
+}
+
 int ti_ws_init()
 {
     void *foreign_loops[1];
@@ -274,7 +331,7 @@ int ti_ws_init()
         LWS_SERVER_OPTION_LIBUV;
 
 #if defined(LWS_WITH_TLS)
-    if (ti.cfg->ws_cert_file && ti.cfg->ws_key_file)
+    if (ws__with_certificates())
     {
         info.options |= LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
         info.ssl_cert_filepath = ti.cfg->ws_cert_file;

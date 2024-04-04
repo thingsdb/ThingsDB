@@ -5,6 +5,7 @@ RUN apt-get update && \
         libpcre2-dev \
         libyajl-dev \
         libcurl4-nss-dev \
+        libwebsockets-dev \
         build-essential
 COPY ./main.c ./main.c
 COPY ./src/ ./src/
@@ -21,7 +22,8 @@ RUN apt-get update && \
         libuv1 \
         libpcre2-8-0 \
         libyajl2 \
-        libcurl3-nss
+        libcurl3-nss \
+        libwebsockets
 COPY --from=builder ./Release/thingsdb /Release/thingsdb
 COPY ./itest/ /itest/
 COPY ./inc/doc.h /inc/doc.h

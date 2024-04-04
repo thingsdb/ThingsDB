@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
     libpcre2-dev \
     libyajl-dev \
     libcurl4-nss-dev && \
+    libwebsockets-dev && \
     cd /tmp/thingsdb/Release && \
     make clean && \
     make

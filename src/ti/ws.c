@@ -197,31 +197,6 @@ static struct lws_protocols ws__protocols[] = {
     { NULL, NULL, 0, 0, 0, NULL, 0 } // Protocol list ends with NULL
 };
 
-static int interrupted, options;
-
-/* pass pointers to shared vars to the protocol */
-
-static const struct lws_protocol_vhost_options pvo_options = {
-    NULL,
-    NULL,
-    "options",      /* pvo name */
-    (void *)&options    /* pvo value */
-};
-
-static const struct lws_protocol_vhost_options pvo_interrupted = {
-    &pvo_options,
-    NULL,
-    "interrupted",      /* pvo name */
-    (void *)&interrupted    /* pvo value */
-};
-
-static const struct lws_protocol_vhost_options pvo = {
-    NULL,               /* "next" pvo linked-list */
-    &pvo_interrupted,       /* "child" pvo linked-list */
-    "thingsdb-protocol",  /* protocol name we belong to on this vhost */
-    ""              /* ignored */
-};
-
 void ws__log(int level, const char * line)
 {
     switch(level)
@@ -324,7 +299,6 @@ int ti_ws_init()
         return 0;
 
     info.protocols = ws__protocols;
-    info.pvo = &pvo;
     info.foreign_loops = foreign_loops;
     info.options = \
         LWS_SERVER_OPTION_HTTP_HEADERS_SECURITY_BEST_PRACTICES_ENFORCE |

@@ -1234,6 +1234,7 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
 
 static void ti__stop(void)
 {
+    ti_ws_destroy();
     ti_away_stop();
     ti_connect_stop();
     ti_changes_stop();

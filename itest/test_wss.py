@@ -25,7 +25,7 @@ st_package = struct.Struct('<IHBB')
 context = ssl._create_unverified_context()
 
 
-def ws_example(port: int, use_ssl: bool = False):
+def wss_example(port: int, use_ssl: bool = False):
     ctx = context if use_ssl else None
     proto = 'wss://' if use_ssl else 'ws://'
     with connect(f"{proto}localhost:{port}", ssl_context=ctx) as websocket:
@@ -51,12 +51,12 @@ def ws_example(port: int, use_ssl: bool = False):
         return answer
 
 
-class TestWS(TestBase):
+class TestWSS(TestBase):
 
-    title = 'Test WebSockets'
+    title = 'Test WebSockets (Secure TLS/SSl)'
 
     @default_test_setup(num_nodes=3, seed=1, threshold_full_storage=10,
-                        enable_ws=True)
+                        enable_wss=True)
     async def run(self):
 
         await self.node0.init_and_run()
@@ -70,10 +70,10 @@ class TestWS(TestBase):
         await client.wait_closed()
 
     async def test_simple_ws(self, client):
-        res = ws_example(self.node0.ws_port)
+        res = wss_example(self.node0.ws_port, use_ssl=True)
         self.assertEqual(res, 42)
         await asyncio.sleep(0.5)
 
 
 if __name__ == '__main__':
-    run_test(TestWS())
+    run_test(TestWSS())

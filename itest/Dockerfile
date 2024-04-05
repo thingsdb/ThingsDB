@@ -23,12 +23,11 @@ RUN apt-get update && \
         libpcre2-8-0 \
         libyajl2 \
         libcurl3-nss \
-        libwebsockets17 \
         libwebsockets-evlib-uv
 COPY --from=builder ./Release/thingsdb /Release/thingsdb
 COPY ./itest/ /itest/
 COPY ./inc/doc.h /inc/doc.h
-COPY ./libcurl.supp /libcurl.supp
+COPY ./memleak.supp /memleak.supp
 WORKDIR /itest
 RUN pip install -r requirements.txt
 ENV THINGSDB_BIN /Release/thingsdb

@@ -690,9 +690,11 @@ finish:
         rc = uv_loop_close(ti.loop);
         if (!rc)
             break;
+        ti_ws_destroy();
         uv_walk(ti.loop, ti__close_handles, NULL);
         (void) uv_run(ti.loop, UV_RUN_NOWAIT);
     }
+
 
     return rc;
 }
@@ -1234,7 +1236,6 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
 
 static void ti__stop(void)
 {
-    ti_ws_destroy();
     ti_away_stop();
     ti_connect_stop();
     ti_changes_stop();

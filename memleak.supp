@@ -1,0 +1,91 @@
+{
+   <libcurl (libnspr)>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:*alloc
+   ...
+   obj:/usr/lib/x86_64-linux-gnu/libnspr*.so
+   ...
+   fun:main
+}
+{
+   <libcurl (libssl)>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:*alloc
+   ...
+   obj:/usr/lib/x86_64-linux-gnu/libssl*.so
+   ...
+}
+{
+   <libcurl (libnss, libcurl-nss)>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:*alloc
+   ...
+   obj:/usr/lib/x86_64-linux-gnu/libcurl-nss.so*
+   ...
+}
+{
+   <libcurl (libnss3)>
+   Memcheck:Cond
+   ...
+   fun:PK11_ImportPublicKey
+   ...
+   obj:/usr/lib/x86_64-linux-gnu/libnss3.so*
+   ...
+}
+{
+   <libcurl (dl_open)>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   ...
+   fun:dlopen_implementation
+   fun:dlopen@@GLIBC_2.3*
+}
+{
+   <libwebsockets (dl_map_object)>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_dl_map_object
+   fun:dl_open_worker_begin
+   fun:_dl_catch_exception
+   ...
+}
+{
+   <libwebsockets (dl_check_map_versions)>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_dl_check_map_versions
+   fun:dl_open_worker_begin
+   fun:_dl_catch_exception
+   ...
+}
+{
+   <libwebsockets (dl_new_object)>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_dl_new_object
+   fun:_dl_map_object_from_fd
+   fun:_dl_map_object
+   ...
+}
+{
+   <libwebsockets (lws_zalloc)>
+   Memcheck:Leak
+   ...
+   fun:lws_zalloc
+   ...
+}
+{
+   <libwebsockets (lws_plugins)>
+   Memcheck:Leak
+   ...
+   fun:lws_plugins_init
+   fun:lws_create_context
+   ...
+}
+

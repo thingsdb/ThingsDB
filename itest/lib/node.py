@@ -22,6 +22,8 @@ MEM_PROC = \
     'memcheck-amd64-' if platform.architecture()[0] == '64bit' else \
     'memcheck-x86-li'
 
+CERTS_PATH = os.path.join(THINGSDB_TESTDIR, '..', 'example_certs')
+
 
 def get_file_content(fn):
     with open(fn, 'r') as f:
@@ -48,7 +50,18 @@ class Node:
         self.http_api_port = 9210 + n
         self.listen_node_port = 9220 + n
         self.http_status_port = 8080 + n
-        self.ws_port = 9780 + n
+        if options.pop('enable_ws', False):
+            self.ws_port = 9780 + n
+            self.ws_cert_file = None
+            self.ws_key_file = None
+        elif options.pop('enable_wss', False):
+            self.ws_port = 9780 + n
+            self.ws_cert_file = os.path.join(CERTS_PATH, 'localhost-100y.cert')
+            self.ws_key_file = os.path.join(CERTS_PATH, 'localhost-100y.key')
+        else:
+            self.ws_port = 0
+            self.ws_cert_file = None
+            self.ws_key_file = None
 
         # can be used for clients to connect
         self.address_info = ('localhost', self.listen_client_port)
@@ -170,6 +183,12 @@ class Node:
             config.set('thingsdb', 'gcloud_key_file',  self.gcloud_key_file)
 
         config.set('thingsdb', 'storage_path', self.storage_path)
+
+        if self.ws_cert_file is not None:
+            config.set('thingsdb', 'ws_cert_file', self.ws_cert_file)
+
+        if self.ws_key_file is not None:
+            config.set('thingsdb', 'ws_key_file', self.ws_key_file)
 
         if self.modules_path:
             config.set('thingsdb', 'modules_path', self.modules_path)

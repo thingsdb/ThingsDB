@@ -37,6 +37,7 @@ from test_types import TestTypes
 from test_user_access import TestUserAccess
 from test_variable import TestVariable
 from test_wrap import TestWrap
+from test_ws import TestWS
 
 
 def no_mem_test(test_class):
@@ -95,3 +96,4 @@ if __name__ == '__main__':
     run_test(TestUserAccess())
     run_test(TestVariable())
     run_test(TestWrap())
+    run_test(TestWS())

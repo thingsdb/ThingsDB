@@ -281,9 +281,9 @@ const char * ti_stream_name(ti_stream_t * stream)
         if (stream->via.user)
             sprintf(prefix, "<client:%"PRIu64"> ", stream->via.user->id);
         else
-            sprintf(prefix, "<client:not authorized> ");
+            sprintf(prefix, "<ws:not authorized> ");
         stream->name_ = ti_ws_name(prefix, (ti_ws_t *) stream->with.ws);
-        return stream->name_ ? stream->name_ : "<client> "STREAM__UNRESOLVED;
+        return stream->name_ ? stream->name_ : "<ws> "STREAM__UNRESOLVED;
     }
 
     assert(0);
@@ -350,7 +350,6 @@ static void stream__close(ti_stream_t * stream)
 
     stream->with.uvstream = NULL;  /* doesn't matter which we set to NULL,
                                     * WebSockets or UV stream */
-
     switch ((ti_stream_enum) stream->tp)
     {
     case TI_STREAM_TCP_OUT_NODE:

@@ -147,20 +147,10 @@ int ws__callback(
         size_t len)
 {
     ti_ws_t * pss = (ti_ws_t *) user;
-    struct per_vhost_data__minimal *vhd =
-            (struct per_vhost_data__minimal *)
-            lws_protocol_vh_priv_get(lws_get_vhost(wsi),
-            lws_get_protocol(wsi));
 
     switch (reason)
     {
     case LWS_CALLBACK_PROTOCOL_INIT:
-        vhd = lws_protocol_vh_priv_zalloc(lws_get_vhost(wsi),
-                lws_get_protocol(wsi),
-                sizeof(struct per_vhost_data__minimal));
-        vhd->context = lws_get_context(wsi);
-        vhd->protocol = lws_get_protocol(wsi);
-        vhd->vhost = lws_get_vhost(wsi);
         break;
     case LWS_CALLBACK_ESTABLISHED:
         return ws__callback_established(wsi, pss);
@@ -171,8 +161,6 @@ int ws__callback(
     case LWS_CALLBACK_CLOSED:
         if (pss->stream)
         {
-            pss->stream->flags |= TI_STREAM_FLAG_CLOSED;
-            pss->stream->with.ws = NULL;
             free(pss->wbuf);
             ti_stream_close(pss->stream);
             queue_destroy(pss->queue, free);
@@ -314,7 +302,10 @@ int ti_ws_init()
 #endif
 
     log_info(
-            "start listening for WebSocket connections on TCP port %d",
+            "start listening for WebSocket%s connections on TCP port %d",
+            (info.options & LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT)
+            ? " (Secure: TLS/SSL)"
+            : "",
             info.port);
 
     lws_set_log_level(logs, &ws__log);
@@ -340,16 +331,23 @@ int ti_ws_write(ti_ws_t * pss, ti_write_t * req)
 
 char * ti_ws_name(const char * prefix, ti_ws_t * pss)
 {
-    size_t n = strlen(prefix), m;
+    size_t n = strlen(prefix);
     struct lws_vhost * vhost = lws_get_vhost(pss->wsi);
-    const char * name = lws_get_vhost_name(vhost);
-    m = strlen(name);
-    char * buffer = malloc(n + m + 1);
+    if (vhost)
+    {
+        const char * name = lws_get_vhost_iface(vhost);
+        if (name)
+        {
+            size_t m = strlen(name);
+            char * buffer = malloc(n + m + 1);
 
-    memcpy(buffer, prefix, n);
-    memcpy(buffer+n, name, n);
-    buffer[n+m] = '\0';
-    return buffer;
+            memcpy(buffer, prefix, n);
+            memcpy(buffer+n, name, m);
+            buffer[n+m] = '\0';
+            return buffer;
+        }
+    }
+    return NULL;
 }
 
 

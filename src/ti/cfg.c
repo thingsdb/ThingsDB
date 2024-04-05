@@ -446,6 +446,8 @@ void ti_cfg_destroy(void)
     free(cfg->modules_path);
     free(cfg->python_interpreter);
     free(cfg->gcloud_key_file);
+    free(cfg->ws_cert_file);
+    free(cfg->ws_key_file);
     free(cfg);
     cfg = ti.cfg = NULL;
 }

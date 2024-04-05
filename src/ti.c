@@ -693,6 +693,7 @@ finish:
         uv_walk(ti.loop, ti__close_handles, NULL);
         (void) uv_run(ti.loop, UV_RUN_NOWAIT);
     }
+
     return rc;
 }
 
@@ -952,7 +953,7 @@ int ti_this_node_to_pk(msgpack_packer * pk)
     const char * architecture = osarch_get_arch();
 
     return (
-        msgpack_pack_map(pk, 40) ||
+        msgpack_pack_map(pk, 41) ||
         /* 1 */
         mp_pack_str(pk, "node_id") ||
         msgpack_pack_uint32(pk, ti.node->id) ||
@@ -1078,7 +1079,10 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         mp_pack_str(pk, architecture) ||
         /* 40 */
         mp_pack_str(pk, "next_free_id") ||
-        msgpack_pack_uint64(pk, ti.node->next_free_id)
+        msgpack_pack_uint64(pk, ti.node->next_free_id) ||
+        /* 4 */
+        mp_pack_str(pk, "libwebsockets_version") ||
+        mp_pack_str(pk, lws_get_library_version())
     );
 }
 
@@ -1220,6 +1224,9 @@ static void ti__close_handles(uv_handle_t * handle, void * UNUSED(arg))
     case UV_PROCESS:
         log_warning("closing spawned process...");
         break;
+    case UV_POLL:
+        log_warning("close polling handle (libwebsockets)...");
+        break;
     default:
         log_error("unexpected handle type: %d", handle->type);
     }
@@ -1229,7 +1236,6 @@ static void ti__stop(void)
 {
     ti_away_stop();
     ti_connect_stop();
-    ti_ws_destroy();
     ti_changes_stop();
     ti_sync_stop();
     ti_tasks_stop();  /* extra stop may be required */

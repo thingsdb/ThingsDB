@@ -23,7 +23,8 @@ RUN apt-get update && \
         libpcre2-8-0 \
         libyajl2 \
         libcurl3-nss \
-        libwebsockets17
+        libwebsockets17 \
+        libwebsockets-evlib-uv
 COPY --from=builder ./Release/thingsdb /Release/thingsdb
 COPY ./itest/ /itest/
 COPY ./inc/doc.h /inc/doc.h

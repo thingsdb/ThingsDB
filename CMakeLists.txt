@@ -49,7 +49,8 @@ set(LWS_WITH_SHARED 0)
 set(LWS_WITH_LWSWS 0)
 set(LWS_WITH_MINIMAL_EXAMPLES 0)
 
-add_subdirectory(libwebsockets)
+set(LWS_BUILD_DIR "${CMAKE_BINARY_DIR}/libwebsockets-build")
+add_subdirectory(libwebsockets ${LWS_BUILD_DIR})
 
 set(SOURCES
     main.c

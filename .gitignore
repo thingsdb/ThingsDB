@@ -55,11 +55,6 @@ dkms.conf
 .project
 .settings/
 
-# Binaries
-Debug/tindb
-Release/tindb
-MacOS/tindb
-
 # Python
 .pyc
 __pycache__/
@@ -72,11 +67,6 @@ __pycache__/
 
 # Visual Studio Code
 .vscode/
-
-# Build
-Debug/thingsdb
-Release/thingsdb
-MacOS/thingsdb
 
 # Python building
 connectors/python3/build/
@@ -100,6 +90,8 @@ CMakeFiles/
 CMakeCache.txt
 Makefile
 cmake_install.cmake
+CPackConfig.cmake
+CPackSourceConfig.cmake
 
 # Build
 thingsdb

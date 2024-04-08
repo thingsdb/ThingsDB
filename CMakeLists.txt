@@ -10,11 +10,6 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
     add_compile_definitions(NDEBUG)
 endif()
 
-add_compile_definitions(
-    LWS_WITH_LIBUV=1
-    LWS_WITH_PLUGINS=1
-)
-
 set(CMAKE_C_STANDARD 11)
 
 set(CMAKE_C_FLAGS_DEBUG "-O0 -g3")
@@ -41,14 +36,21 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-link_libraries(
-    uv
-    pcre2-8
-    m
-    yajl
-    curl
-    websockets
-)
+set(LWS_BUILD_DIR "${CMAKE_BINARY_DIR}/libwebsockets-build")
+
+set(LWS_WITH_LIBUV 1)
+set(LWS_WITH_PLUGINS 1)
+set(LWS_WITH_TLS 1)
+
+set(LWS_WITHOUT_TESTAPPS 1)
+set(LWS_WITHOUT_TEST_SERVER 1)
+set(LWS_WITHOUT_TEST_CLIENT 1)
+set(LWS_WITHOUT_TEST_PING 1)
+
+set(LWS_WITH_LWSWS 0)
+set(LWS_WITH_MINIMAL_EXAMPLES 0)
+
+add_subdirectory(libwebsockets ${LWS_BUILD_DIR})
 
 set(SOURCES
     main.c
@@ -231,3 +233,13 @@ set(SOURCES
 )
 
 add_executable(thingsdb ${SOURCES})
+
+target_link_libraries(
+    thingsdb
+    pcre2-8
+    m
+    yajl
+    curl
+    ${LWS_BUILD_DIR}/lib/libwebsockets.so.19
+    uv
+)

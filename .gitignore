@@ -97,6 +97,7 @@ CPackSourceConfig.cmake
 thingsdb
 
 # libwebsockets build
+libwebsockets-build/
 libwebsockets/.gitignore
 libwebsockets/CTestTestfile.cmake
 libwebsockets/DartConfiguration.tcl

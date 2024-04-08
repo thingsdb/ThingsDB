@@ -36,8 +36,6 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(LWS_BUILD_DIR "${CMAKE_BINARY_DIR}/libwebsockets-build")
-
 set(LWS_WITH_LIBUV 1)
 set(LWS_WITH_PLUGINS 1)
 set(LWS_WITH_TLS 1)
@@ -47,10 +45,11 @@ set(LWS_WITHOUT_TEST_SERVER 1)
 set(LWS_WITHOUT_TEST_CLIENT 1)
 set(LWS_WITHOUT_TEST_PING 1)
 
+set(LWS_WITH_SHARED 0)
 set(LWS_WITH_LWSWS 0)
 set(LWS_WITH_MINIMAL_EXAMPLES 0)
 
-add_subdirectory(libwebsockets ${LWS_BUILD_DIR})
+add_subdirectory(libwebsockets)
 
 set(SOURCES
     main.c
@@ -234,12 +233,16 @@ set(SOURCES
 
 add_executable(thingsdb ${SOURCES})
 
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libwebsockets/src)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libwebsockets/include)
+
 target_link_libraries(
     thingsdb
+    PUBLIC
     pcre2-8
     m
     yajl
     curl
-    ${LWS_BUILD_DIR}/lib/libwebsockets.so.19
+    websockets
     uv
 )

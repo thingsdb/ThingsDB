@@ -21,12 +21,12 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libuv1-dev libpcre2-dev libyajl-dev libcurl4-nss-dev libwebsockets-dev valgrind
+          sudo apt-get install -y libuv1-dev libpcre2-dev libyajl-dev libcurl4-nss-dev valgrind
       - name: Run tests
         run: |
-          cd ./Release/
-          make test
+          cd ./test/
+          ./test.sh
       - name: Compile code
         run: |
-          cd ./Release/
-          CFLAGS="-Werror -Winline -std=gnu11" make
+          cmake -DCMAKE_BUILD_TYPE=Debug .
+          make

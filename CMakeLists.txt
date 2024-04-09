@@ -247,6 +247,10 @@ set(SOURCES
     inc/lib/http_parser.c
 )
 
+# Set these CFLAGS after the websockets include
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Winline")
+
 # Create the binary
 add_executable(thingsdb ${SOURCES})
 

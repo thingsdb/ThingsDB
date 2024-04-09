@@ -7,12 +7,13 @@ RUN apt-get update && \
         libcurl4-nss-dev \
         build-essential \
         cmake
+WORKDIR /opt
 COPY ./CMakeLists.txt ./CMakeLists.txt
 COPY ./main.c ./main.c
 COPY ./src/ ./src/
 COPY ./inc/ ./inc/
 COPY ./libwebsockets/ ./libwebsockets/
-RUN cmake -DCMAKE_BUILD_TYPE=Release
+RUN cmake -DCMAKE_BUILD_TYPE=Debug .
 RUN make
 
 FROM python
@@ -23,7 +24,7 @@ RUN apt-get update && \
         libpcre2-8-0 \
         libyajl2 \
         libcurl3-nss
-COPY --from=builder ./thingsdb /thingsdb
+COPY --from=builder ./opt/thingsdb /thingsdb
 COPY ./itest/ /itest/
 COPY ./inc/doc.h /inc/doc.h
 COPY ./memleak.supp /memleak.supp

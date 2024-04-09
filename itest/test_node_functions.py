@@ -94,7 +94,7 @@ class TestNodeFunctions(TestBase):
 
         node = await client.query('node_info();')
 
-        self.assertEqual(len(node), 40)
+        self.assertEqual(len(node), 41)
 
         self.assertIn("node_id", node)
         self.assertIn("version", node)
@@ -103,6 +103,7 @@ class TestNodeFunctions(TestBase):
         self.assertIn("libcleri_version", node)
         self.assertIn("libuv_version", node)
         self.assertIn("libpcre2_version", node)
+        self.assertIn("libwebsockets_version", node)
         self.assertIn("yajl_version", node)
         self.assertIn("status", node)
         self.assertIn("zone", node)
@@ -144,6 +145,7 @@ class TestNodeFunctions(TestBase):
         self.assertTrue(isinstance(node["libcleri_version"], str))
         self.assertTrue(isinstance(node["libuv_version"], str))
         self.assertTrue(isinstance(node["libpcre2_version"], str))
+        self.assertTrue(isinstance(node["libwebsockets_version"], str))
         self.assertTrue(isinstance(node["yajl_version"], str))
         self.assertTrue(isinstance(node["status"], str))
         self.assertTrue(isinstance(node["zone"], int))

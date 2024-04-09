@@ -38,6 +38,7 @@ from test_user_access import TestUserAccess
 from test_variable import TestVariable
 from test_wrap import TestWrap
 from test_ws import TestWS
+from test_wss import TestWSS
 
 
 def no_mem_test(test_class):
@@ -59,6 +60,8 @@ if __name__ == '__main__':
         help='include modules testing')
     args = parser.parse_args()
 
+    run_test(TestWS())
+    run_test(TestWSS())
     run_test(TestAdvanced())
     run_test(TestArguments())
     run_test(TestBackup())
@@ -96,4 +99,4 @@ if __name__ == '__main__':
     run_test(TestUserAccess())
     run_test(TestVariable())
     run_test(TestWrap())
-    run_test(TestWS())
+

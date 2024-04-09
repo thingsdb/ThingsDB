@@ -3,13 +3,13 @@ COPY ./ /tmp/thingsdb/
 
 RUN apt-get update && apt-get install -y \
     build-essential \
+    cmake \
     libuv1-dev \
     libpcre2-dev \
     libyajl-dev \
     libcurl4-nss-dev \
-    libwebsockets-dev && \
-    cd /tmp/thingsdb/Release && \
-    make clean && \
+    cd /tmp/thingsdb && \
+    cmake -DCMAKE_BUILD_TYPE=Release . && \
     make
 
 FROM google/cloud-sdk:458.0.1
@@ -19,11 +19,10 @@ RUN mkdir -p /var/lib/thingsdb && \
     libuv1 \
     libpcre2-8-0 \
     libyajl2 \
-    libcurl3-nss \
-    libwebsockets16 && \
+    libcurl3-nss && \
     pip3 install py-timod
 
-COPY --from=0 /tmp/thingsdb/Release/thingsdb /usr/local/bin/
+COPY --from=0 /tmp/thingsdb/thingsdb /usr/local/bin/
 
 # Client (Socket) connections
 EXPOSE 9200

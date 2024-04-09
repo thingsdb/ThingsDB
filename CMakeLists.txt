@@ -1,17 +1,27 @@
+#
+# thingsdb - node
+#
+# Selecting between DEBUG / RELEASE, use -DCMAKE_BUILD_TYPE=Debug or =Release
+#   debug builds include source level debug info and extra logging
+
 project(thingsdb C)
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.13)
 include_directories(inc)
+
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
+# Less debug info for Release build
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     add_compile_definitions(NDEBUG)
 endif()
 
+# Set C11 standard
 set(CMAKE_C_STANDARD 11)
 
+# Optimize flags based on build type
 set(CMAKE_C_FLAGS_DEBUG "-O0 -g3")
 set(CMAKE_C_FLAGS_RELEASE "-O3")
 
@@ -22,6 +32,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wextra")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -finline-limit=4000")
 
+# Include directories for MacOS build
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
    include_directories(
         AFTER
@@ -32,9 +43,11 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     )
 endif()
 
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
-endif()
+# Set CMAKE_POLICY_DEFAULT_CMP0077 before add_subdirectory()
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+
+# Technically LWS_WITH_LIBUV and LWS_WITH_PLUGINS are not required as we make
+# a static build (LWS_WITH_SHARED=0).
 
 set(LWS_WITH_LIBUV 1)
 set(LWS_WITH_PLUGINS 1)
@@ -49,9 +62,11 @@ set(LWS_WITH_SHARED 0)
 set(LWS_WITH_LWSWS 0)
 set(LWS_WITH_MINIMAL_EXAMPLES 0)
 
+# Create a build directory for libwebsockets
 set(LWS_BUILD_DIR "${CMAKE_BINARY_DIR}/libwebsockets-build")
 add_subdirectory(libwebsockets ${LWS_BUILD_DIR})
 
+# Define all the sources
 set(SOURCES
     main.c
     src/ex.c
@@ -232,11 +247,14 @@ set(SOURCES
     inc/lib/http_parser.c
 )
 
+# Create the binary
 add_executable(thingsdb ${SOURCES})
 
+# Set include directories for libwebsockets
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libwebsockets/src)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libwebsockets/include)
 
+# Link libraries, including the static websockets
 target_link_libraries(
     thingsdb
     PUBLIC

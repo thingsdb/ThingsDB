@@ -2,18 +2,18 @@ FROM amd64/alpine:3.19
 COPY ./ /tmp/thingsdb/
 RUN apk update && \
     apk upgrade && \
-    apk add gcc make libuv-dev musl-dev pcre2-dev yajl-dev curl-dev libwebsockets-dev util-linux-dev linux-headers && \
-    cd /tmp/thingsdb/Release && \
-    make clean && \
+    apk add gcc make cmake libuv-dev musl-dev pcre2-dev yajl-dev curl-dev util-linux-dev linux-headers && \
+    cd /tmp/thingsdb && \
+    cmake -DCMAKE_BUILD_TYPE=Release . && \
     make
 
 FROM ghcr.io/cesbit/tlsproxy:v0.1.1
 
 FROM amd64/alpine:latest
 RUN apk update && \
-    apk add pcre2 libuv yajl curl libwebsockets tzdata && \
+    apk add pcre2 libuv yajl curl tzdata && \
     mkdir -p /var/lib/thingsdb
-COPY --from=0 /tmp/thingsdb/Release/thingsdb /usr/local/bin/
+COPY --from=0 /tmp/thingsdb/thingsdb /usr/local/bin/
 COPY --from=1 /tlsproxy /usr/local/bin/
 
 # Volume mounts

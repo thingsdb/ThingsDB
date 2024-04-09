@@ -12,12 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install libcleri
-        run: |
-          git clone https://github.com/cesbit/libcleri.git
-          cd ./libcleri/Release/
-          make
-          sudo make install
       - name: Install dependencies
         run: |
           sudo apt-get update

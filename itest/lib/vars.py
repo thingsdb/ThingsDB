@@ -24,7 +24,7 @@ import os
 import logging
 import time
 
-THINGSDB_BIN = os.environ.get('THINGSDB_BIN', '../Debug/thingsdb')
+THINGSDB_BIN = os.environ.get('THINGSDB_BIN', '../thingsdb')
 if not THINGSDB_BIN.startswith('/'):
     THINGSDB_BIN = os.path.join(os.getcwd(), THINGSDB_BIN)
 

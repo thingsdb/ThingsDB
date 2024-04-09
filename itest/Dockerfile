@@ -5,15 +5,15 @@ RUN apt-get update && \
         libpcre2-dev \
         libyajl-dev \
         libcurl4-nss-dev \
-        libwebsockets-dev \
-        build-essential
+        build-essential \
+        cmake
+WORKDIR /opt
+COPY ./CMakeLists.txt ./CMakeLists.txt
 COPY ./main.c ./main.c
 COPY ./src/ ./src/
 COPY ./inc/ ./inc/
-COPY ./Release/ ./Release/
-RUN cd ./Release && \
-    make clean && \
-    CFLAGS="-Werror -Winline" make
+COPY ./libwebsockets/ ./libwebsockets/
+RUN cmake -DCMAKE_BUILD_TYPE=Debug . && make
 
 FROM python
 RUN apt-get update && \
@@ -22,13 +22,12 @@ RUN apt-get update && \
         libuv1 \
         libpcre2-8-0 \
         libyajl2 \
-        libcurl3-nss \
-        libwebsockets-evlib-uv
-COPY --from=builder ./Release/thingsdb /Release/thingsdb
+        libcurl3-nss
+COPY --from=builder ./opt/thingsdb /thingsdb
 COPY ./itest/ /itest/
 COPY ./inc/doc.h /inc/doc.h
 COPY ./memleak.supp /memleak.supp
 WORKDIR /itest
 RUN pip install -r requirements.txt
-ENV THINGSDB_BIN /Release/thingsdb
+ENV THINGSDB_BIN /thingsdb
 CMD [ "python", "run_all_tests.py" ]

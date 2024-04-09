@@ -1,7 +1,0 @@
-mcufont
-unittests
-unittests.cc
-cmake-build-debug/
-build/
-.idea/
-.vscode/

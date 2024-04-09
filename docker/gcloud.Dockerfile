@@ -1,9 +1,13 @@
 FROM amd64/alpine:3.19
-COPY ./ /tmp/thingsdb/
+WORKDIR /tmp/thingsdb
+COPY ./CMakeLists.txt ./CMakeLists.txt
+COPY ./main.c ./main.c
+COPY ./src/ ./src/
+COPY ./inc/ ./inc/
+COPY ./libwebsockets/ ./libwebsockets/
 RUN apk update && \
     apk upgrade && \
     apk add gcc make cmake libuv-dev musl-dev pcre2-dev yajl-dev curl-dev util-linux-dev linux-headers && \
-    cd /tmp/thingsdb/Release && \
     cmake -DCMAKE_BUILD_TYPE=Release . && \
     make
 

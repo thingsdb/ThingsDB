@@ -13,8 +13,7 @@ COPY ./main.c ./main.c
 COPY ./src/ ./src/
 COPY ./inc/ ./inc/
 COPY ./libwebsockets/ ./libwebsockets/
-RUN cmake -DCMAKE_BUILD_TYPE=Debug .
-RUN make
+RUN cmake -DCMAKE_BUILD_TYPE=Debug . && make
 
 FROM python
 RUN apt-get update && \

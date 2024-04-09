@@ -1,6 +1,10 @@
 FROM google/cloud-sdk:458.0.1
-COPY ./ /tmp/thingsdb/
-
+WORKDIR /tmp/thingsdb
+COPY ./CMakeLists.txt ./CMakeLists.txt
+COPY ./main.c ./main.c
+COPY ./src/ ./src/
+COPY ./inc/ ./inc/
+COPY ./libwebsockets/ ./libwebsockets/
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
@@ -8,7 +12,6 @@ RUN apt-get update && apt-get install -y \
     libpcre2-dev \
     libyajl-dev \
     libcurl4-nss-dev \
-    cd /tmp/thingsdb && \
     cmake -DCMAKE_BUILD_TYPE=Release . && \
     make
 

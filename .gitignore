@@ -95,6 +95,7 @@ CPackSourceConfig.cmake
 
 # Build
 thingsdb
+Debug/
 
 # libwebsockets build
 libwebsockets-build/

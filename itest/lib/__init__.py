@@ -29,10 +29,10 @@ def default_test_setup(num_nodes=1, seed=None, **kwargs):
                 setattr(self, f'node{n}', node)
                 node.write_config()
 
-            close = await func(self)
+            _ = await func(self)
 
             for node in self.nodes:
-                result = await node.shutdown()
+                _ = await node.shutdown()
 
         return wrapped
 

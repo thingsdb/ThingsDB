@@ -5,8 +5,11 @@ async def get_client(
         *nodes,
         auth=['admin', 'pass'],
         auto_reconnect=True,
-        **kwargs):
-    client = Client(auto_reconnect=auto_reconnect, **kwargs)
+         **kwargs):
+    client = Client(
+        auto_reconnect=auto_reconnect,
+        ssl=nodes[0].use_ssl,
+        **kwargs)
     if isinstance(auth, str):
         auth = [auth]
     if auto_reconnect:

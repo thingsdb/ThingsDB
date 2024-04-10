@@ -60,8 +60,6 @@ if __name__ == '__main__':
         help='include modules testing')
     args = parser.parse_args()
 
-    run_test(TestWS())
-    run_test(TestWSS())
     run_test(TestAdvanced())
     run_test(TestArguments())
     run_test(TestBackup())
@@ -98,5 +96,6 @@ if __name__ == '__main__':
     run_test(TestTypes())
     run_test(TestUserAccess())
     run_test(TestVariable())
+    run_test(TestWS())
+    run_test(TestWSS())
     run_test(TestWrap())
-

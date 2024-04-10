@@ -50,21 +50,25 @@ class Node:
         self.http_api_port = 9210 + n
         self.listen_node_port = 9220 + n
         self.http_status_port = 8080 + n
+
         if options.pop('enable_ws', False):
             self.ws_port = 9780 + n
             self.ws_cert_file = None
             self.ws_key_file = None
+            self.address_info = (f'ws://localhost:{self.ws_port}', 0)
+            self.use_ssl = False
         elif options.pop('enable_wss', False):
             self.ws_port = 9780 + n
             self.ws_cert_file = os.path.join(CERTS_PATH, 'localhost-100y.cert')
             self.ws_key_file = os.path.join(CERTS_PATH, 'localhost-100y.key')
+            self.address_info = (f'wss://localhost:{self.ws_port}', 0)
+            self.use_ssl = True
         else:
             self.ws_port = 0
             self.ws_cert_file = None
             self.ws_key_file = None
-
-        # can be used for clients to connect
-        self.address_info = ('localhost', self.listen_client_port)
+            self.address_info = ('localhost', self.listen_client_port)
+            self.use_ssl = False
 
         self.bind_client_addr = options.pop('bind_client_addr', '::')
         self.bind_node_addr = options.pop('bind_node_addr', '::')

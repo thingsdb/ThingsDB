@@ -6,12 +6,12 @@ COPY ./src/ ./src/
 COPY ./inc/ ./inc/
 COPY ./libwebsockets/ ./libwebsockets/
 RUN apt-get update && apt-get install -y \
-    build-essential \
-    cmake \
-    libuv1-dev \
-    libpcre2-dev \
-    libyajl-dev \
-    libcurl4-nss-dev \
+        build-essential \
+        cmake \
+        libuv1-dev \
+        libpcre2-dev \
+        libyajl-dev \
+        libcurl4-nss-dev && \
     cmake -DCMAKE_BUILD_TYPE=Release . && \
     make
 

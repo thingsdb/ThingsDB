@@ -27,6 +27,7 @@ from test_procedures import TestProcedures
 from test_relations import TestRelations
 from test_restriction import TestRestriction
 from test_room import TestRoom
+from test_room_wss import TestRoomWSS
 from test_scopes import TestScopes
 from test_statements import TestStatements
 from test_syntax import TestSyntax
@@ -87,6 +88,7 @@ if __name__ == '__main__':
     run_test(TestRelations())
     run_test(TestRestriction())
     run_test(TestRoom())
+    run_test(TestRoomWSS())
     run_test(TestScopes())
     run_test(TestStatements())
     run_test(TestSyntax())

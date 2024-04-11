@@ -27,7 +27,6 @@ set(CMAKE_C_FLAGS_RELEASE "-O3")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fmessage-length=0")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -msse4.2")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wextra")
 
@@ -40,8 +39,16 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
         /opt/homebrew/opt/yajl/include
         /opt/homebrew/opt/curl/include
     )
+    link_directories(
+        /opt/homebrew/opt/libuv/lib
+        /opt/homebrew/opt/pcre2/lib
+        /opt/homebrew/opt/yajl/lib
+        /opt/homebrew/opt/curl/lib
+    )
 else()
+    # Set these flags for other than MacOS build
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -finline-limit=4000")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -msse4.2")
 endif()
 
 # Set CMAKE_POLICY_DEFAULT_CMP0077 before add_subdirectory()

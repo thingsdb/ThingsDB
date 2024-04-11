@@ -66,7 +66,7 @@ set(LWS_WITH_MINIMAL_EXAMPLES 0)
 set(LWS_BUILD_DIR "${CMAKE_BINARY_DIR}/libwebsockets-build")
 
 # Disable -Werror for building libwebsockets
-set(DISABLE_WERROR OFF)
+set(DISABLE_WERROR 1)
 
 # Add libwebsockets
 add_subdirectory(libwebsockets ${LWS_BUILD_DIR})

@@ -4,3 +4,4 @@ msgpack
 python-thingsdb
 requests
 pytz
+websockets

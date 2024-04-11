@@ -28,7 +28,7 @@ class TestBase(unittest.TestCase):
                     if count >= success_count:  # at least X times successful
                         return
                 else:
-                    success = 0
+                    success_count = 0
             attempts -= 1
             await asyncio.sleep(0.5)
 

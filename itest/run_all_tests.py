@@ -27,6 +27,7 @@ from test_procedures import TestProcedures
 from test_relations import TestRelations
 from test_restriction import TestRestriction
 from test_room import TestRoom
+from test_room_wss import TestRoomWSS
 from test_scopes import TestScopes
 from test_statements import TestStatements
 from test_syntax import TestSyntax
@@ -37,6 +38,8 @@ from test_types import TestTypes
 from test_user_access import TestUserAccess
 from test_variable import TestVariable
 from test_wrap import TestWrap
+from test_ws import TestWS
+from test_wss import TestWSS
 
 
 def no_mem_test(test_class):
@@ -85,6 +88,7 @@ if __name__ == '__main__':
     run_test(TestRelations())
     run_test(TestRestriction())
     run_test(TestRoom())
+    run_test(TestRoomWSS())
     run_test(TestScopes())
     run_test(TestStatements())
     run_test(TestSyntax())
@@ -94,4 +98,6 @@ if __name__ == '__main__':
     run_test(TestTypes())
     run_test(TestUserAccess())
     run_test(TestVariable())
+    run_test(TestWS())
+    run_test(TestWSS())
     run_test(TestWrap())

@@ -55,11 +55,6 @@ dkms.conf
 .project
 .settings/
 
-# Binaries
-Debug/tindb
-Release/tindb
-MacOS/tindb
-
 # Python
 .pyc
 __pycache__/
@@ -72,11 +67,6 @@ __pycache__/
 
 # Visual Studio Code
 .vscode/
-
-# Build
-Debug/thingsdb
-Release/thingsdb
-MacOS/thingsdb
 
 # Python building
 connectors/python3/build/
@@ -91,3 +81,56 @@ connectors/go/test/test
 
 # Kubernetes files
 kube/
+
+# Local files
+target/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+CPackConfig.cmake
+CPackSourceConfig.cmake
+
+# Build
+thingsdb
+Debug/
+build/
+
+# libwebsockets build
+libwebsockets-build/
+libwebsockets/.gitignore
+libwebsockets/CTestTestfile.cmake
+libwebsockets/DartConfiguration.tcl
+libwebsockets/LibwebsocketsTargets.cmake
+libwebsockets/LwsCheckRequirements.cmake
+libwebsockets/lib/CTestTestfile.cmake
+libwebsockets/lib/core-net/CTestTestfile.cmake
+libwebsockets/lib/core/CTestTestfile.cmake
+libwebsockets/lib/event-libs/CTestTestfile.cmake
+libwebsockets/lib/event-libs/libuv/CTestTestfile.cmake
+libwebsockets/lib/event-libs/poll/CTestTestfile.cmake
+libwebsockets/lib/misc/CTestTestfile.cmake
+libwebsockets/lib/plat/unix/CTestTestfile.cmake
+libwebsockets/lib/roles/CTestTestfile.cmake
+libwebsockets/lib/roles/h1/CTestTestfile.cmake
+libwebsockets/lib/roles/h2/CTestTestfile.cmake
+libwebsockets/lib/roles/http/CTestTestfile.cmake
+libwebsockets/lib/roles/listen/CTestTestfile.cmake
+libwebsockets/lib/roles/raw-file/CTestTestfile.cmake
+libwebsockets/lib/roles/raw-skt/CTestTestfile.cmake
+libwebsockets/lib/roles/ws/CTestTestfile.cmake
+libwebsockets/lib/secure-streams/CTestTestfile.cmake
+libwebsockets/lib/secure-streams/serialized/client/CTestTestfile.cmake
+libwebsockets/lib/system/CTestTestfile.cmake
+libwebsockets/lib/system/metrics/CTestTestfile.cmake
+libwebsockets/lib/system/smd/CTestTestfile.cmake
+libwebsockets/lib/tls/CTestTestfile.cmake
+libwebsockets/libwebsockets-config-version.cmake
+libwebsockets/libwebsockets-config.cmake
+libwebsockets/libwebsockets_static.pc
+libwebsockets/lws_config.h
+libwebsockets/lws_config_private.h
+libwebsockets/lwsws/CTestTestfile.cmake
+libwebsockets/plugins/CTestTestfile.cmake

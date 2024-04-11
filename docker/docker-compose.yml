@@ -4,7 +4,8 @@ x-ti-template: &ti
   environment:
     - THINGSDB_BIND_CLIENT_ADDR = '::'
     - THINGSDB_BIND_NODE_ADDR = '::'
-    - THINGSDB_HTTP_API_PORT = 9220
+    - THINGSDB_HTTP_API_PORT = 9210
+    - THINGSDB_WS_PORT = 9270
     - THINGSDB_HTTP_STATUS_PORT = 8080
     - THINGSDB_MODULES_PATH = /modules/
     - THINGSDB_STORAGE_PATH = /data/
@@ -17,7 +18,8 @@ services:
     command: "--init"
     ports:
       - 9200:9200
-      - 9220:9220
+      - 9210:9210
+      - 9270:9270
       - 8080:8080
     volumes:
       - ./tidata/node0/data:/data/
@@ -30,7 +32,8 @@ services:
     command: "--secret pass"
     ports:
       - 9201:9200
-      - 9221:9220
+      - 9211:9210
+      - 9271:9270
       - 8081:8080
     volumes:
       - ./tidata/node1/data:/data/
@@ -43,7 +46,8 @@ services:
     command: "--secret pass"
     ports:
       - 9202:9200
-      - 9222:9220
+      - 9212:9210
+      - 9272:9270
       - 8082:8080
     volumes:
       - ./tidata/node2/data:/data/

@@ -127,7 +127,7 @@ static inline int mp_sbuffer_alloc_init(
 {
     assert(alloc >= size);
     buffer->alloc = alloc;
-    buffer->data = alloc == size ? NULL : malloc(alloc);
+    buffer->data = (alloc == size) ? NULL : malloc(alloc);
     buffer->size = size;
     return alloc != size && buffer->data == NULL;
 }

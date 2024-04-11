@@ -31,6 +31,7 @@ int fx_rmdir(const char * path);
 char * fx_get_exec_path(void);
 int fx_mmap_open(fx_mmap_t * x);
 int fx_mmap_close(fx_mmap_t * x);
+int fx_starts_with(const char * fn, const char * starts_with);
 char * fx_path_join_strn(
         const char * s1,
         size_t n1,

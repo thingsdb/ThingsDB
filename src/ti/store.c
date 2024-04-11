@@ -292,7 +292,7 @@ int ti_store_store(void)
     log_info("stored thingsdb until "TI_CHANGE_ID" to: `%s`",
             store->last_stored_change_id, store->store_path);
 
-    rc = store__collection_ids();
+    rc = store__collection_ids();  /* can only fail with mem allow error */
 
     goto done;
 
@@ -444,7 +444,7 @@ int ti_store_restore(void)
 
     store->last_stored_change_id = ti.node->ccid;
 
-    rc = store__collection_ids();
+    rc = store__collection_ids();  /* can only fail with mem allow error */
 
 stop:
     if (namesmap)

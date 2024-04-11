@@ -71,12 +71,12 @@ static void nodes__tcp_connection(uv_stream_t * uvstream, int status)
         return;
     }
 
-    rc = uv_accept(uvstream, stream->uvstream);
+    rc = uv_accept(uvstream, stream->with.uvstream);
     if (rc)
         goto failed;
 
     rc = uv_read_start(
-            stream->uvstream,
+            stream->with.uvstream,
             ti_stream_alloc_buf,
             ti_stream_on_data);
     if (rc)

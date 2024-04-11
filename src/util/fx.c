@@ -310,3 +310,26 @@ int fx_mmap_close(fx_mmap_t * x)
     }
     return 0;
 }
+
+int fx_starts_with(const char * fn, const char * starts_with)
+{
+    const size_t sz = strlen(starts_with);
+    char * buf = malloc(sz);
+    FILE * fp = fopen(fn, "r");
+    int is_true = 0;
+    if (!fp || !buf)
+        goto done;
+
+    if (fread(buf, 1, sz, fp) != sz)
+        goto cdone;
+
+    if (memcmp(buf, starts_with, sz) == 0)
+        is_true = 1;
+
+cdone:
+    if (fclose(fp))
+        log_errno_file("cannot close file", errno, fn);
+done:
+    free(buf);
+    return is_true;
+}

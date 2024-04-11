@@ -256,5 +256,6 @@ class TestFuture(TestBase):
                 });
             """)
 
+
 if __name__ == '__main__':
     run_test(TestFuture())

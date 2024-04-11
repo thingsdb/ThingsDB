@@ -191,7 +191,7 @@ static void module__cb(ti_future_t * future)
      * Future have fixed pack flags; thus always with ID's etc.
      */
     if (ti_thing_to_client_pk(thing, &vp, ti_future_deep(future) + 1, 0))
-        goto mem_error1;
+        goto mem_error0;
 
     future->pkg = (ti_pkg_t *) buffer.data;
     pkg_init(future->pkg, 0, TI_PROTO_MODULE_REQ, buffer.size);
@@ -207,8 +207,6 @@ static void module__cb(ti_future_t * future)
     }
     return;
 
-mem_error1:
-    msgpack_sbuffer_destroy(&buffer);
 mem_error0:
     {
         ex_t e;

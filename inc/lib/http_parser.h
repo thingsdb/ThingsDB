@@ -90,7 +90,7 @@ typedef int (*http_cb) (http_parser*);
 
 
 /* Status Codes */
-#define HTTP_STATUS_MAP(XX)                                                 \
+#define HTTP_P_STATUS_MAP(XX)                                                 \
   XX(100, CONTINUE,                        Continue)                        \
   XX(101, SWITCHING_PROTOCOLS,             Switching Protocols)             \
   XX(102, PROCESSING,                      Processing)                      \
@@ -151,10 +151,10 @@ typedef int (*http_cb) (http_parser*);
   XX(510, NOT_EXTENDED,                    Not Extended)                    \
   XX(511, NETWORK_AUTHENTICATION_REQUIRED, Network Authentication Required) \
 
-enum http_status
+enum http_p_status
   {
-#define XX(num, name, string) HTTP_STATUS_##name = num,
-  HTTP_STATUS_MAP(XX)
+#define XX(num, name, string) HTTP_P_STATUS_##name = num,
+  HTTP_P_STATUS_MAP(XX)
 #undef XX
   };
 
@@ -408,7 +408,7 @@ int http_should_keep_alive(const http_parser *parser);
 const char *http_method_str(enum http_method m);
 
 /* Returns a string version of the HTTP status code. */
-const char *http_status_str(enum http_status s);
+const char *http_status_str(enum http_p_status s);
 
 /* Return a string name of the given error */
 const char *http_errno_name(enum http_errno err);

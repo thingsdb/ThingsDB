@@ -52,6 +52,7 @@ docker run \
     -d \
     -p 9200:9200 \
     -p 9210:9210 \
+    -p 9270:9270 \
     -p 8080:8080 \
     -v ~/thingsdb-data:/data \
     -v ~/thingsdb-modules:/modules \

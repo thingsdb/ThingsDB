@@ -141,7 +141,7 @@ static void node__connect(ti_node_t * node, struct sockaddr_storage * sockaddr)
 
     rc = uv_tcp_connect(
             req,
-            (uv_tcp_t *) node->stream->uvstream,
+            (uv_tcp_t *) node->stream->with.uvstream,
             (const struct sockaddr *) sockaddr,
             node__on_connect);
 

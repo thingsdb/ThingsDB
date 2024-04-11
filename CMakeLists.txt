@@ -4,8 +4,8 @@
 # Selecting between DEBUG / RELEASE, use -DCMAKE_BUILD_TYPE=Debug or =Release
 #   debug builds include source level debug info and extra logging
 
-project(thingsdb C)
 cmake_minimum_required(VERSION 3.13)
+project(thingsdb C)
 include_directories(inc)
 
 
@@ -30,7 +30,6 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -msse4.2")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wextra")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -finline-limit=4000")
 
 # Include directories for MacOS build
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
@@ -41,6 +40,8 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
         /opt/homebrew/opt/yajl/include
         /opt/homebrew/opt/curl/include
     )
+else()
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -finline-limit=4000")
 endif()
 
 # Set CMAKE_POLICY_DEFAULT_CMP0077 before add_subdirectory()
@@ -254,7 +255,10 @@ set(SOURCES
 
 # Set these CFLAGS after the websockets include
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Winline")
+
+if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Winline")
+endif()
 
 # Create the binary
 add_executable(thingsdb ${SOURCES})

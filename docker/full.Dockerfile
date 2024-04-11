@@ -1,4 +1,4 @@
-FROM google/cloud-sdk:458.0.1
+FROM google/cloud-sdk:471.0.0
 WORKDIR /tmp/thingsdb
 COPY ./CMakeLists.txt ./CMakeLists.txt
 COPY ./main.c ./main.c
@@ -11,11 +11,12 @@ RUN apt-get update && apt-get install -y \
         libuv1-dev \
         libpcre2-dev \
         libyajl-dev \
+        libssl-dev \
         libcurl4-nss-dev && \
     cmake -DCMAKE_BUILD_TYPE=Release . && \
     make
 
-FROM google/cloud-sdk:458.0.1
+FROM google/cloud-sdk:471.0.0
 
 RUN mkdir -p /var/lib/thingsdb && \
     apt-get update && apt-get install -y \

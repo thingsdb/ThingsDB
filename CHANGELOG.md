@@ -3,7 +3,7 @@
 * Listen to `THINGSDB_INIT`, `THINGSDB_SECRET` and `THINGSDB_DEPLOY` environment variable.
 * Added `tls.Dockerfile` for TLS/SSL support in docker container.
 * Fixed logging from forward request with API.
-* Added optional WebSocket (including TLS/SSL) support.
+* Added optional [WebSocket](https://libwebsockets.org) (including TLS/SSL) support.
 * Changed build system to `cmake` and added build scripts:
   - Release build: `./release-build.sh`
   - Debug build: `./debug-build.sh`

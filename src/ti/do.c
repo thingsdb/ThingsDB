@@ -512,7 +512,7 @@ static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     /*
-     * If not in the node scope, let try if the function is a known procedure.
+     * If not in the node scope, lets try if the function is a known procedure.
      */
     if (do__no_node_scope(query))
     {

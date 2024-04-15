@@ -5,66 +5,18 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Document</title>
-  <script src="msgpack.js"></script>
+  <script src="https://unpkg.com/thingsdb.js@latest/dist/thingsdb.js"></script>
+
   <script>
     window.onload = () => {
-        if ('WebSocket' in window) {
-            // Create a WebSocket connection
-            let ws = new WebSocket('ws://127.0.0.1:7681');
-            // Push a message when the connection is successfully established, and the server can start pushing data
-            ws.onopen = () => {
-                console.log('websocket success---');
-                const data = ["admin", "pass"];
-                const encoded = MessagePack.encode(data);
-                const view = new DataView(new ArrayBuffer(encoded.length + 8));
-                const bytes = new Uint8Array(view.buffer);
-                view.setUint32(0, encoded.length, true);
-                view.setUint16(4, 0, true);
-                view.setUint8(6, 33);
-                view.setUint8(7, 33 ^ 0xff);
-                bytes.set(encoded, 8);
-                ws.send(bytes);
-            }
-            ws.onmessage = (message) => {
-                new Response(message.data).arrayBuffer().then(buffer => {
-                    console.log(buffer);
-                    const view = new DataView(buffer);
-                    const bytes = new Uint8Array(view.buffer);
-
-                    console.assert(bytes.length >= 8);  /* minimal package header */
-                    const size = view.getUint32(0, true);
-                    const pid = view.getUint16(4, true);
-                    const tp = view.getUint8(6);
-                    const chk = view.getUint8(7);
-                    console.assert(tp === chk ^ 0x77);
-                    console.log('get websocket data---', tp, size);
-                    if (size)
-                    {
-                        const encoded = bytes.subarray(8);
-                        const decoded = MessagePack.decode(encoded);
-                        console.log('data:', decoded);
-                    }
-                    if (tp == 17)
-                    {
-                        const data = ["//stuff", "'Hello World!'.upper();"];
-                        const encoded = MessagePack.encode(data);
-                        const view = new DataView(new ArrayBuffer(encoded.length + 8));
-                        const bytes = new Uint8Array(view.buffer);
-                        view.setUint32(0, encoded.length, true);
-                        view.setUint16(4, 0, true);
-                        view.setUint8(6, 34);
-                        view.setUint8(7, 34 ^ 0xff);
-                        bytes.set(encoded, 8);
-                        ws.send(bytes);
-                    }
+        const thingsdb = new ThingsDB('ws://localhost:9270');
+        thingsdb.connect().then(() => {
+            thingsdb.auth().then(() => {
+                thingsdb.query('@:stuff', '"Hello World!";').then(response => {
+                    console.log(response); // will be "Hello World!"
                 });
-            }
-            ws.onerror = (err) => {
-                console.error('websocket fail', err);
-            }
-        } else {
-            console.error('dont support websocket');
-        };
+            });
+        });
     };
 </script>
 

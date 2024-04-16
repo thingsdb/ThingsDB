@@ -13,7 +13,7 @@
         thingsdb.connect().then(() => {
             thingsdb.auth().then(() => {
                 thingsdb.query('@:stuff', '"Hello World!";').then(response => {
-                    console.log(response); // will be "Hello World!"
+                    console.log(response);  // will be "Hello World!"
                 });
             });
         });

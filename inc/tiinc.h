@@ -93,6 +93,11 @@ extern ti_t ti;
 # define UNUSED(x) x
 #endif
 
+#ifndef CLOCK_MONOTONIC_RAW
+/* Defined in time.h */
+/* Monotonic system-wide clock, not adjusted for frequency scaling.  */
+#define CLOCK_MONOTONIC_RAW		4
+#endif
 #define TI_CLOCK_MONOTONIC CLOCK_MONOTONIC_RAW
 
 #include <inttypes.h>

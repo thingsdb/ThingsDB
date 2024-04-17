@@ -13,8 +13,7 @@ struct ti_nil_s
 {
     uint32_t ref;
     uint8_t tp;
-    uint8_t _pad8;
-    uint16_t _pad16;
+    long:24;
     void * nil;
 };
 

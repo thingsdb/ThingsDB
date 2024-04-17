@@ -29,8 +29,8 @@ struct ti_regex_s
 {
     uint32_t ref;
     uint8_t tp;
-    uint8_t _flags;
-    uint16_t _pad16;
+    uint8_t unused_flags;
+    int:16;
 
     pcre2_code * code;
     pcre2_match_data * match_data;

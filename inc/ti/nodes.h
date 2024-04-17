@@ -70,7 +70,7 @@ struct ti_nodes_s
                                the initial value at startup */
     uint32_t next_id;       /* next node id */
     uint16_t syntax_ver;    /* lowest syntax version by ALL nodes */
-    uint16_t pad0_;
+    int:16;
     char * status_fn;       /* this file contains the last known committed
                                and stored change id's by ALL nodes, and the
                                lowest known syntax version */

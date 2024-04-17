@@ -116,7 +116,7 @@ struct ti_s
     cleri_grammar_t * compat;   /* TODO (COMPAT): For < v1.5 */
     size_t futures_count;       /* number of running futures */
     uint32_t rel_id;            /* relative node id */
-    int _flags;                 /* changed and read by multiple treads */
+    int flags;                  /* changed and read by multiple treads */
     struct timespec boottime;   /* keep the up-time */
     ti_tz_t * t_tz;             /* @thingsdb scope time zone */
     ti_tz_t * n_tz;             /* @node scope time zone (unchangeable) */
@@ -126,17 +126,17 @@ struct ti_s
 
 static inline _Bool ti_flag_test(int flag)
 {
-    return __atomic_load_n(&ti._flags, __ATOMIC_SEQ_CST) & flag;
+    return __atomic_load_n(&ti.flags, __ATOMIC_SEQ_CST) & flag;
 }
 
 static inline void ti_flag_set(int flag)
 {
-    __atomic_or_fetch(&ti._flags, flag, __ATOMIC_SEQ_CST);
+    __atomic_or_fetch(&ti.flags, flag, __ATOMIC_SEQ_CST);
 }
 
 static inline void ti_flag_rm(int flag)
 {
-    __atomic_and_fetch(&ti._flags, ~flag, __ATOMIC_SEQ_CST);
+    __atomic_and_fetch(&ti.flags, ~flag, __ATOMIC_SEQ_CST);
 }
 
 

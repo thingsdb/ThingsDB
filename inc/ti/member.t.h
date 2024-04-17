@@ -17,7 +17,7 @@ struct ti_member_s
 {
     uint32_t ref;
     uint8_t tp;
-    uint8_t _flags;
+    uint8_t unused_flags;
     uint16_t idx;           /* index in enum_->vec */
     ti_enum_t * enum_;      /* parent enum */
     ti_name_t * name;       /* with reference */

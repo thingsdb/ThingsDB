@@ -118,7 +118,7 @@ struct ti_val_s
     uint32_t ref;
     uint8_t tp;
     uint8_t flags;
-    uint16_t _pad16;
+    int:16;
 };
 
 #endif /* TI_VAL_T_H_ */

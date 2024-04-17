@@ -24,7 +24,7 @@ static inline _Bool ti_api_is_closed(ti_api_request_t * ar)
 
 static inline _Bool ti_api_check(void * data)
 {
-    return ((ti_api_request_t *) data)->_id == TI_API_IDENTIFIER;
+    return ((ti_api_request_t *) data)->id == TI_API_IDENTIFIER;
 }
 
 static inline _Bool ti_api_is_handle(uv_handle_t * handle)
@@ -32,7 +32,7 @@ static inline _Bool ti_api_is_handle(uv_handle_t * handle)
     return
         handle->type == UV_TCP &&
         handle->data &&
-        ((ti_api_request_t *) handle->data)->_id == TI_API_IDENTIFIER;
+        ((ti_api_request_t *) handle->data)->id == TI_API_IDENTIFIER;
 }
 
 #endif /* TI_API_H_ */

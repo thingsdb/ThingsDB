@@ -45,7 +45,7 @@ struct smap_s
     uint32_t n;             /* total number of items */
     uint8_t offset;         /* start of the nodes */
     uint8_t sz;             /* size of this node, starting at offset  */
-    uint16_t pad0;
+    int:16;
     smap_nodes_t * nodes;
     void * data;            /* for empty "" key */
 };
@@ -56,7 +56,7 @@ struct smap_node_s
     uint8_t offset;         /* start of the nodes */
     uint8_t sz;             /* size of this node, starting at offset  */
     uint8_t size;           /* number of child nodes */
-    uint8_t pad0;
+    char:8;
     smap_nodes_t * nodes;
     char * key;
     void * data;

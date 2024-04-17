@@ -92,7 +92,7 @@ struct ti_node_s
     uint32_t id;
 
     uint16_t port;
-    uint16_t pad0_;
+    int:16;
     uint16_t syntax_ver;            /* syntax version */
     uint8_t status;
     uint8_t zone;                   /* zone info */

@@ -1,6 +1,6 @@
 # v1.6.1
 
-* Add support for ARM64 container, pr #377 (@rickmoonex)
+* Add support for ARM64 container, pr #377 (@rickmoonex).
 
 # v1.6.0
 

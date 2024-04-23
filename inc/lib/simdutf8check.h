@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__aarch64__)
 
 static bool validate_utf8_fast(const char *src, size_t len)
 {

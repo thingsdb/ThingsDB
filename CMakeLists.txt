@@ -29,6 +29,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fmessage-length=0")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wextra")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-type-limits")
 
 # Include directories for MacOS build
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
@@ -48,7 +49,9 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 else()
     # Set these flags for other than MacOS build
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -finline-limit=4000")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -msse4.2")
+    if (NOT ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -msse4.2")
+    endif()
 endif()
 
 # Set CMAKE_POLICY_DEFAULT_CMP0077 before add_subdirectory()

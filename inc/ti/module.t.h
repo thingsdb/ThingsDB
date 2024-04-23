@@ -63,8 +63,7 @@ struct ti_module_s
 {
     uint32_t ref;
     uint8_t tp;
-    uint8_t _pad0;
-    uint16_t _pad1;
+    long:24;
 
     int status;             /* 0 = success, >0 = enum, <0 = uv error */
     int flags;

@@ -26,22 +26,22 @@ static inline double util_time_diff(util_time_t * start, util_time_t * end)
 }
 
 #if RAND_MAX >= 2147483647
-#define util_randu64(__x) \
+#define util_randu64(x__) \
 do { \
-*(__x) = 0; \
-for (int __i = 0; __i < 64; __i += 16) { \
-    uint16_t __t = (uint16_t) rand(); \
-    *(__x) <<= __i; \
-    *(__x) |= __t; \
+*(x__) = 0; \
+for (int i__ = 0; i__ < 64; i__ += 16) { \
+    uint16_t t__ = (uint16_t) rand(); \
+    *(x__) <<= i__; \
+    *(x__) |= t__; \
 }} while(0)
 
 #else
-#define util_randu64(__x) \
-*(__x) = 0; \
-for (int __i = 0; __i < 64; __i += 8) { \
-    uint8_t __t = (uint8_t) rand(); \
-    *(__x) <<= __i; \
-    *(__x) |= __t; \
+#define util_randu64(x__) \
+*(x__) = 0; \
+for (int i__ = 0; i__ < 64; i__ += 8) { \
+    uint8_t t__ = (uint8_t) rand(); \
+    *(x__) <<= i__; \
+    *(x__) |= t__; \
 }
 
 #endif

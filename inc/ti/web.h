@@ -17,7 +17,7 @@ static inline _Bool ti_web_is_handle(uv_handle_t * handle);
 
 struct ti_web_request_s
 {
-    uint32_t _id;               /* set to TI_WEB_IDENTIFIER */
+    uint32_t id;               /* set to TI_WEB_IDENTIFIER */
     _Bool is_closed;
     uv_write_t req;
     uv_stream_t uvstream;
@@ -30,7 +30,7 @@ static inline _Bool ti_web_is_handle(uv_handle_t * handle)
     return
         handle->type == UV_TCP &&
         handle->data &&
-        ((ti_web_request_t *) handle->data)->_id == TI_WEB_IDENTIFIER;
+        ((ti_web_request_t *) handle->data)->id == TI_WEB_IDENTIFIER;
 }
 
 #endif /* TI_WEB_H_ */

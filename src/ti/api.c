@@ -198,7 +198,7 @@ static void api__connection_cb(uv_stream_t * server, int status)
 
     (void) uv_tcp_init(ti.loop, (uv_tcp_t *) &ar->uvstream);
 
-    ar->_id = TI_API_IDENTIFIER;
+    ar->id = TI_API_IDENTIFIER;
     ar->uvstream.data = ar;
     ar->parser.data = ar;
 

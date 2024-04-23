@@ -15,8 +15,8 @@ struct ti_vfloat_s
 {
     uint32_t ref;
     uint8_t tp;
-    uint8_t _flags;
-    uint16_t _pad1;
+    uint8_t unused_flags;
+    int:16;
     double float_;
 };
 

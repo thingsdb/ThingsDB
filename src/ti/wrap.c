@@ -52,7 +52,7 @@ typedef struct
 {
     ti_vp_t * vp;
     uint16_t spec;
-    uint16_t _pad0;
+    long:48;
     int deep;
     int flags;
 } wrap__walk_t;

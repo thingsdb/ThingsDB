@@ -19,8 +19,8 @@ struct ti_name_s
 {
     uint32_t ref;
     uint8_t tp;
-    uint8_t _flags;
-    uint16_t _pad0;
+    uint8_t unused_flags;
+    int:16;
     uint32_t n;
     char str[];             /* null terminated string */
 };

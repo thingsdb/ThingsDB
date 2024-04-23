@@ -42,7 +42,7 @@ typedef enum
 
 struct ti_api_request_s
 {
-    uint32_t _id;               /* set to TI_API_IDENTIFIER */
+    uint32_t id;               /* set to TI_API_IDENTIFIER */
     ti_api_flags_t flags;
     ti_api_content_t content_type;
     ti_api_state_t state;

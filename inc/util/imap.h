@@ -67,8 +67,7 @@ struct imap_node_s
 {
     uint32_t sz;
     uint8_t key;
-    uint8_t pad8;
-    uint16_t pad16;
+    long:24;
     void * data;
     imap_node_t * nodes;
 };

@@ -26,7 +26,7 @@ struct ti_wrap_s
 {
     uint32_t ref;
     uint8_t tp;
-    uint8_t _flags;
+    uint8_t unused_flags;
     uint16_t type_id;
     ti_thing_t * thing;     /* with reference */
 };

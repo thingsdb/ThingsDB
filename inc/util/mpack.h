@@ -43,9 +43,7 @@ typedef struct
     const unsigned char * data;
     uint32_t n;
     int8_t tp;  /* must be last for alignment of the above */
-
-    uint8_t  pad0_;
-    uint16_t pad1_;
+    long:24;
 } mp_ext_t;
 
 typedef union

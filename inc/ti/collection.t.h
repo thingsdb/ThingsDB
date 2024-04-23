@@ -20,8 +20,7 @@ typedef struct ti_collection_s  ti_collection_t;
 struct ti_collection_s
 {
     uint32_t ref;
-    uint16_t _pad16;
-    uint8_t _pad8;
+    long:24;
     uint8_t deep;
     uint64_t id;            /* collection Id (>= 2) */
     uint64_t next_free_id;

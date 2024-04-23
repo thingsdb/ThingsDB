@@ -266,7 +266,7 @@ static void web__connection_cb(uv_stream_t * server, int status)
 
     (void) uv_tcp_init(ti.loop, (uv_tcp_t *) &web_request->uvstream);
 
-    web_request->_id = TI_WEB_IDENTIFIER;
+    web_request->id = TI_WEB_IDENTIFIER;
     web_request->is_closed = false;
     web_request->uvstream.data = web_request;
     web_request->parser.data = web_request;

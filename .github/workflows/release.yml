@@ -44,7 +44,7 @@ jobs:
         context: .
         push: true
         file: docker/gcloud.Dockerfile
-        tags: ghcr.io/thingsdb/node:gcloud-${{ steps.get_version.outputs.VERSION }}
+        tags: ghcr.io/thingsdb/node:gcloud-${{ steps.get_version.outputs.VERSION }},ghcr.io/thingsdb/node:gcloud
         labels: ${{ steps.meta.outputs.labels }}
 
     - name: Build and push Docker image (full)
@@ -53,7 +53,7 @@ jobs:
         context: .
         push: true
         file: docker/full.Dockerfile
-        tags: ghcr.io/thingsdb/node:full-${{ steps.get_version.outputs.VERSION }}
+        tags: ghcr.io/thingsdb/node:full-${{ steps.get_version.outputs.VERSION }},ghcr.io/thingsdb/node:full
         labels: ${{ steps.meta.outputs.labels }}
 
     - name: Build and push Docker image (minimal)
@@ -77,6 +77,6 @@ jobs:
         context: .
         push: true
         file: docker/arm64.Dockerfile
-        tags: ghcr.io/thingsdb/node:arm64-${{ steps.get_version.outputs.VERSION }}
+        tags: ghcr.io/thingsdb/node:arm64-${{ steps.get_version.outputs.VERSION }},ghcr.io/thingsdb/node:arm64
         platforms: linux/amd64,linux/arm64/v8
         labels: ${{ steps.meta.outputs.labels }}

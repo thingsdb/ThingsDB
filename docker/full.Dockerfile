@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
         libyajl-dev \
         libssl-dev \
         libcurl4-nss-dev && \
-    cmake -DCMAKE_BUILD_TYPE=Release . && \
+    LEGACY=1 cmake -DCMAKE_BUILD_TYPE=Release . && \
     make
 
 FROM google/cloud-sdk:471.0.0

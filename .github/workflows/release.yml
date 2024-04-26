@@ -44,7 +44,7 @@ jobs:
         context: .
         push: true
         file: docker/gcloud.Dockerfile
-        tags: ghcr.io/thingsdb/node:gcloud-${{ steps.get_version.outputs.VERSION }}
+        tags: ghcr.io/thingsdb/node:gcloud-${{ steps.get_version.outputs.VERSION }},ghcr.io/thingsdb/node:gcloud
         labels: ${{ steps.meta.outputs.labels }}
 
     - name: Build and push Docker image (full)
@@ -53,7 +53,7 @@ jobs:
         context: .
         push: true
         file: docker/full.Dockerfile
-        tags: ghcr.io/thingsdb/node:full-${{ steps.get_version.outputs.VERSION }}
+        tags: ghcr.io/thingsdb/node:full-${{ steps.get_version.outputs.VERSION }},ghcr.io/thingsdb/node:full
         labels: ${{ steps.meta.outputs.labels }}
 
     - name: Build and push Docker image (minimal)
@@ -65,11 +65,18 @@ jobs:
         tags: ghcr.io/thingsdb/node:${{ steps.get_version.outputs.VERSION }},ghcr.io/thingsdb/node:latest
         labels: ${{ steps.meta.outputs.labels }}
 
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
     - name: Build and push Docker image (arm64)
       uses: docker/build-push-action@v5
       with:
         context: .
         push: true
         file: docker/arm64.Dockerfile
-        tags: ghcr.io/thingsdb/node:arm64-${{ steps.get_version.outputs.VERSION }}
+        tags: ghcr.io/thingsdb/node:arm64-${{ steps.get_version.outputs.VERSION }},ghcr.io/thingsdb/node:arm64
+        platforms: linux/amd64,linux/arm64/v8
         labels: ${{ steps.meta.outputs.labels }}

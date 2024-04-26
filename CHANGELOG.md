@@ -1,3 +1,7 @@
+# v1.6.1
+
+* Add support for ARM64 container, pr #377 (@rickmoonex).
+
 # v1.6.0
 
 * Listen to `THINGSDB_INIT`, `THINGSDB_SECRET` and `THINGSDB_DEPLOY` environment variable.

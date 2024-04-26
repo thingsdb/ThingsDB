@@ -31,6 +31,10 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wextra")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-type-limits")
 
+# Turn off AVX and BMI2 instructions for legacy systems
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mno-avx")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mno-bmi2")
+
 # Include directories for MacOS build
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
    include_directories(

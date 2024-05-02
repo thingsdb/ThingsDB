@@ -51,6 +51,13 @@ else()
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -finline-limit=4000")
     if (NOT ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -msse4.2")
+        if($ENV{LEGACY})
+            # Turn off AVX and BMI2 instructions for legacy systems
+            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mno-avx")
+            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mno-avx2")
+            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mno-bmi")
+            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mno-bmi2")
+        endif()
     endif()
 endif()
 

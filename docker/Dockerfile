@@ -8,7 +8,7 @@ COPY ./libwebsockets/ ./libwebsockets/
 RUN apk update && \
     apk upgrade && \
     apk add gcc make cmake libuv-dev musl-dev pcre2-dev yajl-dev curl-dev util-linux-dev linux-headers && \
-    cmake -DCMAKE_BUILD_TYPE=Release . && \
+    LEGACY=1 cmake -DCMAKE_BUILD_TYPE=Release . && \
     make
 
 FROM amd64/alpine:latest

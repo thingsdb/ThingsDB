@@ -1,6 +1,7 @@
 # v1.6.1
 
 * Add support for ARM64 container, pr #377 (@rickmoonex).
+* Both the minimal and full docker builds compatible with legacy hardware, pr #380 (@rickmoonex).
 
 # v1.6.0
 

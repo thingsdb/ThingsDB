@@ -1,3 +1,7 @@
+# v1.6.2
+
+* Fixed loading JSON strings with `json_load()` function, issue #381.
+
 # v1.6.1
 
 * Add support for ARM64 container, pr #377 (@rickmoonex).

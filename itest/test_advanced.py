@@ -98,7 +98,7 @@ class TestAdvanced(TestBase):
         self.assertEqual(len(res), 532)
 
     async def test_extend_restrict(self, client):
-        res = await client.query(r"""//ti
+        _res = await client.query(r"""//ti
             set_type('A', {arr: '[str]'});
         """)
         with self.assertRaisesRegex(
@@ -1174,7 +1174,7 @@ class TestAdvanced(TestBase):
                 OperationError,
                 r'cannot change type `X` while one of the '
                 r'instances is in use'):
-            res = await client.query('''
+            _res = await client.query('''
                 set_type('X', {
                     a: 'int',
                     b: 'int',
@@ -1666,7 +1666,7 @@ new_procedure('multiply', |a, b| a * b);
         self.assertNotIn('m', methods)
         self.assertEqual(len(methods), 1)
 
-    async def test_mod_with_restriction(self, client):
+    async def test_mod_with_restric_199(self, client):
         # bug #199
         res = await client.query(r"""//ti
             set_type('Test', {i: 'pint'});
@@ -1675,7 +1675,7 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(res, {"i": 0})
 
-    async def test_mod_with_restriction(self, client):
+    async def test_mod_with_restrict_200(self, client):
         # bug #200
         with self.assertRaisesRegex(
                 OperationError,
@@ -1829,7 +1829,7 @@ new_procedure('multiply', |a, b| a * b);
                 };
             """)
 
-    async def test_in_use_on_dict(self, client):
+    async def test_in_use_on_dict_242(self, client):
         # bug #242
         await client.query(".set('non name key', nil);")
         with self.assertRaisesRegex(
@@ -1844,7 +1844,7 @@ new_procedure('multiply', |a, b| a * b);
                 })
             """)
 
-    async def test_in_use_on_dict(self, client):
+    async def test_in_use_on_dict_243(self, client):
         # bug #243
         res = await client.query(r"""//ti
             new_type('A');
@@ -1887,14 +1887,14 @@ new_procedure('multiply', |a, b| a * b);
         self.assertEqual(s, res)
 
     async def test_loop_gc(self, client):
-        res = await client.query(r"""//ti
+        _res = await client.query(r"""//ti
             for (x in range(10)) {
                 x = {};
                 x.me = x;
             };
         """)
         # bug #259
-        res = await client.query(r"""//ti
+        _res = await client.query(r"""//ti
             range(10).sort(|a, b| {
                 a = {};  // overwrite the closure argument
                 a.me = a;  // create a self reference
@@ -2140,9 +2140,9 @@ new_procedure('multiply', |a, b| a * b);
                 set_type("A", {x: "&"});
             """)
 
-    async def test_(self, client):
+    async def test_309(self, client):
         # bug #309
-        res = await client.query("""//ti
+        _res = await client.query("""//ti
             new_type('A');
             new_type('C');
             set_type('A',{
@@ -2586,6 +2586,19 @@ new_procedure('multiply', |a, b| a * b);
             d.wrap('B')
         """)
         self.assertEqual(res, {"u": "D"})
+
+    async def test_json_load_i(self, client):
+        # bug #381
+        await client.query("""//ti
+            json_load('{"a": [{"b": 123}]}');
+        """)
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'lexical error: invalid char in json text'):
+            await client.query("""//ti
+                json_load('[{"a": [{"b": [1, 1], "c": [3, ..]}]}]');
+            """)
 
 
 if __name__ == '__main__':

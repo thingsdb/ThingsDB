@@ -142,17 +142,20 @@ static int jload__start_array(void * ctx)
     jload__convert_t * c = (jload__convert_t *) ctx;
     ti_val_t * val;
 
-    if (++c->deep >= YAJL_MAX_DEPTH)
-    {
-        ex_set(c->e, EX_OPERATION, "JSON max depth exceeded");
-        return 0;  /* error */
-    }
-
     val = (ti_val_t *) ti_varr_create(7);
     if (!val)
     {
         ex_set_mem(c->e);
         return 0;  /* failed */
+    }
+
+    if (c->callbacks[c->deep](c->parents[c->deep], val, c->e))
+        return 0;  /* failed */
+
+    if (++c->deep >= YAJL_MAX_DEPTH)
+    {
+        ex_set(c->e, EX_OPERATION, "JSON max depth exceeded");
+        return 0;  /* error */
     }
 
     c->parents[c->deep] = val;
@@ -163,8 +166,8 @@ static int jload__start_array(void * ctx)
 static int jload__end_array(void * ctx)
 {
     jload__convert_t * c = (jload__convert_t *) ctx;
-    ti_val_t * val = c->parents[c->deep--];
-    return 0 == c->callbacks[c->deep](c->parents[c->deep], val, c->e);
+    --c->deep;
+    return 1;  /* success */
 }
 
 static yajl_callbacks jload__callbacks = {
@@ -232,17 +235,6 @@ static int do__f_json_load(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             }
             else
                 ex_set_mem(e);
-        }
-        while (ctx.deep)
-        {
-            /*
-             * Each but the last parent is a value type. If an array, then the
-             * value exists but is not appended to another type. Thus, we need
-             * to clear the array's in the list.
-             */
-            ti_val_t * val = ctx.parents[ctx.deep--];
-            if (val && ti_val_is_array(val))
-                ti_val_unsafe_drop(val);
         }
 
         ti_val_drop(ctx.out);

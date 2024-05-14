@@ -1,3 +1,7 @@
+# v1.6.3
+
+* Honor key restrictions with JSON load function, issue #382.
+
 # v1.6.2
 
 * Fixed loading JSON strings with `json_load()` function, issue #381.

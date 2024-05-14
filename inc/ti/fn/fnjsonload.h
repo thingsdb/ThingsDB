@@ -121,6 +121,22 @@ static int jload__start_map(void * ctx)
 static int jload__map_key(void * ctx, const unsigned char * s, size_t n)
 {
     jload__convert_t * c = (jload__convert_t *) ctx;
+
+    if (!strx_is_utf8n((const char *) s, n))
+    {
+        ex_set(c->e, EX_VALUE_ERROR,
+                "properties must have valid UTF-8 encoding");
+        return 0;  /* failed */
+    }
+
+    if (ti_is_reserved_key_strn((const char *) s, n))
+    {
+        ex_set(c->e, EX_VALUE_ERROR,
+                "property `%c` is reserved"DOC_PROPERTIES,
+                *s);
+        return 0;  /* failed */
+    }
+
     jload__key = ti_str_create((const char *) s, n);
     if (!jload__key)
     {

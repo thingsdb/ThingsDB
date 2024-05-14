@@ -2600,6 +2600,19 @@ new_procedure('multiply', |a, b| a * b);
                 json_load('[{"a": [{"b": [1, 1], "c": [3, ..]}]}]');
             """)
 
+        # bug #382
+        with self.assertRaisesRegex(
+                ValueError,
+                r'property `\#` is reserved'):
+            await client.query("""//ti
+                json_load('[{"#": 123}]');
+            """)
+
+        self.assertTrue(await client.query("""//ti
+            x = json_load('[[]]');
+            is_tuple(x.first());
+        """))
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

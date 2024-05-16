@@ -358,13 +358,13 @@ class TestTasks(TestBase):
             .tasks.map(|t| str(t));
         """)
 
-        self.assertNotEqual(f'task:nil', tasks[0])
-        self.assertEqual(f'task:nil', tasks[1])
-        self.assertNotEqual(f'task:nil', tasks[2])
+        self.assertNotEqual('task:nil', tasks[0])
+        self.assertEqual('task:nil', tasks[1])
+        self.assertNotEqual('task:nil', tasks[2])
 
     async def test_set_closure(self, client):
         # bug #274
-        task = await client.query("""//ti
+        _task = await client.query("""//ti
             .task = task(datetime().move('days', 1), ||true);
             .task.set_closure(||false);
         """)
@@ -431,6 +431,29 @@ class TestTasks(TestBase):
             task.owner();
         """)
         self.assertEqual(owner, 'tess')
+
+    async def test_task_del_within(self, client):
+        # bug #383
+        await client.query("""//ti
+            .t = task(datetime(), |task| task.del());
+        """)
+        await asyncio.sleep(3)
+        res = await client.query("""//ti
+            bool(.t);
+        """)
+        self.assertFalse(res)
+
+        await client.query("""//ti
+            // This will eventually also remove the task;
+            // First the task is cancelled, but then the task itself is
+            // successful so ThingsDB will remove the task;
+            .t = task(datetime(), |task| task.cancel());
+        """)
+        await asyncio.sleep(3)
+        res = await client.query("""//ti
+            bool(.t)
+        """)
+        self.assertFalse(res)
 
 
 if __name__ == '__main__':

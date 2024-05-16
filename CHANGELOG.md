@@ -1,3 +1,7 @@
+# v1.6.4
+
+* Fix using `task.del()` within the task callback, issue #383.
+
 # v1.6.3
 
 * Honor key restrictions with JSON load function, issue #382.

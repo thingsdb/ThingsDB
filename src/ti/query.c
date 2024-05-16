@@ -1054,6 +1054,7 @@ void ti_query_run_task(ti_query_t * query)
 
     if (vtask->run_at)
     {
+        ti_closure_t * callback = vtask->closure;
         uint32_t n = vtask->args ? vtask->args->n : 0;
 
         clock_gettime(TI_CLOCK_MONOTONIC, &query->time);
@@ -1063,7 +1064,7 @@ void ti_query_run_task(ti_query_t * query)
             ti_val_unsafe_drop(vec_set(vtask->args, vtask, 0));
             ti_incref(vtask);
         }
-        ti_incref(vtask->closure);
+        ti_incref(callback);
 
 #ifndef NDEBUG
         log_debug(
@@ -1072,11 +1073,16 @@ void ti_query_run_task(ti_query_t * query)
 #endif
 
         /* this can never set `e->nr` to EX_RETURN */
-        (void) ti_closure_call(vtask->closure, query, vtask->args, &e);
+        (void) ti_closure_call(callback, query, vtask->args, &e);
 
-        if (n)
+        /* vtask may be removed within the task by the .del() function so we
+         * need to verify if args still exist; */
+        if (n && vtask->args)
             ti_val_unsafe_drop(vec_set(vtask->args, ti_nil_get(), 0));
-        ti_closure_unsafe_drop(vtask->closure);
+
+        /* equal reason as above, the task might be removed so we need a
+         * reference to the callback */
+        ti_closure_unsafe_drop(callback);
 
         if (query->change)
         {

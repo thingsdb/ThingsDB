@@ -1,6 +1,10 @@
+# v1.6.5
+
+* Fixed bug in debug logging when `task.del()` is called with an error, issue #384.
+
 # v1.6.4
 
-* Fix using `task.del()` within the task callback, issue #383.
+* Fixed using `task.del()` within the task callback, issue #383.
 
 # v1.6.3
 

@@ -729,7 +729,9 @@ void ti_query_task_result(ti_query_t * query, ex_t * e)
         {
             ++ti.counters->tasks_with_error;
             log_debug("task failed: `%s`, %s: `%s`",
-                    vtask->closure->node->str,
+                    vtask->closure
+                        ? vtask->closure->node->str
+                        : "task:nil",
                     ex_str(e->nr),
                     e->msg);
         }

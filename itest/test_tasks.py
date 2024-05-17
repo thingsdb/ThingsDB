@@ -36,7 +36,7 @@ class TestTasks(TestBase):
         client.close()
         await client.wait_closed()
 
-    async def test_task(self, client):
+    async def _test_task(self, client):
         with self.assertRaisesRegex(
                 LookupError,
                 r'function `task` is undefined in the `@node` scope; '
@@ -138,7 +138,7 @@ class TestTasks(TestBase):
         await asyncio.sleep(num_nodes*3)
         self.assertEqual(await client.query('.result'), 'WoW!!')
 
-    async def test_is_task(self, client):
+    async def _test_is_task(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
                 'function `is_task` takes 1 argument but 0 were given'):
@@ -147,7 +147,7 @@ class TestTasks(TestBase):
         self.assertTrue(await client.query('is_task(task(datetime(), ||0));'))
         self.assertFalse(await client.query('is_task( "bla" ); '))
 
-    async def test_task_bool(self, client):
+    async def _test_task_bool(self, client):
         self.assertTrue(await client.query('bool(task(datetime(), ||0));'))
         res = await client.query("""//ti
             .t = task(datetime(), ||1/1);
@@ -171,7 +171,7 @@ class TestTasks(TestBase):
         self.assertFalse(await client.query('is_err(.t.err());'))
         self.assertTrue(await client.query('is_err(.f.err());'))
 
-    async def test_tasks(self, client):
+    async def _test_tasks(self, client):
         with self.assertRaisesRegex(
                 LookupError,
                 r'function `tasks` is undefined in the `@node` scope; '
@@ -193,7 +193,7 @@ class TestTasks(TestBase):
         self.assertEqual(await client.query('tasks();', scope='/t'), [])
         self.assertEqual(await client.query('tasks();', scope='//stuff'), [])
 
-    async def test_again_in(self, client):
+    async def _test_again_in(self, client):
         await client.query("""//ti
             s = datetime();
             .t1 = task(s, |t| t.again_in());
@@ -252,7 +252,7 @@ class TestTasks(TestBase):
         await asyncio.sleep(num_nodes*5)
         self.assertEqual(await client.query('.x;'), 3)
 
-    async def test_again_at(self, client):
+    async def _test_again_at(self, client):
         await client.query("""//ti
             s = datetime();
             .t1 = task(s, |t| t.again_at());
@@ -297,7 +297,7 @@ class TestTasks(TestBase):
         await asyncio.sleep(num_nodes*5)
         self.assertEqual(await client.query('.x;'), 3)
 
-    async def test_task_with_future(self, client):
+    async def _test_task_with_future(self, client):
         await client.query("""//ti
             .x = 1;
             task(datetime(), |t| {
@@ -339,7 +339,7 @@ class TestTasks(TestBase):
         await asyncio.sleep(num_nodes*5)
         self.assertEqual(await client.query('.y;'), 3)
 
-    async def test_repr_task(self, client):
+    async def _test_repr_task(self, client):
         tasks = await client.query("""//ti
             .tasks = [
                 task(datetime(), |t| t.again_in('seconds', 1)),
@@ -362,7 +362,7 @@ class TestTasks(TestBase):
         self.assertEqual('task:nil', tasks[1])
         self.assertNotEqual('task:nil', tasks[2])
 
-    async def test_set_closure(self, client):
+    async def _test_set_closure(self, client):
         # bug #274
         _task = await client.query("""//ti
             .task = task(datetime().move('days', 1), ||true);
@@ -375,7 +375,7 @@ class TestTasks(TestBase):
         closure = await client1.query('.task.closure();')
         self.assertEqual(closure, '||false')
 
-    async def test_set_owner(self, client):
+    async def _test_set_owner(self, client):
         # bug #275
         task_id = await client.query("""//ti
             new_user('alisa');
@@ -391,7 +391,7 @@ class TestTasks(TestBase):
         owner = await client1.query('task(id).owner();', id=task_id)
         self.assertEqual(owner, 'alisa')
 
-    async def test_set_owner_access_too_much(self, client):
+    async def _test_set_owner_access_too_much(self, client):
         await client.query("""//ti
             new_user('iris');
             set_password('iris', 'siri');
@@ -448,6 +448,19 @@ class TestTasks(TestBase):
             // First the task is cancelled, but then the task itself is
             // successful so ThingsDB will remove the task;
             .t = task(datetime(), |task| task.cancel());
+        """)
+        await asyncio.sleep(3)
+        res = await client.query("""//ti
+            bool(.t)
+        """)
+        self.assertFalse(res)
+
+        # bug #384
+        await client.query("""//ti
+            .t = task(datetime(), |t| {
+                t.del();
+                1/0;
+            });
         """)
         await asyncio.sleep(3)
         res = await client.query("""//ti

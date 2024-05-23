@@ -1,16 +1,12 @@
 #!/usr/bin/env python
 import asyncio
-import pickle
-import time
 from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
-from thingsdb.exceptions import AssertionError
 from thingsdb.exceptions import ValueError
 from thingsdb.exceptions import TypeError
 from thingsdb.exceptions import LookupError
-from thingsdb.exceptions import OverflowError
 
 
 class TestIndexSlice(TestBase):
@@ -99,7 +95,7 @@ class TestIndexSlice(TestBase):
                 TypeError,
                 r'expecting an index of type `str` '
                 r'but got type `int` instead'):
-            await client0.query(f'.ti[4];')
+            await client0.query('.ti[4];')
 
         self.assertEqual(await client0.query('.ti["name"];'), 'Iris')
         self.assertEqual(await client0.query('.ti["age"];'), 6)
@@ -161,11 +157,10 @@ class TestIndexSlice(TestBase):
                 TypeError,
                 r'expecting an index of type `int` '
                 r'but got type `nil` instead'):
-            await client0.query(f'.raw[nil];')
+            await client0.query('.raw[nil];')
 
     async def test_from_raw_by_slice(self, client0, client1, client2):
         s = 'abcdef'
-        n = len(s)
         await client0.query(f'.raw = "{s}";')
 
         await asyncio.sleep(0.2)
@@ -199,7 +194,7 @@ class TestIndexSlice(TestBase):
         with self.assertRaisesRegex(
                 ValueError,
                 r'slice step cannot be zero'):
-            await client0.query(f'.list[0:0:0];')
+            await client0.query('.list[0:0:0];')
 
         with self.assertRaisesRegex(
                 LookupError,
@@ -215,11 +210,10 @@ class TestIndexSlice(TestBase):
                 TypeError,
                 r'expecting an index of type `int` '
                 r'but got type `nil` instead'):
-            await client0.query(f'.list[nil];')
+            await client0.query('.list[nil];')
 
     async def test_from_arr_by_slice(self, client0, client1, client2):
         li = [1, 2, 3, 4, 5, 6]
-        n = len(li)
         await client0.query(f'.list = {li};')
 
         await asyncio.sleep(0.2)
@@ -244,7 +238,6 @@ class TestIndexSlice(TestBase):
     async def test_set_arr_by_index(self, client0, client1, client2):
         li = [1, 2, 3, 4, 5, 6]
         to = ['a', 'b', 'c', 'd', 'e', 'f']
-        n = len(li)
         await client0.query(f'.list = {li};')
 
         await asyncio.sleep(0.2)
@@ -303,7 +296,6 @@ class TestIndexSlice(TestBase):
 
     async def test_set_arr_by_slice(self, client0, client1, client2):
         li = [1, 2, 5, 6]
-        n = len(li)
         await client0.query(f'.list = {li};')
 
         await asyncio.sleep(0.2)
@@ -311,18 +303,18 @@ class TestIndexSlice(TestBase):
                 ValueError,
                 r'slice assignments require a step '
                 r'value of 1 but got -1 instead'):
-            await client0.query(f'.list[::-1] = [];')
+            await client0.query('.list[::-1] = [];')
 
         with self.assertRaisesRegex(
                 TypeError,
                 r'slice assignments require a `list` or `tuple` type '
                 r'but got type `int` instead'):
-            await client0.query(f'.list[] = 42;')
+            await client0.query('.list[] = 42;')
 
         with self.assertRaisesRegex(
                 TypeError,
                 r'unsupported operand type `\*\=` for slice assignments'):
-            await client0.query(f'.list[] *= [];')
+            await client0.query('.list[] *= [];')
 
         await client0.query('.list[2:0] = [3, 4];')
         await asyncio.sleep(0.2)

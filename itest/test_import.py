@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import asyncio
 from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase

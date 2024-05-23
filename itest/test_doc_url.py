@@ -1,16 +1,11 @@
 #!/usr/bin/env python
 import asyncio
-import pickle
 import logging
-import time
-import sys
 import os
 import re
 import urllib.request
 from lib import run_test
-from lib import default_test_setup
 from lib.testbase import TestBase
-from lib.client import get_client
 
 THINGSDB_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INC_PATH = os.path.join(THINGSDB_PATH, 'inc')
@@ -48,7 +43,7 @@ class TestDocUrl(TestBase):
                         urllib.request.urlopen,
                         testurl)
                     response = await future
-                    html = response.read()
+                    _html = response.read()
 
                 except urllib.error.HTTPError as e:
                     raise ValueError(f'`{e}` happens with `{testurl}`')

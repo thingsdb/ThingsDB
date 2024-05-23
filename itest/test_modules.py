@@ -1,20 +1,13 @@
 #!/usr/bin/env python
-import asyncio
-import pickle
-import time
 import sys
 from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
-from thingsdb.exceptions import AssertionError
 from thingsdb.exceptions import ValueError
 from thingsdb.exceptions import TypeError
 from thingsdb.exceptions import NumArgumentsError
-from thingsdb.exceptions import BadDataError
 from thingsdb.exceptions import LookupError
-from thingsdb.exceptions import OverflowError
-from thingsdb.exceptions import ZeroDivisionError
 from thingsdb.exceptions import OperationError
 from thingsdb.exceptions import ForbiddenError
 
@@ -103,7 +96,7 @@ class TestModules(TestBase):
     async def test_module_info(self, client):
         res = await client.query(r'''
             new_module("X", "x");
-            set_module_scope("//stuff");
+            set_module_scope("X", "//stuff");
         ''', scope='/t')
 
         with self.assertRaisesRegex(
@@ -121,32 +114,18 @@ class TestModules(TestBase):
         self.assertIsInstance(res.pop('created_at'), int)
         self.assertEqual(res, {
             "name": "X",
-            "file": "../modules/x",
             "conf": None,
             "scope": "@collection:stuff",
-            "status": "no such file or directory"
+            "status": "module not installed"
         })
         res = await client.query('module_info("X");', scope="/n")
         self.assertIsInstance(res.pop('created_at'), int)
         self.assertEqual(res, {
             "name": "X",
-            "file": "../modules/x",
             "conf": None,
             "restarts": 0,
             "scope": "@collection:stuff",
-            "status": "no such file or directory",
-            "tasks": 0,
-        })
-
-        res = await client.query('module_info("X");', scope="/n")
-        self.assertIsInstance(res.pop('created_at'), int)
-        self.assertEqual(res, {
-            "name": "X",
-            "file": "../modules/x",
-            "conf": None,
-            "restarts": 0,
-            "scope": "@collection:stuff",
-            "status": "no such file or directory",
+            "status": "module not installed",
             "tasks": 0,
         })
 
@@ -165,15 +144,14 @@ class TestModules(TestBase):
         self.assertIsInstance(res.pop('created_at'), int)
         self.assertEqual(res, {
             "name": "X",
-            "file": "../modules/x",
             "scope": "@collection:stuff",
-            "status": "no such file or directory"
+            "status": "module not installed",
         })
 
         res = await client.query('del_module("X");')
         self.assertIs(res, None)
 
-    async def test_module_info(self, client):
+    async def test_modules_info(self, client):
         res = await client.query(r'''
             new_module("X", "bin", nil);
             set_module_scope("X", '//stuff');

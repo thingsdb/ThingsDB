@@ -124,7 +124,7 @@ class TestNested(TestBase):
             .g = ||.arr;
         ''')
 
-        arr = await client0.query(r'''.g().push(123); .arr;''')
+        _arr = await client0.query(r'''.g().push(123); .arr;''')
 
         await asyncio.sleep(0.1)
 

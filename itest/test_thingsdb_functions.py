@@ -1,19 +1,13 @@
 #!/usr/bin/env python
-import asyncio
-import pickle
 import time
 from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
-from thingsdb.exceptions import AssertionError
 from thingsdb.exceptions import ValueError
 from thingsdb.exceptions import TypeError
 from thingsdb.exceptions import NumArgumentsError
-from thingsdb.exceptions import BadDataError
 from thingsdb.exceptions import LookupError
-from thingsdb.exceptions import OverflowError
-from thingsdb.exceptions import ZeroDivisionError
 from thingsdb.exceptions import OperationError
 from thingsdb.exceptions import ForbiddenError
 
@@ -357,8 +351,8 @@ class TestThingsDBFunctions(TestBase):
                 r'privileges \(`GRANT`\) on scope `@thingsdb`'):
             await cl.query('has_token("stuff");')
 
-        self.assertTrue(await client.query(f'''has_user("has_user");'''))
-        self.assertFalse(await client.query(f'''has_user("XX");'''))
+        self.assertTrue(await client.query('''has_user("has_user");'''))
+        self.assertFalse(await client.query('''has_user("XX");'''))
 
     async def test_rename_collection(self, client):
         with self.assertRaisesRegex(
@@ -388,7 +382,7 @@ class TestThingsDBFunctions(TestBase):
                 '`collection:1234` not found'):
             await client.query('rename_collection(1234, "B");')
 
-        test = await client.query('new_collection("test1");')
+        _test = await client.query('new_collection("test1");')
         self.assertIs(
             await client.query('rename_collection("test1", "test2");'),
             None)

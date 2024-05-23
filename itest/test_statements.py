@@ -1,20 +1,11 @@
 #!/usr/bin/env python
-import asyncio
-import pickle
-import time
 from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
-from thingsdb.exceptions import AssertionError
 from thingsdb.exceptions import ValueError
 from thingsdb.exceptions import TypeError
-from thingsdb.exceptions import NumArgumentsError
-from thingsdb.exceptions import BadDataError
-from thingsdb.exceptions import LookupError
-from thingsdb.exceptions import OverflowError
 from thingsdb.exceptions import ZeroDivisionError
-from thingsdb.exceptions import OperationError
 from thingsdb.exceptions import SyntaxError
 
 

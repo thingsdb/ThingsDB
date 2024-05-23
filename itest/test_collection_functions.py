@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import asyncio
 import pickle
 import time
 import base64
@@ -611,7 +610,6 @@ class TestCollectionFunctions(TestBase):
                 'type `nil` has no function `call`'):
             await client.query('nil.call();')
 
-    async def test_call(self, client):
         with self.assertRaisesRegex(
                 TypeError,
                 'variable `unknown` is of type `nil` and is not callable'):

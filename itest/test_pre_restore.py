@@ -9,12 +9,10 @@ Example restore:
 restore('/home/joente/Downloads/playground_20200903040003.tar.gz', {take_access: true});
 """  # nopep8
 import os
-import asyncio
 from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
-from thingsdb.exceptions import NodeError
 from lib.vars import THINGSDB_KEEP_ON_ERROR
 
 

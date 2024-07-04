@@ -29,15 +29,15 @@ ThingsDB is an open-source Stored-State-Distributed-Interpreter (SSDI) solution 
 
 ## Website
 
-Want your own **playground**? Visit the website: https://thingsdb.net
+Want your own **playground**? Visit the website: https://thingsdb.io
 
 ## Documentation
 
-ThingsDB documentation: https://docs.thingsdb.net
+ThingsDB documentation: https://docs.thingsdb.io
 
 ## Installation
 
-- From source: https://docs.thingsdb.net/v1/getting-started/build-from-source/
+- From source: https://docs.thingsdb.io/v1/getting-started/build-from-source/
 - Image GitHub: https://github.com/thingsdb/ThingsDB/pkgs/container/node/
 
 ## Docker

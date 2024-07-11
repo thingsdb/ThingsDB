@@ -161,6 +161,21 @@ class TestUserAccess(TestBase):
             assert (USER == JOIN|RUN|QUERY|CHANGE);
         """)
 
+        # Test added for #385, user_info in a collection scope.
+        user_id = await client.query(r"""//ti
+            user_info().load().user_id;
+        """, scope='//junk')
+        self.assertTrue(isinstance(user_id, int))
+
+        with self.assertRaisesRegex(
+                    ForbiddenError,
+                    'function `user_info` can only be used in the '
+                    '`@collection` scope without arguments; you might want '
+                    'to query the `@thingsdb` scope\?'):
+            user_id = await client.query(r"""//ti
+                user_info('test5').load().user_info;
+            """, scope='//junk')
+
         testcl1.close()
         client.close()
         await testcl1.wait_closed()

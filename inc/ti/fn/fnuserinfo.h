@@ -6,8 +6,7 @@ static int do__f_user_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_user_t * user;
     ti_raw_t * ruser;
 
-    if (fn_not_thingsdb_scope("user_info", query, e) ||
-        fn_nargs_max("user_info", DOC_USER_INFO, 1, nargs, e))
+    if (fn_nargs_max("user_info", DOC_USER_INFO, 1, nargs, e))
         return e->nr;
 
     if (!nargs)
@@ -20,6 +19,16 @@ static int do__f_user_info(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
     else
     {
+        if (~query->qbind.flags & TI_QBIND_FLAG_THINGSDB)
+        {
+            ex_set(e, EX_FORBIDDEN,
+                "function `user_info` can only be used in the `%s` scope "
+                "without arguments; "
+                "you might want to query the `@thingsdb` scope?"DOC_SCOPES,
+                ti_query_scope_name(query));
+            return e->nr;
+        }
+
         /* check for `GRANT` privileges since user information is exposed */
         if (ti_access_check_err(
                 ti.access_thingsdb,

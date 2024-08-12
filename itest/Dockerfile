@@ -1,4 +1,4 @@
-FROM python as builder
+FROM python AS builder
 RUN apt-get update && \
     apt-get install -y \
         libuv1-dev \
@@ -29,5 +29,5 @@ COPY ./inc/doc.h /inc/doc.h
 COPY ./memleak.supp /memleak.supp
 WORKDIR /itest
 RUN pip install -r requirements.txt
-ENV THINGSDB_BIN /thingsdb
+ENV THINGSDB_BIN=/thingsdb
 CMD [ "python", "run_all_tests.py" ]

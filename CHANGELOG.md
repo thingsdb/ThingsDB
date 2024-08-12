@@ -1,3 +1,7 @@
+# v1.6.6
+
+* Allow `user_info()` in a collection scope, discussion #385.
+
 # v1.6.5
 
 * Fixed bug in debug logging when `task.del()` is called with an error, issue #384.

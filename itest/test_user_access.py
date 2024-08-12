@@ -5,16 +5,8 @@ from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
-from thingsdb.exceptions import AssertionError
-from thingsdb.exceptions import ValueError
-from thingsdb.exceptions import TypeError
 from thingsdb.exceptions import AuthError
 from thingsdb.exceptions import ForbiddenError
-from thingsdb.exceptions import NumArgumentsError
-from thingsdb.exceptions import BadDataError
-from thingsdb.exceptions import LookupError
-from thingsdb.exceptions import OverflowError
-from thingsdb.exceptions import ZeroDivisionError
 from thingsdb.exceptions import OperationError
 
 
@@ -160,6 +152,21 @@ class TestUserAccess(TestBase):
             grant('@:junk', "test5", USER);
             assert (USER == JOIN|RUN|QUERY|CHANGE);
         """)
+
+        # Test added for #385, user_info in a collection scope.
+        user_id = await client.query(r"""//ti
+            user_info().load().user_id;
+        """, scope='//junk')
+        self.assertTrue(isinstance(user_id, int))
+
+        with self.assertRaisesRegex(
+                    ForbiddenError,
+                    'function `user_info` can only be used in the '
+                    '`@collection` scope without arguments; you might want '
+                    'to query the `@thingsdb` scope?'):
+            user_id = await client.query(r"""//ti
+                user_info('test5').load().user_info;
+            """, scope='//junk')
 
         testcl1.close()
         client.close()

@@ -5,16 +5,8 @@ from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
-from thingsdb.exceptions import AssertionError
-from thingsdb.exceptions import ValueError
-from thingsdb.exceptions import TypeError
 from thingsdb.exceptions import AuthError
 from thingsdb.exceptions import ForbiddenError
-from thingsdb.exceptions import NumArgumentsError
-from thingsdb.exceptions import BadDataError
-from thingsdb.exceptions import LookupError
-from thingsdb.exceptions import OverflowError
-from thingsdb.exceptions import ZeroDivisionError
 from thingsdb.exceptions import OperationError
 
 
@@ -171,7 +163,7 @@ class TestUserAccess(TestBase):
                     ForbiddenError,
                     'function `user_info` can only be used in the '
                     '`@collection` scope without arguments; you might want '
-                    'to query the `@thingsdb` scope\?'):
+                    'to query the `@thingsdb` scope?'):
             user_id = await client.query(r"""//ti
                 user_info('test5').load().user_info;
             """, scope='//junk')

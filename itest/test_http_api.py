@@ -18,13 +18,13 @@ class TestHTTPAPI(TestBase):
         await self.node0.init_and_run()
 
         client0 = await get_client(self.node0)
-        client0.set_default_scope('//stuff')
+        client0.set_default_scope('/c/stuff')
 
         # add more nodes for watch validation
         await self.node1.join_until_ready(client0)
 
         client1 = await get_client(self.node1)
-        client1.set_default_scope('//stuff')
+        client1.set_default_scope('/c/stuff')
 
         api0 = f'http://localhost:{self.node0.http_api_port}'
         api1 = f'http://localhost:{self.node1.http_api_port}'
@@ -67,12 +67,11 @@ class TestHTTPAPI(TestBase):
         }
 
         x = requests.post(
-            f'{api0}//stuff',
+            f'{api0}/c/stuff',
             data=msgpack.dumps(data),
             auth=('admin', 'pass'),
             headers={'Content-Type': 'application/msgpack'}
         )
-
         self.assertEqual(x.status_code, 200)
         content = msgpack.unpackb(x.content, raw=False)
 
@@ -105,7 +104,7 @@ class TestHTTPAPI(TestBase):
         }
 
         x = requests.post(
-            f'{api0}//stuff',
+            f'{api0}/c/stuff',
             data=msgpack.dumps(data),
             auth=('admin', 'pass'),
             headers={'Content-Type': 'application/msgpack'}
@@ -123,7 +122,7 @@ class TestHTTPAPI(TestBase):
         }
 
         x = requests.post(
-            f'{api0}//stuff',
+            f'{api0}/c/stuff',
             json=data,
             auth=('admin', 'pass'),
         )
@@ -157,7 +156,7 @@ class TestHTTPAPI(TestBase):
         }
 
         x = requests.post(
-            f'{api0}//stuff',
+            f'{api0}/c/stuff',
             json=data,
             auth=('admin', 'pass'),
         )
@@ -169,7 +168,7 @@ class TestHTTPAPI(TestBase):
 
     async def test_json_errors(self, api0, api1, token):
         x = requests.post(
-            f'{api0}//unknown',
+            f'{api0}/c/unknown',
             json={'type': 'query', 'code': '42'},
             auth=('admin', 'pass'),
         )
@@ -177,7 +176,7 @@ class TestHTTPAPI(TestBase):
         self.assertEqual(x.text, 'collection `unknown` not found (-54)\r\n')
 
         x = requests.post(
-            f'{api0}//stuff',
+            f'{api0}/c/stuff',
             data=b'123',
             auth=('admin', 'pass'),
         )
@@ -193,7 +192,7 @@ class TestHTTPAPI(TestBase):
         self.assertEqual(x.text, 'UNAUTHORIZED\r\n')
 
         x = requests.post(
-            f'{api0}//stuff',
+            f'{api0}/c/stuff',
             json={'type': 'query', 'code': '42'},
             headers={'Authorization': 'TOKEN 1234567890abcdefghij'}
         )
@@ -201,7 +200,7 @@ class TestHTTPAPI(TestBase):
         self.assertEqual(x.text, 'UNAUTHORIZED\r\n')
 
         x = requests.post(
-            f'{api0}//stuff',
+            f'{api0}/c/stuff',
             json={'type': 'query', 'code': '42'},
             headers={'Authorization': f'TOKEN {token}'}
         )
@@ -220,7 +219,7 @@ class TestHTTPAPI(TestBase):
         self.assertEqual(x.text, 'NOT FOUND\r\n')
 
         x = requests.post(
-            f'{api0}//stuff',
+            f'{api0}/c/stuff',
             json={'type': 'query', 'code': '.a'},
             auth=('admin', 'pass'),
         )
@@ -230,7 +229,7 @@ class TestHTTPAPI(TestBase):
             r'thing `#[0-9]+` has no property `a` \(-54\)\s*')
 
         x = requests.post(
-            f'{api0}//stuff',
+            f'{api0}/c/stuff',
             json={
                 'type': 'query',
                 'code': 'x',
@@ -242,7 +241,7 @@ class TestHTTPAPI(TestBase):
         self.assertEqual(x.text, 'BAD REQUEST\r\n')
 
         x = requests.post(
-            f'{api0}//stuff',
+            f'{api0}/c/stuff',
             json={'type': 'query', 'code': '1 / 0;'},
             auth=('admin', 'pass'),
         )
@@ -264,7 +263,7 @@ class TestHTTPAPI(TestBase):
         self.assertEqual(x.text, 'function `unkown` is undefined (-54)\r\n')
 
         x = requests.post(
-            f'{api0}//stuff',
+            f'{api0}/c/stuff',
             json={'code': '42;'},
             auth=('admin', 'pass'),
         )
@@ -314,7 +313,7 @@ class TestHTTPAPI(TestBase):
     async def test_run(self, api0, api1, token):
         data = {'type': 'query', 'code': 'new_procedure("addone", |x| x+1);'}
         x = requests.post(
-            f'{api0}//stuff',
+            f'{api0}/c/stuff',
             json=data,
             auth=('admin', 'pass'),
         )
@@ -322,7 +321,7 @@ class TestHTTPAPI(TestBase):
         data = {'type': 'run', 'name': 'addone', 'args': [42]}
 
         x = requests.post(
-            f'{api0}//stuff',
+            f'{api0}/c/stuff',
             json=data,
             auth=('admin', 'pass'),
         )
@@ -332,7 +331,7 @@ class TestHTTPAPI(TestBase):
         data = {'type': 'run', 'name': 'addone', 'args': {'x': 6}}
 
         x = requests.post(
-            f'{api0}//stuff',
+            f'{api0}/c/stuff',
             json=data,
             auth=('admin', 'pass'),
         )
@@ -342,7 +341,7 @@ class TestHTTPAPI(TestBase):
         data = {'type': 'run', 'name': 'addone', 'args': {'x': 7, 'y': 5}}
 
         x = requests.post(
-            f'{api0}//stuff',
+            f'{api0}/c/stuff',
             json=data,
             auth=('admin', 'pass'),
         )

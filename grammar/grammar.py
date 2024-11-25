@@ -1,7 +1,7 @@
 """Source ThingsDB language definition file.
 """
 import re
-import sys
+
 from pyleri import (
     Grammar,
     Keyword,

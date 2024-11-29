@@ -30,7 +30,7 @@ static int do__f_set_owner(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     user = ti_users_get_by_namestrn((const char *) ruser->data, ruser->n);
     if (!user)
     {
-        (void) ti_raw_err_not_found(ruser, "user", e);
+        (void) ti_raw_printable_not_found(ruser, "user", e);
         goto fail0;
     }
 

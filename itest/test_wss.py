@@ -37,6 +37,7 @@ class TestWSS(TestBase):
 
         client.close()
         await client.wait_closed()
+        await asyncio.sleep(1)  # sleep is required for nice close
 
     async def test_simple_wss(self, client):
         self.assertTrue(client.is_websocket())

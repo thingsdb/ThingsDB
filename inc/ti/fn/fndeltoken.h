@@ -28,7 +28,7 @@ static int do__f_del_token(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ? ti_users_pop_token_by_key((ti_token_key_t *) rkey->data)
             : ti_user_pop_token_by_key(query->user, (ti_token_key_t *) rkey->data);
     if (!token)
-        return ti_raw_err_not_found(rkey, "token", e);
+        return ti_raw_printable_not_found(rkey, "token", e);
 
     ti_token_destroy(token);
 

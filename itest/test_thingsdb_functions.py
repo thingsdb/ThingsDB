@@ -179,10 +179,17 @@ class TestThingsDBFunctions(TestBase):
                 r'but got type `int` instead'):
             await client.query('del_user(42);')
 
+        # pr #390
         with self.assertRaisesRegex(
-                ValueError,
-                'user name must follow the naming rules'):
+                LookupError,
+                'user `` not found'):
             await client.query('del_user("");')
+
+        # pr #390
+        with self.assertRaisesRegex(
+                LookupError,
+                'user not found'):
+            await client.query(f'del_user("{"x" * 999}");')
 
         with self.assertRaisesRegex(
                 OperationError,

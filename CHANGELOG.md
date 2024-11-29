@@ -1,3 +1,7 @@
+# v1.6.7
+
+* Fix incorrect value error when user or token is not found, pr #390.
+
 # v1.6.6
 
 * Allow `user_info()` in a collection scope, discussion #385.

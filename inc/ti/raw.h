@@ -49,6 +49,7 @@ ti_raw_t * ti_raw_cat_strn_strn(
 _Bool ti_raw_contains(ti_raw_t * a, ti_raw_t * b);
 int ti_raw_check_valid_name(ti_raw_t * raw, const char * s, ex_t * e);
 int ti_raw_err_not_found(ti_raw_t * raw, const char * s, ex_t * e);
+int ti_raw_printable_not_found(ti_raw_t * raw, const char * s, ex_t * e);
 const char * ti_raw_as_printable_str(ti_raw_t * raw);
 static inline _Bool ti_raw_startswith(ti_raw_t * a, ti_raw_t * b);
 static inline _Bool ti_raw_endswith(ti_raw_t * a, ti_raw_t * b);

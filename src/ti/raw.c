@@ -565,7 +565,7 @@ int ti_raw_err_not_found(ti_raw_t * raw, const char * s, ex_t * e)
 
 int ti_raw_printable_not_found(ti_raw_t * raw, const char * s, ex_t * e)
 {
-    /* The length of 99 is just arbitrary for which we think its fine to
+    /* The length of 99 is just arbitrary for which we decided its fine to
      * include the name in the error message.
      */
     if (raw->n <= 99 && strx_is_printablen((const char *) raw->data, raw->n))

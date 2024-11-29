@@ -38,7 +38,7 @@ jobs:
       run: echo "VERSION=$(echo $GITHUB_REF | cut -d / -f 3)" >> $GITHUB_OUTPUT
 
     - name: Build and push Docker image (gcloud)
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
       with:
         context: .
         push: true
@@ -47,7 +47,7 @@ jobs:
         labels: ${{ steps.meta.outputs.labels }}
 
     - name: Build and push Docker image (full)
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
       with:
         context: .
         push: true
@@ -56,7 +56,7 @@ jobs:
         labels: ${{ steps.meta.outputs.labels }}
 
     - name: Build and push Docker image (minimal)
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
       with:
         context: .
         push: true
@@ -71,7 +71,7 @@ jobs:
       uses: docker/setup-buildx-action@v3
 
     - name: Build and push Docker image (arm64)
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
       with:
         context: .
         push: true

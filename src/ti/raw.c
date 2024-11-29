@@ -563,6 +563,20 @@ int ti_raw_err_not_found(ti_raw_t * raw, const char * s, ex_t * e)
     return e->nr;
 }
 
+int ti_raw_printable_not_found(ti_raw_t * raw, const char * s, ex_t * e)
+{
+    /* The length of 99 is just arbitrary for which we think its fine to
+     * include the name in the error message.
+     */
+    if (raw->n <= 99 && strx_is_printablen((const char *) raw->data, raw->n))
+        ex_set(e, EX_LOOKUP_ERROR,
+                "%s `%.*s` not found",
+                s, raw->n, (const char *) raw->data);
+    else
+        ex_set(e, EX_LOOKUP_ERROR, "%s not found", s);
+    return e->nr;
+}
+
 const char * ti_raw_as_printable_str(ti_raw_t * raw)
 {
     const size_t m = RAW__AS_PRINTABLE_BUF_SZ-4;

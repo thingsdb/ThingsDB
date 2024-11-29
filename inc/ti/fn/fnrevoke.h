@@ -30,7 +30,7 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     uname = (ti_raw_t *) query->rval;
     user = ti_users_get_by_namestrn((const char *) uname->data, uname->n);
     if (!user)
-        return ti_raw_err_not_found(uname, "user", e);
+        return ti_raw_printable_not_found(uname, "user", e);
 
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;

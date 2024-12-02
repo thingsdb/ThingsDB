@@ -12,6 +12,7 @@
 #include <ti/store/storeenums.h>
 #include <ti/store/storegcollect.h>
 #include <ti/store/storemodules.h>
+#include <ti/store/storenamedrooms.h>
 #include <ti/store/storenames.h>
 #include <ti/store/storeprocedures.h>
 #include <ti/store/storestatus.h>
@@ -258,6 +259,9 @@ int ti_store_store(void)
                 ti_store_gcollect_store_data(
                         collection->gc,
                         store_collection->gcprops_fn) ||
+                ti_store_named_rooms_store(
+                        collection->named_rooms,
+                        store_collection->named_rooms_fn) ||
                 ti_store_procedures_store(
                         collection->procedures,
                         store_collection->procedures_fn) ||
@@ -419,6 +423,10 @@ int ti_store_restore(void)
                         collection,
                         namesmap,
                         store_collection->gcprops_fn) ||
+                ti_store_named_rooms_restore(
+                        collection->named_rooms,
+                        store_collection->named_rooms_fn,
+                        collection) ||
                 ti_store_procedures_restore(
                         collection->procedures,
                         store_collection->procedures_fn,

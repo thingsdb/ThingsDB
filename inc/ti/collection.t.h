@@ -32,6 +32,7 @@ struct ti_collection_s
     queue_t * gc;           /* ti_gc_t */
     vec_t * access;         /* ti_auth_t */
     smap_t * procedures;    /* ti_procedure_t */
+    smap_t * named_rooms;   /* weak map for ti_room_t (only named rooms) */
     ti_thing_t * root;      /* without extra reference */
     ti_types_t * types;
     ti_enums_t * enums;

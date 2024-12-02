@@ -14,7 +14,17 @@
 #include <util/vec.h>
 #include <stdlib.h>
 
+/* collection may be NULL */
 ti_room_t * ti_room_create(uint64_t id, ti_collection_t * collection);
+
+/* Remove name from room if set */
+void ti_room_unset_name(ti_room_t * room);
+/*
+ * Removes previous name and attach the new name and increases the reference
+ * count of name by one.
+ */
+void ti_room_set_name(ti_room_t * room, ti_name_t * name)
+
 void ti_room_destroy(ti_room_t * room);
 int ti_room_gen_id(ti_room_t * room);
 int ti_room_join(ti_room_t * room, ti_stream_t * stream);

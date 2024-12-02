@@ -46,6 +46,10 @@ char * ti_store_collection_gcprops_fn(
 char * ti_store_collection_gcthings_fn(
         const char * path,
         uint64_t collection_id);
+char * ti_store_collection_named_rooms_fn(
+        const char * path,
+        uint64_t collection_id);
+
 
 struct ti_store_collection_s
 {
@@ -54,6 +58,7 @@ struct ti_store_collection_s
     char * props_fn;
     char * collection_path;
     char * names_fn;
+    char * named_rooms_fn;
     char * procedures_fn;
     char * tasks_fn;
     char * things_fn;

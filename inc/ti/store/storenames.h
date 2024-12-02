@@ -1,5 +1,5 @@
 /*
- * ti/store/names.h
+ * ti/store/storenames.h
  */
 #ifndef TI_STORE_NAMES_H_
 #define TI_STORE_NAMES_H_

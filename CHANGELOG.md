@@ -1,4 +1,4 @@
-# v1.6.7
+# v1.7.0
 
 * Fix incorrect value error when user or token is not found, pr #390.
 

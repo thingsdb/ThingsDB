@@ -616,14 +616,25 @@ ti_pkg_t * ti_collection_join_rooms(
 
     for (i = 0; i < nargs; ++i)
     {
-        if (mp_next(&up, &mp_id) <= 0 || mp_cast_u64(&mp_id))
+        if (mp_next(&up, &mp_id) == MP_STR)
+        {
+            room = ti_collection_room_by_strn(
+                collection,
+                mp_id.via.str.data,
+                mp_id.via.str.n);
+        }
+        else if (mp_cast_u64(&mp_id) == 0)
+        {
+            room = ti_collection_room_by_id(collection, mp_id.via.u64);
+        }
+        else
         {
             ex_set(e, EX_BAD_DATA,
-                "join requests only excepts integer room id's"DOC_LISTENING);
+                "join request only accepts integer room id's "
+                "or string room names"DOC_LISTENING);
             break;
         }
 
-        room = ti_collection_room_by_id(collection, mp_id.via.u64);
         if (room && ti_room_join(room, stream) == 0)
             msgpack_pack_uint64(&pk, room->id);
         else
@@ -678,14 +689,25 @@ ti_pkg_t * ti_collection_leave_rooms(
 
     for (i = 0; i < nargs; ++i)
     {
-        if (mp_next(&up, &mp_id) <= 0 || mp_cast_u64(&mp_id))
+        if (mp_next(&up, &mp_id) == MP_STR)
+        {
+            room = ti_collection_room_by_strn(
+                collection,
+                mp_id.via.str.data,
+                mp_id.via.str.n);
+        }
+        else if (mp_cast_u64(&mp_id) == 0)
+        {
+            room = ti_collection_room_by_id(collection, mp_id.via.u64);
+        }
+        else
         {
             ex_set(e, EX_BAD_DATA,
-                "leave requests only excepts integer room id's"DOC_LISTENING);
+                "leave request only accepts integer room id's "
+                "or string room names"DOC_LISTENING);
             break;
         }
 
-        room = ti_collection_room_by_id(collection, mp_id.via.u64);
         if (room && ti_room_leave(room, stream) == 0)
             msgpack_pack_uint64(&pk, room->id);
         else

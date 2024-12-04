@@ -1064,6 +1064,42 @@ fail_data:
     return -1;
 }
 
+int ti_task_set_name(ti_task_t * task, ti_room_t * room)
+{
+    size_t alloc = 32 + (room->name ? room->name->n : 0);
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_ROOM_SET_NAME);
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint64(&pk, room->id);
+    if (room->name)
+        mp_pack_strn(&pk, room->name->str, room->name->n);
+    else
+        msgpack_pack_nil(&pk);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
 int ti_task_add_new_node(ti_task_t * task, ti_node_t * node)
 {
     size_t alloc = 256;

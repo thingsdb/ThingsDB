@@ -45,16 +45,31 @@ void ti_room_unset_name(ti_room_t * room)
             room->collection->named_rooms,
             room->name->str,
             room->name->n);
-        ti_val_unsafe_drop(room->name);
+        ti_name_unsafe_drop(room->name);
         room->name = NULL;
     }
 }
 
-void ti_room_set_name(ti_room_t * room, ti_name_t * name)
+int ti_room_set_name(ti_room_t * room, ti_name_t * name)
 {
+    int rc;
+    if (room->name == name)
+        return 0;
+
+    /* first add the new name */
+    rc = smap_addn(
+            room->collection->named_rooms,
+            name->str,
+            name->n,
+            room);
+    if (rc)
+        return -1;
+
+    /* remove the old name (if exists) */
     ti_room_unset_name(room);
     room->name = name;
     ti_incref(name);
+    return 0;
 }
 
 static void room__write_rpkg(ti_room_t * room, ti_rpkg_t * rpkg)

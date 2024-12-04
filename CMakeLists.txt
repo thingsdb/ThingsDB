@@ -240,6 +240,7 @@ set(SOURCES
     src/ti/store/storegcollect.c
     src/ti/store/storemodules.c
     src/ti/store/storenames.c
+    src/ti/store/storenamedrooms.c
     src/ti/store/storeprocedures.c
     src/ti/store/storestatus.c
     src/ti/store/storetasks.c

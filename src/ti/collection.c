@@ -67,13 +67,15 @@ ti_collection_t * ti_collection_create(
     collection->tz = tz;
     collection->futures = vec_new(4);
     collection->vtasks = vec_new(4);
+    collection->named_rooms = smap_create();
 
     memcpy(&collection->guid, guid, sizeof(guid_t));
 
     if (!collection->name || !collection->things || !collection->gc ||
         !collection->access || !collection->procedures || !collection->lock ||
         !collection->types || !collection->enums || !collection->futures ||
-        !collection->rooms || uv_mutex_init(collection->lock))
+        !collection->rooms || !collection->named_rooms ||
+        uv_mutex_init(collection->lock))
     {
         ti_collection_drop(collection);
         return NULL;
@@ -98,6 +100,7 @@ void ti_collection_destroy(ti_collection_t * collection)
     vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);
     vec_destroy(collection->vtasks, (vec_destroy_cb) ti_vtask_drop);
     smap_destroy(collection->procedures, (smap_destroy_cb) ti_procedure_destroy);
+    smap_destroy(collection->named_rooms, NULL);
     ti_types_destroy(collection->types);
     ti_enums_destroy(collection->enums);
     uv_mutex_destroy(collection->lock);

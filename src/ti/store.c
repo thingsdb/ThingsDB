@@ -424,7 +424,6 @@ int ti_store_restore(void)
                         namesmap,
                         store_collection->gcprops_fn) ||
                 ti_store_named_rooms_restore(
-                        collection->named_rooms,
                         store_collection->named_rooms_fn,
                         collection) ||
                 ti_store_procedures_restore(

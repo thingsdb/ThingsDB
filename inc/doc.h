@@ -257,6 +257,8 @@
 #define DOC_REGEX_TEST              DOC_SEE("data-types/regex/test")
 #define DOC_ROOM_EMIT               DOC_SEE("data-types/room/emit")
 #define DOC_ROOM_ID                 DOC_SEE("data-types/room/id")
+#define DOC_ROOM_NAME               DOC_SEE("data-types/room/name")
+#define DOC_ROOM_SET_NAME           DOC_SEE("data-types/room/set_name")
 #define DOC_SET_ADD                 DOC_SEE("data-types/set/add")
 #define DOC_SET_CLEAR               DOC_SEE("data-types/set/clear")
 #define DOC_SET_COPY                DOC_SEE("data-types/set/copy")

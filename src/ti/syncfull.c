@@ -41,6 +41,7 @@ typedef enum
     SYNCFULL__COLLECTION_TASKS_FILE,
     SYNCFULL__COLLECTION_THINGS_FILE,
     SYNCFULL__COLLECTION_PROPS_FILE,
+    SYNCFULL__COLLECTION_NAMED_ROOMS_FILE,
     /* end */
     SYNCFULL__COLLECTION_END,
 } syncfull__file_t;
@@ -89,6 +90,9 @@ static char * syncfull__get_fn(uint64_t scope_id, syncfull__file_t ft)
         return ti_store_collection_things_fn(path, scope_id);
     case SYNCFULL__COLLECTION_PROPS_FILE:
         return ti_store_collection_props_fn(path, scope_id);
+    case SYNCFULL__COLLECTION_NAMED_ROOMS_FILE:
+        return ti_store_collection_named_rooms_fn(path, scope_id);
+
     case SYNCFULL__COLLECTION_END:
         break;
     }

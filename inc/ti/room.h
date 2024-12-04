@@ -23,7 +23,7 @@ void ti_room_unset_name(ti_room_t * room);
  * Removes previous name and attach the new name and increases the reference
  * count of name by one.
  */
-void ti_room_set_name(ti_room_t * room, ti_name_t * name)
+int ti_room_set_name(ti_room_t * room, ti_name_t * name);
 
 void ti_room_destroy(ti_room_t * room);
 int ti_room_gen_id(ti_room_t * room);

@@ -8,10 +8,7 @@
 #include <ti/collection.h>
 
 int ti_store_named_rooms_store(smap_t * named_rooms, const char * fn);
-int ti_store_named_rooms_restore(
-        smap_t * named_rooms,
-        const char * fn,
-        ti_collection_t * collection);
+int ti_store_named_rooms_restore(const char * fn, ti_collection_t * collection);
 
 #endif /* TI_STORE_NAMED_ROOMS_H_ */
 

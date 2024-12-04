@@ -4,8 +4,10 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <ti.h>
-#include <ti/room.t.h>
+#include <ti/collection.inline.h>
 #include <ti/raw.inline.h>
+#include <ti/room.t.h>
+#include <ti/room.h>
 #include <ti/store/storeprocedures.h>
 #include <ti/val.inline.h>
 #include <util/fx.h>
@@ -55,10 +57,7 @@ done:
     return 0;
 }
 
-int ti_store_named_rooms_restore(
-        smap_t * named_rooms,
-        const char * fn,
-        ti_collection_t * collection)
+int ti_store_named_rooms_restore(const char * fn, ti_collection_t * collection)
 {
     int rc = -1;
     fx_mmap_t fmap;
@@ -67,11 +66,6 @@ int ti_store_named_rooms_restore(
     mp_unp_t up;
     ti_name_t * name;
     ti_room_t * room;
-    ti_vup_t vup = {
-            .isclient = false,
-            .collection = collection,
-            .up = &up,
-    };
 
     if (!fx_file_exist(fn))
         return 0;  /* until version v1.7.0 named rooms did not exist */

@@ -8,6 +8,7 @@ from thingsdb.exceptions import ValueError
 from thingsdb.exceptions import TypeError
 from thingsdb.exceptions import NumArgumentsError
 from thingsdb.exceptions import LookupError
+from thingsdb.exceptions import OperationError
 from thingsdb.room import Room, event
 
 
@@ -184,9 +185,10 @@ class TestRoom(TestBase):
     async def test_object_to_room(self, cl0, cl1, cl2):
         await cl0.query(r"""//ti
             .oroom = room();
+            .oroom.set_name("oroom");
         """)
         actions = []
-        oroom = ORoom(actions, '.oroom.id();')
+        oroom = ORoom(actions, 'oroom')
         await oroom.join(cl0)
         await cl0.query(r"""//ti
             .x = {y: {z: 123}};
@@ -202,6 +204,78 @@ class TestRoom(TestBase):
         await asyncio.sleep(0.5)
 
         self.assertEqual([r0, r1, r2], actions)
+
+    async def test_room_name(self, cl0, cl1, cl2):
+        await cl0.query(r"""//ti
+            .room_a = room();
+            .room_b = room();
+        """)
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `set_name` takes 1 argument but 0 were given;'):
+            await cl0.query(r"""//ti
+                .room_a.set_name();
+            """)
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `rooom` takes 0 arguments but 1 was given;'):
+            await cl0.query('.room_a.name(nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `set_name` expects argument 1 to be of '
+                'type `str` or `nil` but got type `int` instead;'):
+            await cl0.query('.room_a.set_name(1);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'room name must follow the naming rules;'):
+            await cl0.query('.room_a.set_name("");')
+
+        await cl0.query('.room_a.set_name("a");')
+        await cl0.query('.room_b.set_name("b");')
+
+        # same name should work
+        res = await cl0.query('.room_a.set_name("a");')
+        self.assertIs(res, None)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'room `a` already exists'):
+            await cl0.query('.room_b.set_name("a");')
+
+        # room b is without name
+        res = await cl0.query('.room_b.set_name(nil);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'collection `stuff` has no `room` with name `b`'):
+            await cl0.query('room("b");')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                'names can only be assigned to stored '
+                r'rooms \(a room with an Id\)'):
+            await cl0.query('room().set_name("c");')
+
+        res = await cl0._join("a", "b")
+        self.assertTrue(isinstance(res[0], int))
+        self.assertIs(res[1], None)
+
+        res = await cl0._leave("a", "b")
+        self.assertTrue(isinstance(res[0], int))
+        self.assertIs(res[1], None)
+
+        await cl0.query('.room_a.set_name("A");')
+
+        res = await cl0.query('[.room_a.name(), .room_b.name()];')
+        self.assertEqual(res[0], "A")
+        self.assertIs(res[1], None)
+
+        res = await cl0.query('room("A").name();')
+        self.assertEqual(res, "A")
 
 
 if __name__ == '__main__':

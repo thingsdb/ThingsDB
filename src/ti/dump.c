@@ -181,6 +181,19 @@ static int dump__procedure_cb(ti_procedure_t * procedure, msgpack_packer * pk)
     );
 }
 
+static int dump__named_rooms_cb(ti_room_t * room,  msgpack_packer * pk)
+{
+    return (
+        msgpack_pack_array(pk, 2) ||
+
+        msgpack_pack_uint8(pk, TI_TASK_ROOM_SET_NAME) ||
+        msgpack_pack_array(pk, 2) ||
+
+        msgpack_pack_uint64(pk, room->id) ||
+        mp_pack_strn(pk, room->name->str, room->name->n)
+    );
+}
+
 static int dump__enum_data_cb(ti_enum_t * enum_, msgpack_packer * pk)
 {
     return (
@@ -307,6 +320,11 @@ static int dump__write_procedures(smap_t * procedures, msgpack_packer * pk)
     return smap_values(procedures, (smap_val_cb) dump__procedure_cb, pk);
 }
 
+static int dump__write_named_rooms(smap_t * named_rooms, msgpack_packer * pk)
+{
+    return smap_values(named_rooms, (smap_val_cb) dump__named_rooms_cb, pk);
+}
+
 static size_t dump__count_tasks(ti_collection_t * collection)
 {
     size_t n = 1;  /* first is the root */
@@ -353,7 +371,8 @@ ti_raw_t * ti_dump_collection(ti_collection_t * collection)
         dump__write_enums_data(collection->enums, &pk) ||
         dump__write_tasks_args(collection->vtasks, &pk) ||
         dump__write_relations(collection->types, &pk) ||
-        dump__write_procedures(collection->procedures, &pk))
+        dump__write_procedures(collection->procedures, &pk) ||
+        dump__write_named_rooms(collection->named_rooms, &pk))
     {
         /* failed, free buffer and remove marks */
         free(buffer.data);

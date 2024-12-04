@@ -1,7 +1,7 @@
 # v1.7.0
 
 * Fix incorrect value error when user or token is not found, pr #390.
-* Implement optional _name_ for a room, pr #.
+* Implement optional _name_ for a room, pr #393.
 
 # v1.6.6
 

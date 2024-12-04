@@ -337,6 +337,7 @@ static size_t dump__count_tasks(ti_collection_t * collection)
     n += collection->types->smap->n * 2;
     smap_values(collection->types->smap, (smap_val_cb) dump__rel_count_cb, &n);
     n += collection->procedures->n;
+    n += collection->named_rooms->n;
     return n;
 }
 

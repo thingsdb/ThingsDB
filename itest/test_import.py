@@ -148,6 +148,7 @@ class TestImport(TestBase):
                 e: 'E',
                 tlist: '[EE]',
                 r: 'R',
+                room: 'room',
             });
             mod_type('R', 'rel', 'parent', 'r');
             .to_type('T');
@@ -155,6 +156,7 @@ class TestImport(TestBase):
             .tlist.push(EE{TA}, EE{TB});  // bug found ans solved in #357
             .r.name = 'master';
             .r.r = R{name: 'slave'};
+            .room.set_name('ROOM');
         """)
 
         dump = await client0.query(r"""//ti
@@ -181,6 +183,7 @@ class TestImport(TestBase):
                 assert(.tlist[1].value().b.repr() == 'B:2');
                 assert(is_nil(.t.id()));
                 assert(procedures_info().len() == 1);
+                assert(.room.name() == 'ROOM');
             """)
 
     async def test_import_tasks(self, client0, client1):

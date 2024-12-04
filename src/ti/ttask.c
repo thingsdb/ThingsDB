@@ -1635,6 +1635,7 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_SET_ENUM_DATA:     break;
     case TI_TASK_REPLACE_ROOT:      break;
     case TI_TASK_IMPORT:            break;
+    case TI_TASK_ROOM_SET_NAME:     break;
     }
 
     log_critical("unknown thingsdb task: %"PRIu64, mp_task.via.u64);

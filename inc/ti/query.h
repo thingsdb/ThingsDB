@@ -51,6 +51,11 @@ ti_room_t * ti_query_room_from_id(
         ti_query_t * query,
         int64_t room_id,
         ex_t * e);
+ti_room_t * ti_query_room_from_strn(
+        ti_query_t * query,
+        const char * str,
+        size_t n,
+        ex_t * e);
 ssize_t ti_query_count_type(ti_query_t * query, ti_type_t * type);
 int ti_query_vars_walk(
         vec_t * vars,

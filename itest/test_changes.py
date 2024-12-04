@@ -6,7 +6,6 @@ from lib.testbase import TestBase
 from lib.client import get_client
 
 
-
 class TestChanges(TestBase):
 
     title = 'Test with multiple changes at the same time'

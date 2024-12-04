@@ -89,6 +89,7 @@ typedef enum
     TI_TASK_SET_ENUM_DATA,                  /* 76  */
     TI_TASK_REPLACE_ROOT,                   /* 77  */
     TI_TASK_IMPORT,                         /* 78  */
+    TI_TASK_ROOM_SET_NAME,                  /* 79  */
 } ti_task_enum;
 
 typedef struct ti_task_s ti_task_t;

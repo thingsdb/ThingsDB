@@ -1,5 +1,5 @@
 /*
- * ti/store/procedures.h
+ * ti/store/storeprocedures.h
  */
 #ifndef TI_STORE_PROCEDURES_H_
 #define TI_STORE_PROCEDURES_H_

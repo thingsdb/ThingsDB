@@ -216,6 +216,7 @@
 #include <ti/fn/fnsetloglevel.h>
 #include <ti/fn/fnsetmoduleconf.h>
 #include <ti/fn/fnsetmodulescope.h>
+#include <ti/fn/fnsetname.h>
 #include <ti/fn/fnsetowner.h>
 #include <ti/fn/fnsetpassword.h>
 #include <ti/fn/fnsettimezone.h>
@@ -296,7 +297,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 271,
+    TOTAL_KEYWORDS = 272,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 30,
@@ -317,13 +318,13 @@ static inline unsigned int qbind__hash(
         665, 665, 665, 665, 665, 665, 665, 665, 665, 665,
         665, 665, 665, 665, 665, 665, 665, 665, 665, 665,
         665, 665, 665, 665, 665, 665, 665, 665,  11,  11,
-         19, 665,  13, 665,  13, 665,  14, 665, 665, 665,
+        19, 665,  13, 665,  13, 665,  14, 665, 665, 665,
         665, 665, 665, 665, 665, 665, 665, 665, 665, 665,
         665, 665, 665, 665, 665, 665, 665, 665, 665, 665,
         665, 665, 665, 665, 665, 665, 665, 665, 665, 665,
         665, 665, 665, 665, 665,  11, 665,  16,  40,  80,
-         37,  13, 128, 264, 189,  11,  19, 167,  24,  55,
-         16,  19, 102,  83,  12,  11,  12,  22, 205, 125,
+        37,  13, 128, 264, 189,  11,  19, 167,  24,  55,
+        16,  19, 102,  83,  12,  11,  12,  22, 205, 125,
         105, 255,  60, 665, 665, 665, 665, 665, 665, 665,
         665, 665, 665, 665, 665, 665, 665, 665, 665, 665,
         665, 665, 665, 665, 665, 665, 665, 665, 665, 665,
@@ -688,6 +689,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="round",             .fn=do__f_round,                ROOT_NE},
     {.name="run",               .fn=do__f_run,                  XROOT_NE},
     {.name="search",            .fn=do__f_search,               CHAIN_NE},
+    {.name="set",               .fn=do__f_set,                  BOTH_CE_XXROOT},
     {.name="set_args",          .fn=do__f_set_args,             CHAIN_BE},
     {.name="set_closure",       .fn=do__f_set_closure,          CHAIN_BE},
     {.name="set_default_deep",  .fn=do__f_set_default_deep,     ROOT_TE},
@@ -695,11 +697,11 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="set_log_level",     .fn=do__f_set_log_level,        ROOT_NE},
     {.name="set_module_conf",   .fn=do__f_set_module_conf,      ROOT_TE},
     {.name="set_module_scope",  .fn=do__f_set_module_scope,     ROOT_TE},
+    {.name="set_name",          .fn=do__f_set_name,             CHAIN_CE_X},
     {.name="set_owner",         .fn=do__f_set_owner,            CHAIN_BE},
     {.name="set_password",      .fn=do__f_set_password,         ROOT_TE},
     {.name="set_time_zone",     .fn=do__f_set_time_zone,        ROOT_TE},
     {.name="set_type",          .fn=do__f_set_type,             ROOT_CE},
-    {.name="set",               .fn=do__f_set,                  BOTH_CE_XXROOT},
     {.name="shift",             .fn=do__f_shift,                CHAIN_CE_XX},
     {.name="shutdown",          .fn=do__f_shutdown,             ROOT_NE},
     {.name="sin",               .fn=do__f_sin,                  ROOT_NE},

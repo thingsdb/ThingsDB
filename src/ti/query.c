@@ -1355,6 +1355,47 @@ ti_room_t * ti_query_room_from_id(
     return room;
 }
 
+ti_room_t * ti_query_room_from_strn(
+        ti_query_t * query,
+        const char * str,
+        size_t n,
+        ex_t * e)
+{
+    ti_room_t * room;
+
+    if (!query->collection)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "scope `%s` has no stored rooms; "
+                "you might want to query a `@collection` scope?",
+                ti_query_scope_name(query));
+        return NULL;
+    }
+
+    if (!ti_name_is_valid_strn(str, n))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "room name must follow the naming rules"DOC_NAMES);
+        return NULL;
+    }
+
+    /* No need to check for garbage collected things */
+    room = ti_collection_room_by_strn(query->collection, str, n);
+    if (!room)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "collection `%.*s` has no `room` with name `%.*s`",
+                query->collection->name->n,
+                (char *) query->collection->name->data,
+                n,
+                str);
+        return NULL;
+    }
+
+    ti_incref(room);
+    return room;
+}
+
 typedef struct
 {
     ssize_t n;

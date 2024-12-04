@@ -74,6 +74,17 @@ static inline void * ti_collection_room_by_id(
 }
 
 /*
+ * Return a room with a borrowed reference from the collection.
+ */
+static inline void * ti_collection_room_by_strn(
+        ti_collection_t * collection,
+        const char * str,
+        size_t n)
+{
+    return smap_getn(collection->named_rooms, str, n);
+}
+
+/*
  * Return the next free id and increment by one.
  */
 static inline uint64_t ti_collection_next_free_id(ti_collection_t * collection)

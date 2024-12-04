@@ -21,6 +21,7 @@ struct ti_room_s
     uint8_t unused_flags;
     int:16;
     uint64_t id;
+    ti_name_t * name;                /* Name is optional, might be NULL */
     ti_collection_t * collection;    /* NULL in non-collection scope */
     vec_t * listeners;
 };

@@ -7,7 +7,6 @@ from thingsdb.exceptions import ValueError
 from thingsdb.exceptions import TypeError
 
 
-
 class TestArguments(TestBase):
 
     title = 'Test arguments'

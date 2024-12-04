@@ -125,6 +125,45 @@ static int ctask__thing_clear(ti_thing_t * thing, mp_unp_t * up)
     return 0;
 }
 
+static int ctask__room_set_name(ti_thing_t * thing, mp_unp_t * up)
+{
+    ti_room_t * room;
+    mp_obj_t obj, mp_id, mp_name;
+
+    if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        (mp_next(up, &mp_name) != MP_STR && mp_name.tp != MP_NIL))
+    {
+        log_critical(
+                "task `room_set_name` is "
+                "expecting an array with integer and name/nil");
+        return -1;
+    }
+
+    room = ti_collection_room_by_id(thing->collection, mp_id.via.u64);
+    if (!room)
+        return 0;  /* can happen when the room is gone */
+
+    if (mp_name.tp == MP_NIL)
+    {
+        ti_room_unset_name(room);
+    }
+    else
+    {
+        ti_name_t * name = ti_names_get(
+            mp_name.via.str.data,
+            mp_name.via.str.n);
+        if (!name || ti_room_set_name(room, name))
+        {
+            log_critical(EX_MEMORY_S);
+            ti_name_drop(name);
+            return -1;
+        }
+        ti_decref(name);
+    }
+    return 0;
+}
+
 /*
  * Returns 0 on success
  * - for example: `prop`
@@ -3286,6 +3325,7 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_SET_ENUM_DATA:     return ctask__set_enum_data(thing, up);
     case TI_TASK_REPLACE_ROOT:      return ctask__replace_root(thing, up);
     case TI_TASK_IMPORT:            return ctask__import(thing, up);
+    case TI_TASK_ROOM_SET_NAME:     return ctask__room_set_name(thing, up);
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);

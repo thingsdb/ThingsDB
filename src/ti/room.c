@@ -257,7 +257,7 @@ int ti_room_emit_from_pkg(
     mp_skip(&up);           /* scope */
 
     if (obj.via.sz < 3 ||
-        mp_next(&up, &mp_id) != MP_U64 ||
+        mp_next(&up, &mp_id) <= 0 ||
         mp_next(&up, &mp_event) != MP_STR)
     {
         ex_set(e, EX_BAD_DATA, "invalid emit request");
@@ -277,7 +277,22 @@ int ti_room_emit_from_pkg(
 
     uv_mutex_lock(collection->lock);
 
-    room = ti_collection_room_by_id(collection, mp_id.via.u64);
+    if (mp_id.tp == MP_STR)
+    {
+        room = ti_collection_room_by_strn(
+            collection,
+            mp_id.via.str.data,
+            mp_id.via.str.n);
+    }
+    else if (mp_cast_u64(&mp_id) == 0)
+    {
+        room = ti_collection_room_by_id(collection, mp_id.via.u64);
+    }
+    else
+    {
+        room = NULL;
+    }
+
     if (room)
     {
         while (nargs--)
@@ -290,11 +305,39 @@ int ti_room_emit_from_pkg(
         }
     }
     else
-        ex_set(e, EX_LOOKUP_ERROR,
-                "collection `%.*s` has no `room` with id %"PRIu64,
-                collection->name->n,
-                (char *) collection->name->data,
-                mp_id.via.u64);
+    {
+        if (mp_id.tp == MP_STR)
+        {
+            if (ti_name_is_valid_strn(mp_id.via.str.data, mp_id.via.str.n))
+            {
+                ex_set(e, EX_LOOKUP_ERROR,
+                        "collection `%.*s` has no `room` with name `%.*s`",
+                        collection->name->n,
+                        (char *) collection->name->data,
+                        mp_id.via.str.n,
+                        mp_id.via.str.data);
+            }
+            else
+            {
+                ex_set(e, EX_VALUE_ERROR,
+                    "room name must follow the naming rules"DOC_NAMES);
+            }
+        }
+        else if (mp_id.tp == MP_U64)
+        {
+            ex_set(e, EX_LOOKUP_ERROR,
+                    "collection `%.*s` has no `room` with id %"PRIu64,
+                    collection->name->n,
+                    (char *) collection->name->data,
+                    mp_id.via.u64);
+        }
+        else
+        {
+            ex_set(e, EX_BAD_DATA,
+                "emit request only accepts an integer room id "
+                "or string room name"DOC_LISTENING);
+        }
+    }
 
     uv_mutex_unlock(collection->lock);
 

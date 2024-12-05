@@ -9,7 +9,9 @@ from thingsdb.exceptions import TypeError
 from thingsdb.exceptions import NumArgumentsError
 from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import OperationError
+from thingsdb.exceptions import BadDataError
 from thingsdb.room import Room, event
+from thingsdb.client import Client
 
 
 class ORoom(Room):
@@ -267,6 +269,30 @@ class TestRoom(TestBase):
         res = await cl0._leave("a", "b")
         self.assertTrue(isinstance(res[0], int))
         self.assertIs(res[1], None)
+
+        res = await cl0._emit("a", "Test")
+        self.assertIs(res, None)
+
+        with self.assertRaisesRegex(
+                BadDataError,
+                'emit request only accepts an integer '
+                'room id or string room name;'):
+            await cl0._emit(3.4, "Test")
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'room name must follow the naming rules;'):
+            await cl0._emit("", "Test")
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'collection `stuff` has no `room` with name `not_here`'):
+            await cl0._emit("not_here", "Test")
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'collection `stuff` has no `room` with id 12345'):
+            await cl0._emit(12345, "Test")
 
         await cl0.query('.room_a.set_name("A");')
 

@@ -251,6 +251,9 @@ int ti_room_emit_from_pkg(
             .up = &up,
     };
 
+    /* avoid compiler warning -Werror=maybe-uninitialized */
+    memset(&mp_id, 0, sizeof(mp_obj_t));
+
     mp_unp_init(&up, pkg->data, pkg->n);
 
     mp_next(&up, &obj);     /* array with at least size 1 */
@@ -279,16 +282,10 @@ int ti_room_emit_from_pkg(
 
     if (mp_id.tp == MP_STR)
     {
-        /* We are sure mp_id is initialized when tp is MP_STR, but the compiler
-         * fails to see this;
-         */
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wuninitialized"
         room = ti_collection_room_by_strn(
             collection,
             mp_id.via.str.data,
             mp_id.via.str.n);
-        #pragma GCC diagnostic pop
     }
     else if (mp_cast_u64(&mp_id) == 0)
     {

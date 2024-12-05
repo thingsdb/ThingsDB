@@ -791,7 +791,9 @@ static inline int mp_cast_u64(mp_obj_t * o)
         return 0;
     if (o->tp == MP_I64)
     {
-        o->via.u64 = (uint64_t) o->via.i64;
+        uint64_t u = (uint64_t) o->via.i64;
+        o->via.u64 = u;
+        o->tp = MP_U64;
         return 0;
     }
     return -1;

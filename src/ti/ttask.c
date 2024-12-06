@@ -606,6 +606,39 @@ static int ttask__mod_procedure(mp_unp_t * up)
     return 0;
 }
 
+static int ttask__whitelist_add(mp_unp_t * up)
+{
+    mp_obj_t obj, mp_user, mp_whitelist;
+    vec_t ** whitelist;
+    ti_user_t * user;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = NULL,
+            .up = up,
+    };
+
+    if (mp_next(up, &obj) != MP_ARR || obj.via.sz < 2 || obj.via.sz > 3 ||
+        mp_next(up, &mp_user) != MP_U64 ||
+        mp_next(up, &mp_whitelist) != MP_U64)
+    {
+        log_critical("task `whitelist_add`: invalid task data");
+        return -1;
+    }
+
+    user = ti_users_get_by_id(mp_user.via.u64);
+    if (!user)
+    {
+        log_critical(
+                "task `whitelist_add`: "TI_USER_ID" not found",
+                mp_user.via.u64);
+        return -1;
+    }
+
+    if (mp_whitelist)
+
+
+}
+
 /*
  * Returns 0 on success
  * - for example: {'id': id, 'key': value}, 'expire_ts': ts, 'description':..}
@@ -1636,6 +1669,8 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_REPLACE_ROOT:      break;
     case TI_TASK_IMPORT:            break;
     case TI_TASK_ROOM_SET_NAME:     break;
+    case TI_TASK_WHITELIST_ADD:     return ttask__whitelist_add(up);
+    case TI_TASK_WHITELIST_DROP:    return ttask__whitelist_drop(up);
     }
 
     log_critical("unknown thingsdb task: %"PRIu64, mp_task.via.u64);

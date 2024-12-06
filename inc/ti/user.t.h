@@ -25,8 +25,7 @@ struct ti_user_s
     ti_raw_t * name;
     char * encpass;         /* may be NULL if no password is set */
     vec_t * tokens;         /* ti_token_t */
-    vec_t * procedures_whitelist;   /* may be NULL, contains ti_val_t */
-    vec_t * rooms_whitelist;        /* may be NULL, contains ti_val_t */
+    vec_t * whitelists[2];  /* may be NULL, contains ti_val_t */
 };
 
 #endif  /* TI_USER_T_H_ */

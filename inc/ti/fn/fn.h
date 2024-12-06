@@ -71,6 +71,7 @@
 #include <ti/vtask.h>
 #include <ti/vtask.inline.h>
 #include <ti/warn.h>
+#include <ti/whitelist.h>
 #include <ti/wprop.t.h>
 #include <ti/wrap.h>
 #include <ti/wrap.inline.h>

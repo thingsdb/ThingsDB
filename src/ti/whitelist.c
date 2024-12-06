@@ -54,6 +54,20 @@ static ti_val_t * whitelist__val(ti_val_t * val, ex_t * e)
 
 int ti_whitelist_add(vec_t ** whitelist, ti_val_t * val, ex_t * e)
 {
+    if (!val)
+    {
+        if (*whitelist)
+        {
+            ex_set(e, EX_LOOKUP_ERROR, "whitelist already exists");
+        }
+        else
+        {
+            *whitelist = vec_new(1);
+            if (!*whitelist)
+                ex_set_mem(e);
+        }
+        return e->nr;
+    }
     val = whitelist__val(val, e);
     if (!val)
         return e->nr;  /* set by whitelist__val */
@@ -91,20 +105,34 @@ fail:
     return e->nr;
 }
 
-int ti_whitelist_drop(vec_t * whitelist, ti_val_t * val, ex_t * e)
+int ti_whitelist_drop(vec_t ** whitelist, ti_val_t * val, ex_t * e)
 {
+    if (!val)
+    {
+        if (*whitelist)
+        {
+            vec_destroy_cb(*whitelist, ti_val_unsafe_drop);
+            *whitelist = NULL;
+        }
+        else
+        {
+            ex_set(e, EX_LOOKUP_ERROR, "whitelist not found");
+        }
+        return e->nr;
+    }
+
     val = whitelist__val(val, e);
     if (!val)
         return e->nr;  /* set by whitelist__val */
 
-    if (whitelist)
+    if (*whitelist)
     {
         size_t i = 0;
-        for (vec_each(whitelist, ti_val_t, v), i++)
+        for (vec_each(*whitelist, ti_val_t, v), i++)
         {
             if (ti_opr_eq(val, v))
             {
-                (void) vec_swap_remove(whitelist, i);
+                (void) vec_swap_remove(*whitelist, i);
                 ti_val_unsafe_drop(v);
                 goto done;
             }

@@ -3326,6 +3326,8 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_REPLACE_ROOT:      return ctask__replace_root(thing, up);
     case TI_TASK_IMPORT:            return ctask__import(thing, up);
     case TI_TASK_ROOM_SET_NAME:     return ctask__room_set_name(thing, up);
+    case TI_TASK_WHITELIST_ADD:     break;
+    case TI_TASK_WHITELIST_DROP:    break;
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);

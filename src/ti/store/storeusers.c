@@ -9,6 +9,7 @@
 #include <ti/users.h>
 #include <ti/val.inline.h>
 #include <ti/token.h>
+#include <ti/whitelist.h>
 #include <util/fx.h>
 #include <util/logger.h>
 #include <util/mpack.h>
@@ -74,8 +75,8 @@ int ti_store_users_store(const char * fn)
             ) goto fail;
         }
 
-        if (store__whitelist(user->rooms_whitelist, &pk) ||
-            store__whitelist(user->procedures_whitelist, &pk))
+        if (store__whitelist(user->whitelists[TI_WHITELIST_ROOMS], &pk) ||
+            store__whitelist(user->whitelists[TI_WHITELIST_PROCEDURES], &pk))
             goto fail;
     }
 
@@ -179,30 +180,21 @@ int ti_store_users_restore(const char * fn)
         /* TODO (COMPAT) Size used to be 5 prior to v1.7.0 */
         if (arr.via.sz == 7)
         {
-            if (mp_next(&up, &obj) == MP_ARR)
+            int wid;
+            for (wid = 0; wid < 2; wid++)
             {
-                user->rooms_whitelist = vec_new(obj.via.sz);
-                if (!user->rooms_whitelist)
-                    goto fail;
-                for (ii = obj.via.sz; ii--;)
+                if (mp_next(&up, &obj) == MP_ARR)
                 {
-                    ti_val_t * val = ti_val_from_vup(&vup);
-                    if (!val)
+                    user->whitelists[wid] = vec_new(obj.via.sz);
+                    if (!user->whitelists[wid])
                         goto fail;
-                    VEC_push(user->rooms_whitelist, val);
-                }
-            }
-            if (mp_next(&up, &obj) == MP_ARR)
-            {
-                user->procedures_whitelist = vec_new(obj.via.sz);
-                if (!user->procedures_whitelist)
-                    goto fail;
-                for (ii = obj.via.sz; ii--;)
-                {
-                    ti_val_t * val = ti_val_from_vup(&vup);
-                    if (!val)
-                        goto fail;
-                    VEC_push(user->procedures_whitelist, val);
+                    for (ii = obj.via.sz; ii--;)
+                    {
+                        ti_val_t * val = ti_val_from_vup(&vup);
+                        if (!val)
+                            goto fail;
+                        VEC_push(user->whitelists[wid], val);
+                    }
                 }
             }
         }

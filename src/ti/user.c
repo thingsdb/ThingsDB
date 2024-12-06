@@ -7,6 +7,7 @@
 #include <ti/raw.inline.h>
 #include <ti/token.h>
 #include <ti/user.h>
+#include <ti/whitelist.h>
 #include <ti/val.inline.h>
 #include <util/cryptx.h>
 #include <util/iso8601.h>
@@ -135,8 +136,8 @@ ti_user_t * ti_user_create(
     user->encpass = encrpass ? strdup(encrpass) : NULL;
     user->tokens = vec_new(0);
     user->created_at = created_at;
-    user->rooms_whitelist = NULL;
-    user->procedures_whitelist = NULL;
+    user->whitelists[TI_WHITELIST_ROOMS] = NULL;
+    user->whitelists[TI_WHITELIST_PROCEDURES] = NULL;
 
     if (!user->name || (encrpass && !user->encpass) || !user->tokens)
     {
@@ -311,7 +312,9 @@ static size_t user__count_access(ti_user_t * user)
 
 static inline size_t user__count_whitelist(ti_user_t * user)
 {
-    return !!user->rooms_whitelist + !!user->procedures_whitelist;
+    return \
+        !!user->whitelists[TI_WHITELIST_ROOMS] + \
+        !!user->whitelists[TI_WHITELIST_PROCEDURES];
 }
 
 int ti_user_info_to_pk(ti_user_t * user, msgpack_packer * pk)
@@ -359,14 +362,14 @@ int ti_user_info_to_pk(ti_user_t * user, msgpack_packer * pk)
         return -1;
 
 
-    if (user->rooms_whitelist && (
+    if (user->whitelists[TI_WHITELIST_ROOMS] && (
         mp_pack_str(pk, "rooms") ||
-        user__pack_whitelist(user->rooms_whitelist, pk)))
+        user__pack_whitelist(user->whitelists[TI_WHITELIST_ROOMS], pk)))
         return -1;
 
-    if (user->procedures_whitelist && (
+    if (user->whitelists[TI_WHITELIST_PROCEDURES] && (
         mp_pack_str(pk, "procedures") ||
-        user__pack_whitelist(user->procedures_whitelist, pk)))
+        user__pack_whitelist(user->whitelists[TI_WHITELIST_PROCEDURES], pk)))
         return -1;
 
     return 0;

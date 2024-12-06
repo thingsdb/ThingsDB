@@ -2613,6 +2613,34 @@ new_procedure('multiply', |a, b| a * b);
             is_tuple(x.first());
         """))
 
+    async def test_names_loading(self, client):
+        await self.node0.shutdown()
+        await self.node0.run()
+
+        q = client.query
+        # Force a few new keys. (issue #394)
+        # Before 1.7.0 ThingsDB did not reload existing names as names, but
+        # they were loaded as strings instead. This is not an issue but it is
+        # preferred to load them back as names. This checks verifies that
+        # names are really restored as cached names, not strings.
+        await q("""//ti
+            .my_test_key1 = 1;
+            .my_test_key2 = 2;
+            .arr = .keys();
+            .del('my_test_key1');
+            .del('my_test_key2');
+        """)
+        n1 = await q('node_info().load().cached_names;', scope='/n/0')
+
+        await self.node0.shutdown()
+        await self.node0.run()
+        n2 = await q('node_info().load().cached_names;', scope='/n/0')
+
+        self.assertEqual(n1, n2)
+        res = await q('.arr;')
+        self.assertEqual(res[0], 'my_test_key1')
+        self.assertEqual(res[1], 'my_test_key2')
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

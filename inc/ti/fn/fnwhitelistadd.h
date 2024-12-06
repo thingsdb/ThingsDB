@@ -30,17 +30,9 @@ static int do__f_whitelist_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     raw = (ti_raw_t *) query->rval;
-    if (ti_raw_eq_strn(raw, "rooms", strlen("rooms")))
-        wid = TI_WHITELIST_ROOMS;
-    else if (ti_raw_eq_strn(raw, "procedures", strlen("procedures")))
-        wid = TI_WHITELIST_PROCEDURES;
-    else
-    {
-        ex_set(e, EX_VALUE_ERROR,
-            "function `whitelist_add` expects argument 2 to be "
-            "\"rooms\" or \"procedures\""DOC_WHITELIST_ADD);
+    wid = ti_whitelist_from_strn((const char *) raw->data, raw->n, e);
+    if (e->nr)
         return e->nr;
-    }
 
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
@@ -51,10 +43,8 @@ static int do__f_whitelist_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_whitelist_add(&user->whitelists[wid], query->rval, e))
         return e->nr;
 
-
-
     task = ti_task_get_task(query->change, ti.thing0);
-    if (!task || ti_task_whitelist_add(task, scope_id, user, mask))
+    if (!task || ti_task_whitelist_add(task, user, wid, query->rval))
         ex_set_mem(e);  /* task cleanup is not required */
 
     ti_val_unsafe_drop(query->rval);

@@ -52,6 +52,7 @@ static ti_val_t * whitelist__val(ti_val_t * val, ex_t * e)
     return NULL;
 }
 
+/* Both the `whitelist` and `val` argument may be NULL */
 int ti_whitelist_add(vec_t ** whitelist, ti_val_t * val, ex_t * e)
 {
     if (!val)
@@ -105,13 +106,14 @@ fail:
     return e->nr;
 }
 
+/* Both the `whitelist` and `val` argument may be NULL */
 int ti_whitelist_drop(vec_t ** whitelist, ti_val_t * val, ex_t * e)
 {
     if (!val)
     {
         if (*whitelist)
         {
-            vec_destroy_cb(*whitelist, ti_val_unsafe_drop);
+            vec_destroy(*whitelist, (vec_destroy_cb) ti_val_unsafe_drop);
             *whitelist = NULL;
         }
         else
@@ -147,6 +149,19 @@ int ti_whitelist_drop(vec_t ** whitelist, ti_val_t * val, ex_t * e)
         "not found", e);
 done:
     ti_val_unsafe_drop(val);
+    return e->nr;
+}
+
+int ti_whitelist_from_strn(const char * str, size_t n, ex_t * e)
+{
+    if (n == strlen("rooms") && memcmp(str, "rooms", n) == 0)
+        return TI_WHITELIST_ROOMS;
+
+    if (n == strlen("procedures") && memcmp(str, "procedures", n) == 0)
+        return TI_WHITELIST_PROCEDURES;
+
+    ex_set(e, EX_VALUE_ERROR,
+        "invalid whitelist; expecting \"rooms\" or \"procedures\"");
     return e->nr;
 }
 

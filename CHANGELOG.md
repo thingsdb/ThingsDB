@@ -2,6 +2,7 @@
 
 * Fix incorrect value error when user or token is not found, pr #390.
 * Implement optional _name_ for a room, pr #393.
+* Use MessagePack Extension to internally store names, issue #394.
 
 # v1.6.6
 

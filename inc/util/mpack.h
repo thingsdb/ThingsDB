@@ -23,6 +23,7 @@ typedef enum
     MPACK_EXT_ROOM,
     MPACK_EXT_TASK,
     MPACK_EXT_THING,
+    MPACK_EXT_NAME,
 } mpack_ext_t;
 
 typedef struct

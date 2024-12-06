@@ -226,6 +226,7 @@ set(SOURCES
     src/ti/warn.c
     src/ti/watch.c
     src/ti/web.c
+    src/ti/whitelist.c
     src/ti/wrap.c
     src/ti/write.c
     src/ti/ws.c

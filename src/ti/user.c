@@ -97,6 +97,27 @@ static int user__pack_tokens(ti_user_t * user, msgpack_packer * pk)
     return 0;
 }
 
+static int user__pack_whitelist(vec_t * whitelist, msgpack_packer * pk)
+{
+    if (msgpack_pack_array(pk, whitelist->n))
+        return -1;
+
+    for (vec_each(whitelist, ti_val_t, v))
+    {
+        if (ti_val_is_regex(v))
+        {
+            if (ti_regex_to_client_pk((ti_regex_t *) v, pk))
+                return -1;
+        }
+        else
+        {
+            if (ti_raw_str_to_pk((ti_raw_t *) v, pk))
+                return -1;
+        }
+    }
+    return 0;
+}
+
 ti_user_t * ti_user_create(
         uint64_t id,
         const char * name,
@@ -114,6 +135,8 @@ ti_user_t * ti_user_create(
     user->encpass = encrpass ? strdup(encrpass) : NULL;
     user->tokens = vec_new(0);
     user->created_at = created_at;
+    user->rooms_whitelist = NULL;
+    user->procedures_whitelist = NULL;
 
     if (!user->name || (encrpass && !user->encpass) || !user->tokens)
     {
@@ -286,9 +309,14 @@ static size_t user__count_access(ti_user_t * user)
     return n;
 }
 
+static inline size_t user__count_whitelist(ti_user_t * user)
+{
+    return !!user->rooms_whitelist + !!user->procedures_whitelist;
+}
+
 int ti_user_info_to_pk(ti_user_t * user, msgpack_packer * pk)
 {
-    if (msgpack_pack_map(pk, 6) ||  /* four below + tokens */
+    if (msgpack_pack_map(pk, 7) ||  /* four below + tokens */
 
         mp_pack_str(pk, "user_id") ||
         msgpack_pack_uint64(pk, user->id) ||
@@ -325,7 +353,20 @@ int ti_user_info_to_pk(ti_user_t * user, msgpack_packer * pk)
             return -1;
     }
 
-    if (user__pack_tokens(user, pk))
+    if (user__pack_tokens(user, pk) ||
+        mp_pack_str(pk, "whitelists") ||
+        msgpack_pack_map(pk, user__count_whitelist(user)))
+        return -1;
+
+
+    if (user->rooms_whitelist && (
+        mp_pack_str(pk, "rooms") ||
+        user__pack_whitelist(user->rooms_whitelist, pk)))
+        return -1;
+
+    if (user->procedures_whitelist && (
+        mp_pack_str(pk, "procedures") ||
+        user__pack_whitelist(user->procedures_whitelist, pk)))
         return -1;
 
     return 0;

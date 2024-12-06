@@ -37,6 +37,27 @@ class TestSimple(TestBase):
     async def test_hello_world(self, client):
         await client.query('"Hello world!"')
 
+    async def test_names_loading(self, client):
+        q = client.query
+        # Force a few new keys. (issue #394)
+        # Before 1.7.0 ThingsDB did not reload existing names as names, but
+        # they were loaded as strings instead. This is not an issue but it is
+        # preferred to load them back as names. This checks verifies that
+        # names are really restored as cached names, not strings.
+        await q("""//ti
+            .my_test1 = 1;
+            .my_test2 = 2;
+            .a = .keys();
+            .del('my_test1');
+            .del('my_test2');
+        """)
+        n1 = await q('node_info().load().cached_names;', scope='/n/0')
+        await self.node0.shutdown()
+        await self.node0.run()
+        n2 = await q('node_info().load().cached_names;', scope='/n/0')
+
+        self.assertEqual(n1, n2)
+
 
 if __name__ == '__main__':
     run_test(TestSimple())

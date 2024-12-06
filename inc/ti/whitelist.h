@@ -21,5 +21,6 @@ int ti_whitelist_add(vec_t ** whitelist, ti_val_t * val, ex_t * e);
 int ti_whitelist_drop(vec_t ** whitelist, ti_val_t * val, ex_t * e);
 int ti_whitelist_from_strn(const char * str, size_t n, ex_t * e);
 int ti_whitelist_test(vec_t * whitelist, ti_name_t * name, ex_t * e);
+int ti_whitelist_check(vec_t * whitelist, ti_name_t * name);
 
 #endif  /* TI_WHITELIST_H_ */

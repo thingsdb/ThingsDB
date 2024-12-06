@@ -30,12 +30,13 @@
 #include <ti/query.h>
 #include <ti/query.inline.h>
 #include <ti/task.h>
-#include <ti/vtask.h>
-#include <ti/vtask.inline.h>
 #include <ti/val.inline.h>
 #include <ti/varr.h>
 #include <ti/verror.h>
 #include <ti/vset.h>
+#include <ti/vtask.h>
+#include <ti/vtask.inline.h>
+#include <ti/whitelist.h>
 #include <ti/wrap.h>
 #include <util/strx.h>
 
@@ -323,7 +324,7 @@ static int query__run_arr_props(
             assert(e->nr);
             ex_append(e, " (argument %zu for procedure `%s`)",
                 idx,
-                procedure->name);
+                procedure->name->str);
             return e->nr;
         }
         ti_val_unsafe_drop(vec_set(query->immutable_cache, val, idx));
@@ -370,7 +371,7 @@ static int query__run_map_props(
             ex_append(e, " (argument `%.*s` for procedure `%s`)",
                 arg_name.via.str.n,
                 arg_name.via.str.data,
-                procedure->name);
+                procedure->name->str);
             return e->nr;
         }
 
@@ -451,6 +452,12 @@ int ti_query_unp_run(
                 mp_procedure.via.str.data);
         return e->nr;
     }
+
+    if (ti_whitelist_test(
+        query->user->whitelists[TI_WHITELIST_PROCEDURES],
+        procedure->name,
+        e))
+        return e->nr;
 
     if (procedure->closure->flags & TI_CLOSURE_FLAG_WSE)
         query->qbind.flags |= TI_QBIND_FLAG_WSE;

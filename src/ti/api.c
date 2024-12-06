@@ -14,6 +14,7 @@
 #include <ti/query.inline.h>
 #include <ti/req.h>
 #include <ti/scope.h>
+#include <ti/whitelist.h>
 #include <util/logger.h>
 #include <util/mpjson.h>
 

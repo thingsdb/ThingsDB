@@ -16,7 +16,7 @@ int ti_procedures_to_pk(smap_t * procedures, msgpack_packer * pk);
 int ti_procedures_rename(
         smap_t * procedures,
         ti_procedure_t * procedure,
-        const char * name,
+        const char * str,
         size_t n);
 
 static inline void ti_procedures_clear(smap_t * procedures)
@@ -28,7 +28,7 @@ static inline ti_procedure_t * ti_procedures_pop(
         smap_t * procedures,
         ti_procedure_t * procedure)
 {
-    return smap_pop(procedures, procedure->name);
+    return smap_pop(procedures, procedure->name->str);
 }
 
 

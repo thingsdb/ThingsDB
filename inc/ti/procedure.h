@@ -17,7 +17,7 @@ typedef struct ti_procedure_s ti_procedure_t;
 #include <ti/val.h>
 
 ti_procedure_t * ti_procedure_create(
-        const char * name,
+        const char * str,
         size_t name_n,
         ti_closure_t * closure,
         uint64_t created_at);
@@ -37,8 +37,7 @@ ti_val_t * ti_procedure_as_mpval(
 struct ti_procedure_s
 {
     uint64_t created_at;        /* UNIX time-stamp in seconds */
-    char * name;                /* NULL terminated name */
-    size_t name_n;              /* size of the name */
+    ti_name_t * name;
     ti_raw_t * doc;             /* documentation, may be NULL */
     ti_raw_t * def;             /* formatted definition, may be NULL */
     ti_closure_t * closure;     /* closure */

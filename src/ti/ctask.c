@@ -2281,7 +2281,7 @@ static int ctask__new_procedure(ti_thing_t * thing, mp_unp_t * up)
                 "task `new_procedure` for "TI_COLLECTION_ID": "
                 "procedure `%s` already exists",
                 collection->id,
-                procedure->name);
+                procedure->name->str);
 
 failed:
     ti_procedure_destroy(procedure);

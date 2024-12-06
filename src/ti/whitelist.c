@@ -183,3 +183,16 @@ int ti_whitelist_test(vec_t * whitelist, ti_name_t * name, ex_t * e)
             name->str);
     return e->nr;
 }
+
+int ti_whitelist_check(vec_t * whitelist, ti_name_t * name)
+{
+    if (!whitelist)
+        return 0;
+    if (!name)
+        return -1;
+    for (vec_each(whitelist, ti_val_t, v))
+        if (v == (ti_val_t *) name || (ti_val_is_regex(v) &&
+                ti_regex_test((ti_regex_t *) v, (ti_raw_t *) name)))
+            return 0;
+    return -1;
+}

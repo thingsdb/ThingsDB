@@ -546,7 +546,7 @@ static int ttask__new_procedure(mp_unp_t * up)
         log_critical(
                 "task `new_procedure` for `.thingsdb`: "
                 "procedure `%s` already exists",
-                procedure->name);
+                procedure->name->str);
 
 failed:
     ti_procedure_destroy(procedure);

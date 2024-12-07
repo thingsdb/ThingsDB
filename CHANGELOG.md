@@ -1,8 +1,9 @@
 # v1.7.0
 
-* Fix incorrect value error when user or token is not found, pr #390.
+* Fix incorrect value error when user or token is not found, pr #390 (@rickmoonex).
 * Implement optional _name_ for a room, pr #393.
 * Use MessagePack Extension to internally store names, issue #394.
+* Added whitelist support for both _"procedures"_ and _"rooms"_, pr #395.
 
 # v1.6.6
 

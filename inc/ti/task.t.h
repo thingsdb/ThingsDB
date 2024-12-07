@@ -91,7 +91,7 @@ typedef enum
     TI_TASK_IMPORT,                         /* 78  */
     TI_TASK_ROOM_SET_NAME,                  /* 79  */
     TI_TASK_WHITELIST_ADD,                  /* 80  */
-    TI_TASK_WHITELIST_DEL,                 /* 81  */
+    TI_TASK_WHITELIST_DEL,                  /* 81  */
 } ti_task_enum;
 
 typedef struct ti_task_s ti_task_t;

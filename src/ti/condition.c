@@ -21,7 +21,6 @@ static ti_val_t * condition__dval_cb(ti_field_t * field)
     return dval;
 }
 
-
 int ti_condition_field_info_init(
         ti_field_t * field,
         const char * str,
@@ -413,7 +412,6 @@ int ti_condition_field_info_init(
         goto failed;
     }
 
-
 invalid:
     ex_set(e, EX_VALUE_ERROR,
             "invalid declaration for `%s` on type `%s`; "
@@ -566,6 +564,20 @@ fail0:
     return e->nr;
 }
 
+int ti_condition_init_enum(ti_field_t * field, ti_member_t * member, ex_t * e)
+{
+    field->condition.none = malloc(sizeof(ti_condition_t));
+    if (!field->condition.none)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+    field->condition.none->dval = (ti_val_t *) member;
+    field->dval_cb = condition__dval_cb;
+    ti_incref(member);
+    return 0;
+}
+
 static void condition__del_type_cb(
         ti_field_t * field,
         ti_thing_t * thing,
@@ -710,6 +722,8 @@ void ti_condition_destroy(ti_condition_via_t condition, uint16_t spec)
         ti_val_drop(condition.none->dval);
         /* fall through */
     default:
+        if (spec >= 0x6000)  /* in case of enum default */
+            ti_val_drop(condition.none->dval);
         free(condition.none);
         return;
     }

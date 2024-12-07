@@ -273,6 +273,13 @@ static void enum__ren(
     {
         if (ti_member_set_name(member, (const char *) rname->data, rname->n, e))
             return;
+
+        if (ti_types_ren_member_spec(query->collection->types, member))
+        {
+            ti_panic("failed to rename enumerator definitions");
+            ex_set_mem(e);
+            return;
+        }
     }
     else if (ti_method_set_name_e(
             method,

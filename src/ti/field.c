@@ -624,6 +624,97 @@ skip_nesting:
         goto found;
     }
 
+    if (str[n-1] == '}')
+    {
+        /* possible enum with default */
+        size_t m = 0;
+        for (; m < n-1; m++)
+        {
+            if (str[m] == '{')
+            {
+                ti_enum_t * enum_ = ti_enums_by_strn(
+                    field->type->types->collection->enums,
+                    str,
+                    m);
+
+                if (enum_)
+                {
+                    ti_member_t * member;
+
+                    if (enum_->flags & TI_ENUM_FLAG_LOCK)
+                    {
+                        ex_set(e, EX_OPERATION,
+                            "invalid declaration for `%s` on type `%s`; "
+                            "cannot assign enum type `%s` while the "
+                            "enum is in use"DOC_T_TYPE,
+                            field->name->str, field->type->name,
+                            enum_->name);
+
+                        return e->nr;
+                    }
+
+                    if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET)
+                    {
+                        ex_set(e, EX_TYPE_ERROR,
+                            "invalid declaration for `%s` on type `%s`; "
+                            "type `"TI_VAL_SET_S"` cannot contain "
+                            "enum type `%s`"DOC_T_TYPE,
+                            field->name->str, field->type->name,
+                            enum_->name);
+                        return e->nr;
+                    }
+
+                    if (m == n-2)
+                    {
+                        ex_set(e, EX_TYPE_ERROR,
+                            "invalid declaration for `%s` on type `%s`; "
+                            "if you want the default enum member, remove "
+                            "the curly brackets `{}` from the definition"
+                            DOC_T_TYPE,
+                            field->name->str, field->type->name);
+                        return e->nr;
+                    }
+
+                    member = ti_enum_member_by_strn(enum_, str[m], n-m-1);
+                    if (!member)
+                    {
+                        if (field__spec_is_ascii(field, str, n, e))
+                            ex_set(e, EX_LOOKUP_ERROR,
+                                "invalid declaration for `%s` on type `%s`; "
+                                "cannot find member `%.*s on "
+                                "enum type `%s`"DOC_T_TYPE,
+                                field->name->str, field->type->name,
+                                n-m-1, str[m],
+                                enum_->name);
+                        return e->nr;
+                    }
+
+                    if (ti_condition_init_enum(field, member, e))
+                        return e->nr;
+
+                    *spec |= enum_->enum_id | TI_ENUM_ID_FLAG;
+
+                    if (vec_push(&field->type->dependencies, enum_))
+                    {
+                        ex_set_mem(e);
+                        return e->nr;
+                    }
+
+                    ++enum_->refcount;
+                    goto found;
+                }
+            }
+        }
+
+        if (field__spec_is_ascii(field, str, n, e))
+            ex_set(e, EX_TYPE_ERROR,
+                    "invalid declaration for `%s` on type `%s`; "
+                    "unknown type `%.*s` in declaration"DOC_T_TYPE,
+                    field->name->str, field->type->name,
+                    n, str);
+        return e->nr;
+    }
+
     if (field__cmp(str, n, field->type->name))
     {
         *spec |= field->type->type_id;
@@ -671,8 +762,8 @@ skip_nesting:
             {
                 ex_set(e, EX_OPERATION,
                     "invalid declaration for `%s` on type `%s`; "
-                    "cannot assign enum type `%s` while the enum is in use"
-                    DOC_T_TYPE,
+                    "cannot assign enum type `%s` while the "
+                    "enum is in use"DOC_T_TYPE,
                     field->name->str, field->type->name,
                     enum_->name);
 
@@ -683,8 +774,8 @@ skip_nesting:
             {
                 ex_set(e, EX_TYPE_ERROR,
                     "invalid declaration for `%s` on type `%s`; "
-                    "type `"TI_VAL_SET_S"` cannot contain enum type `%s`"
-                    DOC_T_TYPE,
+                    "type `"TI_VAL_SET_S"` cannot contain "
+                    "enum type `%s`"DOC_T_TYPE,
                     field->name->str, field->type->name,
                     enum_->name);
                 return e->nr;

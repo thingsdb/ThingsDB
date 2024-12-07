@@ -196,7 +196,7 @@ int ti_type_rename(ti_type_t * type, ti_raw_t * nname)
         return -1;
     }
 
-    if (ti_types_rename_spec(type->types, type->type_id, type->rname, nname))
+    if (ti_types_ren_spec(type->types, type->type_id, type->rname, nname))
     {
         ti_panic("failed to rename all type");
         return -1;

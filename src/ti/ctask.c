@@ -1318,13 +1318,20 @@ set_member:
             mp_to.via.str.n,
             &e);
 
+    if (ti_types_ren_member_spec(collection->types, member))
+    {
+        ti_panic("failed to rename enumerator definitions");
+        ex_set_mem(e);
+    }
+
 done:
     if (e.nr)
         log_critical(e.msg);
     else
+    {
         /* update modified time-stamp */
         enum_->modified_at = mp_modified.via.u64;
-
+    }
     return e.nr;
 }
 

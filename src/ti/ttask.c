@@ -651,7 +651,7 @@ static int ttask__whitelist_add(mp_unp_t * up)
     rc = ti_whitelist_add(&user->whitelists[mp_wid.via.u64], val, &e);
     if (rc)
         log_critical("task `whitelist_add`: %s", e.msg);
-    ti_val_unsafe_drop(val);
+    ti_val_drop(val);  /* val might be NULL when obj.via.sz < 3 */
     return 0;
 }
 
@@ -699,7 +699,7 @@ static int ttask__whitelist_del(mp_unp_t * up)
     rc = ti_whitelist_del(&user->whitelists[mp_wid.via.u64], val, &e);
     if (rc)
         log_critical("task `whitelist_del`: %s", e.msg);
-    ti_val_unsafe_drop(val);
+    ti_val_drop(val);  /* val might be NULL when obj.via.sz < 3 */
     return 0;
 }
 

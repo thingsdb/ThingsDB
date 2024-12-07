@@ -252,9 +252,21 @@ class TestWhitelist(TestBase):
         res = await r('math_mul', 5, 6)
         self.assertEqual(res, 30)
 
+        wl = await q('user_info().load().whitelists;')
+        self.assertEqual(wl, {
+            "procedures": ['/^math_.*/', 'sum'],
+            "rooms": ['app', '/^str_.*/']
+        })
+
         await q('whitelist_del("admin", "procedures", "sum");', scope='/t')
         await \
             q('whitelist_del("admin", "procedures", /^math_.*/);', scope='/t')
+
+        wl = await q('user_info().load().whitelists;')
+        self.assertEqual(wl, {
+            "procedures": [],
+            "rooms": ['app', '/^str_.*/']
+        })
 
         with self.assertRaisesRegex(
                 ForbiddenError,
@@ -284,7 +296,14 @@ class TestWhitelist(TestBase):
             await r('math_mul', 5, 6)
 
         await q('whitelist_del("admin", "rooms");', scope='/t')
+
+        wl = await q('user_info().load().whitelists;')
+        self.assertEqual(wl, {
+            "procedures": [],
+        })
         await q('whitelist_del("admin", "procedures");', scope='/t')
+        wl = await q('user_info().load().whitelists;')
+        self.assertEqual(wl, {})
 
         res = await r('mul', 5, 7)
         self.assertEqual(res, 35)
@@ -320,6 +339,8 @@ class TestWhitelist(TestBase):
 
         userlient.close()
 
+        await self.node0.shutdown()
+        await self.node0.run()
 
 if __name__ == '__main__':
     run_test(TestWhitelist())

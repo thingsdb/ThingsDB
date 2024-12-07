@@ -14,7 +14,7 @@ if BACKUP_PATH is None:
 
 class TestMigrate(TestBase):
 
-    title = 'Test simple run'
+    title = 'Test migration'
 
     @default_test_setup(num_nodes=3, seed=1, threshold_full_storage=10)
     async def run(self):

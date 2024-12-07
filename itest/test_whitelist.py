@@ -27,7 +27,7 @@ class TestWhitelist(TestBase):
         await self.node0.init_and_run()
 
         client = await get_client(self.node0)
-        client.set_default_scope('/t')
+        client.set_default_scope('//stuff')
 
         await self.run_tests(client)
 
@@ -37,18 +37,40 @@ class TestWhitelist(TestBase):
     async def test_whitelist(self, client):
         q = client.query
         r = client.run
-        user = await q('user_info().load().name;')
-        res = await q("""//ti
+        await q("""//ti
+            user = user_info().load().name;
+            whitelist_add(user, "procedures", /^math_.*/);
+            whitelist_add(user, "procedures", "sum");
+            whitelist_add(user, "rooms", "app");
+            whitelist_add(user, "rooms", /^str_.*/);
+        """, scope='/t')
+
+        room_ids = await q("""//ti
             new_procedure('sum', |a, b| a + b);
             new_procedure('mul', |a, b| a * b);
-            whitelist_add(user, "procedures");
-        """, user=user)
+            new_procedure('math_sum', |a, b| a + b);
+            new_procedure('math_mul', |a, b| a * b);
+            rval = [
+                .app_room = room(),
+                .web_room = room(),
+                .no_name_room = room(),
+                .str_room_lower = room(),
+                .str_room_upper = room(),
+            ];
+            .app_room.set_name('app');
+            .web_room.set_name('web');
+            .str_room_lower.set_name('str_lower');
+            .str_room_upper.set_name('str_upper');
+            rval.map_id();
+        """)
 
         res = await r('sum', 3, 4)
         self.assertEqual(res, 7)
 
-        res = await r('mul', 3, 4)
+        res = await r('math_mul', 3, 4)
+        self.assertEqual(res, 12)
 
+        res = await client._join(room_ids[2])
 
 
 

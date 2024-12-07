@@ -246,6 +246,26 @@ class TestWhitelist(TestBase):
                 r'no match in whitelist for `mul`'):
             await r('mul', 5, 6)
 
+        res = await r('sum', 5, 6)
+        self.assertEqual(res, 11)
+
+        res = await r('math_mul', 5, 6)
+        self.assertEqual(res, 30)
+
+        await q('whitelist_del("admin", "procedures", "sum");', scope='/t')
+        await \
+            q('whitelist_del("admin", "procedures", /^math_.*/);', scope='/t')
+
+        with self.assertRaisesRegex(
+                ForbiddenError,
+                r'no match in whitelist for `sum`'):
+            await r('sum', 5, 6)
+
+        with self.assertRaisesRegex(
+                ForbiddenError,
+                r'no match in whitelist for `math_mul`'):
+            await r('math_mul', 5, 6)
+
         # Force full storage
         for i in range(TFS):
             await q('.x = i;', i=i)
@@ -253,18 +273,27 @@ class TestWhitelist(TestBase):
         await self.node0.shutdown()
         await self.node0.run()
 
+        with self.assertRaisesRegex(
+                ForbiddenError,
+                r'no match in whitelist for `sum`'):
+            await r('sum', 5, 6)
+
+        with self.assertRaisesRegex(
+                ForbiddenError,
+                r'no match in whitelist for `math_mul`'):
+            await r('math_mul', 5, 6)
+
         await q('whitelist_del("admin", "rooms");', scope='/t')
         await q('whitelist_del("admin", "procedures");', scope='/t')
 
-        res = await r('mul', 5, 6)
-        self.assertEqual(res, 30)
+        res = await r('mul', 5, 7)
+        self.assertEqual(res, 35)
         res = await client._join(room_ids[1])
         self.assertEqual(res, [room_ids[1]])
 
     async def test_whitelist_access(self, client):
         q = client.query
-
-        await client.query(r"""//ti
+        await q(r"""//ti
             new_user('user');
             set_password('user', 'user');
             grant('/t', "user", USER);

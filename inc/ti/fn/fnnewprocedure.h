@@ -51,7 +51,7 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "procedure `%s` already exists",
-                procedure->name);
+                procedure->name->str);
         goto fail2;
     }
 

@@ -25,6 +25,7 @@
 #include <ti/vtask.inline.h>
 #include <ti/types.h>
 #include <ti/val.inline.h>
+#include <ti/whitelist.h>
 #include <ti/wrap.h>
 #include <util/fx.h>
 #include <util/strx.h>
@@ -598,6 +599,7 @@ ti_pkg_t * ti_collection_join_rooms(
     mp_unp_t up;
     mp_obj_t obj = {0}, mp_id;
     ti_room_t * room;
+    vec_t * whitelist = stream->via.user->whitelists[TI_WHITELIST_ROOMS];
 
     mp_unp_init(&up, pkg->data, pkg->n);
 
@@ -638,10 +640,29 @@ ti_pkg_t * ti_collection_join_rooms(
             break;
         }
 
-        if (room && ti_room_join(room, stream) == 0)
+        if (room &&
+            ti_whitelist_check(whitelist, room->name) == 0 &&
+            ti_room_join(room, stream) == 0)
             msgpack_pack_uint64(&pk, room->id);
         else
-            msgpack_pack_nil(&pk);
+        {
+            if (room && nargs == 1)
+            {
+                if (room->name)
+                    ex_set(e, EX_FORBIDDEN,
+                        "no match in whitelist for room `%.*s`",
+                        room->name->n,
+                        room->name->str);
+
+                else
+                    ex_set(e, EX_FORBIDDEN,
+                        "no match in whitelist for "TI_ROOM_ID,
+                        room->id);
+            }
+            else
+                /* do not return with an error with multiple rooms to join */
+                msgpack_pack_nil(&pk);
+        }
     }
 
     uv_mutex_unlock(collection->lock);

@@ -37,6 +37,7 @@ from test_type import TestType
 from test_types import TestTypes
 from test_user_access import TestUserAccess
 from test_variable import TestVariable
+from test_whitelist import TestWhitelist
 from test_wrap import TestWrap
 from test_ws import TestWS
 from test_wss import TestWSS
@@ -98,6 +99,7 @@ if __name__ == '__main__':
     run_test(TestTypes())
     run_test(TestUserAccess())
     run_test(TestVariable())
+    run_test(TestWhitelist())
     run_test(TestWS())
     run_test(TestWSS())
     run_test(TestWrap())

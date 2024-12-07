@@ -686,6 +686,18 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
 
             return (ti_val_t *) thing;
         }
+        case MPACK_EXT_NAME:
+        {
+            ti_name_t * name = ti_names_get(
+                (const char *) obj.via.ext.data,
+                obj.via.ext.n);
+            if (!name)
+            {
+                ex_set_mem(e);
+                return NULL;
+            }
+            return (ti_val_t *) name;
+        }
         }
         ex_set(e, EX_BAD_DATA,
                 "msgpack extension type %d is not supported by ThingsDB",

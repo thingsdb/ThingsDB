@@ -7,6 +7,7 @@
 #include <ti/raw.inline.h>
 #include <ti/token.h>
 #include <ti/user.h>
+#include <ti/whitelist.h>
 #include <ti/val.inline.h>
 #include <util/cryptx.h>
 #include <util/iso8601.h>
@@ -97,6 +98,27 @@ static int user__pack_tokens(ti_user_t * user, msgpack_packer * pk)
     return 0;
 }
 
+static int user__pack_whitelist(vec_t * whitelist, msgpack_packer * pk)
+{
+    if (msgpack_pack_array(pk, whitelist->n))
+        return -1;
+
+    for (vec_each(whitelist, ti_val_t, v))
+    {
+        if (ti_val_is_regex(v))
+        {
+            if (ti_regex_to_client_pk((ti_regex_t *) v, pk))
+                return -1;
+        }
+        else
+        {
+            if (ti_raw_str_to_pk((ti_raw_t *) v, pk))
+                return -1;
+        }
+    }
+    return 0;
+}
+
 ti_user_t * ti_user_create(
         uint64_t id,
         const char * name,
@@ -114,6 +136,8 @@ ti_user_t * ti_user_create(
     user->encpass = encrpass ? strdup(encrpass) : NULL;
     user->tokens = vec_new(0);
     user->created_at = created_at;
+    user->whitelists[TI_WHITELIST_ROOMS] = NULL;
+    user->whitelists[TI_WHITELIST_PROCEDURES] = NULL;
 
     if (!user->name || (encrpass && !user->encpass) || !user->tokens)
     {
@@ -131,6 +155,12 @@ void ti_user_drop(ti_user_t * user)
         free(user->encpass);
         ti_val_drop((ti_val_t *) user->name);
         vec_destroy(user->tokens, (vec_destroy_cb) ti_token_destroy);
+        vec_destroy(
+                user->whitelists[TI_WHITELIST_ROOMS],
+                (vec_destroy_cb) ti_val_unsafe_drop);
+        vec_destroy(
+                user->whitelists[TI_WHITELIST_PROCEDURES],
+                (vec_destroy_cb) ti_val_unsafe_drop);
         free(user);
     }
 }
@@ -286,9 +316,16 @@ static size_t user__count_access(ti_user_t * user)
     return n;
 }
 
+static inline size_t user__count_whitelist(ti_user_t * user)
+{
+    return \
+        !!user->whitelists[TI_WHITELIST_ROOMS] + \
+        !!user->whitelists[TI_WHITELIST_PROCEDURES];
+}
+
 int ti_user_info_to_pk(ti_user_t * user, msgpack_packer * pk)
 {
-    if (msgpack_pack_map(pk, 6) ||  /* four below + tokens */
+    if (msgpack_pack_map(pk, 7) ||  /* four below + tokens */
 
         mp_pack_str(pk, "user_id") ||
         msgpack_pack_uint64(pk, user->id) ||
@@ -325,7 +362,20 @@ int ti_user_info_to_pk(ti_user_t * user, msgpack_packer * pk)
             return -1;
     }
 
-    if (user__pack_tokens(user, pk))
+    if (user__pack_tokens(user, pk) ||
+        mp_pack_str(pk, "whitelists") ||
+        msgpack_pack_map(pk, user__count_whitelist(user)))
+        return -1;
+
+
+    if (user->whitelists[TI_WHITELIST_ROOMS] && (
+        mp_pack_str(pk, "rooms") ||
+        user__pack_whitelist(user->whitelists[TI_WHITELIST_ROOMS], pk)))
+        return -1;
+
+    if (user->whitelists[TI_WHITELIST_PROCEDURES] && (
+        mp_pack_str(pk, "procedures") ||
+        user__pack_whitelist(user->whitelists[TI_WHITELIST_PROCEDURES], pk)))
         return -1;
 
     return 0;

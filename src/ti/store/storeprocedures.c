@@ -16,7 +16,7 @@ static int procedure__store_cb(ti_procedure_t * procedure, msgpack_packer * pk)
 {
     return -(
         msgpack_pack_array(pk, 3) ||
-        mp_pack_strn(pk, procedure->name, procedure->name_n) ||
+        mp_pack_strn(pk, procedure->name->str, procedure->name->n) ||
         msgpack_pack_uint64(pk, procedure->created_at) ||
         ti_closure_to_store_pk(procedure->closure, pk)
     );

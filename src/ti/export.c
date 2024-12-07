@@ -279,8 +279,8 @@ static int export__procedure_cb(ti_procedure_t * procedure, ti_fmt_t * fmt)
         buf_append_str(&fmt->buf, "new_procedure('") ||
         buf_append(
                 &fmt->buf,
-                procedure->name,
-                procedure->name_n) ||
+                procedure->name->str,
+                procedure->name->n) ||
         buf_append_str(&fmt->buf, "', ") ||
         ti_fmt_nd(fmt, procedure->closure->node) ||
         buf_append_str(&fmt->buf, ");\n")

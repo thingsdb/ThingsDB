@@ -21,6 +21,7 @@
 #include <ti/verror.h>
 #include <ti/vtask.h>
 #include <ti/vtask.inline.h>
+#include <ti/whitelist.h>
 #include <util/cryptx.h>
 #include <util/fx.h>
 #include <util/mpack.h>
@@ -545,7 +546,7 @@ static int ttask__new_procedure(mp_unp_t * up)
         log_critical(
                 "task `new_procedure` for `.thingsdb`: "
                 "procedure `%s` already exists",
-                procedure->name);
+                procedure->name->str);
 
 failed:
     ti_procedure_destroy(procedure);
@@ -603,6 +604,102 @@ static int ttask__mod_procedure(mp_unp_t * up)
     }
 
     ti_procedure_mod(procedure, closure, mp_created.via.u64);
+    return 0;
+}
+
+static int ttask__whitelist_add(mp_unp_t * up)
+{
+    int rc;
+    ex_t e = {0};
+    mp_obj_t obj, mp_user, mp_wid;
+    ti_user_t * user;
+    ti_val_t * val = NULL;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = NULL,
+            .up = up,
+    };
+
+    if (mp_next(up, &obj) != MP_ARR || obj.via.sz < 2 || obj.via.sz > 3 ||
+        mp_next(up, &mp_user) != MP_U64 ||
+        mp_next(up, &mp_wid) != MP_U64 ||
+        mp_wid.via.u64 < 0 || mp_wid.via.u64 > 1)
+    {
+        log_critical("task `whitelist_add`: invalid task data");
+        return -1;
+    }
+
+    user = ti_users_get_by_id(mp_user.via.u64);
+    if (!user)
+    {
+        log_critical(
+                "task `whitelist_add`: "TI_USER_ID" not found",
+                mp_user.via.u64);
+        return -1;
+    }
+
+    if (obj.via.sz == 3)
+    {
+        val = (ti_val_t *) ti_val_from_vup(&vup);
+        if (!val)
+        {
+            ti_panic("failed to set whitelist value");
+            return -1;
+        }
+    }
+
+    rc = ti_whitelist_add(&user->whitelists[mp_wid.via.u64], val, &e);
+    if (rc)
+        log_critical("task `whitelist_add`: %s", e.msg);
+    ti_val_drop(val);  /* val might be NULL when obj.via.sz < 3 */
+    return 0;
+}
+
+static int ttask__whitelist_del(mp_unp_t * up)
+{
+    int rc;
+    ex_t e = {0};
+    mp_obj_t obj, mp_user, mp_wid;
+    ti_user_t * user;
+    ti_val_t * val = NULL;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = NULL,
+            .up = up,
+    };
+
+    if (mp_next(up, &obj) != MP_ARR || obj.via.sz < 2 || obj.via.sz > 3 ||
+        mp_next(up, &mp_user) != MP_U64 ||
+        mp_next(up, &mp_wid) != MP_U64 ||
+        mp_wid.via.u64 < 0 || mp_wid.via.u64 > 1)
+    {
+        log_critical("task `whitelist_del`: invalid task data");
+        return -1;
+    }
+
+    user = ti_users_get_by_id(mp_user.via.u64);
+    if (!user)
+    {
+        log_critical(
+                "task `whitelist_del`: "TI_USER_ID" not found",
+                mp_user.via.u64);
+        return -1;
+    }
+
+    if (obj.via.sz == 3)
+    {
+        val = (ti_val_t *) ti_val_from_vup(&vup);
+        if (!val)
+        {
+            ti_panic("failed to delete whitelist value");
+            return -1;
+        }
+    }
+
+    rc = ti_whitelist_del(&user->whitelists[mp_wid.via.u64], val, &e);
+    if (rc)
+        log_critical("task `whitelist_del`: %s", e.msg);
+    ti_val_drop(val);  /* val might be NULL when obj.via.sz < 3 */
     return 0;
 }
 
@@ -1636,6 +1733,8 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_REPLACE_ROOT:      break;
     case TI_TASK_IMPORT:            break;
     case TI_TASK_ROOM_SET_NAME:     break;
+    case TI_TASK_WHITELIST_ADD:     return ttask__whitelist_add(up);
+    case TI_TASK_WHITELIST_DEL:     return ttask__whitelist_del(up);
     }
 
     log_critical("unknown thingsdb task: %"PRIu64, mp_task.via.u64);

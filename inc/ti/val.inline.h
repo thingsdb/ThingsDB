@@ -317,7 +317,7 @@ static ti_val_type_t ti_val_type_props[22] = {
         .to_str = val__str_to_str,
         .to_arr_cb = val__to_arr_cb,
         .to_client_pk = val__str_to_client_pk,
-        .to_store_pk = (ti_val_to_store_pk_cb) ti_raw_str_to_pk,
+        .to_store_pk = (ti_val_to_store_pk_cb) ti_name_to_pk,
         .get_type_str = val__str_type_str,
         .allowed_as_vtask_arg = true,
     },

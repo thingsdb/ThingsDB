@@ -10,7 +10,7 @@
  */
 int ti_procedures_add(smap_t * procedures, ti_procedure_t * procedure)
 {
-    switch(smap_add(procedures, procedure->name, procedure))
+    switch(smap_add(procedures, procedure->name->str, procedure))
     {
     case SMAP_ERR_ALLOC:
         return -1;
@@ -65,18 +65,19 @@ int ti_procedures_to_pk(smap_t * procedures, msgpack_packer * pk)
 int ti_procedures_rename(
         smap_t * procedures,
         ti_procedure_t * procedure,
-        const char * name,
+        const char * str,
         size_t n)
 {
-    char * tmp = strndup(name, n);
-    if (!tmp || smap_add(procedures, tmp, procedure))
-        return free(tmp), -1;
+    ti_name_t * name = ti_names_get(str, n);
+    if (!name || smap_add(procedures, name->str, procedure))
+    {
+        ti_name_drop(name);
+        return -1;
+    }
+    (void) smap_pop(procedures, procedure->name->str);
 
-    (void) smap_pop(procedures, procedure->name);
-
-    free(procedure->name);
-    procedure->name = tmp;
-    procedure->name_n = n;
+    ti_name_drop(procedure->name);
+    procedure->name = name;
     return 0;
 
 }

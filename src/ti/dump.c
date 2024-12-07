@@ -171,7 +171,7 @@ static int dump__procedure_cb(ti_procedure_t * procedure, msgpack_packer * pk)
         msgpack_pack_map(pk, 3) ||
 
         dump__key(pk, "name") ||
-        mp_pack_strn(pk, procedure->name, procedure->name_n) ||
+        mp_pack_strn(pk, procedure->name->str, procedure->name->n) ||
 
         dump__key(pk, "created_at") ||
         msgpack_pack_uint64(pk, procedure->created_at) ||

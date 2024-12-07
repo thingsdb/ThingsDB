@@ -14,7 +14,7 @@
 static void whitelist__err(const char * str, uint32_t n, const char * s, ex_t * e)
 {
     if (n <= 99 && strx_is_printablen(str, n))
-        ex_set(e, EX_LOOKUP_ERROR, "`%.*s` %s in whitelist", n, str, s);
+        ex_set(e, EX_LOOKUP_ERROR, "%.*s %s in whitelist", n, str, s);
     else
         ex_set(e, EX_LOOKUP_ERROR, "%s in whitelist", s);
 }

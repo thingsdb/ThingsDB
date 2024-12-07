@@ -650,7 +650,7 @@ ti_pkg_t * ti_collection_join_rooms(
             {
                 if (room->name)
                     ex_set(e, EX_FORBIDDEN,
-                        "no match in whitelist for `%.*s`",
+                        "no match in whitelist for room `%.*s`",
                         room->name->n,
                         room->name->str);
 

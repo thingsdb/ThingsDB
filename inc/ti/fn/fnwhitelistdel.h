@@ -10,6 +10,7 @@ static int do__f_whitelist_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     int wid;
 
     if (fn_not_thingsdb_scope("whitelist_del", query, e) ||
+        ti_access_check_err(ti.access_thingsdb, query->user, TI_AUTH_GRANT, e) ||
         fn_nargs_range("whitelist_del", DOC_WHITELIST_DEL, 2, 3, nargs, e) ||
         ti_do_statement(query, child, e) ||
         fn_arg_str_slow("whitelist_del", DOC_WHITELIST_DEL, 1, query->rval, e))

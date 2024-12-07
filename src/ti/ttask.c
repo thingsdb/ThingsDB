@@ -609,6 +609,7 @@ static int ttask__mod_procedure(mp_unp_t * up)
 
 static int ttask__whitelist_add(mp_unp_t * up)
 {
+    int rc;
     ex_t e = {0};
     mp_obj_t obj, mp_user, mp_wid;
     ti_user_t * user;
@@ -641,19 +642,22 @@ static int ttask__whitelist_add(mp_unp_t * up)
     {
         val = (ti_val_t *) ti_val_from_vup(&vup);
         if (!val)
+        {
             ti_panic("failed to set whitelist value");
+            return -1;
+        }
     }
 
-    if (ti_whitelist_add(&user->whitelists[mp_wid.via.u64], val, &e))
-    {
+    rc = ti_whitelist_add(&user->whitelists[mp_wid.via.u64], val, &e);
+    if (rc)
         log_critical("task `whitelist_add`: %s", e.msg);
-        return -1;
-    }
+    ti_val_unsafe_drop(val);
     return 0;
 }
 
 static int ttask__whitelist_del(mp_unp_t * up)
 {
+    int rc;
     ex_t e = {0};
     mp_obj_t obj, mp_user, mp_wid;
     ti_user_t * user;
@@ -686,17 +690,18 @@ static int ttask__whitelist_del(mp_unp_t * up)
     {
         val = (ti_val_t *) ti_val_from_vup(&vup);
         if (!val)
+        {
             ti_panic("failed to delete whitelist value");
+            return -1;
+        }
     }
 
-    if (ti_whitelist_del(&user->whitelists[mp_wid.via.u64], val, &e))
-    {
+    rc = ti_whitelist_del(&user->whitelists[mp_wid.via.u64], val, &e);
+    if (rc)
         log_critical("task `whitelist_del`: %s", e.msg);
-        return -1;
-    }
+    ti_val_unsafe_drop(val);
     return 0;
 }
-
 
 /*
  * Returns 0 on success

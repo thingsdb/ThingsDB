@@ -10,6 +10,7 @@ static int do__f_whitelist_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     int wid;
 
     if (fn_not_thingsdb_scope("whitelist_add", query, e) ||
+        ti_access_check_err(ti.access_thingsdb, query->user, TI_AUTH_GRANT, e) ||
         fn_nargs_range("whitelist_add", DOC_WHITELIST_ADD, 2, 3, nargs, e) ||
         ti_do_statement(query, child, e) ||
         fn_arg_str_slow("whitelist_add", DOC_WHITELIST_ADD, 1, query->rval, e))

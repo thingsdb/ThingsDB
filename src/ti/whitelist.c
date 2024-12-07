@@ -107,7 +107,7 @@ fail:
 }
 
 /* Both the `whitelist` and `val` argument may be NULL */
-int ti_whitelist_drop(vec_t ** whitelist, ti_val_t * val, ex_t * e)
+int ti_whitelist_del(vec_t ** whitelist, ti_val_t * val, ex_t * e)
 {
     if (!val)
     {

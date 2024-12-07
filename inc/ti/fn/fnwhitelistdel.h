@@ -1,6 +1,6 @@
 #include <ti/fn/fn.h>
 
-static int do__f_whitelist_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__f_whitelist_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
     cleri_node_t * child = nd->children;
@@ -9,10 +9,10 @@ static int do__f_whitelist_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * raw;
     int wid;
 
-    if (fn_not_thingsdb_scope("whitelist_add", query, e) ||
-        fn_nargs_range("whitelist_add", DOC_WHITELIST_ADD, 2, 3, nargs, e) ||
+    if (fn_not_thingsdb_scope("whitelist_del", query, e) ||
+        fn_nargs_range("whitelist_del", DOC_WHITELIST_DEL, 2, 3, nargs, e) ||
         ti_do_statement(query, child, e) ||
-        fn_arg_str_slow("whitelist_add", DOC_WHITELIST_ADD, 1, query->rval, e))
+        fn_arg_str_slow("whitelist_del", DOC_WHITELIST_DEL, 1, query->rval, e))
         return e->nr;
 
     raw = (ti_raw_t *) query->rval;
@@ -25,7 +25,7 @@ static int do__f_whitelist_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     /* read whitelist */
     if (ti_do_statement(query, (child = child->next->next), e) ||
-        fn_arg_str_slow("whitelist_add", DOC_WHITELIST_ADD, 2, query->rval, e))
+        fn_arg_str_slow("whitelist_del", DOC_WHITELIST_DEL, 2, query->rval, e))
         return e->nr;
 
     raw = (ti_raw_t *) query->rval;
@@ -39,11 +39,11 @@ static int do__f_whitelist_add(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs == 3 && ti_do_statement(query, (child = child->next->next), e))
         return e->nr;
 
-    if (ti_whitelist_add(&user->whitelists[wid], query->rval, e))
+    if (ti_whitelist_del(&user->whitelists[wid], query->rval, e))
         return e->nr;
 
     task = ti_task_get_task(query->change, ti.thing0);
-    if (!task || ti_task_add_whitelist_add(task, user, query->rval, wid))
+    if (!task || ti_task_add_whitelist_del(task, user, query->rval, wid))
         ex_set_mem(e);  /* task cleanup is not required */
 
     ti_val_drop(query->rval);

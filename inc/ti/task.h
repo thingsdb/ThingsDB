@@ -178,6 +178,15 @@ int ti_task_add_mod_enum_ren(
         ti_name_t * oldname,
         ti_name_t * newname);
 int ti_task_add_del_enum(ti_task_t * task, ti_enum_t * enum_);
-
+int ti_task_add_whitelist_add(
+        ti_task_t * task,
+        ti_user_t * user,
+        ti_val_t * val,
+        int wid);
+int ti_task_add_whitelist_del(
+        ti_task_t * task,
+        ti_user_t * user,
+        ti_val_t * val,
+        int wid);
 
 #endif /* TI_TASK_H_ */

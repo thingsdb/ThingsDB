@@ -184,7 +184,7 @@
 #define DOC_USER_INFO               DOC_SEE("thingsdb-api/user_info")
 #define DOC_USERS_INFO              DOC_SEE("thingsdb-api/users_info")
 #define DOC_WHITELIST_ADD           DOC_SEE("thingsdb-api/whitelist_add")
-#define DOC_WHITELIST_DROP          DOC_SEE("thingsdb-api/whitelist_drop")
+#define DOC_WHITELIST_DEL           DOC_SEE("thingsdb-api/whitelist_del")
 
 /* Procedures API */
 #define DOC_DEL_PROCEDURE           DOC_SEE("procedures-api/del_procedure")

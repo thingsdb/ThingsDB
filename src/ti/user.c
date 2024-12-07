@@ -155,6 +155,12 @@ void ti_user_drop(ti_user_t * user)
         free(user->encpass);
         ti_val_drop((ti_val_t *) user->name);
         vec_destroy(user->tokens, (vec_destroy_cb) ti_token_destroy);
+        vec_destroy(
+                user->whitelists[TI_WHITELIST_ROOMS],
+                (vec_destroy_cb) ti_val_unsafe_drop);
+        vec_destroy(
+                user->whitelists[TI_WHITELIST_PROCEDURES],
+                (vec_destroy_cb) ti_val_unsafe_drop);
         free(user);
     }
 }

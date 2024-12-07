@@ -640,7 +640,6 @@ ti_pkg_t * ti_collection_join_rooms(
             break;
         }
 
-        /* just skip rooms not on the whitelist */
         if (room &&
             ti_whitelist_check(whitelist, room->name) == 0 &&
             ti_room_join(room, stream) == 0)

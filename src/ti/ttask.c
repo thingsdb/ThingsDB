@@ -652,7 +652,7 @@ static int ttask__whitelist_add(mp_unp_t * up)
     return 0;
 }
 
-static int ttask__whitelist_drop(mp_unp_t * up)
+static int ttask__whitelist_del(mp_unp_t * up)
 {
     ex_t e = {0};
     mp_obj_t obj, mp_user, mp_wid;
@@ -669,7 +669,7 @@ static int ttask__whitelist_drop(mp_unp_t * up)
         mp_next(up, &mp_wid) != MP_U64 ||
         mp_wid.via.u64 < 0 || mp_wid.via.u64 > 1)
     {
-        log_critical("task `whitelist_drop`: invalid task data");
+        log_critical("task `whitelist_del`: invalid task data");
         return -1;
     }
 
@@ -677,7 +677,7 @@ static int ttask__whitelist_drop(mp_unp_t * up)
     if (!user)
     {
         log_critical(
-                "task `whitelist_drop`: "TI_USER_ID" not found",
+                "task `whitelist_del`: "TI_USER_ID" not found",
                 mp_user.via.u64);
         return -1;
     }
@@ -686,12 +686,12 @@ static int ttask__whitelist_drop(mp_unp_t * up)
     {
         val = (ti_val_t *) ti_val_from_vup(&vup);
         if (!val)
-            ti_panic("failed to drop whitelist value");
+            ti_panic("failed to delete whitelist value");
     }
 
-    if (ti_whitelist_drop(&user->whitelists[mp_wid.via.u64], val, &e))
+    if (ti_whitelist_del(&user->whitelists[mp_wid.via.u64], val, &e))
     {
-        log_critical("task `whitelist_drop`: %s", e.msg);
+        log_critical("task `whitelist_del`: %s", e.msg);
         return -1;
     }
     return 0;
@@ -1729,7 +1729,7 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_IMPORT:            break;
     case TI_TASK_ROOM_SET_NAME:     break;
     case TI_TASK_WHITELIST_ADD:     return ttask__whitelist_add(up);
-    case TI_TASK_WHITELIST_DROP:    return ttask__whitelist_drop(up);
+    case TI_TASK_WHITELIST_DEL:     return ttask__whitelist_del(up);
     }
 
     log_critical("unknown thingsdb task: %"PRIu64, mp_task.via.u64);

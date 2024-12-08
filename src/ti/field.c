@@ -637,6 +637,8 @@ skip_nesting:
                     str,
                     m);
 
+                m++;
+
                 if (enum_)
                 {
                     ti_member_t * member;
@@ -675,7 +677,7 @@ skip_nesting:
                         return e->nr;
                     }
 
-                    member = ti_enum_member_by_strn(enum_, str[m], n-m-1);
+                    member = ti_enum_member_by_strn(enum_, str+m, n-m-1);
                     if (!member)
                     {
                         if (field__spec_is_ascii(field, str, n, e))
@@ -684,7 +686,7 @@ skip_nesting:
                                 "cannot find member `%.*s on "
                                 "enum type `%s`"DOC_T_TYPE,
                                 field->name->str, field->type->name,
-                                n-m-1, str[m],
+                                n-m-1, str+m,
                                 enum_->name);
                         return e->nr;
                     }

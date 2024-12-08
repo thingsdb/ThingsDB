@@ -92,18 +92,18 @@ static int types__ren_member_cb(ti_type_t * type, ti_member_t * member)
 {
     for (vec_each(type->fields, ti_field_t, field))
     {
-        if (field->condition.none && field->condition.none->dval == member)
+        if (field->condition.none &&
+                field->condition.none->dval == (ti_val_t *) member)
         {
             /* enum with default value rename */
+            int flags_pos = types__spec_flags_pos(field->spec_raw->data);
             ti_member_t * member = \
                 (ti_member_t *) field->condition.none->dval;
             ti_raw_t * spec_raw = ti_str_from_fmt(
-                    "%.*s%.*s{%.*s}%s",
+                    "%.*s%s{%s}%s",
                     flags_pos,
                     (const char *) field->spec_raw->data,
-                    w->nname->n,
-                    (const char *) w->nname->data,
-                    member->name->n,
+                    member->enum_->name,
                     member->name->str,
                     (field->spec & TI_SPEC_NILLABLE) ? "?": "");
             if (!spec_raw)

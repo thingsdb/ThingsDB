@@ -37,6 +37,25 @@ class TestSimple(TestBase):
     async def test_hello_world(self, client):
         await client.query('"Hello world!"')
 
+    async def test_def_enum_definition(self, client):
+        q = client.query
+        await q("""//ti
+            set_enum('Colors', {
+                Blue: 0,
+                Purple: 1,
+                Yellow: 2
+            });
+        """)
+
+        await q("""//ti
+            set_type('T', {
+                C1: 'Colors{Purple}',
+                C2: 'Colors{Yellow}?',
+                C3: 'Colors',
+            })
+        """)
+
+
 
 if __name__ == '__main__':
     run_test(TestSimple())

@@ -7,6 +7,7 @@
 #include <ex.h>
 #include <stdint.h>
 #include <ti/collection.t.h>
+#include <ti/member.t.h>
 #include <ti/raw.t.h>
 #include <ti/type.t.h>
 #include <ti/types.t.h>

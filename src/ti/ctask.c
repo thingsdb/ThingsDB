@@ -1312,16 +1312,16 @@ static int ctask__mod_enum_ren(ti_thing_t * thing, mp_unp_t * up)
     }
 
 set_member:
-    (void) ti_member_set_name(
+    ti_member_set_name(
             member,
             mp_to.via.str.data,
             mp_to.via.str.n,
             &e);
 
-    if (ti_types_ren_member_spec(collection->types, member))
+    if (e.nr == 0 && ti_types_ren_member_spec(collection->types, member))
     {
         ti_panic("failed to rename enumerator definitions");
-        ex_set_mem(e);
+        ex_set_mem(&e);
     }
 
 done:

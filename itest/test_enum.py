@@ -1016,7 +1016,6 @@ class TestEnum(TestBase):
                 T{C1: "a"};
             """)
 
-
         await q("""//ti
             set_type('L', {
                 e: '[Colors]'

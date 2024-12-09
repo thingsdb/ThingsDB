@@ -655,6 +655,17 @@ skip_nesting:
                         return e->nr;
                     }
 
+                    if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ARR)
+                    {
+                        ex_set(e, EX_TYPE_ERROR,
+                            "invalid declaration for `%s` on type `%s`; "
+                            "type `"TI_VAL_LIST_S"` cannot contain "
+                            "enum type `%s` with a default value"DOC_T_TYPE,
+                            field->name->str, field->type->name,
+                            enum_->name);
+                        return e->nr;
+                    }
+
                     if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET)
                     {
                         ex_set(e, EX_TYPE_ERROR,

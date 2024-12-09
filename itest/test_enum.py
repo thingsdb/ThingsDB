@@ -953,6 +953,16 @@ class TestEnum(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
+                r'invalid declaration for `e` on type `A`; type `list` '
+                r'cannot contain enum type `Colors` with a default value;'):
+            await q("""//ti
+                set_type('A', {
+                    e: '[Colors{Blue}]'
+                });
+            """)
+
+        with self.assertRaisesRegex(
+                TypeError,
                 r'invalid declaration for `e` on type `A`; unknown '
                 r'type `CPurple\}` in declaration;'):
             await q("""//ti
@@ -1035,6 +1045,25 @@ class TestEnum(TestBase):
             'C3': 55,
             'C4': 55
         })
+
+        await q("""//ti
+            set_type('L', {
+                e: '[Color]'
+            });
+        """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `L`; property `e` requires an array '
+                r'with items that matches definition `\[Color\]`'):
+            await q("""//ti
+                L{e: [0]};
+            """)
+
+        res = await q("""//ti
+            L{e: [Color{Blue}]};
+        """)
+        self.assertEqual(res, {'e': [55]})
 
 
 if __name__ == '__main__':

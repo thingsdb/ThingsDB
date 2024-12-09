@@ -1065,6 +1065,16 @@ class TestEnum(TestBase):
         """)
         self.assertEqual(res, {'e': [55]})
 
+        with self.assertRaisesRegex(
+                TypeError,
+                r'xxx'):
+            await q("""//ti
+                set_type('N', {
+                    't': 'thing<Color{Blue}>'
+                });
+            """)
+
+
 
 if __name__ == '__main__':
     run_test(TestEnum())

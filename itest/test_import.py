@@ -146,6 +146,7 @@ class TestImport(TestBase):
                 t: 'task',
                 me: 'thing',
                 e: 'E',
+                ee_def: 'EE{TB}',
                 tlist: '[EE]',
                 r: 'R',
                 room: 'room',
@@ -179,6 +180,8 @@ class TestImport(TestBase):
                 assert(.r.r.parent.one().name == 'master');
                 assert(.me.id() == .id());
                 assert(.e.repr() == 'A:1');
+                assert(.ee_def.name() == 'TB');
+                assert(.ee_def.value().equals({b: E{B}}));
                 assert(.tlist[0].value().a.repr() == 'A:1');
                 assert(.tlist[1].value().b.repr() == 'B:2');
                 assert(is_nil(.t.id()));

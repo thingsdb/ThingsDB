@@ -459,7 +459,8 @@ static int ctask__new_enum(ti_thing_t * thing, mp_unp_t * up)
     ti_enum_t * enum_;
     mp_obj_t obj, mp_id, mp_name, mp_created, mp_size;
 
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 4 ||
+    if (mp_next(up, &obj) != MP_MAP ||
+            (obj.via.sz != 4 && obj.via.sz != 5) ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
         mp_skip(up) != MP_STR ||
@@ -495,12 +496,53 @@ static int ctask__new_enum(ti_thing_t * thing, mp_unp_t * up)
         goto fail0;
     }
 
-    if (ti_enum_create_placeholders(enum_, mp_size.via.u64, &e))
+    if (obj.via.sz == 4)
     {
-        log_critical(e.msg);
-        goto fail1;
+        /* TODO (COMPAT) For compatibility with < v1.7.0 */
+        if (ti_enum_create_placeholders(enum_, mp_size.via.u64, &e))
+        {
+            log_critical(e.msg);
+            ti_panic("critical enum failed");
+            goto fail1;
+        }
     }
+    else
+    {
+        size_t ii;
+        ti_name_t * name;
+        if (mp_skip(up) != MP_STR ||
+            mp_next(up, &obj) != MP_ARR || obj.via.sz != mp_size.via.u64)
+        {
+            log_critical(
+                "task `new_enum` for "TI_COLLECTION_ID" is invalid"
+                "; expecting an array with strings",
+                collection->id);
+            goto fail1;
+        }
 
+        for (ii = mp_size.via.u64; ii--;)
+        {
+            if (mp_next(up, &mp_name) != MP_STR ||
+                !ti_name_is_valid_strn(
+                    mp_name.via.str.data,
+                    mp_name.via.str.n))
+            {
+                log_critical(
+                    "task `new_enum` for "TI_COLLECTION_ID" is invalid"
+                    "; expecting name string",
+                    collection->id);
+                goto fail1;
+            }
+
+            name = ti_names_get(mp_name.via.str.data, mp_name.via.str.n);
+            if (!name || ti_member_alloc(enum_, name, &e))
+            {
+                log_critical(EX_MEMORY_S);
+                goto fail1;
+            }
+            ti_decref(name);
+        }
+    }
     return 0;
 fail1:
     ti_enums_del(collection->enums, enum_, NULL);
@@ -542,18 +584,13 @@ static int ctask__set_enum_data(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    if (ti_enum_set_members_from_vup(enum_, &vup, &e))
+    if (ti_enum_set_members_from_vup(enum_, &vup, &e) ||
+        ti_enum_init_methods_from_vup(enum_, &vup, &e))
     {
         log_critical(e.msg);
+        ti_panic("critical enum failed");
         return -1;
     }
-
-    if (ti_enum_init_methods_from_vup(enum_, &vup, &e))
-    {
-        log_critical(e.msg);
-        return -1;
-    }
-
     return 0;
 }
 

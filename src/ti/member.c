@@ -113,7 +113,7 @@ int ti_member_alloc(ti_enum_t * enum_, ti_name_t * name, ex_t * e)
     member->tp = TI_VAL_MEMBER;
     member->name = name;
     member->enum_ = enum_;
-    member->val = NULL;
+    member->val = (ti_val_t *) ti_nil_get();
     ti_incref(name);
 
     if (ti_enum_add_member(enum_, member, e))

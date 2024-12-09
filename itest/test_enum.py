@@ -943,6 +943,16 @@ class TestEnum(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
+                r'invalid declaration for `t` on type `N`; type `thing` '
+                r'cannot contain enum type `Colors` with a default value;'):
+            await q("""//ti
+                set_type('N', {
+                    t: 'thing<Colors{Blue}>'
+                });
+            """)
+
+        with self.assertRaisesRegex(
+                TypeError,
                 r'invalid declaration for `e` on type `A`; unknown '
                 r'type `COLORS` in declaration;'):
             await q("""//ti
@@ -1065,15 +1075,24 @@ class TestEnum(TestBase):
         """)
         self.assertEqual(res, {'e': [55]})
 
+        await q("""//ti
+            set_type('N', {
+                t: 'thing<Color>'
+            });
+        """)
+
         with self.assertRaisesRegex(
                 TypeError,
-                r'xxx'):
+                r'mismatch in type `N`; property `t` requires a thing '
+                r'with values that matches definition `thing\<Color\>`'):
             await q("""//ti
-                set_type('N', {
-                    't': 'thing<Color{Blue}>'
-                });
+                N{t: {a: 0}};
             """)
 
+        res = await q("""//ti
+            return N{t: {a: Color{Blue}}}, 2;
+        """)
+        self.assertEqual(res, {'t': {'a': 55}})
 
 
 if __name__ == '__main__':

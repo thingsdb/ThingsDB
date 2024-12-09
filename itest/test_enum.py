@@ -996,7 +996,6 @@ class TestEnum(TestBase):
                 T{C1: "a"};
             """)
 
-
         await q("""//ti
             rename_enum('Colors', 'Color');
             mod_enum('Color', 'ren', 'Purple', 'Red');

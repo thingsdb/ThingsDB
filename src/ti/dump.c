@@ -29,11 +29,11 @@ static int dump__unmark_new(ti_thing_t * thing, void * UNUSED(arg))
 
 static int dump__new_enum_cb(ti_enum_t * enum_, msgpack_packer * pk)
 {
-    return (
+    if (
         msgpack_pack_array(pk, 2) ||
 
         msgpack_pack_uint8(pk, TI_TASK_NEW_ENUM) ||
-        msgpack_pack_map(pk, 4) ||
+        msgpack_pack_map(pk, 5) ||
 
         dump__key(pk, "enum_id") ||
         msgpack_pack_uint16(pk, enum_->enum_id) ||
@@ -45,8 +45,16 @@ static int dump__new_enum_cb(ti_enum_t * enum_, msgpack_packer * pk)
         mp_pack_strn(pk, enum_->rname->data, enum_->rname->n) ||
 
         dump__key(pk, "size") ||
-        msgpack_pack_uint32(pk, enum_->members->n)
-    );
+        msgpack_pack_uint32(pk, enum_->members->n) ||
+
+        dump__key(pk, "names") ||
+        msgpack_pack_array(pk, enum_->members->n)
+    ) return -1;
+
+    for (vec_each(enum_->members, ti_member_t, member))
+        if (mp_pack_strn(pk, member->name->str, member->name->n))
+            return -1;
+    return 0;
 }
 
 static int dump__new_type_cb(ti_type_t * type, msgpack_packer * pk)

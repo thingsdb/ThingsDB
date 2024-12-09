@@ -14,6 +14,7 @@
 #include <ti/vfloat.h>
 #include <ti/vint.h>
 #include <util/vec.h>
+#include <util/logger.h>
 
 ti_enum_t * ti_enum_create(
         uint16_t enum_id,
@@ -61,6 +62,9 @@ void ti_enum_destroy(ti_enum_t * enum_)
     free(enum_);
 }
 
+/*
+ * TODO (COMPAT) For compatibility with ThingsDB < v1.7.0
+ */
 int ti_enum_create_placeholders(ti_enum_t * enum_, size_t n, ex_t * e)
 {
     if (ti_enum_prealloc(enum_, n, e))
@@ -374,6 +378,7 @@ int ti_enum_set_members_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e)
     ti_name_t * name;
     ti_val_t * val = NULL;
     mp_obj_t obj, mp_name;
+    ti_member_t * member;
 
     if (mp_next(vup->up, &obj) != MP_ARR)
     {
@@ -384,7 +389,7 @@ int ti_enum_set_members_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e)
         return e->nr;
     }
 
-    if (obj.via.sz != enum_->members->n)
+    if (!obj.via.sz || obj.via.sz != enum_->members->n)
     {
         ex_set(e, EX_BAD_DATA,
                 "the number of members for enum `%s` does not match "
@@ -393,54 +398,99 @@ int ti_enum_set_members_from_vup(ti_enum_t * enum_, ti_vup_t * vup, ex_t * e)
         return e->nr;
     }
 
-    for (vec_each(enum_->members, ti_member_t, member))
+    member = vec_first(enum_->members);
+    if (ti_val_is_nil(member->val))
     {
-        val = NULL;
-
-        if (mp_next(vup->up, &obj) != MP_ARR || obj.via.sz != 2 ||
-            mp_next(vup->up, &mp_name) != MP_STR)
+        /* this is a sloppy test. before v1.7.0 members where stored as int,
+         * now they are filled using nil */
+        size_t i;
+        for (i = obj.via.sz; i--;)
         {
-            ex_set(e, EX_BAD_DATA,
-                    "failed unpacking members for enum `%s`;"
-                    "expecting an array with two values",
-                    enum_->name);
-            return e->nr;
-        }
+            if (mp_next(vup->up, &obj) != MP_ARR || obj.via.sz != 2 ||
+                mp_next(vup->up, &mp_name) != MP_STR)
+            {
+                ex_set(e, EX_BAD_DATA,
+                        "failed unpacking members for enum `%s`;"
+                        "expecting an array with two values",
+                        enum_->name);
+                return e->nr;
+            }
 
-        if (!ti_name_is_valid_strn(mp_name.via.str.data, mp_name.via.str.n))
+            member = ti_enum_member_by_strn(
+                enum_,
+                mp_name.via.str.data,
+                mp_name.via.str.n);
+            if (!member || !ti_val_is_nil(member->val))
+            {
+                ex_set(e, EX_BAD_DATA,
+                        "failed unpacking members for enum `%s`;"
+                        "unable to find member",
+                        enum_->name);
+                return e->nr;
+            }
+
+            val = ti_val_from_vup_e(vup, e);
+            if (!val)
+                return e->nr;
+
+            ti_decref(member->val);
+            member->val = val;
+        }
+    }
+    else
+    {
+        /* TODO (COMPAT) For compatibility with ThingsDB < v 1.7.0 */
+        for (vec_each(enum_->members, ti_member_t, member))
         {
-            ex_set(e, EX_VALUE_ERROR,
-                    "failed unpacking members for enum `%s`;"
-                    "member names must follow the naming rules"DOC_NAMES,
-                    enum_->name);
-            return e->nr;
+            val = NULL;
+
+            if (mp_next(vup->up, &obj) != MP_ARR || obj.via.sz != 2 ||
+                mp_next(vup->up, &mp_name) != MP_STR)
+            {
+                ex_set(e, EX_BAD_DATA,
+                        "failed unpacking members for enum `%s`;"
+                        "expecting an array with two values",
+                        enum_->name);
+                return e->nr;
+            }
+
+            if (!ti_name_is_valid_strn(mp_name.via.str.data, mp_name.via.str.n))
+            {
+                ex_set(e, EX_VALUE_ERROR,
+                        "failed unpacking members for enum `%s`;"
+                        "member names must follow the naming rules"DOC_NAMES,
+                        enum_->name);
+                return e->nr;
+            }
+
+            name = ti_names_get(mp_name.via.str.data, mp_name.via.str.n);
+            if (!name)
+                goto failed;
+
+            val = ti_val_from_vup_e(vup, e);
+            if (!val)
+                goto failed;
+
+            ti_name_drop(member->name);
+            ti_val_drop(member->val);
+
+            member->name = name;
+            member->val = val;
         }
-
-        name = ti_names_get(mp_name.via.str.data, mp_name.via.str.n);
-        if (!name)
-            goto failed;
-
-        val = ti_val_from_vup_e(vup, e);
-        if (!val)
-            goto failed;
-
-        ti_name_drop(member->name);
-        ti_val_drop(member->val);
-
-        member->name = name;
-        member->val = val;
     }
 
     /* set enum type based on the last value */
-    return ti_enum_set_enum_tp(enum_, val, e);
+    if (ti_enum_set_enum_tp(enum_, val, e))
+        return e->nr;
+
+    /* sanity check and return */
+    return ti_enum_members_check(enum_, e);
 
 failed:
     if (!e->nr)
         ex_set_mem(e);
 
     ti_name_drop(name);
-    ti_val_drop(val);
-
     return e->nr;
 }
 

@@ -314,13 +314,14 @@ int ti_store_enums_restore_members(
                     goto fail1;
 
                 member = ti_enum_member_by_raw(enum_, (ti_raw_t *) name);
-                if (!member || member->val)
+                if (!member || !ti_val_is_nil(member->val))
                     goto fail1;
 
                 val = ti_val_from_vup(&vup);
                 if (!val)
                     goto fail1;
 
+                ti_decref(member->val);
                 member->val = val;
             }
             if (ti_enum_set_enum_tp(enum_, val, &e))

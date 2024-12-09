@@ -21,7 +21,6 @@ ti_enum_t * ti_enum_create(
         uint64_t created_at,
         uint64_t modified_at);
 void ti_enum_destroy(ti_enum_t * enum_);
-int ti_enum_create_placeholders(ti_enum_t * enum_, size_t n, ex_t * e);
 int ti_enum_prealloc(ti_enum_t * enum_, size_t sz, ex_t * e);
 int ti_enum_set_enum_tp(ti_enum_t * enum_, ti_val_t * val, ex_t * e);
 int ti_enum_check_val(ti_enum_t * enum_, ti_val_t * val, ex_t * e);
@@ -52,5 +51,11 @@ ti_member_t * ti_enum_member_by_val_e(
 ti_val_t * ti_enum_as_mpval(ti_enum_t * enum_);
 int ti_enum_to_pk(ti_enum_t * enum_, ti_vp_t * vp);
 int ti_enum_members_check(ti_enum_t * enum_, ex_t * e);
+
+
+/*
+ * TODO (COMPAT) For compatibility with ThingsDB < v1.7.0
+ */
+int ti_enum_create_placeholders(ti_enum_t * enum_, size_t n, ex_t * e);
 
 #endif  /* TI_MEMBER_H_ */

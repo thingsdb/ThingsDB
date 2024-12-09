@@ -501,7 +501,7 @@ static int ctask__new_enum(ti_thing_t * thing, mp_unp_t * up)
         /* TODO (COMPAT) For compatibility with < v1.7.0 */
         if (ti_enum_create_placeholders(enum_, mp_size.via.u64, &e))
         {
-            log_critical(e.msg);
+            ti_panic(e.msg);
             goto fail1;
         }
     }
@@ -583,18 +583,12 @@ static int ctask__set_enum_data(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    if (ti_enum_set_members_from_vup(enum_, &vup, &e))
+    if (ti_enum_set_members_from_vup(enum_, &vup, &e) ||
+        ti_enum_init_methods_from_vup(enum_, &vup, &e))
     {
-        log_critical(e.msg);
+        ti_panic(e.msg);
         return -1;
     }
-
-    if (ti_enum_init_methods_from_vup(enum_, &vup, &e))
-    {
-        log_critical(e.msg);
-        return -1;
-    }
-
     return 0;
 }
 

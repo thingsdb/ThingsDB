@@ -1624,6 +1624,30 @@ mod_type('D', 'rel', 'da', 'db');
             assert(c.many.has(c));
         """)
 
+        # Test rename type with relation
+
+        await client.query("""//ti
+            rename_type('A', 'AA');
+            rename_type('B', 'BB');
+            rename_type('C', 'CC');
+        """)
+
+        await self.node0.shutdown()
+        await self.node0.run()
+
+        res = await client.query("""//ti
+            type_info("AA").load().fields;
+        """)
+        self.assertEqual(res, [['one', 'AA?']])
+        res = await client.query("""//ti
+            type_info("BB").load().fields;
+        """)
+        self.assertEqual(res, [['one', 'BB?'], ['many', '{BB}']])
+        res = await client.query("""//ti
+            type_info("CC").load().fields;
+        """)
+        self.assertEqual(res, [['many', '{CC}']])
+
 
 if __name__ == '__main__':
     run_test(TestRelations())

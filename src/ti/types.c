@@ -3,6 +3,7 @@
  */
 #include <assert.h>
 #include <stdlib.h>
+#include <ti/spec.inline.h>
 #include <ti/type.h>
 #include <ti/types.h>
 #include <ti/types.inline.h>
@@ -123,7 +124,7 @@ static int types__ren_cb(ti_type_t * type, types__ren_t * w)
         if ((field->spec & TI_SPEC_MASK_NILLABLE) == w->id)
         {
             int flags_pos = types__spec_flags_pos(field->spec_raw->data);
-            if (field->condition.none)
+            if (ti_spec_is_enum(field->spec) && field->condition.none)
             {
                 /* enum with default value rename */
                 ti_member_t * member = \

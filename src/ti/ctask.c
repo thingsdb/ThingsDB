@@ -502,7 +502,7 @@ static int ctask__new_enum(ti_thing_t * thing, mp_unp_t * up)
         if (ti_enum_create_placeholders(enum_, mp_size.via.u64, &e))
         {
             log_critical(e.msg);
-            ti_panic("critical enum failed")
+            ti_panic("critical enum failed");
             goto fail1;
         }
     }
@@ -588,7 +588,7 @@ static int ctask__set_enum_data(ti_thing_t * thing, mp_unp_t * up)
         ti_enum_init_methods_from_vup(enum_, &vup, &e))
     {
         log_critical(e.msg);
-        ti_panic("critical enum failed")
+        ti_panic("critical enum failed");
         return -1;
     }
     return 0;

@@ -64,10 +64,9 @@ int ti_enums_rename(ti_enums_t * enums, ti_enum_t * enum_, ti_raw_t * nname)
 
     (void) smap_pop(enums->smap, enum_->name);
 
-    if (ti_types_rename_spec(
+    if (ti_types_ren_spec(
             enums->collection->types,
             enum_->enum_id | TI_ENUM_ID_FLAG,
-            enum_->rname,
             nname))
     {
         ti_panic("failed to rename enumerator definitions");

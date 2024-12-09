@@ -342,5 +342,6 @@ class TestWhitelist(TestBase):
         await self.node0.shutdown()
         await self.node0.run()
 
+
 if __name__ == '__main__':
     run_test(TestWhitelist())

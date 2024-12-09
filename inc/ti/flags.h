@@ -14,7 +14,8 @@
 /* flags must fit with `TI_QUERY_FLAG` defined in query.t.h */
 enum
 {
-    TI_FLAGS_NO_IDS=1<<5,   /* return no ID's */
+    TI_FLAGS_NO_IDS=1<<5,   /* return no ID's, must be 32 (1<<5)  as it maps
+                             * with TI_FIELD_FLAG_NO_IDS */
 };
 
 int ti_flags_set_from_val(ti_val_t * val, uint8_t * flags, ex_t * e);

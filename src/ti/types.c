@@ -3,6 +3,7 @@
  */
 #include <assert.h>
 #include <stdlib.h>
+#include <ti/spec.inline.h>
 #include <ti/type.h>
 #include <ti/types.h>
 #include <ti/types.inline.h>
@@ -73,9 +74,8 @@ void ti_types_del(ti_types_t * types, ti_type_t * type)
 typedef struct
 {
     uint16_t id;
-    ti_raw_t * oname;
     ti_raw_t * nname;
-} types__rename_t;
+} types__ren_t;
 
 int types__spec_flags_pos(const unsigned char * x)
 {
@@ -89,14 +89,61 @@ int types__spec_flags_pos(const unsigned char * x)
     return i;
 }
 
-static int types__rename_cb(ti_type_t * type, types__rename_t * w)
+static int types__ren_member_cb(ti_type_t * type, ti_member_t * member)
+{
+    for (vec_each(type->fields, ti_field_t, field))
+    {
+        if (field->condition.none &&
+                field->condition.none->dval == (ti_val_t *) member)
+        {
+            /* enum with default value rename */
+            int flags_pos = types__spec_flags_pos(field->spec_raw->data);
+            ti_member_t * member = \
+                (ti_member_t *) field->condition.none->dval;
+            ti_raw_t * spec_raw = ti_str_from_fmt(
+                    "%.*s%s{%s}%s",
+                    flags_pos,
+                    (const char *) field->spec_raw->data,
+                    member->enum_->name,
+                    member->name->str,
+                    (field->spec & TI_SPEC_NILLABLE) ? "?": "");
+            if (!spec_raw)
+                return -1;
+
+            ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
+            field->spec_raw = spec_raw;
+        }
+    }
+    return 0;
+}
+
+static int types__ren_cb(ti_type_t * type, types__ren_t * w)
 {
     for (vec_each(type->fields, ti_field_t, field))
     {
         if ((field->spec & TI_SPEC_MASK_NILLABLE) == w->id)
         {
             int flags_pos = types__spec_flags_pos(field->spec_raw->data);
-            if (field->spec == w->id && !flags_pos)
+            if (ti_spec_is_enum(field->spec) && field->condition.none)
+            {
+                /* enum with default value rename */
+                ti_member_t * member = \
+                    (ti_member_t *) field->condition.none->dval;
+                ti_raw_t * spec_raw = ti_str_from_fmt(
+                        "%.*s%.*s{%.*s}%s",
+                        flags_pos,
+                        (const char *) field->spec_raw->data,
+                        w->nname->n,
+                        (const char *) w->nname->data,
+                        member->name->n, member->name->str,
+                        (field->spec & TI_SPEC_NILLABLE) ? "?": "");
+                if (!spec_raw)
+                    return -1;
+
+                ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
+                field->spec_raw = spec_raw;
+            }
+            else if (field->spec == w->id && !flags_pos)
             {
                 ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
                 field->spec_raw = w->nname;
@@ -164,19 +211,22 @@ static int types__rename_cb(ti_type_t * type, types__rename_t * w)
     return 0;
 }
 
-int ti_types_rename_spec(
+int ti_types_ren_spec(
         ti_types_t * types,
         uint16_t type_or_enum_id,
-        ti_raw_t * oname,
         ti_raw_t * nname)
 {
-    types__rename_t w = {
+    types__ren_t w = {
         .id = type_or_enum_id,
-        .oname = oname,
         .nname = nname,
     };
 
-    return imap_walk(types->imap, (imap_cb) types__rename_cb, &w);
+    return imap_walk(types->imap, (imap_cb) types__ren_cb, &w);
+}
+
+int ti_types_ren_member_spec(ti_types_t * types, ti_member_t * member)
+{
+    return imap_walk(types->imap, (imap_cb) types__ren_member_cb, member);
 }
 
 uint16_t ti_types_get_new_id(ti_types_t * types, ti_raw_t * rname, ex_t * e)

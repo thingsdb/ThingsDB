@@ -103,6 +103,31 @@ failed:
     return NULL;
 }
 
+int ti_member_alloc(ti_enum_t * enum_, ti_name_t * name, ex_t * e)
+{
+    ti_member_t * member = malloc(sizeof(ti_member_t));
+    if (!member)
+        goto alloc_error;
+
+    member->ref = 1;
+    member->tp = TI_VAL_MEMBER;
+    member->name = name;
+    member->enum_ = enum_;
+    member->val = NULL;
+    ti_incref(name);
+
+    if (ti_enum_add_member(enum_, member, e))
+        goto failed;
+
+    return e->nr;
+
+alloc_error:
+    ex_set_mem(e);
+failed:
+    ti_member_destroy(member);
+    return e->nr;
+}
+
 void ti_member_destroy(ti_member_t * member)
 {
     if (!member)

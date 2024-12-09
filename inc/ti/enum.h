@@ -51,6 +51,6 @@ ti_member_t * ti_enum_member_by_val_e(
         ex_t * e);
 ti_val_t * ti_enum_as_mpval(ti_enum_t * enum_);
 int ti_enum_to_pk(ti_enum_t * enum_, ti_vp_t * vp);
-
+int ti_enum_members_check(ti_enum_t * enum_, ex_t * e);
 
 #endif  /* TI_MEMBER_H_ */

@@ -909,6 +909,197 @@ class TestEnum(TestBase):
 
         self.assertEqual(await client.query('Color{Blue}.nVar(1, 2, 3);'), 21)
 
+    async def test_def_enum_definition(self, client):
+        # Added this test for default enumerator members which are allowed
+        # since version 1.7.0. See issue #387 and pr #396,
+        q = client.query
+        await q("""//ti
+            set_enum('Colors', {
+                Blue: 55,
+                Purple: 66,
+                Yellow: 77,
+            });
+        """)
+
+        await q("""//ti
+            set_type('T', {
+                C1: 'Colors{Purple}',
+                C2: 'Colors{Yellow}?',
+                C3: 'Colors',
+                C4: 'Colors?',
+            })
+        """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'invalid declaration for `e` on type `A`; if you want '
+                r'the default enum member, remove the curly brackets `\{\}` '
+                r'from the definition;'):
+            await q("""//ti
+                set_type('A', {
+                    e: 'Colors{}'
+                });
+            """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'invalid declaration for `t` on type `N`; type `thing` '
+                r'cannot contain enum type `Colors` with a default value;'):
+            await q("""//ti
+                set_type('N', {
+                    t: 'thing<Colors{Blue}>'
+                });
+            """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'invalid declaration for `e` on type `A`; unknown '
+                r'type `COLORS` in declaration;'):
+            await q("""//ti
+                set_type('A', {
+                    e: 'COLORS{X}'
+                });
+            """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'invalid declaration for `e` on type `A`; type `list` '
+                r'cannot contain enum type `Colors` with a default value;'):
+            await q("""//ti
+                set_type('A', {
+                    e: '[Colors{Blue}]'
+                });
+            """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'invalid declaration for `e` on type `A`; unknown '
+                r'type `CPurple\}` in declaration;'):
+            await q("""//ti
+                set_type('A', {
+                    e: 'CPurple}'
+                });
+            """)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'invalid declaration for `e` on type `A`; cannot find '
+                r'member `Magenta` on enum type `Colors`;'):
+            await q("""//ti
+                set_type('A', {
+                    e: 'Colors{Magenta}'
+                });
+            """)
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'enum member `Colors\{Yellow\}` is still in use'):
+            await q("""//ti
+                mod_enum('Colors', 'del', 'Yellow');
+            """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'invalid declaration for `e` on type `A`; type `set` cannot '
+                r'contain enum type `Colors`;'):
+            await q("""//ti
+                set_type('A', {
+                    e: '{Colors{Purple}}'
+                });
+            """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `T`; type `str` is invalid for '
+                r'property `C1` with definition `Colors\{Purple\}`'):
+            await q("""//ti
+                T{C1: "a"};
+            """)
+
+        await q("""//ti
+            set_type('L', {
+                e: '[Colors]'
+            });
+            set_type('N', {
+                t: 'thing<Colors>'
+            });
+        """)
+
+        await q("""//ti
+            rename_enum('Colors', 'Color');
+            mod_enum('Color', 'ren', 'Purple', 'Red');
+            mod_enum('Color', 'ren', 'Yellow', 'Orange');
+        """)
+        await self.node0.shutdown()
+        await self.node0.run()
+        res = await q("""//ti
+            type_info('T').load().fields;
+        """)
+        self.assertEqual(res, [
+            ['C1', 'Color{Red}'],
+            ['C2', 'Color{Orange}?'],
+            ['C3', 'Color'],
+            ['C4', 'Color?'],
+        ])
+
+        res = await q("T{};")
+        self.assertEqual(res, {
+            'C1': 66,
+            'C2': 77,
+            'C3': 55,
+            'C4': None
+        })
+
+        res = await q("""//ti
+            T{
+                C1: Color{Blue},
+                C2: Color{Blue},
+                C3: Color{Blue},
+                C4: Color{Blue},
+            };
+        """)
+        self.assertEqual(res, {
+            'C1': 55,
+            'C2': 55,
+            'C3': 55,
+            'C4': 55
+        })
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `L`; property `e` requires an array '
+                r'with items that matches definition `\[Color\]`'):
+            await q("""//ti
+                L{e: [0]};
+            """)
+
+        res = await q("""//ti
+            L{e: [Color{Blue}]};
+        """)
+        self.assertEqual(res, {'e': [55]})
+
+        res = await q("""//ti
+            type_info('L').load().fields;
+        """)
+        self.assertEqual(res, [['e', '[Color]']])
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'mismatch in type `N`; property `t` requires a thing '
+                r'with values that matches definition `thing\<Color\>`'):
+            await q("""//ti
+                N{t: {a: 0}};
+            """)
+
+        res = await q("""//ti
+            return N{t: {a: Color{Blue}}}, 2;
+        """)
+        self.assertEqual(res, {'t': {'a': 55}})
+        res = await q("""//ti
+            type_info('N').load().fields;
+        """)
+        self.assertEqual(res, [['t', 'thing<Color>']])
+
 
 if __name__ == '__main__':
     run_test(TestEnum())

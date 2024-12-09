@@ -1016,6 +1016,16 @@ class TestEnum(TestBase):
                 T{C1: "a"};
             """)
 
+
+        await q("""//ti
+            set_type('L', {
+                e: '[Colors]'
+            });
+            set_type('N', {
+                t: 'thing<Colors>'
+            });
+        """)
+
         await q("""//ti
             rename_enum('Colors', 'Color');
             mod_enum('Color', 'ren', 'Purple', 'Red');
@@ -1056,12 +1066,6 @@ class TestEnum(TestBase):
             'C4': 55
         })
 
-        await q("""//ti
-            set_type('L', {
-                e: '[Color]'
-            });
-        """)
-
         with self.assertRaisesRegex(
                 TypeError,
                 r'mismatch in type `L`; property `e` requires an array '
@@ -1075,11 +1079,10 @@ class TestEnum(TestBase):
         """)
         self.assertEqual(res, {'e': [55]})
 
-        await q("""//ti
-            set_type('N', {
-                t: 'thing<Color>'
-            });
+        res = await q("""//ti
+            type_info('L').load().fields;
         """)
+        self.assertEqual(res, [['e', '[Color]']])
 
         with self.assertRaisesRegex(
                 TypeError,
@@ -1093,6 +1096,10 @@ class TestEnum(TestBase):
             return N{t: {a: Color{Blue}}}, 2;
         """)
         self.assertEqual(res, {'t': {'a': 55}})
+        res = await q("""//ti
+            type_info('N').load().fields;
+        """)
+        self.assertEqual(res, [['t', 'thing<Color>']])
 
 
 if __name__ == '__main__':

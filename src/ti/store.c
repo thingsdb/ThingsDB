@@ -381,6 +381,7 @@ int ti_store_restore(void)
         rc = (  -(!store_collection) ||
                 ti_store_enums_restore(
                         collection->enums,
+                        namesmap,
                         store_collection->enums_fn) ||
                 ti_store_types_restore(
                         collection->types,

@@ -628,7 +628,7 @@ skip_nesting:
     {
         /* possible enum with default */
         size_t m = 0;
-        for (; m < n-1; m++)
+        for (; m < n; m++)
         {
             if (str[m] == '{')
             {
@@ -666,7 +666,7 @@ skip_nesting:
                         return e->nr;
                     }
 
-                    if (m == n-2)
+                    if (m == n-1)
                     {
                         ex_set(e, EX_TYPE_ERROR,
                             "invalid declaration for `%s` on type `%s`; "
@@ -683,7 +683,7 @@ skip_nesting:
                         if (field__spec_is_ascii(field, str, n, e))
                             ex_set(e, EX_LOOKUP_ERROR,
                                 "invalid declaration for `%s` on type `%s`; "
-                                "cannot find member `%.*s on "
+                                "cannot find member `%.*s` on "
                                 "enum type `%s`"DOC_T_TYPE,
                                 field->name->str, field->type->name,
                                 n-m-1, str+m,
@@ -705,15 +705,16 @@ skip_nesting:
                     ++enum_->refcount;
                     goto found;
                 }
+                m--;
+                break;
             }
         }
-
-        if (field__spec_is_ascii(field, str, n, e))
+        if (field__spec_is_ascii(field, str, m, e))
             ex_set(e, EX_TYPE_ERROR,
                     "invalid declaration for `%s` on type `%s`; "
                     "unknown type `%.*s` in declaration"DOC_T_TYPE,
                     field->name->str, field->type->name,
-                    n, str);
+                    m, str);
         return e->nr;
     }
 

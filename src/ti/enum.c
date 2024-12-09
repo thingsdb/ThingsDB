@@ -32,12 +32,13 @@ ti_enum_t * ti_enum_create(
     enum_->name = strndup(name, name_n);
     enum_->rname = ti_str_create(name, name_n);
     enum_->smap = smap_create();
-    enum_->members = NULL;
+    enum_->members = vec_new(2);;
     enum_->methods = vec_new(0);
     enum_->created_at = created_at;
     enum_->modified_at = modified_at;
 
-    if (!enum_->name || !enum_->rname || !enum_->smap || !enum_->methods)
+    if (!enum_->name || !enum_->rname || !enum_->smap || !enum_->methods ||
+        !enum_->members)
     {
         ti_enum_destroy(enum_);
         return NULL;
@@ -112,20 +113,8 @@ int ti_enum_set_enum_tp(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
     return e->nr;
 }
 
-int ti_enum_check_val(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
+static int enum__check_val(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
 {
-    ti_member_t * member = ti_enum_member_by_val(enum_, val);
-
-    if (member)
-    {
-        ex_set(e, EX_VALUE_ERROR,
-                "enum values must be unique; the given value is already "
-                "used by `%s{%s}`"DOC_T_ENUM,
-                enum_->name,
-                member->name->str);
-        return e->nr;
-    }
-
     switch((ti_enum_enum) enum_->enum_tp)
     {
     case TI_ENUM_INT:
@@ -156,8 +145,57 @@ int ti_enum_check_val(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
             ti_enum_tp_str(enum_),
             ti_val_str(val),
             enum_->name);
-
     return e->nr;
+}
+
+int ti_enum_check_val(ti_enum_t * enum_, ti_val_t * val, ex_t * e)
+{
+    ti_member_t * member = ti_enum_member_by_val(enum_, val);
+
+    if (member)
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "enum values must be unique; the given value is already "
+                "used by `%s{%s}`"DOC_T_ENUM,
+                enum_->name,
+                member->name->str);
+        return e->nr;
+    }
+    return enum__check_val(enum_, val, e);
+}
+
+int ti_enum_members_check(ti_enum_t * enum_, ex_t * e)
+{
+    size_t i;
+    size_t n = 0;
+    size_t m = enum_->members->n;
+    if (!m)
+    {
+        ex_set(e, EX_BAD_DATA, "no members");
+        return e->nr;
+    }
+    for (vec_each(enum_->members, ti_member_t, member), n++)
+    {
+        if (!member->val)
+        {
+            ex_set(e, EX_BAD_DATA, "member value not set");
+            return e->nr;
+        }
+
+        if (enum__check_val(enum_, member->val, e))
+            return e->nr;
+
+        for (i = n+1; i < m; i++)
+        {
+            ti_member_t * other = enum_->members->data[i];
+            if (other->name == member->name)
+            {
+                ex_set(e, EX_BAD_DATA, "member names must be unique");
+                return e->nr;
+            }
+        }
+    }
+    return 0;
 }
 
 /*

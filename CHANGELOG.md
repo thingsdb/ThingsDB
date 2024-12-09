@@ -4,6 +4,7 @@
 * Implement optional _name_ for a room, pr #393.
 * Use MessagePack Extension to internally store names, issue #394.
 * Added whitelist support for both _"procedures"_ and _"rooms"_, pr #395.
+* Added option for a default enumerator member in a type definition, pr #396.
 
 # v1.6.6
 

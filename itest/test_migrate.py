@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import asyncio
 import os
+import logging
 from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
@@ -28,6 +29,14 @@ class TestMigrate(TestBase):
             if not fn.endswith('.tar.gz'):
                 continue
 
+            logging.warning(f"""
+    {'#' * 80}
+
+    Next file: {fn}
+
+    {'#' * 80}
+""")
+
             fn = os.path.join(BACKUP_PATH, fn)
 
             collections = await query('collections_info();')
@@ -39,6 +48,25 @@ class TestMigrate(TestBase):
 
             await asyncio.sleep(10)
             await client.authenticate('admin', 'pass')
+
+            logging.warning(f"""
+    {'#' * 80}
+
+    Imported file: {fn}, restart test...
+
+    {'#' * 80}
+""")
+
+            await self.node0.shutdown()
+            await self.node0.run(timeout=20)
+
+            logging.warning(f"""
+    {'#' * 80}
+
+    Finished file: {fn}
+
+    {'#' * 80}
+""")
 
         client.close()
         await client.wait_closed()

@@ -95,15 +95,15 @@ class Node:
         await self.expect(
             'Well done, you successfully initialized ThingsDB!!', timeout=5)
 
-    async def wait_join(self, secret: str):
+    async def wait_join(self, secret: str, timeout: int = 5):
         self.start(secret=secret)
         await self.expect(
-            'start listening for node connections', timeout=5)
+            'start listening for node connections', timeout=timeout)
 
-    async def run(self):
+    async def run(self, timeout: int = 5):
         self.start()
         await self.expect(
-            'start listening for node connections', timeout=5)
+            'start listening for node connections', timeout=timeout)
 
     async def init_and_run(self):
         await self.init()

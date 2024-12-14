@@ -11,7 +11,7 @@ RUN apk update && \
     cmake -DCMAKE_BUILD_TYPE=Release . && \
     make
 
-FROM google/cloud-sdk:alpine
+FROM google/cloud-sdk:492.0.0-alpine
 RUN apk update && \
     apk add pcre2 libuv yajl curl tzdata && \
     mkdir -p /var/lib/thingsdb

@@ -26,8 +26,9 @@ enum
     TI_FIELD_FLAG_MAX_DEEP=4,
     TI_FIELD_FLAG_DEEP=8,   /* this flag returns deep as-is */
     TI_FIELD_FLAG_ENAME=16, /* return enumerator names instead of value */
-
     TI_FIELD_FLAG_NO_IDS=TI_FLAGS_NO_IDS,  /* 32 */
+    TI_FIELD_FLAG_SKIP_FDEF=64,     /* skip underlying def */
+    TI_FIELD_FLAG_SKIP_TDEF=128,    /* skip if this def */
 };
 
 #define TI_FIELD_MIN_MAX (TI_FIELD_FLAG_MIN_DEEP|TI_FIELD_FLAG_MAX_DEEP)

@@ -1,3 +1,8 @@
+# v1.7.1
+
+* Use smaller fragments when writing WebSocket data, pr #400 (@ivomans).
+* Pin gcloud image as gsutil is not working in latest _(gcloud build only)_.
+
 # v1.7.0
 
 * Fix incorrect value error when user or token is not found, pr #390 (@rickmoonex).
@@ -5,6 +10,10 @@
 * Use MessagePack Extension to internally store names, issue #394.
 * Added whitelist support for both _"procedures"_ and _"rooms"_, pr #395.
 * Added option for a default enumerator member in a type definition, pr #396.
+* New functions:
+  - `whitelist_add()`: https://docs.thingsdb.io/v1/thingsdb-api/whitelist_add/
+  - `whitelist_del()`: https://docs.thingsdb.io/v1/thingsdb-api/whitelist_del/
+  - `room.set_name()`: https://docs.thingsdb.io/v1/data-types/room/set_name/
 
 # v1.6.6
 

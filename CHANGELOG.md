@@ -2,7 +2,7 @@
 
 * Use smaller fragments when writing WebSocket data, pr #400 (@ivomans).
 * Pin gcloud image as gsutil is not working in latest _(gcloud build only)_.
-* Add default boolean syntax to allow a default `true` value, pr #401.
+* Add default boolean syntax to allow a default `true` value, pr #402.
 
 # v1.7.0
 

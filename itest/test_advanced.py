@@ -2642,18 +2642,31 @@ new_procedure('multiply', |a, b| a * b);
         self.assertEqual(res[1], 'my_test_key2')
 
     async def test_def_bool(self, client):
-        # See #pr401
+        # New syntax for boolean with default, see (pr #402)
         q = client.query
         t = await q("""//ti
             set_type('T', {
                 t: 'bool<true>',
-                f: 'bool<false>'
+                f: 'bool<false>',
+                o: 'bool?',
+                to: 'bool<true>?',
+                fo: 'bool<false>?',
             });
+            test = T{
+                t: false,
+                f: false,
+                o: nil,
+                to: nil,
+                fo: nil,
+            };
             T{};
         """)
         self.assertEqual(t, {
             't': True,
-            'f': False
+            'f': False,
+            'o': None,
+            'to': True,
+            'fo': False,
         })
         with self.assertRaisesRegex(
                 ValueError,

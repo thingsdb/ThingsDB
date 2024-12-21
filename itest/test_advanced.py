@@ -2641,6 +2641,38 @@ new_procedure('multiply', |a, b| a * b);
         self.assertEqual(res[0], 'my_test_key1')
         self.assertEqual(res[1], 'my_test_key2')
 
+    async def test_def_bool(self, client):
+        # See #pr401
+        q = client.query
+        t = await q("""//ti
+            set_type('T', {
+                t: 'bool<true>',
+                f: 'bool<false>'
+            });
+            T{};
+        """)
+        self.assertEqual(t, {
+            't': True,
+            'f': False
+        })
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `t` on type `F`; '
+                r'expecting a `<` character after `bool`;'):
+            await client.query("""//ti
+                set_type('F', {
+                    t: 'bool <true>'
+                });
+            """)
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `t` on type `F`; '
+                r'the default value must be either true or false;'):
+            await client.query("""//ti
+                set_type('F', {
+                    t: 'bool<t>'
+                });
+            """)
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

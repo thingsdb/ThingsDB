@@ -21,6 +21,16 @@ static ti_val_t * condition__dval_cb(ti_field_t * field)
     return dval;
 }
 
+static ti_val_t * condition__dval_true_cb(ti_field_t * UNUSED(field))
+{
+    return (ti_val_t *) ti_vbool_get(true);
+}
+
+static ti_val_t * condition__dval_false_cb(ti_field_t * UNUSED(field))
+{
+    return (ti_val_t *) ti_vbool_get(false);
+}
+
 int ti_condition_field_info_init(
         ti_field_t * field,
         const char * str,
@@ -41,6 +51,16 @@ int ti_condition_field_info_init(
 
     switch(*str)
     {
+    case 'b':
+        ++str;
+        if (n > 4 && memcmp(str, "ool", 3) == 0)
+        {
+            spec = TI_SPEC_BOOL;
+            str += 3;
+            break;
+        }
+        goto invalid;
+
     case 's':
         ++str;
         if (n > 3 && memcmp(str, "tr", 2) == 0)
@@ -123,6 +143,24 @@ int ti_condition_field_info_init(
 
     switch(spec)
     {
+    case TI_SPEC_BOOL:
+    {
+        if (n == 10 && memcmp(str, "true>", 5) == 0)
+            field->dval_cb = condition__dval_true_cb;
+        else if (n == 11 && memcmp(str, "false>", 6) == 0)
+            field->dval_cb = condition__dval_false_cb;
+        else
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "invalid declaration for `%s` on type `%s`; "
+                    "the default value must be either true or false"
+                    DOC_T_TYPE,
+                    field->name->str, field->type->name);
+            goto failed;
+        }
+        field->spec |= spec;
+        return 0;
+    }
     case TI_SPEC_REMATCH:
     {
         dval = (ti_val_t *) ti_str_create(str, end-str);

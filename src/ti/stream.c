@@ -279,7 +279,7 @@ const char * ti_stream_name(ti_stream_t * stream)
         return stream->name_ ? stream->name_ : "<client> "STREAM__UNRESOLVED;
     case TI_STREAM_WS_IN_CLIENT:
         if (stream->via.user)
-            sprintf(prefix, "<client:%"PRIu64"> ", stream->via.user->id);
+            sprintf(prefix, "<ws:%"PRIu64"> ", stream->via.user->id);
         else
             sprintf(prefix, "<ws:not authorized> ");
         stream->name_ = ti_ws_name(prefix, (ti_ws_t *) stream->with.ws);

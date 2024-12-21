@@ -12,7 +12,8 @@
         const thingsdb = new ThingsDB('ws://localhost:9270');
         thingsdb.connect().then(() => {
             thingsdb.auth().then(() => {
-                thingsdb.query('@:stuff', '"Hello World!";').then(response => {
+                thingsdb.query('@thingsdb', '"Hello World!";').then(response => {
+                    console.log('Query done!');
                     console.log(response);  // will be "Hello World!"
                 });
             });

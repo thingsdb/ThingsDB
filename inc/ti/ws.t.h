@@ -15,8 +15,6 @@ struct ti_ws_s
     queue_t * queue;          /* ti_write_t */
     ti_stream_t * stream;
     struct lws * wsi;
-    unsigned char * wbuf;
-    size_t wbuf_sz;
 };
 
 #endif  /* TI_WS_T_H_ */

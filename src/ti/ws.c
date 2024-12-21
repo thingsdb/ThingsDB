@@ -48,44 +48,37 @@ fail0:
 
 static int ws__callback_server_writable(struct lws * wsi, ti_ws_t * pss)
 {
-    const size_t sugsz = 8192 - LWS_PRE;
+    const size_t mf = LWS_SS_MTU-LWS_PRE;
+    unsigned char mtubuff[LWS_SS_MTU];
+    unsigned char * out = mtubuff + LWS_PRE;
+    unsigned char * pt;
     int flags, m;
-    size_t n;
+    size_t n, f, nf, len;
     ti_pkg_t * pkg;
     ti_write_t * req = queue_shift(pss->queue);
     if (!req)
         return 0;  /* nothing to write */
 
     pkg = req->pkg;
-    flags = lws_write_ws_flags(LWS_WRITE_BINARY, 1, 1);
 
     /* notice we allowed for LWS_PRE in the payload already */
     n = sizeof(ti_pkg_t) + pkg->n;
-    if (n > pss->wbuf_sz)
+    nf = (n-1)/mf+1;
+    pt = (unsigned char *) pkg;
+
+    for (f=1; f<=nf; ++f, pt+=mf, n-=mf)
     {
-        size_t sz = n > sugsz ? n : sugsz;
-        unsigned char * tmp = malloc(LWS_PRE + sz);
-        if (!tmp)
+        flags = lws_write_ws_flags(LWS_WRITE_BINARY, f==1, f==nf);
+        len = mf > n ? n : mf;
+        memcpy(out, pt, len);
+        m = lws_write(wsi, out, len, flags);
+        if (m < (int) len)
         {
-            log_error(EX_MEMORY_S);
-            req->cb_(req, EX_MEMORY);
+            log_error("ERROR %d; writing to WebSocket", m);
+            req->cb_(req, EX_WRITE_UV);
             return -1;
         }
-        pss->wbuf_sz = sz;
-        free(pss->wbuf);
-        pss->wbuf = tmp;
     }
-
-    memcpy(pss->wbuf + LWS_PRE, (unsigned char *) pkg, n);
-
-    m = lws_write(wsi, pss->wbuf + LWS_PRE, n, flags);
-    if (m < (int) n)
-    {
-        log_error("ERROR %d; writing to WebSocket", m);
-        req->cb_(req, EX_WRITE_UV);
-        return -1;
-    }
-
     lws_callback_on_writable(wsi);
     req->cb_(req, 0);
     return 0;
@@ -115,7 +108,17 @@ static int ws__callback_receive(struct lws * wsi, ti_ws_t * pss, void * in, size
 
     if (lws_is_final_fragment(wsi))
     {
-        ti_pkg_t * pkg = (ti_pkg_t *) stream->buf;
+        ti_pkg_t * pkg;
+        if (stream->n < sizeof(ti_pkg_t))
+        {
+            log_error(
+                    "invalid package (header too small) from `%s`, "
+                    "closing connection",
+                    ti_stream_name(stream));
+            ti_stream_close(stream);
+            return -1;
+        }
+        pkg = (ti_pkg_t *) stream->buf;
         stream->n = 0;  /* reset buffer */
         if (!ti_pkg_check(pkg))
         {
@@ -161,7 +164,6 @@ int ws__callback(
     case LWS_CALLBACK_CLOSED:
         if (pss->stream)
         {
-            free(pss->wbuf);
             ti_stream_close(pss->stream);
             queue_destroy(pss->queue, free);
         }
@@ -349,7 +351,6 @@ char * ti_ws_name(const char * prefix, ti_ws_t * pss)
     }
     return NULL;
 }
-
 
 void ti_ws_destroy(void)
 {

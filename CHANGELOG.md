@@ -1,3 +1,8 @@
+# v1.7.1
+
+* Use smaller fragments when writing WebSocket data, pr #400 (@ivomans).
+* Pin gcloud image as gsutil is not working in latest _(gcloud build only)_.
+
 # v1.7.0
 
 * Fix incorrect value error when user or token is not found, pr #390 (@rickmoonex).

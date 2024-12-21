@@ -41,6 +41,16 @@ int ti_condition_field_info_init(
 
     switch(*str)
     {
+    case 'b':
+        ++str;
+        if (n > 3 && memcmp(str, "ool", 3) == 0)
+        {
+            spec = TI_SPEC_INT_RANGE;
+            str += 2;
+            break;
+        }
+        goto invalid;
+
     case 's':
         ++str;
         if (n > 3 && memcmp(str, "tr", 2) == 0)

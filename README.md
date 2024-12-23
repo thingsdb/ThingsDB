@@ -35,6 +35,10 @@ Want your own **playground**? Visit the website: https://thingsdb.io
 
 ThingsDB documentation: https://docs.thingsdb.io
 
+## Book
+
+Learn ThingsDB: https://docs.thingsdb.io/v1/getting-started/book/
+
 ## Installation
 
 - From source: https://docs.thingsdb.io/v1/getting-started/build-from-source/

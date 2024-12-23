@@ -84,7 +84,11 @@ static int ws__callback_server_writable(struct lws * wsi, ti_ws_t * pss)
     return 0;
 }
 
-static int ws__callback_receive(struct lws * wsi, ti_ws_t * pss, void * in, size_t len)
+static int ws__callback_receive(
+        struct lws * wsi,
+        ti_ws_t * pss,
+        void * in,
+        size_t len)
 {
     ti_stream_t * stream = pss->stream;
     if (lws_is_first_fragment(wsi))
@@ -176,13 +180,13 @@ int ws__callback(
 
 static struct lws_protocols ws__protocols[] = {
     {
-        .name                  = "thingsdb-protocol",/* Protocol name*/
-        .callback              = ws__callback,       /* Protocol callback */
-        .per_session_data_size = sizeof(ti_ws_t),  /* Protocol callback 'userdata' size */
-        .rx_buffer_size        = 0,                  /* Receve buffer size (0 = no restriction) */
-        .id                    = 0,                  /* Protocol Id (version) (optional) */
-        .user                  = NULL,               /* 'User data' ptr, to access in 'protocol callback */
-        .tx_packet_size        = 0                   /* Transmission buffer size restriction (0 = no restriction) */
+        .name                  = "thingsdb-protocol",   /* Protocol name*/
+        .callback              = ws__callback,          /* Protocol callback */
+        .per_session_data_size = sizeof(ti_ws_t),       /* Protocol callback 'userdata' size */
+        .rx_buffer_size        = 0,                     /* Receive buffer size (0 = no restriction) */
+        .id                    = 0,                     /* Protocol Id (version) (optional) */
+        .user                  = NULL,                  /* 'User data' ptr, to access in 'protocol callback */
+        .tx_packet_size        = 0                      /* Transmission buffer size restriction (0 = no restriction) */
     },
     { NULL, NULL, 0, 0, 0, NULL, 0 } // Protocol list ends with NULL
 };

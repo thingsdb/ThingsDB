@@ -78,8 +78,8 @@ static int ws__callback_server_writable(struct lws * wsi, ti_ws_t * pss)
             req->cb_(req, EX_WRITE_UV);
             return -1;
         }
-        lws_callback_on_writable(wsi);
     }
+    lws_callback_on_writable(wsi);
 
     req->cb_(req, 0);
     return 0;

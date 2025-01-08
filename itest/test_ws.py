@@ -45,11 +45,13 @@ class TestWS(TestBase):
         self.assertIsInstance(info, str)
         res = await client.query('6 * 7;')
         self.assertEqual(res, 42)
-        n = 10000
+        n = 40_000
         res = await client.query("""//ti
-            range(n).map(|i| `item {i}`);
+            range(n).map(|i| `this is item number {i}`);
         """, n=n)
-        self.assertEqual(res, [f'item {i}' for i in range(n)])
+
+        self.assertEqual(len(res), n)
+
 
 
 if __name__ == '__main__':

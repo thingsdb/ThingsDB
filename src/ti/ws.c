@@ -15,6 +15,14 @@
 #include <util/fx.h>
 
 static struct lws_context * ws__context;
+const size_t ws__mf = LWS_SS_MTU-LWS_PRE;
+
+typedef struct {
+    ti_write_t * req;
+    size_t f;       /* current frame */
+    size_t nf;      /* total number of frames */
+    size_t n;       /* total size to send */
+} ws__req_t;
 
 static int ws__callback_established(struct lws * wsi, ti_ws_t * pss)
 {
@@ -48,40 +56,44 @@ fail0:
 
 static int ws__callback_server_writable(struct lws * wsi, ti_ws_t * pss)
 {
-    const size_t mf = LWS_SS_MTU-LWS_PRE;
     unsigned char mtubuff[LWS_SS_MTU];
     unsigned char * out = mtubuff + LWS_PRE;
     unsigned char * pt;
-    int flags, m;
-    size_t n, f, nf, len;
-    ti_pkg_t * pkg;
-    ti_write_t * req = queue_shift(pss->queue);
-    if (!req)
+    int flags, m, is_end;
+    size_t len;
+    ti_write_t * req;
+    ws__req_t * w = queue_first(pss->queue);
+    if (!w)
         return 0;  /* nothing to write */
 
-    pkg = req->pkg;
+    req = w->req;
+    is_end = w->f==w->nf;
+    flags = lws_write_ws_flags(LWS_WRITE_BINARY, w->f==1, is_end);
+    len = is_end ? w->n % ws__mf : ws__mf;
+    len = len ? len : ws__mf;
+    pt = (unsigned char *) req->pkg;
 
-    /* notice we allowed for LWS_PRE in the payload already */
-    n = sizeof(ti_pkg_t) + pkg->n;
-    nf = (n-1)/mf+1;
-    pt = (unsigned char *) pkg;
-
-    for (f=1; f<=nf; ++f, pt+=mf, n-=mf)
+    memcpy(out, pt + (w->f-1)*ws__mf, len);
+    LOGC("Write frame %zu / %zu", w->f, w->nf);
+    m = lws_write(wsi, out, len, flags);
+    if (m < (int) len)
     {
-        flags = lws_write_ws_flags(LWS_WRITE_BINARY, f==1, f==nf);
-        len = mf > n ? n : mf;
-        memcpy(out, pt, len);
-        m = lws_write(wsi, out, len, flags);
-        if (m < (int) len)
-        {
-            log_error("ERROR %d; writing to WebSocket", m);
-            req->cb_(req, EX_WRITE_UV);
-            return -1;
-        }
-        lws_callback_on_writable(wsi);
+        log_error("ERROR %d; writing to WebSocket", m);
+        req->cb_(req, EX_WRITE_UV);
+        return -1;
     }
 
-    req->cb_(req, 0);
+    lws_callback_on_writable(wsi);
+
+    if (is_end)
+    {
+        (void) queue_shift(pss->queue);
+        free(w);
+        req->cb_(req, 0);
+    }
+    else
+        w->f++;
+
     return 0;
 }
 
@@ -146,6 +158,12 @@ struct per_vhost_data__minimal {
     const struct lws_protocols *protocol;
 };
 
+static void ws__req_free(ws__req_t * w)
+{
+    free(w->req);
+    free(w);
+}
+
 /* Callback function for WebSocket server messages */
 int ws__callback(
         struct lws * wsi,
@@ -170,7 +188,7 @@ int ws__callback(
         if (pss->stream)
         {
             ti_stream_close(pss->stream);
-            queue_destroy(pss->queue, free);
+            queue_destroy(pss->queue, (queue_destroy_cb) ws__req_free);
         }
         break;
     default:
@@ -328,10 +346,31 @@ int ti_ws_init()
 
 int ti_ws_write(ti_ws_t * pss, ti_write_t * req)
 {
+    const size_t mf = LWS_SS_MTU-LWS_PRE;
+    ti_pkg_t * pkg;
+    size_t n;
+    ws__req_t * w;
+
     if (!pss->wsi)
         return 0;  /* ignore dead connections */
-    if (queue_push(&pss->queue, req))
+
+    w = malloc(sizeof(ws__req_t));
+    if (!w)
         return -1;
+
+    pkg = req->pkg;
+
+    /* notice we allowed for LWS_PRE in the payload already */
+    n = sizeof(ti_pkg_t) + pkg->n;
+
+    w->req = req;
+    w->f = 1;
+    w->n = n;
+    w->nf = (n-1)/mf+1;
+
+    if (queue_push(&pss->queue, w))
+        return -1;
+
     lws_callback_on_writable(pss->wsi);
     return 0;
 }

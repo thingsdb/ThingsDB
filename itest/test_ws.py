@@ -5,10 +5,27 @@ from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
 from thingsdb.client import Client
+from thingsdb.client import protocol
 
-# The following code can be used to lower or increase the max package size
-# from thingsdb.client import protocol
-# protocol.WEBSOCKET_MAX_SIZE = 2**8
+
+async def test_err_max_size():
+    client = Client()
+
+    # We decrease the max_size so the following query will fail
+    protocol.WEBSOCKET_MAX_SIZE = 2**8
+
+    await client.connect('ws://localhost:9780')
+    try:
+        await client.authenticate('admin', 'pass')
+
+        # This is large enough so it will fail
+        n = 20_000
+        await client.query("""//ti
+            range(n).map(|i| `this is item with number {i}`);
+        """, n=n)
+
+    finally:
+        await client.close_and_wait()
 
 
 class TestWS(TestBase):
@@ -50,6 +67,10 @@ class TestWS(TestBase):
             range(n).map(|i| `this is item with number {i}`);
         """, n=n)
         self.assertEqual(len(res), n)
+
+    async def test_with_error(self, _client: Client):
+        with self.assertRaises(asyncio.TimeoutError):
+            await asyncio.wait_for(test_err_max_size(), 5)
 
 
 if __name__ == '__main__':

@@ -176,7 +176,7 @@ struct per_vhost_data__minimal {
     const struct lws_protocols *protocol;
 };
 
-static void ws__drop_req(ti_write_t * req)
+static void ws__kill_req(ti_write_t * req)
 {
     req->cb_(req, EX_WRITE_UV);
 }
@@ -204,7 +204,7 @@ int ws__callback(
     case LWS_CALLBACK_CLOSED:
         if (pss->stream)
         {
-            queue_destroy(pss->queue, (queue_destroy_cb) ws__drop_req);
+            queue_destroy(pss->queue, (queue_destroy_cb) ws__kill_req);
             ti_stream_close(pss->stream);
         }
         break;

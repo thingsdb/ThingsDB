@@ -1,3 +1,7 @@
+# v1.7.2
+
+* Fix writing large packages over websockets, issue #403.
+
 # v1.7.1
 
 * Use smaller fragments when writing WebSocket data, pr #400 (@ivomans).

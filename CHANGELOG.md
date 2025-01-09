@@ -1,6 +1,6 @@
 # v1.7.2
 
-* Fix writing large packages over websockets, issue #403.
+* Fix writing large packages over websockets, pr #403.
 
 # v1.7.1
 

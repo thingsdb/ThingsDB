@@ -12,9 +12,9 @@
         const thingsdb = new ThingsDB('ws://localhost:9780');
         thingsdb.connect().then(() => {
             thingsdb.auth().then(() => {
-                thingsdb.query('@thingsdb', 'n=90000; range(n).map(|i| `this is item number {i}`);').then(response => {
+                thingsdb.query('@thingsdb', 'n=100000; range(n).map(|i| `this is item number {i}`);').then(response => {
                     console.log('Query done!');
-                    console.log(response.length);  // will be "Hello World!"
+                    console.log(response.length);  // will be 100000
                 });
             });
         });

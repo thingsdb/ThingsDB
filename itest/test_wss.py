@@ -43,6 +43,11 @@ class TestWSS(TestBase):
         self.assertTrue(client.is_websocket())
         res = await client.query('6 * 7;')
         self.assertEqual(res, 42)
+        n = 100_000
+        res = await client.query("""//ti
+            range(n).map(|i| `this is item number {i}`);
+        """, n=n)
+        self.assertEqual(len(res), n)
 
 
 if __name__ == '__main__':

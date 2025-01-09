@@ -66,6 +66,7 @@ static int ws__callback_server_writable(struct lws * wsi, ti_ws_t * pss)
     if (!w)
         return 0;  /* nothing to write */
 
+    /* pointer to the request */
     req = w->req;
 
     /* set write flags for frame */
@@ -377,10 +378,13 @@ int ti_ws_write(ti_ws_t * pss, ti_write_t * req)
     w->req = req;
     w->f = 1;
     w->n = n;
-    w->nf = (n-1)/mf+1;
+    w->nf = (n-1)/mf+1;  /* calculate the number of frames */
 
     if (queue_push(&pss->queue, w))
+    {
+        free(w);
         return -1;
+    }
 
     lws_callback_on_writable(pss->wsi);
     return 0;

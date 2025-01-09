@@ -67,14 +67,23 @@ static int ws__callback_server_writable(struct lws * wsi, ti_ws_t * pss)
         return 0;  /* nothing to write */
 
     req = w->req;
+
+    /* set write flags for frame */
     is_end = w->f==w->nf;
     flags = lws_write_ws_flags(LWS_WRITE_BINARY, w->f==1, is_end);
+
+    /* calculate how much data must be send; if this is the last frame we use
+     * the module, with the exception when the data is exact */
     len = is_end ? w->n % ws__mf : ws__mf;
     len = len ? len : ws__mf;
+
+    /* pointer to the data */
     pt = (unsigned char *) req->pkg;
 
+    /* copy data to the buffer */
     memcpy(out, pt + (w->f-1)*ws__mf, len);
-    LOGC("Write frame %zu / %zu", w->f, w->nf);
+
+    /* write to websocket */
     m = lws_write(wsi, out, len, flags);
     if (m < (int) len)
     {
@@ -83,17 +92,19 @@ static int ws__callback_server_writable(struct lws * wsi, ti_ws_t * pss)
         return -1;
     }
 
-    lws_callback_on_writable(wsi);
-
     if (is_end)
     {
+        /* writing the package has completed, remove from queue and callback */
         (void) queue_shift(pss->queue);
         free(w);
         req->cb_(req, 0);
     }
     else
-        w->f++;
+        w->f++;  /* next frame */
 
+    /* request next callback, even when finished as a new package might exist
+     * in the queue */
+    lws_callback_on_writable(wsi);
     return 0;
 }
 

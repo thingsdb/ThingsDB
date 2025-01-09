@@ -12,7 +12,7 @@ typedef struct ti_ws_s ti_ws_t;
 
 struct ti_ws_s
 {
-    queue_t * queue;        /* ws__req_t */
+    queue_t * queue;        /* ti_write_t */
     ti_stream_t * stream;
     struct lws * wsi;
     size_t f;               /* current frame */

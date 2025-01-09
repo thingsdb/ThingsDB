@@ -1,3 +1,7 @@
+# v1.7.3
+
+* Improve destroy websocket when unexpected disconnect.
+
 # v1.7.2
 
 * Fix writing large packages over websockets, pr #403 (reported by @ivomans).

@@ -17,7 +17,8 @@
 static struct lws_context * ws__context;
 const size_t ws__mf = LWS_SS_MTU-LWS_PRE;
 
-typedef struct {
+typedef struct
+{
     ti_write_t * req;
     size_t f;       /* current frame */
     size_t nf;      /* total number of frames */

@@ -33,7 +33,7 @@ class TestAdvanced(TestBase):
         client.close()
         await client.wait_closed()
 
-    async def _test_qcache_recursion(self, client):
+    async def test_qcache_recursion(self, client):
         with self.assertRaisesRegex(
                 SyntaxError,
                 'query syntax has reached the maximum recursion depth of 500'):
@@ -97,7 +97,7 @@ class TestAdvanced(TestBase):
         """)
         self.assertEqual(len(res), 532)
 
-    async def _test_extend_restrict(self, client):
+    async def test_extend_restrict(self, client):
         _res = await client.query(r"""//ti
             set_type('A', {arr: '[str]'});
         """)
@@ -109,7 +109,7 @@ class TestAdvanced(TestBase):
                 a.arr.extend(range(3));
             """)
 
-    async def _test_closure_scope(self, client):
+    async def test_closure_scope(self, client):
         res = await client.query(r'''
             a = 1;
             (|| a = 2).call();
@@ -125,7 +125,7 @@ class TestAdvanced(TestBase):
                 a;  // should be undefined
             ''')
 
-    async def _test_block_cleanup(self, client):
+    async def test_block_cleanup(self, client):
         with self.assertRaisesRegex(
                 LookupError,
                 r'variable `x` is undefined'):
@@ -138,7 +138,7 @@ class TestAdvanced(TestBase):
                 x;  // should error, x is defined outside this scope
             ''')
 
-    async def _test_scope_new(self, client):
+    async def test_scope_new(self, client):
         res = await client.query(r'''
             a = 1;
             {
@@ -156,7 +156,7 @@ class TestAdvanced(TestBase):
         ''')
         self.assertEqual(res, 1)
 
-    async def _test_combined(self, client):
+    async def test_combined(self, client):
         self.assertIs(await client.query(r'''
             range(1).each(|i|
                 (i || a = 1) &&
@@ -174,7 +174,7 @@ class TestAdvanced(TestBase):
                 );
             ''')
 
-    async def _test_unpack(self, client):
+    async def test_unpack(self, client):
         res = await client.query(r'''
             set_type('T', {
                 name: 'str',
@@ -191,7 +191,7 @@ class TestAdvanced(TestBase):
                 val;
             ''', val=res)
 
-    async def _test_set_assign(self, client):
+    async def test_set_assign(self, client):
         res = await client.query(r'''
             t = {
                 s: set({}, {})
@@ -202,7 +202,7 @@ class TestAdvanced(TestBase):
         ''')
         self.assertEqual(res, [{}, {}])
 
-    async def _test_adv_rename(self, client):
+    async def test_adv_rename(self, client):
         await client.query(r'''
             set_type('A', {name: 'str'});
             set_enum('C', {RED: 'F00'});
@@ -248,7 +248,7 @@ class TestAdvanced(TestBase):
             ['l', '[Color?]?'],
             ['m', 'New?']])
 
-    async def _test_set_type_create(self, client):
+    async def test_set_type_create(self, client):
         with self.assertRaisesRegex(
                 OperationError,
                 r'function `set_type` can only be used on a type without '
@@ -292,7 +292,7 @@ class TestAdvanced(TestBase):
         ''')
         self.assertEqual(res, {'a': 0})
 
-    async def _test_filter_things(self, client):
+    async def test_filter_things(self, client):
         res = await client.query(r'''
             set_type('X', {b: 'int'});
             a = [X{b:1}, X{b:2}, X{b:3}];
@@ -301,7 +301,7 @@ class TestAdvanced(TestBase):
         ''')
         self.assertEqual(res, 2)
 
-    async def _test_wpo(self, client):
+    async def test_wpo(self, client):
         await client.query(r'''
             set_type('Person', {
                 name: 'str',
@@ -407,7 +407,7 @@ class TestAdvanced(TestBase):
                 mod_type('_Foo1', 'mod', 'wrap', 'int', ||1);
             ''')
 
-    async def _test_conditions(self, client):
+    async def test_conditions(self, client):
         with self.assertRaisesRegex(
                 ValueError,
                 r'invalid declaration for `a` on type `Foo`; '
@@ -941,7 +941,7 @@ class TestAdvanced(TestBase):
             {},
         ])
 
-    async def _test_any_set(self, client):
+    async def test_any_set(self, client):
         self.assertEqual(await client.query(r'''
             set_type('Foo', {a: 'any'});
             f = Foo{a: set()};
@@ -949,7 +949,7 @@ class TestAdvanced(TestBase):
             42;  // reached the end
         '''), 42)
 
-    async def _test_adv_definition(self, client):
+    async def test_adv_definition(self, client):
         with self.assertRaisesRegex(
                 TypeError,
                 r'invalid declaration for `s` on type `Foo`; '
@@ -982,7 +982,7 @@ class TestAdvanced(TestBase):
             42;
         '''), 42)
 
-    async def _test_query_gc(self, client):
+    async def test_query_gc(self, client):
         self.assertEqual(await client.query(r'''
             x = {};
             x.x = x;
@@ -1073,7 +1073,7 @@ class TestAdvanced(TestBase):
             5;
         '''), 5)
 
-    async def _test_mod_type_mod_advanced2(self, client):
+    async def test_mod_type_mod_advanced2(self, client):
         with self.assertRaisesRegex(
                 OperationError,
                 r'field `chat` on type `Room` is modified but at least one '
@@ -1112,7 +1112,7 @@ class TestAdvanced(TestBase):
         self.assertIs(await client.query('.room_a.chat.chat;'), None)
         self.assertIs(await client.query('.room_b.chat.chat;'), None)
 
-    async def _test_type_count(self, client):
+    async def test_type_count(self, client):
         res = await client.query(r'''
             new_type("X");
             set_type("X", {other: 'X?'});
@@ -1155,7 +1155,7 @@ class TestAdvanced(TestBase):
         ''')
         self.assertEqual(res, 1)
 
-    async def _test_mod_to_any(self, client):
+    async def test_mod_to_any(self, client):
         res = await client.query('''
             set_type('X', {
                 arr: '[int]'
@@ -1169,7 +1169,7 @@ class TestAdvanced(TestBase):
         ''')
         self.assertEqual(res, 1)
 
-    async def _test_mod_del_in_use(self, client):
+    async def test_mod_del_in_use(self, client):
         with self.assertRaisesRegex(
                 OperationError,
                 r'cannot change type `X` while one of the '
@@ -1188,7 +1188,7 @@ class TestAdvanced(TestBase):
                 });
             ''')
 
-    async def _test_new(self, client):
+    async def test_new(self, client):
         res = await client.query('''
             set_type('Count', {
                 arr: '[int]'
@@ -1202,7 +1202,7 @@ class TestAdvanced(TestBase):
         ''')
         self.assertEqual(res, [1, 2, 3])
 
-    async def _test_reuse_var(self, client):
+    async def test_reuse_var(self, client):
         res = await client.query('''
             x = true;
             count = refs(true);
@@ -1211,7 +1211,7 @@ class TestAdvanced(TestBase):
         ''')
         self.assertIs(res, None)
 
-    async def _test_array_arg(self, client):
+    async def test_array_arg(self, client):
         res = await client.query('''
             new_procedure('add', |arr, v| arr.push(v));
             .arr = range(3);
@@ -1227,7 +1227,7 @@ class TestAdvanced(TestBase):
         ''')
         self.assertEqual(res, list(range(6)))
 
-    async def _test_type_mod(self, client):
+    async def test_type_mod(self, client):
         await client.query('''
             set_type("A", {b: 'str'});
             set_type("B", {a: 'A'});
@@ -1269,7 +1269,7 @@ class TestAdvanced(TestBase):
             .x.arr.push(nil);
         ''')
 
-    async def _test_events(self, client):
+    async def test_events(self, client):
         await self.assertChange(client, r'''
             .arr = range(3);
         ''')
@@ -1283,7 +1283,7 @@ class TestAdvanced(TestBase):
             thing(.id()).set('a', []);
         ''')
 
-    async def _test_no_events(self, client):
+    async def test_no_events(self, client):
         await self.assertNoChange(client, r'''
             arr = range(3);
         ''')
@@ -1291,7 +1291,7 @@ class TestAdvanced(TestBase):
             range(3).push(4);
         ''')
 
-    async def _test_make(self, client):
+    async def test_make(self, client):
         await client.query('''
             new_procedure('create_host', |
                     env_id, name, address, probes,
@@ -1355,7 +1355,7 @@ class TestAdvanced(TestBase):
             root, 'name', '127.0.0.1', [], [], '')
         self.assertGreater(host_b, host_a)
 
-    async def _test_issue_90(self, client):
+    async def test_issue_90(self, client):
         name = await client.query(r'''
             set_type('P', {name: 'str?'});
             .person = P{name: 'Iris'};
@@ -1371,7 +1371,7 @@ class TestAdvanced(TestBase):
         ''')
         self.assertIs(name, None)
 
-    async def _test_issue_91(self, client):
+    async def test_issue_91(self, client):
         res = await client.query(r'''
             set_type('P', {
                 name: 'str'
@@ -1409,7 +1409,7 @@ class TestAdvanced(TestBase):
         self.assertEqual(res, [["p0a"], ["p1c", "p1d"], []])
         self.assertEqual(await client.query('type_count("P");'), 3)
 
-    async def _test_ref_count_mod(self, client):
+    async def test_ref_count_mod(self, client):
         res = await client.query(r'''
             set_type('P', {
                 name: 'str'
@@ -1438,7 +1438,7 @@ class TestAdvanced(TestBase):
         self.assertEqual(res, ['p1a', 'p1b'])
         self.assertEqual(await client.query('type_count("P");'), 3)
 
-    async def _test_order_types(self, client):
+    async def test_order_types(self, client):
         res = await client.query(r'''
             new_type('bike');
             new_type('mtb');
@@ -1454,7 +1454,7 @@ class TestAdvanced(TestBase):
             ['atb', 'bacteria', 'bal', 'banana', 'bike', 'mtb']
         )
 
-    async def _test_order_procedures(self, client):
+    async def test_order_procedures(self, client):
         res = await client.query(r'''
             new_procedure('bike', ||nil);
             new_procedure('mtb', ||nil);
@@ -1470,7 +1470,7 @@ class TestAdvanced(TestBase):
             ['atb', 'bacteria', 'bal', 'banana', 'bike', 'mtb']
         )
 
-    async def _test_order_enums(self, client):
+    async def test_order_enums(self, client):
         res = await client.query(r'''
             set_enum('bike', {X:0});
             set_enum('mtb', {X:0});
@@ -1486,7 +1486,7 @@ class TestAdvanced(TestBase):
             ['atb', 'bacteria', 'bal', 'banana', 'bike', 'mtb']
         )
 
-    async def _test_copy_set_to_list(self, client):
+    async def test_copy_set_to_list(self, client):
         res = await client.query(r'''
             set_type('P', {name: 'str'});
             set_type('T', {
@@ -1517,7 +1517,7 @@ class TestAdvanced(TestBase):
         ''')
         self.assertEqual(res, [[{"name": ""}, {"name": ""}]])
 
-    async def _test_thing_id_closure(self, client):
+    async def test_thing_id_closure(self, client):
         res = await client.query(r'''
             .x = || {
                 thing(3);
@@ -1526,7 +1526,7 @@ class TestAdvanced(TestBase):
         ''')
         self.assertIs(res, None)
 
-    async def _test_assign_in_def(self, client):
+    async def test_assign_in_def(self, client):
         res = await client.query(r'''
             str(|| x+=1);
         ''')
@@ -1553,7 +1553,7 @@ class TestAdvanced(TestBase):
         ''')
         self.assertEqual(res, '|| x[0] += 1')  # formatted closure
 
-    async def _test_export(self, client):
+    async def test_export(self, client):
         script = r'''
 // Enums
 
@@ -1608,7 +1608,7 @@ new_procedure('multiply', |a, b| a * b);
         res = await client.query('export();')
         self.assertEqual(res, script)
 
-    async def _test_with_cache_one(self, client):
+    async def test_with_cache_one(self, client):
         await client.query(r'''
             set_type('Check', {
                 name: 'str',
@@ -1624,7 +1624,7 @@ new_procedure('multiply', |a, b| a * b);
             run('new_check', 'test');
         ''')
 
-    async def _test_with_cache_two(self, client):
+    async def test_with_cache_two(self, client):
         await client.query(r'''
             set_type('Check', {
                 name: 'str',
@@ -1640,7 +1640,7 @@ new_procedure('multiply', |a, b| a * b);
             run('new_check', 'test');
         ''')
 
-    async def _test_type_set(self, client):
+    async def test_type_set(self, client):
         await client.query(r'''
             new_type('A');
             set_type('A', {
@@ -1654,7 +1654,7 @@ new_procedure('multiply', |a, b| a * b);
             assert (a1.aa.len() == 0);
         ''')
 
-    async def _test_ren_after_mod(self, client):
+    async def test_ren_after_mod(self, client):
         res = await client.query(r'''
             set_type('A', {m: ||nil});
             mod_type('A', 'mod', 'm', ||0);
@@ -1666,7 +1666,7 @@ new_procedure('multiply', |a, b| a * b);
         self.assertNotIn('m', methods)
         self.assertEqual(len(methods), 1)
 
-    async def _test_mod_with_restric_199(self, client):
+    async def test_mod_with_restric_199(self, client):
         # bug #199
         res = await client.query(r"""//ti
             set_type('Test', {i: 'pint'});
@@ -1675,7 +1675,7 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(res, {"i": 0})
 
-    async def _test_mod_with_restrict_200(self, client):
+    async def test_mod_with_restrict_200(self, client):
         # bug #200
         with self.assertRaisesRegex(
                 OperationError,
@@ -1693,7 +1693,7 @@ new_procedure('multiply', |a, b| a * b);
         self.assertEqual(res, {"i": 1})
         # The above should not introduce a memory leak.
 
-    async def _test_fail_relations(self, client):
+    async def test_fail_relations(self, client):
         # bug #203
         await client.query(r"""//ti
             new_type("A");
@@ -1796,7 +1796,7 @@ new_procedure('multiply', |a, b| a * b);
                 x.name;
             """)
 
-    async def _test_closure_as_type_val(self, client):
+    async def test_closure_as_type_val(self, client):
         # bug #202
         id = await client.query("""//ti
             set_type('Test', {
@@ -1814,7 +1814,7 @@ new_procedure('multiply', |a, b| a * b);
                 thing({id}).func(); // requires a change
             """)
 
-    async def _test_future_to_type(self, client):
+    async def test_future_to_type(self, client):
         await client.query(r"""//ti
             set_type('A', {x: 'any'});
         """)
@@ -1829,7 +1829,7 @@ new_procedure('multiply', |a, b| a * b);
                 };
             """)
 
-    async def _test_in_use_on_dict_242(self, client):
+    async def test_in_use_on_dict_242(self, client):
         # bug #242
         await client.query(".set('non name key', nil);")
         with self.assertRaisesRegex(
@@ -1844,7 +1844,7 @@ new_procedure('multiply', |a, b| a * b);
                 })
             """)
 
-    async def _test_in_use_on_dict_243(self, client):
+    async def test_in_use_on_dict_243(self, client):
         # bug #243
         res = await client.query(r"""//ti
             new_type('A');
@@ -1856,7 +1856,7 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertIsInstance(res, int)
 
-    async def _test_index_name(self, client):
+    async def test_index_name(self, client):
         # bug #252
         res = await client.query(r"""//ti
             {xxx: ''}.keys()[0][1];
@@ -1867,7 +1867,7 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(res, 'ceg')
 
-    async def _test_slice_bytes(self, client):
+    async def test_slice_bytes(self, client):
         # feature #251
         res = await client.query(r"""//ti
             bytes('abc')[1];
@@ -1878,7 +1878,7 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(res, b'ceg')
 
-    async def _test_replace_rev_large(self, client):
+    async def test_replace_rev_large(self, client):
         # bug #253
         s = 'x'*17000
         res = await client.query(r"""//ti
@@ -1886,7 +1886,7 @@ new_procedure('multiply', |a, b| a * b);
         """, s=s)
         self.assertEqual(s, res)
 
-    async def _test_loop_gc(self, client):
+    async def test_loop_gc(self, client):
         _res = await client.query(r"""//ti
             for (x in range(10)) {
                 x = {};
@@ -1902,7 +1902,7 @@ new_procedure('multiply', |a, b| a * b);
             });
         """)
 
-    async def _test_convert_to_thing(self, client):
+    async def test_convert_to_thing(self, client):
         # bug #277
         res = await client.query(r"""//ti
             set_type('Root', {
@@ -1918,7 +1918,7 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(res, 'OK')
 
-    async def _test_self_ref_max(self, client):
+    async def test_self_ref_max(self, client):
         await client.query(r"""//ti
             set_type('A', {});
         """)
@@ -1935,7 +1935,7 @@ new_procedure('multiply', |a, b| a * b);
                 mod_type('A', 'add', prop, 'A?');
             """, prop='too_much')
 
-    async def _test_ren_type_typed(self, client):
+    async def test_ren_type_typed(self, client):
         # bug #292 (rename with a restricted type)
         await client.query(r"""//ti
             new_type('A');
@@ -2024,7 +2024,7 @@ new_procedure('multiply', |a, b| a * b);
             "name": "AA"
         })
 
-    async def _test_reserved_enum_union(self, client):
+    async def test_reserved_enum_union(self, client):
         # bug #294
         with self.assertRaisesRegex(
                 ValueError,
@@ -2036,7 +2036,7 @@ new_procedure('multiply', |a, b| a * b);
                 'name `union` is reserved'):
             await client.query('new_type("union");')
 
-    async def _test_loop_set_relation_error(self, client):
+    async def test_loop_set_relation_error(self, client):
         # bug 302
         with self.assertRaises(AssertionError):
             await client.query("""//ti
@@ -2055,7 +2055,7 @@ new_procedure('multiply', |a, b| a * b);
                 .foo.people.some(|| assert(0));
             """)
 
-    async def _test_cope_on_wse_relation(self, client):
+    async def test_cope_on_wse_relation(self, client):
         await client.query("""//ti
             new_type('A');
             new_type('B');
@@ -2093,7 +2093,7 @@ new_procedure('multiply', |a, b| a * b);
                 .b.a.each(|| .clr());
             """)
 
-    async def _test_type_wrap_change(self, client):
+    async def test_type_wrap_change(self, client):
         res = await client.query("""//ti
             set_type('A', {
                 name: 'str',
@@ -2130,7 +2130,7 @@ new_procedure('multiply', |a, b| a * b);
                 'https://docs.thingsdb.io/v1/collection-api/wse')
         })
 
-    async def _test_no_declaration_after_flags(self, client):
+    async def test_no_declaration_after_flags(self, client):
         with self.assertRaisesRegex(
                 ValueError,
                 r'invalid declaration for `x` on type `A`; '
@@ -2140,7 +2140,7 @@ new_procedure('multiply', |a, b| a * b);
                 set_type("A", {x: "&"});
             """)
 
-    async def _test_309(self, client):
+    async def test_309(self, client):
         # bug #309
         _res = await client.query("""//ti
             new_type('A');
@@ -2166,7 +2166,7 @@ new_procedure('multiply', |a, b| a * b);
             "OK";
         """)
 
-    async def _test_filter_assign(self, client):
+    async def test_filter_assign(self, client):
         res = await client.query("""//ti
             a = {
                 arr: [1, 2, 3]
@@ -2177,7 +2177,7 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(res, [1, 2, 3])
 
-    async def _test_fast_set_update(self, client):
+    async def test_fast_set_update(self, client):
         res = await client.query("""//ti
             .myarr = [
                 {name: 'a'},
@@ -2194,7 +2194,7 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(res, 3)
 
-    async def _test_list_copy_dup(self, client):
+    async def test_list_copy_dup(self, client):
         # bug #314
         res = await client.query(r"""//ti
             la = [[[1, 2, 3]]];
@@ -2228,7 +2228,7 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(res, [1, 2, 3, {'x': 1}])
 
-    async def _test_general_id_and_map_id(self, client):
+    async def test_general_id_and_map_id(self, client):
         # feature request, issue #327
         res = await client.query(r"""//ti
             new_type('A');
@@ -2249,7 +2249,7 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(res, [wrap_id, thing_id, task_id, room_id])
 
-    async def _test_wrap_enum_thing(self, client):
+    async def test_wrap_enum_thing(self, client):
         # bug #329
         ida, idb = await client.query("""//ti
             set_type('_P', {
@@ -2279,7 +2279,7 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(res, {"e": {"id": ida, "name": "ALICE"}})
 
-    async def _test_deep_computed_props(self, client):
+    async def test_deep_computed_props(self, client):
         # bug #331
         res = await client.query("""//ti
             set_type('_C', {
@@ -2317,7 +2317,7 @@ new_procedure('multiply', |a, b| a * b);
             }
         })
 
-    async def _test_recustion_wrap_computed(self, client):
+    async def test_recustion_wrap_computed(self, client):
         # bug #332
         res = await client.query("""//ti
             set_type('T', {
@@ -2327,7 +2327,7 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertIn('r', res)
 
-    async def _test_procedure_with_future(self, client):
+    async def test_procedure_with_future(self, client):
         # bug #334
         res = await client.query("""//ti
             new_procedure('test', |a| {
@@ -2338,7 +2338,7 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(res['definition'], '|a| {\n\tT{a: };\n\tT{a: a};\n}')
 
-    async def _test_multiple_methods(self, client):
+    async def test_multiple_methods(self, client):
         # bug #343
         res = await client.query("""//ti
             set_type('T', {
@@ -2352,7 +2352,7 @@ new_procedure('multiply', |a, b| a * b);
             "b": "division or modulo by zero"
         })
 
-    async def _test_enum_membet_to_str(self, client):
+    async def test_enum_membet_to_str(self, client):
         # bug #344
         t, tid = await client.query("""//ti
             set_enum('E', {
@@ -2362,7 +2362,7 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(t, f'thing:{tid}')
 
-    async def _test_array(self, client):
+    async def test_array(self, client):
         res = await client.query("""//ti
             set_type('A', {
                 j: '[task]',
@@ -2412,7 +2412,7 @@ new_procedure('multiply', |a, b| a * b);
                 A{}.t.push('test');
             """)
 
-    async def _test_enum_wrong_scope(self, client):
+    async def test_enum_wrong_scope(self, client):
         # bug #350
         with self.assertRaisesRegex(
                 LookupError,
@@ -2422,7 +2422,7 @@ new_procedure('multiply', |a, b| a * b);
                 A{TEST};
             """, scope='/thingsdb')
 
-    async def _test_deep_copy_and_dup(self, client):
+    async def test_deep_copy_and_dup(self, client):
         # pr #355
         res = await client.query(r"""//ti
             a = {};
@@ -2473,7 +2473,7 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertIs(res, True)
 
-    async def _test_adv_rel(self, client):
+    async def test_adv_rel(self, client):
         # bug found and fixed in pull request #357
         res = await client.query(r"""//ti
             new_type('R');
@@ -2489,7 +2489,7 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertIs(res, None)
 
-    async def _test_future_name(self, client):
+    async def test_future_name(self, client):
         # bug solved in v1.5.0
         await client.query(r"""//ti
             new_procedure("add_user", || {
@@ -2509,7 +2509,7 @@ new_procedure('multiply', |a, b| a * b);
                 user = add_user(); user.id();
             """)
 
-    async def _test_utf8_range(self, client):
+    async def test_utf8_range(self, client):
         await client.query(r"""//ti
             set_type('A', {
                 u: 'utf8'
@@ -2587,7 +2587,7 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(res, {"u": "D"})
 
-    async def _test_json_load_i(self, client):
+    async def test_json_load_i(self, client):
         # bug #381
         await client.query("""//ti
             json_load('{"a": [{"b": 123}]}');
@@ -2613,7 +2613,7 @@ new_procedure('multiply', |a, b| a * b);
             is_tuple(x.first());
         """))
 
-    async def _test_names_loading(self, client):
+    async def test_names_loading(self, client):
         await self.node0.shutdown()
         await self.node0.run()
 
@@ -2641,7 +2641,7 @@ new_procedure('multiply', |a, b| a * b);
         self.assertEqual(res[0], 'my_test_key1')
         self.assertEqual(res[1], 'my_test_key2')
 
-    async def _test_def_bool(self, client):
+    async def test_def_bool(self, client):
         # New syntax for boolean with default, see (pr #402)
         q = client.query
         t = await q("""//ti
@@ -2687,17 +2687,6 @@ new_procedure('multiply', |a, b| a * b);
                 });
             """)
 
-    async def test_simple_ws(self, client):
-        # self.assertTrue(client.is_websocket())
-        # info = client.connection_info()
-        # self.assertIsInstance(info, str)
-        # res = await client.query('6 * 7;')
-        # self.assertEqual(res, 42)
-        n = 50_000
-        res = await client.query("""//ti
-            range(n).map(|i| `this is item number {i}`);
-        """, n=n)
-        self.assertEqual(len(res), n)
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

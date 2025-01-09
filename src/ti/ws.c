@@ -17,14 +17,6 @@
 static struct lws_context * ws__context;
 const size_t ws__mf = LWS_SS_MTU-LWS_PRE;
 
-typedef struct
-{
-    ti_write_t * req;
-    size_t f;       /* current frame */
-    size_t nf;      /* total number of frames */
-    size_t n;       /* total size to send */
-} ws__req_t;
-
 static int ws__callback_established(struct lws * wsi, ti_ws_t * pss)
 {
     const size_t sugsz = 8192;
@@ -43,6 +35,10 @@ static int ws__callback_established(struct lws * wsi, ti_ws_t * pss)
 
     pss->stream->with.ws = pss;
     pss->wsi = wsi;
+    pss->f = 0;
+    pss->n = 0;
+    pss->nf = 0;
+
     return 0;
 
 fail2:
@@ -55,6 +51,12 @@ fail0:
     return -1;
 }
 
+static inline void ws__write_done(ti_ws_t * pss)
+{
+    (void) queue_shift(pss->queue);
+    pss->f = 0;  /* reset to frame 0 */
+}
+
 static int ws__callback_server_writable(struct lws * wsi, ti_ws_t * pss)
 {
     unsigned char mtubuff[LWS_SS_MTU];
@@ -62,47 +64,53 @@ static int ws__callback_server_writable(struct lws * wsi, ti_ws_t * pss)
     unsigned char * pt;
     int flags, m, is_end;
     size_t len;
-    ti_write_t * req;
-    ws__req_t * w = queue_first(pss->queue);
-    if (!w)
+    ti_write_t * req = queue_first(pss->queue);
+    if (!req)
         return 0;  /* nothing to write */
 
-    /* pointer to the request */
-    req = w->req;
+    if (pss->f == 0)
+    {
+        /* notice we allowed for LWS_PRE in the payload already */
+        size_t n = sizeof(ti_pkg_t) + req->pkg->n;
+
+        pss->f = 1;
+        pss->n = n;
+        pss->nf = (n-1)/ws__mf+1;  /* calculate the number of frames */
+    }
 
     /* set write flags for frame */
-    is_end = w->f==w->nf;
-    flags = lws_write_ws_flags(LWS_WRITE_BINARY, w->f==1, is_end);
+    is_end = pss->f==pss->nf;
+    flags = lws_write_ws_flags(LWS_WRITE_BINARY, pss->f==1, is_end);
 
     /* calculate how much data must be send; if this is the last frame we use
      * the module, with the exception when the data is exact */
-    len = is_end ? w->n % ws__mf : ws__mf;
+    len = is_end ? pss->n % ws__mf : ws__mf;
     len = len ? len : ws__mf;
 
     /* pointer to the data */
     pt = (unsigned char *) req->pkg;
 
     /* copy data to the buffer */
-    memcpy(out, pt + (w->f-1)*ws__mf, len);
+    memcpy(out, pt + (pss->f-1)*ws__mf, len);
 
     /* write to websocket */
     m = lws_write(wsi, out, len, flags);
+
     if (m < (int) len)
     {
         log_error("ERROR %d; writing to WebSocket", m);
+        ws__write_done(pss);  /* reset to frame 0 and shift from queue */
         req->cb_(req, EX_WRITE_UV);
         return -1;
     }
 
     if (is_end)
     {
-        /* writing the package has completed, remove from queue and callback */
-        (void) queue_shift(pss->queue);
-        free(w);
+        ws__write_done(pss);  /* reset to frame 0 and shift from queue */
         req->cb_(req, 0);
     }
     else
-        w->f++;  /* next frame */
+        pss->f++;  /* next frame */
 
     /* request next callback, even when finished as a new package might exist
      * in the queue */
@@ -171,12 +179,6 @@ struct per_vhost_data__minimal {
     const struct lws_protocols *protocol;
 };
 
-static void ws__req_free(ws__req_t * w)
-{
-    free(w->req);
-    free(w);
-}
-
 /* Callback function for WebSocket server messages */
 int ws__callback(
         struct lws * wsi,
@@ -201,7 +203,7 @@ int ws__callback(
         if (pss->stream)
         {
             ti_stream_close(pss->stream);
-            queue_destroy(pss->queue, (queue_destroy_cb) ws__req_free);
+            queue_destroy(pss->queue, free);
         }
         break;
     default:
@@ -359,32 +361,11 @@ int ti_ws_init()
 
 int ti_ws_write(ti_ws_t * pss, ti_write_t * req)
 {
-    ti_pkg_t * pkg;
-    size_t n;
-    ws__req_t * w;
-
     if (!pss->wsi)
         return 0;  /* ignore dead connections */
 
-    w = malloc(sizeof(ws__req_t));
-    if (!w)
+    if (queue_push(&pss->queue, req))
         return -1;
-
-    pkg = req->pkg;
-
-    /* notice we allowed for LWS_PRE in the payload already */
-    n = sizeof(ti_pkg_t) + pkg->n;
-
-    w->req = req;
-    w->f = 1;
-    w->n = n;
-    w->nf = (n-1)/ws__mf+1;  /* calculate the number of frames */
-
-    if (queue_push(&pss->queue, w))
-    {
-        free(w);
-        return -1;
-    }
 
     lws_callback_on_writable(pss->wsi);
     return 0;

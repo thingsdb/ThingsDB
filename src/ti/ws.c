@@ -15,6 +15,7 @@
 #include <util/fx.h>
 
 static struct lws_context * ws__context;
+const size_t ws__mf = LWS_SS_MTU-LWS_PRE;
 
 static int ws__callback_established(struct lws * wsi, ti_ws_t * pss)
 {
@@ -34,6 +35,10 @@ static int ws__callback_established(struct lws * wsi, ti_ws_t * pss)
 
     pss->stream->with.ws = pss;
     pss->wsi = wsi;
+    pss->f = 0;
+    pss->n = 0;
+    pss->nf = 0;
+
     return 0;
 
 fail2:
@@ -46,42 +51,70 @@ fail0:
     return -1;
 }
 
+static inline void ws__write_done(ti_ws_t * pss)
+{
+    (void) queue_shift(pss->queue);
+    pss->f = 0;  /* reset to frame 0 */
+}
+
 static int ws__callback_server_writable(struct lws * wsi, ti_ws_t * pss)
 {
-    const size_t mf = LWS_SS_MTU-LWS_PRE;
     unsigned char mtubuff[LWS_SS_MTU];
     unsigned char * out = mtubuff + LWS_PRE;
     unsigned char * pt;
-    int flags, m;
-    size_t n, f, nf, len;
-    ti_pkg_t * pkg;
-    ti_write_t * req = queue_shift(pss->queue);
+    int flags, m, is_end;
+    size_t len;
+    ti_write_t * req = queue_first(pss->queue);
     if (!req)
         return 0;  /* nothing to write */
 
-    pkg = req->pkg;
-
-    /* notice we allowed for LWS_PRE in the payload already */
-    n = sizeof(ti_pkg_t) + pkg->n;
-    nf = (n-1)/mf+1;
-    pt = (unsigned char *) pkg;
-
-    for (f=1; f<=nf; ++f, pt+=mf, n-=mf)
+    if (pss->f == 0)
     {
-        flags = lws_write_ws_flags(LWS_WRITE_BINARY, f==1, f==nf);
-        len = mf > n ? n : mf;
-        memcpy(out, pt, len);
-        m = lws_write(wsi, out, len, flags);
-        if (m < (int) len)
-        {
-            log_error("ERROR %d; writing to WebSocket", m);
-            req->cb_(req, EX_WRITE_UV);
-            return -1;
-        }
-    }
-    lws_callback_on_writable(wsi);
+        /* notice we allowed for LWS_PRE in the payload already */
+        size_t n = sizeof(ti_pkg_t) + req->pkg->n;
 
-    req->cb_(req, 0);
+        pss->f = 1;
+        pss->n = n;
+        pss->nf = (n-1)/ws__mf+1;  /* calculate the number of frames */
+    }
+
+    /* set write flags for frame */
+    is_end = pss->f==pss->nf;
+    flags = lws_write_ws_flags(LWS_WRITE_BINARY, pss->f==1, is_end);
+
+    /* calculate how much data must be send; if this is the last frame we use
+     * the module, with the exception when the data is exact */
+    len = is_end ? pss->n % ws__mf : ws__mf;
+    len = len ? len : ws__mf;
+
+    /* pointer to the data */
+    pt = (unsigned char *) req->pkg;
+
+    /* copy data to the buffer */
+    memcpy(out, pt + (pss->f-1)*ws__mf, len);
+
+    /* write to websocket */
+    m = lws_write(wsi, out, len, flags);
+
+    if (m < (int) len)
+    {
+        log_error("ERROR %d; writing to WebSocket", m);
+        ws__write_done(pss);  /* reset to frame 0 and shift from queue */
+        req->cb_(req, EX_WRITE_UV);
+        return -1;
+    }
+
+    if (is_end)
+    {
+        ws__write_done(pss);  /* reset to frame 0 and shift from queue */
+        req->cb_(req, 0);
+    }
+    else
+        pss->f++;  /* next frame */
+
+    /* request next callback, even when finished as a new package might exist
+     * in the queue */
+    lws_callback_on_writable(wsi);
     return 0;
 }
 
@@ -330,8 +363,10 @@ int ti_ws_write(ti_ws_t * pss, ti_write_t * req)
 {
     if (!pss->wsi)
         return 0;  /* ignore dead connections */
+
     if (queue_push(&pss->queue, req))
         return -1;
+
     lws_callback_on_writable(pss->wsi);
     return 0;
 }

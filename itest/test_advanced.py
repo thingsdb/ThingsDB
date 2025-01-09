@@ -2687,5 +2687,6 @@ new_procedure('multiply', |a, b| a * b);
                 });
             """)
 
+
 if __name__ == '__main__':
     run_test(TestAdvanced())

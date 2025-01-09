@@ -45,9 +45,18 @@ class TestWS(TestBase):
         self.assertIsInstance(info, str)
         res = await client.query('6 * 7;')
         self.assertEqual(res, 42)
+
+        # test with exact module frame size
+        n = 10_156
+        res = await client.query("""//ti
+            [range(n).map(|i| 'aa')];
+        """, n=n)
+        self.assertEqual(len(res[0]), n)
+
+        # test with large data
         n = 100_000
         res = await client.query("""//ti
-            range(n).map(|i| `this is item number {i}`);
+            range(n).map(|i| `this is item with number {i}`);
         """, n=n)
         self.assertEqual(len(res), n)
 

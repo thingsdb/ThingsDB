@@ -1,23 +1,14 @@
 #!/usr/bin/env python
 import asyncio
-import pickle
-import time
-import msgpack
-import ssl
-import struct
 from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
-from thingsdb.exceptions import AssertionError
-from thingsdb.exceptions import ValueError
-from thingsdb.exceptions import TypeError
-from thingsdb.exceptions import NumArgumentsError
-from thingsdb.exceptions import BadDataError
-from thingsdb.exceptions import LookupError
-from thingsdb.exceptions import OverflowError
-from thingsdb.exceptions import ZeroDivisionError
-from thingsdb.exceptions import OperationError
+from thingsdb.client import Client
+
+# The following code can be used to lower or increase the max package size
+# from thingsdb.client import protocol
+# protocol.WEBSOCKET_MAX_SIZE = 2**8
 
 
 class TestWS(TestBase):
@@ -39,7 +30,7 @@ class TestWS(TestBase):
         await client.wait_closed()
         await asyncio.sleep(1)  # sleep is required for nice close
 
-    async def test_simple_ws(self, client):
+    async def test_simple_ws(self, client: Client):
         self.assertTrue(client.is_websocket())
         info = client.connection_info()
         self.assertIsInstance(info, str)

@@ -51,10 +51,11 @@ fail0:
     return -1;
 }
 
-static inline void ws__write_done(ti_ws_t * pss)
+static inline void ws__done(ti_ws_t * pss, ti_write_t * req, ex_enum status)
 {
     (void) queue_shift(pss->queue);
     pss->f = 0;  /* reset to frame 0 */
+    req->cb_(req, status);
 }
 
 static int ws__callback_server_writable(struct lws * wsi, ti_ws_t * pss)
@@ -99,16 +100,12 @@ static int ws__callback_server_writable(struct lws * wsi, ti_ws_t * pss)
     if (m < (int) len)
     {
         log_error("ERROR %d; writing to WebSocket", m);
-        ws__write_done(pss);  /* reset to frame 0 and shift from queue */
-        req->cb_(req, EX_WRITE_UV);
+        ws__done(pss, req, EX_WRITE_UV);
         return -1;
     }
 
     if (is_end)
-    {
-        ws__write_done(pss);  /* reset to frame 0 and shift from queue */
-        req->cb_(req, 0);
-    }
+        ws__done(pss, req, 0);
     else
         pss->f++;  /* next frame */
 
@@ -179,6 +176,11 @@ struct per_vhost_data__minimal {
     const struct lws_protocols *protocol;
 };
 
+static void ws__drop_req(ti_write_t * req)
+{
+    req->cb_(req, EX_WRITE_UV);
+}
+
 /* Callback function for WebSocket server messages */
 int ws__callback(
         struct lws * wsi,
@@ -202,8 +204,8 @@ int ws__callback(
     case LWS_CALLBACK_CLOSED:
         if (pss->stream)
         {
+            queue_destroy(pss->queue, (queue_destroy_cb) ws__drop_req);
             ti_stream_close(pss->stream);
-            queue_destroy(pss->queue, free);
         }
         break;
     default:

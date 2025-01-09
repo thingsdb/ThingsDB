@@ -358,7 +358,6 @@ int ti_ws_init()
 
 int ti_ws_write(ti_ws_t * pss, ti_write_t * req)
 {
-    const size_t mf = LWS_SS_MTU-LWS_PRE;
     ti_pkg_t * pkg;
     size_t n;
     ws__req_t * w;
@@ -378,7 +377,7 @@ int ti_ws_write(ti_ws_t * pss, ti_write_t * req)
     w->req = req;
     w->f = 1;
     w->n = n;
-    w->nf = (n-1)/mf+1;  /* calculate the number of frames */
+    w->nf = (n-1)/ws__mf+1;  /* calculate the number of frames */
 
     if (queue_push(&pss->queue, w))
     {

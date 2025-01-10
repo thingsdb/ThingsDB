@@ -12,7 +12,7 @@ async def test_err_max_size():
     client = Client()
 
     # We decrease the max_size so the following query will fail
-    protocol.WEBSOCKET_MAX_SIZE = 2**8
+    protocol.WEBSOCKET_MAX_SIZE = 2**14
 
     await client.connect('ws://localhost:9780')
     try:
@@ -22,7 +22,7 @@ async def test_err_max_size():
         n = 20_000
         await client.query("""//ti
             range(n).map(|i| `this is item with number {i}`);
-        """, n=n)
+        """, timeout=5, n=n)
 
     finally:
         await client.close_and_wait()
@@ -70,7 +70,7 @@ class TestWS(TestBase):
 
     async def test_with_error(self, _client: Client):
         with self.assertRaises(asyncio.TimeoutError):
-            await asyncio.wait_for(test_err_max_size(), 5)
+            await test_err_max_size()
 
 
 if __name__ == '__main__':

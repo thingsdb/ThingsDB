@@ -11,21 +11,27 @@ from thingsdb.client import protocol
 async def test_err_max_size():
     client = Client()
 
+    prev = protocol.WEBSOCKET_MAX_SIZE
+
     # We decrease the max_size so the following query will fail
     protocol.WEBSOCKET_MAX_SIZE = 2**14
-
-    await client.connect('ws://localhost:9780')
     try:
-        await client.authenticate('admin', 'pass')
+        await client.connect('ws://localhost:9780')
+        try:
+            await client.authenticate('admin', 'pass')
 
-        # This is large enough so it will fail
-        n = 20_000
-        await client.query("""//ti
-            range(n).map(|i| `this is item with number {i}`);
-        """, timeout=5, n=n)
+            # This is large enough so it will fail
+            n = 20_000
+            await client.query("""//ti
+                range(n).map(|i| `this is item with number {i}`);
+            """, timeout=5, n=n)
 
+        finally:
+            await client.close_and_wait()
     finally:
-        await client.close_and_wait()
+        # Restore original value
+        protocol.WEBSOCKET_MAX_SIZE = prev
+
 
 
 class TestWS(TestBase):

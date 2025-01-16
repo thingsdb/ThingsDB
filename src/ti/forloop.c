@@ -22,27 +22,52 @@ typedef struct
     ex_t * e;
 } forloop__walk_t;
 
+typedef struct
+{
+    ti_prop_t * prop0;
+    ti_prop_t * prop1;
+} forloop__props_t;
+
 static inline void forloop__set_prop(
         int nargs,
         cleri_node_t * vars_nd,
         ti_name_t * name,
-        ti_val_t * val)
+        ti_val_t * val,
+        forloop__props_t * props)
 {
-    ti_prop_t * prop;
     switch(nargs)
     {
     default:
     case 2:
-        prop = vars_nd->children->next->data;
+        props->prop0 = vars_nd->children->next->data;
         ti_incref(val);
-        ti_val_unsafe_gc_drop(prop->val);
-        prop->val = val;
+        ti_val_unsafe_gc_drop(props->prop0->val);
+        props->prop0->val = val;
         /* fall through */
     case 1:
-        prop = vars_nd->data;
+        props->prop1 = vars_nd->data;
         ti_incref(name);
-        ti_val_unsafe_gc_drop(prop->val);
-        prop->val = (ti_val_t *) name;
+        ti_val_unsafe_gc_drop(props->prop1->val);
+        props->prop1->val = (ti_val_t *) name;
+        /* fall through */
+    case 0:
+        break;
+    }
+}
+
+static inline void forloop__unset_prop(
+        int nargs,
+        cleri_node_t * vars_nd,
+        forloop__props_t * props)
+{
+    switch(nargs)
+    {
+    default:
+    case 2:
+        vars_nd->children->next->data = props->prop0;
+        /* fall through */
+    case 1:
+        vars_nd->data = props->prop1;
         /* fall through */
     case 0:
         break;
@@ -51,14 +76,20 @@ static inline void forloop__set_prop(
 
 static int forloop__walk_thing(ti_item_t * item, forloop__walk_t * w)
 {
+    int rc;
+    forloop__props_t props;
+
     forloop__set_prop(
             w->nargs,
             w->vars_nd,
             (ti_name_t *) item->key,
-            item->val);
+            item->val,
+            &props);
 
     w->query->rval = NULL;
-    switch (ti_do_statement(w->query, w->code_nd, w->e))
+    rc = ti_do_statement(w->query, w->code_nd, w->e);
+    forloop__unset_prop(w->nargs, w->vars_nd, &props);
+    switch (rc)
     {
     case EX_SUCCESS:
         ti_val_unsafe_drop(w->query->rval);
@@ -77,32 +108,51 @@ static int forloop__walk_thing(ti_item_t * item, forloop__walk_t * w)
 
 static int forloop__walk_set(ti_thing_t * t, forloop__walk_t * w)
 {
-    ti_prop_t * prop;
+    int rc;
+    ti_prop_t * prop0;
+    ti_prop_t * prop1;
+
     switch(w->nargs)
     {
     default:
     case 2:
-        prop = w->vars_nd->children->next->data;
-        ti_val_unsafe_gc_drop(prop->val);
-        prop->val = t->id
+        prop0 = w->vars_nd->children->next->data;
+        ti_val_unsafe_gc_drop(prop0->val);
+        prop0->val = t->id
                 ? (ti_val_t *) ti_vint_create((int64_t) t->id)
                 : (ti_val_t *) ti_nil_get();
 
-        if (!prop->val)
+        if (!prop0->val)
             return ex_set_mem(w->e), w->e->nr;
         /* fall through */
     case 1:
-        prop = w->vars_nd->data;
+        prop1 = w->vars_nd->data;
         ti_incref(t);
-        ti_val_unsafe_gc_drop(prop->val);
-        prop->val = (ti_val_t *) t;
+        ti_val_unsafe_gc_drop(prop1->val);
+        prop1->val = (ti_val_t *) t;
         /* fall through */
     case 0:
         break;
     }
 
     w->query->rval = NULL;
-    switch (ti_do_statement(w->query, w->code_nd, w->e))
+
+    rc = ti_do_statement(w->query, w->code_nd, w->e);
+
+    switch(w->nargs)
+    {
+    default:
+    case 2:
+        w->vars_nd->children->next->data = prop0;
+        /* fall through */
+    case 1:
+        w->vars_nd->data = prop1;
+        /* fall through */
+    case 0:
+        break;
+    }
+
+    switch (rc)
     {
     case EX_SUCCESS:
         ti_val_unsafe_drop(w->query->rval);
@@ -258,6 +308,7 @@ int ti_forloop_thing(
 {
     int nargs = 0;
     int lock_was_set;
+    forloop__props_t props;
     ti_thing_t * thing = (ti_thing_t *) query->rval;
 
     if (!ti_thing_n(thing))
@@ -275,10 +326,13 @@ int ti_forloop_thing(
         ti_val_t * val;
         for (thing_t_each(thing, name, val))
         {
-            forloop__set_prop(nargs, vars_nd, name, val);
+            int rc;
+            forloop__set_prop(nargs, vars_nd, name, val, &props);
 
             query->rval = NULL;
-            switch (ti_do_statement(query, code_nd, e))
+            rc = ti_do_statement(query, code_nd, e);
+            forloop__unset_prop(nargs, vars_nd, &props);
+            switch (rc)
             {
             case EX_SUCCESS:
                 ti_val_unsafe_drop(query->rval);
@@ -317,10 +371,13 @@ int ti_forloop_thing(
 
     for (vec_each(thing->items.vec, ti_prop_t, p))
     {
-        forloop__set_prop(nargs, vars_nd, p->name, p->val);
+        int rc;
+        forloop__set_prop(nargs, vars_nd, p->name, p->val, &props);
 
         query->rval = NULL;
-        switch (ti_do_statement(query, code_nd, e))
+        rc = ti_do_statement(query, code_nd, e);
+        forloop__unset_prop(nargs, vars_nd, &props);
+        switch (rc)
         {
         case EX_SUCCESS:
             ti_val_unsafe_drop(query->rval);

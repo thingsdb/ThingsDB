@@ -15,7 +15,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libuv1-dev libpcre2-dev libyajl-dev libcurl4-nss-dev valgrind
+          sudo apt-get install -y libuv1-dev libpcre2-dev libyajl-dev libcurl4-openssl-dev valgrind
       - name: Run tests
         run: |
           cd ./test/

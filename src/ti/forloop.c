@@ -77,7 +77,7 @@ static inline void forloop__unset_prop(
 static int forloop__walk_thing(ti_item_t * item, forloop__walk_t * w)
 {
     int rc;
-    forloop__props_t props;
+    forloop__props_t props = {0};
 
     forloop__set_prop(
             w->nargs,
@@ -109,8 +109,8 @@ static int forloop__walk_thing(ti_item_t * item, forloop__walk_t * w)
 static int forloop__walk_set(ti_thing_t * t, forloop__walk_t * w)
 {
     int rc;
-    ti_prop_t * prop0;
-    ti_prop_t * prop1;
+    ti_prop_t * prop0 = NULL;
+    ti_prop_t * prop1 = NULL;
 
     switch(w->nargs)
     {
@@ -308,7 +308,7 @@ int ti_forloop_thing(
 {
     int nargs = 0;
     int lock_was_set;
-    forloop__props_t props;
+    forloop__props_t props = {0};
     ti_thing_t * thing = (ti_thing_t *) query->rval;
 
     if (!ti_thing_n(thing))

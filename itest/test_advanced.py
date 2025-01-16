@@ -2687,6 +2687,76 @@ new_procedure('multiply', |a, b| a * b);
                 });
             """)
 
+    async def test_for_each_recurring(self, client):
+        q = client.query
+        await q("""//ti
+            new_type("T");
+            set_type("T", {
+                set: '{T}',
+                arr: '[T]',
+                o1: 'T?',
+                o2: 'T?',
+                o3: 'T?',
+            });
+            .t = T{
+                set: set(
+                    T{},
+                    T{set: set(T{}, T{})},
+                    T{set: set(T{}, T{set: set(T{}, T{})}, T{}, T{})},
+                    T{},
+                ),
+                arr: [
+                    T{},
+                    T{arr: [T{}, T{}]},
+                    T{arr: [T{}, T{arr: [T{}, T{}]}, T{}, T{}]},
+                    T{},
+                ],
+                o1: T{o1: T{o1: T{o1: T{}}}},
+                o2: T{o2: T{o2: T{o2: T{}}}},
+            }
+        """)
+
+        x = await q("""//ti
+            x = 0;
+            loop = |t| {
+                x += 1;
+                for (child in t.arr) {
+                    loop(child);
+                };
+            };
+            loop(.t);
+            x;
+        """)
+        self.assertEqual(x, 13)
+
+        await q("""//ti
+            x = 0;
+            loop = |t| {
+                x += 1;
+                for (child in t.set) {
+                    loop(child);
+                };
+            };
+            loop(.t);
+            x;
+        """)
+        self.assertEqual(x, 13)
+
+        x = await q("""//ti
+            x = 0;
+            loop = |t| {
+                x += 1;
+                for (k, v in t) {
+                    if (is_thing(v)) {
+                        loop(v)
+                    }
+                };
+            };
+            loop(.t);
+            x;
+        """)
+        self.assertEqual(x, 9)
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

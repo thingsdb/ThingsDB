@@ -1,6 +1,7 @@
 # v1.7.3
 
 * Improve destroy websocket when unexpected disconnect.
+* Fix in recursive `for-each` loop.
 
 # v1.7.2
 

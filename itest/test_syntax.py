@@ -177,8 +177,11 @@ class TestSyntax(TestBase):
         ])
 
     async def test_empty(self, client):
-        await client.query("")
+        res = await client.query("")
+        self.assertIsNone(res)
         await client.query("nil;;;")
+        self.assertIsNone(res)
+        await client.query("return;")
 
 
 if __name__ == '__main__':

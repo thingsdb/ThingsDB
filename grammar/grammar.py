@@ -161,7 +161,7 @@ class LangDef(Grammar):
 
     return_statement = Sequence(
         k_return,
-        List(THIS, mi=1, ma=3, opt=False))
+        List(THIS, mi=0, ma=3, opt=False))
 
     for_statement = Sequence(
         k_for,

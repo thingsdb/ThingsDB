@@ -1347,6 +1347,13 @@ static inline void qbind__return_statement(
         cleri_node_t * nd)
 {
     cleri_node_t * node = nd->children->next->children;
+    if (!node)
+    {
+        nd->data = ti_do_return_nil;
+        nd->children->data = NULL;
+        return;
+    }
+
     qbind__statement(qbind, node);
     if (node->next)
     {

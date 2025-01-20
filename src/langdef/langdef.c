@@ -232,7 +232,7 @@ cleri_grammar_t * compile_langdef(void)
         CLERI_GID_RETURN_STATEMENT,
         2,
         k_return,
-        cleri_list(CLERI_NONE, CLERI_THIS, cleri_token(CLERI_NONE, ","), 1, 3, 0)
+        cleri_list(CLERI_NONE, CLERI_THIS, cleri_token(CLERI_NONE, ","), 0, 3, 0)
     );
     cleri_t * for_statement = cleri_sequence(
         CLERI_GID_FOR_STATEMENT,

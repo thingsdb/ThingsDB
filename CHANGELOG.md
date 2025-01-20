@@ -1,6 +1,6 @@
-# v1.7.3
+# v1.7.4
 
-* Allow `return;` statement without arguments _(implicit return nil)_.
+* Allow `return;` statement without arguments _(implicitly return nil)_, pr #404.
 
 # v1.7.3
 

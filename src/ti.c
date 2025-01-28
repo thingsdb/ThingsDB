@@ -83,6 +83,7 @@ int ti_create(void)
     ti.last_change_id = 0;
     ti.global_stored_change_id = 0;
     ti.flags = TI_FLAG_STARTING;
+    ti.minimize = false;
     ti.fn = NULL;
     ti.node_fn = NULL;
     ti.build = NULL;

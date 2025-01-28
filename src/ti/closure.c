@@ -336,7 +336,15 @@ static char * closure__char(ti_closure_t * closure, size_t * n)
     if (!buf)
         return NULL;
 
-    closure__node_to_buf(closure->node, buf, n);
+    if (ti.minimize)
+    {
+        closure__node_to_buf(closure->node, buf, n);
+    }
+    else
+    {
+        *n = closure->node->len;
+        memcpy(buf, closure->node->str, *n);
+    }
     return buf;
 }
 

@@ -122,6 +122,7 @@ struct ti_s
     ti_tz_t * n_tz;             /* @node scope time zone (unchangeable) */
     uint8_t t_deep;             /* @thingsdb scope default deep */
     uint8_t n_deep;             /* @node scope default deep (unchangeable)*/
+    bool minimize;              /* store closures minimized */
 };
 
 static inline _Bool ti_flag_test(int flag)

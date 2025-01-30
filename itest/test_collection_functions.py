@@ -5957,8 +5957,12 @@ class TestCollectionFunctions(TestBase):
         res = await client.query("""//ti
             range(-1000, 1000).map(|i| i.bit_count());
         """)
-
         self.assertEqual(res, [i.bit_count() for i in range(-1000, 1000)])
+
+        res = await client.query("""//ti
+            ((5 << 60) + 5).bit_count();
+        """)
+        self.assertEqual(res, 4)
 
 
 if __name__ == '__main__':

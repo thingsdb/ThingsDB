@@ -16,11 +16,10 @@ static int do__f_bit_count(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     v = i < 0 ? 0-(uint64_t)i : (uint64_t)i;
 
     // from http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
-    c = v - ((v >> 1) & 0x55555555);
-    c = ((c >> 2) & 0x33333333) + (c & 0x33333333);
-    c = ((c >> 4) + c) & 0x0F0F0F0F;
-    c = ((c >> 8) + c) & 0x00FF00FF;
-    c = ((c >> 16) + c) & 0x0000FFFF;
+    v = v - ((v >> 1) & (uint64_t)~(uint64_t)0/3);
+    v = (v & (uint64_t)~(uint64_t)0/15*3) + ((v >> 2) & (uint64_t)~(uint64_t)0/15*3);
+    v = (v + (v >> 4)) & (uint64_t)~(uint64_t)0/255*15;
+    c = (uint64_t)(v * ((uint64_t)~(uint64_t)0/255)) >> (sizeof(uint64_t) - 1) * CHAR_BIT;
 
     ti_val_unsafe_drop(query->rval);
 

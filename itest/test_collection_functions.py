@@ -5937,6 +5937,29 @@ class TestCollectionFunctions(TestBase):
             root().id() == .id();
         """))
 
+    async def test_bit_count(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `bit_count`'):
+            await client.query('nil.bit_count();')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `bit_count` is undefined'):
+            await client.query('bit_count(4);')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `bit_count` takes 0 arguments '
+                'but 1 was given'):
+            await client.query('(4).bit_count(nil);')
+
+        res = await client.query("""//ti
+            range(-1000, 1000).map(|i| i.bit_count());
+        """)
+
+        self.assertEqual(res, [i.bit_count() for i in range(-1000, 1000)])
+
 
 if __name__ == '__main__':
     run_test(TestCollectionFunctions())

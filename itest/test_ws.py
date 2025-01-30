@@ -33,7 +33,6 @@ async def test_err_max_size():
         protocol.WEBSOCKET_MAX_SIZE = prev
 
 
-
 class TestWS(TestBase):
 
     title = 'Test WebSockets'

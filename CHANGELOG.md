@@ -1,5 +1,6 @@
 # v1.7.4
 
+* Added `bit_count()` function, pr #405.
 * Allow `return;` statement without arguments _(implicitly return nil)_, pr #404.
 
 # v1.7.3

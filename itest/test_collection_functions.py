@@ -5960,9 +5960,9 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(res, [i.bit_count() for i in range(-1000, 1000)])
 
         res = await client.query("""//ti
-            ((5 << 60) + 5).bit_count();
+            (0b111111111111111111111111111111111111111111).bit_count();
         """)
-        self.assertEqual(res, 4)
+        self.assertEqual(res, 42)
 
 
 if __name__ == '__main__':

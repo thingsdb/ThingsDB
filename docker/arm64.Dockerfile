@@ -1,4 +1,4 @@
-FROM arm64v8/alpine:3.19.4
+FROM arm64v8/alpine:3.19.3
 WORKDIR /tmp/thingsdb
 COPY ./CMakeLists.txt ./CMakeLists.txt
 COPY ./main.c ./main.c

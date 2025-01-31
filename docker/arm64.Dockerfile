@@ -17,7 +17,7 @@ RUN apt-get update && \
 # Final image
 FROM arm64v8/debian:bookworm-slim
 RUN apt-get update && \
-    apt-get install -y libpcre2-8 libuv1 libyajl2 libcurl4 tzdata && \
+    apt-get install -y libpcre2-8-0 libuv1 libyajl2 libcurl4 tzdata && \
     mkdir -p /var/lib/thingsdb
 
 # Copy the built binary

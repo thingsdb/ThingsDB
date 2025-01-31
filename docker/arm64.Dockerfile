@@ -1,4 +1,4 @@
-FROM arm64v8/alpine:3.19
+FROM arm64v8/alpine:3.19.4
 WORKDIR /tmp/thingsdb
 COPY ./CMakeLists.txt ./CMakeLists.txt
 COPY ./main.c ./main.c
@@ -11,7 +11,7 @@ RUN apk update && \
     cmake -DCMAKE_BUILD_TYPE=Release . && \
     make
 
-FROM arm64v8/alpine:3.19
+FROM arm64v8/alpine:latest
 RUN apk update && \
     apk add pcre2 libuv yajl curl tzdata && \
     mkdir -p /var/lib/thingsdb

@@ -6,8 +6,13 @@
 #include <stdlib.h>
 #include <pcre2.h>
 #include <string.h>
+#include <stdint.h>
 #include <cleri/kwcache.h>
 #include <assert.h>
+
+#ifndef UINT8_MAX
+#define UINT8_MAX (255)
+#endif
 
 #define NOT_FOUND UINT8_MAX
 

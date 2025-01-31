@@ -10,7 +10,8 @@ COPY ./libwebsockets/ ./libwebsockets/
 
 # Install build dependencies (adjust as needed)
 RUN apt-get update && \
-    apt-get install -y build-essential cmake libuv1-dev libpcre2-dev libyajl-dev libcurl4-openssl-dev tzdata && \
+    apt-get install -y build-essential cmake libuv1-dev libpcre2-dev libyajl-dev libcurl4-openssl-dev libssl-dev tzdata && \
+    export OPENSSL_ROOT_DIR="/usr" && \
     cmake -DCMAKE_BUILD_TYPE=Release . && \
     make
 

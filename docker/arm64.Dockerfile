@@ -11,7 +11,7 @@ RUN apk update && \
     cmake -DCMAKE_BUILD_TYPE=Release . && \
     make
 
-FROM arm64v8/alpine:latest
+FROM arm64v8/alpine:3.19
 RUN apk update && \
     apk add pcre2 libuv yajl curl tzdata && \
     mkdir -p /var/lib/thingsdb

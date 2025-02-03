@@ -64,18 +64,20 @@ jobs:
         tags: ghcr.io/thingsdb/node:${{ steps.get_version.outputs.VERSION }}
         labels: ${{ steps.meta.outputs.labels }}
 
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
+    # For some reason the arm64 is broken, not sure why
+    #
+    # - name: Set up QEMU
+    #   uses: docker/setup-qemu-action@v3
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+    # - name: Set up Docker Buildx
+    #   uses: docker/setup-buildx-action@v3
 
-    - name: Build and push Docker image (arm64)
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        push: true
-        file: docker/arm64.Dockerfile
-        tags: ghcr.io/thingsdb/node:arm64-${{ steps.get_version.outputs.VERSION }}
-        platforms: linux/arm64/v8
-        labels: ${{ steps.meta.outputs.labels }}
+    # - name: Build and push Docker image (arm64)
+    #   uses: docker/build-push-action@v6
+    #   with:
+    #     context: .
+    #     push: true
+    #     file: docker/arm64.Dockerfile
+    #     tags: ghcr.io/thingsdb/node:arm64-${{ steps.get_version.outputs.VERSION }}
+    #     platforms: linux/arm64/v8
+    #     labels: ${{ steps.meta.outputs.labels }}

@@ -5857,10 +5857,8 @@ class TestCollectionFunctions(TestBase):
                 'but 2 were given'):
             await client.query('nse(nil, nil);')
 
-        with self.assertRaisesRegex(
-                OperationError,
-                'function `nse` failed; at least one side-effect is enforced'):
-            await client.query('.x = 1; nse();')
+        await client.query('.x = 1; nse();')
+        self.assertEqual(await client.query('.x'), 1)
 
         with self.assertRaisesRegex(
                 OperationError,

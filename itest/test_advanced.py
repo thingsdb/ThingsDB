@@ -2757,6 +2757,18 @@ new_procedure('multiply', |a, b| a * b);
         """)
         self.assertEqual(x, 9)
 
+    async def test_mod_type_unknown_action_msg(self, client):
+        # bug #407
+        with self.assertRaisesRegex(
+                ValueError,
+                r'function `mod_type` expects argument 2 to be `all`, `add`, '
+                r'`del`, `hid`, `mod`, `rel`, `ren` or `wpo` but got `xxx` '
+                r'instead'):
+            await client.query("""//ti
+                set_type('T', {x: 'int'});
+                mod_type('T', 'xxx', true);
+            """)
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

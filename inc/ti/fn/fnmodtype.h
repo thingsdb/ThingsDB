@@ -1568,6 +1568,14 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
+    /* correct error message #407 (not optimized but fast enough)*/
+    if (!ti_raw_eq_strn(rmod, "add", 3) &&
+        !ti_raw_eq_strn(rmod, "del", 3) &&
+        !ti_raw_eq_strn(rmod, "mod", 3) &&
+        !ti_raw_eq_strn(rmod, "ren", 3) &&
+        !ti_raw_eq_strn(rmod, "rel", 3))
+        goto unknown;
+
     if (ti_do_statement(query, (child = child->next->next), e) ||
         fn_arg_name_check("mod_type", DOC_MOD_TYPE, 3, query->rval, e))
         goto fail1;
@@ -1612,6 +1620,7 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
+unknown:
     ex_set(e, EX_VALUE_ERROR,
             "function `mod_type` expects argument 2 to be "
             "`all`, `add`, `del`, `hid`, `mod`, `rel`, `ren` or `wpo` "

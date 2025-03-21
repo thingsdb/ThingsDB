@@ -3,6 +3,7 @@
 * Added `bit_count()` function, pr #405.
 * Allow `return;` statement without arguments _(implicitly return nil)_, pr #404.
 * Function `nse();` should not error when a side-effect outside nse() is enforced, pr #406.
+* Improve error message when wrong action in `mod_type()`, issue #407.
 
 # v1.7.3
 

@@ -427,6 +427,9 @@ static int ncache__return_statement(
         cleri_node_t * nd,
         ex_t * e)
 {
+    if (!nd->children->next->children)
+        return 0;
+        
     if (ncache__statement(syntax, vcache, nd->children->next->children, e))
         return -1;
 

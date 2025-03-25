@@ -497,6 +497,9 @@ static int fmt__if_statement(ti_fmt_t * fmt, cleri_node_t * nd)
 
 static int fmt__return_statement(ti_fmt_t * fmt, cleri_node_t * nd)
 {
+    if (!nd->children->next->children)
+        return buf_append_str(&fmt->buf, "return");
+
     if (buf_append_str(&fmt->buf, "return ") ||
             fmt__statement(fmt, nd->children->next->children))
         return -1;

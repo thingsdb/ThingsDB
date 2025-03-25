@@ -2769,6 +2769,21 @@ new_procedure('multiply', |a, b| a * b);
                 mod_type('T', 'xxx', true);
             """)
 
+    async def test_return_no_args(self, client):
+        d = await client.query("""//ti
+            new_procedure('test', || {
+                if (true) {
+                    return;
+                };
+            });
+            procedure_info('test').load().definition;
+        """)
+        self.assertEqual(d, """|| {
+\tif (true) {
+\t\treturn;
+\t};
+}""")
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

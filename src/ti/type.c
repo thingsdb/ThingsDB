@@ -274,6 +274,7 @@ int ti_type_set_idname(
     }
 
     if (type->idname == name ||
+        type->typename == name ||
         ti_field_by_name(type, name) ||
         ti_type_get_method(type, name))
     {
@@ -286,6 +287,49 @@ int ti_type_set_idname(
 
     ti_name_unsafe_drop(type->idname);
     type->idname = name;
+    return 0;
+
+fail0:
+    ti_name_unsafe_drop(name);
+    return e->nr;
+}
+
+int ti_type_set_typename(
+        ti_type_t * type,
+        const char * s,
+        size_t n,
+        ex_t * e)
+{
+    ti_name_t * name;
+
+    if (!ti_name_is_valid_strn(s, n))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "property name must follow the naming rules"DOC_NAMES);
+        return e->nr;
+    }
+
+    name = ti_names_get(s, n);
+    if (!name)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    if (type->idname == name ||
+        type->typename == name ||
+        ti_field_by_name(type, name) ||
+        ti_type_get_method(type, name))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "property or method `%s` already exists on type `%s`"DOC_T_TYPED,
+            name->str,
+            type->name);
+        goto fail0;
+    }
+
+    ti_name_unsafe_drop(type->typename);
+    type->typename = name;
     return 0;
 
 fail0:

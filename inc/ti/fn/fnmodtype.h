@@ -362,7 +362,7 @@ static void type__add(
     if (fn_nargs_range(fnname, DOC_MOD_TYPE_ADD, 4, 5, nargs, e))
         return;
 
-    if (type->idname == name || field || method)
+    if (type->idname == name || type->typename == name || field || method)
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "property or method `%s` already exists on type `%s`",
@@ -420,6 +420,7 @@ static void type__add(
     }
 
     spec_raw = (ti_raw_t *) query->rval;
+
     if (spec_raw->n == 1 && spec_raw->data[0] == '#')
     {
         if (nargs == 5)
@@ -455,6 +456,47 @@ static void type__add(
         {
             /* modified is wrong; the rest we can revert */
             type->idname = NULL;
+            ti_decref(name);
+            ex_set_mem(e);
+        }
+        return;
+    }
+
+    if (spec_raw->n == 1 && spec_raw->data[0] == '@')
+    {
+        if (nargs == 5)
+        {
+            ex_set(e, EX_NUM_ARGUMENTS,
+                    "function `%s` takes at most 4 arguments when adding "
+                    "an Type ('@') definition"DOC_MOD_TYPE_ADD,
+                    fnname);
+            return;
+        }
+
+        if (type->typename)
+        {
+            ex_set(e, EX_LOOKUP_ERROR,
+                    "multiple Type ('@') definitions on type `%s`",
+                    type->name);
+            return;
+        }
+
+        task = ti_task_get_task(query->change, query->collection->root);
+        if (!task)
+        {
+            ex_set_mem(e);
+            return;
+        }
+
+        /* update modified time-stamp */
+        type->modified_at = util_now_usec();
+        type->typename = name;
+        ti_incref(name);
+
+        if (ti_task_add_mod_type_add_typename(task, type))
+        {
+            /* modified is wrong; the rest we can revert */
+            type->typename = NULL;
             ti_decref(name);
             ex_set_mem(e);
         }
@@ -663,7 +705,7 @@ static void type__del(
     if (fn_nargs(fnname, DOC_MOD_TYPE_DEL, 3, nargs, e))
         return;
 
-    if (type->idname != name && !field && !method)
+    if (type->idname != name && type->typename != name && !field && !method)
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no property or method `%s`",
@@ -692,6 +734,13 @@ static void type__del(
     {
         ti_name_unsafe_drop(type->idname);
         type->idname = NULL;
+        goto done;
+    }
+
+    if (type->typename == name)
+    {
+        ti_name_unsafe_drop(type->typename);
+        type->typename = NULL;
         goto done;
     }
 

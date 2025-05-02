@@ -85,6 +85,7 @@ int ti_task_add_mod_type_add_field(
         ti_type_t * type,
         ti_val_t * dval);
 int ti_task_add_mod_type_add_idname(ti_task_t * task, ti_type_t * type);
+int ti_task_add_mod_type_add_typename(ti_task_t * task, ti_type_t * type);
 int ti_task_add_mod_type_add_method(
         ti_task_t * task,
         ti_type_t * type);

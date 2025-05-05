@@ -1168,7 +1168,7 @@ int ti_field_set_name(
         return e->nr;
     }
 
-    if (field->type->idname == name
+    if (field->type->idname == name ||
         field->type->typename == name ||
         ti_field_by_name(field->type, name) ||
         ti_type_get_method(field->type, name))

@@ -1079,7 +1079,7 @@ static void type__ren(
     if (fn_nargs(fnname, DOC_MOD_TYPE_REN, 4, nargs, e))
         return;
 
-    if (type->idname != name && !field && !method)
+    if (type->idname != name && type->typename != name && !field && !method)
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no property or method `%s`",
@@ -1096,11 +1096,7 @@ static void type__ren(
 
     rname = (ti_raw_t *) query->rval;
 
-    oldname = field
-            ? field->name
-            : method
-            ? method->name
-            : type->idname;
+    oldname = name;
     ti_incref(oldname);
 
     /* method */
@@ -1128,7 +1124,7 @@ static void type__ren(
             goto done;
         newname = method->name;
     }
-    else
+    else if (type->idname == name )
     {
         if (ti_type_set_idname(
                 type,
@@ -1137,6 +1133,16 @@ static void type__ren(
                 e))
             goto done;
         newname = type->idname;
+    }
+    else
+    {
+        if (ti_type_set_typename(
+                type,
+                (const char *) rname->data,
+                rname->n,
+                e))
+            goto done;
+        newname = type->typename;
     }
 
     task = ti_task_get_task(query->change, query->collection->root);

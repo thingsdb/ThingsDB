@@ -37,7 +37,7 @@ static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
         msgpack_pack_uint64(pk, type->created_at) ||
         msgpack_pack_uint64(pk, type->modified_at) ||
         mp_pack_strn(pk, type->rname->data, type->rname->n) ||
-        msgpack_pack_map(pk, type->fields->n + !!type->idname)
+        msgpack_pack_map(pk, type->fields->n + !!type->idname + !!type->typename)
     ) return -1;
 
     if (type->idname)
@@ -46,7 +46,12 @@ static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
         if (msgpack_pack_uint64(pk, p) || mp_pack_strn(pk, "#", 1))
             return -1;
     }
-
+    if (type->typename)
+    {
+        p = (uintptr_t) type->typename;
+        if (msgpack_pack_uint64(pk, p) || mp_pack_strn(pk, ",", 1))
+            return -1;
+    }
     for (vec_each(type->fields, ti_field_t, field))
     {
         p = (uintptr_t) field->name;
@@ -362,6 +367,15 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
                 if (type->idname)
                     goto fail1;
                 type->idname = name;
+                ti_incref(name);
+                continue;
+            }
+
+            if (mp_spec.via.str.n == 1 && mp_spec.via.str.data[0] == ',')
+            {
+                if (type->typename)
+                    goto fail1;
+                type->typename = name;
                 ti_incref(name);
                 continue;
             }

@@ -140,6 +140,7 @@ int ti_method_set_name_t(
     }
 
     if (type->idname == name ||
+        type->typename == name ||
         ti_field_by_name(type, name) ||
         ti_type_get_method(type, name))
     {

@@ -56,6 +56,7 @@ ti_val_t * ti_val_charset_str(void);
 ti_val_t * ti_val_borrow_any_str(void);
 ti_val_t * ti_val_borrow_tar_gz_str(void);
 ti_val_t * ti_val_borrow_gs_str(void);
+ti_val_t * ti_val_borrow_thing_str(void);
 ti_val_t * ti_val_empty_bin(void);
 ti_val_t * ti_val_wrapped_thing_str(void);
 ti_val_t * ti_val_utc_str(void);

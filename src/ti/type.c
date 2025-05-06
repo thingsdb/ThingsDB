@@ -56,6 +56,7 @@ ti_type_t * ti_type_create(
     type->rname = ti_str_create(name, name_n);
     type->rwname = ti_str_from_str(type->wname);
     type->idname = NULL;
+    type->typename = NULL;
     type->dependencies = vec_new(0);
     type->fields = vec_new(0);
     type->types = types;
@@ -148,6 +149,7 @@ void ti_type_destroy(ti_type_t * type)
     ti_val_drop((ti_val_t *) type->rname);
     ti_val_drop((ti_val_t *) type->rwname);
     ti_val_drop((ti_val_t *) type->idname);
+    ti_val_drop((ti_val_t *) type->typename);
     free(type->dependencies);
     free(type->name);
     free(type->wname);
@@ -274,6 +276,7 @@ int ti_type_set_idname(
     }
 
     if (type->idname == name ||
+        type->typename == name ||
         ti_field_by_name(type, name) ||
         ti_type_get_method(type, name))
     {
@@ -286,6 +289,49 @@ int ti_type_set_idname(
 
     ti_name_unsafe_drop(type->idname);
     type->idname = name;
+    return 0;
+
+fail0:
+    ti_name_unsafe_drop(name);
+    return e->nr;
+}
+
+int ti_type_set_typename(
+        ti_type_t * type,
+        const char * s,
+        size_t n,
+        ex_t * e)
+{
+    ti_name_t * name;
+
+    if (!ti_name_is_valid_strn(s, n))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "property name must follow the naming rules"DOC_NAMES);
+        return e->nr;
+    }
+
+    name = ti_names_get(s, n);
+    if (!name)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    if (type->idname == name ||
+        type->typename == name ||
+        ti_field_by_name(type, name) ||
+        ti_type_get_method(type, name))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "property or method `%s` already exists on type `%s`"DOC_T_TYPED,
+            name->str,
+            type->name);
+        goto fail0;
+    }
+
+    ti_name_unsafe_drop(type->typename);
+    type->typename = name;
     return 0;
 
 fail0:
@@ -316,7 +362,20 @@ static inline int type__assign(
             ti_incref(name);
             return 0;
         }
+        if (raw->n == 1 && raw->data[0] == '@')
+        {
+            if (type->typename)
+            {
+                ex_set(e, EX_LOOKUP_ERROR,
+                        "multiple Type ('@') definitions on type `%s`",
+                        type->name);
+                return e->nr;
+            }
 
+            type->typename = name;
+            ti_incref(name);
+            return 0;
+        }
         (void) ti_field_create(name, raw, type, e);
         return e->nr;
     }
@@ -747,7 +806,19 @@ int ti_type_init_from_unp(
             type->idname = name;
             continue;
         }
-
+        if (mp_spec.via.str.n == 1 && mp_spec.via.str.data[0] == '@')
+        {
+            if (type->typename)
+            {
+                ex_set(e, EX_LOOKUP_ERROR,
+                        "multiple Type ('@') definitions on type `%s`",
+                        type->name);
+                ti_name_unsafe_drop(name);
+                return e->nr;
+            }
+            type->typename = name;
+            continue;
+        }
         spec_raw = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
         if (!spec_raw || !ti_field_create(name, spec_raw, type, e))
             goto failed;
@@ -827,7 +898,7 @@ failed:
 /* adds a map with key/value pairs */
 int ti_type_fields_to_pk(ti_type_t * type, msgpack_packer * pk)
 {
-    if (msgpack_pack_array(pk, type->fields->n + !!type->idname))
+    if (msgpack_pack_array(pk, type->fields->n + !!type->idname + !!type->typename))
         return -1;
 
     if (type->idname)
@@ -835,6 +906,14 @@ int ti_type_fields_to_pk(ti_type_t * type, msgpack_packer * pk)
         if (msgpack_pack_array(pk, 2) ||
             mp_pack_strn(pk, type->idname->str, type->idname->n) ||
             mp_pack_strn(pk, "#", 1))
+            return -1;
+    }
+
+    if (type->typename)
+    {
+        if (msgpack_pack_array(pk, 2) ||
+            mp_pack_strn(pk, type->typename->str, type->typename->n) ||
+            mp_pack_strn(pk, "@", 1))
             return -1;
     }
 

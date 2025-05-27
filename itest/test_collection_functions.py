@@ -4251,6 +4251,12 @@ class TestCollectionFunctions(TestBase):
         self.assertEqual(
             await client.query(r'/Hi\ (.*)\!/.match("So, Hi Iriske! How");'),
             ["Hi Iriske!", "Iriske"])
+        self.assertEqual(
+            await client.query(r"""//ti
+                r = /version ((\d+\.?)+)/;
+                r.match("This is version 3.5.1 of the program.");
+            """),
+            ["version 3.5.1", "3.5.1", "1"])
         self.assertIs(await client.query(r'/hi iris/.match("Hi");'), None)
 
     async def test_search(self, client):

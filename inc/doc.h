@@ -258,6 +258,7 @@
 #define DOC_MPDATA_LEN              DOC_SEE("data-types/mpdata/len")
 #define DOC_MPDATA_LOAD             DOC_SEE("data-types/mpdata/load")
 #define DOC_REGEX_TEST              DOC_SEE("data-types/regex/test")
+#define DOC_REGEX_MATCH             DOC_SEE("data-types/regex/match")
 #define DOC_ROOM_EMIT               DOC_SEE("data-types/room/emit")
 #define DOC_ROOM_ID                 DOC_SEE("data-types/room/id")
 #define DOC_ROOM_NAME               DOC_SEE("data-types/room/name")

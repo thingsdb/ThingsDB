@@ -4228,6 +4228,31 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query(r'/hi/.test("Hi");'))
         self.assertFalse(await client.query(r'/hello!.*/.test("hello");'))
 
+    async def test_match(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `int` has no function `match`'):
+            await client.query('(42).match();')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `match` takes 1 argument but 0 were given'):
+            await client.query('/.*/.match();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `match` expects argument 1 to be of '
+                r'type `str` but got type `regex` instead'):
+            await client.query('/.*/.match(/.*/);')
+
+        self.assertEqual(
+            await client.query(r'/.*/.match("");'),
+            [""])
+        self.assertEqual(
+            await client.query(r'/Hi\ (.*)\!/.match("So, Hi Iriske! How");'),
+            ["Hi Iriske!", "Iriske"])
+        self.assertIs(await client.query(r'/hi iris/.match("Hi");'), None)
+
     async def test_search(self, client):
         r, x, t, a, w, b = await client.query(r"""//ti
             set_type('A', {

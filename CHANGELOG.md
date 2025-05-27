@@ -1,3 +1,7 @@
+# v1.7.5
+
+* Added `match()` function for regular expressions, pr #.
+
 # v1.7.4
 
 * Added `bit_count()` function, pr #405.

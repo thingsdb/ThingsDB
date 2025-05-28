@@ -28,6 +28,7 @@ static ti_regex_t * regex_create(ti_raw_t * re, ex_t * e)
 
     regex->ref = 1;
     regex->tp = TI_VAL_REGEX;
+    regex->flags = 0;
     regex->pattern = re;
 
     while(1)
@@ -42,6 +43,9 @@ static ti_regex_t * regex_create(ti_raw_t * re, ex_t * e)
             continue;
         case 'm':
             options |= PCRE2_MULTILINE;
+            continue;
+        case 'g':
+            regex->flags |= TI_REGEX_FLAG_IS_GLOBAL;
             continue;
         case '/':
             break;

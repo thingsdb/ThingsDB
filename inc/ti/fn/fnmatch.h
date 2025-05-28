@@ -1,6 +1,53 @@
 #include <ti/fn/fn.h>
 
 
+static int do__f_match_all(
+        ti_query_t * query,
+        ti_regex_t * regex,
+        ti_raw_t * vstr,
+        ex_t * e)
+{
+    int rc;
+    size_t pos = 0;
+    ti_varr_t * arr = ti_varr_create(0);
+    if (!arr)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+    while ((rc = pcre2_match(
+            regex->code,
+            (PCRE2_SPTR8) vstr->data,
+            vstr->n,
+            pos,                    /* start looking at this point */
+            0,                      /* OPTIONS */
+            regex->match_data,
+            NULL)) >= 0)
+    {
+        ti_raw_t * substr;
+        PCRE2_SIZE * ovector = pcre2_get_ovector_pointer(regex->match_data);
+        PCRE2_SPTR pt = vstr->data + ovector[0];
+        PCRE2_SIZE n =  ovector[1] - ovector[0];
+        substr = ti_str_create((const char *) pt, n);
+        if (!substr || vec_push(&arr->vec, substr))
+        {
+            ex_set_mem(e);
+            goto fail0;
+        }
+
+        if (pos == ovector[1])
+            break;
+        pos = ovector[1];
+    }
+
+    query->rval = (ti_val_t *) arr;
+    return 0;
+
+fail0:
+    ti_val_unsafe_drop((ti_val_t *) arr);
+    return e->nr;
+}
+
 static int do__f_match(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
@@ -34,10 +81,11 @@ static int do__f_match(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     vstr = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    /* TODO: we could allow `g` as regular expression flag which in turn could
-     *       change the behavior for match(..) to return all matches similar
-     *       to javascripts match.
-     */
+    if (ti_regex_is_global(regex))
+    {
+        (void) do__f_match_all(query, regex, vstr, e);
+        goto done;  /* in case of failure, the error is set */
+    }
     rc = pcre2_match(
             regex->code,
             (PCRE2_SPTR8) vstr->data,
@@ -50,7 +98,7 @@ static int do__f_match(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (rc < 0)
     {
         query->rval = (ti_val_t *) ti_nil_get();
-        goto fail1;  /* success, but no match */
+        goto done;  /* success, but no match */
     }
     ovector = pcre2_get_ovector_pointer(regex->match_data);
 
@@ -72,12 +120,17 @@ static int do__f_match(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (!substr)
         {
             ex_set_mem(e);
-            goto fail1;
+            goto fail2;
         }
 
         VEC_push(arr->vec, substr);
     }
 
+    goto done;
+
+fail2:
+    ti_val_unsafe_drop((ti_val_t *) arr);
+done:
 fail1:
     ti_val_unsafe_drop((ti_val_t *) vstr);
 fail0:

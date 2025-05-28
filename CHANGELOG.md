@@ -1,6 +1,6 @@
 # v1.7.5
 
-* Added `match()` function for regular expressions, pr #.
+* Added `match()` function and global (`g`) flag for regular expressions, pr #409.
 
 # v1.7.4
 

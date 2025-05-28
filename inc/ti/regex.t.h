@@ -25,11 +25,16 @@ typedef struct ti_regex_s ti_regex_t;
         PCRE2_MINOR) \
         PCRE2_PRERELEASE
 
+typedef enum
+{
+    TI_REGEX_FLAG_IS_GLOBAL = 1
+} ti_regex_flags_t;
+
 struct ti_regex_s
 {
     uint32_t ref;
     uint8_t tp;
-    uint8_t unused_flags;
+    uint8_t flags;
     int:16;
 
     pcre2_code * code;
@@ -45,6 +50,11 @@ static inline int ti_regex_to_client_pk(ti_regex_t * re, msgpack_packer * pk)
 static inline int ti_regex_to_store_pk(ti_regex_t * re, msgpack_packer * pk)
 {
     return mp_pack_ext(pk, MPACK_EXT_REGEX, re->pattern->data, re->pattern->n);
+}
+
+static inline bool ti_regex_is_global(ti_regex_t * re)
+{
+    return re->flags & TI_REGEX_FLAG_IS_GLOBAL;
 }
 
 static inline _Bool ti_regex_test(ti_regex_t * regex, ti_raw_t * raw)

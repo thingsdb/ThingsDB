@@ -912,6 +912,11 @@ ti_val_t * ti_val_borrow_gs_str(void)
     return val__gs_str;
 }
 
+ti_val_t * ti_val_borrow_thing_str(void)
+{
+    return val__sthing;
+}
+
 ti_val_t * ti_val_empty_bin(void)
 {
     ti_incref(val__empty_bin);

@@ -59,6 +59,11 @@ int ti_type_set_idname(
         const char * s,
         size_t n,
         ex_t * e);
+int ti_type_set_typename(
+        ti_type_t * type,
+        const char * s,
+        size_t n,
+        ex_t * e);
 int ti_type_methods_to_pk(ti_type_t * type, msgpack_packer * pk);
 int ti_type_relations_to_pk(ti_type_t * type, msgpack_packer * pk);
 int ti_type_methods_info_to_pk(

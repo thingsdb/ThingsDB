@@ -188,6 +188,37 @@ static int wrap__field_val(
     return -1;
 }
 
+static int wrap__id_to_pk_with_type(
+        ti_thing_t * thing,
+        ti_raw_t * rname,
+        ti_type_t * type,
+        msgpack_packer * pk,
+        size_t n,
+        int flags)
+{
+    register const ti_name_t * typename = type->typename;
+
+    if (thing->id &&
+        (~flags & TI_FLAGS_NO_IDS) &&
+        (~type->flags & TI_TYPE_FLAG_HIDE_ID))
+    {
+        register const ti_name_t * name = type->idname;
+        return -(
+            msgpack_pack_map(pk, 2 + n) || (name
+                ? mp_pack_strn(pk, name->str, name->n)
+                : mp_pack_strn(pk, TI_KIND_S_THING, 1)) ||
+            msgpack_pack_uint64(pk, thing->id) ||
+            mp_pack_strn(pk, typename->str, typename->n) ||
+            mp_pack_strn(pk, rname->data, rname->n)
+        );
+    }
+    return -(
+        msgpack_pack_map(pk, n  + 1) ||
+        mp_pack_strn(pk, typename->str, typename->n) ||
+        mp_pack_strn(pk, rname->data, rname->n)
+    );
+}
+
 static inline int wrap__id_to_pk(
         ti_thing_t * thing,
         ti_type_t * type,
@@ -425,7 +456,15 @@ int ti__wrap_field_thing(
         /*
          * Now we can pack, let's start with the ID.
          */
-        if (wrap__id_to_pk(thing, t_type, &vp->pk, n + nm, flags))
+        if (t_type->typename ?
+            wrap__id_to_pk_with_type(
+                thing,
+                (ti_raw_t *) ti_val_borrow_thing_str(),
+                t_type,
+                &vp->pk,
+                n + nm,
+                flags) :
+            wrap__id_to_pk(thing, t_type, &vp->pk, n + nm, flags))
         {
             free(map_props);
             goto fail;
@@ -464,8 +503,16 @@ int ti__wrap_field_thing(
          */
         register const vec_t * mappings = ti_type_map(t_type, thing->via.type);
 
-        if (!mappings ||
-            wrap__id_to_pk(thing, t_type, &vp->pk, mappings->n + nm, flags))
+        if (!mappings || (
+            t_type->typename ?
+            wrap__id_to_pk_with_type(
+                thing,
+                thing->via.type->rname,
+                t_type,
+                &vp->pk,
+                mappings->n + nm,
+                flags) :
+            wrap__id_to_pk(thing, t_type, &vp->pk, mappings->n + nm, flags)))
             goto fail;
 
         for (vec_each(mappings, ti_mapping_t, mapping))

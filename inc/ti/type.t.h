@@ -38,6 +38,7 @@ struct ti_type_s
     ti_raw_t * rname;       /* name as raw type */
     ti_raw_t * rwname;      /* wrapped name as raw type */
     ti_name_t * idname;     /* use this as the id field */
+    ti_name_t * typename;   /* use this to expose type */
     ti_types_t * types;
     vec_t * dependencies;   /* ti_type_t/ti_enum_t; contains type and enum
                                where this type is depended on. A type or enum

@@ -1941,6 +1941,7 @@ class TestCollectionFunctions(TestBase):
 
         await client.query('''
             .rn = regex("^foo.");
+            .re = regex("^foo.", "");
             .ri = regex("^foo.", "i");
             .rs = regex("^foo.", "s");
             .rm = regex("^foo.", "m");
@@ -1954,36 +1955,42 @@ class TestCollectionFunctions(TestBase):
         ''')
 
         self.assertIs(await client.query('.rn.test(.s0);'), False)
+        self.assertIs(await client.query('.re.test(.s0);'), False)
         self.assertIs(await client.query('.ri.test(.s0);'), False)
         self.assertIs(await client.query('.rs.test(.s0);'), False)
         self.assertIs(await client.query('.rm.test(.s0);'), False)
         self.assertIs(await client.query('.ra.test(.s0);'), False)
 
         self.assertIs(await client.query('.rn.test(.s1);'), True)
+        self.assertIs(await client.query('.re.test(.s1);'), True)
         self.assertIs(await client.query('.ri.test(.s1);'), True)
         self.assertIs(await client.query('.rs.test(.s1);'), True)
         self.assertIs(await client.query('.rm.test(.s1);'), True)
         self.assertIs(await client.query('.ra.test(.s1);'), True)
 
         self.assertIs(await client.query('.rn.test(.s2);'), False)
+        self.assertIs(await client.query('.re.test(.s2);'), False)
         self.assertIs(await client.query('.ri.test(.s2);'), True)
         self.assertIs(await client.query('.rs.test(.s2);'), False)
         self.assertIs(await client.query('.rm.test(.s2);'), False)
         self.assertIs(await client.query('.ra.test(.s2);'), True)
 
         self.assertIs(await client.query('.rn.test(.s3);'), False)
+        self.assertIs(await client.query('.re.test(.s3);'), False)
         self.assertIs(await client.query('.ri.test(.s3);'), False)
         self.assertIs(await client.query('.rs.test(.s3);'), True)
         self.assertIs(await client.query('.rm.test(.s3);'), False)
         self.assertIs(await client.query('.ra.test(.s3);'), True)
 
         self.assertIs(await client.query('.rn.test(.s4);'), False)
+        self.assertIs(await client.query('.re.test(.s4);'), False)
         self.assertIs(await client.query('.ri.test(.s4);'), False)
         self.assertIs(await client.query('.rs.test(.s4);'), False)
         self.assertIs(await client.query('.rm.test(.s4);'), True)
         self.assertIs(await client.query('.ra.test(.s4);'), True)
 
         self.assertIs(await client.query('.rn.test(.s5);'), False)
+        self.assertIs(await client.query('.re.test(.s5);'), False)
         self.assertIs(await client.query('.ri.test(.s5);'), False)
         self.assertIs(await client.query('.rs.test(.s5);'), False)
         self.assertIs(await client.query('.rm.test(.s5);'), False)

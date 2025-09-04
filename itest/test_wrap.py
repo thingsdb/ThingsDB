@@ -332,16 +332,21 @@ class TestWrap(TestBase):
         await client.query("""//ti
             set_type('T', {
                 name: 'str',
+                age: 'int?',
+                other: '[str]?',
+            });
+            set_type('_T', {
+                name: 'str',
                 age: '?int?',
                 other: '?any',
-            }, false, true);
+            }, true, true);
         """)
         res = await client.query("""//ti
             .orig = [
                 T{name: 'a'},
                 T{name: 'b', age: 123, other: ['other']},
                 {name: 'c', age: nil, other: nil}
-            ].map_wrap('T');
+            ].map_wrap('_T');
         """)
         self.assertEqual(res, [
             {'name': 'a'},

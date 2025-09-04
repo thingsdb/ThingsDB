@@ -463,13 +463,14 @@ int ti__wrap_field_thing(
          * returned from cache.
          */
         register const ti_map_t * map = ti_type_map(t_type, thing->via.type);
-        register size_t skip = 0;
-
         if (!map)
             goto fail;
 
         if (map->can_skip)
         {
+            size_t skip = 0;
+            ti_val_t * val;
+
             for (vec_each(map->mappings, ti_mapping_t, mapping))
                 skip += (
                     (mapping->t_field->flags & TI_FIELD_FLAG_SKIP_NIL) &&
@@ -488,7 +489,7 @@ int ti__wrap_field_thing(
 
             for (vec_each(map->mappings, ti_mapping_t, mapping))
             {
-                ti_val_t * val = VEC_get(thing->items.vec, mapping->f_field->idx);
+                val = VEC_get(thing->items.vec, mapping->f_field->idx);
 
                 if ((mapping->t_field->flags & TI_FIELD_FLAG_SKIP_NIL) &&
                     ti_val_is_nil(val))
@@ -510,6 +511,7 @@ int ti__wrap_field_thing(
         }
         else
         {
+            /* scenario where the type has no skippable fields */
             if (wrap__id_to_pk(
                     thing,
                     t_type,

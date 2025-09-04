@@ -463,21 +463,38 @@ int ti__wrap_field_thing(
          * returned from cache.
          */
         register const vec_t * mappings = ti_type_map(t_type, thing->via.type);
+        register size_t skip = 0;
 
-        if (!mappings ||
-            wrap__id_to_pk(thing, t_type, &vp->pk, mappings->n + nm, flags))
+        if (!mappings)
+            goto fail;
+
+        for (vec_each(mappings, ti_mapping_t, mapping))
+            skip += (
+                (mapping->t_field->flags & TI_FIELD_FLAG_SKIP_NIL) &&
+                ti_val_is_nil(
+                    VEC_get(thing->items.vec, mapping->f_field->idx)
+                )
+            );
+
+        if (wrap__id_to_pk(thing, t_type, &vp->pk, mappings->n+nm-skip, flags))
             goto fail;
 
         for (vec_each(mappings, ti_mapping_t, mapping))
         {
+            ti_val_t * val = VEC_get(thing->items.vec, mapping->f_field->idx);
+
+            if ((mapping->t_field->flags & TI_FIELD_FLAG_SKIP_NIL) &&
+                ti_val_is_nil(val))
+                continue;
+
             if (mp_pack_strn(
                         &vp->pk,
                         mapping->f_field->name->str,
                         mapping->f_field->name->n) ||
-                wrap__field_val(
+                    wrap__field_val(
                         mapping->t_field,
                         &mapping->t_field->spec,
-                        VEC_get(thing->items.vec, mapping->f_field->idx),
+                        val,
                         vp,
                         ti_field_deep(mapping->t_field, deep),
                         flags | ti_field_ret_flags(mapping->t_field))
@@ -505,6 +522,7 @@ fail:
 int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep)
 {
     assert(deep);
+
     ti_thing_t * other, * thing = (*wrap)->thing;
     ti_type_t * type = ti_types_by_id(
             thing->collection->types,
@@ -548,7 +566,6 @@ int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep)
                 ti_prop_unassign_destroy(p);
                 goto fail;
             }
-
             VEC_push(other->items.vec, p);
         };
     }
@@ -564,8 +581,14 @@ int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep)
 
         for (vec_each(mappings, ti_mapping_t, mapping))
         {
+            ti_prop_t * p;
             ti_val_t * val = VEC_get(thing->items.vec, mapping->f_field->idx);
-            ti_prop_t * p = ti_prop_create(mapping->f_field->name, val);
+
+            if (ti_val_is_nil(val) &&
+                (mapping->t_field->flags & TI_FIELD_FLAG_SKIP_NIL))
+                continue;
+
+            p = ti_prop_create(mapping->f_field->name, val);
             if (!p)
                 goto fail;
 

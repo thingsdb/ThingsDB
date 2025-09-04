@@ -28,6 +28,8 @@ enum
     TI_FIELD_FLAG_ENAME=16, /* return enumerator names instead of value */
 
     TI_FIELD_FLAG_NO_IDS=TI_FLAGS_NO_IDS,  /* 32 */
+
+    TI_FIELD_FLAG_SKIP_NIL=64,  /* skip when prop is nil */
 };
 
 #define TI_FIELD_MIN_MAX (TI_FIELD_FLAG_MIN_DEEP|TI_FIELD_FLAG_MAX_DEEP)

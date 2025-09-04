@@ -488,6 +488,11 @@ static int field__init(ti_field_t * field, ex_t * e)
                 goto duplicate_flag;
             field->flags |= TI_FIELD_FLAG_ENAME;
             break;
+        case '?':
+            if (field->flags & TI_FIELD_FLAG_SKIP_NIL)
+                goto duplicate_flag;
+            field->flags |= TI_FIELD_FLAG_SKIP_NIL;
+            break;
         default:
             goto done_flags;
         }
@@ -732,12 +737,15 @@ skip_nesting:
             }
         }
         if (field__spec_is_ascii(field, str, m, e))
+        {
             ex_set(e, EX_TYPE_ERROR,
                     "invalid declaration for `%s` on type `%s`; "
                     "unknown type `%.*s` in declaration"DOC_T_TYPE,
                     field->name->str, field->type->name,
                     m, str);
-        return e->nr;
+            return e->nr;
+        }
+        goto done;
     }
 
     if (field__cmp(str, n, field->type->name))
@@ -876,9 +884,17 @@ found:
         else if (field->nested_spec == TI_SPEC_OBJECT)
             field->nested_spec = TI_SPEC_ANY;
     }
-
+done:
+    if ((field->flags & TI_FIELD_FLAG_SKIP_NIL) && !(
+        (field->spec & TI_SPEC_NILLABLE) ||
+        (field->spec == TI_SPEC_ANY)))
+    {
+        ex_set(e, EX_TYPE_ERROR,
+            "invalid declaration for `%s` on type `%s`; "
+            "skip nil flags for property which cannot contain nil"DOC_T_TYPE,
+            field->name->str, field->type->name);
+    }
     assert(field->dval_cb);  /* callback must have been set */
-
     return e->nr;
 
 invalid:
@@ -2137,8 +2153,13 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
 {
     uint16_t spec = field->spec;
 
-    if ((spec & TI_SPEC_NILLABLE) && ti_val_is_nil(val))
-        return true;
+    if (ti_val_is_nil(val))
+    {
+        if (field->flags & TI_FIELD_FLAG_SKIP_NIL)
+            return false;
+        if (spec & TI_SPEC_NILLABLE)
+            return true;
+    }
 
     spec &= TI_SPEC_MASK_NILLABLE;
 

@@ -320,6 +320,43 @@ class TestWrap(TestBase):
             "deep": {"a": {"b": 5}}
         })
 
+    async def test_skip_nil(self, client):
+        with self.assertRaisesRegex(
+                TypeError,
+                r'invalid declaration for `x` on type `T`; '
+                r'skip nil flags for property which cannot contain nil;'):
+            await client.query("""//ti
+                set_type('T', {x: '?int'})
+            """)
+
+        await client.query("""//ti
+            set_type('T', {
+                name: 'str',
+                age: '?int?',
+                other: '?any',
+            }, false, true);
+        """)
+        res = await client.query("""//ti
+            .orig = [
+                T{name: 'a'},
+                T{name: 'b', age: 123, other: ['other']},
+                {name: 'c', age: nil, other: nil}
+            ].map_wrap('T');
+        """)
+        self.assertEqual(res, [
+            {'name': 'a'},
+            {'name': 'b', 'age': 123, 'other': ['other']},
+            {'name': 'c'}
+        ])
+        res = await client.query("""//ti
+            .orig.copy();
+        """)
+        self.assertEqual(res, [
+            {'name': 'a'},
+            {'name': 'b', 'age': 123, 'other': ['other']},
+            {'name': 'c'}
+        ])
+
 
 if __name__ == '__main__':
     run_test(TestWrap())

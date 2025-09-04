@@ -46,7 +46,7 @@ struct ti_type_s
                                order is not important */
     vec_t * fields;         /* ti_field_t */
     vec_t * methods;        /* ti_method_t */
-    imap_t * t_mappings;    /* from_type_id / vec_t * with ti_field_t */
+    imap_t * t_mappings;    /* from_type_id / vec_t * with ti_mapping_t */
 };
 
 #endif  /* TI_TYPE_T_H_ */

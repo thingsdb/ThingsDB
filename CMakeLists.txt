@@ -160,6 +160,7 @@ set(SOURCES
     src/ti/gc.c
     src/ti/index.c
     src/ti/item.c
+    src/ti/map.c
     src/ti/mapping.c
     src/ti/member.c
     src/ti/method.c

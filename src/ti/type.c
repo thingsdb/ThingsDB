@@ -12,6 +12,7 @@
 #include <ti.h>
 #include <ti/field.h>
 #include <ti/gc.h>
+#include <ti/map.h>
 #include <ti/mapping.h>
 #include <ti/method.h>
 #include <ti/names.h>
@@ -77,14 +78,14 @@ ti_type_t * ti_type_create(
 /* used as a callback function and removes all cached type mappings */
 static int type__map_cleanup(ti_type_t * t_haystack, ti_type_t * t_needle)
 {
-    vec_destroy(imap_pop(t_haystack->t_mappings, t_needle->type_id), free);
+    ti_map_destroy(imap_pop(t_haystack->t_mappings, t_needle->type_id));
     return 0;
 }
 
 /* used as a callback function and destroys all type mappings */
-static void type__map_free(void * vec)
+static void type__map_free(void * map)
 {
-    vec_destroy(vec, free);
+    ti_map_destroy(map);
 }
 
 void ti_type_map_cleanup(ti_type_t * type)
@@ -968,13 +969,14 @@ ti_val_t * ti_type_as_mpval(ti_type_t * type, _Bool with_definition)
  * found and compatible with a `to` type.
  * The return is NULL when a memory allocation has occurred.
  */
-vec_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type)
+ti_map_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type)
 {
     ti_field_t * f_field;
     ti_mapping_t * mapping;
-    vec_t * mappings = imap_get(t_type->t_mappings, f_type->type_id);
-    if (mappings)
-        return mappings;
+    vec_t * mappings;
+    ti_map_t * map = imap_get(t_type->t_mappings, f_type->type_id);
+    if (map)
+        return map;
 
     mappings = vec_new(t_type->fields->n);
     if (!mappings)
@@ -997,9 +999,15 @@ vec_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type)
             VEC_push(mappings, mapping);
         }
     }
+    map = ti_map_new(mappings);
+    if (!map)
+    {
+        vec_destroy(mappings, free);
+        return NULL;
+    }
 
-    (void) imap_add(t_type->t_mappings, f_type->type_id, mappings);
-    return mappings;
+    (void) imap_add(t_type->t_mappings, f_type->type_id, map);
+    return map;
 }
 
 /*

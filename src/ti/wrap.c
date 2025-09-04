@@ -462,26 +462,79 @@ int ti__wrap_field_thing(
          * `to_type` -> `from_type` is asked so most likely the mappings are
          * returned from cache.
          */
-        register const vec_t * mappings = ti_type_map(t_type, thing->via.type);
-
-        if (!mappings ||
-            wrap__id_to_pk(thing, t_type, &vp->pk, mappings->n + nm, flags))
+        register const ti_map_t * map = ti_type_map(t_type, thing->via.type);
+        if (!map)
             goto fail;
 
-        for (vec_each(mappings, ti_mapping_t, mapping))
+        if (map->can_skip)
         {
-            if (mp_pack_strn(
-                        &vp->pk,
-                        mapping->f_field->name->str,
-                        mapping->f_field->name->n) ||
-                wrap__field_val(
-                        mapping->t_field,
-                        &mapping->t_field->spec,
-                        VEC_get(thing->items.vec, mapping->f_field->idx),
-                        vp,
-                        ti_field_deep(mapping->t_field, deep),
-                        flags | ti_field_ret_flags(mapping->t_field))
-            ) goto fail;
+            size_t skip = 0;
+            ti_val_t * val;
+
+            for (vec_each(map->mappings, ti_mapping_t, mapping))
+                skip += (
+                    (mapping->t_field->flags & TI_FIELD_FLAG_SKIP_NIL) &&
+                    ti_val_is_nil(
+                        VEC_get(thing->items.vec, mapping->f_field->idx)
+                    )
+                );
+
+            if (wrap__id_to_pk(
+                    thing,
+                    t_type,
+                    &vp->pk,
+                    map->mappings->n + nm - skip,
+                    flags))
+                goto fail;
+
+            for (vec_each(map->mappings, ti_mapping_t, mapping))
+            {
+                val = VEC_get(thing->items.vec, mapping->f_field->idx);
+
+                if ((mapping->t_field->flags & TI_FIELD_FLAG_SKIP_NIL) &&
+                    ti_val_is_nil(val))
+                    continue;
+
+                if (mp_pack_strn(
+                            &vp->pk,
+                            mapping->f_field->name->str,
+                            mapping->f_field->name->n) ||
+                        wrap__field_val(
+                            mapping->t_field,
+                            &mapping->t_field->spec,
+                            val,
+                            vp,
+                            ti_field_deep(mapping->t_field, deep),
+                            flags | ti_field_ret_flags(mapping->t_field))
+                ) goto fail;
+            }
+        }
+        else
+        {
+            /* scenario where the type has no skippable fields */
+            if (wrap__id_to_pk(
+                    thing,
+                    t_type,
+                    &vp->pk,
+                    map->mappings->n + nm,
+                    flags))
+                goto fail;
+
+            for (vec_each(map->mappings, ti_mapping_t, mapping))
+            {
+                if (mp_pack_strn(
+                            &vp->pk,
+                            mapping->f_field->name->str,
+                            mapping->f_field->name->n) ||
+                        wrap__field_val(
+                            mapping->t_field,
+                            &mapping->t_field->spec,
+                            VEC_get(thing->items.vec, mapping->f_field->idx),
+                            vp,
+                            ti_field_deep(mapping->t_field, deep),
+                            flags | ti_field_ret_flags(mapping->t_field))
+                ) goto fail;
+            }
         }
     }
 
@@ -505,6 +558,7 @@ fail:
 int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep)
 {
     assert(deep);
+
     ti_thing_t * other, * thing = (*wrap)->thing;
     ti_type_t * type = ti_types_by_id(
             thing->collection->types,
@@ -548,24 +602,29 @@ int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep)
                 ti_prop_unassign_destroy(p);
                 goto fail;
             }
-
             VEC_push(other->items.vec, p);
         };
     }
     else
     {
-        vec_t * mappings = ti_type_map(type, thing->via.type);
-        if (!mappings)
+        ti_map_t * map = ti_type_map(type, thing->via.type);
+        if (!map)
             return -1;
 
-        other = ti_thing_o_create(0, mappings->n, thing->collection);
+        other = ti_thing_o_create(0, map->mappings->n, thing->collection);
         if (!other)
             return -1;
 
-        for (vec_each(mappings, ti_mapping_t, mapping))
+        for (vec_each(map->mappings, ti_mapping_t, mapping))
         {
+            ti_prop_t * p;
             ti_val_t * val = VEC_get(thing->items.vec, mapping->f_field->idx);
-            ti_prop_t * p = ti_prop_create(mapping->f_field->name, val);
+
+            if (ti_val_is_nil(val) &&
+                (mapping->t_field->flags & TI_FIELD_FLAG_SKIP_NIL))
+                continue;
+
+            p = ti_prop_create(mapping->f_field->name, val);
             if (!p)
                 goto fail;
 

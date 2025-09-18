@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
         libpcre2-dev \
         libyajl-dev \
         libssl-dev \
-        libcurl4-nss-dev && \
+        libcurl4-gnutls-dev && \
     LEGACY=1 cmake -DCMAKE_BUILD_TYPE=Release . && \
     make
 
@@ -23,7 +23,7 @@ RUN mkdir -p /var/lib/thingsdb && \
     libuv1 \
     libpcre2-8-0 \
     libyajl2 \
-    libcurl3-nss && \
+    libcurl3t64-gnutls && \
     pip3 install py-timod
 
 COPY --from=0 /tmp/thingsdb/thingsdb /usr/local/bin/

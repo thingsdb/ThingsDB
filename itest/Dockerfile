@@ -4,7 +4,7 @@ RUN apt-get update && \
         libuv1-dev \
         libpcre2-dev \
         libyajl-dev \
-        libcurl4-nss-dev \
+        libcurl4-gnutls-dev \
         build-essential \
         cmake
 WORKDIR /opt
@@ -22,7 +22,7 @@ RUN apt-get update && \
         libuv1 \
         libpcre2-8-0 \
         libyajl2 \
-        libcurl3-nss
+        libcurl3t64-gnutls
 COPY --from=builder ./opt/thingsdb /thingsdb
 COPY ./itest/ /itest/
 COPY ./inc/doc.h /inc/doc.h

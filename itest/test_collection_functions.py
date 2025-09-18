@@ -17,7 +17,7 @@ from thingsdb.exceptions import ZeroDivisionError
 from thingsdb.exceptions import OperationError
 from thingsdb.exceptions import ThingsDBError
 from thingsdb.exceptions import SyntaxError
-from thingsdb.client.protocol import Err
+from thingsdb.client.baseprotocol import Err
 
 
 class TestCollectionFunctions(TestBase):

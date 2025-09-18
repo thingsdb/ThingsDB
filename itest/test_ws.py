@@ -6,17 +6,19 @@ from lib.testbase import TestBase
 from lib.client import get_client
 from thingsdb.client import Client
 from thingsdb.client import protocol
-
+from thingsdb.client import wsprotocol
 
 async def test_err_max_size():
     client = Client()
 
-    prev = protocol.WEBSOCKET_MAX_SIZE
+    prev = wsprotocol.WEBSOCKET_MAX_SIZE
 
     # We decrease the max_size so the following query will fail
-    protocol.WEBSOCKET_MAX_SIZE = 2**14
+    wsprotocol.WEBSOCKET_MAX_SIZE = 2**14
     try:
         await client.connect('ws://localhost:9780')
+        prev = client
+
         try:
             await client.authenticate('admin', 'pass')
 
@@ -30,7 +32,7 @@ async def test_err_max_size():
             await client.close_and_wait()
     finally:
         # Restore original value
-        protocol.WEBSOCKET_MAX_SIZE = prev
+        wsprotocol.WEBSOCKET_MAX_SIZE = prev
 
 
 class TestWS(TestBase):

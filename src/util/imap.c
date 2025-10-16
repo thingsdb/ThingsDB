@@ -739,10 +739,12 @@ vec_t * imap_vec_ref(imap_t * imap)
 static uint64_t imap__unused_id(imap_node_t * node, uint64_t max)
 {
     imap_node_t * nd = node->nodes;
-    size_t i, n, m, r;
+    size_t i, n, m, r, low;
 
     if (node->key != IMAP_NODE_SZ)
-        return (node->key+1) % IMAP_NODE_SZ;
+        // it is not enough to test just for free, it must be the lowest
+        // because a higher value might be out the range of max
+        return (node->key % IMAP_NODE_SZ) == 0 ? 1 : 0;
 
     for (i = 0; i < IMAP_NODE_SZ; ++i, ++nd)
         if (!nd->data)
@@ -750,9 +752,9 @@ static uint64_t imap__unused_id(imap_node_t * node, uint64_t max)
 
     n = IMAP_NODE_SZ + IMAP_NODE_SZ;
     n = n < max ? n : max;
-    m = max / IMAP_NODE_SZ - 1;
+    m = max / IMAP_NODE_SZ;
     nd = node->nodes;
-
+    low = max;
     for (i = IMAP_NODE_SZ; i < n; ++i, ++nd)
     {
         if (!nd->nodes)
@@ -760,12 +762,15 @@ static uint64_t imap__unused_id(imap_node_t * node, uint64_t max)
 
         if ((r = imap__unused_id(nd, m)) < m)
         {
+            if (r == 0)
+                return i;
             r *= IMAP_NODE_SZ;
             r += i;
-            return r;
+            if (r < low)
+                low = r;
         }
     }
-    return max;
+    return low;
 }
 
 /*

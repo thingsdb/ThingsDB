@@ -9,6 +9,7 @@ from thingsdb.exceptions import NumArgumentsError
 from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import OperationError
 from thingsdb.exceptions import SyntaxError
+from thingsdb.exceptions import MaxQuotaError
 
 
 class TestEnum(TestBase):
@@ -1099,6 +1100,18 @@ class TestEnum(TestBase):
             type_info('N').load().fields;
         """)
         self.assertEqual(res, [['t', 'thing<Color>']])
+
+    async def test_def_max_enum(self, client):
+        # bug #412, maximum reached at 7200, not 8192 as it should
+        await client.query("""//ti
+            range(0x1fff).map(|x| set_enum(`E{x}`, {A: 0}));
+        """)
+
+        with self.assertRaisesRegex(
+                MaxQuotaError,
+                'reached the maximum number of enumerators'):
+            await client.query(r'''set_enum('E', {X: 0});''')
+
 
 
 if __name__ == '__main__':

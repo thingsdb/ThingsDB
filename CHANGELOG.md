@@ -1,3 +1,7 @@
+# v1.7.6-alpha0
+
+* Fixed maximum enumerators per collection, issue #412.
+
 # v1.7.5
 
 * Added `match()` function and global (`g`) flag for regular expressions, pr #409.

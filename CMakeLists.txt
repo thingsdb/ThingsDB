@@ -256,7 +256,6 @@ set(SOURCES
     src/util/fx.c
     src/util/guid.c
     src/util/imap.c
-    src/util/iso8601.c
     src/util/link.c
     src/util/lock.c
     src/util/logger.c

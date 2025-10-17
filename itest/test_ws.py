@@ -5,8 +5,8 @@ from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
 from thingsdb.client import Client
-from thingsdb.client import protocol
 from thingsdb.client import wsprotocol
+
 
 async def test_err_max_size():
     client = Client()
@@ -41,7 +41,7 @@ class TestWS(TestBase):
 
     @default_test_setup(num_nodes=3, seed=1, threshold_full_storage=10,
                         enable_ws=True)
-    async def run(self):
+    async def async_run(self):
 
         await self.node0.init_and_run()
 

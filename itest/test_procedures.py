@@ -18,7 +18,7 @@ class TestProcedures(TestBase):
     title = 'Test procedures'
 
     @default_test_setup(num_nodes=5, seed=1)
-    async def run(self):
+    async def async_run(self):
 
         await self.node0.init_and_run()
 
@@ -168,6 +168,8 @@ class TestProcedures(TestBase):
         for client in (client0, client1, client2):
             self.assertEqual(await client.run('get_first'), first)
 
+        client = client2
+
         with self.assertRaisesRegex(
                 LookupError,
                 r'procedure `get_first` already exists'):
@@ -203,6 +205,7 @@ class TestProcedures(TestBase):
             self.assertEqual(await client.run('first'), first)
 
         # force a full database store ✅
+        x = 0
         for x in range(10):
             await client.query(f'.x = {x};')
 

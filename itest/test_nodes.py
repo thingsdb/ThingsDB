@@ -12,7 +12,7 @@ class TestNodes(TestBase):
     title = 'Test add and delete nodes'
 
     @default_test_setup(num_nodes=5, seed=2)
-    async def run(self):
+    async def async_run(self):
         await self.node0.init_and_run()
 
         client = await get_client(self.node0)

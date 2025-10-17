@@ -11,7 +11,7 @@ class TestChanges(TestBase):
     title = 'Test with multiple changes at the same time'
 
     @default_test_setup(num_nodes=4, seed=1, threshold_full_storage=1000000)
-    async def run(self):
+    async def async_run(self):
         x = 50
         mq = '.x += .x % {}; .arr.push(.x);'
 
@@ -19,7 +19,7 @@ class TestChanges(TestBase):
 
         client0 = await get_client(self.node0)
         client0.set_default_scope('//stuff')
-        client0.id = 2
+        setattr(client0, 'id', 2)
 
         await client0.query('.x = 10; .arr = [];')
 
@@ -27,7 +27,7 @@ class TestChanges(TestBase):
 
         client1 = await get_client(self.node1)
         client1.set_default_scope('//stuff')
-        client1.id = 5
+        setattr(client1, 'id', 5)
 
         for _ in range(x):
             await self.mquery(mq, client0, client1)
@@ -48,7 +48,7 @@ class TestChanges(TestBase):
 
         client2 = await get_client(self.node2)
         client2.set_default_scope('//stuff')
-        client2.id = 9
+        setattr(client2, 'id', 9)
 
         # Added sleep() to test if this prevents a timeout-error which
         # may sometimes happen on the `mquery` below
@@ -95,7 +95,7 @@ class TestChanges(TestBase):
 
         client3 = await get_client(self.node3)
         client3.set_default_scope('//stuff')
-        client3.id = 11
+        setattr(client3, 'id', 11)
 
         await asyncio.sleep(0.5)
         check_arr = await client0.query('.arr;')

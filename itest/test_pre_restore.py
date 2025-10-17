@@ -26,7 +26,7 @@ class TestNodes(TestBase):
     title = 'Test prepare for restore'
 
     @default_test_setup(num_nodes=NUM_NODES, seed=2)
-    async def run(self):
+    async def async_run(self):
         await self.node0.init_and_run()
 
         client = await get_client(self.node0)

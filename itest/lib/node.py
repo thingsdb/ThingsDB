@@ -1,4 +1,3 @@
-import sys
 import os
 import asyncio
 import subprocess
@@ -6,7 +5,6 @@ import platform
 import configparser
 import psutil
 import logging
-import io
 import re
 import threading
 from .vars import THINGSDB_BIN
@@ -165,11 +163,21 @@ class Node:
         config = configparser.RawConfigParser()
         config.add_section('thingsdb')
 
-        config.set('thingsdb', 'listen_client_port', self.listen_client_port)
-        config.set('thingsdb', 'listen_node_port', self.listen_node_port)
-        config.set('thingsdb', 'http_api_port', self.http_api_port)
-        config.set('thingsdb', 'http_status_port', self.http_status_port)
-        config.set('thingsdb', 'ws_port', self.ws_port)
+        config.set('thingsdb',
+                   'listen_client_port',
+                   str(self.listen_client_port))
+        config.set('thingsdb',
+                   'listen_node_port',
+                   str(self.listen_node_port))
+        config.set('thingsdb',
+                   'http_api_port',
+                   str(self.http_api_port))
+        config.set('thingsdb',
+                   'http_status_port',
+                   str(self.http_status_port))
+        config.set('thingsdb',
+                   'ws_port',
+                   str(self.ws_port))
 
         config.set('thingsdb', 'bind_client_addr', self.bind_client_addr)
         config.set('thingsdb', 'bind_node_addr', self.bind_node_addr)
@@ -270,13 +278,14 @@ class Node:
         return False if self.proc is None else psutil.pid_exists(self.proc.pid)
 
     def kill(self):
-        command = f'kill -9 {self.proc.pid}'
-        logging.info(f'execute: `{command}``')
-        os.system(command)
+        if self.proc:
+            command = f'kill -9 {self.proc.pid}'
+            logging.info(f'execute: `{command}``')
+            os.system(command)
         self.proc = None
 
     async def stop(self):
-        if self.is_active():
+        if self.is_active() and self.proc:
             os.system('kill {}'.format(self.proc.pid))
             await asyncio.sleep(0.2)
 
@@ -291,7 +300,7 @@ class Node:
         return True
 
     async def shutdown(self, timeout=20):
-        if self.is_active():
+        if self.is_active() and self.proc:
             os.system('kill {}'.format(self.proc.pid))
 
             while timeout:
@@ -304,6 +313,6 @@ class Node:
             assert (self.proc.returncode == 0)
 
     def soft_kill(self):
-        if self.is_active():
+        if self.is_active() and self.proc:
             os.system('kill {}'.format(self.proc.pid))
         self.proc = None

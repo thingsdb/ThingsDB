@@ -56,7 +56,7 @@ class TestRoom(TestBase):
     title = 'Test room type'
 
     @default_test_setup(num_nodes=3, seed=1, threshold_full_storage=100)
-    async def run(self):
+    async def async_run(self):
         await self.node0.init_and_run()
 
         cl0 = await get_client(self.node0)

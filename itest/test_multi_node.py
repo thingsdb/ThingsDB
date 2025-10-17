@@ -11,7 +11,7 @@ class TestMultiNode(TestBase):
     title = 'Test multi node client connection'
 
     @default_test_setup(num_nodes=5, seed=2)
-    async def run(self):
+    async def async_run(self):
 
         expected_counter = 10
 

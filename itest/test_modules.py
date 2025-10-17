@@ -21,7 +21,7 @@ class TestModules(TestBase):
         seed=1,
         threshold_full_storage=100,
         python_interpreter=sys.executable)
-    async def run(self):
+    async def async_run(self):
 
         await self.node0.init_and_run()
 

@@ -8,8 +8,8 @@ from lib.testbase import TestBase
 from lib.client import get_client
 
 
-BACKUP_PATH = os.environ.get('BACKUP_PATH')
-if BACKUP_PATH is None:
+BACKUP_PATH = os.environ.get('BACKUP_PATH', '')
+if not BACKUP_PATH:
     raise Exception('Environment variable BACKUP_PATH is required')
 
 
@@ -18,7 +18,7 @@ class TestMigrate(TestBase):
     title = 'Test migration'
 
     @default_test_setup(num_nodes=3, seed=1, threshold_full_storage=10)
-    async def run(self):
+    async def async_run(self):
 
         await self.node0.init_and_run()
 

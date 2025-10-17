@@ -54,7 +54,7 @@ class TestRoomWSS(TestBase):
 
     @default_test_setup(num_nodes=3, seed=1, threshold_full_storage=100,
                         enable_wss=True)
-    async def run(self):
+    async def async_run(self):
         await self.node0.init_and_run()
 
         cl0 = await get_client(self.node0)

@@ -2,14 +2,20 @@ import unittest
 import asyncio
 from thingsdb.exceptions import NodeError
 from .client import get_client
+from .node import Node
 
 
 class TestBase(unittest.TestCase):
 
     title = 'no test title'
+    node0: Node
+    node1: Node
+    node2: Node
+    node3: Node
+    node4: Node
 
-    async def run(self):
-        raise NotImplementedError('run must be implemented')
+    async def async_run(self):
+        raise NotImplementedError('async_run must be implemented')
 
     async def wait_nodes_ready(self, client=None, success_count=10):
         if client is None:
@@ -77,7 +83,7 @@ class TestBase(unittest.TestCase):
 
     async def run_tests(self, *args, **kwargs):
         for attr, f in self.__class__.__dict__.items():
-            if attr.startswith('test_') and callable(f):
+            if attr.startswith('test_') and asyncio.iscoroutinefunction(f):
                 client = await get_client(self.node0)
                 await client.query(r"""//ti
                     del_collection('stuff');

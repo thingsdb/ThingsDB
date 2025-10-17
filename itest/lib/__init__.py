@@ -3,7 +3,7 @@ import logging
 import random
 from .testbase import TestBase
 from .task import Task
-from .cleanup import cleanup
+from .cleanup import cleanup as clean
 from .cleanup import killall
 from .node import Node
 from .vars import THINGSDB_BIN
@@ -56,7 +56,7 @@ Test Settings:
 """)
 
     try:
-        await test.run()
+        await test.async_run()
     except Exception as e:
         task.stop(success=False)
         if not THINGSDB_KEEP_ON_ERROR:
@@ -72,7 +72,7 @@ Test Settings:
 
 def run_test(test: TestBase):
     loop = asyncio.get_event_loop()
-    cleanup()
+    clean()
     loop.run_until_complete(_run_test(test))
 
 

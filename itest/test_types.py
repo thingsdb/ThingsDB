@@ -22,7 +22,7 @@ class TestTypes(TestBase):
     title = 'Test thingsdb types'
 
     @default_test_setup(num_nodes=1, seed=1)
-    async def run(self):
+    async def async_run(self):
 
         await self.node0.init_and_run()
 

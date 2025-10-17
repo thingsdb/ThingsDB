@@ -15,7 +15,7 @@ class TestDatetime(TestBase):
     title = 'Test datetime (and timeval)'
 
     @default_test_setup(num_nodes=1, seed=1, threshold_full_storage=10)
-    async def run(self):
+    async def async_run(self):
 
         self.node0.version()
 

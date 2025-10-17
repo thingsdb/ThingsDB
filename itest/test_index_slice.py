@@ -14,7 +14,7 @@ class TestIndexSlice(TestBase):
     title = 'Test index and slices'
 
     @default_test_setup(num_nodes=3, seed=1)
-    async def run(self):
+    async def async_run(self):
 
         await self.node0.init_and_run()
 
@@ -247,6 +247,8 @@ class TestIndexSlice(TestBase):
         await asyncio.sleep(0.2)
         for client in (client0, client1, client2):
             self.assertEqual(await client.query('.list'), to)
+
+        client = client2
 
         await client.query('.list[0] += "bc";')
         await asyncio.sleep(0.2)

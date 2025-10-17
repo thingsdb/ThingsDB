@@ -22,7 +22,7 @@ class TestType(TestBase):
     title = 'Test type'
 
     @default_test_setup(num_nodes=2, seed=1, threshold_full_storage=100)
-    async def run(self):
+    async def async_run(self):
 
         await self.node0.init_and_run()
 
@@ -379,7 +379,7 @@ class TestType(TestBase):
             self.assertIn('color', brick)
             self.assertIsInstance(brick['color'], int)
 
-    async def test_wrap(self, client0):
+    async def test_wrap_other(self, client0):
         only_name = await client0.query(r'''
             set_type('_Name', {name: 'any'});
             .only_name = {
@@ -860,7 +860,7 @@ class TestType(TestBase):
                 r'type `Person` have been found'):
             await client.query(r'mod_type("Person", "wpo", true);')
 
-    async def test_del_type(self, client):
+    async def test_mod_type(self, client):
         await client.query(r'''
             new_type('Tic');
             new_type('Tac');
@@ -884,7 +884,7 @@ class TestType(TestBase):
                 bar: '[Bar]'
             });
             .tic = Tic{tic: []};
-            .tac = Tac{tac: {}};
+            .tac = Tac{};
             .toe = Toe{};
             .foo = Foo{};
             .bar = Bar{bar: []};

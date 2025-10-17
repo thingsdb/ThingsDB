@@ -22,7 +22,7 @@ class TestRelations(TestBase):
         ''')
 
     @default_test_setup(num_nodes=2, seed=1, threshold_full_storage=10)
-    async def run(self):
+    async def async_run(self):
 
         await self.node0.init_and_run()
 
@@ -397,6 +397,8 @@ class TestRelations(TestBase):
 
                 'OK';
             '''), 'OK')
+
+        client = client1
 
         self.assertEqual(await client0.query(r'''
             new_type('D');

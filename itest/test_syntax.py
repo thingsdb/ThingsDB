@@ -11,7 +11,7 @@ class TestSyntax(TestBase):
     title = 'Test syntax'
 
     @default_test_setup(num_nodes=1, seed=1, threshold_full_storage=10)
-    async def run(self):
+    async def async_run(self):
 
         await self.node0.init_and_run()
 

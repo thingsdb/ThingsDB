@@ -18,7 +18,7 @@ class TestBackup(TestBase):
         num_nodes=2, seed=1,
         threshold_full_storage=100,
         gcloud_key_file='/tmp/_test_ti.json')
-    async def run(self):
+    async def async_run(self):
 
         await self.node0.init_and_run()
 

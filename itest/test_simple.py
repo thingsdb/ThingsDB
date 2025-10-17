@@ -22,7 +22,7 @@ class TestSimple(TestBase):
     title = 'Test simple run'
 
     @default_test_setup(num_nodes=3, seed=1, threshold_full_storage=10)
-    async def run(self):
+    async def async_run(self):
 
         await self.node0.init_and_run()
 

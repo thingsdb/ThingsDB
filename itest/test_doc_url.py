@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import urllib.request
+import urllib.error
 from lib import run_test
 from lib.testbase import TestBase
 
@@ -17,7 +18,7 @@ class TestDocUrl(TestBase):
 
     title = 'Test documentation url'
 
-    async def run(self):
+    async def async_run(self):
         with open(DOC_FN, 'r') as f:
             lines = f.readlines()
 

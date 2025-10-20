@@ -1,7 +1,7 @@
 psutil
 pycodestyle
 msgpack
-python-thingsdb>=1.2.0
+python-thingsdb>=1.2.2
 requests
 pytz
 websockets

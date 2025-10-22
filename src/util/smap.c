@@ -1037,20 +1037,29 @@ static int smap__node_resize(smap_node_t * node, uint8_t pos)
         uint8_t diff = node->offset - pos;
         uint8_t oldn = node->sz;
         node->sz += diff;
-        tmp = realloc(node->nodes, node->sz * sizeof(smap_nodes_t));
-        if (!tmp && node->sz)
+        if (node->sz == 0)
         {
-            node->sz -= diff;
-            rc = SMAP_ERR_ALLOC;
+            free(node->nodes);
+            node->nodes = NULL;
+            node->offset = pos;
         }
         else
         {
-            node->nodes = tmp;
-            node->offset = pos;
-            memmove(node->nodes + diff,
-                    node->nodes,
-                    oldn * sizeof(smap_nodes_t));
-            memset(node->nodes, 0, diff * sizeof(smap_nodes_t));
+            tmp = realloc(node->nodes, node->sz * sizeof(smap_nodes_t));
+            if (!tmp)
+            {
+                node->sz -= diff;
+                rc = SMAP_ERR_ALLOC;
+            }
+            else
+            {
+                node->nodes = tmp;
+                node->offset = pos;
+                memmove(node->nodes + diff,
+                        node->nodes,
+                        oldn * sizeof(smap_nodes_t));
+                memset(node->nodes, 0, diff * sizeof(smap_nodes_t));
+            }
         }
     }
     else if (pos >= node->offset + node->sz)
@@ -1058,7 +1067,7 @@ static int smap__node_resize(smap_node_t * node, uint8_t pos)
         smap_nodes_t * tmp;
         uint8_t diff = pos - node->offset - node->sz + 1;
         uint8_t oldn = node->sz;
-        node->sz += diff;  /* assert node->n > 0 */
+        node->sz += diff;  /* assert node->sz > 0 */
         tmp = realloc(node->nodes, node->sz * sizeof(smap_nodes_t));
         if (!tmp)
         {

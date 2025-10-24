@@ -425,7 +425,9 @@ done:
     }
 }
 
-static void clients__on_emit(ti_stream_t * stream, ti_pkg_t * pkg)
+static void clients__on_emit(ti_stream_t * stream,
+                             ti_stream_t * peer,  /* null for echo */
+                             ti_pkg_t * pkg)
 {
     ex_t e = {0};
     ti_user_t * user = stream->via.user;
@@ -446,7 +448,7 @@ static void clients__on_emit(ti_stream_t * stream, ti_pkg_t * pkg)
 
     if (!(collection = ti_scope_get_collection(&scope, &e)) ||
         ti_access_check_err(collection->access, user, TI_AUTH_JOIN, &e) ||
-        ti_room_emit_from_pkg(collection, pkg, &e))
+        ti_room_emit_from_pkg(collection, pkg, peer, &e))
         goto on_error;
 
     resp = ti_pkg_new(pkg->id, TI_PROTO_CLIENT_RES_OK, NULL, 0);
@@ -575,7 +577,10 @@ void ti_clients_pkg_cb(ti_stream_t * stream, ti_pkg_t * pkg)
         clients__on_leave(stream, pkg);
         break;
     case TI_PROTO_CLIENT_REQ_EMIT:
-        clients__on_emit(stream, pkg);
+        clients__on_emit(stream, NULL, pkg);
+        break;
+    case TI_PROTO_CLIENT_REQ_EMIT_PEER:
+        clients__on_emit(stream, stream, pkg);
         break;
     case _TI_PROTO_CLIENT_DEP_35:  /* deprecated watch request */
     case _TI_PROTO_CLIENT_DEP_36:  /* deprecated watch request */

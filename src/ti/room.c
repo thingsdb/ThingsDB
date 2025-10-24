@@ -72,11 +72,13 @@ int ti_room_set_name(ti_room_t * room, ti_name_t * name)
     return 0;
 }
 
-static void room__write_rpkg(ti_room_t * room, ti_rpkg_t * rpkg)
+static void room__write_rpkg(ti_room_t * room,
+                             ti_stream_t * stream,
+                             ti_rpkg_t * rpkg)
 {
     for (vec_each(room->listeners, ti_watch_t, watch))
     {
-        if (ti_stream_is_closed(watch->stream))
+        if (watch->stream == stream || ti_stream_is_closed(watch->stream))
             continue;
 
         if (ti_stream_write_rpkg(watch->stream, rpkg))
@@ -97,7 +99,7 @@ static void room__write_pkg(ti_room_t * room, ti_pkg_t * pkg)
         log_critical(EX_MEMORY_S);
         return;
     }
-    room__write_rpkg(room, rpkg);
+    room__write_rpkg(room, NULL, rpkg);
     ti_rpkg_drop(rpkg);
 }
 
@@ -159,6 +161,7 @@ void ti_room_emit_data(ti_room_t * room, const void * data, size_t sz)
 
 int ti_room_emit(
         ti_room_t * room,
+        ti_stream_t * stream,
         ti_query_t * query,
         vec_t * args,
         const char * event,
@@ -219,7 +222,7 @@ int ti_room_emit(
     ti_nodes_write_rpkg(node_rpkg);
     ti_rpkg_drop(node_rpkg);
 
-    room__write_rpkg(room, client_rpkg);
+    room__write_rpkg(room, stream, client_rpkg);
     ti_rpkg_drop(client_rpkg);
 
     return 0;
@@ -238,6 +241,7 @@ fail_pack:
 int ti_room_emit_from_pkg(
         ti_collection_t * collection,
         ti_pkg_t * pkg,
+        ti_stream_t * stream,
         ex_t * e)
 {
     size_t nargs;
@@ -349,6 +353,7 @@ int ti_room_emit_from_pkg(
 
     if (ti_room_emit(
             room,
+            stream,
             NULL,
             args,
             mp_event.via.str.data,

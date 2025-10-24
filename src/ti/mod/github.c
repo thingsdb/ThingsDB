@@ -451,7 +451,7 @@ static CURLcode gh__download_url(
     curl_easy_setopt(curl, CURLOPT_URL, url);
 
     /* enable verbose logging when log level is debug */
-    curl_easy_setopt(curl, CURLOPT_VERBOSE, Logger.level == LOGGER_DEBUG);
+    curl_easy_setopt(curl, CURLOPT_VERBOSE, (long) (Logger.level == LOGGER_DEBUG));
 
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, data);

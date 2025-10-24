@@ -15,46 +15,48 @@ typedef enum
     /*
      * 0x0000xxxx  0..15 fire and forgets from node to client
      */
-    TI_PROTO_CLIENT_NODE_STATUS =0,     /* {id:x status:...}                */
+    TI_PROTO_CLIENT_NODE_STATUS =0,    /* {id:x status:...}                */
     /* 1..4 : Old watch protocol */
-    TI_PROTO_CLIENT_WARN        =5,     /* {warn_msg:..., warn_code: x}     */
-    TI_PROTO_CLIENT_ROOM_JOIN   =6,     /* {id:x}                           */
-    TI_PROTO_CLIENT_ROOM_LEAVE  =7,     /* {id:x}                           */
-    TI_PROTO_CLIENT_ROOM_EMIT   =8,     /* {id:x, event:name, args:[...] }  */
-    TI_PROTO_CLIENT_ROOM_DELETE =9,     /* {id:x }                          */
+    TI_PROTO_CLIENT_WARN        =5,    /* {warn_msg:..., warn_code: x}     */
+    TI_PROTO_CLIENT_ROOM_JOIN   =6,    /* {id:x}                           */
+    TI_PROTO_CLIENT_ROOM_LEAVE  =7,    /* {id:x}                           */
+    TI_PROTO_CLIENT_ROOM_EMIT   =8,    /* {id:x, event:name, args:[...] }  */
+    TI_PROTO_CLIENT_ROOM_DELETE =9,    /* {id:x }                          */
 
     /*
      * 0x0001xxxx  16..31 client responses
      */
-    TI_PROTO_CLIENT_RES_PONG    =16,    /* empty */
-    TI_PROTO_CLIENT_RES_OK      =17,    /* empty */
-    TI_PROTO_CLIENT_RES_DATA    =18,    /* ... */
-    TI_PROTO_CLIENT_RES_ERROR   =19,    /* {error_msg:..., error_code: x}   */
+    TI_PROTO_CLIENT_RES_PONG      =16,   /* empty */
+    TI_PROTO_CLIENT_RES_OK        =17,   /* empty */
+    TI_PROTO_CLIENT_RES_DATA      =18,   /* ... */
+    TI_PROTO_CLIENT_RES_ERROR     =19,   /* {error_msg:..., error_code: x}  */
 
     /*
      * 0x0010xxxx  32..63 client requests
      */
-    TI_PROTO_CLIENT_REQ_PING    =32,    /* empty                            */
-    TI_PROTO_CLIENT_REQ_AUTH    =33,    /* [user, pass] or token            */
-    TI_PROTO_CLIENT_REQ_QUERY   =34,    /* [scope, code, {variable}]       */
+    TI_PROTO_CLIENT_REQ_PING      =32,   /* empty                           */
+    TI_PROTO_CLIENT_REQ_AUTH      =33,   /* [user, pass] or token           */
+    TI_PROTO_CLIENT_REQ_QUERY     =34,   /* [scope, code, {variable}]       */
     /* 35..36 : Old watch protocol */
-    _TI_PROTO_CLIENT_DEP_35     =35,    /* TODO (COMPAT) */
-    _TI_PROTO_CLIENT_DEP_36     =36,    /* TODO (COMPAT) */
+    _TI_PROTO_CLIENT_DEP_35       =35,   /* TODO (COMPAT) */
+    _TI_PROTO_CLIENT_DEP_36       =36,   /* TODO (COMPAT) */
 
-    TI_PROTO_CLIENT_REQ_RUN     =37,    /* [scope, procedure, [[args]/{kw}] */
-    TI_PROTO_CLIENT_REQ_JOIN    =38,    /* [scope, ...room id's]}           */
-    TI_PROTO_CLIENT_REQ_LEAVE   =39,    /* [scope, ...room id's]}           */
-    TI_PROTO_CLIENT_REQ_EMIT    =40,    /* [scope, room_id, event, ...args] */
+    TI_PROTO_CLIENT_REQ_RUN       =37,   /* [scope, procedure, [[args]/{kw}] */
+    TI_PROTO_CLIENT_REQ_JOIN      =38,   /* [scope, ...room id's]}           */
+    TI_PROTO_CLIENT_REQ_LEAVE     =39,   /* [scope, ...room id's]}           */
+    TI_PROTO_CLIENT_REQ_EMIT      =40,   /* [scope, room_id, event, ...args] */
+    TI_PROTO_CLIENT_REQ_EMIT_PEER =41,   /* [scope, room_id, event, ...args] */
+
 
     /*
      * 64..127 modules range
      */
-    TI_PROTO_MODULE_CONF           =64,    /* data, initialize extension */
-    TI_PROTO_MODULE_CONF_OK        =65,    /* empty */
-    TI_PROTO_MODULE_CONF_ERR       =66,    /* empty */
-    TI_PROTO_MODULE_REQ            =80,    /* data, request */
-    TI_PROTO_MODULE_RES            =81,    /* data, response */
-    TI_PROTO_MODULE_ERR            =82,    /* [err_nr, message] */
+    TI_PROTO_MODULE_CONF          =64,    /* data, initialize extension */
+    TI_PROTO_MODULE_CONF_OK       =65,    /* empty */
+    TI_PROTO_MODULE_CONF_ERR      =66,    /* empty */
+    TI_PROTO_MODULE_REQ           =80,    /* data, request */
+    TI_PROTO_MODULE_RES           =81,    /* data, response */
+    TI_PROTO_MODULE_ERR           =82,    /* [err_nr, message] */
 
     /*
      * protocol definition for node connections

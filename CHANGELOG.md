@@ -1,3 +1,7 @@
+# v1.7.7-alpha0
+
+* Added `TI_PROTO_CLIENT_REQ_EMIT_PEER` protocol, pr #414.
+
 # v1.7.6
 
 * Fixed maximum enumerators per collection, issue #412.

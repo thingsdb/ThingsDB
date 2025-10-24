@@ -1,11 +1,13 @@
 import asyncio
 import logging
 import random
+import subprocess
 from .testbase import TestBase
 from .task import Task
 from .cleanup import cleanup as clean
 from .cleanup import killall
 from .node import Node
+from .color import Color
 from .vars import THINGSDB_BIN
 from .vars import THINGSDB_KEEP_ON_ERROR
 from .vars import THINGSDB_LOGLEVEL
@@ -39,10 +41,26 @@ def default_test_setup(num_nodes=1, seed=None, **kwargs):
     return wrapper
 
 
-async def _run_test(test):
+async def _run_test(test, hide_version: bool = False):
     logger = logging.getLogger()
     logger.setLevel(THINGSDB_LOGLEVEL)
     task = Task(test.title)
+
+    if not hide_version:
+        try:
+            result = subprocess.run(
+                [THINGSDB_BIN, '--version'],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            out = result.stdout.strip()
+            lines = out.splitlines()
+            lines[0] = f'   {lines[0]}'
+            out = '\n'.join(lines[:5])
+            print(Color.info(out))
+        except Exception:
+            pass
 
     logging.info(f"""
 Test Settings:
@@ -70,10 +88,10 @@ Test Settings:
     await task.task
 
 
-def run_test(test: TestBase):
+def run_test(test: TestBase, hide_version: bool = False):
     loop = asyncio.new_event_loop()
     clean()
-    loop.run_until_complete(_run_test(test))
+    loop.run_until_complete(_run_test(test, hide_version))
 
 
 INT_MIN = -9223372036854775808

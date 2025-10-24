@@ -406,5 +406,6 @@ class TestWrap(TestBase):
             {'name': 'd'}
         ])
 
+
 if __name__ == '__main__':
     run_test(TestWrap())

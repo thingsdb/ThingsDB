@@ -43,10 +43,20 @@ from test_ws import TestWS
 from test_wss import TestWSS
 
 
+_hide_version = False
+
+
+def hide_version() -> bool:
+    global _hide_version
+    current = _hide_version
+    _hide_version = True
+    return current
+
+
 def no_mem_test(test_class):
     tmp = vars.THINGSDB_MEMCHECK.copy()
     vars.THINGSDB_MEMCHECK.clear()
-    run_test(test_class())
+    run_test(test_class(), hide_version=hide_version())
     vars.THINGSDB_MEMCHECK[:] = tmp
 
 
@@ -62,44 +72,44 @@ if __name__ == '__main__':
         help='include modules testing')
     args = parser.parse_args()
 
-    run_test(TestAdvanced())
-    run_test(TestArguments())
-    run_test(TestBackup())
-    run_test(TestChanges())
-    run_test(TestCollectionFunctions())
-    run_test(TestDatetime())
-    run_test(TestDict())
+    run_test(TestAdvanced(), hide_version=hide_version())
+    run_test(TestArguments(), hide_version=hide_version())
+    run_test(TestBackup(), hide_version=hide_version())
+    run_test(TestChanges(), hide_version=hide_version())
+    run_test(TestCollectionFunctions(), hide_version=hide_version())
+    run_test(TestDatetime(), hide_version=hide_version())
+    run_test(TestDict(), hide_version=hide_version())
     if args.doc_test is True:
-        run_test(TestDocUrl())
-    run_test(TestEnum())
-    run_test(TestFuture())
-    run_test(TestGC())
-    run_test(TestHTTPAPI())
-    run_test(TestImport())
-    run_test(TestIndexSlice())
-    run_test(TestMath())
+        run_test(TestDocUrl(), hide_version=hide_version())
+    run_test(TestEnum(), hide_version=hide_version())
+    run_test(TestFuture(), hide_version=hide_version())
+    run_test(TestGC(), hide_version=hide_version())
+    run_test(TestHTTPAPI(), hide_version=hide_version())
+    run_test(TestImport(), hide_version=hide_version())
+    run_test(TestIndexSlice(), hide_version=hide_version())
+    run_test(TestMath(), hide_version=hide_version())
     if args.doc_modules is True:
-        run_test(TestModules())
-    run_test(TestMultiNode())
-    run_test(TestNested())
-    run_test(TestNodeFunctions())
-    run_test(TestNodes())
-    run_test(TestOperators())
-    run_test(TestProcedures())
-    run_test(TestRelations())
-    run_test(TestRestriction())
-    run_test(TestRoom())
-    run_test(TestRoomWSS())
-    run_test(TestScopes())
-    run_test(TestStatements())
-    run_test(TestSyntax())
-    run_test(TestTasks())
-    run_test(TestThingsDBFunctions())
-    run_test(TestType())
-    run_test(TestTypes())
-    run_test(TestUserAccess())
-    run_test(TestVariable())
-    run_test(TestWhitelist())
-    run_test(TestWS())
-    run_test(TestWSS())
-    run_test(TestWrap())
+        run_test(TestModules(), hide_version=hide_version())
+    run_test(TestMultiNode(), hide_version=hide_version())
+    run_test(TestNested(), hide_version=hide_version())
+    run_test(TestNodeFunctions(), hide_version=hide_version())
+    run_test(TestNodes(), hide_version=hide_version())
+    run_test(TestOperators(), hide_version=hide_version())
+    run_test(TestProcedures(), hide_version=hide_version())
+    run_test(TestRelations(), hide_version=hide_version())
+    run_test(TestRestriction(), hide_version=hide_version())
+    run_test(TestRoom(), hide_version=hide_version())
+    run_test(TestRoomWSS(), hide_version=hide_version())
+    run_test(TestScopes(), hide_version=hide_version())
+    run_test(TestStatements(), hide_version=hide_version())
+    run_test(TestSyntax(), hide_version=hide_version())
+    run_test(TestTasks(), hide_version=hide_version())
+    run_test(TestThingsDBFunctions(), hide_version=hide_version())
+    run_test(TestType(), hide_version=hide_version())
+    run_test(TestTypes(), hide_version=hide_version())
+    run_test(TestUserAccess(), hide_version=hide_version())
+    run_test(TestVariable(), hide_version=hide_version())
+    run_test(TestWhitelist(), hide_version=hide_version())
+    run_test(TestWS(), hide_version=hide_version())
+    run_test(TestWSS(), hide_version=hide_version())
+    run_test(TestWrap(), hide_version=hide_version())

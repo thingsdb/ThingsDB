@@ -303,6 +303,39 @@ class TestRoom(TestBase):
         res = await cl0.query('room("A").name();')
         self.assertEqual(res, "A")
 
+    async def test_room_peer_only(self, cl0, cl1, cl2):
+        await cl0.query(r"""//ti
+            .room = room();
+            .room.set_name("test_peer_room");
+        """)
+        actions0 = []
+        actions1 = []
+        room0 = ORoom(actions0, 'test_peer_room')
+        room1 = ORoom(actions1, 'test_peer_room')
+
+        await room0.join(cl0)
+        await room1.join(cl1)
+
+        await room0.emit('add', 'from_0_to_all')
+        await room1.emit('add', 'from_1_to_all')
+
+        await room0.emit('add', 'from_0_to_peers', peers_only=True)
+        await room1.emit('add', 'from_1_to_peers', peers_only=True)
+
+        await asyncio.sleep(0.5)
+
+        self.assertEqual(sorted([
+            'from_0_to_all',
+            'from_1_to_all',
+            'from_1_to_peers',
+        ]), sorted(actions0))
+
+        self.assertEqual(sorted([
+            'from_0_to_all',
+            'from_1_to_all',
+            'from_0_to_peers',
+        ]), sorted(actions1))
+
 
 if __name__ == '__main__':
     run_test(TestRoom())

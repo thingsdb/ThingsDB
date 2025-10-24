@@ -34,6 +34,7 @@ void ti_room_emit_node_status(ti_room_t * room, const char * status);
 int ti_room_copy(ti_room_t ** room);
 int ti_room_emit(
         ti_room_t * room,
+        ti_stream_t * stream,
         ti_query_t * query,
         vec_t * args,
         const char * event,
@@ -43,6 +44,7 @@ int ti_room_emit(
 int ti_room_emit_from_pkg(
         ti_collection_t * collection,
         ti_pkg_t * pkg,
+        ti_stream_t * stream,  /* null for echo */
         ex_t * e);
 
 static inline int ti_room_emit_raw(
@@ -54,7 +56,14 @@ static inline int ti_room_emit_raw(
         int flags)
 {
     return ti_room_emit(
-        room, query, args, (const char *) event->data, event->n, deep, flags);
+        room,
+        NULL,
+        query,
+        args,
+        (const char *) event->data,
+        event->n,
+        deep,
+        flags);
 }
 
 #endif  /* TI_ROOM_H_ */

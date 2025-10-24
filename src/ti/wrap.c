@@ -473,6 +473,11 @@ int ti__wrap_field_thing(
 
             for (vec_each(map->mappings, ti_mapping_t, mapping))
                 skip += (
+                    (mapping->t_field->flags & TI_FIELD_FLAG_SKIP_FALSE) &&
+                    !ti_val_as_bool(
+                        VEC_get(thing->items.vec, mapping->f_field->idx)
+                    )
+                ) || (
                     (mapping->t_field->flags & TI_FIELD_FLAG_SKIP_NIL) &&
                     ti_val_is_nil(
                         VEC_get(thing->items.vec, mapping->f_field->idx)
@@ -491,8 +496,11 @@ int ti__wrap_field_thing(
             {
                 val = VEC_get(thing->items.vec, mapping->f_field->idx);
 
-                if ((mapping->t_field->flags & TI_FIELD_FLAG_SKIP_NIL) &&
-                    ti_val_is_nil(val))
+                if ((
+                    (mapping->t_field->flags & TI_FIELD_FLAG_SKIP_FALSE) &&
+                    !ti_val_as_bool(val)) || (
+                    (mapping->t_field->flags & TI_FIELD_FLAG_SKIP_NIL) &&
+                    ti_val_is_nil(val)))
                     continue;
 
                 if (mp_pack_strn(
@@ -620,8 +628,11 @@ int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep)
             ti_prop_t * p;
             ti_val_t * val = VEC_get(thing->items.vec, mapping->f_field->idx);
 
-            if (ti_val_is_nil(val) &&
-                (mapping->t_field->flags & TI_FIELD_FLAG_SKIP_NIL))
+            if ((
+                (mapping->t_field->flags & TI_FIELD_FLAG_SKIP_FALSE) &&
+                !ti_val_is_bool(val)) || (
+                (mapping->t_field->flags & TI_FIELD_FLAG_SKIP_NIL) &&
+                ti_val_is_nil(val)))
                 continue;
 
             p = ti_prop_create(mapping->f_field->name, val);

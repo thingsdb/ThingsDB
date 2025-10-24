@@ -493,6 +493,11 @@ static int field__init(ti_field_t * field, ex_t * e)
                 goto duplicate_flag;
             field->flags |= TI_FIELD_FLAG_SKIP_NIL;
             break;
+        case '!':
+            if (field->flags & TI_FIELD_FLAG_SKIP_FALSE)
+                goto duplicate_flag;
+            field->flags |= TI_FIELD_FLAG_SKIP_FALSE;
+            break;
         default:
             goto done_flags;
         }
@@ -2152,6 +2157,9 @@ relation_error:
 _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
 {
     uint16_t spec = field->spec;
+
+    if ((field->flags & TI_FIELD_FLAG_SKIP_FALSE) && !ti_val_as_bool(val))
+        return false;
 
     if (ti_val_is_nil(val))
     {

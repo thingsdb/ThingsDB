@@ -30,4 +30,5 @@ COPY ./memleak.supp /memleak.supp
 WORKDIR /itest
 RUN pip install -r requirements.txt
 ENV THINGSDB_BIN=/thingsdb
+ENV THINGSDB_MEMCHECK=1
 CMD [ "python", "run_all_tests.py" ]

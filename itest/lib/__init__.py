@@ -71,7 +71,7 @@ Test Settings:
 
 
 def run_test(test: TestBase):
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
     clean()
     loop.run_until_complete(_run_test(test))
 

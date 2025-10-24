@@ -1,4 +1,4 @@
-FROM google/cloud-sdk:471.0.0
+FROM google/cloud-sdk
 WORKDIR /tmp/thingsdb
 COPY ./CMakeLists.txt ./CMakeLists.txt
 COPY ./main.c ./main.c
@@ -16,15 +16,15 @@ RUN apt-get update && apt-get install -y \
     LEGACY=1 cmake -DCMAKE_BUILD_TYPE=Release . && \
     make
 
-FROM google/cloud-sdk:471.0.0
+FROM google/cloud-sdk
 
 RUN mkdir -p /var/lib/thingsdb && \
     apt-get update && apt-get install -y \
     libuv1 \
     libpcre2-8-0 \
     libyajl2 \
-    libcurl3t64-gnutls && \
-    pip3 install py-timod
+    libcurl4 && \
+    pip3 install py-timod --break-system-packages
 
 COPY --from=0 /tmp/thingsdb/thingsdb /usr/local/bin/
 

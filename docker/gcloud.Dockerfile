@@ -1,4 +1,4 @@
-FROM amd64/alpine:3.19
+FROM amd64/alpine
 WORKDIR /tmp/thingsdb
 COPY ./CMakeLists.txt ./CMakeLists.txt
 COPY ./main.c ./main.c
@@ -11,7 +11,7 @@ RUN apk update && \
     cmake -DCMAKE_BUILD_TYPE=Release . && \
     make
 
-FROM google/cloud-sdk:492.0.0-alpine
+FROM google/cloud-sdk:alpine
 RUN apk update && \
     apk add pcre2 libuv yajl curl tzdata && \
     mkdir -p /var/lib/thingsdb

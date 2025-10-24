@@ -1,4 +1,4 @@
-FROM amd64/alpine:3.19
+FROM amd64/alpine
 WORKDIR /tmp/thingsdb
 COPY ./CMakeLists.txt ./CMakeLists.txt
 COPY ./main.c ./main.c

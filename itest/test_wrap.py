@@ -362,6 +362,49 @@ class TestWrap(TestBase):
             {'name': 'c'}
         ])
 
+    async def test_skip_false(self, client):
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid declaration for `x` on type `T`; duplicate flags;'):
+            await client.query("""//ti
+                set_type('T', {x: '!!int'})
+            """)
+
+        await client.query("""//ti
+            set_type('T', {
+                name: 'str',
+                age: 'int?',
+                other: '[str]?',
+            });
+            set_type('_T', {
+                name: 'str',
+                age: '!int?',
+                other: '!any',
+            }, true, true);
+        """)
+        res = await client.query("""//ti
+            .orig = [
+                T{name: 'a'},
+                T{name: 'b', age: 123, other: ['other']},
+                {name: 'c', age: nil, other: []},
+                {name: 'd', age: 0, other: nil}
+            ].map_wrap('_T');
+        """)
+        self.assertEqual(res, [
+            {'name': 'a'},
+            {'name': 'b', 'age': 123, 'other': ['other']},
+            {'name': 'c'},
+            {'name': 'd'}
+        ])
+        res = await client.query("""//ti
+            .orig.copy();
+        """)
+        self.assertEqual(res, [
+            {'name': 'a'},
+            {'name': 'b', 'age': 123, 'other': ['other']},
+            {'name': 'c'},
+            {'name': 'd'}
+        ])
 
 if __name__ == '__main__':
     run_test(TestWrap())

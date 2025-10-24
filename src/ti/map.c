@@ -17,7 +17,8 @@ ti_map_t * ti_map_new(vec_t * mappings)
     map->can_skip = false;
     for (vec_each(mappings, ti_mapping_t, mapping))
     {
-        if (mapping->t_field->flags & TI_FIELD_FLAG_SKIP_NIL)
+        if (mapping->t_field->flags & (
+                TI_FIELD_FLAG_SKIP_NIL|TI_FIELD_FLAG_SKIP_FALSE))
         {
             map->can_skip = true;
             break;

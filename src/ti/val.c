@@ -1339,57 +1339,6 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
 }
 
 /*
- * Can be called on any value type and returns `true` or `false`.
- */
-_Bool ti_val_as_bool(ti_val_t * val)
-{
-    switch ((ti_val_enum) val->tp)
-    {
-    case TI_VAL_NIL:
-        return false;
-    case TI_VAL_INT:
-        return !!VINT(val);
-    case TI_VAL_FLOAT:
-        return !!VFLOAT(val);
-    case TI_VAL_BOOL:
-        return VBOOL(val);
-    case TI_VAL_DATETIME:
-        return true;
-    case TI_VAL_MPDATA:
-    case TI_VAL_NAME:
-    case TI_VAL_STR:
-    case TI_VAL_BYTES:
-        return !!((ti_raw_t *) val)->n;
-    case TI_VAL_REGEX:
-        return true;
-    case TI_VAL_ARR:
-        return !!VARR(val)->n;
-    case TI_VAL_SET:
-        return !!VSET(val)->n;
-    case TI_VAL_THING:
-        return !!ti_thing_n((ti_thing_t *) val);
-    case TI_VAL_WRAP:
-        return !!ti_thing_n(((ti_wrap_t *) val)->thing);
-    case TI_VAL_ROOM:
-        return ((ti_room_t *) val)->id;
-    case TI_VAL_TASK:
-        return ((ti_vtask_t *) val)->run_at;
-    case TI_VAL_CLOSURE:
-    case TI_VAL_FUTURE:
-    case TI_VAL_MODULE:
-        return true;
-    case TI_VAL_ERROR:
-        return false;
-    case TI_VAL_MEMBER:
-        return ti_val_as_bool(VMEMBER(val));
-    case TI_VAL_TEMPLATE:
-        assert(0);
-    }
-    assert(0);
-    return false;
-}
-
-/*
  * Can only be called on values which have a length.
  * Enum types should have been checked on the value they contain.
  */

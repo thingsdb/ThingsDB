@@ -1,6 +1,7 @@
-# v1.7.6-alpha0
+# v1.7.6-alpha1
 
 * Fixed maximum enumerators per collection, issue #412.
+* Added `!` prefix flag to exclude values which evaluate to `false`, pr #413.
 
 # v1.7.5
 

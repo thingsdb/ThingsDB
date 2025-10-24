@@ -17,8 +17,6 @@ async def test_err_max_size():
     wsprotocol.WEBSOCKET_MAX_SIZE = 2**14
     try:
         await client.connect('ws://localhost:9780')
-        prev = client
-
         try:
             await client.authenticate('admin', 'pass')
 

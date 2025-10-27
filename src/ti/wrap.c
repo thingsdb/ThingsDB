@@ -563,102 +563,63 @@ fail:
     return -1;
 }
 
+int ti_wrap_cp(ti_query_t * query, uint8_t deep, ex_t * e)
+{
+    ti_val_t * val;
+    mp_unp_t up;
+    msgpack_sbuffer buffer;
+    ti_vp_t vp = {
+            .query=query,
+    };
+    ti_vup_t vup = {
+            .isclient = true,
+            .collection = query->collection,
+            .up = &up,
+    };
+
+    assert(ti_val_is_wrap(query->rval));
+
+    if (mp_sbuffer_alloc_init(&buffer, ti_val_alloc_size(query->rval), 0))
+    {
+        ex_set_mem(e);
+        goto fail0;
+    }
+
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
+
+    if (ti_val_to_client_pk(query->rval, &vp, deep, TI_FLAGS_NO_IDS))
+    {
+        ex_set_mem(e);
+        goto fail1;
+    }
+
+    mp_unp_init(&up, buffer.data, buffer.size);
+
+    val = ti_val_from_vup_e(&vup, e);
+    ti_val_unsafe_drop(query->rval);
+    query->rval = val;
+
+fail1:
+    msgpack_sbuffer_destroy(&buffer);
+fail0:
+    return e->nr;
+}
+
 int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep)
 {
-    assert(deep);
+    ti_thing_t * thing = (*wrap)->thing;
+    ti_wrap_t * _wrap = ti_wrap_create(thing, (*wrap)->type_id);
+    if (!_wrap)
+        return -1;
 
-    ti_thing_t * other, * thing = (*wrap)->thing;
-    ti_type_t * type = ti_types_by_id(
-            thing->collection->types,
-            (*wrap)->type_id);
-
-    if (!type)
+    if (ti_thing_copy(&_wrap->thing, deep))
     {
-        ti_incref(thing);
-
-        if (ti_thing_copy(&thing, deep))
-        {
-            ti_decref(thing);
-            return -1;
-        }
-
-        ti_val_unsafe_drop((ti_val_t *) *wrap);
-        *wrap = (ti_wrap_t *) thing;
-        return 0;
+        ti_val_unsafe_drop((ti_val_t *) _wrap);
+        return -1;
     }
-
-    --deep;
-
-    if (ti_thing_is_object(thing))
-    {
-        size_t n = ti_min(type->fields->n, ti_thing_n(thing));
-        other = ti_thing_o_create(0, n , thing->collection);
-        if (!other)
-            return -1;
-
-        for (vec_each(type->fields, ti_field_t, t_field))
-        {
-            ti_prop_t * prop, * p;
-            prop = ti_thing_o_prop_weak_get(thing, t_field->name);
-            if (!prop || !ti_field_maps_to_val(t_field, prop->val))
-                continue;
-
-            p = ti_prop_dup(prop);
-
-            if (!p || ti_val_copy(&p->val, other, p->name, deep))
-            {
-                ti_prop_unassign_destroy(p);
-                goto fail;
-            }
-            VEC_push(other->items.vec, p);
-        };
-    }
-    else
-    {
-        ti_map_t * map = ti_type_map(type, thing->via.type);
-        if (!map)
-            return -1;
-
-        other = ti_thing_o_create(0, map->mappings->n, thing->collection);
-        if (!other)
-            return -1;
-
-        for (vec_each(map->mappings, ti_mapping_t, mapping))
-        {
-            ti_prop_t * p;
-            ti_val_t * val = VEC_get(thing->items.vec, mapping->f_field->idx);
-
-            if ((
-                (mapping->t_field->flags & TI_FIELD_FLAG_SKIP_FALSE) &&
-                !ti_val_is_bool(val)) || (
-                (mapping->t_field->flags & TI_FIELD_FLAG_SKIP_NIL) &&
-                ti_val_is_nil(val)))
-                continue;
-
-            p = ti_prop_create(mapping->f_field->name, val);
-            if (!p)
-                goto fail;
-
-            ti_incref(p->name);
-            ti_incref(p->val);
-
-            if (ti_val_copy(&p->val, other, p->name, deep))
-            {
-                ti_prop_unassign_destroy(p);
-                goto fail;
-            }
-
-            VEC_push(other->items.vec, p);
-        }
-    }
-
     ti_val_unsafe_drop((ti_val_t *) *wrap);
-    *wrap = (ti_wrap_t *) other;
+    *wrap = _wrap;
     return 0;
-
-fail:
-    ti_val_unsafe_drop((ti_val_t *) other);
-    return -1;
 }
 
 int ti_wrap_dup(ti_wrap_t ** wrap, uint8_t deep)

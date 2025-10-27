@@ -406,6 +406,34 @@ class TestWrap(TestBase):
             {'name': 'd'}
         ])
 
+    async def test_wrap_copy(self, client):
+        await client.query("""//ti
+            set_type('T', {
+               name: 'str',
+               upper: |this| this.name.upper(),
+            });
+        """)
+
+        res = await client.query("""//ti
+            .t = T{name: "Iris"};
+            .t.wrap().copy();
+        """)
+        self.assertEqual(res, {"name": "Iris", "upper": "IRIS"})
+
+        res = await client.query("""//ti
+            .o = {
+                t: .t.wrap()
+            };
+            return .o.copy(2), 2;
+        """)
+        self.assertEqual(res, {'t': {'name': 'Iris', "upper": "IRIS"}})
+
+        res = await client.query("""//ti
+            .t = T{name: "Iris"};
+            .t.wrap().copy().upper;
+        """)
+        self.assertEqual(res, "IRIS")
+
 
 if __name__ == '__main__':
     run_test(TestWrap())

@@ -82,16 +82,10 @@ static int type__map_cleanup(ti_type_t * t_haystack, ti_type_t * t_needle)
     return 0;
 }
 
-/* used as a callback function and destroys all type mappings */
-static void type__map_free(void * map)
-{
-    ti_map_destroy(map);
-}
-
 void ti_type_map_cleanup(ti_type_t * type)
 {
     (void) imap_walk(type->types->imap, (imap_cb) type__map_cleanup, type);
-    imap_clear(type->t_mappings, type__map_free);
+    imap_clear(type->t_mappings, (imap_destroy_cb) ti_map_destroy);
 }
 
 void ti_type_drop(ti_type_t * type)
@@ -145,7 +139,7 @@ void ti_type_destroy(ti_type_t * type)
 
     vec_destroy(type->fields, (vec_destroy_cb) ti_field_destroy);
     vec_destroy(type->methods, (vec_destroy_cb) ti_method_destroy);
-    imap_destroy(type->t_mappings, type__map_free);
+    imap_destroy(type->t_mappings, (imap_destroy_cb) ti_map_destroy);
     ti_val_drop((ti_val_t *) type->rname);
     ti_val_drop((ti_val_t *) type->rwname);
     ti_val_drop((ti_val_t *) type->idname);
@@ -324,6 +318,8 @@ static inline int type__assign(
 
     if (ti_val_is_closure(val))
         return ti_type_add_method(type, name, (ti_closure_t *) val, e);
+
+
 
     ex_set(e, EX_TYPE_ERROR,
             "expecting a method of type `"TI_VAL_CLOSURE_S"` "

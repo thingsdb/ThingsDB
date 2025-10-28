@@ -19,8 +19,9 @@ struct ti_types_s
     imap_t * imap;
     smap_t * smap;
     smap_t * removed;  /* map with type id's which are removed */
-    uint16_t next_id;
     ti_collection_t * collection;
+    uint32_t next_unnamed;
+    uint16_t next_id;
 };
 
 #endif /* TI_TYPES_T_H_ */

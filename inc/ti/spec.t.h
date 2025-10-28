@@ -45,6 +45,8 @@ typedef enum
     TI_SPEC_FLOAT_RANGE,    /* `float<:>            */
     TI_SPEC_STR_RANGE,      /* `str<:>              */
     TI_SPEC_UTF8_RANGE,     /* `utf8<:>             */
+    TI_SPEC_TYPE,           /* `{...}               */
+    TI_SPEC_ARR_TYPE,       /* `[{...}]             */
 } ti_spec_enum_t;
 
 typedef enum

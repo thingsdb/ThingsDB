@@ -21,6 +21,7 @@ ti_types_t * ti_types_create(ti_collection_t * collection)
     types->removed = smap_create();
     types->collection = collection;
     types->next_id = 0;
+    types->next_unnamed = 0x10000;  // outside spec range
 
     if (!types->imap || !types->smap || !types->removed)
     {
@@ -84,7 +85,10 @@ int types__spec_flags_pos(const unsigned char * x)
            x[i] == '&' ||
            x[i] == '-' ||
            x[i] == '+' ||
-           x[i] == '*')
+           x[i] == '*' ||
+           x[i] == '?' ||
+           x[i] == '!'
+)
        i++;
     return i;
 }

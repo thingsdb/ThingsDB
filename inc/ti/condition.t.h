@@ -14,6 +14,7 @@ typedef struct ti_condition_rel_s ti_condition_rel_t;
 
 union ti_condition_via_u
 {
+    ti_type_t * type;                   /* nested type (wrap-only) */
     ti_condition_re_t * re;             /* str, utf8 */
     ti_condition_srange_t * srange;     /* str, utf8 */
     ti_condition_irange_t * irange;     /* int, float */
@@ -24,11 +25,12 @@ union ti_condition_via_u
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <ti/field.t.h>
 #include <ti/raw.t.h>
 #include <ti/regex.h>
-#include <ti/val.t.h>
-#include <ti/field.t.h>
 #include <ti/thing.t.h>
+#include <ti/type.t.h>
+#include <ti/val.t.h>
 
 typedef void (*ti_condition_rel_cb) (ti_field_t *, ti_thing_t *, ti_thing_t *);
 

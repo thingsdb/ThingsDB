@@ -1425,7 +1425,7 @@ static int ctask__mod_type_add(ti_thing_t * thing, mp_unp_t * up)
 
     if (mp_str_eq(&mp_target, "spec"))
     {
-        if (mp_next(up, &mp_spec) != MP_STR)
+        if (mp_next(up, &mp_spec) != MP_STR && mp_spec.tp != MP_BIN)
         {
             log_critical(
                     "task `mod_type_add` for "TI_COLLECTION_ID" is invalid",
@@ -1475,7 +1475,9 @@ static int ctask__mod_type_add(ti_thing_t * thing, mp_unp_t * up)
         goto fail0;
     }
 
-    if (mp_spec.via.str.n == 1 && mp_spec.via.str.data[0] == '#')
+    if (mp_spec.tp == MP_STR &&
+        mp_spec.via.str.n == 1 &&
+        mp_spec.via.str.data[0] == '#')
     {
         if (type->idname)
         {
@@ -1511,7 +1513,9 @@ static int ctask__mod_type_add(ti_thing_t * thing, mp_unp_t * up)
         }
     }
 
-    spec_raw = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
+    spec_raw = mp_spec.tp == MP_STR
+        ? ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n)
+        : ti_mp_create(mp_spec.via.bin.data, mp_spec.via.bin.n);
     if (!spec_raw)
     {
         log_critical(EX_MEMORY_S);
@@ -1703,7 +1707,16 @@ static int ctask__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
             return -1;
         }
 
-        if (mp_next(up, &mp_spec) != MP_STR)
+        if (mp_next(up, &mp_spec) == MP_STR)
+        {
+            spec_raw = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
+
+        }
+        else if (mp_spec.tp == MP_BIN)
+        {
+            spec_raw = ti_mp_create(mp_spec.via.bin.data, mp_spec.via.bin.n);
+        }
+        else
         {
             log_critical(
                     "task `mod_type_mod` for "TI_COLLECTION_ID" is invalid",
@@ -1711,7 +1724,6 @@ static int ctask__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
             return -1;
         }
 
-        spec_raw = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
         if (!spec_raw)
         {
             log_critical(EX_MEMORY_S);

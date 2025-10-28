@@ -409,56 +409,66 @@ static void type__add(
 
         return;
     }
-    else if (!ti_val_is_str(query->rval))
+
+    spec_raw = ti_type_nested_from_val(type, query->rval, e)
+    if (e-nr)
+        return e->nr;
+
+    if (spec_raw)
+        ti_val_unsafe_gc_drop(query->rval);
+    else
     {
-        ex_set(e, EX_TYPE_ERROR,
-            "function `%s` expects argument 4 to be of "
-            "type `"TI_VAL_STR_S"` or type `"TI_VAL_CLOSURE_S"` "
-            "but got type `%s` instead"DOC_MOD_TYPE_ADD,
-            fnname, ti_val_str(query->rval));
-        return;
-    }
-
-    spec_raw = (ti_raw_t *) query->rval;
-    if (spec_raw->n == 1 && spec_raw->data[0] == '#')
-    {
-        if (nargs == 5)
+        if (!ti_val_is_str(query->rval))
         {
-            ex_set(e, EX_NUM_ARGUMENTS,
-                    "function `%s` takes at most 4 arguments when adding "
-                    "an Id ('#') definition"DOC_MOD_TYPE_ADD,
-                    fnname);
+            ex_set(e, EX_TYPE_ERROR,
+                "function `%s` expects argument 4 to be of "
+                "type `"TI_VAL_STR_S"` or type `"TI_VAL_CLOSURE_S"` "
+                "but got type `%s` instead"DOC_MOD_TYPE_ADD,
+                fnname, ti_val_str(query->rval));
             return;
         }
+        spec_raw = (ti_raw_t *) query->rval;
 
-        if (type->idname)
+        if (spec_raw->n == 1 && spec_raw->data[0] == '#')
         {
-            ex_set(e, EX_LOOKUP_ERROR,
-                    "multiple Id ('#') definitions on type `%s`",
-                    type->name);
+            if (nargs == 5)
+            {
+                ex_set(e, EX_NUM_ARGUMENTS,
+                        "function `%s` takes at most 4 arguments when adding "
+                        "an Id ('#') definition"DOC_MOD_TYPE_ADD,
+                        fnname);
+                return;
+            }
+
+            if (type->idname)
+            {
+                ex_set(e, EX_LOOKUP_ERROR,
+                        "multiple Id ('#') definitions on type `%s`",
+                        type->name);
+                return;
+            }
+
+            task = ti_task_get_task(query->change, query->collection->root);
+            if (!task)
+            {
+                ex_set_mem(e);
+                return;
+            }
+
+            /* update modified time-stamp */
+            type->modified_at = util_now_usec();
+            type->idname = name;
+            ti_incref(name);
+
+            if (ti_task_add_mod_type_add_idname(task, type))
+            {
+                /* modified is wrong; the rest we can revert */
+                type->idname = NULL;
+                ti_decref(name);
+                ex_set_mem(e);
+            }
             return;
         }
-
-        task = ti_task_get_task(query->change, query->collection->root);
-        if (!task)
-        {
-            ex_set_mem(e);
-            return;
-        }
-
-        /* update modified time-stamp */
-        type->modified_at = util_now_usec();
-        type->idname = name;
-        ti_incref(name);
-
-        if (ti_task_add_mod_type_add_idname(task, type))
-        {
-            /* modified is wrong; the rest we can revert */
-            type->idname = NULL;
-            ti_decref(name);
-            ex_set_mem(e);
-        }
-        return;
     }
 
     query->rval = NULL;
@@ -1004,6 +1014,8 @@ fail:
         return;
     }
 
+    // TODO: WO-NESTED: handle arr and thing
+
     ex_set(e, EX_TYPE_ERROR,
         "function `%s` expects argument 4 to be of "
         "type `"TI_VAL_STR_S"` or type `"TI_VAL_CLOSURE_S"` "
@@ -1453,7 +1465,7 @@ static void type__wpo(
     if (wrap_only && ti_type_required_by_non_wpo(type, e))
         return;
 
-    if (!wrap_only && ti_type_uses_wpo(type, e))
+    if (!wrap_only && ti_type_requires_wpo(type, e))
         return;
 
     task = ti_task_get_task(query->change, query->collection->root);

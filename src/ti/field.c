@@ -456,6 +456,13 @@ static int field__init(ti_field_t * field, ex_t * e)
         return e->nr;
     }
 
+    if (ti_raw_is_mpdata(field->spec_raw))
+    {
+        LOGC("WO-NESTED");
+        return e-nr;
+    }
+    // TODO: WO-NESTED: Test and process nested fields
+
     do
     {
         /* WARNING: do not forget to update types.c when modifying the flags in
@@ -1126,6 +1133,7 @@ int ti_field_mod(
     assert(0);
 
 nillable:
+    /* not reached for wrap-only type, therefore spec_raw is always str type */
     ex_set(e, EX_OPERATION,
         "cannot apply type declaration `%.*s` to `%s` on type `%s` without a "
         "closure to migrate existing instances; the old declaration "
@@ -1136,6 +1144,7 @@ nillable:
     goto undo_dep;
 
 incompatible:
+    /* not reached for wrap-only type, therefore spec_raw is always str type */
     ex_set(e, EX_OPERATION,
         "cannot apply type declaration `%.*s` to `%s` on type `%s` without a "
         "closure to migrate existing instances; the old declaration `%.*s` "
@@ -1688,6 +1697,14 @@ static _Bool field__maps_arr_to_arr(ti_field_t * field, ti_varr_t * varr)
     return true;
 }
 
+static _Bool field__maps_arr_to_type(ti_field_t * field, ti_varr_t * varr)
+{
+    for (vec_each(varr->vec, ti_val_t, val))
+        if (!ti_val_is_thing(val))
+            return false;
+    return true;
+}
+
 static int field__map_restrict_cb(ti_prop_t * prop, ti_field_t * field)
 {
     return !ti_spec_maps_to_nested_val(field->nested_spec, prop->val);
@@ -1980,6 +1997,9 @@ int ti_field_make_assignable(
             ((ti_raw_t *) *val)->n > field->condition.srange->ma)
             goto srange_error;
         return 0;
+    case TI_SPEC_TYPE:
+    case TI_SPEC_ARR_TYPE:
+        assert(0);  /* both are only for wrap-only type */
     }
 
     assert(spec >= TI_ENUM_ID_FLAG);
@@ -2266,6 +2286,13 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
                 ((ti_raw_t *) val)->n) &&
                 ((ti_raw_t *) val)->n >= field->condition.srange->mi &&
                 ((ti_raw_t *) val)->n <= field->condition.srange->ma);
+    case TI_SPEC_TYPE:
+        return ti_val_is_thing(val);
+    case TI_SPEC_ARR_TYPE:
+        return ((
+            ti_val_is_array(val) &&
+            field__maps_arr_to_type(field, (ti_varr_t *) val)
+        ) || ti_val_is_set(val));
     }
 
     /* any *thing* can be mapped */
@@ -2357,6 +2384,8 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_FLOAT_RANGE:
     case TI_SPEC_STR_RANGE:
     case TI_SPEC_UTF8_RANGE:
+    case TI_SPEC_TYPE:
+    case TI_SPEC_ARR_TYPE:
         return false;
     }
 
@@ -2504,6 +2533,17 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
             f_spec == TI_SPEC_UTF8_RANGE &&
             f_field->condition.srange->mi >= t_field->condition.srange->mi &&
             f_field->condition.srange->ma <= t_field->condition.srange->ma);
+    case TI_SPEC_TYPE:
+        return f_spec < TI_SPEC_ANY || f_spec == TI_SPEC_OBJECT;
+    case TI_SPEC_ARR_TYPE:
+        return (
+            f_spec == TI_SPEC_SET || (
+                f_spec == TI_SPEC_ARR && (
+                    f_field->nested_spec < TI_SPEC_ANY ||
+                    f_field->nested_spec == TI_SPEC_OBJECT
+                )
+            )
+        );
     }
 
     assert(t_spec < TI_SPEC_ANY);

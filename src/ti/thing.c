@@ -1295,8 +1295,7 @@ int ti_thing__to_client_pk(
      * The correct error is not set here, but instead the size should be
      * checked again to set either a `memory` or `too_much_data` error.
      */
-    if (((msgpack_sbuffer *) vp->pk.data)->size >
-                ti.cfg->result_size_limit)
+    if (((msgpack_sbuffer *) vp->pk.data)->size > vp->size_limit)
         return -1;
 
     --deep;

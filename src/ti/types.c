@@ -60,6 +60,11 @@ int ti_types_add(ti_types_t * types, ti_type_t * type)
     return 0;
 }
 
+int ti_types_add_unnamed(ti_types_t * types, ti_type_t * type)
+{
+    return imap_add(types->imap, types->next_unnamed++, type);
+}
+
 /*
  * Do not use this function directly; Call ti_type_del(..) so
  * existing things using this type will be converted to objects and
@@ -70,6 +75,11 @@ void ti_types_del(ti_types_t * types, ti_type_t * type)
     assert(!type->refcount);
     (void) imap_pop(types->imap, type->type_id);
     (void) smap_pop(types->smap, type->name);
+}
+
+void ti_types_del_unnamed(ti_types_t * types, ti_type_t * type)
+{
+    (void) imap_pop(types->imap, type->type_id);
 }
 
 typedef struct
@@ -232,6 +242,8 @@ int ti_types_ren_member_spec(ti_types_t * types, ti_member_t * member)
 {
     return imap_walk(types->imap, (imap_cb) types__ren_member_cb, member);
 }
+
+
 
 uint16_t ti_types_get_new_id(ti_types_t * types, ti_raw_t * rname, ex_t * e)
 {

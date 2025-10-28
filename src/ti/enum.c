@@ -797,7 +797,10 @@ ti_member_t * ti_enum_member_by_val_e(
 ti_val_t * ti_enum_as_mpval(ti_enum_t * enum_)
 {
     ti_raw_t * raw;
-    ti_vp_t vp;
+    ti_vp_t vp = {
+        .query=NULL,
+        .size_limit=ti.cfg->result_size_limit,
+    };
     msgpack_sbuffer buffer;
 
     mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));

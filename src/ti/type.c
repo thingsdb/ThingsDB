@@ -66,7 +66,43 @@ ti_type_t * ti_type_create(
     type->methods = vec_new(0);
 
     if (!type->name || !type->wname || !type->dependencies || !type->fields ||
-        !type->t_mappings || ti_types_add(types, type))
+        !type->rname || !type->rwname || !type->t_mappings || !type->methods ||
+        ti_types_add(types, type))
+    {
+        ti_type_destroy(type);
+        return NULL;
+    }
+
+    return type;
+}
+
+ti_type_t * ti_type_create_unnamed(ti_types_t * types)
+{
+    ti_type_t * type = malloc(sizeof(ti_type_t));
+    if (!type)
+        return NULL;
+
+    type->refcount = 0;  /* only incremented when this type
+                            is used by another type */
+    type->selfref = 0;  /* increment on self references */
+    type->type_id = TI_SPEC_TYPE;
+    type->flags = TI_TYPE_FLAG_WRAP_ONLY;
+    type->rname =  ti_val_unnamed_name();
+    type->name = strndup(type->rname->data, type->rname->n);
+    type->rwname =  ti_val_unnamed_name();
+    type->wname = strndup(type->rwname->data, type->rwname->n);
+    type->idname = NULL;
+    type->dependencies = vec_new(0);
+    type->fields = vec_new(0);
+    type->types = types;
+    type->t_mappings = imap_create();
+    type->created_at = 0;
+    type->modified_at = 0;
+    type->methods = vec_new(0);
+
+    if (!type->name || !type->wname || !type->dependencies || !type->fields ||
+        !type->rname || !type->rwname || !type->t_mappings || !type->methods ||
+        ti_types_add(types, type))
     {
         ti_type_destroy(type);
         return NULL;
@@ -105,6 +141,18 @@ void ti_type_drop(ti_type_t * type)
 
     ti_type_map_cleanup(type);
     ti_types_del(type->types, type);
+    ti_type_destroy(type);
+}
+
+void ti_type_drop_unnamed(ti_type_t * type)
+{
+    if (!type)
+        return;
+
+    for (vec_each(type->dependencies, ti_type_t, dep))
+        --dep->refcount;
+
+    ti_types_del_unnamed(type->types, type);
     ti_type_destroy(type);
 }
 
@@ -288,16 +336,96 @@ fail0:
     return e->nr;
 }
 
+ti_raw_t * ti__type_nested_from_val(ti_type_t * type, ti_val_t * val, ex_t * e)
+{
+    ti_raw_t * spec_raw = NULL;
+    msgpack_sbuffer buffer;
+    ti_vp_t vp = {
+        .query=query,
+        .size_limit=0x1000,   /* we do not expect much  but since we use deep
+                                 nesting, set a low size limit */
+    };
+
+    if (ti_val_is_array(val))
+    {
+        ti_varr_t * varr = (ti_varr_t *) val;
+        if (varr->vec->n != 1)
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "array with nested type must have exactly one element but "
+                    "found %zu on type `%s`",
+                    varr->n
+                    type->name);
+            return e->nr;
+        }
+        if (!ti_val_is_thing(VEC_first(varr->vec)))
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                        "element in array must be of type `"TI_VAL_THING_S"` "
+                        "but got type `%s` instead",
+                        ti_val_str(VEC_first(varr->vec)));
+            return e->nr;
+        }
+    }
+
+    if (~type->flags & TI_TYPE_FLAG_WRAP_ONLY)
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                    "defining nested types is only allowed '
+                    'for wrap-only type; define type `%s` as wrap-only",
+                    type->name);
+        return e->nr;
+    }
+
+    if (mp_sbuffer_alloc_init(&buffer, vp.size_limit, 0))
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
+
+    if (ti_val_to_client_pk(val, &vp, TI_MAX_DEEP, TI_FLAGS_NO_IDS))
+    {
+        if (buffer.size > vp.size_limit)
+            ex_set(e, EX_VALUE_ERROR,
+                "nested type definition on type `%s` too large",
+                type->name);
+        else
+            ex_set_mem(e);
+        goto fail0;
+    }
+
+    spec_raw = ti_mp_create(buffer.data, buffer.size);
+    if (!spec_raw)
+        ex_set_mem(e);
+
+fail0:
+    msgpack_sbuffer_destroy(&buffer);
+    return spec_raw;
+}
+
 static inline int type__assign(
         ti_type_t * type,
         ti_name_t * name,
         ti_val_t * val,
         ex_t * e)
 {
+    ti_raw_t * spec_raw = ti_type_nested_from_val(type, val, e)
+    if (spec_raw)
+    {
+        (void) ti_field_create(name, spec_raw, type, e);
+        ti_val_unsafe_drop((ti_val_t *) spec_raw);
+        return e->nr;
+    }
+
+    if (e-nr)
+        return e->nr;
+
     if (ti_val_is_str(val))
     {
-        register ti_raw_t * raw = (ti_raw_t *) val;
-        if (raw->n == 1 && raw->data[0] == '#')
+        spec_raw = (ti_raw_t *) val;
+        if (spec_raw->n == 1 && spec_raw->data[0] == '#')
         {
             if (type->idname)
             {
@@ -312,14 +440,12 @@ static inline int type__assign(
             return 0;
         }
 
-        (void) ti_field_create(name, raw, type, e);
+        (void) ti_field_create(name, spec_raw, type, e);
         return e->nr;
     }
 
     if (ti_val_is_closure(val))
         return ti_type_add_method(type, name, (ti_closure_t *) val, e);
-
-
 
     ex_set(e, EX_TYPE_ERROR,
             "expecting a method of type `"TI_VAL_CLOSURE_S"` "
@@ -709,7 +835,7 @@ int ti_type_init_from_unp(
     {
         if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||
             mp_next(up, &mp_name) != MP_STR ||
-            mp_next(up, &mp_spec) != MP_STR)
+            (mp_next(up, &mp_spec) != MP_STR && mp_spec.tp != MP_BIN)
         {
             ex_set(e, EX_BAD_DATA,
                     "failed unpacking fields for type `%s`; "
@@ -731,7 +857,9 @@ int ti_type_init_from_unp(
         if (!name)
             return e->nr;
 
-        if (mp_spec.via.str.n == 1 && mp_spec.via.str.data[0] == '#')
+        if (mp_spec.tp == MP_STR &&
+            mp_spec.via.str.n == 1 &&
+            mp_spec.via.str.data[0] == '#')
         {
             if (type->idname)
             {
@@ -745,7 +873,9 @@ int ti_type_init_from_unp(
             continue;
         }
 
-        spec_raw = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
+        spec_raw = mp_spec.tp == MP_STR
+            ? ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n)
+            : ti_mp_create(mp_spec.via.bin.data, mp_spec.via.bin.n);
         if (!spec_raw || !ti_field_create(name, spec_raw, type, e))
             goto failed;
 
@@ -839,7 +969,10 @@ int ti_type_fields_to_pk(ti_type_t * type, msgpack_packer * pk)
     {
         if (msgpack_pack_array(pk, 2) ||
             mp_pack_strn(pk, field->name->str, field->name->n) ||
-            mp_pack_strn(pk, field->spec_raw->data, field->spec_raw->n))
+            (ti_raw_is_mpdata(field->spec_raw)
+              ? mp_pack_bin(pk, field->spec_raw->data, field->spec_raw->n)
+              : mp_pack_strn(pk, field->spec_raw->data, field->spec_raw->n)
+            ))
             return -1;
     }
 
@@ -891,6 +1024,7 @@ int ti_type_relations_to_pk(ti_type_t * type, msgpack_packer * pk)
                 mp_pack_strn(pk, ofield->name->str, ofield->name->n) ||
 
                 mp_pack_str(pk, "definition") ||
+                // TODO: WO-NESTED: output nested
                 mp_pack_strn(pk, ofield->spec_raw->data, ofield->spec_raw->n))
                 return -1;
         }
@@ -1298,7 +1432,7 @@ int ti_type_required_by_non_wpo(ti_type_t * type, ex_t * e)
     return e->nr;
 }
 
-int ti_type_uses_wpo(ti_type_t * type, ex_t * e)
+int ti_type_requires_wpo(ti_type_t * type, ex_t * e)
 {
     for (vec_each(type->fields, ti_field_t, field))
     {
@@ -1315,6 +1449,7 @@ int ti_type_uses_wpo(ti_type_t * type, ex_t * e)
                 return e->nr;
             }
         }
+        // TODO: WO-NESTED: check if field is nested type
     }
     return 0;
 }

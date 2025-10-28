@@ -92,6 +92,7 @@ ti_val_t * val__parent_name;
 ti_val_t * val__parent_type_name;
 ti_val_t * val__key_name;
 ti_val_t * val__key_type_name;
+ti_val_t * val__unnamed_name;
 
 /* string */
 ti_val_t * val__sany;
@@ -774,6 +775,7 @@ int ti_val_init_common(void)
     val__parent_type_name = (ti_val_t *) ti_names_from_str("parent_type");
     val__key_name = (ti_val_t *) ti_names_from_str("key");
     val__key_type_name = (ti_val_t *) ti_names_from_str("key_type");
+    val__unnamed_name = (ti_val_t *) ti_names_from_str("__unnamed__");
     val__re_email = (ti_val_t *) ti_regex_from_str("/^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*$/");
     val__re_url = (ti_val_t *) ti_regex_from_str("/^(https?|ftp):\\/\\/[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)$/");
     val__re_tel = (ti_val_t *) ti_regex_from_str("/^[\\+]?(\\([0-9]{1,4}\\)[-\\s\\.]?){0,2}([0-9]{1,4}[-\\s]?){3,5}$/");
@@ -792,7 +794,8 @@ int ti_val_init_common(void)
         !val__beautify_name || !val__parent_name || !val__parent_type_name ||
         !val__key_name || !val__key_type_name || !val__flags_name ||
         !val__data_name || !val__time_name || !val__re_email ||
-        !val__smodule || !val__re_url || !val__re_tel || !val__async_name)
+        !val__smodule || !val__re_url || !val__re_tel || !val__async_name ||
+        !val__unnamed_name)
     {
         return -1;
     }

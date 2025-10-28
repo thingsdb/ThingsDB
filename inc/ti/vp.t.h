@@ -19,6 +19,7 @@ struct ti_vp_s
                                          * but in this case `methods` will not
                                          * be calculated.
                                          */
+    size_t size_limit;
 };
 
 #endif  /* TI_VP_T_H_ */

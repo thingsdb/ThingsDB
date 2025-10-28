@@ -144,6 +144,7 @@ static void module__cb(ti_future_t * future)
     ti_thing_t * thing = VEC_get(future->args, 0);
     ti_vp_t vp = {
             .query=future->query,   /* bug # #351 */
+            .size_limit=ti.cfg->result_size_limit,
     };
     msgpack_sbuffer buffer;
     size_t alloc_sz = 1024;
@@ -220,6 +221,7 @@ ti_pkg_t * ti_module_conf_pkg(ti_val_t * val, ti_query_t * query)
     ti_pkg_t * pkg;
     ti_vp_t vp = {
             .query=query,
+            .size_limit=ti.cfg->result_size_limit,
     };
     msgpack_sbuffer buffer;
     size_t alloc_sz = 1024;
@@ -1447,7 +1449,8 @@ ti_val_t * ti_module_as_mpval(ti_module_t * module, int flags)
     ti_raw_t * raw;
     msgpack_sbuffer buffer;
     ti_vp_t vp = {
-            .query = NULL
+            .query=NULL,
+            .size_limit=ti.cfg->result_size_limit,
     };
 
     mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));

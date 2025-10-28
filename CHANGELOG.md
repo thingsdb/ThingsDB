@@ -1,6 +1,8 @@
 # v1.7.7-alpha0
 
 * Added `TI_PROTO_CLIENT_REQ_EMIT_PEER` protocol, pr #414.
+* Changed `copy()` behavior of wrapped type, pr #415.
+* Fixed missing wrap-prefix flags after renaming type, issue #416.
 
 # v1.7.6
 

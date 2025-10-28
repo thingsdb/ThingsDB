@@ -2119,7 +2119,7 @@ class TestType(TestBase):
                 a0: 'A',
                 a1: 'A?',
                 a2: '^A',
-                a3: '&+^[A?]?'
+                a3: '!?&+^[A?]?',  //added ! and ?, bug #416
             });
 
             set_type('A', {
@@ -2133,7 +2133,7 @@ class TestType(TestBase):
         """)
         self.assertEqual(res, [
             [['a', '^-&AA?']],
-            [['a0', 'AA'], ['a1', 'AA?'], ['a2', '^AA'], ['a3', '&+^[AA?]?']]
+            [['a0', 'AA'], ['a1', 'AA?'], ['a2', '^AA'], ['a3', '!?&+^[AA?]?']]
         ])
 
     async def test_email(self, client):

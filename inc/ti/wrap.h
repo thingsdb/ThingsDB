@@ -8,8 +8,10 @@ typedef struct ti_wrap_s  ti_wrap_t;
 
 #include <inttypes.h>
 #include <ti/thing.h>
+#include <ti/query.t.h>
 #include <ti/vp.t.h>
 #include <util/mpack.h>
+#include <ex.h>
 
 ti_wrap_t * ti_wrap_create(ti_thing_t * thing, uint16_t type_id);
 void ti_wrap_destroy(ti_wrap_t * wrap);
@@ -19,6 +21,7 @@ int ti__wrap_field_thing(
         uint16_t spec,
         int deep,
         int flags);
+int ti_wrap_cp(ti_query_t * query, uint8_t deep, ex_t * e);
 int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep);
 int ti_wrap_dup(ti_wrap_t ** wrap, uint8_t deep);
 

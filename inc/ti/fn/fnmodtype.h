@@ -410,9 +410,9 @@ static void type__add(
         return;
     }
 
-    spec_raw = ti_type_nested_from_val(type, query->rval, e)
-    if (e-nr)
-        return e->nr;
+    spec_raw = ti_type_nested_from_val(type, query->rval, e);
+    if (e->nr)
+        return;
 
     if (spec_raw)
         ti_val_unsafe_gc_drop(query->rval);
@@ -867,7 +867,7 @@ static void type__mod(
     const int nargs = fn_get_nargs(nd);
     ti_field_t * field = ti_field_by_name(type, name);
     ti_method_t * method = field ? NULL : ti_type_get_method(type, name);
-
+    ti_raw_t * spec_raw = NULL;
     cleri_node_t * child;
 
     if (fn_nargs_range(fnname, DOC_MOD_TYPE_MOD, 4, 5, nargs, e))
@@ -945,10 +945,12 @@ static void type__mod(
         return;
     }
 
+    spec_raw = ti_type_nested_from_val(type, query->rval, e);
+    if (e->nr)
+        return;
+
     if (ti_val_is_str(query->rval))
     {
-        ti_raw_t * spec_raw;
-
         if (!field)
         {
             ex_set(e, EX_TYPE_ERROR,
@@ -966,7 +968,10 @@ static void type__mod(
         }
 
         query->rval = NULL;
+    }
 
+    if (spec_raw)
+    {
         if (nargs == 4)
         {
             ti_task_t * task;
@@ -1013,8 +1018,6 @@ fail:
         ti_val_unsafe_drop((ti_val_t *) spec_raw);
         return;
     }
-
-    // TODO: WO-NESTED: handle arr and thing
 
     ex_set(e, EX_TYPE_ERROR,
         "function `%s` expects argument 4 to be of "

@@ -1139,8 +1139,6 @@ static inline int query__pack_response(
     if (buffer->size > ti.counters->largest_result_size)
         ti.counters->largest_result_size = buffer->size;
 
-        ti_mp_create
-
     return 0;
 }
 

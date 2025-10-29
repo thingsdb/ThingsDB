@@ -434,9 +434,6 @@ class TestWrap(TestBase):
         """)
         self.assertEqual(res, "IRIS")
 
-    async def test_wrap_nested(self, client):
-        pass
-        # TODO: WO-NESTED: test if can call self in nested declaration
 
 if __name__ == '__main__':
     run_test(TestWrap())

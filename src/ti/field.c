@@ -457,16 +457,15 @@ static int field__init(ti_field_t * field, ex_t * e)
     }
 
     if (ti_raw_is_mpdata(field->spec_raw))
-    {
-        LOGC("WO-NESTED");
-        return e-nr;
-    }
-    // TODO: WO-NESTED: Test and process nested fields
+        return ti_condition_init_type(field, e);
 
     do
     {
         /* WARNING: do not forget to update types.c when modifying the flags in
          * this code; (types__spec_flags_pos)
+         * WARNING: never implement | as a flag or start of definition, this
+         * is used to read closures (methods) when storing nested types for
+         * wrap-only types. (see as example condition.c)
          */
         switch(*str)
         {
@@ -505,6 +504,7 @@ static int field__init(ti_field_t * field, ex_t * e)
                 goto duplicate_flag;
             field->flags |= TI_FIELD_FLAG_SKIP_FALSE;
             break;
+        /* Read warnings above before adding new flags */
         default:
             goto done_flags;
         }
@@ -1697,7 +1697,7 @@ static _Bool field__maps_arr_to_arr(ti_field_t * field, ti_varr_t * varr)
     return true;
 }
 
-static _Bool field__maps_arr_to_type(ti_field_t * field, ti_varr_t * varr)
+static _Bool field__maps_arr_to_type(ti_varr_t * varr)
 {
     for (vec_each(varr->vec, ti_val_t, val))
         if (!ti_val_is_thing(val))
@@ -2291,7 +2291,7 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
     case TI_SPEC_ARR_TYPE:
         return ((
             ti_val_is_array(val) &&
-            field__maps_arr_to_type(field, (ti_varr_t *) val)
+            field__maps_arr_to_type((ti_varr_t *) val)
         ) || ti_val_is_set(val));
     }
 

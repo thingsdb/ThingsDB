@@ -22,6 +22,7 @@ ti_types_t * ti_types_create(ti_collection_t * collection)
     types->collection = collection;
     types->next_id = 0;
     types->next_unnamed = 0x10000;  // outside spec range
+    types->locked = 0;
 
     if (!types->imap || !types->smap || !types->removed)
     {
@@ -36,7 +37,7 @@ void ti_types_destroy(ti_types_t * types)
 {
     if (!types)
         return;
-
+    types->locked = 1;
     smap_destroy(types->smap, NULL);
     smap_destroy(types->removed, NULL);
     imap_destroy(types->imap, (imap_destroy_cb) ti_type_destroy);
@@ -60,9 +61,14 @@ int ti_types_add(ti_types_t * types, ti_type_t * type)
     return 0;
 }
 
-int ti_types_add_unnamed(ti_types_t * types, ti_type_t * type)
+int ti_types_add_unnamed(
+    ti_types_t * types,
+    ti_type_t * type,
+    uint32_t * type_id)
 {
-    return imap_add(types->imap, types->next_unnamed++, type);
+    *type_id = types->next_unnamed++;
+    printf("Type: %p\n", type);
+    return 0; // imap_add(types->imap, *type_id, type);
 }
 
 /*
@@ -77,9 +83,9 @@ void ti_types_del(ti_types_t * types, ti_type_t * type)
     (void) smap_pop(types->smap, type->name);
 }
 
-void ti_types_del_unnamed(ti_types_t * types, ti_type_t * type)
+void ti_types_del_unnamed(ti_types_t * types, uint32_t type_id)
 {
-    (void) imap_pop(types->imap, type->type_id);
+    (void) imap_pop(types->imap, type_id);
 }
 
 typedef struct
@@ -306,15 +312,3 @@ ti_varr_t * ti_types_info(ti_types_t * types, _Bool with_definition)
     return varr;
 }
 
-static inline int types__to_pk_cb(ti_type_t * type, msgpack_packer * pk)
-{
-    return ti_type_to_pk(type, pk, false);
-}
-
-int ti_types_to_pk(ti_types_t * types, msgpack_packer * pk)
-{
-    return (
-        msgpack_pack_array(pk, types->imap->n) ||
-        imap_walk(types->imap, (imap_cb) types__to_pk_cb, pk)
-    );
-}

@@ -76,21 +76,23 @@ ti_type_t * ti_type_create(
     return type;
 }
 
-ti_type_t * ti_type_create_unnamed(ti_types_t * types)
+ti_type_t * ti_type_create_unnamed(
+    ti_types_t * types,
+    uint32_t * type_id,
+    uint8_t flags)
 {
     ti_type_t * type = malloc(sizeof(ti_type_t));
     if (!type)
         return NULL;
-
     type->refcount = 0;  /* only incremented when this type
                             is used by another type */
     type->selfref = 0;  /* increment on self references */
     type->type_id = TI_SPEC_TYPE;
-    type->flags = TI_TYPE_FLAG_WRAP_ONLY;
-    type->rname =  ti_val_unnamed_name();
-    type->name = strndup(type->rname->data, type->rname->n);
-    type->rwname =  ti_val_unnamed_name();
-    type->wname = strndup(type->rwname->data, type->rwname->n);
+    type->flags = TI_TYPE_FLAG_WRAP_ONLY|flags;
+    type->rname = (ti_raw_t *) ti_val_unnamed_name();
+    type->name = strndup((const char *) type->rname->data, type->rname->n);
+    type->rwname = (ti_raw_t *) ti_val_unnamed_name();
+    type->wname = strndup((const char *) type->rwname->data, type->rwname->n);
     type->idname = NULL;
     type->dependencies = vec_new(0);
     type->fields = vec_new(0);
@@ -102,7 +104,7 @@ ti_type_t * ti_type_create_unnamed(ti_types_t * types)
 
     if (!type->name || !type->wname || !type->dependencies || !type->fields ||
         !type->rname || !type->rwname || !type->t_mappings || !type->methods ||
-        ti_types_add(types, type))
+        ti_types_add_unnamed(types, type, type_id))
     {
         ti_type_destroy(type);
         return NULL;
@@ -144,15 +146,15 @@ void ti_type_drop(ti_type_t * type)
     ti_type_destroy(type);
 }
 
-void ti_type_drop_unnamed(ti_type_t * type)
+void ti_type_drop_unnamed(ti_type_t * type, uint32_t type_id)
 {
-    if (!type)
+    if (!type || type->types->locked)
         return;
 
     for (vec_each(type->dependencies, ti_type_t, dep))
         --dep->refcount;
 
-    ti_types_del_unnamed(type->types, type);
+    ti_types_del_unnamed(type->types, type_id);
     ti_type_destroy(type);
 }
 
@@ -336,13 +338,22 @@ fail0:
     return e->nr;
 }
 
+static int type__init_type_cb(ti_item_t * item, ex_t * e)
+{
+    if (!ti_raw_is_name(item->key))
+        ex_set(e, EX_VALUE_ERROR,
+                "type keys must follow the naming rules"DOC_NAMES);
+    return e->nr;
+}
+
 ti_raw_t * ti__type_nested_from_val(ti_type_t * type, ti_val_t * val, ex_t * e)
 {
+    ti_thing_t * thing;
     ti_raw_t * spec_raw = NULL;
     msgpack_sbuffer buffer;
     ti_vp_t vp = {
-        .query=query,
-        .size_limit=0x1000,   /* we do not expect much  but since we use deep
+        .query=NULL,
+        .size_limit=0x4000,   /* we do not expect much and since we use deep
                                  nesting, set a low size limit */
     };
 
@@ -354,33 +365,43 @@ ti_raw_t * ti__type_nested_from_val(ti_type_t * type, ti_val_t * val, ex_t * e)
             ex_set(e, EX_VALUE_ERROR,
                     "array with nested type must have exactly one element but "
                     "found %zu on type `%s`",
-                    varr->n
+                    varr->vec->n,
                     type->name);
-            return e->nr;
+            return NULL;
         }
+
         if (!ti_val_is_thing(VEC_first(varr->vec)))
         {
-            ex_set(e, EX_VALUE_ERROR,
+            ex_set(e, EX_TYPE_ERROR,
                         "element in array must be of type `"TI_VAL_THING_S"` "
-                        "but got type `%s` instead",
-                        ti_val_str(VEC_first(varr->vec)));
-            return e->nr;
+                        "but got type `%s` instead; (happened on type `%s`)",
+                        ti_val_str(VEC_first(varr->vec)),
+                        type->name);
+            return NULL;
         }
+
+        thing = VEC_first(varr->vec);
     }
+    else
+        thing = (ti_thing_t *) val;
 
     if (~type->flags & TI_TYPE_FLAG_WRAP_ONLY)
     {
         ex_set(e, EX_VALUE_ERROR,
-                    "defining nested types is only allowed '
-                    'for wrap-only type; define type `%s` as wrap-only",
+                    "defining nested types is only allowed "
+                    "for wrap-only type; (happened on type `%s`)",
                     type->name);
-        return e->nr;
+        return NULL;
     }
+
+    if (ti_thing_is_dict(thing) &&
+        smap_values(thing->items.smap, (smap_val_cb) type__init_type_cb, e))
+        return NULL;
 
     if (mp_sbuffer_alloc_init(&buffer, vp.size_limit, 0))
     {
         ex_set_mem(e);
-        return e->nr;
+        return NULL;
     }
 
     msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
@@ -396,7 +417,7 @@ ti_raw_t * ti__type_nested_from_val(ti_type_t * type, ti_val_t * val, ex_t * e)
         goto fail0;
     }
 
-    spec_raw = ti_mp_create(buffer.data, buffer.size);
+    spec_raw = ti_mp_create((const unsigned char *) buffer.data, buffer.size);
     if (!spec_raw)
         ex_set_mem(e);
 
@@ -411,7 +432,7 @@ static inline int type__assign(
         ti_val_t * val,
         ex_t * e)
 {
-    ti_raw_t * spec_raw = ti_type_nested_from_val(type, val, e)
+    ti_raw_t * spec_raw = ti_type_nested_from_val(type, val, e);
     if (spec_raw)
     {
         (void) ti_field_create(name, spec_raw, type, e);
@@ -419,7 +440,7 @@ static inline int type__assign(
         return e->nr;
     }
 
-    if (e-nr)
+    if (e->nr)
         return e->nr;
 
     if (ti_val_is_str(val))
@@ -447,11 +468,20 @@ static inline int type__assign(
     if (ti_val_is_closure(val))
         return ti_type_add_method(type, name, (ti_closure_t *) val, e);
 
-    ex_set(e, EX_TYPE_ERROR,
-            "expecting a method of type `"TI_VAL_CLOSURE_S"` "
-            "or a definition of type `"TI_VAL_STR_S"` "
-            "but got type `%s` instead"DOC_T_TYPED,
-            ti_val_str(val));
+    if (ti_type_is_wrap_only(type))
+        ex_set(e, EX_TYPE_ERROR,
+                "expecting a nested structure "
+                "(`"TI_VAL_LIST_S"` or `"TI_VAL_THING_S"`), "
+                "a method of type `"TI_VAL_CLOSURE_S"` "
+                "or a definition of type `"TI_VAL_STR_S"` "
+                "but got type `%s` instead"DOC_T_TYPED,
+                ti_val_str(val));
+    else
+        ex_set(e, EX_TYPE_ERROR,
+                "expecting a method of type `"TI_VAL_CLOSURE_S"` "
+                "or a definition of type `"TI_VAL_STR_S"` "
+                "but got type `%s` instead"DOC_T_TYPED,
+                ti_val_str(val));
 
     return e->nr;
 }
@@ -835,7 +865,7 @@ int ti_type_init_from_unp(
     {
         if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||
             mp_next(up, &mp_name) != MP_STR ||
-            (mp_next(up, &mp_spec) != MP_STR && mp_spec.tp != MP_BIN)
+            (mp_next(up, &mp_spec) != MP_STR && mp_spec.tp != MP_BIN))
         {
             ex_set(e, EX_BAD_DATA,
                     "failed unpacking fields for type `%s`; "
@@ -979,6 +1009,35 @@ int ti_type_fields_to_pk(ti_type_t * type, msgpack_packer * pk)
     return 0;
 }
 
+static int type__fields_to_pk(ti_type_t * type, msgpack_packer * pk)
+{
+    if (msgpack_pack_array(pk, type->fields->n + !!type->idname))
+        return -1;
+
+    if (type->idname)
+    {
+        if (msgpack_pack_array(pk, 2) ||
+            mp_pack_strn(pk, type->idname->str, type->idname->n) ||
+            mp_pack_strn(pk, "#", 1))
+            return -1;
+    }
+
+    for (vec_each(type->fields, ti_field_t, field))
+    {
+        if (msgpack_pack_array(pk, 2) ||
+            mp_pack_strn(pk, field->name->str, field->name->n) ||
+            (ti_raw_is_mpdata(field->spec_raw)
+              ? mp_pack_append(pk, field->spec_raw->data, field->spec_raw->n)
+              : mp_pack_strn(pk, field->spec_raw->data, field->spec_raw->n)
+            ))
+            return -1;
+    }
+
+    return 0;
+}
+
+
+
 /* adds a map with key/value pairs */
 int ti_type_methods_to_pk(ti_type_t * type, msgpack_packer * pk)
 {
@@ -1024,7 +1083,6 @@ int ti_type_relations_to_pk(ti_type_t * type, msgpack_packer * pk)
                 mp_pack_strn(pk, ofield->name->str, ofield->name->n) ||
 
                 mp_pack_str(pk, "definition") ||
-                // TODO: WO-NESTED: output nested
                 mp_pack_strn(pk, ofield->spec_raw->data, ofield->spec_raw->n))
                 return -1;
         }
@@ -1082,7 +1140,35 @@ ti_val_t * ti_type_as_mpval(ti_type_t * type, _Bool with_definition)
     mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    if (ti_type_to_pk(type, &pk, with_definition))
+    if (msgpack_pack_map(&pk, 9) ||
+        mp_pack_str(&pk, "type_id") ||
+        msgpack_pack_uint16(&pk, type->type_id) ||
+
+        mp_pack_str(&pk, "name") ||
+        mp_pack_strn(&pk, type->rname->data, type->rname->n) ||
+
+        mp_pack_str(&pk, "wrap_only") ||
+        mp_pack_bool(&pk, ti_type_is_wrap_only(type)) ||
+
+        mp_pack_str(&pk, "hide_id") ||
+        mp_pack_bool(&pk, ti_type_hide_id(type)) ||
+
+        mp_pack_str(&pk, "created_at") ||
+        msgpack_pack_uint64(&pk, type->created_at) ||
+
+        mp_pack_str(&pk, "modified_at") ||
+        (type->modified_at
+            ? msgpack_pack_uint64(&pk, type->modified_at)
+            : msgpack_pack_nil(&pk)) ||
+
+        mp_pack_str(&pk, "fields") ||
+        type__fields_to_pk(type, &pk) ||
+
+        mp_pack_str(&pk, "methods") ||
+        ti_type_methods_info_to_pk(type, &pk, with_definition) ||
+
+        mp_pack_str(&pk, "relations") ||
+        ti_type_relations_to_pk(type, &pk))
     {
         msgpack_sbuffer_destroy(&buffer);
         return NULL;
@@ -1436,6 +1522,16 @@ int ti_type_requires_wpo(ti_type_t * type, ex_t * e)
 {
     for (vec_each(type->fields, ti_field_t, field))
     {
+        if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_TYPE ||
+            (field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ARR_TYPE)
+        {
+            ex_set(e, EX_OPERATION,
+                "type `%s` contains a nested structure which requires "
+                "`wrap-only` mode to be enabled",
+                type->name);
+            return e->nr;
+        }
+
         if (field->spec < TI_SPEC_ANY)
         {
             ti_type_t * dep = ti_types_by_id(type->types, field->spec);
@@ -1449,7 +1545,6 @@ int ti_type_requires_wpo(ti_type_t * type, ex_t * e)
                 return e->nr;
             }
         }
-        // TODO: WO-NESTED: check if field is nested type
     }
     return 0;
 }

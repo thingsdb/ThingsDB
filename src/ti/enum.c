@@ -13,6 +13,7 @@
 #include <ti/val.inline.h>
 #include <ti/vfloat.h>
 #include <ti/vint.h>
+#include <ti.h>
 #include <util/vec.h>
 #include <util/logger.h>
 

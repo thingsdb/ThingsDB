@@ -5,6 +5,7 @@
 #include <doc.h>
 #include <math.h>
 #include <ti.h>
+#include <ti/closure.h>
 #include <ti/condition.h>
 #include <ti/nil.h>
 #include <ti/raw.inline.h>
@@ -738,8 +739,11 @@ mem_error:
     return e->nr;
 }
 
-int ti_condition_nested_type(ti_field_t * field, ex_t * e)
+int ti_condition_init_type(ti_field_t * field, ex_t * e)
 {
+    uint8_t flags = TI_TYPE_FLAG_WRAP_ONLY | TI_TYPE_FLAG_HIDE_ID;
+    uint32_t type_id;
+    ti_type_t * type;
     ti_val_t * val;
     ti_thing_t * thing;
     mp_unp_t up;
@@ -758,19 +762,19 @@ int ti_condition_nested_type(ti_field_t * field, ex_t * e)
     {
         vec_t * vec = VARR(val);
         field->nested_spec = TI_SPEC_TYPE;
-        field->spec = TI_SPEC_ARR_TYPE;
+        field->spec = TI_SPEC_ARR_TYPE | TI_SPEC_NILLABLE;
         thing = vec_first(vec);
-        if (!thing || !ti_val_is_thing((ti_val_t *) thing))
+        if (!thing || !ti_val_is_object((ti_val_t *) thing))
         {
             ex_set_internal(e);  /* only with corrupt internal data */
             goto fail0;
         }
     }
-    else if (ti_val_is_thing(val))
+    else if (ti_val_is_object(val))
     {
         /* val is thing */
-        field->spec = TI_SPEC_TYPE;
-        thing = val;
+        field->spec = TI_SPEC_TYPE | TI_SPEC_NILLABLE;
+        thing = (ti_thing_t *) val;
     }
     else
     {
@@ -778,7 +782,37 @@ int ti_condition_nested_type(ti_field_t * field, ex_t * e)
         goto fail0;
     }
 
-    type = ti_type_create_unnamed(field->type->types);
+    field->flags = TI_FIELD_FLAG_SAME_DEEP | TI_FIELD_FLAG_SKIP_NIL;
+
+    for (vec_each(thing->items.vec, ti_prop_t, prop))
+    {
+        ti_raw_t * spec_raw = (ti_raw_t *) prop->val;
+        if (ti_val_is_raw(prop->val) && spec_raw->n)
+        {
+            if (spec_raw->data[0] == '#')
+                flags &= ~TI_TYPE_FLAG_HIDE_ID;
+
+            if (spec_raw->data[0] == '|')
+            {
+                ti_qbind_t syntax = {
+                    .immutable_n = 0,
+                    .flags = TI_QBIND_FLAG_COLLECTION,
+                };
+                ti_closure_t * closure = ti_closure_from_strn(
+                        &syntax,
+                        (const char *) spec_raw->data,
+                        spec_raw->n,
+                        e);
+                if (!closure)
+                    goto fail0;
+
+                ti_val_unsafe_drop(prop->val);
+                prop->val = (ti_val_t *) closure;
+            }
+        }
+    }
+
+    type = ti_type_create_unnamed(field->type->types, &type_id, flags);
     if (!type)
     {
         ex_set_mem(e);
@@ -786,11 +820,24 @@ int ti_condition_nested_type(ti_field_t * field, ex_t * e)
     }
 
     if (ti_type_init_from_thing(type, thing, e))
-        ti_type_drop_unnamed(type);
-    else
-        field->condition.type = type;
+        goto fail1;
 
+    field->condition.type = malloc(sizeof(ti_condition_type_t));
+    if (!field->condition.type)
+    {
+        ex_set_mem(e);
+        goto fail1;
+    }
+
+    field->condition.type->type = type;
+    field->condition.type->type_id = type_id;
+
+    goto done;
+
+fail1:
+    ti_type_drop_unnamed(type, type_id);
 fail0:
+done:
     ti_val_unsafe_drop(val);
     return e->nr;
 }
@@ -806,7 +853,8 @@ void ti_condition_destroy(ti_condition_via_t condition, uint16_t spec)
     {
     case TI_SPEC_TYPE:
     case TI_SPEC_ARR_TYPE:
-        ti_type_drop_unnamed(condition.type);
+        ti_type_drop_unnamed(condition.type->type, condition.type->type_id);
+        free(condition.type);
         return;
     case TI_SPEC_ANY:
         return;  /* a field may be set to ANY while using mod_type in which

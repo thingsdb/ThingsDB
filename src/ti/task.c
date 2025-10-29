@@ -1644,9 +1644,9 @@ int ti_task_add_mod_type_add_field(
 
     mp_pack_str(&pk, "spec");
     if (ti_raw_is_mpdata(field->spec_raw))
-        mp_pack_bin(&pk, field->spec_raw->data, field->spec_raw->n)
+        mp_pack_bin(&pk, field->spec_raw->data, field->spec_raw->n);
     else
-        mp_pack_strn(&pk, field->spec_raw->data, field->spec_raw->n)
+        mp_pack_strn(&pk, field->spec_raw->data, field->spec_raw->n);
 
     if (dval)
     {
@@ -1924,9 +1924,9 @@ int ti_task_add_mod_type_mod_field(ti_task_t * task, ti_field_t * field)
 
     mp_pack_str(&pk, "spec");
     if (ti_raw_is_mpdata(field->spec_raw))
-        mp_pack_bin(&pk, field->spec_raw->data, field->spec_raw->n)
+        mp_pack_bin(&pk, field->spec_raw->data, field->spec_raw->n);
     else
-        mp_pack_strn(&pk, field->spec_raw->data, field->spec_raw->n)
+        mp_pack_strn(&pk, field->spec_raw->data, field->spec_raw->n);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

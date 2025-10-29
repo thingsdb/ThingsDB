@@ -143,6 +143,7 @@ class Node:
     def _handle_output(node, r):
         """Runs in another thread."""
         r = os.fdopen(r, 'r')
+        print(r)
         for line in r:
             node.queue.put_nowait(line)
             if THINGSDB_NODE_OUTPUT is True or (

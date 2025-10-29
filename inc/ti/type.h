@@ -27,9 +27,12 @@ ti_type_t * ti_type_create(
         size_t name_n,
         uint64_t created_at,
         uint64_t modified_at);
-ti_type_t * ti_type_create_unnamed(ti_types_t * types);
+ti_type_t * ti_type_create_unnamed(
+    ti_types_t * types,
+    uint32_t * type_id,
+    uint8_t flags);
 void ti_type_drop(ti_type_t * type);
-void ti_type_drop_unnamed(ti_type_t * type);
+void ti_type_drop_unnamed(ti_type_t * type, uint32_t type_id);
 void ti_type_del(ti_type_t * type, vec_t * vars);
 void ti_type_destroy(ti_type_t * type);
 void ti_type_map_cleanup(ti_type_t * type);
@@ -73,16 +76,6 @@ int ti_type_required_by_non_wpo(ti_type_t * type, ex_t * e);
 int ti_type_requires_wpo(ti_type_t * type, ex_t * e);
 int ti_type_rename(ti_type_t * type, ti_raw_t * nname);
 ti_raw_t * ti__type_nested_from_val(ti_type_t * type, ti_val_t * val, ex_t * e);
-
-static inline ti_raw_t * ti_type_nested_from_val(
-    ti_type_t * type,
-    ti_val_t * val,
-    ex_t * e)
-{
-    return (ti_val_is_thing(val) || ti_val_is_array(val))
-        ? ti__type_nested_from_val(type, val, e)
-        : NULL;
-}
 
 static inline int ti_type_use(ti_type_t * type, ex_t * e)
 {
@@ -132,44 +125,6 @@ static inline _Bool ti_type_is_wrap_only(ti_type_t * type)
 static inline _Bool ti_type_hide_id(ti_type_t * type)
 {
     return type->flags & TI_TYPE_FLAG_HIDE_ID;
-}
-
-static inline int ti_type_to_pk(
-        ti_type_t * type,
-        msgpack_packer * pk,
-        _Bool with_definition)
-{
-    return (
-        msgpack_pack_map(pk, 9) ||
-        mp_pack_str(pk, "type_id") ||
-        msgpack_pack_uint16(pk, type->type_id) ||
-
-        mp_pack_str(pk, "name") ||
-        mp_pack_strn(pk, type->rname->data, type->rname->n) ||
-
-        mp_pack_str(pk, "wrap_only") ||
-        mp_pack_bool(pk, ti_type_is_wrap_only(type)) ||
-
-        mp_pack_str(pk, "hide_id") ||
-        mp_pack_bool(pk, ti_type_hide_id(type)) ||
-
-        mp_pack_str(pk, "created_at") ||
-        msgpack_pack_uint64(pk, type->created_at) ||
-
-        mp_pack_str(pk, "modified_at") ||
-        (type->modified_at
-            ? msgpack_pack_uint64(pk, type->modified_at)
-            : msgpack_pack_nil(pk)) ||
-
-        mp_pack_str(pk, "fields") ||
-        ti_type_fields_to_pk(type, pk) ||
-
-        mp_pack_str(pk, "methods") ||
-        ti_type_methods_info_to_pk(type, pk, with_definition) ||
-
-        mp_pack_str(pk, "relations") ||
-        ti_type_relations_to_pk(type, pk)
-    );
 }
 
 static inline void ti_type_set_wrap_only_mode(ti_type_t * type, _Bool wpo)

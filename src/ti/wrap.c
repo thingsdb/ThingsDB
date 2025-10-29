@@ -155,11 +155,11 @@ static int wrap__field_val(
     case TI_VAL_REGEX:
         return ti_regex_to_client_pk((ti_regex_t *) val, &vp->pk);
     case TI_VAL_THING:
-        return (*spec == TI_SPEC_TYPE)
+        return ((*spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_TYPE)
             ? wrap__field_thing_type(
                 (ti_thing_t *) val,
                 vp,
-                t_field->condition.type,
+                t_field->condition.type->type,
                 deep,
                 flags)
             : ti__wrap_field_thing(
@@ -169,11 +169,11 @@ static int wrap__field_val(
                 deep,
                 flags);
     case TI_VAL_WRAP:
-        return (*spec == TI_SPEC_TYPE)
+        return ((*spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_TYPE)
             ? wrap__field_thing_type(
                 (ti_thing_t *) val,
                 vp,
-                t_field->condition.type,
+                t_field->condition.type->type,
                 deep,
                 flags)
             : ti__wrap_field_thing(
@@ -592,7 +592,11 @@ static int wrap__field_thing_type(
     {
         register const ti_name_t * name = t_type->idname;
 
-        if (!thing->id || (flags & TI_FLAGS_NO_IDS))
+        /* here, we ignore TI_TYPE_FLAG_HIDE_ID intentionally as the behavior
+         * is defined as to return the Id when no other info is returned */
+
+        if (!thing->id ||
+            (flags & TI_FLAGS_NO_IDS))
             return ti_thing_empty_to_client_pk(&vp->pk);
 
         return -(
@@ -632,6 +636,11 @@ int ti__wrap_field_thing(
             if (t_type)
             {
                 register const ti_name_t * name = t_type->idname;
+
+                /* here, we ignore TI_TYPE_FLAG_HIDE_ID intentionally as the
+                 * behavior is defined as to return the Id when no other info
+                 * is returned */
+
                 return -(
                     msgpack_pack_map(&vp->pk, 1) || (name
                         ? mp_pack_strn(&vp->pk, name->str, name->n)
@@ -666,7 +675,7 @@ int ti_wrap_cp(ti_query_t * query, uint8_t deep, ex_t * e)
     msgpack_sbuffer buffer;
     ti_vp_t vp = {
             .query=query,
-            .size_limit=ti.cfg->result_size_limit,
+            .size_limit=0x4000,  /* we can increase this value */
     };
     ti_vup_t vup = {
             .isclient = true,
@@ -678,7 +687,10 @@ int ti_wrap_cp(ti_query_t * query, uint8_t deep, ex_t * e)
 
     if (mp_sbuffer_alloc_init(&buffer, ti_val_alloc_size(query->rval), 0))
     {
-        ex_set_mem(e);
+        if (buffer.size > vp.size_limit)
+            ex_set(e, EX_VALUE_ERROR, "wrap copy() result too large");
+        else
+            ex_set_mem(e);
         goto fail0;
     }
 

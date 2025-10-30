@@ -104,6 +104,22 @@ class TestWrapTree(TestBase):
                 mod_type('W', 'wpo', false);
             """)
 
+        with self.assertRaisesRegex(
+                TypeError,
+                r'cannot convert a property into a method; '):
+            await client.query("""//ti
+                mod_type('W', 'mod', 'nested', ||nil);
+            """)
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `mod_type` with task `mod` takes at '
+                r'most 4 arguments when used on a type with wrap-only '
+                r'mode enabled;'):
+            await client.query("""//ti
+                mod_type('W', 'mod', 'nested', 'str', ||nil);
+            """)
+
     async def test_define(self, client):
         await client.query("""//ti
             set_type('W', {
@@ -182,8 +198,30 @@ class TestWrapTree(TestBase):
                 'e': 'EE',
                 'o': 'OO',
                 't': 'TT',
-                'w': 'OO'
+                'w': 'OO',
             }]]
+        ])
+
+        await client.query("""//ti
+            mod_type('WW', 'ren', 'arr', 'obj');
+            mod_type('WW', 'mod', 'obj', {
+                e: 'EE',
+                o: 'OO',
+                t: 'TT',
+                w: 'OO',
+            });
+        """)
+        res = await client.query("""//ti
+            type_info('WW');
+        """)
+        self.assertEqual(res['fields'], [
+            ['name', 'str'],
+            ['obj', {
+                'e': 'EE',
+                'o': 'OO',
+                't': 'TT',
+                'w': 'OO'
+            }]
         ])
 
     async def test_pr_example(self, client):

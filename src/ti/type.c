@@ -90,7 +90,9 @@ ti_type_t * ti_type_create_unnamed(
     type->type_id = TI_SPEC_TYPE;
     type->flags = TI_TYPE_FLAG_WRAP_ONLY|flags;
     type->name = strndup((const char *) name->data, name->n);
-    type->rname = ti_grab(name);
+    type->rname = ti_grab(name);  /* name must be equal to the master type;
+                                     in fields.c, this is compared for
+                                     circular references */
     type->wname = NULL;
     type->rwname = NULL;
     type->idname = NULL;

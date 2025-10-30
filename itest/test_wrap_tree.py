@@ -79,6 +79,14 @@ class TestWrapTree(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
+                r'invalid declaration for `a` on type `W`; unknown '
+                r'type `UNKNOWN` in declaration;'):
+            await client.query("""//ti
+                set_type('W', {nested: [{a: 'UNKNOWN'}]}, true);
+            """)
+
+        with self.assertRaisesRegex(
+                TypeError,
                 r'expecting a nested structure \(`list` or `thing`\), '
                 r'a method of type `closure` or a definition of type `str` '
                 r'but got type `nil` instead;'):
@@ -170,7 +178,6 @@ class TestWrapTree(TestBase):
             set_enum('E', {A: 'a'});
             set_type('T', {name: 'str', t: 'T?', o: 'O'});
             set_type('O', {arr: '[thing]'});
-            new_type('W', true);
             set_type('W', {
                 name: 'str',
                 arr: [{
@@ -179,7 +186,7 @@ class TestWrapTree(TestBase):
                     o: 'O',
                     t: 'T'
                 }]
-            });
+            }, true);
         """)
 
         await client.query("""//ti
@@ -221,6 +228,30 @@ class TestWrapTree(TestBase):
                 'o': 'OO',
                 't': 'TT',
                 'w': 'OO'
+            }]
+        ])
+
+        await client.query("""//ti
+            mod_type('WW', 'del', 'obj');
+            mod_type('WW', 'add', 'o', {
+                i: '#',
+                e: {
+                    v: 'EE?'
+                }
+            });
+        """)
+
+        res = await client.query("""//ti
+            type_info('WW');
+        """)
+
+        self.assertEqual(res['fields'], [
+            ['name', 'str'],
+            ['o', {
+                'i': '#',
+                'e': {
+                    'v': 'EE?'
+                }
             }]
         ])
 

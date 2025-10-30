@@ -21,7 +21,7 @@ struct ti_types_s
     smap_t * removed;  /* map with type id's which are removed */
     ti_collection_t * collection;
     uint16_t next_id;
-    uint16_t locked;   /* 0 or 1 */
+    uint16_t locked;
 };
 
 #endif /* TI_TYPES_T_H_ */

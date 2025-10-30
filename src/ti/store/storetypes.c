@@ -30,9 +30,6 @@ static int rmtype_cb(
 static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
 {
     uintptr_t p;
-    if (type->type_id == TI_SPEC_TYPE)
-        return 0;
-
     if (msgpack_pack_array(pk, 8) ||
         msgpack_pack_uint16(pk, type->type_id) ||
         mp_pack_bool(pk, type->flags & TI_TYPE_FLAG_WRAP_ONLY) ||
@@ -75,19 +72,10 @@ static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
     return 0;
 }
 
-typedef struct {
-    size_t n;  /* number of relations */
-    size_t m;  /* number of unnamed */
-} count_walk_t;
-
-static int count_cb(ti_type_t * type, count_walk_t * w)
+static int count_cb(ti_type_t * type, size_t * n)
 {
     if (ti_type_is_wrap_only(type))
-    {
-        if (type->type_id == TI_SPEC_TYPE)
-            (w->m)++;
         return 0;
-    }
 
     for (vec_each(type->fields, ti_field_t, field))
     {
@@ -98,7 +86,7 @@ static int count_cb(ti_type_t * type, count_walk_t * w)
                     field->type->type_id < other->type->type_id ||
                     (   field->type->type_id == other->type->type_id &&
                         field->idx < other->idx))
-                (w->n)++;
+                (*n)++;
         }
     }
     return 0;
@@ -133,10 +121,7 @@ int ti_store_types_store(ti_types_t * types, const char * fn)
     msgpack_packer pk;
     char namebuf[TI_NAME_MAX];
     FILE * f = fopen(fn, "w");
-    count_walk_t w = {
-        .n = 0,
-        .m = 0,
-    };
+    size_t n = 0;
 
     if (!f)
     {
@@ -145,7 +130,7 @@ int ti_store_types_store(ti_types_t * types, const char * fn)
     }
 
     /* count the number of relations */
-    (void) imap_walk(types->imap, (imap_cb) count_cb, &w);
+    (void) imap_walk(types->imap, (imap_cb) count_cb, &n);
 
     msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
 
@@ -156,11 +141,11 @@ int ti_store_types_store(ti_types_t * types, const char * fn)
         smap_items(types->removed, namebuf, (smap_item_cb) rmtype_cb, &pk) ||
         /* active types */
         mp_pack_str(&pk, "types") ||
-        msgpack_pack_array(&pk, types->imap->n - w.m) ||
+        msgpack_pack_array(&pk, types->imap->n) ||
         imap_walk(types->imap, (imap_cb) mktype_cb, &pk) ||
         /* relations */
         mp_pack_str(&pk, "relations") ||
-        msgpack_pack_array(&pk, w.n) ||
+        msgpack_pack_array(&pk, n) ||
         imap_walk(types->imap, (imap_cb) rltype_cb, &pk)
     ) goto fail;
 

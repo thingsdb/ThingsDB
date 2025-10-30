@@ -7,6 +7,7 @@
 #include <ti.h>
 #include <ti/closure.h>
 #include <ti/condition.h>
+#include <ti/method.h>
 #include <ti/nil.h>
 #include <ti/raw.inline.h>
 #include <ti/spec.t.h>
@@ -742,7 +743,6 @@ mem_error:
 int ti_condition_init_type(ti_field_t * field, ex_t * e)
 {
     uint8_t flags = TI_TYPE_FLAG_WRAP_ONLY | TI_TYPE_FLAG_HIDE_ID;
-    uint32_t type_id;
     ti_type_t * type;
     ti_val_t * val;
     ti_thing_t * thing;
@@ -812,7 +812,10 @@ int ti_condition_init_type(ti_field_t * field, ex_t * e)
         }
     }
 
-    type = ti_type_create_unnamed(field->type->types, &type_id, flags);
+    type = ti_type_create_unnamed(
+            field->type->types,
+            field->type->rname,
+            flags);
     if (!type)
     {
         ex_set_mem(e);
@@ -820,24 +823,11 @@ int ti_condition_init_type(ti_field_t * field, ex_t * e)
     }
 
     if (ti_type_init_from_thing(type, thing, e))
-        goto fail1;
+        ti_type_drop_unnamed(type);
+    else
+        field->condition.type = type;
 
-    field->condition.type = malloc(sizeof(ti_condition_type_t));
-    if (!field->condition.type)
-    {
-        ex_set_mem(e);
-        goto fail1;
-    }
-
-    field->condition.type->type = type;
-    field->condition.type->type_id = type_id;
-
-    goto done;
-
-fail1:
-    ti_type_drop_unnamed(type, type_id);
 fail0:
-done:
     ti_val_unsafe_drop(val);
     return e->nr;
 }
@@ -853,8 +843,7 @@ void ti_condition_destroy(ti_condition_via_t condition, uint16_t spec)
     {
     case TI_SPEC_TYPE:
     case TI_SPEC_ARR_TYPE:
-        ti_type_drop_unnamed(condition.type->type, condition.type->type_id);
-        free(condition.type);
+        ti_type_drop_unnamed(condition.type);
         return;
     case TI_SPEC_ANY:
         return;  /* a field may be set to ANY while using mod_type in which

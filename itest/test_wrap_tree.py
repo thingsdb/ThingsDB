@@ -151,13 +151,15 @@ class TestWrapTree(TestBase):
         await client.query("""//ti
             new_type('O');
             new_type('T');
+            set_enum('E', {A: 'a'});
             set_type('T', {name: 'str', t: 'T?', o: 'O'});
             set_type('O', {arr: '[thing]'});
             new_type('W', true);
             set_type('W', {
                 name: 'str',
                 arr: [{
-                    t: 'W',
+                    e: 'E',
+                    w: 'W',
                     o: 'O',
                     t: 'T'
                 }]
@@ -168,12 +170,21 @@ class TestWrapTree(TestBase):
             rename_type('O', 'OO');
             rename_type('T', 'TT');
             rename_type('W', 'WW');
+            rename_enum('E', 'EE');
         """)
 
         res = await client.query("""//ti
             type_info('WW');
         """)
-        self.assertEqual(res['fields'], [])
+        self.assertEqual(res['fields'], [
+            ['name', 'str'],
+            ['arr', [{
+                'e': 'EE',
+                'o': 'OO',
+                't': 'TT',
+                'w': 'OO'
+            }]]
+        ])
 
 
 if __name__ == '__main__':

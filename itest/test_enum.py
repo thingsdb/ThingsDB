@@ -928,6 +928,7 @@ class TestEnum(TestBase):
                 C2: 'Colors{Yellow}?',
                 C3: 'Colors',
                 C4: 'Colors?',
+                C5: '?[Colors?]?'
             })
         """)
 
@@ -1041,6 +1042,7 @@ class TestEnum(TestBase):
             ['C2', 'Color{Orange}?'],
             ['C3', 'Color'],
             ['C4', 'Color?'],
+            ['C5', '?[Color?]?'],
         ])
 
         res = await q("T{};")
@@ -1048,7 +1050,8 @@ class TestEnum(TestBase):
             'C1': 66,
             'C2': 77,
             'C3': 55,
-            'C4': None
+            'C4': None,
+            'C5': None,
         })
 
         res = await q("""//ti
@@ -1057,13 +1060,15 @@ class TestEnum(TestBase):
                 C2: Color{Blue},
                 C3: Color{Blue},
                 C4: Color{Blue},
+                C5: [Color{Blue}],
             };
         """)
         self.assertEqual(res, {
             'C1': 55,
             'C2': 55,
             'C3': 55,
-            'C4': 55
+            'C4': 55,
+            'C5': [55],
         })
 
         with self.assertRaisesRegex(

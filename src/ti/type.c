@@ -77,9 +77,9 @@ ti_type_t * ti_type_create(
 }
 
 ti_type_t * ti_type_create_unnamed(
-    ti_types_t * types,
-    uint32_t * type_id,
-    uint8_t flags)
+        ti_types_t * types,
+        ti_raw_t * name,
+        uint8_t flags)
 {
     ti_type_t * type = malloc(sizeof(ti_type_t));
     if (!type)
@@ -89,10 +89,10 @@ ti_type_t * ti_type_create_unnamed(
     type->selfref = 0;  /* increment on self references */
     type->type_id = TI_SPEC_TYPE;
     type->flags = TI_TYPE_FLAG_WRAP_ONLY|flags;
-    type->rname = (ti_raw_t *) ti_val_unnamed_name();
-    type->name = strndup((const char *) type->rname->data, type->rname->n);
-    type->rwname = (ti_raw_t *) ti_val_unnamed_name();
-    type->wname = strndup((const char *) type->rwname->data, type->rwname->n);
+    type->name = strndup((const char *) name->data, name->n);
+    type->rname = ti_grab(name);
+    type->wname = NULL;
+    type->rwname = NULL;
     type->idname = NULL;
     type->dependencies = vec_new(0);
     type->fields = vec_new(0);
@@ -102,9 +102,8 @@ ti_type_t * ti_type_create_unnamed(
     type->modified_at = 0;
     type->methods = vec_new(0);
 
-    if (!type->name || !type->wname || !type->dependencies || !type->fields ||
-        !type->rname || !type->rwname || !type->t_mappings || !type->methods ||
-        ti_types_add_unnamed(types, type, type_id))
+    if (!type->name || !type->dependencies || !type->fields ||
+        !type->rname || !type->t_mappings || !type->methods)
     {
         ti_type_destroy(type);
         return NULL;
@@ -146,15 +145,15 @@ void ti_type_drop(ti_type_t * type)
     ti_type_destroy(type);
 }
 
-void ti_type_drop_unnamed(ti_type_t * type, uint32_t type_id)
+void ti_type_drop_unnamed(ti_type_t * type)
 {
-    if (!type || type->types->locked)
+    if (!type)
         return;
 
-    for (vec_each(type->dependencies, ti_type_t, dep))
-        --dep->refcount;
+    if (!type->types->locked)
+        for (vec_each(type->dependencies, ti_type_t, dep))
+            --dep->refcount;
 
-    ti_types_del_unnamed(type->types, type_id);
     ti_type_destroy(type);
 }
 
@@ -1103,16 +1102,19 @@ int ti_type_methods_info_to_pk(
     for (vec_each(type->methods, ti_method_t, method))
     {
         ti_raw_t * doc = ti_method_doc(method);
-        ti_raw_t * def;
+        ti_raw_t * def = ti_method_def(method);  /* def calculates only once
+                                                    so not a problem to do
+                                                    if not with_definition */
 
-        if (mp_pack_strn(pk, method->name->str, method->name->n) ||
+        if (!def ||
+            mp_pack_strn(pk, method->name->str, method->name->n) ||
 
             msgpack_pack_map(pk, 3 + !!with_definition) ||
 
             mp_pack_str(pk, "doc") ||
             mp_pack_strn(pk, doc->data, doc->n) ||
 
-            (with_definition && (def = ti_method_def(method)) && (
+            (with_definition && (
                 mp_pack_str(pk, "definition") ||
                 mp_pack_strn(pk, def->data, def->n)
             )) ||
@@ -1522,8 +1524,7 @@ int ti_type_requires_wpo(ti_type_t * type, ex_t * e)
 {
     for (vec_each(type->fields, ti_field_t, field))
     {
-        if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_TYPE ||
-            (field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ARR_TYPE)
+        if (ti_field_is_nested(field))
         {
             ex_set(e, EX_OPERATION,
                 "type `%s` contains a nested structure which requires "

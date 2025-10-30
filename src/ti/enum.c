@@ -827,19 +827,18 @@ static int enum__methods_info_to_pk(ti_enum_t * enum_, msgpack_packer * pk)
     for (vec_each(enum_->methods, ti_method_t, method))
     {
         ti_raw_t * doc = ti_method_doc(method);
-        ti_raw_t * def;
+        ti_raw_t * def = ti_method_def(method);
 
-        if (mp_pack_strn(pk, method->name->str, method->name->n) ||
+        if (!def ||
+            mp_pack_strn(pk, method->name->str, method->name->n) ||
 
             msgpack_pack_map(pk, 4) ||
 
             mp_pack_str(pk, "doc") ||
             mp_pack_strn(pk, doc->data, doc->n) ||
 
-            ((def = ti_method_def(method)) && (
-                mp_pack_str(pk, "definition") ||
-                mp_pack_strn(pk, def->data, def->n)
-            )) ||
+            mp_pack_str(pk, "definition") ||
+            mp_pack_strn(pk, def->data, def->n) ||
 
             mp_pack_str(pk, "with_side_effects") ||
             mp_pack_bool(pk, method->closure->flags & TI_CLOSURE_FLAG_WSE) ||

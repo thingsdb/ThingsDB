@@ -159,7 +159,7 @@ static int wrap__field_val(
             ? wrap__field_thing_type(
                 (ti_thing_t *) val,
                 vp,
-                t_field->condition.type->type,
+                t_field->condition.type,
                 deep,
                 flags)
             : ti__wrap_field_thing(
@@ -173,7 +173,7 @@ static int wrap__field_val(
             ? wrap__field_thing_type(
                 (ti_thing_t *) val,
                 vp,
-                t_field->condition.type->type,
+                t_field->condition.type,
                 deep,
                 flags)
             : ti__wrap_field_thing(

@@ -28,11 +28,11 @@ ti_type_t * ti_type_create(
         uint64_t created_at,
         uint64_t modified_at);
 ti_type_t * ti_type_create_unnamed(
-    ti_types_t * types,
-    uint32_t * type_id,
-    uint8_t flags);
+        ti_types_t * types,
+        ti_raw_t * name,
+        uint8_t flags);
 void ti_type_drop(ti_type_t * type);
-void ti_type_drop_unnamed(ti_type_t * type, uint32_t type_id);
+void ti_type_drop_unnamed(ti_type_t * type);
 void ti_type_del(ti_type_t * type, vec_t * vars);
 void ti_type_destroy(ti_type_t * type);
 void ti_type_map_cleanup(ti_type_t * type);

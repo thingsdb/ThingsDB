@@ -762,6 +762,8 @@ skip_nesting:
 
     if (field__cmp(str, n, field->type->name))
     {
+        if (field->type->type_id == TI_SPEC_TYPE)
+            goto found;
         *spec |= field->type->type_id;
         if (&field->spec == spec && (~field->spec & TI_SPEC_NILLABLE))
             goto circular_dep;
@@ -906,7 +908,8 @@ done:
             "skip nil flags for property which cannot contain nil"DOC_T_TYPE,
             field->name->str, field->type->name);
     }
-    assert(field->dval_cb);  /* callback must have been set */
+    /* assert(field->dval_cb);  callback must have been set except for fields
+                                on unnamed type */
     return e->nr;
 
 invalid:
@@ -2549,6 +2552,68 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
     assert(t_spec < TI_SPEC_ANY);
 
     return f_spec < TI_SPEC_ANY || f_spec == TI_SPEC_OBJECT;
+}
+
+static int field__nested_to_pk(ti_field_t * field, msgpack_packer * pk)
+{
+    ti_type_t * type = field->condition.type;
+    size_t size = type->fields->n + type->methods->n + !!type->idname;
+
+    if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ARR_TYPE &&
+        msgpack_pack_array(pk, 1))
+        return -1;
+
+    if (msgpack_pack_map(pk, size))
+        return -1;
+
+    if (type->idname && (
+        mp_pack_strn(pk, type->idname->str, type->idname->n) ||
+        mp_pack_strn(pk, "#", 1)))
+        return -1;
+
+    for (vec_each(type->fields, ti_field_t, f))
+    {
+        if (mp_pack_strn(pk, f->name->str, f->name->n))
+            return -1;
+
+        if ((f->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_TYPE ||
+            (f->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ARR_TYPE)
+            return field__nested_to_pk(f, pk);
+
+        if (mp_pack_strn(pk, f->spec_raw->data, f->spec_raw->n))
+            return -1;
+    }
+
+    for (vec_each(type->methods, ti_method_t, m))
+    {
+        ti_raw_t * def = ti_method_def(m);
+        if (!def ||
+            mp_pack_strn(pk, m->name->str, m->name->n) ||
+            mp_pack_strn(pk, def->data, def->n))
+            return -1;
+    }
+    return 0;
+}
+
+ti_raw_t * ti_field_nested_to_mpdata(ti_field_t * field)
+{
+    ti_raw_t * raw;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    if (field__nested_to_pk(field, &pk))
+    {
+        msgpack_sbuffer_destroy(&buffer);
+        return NULL;
+    }
+
+    raw = (ti_raw_t *) buffer.data;
+    ti_raw_init(raw, TI_VAL_MPDATA, buffer.size);
+
+    return raw;
 }
 
 ti_field_t * ti_field_by_strn_e(

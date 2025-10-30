@@ -315,7 +315,7 @@ ti_raw_t * ti_export_collection(ti_collection_t * collection)
 {
     ti_raw_t * str;
     ti_fmt_t fmt;
-    ti_fmt_init(&fmt, TI_FMT_SPACES);
+    ti_fmt_init(&fmt, TI_FMT_TAB);
 
     if (export__collection(&fmt, collection))
         return NULL;

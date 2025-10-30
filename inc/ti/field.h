@@ -46,6 +46,7 @@ int ti_field_make_assignable(
         ex_t * e);
 _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val);
 _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field);
+ti_raw_t * ti_field_nested_to_mpdata(ti_field_t * field);
 ti_field_t * ti_field_by_strn_e(
         ti_type_t * type,
         const char * str,
@@ -83,24 +84,31 @@ static inline _Bool ti_field_has_relation(ti_field_t * field)
      * is a non-nillable set or a nillable type.
      */
     return field->condition.none && (
-            field->spec == TI_SPEC_SET ||
-            (field->spec & TI_SPEC_MASK_NILLABLE) < TI_SPEC_ANY);
+        field->spec == TI_SPEC_SET ||
+        (field->spec & TI_SPEC_MASK_NILLABLE) < TI_SPEC_ANY);
 }
 
 static inline uint8_t ti_field_deep(ti_field_t * field, uint8_t deep)
 {
-   return (
-       (field->flags & TI_FIELD_FLAG_DEEP)
-       ? deep
-       : (field->flags & TI_FIELD_FLAG_MAX_DEEP)
-       ? TI_MAX_DEEP-1
-       : 0
-   ) + (field->flags & TI_FIELD_FLAG_SAME_DEEP);
+    return (
+        (field->flags & TI_FIELD_FLAG_DEEP)
+        ? deep
+        : (field->flags & TI_FIELD_FLAG_MAX_DEEP)
+        ? TI_MAX_DEEP-1
+        : 0
+    ) + (field->flags & TI_FIELD_FLAG_SAME_DEEP);
 }
 
 static inline int ti_field_ret_flags(ti_field_t * field)
 {
-   return field->flags & TI_FIELD_FLAG_NO_IDS;
+    return field->flags & TI_FIELD_FLAG_NO_IDS;
+}
+
+static inline _Bool ti_field_is_nested(ti_field_t * field)
+{
+    return (
+        (field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_TYPE ||
+        (field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ARR_TYPE);
 }
 
 

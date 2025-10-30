@@ -186,6 +186,50 @@ class TestWrapTree(TestBase):
             }]]
         ])
 
+    async def test_pr_example(self, client):
+        await client.query("""//ti
+            set_type('M1', {
+                id: '#',
+                num: 'int',
+            }, true);
+
+            set_type('T1', {
+                metrics: '&[M1]',
+            }, true, true);
+
+            set_type('C1', {
+                x: '#',
+                name: 'str',
+                type: '&T1',
+            }, true);
+
+            set_type('C2', {
+                x: '#',
+                name: 'str',
+                type: {
+                    metrics: [{
+                        id: '#',
+                        num: 'int',
+                    }],
+                },
+            }, true);
+        """)
+
+        C1, C2 = await client.query("""//ti
+            .x = {
+                name: 'example',
+                type: {
+                    metrics: set({
+                           num: 1
+                    }, {
+                           num: 2
+                    })
+                }
+            };
+            [.x.wrap('C1'), .x.wrap('C2')];
+        """)
+        self.assertEqual(C1, C2)
+
 
 if __name__ == '__main__':
     run_test(TestWrapTree())

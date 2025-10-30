@@ -87,23 +87,41 @@ static int wrap__walk_with_type(ti_thing_t * thing, wrap__walk_with_type_t * w)
 static int wrap__set(
         ti_vset_t * vset,
         ti_vp_t * vp,
-        uint16_t spec,
+        ti_field_t * t_field,
         int deep,
         int flags)
 {
     wrap__walk_t w = {
             .vp = vp,
-            .spec = spec,
+            .spec = t_field->nested_spec,
             .deep = deep,
             .flags = flags,
     };
+
+    if ((t_field->nested_spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_TYPE)
+    {
+        wrap__walk_with_type_t wwt = {
+            .vp = vp,
+            .t_type = t_field->condition.type,
+            .deep = deep,
+            .flags = flags,
+        };
+
+        return (
+            msgpack_pack_array(&vp->pk, vset->imap->n) ||
+            imap_walk(vset->imap, (imap_cb) wrap__walk_with_type, &wwt)
+        );
+    }
 
     if (vset->imap->n > 1 &&
         vp->query &&
         vp->query->collection)
     {
         /* optimization for set's with multiple values */
-        ti_type_t * t_type = ti_types_by_id(vp->query->collection->types, spec);
+        ti_type_t * t_type = ti_types_by_id(
+                vp->query->collection->types,
+                t_field->nested_spec);
+
         if (t_type)
         {
             wrap__walk_with_type_t wwt = {
@@ -208,7 +226,7 @@ static int wrap__field_val(
         return wrap__set(
                 (ti_vset_t *) val,
                 vp,
-                t_field->nested_spec,
+                t_field,
                 deep,
                 flags);
     case TI_VAL_ERROR:

@@ -1570,7 +1570,11 @@ class TestAdvanced(TestBase):
 
     async def test_export(self, client):
         script = r'''
-// Enums
+new_type('Friend');
+new_type('Person');
+new_type('Root');
+new_type('W', true, true);
+new_type('WW', false, true);
 
 set_enum('B', {
   A: base64_decode('YUFh'),
@@ -1587,18 +1591,15 @@ set_enum('Math', {
   PI: 3.140000,
   E: 2.718000,
 });
+set_enum('Obj', {
+  A: {},
+  B: {},
+});
 set_enum('Str', {
   sq: "Hi 'Iris'!",
   dq: 'Hi "Cato"!',
   bq: 'Hi ''"Tess"''!',
 });
-
-// Types
-
-new_type('Friend');
-new_type('Person');
-new_type('W', true, true);
-new_type('WW', false, true);
 
 set_type('Friend', {
   person: 'Person',
@@ -1608,6 +1609,10 @@ set_type('Person', {
   name: 'str',
   age: 'int',
   upper: |this| this.name..upper(),
+});
+set_type('Root', {
+  id: '#',
+  friends: '?&{Friend}?',
 });
 set_type('W', {
   arr: [{
@@ -1624,13 +1629,35 @@ set_type('W', {
 });
 
 
-// Procedures
+mod_enum('Obj', 'mod', 'A', Person{
+  name: 'Iris',
+  age: 12,
+});
+mod_enum('Obj', 'mod', 'B', {
+  arr: [
+    1,
+    2,
+  ],
+  st: 'my string',
+  room: room() /* WARN: not exported */,
+  se: set(
+    {
+      x: 42,
+    },
+  ),
+  c: |a, b| a + b,
+  float: 3.140000,
+});
+
 
 new_procedure('more', |a, b| {
   .answers.push(a * b);
   .answers[-1];
 });
 new_procedure('multiply', |a, b| a * b);
+
+
+.to_type('Root');
 
 'DONE';
 '''.lstrip().replace('  ', '\t')

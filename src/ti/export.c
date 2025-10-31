@@ -140,7 +140,7 @@ static int export__new_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
 
 static int export__set_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
 {
-    if (type_->fields->n == 0 && type_->methods->n == 0)
+    if (type_->fields->n == 0 && type_->methods->n == 0 && !type_->idname)
         return 0;
 
     if (
@@ -154,9 +154,12 @@ static int export__set_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
 
     ++fmt->indent;
 
-    /*
-     * TODO: test quotes etc. in definition
-     */
+    if (type_->idname && (
+        ti_fmt_indent(fmt) ||
+        buf_append(&fmt->buf, type_->idname->str, type_->idname->n) ||
+        buf_append_str(&fmt->buf, ": '#',\n")
+    )) return -1;
+
     for (vec_each(type_->fields, ti_field_t, field))
     {
         if (ti_fmt_indent(fmt) ||
@@ -252,11 +255,22 @@ static inline int export__thing_smap_cb(ti_item_t * item, ti_fmt_t * fmt)
 {
     buf_t * buf = &fmt->buf;
 
+    if (!ti_name_is_valid_strn((const char *) item->key->data, item->key->n))
+        return -(
+            ti_fmt_indent(fmt) ||
+            buf_append_fmt(
+                buf,
+                "/* WARN: key `%.*s` not exported */",
+                item->key->n, (const char *) item->key->data
+            )
+        );
+
     return -(
         ti_fmt_indent(fmt) ||
         buf_append(buf, (const char *) item->key->data, item->key->n) ||
         buf_append_str(buf, ": ") ||
-        export__val(fmt, item->val)
+        export__val(fmt, item->val) ||
+        buf_append_str(buf, ",\n")
     );
 }
 
@@ -272,7 +286,7 @@ static int export__thing(ti_fmt_t * fmt, ti_thing_t * thing)
         if (fmt->indent > 3)
             return buf_append_str(buf, "{} /* WARN: max deep reached */");
 
-        if (buf_append_str(buf, "{\n}"))
+        if (buf_append_str(buf, "{\n"))
             return -1;
         fmt->indent++;
         if (ti_thing_is_dict(thing))
@@ -290,7 +304,8 @@ static int export__thing(ti_fmt_t * fmt, ti_thing_t * thing)
                 if (ti_fmt_indent(fmt) ||
                     buf_append(buf, prop->name->str, prop->name->n) ||
                     buf_append_str(buf, ": ") ||
-                    export__val(fmt, prop->val))
+                    export__val(fmt, prop->val) ||
+                    buf_append_str(buf, ",\n"))
                     return -1;
             }
         }
@@ -319,20 +334,25 @@ static int export__thing(ti_fmt_t * fmt, ti_thing_t * thing)
             if (ti_fmt_indent(fmt) ||
                 buf_append(buf, name->str, name->n) ||
                 buf_append_str(buf, ": ") ||
-                export__val(fmt, val))
+                export__val(fmt, val) ||
+                buf_append_str(buf, ",\n"))
                 return -1;
         }
         fmt->indent--;
     }
 
-    return buf_write(buf, '}');
+    return -(
+        ti_fmt_indent(fmt) ||
+        buf_write(buf, '}')
+    );
 }
 
 static int export__set_val(ti_thing_t * thing, ti_fmt_t * fmt)
 {
     return -(
         ti_fmt_indent(fmt) ||
-        export__thing(fmt, thing)
+        export__thing(fmt, thing) ||
+        buf_append_str(&fmt->buf, ",\n")
     );
 }
 
@@ -387,7 +407,10 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
                 buf_append_str(buf, ",\n"))
                 return -1;
         fmt->indent--;
-        return buf_write(buf, ']');
+        return -(
+            ti_fmt_indent(fmt) ||
+            buf_write(buf, ']')
+        );
     }
     case TI_VAL_SET:
     {
@@ -400,7 +423,10 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
         if (imap_walk(map, (imap_cb) export__set_val, fmt))
             return -1;
         fmt->indent--;
-        return buf_write(buf, ')');
+        return -(
+            ti_fmt_indent(fmt) ||
+            buf_write(buf, ')')
+        );
     }
     case TI_VAL_CLOSURE:
         return ti_fmt_nd(fmt, ((ti_closure_t * ) val)->node);
@@ -625,8 +651,8 @@ static int export__collection(ti_fmt_t * fmt, ti_collection_t * collection)
     return -(
         export__write_new_types(fmt, collection->types) ||
         export__write_enums(fmt, collection->enums) ||
-        export__write_members(fmt, collection->enums) ||
         export__write_types(fmt, collection->types) ||
+        export__write_members(fmt, collection->enums) ||
         export__write_procedures(fmt, collection->procedures) ||
         export__write_to_type(fmt, collection) ||
         buf_append_str(&fmt->buf, "\n'DONE';\n")

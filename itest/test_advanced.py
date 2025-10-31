@@ -339,7 +339,7 @@ class TestAdvanced(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'type `_Foo1` is dependent on at least one type '
+                r'type `_Foo1` is dependent on type `_Name` by field `wrap` '
                 r'with `wrap-only` mode enabled'):
             await client.query(r'''
                 mod_type('_Foo1', 'wpo', false);
@@ -406,6 +406,22 @@ class TestAdvanced(TestBase):
             await client.query(r'''
                 mod_type('_Foo1', 'mod', 'wrap', 'int', ||1);
             ''')
+
+        await client.query(r'''
+            set_type('_Foo3', {
+                wrap: '_Foo3',
+            }, true);
+        ''')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'type `_Foo3` is dependent on self on field `wrap`; '
+                r'make this field definition nillable before removing '
+                r'wrap-only mode'):
+            await client.query(r'''
+                mod_type('_Foo3', 'wpo', false);
+            ''')
+
 
     async def test_conditions(self, client):
         with self.assertRaisesRegex(

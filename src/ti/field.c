@@ -763,9 +763,13 @@ skip_nesting:
     if (field__cmp(str, n, field->type->name))
     {
         if (field->type->type_id == TI_SPEC_TYPE)
-            goto found;
+            goto found;  /* we must skip setting spec and selfref */
+
         *spec |= field->type->type_id;
-        if (&field->spec == spec && (~field->spec & TI_SPEC_NILLABLE))
+
+        if (&field->spec == spec &&
+            (~field->spec & TI_SPEC_NILLABLE) &&
+            !ti_type_is_wrap_only(field->type))
             goto circular_dep;
 
         if (field->type->selfref == UINT8_MAX)
@@ -778,7 +782,7 @@ skip_nesting:
             return e->nr;
         }
 
-        field__set_cb(field, field__dval_type);
+        /* dval must have been set, or type is wrap-only */
         ++field->type->selfref;
     }
     else

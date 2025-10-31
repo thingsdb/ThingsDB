@@ -105,8 +105,8 @@ class TestWrapTree(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'type `W` contains a nested structure which '
-                r'requires `wrap-only` mode to be enabled'):
+                r'type `W` contains a nested structure on field `nested` '
+                r'which requires `wrap-only` mode to be enabled'):
             await client.query("""//ti
                 set_type('W', {nested: {}}, true);
                 mod_type('W', 'wpo', false);

@@ -1529,9 +1529,9 @@ int ti_type_requires_wpo(ti_type_t * type, ex_t * e)
         if (ti_field_is_nested(field))
         {
             ex_set(e, EX_OPERATION,
-                "type `%s` contains a nested structure which requires "
-                "`wrap-only` mode to be enabled",
-                type->name);
+                "type `%s` contains a nested structure on field `%.*s` which "
+                "requires `wrap-only` mode to be enabled",
+                type->name, field->name->n, field->name->str);
             return e->nr;
         }
 
@@ -1539,12 +1539,22 @@ int ti_type_requires_wpo(ti_type_t * type, ex_t * e)
         {
             ti_type_t * dep = ti_types_by_id(type->types, field->spec);
 
+            if (dep == type)
+            {
+                ex_set(e, EX_OPERATION,
+                    "type `%s` is dependent on self on field `%.*s`; "
+                    "make this field definition nillable before removing "
+                    "wrap-only mode",
+                    type->name, field->name->n, field->name->str);
+                return e->nr;
+            }
+
             if (ti_type_is_wrap_only(dep))
             {
                 ex_set(e, EX_OPERATION,
-                    "type `%s` is dependent on at least one type "
+                    "type `%s` is dependent on type `%s` by field `%.*s` "
                     "with `wrap-only` mode enabled",
-                    type->name);
+                    type->name, dep->name, field->name->n, field->name->str);
                 return e->nr;
             }
         }

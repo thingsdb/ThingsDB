@@ -7,6 +7,7 @@
 * Self-reference within a wrap-only type is no longer required to be nillable, issue #418.
 * Fixed missing `hide_id` flag in export, pr #419.
 * Include export enumerator members of type `thing`, pr #420.
+* Fixed missing "ID" (`#`) field in export, issue #421.
 
 # v1.7.6
 

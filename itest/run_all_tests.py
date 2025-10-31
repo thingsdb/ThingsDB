@@ -90,7 +90,7 @@ if __name__ == '__main__':
     run_test(TestIndexSlice(), hide_version=hide_version())
     run_test(TestMath(), hide_version=hide_version())
     if args.doc_modules is True:
-        run_test(TestModules(), hide_version=hide_version())
+        no_mem_test(TestModules)  # libcurl leaks mem
     run_test(TestMultiNode(), hide_version=hide_version())
     run_test(TestNested(), hide_version=hide_version())
     run_test(TestNodeFunctions(), hide_version=hide_version())

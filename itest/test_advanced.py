@@ -1597,6 +1597,8 @@ set_enum('Str', {
 
 new_type('Friend');
 new_type('Person');
+new_type('W', true, true);
+new_type('WW', false, true);
 
 set_type('Friend', {
   person: 'Person',
@@ -1606,6 +1608,16 @@ set_type('Person', {
   name: 'str',
   age: 'int',
   upper: |this| this.name..upper(),
+});
+set_type('W', {
+  arr: [{
+    w: '?W?',
+  }],
+  obj: {
+    obj: {
+      x: 'int',
+    },
+  },
 });
 
 
@@ -1621,6 +1633,7 @@ new_procedure('multiply', |a, b| a * b);
 '''.lstrip().replace('  ', '\t')
         await client.query(script)
         res = await client.query('export();')
+        print(res)
         self.assertEqual(res, script)
 
     async def test_with_cache_one(self, client):

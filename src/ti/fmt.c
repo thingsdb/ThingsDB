@@ -607,12 +607,12 @@ int ti_fmt_nd(ti_fmt_t * fmt, cleri_node_t * nd)
     return -1;
 }
 
-int ti_fmt_ti_string(ti_fmt_t * fmt, ti_raw_t * raw)
+int ti_fmt_strn(ti_fmt_t * fmt, const char * str, size_t n)
 {
     int sq = 0, dq= 0;
-    char * c, * e, * data = (char *) raw->data;
+    const char * c, * e, * data = str;
 
-    for (c = data, e = data + raw->n; c < e; ++c)
+    for (c = data, e = data + n; c < e; ++c)
         if (*c == '\'')
             ++sq;
         else if (*c == '"')
@@ -624,7 +624,7 @@ int ti_fmt_ti_string(ti_fmt_t * fmt, ti_raw_t * raw)
     if (!sq)
         return (
             buf_write(&fmt->buf, '\'') ||
-            buf_append(&fmt->buf, (const char *) raw->data, raw->n) ||
+            buf_append(&fmt->buf, str, n) ||
             buf_write(&fmt->buf, '\''));
 
     /*
@@ -633,7 +633,7 @@ int ti_fmt_ti_string(ti_fmt_t * fmt, ti_raw_t * raw)
     if (!dq)
         return (
             buf_write(&fmt->buf, '"') ||
-            buf_append(&fmt->buf, (const char *) raw->data, raw->n) ||
+            buf_append(&fmt->buf, str, n) ||
             buf_write(&fmt->buf, '"'));
 
     /*
@@ -642,7 +642,7 @@ int ti_fmt_ti_string(ti_fmt_t * fmt, ti_raw_t * raw)
     if (buf_write(&fmt->buf, '\''))
         return -1;
 
-    for (c = data, e = data + raw->n; c < e; ++c)
+    for (c = data, e = data + n; c < e; ++c)
         if (*c == '\'')
         {
             if (buf_append_str(&fmt->buf, "''"))
@@ -653,3 +653,4 @@ int ti_fmt_ti_string(ti_fmt_t * fmt, ti_raw_t * raw)
 
     return buf_write(&fmt->buf, '\'');
 }
+

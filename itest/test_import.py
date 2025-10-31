@@ -141,6 +141,15 @@ class TestImport(TestBase):
                 parent: '{R}',
                 r: 'R?'
             });
+            set_type('W', {
+                x: '!int',
+                r: {
+                    name: 'str',
+                    parent: [{
+                            name: 'str'
+                    }]
+                }
+            }, true, true);
             set_type('T', {
                 x: 'int',
                 t: 'task',
@@ -188,6 +197,22 @@ class TestImport(TestBase):
                 assert(procedures_info().len() == 1);
                 assert(.room.name() == 'ROOM');
             """)
+
+            res = await client.query(
+                """//ti
+                .x = 0;
+                return .wrap('W'), 1, NO_IDS;
+                """)
+            self.assertEqual(res, {'r': {'name': 'master', 'parent': []}})
+
+            res = await client.query(
+                """//ti
+                .x = 42;
+                return .wrap('W'), 1, NO_IDS;
+                """)
+            self.assertEqual(res, {
+                'r': {'name': 'master', 'parent': []},
+                'x': 42})
 
     async def test_import_tasks(self, client0, client1):
         await client0.query(r"""//ti

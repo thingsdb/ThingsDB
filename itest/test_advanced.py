@@ -1633,7 +1633,6 @@ new_procedure('multiply', |a, b| a * b);
 '''.lstrip().replace('  ', '\t')
         await client.query(script)
         res = await client.query('export();')
-        print(res)
         self.assertEqual(res, script)
 
     async def test_with_cache_one(self, client):

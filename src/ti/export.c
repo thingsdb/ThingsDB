@@ -19,6 +19,9 @@
 #include <util/logger.h>
 
 
+static int export__val(ti_fmt_t * fmt, ti_val_t * val);
+
+
 static int export__mp_dump_up(ti_fmt_t * fmt, mp_unp_t * up)
 {
     mp_obj_t obj;
@@ -119,7 +122,7 @@ static int export__mp_dump(ti_fmt_t * fmt, const void * data, size_t n)
 static int export__new_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
 {
     const int8_t both = TI_TYPE_FLAG_WRAP_ONLY | TI_TYPE_FLAG_HIDE_ID;
-    return (
+    return -(
         buf_append_str(&fmt->buf, "new_type('") ||
         buf_append(
                 &fmt->buf,
@@ -137,7 +140,7 @@ static int export__new_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
 
 static int export__set_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
 {
-    if (type_->fields->n == 0 && type_->methods->n == 0)
+    if (type_->fields->n == 0 && type_->methods->n == 0 && !type_->idname)
         return 0;
 
     if (
@@ -151,9 +154,12 @@ static int export__set_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
 
     ++fmt->indent;
 
-    /*
-     * TODO: test quotes etc. in definition
-     */
+    if (type_->idname && (
+        ti_fmt_indent(fmt) ||
+        buf_append(&fmt->buf, type_->idname->str, type_->idname->n) ||
+        buf_append_str(&fmt->buf, ": '#',\n")
+    )) return -1;
+
     for (vec_each(type_->fields, ti_field_t, field))
     {
         if (ti_fmt_indent(fmt) ||
@@ -227,38 +233,232 @@ static int export__relation_cb(ti_type_t * type, ti_fmt_t * fmt)
     return 0;
 }
 
+static int export__write_new_types(ti_fmt_t * fmt, ti_types_t * types)
+{
+    return -(
+        smap_values(types->smap, (smap_val_cb) export__new_type_cb, fmt) ||
+        buf_write(&fmt->buf, '\n')
+    );
+}
+
 static int export__write_types(ti_fmt_t * fmt, ti_types_t * types)
 {
-    return (
-        buf_append_str(&fmt->buf,
-"\n"
-"// Types\n"
-"\n") ||
-        smap_values(types->smap, (smap_val_cb) export__new_type_cb, fmt) ||
-        buf_write(&fmt->buf, '\n') ||
+    return -(
         smap_values(types->smap, (smap_val_cb) export__set_type_cb, fmt) ||
         buf_write(&fmt->buf, '\n') ||
-        smap_values(types->smap, (smap_val_cb) export__relation_cb, fmt)
+        smap_values(types->smap, (smap_val_cb) export__relation_cb, fmt) ||
+        buf_write(&fmt->buf, '\n')
     );
+}
+
+static inline int export__thing_smap_cb(ti_item_t * item, ti_fmt_t * fmt)
+{
+    buf_t * buf = &fmt->buf;
+
+    if (!ti_name_is_valid_strn((const char *) item->key->data, item->key->n))
+        return -(
+            ti_fmt_indent(fmt) ||
+            buf_append_fmt(
+                buf,
+                "/* WARN: key `%.*s` not exported */",
+                item->key->n, (const char *) item->key->data
+            )
+        );
+
+    return -(
+        ti_fmt_indent(fmt) ||
+        buf_append(buf, (const char *) item->key->data, item->key->n) ||
+        buf_append_str(buf, ": ") ||
+        export__val(fmt, item->val) ||
+        buf_append_str(buf, ",\n")
+    );
+}
+
+static int export__thing(ti_fmt_t * fmt, ti_thing_t * thing)
+{
+    buf_t * buf = &fmt->buf;
+
+    if (ti_thing_is_object(thing))
+    {
+        if (ti_thing_n(thing) == 0)
+            return buf_append_str(buf, "{}");
+
+        if (fmt->indent > 3)
+            return buf_append_str(buf, "{} /* WARN: max deep reached */");
+
+        if (buf_append_str(buf, "{\n"))
+            return -1;
+        fmt->indent++;
+        if (ti_thing_is_dict(thing))
+        {
+            if (smap_values(
+                    thing->items.smap,
+                    (smap_val_cb) export__thing_smap_cb,
+                    fmt))
+                return -1;
+        }
+        else
+        {
+            for (vec_each(thing->items.vec, ti_prop_t, prop))
+            {
+                if (ti_fmt_indent(fmt) ||
+                    buf_append(buf, prop->name->str, prop->name->n) ||
+                    buf_append_str(buf, ": ") ||
+                    export__val(fmt, prop->val) ||
+                    buf_append_str(buf, ",\n"))
+                    return -1;
+            }
+        }
+        fmt->indent--;
+    }
+    else
+    {
+        ti_name_t * name;
+        ti_val_t * val;
+
+        if (ti_thing_n(thing) == 0)
+            return buf_append_fmt(buf, "%s{}", thing->via.type->name);
+
+        if (fmt->indent > 3)
+            return buf_append_fmt(
+                buf,
+                "%s{} /* WARN: max deep reached */",
+                thing->via.type->name);
+
+        if (buf_append_fmt(buf, "%s{\n", thing->via.type->name))
+            return -1;
+
+        fmt->indent++;
+        for (thing_t_each(thing, name, val))
+        {
+            if (ti_fmt_indent(fmt) ||
+                buf_append(buf, name->str, name->n) ||
+                buf_append_str(buf, ": ") ||
+                export__val(fmt, val) ||
+                buf_append_str(buf, ",\n"))
+                return -1;
+        }
+        fmt->indent--;
+    }
+
+    return -(
+        ti_fmt_indent(fmt) ||
+        buf_write(buf, '}')
+    );
+}
+
+static int export__set_val(ti_thing_t * thing, ti_fmt_t * fmt)
+{
+    return -(
+        ti_fmt_indent(fmt) ||
+        export__thing(fmt, thing) ||
+        buf_append_str(&fmt->buf, ",\n")
+    );
+}
+
+static int export__val(ti_fmt_t * fmt, ti_val_t * val)
+{
+    buf_t * buf = &fmt->buf;
+
+    switch((ti_val_enum) val->tp)
+    {
+    case TI_VAL_NAME:
+    case TI_VAL_STR:
+        return ti_fmt_ti_string(fmt, (ti_raw_t *) val);
+    case TI_VAL_MPDATA:
+    case TI_VAL_BYTES:
+        return buf_append_str(buf, "bytes() /* WARN: not exported */");
+    case TI_VAL_REGEX:
+    {
+        ti_raw_t * pattern = ((ti_regex_t *) val)->pattern;
+        return buf_append(buf, (const char *) pattern->data, pattern->n);
+    }
+    case TI_VAL_NIL:
+        return buf_append_str(buf, "nil");
+    case TI_VAL_INT:
+        return buf_append_fmt(buf, "%"PRIi64, VINT(val));
+    case TI_VAL_FLOAT:
+        return buf_append_fmt(buf, "%lf", VFLOAT(val));
+    case TI_VAL_BOOL:
+        return VBOOL(val)
+            ? buf_append_str(buf, "true")
+            : buf_append_str(buf, "false");
+    case TI_VAL_DATETIME:
+        return buf_append_fmt(buf, "datetime(%ld)", DATETIME(val));
+    case TI_VAL_THING:
+        return export__thing(fmt, (ti_thing_t *) val);
+    case TI_VAL_WRAP:
+        return buf_append_str(buf, "{}.wrap() /* WARN: not exported */");
+    case TI_VAL_ROOM:
+        return buf_append_str(buf, "room() /* WARN: not exported */");
+    case TI_VAL_TASK:
+        return buf_append_str(buf, "task() /* WARN: not exported */");
+    case TI_VAL_ARR:
+    {
+        vec_t * vec = VARR(val);
+        if (!vec->n)
+            return buf_append_str(buf, "[]");
+        if (buf_append_str(buf, "[\n"))
+            return -1;
+        fmt->indent++;
+        for (vec_each(vec, ti_val_t, v))
+            if (ti_fmt_indent(fmt) ||
+                export__val(fmt, v) ||
+                buf_append_str(buf, ",\n"))
+                return -1;
+        fmt->indent--;
+        return -(
+            ti_fmt_indent(fmt) ||
+            buf_write(buf, ']')
+        );
+    }
+    case TI_VAL_SET:
+    {
+        imap_t * map = VSET(val);
+        if (!map->n)
+            return buf_append_str(buf, "set()");
+        if (buf_append_str(buf, "set(\n"))
+            return -1;
+        fmt->indent++;
+        if (imap_walk(map, (imap_cb) export__set_val, fmt))
+            return -1;
+        fmt->indent--;
+        return -(
+            ti_fmt_indent(fmt) ||
+            buf_write(buf, ')')
+        );
+    }
+    case TI_VAL_CLOSURE:
+        return ti_fmt_nd(fmt, ((ti_closure_t * ) val)->node);
+    case TI_VAL_FUTURE:
+        return buf_append_str(buf, "future(||nil) /* WARN: not exported */");
+    case TI_VAL_MODULE:
+    {
+        ti_module_t * module = (ti_module_t *) val;
+        return buf_append_fmt(
+            buf,
+            "%.*s /* WARN: module must be installed */",
+            module->name->n, module->name->str);
+    }
+    case TI_VAL_ERROR:
+        return buf_append_str(buf, "error() /* WARN: not exported */");
+    case TI_VAL_MEMBER:
+    {
+        ti_member_t * member = (ti_member_t *) val;
+        return buf_append_fmt(
+            buf,
+            "%s{%.*s}",
+            member->enum_->name,
+            member->name->n, member->name->str);
+    }
+    case TI_VAL_TEMPLATE:
+        assert(0);
+    }
+     return 0;
 }
 
 static int export__set_enum_cb(ti_enum_t * enum_, ti_fmt_t * fmt)
 {
-    if (enum_->members->n)
-    {
-        ti_member_t * member = vec_first(enum_->members);
-        if (ti_val_is_thing(member->val))
-        {
-            buf_append_str(&fmt->buf,
-"\n"
-"// WARNING: The following enumerator is of type `things` and since data is not\n"
-"//          exported by this function, the enumerator is created with empty\n"
-"//          things instead!\n"
-"\n"
-);
-        }
-    }
-
     if (
         buf_append_str(&fmt->buf, "set_enum('") ||
         buf_append(
@@ -341,7 +541,7 @@ static int export__set_enum_cb(ti_enum_t * enum_, ti_fmt_t * fmt)
                 break;
             case TI_VAL_THING:
                 /*
-                 * Things are create as EMPTY things; Data is not exported
+                 * Things for enumerators are created last
                  */
                 if (buf_append_str(&fmt->buf, "{},\n"))
                     return -1;
@@ -378,15 +578,40 @@ static int export__set_enum_cb(ti_enum_t * enum_, ti_fmt_t * fmt)
     return 0;
 }
 
+static int export__members_cb(ti_enum_t * enum_, ti_fmt_t * fmt)
+{
+    for (vec_each(enum_->members, ti_member_t, member))
+    {
+        if (!ti_val_is_thing(member->val))
+            return 0;
+
+        if (buf_append_fmt(
+                &fmt->buf, "mod_enum('%s', 'mod', '%.*s', ",
+                enum_->name,
+                member->name->n, member->name->str) ||
+            export__thing(fmt, (ti_thing_t *) member->val) ||
+            buf_append_str(&fmt->buf, ");\n"))
+            return -1;
+    }
+
+    return buf_write(&fmt->buf, '\n');
+}
+
 static int export__write_enums(ti_fmt_t * fmt, ti_enums_t * enums)
 {
-    return (
-        buf_append_str(&fmt->buf,
-"// Enums\n"
-"\n") ||
-        smap_values(enums->smap, (smap_val_cb) export__set_enum_cb, fmt)
+    return -(
+        smap_values(enums->smap, (smap_val_cb) export__set_enum_cb, fmt) ||
+        buf_write(&fmt->buf, '\n')
     );
 
+}
+
+static int export__write_members(ti_fmt_t * fmt, ti_enums_t * enums)
+{
+    return -(
+        smap_values(enums->smap, (smap_val_cb) export__members_cb, fmt) ||
+        buf_write(&fmt->buf, '\n')
+    );
 }
 
 static int export__procedure_cb(ti_procedure_t * procedure, ti_fmt_t * fmt)
@@ -405,21 +630,32 @@ static int export__procedure_cb(ti_procedure_t * procedure, ti_fmt_t * fmt)
 
 static int export__write_procedures(ti_fmt_t * fmt, smap_t * procedures)
 {
-    if (buf_append_str(&fmt->buf,
-"\n"
-"// Procedures\n"
-"\n")) return -1;
+    return -(
+        smap_values(procedures, (smap_val_cb) export__procedure_cb, fmt) ||
+        buf_write(&fmt->buf, '\n')
+    );
+}
 
-    return smap_values(procedures, (smap_val_cb) export__procedure_cb, fmt);
+static int export__write_to_type(ti_fmt_t * fmt, ti_collection_t * collection)
+{
+    return ti_thing_is_instance(collection->root)
+        ? buf_append_fmt(
+            &fmt->buf,
+            "\n.to_type('%s');\n",
+            collection->root->via.type->name)
+        : 0;
 }
 
 static int export__collection(ti_fmt_t * fmt, ti_collection_t * collection)
 {
-    return (
-            export__write_enums(fmt, collection->enums) ||
-            export__write_types(fmt, collection->types) ||
-            export__write_procedures(fmt, collection->procedures) ||
-            buf_append_str(&fmt->buf, "\n'DONE';\n")
+    return -(
+        export__write_new_types(fmt, collection->types) ||
+        export__write_enums(fmt, collection->enums) ||
+        export__write_types(fmt, collection->types) ||
+        export__write_members(fmt, collection->enums) ||
+        export__write_procedures(fmt, collection->procedures) ||
+        export__write_to_type(fmt, collection) ||
+        buf_append_str(&fmt->buf, "\n'DONE';\n")
     );
 }
 

@@ -1,4 +1,4 @@
-# v1.8.0-alpha3
+# v1.8.0-alpha5
 
 * Added `TI_PROTO_CLIENT_REQ_EMIT_PEER` protocol, pr #414.
 * Changed `copy()` behavior for wrapped type, pr #415.
@@ -6,6 +6,8 @@
 * Allow defining nested structure in wrap type, pr #417.
 * Self-reference within a wrap-only type is no longer required to be nillable, issue #418.
 * Fixed missing `hide_id` flag in export, pr #419.
+* Include export enumerator members of type `thing`, pr #420.
+* Fixed missing "ID" (`#`) field in export, issue #421.
 
 # v1.7.6
 

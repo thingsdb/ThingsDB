@@ -299,6 +299,28 @@ class TestWrapTree(TestBase):
         """)
         self.assertEqual(C1, C2)
 
+    async def test_wrap_nillable(self, client):
+        t1, t2 = await client.query("""//ti
+            set_type('A', {
+                a: 'int'
+            });
+            set_type('T', {
+                a: 'A?',
+                t: 'str',
+            });
+            set_type('W', {
+                t: 'str',
+                a: {
+                    a: 'int'
+                }
+            }, true);
+            t1 = T{t: 't1', a: A{a: 42}};
+            t2 = T{t: 't2', a: nil};
+            return [t1.wrap('W'), t2.wrap('W')];
+        """)
+        self.assertEqual(t1, {'t': 't1', 'a': {'a': 42}})
+        self.assertEqual(t2, {'t': 't2'})
+
 
 if __name__ == '__main__':
     run_test(TestWrapTree())

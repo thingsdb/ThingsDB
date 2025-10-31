@@ -422,7 +422,6 @@ class TestAdvanced(TestBase):
                 mod_type('_Foo3', 'wpo', false);
             ''')
 
-
     async def test_conditions(self, client):
         with self.assertRaisesRegex(
                 ValueError,

@@ -39,6 +39,7 @@ from test_user_access import TestUserAccess
 from test_variable import TestVariable
 from test_whitelist import TestWhitelist
 from test_wrap import TestWrap
+from test_wrap_tree import TestWrapTree
 from test_ws import TestWS
 from test_wss import TestWSS
 
@@ -113,3 +114,4 @@ if __name__ == '__main__':
     run_test(TestWS(), hide_version=hide_version())
     run_test(TestWSS(), hide_version=hide_version())
     run_test(TestWrap(), hide_version=hide_version())
+    run_test(TestWrapTree(), hide_version=hide_version())

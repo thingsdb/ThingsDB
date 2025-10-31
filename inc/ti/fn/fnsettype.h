@@ -56,7 +56,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         type = ti_type_create(
                 query->collection->types,
                 type_id,
-                TI_TYPE_FLAG_WRAP_ONLY,  /* prevents looking for instances */
+                TI_TYPE_FLAG_WRAP_ONLY,
                 (const char *) rname->data,
                 rname->n,
                 ts_now,

@@ -48,7 +48,7 @@ ti_raw_t * ti_method_doc(ti_method_t * method)
     return method->doc;
 }
 
-/* may return an empty string but never NULL */
+/* may return NULL */
 ti_raw_t * ti_method_def(ti_method_t * method)
 {
     if (!method->def)

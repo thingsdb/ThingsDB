@@ -26,6 +26,14 @@
 #include <util/vec.h>
 #include <util/logger.h>
 
+static int wrap__field_thing_type(
+        ti_thing_t * thing,
+        ti_vp_t * vp,
+        ti_type_t * t_type,
+        int deep,
+        int flags);
+
+
 ti_wrap_t * ti_wrap_create(ti_thing_t * thing, uint16_t type_id)
 {
     ti_wrap_t * wrap = malloc(sizeof(ti_wrap_t));
@@ -62,19 +70,74 @@ static int wrap__walk(ti_thing_t * thing, wrap__walk_t * w)
     return ti__wrap_field_thing(thing, w->vp, w->spec, w->deep, w->flags);
 }
 
+typedef struct
+{
+    ti_vp_t * vp;
+    ti_type_t * t_type;
+    long:48;
+    int deep;
+    int flags;
+} wrap__walk_with_type_t;
+
+static int wrap__walk_with_type(ti_thing_t * thing, wrap__walk_with_type_t * w)
+{
+    return wrap__field_thing_type(thing, w->vp, w->t_type, w->deep, w->flags);
+}
+
 static int wrap__set(
         ti_vset_t * vset,
         ti_vp_t * vp,
-        uint16_t spec,
+        ti_field_t * t_field,
         int deep,
         int flags)
 {
     wrap__walk_t w = {
             .vp = vp,
-            .spec = spec,
+            .spec = t_field->nested_spec,
             .deep = deep,
             .flags = flags,
     };
+
+    if ((t_field->nested_spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_TYPE)
+    {
+        wrap__walk_with_type_t wwt = {
+            .vp = vp,
+            .t_type = t_field->condition.type,
+            .deep = deep,
+            .flags = flags,
+        };
+
+        return (
+            msgpack_pack_array(&vp->pk, vset->imap->n) ||
+            imap_walk(vset->imap, (imap_cb) wrap__walk_with_type, &wwt)
+        );
+    }
+
+    if (vset->imap->n > 1 &&
+        vp->query &&
+        vp->query->collection)
+    {
+        /* optimization for set's with multiple values */
+        ti_type_t * t_type = ti_types_by_id(
+                vp->query->collection->types,
+                t_field->nested_spec);
+
+        if (t_type)
+        {
+            wrap__walk_with_type_t wwt = {
+                .vp = vp,
+                .t_type = t_type,
+                .deep = deep,
+                .flags = flags,
+            };
+
+            return (
+                msgpack_pack_array(&vp->pk, vset->imap->n) ||
+                imap_walk(vset->imap, (imap_cb) wrap__walk_with_type, &wwt)
+            );
+        }
+        /* fallback to no type */
+    }
 
     return (
             msgpack_pack_array(&vp->pk, vset->imap->n) ||
@@ -110,14 +173,28 @@ static int wrap__field_val(
     case TI_VAL_REGEX:
         return ti_regex_to_client_pk((ti_regex_t *) val, &vp->pk);
     case TI_VAL_THING:
-        return ti__wrap_field_thing(
+        return ((*spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_TYPE)
+            ? wrap__field_thing_type(
+                (ti_thing_t *) val,
+                vp,
+                t_field->condition.type,
+                deep,
+                flags)
+            : ti__wrap_field_thing(
                 (ti_thing_t *) val,
                 vp,
                 *spec,
                 deep,
                 flags);
     case TI_VAL_WRAP:
-        return ti__wrap_field_thing(
+        return ((*spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_TYPE)
+            ? wrap__field_thing_type(
+                (ti_thing_t *) val,
+                vp,
+                t_field->condition.type,
+                deep,
+                flags)
+            : ti__wrap_field_thing(
                 ((ti_wrap_t *) val)->thing,
                 vp,
                 *spec,
@@ -149,7 +226,7 @@ static int wrap__field_val(
         return wrap__set(
                 (ti_vset_t *) val,
                 vp,
-                t_field->nested_spec,
+                t_field,
                 deep,
                 flags);
     case TI_VAL_ERROR:
@@ -323,59 +400,14 @@ int ti__wrap_methods_to_pk(
     return rc;
 }
 
-/*
- * Do not use directly, use ti_wrap_to_pk() instead
- */
-int ti__wrap_field_thing(
+static int wrap__field_thing(
         ti_thing_t * thing,
         ti_vp_t * vp,
-        uint16_t spec,
+        ti_type_t * t_type,
         int deep,
         int flags)
 {
     size_t nm;
-    ti_type_t * t_type;
-    spec &= TI_SPEC_MASK_NILLABLE;
-
-    assert(thing->tp == TI_VAL_THING);
-
-    /*
-     * Just return the ID when locked or if `deep` has reached zero.
-     */
-    if ((thing->flags & TI_VFLAG_LOCK) || !deep)
-    {
-        if (!thing->id || (flags & TI_FLAGS_NO_IDS))
-            return ti_thing_empty_to_client_pk(&vp->pk);
-
-        if (spec < TI_SPEC_ANY)
-        {
-            t_type = ti_types_by_id(thing->collection->types, spec);
-            if (t_type)
-            {
-                register const ti_name_t * name = t_type->idname;
-                return -(
-                    msgpack_pack_map(&vp->pk, 1) || (name
-                        ? mp_pack_strn(&vp->pk, name->str, name->n)
-                        : mp_pack_strn(&vp->pk, TI_KIND_S_THING, 1)) ||
-                    msgpack_pack_uint64(&vp->pk, thing->id)
-                );
-            }
-        }
-
-        return -(
-            msgpack_pack_map(&vp->pk, 1) ||
-            mp_pack_strn(&vp->pk, TI_KIND_S_THING, 1) ||
-            msgpack_pack_uint64(&vp->pk, thing->id)
-        );
-    }
-
-    /*
-     * If `spec` is not a type or a none existing type (thus ANY or OBJECT),
-     * then pack the thing as normal.
-     */
-    if (spec >= TI_SPEC_ANY ||  /* TI_SPEC_ANY || TI_SPEC_OBJECT || ENUM */
-        !(t_type = ti_types_by_id(thing->collection->types, spec)))
-        return ti_thing__to_client_pk(thing, vp, deep, flags);
 
     /* decrement `deep` by one */
     --deep;
@@ -563,6 +595,96 @@ fail:
     return -1;
 }
 
+static int wrap__field_thing_type(
+        ti_thing_t * thing,
+        ti_vp_t * vp,
+        ti_type_t * t_type,
+        int deep,
+        int flags)
+{
+    /*
+     * Just return the ID when locked or if `deep` has reached zero.
+     */
+    if ((thing->flags & TI_VFLAG_LOCK) || !deep)
+    {
+        register const ti_name_t * name = t_type->idname;
+
+        /* here, we ignore TI_TYPE_FLAG_HIDE_ID intentionally as the behavior
+         * is defined as to return the Id when no other info is returned */
+
+        if (!thing->id ||
+            (flags & TI_FLAGS_NO_IDS))
+            return ti_thing_empty_to_client_pk(&vp->pk);
+
+        return -(
+            msgpack_pack_map(&vp->pk, 1) || (name
+                ? mp_pack_strn(&vp->pk, name->str, name->n)
+                : mp_pack_strn(&vp->pk, TI_KIND_S_THING, 1)) ||
+            msgpack_pack_uint64(&vp->pk, thing->id)
+        );
+    }
+
+    return wrap__field_thing(thing, vp, t_type, deep, flags);
+}
+/*
+ * Do not use directly, use ti_wrap_to_pk() instead
+ */
+int ti__wrap_field_thing(
+        ti_thing_t * thing,
+        ti_vp_t * vp,
+        uint16_t spec,
+        int deep,
+        int flags)
+{
+    ti_type_t * t_type;
+    spec &= TI_SPEC_MASK_NILLABLE;
+
+    /*
+     * Just return the ID when locked or if `deep` has reached zero.
+     */
+    if ((thing->flags & TI_VFLAG_LOCK) || !deep)
+    {
+        if (!thing->id || (flags & TI_FLAGS_NO_IDS))
+            return ti_thing_empty_to_client_pk(&vp->pk);
+
+        if (spec < TI_SPEC_ANY)
+        {
+            t_type = ti_types_by_id(thing->collection->types, spec);
+            if (t_type)
+            {
+                register const ti_name_t * name = t_type->idname;
+
+                /* here, we ignore TI_TYPE_FLAG_HIDE_ID intentionally as the
+                 * behavior is defined as to return the Id when no other info
+                 * is returned */
+
+                return -(
+                    msgpack_pack_map(&vp->pk, 1) || (name
+                        ? mp_pack_strn(&vp->pk, name->str, name->n)
+                        : mp_pack_strn(&vp->pk, TI_KIND_S_THING, 1)) ||
+                    msgpack_pack_uint64(&vp->pk, thing->id)
+                );
+            }
+        }
+
+        return -(
+            msgpack_pack_map(&vp->pk, 1) ||
+            mp_pack_strn(&vp->pk, TI_KIND_S_THING, 1) ||
+            msgpack_pack_uint64(&vp->pk, thing->id)
+        );
+    }
+
+    /*
+     * If `spec` is not a type or a none existing type (thus ANY or OBJECT),
+     * then pack the thing as normal.
+     */
+    if (spec >= TI_SPEC_ANY ||  /* TI_SPEC_ANY || TI_SPEC_OBJECT || ENUM */
+        !(t_type = ti_types_by_id(thing->collection->types, spec)))
+        return ti_thing__to_client_pk(thing, vp, deep, flags);
+
+    return wrap__field_thing(thing, vp, t_type, deep, flags);
+}
+
 int ti_wrap_cp(ti_query_t * query, uint8_t deep, ex_t * e)
 {
     ti_val_t * val;
@@ -570,6 +692,7 @@ int ti_wrap_cp(ti_query_t * query, uint8_t deep, ex_t * e)
     msgpack_sbuffer buffer;
     ti_vp_t vp = {
             .query=query,
+            .size_limit=0x4000,  /* we can increase this value */
     };
     ti_vup_t vup = {
             .isclient = true,
@@ -581,7 +704,10 @@ int ti_wrap_cp(ti_query_t * query, uint8_t deep, ex_t * e)
 
     if (mp_sbuffer_alloc_init(&buffer, ti_val_alloc_size(query->rval), 0))
     {
-        ex_set_mem(e);
+        if (buffer.size > vp.size_limit)
+            ex_set(e, EX_VALUE_ERROR, "wrap copy() result too large");
+        else
+            ex_set_mem(e);
         goto fail0;
     }
 

@@ -44,6 +44,7 @@ static int do__f_json_dump(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     size_t total_n;
     ti_vp_t vp = {
             .query=query,
+            .size_limit=ti.cfg->result_size_limit,
     };
     json_dumps__options_t options = {
             .deep = query->qbind.deep,

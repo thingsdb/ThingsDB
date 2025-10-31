@@ -3,6 +3,7 @@
  */
 #include <assert.h>
 #include <stdlib.h>
+#include <ti/field.h>
 #include <ti/spec.inline.h>
 #include <ti/type.h>
 #include <ti/types.h>
@@ -21,6 +22,7 @@ ti_types_t * ti_types_create(ti_collection_t * collection)
     types->removed = smap_create();
     types->collection = collection;
     types->next_id = 0;
+    types->locked = 0;
 
     if (!types->imap || !types->smap || !types->removed)
     {
@@ -35,7 +37,7 @@ void ti_types_destroy(ti_types_t * types)
 {
     if (!types)
         return;
-
+    types->locked = 1;
     smap_destroy(types->smap, NULL);
     smap_destroy(types->removed, NULL);
     imap_destroy(types->imap, (imap_destroy_cb) ti_type_destroy);
@@ -74,6 +76,7 @@ void ti_types_del(ti_types_t * types, ti_type_t * type)
 typedef struct
 {
     uint16_t id;
+    uint32_t nchanges;
     ti_raw_t * nname;
 } types__ren_t;
 
@@ -91,30 +94,83 @@ int types__spec_flags_pos(const unsigned char * x)
     return i;
 }
 
+static int types__ren_member(ti_field_t * field, ti_member_t * member)
+{
+    /* enum with default value rename */
+    int flags_pos = types__spec_flags_pos(field->spec_raw->data);
+    ti_raw_t * spec_raw = ti_str_from_fmt(
+            "%.*s%s{%s}%s",
+            flags_pos,
+            (const char *) field->spec_raw->data,
+            member->enum_->name,
+            member->name->str,
+            (field->spec & TI_SPEC_NILLABLE) ? "?": "");
+    if (!spec_raw)
+        return -1;
+
+    ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
+    field->spec_raw = spec_raw;
+
+    return 0;
+}
+
+static int types__ren_member_nested(
+        ti_type_t * type,
+        ti_member_t * member,
+        int * has_changed)
+{
+    for (vec_each(type->fields, ti_field_t, field))
+    {
+        if (ti_field_is_nested(field))
+        {
+            if (types__ren_member_nested(
+                field->condition.type,
+                member,
+                has_changed))
+                return -1;
+            continue;
+        }
+
+        if (field->condition.none &&
+            field->condition.none->dval == (ti_val_t *) member)
+        {
+            if (types__ren_member(field, member))
+                return -1;
+            *has_changed = 1;
+        }
+    }
+    return 0;
+}
+
 static int types__ren_member_cb(ti_type_t * type, ti_member_t * member)
 {
     for (vec_each(type->fields, ti_field_t, field))
     {
-        if (field->condition.none &&
-                field->condition.none->dval == (ti_val_t *) member)
+        if (ti_field_is_nested(field))
         {
-            /* enum with default value rename */
-            int flags_pos = types__spec_flags_pos(field->spec_raw->data);
-            ti_member_t * member = \
-                (ti_member_t *) field->condition.none->dval;
-            ti_raw_t * spec_raw = ti_str_from_fmt(
-                    "%.*s%s{%s}%s",
-                    flags_pos,
-                    (const char *) field->spec_raw->data,
-                    member->enum_->name,
-                    member->name->str,
-                    (field->spec & TI_SPEC_NILLABLE) ? "?": "");
-            if (!spec_raw)
+            int has_changed = 0;
+            if (types__ren_member_nested(
+                field->condition.type,
+                member,
+                &has_changed))
                 return -1;
 
-            ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
-            field->spec_raw = spec_raw;
+            if (has_changed)
+            {
+                ti_raw_t * spec_raw = ti_field_nested_to_mpdata(field);
+                if (!spec_raw)
+                    return -1;
+
+                ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
+                field->spec_raw = spec_raw;
+            }
+            continue;
         }
+
+        if (field->condition.none &&
+            field->condition.none->dval == (ti_val_t *) member &&
+            types__ren_member(field, member))
+            return -1;
     }
     return 0;
 }
@@ -123,6 +179,25 @@ static int types__ren_cb(ti_type_t * type, types__ren_t * w)
 {
     for (vec_each(type->fields, ti_field_t, field))
     {
+        if (ti_field_is_nested(field))
+        {
+            uint32_t prev = w->nchanges;
+            if (types__ren_cb(field->condition.type, w))
+                return -1;
+
+            if (type->type_id != TI_SPEC_TYPE && w->nchanges > prev)
+            {
+                ti_raw_t * spec_raw = ti_field_nested_to_mpdata(field);
+                if (!spec_raw)
+                    return -1;
+
+                ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
+                field->spec_raw = spec_raw;
+            }
+
+            continue;
+        }
+
         if ((field->spec & TI_SPEC_MASK_NILLABLE) == w->id)
         {
             int flags_pos = types__spec_flags_pos(field->spec_raw->data);
@@ -144,12 +219,14 @@ static int types__ren_cb(ti_type_t * type, types__ren_t * w)
 
                 ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
                 field->spec_raw = spec_raw;
+                w->nchanges++;
             }
             else if (field->spec == w->id && !flags_pos)
             {
                 ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
                 field->spec_raw = w->nname;
                 ti_incref(field->spec_raw);
+                w->nchanges++;
             }
             else
             {
@@ -165,6 +242,7 @@ static int types__ren_cb(ti_type_t * type, types__ren_t * w)
 
                 ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
                 field->spec_raw = spec_raw;
+                w->nchanges++;
             }
         }
         else if ((field->nested_spec & TI_SPEC_MASK_NILLABLE) == w->id)
@@ -208,6 +286,7 @@ static int types__ren_cb(ti_type_t * type, types__ren_t * w)
 
             ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
             field->spec_raw = spec_raw;
+            w->nchanges++;
         }
     }
     return 0;
@@ -221,6 +300,7 @@ int ti_types_ren_spec(
     types__ren_t w = {
         .id = type_or_enum_id,
         .nname = nname,
+        .nchanges = 0,
     };
 
     return imap_walk(types->imap, (imap_cb) types__ren_cb, &w);
@@ -292,15 +372,3 @@ ti_varr_t * ti_types_info(ti_types_t * types, _Bool with_definition)
     return varr;
 }
 
-static inline int types__to_pk_cb(ti_type_t * type, msgpack_packer * pk)
-{
-    return ti_type_to_pk(type, pk, false);
-}
-
-int ti_types_to_pk(ti_types_t * types, msgpack_packer * pk)
-{
-    return (
-        msgpack_pack_array(pk, types->imap->n) ||
-        imap_walk(types->imap, (imap_cb) types__to_pk_cb, pk)
-    );
-}

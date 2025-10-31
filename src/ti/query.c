@@ -1113,7 +1113,8 @@ static inline int query__pack_response(
         ex_t * e)
 {
     ti_vp_t vp = {
-            .query=query
+            .query=query,
+            .size_limit=ti.cfg->result_size_limit,
     };
     msgpack_packer_init(&vp.pk, buffer, msgpack_sbuffer_write);
 
@@ -1123,7 +1124,7 @@ static inline int query__pack_response(
             (int) query->qbind.deep,
             (int) query->flags & TI_FLAGS_NO_IDS))
     {
-        if (buffer->size > ti.cfg->result_size_limit)
+        if (buffer->size > vp.size_limit)
             ex_set(e, EX_RESULT_TOO_LARGE,
                     "too much data to return; "
                     "try to use a lower `deep` value and/or `wrap` things to "

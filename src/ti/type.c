@@ -66,7 +66,46 @@ ti_type_t * ti_type_create(
     type->methods = vec_new(0);
 
     if (!type->name || !type->wname || !type->dependencies || !type->fields ||
-        !type->t_mappings || ti_types_add(types, type))
+        !type->rname || !type->rwname || !type->t_mappings || !type->methods ||
+        ti_types_add(types, type))
+    {
+        ti_type_destroy(type);
+        return NULL;
+    }
+
+    return type;
+}
+
+ti_type_t * ti_type_create_unnamed(
+        ti_types_t * types,
+        ti_raw_t * name,
+        uint8_t flags)
+{
+    ti_type_t * type = malloc(sizeof(ti_type_t));
+    if (!type)
+        return NULL;
+    type->refcount = 0;  /* only incremented when this type
+                            is used by another type */
+    type->selfref = 0;  /* increment on self references */
+    type->type_id = TI_SPEC_TYPE;
+    type->flags = TI_TYPE_FLAG_WRAP_ONLY|flags;
+    type->name = strndup((const char *) name->data, name->n);
+    type->rname = ti_grab(name);  /* name must be equal to the master type;
+                                     in fields.c, this is compared for
+                                     circular references */
+    type->wname = NULL;
+    type->rwname = NULL;
+    type->idname = NULL;
+    type->dependencies = vec_new(0);
+    type->fields = vec_new(0);
+    type->types = types;
+    type->t_mappings = imap_create();
+    type->created_at = 0;
+    type->modified_at = 0;
+    type->methods = vec_new(0);
+
+    if (!type->name || !type->dependencies || !type->fields ||
+        !type->rname || !type->t_mappings || !type->methods)
     {
         ti_type_destroy(type);
         return NULL;
@@ -82,16 +121,10 @@ static int type__map_cleanup(ti_type_t * t_haystack, ti_type_t * t_needle)
     return 0;
 }
 
-/* used as a callback function and destroys all type mappings */
-static void type__map_free(void * map)
-{
-    ti_map_destroy(map);
-}
-
 void ti_type_map_cleanup(ti_type_t * type)
 {
     (void) imap_walk(type->types->imap, (imap_cb) type__map_cleanup, type);
-    imap_clear(type->t_mappings, type__map_free);
+    imap_clear(type->t_mappings, (imap_destroy_cb) ti_map_destroy);
 }
 
 void ti_type_drop(ti_type_t * type)
@@ -111,6 +144,18 @@ void ti_type_drop(ti_type_t * type)
 
     ti_type_map_cleanup(type);
     ti_types_del(type->types, type);
+    ti_type_destroy(type);
+}
+
+void ti_type_drop_unnamed(ti_type_t * type)
+{
+    if (!type)
+        return;
+
+    if (!type->types->locked)
+        for (vec_each(type->dependencies, ti_type_t, dep))
+            --dep->refcount;
+
     ti_type_destroy(type);
 }
 
@@ -145,7 +190,7 @@ void ti_type_destroy(ti_type_t * type)
 
     vec_destroy(type->fields, (vec_destroy_cb) ti_field_destroy);
     vec_destroy(type->methods, (vec_destroy_cb) ti_method_destroy);
-    imap_destroy(type->t_mappings, type__map_free);
+    imap_destroy(type->t_mappings, (imap_destroy_cb) ti_map_destroy);
     ti_val_drop((ti_val_t *) type->rname);
     ti_val_drop((ti_val_t *) type->rwname);
     ti_val_drop((ti_val_t *) type->idname);
@@ -294,16 +339,115 @@ fail0:
     return e->nr;
 }
 
+static int type__init_type_cb(ti_item_t * item, ex_t * e)
+{
+    if (!ti_raw_is_name(item->key))
+        ex_set(e, EX_VALUE_ERROR,
+                "type keys must follow the naming rules"DOC_NAMES);
+    return e->nr;
+}
+
+ti_raw_t * ti__type_nested_from_val(ti_type_t * type, ti_val_t * val, ex_t * e)
+{
+    ti_thing_t * thing;
+    ti_raw_t * spec_raw = NULL;
+    msgpack_sbuffer buffer;
+    ti_vp_t vp = {
+        .query=NULL,
+        .size_limit=0x4000,   /* we do not expect much and since we use deep
+                                 nesting, set a low size limit */
+    };
+
+    if (ti_val_is_array(val))
+    {
+        ti_varr_t * varr = (ti_varr_t *) val;
+        if (varr->vec->n != 1)
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "array with nested type must have exactly one element but "
+                    "found %zu on type `%s`",
+                    varr->vec->n,
+                    type->name);
+            return NULL;
+        }
+
+        if (!ti_val_is_thing(VEC_first(varr->vec)))
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                        "element in array must be of type `"TI_VAL_THING_S"` "
+                        "but got type `%s` instead; (happened on type `%s`)",
+                        ti_val_str(VEC_first(varr->vec)),
+                        type->name);
+            return NULL;
+        }
+
+        thing = VEC_first(varr->vec);
+    }
+    else
+        thing = (ti_thing_t *) val;
+
+    if (~type->flags & TI_TYPE_FLAG_WRAP_ONLY)
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                    "defining nested types is only allowed "
+                    "for wrap-only type; (happened on type `%s`)",
+                    type->name);
+        return NULL;
+    }
+
+    if (ti_thing_is_dict(thing) &&
+        smap_values(thing->items.smap, (smap_val_cb) type__init_type_cb, e))
+        return NULL;
+
+    if (mp_sbuffer_alloc_init(&buffer, vp.size_limit, 0))
+    {
+        ex_set_mem(e);
+        return NULL;
+    }
+
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
+
+    if (ti_val_to_client_pk(val, &vp, TI_MAX_DEEP, TI_FLAGS_NO_IDS))
+    {
+        if (buffer.size > vp.size_limit)
+            ex_set(e, EX_VALUE_ERROR,
+                "nested type definition on type `%s` too large",
+                type->name);
+        else
+            ex_set_mem(e);
+        goto fail0;
+    }
+
+    spec_raw = ti_mp_create((const unsigned char *) buffer.data, buffer.size);
+    if (!spec_raw)
+        ex_set_mem(e);
+
+fail0:
+    msgpack_sbuffer_destroy(&buffer);
+    return spec_raw;
+}
+
 static inline int type__assign(
         ti_type_t * type,
         ti_name_t * name,
         ti_val_t * val,
         ex_t * e)
 {
+    ti_raw_t * spec_raw = ti_type_nested_from_val(type, val, e);
+    if (spec_raw)
+    {
+        (void) ti_field_create(name, spec_raw, type, e);
+        ti_val_unsafe_drop((ti_val_t *) spec_raw);
+        return e->nr;
+    }
+
+    if (e->nr)
+        return e->nr;
+
     if (ti_val_is_str(val))
     {
-        register ti_raw_t * raw = (ti_raw_t *) val;
-        if (raw->n == 1 && raw->data[0] == '#')
+        spec_raw = (ti_raw_t *) val;
+        if (spec_raw->n == 1 && spec_raw->data[0] == '#')
         {
             if (type->idname)
             {
@@ -318,18 +462,27 @@ static inline int type__assign(
             return 0;
         }
 
-        (void) ti_field_create(name, raw, type, e);
+        (void) ti_field_create(name, spec_raw, type, e);
         return e->nr;
     }
 
     if (ti_val_is_closure(val))
         return ti_type_add_method(type, name, (ti_closure_t *) val, e);
 
-    ex_set(e, EX_TYPE_ERROR,
-            "expecting a method of type `"TI_VAL_CLOSURE_S"` "
-            "or a definition of type `"TI_VAL_STR_S"` "
-            "but got type `%s` instead"DOC_T_TYPED,
-            ti_val_str(val));
+    if (ti_type_is_wrap_only(type))
+        ex_set(e, EX_TYPE_ERROR,
+                "expecting a nested structure "
+                "(`"TI_VAL_LIST_S"` or `"TI_VAL_THING_S"`), "
+                "a method of type `"TI_VAL_CLOSURE_S"` "
+                "or a definition of type `"TI_VAL_STR_S"` "
+                "but got type `%s` instead"DOC_T_TYPED,
+                ti_val_str(val));
+    else
+        ex_set(e, EX_TYPE_ERROR,
+                "expecting a method of type `"TI_VAL_CLOSURE_S"` "
+                "or a definition of type `"TI_VAL_STR_S"` "
+                "but got type `%s` instead"DOC_T_TYPED,
+                ti_val_str(val));
 
     return e->nr;
 }
@@ -713,7 +866,7 @@ int ti_type_init_from_unp(
     {
         if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||
             mp_next(up, &mp_name) != MP_STR ||
-            mp_next(up, &mp_spec) != MP_STR)
+            (mp_next(up, &mp_spec) != MP_STR && mp_spec.tp != MP_BIN))
         {
             ex_set(e, EX_BAD_DATA,
                     "failed unpacking fields for type `%s`; "
@@ -735,7 +888,9 @@ int ti_type_init_from_unp(
         if (!name)
             return e->nr;
 
-        if (mp_spec.via.str.n == 1 && mp_spec.via.str.data[0] == '#')
+        if (mp_spec.tp == MP_STR &&
+            mp_spec.via.str.n == 1 &&
+            mp_spec.via.str.data[0] == '#')
         {
             if (type->idname)
             {
@@ -749,7 +904,9 @@ int ti_type_init_from_unp(
             continue;
         }
 
-        spec_raw = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
+        spec_raw = mp_spec.tp == MP_STR
+            ? ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n)
+            : ti_mp_create(mp_spec.via.bin.data, mp_spec.via.bin.n);
         if (!spec_raw || !ti_field_create(name, spec_raw, type, e))
             goto failed;
 
@@ -843,12 +1000,44 @@ int ti_type_fields_to_pk(ti_type_t * type, msgpack_packer * pk)
     {
         if (msgpack_pack_array(pk, 2) ||
             mp_pack_strn(pk, field->name->str, field->name->n) ||
-            mp_pack_strn(pk, field->spec_raw->data, field->spec_raw->n))
+            (ti_raw_is_mpdata(field->spec_raw)
+              ? mp_pack_bin(pk, field->spec_raw->data, field->spec_raw->n)
+              : mp_pack_strn(pk, field->spec_raw->data, field->spec_raw->n)
+            ))
             return -1;
     }
 
     return 0;
 }
+
+static int type__fields_to_pk(ti_type_t * type, msgpack_packer * pk)
+{
+    if (msgpack_pack_array(pk, type->fields->n + !!type->idname))
+        return -1;
+
+    if (type->idname)
+    {
+        if (msgpack_pack_array(pk, 2) ||
+            mp_pack_strn(pk, type->idname->str, type->idname->n) ||
+            mp_pack_strn(pk, "#", 1))
+            return -1;
+    }
+
+    for (vec_each(type->fields, ti_field_t, field))
+    {
+        if (msgpack_pack_array(pk, 2) ||
+            mp_pack_strn(pk, field->name->str, field->name->n) ||
+            (ti_raw_is_mpdata(field->spec_raw)
+              ? mp_pack_append(pk, field->spec_raw->data, field->spec_raw->n)
+              : mp_pack_strn(pk, field->spec_raw->data, field->spec_raw->n)
+            ))
+            return -1;
+    }
+
+    return 0;
+}
+
+
 
 /* adds a map with key/value pairs */
 int ti_type_methods_to_pk(ti_type_t * type, msgpack_packer * pk)
@@ -915,16 +1104,19 @@ int ti_type_methods_info_to_pk(
     for (vec_each(type->methods, ti_method_t, method))
     {
         ti_raw_t * doc = ti_method_doc(method);
-        ti_raw_t * def;
+        ti_raw_t * def = ti_method_def(method);  /* def calculates only once
+                                                    so not a problem to do
+                                                    if not with_definition */
 
-        if (mp_pack_strn(pk, method->name->str, method->name->n) ||
+        if (!def ||
+            mp_pack_strn(pk, method->name->str, method->name->n) ||
 
             msgpack_pack_map(pk, 3 + !!with_definition) ||
 
             mp_pack_str(pk, "doc") ||
             mp_pack_strn(pk, doc->data, doc->n) ||
 
-            (with_definition && (def = ti_method_def(method)) && (
+            (with_definition && (
                 mp_pack_str(pk, "definition") ||
                 mp_pack_strn(pk, def->data, def->n)
             )) ||
@@ -952,7 +1144,35 @@ ti_val_t * ti_type_as_mpval(ti_type_t * type, _Bool with_definition)
     mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    if (ti_type_to_pk(type, &pk, with_definition))
+    if (msgpack_pack_map(&pk, 9) ||
+        mp_pack_str(&pk, "type_id") ||
+        msgpack_pack_uint16(&pk, type->type_id) ||
+
+        mp_pack_str(&pk, "name") ||
+        mp_pack_strn(&pk, type->rname->data, type->rname->n) ||
+
+        mp_pack_str(&pk, "wrap_only") ||
+        mp_pack_bool(&pk, ti_type_is_wrap_only(type)) ||
+
+        mp_pack_str(&pk, "hide_id") ||
+        mp_pack_bool(&pk, ti_type_hide_id(type)) ||
+
+        mp_pack_str(&pk, "created_at") ||
+        msgpack_pack_uint64(&pk, type->created_at) ||
+
+        mp_pack_str(&pk, "modified_at") ||
+        (type->modified_at
+            ? msgpack_pack_uint64(&pk, type->modified_at)
+            : msgpack_pack_nil(&pk)) ||
+
+        mp_pack_str(&pk, "fields") ||
+        type__fields_to_pk(type, &pk) ||
+
+        mp_pack_str(&pk, "methods") ||
+        ti_type_methods_info_to_pk(type, &pk, with_definition) ||
+
+        mp_pack_str(&pk, "relations") ||
+        ti_type_relations_to_pk(type, &pk))
     {
         msgpack_sbuffer_destroy(&buffer);
         return NULL;
@@ -1302,10 +1522,19 @@ int ti_type_required_by_non_wpo(ti_type_t * type, ex_t * e)
     return e->nr;
 }
 
-int ti_type_uses_wpo(ti_type_t * type, ex_t * e)
+int ti_type_requires_wpo(ti_type_t * type, ex_t * e)
 {
     for (vec_each(type->fields, ti_field_t, field))
     {
+        if (ti_field_is_nested(field))
+        {
+            ex_set(e, EX_OPERATION,
+                "type `%s` contains a nested structure which requires "
+                "`wrap-only` mode to be enabled",
+                type->name);
+            return e->nr;
+        }
+
         if (field->spec < TI_SPEC_ANY)
         {
             ti_type_t * dep = ti_types_by_id(type->types, field->spec);

@@ -175,6 +175,7 @@ int ti_room_emit(
     ti_rpkg_t * node_rpkg, * client_rpkg;
     ti_vp_t vp = {
             .query=query,  /* required for wrap type, may be NULL from API */
+            .size_limit=ti.cfg->result_size_limit,
     };
 
     if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_pkg_t)))

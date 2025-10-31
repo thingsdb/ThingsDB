@@ -11,7 +11,7 @@ typedef struct ti_fmt_s ti_fmt_t;
 #include <ti/raw.t.h>
 
 /* When 0, use TAB, else the number of spaces */
-#define TI_FMT_SPACES 0
+#define TI_FMT_TAB 0
 
 struct ti_fmt_s
 {

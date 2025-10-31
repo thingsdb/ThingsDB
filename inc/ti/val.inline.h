@@ -914,6 +914,11 @@ static inline ti_val_t * ti_val_gmt_offset_name(void)
     return ti_incref(val__gmt_offset_name), val__gmt_offset_name;
 }
 
+static inline ti_val_t * ti_val_unnamed_name(void)
+{
+    return ti_incref(val__unnamed_name), val__unnamed_name;
+}
+
 static inline ti_val_t * ti_val_borrow_async_name(void)
 {
     return val__async_name;

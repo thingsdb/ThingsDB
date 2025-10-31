@@ -456,10 +456,16 @@ static int field__init(ti_field_t * field, ex_t * e)
         return e->nr;
     }
 
+    if (ti_raw_is_mpdata(field->spec_raw))
+        return ti_condition_init_type(field, e);
+
     do
     {
         /* WARNING: do not forget to update types.c when modifying the flags in
          * this code; (types__spec_flags_pos)
+         * WARNING: never implement | as a flag or start of definition, this
+         * is used to read closures (methods) when storing nested types for
+         * wrap-only types. (see as example condition.c)
          */
         switch(*str)
         {
@@ -498,6 +504,7 @@ static int field__init(ti_field_t * field, ex_t * e)
                 goto duplicate_flag;
             field->flags |= TI_FIELD_FLAG_SKIP_FALSE;
             break;
+        /* Read warnings above before adding new flags */
         default:
             goto done_flags;
         }
@@ -755,6 +762,8 @@ skip_nesting:
 
     if (field__cmp(str, n, field->type->name))
     {
+        if (field->type->type_id == TI_SPEC_TYPE)
+            goto found;
         *spec |= field->type->type_id;
         if (&field->spec == spec && (~field->spec & TI_SPEC_NILLABLE))
             goto circular_dep;
@@ -899,7 +908,8 @@ done:
             "skip nil flags for property which cannot contain nil"DOC_T_TYPE,
             field->name->str, field->type->name);
     }
-    assert(field->dval_cb);  /* callback must have been set */
+    /* assert(field->dval_cb);  callback must have been set except for fields
+                                on unnamed type */
     return e->nr;
 
 invalid:
@@ -1126,6 +1136,7 @@ int ti_field_mod(
     assert(0);
 
 nillable:
+    /* not reached for wrap-only type, therefore spec_raw is always str type */
     ex_set(e, EX_OPERATION,
         "cannot apply type declaration `%.*s` to `%s` on type `%s` without a "
         "closure to migrate existing instances; the old declaration "
@@ -1136,6 +1147,7 @@ nillable:
     goto undo_dep;
 
 incompatible:
+    /* not reached for wrap-only type, therefore spec_raw is always str type */
     ex_set(e, EX_OPERATION,
         "cannot apply type declaration `%.*s` to `%s` on type `%s` without a "
         "closure to migrate existing instances; the old declaration `%.*s` "
@@ -1688,6 +1700,14 @@ static _Bool field__maps_arr_to_arr(ti_field_t * field, ti_varr_t * varr)
     return true;
 }
 
+static _Bool field__maps_arr_to_type(ti_varr_t * varr)
+{
+    for (vec_each(varr->vec, ti_val_t, val))
+        if (!ti_val_is_thing(val))
+            return false;
+    return true;
+}
+
 static int field__map_restrict_cb(ti_prop_t * prop, ti_field_t * field)
 {
     return !ti_spec_maps_to_nested_val(field->nested_spec, prop->val);
@@ -1980,6 +2000,9 @@ int ti_field_make_assignable(
             ((ti_raw_t *) *val)->n > field->condition.srange->ma)
             goto srange_error;
         return 0;
+    case TI_SPEC_TYPE:
+    case TI_SPEC_ARR_TYPE:
+        assert(0);  /* both are only for wrap-only type */
     }
 
     assert(spec >= TI_ENUM_ID_FLAG);
@@ -2266,6 +2289,13 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
                 ((ti_raw_t *) val)->n) &&
                 ((ti_raw_t *) val)->n >= field->condition.srange->mi &&
                 ((ti_raw_t *) val)->n <= field->condition.srange->ma);
+    case TI_SPEC_TYPE:
+        return ti_val_is_thing(val);
+    case TI_SPEC_ARR_TYPE:
+        return ((
+            ti_val_is_array(val) &&
+            field__maps_arr_to_type((ti_varr_t *) val)
+        ) || ti_val_is_set(val));
     }
 
     /* any *thing* can be mapped */
@@ -2357,6 +2387,8 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_FLOAT_RANGE:
     case TI_SPEC_STR_RANGE:
     case TI_SPEC_UTF8_RANGE:
+    case TI_SPEC_TYPE:
+    case TI_SPEC_ARR_TYPE:
         return false;
     }
 
@@ -2504,11 +2536,84 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
             f_spec == TI_SPEC_UTF8_RANGE &&
             f_field->condition.srange->mi >= t_field->condition.srange->mi &&
             f_field->condition.srange->ma <= t_field->condition.srange->ma);
+    case TI_SPEC_TYPE:
+        return f_spec < TI_SPEC_ANY || f_spec == TI_SPEC_OBJECT;
+    case TI_SPEC_ARR_TYPE:
+        return (
+            f_spec == TI_SPEC_SET || (
+                f_spec == TI_SPEC_ARR && (
+                    f_field->nested_spec < TI_SPEC_ANY ||
+                    f_field->nested_spec == TI_SPEC_OBJECT
+                )
+            )
+        );
     }
 
     assert(t_spec < TI_SPEC_ANY);
 
     return f_spec < TI_SPEC_ANY || f_spec == TI_SPEC_OBJECT;
+}
+
+static int field__nested_to_pk(ti_field_t * field, msgpack_packer * pk)
+{
+    ti_type_t * type = field->condition.type;
+    size_t size = type->fields->n + type->methods->n + !!type->idname;
+
+    if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ARR_TYPE &&
+        msgpack_pack_array(pk, 1))
+        return -1;
+
+    if (msgpack_pack_map(pk, size))
+        return -1;
+
+    if (type->idname && (
+        mp_pack_strn(pk, type->idname->str, type->idname->n) ||
+        mp_pack_strn(pk, "#", 1)))
+        return -1;
+
+    for (vec_each(type->fields, ti_field_t, f))
+    {
+        if (mp_pack_strn(pk, f->name->str, f->name->n))
+            return -1;
+
+        if ((f->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_TYPE ||
+            (f->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ARR_TYPE)
+            return field__nested_to_pk(f, pk);
+
+        if (mp_pack_strn(pk, f->spec_raw->data, f->spec_raw->n))
+            return -1;
+    }
+
+    for (vec_each(type->methods, ti_method_t, m))
+    {
+        ti_raw_t * def = ti_method_def(m);
+        if (!def ||
+            mp_pack_strn(pk, m->name->str, m->name->n) ||
+            mp_pack_strn(pk, def->data, def->n))
+            return -1;
+    }
+    return 0;
+}
+
+ti_raw_t * ti_field_nested_to_mpdata(ti_field_t * field)
+{
+    ti_raw_t * raw;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    if (field__nested_to_pk(field, &pk))
+    {
+        msgpack_sbuffer_destroy(&buffer);
+        return NULL;
+    }
+
+    raw = (ti_raw_t *) buffer.data;
+    ti_raw_init(raw, TI_VAL_MPDATA, buffer.size);
+
+    return raw;
 }
 
 ti_field_t * ti_field_by_strn_e(

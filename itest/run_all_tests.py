@@ -39,6 +39,7 @@ from test_user_access import TestUserAccess
 from test_variable import TestVariable
 from test_whitelist import TestWhitelist
 from test_wrap import TestWrap
+from test_wrap_tree import TestWrapTree
 from test_ws import TestWS
 from test_wss import TestWSS
 
@@ -89,7 +90,7 @@ if __name__ == '__main__':
     run_test(TestIndexSlice(), hide_version=hide_version())
     run_test(TestMath(), hide_version=hide_version())
     if args.doc_modules is True:
-        run_test(TestModules(), hide_version=hide_version())
+        no_mem_test(TestModules)  # libcurl leaks mem
     run_test(TestMultiNode(), hide_version=hide_version())
     run_test(TestNested(), hide_version=hide_version())
     run_test(TestNodeFunctions(), hide_version=hide_version())
@@ -113,3 +114,4 @@ if __name__ == '__main__':
     run_test(TestWS(), hide_version=hide_version())
     run_test(TestWSS(), hide_version=hide_version())
     run_test(TestWrap(), hide_version=hide_version())
+    run_test(TestWrapTree(), hide_version=hide_version())

@@ -410,6 +410,8 @@ ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t * val)
     case TI_SPEC_FLOAT_RANGE:
     case TI_SPEC_STR_RANGE:
     case TI_SPEC_UTF8_RANGE:
+    case TI_SPEC_TYPE:
+    case TI_SPEC_ARR_TYPE:
         assert(0);  /* not supported on nested definition */
         return false;
     }
@@ -504,6 +506,8 @@ _Bool ti__spec_maps_to_nested_val(uint16_t spec, ti_val_t * val)
     case TI_SPEC_FLOAT_RANGE:
     case TI_SPEC_STR_RANGE:
     case TI_SPEC_UTF8_RANGE:
+    case TI_SPEC_TYPE:
+    case TI_SPEC_ARR_TYPE:
         assert(0);  /* only nested so conditions are not possible */
         return false;
     }
@@ -549,6 +553,9 @@ const char * ti_spec_approx_type_str(uint16_t spec)
     case TI_SPEC_EMAIL:         return "email";
     case TI_SPEC_URL:           return "url";
     case TI_SPEC_TEL:           return "tel";
+    case TI_SPEC_TYPE:
+    case TI_SPEC_ARR_TYPE:
+        assert(0);  /* not possible for wrap-only */
     }
     return spec < TI_SPEC_ANY ? "thing" : "enum";
 }
@@ -689,6 +696,9 @@ ti_spec_mod_enum ti_spec_check_mod(
             ocondition.srange->mi >= ncondition.srange->mi &&
             ocondition.srange->ma <= ncondition.srange->ma
         ) ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
+    case TI_SPEC_TYPE:
+    case TI_SPEC_ARR_TYPE:
+        assert(0);  /* both are only for wrap-only type */
     }
 
     return ospec == nspec ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;

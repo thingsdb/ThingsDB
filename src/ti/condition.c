@@ -5,7 +5,9 @@
 #include <doc.h>
 #include <math.h>
 #include <ti.h>
+#include <ti/closure.h>
 #include <ti/condition.h>
+#include <ti/method.h>
 #include <ti/nil.h>
 #include <ti/raw.inline.h>
 #include <ti/spec.t.h>
@@ -738,6 +740,98 @@ mem_error:
     return e->nr;
 }
 
+int ti_condition_init_type(ti_field_t * field, ex_t * e)
+{
+    uint8_t flags = TI_TYPE_FLAG_WRAP_ONLY | TI_TYPE_FLAG_HIDE_ID;
+    ti_type_t * type;
+    ti_val_t * val;
+    ti_thing_t * thing;
+    mp_unp_t up;
+    ti_vup_t vup = {
+            .isclient = true,
+            .collection = field->type->types->collection,
+            .up = &up,
+    };
+    mp_unp_init(&up, field->spec_raw->data, field->spec_raw->n);
+
+    val = ti_val_from_vup_e(&vup, e);
+    if (!val)
+        return e->nr;
+
+    if (ti_val_is_array(val))
+    {
+        vec_t * vec = VARR(val);
+        field->nested_spec = TI_SPEC_TYPE;
+        field->spec = TI_SPEC_ARR_TYPE | TI_SPEC_NILLABLE;
+        thing = vec_first(vec);
+        if (!thing || !ti_val_is_object((ti_val_t *) thing))
+        {
+            ex_set_internal(e);  /* only with corrupt internal data */
+            goto fail0;
+        }
+    }
+    else if (ti_val_is_object(val))
+    {
+        /* val is thing */
+        field->spec = TI_SPEC_TYPE | TI_SPEC_NILLABLE;
+        thing = (ti_thing_t *) val;
+    }
+    else
+    {
+        ex_set_internal(e);  /* only with corrupt internal data */
+        goto fail0;
+    }
+
+    field->flags = TI_FIELD_FLAG_SAME_DEEP | TI_FIELD_FLAG_SKIP_NIL;
+
+    for (vec_each(thing->items.vec, ti_prop_t, prop))
+    {
+        ti_raw_t * spec_raw = (ti_raw_t *) prop->val;
+        if (ti_val_is_raw(prop->val) && spec_raw->n)
+        {
+            if (spec_raw->data[0] == '#')
+                flags &= ~TI_TYPE_FLAG_HIDE_ID;
+
+            if (spec_raw->data[0] == '|')
+            {
+                ti_qbind_t syntax = {
+                    .immutable_n = 0,
+                    .flags = TI_QBIND_FLAG_COLLECTION,
+                };
+                ti_closure_t * closure = ti_closure_from_strn(
+                        &syntax,
+                        (const char *) spec_raw->data,
+                        spec_raw->n,
+                        e);
+                if (!closure)
+                    goto fail0;
+
+                ti_val_unsafe_drop(prop->val);
+                prop->val = (ti_val_t *) closure;
+            }
+        }
+    }
+
+    type = ti_type_create_unnamed(
+            field->type->types,
+            field->type->rname,
+            flags);
+    if (!type)
+    {
+        ex_set_mem(e);
+        goto fail0;
+    }
+
+    if (ti_type_init_from_thing(type, thing, e))
+        ti_type_drop_unnamed(type);
+    else
+        field->condition.type = type;
+
+fail0:
+    ti_val_unsafe_drop(val);
+    return e->nr;
+}
+
 void ti_condition_destroy(ti_condition_via_t condition, uint16_t spec)
 {
     if (!condition.none)
@@ -747,6 +841,10 @@ void ti_condition_destroy(ti_condition_via_t condition, uint16_t spec)
 
     switch((ti_spec_enum_t) spec)
     {
+    case TI_SPEC_TYPE:
+    case TI_SPEC_ARR_TYPE:
+        ti_type_drop_unnamed(condition.type);
+        return;
     case TI_SPEC_ANY:
         return;  /* a field may be set to ANY while using mod_type in which
                     case a condition should be left alone */

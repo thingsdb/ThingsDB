@@ -51,7 +51,10 @@ static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
     {
         p = (uintptr_t) field->name;
         if (msgpack_pack_uint64(pk, p) ||
-            mp_pack_strn(pk, field->spec_raw->data, field->spec_raw->n)
+            (ti_raw_is_mpdata(field->spec_raw)
+              ? mp_pack_bin(pk, field->spec_raw->data, field->spec_raw->n)
+              : mp_pack_strn(pk, field->spec_raw->data, field->spec_raw->n)
+            )
         ) return -1;
     }
 
@@ -69,8 +72,11 @@ static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
     return 0;
 }
 
-static int count_relations_cb(ti_type_t * type, size_t * n)
+static int count_cb(ti_type_t * type, size_t * n)
 {
+    if (ti_type_is_wrap_only(type))
+        return 0;
+
     for (vec_each(type->fields, ti_field_t, field))
     {
         if (ti_field_has_relation(field))
@@ -124,7 +130,7 @@ int ti_store_types_store(ti_types_t * types, const char * fn)
     }
 
     /* count the number of relations */
-    (void) imap_walk(types->imap, (imap_cb) count_relations_cb, &n);
+    (void) imap_walk(types->imap, (imap_cb) count_cb, &n);
 
     msgpack_packer_init(&pk, f, msgpack_fbuffer_write);
 
@@ -173,7 +179,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     size_t i, ii;
     uint16_t type_id;
     uintptr_t utype_id;
-    ti_raw_t * spec;
+    ti_raw_t * spec_raw;
     mp_obj_t obj, mp_id, mp_name, mp_wpo, mp_hid,
              mp_spec, mp_created, mp_modified;
     mp_unp_t up;
@@ -350,14 +356,16 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
         for (ii = obj.via.sz; ii--;)
         {
             if (mp_next(&up, &mp_id) != MP_U64 ||
-                mp_next(&up, &mp_spec) != MP_STR
+                (mp_next(&up, &mp_spec) != MP_STR && mp_spec.tp != MP_BIN)
             ) goto fail1;
 
             name = imap_get(names, mp_id.via.u64);
             if (!name)
                 goto fail1;
 
-            if (mp_spec.via.str.n == 1 && mp_spec.via.str.data[0] == '#')
+            if (mp_spec.tp == MP_STR &&
+                mp_spec.via.str.n == 1 &&
+                mp_spec.via.str.data[0] == '#')
             {
                 if (type->idname)
                     goto fail1;
@@ -366,17 +374,19 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
                 continue;
             }
 
-            spec = ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n);
-            if (!spec)
+            spec_raw = mp_spec.tp == MP_STR
+                ? ti_str_create(mp_spec.via.str.data, mp_spec.via.str.n)
+                : ti_mp_create(mp_spec.via.bin.data, mp_spec.via.bin.n);
+            if (!spec_raw)
                 goto fail1;
 
-            if (!ti_field_create(name, spec, type, &e))
+            if (!ti_field_create(name, spec_raw, type, &e))
             {
                 log_critical(e.msg);
                 goto fail1;
             }
 
-            ti_decref(spec);
+            ti_decref(spec_raw);
         }
 
         if (!with_methods)

@@ -1597,6 +1597,8 @@ set_enum('Str', {
 
 new_type('Friend');
 new_type('Person');
+new_type('W', true, true);
+new_type('WW', false, true);
 
 set_type('Friend', {
   person: 'Person',
@@ -1606,6 +1608,19 @@ set_type('Person', {
   name: 'str',
   age: 'int',
   upper: |this| this.name..upper(),
+});
+set_type('W', {
+  arr: [{
+    w: '?W?',
+  }],
+  obj: {
+    obj: {
+      x: 'int',
+    },
+    func: |this| {
+      this.obj.x + 42;
+    },
+  },
 });
 
 

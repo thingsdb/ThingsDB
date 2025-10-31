@@ -5,6 +5,7 @@
 * Fixed missing wrap-prefix flags after renaming type, issue #416.
 * Allow defining nested structure in wrap type, pr #417.
 * Self-reference within a wrap-only type is no longer required to be nillable, issue #418.
+* Fixed missing `hide_id` flag in export, pr #419.
 
 # v1.7.6
 

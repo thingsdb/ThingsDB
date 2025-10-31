@@ -23,7 +23,7 @@ struct ti_fmt_s
 void ti_fmt_init(ti_fmt_t * fmt, int spaces);
 void ti_fmt_clear(ti_fmt_t * fmt);
 int ti_fmt_nd(ti_fmt_t * fmt, cleri_node_t * nd);
-int ti_fmt_ti_string(ti_fmt_t * fmt, ti_raw_t * raw);
+int ti_fmt_strn(ti_fmt_t * fmt, const char * str, size_t n);
 
 static inline int ti_fmt_indent(ti_fmt_t * fmt)
 {
@@ -41,5 +41,11 @@ static inline int ti_fmt_indent(ti_fmt_t * fmt)
     }
     return 0;
 }
+
+static inline int ti_fmt_ti_string(ti_fmt_t * fmt, ti_raw_t * raw)
+{
+    return ti_fmt_strn(fmt, (const char *) raw->data, raw->n);
+}
+
 
 #endif  /* TI_FMT_H_ */

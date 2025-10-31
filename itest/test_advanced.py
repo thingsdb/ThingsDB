@@ -1617,6 +1617,9 @@ set_type('W', {
     obj: {
       x: 'int',
     },
+    func: |this| {
+      this.obj.x + 42;
+    },
   },
 });
 

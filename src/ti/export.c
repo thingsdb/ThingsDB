@@ -41,6 +41,25 @@ static int export__mp_dump_up(ti_fmt_t * fmt, mp_unp_t * up)
     case MP_BIN:
         return -1;
     case MP_STR:
+        if (obj.via.str.n && *obj.via.str.data == '|')
+        {
+            int rc;
+            ex_t e = {0};
+            ti_qbind_t syntax = {
+                .immutable_n = 0,
+                .flags = TI_QBIND_FLAG_COLLECTION,
+            };
+            ti_closure_t * closure = ti_closure_from_strn(
+                    &syntax,
+                    obj.via.str.data,
+                    obj.via.str.n,
+                    &e);
+            if (!closure)
+                return -1;
+            rc = ti_fmt_nd(fmt, closure->node);
+            ti_closure_destroy(closure);
+            return rc;
+        }
         return ti_fmt_strn(fmt, obj.via.str.data, obj.via.str.n);
     case MP_BOOL:
         return obj.via.bool_
@@ -133,7 +152,7 @@ static int export__set_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
     ++fmt->indent;
 
     /*
-     * TOFO: test quotes etc. in definition
+     * TODO: test quotes etc. in definition
      */
     for (vec_each(type_->fields, ti_field_t, field))
     {

@@ -4,6 +4,7 @@
 * Changed `copy()` behavior for wrapped type, pr #415.
 * Fixed missing wrap-prefix flags after renaming type, issue #416.
 * Allow defining nested structure in wrap type, pr #417.
+* Self-reference within a wrap-only type is no longer required to be nillable, issue #418.
 
 # v1.7.6
 

@@ -595,7 +595,6 @@ fail:
     return -1;
 }
 
-
 static int wrap__field_thing_type(
         ti_thing_t * thing,
         ti_vp_t * vp,

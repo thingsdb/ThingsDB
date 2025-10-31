@@ -89,8 +89,7 @@ int types__spec_flags_pos(const unsigned char * x)
            x[i] == '+' ||
            x[i] == '*' ||
            x[i] == '?' ||
-           x[i] == '!'
-)
+           x[i] == '!')
        i++;
     return i;
 }

@@ -951,7 +951,7 @@ vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id)
     if (ti_scope_init(&scope, (const char *) raw->data, raw->n, e))
         return NULL;
 
-    switch (scope.tp)
+    switch(scope.tp)
     {
     case TI_SCOPE_THINGSDB:
         *scope_id = TI_SCOPE_THINGSDB;

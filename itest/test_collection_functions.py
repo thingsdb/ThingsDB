@@ -6006,6 +6006,44 @@ class TestCollectionFunctions(TestBase):
         """)
         self.assertEqual(res, 42)
 
+    async def test_type_all(self, client):
+        q = client.query
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `type_all` is undefined in the `@thingsdb` scope;'):
+            await q('type_all("T");', scope='/t')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `type_all` takes 1 argument but 0 were given;'):
+            await q('type_all();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `type_all` expects argument 1 to be of type `str` '
+                'but got type `int` instead'):
+            await q('type_all(1);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `T` not found'):
+            await q('type_all("T");')
+
+        r = await q("""//ti
+                    set_type('T', {
+                        name: 'str',
+                    });
+                    mod_type('T', 'add', 't', 'T?');
+                    .t1 = T{};
+                    .t2 = T{};
+                    .t2.t = .t2;
+                    .t2 = nil;  // test gc
+                    t3 = T{};
+                    type_all('T').len();
+        """)
+        self.assertEqual(r, 3)
+
 
 if __name__ == '__main__':
     run_test(TestCollectionFunctions())

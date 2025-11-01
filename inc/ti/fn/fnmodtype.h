@@ -46,24 +46,6 @@ static inline int modtype__delv_cb(ti_thing_t * thing, ti_field_t * field)
 
 typedef struct
 {
-    ti_type_t * type;
-    imap_t * imap;
-} modtype__collect_t;
-
-static int modtype__collect_cb(ti_thing_t * thing, modtype__collect_t * w)
-{
-    if (thing->type_id == w->type->type_id)
-    {
-        if (imap_add(w->imap, ti_thing_key(thing), thing))
-            return -1;
-
-        ti_incref(thing);
-    }
-    return 0;
-}
-
-typedef struct
-{
     ti_field_t * field;
     ti_closure_t * closure;
     ti_query_t * query;
@@ -309,37 +291,6 @@ static int modtype__all_cb(ti_thing_t * thing, modtype__all_t * w)
     w->query->rval = NULL;
 
     return w->e->nr;
-}
-
-static imap_t * modtype__collect_things(ti_query_t * query, ti_type_t * type)
-{
-    modtype__collect_t collect = {
-            .imap = imap_create(),
-            .type = type,
-    };
-
-    if (!collect.imap)
-        return NULL;
-
-    if (ti_query_vars_walk(
-            query->vars,
-            query->collection,
-            (imap_cb) modtype__collect_cb,
-            &collect) ||
-        imap_walk(
-                query->collection->things,
-                (imap_cb) modtype__collect_cb,
-                &collect) ||
-        ti_gc_walk(
-                query->collection->gc,
-                (queue_cb) modtype__collect_cb,
-                &collect))
-    {
-        imap_destroy(collect.imap, (imap_destroy_cb) ti_val_unsafe_drop);
-        return NULL;
-    }
-
-    return collect.imap;
 }
 
 static void type__add(
@@ -609,7 +560,7 @@ static void type__add(
                 .e = e,
         };
 
-        imap = modtype__collect_things(query, type);
+        imap = ti_type_collect_things(query, type);
         if (!imap)
         {
             ex_set_mem(e);
@@ -775,7 +726,7 @@ static int type__mod_using_callback(
     if (!modjob.dval)
         goto fail2;  /* error is set */
 
-    imap = modtype__collect_things(query, field->type);
+    imap = ti_type_collect_things(query, field->type);
     if (!imap)
     {
         ex_set_mem(e);
@@ -817,7 +768,7 @@ static int type__mod_using_callback(
             (imap_cb) modtype__unlocked_cb,
             NULL);
 
-    imap_after = modtype__collect_things(query, field->type);
+    imap_after = ti_type_collect_things(query, field->type);
     if (imap_after)
     {
         imap_difference_inplace(imap_after, imap);
@@ -1393,7 +1344,7 @@ static void type__all(
         ti_closure_inc(closure, query, e))
         goto fail0;
 
-    imap = modtype__collect_things(query, type);
+    imap = ti_type_collect_things(query, type);
     if (!imap)
     {
         ex_set_mem(e);

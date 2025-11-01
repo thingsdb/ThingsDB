@@ -18,6 +18,7 @@
 #include <ti/val.t.h>
 #include <util/mpack.h>
 #include <util/vec.h>
+#include <util/imap.h>
 
 ti_type_t * ti_type_create(
         ti_types_t * types,
@@ -31,6 +32,7 @@ ti_type_t * ti_type_create_unnamed(
         ti_types_t * types,
         ti_raw_t * name,
         uint8_t flags);
+imap_t * ti_type_collect_things(ti_query_t * query, ti_type_t * type);
 void ti_type_drop(ti_type_t * type);
 void ti_type_drop_unnamed(ti_type_t * type);
 void ti_type_del(ti_type_t * type, vec_t * vars);

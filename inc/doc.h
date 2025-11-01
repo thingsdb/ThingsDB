@@ -126,6 +126,7 @@
 #define DOC_TIMEVAL                 DOC_SEE("collection-api/timeval")
 #define DOC_TRY                     DOC_SEE("collection-api/try")
 #define DOC_TYPE                    DOC_SEE("collection-api/type")
+#define DOC_TYPE_ALL                DOC_SEE("collection-api/type_all")
 #define DOC_TYPE_ASSERT             DOC_SEE("collection-api/type_assert")
 #define DOC_TYPE_COUNT              DOC_SEE("collection-api/type_count")
 #define DOC_TYPE_INFO               DOC_SEE("collection-api/type_info")

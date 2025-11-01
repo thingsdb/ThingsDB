@@ -1,4 +1,4 @@
-# v1.8.0-alpha5
+# v1.8.0-alpha6
 
 * Added `TI_PROTO_CLIENT_REQ_EMIT_PEER` protocol, pr #414.
 * Changed `copy()` behavior for wrapped type, pr #415.
@@ -8,6 +8,7 @@
 * Fixed missing `hide_id` flag in export, pr #419.
 * Include export enumerator members of type `thing`, pr #420.
 * Fixed missing "ID" (`#`) field in export, issue #421.
+* Added `type_all()` function, pr #422.
 
 # v1.7.6
 

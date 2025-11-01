@@ -3,7 +3,6 @@
 static int do__f_type_all(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    imap_t * imap;
     ti_type_t * type;
     ti_vset_t * vset;
 
@@ -17,19 +16,31 @@ static int do__f_type_all(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!type)
         return ti_raw_err_not_found((ti_raw_t *) query->rval, "type", e);
 
-    imap = ti_type_collect_things(query, type);
-    if (!imap)
+    if (ti_type_is_wrap_only(type))
     {
-        ex_set_mem(e);
-        return e->nr;
+        vset = ti_vset_create();
+        if (!vset)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
     }
-
-    vset = ti_vset_create_imap(imap);
-    if (!vset)
+    else
     {
-        ex_set_mem(e);
-        imap_destroy(imap, (imap_destroy_cb) ti_val_unsafe_drop);
-        return e->nr;
+        imap_t * imap = ti_type_collect_things(query, type);
+        if (!imap)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+
+        vset = ti_vset_create_imap(imap);
+        if (!vset)
+        {
+            ex_set_mem(e);
+            imap_destroy(imap, (imap_destroy_cb) ti_val_unsafe_drop);
+            return e->nr;
+        }
     }
 
     ti_val_unsafe_drop(query->rval);

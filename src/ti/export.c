@@ -414,13 +414,13 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
     }
     case TI_VAL_SET:
     {
-        imap_t * map = VSET(val);
-        if (!map->n)
+        imap_t * imap = VSET(val);
+        if (!imap->n)
             return buf_append_str(buf, "set()");
         if (buf_append_str(buf, "set(\n"))
             return -1;
         fmt->indent++;
-        if (imap_walk(map, (imap_cb) export__set_val, fmt))
+        if (imap_walk(imap, (imap_cb) export__set_val, fmt))
             return -1;
         fmt->indent--;
         return -(

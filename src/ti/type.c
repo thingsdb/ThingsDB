@@ -26,6 +26,24 @@
 #include <ti/types.inline.h>
 #include <ti/val.inline.h>
 
+typedef struct
+{
+    ti_type_t * type;
+    imap_t * imap;
+} type__collect_t;
+
+static int type__collect_cb(ti_thing_t * thing, type__collect_t * w)
+{
+    if (thing->type_id == w->type->type_id)
+    {
+        if (imap_add(w->imap, ti_thing_key(thing), thing))
+            return -1;
+
+        ti_incref(thing);
+    }
+    return 0;
+}
+
 static char * type__wrap_name(const char * name, size_t n)
 {
     char * wname;
@@ -112,6 +130,37 @@ ti_type_t * ti_type_create_unnamed(
     }
 
     return type;
+}
+
+imap_t * ti_type_collect_things(ti_query_t * query, ti_type_t * type)
+{
+    type__collect_t collect = {
+            .imap = imap_create(),
+            .type = type,
+    };
+
+    if (!collect.imap)
+        return NULL;
+
+    if (ti_query_vars_walk(
+            query->vars,
+            query->collection,
+            (imap_cb) type__collect_cb,
+            &collect) ||
+        imap_walk(
+                query->collection->things,
+                (imap_cb) type__collect_cb,
+                &collect) ||
+        ti_gc_walk(
+                query->collection->gc,
+                (queue_cb) type__collect_cb,
+                &collect))
+    {
+        imap_destroy(collect.imap, (imap_destroy_cb) ti_val_unsafe_drop);
+        return NULL;
+    }
+
+    return collect.imap;
 }
 
 /* used as a callback function and removes all cached type mappings */

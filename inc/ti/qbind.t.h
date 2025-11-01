@@ -23,7 +23,6 @@ typedef enum
 
 typedef enum
 {
-    /* first three flags are exclusive, only one may be set */
     TI_QBIND_FLAG_NSE           =1<<TI_QBIND_BIT_NSE,
 
     TI_QBIND_FLAG_THINGSDB      =1<<TI_QBIND_BIT_THINGSDB,

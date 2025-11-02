@@ -3140,16 +3140,39 @@ fail_pack:
     return -1;
 }
 
-void ti_task_pack_mig_add(msgpack_packer * pk, ti_mig_t * mig)
+int ti_task_add_mig_add(ti_task_t * task, ti_mig_t * mig)
 {
+    size_t alloc = (50 + mig->query->n + mig->info->n + mig->by->n + (
+        mig->err_msg ? mig->err_msg->n : 0)
+    );
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
     msgpack_pack_array(pk, 2);
 
     msgpack_pack_uint8(pk, TI_TASK_MIG_ADD);
-    msgpack_pack_array(pk, 5);
+    msgpack_pack_array(pk, 5 + !!mig->err_msg);
 
     msgpack_pack_uint64(pk, mig->id);
     msgpack_pack_uint64(pk, (uint64_t) mig->ts);
     mp_pack_strn(pk, mig->query->data, mig->query->n);
     mp_pack_strn(pk, mig->info->data, mig->info->n);
     mp_pack_strn(pk, mig->by->data, mig->by->n);
+    if (mig->err_msg)
+        mp_pack_strn(pk, mig->err_msg->data, mig->err_msg->n);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
 }

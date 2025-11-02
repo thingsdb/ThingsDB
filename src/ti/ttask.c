@@ -703,7 +703,7 @@ static int ttask__whitelist_del(mp_unp_t * up)
     return 0;
 }
 
-static int ttask__keep_historyl(mp_unp_t * up)
+static int ttask__set_historyl(mp_unp_t * up)
 {
     vec_t ** migs;
     mp_obj_t obj, mp_scope, mp_state;
@@ -712,7 +712,7 @@ static int ttask__keep_historyl(mp_unp_t * up)
         mp_next(up, &mp_scope) != MP_U64 ||
         mp_next(up, &mp_state) != MP_BOOL)
     {
-        log_critical("task `keep_history`: invalid task data");
+        log_critical("task `set_history`: invalid task data");
         return -1;
     }
 
@@ -724,7 +724,7 @@ static int ttask__keep_historyl(mp_unp_t * up)
         if (!collection)
         {
             log_critical(
-                    "task `keep_history`: "TI_COLLECTION_ID" not found",
+                    "task `set_history`: "TI_COLLECTION_ID" not found",
                     mp_scope.via.u64);
             return -1;
         }
@@ -735,9 +735,9 @@ static int ttask__keep_historyl(mp_unp_t * up)
         migs = &ti.migs;
     }
 
-    if (ti_mig_keep_history(&migs, mp_state.via.bool_))
+    if (ti_mig_set_history(&migs, mp_state.via.bool_))
     {
-        log_critical("failed to set `keep_history`");
+        log_critical("failed to set `set_history`");
         return -1;
     }
 
@@ -1776,7 +1776,7 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_ROOM_SET_NAME:     break;
     case TI_TASK_WHITELIST_ADD:     return ttask__whitelist_add(up);
     case TI_TASK_WHITELIST_DEL:     return ttask__whitelist_del(up);
-    case TI_TASK_KEEP_HISTORY:      return ttask__keep_history(up);
+    case TI_TASK_SET_HISTORY:       return ttask__set_history(up);
     case TI_TASK_MIG_ADD:           return ttask__mig_add(up);
     case TI_TASK_MIG_DEL:           return ttask__mig_del(up);
     }

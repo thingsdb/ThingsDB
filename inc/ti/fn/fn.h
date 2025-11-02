@@ -35,6 +35,7 @@
 #include <ti/member.h>
 #include <ti/member.inline.h>
 #include <ti/method.h>
+#include <ti/mig.h>
 #include <ti/mod/expose.h>
 #include <ti/mod/expose.t.h>
 #include <ti/mod/github.h>
@@ -440,6 +441,17 @@ static inline int fn_arg_name_check(
         ex_set(e, EX_VALUE_ERROR,
             "function `%s` expects argument %d to follow the naming rules"
             DOC_NAMES, name, argn);
+    return e->nr;
+}
+
+static int fn_commit(const char * name, ti_query_t * query, ex_t * e)
+{
+    if (ti_query_migs(query) && !query->mig)
+        ex_set(e, EX_OPERATION,
+            "function `%s` requires a commit "
+            "before it can be used in the `%s` scope"DOC_COMMIT,
+             name,
+             ti_query_scope_name(query));
     return e->nr;
 }
 

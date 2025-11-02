@@ -42,7 +42,6 @@ void ti_query_done(ti_query_t * query, ex_t * e, ti_query_done_cb cb);
 void ti_query_on_future_result(ti_future_t * future, ex_t * e);
 int ti_query_unpack_args(ti_query_t * query, mp_unp_t * up, ex_t * e);
 int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e);
-int ti_query_set_mig(ti_query_t * query);
 ti_prop_t * ti_query_var_get(ti_query_t * query, ti_name_t * name);
 ti_thing_t * ti_query_thing_from_id(
         ti_query_t * query,

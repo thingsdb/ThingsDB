@@ -14,7 +14,9 @@ ti_mig_t * ti_mig_create(
         const char * info,
         size_t info_n,
         const char * by,
-        size_t by_n)
+        size_t by_n,
+        const char * err_msg,
+        size_t err_msg_n)
 {
     ti_mig_t * mig = malloc(sizeof(ti_mig_t));
     if (!mig)
@@ -35,7 +37,18 @@ ti_mig_t * ti_mig_create(
     if (!mig->by)
         goto fail2;
 
+    if (err_msg)
+    {
+        mig->err_msg = ti_str_create(err_msg, err_msg_n);
+        if (!mig->err_msg)
+            goto fail3;
+    }
+    else
+        mig->err_msg = NULL;
+
     return mig;
+fail3:
+    ti_val_unsafe_drop(mig->by);
 fail2:
     ti_val_unsafe_drop(mig->info);
 fail1:
@@ -65,6 +78,7 @@ ti_mig_t * ti_mig_create_q(
 
     mig->info = ti_val_empty_str();
     mig->by = ti_grab(by);
+    mig->err_msg = NULL;
     return mig;
 }
 
@@ -75,10 +89,11 @@ void ti_mig_destroy(ti_mig_t * mig)
     ti_val_unsafe_drop(mig->query);
     ti_val_unsafe_drop(mig->info);
     ti_val_unsafe_drop(mig->by);
+    ti_val_drop(mig->err_msg);
     free(mig);
 }
 
-int ti_mig_keep_history(vec_t ** migs, _Bool state)
+int ti_mig_set_history(vec_t ** migs, _Bool state)
 {
     if (state)
     {

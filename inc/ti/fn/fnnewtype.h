@@ -11,6 +11,7 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     uint8_t flags = 0;
 
     if (fn_not_collection_scope("new_type", query, e) ||
+        fn_commit("new_type", query, e) ||
         fn_nargs_range("new_type", DOC_NEW_TYPE, 1, 3, nargs, e) ||
         ti_do_statement(query, child, e) ||
         fn_arg_str("new_type", DOC_NEW_TYPE, 1, query->rval, e))

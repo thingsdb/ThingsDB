@@ -62,7 +62,7 @@ ti_query_run_cb ti_query_run_map[] = {
  */
 static ti_cpkg_t * query__cpkg_change(ti_query_t * query)
 {
-    size_t init_buffer_sz = 40 + ti_task_size_mig_add(query->mig);
+    size_t init_buffer_sz = 40;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
     ti_cpkg_t * cpkg;
@@ -76,7 +76,7 @@ static ti_cpkg_t * query__cpkg_change(ti_query_t * query)
         return NULL;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_array(&pk, tasks->n + 2 + !!query->mig);
+    msgpack_pack_array(&pk, tasks->n + 2);
     msgpack_pack_uint64(&pk, query->change->id);
     msgpack_pack_uint64(&pk, tasks->n && query->collection
             ? query->collection->id
@@ -89,9 +89,6 @@ static ti_cpkg_t * query__cpkg_change(ti_query_t * query)
         for (vec_each(task->list, ti_data_t, data))
             mp_pack_append(&pk, data->data, data->n);
     }
-
-    if (query->mig)
-        ti_task_pack_mig_add(&pk, query->mig);
 
     pkg = (ti_pkg_t *) buffer.data;
     pkg_init(pkg, 0, TI_PROTO_NODE_CHANGE, buffer.size);
@@ -158,31 +155,6 @@ int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
 
     assert(0);
     return e->nr;
-}
-
-int ti_query_check_commit
-
-int ti_query_set_mig(ti_query_t * query)
-{
-    if (query->mig)
-        return 0;
-
-    if (!query->user ||
-        !query->change ||
-        query->with_tp != TI_QUERY_WITH_PARSERES)
-        return -1;
-
-    query->mig = ti_mig_create_q(
-            query->change->id,
-            (time_t) util_now_usec(),
-            query->with.parseres->str,
-            strlen(query->with.parseres->str),
-            "",
-            0,
-            query->user->name->data,
-            query->user->name->n);
-
-    return !!query->mig;
 }
 
 ti_query_t * ti_query_create(uint8_t flags)
@@ -982,8 +954,23 @@ void ti_query_run_parseres(ti_query_t * query)
 
 stop:
     if (query->change)
-        query__change_handle(query);  /* errors will be logged only */
+    {
+        if (query->mig)
+        {
+            ti_task_t * task;
 
+            if (e.nr)  /* set error if any, not critical if failed */
+                query->mig->err_msg = ti_str_create(e.msg, e.n);
+
+            task = ti_task_get_task(
+                    query->change,
+                    query->collection ? query->collection->root : ti.thing0);
+
+            if (task)
+                (void) ti_task_add_mig_add(task, query->mig);
+        }
+        query__change_handle(query);  /* errors will be logged only */
+    }
     ti_query_done(query, &e, &ti_query_send_response);
 }
 

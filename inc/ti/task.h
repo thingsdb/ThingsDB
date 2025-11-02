@@ -188,5 +188,12 @@ int ti_task_add_whitelist_del(
         ti_user_t * user,
         ti_val_t * val,
         int wid);
+void ti_task_pack_mig_add(msgpack_packer * pk, ti_mig_t * mig);
+
+static inline size_t ti_task_size_mig_add(ti_mig_t * mig)
+{
+    return mig ? (48 + mig->query->n + mig->info->n + mig->by->n) : 0;
+}
+
 
 #endif /* TI_TASK_H_ */

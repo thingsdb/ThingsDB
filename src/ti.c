@@ -89,6 +89,7 @@ int ti_create(void)
     ti.node = NULL;
     ti.store = NULL;
     ti.tasks = NULL;
+    ti.migs = NULL;
     ti.access_node = vec_new(0);
     ti.access_thingsdb = vec_new(0);
     ti.procedures = smap_create();

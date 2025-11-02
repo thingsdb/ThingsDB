@@ -3139,3 +3139,17 @@ fail_pack:
     msgpack_sbuffer_destroy(&buffer);
     return -1;
 }
+
+void ti_task_pack_mig_add(msgpack_packer * pk, ti_mig_t * mig)
+{
+    msgpack_pack_array(pk, 2);
+
+    msgpack_pack_uint8(pk, TI_TASK_MIG_ADD);
+    msgpack_pack_array(pk, 5);
+
+    msgpack_pack_uint64(pk, mig->id);
+    msgpack_pack_uint64(pk, (uint64_t) mig->ts);
+    mp_pack_strn(pk, mig->query->data, mig->query->n);
+    mp_pack_strn(pk, mig->info->data, mig->info->n);
+    mp_pack_strn(pk, mig->by->data, mig->by->n);
+}

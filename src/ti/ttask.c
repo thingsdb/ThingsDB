@@ -703,6 +703,47 @@ static int ttask__whitelist_del(mp_unp_t * up)
     return 0;
 }
 
+static int ttask__keep_historyl(mp_unp_t * up)
+{
+    vec_t ** migs;
+    mp_obj_t obj, mp_scope, mp_state;
+
+    if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2
+        mp_next(up, &mp_scope) != MP_U64 ||
+        mp_next(up, &mp_state) != MP_BOOL)
+    {
+        log_critical("task `keep_history`: invalid task data");
+        return -1;
+    }
+
+    if (mp_scope.via.u64 > 1)
+    {
+        ti_collection_t * collection = \
+                ti_collections_get_by_id(mp_scope.via.u64);
+
+        if (!collection)
+        {
+            log_critical(
+                    "task `keep_history`: "TI_COLLECTION_ID" not found",
+                    mp_scope.via.u64);
+            return -1;
+        }
+        migs = &collection->migs;
+    }
+    else
+    {
+        migs = &ti.migs;
+    }
+
+    if (ti_mig_keep_history(&migs, mp_state.via.bool_))
+    {
+        log_critical("failed to set `keep_history`");
+        return -1;
+    }
+
+    return 0;
+}
+
 /*
  * Returns 0 on success
  * - for example: {'id': id, 'key': value}, 'expire_ts': ts, 'description':..}
@@ -1735,6 +1776,9 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_ROOM_SET_NAME:     break;
     case TI_TASK_WHITELIST_ADD:     return ttask__whitelist_add(up);
     case TI_TASK_WHITELIST_DEL:     return ttask__whitelist_del(up);
+    case TI_TASK_KEEP_HISTORY:      return ttask__keep_history(up);
+    case TI_TASK_MIG_ADD:           return ttask__mig_add(up);
+    case TI_TASK_MIG_DEL:           return ttask__mig_del(up);
     }
 
     log_critical("unknown thingsdb task: %"PRIu64, mp_task.via.u64);

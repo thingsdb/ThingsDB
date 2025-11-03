@@ -188,6 +188,6 @@ int ti_task_add_whitelist_del(
         ti_user_t * user,
         ti_val_t * val,
         int wid);
-int ti_task_add_mig_add(ti_task_t * task, ti_mig_t * mig);
+int ti_task_add_commit_add(ti_task_t * task, ti_commit_t * commit);
 
 #endif /* TI_TASK_H_ */

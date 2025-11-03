@@ -3,8 +3,8 @@
 static int do__f_commit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    vec_t ** migs = ti_query_migs(query);
-    ti_mig_t * mig;
+    vec_t ** commits = ti_query_commits(query);
+    ti_commit_t * commit;
 
     if (fn_not_thingsdb_or_collection_scope("commit", query, e) ||
         fn_nargs("commit", DOC_COMMIT, 1, nargs, e) ||
@@ -15,30 +15,12 @@ static int do__f_commit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     raw = (ti_raw_t *) query->rval;
     query->rval = NULL;
 
-    if (!(*migs))
+    if (!(*commits))
     {
         ex_set(e, EX_OPERATION,
                 "commit history is not enabled for the `%s` scope"
                 DOC_SET_HISTORY,
                 ti_query_scope_name(query));
-        goto fail0;
-    }
-
-    if (!query->change)
-    {
-        ex_set(e, EX_OPERATION, "commit without a change"DOC_SET_HISTORY);
-        goto fail0;
-    }
-
-    if (!raw->n)
-    {
-        ex_set(e, EX_VALUE_ERROR, "commit message must not be empty");
-        goto fail0;
-    }
-
-    if (query->mig)
-    {
-        ex_set(e, EX_OPERATION, "commit message already set");
         goto fail0;
     }
 
@@ -60,12 +42,39 @@ static int do__f_commit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             goto fail0;
     }
 
-    mig = ti_mig_create_q(
-        query->change->id, query->with.parseres->str, query->user->name);
-
-    if (!mig || vec_push(migs, mig))
+    if (!query->change)
     {
-        ti_mig_destroy(mig);
+        ex_set(e, EX_OPERATION, "commit without a change"DOC_SET_HISTORY);
+        goto fail0;
+    }
+
+    if (!query->user)
+    {
+        ex_set(e, EX_OPERATION, "commit without a user"DOC_SET_HISTORY);
+        goto fail0;
+    }
+
+    if (!raw->n)
+    {
+        ex_set(e, EX_VALUE_ERROR, "commit message must not be empty");
+        goto fail0;
+    }
+
+    if (query->commit)
+    {
+        ex_set(e, EX_OPERATION, "commit message already set");
+        goto fail0;
+    }
+
+    commit = ti_commit_make(
+        query->change->id,
+        query->with.parseres->str,
+        query->user->name,
+        raw);
+
+    if (!commit || vec_push(commits, commit))
+    {
+        ti_commit_destroy(commit);
         ex_set_mem(e);
         goto fail0;
     }

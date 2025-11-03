@@ -955,19 +955,19 @@ void ti_query_run_parseres(ti_query_t * query)
 stop:
     if (query->change)
     {
-        if (query->mig)
+        if (query->commit)
         {
             ti_task_t * task;
 
             if (e.nr)  /* set error if any, not critical if failed */
-                query->mig->err_msg = ti_str_create(e.msg, e.n);
+                query->commit->err_msg = ti_str_create(e.msg, e.n);
 
             task = ti_task_get_task(
                     query->change,
                     query->collection ? query->collection->root : ti.thing0);
 
             if (task)
-                (void) ti_task_add_mig_add(task, query->mig);
+                (void) ti_task_add_commit_add(task, query->commit);
         }
         query__change_handle(query);  /* errors will be logged only */
     }

@@ -705,7 +705,7 @@ static int ttask__whitelist_del(mp_unp_t * up)
 
 static int ttask__set_historyl(mp_unp_t * up)
 {
-    vec_t ** migs;
+    vec_t ** commits;
     mp_obj_t obj, mp_scope, mp_state;
 
     if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2
@@ -728,14 +728,14 @@ static int ttask__set_historyl(mp_unp_t * up)
                     mp_scope.via.u64);
             return -1;
         }
-        migs = &collection->migs;
+        commits = &collection->commits;
     }
     else
     {
-        migs = &ti.migs;
+        commits = &ti.commits;
     }
 
-    if (ti_mig_set_history(&migs, mp_state.via.bool_))
+    if (ti_commit_set_history(&commits, mp_state.via.bool_))
     {
         log_critical("failed to set `set_history`");
         return -1;
@@ -1777,8 +1777,8 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_WHITELIST_ADD:     return ttask__whitelist_add(up);
     case TI_TASK_WHITELIST_DEL:     return ttask__whitelist_del(up);
     case TI_TASK_SET_HISTORY:       return ttask__set_history(up);
-    case TI_TASK_MIG_ADD:           return ttask__mig_add(up);
-    case TI_TASK_MIG_DEL:           return ttask__mig_del(up);
+    case TI_TASK_COMMIT_DEL:        return ttask__commit_del(up);
+    case TI_TASK_COMMIT_ADD:        return ttask__commit_add(up);
     }
 
     log_critical("unknown thingsdb task: %"PRIu64, mp_task.via.u64);

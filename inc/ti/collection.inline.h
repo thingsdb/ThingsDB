@@ -13,7 +13,7 @@ static inline int ti_collection_to_pk(
         msgpack_packer * pk)
 {
     return -(
-        msgpack_pack_map(pk, 7) ||
+        msgpack_pack_map(pk, 8) ||
 
         mp_pack_str(pk, "collection_id") ||
         msgpack_pack_uint64(pk, collection->id) ||
@@ -34,7 +34,12 @@ static inline int ti_collection_to_pk(
         msgpack_pack_uint64(pk, collection->deep) ||
 
         mp_pack_str(pk, "next_free_id") ||
-        msgpack_pack_uint64(pk, collection->next_free_id)
+        msgpack_pack_uint64(pk, collection->next_free_id) ||
+
+        mp_pack_str(pk, "commit_history") ||
+        (collection->commits
+                ? msgpack_pack_uint32(pk, collection->commits->n)
+                : mp_pack_str(pk, "disabled"))
     );
 }
 

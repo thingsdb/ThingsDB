@@ -89,7 +89,7 @@ int ti_create(void)
     ti.node = NULL;
     ti.store = NULL;
     ti.tasks = NULL;
-    ti.migs = NULL;
+    ti.commits = NULL;
     ti.access_node = vec_new(0);
     ti.access_thingsdb = vec_new(0);
     ti.procedures = smap_create();
@@ -956,7 +956,7 @@ int ti_this_node_to_pk(msgpack_packer * pk)
     const char * architecture = osarch_get_arch();
 
     return (
-        msgpack_pack_map(pk, 41) ||
+        msgpack_pack_map(pk, 42) ||
         /* 1 */
         mp_pack_str(pk, "node_id") ||
         msgpack_pack_uint32(pk, ti.node->id) ||
@@ -1083,9 +1083,15 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         /* 40 */
         mp_pack_str(pk, "next_free_id") ||
         msgpack_pack_uint64(pk, ti.node->next_free_id) ||
-        /* 4 */
+        /* 41 */
         mp_pack_str(pk, "libwebsockets_version") ||
-        mp_pack_str(pk, lws_get_library_version())
+        mp_pack_str(pk, lws_get_library_version() ||
+        /* 42 */
+        mp_pack_str(pk, "commit_history") ||
+        (ti.commits
+                ? msgpack_pack_uint32(pk, ti.commits->n)
+                : mp_pack_str(pk, "disabled"))
+    )
     );
 }
 

@@ -313,6 +313,7 @@ static int do__f_mod_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = fn_get_nargs(nd);
 
     if (fn_not_collection_scope("mod_enum", query, e) ||
+        fn_commit("mod_enum", query, e) ||
         fn_nargs_min("mod_enum", DOC_MOD_ENUM, 3, nargs, e) ||
         ti_do_statement(query, child, e) ||
         fn_arg_str_slow("mod_enum", DOC_MOD_ENUM, 1, query->rval, e))

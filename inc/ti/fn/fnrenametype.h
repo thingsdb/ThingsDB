@@ -9,6 +9,7 @@ static int do__f_rename_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 
     if (fn_not_collection_scope("rename_type", query, e) ||
+        fn_commit("rename_type", query, e) ||
         fn_nargs("rename_type", DOC_RENAME_TYPE, 2, nargs, e) ||
         ti_do_statement(query, nd->children, e) ||
         fn_arg_str("rename_type", DOC_RENAME_TYPE, 1, query->rval, e))

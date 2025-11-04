@@ -100,6 +100,7 @@ void ti_collection_destroy(ti_collection_t * collection)
     ti_val_drop((ti_val_t *) collection->name);
     vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);
     vec_destroy(collection->vtasks, (vec_destroy_cb) ti_vtask_drop);
+    vec_destroy(collection->commits, (vec_destroy_cb) ti_commit_destroy);
     smap_destroy(collection->procedures, (smap_destroy_cb) ti_procedure_destroy);
     smap_destroy(collection->named_rooms, NULL);
     ti_types_destroy(collection->types);

@@ -189,5 +189,10 @@ int ti_task_add_whitelist_del(
         ti_val_t * val,
         int wid);
 int ti_task_add_commit_add(ti_task_t * task, ti_commit_t * commit);
+int ti_task_add_set_history(ti_task_t * task, uint64_t scope_id, _Bool state);
+int ti_task_add_del_history(
+        ti_task_t * task,
+        uint64_t scope_id,
+        vec_t * commits);
 
 #endif /* TI_TASK_H_ */

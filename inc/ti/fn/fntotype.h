@@ -11,6 +11,18 @@ static int do__f_to_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!ti_val_is_object(query->rval))
         return fn_call_try("to_type", query, nd, e);
 
+    if (query->collection &&
+        query->collection->root == (ti_thing_t *) query->rval &&
+        query->collection->commits &&
+        !query->commit)
+    {
+        ex_set(e, EX_OPERATION,
+            "function `to_type` requires a commit before "
+            "it can be used on the `root()` of the `%s` scope"DOC_COMMIT,
+             ti_query_scope_name(query));
+        return e->nr;
+    }
+
     if (fn_nargs("to_type", DOC_THING_TO_TYPE, 1, nargs, e) ||
         ti_query_test_thing_operation(query, e))
         return e->nr;

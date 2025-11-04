@@ -1085,13 +1085,13 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         msgpack_pack_uint64(pk, ti.node->next_free_id) ||
         /* 41 */
         mp_pack_str(pk, "libwebsockets_version") ||
-        mp_pack_str(pk, lws_get_library_version() ||
+        mp_pack_str(pk, lws_get_library_version()) ||
         /* 42 */
         mp_pack_str(pk, "commit_history") ||
         (ti.commits
                 ? msgpack_pack_uint32(pk, ti.commits->n)
-                : mp_pack_str(pk, "disabled"))
-    )
+                : mp_pack_str(pk, "disabled")
+        )
     );
 }
 

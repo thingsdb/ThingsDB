@@ -5,7 +5,7 @@ static int do__f_set_history(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = fn_get_nargs(nd);
     _Bool state;
     ti_task_t * task;
-    uint64_t mask, scope_id;
+    uint64_t  scope_id;
     vec_t ** access_, ** commits;
 
     if (fn_not_thingsdb_scope("set_history", query, e) ||
@@ -43,7 +43,7 @@ static int do__f_set_history(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->change,
         query->collection ? query->collection->root : ti.thing0);
 
-    if (!task || ti_task_add_set_history(task, state))
+    if (!task || ti_task_add_set_history(task, scope_id, state))
         ex_set_mem(e);  /* task cleanup is not required */
 
     return e->nr;

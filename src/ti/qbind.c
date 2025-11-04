@@ -37,6 +37,7 @@
 #include <ti/fn/fncode.h>
 #include <ti/fn/fncollectioninfo.h>
 #include <ti/fn/fncollectionsinfo.h>
+#include <ti/fn/fncommit.h>
 #include <ti/fn/fncontains.h>
 #include <ti/fn/fncopy.h>
 #include <ti/fn/fncos.h>
@@ -49,6 +50,7 @@
 #include <ti/fn/fndelcollection.h>
 #include <ti/fn/fndelenum.h>
 #include <ti/fn/fndelexpired.h>
+#include <ti/fn/fndelhistory.h>
 #include <ti/fn/fndelmodule.h>
 #include <ti/fn/fndelnode.h>
 #include <ti/fn/fndelprocedure.h>
@@ -97,6 +99,7 @@
 #include <ti/fn/fnhastoken.h>
 #include <ti/fn/fnhastype.h>
 #include <ti/fn/fnhasuser.h>
+#include <ti/fn/fnhistory.h>
 #include <ti/fn/fnid.h>
 #include <ti/fn/fnimport.h>
 #include <ti/fn/fnindexof.h>
@@ -215,6 +218,7 @@
 #include <ti/fn/fnsetclosure.h>
 #include <ti/fn/fnsetdefaultdeep.h>
 #include <ti/fn/fnsetenum.h>
+#include <ti/fn/fnsethistory.h>
 #include <ti/fn/fnsetloglevel.h>
 #include <ti/fn/fnsetmoduleconf.h>
 #include <ti/fn/fnsetmodulescope.h>
@@ -302,11 +306,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 277,
+    TOTAL_KEYWORDS = 281,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 12,
-    MAX_HASH_VALUE = 751
+    MIN_HASH_VALUE = 38,
+    MAX_HASH_VALUE = 796
 };
 
 /*
@@ -318,32 +322,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        752, 752, 752, 752, 752, 752, 752, 752, 752, 752,
-        752, 752, 752, 752, 752, 752, 752, 752, 752, 752,
-        752, 752, 752, 752, 752, 752, 752, 752, 752, 752,
-        752, 752, 752, 752, 752, 752, 752, 752, 752, 752,
-        752, 752, 752, 752, 752, 752, 752, 752,   4,   3,
-        6, 752,   3, 752,   3, 752,   4, 752, 752, 752,
-        752, 752, 752, 752, 752, 752, 752, 752, 752, 752,
-        752, 752, 752, 752, 752, 752, 752, 752, 752, 752,
-        752, 752, 752, 752, 752, 752, 752, 752, 752, 752,
-        752, 752, 752, 752, 752,   2, 752,  19, 120,  85,
-        23,   4, 136, 275, 180,   2,   6,  71,  24,  59,
-        11,  41, 110,  44,   5,   2,   3,  28, 281, 191,
-        227, 252,  25, 752, 752, 752, 752, 752, 752, 752,
-        752, 752, 752, 752, 752, 752, 752, 752, 752, 752,
-        752, 752, 752, 752, 752, 752, 752, 752, 752, 752,
-        752, 752, 752, 752, 752, 752, 752, 752, 752, 752,
-        752, 752, 752, 752, 752, 752, 752, 752, 752, 752,
-        752, 752, 752, 752, 752, 752, 752, 752, 752, 752,
-        752, 752, 752, 752, 752, 752, 752, 752, 752, 752,
-        752, 752, 752, 752, 752, 752, 752, 752, 752, 752,
-        752, 752, 752, 752, 752, 752, 752, 752, 752, 752,
-        752, 752, 752, 752, 752, 752, 752, 752, 752, 752,
-        752, 752, 752, 752, 752, 752, 752, 752, 752, 752,
-        752, 752, 752, 752, 752, 752, 752, 752, 752, 752,
-        752, 752, 752, 752, 752, 752, 752, 752, 752, 752,
-        752, 752, 752, 752, 752, 752
+        797, 797, 797, 797, 797, 797, 797, 797, 797, 797,
+        797, 797, 797, 797, 797, 797, 797, 797, 797, 797,
+        797, 797, 797, 797, 797, 797, 797, 797, 797, 797,
+        797, 797, 797, 797, 797, 797, 797, 797, 797, 797,
+        797, 797, 797, 797, 797, 797, 797, 797,  16,  15,
+        18, 797,  19, 797,  18, 797,  16, 797, 797, 797,
+        797, 797, 797, 797, 797, 797, 797, 797, 797, 797,
+        797, 797, 797, 797, 797, 797, 797, 797, 797, 797,
+        797, 797, 797, 797, 797, 797, 797, 797, 797, 797,
+        797, 797, 797, 797, 797,  15, 797,  20,  58,  82,
+        24,  17, 152, 371, 112,  15,  18,  73,  17,  25,
+        20,  22, 131,  15,  16,  15,  16,  52, 174, 300,
+        204, 140,  29, 797, 797, 797, 797, 797, 797, 797,
+        797, 797, 797, 797, 797, 797, 797, 797, 797, 797,
+        797, 797, 797, 797, 797, 797, 797, 797, 797, 797,
+        797, 797, 797, 797, 797, 797, 797, 797, 797, 797,
+        797, 797, 797, 797, 797, 797, 797, 797, 797, 797,
+        797, 797, 797, 797, 797, 797, 797, 797, 797, 797,
+        797, 797, 797, 797, 797, 797, 797, 797, 797, 797,
+        797, 797, 797, 797, 797, 797, 797, 797, 797, 797,
+        797, 797, 797, 797, 797, 797, 797, 797, 797, 797,
+        797, 797, 797, 797, 797, 797, 797, 797, 797, 797,
+        797, 797, 797, 797, 797, 797, 797, 797, 797, 797,
+        797, 797, 797, 797, 797, 797, 797, 797, 797, 797,
+        797, 797, 797, 797, 797, 797, 797, 797, 797, 797,
+        797, 797, 797, 797, 797, 797
     };
 
     register unsigned int hval = n;
@@ -517,6 +521,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="code",              .fn=do__f_code,                 CHAIN_NE},
     {.name="collection_info",   .fn=do__f_collection_info,      ROOT_NE},
     {.name="collections_info",  .fn=do__f_collections_info,     ROOT_NE},
+    {.name="commit",            .fn=do__f_commit,               ROOT_NE},
     {.name="contains",          .fn=do__f_contains,             CHAIN_NE},
     {.name="copy",              .fn=do__f_copy,                 CHAIN_NE},
     {.name="cos",               .fn=do__f_cos,                  ROOT_NE},
@@ -529,6 +534,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="del_collection",    .fn=do__f_del_collection,       ROOT_TE},
     {.name="del_enum",          .fn=do__f_del_enum,             ROOT_CE},
     {.name="del_expired",       .fn=do__f_del_expired,          ROOT_TE},
+    {.name="del_history",       .fn=do__f_del_history,          ROOT_TE},
     {.name="del_module",        .fn=do__f_del_module,           ROOT_TE},
     {.name="del_node",          .fn=do__f_del_node,             ROOT_TE},
     {.name="del_procedure",     .fn=do__f_del_procedure,        ROOT_BE},
@@ -577,6 +583,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="has_token",         .fn=do__f_has_token,            ROOT_NE},
     {.name="has_type",          .fn=do__f_has_type,             ROOT_NE},
     {.name="has_user",          .fn=do__f_has_user,             ROOT_NE},
+    {.name="history",           .fn=do__f_history,              ROOT_NE},
     {.name="id",                .fn=do__f_id,                   CHAIN_NE},
     {.name="import",            .fn=do__f_import,               ROOT_CE},
     {.name="index_of",          .fn=do__f_index_of,             CHAIN_NE},
@@ -701,6 +708,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="set_closure",       .fn=do__f_set_closure,          CHAIN_BE},
     {.name="set_default_deep",  .fn=do__f_set_default_deep,     ROOT_TE},
     {.name="set_enum",          .fn=do__f_set_enum,             ROOT_CE},
+    {.name="set_history",       .fn=do__f_set_history,          ROOT_TE},
     {.name="set_log_level",     .fn=do__f_set_log_level,        ROOT_NE},
     {.name="set_module_conf",   .fn=do__f_set_module_conf,      ROOT_TE},
     {.name="set_module_scope",  .fn=do__f_set_module_scope,     ROOT_TE},
@@ -730,9 +738,9 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="time_zones_info",   .fn=do__f_time_zones_info,      ROOT_NE},
     {.name="timeit",            .fn=do__f_timeit,               ROOT_NE},
     {.name="timeval",           .fn=do__f_timeval,              ROOT_NE},
+    {.name="to",                .fn=do__f_to,                   CHAIN_NE},
     {.name="to_thing",          .fn=do__f_to_thing,             CHAIN_CE_X},
     {.name="to_type",           .fn=do__f_to_type,              CHAIN_CE_X},
-    {.name="to",                .fn=do__f_to,                   CHAIN_NE},
     {.name="trim",              .fn=do__f_trim,                 CHAIN_NE},
     {.name="trim_left",         .fn=do__f_trim_left,            CHAIN_NE},
     {.name="trim_right",        .fn=do__f_trim_right,           CHAIN_NE},
@@ -750,8 +758,8 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="upper",             .fn=do__f_upper,                CHAIN_NE},
     {.name="user_info",         .fn=do__f_user_info,            ROOT_NE},
     {.name="users_info",        .fn=do__f_users_info,           ROOT_NE},
-    {.name="value_err",         .fn=do__f_value_err,            ROOT_NE},
     {.name="value",             .fn=do__f_value,                CHAIN_NE},
+    {.name="value_err",         .fn=do__f_value_err,            ROOT_NE},
     {.name="values",            .fn=do__f_values,               CHAIN_NE},
     {.name="vmap",              .fn=do__f_vmap,                 CHAIN_NE},
     {.name="week",              .fn=do__f_week,                 CHAIN_NE},

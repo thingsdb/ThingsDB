@@ -5,6 +5,8 @@
 #include <ti.h>
 #include <ti/access.h>
 #include <ti/auth.h>
+#include <ti/commit.h>
+#include <ti/commits.h>
 #include <ti/modules.h>
 #include <ti/procedure.h>
 #include <ti/procedures.h>
@@ -703,12 +705,12 @@ static int ttask__whitelist_del(mp_unp_t * up)
     return 0;
 }
 
-static int ttask__set_historyl(mp_unp_t * up)
+static int ttask__set_history(mp_unp_t * up)
 {
     vec_t ** commits;
     mp_obj_t obj, mp_scope, mp_state;
 
-    if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2
+    if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||
         mp_next(up, &mp_scope) != MP_U64 ||
         mp_next(up, &mp_state) != MP_BOOL)
     {
@@ -735,13 +737,96 @@ static int ttask__set_historyl(mp_unp_t * up)
         commits = &ti.commits;
     }
 
-    if (ti_commit_set_history(&commits, mp_state.via.bool_))
+    if (ti_commits_set_history(commits, mp_state.via.bool_))
     {
         log_critical("failed to set `set_history`");
         return -1;
     }
 
     return 0;
+}
+
+static int ttask__del_history(mp_unp_t * up)
+{
+    vec_t ** commits;
+    mp_obj_t obj, mp_scope, mp_id;
+    size_t i;
+
+    if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||
+        mp_next(up, &mp_scope) != MP_U64 ||
+        mp_next(up, &obj) != MP_ARR)
+    {
+        log_critical("task `del_history`: invalid task data");
+        return -1;
+    }
+
+    if (mp_scope.via.u64 > 1)
+    {
+        ti_collection_t * collection = \
+                ti_collections_get_by_id(mp_scope.via.u64);
+
+        if (!collection)
+        {
+            log_critical(
+                    "task `set_history`: "TI_COLLECTION_ID" not found",
+                    mp_scope.via.u64);
+            return -1;
+        }
+        commits = &collection->commits;
+    }
+    else
+    {
+        commits = &ti.commits;
+    }
+
+    for (i = obj.via.sz; i--;)
+    {
+        uint32_t j = 0;
+        if (mp_next(up, &mp_id) != MP_U64)
+        {
+            log_critical("task `del_history`: invalid task data");
+            return -1;
+        }
+
+        for (vec_each(*commits, ti_commit_t, commit), j++)
+        {
+            if (commit->id == mp_id.via.u64)
+            {
+                ti_commit_destroy(vec_remove(*commits, j));
+                break;
+            }
+        }
+    }
+
+    (void) vec_shrink(commits);
+    return 0;
+}
+
+static int ttask__commit_add(mp_unp_t * up)
+{
+    vec_t ** commits = &ti.commits;
+    ti_commit_t * commit = ti_commit_from_up(up);
+    if (!commit)
+    {
+        log_critical(
+            "failed to unpack commit from task `commit_add` "
+            "on the @thingsdb scope");
+        return -1;
+    }
+    if (!(*commits))
+    {
+        log_error("commits not enabled for @thingsdb scope");
+        goto fail;
+    }
+    if (vec_push(commits, commit))
+    {
+        log_error("failed to add commit for @thingsdb scope");
+        goto fail;
+    }
+    return 0;
+fail:
+    ti_commit_destroy(commit);
+    return -1;
 }
 
 /*
@@ -1777,7 +1862,7 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_WHITELIST_ADD:     return ttask__whitelist_add(up);
     case TI_TASK_WHITELIST_DEL:     return ttask__whitelist_del(up);
     case TI_TASK_SET_HISTORY:       return ttask__set_history(up);
-    case TI_TASK_COMMIT_DEL:        return ttask__commit_del(up);
+    case TI_TASK_DEL_HISTORY:       return ttask__del_history(up);
     case TI_TASK_COMMIT_ADD:        return ttask__commit_add(up);
     }
 

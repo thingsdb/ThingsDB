@@ -3,6 +3,8 @@
 static int do__f_commit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
+    ti_task_t * task;
+    ti_raw_t * message;
     vec_t ** commits = ti_query_commits(query);
     ti_commit_t * commit;
 
@@ -12,8 +14,8 @@ static int do__f_commit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_arg_str("commit", DOC_COMMIT, 1, query->rval, e))
         return e->nr;
 
-    raw = (ti_raw_t *) query->rval;
-    query->rval = NULL;
+    message = (ti_raw_t *) query->rval;
+    query->rval = (ti_val_t *) ti_nil_get();
 
     if (!(*commits))
     {
@@ -54,7 +56,7 @@ static int do__f_commit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
     }
 
-    if (!raw->n)
+    if (!message->n)
     {
         ex_set(e, EX_VALUE_ERROR, "commit message must not be empty");
         goto fail0;
@@ -70,7 +72,7 @@ static int do__f_commit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->change->id,
         query->with.parseres->str,
         query->user->name,
-        raw);
+        message);
 
     if (!commit || vec_push(commits, commit))
     {
@@ -79,8 +81,17 @@ static int do__f_commit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
     }
 
-    query->rval = ti_nil_get();
+    task = ti_task_get_task(
+        query->change,
+        query->collection ? query->collection->root : ti.thing0);
+
+    if (!task || ti_task_add_commit_add(task, commit))
+    {
+        ti_commit_destroy(vec_pop(*commits));  /* undo commit */
+        ex_set_mem(e);
+    }
+
 fail0:
-    ti_val_unsafe_drop((ti_val_t *) raw);
+    ti_val_unsafe_drop((ti_val_t *) message);
     return e->nr;
 }

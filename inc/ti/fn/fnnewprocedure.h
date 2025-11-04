@@ -11,6 +11,7 @@ static int do__f_new_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     smap_t * procedures = ti_query_procedures(query);
 
     if (fn_not_thingsdb_or_collection_scope("new_procedure", query, e) ||
+        fn_commit("new_procedure", query, e) ||
         fn_nargs("new_procedure", DOC_NEW_PROCEDURE, 2, nargs, e) ||
         ti_do_statement(query, nd->children, e) ||
         fn_arg_str("new_procedure", DOC_NEW_PROCEDURE, 1, query->rval, e))

@@ -3286,61 +3286,33 @@ int ctask__arr_remove(ti_thing_t * thing, mp_unp_t * up)
  */
 static int ctask__commit_add(ti_thing_t * thing, mp_unp_t * up)
 {
-    int rc;
-    mp_obj_t obj, mp_name, mp_created;
-    ti_collection_t * collection = thing->collection;
-    ti_procedure_t * procedure;
-    ti_closure_t * closure;
-    ti_vup_t vup = {
-            .isclient = false,
-            .collection = collection,
-            .up = up,
-    };
-
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
-        mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_name) != MP_STR ||
-        mp_skip(up) != MP_STR ||
-        mp_next(up, &mp_created) != MP_U64 ||
-        mp_skip(up) != MP_STR)
+    vec_t ** commits = &thing->collection->commits;
+    ti_commit_t * commit = ti_commit_from_up(up);
+    if (!commit)
     {
         log_critical(
-                "task `new_procedure` for "TI_COLLECTION_ID": "
-                "missing map or name",
-                collection->id);
+            "failed to unpack commit from task `commit_add` "
+            "for the @collection:%.*s scope",
+            thing->collection->name->n, thing->collection->name->data);
         return -1;
     }
-
-    closure = (ti_closure_t *) ti_val_from_vup(&vup);
-    procedure = NULL;
-
-    if (!closure || !ti_val_is_closure((ti_val_t *) closure) ||
-        !(procedure = ti_procedure_create(
-                mp_name.via.str.data,
-                mp_name.via.str.n,
-                closure,
-                mp_created.via.u64)))
-        goto failed;
-
-    rc = ti_procedures_add(collection->procedures, procedure);
-    if (rc == 0)
+    if (!(*commits))
     {
-        ti_decref(closure);
-        return 0;  /* success */
+        log_error(
+            "commits not enabled for the @collection:%.*s scope",
+            thing->collection->name->n, thing->collection->name->data);
+        goto fail;
     }
-
-    if (rc < 0)
-        log_critical(EX_MEMORY_S);
-    else
-        log_critical(
-                "task `new_procedure` for "TI_COLLECTION_ID": "
-                "procedure `%s` already exists",
-                collection->id,
-                procedure->name->str);
-
-failed:
-    ti_procedure_destroy(procedure);
-    ti_val_drop((ti_val_t *) closure);
+    if (vec_push(commits, commit))
+    {
+        log_error(
+            "failed to add commit for the @collection:%.*s scope",
+            thing->collection->name->n, thing->collection->name->data);
+        goto fail;
+    }
+    return 0;
+fail:
+    ti_commit_destroy(commit);
     return -1;
 }
 
@@ -3449,7 +3421,7 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_WHITELIST_ADD:     break;
     case TI_TASK_WHITELIST_DEL:     break;
     case TI_TASK_SET_HISTORY:       break;
-    case TI_TASK_COMMIT_DEL:        break;
+    case TI_TASK_DEL_HISTORY:       break;
     case TI_TASK_COMMIT_ADD:        return ctask__commit_add(thing, up);
     }
 

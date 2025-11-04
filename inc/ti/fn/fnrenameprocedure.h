@@ -9,6 +9,7 @@ static int do__f_rename_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * 
     smap_t * procedures = ti_query_procedures(query);
 
     if (fn_not_thingsdb_or_collection_scope("rename_procedure", query, e) ||
+        fn_commit("rename_procedure", query, e) ||
         fn_nargs("rename_procedure", DOC_RENAME_PROCEDURE, 2, nargs, e) ||
         ti_do_statement(query, nd->children, e) ||
         fn_arg_str("rename_procedure", DOC_RENAME_PROCEDURE, 1, query->rval, e))

@@ -36,6 +36,7 @@
 #include <ti/member.inline.h>
 #include <ti/method.h>
 #include <ti/commit.h>
+#include <ti/commits.h>
 #include <ti/mod/expose.h>
 #include <ti/mod/expose.t.h>
 #include <ti/mod/github.h>
@@ -444,7 +445,7 @@ static inline int fn_arg_name_check(
     return e->nr;
 }
 
-static int fn_commit(const char * name, ti_query_t * query, ex_t * e)
+static inline int fn_commit(const char * name, ti_query_t * query, ex_t * e)
 {
     if (ti_query_commits(query) && !query->commit)
         ex_set(e, EX_OPERATION,

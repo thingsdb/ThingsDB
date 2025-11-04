@@ -651,7 +651,7 @@ static int export__commit(ti_fmt_t * fmt, ti_collection_t * collection)
     return buf_append_fmt(
         &fmt->buf,
         "try(commit('Source: collection `%.*s`'));\n\n",
-        collection->name->n, collection->name-data);
+        collection->name->n, collection->name->data);
 }
 
 static int export__collection(ti_fmt_t * fmt, ti_collection_t * collection)

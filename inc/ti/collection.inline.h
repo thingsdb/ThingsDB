@@ -8,41 +8,6 @@
 #include <ti/collection.h>
 #include <ti/thing.h>
 
-static inline int ti_collection_to_pk(
-        ti_collection_t * collection,
-        msgpack_packer * pk)
-{
-    return -(
-        msgpack_pack_map(pk, 8) ||
-
-        mp_pack_str(pk, "collection_id") ||
-        msgpack_pack_uint64(pk, collection->id) ||
-
-        mp_pack_str(pk, "name") ||
-        mp_pack_strn(pk, collection->name->data, collection->name->n) ||
-
-        mp_pack_str(pk, "created_at") ||
-        msgpack_pack_uint64(pk, collection->created_at) ||
-
-        mp_pack_str(pk, "things") ||
-        msgpack_pack_uint64(pk, collection->things->n + collection->gc->n) ||
-
-        mp_pack_str(pk, "time_zone") ||
-        mp_pack_strn(pk, collection->tz->name, collection->tz->n) ||
-
-        mp_pack_str(pk, "default_deep") ||
-        msgpack_pack_uint64(pk, collection->deep) ||
-
-        mp_pack_str(pk, "next_free_id") ||
-        msgpack_pack_uint64(pk, collection->next_free_id) ||
-
-        mp_pack_str(pk, "commit_history") ||
-        (collection->commits
-                ? msgpack_pack_uint32(pk, collection->commits->n)
-                : mp_pack_str(pk, "disabled"))
-    );
-}
-
 /*
  * Return a thing with a borrowed reference from the collection, or,
  * if not found, tries to restore the thing from the garbage collector.

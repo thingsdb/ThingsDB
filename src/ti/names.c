@@ -145,3 +145,13 @@ ti_name_t * ti_names_new(const char * str, size_t n)
     return name;
 }
 
+ti_name_t * ti_names_get_slow(const char * str, size_t n)
+{
+    ti_name_t * name = smap_getn(names, str, n);
+    if (name)
+    {
+        ti_incref(name);
+        return name;
+    }
+    return ti_names_new(str, n);
+}

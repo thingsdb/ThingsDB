@@ -9,6 +9,11 @@
 * Include export enumerator members of type `thing`, pr #420.
 * Fixed missing "ID" (`#`) field in export, issue #421.
 * Added `type_all()` function, pr #422.
+* Added commit history with new functions, pr#423.
+  - `commit()`: https://docs.thingsdb.io/v1/collection-api/commit/
+  - `history()`: https://docs.thingsdb.io/v1/thingsdb-api/history/
+  - `set_history()`: https://docs.thingsdb.io/v1/thingsdb-api/set_history/
+  - `del_history()`: https://docs.thingsdb.io/v1/thingsdb-api/del_history/
 
 # v1.7.6
 

@@ -48,7 +48,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     )
 else()
     # Set these flags for other than MacOS build
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -finline-limit=4000")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -finline-limit=6000")
     if (NOT ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -msse4.2")
         if($ENV{LEGACY})

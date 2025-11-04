@@ -105,6 +105,8 @@ int fn_arg_str_slow(
         ti_val_t * val,
         ex_t * e);
 
+int fn_commit(const char * name, ti_query_t * query, ex_t * e);
+
 static inline int fn_get_nargs(cleri_node_t * nd)
 {
     return (int) ((intptr_t) nd->data);
@@ -445,17 +447,6 @@ static inline int fn_arg_name_check(
     return e->nr;
 }
 
-static inline int fn_commit(const char * name, ti_query_t * query, ex_t * e)
-{
-    if (ti_query_commits(query) && !query->commit)
-        ex_set(e, EX_OPERATION,
-            "function `%s` requires a commit "
-            "before it can be used in the `%s` scope"DOC_COMMIT,
-             name,
-             ti_query_scope_name(query));
-    return e->nr;
-}
-
 static inline int fn_not_collection_scope(
         const char * name,
         ti_query_t * query,
@@ -486,6 +477,8 @@ static inline int fn_not_thingsdb_or_collection_scope(
 
     return e->nr;
 }
+
+
 
 static int fn_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {

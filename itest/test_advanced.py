@@ -339,8 +339,7 @@ class TestAdvanced(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'type `_Foo1` is dependent on type `_Name` by field `wrap` '
-                r'with `wrap-only` mode enabled'):
+                r'xxx'):
             await client.query(r'''
                 mod_type('_Foo1', 'wpo', false);
             ''')

@@ -478,7 +478,7 @@ static inline int fn_not_thingsdb_or_collection_scope(
 
 static inline int fn_commit(const char * name, ti_query_t * query, ex_t * e)
 {
-    if (ti_query_commits(query) && !query->commit)
+    if (*ti_query_commits(query) && !query->commit)
         ex_set(e, EX_OPERATION,
             "function `%s` requires a commit "
             "before it can be used in the `%s` scope"DOC_COMMIT,

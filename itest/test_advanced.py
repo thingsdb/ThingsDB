@@ -339,7 +339,8 @@ class TestAdvanced(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'xxx'):
+                r'type `_Foo1` is dependent on type `_Name` by field `wrap` '
+                r'with `wrap-only` mode enabled'):
             await client.query(r'''
                 mod_type('_Foo1', 'wpo', false);
             ''')
@@ -1569,6 +1570,8 @@ class TestAdvanced(TestBase):
 
     async def test_export(self, client):
         script = r'''
+try(commit('Source: collection `stuff`'));
+
 new_type('Friend');
 new_type('Person');
 new_type('Root');

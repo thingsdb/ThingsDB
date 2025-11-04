@@ -69,6 +69,7 @@ ti_collection_t * ti_collection_create(
     collection->futures = vec_new(4);
     collection->vtasks = vec_new(4);
     collection->named_rooms = smap_create();
+    collection->commits = NULL;
 
     memcpy(&collection->guid, guid, sizeof(guid_t));
 

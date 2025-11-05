@@ -19,7 +19,7 @@ static int do__f_to_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ex_set(e, EX_OPERATION,
             "function `to_type` requires a commit before "
             "it can be used on the `root()` of a `%s` scope "
-            "with `history` enabled"DOC_COMMIT,
+            "with commit history enabled"DOC_COMMIT,
              ti_query_scope_name(query));
         return e->nr;
     }

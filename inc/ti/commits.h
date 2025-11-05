@@ -4,6 +4,7 @@
 #ifndef TI_COMMITS_H_
 #define TI_COMMITS_H_
 
+#include <ti/auth.h>
 #include <ti/datetime.h>
 #include <ti/raw.t.h>
 #include <ti/regex.t.h>
@@ -13,6 +14,8 @@
 #include <ti/vint.h>
 #include <util/vec.h>
 #include <ex.h>
+
+#define TI_COMMITS_MASK TI_AUTH_QUERY|TI_AUTH_CHANGE
 
 typedef struct
 {

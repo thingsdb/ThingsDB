@@ -16,7 +16,7 @@ static int do__f_del_history(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_commits_history(&history, &options, e))
         return e->nr;
 
-    if (ti_access_check_err(*history.access, query->user, TI_AUTH_GRANT, e))
+    if (ti_access_check_err(*history.access, query->user, TI_COMMITS_MASK, e))
         return e->nr;
 
     deleted = ti_commits_del(history.commits, &options);

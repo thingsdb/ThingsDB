@@ -14,7 +14,7 @@ static int do__f_set_history(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     access_ = ti_val_get_access(query->rval, e, &scope_id);
-    if (e->nr || ti_access_check_err(*access_, query->user, TI_AUTH_GRANT, e))
+    if (e->nr || ti_access_check_err(*access_, query->user, TI_COMMITS_MASK, e))
         return e->nr;
 
     commits = ti_commits_from_scope((ti_raw_t *) query->rval, e);
@@ -33,18 +33,21 @@ static int do__f_set_history(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_nil_get();
 
-    if (ti_commits_set_history(commits, state))
+    if (state != !!(*commits))
     {
-        ex_set_mem(e);
-        return e->nr;
+        if (ti_commits_set_history(commits, state))
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+
+        task = ti_task_get_task(
+            query->change,
+            query->collection ? query->collection->root : ti.thing0);
+
+        if (!task || ti_task_add_set_history(task, scope_id, state))
+            ex_set_mem(e);  /* task cleanup is not required */
     }
-
-    task = ti_task_get_task(
-        query->change,
-        query->collection ? query->collection->root : ti.thing0);
-
-    if (!task || ti_task_add_set_history(task, scope_id, state))
-        ex_set_mem(e);  /* task cleanup is not required */
 
     return e->nr;
 }

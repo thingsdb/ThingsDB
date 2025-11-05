@@ -172,7 +172,7 @@ static int commits__options(
     }
     ex_set(w->e, EX_VALUE_ERROR,
         "invalid option `%.*s`; valid options: `scope`, `contains`, "
-        "`match`, `id`, `first`, `last`, `before`, `after`%s",
+        "`match`, `id`, `first`, `last`, `before`, `after`, `has_err`%s",
         key->n, key->data,
         w->allow_detail ? ", `detail`" : "");
     return 0;
@@ -199,10 +199,12 @@ int ti_commits_options(
         !options->first &&
         !options->last &&
         !options->before &&
-        !options->after)
+        !options->after &&
+        !options->has_err)
         ex_set(e, EX_LOOKUP_ERROR,
             "at least one of the following options must be set: "
-            "`contains`, `match`, `id`, `first`, `last`, `before`, `after`");
+            "`contains`, `match`, `id`, `first`, `last`, `before`, `after`"
+            ", `has_err`"DOC_HISTORY""DOC_DEL_HISTORY);
     return e->nr;
 }
 
@@ -232,9 +234,9 @@ int ti_commits_history(
                 history->access = &ti.access_thingsdb;
                 break;
             case TI_SCOPE_NODE:
-                history->commits = NULL;
-                history->access = NULL;
-                break;
+                ex_set(e, EX_OPERATION,
+                    "commit history is not supported by `@node` scopes");
+                return e->nr;
             case TI_SCOPE_COLLECTION:
             {
                 ti_collection_t * collection = ti_collections_get_by_strn(
@@ -256,7 +258,7 @@ int ti_commits_history(
         }
         if (!(*history->commits))
             ex_set(e, EX_OPERATION,
-                "history is not enabled for the `*.*s` scope",
+                "commit history is not enabled for the `%.*s` scope",
                 options->scope->n,
                 options->scope->data);
         return e->nr;
@@ -269,8 +271,9 @@ int ti_commits_history(
             if (*history->commits)
             {
                 ex_set(e, EX_LOOKUP_ERROR,
-                    "multiple scopes with `history` enabled; "
-                    "use the `scope` option to specify an explicit scope");
+                    "more than one scope has commit history enabled; you must "
+                    "use the `scope` option to tell ThingsDB which scope "
+                    "to use"DOC_HISTORY""DOC_DEL_HISTORY);
                 return e->nr;
             }
             history->commits = &collection->commits;
@@ -281,7 +284,7 @@ int ti_commits_history(
 
     if (!(*history->commits))
         ex_set(e, EX_LOOKUP_ERROR,
-            "no scope found with `history` enabled"DOC_SET_HISTORY);
+            "no scope found with commit history enabled"DOC_SET_HISTORY);
     return e->nr;
 }
 
@@ -296,7 +299,8 @@ vec_t ** ti_commits_from_scope(ti_raw_t * scope, ex_t * e)
         case TI_SCOPE_THINGSDB:
             return &ti.commits;
         case TI_SCOPE_NODE:
-            ex_set(e, EX_LOOKUP_ERROR, "no commit history in node scope");
+            ex_set(e, EX_OPERATION,
+                "commit history is not supported by `@node` scopes");
             return NULL;
         case TI_SCOPE_COLLECTION:
         {
@@ -309,6 +313,7 @@ vec_t ** ti_commits_from_scope(ti_raw_t * scope, ex_t * e)
             ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
                     scope_.via.collection_name.sz,
                     scope_.via.collection_name.name);
+            return NULL;
         }
     }
     ex_set_internal(e);
@@ -358,6 +363,9 @@ static _Bool commits__match(
         return false;
 
     if (options->id && commit->id != (uint64_t) VINT(options->id))
+        return false;
+
+    if (options->has_err && !commit->err_msg != options->has_err->bool_)
         return false;
 
     return true;

@@ -63,13 +63,14 @@ fail0:
 ti_commit_t * ti_commit_from_up(mp_unp_t * up)
 {
     mp_obj_t obj, mp_id, mp_ts, mp_code, mp_by, mp_message, mp_err_msg;
+
     if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 6 ||
         mp_next(up, &mp_id) != MP_U64 ||
         mp_next(up, &mp_ts) != MP_U64 ||
         mp_next(up, &mp_code) != MP_STR ||
-        mp_next(up, &mp_by) != MP_STR ||
         mp_next(up, &mp_message) != MP_STR ||
-        (mp_next(up, &mp_err_msg) != MP_STR && mp_err_msg.tp == MP_NIL))
+        mp_next(up, &mp_by) != MP_STR ||
+        (mp_next(up, &mp_err_msg) != MP_STR && mp_err_msg.tp != MP_NIL))
         return NULL;
     return commit_create(
         mp_id.via.u64,
@@ -154,16 +155,16 @@ int ti_commit_to_client_pk(
         mp_pack_strn(pk, commit->by->data, commit->by->n) ||
 
         mp_pack_str(pk, "message") ||
-        mp_pack_strn(pk, commit->message, commit->message->n) ||
+        mp_pack_strn(pk, commit->message->data, commit->message->n) ||
 
         (detail && (
             mp_pack_str(pk, "code") ||
-            mp_pack_strn(pk, commit->code, commit->code->n)
+            mp_pack_strn(pk, commit->code->data, commit->code->n)
         )) ||
 
         (commit->err_msg && (
             mp_pack_str(pk, "err_msg") ||
-            mp_pack_strn(pk, commit->err_msg, commit->err_msg->n)
+            mp_pack_strn(pk, commit->err_msg->data, commit->err_msg->n)
         ))
     );
 }

@@ -7,6 +7,7 @@ from test_arguments import TestArguments
 from test_backup import TestBackup
 from test_changes import TestChanges
 from test_collection_functions import TestCollectionFunctions
+from test_commits import TestCommits
 from test_datetime import TestDatetime
 from test_dict import TestDict
 from test_doc_url import TestDocUrl
@@ -78,6 +79,7 @@ if __name__ == '__main__':
     run_test(TestBackup(), hide_version=hide_version())
     run_test(TestChanges(), hide_version=hide_version())
     run_test(TestCollectionFunctions(), hide_version=hide_version())
+    run_test(TestCommits(), hide_version=hide_version())
     run_test(TestDatetime(), hide_version=hide_version())
     run_test(TestDict(), hide_version=hide_version())
     if args.doc_test is True:

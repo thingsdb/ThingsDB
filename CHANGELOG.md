@@ -1,4 +1,4 @@
-# v1.8.0-alpha6
+# v1.8.0-alpha8
 
 * Added `TI_PROTO_CLIENT_REQ_EMIT_PEER` protocol, pr #414.
 * Changed `copy()` behavior for wrapped type, pr #415.
@@ -14,6 +14,7 @@
   - `history()`: https://docs.thingsdb.io/v1/thingsdb-api/history/
   - `set_history()`: https://docs.thingsdb.io/v1/thingsdb-api/set_history/
   - `del_history()`: https://docs.thingsdb.io/v1/thingsdb-api/del_history/
+* Fixed handling non-stored thing with `to_type()`, issue #424.
 
 # v1.7.6
 

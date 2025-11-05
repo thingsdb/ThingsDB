@@ -84,7 +84,7 @@ class TestNodeFunctions(TestBase):
 
         node = await client.query('node_info();')
 
-        self.assertEqual(len(node), 41)
+        self.assertEqual(len(node), 42)
 
         self.assertIn("node_id", node)
         self.assertIn("version", node)
@@ -127,6 +127,7 @@ class TestNodeFunctions(TestBase):
         self.assertIn('modules_path', node)
         self.assertIn('architecture', node)
         self.assertIn('platform', node)
+        self.assertIn('commit_history', node)
 
         self.assertTrue(isinstance(node["node_id"], int))
         self.assertTrue(isinstance(node["version"], str))
@@ -169,6 +170,7 @@ class TestNodeFunctions(TestBase):
         self.assertTrue(isinstance(node["modules_path"], str))
         self.assertTrue(isinstance(node["architecture"], str))
         self.assertTrue(isinstance(node["platform"], str))
+        self.assertEqual(node["commit_history"], "disabled")
 
     async def test_nodes_info(self, client):
         with self.assertRaisesRegex(

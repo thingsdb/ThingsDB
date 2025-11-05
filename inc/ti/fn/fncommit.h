@@ -3,7 +3,6 @@
 static int do__f_commit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_task_t * task;
     ti_raw_t * message;
     vec_t ** commits = ti_query_commits(query);
     ti_commit_t * commit;
@@ -81,15 +80,7 @@ static int do__f_commit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail0;
     }
 
-    task = ti_task_get_task(
-        query->change,
-        query->collection ? query->collection->root : ti.thing0);
-
-    if (!task || ti_task_add_commit_add(task, commit))
-    {
-        ti_commit_destroy(vec_pop(*commits));  /* undo commit */
-        ex_set_mem(e);
-    }
+    query->commit = commit;
 
 fail0:
     ti_val_unsafe_drop((ti_val_t *) message);

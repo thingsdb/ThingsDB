@@ -87,7 +87,6 @@ int ti_store_commits_restore(vec_t ** commits, const char * fn)
         goto fail0;
 
     mp_unp_init(&up, fmap.data, fmap.n);
-
     if (mp_next(&up, &obj) != MP_MAP || obj.via.sz > 1)
         goto fail1;
 
@@ -97,7 +96,9 @@ int ti_store_commits_restore(vec_t ** commits, const char * fn)
         goto done;  /* done, commits disabled */
     }
 
-    if (ti_commits_set_history(commits, true))
+    if (mp_skip(&up) != MP_STR ||  /* commits */
+        mp_next(&up, &obj) != MP_ARR ||
+        ti_commits_set_history(commits, true))
         goto fail1;
 
     for (i = obj.via.sz; i--;)

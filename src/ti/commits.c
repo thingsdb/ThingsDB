@@ -20,6 +20,8 @@ static int commits__options(
 {
     if (ti_raw_eq_strn(key, "scope", strlen("scope")))
     {
+        if (ti_val_is_nil(val))
+            return 0;
         if (!ti_val_is_str(val))
         {
             ex_set(w->e, EX_TYPE_ERROR,
@@ -33,6 +35,8 @@ static int commits__options(
     }
     if (ti_raw_eq_strn(key, "contains", strlen("contains")))
     {
+        if (ti_val_is_nil(val))
+            return 0;
         if (!ti_val_is_str(val))
         {
             ex_set(w->e, EX_TYPE_ERROR,
@@ -46,6 +50,8 @@ static int commits__options(
     }
     if (ti_raw_eq_strn(key, "match", strlen("match")))
     {
+        if (ti_val_is_nil(val))
+            return 0;
         if (!ti_val_is_regex(val))
         {
             ex_set(w->e, EX_TYPE_ERROR,
@@ -59,6 +65,8 @@ static int commits__options(
     }
     if (ti_raw_eq_strn(key, "id", strlen("id")))
     {
+        if (ti_val_is_nil(val))
+            return 0;
         if (!ti_val_is_int(val))
         {
             ex_set(w->e, EX_TYPE_ERROR,
@@ -72,6 +80,8 @@ static int commits__options(
     }
     if (ti_raw_eq_strn(key, "last", strlen("last")))
     {
+        if (ti_val_is_nil(val))
+            return 0;
         if (!ti_val_is_int(val))
         {
             ex_set(w->e, EX_TYPE_ERROR,
@@ -85,6 +95,8 @@ static int commits__options(
     }
     if (ti_raw_eq_strn(key, "first", strlen("first")))
     {
+        if (ti_val_is_nil(val))
+            return 0;
         if (!ti_val_is_int(val))
         {
             ex_set(w->e, EX_TYPE_ERROR,
@@ -98,6 +110,8 @@ static int commits__options(
     }
     if (ti_raw_eq_strn(key, "before", strlen("before")))
     {
+        if (ti_val_is_nil(val))
+            return 0;
         if (!ti_val_is_datetime(val))
         {
             ex_set(w->e, EX_TYPE_ERROR,
@@ -112,6 +126,8 @@ static int commits__options(
     }
     if (ti_raw_eq_strn(key, "after", strlen("after")))
     {
+        if (ti_val_is_nil(val))
+            return 0;
         if (!ti_val_is_datetime(val))
         {
             ex_set(w->e, EX_TYPE_ERROR,
@@ -124,8 +140,25 @@ static int commits__options(
         w->options->after = (ti_datetime_t *) val;
         return 0;
     }
+    if (ti_raw_eq_strn(key, "has_err", strlen("has_err")))
+    {
+        if (ti_val_is_nil(val))
+            return 0;
+        if (!ti_val_is_bool(val))
+        {
+            ex_set(w->e, EX_TYPE_ERROR,
+                "expecting `has_err` to be of type `"TI_VAL_BOOL_S"` but "
+                "got type `%s` instead",
+                ti_val_str(val));
+            return w->e->nr;
+        }
+        w->options->has_err = (ti_vbool_t *) val;
+        return 0;
+    }
     if (w->allow_detail && ti_raw_eq_strn(key, "detail", strlen("detail")))
     {
+        if (ti_val_is_nil(val))
+            return 0;
         if (!ti_val_is_bool(val))
         {
             ex_set(w->e, EX_TYPE_ERROR,
@@ -260,23 +293,25 @@ vec_t ** ti_commits_from_scope(ti_raw_t * scope, ex_t * e)
 
     switch(scope_.tp)
     {
-    case TI_SCOPE_THINGSDB:
-        return &ti.commits;
-    case TI_SCOPE_NODE:
-        return NULL;
-    case TI_SCOPE_COLLECTION:
-    {
-        ti_collection_t * collection = ti_collections_get_by_strn(
-                scope_.via.collection_name.name,
-                scope_.via.collection_name.sz);
-        if (collection)
-            return &collection->commits;
+        case TI_SCOPE_THINGSDB:
+            return &ti.commits;
+        case TI_SCOPE_NODE:
+            ex_set(e, EX_LOOKUP_ERROR, "no commit history in node scope");
+            return NULL;
+        case TI_SCOPE_COLLECTION:
+        {
+            ti_collection_t * collection = ti_collections_get_by_strn(
+                    scope_.via.collection_name.name,
+                    scope_.via.collection_name.sz);
+            if (collection)
+                return &collection->commits;
 
-        ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
-                scope_.via.collection_name.sz,
-                scope_.via.collection_name.name);
+            ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
+                    scope_.via.collection_name.sz,
+                    scope_.via.collection_name.name);
+        }
     }
-    }
+    ex_set_internal(e);
     return NULL;
 }
 
@@ -293,7 +328,7 @@ int ti_commits_set_history(vec_t ** commits, _Bool state)
             return 0;
 
         *commits = vec_new(8);
-        return !!(*commits);
+        return -!(*commits);
     }
     ti_commits_destroy(commits);
     return 0;
@@ -321,20 +356,63 @@ static _Bool commits__match(
             )
         ))
         return false;
+
     if (options->id && commit->id != (uint64_t) VINT(options->id))
         return false;
 
     return true;
 }
 
+static void commits__init(
+        vec_t * commits,
+        ti_commits_options_t * options,
+        uint32_t * begin,
+        uint32_t * end)
+{
+    uint32_t n;
+    *begin = 0;
+    *end = commits->n;
+
+    if (options->before)
+    {
+        uint32_t i = 0;
+        for (vec_each(commits, ti_commit_t, commit), ++i)
+            if (commit->ts >= options->before->ts)
+                break;
+        *end = i;
+    }
+    if (options->after)
+    {
+        uint32_t i = *end - 1;
+        for (vec_each_rev(commits, ti_commit_t, commit) --i)
+            if (commit->ts <= options->after->ts)
+                break;
+        *begin = i;
+    }
+
+    n = *end > *begin ? *end - *begin : 0;
+
+    if (options->last && n > options->last->int_)
+        *begin = *end - options->last->int_;
+
+    if (options->first && n > options->first->int_)
+        *end = *begin + options->first->int_;
+}
+
 vec_t * ti_commits_find(vec_t * commits, ti_commits_options_t * options)
 {
+    uint32_t begin, end;;
     vec_t * vec = vec_new(8);
     if (!vec)
         return NULL;
-    for (vec_each(commits, ti_commit_t, commit))
+
+    commits__init(commits, options, &begin, &end);
+    for (;begin < end; ++begin)
+    {
+        ti_commit_t * commit = VEC_get(commits, begin);
         if (commits__match(commit, options) && vec_push(&vec, commit))
             goto fail;
+    }
 
     return vec;
 fail:
@@ -344,16 +422,19 @@ fail:
 
 vec_t * ti_commits_del(vec_t ** commits, ti_commits_options_t * options)
 {
+    uint32_t begin, end;
     vec_t * vec = vec_new(8);
-    uint32_t n = (*commits)->n;
     if (!vec)
         return NULL;
 
-    for (vec_each_rev(*commits, ti_commit_t, commit) --n)
+    commits__init(*commits, options, &begin, &end);
+    while (begin <= --end)
+    {
+        ti_commit_t * commit = VEC_get(*commits, end);
         if (commits__match(commit, options) &&
-            vec_push(&vec, vec_remove(*commits, n)))
+            vec_push(&vec, vec_remove(*commits, end)))
             goto fail;
-
+    }
     (void) vec_shrink(commits);
     return vec;
 fail:

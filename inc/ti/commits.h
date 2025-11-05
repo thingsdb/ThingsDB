@@ -24,6 +24,7 @@ typedef struct
     ti_vint_t * first;
     ti_datetime_t * before;
     ti_datetime_t * after;
+    ti_vbool_t * has_err;
     ti_vbool_t * detail;
 } ti_commits_options_t;
 

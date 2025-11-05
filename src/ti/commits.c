@@ -90,6 +90,13 @@ static int commits__options(
                 ti_val_str(val));
             return w->e->nr;
         }
+        if (VINT(val) < 0)
+        {
+            ex_set(w->e, EX_VALUE_ERROR,
+                "option `last` expects an "
+                "integer value greater than or equal to 0");
+            return w->e->nr;
+        }
         w->options->last = (ti_vint_t *) val;
         return 0;
     }
@@ -103,6 +110,13 @@ static int commits__options(
                 "expecting `first` to be of type `"TI_VAL_INT_S"` but "
                 "got type `%s` instead",
                 ti_val_str(val));
+            return w->e->nr;
+        }
+        if (VINT(val) < 0)
+        {
+            ex_set(w->e, EX_VALUE_ERROR,
+                "option `first` expects an "
+                "integer value greater than or equal to 0");
             return w->e->nr;
         }
         w->options->first = (ti_vint_t *) val;
@@ -171,11 +185,12 @@ static int commits__options(
         return 0;
     }
     ex_set(w->e, EX_VALUE_ERROR,
-        "invalid option `%.*s`; valid options: `scope`, `contains`, "
-        "`match`, `id`, `first`, `last`, `before`, `after`, `has_err`%s",
+        "invalid option `%.*s` was provided; valid options are: `scope`, "
+        "`contains`, `match`, `id`, `first`, `last`, `before`, "
+        "`after`, `has_err`%s",
         key->n, key->data,
         w->allow_detail ? ", `detail`" : "");
-    return 0;
+    return w->e->nr;
 }
 
 int ti_commits_options(
@@ -391,7 +406,7 @@ static void commits__init(
     }
     if (options->after)
     {
-        uint32_t i = *end - 1;
+        uint32_t i = commits->n;
         for (vec_each_rev(commits, ti_commit_t, commit) --i)
             if (commit->ts <= options->after->ts)
                 break;

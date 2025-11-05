@@ -23,12 +23,14 @@ static int do__f_del_history(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!deleted)
         goto fail;
 
-    task = ti_task_get_task(
-        query->change,
-        query->collection ? query->collection->root : ti.thing0);
-    if (!task || ti_task_add_del_history(task, history.scope_id, deleted))
-        goto undo;
-
+    if (deleted->n)
+    {
+        task = ti_task_get_task(
+            query->change,
+            query->collection ? query->collection->root : ti.thing0);
+        if (!task || ti_task_add_del_history(task, history.scope_id, deleted))
+            goto undo;
+    }
     ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vint_create((int64_t) deleted->n);
     if (!query->rval)

@@ -220,7 +220,7 @@ class TestCommits(TestBase):
 
         with self.assertRaisesRegex(
                 LookupError,
-                r'xxx'):
+                r'collection `s` not found'):
             await q0("""//ti
                 history({scope: '//s', last:0});
             """, scope='/t')
@@ -229,6 +229,22 @@ class TestCommits(TestBase):
             set_history('//stuff', true);
             set_history('/t', true);
         """, scope='/t')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'option `last` expects an integer value greater '
+                r'than or equal to 0'):
+            await q0("""//ti
+                history({scope: '/t', last:-1});
+            """, scope='/t')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'expecting `last` to be of type `int` but got '
+                r'type `bool` instead'):
+            await q0("""//ti
+                history({scope: '/t', last:false});
+            """, scope='/t')
 
         with self.assertRaisesRegex(
                 LookupError,
@@ -248,6 +264,50 @@ class TestCommits(TestBase):
                 history({scope: '//stuff'});
             """, scope='/t')
 
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid option `x` was provided; valid options are: '
+                r'`scope`, `contains`, `match`, `id`, `first`, `last`, '
+                r'`before`, `after`, `has_err`, `detail`'):
+            await q0("""//ti
+                history({scope: '//stuff', x: ''});
+            """, scope='/t')
+
+    async def test_del_history(self, q0, q1):
+        await q0("""//ti
+            set_history('//stuff', false);
+            set_history('/t', false);
+        """, scope='/t')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'function `del_history` is undefined in the `@node` scope; '
+                r'you might want to query the `@thingsdb` scope\?'):
+            await q0("""//ti
+                del_history({last:0});
+            """, scope='/n')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'no scope found with commit history enabled;'):
+            await q0("""//ti
+                del_history({last:0});
+            """, scope='/t')
+
+        await q0("""//ti
+            set_history('//stuff', true);
+            set_history('/t', true);
+        """, scope='/t')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'invalid option `x` was provided; valid options are: '
+                r'`scope`, `contains`, `match`, `id`, `first`, `last`, '
+                r'`before`, `after`, `has_err`$'):
+            await q0("""//ti
+                del_history({scope: '//stuff', x: ''});
+            """, scope='/t')
+
     async def test_commit(self, q0, q1):
         await q0("""//ti
             set_history('//stuff', false);
@@ -255,37 +315,105 @@ class TestCommits(TestBase):
         """, scope='/t')
         with self.assertRaisesRegex(
                 LookupError,
-                r'xxxx'):
+                r'function `commit` is undefined in the `@node` scope; '
+                r'you might want to query the `@thingsdb` or '
+                r'a `@collection` scope\?'):
             await q0("""//ti
                      commit('Test');
             """, scope='/n')
         with self.assertRaisesRegex(
-                LookupError,
-                r'xxxx'):
+                OperationError,
+                r'commit history is not enabled'):
             await q0("""//ti
                      commit('Test');
                      new_type('A');
             """)
+
+        await q0("""//ti
+            set_history('//stuff', true);
+            set_history('/t', true);
+        """, scope='/t')
+
         with self.assertRaisesRegex(
                 NumArgumentsError,
-                r'xxxx'):
+                r'function `commit` takes 1 argument but 0 were given'):
             await q0("""//ti
                      commit();
                      new_type('A');
             """)
         with self.assertRaisesRegex(
-                NumArgumentsError,
-                r'xxxx'):
+                TypeError,
+                r'function `commit` expects argument 1 to be of type `str` '
+                r'but got type `int` instead'):
             await q0("""//ti
                      commit(123);
                      new_type('A');
             """)
         with self.assertRaisesRegex(
-                NumArgumentsError,
-                r'xxxx'):
+                OperationError,
+                r'commit without a change;'):
             await q0("""//ti
                      commit('Test');
             """)
+
+        for i in range(10):
+            await q0("""//ti
+                    commit(`Create type T{i}`);
+                    set_type(`T{i}`, {name: 'str'});
+            """, i=i)
+
+        await asyncio.sleep(3.0)
+
+        for i in range(10):
+            await q0("""//ti
+                    commit(`Add x to type T{i}`);
+                    mod_type(`T{i}`, 'add', 'x', 'int');
+            """, i=i)
+
+        before, after, both, deleted = await q0("""//ti
+                wse();
+                moment = datetime().move('seconds', -2);
+                [
+                    history({
+                        scope: '//stuff',
+                        before: moment,
+                    }),
+                    history({
+                        scope: '//stuff',
+                        after: moment,
+                    }),
+                    history({
+                        scope: '//stuff',
+                        before: moment,
+                        after: moment,
+                    }),
+                    del_history({
+                        scope: '//stuff',
+                        before: moment,
+                        after: moment,
+                     }),
+                ];
+                """, scope='/t')
+
+        self.assertEqual(len(before), 10)
+        self.assertEqual(len(after), 10)
+        self.assertEqual(len(both), 0)
+        self.assertEqual(deleted, 0)
+
+        self.assertTrue(before[0]['id'] < after[0]['id'])
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'function `to_type` requires a commit before it can be used '
+                r'on the `root\(\)` of a `@collection` scope with commit '
+                r'history enabled;'):
+            await q0("""//ti
+                     .to_type('T0');
+            """)
+
+
+
+
 
 
 

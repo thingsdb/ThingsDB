@@ -19,9 +19,8 @@ static int do__f_commit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!(*commits))
     {
         ex_set(e, EX_OPERATION,
-                "commit history is not enabled for the `%s` scope"
-                DOC_SET_HISTORY,
-                ti_query_scope_name(query));
+                "commit history is not enabled"
+                DOC_SET_HISTORY);
         goto fail0;
     }
 

@@ -239,6 +239,13 @@ class TestCommits(TestBase):
             """, scope='/t')
 
         with self.assertRaisesRegex(
+                ValueError,
+                r'option `contains` must be a non empty string'):
+            await q0("""//ti
+                history({scope: '/t', contains:""});
+            """, scope='/t')
+
+        with self.assertRaisesRegex(
                 TypeError,
                 r'expecting `last` to be of type `int` but got '
                 r'type `bool` instead'):
@@ -357,50 +364,73 @@ class TestCommits(TestBase):
             """)
 
         for i in range(10):
-            await q0("""//ti
-                    commit(`Create type T{i}`);
-                    set_type(`T{i}`, {name: 'str'});
-            """, i=i)
+            # use f-string format as we want T0..9 be part of the code
+            await q0(f"""//ti
+                    commit('Create type T{i}');
+                    set_type('T{i}', {{name: 'str'}});
+            """)
 
         await asyncio.sleep(3.0)
 
         for i in range(10):
-            await q0("""//ti
-                    commit(`Add x to type T{i}`);
-                    mod_type(`T{i}`, 'add', 'x', 'int');
-            """, i=i)
+            # use f-string format as we want T0..9 be part of the code
+            await q0(f"""//ti
+                    commit('Add x to type T{i}');
+                    mod_type('T{i}', 'add', 'x', 'int');
+            """)
 
-        before, after, both, deleted = await q0("""//ti
-                wse();
-                moment = datetime().move('seconds', -2);
-                [
-                    history({
-                        scope: '//stuff',
-                        before: moment,
-                    }),
-                    history({
-                        scope: '//stuff',
-                        after: moment,
-                    }),
-                    history({
-                        scope: '//stuff',
-                        before: moment,
-                        after: moment,
-                    }),
-                    del_history({
-                        scope: '//stuff',
-                        before: moment,
-                        after: moment,
-                     }),
-                ];
-                """, scope='/t')
+        before, b5, after, a5, both, deleted, t0m, t0c = await q0("""//ti
+            wse();
+            moment = datetime().move('seconds', -2);
+            [
+                history({
+                    scope: '//stuff',
+                    before: moment,
+                }),
+                history({
+                    scope: '//stuff',
+                    before: moment,
+                    last: 5,
+                }),
+                history({
+                    scope: '//stuff',
+                    after: moment,
+                }),
+                history({
+                    scope: '//stuff',
+                    after: moment,
+                    first: 5,
+                }),
+                history({
+                    scope: '//stuff',
+                    before: moment,
+                    after: moment,
+                }),
+                del_history({
+                    scope: '//stuff',
+                    before: moment,
+                    after: moment,
+                }),
+                history({
+                    scope: '//stuff',
+                    match: /\\bT0\\b/m,
+                }),
+                history({
+                    scope: '//stuff',
+                    contains: 'T0'
+                }),
+            ];
+        """, scope='/t')
 
         self.assertEqual(len(before), 10)
         self.assertEqual(len(after), 10)
         self.assertEqual(len(both), 0)
+        self.assertEqual(len(t0m), 2)
         self.assertEqual(deleted, 0)
-
+        self.assertEqual(t0m, t0c)
         self.assertTrue(before[0]['id'] < after[0]['id'])
+        self.assertEqual(before[-5:], b5)
+        self.assertEqual(after[:5], a5)
 
         with self.assertRaisesRegex(
                 OperationError,
@@ -411,11 +441,42 @@ class TestCommits(TestBase):
                      .to_type('T0');
             """)
 
+        try:
+            await q0("""//ti
+                    commit(`Add another type T0 (should fail)`);
+                    new_type('T0');
+            """)
+        except Exception as e:
+            err_msg = str(e)
+        else:
+            err_msg = None
 
+        self.assertTrue(isinstance(err_msg, str))
 
+        await self.node0.shutdown()
+        await self.node0.run()
 
-
-
+        for q in (q0, q1):
+            with_err, no_err, both = await q("""//ti
+                [
+                    history({
+                        scope: '//stuff',
+                        has_err: true,
+                    }),
+                    history({
+                        scope: '//stuff',
+                        has_err: false,
+                    }),
+                    history({
+                        scope: '//stuff',
+                        match: /.*/,
+                    }),
+                ];
+            """, scope='/t')
+            self.assertEqual(len(with_err), 1)
+            self.assertEqual(len(no_err), 20)
+            self.assertEqual(len(both), 21)
+            self.assertEqual(with_err[0]['err_msg'], err_msg)
 
 
 if __name__ == '__main__':

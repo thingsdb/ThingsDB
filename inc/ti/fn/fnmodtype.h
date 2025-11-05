@@ -1547,7 +1547,7 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_arg_name_check("mod_type", DOC_MOD_TYPE, 3, query->rval, e))
         goto fail1;
 
-    name = ti_names_from_raw_slow((ti_raw_t *) query->rval);
+    name = ti_names_from_raw((ti_raw_t *) query->rval);
     if (!name)
     {
         ex_set_mem(e);

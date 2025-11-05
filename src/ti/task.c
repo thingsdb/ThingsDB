@@ -3159,7 +3159,7 @@ int ti_task_add_commit_add(ti_task_t * task, ti_commit_t * commit)
 
     msgpack_pack_array(&pk, 2);
 
-    msgpack_pack_uint8(&pk, TI_TASK_COMMIT_ADD);
+    msgpack_pack_uint8(&pk, TI_TASK_COMMIT);
     (void) ti_commit_to_pk(commit, &pk);
 
     data = (ti_data_t *) buffer.data;

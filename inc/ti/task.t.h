@@ -94,7 +94,7 @@ typedef enum
     TI_TASK_WHITELIST_DEL,                  /* 81  */
     TI_TASK_SET_HISTORY,                    /* 82  */
     TI_TASK_DEL_HISTORY,                    /* 83  */
-    TI_TASK_COMMIT_ADD,                     /* 84  */
+    TI_TASK_COMMIT,                         /* 84  */
 } ti_task_enum;
 
 typedef struct ti_task_s ti_task_t;

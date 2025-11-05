@@ -464,7 +464,7 @@ class TestCommits(TestBase):
         await self.node0.run()
 
         for q in (q0, q1):
-            with_err, no_err, both = await q("""//ti
+            with_err, no_err, both0, both1, both2 = await q("""//ti
                 [
                     history({
                         scope: '//stuff',
@@ -478,11 +478,20 @@ class TestCommits(TestBase):
                         scope: '//stuff',
                         match: /.*/,
                     }),
-                ];
+                    history({
+                        scope: '//stuff',
+                        last: 9999,
+                    }),
+                    history({
+                        scope: '//stuff',
+                        first: 9999,
+                    }),                ];
             """, scope='/t')
             self.assertEqual(len(with_err), 1)
             self.assertEqual(len(no_err), 20)
-            self.assertEqual(len(both), 21)
+            self.assertEqual(len(both0), 21)
+            self.assertEqual(len(both1), 21)
+            self.assertEqual(len(both2), 21)
             self.assertEqual(with_err[0]['err_msg'], err_msg)
 
         commit_id = with_err[0]['id']

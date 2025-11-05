@@ -3284,7 +3284,7 @@ int ctask__arr_remove(ti_thing_t * thing, mp_unp_t * up)
  * Returns 0 on success
  * - for example: '{name: closure}'
  */
-static int ctask__commit_add(ti_thing_t * thing, mp_unp_t * up)
+static int ctask__commit(ti_thing_t * thing, mp_unp_t * up)
 {
     vec_t ** commits = &thing->collection->commits;
     ti_commit_t * commit = ti_commit_from_up(up);
@@ -3422,7 +3422,7 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_WHITELIST_DEL:     break;
     case TI_TASK_SET_HISTORY:       break;
     case TI_TASK_DEL_HISTORY:       break;
-    case TI_TASK_COMMIT_ADD:        return ctask__commit_add(thing, up);
+    case TI_TASK_COMMIT:            return ctask__commit(thing, up);
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);

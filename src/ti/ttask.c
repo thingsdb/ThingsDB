@@ -802,7 +802,7 @@ static int ttask__del_history(mp_unp_t * up)
     return 0;
 }
 
-static int ttask__commit_add(mp_unp_t * up)
+static int ttask__commit(mp_unp_t * up)
 {
     vec_t ** commits = &ti.commits;
     ti_commit_t * commit = ti_commit_from_up(up);
@@ -1863,7 +1863,7 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_WHITELIST_DEL:     return ttask__whitelist_del(up);
     case TI_TASK_SET_HISTORY:       return ttask__set_history(up);
     case TI_TASK_DEL_HISTORY:       return ttask__del_history(up);
-    case TI_TASK_COMMIT_ADD:        return ttask__commit_add(up);
+    case TI_TASK_COMMIT:            return ttask__commit(up);
     }
 
     log_critical("unknown thingsdb task: %"PRIu64, mp_task.via.u64);

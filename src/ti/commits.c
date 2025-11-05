@@ -371,10 +371,8 @@ static _Bool commits__match(
     ti_commit_t * commit,
     ti_commits_options_t * options)
 {
-    /* For both contains and match, we do not scan the message as the
-     * message is most likely part of the code. This may not be perfect when
-     * the message is using a construction but we accept this trade-off */
     if (options->contains && (
+            !ti_raw_contains(commit->message, options->contains) &&
             !ti_raw_contains(commit->code, options->contains) &&
             !ti_raw_contains(commit->by, options->contains) && (
                 !commit->err_msg ||
@@ -383,6 +381,7 @@ static _Bool commits__match(
         ))
         return false;
     if (options->match && (
+            !ti_regex_test(options->match, commit->message) &&
             !ti_regex_test(options->match, commit->code) &&
             !ti_regex_test(options->match, commit->by) && (
                 !commit->err_msg ||

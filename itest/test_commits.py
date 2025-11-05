@@ -22,7 +22,7 @@ class TestCommits(TestBase):
             WARNING: Test requires a second node!!!
         ''')
 
-    @default_test_setup(num_nodes=1, seed=1, threshold_full_storage=10)
+    @default_test_setup(num_nodes=2, seed=1, threshold_full_storage=10)
     async def async_run(self):
 
         await self.node0.init_and_run()
@@ -30,20 +30,18 @@ class TestCommits(TestBase):
         client0 = await get_client(self.node0)
         client0.set_default_scope('//stuff')
 
-        # add another node
-        if hasattr(self, 'node1'):
-            await self.node1.join_until_ready(client0)
+        await self.node1.join_until_ready(client0)
 
-        client1 = await get_client(self.node0)
+        client1 = await get_client(self.node1)
         client1.set_default_scope('//stuff')
 
-        await self.run_tests(client0.query, client1.query)
+        await self.run_tests(client0.query, client1.query, client0)
 
         for client in (client0, client1):
             client.close()
             await client.wait_closed()
 
-    async def test_set_history(self, q0, q1):
+    async def test_set_history(self, q0, q1, c0):
         with self.assertRaisesRegex(
                 LookupError,
                 r'function `set_history` is undefined in the `@node` scope; '
@@ -136,7 +134,7 @@ class TestCommits(TestBase):
                         """, scope='/n')
             self.assertEqual(r, 'disabled')
 
-    async def test_access(self, q0, q1):
+    async def test_access(self, q0, q1, c0):
         await q0("""//ti
                  new_collection('junk');
                  new_user('test1');
@@ -176,7 +174,7 @@ class TestCommits(TestBase):
             set_history('/t', false);
         """, scope='/t')
 
-    async def test_history(self, q0, q1):
+    async def test_history(self, q0, q1, c0):
         await q0("""//ti
             set_history('//stuff', false);
             set_history('/t', false);
@@ -280,7 +278,7 @@ class TestCommits(TestBase):
                 history({scope: '//stuff', x: ''});
             """, scope='/t')
 
-    async def test_del_history(self, q0, q1):
+    async def test_del_history(self, q0, q1, c0):
         await q0("""//ti
             set_history('//stuff', false);
             set_history('/t', false);
@@ -315,7 +313,7 @@ class TestCommits(TestBase):
                 del_history({scope: '//stuff', x: ''});
             """, scope='/t')
 
-    async def test_commit(self, q0, q1):
+    async def test_commit(self, q0, q1, c0):
         await q0("""//ti
             set_history('//stuff', false);
             set_history('/t', false);
@@ -362,6 +360,15 @@ class TestCommits(TestBase):
             await q0("""//ti
                      commit('Test');
             """)
+        with self.assertRaisesRegex(
+                OperationError,
+                r'function `commit` is not allowed in a future'):
+            await q0("""//ti
+                     future(||{
+                        commit('Test');
+                        new_type('F');
+                     });
+            """)
 
         for i in range(10):
             # use f-string format as we want T0..9 be part of the code
@@ -373,11 +380,11 @@ class TestCommits(TestBase):
         await asyncio.sleep(3.0)
 
         for i in range(10):
-            # use f-string format as we want T0..9 be part of the code
-            await q0(f"""//ti
-                    commit('Add x to type T{i}');
-                    mod_type('T{i}', 'add', 'x', 'int');
-            """)
+            # without f-string to ensure message
+            await q0("""//ti
+                    commit(`Add x to type T{i}`);
+                    mod_type(`T{i}`, 'add', 'x', 'int');
+            """, i=i)
 
         before, b5, after, a5, both, deleted, t0m, t0c = await q0("""//ti
             wse();
@@ -540,6 +547,23 @@ class TestCommits(TestBase):
             await q('wse()')
             n = await q('node_info().load().commit_history;', scope='/n')
             self.assertEqual(n, 1)
+
+    async def test_from_procedure(self, q0, q1, c0):
+        await q0("""//ti
+            set_history('//stuff', true);
+            set_history('/t', false);
+        """, scope='/t')
+        await q0("""//ti
+                 commit('add procedure...');
+                 new_procedure('test_commit', |msg| {
+                        commit(msg);
+                        wse();
+                 });
+                 """)
+        with self.assertRaisesRegex(
+                OperationError,
+                r'function `commit` is not allowed in a procedure'):
+            await c0.run('test_commit', 'test')
 
 
 if __name__ == '__main__':

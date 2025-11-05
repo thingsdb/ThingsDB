@@ -26,7 +26,9 @@ static int do__f_commit(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     switch ((ti_query_with_enum) query->with_tp)
     {
-        case TI_QUERY_WITH_PARSERES: break;
+        case TI_QUERY_WITH_PARSERES:
+            /* we use parseres, so it must be a query */
+            break;
         case TI_QUERY_WITH_PROCEDURE:
             ex_set(e, EX_OPERATION,
                 "function `commit` is not allowed in a procedure");

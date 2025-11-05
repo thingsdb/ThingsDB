@@ -2886,6 +2886,5 @@ mod_enum('E', 'mod', 'A', {
         self.assertEqual(res, 'DONE')
 
 
-
 if __name__ == '__main__':
     run_test(TestAdvanced())

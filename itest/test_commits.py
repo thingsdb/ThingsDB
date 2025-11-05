@@ -531,9 +531,15 @@ class TestCommits(TestBase):
             self.assertEqual(len(t9), 1)
             self.assertEqual(n, 15)
 
+        await q0("""//ti
+                commit('Test TI scope');
+                new_user('A');
+                """, scope='/t')
 
-
-
+        for q in (q0, q1):
+            await q('wse()')
+            n = await q('node_info().load().commit_history;', scope='/n')
+            self.assertEqual(n, 1)
 
 
 if __name__ == '__main__':

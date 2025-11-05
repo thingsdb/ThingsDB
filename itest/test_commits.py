@@ -413,7 +413,7 @@ class TestCommits(TestBase):
                 }),
                 history({
                     scope: '//stuff',
-                    match: /\\bT0\\b/m,
+                    match: /\\bT0\\b/,
                 }),
                 history({
                     scope: '//stuff',

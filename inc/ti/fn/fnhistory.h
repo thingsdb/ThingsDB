@@ -35,9 +35,21 @@ static int do__f_history(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     ti_val_unsafe_drop(query->rval);
-    query->rval = (ti_val_t *) ti_varr_from_vec(filtered);
-    if (!query->rval)
-        goto fail;
+    if (options.id)
+    {
+        assert(filtered->n <= 1);
+
+        query->rval = (ti_val_t *) (filtered->n
+            ? VEC_first(filtered)
+            : ti_nil_get());
+        vec_destroy(filtered, NULL);
+    }
+    else
+    {
+        query->rval = (ti_val_t *) ti_varr_from_vec(filtered);
+        if (!query->rval)
+            goto fail;
+    }
 
     return e->nr;
 fail:

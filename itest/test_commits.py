@@ -478,6 +478,63 @@ class TestCommits(TestBase):
             self.assertEqual(len(both), 21)
             self.assertEqual(with_err[0]['err_msg'], err_msg)
 
+        commit_id = with_err[0]['id']
+
+        commit = await q0("""//ti
+            history({
+                scope: '//stuff',
+                id: commit_id,
+                detail: true,
+            });
+        """, commit_id=commit_id, scope='/t')
+
+        self.assertEqual(commit['id'], commit_id)
+        self.assertTrue('code' in commit)
+        self.assertTrue('should fail' in commit['code'])
+
+        n = await q0("""//ti
+            del_history({
+                scope: '//stuff',
+                first: 3,
+            });
+        """, commit_id=commit_id, scope='/t')
+        self.assertEqual(n, 3)
+        n = await q0("""//ti
+            del_history({
+                scope: '//stuff',
+                last: 3,
+            });
+        """, commit_id=commit_id, scope='/t')
+        self.assertEqual(n, 3)
+
+        for q in (q0, q1):
+            t0, t4, t9, n = await q("""//ti
+                wse();
+                [
+                    history({
+                        scope: '//stuff',
+                        contains: 'T0',
+                    }),
+                    history({
+                        scope: '//stuff',
+                        contains: 'T4',
+                    }),
+                    history({
+                        scope: '//stuff',
+                        contains: 'T9',
+                    }),
+                    collection_info('stuff').load().commit_history,
+                ];
+            """, scope='/t')
+            self.assertEqual(len(t0), 1)
+            self.assertEqual(len(t4), 2)
+            self.assertEqual(len(t9), 1)
+            self.assertEqual(n, 15)
+
+
+
+
+
 
 if __name__ == '__main__':
     run_test(TestCommits())

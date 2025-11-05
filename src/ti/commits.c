@@ -465,9 +465,9 @@ vec_t * ti_commits_del(vec_t ** commits, ti_commits_options_t * options)
         return NULL;
 
     commits__init(*commits, options, &begin, &end);
-    while (begin <= --end)
+    while (begin < end)
     {
-        ti_commit_t * commit = VEC_get(*commits, end);
+        ti_commit_t * commit = VEC_get(*commits, --end);
         if (commits__match(commit, options) &&
             vec_push(&vec, vec_remove(*commits, end)))
             goto fail;

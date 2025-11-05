@@ -40,7 +40,7 @@ struct ti_collection_s
     uv_mutex_t * lock;      /* only for watch/ unwatch/ away-mode */
     vec_t * futures;        /* no reference, type: ti_future_t */
     vec_t * vtasks;         /* tasks, type: ti_vtask_t */
-    vec_t * commits;           /* migration changes ti_commit_t */
+    vec_t * commits;        /* migration changes ti_commit_t */
     guid_t guid;            /* derived from collection->id */
 };
 

@@ -107,7 +107,7 @@ struct ti_s
     vec_t * users;              /* ti_user_t */
     vec_t * access_node;        /* ti_auth_t */
     vec_t * access_thingsdb;    /* ti_auth_t */
-    vec_t * commits;               /* ti_commit_t */
+    vec_t * commits;            /* ti_commit_t */
     smap_t * procedures;        /* ti_procedure_t */
     smap_t * names;             /* weak map for ti_name_t */
     smap_t * qcache;            /* pointer to cache in stack */

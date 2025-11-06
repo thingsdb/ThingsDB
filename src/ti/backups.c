@@ -117,7 +117,7 @@ fail2:
 fail1:
     vec_destroy(vec, (vec_destroy_cb) ti_val_unsafe_drop);
 fail0:
-    log_error("failed to remove files for backup id %zu", backup->id);
+    log_error("failed to remove files for backup id %"PRIu64, backup->id);
     return;
 }
 

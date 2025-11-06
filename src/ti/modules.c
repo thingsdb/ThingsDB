@@ -24,7 +24,7 @@ void ti_modules_init(void)
     path = realpath(ti.cfg->modules_path, NULL);
     if (!path)
     {
-        log_warning("cannot find storage path: `%s`", path);
+        log_warning("cannot find storage path: `%s`", ti.cfg->modules_path);
         goto do_python;
     }
 

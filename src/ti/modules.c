@@ -79,7 +79,7 @@ void ti_modules_stop_and_destroy(void)
 
 int ti_modules_rename(ti_module_t * module, const char * s, size_t n)
 {
-    ti_name_t * tmp = ti_names_get(s, n);
+    ti_name_t * tmp = ti_names_get_slow(s, n);
 
     if (!tmp || smap_add(ti.modules, tmp->str, module))
     {

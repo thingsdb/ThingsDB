@@ -68,7 +68,7 @@ int ti_procedures_rename(
         const char * str,
         size_t n)
 {
-    ti_name_t * name = ti_names_get(str, n);
+    ti_name_t * name = ti_names_get_slow(str, n);
     if (!name || smap_add(procedures, name->str, procedure))
     {
         ti_name_drop(name);

@@ -183,7 +183,7 @@ static void syncevents__done_cb(ti_req_t * req, ex_enum status)
     log_info("finished synchronizing `%s`", ti_stream_name(req->stream));
 
     if (status)
-        log_error("failed response: `%s` (%s)", ex_str(status), status);
+        log_error("failed response: `%s` (%d)", ex_str(status), status);
 
     ti_away_syncer_done(req->stream);
     ti_stream_stop_listeners(req->stream);

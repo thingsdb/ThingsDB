@@ -48,7 +48,7 @@ static int backups__gcd_rm(ti_raw_t * fn)
     {
         size_t sz = strlen(buffer);
         if (sz)
-            log_debug(buffer);
+            log_debug("%s", buffer);
     }
 
     rc = pclose(fp);
@@ -77,7 +77,7 @@ static void backups__rm_finish(uv_work_t * work, int status)
     vec_t * vec = work->data;
 
     if (status)
-        log_error(uv_strerror(status));
+        log_error("%s", uv_strerror(status));
 
     vec_destroy(vec, (vec_destroy_cb) ti_val_unsafe_drop);
     free(work);
@@ -117,7 +117,7 @@ fail2:
 fail1:
     vec_destroy(vec, (vec_destroy_cb) ti_val_unsafe_drop);
 fail0:
-    log_error("failed to remove files for backup id %u", backup->id);
+    log_error("failed to remove files for backup id %zu", backup->id);
     return;
 }
 
@@ -213,9 +213,9 @@ void ti_backups_upd_status(uint64_t backup_id, int rc, buf_t * buf)
     ti_raw_t * last_fn;
 
     if (rc)
-        log_error("backup result: %.*s", buf->len, buf->data);
+        log_error("backup result: %.*s", (int) buf->len, buf->data);
     else
-        log_info("backup result: %.*s", buf->len, buf->data);
+        log_info("backup result: %.*s", (int) buf->len, buf->data);
 
     uv_mutex_lock(backups->lock);
 
@@ -281,7 +281,7 @@ static void backups__run(uint64_t backup_id, const char * backup_task)
     buf_t buf;
     buf_init(&buf);
 
-    log_debug(backup_task);
+    log_debug("%s", backup_task);
 
     fp = popen(backup_task, "r");
     if (!fp)
@@ -299,7 +299,7 @@ static void backups__run(uint64_t backup_id, const char * backup_task)
 
         rc = pclose(fp);
 
-        log_debug("%.*s", buf.len, buf.data);
+        log_debug("%.*s", (int) buf.len, buf.data);
 
         if (rc == 0)
         {

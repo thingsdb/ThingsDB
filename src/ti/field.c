@@ -725,7 +725,7 @@ skip_nesting:
                                 "cannot find member `%.*s` on "
                                 "enum type `%s`"DOC_T_TYPE,
                                 field->name->str, field->type->name,
-                                n-m-1, str+m,
+                                (int) (n-m-1), str+m,
                                 enum_->name);
                         return e->nr;
                     }
@@ -754,7 +754,7 @@ skip_nesting:
                     "invalid declaration for `%s` on type `%s`; "
                     "unknown type `%.*s` in declaration"DOC_T_TYPE,
                     field->name->str, field->type->name,
-                    m, str);
+                    (int) m, str);
             return e->nr;
         }
         goto done;
@@ -802,7 +802,7 @@ skip_nesting:
                             "invalid declaration for `%s` on type `%s`; "
                             "unknown type `%.*s` in declaration"DOC_T_TYPE,
                             field->name->str, field->type->name,
-                            n, str);
+                            (int) n, str);
                 return e->nr;
             }
 
@@ -2635,7 +2635,7 @@ ti_field_t * ti_field_by_strn_e(
     if (ti_name_is_valid_strn(str, n))
         ex_set(e, EX_LOOKUP_ERROR, "type `%s` has no property `%.*s`",
                 type->name,
-                n, str);
+                (int) n, str);
     else
         ex_set(e, EX_VALUE_ERROR,
                 "property name must follow the naming rules"DOC_NAMES);

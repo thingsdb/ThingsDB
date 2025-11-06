@@ -1,3 +1,7 @@
+# v1.8.1
+
+* Implemented formatting C-string checks and fixed typo, pr #426.
+
 # v1.8.0
 
 * Added `TI_PROTO_CLIENT_REQ_EMIT_PEER` protocol, pr #414.

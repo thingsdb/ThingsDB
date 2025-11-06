@@ -102,10 +102,13 @@ typedef struct ex_s ex_t;
 #include <stdarg.h>
 #include <string.h>
 
-void ex_set(ex_t * e, ex_enum errnr, const char * errmsg, ...);
+void ex_sets(ex_t * e, ex_enum errnr, const char * errmsg);
+void ex_set(ex_t * e, ex_enum errnr, const char * errmsg, ...)
+        __attribute__((format(printf, 3, 4)));
 void ex_setv(ex_t * e, ex_enum errnr, const char * errmsg, va_list args);
 void ex_setn(ex_t * e, ex_enum errnr, const char * errmsg, size_t n);
-void ex_append(ex_t * e, const char * errmsg, ...);
+void ex_append(ex_t * e, const char * errmsg, ...)
+        __attribute__((format(printf, 2, 3)));;
 const char * ex_str(ex_enum errnr);
 
 struct ex_s

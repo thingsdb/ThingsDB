@@ -33,7 +33,7 @@
 #define TI_KIND_S_SET       "$"     /* Internally, Set */
 #define TI_KIND_S_ERROR     "!"     /* Internally, Error */
 #define TI_KIND_S_WRAP      "&"     /* Internally, Wrapped thing */
-#define TI_KIND_S_MEMBER    "%"     /* Internally, Enum member */
+#define TI_KIND_S_MEMBER    "%%"    /* Internally, Enum member */
 #define TI_KIND_S_DATETIME  "'"     /* Internally, Date/Time */
 #define TI_KIND_S_TIMEVAL   "\""    /* Internally, Time value */
 #define TI_KIND_S_CLOSURE_OBSOLETE_   "/"

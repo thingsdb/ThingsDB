@@ -97,7 +97,7 @@ static void web__data_cb(
     if (n < 0)
     {
         if (n != UV_EOF)
-            log_error(uv_strerror(n));
+            log_error("%s", uv_strerror(n));
         ti_web_close(web_request);
         goto done;
     }

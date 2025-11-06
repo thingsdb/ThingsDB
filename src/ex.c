@@ -26,6 +26,11 @@ void ex_set(ex_t * e, ex_enum errnr, const char * errmsg, ...)
     va_end(args);
 }
 
+void ex_sets(ex_t * e, ex_enum errnr, const char * errmsg)
+{
+    ex_setn(e, errnr, errmsg, strlen(errmsg));
+}
+
 void ex_setn(ex_t * e, ex_enum errnr, const char * errmsg, size_t n)
 {
     e->nr = errnr;

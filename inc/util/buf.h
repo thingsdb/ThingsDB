@@ -16,7 +16,8 @@ int buf_write(buf_t * buf, const char c);
 #define buf_append_str(buf__, s__) \
         buf_append(buf__, s__, strlen(s__))
 
-int buf_append_fmt(buf_t * buf, const char * s, ...);
+int buf_append_fmt(buf_t * buf, const char * s, ...)
+        __attribute__((format(printf, 2, 3)));
 
 struct buf_s
 {

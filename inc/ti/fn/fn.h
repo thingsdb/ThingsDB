@@ -559,7 +559,7 @@ static int fn_call_o_try_n(
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "thing "TI_THING_ID" has no property or method `%.*s`",
-                thing->id, n, name);
+                thing->id, (int) n, name);
         return e->nr;
     }
 
@@ -567,7 +567,7 @@ static int fn_call_o_try_n(
     {
         ex_set(e, EX_TYPE_ERROR,
             "property `%.*s` is of type `%s` and is not callable",
-            n, name, ti_val_str(val));
+            (int) n, name, ti_val_str(val));
         return e->nr;
     }
 
@@ -602,7 +602,7 @@ static int fn_call_t_try_n(
         {
             ex_set(e, EX_TYPE_ERROR,
                 "property `%.*s` is of type `%s` and is not callable",
-                n, name, ti_val_str(val));
+                (int) n, name, ti_val_str(val));
             return e->nr;
         }
 
@@ -616,7 +616,7 @@ static int fn_call_t_try_n(
 no_prop_err:
     ex_set(e, EX_LOOKUP_ERROR,
             "type `%s` has no property or method `%.*s`",
-            thing->via.type->name, n, name);
+            thing->via.type->name, (int) n, name);
     return e->nr;
 }
 
@@ -637,7 +637,7 @@ static int fn_call_w_try_n(
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "type `%s` has no function `%.*s`",
-                ti_val_str(query->rval), n, name);
+                ti_val_str(query->rval), (int) n, name);
         return e->nr;
     }
 
@@ -658,7 +658,7 @@ static int fn_call_w_try_n(
 no_method_err:
     ex_set(e, EX_LOOKUP_ERROR,
             "type `%s` has no method `%.*s`",
-            type->name, n, name);
+            type->name, (int) n, name);
     return e->nr;
 }
 
@@ -679,7 +679,7 @@ static int fn_call_f_try_n(
 
     ex_set(e, EX_LOOKUP_ERROR,
             "module `%s` has no function `%.*s`",
-            module->name->str, n, name);
+            module->name->str, (int) n, name);
     return e->nr;
 }
 
@@ -707,7 +707,7 @@ static int fn_call_m_try_n(
 
     ex_set(e, EX_LOOKUP_ERROR,
             "enum `%s` has no function `%.*s`",
-            member->enum_->name, n, name);
+            member->enum_->name, (int) n, name);
     return e->nr;
 }
 
@@ -737,7 +737,7 @@ static int fn_call_try_n(
 
     ex_set(e, EX_LOOKUP_ERROR,
             "type `%s` has no function `%.*s`",
-            ti_val_str(query->rval), n, name);
+            ti_val_str(query->rval), (int) n, name);
     return e->nr;
 }
 

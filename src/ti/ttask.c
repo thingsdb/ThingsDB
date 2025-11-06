@@ -1771,7 +1771,7 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
         {
             log_critical(
                     "task is not a `map` or `type` "
-                    "for thing "TI_THING_ID" is missing", 0);
+                    "for thing "TI_THING_ID" is missing", (uint64_t) 0);
             return -1;
         }
         goto version_v0;

@@ -38,7 +38,7 @@ static void clients__fwd_cb(ti_req_t * req, ex_enum status)
     if (status)
     {
         ex_t e = {0};
-        ex_set(&e, status, ex_str(status));
+        ex_sets(&e, status, ex_str(status));
         resp = ti_pkg_client_err(fwd->orig_pkg_id, &e);
         if (!resp)
             log_error(EX_MEMORY_S);

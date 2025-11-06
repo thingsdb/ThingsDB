@@ -382,7 +382,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 
             if (!ti_field_create(name, spec_raw, type, &e))
             {
-                log_critical(e.msg);
+                log_critical("%s", e.msg);
                 goto fail1;
             }
 
@@ -412,7 +412,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 
             if (ti_type_add_method(type, name, (ti_closure_t *) val, &e))
             {
-                log_critical(e.msg);
+                log_critical("%s", e.msg);
                 goto fail1;
             }
 
@@ -459,7 +459,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 
             if (ti_condition_field_rel_init(field, ofield, &e))
             {
-                log_critical(e.msg);
+                log_critical("%s", e.msg);
                 goto fail1;
             }
 

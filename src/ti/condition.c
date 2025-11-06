@@ -136,7 +136,7 @@ int ti_condition_field_info_init(
                 "invalid declaration for `%s` on type `%s`; "
                 "expecting a `<` character after `%.*s`"DOC_T_TYPE,
                 field->name->str, field->type->name,
-                (char *) str - (char *) field->spec_raw->data,
+                (int) ((char *) str - (char *) field->spec_raw->data),
                 (char *) field->spec_raw->data);
         return e->nr;
     }
@@ -484,7 +484,7 @@ expect_end:
             "expecting character `>` after `%.*s`"
             DOC_T_TYPE,
             field->name->str, field->type->name,
-            (char *) str - (char *) field->spec_raw->data,
+            (int) ((char *) str - (char *) field->spec_raw->data),
             (char *) field->spec_raw->data);
     goto failed;
 

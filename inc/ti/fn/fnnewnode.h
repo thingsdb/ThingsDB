@@ -59,7 +59,7 @@ static int do__f_new_node(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         /* Read the port number from arguments */
         if (ti_do_statement(query, (child = child->next->next), e) ||
-            fn_arg_int("new_node", DOC_NEW_NODE, 3, query->rval, e))
+            fn_arg_int_slow("new_node", DOC_NEW_NODE, 3, query->rval, e))
             goto fail1;
 
         iport = VINT(query->rval);

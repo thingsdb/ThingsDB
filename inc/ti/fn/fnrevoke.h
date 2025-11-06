@@ -37,7 +37,7 @@ static int do__f_revoke(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     /* read mask */
     if (ti_do_statement(query, (child = child->next->next), e) ||
-        fn_arg_int("revoke", DOC_REVOKE, 3, query->rval, e))
+        fn_arg_int_slow("revoke", DOC_REVOKE, 3, query->rval, e))
         return e->nr;
 
     mask = (uint64_t) VINT(query->rval);

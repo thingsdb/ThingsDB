@@ -10,7 +10,7 @@ static int do__f_del_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_access_check_err(ti.access_node, query->user, TI_AUTH_CHANGE, e) ||
         fn_nargs_range("del_backup", DOC_DEL_BACKUP, 1, 2, nargs, e) ||
         ti_do_statement(query, nd->children, e) ||
-        fn_arg_int("del_backup", DOC_DEL_BACKUP, 1, query->rval, e))
+        fn_arg_int_slow("del_backup", DOC_DEL_BACKUP, 1, query->rval, e))
         return e->nr;
 
     backup_id = ((ti_vint_t *) query->rval)->int_;

@@ -10,7 +10,7 @@ static int do__f_set_log_level(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_access_check_err(ti.access_node, query->user, TI_AUTH_CHANGE, e) ||
         fn_nargs("set_log_level", DOC_SET_LOG_LEVEL, 1, nargs, e) ||
         ti_do_statement(query, nd->children, e) ||
-        fn_arg_int("set_log_level", DOC_SET_LOG_LEVEL, 1, query->rval, e))
+        fn_arg_int_slow("set_log_level", DOC_SET_LOG_LEVEL, 1, query->rval, e))
         return e->nr;
 
     ilog = VINT(query->rval);

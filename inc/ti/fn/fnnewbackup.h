@@ -75,7 +75,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs >= 3)
     {
         if (ti_do_statement(query, (child = child->next->next), e) ||
-            fn_arg_int("new_backup", DOC_NEW_BACKUP, 3, query->rval, e))
+            fn_arg_int_slow("new_backup", DOC_NEW_BACKUP, 3, query->rval, e))
             goto fail0;
 
         repeat = VINT(query->rval) < 0 ? 0 : (uint64_t) VINT(query->rval);
@@ -87,7 +87,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs == 4)
     {
         if (ti_do_statement(query, (child = child->next->next), e) ||
-            fn_arg_int("new_backup", DOC_NEW_BACKUP, 4, query->rval, e))
+            fn_arg_int_slow("new_backup", DOC_NEW_BACKUP, 4, query->rval, e))
             goto fail0;
 
         max_files = VINT(query->rval) < 1 ? 1 : (uint64_t) VINT(query->rval);

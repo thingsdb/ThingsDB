@@ -92,7 +92,7 @@ int ti_changes_create(void)
     changes->next_change_id = 0;
     changes->dropped = vec_new(CHANGES__INIT_DROPPED_SZ);
     changes->skipped_ids = olist_create();
-    memset(&changes->wait_gap_time, 0, sizeof(changes->wait_gap_time));
+    memset(&changes->wait_gap_time, 0, sizeof(util_time_t));
     changes->wait_ccid = 0;
 
     if (!changes->skipped_ids ||

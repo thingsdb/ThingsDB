@@ -29,7 +29,7 @@ class TestRelations(TestBase):
         client = await get_client(self.node0)
         client.set_default_scope('//stuff')
 
-        # add another node otherwise backups are not possible
+        # add another node
         if hasattr(self, 'node1'):
             await self.node1.join_until_ready(client)
 
@@ -415,6 +415,8 @@ class TestRelations(TestBase):
         await client.query(r'''wse();''')
         res = await client.query(r'''export();''')
         self.assertEqual(res, r'''
+try(commit('Source: collection `stuff`'));
+
 new_type('A');
 new_type('B');
 new_type('C');

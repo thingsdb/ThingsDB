@@ -1,19 +1,14 @@
 #!/usr/bin/env python
 import asyncio
-import pickle
 import time
 from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
-from thingsdb.exceptions import AssertionError
 from thingsdb.exceptions import ValueError
 from thingsdb.exceptions import TypeError
 from thingsdb.exceptions import NumArgumentsError
-from thingsdb.exceptions import BadDataError
 from thingsdb.exceptions import LookupError
-from thingsdb.exceptions import OverflowError
-from thingsdb.exceptions import ZeroDivisionError
 from thingsdb.exceptions import OperationError
 
 
@@ -2282,6 +2277,58 @@ class TestType(TestBase):
             await client.query(r"""//ti
                 E{}.tel = 'abc';
             """)
+
+    async def test_to_type_no_store(self, client0):
+        # this test is for bug #424
+        q0 = client0.query
+        await q0("""//ti-
+                set_type('T', {name: 'str<::default>'});
+                t = {};
+                t.to_type('T');
+                t;
+                .o = {};
+                .x = 42;
+        """)
+
+        client1 = await get_client(self.node1)
+        client1.set_default_scope('//stuff')
+
+        await self.wait_nodes_ready(client0)
+        q1 = client1.query
+
+        for q in (q0, q1):
+            r = await q("""//ti
+                        .x;
+            """)
+            self.assertEqual(r, 42)
+
+        r = await q("""//ti
+                nse();
+                t = {};
+                t.to_type('T');
+                change_id();
+        """)
+        self.assertIs(r, None)
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'operation on a stored thing; remove `nse\(...\)` to '
+                r'enforce a change'):
+            await q0("""//ti
+                    nse();
+                    .o.to_type('T');
+            """)
+
+        await q0("""//ti
+                .o.to_type('T');
+        """)
+
+        for q in (q0, q1):
+            r = await q("""//ti
+                wse();
+                .o.name;
+            """)
+            self.assertEqual(r, "default")
 
 
 if __name__ == '__main__':

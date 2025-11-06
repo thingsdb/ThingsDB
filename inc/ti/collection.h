@@ -25,6 +25,7 @@ ti_collection_t * ti_collection_create(
         uint8_t deep);
 void ti_collection_destroy(ti_collection_t * collection);
 void ti_collection_drop(ti_collection_t * collection);
+int ti_collection_to_pk(ti_collection_t * collection, msgpack_packer * pk);
 _Bool ti_collection_name_check(const char * name, size_t n, ex_t * e);
 int ti_collection_rename(
         ti_collection_t * collection,

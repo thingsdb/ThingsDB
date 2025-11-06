@@ -1570,6 +1570,8 @@ class TestAdvanced(TestBase):
 
     async def test_export(self, client):
         script = r'''
+try(commit('Source: collection `stuff`'));
+
 new_type('Friend');
 new_type('Person');
 new_type('Root');
@@ -2840,6 +2842,48 @@ new_procedure('multiply', |a, b| a * b);
 \t\treturn;
 \t};
 }""")
+
+    async def test_recursive_enum_export(self, client):
+        q = client.query
+        await q("""//ti
+                t = {};
+                set_enum('E', {A: t});
+                E{A}.value().t = E{A}.value();
+                """)
+
+        script = await q("""//ti
+                 export();
+                 """)
+        self.assertEqual(script, r'''
+try(commit('Source: collection `stuff`'));
+
+
+set_enum('E', {
+  A: {},
+});
+
+
+
+mod_enum('E', 'mod', 'A', {
+  t: {
+    t: {
+      t: {
+        t: {} /* WARN: max deep reached */,
+      },
+    },
+  },
+});
+
+
+
+
+'DONE';
+'''.lstrip().replace('  ', '\t'))
+        await q("""//ti
+            new_collection('other')
+          """, scope='/t')
+        res = await q(script, scope='//other')
+        self.assertEqual(res, 'DONE')
 
 
 if __name__ == '__main__':

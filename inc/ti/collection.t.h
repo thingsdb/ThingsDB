@@ -8,11 +8,12 @@ typedef struct ti_collection_s  ti_collection_t;
 
 #include <uv.h>
 #include <inttypes.h>
-#include <ti/raw.t.h>
 #include <ti/enums.t.h>
+#include <ti/commit.h>
+#include <ti/raw.t.h>
 #include <ti/thing.t.h>
-#include <ti/tz.h>
 #include <ti/types.t.h>
+#include <ti/tz.h>
 #include <util/guid.h>
 #include <util/imap.h>
 #include <util/queue.h>
@@ -39,6 +40,7 @@ struct ti_collection_s
     uv_mutex_t * lock;      /* only for watch/ unwatch/ away-mode */
     vec_t * futures;        /* no reference, type: ti_future_t */
     vec_t * vtasks;         /* tasks, type: ti_vtask_t */
+    vec_t * commits;        /* migration changes ti_commit_t */
     guid_t guid;            /* derived from collection->id */
 };
 

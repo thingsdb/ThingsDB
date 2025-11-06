@@ -72,6 +72,13 @@ static inline uint64_t ti_query_scope_id(ti_query_t * query)
             : TI_SCOPE_NODE;
 }
 
+static inline vec_t ** ti_query_commits(ti_query_t * query)
+{
+    return query->collection
+        ? &query->collection->commits
+        : &ti.commits;
+}
+
 static inline int ti_query_test_vset_operation(ti_query_t * query, ex_t * e)
 {
     if (!query->change && ti_vset_is_stored((ti_vset_t *) query->rval))

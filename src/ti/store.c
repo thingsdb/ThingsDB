@@ -9,6 +9,7 @@
 #include <ti/store/storeaccess.h>
 #include <ti/store/storecollection.h>
 #include <ti/store/storecollections.h>
+#include <ti/store/storecommits.h>
 #include <ti/store/storeenums.h>
 #include <ti/store/storegcollect.h>
 #include <ti/store/storemodules.h>
@@ -34,6 +35,7 @@ static const char * store__tmp_path      = "__tmp/";
 static const char * store__access_node_fn       = "access_node.mp";
 static const char * store__access_thingsdb_fn   = "access_thingsdb.mp";
 static const char * store__collections_fn       = "collections.mp";
+static const char * store__commits_fn           = "commits.mp";
 static const char * store__id_stat_fn           = "idstat.mp";
 static const char * store__names_fn             = "names.mp";
 static const char * store__procedures_fn        = "procedures.mp";
@@ -58,6 +60,7 @@ static void store__set_filename(_Bool use_tmp)
     memcpy(store->access_node_fn + store->fn_offset, path, n);
     memcpy(store->access_thingsdb_fn + store->fn_offset, path, n);
     memcpy(store->collections_fn + store->fn_offset, path, n);
+    memcpy(store->commits_fn + store->fn_offset, path, n);
     memcpy(store->id_stat_fn + store->fn_offset, path, n);
     memcpy(store->names_fn + store->fn_offset, path, n);
     memcpy(store->procedures_fn + store->fn_offset, path, n);
@@ -112,6 +115,7 @@ int ti_store_create(void)
     store->collections_fn = fx_path_join(
             store->tmp_path,
             store__collections_fn);
+    store->commits_fn = fx_path_join(store->tmp_path, store__commits_fn);
     store->id_stat_fn = fx_path_join(store->tmp_path, store__id_stat_fn);
     store->names_fn = fx_path_join(store->tmp_path, store__names_fn);
     store->procedures_fn = fx_path_join(store->tmp_path, store__procedures_fn);
@@ -126,6 +130,7 @@ int ti_store_create(void)
             !store->access_node_fn ||
             !store->access_thingsdb_fn ||
             !store->collections_fn ||
+            !store->commits_fn ||
             !store->id_stat_fn ||
             !store->names_fn ||
             !store->procedures_fn ||
@@ -170,6 +175,7 @@ void ti_store_destroy(void)
     free(store->access_node_fn);
     free(store->access_thingsdb_fn);
     free(store->collections_fn);
+    free(store->commits_fn);
     free(store->id_stat_fn);
     free(store->names_fn);
     free(store->procedures_fn);
@@ -212,7 +218,8 @@ int ti_store_store(void)
             ti_store_collections_store(store->collections_fn) ||
             ti_store_procedures_store(ti.procedures, store->procedures_fn) ||
             ti_store_tasks_store(ti.tasks->vtasks, store->tasks_fn) ||
-            ti_store_modules_store(store->modules_fn))
+            ti_store_modules_store(store->modules_fn) ||
+            ti_store_commits_store(ti.commits, store->commits_fn))
         goto failed;
 
     for (vec_each(ti.collections->vec, ti_collection_t, collection))
@@ -267,7 +274,10 @@ int ti_store_store(void)
                         store_collection->procedures_fn) ||
                 ti_store_tasks_store(
                         collection->vtasks,
-                        store_collection->tasks_fn)
+                        store_collection->tasks_fn) ||
+                ti_store_commits_store(
+                        collection->commits,
+                        store_collection->commits_fn)
             );
         }
         ti_store_collection_destroy(store_collection);
@@ -348,7 +358,8 @@ int ti_store_restore(void)
                     &ti.tasks->vtasks,
                     store->tasks_fn,
                     NULL) ||
-            ti_store_modules_restore(store->modules_fn));
+            ti_store_modules_restore(store->modules_fn) ||
+            ti_store_commits_restore(&ti.commits, store->commits_fn));
 
     if (rc)
         goto stop;
@@ -430,7 +441,10 @@ int ti_store_restore(void)
                 ti_store_procedures_restore(
                         collection->procedures,
                         store_collection->procedures_fn,
-                        collection)
+                        collection) ||
+                ti_store_commits_restore(
+                        &collection->commits,
+                        store_collection->commits_fn)
         );
 
         ti_store_collection_destroy(store_collection);

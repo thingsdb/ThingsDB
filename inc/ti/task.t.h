@@ -92,6 +92,9 @@ typedef enum
     TI_TASK_ROOM_SET_NAME,                  /* 79  */
     TI_TASK_WHITELIST_ADD,                  /* 80  */
     TI_TASK_WHITELIST_DEL,                  /* 81  */
+    TI_TASK_SET_HISTORY,                    /* 82  */
+    TI_TASK_DEL_HISTORY,                    /* 83  */
+    TI_TASK_COMMIT,                         /* 84  */
 } ti_task_enum;
 
 typedef struct ti_task_s ti_task_t;

@@ -69,6 +69,7 @@ ti_collection_t * ti_collection_create(
     collection->futures = vec_new(4);
     collection->vtasks = vec_new(4);
     collection->named_rooms = smap_create();
+    collection->commits = NULL;
 
     memcpy(&collection->guid, guid, sizeof(guid_t));
 
@@ -100,6 +101,7 @@ void ti_collection_destroy(ti_collection_t * collection)
     ti_val_drop((ti_val_t *) collection->name);
     vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);
     vec_destroy(collection->vtasks, (vec_destroy_cb) ti_vtask_drop);
+    vec_destroy(collection->commits, (vec_destroy_cb) ti_commit_destroy);
     smap_destroy(collection->procedures, (smap_destroy_cb) ti_procedure_destroy);
     smap_destroy(collection->named_rooms, NULL);
     ti_types_destroy(collection->types);
@@ -125,6 +127,39 @@ void ti_collection_drop(ti_collection_t * collection)
 
     if (ti_collections_add_for_collect(collection))
         log_critical(EX_MEMORY_S);
+}
+
+int ti_collection_to_pk(ti_collection_t * collection, msgpack_packer * pk)
+{
+    return -(
+        msgpack_pack_map(pk, 8) ||
+
+        mp_pack_str(pk, "collection_id") ||
+        msgpack_pack_uint64(pk, collection->id) ||
+
+        mp_pack_str(pk, "name") ||
+        mp_pack_strn(pk, collection->name->data, collection->name->n) ||
+
+        mp_pack_str(pk, "created_at") ||
+        msgpack_pack_uint64(pk, collection->created_at) ||
+
+        mp_pack_str(pk, "things") ||
+        msgpack_pack_uint64(pk, collection->things->n + collection->gc->n) ||
+
+        mp_pack_str(pk, "time_zone") ||
+        mp_pack_strn(pk, collection->tz->name, collection->tz->n) ||
+
+        mp_pack_str(pk, "default_deep") ||
+        msgpack_pack_uint64(pk, collection->deep) ||
+
+        mp_pack_str(pk, "next_free_id") ||
+        msgpack_pack_uint64(pk, collection->next_free_id) ||
+
+        mp_pack_str(pk, "commit_history") ||
+        (collection->commits
+                ? msgpack_pack_uint32(pk, collection->commits->n)
+                : mp_pack_str(pk, "disabled"))
+    );
 }
 
 _Bool ti_collection_name_check(const char * name, size_t n, ex_t * e)

@@ -1489,6 +1489,7 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const int nargs = fn_get_nargs(nd);
 
     if (fn_not_collection_scope("mod_type", query, e) ||
+        fn_commit("mod_type", query, e) ||
         fn_nargs_min("mod_type", DOC_MOD_TYPE, 3, nargs, e) ||
         ti_do_statement(query, child, e) ||
         fn_arg_str_slow("mod_type", DOC_MOD_TYPE, 1, query->rval, e))
@@ -1546,7 +1547,7 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_arg_name_check("mod_type", DOC_MOD_TYPE, 3, query->rval, e))
         goto fail1;
 
-    name = ti_names_from_raw((ti_raw_t *) query->rval);
+    name = ti_names_from_raw_slow((ti_raw_t *) query->rval);
     if (!name)
     {
         ex_set_mem(e);

@@ -9,16 +9,17 @@ typedef int (*ti_query_vars_walk_cb)(void * data, void * arg);
 
 #include <cleri/cleri.h>
 #include <ti/api.t.h>
+#include <ti/change.t.h>
 #include <ti/closure.t.h>
 #include <ti/collection.t.h>
-#include <ti/change.t.h>
 #include <ti/flags.h>
 #include <ti/future.t.h>
+#include <ti/commit.h>
 #include <ti/qbind.t.h>
 #include <ti/stream.t.h>
-#include <ti/vtask.t.h>
 #include <ti/user.t.h>
 #include <ti/val.t.h>
+#include <ti/vtask.t.h>
 #include <util/util.h>
 #include <util/link.h>
 
@@ -72,7 +73,6 @@ typedef union
     ti_vtask_t * vtask;         /* when called as task */
 } ti_query_with_t;
 
-
 struct ti_query_s
 {
     uint32_t local_stack;       /* variable scopes start here */
@@ -92,6 +92,7 @@ struct ti_query_s
     ti_change_t * change;       /* with reference, only when a change is
                                    required otherwise NULL
                                 */
+    ti_commit_t * commit;             /* NULL if no migration change */
     vec_t * immutable_cache;    /* ti_val_t, Only for immutable and collection
                                    independent variable and temporary used for
                                    procedures to populate the closure arguments

@@ -1404,12 +1404,20 @@ int ti_type_convert(
         ti_val_t ** val = (ti_val_t **) vec_get_addr(w.vec, field->idx);
         if (!*val)
         {
-            if (change)
+            /* Depending from where called, we might have a thing->id and no
+             * change (when processing a change from disk or other node).
+             * We also might have a change, and no thing->id. see bug #424 */
+            *val = field->dval_cb(field);
+            if (!val)
+            {
+                ex_set_mem(e);
+                goto fail0;
+            }
+            ti_val_attach(*val, thing, field);
+            if (change && thing->id)
             {
                 ti_task_t * task = ti_task_get_task(change, thing);
-
-                *val = field->dval_cb(field);
-                if (!*val || !task || ti_task_add_set(
+                if (!task || ti_task_add_set(
                         task,
                         (ti_raw_t *) field->name,
                         *val))
@@ -1417,14 +1425,6 @@ int ti_type_convert(
                     ex_set_mem(e);
                     goto fail0;
                 }
-                ti_val_attach(*val, thing, field);
-            }
-            else
-            {
-                ex_set(e, EX_TYPE_ERROR,
-                        "conversion failed; property `%s` is missing",
-                        field->name->str);
-                goto fail0;
             }
         }
     }

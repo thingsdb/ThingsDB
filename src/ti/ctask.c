@@ -3281,6 +3281,42 @@ int ctask__arr_remove(ti_thing_t * thing, mp_unp_t * up)
 }
 
 /*
+ * Returns 0 on success
+ * - for example: '{name: closure}'
+ */
+static int ctask__commit(ti_thing_t * thing, mp_unp_t * up)
+{
+    vec_t ** commits = &thing->collection->commits;
+    ti_commit_t * commit = ti_commit_from_up(up);
+    if (!commit)
+    {
+        log_critical(
+            "failed to unpack commit from task `commit_add` "
+            "for the @collection:%.*s scope",
+            thing->collection->name->n, thing->collection->name->data);
+        return -1;
+    }
+    if (!(*commits))
+    {
+        log_error(
+            "commits not enabled for the @collection:%.*s scope",
+            thing->collection->name->n, thing->collection->name->data);
+        goto fail;
+    }
+    if (vec_push(commits, commit))
+    {
+        log_error(
+            "failed to add commit for the @collection:%.*s scope",
+            thing->collection->name->n, thing->collection->name->data);
+        goto fail;
+    }
+    return 0;
+fail:
+    ti_commit_destroy(commit);
+    return -1;
+}
+
+/*
  * Unpacker should be at point 'task': ...
  */
 int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
@@ -3384,6 +3420,9 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_ROOM_SET_NAME:     return ctask__room_set_name(thing, up);
     case TI_TASK_WHITELIST_ADD:     break;
     case TI_TASK_WHITELIST_DEL:     break;
+    case TI_TASK_SET_HISTORY:       break;
+    case TI_TASK_DEL_HISTORY:       break;
+    case TI_TASK_COMMIT:            return ctask__commit(thing, up);
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);

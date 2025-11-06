@@ -20,6 +20,7 @@ struct ti_store_s
     char * access_node_fn;
     char * access_thingsdb_fn;
     char * collections_fn;
+    char * commits_fn;
     char * id_stat_fn;
     char * names_fn;
     char * prev_path;

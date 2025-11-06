@@ -646,9 +646,19 @@ static int export__write_to_type(ti_fmt_t * fmt, ti_collection_t * collection)
         : 0;
 }
 
+static int export__commit(ti_fmt_t * fmt, ti_collection_t * collection)
+{
+    return buf_append_fmt(
+        &fmt->buf,
+        "try(commit('Source: collection `%.*s`'));\n\n",
+        collection->name->n, collection->name->data);
+}
+
 static int export__collection(ti_fmt_t * fmt, ti_collection_t * collection)
 {
+
     return -(
+        export__commit(fmt, collection) ||
         export__write_new_types(fmt, collection->types) ||
         export__write_enums(fmt, collection->enums) ||
         export__write_types(fmt, collection->types) ||

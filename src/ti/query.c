@@ -76,7 +76,7 @@ static ti_cpkg_t * query__cpkg_change(ti_query_t * query)
         return NULL;
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    msgpack_pack_array(&pk, tasks->n+2);
+    msgpack_pack_array(&pk, tasks->n + 2);
     msgpack_pack_uint64(&pk, query->change->id);
     msgpack_pack_uint64(&pk, tasks->n && query->collection
             ? query->collection->id
@@ -954,8 +954,23 @@ void ti_query_run_parseres(ti_query_t * query)
 
 stop:
     if (query->change)
-        query__change_handle(query);  /* errors will be logged only */
+    {
+        if (query->commit)
+        {
+            ti_task_t * task;
 
+            if (e.nr)  /* set error if any, not critical if failed */
+                query->commit->err_msg = ti_str_create(e.msg, e.n);
+
+            task = ti_task_get_task(
+                    query->change,
+                    query->collection ? query->collection->root : ti.thing0);
+
+            if (task)
+                (void) ti_task_add_commit_add(task, query->commit);
+        }
+        query__change_handle(query);  /* errors will be logged only */
+    }
     ti_query_done(query, &e, &ti_query_send_response);
 }
 

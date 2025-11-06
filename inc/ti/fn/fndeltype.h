@@ -7,6 +7,7 @@ static int do__f_del_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_task_t * task;
 
     if (fn_not_collection_scope("del_type", query, e) ||
+        fn_commit("del_type", query, e) ||
         fn_nargs("del_type", DOC_DEL_TYPE, 1, nargs, e) ||
         ti_do_statement(query, nd->children, e) ||
         fn_arg_str("del_type", DOC_DEL_TYPE, 1, query->rval, e))

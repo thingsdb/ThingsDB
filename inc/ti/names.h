@@ -38,15 +38,13 @@ static inline ti_name_t * ti_names_get(const char * str, size_t n)
     return ti_names_new(str, n);
 }
 
-static inline ti_name_t * ti_names_from_str(const char * str)
-{
-    return ti_names_get(str, strlen(str));
-}
+ti_name_t * ti_names_get_slow(const char * str, size_t n);
 
-static inline ti_name_t * ti_names_from_raw(ti_raw_t * raw)
-{
-    return ti_names_get((const char *) raw->data, raw->n);
-}
+#define ti_names_from_raw(raw__) \
+    ti_names_get((const char *) (raw__)->data, (raw__)->n)
+#define ti_names_from_raw_slow(raw__) \
+    ti_names_get_slow((const char *) (raw__)->data, (raw__)->n)
+#define ti_names_from_str_slow(str__) ti_names_get_slow((str__), strlen(str__))
 
 static inline ti_name_t * ti_names_weak_from_raw(ti_raw_t * raw)
 {

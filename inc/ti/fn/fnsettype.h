@@ -14,6 +14,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool hid = false;
 
     if (fn_not_collection_scope("set_type", query, e) ||
+        fn_commit("set_type", query, e) ||
         fn_nargs_range("set_type", DOC_SET_TYPE, 2, 4, nargs, e) ||
         ti_do_statement(query, child, e) ||
         fn_arg_str("set_type", DOC_SET_TYPE, 1, query->rval, e))

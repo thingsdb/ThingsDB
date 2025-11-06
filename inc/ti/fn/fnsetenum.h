@@ -11,6 +11,7 @@ static int do__f_set_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     uint64_t ts_now = util_now_usec();
 
     if (fn_not_collection_scope("set_enum", query, e) ||
+        fn_commit("set_enum", query, e) ||
         fn_nargs("set_enum", DOC_SET_ENUM, 2, nargs, e) ||
         ti_do_statement(query, nd->children, e) ||
         fn_arg_str("set_enum", DOC_SET_ENUM, 1, query->rval, e))

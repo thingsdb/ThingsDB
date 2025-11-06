@@ -9,16 +9,17 @@
 #include <ti/collection.inline.h>
 
 static const char * collection___access_fn      = "access.mp";
+static const char * collection___commits_fn     = "commits.mp";
 static const char * collection___dat_fn         = "collection.dat";
-static const char * collection___procedures_fn  = "procedures.mp";
-static const char * collection___tasks_fn       = "tasks.mp";
-static const char * collection___props_fn       = "props.mp";
-static const char * collection___named_rooms_fn = "named_rooms.mp";
-static const char * collection___things_fn      = "things.mp";
-static const char * collection___types_fn       = "types.mp";
 static const char * collection___enums_fn       = "enums.mp";
 static const char * collection___gcprops_fn     = "gcprops.mp";
 static const char * collection___gcthings_fn    = "gcthings.mp";
+static const char * collection___named_rooms_fn = "named_rooms.mp";
+static const char * collection___procedures_fn  = "procedures.mp";
+static const char * collection___props_fn       = "props.mp";
+static const char * collection___tasks_fn       = "tasks.mp";
+static const char * collection___things_fn      = "things.mp";
+static const char * collection___types_fn       = "types.mp";
 
 ti_store_collection_t * ti_store_collection_create(
         const char * path,
@@ -40,6 +41,7 @@ ti_store_collection_t * ti_store_collection_create(
 
     store_collection->access_fn = fx_path_join(cpath, collection___access_fn);
     store_collection->collection_fn = fx_path_join(cpath, collection___dat_fn);
+    store_collection->commits_fn = fx_path_join(cpath, collection___commits_fn);
     store_collection->procedures_fn = fx_path_join(cpath, collection___procedures_fn);
     store_collection->tasks_fn = fx_path_join(cpath, collection___tasks_fn);
     store_collection->props_fn = fx_path_join(cpath, collection___props_fn);
@@ -52,6 +54,7 @@ ti_store_collection_t * ti_store_collection_create(
 
     if (    !store_collection->access_fn ||
             !store_collection->collection_fn ||
+            !store_collection->commits_fn ||
             !store_collection->procedures_fn ||
             !store_collection->tasks_fn ||
             !store_collection->props_fn ||
@@ -79,6 +82,7 @@ void ti_store_collection_destroy(ti_store_collection_t * store_collection)
     free(store_collection->access_fn);
     free(store_collection->collection_fn);
     free(store_collection->collection_path);
+    free(store_collection->commits_fn);
     free(store_collection->procedures_fn);
     free(store_collection->tasks_fn);
     free(store_collection->props_fn);
@@ -306,6 +310,18 @@ char * ti_store_collection_gcthings_fn(
     if (!cpath)
         return NULL;
     fn = fx_path_join(cpath, collection___gcthings_fn);
+    free(cpath);
+    return fn;
+}
+
+char * ti_store_collection_commits_fn(
+        const char * path,
+        uint64_t collection_id)
+{
+    char * fn, * cpath = ti_store_collection_get_path(path, collection_id);
+    if (!cpath)
+        return NULL;
+    fn = fx_path_join(cpath, collection___commits_fn);
     free(cpath);
     return fn;
 }

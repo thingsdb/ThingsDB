@@ -8,6 +8,7 @@ static int do__f_rename_enum(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_raw_t * oname, * nname;
 
     if (fn_not_collection_scope("rename_enum", query, e) ||
+        fn_commit("rename_enum", query, e) ||
         fn_nargs("rename_enum", DOC_RENAME_ENUM, 2, nargs, e) ||
         ti_do_statement(query, nd->children, e) ||
         fn_arg_str("rename_enum", DOC_RENAME_ENUM, 1, query->rval, e))

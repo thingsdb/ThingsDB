@@ -3139,3 +3139,111 @@ fail_pack:
     msgpack_sbuffer_destroy(&buffer);
     return -1;
 }
+
+int ti_task_add_commit_add(ti_task_t * task, ti_commit_t * commit)
+{
+    size_t alloc = (
+        50 +
+        commit->code->n +
+        commit->message->n +
+        commit->by->n +
+        (commit->err_msg ? commit->err_msg->n : 0)
+    );
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_COMMIT);
+    (void) ti_commit_to_pk(commit, &pk);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_set_history(ti_task_t * task, uint64_t scope_id, _Bool state)
+{
+    size_t alloc = 40;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_SET_HISTORY);
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint64(&pk, scope_id);
+    mp_pack_bool(&pk, state);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_del_history(
+        ti_task_t * task,
+        uint64_t scope_id,
+        vec_t * commits)
+{
+    size_t alloc = 28 + (commits->n * 9);
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_DEL_HISTORY);
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint64(&pk, scope_id);
+    msgpack_pack_array(&pk, commits->n);
+
+    for (vec_each(commits, ti_commit_t, commit))
+        msgpack_pack_uint64(&pk, commit->id);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}

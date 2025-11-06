@@ -9,6 +9,7 @@ static int do__f_mod_procedure(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     smap_t * procedures = ti_query_procedures(query);
 
     if (fn_not_thingsdb_or_collection_scope("mod_procedure", query, e) ||
+        fn_commit("mod_procedure", query, e) ||
         fn_nargs("mod_procedure", DOC_MOD_PROCEDURE, 2, nargs, e) ||
         ti_do_statement(query, nd->children, e) ||
         fn_arg_str("mod_procedure", DOC_MOD_PROCEDURE, 1, query->rval, e))

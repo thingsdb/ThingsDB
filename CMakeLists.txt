@@ -137,6 +137,8 @@ set(SOURCES
     src/ti/closure.c
     src/ti/collection.c
     src/ti/collections.c
+    src/ti/commit.c
+    src/ti/commits.c
     src/ti/condition.c
     src/ti/connect.c
     src/ti/counters.c
@@ -238,11 +240,12 @@ set(SOURCES
     src/ti/store/storeaccess.c
     src/ti/store/storecollection.c
     src/ti/store/storecollections.c
+    src/ti/store/storecommits.c
     src/ti/store/storeenums.c
     src/ti/store/storegcollect.c
     src/ti/store/storemodules.c
-    src/ti/store/storenames.c
     src/ti/store/storenamedrooms.c
+    src/ti/store/storenames.c
     src/ti/store/storeprocedures.c
     src/ti/store/storestatus.c
     src/ti/store/storetasks.c

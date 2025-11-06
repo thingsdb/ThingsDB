@@ -35,6 +35,8 @@
 #include <ti/member.h>
 #include <ti/member.inline.h>
 #include <ti/method.h>
+#include <ti/commit.h>
+#include <ti/commits.h>
 #include <ti/mod/expose.h>
 #include <ti/mod/expose.t.h>
 #include <ti/mod/github.h>
@@ -471,6 +473,17 @@ static inline int fn_not_thingsdb_or_collection_scope(
             name,
             ti_query_scope_name(query));
 
+    return e->nr;
+}
+
+static inline int fn_commit(const char * name, ti_query_t * query, ex_t * e)
+{
+    if (*ti_query_commits(query) && !query->commit)
+        ex_set(e, EX_OPERATION,
+            "function `%s` requires a commit "
+            "before it can be used in the `%s` scope"DOC_COMMIT,
+             name,
+             ti_query_scope_name(query));
     return e->nr;
 }
 

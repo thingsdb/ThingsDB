@@ -180,7 +180,7 @@ invalid_scope:
             "invalid scope; "
             "scopes must start with a `@` or `/` but got `%.*s` instead"
             DOC_SCOPES,
-            n, str);
+            (int) n, str);
 
         return e->nr;
     }
@@ -203,7 +203,7 @@ invalid_scope:
         "`%c""thingsdb`, `%c""node%c""...` or `%c""collection%c""...` "
         "but got `%.*s` instead"DOC_SCOPES,
         *str, *str, sep_char, *str, sep_char,
-        n, str);
+        (int) n, str);
 
     return e->nr;
 }
@@ -270,7 +270,7 @@ const char * ti_scope_name_from_id(uint64_t scope_id)
     {
         sprintf(scope__name_buf,
                 "@collection:%.*s",
-                collection->name->n,
+                (int) collection->name->n,
                 (const char *) collection->name->data);
         return scope__name_buf;
     }
@@ -295,7 +295,7 @@ int ti_scope_id(ti_scope_t * scope, uint64_t * scope_id, ex_t * e)
             *scope_id = collection->id;
         else
             ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
-                scope->via.collection_name.sz,
+                (int) scope->via.collection_name.sz,
                 scope->via.collection_name.name);
 
         return e->nr;
@@ -320,7 +320,7 @@ ti_collection_t * ti_scope_get_collection(ti_scope_t * scope, ex_t * e)
                 scope->via.collection_name.sz);
         if (!collection)
             ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
-                scope->via.collection_name.sz,
+                (int) scope->via.collection_name.sz,
                 scope->via.collection_name.name);
 
         return collection;

@@ -181,7 +181,7 @@ int ti_vtask_run(ti_vtask_t * vtask, ti_collection_t * collection)
                 ? ti_changes_create_new_change(query, &e)
                 : vtask__run_async(query, &e))
         {
-            log_error(e.msg);
+            log_error("%s", e.msg);
             ti_query_destroy(query);
             return -1;
         }

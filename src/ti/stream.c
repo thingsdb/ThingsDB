@@ -188,7 +188,7 @@ void ti_stream_on_data(uv_stream_t * uvstream, ssize_t n, const uv_buf_t * buf)
     if (n < 0)
     {
         if (n != UV_EOF)
-            log_error(uv_strerror(n));
+            log_error("%s", uv_strerror(n));
         ti_stream_close(stream);
         return;
     }

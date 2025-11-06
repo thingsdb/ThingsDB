@@ -141,7 +141,7 @@ int ti_query_apply_scope(ti_query_t * query, ti_scope_t * scope, ex_t * e)
         }
         else
             ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
-                scope->via.collection_name.sz,
+                (int) scope->via.collection_name.sz,
                 scope->via.collection_name.name);
         return e->nr;
     case TI_SCOPE_NODE:
@@ -626,7 +626,7 @@ void ti_query_warn_log(ti_query_t * query, const char * msg)
                 query->with.vtask->closure->node->str);
         return;
     }
-    log_warning(msg);
+    log_warning("%s", msg);
 }
 
 static void query__duration_log(
@@ -1408,9 +1408,9 @@ ti_room_t * ti_query_room_from_strn(
     {
         ex_set(e, EX_LOOKUP_ERROR,
                 "collection `%.*s` has no `room` with name `%.*s`",
-                query->collection->name->n,
+                (int) query->collection->name->n,
                 (char *) query->collection->name->data,
-                n,
+                (int) n,
                 str);
         return NULL;
     }

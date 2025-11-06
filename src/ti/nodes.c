@@ -234,7 +234,7 @@ static void nodes__on_req_connect(ti_stream_t * stream, ti_pkg_t * pkg)
         if (ti.build->status == TI_BUILD_REQ_SETUP)
         {
             log_info(
-                    "ignore connection request from `%s` since this node is ",
+                    "ignore connection request from `%s` since this node is "
                     "busy building ThingsDB",
                     ti_stream_name(stream));
             goto fail;

@@ -131,7 +131,7 @@ ti_varr_t * ti_varr_from_vec(vec_t * vec)
     {
         if (ti_val_to_arr(v, varr, &e))
         {
-            log_critical(e.msg);
+            log_critical("%s", e.msg);
             free(varr);
             return NULL;
         }

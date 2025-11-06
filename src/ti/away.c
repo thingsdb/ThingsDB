@@ -313,7 +313,7 @@ static void away__work_finish(uv_work_t * UNUSED(work), int status)
 
     int rc;
     if (status)
-        log_error(uv_strerror(status));
+        log_error("%s", uv_strerror(status));
 
     rc = uv_timer_init(ti.loop, &away__uv_waiter);
     if (rc)

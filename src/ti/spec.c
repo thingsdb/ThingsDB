@@ -290,7 +290,7 @@ int ti_spec_from_raw(
         ex_set(e, EX_VALUE_ERROR,
                 "failed to set restriction; unknown type `%.*s`"
                 DOC_THING_RESTRICT,
-                n, str);
+                (int) n, str);
 
     return e->nr;
 

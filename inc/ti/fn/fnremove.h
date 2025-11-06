@@ -282,11 +282,11 @@ static int do__f_remove_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ex_set(e, EX_TYPE_ERROR,
                         narg == 1
                         ?
-                        "function `remove` expects argument %d to be of type "
+                        "function `remove` expects argument %zu to be of type "
                         "`"TI_VAL_CLOSURE_S"` or type `"TI_VAL_THING_S"` "
                         "but got type `%s` instead"DOC_SET_REMOVE
                         :
-                        "function `remove` expects argument %d to be "
+                        "function `remove` expects argument %zu to be "
                         "of type `"TI_VAL_THING_S"` "
                         "but got type `%s` instead"DOC_SET_REMOVE,
                         narg, ti_val_str(query->rval));

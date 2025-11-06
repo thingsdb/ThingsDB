@@ -989,7 +989,7 @@ int ti_thing_o_ren(
     if (ti_thing_has_key(thing, nkey))
     {
         ex_set(e, EX_LOOKUP_ERROR, "property `%.*s` already exists",
-                nn, nstr);
+                (int) nn, nstr);
         goto fail0;
     }
 

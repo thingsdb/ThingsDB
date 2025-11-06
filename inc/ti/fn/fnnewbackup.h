@@ -42,7 +42,7 @@ static int do__f_new_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             "a key file must be configured to use Google Cloud "
             "storage; set `gcloud_key_file` in the configuration file or set "
             "the environment variable `THINGSDB_GCLOUD_KEY_FILE`"
-            DOC_NEW_BACKUP, tar_gz_str->n, (char *) tar_gz_str->data);
+            DOC_NEW_BACKUP);
         goto fail0;
     }
 

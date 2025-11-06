@@ -501,7 +501,7 @@ static int ctask__new_enum(ti_thing_t * thing, mp_unp_t * up)
         /* TODO (COMPAT) For compatibility with < v1.7.0 */
         if (ti_enum_create_placeholders(enum_, mp_size.via.u64, &e))
         {
-            log_critical(e.msg);
+            log_critical("%s", e.msg);
             ti_panic("critical enum failed");
             goto fail1;
         }
@@ -587,7 +587,7 @@ static int ctask__set_enum_data(ti_thing_t * thing, mp_unp_t * up)
     if (ti_enum_set_members_from_vup(enum_, &vup, &e) ||
         ti_enum_init_methods_from_vup(enum_, &vup, &e))
     {
-        log_critical(e.msg);
+        log_critical("%s", e.msg);
         ti_panic("critical enum failed");
         return -1;
     }
@@ -614,7 +614,7 @@ static int ctask__import(ti_thing_t * thing, mp_unp_t * up)
 
     if (ti_collection_unpack(collection, up, &e))
     {
-        log_error(e.msg);  /* not critical for sure */
+        log_error("%s", e.msg);  /* not critical for sure */
         rc = -1;
     }
 
@@ -726,13 +726,13 @@ static int ctask__set_enum(ti_thing_t * thing, mp_unp_t * up)
 
     if (ti_enum_init_members_from_vup(enum_, &vup, &e))
     {
-        log_critical(e.msg);
+        log_critical("%s", e.msg);
         goto fail1;
     }
 
     if (obj.via.sz == 5 && ti_enum_init_methods_from_vup(enum_, &vup, &e))
     {
-        log_critical(e.msg);
+        log_critical("%s", e.msg);
         goto fail1;
     }
 
@@ -990,13 +990,13 @@ static int ctask__mod_enum_add(ti_thing_t * thing, mp_unp_t * up)
     {
         if (ti_enum_add_method(enum_, name, (ti_closure_t *) val, &e))
         {
-            log_critical(e.msg);
+            log_critical("%s", e.msg);
             goto fail0;
         }
     }
     else if (!ti_member_create(enum_, name, val, &e))
     {
-        log_critical(e.msg);
+        log_critical("%s", e.msg);
         goto fail0;
     }
 
@@ -1246,7 +1246,7 @@ static int ctask__mod_enum_mod(ti_thing_t * thing, mp_unp_t * up)
     ti_val_drop(val);
 
     if (e.nr)
-        log_critical(e.msg);
+        log_critical("%s", e.msg);
     else
         /* update modified time-stamp */
         enum_->modified_at = mp_modified.via.u64;
@@ -1363,7 +1363,7 @@ set_member:
 
 done:
     if (e.nr)
-        log_critical(e.msg);
+        log_critical("%s", e.msg);
     else
     {
         /* update modified time-stamp */
@@ -1457,7 +1457,7 @@ static int ctask__mod_type_add(ti_thing_t * thing, mp_unp_t * up)
 
         if (ti_type_add_method(type, name, (ti_closure_t *) val, &e))
         {
-            log_critical(e.msg);
+            log_critical("%s", e.msg);
             goto fail0;
         }
 
@@ -1525,7 +1525,7 @@ static int ctask__mod_type_add(ti_thing_t * thing, mp_unp_t * up)
     field = ti_field_create(name, spec_raw, type, &e);
     if (!field)
     {
-        log_critical(e.msg);
+        log_critical("%s", e.msg);
         goto fail1;
     }
 
@@ -1736,7 +1736,7 @@ static int ctask__mod_type_mod(ti_thing_t * thing, mp_unp_t * up)
 
         if (e.nr)
         {
-            log_critical(e.msg);
+            log_critical("%s", e.msg);
             return -1;
         }
 
@@ -1897,7 +1897,7 @@ static int ctask__mod_type_rel_add(ti_thing_t * thing, mp_unp_t * up)
 
     if (ti_condition_field_rel_init(field, ofield, &e))
     {
-        log_critical(e.msg);
+        log_critical("%s", e.msg);
         return rc;
     }
 
@@ -2051,7 +2051,7 @@ static int ctask__mod_type_ren(ti_thing_t * thing, mp_unp_t * up)
                 mp_to.via.str.data,
                 mp_to.via.str.n,
                 &e))
-            log_critical(e.msg);
+            log_critical("%s", e.msg);
         else
             /* update modified time-stamp */
             type->modified_at = mp_modified.via.u64;
@@ -2071,7 +2071,7 @@ static int ctask__mod_type_ren(ti_thing_t * thing, mp_unp_t * up)
                 mp_to.via.str.data,
                 mp_to.via.str.n,
                 &e))
-            log_critical(e.msg);
+            log_critical("%s", e.msg);
         else
             /* update modified time-stamp */
             type->modified_at = mp_modified.via.u64;
@@ -2086,7 +2086,7 @@ static int ctask__mod_type_ren(ti_thing_t * thing, mp_unp_t * up)
                 mp_to.via.str.data,
                 mp_to.via.str.n,
                 &e))
-            log_critical(e.msg);
+            log_critical("%s", e.msg);
         else
             /* update modified time-stamp */
             type->modified_at = mp_modified.via.u64;
@@ -2767,7 +2767,7 @@ static int ctask__del_enum(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "task `del_enum` from collection "TI_COLLECTION_ID": "
-                "enum with id %u still has %"PRIu64" references",
+                "enum with id %"PRIu64" still has %u references",
                 collection->id, mp_id.via.u64, enum_->refcount);
         return -1;
     }
@@ -2817,7 +2817,7 @@ static int ctask__del_type(ti_thing_t * thing, mp_unp_t * up)
     {
         log_critical(
                 "task `del_type` from collection "TI_COLLECTION_ID": "
-                "type with id %u still has %"PRIu64" references",
+                "type with id %"PRIu64" still has %u references",
                 collection->id, mp_id.via.u64, type->refcount);
         return -1;
     }
@@ -3330,7 +3330,7 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
         {
             log_critical(
                     "collection task is not a `map` or `type` "
-                    "for thing "TI_THING_ID" is missing", 0);
+                    "for thing "TI_THING_ID" is missing", (uint64_t) 0);
             return -1;
         }
         goto version_v0;

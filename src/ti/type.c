@@ -414,7 +414,7 @@ ti_raw_t * ti__type_nested_from_val(ti_type_t * type, ti_val_t * val, ex_t * e)
         {
             ex_set(e, EX_VALUE_ERROR,
                     "array with nested type must have exactly one element but "
-                    "found %zu on type `%s`",
+                    "found %u on type `%s`",
                     varr->vec->n,
                     type->name);
             return NULL;

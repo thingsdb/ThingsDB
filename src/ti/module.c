@@ -40,7 +40,7 @@ static void module__write_req_cb(uv_write_t * req, int status)
         /* remove the future from the module */
         (void) omap_rm(future->module->futures, future->pid);
 
-        ex_set(&e, EX_OPERATION, uv_strerror(status));
+        ex_sets(&e, EX_OPERATION, uv_strerror(status));
         ti_query_on_future_result(future, &e);
     }
 
@@ -99,7 +99,7 @@ static void module__write_conf_cb(uv_write_t * req, int status)
 {
     if (status)
     {
-        log_error(uv_strerror(status));
+        log_error("%s", uv_strerror(status));
         ((ti_module_t *) req->data)->status = status;
     }
 
@@ -203,7 +203,7 @@ static void module__cb(ti_future_t * future)
     if (uv_err)
     {
         ex_t e;
-        ex_set(&e, EX_OPERATION, uv_strerror(uv_err));
+        ex_sets(&e, EX_OPERATION, uv_strerror(uv_err));
         ti_query_on_future_result(future, &e);
     }
     return;
@@ -368,7 +368,7 @@ ti_module_t* ti_module_create(
         goto memerror;
     case SMAP_ERR_EXIST:
         ex_set(e, EX_LOOKUP_ERROR,
-                "module `%.*s` already exists", name_n, name);
+                "module `%.*s` already exists", (int) name_n, name);
         goto fail0;
     }
 
@@ -478,7 +478,7 @@ static void module__py_requirements_finish(uv_work_t * work, int status)
 
     if (status)
     {
-        log_error(uv_strerror(status));
+        log_error("%s", uv_strerror(status));
         goto warn;
     }
 
@@ -548,7 +548,7 @@ static void module__py_requirements_work(uv_work_t * work)
         log_error("failed to install Python requirements for module `%s` (%d)",
                 module->name->str, rc);
     else
-        log_info("successfully installed Python requirements for module `%s`",
+        log_info("successfully installed Python requirements for module `%s` (%d)",
                 module->name->str, rc);
 
 fail0:
@@ -595,7 +595,7 @@ static void module__download_finish(uv_work_t * work, int status)
 
     if (status)
     {
-        log_error(uv_strerror(status));
+        log_error("%s", uv_strerror(status));
         if (module->status == TI_MODULE_STAT_INSTALLER_BUSY)
             module->status = TI_MODULE_STAT_INSTALL_FAILED;
         goto error;
@@ -657,7 +657,7 @@ static void module__manifest_finish(uv_work_t * work, int status)
     {
         if (ti_mod_manifest_local(&data->manifest, module) == 0)
         {
-            log_warning(module->source_err);
+            log_warning("%s", module->source_err);
             *module->source_err = '\0';
             goto done;
         }
@@ -668,7 +668,7 @@ static void module__manifest_finish(uv_work_t * work, int status)
 
     if (status)
     {
-        log_error(uv_strerror(status));
+        log_error("%s", uv_strerror(status));
         if (module->status == TI_MODULE_STAT_INSTALLER_BUSY)
             module->status = TI_MODULE_STAT_INSTALL_FAILED;
         goto error;
@@ -687,7 +687,7 @@ static void module__manifest_finish(uv_work_t * work, int status)
         {
             if (ti_mod_manifest_local(&data->manifest, module) == 0)
             {
-                log_warning(module->source_err);
+                log_warning("%s", module->source_err);
                 *module->source_err = '\0';
                 goto done;
             }
@@ -1005,7 +1005,7 @@ int ti_module_deploy(ti_module_t * module, const void * data, size_t n)
             {
                 if (e.nr == 0)
                     ex_set_mem(&e);
-                log_error(e.msg);
+                log_error("%s", e.msg);
                 free(orig);
                 ti_mod_github_destroy(github);
                 return -1;

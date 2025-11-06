@@ -167,7 +167,7 @@ _Bool ti_collection_name_check(const char * name, size_t n, ex_t * e)
     if (n < ti_collection_min_name || n >= ti_collection_max_name)
     {
         ex_set(e, EX_VALUE_ERROR,
-                "collection name must be between %u and %u characters",
+                "collection name must be between %zu and %zu characters",
                 ti_collection_min_name,
                 ti_collection_max_name);
         return false;

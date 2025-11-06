@@ -591,7 +591,7 @@ ti_datetime_t * ti_datetime_from_tm_tzinfo(
 
     if (tm->tm_mday != mday)
     {
-        ex_set(e, EX_VALUE_ERROR, "day %s is out of range for month", mday);
+        ex_set(e, EX_VALUE_ERROR, "day %d is out of range for month", mday);
         return NULL;
     }
 

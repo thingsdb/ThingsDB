@@ -274,7 +274,7 @@ int ti_commits_history(
                 {
                     ex_set(e, EX_LOOKUP_ERROR,
                         "collection `%.*s` not found",
-                        scope.via.collection_name.sz,
+                        (int) scope.via.collection_name.sz,
                         scope.via.collection_name.name);
                     return e->nr;
                 }
@@ -339,7 +339,7 @@ vec_t ** ti_commits_from_scope(ti_raw_t * scope, ex_t * e)
                 return &collection->commits;
 
             ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
-                    scope_.via.collection_name.sz,
+                    (int) scope_.via.collection_name.sz,
                     scope_.via.collection_name.name);
             return NULL;
         }

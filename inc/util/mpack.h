@@ -131,7 +131,7 @@ static inline int mp_sbuffer_alloc_init(
     return alloc != size && buffer->data == NULL;
 }
 
-static int __attribute__((unused))mp_pack_fmt(msgpack_packer * x, const char * fmt, ...)
+static int __attribute__((unused))__attribute__((format(printf, 2, 3)))mp_pack_fmt(msgpack_packer * x, const char * fmt, ...)
 {
     int rc, n;
     va_list args1, args2;

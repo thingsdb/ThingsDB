@@ -300,7 +300,7 @@ ti_proto_enum_t ti_changes_accept_id(uint64_t change_id, uint8_t * n)
 
     if (change_id > changes->next_change_id)
     {
-        log_info("skipped %u change id%s while accepting "TI_CHANGE_ID,
+        log_info("skipped %zu change id%s while accepting "TI_CHANGE_ID,
                 change_id - changes->next_change_id,
                 change_id - changes->next_change_id == 1 ? "" : "s",
                 change_id);

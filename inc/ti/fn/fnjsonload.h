@@ -246,7 +246,7 @@ static int do__f_json_load(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     raw->n);
             if (yerr)
             {
-                ex_set(e, EX_VALUE_ERROR, (const char *) yerr);
+                ex_sets(e, EX_VALUE_ERROR, (const char *) yerr);
                 yajl_free_error(hand, yerr);
             }
             else

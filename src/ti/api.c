@@ -140,7 +140,7 @@ static void api__data_cb(
     if (n < 0)
     {
         if (n != UV_EOF)
-            log_error(uv_strerror(n));
+            log_error("%s", uv_strerror(n));
 
         ti_api_close(ar);
         goto done;
@@ -304,7 +304,7 @@ static int api__header_value_cb(http_parser * parser, const char * at, size_t n)
         }
 
         /* invalid content type */
-        log_debug("unsupported content-type: %.*s", n, at);
+        log_debug("unsupported content-type: %.*s", (int) n, at);
         break;
 
     case TI_API_STATE_AUTHORIZATION:
@@ -333,7 +333,7 @@ static int api__header_value_cb(http_parser * parser, const char * at, size_t n)
             break;
         }
 
-        log_debug("invalid authorization type: %.*s", n, at);
+        log_debug("invalid authorization type: %.*s", (int) n, at);
         break;
     }
     return 0;
@@ -596,7 +596,7 @@ static int api__gen_scope(ti_api_request_t * ar, msgpack_packer * pk)
         return mp_pack_fmt(pk, "@n:%d", ar->scope.via.node_id);
     case TI_SCOPE_COLLECTION:
         return mp_pack_fmt(pk, "@:%.*s",
-                ar->scope.via.collection_name.sz,
+                (int) ar->scope.via.collection_name.sz,
                 ar->scope.via.collection_name.name);
     }
     return -1;
@@ -725,7 +725,7 @@ static void api__fwd_cb(ti_req_t * req, ex_enum status)
 
     if (status)
     {
-        ex_set(&ar->e, status, ex_str(status));
+        ex_sets(&ar->e, status, ex_str(status));
         goto fail;
     }
 

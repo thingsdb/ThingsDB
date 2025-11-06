@@ -261,9 +261,9 @@ char * ti_backup_gcloud_task(ti_backup_t * backup)
             "RETURN=$? 2>&1; "
             "rm %.*s 2>&1; "
             "exit $RETURN;",
-            fnbuf.len, fnbuf.data,
-            gsbuf.len, gsbuf.data,
-            fnbuf.len, fnbuf.data);
+            (int) fnbuf.len, fnbuf.data,
+            (int) gsbuf.len, gsbuf.data,
+            (int) fnbuf.len, fnbuf.data);
 
     if (!backup->work_fn || buf_write(&buf, '\0'))
     {

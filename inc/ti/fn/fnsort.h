@@ -106,8 +106,7 @@ static int do__f_sort(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (vec_is_sorting())
     {
         ex_set(e, EX_OPERATION,
-                "function `sort` cannot be used recursively"DOC_LIST_SORT,
-                ti_val_str(query->rval));
+                "function `sort` cannot be used recursively"DOC_LIST_SORT);
         return e->nr;
     }
 

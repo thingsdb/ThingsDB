@@ -380,7 +380,7 @@ invalid:
     ex_set(e, EX_VALUE_ERROR,
             "not a valid GitHub module link; "
             "expecting something like "GH__EXAMPLE" but got `%.*s`",
-            n, s);
+            (int) n, s);
     return e->nr;
 }
 

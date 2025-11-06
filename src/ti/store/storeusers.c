@@ -146,7 +146,7 @@ int ti_store_users_restore(const char * fn)
 
         if (!user)
         {
-            log_critical(e.msg);
+            log_critical("%s", e.msg);
             goto fail;
         }
 

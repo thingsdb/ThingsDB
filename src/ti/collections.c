@@ -167,7 +167,7 @@ ti_collection_t * ti_collections_create_collection(
     if (ti_collections_get_by_strn(name, name_n))
     {
         ex_set(e, EX_LOOKUP_ERROR,
-                "collection `%.*s` already exists", name_n, name);
+                "collection `%.*s` already exists", (int) name_n, name);
         goto fail0;
     }
 

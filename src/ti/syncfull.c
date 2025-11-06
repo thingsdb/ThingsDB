@@ -148,7 +148,7 @@ static void syncfull__done_cb(ti_req_t * req, ex_enum status)
     uint64_t next_change_id = ti.store->last_stored_change_id + 1;
 
     if (status)
-        log_error("failed response: `%s` (%s)", ex_str(status), status);
+        log_error("failed response: `%s` (%d)", ex_str(status), status);
 
     rc = ti_syncarchive_init(req->stream, next_change_id);
 

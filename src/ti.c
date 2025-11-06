@@ -828,7 +828,7 @@ int ti_unlock(void)
         lock_t rc = lock_unlock(ti.cfg->storage_path);
         if (rc != LOCK_REMOVED)
         {
-            log_error(lock_str(rc));
+            log_error("%s", lock_str(rc));
             return -1;
         }
     }

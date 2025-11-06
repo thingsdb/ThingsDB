@@ -487,7 +487,7 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
     case MP_NEVER_USED:
     case MP_INCOMPLETE:
     case MP_ERR:
-        ex_set(e, EX_BAD_DATA, mp_type_str(tp));
+        ex_sets(e, EX_BAD_DATA, mp_type_str(tp));
         return NULL;
     case MP_END:
         ex_set(e, EX_NUM_ARGUMENTS, "missing value");
@@ -970,7 +970,7 @@ vec_t ** ti_val_get_access(ti_val_t * val, ex_t * e, uint64_t * scope_id)
         }
 
         ex_set(e, EX_LOOKUP_ERROR, "collection `%.*s` not found",
-                scope.via.collection_name.sz,
+                (int) scope.via.collection_name.sz,
                 scope.via.collection_name.name);
         return NULL;
     }

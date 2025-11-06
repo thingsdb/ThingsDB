@@ -1,6 +1,6 @@
 # v1.8.1
 
-* Fixed formatting exception
+* Implemented formatting C-string checks and fixed typo, pr #426.
 
 # v1.8.0
 

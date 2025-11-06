@@ -1,4 +1,4 @@
-# v1.8.0-alpha10
+# v1.8.0
 
 * Added `TI_PROTO_CLIENT_REQ_EMIT_PEER` protocol, pr #414.
 * Changed `copy()` behavior for wrapped type, pr #415.

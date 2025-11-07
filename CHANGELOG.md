@@ -1,7 +1,8 @@
 # v1.8.2-alpha0
 
 * Allow converting `mpdata` to `bytes, issue #427.
-
+* Add _anonymous_ wrap only type syntax (`&{..}`), pr
+* Added `ano()` function, pr #405.
 
 # v1.8.1
 

@@ -29,18 +29,25 @@ class TestAno(TestBase):
         client = await get_client(self.node0)
         client.set_default_scope('//stuff')
 
-        await self.run_tests(client)
+        await self.run_tests(client.query)
 
         client.close()
         await client.wait_closed()
 
-    async def test_ano_err(self, client):
+    async def test_ano_err(self, q):
+        await q(r"""//ti
+            set_type('A', {x: 'any'});
+        """)
 
         with self.assertRaisesRegex(
-                ValueError,
-                r'xxx'):
-            await client.query("""//ti
-                ...
+                TypeError,
+                r'mismatch in type `A`; property `x` allows `any` type with '
+                r'the exception of the `future`, `module` '
+                r'and `<anonymous>` type'):
+            await q("""//ti
+                A{
+                    x: {}.wrap(&{})
+                };
             """)
 
         # TODO : test len(ano type)

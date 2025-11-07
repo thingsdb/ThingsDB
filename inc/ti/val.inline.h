@@ -774,6 +774,13 @@ static inline _Bool ti_val_is_str_nil(ti_val_t * val)
            val->tp == TI_VAL_NIL;
 }
 
+static inline _Bool ti_val_is_str_ano(ti_val_t * val)
+{
+    return val->tp == TI_VAL_STR ||
+           val->tp == TI_VAL_NAME ||
+           val->tp == TI_VAL_ANO;
+}
+
 static inline _Bool ti_val_is_str_regex(ti_val_t * val)
 {
     return val->tp == TI_VAL_STR ||

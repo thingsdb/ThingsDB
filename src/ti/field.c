@@ -2024,7 +2024,7 @@ future_module_wano_error:
     ex_set(e, EX_TYPE_ERROR,
             "mismatch in type `%s`; "
             "property `%s` allows `any` type with the exception "
-            "of the `future`, `module` or `<anonymous>` type",
+            "of the `future`, `module` and `<anonymous>` type",
             field->type->name,
             field->name->str);
     return e->nr;

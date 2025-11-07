@@ -96,7 +96,7 @@ class TestWrapTree(TestBase):
 
         with self.assertRaisesRegex(
                 ValueError,
-                r'nested type definition on type `W` too large'):
+                r'wpo type definition too large'):
             await client.query("""//ti
                 nested = {};
                 range(2000).map(|x| {nested[`key{x}`] = {x: 'int'}});

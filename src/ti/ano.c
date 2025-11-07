@@ -73,8 +73,8 @@ int ti_ano_init(
     }
 
     type = ti_type_create_anonymous(
-            field->type->types,
-            field->type->rname,
+            collection->types,
+            (ti_raw_t *) ti_val_borrow_anonymous_name(),
             flags);
     if (!type)
     {
@@ -101,7 +101,7 @@ ti_ano_t * ti_ano_from_raw(
         ti_raw_t * spec_raw,
         ex_t * e)
 {
-    ano = ti_ano_new();
+    ti_ano_t * ano = ti_ano_new();
     if (!ano)
     {
         ex_set_mem(e);
@@ -133,9 +133,7 @@ ti_ano_t * ti_ano_create(
 
 void ti_ano_destroy(ti_ano_t * ano)
 {
-    if (!ano)
-        return;
-    ti_val_drop(ano->spec_raw);
+    ti_val_drop((ti_val_t *) ano->spec_raw);
     ti_type_drop_anonymous(ano->type);
     free(ano);
 }

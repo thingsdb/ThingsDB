@@ -673,9 +673,10 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_VAL_MEMBER:
     case TI_VAL_MPDATA:
     case TI_VAL_CLOSURE:
+    case TI_VAL_ANO:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
-    case TI_VAL_ANO:
+    case TI_VAL_WANO:
         if (do_slice)
             goto slice_error;
         goto index_error;

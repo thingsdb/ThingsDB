@@ -1,6 +1,6 @@
 # v1.8.2-alpha0
 
-* Allow converting `mpdata` to `bytes, issue #...TODO
+* Allow converting `mpdata` to `bytes, issue #427.
 
 
 # v1.8.1

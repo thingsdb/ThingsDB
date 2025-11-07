@@ -408,8 +408,6 @@ ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t * val)
             : ti_regex_test_or_empty(
                 (ti_regex_t *) ti_val_borrow_re_tel(),
                 (ti_raw_t *) val) ? 0 : TI_SPEC_RVAL_TEL_ERROR;
-    case TI_SPEC_ANO:
-        return ti_val_is_ano(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_REMATCH:
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
@@ -506,8 +504,6 @@ _Bool ti__spec_maps_to_nested_val(uint16_t spec, ti_val_t * val)
         return ti_val_is_str(val) && ti_regex_test_or_empty(
                 (ti_regex_t *) ti_val_borrow_re_tel(),
                 (ti_raw_t *) val);
-    case TI_SPEC_ANO:
-        return ti_val_is_ano(val);
     case TI_SPEC_REMATCH:
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
@@ -560,7 +556,6 @@ const char * ti_spec_approx_type_str(uint16_t spec)
     case TI_SPEC_EMAIL:         return "email";
     case TI_SPEC_URL:           return "url";
     case TI_SPEC_TEL:           return "tel";
-    case TI_SPEC_ANO:           return "ano";
     case TI_SPEC_TYPE:
     case TI_SPEC_ARR_TYPE:
         assert(0);  /* not possible for wrap-only */
@@ -677,7 +672,6 @@ ti_spec_mod_enum ti_spec_check_mod(
     case TI_SPEC_EMAIL:
     case TI_SPEC_URL:
     case TI_SPEC_TEL:
-    case TI_SPEC_ANO:
         return ospec == nspec ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
     case TI_SPEC_REMATCH:
         return TI_SPEC_MOD_ERR;

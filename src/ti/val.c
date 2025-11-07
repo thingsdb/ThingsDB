@@ -48,9 +48,9 @@
 static ti_val_t * val__empty_bin;
 static ti_val_t * val__empty_str;
 static ti_val_t * val__default_closure;
-static ti_val_t * val__default_ano;
 static ti_val_t * val__default_re;
 static ti_val_t * val__sano;
+static ti_val_t * val__swano;
 static ti_val_t * val__sbool;
 static ti_val_t * val__sbytes;
 static ti_val_t * val__sclosure;
@@ -469,6 +469,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
         break;
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
+    case TI_VAL_WANO:
     case TI_VAL_TEMPLATE:
         assert(0);
         return e->nr;
@@ -715,13 +716,10 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
             ano = ti_ano_create(
                 vup->collection,
                 obj.via.ext.data,
-                obj.via.ext.n);
+                obj.via.ext.n,
+                e);
             if (!ano)
-            {
-                ex_set(e, EX_BAD_DATA,
-                        "failed to unpack `anonymous`");
                 return NULL;
-            }
             return (ti_val_t *) ano;
         }
         }
@@ -745,8 +743,6 @@ int ti_val_init_common(void)
     };
     val__default_closure = \
             (ti_val_t *) ti_closure_from_strn(&syntax, "||nil", 5, &e);
-    val__default_ano = \
-            (ti_val_t *) ti_ano_create(&syntax, "\x80", 1, &e);
     val__empty_bin = (ti_val_t *) ti_bin_create(NULL, 0);
     val__empty_str = (ti_val_t *) ti_str_from_str("");
     val__default_re = (ti_val_t *) ti_regex_from_strn("/.*/", 4, &e);
@@ -755,6 +751,7 @@ int ti_val_init_common(void)
     val__strue = (ti_val_t *) ti_str_from_str("true");
     val__sfalse = (ti_val_t *) ti_str_from_str("false");
     val__sano = (ti_val_t *) ti_str_from_str(TI_VAL_ANO_S);
+    val__swano = (ti_val_t *) ti_str_from_str(TI_VAL_WANO_S);
     val__sbool = (ti_val_t *) ti_str_from_str(TI_VAL_BOOL_S);
     val__sdatetime = (ti_val_t *) ti_str_from_str(TI_VAL_DATETIME_S);
     val__stimeval = (ti_val_t *) ti_str_from_str(TI_VAL_TIMEVAL_S);
@@ -823,7 +820,7 @@ int ti_val_init_common(void)
         !val__key_name || !val__key_type_name || !val__flags_name ||
         !val__data_name || !val__time_name || !val__re_email ||
         !val__smodule || !val__re_url || !val__re_tel || !val__async_name ||
-        !val__anonymous_name || !val__default_ano || !val__sano)
+        !val__anonymous_name || !val__sano || !val__swano)
     {
         return -1;
     }
@@ -835,13 +832,13 @@ void ti_val_drop_common(void)
     ti_val_drop(val__empty_bin);
     ti_val_drop(val__empty_str);
     ti_val_drop(val__default_closure);
-    ti_val_drop(val__default_ano);
     ti_val_drop(val__default_re);
     ti_val_drop(val__sany);
     ti_val_drop(val__snil);
     ti_val_drop(val__strue);
     ti_val_drop(val__sfalse);
     ti_val_drop(val__sano);
+    ti_val_drop(val__swano);
     ti_val_drop(val__sbool);
     ti_val_drop(val__sdatetime);
     ti_val_drop(val__stimeval);
@@ -922,12 +919,6 @@ ti_val_t * ti_val_default_closure(void)
 {
     ti_incref(val__default_closure);
     return val__default_closure;
-}
-
-ti_val_t * ti_val_default_ano(void)
-{
-    ti_incref(val__default_ano);
-    return val__default_ano;
 }
 
 ti_val_t * ti_val_charset_str(void)
@@ -1022,7 +1013,7 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
     {
     case TI_VAL_NAME:
     case TI_VAL_STR:
-    case TI_VAL_MPDATA:
+    case TI_VAL_MPDATA:  /* allow mpdata, issue #427 */
     {
         ti_raw_t * r = (ti_raw_t *) (*val);
         if (r->ref == 1 && r->tp != TI_VAL_NAME)
@@ -1054,9 +1045,10 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
     case TI_VAL_ARR:
     case TI_VAL_SET:
     case TI_VAL_CLOSURE:
+    case TI_VAL_ANO:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
-    case TI_VAL_ANO:
+    case TI_VAL_WANO:
     case TI_VAL_ERROR:
         ex_set(e, EX_TYPE_ERROR,
                 "cannot convert type `%s` to `"TI_VAL_BYTES_S"`",
@@ -1085,23 +1077,6 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
     int64_t i = 0;
     switch((ti_val_enum) (*val)->tp)
     {
-    case TI_VAL_NIL:
-    case TI_VAL_REGEX:
-    case TI_VAL_THING:
-    case TI_VAL_WRAP:
-    case TI_VAL_ROOM:
-    case TI_VAL_TASK:
-    case TI_VAL_ARR:
-    case TI_VAL_SET:
-    case TI_VAL_CLOSURE:
-    case TI_VAL_FUTURE:
-    case TI_VAL_MODULE:
-    case TI_VAL_MPDATA:
-    case TI_VAL_BYTES:
-        ex_set(e, EX_TYPE_ERROR,
-                "cannot convert type `%s` to `"TI_VAL_INT_S"`",
-                ti_val_str(*val));
-        return e->nr;
     case TI_VAL_INT:
         return 0;
     case TI_VAL_FLOAT:
@@ -1162,6 +1137,25 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
         *val = v;
         return 0;
     }
+    case TI_VAL_NIL:
+    case TI_VAL_REGEX:
+    case TI_VAL_THING:
+    case TI_VAL_WRAP:
+    case TI_VAL_ROOM:
+    case TI_VAL_TASK:
+    case TI_VAL_ARR:
+    case TI_VAL_SET:
+    case TI_VAL_CLOSURE:
+    case TI_VAL_ANO:
+    case TI_VAL_FUTURE:
+    case TI_VAL_MODULE:
+    case TI_VAL_WANO:
+    case TI_VAL_MPDATA:
+    case TI_VAL_BYTES:
+        ex_set(e, EX_TYPE_ERROR,
+                "cannot convert type `%s` to `"TI_VAL_INT_S"`",
+                ti_val_str(*val));
+        return e->nr;
     case TI_VAL_TEMPLATE:
         assert(0);
     }
@@ -1181,23 +1175,6 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
     double d = 0.0;
     switch((ti_val_enum) (*val)->tp)
     {
-    case TI_VAL_NIL:
-    case TI_VAL_REGEX:
-    case TI_VAL_THING:
-    case TI_VAL_WRAP:
-    case TI_VAL_ROOM:
-    case TI_VAL_TASK:
-    case TI_VAL_ARR:
-    case TI_VAL_SET:
-    case TI_VAL_CLOSURE:
-    case TI_VAL_FUTURE:
-    case TI_VAL_MODULE:
-    case TI_VAL_MPDATA:
-    case TI_VAL_BYTES:
-        ex_set(e, EX_TYPE_ERROR,
-                "cannot convert type `%s` to `"TI_VAL_FLOAT_S"`",
-                ti_val_str(*val));
-        return e->nr;
     case TI_VAL_INT:
         d = (double) VINT(*val);
         break;
@@ -1259,6 +1236,25 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
         *val = v;
         return 0;
     }
+    case TI_VAL_NIL:
+    case TI_VAL_REGEX:
+    case TI_VAL_THING:
+    case TI_VAL_WRAP:
+    case TI_VAL_ROOM:
+    case TI_VAL_TASK:
+    case TI_VAL_ARR:
+    case TI_VAL_SET:
+    case TI_VAL_CLOSURE:
+    case TI_VAL_ANO:
+    case TI_VAL_FUTURE:
+    case TI_VAL_MODULE:
+    case TI_VAL_WANO:
+    case TI_VAL_MPDATA:
+    case TI_VAL_BYTES:
+        ex_set(e, EX_TYPE_ERROR,
+                "cannot convert type `%s` to `"TI_VAL_FLOAT_S"`",
+                ti_val_str(*val));
+        return e->nr;
     case TI_VAL_TEMPLATE:
         assert(0);
     }
@@ -1292,12 +1288,14 @@ int ti_val_convert_to_array(ti_val_t ** val, ex_t * e)
     case TI_VAL_THING:
     case TI_VAL_WRAP:
     case TI_VAL_ROOM:
+    case TI_VAL_ERROR:
     case TI_VAL_TASK:
     case TI_VAL_CLOSURE:
-    case TI_VAL_ERROR:
+    case TI_VAL_ANO:
     case TI_VAL_MEMBER:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
+    case TI_VAL_WANO:
         ex_set(e, EX_TYPE_ERROR,
                 "cannot convert type `%s` to `"TI_VAL_LIST_S"`",
                 ti_val_str(*val));
@@ -1312,28 +1310,6 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
 {
     switch((ti_val_enum) (*val)->tp)
     {
-    case TI_VAL_NIL:
-    case TI_VAL_INT:
-    case TI_VAL_FLOAT:
-    case TI_VAL_BOOL:
-    case TI_VAL_DATETIME:
-    case TI_VAL_MPDATA:
-    case TI_VAL_NAME:
-    case TI_VAL_STR:
-    case TI_VAL_BYTES:
-    case TI_VAL_REGEX:
-    case TI_VAL_WRAP:
-    case TI_VAL_ROOM:
-    case TI_VAL_TASK:
-    case TI_VAL_CLOSURE:
-    case TI_VAL_ERROR:
-    case TI_VAL_MEMBER:
-    case TI_VAL_FUTURE:
-    case TI_VAL_MODULE:
-        ex_set(e, EX_TYPE_ERROR,
-                "cannot convert type `%s` to `"TI_VAL_SET_S"`",
-                ti_val_str(*val));
-        break;
     case TI_VAL_THING:
     {
         ti_vset_t * vset = ti_vset_create();
@@ -1371,6 +1347,30 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
         break;
     }
     case TI_VAL_SET:
+        break;
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
+    case TI_VAL_MPDATA:
+    case TI_VAL_NAME:
+    case TI_VAL_STR:
+    case TI_VAL_BYTES:
+    case TI_VAL_REGEX:
+    case TI_VAL_WRAP:
+    case TI_VAL_ROOM:
+    case TI_VAL_TASK:
+    case TI_VAL_CLOSURE:
+    case TI_VAL_ANO:
+    case TI_VAL_ERROR:
+    case TI_VAL_MEMBER:
+    case TI_VAL_FUTURE:
+    case TI_VAL_MODULE:
+    case TI_VAL_WANO:
+        ex_set(e, EX_TYPE_ERROR,
+                "cannot convert type `%s` to `"TI_VAL_SET_S"`",
+                ti_val_str(*val));
         break;
     case TI_VAL_TEMPLATE:
         assert(0);
@@ -1412,10 +1412,18 @@ size_t ti_val_get_len(ti_val_t * val)
         return VSET(val)->n;
     case TI_VAL_CLOSURE:
         break;
+    case TI_VAL_ANO:
+        return (
+            ((ti_ano_t *) val)->type->fields->n +
+            ((ti_ano_t *) val)->type->methods->n +
+            !!((ti_ano_t *) val)->type->idname);
     case TI_VAL_MEMBER:
         return ti_val_get_len(VMEMBER(val));
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
+        break;
+    case TI_VAL_WANO:
+        return ti_thing_n(((ti_wano_t *) val)->thing);
     case TI_VAL_ERROR:
         break;
     }
@@ -1445,22 +1453,11 @@ int ti_val_gen_ids(ti_val_t * val)
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
     case TI_VAL_DATETIME:
-    case TI_VAL_MPDATA:
     case TI_VAL_NAME:
     case TI_VAL_STR:
     case TI_VAL_BYTES:
     case TI_VAL_REGEX:
-    case TI_VAL_TASK:
-    case TI_VAL_MEMBER:
-        /* enum can be skipped; even a thing on an enum is guaranteed to
-         * have an ID since they are triggered when creating or changing the
-         * enumerator.
-         *
-         * task can be skipped as id's for task are created immediately on
-         * the creation of a task.
-         */
         break;
-
     case TI_VAL_THING:
         if (!((ti_thing_t *) val)->id)
             return ti_thing_gen_id((ti_thing_t *) val);
@@ -1481,6 +1478,8 @@ int ti_val_gen_ids(ti_val_t * val)
         if (!((ti_room_t *) val)->id)
             return ti_room_gen_id((ti_room_t *) val);
         break;
+    case TI_VAL_TASK:
+        break;
     case TI_VAL_ARR:
         /*
          * Here the code really benefits from the `may-have-things` flag since
@@ -1493,11 +1492,23 @@ int ti_val_gen_ids(ti_val_t * val)
         break;
     case TI_VAL_SET:
         return imap_walk(VSET(val), (imap_cb) val__walk_gen_id_set, NULL);
-    case TI_VAL_CLOSURE:
+
     case TI_VAL_ERROR:
+    case TI_VAL_MEMBER:
+        /* enum can be skipped; even a thing on an enum is guaranteed to
+         * have an ID since they are triggered when creating or changing the
+         * enumerator.
+         *
+         * task can be skipped as id's for task are created immediately on
+         * the creation of a task.
+         */
+    case TI_VAL_MPDATA:
+    case TI_VAL_CLOSURE:
+    case TI_VAL_ANO:
         break;
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
+    case TI_VAL_WANO:
     case TI_VAL_TEMPLATE:
         assert(0);
     }
@@ -1537,10 +1548,13 @@ _Bool ti_val_has_ids(ti_val_t * val)
     case TI_VAL_SET:
         return imap_walk(VSET(val), (imap_cb) val__walk_has_id_set, NULL);
     case TI_VAL_CLOSURE:
+    case TI_VAL_ANO:
     case TI_VAL_ERROR:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
         return false;
+    case TI_VAL_WANO:
+        return ti_thing_has_id(((ti_wano_t *) val)->thing);
     case TI_VAL_TEMPLATE:
         assert(0);
     }
@@ -1574,6 +1588,8 @@ size_t ti_val_alloc_size(ti_val_t * val)
         return 65536;
     case TI_VAL_CLOSURE:
         return 4096;
+    case TI_VAL_ANO:
+        return ((ti_ano_t *) val)->spec_raw->n + 9;
     case TI_VAL_ERROR:
         return ((ti_verror_t *) val)->msg_n + 128;
     case TI_VAL_MEMBER:
@@ -1582,6 +1598,8 @@ size_t ti_val_alloc_size(ti_val_t * val)
         return VFUT(val) ? ti_val_alloc_size(VFUT(val)) : 64;
     case TI_VAL_MODULE:
         return 64;
+    case TI_VAL_WANO:
+        return 65536;
     case TI_VAL_TEMPLATE:
         assert(0);
     }
@@ -1601,7 +1619,6 @@ ti_val_t * ti_val_strv(ti_val_t * val)
         return ti_datetime_is_timeval((ti_datetime_t *) val)
                 ? ti_grab(val__stimeval)
                 : ti_grab(val__sdatetime);
-    case TI_VAL_MPDATA:         return ti_grab(val__smpdata);
     case TI_VAL_NAME:
     case TI_VAL_STR:            return ti_grab(val__sstr);
     case TI_VAL_BYTES:          return ti_grab(val__sbytes);
@@ -1619,13 +1636,15 @@ ti_val_t * ti_val_strv(ti_val_t * val)
                 ? ti_grab(val__slist)
                 : ti_grab(val__stuple);
     case TI_VAL_SET:            return ti_grab(val__sset);
-    case TI_VAL_CLOSURE:        return ti_grab(val__sclosure);
     case TI_VAL_ERROR:          return ti_grab(val__serror);
     case TI_VAL_MEMBER:
         return (ti_val_t *) ti_member_enum_get_rname((ti_member_t *) val);
+    case TI_VAL_MPDATA:         return ti_grab(val__smpdata);
+    case TI_VAL_CLOSURE:        return ti_grab(val__sclosure);
+    case TI_VAL_ANO:            return ti_grab(val__sano);
     case TI_VAL_FUTURE:         return ti_grab(val__sfuture);
     case TI_VAL_MODULE:         return ti_grab(val__smodule);
-    case TI_VAL_ANO:            return ti_grab(val__sano);
+    case TI_VAL_WANO:           return ti_grab(val__swano);
     case TI_VAL_TEMPLATE:
         assert(0);
     }
@@ -1680,8 +1699,11 @@ int ti_val_copy(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep)
         ex_t e = {0};
         return ti_closure_unbound((ti_closure_t * ) *val, &e);
     }
+    case TI_VAL_ANO:
+        return 0;
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
+    case TI_VAL_WANO:
         ti_val_unsafe_drop(*val);
         *val = (ti_val_t *) ti_nil_get();
         return 0;
@@ -1739,8 +1761,11 @@ int ti_val_dup(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep)
         ex_t e = {0};
         return ti_closure_unbound((ti_closure_t * ) *val, &e);
     }
+    case TI_VAL_ANO:
+        return 0;
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
+    case TI_VAL_WANO:
         ti_val_unsafe_drop(*val);
         *val = (ti_val_t *) ti_nil_get();
         return 0;
@@ -1854,6 +1879,18 @@ int ti_val_thing_to_str(ti_val_t ** val, ex_t * e)
 int ti_val_wrap_to_str(ti_val_t ** val, ex_t * e)
 {
     ti_val_t * v = (ti_val_t *) ti_wrap_str((ti_wrap_t *) *val);
+    if (!v)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+    ti_val_unsafe_drop(*val);
+    *val = v;
+    return 0;
+}
+int ti_val_wano_to_str(ti_val_t ** val, ex_t * e)
+{
+    ti_val_t * v = (ti_val_t *) ti_wano_str((ti_wano_t *) *val);
     if (!v)
     {
         ex_set_mem(e);

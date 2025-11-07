@@ -227,6 +227,7 @@ set(SOURCES
     src/ti/vint.c
     src/ti/vset.c
     src/ti/vtask.c
+    src/ti/wano.c
     src/ti/warn.c
     src/ti/watch.c
     src/ti/web.c

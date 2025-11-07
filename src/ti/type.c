@@ -108,7 +108,8 @@ ti_type_t * ti_type_create_anonymous(
     type->type_id = TI_SPEC_TYPE;
     type->flags = TI_TYPE_FLAG_WRAP_ONLY|flags;
     type->name = strndup((const char *) name->data, name->n);
-    type->rname = ti_grab(name);  /* name must be equal to the master type;
+    type->rname = ti_grab(name);  /* for nested structure, name must be equal
+                                     to the master type;
                                      in fields.c, this is compared for
                                      circular references */
     type->wname = NULL;
@@ -396,8 +397,19 @@ static int type__init_type_cb(ti_item_t * item, ex_t * e)
     return e->nr;
 }
 
-ti_raw_t * ti_type_spec_raw_from_thing(ti_thing_t * thing, ex_t * e)
+ti_raw_t * ti_type_spec_raw_from_thing(
+        ti_thing_t * thing,
+        ti_val_t * val,
+        ex_t * e)
 {
+    ti_raw_t * spec_raw = NULL;
+    msgpack_sbuffer buffer;
+    ti_vp_t vp = {
+        .query=NULL,
+        .size_limit=0x4000,   /* we do not expect much and since we use deep
+                                 nesting, set a low size limit */
+    };
+
     if (ti_thing_is_dict(thing) &&
         smap_values(thing->items.smap, (smap_val_cb) type__init_type_cb, e))
         return NULL;
@@ -431,13 +443,6 @@ fail0:
 ti_raw_t * ti__type_nested_from_val(ti_type_t * type, ti_val_t * val, ex_t * e)
 {
     ti_thing_t * thing;
-    ti_raw_t * spec_raw = NULL;
-    msgpack_sbuffer buffer;
-    ti_vp_t vp = {
-        .query=NULL,
-        .size_limit=0x4000,   /* we do not expect much and since we use deep
-                                 nesting, set a low size limit */
-    };
 
     if (ti_val_is_array(val))
     {
@@ -475,7 +480,7 @@ ti_raw_t * ti__type_nested_from_val(ti_type_t * type, ti_val_t * val, ex_t * e)
                     type->name);
         return NULL;
     }
-    return ti_type_spec_raw_from_thing(thing, e);
+    return ti_type_spec_raw_from_thing(thing, val, e);
 }
 
 static inline int type__assign(

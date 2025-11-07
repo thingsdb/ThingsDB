@@ -3,6 +3,7 @@
  */
 #include <assert.h>
 #include <stdlib.h>
+#include <ti/ano.h>
 #include <ti/change.t.h>
 #include <ti/closure.h>
 #include <ti/field.h>
@@ -25,13 +26,6 @@
 #include <ti/wrap.inline.h>
 #include <util/vec.h>
 #include <util/logger.h>
-
-static int wrap__field_thing_type(
-        ti_thing_t * thing,
-        ti_vp_t * vp,
-        ti_type_t * t_type,
-        int deep,
-        int flags);
 
 
 ti_wrap_t * ti_wrap_create(ti_thing_t * thing, uint16_t type_id)
@@ -81,7 +75,7 @@ typedef struct
 
 static int wrap__walk_with_type(ti_thing_t * thing, wrap__walk_with_type_t * w)
 {
-    return wrap__field_thing_type(thing, w->vp, w->t_type, w->deep, w->flags);
+    return ti_wrap_field_thing_type(thing, w->vp, w->t_type, w->deep, w->flags);
 }
 
 static int wrap__set(
@@ -174,7 +168,7 @@ static int wrap__field_val(
         return ti_regex_to_client_pk((ti_regex_t *) val, &vp->pk);
     case TI_VAL_THING:
         return ((*spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_TYPE)
-            ? wrap__field_thing_type(
+            ? ti_wrap_field_thing_type(
                 (ti_thing_t *) val,
                 vp,
                 t_field->condition.type,
@@ -188,8 +182,8 @@ static int wrap__field_val(
                 flags);
     case TI_VAL_WRAP:
         return ((*spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_TYPE)
-            ? wrap__field_thing_type(
-                (ti_thing_t *) val,
+            ? ti_wrap_field_thing_type(
+                ((ti_wrap_t *) val)->thing,
                 vp,
                 t_field->condition.type,
                 deep,
@@ -246,6 +240,8 @@ static int wrap__field_val(
         return ti_raw_mpdata_to_client_pk((ti_raw_t *) val, &vp->pk);
     case TI_VAL_CLOSURE:
         return ti_closure_to_client_pk((ti_closure_t *) val, &vp->pk);
+    case TI_VAL_ANO:
+        return ti_ano_to_client_pk((ti_ano_t * ) val, &vp->pk);
     case TI_VAL_FUTURE:
         return VFUT(val)
                 ? wrap__field_val(
@@ -258,6 +254,13 @@ static int wrap__field_val(
                 : msgpack_pack_nil(&vp->pk);
     case TI_VAL_MODULE:
         return msgpack_pack_nil(&vp->pk);
+    case TI_VAL_WANO:
+        return ti_wrap_field_thing_type(
+                ((ti_wano_t *) val)->thing,
+                vp,
+                ((ti_wano_t *) val)->ano->type,
+                deep,
+                flags);
     case TI_VAL_TEMPLATE:
         break;
     }
@@ -595,7 +598,7 @@ fail:
     return -1;
 }
 
-static int wrap__field_thing_type(
+int ti_wrap_field_thing_type(
         ti_thing_t * thing,
         ti_vp_t * vp,
         ti_type_t * t_type,

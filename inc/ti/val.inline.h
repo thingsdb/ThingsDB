@@ -5,6 +5,7 @@
 #define TI_VAL_INLINE_H_
 
 #include <ex.h>
+#include <ti/ano.h>
 #include <ti/closure.h>
 #include <ti/collection.h>
 #include <ti/datetime.h>
@@ -29,8 +30,10 @@
 #include <ti/vfloat.h>
 #include <ti/vset.h>
 #include <ti/vtask.h>
+#include <ti/wano.h>
 #include <ti/wrap.h>
 #include <ti/wrap.inline.h>
+#include <ti/wano.inline.h>
 #include <util/strx.h>
 
 static inline int val__str_to_str(ti_val_t ** UNUSED(v), ex_t * UNUSED(e));
@@ -75,6 +78,10 @@ static inline _Bool val__as_bool_thing(ti_val_t * val)
 static inline _Bool val__as_bool_wrap(ti_val_t * val)
 {
     return !!ti_thing_n(((ti_wrap_t *) val)->thing);
+}
+static inline _Bool val__as_bool_wano(ti_val_t * val)
+{
+    return !!ti_thing_n(((ti_wano_t *) val)->thing);
 }
 static inline _Bool val__as_bool_room(ti_val_t * val)
 {
@@ -177,6 +184,11 @@ static inline const char * val__ano_type_str(ti_val_t * UNUSED(val))
 {
     return TI_VAL_ANO_S;
 }
+static inline const char * val__wano_type_str(ti_val_t * UNUSED(val))
+{
+    return TI_VAL_WANO_S;
+}
+
 static inline int val__nil_to_client_pk(ti_val_t * UNUSED(v), ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
 {
     return msgpack_pack_nil(&vp->pk);
@@ -292,8 +304,7 @@ static inline int val__set_to_arr(ti_val_t ** v, ti_varr_t * varr, ex_t * e)
 }
 
 static inline int val__member_to_arr(ti_val_t ** v, ti_varr_t * varr, ex_t * e);
-static inline int val__future_to_arr(ti_val_t ** v, ti_varr_t * UNUSED(varr), ex_t * UNUSED(e));
-static inline int val__module_to_arr(ti_val_t ** v, ti_varr_t * UNUSED(varr), ex_t * UNUSED(e));
+static inline int val__as_nil_to_arr(ti_val_t ** v, ti_varr_t * UNUSED(varr), ex_t * UNUSED(e));
 
 static inline int val__closure_to_arr(ti_val_t ** v, ti_varr_t * UNUSED(varr), ex_t * e)
 {
@@ -321,7 +332,7 @@ typedef struct
 } ti_val_type_t;
 
 
-static ti_val_type_t ti_val_type_props[22] = {
+static ti_val_type_t ti_val_type_props[24] = {
     /* TI_VAL_NIL */
     {
         .destroy = (ti_val_destroy_cb) free,
@@ -531,26 +542,6 @@ static ti_val_type_t ti_val_type_props[22] = {
         .as_bool = val__as_bool_true,
         .allowed_as_vtask_arg = false,
     },
-    /* TI_VAL_FUTURE */
-    {
-        .destroy = (ti_val_destroy_cb) ti_future_destroy,
-        .to_str = val__no_to_str,
-        .to_arr_cb = val__future_to_arr,
-        .to_client_pk = (ti_val_to_client_pk_cb) val__future_to_client_pk,
-        .get_type_str = val__future_type_str,
-        .as_bool = val__as_bool_true,
-        .allowed_as_vtask_arg = false,
-    },
-    /* TI_VAL_MODULE */
-    {
-        .destroy = (ti_val_destroy_cb) ti_module_destroy,
-        .to_str = val__no_to_str,
-        .to_arr_cb = val__module_to_arr,
-        .to_client_pk = (ti_val_to_client_pk_cb) val__module_to_client_pk,
-        .get_type_str = val__module_type_str,
-        .as_bool = val__as_bool_true,
-        .allowed_as_vtask_arg = false,
-    },
     /* TI_VAL_ANO */
     {
         .destroy = (ti_val_destroy_cb) ti_ano_destroy,
@@ -560,6 +551,36 @@ static ti_val_type_t ti_val_type_props[22] = {
         .to_store_pk = (ti_val_to_store_pk_cb) ti_ano_to_store_pk,
         .get_type_str = val__ano_type_str,
         .as_bool = val__as_bool_true,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_FUTURE */
+    {
+        .destroy = (ti_val_destroy_cb) ti_future_destroy,
+        .to_str = val__no_to_str,
+        .to_arr_cb = val__as_nil_to_arr,
+        .to_client_pk = (ti_val_to_client_pk_cb) val__future_to_client_pk,
+        .get_type_str = val__future_type_str,
+        .as_bool = val__as_bool_true,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_MODULE */
+    {
+        .destroy = (ti_val_destroy_cb) ti_module_destroy,
+        .to_str = val__no_to_str,
+        .to_arr_cb = val__as_nil_to_arr,
+        .to_client_pk = (ti_val_to_client_pk_cb) val__module_to_client_pk,
+        .get_type_str = val__module_type_str,
+        .as_bool = val__as_bool_true,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_WANO */
+    {
+        .destroy = (ti_val_destroy_cb) ti_wano_destroy,
+        .to_str = ti_val_wano_to_str,
+        .to_arr_cb = val__as_nil_to_arr,
+        .to_client_pk = (ti_val_to_client_pk_cb) ti_wano_to_client_pk,
+        .get_type_str = val__wano_type_str,
+        .as_bool = val__as_bool_wano,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_TEMPLATE */
@@ -813,6 +834,11 @@ static inline _Bool ti_val_is_wrap(ti_val_t * val)
     return val->tp == TI_VAL_WRAP;
 }
 
+static inline _Bool ti_val_is_wano(ti_val_t * val)
+{
+    return val->tp == TI_VAL_WANO;
+}
+
 static inline _Bool ti_val_is_room(ti_val_t * val)
 {
     return val->tp == TI_VAL_ROOM;
@@ -941,6 +967,11 @@ static inline ti_val_t * ti_val_gmt_offset_name(void)
 static inline ti_val_t * ti_val_anonymous_name(void)
 {
     return ti_incref(val__anonymous_name), val__anonymous_name;
+}
+
+static inline ti_val_t * ti_val_borrow_anonymous_name(void)
+{
+    return val__anonymous_name;
 }
 
 static inline ti_val_t * ti_val_borrow_async_name(void)
@@ -1149,9 +1180,10 @@ static inline void ti_val_attach(
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:
     case TI_VAL_CLOSURE:
+    case TI_VAL_ANO:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
-    case TI_VAL_ANO:
+    case TI_VAL_WANO:
         return;
     case TI_VAL_ARR:
         ((ti_varr_t *) val)->parent = parent;
@@ -1222,12 +1254,13 @@ static inline int ti_val_make_assignable(
         return 0;
     case TI_VAL_CLOSURE:
         return ti_closure_unbound((ti_closure_t *) *val, e);
+    case TI_VAL_ANO:
+        return 0;
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
+    case TI_VAL_WANO:
         ti_val_unsafe_drop(*val);
         *val = (ti_val_t *) ti_nil_get();
-        return 0;
-    case TI_VAL_ANO:
         return 0;
     case TI_VAL_TEMPLATE:
         break;
@@ -1341,7 +1374,6 @@ static inline _Bool val__spec_enum_eq_to_val(uint16_t spec, ti_val_t * val)
  *   TI_SPEC_EMAIL,
  *   TI_SPEC_URL,
  *   TI_SPEC_TEL,
- *   TI_SPEC_ANO,
  */
 
 static ti_val_spec_t ti_val_spec_map[25] = {
@@ -1427,14 +1459,7 @@ static inline int val__member_to_arr(ti_val_t ** v, ti_varr_t * varr, ex_t * e)
     return e->nr;
 }
 
-static inline int val__future_to_arr(ti_val_t ** v, ti_varr_t * UNUSED(varr), ex_t * UNUSED(e))
-{
-    ti_val_unsafe_drop(*v);
-    *v = (ti_val_t *) ti_nil_get();
-    return 0;
-}
-
-static inline int val__module_to_arr(ti_val_t ** v, ti_varr_t * UNUSED(varr), ex_t * UNUSED(e))
+static inline int val__as_nil_to_arr(ti_val_t ** v, ti_varr_t * UNUSED(varr), ex_t * UNUSED(e))
 {
     ti_val_unsafe_drop(*v);
     *v = (ti_val_t *) ti_nil_get();

@@ -13,7 +13,7 @@ static int do__f_base64_encode(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ex_set(e, EX_TYPE_ERROR,
             "function `base64_encode` expects argument 1 to be of "
-            "type `"TI_VAL_STR_S"` or type `"TI_VAL_BYTES_S"` "
+            "type `"TI_VAL_STR_S"`, `"TI_VAL_BYTES_S"` or `"TI_VAL_MPDATA_S"` "
             "but got type `%s` instead"DOC_BASE64_ENCODE,
             ti_val_str(query->rval));
         return e->nr;

@@ -4,12 +4,13 @@
 #ifndef TI_ANO_H_
 #define TI_ANO_H_
 
-
 #include <ti/ano.t.h>
 #include <ti/val.t.h>
 #include <ti/collection.t.h>
 #include <util/mpack.h>
 #include <ex.h>
+
+#define ANO_T(__x) ((ti_ano_t *) (__x))->type
 
 ti_ano_t * ti_ano_new(void);
 int ti_ano_init(

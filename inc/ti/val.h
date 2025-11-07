@@ -84,10 +84,12 @@ int ti_val_bytes_to_str(ti_val_t ** val, ex_t * e);
 int ti_val_regex_to_str(ti_val_t ** val, ex_t * e);
 int ti_val_thing_to_str(ti_val_t ** val, ex_t * e);
 int ti_val_wrap_to_str(ti_val_t ** val, ex_t * e);
+int ti_val_wano_to_str(ti_val_t ** val, ex_t * e);
 int ti_val_room_to_str(ti_val_t ** val, ex_t * e);
 int ti_val_vtask_to_str(ti_val_t ** val, ex_t * e);
 int ti_val_error_to_str(ti_val_t ** val, ex_t * e);
 int ti_val_member_to_str(ti_val_t ** val, ex_t * e);
 int ti_val_closure_to_str(ti_val_t ** val, ex_t * e);
+int ti_val_ano_to_str(ti_val_t ** val, ex_t * e);
 
 #endif /* TI_VAL_H_ */

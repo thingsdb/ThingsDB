@@ -77,7 +77,10 @@ int ti_type_methods_info_to_pk(
 int ti_type_required_by_non_wpo(ti_type_t * type, ex_t * e);
 int ti_type_requires_wpo(ti_type_t * type, ex_t * e);
 int ti_type_rename(ti_type_t * type, ti_raw_t * nname);
-ti_raw_t * ti_type_spec_raw_from_thing(ti_thing_t * thing, ex_t * e);
+ti_raw_t * ti_type_spec_raw_from_thing(
+        ti_thing_t * thing,
+        ti_val_t * val,  /* may be equal to thing, or an ti_varr_t */
+        ex_t * e);
 ti_raw_t * ti__type_nested_from_val(ti_type_t * type, ti_val_t * val, ex_t * e);
 
 static inline int ti_type_use(ti_type_t * type, ex_t * e)

@@ -62,9 +62,10 @@ static int do__f_closure_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:
     case TI_VAL_MPDATA:
+    case TI_VAL_ANO:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
-    case TI_VAL_ANO:
+    case TI_VAL_WANO:
         ex_set(e, EX_TYPE_ERROR,
                 "cannot convert type `%s` to `"TI_VAL_CLOSURE_S"`",
                 ti_val_str(query->rval));

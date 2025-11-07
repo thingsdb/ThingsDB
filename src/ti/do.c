@@ -1240,11 +1240,8 @@ static int do__thing(
      */
     assert(e->nr == 0);
 
-    ti_thing_t * thing;
     cleri_node_t * child;
-    uintptr_t sz = (uintptr_t) nd->data;
-
-    thing = ti_thing_o_create(0, sz, query->collection);
+    ti_thing_t * thing = ti_thing_o_create(0, sz, query->collection);
     if (!thing)
         goto failed_save;
 
@@ -1334,7 +1331,10 @@ static int do__ano(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (do__thing(query, nd, e, 7))
             return e->nr;
 
-        spec_raw = ti_type_spec_raw_from_thing((ti_thing_t *) query->rval, e);
+        spec_raw = ti_type_spec_raw_from_thing(
+                (ti_thing_t *) query->rval,
+                query->rval,
+                e);
         if (!spec_raw)
             return e->nr;
 
@@ -2029,7 +2029,7 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
         break;
     case CLERI_GID_THING:
-        if (do__thing(query, nd, e, (uintptr_t) nd->data);)
+        if (do__thing(query, nd, e, (uintptr_t) nd->data))
             return e->nr;
         break;
     case CLERI_GID_ARRAY:

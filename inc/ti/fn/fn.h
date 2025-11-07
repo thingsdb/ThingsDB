@@ -247,6 +247,23 @@ static inline int fn_arg_str(
     return e->nr;
 }
 
+static inline int fn_arg_str_or_ano(
+        const char * name,
+        const char * doc,
+        int argn,
+        ti_val_t * val,
+        ex_t * e)
+{
+    if (!ti_val_is_str(val))
+        ex_set(e, EX_TYPE_ERROR,
+            "function `%s` expects argument %d to be of "
+            "type `"TI_VAL_STR_S"` or `"TI_VAL_ANO_S"` "
+            "but got type `%s` instead%s",
+            name, argn, ti_val_str(val), doc);
+    return e->nr;
+}
+
+
 static inline int fn_arg_bytes(
         const char * name,
         const char * doc,
@@ -663,6 +680,72 @@ no_method_err:
     return e->nr;
 }
 
+static int fn_call_wa_try_n(
+        const char * name,
+        size_t n,
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    ti_name_t * name_;
+    ti_method_t * method;
+    ti_wano_t * wano = (ti_wano_t *) query->rval;
+    ti_thing_t * thing = wano->thing;
+
+    name_ = ti_names_weak_get_strn(name, n);
+    if (!name_)
+        goto no_method_err;
+
+    method = ti_type_get_method(wano->ano->type, name_);
+    if (!method)
+        goto no_method_err;
+
+    ti_incref(thing);
+    ti_val_unsafe_drop(query->rval);
+    query->rval = (ti_val_t *) thing;
+
+    return ti_method_call(method, wano->ano->type, query, nd, e);
+
+no_method_err:
+    ex_set(e, EX_LOOKUP_ERROR,
+            "type `%s` has no method `%.*s`",
+            wano->ano->type->name, (int) n, name);
+    return e->nr;
+}
+
+static int fn_call_a_try_n(
+        const char * name,
+        size_t n,
+        ti_query_t * query,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    ti_name_t * name_;
+    ti_method_t * method;
+    ti_ano_t * ano = (ti_ano_t *) query->rval;
+
+    name_ = ti_names_weak_get_strn(name, n);
+    if (!name_)
+        goto no_method_err;
+
+    method = ti_type_get_method(ano->type, name_);
+    if (!method)
+        goto no_method_err;
+
+
+    ti_incref(method->closure);
+    ti_val_unsafe_drop(query->rval);
+    query->rval = (ti_val_t *) method->closure;
+    // TODO: ANO: test
+    return fn_call(query, nd, e);
+
+no_method_err:
+    ex_set(e, EX_LOOKUP_ERROR,
+            "type `%s` has no method `%.*s`",
+            ano->type->name, (int) n, name);
+    return e->nr;
+}
+
 static int fn_call_f_try_n(
         const char * name,
         size_t n,
@@ -729,6 +812,12 @@ static int fn_call_try_n(
 
     if (ti_val_is_wrap(query->rval))
         return fn_call_w_try_n(name, n, query, nd, e);
+
+    if (ti_val_is_wano(query->rval))
+        return fn_call_wa_try_n(name, n, query, nd, e);
+
+    if (ti_val_is_ano(query->rval))
+        return fn_call_a_try_n(name, n, query, nd, e);
 
     if (ti_val_is_module(query->rval))
         return fn_call_f_try_n(name, n, query, nd, e);

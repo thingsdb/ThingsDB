@@ -27,6 +27,7 @@
  *    pcregrep -o1 ' :: `(\w+)' spec.c | gperf -E -k '*,1,$' -m 200
 
   :: `any`
+  :: `ano`
   :: `bool`
   :: `break`
   :: `bytes`
@@ -69,11 +70,11 @@
 
 enum
 {
-    TOTAL_KEYWORDS = 38,
+    TOTAL_KEYWORDS = 39,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 8,
     MIN_HASH_VALUE = 3,
-    MAX_HASH_VALUE = 41
+    MAX_HASH_VALUE = 46
 };
 
 static inline unsigned int spec__hash(
@@ -82,32 +83,32 @@ static inline unsigned int spec__hash(
 {
     static unsigned char asso_values[] =
     {
-        42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-        42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-        42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-        42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-        42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-        42, 42, 42, 42, 42, 42, 19, 42, 42, 42,
-        42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-        42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-        42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-        42, 42, 42, 42, 42, 42, 42,  5,  6, 14,
-        10,  0, 15, 24,  0,  5, 42, 17,  2,  8,
-         0,  3, 19, 42,  2,  0,  0,  3, 13, 29,
-         6, 16, 42, 42, 42, 42, 42, 42, 42, 42,
-        42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-        42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-        42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-        42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-        42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-        42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-        42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-        42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-        42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-        42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-        42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-        42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-        42, 42, 42, 42, 42, 42
+        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
+        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
+        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
+        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
+        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
+        47, 47, 47, 47, 47, 47, 17, 47, 47, 47,
+        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
+        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
+        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
+        47, 47, 47, 47, 47, 47, 47, 15, 10, 13,
+        9,  0, 11, 13,  0,  5, 47,  8,  2,  8,
+        0,  3, 16, 47,  2,  0,  0,  3,  2, 13,
+        11, 19, 47, 47, 47, 47, 47, 47, 47, 47,
+        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
+        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
+        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
+        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
+        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
+        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
+        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
+        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
+        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
+        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
+        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
+        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
+        47, 47, 47, 47, 47, 47
     };
 
     register unsigned int hval = n;
@@ -162,30 +163,32 @@ _Bool ti_spec_is_reserved(register const char * s, register size_t n)
         "enum",
         "union",
         "time",
-        "bool",
-        "date",
-        "room",
-        "try",
         "if",
         "for",
-        "any",
-        "number",
-        "task",
-        "bytes",
+        "room",
+        "ano",
+        "bool",
+        "thing",
+        "try",
         "pint",
         "tuple",
-        "float",
+        "task",
+        "date",
+        "number",
         "closure",
-        "final",
-        "continue",
-        "thing",
-        "break",
-        "datetime",
         "regex",
-        "catch",
+        "continue",
         "raw",
+        "bytes",
+        "utf8",
+        "float",
+        "any",
+        "final",
         "timeval",
-        "utf8"
+        "break",
+        "", "", "", "",
+        "datetime",
+        "catch"
     };
 
     if (n <= MAX_WORD_LENGTH && n >= MIN_WORD_LENGTH)
@@ -405,6 +408,8 @@ ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t * val)
             : ti_regex_test_or_empty(
                 (ti_regex_t *) ti_val_borrow_re_tel(),
                 (ti_raw_t *) val) ? 0 : TI_SPEC_RVAL_TEL_ERROR;
+    case TI_SPEC_ANO:
+        return ti_val_is_ano(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_REMATCH:
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
@@ -501,6 +506,8 @@ _Bool ti__spec_maps_to_nested_val(uint16_t spec, ti_val_t * val)
         return ti_val_is_str(val) && ti_regex_test_or_empty(
                 (ti_regex_t *) ti_val_borrow_re_tel(),
                 (ti_raw_t *) val);
+    case TI_SPEC_ANO:
+        return ti_val_is_ano(val);
     case TI_SPEC_REMATCH:
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
@@ -553,6 +560,7 @@ const char * ti_spec_approx_type_str(uint16_t spec)
     case TI_SPEC_EMAIL:         return "email";
     case TI_SPEC_URL:           return "url";
     case TI_SPEC_TEL:           return "tel";
+    case TI_SPEC_ANO:           return "ano";
     case TI_SPEC_TYPE:
     case TI_SPEC_ARR_TYPE:
         assert(0);  /* not possible for wrap-only */
@@ -669,6 +677,7 @@ ti_spec_mod_enum ti_spec_check_mod(
     case TI_SPEC_EMAIL:
     case TI_SPEC_URL:
     case TI_SPEC_TEL:
+    case TI_SPEC_ANO:
         return ospec == nspec ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
     case TI_SPEC_REMATCH:
         return TI_SPEC_MOD_ERR;

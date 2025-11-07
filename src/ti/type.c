@@ -94,7 +94,7 @@ ti_type_t * ti_type_create(
     return type;
 }
 
-ti_type_t * ti_type_create_unnamed(
+ti_type_t * ti_type_create_anonymous(
         ti_types_t * types,
         ti_raw_t * name,
         uint8_t flags)
@@ -196,7 +196,7 @@ void ti_type_drop(ti_type_t * type)
     ti_type_destroy(type);
 }
 
-void ti_type_drop_unnamed(ti_type_t * type)
+void ti_type_drop_anonymous(ti_type_t * type)
 {
     if (!type)
         return;
@@ -396,6 +396,38 @@ static int type__init_type_cb(ti_item_t * item, ex_t * e)
     return e->nr;
 }
 
+ti_raw_t * ti_type_spec_raw_from_thing(ti_thing_t * thing, ex_t * e)
+{
+    if (ti_thing_is_dict(thing) &&
+        smap_values(thing->items.smap, (smap_val_cb) type__init_type_cb, e))
+        return NULL;
+
+    if (mp_sbuffer_alloc_init(&buffer, vp.size_limit, 0))
+    {
+        ex_set_mem(e);
+        return NULL;
+    }
+
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
+
+    if (ti_val_to_client_pk(val, &vp, TI_MAX_DEEP, TI_FLAGS_NO_IDS))
+    {
+        if (buffer.size > vp.size_limit)
+            ex_set(e, EX_VALUE_ERROR, "wpo type definition too large");
+        else
+            ex_set_mem(e);
+        goto fail0;
+    }
+
+    spec_raw = ti_mp_create((const unsigned char *) buffer.data, buffer.size);
+    if (!spec_raw)
+        ex_set_mem(e);
+
+fail0:
+    msgpack_sbuffer_destroy(&buffer);
+    return spec_raw;
+}
+
 ti_raw_t * ti__type_nested_from_val(ti_type_t * type, ti_val_t * val, ex_t * e)
 {
     ti_thing_t * thing;
@@ -443,37 +475,7 @@ ti_raw_t * ti__type_nested_from_val(ti_type_t * type, ti_val_t * val, ex_t * e)
                     type->name);
         return NULL;
     }
-
-    if (ti_thing_is_dict(thing) &&
-        smap_values(thing->items.smap, (smap_val_cb) type__init_type_cb, e))
-        return NULL;
-
-    if (mp_sbuffer_alloc_init(&buffer, vp.size_limit, 0))
-    {
-        ex_set_mem(e);
-        return NULL;
-    }
-
-    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
-
-    if (ti_val_to_client_pk(val, &vp, TI_MAX_DEEP, TI_FLAGS_NO_IDS))
-    {
-        if (buffer.size > vp.size_limit)
-            ex_set(e, EX_VALUE_ERROR,
-                "nested type definition on type `%s` too large",
-                type->name);
-        else
-            ex_set_mem(e);
-        goto fail0;
-    }
-
-    spec_raw = ti_mp_create((const unsigned char *) buffer.data, buffer.size);
-    if (!spec_raw)
-        ex_set_mem(e);
-
-fail0:
-    msgpack_sbuffer_destroy(&buffer);
-    return spec_raw;
+    return ti_type_spec_raw_from_thing(thing, e);
 }
 
 static inline int type__assign(

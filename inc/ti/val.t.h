@@ -26,6 +26,7 @@
 #define TI_VAL_FUTURE_S     "future"
 #define TI_VAL_MODULE_S     "module"
 #define TI_VAL_TASK_S       "task"
+#define TI_VAL_ANO_S        "anonymous"
 
 #define TI_KIND_S_INSTANCE  "."     /* Internally, New typed thing */
 #define TI_KIND_S_OBJECT    ","     /* Internally, New thing */
@@ -68,6 +69,7 @@ typedef enum
     TI_VAL_CLOSURE,
     TI_VAL_FUTURE,      /* future */
     TI_VAL_MODULE,      /* module */
+    TI_VAL_ANO,         /* anonymous wrap-only type */
     TI_VAL_TEMPLATE,    /* template to generate TI_VAL_STR
                            note that a template is never stored like a value,
                            rather it may build from either a query or a stored

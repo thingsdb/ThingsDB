@@ -31,7 +31,7 @@ extern ti_val_t * val__parent_name;
 extern ti_val_t * val__parent_type_name;
 extern ti_val_t * val__key_name;
 extern ti_val_t * val__key_type_name;
-extern ti_val_t * val__unnamed_name;
+extern ti_val_t * val__anonymous_name;
 
 /* string */
 extern ti_val_t * val__sany;

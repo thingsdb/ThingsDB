@@ -120,6 +120,7 @@ set(SOURCES
     src/cleri/tokens.c
     src/cleri/version.c
     src/ti/access.c
+    src/ti/ano.c
     src/ti/api.c
     src/ti/archfile.c
     src/ti/archive.c

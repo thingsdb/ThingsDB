@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ti.h>
+#include <ti/ano.h>
 #include <ti/closure.h>
 #include <ti/collection.inline.h>
 #include <ti/datetime.h>
@@ -47,7 +48,9 @@
 static ti_val_t * val__empty_bin;
 static ti_val_t * val__empty_str;
 static ti_val_t * val__default_closure;
+static ti_val_t * val__default_ano;
 static ti_val_t * val__default_re;
+static ti_val_t * val__sano;
 static ti_val_t * val__sbool;
 static ti_val_t * val__sbytes;
 static ti_val_t * val__sclosure;
@@ -92,7 +95,7 @@ ti_val_t * val__parent_name;
 ti_val_t * val__parent_type_name;
 ti_val_t * val__key_name;
 ti_val_t * val__key_type_name;
-ti_val_t * val__unnamed_name;
+ti_val_t * val__anonymous_name;
 
 /* string */
 ti_val_t * val__sany;
@@ -441,6 +444,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
     case TI_VAL_ERROR:
     case TI_VAL_MPDATA:
     case TI_VAL_CLOSURE:
+    case TI_VAL_ANO:
         break;
     case TI_VAL_ARR:
     {
@@ -699,6 +703,27 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
             }
             return (ti_val_t *) name;
         }
+        case MPACK_EXT_ANO:
+        {
+            ti_ano_t * ano;
+            if (!vup->collection)
+            {
+                ex_set(e, EX_BAD_DATA,
+                        "cannot unpack `anonymous` type without a collection");
+                return NULL;
+            }
+            ano = ti_ano_create(
+                vup->collection,
+                obj.via.ext.data,
+                obj.via.ext.n);
+            if (!ano)
+            {
+                ex_set(e, EX_BAD_DATA,
+                        "failed to unpack `anonymous`");
+                return NULL;
+            }
+            return (ti_val_t *) ano;
+        }
         }
         ex_set(e, EX_BAD_DATA,
                 "msgpack extension type %d is not supported by ThingsDB",
@@ -720,6 +745,8 @@ int ti_val_init_common(void)
     };
     val__default_closure = \
             (ti_val_t *) ti_closure_from_strn(&syntax, "||nil", 5, &e);
+    val__default_ano = \
+            (ti_val_t *) ti_ano_create(&syntax, "\x80", 1, &e);
     val__empty_bin = (ti_val_t *) ti_bin_create(NULL, 0);
     val__empty_str = (ti_val_t *) ti_str_from_str("");
     val__default_re = (ti_val_t *) ti_regex_from_strn("/.*/", 4, &e);
@@ -727,6 +754,7 @@ int ti_val_init_common(void)
     val__snil = (ti_val_t *) ti_str_from_str(TI_VAL_NIL_S);
     val__strue = (ti_val_t *) ti_str_from_str("true");
     val__sfalse = (ti_val_t *) ti_str_from_str("false");
+    val__sano = (ti_val_t *) ti_str_from_str(TI_VAL_ANO_S);
     val__sbool = (ti_val_t *) ti_str_from_str(TI_VAL_BOOL_S);
     val__sdatetime = (ti_val_t *) ti_str_from_str(TI_VAL_DATETIME_S);
     val__stimeval = (ti_val_t *) ti_str_from_str(TI_VAL_TIMEVAL_S);
@@ -775,7 +803,7 @@ int ti_val_init_common(void)
     val__parent_type_name = (ti_val_t *) ti_names_from_str_slow("parent_type");
     val__key_name = (ti_val_t *) ti_names_from_str_slow("key");
     val__key_type_name = (ti_val_t *) ti_names_from_str_slow("key_type");
-    val__unnamed_name = (ti_val_t *) ti_names_from_str_slow("__unnamed__");
+    val__anonymous_name = (ti_val_t *) ti_names_from_str_slow("__anonymous__");
     val__re_email = (ti_val_t *) ti_regex_from_str("/^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*$/");
     val__re_url = (ti_val_t *) ti_regex_from_str("/^(https?|ftp):\\/\\/[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)$/");
     val__re_tel = (ti_val_t *) ti_regex_from_str("/^[\\+]?(\\([0-9]{1,4}\\)[-\\s\\.]?){0,2}([0-9]{1,4}[-\\s]?){3,5}$/");
@@ -795,7 +823,7 @@ int ti_val_init_common(void)
         !val__key_name || !val__key_type_name || !val__flags_name ||
         !val__data_name || !val__time_name || !val__re_email ||
         !val__smodule || !val__re_url || !val__re_tel || !val__async_name ||
-        !val__unnamed_name)
+        !val__anonymous_name || !val__default_ano || !val__sano)
     {
         return -1;
     }
@@ -807,11 +835,13 @@ void ti_val_drop_common(void)
     ti_val_drop(val__empty_bin);
     ti_val_drop(val__empty_str);
     ti_val_drop(val__default_closure);
+    ti_val_drop(val__default_ano);
     ti_val_drop(val__default_re);
     ti_val_drop(val__sany);
     ti_val_drop(val__snil);
     ti_val_drop(val__strue);
     ti_val_drop(val__sfalse);
+    ti_val_drop(val__sano);
     ti_val_drop(val__sbool);
     ti_val_drop(val__sdatetime);
     ti_val_drop(val__stimeval);
@@ -892,6 +922,12 @@ ti_val_t * ti_val_default_closure(void)
 {
     ti_incref(val__default_closure);
     return val__default_closure;
+}
+
+ti_val_t * ti_val_default_ano(void)
+{
+    ti_incref(val__default_ano);
+    return val__default_ano;
 }
 
 ti_val_t * ti_val_charset_str(void)
@@ -986,9 +1022,10 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
     {
     case TI_VAL_NAME:
     case TI_VAL_STR:
+    case TI_VAL_MPDATA:
     {
         ti_raw_t * r = (ti_raw_t *) (*val);
-        if (r->ref == 1 && r->tp == TI_VAL_STR)
+        if (r->ref == 1 && r->tp != TI_VAL_NAME)
         {
             /* only one reference left we can just change the type */
             r->tp = TI_VAL_BYTES;
@@ -1010,7 +1047,6 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
     case TI_VAL_DATETIME:
-    case TI_VAL_MPDATA:
     case TI_VAL_THING:
     case TI_VAL_WRAP:
     case TI_VAL_ROOM:
@@ -1020,6 +1056,7 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
     case TI_VAL_CLOSURE:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
+    case TI_VAL_ANO:
     case TI_VAL_ERROR:
         ex_set(e, EX_TYPE_ERROR,
                 "cannot convert type `%s` to `"TI_VAL_BYTES_S"`",
@@ -1588,6 +1625,7 @@ ti_val_t * ti_val_strv(ti_val_t * val)
         return (ti_val_t *) ti_member_enum_get_rname((ti_member_t *) val);
     case TI_VAL_FUTURE:         return ti_grab(val__sfuture);
     case TI_VAL_MODULE:         return ti_grab(val__smodule);
+    case TI_VAL_ANO:            return ti_grab(val__sano);
     case TI_VAL_TEMPLATE:
         assert(0);
     }
@@ -1886,5 +1924,11 @@ int ti_val_closure_to_str(ti_val_t ** val, ex_t * e)
     }
     ti_val_unsafe_drop(*val);
     *val = v;
+    return 0;
+}
+int ti_val_ano_to_str(ti_val_t ** val, ex_t * UNUSED(e))
+{
+    ti_val_unsafe_drop(*val);
+    *val = ti_val_anonymous_name();
     return 0;
 }

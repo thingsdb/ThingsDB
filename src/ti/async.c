@@ -1,5 +1,5 @@
 /*
- * ti/modasync.c
+ * ti/async.c
  */
 #include <ti/async.h>
 #include <ti/varr.h>

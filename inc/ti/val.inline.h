@@ -173,6 +173,10 @@ static inline const char * val__module_type_str(ti_val_t * UNUSED(val))
 {
     return TI_VAL_MODULE_S;
 }
+static inline const char * val__ano_type_str(ti_val_t * UNUSED(val))
+{
+    return TI_VAL_ANO_S;
+}
 static inline int val__nil_to_client_pk(ti_val_t * UNUSED(v), ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
 {
     return msgpack_pack_nil(&vp->pk);
@@ -226,6 +230,10 @@ static inline int val__task_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSE
     return ti_vtask_to_client_pk((ti_vtask_t *) val, &vp->pk);
 }
 static inline int val__error_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
+{
+    return ti_verror_to_client_pk((ti_verror_t *) val, &vp->pk);
+}
+static inline int val__ano_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_verror_to_client_pk((ti_verror_t *) val, &vp->pk);
 }
@@ -543,6 +551,17 @@ static ti_val_type_t ti_val_type_props[22] = {
         .as_bool = val__as_bool_true,
         .allowed_as_vtask_arg = false,
     },
+    /* TI_VAL_ANO */
+    {
+        .destroy = (ti_val_destroy_cb) ti_ano_destroy,
+        .to_str = ti_val_ano_to_str,
+        .to_arr_cb = val__to_arr_cb,
+        .to_client_pk = val__ano_to_client_pk,
+        .to_store_pk = (ti_val_to_store_pk_cb) ti_ano_to_store_pk,
+        .get_type_str = val__ano_type_str,
+        .as_bool = val__as_bool_true,
+        .allowed_as_vtask_arg = false,
+    },
     /* TI_VAL_TEMPLATE */
     {
         .destroy = (ti_val_destroy_cb) ti_template_destroy,
@@ -855,6 +874,11 @@ static inline _Bool ti_val_is_module(ti_val_t * val)
     return val->tp == TI_VAL_MODULE;
 }
 
+static inline _Bool ti_val_is_ano(ti_val_t * val)
+{
+    return val->tp == TI_VAL_ANO;
+}
+
 static inline _Bool ti_val_overflow_cast(double d)
 {
     return !(d >= -VAL__CAST_MAX && d < VAL__CAST_MAX);
@@ -914,9 +938,9 @@ static inline ti_val_t * ti_val_gmt_offset_name(void)
     return ti_incref(val__gmt_offset_name), val__gmt_offset_name;
 }
 
-static inline ti_val_t * ti_val_unnamed_name(void)
+static inline ti_val_t * ti_val_anonymous_name(void)
 {
-    return ti_incref(val__unnamed_name), val__unnamed_name;
+    return ti_incref(val__anonymous_name), val__anonymous_name;
 }
 
 static inline ti_val_t * ti_val_borrow_async_name(void)
@@ -1127,6 +1151,7 @@ static inline void ti_val_attach(
     case TI_VAL_CLOSURE:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
+    case TI_VAL_ANO:
         return;
     case TI_VAL_ARR:
         ((ti_varr_t *) val)->parent = parent;
@@ -1201,6 +1226,8 @@ static inline int ti_val_make_assignable(
     case TI_VAL_MODULE:
         ti_val_unsafe_drop(*val);
         *val = (ti_val_t *) ti_nil_get();
+        return 0;
+    case TI_VAL_ANO:
         return 0;
     case TI_VAL_TEMPLATE:
         break;
@@ -1314,9 +1341,10 @@ static inline _Bool val__spec_enum_eq_to_val(uint16_t spec, ti_val_t * val)
  *   TI_SPEC_EMAIL,
  *   TI_SPEC_URL,
  *   TI_SPEC_TEL,
+ *   TI_SPEC_ANO,
  */
 
-static ti_val_spec_t ti_val_spec_map[24] = {
+static ti_val_spec_t ti_val_spec_map[25] = {
         {.is_spec=ti_val_is_thing},
         {.is_spec=ti_val_is_raw},
         {.is_spec=ti_val_is_str},
@@ -1341,6 +1369,7 @@ static ti_val_spec_t ti_val_spec_map[24] = {
         {.is_spec=ti_val_is_email},
         {.is_spec=ti_val_is_url},
         {.is_spec=ti_val_is_tel},
+        {.is_spec=ti_val_is_ano},
 };
 
 static inline _Bool ti_val_is_spec(ti_val_t * val, uint16_t spec)

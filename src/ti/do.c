@@ -4,6 +4,7 @@
 #include <cleri/cleri.h>
 #include <doc.h>
 #include <langdef/langdef.h>
+#include <ti/ano.h>
 #include <ti/auth.h>
 #include <ti/do.h>
 #include <ti/enums.inline.h>
@@ -1228,7 +1229,11 @@ static int do__fixed_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 }
 
-static int do__thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int do__thing(
+    ti_query_t * query,
+    cleri_node_t * nd,
+    ex_t * e,
+    uintptr_t sz)
 {
     /*
      * Sequence('{', List(Sequence(name, ':', scope)), '}')
@@ -1299,6 +1304,48 @@ failed_save:
         ex_set_mem(e);
 failed:
     ti_val_unsafe_drop((ti_val_t *) thing);
+    return e->nr;
+}
+
+static int do__ano(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    if (!nd->data)
+    {
+        nd->data = ti_ano_new();
+        if (!nd->data)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        assert(vec_space(query->immutable_cache));
+        VEC_push(query->immutable_cache, nd->data);
+    }
+    if (ti_ano_uninitialized(nd->data))
+    {
+        ti_raw_t * spec_raw;
+        if (!query->collection)
+        {
+            ex_set(e, EX_OPERATION,
+                    "anonymous types are not supported in the the `%s` scope",
+                    ti_query_scope_name(query));
+            return e->nr;
+        }
+
+        if (do__thing(query, nd, e, 7))
+            return e->nr;
+
+        spec_raw = ti_type_spec_raw_from_thing((ti_thing_t *) query->rval, e);
+        if (!spec_raw)
+            return e->nr;
+
+        ti_val_unsafe_drop(query->rval);
+        query->rval = NULL;
+
+        if (ti_ano_init(nd->data, query->collection, spec_raw, e))
+            return e->nr;
+    }
+    query->rval = nd->data;
+    ti_incref(query->rval);
     return e->nr;
 }
 
@@ -1868,6 +1915,10 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         /* nothing is possible after a chain */
         goto preopr;
+    case CLERI_GID_T_ANO:
+        if (do__ano(query, nd, e))
+            return e->nr;
+        break;
     case CLERI_GID_T_FALSE:
         query->rval = (ti_val_t *) ti_vbool_get(false);
         break;
@@ -1978,7 +2029,7 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
         break;
     case CLERI_GID_THING:
-        if (do__thing(query, nd, e))
+        if (do__thing(query, nd, e, (uintptr_t) nd->data);)
             return e->nr;
         break;
     case CLERI_GID_ARRAY:

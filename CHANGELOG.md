@@ -1,3 +1,8 @@
+# v1.8.2-alpha0
+
+* Allow converting `mpdata` to `bytes, issue #...TODO
+
+
 # v1.8.1
 
 * Implemented formatting C-string checks and fixed typo, pr #426.

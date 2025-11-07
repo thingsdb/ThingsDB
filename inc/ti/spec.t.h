@@ -36,9 +36,10 @@ typedef enum
     TI_SPEC_ERROR,          /* `error`              */
     TI_SPEC_ROOM,           /* `room`               */
     TI_SPEC_TASK,           /* `task`               */
-    TI_SPEC_EMAIL,          /* `email               */
-    TI_SPEC_URL,            /* `url `               */
-    TI_SPEC_TEL,            /* `tel `               */
+    TI_SPEC_EMAIL,          /* `email`              */
+    TI_SPEC_URL,            /* `url`                */
+    TI_SPEC_TEL,            /* `tel`                */
+    TI_SPEC_ANO,            /* `ano`                */
 
     TI_SPEC_REMATCH=0x5000, /* `/.../`              */
     TI_SPEC_INT_RANGE,      /* `int<:>              */

@@ -28,13 +28,13 @@ ti_type_t * ti_type_create(
         size_t name_n,
         uint64_t created_at,
         uint64_t modified_at);
-ti_type_t * ti_type_create_unnamed(
+ti_type_t * ti_type_create_anonymous(
         ti_types_t * types,
         ti_raw_t * name,
         uint8_t flags);
 imap_t * ti_type_collect_things(ti_query_t * query, ti_type_t * type);
 void ti_type_drop(ti_type_t * type);
-void ti_type_drop_unnamed(ti_type_t * type);
+void ti_type_drop_anonymous(ti_type_t * type);
 void ti_type_del(ti_type_t * type, vec_t * vars);
 void ti_type_destroy(ti_type_t * type);
 void ti_type_map_cleanup(ti_type_t * type);
@@ -77,6 +77,7 @@ int ti_type_methods_info_to_pk(
 int ti_type_required_by_non_wpo(ti_type_t * type, ex_t * e);
 int ti_type_requires_wpo(ti_type_t * type, ex_t * e);
 int ti_type_rename(ti_type_t * type, ti_raw_t * nname);
+ti_raw_t * ti_type_spec_raw_from_thing(ti_thing_t * thing, ex_t * e);
 ti_raw_t * ti__type_nested_from_val(ti_type_t * type, ti_val_t * val, ex_t * e);
 
 static inline int ti_type_use(ti_type_t * type, ex_t * e)

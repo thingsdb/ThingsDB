@@ -440,6 +440,11 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
             "%.*s /* WARN: module must be installed */",
             module->name->n, module->name->str);
     }
+    case TI_VAL_ANO:
+        return -(
+            buf_write(buf, '&') ||
+            export__thing(fmt, (ti_thing_t *) val)
+        );
     case TI_VAL_ERROR:
         return buf_append_str(buf, "error() /* WARN: not exported */");
     case TI_VAL_MEMBER:
@@ -498,6 +503,7 @@ static int export__set_enum_cb(ti_enum_t * enum_, ti_fmt_t * fmt)
             case TI_VAL_MEMBER:
             case TI_VAL_FUTURE:
             case TI_VAL_MODULE:
+            case TI_VAL_ANO:
             case TI_VAL_TEMPLATE:
                 assert(0);
                 break;

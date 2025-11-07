@@ -5,7 +5,7 @@
  * should be used with the libcleri module.
  *
  * Source class: LangDef
- * Created at: 2024-02-11 20:55:25
+ * Created at: 2025-11-07 13:13:19
  */
 
 #include <langdef/langdef.h>
@@ -30,6 +30,7 @@ cleri_grammar_t * compile_langdef(void)
     cleri_t * x_preopr = cleri_regex(CLERI_GID_X_PREOPR, "^(\\s*~)*(\\s*!|\\s*[\\-+](?=[^0-9]))*");
     cleri_t * x_ternary = cleri_token(CLERI_GID_X_TERNARY, "?");
     cleri_t * x_thing = cleri_token(CLERI_GID_X_THING, "{");
+    cleri_t * x_ano = cleri_token(CLERI_GID_X_ANO, "&{");
     cleri_t * x_template = cleri_token(CLERI_GID_X_TEMPLATE, "`");
     cleri_t * template = cleri_sequence(
         CLERI_GID_TEMPLATE,
@@ -67,6 +68,19 @@ cleri_grammar_t * compile_langdef(void)
         cleri_list(CLERI_NONE, var, cleri_token(CLERI_NONE, ","), 0, 0, 1),
         cleri_token(CLERI_NONE, "|"),
         CLERI_THIS
+    );
+    cleri_t * t_ano = cleri_sequence(
+        CLERI_GID_T_ANO,
+        3,
+        x_ano,
+        cleri_list(CLERI_NONE, cleri_sequence(
+            CLERI_NONE,
+            3,
+            name,
+            cleri_token(CLERI_NONE, ":"),
+            cleri_optional(CLERI_NONE, CLERI_THIS)
+        ), cleri_token(CLERI_NONE, ","), 0, 0, 1),
+        cleri_token(CLERI_NONE, "}")
     );
     cleri_t * thing = cleri_sequence(
         CLERI_GID_THING,
@@ -252,7 +266,7 @@ cleri_grammar_t * compile_langdef(void)
         cleri_choice(
             CLERI_NONE,
             CLERI_FIRST_MATCH,
-            13,
+            14,
             chain,
             t_false,
             t_nil,
@@ -261,6 +275,7 @@ cleri_grammar_t * compile_langdef(void)
             t_int,
             t_string,
             t_regex,
+            t_ano,
             template,
             var_opt_more,
             thing,

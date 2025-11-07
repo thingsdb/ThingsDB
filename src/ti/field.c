@@ -247,6 +247,11 @@ static ti_val_t * field__dval_room(ti_field_t * field)
     return (ti_val_t *) ti_room_create(0, field->type->types->collection);
 }
 
+static ti_val_t * field__dval_ano(ti_field_t * UNUSED(field))
+{
+    return ti_val_default_ano();
+}
+
 static ti_val_t * field__dval_task(ti_field_t * UNUSED(field))
 {
     return (ti_val_t *) ti_vtask_nil();
@@ -393,6 +398,7 @@ ti_field_map_t field__mapping[TOTAL_KEYWORDS] = {
     {.name="email",     .spec=TI_SPEC_EMAIL,    .dval_cb=field__dval_str},
     {.name="url",       .spec=TI_SPEC_URL,      .dval_cb=field__dval_str},
     {.name="tel",       .spec=TI_SPEC_TEL,      .dval_cb=field__dval_str},
+    {.name="ano",       .spec=TI_SPEC_ANO,      .dval_cb=field__dval_ano},
 };
 
 static ti_field_map_t * field__map[MAX_HASH_VALUE+1];
@@ -913,7 +919,7 @@ done:
             field->name->str, field->type->name);
     }
     /* assert(field->dval_cb);  callback must have been set except for fields
-                                on unnamed type */
+                                on anonymous type */
     return e->nr;
 
 invalid:
@@ -1819,7 +1825,6 @@ int ti_field_make_assignable(
         case TI_VAL_FLOAT:
         case TI_VAL_BOOL:
         case TI_VAL_DATETIME:
-        case TI_VAL_MPDATA:
         case TI_VAL_NAME:
         case TI_VAL_STR:
         case TI_VAL_BYTES:
@@ -1833,15 +1838,18 @@ int ti_field_make_assignable(
             return field__varr_assign(field, (ti_varr_t **) val, parent, e);
         case TI_VAL_SET:
             return field__vset_assign(field, (ti_vset_t **) val, parent, e);
-        case TI_VAL_CLOSURE:
-            return ti_closure_unbound((ti_closure_t *) *val, e);
         case TI_VAL_ERROR:
         case TI_VAL_MEMBER:
-        case TI_VAL_TEMPLATE:
+        case TI_VAL_MPDATA:
             break;
+        case TI_VAL_CLOSURE:
+            return ti_closure_unbound((ti_closure_t *) *val, e);
         case TI_VAL_FUTURE:
         case TI_VAL_MODULE:
             goto future_module_error;
+        case TI_VAL_ANO:
+        case TI_VAL_TEMPLATE:
+            break;
         }
         return 0;
     case TI_SPEC_OBJECT:
@@ -1956,6 +1964,10 @@ int ti_field_make_assignable(
                 (ti_raw_t *) *val))
             goto tel_error;
         return 0;
+    case TI_SPEC_ANO:
+        if (ti_val_is_ano(*val))
+            return 0;
+        goto type_error;
     case TI_SPEC_ARR:
         if (ti_val_is_array(*val))
             return field__varr_assign(field, (ti_varr_t **) val, parent, e);
@@ -2261,6 +2273,8 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
         return ti_val_is_str(val) && ti_regex_test_or_empty(
                 (ti_regex_t *) ti_val_borrow_re_tel(),
                 (ti_raw_t *) val);
+    case TI_SPEC_ANO:
+        return ti_val_is_ano(val);
     case TI_SPEC_ARR:
         /* we can map a set to an array */
         return ((
@@ -2384,6 +2398,7 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_EMAIL:
     case TI_SPEC_URL:
     case TI_SPEC_TEL:
+    case TI_SPEC_ANO:
     case TI_SPEC_ARR:
     case TI_SPEC_SET:
     case TI_SPEC_REMATCH:
@@ -2508,6 +2523,7 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_EMAIL:
     case TI_SPEC_URL:
     case TI_SPEC_TEL:
+    case TI_SPEC_ANO:
         return f_spec == t_spec;
     case TI_SPEC_ARR:
         return (

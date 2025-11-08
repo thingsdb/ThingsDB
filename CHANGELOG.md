@@ -1,3 +1,8 @@
+# v1.8.2
+
+* Allow converting `mpdata` to `bytes, issue #427.
+* Fixed: map cache for nested structure not cleared, issue #428.
+
 # v1.8.1
 
 * Implemented formatting C-string checks and fixed typo, pr #426.

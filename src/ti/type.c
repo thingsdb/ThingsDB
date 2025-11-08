@@ -167,6 +167,9 @@ imap_t * ti_type_collect_things(ti_query_t * query, ti_type_t * type)
 static int type__map_cleanup(ti_type_t * t_haystack, ti_type_t * t_needle)
 {
     ti_map_destroy(imap_pop(t_haystack->t_mappings, t_needle->type_id));
+    for (vec_each(t_haystack->fields, ti_field_t, field))  /* issue #428 */
+        if (ti_field_is_nested(field))
+            type__map_cleanup(field->condition.type, t_needle);
     return 0;
 }
 

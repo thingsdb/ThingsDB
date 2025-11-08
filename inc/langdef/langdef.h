@@ -13,6 +13,8 @@
 #include <cleri/cleri.h>
 
 cleri_grammar_t * compile_langdef(void);
+
+/* TODO: (COMPAT) For compatibility with < v1.5 (old syntax) */
 cleri_grammar_t * compile_compat(void);
 
 enum cleri_grammar_ids {

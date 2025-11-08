@@ -92,7 +92,6 @@ ti_val_t * val__parent_name;
 ti_val_t * val__parent_type_name;
 ti_val_t * val__key_name;
 ti_val_t * val__key_type_name;
-ti_val_t * val__unnamed_name;
 
 /* string */
 ti_val_t * val__sany;
@@ -775,9 +774,8 @@ int ti_val_init_common(void)
     val__parent_type_name = (ti_val_t *) ti_names_from_str_slow("parent_type");
     val__key_name = (ti_val_t *) ti_names_from_str_slow("key");
     val__key_type_name = (ti_val_t *) ti_names_from_str_slow("key_type");
-    val__unnamed_name = (ti_val_t *) ti_names_from_str_slow("__unnamed__");
-    val__re_email = (ti_val_t *) ti_regex_from_str("/^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*$/");
-    val__re_url = (ti_val_t *) ti_regex_from_str("/^(https?|ftp):\\/\\/[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)$/");
+    val__re_email = (ti_val_t *) ti_regex_from_str("/^[a-zA-Z0-9.!#$%%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*$/");
+    val__re_url = (ti_val_t *) ti_regex_from_str("/^(https?|ftp):\\/\\/[-a-zA-Z0-9@:%%._\\+~#=]{1,256}\\b([-a-zA-Z0-9@:%%_\\+.~#?&//=]*)$/");
     val__re_tel = (ti_val_t *) ti_regex_from_str("/^[\\+]?(\\([0-9]{1,4}\\)[-\\s\\.]?){0,2}([0-9]{1,4}[-\\s]?){3,5}$/");
 
     if (!val__empty_bin || !val__empty_str || !val__snil || !val__strue ||
@@ -794,8 +792,7 @@ int ti_val_init_common(void)
         !val__beautify_name || !val__parent_name || !val__parent_type_name ||
         !val__key_name || !val__key_type_name || !val__flags_name ||
         !val__data_name || !val__time_name || !val__re_email ||
-        !val__smodule || !val__re_url || !val__re_tel || !val__async_name ||
-        !val__unnamed_name)
+        !val__smodule || !val__re_url || !val__re_tel || !val__async_name)
     {
         return -1;
     }
@@ -986,9 +983,10 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
     {
     case TI_VAL_NAME:
     case TI_VAL_STR:
+    case TI_VAL_MPDATA: /* allow mpdata, issue #427 */
     {
         ti_raw_t * r = (ti_raw_t *) (*val);
-        if (r->ref == 1 && r->tp == TI_VAL_STR)
+        if (r->ref == 1 && r->tp != TI_VAL_NAME)
         {
             /* only one reference left we can just change the type */
             r->tp = TI_VAL_BYTES;
@@ -1010,7 +1008,6 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
     case TI_VAL_FLOAT:
     case TI_VAL_BOOL:
     case TI_VAL_DATETIME:
-    case TI_VAL_MPDATA:
     case TI_VAL_THING:
     case TI_VAL_WRAP:
     case TI_VAL_ROOM:

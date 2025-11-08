@@ -40,8 +40,6 @@
 #define TI_KIND_S_REGEX_OBSOLETE_     "*"
 
 /*
- * Both copy() and dup() use the following code to set the default deep value:
- *    !(type & 0x4);  THING/WRAP: 1 ARR/SET: 0
  * Be careful when changing the order in the enumerator.
  * The ti_forloop_t also depends on the order in this enumerator;
  */

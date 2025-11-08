@@ -913,7 +913,7 @@ done:
             field->name->str, field->type->name);
     }
     /* assert(field->dval_cb);  callback must have been set except for fields
-                                on unnamed type */
+                                on anonymous type */
     return e->nr;
 
 invalid:
@@ -2020,7 +2020,7 @@ future_module_error:
     ex_set(e, EX_TYPE_ERROR,
             "mismatch in type `%s`; "
             "property `%s` allows `any` type with the exception "
-            "of the `future` and `module` type",
+            "of the `"TI_VAL_FUTURE_S"` and `"TI_VAL_MODULE_S"` type",
             field->type->name,
             field->name->str);
     return e->nr;

@@ -18,7 +18,7 @@ struct ti_room_s
 {
     uint32_t ref;
     uint8_t tp;
-    uint8_t unused_flags;
+    int:8;
     int:16;
     uint64_t id;
     ti_name_t * name;                /* Name is optional, might be NULL */

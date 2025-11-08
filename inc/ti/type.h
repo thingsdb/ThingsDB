@@ -28,13 +28,13 @@ ti_type_t * ti_type_create(
         size_t name_n,
         uint64_t created_at,
         uint64_t modified_at);
-ti_type_t * ti_type_create_unnamed(
+ti_type_t * ti_type_create_anonymous(
         ti_types_t * types,
         ti_raw_t * name,
         uint8_t flags);
 imap_t * ti_type_collect_things(ti_query_t * query, ti_type_t * type);
 void ti_type_drop(ti_type_t * type);
-void ti_type_drop_unnamed(ti_type_t * type);
+void ti_type_drop_anonymous(ti_type_t * type);
 void ti_type_del(ti_type_t * type, vec_t * vars);
 void ti_type_destroy(ti_type_t * type);
 void ti_type_map_cleanup(ti_type_t * type);

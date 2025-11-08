@@ -19,7 +19,7 @@ struct ti_vint_s
 {
     uint32_t ref;
     uint8_t tp;
-    uint8_t unused_flags;
+    int:8;
     int:16;
     int64_t int_;
 };

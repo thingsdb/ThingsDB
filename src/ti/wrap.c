@@ -189,7 +189,7 @@ static int wrap__field_val(
     case TI_VAL_WRAP:
         return ((*spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_TYPE)
             ? wrap__field_thing_type(
-                (ti_thing_t *) val,
+                ((ti_wrap_t *) val)->thing,
                 vp,
                 t_field->condition.type,
                 deep,
@@ -751,17 +751,17 @@ int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep)
 int ti_wrap_dup(ti_wrap_t ** wrap, uint8_t deep)
 {
     assert(deep);
-    ti_wrap_t * nwrap = ti_wrap_create((*wrap)->thing, (*wrap)->type_id);
-    if (!nwrap)
+    ti_wrap_t * _wrap = ti_wrap_create((*wrap)->thing, (*wrap)->type_id);
+    if (!_wrap)
         return -1;
 
-    if (ti_thing_dup(&nwrap->thing, deep))
+    if (ti_thing_dup(&_wrap->thing, deep))
     {
-        ti_wrap_destroy(nwrap);
+        ti_wrap_destroy(_wrap);
         return -1;
     }
 
     ti_val_unsafe_drop((ti_val_t *) *wrap);
-    *wrap = nwrap;
+    *wrap = _wrap;
     return 0;
 }

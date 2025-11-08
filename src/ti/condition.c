@@ -812,7 +812,7 @@ int ti_condition_init_type(ti_field_t * field, ex_t * e)
         }
     }
 
-    type = ti_type_create_unnamed(
+    type = ti_type_create_anonymous(
             field->type->types,
             field->type->rname,
             flags);
@@ -823,7 +823,7 @@ int ti_condition_init_type(ti_field_t * field, ex_t * e)
     }
 
     if (ti_type_init_from_thing(type, thing, e))
-        ti_type_drop_unnamed(type);
+        ti_type_drop_anonymous(type);
     else
         field->condition.type = type;
 
@@ -843,7 +843,7 @@ void ti_condition_destroy(ti_condition_via_t condition, uint16_t spec)
     {
     case TI_SPEC_TYPE:
     case TI_SPEC_ARR_TYPE:
-        ti_type_drop_unnamed(condition.type);
+        ti_type_drop_anonymous(condition.type);
         return;
     case TI_SPEC_ANY:
         return;  /* a field may be set to ANY while using mod_type in which

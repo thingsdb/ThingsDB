@@ -94,7 +94,7 @@ ti_type_t * ti_type_create(
     return type;
 }
 
-ti_type_t * ti_type_create_unnamed(
+ti_type_t * ti_type_create_anonymous(
         ti_types_t * types,
         ti_raw_t * name,
         uint8_t flags)
@@ -196,7 +196,7 @@ void ti_type_drop(ti_type_t * type)
     ti_type_destroy(type);
 }
 
-void ti_type_drop_unnamed(ti_type_t * type)
+void ti_type_drop_anonymous(ti_type_t * type)
 {
     if (!type)
         return;

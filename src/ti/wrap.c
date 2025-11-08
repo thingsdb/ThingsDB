@@ -242,6 +242,13 @@ static int wrap__field_val(
         return ti_closure_to_client_pk((ti_closure_t *) val, &vp->pk);
     case TI_VAL_ANO:
         return ti_ano_to_client_pk((ti_ano_t * ) val, &vp->pk);
+    case TI_VAL_WANO:
+        return ti_wrap_field_thing_type(
+                ((ti_wano_t *) val)->thing,
+                vp,
+                ((ti_wano_t *) val)->ano->type,
+                deep,
+                flags);
     case TI_VAL_FUTURE:
         return VFUT(val)
                 ? wrap__field_val(
@@ -254,13 +261,6 @@ static int wrap__field_val(
                 : msgpack_pack_nil(&vp->pk);
     case TI_VAL_MODULE:
         return msgpack_pack_nil(&vp->pk);
-    case TI_VAL_WANO:
-        return ti_wrap_field_thing_type(
-                ((ti_wano_t *) val)->thing,
-                vp,
-                ((ti_wano_t *) val)->ano->type,
-                deep,
-                flags);
     case TI_VAL_TEMPLATE:
         break;
     }
@@ -688,6 +688,7 @@ int ti__wrap_field_thing(
     return wrap__field_thing(thing, vp, t_type, deep, flags);
 }
 
+/* works with both ti_wrap_t and ti_wano_t */
 int ti_wrap_cp(ti_query_t * query, uint8_t deep, ex_t * e)
 {
     ti_val_t * val;
@@ -703,7 +704,7 @@ int ti_wrap_cp(ti_query_t * query, uint8_t deep, ex_t * e)
             .up = &up,
     };
 
-    assert(ti_val_is_wrap(query->rval));
+    assert(ti_val_is_wrap_wano(query->rval));
 
     if (mp_sbuffer_alloc_init(&buffer, ti_val_alloc_size(query->rval), 0))
     {
@@ -754,17 +755,17 @@ int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep)
 int ti_wrap_dup(ti_wrap_t ** wrap, uint8_t deep)
 {
     assert(deep);
-    ti_wrap_t * nwrap = ti_wrap_create((*wrap)->thing, (*wrap)->type_id);
-    if (!nwrap)
+    ti_wrap_t * _wrap = ti_wrap_create((*wrap)->thing, (*wrap)->type_id);
+    if (!_wrap)
         return -1;
 
-    if (ti_thing_dup(&nwrap->thing, deep))
+    if (ti_thing_dup(&_wrap->thing, deep))
     {
-        ti_wrap_destroy(nwrap);
+        ti_wrap_destroy(_wrap);
         return -1;
     }
 
     ti_val_unsafe_drop((ti_val_t *) *wrap);
-    *wrap = nwrap;
+    *wrap = _wrap;
     return 0;
 }

@@ -30,4 +30,15 @@ static inline int ti_wano_to_client_pk(
         : ti_thing_id_to_client_pk(wano->thing, &vp->pk);
 }
 
+static inline int ti_wano_to_store_pk(ti_wano_t * wano, msgpack_packer * pk)
+{
+    return -(
+            msgpack_pack_map(pk, 1) ||
+            mp_pack_strn(pk, TI_KIND_S_WANO, 1) ||
+            msgpack_pack_array(pk, 2) ||
+            mp_pack_bin(pk, wano->ano->spec_raw->data, wano->ano->spec_raw->n) ||
+            ti_thing_to_store_pk(wano->thing, pk)
+    );
+}
+
 #endif  /* TI_WANO_INLINE_H_ */

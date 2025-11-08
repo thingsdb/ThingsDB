@@ -1839,11 +1839,11 @@ int ti_field_make_assignable(
         case TI_VAL_CLOSURE:
             return ti_closure_unbound((ti_closure_t *) *val, e);
         case TI_VAL_ANO:
+        case TI_VAL_WANO:
             break;
         case TI_VAL_FUTURE:
         case TI_VAL_MODULE:
-        case TI_VAL_WANO:
-            goto future_module_wano_error;
+            goto future_module_error;
         case TI_VAL_TEMPLATE:
             break;
         }
@@ -2020,11 +2020,11 @@ int ti_field_make_assignable(
 
     goto type_error;
 
-future_module_wano_error:
+future_module_error:
     ex_set(e, EX_TYPE_ERROR,
             "mismatch in type `%s`; "
             "property `%s` allows `any` type with the exception "
-            "of the `future`, `module` and `<anonymous>` type",
+            "of the `"TI_VAL_FUTURE_S"` and `"TI_VAL_MODULE_S"` type",
             field->type->name,
             field->name->str);
     return e->nr;

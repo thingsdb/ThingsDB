@@ -5,7 +5,8 @@ static int do__f_copy(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const char * doc;
     const int nargs = fn_get_nargs(nd);
     ti_val_t * val;
-    uint8_t deep = !(query->rval->tp & 0x4);  /* THING/WRAP: 1, ARR/SET: 0 */
+    /* use deep value of 0 for arr and set, 1 for thing, wrap, wano */
+    uint8_t deep = !(ti_val_is_arr(query->rval) || ti_val_is_set(query->rval));
 
     doc = doc_copy(query->rval);
     if (!doc)
@@ -27,7 +28,7 @@ static int do__f_copy(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = val;
     }
 
-    if (ti_val_is_wrap(query->rval) && ti_wrap_cp(query, deep, e))
+    if (ti_val_is_wrap_wano(query->rval) && ti_wrap_cp(query, deep, e))
        return e->nr;  /* quit without fail0, e is set*/
     else if (ti_val_copy(&query->rval, NULL, NULL, deep))
         ex_set_mem(e);

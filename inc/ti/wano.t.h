@@ -14,8 +14,8 @@ struct ti_wano_s
     uint32_t ref;
     uint8_t tp;
     int:24;
-    ti_ano_t * ano;         /* with reference */
     ti_thing_t * thing;     /* with reference */
+    ti_ano_t * ano;         /* with reference */
 };
 
 #endif /* TI_WANO_T_H_ */

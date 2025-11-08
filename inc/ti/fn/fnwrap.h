@@ -18,7 +18,7 @@ static int do__f_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs == 1)
     {
         if (ti_do_statement(query, nd->children, e) ||
-            fn_arg_str_or_ano("wrap", DOC_THING_WRAP, 1, query->rval, e))
+            fn_arg_str_ano("wrap", DOC_THING_WRAP, 1, query->rval, e))
             goto fail0;
 
         if (ti_val_is_ano(query->rval))

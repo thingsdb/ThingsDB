@@ -19,8 +19,20 @@ static int do__f_ano(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
 
     ti_val_unsafe_drop(query->rval);
-    query->rval = (ti_val_t *) ti_ano_from_raw(query->collection, spec_raw, e);
-    ti_val_unsafe_drop((ti_val_t *) spec_raw);
 
+    /* first try cache for equal ano */
+    query->rval = smap_getn(
+        query->collection->ano_types,
+        (const char *) spec_raw->data,
+        spec_raw->n);
+
+    /* if no success, try new one */
+    if (!query->rval)
+        query->rval = (ti_val_t *) ti_ano_from_raw(
+            query->collection,
+            spec_raw,
+            e);
+
+    ti_val_unsafe_drop((ti_val_t *) spec_raw);
     return e->nr;
 }

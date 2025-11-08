@@ -1322,7 +1322,7 @@ static int do__ano(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_raw_t * spec_raw;
         if (!query->collection)
         {
-            ex_set(e, EX_OPERATION,
+            ex_set(e, EX_LOOKUP_ERROR,
                     "anonymous types are not supported in the the `%s` scope",
                     ti_query_scope_name(query));
             return e->nr;
@@ -1343,6 +1343,7 @@ static int do__ano(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         if (ti_ano_init(nd->data, query->collection, spec_raw, e))
             return e->nr;
+        ti_val_unsafe_drop((ti_val_t *) spec_raw);
     }
     query->rval = nd->data;
     ti_incref(query->rval);

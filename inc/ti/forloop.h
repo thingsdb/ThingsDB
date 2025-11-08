@@ -60,9 +60,9 @@ static const ti_forloop_t ti_forloop_callbacks[24] = {
         ti_forloop_no_iter,         /* TI_VAL_MPDATA */
         ti_forloop_no_iter,         /* TI_VAL_CLOSURE */
         ti_forloop_no_iter,         /* TI_VAL_ANO */
+        ti_forloop_no_iter,         /* TI_VAL_WANO */
         ti_forloop_no_iter,         /* TI_VAL_FUTURE */
         ti_forloop_no_iter,         /* TI_VAL_MODULE */
-        ti_forloop_no_iter,         /* TI_VAL_WANO */
         ti_forloop_no_iter,         /* TI_VAL_TEMPLATE */
 };
 

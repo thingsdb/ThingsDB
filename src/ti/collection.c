@@ -61,6 +61,7 @@ ti_collection_t * ti_collection_create(
     collection->gc = queue_new(20);
     collection->access = vec_new(1);
     collection->procedures = smap_create();
+    collection->ano_types = smap_create();
     collection->types = ti_types_create(collection);
     collection->enums = ti_enums_create(collection);
     collection->lock = malloc(sizeof(uv_mutex_t));
@@ -77,7 +78,7 @@ ti_collection_t * ti_collection_create(
         !collection->access || !collection->procedures || !collection->lock ||
         !collection->types || !collection->enums || !collection->futures ||
         !collection->rooms || !collection->named_rooms ||
-        uv_mutex_init(collection->lock))
+        !collection->ano_types || uv_mutex_init(collection->lock))
     {
         ti_collection_drop(collection);
         return NULL;
@@ -104,6 +105,7 @@ void ti_collection_destroy(ti_collection_t * collection)
     vec_destroy(collection->commits, (vec_destroy_cb) ti_commit_destroy);
     smap_destroy(collection->procedures, (smap_destroy_cb) ti_procedure_destroy);
     smap_destroy(collection->named_rooms, NULL);
+    smap_destroy(collection->ano_types, NULL);
     ti_types_destroy(collection->types);
     ti_enums_destroy(collection->enums);
     uv_mutex_destroy(collection->lock);
@@ -132,7 +134,7 @@ void ti_collection_drop(ti_collection_t * collection)
 int ti_collection_to_pk(ti_collection_t * collection, msgpack_packer * pk)
 {
     return -(
-        msgpack_pack_map(pk, 8) ||
+        msgpack_pack_map(pk, 9) ||
 
         mp_pack_str(pk, "collection_id") ||
         msgpack_pack_uint64(pk, collection->id) ||
@@ -158,7 +160,10 @@ int ti_collection_to_pk(ti_collection_t * collection, msgpack_packer * pk)
         mp_pack_str(pk, "commit_history") ||
         (collection->commits
                 ? msgpack_pack_uint32(pk, collection->commits->n)
-                : mp_pack_str(pk, "disabled"))
+                : mp_pack_str(pk, "disabled")) ||
+
+        mp_pack_str(pk, "ano_types") ||
+        msgpack_pack_uint64(pk, collection->ano_types->n)
     );
 }
 

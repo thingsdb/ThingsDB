@@ -247,7 +247,7 @@ static inline int fn_arg_str(
     return e->nr;
 }
 
-static inline int fn_arg_str_or_ano(
+static inline int fn_arg_str_ano(
         const char * name,
         const char * doc,
         int argn,
@@ -736,7 +736,6 @@ static int fn_call_a_try_n(
     ti_incref(method->closure);
     ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) method->closure;
-    // TODO: ANO: test
     return fn_call(query, nd, e);
 
 no_method_err:

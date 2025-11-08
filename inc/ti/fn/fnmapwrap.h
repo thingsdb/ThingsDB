@@ -67,7 +67,7 @@ static int do__f_map_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs == 1)
     {
         if (ti_do_statement(query, nd->children, e) ||
-            fn_arg_str_or_ano("map_wrap", doc, 1, query->rval, e))
+            fn_arg_str_ano("map_wrap", doc, 1, query->rval, e))
             goto fail0;
 
         if (ti_val_is_ano(query->rval))
@@ -162,6 +162,7 @@ static int do__f_map_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_val_unsafe_drop(iterable);
     query->rval = (ti_val_t *) varr;
+    ti_val_drop((ti_val_t *) ano);
     return e->nr;
 
 fail1:

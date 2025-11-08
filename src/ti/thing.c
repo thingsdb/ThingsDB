@@ -427,6 +427,7 @@ int ti_thing_p_prop_add_assign(
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:
     case TI_VAL_ANO:
+    case TI_VAL_WANO:
         ti_incref(val);
         break;
     case TI_VAL_ARR:
@@ -456,7 +457,6 @@ int ti_thing_p_prop_add_assign(
         break;
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
-    case TI_VAL_WANO:
         val = (ti_val_t *) ti_nil_get();
         break;
     case TI_VAL_TEMPLATE:
@@ -530,6 +530,7 @@ int ti_thing_i_item_add_assign(
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:
     case TI_VAL_ANO:
+    case TI_VAL_WANO:
         ti_incref(val);
         break;
     case TI_VAL_ARR:
@@ -559,7 +560,6 @@ int ti_thing_i_item_add_assign(
         break;
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
-    case TI_VAL_WANO:
         val = (ti_val_t *) ti_nil_get();
         break;
     case TI_VAL_TEMPLATE:

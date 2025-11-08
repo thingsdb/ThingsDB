@@ -1881,8 +1881,7 @@ new_procedure('multiply', |a, b| a * b);
         with self.assertRaisesRegex(
                 TypeError,
                 r'mismatch in type `A`; property `x` allows `any` type with '
-                r'the exception of the `future`, `module` '
-                r'and `<anonymous>` type'):
+                r'the exception of the `future` and `module` type'):
             await client.query("""//ti
                 A{
                     x: future(||nil)

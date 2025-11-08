@@ -1493,12 +1493,12 @@ static int query__get_things(ti_val_t * val, imap_t * imap)
     case TI_VAL_CLOSURE:
     case TI_VAL_ANO:
         break;
+    case TI_VAL_WANO:
+        return query__var_walk_thing(((ti_wano_t *) val)->thing, imap);
     case TI_VAL_FUTURE:
         return VFUT(val) ? query__get_things(VFUT(val), imap) : 0;
     case TI_VAL_MODULE:
         break;
-    case TI_VAL_WANO:
-        return query__var_walk_thing(((ti_wano_t *) val)->thing, imap);
     case TI_VAL_TEMPLATE:
         break;
     }

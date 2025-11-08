@@ -5,7 +5,7 @@
 #include <ti/type.h>
 #include <ti/raw.inline.h>
 #include <ti/val.inline.h>
-
+#include <util/logger.h>
 
 ti_ano_t * ti_ano_new(void)
 {
@@ -90,7 +90,6 @@ int ti_ano_init(
         ano->spec_raw = spec_raw;
         ti_incref(spec_raw);
     }
-
 fail0:
     ti_val_unsafe_drop(val);
     return e->nr;
@@ -112,6 +111,17 @@ ti_ano_t * ti_ano_from_raw(
         ti_ano_destroy(ano);
         return NULL;
     }
+    /* This is used for quickly loading equal ano from cache, its a weak
+     * ref and the call is not critical; It should be done here, and not
+     * init as we want to cache ano(..) calls, and loading from changes/stored
+     * on disk, but not from syntax in queries as they are cached as immutable
+     * variable; */
+    (void) smap_addn(
+        collection->ano_types,
+        (const char *) spec_raw->data,
+        spec_raw->n,
+        ano);
+
     return ano;
 }
 
@@ -121,8 +131,14 @@ ti_ano_t * ti_ano_create(
         size_t n,
         ex_t * e)
 {
-    ti_ano_t * ano;
-    ti_raw_t * spec_raw = ti_bin_create(bin, n);
+    ti_raw_t * spec_raw;
+    ti_ano_t * ano = smap_getn(collection->ano_types, (const char *) bin, n);
+    if (ano)
+    {
+        ti_incref(ano);
+        return ano;
+    }
+    spec_raw = ti_bin_create(bin, n);
     if (!spec_raw)
         return NULL;
 
@@ -133,6 +149,11 @@ ti_ano_t * ti_ano_create(
 
 void ti_ano_destroy(ti_ano_t * ano)
 {
+    if (ano->spec_raw)
+        (void) smap_popn(
+            ano->type->types->collection->ano_types,
+            (const char *) ano->spec_raw->data,
+            ano->spec_raw->n);
     ti_val_drop((ti_val_t *) ano->spec_raw);
     ti_type_drop_anonymous(ano->type);
     free(ano);

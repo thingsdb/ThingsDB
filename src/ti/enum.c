@@ -729,9 +729,9 @@ ti_member_t * ti_enum_member_by_val_e(
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:
     case TI_VAL_ANO:
+    case TI_VAL_WANO:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
-    case TI_VAL_WANO:
     case TI_VAL_TEMPLATE:
         break;
 

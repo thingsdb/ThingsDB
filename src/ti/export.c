@@ -447,6 +447,8 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
             buf_write(buf, '&') ||
             export__thing(fmt, (ti_thing_t *) val)
         );
+    case TI_VAL_WANO:
+        return buf_append_str(buf, "&{}.wrap() /* WARN: not exported */");
     case TI_VAL_FUTURE:
         return buf_append_str(buf, "future(||nil) /* WARN: not exported */");
     case TI_VAL_MODULE:
@@ -457,8 +459,6 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
             "%.*s /* WARN: module must be installed */",
             module->name->n, module->name->str);
     }
-    case TI_VAL_WANO:
-        return buf_append_str(buf, "&{}.wrap() /* WARN: not exported */");
     case TI_VAL_TEMPLATE:
         assert(0);
     }

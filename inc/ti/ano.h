@@ -38,7 +38,7 @@ static inline int ti_ano_to_client_pk(
 
 static inline _Bool ti_ano_uninitialized(ti_ano_t * ano)
 {
-    return !!ano->spec_raw;
+    return !ano->spec_raw;
 }
 
 static inline int ti_ano_to_store_pk(

@@ -279,6 +279,11 @@ static inline int val__wrap_to_arr(ti_val_t ** UNUSED(v), ti_varr_t * varr, ex_t
     return varr->flags |= TI_VARR_FLAG_MHT, 0;
 }
 
+static inline int val__wano_to_arr(ti_val_t ** UNUSED(v), ti_varr_t * varr, ex_t * UNUSED(e))
+{
+    return varr->flags |= TI_VARR_FLAG_MHT, 0;
+}
+
 static inline int val__room_to_arr(ti_val_t ** UNUSED(v), ti_varr_t * varr, ex_t * UNUSED(e))
 {
     return varr->flags |= TI_VARR_FLAG_MHR, 0;
@@ -553,6 +558,18 @@ static ti_val_type_t ti_val_type_props[24] = {
         .as_bool = val__as_bool_true,
         .allowed_as_vtask_arg = false,
     },
+    /* TI_VAL_WANO */
+    {
+        .destroy = (ti_val_destroy_cb) ti_wano_destroy,
+        .to_str = ti_val_wano_to_str,
+        .to_arr_cb = val__wano_to_arr,
+        .to_client_pk = (ti_val_to_client_pk_cb) ti_wano_to_client_pk,
+        .to_store_pk = (ti_val_to_store_pk_cb) ti_wano_to_store_pk,
+        .get_type_str = val__wano_type_str,
+        .as_bool = val__as_bool_wano,
+        .allowed_as_vtask_arg = false,
+    },
+
     /* TI_VAL_FUTURE */
     {
         .destroy = (ti_val_destroy_cb) ti_future_destroy,
@@ -571,16 +588,6 @@ static ti_val_type_t ti_val_type_props[24] = {
         .to_client_pk = (ti_val_to_client_pk_cb) val__module_to_client_pk,
         .get_type_str = val__module_type_str,
         .as_bool = val__as_bool_true,
-        .allowed_as_vtask_arg = false,
-    },
-    /* TI_VAL_WANO */
-    {
-        .destroy = (ti_val_destroy_cb) ti_wano_destroy,
-        .to_str = ti_val_wano_to_str,
-        .to_arr_cb = val__as_nil_to_arr,
-        .to_client_pk = (ti_val_to_client_pk_cb) ti_wano_to_client_pk,
-        .get_type_str = val__wano_type_str,
-        .as_bool = val__as_bool_wano,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_TEMPLATE */
@@ -839,6 +846,11 @@ static inline _Bool ti_val_is_thing(ti_val_t * val)
 static inline _Bool ti_val_is_wrap(ti_val_t * val)
 {
     return val->tp == TI_VAL_WRAP;
+}
+
+static inline _Bool ti_val_is_wrap_wano(ti_val_t * val)
+{
+    return val->tp == TI_VAL_WRAP || val->tp == TI_VAL_WANO;
 }
 
 static inline _Bool ti_val_is_wano(ti_val_t * val)
@@ -1188,9 +1200,9 @@ static inline void ti_val_attach(
     case TI_VAL_MEMBER:
     case TI_VAL_CLOSURE:
     case TI_VAL_ANO:
+    case TI_VAL_WANO:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
-    case TI_VAL_WANO:
         return;
     case TI_VAL_ARR:
         ((ti_varr_t *) val)->parent = parent;

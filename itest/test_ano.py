@@ -39,18 +39,142 @@ class TestAno(TestBase):
             set_type('A', {x: 'any'});
         """)
 
+        res = await q("""//ti
+                .x = {}.wrap(&{});
+                .x;
+        """)
+        self.assertIs(res, None)
+
         with self.assertRaisesRegex(
-                TypeError,
-                r'mismatch in type `A`; property `x` allows `any` type with '
-                r'the exception of the `future`, `module` '
-                r'and `<anonymous>` type'):
+                LookupError,
+                r'function `ano` is undefined in the `@thingsdb` scope; '
+                r'you might want to query a `@collection` scope\?;'):
             await q("""//ti
-                A{
-                    x: {}.wrap(&{})
-                };
+                ano({});
+            """, scope='/t')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `ano` takes 1 argument but 0 were given'):
+            await q("""//ti
+                ano();
             """)
 
-        # TODO : test len(ano type)
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `ano` expects argument 1 to be of '
+                r'type `thing` but got type `nil` instead;'):
+            await q("""//ti
+                ano(nil);
+            """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'expecting a nested structure \(`list` or `thing`\), ' \
+                r'a method of type `closure` or a definition '
+                r'of type `str` but got type `int` instead'):
+            await q(
+                """//ti
+                ano({
+                    x: 0
+                });
+            """)
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'anonymous types are not supported in the the `@thingsdb` '
+                r'scope'):
+            await q("""//ti
+                &{};
+            """, scope='/t')
+
+    async def test_more_ano_props(self, q):
+        r = await q("""//ti
+                    .a = &{
+                        id: '#',
+                        a: 'int',
+                        b: 'str',
+                        f: |a, b| a + b,
+                    };
+                    .a.f(20, 22);
+                    """)
+        self.assertEqual(r, 42)
+        r1, r2 = await q("""//ti
+                o = {
+                    name: 'Iris',
+                    numbers: [{
+                        x: 1,
+                        y: 2,
+                    }, {
+                        x: 4,
+                    }, {
+                        y: 5,
+                    }]
+                };
+                [
+                    o.wrap(&{
+                        name: |this| this.name.upper(),
+                        numbers: [{
+                            x: 'int'
+                        }]
+                    }),
+                    o.wrap(ano({
+                        name: |this| this.name.upper(),
+                        numbers: [{
+                            x: 'int'
+                        }]
+                    })),
+                ];
+                """
+            )
+        self.assertEqual(r1, {
+            "name": "IRIS",
+            "numbers": [{"x": 1,}, {"x": 4}, {}]
+        })
+        self.assertEqual(r1, r2)
+        await q("""//ti
+                o = {
+                    name: 'Iris',
+                    numbers: [{
+                        x: 1,
+                        y: 2,
+                    }, {
+                        x: 4,
+                    }, {
+                        y: 5,
+                    }]
+                };
+                .wano = [
+                    o.wrap(&{
+                        name: |this| this.name.upper(),
+                        numbers: [{
+                            x: 'int'
+                        }]
+                    }),
+                    o.wrap(ano({
+                        name: |this| this.name.upper(),
+                        numbers: [{
+                            x: 'int'
+                        }]
+                    })),
+                ];
+                """
+            )
+        r1, r2 = await q("""//ti
+                         .wano;
+                         """)
+        self.assertEqual(r1, {
+            "name": "IRIS",
+            "numbers": [{"x": 1,}, {"x": 4}, {}]
+        })
+        self.assertEqual(r1, r2)
+        r = await q(
+            """//ti
+            .wano[0] == .wano[1]
+            """)
+        self.assertTrue(r)
+
+
 
 
 if __name__ == '__main__':

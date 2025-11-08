@@ -12,7 +12,7 @@ struct ti_raw_s
 {
     uint32_t ref;
     uint8_t tp;
-    uint8_t unused_flags;
+    int:8;
     int:16;
     uint32_t n;
     unsigned char data[];

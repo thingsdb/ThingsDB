@@ -82,6 +82,7 @@ ti_raw_t * ti_type_spec_raw_from_thing(
         ti_val_t * val,  /* may be equal to thing, or an ti_varr_t */
         ex_t * e);
 ti_raw_t * ti__type_nested_from_val(ti_type_t * type, ti_val_t * val, ex_t * e);
+_Bool ti_type_has_dependencies(ti_type_t * type);
 
 static inline int ti_type_use(ti_type_t * type, ex_t * e)
 {
@@ -167,6 +168,7 @@ static inline ti_method_t * ti_type_get_method(
             return method;
     return NULL;
 }
+
 
 #endif  /* TI_TYPE_H_ */
 

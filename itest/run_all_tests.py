@@ -3,6 +3,7 @@ import argparse
 from lib import run_test, vars
 
 from test_advanced import TestAdvanced
+from test_ano import TestAno
 from test_arguments import TestArguments
 from test_backup import TestBackup
 from test_changes import TestChanges
@@ -75,6 +76,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     run_test(TestAdvanced(), hide_version=hide_version())
+    run_test(TestAno(), hide_version=hide_version())
     run_test(TestArguments(), hide_version=hide_version())
     run_test(TestBackup(), hide_version=hide_version())
     run_test(TestChanges(), hide_version=hide_version())

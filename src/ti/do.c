@@ -1306,8 +1306,13 @@ failed:
 
 static int do__ano(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
+    ti_ano_t * ano;
     if (!nd->data)
     {
+        /* this will be an always incomplete ano, without type; this is
+         * because we actually need the spec_raw, not the ano type but ncache
+        *  must contain a pointer to the spec_raw but is not able to
+        *  calculate the spec_raw itself; */
         nd->data = ti_ano_new();
         if (!nd->data)
         {
@@ -1317,9 +1322,9 @@ static int do__ano(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         assert(vec_space(query->immutable_cache));
         VEC_push(query->immutable_cache, nd->data);
     }
+    ano = nd->data;
     if (ti_ano_uninitialized(nd->data))
     {
-        ti_raw_t * spec_raw;
         if (!query->collection)
         {
             ex_set(e, EX_LOOKUP_ERROR,
@@ -1331,22 +1336,31 @@ static int do__ano(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (do__thing(query, nd, e, 7))
             return e->nr;
 
-        spec_raw = ti_type_spec_raw_from_thing(
+        ano->spec_raw = ti_type_spec_raw_from_thing(
                 (ti_thing_t *) query->rval,
                 query->rval,
                 e);
-        if (!spec_raw)
+        if (!ano->spec_raw)
             return e->nr;
 
         ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
-
-        if (ti_ano_init(nd->data, query->collection, spec_raw, e))
-            return e->nr;
-        ti_val_unsafe_drop((ti_val_t *) spec_raw);
     }
-    query->rval = nd->data;
-    ti_incref(query->rval);
+
+    /* first try cache for equal ano */
+    query->rval = smap_getn(
+        query->collection->ano_types,
+        (const char *) ano->spec_raw->data,
+        ano->spec_raw->n);
+
+    /* if no success, try new one */
+    if (query->rval)
+        ti_incref(query->rval);
+    else
+        query->rval = (ti_val_t *) ti_ano_from_raw(
+            query->collection,
+            ano->spec_raw,
+            e);
     return e->nr;
 }
 

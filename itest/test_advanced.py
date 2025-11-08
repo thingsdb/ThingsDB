@@ -2885,6 +2885,49 @@ mod_enum('E', 'mod', 'A', {
         res = await q(script, scope='//other')
         self.assertEqual(res, 'DONE')
 
+    async def test_mod_nested(self, client):
+        # bug #428 (clear map cache for nested structure)
+        res = await client.query(
+            """//ti
+            set_type('Person', {name: 'str'});
+            set_type('Group', {people: '[Person]'});
+            set_type('_G', {
+                people: [{
+                    name: 'str',
+                    age: 'int'
+                }]
+            }, true, true);
+            .group = Group{
+                people: [
+                    Person{name: 'Iris'},
+                    Person{name: 'Fenna'},
+                ]
+            };
+            .group.wrap('_G');
+            """)
+        self.assertEqual(res, {
+            "people": [{
+                "name": "Iris"
+            }, {
+                "name": "Fenna"
+            }]
+        })
+        res = await client.query(
+            """//ti
+            mod_type('Person', 'add', 'age', 'int', 12);
+            .group.wrap('_G');
+            """)
+        self.assertEqual(res, {
+            "people": [{
+                "name": "Iris",
+                "age": 12,
+            }, {
+                "name": "Fenna",
+                "age": 12,
+            }]
+        })
+
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

@@ -27,7 +27,9 @@ static int do__f_ano(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         spec_raw->n);
 
     /* if no success, try new one */
-    if (!query->rval)
+    if (query->rval)
+        ti_incref(query->rval);
+    else
         query->rval = (ti_val_t *) ti_ano_from_raw(
             query->collection,
             spec_raw,

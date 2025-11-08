@@ -90,6 +90,53 @@ class TestWrap(TestBase):
         ''')
         self.assertEqual(res, {})
 
+    async def test_wrap_err(self, client):
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `wrap` takes at most 1 argument but 2 were given'):
+            await client.query(r'''
+                {}.wrap(&{}, nil);
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `wrap` expects argument 1 to be of type `str` or '
+                r'`<anonymous>` but got type `int` instead'):
+            await client.query(r'''
+                {}.wrap(123);
+            ''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `nil` has no function `wrap`'):
+            await client.query(r'''
+                nil.wrap(&{});
+            ''')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `map_wrap` takes at most 1 argument but 2 were '
+                r'given'):
+            await client.query(r'''
+                [].map_wrap(&{}, nil);
+            ''')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `map_wrap` expects argument 1 to be of type `str` '
+                r'or `<anonymous>` but got type `int` instead'):
+            await client.query(r'''
+                [].map_wrap(123);
+            ''')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'type `nil` has no function `map_wrap`'):
+            await client.query(r'''
+                nil.map_wrap(&{});
+            ''')
+
+
     async def test_wrap_method(self, client):
         res = await client.query(r'''
             set_type('Math', {

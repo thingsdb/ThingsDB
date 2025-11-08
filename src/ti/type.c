@@ -168,12 +168,25 @@ imap_t * ti_type_collect_things(ti_query_t * query, ti_type_t * type)
 static int type__map_cleanup(ti_type_t * t_haystack, ti_type_t * t_needle)
 {
     ti_map_destroy(imap_pop(t_haystack->t_mappings, t_needle->type_id));
+    for (vec_each(t_haystack->fields, ti_field_t, field))  /* issue #428 */
+        if (ti_field_is_nested(field))
+            type__map_cleanup(field->condition.type, t_needle);
     return 0;
+}
+
+/* used as a callback function and removes all cached type mappings */
+static int type__map_cleanup_ano_cb(ti_ano_t * ano, ti_type_t * t_needle)
+{
+    return type__map_cleanup(ano->type, t_needle);
 }
 
 void ti_type_map_cleanup(ti_type_t * type)
 {
     (void) imap_walk(type->types->imap, (imap_cb) type__map_cleanup, type);
+    (void) smap_values(
+        type->types->collection->ano_types,
+        (smap_val_cb) type__map_cleanup_ano_cb,
+        type);
     imap_clear(type->t_mappings, (imap_destroy_cb) ti_map_destroy);
 }
 
@@ -481,6 +494,17 @@ ti_raw_t * ti__type_nested_from_val(ti_type_t * type, ti_val_t * val, ex_t * e)
         return NULL;
     }
     return ti_type_spec_raw_from_thing(thing, val, e);
+}
+
+_Bool ti_type_has_dependencies(ti_type_t * type)
+{
+    if (type->dependencies->n)
+        return true;
+    for (vec_each(type->fields, ti_field_t, field))
+        if (ti_field_is_nested(field) &&
+            ti_type_has_dependencies(field->condition.type))
+            return true;
+    return false;
 }
 
 static inline int type__assign(

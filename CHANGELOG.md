@@ -1,8 +1,9 @@
 # v1.8.2-alpha0
 
 * Allow converting `mpdata` to `bytes, issue #427.
+* Fixed: map cache for nested structure not cleared, issue #428.
 * Add _anonymous_ wrap only type syntax (`&{..}`), pr
-* Added `ano()` function, pr #405.
+* Added `ano()` function, pr
 
 # v1.8.1
 

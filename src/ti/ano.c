@@ -17,6 +17,17 @@ ti_ano_t * ti_ano_new(void)
     return ano;
 }
 
+int ano__dep_check(ti_type_t * type, ex_t * e)
+{
+    if (ti_type_has_dependencies(type))
+        ex_set(e, EX_TYPE_ERROR,
+            "the "TI_VAL_ANO_S" type definition "
+            "contains dependencies on other types or enumerators, "
+            "which is not permitted; to resolve this, create a fully "
+            "named wrap-only type"DOC_SET_TYPE);
+    return e->nr;
+}
+
 int ti_ano_init(
         ti_ano_t * ano,
         ti_collection_t * collection,
@@ -82,13 +93,19 @@ int ti_ano_init(
         goto fail0;
     }
 
-    if (ti_type_init_from_thing(type, (ti_thing_t *) val, e))
+    if (ti_type_init_from_thing(type, (ti_thing_t *) val, e) ||
+        ano__dep_check(type, e))
         ti_type_drop_anonymous(type);
     else
     {
         ano->type = type;
         ano->spec_raw = spec_raw;
         ti_incref(spec_raw);
+        (void) smap_addn(
+            collection->ano_types,
+            (const char *) spec_raw->data,
+            spec_raw->n,
+            ano);
     }
 fail0:
     ti_val_unsafe_drop(val);
@@ -116,11 +133,7 @@ ti_ano_t * ti_ano_from_raw(
      * init as we want to cache ano(..) calls, and loading from changes/stored
      * on disk, but not from syntax in queries as they are cached as immutable
      * variable; */
-    (void) smap_addn(
-        collection->ano_types,
-        (const char *) spec_raw->data,
-        spec_raw->n,
-        ano);
+
 
     return ano;
 }
@@ -149,7 +162,8 @@ ti_ano_t * ti_ano_create(
 
 void ti_ano_destroy(ti_ano_t * ano)
 {
-    if (ano->spec_raw)
+    /* we must check type as we might have spec_raw without a type */
+    if (ano->type)
         (void) smap_popn(
             ano->type->types->collection->ano_types,
             (const char *) ano->spec_raw->data,

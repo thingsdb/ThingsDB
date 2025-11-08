@@ -247,7 +247,7 @@ static inline int val__error_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUS
 }
 static inline int val__ano_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
 {
-    return ti_verror_to_client_pk((ti_verror_t *) val, &vp->pk);
+    return ti_ano_to_client_pk((ti_ano_t *) val, &vp->pk);
 }
 static inline int val__mpdata_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
 {

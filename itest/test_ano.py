@@ -29,12 +29,12 @@ class TestAno(TestBase):
         client = await get_client(self.node0)
         client.set_default_scope('//stuff')
 
-        await self.run_tests(client.query)
+        await self.run_tests(client.query, client.run)
 
         client.close()
         await client.wait_closed()
 
-    async def test_ano_err(self, q):
+    async def test_ano_err(self, q, r):
         await q(r"""//ti
             set_type('A', {x: 'any'});
         """)
@@ -88,8 +88,18 @@ class TestAno(TestBase):
                 &{};
             """, scope='/t')
 
-    async def test_more_ano_props(self, q):
-        r = await q("""//ti
+        with self.assertRaisesRegex(
+                TypeError,
+                r'the <anonymous> type definition contains dependencies '
+                r'on other types or enumerators, which is not permitted; '
+                r'to resolve this, create a fully named wrap-only type'):
+            await q("""//ti
+                new_type('T');
+                &{nested: {t: 'T'}};
+            """)
+
+    async def test_more_ano_props(self, q, r):
+        res = await q("""//ti
                     .a = &{
                         id: '#',
                         a: 'int',
@@ -98,7 +108,7 @@ class TestAno(TestBase):
                     };
                     .a.f(20, 22);
                     """)
-        self.assertEqual(r, 42)
+        self.assertEqual(res, 42)
         r1, r2 = await q("""//ti
                 o = {
                     name: 'Iris',
@@ -144,6 +154,18 @@ class TestAno(TestBase):
                         y: 5,
                     }]
                 };
+                .a1 = &{
+                    name: |this| this.name.upper(),
+                    numbers: [{
+                        x: 'int'
+                    }]
+                };
+                .a2 = ano({
+                    name: |this| this.name.upper(),
+                    numbers: [{
+                        x: 'int'
+                    }]
+                });
                 .wano = [
                     o.wrap(&{
                         name: |this| this.name.upper(),
@@ -157,10 +179,12 @@ class TestAno(TestBase):
                             x: 'int'
                         }]
                     })),
+                    o.wrap(.a1),
+                    o.wrap(.a2),
                 ];
                 """
             )
-        r1, r2 = await q("""//ti
+        r1, r2, r3, r4 = await q("""//ti
                          .wano;
                          """)
         self.assertEqual(r1, {
@@ -168,11 +192,88 @@ class TestAno(TestBase):
             "numbers": [{"x": 1,}, {"x": 4}, {}]
         })
         self.assertEqual(r1, r2)
-        r = await q(
+        self.assertEqual(r2, r3)
+        self.assertEqual(r3, r4)
+        res = await q(
             """//ti
-            .wano[0] == .wano[1]
+            .wano[0] == .wano[1] &&
+            .wano[1] == .wano[2] &&
+            .wano[2] == .wano[3];
+
             """)
-        self.assertTrue(r)
+        self.assertTrue(res)
+
+        res = await q("""//ti
+                type(&{});
+                """)
+        self.assertEqual(res, "<anonymous>")
+
+        res = await q("""//ti
+                type({}.wrap(&{}));
+                """)
+        self.assertEqual(res, "<<anonymous>>")
+
+        res = await q("""//ti
+                .a1;
+                """)
+        self.assertEqual(res, {
+            'name': '|this|this.name.upper()',
+            'numbers': [
+                {'x': 'int'}
+            ]
+        })
+
+        res = await q("""//ti
+                str(.a1);
+                """)
+        self.assertEqual(res, "<anonymous>")
+
+        res = await q("""//ti
+                str({}.wrap(.a1));
+                """)
+        self.assertEqual(res, "<<anonymous>>:nil")
+
+    async def test_after_mod(self, q, r):
+        await q("""//ti
+                set_type('P', {name: 'str'});
+                .p = P{name: 'foo'};
+                .a = &{name: 'str', age: 'int', other: 'any'};
+                new_procedure('get', || {
+                    [.p.wrap(&{name: 'any', age: 'any'}), .p.wrap(.a)];
+                });
+                """)
+        script = """//ti
+                '
+This is a query with will be cached as it is long enough to be stored,
+it should have at least 160 characters, so we need a longs string.
+I guess we are good now...
+';
+[.p.wrap(&{name: 'str', age: 'int'}), .p.wrap(.a)];
+                """
+        r0, r1 = await q(script)
+        self.assertEqual(r0, {"name": "foo"})
+        self.assertEqual(r0, r1)
+        await q("""//ti
+                mod_type('P', 'add', 'age', 'int', 12);
+                """)
+        r0, r1 = await q(script)
+        self.assertEqual(r0, {"name": "foo", "age": 12})
+        self.assertEqual(r0, r1)
+        r0, r1 = await r('get')
+        self.assertEqual(r0, {"name": "foo", "age": 12})
+        self.assertEqual(r0, r1)
+
+        res = await q(
+            """//ti
+            range(3).map(|i| P{name: `person{i}`, age: i}).map_wrap(&{
+                upper: |this| this.name.upper(),
+                age: 'int'
+            });
+            """)
+        self.assertEqual(res, [
+            {'age': 0, 'upper': 'PERSON0'},
+            {'age': 1, 'upper': 'PERSON1'},
+            {'age': 2, 'upper': 'PERSON2'}])
 
 
 

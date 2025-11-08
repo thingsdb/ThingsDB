@@ -1393,9 +1393,10 @@ static inline _Bool val__spec_enum_eq_to_val(uint16_t spec, ti_val_t * val)
  *   TI_SPEC_EMAIL,
  *   TI_SPEC_URL,
  *   TI_SPEC_TEL,
+ *   TI_SPEC_ENUM,
  */
 
-static ti_val_spec_t ti_val_spec_map[24] = {
+static ti_val_spec_t ti_val_spec_map[25] = {
         {.is_spec=ti_val_is_thing},
         {.is_spec=ti_val_is_raw},
         {.is_spec=ti_val_is_str},
@@ -1420,6 +1421,7 @@ static ti_val_spec_t ti_val_spec_map[24] = {
         {.is_spec=ti_val_is_email},
         {.is_spec=ti_val_is_url},
         {.is_spec=ti_val_is_tel},
+        {.is_spec=ti_val_is_member},
 };
 
 static inline _Bool ti_val_is_spec(ti_val_t * val, uint16_t spec)

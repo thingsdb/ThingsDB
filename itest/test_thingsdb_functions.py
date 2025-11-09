@@ -118,7 +118,7 @@ class TestThingsDBFunctions(TestBase):
 
         collections = await client.query('collections_info();')
         self.assertEqual(len(collections), 1)
-        self.assertEqual(len(collections[0]), 8)
+        self.assertEqual(len(collections[0]), 9)
 
         self.assertIn("collection_id", collections[0])
         self.assertIn("next_free_id", collections[0])
@@ -127,6 +127,7 @@ class TestThingsDBFunctions(TestBase):
         self.assertIn("created_at", collections[0])
         self.assertIn("time_zone", collections[0])
         self.assertIn("default_deep", collections[0])
+        self.assertIn("ano_types", collections[0])
         self.assertIn("commit_history", collections[0])
 
         self.assertTrue(isinstance(collections[0]["collection_id"], int))
@@ -136,6 +137,7 @@ class TestThingsDBFunctions(TestBase):
         self.assertTrue(isinstance(collections[0]["created_at"], int))
         self.assertTrue(isinstance(collections[0]["time_zone"], str))
         self.assertTrue(isinstance(collections[0]["default_deep"], int))
+        self.assertTrue(isinstance(collections[0]["ano_types"], int))
         self.assertEqual(collections[0]["commit_history"], "disabled")
 
         # at least one info should be checked for a correct created_at info

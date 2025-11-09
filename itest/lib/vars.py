@@ -53,7 +53,7 @@ try:
             f'--suppressions={MEMLEAK_SUPP}',
             '--errors-for-leak-kinds=all',
         ],
-        # full and vebose memcheck
+        # full and verbose memcheck
         [
             'valgrind',
             '--tool=memcheck',
@@ -62,6 +62,20 @@ try:
             '--show-leak-kinds=all',
             '--track-origins=yes',
             '--show-reachable=yes',
+            f'--suppressions={MEMLEAK_SUPP}',
+            '--errors-for-leak-kinds=all',
+            '-v',
+        ],
+        # full, verbose memcheck and gen suppressions
+        [
+            'valgrind',
+            '--tool=memcheck',
+            '--error-exitcode=1',
+            '--leak-check=full',
+            '--show-leak-kinds=all',
+            '--track-origins=yes',
+            '--show-reachable=yes',
+            '--gen-suppressions=all',
             f'--suppressions={MEMLEAK_SUPP}',
             '--errors-for-leak-kinds=all',
             '-v',

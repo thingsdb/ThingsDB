@@ -284,7 +284,20 @@ I guess we are good now...
         """)
         res = await q('.w;')
         self.assertEqual(res, {"nested": {'t': {'name': 'foo'}}})
-
+        res = await q("""//ti
+                      c = .w.copy();
+                      assert(is_thing(c));
+                      assert(is_nil(c.id()));
+                      return c, 3;
+                      """)
+        self.assertEqual(res, {"nested": {'t': {'name': 'foo'}}})
+        res = await q("""//ti
+                      c = .w.dup();
+                      assert(is_thing(c.unwrap()));
+                      assert(is_nil(c.id()));
+                      c;
+                      """)
+        self.assertEqual(res, {"nested": {'t': {'name': 'foo'}}})
 
 if __name__ == '__main__':
     run_test(TestAno())

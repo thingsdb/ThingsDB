@@ -1,4 +1,4 @@
-# v1.8.2-alpha3
+# v1.8.2
 
 * Allow converting `mpdata` to `bytes`, issue #427.
 * Fixed: map cache for nested structure not cleared, issue #428.

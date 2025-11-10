@@ -1274,10 +1274,10 @@ static inline int ti_val_make_assignable(
     case TI_VAL_CLOSURE:
         return ti_closure_unbound((ti_closure_t *) *val, e);
     case TI_VAL_ANO:
+    case TI_VAL_WANO:
         return 0;
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
-    case TI_VAL_WANO:
         ti_val_unsafe_drop(*val);
         *val = (ti_val_t *) ti_nil_get();
         return 0;

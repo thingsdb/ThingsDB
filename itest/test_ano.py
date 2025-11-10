@@ -39,12 +39,6 @@ class TestAno(TestBase):
             set_type('A', {x: 'any'});
         """)
 
-        res = await q("""//ti
-                .x = {}.wrap(&{});
-                .x;
-        """)
-        self.assertIs(res, None)
-
         with self.assertRaisesRegex(
                 LookupError,
                 r'function `ano` is undefined in the `@thingsdb` scope; '
@@ -275,6 +269,12 @@ I guess we are good now...
             {'age': 1, 'upper': 'PERSON1'},
             {'age': 2, 'upper': 'PERSON2'}])
 
+        await q("""//ti
+            t = &{name: 'str'};
+            .w = {nested: {t: {name: 'foo'}}}.wrap(&{nested: {t:,}});
+        """)
+        res = await q('.w;')
+        self.assertEqual(res, {"nested": {'t': {'name': 'foo'}}})
 
 
 

@@ -336,6 +336,26 @@ static int ncache__expr_choice(
         }
         return e->nr;
     }
+    case CLERI_GID_T_ANO:
+    {
+        cleri_node_t * child = nd           /* sequence */
+                ->children->next            /* list */
+                ->children;
+        for (; child; child = child->next ? child->next->next : NULL)
+        {
+            /* sequence(name: statement) (only investigate the statements */
+            if (child->children->next->next == NULL
+                    ? ncache__gen_name(vcache, child->children, e)
+                    : ncache__statement(
+                        syntax,
+                        vcache,
+                        child->children->next->next,
+                        e))
+                return e->nr;
+        }
+        nd->data = ti_ano_new();
+        break;
+    }
     case CLERI_GID_ARRAY:
         return ncache__list(
                 syntax,
@@ -429,7 +449,7 @@ static int ncache__return_statement(
 {
     if (!nd->children->next->children)
         return 0;
-        
+
     if (ncache__statement(syntax, vcache, nd->children->next->children, e))
         return -1;
 

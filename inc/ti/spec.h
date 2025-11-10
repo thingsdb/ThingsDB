@@ -10,9 +10,10 @@
 #include <ti/raw.t.h>
 #include <ti/spec.t.h>
 #include <ti/val.t.h>
+#include <ti/field.t.h>
 
 ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t * val);
-_Bool ti__spec_maps_to_nested_val(uint16_t spec, ti_val_t * val);
+_Bool ti__spec_maps_to_nested_val(ti_field_t * field, ti_val_t * val);
 
 const char * ti_spec_approx_type_str(uint16_t spec);
 ti_spec_mod_enum ti_spec_check_mod(

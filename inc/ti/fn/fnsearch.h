@@ -202,9 +202,13 @@ static int do__search_thing(
         };
         return imap_walk(VSET(val), (imap_cb) search__walk_set, &ws);
     }
-    case TI_VAL_TEMPLATE:
+    case TI_VAL_ANO:
+        return 0;
+    case TI_VAL_WANO:
+        return search__do_thing(((ti_wano_t *) val)->thing, root, key, w);
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
+    case TI_VAL_TEMPLATE:
         return 0;
     }
     assert(0);

@@ -108,6 +108,16 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
         return ti_vset_eq((ti_vset_t *) a, (ti_vset_t *) b);
     case OPR_ERROR_ERROR:
         return ((ti_verror_t *) a)->code == ((ti_verror_t *) b)->code;
+    case OPR_ANO_ANO:
+        return ti_raw_eq(
+            ((ti_ano_t *) a)->spec_raw,
+            ((ti_ano_t *) b)->spec_raw);
+    case OPR_WANO_WANO:
+        return
+            ((ti_wano_t *) a)->thing == ((ti_wano_t *) b)->thing &&
+            ti_raw_eq(
+                ((ti_wano_t *) a)->ano->spec_raw,
+                ((ti_wano_t *) b)->ano->spec_raw);
     }
     return false;
 }

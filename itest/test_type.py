@@ -1185,6 +1185,7 @@ class TestType(TestBase):
             set_type('_Email', {test: 'email'});
             set_type('_Url', {test: 'url'});
             set_type('_Tel', {test: 'tel'});
+            set_type('_Enum', {test: 'enum'});
             set_type('_Any', {test: 'any'});
         ''')
 
@@ -2329,6 +2330,48 @@ class TestType(TestBase):
                 .o.name;
             """)
             self.assertEqual(r, "default")
+
+    async def test_global_enum(self, client):
+        await client.query(
+            """//ti
+            set_enum('E', {A: 0});
+            set_type('T', {
+                e: 'E'
+            });
+            set_type('F', {
+                e: 'enum'
+            });
+            """)
+        res = await client.query(
+            """//ti
+            .t = T{};
+            .f = F{};
+            [.t.e, .f.e];
+            """)
+        self.assertEqual(res, [0, None])
+        res = await client.query(
+            """//ti
+            .t = T{};
+            .f = F{};
+            return [.t.wrap('F'), .f.wrap('T')], 1, NO_IDS;
+            """)
+        self.assertEqual(res, [{'e': 0}, {}])
+        res = await client.query(
+            """//ti
+            .f.e = nil;
+            .f.e = E{A};
+            """)
+        self.assertEqual(res, 0)
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'cannot apply type declaration `E` to `e` on type `F` '
+                r'without a closure to migrate existing instances; '
+                r'the old declaration `enum` is not compatible with '
+                r'the new declaration;'):
+            await client.query("""//ti
+                    mod_type('F', 'mod', 'e', 'E');
+            """)
 
 
 if __name__ == '__main__':

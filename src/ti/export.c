@@ -362,17 +362,6 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
 
     switch((ti_val_enum) val->tp)
     {
-    case TI_VAL_NAME:
-    case TI_VAL_STR:
-        return ti_fmt_ti_string(fmt, (ti_raw_t *) val);
-    case TI_VAL_MPDATA:
-    case TI_VAL_BYTES:
-        return buf_append_str(buf, "bytes() /* WARN: not exported */");
-    case TI_VAL_REGEX:
-    {
-        ti_raw_t * pattern = ((ti_regex_t *) val)->pattern;
-        return buf_append(buf, (const char *) pattern->data, pattern->n);
-    }
     case TI_VAL_NIL:
         return buf_append_str(buf, "nil");
     case TI_VAL_INT:
@@ -385,6 +374,16 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
             : buf_append_str(buf, "false");
     case TI_VAL_DATETIME:
         return buf_append_fmt(buf, "datetime(%ld)", DATETIME(val));
+    case TI_VAL_NAME:
+    case TI_VAL_STR:
+        return ti_fmt_ti_string(fmt, (ti_raw_t *) val);
+    case TI_VAL_BYTES:
+        return buf_append_str(buf, "bytes() /* WARN: not exported */");
+    case TI_VAL_REGEX:
+    {
+        ti_raw_t * pattern = ((ti_regex_t *) val)->pattern;
+        return buf_append(buf, (const char *) pattern->data, pattern->n);
+    }
     case TI_VAL_THING:
         return export__thing(fmt, (ti_thing_t *) val);
     case TI_VAL_WRAP:
@@ -428,18 +427,6 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
             buf_write(buf, ')')
         );
     }
-    case TI_VAL_CLOSURE:
-        return ti_fmt_nd(fmt, ((ti_closure_t * ) val)->node);
-    case TI_VAL_FUTURE:
-        return buf_append_str(buf, "future(||nil) /* WARN: not exported */");
-    case TI_VAL_MODULE:
-    {
-        ti_module_t * module = (ti_module_t *) val;
-        return buf_append_fmt(
-            buf,
-            "%.*s /* WARN: module must be installed */",
-            module->name->n, module->name->str);
-    }
     case TI_VAL_ERROR:
         return buf_append_str(buf, "error() /* WARN: not exported */");
     case TI_VAL_MEMBER:
@@ -450,6 +437,27 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
             "%s{%.*s}",
             member->enum_->name,
             member->name->n, member->name->str);
+    }
+    case TI_VAL_MPDATA:
+        return buf_append_str(buf, "bytes() /* WARN: not exported */");
+    case TI_VAL_CLOSURE:
+        return ti_fmt_nd(fmt, ((ti_closure_t * ) val)->node);
+    case TI_VAL_ANO:
+        return -(
+            buf_write(buf, '&') ||
+            export__thing(fmt, (ti_thing_t *) val)
+        );
+    case TI_VAL_WANO:
+        return buf_append_str(buf, "&{}.wrap() /* WARN: not exported */");
+    case TI_VAL_FUTURE:
+        return buf_append_str(buf, "future(||nil) /* WARN: not exported */");
+    case TI_VAL_MODULE:
+    {
+        ti_module_t * module = (ti_module_t *) val;
+        return buf_append_fmt(
+            buf,
+            "%.*s /* WARN: module must be installed */",
+            module->name->n, module->name->str);
     }
     case TI_VAL_TEMPLATE:
         assert(0);
@@ -493,11 +501,13 @@ static int export__set_enum_cb(ti_enum_t * enum_, ti_fmt_t * fmt)
             case TI_VAL_TASK:
             case TI_VAL_ARR:
             case TI_VAL_SET:
-            case TI_VAL_CLOSURE:
             case TI_VAL_ERROR:
             case TI_VAL_MEMBER:
+            case TI_VAL_CLOSURE:
+            case TI_VAL_ANO:
             case TI_VAL_FUTURE:
             case TI_VAL_MODULE:
+            case TI_VAL_WANO:
             case TI_VAL_TEMPLATE:
                 assert(0);
                 break;

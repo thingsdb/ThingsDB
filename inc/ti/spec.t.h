@@ -39,6 +39,7 @@ typedef enum
     TI_SPEC_EMAIL,          /* `email`              */
     TI_SPEC_URL,            /* `url`                */
     TI_SPEC_TEL,            /* `tel`                */
+    TI_SPEC_ENUM,           /* `enum`               */
 
     TI_SPEC_REMATCH=0x5000, /* `/.../`              */
     TI_SPEC_INT_RANGE,      /* `int<:>              */

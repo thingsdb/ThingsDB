@@ -26,6 +26,8 @@
 #define TI_VAL_FUTURE_S     "future"
 #define TI_VAL_MODULE_S     "module"
 #define TI_VAL_TASK_S       "task"
+#define TI_VAL_ANO_S        "<anonymous>"
+#define TI_VAL_WANO_S       "<<anonymous>>"
 
 #define TI_KIND_S_INSTANCE  "."     /* Internally, New typed thing */
 #define TI_KIND_S_OBJECT    ","     /* Internally, New thing */
@@ -33,6 +35,7 @@
 #define TI_KIND_S_SET       "$"     /* Internally, Set */
 #define TI_KIND_S_ERROR     "!"     /* Internally, Error */
 #define TI_KIND_S_WRAP      "&"     /* Internally, Wrapped thing */
+#define TI_KIND_S_WANO      " "     /* Internally, Wrapped ano thing */
 #define TI_KIND_S_MEMBER    "%%"    /* Internally, Enum member */
 #define TI_KIND_S_DATETIME  "'"     /* Internally, Date/Time */
 #define TI_KIND_S_TIMEVAL   "\""    /* Internally, Time value */
@@ -64,6 +67,9 @@ typedef enum
     TI_VAL_MEMBER,      /* enum member */
     TI_VAL_MPDATA,      /* msgpack data */
     TI_VAL_CLOSURE,
+    TI_VAL_ANO,         /* anonymous wrap-only type */
+    TI_VAL_WANO,        /* wrapped with anonymous type */
+    /* future, module and template are never stored */
     TI_VAL_FUTURE,      /* future */
     TI_VAL_MODULE,      /* module */
     TI_VAL_TEMPLATE,    /* template to generate TI_VAL_STR
@@ -95,6 +101,7 @@ typedef enum
     TI_KIND_C_MEMBER    ='%',
     TI_KIND_C_DATETIME  ='\'',
     TI_KIND_C_TIMEVAL   ='"',
+    TI_KIND_C_WANO      =' ',
     /* Obsolete, but still required for backwards compatibility */
     TI_KIND_C_THING_OBSOLETE_       ='#',
     TI_KIND_C_CLOSURE_OBSOLETE_     ='/',

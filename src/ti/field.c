@@ -294,11 +294,11 @@ static inline void field__set_cb(ti_field_t * field, ti_field_dval_cb cb)
  */
 enum
 {
-    TOTAL_KEYWORDS = 25,
+    TOTAL_KEYWORDS = 26,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 8,
     MIN_HASH_VALUE = 2,
-    MAX_HASH_VALUE = 29
+    MAX_HASH_VALUE = 27
 };
 
 static inline unsigned int field__hash(
@@ -307,32 +307,32 @@ static inline unsigned int field__hash(
 {
     static unsigned short asso_values[] =
     {
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 13, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30,  8, 30,  8, 30, 30, 30,  9,  6,  0,
-         0,  4,  3,  1,  9,  0, 30,  4,  0,  4,
-         1,  0,  9, 30,  0,  8,  0,  0,  0,  0,
-         1,  0, 30,  0, 30,  0, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30
+        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
+        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
+        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
+        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
+        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
+        28, 28, 28, 28, 28, 28, 14, 28, 28, 28,
+        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
+        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
+        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
+        28, 11, 28, 11, 28, 28, 28,  8,  1,  6,
+         0,  1,  8,  6,  4,  3, 28,  0,  0,  6,
+         1,  0,  9, 28,  0,  8,  0,  0,  0,  3,
+         5,  1, 28,  0, 28,  0, 28, 28, 28, 28,
+        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
+        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
+        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
+        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
+        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
+        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
+        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
+        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
+        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
+        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
+        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
+        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
+        28, 28, 28, 28, 28, 28
     };
 
     register unsigned int hval = n;
@@ -393,6 +393,7 @@ ti_field_map_t field__mapping[TOTAL_KEYWORDS] = {
     {.name="email",     .spec=TI_SPEC_EMAIL,    .dval_cb=field__dval_str},
     {.name="url",       .spec=TI_SPEC_URL,      .dval_cb=field__dval_str},
     {.name="tel",       .spec=TI_SPEC_TEL,      .dval_cb=field__dval_str},
+    {.name="enum",      .spec=TI_SPEC_ENUM,     .dval_cb=field__dval_nil},
 };
 
 static ti_field_map_t * field__map[MAX_HASH_VALUE+1];
@@ -930,7 +931,6 @@ invalid:
         DOC_T_TYPE,
         field->name->str, field->type->name,
         field->spec_raw->n, (const char *) field->spec_raw->data);
-
     return e->nr;
 
 circular_dep:
@@ -1698,7 +1698,7 @@ static _Bool field__maps_arr_to_arr(ti_field_t * field, ti_varr_t * varr)
         return true;
 
     for (vec_each(varr->vec, ti_val_t, val))
-        if (!ti_spec_maps_to_nested_val(field->nested_spec, val))
+        if (!ti_spec_maps_to_nested_val(field, val))
             return false;
 
     return true;
@@ -1714,7 +1714,7 @@ static _Bool field__maps_arr_to_type(ti_varr_t * varr)
 
 static int field__map_restrict_cb(ti_prop_t * prop, ti_field_t * field)
 {
-    return !ti_spec_maps_to_nested_val(field->nested_spec, prop->val);
+    return !ti_spec_maps_to_nested_val(field, prop->val);
 }
 
 static _Bool field__maps_restricted(ti_field_t * field, ti_thing_t * thing)
@@ -1735,7 +1735,7 @@ static _Bool field__maps_restricted(ti_field_t * field, ti_thing_t * thing)
                 field);
 
     for (vec_each(thing->items.vec, ti_prop_t, prop))
-        if (!ti_spec_maps_to_nested_val(field->nested_spec, prop->val))
+        if (!ti_spec_maps_to_nested_val(field, prop->val))
             return false;
 
     return true;
@@ -1819,7 +1819,6 @@ int ti_field_make_assignable(
         case TI_VAL_FLOAT:
         case TI_VAL_BOOL:
         case TI_VAL_DATETIME:
-        case TI_VAL_MPDATA:
         case TI_VAL_NAME:
         case TI_VAL_STR:
         case TI_VAL_BYTES:
@@ -1833,15 +1832,20 @@ int ti_field_make_assignable(
             return field__varr_assign(field, (ti_varr_t **) val, parent, e);
         case TI_VAL_SET:
             return field__vset_assign(field, (ti_vset_t **) val, parent, e);
-        case TI_VAL_CLOSURE:
-            return ti_closure_unbound((ti_closure_t *) *val, e);
         case TI_VAL_ERROR:
         case TI_VAL_MEMBER:
-        case TI_VAL_TEMPLATE:
+        case TI_VAL_MPDATA:
+            break;
+        case TI_VAL_CLOSURE:
+            return ti_closure_unbound((ti_closure_t *) *val, e);
+        case TI_VAL_ANO:
+        case TI_VAL_WANO:
             break;
         case TI_VAL_FUTURE:
         case TI_VAL_MODULE:
             goto future_module_error;
+        case TI_VAL_TEMPLATE:
+            break;
         }
         return 0;
     case TI_SPEC_OBJECT:
@@ -1956,6 +1960,10 @@ int ti_field_make_assignable(
                 (ti_raw_t *) *val))
             goto tel_error;
         return 0;
+    case TI_SPEC_ENUM:
+        if (ti_val_is_member(*val) || ti_val_is_nil(*val))
+            return 0;
+        goto type_error;
     case TI_SPEC_ARR:
         if (ti_val_is_array(*val))
             return field__varr_assign(field, (ti_varr_t **) val, parent, e);
@@ -2202,7 +2210,14 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
         return ti_spec_enum_eq_to_val(spec, val);
 
     if (ti_val_is_member(val))
-        val = VMEMBER(val);
+    {
+        if (spec == TI_SPEC_ENUM)
+            return true;
+
+        val = (field->flags & TI_FIELD_FLAG_ENAME)
+            ? (ti_val_t *) ((ti_member_t *) val)->name
+            : VMEMBER(val);
+    }
 
     switch ((ti_spec_enum_t) spec)
     {
@@ -2261,6 +2276,8 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
         return ti_val_is_str(val) && ti_regex_test_or_empty(
                 (ti_regex_t *) ti_val_borrow_re_tel(),
                 (ti_raw_t *) val);
+    case TI_SPEC_ENUM:
+        return (ti_val_is_member(val) || ti_val_is_nil(val));
     case TI_SPEC_ARR:
         /* we can map a set to an array */
         return ((
@@ -2329,10 +2346,20 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
 
     if (f_spec >= TI_ENUM_ID_FLAG)
     {
-        ti_enum_t * enum_ = ti_enums_by_id(
+        if (t_spec == TI_SPEC_ENUM)
+            return true;
+
+        if (t_field->flags & TI_FIELD_FLAG_ENAME)
+        {
+            f_spec = TI_SPEC_STR;
+        }
+        else
+        {
+            ti_enum_t * enum_ = ti_enums_by_id(
                 f_field->type->types->collection->enums,
                 f_spec & TI_ENUM_ID_MASK);
-        f_spec = ti_enum_spec(enum_);
+            f_spec = ti_enum_spec(enum_);
+        }
     }
 
     if (t_spec == f_spec)
@@ -2384,6 +2411,7 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_EMAIL:
     case TI_SPEC_URL:
     case TI_SPEC_TEL:
+    case TI_SPEC_ENUM:
     case TI_SPEC_ARR:
     case TI_SPEC_SET:
     case TI_SPEC_REMATCH:
@@ -2425,10 +2453,20 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
 
     if (f_spec >= TI_ENUM_ID_FLAG)
     {
-        ti_enum_t * enum_ = ti_enums_by_id(
+        if (t_spec == TI_SPEC_ENUM)
+            return true;
+
+        if (t_field->flags & TI_FIELD_FLAG_ENAME)
+        {
+            f_spec = TI_SPEC_STR;
+        }
+        else
+        {
+            ti_enum_t * enum_ = ti_enums_by_id(
                 f_field->type->types->collection->enums,
                 f_spec & TI_ENUM_ID_MASK);
-        f_spec = ti_enum_spec(enum_);
+            f_spec = ti_enum_spec(enum_);
+        }
     }
 
     switch ((ti_spec_enum_t) t_spec)
@@ -2508,6 +2546,7 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_EMAIL:
     case TI_SPEC_URL:
     case TI_SPEC_TEL:
+    case TI_SPEC_ENUM:
         return f_spec == t_spec;
     case TI_SPEC_ARR:
         return (

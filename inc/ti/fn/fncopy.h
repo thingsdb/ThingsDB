@@ -28,7 +28,7 @@ static int do__f_copy(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = val;
     }
 
-    if (ti_val_is_wrap(query->rval) && ti_wrap_cp(query, deep, e))
+    if (ti_val_is_wrap_wano(query->rval) && ti_wrap_cp(query, deep, e))
        return e->nr;  /* quit without fail0, e is set*/
     else if (ti_val_copy(&query->rval, NULL, NULL, deep))
         ex_set_mem(e);

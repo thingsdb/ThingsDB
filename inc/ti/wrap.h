@@ -21,6 +21,12 @@ int ti__wrap_field_thing(
         uint16_t spec,
         int deep,
         int flags);
+int ti_wrap_field_thing_type(
+        ti_thing_t * thing,
+        ti_vp_t * vp,
+        ti_type_t * t_type,
+        int deep,
+        int flags);
 int ti_wrap_cp(ti_query_t * query, uint8_t deep, ex_t * e);
 int ti_wrap_copy(ti_wrap_t ** wrap, uint8_t deep);
 int ti_wrap_dup(ti_wrap_t ** wrap, uint8_t deep);

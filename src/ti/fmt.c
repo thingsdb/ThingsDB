@@ -378,6 +378,11 @@ static int fmt__expr_choice(ti_fmt_t * fmt, cleri_node_t * nd)
     {
     case CLERI_GID_CHAIN:
         return fmt__chain(fmt, nd, false);
+    case CLERI_GID_T_ANO:
+        return -(
+            buf_write(&fmt->buf, '&') ||
+            fmt__thing(fmt, nd)
+        );
     case CLERI_GID_T_FALSE:
     case CLERI_GID_T_FLOAT:
     case CLERI_GID_T_INT:

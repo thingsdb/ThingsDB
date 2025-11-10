@@ -47,6 +47,11 @@ static int do__f_map_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 ti_wrap_t * wtype = (ti_wrap_t *) val;
                 id = wtype->thing->id;
             }
+            else if (ti_val_is_wano(val))
+            {
+                ti_wano_t * wtype = (ti_wano_t *) val;
+                id = wtype->thing->id;
+            }
             else if (ti_val_is_room(val))
             {
                 ti_room_t * room = (ti_room_t *) val;

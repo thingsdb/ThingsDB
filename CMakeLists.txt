@@ -120,6 +120,7 @@ set(SOURCES
     src/cleri/tokens.c
     src/cleri/version.c
     src/ti/access.c
+    src/ti/ano.c
     src/ti/api.c
     src/ti/archfile.c
     src/ti/archive.c
@@ -226,6 +227,7 @@ set(SOURCES
     src/ti/vint.c
     src/ti/vset.c
     src/ti/vtask.c
+    src/ti/wano.c
     src/ti/warn.c
     src/ti/watch.c
     src/ti/web.c

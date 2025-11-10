@@ -3,17 +3,22 @@
 typedef struct
 {
     ti_type_t * type;
+    ti_ano_t * ano;
     ti_varr_t * varr;
     ex_t * e;
 } map_wrap__walk_t;
 
 static int map_wrap__walk_set(ti_thing_t * thing, map_wrap__walk_t * w)
 {
-    ti_wrap_t * wrap;
+    void * wrap;
 
     if (w->type)
     {
         wrap = ti_wrap_create(thing, w->type->type_id);
+    }
+    else if (w->ano)
+    {
+        wrap = ti_wano_create(thing, w->ano);
     }
     else if (ti_thing_is_instance(thing))
     {
@@ -45,6 +50,7 @@ static int do__f_map_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     size_t n;
     ti_varr_t * varr;
     ti_type_t * type = NULL;
+    ti_ano_t * ano = NULL;
     ti_val_t * iterable;
 
     doc = doc_map_wrap(query->rval);
@@ -61,21 +67,27 @@ static int do__f_map_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs == 1)
     {
         if (ti_do_statement(query, nd->children, e) ||
-            fn_arg_str("map_wrap", doc, 1, query->rval, e))
+            fn_arg_str_ano("map_wrap", doc, 1, query->rval, e))
             goto fail0;
 
-        type = query->collection
-            ? ti_types_by_raw(
-                    query->collection->types,
-                    (ti_raw_t *) query->rval)
-            : NULL;
-        if (!type)
+        if (ti_val_is_ano(query->rval))
         {
-            (void) ti_raw_err_not_found((ti_raw_t *) query->rval, "type", e);
-            goto fail0;
+            ano = (ti_ano_t *) query->rval;
         }
-
-        ti_val_unsafe_drop(query->rval);
+        else
+        {
+            type = query->collection
+                ? ti_types_by_raw(
+                        query->collection->types,
+                        (ti_raw_t *) query->rval)
+                : NULL;
+            if (!type)
+            {
+                (void) ti_raw_err_not_found((ti_raw_t *) query->rval, "type", e);
+                goto fail0;
+            }
+            ti_val_unsafe_drop(query->rval);
+        }
         query->rval = NULL;
     }
 
@@ -90,7 +102,7 @@ static int do__f_map_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_VAL_ARR:
         for (vec_each(VARR(iterable), ti_val_t, val))
         {
-            ti_wrap_t * wrap;
+            void * wrap;
             ti_thing_t * thing;
 
             if (!ti_val_is_thing(val))
@@ -108,6 +120,10 @@ static int do__f_map_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (type)
             {
                 wrap = ti_wrap_create(thing, type->type_id);
+            }
+            else if (ano)
+            {
+                wrap = ti_wano_create(thing, ano);
             }
             else if (ti_thing_is_instance(thing))
             {
@@ -134,6 +150,7 @@ static int do__f_map_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         map_wrap__walk_t w = {
                 .type=type,
+                .ano=ano,
                 .varr=varr,
                 .e=e,
         };
@@ -145,11 +162,13 @@ static int do__f_map_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     ti_val_unsafe_drop(iterable);
     query->rval = (ti_val_t *) varr;
+    ti_val_drop((ti_val_t *) ano);
     return e->nr;
 
 fail1:
     ti_val_unsafe_drop((ti_val_t *) varr);
 fail0:
     ti_val_unsafe_drop(iterable);
+    ti_val_drop((ti_val_t *) ano);
     return e->nr;
 }

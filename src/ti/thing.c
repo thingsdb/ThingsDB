@@ -426,6 +426,8 @@ int ti_thing_p_prop_add_assign(
     case TI_VAL_TASK:
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:
+    case TI_VAL_ANO:
+    case TI_VAL_WANO:
         ti_incref(val);
         break;
     case TI_VAL_ARR:
@@ -527,6 +529,8 @@ int ti_thing_i_item_add_assign(
     case TI_VAL_TASK:
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:
+    case TI_VAL_ANO:
+    case TI_VAL_WANO:
         ti_incref(val);
         break;
     case TI_VAL_ARR:

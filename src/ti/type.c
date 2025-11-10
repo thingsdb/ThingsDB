@@ -108,7 +108,8 @@ ti_type_t * ti_type_create_anonymous(
     type->type_id = TI_SPEC_TYPE;
     type->flags = TI_TYPE_FLAG_WRAP_ONLY|flags;
     type->name = strndup((const char *) name->data, name->n);
-    type->rname = ti_grab(name);  /* name must be equal to the master type;
+    type->rname = ti_grab(name);  /* for nested structure, name must be equal
+                                     to the master type;
                                      in fields.c, this is compared for
                                      circular references */
     type->wname = NULL;
@@ -173,9 +174,19 @@ static int type__map_cleanup(ti_type_t * t_haystack, ti_type_t * t_needle)
     return 0;
 }
 
+/* used as a callback function and removes all cached type mappings */
+static int type__map_cleanup_ano_cb(ti_ano_t * ano, ti_type_t * t_needle)
+{
+    return type__map_cleanup(ano->type, t_needle);
+}
+
 void ti_type_map_cleanup(ti_type_t * type)
 {
     (void) imap_walk(type->types->imap, (imap_cb) type__map_cleanup, type);
+    (void) smap_values(
+        type->types->collection->ano_types,
+        (smap_val_cb) type__map_cleanup_ano_cb,
+        type);
     imap_clear(type->t_mappings, (imap_destroy_cb) ti_map_destroy);
 }
 
@@ -399,9 +410,11 @@ static int type__init_type_cb(ti_item_t * item, ex_t * e)
     return e->nr;
 }
 
-ti_raw_t * ti__type_nested_from_val(ti_type_t * type, ti_val_t * val, ex_t * e)
+ti_raw_t * ti_type_spec_raw_from_thing(
+        ti_thing_t * thing,
+        ti_val_t * val,
+        ex_t * e)
 {
-    ti_thing_t * thing;
     ti_raw_t * spec_raw = NULL;
     msgpack_sbuffer buffer;
     ti_vp_t vp = {
@@ -409,6 +422,40 @@ ti_raw_t * ti__type_nested_from_val(ti_type_t * type, ti_val_t * val, ex_t * e)
         .size_limit=0x4000,   /* we do not expect much and since we use deep
                                  nesting, set a low size limit */
     };
+
+    if (ti_thing_is_dict(thing) &&
+        smap_values(thing->items.smap, (smap_val_cb) type__init_type_cb, e))
+        return NULL;
+
+    if (mp_sbuffer_alloc_init(&buffer, vp.size_limit, 0))
+    {
+        ex_set_mem(e);
+        return NULL;
+    }
+
+    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
+
+    if (ti_val_to_client_pk(val, &vp, TI_MAX_DEEP, TI_FLAGS_NO_IDS))
+    {
+        if (buffer.size > vp.size_limit)
+            ex_set(e, EX_VALUE_ERROR, "wpo type definition too large");
+        else
+            ex_set_mem(e);
+        goto fail0;
+    }
+
+    spec_raw = ti_mp_create((const unsigned char *) buffer.data, buffer.size);
+    if (!spec_raw)
+        ex_set_mem(e);
+
+fail0:
+    msgpack_sbuffer_destroy(&buffer);
+    return spec_raw;
+}
+
+ti_raw_t * ti__type_nested_from_val(ti_type_t * type, ti_val_t * val, ex_t * e)
+{
+    ti_thing_t * thing;
 
     if (ti_val_is_array(val))
     {
@@ -446,37 +493,18 @@ ti_raw_t * ti__type_nested_from_val(ti_type_t * type, ti_val_t * val, ex_t * e)
                     type->name);
         return NULL;
     }
+    return ti_type_spec_raw_from_thing(thing, val, e);
+}
 
-    if (ti_thing_is_dict(thing) &&
-        smap_values(thing->items.smap, (smap_val_cb) type__init_type_cb, e))
-        return NULL;
-
-    if (mp_sbuffer_alloc_init(&buffer, vp.size_limit, 0))
-    {
-        ex_set_mem(e);
-        return NULL;
-    }
-
-    msgpack_packer_init(&vp.pk, &buffer, msgpack_sbuffer_write);
-
-    if (ti_val_to_client_pk(val, &vp, TI_MAX_DEEP, TI_FLAGS_NO_IDS))
-    {
-        if (buffer.size > vp.size_limit)
-            ex_set(e, EX_VALUE_ERROR,
-                "nested type definition on type `%s` too large",
-                type->name);
-        else
-            ex_set_mem(e);
-        goto fail0;
-    }
-
-    spec_raw = ti_mp_create((const unsigned char *) buffer.data, buffer.size);
-    if (!spec_raw)
-        ex_set_mem(e);
-
-fail0:
-    msgpack_sbuffer_destroy(&buffer);
-    return spec_raw;
+_Bool ti_type_has_dependencies(ti_type_t * type)
+{
+    if (type->dependencies->n)
+        return true;
+    for (vec_each(type->fields, ti_field_t, field))
+        if (ti_field_is_nested(field) &&
+            ti_type_has_dependencies(field->condition.type))
+            return true;
+    return false;
 }
 
 static inline int type__assign(

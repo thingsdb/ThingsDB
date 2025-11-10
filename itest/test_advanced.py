@@ -1873,15 +1873,15 @@ new_procedure('multiply', |a, b| a * b);
                 thing({id}).func(); // requires a change
             """)
 
-    async def test_future_to_type(self, client):
+    async def test_future_or_wrap_ano_to_type(self, client):
         await client.query(r"""//ti
             set_type('A', {x: 'any'});
         """)
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'mismatch in type `A`; property `x` allows `any` type '
-                r"with the exception of the `future` and `module` type"):
+                r'mismatch in type `A`; property `x` allows `any` type with '
+                r'the exception of the `future` and `module` type'):
             await client.query("""//ti
                 A{
                     x: future(||nil)
@@ -2926,7 +2926,6 @@ mod_enum('E', 'mod', 'A', {
                 "age": 12,
             }]
         })
-
 
 
 if __name__ == '__main__':

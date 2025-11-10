@@ -13,6 +13,7 @@
 
 /* Collection API */
 #define DOC_ALT_RAISE               DOC_SEE("collection-api/alt_raise")
+#define DOC_ANO                     DOC_SEE("collection-api/ano")
 #define DOC_ASSERT                  DOC_SEE("collection-api/assert")
 #define DOC_BASE64_DECODE           DOC_SEE("collection-api/base64_decode")
 #define DOC_BASE64_ENCODE           DOC_SEE("collection-api/base64_encode")

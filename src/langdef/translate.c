@@ -19,11 +19,13 @@ const char * langdef_translate(cleri_t * elem)
     case CLERI_GID_OPR6_COMPARE:
     case CLERI_GID_OPR7_CMP_AND:
     case CLERI_GID_OPR8_CMP_OR:
+    case CLERI_GID_T_ANO:
     case CLERI_GID_T_FALSE:
     case CLERI_GID_T_INT:
     case CLERI_GID_T_NIL:
     case CLERI_GID_T_STRING:
     case CLERI_GID_T_TRUE:
+    case CLERI_GID_X_ANO:
     case CLERI_GID_X_ARRAY:
     case CLERI_GID_X_ASSIGN:
     case CLERI_GID_X_BLOCK:

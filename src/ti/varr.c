@@ -340,6 +340,7 @@ static int varr__copy(ti_val_t ** val, uint8_t deep)
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:
     case TI_VAL_CLOSURE:
+    case TI_VAL_ANO:
         return 0;
     case TI_VAL_THING:
         return ti_thing_copy((ti_thing_t **) val, deep);
@@ -354,6 +355,8 @@ static int varr__copy(ti_val_t ** val, uint8_t deep)
             if (varr__copy(v, deep))
                 return -1;
         return 0;
+    case TI_VAL_WANO:
+        return ti_wano_copy((ti_wano_t **) val, deep);
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
     case TI_VAL_SET:
@@ -383,6 +386,7 @@ static int varr__dup(ti_val_t ** val, uint8_t deep)
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:
     case TI_VAL_CLOSURE:
+    case TI_VAL_ANO:
         return 0;
     case TI_VAL_THING:
         return ti_thing_dup((ti_thing_t **) val, deep);
@@ -397,6 +401,8 @@ static int varr__dup(ti_val_t ** val, uint8_t deep)
             if (varr__dup(v, deep))
                 return -1;
         return 0;
+    case TI_VAL_WANO:
+        return ti_wano_dup((ti_wano_t **) val, deep);
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
     case TI_VAL_SET:

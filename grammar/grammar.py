@@ -51,6 +51,7 @@ class LangDef(Grammar):
     x_preopr = Regex(r'(\s*~)*(\s*!|\s*[\-+](?=[^0-9]))*')
     x_ternary = Token('?')
     x_thing = Token('{')
+    x_ano = Token('&{')
     x_template = Token('`')
 
     template = Sequence(
@@ -81,6 +82,7 @@ class LangDef(Grammar):
     chain = Ref()
 
     closure = Sequence(x_closure, List(var), '|', THIS)
+    t_ano = Sequence(x_ano, List(Sequence(name, ':', Optional(THIS))), '}')
 
     thing = Sequence(x_thing, List(Sequence(name, ':', Optional(THIS))), '}')
     array = Sequence(x_array, List(THIS), ']')
@@ -184,6 +186,7 @@ class LangDef(Grammar):
             t_int,
             t_string,
             t_regex,
+            t_ano,
             # end immutable values
             template,
             var_opt_more,

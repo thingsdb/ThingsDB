@@ -503,7 +503,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `base64_encode` expects argument 1 to be of '
-                r'type `str` or type `bytes` but got type `int` instead'):
+                r'type `str`, `bytes` or `mpdata` but got type `int` instead'):
             await client.query('base64_encode(1);')
 
         self.assertEqual(await client.query('base64_encode("");'), '')
@@ -2630,7 +2630,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'function `map_wrap` expects argument 1 to be of '
-                r'type `str` but got type `nil` instead;'):
+                r'type `str` or `<anonymous>` but got type `nil` instead;'):
             await client.query('[].map_wrap(nil);')
 
         with self.assertRaisesRegex(

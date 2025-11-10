@@ -3,8 +3,8 @@
 static int do__f_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
-    ti_type_t * type;
     ti_thing_t * thing;
+    ti_type_t * type;
 
     if (!ti_val_is_thing(query->rval))
         return fn_call_try("wrap", query, nd, e);
@@ -18,8 +18,16 @@ static int do__f_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (nargs == 1)
     {
         if (ti_do_statement(query, nd->children, e) ||
-            fn_arg_str("wrap", DOC_THING_WRAP, 1, query->rval, e))
+            fn_arg_str_ano("wrap", DOC_THING_WRAP, 1, query->rval, e))
             goto fail0;
+
+        if (ti_val_is_ano(query->rval))
+        {
+            ti_ano_t * ano = (ti_ano_t *) query->rval;
+            query->rval = (ti_val_t *) ti_wano_create(thing, ano);
+            ti_val_unsafe_drop((ti_val_t *) ano);
+            goto done;
+        }
 
         type = query->collection
             ? ti_types_by_raw(query->collection->types, (ti_raw_t *) query->rval)
@@ -47,6 +55,7 @@ static int do__f_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     query->rval = (ti_val_t *) ti_wrap_create(thing, type->type_id);
+done:
     if (!query->rval)
         ex_set_mem(e);
 

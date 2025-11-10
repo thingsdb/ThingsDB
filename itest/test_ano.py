@@ -92,6 +92,15 @@ class TestAno(TestBase):
                 &{nested: {t: 'T'}};
             """)
 
+        with self.assertRaisesRegex(
+                ValueError,
+                r'type keys must follow the naming rules'):
+            await q("""//ti
+                t = {};
+                t['key with spaces'] = 'str';
+                ano(t);
+            """)
+
     async def test_more_ano_props(self, q, r):
         res = await q("""//ti
                     .a = &{

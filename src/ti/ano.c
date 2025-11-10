@@ -128,13 +128,6 @@ ti_ano_t * ti_ano_from_raw(
         ti_ano_destroy(ano);
         return NULL;
     }
-    /* This is used for quickly loading equal ano from cache, its a weak
-     * ref and the call is not critical; It should be done here, and not
-     * init as we want to cache ano(..) calls, and loading from changes/stored
-     * on disk, but not from syntax in queries as they are cached as immutable
-     * variable; */
-
-
     return ano;
 }
 

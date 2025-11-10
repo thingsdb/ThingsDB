@@ -1,10 +1,11 @@
-# v1.8.2-alpha0
+# v1.8.2-alpha3
 
 * Allow converting `mpdata` to `bytes, issue #427.
 * Fixed: map cache for nested structure not cleared, issue #428.
 * Add global `enum` definition, issue #429.
 * Add _anonymous_ wrap only type syntax (`&{..}`), pr #430.
 * Added `ano()` function, pr #430.
+* Definition `*str` now exposes enumerator keys, issue #431.
 
 # v1.8.1
 

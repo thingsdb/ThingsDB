@@ -136,7 +136,6 @@ class TestWrap(TestBase):
                 nil.map_wrap(&{});
             ''')
 
-
     async def test_wrap_method(self, client):
         res = await client.query(r'''
             set_type('Math', {

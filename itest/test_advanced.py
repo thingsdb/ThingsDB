@@ -2928,6 +2928,5 @@ mod_enum('E', 'mod', 'A', {
         })
 
 
-
 if __name__ == '__main__':
     run_test(TestAdvanced())

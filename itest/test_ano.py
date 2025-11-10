@@ -64,7 +64,7 @@ class TestAno(TestBase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                r'expecting a nested structure \(`list` or `thing`\), ' \
+                r'expecting a nested structure \(`list` or `thing`\), '
                 r'a method of type `closure` or a definition '
                 r'of type `str` but got type `int` instead'):
             await q(
@@ -103,81 +103,81 @@ class TestAno(TestBase):
                     .a.f(20, 22);
                     """)
         self.assertEqual(res, 42)
-        r1, r2 = await q("""//ti
-                o = {
-                    name: 'Iris',
+        r1, r2 = await q(
+            """//ti
+            o = {
+                name: 'Iris',
+                numbers: [{
+                    x: 1,
+                    y: 2,
+                }, {
+                    x: 4,
+                }, {
+                    y: 5,
+                }]
+            };
+            [
+                o.wrap(&{
+                    name: |this| this.name.upper(),
                     numbers: [{
-                        x: 1,
-                        y: 2,
-                    }, {
-                        x: 4,
-                    }, {
-                        y: 5,
+                        x: 'int'
                     }]
-                };
-                [
-                    o.wrap(&{
-                        name: |this| this.name.upper(),
-                        numbers: [{
-                            x: 'int'
-                        }]
-                    }),
-                    o.wrap(ano({
-                        name: |this| this.name.upper(),
-                        numbers: [{
-                            x: 'int'
-                        }]
-                    })),
-                ];
-                """
-            )
+                }),
+                o.wrap(ano({
+                    name: |this| this.name.upper(),
+                    numbers: [{
+                        x: 'int'
+                    }]
+                })),
+            ];
+            """)
         self.assertEqual(r1, {
             "name": "IRIS",
-            "numbers": [{"x": 1,}, {"x": 4}, {}]
+            "numbers": [{"x": 1}, {"x": 4}, {}]
         })
         self.assertEqual(r1, r2)
-        await q("""//ti
-                o = {
-                    name: 'Iris',
-                    numbers: [{
-                        x: 1,
-                        y: 2,
-                    }, {
-                        x: 4,
-                    }, {
-                        y: 5,
-                    }]
-                };
-                .a1 = &{
+        await q(
+            """//ti
+            o = {
+                name: 'Iris',
+                numbers: [{
+                    x: 1,
+                    y: 2,
+                }, {
+                    x: 4,
+                }, {
+                    y: 5,
+                }]
+            };
+            .a1 = &{
+                name: |this| this.name.upper(),
+                numbers: [{
+                    x: 'int'
+                }]
+            };
+            .a2 = ano({
+                name: |this| this.name.upper(),
+                numbers: [{
+                    x: 'int'
+                }]
+            });
+            .wano = [
+                o.wrap(&{
                     name: |this| this.name.upper(),
                     numbers: [{
                         x: 'int'
                     }]
-                };
-                .a2 = ano({
+                }),
+                o.wrap(ano({
                     name: |this| this.name.upper(),
                     numbers: [{
                         x: 'int'
                     }]
-                });
-                .wano = [
-                    o.wrap(&{
-                        name: |this| this.name.upper(),
-                        numbers: [{
-                            x: 'int'
-                        }]
-                    }),
-                    o.wrap(ano({
-                        name: |this| this.name.upper(),
-                        numbers: [{
-                            x: 'int'
-                        }]
-                    })),
-                    o.wrap(.a1),
-                    o.wrap(.a2),
-                ];
-                """
-            )
+                })),
+                o.wrap(.a1),
+                o.wrap(.a2),
+            ];
+            """)
         r1, r2, r3, r4 = await q("""//ti
                          .wano;
                          """)
@@ -275,7 +275,6 @@ I guess we are good now...
         """)
         res = await q('.w;')
         self.assertEqual(res, {"nested": {'t': {'name': 'foo'}}})
-
 
 
 if __name__ == '__main__':

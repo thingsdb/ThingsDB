@@ -1117,6 +1117,71 @@ class TestEnum(TestBase):
                 'reached the maximum number of enumerators'):
             await client.query(r'''set_enum('E', {X: 0});''')
 
+    async def test_wrap_enum_name_str(self, client):
+        # bug #431
+        await client.query(
+            """//ti
+            set_enum('E', {A: 41, B: 42});
+            .e = E{B};
+            """)
+        res = await client.query("""//ti
+                           .wrap(&{e: 'str'})
+                           """)
+        self.assertEqual(res, {})
+        res = await client.query("""//ti
+                           .wrap(&{e: '*str'})
+                           """)
+        self.assertEqual(res, {"e": 'B'})
+        res = await client.query("""//ti
+                           .wrap(&{e: 'int'})
+                           """)
+        self.assertEqual(res, {"e": 42})
+        res = await client.query("""//ti
+                           .wrap(&{e: '*int'})
+                           """)
+        self.assertEqual(res, {})
+        res = await client.query("""//ti
+                           .wrap(&{e: 'enum'})
+                           """)
+        self.assertEqual(res, {"e": 42})
+        res = await client.query("""//ti
+                           .wrap(&{e: '*enum'})
+                           """)
+        self.assertEqual(res, {"e": 'B'})
+
+    async def test_wrap_enum_name_str_on_type(self, client):
+        # bug #431 (like above, but then a type mapping)
+        await client.query(
+            """//ti
+            set_enum('E', {A: 41, B: 42});
+            set_type('R', {e: 'E'});
+            .to_type('R');
+            """)
+        res = await client.query("""//ti
+                           .wrap(&{e: 'str'})
+                           """)
+        self.assertEqual(res, {})
+        res = await client.query("""//ti
+                           .wrap(&{e: '*str'})
+                           """)
+        self.assertEqual(res, {"e": 'A'})
+        res = await client.query("""//ti
+                           .wrap(&{e: 'int'})
+                           """)
+        self.assertEqual(res, {"e": 41})
+        res = await client.query("""//ti
+                           .wrap(&{e: '*int'})
+                           """)
+        self.assertEqual(res, {})
+        res = await client.query("""//ti
+                           .wrap(&{e: 'enum'})
+                           """)
+        self.assertEqual(res, {"e": 41})
+        res = await client.query("""//ti
+                           .wrap(&{e: '*enum'})
+                           """)
+        self.assertEqual(res, {"e": 'A'})
+
 
 if __name__ == '__main__':
     run_test(TestEnum())

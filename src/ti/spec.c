@@ -436,15 +436,21 @@ ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t * val)
             : TI_SPEC_RVAL_TYPE_ERROR;
 }
 
-_Bool ti__spec_maps_to_nested_val(uint16_t spec, ti_val_t * val)
+_Bool ti__spec_maps_to_nested_val(ti_field_t * field, ti_val_t * val)
 {
-    assert(~spec & TI_SPEC_NILLABLE);
+    uint16_t spec = field->nested_spec & TI_SPEC_MASK_NILLABLE;
 
     if (spec >= TI_ENUM_ID_FLAG)
         return ti_spec_enum_eq_to_val(spec, val);
 
     if (ti_val_is_member(val))
-        val = VMEMBER(val);
+    {
+        if (spec == TI_SPEC_ENUM)
+            return true;
+        val = (field->flags & TI_FIELD_FLAG_ENAME)
+            ? (ti_val_t *) ((ti_member_t *) val)->name
+            : VMEMBER(val);
+    }
 
     switch ((ti_spec_enum_t) spec)
     {

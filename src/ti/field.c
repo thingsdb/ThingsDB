@@ -931,7 +931,6 @@ invalid:
         DOC_T_TYPE,
         field->name->str, field->type->name,
         field->spec_raw->n, (const char *) field->spec_raw->data);
-
     return e->nr;
 
 circular_dep:
@@ -1699,7 +1698,7 @@ static _Bool field__maps_arr_to_arr(ti_field_t * field, ti_varr_t * varr)
         return true;
 
     for (vec_each(varr->vec, ti_val_t, val))
-        if (!ti_spec_maps_to_nested_val(field->nested_spec, val))
+        if (!ti_spec_maps_to_nested_val(field, val))
             return false;
 
     return true;
@@ -1715,7 +1714,7 @@ static _Bool field__maps_arr_to_type(ti_varr_t * varr)
 
 static int field__map_restrict_cb(ti_prop_t * prop, ti_field_t * field)
 {
-    return !ti_spec_maps_to_nested_val(field->nested_spec, prop->val);
+    return !ti_spec_maps_to_nested_val(field, prop->val);
 }
 
 static _Bool field__maps_restricted(ti_field_t * field, ti_thing_t * thing)
@@ -1736,7 +1735,7 @@ static _Bool field__maps_restricted(ti_field_t * field, ti_thing_t * thing)
                 field);
 
     for (vec_each(thing->items.vec, ti_prop_t, prop))
-        if (!ti_spec_maps_to_nested_val(field->nested_spec, prop->val))
+        if (!ti_spec_maps_to_nested_val(field, prop->val))
             return false;
 
     return true;
@@ -2211,7 +2210,14 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
         return ti_spec_enum_eq_to_val(spec, val);
 
     if (ti_val_is_member(val))
-        val = VMEMBER(val);
+    {
+        if (spec == TI_SPEC_ENUM)
+            return true;
+
+        val = (field->flags & TI_FIELD_FLAG_ENAME)
+            ? (ti_val_t *) ((ti_member_t *) val)->name
+            : VMEMBER(val);
+    }
 
     switch ((ti_spec_enum_t) spec)
     {
@@ -2340,12 +2346,20 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
 
     if (f_spec >= TI_ENUM_ID_FLAG)
     {
-        ti_enum_t * enum_ = ti_enums_by_id(
-                f_field->type->types->collection->enums,
-                f_spec & TI_ENUM_ID_MASK);
-        f_spec = ti_enum_spec(enum_);
         if (t_spec == TI_SPEC_ENUM)
             return true;
+
+        if (t_field->flags & TI_FIELD_FLAG_ENAME)
+        {
+            f_spec = TI_SPEC_STR;
+        }
+        else
+        {
+            ti_enum_t * enum_ = ti_enums_by_id(
+                f_field->type->types->collection->enums,
+                f_spec & TI_ENUM_ID_MASK);
+            f_spec = ti_enum_spec(enum_);
+        }
     }
 
     if (t_spec == f_spec)
@@ -2439,12 +2453,20 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
 
     if (f_spec >= TI_ENUM_ID_FLAG)
     {
-        ti_enum_t * enum_ = ti_enums_by_id(
-                f_field->type->types->collection->enums,
-                f_spec & TI_ENUM_ID_MASK);
-        f_spec = ti_enum_spec(enum_);
         if (t_spec == TI_SPEC_ENUM)
             return true;
+
+        if (t_field->flags & TI_FIELD_FLAG_ENAME)
+        {
+            f_spec = TI_SPEC_STR;
+        }
+        else
+        {
+            ti_enum_t * enum_ = ti_enums_by_id(
+                f_field->type->types->collection->enums,
+                f_spec & TI_ENUM_ID_MASK);
+            f_spec = ti_enum_spec(enum_);
+        }
     }
 
     switch ((ti_spec_enum_t) t_spec)

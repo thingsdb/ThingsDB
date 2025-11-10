@@ -146,6 +146,7 @@ int ti_thing_o_ren(
         const char * nstr,
         size_t nn,
         ex_t * e);
+int ti_thing_id_to_client_pk(ti_thing_t * thing, msgpack_packer * pk);
 
 #if TI_IS64BIT
 #define THING__KEY_SHIFT 3
@@ -171,19 +172,6 @@ static inline _Bool ti_thing_is_dict(ti_thing_t * thing)
 static inline _Bool ti_thing_is_instance(ti_thing_t * thing)
 {
     return thing->type_id != TI_SPEC_OBJECT;
-}
-
-static inline int ti_thing_id_to_client_pk(ti_thing_t * thing, msgpack_packer * pk)
-{
-    register const ti_name_t * name = ti_thing_is_instance(thing)
-            ? thing->via.type->idname
-            : NULL;
-    return -(
-            msgpack_pack_map(pk,1) || (name
-                ? mp_pack_strn(pk, name->str, name->n)
-                : mp_pack_strn(pk, TI_KIND_S_THING, 1)) ||
-            msgpack_pack_uint64(pk, thing->id)
-    );
 }
 
 static inline int ti_thing_empty_to_client_pk(msgpack_packer * pk)

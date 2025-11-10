@@ -1054,6 +1054,19 @@ fail0:
     return e->nr;
 }
 
+int ti_thing_id_to_client_pk(ti_thing_t * thing, msgpack_packer * pk)
+{
+    register const ti_name_t * name = ti_thing_is_instance(thing)
+            ? thing->via.type->idname
+            : NULL;
+    return -(
+            msgpack_pack_map(pk,1) || (name
+                ? mp_pack_strn(pk, name->str, name->n)
+                : mp_pack_strn(pk, TI_KIND_S_THING, 1)) ||
+            msgpack_pack_uint64(pk, thing->id)
+    );
+}
+
 static _Bool thing_p__get_by_name(
         ti_wprop_t * wprop,
         ti_thing_t * thing,

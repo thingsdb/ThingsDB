@@ -55,6 +55,7 @@ int ti_ano_init(
         goto fail0;
     }
 
+    /* can't be a dict; this is not allowed by the &{..} and ano() function */
     for (vec_each(((ti_thing_t *) val)->items.vec, ti_prop_t, prop))
     {
         ti_raw_t * sr = (ti_raw_t *) prop->val;

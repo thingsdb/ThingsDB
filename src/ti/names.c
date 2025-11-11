@@ -10,12 +10,17 @@
 #include <util/vec.h>
 
 smap_t * names;
-
+uint32_t _common_names_n;
 
 int ti_names_create(void)
 {
     names = ti.names = smap_create();
     return -(names == NULL);
+}
+
+void ti_names_upd_common(void)
+{
+    _common_names_n = names->n;
 }
 
 int names__no_ref_cb(ti_name_t * name, void * UNUSED(arg))
@@ -26,9 +31,8 @@ int names__no_ref_cb(ti_name_t * name, void * UNUSED(arg))
 
 _Bool ti_names_no_ref(void)
 {
-    const uint32_t COMMON_NAMES = 24;
-    if (names->n != COMMON_NAMES)
-        return -1;
+    if (names->n != _common_names_n)
+        return false;
     return smap_values(names, (smap_val_cb) names__no_ref_cb, NULL) == 0;
 }
 
@@ -129,6 +133,7 @@ void ti_names_inject_common(void)
     (void) ti_names_from_str_slow("yajl_version");
     (void) ti_names_from_str_slow("zone");
 #endif
+    ti_names_upd_common();  /* for sanity check */
 }
 
 /*

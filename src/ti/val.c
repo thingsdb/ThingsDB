@@ -873,11 +873,14 @@ int ti_val_init_common(void)
     {
         return -1;
     }
+
+    ti_names_upd_common();  /* for sanity check */
     return 0;
 }
 
 void ti_val_drop_common(void)
 {
+    /* names must not be dropped (handled and sanity checked by names) */
     ti_val_drop(val__empty_bin);
     ti_val_drop(val__empty_str);
     ti_val_drop(val__default_closure);

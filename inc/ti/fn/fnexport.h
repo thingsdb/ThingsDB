@@ -42,13 +42,6 @@ static int do__f_export(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         fn_nargs_max("export", DOC_EXPORT, 1, nargs, e))
         return e->nr;
 
-    if (query->change || query->futures.n)
-    {
-        ex_set(e, EX_OPERATION,
-                "function `export` must not be used with a change or future");
-        return e->nr;
-    }
-
     if (nargs == 1)
     {
         ti_thing_t * thing;
@@ -69,6 +62,13 @@ static int do__f_export(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
+    }
+
+    if (query->change || query->futures.n)
+    {
+        ex_set(e, EX_OPERATION,
+                "function `export` must not be used with a change or future");
+        return e->nr;
     }
 
     query->rval = dump

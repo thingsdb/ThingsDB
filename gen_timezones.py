@@ -12,7 +12,7 @@ import re
 
 
 TZ_LINE = re.compile(
-    '^\s+\{\.name\=\"([\w\_\/\-\+]+)\"\}\,.*')
+        r'^\s+\{\.name\=\"([\w\_\/\-\+]+)\"\}\,.*')
 
 
 def update_info(lines):

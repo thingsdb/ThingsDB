@@ -30,7 +30,7 @@ def update_info(lines):
             break
 
     if last_line is None:
-        raise 'no matching lines are found'
+        raise Exception('no matching lines are found')
 
     for zone in pytz.all_timezones:
         if zone not in lookup:
@@ -65,4 +65,3 @@ if __name__ == '__main__':
     else:
         pprint.pprint(zones)
         print(f'\n{len(zones)} zone(s) found, use `--apply` to add the zones')
-

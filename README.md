@@ -1,5 +1,6 @@
 [![CI](https://github.com/thingsdb/ThingsDB/workflows/CI/badge.svg)](https://github.com/thingsdb/ThingsDB/actions)
 [![Release Version](https://img.shields.io/github/release/thingsdb/ThingsDB)](https://github.com/thingsdb/ThingsDB/releases)
+[![Github stargazers](https://img.shields.io/github/stars/thingsdb/ThingsDB)](https://github.com/thingsdb/ThingsDB/stargazers)
 
 # ThingsDB Node
 

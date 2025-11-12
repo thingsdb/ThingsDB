@@ -1,6 +1,7 @@
 # v1.8.3-alpha0
 
 * Added the `America/Coyhaique` time zone, pr #432.
+* Optimize `del_history` task _(use single loop)_, pr #433.
 
 # v1.8.2
 

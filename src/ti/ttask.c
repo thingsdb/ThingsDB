@@ -787,7 +787,8 @@ static int ttask__del_history(mp_unp_t * up)
             log_critical("task `del_history`: invalid task data");
             return -1;
         }
-
+        /* we can use a single loop as we're sure the commits in the list are
+         * ordered from high to low */
         for (vec_each_rev(*commits, ti_commit_t, commit) j--)
         {
             if (commit->id == mp_id.via.u64)

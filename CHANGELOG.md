@@ -1,3 +1,7 @@
+# v1.8.3-alpha0
+
+* Added the `America/Coyhaique` time zone
+
 # v1.8.2
 
 * Allow converting `mpdata` to `bytes`, issue #427.

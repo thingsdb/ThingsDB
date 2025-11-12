@@ -463,6 +463,7 @@ vec_t * ti_commits_del(vec_t ** commits, ti_commits_options_t * options)
     if (!vec)
         return NULL;
 
+    /* must push from high to low as the `del_history` depends on this order */
     commits__init(*commits, options, &begin, &end);
     while (begin < end)
     {

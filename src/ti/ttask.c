@@ -750,7 +750,6 @@ static int ttask__del_history(mp_unp_t * up)
 {
     vec_t ** commits;
     mp_obj_t obj, mp_scope, mp_id;
-    size_t i;
 
     if (mp_next(up, &obj) != MP_ARR || obj.via.sz != 2 ||
         mp_next(up, &mp_scope) != MP_U64 ||
@@ -779,21 +778,30 @@ static int ttask__del_history(mp_unp_t * up)
         commits = &ti.commits;
     }
 
-    for (i = obj.via.sz; i--;)
+    if (obj.via.sz)
     {
-        uint32_t j = 0;
+        uint32_t i = obj.via.sz, j = (*commits)->n-1;
+
         if (mp_next(up, &mp_id) != MP_U64)
         {
             log_critical("task `del_history`: invalid task data");
             return -1;
         }
-
-        for (vec_each(*commits, ti_commit_t, commit), j++)
+        /* we can use a single loop as we're sure the commits in the list are
+         * ordered from high to low */
+        for (vec_each_rev(*commits, ti_commit_t, commit) j--)
         {
             if (commit->id == mp_id.via.u64)
             {
                 ti_commit_destroy(vec_remove(*commits, j));
-                break;
+                if (!(--i))
+                    break;
+
+                if (mp_next(up, &mp_id) != MP_U64)
+                {
+                    log_critical("task `del_history`: invalid task data");
+                    return -1;
+                }
             }
         }
     }

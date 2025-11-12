@@ -1,6 +1,6 @@
 # v1.8.3-alpha0
 
-* Added the `America/Coyhaique` time zone
+* Added the `America/Coyhaique` time zone, pr #432.
 
 # v1.8.2
 

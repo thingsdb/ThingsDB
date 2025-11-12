@@ -625,7 +625,7 @@ class TestDatetime(TestBase):
             await client.query('time_zones_info(nil);', scope='@t')
 
         res = await client.query('time_zones_info();', scope='@t')
-        self.assertEqual(len(res), 596)
+        self.assertEqual(len(res), 597)
 
         for tz in res:
             self.assertIsInstance(tz, str)

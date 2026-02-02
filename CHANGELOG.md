@@ -1,7 +1,8 @@
-# v1.8.3-alpha1
+# v1.8.3-alpha2
 
 * Added the `America/Coyhaique` time zone, pr #432.
 * Optimize `del_history` task _(use single loop)_, pr #433.
+* Fixed setting `MHT` flag after using `map_type()`, issue #434.
 
 # v1.8.2
 

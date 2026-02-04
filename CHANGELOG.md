@@ -1,6 +1,6 @@
 # v1.8.4-alpha0
 
-* Added `--auto-rebuild` flag, pr
+* Added `--auto-rebuild` flag, pr #435.
 
 # v1.8.3
 

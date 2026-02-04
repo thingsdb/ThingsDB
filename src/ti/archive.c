@@ -1,6 +1,8 @@
 /*
  * ti/archive.c
  */
+#define _GNU_SOURCE
+#include <dirent.h>
 #include <assert.h>
 #include <ctype.h>
 #include <stdlib.h>

@@ -1497,7 +1497,6 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
         ti_val_t * val;
         for (vec_each(type->fields, ti_field_t, field))
         {
-
             prop = ti_thing_o_prop_weak_get(from, field->name);
             if (!prop)
             {

@@ -98,8 +98,8 @@ class Node:
         await self.expect(
             'start listening for node connections', timeout=timeout)
 
-    async def run(self, timeout: int = 5):
-        self.start()
+    async def run(self, timeout: int = 5, auto_rebuild: bool = False):
+        self.start(auto_rebuild=auto_rebuild)
         await self.expect(
             'start listening for node connections', timeout=timeout)
 
@@ -245,7 +245,7 @@ class Node:
                 self.n == THINGSDB_NODE_OUTPUT):
             print(Color.node(self.n, m.group(1)))
 
-    def start(self, init=None, secret=None):
+    def start(self, init=None, secret=None, auto_rebuild=False):
         self.queue = asyncio.Queue()
 
         command = THINGSDB_MEMCHECK + [
@@ -259,6 +259,9 @@ class Node:
             command.append('--init')
         elif secret:
             command.extend(['--secret', secret])
+
+        if auto_rebuild:
+            command.append('--auto-rebuild')
 
         r, w = os.pipe()
         w = os.fdopen(w, 'w')

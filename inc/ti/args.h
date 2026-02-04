@@ -20,6 +20,7 @@ struct ti_args_s
     int32_t init;
     int32_t log_colorized;
     int32_t rebuild;
+    int32_t auto_rebuild;
     int32_t forget_nodes;
     int32_t yes;
     int32_t version;

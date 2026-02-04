@@ -29,6 +29,7 @@ int ti_args_create(void)
     args->init = 0;
     args->log_colorized = 0;
     args->rebuild = 0;
+    args->auto_rebuild = 0;
     args->forget_nodes = 0;
     args->version = 0;
 
@@ -128,6 +129,18 @@ int ti_args_parse(int argc, char *argv[])
         .choices = NULL,
     };
 
+    argparse_argument_t auto_rebuild_ = {
+        .name = "auto-rebuild",
+        .shortcut = 0,
+        .help = "auto rebuild this node on failed (can only be used when having >1 nodes)",
+        .action = ARGPARSE_STORE_TRUE,
+        .default_int32_t = 0,
+        .pt_value_int32_t = &args->auto_rebuild,
+        .str_default = NULL,
+        .str_value = NULL,
+        .choices = NULL,
+    };
+
     argparse_argument_t forget_nodes_ = {
         .name = "forget-nodes",
         .shortcut = 0,
@@ -194,6 +207,7 @@ int ti_args_parse(int argc, char *argv[])
             argparse_add_argument(parser, &force_) ||
             argparse_add_argument(parser, &secret_) ||
             argparse_add_argument(parser, &rebuild_) ||
+            argparse_add_argument(parser, &auto_rebuild_) ||
             argparse_add_argument(parser, &forget_nodes_) ||
             argparse_add_argument(parser, &yes_) ||
             argparse_add_argument(parser, &version_) ||
@@ -283,7 +297,6 @@ int ti_args_parse(int argc, char *argv[])
                 rc = -1;
             }
         }
-
     }
 
     if (parser->show_help)

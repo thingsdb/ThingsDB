@@ -254,8 +254,26 @@ load:
         }
         else if ((rc = ti_store_restore()))
         {
-            printf("error loading ThingsDB\n");
-            goto stop;
+            if (ti.args->auto_rebuild && ti.nodes->vec->n >= 2)
+            {
+                printf(
+                    "*********************************\n"
+                    "  Failed to load ThingsDB\n"
+                    "  Starting Auto Rebuild ...\n"
+                    "*********************************\n");
+                if ((rc = ti_rebuild()))
+                {
+                    printf("error initiating auto rebuild\n");
+                    goto stop;
+                }
+            }
+            else
+            {
+                printf(
+                    "error loading ThingsDB; "
+                    "you might want to try --rebuild or --auto-rebuild\n");
+                goto stop;
+            }
         }
     }
     else

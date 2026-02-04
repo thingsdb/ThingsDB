@@ -1,3 +1,7 @@
+# v1.8.4-alpha0
+
+* Added `--auto-rebuild` flag, pr
+
 # v1.8.3
 
 * Added the `America/Coyhaique` time zone, pr #432.

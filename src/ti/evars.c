@@ -93,6 +93,9 @@ void ti_evars_arg_parse(void)
     evars__bool_arg(
             "THINGSDB_DEPLOY",
             &ti.args->deploy);
+    evars__bool_arg(
+            "THINGSDB_AUTO_REBUILD",
+            &ti.args->auto_rebuild);
     evars__str_arg(
             "THINGSDB_SECRET",
             ti.args->secret);

@@ -36,7 +36,7 @@ static int do__f_type_all(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
         /* create cache if needed for next call to be fast;
          * no need to check, it might fail which is okay */
-        if (!type->t_cache && (type->flags & TI_TYPE_FLAG_AUTO_CACHE))
+        if (ti_type_auto_cache(type) && !type->t_cache)
             type->t_cache = imap_dup(imap, false);
 
         vset = ti_vset_create_imap(imap);

@@ -1229,7 +1229,7 @@ ti_val_t * ti_type_as_mpval(ti_type_t * type, _Bool with_definition)
     mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    if (msgpack_pack_map(&pk, 9) ||
+    if (msgpack_pack_map(&pk, 10) ||
         mp_pack_str(&pk, "type_id") ||
         msgpack_pack_uint16(&pk, type->type_id) ||
 
@@ -1241,6 +1241,9 @@ ti_val_t * ti_type_as_mpval(ti_type_t * type, _Bool with_definition)
 
         mp_pack_str(&pk, "hide_id") ||
         mp_pack_bool(&pk, ti_type_hide_id(type)) ||
+
+        mp_pack_str(&pk, "auto_cache") ||
+        mp_pack_bool(&pk, ti_type_auto_cache(type)) ||
 
         mp_pack_str(&pk, "created_at") ||
         msgpack_pack_uint64(&pk, type->created_at) ||
@@ -1473,10 +1476,7 @@ int ti_type_convert(
     thing->via.type = type;
     thing->items.vec = w.vec;
     if (type->t_cache && imap_add(type->t_cache, ti_thing_key(thing), thing))
-    {
-        imap_destroy(type->t_cache, NULL);
-        type->t_cache = NULL;
-    }
+        ti_type_auto_cache_clear(type);
     return e->nr;
 
 fail0:

@@ -1154,7 +1154,6 @@ do__fixed_t do__fixed_mapping[TOTAL_KEYWORDS] = {
     {.name="INT_MAX",               .tp=TI_VAL_INT, .via.i=LLONG_MAX},
     {.name="MATH_E",                .tp=TI_VAL_FLOAT, .via.d=M_E},
     {.name="MATH_PI",               .tp=TI_VAL_FLOAT, .via.d=M_PI},
-    
 };
 
 static do__fixed_t * do__fixed_map[MAX_HASH_VALUE+1];

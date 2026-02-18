@@ -108,11 +108,10 @@ ti_thing_t * ti_thing_t_create(
         ti_thing_destroy(thing);
         return NULL;
     }
+
     if (type->t_cache && imap_add(type->t_cache, ti_thing_key(thing), thing))
-    {
-        imap_destroy(type->t_cache, NULL);
-        type->t_cache = NULL;
-    }
+        ti_type_auto_cache_clear(type);
+
     return thing;
 }
 

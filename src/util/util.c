@@ -74,3 +74,33 @@ void util_random_key(char * buf, size_t n)
         buf[n] = util__charset[idx % uril__charset_sz];
     }
 }
+
+void uuid_v7(uint8_t uuid[16])
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+
+    uint64_t ms = (uint64_t)tv.tv_sec * 1000 + (uint64_t)tv.tv_usec / 1000;
+    uuid[0] = (ms >> 40) & 0xFF;
+    uuid[1] = (ms >> 32) & 0xFF;
+    uuid[2] = (ms >> 24) & 0xFF;
+    uuid[3] = (ms >> 16) & 0xFF;
+    uuid[4] = (ms >> 8) & 0xFF;
+    uuid[5] = ms & 0xFF;
+
+#ifndef __APPLE__
+    if (syscall(SYS_getrandom, &uuid[6], 10, GRND_NONBLOCK) != 10)
+#endif
+    {
+        unsigned char * c = &uuid[6];
+        size_t n = 10;
+        while (n--)
+        {
+            *c = (unsigned char) (rand() % 255);
+            ++c;
+        }
+    }
+
+    uuid[6] = (uuid[6] & 0x0F) | 0x70;
+    uuid[8] = (uuid[8] & 0x3F) | 0x80;
+}

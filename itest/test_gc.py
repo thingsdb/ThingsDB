@@ -19,6 +19,13 @@ class TestGC(TestBase):
         stuff = '@:stuff'
 
         await client.query(r'''
+            new_type("A");
+            new_type("B");
+            set_type("A", {b: 'B?'});
+            set_type("B", {a: 'A?'});
+            mod_type("A", "rel", "b", "a");
+            .A = A{};
+            .A.b = B{};
             .a = {};
             .a.other = {theanswer: 42, ref: .a};
             .x = .a.other;
@@ -59,6 +66,7 @@ class TestGC(TestBase):
 
             id = .other.id();
             .del('other');
+            .del('A');
             id;
         ''', scope=stuff)
 
@@ -66,6 +74,18 @@ class TestGC(TestBase):
                 LookupError,
                 r'collection `stuff` has no `thing` with id [0-9]+'):
             await client.query(f'thing({other_id});', scope=stuff)
+
+        # bug #438
+        for _ in range(50):
+            await client.query('wse();', scope=stuff)
+        await asyncio.sleep(5.0)
+        for _ in range(50):
+            await client.query('wse();', scope=stuff)
+        await asyncio.sleep(5.0)
+        n = await client.query(
+            'collection_info("stuff").load().things;',
+            scope='/t')
+        self.assertEqual(n, 3)
 
         await self.node0.shutdown()
         await self.node0.run()

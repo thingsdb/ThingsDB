@@ -12,12 +12,18 @@
 #define IMAP_NODE_SZ 32
 
 static int imap__nodes_dup(imap_node_t * dest, imap_node_t * node);
+static int imap__node_dup_cb(imap_node_t * node, _Bool incref);
 
 static imap_node_t imap__empty_node = {
         .data = NULL,
         .nodes = NULL,
         .sz = 0,
 };
+
+static inline void imap__nodes_dec(void * data)
+{
+    ti_decref((ti_ref_t *) data);
+}
 
 static inline uint8_t imap__node_size(imap_node_t * node)
 {
@@ -186,7 +192,7 @@ imap_t * imap_dup(imap_t * imap, _Bool incref)
                 if (nd->nodes)
                     imap__node_destroy_cb(nd->nodes, imap__nodes_dec);
             }
-            while (--nd >= dst);
+            while (--nd >= dst->nodes);
             goto failed;
         }
     }
@@ -201,7 +207,6 @@ failed:
 static int imap__node_dup_cb(imap_node_t * node, _Bool incref)
 {
     size_t total_sz = sizeof(imap_node_t) * imap__node_size(node);
-    imap_node_t * src = node->nodes;
     imap_node_t * dst = malloc(total_sz);
     if (!dst)
         goto failed;
@@ -1655,11 +1660,6 @@ int imap_symmdiff_make(imap_t * dest, imap_t * a, imap_t * b)
         }
     }
     return 0;
-}
-
-static inline void imap__nodes_dec(void * data)
-{
-    ti_decref((ti_ref_t *) data);
 }
 
 static int imap__nodes_dup(imap_node_t * dest, imap_node_t * node)

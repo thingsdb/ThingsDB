@@ -134,6 +134,11 @@ static inline _Bool ti_type_hide_id(ti_type_t * type)
     return type->flags & TI_TYPE_FLAG_HIDE_ID;
 }
 
+static inline _Bool ti_type_auto_cache(ti_type_t * type)
+{
+    return type->flags & TI_TYPE_FLAG_AUTO_CACHE;
+}
+
 static inline void ti_type_set_wrap_only_mode(ti_type_t * type, _Bool wpo)
 {
     if (wpo)

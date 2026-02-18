@@ -82,6 +82,7 @@ ti_type_t * ti_type_create(
     type->created_at = created_at;
     type->modified_at = modified_at;
     type->methods = vec_new(0);
+    type->t_cache = NULL;
 
     if (!type->name || !type->wname || !type->dependencies || !type->fields ||
         !type->rname || !type->rwname || !type->t_mappings || !type->methods ||
@@ -122,6 +123,7 @@ ti_type_t * ti_type_create_anonymous(
     type->created_at = 0;
     type->modified_at = 0;
     type->methods = vec_new(0);
+    type->t_cache = NULL;
 
     if (!type->name || !type->dependencies || !type->fields ||
         !type->rname || !type->t_mappings || !type->methods)
@@ -135,6 +137,9 @@ ti_type_t * ti_type_create_anonymous(
 
 imap_t * ti_type_collect_things(ti_query_t * query, ti_type_t * type)
 {
+    if (type->t_cache)
+        return imap_dup(type->t_cache, true);
+
     type__collect_t collect = {
             .imap = imap_create(),
             .type = type,
@@ -160,7 +165,6 @@ imap_t * ti_type_collect_things(ti_query_t * query, ti_type_t * type)
         imap_destroy(collect.imap, (imap_destroy_cb) ti_val_unsafe_drop);
         return NULL;
     }
-
     return collect.imap;
 }
 
@@ -254,6 +258,7 @@ void ti_type_destroy(ti_type_t * type)
     vec_destroy(type->fields, (vec_destroy_cb) ti_field_destroy);
     vec_destroy(type->methods, (vec_destroy_cb) ti_method_destroy);
     imap_destroy(type->t_mappings, (imap_destroy_cb) ti_map_destroy);
+    imap_destroy(type->t_cache, NULL);
     ti_val_drop((ti_val_t *) type->rname);
     ti_val_drop((ti_val_t *) type->rwname);
     ti_val_drop((ti_val_t *) type->idname);
@@ -1467,6 +1472,11 @@ int ti_type_convert(
     thing->type_id = type->type_id;
     thing->via.type = type;
     thing->items.vec = w.vec;
+    if (type->t_cache && imap_add(type->t_cache, ti_thing_key(thing), thing))
+    {
+        imap_destroy(type->t_cache, NULL);
+        type->t_cache = NULL;
+    }
     return e->nr;
 
 fail0:

@@ -510,8 +510,8 @@ static void away__trigger_cb(uv_timer_t * UNUSED(repeat))
         {
                 log_debug("start single node away loop (blocking)");
 
-                /* set the global stored change Id */
-                ti.global_stored_change_id = ti_nodes_scid();  /* bug*/
+                /* set the global stored change Id (bug #438) */
+                ti.global_stored_change_id = ti_nodes_scid();
 
                 ti_flag_set(TI_FLAG_NO_SLEEP);
                 away__work(NULL);

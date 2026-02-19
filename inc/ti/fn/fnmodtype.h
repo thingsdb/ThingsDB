@@ -1493,9 +1493,9 @@ static void type__idx(
 
     nd = nd->children->next->next->next->next;
 
-    if (fn_nargs(fnname, DOC_MOD_TYPE_HID, 3, nargs, e) ||
+    if (fn_nargs(fnname, DOC_MOD_TYPE_IDX, 3, nargs, e) ||
         ti_do_statement(query, nd, e) ||
-        fn_arg_bool(fnname, DOC_MOD_TYPE_HID, 3, query->rval, e))
+        fn_arg_bool(fnname, DOC_MOD_TYPE_IDX, 3, query->rval, e))
         return;
 
     index = ti_val_as_bool(query->rval);

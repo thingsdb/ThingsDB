@@ -28,7 +28,7 @@ static int do__f_del_backup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = NULL;
 
         if (ti_do_statement(query, nd->children->next->next, e) ||
-            fn_arg_bool("del_backup", DOC_DEL_BACKUP, 2, query->rval, e))
+            fn_arg_bool_slow("del_backup", DOC_DEL_BACKUP, 2, query->rval, e))
             return e->nr;
 
         delete_files = ti_val_as_bool(query->rval);

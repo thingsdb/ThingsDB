@@ -133,7 +133,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
          *                flags in version 1.8.4. At some point, we should
          *                log the use for this and later remove the coce. */
         if (ti_do_statement(query, (child = child->next->next), e) ||
-            fn_arg_bool("set_type", DOC_SET_TYPE, 3, query->rval, e))
+            fn_arg_bool_slow("set_type", DOC_SET_TYPE, 3, query->rval, e))
             goto fail2;
 
         wpo = ti_val_as_bool(query->rval);
@@ -141,7 +141,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = NULL;
 
         if (ti_do_statement(query, (child = child->next->next), e) ||
-            fn_arg_bool("set_type", DOC_SET_TYPE, 4, query->rval, e))
+            fn_arg_bool_slow("set_type", DOC_SET_TYPE, 4, query->rval, e))
             goto fail2;
 
         hid = ti_val_as_bool(query->rval);

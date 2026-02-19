@@ -241,4 +241,10 @@ static inline ti_raw_t * ti_thing_str(ti_thing_t * thing)
         : ti_str_from_fmt("%s:nil", thing->via.type->name);
 }
 
+static inline void ti_thing_t_vcache_drop(ti_thing_t * thing)
+{
+    if (thing->via.type->t_cache)
+        (void) imap_pop(thing->via.type->t_cache, ti_thing_key(thing));
+}
+
 #endif  /* TI_THING_INLINE_H_ */

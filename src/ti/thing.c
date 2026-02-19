@@ -185,8 +185,8 @@ void ti_thing_destroy(ti_thing_t * thing)
          */
     }
 
-    if (ti_thing_is_instance(thing) && thing->via.type->t_cache)
-        (void) imap_pop(thing->via.type->t_cache, ti_thing_key(thing));
+    if (ti_thing_is_instance(thing))
+        ti_thing_t_vcache_drop(thing);
 
     /*
      * While dropping, mutable variable must clear the parent; for example
@@ -229,9 +229,7 @@ void ti_thing_clear(ti_thing_t * thing)
 
         /* convert to a simple object since the thing is not type
          * compliant anymore */
-        if (thing->via.type->t_cache)
-            (void) imap_pop(thing->via.type->t_cache, ti_thing_key(thing));
-
+        ti_thing_t_vcache_drop(thing);
         thing->type_id = TI_SPEC_OBJECT;
         thing->via.spec = TI_SPEC_ANY;
     }
@@ -1292,9 +1290,7 @@ void ti_thing_t_to_object(ti_thing_t * thing)
         *val = (ti_val_t *) prop;
     }
 
-    if (thing->via.type->t_cache)
-        (void) imap_pop(thing->via.type->t_cache, ti_thing_key(thing));
-
+    ti_thing_t_vcache_drop(thing);
     thing->type_id = TI_SPEC_OBJECT;
     thing->via.spec = TI_SPEC_ANY;  /* fixes bug #277 */
 }

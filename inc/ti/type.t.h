@@ -9,7 +9,7 @@ enum
     TI_TYPE_FLAG_LOCK       =1<<0,
     TI_TYPE_FLAG_WRAP_ONLY  =1<<1,
     TI_TYPE_FLAG_HIDE_ID    =1<<2,
-    TI_TYPE_FLAG_INDEX =1<<3,
+    TI_TYPE_FLAG_INDEX      =1<<3,
 };
 
 typedef struct ti_type_s ti_type_t;

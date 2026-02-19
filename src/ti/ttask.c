@@ -1872,7 +1872,11 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_SET_HISTORY:       return ttask__set_history(up);
     case TI_TASK_DEL_HISTORY:       return ttask__del_history(up);
     case TI_TASK_COMMIT:            return ttask__commit(up);
+<<<<<<< HEAD
     case TI_TASK_MOD_TYPE_IDX:      break;
+=======
+    case TI_TASK_MOD_TYPE_ACA:      break;
+>>>>>>> 5f73c0836d2fa0f9a5615411a1b8b940ddc22afe
     }
 
     log_critical("unknown thingsdb task: %"PRIu64, mp_task.via.u64);

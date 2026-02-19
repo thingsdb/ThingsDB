@@ -2,6 +2,8 @@
 
 * Added `--auto-rebuild` flag, pr #435.
 * Fixed: garbage collect in single node mode, issue #438.
+* Added type index for fast `type_all(..)` requests, pr #439.
+* Added `WPO`, `HID` and `IDX` type flags, pr #440.
 
 # v1.8.3
 

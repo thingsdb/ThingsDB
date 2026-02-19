@@ -121,19 +121,34 @@ static int export__mp_dump(ti_fmt_t * fmt, const void * data, size_t n)
 
 static int export__new_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
 {
-    const int8_t both = TI_TYPE_FLAG_WRAP_ONLY | TI_TYPE_FLAG_HIDE_ID;
+    const int8_t wpo         = TI_TYPE_FLAG_WRAP_ONLY;
+    const int8_t hid         = TI_TYPE_FLAG_HIDE_ID;
+    const int8_t wpo_hid     = TI_TYPE_FLAG_WRAP_ONLY | TI_TYPE_FLAG_HIDE_ID;
+    const int8_t idx         = TI_TYPE_FLAG_INDEX;
+    const int8_t wpo_idx     = TI_TYPE_FLAG_WRAP_ONLY | TI_TYPE_FLAG_INDEX;
+    const int8_t hid_idx     = TI_TYPE_FLAG_HIDE_ID | TI_TYPE_FLAG_INDEX;
+    const int8_t wpo_hid_idx = TI_TYPE_FLAG_WRAP_ONLY | TI_TYPE_FLAG_HIDE_ID | TI_TYPE_FLAG_INDEX;
+
     return -(
         buf_append_str(&fmt->buf, "new_type('") ||
         buf_append(
                 &fmt->buf,
                 (const char *) type_->rname->data,
                 type_->rname->n) ||
-        ((type_->flags & both) == both)
-            ? buf_append_str(&fmt->buf, "', true, true);\n")
-            : (type_->flags & TI_TYPE_FLAG_HIDE_ID)
-            ? buf_append_str(&fmt->buf, "', false, true);\n")
-            : (type_->flags & TI_TYPE_FLAG_WRAP_ONLY)
-            ? buf_append_str(&fmt->buf, "', true);\n")
+        ((type_->flags & wpo_hid_idx) == wpo_hid_idx)
+            ? buf_append_str(&fmt->buf, "', WPO|HID|IDX);\n")
+            : ((type_->flags & hid_idx) == hid_idx)
+            ? buf_append_str(&fmt->buf, "', HID|IDX);\n")
+            : ((type_->flags & wpo_idx) == wpo_idx)
+            ? buf_append_str(&fmt->buf, "', WPO|IDX);\n")
+            : ((type_->flags & idx) == idx)
+            ? buf_append_str(&fmt->buf, "', IDX);\n")
+            : ((type_->flags & wpo_hid) == wpo_hid)
+            ? buf_append_str(&fmt->buf, "', WPO|HID);\n")
+            : ((type_->flags & hid) == hid)
+            ? buf_append_str(&fmt->buf, "', HID);\n")
+            : ((type_->flags & wpo) == wpo)
+            ? buf_append_str(&fmt->buf, "', WPO);\n")
             : buf_append_str(&fmt->buf, "');\n")
     );
 }

@@ -46,7 +46,8 @@ int ti_type_init_from_unp(
         ex_t * e,
         _Bool with_methods,
         _Bool with_wrap_only,
-        _Bool with_hide_id);
+        _Bool with_hide_id,
+        _Bool with_index);
 int ti_type_fields_to_pk(ti_type_t * type, msgpack_packer * pk);
 ti_val_t * ti_type_as_mpval(ti_type_t * type, _Bool with_definition);
 ti_map_t * ti_type_map(ti_type_t * to_type, ti_type_t * from_type);
@@ -134,12 +135,12 @@ static inline _Bool ti_type_hide_id(ti_type_t * type)
     return type->flags & TI_TYPE_FLAG_HIDE_ID;
 }
 
-static inline _Bool ti_type_auto_cache(ti_type_t * type)
+static inline _Bool ti_type_index(ti_type_t * type)
 {
-    return type->flags & TI_TYPE_FLAG_AUTO_CACHE;
+    return type->flags & TI_TYPE_FLAG_INDEX;
 }
 
-static inline void ti_type_auto_cache_clear(ti_type_t * type)
+static inline void ti_type_index_clear(ti_type_t * type)
 {
     imap_destroy(type->t_cache, NULL);
     type->t_cache = NULL;
@@ -150,7 +151,7 @@ static inline void ti_type_set_wrap_only_mode(ti_type_t * type, _Bool wpo)
     if (wpo)
     {
         type->flags |= TI_TYPE_FLAG_WRAP_ONLY;
-        ti_type_auto_cache_clear(type);
+        ti_type_index_clear(type);
     }
     else
         type->flags &= ~TI_TYPE_FLAG_WRAP_ONLY;
@@ -164,16 +165,14 @@ static inline void ti_type_set_hide_id(ti_type_t * type, _Bool hid)
         type->flags &= ~TI_TYPE_FLAG_HIDE_ID;
 }
 
-
-
-static inline void ti_type_set_auto_cache(ti_type_t * type, _Bool aca)
+static inline void ti_type_set_index(ti_type_t * type, _Bool idx)
 {
-    if (aca)
-        type->flags |= TI_TYPE_FLAG_AUTO_CACHE;
+    if (idx)
+        type->flags |= TI_TYPE_FLAG_INDEX;
     else
     {
-        type->flags &= ~TI_TYPE_FLAG_AUTO_CACHE;
-        ti_type_auto_cache_clear(type);
+        type->flags &= ~TI_TYPE_FLAG_INDEX;
+        ti_type_index_clear(type);
     }
 }
 

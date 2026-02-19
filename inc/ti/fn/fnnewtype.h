@@ -50,8 +50,51 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    if (nargs >= 2)
+    if (nargs == 2)
     {
+        query->rval = NULL;
+        if (ti_do_statement(query, (child = child->next->next), e))
+        {
+            ti_val_unsafe_drop((ti_val_t *) rname);
+            return e->nr;
+        }
+
+        if (ti_val_is_int(query->rval))
+        {
+            flags |= (VINT(query->rval) & (
+                TI_TYPE_FLAG_WRAP_ONLY|
+                TI_TYPE_FLAG_HIDE_ID|
+                TI_TYPE_FLAG_INDEX
+            ));
+        }
+        else if (ti_val_is_bool(query->rval))
+        {
+            /* TODO (COMPAT): this is for boolean syntax which is replaced with
+            *                flags in version 1.8.4. At some point, we should
+            *                log the use for this and later remove the coce. */
+            if (ti_val_as_bool(query->rval))
+                flags |= TI_TYPE_FLAG_WRAP_ONLY;
+
+        }
+        else
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                "function `new_type` expects argument 2 to be of "
+                "type `"TI_VAL_BOOL_S"` or  `"TI_VAL_INT_S"` "
+                "but got type `%s` instead"DOC_NEW_TYPE,
+                ti_val_str(query->rval));
+            ti_val_unsafe_drop((ti_val_t *) rname);
+            return e->nr;
+        }
+
+        ti_val_unsafe_drop(query->rval);
+        query->rval = (ti_val_t *) rname;
+    }
+    else if (nargs == 3)
+    {
+        /* TODO (COMPAT): this is for boolean syntax which is replaced with
+         *                flags in version 1.8.4. At some point, we should
+         *                log the use for this and later remove the coce. */
         query->rval = NULL;
         if (ti_do_statement(query, (child = child->next->next), e) ||
             fn_arg_bool("new_type", DOC_NEW_TYPE, 2, query->rval, e))
@@ -63,26 +106,20 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         if (ti_val_as_bool(query->rval))
             flags |= TI_TYPE_FLAG_WRAP_ONLY;
 
-        /* drop the current return value and restore the name */
         ti_val_unsafe_drop(query->rval);
+        query->rval = NULL;
 
-        if (nargs == 3)
+        if (ti_do_statement(query, (child = child->next->next), e) ||
+            fn_arg_bool("new_type", DOC_NEW_TYPE, 3, query->rval, e))
         {
-            query->rval = NULL;
-            if (ti_do_statement(query, (child = child->next->next), e) ||
-                fn_arg_bool("new_type", DOC_NEW_TYPE, 3, query->rval, e))
-            {
-                ti_val_unsafe_drop((ti_val_t *) rname);
-                return e->nr;
-            }
-
-            if (ti_val_as_bool(query->rval))
-                flags |= TI_TYPE_FLAG_HIDE_ID;
-
-            /* drop the current return value and restore the name */
-            ti_val_unsafe_drop(query->rval);
+            ti_val_unsafe_drop((ti_val_t *) rname);
+            return e->nr;
         }
 
+        if (ti_val_as_bool(query->rval))
+            flags |= TI_TYPE_FLAG_HIDE_ID;
+
+        ti_val_unsafe_drop(query->rval);
         query->rval = (ti_val_t *) rname;
     }
 

@@ -267,7 +267,7 @@ int ti_task_add_new_type(ti_task_t * task, ti_type_t * type)
     msgpack_pack_array(&pk, 2);
 
     msgpack_pack_uint8(&pk, TI_TASK_NEW_TYPE);
-    msgpack_pack_map(&pk, 5);
+    msgpack_pack_map(&pk, 6);
 
     mp_pack_str(&pk, "type_id");
     msgpack_pack_uint16(&pk, type->type_id);
@@ -283,6 +283,9 @@ int ti_task_add_new_type(ti_task_t * task, ti_type_t * type)
 
     mp_pack_str(&pk, "hide_id");
     mp_pack_bool(&pk, ti_type_hide_id(type));
+
+    mp_pack_str(&pk, "index");
+    mp_pack_bool(&pk, ti_type_index(type));
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);
@@ -403,7 +406,7 @@ int ti_task_add_set_type(ti_task_t * task, ti_type_t * type)
     msgpack_pack_array(&pk, 2);
 
     msgpack_pack_uint8(&pk, TI_TASK_SET_TYPE);
-    msgpack_pack_map(&pk, 6);
+    msgpack_pack_map(&pk, 7);
 
     mp_pack_str(&pk, "type_id");
     msgpack_pack_uint16(&pk, type->type_id);
@@ -416,6 +419,9 @@ int ti_task_add_set_type(ti_task_t * task, ti_type_t * type)
 
     mp_pack_str(&pk, "hide_id");
     mp_pack_bool(&pk, ti_type_hide_id(type));
+
+    mp_pack_str(&pk, "index");
+    mp_pack_bool(&pk, ti_type_index(type));
 
     mp_pack_str(&pk, "fields");
     ti_type_fields_to_pk(type, &pk);
@@ -2111,7 +2117,7 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_mod_type_aca(ti_task_t * task, ti_type_t * type)
+int ti_task_add_mod_type_idx(ti_task_t * task, ti_type_t * type)
 {
     size_t alloc = 64;
     ti_data_t * data;
@@ -2124,7 +2130,7 @@ int ti_task_add_mod_type_aca(ti_task_t * task, ti_type_t * type)
 
     msgpack_pack_array(&pk, 2);
 
-    msgpack_pack_uint8(&pk, TI_TASK_MOD_TYPE_ACA);
+    msgpack_pack_uint8(&pk, TI_TASK_MOD_TYPE_IDX);
     msgpack_pack_map(&pk, 3);
 
     mp_pack_str(&pk, "type_id");
@@ -2133,8 +2139,8 @@ int ti_task_add_mod_type_aca(ti_task_t * task, ti_type_t * type)
     mp_pack_str(&pk, "modified_at");
     msgpack_pack_uint64(&pk, type->modified_at);
 
-    mp_pack_str(&pk, "auto_cache");
-    mp_pack_bool(&pk, ti_type_auto_cache(type));
+    mp_pack_str(&pk, "index");
+    mp_pack_bool(&pk, ti_type_index(type));
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

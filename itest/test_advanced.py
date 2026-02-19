@@ -1575,8 +1575,8 @@ try(commit('Source: collection `stuff`'));
 new_type('Friend');
 new_type('Person');
 new_type('Root');
-new_type('W', true, true);
-new_type('WW', false, true);
+new_type('W', WPO|HID);
+new_type('WW', HID);
 
 set_enum('B', {
   A: base64_decode('YUFh'),

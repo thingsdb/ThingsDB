@@ -63,7 +63,7 @@ static int dump__new_type_cb(ti_type_t * type, msgpack_packer * pk)
         msgpack_pack_array(pk, 2) ||
 
         msgpack_pack_uint8(pk, TI_TASK_NEW_TYPE) ||
-        msgpack_pack_map(pk, 5) ||
+        msgpack_pack_map(pk, 6) ||
 
         dump__key(pk, "type_id") ||
         msgpack_pack_uint16(pk, type->type_id) ||
@@ -78,7 +78,10 @@ static int dump__new_type_cb(ti_type_t * type, msgpack_packer * pk)
         mp_pack_bool(pk, ti_type_is_wrap_only(type)) ||
 
         dump__key(pk, "hide_id") ||
-        mp_pack_bool(pk, ti_type_hide_id(type))
+        mp_pack_bool(pk, ti_type_hide_id(type)) ||
+
+        dump__key(pk, "index") ||
+        mp_pack_bool(pk, ti_type_index(type))
     );
 }
 
@@ -88,7 +91,7 @@ static int dump__set_type_cb(ti_type_t * type, msgpack_packer * pk)
         msgpack_pack_array(pk, 2) ||
 
         msgpack_pack_uint8(pk, TI_TASK_SET_TYPE) ||
-        msgpack_pack_map(pk, 6) ||
+        msgpack_pack_map(pk, 7) ||
 
         dump__key(pk, "type_id") ||
         msgpack_pack_uint16(pk, type->type_id) ||
@@ -101,6 +104,9 @@ static int dump__set_type_cb(ti_type_t * type, msgpack_packer * pk)
 
         dump__key(pk, "hide_id") ||
         mp_pack_bool(pk, ti_type_hide_id(type)) ||
+
+        dump__key(pk, "index") ||
+        mp_pack_bool(pk, ti_type_index(type)) ||
 
         dump__key(pk, "fields") ||
         ti_type_fields_to_pk(type, pk) ||

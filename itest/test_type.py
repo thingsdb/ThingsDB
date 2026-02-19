@@ -2373,6 +2373,22 @@ class TestType(TestBase):
                     mod_type('F', 'mod', 'e', 'E');
             """)
 
+    async def test_idx_type(self, client):
+        res = await client.query("""//ti
+            new_type('T1', IDX);
+            new_type('T2', WPO|HID);
+            new_type('T3');
+            new_type('V');
+            set_type('T2', {}, IDX);
+            mod_type('T3', 'idx', true);
+            types_info();
+        """)
+        for t in res:
+            if t['name'] == 'V':
+                self.assertFalse(t['auto_index'])
+            else:
+                self.assertTrue(t['auto_index'])
+
 
 if __name__ == '__main__':
     run_test(TestType())

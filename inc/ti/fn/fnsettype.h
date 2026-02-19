@@ -12,6 +12,8 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     _Bool is_new_type = false;
     _Bool wpo = false;
     _Bool hid = false;
+    _Bool idx = false;
+    _Bool deprecated_args = false;
 
     if (fn_not_collection_scope("set_type", query, e) ||
         fn_commit("set_type", query, e) ||
@@ -92,8 +94,44 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     thing = (ti_thing_t *) query->rval;
     query->rval = NULL;
 
-    if (nargs >= 3)
+    if (nargs == 3)
     {
+        query->rval = NULL;
+        if (ti_do_statement(query, (child = child->next->next), e))
+            goto fail2;
+
+        if (ti_val_is_int(query->rval))
+        {
+            wpo = VINT(query->rval) & TI_TYPE_FLAG_WRAP_ONLY;
+            hid = VINT(query->rval) & TI_TYPE_FLAG_HIDE_ID;
+            idx = VINT(query->rval) & TI_TYPE_FLAG_INDEX;
+        }
+        else if (ti_val_is_bool(query->rval))
+        {
+            /* TODO (COMPAT): this is for boolean syntax which is replaced with
+            *                flags in version 1.8.4. At some point, we should
+            *                log the use for this and later remove the coce. */
+            wpo = ti_val_as_bool(query->rval);
+            deprecated_args = true;
+        }
+        else
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                "function `set_type` expects argument 3 to be of "
+                "type `"TI_VAL_BOOL_S"` or  `"TI_VAL_INT_S"` "
+                "but got type `%s` instead"DOC_NEW_TYPE,
+                ti_val_str(query->rval));
+            goto fail2;
+        }
+
+        ti_val_unsafe_drop(query->rval);
+        query->rval = NULL;
+    }
+    else if (nargs == 4)
+    {
+        /* TODO (COMPAT): this is for boolean syntax which is replaced with
+         *                flags in version 1.8.4. At some point, we should
+         *                log the use for this and later remove the coce. */
         if (ti_do_statement(query, (child = child->next->next), e) ||
             fn_arg_bool("set_type", DOC_SET_TYPE, 3, query->rval, e))
             goto fail2;
@@ -102,16 +140,14 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         ti_val_unsafe_drop(query->rval);
         query->rval = NULL;
 
-        if (nargs == 4)
-        {
-            if (ti_do_statement(query, (child = child->next->next), e) ||
-                fn_arg_bool("set_type", DOC_SET_TYPE, 4, query->rval, e))
-                goto fail2;
+        if (ti_do_statement(query, (child = child->next->next), e) ||
+            fn_arg_bool("set_type", DOC_SET_TYPE, 4, query->rval, e))
+            goto fail2;
 
-            hid = ti_val_as_bool(query->rval);
-            ti_val_unsafe_drop(query->rval);
-            query->rval = NULL;
-        }
+        hid = ti_val_as_bool(query->rval);
+        ti_val_unsafe_drop(query->rval);
+        query->rval = NULL;
+        deprecated_args = true;
     }
 
     n = ti_query_count_type(query, type);
@@ -128,21 +164,38 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto fail2;
     }
 
-    if (nargs >= 3)
+    if (deprecated_args)
+    {
+        /* TODO (COMPAT): this is for boolean syntax which is replaced with
+         *                flags in version 1.8.4. At some point, we should
+         *                log the use for this and later remove the coce. */
+        if (nargs >= 3)
+        {
+            if (wpo && ti_type_required_by_non_wpo(type, e))
+                goto fail2;
+
+            /* It is important to set wrap-only mode before initializing,
+            * since field dependencies might depend on the correct wrap-only
+            * setting.
+            */
+            ti_type_set_wrap_only_mode(type, wpo);
+            if (nargs == 4)
+                ti_type_set_hide_id(type, hid);
+        }
+        else if (is_new_type)
+            ti_type_set_wrap_only_mode(type, false);
+    }
+    else
     {
         if (wpo && ti_type_required_by_non_wpo(type, e))
             goto fail2;
-
-        /* It is important to set wrap-only mode before initializing,
-         * since field dependencies might depend on the correct wrap-only
-         * setting.
-         */
-        ti_type_set_wrap_only_mode(type, wpo);
-        if (nargs == 4)
+        if (wpo || is_new_type)
+            ti_type_set_wrap_only_mode(type, wpo);
+        if (hid)
             ti_type_set_hide_id(type, hid);
+        if (idx)
+            ti_type_set_index(type, idx);
     }
-    else if (is_new_type)
-        ti_type_set_wrap_only_mode(type, false);
 
     if (ti_type_init_from_thing(type, thing, e))
         goto fail2;

@@ -1480,15 +1480,15 @@ static void type__hid(
         ex_set_mem(e);
 }
 
-static void type__aca(
+static void type__idx(
         ti_query_t * query,
         ti_type_t * type,
         cleri_node_t * nd,
         ex_t * e)
 {
-    static const char * fnname = "mod_type` with task `aca";
+    static const char * fnname = "mod_type` with task `idx";
     const int nargs = fn_get_nargs(nd);
-    _Bool auto_cache;
+    _Bool index;
     ti_task_t * task;
 
     nd = nd->children->next->next->next->next;
@@ -1498,12 +1498,12 @@ static void type__aca(
         fn_arg_bool(fnname, DOC_MOD_TYPE_HID, 3, query->rval, e))
         return;
 
-    auto_cache = ti_val_as_bool(query->rval);
+    index = ti_val_as_bool(query->rval);
 
     ti_val_unsafe_drop(query->rval);
     query->rval = NULL;
 
-    if (auto_cache == ti_type_auto_cache(type))
+    if (index == ti_type_index(type))
         return;  /* nothing to do */
 
     task = ti_task_get_task(query->change, query->collection->root);
@@ -1513,7 +1513,7 @@ static void type__aca(
         return;
     }
 
-    ti_type_set_auto_cache(type, auto_cache);
+    ti_type_set_index(type, index);
 
     /* update modified time-stamp */
     type->modified_at = util_now_usec();
@@ -1571,9 +1571,9 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
 
-    if (ti_raw_eq_strn(rmod, "aca", 3))
+    if (ti_raw_eq_strn(rmod, "idx", 3))
     {
-        type__aca(query, type, nd, e);
+        type__idx(query, type, nd, e);
         goto done;
     }
 

@@ -110,7 +110,7 @@ ti_thing_t * ti_thing_t_create(
     }
 
     if (type->t_cache && imap_add(type->t_cache, ti_thing_key(thing), thing))
-        ti_type_auto_cache_clear(type);
+        ti_type_index_clear(type);
 
     return thing;
 }

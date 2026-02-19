@@ -878,14 +878,14 @@ failed:
     return e->nr;
 }
 
-
 int ti_type_init_from_unp(
         ti_type_t * type,
         mp_unp_t * up,
         ex_t * e,
         _Bool with_methods,
         _Bool with_wrap_only,
-        _Bool with_hide_id)
+        _Bool with_hide_id,
+        _Bool with_index)
 {
     ti_name_t * name;
     mp_obj_t obj, mp_name, mp_spec;
@@ -936,6 +936,19 @@ int ti_type_init_from_unp(
             return e->nr;
         }
         ti_type_set_hide_id(type, obj.via.bool_);
+    }
+
+    if (with_index)
+    {
+        if (mp_skip(up) != MP_STR || mp_next(up, &obj) != MP_BOOL)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "failed unpacking fields for type `%s`; "
+                    "expecting a boolean as auto-cache property",
+                    type->name);
+            return e->nr;
+        }
+        ti_type_set_index(type, obj.via.bool_);
     }
 
     if (mp_skip(up) != MP_STR || mp_next(up, &obj) != MP_ARR)
@@ -1242,8 +1255,8 @@ ti_val_t * ti_type_as_mpval(ti_type_t * type, _Bool with_definition)
         mp_pack_str(&pk, "hide_id") ||
         mp_pack_bool(&pk, ti_type_hide_id(type)) ||
 
-        mp_pack_str(&pk, "auto_cache") ||
-        mp_pack_bool(&pk, ti_type_auto_cache(type)) ||
+        mp_pack_str(&pk, "auto_index") ||
+        mp_pack_bool(&pk, ti_type_index(type)) ||
 
         mp_pack_str(&pk, "created_at") ||
         msgpack_pack_uint64(&pk, type->created_at) ||
@@ -1476,7 +1489,7 @@ int ti_type_convert(
     thing->via.type = type;
     thing->items.vec = w.vec;
     if (type->t_cache && imap_add(type->t_cache, ti_thing_key(thing), thing))
-        ti_type_auto_cache_clear(type);
+        ti_type_index_clear(type);
     return e->nr;
 
 fail0:

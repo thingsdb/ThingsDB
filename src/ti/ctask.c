@@ -2202,19 +2202,11 @@ static int ctask__mod_type_hid(ti_thing_t * thing, mp_unp_t * up)
 /*
  * Returns 0 on success
  */
-<<<<<<< HEAD
 static int ctask__mod_type_idx(ti_thing_t * thing, mp_unp_t * up)
 {
     ti_collection_t * collection = thing->collection;
     ti_type_t * type;
     mp_obj_t obj, mp_id, mp_modified, mp_idx;
-=======
-static int ctask__mod_type_aca(ti_thing_t * thing, mp_unp_t * up)
-{
-    ti_collection_t * collection = thing->collection;
-    ti_type_t * type;
-    mp_obj_t obj, mp_id, mp_modified, mp_aca;
->>>>>>> 5f73c0836d2fa0f9a5615411a1b8b940ddc22afe
 
     if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
         mp_skip(up) != MP_STR ||
@@ -2222,17 +2214,10 @@ static int ctask__mod_type_aca(ti_thing_t * thing, mp_unp_t * up)
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_modified) != MP_U64 ||
         mp_skip(up) != MP_STR ||
-<<<<<<< HEAD
         mp_next(up, &mp_idx) != MP_BOOL)
     {
         log_critical(
                 "task `mod_type_idx` for "TI_COLLECTION_ID" is invalid",
-=======
-        mp_next(up, &mp_aca) != MP_BOOL)
-    {
-        log_critical(
-                "task `mod_type_aca` for "TI_COLLECTION_ID" is invalid",
->>>>>>> 5f73c0836d2fa0f9a5615411a1b8b940ddc22afe
                 collection->id);
         return -1;
     }
@@ -2241,21 +2226,13 @@ static int ctask__mod_type_aca(ti_thing_t * thing, mp_unp_t * up)
     if (!type)
     {
         log_critical(
-<<<<<<< HEAD
                 "task `mod_type_idx` for "TI_COLLECTION_ID" is invalid; "
-=======
-                "task `mod_type_aca` for "TI_COLLECTION_ID" is invalid; "
->>>>>>> 5f73c0836d2fa0f9a5615411a1b8b940ddc22afe
                 "type with id %"PRIu64" not found",
                 collection->id, mp_id.via.u64);
         return -1;
     }
 
-<<<<<<< HEAD
     ti_type_set_index(type, mp_idx.via.bool_);
-=======
-    ti_type_set_auto_cache(type, mp_aca.via.bool_);
->>>>>>> 5f73c0836d2fa0f9a5615411a1b8b940ddc22afe
 
     type->modified_at = mp_modified.via.u64;
 
@@ -3502,11 +3479,7 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_SET_HISTORY:       break;
     case TI_TASK_DEL_HISTORY:       break;
     case TI_TASK_COMMIT:            return ctask__commit(thing, up);
-<<<<<<< HEAD
     case TI_TASK_MOD_TYPE_IDX:      return ctask__mod_type_idx(thing, up);
-=======
-    case TI_TASK_MOD_TYPE_ACA:      return ctask__mod_type_aca(thing, up);
->>>>>>> 5f73c0836d2fa0f9a5615411a1b8b940ddc22afe
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);

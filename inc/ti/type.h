@@ -135,21 +135,12 @@ static inline _Bool ti_type_hide_id(ti_type_t * type)
     return type->flags & TI_TYPE_FLAG_HIDE_ID;
 }
 
-<<<<<<< HEAD
 static inline _Bool ti_type_index(ti_type_t * type)
 {
     return type->flags & TI_TYPE_FLAG_INDEX;
 }
 
 static inline void ti_type_index_clear(ti_type_t * type)
-=======
-static inline _Bool ti_type_auto_cache(ti_type_t * type)
-{
-    return type->flags & TI_TYPE_FLAG_AUTO_CACHE;
-}
-
-static inline void ti_type_auto_cache_clear(ti_type_t * type)
->>>>>>> 5f73c0836d2fa0f9a5615411a1b8b940ddc22afe
 {
     imap_destroy(type->t_cache, NULL);
     type->t_cache = NULL;
@@ -160,11 +151,7 @@ static inline void ti_type_set_wrap_only_mode(ti_type_t * type, _Bool wpo)
     if (wpo)
     {
         type->flags |= TI_TYPE_FLAG_WRAP_ONLY;
-<<<<<<< HEAD
         ti_type_index_clear(type);
-=======
-        ti_type_auto_cache_clear(type);
->>>>>>> 5f73c0836d2fa0f9a5615411a1b8b940ddc22afe
     }
     else
         type->flags &= ~TI_TYPE_FLAG_WRAP_ONLY;
@@ -186,18 +173,6 @@ static inline void ti_type_set_index(ti_type_t * type, _Bool idx)
     {
         type->flags &= ~TI_TYPE_FLAG_INDEX;
         ti_type_index_clear(type);
-    }
-}
-
-
-static inline void ti_type_set_auto_cache(ti_type_t * type, _Bool aca)
-{
-    if (aca)
-        type->flags |= TI_TYPE_FLAG_AUTO_CACHE;
-    else
-    {
-        type->flags &= ~TI_TYPE_FLAG_AUTO_CACHE;
-        ti_type_auto_cache_clear(type);
     }
 }
 

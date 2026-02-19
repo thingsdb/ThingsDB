@@ -40,6 +40,7 @@ int imap_walk_cp(
         void * arg,
         imap_destroy_cb destroy_cb);
 void imap_walkn(imap_t * imap, size_t * n, imap_cb cb, void * arg);
+imap_t * imap_dup(imap_t * imap, _Bool incref);
 _Bool imap__eq_(imap_t * a, imap_t * b);
 _Bool imap__le_(imap_t * a, imap_t * b);
 static inline _Bool imap_eq(imap_t * a, imap_t * b);

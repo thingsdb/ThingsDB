@@ -2111,6 +2111,44 @@ fail_data:
     return -1;
 }
 
+int ti_task_add_mod_type_aca(ti_task_t * task, ti_type_t * type)
+{
+    size_t alloc = 64;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_MOD_TYPE_ACA);
+    msgpack_pack_map(&pk, 3);
+
+    mp_pack_str(&pk, "type_id");
+    msgpack_pack_uint16(&pk, type->type_id);
+
+    mp_pack_str(&pk, "modified_at");
+    msgpack_pack_uint64(&pk, type->modified_at);
+
+    mp_pack_str(&pk, "auto_cache");
+    mp_pack_bool(&pk, ti_type_auto_cache(type));
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
 
 int ti_task_add_del_node(ti_task_t * task, uint32_t node_id)
 {

@@ -12,12 +12,18 @@
 #define IMAP_NODE_SZ 32
 
 static int imap__nodes_dup(imap_node_t * dest, imap_node_t * node);
+static int imap__node_dup_cb(imap_node_t * node, _Bool incref);
 
 static imap_node_t imap__empty_node = {
         .data = NULL,
         .nodes = NULL,
         .sz = 0,
 };
+
+static inline void imap__nodes_dec(void * data)
+{
+    ti_decref((ti_ref_t *) data);
+}
 
 static inline uint8_t imap__node_size(imap_node_t * node)
 {
@@ -155,6 +161,86 @@ void imap_clear(imap_t * imap, imap_destroy_cb cb)
         /* reset everything to 0 */
         memset(imap, 0, sizeof(imap_t) + IMAP_NODE_SZ * sizeof(imap_node_t));
     }
+}
+
+/*
+ * Duplicate imap
+ */
+imap_t * imap_dup(imap_t * imap, _Bool incref)
+{
+    size_t total_sz = sizeof(imap_t) + IMAP_NODE_SZ * sizeof(imap_node_t);
+    imap_t * dst = malloc(total_sz);
+    if (!dst)
+        goto failed;
+
+    memcpy(dst, imap, total_sz);
+    imap_node_t * nd = dst->nodes, * end = nd + IMAP_NODE_SZ;
+    do
+    {
+        if (nd->data && incref)
+            ti_incref((ti_ref_t *) nd->data);
+
+        if (nd->nodes && imap__node_dup_cb(nd, incref))
+        {
+            /* failed, break down */
+            nd->nodes = NULL;
+            do
+            {
+                if (nd->data && incref)
+                    ti_decref((ti_ref_t *) nd->data);
+
+                if (nd->nodes)
+                    imap__node_destroy_cb(nd->nodes, imap__nodes_dec);
+            }
+            while (--nd >= dst->nodes);
+            goto failed;
+        }
+    }
+    while (++nd < end);
+    return dst;
+
+failed:
+    free(dst);
+    return NULL;
+}
+
+static int imap__node_dup_cb(imap_node_t * node, _Bool incref)
+{
+    size_t total_sz = sizeof(imap_node_t) * imap__node_size(node);
+    imap_node_t * dst = malloc(total_sz);
+    if (!dst)
+        goto failed;
+
+    memcpy(dst, node->nodes, total_sz);
+    imap_node_t * nd = dst, * end = dst + imap__node_size(node);
+    do
+    {
+        if (nd->data && incref)
+            ti_incref((ti_ref_t *) nd->data);
+
+        if (nd->nodes && imap__node_dup_cb(nd, incref))
+        {
+            /* failed, break down */
+            nd->nodes = NULL;
+            do
+            {
+                if (nd->data && incref)
+                    ti_decref((ti_ref_t *) nd->data);
+
+                if (nd->nodes)
+                    imap__node_destroy_cb(nd->nodes, imap__nodes_dec);
+            }
+            while (--nd >= dst);
+            goto failed;
+        }
+    }
+    while (++nd < end);
+    node->nodes = dst;
+    return 0;
+
+failed:
+    free(dst);
+    return -1;
 }
 
 static void * imap__set(imap_node_t * node, uint64_t id, void * data)
@@ -1574,11 +1660,6 @@ int imap_symmdiff_make(imap_t * dest, imap_t * a, imap_t * b)
         }
     }
     return 0;
-}
-
-static inline void imap__nodes_dec(void * data)
-{
-    ti_decref((ti_ref_t *) data);
 }
 
 static int imap__nodes_dup(imap_node_t * dest, imap_node_t * node)

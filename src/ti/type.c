@@ -1488,8 +1488,7 @@ int ti_type_convert(
     thing->type_id = type->type_id;
     thing->via.type = type;
     thing->items.vec = w.vec;
-    if (type->t_cache && imap_add(type->t_cache, ti_thing_key(thing), thing))
-        ti_type_index_clear(type);
+    ti_thing_t_vache_add(thing);
     return e->nr;
 
 fail0:

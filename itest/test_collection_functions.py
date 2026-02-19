@@ -3766,8 +3766,8 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `new_type` expects argument 2 to be of '
-                'type `bool` but got type `int` instead;'):
-            await client.query(r'new_type("A", 0);')
+                'type `bool` or `int` but got type `str` instead;'):
+            await client.query(r'new_type("A", "WPO");')
 
         with self.assertRaisesRegex(
                 TypeError,
@@ -3865,8 +3865,8 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `set_type` expects argument 3 to be of '
-                'type `bool` but got type `int` instead;'):
-            await client.query(r'set_type("A", {}, 0);')
+                'type `bool` or `int` but got type `str` instead;'):
+            await client.query(r'set_type("A", {}, "wpo");')
 
         with self.assertRaisesRegex(
                 TypeError,

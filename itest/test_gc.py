@@ -153,7 +153,7 @@ class TestGC(TestBase):
 
         counters = await client.query('counters();', scope='@node')
 
-        self.assertEqual(counters['garbage_collected'], 9)
+        self.assertEqual(counters['garbage_collected'], 10)
 
         # below do an advanced garbage collection test
         client.set_default_scope(stuff)

@@ -118,7 +118,7 @@ static int do__f_set_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_TYPE_ERROR,
                 "function `set_type` expects argument 3 to be of "
-                "type `"TI_VAL_BOOL_S"` or  `"TI_VAL_INT_S"` "
+                "type `"TI_VAL_BOOL_S"` or `"TI_VAL_INT_S"` "
                 "but got type `%s` instead"DOC_NEW_TYPE,
                 ti_val_str(query->rval));
             goto fail2;

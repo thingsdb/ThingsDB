@@ -172,6 +172,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     _Bool with_methods = true;
     _Bool with_wrap_only = true;
     _Bool with_hide_id = true;
+    _Bool with_index = true;
     _Bool with_relations = true;
     fx_mmap_t fmap;
     ex_t e = {0};
@@ -249,6 +250,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             with_methods = false;
             with_wrap_only = false;
             with_hide_id = false;
+            with_index = false;
             mp_wpo.tp = MP_BOOL;
             mp_wpo.via.bool_ = false;
             mp_hid.tp = MP_BOOL;
@@ -269,6 +271,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
              */
             with_wrap_only = false;
             with_hide_id = false;
+            with_index = false;
             mp_wpo.tp = MP_BOOL;
             mp_wpo.via.bool_ = false;
             mp_hid.tp = MP_BOOL;
@@ -289,6 +292,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
              *       versions before v1.3.2.
              */
             with_hide_id = false;
+            with_index = false;
             mp_hid.tp = MP_BOOL;
             mp_hid.via.bool_ = false;
             mp_idx.tp = MP_BOOL;
@@ -307,6 +311,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
              * TODO: (COMPAT) This code is for compatibility with ThingsDB
              *       versions before v1.8.4.
              */
+            with_index = false;
             mp_idx.tp = MP_BOOL;
             mp_idx.via.bool_ = false;
             if (mp_next(&up, &mp_id) != MP_U64 ||
@@ -320,10 +325,6 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
            ) goto fail1;
             break;
         case 9:
-            /*
-             * TODO: (COMPAT) This code is for compatibility with ThingsDB
-             *       versions before v1.8.4.
-             */
             if (mp_next(&up, &mp_id) != MP_U64 ||
                 mp_next(&up, &mp_wpo) != MP_BOOL ||
                 mp_next(&up, &mp_hid) != MP_BOOL ||
@@ -373,6 +374,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             mp_next(&up, &mp_id) != MP_U64 ||
             (with_wrap_only && mp_skip(&up) != MP_BOOL) ||
             (with_hide_id && mp_skip(&up) != MP_BOOL) ||
+            (with_index && mp_skip(&up) != MP_BOOL) ||
             mp_skip(&up) != MP_U64 ||  /* created */
             mp_skip(&up) != MP_U64 ||  /* modified */
             mp_skip(&up) != MP_STR ||  /* name */

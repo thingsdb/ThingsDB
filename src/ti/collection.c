@@ -531,7 +531,6 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
 
     for (queue_each(collection->gc, ti_gc_t, gc))
     {
-        LOGC("GC: %zu  %zu  %zu", gc->thing->id, gc->change_id, scid);
         if (gc->change_id > scid)
         {
             /*

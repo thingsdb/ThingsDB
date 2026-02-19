@@ -80,7 +80,7 @@ static int do__f_new_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         {
             ex_set(e, EX_TYPE_ERROR,
                 "function `new_type` expects argument 2 to be of "
-                "type `"TI_VAL_BOOL_S"` or  `"TI_VAL_INT_S"` "
+                "type `"TI_VAL_BOOL_S"` or `"TI_VAL_INT_S"` "
                 "but got type `%s` instead"DOC_NEW_TYPE,
                 ti_val_str(query->rval));
             ti_val_unsafe_drop((ti_val_t *) rname);

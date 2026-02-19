@@ -23,7 +23,7 @@ void ti_names_upd_common(void)
     _common_names_n = names->n;
 }
 
-int names__no_ref_cb(ti_name_t * name, void * UNUSED(arg))
+static int names__no_ref_cb(ti_name_t * name, void * UNUSED(arg))
 {
     /* actually, only common variable should exist in here; */
     return name->ref == 1 ? 0 : -1;

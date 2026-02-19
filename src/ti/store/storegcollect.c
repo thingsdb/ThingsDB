@@ -259,6 +259,9 @@ int ti_store_gcollect_restore_data(
         if (mp_next(&up, &mp_thing_id) != MP_U64)
             goto fail1;
 
+        /* related to bug #438 */
+        ti_collection_update_next_free_id(collection, mp_thing_id.via.u64);
+
         thing = ti_collection_thing_by_id(collection, mp_thing_id.via.u64);
         if (!thing)
         {

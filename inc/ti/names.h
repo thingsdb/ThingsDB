@@ -9,6 +9,7 @@
 #include <ti/name.h>
 #include <ti/raw.h>
 #include <util/smap.h>
+#include <util/logger.h>
 
 extern smap_t * names;
 

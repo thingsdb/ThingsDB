@@ -3884,9 +3884,9 @@ class TestCollectionFunctions(TestBase):
         res = await client.query("""//ti
             set_type("T2", {});
             t = type_info("T2").load();
-            [t.name, t.wrap_only, t.hide_id];
+            [t.name, t.wrap_only, t.hide_id, t.auto_index];
         """)
-        self.assertEqual(res, ["T2", True, True])
+        self.assertEqual(res, ["T2", True, True, False])
 
         res = await client.query("""//ti
             set_type("T1", {}, true, true);

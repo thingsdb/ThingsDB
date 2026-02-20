@@ -2389,6 +2389,27 @@ class TestType(TestBase):
             else:
                 self.assertTrue(t['auto_index'])
 
+        await client.query("""//ti
+                           // Create many things, and a few for lookup
+                           mod_type('T2', 'wpo', false);
+                           range(20).each(|n| {
+                                .set(`v{n}`, V{});
+                                .set(`t1{n}`, T1{});
+                                .set(`t2{n}`, range(9000).map(|| T2{}));
+                                .set(`t3{n}`, range(9000).map(|| T3{}));
+                           });
+                           nil;
+                            """)
+        res = await client.query("""//ti
+                                 type_all('T1');  // ensure cache
+                                 type_all('V');  // no cache
+                                 [
+                                 timeit(type_all('T1').len()),  // fast
+                                 timeit(type_all('V').len()),  // slow
+                                 ];
+                                 """)
+        self.assertLess(res[0]['time'], res[1]['time'])
+
 
 if __name__ == '__main__':
     run_test(TestType())

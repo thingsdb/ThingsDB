@@ -201,7 +201,6 @@ void ti_thing_destroy(ti_thing_t * thing)
                 ? (vec_destroy_cb) ti_prop_unassign_destroy
                 : (vec_destroy_cb) ti_val_unassign_drop);
 
-
     free(thing);
 }
 

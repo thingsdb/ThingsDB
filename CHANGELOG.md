@@ -1,4 +1,4 @@
-# v1.8.4-alpha2
+# v1.8.4
 
 * Added `--auto-rebuild` flag, pr #435.
 * Fixed: garbage collect in single node mode, issue #438.

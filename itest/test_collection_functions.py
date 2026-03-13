@@ -6044,6 +6044,80 @@ class TestCollectionFunctions(TestBase):
         """)
         self.assertEqual(r, 3)
 
+    async def test_min(self, client):
+        q = client.query
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `min` is undefined'):
+            await q('min(range(2));')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `min` takes 0 arguments but 1 was given;'):
+            await q('range(5).min(nil);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'min\(\) on empty list;'):
+            await q('[].min();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                '`<` not supported between `int` and `str`'):
+            await q('[5, "a"].min();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                '`<` not supported between `thing` and `thing`'):
+            await q('[{}, {}].min();')
+
+        r = await q('["g", "a", "c", "d"].min()')
+        self.assertEqual(r, 'a')
+
+        r = await q('[8, 5.0, 6, 9].min()')
+        self.assertEqual(r, 5.0)
+
+        r = await q('[nil].min()')
+        self.assertEqual(r, None)
+
+    async def test_max(self, client):
+        q = client.query
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `max` is undefined'):
+            await q('max(range(2));')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `max` takes 0 arguments but 1 was given;'):
+            await q('range(5).max(nil);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'max\(\) on empty list;'):
+            await q('[].max();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                '`<` not supported between `int` and `str`'):
+            await q('[5, "a"].max();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                '`<` not supported between `thing` and `thing`'):
+            await q('[{}, {}].max();')
+
+        r = await q('["g", "a", "c", "d"].max()')
+        self.assertEqual(r, 'g')
+
+        r = await q('[8, 5.0, 6, 9].max()')
+        self.assertEqual(r, 9)
+
+        r = await q('[nil].max()')
+        self.assertEqual(r, None)
+
 
 if __name__ == '__main__':
     run_test(TestCollectionFunctions())

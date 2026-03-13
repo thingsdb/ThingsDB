@@ -1,3 +1,7 @@
+# v1.8.5-alpha0
+
+* Added `min()` and `max()` functions on list, issue #441.
+
 # v1.8.4
 
 * Added `--auto-rebuild` flag, pr #435.

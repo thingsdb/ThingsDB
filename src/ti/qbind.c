@@ -155,6 +155,8 @@
 #include <ti/fn/fnmaptype.h>
 #include <ti/fn/fnmapwrap.h>
 #include <ti/fn/fnmatch.h>
+#include <ti/fn/fnmax.h>
+#include <ti/fn/fnmin.h>
 #include <ti/fn/fnmodenum.h>
 #include <ti/fn/fnmodprocedure.h>
 #include <ti/fn/fnmodtype.h>
@@ -307,7 +309,7 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 282,
+    TOTAL_KEYWORDS = 284,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
     MIN_HASH_VALUE = 24,
@@ -328,14 +330,14 @@ static inline unsigned int qbind__hash(
         777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
         777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
         777, 777, 777, 777, 777, 777, 777, 777,   7,   7,
-        7, 777,   8, 777,   8, 777,   8, 777, 777, 777,
+            7, 777,   8, 777,   8, 777,   8, 777, 777, 777,
         777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
         777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
         777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
         777, 777, 777, 777, 777,   7, 777,  24,  42,  69,
         40,   9, 127, 359, 240,   7,   7, 120,  13,  40,
         12,  14, 155,  39,   8,   7,   8,  48, 230, 241,
-        174,  64,  62, 777, 777, 777, 777, 777, 777, 777,
+        200,  64,  64, 777, 777, 777, 777, 777, 777, 777,
         777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
         777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
         777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
@@ -641,7 +643,9 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="map_type",          .fn=do__f_map_type,             CHAIN_NE},
     {.name="map_wrap",          .fn=do__f_map_wrap,             CHAIN_NE},
     {.name="match",             .fn=do__f_match,                CHAIN_NE},
+    {.name="max",               .fn=do__f_max,                  CHAIN_NE},
     {.name="max_quota_err",     .fn=do__f_max_quota_err,        ROOT_NE},
+    {.name="min",               .fn=do__f_min,                  CHAIN_NE},
     {.name="mod_enum",          .fn=do__f_mod_enum,             ROOT_CE},
     {.name="mod_procedure",     .fn=do__f_mod_procedure,        ROOT_BE},
     {.name="mod_type",          .fn=do__f_mod_type,             ROOT_CE},

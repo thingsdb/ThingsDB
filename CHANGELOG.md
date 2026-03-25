@@ -1,4 +1,4 @@
-# v1.8.5-alpha0
+# v1.8.5
 
 * Added `min()` and `max()` functions, issue #441.
 

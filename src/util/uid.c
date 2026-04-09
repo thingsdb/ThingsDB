@@ -4,12 +4,8 @@
 void uuid_to_string(const uint8_t uuid[16], char *out) {
     static const char hex_table[] = "0123456789abcdef";
 
-    // We schrijven direct naar de juiste posities in de 'out' buffer
-    // Formaat: 8-4-4-4-12 (totaal 36 karakters + null)
-
     int p = 0;
     for (int i = 0; i < 16; i++) {
-        // Voeg streepjes toe op de juiste posities
         if (i == 4 || i == 6 || i == 8 || i == 10) {
             out[p++] = '-';
         }
@@ -18,7 +14,7 @@ void uuid_to_string(const uint8_t uuid[16], char *out) {
         out[p++] = hex_table[b >> 4];   // High nibble
         out[p++] = hex_table[b & 0x0F]; // Low nibble
     }
-    out[36] = '\0'; // Null terminator
+    out[36] = '\0';
 }
 
 bool string_to_uuid(const char * in, uint8_t uuid[16]) {

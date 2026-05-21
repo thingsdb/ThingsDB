@@ -17,7 +17,20 @@ static int do__f_type_count(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return ti_raw_err_not_found((ti_raw_t *) query->rval, "type", e);
 
     /* use cache if available */
-    n = type->t_cache ? type->t_cache->n : ti_query_count_type(query, type);
+    if (type->t_cache)
+    {
+        n = type->t_cache->n;
+    }
+    else
+    {
+        ssize_t r = ti_query_count_type(query, type);
+        if (r < 0)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        n = (size_t) r;
+    }
 
     ti_val_unsafe_drop(query->rval);
     query->rval = (ti_val_t *) ti_vint_create((int64_t) n);

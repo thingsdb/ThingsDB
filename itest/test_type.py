@@ -2406,9 +2406,14 @@ class TestType(TestBase):
                                  [
                                  timeit(type_all('T1').len()),  // fast
                                  timeit(type_all('V').len()),  // slow
+                                 timeit(type_count('T1')),  // fast
+                                 timeit(type_count('V')),  // slow
                                  ];
                                  """)
         self.assertLess(res[0]['time'], res[1]['time'])
+        self.assertLess(res[2]['time'], res[3]['time'])
+        self.assertEqual(res[0]['data'], res[2]['data'])
+        self.assertEqual(res[1]['data'], res[3]['data'])
 
 
 if __name__ == '__main__':

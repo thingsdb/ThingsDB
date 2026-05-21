@@ -1,3 +1,7 @@
+# v1.8.6-alpha0
+
+* Read `type_count(..)` from cache if available, pr #443.
+
 # v1.8.5
 
 * Added `min()` and `max()` functions, issue #441.

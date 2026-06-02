@@ -1,6 +1,7 @@
 # v1.8.6-alpha0
 
 * Read `type_count(..)` from cache if available, pr #443.
+* Add `scope` to event packages for correct mapping, pr 
 
 # v1.8.5
 

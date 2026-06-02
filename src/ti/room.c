@@ -114,7 +114,7 @@ static void room__emit_delete(ti_room_t * room)
         msgpack_sbuffer buffer;
         ti_pkg_t * pkg;
 
-        if (mp_sbuffer_alloc_init(&buffer, 32, sizeof(ti_pkg_t)))
+        if (mp_sbuffer_alloc_init(&buffer, 288, sizeof(ti_pkg_t)))
         {
             log_critical(EX_MEMORY_S);
             return;
@@ -122,7 +122,13 @@ static void room__emit_delete(ti_room_t * room)
 
         msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-        msgpack_pack_map(&pk, 1);
+        msgpack_pack_map(&pk, 2);
+
+        mp_pack_str(&pk, "scope");
+        mp_pack_strn(&pk,
+                     room->collection->scope->data,
+                     room->collection->scope->n);
+
         mp_pack_str(&pk, "id");
         msgpack_pack_uint64(&pk, room->id);
 
@@ -189,7 +195,12 @@ int ti_room_emit(
 
     sz = buffer.size;
 
-    msgpack_pack_map(&vp.pk, 3);
+    msgpack_pack_map(&vp.pk, 4);
+
+    mp_pack_str(&vp.pk, "scope");
+    mp_pack_strn(&vp.pk,
+                 room->collection->scope->data,
+                 room->collection->scope->n);
 
     mp_pack_str(&vp.pk, "id");
     msgpack_pack_uint64(&vp.pk, room->id);
@@ -403,6 +414,7 @@ void ti_room_emit_node_status(ti_room_t * room, const char * status)
 typedef struct
 {
     uint64_t room_id;
+    char scope[256];
     ti_stream_t * stream;
 } room__async_t;
 
@@ -419,7 +431,7 @@ static void room__async_emit_join_cb(uv_async_t * task)
     if (ti_stream_is_closed(w->stream))
         goto done;
 
-    if (mp_sbuffer_alloc_init(&buffer, 32, sizeof(ti_pkg_t)))
+    if (mp_sbuffer_alloc_init(&buffer, 288, sizeof(ti_pkg_t)))
     {
         log_critical(EX_MEMORY_S);
         goto done;
@@ -427,13 +439,13 @@ static void room__async_emit_join_cb(uv_async_t * task)
 
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    if (msgpack_pack_map(&pk, 1) ||
-        mp_pack_str(&pk, "id") ||
-        msgpack_pack_uint64(&pk, w->room_id))
-    {
-        log_critical(EX_MEMORY_S);
-        goto done;
-    }
+    msgpack_pack_map(&pk, 2);
+
+    mp_pack_str(&pk, "scope");
+    mp_pack_str(&pk, w->scope);
+
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, w->room_id);
 
     pkg = (ti_pkg_t *) buffer.data;
     pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_ROOM_JOIN, buffer.size);
@@ -451,12 +463,16 @@ static void room__async_emit_join(ti_room_t * room, ti_stream_t * stream)
 {
     uv_async_t * task = malloc(sizeof(uv_async_t));
     room__async_t * w = malloc(sizeof(room__async_t));
+    ti_raw_t * scope = room ->collection->scope;
 
     if (!task || !w)
         goto failed;
 
     w->stream = stream;
     w->room_id = room->id;
+    memcpy(w->scope, scope->data, scope->n);
+    w->scope[scope->n] = '\0';
+
     task->data = w;
 
     if (uv_async_init(ti.loop, task, (uv_async_cb) room__async_emit_join_cb) ||
@@ -485,7 +501,7 @@ static void room__emit_leave(ti_room_t * room, ti_stream_t * stream)
     if (ti_stream_is_closed(stream))
         return;
 
-    if (mp_sbuffer_alloc_init(&buffer, 32, sizeof(ti_pkg_t)))
+    if (mp_sbuffer_alloc_init(&buffer, 288, sizeof(ti_pkg_t)))
     {
         log_critical(EX_MEMORY_S);
         return;
@@ -493,13 +509,15 @@ static void room__emit_leave(ti_room_t * room, ti_stream_t * stream)
 
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    if (msgpack_pack_map(&pk, 1) ||
-        mp_pack_str(&pk, "id") ||
-        msgpack_pack_uint64(&pk, room->id))
-    {
-        log_critical(EX_MEMORY_S);
-        return;
-    }
+    msgpack_pack_map(&pk, 2);
+
+    mp_pack_str(&pk, "scope");
+    mp_pack_strn(&pk,
+                room->collection->scope->data,
+                room->collection->scope->n);
+
+    mp_pack_str(&pk, "id");
+    msgpack_pack_uint64(&pk, room->id);
 
     pkg = (ti_pkg_t *) buffer.data;
     pkg_init(pkg, TI_PROTO_EV_ID, TI_PROTO_CLIENT_ROOM_LEAVE, buffer.size);

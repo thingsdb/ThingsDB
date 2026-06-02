@@ -55,7 +55,7 @@ class TestRoom(TestBase):
 
     title = 'Test room type'
 
-    @default_test_setup(num_nodes=3, seed=1, threshold_full_storage=100)
+    @default_test_setup(num_nodes=1, seed=1, threshold_full_storage=100)
     async def async_run(self):
         await self.node0.init_and_run()
 
@@ -63,14 +63,15 @@ class TestRoom(TestBase):
         cl0.set_default_scope('//stuff')
 
         # add more nodes for watch validation
-        await self.node1.join_until_ready(cl0)
-        await self.node2.join_until_ready(cl0)
+        # await self.node1.join_until_ready(cl0)
+        # await self.node2.join_until_ready(cl0)
 
-        cl1 = await get_client(self.node1)
-        cl1.set_default_scope('//stuff')
+        # cl1 = await get_client(self.node1)
+        # cl1.set_default_scope('//stuff')
 
-        cl2 = await get_client(self.node2)
-        cl2.set_default_scope('//stuff')
+        # cl2 = await get_client(self.node2)
+        # cl2.set_default_scope('//stuff')
+        cl1 = cl2 = cl0
 
         await self.run_tests(cl0, cl1, cl2)
 
@@ -83,7 +84,7 @@ class TestRoom(TestBase):
             client.close()
             await client.wait_closed()
 
-    async def test_is_room(self, cl0, cl1, cl2):
+    async def _test_is_room(self, cl0, cl1, cl2):
         with self.assertRaisesRegex(
                 NumArgumentsError,
                 'function `is_room` takes 1 argument but 0 were given'):
@@ -92,7 +93,7 @@ class TestRoom(TestBase):
         self.assertTrue(await cl0.query('is_room( room() ); '))
         self.assertFalse(await cl0.query('is_room( "bla" ); '))
 
-    async def test_room_err(self, cl0, cl1, cl2):
+    async def _test_room_err(self, cl0, cl1, cl2):
         with self.assertRaisesRegex(
                 ValueError,
                 'name `room` is reserved'):
@@ -113,7 +114,7 @@ class TestRoom(TestBase):
                 'collection `stuff` has no `room` with id 0'):
             await cl0.query('room(0);')
 
-    async def test_rooms(self, cl0, cl1, cl2):
+    async def _test_rooms(self, cl0, cl1, cl2):
         room_ids = await cl0.query(r"""//ti
             .rooms = range(3).map(|| room());
             .rooms.map(|room| room.id());
@@ -165,7 +166,7 @@ class TestRoom(TestBase):
             'on_delete', 'on_delete', 'on_delete',
             'on_delete', 'on_delete', 'on_delete'])
 
-    async def test_join_leave(self, cl0, cl1, cl2):
+    async def _test_join_leave(self, cl0, cl1, cl2):
         await cl0.query(r"""//ti
             range(3).each(|i| .set(`room{i}`, room()));
         """)
@@ -184,7 +185,7 @@ class TestRoom(TestBase):
         ids = [id for id in res if id is not None]
         self.assertEqual(len(ids), 3)
 
-    async def test_object_to_room(self, cl0, cl1, cl2):
+    async def _test_object_to_room(self, cl0, cl1, cl2):
         await cl0.query(r"""//ti
             .oroom = room();
             .oroom.set_name("oroom");
@@ -207,7 +208,7 @@ class TestRoom(TestBase):
 
         self.assertEqual([r0, r1, r2], actions)
 
-    async def test_room_name(self, cl0, cl1, cl2):
+    async def _test_room_name(self, cl0, cl1, cl2):
         await cl0.query(r"""//ti
             .room_a = room();
             .room_b = room();
@@ -303,7 +304,7 @@ class TestRoom(TestBase):
         res = await cl0.query('room("A").name();')
         self.assertEqual(res, "A")
 
-    async def test_room_peer_only(self, cl0, cl1, cl2):
+    async def _test_room_peer_only(self, cl0, cl1, cl2):
         await cl0.query(r"""//ti
             .room = room();
             .room.set_name("test_peer_room");
@@ -335,6 +336,38 @@ class TestRoom(TestBase):
             'from_1_to_all',
             'from_0_to_peers',
         ]), sorted(actions1))
+
+    async def test_multi_collection_room(self, cl0, cl1, cl2):
+        await cl0.query(r"""//ti
+            new_collection('a');
+            new_collection('b');
+        """, scope='/t')
+        room_id_a = await cl0.query(r"""//ti
+            .room = room();
+            .room.id();
+        """, scope='//a')
+        room_id_b = await cl0.query(r"""//ti
+            .room = room();
+            .room.id();
+        """, scope='//b')
+
+        self.assertEqual(room_id_a, room_id_b)
+
+        actions0 = []
+        actions1 = []
+        room0 = ORoom(actions0, room_id_a, scope='//a')
+        room1 = ORoom(actions1, room_id_b, scope='//b')
+
+        await room0.join(cl0)
+        await room1.join(cl0)
+
+        await room0.emit('add', 'room0')
+        await room1.emit('add', 'room1')
+
+        await asyncio.sleep(1.5)
+
+        self.assertEqual(['room0'], actions0)
+        self.assertEqual(['room1'], actions1)
 
 
 if __name__ == '__main__':

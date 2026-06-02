@@ -55,7 +55,7 @@ class TestRoom(TestBase):
 
     title = 'Test room type'
 
-    @default_test_setup(num_nodes=1, seed=1, threshold_full_storage=100)
+    @default_test_setup(num_nodes=3, seed=1, threshold_full_storage=100)
     async def async_run(self):
         await self.node0.init_and_run()
 
@@ -63,15 +63,14 @@ class TestRoom(TestBase):
         cl0.set_default_scope('//stuff')
 
         # add more nodes for watch validation
-        # await self.node1.join_until_ready(cl0)
-        # await self.node2.join_until_ready(cl0)
+        await self.node1.join_until_ready(cl0)
+        await self.node2.join_until_ready(cl0)
 
-        # cl1 = await get_client(self.node1)
-        # cl1.set_default_scope('//stuff')
+        cl1 = await get_client(self.node1)
+        cl1.set_default_scope('//stuff')
 
-        # cl2 = await get_client(self.node2)
-        # cl2.set_default_scope('//stuff')
-        cl1 = cl2 = cl0
+        cl2 = await get_client(self.node2)
+        cl2.set_default_scope('//stuff')
 
         await self.run_tests(cl0, cl1, cl2)
 

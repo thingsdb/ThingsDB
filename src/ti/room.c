@@ -114,7 +114,7 @@ static void room__emit_delete(ti_room_t * room)
         msgpack_sbuffer buffer;
         ti_pkg_t * pkg;
 
-        if (mp_sbuffer_alloc_init(&buffer, 288, sizeof(ti_pkg_t)))
+        if (mp_sbuffer_alloc_init(&buffer, 290, sizeof(ti_pkg_t)))
         {
             log_critical(EX_MEMORY_S);
             return;
@@ -431,7 +431,7 @@ static void room__async_emit_join_cb(uv_async_t * task)
     if (ti_stream_is_closed(w->stream))
         goto done;
 
-    if (mp_sbuffer_alloc_init(&buffer, 288, sizeof(ti_pkg_t)))
+    if (mp_sbuffer_alloc_init(&buffer, 290, sizeof(ti_pkg_t)))
     {
         log_critical(EX_MEMORY_S);
         goto done;
@@ -501,7 +501,7 @@ static void room__emit_leave(ti_room_t * room, ti_stream_t * stream)
     if (ti_stream_is_closed(stream))
         return;
 
-    if (mp_sbuffer_alloc_init(&buffer, 288, sizeof(ti_pkg_t)))
+    if (mp_sbuffer_alloc_init(&buffer, 290, sizeof(ti_pkg_t)))
     {
         log_critical(EX_MEMORY_S);
         return;

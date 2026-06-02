@@ -336,6 +336,38 @@ class TestRoom(TestBase):
             'from_0_to_peers',
         ]), sorted(actions1))
 
+    async def test_multi_collection_room(self, cl0, cl1, cl2):
+        await cl0.query(r"""//ti
+            new_collection('a');
+            new_collection('b');
+        """, scope='/t')
+        room_id_a = await cl0.query(r"""//ti
+            .room = room();
+            .room.id();
+        """, scope='//a')
+        room_id_b = await cl0.query(r"""//ti
+            .room = room();
+            .room.id();
+        """, scope='//b')
+
+        self.assertEqual(room_id_a, room_id_b)
+
+        actions0 = []
+        actions1 = []
+        room0 = ORoom(actions0, room_id_a, scope='//a')
+        room1 = ORoom(actions1, room_id_b, scope='//b')
+
+        await room0.join(cl0)
+        await room1.join(cl0)
+
+        await room0.emit('add', 'room0')
+        await room1.emit('add', 'room1')
+
+        await asyncio.sleep(1.5)
+
+        self.assertEqual(['room0'], actions0)
+        self.assertEqual(['room1'], actions1)
+
 
 if __name__ == '__main__':
     run_test(TestRoom())

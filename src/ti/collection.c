@@ -56,6 +56,7 @@ ti_collection_t * ti_collection_create(
     collection->id = collection_id;
     collection->next_free_id = next_free_id;
     collection->name = ti_str_create(name, n);
+    collection->scope = ti_str_from_fmt("@collection:%.*s", (int) n, name);
     collection->things = imap_create();
     collection->rooms = imap_create();
     collection->gc = queue_new(20);
@@ -77,7 +78,7 @@ ti_collection_t * ti_collection_create(
     if (!collection->name || !collection->things || !collection->gc ||
         !collection->access || !collection->procedures || !collection->lock ||
         !collection->types || !collection->enums || !collection->futures ||
-        !collection->rooms || !collection->named_rooms ||
+        !collection->rooms || !collection->named_rooms || !collection->scope ||
         !collection->ano_types || uv_mutex_init(collection->lock))
     {
         ti_collection_drop(collection);
@@ -100,6 +101,7 @@ void ti_collection_destroy(ti_collection_t * collection)
     imap_destroy(collection->rooms, NULL);
     queue_destroy(collection->gc, NULL);
     ti_val_drop((ti_val_t *) collection->name);
+    ti_val_drop((ti_val_t *) collection->scope);
     vec_destroy(collection->access, (vec_destroy_cb) ti_auth_destroy);
     vec_destroy(collection->vtasks, (vec_destroy_cb) ti_vtask_drop);
     vec_destroy(collection->commits, (vec_destroy_cb) ti_commit_destroy);

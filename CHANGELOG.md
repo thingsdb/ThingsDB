@@ -1,7 +1,7 @@
-# v1.8.6-alpha0
+# v1.8.6-alpha1
 
 * Read `type_count(..)` from cache if available, pr #443.
-* Add `scope` to event packages for correct mapping, pr 
+* Add `scope` in format `@collection:...` to room events, pr #444.
 
 # v1.8.5
 

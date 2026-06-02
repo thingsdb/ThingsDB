@@ -414,7 +414,7 @@ void ti_room_emit_node_status(ti_room_t * room, const char * status)
 typedef struct
 {
     uint64_t room_id;
-    char scope[256];
+    char scope[268];
     ti_stream_t * stream;
 } room__async_t;
 

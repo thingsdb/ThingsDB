@@ -463,7 +463,7 @@ static void room__async_emit_join(ti_room_t * room, ti_stream_t * stream)
 {
     uv_async_t * task = malloc(sizeof(uv_async_t));
     room__async_t * w = malloc(sizeof(room__async_t));
-    ti_raw_t * scope = room ->collection->scope;
+    ti_raw_t * scope = room->collection->scope;
 
     if (!task || !w)
         goto failed;

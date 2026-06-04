@@ -1,4 +1,4 @@
-# v1.8.6-alpha1
+# v1.8.6-alpha2
 
 * Read `type_count(..)` from cache if available, pr #443.
 * Add `scope` in format `@collection:...` to room events, pr #444.

@@ -1,3 +1,7 @@
+# v1.8.7-alpha0
+
+* Pinned gcloud image to fixed versions.
+
 # v1.8.6
 
 * Read `type_count(..)` from cache if available, pr #443.

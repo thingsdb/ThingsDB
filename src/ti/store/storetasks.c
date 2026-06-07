@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <ti.h>
+#include <ti/collection.inline.h>
 #include <ti/raw.inline.h>
 #include <ti/store/storetasks.h>
 #include <ti/tasks.h>

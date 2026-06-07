@@ -1,6 +1,7 @@
 # v1.8.7-alpha0
 
 * Pinned gcloud image to fixed versions.
+* Update next free ID after loading tasks from full storage, issue #445.
 
 # v1.8.6
 

@@ -149,6 +149,11 @@ int ti_store_tasks_restore(
         if (!vtask)
             goto fail2;
 
+        if (collection)
+            ti_collection_update_next_free_id(collection, vtask->id);
+        else
+            ti_update_next_free_id(vtask->id);
+
         ti_decref(closure);
         if (verr)
             ti_decref(verr);

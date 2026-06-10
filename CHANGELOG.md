@@ -1,3 +1,7 @@
+# v1.8.8
+
+* Set correct task after configuring auto-index _(`IDX`)_, issue #446.
+
 # v1.8.7
 
 * Pinned gcloud image to fixed versions.

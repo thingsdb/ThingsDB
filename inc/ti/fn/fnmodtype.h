@@ -1518,7 +1518,7 @@ static void type__idx(
     /* update modified time-stamp */
     type->modified_at = util_now_usec();
 
-    if (ti_task_add_mod_type_hid(task, type))
+    if (ti_task_add_mod_type_idx(task, type))
         ex_set_mem(e);
 }
 

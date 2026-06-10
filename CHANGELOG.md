@@ -1,3 +1,7 @@
+# v1.8.9-alpha0
+
+* Include `tasks` and `restarts` for `modules_info()` on _node_ scope, issue #447.
+
 # v1.8.8
 
 * Set correct task after configuring auto-index _(`IDX`)_, issue #446.

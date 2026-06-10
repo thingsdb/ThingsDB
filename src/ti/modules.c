@@ -102,15 +102,15 @@ static int modues__info_cb(ti_module_t * module, ti_varr_t * varr)
     return 0;
 }
 
-ti_varr_t * ti_modules_info(_Bool with_conf)
+ti_varr_t * ti_modules_info(uint8_t flags)
 {
-    uint8_t flags;
+    uint8_t tmp_flags;
     ti_varr_t * varr = ti_varr_create(ti.modules->n);
     if (!varr)
         return NULL;
 
-    flags = varr->flags;
-    varr->flags = with_conf;
+    tmp_flags = varr->flags;
+    varr->flags = flags;
 
     if (smap_values(ti.modules, (smap_val_cb) modues__info_cb, varr))
     {
@@ -118,7 +118,7 @@ ti_varr_t * ti_modules_info(_Bool with_conf)
         return NULL;
     }
 
-    varr->flags = flags;
+    varr->flags = tmp_flags;
     return varr;
 }
 

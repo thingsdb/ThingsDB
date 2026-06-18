@@ -26,8 +26,9 @@
  *
  *    pcregrep -o1 ' :: `(\w+)' spec.c | gperf -E -k '*,1,$' -m 200
 
-  :: `any`
   :: `ano`
+  :: `any`
+  :: `big`
   :: `bool`
   :: `break`
   :: `bytes`
@@ -37,15 +38,21 @@
   :: `date`
   :: `datetime`
   :: `else`
+  :: `email`
   :: `enum`
   :: `error`
+  :: `false`
   :: `final`
   :: `float`
   :: `for`
+  :: `future`
   :: `if`
   :: `in`
   :: `int`
+  :: `interface`
   :: `list`
+  :: `module`
+  :: `mpdata`
   :: `nil`
   :: `nint`
   :: `number`
@@ -57,24 +64,31 @@
   :: `set`
   :: `str`
   :: `task`
+  :: `tel`
   :: `thing`
   :: `time`
+  :: `timedelta`
   :: `timeval`
+  :: `trait`
+  :: `true`
   :: `try`
   :: `tuple`
+  :: `type`
+  :: `typed`
   :: `uint`
   :: `union`
+  :: `url`
   :: `utf8`
 
  */
 
 enum
 {
-    TOTAL_KEYWORDS = 39,
+    TOTAL_KEYWORDS = 53,
     MIN_WORD_LENGTH = 2,
-    MAX_WORD_LENGTH = 8,
+    MAX_WORD_LENGTH = 9,
     MIN_HASH_VALUE = 3,
-    MAX_HASH_VALUE = 46
+    MAX_HASH_VALUE = 67
 };
 
 static inline unsigned int spec__hash(
@@ -83,32 +97,32 @@ static inline unsigned int spec__hash(
 {
     static unsigned char asso_values[] =
     {
-        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-        47, 47, 47, 47, 47, 47, 17, 47, 47, 47,
-        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-        47, 47, 47, 47, 47, 47, 47, 15, 10, 13,
-        9,  0, 11, 13,  0,  5, 47,  8,  2,  8,
-        0,  3, 16, 47,  2,  0,  0,  3,  2, 13,
-        11, 19, 47, 47, 47, 47, 47, 47, 47, 47,
-        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-        47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-        47, 47, 47, 47, 47, 47
+        68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+        68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+        68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+        68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+        68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+        68, 68, 68, 68, 68, 68, 14, 68, 68, 68,
+        68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+        68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+        68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+        68, 68, 68, 68, 68, 68, 68,  5, 11, 11,
+         3,  3, 10, 35,  3,  0, 68, 16,  3, 22,
+         1,  8, 22, 68,  0, 15,  4,  0,  7, 12,
+         4, 20, 68, 68, 68, 68, 68, 68, 68, 68,
+        68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+        68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+        68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+        68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+        68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+        68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+        68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+        68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+        68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+        68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+        68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+        68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+        68, 68, 68, 68, 68, 68
     };
 
     register unsigned int hval = n;
@@ -116,6 +130,9 @@ static inline unsigned int spec__hash(
     switch (hval)
     {
         default:
+            hval += asso_values[(unsigned char)s[8]];
+            /*FALLTHROUGH*/
+        case 8:
             hval += asso_values[(unsigned char)s[7]];
             /*fall through*/
         case 7:
@@ -148,47 +165,62 @@ _Bool ti_spec_is_reserved(register const char * s, register size_t n)
     static const char * wordlist[] =
     {
         "", "", "",
-        "set",
-        "",
-        "str",
-        "else",
         "in",
-        "int",
-        "nint",
+        "", "",
+        "url",
         "nil",
-        "list",
+        "int",
         "uint",
-        "return",
-        "error",
-        "enum",
-        "union",
-        "time",
+        "nint",
+        "true",
         "if",
-        "for",
-        "room",
+        "tel",
+        "return",
+        "union",
+        "error",
         "ano",
-        "bool",
-        "thing",
-        "try",
-        "pint",
-        "tuple",
-        "task",
+        "trait",
         "date",
-        "number",
-        "closure",
-        "regex",
-        "continue",
         "raw",
-        "bytes",
-        "utf8",
-        "float",
-        "any",
+        "for",
+        "str",
+        "future",
         "final",
-        "timeval",
+        "set",
+        "list",
+        "try",
+        "else",
+        "any",
+        "enum",
+        "pint",
+        "utf8",
+        "time",
+        "bool",
+        "float",
+        "continue",
+        "tuple",
+        "email",
+        "catch",
         "break",
-        "", "", "", "",
+        "false",
+        "room",
+        "number",
+        "task",
+        "module",
+        "interface",
+        "closure",
+        "thing",
+        "big",
+        "regex",
+        "timeval",
         "datetime",
-        "catch"
+        "type",
+        "", "",
+        "timedelta",
+        "typed",
+        "bytes",
+        "", "", "", "", "", "", "", "",
+        "mpdata"
     };
 
     if (n <= MAX_WORD_LENGTH && n >= MIN_WORD_LENGTH)

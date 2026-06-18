@@ -3766,8 +3766,8 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `new_type` expects argument 2 to be of '
-                'type `bool` but got type `int` instead;'):
-            await client.query(r'new_type("A", 0);')
+                'type `bool` or `int` but got type `str` instead;'):
+            await client.query(r'new_type("A", "WPO");')
 
         with self.assertRaisesRegex(
                 TypeError,
@@ -3865,8 +3865,8 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 'function `set_type` expects argument 3 to be of '
-                'type `bool` but got type `int` instead;'):
-            await client.query(r'set_type("A", {}, 0);')
+                'type `bool` or `int` but got type `str` instead;'):
+            await client.query(r'set_type("A", {}, "wpo");')
 
         with self.assertRaisesRegex(
                 TypeError,
@@ -3884,9 +3884,9 @@ class TestCollectionFunctions(TestBase):
         res = await client.query("""//ti
             set_type("T2", {});
             t = type_info("T2").load();
-            [t.name, t.wrap_only, t.hide_id];
+            [t.name, t.wrap_only, t.hide_id, t.auto_index];
         """)
-        self.assertEqual(res, ["T2", True, True])
+        self.assertEqual(res, ["T2", True, True, False])
 
         res = await client.query("""//ti
             set_type("T1", {}, true, true);
@@ -6043,6 +6043,80 @@ class TestCollectionFunctions(TestBase):
                     type_all('T').len();
         """)
         self.assertEqual(r, 3)
+
+    async def test_min(self, client):
+        q = client.query
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `min` is undefined'):
+            await q('min(range(2));')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `min` takes 0 arguments but 1 was given;'):
+            await q('range(5).min(nil);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'min\(\) on empty list;'):
+            await q('[].min();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                '`<` not supported between `int` and `str`'):
+            await q('[5, "a"].min();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                '`<` not supported between `thing` and `thing`'):
+            await q('[{}, {}].min();')
+
+        r = await q('["g", "a", "c", "d"].min()')
+        self.assertEqual(r, 'a')
+
+        r = await q('[8, 5.0, 6, 9].min()')
+        self.assertEqual(r, 5.0)
+
+        r = await q('[nil].min()')
+        self.assertEqual(r, None)
+
+    async def test_max(self, client):
+        q = client.query
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `max` is undefined'):
+            await q('max(range(2));')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `max` takes 0 arguments but 1 was given;'):
+            await q('range(5).max(nil);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'max\(\) on empty list;'):
+            await q('[].max();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                '`<` not supported between `int` and `str`'):
+            await q('[5, "a"].max();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                '`<` not supported between `thing` and `thing`'):
+            await q('[{}, {}].max();')
+
+        r = await q('["g", "a", "c", "d"].max()')
+        self.assertEqual(r, 'g')
+
+        r = await q('[8, 5.0, 6, 9].max()')
+        self.assertEqual(r, 9)
+
+        r = await q('[nil].max()')
+        self.assertEqual(r, None)
 
 
 if __name__ == '__main__':

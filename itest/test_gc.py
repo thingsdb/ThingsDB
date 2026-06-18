@@ -19,6 +19,13 @@ class TestGC(TestBase):
         stuff = '@:stuff'
 
         await client.query(r'''
+            new_type("A");
+            new_type("B");
+            set_type("A", {b: 'B?'});
+            set_type("B", {a: 'A?'});
+            mod_type("A", "rel", "b", "a");
+            .A = A{};
+            .A.b = B{};
             .a = {};
             .a.other = {theanswer: 42, ref: .a};
             .x = .a.other;
@@ -45,9 +52,9 @@ class TestGC(TestBase):
 
             // test cross-refferences in block scopes
             {
-                arr = [{other: .other}, {other: .other}];
-                arr[0].t1 = arr[1];
-                arr[1].t0 = arr[0];
+                arrself = [{other: .other}, {other: .other}];
+                arrself[0].t1 = arrself[1];
+                arrself[1].t0 = arrself[0];
             };
 
             // test as closure arguments
@@ -59,6 +66,7 @@ class TestGC(TestBase):
 
             id = .other.id();
             .del('other');
+            .del('A');
             id;
         ''', scope=stuff)
 
@@ -67,18 +75,22 @@ class TestGC(TestBase):
                 r'collection `stuff` has no `thing` with id [0-9]+'):
             await client.query(f'thing({other_id});', scope=stuff)
 
+        # bug #438
+        for _ in range(50):
+            await client.query('wse();', scope=stuff)
+        await asyncio.sleep(5.0)
+        for _ in range(50):
+            await client.query('wse();', scope=stuff)
+        await asyncio.sleep(5.0)
+        n = await client.query(
+            'collection_info("stuff").load().things;',
+            scope='/t')
+        self.assertEqual(n, 3)
+
         await self.node0.shutdown()
         await self.node0.run()
 
-        await asyncio.sleep(4)
-
-        for _ in range(10):
-            await client.query(r'''.counter = 1;''', scope=stuff)
-
-        await self.node0.shutdown()
-        await self.node0.run()
-
-        await asyncio.sleep(4)
+        await self.wait_nodes_ready()
 
         x, other = await client.query(
             r'return [.x, .a.other], 2;', scope=stuff)
@@ -86,9 +98,9 @@ class TestGC(TestBase):
         self.assertEqual(x, other)
 
         await client.query(r'''
-            .c = {arr: [{name: 'Iris'}]};
-            .c.arr.push(.c);
-            .c.arr.push({name: 'Cato'});
+            .c = {array: [{name: 'Iris'}]};
+            .c.array.push(.c);
+            .c.array.push({name: 'Cato'});
             .del('c');
         ''', scope=stuff)
 
@@ -133,7 +145,7 @@ class TestGC(TestBase):
 
         counters = await client.query('counters();', scope='@node')
 
-        self.assertEqual(counters['garbage_collected'], 9)
+        self.assertEqual(counters['garbage_collected'], 11)
 
         # below do an advanced garbage collection test
         client.set_default_scope(stuff)

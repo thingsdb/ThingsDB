@@ -371,7 +371,7 @@ static int ctask__new_type(ti_thing_t * thing, mp_unp_t * up)
      *       Some code can be simplified once backwards dependency may
      *       be dropped.
      */
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz < 3 || obj.via.sz > 5 ||
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz < 3 || obj.via.sz > 6 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
         mp_skip(up) != MP_STR ||
@@ -400,7 +400,7 @@ static int ctask__new_type(ti_thing_t * thing, mp_unp_t * up)
         if (mp_wpo.via.bool_)
             flags |= TI_TYPE_FLAG_WRAP_ONLY;
 
-        if (obj.via.sz == 5)
+        if (obj.via.sz >= 5)
         {
             mp_obj_t mp_hid;
 
@@ -413,7 +413,23 @@ static int ctask__new_type(ti_thing_t * thing, mp_unp_t * up)
             }
 
             if (mp_hid.via.bool_)
-                flags |= TI_TYPE_FLAG_WRAP_ONLY;
+                flags |= TI_TYPE_FLAG_HIDE_ID;
+        }
+
+        if (obj.via.sz == 6)
+        {
+            mp_obj_t mp_idx;
+
+            if (mp_skip(up) != MP_STR || mp_next(up, &mp_idx) != MP_BOOL)
+            {
+                log_critical(
+                    "task `new_type` for "TI_COLLECTION_ID" is invalid",
+                    collection->id);
+                return -1;
+            }
+
+            if (mp_idx.via.bool_)
+                flags |= TI_TYPE_FLAG_INDEX;
         }
     }
 
@@ -761,7 +777,7 @@ static int ctask__set_type(ti_thing_t * thing, mp_unp_t * up)
 
     /* TODO: (COMPAT) For compatibility with versions before v0.9.6 */
     /* TODO: (COMPAT) For compatibility with versions before v0.9.23 */
-    if (mp_next(up, &obj) != MP_MAP || obj.via.sz < 3 || obj.via.sz > 6 ||
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz < 3 || obj.via.sz > 7 ||
         mp_skip(up) != MP_STR ||
         mp_next(up, &mp_id) != MP_U64 ||
         mp_skip(up) != MP_STR ||
@@ -798,7 +814,8 @@ static int ctask__set_type(ti_thing_t * thing, mp_unp_t * up)
             &e,
             obj.via.sz >= 4,
             obj.via.sz >= 5,
-            obj.via.sz == 6))
+            obj.via.sz >= 6,
+            obj.via.sz == 7))
     {
         log_critical(
             "task `set_type` for "TI_COLLECTION_ID" has failed; "
@@ -2182,6 +2199,45 @@ static int ctask__mod_type_hid(ti_thing_t * thing, mp_unp_t * up)
     return 0;
 }
 
+/*
+ * Returns 0 on success
+ */
+static int ctask__mod_type_idx(ti_thing_t * thing, mp_unp_t * up)
+{
+    ti_collection_t * collection = thing->collection;
+    ti_type_t * type;
+    mp_obj_t obj, mp_id, mp_modified, mp_idx;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_modified) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_idx) != MP_BOOL)
+    {
+        log_critical(
+                "task `mod_type_idx` for "TI_COLLECTION_ID" is invalid",
+                collection->id);
+        return -1;
+    }
+
+    type = ti_types_by_id(collection->types, mp_id.via.u64);
+    if (!type)
+    {
+        log_critical(
+                "task `mod_type_idx` for "TI_COLLECTION_ID" is invalid; "
+                "type with id %"PRIu64" not found",
+                collection->id, mp_id.via.u64);
+        return -1;
+    }
+
+    ti_type_set_index(type, mp_idx.via.bool_);
+
+    type->modified_at = mp_modified.via.u64;
+
+    return 0;
+}
 
 /*
  * Returns 0 on success
@@ -3423,6 +3479,7 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_SET_HISTORY:       break;
     case TI_TASK_DEL_HISTORY:       break;
     case TI_TASK_COMMIT:            return ctask__commit(thing, up);
+    case TI_TASK_MOD_TYPE_IDX:      return ctask__mod_type_idx(thing, up);
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);

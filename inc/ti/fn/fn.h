@@ -111,6 +111,12 @@ int fn_arg_int_slow(
         int argn,
         ti_val_t * val,
         ex_t * e);
+int fn_arg_bool_slow(
+        const char * name,
+        const char * doc,
+        int argn,
+        ti_val_t * val,
+        ex_t * e);
 
 static inline int fn_get_nargs(cleri_node_t * nd)
 {

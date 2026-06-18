@@ -192,7 +192,7 @@ class TestAno(TestBase):
                          """)
         self.assertEqual(r1, {
             "name": "IRIS",
-            "numbers": [{"x": 1,}, {"x": 4}, {}]
+            "numbers": [{"x": 1}, {"x": 4}, {}]
         })
         self.assertEqual(r1, r2)
         self.assertEqual(r2, r3)
@@ -298,6 +298,7 @@ I guess we are good now...
                       c;
                       """)
         self.assertEqual(res, {"nested": {'t': {'name': 'foo'}}})
+
 
 if __name__ == '__main__':
     run_test(TestAno())

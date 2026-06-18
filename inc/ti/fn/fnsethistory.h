@@ -26,7 +26,7 @@ static int do__f_set_history(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
     /* read state */
     if (ti_do_statement(query, nd->children->next->next, e) ||
-        fn_arg_bool("set_history", DOC_SET_HISTORY, 2, query->rval, e))
+        fn_arg_bool_slow("set_history", DOC_SET_HISTORY, 2, query->rval, e))
         return e->nr;
 
     state = VBOOL(query->rval);

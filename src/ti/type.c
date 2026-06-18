@@ -82,6 +82,7 @@ ti_type_t * ti_type_create(
     type->created_at = created_at;
     type->modified_at = modified_at;
     type->methods = vec_new(0);
+    type->t_cache = NULL;
 
     if (!type->name || !type->wname || !type->dependencies || !type->fields ||
         !type->rname || !type->rwname || !type->t_mappings || !type->methods ||
@@ -122,6 +123,7 @@ ti_type_t * ti_type_create_anonymous(
     type->created_at = 0;
     type->modified_at = 0;
     type->methods = vec_new(0);
+    type->t_cache = NULL;
 
     if (!type->name || !type->dependencies || !type->fields ||
         !type->rname || !type->t_mappings || !type->methods)
@@ -135,6 +137,9 @@ ti_type_t * ti_type_create_anonymous(
 
 imap_t * ti_type_collect_things(ti_query_t * query, ti_type_t * type)
 {
+    if (type->t_cache)
+        return imap_dup(type->t_cache, true);
+
     type__collect_t collect = {
             .imap = imap_create(),
             .type = type,
@@ -160,7 +165,6 @@ imap_t * ti_type_collect_things(ti_query_t * query, ti_type_t * type)
         imap_destroy(collect.imap, (imap_destroy_cb) ti_val_unsafe_drop);
         return NULL;
     }
-
     return collect.imap;
 }
 
@@ -254,6 +258,7 @@ void ti_type_destroy(ti_type_t * type)
     vec_destroy(type->fields, (vec_destroy_cb) ti_field_destroy);
     vec_destroy(type->methods, (vec_destroy_cb) ti_method_destroy);
     imap_destroy(type->t_mappings, (imap_destroy_cb) ti_map_destroy);
+    imap_destroy(type->t_cache, NULL);
     ti_val_drop((ti_val_t *) type->rname);
     ti_val_drop((ti_val_t *) type->rwname);
     ti_val_drop((ti_val_t *) type->idname);
@@ -873,14 +878,14 @@ failed:
     return e->nr;
 }
 
-
 int ti_type_init_from_unp(
         ti_type_t * type,
         mp_unp_t * up,
         ex_t * e,
         _Bool with_methods,
         _Bool with_wrap_only,
-        _Bool with_hide_id)
+        _Bool with_hide_id,
+        _Bool with_index)
 {
     ti_name_t * name;
     mp_obj_t obj, mp_name, mp_spec;
@@ -931,6 +936,19 @@ int ti_type_init_from_unp(
             return e->nr;
         }
         ti_type_set_hide_id(type, obj.via.bool_);
+    }
+
+    if (with_index)
+    {
+        if (mp_skip(up) != MP_STR || mp_next(up, &obj) != MP_BOOL)
+        {
+            ex_set(e, EX_BAD_DATA,
+                    "failed unpacking fields for type `%s`; "
+                    "expecting a boolean as auto-cache property",
+                    type->name);
+            return e->nr;
+        }
+        ti_type_set_index(type, obj.via.bool_);
     }
 
     if (mp_skip(up) != MP_STR || mp_next(up, &obj) != MP_ARR)
@@ -1224,7 +1242,7 @@ ti_val_t * ti_type_as_mpval(ti_type_t * type, _Bool with_definition)
     mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    if (msgpack_pack_map(&pk, 9) ||
+    if (msgpack_pack_map(&pk, 10) ||
         mp_pack_str(&pk, "type_id") ||
         msgpack_pack_uint16(&pk, type->type_id) ||
 
@@ -1236,6 +1254,9 @@ ti_val_t * ti_type_as_mpval(ti_type_t * type, _Bool with_definition)
 
         mp_pack_str(&pk, "hide_id") ||
         mp_pack_bool(&pk, ti_type_hide_id(type)) ||
+
+        mp_pack_str(&pk, "auto_index") ||
+        mp_pack_bool(&pk, ti_type_index(type)) ||
 
         mp_pack_str(&pk, "created_at") ||
         msgpack_pack_uint64(&pk, type->created_at) ||
@@ -1467,6 +1488,7 @@ int ti_type_convert(
     thing->type_id = type->type_id;
     thing->via.type = type;
     thing->items.vec = w.vec;
+    ti_thing_t_vache_add(thing);
     return e->nr;
 
 fail0:

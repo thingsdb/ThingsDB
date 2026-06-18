@@ -34,6 +34,11 @@ static int do__f_type_all(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             return e->nr;
         }
 
+        /* create cache if needed for next call to be fast;
+         * no need to check, it might fail which is okay */
+        if (ti_type_index(type) && !type->t_cache)
+            type->t_cache = imap_dup(imap, false);
+
         vset = ti_vset_create_imap(imap);
         if (!vset)
         {

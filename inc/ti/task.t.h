@@ -95,6 +95,7 @@ typedef enum
     TI_TASK_SET_HISTORY,                    /* 82  */
     TI_TASK_DEL_HISTORY,                    /* 83  */
     TI_TASK_COMMIT,                         /* 84  */
+    TI_TASK_MOD_TYPE_IDX,                   /* 85  */
 } ti_task_enum;
 
 typedef struct ti_task_s ti_task_t;

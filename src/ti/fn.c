@@ -29,3 +29,19 @@ int fn_arg_int_slow(
             name, argn, ti_val_str(val), doc);
     return e->nr;
 }
+
+
+int fn_arg_bool_slow(
+        const char * name,
+        const char * doc,
+        int argn,
+        ti_val_t * val,
+        ex_t * e)
+{
+    if (!ti_val_is_bool(val))
+        ex_set(e, EX_TYPE_ERROR,
+            "function `%s` expects argument %d to be of "
+            "type `"TI_VAL_BOOL_S"` but got type `%s` instead%s",
+            name, argn, ti_val_str(val), doc);
+    return e->nr;
+}

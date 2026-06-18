@@ -136,10 +136,13 @@ spec:
         tolerationSeconds: 600
       containers:
       - name: thingsdb
-        image: thingsdb/node:gcloud-v0.10.0  # Latest version at the time of writing
+        image: thingsdb/node:gcloud-v1.8.4  # Latest version at the time of writing
         imagePullPolicy: Always
-        args: ["--deploy"]  # Tells ThingsDB it will be deployed in Kubernetes
         env:
+        - name: THINGSDB_DEPLOY
+          value: "1"
+        - name: THINGSDB_AUTO_REBUILD
+          value: "1"
         - name: THINGSDB_HTTP_STATUS_PORT
           value: "8080"
         - name: THINGSDB_HTTP_API_PORT

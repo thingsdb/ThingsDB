@@ -1,6 +1,32 @@
-# v1.8.4-alpha0
+# v1.8.9-alpha1
+
+* Include `tasks` and `restarts` for `modules_info()` on _node_ scope, issue #447.
+* Added extra reserved named _(see pull request for list of names)_, pr #448.
+
+# v1.8.8
+
+* Set correct task after configuring auto-index _(`IDX`)_, issue #446.
+
+# v1.8.7
+
+* Pinned gcloud image to fixed versions.
+* Update next free ID after loading tasks from full storage, issue #445.
+
+# v1.8.6
+
+* Read `type_count(..)` from cache if available, pr #443.
+* Add `scope` in format `@collection:...` to room events, pr #444.
+
+# v1.8.5
+
+* Added `min()` and `max()` functions, issue #441.
+
+# v1.8.4
 
 * Added `--auto-rebuild` flag, pr #435.
+* Fixed: garbage collect in single node mode, issue #438.
+* Added type index for fast `type_all(..)` requests, pr #439.
+* Added `WPO`, `HID` and `IDX` type flags, pr #440.
 
 # v1.8.3
 

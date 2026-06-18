@@ -28,6 +28,7 @@ struct ti_collection_s
     uint64_t created_at;    /* UNIX time-stamp in seconds */
     ti_tz_t * tz;
     ti_raw_t * name;
+    ti_raw_t * scope;
     imap_t * things;        /* weak map for ti_thing_t */
     imap_t * rooms;         /* weak map for ti_room_t */
     queue_t * gc;           /* ti_gc_t */

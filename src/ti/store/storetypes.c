@@ -30,10 +30,11 @@ static int rmtype_cb(
 static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
 {
     uintptr_t p;
-    if (msgpack_pack_array(pk, 8) ||
+    if (msgpack_pack_array(pk, 9) ||
         msgpack_pack_uint16(pk, type->type_id) ||
         mp_pack_bool(pk, type->flags & TI_TYPE_FLAG_WRAP_ONLY) ||
         mp_pack_bool(pk, type->flags & TI_TYPE_FLAG_HIDE_ID) ||
+        mp_pack_bool(pk, type->flags & TI_TYPE_FLAG_INDEX) ||
         msgpack_pack_uint64(pk, type->created_at) ||
         msgpack_pack_uint64(pk, type->modified_at) ||
         mp_pack_strn(pk, type->rname->data, type->rname->n) ||
@@ -171,6 +172,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     _Bool with_methods = true;
     _Bool with_wrap_only = true;
     _Bool with_hide_id = true;
+    _Bool with_index = true;
     _Bool with_relations = true;
     fx_mmap_t fmap;
     ex_t e = {0};
@@ -180,7 +182,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     uint16_t type_id;
     uintptr_t utype_id;
     ti_raw_t * spec_raw;
-    mp_obj_t obj, mp_id, mp_name, mp_wpo, mp_hid,
+    mp_obj_t obj, mp_id, mp_name, mp_wpo, mp_hid, mp_idx,
              mp_spec, mp_created, mp_modified;
     mp_unp_t up;
     ti_vup_t vup = {
@@ -248,10 +250,13 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             with_methods = false;
             with_wrap_only = false;
             with_hide_id = false;
+            with_index = false;
             mp_wpo.tp = MP_BOOL;
             mp_wpo.via.bool_ = false;
             mp_hid.tp = MP_BOOL;
             mp_hid.via.bool_ = false;
+            mp_idx.tp = MP_BOOL;
+            mp_idx.via.bool_ = false;
             if (mp_next(&up, &mp_id) != MP_U64 ||
                 mp_next(&up, &mp_created) != MP_U64 ||
                 mp_next(&up, &mp_modified) != MP_U64 ||
@@ -266,10 +271,13 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
              */
             with_wrap_only = false;
             with_hide_id = false;
+            with_index = false;
             mp_wpo.tp = MP_BOOL;
             mp_wpo.via.bool_ = false;
             mp_hid.tp = MP_BOOL;
             mp_hid.via.bool_ = false;
+            mp_idx.tp = MP_BOOL;
+            mp_idx.via.bool_ = false;
             if (mp_next(&up, &mp_id) != MP_U64 ||
                 mp_next(&up, &mp_created) != MP_U64 ||
                 mp_next(&up, &mp_modified) != MP_U64 ||
@@ -284,8 +292,11 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
              *       versions before v1.3.2.
              */
             with_hide_id = false;
+            with_index = false;
             mp_hid.tp = MP_BOOL;
             mp_hid.via.bool_ = false;
+            mp_idx.tp = MP_BOOL;
+            mp_idx.via.bool_ = false;
             if (mp_next(&up, &mp_id) != MP_U64 ||
                 mp_next(&up, &mp_wpo) != MP_BOOL ||
                 mp_next(&up, &mp_created) != MP_U64 ||
@@ -296,9 +307,28 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
            ) goto fail1;
             break;
         case 8:
+            /*
+             * TODO: (COMPAT) This code is for compatibility with ThingsDB
+             *       versions before v1.8.4.
+             */
+            with_index = false;
+            mp_idx.tp = MP_BOOL;
+            mp_idx.via.bool_ = false;
             if (mp_next(&up, &mp_id) != MP_U64 ||
                 mp_next(&up, &mp_wpo) != MP_BOOL ||
                 mp_next(&up, &mp_hid) != MP_BOOL ||
+                mp_next(&up, &mp_created) != MP_U64 ||
+                mp_next(&up, &mp_modified) != MP_U64 ||
+                mp_next(&up, &mp_name) != MP_STR ||
+                mp_skip(&up) != MP_MAP ||   /* fields */
+                mp_skip(&up) != MP_MAP      /* methods */
+           ) goto fail1;
+            break;
+        case 9:
+            if (mp_next(&up, &mp_id) != MP_U64 ||
+                mp_next(&up, &mp_wpo) != MP_BOOL ||
+                mp_next(&up, &mp_hid) != MP_BOOL ||
+                mp_next(&up, &mp_idx) != MP_BOOL ||
                 mp_next(&up, &mp_created) != MP_U64 ||
                 mp_next(&up, &mp_modified) != MP_U64 ||
                 mp_next(&up, &mp_name) != MP_STR ||
@@ -315,7 +345,8 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
                 mp_id.via.u64,
                 (
                     (mp_wpo.via.bool_ ? TI_TYPE_FLAG_WRAP_ONLY : 0) |
-                    (mp_hid.via.bool_ ? TI_TYPE_FLAG_HIDE_ID : 0)
+                    (mp_hid.via.bool_ ? TI_TYPE_FLAG_HIDE_ID : 0) |
+                    (mp_idx.via.bool_ ? TI_TYPE_FLAG_INDEX : 0)
                 ),
                 mp_name.via.str.data,
                 mp_name.via.str.n,
@@ -343,6 +374,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             mp_next(&up, &mp_id) != MP_U64 ||
             (with_wrap_only && mp_skip(&up) != MP_BOOL) ||
             (with_hide_id && mp_skip(&up) != MP_BOOL) ||
+            (with_index && mp_skip(&up) != MP_BOOL) ||
             mp_skip(&up) != MP_U64 ||  /* created */
             mp_skip(&up) != MP_U64 ||  /* modified */
             mp_skip(&up) != MP_STR ||  /* name */

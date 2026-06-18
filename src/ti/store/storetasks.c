@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <ti.h>
+#include <ti/collection.inline.h>
 #include <ti/raw.inline.h>
 #include <ti/store/storetasks.h>
 #include <ti/tasks.h>
@@ -148,6 +149,11 @@ int ti_store_tasks_restore(
                     NULL);
         if (!vtask)
             goto fail2;
+
+        if (collection)
+            ti_collection_update_next_free_id(collection, vtask->id);
+        else
+            ti_update_next_free_id(vtask->id);
 
         ti_decref(closure);
         if (verr)

@@ -13,7 +13,7 @@
 #include <util/mpack.h>
 #include <util/smap.h>
 
-ti_varr_t * ti_modules_info(_Bool with_conf);
+ti_varr_t * ti_modules_info(uint8_t flags);
 void ti_modules_init(void);
 void ti_modules_load(void);
 void ti_modules_cancel_futures(void);

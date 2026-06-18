@@ -1480,6 +1480,48 @@ static void type__hid(
         ex_set_mem(e);
 }
 
+static void type__idx(
+        ti_query_t * query,
+        ti_type_t * type,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    static const char * fnname = "mod_type` with task `idx";
+    const int nargs = fn_get_nargs(nd);
+    _Bool index;
+    ti_task_t * task;
+
+    nd = nd->children->next->next->next->next;
+
+    if (fn_nargs(fnname, DOC_MOD_TYPE_IDX, 3, nargs, e) ||
+        ti_do_statement(query, nd, e) ||
+        fn_arg_bool(fnname, DOC_MOD_TYPE_IDX, 3, query->rval, e))
+        return;
+
+    index = ti_val_as_bool(query->rval);
+
+    ti_val_unsafe_drop(query->rval);
+    query->rval = NULL;
+
+    if (index == ti_type_index(type))
+        return;  /* nothing to do */
+
+    task = ti_task_get_task(query->change, query->collection->root);
+    if (!task)
+    {
+        ex_set_mem(e);
+        return;
+    }
+
+    ti_type_set_index(type, index);
+
+    /* update modified time-stamp */
+    type->modified_at = util_now_usec();
+
+    if (ti_task_add_mod_type_idx(task, type))
+        ex_set_mem(e);
+}
+
 static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     ti_type_t * type;
@@ -1526,6 +1568,12 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_raw_eq_strn(rmod, "hid", 3))
     {
         type__hid(query, type, nd, e);
+        goto done;
+    }
+
+    if (ti_raw_eq_strn(rmod, "idx", 3))
+    {
+        type__idx(query, type, nd, e);
         goto done;
     }
 

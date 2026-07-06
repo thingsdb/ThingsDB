@@ -100,12 +100,15 @@ void uuid_v7(uint8_t uuid[16])
 
 
 
-void uuid_to_string(const uint8_t uuid[16], char *out) {
+void uuid_to_string(const uint8_t uuid[16], char *out)
+{
     static const char hex_table[] = "0123456789abcdef";
 
     int p = 0;
-    for (int i = 0; i < 16; i++) {
-        if (i == 4 || i == 6 || i == 8 || i == 10) {
+    for (int i = 0; i < 16; i++)
+    {
+        if (i == 4 || i == 6 || i == 8 || i == 10)
+        {
             out[p++] = '-';
         }
 
@@ -117,7 +120,8 @@ void uuid_to_string(const uint8_t uuid[16], char *out) {
 }
 
 
-bool string_to_uuid(const char * in, uint8_t uuid[16]) {
+bool string_to_uuid(const char * in, uint8_t uuid[16])
+{
     static const uint8_t hex_val[256] = {
         ['0']=0, ['1']=1, ['2']=2, ['3']=3, ['4']=4,
         ['5']=5, ['6']=6, ['7']=7, ['8']=8, ['9']=9,
@@ -130,10 +134,8 @@ bool string_to_uuid(const char * in, uint8_t uuid[16]) {
     {
         if (*p == '-') p++;
 
-
         uint8_t hi = hex_val[(unsigned char)*p++];
         uint8_t lo = hex_val[(unsigned char)*p++];
-
 
         uuid[i] = (hi << 4) | lo;
     }

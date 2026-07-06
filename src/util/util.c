@@ -60,7 +60,7 @@ void util_get_random(void * buf, size_t n)
             ++c;
         }
     }
-    #endif
+#endif
 }
 
 /*

@@ -85,7 +85,6 @@ union ti_thing_via
     ti_spec_enum_t spec;
 };
 
-
 struct ti_thing_s
 {
     uint32_t ref;

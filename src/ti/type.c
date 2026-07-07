@@ -73,7 +73,7 @@ ti_type_t * ti_type_create(
     type->name = strndup(name, name_n);
     type->wname = type__wrap_name(name, name_n);
     type->rname = ti_str_create(name, name_n);
-    type->rwname = ti_str_from_str(type->wname);
+    type->rwname = type->wname ? ti_str_from_str(type->wname) : NULL;
     type->idname = NULL;
     type->dependencies = vec_new(0);
     type->fields = vec_new(0);
@@ -281,6 +281,7 @@ int ti_type_rename(ti_type_t * type, ti_raw_t * nname)
     void * ptype;
     char * type_name;
     char * wtype_name;
+    ti_raw_t * rwtype_name;
 
     assert(nname->n <= TI_NAME_MAX);
 
@@ -296,9 +297,11 @@ int ti_type_rename(ti_type_t * type, ti_raw_t * nname)
 
     type_name = strndup((const char *) nname->data, nname->n);
     wtype_name = type__wrap_name((const char *) nname->data, nname->n);
+    rwtype_name = wtype_name ? ti_str_from_str(wtype_name) : NULL;
 
     if (!type_name ||
         !wtype_name ||
+        !rwtype_name ||
         smap_addn(
                 type->types->smap,
                 (const char *) nname->data,
@@ -307,6 +310,7 @@ int ti_type_rename(ti_type_t * type, ti_raw_t * nname)
     {
         free(type_name);
         free(wtype_name);
+        ti_val_drop((ti_val_t *) rwtype_name);
         return -1;
     }
 
@@ -321,10 +325,12 @@ int ti_type_rename(ti_type_t * type, ti_raw_t * nname)
     free(type->name);
     free(type->wname);
     ti_val_unsafe_drop((ti_val_t *) type->rname);
+    ti_val_unsafe_drop((ti_val_t *) type->rwname);
 
     type->name = type_name;
     type->wname = wtype_name;
     type->rname = nname;
+    type->rwname = rwtype_name;  /* bug #451 */
 
     ti_incref(nname);
     return 0;

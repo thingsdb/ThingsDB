@@ -2951,6 +2951,19 @@ mod_enum('E', 'mod', 'A', {
         await my_room.join(client, wait=5)
         self.assertEqual(my_room.x, 42)
 
+    async def test_rename_type_wrap_str(self, client: Client):
+        # bug #451
+        await client.query("""//ti
+                           new_type('T');
+                           .t = T{};
+                           .w = .t.wrap();
+                           rename_type('T', 'F');
+                           """)
+        wrap_nm = await client.query("""//ti
+                                     type(.w);
+                                     """)
+
+        self.assertEqual(wrap_nm, "<F>")
 
 
 if __name__ == '__main__':

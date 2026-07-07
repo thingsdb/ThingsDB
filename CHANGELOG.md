@@ -1,4 +1,4 @@
-# v1.8.9-alpha1
+# v1.9.0
 
 * Include `tasks` and `restarts` for `modules_info()` on _node_ scope, issue #447.
 * Added extra reserved named _(see pull request for list of names)_, pr #448.

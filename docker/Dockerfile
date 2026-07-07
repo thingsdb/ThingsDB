@@ -1,4 +1,4 @@
-FROM amd64/alpine
+FROM amd64/alpine AS builder
 WORKDIR /tmp/thingsdb
 COPY ./CMakeLists.txt ./CMakeLists.txt
 COPY ./main.c ./main.c
@@ -15,7 +15,7 @@ FROM amd64/alpine
 RUN apk update && \
     apk add pcre2 libuv yajl curl tzdata && \
     mkdir -p /var/lib/thingsdb
-COPY --from=0 /tmp/thingsdb/thingsdb /usr/local/bin/
+COPY --from=builder /tmp/thingsdb/thingsdb /usr/local/bin/
 
 # Volume mounts
 VOLUME ["/data"]

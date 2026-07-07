@@ -1,4 +1,4 @@
-FROM amd64/alpine:3.23.4
+FROM google/cloud-sdk:alpine AS builder
 WORKDIR /tmp/thingsdb
 COPY ./CMakeLists.txt ./CMakeLists.txt
 COPY ./main.c ./main.c
@@ -6,16 +6,16 @@ COPY ./src/ ./src/
 COPY ./inc/ ./inc/
 COPY ./libwebsockets/ ./libwebsockets/
 RUN apk update && \
-    apk upgrade && \
     apk add gcc make cmake libuv-dev musl-dev pcre2-dev yajl-dev curl-dev util-linux-dev linux-headers && \
     cmake -DCMAKE_BUILD_TYPE=Release . && \
     make
 
-FROM google/cloud-sdk:571.0.0-alpine
+
+FROM google/cloud-sdk:alpine
 RUN apk update && \
     apk add pcre2 libuv yajl curl tzdata && \
     mkdir -p /var/lib/thingsdb
-COPY --from=0 /tmp/thingsdb/thingsdb /usr/local/bin/
+COPY --from=builder /tmp/thingsdb/thingsdb /usr/local/bin/
 
 # Volume mounts
 VOLUME ["/data"]

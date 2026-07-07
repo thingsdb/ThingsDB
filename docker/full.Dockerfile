@@ -1,4 +1,4 @@
-FROM google/cloud-sdk
+FROM google/cloud-sdk AS builder
 WORKDIR /tmp/thingsdb
 COPY ./CMakeLists.txt ./CMakeLists.txt
 COPY ./main.c ./main.c
@@ -26,7 +26,7 @@ RUN mkdir -p /var/lib/thingsdb && \
     libcurl4 && \
     pip3 install py-timod --break-system-packages
 
-COPY --from=0 /tmp/thingsdb/thingsdb /usr/local/bin/
+COPY --from=builder /tmp/thingsdb/thingsdb /usr/local/bin/
 
 # Volume mounts
 VOLUME ["/data"]

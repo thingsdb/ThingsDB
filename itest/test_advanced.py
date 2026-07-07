@@ -3,6 +3,8 @@ from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
 from lib.client import get_client
+from thingsdb.client import Client
+from thingsdb.room import Room
 from thingsdb.exceptions import AssertionError
 from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import MaxQuotaError
@@ -2926,6 +2928,29 @@ mod_enum('E', 'mod', 'A', {
                 "age": 12,
             }]
         })
+
+    async def test_rename_and_join(self, client: Client):
+        # bug #450
+        await client.query("""//ti
+                           new_collection('foo');
+                           """, scope='/t')
+        room_id = await client.query("""//ti
+                                     .room = room();
+                                     .room.id();
+                                     """, scope='//foo')
+        await client.query("""//ti
+                           rename_collection('foo', 'bar');
+                           """, scope='/t')
+
+        class MyRoom(Room):
+            x = 0
+            async def on_join(self):
+                self.x = 42
+
+        my_room = MyRoom(room_id, scope='//bar')
+        await my_room.join(client, wait=5)
+        self.assertEqual(my_room.x, 42)
+
 
 
 if __name__ == '__main__':

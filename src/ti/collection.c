@@ -196,6 +196,7 @@ int ti_collection_rename(
         ti_raw_t * rname,
         ex_t * e)
 {
+    ti_raw_t * scope;
     if (!ti_name_is_valid_strn((const char *) rname->data, rname->n))
     {
         ex_set(e, EX_VALUE_ERROR,
@@ -212,8 +213,20 @@ int ti_collection_rename(
         return -1;
     }
 
+    /* bug #450 */
+    scope = ti_str_from_fmt("@collection:%.*s",
+                            (int) rname->n,
+                            (char *) rname->data);
+    if (!scope)
+    {
+        ex_set_mem(e);
+        return -1;
+    }
+
     ti_val_unsafe_drop((ti_val_t *) collection->name);
+    ti_val_unsafe_drop((ti_val_t *) collection->scope);
     collection->name = ti_grab(rname);
+    collection->scope = scope;
 
     return 0;
 }

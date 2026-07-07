@@ -3,6 +3,7 @@
 * Include `tasks` and `restarts` for `modules_info()` on _node_ scope, issue #447.
 * Added extra reserved named _(see pull request for list of names)_, pr #448.
 * Use `arc4random_buf` when compiling for Apple, pr #449.
+* Fixed: timeout joining room after rename collection, issue #450.
 
 # v1.8.8
 

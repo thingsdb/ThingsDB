@@ -1,3 +1,7 @@
+# v1.9.1
+
+* Skip `ti_do_expression` where possible for performance increase, pr #452.
+
 # v1.9.0
 
 * Include `tasks` and `restarts` for `modules_info()` on _node_ scope, issue #447.

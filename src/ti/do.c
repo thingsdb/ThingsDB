@@ -1903,6 +1903,169 @@ static inline int do__template(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return ti_template_compile(nd->data, query, e);
 }
 
+static inline int do__float(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    if (!nd->data)
+    {
+        nd->data = ti_vfloat_create(strx_to_double(nd->str, NULL));
+        if (!nd->data)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        assert(vec_space(query->immutable_cache));
+        VEC_push(query->immutable_cache, nd->data);
+    }
+    query->rval = nd->data;
+    ti_incref(query->rval);
+    return e->nr;
+}
+
+static inline int do__int(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    if (!nd->data)
+    {
+        int64_t i = strx_to_int64(nd->str, NULL);
+        if (errno == ERANGE)
+        {
+            ex_set(e, EX_OVERFLOW, "integer overflow");
+            return e->nr;
+        }
+        nd->data = ti_vint_create(i);
+        if (!nd->data)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        assert(vec_space(query->immutable_cache));
+        VEC_push(query->immutable_cache, nd->data);
+    }
+    query->rval = nd->data;
+    ti_incref(query->rval);
+    return e->nr;
+}
+
+static inline int do__regex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    if (!nd->data)
+    {
+        nd->data = ti_regex_from_strn(nd->str, nd->len, e);
+        if (!nd->data)
+            return e->nr;
+        assert(vec_space(query->immutable_cache));
+        VEC_push(query->immutable_cache, nd->data);
+    }
+    query->rval = nd->data;
+    ti_incref(query->rval);
+    return e->nr;
+}
+
+static inline int do__string(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    if (!nd->data)
+    {
+        nd->data = ti_str_from_ti_string(nd->str, nd->len);
+        if (!nd->data)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        assert(vec_space(query->immutable_cache));
+        VEC_push(query->immutable_cache, nd->data);
+    }
+    query->rval = nd->data;
+    ti_incref(query->rval);
+    return e->nr;
+}
+
+int ti_do_var(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    return do__var(query, nd->children->next->children, e);
+}
+
+int ti_do_function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    return do__function(query, nd->children->next, e);
+}
+
+int ti_do_ano(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    return do__ano(query, nd->children->next, e);
+}
+
+int ti_do_false(ti_query_t * query, cleri_node_t * UNUSED(nd), ex_t * e)
+{
+    query->rval = (ti_val_t *) ti_vbool_get(false);
+    return e->nr;
+}
+
+int ti_do_true(ti_query_t * query, cleri_node_t * UNUSED(nd), ex_t * e)
+{
+    query->rval = (ti_val_t *) ti_vbool_get(true);
+    return e->nr;
+}
+
+int ti_do_nil(ti_query_t * query, cleri_node_t * UNUSED(nd), ex_t * e)
+{
+    query->rval = (ti_val_t *) ti_nil_get();
+    return e->nr;
+}
+
+int ti_do_float(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    return do__float(query, nd->children->next, e);
+}
+
+int ti_do_int(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    return do__int(query, nd->children->next, e);
+}
+
+int ti_do_regex(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    return do__regex(query, nd->children->next, e);
+}
+
+int ti_do_string(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    return do__string(query, nd->children->next, e);
+}
+
+int ti_do_template(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    return do__template(query, nd->children->next, e);
+}
+
+int ti_do_var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    return do__var_assign(query, nd->children->next, e);
+}
+
+int ti_do_instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    return do__instance(query, nd->children->next, e);
+}
+
+int ti_do_enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    return do__enum_get(query, nd->children->next, e);
+}
+
+int ti_do_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    return do__thing(query, nd->children->next, e, (uintptr_t) nd->data);
+}
+
+int ti_do_array(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    return do__array(query, nd->children->next, e);
+}
+
+int ti_do_paranthesis(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    return ti_do_statement(query, nd->children->next->children->next, e);
+}
+
 int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     int preopr = (int) ((intptr_t) nd->children->data);
@@ -1941,70 +2104,23 @@ int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         query->rval = (ti_val_t *) ti_vbool_get(false);
         break;
     case CLERI_GID_T_FLOAT:
-        if (!nd->data)
-        {
-            nd->data = ti_vfloat_create(strx_to_double(nd->str, NULL));
-            if (!nd->data)
-            {
-                ex_set_mem(e);
-                return e->nr;
-            }
-            assert(vec_space(query->immutable_cache));
-            VEC_push(query->immutable_cache, nd->data);
-        }
-        query->rval = nd->data;
-        ti_incref(query->rval);
+        if (do__float(query, nd, e))
+            return e->nr;
         break;
     case CLERI_GID_T_INT:
-        if (!nd->data)
-        {
-            int64_t i = strx_to_int64(nd->str, NULL);
-            if (errno == ERANGE)
-            {
-                ex_set(e, EX_OVERFLOW, "integer overflow");
-                return e->nr;
-            }
-            nd->data = ti_vint_create(i);
-            if (!nd->data)
-            {
-                ex_set_mem(e);
-                return e->nr;
-            }
-            assert(vec_space(query->immutable_cache));
-            VEC_push(query->immutable_cache, nd->data);
-        }
-        query->rval = nd->data;
-        ti_incref(query->rval);
+        if (do__int(query, nd, e))
+            return e->nr;
         break;
     case CLERI_GID_T_NIL:
         query->rval = (ti_val_t *) ti_nil_get();
         break;
     case CLERI_GID_T_REGEX:
-        if (!nd->data)
-        {
-            nd->data = ti_regex_from_strn(nd->str, nd->len, e);
-            if (!nd->data)
-                return e->nr;
-            assert(vec_space(query->immutable_cache));
-            VEC_push(query->immutable_cache, nd->data);
-        }
-        query->rval = nd->data;
-        ti_incref(query->rval);
+        if (do__regex(query, nd, e))
+            return e->nr;
         break;
     case CLERI_GID_T_STRING:
-        if (!nd->data)
-        {
-            nd->data = ti_str_from_ti_string(nd->str, nd->len);
-            if (!nd->data)
-            {
-                ex_set_mem(e);
-                return e->nr;
-            }
-            assert(vec_space(query->immutable_cache));
-            VEC_push(query->immutable_cache, nd->data);
-        }
-        query->rval = nd->data;
-        ti_incref(query->rval);
+        if (do__string(query, nd, e))
+            return e->nr;
         break;
     case CLERI_GID_T_TRUE:
         query->rval = (ti_val_t *) ti_vbool_get(true);

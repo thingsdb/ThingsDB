@@ -12,6 +12,23 @@
 typedef int (*ti_do_cb)(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 
 int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_function(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_var(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_ano(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_false(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_true(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_float(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_int(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_nil(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_regex(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_string(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_template(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_var_assign(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_instance(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_array(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_paranthesis(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_operation(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_bit_sl(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_bit_sr(ti_query_t * query, cleri_node_t * nd, ex_t * e);

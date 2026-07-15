@@ -1344,7 +1344,77 @@ static inline void qbind__expression(ti_qbind_t * qbind, cleri_node_t * nd)
 
     /* chain */
     if (nd->children->next->next->next)
+    {
         qbind__chain(qbind, nd->children->next->next->next);
+    }
+    else if (!preopr && !nd->children->next->next->children)
+    {
+        /* no `preopr`, `chain` nor `index`, this means we can overwrite the
+         * full `ti_do_expression` and set a direct call
+         */
+        switch (node->next->cl_obj->gid)
+        {
+        case CLERI_GID_T_ANO:
+            nd->data = ti_do_ano;
+            break;
+        case CLERI_GID_T_FALSE:
+            nd->data = ti_do_false;
+            break;
+        case CLERI_GID_T_FLOAT:
+            nd->data = ti_do_float;
+            break;
+        case CLERI_GID_T_INT:
+            nd->data = ti_do_int;
+            break;
+        case CLERI_GID_T_NIL:
+            nd->data = ti_do_nil;
+            break;
+        case CLERI_GID_T_REGEX:
+            nd->data = ti_do_regex;
+            break;
+        case CLERI_GID_T_STRING:
+            nd->data = ti_do_string;
+            break;
+        case CLERI_GID_T_TRUE:
+            nd->data = ti_do_true;
+            break;
+        case CLERI_GID_TEMPLATE:
+            nd->data = ti_do_template;
+            break;
+        case CLERI_GID_VAR_OPT_MORE:
+            if (!node->next->children->next)
+            {
+                nd->data = ti_do_var;
+                break;
+            }
+
+            switch (node->next->children->next->cl_obj->gid)
+            {
+            case CLERI_GID_FUNCTION:
+                nd->data = ti_do_function;
+                break;
+            case CLERI_GID_ASSIGN:
+                nd->data = ti_do_var_assign;
+                break;
+            case CLERI_GID_INSTANCE:
+                nd->data = ti_do_instance;
+                break;
+            case CLERI_GID_ENUM_:
+                nd->data = ti_do_enum_get;
+                break;
+            }
+            break;
+        case CLERI_GID_THING:
+            nd->data = ti_do_thing;
+            break;
+        case CLERI_GID_ARRAY:
+            nd->data = ti_do_array;
+            break;
+        case CLERI_GID_PARENTHESIS:
+            nd->data = ti_do_paranthesis;
+            break;
+        }
+    }
 }
 
 static inline void qbind__if_statement(ti_qbind_t * qbind, cleri_node_t * nd)

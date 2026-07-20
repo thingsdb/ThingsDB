@@ -1,3 +1,7 @@
+# v1.9.2-alpha0
+
+* Add direct call for `ti_do_root_chain` _(small performance upgrade)_, pr #453.
+
 # v1.9.1
 
 * Skip `ti_do_expression` where possible for performance increase, pr #452.

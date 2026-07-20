@@ -2066,6 +2066,24 @@ int ti_do_paranthesis(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return ti_do_statement(query, nd->children->next->children->next, e);
 }
 
+int ti_do_root_chain(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    if (!query->collection)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "the `root` of the `%s` scope is inaccessible; "
+                "you might want to query a `@collection` scope?",
+                ti_query_scope_name(query));
+        return e->nr;
+    }
+
+    /* Set the collection at the current value */
+    query->rval = (ti_val_t *) query->collection->root;
+    ti_incref(query->rval);
+
+    return do__chain(query, nd->children->next, e);
+}
+
 int ti_do_expression(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     int preopr = (int) ((intptr_t) nd->children->data);

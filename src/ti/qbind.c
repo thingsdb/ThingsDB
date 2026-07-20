@@ -1354,6 +1354,9 @@ static inline void qbind__expression(ti_qbind_t * qbind, cleri_node_t * nd)
          */
         switch (node->next->cl_obj->gid)
         {
+        case CLERI_GID_CHAIN:
+            nd->data = ti_do_root_chain;
+            break;
         case CLERI_GID_T_ANO:
             nd->data = ti_do_ano;
             break;

@@ -29,6 +29,7 @@ int ti_do_enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_array(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_paranthesis(ti_query_t * query, cleri_node_t * nd, ex_t * e);
+int ti_do_root_chain(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_operation(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_bit_sl(ti_query_t * query, cleri_node_t * nd, ex_t * e);
 int ti_do_bit_sr(ti_query_t * query, cleri_node_t * nd, ex_t * e);

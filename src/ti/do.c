@@ -82,7 +82,7 @@ failed:
     return e->nr;
 }
 
-static inline ti_name_t * do__cache_name(ti_query_t * query, cleri_node_t * nd)
+static ti_name_t * do__cache_name(ti_query_t * query, cleri_node_t * nd)
 {
     assert(nd->data == NULL);
     ti_name_t * name = nd->data = ti_names_weak_get_strn(nd->str, nd->len);

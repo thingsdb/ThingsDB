@@ -63,7 +63,8 @@ int rbuf_write(rbuf_t * buf, const char c)
         buf->pos = nsize - len;
         buf->cap = nsize;
 
-        memcpy(tmp + buf->pos, buf->data, len);
+        if (len)
+            memcpy(tmp + buf->pos, buf->data, len);
 
         free(buf->data);
         buf->data = tmp;

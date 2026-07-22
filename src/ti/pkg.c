@@ -21,7 +21,8 @@ ti_pkg_t * ti_pkg_new(uint16_t id, uint8_t tp, const void * data, uint32_t n)
     pkg->n = n;
     pkg->id = id;
 
-    memcpy(pkg->data, data, n);
+    if (n)
+        memcpy(pkg->data, data, n);
 
     return pkg;
 }

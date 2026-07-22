@@ -1,3 +1,7 @@
+# v1.9.3-alpha0
+
+* Fixed sanatize runtime checking, pr #455.
+
 # v1.9.2
 
 * Add direct call for `ti_do_root_chain` _(small performance upgrade)_, pr #453.

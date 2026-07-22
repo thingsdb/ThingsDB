@@ -237,9 +237,6 @@ void ** smap_getaddr(smap_t * smap, const char * key)
 
     while (nd && !smap__strncmp(nd->key, ++key, nd->n))
     {
-        if (nd->key == NULL) {
-            LOGC("nd->n: %u", nd->n);
-        }
         key += nd->n;
 
         if (!*key)

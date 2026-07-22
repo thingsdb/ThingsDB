@@ -40,7 +40,8 @@ ti_raw_t * ti_raw_create(uint8_t tp, const void * raw, size_t n)
     r->ref = 1;
     r->tp = tp;
     r->n = n;
-    memcpy(r->data, raw, n);
+    if (n)
+        memcpy(r->data, raw, n);
     return r;
 }
 

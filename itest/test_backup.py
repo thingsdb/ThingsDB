@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import asyncio
+import shutil
 from lib import run_test
 from lib import default_test_setup
 from lib.testbase import TestBase
@@ -116,6 +117,10 @@ class TestBackup(TestBase):
 
     async def test_error_gcs(self, client):
         # bug #288
+        gcloud_available = shutil.which("gcloud") is not None
+        if gcloud_available:
+            return  # this test depends on not having gcloud installed
+
         backup_id = await client.query("""//ti
             new_backup('gs://some_bucket/some_file.tar.gz');
         """)

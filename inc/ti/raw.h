@@ -55,23 +55,13 @@ const char * ti_raw_as_printable_str(ti_raw_t * raw);
 static inline _Bool ti_raw_startswith(ti_raw_t * a, ti_raw_t * b);
 static inline _Bool ti_raw_endswith(ti_raw_t * a, ti_raw_t * b);
 static inline _Bool ti_raw_eq(const ti_raw_t * a, const ti_raw_t * b);
-static inline _Bool ti_raw_eq_strn(
-        const ti_raw_t * a,
-        const char * s,
-        size_t n);
 
+#define ti_raw_eq_strn(a__, s__, n__) \
+    ((a__)->n == n && !memcmp((a__)->data, (s__), n))
 
 static inline _Bool ti_raw_eq(const ti_raw_t * a, const ti_raw_t * b)
 {
     return a == b || (a->n == b->n && !memcmp(a->data, b->data, a->n));
-}
-
-static inline _Bool ti_raw_eq_strn(
-        const ti_raw_t * a,
-        const char * s,
-        size_t n)
-{
-    return a->n == n && !memcmp(a->data, s, n);
 }
 
 static inline _Bool ti_raw_startswith(ti_raw_t * a, ti_raw_t * b)

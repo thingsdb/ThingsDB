@@ -1,4 +1,4 @@
-# v1.9.2-alpha0
+# v1.9.2
 
 * Add direct call for `ti_do_root_chain` _(small performance upgrade)_, pr #453.
 * Fixed allocation too much memory for `ti_do_thing`, pr #454.

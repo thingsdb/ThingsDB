@@ -2053,7 +2053,10 @@ int ti_do_enum_get(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 
 int ti_do_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    return do__thing(query, nd->children->next, e, (uintptr_t) nd->data);
+    return do__thing(query,
+                     nd->children->next,
+                     e,
+                     (uintptr_t) nd->children->next->data);
 }
 
 int ti_do_array(ti_query_t * query, cleri_node_t * nd, ex_t * e)

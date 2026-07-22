@@ -1,6 +1,7 @@
 # v1.9.2-alpha0
 
 * Add direct call for `ti_do_root_chain` _(small performance upgrade)_, pr #453.
+* Fixed `ti_do_thing`, pr
 
 # v1.9.1
 

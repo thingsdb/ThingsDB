@@ -71,7 +71,7 @@ if __name__ == '__main__':
         action='store_true',
         help='include documentation testing')
     parser.add_argument(
-        '--doc-modules',
+        '--modules-test',
         action='store_true',
         help='include modules testing')
     args = parser.parse_args()
@@ -94,7 +94,7 @@ if __name__ == '__main__':
     run_test(TestImport(), hide_version=hide_version())
     run_test(TestIndexSlice(), hide_version=hide_version())
     run_test(TestMath(), hide_version=hide_version())
-    if args.doc_modules is True:
+    if args.modules_test is True:
         no_mem_test(TestModules)  # libcurl leaks mem
     run_test(TestMultiNode(), hide_version=hide_version())
     run_test(TestNested(), hide_version=hide_version())

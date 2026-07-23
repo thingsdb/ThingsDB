@@ -539,7 +539,7 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
         /* Release the lock */
         uv_mutex_unlock(collection->lock);
 
-        (void) ti_sleep(5);
+        (void) sched_yield();
     }
 
     uv_mutex_lock(collection->lock);
@@ -601,7 +601,7 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
     /* Release the lock and let the thread sleep some time */
     uv_mutex_unlock(collection->lock);
 
-    (void) ti_sleep(5);
+    (void) sched_yield();
 
     /* Take a new lock */
     uv_mutex_lock(collection->lock);
@@ -626,7 +626,7 @@ int ti_collection_gc(ti_collection_t * collection, _Bool do_mark_things)
     /* Finished, release the collection lock */
     uv_mutex_unlock(collection->lock);
 
-    (void) ti_sleep(2);
+    (void) sched_yield();
 
     ti_counters_add_garbage_collected(n);
 

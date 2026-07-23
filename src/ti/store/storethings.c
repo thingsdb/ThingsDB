@@ -76,7 +76,7 @@ done:
         log_errno_file("cannot close file", errno, fn);
         return -1;
     }
-    (void) ti_sleep(5);
+    (void) sched_yield();
     return 0;
 }
 
@@ -155,7 +155,7 @@ done:
         log_errno_file("cannot close file", errno, fn);
         return -1;
     }
-    (void) ti_sleep(5);
+    (void) sched_yield();
     return 0;
 }
 

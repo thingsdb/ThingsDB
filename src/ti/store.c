@@ -202,7 +202,7 @@ int ti_store_store(void)
         log_errno_file("cannot create directory", errno, store->tmp_path);
     }
 
-    (void) ti_sleep(5);
+    (void) sched_yield();
 
     store__set_filename(/* use_tmp: */ true);
 
@@ -231,7 +231,7 @@ int ti_store_store(void)
         if (!store_collection)
             goto failed;
 
-        (void) ti_sleep(2);
+        (void) sched_yield();
 
         rc = mkdir(store_collection->collection_path, FX_DEFAULT_DIR_ACCESS);
         if (rc)
@@ -286,7 +286,7 @@ int ti_store_store(void)
     }
 
     (void) rename(store->store_path, store->prev_path);
-    (void) ti_sleep(2);
+    (void) sched_yield();
 
     if (rename(store->tmp_path, store->store_path))
     {
@@ -297,9 +297,9 @@ int ti_store_store(void)
         goto failed;
     }
 
-    (void) ti_sleep(2);
+    (void) sched_yield();
     (void) fx_rmdir(store->prev_path);
-    (void) ti_sleep(2);
+    (void) sched_yield();
 
     store->last_stored_change_id = ti.node->ccid;
 

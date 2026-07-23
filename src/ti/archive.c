@@ -186,7 +186,7 @@ static int archive__to_disk(void)
 
         ti_cpkg_drop(cpkg);
 
-        (void) ti_sleep(10);
+        (void) sched_yield();
     }
     while ((cpkg = queue_shift(archive->queue)));
 
@@ -425,7 +425,7 @@ int ti_archive_to_disk(void)
         (void) ti_store_store();
 
     /* sleep a little before archiving */
-    (void) ti_sleep(200);
+    (void) ti_sleep(100);
 
     /* archive changes, even after full store for synchronizing `other` nodes */
     if (archive__to_disk())

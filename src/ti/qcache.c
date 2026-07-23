@@ -187,8 +187,7 @@ void ti_qcache_cleanup(void)
         return;
 
     (void) smap_values(qcache, (smap_val_cb) qcache__cleanup_cb, &w);
-
-    (void) ti_sleep(100);
+    (void) sched_yield();
 
     log_info("removed %u item(s) from query cache", w.qcached->n);
 

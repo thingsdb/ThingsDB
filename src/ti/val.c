@@ -771,6 +771,19 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
                 return NULL;
             return (ti_val_t *) ano;
         }
+        case MPACK_EXT_UUID:
+        {
+            ti_uuid_t * uuid;
+            if (obj.via.ext.n != 16)
+            {
+                ex_set(e, EX_BAD_DATA, "invalid UUID (expecting 16 bytes)");
+                return NULL;
+            }
+            uuid = ti_uuid_from_bytes(obj.via.ext.data)
+            if (!uuid)
+                ex_set_mem(e);
+            return (ti_val_t *) uuid;
+        }
         }
         ex_set(e, EX_BAD_DATA,
                 "msgpack extension type %d is not supported by ThingsDB",
@@ -1953,6 +1966,18 @@ int ti_val_wrap_to_str(ti_val_t ** val, ex_t * e)
 int ti_val_wano_to_str(ti_val_t ** val, ex_t * e)
 {
     ti_val_t * v = (ti_val_t *) ti_wano_str((ti_wano_t *) *val);
+    if (!v)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+    ti_val_unsafe_drop(*val);
+    *val = v;
+    return 0;
+}
+int ti_val_uuid_to_str(ti_val_t ** val, ex_t * e)
+{
+    ti_val_t * v = (ti_val_t *) ti_uuid_str((ti_uuid_t *) *val);
     if (!v)
     {
         ex_set_mem(e);

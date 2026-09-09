@@ -23,17 +23,18 @@
 #include <ti/template.h>
 #include <ti/thing.h>
 #include <ti/thing.inline.h>
+#include <ti/uuid.h>
 #include <ti/val.h>
 #include <ti/varr.inline.h>
 #include <ti/vbool.h>
-#include <ti/vint.h>
 #include <ti/vfloat.h>
+#include <ti/vint.h>
 #include <ti/vset.h>
 #include <ti/vtask.h>
 #include <ti/wano.h>
+#include <ti/wano.inline.h>
 #include <ti/wrap.h>
 #include <ti/wrap.inline.h>
-#include <ti/wano.inline.h>
 #include <util/strx.h>
 
 static inline int val__str_to_str(ti_val_t ** UNUSED(v), ex_t * UNUSED(e));
@@ -256,6 +257,10 @@ static inline int val__mpdata_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNU
 static inline int val__closure_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
 {
     return ti_closure_to_client_pk((ti_closure_t *) val, &vp->pk);
+}
+static inline int val__uuid_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
+{
+    return ti_uuid_to_client_pk((ti_closure_t *) val, &vp->pk);
 }
 static inline int val__future_to_client_pk(ti_future_t * future, ti_vp_t * vp, int deep, int flags);
 static inline int val__module_to_client_pk(ti_module_t * UNUSED(module), ti_vp_t * vp, int UNUSED(deep), int UNUSED(flags));
@@ -568,6 +573,17 @@ static ti_val_type_t ti_val_type_props[24] = {
         .get_type_str = val__wano_type_str,
         .as_bool = val__as_bool_wano,
         .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_UUID */
+    {
+        .destroy = (ti_val_destroy_cb) free,
+        .to_str = ti_val_uuid_to_str,
+        .to_arr_cb = val__to_arr_cb,
+        .to_client_pk = (ti_val_to_client_pk_cb) ti_uuid_to_client_pk,
+        .to_store_pk = (ti_val_to_store_pk_cb) ti_uuid_to_store_pk,
+        .get_type_str = val__uuid_type_str,
+        .as_bool = val__as_bool_true,
+        .allowed_as_vtask_arg = true,
     },
 
     /* TI_VAL_FUTURE */

@@ -412,6 +412,8 @@ ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t * val)
         return ti_val_is_number(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_BOOL:
         return ti_val_is_bool(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
+    case TI_SPEC_UUID:
+        return ti_val_is_uuid(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_ARR:
         return ti_val_is_array(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_SET:
@@ -523,6 +525,8 @@ _Bool ti__spec_maps_to_nested_val(ti_field_t * field, ti_val_t * val)
         return ti_val_is_number(val);
     case TI_SPEC_BOOL:
         return ti_val_is_bool(val);
+    case TI_SPEC_UUID:
+        return ti_val_is_uuid(val);
     case TI_SPEC_ARR:
         /* we can map a set to an array */
         return ti_val_is_array(val) || ti_val_is_set(val);
@@ -596,6 +600,7 @@ const char * ti_spec_approx_type_str(uint16_t spec)
     case TI_SPEC_FLOAT:         return "float";
     case TI_SPEC_NUMBER:        return "number";
     case TI_SPEC_BOOL:          return "bool";
+    case TI_SPEC_UUID:          return "uuid";
     case TI_SPEC_ARR:           return "list";
     case TI_SPEC_SET:           return "set";
     case TI_SPEC_DATETIME:      return "datetime";
@@ -711,6 +716,7 @@ ti_spec_mod_enum ti_spec_check_mod(
             ospec == TI_SPEC_FLOAT_RANGE
         ) ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
     case TI_SPEC_BOOL:
+    case TI_SPEC_UUID:
         return ospec == nspec ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
     case TI_SPEC_ARR:
     case TI_SPEC_SET:

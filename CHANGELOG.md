@@ -2,6 +2,7 @@
 
 * Fixed sanatize runtime checking, pr #455.
 * Replaced `ti_sleep(..)` with `sched_yield()` with a few exceptions, pr #456.
+* Added native `uuid` type.
 
 # v1.9.2
 

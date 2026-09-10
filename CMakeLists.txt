@@ -218,6 +218,7 @@ set(SOURCES
     src/ti/tz.c
     src/ti/user.c
     src/ti/users.c
+    src/ti/uuid.c
     src/ti/val.c
     src/ti/varr.c
     src/ti/vbool.c

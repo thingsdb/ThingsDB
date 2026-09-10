@@ -11,6 +11,8 @@
 #include <ex.h>
 
 ti_uuid_t * ti_uuid_new(void);
+ti_uuid_t * ti_uuid_from_bytes(const unsigned char * bytes);
+ti_uuid_t * ti_uuid_from_str(const char * str, size_t n, ex_t * e);
 void ti_uuid_to_raw(ti_uuid_t * uuid, char * raw);
 ti_raw_t * ti_uuid_str(ti_uuid_t * uuid);
 
@@ -23,17 +25,11 @@ static inline int ti_uuid_to_store_pk(ti_uuid_t * uuid, msgpack_packer * pk)
         sizeof(uuid->id));
 }
 
-static inline int ti_uuid_to_client_pk(
-        ti_uuid_t * uuid,
-        ti_vp_t * vp,
-        int deep,
-        int flags)
+static inline int ti_uuid_to_client_pk(ti_uuid_t * uuid, msgpack_packer * pk)
 {
-    return deep > 0
-        ? ti_wrap_field_thing_type(wano->thing, vp, wano->ano->type, deep, flags)
-        : (!wano->thing->id || (flags & TI_FLAGS_NO_IDS))
-        ? ti_thing_empty_to_client_pk(&vp->pk)
-        : ti_thing_id_to_client_pk(wano->thing, &vp->pk);
+    uuid_raw_t raw;
+    ti_uuid_to_raw(uuid, raw);
+    return mp_pack_strn(pk, raw, sizeof(raw));
 }
 
 #endif /* TI_UUID_H_ */

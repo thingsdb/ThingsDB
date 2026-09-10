@@ -467,13 +467,13 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
         return buf_append_str(buf, "&{}.wrap() /* WARN: not exported */");
     case TI_VAL_UUID:
     {
-        ti_uuid_t uuid = (ti_uuid_t *) val;
+        ti_uuid_t * uuid = (ti_uuid_t *) val;
         uuid_raw_t raw;
         ti_uuid_to_raw(uuid, raw);
         return (
             buf_append_str(buf, "uuid(") ||
             buf_write(buf, '"') ||
-            buf_append(buf, raw, sizof(raw) ||
+            buf_append(buf, raw, sizeof(raw)) ||
             buf_write(buf, '"') ||
             buf_write(buf, ')')
         );
@@ -537,6 +537,7 @@ static int export__set_enum_cb(ti_enum_t * enum_, ti_fmt_t * fmt)
             case TI_VAL_FUTURE:
             case TI_VAL_MODULE:
             case TI_VAL_WANO:
+            case TI_VAL_UUID:
             case TI_VAL_TEMPLATE:
                 assert(0);
                 break;

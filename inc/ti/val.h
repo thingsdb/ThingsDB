@@ -81,6 +81,7 @@ int ti_val_float_to_str(ti_val_t ** val, ex_t * e);
 int ti_val_bool_to_str(ti_val_t ** val, ex_t * e);
 int ti_val_datetime_to_str(ti_val_t ** val, ex_t * e);
 int ti_val_bytes_to_str(ti_val_t ** val, ex_t * e);
+int ti_val_bytes_to_uuid(ti_val_t ** val, ex_t * e);
 int ti_val_regex_to_str(ti_val_t ** val, ex_t * e);
 int ti_val_thing_to_str(ti_val_t ** val, ex_t * e);
 int ti_val_wrap_to_str(ti_val_t ** val, ex_t * e);

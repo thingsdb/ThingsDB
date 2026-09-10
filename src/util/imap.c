@@ -10,6 +10,8 @@
 #include <tiinc.h>
 
 #define IMAP_NODE_SZ 32
+#define IMAP_MASK 31  // (IMAP_NODE_SZ - 1)
+#define IMAP_SHIFT 5  // log2(IMAP_NODE_SZ)
 
 static int imap__nodes_dup(imap_node_t * dest, imap_node_t * node);
 static int imap__node_dup_cb(imap_node_t * node, _Bool incref);
@@ -246,7 +248,7 @@ failed:
 static void * imap__set(imap_node_t * node, uint64_t id, void * data)
 {
     void * ret;
-    uint8_t key = id % IMAP_NODE_SZ;
+    uint8_t key = (uint8_t)(id & IMAP_MASK);
     imap_node_t * nd;
 
     if (!node->sz)
@@ -262,7 +264,7 @@ static void * imap__set(imap_node_t * node, uint64_t id, void * data)
         return NULL;
 
     nd = imap__unsafe_node(node, key);
-    id /= IMAP_NODE_SZ;
+    id >>= IMAP_SHIFT;
 
     if (!id)
     {
@@ -291,7 +293,7 @@ void * imap_set(imap_t * imap, uint64_t id, void * data)
     assert(data != NULL);
     void * ret;
     imap_node_t * nd = imap->nodes + (id % IMAP_NODE_SZ);
-    id /= IMAP_NODE_SZ;
+    id >>= IMAP_SHIFT;
 
     if (!id)
     {
@@ -310,7 +312,7 @@ void * imap_set(imap_t * imap, uint64_t id, void * data)
 static int imap__add(imap_node_t * node, uint64_t id, void * data)
 {
     int rc;
-    uint8_t key = id % IMAP_NODE_SZ;
+    uint8_t key = (uint8_t)(id & IMAP_MASK);
     imap_node_t * nd;
 
     if (!node->sz)
@@ -326,7 +328,7 @@ static int imap__add(imap_node_t * node, uint64_t id, void * data)
         return IMAP_ERR_ALLOC;
 
     nd = imap__unsafe_node(node, key);
-    id /= IMAP_NODE_SZ;
+    id >>= IMAP_SHIFT;
 
     if (!id)
     {
@@ -358,7 +360,7 @@ int imap_add(imap_t * imap, uint64_t id, void * data)
 {
     assert(data != NULL);
     imap_node_t * nd = imap->nodes + (id % IMAP_NODE_SZ);
-    id /= IMAP_NODE_SZ;
+    id >>= IMAP_SHIFT;
 
     if (!id)
     {
@@ -384,7 +386,7 @@ void * imap_get(imap_t * imap, uint64_t id)
     imap_node_t * nd = imap->nodes + (id % IMAP_NODE_SZ);
     do
     {
-        id /= IMAP_NODE_SZ;
+        id >>= IMAP_SHIFT;
 
         if (!id)
             return nd->data;
@@ -440,7 +442,7 @@ static void * imap__pop(imap_node_t * node, uint64_t id)
     if (!nd)
         return NULL;
 
-    id /= IMAP_NODE_SZ;
+    id >>= IMAP_SHIFT;
 
     if (!id)
     {
@@ -478,7 +480,7 @@ void * imap_pop(imap_t * imap, uint64_t id)
 {
     void * data;
     imap_node_t * nd = imap->nodes + (id % IMAP_NODE_SZ);
-    id /= IMAP_NODE_SZ;
+    id >>= IMAP_SHIFT;
 
     if (id)
     {

@@ -249,6 +249,8 @@ static int wrap__field_val(
                 ((ti_wano_t *) val)->ano->type,
                 deep,
                 flags);
+    case TI_VAL_UUID:
+        return ti_uuid_to_client_pk((ti_uuid_t *) val, &vp->pk);
     case TI_VAL_FUTURE:
         return VFUT(val)
                 ? wrap__field_val(

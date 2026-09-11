@@ -183,8 +183,10 @@ void ti_thing_destroy(ti_thing_t * thing)
     }
 
     if (ti_thing_is_instance(thing))
+    {
+        ti_thing_t_uuid_drop(thing);
         ti_thing_t_vcache_drop(thing);
-
+    }
     /*
      * While dropping, mutable variable must clear the parent; for example
      *
@@ -219,6 +221,9 @@ void ti_thing_clear(ti_thing_t * thing)
     }
     else
     {
+        /* uuid drop must happen before clearing vec */
+        ti_thing_t_uuid_drop(thing);
+
         vec_clear_cb(
                 thing->items.vec,
                 (vec_destroy_cb) ti_val_unassign_unsafe_drop);
@@ -1268,6 +1273,10 @@ void ti_thing_t_to_object(ti_thing_t * thing)
     ti_name_t * name;
     ti_val_t ** val;
     ti_prop_t * prop;
+
+    /* uuid drop must happen before clearing vec */
+    ti_thing_t_uuid_drop(thing);
+
     for (thing_t_each_addr(thing, name, val))
     {
         prop = ti_prop_create(name, *val);

@@ -254,4 +254,14 @@ static inline void ti_thing_t_vache_add(ti_thing_t * thing)
         ti_type_index_clear(thing->via.type);
 }
 
+static inline void ti_thing_t_uuid_drop(ti_thing_t * thing)
+{
+    if (thing->via.type->uuid_idx)
+    {
+        ti_uuid_t * uuid = VEC_get(thing->items.vec,
+                                   *thing->via.type->uuid_idx);
+        (void) umap_pop(thing->collection->uuids, uuid->id);
+    }
+}
+
 #endif  /* TI_THING_INLINE_H_ */

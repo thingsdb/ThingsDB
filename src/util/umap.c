@@ -222,7 +222,7 @@ static void * umap__pop(umap_node_t * node, const uint8_t uuid[16], size_t pos)
 
 void * umap_pop(umap_t * map, const uint8_t uuid[16])
 {
-    if (!map || map->n == 0)
+    if (map->n == 0)
         return NULL;
 
     void * data = umap__pop(&map->root, uuid, 0);

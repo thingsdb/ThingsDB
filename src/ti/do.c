@@ -382,19 +382,27 @@ static int do__get_type_instance(
         }
 
         id = VINT(query->rval);
-        thing = ti_query_thing_from_id(query, id, e);
+
+        thing = ti_collection_thing_by_id(query->collection, (uint64_t) id);
         if (!thing)
+        {
+            ex_set(e, EX_LOOKUP_ERROR,
+                    "collection `%.*s` has no `thing` with id %"PRId64,
+                    query->collection->name->n,
+                    (char *) query->collection->name->data,
+                    id);
             return e->nr;
+        }
 
         if (thing->type_id != type->type_id)
         {
             ex_set(e, EX_TYPE_ERROR,
                     TI_THING_ID" is of type `%s`, not `%s`",
                     thing->id, ti_val_str((ti_val_t *) thing), type->name);
-            ti_decref(thing);
             return e->nr;
         }
 
+        ti_incref(thing);
         ti_val_unsafe_drop(query->rval);
         query->rval = (ti_val_t *) thing;
 

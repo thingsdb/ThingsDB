@@ -273,6 +273,7 @@ set(SOURCES
     src/util/smap.c
     src/util/strx.c
     src/util/syncpart.c
+    src/util/umap.c
     src/util/util.c
     src/util/vec.c
     inc/lib/http_parser.c

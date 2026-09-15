@@ -469,7 +469,7 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
     {
         ti_uuid_t * uuid = (ti_uuid_t *) val;
         uuid_raw_t raw;
-        ti_uuid_to_raw(uuid, raw);
+        ti_uuid_to_raw(uuid->id, raw);
         return (
             buf_append_str(buf, "uuid(") ||
             buf_write(buf, '"') ||

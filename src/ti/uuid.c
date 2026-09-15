@@ -134,7 +134,7 @@ ti_uuid_t * ti_uuid_from_str(const char * str, size_t n, ex_t * e)
 }
 
 /* requires `raw` to have at least length 36 (uuid_raw_t) */
-void ti_uuid_to_raw(ti_uuid_t * uuid, char * raw)
+void ti_uuid_to_raw(uuid_t uuid, char * raw)
 {
     static const char hex_table[] = "0123456789abcdef";
     int p = 0;
@@ -145,14 +145,14 @@ void ti_uuid_to_raw(ti_uuid_t * uuid, char * raw)
             raw[p++] = '-';
         }
 
-        uint8_t b = uuid->id[i];
+        uint8_t b = uuid[i];
         raw[p++] = hex_table[b >> 4];   // High nibble
         raw[p++] = hex_table[b & 0x0F]; // Low nibble
     }
 }
 
 /* requires `str` to have at least length 37 (uuid_str_t) */
-void ti_uuid_to_str(ti_uuid_t * uuid, char * str)
+void ti_uuid_to_str(uuid_t uuid, char * str)
 {
     ti_uuid_to_raw(uuid, str);
     str[36] = '\0';
@@ -165,7 +165,7 @@ ti_raw_t * ti_uuid_str(ti_uuid_t * uuid)
     {
         raw->n = sizeof(uuid_raw_t);
         raw->tp = TI_VAL_STR;
-        ti_uuid_to_raw(uuid, (char *) raw->data);
+        ti_uuid_to_raw(uuid->id, (char *) raw->data);
     }
     return raw;
 }

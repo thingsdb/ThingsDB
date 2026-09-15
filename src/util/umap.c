@@ -139,14 +139,16 @@ static void * umap__set(umap_node_t * node,
     if (!node->sz)
     {
         node->nodes = calloc(1, sizeof(umap_node_t));
-        if (!node->nodes) return NULL;
+        if (!node->nodes)
+            return NULL;
         node->key = nibble;
         node->sz = 1;
         nd = node->nodes;
     }
     else if (node->key != nibble && node->key != UMAP_NODE_SZ)
     {
-        if (umap__node_grow(node) != 0) return NULL;
+        if (umap__node_grow(node) != 0)
+            return NULL;
         nd = node->nodes + nibble;
         node->sz++;
     }
@@ -222,7 +224,7 @@ static void * umap__pop(umap_node_t * node, const uint8_t uuid[16], size_t pos)
 
 void * umap_pop(umap_t * map, const uint8_t uuid[16])
 {
-    if (!map || map->n == 0)
+    if (map->n == 0)
         return NULL;
 
     void * data = umap__pop(&map->root, uuid, 0);

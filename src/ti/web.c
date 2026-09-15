@@ -111,7 +111,7 @@ static void web__data_cb(
 
     if (web_request->parser.upgrade)
     {
-        /* TODO: do we need to do something? */
+        /* TODO (CHECK): do we need to do something? */
         log_debug("upgrade to a new protocol");
     }
     else if (parsed != (size_t) n)

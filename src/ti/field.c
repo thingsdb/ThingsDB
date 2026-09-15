@@ -295,7 +295,7 @@ static inline void field__set_cb(ti_field_t * field, ti_field_dval_cb cb)
  *
  * Command:
  *
- *    pcregrep -o1 '\.name\=\"([\w\{\}\[\]]+)' field.c | gperf -E -k '*,1,$' -m 200
+ *    pcregrep -o1 '\.name\=\"([\w\{\}\[\]##]+)' field.c | gperf -E -k '*,1,$' -m 200
  */
 enum
 {
@@ -465,6 +465,21 @@ static int field__init(ti_field_t * field, ex_t * e)
 
     if (ti_raw_is_mpdata(field->spec_raw))
         return ti_condition_init_type(field, e);
+
+    if (n == 2 && memcmp(str, "##", 2) == 0)
+    {
+        if (field->type->uuid_idx)
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                   "duplicate UUID reference ('##') on type `%s`; "
+                   "only one is allowed", field->type->name);
+            return e->nr;
+        }
+        field->dval_cb = field__dval_uuid;
+        field->spec = TI_SPEC_UUID_REF;
+        field->type->uuid_idx = &field->idx;
+        return e->nr;
+    }
 
     do
     {
@@ -1235,6 +1250,10 @@ fail0:
 int ti_field_del(ti_field_t * field)
 {
     vec_t * vec = imap_vec_ref(field->type->types->collection->things);
+    umap_t * umap = field->type->uuid_idx == &field->idx
+            ? field->type->types->collection->uuids
+            : NULL;
+    ti_val_t * v;
     uint16_t type_id = field->type->type_id;
     if (!vec)
         return -1;
@@ -1242,7 +1261,12 @@ int ti_field_del(ti_field_t * field)
     for (vec_each(vec, ti_thing_t, thing))
     {
         if (thing->type_id == type_id)
-            ti_val_unsafe_drop(vec_swap_remove(thing->items.vec, field->idx));
+        {
+            v = vec_swap_remove(thing->items.vec, field->idx);
+            if (umap)
+                (void) umap_pop(umap, ((ti_uuid_t *) v)->id);
+            ti_val_unsafe_drop(v);
+        }
 
         ti_val_unsafe_drop((ti_val_t *) thing);
     }
@@ -1254,9 +1278,12 @@ int ti_field_del(ti_field_t * field)
     for (queue_each(field->type->types->collection->gc, ti_gc_t, gc))
     {
         if (gc->thing->type_id == type_id)
-            ti_val_unsafe_drop(vec_swap_remove(
-                    gc->thing->items.vec,
-                    field->idx));
+        {
+            v = vec_swap_remove(gc->thing->items.vec, field->idx);
+            if (umap)
+                (void) umap_pop(umap, ((ti_uuid_t *) v)->id);
+            ti_val_unsafe_drop(v);
+        }
     }
 
     free(vec);
@@ -1273,6 +1300,10 @@ void ti_field_remove(ti_field_t * field)
 
     /* removed dependency if required */
     field__remove_dep(field);
+
+    /* remove UUID registration for type */
+    if (field->type->uuid_idx == &field->idx)
+        field->type->uuid_idx = NULL;
 
     (void) vec_swap_remove(field->type->fields, field->idx);
 
@@ -1919,6 +1950,33 @@ int ti_field_make_assignable(
         if (ti_val_is_uuid(*val))
             return 0;
         goto type_error;
+    case TI_SPEC_UUID_REF:
+        if (!ti_val_is_uuid(*val))
+            goto type_error;
+        if (!parent)
+        {
+            ex_set(e, EX_TYPE_ERROR, "missing parent for UUID check");
+            return e->nr;
+        }
+        if (vec_get(parent->items.vec, field->idx))
+        {
+            ex_set(e, EX_OPERATION,
+                    "the UUID ('##') property `%s` on type `%s` is read-only "
+                    "and cannot be modified",
+                    field->name->str,
+                    field->type->name);
+            return e->nr;
+        }
+        LOGC("n: %zu", parent->collection->uuids->n);
+        if (umap_get(parent->collection->uuids, ((ti_uuid_t *) (*val))->id))
+        {
+            ex_set(e, EX_LOOKUP_ERROR,
+                    "UUID ('##') for property `%s` on type `%s` must be unique",
+                    field->name->str,
+                    field->type->name);
+            return e->nr;
+        }
+        return 0;
     case TI_SPEC_DATETIME:
         if (ti_val_is_datetime_strict(*val))
             return 0;
@@ -2262,6 +2320,7 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
     case TI_SPEC_BOOL:
         return ti_val_is_bool(val);
     case TI_SPEC_UUID:
+    case TI_SPEC_UUID_REF:
         return ti_val_is_uuid(val);
     case TI_SPEC_DATETIME:
         return ti_val_is_datetime_strict(val);
@@ -2415,6 +2474,7 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_FLOAT:
     case TI_SPEC_BOOL:
     case TI_SPEC_UUID:
+    case TI_SPEC_UUID_REF:
     case TI_SPEC_DATETIME:
     case TI_SPEC_TIMEVAL:
     case TI_SPEC_REGEX:
@@ -2551,6 +2611,7 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
                 f_spec == TI_SPEC_FLOAT_RANGE);
     case TI_SPEC_BOOL:
     case TI_SPEC_UUID:
+    case TI_SPEC_UUID_REF:
     case TI_SPEC_DATETIME:
     case TI_SPEC_TIMEVAL:
     case TI_SPEC_REGEX:
@@ -2710,10 +2771,23 @@ static int field__add(ti_thing_t * thing, field__add_t * w)
     if (thing->type_id != w->type_id)
         return 0;
 
+    if (w->field->spec == TI_SPEC_UUID_REF)
+    {
+        void * x = umap_add(thing->collection->uuids, VUUID(*w->vaddr), thing);
+        uuid_str_t uuid_str;
+        ti_uuid_to_str(VUUID(*w->vaddr), uuid_str);
+        LOGC("Ret: %p (%p) %s", x, thing, uuid_str);
+    }
+        // return 1;
+
     /* closure is already unbound, so only a memory exception can occur */
     if (ti_val_make_assignable(w->vaddr, thing, w->field, &w->e) ||
         vec_push(&thing->items.vec, *w->vaddr))
+    {
+        if (w->field->spec == TI_SPEC_UUID_REF)
+            (void) umap_pop(thing->collection->uuids, VUUID(*w->vaddr));
         return 1;
+    }
 
     ti_incref(*w->vaddr);
     return 0;

@@ -333,6 +333,9 @@ int ti_store_things_restore_data(
                     goto fail1;
                 VEC_push(thing->items.vec, val);
             }
+
+            if (ti_thing_t_uuid_add(thing) != thing)
+                goto fail1;
         }
     }
 

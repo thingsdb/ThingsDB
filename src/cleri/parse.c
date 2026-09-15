@@ -292,7 +292,7 @@ int cleri_parse_strn(
         /* we use count = 0 to print the first one, then for the others
          * a comma prefix and the last with -or-
          *
-         * TODO: could be improved since the last `or` might never be added
+         * TODO (PERF): could be improved as the last `or` might never be added
          */
         template = !count++
             ? ", expecting: %s"

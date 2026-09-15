@@ -12,6 +12,8 @@ typedef struct ti_uuid_s  ti_uuid_t;
 #include <ti/type.t.h>
 #include <ti/val.t.h>
 
+#define VUUID(__x) ((ti_uuid_t *) (__x))->id
+
 struct ti_uuid_s
 {
     uint32_t ref;

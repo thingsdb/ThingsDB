@@ -64,6 +64,7 @@
 #include <ti/token.h>
 #include <ti/types.inline.h>
 #include <ti/users.h>
+#include <ti/uuid.h>
 #include <ti/val.inline.h>
 #include <ti/vbool.h>
 #include <ti/verror.h>

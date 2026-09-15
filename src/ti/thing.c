@@ -1071,7 +1071,7 @@ int ti_thing_id_to_client_pk(ti_thing_t * thing, msgpack_packer * pk)
             ? thing->via.type->idname
             : NULL;
     return -(
-            msgpack_pack_map(pk,1) || (name
+            msgpack_pack_map(pk, 1) || (name
                 ? mp_pack_strn(pk, name->str, name->n)
                 : mp_pack_strn(pk, TI_KIND_S_THING, 1)) ||
             msgpack_pack_uint64(pk, thing->id)
@@ -1850,8 +1850,24 @@ static int thing__dup_t(ti_thing_t ** taddr, uint8_t deep)
         }
         VEC_push(other->items.vec, val);
     }
+
+    if (other->via.type->uuid_idx)
+    {
+        ti_val_t * prev;
+        ti_uuid_t * uuid = ti_uuid_new();
+        if (!uuid)
+            goto fail;
+
+        prev = VEC_get(other->items.vec, *other->via.type->uuid_idx);
+        ti_val_unsafe_drop(prev);
+        VEC_set(other->items.vec, uuid, *other->via.type->uuid_idx);
+        if (umap_add(other->collection->uuids, uuid->id, other) != other)
+            goto fail;
+    }
+
     thing__deep_unset(thing, collection);
     ti_val_unsafe_gc_drop((ti_val_t *) thing);
+
     *taddr = other;
     return 0;
 

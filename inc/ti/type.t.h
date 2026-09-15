@@ -49,7 +49,7 @@ struct ti_type_s
     vec_t * methods;        /* ti_method_t */
     imap_t * t_mappings;    /* from_type_id / ti_map_t */
     imap_t * t_cache;       /* cache with things of this type (borrowed ref) */
-    int32_t * uuid_idx;     /* if not null, pointer to field->idx for UUID */
+    uint32_t * uuid_idx;    /* if not null, pointer to field->idx for UUID */
 };
 
 #endif  /* TI_TYPE_T_H_ */

@@ -83,6 +83,7 @@ ti_type_t * ti_type_create(
     type->modified_at = modified_at;
     type->methods = vec_new(0);
     type->t_cache = NULL;
+    type->uuid_idx = NULL;
 
     if (!type->name || !type->wname || !type->dependencies || !type->fields ||
         !type->rname || !type->rwname || !type->t_mappings || !type->methods ||
@@ -124,6 +125,7 @@ ti_type_t * ti_type_create_anonymous(
     type->modified_at = 0;
     type->methods = vec_new(0);
     type->t_cache = NULL;
+    type->uuid_idx = NULL;
 
     if (!type->name || !type->dependencies || !type->fields ||
         !type->rname || !type->t_mappings || !type->methods)
@@ -1338,8 +1340,8 @@ ti_map_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type)
 }
 
 /*
- * Type must have been checked for `wrap_only` mode before calling this
- * function.
+ * Type must have been checked for not having `wrap_only` mode before calling
+ * this function.
  */
 ti_val_t * ti_type_dval(ti_type_t * type)
 {
@@ -1361,6 +1363,12 @@ ti_val_t * ti_type_dval(ti_type_t * type)
         ti_val_attach(val, thing, field);
 
         VEC_push(thing->items.vec, val);
+    }
+
+    if (ti_thing_t_uuid_add(thing) != thing)
+    {
+        ti_thing_destroy(thing);
+        return NULL;
     }
 
     return (ti_val_t *) thing;
@@ -1503,8 +1511,8 @@ fail0:
 }
 
 /*
- * Type must have been checked for `wrap_only` mode before calling this
- * function.
+ * Type must have been checked for not having `wrap_only` mode before calling
+ * this function.
  */
 ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
 {
@@ -1572,6 +1580,14 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
             goto failed;
         }
 
+        if (type->uuid_idx)
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                    "UUID must be unique"
+                    DOC_NEW);
+            goto failed;
+        }
+
         for (vec_each(type->fields, ti_field_t, field))
         {
             ti_val_t * val = VEC_get(from->items.vec, field->idx);
@@ -1596,7 +1612,11 @@ ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
             VEC_push(thing->items.vec, val);
         }
     }
-
+    if (ti_thing_t_uuid_add(thing) != thing)
+    {
+        ex_set_mem(e);
+        goto failed;
+    }
     return thing;
 
 failed:

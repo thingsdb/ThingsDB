@@ -33,6 +33,7 @@
 #define TI_NODE_ID "`node:%"PRIu32"`"
 #define TI_ROOM_ID "`room:%"PRIu64"`"
 #define TI_THING_ID "`#%"PRIu64"`"
+#define TI_THING_UUID "{%s}"
 #define TI_USER_ID "`user:%"PRIu64"`"
 #define TI_TASK_ID "`task:%"PRIu64"`"
 

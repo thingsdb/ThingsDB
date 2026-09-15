@@ -57,6 +57,23 @@ static int do__f_map_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 goto fail1;
             }
         }
+        else if (ti_val_is_uuid(val))
+        {
+            thing = ti_query_thing_from_uuid(query, VUUID(val), e);
+            if (!thing)
+                goto fail0;
+
+            if (thing->type_id != type->type_id)
+            {
+                uuid_str_t uuid_str;
+                ti_uuid_to_str(VUUID(val), uuid_str);
+                ex_set(e, EX_TYPE_ERROR,
+                        TI_THING_UUID" is of type `%s`, not `%s`",
+                        uuid_str, ti_val_str((ti_val_t *) thing), type->name);
+                ti_decref(thing);
+                goto fail1;
+            }
+        }
         else if (ti_val_is_thing(val))
         {
             thing = ti_type_from_thing(type, (ti_thing_t *) val, e);

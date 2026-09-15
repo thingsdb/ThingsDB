@@ -12,6 +12,7 @@
 #include <ti/thing.h>
 #include <ti/thing.t.h>
 #include <ti/vp.t.h>
+#include <ti/uuid.t.h>
 #include <ti/witem.t.h>
 #include <util/strx.h>
 #include <doc.h>
@@ -258,10 +259,24 @@ static inline void ti_thing_t_uuid_drop(ti_thing_t * thing)
 {
     if (thing->via.type->uuid_idx)
     {
+        ti_uuid_t * uuid = vec_get(thing->items.vec,
+                                   *thing->via.type->uuid_idx);
+        if (uuid)
+            (void) umap_pop(thing->collection->uuids, uuid->id);
+    }
+}
+
+/* Returns NULL only in case of error; The `thing` is returned if succesfull
+ * or another `thing` if the UUID has been taken */
+static inline void * ti_thing_t_uuid_add(ti_thing_t * thing)
+{
+    if (thing->via.type->uuid_idx)
+    {
         ti_uuid_t * uuid = VEC_get(thing->items.vec,
                                    *thing->via.type->uuid_idx);
-        (void) umap_pop(thing->collection->uuids, uuid->id);
+        return umap_add(thing->collection->uuids, uuid->id, thing);
     }
+    return thing;
 }
 
 #endif  /* TI_THING_INLINE_H_ */

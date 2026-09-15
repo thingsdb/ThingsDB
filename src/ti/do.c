@@ -1497,6 +1497,12 @@ static int do__instance(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         }
     }
 
+    if (ti_thing_t_uuid_add(thing) != thing)
+    {
+        ex_set_mem(e);
+        goto fail;
+    }
+
     query->rval = (ti_val_t *) thing;
     goto done;
 

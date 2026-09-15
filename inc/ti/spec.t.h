@@ -28,6 +28,7 @@ typedef enum
     TI_SPEC_NUMBER,         /* `number`             */
     TI_SPEC_BOOL,           /* `bool`               */
     TI_SPEC_UUID,           /* `uuid`               */
+    TI_SPEC_UUID_REF,       /* `##`                 */
     TI_SPEC_ARR,            /* `[..]`               */
     TI_SPEC_SET,            /* `{..}`               */
     TI_SPEC_DATETIME,       /* `datetime` (strict)  */

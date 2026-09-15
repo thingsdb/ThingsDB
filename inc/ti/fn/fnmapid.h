@@ -2,11 +2,21 @@
 
 static int map_id__walk_set(ti_thing_t * thing, ti_varr_t * varr)
 {
-    ti_val_t * val = thing->id
+    ti_val_t * val;
+
+    if (ti_thing_is_instance(thing) && thing->via.type->uuid_idx)
+    {
+        val = VEC_get(thing->items.vec, *thing->via.type->uuid_idx);
+        ti_incref(val);
+    }
+    else
+    {
+        val =  thing->id
             ? (ti_val_t *) ti_vint_create((int64_t) thing->id)
             : (ti_val_t *) ti_nil_get();
-    if (!val)
-        return -1;
+        if (!val)
+            return -1;
+    }
 
     VEC_push(varr->vec, val);
     return 0;
@@ -40,6 +50,13 @@ static int do__f_map_id(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (ti_val_is_thing(val))
             {
                 ti_thing_t * thing = (ti_thing_t *) val;
+                if (ti_thing_is_instance(thing) && thing->via.type->uuid_idx)
+                {
+                    val = VEC_get(thing->items.vec, *thing->via.type->uuid_idx);
+                    ti_incref(val);
+                    VEC_push(varr->vec, val);
+                    continue;
+                }
                 id = thing->id;
             }
             else if (ti_val_is_wrap(val))

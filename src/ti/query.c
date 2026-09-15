@@ -1343,6 +1343,40 @@ ti_thing_t * ti_query_thing_from_id(
     return thing;
 }
 
+ti_thing_t * ti_query_thing_from_uuid(
+        ti_query_t * query,
+        uuid_t uuid,
+        ex_t * e)
+{
+    ti_thing_t * thing;
+
+    if (!query->collection)
+    {
+        ex_set(e, EX_LOOKUP_ERROR,
+                "scope `%s` has no stored things; "
+                "you might want to query a `@collection` scope?",
+                ti_query_scope_name(query));
+        return NULL;
+    }
+
+    /* No need to check for garbage collected things */
+    thing = umap_get(query->collection->uuids, uuid);
+    if (!thing)
+    {
+        uuid_str_t uuid_str;
+        ti_uuid_to_str(uuid, uuid_str);
+        ex_set(e, EX_LOOKUP_ERROR,
+                "collection `%.*s` has no `thing` with UUID "TI_THING_UUID,
+                query->collection->name->n,
+                (char *) query->collection->name->data,
+                uuid_str);
+        return NULL;
+    }
+
+    ti_incref(thing);
+    return thing;
+}
+
 ti_room_t * ti_query_room_from_id(
         ti_query_t * query,
         int64_t room_id,

@@ -1463,6 +1463,7 @@ static inline _Bool val__spec_enum_eq_to_val(uint16_t spec, ti_val_t * val)
  *   TI_SPEC_NUMBER,
  *   TI_SPEC_BOOL,
  *   TI_SPEC_UUID,
+ *   TI_SPEC_UUID_REF,
  *   TI_SPEC_ARR,
  *   TI_SPEC_SET,
  *   TI_SPEC_DATETIME,
@@ -1478,7 +1479,7 @@ static inline _Bool val__spec_enum_eq_to_val(uint16_t spec, ti_val_t * val)
  *   TI_SPEC_ENUM,
  */
 
-static ti_val_spec_t ti_val_spec_map[26] = {
+static ti_val_spec_t ti_val_spec_map[27] = {
         {.is_spec=ti_val_is_thing},
         {.is_spec=ti_val_is_raw},
         {.is_spec=ti_val_is_str},
@@ -1491,6 +1492,7 @@ static ti_val_spec_t ti_val_spec_map[26] = {
         {.is_spec=ti_val_is_float},
         {.is_spec=ti_val_is_number},
         {.is_spec=ti_val_is_bool},
+        {.is_spec=ti_val_is_uuid},
         {.is_spec=ti_val_is_uuid},
         {.is_spec=ti_val_is_array},
         {.is_spec=ti_val_is_set},

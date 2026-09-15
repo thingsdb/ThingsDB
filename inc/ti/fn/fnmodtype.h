@@ -40,7 +40,13 @@ static inline int modtype__addv_cb(ti_thing_t * thing, modtype__addv_t * w)
 static inline int modtype__delv_cb(ti_thing_t * thing, ti_field_t * field)
 {
     if (thing->type_id == field->type->type_id)
-        ti_val_unsafe_drop(vec_swap_remove(thing->items.vec, field->idx));
+    {
+        ti_val_t * v = vec_swap_remove(thing->items.vec, field->idx);
+        if (field->type->uuid_idx == &field->idx)
+            (void) umap_pop(field->type->types->collection->uuids,
+                            ((ti_uuid_t *) v)->id);
+        ti_val_unsafe_drop(v);
+    }
     return 0;
 }
 
@@ -451,6 +457,14 @@ static void type__add(
 
     if (query->rval && !ti_val_is_closure(query->rval))
     {
+        if (field->spec == TI_SPEC_UUID_REF)
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                    "cannot use a fixed UUID for adding a '##' field"
+                    DOC_MOD_TYPE_ADD);
+            goto fail1;
+        }
+
         if (ti_field_make_assignable(field, &query->rval, NULL, e))
             goto fail1;
 
@@ -831,6 +845,13 @@ static void type__mod(
         return;
     }
 
+    if (field && &field->idx == type->uuid_idx)
+    {
+        ex_set(e, EX_TYPE_ERROR,
+                "cannot modify a UUID ('##') definition");
+        return;
+    }
+
     if (!field && !method)
     {
         ex_set(e, EX_LOOKUP_ERROR,
@@ -915,6 +936,15 @@ static void type__mod(
         {
             ex_set(e, EX_TYPE_ERROR,
                 "cannot convert a property into an Id ('#') definition");
+            return;
+        }
+
+        if (spec_raw->n == 2 &&
+            spec_raw->data[0] == '#'  &&
+            spec_raw->data[1] == '#')
+        {
+            ex_set(e, EX_TYPE_ERROR,
+                "cannot convert a property into an UUID ('##') definition");
             return;
         }
 

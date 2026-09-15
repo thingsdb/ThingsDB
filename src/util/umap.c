@@ -121,16 +121,17 @@ void * umap_get(umap_t * map, const uint8_t uuid[16])
     return NULL;
 }
 
-static void * umap__set(umap_node_t * node,
+static void * umap__add(umap_node_t * node,
                         const uint8_t uuid[16],
                         size_t pos,
                         void * data)
 {
     if (pos == 32)
     {
-        void * ret = node->data ? node->data : data;
+        if (node->data)
+            return node->data;
         node->data = data;
-        return ret;
+        return data;
     }
 
     uint8_t nibble = umap__get_nibble(uuid, pos);
@@ -139,14 +140,16 @@ static void * umap__set(umap_node_t * node,
     if (!node->sz)
     {
         node->nodes = calloc(1, sizeof(umap_node_t));
-        if (!node->nodes) return NULL;
+        if (!node->nodes)
+            return NULL;
         node->key = nibble;
         node->sz = 1;
         nd = node->nodes;
     }
     else if (node->key != nibble && node->key != UMAP_NODE_SZ)
     {
-        if (umap__node_grow(node) != 0) return NULL;
+        if (umap__node_grow(node) != 0)
+            return NULL;
         nd = node->nodes + nibble;
         node->sz++;
     }
@@ -164,15 +167,15 @@ static void * umap__set(umap_node_t * node,
         }
     }
 
-    return umap__set(nd, uuid, pos + 1, data);
+    return umap__add(nd, uuid, pos + 1, data);
 }
 
-void * umap_set(umap_t * map, const uint8_t uuid[16], void * data)
+void * umap_add(umap_t * map, const uint8_t uuid[16], void * data)
 {
     assert(map != NULL);
     assert(data != NULL);
 
-    void * ret = umap__set(&map->root, uuid, 0, data);
+    void * ret = umap__add(&map->root, uuid, 0, data);
     if (ret == data)
         map->n++;
 

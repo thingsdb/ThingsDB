@@ -43,7 +43,7 @@ class TestUuid(TestBase):
         u = await client.query("""//ti
             uuid(base64_decode("AaCLQ0q9dSmCoprjUrLxDw=="));
         """)
-        self.assertEqual(u, '01a08b43-4abd-7529-82a2-9ae3');
+        self.assertEqual(u, '01a08b43-4abd-7529-82a2-9ae352b2f10f');
 
 
 if __name__ == '__main__':

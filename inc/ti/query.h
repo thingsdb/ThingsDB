@@ -15,6 +15,7 @@
 #include <ti/scope.t.h>
 #include <ti/type.t.h>
 #include <ti/user.t.h>
+#include <ti/uuid.t.h>
 #include <ti/vup.t.h>
 
 extern ti_query_done_cb ti_query_done_map[];
@@ -46,6 +47,10 @@ ti_prop_t * ti_query_var_get(ti_query_t * query, ti_name_t * name);
 ti_thing_t * ti_query_thing_from_id(
         ti_query_t * query,
         int64_t thing_id,
+        ex_t * e);
+ti_thing_t * ti_query_thing_from_uuid(
+        ti_query_t * query,
+        uuid_t uuid,
         ex_t * e);
 ti_room_t * ti_query_room_from_id(
         ti_query_t * query,

@@ -234,5 +234,11 @@ ti_thing_t * ti_things_thing_t_from_vup(ti_vup_t * vup, ex_t * e)
         VEC_push(thing->items.vec, val);
     }
 
+    if (ti_thing_t_uuid_add(thing) != thing)
+    {
+        ti_thing_cancel(thing);
+        return NULL;
+    }
+
     return thing;
 }

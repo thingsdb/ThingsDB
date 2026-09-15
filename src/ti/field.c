@@ -2771,23 +2771,10 @@ static int field__add(ti_thing_t * thing, field__add_t * w)
     if (thing->type_id != w->type_id)
         return 0;
 
-    if (w->field->spec == TI_SPEC_UUID_REF)
-    {
-        void * x = umap_add(thing->collection->uuids, VUUID(*w->vaddr), thing);
-        uuid_str_t uuid_str;
-        ti_uuid_to_str(VUUID(*w->vaddr), uuid_str);
-        LOGC("Ret: %p (%p) %s", x, thing, uuid_str);
-    }
-        // return 1;
-
     /* closure is already unbound, so only a memory exception can occur */
     if (ti_val_make_assignable(w->vaddr, thing, w->field, &w->e) ||
         vec_push(&thing->items.vec, *w->vaddr))
-    {
-        if (w->field->spec == TI_SPEC_UUID_REF)
-            (void) umap_pop(thing->collection->uuids, VUUID(*w->vaddr));
         return 1;
-    }
 
     ti_incref(*w->vaddr);
     return 0;

@@ -163,8 +163,9 @@ ti_raw_t * ti_uuid_str(ti_uuid_t * uuid)
     ti_raw_t * raw = malloc(sizeof(ti_raw_t) + sizeof(uuid_raw_t));
     if (raw)
     {
-        raw->n = sizeof(uuid_raw_t);
+        raw->ref = 1;
         raw->tp = TI_VAL_STR;
+        raw->n = sizeof(uuid_raw_t);
         ti_uuid_to_raw(uuid->id, (char *) raw->data);
     }
     return raw;

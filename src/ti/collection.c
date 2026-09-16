@@ -59,7 +59,6 @@ ti_collection_t * ti_collection_create(
     collection->scope = ti_str_from_fmt("@collection:%.*s", (int) n, name);
     collection->things = imap_create();
     collection->rooms = imap_create();
-    collection->uuids = umap_create();
     collection->gc = queue_new(20);
     collection->access = vec_new(1);
     collection->procedures = smap_create();
@@ -79,7 +78,7 @@ ti_collection_t * ti_collection_create(
     if (!collection->name || !collection->things || !collection->gc ||
         !collection->access || !collection->procedures || !collection->lock ||
         !collection->types || !collection->enums || !collection->futures ||
-        !collection->rooms || !collection->uuids || !collection->named_rooms ||
+        !collection->rooms || !collection->named_rooms ||
         !collection->scope || !collection->ano_types ||
         uv_mutex_init(collection->lock))
     {
@@ -101,7 +100,6 @@ void ti_collection_destroy(ti_collection_t * collection)
 
     imap_destroy(collection->things, NULL);
     imap_destroy(collection->rooms, NULL);
-    umap_destroy(collection->uuids, NULL);
     queue_destroy(collection->gc, NULL);
     ti_val_drop((ti_val_t *) collection->name);
     ti_val_drop((ti_val_t *) collection->scope);

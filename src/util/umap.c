@@ -13,6 +13,17 @@ static ALWAYS_INLINE uint8_t umap__get_nibble(const uint8_t uuid[16],
     return (uuid[pos >> 1] >> ((~pos & 1) << 2)) & 0x0F;
 }
 
+static ALWAYS_INLINE void umap__set_nibble(uint8_t uuid[16],
+                                           size_t pos,
+                                           uint8_t nibble)
+{
+    size_t byte_idx = pos >> 1;
+    if (pos & 1)
+        uuid[byte_idx] = (uuid[byte_idx] & 0xF0) | (nibble & 0x0F);
+    else
+        uuid[byte_idx] = (uuid[byte_idx] & 0x0F) | ((nibble & 0x0F) << 4);
+}
+
 static ALWAYS_INLINE umap_node_t * umap__get_child(umap_node_t * node,
                                                    uint8_t nibble)
 {
@@ -232,4 +243,75 @@ void * umap_pop(umap_t * map, const uint8_t uuid[16])
         map->n--;
 
     return data;
+}
+
+static int umap__walk(umap_node_t * node,
+                      umap_cb cb,
+                      void * arg,
+                      uint8_t current_uuid[16],
+                      size_t pos)
+{
+    int rc;
+
+    // process suffix nibbles if present
+    if (node->suffix_len > 0)
+    {
+        for (size_t i = 0; i < node->suffix_len; i++)
+        {
+            umap__set_nibble(current_uuid, pos + i, node->suffix[i]);
+        }
+        pos += node->suffix_len;
+    }
+
+    // invoke callback if value exists at this node
+    if (node->data)
+    {
+        rc = cb(current_uuid, node->data, arg);
+        if (rc != 0)
+            return rc;
+    }
+
+    // recurse down active children
+    if (node->nodes)
+    {
+        if (node->key == UMAP_NODE_SZ)
+        {
+            for (uint8_t nibble = 0; nibble < UMAP_NODE_SZ; nibble++)
+            {
+                umap_node_t * child = node->nodes + nibble;
+                if (child->nodes || child->data || child->suffix_len)
+                {
+                    umap__set_nibble(current_uuid, pos, nibble);
+                    rc = umap__walk(child, cb, arg, current_uuid, pos + 1);
+                    if (rc != 0)
+                        return rc;
+                }
+            }
+        }
+        else
+        {
+            umap__set_nibble(current_uuid, pos, node->key);
+            rc = umap__walk(node->nodes, cb, arg, current_uuid, pos + 1);
+            if (rc != 0)
+                return rc;
+        }
+    }
+
+    return 0;
+}
+
+/*
+ * Run the call-back function on all items in the map.
+ *
+ * Walking stops on the first callback returning a non zero value.
+ * The return value is the last callback result. A return value of 0 means that
+ * the callback function is called on all items in the map.
+ */
+int umap_walk(umap_t * map, umap_cb cb, void * arg)
+{
+    if (map->n == 0)
+        return 0;
+
+    uint8_t current_uuid[16] = {0};
+    return umap__walk(&map->root, cb, arg, current_uuid, 0);
 }

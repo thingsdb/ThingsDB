@@ -563,43 +563,6 @@ int imap_walk_cp(
     return rc;
 }
 
-static void imap__walkn(imap_node_t * node, imap_cb cb, void * arg, size_t * n)
-{
-    imap_node_t * nd = node->nodes, * end = nd + imap__node_size(node);
-
-    for (; *n && nd < end; ++nd)
-    {
-        if (nd->data && !(*n -= (*cb)(nd->data, arg)))
-            return;
-
-        if (nd->nodes)
-            imap__walkn(nd, cb, arg, n);
-    }
-}
-
-/*
- * Recursive function, call-back function will be called on each item.
- *
- * Walking stops either when the call-back is called on each value or
- * when 'n' is zero. 'n' will be decremented by the result of each call-back.
- */
-void imap_walkn(imap_t * imap, size_t * n, imap_cb cb, void * arg)
-{
-    if (imap->n)
-    {
-        imap_node_t * nd = imap->nodes, * end = nd + IMAP_NODE_SZ;
-        do
-        {
-            if (nd->data && !(*n -= (*cb)(nd->data, arg)))
-                return;
-
-            if (nd->nodes)
-                imap__walkn(nd, cb, arg, n);
-        }
-        while (++nd < end);
-    }
-}
-
 static _Bool imap__eq(imap_node_t * nodea, imap_node_t * nodeb)
 {
     if (nodea->key == nodeb->key)

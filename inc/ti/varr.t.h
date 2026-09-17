@@ -50,7 +50,7 @@ struct ti_varr_s
     vec_t * vec;
     ti_thing_t * parent;    /* without reference,
                                NULL when this is a variable or tuple */
-    void * key_;            /* ti_name_t, ti_raw_t or ti_field_t; all  without
+    void * key_;            /* ti_name_t, ti_raw_t or ti_field_t; all without
                                reference */
 };
 

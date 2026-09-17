@@ -19,6 +19,7 @@
 #define TI_VAL_TUPLE_S      "tuple"
 #define TI_VAL_ROOM_S       "room"
 #define TI_VAL_SET_S        "set"
+#define TI_VAL_DICT_S       "dict"
 #define TI_VAL_CLOSURE_S    "closure"
 #define TI_VAL_ERROR_S      "error"
 #define TI_VAL_DATETIME_S   "datetime"
@@ -30,13 +31,14 @@
 #define TI_VAL_WANO_S       "<<anonymous>>"
 #define TI_VAL_UUID_S       "uuid"
 
+#define TI_KIND_S_THING     "#"     /* Externally, Thing */
 #define TI_KIND_S_INSTANCE  "."     /* Internally, New typed thing */
 #define TI_KIND_S_OBJECT    ","     /* Internally, New thing */
-#define TI_KIND_S_THING     "#"     /* Externally, Thing */
 #define TI_KIND_S_SET       "$"     /* Internally, Set */
 #define TI_KIND_S_ERROR     "!"     /* Internally, Error */
 #define TI_KIND_S_WRAP      "&"     /* Internally, Wrapped thing */
 #define TI_KIND_S_WANO      " "     /* Internally, Wrapped ano thing */
+#define TI_KIND_S_DICT      "*"     /* Internally, Dict */
 #define TI_KIND_S_MEMBER    "%%"    /* Internally, Enum member */
 #define TI_KIND_S_DATETIME  "'"     /* Internally, Date/Time */
 #define TI_KIND_S_TIMEVAL   "\""    /* Internally, Time value */
@@ -64,6 +66,7 @@ typedef enum
     TI_VAL_TASK,
     TI_VAL_ARR,         /* array, list or tuple */
     TI_VAL_SET,         /* set of things */
+    TI_VAL_DICT,        /* dictionary by str, uuid or int */
     TI_VAL_ERROR,
     TI_VAL_MEMBER,      /* enum member */
     TI_VAL_MPDATA,      /* msgpack data */
@@ -104,10 +107,10 @@ typedef enum
     TI_KIND_C_DATETIME  ='\'',
     TI_KIND_C_TIMEVAL   ='"',
     TI_KIND_C_WANO      =' ',
+    TI_KIND_C_DICT      ='*',  /* replaced TI_KIND_C_REGEX_OBSOLETE */
     /* Obsolete, but still required for backwards compatibility */
     TI_KIND_C_THING_OBSOLETE_       ='#',
     TI_KIND_C_CLOSURE_OBSOLETE_     ='/',
-    TI_KIND_C_REGEX_OBSOLETE_       ='*',
 } ti_val_kind;
 
 typedef struct ti_val_s ti_val_t;

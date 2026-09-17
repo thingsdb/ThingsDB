@@ -351,7 +351,7 @@ typedef struct
 } ti_val_type_t;
 
 
-static ti_val_type_t ti_val_type_props[25] = {
+static ti_val_type_t ti_val_type_props[26] = {
     /* TI_VAL_NIL */
     {
         .destroy = (ti_val_destroy_cb) free,
@@ -530,6 +530,18 @@ static ti_val_type_t ti_val_type_props[25] = {
         .to_store_pk = (ti_val_to_store_pk_cb) ti_vset_to_store_pk,
         .get_type_str = val__set_type_str,
         .as_bool = val__as_bool_set,
+        .allowed_as_vtask_arg = false,
+    },
+    /* TI_VAL_DICT */
+    {
+        .destroy = (ti_val_destroy_cb) ti_dict_destroy,
+        .to_str = val__no_to_str,
+        .to_uuid = val__no_to_uuid,
+        .to_arr_cb = val__dict_to_arr,
+        .to_client_pk = (ti_val_to_client_pk_cb) ti_dict_to_client_pk,
+        .to_store_pk = (ti_val_to_store_pk_cb) ti_dict_to_store_pk,
+        .get_type_str = val__dict_type_str,
+        .as_bool = val__as_bool_dict,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_ERROR */

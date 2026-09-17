@@ -25,6 +25,7 @@ struct umap_s
     size_t n;
     umap_node_t root;
 };
+typedef int (*umap_cb)(const uint8_t uuid[16], void * data, void * arg);
 
 umap_t * umap_create(void);
 void umap_destroy(umap_t * map, umap_destroy_cb cb);
@@ -33,5 +34,7 @@ void umap_clear(umap_t * map, umap_destroy_cb cb);
 void * umap_set(umap_t * map, const uint8_t uuid[16], void * data);
 void * umap_get(umap_t * map, const uint8_t uuid[16]);
 void * umap_pop(umap_t * map, const uint8_t uuid[16]);
+
+int umap_walk(imap_t * imap, imap_cb cb, void * arg);
 
 #endif /* UMAP_H_ */

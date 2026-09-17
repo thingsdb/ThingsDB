@@ -146,19 +146,21 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
     case TI_KIND_C_SET:
     {
         ti_val_t * vthing;
-        ti_vset_t * vset = ti_vset_create();
+        ti_vset_t * vset;
         size_t i;
 
-        if (!vset)
-        {
-            ex_set_mem(e);
-            return NULL;
-        }
         if (sz != 1 || mp_next(vup->up, &mp_val) != MP_ARR)
         {
             ex_set(e, EX_BAD_DATA,
                     "sets must be written according the "
                     "following syntax: {\""TI_KIND_S_SET"\": [...]");
+            return NULL;
+        }
+
+        vset = ti_vset_create();
+        if (!vset)
+        {
+            ex_set_mem(e);
             return NULL;
         }
 
@@ -173,6 +175,63 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
         }
 
         return (ti_val_t *) vset;
+    }
+    case TI_KIND_C_DICT:
+    {
+        ti_val_t * key, * val;
+        ti_dict_t * dict;
+        size_t i;
+
+        if (sz != 1 || mp_next(vup->up, &mp_val) != MP_MAP)
+        {
+            /*
+            * TODO (COMPAT) For compatibility with data from v0.x
+            */
+            if (sz != 1 || mp_val.tp != MP_STR)
+            {
+                ex_set(e, EX_BAD_DATA,
+                        "dicts must be written according the "
+                        "following syntax: {\""TI_KIND_S_DICT"\": {...}");
+                return NULL;
+            }
+
+            /* TI_KIND_C_REGEX_OBSOLETE */
+            return (ti_val_t *) ti_regex_from_strn(
+                    mp_val.via.str.data,
+                    mp_val.via.str.n, e);
+        }
+
+        dict = ti_dict_create();
+        if (!dict)
+        {
+            ex_set_mem(e);
+            return NULL;
+        }
+
+        for (i = mp_val.via.sz; i--;)
+        {
+            key = ti_val_from_vup_e(vup, e);
+            if (!key)
+            {
+                ti_dict_destroy(dict);
+                return NULL;
+            }
+            val = ti_val_from_vup_e(vup, e);
+            {
+                ti_val_unsafe_drop(key);
+                ti_dict_destroy(dict);
+                return NULL;
+            }
+            if (ti_dict_add_val(dict, key, val, e) < 0)
+            {
+                ti_val_unsafe_drop(key);
+                ti_val_unsafe_drop(val);
+                ti_dict_destroy(dict);
+                return NULL;
+            }
+        }
+
+        return (ti_val_t *) dict;
     }
     case TI_KIND_C_ERROR:
     {
@@ -435,22 +494,6 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
                 mp_val.via.str.data,
                 mp_val.via.str.n,
                 e);
-    }
-    /*
-     * TODO (COMPAT) For compatibility with data from v0.x
-     */
-    case TI_KIND_C_REGEX_OBSOLETE_:
-    {
-        if (sz != 1 || mp_next(vup->up, &mp_val) != MP_STR)        {
-            ex_set(e, EX_BAD_DATA,
-                    "regular expressions must be written according the "
-                    "following syntax: {\""TI_KIND_S_REGEX_OBSOLETE_"\": \"...\"");
-            return NULL;
-        }
-
-        return (ti_val_t *) ti_regex_from_strn(
-                mp_val.via.str.data,
-                mp_val.via.str.n, e);
     }
     }
 

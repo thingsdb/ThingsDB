@@ -32,10 +32,12 @@ static int backups__gcd_rm(ti_raw_t * fn)
                 "--quiet --key-file \"%s\" 2>&1; ",
                 ti.cfg->gcloud_key_file);
 
+    /* Replaced gsutil with cloud storage cp. See pr #458
+     * (gsutil -o 'Boto:num_retries=1' rm %.*s 2>&1;) */
     buf_append_fmt(
             &buf,
-            "gsutil -o 'Boto:num_retries=1' rm %.*s 2>&1;",
-            fn->n, (char *) fn->data);
+            "gcloud storage rm %.*s 2>&1;",
+            (int) fn->n, (char *) fn->data);
 
     if (buf_write(&buf, '\0'))
         goto fail0;

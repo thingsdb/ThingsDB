@@ -1,9 +1,9 @@
-# v1.9.3-alpha0
+# v1.9.3-alpha3
 
 * Fixed sanatize runtime checking, pr #455.
 * Replaced `ti_sleep(..)` with `sched_yield()` with a few exceptions, pr #456.
 * Added native `uuid` type, pr #457.
-
+* Replaced `gsutil` with `gcloud storage` command, pr #458.
 
 # v1.9.2
 

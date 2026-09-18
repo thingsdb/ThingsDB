@@ -14,6 +14,7 @@
 #include <ti/val.t.h>
 #include <ti/vfloat.h>
 #include <ti/vint.h>
+#include <ti/uuid.h>
 #include <util/smap.h>
 #include <util/vec.h>
 #include <util/logger.h>
@@ -464,6 +465,19 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
         );
     case TI_VAL_WANO:
         return buf_append_str(buf, "&{}.wrap() /* WARN: not exported */");
+    case TI_VAL_UUID:
+    {
+        ti_uuid_t * uuid = (ti_uuid_t *) val;
+        uuid_raw_t raw;
+        ti_uuid_to_raw(uuid->id, raw);
+        return (
+            buf_append_str(buf, "uuid(") ||
+            buf_write(buf, '\'') ||
+            buf_append(buf, raw, sizeof(raw)) ||
+            buf_write(buf, '\'') ||
+            buf_write(buf, ')')
+        );
+    }
     case TI_VAL_FUTURE:
         return buf_append_str(buf, "future(||nil) /* WARN: not exported */");
     case TI_VAL_MODULE:
@@ -523,6 +537,7 @@ static int export__set_enum_cb(ti_enum_t * enum_, ti_fmt_t * fmt)
             case TI_VAL_FUTURE:
             case TI_VAL_MODULE:
             case TI_VAL_WANO:
+            case TI_VAL_UUID:
             case TI_VAL_TEMPLATE:
                 assert(0);
                 break;

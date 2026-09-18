@@ -218,6 +218,7 @@ set(SOURCES
     src/ti/tz.c
     src/ti/user.c
     src/ti/users.c
+    src/ti/uuid.c
     src/ti/val.c
     src/ti/varr.c
     src/ti/vbool.c
@@ -272,6 +273,7 @@ set(SOURCES
     src/util/smap.c
     src/util/strx.c
     src/util/syncpart.c
+    src/util/umap.c
     src/util/util.c
     src/util/vec.c
     inc/lib/http_parser.c

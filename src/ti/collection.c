@@ -78,8 +78,9 @@ ti_collection_t * ti_collection_create(
     if (!collection->name || !collection->things || !collection->gc ||
         !collection->access || !collection->procedures || !collection->lock ||
         !collection->types || !collection->enums || !collection->futures ||
-        !collection->rooms || !collection->named_rooms || !collection->scope ||
-        !collection->ano_types || uv_mutex_init(collection->lock))
+        !collection->rooms || !collection->named_rooms ||
+        !collection->scope || !collection->ano_types ||
+        uv_mutex_init(collection->lock))
     {
         ti_collection_drop(collection);
         return NULL;

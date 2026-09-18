@@ -98,28 +98,6 @@ void uuid_v7(uint8_t uuid[16])
     uuid[8] = (uuid[8] & 0x3F) | 0x80;  /* 10xxxxxx (Leach-Salz RFC) */
 }
 
-
-
-void uuid_to_string(const uint8_t uuid[16], char *out)
-{
-    static const char hex_table[] = "0123456789abcdef";
-
-    int p = 0;
-    for (int i = 0; i < 16; i++)
-    {
-        if (i == 4 || i == 6 || i == 8 || i == 10)
-        {
-            out[p++] = '-';
-        }
-
-        uint8_t b = uuid[i];
-        out[p++] = hex_table[b >> 4];   // High nibble
-        out[p++] = hex_table[b & 0x0F]; // Low nibble
-    }
-    out[36] = '\0';
-}
-
-
 bool string_to_uuid(const char * in, uint8_t uuid[16])
 {
     static const uint8_t hex_val[256] = {

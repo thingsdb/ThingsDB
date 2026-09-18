@@ -51,6 +51,7 @@ static ti_val_t * val__default_closure;
 static ti_val_t * val__default_re;
 static ti_val_t * val__sano;
 static ti_val_t * val__swano;
+static ti_val_t * val__suuid;
 static ti_val_t * val__sbool;
 static ti_val_t * val__sbytes;
 static ti_val_t * val__sclosure;
@@ -496,6 +497,8 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
     case TI_VAL_WANO:
         varr->flags |= TI_VARR_FLAG_MHT;
         break;
+    case TI_VAL_UUID:
+        break;
     case TI_VAL_ARR:
     {
         /* Make sure the arr is converted to a `tuple` and copy the
@@ -771,6 +774,19 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
                 return NULL;
             return (ti_val_t *) ano;
         }
+        case MPACK_EXT_UUID:
+        {
+            ti_uuid_t * uuid;
+            if (obj.via.ext.n != sizeof(uuid_t))
+            {
+                ex_set(e, EX_BAD_DATA, "invalid UUID (expecting 16 bytes)");
+                return NULL;
+            }
+            uuid = ti_uuid_from_bytes(obj.via.ext.data);
+            if (!uuid)
+                ex_set_mem(e);
+            return (ti_val_t *) uuid;
+        }
         }
         ex_set(e, EX_BAD_DATA,
                 "msgpack extension type %d is not supported by ThingsDB",
@@ -801,6 +817,7 @@ int ti_val_init_common(void)
     val__sfalse = (ti_val_t *) ti_str_from_str("false");
     val__sano = (ti_val_t *) ti_str_from_str(TI_VAL_ANO_S);
     val__swano = (ti_val_t *) ti_str_from_str(TI_VAL_WANO_S);
+    val__suuid = (ti_val_t *) ti_str_from_str(TI_VAL_UUID_S);
     val__sbool = (ti_val_t *) ti_str_from_str(TI_VAL_BOOL_S);
     val__sdatetime = (ti_val_t *) ti_str_from_str(TI_VAL_DATETIME_S);
     val__stimeval = (ti_val_t *) ti_str_from_str(TI_VAL_TIMEVAL_S);
@@ -869,7 +886,7 @@ int ti_val_init_common(void)
         !val__key_name || !val__key_type_name || !val__flags_name ||
         !val__data_name || !val__time_name || !val__re_email ||
         !val__smodule || !val__re_url || !val__re_tel || !val__async_name ||
-        !val__anonymous_name || !val__sano || !val__swano)
+        !val__anonymous_name || !val__sano || !val__swano || !val__suuid)
     {
         return -1;
     }
@@ -891,6 +908,7 @@ void ti_val_drop_common(void)
     ti_val_drop(val__sfalse);
     ti_val_drop(val__sano);
     ti_val_drop(val__swano);
+    ti_val_drop(val__suuid);
     ti_val_drop(val__sbool);
     ti_val_drop(val__sdatetime);
     ti_val_drop(val__stimeval);
@@ -1082,6 +1100,17 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
         }
         break;
     }
+    case TI_VAL_UUID:
+    {
+        ti_uuid_t * u = (ti_uuid_t *) (*val);
+        v = (ti_val_t *) ti_bin_create(u->id, sizeof(u->id));
+        if (!v)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        break;
+    }
     case TI_VAL_BYTES:
         return e->nr;  /* do nothing, just return the string */
     case TI_VAL_REGEX:
@@ -1200,6 +1229,7 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
     case TI_VAL_CLOSURE:
     case TI_VAL_ANO:
     case TI_VAL_WANO:
+    case TI_VAL_UUID:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
     case TI_VAL_MPDATA:
@@ -1299,6 +1329,7 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
     case TI_VAL_CLOSURE:
     case TI_VAL_ANO:
     case TI_VAL_WANO:
+    case TI_VAL_UUID:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
     case TI_VAL_MPDATA:
@@ -1345,6 +1376,7 @@ int ti_val_convert_to_array(ti_val_t ** val, ex_t * e)
     case TI_VAL_CLOSURE:
     case TI_VAL_ANO:
     case TI_VAL_WANO:
+    case TI_VAL_UUID:
     case TI_VAL_MEMBER:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
@@ -1418,6 +1450,7 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
     case TI_VAL_CLOSURE:
     case TI_VAL_ANO:
     case TI_VAL_WANO:
+    case TI_VAL_UUID:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
         ex_set(e, EX_TYPE_ERROR,
@@ -1471,6 +1504,8 @@ size_t ti_val_get_len(ti_val_t * val)
             !!((ti_ano_t *) val)->type->idname);
     case TI_VAL_WANO:
         return ti_thing_n(((ti_wano_t *) val)->thing);
+    case TI_VAL_UUID:
+        return sizeof(((ti_uuid_t *) val)->id);
     case TI_VAL_MEMBER:
         return ti_val_get_len(VMEMBER(val));
     case TI_VAL_FUTURE:
@@ -1566,6 +1601,8 @@ int ti_val_gen_ids(ti_val_t * val)
          * so here we do not need recursion.
          */
         break;
+    case TI_VAL_UUID:
+        break;
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
     case TI_VAL_TEMPLATE:
@@ -1611,6 +1648,7 @@ _Bool ti_val_has_ids(ti_val_t * val)
         return false;
     case TI_VAL_WANO:
         return ti_thing_has_id(((ti_wano_t *) val)->thing);
+    case TI_VAL_UUID:
     case TI_VAL_ERROR:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
@@ -1652,6 +1690,8 @@ size_t ti_val_alloc_size(ti_val_t * val)
         return ((ti_ano_t *) val)->spec_raw->n + 9;
     case TI_VAL_WANO:
         return 65536;
+    case TI_VAL_UUID:
+        return 64;
     case TI_VAL_ERROR:
         return ((ti_verror_t *) val)->msg_n + 128;
     case TI_VAL_MEMBER:
@@ -1703,6 +1743,7 @@ ti_val_t * ti_val_strv(ti_val_t * val)
     case TI_VAL_CLOSURE:        return ti_grab(val__sclosure);
     case TI_VAL_ANO:            return ti_grab(val__sano);
     case TI_VAL_WANO:           return ti_grab(val__swano);
+    case TI_VAL_UUID:           return ti_grab(val__suuid);
     case TI_VAL_FUTURE:         return ti_grab(val__sfuture);
     case TI_VAL_MODULE:         return ti_grab(val__smodule);
     case TI_VAL_TEMPLATE:
@@ -1763,6 +1804,8 @@ int ti_val_copy(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep)
         return 0;
     case TI_VAL_WANO:
         return ti_wano_copy((ti_wano_t **) val, deep);
+    case TI_VAL_UUID:
+        return 0;
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
         ti_val_unsafe_drop(*val);
@@ -1826,6 +1869,8 @@ int ti_val_dup(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep)
         return 0;
     case TI_VAL_WANO:
         return ti_wano_dup((ti_wano_t **) val, deep);
+    case TI_VAL_UUID:
+        return 0;
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
         ti_val_unsafe_drop(*val);
@@ -1918,6 +1963,26 @@ int ti_val_bytes_to_str(ti_val_t ** val, ex_t * e)
     *val = (ti_val_t *) r;
     return 0;
 }
+int ti_val_bytes_to_uuid(ti_val_t ** val, ex_t * e)
+{
+    ti_uuid_t * uuid;
+    ti_raw_t * r = (ti_raw_t *) (*val);
+    if (r->n != sizeof(uuid_t))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "invalid UUID (expecting 16 bytes)");
+        return e->nr;
+    }
+    uuid = ti_uuid_from_bytes(r->data);
+    if (!uuid)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+    ti_val_unsafe_drop(*val);
+    *val = (ti_val_t *) uuid;
+    return 0;
+}
 int ti_val_regex_to_str(ti_val_t ** val, ex_t * UNUSED(e))
 {
     ti_val_t * v = (ti_val_t *) (*(ti_regex_t **) val)->pattern;
@@ -1953,6 +2018,18 @@ int ti_val_wrap_to_str(ti_val_t ** val, ex_t * e)
 int ti_val_wano_to_str(ti_val_t ** val, ex_t * e)
 {
     ti_val_t * v = (ti_val_t *) ti_wano_str((ti_wano_t *) *val);
+    if (!v)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+    ti_val_unsafe_drop(*val);
+    *val = v;
+    return 0;
+}
+int ti_val_uuid_to_str(ti_val_t ** val, ex_t * e)
+{
+    ti_val_t * v = (ti_val_t *) ti_uuid_str((ti_uuid_t *) *val);
     if (!v)
     {
         ex_set_mem(e);

@@ -255,9 +255,11 @@ char * ti_backup_gcloud_task(ti_backup_t * backup)
                 "--quiet --key-file \"%s\" 2>&1; ",
                 ti.cfg->gcloud_key_file);
 
+    /* Replaced gsutil with cloud storage cp. See pr #
+     * (gsutil -o 'Boto:num_retries=1' cp %.*s %.*s 2>&1;) */
     buf_append_fmt(
             &buf,
-            "gsutil -o 'Boto:num_retries=1' cp %.*s %.*s 2>&1; "
+            "gcloud storage cp %.*s %.*s 2>&1; "
             "RETURN=$? 2>&1; "
             "rm %.*s 2>&1; "
             "exit $RETURN;",

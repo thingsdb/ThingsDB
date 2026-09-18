@@ -1,4 +1,4 @@
-# v1.9.3-alpha0
+# v1.9.3-alpha2
 
 * Fixed sanatize runtime checking, pr #455.
 * Replaced `ti_sleep(..)` with `sched_yield()` with a few exceptions, pr #456.

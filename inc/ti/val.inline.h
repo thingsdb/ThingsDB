@@ -875,9 +875,12 @@ static inline _Bool ti_val_is_opt_chain(ti_val_t * val)
     return val->tp == TI_VAL_NIL || val->tp == TI_VAL_ERROR;
 }
 
-static inline _Bool ti_val_is_str(ti_val_t * val)
+static inline _Bool ti_val_is_dict_key(ti_val_t * val)
 {
-    return val->tp == TI_VAL_STR || val->tp == TI_VAL_NAME;
+    return val->tp == TI_VAL_STR ||
+           val->tp == TI_VAL_NAME ||
+           val->tp == TI_VAL_INT ||
+           val->tp == TI_VAL_UUID;
 }
 
 static inline _Bool ti_val_is_utf8(ti_val_t * val)

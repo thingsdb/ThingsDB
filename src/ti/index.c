@@ -452,7 +452,10 @@ fail1:
     return e->nr;
 }
 
-static int index__get(ti_query_t * query, cleri_node_t * statement, ex_t * e)
+static int index__get_thing(
+        ti_query_t * query,
+        cleri_node_t * statement,
+        ex_t * e)
 {
     ti_witem_t witem;
     ti_thing_t * thing = (ti_thing_t *) query->rval;
@@ -540,7 +543,7 @@ static inline int index__upd_prop(
     return 0;
 }
 
-static int index__set(ti_query_t * query, cleri_node_t * inode, ex_t * e)
+static int index__set_thing(ti_query_t * query, cleri_node_t * inode, ex_t * e)
 {
     cleri_node_t * idx_statem = inode->children->next->children;
     cleri_node_t * ass_statem = inode->children->next->next->next;
@@ -600,6 +603,61 @@ fail0:
     return e->nr;
 }
 
+static int index__set_dict(ti_query_t * query, cleri_node_t * inode, ex_t * e)
+{
+    cleri_node_t * idx_statem = inode->children->next->children;
+    cleri_node_t * ass_statem = inode->children->next->next->next;
+    cleri_node_t * ass_tokens = ass_statem->children;
+    ti_witem_t witem;
+    ti_dict_t * dict;
+    ti_val_t * key;
+
+    if (ti_query_test_dict_operation(query, e) ||
+        ti_val_try_lock(query->rval, e))
+        return e->nr;
+
+    dict = (ti_dict_t *) query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, idx_statem, e))
+        goto fail0;
+
+    if (ass_tokens->len == 2)
+    {
+        ex_set(e, EX_OPERATION,
+                "compound assignment operators are not allowed on "
+                "type `"TI_VAL_DICT_S"`");
+        goto fail0;
+    }
+
+    key = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, ass_statem->children->next, e) ||
+        ti_dict_set(dict, key, query->rval, e))
+        goto fail1;
+
+    if (dict->parent && dict->parent->id)
+    {
+        ti_task_t * task = ti_task_get_task(query->change, dict->parent);
+        if (!task || ti_task_add_set_dict(
+                task,
+                ti_varr_key(varr),
+                varr,
+                (uint32_t) idx,
+                1,
+                1))
+            ex_set_mem(e);
+    }
+
+fail1:
+    ti_val_unsafe_drop(key);
+fail0:
+    ti_val_unlock((ti_val_t *) dict, true /* lock_was_set */);
+    ti_val_unsafe_drop((ti_val_t *) dict);
+    return e->nr;
+}
+
 int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     assert(query->rval);
@@ -647,13 +705,23 @@ int ti_index(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     ? index__slice_arr(query, slice, e)
                     : index__index_arr(query, slice->children, e);
 
+    case TI_VAL_DICT:
+        if (do_slice)
+            goto slice_error;
+
+        return do_assign
+                ? index__set_dict(query, nd, e)
+                : index__get_dict(query, slice->children, e);
+
+        break;
+
     case TI_VAL_THING:
         if (do_slice)
             goto slice_error;
 
         return do_assign
-                ? index__set(query, nd, e)
-                : index__get(query, slice->children, e);
+                ? index__set_thing(query, nd, e)
+                : index__get_thing(query, slice->children, e);
 
         break;
     case TI_VAL_TEMPLATE:

@@ -25,6 +25,30 @@ fail1:
     return e->nr;
 }
 
+static int do__f_has_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    const int nargs = fn_get_nargs(nd);
+    _Bool has;
+    ti_dict_t * dict;
+
+    if (fn_nargs("has", DOC_DICT_HAS, 1, nargs, e))
+        return e->nr;
+
+    dict = (ti_dict_t *) query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children, e))
+        goto fail1;
+
+    has = ti_dict_has(dict, query->rval);
+    ti_val_unsafe_drop(query->rval);
+    query->rval = (ti_val_t *) ti_vbool_get(has);
+
+fail1:
+    ti_val_unsafe_drop((ti_val_t *) vset);
+    return e->nr;
+}
+
 static int do__f_has_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
@@ -84,6 +108,8 @@ static inline int do__f_has(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return do__f_has_thing(query, nd, e);
     case TI_VAL_SET:
         return do__f_has_set(query, nd, e);
+    case TI_VAL_DICT:
+        return do__f_has_dict(query, nd, e);
     case TI_VAL_ARR:
         return do__f_has_list(query, nd, e);
     default:

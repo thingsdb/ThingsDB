@@ -5,13 +5,14 @@
 #define TI_QUERY_INLINE_H_
 
 #include <ti.h>
+#include <ti/dict.inline.h>
 #include <ti/prop.h>
 #include <ti/qbind.h>
 #include <ti/qcache.h>
 #include <ti/query.h>
-#include <ti/vtask.t.h>
-#include <ti/vset.h>
 #include <ti/varr.inline.h>
+#include <ti/vset.h>
+#include <ti/vtask.t.h>
 #include <util/vec.h>
 
 static inline vec_t * ti_query_access(ti_query_t * query)
@@ -108,6 +109,18 @@ static inline int ti_query_test_thing_operation(ti_query_t * query, ex_t * e)
     if (!query->change && ((ti_thing_t *) query->rval)->id)
         ex_set(e, EX_OPERATION,
                 "operation on a stored thing; "
+                "%s(...)` to enforce a change",
+                (query->qbind.flags & TI_QBIND_FLAG_NSE)
+                    ? "remove `nse"
+                    : "use `wse");
+    return e->nr;
+}
+
+static inline int ti_query_test_dict_operation(ti_query_t * query, ex_t * e)
+{
+    if (!query->change && ti_dict_is_stored((ti_dict_t *) query->rval))
+        ex_set(e, EX_OPERATION,
+                "operation on a stored dict; "
                 "%s(...)` to enforce a change",
                 (query->qbind.flags & TI_QBIND_FLAG_NSE)
                     ? "remove `nse"

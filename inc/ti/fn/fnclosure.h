@@ -59,6 +59,7 @@ static int do__f_closure_new(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     case TI_VAL_TASK:
     case TI_VAL_ARR:
     case TI_VAL_SET:
+    case TI_VAL_DICT:
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:
     case TI_VAL_MPDATA:

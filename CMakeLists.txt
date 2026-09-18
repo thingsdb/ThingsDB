@@ -147,6 +147,7 @@ set(SOURCES
     src/ti/ctask.c
     src/ti/datetime.c
     src/ti/deep.c
+    src/ti/dict.c
     src/ti/do.c
     src/ti/dump.c
     src/ti/enum.c

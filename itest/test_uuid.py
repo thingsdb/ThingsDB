@@ -103,6 +103,32 @@ class TestUuid(TestBase):
         """)
         self.assertTrue(u)
 
+    async def test_cmp(self, client):
+        u = await client.query("""//ti
+            a = uuid('01a08b43-4abd-7529-82a2-9ae352b2f10f');
+            b = uuid('01A08B434ABD752982A29AE352B2F10F');
+            a == b;
+        """)
+        self.assertTrue(u)
+        u = await client.query("""//ti
+            a = uuid('01a08b43-4abd-7529-82a2-9ae352b2f10f');
+            b = uuid('01A08B434ABD752982A29AE352B00000');
+            a != b;
+        """)
+        self.assertTrue(u)
+        u = await client.query("""//ti
+            a = 4;
+            b = 7;
+            assert(a < b);
+            assert(a <= b);
+            assert(a <= a);
+            assert(b > a);
+            assert(b >= a);
+            assert(b >= b);
+            true;
+        """)
+        self.assertTrue(u)
+
 
 if __name__ == '__main__':
     run_test(TestUuid())

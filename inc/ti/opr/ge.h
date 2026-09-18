@@ -67,6 +67,9 @@ static int opr__ge(ti_val_t * a, ti_val_t ** b, ex_t * e)
     case OPR_SET_SET:
         bool_ = ti_vset_ge((ti_vset_t*) a, (ti_vset_t *) *b);
         break;
+    case OPR_UUID_UUID:
+        bool_ = memcmp(VUUID(a), VUUID(*b), sizeof(uuid_t)) >= 0;
+        break;
     }
 
     ti_val_unsafe_drop(*b);

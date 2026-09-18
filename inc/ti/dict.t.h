@@ -29,20 +29,21 @@ enum
 #include <util/smap.h>
 #include <util/umap.h>
 
+/* parent and key location equal to  varr, vset and dict */
 struct ti_dict_s
 {
     uint32_t ref;
     uint8_t tp;
     uint8_t flags;
     int:16;
-    size_t n;
-    imap_t * imap_;
-    smap_t * smap_;
-    umap_t * umap_;
     ti_thing_t * parent;    /* without reference,
                                NULL when this is a variable */
     void * key_;            /* ti_name_t, ti_raw_t or ti_field_t; all without
                                reference */
+    size_t n;
+    imap_t * imap_;
+    smap_t * smap_;
+    umap_t * umap_;
 };
 
 #endif  /* TI_DICT_T_H_ */

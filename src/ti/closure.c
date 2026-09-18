@@ -665,6 +665,30 @@ int ti_closure_vars_vset(ti_closure_t * closure, ti_thing_t * t)
     return 0;
 }
 
+void ti_closure_vars_dict(ti_closure_t * closure, ti_val_t * k, ti_val_t * v)
+{
+    ti_prop_t * prop;
+    switch(closure->vars->n)
+    {
+    default:
+    case 2:
+        prop = VEC_get(closure->vars, 1);
+        ti_incref(v);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = v
+        /* fall through */
+    case 1:
+        prop = VEC_get(closure->vars, 0);
+        ti_incref(k);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = k;
+        /* fall through */
+    case 0:
+        break;
+    }
+    return 0;
+}
+
 int ti_closure_call(
         ti_closure_t * closure,
         ti_query_t * query,

@@ -314,6 +314,53 @@ int ti_forloop_set(
     return e->nr;
 }
 
+int ti_forloop_dict(
+        ti_query_t * query,
+        cleri_node_t * vars_nd,
+        cleri_node_t * code_nd,
+        ex_t * e)
+{
+    int rc;
+    int nargs = 0;
+    int lock_was_set;
+    ti_dict_t * dict = (ti_dict_t *) query->rval;
+
+    if (!dict->n)
+        return 0;
+
+    nargs = ti_do_prepare_for_loop(query, vars_nd);
+    if (nargs < 0)
+        return ex_set_mem(e), e->nr;
+
+    lock_was_set = ti_val_ensure_lock(query->rval);
+
+    forloop__walk_t w = {
+            .nargs = nargs,
+            .query = query,
+            .vars_nd = vars_nd,
+            .code_nd = code_nd,
+            .e = e,
+    };
+
+    query->rval = NULL;
+
+    rc = (query->change && ti_vset_has_relation(vset))
+            ? imap_walk_cp(vset->imap,
+                    (imap_cb) forloop__walk_set,
+                    &w,
+                    (imap_destroy_cb) ti_val_unsafe_drop)
+            : imap_walk(vset->imap, (imap_cb) forloop__walk_set, &w);
+
+    if (rc >= 0)
+        query->rval = (ti_val_t *) ti_nil_get();
+    else if (!e->nr)
+        ex_set_mem(e);
+
+    ti_val_unlock((ti_val_t *) vset, lock_was_set);
+    ti_val_unsafe_drop((ti_val_t *) vset);
+    return e->nr;
+}
+
 int ti_forloop_thing(
         ti_query_t * query,
         cleri_node_t * vars_nd,

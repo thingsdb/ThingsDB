@@ -49,6 +49,7 @@ int ti_closure_vars_replace_regex(
         PCRE2_SIZE * ovector,
         uint32_t sz);
 int ti_closure_vars_vset(ti_closure_t * closure, ti_thing_t * t);
+int ti_closure_vars_dict(ti_closure_t * closure, ti_val_t * k, ti_val_t * v);
 int ti_closure_call(
         ti_closure_t * closure,
         ti_query_t * query,

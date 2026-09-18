@@ -1538,6 +1538,8 @@ size_t ti_val_get_len(ti_val_t * val)
         return VARR(val)->n;
     case TI_VAL_SET:
         return VSET(val)->n;
+    case TI_VAL_SET:
+        return ((ti_dict_t *) val)->n;
     case TI_VAL_CLOSURE:
         break;
     case TI_VAL_ANO:

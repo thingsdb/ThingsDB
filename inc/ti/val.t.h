@@ -48,6 +48,8 @@
 /*
  * Be careful when changing the order in the enumerator.
  * The ti_forloop_t also depends on the order in this enumerator;
+ *
+ * The ti_val_has_parent() requires ARR, SET and DICT in order
  */
 typedef enum
 {
@@ -64,7 +66,7 @@ typedef enum
     TI_VAL_WRAP,
     TI_VAL_ROOM,
     TI_VAL_TASK,
-    TI_VAL_ARR,         /* array, list or tuple */
+    TI_VAL_ARR,         /* array, list or tuple  */
     TI_VAL_SET,         /* set of things */
     TI_VAL_DICT,        /* dictionary by str, uuid or int */
     TI_VAL_ERROR,

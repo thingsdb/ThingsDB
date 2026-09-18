@@ -9,12 +9,12 @@
 #include <ti/closure.h>
 #include <ti/collection.h>
 #include <ti/datetime.h>
+#include <ti/dict.h>
 #include <ti/future.h>
 #include <ti/member.h>
 #include <ti/member.inline.h>
 #include <ti/module.t.h>
 #include <ti/name.h>
-#include <ti/nil.h>
 #include <ti/nil.h>
 #include <ti/regex.t.h>
 #include <ti/room.h>
@@ -42,6 +42,18 @@ static inline int val__str_to_uuid(ti_val_t ** UNUSED(v), ex_t * UNUSED(e));
 static inline int val__uuid_to_uuid(ti_val_t ** UNUSED(v), ex_t * UNUSED(e));
 static inline int val__no_to_str(ti_val_t ** val, ex_t * e);
 static inline int val__no_to_uuid(ti_val_t ** val, ex_t * e);
+
+static inline void val__no_attach(ti_val_t * UNUSED(val), ti_thing_t * UNUSED(thing), void * UNUSED(key))
+{
+}
+
+static inline void val__attach(ti_val_t * val, ti_thing_t * thing, void * key)
+{
+    /* used for varr, vset and dict */
+    ((ti_varr_t *) val)->parent = thing;
+    ((ti_varr_t *) val)->key_ = key;
+}
+
 
 static inline _Bool val__as_bool_false(ti_val_t * UNUSED(val))
 {
@@ -159,6 +171,10 @@ static inline const char * val__arr_type_str(ti_val_t * val)
 static inline const char * val__set_type_str(ti_val_t * UNUSED(val))
 {
     return TI_VAL_SET_S;
+}
+static inline const char * val__dict_type_str(ti_val_t * UNUSED(val))
+{
+    return TI_VAL_DICT_S;
 }
 static inline const char * val__error_type_str(ti_val_t * UNUSED(val))
 {
@@ -331,11 +347,12 @@ static inline int val__closure_to_arr(ti_val_t ** v, ti_varr_t * UNUSED(varr), e
 typedef void (*ti_val_destroy_cb) (ti_val_t *);
 typedef int (*ti_val_to_str_cb) (ti_val_t **, ex_t *);
 typedef int (*ti_val_to_uuid_cb) (ti_val_t **, ex_t *);
-typedef int (*ti_val_to_arr_cb) (ti_val_t ** v, ti_varr_t * varr, ex_t * e);
+typedef int (*ti_val_to_arr_cb) (ti_val_t **, ti_varr_t *, ex_t *);
 typedef int (*ti_val_to_client_pk_cb) (ti_val_t *, ti_vp_t *, int, int);
-typedef int (*ti_val_to_store_pk_cb) (ti_val_t *, msgpack_packer * pk);
+typedef int (*ti_val_to_store_pk_cb) (ti_val_t *, msgpack_packer *);
 typedef const char * (*ti_val_type_str_cb) (ti_val_t *);
 typedef _Bool (*ti_val_as_bool_cb) (ti_val_t *);
+typedef void (*ti_val_attach_cb) (ti_val_t *, ti_thing_t *, void *);
 
 typedef struct
 {
@@ -347,6 +364,7 @@ typedef struct
     ti_val_to_store_pk_cb to_store_pk;
     ti_val_type_str_cb get_type_str;
     ti_val_as_bool_cb as_bool;
+    ti_val_attach_cb attach;
     _Bool allowed_as_vtask_arg;     /* allowed in the @thingsdb scope */
 } ti_val_type_t;
 
@@ -362,6 +380,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = val__nil_to_store_pk,
         .get_type_str = val__nil_type_str,
         .as_bool = val__as_bool_false,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = true,
     },
     /* TI_VAL_INT */
@@ -374,6 +393,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = val__int_to_store_pk,
         .get_type_str = val__int_type_str,
         .as_bool = val__as_bool_int,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = true,
     },
     /* TI_VAL_FLOAT */
@@ -386,6 +406,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = val__float_to_store_pk,
         .get_type_str = val__float_type_str,
         .as_bool = val__as_bool_float,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = true,
     },
     /* TI_VAL_BOOL */
@@ -398,6 +419,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = (ti_val_to_store_pk_cb) ti_vbool_to_pk,
         .get_type_str = val__bool_type_str,
         .as_bool = val__as_bool_bool,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = true,
     },
     /* TI_VAL_DATETIME */
@@ -410,6 +432,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = (ti_val_to_store_pk_cb) ti_datetime_to_store_pk,
         .get_type_str = val__datetime_type_str,
         .as_bool = val__as_bool_true,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = true,
     },
     /* TI_VAL_NAME */
@@ -422,6 +445,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = (ti_val_to_store_pk_cb) ti_name_to_pk,
         .get_type_str = val__str_type_str,
         .as_bool = val__as_bool_raw,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = true,
     },
     /* TI_VAL_STR */
@@ -434,6 +458,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = (ti_val_to_store_pk_cb) ti_raw_str_to_pk,
         .get_type_str = val__str_type_str,
         .as_bool = val__as_bool_raw,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = true,
     },
     /* TI_VAL_BYTES */
@@ -446,6 +471,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = (ti_val_to_store_pk_cb) ti_raw_bytes_to_pk,
         .get_type_str = val__bytes_type_str,
         .as_bool = val__as_bool_raw,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = true,
     },
     /* TI_VAL_REGEX */
@@ -458,6 +484,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = (ti_val_to_store_pk_cb) ti_regex_to_store_pk,
         .get_type_str = val__regex_type_str,
         .as_bool = val__as_bool_true,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = true,
     },
     /* TI_VAL_THING */
@@ -470,6 +497,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = (ti_val_to_store_pk_cb) ti_thing_to_store_pk,
         .get_type_str = val__thing_type_str,
         .as_bool = val__as_bool_thing,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_WRAP */
@@ -482,6 +510,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = (ti_val_to_store_pk_cb) ti_wrap_to_store_pk,
         .get_type_str = val__wrap_type_str,
         .as_bool = val__as_bool_wrap,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_ROOM */
@@ -494,6 +523,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = (ti_val_to_store_pk_cb) ti_room_to_store_pk,
         .get_type_str = val__room_type_str,
         .as_bool = val__as_bool_room,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_TASK */
@@ -506,6 +536,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = (ti_val_to_store_pk_cb) ti_vtask_to_store_pk,
         .get_type_str = val__task_type_str,
         .as_bool = val__as_bool_task,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_ARR */
@@ -518,6 +549,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = (ti_val_to_store_pk_cb) val__varr_to_store_pk,
         .get_type_str = val__arr_type_str,
         .as_bool = val__as_bool_arr,
+        .attach = val__attach,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_SET */
@@ -530,6 +562,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = (ti_val_to_store_pk_cb) ti_vset_to_store_pk,
         .get_type_str = val__set_type_str,
         .as_bool = val__as_bool_set,
+        .attach = val__attach,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_DICT */
@@ -542,6 +575,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = (ti_val_to_store_pk_cb) ti_dict_to_store_pk,
         .get_type_str = val__dict_type_str,
         .as_bool = val__as_bool_dict,
+        .attach = val__attach,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_ERROR */
@@ -554,6 +588,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = (ti_val_to_store_pk_cb) ti_verror_to_store_pk,
         .get_type_str = val__error_type_str,
         .as_bool = val__as_bool_false,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_MEMBER */
@@ -566,6 +601,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = (ti_val_to_store_pk_cb) val__member_to_store_pk,
         .get_type_str = val__member_type_str,
         .as_bool = val__as_bool_member,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_MPDATA */
@@ -578,6 +614,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = (ti_val_to_store_pk_cb) ti_raw_mpdata_to_store_pk,
         .get_type_str = val__mpdata_type_str,
         .as_bool = val__as_bool_raw,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_CLOSURE */
@@ -590,6 +627,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = (ti_val_to_store_pk_cb) ti_closure_to_store_pk,
         .get_type_str = val__closure_type_str,
         .as_bool = val__as_bool_true,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_ANO */
@@ -602,6 +640,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = (ti_val_to_store_pk_cb) ti_ano_to_store_pk,
         .get_type_str = val__ano_type_str,
         .as_bool = val__as_bool_true,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_WANO */
@@ -614,6 +653,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = (ti_val_to_store_pk_cb) ti_wano_to_store_pk,
         .get_type_str = val__wano_type_str,
         .as_bool = val__as_bool_wano,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_UUID */
@@ -626,6 +666,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_store_pk = (ti_val_to_store_pk_cb) ti_uuid_to_store_pk,
         .get_type_str = val__uuid_type_str,
         .as_bool = val__as_bool_true,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = true,
     },
 
@@ -638,6 +679,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_client_pk = (ti_val_to_client_pk_cb) val__future_to_client_pk,
         .get_type_str = val__future_type_str,
         .as_bool = val__as_bool_true,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_MODULE */
@@ -649,6 +691,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_client_pk = (ti_val_to_client_pk_cb) val__module_to_client_pk,
         .get_type_str = val__module_type_str,
         .as_bool = val__as_bool_true,
+        .attach = val__no_attach,
         .allowed_as_vtask_arg = false,
     },
     /* TI_VAL_TEMPLATE */
@@ -659,6 +702,7 @@ static ti_val_type_t ti_val_type_props[26] = {
 };
 
 #define ti_val(__val) (&ti_val_type_props[(__val)->tp])
+#define ti_val_has_parent(__val) ((unsigned)((__val)->tp - TI_VAL_ARR) <= (TI_VAL_DICT - TI_VAL_ARR))
 
 static inline _Bool val__as_bool_member(ti_val_t * val)
 {
@@ -668,6 +712,14 @@ static inline _Bool val__as_bool_member(ti_val_t * val)
 static inline _Bool ti_val_as_bool(ti_val_t * val)
 {
     return ti_val(val)->as_bool(val);
+}
+
+static inline void ti_val_attach(
+        ti_val_t * val,
+        ti_thing_t * parent,
+        void * key)  /* ti_raw_t or ti_name_t or ti_field_t */
+{
+    return ti_val(val)->attach(val, parent, key)
 }
 
 static inline const char * ti_val_str(ti_val_t * val)
@@ -724,7 +776,7 @@ static inline void ti_val_unassign_unsafe_drop(ti_val_t * val)
 {
     if (!--val->ref)
         ti_val(val)->destroy(val);
-    else if (val->tp == TI_VAL_SET || val->tp == TI_VAL_ARR)
+    else if (ti_val_has_parent(val))
         ((ti_varr_t *) val)->parent = NULL;
     else
         ti_thing_may_push_gc((ti_thing_t *) val);
@@ -734,7 +786,7 @@ static inline void ti_val_replace_drop(ti_val_t * oval, ti_val_t * nval)
 {
     if (!--oval->ref)
         ti_val(oval)->destroy(oval);
-    else if (oval != nval && (oval->tp == TI_VAL_SET || oval->tp == TI_VAL_ARR))
+    else if (oval != nval && (ti_val_has_parent(oval))
         ((ti_varr_t *) oval)->parent = NULL;
     else
         ti_thing_may_push_gc((ti_thing_t *) oval);
@@ -899,6 +951,11 @@ static inline _Bool ti_val_is_set(ti_val_t * val)
     return val->tp == TI_VAL_SET;
 }
 
+static inline _Bool ti_val_is_dict(ti_val_t * val)
+{
+    return val->tp == TI_VAL_DICT;
+}
+
 static inline _Bool ti_val_is_thing(ti_val_t * val)
 {
     return val->tp == TI_VAL_THING;
@@ -997,8 +1054,7 @@ static inline _Bool ti_val_overflow_cast(double d)
 
 static inline _Bool ti_val_is_mut_locked(ti_val_t * val)
 {
-    return (val->tp == TI_VAL_ARR || val->tp == TI_VAL_SET) &&
-           (val->flags & TI_VFLAG_LOCK);
+    return ti_val_has_parent(val) && (val->flags & TI_VFLAG_LOCK);
 }
 
 /*
@@ -1241,51 +1297,6 @@ static inline _Bool ti_val_is_instance(ti_val_t * val)
     return val->tp == TI_VAL_THING && ti_thing_is_instance((ti_thing_t *) val);
 }
 
-static inline void ti_val_attach(
-        ti_val_t * val,
-        ti_thing_t * parent,
-        void * key)  /* ti_raw_t or ti_name_t or ti_field_t */
-{
-    switch ((ti_val_enum) val->tp)
-    {
-    case TI_VAL_NIL:
-    case TI_VAL_INT:
-    case TI_VAL_FLOAT:
-    case TI_VAL_BOOL:
-    case TI_VAL_DATETIME:
-    case TI_VAL_MPDATA:
-    case TI_VAL_NAME:
-    case TI_VAL_STR:
-    case TI_VAL_BYTES:
-    case TI_VAL_REGEX:
-    case TI_VAL_THING:
-    case TI_VAL_WRAP:
-    case TI_VAL_ROOM:
-    case TI_VAL_TASK:
-    case TI_VAL_ERROR:
-    case TI_VAL_MEMBER:
-    case TI_VAL_CLOSURE:
-    case TI_VAL_ANO:
-    case TI_VAL_WANO:
-    case TI_VAL_UUID:
-    case TI_VAL_FUTURE:
-    case TI_VAL_MODULE:
-        return;
-    case TI_VAL_ARR:
-        ((ti_varr_t *) val)->parent = parent;
-        ((ti_varr_t *) val)->key_ = key;
-        return;
-    case TI_VAL_SET:
-        ((ti_vset_t *) val)->parent = parent;
-        ((ti_vset_t *) val)->key_ = key;
-        return;
-    case TI_VAL_TEMPLATE:
-        break;
-    }
-    assert(0);
-    return;
-}
-
 /*
  * although the underlying pointer might point to a new value after calling
  * this function, the `old` pointer value can still be used and has at least
@@ -1337,6 +1348,15 @@ static inline int ti_val_make_assignable(
         }
         ((ti_vset_t *) *val)->parent = parent;
         ((ti_vset_t *) *val)->key_ = key;
+        return 0;
+    case TI_VAL_DICT:
+        if (ti_dict_assign((ti_dict_t **) val))
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        ((ti_dict_t *) *val)->parent = parent;
+        ((ti_dict_t *) *val)->key_ = key;
         return 0;
     case TI_VAL_CLOSURE:
         return ti_closure_unbound((ti_closure_t *) *val, e);

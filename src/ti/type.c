@@ -1359,7 +1359,6 @@ ti_val_t * ti_type_dval(ti_type_t * type)
         }
 
         ti_val_attach(val, thing, field);
-
         VEC_push(thing->items.vec, val);
     }
 

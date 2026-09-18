@@ -2,7 +2,7 @@
 
 * Fixed sanatize runtime checking, pr #455.
 * Replaced `ti_sleep(..)` with `sched_yield()` with a few exceptions, pr #456.
-* Replaced `gsutil` with `gcloud storage` command, pr #.
+* Replaced `gsutil` with `gcloud storage` command, pr #458.
 
 # v1.9.2
 

@@ -195,5 +195,11 @@ int ti_task_add_del_history(
         ti_task_t * task,
         uint64_t scope_id,
         vec_t * commits);
+int ti_task_add_dict_set(
+        ti_task_t * task,
+        ti_raw_t * key,
+        ti_dict_t * dict,
+        ti_val_t * k,
+        ti_val_t * v);
 
 #endif /* TI_TASK_H_ */

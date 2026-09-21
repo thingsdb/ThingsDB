@@ -25,13 +25,12 @@ static inline _Bool ti_dict_is_stored(ti_dict_t * dict)
     return dict->parent && dict->parent->id;
 }
 
-static inline void * ti_vset_key(ti_vset_t * vset)
+static inline void * ti_dict_key(ti_dict_t * dict)
 {
-    return ti_thing_is_object(vset->parent)
-            ? vset->key_
-            : ((ti_field_t *) vset->key_)->name;
+    return ti_thing_is_object(dict->parent)
+            ? dict->key_
+            : ((ti_field_t *) dict->key_)->name;
 }
-
 
 static inline int ti_dict_set(ti_dict_t * dict,
                               ti_val_t * key,

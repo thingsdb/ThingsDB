@@ -640,13 +640,12 @@ static int index__set_dict(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     if (dict->parent && dict->parent->id)
     {
         ti_task_t * task = ti_task_get_task(query->change, dict->parent);
-        if (!task || ti_task_add_set_dict(
+        if (!task || ti_task_add_dict_set(
                 task,
-                ti_varr_key(varr),
-                varr,
-                (uint32_t) idx,
-                1,
-                1))
+                ti_dict_key(dict),
+                dict,
+                key,
+                query->rval))
             ex_set_mem(e);
     }
 

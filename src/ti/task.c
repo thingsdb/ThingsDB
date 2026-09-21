@@ -3291,3 +3291,57 @@ fail_data:
     free(data);
     return -1;
 }
+
+int ti_task_add_dict_set(
+        ti_task_t * task,
+        ti_raw_t * key,
+        ti_dict_t * dict,
+        ti_val_t * v,
+        ti_val_t * k)
+{
+    static const size_t alloc = 4096;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_DICT_SET);
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_strn(&pk, key->data, key->n);
+
+    msgpack_pack_array(&pk, 2 + n);
+
+    msgpack_pack_uint32(&pk, i);
+    msgpack_pack_uint32(&pk, c);
+
+    for (c = i + n; i < c; ++i)
+    {
+        val = VEC_get(varr->vec, i);
+
+        if (ti_val_gen_ids(val) || ti_val_to_store_pk(val, &pk))
+            goto fail_pack;
+    }
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+
+fail_pack:
+    msgpack_sbuffer_destroy(&buffer);
+    return -1;
+}

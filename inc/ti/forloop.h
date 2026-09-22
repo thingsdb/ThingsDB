@@ -27,6 +27,12 @@ int ti_forloop_set(
         cleri_node_t * code_nd,
         ex_t * e);
 
+int ti_forloop_dict(
+        ti_query_t * query,
+        cleri_node_t * vars_nd,
+        cleri_node_t * code_nd,
+        ex_t * e);
+
 int ti_forloop_thing(
         ti_query_t * query,
         cleri_node_t * vars_nd,

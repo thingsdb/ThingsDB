@@ -38,3 +38,22 @@ void ti_dict_destroy(ti_dict_t * dict)
     umap_destroy(dict->umap_, (umap_destroy_cb) ti_val_unsafe_gc_drop);
     free(dict);
 }
+
+/*
+ * Run the call-back function on all items in the dict.
+ *
+ * Walking stops on the first callback returning a non zero value OR when a
+ * memory allocation error has occurred (-1) (can happen as values
+ * need to be created from keys).
+ * Otherwise, the return value is the last callback result. A return value
+ * of 0 means that the callback function is called on all items in the dict.
+ */
+int ti_dict_walk(ti_dict_t * dict, ti_dict_cb cb, void * arg)
+{
+
+}
+
+int ti_dict_values(ti_dict_t * dict, ti_dict_values_cb cb, void * arg)
+{
+    
+}

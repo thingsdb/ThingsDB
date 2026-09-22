@@ -15,7 +15,7 @@ typedef struct
     ti_raw_t * key;
     ti_val_t * root;
     search__walk_t * search;
-} search__walk_set_t;
+} search__parent_t;
 
 static int do__search_walk(
         ti_raw_t * key,
@@ -151,9 +151,14 @@ static int search__do_thing(
     return rc;
 }
 
-static inline int search__walk_set(ti_thing_t * thing, search__walk_set_t * w)
+static inline int search__walk_set(ti_thing_t * thing, search__parent_t * w)
 {
     return search__do_thing(thing, w->root, w->key, w->search);
+}
+
+static inline int search__walk_dict(ti_val_t * val, search__parent_t * w)
+{
+    return do__search_thing(w->key, w->root, val, w->search);
 }
 
 static int do__search_thing(
@@ -195,12 +200,24 @@ static int do__search_thing(
         return 0;
     case TI_VAL_SET:
     {
-        search__walk_set_t ws = {
+        search__parent_t wp = {
                 .key = key,
                 .root = root,
                 .search = w,
         };
-        return imap_walk(VSET(val), (imap_cb) search__walk_set, &ws);
+        return imap_walk(VSET(val), (imap_cb) search__walk_set, &wp);
+    }
+    case TI_VAL_DICT:
+    {
+        search__parent_t wp = {
+                .key = key,
+                .root = root,
+                .search = w,
+        };
+        return ti_dict_values(
+            (ti_dict_t *) val,
+            (ti_dict_values_cb) search__walk_dict,
+            &wp);
     }
     case TI_VAL_ANO:
         return 0;

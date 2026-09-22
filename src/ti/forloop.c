@@ -167,6 +167,66 @@ static int forloop__walk_set(ti_thing_t * t, forloop__walk_t * w)
     return -1;  /* fail (or EX_RETURN), leave query->rval as-is */
 }
 
+static int forloop__walk_dict(ti_val_t * key,
+                              ti_val_t * val,
+                              forloop__walk_t * w)
+{
+    int rc;
+    ti_prop_t * prop0 = NULL;
+    ti_prop_t * prop1 = NULL;
+
+    switch(w->nargs)
+    {
+    default:
+    case 2:
+        prop0 = w->vars_nd->children->next->data;
+        ti_incref(val);
+        ti_val_unsafe_gc_drop(prop0->val);
+        prop0->val = val;
+
+        /* fall through */
+    case 1:
+        prop1 = w->vars_nd->data;
+        ti_incref(key);
+        ti_val_unsafe_gc_drop(prop1->val);
+        prop1->val = key;
+        /* fall through */
+    case 0:
+        break;
+    }
+
+    w->query->rval = NULL;
+    rc = ti_do_statement(w->query, w->code_nd, w->e);
+    switch(w->nargs)
+    {
+    default:
+    case 2:
+        w->vars_nd->children->next->data = prop0;
+        /* fall through */
+    case 1:
+        w->vars_nd->data = prop1;
+        /* fall through */
+    case 0:
+        break;
+    }
+
+    switch (rc)
+    {
+    case EX_SUCCESS:
+        ti_val_unsafe_drop(w->query->rval);
+        return 0;
+    case EX_CONTINUE:
+        ti_val_drop(w->query->rval);  /* may be NULL */
+        w->e->nr = 0;
+        return 0;
+    case EX_BREAK:
+        ti_val_drop(w->query->rval);  /* may be NULL */
+        w->e->nr = 0;
+        return 1;  /* success, but stop the loop */
+    }
+    return -1;  /* fail (or EX_RETURN), leave query->rval as-is */
+}
+
 int ti_forloop_no_iter(
         ti_query_t * query,
         cleri_node_t * UNUSED(vars_nd),
@@ -344,12 +404,7 @@ int ti_forloop_dict(
 
     query->rval = NULL;
 
-    rc = (query->change && ti_vset_has_relation(vset))
-            ? imap_walk_cp(vset->imap,
-                    (imap_cb) forloop__walk_set,
-                    &w,
-                    (imap_destroy_cb) ti_val_unsafe_drop)
-            : imap_walk(vset->imap, (imap_cb) forloop__walk_set, &w);
+    rc = ti_dict_walk(dict, (ti_dict_cb) forloop__walk_dict, &w);
 
     if (rc >= 0)
         query->rval = (ti_val_t *) ti_nil_get();

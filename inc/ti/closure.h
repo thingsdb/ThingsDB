@@ -62,6 +62,7 @@ int ti_closure_call_one_arg(
         ex_t * e);
 ti_raw_t * ti_closure_doc(ti_closure_t * closure);
 ti_raw_t * ti_closure_def(ti_closure_t * closure);
+_Bool ti_closure_arg_used(ti_closure_t * closure, size_t n);
 
 static inline void ti_closure_vars_prop(
         ti_closure_t * closure,

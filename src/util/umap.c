@@ -180,6 +180,13 @@ static void * umap__set(umap_node_t * node,
     return umap__set(nd, uuid, pos + 1, data);
 }
 
+/*
+ * Add data by uuid to the map. Data is not allowed to be NULL.
+ *
+ * Returns the data in case a new uuid is added to the map. Existing data will
+ * be overwritten and if this happens the old data is returned. In case of an
+ * allocation error the return value is NULL.
+ */
 void * umap_set(umap_t * map, const uint8_t uuid[16], void * data)
 {
     assert(map != NULL);
@@ -245,8 +252,8 @@ void * umap_pop(umap_t * map, const uint8_t uuid[16])
     return data;
 }
 
-static int umap__walk(umap_node_t * node,
-                      umap_cb cb,
+static int umap__item(umap_node_t * node,
+                      umap_item_cb cb,
                       void * arg,
                       uint8_t current_uuid[16],
                       size_t pos)
@@ -282,7 +289,7 @@ static int umap__walk(umap_node_t * node,
                 if (child->nodes || child->data || child->suffix_len)
                 {
                     umap__set_nibble(current_uuid, pos, nibble);
-                    rc = umap__walk(child, cb, arg, current_uuid, pos + 1);
+                    rc = umap__item(child, cb, arg, current_uuid, pos + 1);
                     if (rc != 0)
                         return rc;
                 }
@@ -291,7 +298,7 @@ static int umap__walk(umap_node_t * node,
         else
         {
             umap__set_nibble(current_uuid, pos, node->key);
-            rc = umap__walk(node->nodes, cb, arg, current_uuid, pos + 1);
+            rc = umap__item(node->nodes, cb, arg, current_uuid, pos + 1);
             if (rc != 0)
                 return rc;
         }
@@ -307,11 +314,56 @@ static int umap__walk(umap_node_t * node,
  * The return value is the last callback result. A return value of 0 means that
  * the callback function is called on all items in the map.
  */
-int umap_walk(umap_t * map, umap_cb cb, void * arg)
+int umap_items(umap_t * map, umap_item_cb cb, void * arg)
 {
     if (map->n == 0)
         return 0;
 
     uint8_t current_uuid[16] = {0};
-    return umap__walk(&map->root, cb, arg, current_uuid, 0);
+    return umap__item(&map->root, cb, arg, current_uuid, 0);
+}
+
+static int umap__walk(umap_node_t * node, umap_cb cb, void * arg)
+{
+    int rc;
+    if (node->data && (rc = cb(node->data, arg)) != 0)
+        return rc;
+
+    if (node->nodes)
+    {
+        if (node->key == UMAP_NODE_SZ)
+        {
+            for (uint8_t nibble = 0; nibble < UMAP_NODE_SZ; nibble++)
+            {
+                umap_node_t * child = node->nodes + nibble;
+                if (child->nodes || child->data || child->suffix_len)
+                {
+                    if ((rc = umap__walk(child, cb, arg)) != 0)
+                        return rc;
+                }
+            }
+        }
+        else
+        {
+            if ((rc = umap__walk(node->nodes, cb, arg)) != 0)
+                return rc;
+        }
+    }
+
+    return 0;
+}
+
+/*
+ * Run the call-back function on all items in the map (data only).
+ *
+ * Walking stops on the first callback returning a non-zero value.
+ * The return value is the last callback result. A return value of 0 means that
+ * the callback function was called on all items in the map.
+ */
+int umap_walk(umap_t * map, umap_cb cb, void * arg)
+{
+    if (map->n == 0)
+        return 0;
+
+    return umap__walk(&map->root, cb, arg);
 }

@@ -543,6 +543,69 @@ int imap_walk(imap_t * imap, imap_cb cb, void * arg)
     return rc;
 }
 
+static int imap__items_cb(imap_node_t * node,
+                          uint64_t parent_id,
+                          size_t depth,
+                          imap_items_cb_t cb,
+                          void * arg)
+{
+    int rc;
+    uint8_t size = imap__node_size(node);
+    imap_node_t * nd = node->nodes;
+    imap_node_t * end = nd + size;
+    uint8_t i = 0;
+
+    do
+    {
+        uint8_t key = (size == IMAP_NODE_SZ) ? i : node->key;
+        uint64_t id = parent_id | ((uint64_t)key << (depth * IMAP_SHIFT));
+
+        if (nd->data && (rc = (*cb)(id, nd->data, arg)))
+            return rc;
+
+        if (nd->nodes && (rc = imap__items_cb(nd, id, depth + 1, cb, arg)))
+            return rc;
+
+        i++;
+    }
+    while (++nd < end);
+
+    return 0;
+}
+
+/*
+ * Run the call-back function on all items in the map.
+ *
+ * Walking stops on the first callback returning a non zero value.
+ * The return value is the last callback result. A return value of 0 means that
+ * the callback function is called on all items in the map.
+ */
+int imap_items(imap_t * imap, imap_item_cb cb, void * arg)
+{
+    int rc = 0;
+
+    if (imap->n)
+    {
+        uint64_t id = 0;
+        imap_node_t * nd = imap->nodes;
+        imap_node_t * end = nd + IMAP_NODE_SZ;
+
+        do
+        {
+            if (nd->data && (rc = (*cb)(id, nd->data, arg)))
+                return rc;
+
+            if (nd->nodes && (rc = imap__items(nd, id, 1, cb, arg)))
+                return rc;
+
+            id++;
+        }
+        while (++nd < end);
+    }
+
+    return rc;
+}
+
 int imap_walk_cp(
         imap_t * imap,
         imap_cb cb,

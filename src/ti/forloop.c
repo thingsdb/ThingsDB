@@ -4,6 +4,7 @@
  * Note: in a for.in loop we always need to use `ti_val_unsafe_gc_drop` on
  *       props as an iteration does not have its own local stack scope.
  */
+#include <langdef/hasprop.h>
 #include <ti/do.h>
 #include <ti/forloop.h>
 #include <ti/nil.h>
@@ -167,9 +168,9 @@ static int forloop__walk_set(ti_thing_t * t, forloop__walk_t * w)
     return -1;  /* fail (or EX_RETURN), leave query->rval as-is */
 }
 
-static int forloop__walk_dict(ti_val_t * key,
-                              ti_val_t * val,
-                              forloop__walk_t * w)
+static int forloop__walk_dict_items(ti_val_t * key,
+                                    ti_val_t * val,
+                                    forloop__walk_t * w)
 {
     int rc;
     ti_prop_t * prop0 = NULL;
@@ -190,6 +191,62 @@ static int forloop__walk_dict(ti_val_t * key,
         ti_incref(key);
         ti_val_unsafe_gc_drop(prop1->val);
         prop1->val = key;
+        /* fall through */
+    case 0:
+        break;
+    }
+
+    w->query->rval = NULL;
+    rc = ti_do_statement(w->query, w->code_nd, w->e);
+    switch(w->nargs)
+    {
+    default:
+    case 2:
+        w->vars_nd->children->next->data = prop0;
+        /* fall through */
+    case 1:
+        w->vars_nd->data = prop1;
+        /* fall through */
+    case 0:
+        break;
+    }
+
+    switch (rc)
+    {
+    case EX_SUCCESS:
+        ti_val_unsafe_drop(w->query->rval);
+        return 0;
+    case EX_CONTINUE:
+        ti_val_drop(w->query->rval);  /* may be NULL */
+        w->e->nr = 0;
+        return 0;
+    case EX_BREAK:
+        ti_val_drop(w->query->rval);  /* may be NULL */
+        w->e->nr = 0;
+        return 1;  /* success, but stop the loop */
+    }
+    return -1;  /* fail (or EX_RETURN), leave query->rval as-is */
+}
+
+static int forloop__walk_dict_values(ti_val_t * val,
+                                     forloop__walk_t * w)
+{
+    int rc;
+    ti_prop_t * prop0 = NULL;
+    ti_prop_t * prop1 = NULL;
+
+    switch(w->nargs)
+    {
+    default:
+    case 2:
+        prop0 = w->vars_nd->children->next->data;
+        ti_incref(val);
+        ti_val_unsafe_gc_drop(prop0->val);
+        prop0->val = val;
+
+        /* fall through */
+    case 1:
+        prop1 = w->vars_nd->data;
         /* fall through */
     case 0:
         break;
@@ -404,7 +461,13 @@ int ti_forloop_dict(
 
     query->rval = NULL;
 
-    rc = ti_dict_walk(dict, (ti_dict_cb) forloop__walk_dict, &w);
+    /* one argument is guaranteed;
+     * as the key is not lightweight for a dict, check if needed */
+    rc = langdef_hasprop(code_nd,
+                         vars_nd->children->str,
+                         vars_nd->children->len)
+        ? ti_dict_items(dict, (ti_dict_item_cb) forloop__walk_dict_items, &w)
+        : ti_dict_walk(dict, (ti_dict_cb) forloop__walk_dict_values, &w);
 
     if (rc >= 0)
         query->rval = (ti_val_t *) ti_nil_get();

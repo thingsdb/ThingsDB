@@ -17,11 +17,19 @@ static int each__walk_set(ti_thing_t * t, each__walk_t * w)
     return 0;
 }
 
-static int each__walk_dict(ti_val_t * k, ti_val_t * v, each__walk_t * w)
+static int each__walk_dict_items(ti_val_t * k, ti_val_t * v, each__walk_t * w)
 {
     ti_closure_vars_dict(w->closure, k, v);
-    ti_val_unsafe_drop(k);
-    ti_val_unsafe_drop(v);
+    if (ti_closure_do_statement(w->closure, w->query, w->e))
+        return -1;
+    ti_val_unsafe_drop(w->query->rval);
+    w->query->rval = NULL;
+    return 0;
+}
+
+static int each__walk_dict_values(ti_val_t * v, each__walk_t * w)
+{
+    ti_closure_vars_dict(w->closure, (ti_val_t *) ti_nil_weak_get(), v);
     if (ti_closure_do_statement(w->closure, w->query, w->e))
         return -1;
     ti_val_unsafe_drop(w->query->rval);
@@ -164,10 +172,16 @@ static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 .closure = closure,
                 .query = query,
         };
+        ;
 
-        if (ti_dict_walk(
+        if (ti_closure_arg_used(closure, 0)
+            ? ti_dict_items(
                 (ti_dict_t *) iterval,
-                (ti_dict_cb) each__walk_dict,
+                (ti_dict_item_cb) each__walk_dict_items,
+                &w)
+            : ti_dict_walk(
+                (ti_dict_t *) iterval,
+                (ti_dict_cb) each__walk_dict_values,
                 &w))
         {
             if (!e->nr)

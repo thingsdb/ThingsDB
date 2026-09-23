@@ -7,7 +7,6 @@
 #define DICT(__x)  ((ti_dict_t *) (__x))->vec
 
 typedef struct ti_dict_s ti_dict_t;
-typedef struct ti_tuple_s ti_tuple_t;
 
 enum
 {

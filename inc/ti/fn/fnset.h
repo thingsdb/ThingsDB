@@ -56,9 +56,6 @@ static int do__f_set_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_thing_t * thing;
     ti_raw_t * rname;
 
-    if (!ti_val_is_thing(query->rval))
-        return fn_call_try("set", query, nd, e);
-
     if (fn_nargs("set", DOC_THING_SET, 2, nargs, e) ||
         ti_query_test_thing_operation(query, e) ||
         ti_val_try_lock(query->rval, e))
@@ -103,9 +100,63 @@ fail0:
     return e->nr;
 }
 
+static int do__f_set_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    const int nargs = fn_get_nargs(nd);
+    ti_witem_t witem;
+    ti_thing_t * thing;
+    ti_val_t * key, * val;
+
+    if (fn_nargs("set", DOC_DICT_SET, 2, nargs, e) ||
+        ti_query_test_dict_operation(query, e) ||
+        ti_val_try_lock(query->rval, e))
+        return e->nr;
+
+    thing = (ti_thing_t *) query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children, e))
+        goto fail0;
+
+    key = query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children->next->next, e))
+        goto fail1;
+
+    if (ti_thing_set_val_from_strn(
+            &witem,
+            thing,
+            (const char *) rname->data,
+            rname->n,
+            &query->rval, e))
+        goto fail1;
+
+    if (thing->id)
+    {
+        ti_task_t * task = ti_task_get_task(query->change, thing);
+        if (!task || ti_task_add_set(task, witem.key, *witem.val))
+        {
+            ex_set_mem(e);
+            goto fail1;
+        }
+    }
+
+fail1:
+    ti_val_unsafe_drop(key);
+fail0:
+    ti_val_unlock((ti_val_t *) thing, true /* lock_was_set */);
+    ti_val_unsafe_drop((ti_val_t *) thing);
+    return e->nr;
+}
+
 static inline int do__f_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
-    return query->rval
+    return !query->rval
+            ? do__f_set_new(query, nd, e)
+            : ti_val_is_thing(query->rval)
             ? do__f_set_thing(query, nd, e)
-            : do__f_set_new(query, nd, e);
+            : ti_val_is_dict(query->rval)
+            ? do__f_set_dict(query, nd, e)
+            : fn_call_try("set", query, nd, e);
 }

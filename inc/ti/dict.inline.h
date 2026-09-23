@@ -32,6 +32,43 @@ static inline void * ti_dict_key(ti_dict_t * dict)
             : ((ti_field_t *) dict->key_)->name;
 }
 
+static inline int ti_dict_set_uuid(ti_dict_t * dict,
+                                   uuid_t key,
+                                   ti_val_t * val)
+{
+    ti_val_t * ret = umap_set(dict->umap_, key, val);
+    if (!ret)
+        return -1;
+    if (ret != val)
+        ti_val_unsafe_gc_drop(val);
+    return 0;
+}
+
+static inline int ti_dict_set_int(ti_dict_t * dict,
+                                  int64_t key,
+                                  ti_val_t * val)
+{
+    ti_val_t * ret = imap_set(dict->imap_, key, val);
+    if (!ret)
+        return -1;
+    if (ret != val)
+        ti_val_unsafe_gc_drop(val);
+    return 0;
+}
+
+static inline int ti_dict_set_strn(ti_dict_t * dict,
+                                   const char * key,
+                                   size_t n
+                                   ti_val_t * val)
+{
+    ti_val_t * ret = smap_setn(dict->smap_, key, n, val);
+    if (!ret)
+        return -1;
+    if (ret != val)
+        ti_val_unsafe_gc_drop(val);
+    return 0;
+}
+
 static inline int ti_dict_set(ti_dict_t * dict,
                               ti_val_t * key,
                               ti_val_t * val,

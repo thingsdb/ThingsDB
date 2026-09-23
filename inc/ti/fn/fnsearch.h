@@ -214,9 +214,9 @@ static int do__search_thing(
                 .root = root,
                 .search = w,
         };
-        return ti_dict_values(
+        return ti_dict_walk(
             (ti_dict_t *) val,
-            (ti_dict_values_cb) search__walk_dict,
+            (ti_dict_cb) search__walk_dict,
             &wp);
     }
     case TI_VAL_ANO:

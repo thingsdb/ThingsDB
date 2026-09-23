@@ -283,7 +283,7 @@ static inline int val__closure_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UN
 }
 static inline int val__uuid_to_client_pk(ti_val_t * val, ti_vp_t * vp, int UNUSED(d), int UNUSED(f))
 {
-    return ti_uuid_to_client_pk((ti_uuid_t *) val, &vp->pk);
+    return ti_uuid_to_client_pk(VUUID(val), &vp->pk);
 }
 static inline int val__future_to_client_pk(ti_future_t * future, ti_vp_t * vp, int deep, int flags);
 static inline int val__module_to_client_pk(ti_module_t * UNUSED(module), ti_vp_t * vp, int UNUSED(deep), int UNUSED(flags));
@@ -663,7 +663,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .to_uuid = val__uuid_to_uuid,
         .to_arr_cb = val__to_arr_cb,
         .to_client_pk = (ti_val_to_client_pk_cb) val__uuid_to_client_pk,
-        .to_store_pk = (ti_val_to_store_pk_cb) ti_uuid_to_store_pk,
+        .to_store_pk = (ti_val_to_store_pk_cb) ti_uuid_to_store_pk_v,
         .get_type_str = val__uuid_type_str,
         .as_bool = val__as_bool_true,
         .attach = val__no_attach,

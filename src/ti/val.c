@@ -553,11 +553,13 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
         break;
     }
     case TI_VAL_SET:
-        /* This should never happen since a `set` could never be part of the
-         * array in the first place.
+    case TI_VAL_DICT:
+        /* This should never happen since a `set` or `dict` could never be
+         * part of the array in the first place.
          */
         ex_set(e, EX_TYPE_ERROR,
-                "unexpected `set` which cannot be added to the array");
+                "unexpected `%s` which cannot be added to the array",
+            ti_val_str(val));
         return e->nr;
     case TI_VAL_MEMBER:
         if (ti_val_is_thing(VMEMBER(val)))
@@ -1168,6 +1170,7 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
     case TI_VAL_TASK:
     case TI_VAL_ARR:
     case TI_VAL_SET:
+    case TI_VAL_DICT:
     case TI_VAL_CLOSURE:
     case TI_VAL_ANO:
     case TI_VAL_WANO:
@@ -1269,6 +1272,7 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
     case TI_VAL_TASK:
     case TI_VAL_ARR:
     case TI_VAL_SET:
+    case TI_VAL_DICT:
     case TI_VAL_CLOSURE:
     case TI_VAL_ANO:
     case TI_VAL_WANO:
@@ -1369,6 +1373,7 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
     case TI_VAL_TASK:
     case TI_VAL_ARR:
     case TI_VAL_SET:
+    case TI_VAL_DICT:
     case TI_VAL_CLOSURE:
     case TI_VAL_ANO:
     case TI_VAL_WANO:
@@ -1399,6 +1404,10 @@ int ti_val_convert_to_array(ti_val_t ** val, ex_t * e)
         break;
     case TI_VAL_SET:
         if (ti_vset_to_list((ti_vset_t **) val))
+            ex_set_mem(e);
+        break;
+    case TI_VAL_DICT:
+        if (ti_dict_to_list((ti_dict_t **) dict))
             ex_set_mem(e);
         break;
     case TI_VAL_NIL:

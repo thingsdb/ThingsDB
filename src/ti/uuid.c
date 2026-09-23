@@ -35,7 +35,7 @@ ti_uuid_t * ti_uuid_new(void)
     return uuid;
 }
 
-ti_uuid_t * ti_uuid_from_bytes(const unsigned char * bytes)
+ti_uuid_t * ti_uuid_from_bytes(const void * bytes)
 {
     ti_uuid_t * uuid = malloc(sizeof(ti_uuid_t));
     if (!uuid)

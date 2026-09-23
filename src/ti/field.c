@@ -1838,6 +1838,8 @@ int ti_field_make_assignable(
             return field__varr_assign(field, (ti_varr_t **) val, parent, e);
         case TI_VAL_SET:
             return field__vset_assign(field, (ti_vset_t **) val, parent, e);
+        case TI_VAL_DICT:
+            return field__dict_assign(field, (ti_dict_t **) val, parent, e);
         case TI_VAL_ERROR:
         case TI_VAL_MEMBER:
         case TI_VAL_MPDATA:

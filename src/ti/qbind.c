@@ -1329,15 +1329,10 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
  */
 static inline void qbind__expression(ti_qbind_t * qbind, cleri_node_t * nd)
 {
-    cleri_node_t * node;
-    intptr_t preopr;
-
-    assert(nd->cl_obj->gid == CLERI_GID_EXPRESSION);
+    cleri_node_t * node = nd->children;
+    intptr_t preopr = (intptr_t) ti_preopr_bind(node->str, node->len);
 
     nd->data = ti_do_expression;
-
-    node = nd->children;
-    preopr = (intptr_t) ti_preopr_bind(node->str, node->len);
     node->data = (void *) preopr;
 
     qbind__expr_choice(qbind, nd->children->next);

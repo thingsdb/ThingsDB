@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <langdef/langdef.h>
+#include <langdef/hasprop.h>
 #include <ti/closure.h>
 #include <ti/closure.inline.h>
 #include <ti/query.inline.h>
@@ -794,4 +795,19 @@ ti_raw_t * ti_closure_def(ti_closure_t * closure)
     def = ti_str_create(fmt.buf.data, fmt.buf.len);
     ti_fmt_clear(&fmt);
     return def;
+}
+
+_Bool ti_closure_arg_used(ti_closure_t * closure, size_t n)
+{
+    cleri_node_t * nd = closure->node               /* sequence */
+                        ->children->next            /* list */
+                        ->children;                 /* first child */
+
+    if (n >= closure->vars->n)
+        return false;
+
+    for (; n; n--)
+        nd = nd->next->next;
+
+    return langdef_hasprop(ti_closure_statement(closure), nd->str, nd->len);
 }

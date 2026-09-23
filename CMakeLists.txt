@@ -95,6 +95,7 @@ set(SOURCES
     src/ex.c
     src/ti.c
     src/langdef/compat.c
+    src/langdef/hasprop.c
     src/langdef/langdef.c
     src/langdef/translate.c
     src/cleri/choice.c

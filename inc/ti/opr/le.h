@@ -55,7 +55,6 @@ static int opr__le(ti_val_t * a, ti_val_t ** b, ex_t * e)
     case OPR_NAME_NAME:
     case OPR_NAME_STR:
     case OPR_NAME_BYTES:
-    case OPR_STR_DATETIME:
     case OPR_STR_NAME:
     case OPR_STR_STR:
     case OPR_STR_BYTES:

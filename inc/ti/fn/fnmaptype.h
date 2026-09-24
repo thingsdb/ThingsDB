@@ -76,7 +76,7 @@ static int do__f_map_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     }
 
     /* fixed bug #434, must set MHT */
-    varr->flags |= TI_VARR_FLAG_MHT;
+    varr->flags |= TI_VFLAG_MHT;
 
     ti_val_unsafe_drop((ti_val_t *) vsource);
     query->rval = (ti_val_t *) varr;

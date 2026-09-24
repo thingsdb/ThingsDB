@@ -16,6 +16,7 @@
 #include <ti/module.t.h>
 #include <ti/name.h>
 #include <ti/nil.h>
+#include <ti/parent.h>
 #include <ti/regex.t.h>
 #include <ti/room.h>
 #include <ti/room.inline.h>
@@ -49,9 +50,8 @@ static inline void val__no_attach(ti_val_t * UNUSED(val), ti_thing_t * UNUSED(th
 
 static inline void val__attach(ti_val_t * val, ti_thing_t * thing, void * key)
 {
-    /* used for varr, vset and dict */
-    ((ti_varr_t *) val)->parent = thing;
-    ((ti_varr_t *) val)->key_ = key;
+    ((ti_parent_t *) val)->parent = thing;
+    ((ti_parent_t *) val)->key_ = key;
 }
 
 
@@ -299,22 +299,22 @@ static inline int val__to_arr_cb(ti_val_t ** UNUSED(v), ti_varr_t * UNUSED(varr)
 
 static inline int val__thing_to_arr(ti_val_t ** UNUSED(v), ti_varr_t * varr, ex_t * UNUSED(e))
 {
-    return varr->flags |= TI_VARR_FLAG_MHT, 0;
+    return varr->flags |= TI_VFLAG_MHT, 0;
 }
 
 static inline int val__wrap_to_arr(ti_val_t ** UNUSED(v), ti_varr_t * varr, ex_t * UNUSED(e))
 {
-    return varr->flags |= TI_VARR_FLAG_MHT, 0;
+    return varr->flags |= TI_VFLAG_MHT, 0;
 }
 
 static inline int val__wano_to_arr(ti_val_t ** UNUSED(v), ti_varr_t * varr, ex_t * UNUSED(e))
 {
-    return varr->flags |= TI_VARR_FLAG_MHT, 0;
+    return varr->flags |= TI_VFLAG_MHT, 0;
 }
 
 static inline int val__room_to_arr(ti_val_t ** UNUSED(v), ti_varr_t * varr, ex_t * UNUSED(e))
 {
-    return varr->flags |= TI_VARR_FLAG_MHR, 0;
+    return varr->flags |= TI_VFLAG_MHR, 0;
 }
 
 static inline int val__arr_to_arr(ti_val_t ** v, ti_varr_t * varr, ex_t * e)
@@ -1340,27 +1340,21 @@ static inline int ti_val_make_assignable(
             ex_set_mem(e);
             return e->nr;
         }
-        ((ti_varr_t *) *val)->parent = parent;
-        ((ti_varr_t *) *val)->key_ = key;
-        return 0;
+        break;
     case TI_VAL_SET:
         if (ti_vset_assign((ti_vset_t **) val))
         {
             ex_set_mem(e);
             return e->nr;
         }
-        ((ti_vset_t *) *val)->parent = parent;
-        ((ti_vset_t *) *val)->key_ = key;
-        return 0;
+        break;
     case TI_VAL_DICT:
         if (ti_dict_assign((ti_dict_t **) val))
         {
             ex_set_mem(e);
             return e->nr;
         }
-        ((ti_dict_t *) *val)->parent = parent;
-        ((ti_dict_t *) *val)->key_ = key;
-        return 0;
+        break;
     case TI_VAL_CLOSURE:
         return ti_closure_unbound((ti_closure_t *) *val, e);
     case TI_VAL_ANO:
@@ -1373,10 +1367,12 @@ static inline int ti_val_make_assignable(
         *val = (ti_val_t *) ti_nil_get();
         return 0;
     case TI_VAL_TEMPLATE:
-        break;
+        assert(0);
+        return -1;
     }
-    assert(0);
-    return -1;
+    ((ti_parent_t *) *val)->parent = parent;
+    ((ti_parent_t *) *val)->key_ = key;
+    return 0;
 }
 
 static inline int val__str_to_str(ti_val_t ** UNUSED(v), ex_t * UNUSED(e))
@@ -1593,7 +1589,7 @@ static inline int ti_val_tlocked(
 static inline int val__member_to_arr(ti_val_t ** v, ti_varr_t * varr, ex_t * e)
 {
     if (ti_val_is_thing(VMEMBER(*v)))
-        varr->flags |= TI_VARR_FLAG_MHT;
+        varr->flags |= TI_VFLAG_MHT;
     return e->nr;
 }
 

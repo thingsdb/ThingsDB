@@ -517,10 +517,10 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
     {
     case TI_VAL_THING:
     case TI_VAL_WRAP:
-        varr->flags |= TI_VARR_FLAG_MHT;
+        varr->flags |= TI_VFLAG_MHT;
         break;
     case TI_VAL_ROOM:
-        varr->flags |= TI_VARR_FLAG_MHR;
+        varr->flags |= TI_VFLAG_MHR;
         break;
     case TI_VAL_NIL:
     case TI_VAL_INT:
@@ -538,7 +538,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
     case TI_VAL_ANO:
         break;
     case TI_VAL_WANO:
-        varr->flags |= TI_VARR_FLAG_MHT;
+        varr->flags |= TI_VFLAG_MHT;
         break;
     case TI_VAL_UUID:
         break;
@@ -563,7 +563,7 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
         return e->nr;
     case TI_VAL_MEMBER:
         if (ti_val_is_thing(VMEMBER(val)))
-            varr->flags |= TI_VARR_FLAG_MHT;
+            varr->flags |= TI_VFLAG_MHT;
         break;
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
@@ -1626,7 +1626,7 @@ int ti_val_gen_ids(ti_val_t * val)
          * Here the code really benefits from the `may-have-things` flag since
          * must attached arrays will contain "only" things, or no things.
          */
-        if (ti_varr_may_gen_ids((ti_varr_t *) val))
+        if (ti_val_may_flags(val))
             for (vec_each(VARR(val), ti_val_t, v))
                 if (ti_val_gen_ids(v))
                     return -1;
@@ -1845,6 +1845,12 @@ int ti_val_copy(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep)
         return 0;
     case TI_VAL_SET:
         if (ti_vset_copy((ti_vset_t **) val, deep))
+            return -1;
+        ((ti_vset_t *) *val)->parent = parent;
+        ((ti_vset_t *) *val)->key_ = key;
+        return 0;
+    case TI_VAL_DICT:
+        if (ti_dict_copy((ti_vset_t **) val, deep))
             return -1;
         ((ti_vset_t *) *val)->parent = parent;
         ((ti_vset_t *) *val)->key_ = key;

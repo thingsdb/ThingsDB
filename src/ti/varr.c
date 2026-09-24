@@ -32,7 +32,7 @@ int ti_varr_to_tuple(ti_varr_t ** varr)
 
     tuple->ref = 1;
     tuple->tp = TI_VAL_ARR;
-    tuple->flags = TI_VARR_FLAG_TUPLE | ti_varr_may_flags(*varr);
+    tuple->flags = TI_VARR_FLAG_TUPLE | ti_val_may_flags(*varr);
     tuple->vec = vec_dup((*varr)->vec);
     /*
      * Note that `tuple` is allocation as a tuple but is casted as type `varr`
@@ -85,7 +85,7 @@ ti_varr_t * ti_tuple_from_vec_unsafe(vec_t * vec)
     varr->ref = 1;
     varr->tp = TI_VAL_ARR;
     varr->flags = \
-            TI_VARR_FLAG_TUPLE|(vec->n?(TI_VARR_FLAG_MHT|TI_VARR_FLAG_MHR):0);
+            TI_VARR_FLAG_TUPLE|(vec->n?(TI_VFLAG_FLAG_MHT|TI_VFLAG_FLAG_MHR):0);
     varr->vec = vec;
     varr->parent = NULL;
     return varr;
@@ -105,7 +105,7 @@ ti_varr_t * ti_varr_from_vec_unsafe(vec_t * vec)
 
     varr->ref = 1;
     varr->tp = TI_VAL_ARR;
-    varr->flags = vec->n?(TI_VARR_FLAG_MHT|TI_VARR_FLAG_MHR):0;
+    varr->flags = vec->n?(TI_VFLAG_FLAG_MHT|TI_VFLAG_FLAG_MHR):0;
     varr->vec = vec;
     varr->parent = NULL;
     return varr;
@@ -247,7 +247,7 @@ ti_varr_t * ti_varr_cp(ti_varr_t * varr)
 
     list->ref = 1;
     list->tp = TI_VAL_ARR;
-    list->flags = ti_varr_may_flags(varr);
+    list->flags = ti_val_may_flags(varr);
     list->vec = vec_dup(varr->vec);
     list->parent = NULL;
 
@@ -271,7 +271,7 @@ int varr__tuple_to_tuple(ti_tuple_t ** vtuple)
 
     tuple->ref = 1;
     tuple->tp = TI_VAL_ARR;
-    tuple->flags = ti_varr_may_flags(*vtuple) | TI_VARR_FLAG_TUPLE;
+    tuple->flags = ti_val_may_flags(*vtuple) | TI_VARR_FLAG_TUPLE;
     tuple->vec = vec_dup((*vtuple)->vec);
 
     if (!tuple->vec)
@@ -302,7 +302,7 @@ int ti_varr_to_list(ti_varr_t ** varr)
 
     list->ref = 1;
     list->tp = TI_VAL_ARR;
-    list->flags = ti_varr_may_flags(*varr);
+    list->flags = ti_val_may_flags(*varr);
     list->vec = vec_dup((*varr)->vec);
     list->parent = NULL;
 
@@ -427,7 +427,7 @@ int ti_varr_copy(ti_varr_t ** varr, uint8_t deep)
 
     list->ref = 1;
     list->tp = TI_VAL_ARR;
-    list->flags = ti_varr_may_flags(*varr);
+    list->flags = ti_val_may_flags(*varr);
     list->vec = vec_dup((*varr)->vec);
     list->parent = NULL;
 
@@ -466,7 +466,7 @@ int ti_varr_dup(ti_varr_t ** varr, uint8_t deep)
 
     list->ref = 1;
     list->tp = TI_VAL_ARR;
-    list->flags = ti_varr_may_flags(*varr);
+    list->flags = ti_val_may_flags(*varr);
     list->vec = vec_dup((*varr)->vec);
     list->parent = NULL;
 

@@ -16,16 +16,7 @@ enum
                                             once a tuple is direct assigned to
                                             a thing, it converts back to a
                                             mutable list. */
-    TI_VARR_FLAG_MHT        =1<<1,      /* array may-have-things; some code
-                                            might skip arrays without this flag
-                                            while searching for things; */
-    TI_VARR_FLAG_MHR        =1<<2,      /* array may-have-rooms; some code
-                                            might skip arrays without this flag
-                                            while searching for rooms; */
 };
-
-#define ti_varr_may_flags(varr__) \
-    ((varr__)->flags&(TI_VARR_FLAG_MHT|TI_VARR_FLAG_MHR))
 
 #include <ex.h>
 #include <inttypes.h>
@@ -41,7 +32,7 @@ struct ti_tuple_s
     vec_t * vec;
 };
 
-/* parent and key location equal to  varr, vset and dict */
+/* Implements ti_parent_t */
 struct ti_varr_s
 {
     uint32_t ref;

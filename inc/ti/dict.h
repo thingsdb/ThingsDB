@@ -53,7 +53,6 @@ int ti_dict_walk(ti_dict_t * dict, ti_dict_cb cb, void * arg);
 int ti_dict_items(ti_dict_t * dict, ti_dict_item_cb cb, void * arg);
 int ti_dict_pairs(ti_dict_t * dict, ti_dict_pair_cb cb, void * arg);
 int ti_dict_nested_spec_err(ti_dict_t * dict, ti_val_t * val, ex_t * e);
-_Bool ti__dict_eq(ti_dict_t * dicta, ti_dict_t * dictb);
 _Bool ti_dict_has_val(ti_dict_t * dict, ti_val_t * val);
 ti_val_t * ti_dict_get(ti_dict_t * dict, ti_val_t * key)
 

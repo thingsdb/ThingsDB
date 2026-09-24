@@ -88,9 +88,17 @@ typedef enum
 
 enum
 {
-    TI_VFLAG_LOCK            =1<<7,      /* value in use;
-                                            used to prevent illegal changes */
+    TI_VFLAG_MHT           =1<<5,      /* may-have-things; some code
+                                        might skip values without this flag
+                                        while searching for things; */
+    TI_VFLAG_MHR           =1<<6,      /* may-have-rooms; some code
+                                        might skip values without this flag
+                                        while searching for rooms; */
+    TI_VFLAG_LOCK          =1<<7,      /* value in use;
+                                        used to prevent illegal changes */
 };
+
+#define ti_val_may_flags(val__) ((val__)->flags&(TI_VFLAG_MHT|TI_VFLAG_MHR))
 
 typedef enum
 {

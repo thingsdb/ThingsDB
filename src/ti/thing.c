@@ -455,6 +455,16 @@ int ti_thing_p_prop_add_assign(
         ((ti_vset_t *) val)->parent = thing;
         ((ti_vset_t *) val)->key_ = name;
         break;
+    case TI_VAL_DICT:
+        val = (ti_val_t *) ti_dict_cp((ti_dict_t *) val);
+        if (!val)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        ((ti_dict_t *) val)->parent = thing;
+        ((ti_dict_t *) val)->key_ = name;
+        break;
     case TI_VAL_CLOSURE:
         if (ti_closure_unbound((ti_closure_t *) val, e))
             return e->nr;
@@ -1274,15 +1284,8 @@ void ti_thing_t_to_object(ti_thing_t * thing)
         if (!prop)
             ti_panic("cannot recover from a state between object and instance");
 
-        switch((*val)->tp)
-        {
-        case TI_VAL_ARR:
+        if (ti_val_has_parent(*val))
             ((ti_varr_t *) *val)->key_ = name;
-            break;
-        case TI_VAL_SET:
-            ((ti_vset_t *) *val)->key_ = name;
-            break;
-        }
 
         ti_incref(name);
         *val = (ti_val_t *) prop;

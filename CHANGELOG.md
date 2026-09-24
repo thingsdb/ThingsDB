@@ -4,6 +4,7 @@
 * Replaced `ti_sleep(..)` with `sched_yield()` with a few exceptions, pr #456.
 * Added native `uuid` type, pr #457.
 * Replaced `gsutil` with `gcloud storage` command, pr #458.
+* Return with correct error on `datetime` and `str` compare, bug #459.
 
 # v1.9.2
 

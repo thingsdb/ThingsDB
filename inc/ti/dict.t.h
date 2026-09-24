@@ -8,19 +8,6 @@
 
 typedef struct ti_dict_s ti_dict_t;
 
-enum
-{
-    TI_DICT_FLAG_MHT        =1<<1,      /* dict may-have-things; some code
-                                            might skip dicts without this flag
-                                            while searching for things; */
-    TI_DICT_FLAG_MHR        =1<<2,      /* dict may-have-rooms; some code
-                                            might skip dicts without this flag
-                                            while searching for rooms; */
-};
-
-#define ti_dict_may_flags(dict__) \
-    ((dict__)->flags&(TI_DICT_FLAG_MHT|TI_DICT_FLAG_MHR))
-
 #include <ex.h>
 #include <inttypes.h>
 #include <ti/thing.t.h>
@@ -28,7 +15,7 @@ enum
 #include <util/smap.h>
 #include <util/umap.h>
 
-/* parent and key location equal to  varr, vset and dict */
+/* Implements ti_parent_t */
 struct ti_dict_s
 {
     uint32_t ref;

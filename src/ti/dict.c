@@ -335,19 +335,59 @@ int ti_dict_to_store_pk(ti_dict_t * dict, msgpack_packer * pk)
     );
 }
 
+static int dict__as_vec_cb((ti_val_t * key, ti_val_t * val, vec_t * vec))
+{
+    ti_tuple_t * tuple = malloc(sizeof(ti_tuple_t));
+    if (!tuple)
+        goto failed;
+
+    tuple->vec = vec_new(2);
+    if (!tuple->vec)
+        goto failed;
+
+    tuple->ref = 1;
+    tuple->tp = TI_VAL_ARR;
+    tuple->flags = TI_VARR_FLAG_TUPLE | (
+        ti_val_is_thing(val) ? TI_VFLAG_MHT :
+        ti_val_is_room(val) ? TI_VFLAG_MHR : 0);
+
+    ti_incref(key);
+    ti_incref(val);
+    VEC_push(tuple, key);
+    VEC_push(tuple, val);
+    VEC_push(vec, tuple);
+    return 0;
+
+failed:
+    free(tuple);
+    return -1;
+}
+
+static vec_t * dict__as_vec(ti_dict_t * dict)
+{
+    vet_t * vec = vec_new(dict->n);
+    if (vec && ti_dict_items(dict, (ti_dict_item_cb) dict__as_vec_cb, vec))
+    {
+        vec_destroy(vec, (vec_destroy_cb), ti_val_unsafe_drop);
+        return NULL;
+    }
+    return vec;
+}
+
 int ti_dict_to_list(ti_dict_t ** dictaddr)
 {
+    ti_dict_t * dict = (ti_dict_t *) (*dictaddr);
     ti_varr_t * list = malloc(sizeof(ti_varr_t));
     if (!list)
         goto failed;
 
-    list->vec = imap_vec_ref((*dictaddr)->imap);
+    list->vec = dict__as_vec(dict);
     if (!list->vec)
         goto failed;
 
     list->ref = 1;
     list->tp = TI_VAL_ARR;
-    list->flags = list->vec->n ? TI_VARR_FLAG_MHT : 0;
+    list->flags = ti_val_may_flags(dict);
     list->parent = NULL;
 
     ti_val_unsafe_drop((ti_val_t *) *dictaddr);
@@ -362,17 +402,18 @@ failed:
 
 int ti_dict_to_tuple(ti_dict_t ** dictaddr)
 {
+    ti_dict_t * dict = (ti_dict_t *) (*dictaddr);
     ti_tuple_t * tuple = malloc(sizeof(ti_tuple_t));
     if (!tuple)
         goto failed;
 
-    tuple->vec = imap_vec_ref((*dictaddr)->imap);
+    tuple->vec = dict__as_vec(dict);
     if (!tuple->vec)
         goto failed;
 
     tuple->ref = 1;
     tuple->tp = TI_VAL_ARR;
-    tuple->flags = TI_VARR_FLAG_TUPLE | (tuple->vec->n ? TI_VARR_FLAG_MHT : 0);
+    tuple->flags = TI_VARR_FLAG_TUPLE | ti_val_may_flags(dict);
 
     ti_val_unsafe_drop((ti_val_t *) *dictaddr);
     *dictaddr = (ti_dict_t *) tuple;

@@ -12,7 +12,7 @@ static size_t flat__count(vec_t * vec, int64_t i)
 
 static void flat__fill(ti_varr_t * vold, ti_varr_t * vnew, int64_t i)
 {
-    vnew->flags |= vold->flags & (TI_VARR_FLAG_MHT|TI_VARR_FLAG_MHR);
+    vnew->flags |= ti_val_may_flags(vold);
 
     for (vec_each(vold->vec, ti_val_t, v))
     {

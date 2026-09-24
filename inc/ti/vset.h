@@ -30,7 +30,7 @@ int ti_vset_dup(ti_vset_t ** vsetaddr, uint8_t deep);
 int ti_vset_add_val(ti_vset_t * vset, ti_val_t * val, ex_t * e);
 void ti_vset_clear(ti_vset_t * vset);
 
-/* parent and key location equal to  varr, vset and dict */
+/* Implements ti_parent_t */
 struct ti_vset_s
 {
     uint32_t ref;

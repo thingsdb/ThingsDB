@@ -89,7 +89,6 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
     */
     case OPR_NAME_STR:
     case OPR_NAME_BYTES:
-    case OPR_STR_DATETIME:
     case OPR_STR_NAME:
     case OPR_STR_STR:
     case OPR_STR_BYTES:
@@ -133,19 +132,6 @@ int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
     ti_opr_perm_t perm = TI_OPR_PERM(a, b);
     switch (perm)
     {
-    default:
-        /* careful, `e` might already be set, in which case we should not touch
-         * the error value
-         */
-        if (ti_val_is_member(b))
-            return ti_opr_compare(a, VMEMBER(b), e);
-
-        if (!e->nr)
-            ex_set(e, EX_TYPE_ERROR,
-                "`<` not supported between `%s` and `%s`",
-                ti_val_str(a), ti_val_str(b));
-
-        return 0;
     case OPR_INT_INT:
         return (VINT(a) > VINT(b)) - (VINT(a) < VINT(b));
     case OPR_INT_FLOAT:
@@ -169,7 +155,6 @@ int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
     case OPR_NAME_NAME:
     case OPR_NAME_STR:
     case OPR_NAME_BYTES:
-    case OPR_STR_DATETIME:
     case OPR_STR_NAME:
     case OPR_STR_STR:
     case OPR_STR_BYTES:
@@ -177,12 +162,31 @@ int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
     case OPR_BYTES_STR:
     case OPR_BYTES_BYTES:
         return ti_raw_cmp((ti_raw_t *) a, (ti_raw_t *) b);
-    case OPR_MEMBER_NIL ... OPR_MEMBER_ERROR:
+    case OPR_MEMBER_INT:
+    case OPR_MEMBER_FLOAT:
+    case OPR_MEMBER_NAME:
+    case OPR_MEMBER_STR:
+    case OPR_MEMBER_BYTES:
+    case OPR_MEMBER_THING:
+        /* we trick: b is never member as the default catches this scenario */
         return ti_opr_compare(VMEMBER(a), b, e);
     case OPR_MEMBER_MEMBER:
         return ti_opr_compare(VMEMBER(a), VMEMBER(b), e);
     case OPR_UUID_UUID:
         return memcmp(VUUID(a), VUUID(b), sizeof(uuid_t));
+    default:
+        /* careful, `e` might already be set, in which case we should not touch
+         * the error value
+         */
+        if (ti_val_is_member(b))
+            return ti_opr_compare(a, VMEMBER(b), e);
+
+        if (!e->nr)
+            ex_set(e, EX_TYPE_ERROR,
+                "`<` not supported between `%s` and `%s`",
+                ti_val_str(a), ti_val_str(b));
+
+        return 0;
     }
     return 0;
 }

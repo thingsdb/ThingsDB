@@ -95,7 +95,7 @@ static int do__f_map_wrap(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!varr)
         goto fail0;
 
-    varr->flags |= TI_VARR_FLAG_MHT;
+    varr->flags |= TI_VFLAG_MHT;
 
     switch (iterable->tp)
     {

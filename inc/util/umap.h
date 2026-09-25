@@ -32,7 +32,7 @@ umap_t * umap_create(void);
 void umap_destroy(umap_t * map, umap_destroy_cb cb);
 void umap_clear(umap_t * map, umap_destroy_cb cb);
 
-void * umap_set(umap_t * map, const uint8_t uuid[16], void * data);
+void * umap_set(umap_t * map, const uint8_t uuid[16], void * data, int * new);
 void * umap_get(umap_t * map, const uint8_t uuid[16]);
 void * umap_pop(umap_t * map, const uint8_t uuid[16]);
 

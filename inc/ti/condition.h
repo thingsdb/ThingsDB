@@ -21,6 +21,11 @@ int ti_condition_field_re_init(
         const char * str,
         size_t n,
         ex_t * e);
+int ti_condition_field_key_init(
+        ti_field_t * field,
+        const char * str,
+        size_t n,
+        ex_t * e);
 int ti_condition_field_rel_init(
         ti_field_t * field,
         ti_field_t * ofield,

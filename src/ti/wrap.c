@@ -139,6 +139,54 @@ static int wrap__set(
     );
 }
 
+static int wrap__dict(
+        ti_dict_t * dict,
+        ti_vp_t * vp,
+        ti_field_t * t_field,
+        int deep,
+        int flags)
+{
+    wrap__walk_t w = {
+            .vp = vp,
+            .spec = t_field->nested_spec,
+            .deep = deep,
+            .flags = flags,
+    };
+
+
+
+    if (dict->imap->n > 1 &&
+        vp->query &&
+        vp->query->collection)
+    {
+        /* optimization for set's with multiple values */
+        ti_type_t * t_type = ti_types_by_id(
+                vp->query->collection->types,
+                t_field->nested_spec);
+
+        if (t_type)
+        {
+            wrap__walk_with_type_t wwt = {
+                .vp = vp,
+                .t_type = t_type,
+                .deep = deep,
+                .flags = flags,
+            };
+
+            return (
+                msgpack_pack_array(&vp->pk, vset->imap->n) ||
+                imap_walk(vset->imap, (imap_cb) wrap__walk_with_type, &wwt)
+            );
+        }
+        /* fallback to no type */
+    }
+
+    return (
+            msgpack_pack_array(&vp->pk, dict->n) ||
+            ti_dict_pairs(dict, (ti_dict_pair_cb) wrap__pair, &w)
+    );
+}
+
 static int wrap__field_val(
         ti_field_t * t_field,
         uint16_t * spec,    /* points to t_field->spec or t_field->nested */
@@ -219,6 +267,13 @@ static int wrap__field_val(
     case TI_VAL_SET:
         return wrap__set(
                 (ti_vset_t *) val,
+                vp,
+                t_field,
+                deep,
+                flags);
+    case TI_VAL_DICT:
+        return wrap__dict(
+                (ti_dict_t *) val,
                 vp,
                 t_field,
                 deep,
@@ -614,7 +669,7 @@ int ti_wrap_field_thing_type(
     {
         register const ti_name_t * name = t_type->idname;
 
-        /* here, we ignore TI_TYPE_FLAG_HIDE_ID intentionally as the behavior
+        /* Here, we ignore TI_TYPE_FLAG_HIDE_ID intentionally as the behavior
          * is defined as to return the Id when no other info is returned */
 
         if (!thing->id ||
@@ -631,6 +686,7 @@ int ti_wrap_field_thing_type(
 
     return wrap__field_thing(thing, vp, t_type, deep, flags);
 }
+
 /*
  * Do not use directly, use ti_wrap_to_pk() instead
  */
@@ -659,7 +715,7 @@ int ti__wrap_field_thing(
             {
                 register const ti_name_t * name = t_type->idname;
 
-                /* here, we ignore TI_TYPE_FLAG_HIDE_ID intentionally as the
+                /* Here, we ignore TI_TYPE_FLAG_HIDE_ID intentionally as the
                  * behavior is defined as to return the Id when no other info
                  * is returned */
 
@@ -690,7 +746,7 @@ int ti__wrap_field_thing(
     return wrap__field_thing(thing, vp, t_type, deep, flags);
 }
 
-/* works with both ti_wrap_t and ti_wano_t */
+/* Works with both ti_wrap_t and ti_wano_t */
 int ti_wrap_cp(ti_query_t * query, uint8_t deep, ex_t * e)
 {
     ti_val_t * val;
@@ -698,7 +754,7 @@ int ti_wrap_cp(ti_query_t * query, uint8_t deep, ex_t * e)
     msgpack_sbuffer buffer;
     ti_vp_t vp = {
             .query=query,
-            .size_limit=0x4000,  /* we can increase this value */
+            .size_limit=0x4000,  /* We can increase this value */
     };
     ti_vup_t vup = {
             .isclient = true,

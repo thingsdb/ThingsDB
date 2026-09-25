@@ -604,6 +604,7 @@ const char * ti_spec_approx_type_str(uint16_t spec)
     case TI_SPEC_UUID:          return "uuid";
     case TI_SPEC_ARR:           return "list";
     case TI_SPEC_SET:           return "set";
+    case TI_SPEC_DICT:          return "dict";
     case TI_SPEC_DATETIME:      return "datetime";
     case TI_SPEC_TIMEVAL:       return "timeval";
     case TI_SPEC_REGEX:         return "regex";

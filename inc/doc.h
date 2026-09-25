@@ -26,6 +26,7 @@
 #define DOC_DEEP                    DOC_SEE("collection-api/deep")
 #define DOC_DEL_ENUM                DOC_SEE("collection-api/del_enum")
 #define DOC_DEL_TYPE                DOC_SEE("collection-api/del_type")
+#define DOC_DICT                    DOC_SEE("collection-api/dict")
 #define DOC_ENUM                    DOC_SEE("collection-api/enum")
 #define DOC_ENUMS_INFO              DOC_SEE("collection-api/enums_info")
 #define DOC_ENUM_INFO               DOC_SEE("collection-api/enum_info")

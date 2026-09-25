@@ -50,24 +50,25 @@ static ti_val_t * val__empty_str;
 static ti_val_t * val__default_closure;
 static ti_val_t * val__default_re;
 static ti_val_t * val__sano;
-static ti_val_t * val__swano;
-static ti_val_t * val__suuid;
 static ti_val_t * val__sbool;
 static ti_val_t * val__sbytes;
 static ti_val_t * val__sclosure;
 static ti_val_t * val__sdatetime;
+static ti_val_t * val__sdict;
 static ti_val_t * val__serror;
 static ti_val_t * val__sfloat;
 static ti_val_t * val__sfuture;
-static ti_val_t * val__smodule;
 static ti_val_t * val__sint;
 static ti_val_t * val__slist;
+static ti_val_t * val__smodule;
 static ti_val_t * val__smpdata;
 static ti_val_t * val__sregex;
 static ti_val_t * val__sroom;
-static ti_val_t * val__stask;
 static ti_val_t * val__sset;
 static ti_val_t * val__sstr;
+static ti_val_t * val__stask;
+static ti_val_t * val__suuid;
+static ti_val_t * val__swano;
 static ti_val_t * val__sthing;
 static ti_val_t * val__stimeval;
 static ti_val_t * val__stuple;
@@ -217,15 +218,17 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
                 return NULL;
             }
             val = ti_val_from_vup_e(vup, e);
+            if (!val)
             {
                 ti_val_unsafe_drop(key);
                 ti_dict_destroy(dict);
                 return NULL;
             }
-            if (ti_dict_add_val(dict, key, val, e) < 0)
+            (void) ti_dict_set(dict, key, val, e);
+            ti_val_unsafe_drop(key);
+            ti_val_unsafe_drop(val);
+            if (e->nr)
             {
-                ti_val_unsafe_drop(key);
-                ti_val_unsafe_drop(val);
                 ti_dict_destroy(dict);
                 return NULL;
             }
@@ -865,6 +868,7 @@ int ti_val_init_common(void)
     val__suuid = (ti_val_t *) ti_str_from_str(TI_VAL_UUID_S);
     val__sbool = (ti_val_t *) ti_str_from_str(TI_VAL_BOOL_S);
     val__sdatetime = (ti_val_t *) ti_str_from_str(TI_VAL_DATETIME_S);
+    val__sdict = (ti_val_t *) ti_str_from_str(TI_VAL_DICT_S);
     val__stimeval = (ti_val_t *) ti_str_from_str(TI_VAL_TIMEVAL_S);
     val__sint = (ti_val_t *) ti_str_from_str(TI_VAL_INT_S);
     val__sfloat = (ti_val_t *) ti_str_from_str(TI_VAL_FLOAT_S);
@@ -929,7 +933,7 @@ int ti_val_init_common(void)
         !val__module_name || !val__deep_name || !val__load_name ||
         !val__beautify_name || !val__parent_name || !val__parent_type_name ||
         !val__key_name || !val__key_type_name || !val__flags_name ||
-        !val__data_name || !val__time_name || !val__re_email ||
+        !val__data_name || !val__time_name || !val__re_email || !val__sdict ||
         !val__smodule || !val__re_url || !val__re_tel || !val__async_name ||
         !val__anonymous_name || !val__sano || !val__swano || !val__suuid)
     {
@@ -943,43 +947,44 @@ int ti_val_init_common(void)
 void ti_val_drop_common(void)
 {
     /* names must not be dropped (handled and sanity checked by names) */
-    ti_val_drop(val__empty_bin);
-    ti_val_drop(val__empty_str);
+    ti_val_drop(val__charset_str);
     ti_val_drop(val__default_closure);
     ti_val_drop(val__default_re);
-    ti_val_drop(val__sany);
-    ti_val_drop(val__snil);
-    ti_val_drop(val__strue);
-    ti_val_drop(val__sfalse);
+    ti_val_drop(val__empty_bin);
+    ti_val_drop(val__empty_str);
+    ti_val_drop(val__gs_str);
+    ti_val_drop(val__re_email);
+    ti_val_drop(val__re_tel);
+    ti_val_drop(val__re_url);
     ti_val_drop(val__sano);
-    ti_val_drop(val__swano);
-    ti_val_drop(val__suuid);
+    ti_val_drop(val__sany);
     ti_val_drop(val__sbool);
-    ti_val_drop(val__sdatetime);
-    ti_val_drop(val__stimeval);
-    ti_val_drop(val__sint);
-    ti_val_drop(val__sfloat);
-    ti_val_drop(val__sstr);
     ti_val_drop(val__sbytes);
+    ti_val_drop(val__sclosure);
+    ti_val_drop(val__sdatetime);
+    ti_val_drop(val__sdict);
+    ti_val_drop(val__serror);
+    ti_val_drop(val__sfalse);
+    ti_val_drop(val__sfloat);
+    ti_val_drop(val__sfuture);
+    ti_val_drop(val__sint);
+    ti_val_drop(val__slist);
+    ti_val_drop(val__smodule);
     ti_val_drop(val__smpdata);
+    ti_val_drop(val__snil);
     ti_val_drop(val__sregex);
     ti_val_drop(val__sroom);
-    ti_val_drop(val__stask);
-    ti_val_drop(val__serror);
-    ti_val_drop(val__sclosure);
-    ti_val_drop(val__sfuture);
-    ti_val_drop(val__smodule);
-    ti_val_drop(val__slist);
-    ti_val_drop(val__stuple);
     ti_val_drop(val__sset);
+    ti_val_drop(val__sstr);
+    ti_val_drop(val__stask);
     ti_val_drop(val__sthing);
+    ti_val_drop(val__stimeval);
+    ti_val_drop(val__strue);
+    ti_val_drop(val__stuple);
+    ti_val_drop(val__suuid);
+    ti_val_drop(val__swano);
     ti_val_drop(val__swthing);
     ti_val_drop(val__tar_gz_str);
-    ti_val_drop(val__gs_str);
-    ti_val_drop(val__charset_str);
-    ti_val_drop(val__re_email);
-    ti_val_drop(val__re_url);
-    ti_val_drop(val__re_tel);
 }
 
 int ti_val_make_int(ti_val_t ** val, int64_t i)
@@ -1790,6 +1795,7 @@ ti_val_t * ti_val_strv(ti_val_t * val)
                 ? ti_grab(val__slist)
                 : ti_grab(val__stuple);
     case TI_VAL_SET:            return ti_grab(val__sset);
+    case TI_VAL_DICT:           return ti_grab(val__sdict);
     case TI_VAL_ERROR:          return ti_grab(val__serror);
     case TI_VAL_MEMBER:
         return (ti_val_t *) ti_member_enum_get_rname((ti_member_t *) val);
@@ -1919,6 +1925,12 @@ int ti_val_dup(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep)
             return -1;
         ((ti_vset_t *) *val)->parent = parent;
         ((ti_vset_t *) *val)->key_ = key;
+        return 0;
+    case TI_VAL_DICT:
+        if (ti_dict_dup((ti_dict_t **) val, deep))
+            return -1;
+        ((ti_dict_t *) *val)->parent = parent;
+        ((ti_dict_t *) *val)->key_ = key;
         return 0;
     case TI_VAL_CLOSURE:
     {

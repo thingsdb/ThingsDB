@@ -135,11 +135,13 @@ void * umap_get(umap_t * map, const uint8_t uuid[16])
 static void * umap__set(umap_node_t * node,
                         const uint8_t uuid[16],
                         size_t pos,
-                        void * data)
+                        void * data,
+                        int * new)
 {
     if (pos == 32)
     {
         void * ret = node->data ? node->data : data;
+        *new = node->data != data;
         node->data = data;
         return ret;
     }
@@ -177,7 +179,7 @@ static void * umap__set(umap_node_t * node,
         }
     }
 
-    return umap__set(nd, uuid, pos + 1, data);
+    return umap__set(nd, uuid, pos + 1, data, new);
 }
 
 /*
@@ -187,13 +189,14 @@ static void * umap__set(umap_node_t * node,
  * be overwritten and if this happens the old data is returned. In case of an
  * allocation error the return value is NULL.
  */
-void * umap_set(umap_t * map, const uint8_t uuid[16], void * data)
+void * umap_set(umap_t * map, const uint8_t uuid[16], void * data, int * new)
 {
     assert(map != NULL);
     assert(data != NULL);
+    assert(!*new);
 
-    void * ret = umap__set(&map->root, uuid, 0, data);
-    if (ret == data)
+    void * ret = umap__set(&map->root, uuid, 0, data, new);
+    if (ret == data && *new)
         map->n++;
 
     return ret;

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <ti.h>
 #include <ti/dict.h>
+#include <ti/dict.inline.h>
 #include <ti/dict.t.h>
 #include <ti/raw.inline.h>
 #include <ti/val.h>
@@ -423,4 +424,48 @@ int ti_dict_to_tuple(ti_dict_t ** dictaddr)
 failed:
     free(tuple);
     return -1;
+}
+
+int dict__assign_cb(ti_dict_key_t * key, ti_val_t * val, ti_dict_t * dict)
+{
+    if (ti_dict_setr(dict, key, val))
+    {
+        ti_dict_destroy(dict);
+        return -1;
+    }
+    return 0;
+}
+
+ti_dict_t * ti_dict_cp(ti_dict_t * dict)
+{
+    ti_dict_t * ndict = ti_dict_create();
+    if (!ndict)
+        return NULL;
+
+    ndict->flags = ti_val_may_flags(odict);
+
+    return ti_dict_pairs(dict, (ti_dict_pair_cb) dict__assign_cb, ndict)
+            ? NULL  /* ndict is destroyed if walk has failed */
+            : ndict;
+}
+
+int ti_dict_assign(ti_dict_t ** dictaddr)
+{
+    ti_dict_t * ndict, * odict = *dictaddr;
+
+    if (odict->ref == 1)
+        return 0;  /* with only one reference we do not require a copy */
+
+    if (!(ndict = ti_dict_create()))
+        return -1;
+
+    ndict->flags = ti_val_may_flags(odict);
+
+    if (ti_dict_pairs(odict, (ti_dict_pair_cb) dict__assign_cb, ndict))
+        return -1;  /* ndict is destroyed if walk has failed */
+
+    ti_decref(odict);  /* checked for more than one reference */
+    *dictaddr = ndict;
+
+    return 0;
 }

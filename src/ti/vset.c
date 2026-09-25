@@ -151,12 +151,12 @@ static int vset__walk_assign(ti_thing_t * t, ti_vset_t * vset)
 
 ti_vset_t * ti_vset_cp(ti_vset_t * vset)
 {
-    ti_vset_t * nvset;
-    if (!(nvset = ti_vset_create()))
+    ti_vset_t * nvset = ti_vset_create();
+    if (!nvset)
         return NULL;
 
     return imap_walk(vset->imap, (imap_cb) vset__walk_assign, nvset)
-            ? NULL  /* new set is destroyed if walk has failed */
+            ? NULL  /* nvset is destroyed if walk has failed */
             : nvset;
 }
 
@@ -171,7 +171,7 @@ int ti_vset_assign(ti_vset_t ** vsetaddr)
         return -1;
 
     if (imap_walk(ovset->imap, (imap_cb) vset__walk_assign, nvset))
-        return -1;  /* vset is destroyed if walk has failed */
+        return -1;  /* nvset is destroyed if walk has failed */
 
     ti_decref(ovset);  /* checked for more than one reference */
     *vsetaddr = nvset;

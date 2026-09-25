@@ -131,8 +131,8 @@ static int types__ren_member_nested(
             continue;
         }
 
-        if (field->condition.none &&
-            field->condition.none->dval == (ti_val_t *) member)
+        if (field->condition.dval &&
+            field->condition.dval->dval == (ti_val_t *) member)
         {
             if (types__ren_member(field, member))
                 return -1;
@@ -167,8 +167,8 @@ static int types__ren_member_cb(ti_type_t * type, ti_member_t * member)
             continue;
         }
 
-        if (field->condition.none &&
-            field->condition.none->dval == (ti_val_t *) member &&
+        if (field->condition.dval &&
+            field->condition.dval->dval == (ti_val_t *) member &&
             types__ren_member(field, member))
             return -1;
     }
@@ -201,11 +201,11 @@ static int types__ren_cb(ti_type_t * type, types__ren_t * w)
         if ((field->spec & TI_SPEC_MASK_NILLABLE) == w->id)
         {
             int flags_pos = types__spec_flags_pos(field->spec_raw->data);
-            if (ti_spec_is_enum(field->spec) && field->condition.none)
+            if (ti_spec_is_enum(field->spec) && field->condition.dval)
             {
                 /* enum with default value rename */
                 ti_member_t * member = \
-                    (ti_member_t *) field->condition.none->dval;
+                    (ti_member_t *) field->condition.dval->dval;
                 ti_raw_t * spec_raw = ti_str_from_fmt(
                         "%.*s%.*s{%.*s}%s",
                         flags_pos,
@@ -261,6 +261,15 @@ static int types__ren_cb(ti_type_t * type, types__ren_t * w)
                 begin = "{";
                 end = '}';
                 break;
+            case TI_SPEC_DICT:
+                switch(field->condition.key->spec)
+                {
+                    case TI_SPEC_ANY: begin = "dict<any:"; break;
+                    case TI_SPEC_INT: begin = "dict<int:"; break;
+                    case TI_SPEC_STR: begin = "dict<str:"; break;
+                    case TI_SPEC_UUID: begin = "dict<uuid:"; break;
+                }
+                end = '>';
             case TI_SPEC_OBJECT:
                 begin = "thing<";
                 end = '>';

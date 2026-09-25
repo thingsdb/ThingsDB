@@ -18,7 +18,7 @@
 
 static ti_val_t * condition__dval_cb(ti_field_t * field)
 {
-    ti_val_t * dval = field->condition.none->dval;
+    ti_val_t * dval = field->condition.dval->dval;
     ti_incref(dval);
     return dval;
 }
@@ -606,13 +606,13 @@ fail0:
 
 int ti_condition_init_enum(ti_field_t * field, ti_member_t * member, ex_t * e)
 {
-    field->condition.none = malloc(sizeof(ti_condition_t));
-    if (!field->condition.none)
+    field->condition.dval = malloc(sizeof(ti_condition_dval_t));
+    if (!field->condition.dval)
     {
         ex_set_mem(e);
         return e->nr;
     }
-    field->condition.none->dval = (ti_val_t *) member;
+    field->condition.dval->dval = (ti_val_t *) member;
     field->dval_cb = condition__dval_cb;
     ti_incref(member);
     return 0;
@@ -692,6 +692,80 @@ static void condition__add_set_cb(
     case IMAP_ERR_ALLOC:
         ti_panic("unrecoverable error");
     }
+}
+
+int ti_condition_field_key_init(
+        ti_field_t * field,
+        const char * str,
+        size_t n,
+        ex_t * e)
+{
+    assert(*str == '<' && n >= 2 && str[n-1] == '>');
+    uint16_t spec;
+    str++;
+    n--;
+    n--;
+
+    int pos = 0;
+    const char * ptr = str;
+    const char * end = str + n;
+
+    for (; ptr < end; ptr++, pos++)
+    {
+        if (isspace(*ptr))
+            goto spaces_in_key;
+
+        if (*ptr == ':')
+            break;
+    }
+
+    if (pos == 0 || ptr == end)
+        goto invalid_syntax;
+
+    if (pos == 4 && memcmp(str, "uuid", 4) == 0)
+        spec = TI_SPEC_UUID;
+    if (pos == 3 && memcmp(str, "int", 3) == 0)
+        spec = TI_SPEC_INT;
+    if (pos == 3 && memcmp(str, "str", 3) == 0)
+        spec = TI_SPEC_STR;
+    if (pos == 3 && memcmp(str, "any", 3) == 0)
+        spec = TI_SPEC_ANY;
+    else
+        goto invalid_key_spec;
+
+    field->condition.key = malloc(sizeof(ti_condition_key_t));
+    if (!field->condition.key)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+    field->condition.key->spec = spec;
+    return pos+1;
+
+invalid_key_spec:
+    ex_set(e, EX_VALUE_ERROR,
+            "invalid declaration for `%s` on type `%s`; "
+            "expected format: dict<key_spec:value_spec>; "
+            "unsupported key spec: `%.*s`; "
+            "supported key specs: any, uuid, str, int"DOC_T_TYPE,
+            field->name->str, field->type->name,
+            pos-1, str);
+    return e->nr;
+
+spaces_in_key:
+    ex_set(e, EX_VALUE_ERROR,
+            "invalid declaration for `%s` on type `%s`; "
+            "expected format: dict<key_spec:value_spec>; "
+            "spaces found in key_spec"DOC_T_TYPE,
+            field->name->str, field->type->name);
+    return e->nr;
+
+invalid_syntax:
+    ex_set(e, EX_VALUE_ERROR,
+            "invalid declaration for `%s` on type `%s`; "
+            "expected format: dict<key_spec:value_spec>"DOC_T_TYPE,
+            field->name->str, field->type->name);
+    return e->nr;
 }
 
 int ti_condition_field_rel_init(
@@ -855,12 +929,12 @@ void ti_condition_destroy(ti_condition_via_t condition, uint16_t spec)
     case TI_SPEC_UTF8_RANGE:
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
-        ti_val_drop(condition.none->dval);
+        ti_val_drop(condition.dval->dval);
         /* fall through */
     default:
         if (spec >= 0x6000)  /* in case of enum default */
-            ti_val_drop(condition.none->dval);
-        free(condition.none);
+            ti_val_drop(condition.dval->dval);
+        free(condition.dval);
         return;
     }
 }

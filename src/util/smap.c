@@ -26,7 +26,8 @@ static int smap__setn(
         smap_node_t * node,
         const char * key,
         size_t n,
-        void * data);
+        void * data,
+        int * new);
 static void * smap__pop(
         smap_node_t * parent,
         smap_node_t ** nd,
@@ -214,8 +215,9 @@ int smap_addn(smap_t * smap, const char * key, size_t n, void * data)
 }
 
 __attribute__((no_sanitize("bounds")))
-void * smap_setn(smap_t * smap, const char * key, size_t n, void * data)
+void * smap_setn(smap_t * smap, const char * key, size_t n, void * data, int * new)
 {
+    assert(!*new);
     void * ret;
     smap_node_t ** nd;
     uint8_t k;
@@ -231,6 +233,7 @@ void * smap_setn(smap_t * smap, const char * key, size_t n, void * data)
             ret = data;
             smap->n++;
         }
+        *new = smap->data != data;
         smap->data = data;
         return ret;
     }
@@ -246,14 +249,15 @@ void * smap_setn(smap_t * smap, const char * key, size_t n, void * data)
 
     if (*nd)
     {
-        ret = smap__setn(*nd, key, n, data);
-        smap->n += ret == data;
+        ret = smap__setn(*nd, key, n, data, new);
+        smap->n += (ret == data && *new)
     }
     else
     {
         *nd = smap__node_create(key, n, data);
         if (*nd)
         {
+            *new = 1;
             smap->n++;
             ret = data;
         }
@@ -856,7 +860,8 @@ static void * smap__setn(
         smap_node_t * node,
         const char * key,
         size_t n,
-        void * data)
+        void * data,
+        int * new)
 {
     for (size_t m = 0; m < node->n; m++, key++, n--)
     {
@@ -929,7 +934,7 @@ static void * smap__setn(
                 node->key = NULL;
             }
             node->n = new_sz;
-
+            *new = 1;
             return data;
         }
     }
@@ -948,6 +953,7 @@ static void * smap__setn(
             if (!nd)
                 return NULL;
 
+            *new = 1;
             node->size = 1;
             (*node->nodes)[k - (node->offset << SMAP_BSH)] = nd;
 
@@ -962,17 +968,19 @@ static void * smap__setn(
         n--;
 
         if (*nd)
-            return smap__setn(*nd, key, n, data);
+            return smap__setn(*nd, key, n, data, new);
 
         *nd = smap__node_create(key, n, data);
         if (!*nd)
             return NULL;
 
+        *new = 1;
         node->size++;
         return data;
     }
 
     void * ret = node->data ? node->data : data;
+    *new = node->data != data;
     node->data = data;
     return ret;
 }

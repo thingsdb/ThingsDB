@@ -168,6 +168,11 @@ static ti_val_t * field__dval_arr(ti_field_t * UNUSED(field))
      return (ti_val_t *) ti_varr_create(0);
 }
 
+static ti_val_t * field__dval_dict(ti_field_t * UNUSED(field))
+{
+     return (ti_val_t *) ti_dict_create();
+}
+
 static ti_val_t * field__dval_set(ti_field_t * UNUSED(field))
 {
     return (ti_val_t *) ti_vset_create();;
@@ -299,11 +304,11 @@ static inline void field__set_cb(ti_field_t * field, ti_field_dval_cb cb)
  */
 enum
 {
-    TOTAL_KEYWORDS = 27,
+    TOTAL_KEYWORDS = 28,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 8,
     MIN_HASH_VALUE = 2,
-    MAX_HASH_VALUE = 28
+    MAX_HASH_VALUE = 29
 };
 
 static inline unsigned int field__hash(
@@ -312,32 +317,32 @@ static inline unsigned int field__hash(
 {
     static unsigned short asso_values[] =
     {
-        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
-        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
-        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
-        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
-        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
-        29, 29, 29, 29, 29, 29,  6, 29, 29, 29,
-        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
-        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
-        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
-        29, 12, 29, 12, 29, 29, 29,  1,  1,  7,
-        7,  1, 18,  7,  6,  3, 29,  5,  0,  6,
-        1,  0, 11, 29,  0, 10,  0,  0,  0, 13,
-        7,  6, 29,  0, 29,  0, 29, 29, 29, 29,
-        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
-        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
-        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
-        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
-        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
-        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
-        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
-        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
-        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
-        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
-        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
-        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
-        29, 29, 29, 29, 29, 29
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30,  4, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 13, 30, 13, 30, 30, 30,  1,  1,  7,
+        4,  1, 21,  8,  6,  3, 30,  6,  0,  6,
+        1,  0, 12, 30,  0, 10,  0,  0,  1, 13,
+        7,  9, 30,  0, 30,  0, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30
     };
 
     register unsigned int hval = n;
@@ -389,6 +394,7 @@ ti_field_map_t field__mapping[TOTAL_KEYWORDS] = {
     {.name="uuid",      .spec=TI_SPEC_UUID,     .dval_cb=field__dval_uuid},
     {.name="[]",        .spec=TI_SPEC_ARR,      .dval_cb=field__dval_arr},
     {.name="{}",        .spec=TI_SPEC_SET,      .dval_cb=field__dval_set},
+    {.name="dict",      .spec=TI_SPEC_DICT,     .dval_cb=field__dval_dict},
     {.name="datetime",  .spec=TI_SPEC_DATETIME, .dval_cb=field__dval_datetime},
     {.name="timeval",   .spec=TI_SPEC_TIMEVAL,  .dval_cb=field__dval_timeval},
     {.name="regex",     .spec=TI_SPEC_REGEX,    .dval_cb=field__dval_regex},
@@ -560,6 +566,20 @@ done_flags:
         field->spec |= TI_SPEC_SET;
         field__set_cb(field, field__dval_set);
     }
+    else if (n >= 6 && memcmp(str, "dict<", 5) == 0)
+    {
+        if (str[n-1] != '>')
+            goto invalid;
+        field->spec |= TI_SPEC_DICT;
+        field__set_cb(field, field__dval_dict);
+        str += 5;
+        n -= 5;
+        int klen = ti_condition_field_key_init(field, str, n, e);
+        if (klen < 0)
+            return e->nr;  /* error message is ensured */
+        str += klen;
+        n -= klen;
+    }
     else if (n >= 7 && memcmp(str, "thing<", 6) == 0)
     {
         if (str[n-1] != '>')
@@ -569,6 +589,7 @@ done_flags:
         str += 5;
         n -= 5;
     }
+
     else
     {
         field->nested_spec = TI_SPEC_ANY;  /* must default to any */
@@ -1511,7 +1532,7 @@ static int field__varr_assign(
         case TI_SPEC_RVAL_TYPE_ERROR:
             ex_set(e, EX_TYPE_ERROR,
                 "mismatch in type `%s`; "
-                "property `%s` requires an array with items that matches "
+                "property `%s` requires an array with items that match "
                 "definition `%.*s`",
                 field->type->name,
                 field->name->str,
@@ -1571,7 +1592,165 @@ static int field__varr_assign(
     }
 
 done:
-    return ti_val_make_assignable((ti_val_t **) varr, parent, field, e);
+    if (ti_varr_to_list(varr))
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+    (*varr)->parent = parent;
+    (*varr)->key_ = field;
+
+    return 0;
+}
+
+typedef struct
+{
+    ti_field_t * field;
+    ex_t * e;
+} field__pair_t;
+
+static int field__dict_pair_cb(ti_dict_key_t * key,
+                               ti_val_t * val,
+                               field__pair_t * w)
+{
+    register uint16_t key_spec = w->field->condition.key->spec;
+    register uint16_t val_spec = w->field->nested_spec;
+    switch (key_spec)
+    {
+        case TI_SPEC_UUID:
+            if (key->tp != TI_DICT_KEY_UUID)
+            {
+                ex_set(e, EX_TYPE_ERROR,
+                    "mismatch in type `%s`; "
+                    "property `%s` requires a dict with keys of type `uuid`",
+                    w->field->type->name,
+                    w->field->name->str);
+                return e->nr;
+            }
+            break;
+        case TI_SPEC_INT:
+            if (key->tp != TI_DICT_KEY_INT)
+            {
+                ex_set(e, EX_TYPE_ERROR,
+                    "mismatch in type `%s`; "
+                    "property `%s` requires a dict with keys of type `int`",
+                    w->field->type->name,
+                    w->field->name->str);
+                return e->nr;
+            }
+            break;
+        case TI_SPEC_STR:
+            if (key->tp != TI_DICT_KEY_STR)
+            {
+                ex_set(e, EX_TYPE_ERROR,
+                    "mismatch in type `%s`; "
+                    "property `%s` requires a dict with keys of type `str`",
+                    w->field->type->name,
+                    w->field->name->str);
+                return e->nr;
+            }
+            break;
+        case TI_SPEC_ANY:
+        default:
+            break;
+    }
+
+    switch (ti_spec_check_nested_val(val_spec, val))
+    {
+        case TI_SPEC_RVAL_SUCCESS:
+            return 0;
+        case TI_SPEC_RVAL_TYPE_ERROR:
+            ex_set(w->e, EX_TYPE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a dict with values that match "
+                "definition `%.*s`",
+                w->field->type->name,
+                w->field->name->str,
+                w->field->spec_raw->n, (const char *) w->field->spec_raw->data);
+            return w->e->nr;
+        case TI_SPEC_RVAL_UTF8_ERROR:
+            ex_set(w->e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a dict with UTF8 string values",
+                w->field->type->name,
+                w->field->name->str);
+            return w->e->nr;
+        case TI_SPEC_RVAL_UINT_ERROR:
+            ex_set(w->e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a dict with integer values "
+                "greater than or equal to 0",
+                w->field->type->name,
+                w->field->name->str);
+            return w->e->nr;
+        case TI_SPEC_RVAL_PINT_ERROR:
+            ex_set(w->e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a dict with positive integer values",
+                w->field->type->name,
+                w->field->name->str);
+            return w->e->nr;
+        case TI_SPEC_RVAL_NINT_ERROR:
+            ex_set(w->e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a dict with negative integer values",
+                w->field->type->name,
+                w->field->name->str);
+            return w->e->nr;
+        case TI_SPEC_RVAL_EMAIL_ERROR:
+            ex_set(w->e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a dict with email address values",
+                w->field->type->name,
+                w->field->name->str);
+            return w->e->nr;
+        case TI_SPEC_RVAL_URL_ERROR:
+            ex_set(w->e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a dict with URL values",
+                w->field->type->name,
+                w->field->name->str);
+            return w->e->nr;
+        case TI_SPEC_RVAL_TEL_ERROR:
+            ex_set(w->e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a dict with telephone numbers values",
+                w->field->type->name,
+                w->field->name->str);
+            return w->e->nr;
+    }
+    return 0;
+}
+
+static int field__dict_assign(
+        ti_field_t * field,
+        ti_dict_t ** dictaddr,
+        ti_thing_t * parent,
+        ex_t * e)
+{
+    /* field can be either an `any` or `dict` field */
+    if (field->condition.none == NULL || (*dictaddr)->n == 0)
+        goto done;
+
+    field__pair_t w = {
+        .field = field,
+        .e = e,
+    };
+
+    /* we now are sure field->condition is or type "pair" */
+    if (ti_dict_pairs(*dictaddr, (ti_dict_pair_cb) field__dict_pair_cb, &w))
+        return e->nr;
+
+done:
+    if (ti_dict_assign(dictaddr))
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+    (*dictaddr)->parent = parent;
+    (*dictaddr)->key_ = field;
+
+    return 0;
 }
 
 static int field__restrict_cb(ti_prop_t * prop, ti_field_t * field)
@@ -1635,7 +1814,7 @@ static int field__thing_assign(
     case TI_SPEC_RVAL_TYPE_ERROR:
         ex_set(e, EX_TYPE_ERROR,
             "mismatch in type `%s`; "
-            "property `%s` requires a thing with values that matches "
+            "property `%s` requires a thing with values that match "
             "definition `%.*s`",
             field->type->name,
             field->name->str,
@@ -1985,6 +2164,10 @@ int ti_field_make_assignable(
         if (ti_val_is_set(*val))
             return field__vset_assign(field, (ti_vset_t **) val, parent, e);
         goto type_error;
+    case TI_SPEC_DICT:
+        if (ti_val_is_dict(*val))
+            return field__dict_assign(field, (ti_dict_t **) val, parent, e);
+        goto type_error;
     case TI_SPEC_REMATCH:
         if (!ti_val_is_str(*val))
             goto type_error;
@@ -2293,6 +2476,8 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
                 (ti_raw_t *) val);
     case TI_SPEC_ENUM:
         return (ti_val_is_member(val) || ti_val_is_nil(val));
+    case TI_SPEC_DICT:
+        return ti_val_is_dict(val);
     case TI_SPEC_ARR:
         /* we can map a set to an array */
         return ((
@@ -2343,8 +2528,6 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     uint16_t t_spec, f_spec;
 
     /* both the t_field and f_field are either a set or array */
-    assert(ti_spec_is_arr_or_set(f_field->spec));
-    assert(ti_spec_is_arr_or_set(t_field->spec));
 
     if (t_field->nested_spec == TI_SPEC_ANY)
         return true;

@@ -245,7 +245,7 @@ failed:
     return -1;
 }
 
-static void * imap__set(imap_node_t * node, uint64_t id, void * data)
+static void * imap__set(imap_node_t * node, uint64_t id, void * data, int * new)
 {
     void * ret;
     uint8_t key = (uint8_t)(id & IMAP_MASK);
@@ -269,11 +269,12 @@ static void * imap__set(imap_node_t * node, uint64_t id, void * data)
     if (!id)
     {
         ret = nd->data ? nd->data : data;
+        *new = nd->data != data;
         nd->data = data;
     }
     else
     {
-        ret = imap__set(nd, id - 1, data);
+        ret = imap__set(nd, id - 1, data, new);
     }
 
     node->sz += (ret == data);
@@ -288,9 +289,10 @@ static void * imap__set(imap_node_t * node, uint64_t id, void * data)
  * overwritten and if this happens the old data is returned. In case of an
  * allocation error the return value is NULL.
  */
-void * imap_set(imap_t * imap, uint64_t id, void * data)
+void * imap_set(imap_t * imap, uint64_t id, void * data, int * new)
 {
     assert(data != NULL);
+    assert(!*new);
     void * ret;
     imap_node_t * nd = imap->nodes + (id & IMAP_MASK);
     id >>= IMAP_SHIFT;
@@ -302,10 +304,10 @@ void * imap_set(imap_t * imap, uint64_t id, void * data)
     }
     else
     {
-        ret = imap__set(nd, id - 1, data);
+        ret = imap__set(nd, id - 1, data, new);
     }
 
-    imap->n += (ret == data);
+    imap->n += (ret == data && *new);
     return ret;
 }
 

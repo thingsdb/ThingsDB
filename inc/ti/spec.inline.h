@@ -14,11 +14,12 @@ static inline _Bool ti_spec_is_enum(uint16_t spec)
     return (spec & TI_SPEC_MASK_NILLABLE) >= 0x6000;
 }
 
-static inline _Bool ti_spec_is_arr_or_set(uint16_t spec)
+static inline _Bool ti_spec_with_parent(uint16_t spec)
 {
     return (
         (spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_ARR ||
-        (spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET
+        (spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET ||
+        (spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_DICT
     );
 }
 

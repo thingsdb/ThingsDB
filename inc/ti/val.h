@@ -72,7 +72,9 @@ _Bool ti_val_has_ids(ti_val_t * val);
 size_t ti_val_alloc_size(ti_val_t * val);
 ti_val_t * ti_val_strv(ti_val_t * val);
 int ti_val_copy(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep);
+int ti_val_copy_nested(ti_val_t ** val, uint8_t deep);
 int ti_val_dup(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep);
+int ti_val_dup_nested(ti_val_t ** val, uint8_t deep);
 
 /* `to_str` functions */
 int ti_val_nil_to_str(ti_val_t ** val, ex_t * e);

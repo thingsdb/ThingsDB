@@ -351,7 +351,7 @@ static void collection__gc_mark_varr(ti_varr_t * varr)
         case TI_VAL_ARR:
         {
             ti_varr_t * varr = (ti_varr_t *) val;
-            if (ti_varr_may_have_things(varr))
+            if (ti_val_mht(varr))
                 collection__gc_mark_varr(varr);
             continue;
         }
@@ -393,7 +393,7 @@ static inline void collection__gc_val(ti_val_t * val)
     case TI_VAL_ARR:
     {
         ti_varr_t * varr = (ti_varr_t *) val;
-        if (ti_varr_may_have_things(varr))
+        if (ti_val_mht(varr))
             collection__gc_mark_varr(varr);
         return;
     }

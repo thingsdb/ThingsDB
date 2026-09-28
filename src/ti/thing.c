@@ -569,6 +569,16 @@ int ti_thing_i_item_add_assign(
         ((ti_vset_t *) val)->parent = thing;
         ((ti_vset_t *) val)->key_ = key;
         break;
+    case TI_VAL_DICT:
+        val = (ti_val_t *) ti_dict_cp((ti_dict_t *) val);
+        if (!val)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        ((ti_dict_t *) val)->parent = thing;
+        ((ti_dict_t *) val)->key_ = key;
+        break;
     case TI_VAL_CLOSURE:
         if (ti_closure_unbound((ti_closure_t *) val, e))
             return e->nr;

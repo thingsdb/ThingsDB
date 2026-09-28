@@ -263,7 +263,7 @@ ti_varr_t * ti_varr_cp(ti_varr_t * varr)
     return list;
 }
 
-int varr__tuple_to_tuple(ti_tuple_t ** vtuple)
+static int varr__tuple_to_tuple(ti_tuple_t ** vtuple)
 {
     ti_tuple_t * tuple = malloc(sizeof(ti_varr_t));
     if (!tuple)
@@ -321,102 +321,6 @@ int ti_varr_to_list(ti_varr_t ** varr)
     return 0;
 }
 
-static int varr__copy(ti_val_t ** val, uint8_t deep)
-{
-    assert(deep);
-    switch ((ti_val_enum) (*val)->tp)
-    {
-    case TI_VAL_NIL:
-    case TI_VAL_INT:
-    case TI_VAL_FLOAT:
-    case TI_VAL_BOOL:
-    case TI_VAL_DATETIME:
-    case TI_VAL_MPDATA:
-    case TI_VAL_NAME:
-    case TI_VAL_STR:
-    case TI_VAL_BYTES:
-    case TI_VAL_REGEX:
-    case TI_VAL_TASK:
-    case TI_VAL_ERROR:
-    case TI_VAL_MEMBER:
-    case TI_VAL_CLOSURE:
-    case TI_VAL_ANO:
-        return 0;
-    case TI_VAL_THING:
-        return ti_thing_copy((ti_thing_t **) val, deep);
-    case TI_VAL_WRAP:
-        return ti_wrap_copy((ti_wrap_t **) val, deep);
-    case TI_VAL_ROOM:
-        return ti_room_copy((ti_room_t **) val);  /* copy a room */
-    case TI_VAL_ARR:
-        if (varr__tuple_to_tuple((ti_tuple_t **) val))
-            return -1;
-        for (vec_each_addr(((ti_tuple_t *) *val)->vec, ti_val_t, v))
-            if (varr__copy(v, deep))
-                return -1;
-        return 0;
-    case TI_VAL_WANO:
-        return ti_wano_copy((ti_wano_t **) val, deep);
-    case TI_VAL_UUID:
-        return 0;
-    case TI_VAL_FUTURE:
-    case TI_VAL_MODULE:
-    case TI_VAL_SET:
-    case TI_VAL_TEMPLATE:
-        break;
-    }
-    assert(0);
-    return -1;
-}
-
-static int varr__dup(ti_val_t ** val, uint8_t deep)
-{
-    assert(deep);
-    switch ((ti_val_enum) (*val)->tp)
-    {
-    case TI_VAL_NIL:
-    case TI_VAL_INT:
-    case TI_VAL_FLOAT:
-    case TI_VAL_BOOL:
-    case TI_VAL_DATETIME:
-    case TI_VAL_MPDATA:
-    case TI_VAL_NAME:
-    case TI_VAL_STR:
-    case TI_VAL_BYTES:
-    case TI_VAL_REGEX:
-    case TI_VAL_TASK:
-    case TI_VAL_ERROR:
-    case TI_VAL_MEMBER:
-    case TI_VAL_CLOSURE:
-    case TI_VAL_ANO:
-        return 0;
-    case TI_VAL_THING:
-        return ti_thing_dup((ti_thing_t **) val, deep);
-    case TI_VAL_WRAP:
-        return ti_wrap_dup((ti_wrap_t **) val, deep);
-    case TI_VAL_ROOM:
-        return ti_room_copy((ti_room_t **) val);  /* copy a room */
-    case TI_VAL_ARR:
-        if (varr__tuple_to_tuple((ti_tuple_t **) val))
-            return -1;
-        for (vec_each_addr(((ti_tuple_t *) *val)->vec, ti_val_t, v))
-            if (varr__dup(v, deep))
-                return -1;
-        return 0;
-    case TI_VAL_WANO:
-        return ti_wano_dup((ti_wano_t **) val, deep);
-    case TI_VAL_UUID:
-        return 0;
-    case TI_VAL_FUTURE:
-    case TI_VAL_MODULE:
-    case TI_VAL_SET:
-    case TI_VAL_TEMPLATE:
-        break;
-    }
-    assert(0);
-    return -1;
-}
-
 int ti_varr_copy(ti_varr_t ** varr, uint8_t deep)
 {
     assert(deep);
@@ -440,7 +344,7 @@ int ti_varr_copy(ti_varr_t ** varr, uint8_t deep)
     for (vec_each_addr(list->vec, ti_val_t, val))
     {
         ti_incref(*val);
-        if (varr__copy(val, deep))
+        if (ti_val_copy_nested(val, deep))
             rc = -1;
     }
 
@@ -453,6 +357,16 @@ int ti_varr_copy(ti_varr_t ** varr, uint8_t deep)
     ti_val_unsafe_drop((ti_val_t *) *varr);
     *varr = list;
 
+    return 0;
+}
+
+int ti_tuple_copy(ti_tuple_t ** vtuple, uint8_t deep)
+{
+    if (varr__tuple_to_tuple(vtuple))
+        return -1;
+    for (vec_each_addr((*vtuple)->vec, ti_val_t, v))
+        if (ti_val_copy_nested(v, deep))
+            return -1;
     return 0;
 }
 
@@ -479,7 +393,7 @@ int ti_varr_dup(ti_varr_t ** varr, uint8_t deep)
     for (vec_each_addr(list->vec, ti_val_t, val))
     {
         ti_incref(*val);
-        if (varr__dup(val, deep))
+        if (ti_val_dup_nested(val, deep))
             rc = -1;
     }
 

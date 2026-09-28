@@ -323,7 +323,7 @@ static inline int val__arr_to_arr(ti_val_t ** v, ti_varr_t * varr, ex_t * e)
         ti_varr_to_tuple((ti_varr_t **) v))
         ex_set_mem(e);
     else
-        ti_varr_set_may_flags(varr, (ti_varr_t *) *v);
+        ti_val_set_may_flags(varr, *v);
     return e->nr;
 }
 
@@ -332,7 +332,16 @@ static inline int val__set_to_arr(ti_val_t ** v, ti_varr_t * varr, ex_t * e)
     if (ti_vset_to_tuple((ti_vset_t **) v))
         ex_set_mem(e);
     else
-        ti_varr_set_may_flags(varr, (ti_varr_t *) *v);
+        ti_val_set_may_flags(varr, *v);
+    return e->nr;
+}
+
+static inline int val__dict_to_arr(ti_val_t ** v, ti_varr_t * varr, ex_t * e)
+{
+    if (ti_dict_to_tuple((ti_dict_t **) v))
+        ex_set_mem(e);
+    else
+        ti_val_set_may_flags(varr, *v);
     return e->nr;
 }
 

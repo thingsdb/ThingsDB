@@ -724,11 +724,11 @@ int ti_condition_field_key_init(
 
     if (pos == 4 && memcmp(str, "uuid", 4) == 0)
         spec = TI_SPEC_UUID;
-    if (pos == 3 && memcmp(str, "int", 3) == 0)
+    else if (pos == 3 && memcmp(str, "int", 3) == 0)
         spec = TI_SPEC_INT;
-    if (pos == 3 && memcmp(str, "str", 3) == 0)
+    else if (pos == 3 && memcmp(str, "str", 3) == 0)
         spec = TI_SPEC_STR;
-    if (pos == 3 && memcmp(str, "any", 3) == 0)
+    else if (pos == 3 && memcmp(str, "any", 3) == 0)
         spec = TI_SPEC_ANY;
     else
         goto invalid_key_spec;
@@ -749,7 +749,7 @@ invalid_key_spec:
             "unsupported key spec: `%.*s`; "
             "supported key specs: any, uuid, str, int"DOC_T_TYPE,
             field->name->str, field->type->name,
-            pos-1, str);
+            pos, str);
     return e->nr;
 
 spaces_in_key:

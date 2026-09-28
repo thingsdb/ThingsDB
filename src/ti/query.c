@@ -1480,13 +1480,18 @@ static int query__get_things(ti_val_t * val, imap_t * imap)
     case TI_VAL_TASK: /* do not check task arguments as tasks are checked */
         break;
     case TI_VAL_ARR:
-        if (ti_varr_may_have_things((ti_varr_t *) val))
+        if (ti_val_mht(val))
             for (vec_each(VARR(val), ti_val_t, v))
                 if ((rc = query__get_things(v, imap)))
                     return rc;
         break;
     case TI_VAL_SET:
         return imap_walk(VSET(val), (imap_cb) query__var_walk_thing, imap);
+    case TI_VAL_DICT:
+        if (ti_val_mht(val))
+            return ti_dict_walk((ti_dict_t *) dict,
+                                (ti_dict_cb) query__get_things,
+                                imap);
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:  /* things as a member have an id */
     case TI_VAL_MPDATA:
@@ -1549,6 +1554,11 @@ static int query__var_walk_thing(ti_thing_t * thing, imap_t * imap)
             return -1;
 
     return 0;
+}
+
+static int query__var_walk_val(ti_valt * val, imap_t * imap)
+{
+    return query__get_things()
 }
 
 /*

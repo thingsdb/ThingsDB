@@ -14,11 +14,6 @@
 #include <util/mpack.h>
 #include <util/vec.h>
 
-static inline _Bool ti_varr_may_have_things(ti_varr_t * varr)
-{
-    return varr->flags & TI_VFLAG_MHT;
-}
-
 static inline _Bool ti_varr_is_list(ti_varr_t * varr)
 {
     return ~varr->flags & TI_VARR_FLAG_TUPLE;
@@ -53,11 +48,6 @@ static inline void * ti_varr_key(ti_varr_t * varr)
     return ti_thing_is_object(varr->parent)
             ? varr->key_
             : ((ti_field_t *) varr->key_)->name;
-}
-
-static inline void ti_varr_set_may_flags(ti_varr_t * to, ti_varr_t * from)
-{
-    to->flags |= ti_val_may_flags(from);
 }
 
 static inline _Bool ti_varr_is_stored(ti_varr_t * varr)

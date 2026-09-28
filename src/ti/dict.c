@@ -426,7 +426,7 @@ failed:
     return -1;
 }
 
-int dict__assign_cb(ti_dict_key_t * key, ti_val_t * val, ti_dict_t * dict)
+static int dict__assign_cb(ti_dict_key_t * key, ti_val_t * val, ti_dict_t * dict)
 {
     if (ti_dict_setr(dict, key, val))
     {
@@ -465,6 +465,98 @@ int ti_dict_assign(ti_dict_t ** dictaddr)
         return -1;  /* ndict is destroyed if walk has failed */
 
     ti_decref(odict);  /* checked for more than one reference */
+    *dictaddr = ndict;
+
+    return 0;
+}
+
+typedef struct
+{
+    ti_dict_t * dict;
+    int deep;
+} dict__copy_t;
+
+static int dict__copy_cb(ti_dict_key_t * key, ti_val_t * val, dict__copy_t * w)
+{
+    int rc;
+    ti_val_t ** vaddr = &val;
+    ti_incref(val);
+    rc = (ti_val_copy_nested(vaddr, w->deep) ||
+          ti_dict_setr(w->dict, key, *vaddr));
+    ti_decref(val);
+
+    if (rc)
+    {
+        ti_dict_destroy(w->dict);
+        return -1;
+    }
+    return 0;
+}
+
+int ti_dict_copy(ti_dict_t ** dictaddr, uint8_t deep);
+{
+    assert(deep);
+
+    ti_dicy_t * ndict, * odict = *dictaddr;
+
+    if (!(ndict = ti_dict_create()))
+        return -1;
+
+    dict__copy_t w = {
+        .dict = ndict,
+        .deep = deep,
+    };
+
+    if (ti_dict_pairs(odict, (ti_dict_pair_cb) dict__copy_cb, &w))
+        return -1;  /* vset is destroyed if walk has failed */
+
+    /* set default flags */
+    ndict->flags = ti_val_may_flags(odict);
+
+    ti_val_unsafe_drop((ti_val_t *) odict);
+    *dictaddr = ndict;
+
+    return 0;
+}
+
+static int dict__dup_cb(ti_dict_key_t * key, ti_val_t * val, dict__copy_t * w)
+{
+    int rc;
+    ti_val_t ** vaddr = &val;
+    ti_incref(val);
+    rc = (ti_val_dup_nested(vaddr, w->deep) ||
+          ti_dict_setr(w->dict, key, *vaddr));
+    ti_decref(val);
+
+    if (rc)
+    {
+        ti_dict_destroy(w->dict);
+        return -1;
+    }
+    return 0;
+}
+
+int ti_dict_dup(ti_dict_t ** dictaddr, uint8_t deep)
+{
+    assert(deep);
+
+    ti_dicy_t * ndict, * odict = *dictaddr;
+
+    if (!(ndict = ti_dict_create()))
+        return -1;
+
+    dict__copy_t w = {
+        .dict = ndict,
+        .deep = deep,
+    };
+
+    if (ti_dict_pairs(odict, (ti_dict_pair_cb) dict__dup_cb, &w))
+        return -1;  /* vset is destroyed if walk has failed */
+
+    /* set default flags */
+    ndict->flags = ti_val_may_flags(odict);
+
+    ti_val_unsafe_drop((ti_val_t *) odict);
     *dictaddr = ndict;
 
     return 0;

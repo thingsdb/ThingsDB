@@ -24,6 +24,7 @@ void ti_varr_destroy(ti_varr_t * varr);
 int ti_varr_to_list(ti_varr_t ** varr);
 int ti_varr_to_tuple(ti_varr_t ** varr);
 int ti_varr_copy(ti_varr_t ** varr, uint8_t deep);
+int ti_tuple_copy(ti_tuple_t ** vtuple, uint8_t deep);
 int ti_varr_dup(ti_varr_t ** varr, uint8_t deep);
 _Bool ti__varr_eq(ti_varr_t * varra, ti_varr_t * varrb);
 _Bool ti_varr_has_val(ti_varr_t * varr, ti_val_t * val);

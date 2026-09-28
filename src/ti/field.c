@@ -2476,8 +2476,6 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
                 (ti_raw_t *) val);
     case TI_SPEC_ENUM:
         return (ti_val_is_member(val) || ti_val_is_nil(val));
-    case TI_SPEC_DICT:
-        return ti_val_is_dict(val);
     case TI_SPEC_ARR:
         /* we can map a set to an array */
         return ((
@@ -2488,6 +2486,8 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
         ));
     case TI_SPEC_SET:
         return ti_val_is_set(val);
+    case TI_SPEC_DICT:
+        return ti_val_is_dict(val);
     case TI_SPEC_REMATCH:
         return (ti_val_is_str(val) &&
                 ti_regex_test(field->condition.re->regex, (ti_raw_t *) val));
@@ -2613,6 +2613,7 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_ENUM:
     case TI_SPEC_ARR:
     case TI_SPEC_SET:
+    case TI_SPEC_DICT:
     case TI_SPEC_REMATCH:
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
@@ -2755,6 +2756,8 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
         );
     case TI_SPEC_SET:
         return f_spec == TI_SPEC_SET;
+    case TI_SPEC_DICT:
+        return f_spec == TI_SPEC_DICT;
     case TI_SPEC_REMATCH:
         return f_spec == TI_SPEC_REMATCH && ti_regex_eq(
                         t_field->condition.re->regex,

@@ -20,7 +20,7 @@ static int do__f_unique(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         return e->nr;
     }
 
-    ti_varr_set_may_flags(retv, varr);
+    ti_val_set_may_flags(retv, varr);
 
     for (vec_each_addr(varr->vec, ti_val_t, va))
     {

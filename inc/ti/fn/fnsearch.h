@@ -193,7 +193,7 @@ static int do__search_thing(
             ? search__do_thing((ti_thing_t *) VMEMBER(val), root, key, w)
             : 0;
     case TI_VAL_ARR:
-        if (ti_varr_may_have_things((ti_varr_t *) val))
+        if (ti_val_mht(val))
             for (vec_each(VARR(val), ti_val_t, v))
                 if (do__search_thing(key, val, v, w))
                     return 1;

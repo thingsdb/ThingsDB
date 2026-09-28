@@ -419,6 +419,8 @@ ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t * val)
         return ti_val_is_array(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_SET:
         return ti_val_is_set(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
+    case TI_SPEC_DICT:
+        return ti_val_is_dict(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_DATETIME:
         return ti_val_is_datetime_strict(val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
     case TI_SPEC_TIMEVAL:
@@ -533,6 +535,8 @@ _Bool ti__spec_maps_to_nested_val(ti_field_t * field, ti_val_t * val)
         return ti_val_is_array(val) || ti_val_is_set(val);
     case TI_SPEC_SET:
         return ti_val_is_set(val);
+    case TI_SPEC_DICT:
+        return ti_val_is_dict(val);
     case TI_SPEC_DATETIME:
         return ti_val_is_datetime_strict(val);
     case TI_SPEC_TIMEVAL:
@@ -722,6 +726,7 @@ ti_spec_mod_enum ti_spec_check_mod(
         return ospec == nspec ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
     case TI_SPEC_ARR:
     case TI_SPEC_SET:
+    case TI_SPEC_DICT:
         return ospec == nspec ? TI_SPEC_MOD_NESTED : TI_SPEC_MOD_ERR;
     case TI_SPEC_DATETIME:
     case TI_SPEC_TIMEVAL:

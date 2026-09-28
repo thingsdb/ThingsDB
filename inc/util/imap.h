@@ -14,6 +14,10 @@ typedef enum
 typedef struct imap_node_s imap_node_t;
 typedef struct imap_s imap_t;
 
+#include <stdint.h>
+#include <stddef.h>
+#include <util/vec.h>
+
 typedef int (*imap_cb)(void * data, void * arg);
 typedef int (*imap_item_cb)(uint64_t id, void * data, void * arg);
 typedef void (*imap_destroy_cb)(void * data);
@@ -21,10 +25,6 @@ typedef void (*imap_update_cb)(
         imap_t * dest,
         imap_t * imap,
         imap_destroy_cb decref_cb);
-
-#include <stdint.h>
-#include <stddef.h>
-#include <util/vec.h>
 
 imap_t * imap_create(void);
 void imap_destroy(imap_t * imap, imap_destroy_cb cb);

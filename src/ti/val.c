@@ -10,6 +10,8 @@
 #include <ti/closure.h>
 #include <ti/collection.inline.h>
 #include <ti/datetime.h>
+#include <ti/dict.h>
+#include <ti/dict.inline.h>
 #include <ti/enum.h>
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
@@ -1412,7 +1414,7 @@ int ti_val_convert_to_array(ti_val_t ** val, ex_t * e)
             ex_set_mem(e);
         break;
     case TI_VAL_DICT:
-        if (ti_dict_to_list((ti_dict_t **) dict))
+        if (ti_dict_to_list((ti_dict_t **) val))
             ex_set_mem(e);
         break;
     case TI_VAL_NIL:
@@ -1724,7 +1726,7 @@ _Bool ti_val_has_ids(ti_val_t * val)
             return ti_dict_walk((ti_dict_t *) val,
                                 (ti_dict_cb) val__walk_has_id_dict,
                                 NULL);
-
+        return false;
     case TI_VAL_CLOSURE:
     case TI_VAL_ANO:
         return false;
@@ -1880,10 +1882,10 @@ int ti_val_copy(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep)
         ((ti_vset_t *) *val)->key_ = key;
         return 0;
     case TI_VAL_DICT:
-        if (ti_dict_copy((ti_vset_t **) val, deep))
+        if (ti_dict_copy((ti_dict_t **) val, deep))
             return -1;
-        ((ti_vset_t *) *val)->parent = parent;
-        ((ti_vset_t *) *val)->key_ = key;
+        ((ti_dict_t *) *val)->parent = parent;
+        ((ti_dict_t *) *val)->key_ = key;
         return 0;
     case TI_VAL_CLOSURE:
     {
@@ -2051,12 +2053,7 @@ int ti_val_dup_nested(ti_val_t ** val, uint8_t deep)
     case TI_VAL_ROOM:
         return ti_room_copy((ti_room_t **) val);  /* copy a room */
     case TI_VAL_ARR:
-        if (varr__tuple_to_tuple((ti_tuple_t **) val))
-            return -1;
-        for (vec_each_addr(((ti_tuple_t *) *val)->vec, ti_val_t, v))
-            if (ti_val_dup_nested(v, deep))
-                return -1;
-        return 0;
+        return ti_tuple_dup((ti_tuple_t **) val, deep);
     case TI_VAL_WANO:
         return ti_wano_dup((ti_wano_t **) val, deep);
     case TI_VAL_UUID:

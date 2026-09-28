@@ -45,7 +45,7 @@ static int do__f_has_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = (ti_val_t *) ti_vbool_get(has);
 
 fail1:
-    ti_val_unsafe_drop((ti_val_t *) vset);
+    ti_val_unsafe_drop((ti_val_t *) dict);
     return e->nr;
 }
 

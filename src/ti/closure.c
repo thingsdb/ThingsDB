@@ -676,7 +676,7 @@ void ti_closure_vars_dict(ti_closure_t * closure, ti_val_t * k, ti_val_t * v)
         prop = VEC_get(closure->vars, 1);
         ti_incref(v);
         ti_val_unsafe_drop(prop->val);
-        prop->val = v
+        prop->val = v;
         /* fall through */
     case 1:
         prop = VEC_get(closure->vars, 0);
@@ -687,7 +687,6 @@ void ti_closure_vars_dict(ti_closure_t * closure, ti_val_t * k, ti_val_t * v)
     case 0:
         break;
     }
-    return 0;
 }
 
 int ti_closure_call(

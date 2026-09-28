@@ -87,6 +87,10 @@ static inline _Bool val__as_bool_set(ti_val_t * val)
 {
     return !!VSET(val)->n;
 }
+static inline _Bool val__as_bool_dict(ti_val_t * val)
+{
+    return !!((ti_dict_t *) val)->n;
+}
 static inline _Bool val__as_bool_thing(ti_val_t * val)
 {
     return !!ti_thing_n((ti_thing_t *) val);
@@ -728,7 +732,7 @@ static inline void ti_val_attach(
         ti_thing_t * parent,
         void * key)  /* ti_raw_t or ti_name_t or ti_field_t */
 {
-    return ti_val(val)->attach(val, parent, key)
+    return ti_val(val)->attach(val, parent, key);
 }
 
 static inline const char * ti_val_str(ti_val_t * val)
@@ -795,7 +799,7 @@ static inline void ti_val_replace_drop(ti_val_t * oval, ti_val_t * nval)
 {
     if (!--oval->ref)
         ti_val(oval)->destroy(oval);
-    else if (oval != nval && (ti_val_has_parent(oval))
+    else if (oval != nval && ti_val_has_parent(oval))
         ((ti_varr_t *) oval)->parent = NULL;
     else
         ti_thing_may_push_gc((ti_thing_t *) oval);
@@ -890,6 +894,11 @@ static inline _Bool ti_val_is_dict_key(ti_val_t * val)
            val->tp == TI_VAL_NAME ||
            val->tp == TI_VAL_INT ||
            val->tp == TI_VAL_UUID;
+}
+
+static inline _Bool ti_val_is_str(ti_val_t * val)
+{
+    return val->tp == TI_VAL_STR || val->tp == TI_VAL_NAME;
 }
 
 static inline _Bool ti_val_is_utf8(ti_val_t * val)

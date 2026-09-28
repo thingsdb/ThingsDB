@@ -1489,7 +1489,7 @@ static int query__get_things(ti_val_t * val, imap_t * imap)
         return imap_walk(VSET(val), (imap_cb) query__var_walk_thing, imap);
     case TI_VAL_DICT:
         if (ti_val_mht(val))
-            return ti_dict_walk((ti_dict_t *) dict,
+            return ti_dict_walk((ti_dict_t *) val,
                                 (ti_dict_cb) query__get_things,
                                 imap);
     case TI_VAL_ERROR:
@@ -1554,11 +1554,6 @@ static int query__var_walk_thing(ti_thing_t * thing, imap_t * imap)
             return -1;
 
     return 0;
-}
-
-static int query__var_walk_val(ti_valt * val, imap_t * imap)
-{
-    return query__get_things()
 }
 
 /*

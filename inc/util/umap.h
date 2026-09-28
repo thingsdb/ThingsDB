@@ -36,7 +36,7 @@ void * umap_set(umap_t * map, const uint8_t uuid[16], void * data, int * new);
 void * umap_get(umap_t * map, const uint8_t uuid[16]);
 void * umap_pop(umap_t * map, const uint8_t uuid[16]);
 
-int umap_walk(imap_t * imap, umap_cb cb, void * arg);
-int umap_items(imap_t * imap, umap_item_cb cb, void * arg);
+int umap_walk(umap_t * umap, umap_cb cb, void * arg);
+int umap_items(umap_t * imap, umap_item_cb cb, void * arg);
 
 #endif /* UMAP_H_ */

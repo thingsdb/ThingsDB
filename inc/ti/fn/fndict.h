@@ -30,8 +30,8 @@ static int do__f_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                     "list of [key, value] pairs."DOC_DICT);
                 goto fail0;
             }
-            ti_key_t * key = VEC_get(VARR(tuple), 0);
-            ti_key_t * val = VEC_get(VARR(tuple), 1);
+            ti_val_t * key = VEC_get(VARR(tuple), 0);
+            ti_val_t * val = VEC_get(VARR(tuple), 1);
             if (ti_dict_set(dict, key, val, e))
                 goto fail0;
         }

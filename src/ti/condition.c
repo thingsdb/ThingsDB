@@ -3,6 +3,7 @@
  */
 #include <assert.h>
 #include <doc.h>
+#include <ctype.h>
 #include <math.h>
 #include <ti.h>
 #include <ti/closure.h>

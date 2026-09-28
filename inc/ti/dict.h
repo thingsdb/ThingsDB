@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <ti/val.t.h>
 #include <ti/dict.t.h>
+#include <ti/uuid.t.h>
 #include <util/vec.h>
 
 typedef enum
@@ -26,10 +27,9 @@ typedef struct
 typedef union
 {
     int64_t id;
-    uuid_t * uuid;
+    uuid_t uuid;
     ti_dict_key_str_t str;
 } ti_dict_key_u;
-
 
 typedef struct
 {
@@ -53,10 +53,7 @@ int ti_dict_dup(ti_dict_t ** dictaddr, uint8_t deep);
 int ti_dict_walk(ti_dict_t * dict, ti_dict_cb cb, void * arg);
 int ti_dict_items(ti_dict_t * dict, ti_dict_item_cb cb, void * arg);
 int ti_dict_pairs(ti_dict_t * dict, ti_dict_pair_cb cb, void * arg);
-int ti_dict_nested_spec_err(ti_dict_t * dict, ti_val_t * val, ex_t * e);
 int ti_dict_assign(ti_dict_t ** dictaddr);
-_Bool ti_dict_has_val(ti_dict_t * dict, ti_val_t * val);
-ti_val_t * ti_dict_get(ti_dict_t * dict, ti_val_t * key);
 
 #endif  /* TI_DICT_H_ */
 

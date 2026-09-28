@@ -7,6 +7,7 @@
 #include <ti/uuid.t.h>
 #include <ti/val.t.h>
 #include <ti/collection.t.h>
+#include <ti/uuid.t.h>
 #include <util/mpack.h>
 #include <ex.h>
 

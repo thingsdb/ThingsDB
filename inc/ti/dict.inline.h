@@ -6,18 +6,31 @@
 
 #include <ti/dict.h>
 #include <ti/val.h>
+#include <ti/val.t.h>
+#include <ti/val.inline.h>
+#include <ti/thing.inline.h>
 #include <ex.h>
+
+static inline ti_val_t * ti_dict_get_weak(ti_dict_t * dict, ti_val_t * key)
+{
+    switch(key->tp)
+    {
+        case TI_VAL_UUID:
+            return umap_get(dict->umap_, VUUID(key));
+        case TI_VAL_NAME:
+        case TI_VAL_STR:
+            return smap_getn(dict->smap_,
+                             ((ti_str_t *) key)->str,
+                             ((ti_str_t *) key)->n);
+        case TI_VAL_INT:
+            return imap_get(dict->imap_, VINT(key));
+    }
+    return NULL;
+}
 
 static inline _Bool ti_dict_has(ti_dict_t * dict, ti_val_t * key)
 {
     return ti_dict_get_weak(dict, key) != NULL;
-}
-
-static inline _Bool ti_dict_get(ti_dict_t * dict, ti_val_t * key)
-{
-    ti_val_t * val = ti_dict_get_weak(dict, key) != NULL;
-    ti_incref(val);
-    return val;
 }
 
 static inline _Bool ti_dict_is_stored(ti_dict_t * dict)
@@ -140,6 +153,29 @@ static inline int ti_dict_set(ti_dict_t * dict,
 memerr:
     ex_set_mem(e);
     return e->nr;
+}
+
+static inline uint16_t ti_dict_value_spec(ti_dict_t * dict)
+{
+    return ((!dict->parent) || ti_thing_is_object(dict->parent))
+            ? TI_SPEC_ANY
+            : ((ti_field_t *) dict->key_)->nested_spec;
+}
+
+static inline int ti_dict_key_to_client_pk(ti_dict_key_t * key,
+                                           msgpack_packer * pk)
+{
+    switch(key->tp)
+    {
+        case TI_DICT_KEY_UUID:
+            return ti_uuid_to_client_pk(key->via.uuid, pk);
+        case TI_DICT_KEY_INT:
+            return msgpack_pack_int64(pk, key->via.id);
+        case TI_DICT_KEY_STR:
+            return mp_pack_strn(pk, key->via.str.str, key->via.str.n);
+    }
+    assert(0);
+    return -1;
 }
 
 #endif  /* TI_DICT_INLINE_H_ */

@@ -85,7 +85,7 @@ ti_varr_t * ti_tuple_from_vec_unsafe(vec_t * vec)
     varr->ref = 1;
     varr->tp = TI_VAL_ARR;
     varr->flags = \
-            TI_VARR_FLAG_TUPLE|(vec->n?(TI_VFLAG_FLAG_MHT|TI_VFLAG_FLAG_MHR):0);
+            TI_VARR_FLAG_TUPLE|(vec->n?(TI_VFLAG_MHT|TI_VFLAG_MHR):0);
     varr->vec = vec;
     varr->parent = NULL;
     return varr;
@@ -105,7 +105,7 @@ ti_varr_t * ti_varr_from_vec_unsafe(vec_t * vec)
 
     varr->ref = 1;
     varr->tp = TI_VAL_ARR;
-    varr->flags = vec->n?(TI_VFLAG_FLAG_MHT|TI_VFLAG_FLAG_MHR):0;
+    varr->flags = vec->n?(TI_VFLAG_MHT|TI_VFLAG_MHR):0;
     varr->vec = vec;
     varr->parent = NULL;
     return varr;
@@ -366,6 +366,17 @@ int ti_tuple_copy(ti_tuple_t ** vtuple, uint8_t deep)
         return -1;
     for (vec_each_addr((*vtuple)->vec, ti_val_t, v))
         if (ti_val_copy_nested(v, deep))
+            return -1;
+    return 0;
+}
+
+
+int ti_tuple_dup(ti_tuple_t ** vtuple, uint8_t deep)
+{
+    if (varr__tuple_to_tuple(vtuple))
+        return -1;
+    for (vec_each_addr((*vtuple)->vec, ti_val_t, v))
+        if (ti_val_dup_nested(v, deep))
             return -1;
     return 0;
 }

@@ -1620,34 +1620,34 @@ static int field__dict_pair_cb(ti_dict_key_t * key,
         case TI_SPEC_UUID:
             if (key->tp != TI_DICT_KEY_UUID)
             {
-                ex_set(e, EX_TYPE_ERROR,
+                ex_set(w->e, EX_TYPE_ERROR,
                     "mismatch in type `%s`; "
                     "property `%s` requires a dict with keys of type `uuid`",
                     w->field->type->name,
                     w->field->name->str);
-                return e->nr;
+                return w->e->nr;
             }
             break;
         case TI_SPEC_INT:
             if (key->tp != TI_DICT_KEY_INT)
             {
-                ex_set(e, EX_TYPE_ERROR,
+                ex_set(w->e, EX_TYPE_ERROR,
                     "mismatch in type `%s`; "
                     "property `%s` requires a dict with keys of type `int`",
                     w->field->type->name,
                     w->field->name->str);
-                return e->nr;
+                return w->e->nr;
             }
             break;
         case TI_SPEC_STR:
             if (key->tp != TI_DICT_KEY_STR)
             {
-                ex_set(e, EX_TYPE_ERROR,
+                ex_set(w->e, EX_TYPE_ERROR,
                     "mismatch in type `%s`; "
                     "property `%s` requires a dict with keys of type `str`",
                     w->field->type->name,
                     w->field->name->str);
-                return e->nr;
+                return w->e->nr;
             }
             break;
         case TI_SPEC_ANY:

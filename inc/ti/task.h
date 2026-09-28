@@ -6,6 +6,7 @@
 
 #include <inttypes.h>
 #include <ti/collection.t.h>
+#include <ti/dict.t.h>
 #include <ti/enum.t.h>
 #include <ti/field.t.h>
 #include <ti/member.t.h>
@@ -197,8 +198,7 @@ int ti_task_add_del_history(
         vec_t * commits);
 int ti_task_add_dict_set(
         ti_task_t * task,
-        ti_raw_t * key,
-        ti_dict_t * dict,
+        ti_raw_t * key,  /* parent key where dict lives */
         ti_val_t * k,
         ti_val_t * v);
 

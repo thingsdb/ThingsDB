@@ -485,6 +485,34 @@ fail0:
     return e->nr;
 }
 
+static int index__get_dict(
+        ti_query_t * query,
+        cleri_node_t * statement,
+        ex_t * e)
+{
+    ti_dict_t * dict = (ti_dict_t *) query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, statement, e))
+        goto fail0;
+
+    ti_val_t * val = ti_dict_get_weak(dict, query->rval);
+    if (!val)
+    {
+        /* TODO: improve error message */
+        ex_set(e, EX_LOOKUP_ERROR, "key not found");
+        goto fail0;
+    }
+
+    ti_val_unsafe_drop(query->rval);
+    query->rval = val;
+    ti_incref(val);
+
+fail0:
+    ti_val_unsafe_drop((ti_val_t *) dict);
+    return e->nr;
+}
+
 static inline int index__o_upd_prop(
         ti_witem_t * witem,
         ti_query_t * query,
@@ -608,7 +636,6 @@ static int index__set_dict(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     cleri_node_t * idx_statem = inode->children->next->children;
     cleri_node_t * ass_statem = inode->children->next->next->next;
     cleri_node_t * ass_tokens = ass_statem->children;
-    ti_witem_t witem;
     ti_dict_t * dict;
     ti_val_t * key;
 
@@ -643,7 +670,6 @@ static int index__set_dict(ti_query_t * query, cleri_node_t * inode, ex_t * e)
         if (!task || ti_task_add_dict_set(
                 task,
                 ti_dict_key(dict),
-                dict,
                 key,
                 query->rval))
             ex_set_mem(e);

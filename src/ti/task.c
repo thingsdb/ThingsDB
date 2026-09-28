@@ -3295,9 +3295,8 @@ fail_data:
 int ti_task_add_dict_set(
         ti_task_t * task,
         ti_raw_t * key,
-        ti_dict_t * dict,
-        ti_val_t * v,
-        ti_val_t * k)
+        ti_val_t * k,
+        ti_val_t * v)
 {
     static const size_t alloc = 4096;
     ti_data_t * data;
@@ -3315,18 +3314,12 @@ int ti_task_add_dict_set(
 
     mp_pack_strn(&pk, key->data, key->n);
 
-    msgpack_pack_array(&pk, 2 + n);
+    msgpack_pack_map(&pk, 1);
 
-    msgpack_pack_uint32(&pk, i);
-    msgpack_pack_uint32(&pk, c);
-
-    for (c = i + n; i < c; ++i)
-    {
-        val = VEC_get(varr->vec, i);
-
-        if (ti_val_gen_ids(val) || ti_val_to_store_pk(val, &pk))
-            goto fail_pack;
-    }
+    if (ti_val_to_store_pk(k, &pk) ||
+        ti_val_gen_ids(v) ||
+        ti_val_to_store_pk(v, &pk))
+        goto fail_pack;
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

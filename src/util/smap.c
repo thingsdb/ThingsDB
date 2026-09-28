@@ -1,6 +1,7 @@
 /*
  * smap.c
  */
+#include <assert.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -22,7 +23,7 @@ static int smap__addn(
         const char * key,
         size_t n,
         void * data);
-static int smap__setn(
+static void * smap__setn(
         smap_node_t * node,
         const char * key,
         size_t n,
@@ -250,7 +251,7 @@ void * smap_setn(smap_t * smap, const char * key, size_t n, void * data, int * n
     if (*nd)
     {
         ret = smap__setn(*nd, key, n, data, new);
-        smap->n += (ret == data && *new)
+        smap->n += (ret == data && *new);
     }
     else
     {

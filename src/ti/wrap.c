@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <ti/ano.h>
 #include <ti/change.t.h>
+#include <ti/dict.t.h>
+#include <ti/dict.inline.h>
 #include <ti/closure.h>
 #include <ti/field.h>
 #include <ti/future.h>
@@ -27,6 +29,13 @@
 #include <util/vec.h>
 #include <util/logger.h>
 
+static int wrap__field_val(
+        ti_field_t * t_field,
+        uint16_t * spec,
+        ti_val_t * val,
+        ti_vp_t * vp,
+        int deep,
+        int flags);
 
 ti_wrap_t * ti_wrap_create(ti_thing_t * thing, uint16_t type_id)
 {
@@ -85,13 +94,6 @@ static int wrap__set(
         int deep,
         int flags)
 {
-    wrap__walk_t w = {
-            .vp = vp,
-            .spec = t_field->nested_spec,
-            .deep = deep,
-            .flags = flags,
-    };
-
     if ((t_field->nested_spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_TYPE)
     {
         wrap__walk_with_type_t wwt = {
@@ -133,9 +135,54 @@ static int wrap__set(
         /* fallback to no type */
     }
 
+    wrap__walk_t w = {
+            .vp = vp,
+            .spec = t_field->nested_spec,
+            .deep = deep,
+            .flags = flags,
+    };
     return (
             msgpack_pack_array(&vp->pk, vset->imap->n) ||
             imap_walk(vset->imap, (imap_cb) wrap__walk, &w)
+    );
+}
+
+static int wrap__pair_with_type(ti_dict_key_t * key,
+                                ti_val_t * val,
+                                wrap__walk_with_type_t * w)
+{
+    return (
+        msgpack_pack_array(&w->vp->pk, 2) ||
+        ti_dict_key_to_client_pk(key, &w->vp->pk) ||
+        ti_wrap_field_thing_type((ti_thing_t *) val,
+                                 w->vp,
+                                 w->t_type,
+                                 w->deep,
+                                 w->flags)
+    );
+}
+
+typedef struct
+{
+    ti_field_t * t_field;
+    ti_vp_t * vp;
+    int deep;
+    int flags;
+} wrap__pair_t;
+
+static int wrap__pair(ti_dict_key_t * key,
+                      ti_val_t * val,
+                      wrap__pair_t * w)
+{
+    return (
+        msgpack_pack_array(&w->vp->pk, 2) ||
+        ti_dict_key_to_client_pk(key, &w->vp->pk) ||
+        wrap__field_val(w->t_field,
+                        &w->t_field->nested_spec,
+                        val,
+                        w->vp,
+                        w->deep,
+                        w->flags)
     );
 }
 
@@ -146,20 +193,14 @@ static int wrap__dict(
         int deep,
         int flags)
 {
-    wrap__walk_t w = {
-            .vp = vp,
-            .spec = t_field->nested_spec,
-            .deep = deep,
-            .flags = flags,
-    };
-
-
-
-    if (dict->imap->n > 1 &&
+    if (dict->n > 1 &&
+        t_field->nested_spec < TI_SPEC_ANY &&
+        ti_dict_value_spec(dict) < TI_SPEC_ANY &&
         vp->query &&
         vp->query->collection)
     {
-        /* optimization for set's with multiple values */
+        /* optimization for dict with multiple values when we know all source
+           is of type thing */
         ti_type_t * t_type = ti_types_by_id(
                 vp->query->collection->types,
                 t_field->nested_spec);
@@ -172,15 +213,23 @@ static int wrap__dict(
                 .deep = deep,
                 .flags = flags,
             };
-
+            LOGC("Test optimize dict...");
             return (
-                msgpack_pack_array(&vp->pk, vset->imap->n) ||
-                imap_walk(vset->imap, (imap_cb) wrap__walk_with_type, &wwt)
+                msgpack_pack_array(&vp->pk, dict->n) ||
+                ti_dict_pairs(dict,
+                              (ti_dict_pair_cb) wrap__pair_with_type,
+                              &wwt)
             );
         }
         /* fallback to no type */
     }
 
+    wrap__pair_t w = {
+            .vp = vp,
+            .t_field = t_field,
+            .deep = deep,
+            .flags = flags,
+    };
     return (
             msgpack_pack_array(&vp->pk, dict->n) ||
             ti_dict_pairs(dict, (ti_dict_pair_cb) wrap__pair, &w)
@@ -249,8 +298,38 @@ static int wrap__field_val(
     case TI_VAL_ARR:
     {
         ti_varr_t * varr = (ti_varr_t *) val;
+
         if (msgpack_pack_array(&vp->pk, varr->vec->n))
             return -1;
+
+        if (varr->vec->n > 1 &&
+            t_field->nested_spec < TI_SPEC_ANY &&
+            vp->query &&
+            vp->query->collection)
+        {
+            uint16_t fspec = ti_varr_spec(varr);
+            if (fspec < TI_SPEC_ANY)
+            {
+                ti_type_t * t_type = ti_types_by_id(
+                        vp->query->collection->types,
+                        fspec);
+                if (t_type)
+                {
+                    for (vec_each(varr->vec, ti_thing_t, t))
+                    {
+                        LOGC("Test optimize arr...");
+                        if (ti_wrap_field_thing_type(
+                                t,
+                                vp,
+                                t_type,
+                                deep,
+                                flags))
+                            return -1;
+                    }
+                    return 0;
+                }
+            }
+        }
         for (vec_each(varr->vec, ti_val_t, v))
         {
             if (wrap__field_val(
@@ -305,7 +384,7 @@ static int wrap__field_val(
                 deep,
                 flags);
     case TI_VAL_UUID:
-        return ti_uuid_to_client_pk((ti_uuid_t *) val, &vp->pk);
+        return ti_uuid_to_client_pk(VUUID(val), &vp->pk);
     case TI_VAL_FUTURE:
         return VFUT(val)
                 ? wrap__field_val(

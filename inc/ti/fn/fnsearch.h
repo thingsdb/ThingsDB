@@ -22,6 +22,12 @@ static int do__search_walk(
         ti_val_t * val,
         search__walk_t * w);
 
+static int do__search_thing(
+        ti_raw_t * key,
+        ti_val_t * root,
+        ti_val_t * val,
+        search__walk_t * w);
+
 static int do__search_option(
         ti_raw_t * key,
         ti_val_t * val,

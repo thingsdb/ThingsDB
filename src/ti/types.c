@@ -270,6 +270,7 @@ static int types__ren_cb(ti_type_t * type, types__ren_t * w)
                     case TI_SPEC_UUID: begin = "dict<uuid:"; break;
                 }
                 end = '>';
+                break;
             case TI_SPEC_OBJECT:
                 begin = "thing<";
                 end = '>';

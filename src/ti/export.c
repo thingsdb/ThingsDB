@@ -413,7 +413,7 @@ static int export__dict_pair(ti_dict_key_t * key,
     return -(
         export__val(fmt, val) ||
         buf_append_str(buf, "],\n")
-    )
+    );
 }
 
 static int export__val(ti_fmt_t * fmt, ti_val_t * val)

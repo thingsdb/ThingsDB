@@ -6,6 +6,8 @@
 #include <ti/collection.inline.h>
 #include <ti/condition.h>
 #include <ti/ctask.h>
+#include <ti/dict.h>
+#include <ti/dict.inline.h>
 #include <ti/enum.h>
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
@@ -3278,6 +3280,84 @@ static int ctask__splice(ti_thing_t * thing, mp_unp_t * up)
 }
 
 /*
+ * Returns 0 on success
+ * - for example: {'prop': {'key': value}}
+ */
+static int ctask__dict_set(ti_thing_t * thing, mp_unp_t * up)
+{
+    ex_t e = {0};
+    ti_dict_t * dict;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = thing->collection,
+            .up = up,
+    };
+    mp_obj_t obj, mp_prop;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        mp_next(up, &mp_prop) != MP_STR ||
+        mp_next(up, &obj) != MP_MAP ||  obj.via.sz != 1)
+    {
+        log_critical(
+                "task `splice` on "TI_THING_ID": "
+                "missing map, property, index, delete_count or new_count",
+                thing->id);
+        return -1;
+    }
+
+    dict = (ti_dict_t *) ti_thing_val_by_strn(
+            thing,
+            mp_prop.via.str.data,
+            mp_prop.via.str.n);
+
+    if (!dict)
+    {
+        log_critical(
+                "task `dict_set` on "TI_THING_ID": "
+                "missing property",
+                thing->id);
+        return -1;
+    }
+
+    if (!ti_val_is_dict((ti_val_t *) dict))
+    {
+        log_critical(
+                "task `dict_set` on "TI_THING_ID": "
+                "expecting a `"TI_VAL_DICT_S"`, got `%s`",
+                thing->id,
+                ti_val_str((ti_val_t *) dict));
+        return -1;
+    }
+
+    ti_val_t * key = ti_val_from_vup(&vup);
+    ti_val_t * val = ti_val_from_vup(&vup);
+
+    if (!key || !val)
+    {
+        log_critical(
+                "task `dict_set` on "TI_THING_ID": "
+                "error reading key or value for property",
+                thing->id);
+        ti_val_drop(key);
+        ti_val_drop(val);
+        return -1;
+    }
+
+    (void) ti_dict_set(dict, key, val, &e);
+    ti_val_unsafe_drop(key);
+    ti_val_unsafe_drop(val);
+
+    if (e.nr)
+    {
+        log_critical("task `dict_set` on "TI_THING_ID": %s",
+                    thing->id,
+                    e.msg);
+        return -1;
+    }
+    return 0;
+}
+
+/*
  * Returns 0 on success (index are written from high to low values)
  * - for example: {'prop': [index, index, ...]}
  */
@@ -3481,6 +3561,7 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_DEL_HISTORY:       break;
     case TI_TASK_COMMIT:            return ctask__commit(thing, up);
     case TI_TASK_MOD_TYPE_IDX:      return ctask__mod_type_idx(thing, up);
+    case TI_TASK_DICT_SET:          return ctask__dict_set(thing, up);
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);

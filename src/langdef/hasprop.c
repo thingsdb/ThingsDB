@@ -5,6 +5,8 @@
 #include <langdef/langdef.h>
 #include <langdef/hasprop.h>
 #include <stdio.h>
+#include <assert.h>
+#include <string.h>
 
 static inline _Bool hasprop__return_statement(cleri_node_t * nd,
                                               const char * str,
@@ -89,7 +91,7 @@ static inline _Bool hasprop__closure(cleri_node_t * nd,
                                      const size_t n)
 {
 
-    cleri_node_t * child = node         /* sequence */
+    cleri_node_t * child = nd           /* sequence */
             ->children->next            /* list */
             ->children;                 /* first child */
     for (; child; child = child->next->next)
@@ -119,7 +121,7 @@ static inline _Bool hasprop__function(cleri_node_t * nd,
     /* list (arguments) */
     nd = nd->children->next->children->next;
 
-    for(child = nd->children;
+    for(cleri_node_t * child = nd->children;
         child;
         child = child->next ? child->next->next : NULL)
     {
@@ -143,7 +145,7 @@ static inline _Bool hasprop__name_opt_fa(cleri_node_t * nd,
             return langdef_hasprop(nd->children->next->children->next, str, n);
         default:
             assert(0);
-            return;
+            return false;
         }
     }
     return false;
@@ -181,7 +183,7 @@ static _Bool hasprop__var_opt_fa(cleri_node_t * nd,
             return hasprop__enum(nd->children->next, str, n);
         default:
             assert(0);
-            return;
+            return false;
         }
     }
     return nd->children->len == n && memcmp(nd->children->str, str, n) == 0;
@@ -294,7 +296,7 @@ static inline _Bool hasprop__block(cleri_node_t * nd,
 
 static _Bool hasprop__operations(cleri_node_t * nd,
                                  const char * str,
-                                 const size_t n))
+                                 const size_t n)
 {
     uint32_t gid = nd->children->next->cl_obj->gid;
     cleri_node_t * childb = nd->children->next->next;
@@ -334,9 +336,9 @@ _Bool langdef_hasprop(cleri_node_t * nd, const char * str, const size_t n)
     case CLERI_GID_EXPRESSION:
         return hasprop__expression(nd->children, str, n);
     case CLERI_GID_BLOCK:
-        hasprop__block(nd->children, str, n);
-        return;
+        return hasprop__block(nd->children, str, n);
     case CLERI_GID_OPERATIONS:
-        hasprop__operations(nd->children, str, n);
+        return hasprop__operations(nd->children, str, n);
     }
+    return false;
 }

@@ -101,7 +101,8 @@ enum
 #define ti_val_may_flags(val__) ((val__)->flags&(TI_VFLAG_MHT|TI_VFLAG_MHR))
 #define ti_val_mht(val__) ((val__)->flags&TI_VFLAG_MHT)
 #define ti_val_mhr(val__) ((val__)->flags&TI_VFLAG_MHR)
-#define ti_val_set_may_flags(to__, from__) (to__)->flags |= ti_val_may_flags(from__)
+#define ti_val_set_may_flags(to__, from__) \
+    (to__)->flags |= ti_val_may_flags(from__)
 
 typedef enum
 {

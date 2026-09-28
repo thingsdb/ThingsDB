@@ -474,8 +474,8 @@ int ti_forloop_dict(
     else if (!e->nr)
         ex_set_mem(e);
 
-    ti_val_unlock((ti_val_t *) vset, lock_was_set);
-    ti_val_unsafe_drop((ti_val_t *) vset);
+    ti_val_unlock((ti_val_t *) dict, lock_was_set);
+    ti_val_unsafe_drop((ti_val_t *) dict);
     return e->nr;
 }
 

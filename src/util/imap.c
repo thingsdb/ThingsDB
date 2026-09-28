@@ -548,7 +548,7 @@ int imap_walk(imap_t * imap, imap_cb cb, void * arg)
 static int imap__items_cb(imap_node_t * node,
                           uint64_t parent_id,
                           size_t depth,
-                          imap_items_cb_t cb,
+                          imap_item_cb cb,
                           void * arg)
 {
     int rc;
@@ -597,7 +597,7 @@ int imap_items(imap_t * imap, imap_item_cb cb, void * arg)
             if (nd->data && (rc = (*cb)(id, nd->data, arg)))
                 return rc;
 
-            if (nd->nodes && (rc = imap__items(nd, id, 1, cb, arg)))
+            if (nd->nodes && (rc = imap__items_cb(nd, id, 1, cb, arg)))
                 return rc;
 
             id++;

@@ -89,7 +89,7 @@ static inline _Bool val__as_bool_set(ti_val_t * val)
 }
 static inline _Bool val__as_bool_dict(ti_val_t * val)
 {
-    return !!((ti_dict_t *) val)->n;
+    return ti_dict_bool((ti_dict_t *) val);
 }
 static inline _Bool val__as_bool_thing(ti_val_t * val)
 {
@@ -296,63 +296,76 @@ static inline int val__member_to_store_pk(ti_member_t * member, msgpack_packer *
 static inline int val__varr_to_client_pk(ti_varr_t * varr, ti_vp_t * vp, int deep, int flags);
 static inline int val__varr_to_store_pk(ti_varr_t * varr, msgpack_packer * pk);
 
-static inline int val__to_arr_cb(ti_val_t ** UNUSED(v), ti_varr_t * UNUSED(varr), ex_t * UNUSED(e))
+static inline int val__to_nested(ti_val_t ** UNUSED(v), ti_parent_t * UNUSED(p), ex_t * UNUSED(e))
 {
     return 0;
 }
 
-static inline int val__thing_to_arr(ti_val_t ** UNUSED(v), ti_varr_t * varr, ex_t * UNUSED(e))
+static inline int val__thing_to_nested(ti_val_t ** UNUSED(v),
+                                       ti_parent_t * p,
+                                       ex_t * UNUSED(e))
 {
-    return varr->flags |= TI_VFLAG_MHT, 0;
+    return p->flags |= TI_VFLAG_MHT, 0;
 }
 
-static inline int val__wrap_to_arr(ti_val_t ** UNUSED(v), ti_varr_t * varr, ex_t * UNUSED(e))
+static inline int val__wrap_to_nested(ti_val_t ** UNUSED(v),
+                                      ti_parent_t * p,
+                                      ex_t * UNUSED(e))
 {
-    return varr->flags |= TI_VFLAG_MHT, 0;
+    return p->flags |= TI_VFLAG_MHT, 0;
 }
 
-static inline int val__wano_to_arr(ti_val_t ** UNUSED(v), ti_varr_t * varr, ex_t * UNUSED(e))
+static inline int val__wano_to_nested(ti_val_t ** UNUSED(v),
+                                      ti_parent_t * p,
+                                      ex_t * UNUSED(e))
 {
-    return varr->flags |= TI_VFLAG_MHT, 0;
+    return p->flags |= TI_VFLAG_MHT, 0;
 }
 
-static inline int val__room_to_arr(ti_val_t ** UNUSED(v), ti_varr_t * varr, ex_t * UNUSED(e))
+static inline int val__room_to_nested(ti_val_t ** UNUSED(v),
+                                      ti_parent_t * p,
+                                      ex_t * UNUSED(e))
 {
-    return varr->flags |= TI_VFLAG_MHR, 0;
+    return p->flags |= TI_VFLAG_MHR, 0;
 }
 
-static inline int val__arr_to_arr(ti_val_t ** v, ti_varr_t * varr, ex_t * e)
+static inline int val__arr_to_nested(ti_val_t ** v, ti_parent_t * p, ex_t * e)
 {
     if (ti_varr_is_list((ti_varr_t *) *v) &&
         ti_varr_to_tuple((ti_varr_t **) v))
         ex_set_mem(e);
     else
-        ti_val_set_may_flags(varr, *v);
+        ti_val_set_may_flags(p, *v);
     return e->nr;
 }
 
-static inline int val__set_to_arr(ti_val_t ** v, ti_varr_t * varr, ex_t * e)
+static inline int val__set_to_nested(ti_val_t ** v, ti_parent_t * p, ex_t * e)
 {
     if (ti_vset_to_tuple((ti_vset_t **) v))
         ex_set_mem(e);
     else
-        ti_val_set_may_flags(varr, *v);
+        ti_val_set_may_flags(p, *v);
     return e->nr;
 }
 
-static inline int val__dict_to_arr(ti_val_t ** v, ti_varr_t * varr, ex_t * e)
+static inline int val__dict_to_nested(ti_val_t ** v, ti_parent_t * p, ex_t * e)
 {
     if (ti_dict_to_tuple((ti_dict_t **) v))
         ex_set_mem(e);
     else
-        ti_val_set_may_flags(varr, *v);
+        ti_val_set_may_flags(p, *v);
     return e->nr;
 }
 
-static inline int val__member_to_arr(ti_val_t ** v, ti_varr_t * varr, ex_t * e);
-static inline int val__as_nil_to_arr(ti_val_t ** v, ti_varr_t * UNUSED(varr), ex_t * UNUSED(e));
-
-static inline int val__closure_to_arr(ti_val_t ** v, ti_varr_t * UNUSED(varr), ex_t * e)
+static inline int val__member_to_nested(ti_val_t ** v,
+                                        ti_parent_t * p,
+                                        ex_t * e);
+static inline int val__as_nil_to_nested(ti_val_t ** v,
+                                        ti_parent_t * UNUSED(p),
+                                        ex_t * UNUSED(e));
+static inline int val__closure_to_nested(ti_val_t ** v,
+                                         ti_parent_t * UNUSED(p),
+                                         ex_t * e)
 {
     return ti_closure_unbound((ti_closure_t *) *v, e);
 }
@@ -360,7 +373,7 @@ static inline int val__closure_to_arr(ti_val_t ** v, ti_varr_t * UNUSED(varr), e
 typedef void (*ti_val_destroy_cb) (ti_val_t *);
 typedef int (*ti_val_to_str_cb) (ti_val_t **, ex_t *);
 typedef int (*ti_val_to_uuid_cb) (ti_val_t **, ex_t *);
-typedef int (*ti_val_to_arr_cb) (ti_val_t **, ti_varr_t *, ex_t *);
+typedef int (*ti_val_to_nested_cb) (ti_val_t **, ti_parent_t *, ex_t *);
 typedef int (*ti_val_to_client_pk_cb) (ti_val_t *, ti_vp_t *, int, int);
 typedef int (*ti_val_to_store_pk_cb) (ti_val_t *, msgpack_packer *);
 typedef const char * (*ti_val_type_str_cb) (ti_val_t *);
@@ -372,7 +385,7 @@ typedef struct
     ti_val_destroy_cb destroy;
     ti_val_to_str_cb to_str;
     ti_val_to_uuid_cb to_uuid;
-    ti_val_to_arr_cb to_arr_cb;
+    ti_val_to_nested_cb to_nested;
     ti_val_to_client_pk_cb to_client_pk;
     ti_val_to_store_pk_cb to_store_pk;
     ti_val_type_str_cb get_type_str;
@@ -388,7 +401,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) free,
         .to_str = ti_val_nil_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_arr_cb = val__to_arr_cb,
+        .to_nested = val__to_nested,
         .to_client_pk = val__nil_to_client_pk,
         .to_store_pk = val__nil_to_store_pk,
         .get_type_str = val__nil_type_str,
@@ -401,7 +414,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) free,
         .to_str = ti_val_int_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_arr_cb = val__to_arr_cb,
+        .to_nested = val__to_nested,
         .to_client_pk = val__int_to_client_pk,
         .to_store_pk = val__int_to_store_pk,
         .get_type_str = val__int_type_str,
@@ -414,7 +427,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) free,
         .to_str = ti_val_float_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_arr_cb = val__to_arr_cb,
+        .to_nested = val__to_nested,
         .to_client_pk = val__float_to_client_pk,
         .to_store_pk = val__float_to_store_pk,
         .get_type_str = val__float_type_str,
@@ -427,7 +440,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) free,
         .to_str = ti_val_bool_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_arr_cb = val__to_arr_cb,
+        .to_nested = val__to_nested,
         .to_client_pk = val__bool_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_vbool_to_pk,
         .get_type_str = val__bool_type_str,
@@ -440,7 +453,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) free,
         .to_str = ti_val_datetime_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_arr_cb = val__to_arr_cb,
+        .to_nested = val__to_nested,
         .to_client_pk = val__datetime_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_datetime_to_store_pk,
         .get_type_str = val__datetime_type_str,
@@ -453,7 +466,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) ti_name_destroy,
         .to_str = val__str_to_str,
         .to_uuid = val__str_to_uuid,
-        .to_arr_cb = val__to_arr_cb,
+        .to_nested = val__to_nested,
         .to_client_pk = val__str_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_name_to_pk,
         .get_type_str = val__str_type_str,
@@ -466,7 +479,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) free,
         .to_str = val__str_to_str,
         .to_uuid = val__str_to_uuid,
-        .to_arr_cb = val__to_arr_cb,
+        .to_nested = val__to_nested,
         .to_client_pk = val__str_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_raw_str_to_pk,
         .get_type_str = val__str_type_str,
@@ -479,7 +492,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) free,
         .to_str = ti_val_bytes_to_str,
         .to_uuid = ti_val_bytes_to_uuid,
-        .to_arr_cb = val__to_arr_cb,
+        .to_nested = val__to_nested,
         .to_client_pk = val__bytes_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_raw_bytes_to_pk,
         .get_type_str = val__bytes_type_str,
@@ -492,7 +505,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) ti_regex_destroy,
         .to_str = ti_val_regex_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_arr_cb = val__to_arr_cb,
+        .to_nested = val__to_nested,
         .to_client_pk = val__regex_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_regex_to_store_pk,
         .get_type_str = val__regex_type_str,
@@ -505,7 +518,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) ti_thing_destroy,
         .to_str = ti_val_thing_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_arr_cb = val__thing_to_arr,
+        .to_nested = val__thing_to_nested,
         .to_client_pk = (ti_val_to_client_pk_cb) ti_thing_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_thing_to_store_pk,
         .get_type_str = val__thing_type_str,
@@ -518,7 +531,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) ti_wrap_destroy,
         .to_str = ti_val_wrap_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_arr_cb = val__wrap_to_arr,
+        .to_nested = val__wrap_to_nested,
         .to_client_pk = (ti_val_to_client_pk_cb) ti_wrap_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_wrap_to_store_pk,
         .get_type_str = val__wrap_type_str,
@@ -531,7 +544,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) ti_room_destroy,
         .to_str = ti_val_room_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_arr_cb = val__room_to_arr,
+        .to_nested = val__room_to_nested,
         .to_client_pk = val__room_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_room_to_store_pk,
         .get_type_str = val__room_type_str,
@@ -544,7 +557,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) ti_vtask_destroy,
         .to_str = ti_val_vtask_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_arr_cb = val__to_arr_cb,
+        .to_nested = val__to_nested,
         .to_client_pk = val__task_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_vtask_to_store_pk,
         .get_type_str = val__task_type_str,
@@ -557,7 +570,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) ti_varr_destroy,
         .to_str = val__no_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_arr_cb = val__arr_to_arr,
+        .to_nested = val__arr_to_nested,
         .to_client_pk = (ti_val_to_client_pk_cb) val__varr_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) val__varr_to_store_pk,
         .get_type_str = val__arr_type_str,
@@ -570,7 +583,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) ti_vset_destroy,
         .to_str = val__no_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_arr_cb = val__set_to_arr,
+        .to_nested = val__set_to_nested,
         .to_client_pk = (ti_val_to_client_pk_cb) ti_vset_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_vset_to_store_pk,
         .get_type_str = val__set_type_str,
@@ -583,7 +596,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) ti_dict_destroy,
         .to_str = val__no_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_arr_cb = val__dict_to_arr,
+        .to_nested = val__dict_to_nested,
         .to_client_pk = (ti_val_to_client_pk_cb) ti_dict_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_dict_to_store_pk,
         .get_type_str = val__dict_type_str,
@@ -596,7 +609,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) free,
         .to_str = ti_val_error_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_arr_cb = val__to_arr_cb,
+        .to_nested = val__to_nested,
         .to_client_pk = val__error_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_verror_to_store_pk,
         .get_type_str = val__error_type_str,
@@ -609,7 +622,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) ti_member_destroy,
         .to_str = ti_val_member_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_arr_cb = val__member_to_arr,
+        .to_nested = val__member_to_nested,
         .to_client_pk = (ti_val_to_client_pk_cb) val__member_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) val__member_to_store_pk,
         .get_type_str = val__member_type_str,
@@ -622,7 +635,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) free,
         .to_str = val__no_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_arr_cb = val__to_arr_cb,
+        .to_nested = val__to_nested,
         .to_client_pk = val__mpdata_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_raw_mpdata_to_store_pk,
         .get_type_str = val__mpdata_type_str,
@@ -635,7 +648,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) ti_closure_destroy,
         .to_str = ti_val_closure_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_arr_cb = val__closure_to_arr,
+        .to_nested = val__closure_to_nested,
         .to_client_pk = val__closure_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_closure_to_store_pk,
         .get_type_str = val__closure_type_str,
@@ -648,7 +661,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) ti_ano_destroy,
         .to_str = ti_val_ano_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_arr_cb = val__to_arr_cb,
+        .to_nested = val__to_nested,
         .to_client_pk = val__ano_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_ano_to_store_pk,
         .get_type_str = val__ano_type_str,
@@ -661,7 +674,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) ti_wano_destroy,
         .to_str = ti_val_wano_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_arr_cb = val__wano_to_arr,
+        .to_nested = val__wano_to_nested,
         .to_client_pk = (ti_val_to_client_pk_cb) ti_wano_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_wano_to_store_pk,
         .get_type_str = val__wano_type_str,
@@ -674,7 +687,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) free,
         .to_str = ti_val_uuid_to_str,
         .to_uuid = val__uuid_to_uuid,
-        .to_arr_cb = val__to_arr_cb,
+        .to_nested = val__to_nested,
         .to_client_pk = (ti_val_to_client_pk_cb) val__uuid_to_client_pk,
         .to_store_pk = (ti_val_to_store_pk_cb) ti_uuid_to_store_pk_v,
         .get_type_str = val__uuid_type_str,
@@ -688,7 +701,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) ti_future_destroy,
         .to_str = val__no_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_arr_cb = val__as_nil_to_arr,
+        .to_nested = val__as_nil_to_nested,
         .to_client_pk = (ti_val_to_client_pk_cb) val__future_to_client_pk,
         .get_type_str = val__future_type_str,
         .as_bool = val__as_bool_true,
@@ -700,7 +713,7 @@ static ti_val_type_t ti_val_type_props[26] = {
         .destroy = (ti_val_destroy_cb) ti_module_destroy,
         .to_str = val__no_to_str,
         .to_uuid = val__no_to_uuid,
-        .to_arr_cb = val__as_nil_to_arr,
+        .to_nested = val__as_nil_to_nested,
         .to_client_pk = (ti_val_to_client_pk_cb) val__module_to_client_pk,
         .get_type_str = val__module_type_str,
         .as_bool = val__as_bool_true,
@@ -750,9 +763,9 @@ static inline int ti_val_to_store_pk(ti_val_t * val, msgpack_packer * pk)
     return ti_val(val)->to_store_pk(val, pk);
 }
 
-static inline int ti_val_to_arr(ti_val_t ** val, ti_varr_t * varr, ex_t * e)
+static inline int ti_val_to_nested(ti_val_t ** val, ti_parent_t * p, ex_t * e)
 {
-    return ti_val(*val)->to_arr_cb(val, varr, e);
+    return ti_val(*val)->to_nested(val, p, e);
 }
 
 /*
@@ -1577,7 +1590,7 @@ static inline int ti_val_varr_prepare(ti_val_t ** v, ti_varr_t * to, ex_t * e)
 {
     return !ti_val_is_spec((ti_val_t *) *v, ti_varr_spec(to))
             ? ti_varr_nested_spec_err(to, *v, e)
-            : ti_val(*v)->to_arr_cb(v, to, e);
+            : ti_val(*v)->to_nested(v, (ti_parent_t *) to, e);
 }
 
 static inline int ti_val_tlocked(
@@ -1606,14 +1619,18 @@ static inline int ti_val_tlocked(
     return 0;
 }
 
-static inline int val__member_to_arr(ti_val_t ** v, ti_varr_t * varr, ex_t * e)
+static inline int val__member_to_nested(ti_val_t ** v,
+                                        ti_parent_t * p,
+                                        ex_t * e)
 {
     if (ti_val_is_thing(VMEMBER(*v)))
-        varr->flags |= TI_VFLAG_MHT;
+        p->flags |= TI_VFLAG_MHT;
     return e->nr;
 }
 
-static inline int val__as_nil_to_arr(ti_val_t ** v, ti_varr_t * UNUSED(varr), ex_t * UNUSED(e))
+static inline int val__as_nil_to_nested(ti_val_t ** v,
+                                        ti_parent_t * UNUSED(p),
+                                        ex_t * UNUSED(e))
 {
     ti_val_unsafe_drop(*v);
     *v = (ti_val_t *) ti_nil_get();

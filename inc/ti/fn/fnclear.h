@@ -21,7 +21,7 @@ static int do__f_clear_object(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ti_task_t * task = ti_task_get_task(query->change, thing);
         if (!task || ti_task_add_thing_clear(task))
-            ti_panic("task clear");
+            ti_panic("task thing_clear");
     }
 
     ti_val_unlock((ti_val_t *) thing, true  /* lock was set */);
@@ -50,7 +50,7 @@ static int do__f_clear_list(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         ti_task_t * task = ti_task_get_task(query->change, varr->parent);
         if (!task || ti_task_add_arr_clear(task, ti_varr_key(varr)))
-            ti_panic("task clear");
+            ti_panic("task arr_clear");
     }
 
     ti_val_unlock((ti_val_t *) varr, true  /* lock was set */);
@@ -80,7 +80,7 @@ static int do__f_clear_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         /* clear must have a task as this is enforced */
         ti_task_t * task = ti_task_get_task(query->change, vset->parent);
         if (!task || ti_task_add_set_clear(task, ti_vset_key(vset)))
-            ti_panic("task clear");
+            ti_panic("task set_clear");
     }
 
     ti_val_unlock((ti_val_t *) vset, true  /* lock was set */);
@@ -90,6 +90,36 @@ static int do__f_clear_set(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 }
 
 
+static int do__f_clear_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    const int nargs = fn_get_nargs(nd);
+    ti_dict_t * dict;
+    size_t n;
+
+    if (fn_nargs("clear", DOC_DICT_CLEAR, 0, nargs, e) ||
+        ti_query_test_dict_operation(query, e) ||
+        ti_val_try_lock(query->rval, e))
+        return e->nr;
+
+    dict = (ti_dict_t *) query->rval;
+    query->rval = (ti_val_t *) ti_nil_get();
+
+    n = ti_dict_n(dict);
+    ti_dict_clear(dict);
+    if (n && dict->parent && dict->parent->id)
+    {
+        /* clear must have a task as this is enforced */
+        ti_task_t * task = ti_task_get_task(query->change, dict->parent);
+        if (!task || ti_task_add_dict_clear(task, ti_dict_key(dict)))
+            ti_panic("task dict_clear");
+    }
+
+    ti_val_unlock((ti_val_t *) dict, true  /* lock was set */);
+    ti_val_unsafe_drop((ti_val_t *) dict);
+
+    return e->nr;
+}
+
 static inline int do__f_clear(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     return ti_val_is_object(query->rval)
@@ -98,5 +128,7 @@ static inline int do__f_clear(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             ? do__f_clear_list(query, nd, e)
             : ti_val_is_set(query->rval)
             ? do__f_clear_set(query, nd, e)
+            : ti_val_is_dict(query->rval)
+            ? do__f_clear_dict(query, nd, e)
             : fn_call_try("clear", query, nd, e);
 }

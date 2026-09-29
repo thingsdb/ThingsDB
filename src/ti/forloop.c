@@ -5,6 +5,7 @@
  *       props as an iteration does not have its own local stack scope.
  */
 #include <langdef/hasprop.h>
+#include <ti/dict.inline.h>
 #include <ti/do.h>
 #include <ti/forloop.h>
 #include <ti/nil.h>
@@ -442,7 +443,7 @@ int ti_forloop_dict(
     int lock_was_set;
     ti_dict_t * dict = (ti_dict_t *) query->rval;
 
-    if (!dict->n)
+    if (!ti_dict_n(dict))
         return 0;
 
     nargs = ti_do_prepare_for_loop(query, vars_nd);

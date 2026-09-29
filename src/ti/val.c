@@ -226,7 +226,7 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
                 ti_dict_destroy(dict);
                 return NULL;
             }
-            (void) ti_dict_set(dict, key, val, e);
+            (void) ti_dict_set(dict, key, &val, e);
             ti_val_unsafe_drop(key);
             ti_val_unsafe_drop(val);
             if (e->nr)
@@ -1556,7 +1556,7 @@ size_t ti_val_get_len(ti_val_t * val)
     case TI_VAL_SET:
         return VSET(val)->n;
     case TI_VAL_DICT:
-        return ((ti_dict_t *) val)->n;
+        return ti_dict_n((ti_dict_t *) val);
     case TI_VAL_CLOSURE:
         break;
     case TI_VAL_ANO:

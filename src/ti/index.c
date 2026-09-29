@@ -499,8 +499,7 @@ static int index__get_dict(
     ti_val_t * val = ti_dict_get_weak(dict, query->rval);
     if (!val)
     {
-        /* TODO: improve error message */
-        ex_set(e, EX_LOOKUP_ERROR, "key not found");
+        ti_dict_set_key_err(query->rval, e);
         goto fail0;
     }
 
@@ -661,7 +660,7 @@ static int index__set_dict(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     query->rval = NULL;
 
     if (ti_do_statement(query, ass_statem->children->next, e) ||
-        ti_dict_set(dict, key, query->rval, e))
+        ti_dict_set(dict, key, &query->rval, e))
         goto fail1;
 
     if (dict->parent && dict->parent->id)

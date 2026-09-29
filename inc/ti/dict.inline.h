@@ -4,11 +4,10 @@
 #ifndef TI_DICT_INLINE_H_
 #define TI_DICT_INLINE_H_
 
-#include <ti/dict.h>
-#include <ti/val.h>
-#include <ti/val.t.h>
-#include <ti/val.inline.h>
+#include <ti/dict.t.h>
 #include <ti/thing.inline.h>
+#include <ti/val.inline.h>
+#include <ti/val.t.h>
 #include <ex.h>
 
 static inline ti_val_t * ti_dict_get_weak(ti_dict_t * dict, ti_val_t * key)
@@ -117,45 +116,14 @@ static inline int ti_dict_setr(ti_dict_t * dict,
     return -1;
 }
 
-/*
- * Increases the reference counter of `val` on newly written key/pair.
- */
-static inline int ti_dict_set(ti_dict_t * dict,
-                              ti_val_t * key,
-                              ti_val_t * val,
-                              ex_t * e)
+static inline uint16_t ti_dict_key_spec(ti_dict_t * dict)
 {
-    switch((ti_val_enum) key->tp)
-    {
-        case TI_VAL_UUID:
-            if (ti_dict_set_uuid(dict, VUUID(key), val))
-                goto memerr;
-            break;
-        case TI_VAL_INT:
-            if (ti_dict_set_int(dict, VINT(key), val))
-                goto memerr;
-            break;
-        case TI_VAL_NAME:
-        case TI_VAL_STR:
-        {
-            ti_str_t * str = (ti_str_t *) key;
-            if (ti_dict_set_strn(dict, str->str, str->n, val))
-                goto memerr;
-            break;
-        }
-        default:
-            ex_set(e, EX_TYPE_ERROR,
-                "cannot use type `%s` as a dictionary key",
-                ti_val_str(key));
-            return e->nr;
-    }
-    return e->nr;
-memerr:
-    ex_set_mem(e);
-    return e->nr;
+    return ((!dict->parent) || ti_thing_is_object(dict->parent))
+            ? TI_SPEC_ANY
+            : ((ti_field_t *) dict->key_)->condition.key->spec;
 }
 
-static inline uint16_t ti_dict_value_spec(ti_dict_t * dict)
+static inline uint16_t ti_dict_val_spec(ti_dict_t * dict)
 {
     return ((!dict->parent) || ti_thing_is_object(dict->parent))
             ? TI_SPEC_ANY
@@ -176,6 +144,56 @@ static inline int ti_dict_key_to_client_pk(ti_dict_key_t * key,
     }
     assert(0);
     return -1;
+}
+
+static inline size_t ti_dict_n(ti_dict_t * dict)
+{
+    size_t n = 0;
+    if (dict->umap_)
+        n += dict->umap_->n;
+    if (dict->imap_)
+        n += dict->imap_->n;
+    if (dict->smap_)
+        n += dict->smap_->n;
+    return n;
+}
+
+static inline void ti_dict_set_key_err(ti_val_t * key, ex_t * e)
+{
+    switch (key->tp)
+    {
+    case TI_VAL_UUID:
+    {
+        uuid_raw_t raw;
+        ti_uuid_to_raw(VUUID(key), raw);
+        ex_set(e, EX_LOOKUP_ERROR, "key `%.*s` not found",
+            (int) sizeof(uuid_raw_t), raw);
+        break;
+    }
+    case TI_VAL_INT:
+        ex_set(e, EX_LOOKUP_ERROR,
+            "key `%"PRId64"` not found",
+            VINT(key));
+        break;
+    case TI_VAL_STR:
+    case TI_VAL_NAME:
+    {
+        ti_str_t * str = (ti_str_t *) key;
+        if (strx_is_utf8n(str->str, str->n))
+        {
+            ex_set(e, EX_LOOKUP_ERROR,
+                "key `%.*s` not found",
+                (int) str->n, str->str);
+            break;
+        }
+    }
+    /* fall through */
+    default:
+        ex_set(e, EX_LOOKUP_ERROR,
+            "key of type `%s` not found",
+            ti_val_str(key));
+        break;
+    }
 }
 
 #endif  /* TI_DICT_INLINE_H_ */

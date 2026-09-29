@@ -373,6 +373,14 @@ ti_raw_t * ti_spec_raw(uint16_t spec, ti_collection_t * collection)
 ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t * val)
 {
     assert(~spec & TI_SPEC_NILLABLE);
+    if (spec < TI_SPEC_ANY)
+        /*
+        * Just compare the definition with the type since the nillable mask is
+        * removed the definition
+        */
+        return ti_val_is_thing(val) && ((ti_thing_t *) val)->type_id == spec
+            ? 0
+            : TI_SPEC_RVAL_TYPE_ERROR;
 
     switch ((ti_spec_enum_t) spec)
     {
@@ -468,17 +476,8 @@ ti_spec_rval_enum ti__spec_check_nested_val(uint16_t spec, ti_val_t * val)
         return false;
     }
 
-    if (spec >= TI_ENUM_ID_FLAG)
-        return ti_spec_enum_eq_to_val(spec, val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
-
-    assert(spec < TI_SPEC_ANY);
-    /*
-     * Just compare the definition with the type since the nillable mask is
-     * removed the definition
-     */
-    return ti_val_is_thing(val) && ((ti_thing_t *) val)->type_id == spec
-            ? 0
-            : TI_SPEC_RVAL_TYPE_ERROR;
+    assert(spec >= TI_ENUM_ID_FLAG);
+    return ti_spec_enum_eq_to_val(spec, val) ? 0 : TI_SPEC_RVAL_TYPE_ERROR;
 }
 
 _Bool ti__spec_maps_to_nested_val(ti_field_t * field, ti_val_t * val)

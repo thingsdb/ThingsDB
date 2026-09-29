@@ -9,6 +9,7 @@
 #include <ti/closure.h>
 #include <ti/condition.h>
 #include <ti/data.h>
+#include <ti/dict.inline.h>
 #include <ti/enum.h>
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
@@ -79,6 +80,15 @@ decref:
     }
     --type->refcount;
     return;
+}
+
+static inline _Bool field__maps_dict_keys(ti_field_t * t_field,
+                                          ti_field_t * f_field)
+{
+    return (
+        t_field->condition.key->spec == TI_SPEC_ANY ||
+        f_field->condition.key->spec == t_field->condition.key->spec
+    );
 }
 
 /* Used for detecting circular references between types */
@@ -572,8 +582,8 @@ done_flags:
             goto invalid;
         field->spec |= TI_SPEC_DICT;
         field__set_cb(field, field__dval_dict);
-        str += 5;
-        n -= 5;
+        str += 4;
+        n -= 4;
         int klen = ti_condition_field_key_init(field, str, n, e);
         if (klen < 0)
             return e->nr;  /* error message is ensured */
@@ -589,7 +599,6 @@ done_flags:
         str += 5;
         n -= 5;
     }
-
     else
     {
         field->nested_spec = TI_SPEC_ANY;  /* must default to any */
@@ -716,6 +725,17 @@ skip_nesting:
                         ex_set(e, EX_TYPE_ERROR,
                             "invalid declaration for `%s` on type `%s`; "
                             "type `"TI_VAL_SET_S"` cannot contain "
+                            "enum type `%s`"DOC_T_TYPE,
+                            field->name->str, field->type->name,
+                            enum_->name);
+                        return e->nr;
+                    }
+
+                    if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_DICT)
+                    {
+                        ex_set(e, EX_TYPE_ERROR,
+                            "invalid declaration for `%s` on type `%s`; "
+                            "type `"TI_VAL_DICT_S"` cannot contain "
                             "enum type `%s`"DOC_T_TYPE,
                             field->name->str, field->type->name,
                             enum_->name);
@@ -912,6 +932,11 @@ skip_nesting:
     }
 
 found:
+    if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_DICT &&
+        !field->condition.key &&
+        ti_condition_field_key(field, TI_SPEC_ANY, e))
+        return e->nr;
+
     if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET)
     {
         if (field->nested_spec & TI_SPEC_NILLABLE)
@@ -1729,7 +1754,7 @@ static int field__dict_assign(
         ex_t * e)
 {
     /* field can be either an `any` or `dict` field */
-    if (field->condition.none == NULL || (*dictaddr)->n == 0)
+    if (field->condition.none == NULL || !ti_dict_bool(*dictaddr))
         goto done;
 
     field__pair_t w = {
@@ -1873,6 +1898,42 @@ static int field__thing_assign(
     }
     assert(0);
     return 0;
+}
+
+static int field__maps_dict(ti_dict_key_t * key, ti_val_t * val, ti_field_t * field)
+{
+    switch (field->condition.key->spec)
+    {
+        case TI_SPEC_ANY:
+            break;
+        case TI_SPEC_UUID:
+            if (key->tp != TI_DICT_KEY_UUID)
+                return -1;
+            break;
+        case TI_SPEC_INT:
+            if (key->tp != TI_DICT_KEY_INT)
+                return -1;
+            break;
+        case TI_SPEC_STR:
+            if (key->tp != TI_DICT_KEY_STR)
+                return -1;
+            break;
+    }
+    return !ti_spec_maps_to_nested_val(field, val);
+}
+
+static _Bool field__maps_dict_to_dict(ti_field_t * field, ti_dict_t * dict)
+{
+    if (ti_dict_n(dict) == 0 || ((
+            field->condition.key->spec == TI_SPEC_ANY ||
+            field->condition.key->spec == ti_dict_key_spec(dict)
+        ) && (
+            field->nested_spec == TI_SPEC_ANY ||
+            field->nested_spec == ti_dict_val_spec(dict)
+        )))
+        return true;
+
+    return !ti_dict_pairs(dict, (ti_dict_pair_cb) field__maps_dict, field);
 }
 
 static _Bool field__maps_arr_to_arr(ti_field_t * field, ti_varr_t * varr)
@@ -2487,7 +2548,10 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
     case TI_SPEC_SET:
         return ti_val_is_set(val);
     case TI_SPEC_DICT:
-        return ti_val_is_dict(val);
+        return (
+            ti_val_is_dict(val) &&
+            field__maps_dict_to_dict(field, (ti_dict_t *) val)
+        );
     case TI_SPEC_REMATCH:
         return (ti_val_is_str(val) &&
                 ti_regex_test(field->condition.re->regex, (ti_raw_t *) val));
@@ -2757,7 +2821,11 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_SET:
         return f_spec == TI_SPEC_SET;
     case TI_SPEC_DICT:
-        return f_spec == TI_SPEC_DICT;
+        return (
+            f_spec == TI_SPEC_DICT &&
+            field__maps_dict_keys(t_field, f_field) &&
+            field__maps_to_nested(t_field, f_field)
+        );
     case TI_SPEC_REMATCH:
         return f_spec == TI_SPEC_REMATCH && ti_regex_eq(
                         t_field->condition.re->regex,

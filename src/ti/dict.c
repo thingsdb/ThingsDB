@@ -8,6 +8,7 @@
 #include <ti/dict.inline.h>
 #include <ti/dict.t.h>
 #include <ti/raw.inline.h>
+#include <ti/spec.inline.h>
 #include <ti/val.h>
 #include <ti/val.inline.h>
 #include <tiinc.h>
@@ -25,7 +26,6 @@ ti_dict_t * ti_dict_create(void)
     dict->ref = 1;
     dict->tp = TI_VAL_DICT;
     dict->flags = 0;
-    dict->n = 0;
 
     dict->imap_ = NULL;
     dict->smap_ = NULL;
@@ -44,6 +44,15 @@ void ti_dict_destroy(ti_dict_t * dict)
     free(dict);
 }
 
+void ti_dict_clear(ti_dict_t * dict)
+{
+    imap_destroy(dict->imap_, (imap_destroy_cb) ti_val_unsafe_gc_drop);
+    smap_destroy(dict->smap_, (smap_destroy_cb) ti_val_unsafe_gc_drop);
+    umap_destroy(dict->umap_, (umap_destroy_cb) ti_val_unsafe_gc_drop);
+    dict->imap_ = NULL;
+    dict->smap_ = NULL;
+    dict->umap_ = NULL;
+}
 
 typedef struct
 {
@@ -135,46 +144,43 @@ static int dict__smap_pair(
 int ti_dict_items(ti_dict_t * dict, ti_dict_item_cb cb, void * arg)
 {
     int rc = 0;
-    if (dict->n)
+    dict__item_t w = {
+        .arg = arg,
+        .cb = cb,
+    };
+
+    if (dict->umap_ &&
+        dict->umap_->n &&
+        (rc = umap_items(dict->umap_, (umap_item_cb) dict__umap_item, &w)))
+        return rc;
+
+    if (dict->imap_ &&
+        dict->imap_->n &&
+        (rc = imap_items(dict->imap_, (imap_item_cb) dict__imap_item, &w)))
+        return rc;
+
+    if (dict->smap_ && dict->smap_->n)
     {
-        dict__item_t w = {
-            .arg = arg,
-            .cb = cb,
-        };
+        char stack_buf[DICT__MAX_STACK_SIZE];
+        char * buf = stack_buf;
+        size_t max_key_size = smap_longest_key_size(dict->smap_);
 
-        if (dict->umap_ &&
-            dict->umap_->n &&
-            (rc = umap_items(dict->umap_, (umap_item_cb) dict__umap_item, &w)))
-            return rc;
-
-        if (dict->imap_ &&
-            dict->imap_->n &&
-            (rc = imap_items(dict->imap_, (imap_item_cb) dict__imap_item, &w)))
-            return rc;
-
-        if (dict->smap_ && dict->smap_->n)
+        if (max_key_size > DICT__MAX_STACK_SIZE)
         {
-            char stack_buf[DICT__MAX_STACK_SIZE];
-            char * buf = stack_buf;
-            size_t max_key_size = smap_longest_key_size(dict->smap_);
-
-            if (max_key_size > DICT__MAX_STACK_SIZE)
-            {
-                buf = (char *) malloc(max_key_size);
-                if (!buf)
-                    return -1;
-            }
-
-            rc = smap_items(dict->smap_,
-                            buf,
-                            (smap_item_cb) dict__smap_item,
-                            &w);
-
-            if (buf != stack_buf)
-                free(buf);
-
-            return rc;
+            buf = (char *) malloc(max_key_size);
+            if (!buf)
+                return -1;
         }
+
+        rc = smap_items(dict->smap_,
+                        buf,
+                        (smap_item_cb) dict__smap_item,
+                        &w);
+
+        if (buf != stack_buf)
+            free(buf);
+
+        return rc;
     }
     return rc;
 }
@@ -193,46 +199,41 @@ int ti_dict_items(ti_dict_t * dict, ti_dict_item_cb cb, void * arg)
 int ti_dict_pairs(ti_dict_t * dict, ti_dict_pair_cb cb, void * arg)
 {
     int rc = 0;
-    if (dict->n)
+    dict__pair_t w = {
+        .arg = arg,
+        .cb = cb,
+    };
+
+    if (dict->umap_ &&
+        dict->umap_->n &&
+        (rc = umap_items(dict->umap_, (umap_item_cb) dict__umap_pair, &w)))
+        return rc;
+
+    if (dict->imap_ &&
+        dict->imap_->n &&
+        (rc = imap_items(dict->imap_, (imap_item_cb) dict__imap_pair, &w)))
+        return rc;
+
+    if (dict->smap_ && dict->smap_->n)
     {
-        dict__pair_t w = {
-            .arg = arg,
-            .cb = cb,
-        };
+        char stack_buf[DICT__MAX_STACK_SIZE];
+        char * buf = stack_buf;
+        size_t max_key_size = smap_longest_key_size(dict->smap_);
 
-        if (dict->umap_ &&
-            dict->umap_->n &&
-            (rc = umap_items(dict->umap_, (umap_item_cb) dict__umap_pair, &w)))
-            return rc;
-
-        if (dict->imap_ &&
-            dict->imap_->n &&
-            (rc = imap_items(dict->imap_, (imap_item_cb) dict__imap_pair, &w)))
-            return rc;
-
-        if (dict->smap_ && dict->smap_->n)
+        if (max_key_size > DICT__MAX_STACK_SIZE)
         {
-            char stack_buf[DICT__MAX_STACK_SIZE];
-            char * buf = stack_buf;
-            size_t max_key_size = smap_longest_key_size(dict->smap_);
-
-            if (max_key_size > DICT__MAX_STACK_SIZE)
-            {
-                buf = (char *) malloc(max_key_size);
-                if (!buf)
-                    return -1;
-            }
-
-            rc = smap_items(dict->smap_,
-                            buf,
-                            (smap_item_cb) dict__smap_pair,
-                            &w);
-
-            if (buf != stack_buf)
-                free(buf);
-
-            return rc;
+            buf = (char *) malloc(max_key_size);
+            if (!buf)
+                return -1;
         }
+
+        rc = smap_items(dict->smap_,
+                        buf,
+                        (smap_item_cb) dict__smap_pair,
+                        &w);
+
+        if (buf != stack_buf)
+            free(buf);
     }
     return rc;
 }
@@ -246,24 +247,23 @@ int ti_dict_pairs(ti_dict_t * dict, ti_dict_pair_cb cb, void * arg)
  */
 int ti_dict_walk(ti_dict_t * dict, ti_dict_cb cb, void * arg)
 {
+    LOGC("Values only...");
     int rc = 0;
-    if (dict->n)
-    {
-        if (dict->umap_ &&
-            dict->umap_->n &&
-            (rc = umap_walk(dict->umap_, (umap_cb) cb, arg)))
-            return rc;
+    if (dict->umap_ &&
+        dict->umap_->n &&
+        (rc = umap_walk(dict->umap_, (umap_cb) cb, arg)))
+        return rc;
 
-        if (dict->imap_ &&
-            dict->imap_->n &&
-            (rc = imap_walk(dict->imap_, (imap_cb) cb, arg)))
-            return rc;
+    if (dict->imap_ &&
+        dict->imap_->n &&
+        (rc = imap_walk(dict->imap_, (imap_cb) cb, arg)))
+        return rc;
 
-        if (dict->smap_ &&
-            dict->smap_->n &&
-            (rc = smap_values(dict->smap_, (smap_val_cb) cb, arg)))
-            return rc;
-    }
+    if (dict->smap_ &&
+        dict->smap_->n &&
+        (rc = smap_values(dict->smap_, (smap_val_cb) cb, arg)))
+        return rc;
+
     return rc;
 }
 
@@ -315,7 +315,7 @@ int ti_dict_to_client_pk(ti_dict_t * dict, ti_vp_t * vp, int deep, int flags)
         .flags = flags,
     };
     return -(
-        msgpack_pack_array(&vp->pk, dict->n) ||
+        msgpack_pack_array(&vp->pk, ti_dict_n(dict)) ||
         ti_dict_pairs(dict, (ti_dict_pair_cb) dict__pair_client_pk_cb, &w)
     );
 }
@@ -325,7 +325,7 @@ int ti_dict_to_store_pk(ti_dict_t * dict, msgpack_packer * pk)
     return -(
         msgpack_pack_map(pk, 1) ||
         mp_pack_strn(pk, TI_KIND_S_DICT, 1) ||
-        msgpack_pack_map(pk, dict->n) ||
+        msgpack_pack_map(pk, ti_dict_n(dict)) ||
         ti_dict_pairs(dict, (ti_dict_pair_cb) dict__pair_store_pk_cb, pk)
     );
 }
@@ -360,7 +360,7 @@ failed:
 
 static vec_t * dict__as_vec(ti_dict_t * dict)
 {
-    vec_t * vec = vec_new(dict->n);
+    vec_t * vec = vec_new(ti_dict_n(dict));
     if (vec && ti_dict_items(dict, (ti_dict_item_cb) dict__as_vec_cb, vec))
     {
         vec_destroy(vec, (vec_destroy_cb) ti_val_unsafe_drop);
@@ -441,6 +441,25 @@ ti_dict_t * ti_dict_cp(ti_dict_t * dict)
     return ti_dict_pairs(dict, (ti_dict_pair_cb) dict__assign_cb, ndict)
             ? NULL  /* ndict is destroyed if walk has failed */
             : ndict;
+}
+
+ti_val_t * ti_dict_del(ti_dict_t * dict, ti_val_t * key)
+{
+    switch(key->tp)
+    {
+        case TI_VAL_UUID:
+            return dict->umap_ ? umap_pop(dict->umap_, VUUID(key)) : NULL;
+        case TI_VAL_INT:
+            return dict->imap_ ? imap_pop(dict->imap_, VINT(key)) : NULL;
+        case TI_VAL_STR:
+        case TI_VAL_NAME:
+            return dict->smap_
+                ? smap_popn(dict->smap_,
+                            ((ti_str_t *) key)->str,
+                            ((ti_str_t *) key)->n)
+                : NULL;
+    }
+    return NULL;
 }
 
 int ti_dict_assign(ti_dict_t ** dictaddr)
@@ -554,4 +573,127 @@ int ti_dict_dup(ti_dict_t ** dictaddr, uint8_t deep)
     *dictaddr = ndict;
 
     return 0;
+}
+
+/*
+ * Increases the reference counter of `val` on newly written key/pair.
+ * New value is created for type list, set and dict as they cannot be nested.
+ */
+int ti_dict_set(ti_dict_t * dict, ti_val_t * key, ti_val_t ** val, ex_t * e)
+{
+    switch (ti_dict_key_spec(dict))
+    {
+        case TI_SPEC_ANY:
+            break;
+        case TI_SPEC_UUID:
+            if (!ti_val_is_uuid(key))
+            {
+                ex_set(e, EX_TYPE_ERROR,
+                    "dict key must be of type `"TI_VAL_UUID_S"`, "
+                    "got `%s`",
+                    ti_val_str(key));
+                return e->nr;
+            }
+            break;
+        case TI_SPEC_INT:
+            if (!ti_val_is_int(key))
+            {
+                ex_set(e, EX_TYPE_ERROR,
+                    "dict key must be of type `"TI_VAL_INT_S"`, "
+                    "got `%s`",
+                    ti_val_str(key));
+                return e->nr;
+            }
+            break;
+        case TI_SPEC_STR:
+            if (!ti_val_is_str(key))
+            {
+                ex_set(e, EX_TYPE_ERROR,
+                    "dict key must be of type `"TI_VAL_STR_S"`, "
+                    "got `%s`",
+                    ti_val_str(key));
+                return e->nr;
+            }
+            break;
+    }
+
+    switch (ti_spec_check_nested_val(ti_dict_val_spec(dict), *val))
+    {
+        case TI_SPEC_RVAL_SUCCESS:
+            break;
+        case TI_SPEC_RVAL_TYPE_ERROR:
+            {
+                /* TYPE_ERROR can only occur when this is an instance */
+                assert(dict->parent);
+                assert(ti_thing_is_instance(dict->parent));
+                assert(dict->key_);
+                ti_field_t * field = (ti_field_t *) dict->key_;
+                ex_set(e, EX_TYPE_ERROR,
+                    "dict requires values to match definition `%.*s`, "
+                    "got type `%s`",
+                    field->spec_raw->n, (const char *) field->spec_raw->data,
+                    ti_val_str(*val));
+            }
+            return e->nr;
+        case TI_SPEC_RVAL_UTF8_ERROR:
+            ex_set(e, EX_VALUE_ERROR,
+                "dict requires values to be valid UTF8 strings");
+            return e->nr;
+        case TI_SPEC_RVAL_UINT_ERROR:
+            ex_set(e, EX_VALUE_ERROR,
+                "dict requires values to be integers greater than or equal to 0");
+            return e->nr;
+        case TI_SPEC_RVAL_PINT_ERROR:
+            ex_set(e, EX_VALUE_ERROR,
+                "dict requires values to be positive integers");
+            return e->nr;
+        case TI_SPEC_RVAL_NINT_ERROR:
+            ex_set(e, EX_VALUE_ERROR,
+                "dict requires values to be negative integers");
+            return e->nr;
+        case TI_SPEC_RVAL_EMAIL_ERROR:
+            ex_set(e, EX_VALUE_ERROR,
+                "dict requires values to be email addresses");
+            return e->nr;
+        case TI_SPEC_RVAL_URL_ERROR:
+            ex_set(e, EX_VALUE_ERROR,
+                "dict requires values to be URL's");
+            return e->nr;
+        case TI_SPEC_RVAL_TEL_ERROR:
+            ex_set(e, EX_VALUE_ERROR,
+                "dict requires values to be telephone numbers");
+            return e->nr;
+    }
+
+    if (ti_val(*val)->to_nested(val, (ti_parent_t *) dict, e))
+        return e->nr;
+
+    switch((ti_val_enum) key->tp)
+    {
+        case TI_VAL_UUID:
+            if (ti_dict_set_uuid(dict, VUUID(key), *val))
+                goto memerr;
+            break;
+        case TI_VAL_INT:
+            if (ti_dict_set_int(dict, VINT(key), *val))
+                goto memerr;
+            break;
+        case TI_VAL_NAME:
+        case TI_VAL_STR:
+        {
+            ti_str_t * str = (ti_str_t *) key;
+            if (ti_dict_set_strn(dict, str->str, str->n, *val))
+                goto memerr;
+            break;
+        }
+        default:
+            ex_set(e, EX_TYPE_ERROR,
+                "cannot use type `%s` as a dictionary key",
+                ti_val_str(key));
+            return e->nr;
+    }
+    return e->nr;
+memerr:
+    ex_set_mem(e);
+    return e->nr;
 }

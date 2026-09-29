@@ -121,7 +121,7 @@ static int do__f_set_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     query->rval = NULL;
 
     if (ti_do_statement(query, nd->children->next->next, e) ||
-        ti_dict_set(dict, key, query->rval, e))
+        ti_dict_set(dict, key, &query->rval, e))
         goto fail1;
 
     if (dict->parent && dict->parent->id)

@@ -15,7 +15,6 @@ ti_uuid_t * ti_uuid_new(void);
 ti_uuid_t * ti_uuid_from_bytes(const void * bytes);
 ti_uuid_t * ti_uuid_from_str(const char * str, size_t n, ex_t * e);
 void ti_uuid_to_raw(uuid_t uuid, char * raw);
-void ti_uuid_to_str(uuid_t uuid, char * str);
 ti_raw_t * ti_uuid_str(ti_uuid_t * uuid);
 
 static inline int ti_uuid_to_store_pk_v(ti_uuid_t * uuid, msgpack_packer * pk)

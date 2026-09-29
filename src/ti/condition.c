@@ -695,13 +695,30 @@ static void condition__add_set_cb(
     }
 }
 
+int ti_condition_field_key(ti_field_t * field, uint16_t spec, ex_t * e)
+{
+    if (field->condition.key)
+        return e->nr;
+
+    field->condition.key = malloc(sizeof(ti_condition_key_t));
+    if (!field->condition.key)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+    field->condition.key->spec = spec;
+    return e->nr;
+}
+
 int ti_condition_field_key_init(
         ti_field_t * field,
         const char * str,
         size_t n,
         ex_t * e)
 {
-    assert(*str == '<' && n >= 2 && str[n-1] == '>');
+    assert(*str == '<');
+    assert(n >= 2);
+    assert(str[n-1] == '>');
     uint16_t spec;
     str++;
     n--;
@@ -734,13 +751,9 @@ int ti_condition_field_key_init(
     else
         goto invalid_key_spec;
 
-    field->condition.key = malloc(sizeof(ti_condition_key_t));
-    if (!field->condition.key)
-    {
-        ex_set_mem(e);
+    if (ti_condition_field_key(field, spec, e))
         return e->nr;
-    }
-    field->condition.key->spec = spec;
+
     return pos+1;
 
 invalid_key_spec:

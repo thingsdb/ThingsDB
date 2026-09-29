@@ -3299,8 +3299,8 @@ static int ctask__dict_set(ti_thing_t * thing, mp_unp_t * up)
         mp_next(up, &obj) != MP_MAP ||  obj.via.sz != 1)
     {
         log_critical(
-                "task `splice` on "TI_THING_ID": "
-                "missing map, property, index, delete_count or new_count",
+                "task `dict_set` on "TI_THING_ID": "
+                "missing map, property or key/value map",
                 thing->id);
         return -1;
     }
@@ -3343,7 +3343,7 @@ static int ctask__dict_set(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
-    (void) ti_dict_set(dict, key, val, &e);
+    (void) ti_dict_set(dict, key, &val, &e);
     ti_val_unsafe_drop(key);
     ti_val_unsafe_drop(val);
 
@@ -3354,6 +3354,115 @@ static int ctask__dict_set(ti_thing_t * thing, mp_unp_t * up)
                     e.msg);
         return -1;
     }
+    return 0;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: {'prop': 'key'}
+ */
+static int ctask__dict_del(ti_thing_t * thing, mp_unp_t * up)
+{
+    ti_dict_t * dict;
+    ti_vup_t vup = {
+            .isclient = false,
+            .collection = thing->collection,
+            .up = up,
+    };
+    mp_obj_t obj, mp_prop;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 1 ||
+        mp_next(up, &mp_prop) != MP_STR)
+    {
+        log_critical(
+                "task `dict_del` on "TI_THING_ID": "
+                "missing map, property or key",
+                thing->id);
+        return -1;
+    }
+
+    dict = (ti_dict_t *) ti_thing_val_by_strn(
+            thing,
+            mp_prop.via.str.data,
+            mp_prop.via.str.n);
+
+    if (!dict)
+    {
+        log_critical(
+                "task `dict_del` on "TI_THING_ID": "
+                "missing property",
+                thing->id);
+        return -1;
+    }
+
+    if (!ti_val_is_dict((ti_val_t *) dict))
+    {
+        log_critical(
+                "task `dict_del` on "TI_THING_ID": "
+                "expecting a `"TI_VAL_DICT_S"`, got `%s`",
+                thing->id,
+                ti_val_str((ti_val_t *) dict));
+        return -1;
+    }
+
+    ti_val_t * key = ti_val_from_vup(&vup);
+    if (!key)
+    {
+        log_critical(
+                "task `dict_del` on "TI_THING_ID": "
+                "error reading key for property",
+                thing->id);
+        return -1;
+    }
+
+    ti_val_gc_drop(ti_dict_del(dict, key));
+    ti_val_unsafe_drop(key);
+    return 0;
+}
+
+/*
+ * Returns 0 on success
+ * - for example: 'prop'
+ */
+static int ctask__dict_clear(ti_thing_t * thing, mp_unp_t * up)
+{
+    ti_dict_t * dict;
+    mp_obj_t mp_prop;
+
+    if (mp_next(up, &mp_prop) != MP_STR)
+    {
+        log_critical(
+                "task `dict_clear` on "TI_THING_ID": "
+                "missing property",
+                thing->id);
+        return -1;
+    }
+
+    dict = (ti_dict_t *) ti_thing_val_by_strn(
+            thing,
+            mp_prop.via.str.data,
+            mp_prop.via.str.n);
+
+    if (!dict)
+    {
+        log_critical(
+                "task `dict_clear` on "TI_THING_ID": "
+                "missing property",
+                thing->id);
+        return -1;
+    }
+
+    if (!ti_val_is_dict((ti_val_t *) dict))
+    {
+        log_critical(
+                "task `dict_clear` on "TI_THING_ID": "
+                "expecting a `"TI_VAL_DICT_S"`, got `%s`",
+                thing->id,
+                ti_val_str((ti_val_t *) dict));
+        return -1;
+    }
+
+    ti_dict_clear(dict);
     return 0;
 }
 
@@ -3562,6 +3671,8 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_COMMIT:            return ctask__commit(thing, up);
     case TI_TASK_MOD_TYPE_IDX:      return ctask__mod_type_idx(thing, up);
     case TI_TASK_DICT_SET:          return ctask__dict_set(thing, up);
+    case TI_TASK_DICT_DEL:          return ctask__dict_del(thing, up);
+    case TI_TASK_DICT_CLEAR:        return ctask__dict_clear(thing, up);
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);

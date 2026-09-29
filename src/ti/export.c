@@ -1,3 +1,4 @@
+#include <ti/dict.inline.h>
 #include <ti/enum.t.h>
 #include <ti/enums.t.h>
 #include <ti/export.h>
@@ -10,11 +11,11 @@
 #include <ti/raw.inline.h>
 #include <ti/type.t.h>
 #include <ti/types.t.h>
+#include <ti/uuid.h>
 #include <ti/val.inline.h>
 #include <ti/val.t.h>
 #include <ti/vfloat.h>
 #include <ti/vint.h>
-#include <ti/uuid.h>
 #include <util/smap.h>
 #include <util/vec.h>
 #include <util/logger.h>
@@ -490,7 +491,7 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
     case TI_VAL_DICT:
     {
         ti_dict_t * dict = (ti_dict_t *) val;
-        if (!dict->n)
+        if (!ti_dict_n(dict))
             return buf_append_str(buf, "dict()");
         if (buf_append_str(buf, "dict([\n"))
             return -1;

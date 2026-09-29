@@ -112,7 +112,7 @@ ti_varr_t * ti_varr_from_vec_unsafe(vec_t * vec)
 }
 
 /*
- * Should only be used when it is `ti_val_to_arr()` should succeed in normal
+ * Should only be used when it is `ti_val_to_nested()` should succeed in normal
  * conditions.
  */
 ti_varr_t * ti_varr_from_vec(vec_t * vec)
@@ -129,7 +129,7 @@ ti_varr_t * ti_varr_from_vec(vec_t * vec)
     varr->parent = NULL;
     for (vec_each_addr(vec, ti_val_t, v))
     {
-        if (ti_val_to_arr(v, varr, &e))
+        if (ti_val_to_nested(v, (ti_parent_t *) varr, &e))
         {
             log_critical("%s", e.msg);
             free(varr);

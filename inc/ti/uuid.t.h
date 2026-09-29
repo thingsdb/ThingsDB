@@ -6,7 +6,6 @@
 
 typedef uint8_t uuid_t[16];
 typedef char uuid_raw_t[36];
-typedef char uuid_str_t[37];
 typedef struct ti_uuid_s  ti_uuid_t;
 
 #include <ti/type.t.h>

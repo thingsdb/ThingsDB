@@ -29,7 +29,6 @@ struct ti_dict_s
                                reference */
     imap_t * imap_;
     smap_t * smap_;
-    size_t n;
 };
 
 #endif  /* TI_DICT_T_H_ */

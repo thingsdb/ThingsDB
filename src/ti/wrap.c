@@ -193,9 +193,9 @@ static int wrap__dict(
         int deep,
         int flags)
 {
-    if (dict->n > 1 &&
+    if (ti_dict_n(dict) > 1 &&
         t_field->nested_spec < TI_SPEC_ANY &&
-        ti_dict_value_spec(dict) < TI_SPEC_ANY &&
+        ti_dict_val_spec(dict) < TI_SPEC_ANY &&
         vp->query &&
         vp->query->collection)
     {
@@ -215,7 +215,7 @@ static int wrap__dict(
             };
             LOGC("Test optimize dict...");
             return (
-                msgpack_pack_array(&vp->pk, dict->n) ||
+                msgpack_pack_array(&vp->pk, ti_dict_n(dict)) ||
                 ti_dict_pairs(dict,
                               (ti_dict_pair_cb) wrap__pair_with_type,
                               &wwt)
@@ -231,7 +231,7 @@ static int wrap__dict(
             .flags = flags,
     };
     return (
-            msgpack_pack_array(&vp->pk, dict->n) ||
+            msgpack_pack_array(&vp->pk, ti_dict_n(dict)) ||
             ti_dict_pairs(dict, (ti_dict_pair_cb) wrap__pair, &w)
     );
 }

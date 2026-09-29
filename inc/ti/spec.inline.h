@@ -32,6 +32,7 @@ static inline ti_spec_rval_enum ti_spec_check_nested_val(
         uint16_t spec,
         ti_val_t * val)
 {
+    
     return spec == TI_SPEC_ANY || ((spec & TI_SPEC_NILLABLE) && ti_val_is_nil(val))
             ? TI_SPEC_RVAL_SUCCESS
             : ti__spec_check_nested_val(spec & TI_SPEC_MASK_NILLABLE, val);

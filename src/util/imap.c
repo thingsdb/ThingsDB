@@ -273,12 +273,9 @@ static void * imap__set(imap_node_t * node, uint64_t id, void * data, int * new)
         nd->data = data;
     }
     else
-    {
         ret = imap__set(nd, id - 1, data, new);
-    }
 
-    node->sz += (ret == data);
-
+    node->sz += (ret == data && *new);
     return ret;
 }
 
@@ -292,7 +289,6 @@ static void * imap__set(imap_node_t * node, uint64_t id, void * data, int * new)
 void * imap_set(imap_t * imap, uint64_t id, void * data, int * new)
 {
     assert(data != NULL);
-    assert(!*new);
     void * ret;
     imap_node_t * nd = imap->nodes + (id & IMAP_MASK);
     id >>= IMAP_SHIFT;
@@ -300,12 +296,11 @@ void * imap_set(imap_t * imap, uint64_t id, void * data, int * new)
     if (!id)
     {
         ret = nd->data ? nd->data : data;
+        *new = nd->data != data;
         nd->data = data;
     }
     else
-    {
         ret = imap__set(nd, id - 1, data, new);
-    }
 
     imap->n += (ret == data && *new);
     return ret;

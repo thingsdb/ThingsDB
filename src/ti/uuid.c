@@ -151,13 +151,6 @@ void ti_uuid_to_raw(uuid_t uuid, char * raw)
     }
 }
 
-/* requires `str` to have at least length 37 (uuid_str_t) */
-void ti_uuid_to_str(uuid_t uuid, char * str)
-{
-    ti_uuid_to_raw(uuid, str);
-    str[36] = '\0';
-}
-
 ti_raw_t * ti_uuid_str(ti_uuid_t * uuid)
 {
     ti_raw_t * raw = malloc(sizeof(ti_raw_t) + sizeof(uuid_raw_t));

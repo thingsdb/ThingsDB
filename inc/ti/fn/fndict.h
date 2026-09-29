@@ -32,7 +32,10 @@ static int do__f_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             }
             ti_val_t * key = VEC_get(VARR(tuple), 0);
             ti_val_t * val = VEC_get(VARR(tuple), 1);
-            if (ti_dict_set(dict, key, val, e))
+            /*
+             * It is safe here as val will not change (already inherited)
+             */
+            if (ti_dict_set(dict, key, &val, e))
                 goto fail0;
         }
     }

@@ -141,7 +141,7 @@ class TestType(TestBase):
         with self.assertRaisesRegex(
                 ValueError,
                 'name `closure` is reserved'):
-            await client0.query(r''' new_type('closure', {}); ''')
+            await client0.query(r''' new_type('closure'); ''')
 
         await client0.query(r'''
             set_type('User', {

@@ -7,6 +7,19 @@
   - `is_uuid()`: https://docs.thingsdb.io/v1/collection-api/is/is_uuid/
 * Replaced `gsutil` with `gcloud storage` command, pr #458.
 * Return with correct error on `datetime` and `str` compare, bug #459.
+* Added native `dict` type, pr #460.
+  - `dict()`: https://docs.thingsdb.io/v1/collection-api/dict/
+  - `is_dict()`: https://docs.thingsdb.io/v1/collection-api/is/is_dict/
+  - `dict.clear()`: https://docs.thingsdb.io/v1/data-types/dict/clear/
+  - `dict.copy()`: https://docs.thingsdb.io/v1/data-types/dict/copy/
+  - `dict.del()`: https://docs.thingsdb.io/v1/data-types/dict/del/
+  - `dict.dup()`: https://docs.thingsdb.io/v1/data-types/dict/dup/
+  - `dict.each()`: https://docs.thingsdb.io/v1/data-types/dict/each/
+  - `dict.get()`: https://docs.thingsdb.io/v1/data-types/dict/get/
+  - `dict.has()`: https://docs.thingsdb.io/v1/data-types/dict/has/
+  - `dict.len()`: https://docs.thingsdb.io/v1/data-types/dict/len/
+  - `dict.restriction()`: https://docs.thingsdb.io/v1/data-types/dict/restriction/
+  - `dict.set()`: https://docs.thingsdb.io/v1/data-types/dict/set/
 
 # v1.9.2
 

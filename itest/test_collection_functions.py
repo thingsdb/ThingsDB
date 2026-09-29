@@ -5469,7 +5469,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'mismatch in type `B`; property `aa` requires an array '
-                r'with items that matches definition `\[A\]`'):
+                r'with items that match definition `\[A\]`'):
             await client.query('.to_type("B");')
 
         with self.assertRaisesRegex(

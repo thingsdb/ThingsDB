@@ -1074,7 +1074,7 @@ class TestEnum(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'mismatch in type `L`; property `e` requires an array '
-                r'with items that matches definition `\[Color\]`'):
+                r'with items that match definition `\[Color\]`'):
             await q("""//ti
                 L{e: [0]};
             """)
@@ -1092,7 +1092,7 @@ class TestEnum(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'mismatch in type `N`; property `t` requires a thing '
-                r'with values that matches definition `thing\<Color\>`'):
+                r'with values that match definition `thing\<Color\>`'):
             await q("""//ti
                 N{t: {a: 0}};
             """)

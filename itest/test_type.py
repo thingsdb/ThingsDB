@@ -924,7 +924,7 @@ class TestType(TestBase):
                 TypeError,
                 r'mismatch in type `Tic`; '
                 r'property `tac` requires an array with items that '
-                r'matches definition `\[Tac\]`'):
+                r'match definition `\[Tac\]`'):
             await client.query(r'''
                 tic = Tic{
                     tac: [{

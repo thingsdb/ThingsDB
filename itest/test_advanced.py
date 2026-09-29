@@ -1999,6 +1999,7 @@ new_procedure('multiply', |a, b| a * b);
 
     async def test_ren_type_typed(self, client):
         # bug #292 (rename with a restricted type)
+        # pr #460 (added dict type)
         await client.query(r"""//ti
             new_type('A');
             new_type('B');
@@ -2008,6 +2009,10 @@ new_procedure('multiply', |a, b| a * b);
             set_type('A', {
                 a: 'A?',
                 b: 'B',
+                da: '&^dict<uuid:A>',
+                db: 'dict<any:B>?',
+                dc: 'dict<str:C?>',
+                dd: 'dict<int:D?>?',
                 ta: 'thing<A>',
                 tb: 'thing<B>?',
                 tc: 'thing<C?>',
@@ -2041,6 +2046,22 @@ new_procedure('multiply', |a, b| a * b);
                 [
                     "b",
                     "BB"
+                ],
+                [
+                    "da",
+                    "&^dict<uuid:AA>"
+                ],
+                [
+                    "db",
+                    "dict<any:BB>?"
+                ],
+                [
+                    "dc",
+                    "dict<str:CC?>"
+                ],
+                [
+                    "dd",
+                    "dict<int:DD?>?"
                 ],
                 [
                     "ta",

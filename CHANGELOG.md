@@ -1,8 +1,10 @@
-# v1.9.3-alpha4
+# v1.10.0-alpha0
 
 * Fixed sanatize runtime checking, pr #455.
 * Replaced `ti_sleep(..)` with `sched_yield()` with a few exceptions, pr #456.
 * Added native `uuid` type, pr #457.
+  - `uuid()`: https://docs.thingsdb.io/v1/collection-api/uuid/
+  - `is_uuid()`: https://docs.thingsdb.io/v1/collection-api/is/is_uuid/
 * Replaced `gsutil` with `gcloud storage` command, pr #458.
 * Return with correct error on `datetime` and `str` compare, bug #459.
 

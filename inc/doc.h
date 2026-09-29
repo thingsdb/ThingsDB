@@ -45,6 +45,7 @@
 #define DOC_IS_BYTES                DOC_SEE("collection-api/is/is_bytes")
 #define DOC_IS_CLOSURE              DOC_SEE("collection-api/is/is_closure")
 #define DOC_IS_DATETIME             DOC_SEE("collection-api/is/is_datetime")
+#define DOC_IS_DICT                 DOC_SEE("collection-api/is/is_dict")
 #define DOC_IS_EMAIL                DOC_SEE("collection-api/is/is_email")
 #define DOC_IS_ENUM                 DOC_SEE("collection-api/is/is_enum")
 #define DOC_IS_ERR                  DOC_SEE("collection-api/is/is_err")

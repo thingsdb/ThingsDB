@@ -617,7 +617,7 @@ class TestAdvanced(TestBase):
         with self.assertRaisesRegex(
                 ValueError,
                 r'invalid declaration for `a` on type `Foo`; '
-                r'nested range conditions are not allowed;'):
+                r'nested value restrictions are not allowed;'):
             await client.query(r'''
                 set_type('Foo', {a: '[int<0:10>]'});
             ''')
@@ -2965,6 +2965,29 @@ mod_enum('E', 'mod', 'A', {
                                      """)
 
         self.assertEqual(wrap_nm, "<F>")
+
+    async def test_optimize_arr_wrap(self, client: Client):
+        await client.query("""//ti
+            set_type('P', {x: 'int'});
+            set_type('T', {p: '[P]'});
+            set_type('_T', {p: '&[P]'}, WPO|HID);
+            .t = T{
+                p: [P{x: 1}]
+            };
+            .tt = T{
+                p: [P{x: 1}, P{x: 2}]
+            };
+        """)
+
+        no_opt = await client.query("""//ti
+            .t.wrap('_T');  // one or less, no optimized call
+        """)
+        opt = await client.query("""//ti
+            .tt.wrap('_T');  // more than two, optimized call
+        """)
+
+        self.assertEqual(no_opt, [{"x": 1}])
+        self.assertEqual(opt, [{"x": 1}, {"x": 2}])
 
 
 if __name__ == '__main__':

@@ -317,7 +317,6 @@ static int wrap__field_val(
                 {
                     for (vec_each(varr->vec, ti_thing_t, t))
                     {
-                        LOGC("Test optimize arr...");
                         if (ti_wrap_field_thing_type(
                                 t,
                                 vp,

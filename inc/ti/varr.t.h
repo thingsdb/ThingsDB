@@ -32,7 +32,7 @@ struct ti_tuple_s
     vec_t * vec;
 };
 
-/* Implements ti_parent_t */
+/* Implements ti_tuple_t and ti_parent_t */
 struct ti_varr_s
 {
     uint32_t ref;

@@ -247,7 +247,6 @@ int ti_dict_pairs(ti_dict_t * dict, ti_dict_pair_cb cb, void * arg)
  */
 int ti_dict_walk(ti_dict_t * dict, ti_dict_cb cb, void * arg)
 {
-    LOGC("Values only...");
     int rc = 0;
     if (dict->umap_ &&
         dict->umap_->n &&

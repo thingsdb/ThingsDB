@@ -636,7 +636,16 @@ done_flags:
     {
         ex_set(e, EX_VALUE_ERROR,
             "invalid declaration for `%s` on type `%s`; "
-            "nested range conditions are not allowed"
+            "nested value restrictions are not allowed"
+            DOC_T_TYPE, field->name->str, field->type->name);
+        return e->nr;
+    }
+
+    if (n == 4 && memcmp(str, "dict", 4) == 0)
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "invalid declaration for `%s` on type `%s`; "
+            "nested dict declarations are not allowed"
             DOC_T_TYPE, field->name->str, field->type->name);
         return e->nr;
     }

@@ -2968,7 +2968,7 @@ mod_enum('E', 'mod', 'A', {
 
     async def test_optimize_arr_wrap(self, client: Client):
         await client.query("""//ti
-            set_type('P', {x: 'int'});
+            set_type('P', {x: 'int'}, HID);
             set_type('T', {p: '[P]'});
             set_type('_T', {p: '&[P]'}, WPO|HID);
             .t = T{
@@ -2986,8 +2986,8 @@ mod_enum('E', 'mod', 'A', {
             .tt.wrap('_T');  // more than two, optimized call
         """)
 
-        self.assertEqual(no_opt, [{"x": 1}])
-        self.assertEqual(opt, [{"x": 1}, {"x": 2}])
+        self.assertEqual(no_opt, {"p": [{"x": 1}]})
+        self.assertEqual(opt, {"p": [{"x": 1}, {"x": 2}]})
 
 
 if __name__ == '__main__':

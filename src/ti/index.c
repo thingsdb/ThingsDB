@@ -503,9 +503,9 @@ static int index__get_dict(
         goto fail0;
     }
 
+    ti_incref(val);
     ti_val_unsafe_drop(query->rval);
     query->rval = val;
-    ti_incref(val);
 
 fail0:
     ti_val_unsafe_drop((ti_val_t *) dict);

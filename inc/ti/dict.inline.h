@@ -56,7 +56,7 @@ static inline int ti_dict_set_uuid(ti_dict_t * dict,
         return -1;
     if (ret != val)
         ti_val_unsafe_gc_drop(ret);
-    else if (new)
+    if (new)
         ti_incref(val);
     return 0;
 }
@@ -73,7 +73,7 @@ static inline int ti_dict_set_int(ti_dict_t * dict,
         return -1;
     if (ret != val)
         ti_val_unsafe_gc_drop(ret);
-    else if (new)
+    if (new)
         ti_incref(val);
     return 0;
 }
@@ -91,7 +91,7 @@ static inline int ti_dict_set_strn(ti_dict_t * dict,
         return -1;
     if (ret != val)
         ti_val_unsafe_gc_drop(ret);
-    else if (new)
+    if (new)
         ti_incref(val);
     return 0;
 }

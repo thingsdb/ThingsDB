@@ -27,7 +27,7 @@ static int do__f_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             {
                 ex_set(e, EX_VALUE_ERROR,
                     "type `dict` must be initialized with a "
-                    "list of [key, value] pairs."DOC_DICT);
+                    "list of [key, value] pairs"DOC_DICT);
                 goto fail0;
             }
             ti_val_t * key = VEC_get(VARR(tuple), 0);
@@ -38,6 +38,7 @@ static int do__f_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
             if (ti_dict_set(dict, key, &val, e))
                 goto fail0;
         }
+        ti_val_unsafe_drop(query->rval);
     }
 
     query->rval = (ti_val_t *) dict;

@@ -555,7 +555,10 @@ static int imap__items_cb(imap_node_t * node,
     do
     {
         uint8_t key = (size == IMAP_NODE_SZ) ? i : node->key;
-        uint64_t id = parent_id | ((uint64_t)key << (depth * IMAP_SHIFT));
+        uint64_t depth_shift = depth * IMAP_SHIFT;
+        uint64_t id = parent_id
+                    + ((uint64_t)key << depth_shift)
+                    + ((uint64_t)1 << depth_shift);
 
         if (nd->data && (rc = (*cb)(id, nd->data, arg)))
             return rc;

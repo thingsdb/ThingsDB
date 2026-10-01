@@ -18,6 +18,7 @@
   - `dict.get()`: https://docs.thingsdb.io/v1/data-types/dict/get/
   - `dict.has()`: https://docs.thingsdb.io/v1/data-types/dict/has/
   - `dict.len()`: https://docs.thingsdb.io/v1/data-types/dict/len/
+  - `dict.map()`: https://docs.thingsdb.io/v1/data-types/dict/map/
   - `dict.restriction()`: https://docs.thingsdb.io/v1/data-types/dict/restriction/
   - `dict.set()`: https://docs.thingsdb.io/v1/data-types/dict/set/
 

@@ -93,6 +93,7 @@ static inline const char * doc_map(ti_val_t * val)
     case TI_VAL_THING:          return DOC_THING_MAP;
     case TI_VAL_ARR:            return DOC_LIST_MAP;
     case TI_VAL_SET:            return DOC_SET_MAP;
+    case TI_VAL_DICT:           return DOC_DICT_MAP;
     default:                    return NULL;
     }
 }

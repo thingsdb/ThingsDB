@@ -15,14 +15,16 @@ static inline ti_val_t * ti_dict_get_weak(ti_dict_t * dict, ti_val_t * key)
     switch(key->tp)
     {
         case TI_VAL_UUID:
-            return umap_get(dict->umap_, VUUID(key));
+            return dict->umap_ ? umap_get(dict->umap_, VUUID(key)) : NULL;
         case TI_VAL_NAME:
         case TI_VAL_STR:
-            return smap_getn(dict->smap_,
-                             ((ti_str_t *) key)->str,
-                             ((ti_str_t *) key)->n);
+            return dict->smap_
+                ? smap_getn(dict->smap_,
+                            ((ti_str_t *) key)->str,
+                            ((ti_str_t *) key)->n)
+                : NULL;
         case TI_VAL_INT:
-            return imap_get(dict->imap_, VINT(key));
+            return dict->imap_ ? imap_get(dict->imap_, VINT(key)) : NULL;
     }
     return NULL;
 }

@@ -229,6 +229,7 @@
 #define DOC_DICT_GET                DOC_SEE("data-types/dict/get")
 #define DOC_DICT_HAS                DOC_SEE("data-types/dict/has")
 #define DOC_DICT_LEN                DOC_SEE("data-types/dict/len")
+#define DOC_DICT_MAP                DOC_SEE("data-types/dict/map")
 #define DOC_DICT_RESTRICTION        DOC_SEE("data-types/dict/restriction")
 #define DOC_DICT_SET                DOC_SEE("data-types/dict/set")
 #define DOC_ENUM_NAME               DOC_SEE("data-types/enum/name")

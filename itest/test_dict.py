@@ -8,6 +8,7 @@ from thingsdb.exceptions import TypeError
 from thingsdb.exceptions import NumArgumentsError
 from thingsdb.exceptions import LookupError
 from thingsdb.exceptions import OverflowError
+from lib.vars import THINGSDB_MEMCHECK
 
 
 class TestDict(TestBase):
@@ -171,6 +172,278 @@ class TestDict(TestBase):
             .d[""] = s;  // dubble overwrite to test ref count
         """)
         self.assertEqual((await q('.d[""];')), 'overwrite')
+
+    async def test_dict_clear(self, client):
+        q = client.query
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `clear` takes 0 arguments but 1 was given'):
+            await q('dict().clear(nil);')
+
+        await q('.d = dict([[1, 1], [2, 2]]);')
+        res = await q('.d.clear();')
+        self.assertIs(res, None)
+        res = await q('.d.len();')
+        self.assertEqual(res, 0)
+
+    async def test_dict_copy(self, client):
+        q = client.query
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `copy` takes at most 1 argument but 2 were given'):
+            await q('dict().copy(1, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'expecting `deep` to be of type `int` but '
+                r'got type `nil` instead'):
+            await q('dict().copy(nil);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'expecting a `deep` value between 0 '
+                r'and 127 but got -1 instead'):
+            await q('dict().copy(-1);')
+
+        res = await q(r"""//ti
+            new_type('T');
+            .d = dict([['a', {n: {}, t: T{}}], ['b', {}]]);
+            .dd = .d;  // This should be a copy too
+            .d0 = .d.copy(0);  // Copy deep=0
+            .dn = .d.copy();   // Copy deep=0 (implicit)
+            .d1 = .d.copy(1);  // Copy deep=1
+            .d2 = .d.copy(3);  // Copy deep=2
+            d = .d;  // This is by ref
+            dd = .d.copy();  // This is again a copy
+            dd['d'] = .d;  // This is not a copy, but to tuple
+            [
+              is_dict(.d),              // true
+              is_dict(.dd),             // true
+              is_dict(d),               // true
+              is_dict(dd),              // true
+              is_dict(dd['d']),         // false
+              is_tuple(dd['d']),        // true
+              .dd == .d,                // false
+              d == .d,                  // true
+              dd == .d,                 // false
+              .d0 == .d,                // false
+              .d1 == .d,                // false
+              .d['a'] == .dd['a'],      // true
+              .d['a'] == .d0['a'],      // true
+              .d['a'] == .dn['a'],      // true
+              .d['a'] == .d1['a'],      // false
+              .d['a'].n == .d0['a'].n,  // true
+              .d['a'].n == .d1['a'].n,  // true
+              .d['a'].n == .d2['a'].n,  // false
+              type(.d1['a'].t),         // 'T'
+              type(.d2['a'].t),         // 'thing'
+            ];
+        """)
+        self.assertEqual(res, [
+            True,
+            True,
+            True,
+            True,
+            False,
+            True,
+            False,
+            True,
+            False,
+            False,
+            False,
+            True,
+            True,
+            True,
+            False,
+            True,
+            True,
+            False,
+            'T',
+            'thing'])
+
+    async def test_dict_del(self, client):
+        q = client.query
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `del` takes 1 argument but 0 were given'):
+            await q('dict().del();')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'key of type `float` not found'):
+            await q('dict().del(1.0);')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                r'key `123` not found'):
+            await q('dict().del(123);')
+
+        self.assertEqual(await q('dict([[0, 42]]).del(0);'), 42)
+        res = await q('d = dict([[0, 42], [1, 43]]); d.del(0); d.len()')
+        self.assertEqual(res, 1)
+
+    async def test_dict_dup(self, client):
+        q = client.query
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `dup` takes at most 1 argument but 2 were given'):
+            await q('dict().dup(1, nil);')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'expecting `deep` to be of type `int` but '
+                r'got type `nil` instead'):
+            await q('dict().dup(nil);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r'expecting a `deep` value between 0 '
+                r'and 127 but got -1 instead'):
+            await q('dict().dup(-1);')
+
+        res = await q(r"""//ti
+            new_type('T');
+            .d = dict([['a', {n: {}, t: T{}}], ['b', {}]]);
+            .dd = .d;  // This should be a copy too
+            .d0 = .d.dup(0);  // Duplicate deep=0
+            .dn = .d.dup();   // Duplicate deep=0 (implicit)
+            .d1 = .d.dup(1);  // Duplicate deep=1
+            .d2 = .d.dup(2);  // Duplicate deep=2
+            d = .d;  // This is by ref
+            dd = .d.dup();  // This is again a duplicate
+            dd['d'] = .d;  // This is not a duplicate, but to tuple
+            [
+              is_dict(.d),              // true
+              is_dict(.dd),             // true
+              is_dict(d),               // true
+              is_dict(dd),              // true
+              is_dict(dd['d']),         // false
+              is_tuple(dd['d']),        // true
+              .dd == .d,                // false
+              d == .d,                  // true
+              dd == .d,                 // false
+              .d0 == .d,                // false
+              .d1 == .d,                // false
+              .d['a'] == .dd['a'],      // true
+              .d['a'] == .d0['a'],      // true
+              .d['a'] == .dn['a'],      // true
+              .d['a'] == .d1['a'],      // false
+              .d['a'].n == .d0['a'].n,  // true
+              .d['a'].n == .d1['a'].n,  // true
+              .d['a'].n == .d2['a'].n,  // false
+              type(.d1['a'].t),         // 'T'
+              type(.d2['a'].t),         // 'T'
+            ];
+        """)
+        self.assertEqual(res, [
+            True,
+            True,
+            True,
+            True,
+            False,
+            True,
+            False,
+            True,
+            False,
+            False,
+            False,
+            True,
+            True,
+            True,
+            False,
+            True,
+            True,
+            False,
+            'T',
+            'T'])
+
+    async def test_dict_each(self, client):
+        q = client.query
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r'function `each` takes 1 argument but 0 were given'):
+            await q('dict().each();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `each` expects argument 1 to be of '
+                r'type `closure` but got type `nil` instead'):
+            await q('dict().each(nil);')
+
+        if THINGSDB_MEMCHECK:
+            r0, r1 = await q(r"""//ti
+                d = dict(range(-9999, 0).map(|x| [x, x]));
+                [
+                    timeit(d.each(|k, v| v)),
+                    timeit(d.each(|k, v| k)),
+                ];
+            """)
+            # looping over keys takes more time; only messure when memcheck
+            # is on, otherwise both are too fast to mesure fair
+            self.assertLess(r0['time'], r1['time'])
+
+    async def test_for_in(self, client):
+        q = client.query
+
+        if THINGSDB_MEMCHECK:
+            r0, r1 = await q(r"""//ti
+                d = dict(range(-9999, 0).map(|x| [x, x]));
+                [
+                    timeit({for (k, v in d) v}),
+                    timeit({for (k, v in d) k}),
+                ];
+            """)
+            # looping over keys takes more time; only messure when memcheck
+            # is on, otherwise both are too fast to mesure fair
+            self.assertLess(r0['time'], r1['time'])
+
+    async def test_dict_get(self, client):
+        q = client.query
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `get` requires at least 1 argument '
+                'but 0 were given'):
+            await q('dict().get();')
+
+        self.assertIs(await q('dict().get(1, nil);'), None)
+        self.assertIs(await q('dict().get(nil, false);'), False)
+        self.assertIs(await q('dict([[-42, true]]).get(-42, false);'), True)
+
+
+    async def _test_dict_has(self, client):
+        q = client.query
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `has` xxx'):
+            await q('dict().has(nil);')
+
+    async def _test_dict_len(self, client):
+        q = client.query
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `len` xxx'):
+            await q('dict().len(nil);')
+
+    async def _test_dict_map(self, client):
+        q = client.query
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `map` xxx'):
+            await q('dict().map(nil);')
+
+    async def _test_dict_restriction(self, client):
+        q = client.query
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `restriction` xxx'):
+            await q('dict().restriction(nil);')
+
+    async def _test_dict_set(self, client):
+        q = client.query
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `set` xxx'):
+            await q('dict().set(nil);')
 
 
 if __name__ == '__main__':

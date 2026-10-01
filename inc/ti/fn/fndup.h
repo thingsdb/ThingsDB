@@ -5,8 +5,9 @@ static int do__f_dup(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     const char * doc;
     const int nargs = fn_get_nargs(nd);
     ti_val_t * val;
-    /* use deep value of 0 for arr and set, 1 for thing, wrap, wano */
-    uint8_t deep = !(ti_val_is_arr(query->rval) || ti_val_is_set(query->rval));
+    /* use deep value of 0 for arr, set and dict, 1 for thing, wrap, wano */
+    uint8_t deep = !ti_val_has_parent(query->rval);
+
 
     doc = doc_dup(query->rval);
     if (!doc)

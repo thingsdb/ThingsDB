@@ -508,7 +508,6 @@ static int dict__copy_cb(ti_dict_key_t * key, ti_val_t * val, dict__copy_t * w)
 int ti_dict_copy(ti_dict_t ** dictaddr, uint8_t deep)
 {
     assert(deep);
-
     ti_dict_t * ndict, * odict = *dictaddr;
 
     if (!(ndict = ti_dict_create()))

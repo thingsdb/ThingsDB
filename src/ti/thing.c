@@ -1868,29 +1868,27 @@ fail:
 int ti_thing_copy(ti_thing_t ** thing, uint8_t deep)
 {
     assert(deep);
-    return deep--
-            ? (*thing)->flags & TI_THING_FLAG_DEEP
+    deep--;
+    return (*thing)->flags & TI_THING_FLAG_DEEP
             ? thing__deep_use(thing)
             : ti_thing_is_object(*thing)
             ? ti_thing_is_dict(*thing)
             ? thing__copy_i(thing, deep)
             : thing__copy_p(thing, deep)
-            : thing__copy_t(thing, deep)
-            : 0;
+            : thing__copy_t(thing, deep);
 }
 
 int ti_thing_dup(ti_thing_t ** thing, uint8_t deep)
 {
     assert(deep);
-    return deep--
-            ? (*thing)->flags & TI_THING_FLAG_DEEP
+    deep--;
+    return (*thing)->flags & TI_THING_FLAG_DEEP
             ? thing__deep_use(thing)
             : ti_thing_is_object(*thing)
             ? ti_thing_is_dict(*thing)
             ? thing__dup_i(thing, deep)
             : thing__dup_p(thing, deep)
-            : thing__dup_t(thing, deep)
-            : 0;
+            : thing__dup_t(thing, deep);
 }
 
 int ti_thing_init_gc(void)

@@ -7,8 +7,9 @@ from thingsdb.exceptions import ValueError
 from thingsdb.exceptions import TypeError
 from thingsdb.exceptions import NumArgumentsError
 from thingsdb.exceptions import LookupError
-from thingsdb.exceptions import OverflowError
+from thingsdb.exceptions import OperationError
 from lib.vars import THINGSDB_MEMCHECK
+import uuid
 
 
 class TestDict(TestBase):
@@ -627,6 +628,72 @@ class TestDict(TestBase):
         self.assertEqual(res, {
             'people': [{'name': 'Iris'}, {'name': 'Sasha'}]
         })
+
+    async def test_mod_type(self, client):
+        q = client.query
+        u = str(uuid.uuid7())
+
+        await q("""//ti
+            set_type('R', {
+                lookup: 'dict'
+            });
+            .to_type('R');
+            .lookup[u] = 'Test';
+        """, u=u)
+        self.assertEqual(await q(".lookup[u]", u=u), 'Test')
+
+        await q("""//ti
+            mod_type('R', 'mod', 'lookup', 'dict<any:any>');
+        """)
+        self.assertEqual(await q(".lookup[u]", u=u), 'Test')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'cannot apply type declaration `dict<any:str>` to `lookup` '
+                r'on type `R` without a closure to migrate existing '
+                r'instances; the old declaration `dict<any:any>` is not '
+                r'compatible with the new declaration'):
+            await q("""//ti
+                mod_type('R', 'mod', 'lookup', 'dict<any:str>');
+            """)
+
+        await q("""//ti
+            mod_type('R', 'mod', 'lookup', 'dict<any:str>', ||nil);
+        """)
+        self.assertEqual(await q(".lookup[u]", u=u), 'Test')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'cannot apply type declaration `dict<uuid:str>` to `lookup` '
+                r'on type `R` without a closure to migrate existing '
+                r'instances; the old declaration `dict<any:str>` is not '
+                r'compatible with the new declaration'):
+            await q("""//ti
+                mod_type('R', 'mod', 'lookup', 'dict<uuid:str>');
+            """)
+
+        await q("""//ti
+            mod_type('R', 'mod', 'lookup', 'dict<uuid:str>', |r| dict(
+                r.lookup.map(|k, v| [uuid(k), v])
+            ));
+        """)
+        self.assertEqual(await q(".lookup[uuid(u)]", u=u), 'Test')
+
+        await q("""//ti
+            mod_type('R', 'mod', 'lookup', 'dict<any:any>');
+        """)
+        self.assertEqual(await q(".lookup[uuid(u)]", u=u), 'Test')
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r'field `lookup` on type `R` is modified but at least one '
+                r'failed attempt was made to keep the original value: '
+                r'mismatch in type `R`; property `lookup` requires a dict '
+                r'with keys of type `str`'):
+            await q("""//ti
+                mod_type('R', 'mod', 'lookup', 'dict<str:str>', ||nil);
+            """)
+        self.assertEqual(await q(".lookup.len()"), 0)
 
 
 if __name__ == '__main__':

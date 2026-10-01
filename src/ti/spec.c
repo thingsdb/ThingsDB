@@ -727,8 +727,14 @@ ti_spec_mod_enum ti_spec_check_mod(
         return ospec == nspec ? TI_SPEC_MOD_SUCCESS : TI_SPEC_MOD_ERR;
     case TI_SPEC_ARR:
     case TI_SPEC_SET:
-    case TI_SPEC_DICT:
         return ospec == nspec ? TI_SPEC_MOD_NESTED : TI_SPEC_MOD_ERR;
+    case TI_SPEC_DICT:
+        return (
+            ospec == nspec && (
+                ncondition.key->spec == TI_SPEC_ANY ||
+                ocondition.key->spec == ncondition.key->spec
+            )
+         ) ? TI_SPEC_MOD_NESTED : TI_SPEC_MOD_ERR;
     case TI_SPEC_DATETIME:
     case TI_SPEC_TIMEVAL:
     case TI_SPEC_REGEX:

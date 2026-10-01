@@ -2001,7 +2001,7 @@ new_procedure('multiply', |a, b| a * b);
         # bug #292 (rename with a restricted type)
         # pr #460 (added dict type)
         await client.query(r"""//ti
-            new_type('A');
+            new_type('A', WPO);
             new_type('B');
             new_type('C');
             new_type('D');
@@ -2023,13 +2023,21 @@ new_procedure('multiply', |a, b| a * b);
                 ld: '[D?]?',
                 sa: '{A}',
                 sb: '{B}?',
+                na: [{
+                    a: '&+A?'
+                }],
+                nt: {
+                    t: {
+                        a: '&-A?',
+                    }
+                },
             });
         """)
 
         aa = await client.query(r"""//ti
             set_type('W', {
                 name: 'any',
-                fields: 'any'
+                fields: '+any'
             });
             rename_type('A', 'AA');
             rename_type('B', 'BB');
@@ -2037,6 +2045,7 @@ new_procedure('multiply', |a, b| a * b);
             rename_type('D', 'DD');
             type_info('AA').load().wrap('W');
         """)
+        self.maxDiff = 1000
         self.assertEqual(aa, {
             "fields": [
                 [
@@ -2102,6 +2111,22 @@ new_procedure('multiply', |a, b| a * b);
                 [
                     "sb",
                     "{BB}?"
+                ],
+                [
+                    "na",
+                    [
+                        {
+                            "a": "&+AA?"
+                        }
+                    ]
+                ],
+                [
+                    "nt",
+                    {
+                        "t": {
+                            "a": "&-AA?"
+                        }
+                    }
                 ]
             ],
             "name": "AA"
@@ -2966,6 +2991,7 @@ mod_enum('E', 'mod', 'A', {
 
         class MyRoom(Room):
             x = 0
+
             async def on_join(self):
                 self.x = 42
 

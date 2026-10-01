@@ -1909,7 +1909,9 @@ static int field__thing_assign(
     return 0;
 }
 
-static int field__maps_dict(ti_dict_key_t * key, ti_val_t * val, ti_field_t * field)
+static int field__maps_dict_pair(ti_dict_key_t * key,
+                                 ti_val_t * val,
+                                 ti_field_t * field)
 {
     switch (field->condition.key->spec)
     {
@@ -1933,16 +1935,32 @@ static int field__maps_dict(ti_dict_key_t * key, ti_val_t * val, ti_field_t * fi
 
 static _Bool field__maps_dict_to_dict(ti_field_t * field, ti_dict_t * dict)
 {
-    if (ti_dict_n(dict) == 0 || ((
+    if ((
             field->condition.key->spec == TI_SPEC_ANY ||
             field->condition.key->spec == ti_dict_key_spec(dict)
         ) && (
             field->nested_spec == TI_SPEC_ANY ||
             field->nested_spec == ti_dict_val_spec(dict)
-        )))
+        ))
         return true;
 
-    return !ti_dict_pairs(dict, (ti_dict_pair_cb) field__maps_dict, field);
+    return !ti_dict_pairs(dict, (ti_dict_pair_cb) field__maps_dict_pair, field);
+}
+
+static int field__maps_dict_walk(ti_val_t * val, ti_field_t * field)
+{
+    return !ti_spec_maps_to_nested_val(field, val);
+}
+
+static _Bool field__maps_dict_to_arr(ti_field_t * field, ti_dict_t * dict)
+{
+    if ((
+        field->nested_spec == TI_SPEC_ANY ||
+        field->nested_spec == ti_dict_val_spec(dict)
+    ))
+        return true;
+
+    return !ti_dict_walk(dict, (ti_dict_cb) field__maps_dict_walk, field);
 }
 
 static _Bool field__maps_arr_to_arr(ti_field_t * field, ti_varr_t * varr)
@@ -2552,7 +2570,11 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
             ti_val_is_array(val) &&
             field__maps_arr_to_arr(field, (ti_varr_t *) val)
         ) || (
-            ti_val_is_set(val) && field__maps_set_to_arr(field)
+            ti_val_is_set(val) &&
+            field__maps_set_to_arr(field)
+        ) || (
+            ti_val_is_dict(val) &&
+            field__maps_dict_to_arr(field, (ti_dict_t *) val)
         ));
     case TI_SPEC_SET:
         return ti_val_is_set(val);
@@ -2824,7 +2846,9 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
         return f_spec == t_spec;
     case TI_SPEC_ARR:
         return (
-            (f_spec == TI_SPEC_ARR || f_spec == TI_SPEC_SET) &&
+            (f_spec == TI_SPEC_ARR ||
+             f_spec == TI_SPEC_SET ||
+             f_spec == TI_SPEC_DICT) &&
             field__maps_to_nested(t_field, f_field)
         );
     case TI_SPEC_SET:
@@ -2863,12 +2887,9 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
         return f_spec < TI_SPEC_ANY || f_spec == TI_SPEC_OBJECT;
     case TI_SPEC_ARR_TYPE:
         return (
-            f_spec == TI_SPEC_SET || (
-                f_spec == TI_SPEC_ARR && (
-                    f_field->nested_spec < TI_SPEC_ANY ||
-                    f_field->nested_spec == TI_SPEC_OBJECT
-                )
-            )
+            f_spec == TI_SPEC_SET ||
+            (f_spec == TI_SPEC_ARR && ti_spec_is_thing(f_field->nested_spec)) ||
+            (f_spec == TI_SPEC_DICT && ti_spec_is_thing(f_field->nested_spec))
         );
     }
 

@@ -532,8 +532,8 @@ _Bool ti__spec_maps_to_nested_val(ti_field_t * field, ti_val_t * val)
     case TI_SPEC_UUID:
         return ti_val_is_uuid(val);
     case TI_SPEC_ARR:
-        /* we can map a set to an array */
-        return ti_val_is_array(val) || ti_val_is_set(val);
+        /* we can map an arr, set and dict to an array */
+        return ti_val_has_parent(val);
     case TI_SPEC_SET:
         return ti_val_is_set(val);
     case TI_SPEC_DICT:

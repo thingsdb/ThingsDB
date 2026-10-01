@@ -5,9 +5,9 @@
 #include <stdlib.h>
 #include <ti/ano.h>
 #include <ti/change.t.h>
-#include <ti/dict.t.h>
-#include <ti/dict.inline.h>
 #include <ti/closure.h>
+#include <ti/dict.inline.h>
+#include <ti/dict.t.h>
 #include <ti/field.h>
 #include <ti/future.h>
 #include <ti/mapping.h>
@@ -17,6 +17,7 @@
 #include <ti/prop.h>
 #include <ti/regex.h>
 #include <ti/room.inline.h>
+#include <ti/spec.inline.h>
 #include <ti/types.inline.h>
 #include <ti/val.inline.h>
 #include <ti/vbool.h>
@@ -162,6 +163,15 @@ static int wrap__pair_with_type(ti_dict_key_t * key,
     );
 }
 
+static int wrap__dict_walk_with_type(ti_val_t * val, wrap__walk_with_type_t * w)
+{
+    return ti_wrap_field_thing_type((ti_thing_t *) val,
+                                    w->vp,
+                                    w->t_type,
+                                    w->deep,
+                                    w->flags);
+}
+
 typedef struct
 {
     ti_field_t * t_field;
@@ -186,6 +196,16 @@ static int wrap__pair(ti_dict_key_t * key,
     );
 }
 
+static int wrap__dict_walk(ti_val_t * val, wrap__pair_t * w)
+{
+    return wrap__field_val(w->t_field,
+                           &w->t_field->nested_spec,
+                           val,
+                           w->vp,
+                           w->deep,
+                           w->flags);
+}
+
 static int wrap__dict(
         ti_dict_t * dict,
         ti_vp_t * vp,
@@ -195,7 +215,7 @@ static int wrap__dict(
 {
     if (ti_dict_n(dict) > 1 &&
         t_field->nested_spec < TI_SPEC_ANY &&
-        ti_dict_val_spec(dict) < TI_SPEC_ANY &&
+        ti_spec_is_thing(ti_dict_val_spec(dict)) &&
         vp->query &&
         vp->query->collection)
     {
@@ -213,12 +233,16 @@ static int wrap__dict(
                 .deep = deep,
                 .flags = flags,
             };
-            LOGC("Test optimize dict...");
             return (
-                msgpack_pack_array(&vp->pk, ti_dict_n(dict)) ||
-                ti_dict_pairs(dict,
-                              (ti_dict_pair_cb) wrap__pair_with_type,
-                              &wwt)
+                msgpack_pack_array(&vp->pk, ti_dict_n(dict)) || (
+                    t_field->spec == TI_SPEC_DICT
+                        ? ti_dict_pairs(dict,
+                                        (ti_dict_pair_cb) wrap__pair_with_type,
+                                        &wwt)
+                        : ti_dict_walk(dict,
+                                        (ti_dict_cb) wrap__dict_walk_with_type,
+                                        &wwt)
+                )
             );
         }
         /* fallback to no type */
@@ -231,8 +255,11 @@ static int wrap__dict(
             .flags = flags,
     };
     return (
-            msgpack_pack_array(&vp->pk, ti_dict_n(dict)) ||
-            ti_dict_pairs(dict, (ti_dict_pair_cb) wrap__pair, &w)
+        msgpack_pack_array(&vp->pk, ti_dict_n(dict)) || (
+        t_field->spec == TI_SPEC_DICT
+            ? ti_dict_pairs(dict, (ti_dict_pair_cb) wrap__pair, &w)
+            : ti_dict_walk(dict, (ti_dict_cb) wrap__dict_walk, &w)
+        )
     );
 }
 

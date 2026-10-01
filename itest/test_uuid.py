@@ -75,28 +75,28 @@ class TestUuid(TestBase):
         u = await client.query("""//ti
             uuid(base64_decode("AaCLQ0q9dSmCoprjUrLxDw=="));
         """)
-        self.assertEqual(u, '01a08b43-4abd-7529-82a2-9ae352b2f10f');
+        self.assertEqual(u, '01a08b43-4abd-7529-82a2-9ae352b2f10f')
 
         u = await client.query("""//ti
             uuid('01a08b43-4abd-7529-82a2-9ae352b2f10f');
         """)
-        self.assertEqual(u, '01a08b43-4abd-7529-82a2-9ae352b2f10f');
+        self.assertEqual(u, '01a08b43-4abd-7529-82a2-9ae352b2f10f')
 
         u = await client.query("""//ti
             uuid('01A08B434ABD752982A29AE352B2F10F');
         """)
-        self.assertEqual(u, '01a08b43-4abd-7529-82a2-9ae352b2f10f');
+        self.assertEqual(u, '01a08b43-4abd-7529-82a2-9ae352b2f10f')
 
         u = await client.query("""//ti
             str(uuid('01A08B434ABD752982A29AE352B2F10F'));
         """)
-        self.assertEqual(u, '01a08b43-4abd-7529-82a2-9ae352b2f10f');
+        self.assertEqual(u, '01a08b43-4abd-7529-82a2-9ae352b2f10f')
 
         u = await client.query("""//ti
             bytes(uuid('01A08B434ABD752982A29AE352B2F10F'));
         """)
         self.assertEqual(u,
-                         b'\x01\xa0\x8bCJ\xbdu)\x82\xa2\x9a\xe3R\xb2\xf1\x0f');
+                         b'\x01\xa0\x8bCJ\xbdu)\x82\xa2\x9a\xe3R\xb2\xf1\x0f')
 
         u = await client.query("""//ti
             range(5000).map(|| uuid()).is_unique();

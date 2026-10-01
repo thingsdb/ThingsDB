@@ -648,19 +648,24 @@ static int index__set_dict(ti_query_t * query, cleri_node_t * inode, ex_t * e)
     if (ti_do_statement(query, idx_statem, e))
         goto fail0;
 
-    if (ass_tokens->len == 2)
-    {
-        ex_set(e, EX_OPERATION,
-                "compound assignment operators are not allowed on "
-                "type `"TI_VAL_DICT_S"`");
-        goto fail0;
-    }
-
     key = query->rval;
     query->rval = NULL;
 
-    if (ti_do_statement(query, ass_statem->children->next, e) ||
-        ti_dict_set(dict, key, &query->rval, e))
+    if (ass_tokens->len == 2)
+    {
+        ti_val_t * val = ti_dict_get_weak(dict, key);
+        if (!val)
+        {
+            ti_dict_set_key_err(key, e);
+            goto fail1;
+        }
+        if (ti_do_statement(query, ass_statem->children->next, e) ||
+            ti_opr_a_to_b(val, ass_tokens, &query->rval, e) ||
+            ti_dict_set(dict, key, &query->rval, e))
+            goto fail1;
+    }
+    else if (ti_do_statement(query, ass_statem->children->next, e) ||
+             ti_dict_set(dict, key, &query->rval, e))
         goto fail1;
 
     if (dict->parent && dict->parent->id)

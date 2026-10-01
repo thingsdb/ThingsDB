@@ -399,6 +399,7 @@ class TestDict(TestBase):
 
     async def test_dict_get(self, client):
         q = client.query
+        u = '00000000-0000-0000-0000-000000000000'
         with self.assertRaisesRegex(
                 NumArgumentsError,
                 'function `get` requires at least 1 argument '
@@ -408,7 +409,37 @@ class TestDict(TestBase):
         self.assertIs(await q('dict().get(1, nil);'), None)
         self.assertIs(await q('dict().get(nil, false);'), False)
         self.assertIs(await q('dict([[-42, true]]).get(-42, false);'), True)
+        self.assertIs(await q('dict([[-42, true]]).get(42);'), None)
+        self.assertIs(await q('dict([["a", true]]).get(42);'), None)
+        self.assertIs(await q('dict([["a", true]]).get("a");'), True)
+        self.assertIs(await q('u=uuid(u);dict([[u,true]]).get(u)', u=u), True)
 
+    async def test_dict_index(self, client):
+        q = client.query
+        u = '00000000-0000-0000-0000-000000000000'
+        with self.assertRaisesRegex(
+                TypeError,
+                'type `dict` has no slice support'):
+            await q('dict()[0:10]')
+
+        self.assertIs(await q('try(dict()[1])||nil'), None)
+        self.assertIs(await q('try(dict()[nil])||false'), False)
+        res = await q(r"""//ti
+            d = dict();
+            u = uuid(u);
+            d[u] = true;
+            d['t'] = 'Hello';
+            d[42] = 6;
+            d[u] = !d[u];
+            d['t'] += ' World!';
+            d[42] *= 7;
+            d;
+        """, u=u)
+        self.assertEqual(res, [
+            ['00000000-0000-0000-0000-000000000000', False],
+            [42, 42],
+            ['t', 'Hello World!'],
+        ])
 
     async def _test_dict_has(self, client):
         q = client.query

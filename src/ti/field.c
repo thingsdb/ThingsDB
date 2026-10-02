@@ -2473,6 +2473,9 @@ relation_error:
     return e->nr;
 }
 
+/*
+ * Used for wrapping
+ */
 _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
 {
     uint16_t spec = field->spec;
@@ -2537,9 +2540,8 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
     case TI_SPEC_UUID:
         return ti_val_is_uuid(val);
     case TI_SPEC_DATETIME:
-        return ti_val_is_datetime_strict(val);
     case TI_SPEC_TIMEVAL:
-        return ti_val_is_timeval(val);
+        return ti_val_is_datetime(val);
     case TI_SPEC_REGEX:
         return ti_val_is_regex(val);
     case TI_SPEC_CLOSURE:
@@ -2611,13 +2613,16 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
         return ((
             ti_val_is_array(val) &&
             field__maps_arr_to_type((ti_varr_t *) val)
-        ) || ti_val_is_set(val));
+        ) || ti_val_is_set(val));  /* TODO: wrap dict */
     }
 
     /* any *thing* can be mapped */
     return ti_val_is_thing(val);
 }
 
+/*
+ * Used for wrapping
+ */
 static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
 {
     uint16_t t_spec, f_spec;
@@ -2688,6 +2693,10 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
                 f_spec == TI_SPEC_EMAIL ||
                 f_spec == TI_SPEC_URL ||
                 f_spec == TI_SPEC_TEL);
+    case TI_SPEC_DATETIME:
+    case TI_SPEC_TIMEVAL:
+        return (f_spec == TI_SPEC_DATETIME ||
+                f_spec == TI_SPEC_TIMEVAL);
     case TI_SPEC_UTF8:
     case TI_SPEC_BYTES:
     case TI_SPEC_PINT:
@@ -2695,8 +2704,6 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_FLOAT:
     case TI_SPEC_BOOL:
     case TI_SPEC_UUID:
-    case TI_SPEC_DATETIME:
-    case TI_SPEC_TIMEVAL:
     case TI_SPEC_REGEX:
     case TI_SPEC_CLOSURE:
     case TI_SPEC_ERROR:
@@ -2726,6 +2733,9 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
            ti_spec_is_set(f_field->spec);
 }
 
+/*
+ * Used for wrapping
+ */
 _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
 {
     uint16_t t_spec, f_spec;
@@ -2832,8 +2842,11 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
                 f_spec == TI_SPEC_FLOAT_RANGE);
     case TI_SPEC_BOOL:
     case TI_SPEC_UUID:
+        return f_spec == t_spec;
     case TI_SPEC_DATETIME:
     case TI_SPEC_TIMEVAL:
+        return (f_spec == TI_SPEC_DATETIME ||
+                f_spec == TI_SPEC_TIMEVAL);
     case TI_SPEC_REGEX:
     case TI_SPEC_CLOSURE:
     case TI_SPEC_ERROR:

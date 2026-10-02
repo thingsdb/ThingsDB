@@ -68,6 +68,7 @@ ti_raw_t * ti_datetime_to_str(ti_datetime_t * dt, ex_t * e);
 ti_raw_t * ti_datetime_to_str_fmt(ti_datetime_t * dt, ti_raw_t * fmt, ex_t * e);
 int ti_datetime_time(ti_datetime_t * dt, struct tm * tm);
 int ti_datetime_to_client_pk(ti_datetime_t * dt, msgpack_packer * pk);
+int ti_datetime_strict_to_client_pk(ti_datetime_t * dt, msgpack_packer * pk);
 int ti_datetime_to_store_pk(ti_datetime_t * dt, msgpack_packer * pk);
 int ti_datetime_to_zone(ti_datetime_t * dt, ti_raw_t * tzinfo, ex_t * e);
 void ti_datetime_set_tz(ti_tz_t * tz);
@@ -90,6 +91,12 @@ static inline _Bool ti_datetime_is_timeval(ti_datetime_t * dt)
 static inline _Bool ti_datetime_is_datetime(ti_datetime_t * dt)
 {
     return ~dt->flags & DT_AS_TIMEVAL;
+}
+
+static inline int ti_timeval_to_client_pk(ti_datetime_t * dt,
+                                          msgpack_packer * pk)
+{
+    return msgpack_pack_int64(pk, dt->ts);
 }
 
 #endif  /* TI_DATETIME_H_ */

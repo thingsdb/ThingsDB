@@ -1035,6 +1035,8 @@ class TestDatetime(TestBase):
         """)
         self.assertEqual(res, "2023-04-01T00:00:00+0200")
 
+    async def test_wrap_as(self, client):
+        q = client.query
 
 if __name__ == '__main__':
     run_test(TestDatetime())

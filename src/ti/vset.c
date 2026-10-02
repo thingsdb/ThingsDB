@@ -101,7 +101,7 @@ int ti_vset_to_list(ti_vset_t ** vsetaddr)
 
     list->ref = 1;
     list->tp = TI_VAL_ARR;
-    list->flags = list->vec->n ? TI_VARR_FLAG_MHT : 0;
+    list->flags = list->vec->n ? TI_VFLAG_MHT : 0;
     list->parent = NULL;
 
     ti_val_unsafe_drop((ti_val_t *) *vsetaddr);
@@ -126,7 +126,7 @@ int ti_vset_to_tuple(ti_vset_t ** vsetaddr)
 
     tuple->ref = 1;
     tuple->tp = TI_VAL_ARR;
-    tuple->flags = TI_VARR_FLAG_TUPLE | (tuple->vec->n ? TI_VARR_FLAG_MHT : 0);
+    tuple->flags = TI_VARR_FLAG_TUPLE | (tuple->vec->n ? TI_VFLAG_MHT : 0);
 
     ti_val_unsafe_drop((ti_val_t *) *vsetaddr);
     *vsetaddr = (ti_vset_t *) tuple;
@@ -151,12 +151,12 @@ static int vset__walk_assign(ti_thing_t * t, ti_vset_t * vset)
 
 ti_vset_t * ti_vset_cp(ti_vset_t * vset)
 {
-    ti_vset_t * nvset;
-    if (!(nvset = ti_vset_create()))
+    ti_vset_t * nvset = ti_vset_create();
+    if (!nvset)
         return NULL;
 
     return imap_walk(vset->imap, (imap_cb) vset__walk_assign, nvset)
-            ? NULL  /* new set is destroyed if walk has failed */
+            ? NULL  /* nvset is destroyed if walk has failed */
             : nvset;
 }
 
@@ -171,7 +171,7 @@ int ti_vset_assign(ti_vset_t ** vsetaddr)
         return -1;
 
     if (imap_walk(ovset->imap, (imap_cb) vset__walk_assign, nvset))
-        return -1;  /* vset is destroyed if walk has failed */
+        return -1;  /* nvset is destroyed if walk has failed */
 
     ti_decref(ovset);  /* checked for more than one reference */
     *vsetaddr = nvset;

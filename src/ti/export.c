@@ -1,3 +1,4 @@
+#include <ti/dict.inline.h>
 #include <ti/enum.t.h>
 #include <ti/enums.t.h>
 #include <ti/export.h>
@@ -10,6 +11,7 @@
 #include <ti/raw.inline.h>
 #include <ti/type.t.h>
 #include <ti/types.t.h>
+#include <ti/uuid.h>
 #include <ti/val.inline.h>
 #include <ti/val.t.h>
 #include <ti/vfloat.h>
@@ -117,6 +119,19 @@ static int export__mp_dump(ti_fmt_t * fmt, const void * data, size_t n)
     mp_unp_t up;
     mp_unp_init(&up, data, n);
     return export__mp_dump_up(fmt, &up);
+}
+
+static int export__uuid(ti_fmt_t * fmt, uuid_t uuid)
+{
+    uuid_raw_t raw;
+    ti_uuid_to_raw(uuid, raw);
+    return (
+        buf_append_str(&fmt->buf, "uuid(") ||
+        buf_write(&fmt->buf, '\'') ||
+        buf_append(&fmt->buf, raw, sizeof(raw)) ||
+        buf_write(&fmt->buf, '\'') ||
+        buf_write(&fmt->buf, ')')
+    );
 }
 
 static int export__new_type_cb(ti_type_t * type_, ti_fmt_t * fmt)
@@ -371,6 +386,37 @@ static int export__set_val(ti_thing_t * thing, ti_fmt_t * fmt)
     );
 }
 
+static int export__dict_pair(ti_dict_key_t * key,
+                             ti_val_t * val,
+                             ti_fmt_t * fmt)
+{
+    buf_t * buf = &fmt->buf;
+    if (ti_fmt_indent(fmt) || buf_write(buf, '['))
+        return -1;
+
+    switch(key->tp)
+    {
+        case TI_DICT_KEY_INT:
+            if (buf_append_fmt(buf, "%"PRIi64", ", key->via.id))
+                return -1;
+            break;
+        case TI_DICT_KEY_UUID:
+            if (export__uuid(fmt, key->via.uuid) ||
+                buf_write(buf, ','))
+                return -1;
+            break;
+        case TI_DICT_KEY_STR:
+            if (ti_fmt_strn(fmt, key->via.str.str, key->via.str.n) ||
+                buf_write(buf, ','))
+                return -1;
+            break;
+    }
+    return -(
+        export__val(fmt, val) ||
+        buf_append_str(buf, "],\n")
+    );
+}
+
 static int export__val(ti_fmt_t * fmt, ti_val_t * val)
 {
     buf_t * buf = &fmt->buf;
@@ -442,6 +488,22 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
             buf_write(buf, ')')
         );
     }
+    case TI_VAL_DICT:
+    {
+        ti_dict_t * dict = (ti_dict_t *) val;
+        if (!ti_dict_n(dict))
+            return buf_append_str(buf, "dict()");
+        if (buf_append_str(buf, "dict([\n"))
+            return -1;
+        fmt->indent++;
+        if (ti_dict_pairs(dict, (ti_dict_pair_cb) export__dict_pair, fmt))
+            return -1;
+        fmt->indent--;
+        return -(
+            ti_fmt_indent(fmt) ||
+            buf_append_str(buf, "])\n")
+        );
+    }
     case TI_VAL_ERROR:
         return buf_append_str(buf, "error() /* WARN: not exported */");
     case TI_VAL_MEMBER:
@@ -464,6 +526,8 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
         );
     case TI_VAL_WANO:
         return buf_append_str(buf, "&{}.wrap() /* WARN: not exported */");
+    case TI_VAL_UUID:
+        return export__uuid(fmt, VUUID(val));
     case TI_VAL_FUTURE:
         return buf_append_str(buf, "future(||nil) /* WARN: not exported */");
     case TI_VAL_MODULE:
@@ -516,6 +580,7 @@ static int export__set_enum_cb(ti_enum_t * enum_, ti_fmt_t * fmt)
             case TI_VAL_TASK:
             case TI_VAL_ARR:
             case TI_VAL_SET:
+            case TI_VAL_DICT:
             case TI_VAL_ERROR:
             case TI_VAL_MEMBER:
             case TI_VAL_CLOSURE:
@@ -523,6 +588,7 @@ static int export__set_enum_cb(ti_enum_t * enum_, ti_fmt_t * fmt)
             case TI_VAL_FUTURE:
             case TI_VAL_MODULE:
             case TI_VAL_WANO:
+            case TI_VAL_UUID:
             case TI_VAL_TEMPLATE:
                 assert(0);
                 break;

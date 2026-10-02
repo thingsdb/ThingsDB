@@ -28,6 +28,26 @@ static int map__walk_i(ti_item_t * item, map__walk_t * w)
     return 0;
 }
 
+static int map__walk_dict_items(ti_val_t * k, ti_val_t * v, map__walk_t * w)
+{
+    ti_closure_vars_dict(w->closure, k, v);
+    if (ti_closure_do_statement(w->closure, w->query, w->e) ||
+        ti_val_varr_append(w->varr, &w->query->rval, w->e))
+        return -1;
+    w->query->rval = NULL;
+    return 0;
+}
+
+static int map__walk_dict_values(ti_val_t * v, map__walk_t * w)
+{
+    ti_closure_vars_dict(w->closure, (ti_val_t *) ti_nil_weak_get(), v);
+    if (ti_closure_do_statement(w->closure, w->query, w->e) ||
+        ti_val_varr_append(w->varr, &w->query->rval, w->e))
+        return -1;
+    w->query->rval = NULL;
+    return 0;
+}
+
 static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const char * doc;
@@ -142,6 +162,26 @@ static int do__f_map(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 query,
                 closure,
                 (imap_cb) map__walk_set,
+                &w))
+            goto fail2;
+        break;
+    }
+    case TI_VAL_DICT:
+    {
+        map__walk_t w = {
+                .e = e,
+                .closure = closure,
+                .query = query,
+                .varr = retvarr,
+        };
+        if (ti_closure_arg_used(closure, 0)
+            ? ti_dict_items(
+                (ti_dict_t *) iterval,
+                (ti_dict_item_cb) map__walk_dict_items,
+                &w)
+            : ti_dict_walk(
+                (ti_dict_t *) iterval,
+                (ti_dict_cb) map__walk_dict_values,
                 &w))
             goto fail2;
         break;

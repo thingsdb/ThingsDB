@@ -10,6 +10,8 @@
 #include <ti/closure.h>
 #include <ti/collection.inline.h>
 #include <ti/datetime.h>
+#include <ti/dict.h>
+#include <ti/dict.inline.h>
 #include <ti/enum.h>
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
@@ -50,23 +52,25 @@ static ti_val_t * val__empty_str;
 static ti_val_t * val__default_closure;
 static ti_val_t * val__default_re;
 static ti_val_t * val__sano;
-static ti_val_t * val__swano;
 static ti_val_t * val__sbool;
 static ti_val_t * val__sbytes;
 static ti_val_t * val__sclosure;
 static ti_val_t * val__sdatetime;
+static ti_val_t * val__sdict;
 static ti_val_t * val__serror;
 static ti_val_t * val__sfloat;
 static ti_val_t * val__sfuture;
-static ti_val_t * val__smodule;
 static ti_val_t * val__sint;
 static ti_val_t * val__slist;
+static ti_val_t * val__smodule;
 static ti_val_t * val__smpdata;
 static ti_val_t * val__sregex;
 static ti_val_t * val__sroom;
-static ti_val_t * val__stask;
 static ti_val_t * val__sset;
 static ti_val_t * val__sstr;
+static ti_val_t * val__stask;
+static ti_val_t * val__suuid;
+static ti_val_t * val__swano;
 static ti_val_t * val__sthing;
 static ti_val_t * val__stimeval;
 static ti_val_t * val__stuple;
@@ -145,19 +149,21 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
     case TI_KIND_C_SET:
     {
         ti_val_t * vthing;
-        ti_vset_t * vset = ti_vset_create();
+        ti_vset_t * vset;
         size_t i;
 
-        if (!vset)
-        {
-            ex_set_mem(e);
-            return NULL;
-        }
         if (sz != 1 || mp_next(vup->up, &mp_val) != MP_ARR)
         {
             ex_set(e, EX_BAD_DATA,
                     "sets must be written according the "
                     "following syntax: {\""TI_KIND_S_SET"\": [...]");
+            return NULL;
+        }
+
+        vset = ti_vset_create();
+        if (!vset)
+        {
+            ex_set_mem(e);
             return NULL;
         }
 
@@ -172,6 +178,65 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
         }
 
         return (ti_val_t *) vset;
+    }
+    case TI_KIND_C_DICT:
+    {
+        ti_val_t * key, * val;
+        ti_dict_t * dict;
+        size_t i;
+
+        if (sz != 1 || mp_next(vup->up, &mp_val) != MP_MAP)
+        {
+            /*
+            * TODO (COMPAT) For compatibility with data from v0.x
+            */
+            if (sz != 1 || mp_val.tp != MP_STR)
+            {
+                ex_set(e, EX_BAD_DATA,
+                        "dicts must be written according the "
+                        "following syntax: {\""TI_KIND_S_DICT"\": {...}");
+                return NULL;
+            }
+
+            /* TI_KIND_C_REGEX_OBSOLETE */
+            return (ti_val_t *) ti_regex_from_strn(
+                    mp_val.via.str.data,
+                    mp_val.via.str.n, e);
+        }
+
+        dict = ti_dict_create();
+        if (!dict)
+        {
+            ex_set_mem(e);
+            return NULL;
+        }
+
+        for (i = mp_val.via.sz; i--;)
+        {
+            key = ti_val_from_vup_e(vup, e);
+            if (!key)
+            {
+                ti_dict_destroy(dict);
+                return NULL;
+            }
+            val = ti_val_from_vup_e(vup, e);
+            if (!val)
+            {
+                ti_val_unsafe_drop(key);
+                ti_dict_destroy(dict);
+                return NULL;
+            }
+            (void) ti_dict_set(dict, key, &val, e);
+            ti_val_unsafe_drop(key);
+            ti_val_unsafe_drop(val);
+            if (e->nr)
+            {
+                ti_dict_destroy(dict);
+                return NULL;
+            }
+        }
+
+        return (ti_val_t *) dict;
     }
     case TI_KIND_C_ERROR:
     {
@@ -435,22 +500,6 @@ static ti_val_t * val__unp_map(ti_vup_t * vup, size_t sz, ex_t * e)
                 mp_val.via.str.n,
                 e);
     }
-    /*
-     * TODO (COMPAT) For compatibility with data from v0.x
-     */
-    case TI_KIND_C_REGEX_OBSOLETE_:
-    {
-        if (sz != 1 || mp_next(vup->up, &mp_val) != MP_STR)        {
-            ex_set(e, EX_BAD_DATA,
-                    "regular expressions must be written according the "
-                    "following syntax: {\""TI_KIND_S_REGEX_OBSOLETE_"\": \"...\"");
-            return NULL;
-        }
-
-        return (ti_val_t *) ti_regex_from_strn(
-                mp_val.via.str.data,
-                mp_val.via.str.n, e);
-    }
     }
 
     ex_set(e, EX_VALUE_ERROR,
@@ -473,10 +522,10 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
     {
     case TI_VAL_THING:
     case TI_VAL_WRAP:
-        varr->flags |= TI_VARR_FLAG_MHT;
+        varr->flags |= TI_VFLAG_MHT;
         break;
     case TI_VAL_ROOM:
-        varr->flags |= TI_VARR_FLAG_MHR;
+        varr->flags |= TI_VFLAG_MHR;
         break;
     case TI_VAL_NIL:
     case TI_VAL_INT:
@@ -494,7 +543,9 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
     case TI_VAL_ANO:
         break;
     case TI_VAL_WANO:
-        varr->flags |= TI_VARR_FLAG_MHT;
+        varr->flags |= TI_VFLAG_MHT;
+        break;
+    case TI_VAL_UUID:
         break;
     case TI_VAL_ARR:
     {
@@ -503,19 +554,21 @@ static int val__push(ti_varr_t * varr, ti_val_t * val, ex_t * e)
          */
         ti_varr_t * arr = (ti_varr_t *) val;
         arr->flags |= TI_VARR_FLAG_TUPLE;
-        ti_varr_set_may_flags(varr, arr);
+        ti_val_set_may_flags(varr, arr);
         break;
     }
     case TI_VAL_SET:
-        /* This should never happen since a `set` could never be part of the
-         * array in the first place.
+    case TI_VAL_DICT:
+        /* This should never happen since a `set` or `dict` could never be
+         * part of the array in the first place.
          */
         ex_set(e, EX_TYPE_ERROR,
-                "unexpected `set` which cannot be added to the array");
+                "unexpected `%s` which cannot be added to the array",
+            ti_val_str(val));
         return e->nr;
     case TI_VAL_MEMBER:
         if (ti_val_is_thing(VMEMBER(val)))
-            varr->flags |= TI_VARR_FLAG_MHT;
+            varr->flags |= TI_VFLAG_MHT;
         break;
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
@@ -771,6 +824,19 @@ ti_val_t * ti_val_from_vup_e(ti_vup_t * vup, ex_t * e)
                 return NULL;
             return (ti_val_t *) ano;
         }
+        case MPACK_EXT_UUID:
+        {
+            ti_uuid_t * uuid;
+            if (obj.via.ext.n != sizeof(uuid_t))
+            {
+                ex_set(e, EX_BAD_DATA, "invalid UUID (expecting 16 bytes)");
+                return NULL;
+            }
+            uuid = ti_uuid_from_bytes(obj.via.ext.data);
+            if (!uuid)
+                ex_set_mem(e);
+            return (ti_val_t *) uuid;
+        }
         }
         ex_set(e, EX_BAD_DATA,
                 "msgpack extension type %d is not supported by ThingsDB",
@@ -801,8 +867,10 @@ int ti_val_init_common(void)
     val__sfalse = (ti_val_t *) ti_str_from_str("false");
     val__sano = (ti_val_t *) ti_str_from_str(TI_VAL_ANO_S);
     val__swano = (ti_val_t *) ti_str_from_str(TI_VAL_WANO_S);
+    val__suuid = (ti_val_t *) ti_str_from_str(TI_VAL_UUID_S);
     val__sbool = (ti_val_t *) ti_str_from_str(TI_VAL_BOOL_S);
     val__sdatetime = (ti_val_t *) ti_str_from_str(TI_VAL_DATETIME_S);
+    val__sdict = (ti_val_t *) ti_str_from_str(TI_VAL_DICT_S);
     val__stimeval = (ti_val_t *) ti_str_from_str(TI_VAL_TIMEVAL_S);
     val__sint = (ti_val_t *) ti_str_from_str(TI_VAL_INT_S);
     val__sfloat = (ti_val_t *) ti_str_from_str(TI_VAL_FLOAT_S);
@@ -867,9 +935,9 @@ int ti_val_init_common(void)
         !val__module_name || !val__deep_name || !val__load_name ||
         !val__beautify_name || !val__parent_name || !val__parent_type_name ||
         !val__key_name || !val__key_type_name || !val__flags_name ||
-        !val__data_name || !val__time_name || !val__re_email ||
+        !val__data_name || !val__time_name || !val__re_email || !val__sdict ||
         !val__smodule || !val__re_url || !val__re_tel || !val__async_name ||
-        !val__anonymous_name || !val__sano || !val__swano)
+        !val__anonymous_name || !val__sano || !val__swano || !val__suuid)
     {
         return -1;
     }
@@ -881,42 +949,44 @@ int ti_val_init_common(void)
 void ti_val_drop_common(void)
 {
     /* names must not be dropped (handled and sanity checked by names) */
-    ti_val_drop(val__empty_bin);
-    ti_val_drop(val__empty_str);
+    ti_val_drop(val__charset_str);
     ti_val_drop(val__default_closure);
     ti_val_drop(val__default_re);
-    ti_val_drop(val__sany);
-    ti_val_drop(val__snil);
-    ti_val_drop(val__strue);
-    ti_val_drop(val__sfalse);
+    ti_val_drop(val__empty_bin);
+    ti_val_drop(val__empty_str);
+    ti_val_drop(val__gs_str);
+    ti_val_drop(val__re_email);
+    ti_val_drop(val__re_tel);
+    ti_val_drop(val__re_url);
     ti_val_drop(val__sano);
-    ti_val_drop(val__swano);
+    ti_val_drop(val__sany);
     ti_val_drop(val__sbool);
-    ti_val_drop(val__sdatetime);
-    ti_val_drop(val__stimeval);
-    ti_val_drop(val__sint);
-    ti_val_drop(val__sfloat);
-    ti_val_drop(val__sstr);
     ti_val_drop(val__sbytes);
+    ti_val_drop(val__sclosure);
+    ti_val_drop(val__sdatetime);
+    ti_val_drop(val__sdict);
+    ti_val_drop(val__serror);
+    ti_val_drop(val__sfalse);
+    ti_val_drop(val__sfloat);
+    ti_val_drop(val__sfuture);
+    ti_val_drop(val__sint);
+    ti_val_drop(val__slist);
+    ti_val_drop(val__smodule);
     ti_val_drop(val__smpdata);
+    ti_val_drop(val__snil);
     ti_val_drop(val__sregex);
     ti_val_drop(val__sroom);
-    ti_val_drop(val__stask);
-    ti_val_drop(val__serror);
-    ti_val_drop(val__sclosure);
-    ti_val_drop(val__sfuture);
-    ti_val_drop(val__smodule);
-    ti_val_drop(val__slist);
-    ti_val_drop(val__stuple);
     ti_val_drop(val__sset);
+    ti_val_drop(val__sstr);
+    ti_val_drop(val__stask);
     ti_val_drop(val__sthing);
+    ti_val_drop(val__stimeval);
+    ti_val_drop(val__strue);
+    ti_val_drop(val__stuple);
+    ti_val_drop(val__suuid);
+    ti_val_drop(val__swano);
     ti_val_drop(val__swthing);
     ti_val_drop(val__tar_gz_str);
-    ti_val_drop(val__gs_str);
-    ti_val_drop(val__charset_str);
-    ti_val_drop(val__re_email);
-    ti_val_drop(val__re_url);
-    ti_val_drop(val__re_tel);
 }
 
 int ti_val_make_int(ti_val_t ** val, int64_t i)
@@ -1082,6 +1152,17 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
         }
         break;
     }
+    case TI_VAL_UUID:
+    {
+        ti_uuid_t * u = (ti_uuid_t *) (*val);
+        v = (ti_val_t *) ti_bin_create(u->id, sizeof(u->id));
+        if (!v)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        break;
+    }
     case TI_VAL_BYTES:
         return e->nr;  /* do nothing, just return the string */
     case TI_VAL_REGEX:
@@ -1096,6 +1177,7 @@ int ti_val_convert_to_bytes(ti_val_t ** val, ex_t * e)
     case TI_VAL_TASK:
     case TI_VAL_ARR:
     case TI_VAL_SET:
+    case TI_VAL_DICT:
     case TI_VAL_CLOSURE:
     case TI_VAL_ANO:
     case TI_VAL_WANO:
@@ -1197,9 +1279,11 @@ int ti_val_convert_to_int(ti_val_t ** val, ex_t * e)
     case TI_VAL_TASK:
     case TI_VAL_ARR:
     case TI_VAL_SET:
+    case TI_VAL_DICT:
     case TI_VAL_CLOSURE:
     case TI_VAL_ANO:
     case TI_VAL_WANO:
+    case TI_VAL_UUID:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
     case TI_VAL_MPDATA:
@@ -1296,9 +1380,11 @@ int ti_val_convert_to_float(ti_val_t ** val, ex_t * e)
     case TI_VAL_TASK:
     case TI_VAL_ARR:
     case TI_VAL_SET:
+    case TI_VAL_DICT:
     case TI_VAL_CLOSURE:
     case TI_VAL_ANO:
     case TI_VAL_WANO:
+    case TI_VAL_UUID:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
     case TI_VAL_MPDATA:
@@ -1327,6 +1413,10 @@ int ti_val_convert_to_array(ti_val_t ** val, ex_t * e)
         if (ti_vset_to_list((ti_vset_t **) val))
             ex_set_mem(e);
         break;
+    case TI_VAL_DICT:
+        if (ti_dict_to_list((ti_dict_t **) val))
+            ex_set_mem(e);
+        break;
     case TI_VAL_NIL:
     case TI_VAL_INT:
     case TI_VAL_FLOAT:
@@ -1345,6 +1435,7 @@ int ti_val_convert_to_array(ti_val_t ** val, ex_t * e)
     case TI_VAL_CLOSURE:
     case TI_VAL_ANO:
     case TI_VAL_WANO:
+    case TI_VAL_UUID:
     case TI_VAL_MEMBER:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
@@ -1413,11 +1504,13 @@ int ti_val_convert_to_set(ti_val_t ** val, ex_t * e)
     case TI_VAL_WRAP:
     case TI_VAL_ROOM:
     case TI_VAL_TASK:
+    case TI_VAL_DICT:
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:
     case TI_VAL_CLOSURE:
     case TI_VAL_ANO:
     case TI_VAL_WANO:
+    case TI_VAL_UUID:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
         ex_set(e, EX_TYPE_ERROR,
@@ -1462,6 +1555,8 @@ size_t ti_val_get_len(ti_val_t * val)
         return VARR(val)->n;
     case TI_VAL_SET:
         return VSET(val)->n;
+    case TI_VAL_DICT:
+        return ti_dict_n((ti_dict_t *) val);
     case TI_VAL_CLOSURE:
         break;
     case TI_VAL_ANO:
@@ -1471,6 +1566,8 @@ size_t ti_val_get_len(ti_val_t * val)
             !!((ti_ano_t *) val)->type->idname);
     case TI_VAL_WANO:
         return ti_thing_n(((ti_wano_t *) val)->thing);
+    case TI_VAL_UUID:
+        return sizeof(((ti_uuid_t *) val)->id);
     case TI_VAL_MEMBER:
         return ti_val_get_len(VMEMBER(val));
     case TI_VAL_FUTURE:
@@ -1480,6 +1577,16 @@ size_t ti_val_get_len(ti_val_t * val)
         break;
     }
     return 0;
+}
+
+static inline int val__walk_gen_id_dict(ti_val_t * val, void * UNUSED(_))
+{
+    return ti_val_gen_ids(val);
+}
+
+static inline int val__walk_has_id_dict(ti_val_t * val, void * UNUSED(_))
+{
+    return ti_val_has_ids(val);
 }
 
 static inline int val__walk_gen_id_set(ti_thing_t * thing, void * UNUSED(_))
@@ -1537,14 +1644,19 @@ int ti_val_gen_ids(ti_val_t * val)
          * Here the code really benefits from the `may-have-things` flag since
          * must attached arrays will contain "only" things, or no things.
          */
-        if (ti_varr_may_gen_ids((ti_varr_t *) val))
+        if (ti_val_may_flags(val))
             for (vec_each(VARR(val), ti_val_t, v))
                 if (ti_val_gen_ids(v))
                     return -1;
         break;
     case TI_VAL_SET:
         return imap_walk(VSET(val), (imap_cb) val__walk_gen_id_set, NULL);
-
+    case TI_VAL_DICT:
+        if (ti_val_may_flags(val))
+            return ti_dict_walk(
+                (ti_dict_t *) val,
+                (ti_dict_cb) val__walk_gen_id_dict,
+                NULL);
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:
         /* enum can be skipped; even a thing on an enum is guaranteed to
@@ -1565,6 +1677,8 @@ int ti_val_gen_ids(ti_val_t * val)
          * New things 'under' an existing thing will get their own task,
          * so here we do not need recursion.
          */
+        break;
+    case TI_VAL_UUID:
         break;
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
@@ -1600,17 +1714,25 @@ _Bool ti_val_has_ids(ti_val_t * val)
     case TI_VAL_ROOM:
         return ((ti_room_t *) val)->id != 0;
     case TI_VAL_ARR:
-        for (vec_each(VARR(val), ti_val_t, v))
-            if (ti_val_has_ids(v))
-                return true;
+        if (ti_val_may_flags(val))
+            for (vec_each(VARR(val), ti_val_t, v))
+                if (ti_val_has_ids(v))
+                    return true;
         return false;
     case TI_VAL_SET:
         return imap_walk(VSET(val), (imap_cb) val__walk_has_id_set, NULL);
+    case TI_VAL_DICT:
+        if (ti_val_may_flags(val))
+            return ti_dict_walk((ti_dict_t *) val,
+                                (ti_dict_cb) val__walk_has_id_dict,
+                                NULL);
+        return false;
     case TI_VAL_CLOSURE:
     case TI_VAL_ANO:
         return false;
     case TI_VAL_WANO:
         return ti_thing_has_id(((ti_wano_t *) val)->thing);
+    case TI_VAL_UUID:
     case TI_VAL_ERROR:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
@@ -1645,6 +1767,7 @@ size_t ti_val_alloc_size(ti_val_t * val)
     case TI_VAL_WRAP:
     case TI_VAL_ARR:
     case TI_VAL_SET:
+    case TI_VAL_DICT:
         return 65536;
     case TI_VAL_CLOSURE:
         return 4096;
@@ -1652,6 +1775,8 @@ size_t ti_val_alloc_size(ti_val_t * val)
         return ((ti_ano_t *) val)->spec_raw->n + 9;
     case TI_VAL_WANO:
         return 65536;
+    case TI_VAL_UUID:
+        return 64;
     case TI_VAL_ERROR:
         return ((ti_verror_t *) val)->msg_n + 128;
     case TI_VAL_MEMBER:
@@ -1696,6 +1821,7 @@ ti_val_t * ti_val_strv(ti_val_t * val)
                 ? ti_grab(val__slist)
                 : ti_grab(val__stuple);
     case TI_VAL_SET:            return ti_grab(val__sset);
+    case TI_VAL_DICT:           return ti_grab(val__sdict);
     case TI_VAL_ERROR:          return ti_grab(val__serror);
     case TI_VAL_MEMBER:
         return (ti_val_t *) ti_member_enum_get_rname((ti_member_t *) val);
@@ -1703,6 +1829,7 @@ ti_val_t * ti_val_strv(ti_val_t * val)
     case TI_VAL_CLOSURE:        return ti_grab(val__sclosure);
     case TI_VAL_ANO:            return ti_grab(val__sano);
     case TI_VAL_WANO:           return ti_grab(val__swano);
+    case TI_VAL_UUID:           return ti_grab(val__suuid);
     case TI_VAL_FUTURE:         return ti_grab(val__sfuture);
     case TI_VAL_MODULE:         return ti_grab(val__smodule);
     case TI_VAL_TEMPLATE:
@@ -1754,6 +1881,12 @@ int ti_val_copy(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep)
         ((ti_vset_t *) *val)->parent = parent;
         ((ti_vset_t *) *val)->key_ = key;
         return 0;
+    case TI_VAL_DICT:
+        if (ti_dict_copy((ti_dict_t **) val, deep))
+            return -1;
+        ((ti_dict_t *) *val)->parent = parent;
+        ((ti_dict_t *) *val)->key_ = key;
+        return 0;
     case TI_VAL_CLOSURE:
     {
         ex_t e = {0};
@@ -1763,11 +1896,57 @@ int ti_val_copy(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep)
         return 0;
     case TI_VAL_WANO:
         return ti_wano_copy((ti_wano_t **) val, deep);
+    case TI_VAL_UUID:
+        return 0;
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
         ti_val_unsafe_drop(*val);
         *val = (ti_val_t *) ti_nil_get();
         return 0;
+    case TI_VAL_TEMPLATE:
+        break;
+    }
+    assert(0);
+    return -1;
+}
+
+int ti_val_copy_nested(ti_val_t ** val, uint8_t deep)
+{
+    assert(deep);
+    switch ((ti_val_enum) (*val)->tp)
+    {
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
+    case TI_VAL_MPDATA:
+    case TI_VAL_NAME:
+    case TI_VAL_STR:
+    case TI_VAL_BYTES:
+    case TI_VAL_REGEX:
+    case TI_VAL_TASK:
+    case TI_VAL_ERROR:
+    case TI_VAL_MEMBER:
+    case TI_VAL_CLOSURE:
+    case TI_VAL_ANO:
+        return 0;
+    case TI_VAL_THING:
+        return ti_thing_copy((ti_thing_t **) val, deep);
+    case TI_VAL_WRAP:
+        return ti_wrap_copy((ti_wrap_t **) val, deep);
+    case TI_VAL_ROOM:
+        return ti_room_copy((ti_room_t **) val);  /* copy a room */
+    case TI_VAL_ARR:
+        return ti_tuple_copy((ti_tuple_t **) val, deep);
+    case TI_VAL_WANO:
+        return ti_wano_copy((ti_wano_t **) val, deep);
+    case TI_VAL_UUID:
+        return 0;
+    case TI_VAL_FUTURE:
+    case TI_VAL_MODULE:
+    case TI_VAL_SET:
+    case TI_VAL_DICT:
     case TI_VAL_TEMPLATE:
         break;
     }
@@ -1817,6 +1996,12 @@ int ti_val_dup(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep)
         ((ti_vset_t *) *val)->parent = parent;
         ((ti_vset_t *) *val)->key_ = key;
         return 0;
+    case TI_VAL_DICT:
+        if (ti_dict_dup((ti_dict_t **) val, deep))
+            return -1;
+        ((ti_dict_t *) *val)->parent = parent;
+        ((ti_dict_t *) *val)->key_ = key;
+        return 0;
     case TI_VAL_CLOSURE:
     {
         ex_t e = {0};
@@ -1826,11 +2011,57 @@ int ti_val_dup(ti_val_t ** val, ti_thing_t * parent, void * key, uint8_t deep)
         return 0;
     case TI_VAL_WANO:
         return ti_wano_dup((ti_wano_t **) val, deep);
+    case TI_VAL_UUID:
+        return 0;
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
         ti_val_unsafe_drop(*val);
         *val = (ti_val_t *) ti_nil_get();
         return 0;
+    case TI_VAL_TEMPLATE:
+        break;
+    }
+    assert(0);
+    return -1;
+}
+
+int ti_val_dup_nested(ti_val_t ** val, uint8_t deep)
+{
+    assert(deep);
+    switch ((ti_val_enum) (*val)->tp)
+    {
+    case TI_VAL_NIL:
+    case TI_VAL_INT:
+    case TI_VAL_FLOAT:
+    case TI_VAL_BOOL:
+    case TI_VAL_DATETIME:
+    case TI_VAL_MPDATA:
+    case TI_VAL_NAME:
+    case TI_VAL_STR:
+    case TI_VAL_BYTES:
+    case TI_VAL_REGEX:
+    case TI_VAL_TASK:
+    case TI_VAL_ERROR:
+    case TI_VAL_MEMBER:
+    case TI_VAL_CLOSURE:
+    case TI_VAL_ANO:
+        return 0;
+    case TI_VAL_THING:
+        return ti_thing_dup((ti_thing_t **) val, deep);
+    case TI_VAL_WRAP:
+        return ti_wrap_dup((ti_wrap_t **) val, deep);
+    case TI_VAL_ROOM:
+        return ti_room_copy((ti_room_t **) val);  /* copy a room */
+    case TI_VAL_ARR:
+        return ti_tuple_dup((ti_tuple_t **) val, deep);
+    case TI_VAL_WANO:
+        return ti_wano_dup((ti_wano_t **) val, deep);
+    case TI_VAL_UUID:
+        return 0;
+    case TI_VAL_FUTURE:
+    case TI_VAL_MODULE:
+    case TI_VAL_SET:
+    case TI_VAL_DICT:
     case TI_VAL_TEMPLATE:
         break;
     }
@@ -1918,6 +2149,26 @@ int ti_val_bytes_to_str(ti_val_t ** val, ex_t * e)
     *val = (ti_val_t *) r;
     return 0;
 }
+int ti_val_bytes_to_uuid(ti_val_t ** val, ex_t * e)
+{
+    ti_uuid_t * uuid;
+    ti_raw_t * r = (ti_raw_t *) (*val);
+    if (r->n != sizeof(uuid_t))
+    {
+        ex_set(e, EX_VALUE_ERROR,
+                "invalid UUID (expecting 16 bytes)");
+        return e->nr;
+    }
+    uuid = ti_uuid_from_bytes(r->data);
+    if (!uuid)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+    ti_val_unsafe_drop(*val);
+    *val = (ti_val_t *) uuid;
+    return 0;
+}
 int ti_val_regex_to_str(ti_val_t ** val, ex_t * UNUSED(e))
 {
     ti_val_t * v = (ti_val_t *) (*(ti_regex_t **) val)->pattern;
@@ -1953,6 +2204,18 @@ int ti_val_wrap_to_str(ti_val_t ** val, ex_t * e)
 int ti_val_wano_to_str(ti_val_t ** val, ex_t * e)
 {
     ti_val_t * v = (ti_val_t *) ti_wano_str((ti_wano_t *) *val);
+    if (!v)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+    ti_val_unsafe_drop(*val);
+    *val = v;
+    return 0;
+}
+int ti_val_uuid_to_str(ti_val_t ** val, ex_t * e)
+{
+    ti_val_t * v = (ti_val_t *) ti_uuid_str((ti_uuid_t *) *val);
     if (!v)
     {
         ex_set_mem(e);

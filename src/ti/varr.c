@@ -32,7 +32,7 @@ int ti_varr_to_tuple(ti_varr_t ** varr)
 
     tuple->ref = 1;
     tuple->tp = TI_VAL_ARR;
-    tuple->flags = TI_VARR_FLAG_TUPLE | ti_varr_may_flags(*varr);
+    tuple->flags = TI_VARR_FLAG_TUPLE | ti_val_may_flags(*varr);
     tuple->vec = vec_dup((*varr)->vec);
     /*
      * Note that `tuple` is allocation as a tuple but is casted as type `varr`
@@ -85,7 +85,7 @@ ti_varr_t * ti_tuple_from_vec_unsafe(vec_t * vec)
     varr->ref = 1;
     varr->tp = TI_VAL_ARR;
     varr->flags = \
-            TI_VARR_FLAG_TUPLE|(vec->n?(TI_VARR_FLAG_MHT|TI_VARR_FLAG_MHR):0);
+            TI_VARR_FLAG_TUPLE|(vec->n?(TI_VFLAG_MHT|TI_VFLAG_MHR):0);
     varr->vec = vec;
     varr->parent = NULL;
     return varr;
@@ -105,14 +105,14 @@ ti_varr_t * ti_varr_from_vec_unsafe(vec_t * vec)
 
     varr->ref = 1;
     varr->tp = TI_VAL_ARR;
-    varr->flags = vec->n?(TI_VARR_FLAG_MHT|TI_VARR_FLAG_MHR):0;
+    varr->flags = vec->n?(TI_VFLAG_MHT|TI_VFLAG_MHR):0;
     varr->vec = vec;
     varr->parent = NULL;
     return varr;
 }
 
 /*
- * Should only be used when it is `ti_val_to_arr()` should succeed in normal
+ * Should only be used when it is `ti_val_to_nested()` should succeed in normal
  * conditions.
  */
 ti_varr_t * ti_varr_from_vec(vec_t * vec)
@@ -129,7 +129,7 @@ ti_varr_t * ti_varr_from_vec(vec_t * vec)
     varr->parent = NULL;
     for (vec_each_addr(vec, ti_val_t, v))
     {
-        if (ti_val_to_arr(v, varr, &e))
+        if (ti_val_to_nested(v, (ti_parent_t *) varr, &e))
         {
             log_critical("%s", e.msg);
             free(varr);
@@ -247,7 +247,7 @@ ti_varr_t * ti_varr_cp(ti_varr_t * varr)
 
     list->ref = 1;
     list->tp = TI_VAL_ARR;
-    list->flags = ti_varr_may_flags(varr);
+    list->flags = ti_val_may_flags(varr);
     list->vec = vec_dup(varr->vec);
     list->parent = NULL;
 
@@ -263,7 +263,7 @@ ti_varr_t * ti_varr_cp(ti_varr_t * varr)
     return list;
 }
 
-int varr__tuple_to_tuple(ti_tuple_t ** vtuple)
+static int varr__tuple_to_tuple(ti_tuple_t ** vtuple)
 {
     ti_tuple_t * tuple = malloc(sizeof(ti_varr_t));
     if (!tuple)
@@ -271,7 +271,7 @@ int varr__tuple_to_tuple(ti_tuple_t ** vtuple)
 
     tuple->ref = 1;
     tuple->tp = TI_VAL_ARR;
-    tuple->flags = ti_varr_may_flags(*vtuple) | TI_VARR_FLAG_TUPLE;
+    tuple->flags = ti_val_may_flags(*vtuple) | TI_VARR_FLAG_TUPLE;
     tuple->vec = vec_dup((*vtuple)->vec);
 
     if (!tuple->vec)
@@ -302,7 +302,7 @@ int ti_varr_to_list(ti_varr_t ** varr)
 
     list->ref = 1;
     list->tp = TI_VAL_ARR;
-    list->flags = ti_varr_may_flags(*varr);
+    list->flags = ti_val_may_flags(*varr);
     list->vec = vec_dup((*varr)->vec);
     list->parent = NULL;
 
@@ -321,98 +321,6 @@ int ti_varr_to_list(ti_varr_t ** varr)
     return 0;
 }
 
-static int varr__copy(ti_val_t ** val, uint8_t deep)
-{
-    assert(deep);
-    switch ((ti_val_enum) (*val)->tp)
-    {
-    case TI_VAL_NIL:
-    case TI_VAL_INT:
-    case TI_VAL_FLOAT:
-    case TI_VAL_BOOL:
-    case TI_VAL_DATETIME:
-    case TI_VAL_MPDATA:
-    case TI_VAL_NAME:
-    case TI_VAL_STR:
-    case TI_VAL_BYTES:
-    case TI_VAL_REGEX:
-    case TI_VAL_TASK:
-    case TI_VAL_ERROR:
-    case TI_VAL_MEMBER:
-    case TI_VAL_CLOSURE:
-    case TI_VAL_ANO:
-        return 0;
-    case TI_VAL_THING:
-        return ti_thing_copy((ti_thing_t **) val, deep);
-    case TI_VAL_WRAP:
-        return ti_wrap_copy((ti_wrap_t **) val, deep);
-    case TI_VAL_ROOM:
-        return ti_room_copy((ti_room_t **) val);  /* copy a room */
-    case TI_VAL_ARR:
-        if (varr__tuple_to_tuple((ti_tuple_t **) val))
-            return -1;
-        for (vec_each_addr(((ti_tuple_t *) *val)->vec, ti_val_t, v))
-            if (varr__copy(v, deep))
-                return -1;
-        return 0;
-    case TI_VAL_WANO:
-        return ti_wano_copy((ti_wano_t **) val, deep);
-    case TI_VAL_FUTURE:
-    case TI_VAL_MODULE:
-    case TI_VAL_SET:
-    case TI_VAL_TEMPLATE:
-        break;
-    }
-    assert(0);
-    return -1;
-}
-
-static int varr__dup(ti_val_t ** val, uint8_t deep)
-{
-    assert(deep);
-    switch ((ti_val_enum) (*val)->tp)
-    {
-    case TI_VAL_NIL:
-    case TI_VAL_INT:
-    case TI_VAL_FLOAT:
-    case TI_VAL_BOOL:
-    case TI_VAL_DATETIME:
-    case TI_VAL_MPDATA:
-    case TI_VAL_NAME:
-    case TI_VAL_STR:
-    case TI_VAL_BYTES:
-    case TI_VAL_REGEX:
-    case TI_VAL_TASK:
-    case TI_VAL_ERROR:
-    case TI_VAL_MEMBER:
-    case TI_VAL_CLOSURE:
-    case TI_VAL_ANO:
-        return 0;
-    case TI_VAL_THING:
-        return ti_thing_dup((ti_thing_t **) val, deep);
-    case TI_VAL_WRAP:
-        return ti_wrap_dup((ti_wrap_t **) val, deep);
-    case TI_VAL_ROOM:
-        return ti_room_copy((ti_room_t **) val);  /* copy a room */
-    case TI_VAL_ARR:
-        if (varr__tuple_to_tuple((ti_tuple_t **) val))
-            return -1;
-        for (vec_each_addr(((ti_tuple_t *) *val)->vec, ti_val_t, v))
-            if (varr__dup(v, deep))
-                return -1;
-        return 0;
-    case TI_VAL_WANO:
-        return ti_wano_dup((ti_wano_t **) val, deep);
-    case TI_VAL_FUTURE:
-    case TI_VAL_MODULE:
-    case TI_VAL_SET:
-    case TI_VAL_TEMPLATE:
-        break;
-    }
-    assert(0);
-    return -1;
-}
-
 int ti_varr_copy(ti_varr_t ** varr, uint8_t deep)
 {
     assert(deep);
@@ -423,7 +331,7 @@ int ti_varr_copy(ti_varr_t ** varr, uint8_t deep)
 
     list->ref = 1;
     list->tp = TI_VAL_ARR;
-    list->flags = ti_varr_may_flags(*varr);
+    list->flags = ti_val_may_flags(*varr);
     list->vec = vec_dup((*varr)->vec);
     list->parent = NULL;
 
@@ -436,7 +344,7 @@ int ti_varr_copy(ti_varr_t ** varr, uint8_t deep)
     for (vec_each_addr(list->vec, ti_val_t, val))
     {
         ti_incref(*val);
-        if (varr__copy(val, deep))
+        if (ti_val_copy_nested(val, deep))
             rc = -1;
     }
 
@@ -452,6 +360,27 @@ int ti_varr_copy(ti_varr_t ** varr, uint8_t deep)
     return 0;
 }
 
+int ti_tuple_copy(ti_tuple_t ** vtuple, uint8_t deep)
+{
+    if (varr__tuple_to_tuple(vtuple))
+        return -1;
+    for (vec_each_addr((*vtuple)->vec, ti_val_t, v))
+        if (ti_val_copy_nested(v, deep))
+            return -1;
+    return 0;
+}
+
+
+int ti_tuple_dup(ti_tuple_t ** vtuple, uint8_t deep)
+{
+    if (varr__tuple_to_tuple(vtuple))
+        return -1;
+    for (vec_each_addr((*vtuple)->vec, ti_val_t, v))
+        if (ti_val_dup_nested(v, deep))
+            return -1;
+    return 0;
+}
+
 int ti_varr_dup(ti_varr_t ** varr, uint8_t deep)
 {
     assert(deep);
@@ -462,7 +391,7 @@ int ti_varr_dup(ti_varr_t ** varr, uint8_t deep)
 
     list->ref = 1;
     list->tp = TI_VAL_ARR;
-    list->flags = ti_varr_may_flags(*varr);
+    list->flags = ti_val_may_flags(*varr);
     list->vec = vec_dup((*varr)->vec);
     list->parent = NULL;
 
@@ -475,7 +404,7 @@ int ti_varr_dup(ti_varr_t ** varr, uint8_t deep)
     for (vec_each_addr(list->vec, ti_val_t, val))
     {
         ti_incref(*val);
-        if (varr__dup(val, deep))
+        if (ti_val_dup_nested(val, deep))
             rc = -1;
     }
 

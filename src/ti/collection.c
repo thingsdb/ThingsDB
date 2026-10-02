@@ -31,6 +31,7 @@
 #include <util/strx.h>
 
 static void collection__gc_mark_thing(ti_thing_t * thing);
+static inline void collection__gc_val(ti_val_t * val);
 
 static const size_t ti_collection_min_name = 1;
 static const size_t ti_collection_max_name = 128;
@@ -78,8 +79,9 @@ ti_collection_t * ti_collection_create(
     if (!collection->name || !collection->things || !collection->gc ||
         !collection->access || !collection->procedures || !collection->lock ||
         !collection->types || !collection->enums || !collection->futures ||
-        !collection->rooms || !collection->named_rooms || !collection->scope ||
-        !collection->ano_types || uv_mutex_init(collection->lock))
+        !collection->rooms || !collection->named_rooms ||
+        !collection->scope || !collection->ano_types ||
+        uv_mutex_init(collection->lock))
     {
         ti_collection_drop(collection);
         return NULL;
@@ -349,7 +351,7 @@ static void collection__gc_mark_varr(ti_varr_t * varr)
         case TI_VAL_ARR:
         {
             ti_varr_t * varr = (ti_varr_t *) val;
-            if (ti_varr_may_have_things(varr))
+            if (ti_val_mht(varr))
                 collection__gc_mark_varr(varr);
             continue;
         }
@@ -357,10 +359,16 @@ static void collection__gc_mark_varr(ti_varr_t * varr)
     }
 }
 
-static inline int colection__set_cb(ti_thing_t * thing, void * UNUSED(arg))
+static int colection__set_cb(ti_thing_t * thing, void * UNUSED(arg))
 {
     if (thing->flags & TI_THING_FLAG_SWEEP)
         collection__gc_mark_thing(thing);
+    return 0;
+}
+
+static int colection__dict_cb(ti_val_t * val, void * UNUSED(arg))
+{
+    (void) collection__gc_val(val);
     return 0;
 }
 
@@ -385,7 +393,7 @@ static inline void collection__gc_val(ti_val_t * val)
     case TI_VAL_ARR:
     {
         ti_varr_t * varr = (ti_varr_t *) val;
-        if (ti_varr_may_have_things(varr))
+        if (ti_val_mht(varr))
             collection__gc_mark_varr(varr);
         return;
     }
@@ -393,6 +401,12 @@ static inline void collection__gc_val(ti_val_t * val)
     {
         ti_vset_t * vset = (ti_vset_t *) val;
         (void) imap_walk(vset->imap, (imap_cb) colection__set_cb, NULL);
+        return;
+    }
+    case TI_VAL_DICT:
+    {
+        ti_dict_t * dict = (ti_dict_t *) val;
+        (void) ti_dict_walk(dict, (ti_dict_cb) colection__dict_cb, NULL);
         return;
     }
     }

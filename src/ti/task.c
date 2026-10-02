@@ -159,7 +159,7 @@ fail_data:
 int ti_task_add_arr_clear(ti_task_t * task, ti_raw_t * key)
 {
     assert(key);
-    size_t alloc = 32;
+    size_t alloc = 28 + key->n;
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -188,7 +188,7 @@ fail_data:
 int ti_task_add_set_clear(ti_task_t * task, ti_raw_t * key)
 {
     assert(key);
-    size_t alloc = 32;
+    size_t alloc = 28 + key->n;
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -1070,7 +1070,7 @@ fail_data:
     return -1;
 }
 
-int ti_task_set_name(ti_task_t * task, ti_room_t * room)
+int ti_task_add_room_set_name(ti_task_t * task, ti_room_t * room)
 {
     size_t alloc = 32 + (room->name ? room->name->n : 0);
     ti_data_t * data;
@@ -3277,6 +3277,126 @@ int ti_task_add_del_history(
 
     for (vec_each(commits, ti_commit_t, commit))
         msgpack_pack_uint64(&pk, commit->id);
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+}
+
+int ti_task_add_dict_set(
+        ti_task_t * task,
+        ti_raw_t * key,
+        ti_val_t * k,
+        ti_val_t * v)
+{
+    static const size_t alloc = 4096;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_DICT_SET);
+    msgpack_pack_map(&pk, 1);
+
+    mp_pack_strn(&pk, key->data, key->n);
+
+    msgpack_pack_map(&pk, 1);
+
+    if (ti_val_to_store_pk(k, &pk) ||
+        ti_val_gen_ids(v) ||
+        ti_val_to_store_pk(v, &pk))
+        goto fail_pack;
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+
+fail_pack:
+    msgpack_sbuffer_destroy(&buffer);
+    return -1;
+}
+
+int ti_task_add_dict_del(
+        ti_task_t * task,
+        ti_raw_t * key,
+        ti_val_t * k)
+{
+    static const size_t alloc = 128;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_DICT_DEL);
+    msgpack_pack_map(&pk, 1);
+
+    if (mp_pack_strn(&pk, key->data, key->n) ||
+        ti_val_to_store_pk(k, &pk))
+        goto fail_pack;
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+
+fail_pack:
+    msgpack_sbuffer_destroy(&buffer);
+    return -1;
+}
+
+int ti_task_add_dict_clear(
+        ti_task_t * task,
+        ti_raw_t * key)
+{
+    size_t alloc = 28 + key->n;
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_DICT_CLEAR);
+    mp_pack_strn(&pk, key->data, key->n);
 
     data = (ti_data_t *) buffer.data;
     ti_data_init(data, buffer.size);

@@ -141,7 +141,7 @@ class TestType(TestBase):
         with self.assertRaisesRegex(
                 ValueError,
                 'name `closure` is reserved'):
-            await client0.query(r''' new_type('closure', {}); ''')
+            await client0.query(r''' new_type('closure'); ''')
 
         await client0.query(r'''
             set_type('User', {
@@ -924,7 +924,7 @@ class TestType(TestBase):
                 TypeError,
                 r'mismatch in type `Tic`; '
                 r'property `tac` requires an array with items that '
-                r'matches definition `\[Tac\]`'):
+                r'match definition `\[Tac\]`'):
             await client.query(r'''
                 tic = Tic{
                     tac: [{

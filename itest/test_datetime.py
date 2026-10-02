@@ -1035,6 +1035,35 @@ class TestDatetime(TestBase):
         """)
         self.assertEqual(res, "2023-04-01T00:00:00+0200")
 
+    async def test_wrap_datetime_as_timeval(self, client):
+        q = client.query
+        res = await q("""//ti
+            set_type('Card', {
+                nested: '[datetime]',
+                created: 'datetime',
+            });
+            Card{nested: [datetime()]}.wrap(&{
+                nested: '[timeval?]',
+                created: 'timeval'
+            });
+        """)
+        self.assertIn('created', res)
+        self.assertIsInstance(res['created'], int)
+        self.assertIn('nested', res)
+        self.assertIsInstance(res['nested'][0], int)
+
+    async def test_wrap_timeval_as_datetime(self, client):
+        q = client.query
+        res = await q("""//ti
+            {nested: [timeval()], created: timeval()}.wrap(&{
+                nested: '[datetime]',
+                created: 'datetime'
+            });
+        """)
+        self.assertIn('created', res)
+        self.assertIsInstance(res['created'], str)
+        self.assertIn('nested', res)
+        self.assertIsInstance(res['nested'][0], str)
 
 if __name__ == '__main__':
     run_test(TestDatetime())

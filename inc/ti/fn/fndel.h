@@ -82,13 +82,9 @@ static int do__f_del_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     {
         task = ti_task_get_task(query->change, thing);
         if (!task || ti_task_add_del(task, rname))
-        {
-            ex_set_mem(e);
-            goto fail1;
-        }
+            ti_panic("task del");
     }
 
-fail1:
     ti_val_unsafe_drop((ti_val_t *) rname);
 
 fail0:
@@ -97,10 +93,57 @@ fail0:
     return e->nr;
 }
 
+static int do__f_del_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    const int nargs = fn_get_nargs(nd);
+    ti_task_t * task;
+    ti_dict_t * dict;
+    ti_val_t * key;
+
+    if (fn_nargs("del", DOC_DICT_DEL, 1, nargs, e) ||
+        ti_query_test_dict_operation(query, e) ||
+        ti_val_try_lock(query->rval, e))
+        return e->nr;
+
+    dict = (ti_dict_t *) query->rval;
+    query->rval = NULL;
+
+    if (ti_do_statement(query, nd->children, e))
+        goto fail0;
+
+    key = query->rval;
+    query->rval = ti_dict_del(dict, key);
+
+    if (!query->rval)
+    {
+        ti_dict_set_key_err(key, e);
+        goto fail1;
+    }
+
+    if (dict->parent && dict->parent->id)
+    {
+        task = ti_task_get_task(query->change, dict->parent);
+        if (!task || ti_task_add_dict_del(task,
+                                          ti_dict_key(dict),
+                                          key))
+            ti_panic("task dict_del");
+    }
+
+fail1:
+    ti_val_unsafe_drop((ti_val_t *) key);
+
+fail0:
+    ti_val_unlock((ti_val_t *) dict, true  /* lock was set */);
+    ti_val_unsafe_drop((ti_val_t *) dict);
+    return e->nr;
+}
+
 static int do__f_del(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     return ti_val_is_thing(query->rval)
             ? do__f_del_thing(query, nd, e)
+            : ti_val_is_dict(query->rval)
+            ? do__f_del_dict(query, nd, e)
             : ti_val_is_task(query->rval)
             ? do__f_del_vtask(query, nd, e)
             : fn_call_try("del", query, nd, e);

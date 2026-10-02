@@ -27,6 +27,12 @@ int ti_forloop_set(
         cleri_node_t * code_nd,
         ex_t * e);
 
+int ti_forloop_dict(
+        ti_query_t * query,
+        cleri_node_t * vars_nd,
+        cleri_node_t * code_nd,
+        ex_t * e);
+
 int ti_forloop_thing(
         ti_query_t * query,
         cleri_node_t * vars_nd,
@@ -39,7 +45,7 @@ typedef int (*ti_forloop_t) (
         cleri_node_t *,
         ex_t *);
 
-static const ti_forloop_t ti_forloop_callbacks[24] = {
+static const ti_forloop_t ti_forloop_callbacks[26] = {
         ti_forloop_no_iter,         /* TI_VAL_NIL */
         ti_forloop_no_iter,         /* TI_VAL_INT */
         ti_forloop_no_iter,         /* TI_VAL_FLOAT */
@@ -55,12 +61,14 @@ static const ti_forloop_t ti_forloop_callbacks[24] = {
         ti_forloop_no_iter,         /* TI_VAL_TASK */
         ti_forloop_arr,             /* TI_VAL_ARR */
         ti_forloop_set,             /* TI_VAL_SET */
+        ti_forloop_dict,            /* TI_VAL_DICT */
         ti_forloop_no_iter,         /* TI_VAL_ERROR */
         ti_forloop_no_iter,         /* TI_VAL_MEMBER */
         ti_forloop_no_iter,         /* TI_VAL_MPDATA */
         ti_forloop_no_iter,         /* TI_VAL_CLOSURE */
         ti_forloop_no_iter,         /* TI_VAL_ANO */
         ti_forloop_no_iter,         /* TI_VAL_WANO */
+        ti_forloop_no_iter,         /* TI_VAL_UUID */
         ti_forloop_no_iter,         /* TI_VAL_FUTURE */
         ti_forloop_no_iter,         /* TI_VAL_MODULE */
         ti_forloop_no_iter,         /* TI_VAL_TEMPLATE */

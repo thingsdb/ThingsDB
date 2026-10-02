@@ -9,6 +9,7 @@
 #include <ti/closure.h>
 #include <ti/condition.h>
 #include <ti/data.h>
+#include <ti/dict.inline.h>
 #include <ti/enum.h>
 #include <ti/enum.inline.h>
 #include <ti/enums.inline.h>
@@ -79,6 +80,15 @@ decref:
     }
     --type->refcount;
     return;
+}
+
+static inline _Bool field__maps_dict_keys(ti_field_t * t_field,
+                                          ti_field_t * f_field)
+{
+    return (
+        t_field->condition.key->spec == TI_SPEC_ANY ||
+        f_field->condition.key->spec == t_field->condition.key->spec
+    );
 }
 
 /* Used for detecting circular references between types */
@@ -168,6 +178,11 @@ static ti_val_t * field__dval_arr(ti_field_t * UNUSED(field))
      return (ti_val_t *) ti_varr_create(0);
 }
 
+static ti_val_t * field__dval_dict(ti_field_t * UNUSED(field))
+{
+     return (ti_val_t *) ti_dict_create();
+}
+
 static ti_val_t * field__dval_set(ti_field_t * UNUSED(field))
 {
     return (ti_val_t *) ti_vset_create();;
@@ -225,6 +240,11 @@ static ti_val_t * field__dval_float(ti_field_t * UNUSED(field))
 static ti_val_t * field__dval_bool(ti_field_t * UNUSED(field))
 {
     return (ti_val_t *) ti_vbool_get(false);
+}
+
+static ti_val_t * field__dval_uuid(ti_field_t * UNUSED(field))
+{
+    return (ti_val_t *) ti_uuid_new();
 }
 
 static ti_val_t * field__dval_regex(ti_field_t * UNUSED(field))
@@ -294,11 +314,11 @@ static inline void field__set_cb(ti_field_t * field, ti_field_dval_cb cb)
  */
 enum
 {
-    TOTAL_KEYWORDS = 26,
+    TOTAL_KEYWORDS = 28,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 8,
     MIN_HASH_VALUE = 2,
-    MAX_HASH_VALUE = 27
+    MAX_HASH_VALUE = 29
 };
 
 static inline unsigned int field__hash(
@@ -307,32 +327,32 @@ static inline unsigned int field__hash(
 {
     static unsigned short asso_values[] =
     {
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 14, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 11, 28, 11, 28, 28, 28,  8,  1,  6,
-         0,  1,  8,  6,  4,  3, 28,  0,  0,  6,
-         1,  0,  9, 28,  0,  8,  0,  0,  0,  3,
-         5,  1, 28,  0, 28,  0, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30,  4, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 13, 30, 13, 30, 30, 30,  1,  1,  7,
+        4,  1, 21,  8,  6,  3, 30,  6,  0,  6,
+        1,  0, 12, 30,  0, 10,  0,  0,  1, 13,
+        7,  9, 30,  0, 30,  0, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30
     };
 
     register unsigned int hval = n;
@@ -381,8 +401,10 @@ ti_field_map_t field__mapping[TOTAL_KEYWORDS] = {
     {.name="float",     .spec=TI_SPEC_FLOAT,    .dval_cb=field__dval_float},
     {.name="number",    .spec=TI_SPEC_NUMBER,   .dval_cb=field__dval_int},
     {.name="bool",      .spec=TI_SPEC_BOOL,     .dval_cb=field__dval_bool},
+    {.name="uuid",      .spec=TI_SPEC_UUID,     .dval_cb=field__dval_uuid},
     {.name="[]",        .spec=TI_SPEC_ARR,      .dval_cb=field__dval_arr},
     {.name="{}",        .spec=TI_SPEC_SET,      .dval_cb=field__dval_set},
+    {.name="dict",      .spec=TI_SPEC_DICT,     .dval_cb=field__dval_dict},
     {.name="datetime",  .spec=TI_SPEC_DATETIME, .dval_cb=field__dval_datetime},
     {.name="timeval",   .spec=TI_SPEC_TIMEVAL,  .dval_cb=field__dval_timeval},
     {.name="regex",     .spec=TI_SPEC_REGEX,    .dval_cb=field__dval_regex},
@@ -554,6 +576,20 @@ done_flags:
         field->spec |= TI_SPEC_SET;
         field__set_cb(field, field__dval_set);
     }
+    else if (n >= 6 && memcmp(str, "dict<", 5) == 0)
+    {
+        if (str[n-1] != '>')
+            goto invalid;
+        field->spec |= TI_SPEC_DICT;
+        field__set_cb(field, field__dval_dict);
+        str += 4;
+        n -= 4;
+        int klen = ti_condition_field_key_init(field, str, n, e);
+        if (klen < 0)
+            return e->nr;  /* error message is ensured */
+        str += klen;
+        n -= klen;
+    }
     else if (n >= 7 && memcmp(str, "thing<", 6) == 0)
     {
         if (str[n-1] != '>')
@@ -600,7 +636,16 @@ done_flags:
     {
         ex_set(e, EX_VALUE_ERROR,
             "invalid declaration for `%s` on type `%s`; "
-            "nested range conditions are not allowed"
+            "nested value restrictions are not allowed"
+            DOC_T_TYPE, field->name->str, field->type->name);
+        return e->nr;
+    }
+
+    if (n == 4 && memcmp(str, "dict", 4) == 0)
+    {
+        ex_set(e, EX_VALUE_ERROR,
+            "invalid declaration for `%s` on type `%s`; "
+            "nested dict declarations are not allowed"
             DOC_T_TYPE, field->name->str, field->type->name);
         return e->nr;
     }
@@ -689,6 +734,17 @@ skip_nesting:
                         ex_set(e, EX_TYPE_ERROR,
                             "invalid declaration for `%s` on type `%s`; "
                             "type `"TI_VAL_SET_S"` cannot contain "
+                            "enum type `%s`"DOC_T_TYPE,
+                            field->name->str, field->type->name,
+                            enum_->name);
+                        return e->nr;
+                    }
+
+                    if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_DICT)
+                    {
+                        ex_set(e, EX_TYPE_ERROR,
+                            "invalid declaration for `%s` on type `%s`; "
+                            "type `"TI_VAL_DICT_S"` cannot contain "
                             "enum type `%s`"DOC_T_TYPE,
                             field->name->str, field->type->name,
                             enum_->name);
@@ -885,6 +941,11 @@ skip_nesting:
     }
 
 found:
+    if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_DICT &&
+        !field->condition.key &&
+        ti_condition_field_key(field, TI_SPEC_ANY, e))
+        return e->nr;
+
     if ((field->spec & TI_SPEC_MASK_NILLABLE) == TI_SPEC_SET)
     {
         if (field->nested_spec & TI_SPEC_NILLABLE)
@@ -1505,7 +1566,7 @@ static int field__varr_assign(
         case TI_SPEC_RVAL_TYPE_ERROR:
             ex_set(e, EX_TYPE_ERROR,
                 "mismatch in type `%s`; "
-                "property `%s` requires an array with items that matches "
+                "property `%s` requires an array with items that match "
                 "definition `%.*s`",
                 field->type->name,
                 field->name->str,
@@ -1565,7 +1626,165 @@ static int field__varr_assign(
     }
 
 done:
-    return ti_val_make_assignable((ti_val_t **) varr, parent, field, e);
+    if (ti_varr_to_list(varr))
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+    (*varr)->parent = parent;
+    (*varr)->key_ = field;
+
+    return 0;
+}
+
+typedef struct
+{
+    ti_field_t * field;
+    ex_t * e;
+} field__pair_t;
+
+static int field__dict_pair_cb(ti_dict_key_t * key,
+                               ti_val_t * val,
+                               field__pair_t * w)
+{
+    register uint16_t key_spec = w->field->condition.key->spec;
+    register uint16_t val_spec = w->field->nested_spec;
+    switch (key_spec)
+    {
+        case TI_SPEC_UUID:
+            if (key->tp != TI_DICT_KEY_UUID)
+            {
+                ex_set(w->e, EX_TYPE_ERROR,
+                    "mismatch in type `%s`; "
+                    "property `%s` requires a dict with keys of type `uuid`",
+                    w->field->type->name,
+                    w->field->name->str);
+                return w->e->nr;
+            }
+            break;
+        case TI_SPEC_INT:
+            if (key->tp != TI_DICT_KEY_INT)
+            {
+                ex_set(w->e, EX_TYPE_ERROR,
+                    "mismatch in type `%s`; "
+                    "property `%s` requires a dict with keys of type `int`",
+                    w->field->type->name,
+                    w->field->name->str);
+                return w->e->nr;
+            }
+            break;
+        case TI_SPEC_STR:
+            if (key->tp != TI_DICT_KEY_STR)
+            {
+                ex_set(w->e, EX_TYPE_ERROR,
+                    "mismatch in type `%s`; "
+                    "property `%s` requires a dict with keys of type `str`",
+                    w->field->type->name,
+                    w->field->name->str);
+                return w->e->nr;
+            }
+            break;
+        case TI_SPEC_ANY:
+        default:
+            break;
+    }
+
+    switch (ti_spec_check_nested_val(val_spec, val))
+    {
+        case TI_SPEC_RVAL_SUCCESS:
+            return 0;
+        case TI_SPEC_RVAL_TYPE_ERROR:
+            ex_set(w->e, EX_TYPE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a dict with values that match "
+                "definition `%.*s`",
+                w->field->type->name,
+                w->field->name->str,
+                w->field->spec_raw->n, (const char *) w->field->spec_raw->data);
+            return w->e->nr;
+        case TI_SPEC_RVAL_UTF8_ERROR:
+            ex_set(w->e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a dict with UTF8 string values",
+                w->field->type->name,
+                w->field->name->str);
+            return w->e->nr;
+        case TI_SPEC_RVAL_UINT_ERROR:
+            ex_set(w->e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a dict with integer values "
+                "greater than or equal to 0",
+                w->field->type->name,
+                w->field->name->str);
+            return w->e->nr;
+        case TI_SPEC_RVAL_PINT_ERROR:
+            ex_set(w->e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a dict with positive integer values",
+                w->field->type->name,
+                w->field->name->str);
+            return w->e->nr;
+        case TI_SPEC_RVAL_NINT_ERROR:
+            ex_set(w->e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a dict with negative integer values",
+                w->field->type->name,
+                w->field->name->str);
+            return w->e->nr;
+        case TI_SPEC_RVAL_EMAIL_ERROR:
+            ex_set(w->e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a dict with email address values",
+                w->field->type->name,
+                w->field->name->str);
+            return w->e->nr;
+        case TI_SPEC_RVAL_URL_ERROR:
+            ex_set(w->e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a dict with URL values",
+                w->field->type->name,
+                w->field->name->str);
+            return w->e->nr;
+        case TI_SPEC_RVAL_TEL_ERROR:
+            ex_set(w->e, EX_VALUE_ERROR,
+                "mismatch in type `%s`; "
+                "property `%s` requires a dict with telephone numbers values",
+                w->field->type->name,
+                w->field->name->str);
+            return w->e->nr;
+    }
+    return 0;
+}
+
+static int field__dict_assign(
+        ti_field_t * field,
+        ti_dict_t ** dictaddr,
+        ti_thing_t * parent,
+        ex_t * e)
+{
+    /* field can be either an `any` or `dict` field */
+    if (field->condition.none == NULL || !ti_dict_bool(*dictaddr))
+        goto done;
+
+    field__pair_t w = {
+        .field = field,
+        .e = e,
+    };
+
+    /* we now are sure field->condition is or type "pair" */
+    if (ti_dict_pairs(*dictaddr, (ti_dict_pair_cb) field__dict_pair_cb, &w))
+        return e->nr;
+
+done:
+    if (ti_dict_assign(dictaddr))
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+    (*dictaddr)->parent = parent;
+    (*dictaddr)->key_ = field;
+
+    return 0;
 }
 
 static int field__restrict_cb(ti_prop_t * prop, ti_field_t * field)
@@ -1629,7 +1848,7 @@ static int field__thing_assign(
     case TI_SPEC_RVAL_TYPE_ERROR:
         ex_set(e, EX_TYPE_ERROR,
             "mismatch in type `%s`; "
-            "property `%s` requires a thing with values that matches "
+            "property `%s` requires a thing with values that match "
             "definition `%.*s`",
             field->type->name,
             field->name->str,
@@ -1690,6 +1909,60 @@ static int field__thing_assign(
     return 0;
 }
 
+static int field__maps_dict_pair(ti_dict_key_t * key,
+                                 ti_val_t * val,
+                                 ti_field_t * field)
+{
+    switch (field->condition.key->spec)
+    {
+        case TI_SPEC_ANY:
+            break;
+        case TI_SPEC_UUID:
+            if (key->tp != TI_DICT_KEY_UUID)
+                return -1;
+            break;
+        case TI_SPEC_INT:
+            if (key->tp != TI_DICT_KEY_INT)
+                return -1;
+            break;
+        case TI_SPEC_STR:
+            if (key->tp != TI_DICT_KEY_STR)
+                return -1;
+            break;
+    }
+    return !ti_spec_maps_to_nested_val(field, val);
+}
+
+static _Bool field__maps_dict_to_dict(ti_field_t * field, ti_dict_t * dict)
+{
+    if ((
+            field->condition.key->spec == TI_SPEC_ANY ||
+            field->condition.key->spec == ti_dict_key_spec(dict)
+        ) && (
+            field->nested_spec == TI_SPEC_ANY ||
+            field->nested_spec == ti_dict_val_spec(dict)
+        ))
+        return true;
+
+    return !ti_dict_pairs(dict, (ti_dict_pair_cb) field__maps_dict_pair, field);
+}
+
+static int field__maps_dict_walk(ti_val_t * val, ti_field_t * field)
+{
+    return !ti_spec_maps_to_nested_val(field, val);
+}
+
+static _Bool field__maps_dict_to_arr(ti_field_t * field, ti_dict_t * dict)
+{
+    if ((
+        field->nested_spec == TI_SPEC_ANY ||
+        field->nested_spec == ti_dict_val_spec(dict)
+    ))
+        return true;
+
+    return !ti_dict_walk(dict, (ti_dict_cb) field__maps_dict_walk, field);
+}
+
 static _Bool field__maps_arr_to_arr(ti_field_t * field, ti_varr_t * varr)
 {
     if (field->nested_spec == TI_SPEC_ANY ||
@@ -1710,6 +1983,16 @@ static _Bool field__maps_arr_to_type(ti_varr_t * varr)
         if (!ti_val_is_thing(val))
             return false;
     return true;
+}
+
+static int field__dict_things(ti_val_t * val, void * UNUSED(_))
+{
+    return !ti_val_is_thing(val);
+}
+
+static _Bool field__maps_dict_to_type(ti_dict_t * dict)
+{
+    return !ti_dict_walk(dict, (ti_dict_cb) field__dict_things, NULL);
 }
 
 static int field__map_restrict_cb(ti_prop_t * prop, ti_field_t * field)
@@ -1832,6 +2115,8 @@ int ti_field_make_assignable(
             return field__varr_assign(field, (ti_varr_t **) val, parent, e);
         case TI_VAL_SET:
             return field__vset_assign(field, (ti_vset_t **) val, parent, e);
+        case TI_VAL_DICT:
+            return field__dict_assign(field, (ti_dict_t **) val, parent, e);
         case TI_VAL_ERROR:
         case TI_VAL_MEMBER:
         case TI_VAL_MPDATA:
@@ -1840,6 +2125,7 @@ int ti_field_make_assignable(
             return ti_closure_unbound((ti_closure_t *) *val, e);
         case TI_VAL_ANO:
         case TI_VAL_WANO:
+        case TI_VAL_UUID:
             break;
         case TI_VAL_FUTURE:
         case TI_VAL_MODULE:
@@ -1908,6 +2194,10 @@ int ti_field_make_assignable(
         if (ti_val_is_bool(*val))
             return 0;
         goto type_error;
+    case TI_SPEC_UUID:
+        if (ti_val_is_uuid(*val))
+            return 0;
+        goto type_error;
     case TI_SPEC_DATETIME:
         if (ti_val_is_datetime_strict(*val))
             return 0;
@@ -1971,6 +2261,10 @@ int ti_field_make_assignable(
     case TI_SPEC_SET:
         if (ti_val_is_set(*val))
             return field__vset_assign(field, (ti_vset_t **) val, parent, e);
+        goto type_error;
+    case TI_SPEC_DICT:
+        if (ti_val_is_dict(*val))
+            return field__dict_assign(field, (ti_dict_t **) val, parent, e);
         goto type_error;
     case TI_SPEC_REMATCH:
         if (!ti_val_is_str(*val))
@@ -2189,6 +2483,9 @@ relation_error:
     return e->nr;
 }
 
+/*
+ * Used for wrapping
+ */
 _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
 {
     uint16_t spec = field->spec;
@@ -2250,10 +2547,11 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
         return ti_val_is_number(val);
     case TI_SPEC_BOOL:
         return ti_val_is_bool(val);
+    case TI_SPEC_UUID:
+        return ti_val_is_uuid(val);
     case TI_SPEC_DATETIME:
-        return ti_val_is_datetime_strict(val);
     case TI_SPEC_TIMEVAL:
-        return ti_val_is_timeval(val);
+        return ti_val_is_datetime(val);
     case TI_SPEC_REGEX:
         return ti_val_is_regex(val);
     case TI_SPEC_CLOSURE:
@@ -2284,10 +2582,19 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
             ti_val_is_array(val) &&
             field__maps_arr_to_arr(field, (ti_varr_t *) val)
         ) || (
-            ti_val_is_set(val) && field__maps_set_to_arr(field)
+            ti_val_is_set(val) &&
+            field__maps_set_to_arr(field)
+        ) || (
+            ti_val_is_dict(val) &&
+            field__maps_dict_to_arr(field, (ti_dict_t *) val)
         ));
     case TI_SPEC_SET:
         return ti_val_is_set(val);
+    case TI_SPEC_DICT:
+        return (
+            ti_val_is_dict(val) &&
+            field__maps_dict_to_dict(field, (ti_dict_t *) val)
+        );
     case TI_SPEC_REMATCH:
         return (ti_val_is_str(val) &&
                 ti_regex_test(field->condition.re->regex, (ti_raw_t *) val));
@@ -2316,20 +2623,24 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
         return ((
             ti_val_is_array(val) &&
             field__maps_arr_to_type((ti_varr_t *) val)
-        ) || ti_val_is_set(val));
+        ) || ti_val_is_set(val) || (
+            ti_val_is_dict(val) &&
+            field__maps_dict_to_type((ti_dict_t *) val)
+        ));
     }
 
     /* any *thing* can be mapped */
     return ti_val_is_thing(val);
 }
 
+/*
+ * Used for wrapping
+ */
 static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
 {
     uint16_t t_spec, f_spec;
 
     /* both the t_field and f_field are either a set or array */
-    assert(ti_spec_is_arr_or_set(f_field->spec));
-    assert(ti_spec_is_arr_or_set(t_field->spec));
 
     if (t_field->nested_spec == TI_SPEC_ANY)
         return true;
@@ -2395,14 +2706,17 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
                 f_spec == TI_SPEC_EMAIL ||
                 f_spec == TI_SPEC_URL ||
                 f_spec == TI_SPEC_TEL);
+    case TI_SPEC_DATETIME:
+    case TI_SPEC_TIMEVAL:
+        return (f_spec == TI_SPEC_DATETIME ||
+                f_spec == TI_SPEC_TIMEVAL);
     case TI_SPEC_UTF8:
     case TI_SPEC_BYTES:
     case TI_SPEC_PINT:
     case TI_SPEC_NINT:
     case TI_SPEC_FLOAT:
     case TI_SPEC_BOOL:
-    case TI_SPEC_DATETIME:
-    case TI_SPEC_TIMEVAL:
+    case TI_SPEC_UUID:
     case TI_SPEC_REGEX:
     case TI_SPEC_CLOSURE:
     case TI_SPEC_ERROR:
@@ -2414,6 +2728,7 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_ENUM:
     case TI_SPEC_ARR:
     case TI_SPEC_SET:
+    case TI_SPEC_DICT:
     case TI_SPEC_REMATCH:
     case TI_SPEC_INT_RANGE:
     case TI_SPEC_FLOAT_RANGE:
@@ -2431,6 +2746,9 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
            ti_spec_is_set(f_field->spec);
 }
 
+/*
+ * Used for wrapping
+ */
 _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
 {
     uint16_t t_spec, f_spec;
@@ -2536,8 +2854,12 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
                 f_spec == TI_SPEC_INT_RANGE ||
                 f_spec == TI_SPEC_FLOAT_RANGE);
     case TI_SPEC_BOOL:
+    case TI_SPEC_UUID:
+        return f_spec == t_spec;
     case TI_SPEC_DATETIME:
     case TI_SPEC_TIMEVAL:
+        return (f_spec == TI_SPEC_DATETIME ||
+                f_spec == TI_SPEC_TIMEVAL);
     case TI_SPEC_REGEX:
     case TI_SPEC_CLOSURE:
     case TI_SPEC_ERROR:
@@ -2550,11 +2872,19 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
         return f_spec == t_spec;
     case TI_SPEC_ARR:
         return (
-            (f_spec == TI_SPEC_ARR || f_spec == TI_SPEC_SET) &&
+            (f_spec == TI_SPEC_ARR ||
+             f_spec == TI_SPEC_SET ||
+             f_spec == TI_SPEC_DICT) &&
             field__maps_to_nested(t_field, f_field)
         );
     case TI_SPEC_SET:
         return f_spec == TI_SPEC_SET;
+    case TI_SPEC_DICT:
+        return (
+            f_spec == TI_SPEC_DICT &&
+            field__maps_dict_keys(t_field, f_field) &&
+            field__maps_to_nested(t_field, f_field)
+        );
     case TI_SPEC_REMATCH:
         return f_spec == TI_SPEC_REMATCH && ti_regex_eq(
                         t_field->condition.re->regex,
@@ -2583,12 +2913,9 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
         return f_spec < TI_SPEC_ANY || f_spec == TI_SPEC_OBJECT;
     case TI_SPEC_ARR_TYPE:
         return (
-            f_spec == TI_SPEC_SET || (
-                f_spec == TI_SPEC_ARR && (
-                    f_field->nested_spec < TI_SPEC_ANY ||
-                    f_field->nested_spec == TI_SPEC_OBJECT
-                )
-            )
+            f_spec == TI_SPEC_SET ||
+            (f_spec == TI_SPEC_ARR && ti_spec_is_thing(f_field->nested_spec)) ||
+            (f_spec == TI_SPEC_DICT && ti_spec_is_thing(f_field->nested_spec))
         );
     }
 

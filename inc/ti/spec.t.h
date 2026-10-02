@@ -27,8 +27,10 @@ typedef enum
     TI_SPEC_FLOAT,          /* `float`              */
     TI_SPEC_NUMBER,         /* `number`             */
     TI_SPEC_BOOL,           /* `bool`               */
+    TI_SPEC_UUID,           /* `uuid`               */
     TI_SPEC_ARR,            /* `[..]`               */
     TI_SPEC_SET,            /* `{..}`               */
+    TI_SPEC_DICT,           /* `dict`               */
     TI_SPEC_DATETIME,       /* `datetime` (strict)  */
     TI_SPEC_TIMEVAL,        /* `timeval`            */
     TI_SPEC_REGEX,          /* `regex`              */

@@ -1,6 +1,7 @@
 /*
  * smap.c
  */
+#include <assert.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -22,6 +23,12 @@ static int smap__addn(
         const char * key,
         size_t n,
         void * data);
+static void * smap__setn(
+        smap_node_t * node,
+        const char * key,
+        size_t n,
+        void * data,
+        int * new);
 static void * smap__pop(
         smap_node_t * parent,
         smap_node_t ** nd,
@@ -206,6 +213,61 @@ int smap_addn(smap_t * smap, const char * key, size_t n, void * data)
         }
     }
     return rc;
+}
+
+__attribute__((no_sanitize("bounds")))
+void * smap_setn(smap_t * smap, const char * key, size_t n, void * data, int * new)
+{
+    assert(!*new);
+    void * ret;
+    smap_node_t ** nd;
+    uint8_t k;
+
+    if (!n)
+    {
+        if (smap->data)
+        {
+            ret = smap->data;
+        }
+        else
+        {
+            ret = data;
+            smap->n++;
+        }
+        *new = smap->data != data;
+        smap->data = data;
+        return ret;
+    }
+
+    k = (uint8_t) *key;
+
+    if (smap__node_resize((smap_node_t *) smap, k >> SMAP_BSH))
+        return NULL;
+
+    nd = &(*smap->nodes)[k - (smap->offset << SMAP_BSH)];
+    key++;
+    n--;
+
+    if (*nd)
+    {
+        ret = smap__setn(*nd, key, n, data, new);
+        smap->n += (ret == data && *new);
+    }
+    else
+    {
+        *nd = smap__node_create(key, n, data);
+        if (*nd)
+        {
+            *new = 1;
+            smap->n++;
+            ret = data;
+        }
+        else
+        {
+            ret = NULL;
+        }
+    }
+    return ret;
 }
 
 /*
@@ -792,6 +854,136 @@ static int smap__addn(
     node->data = data;
 
     return 0;
+}
+
+__attribute__((no_sanitize("bounds")))
+static void * smap__setn(
+        smap_node_t * node,
+        const char * key,
+        size_t n,
+        void * data,
+        int * new)
+{
+    for (size_t m = 0; m < node->n; m++, key++, n--)
+    {
+        char * pt = node->key + m;
+        if (!n || *key != *pt)
+        {
+            size_t new_sz;
+            uint8_t k = (uint8_t) *pt;
+
+            /* create new nodes */
+            smap_nodes_t * new_nodes = calloc(1, sizeof(smap_nodes_t));
+            if (!new_nodes)
+                return NULL;
+
+            /* create new nodes with rest of node pt */
+            smap_node_t * nd = (*new_nodes)[k % SMAP_BSZ] =
+                    smap__node_create(pt + 1, node->n - m - 1, node->data);
+            if (!nd)
+                return NULL;
+
+            /* bind the -rest- of current node to the new nodes */
+            nd->nodes = node->nodes;
+            nd->size = node->size;
+            nd->offset = node->offset;
+            nd->sz = node->sz;
+
+            /* the current nodes should become the new nodes */
+            node->nodes = new_nodes;
+            node->offset = k >> SMAP_BSH;
+            node->sz = 1;
+
+            if (!n)
+            {
+                node->size = 1;
+                /* end of our key, store data in this node */
+                node->data = data;
+            }
+            else
+            {
+                /* we have more, make sure data for this node is NULL and
+                 * add rest of our key to the nodes.
+                 */
+                k = (uint8_t) *key;
+
+                if (smap__node_resize(node, k >> SMAP_BSH))
+                    return NULL;
+                key++;
+                n--;
+                nd = smap__node_create(key, n, data);
+                if (!nd)
+                    return NULL;
+
+                node->size = 2;
+                node->data = NULL;
+                (*node->nodes)[k - (node->offset << SMAP_BSH)] = nd;
+            }
+
+            /* re-allocate the key to free some space */
+            if ((new_sz = pt - node->key))
+            {
+                char * tmp = realloc(node->key, new_sz);
+                if (tmp)
+                {
+                    node->key = tmp;
+                }
+            }
+            else
+            {
+                free(node->key);
+                node->key = NULL;
+            }
+            node->n = new_sz;
+            *new = 1;
+            return data;
+        }
+    }
+
+    if (n)
+    {
+        uint8_t k = (uint8_t) *key;
+
+        if (!node->nodes)
+        {
+            if (smap__node_resize(node, k >> SMAP_BSH))
+                return NULL;  /* signal is raised */
+            key++;
+            n--;
+            smap_node_t * nd = smap__node_create(key, n, data);
+            if (!nd)
+                return NULL;
+
+            *new = 1;
+            node->size = 1;
+            (*node->nodes)[k - (node->offset << SMAP_BSH)] = nd;
+
+            return data;
+        }
+
+        if (smap__node_resize(node, k >> SMAP_BSH))
+            return NULL;
+
+        smap_node_t ** nd = &(*node->nodes)[k - (node->offset << SMAP_BSH)];
+        key++;
+        n--;
+
+        if (*nd)
+            return smap__setn(*nd, key, n, data, new);
+
+        *nd = smap__node_create(key, n, data);
+        if (!*nd)
+            return NULL;
+
+        *new = 1;
+        node->size++;
+        return data;
+    }
+
+    void * ret = node->data ? node->data : data;
+    *new = node->data != data;
+    node->data = data;
+    return ret;
 }
 
 /*

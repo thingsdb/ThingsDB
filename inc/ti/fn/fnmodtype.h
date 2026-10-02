@@ -206,10 +206,10 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
         }
     }
 
-    if (ti_spec_is_arr_or_set(w->field->spec))
+    if (ti_spec_with_parent(w->field->spec))
     {
-        ti_varr_t * varr_or_vset = VEC_get(thing->items.vec, w->field->idx);
-        varr_or_vset->key_ = w->true_field;
+        ti_parent_t * parent = VEC_get(thing->items.vec, w->field->idx);
+        parent->key_ = w->true_field;
     }
 
     /* none of the affected things may have a lock, (checked beforehand) */

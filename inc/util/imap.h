@@ -14,21 +14,22 @@ typedef enum
 typedef struct imap_node_s imap_node_t;
 typedef struct imap_s imap_t;
 
+#include <stdint.h>
+#include <stddef.h>
+#include <util/vec.h>
+
 typedef int (*imap_cb)(void * data, void * arg);
+typedef int (*imap_item_cb)(uint64_t id, void * data, void * arg);
 typedef void (*imap_destroy_cb)(void * data);
 typedef void (*imap_update_cb)(
         imap_t * dest,
         imap_t * imap,
         imap_destroy_cb decref_cb);
 
-#include <stdint.h>
-#include <stddef.h>
-#include <util/vec.h>
-
 imap_t * imap_create(void);
 void imap_destroy(imap_t * imap, imap_destroy_cb cb);
 void imap_clear(imap_t * imap, imap_destroy_cb cb);
-void * imap_set(imap_t * imap, uint64_t id, void * data);
+void * imap_set(imap_t * imap, uint64_t id, void * data, int * new);
 int imap_add(imap_t * imap, uint64_t id, void * data);
 void * imap_get(imap_t * imap, uint64_t id);
 void * imap_pop(imap_t * imap, uint64_t id);
@@ -39,7 +40,7 @@ int imap_walk_cp(
         imap_cb cb,
         void * arg,
         imap_destroy_cb destroy_cb);
-void imap_walkn(imap_t * imap, size_t * n, imap_cb cb, void * arg);
+int imap_items(imap_t * imap, imap_item_cb cb, void * arg);
 imap_t * imap_dup(imap_t * imap, _Bool incref);
 _Bool imap__eq_(imap_t * a, imap_t * b);
 _Bool imap__le_(imap_t * a, imap_t * b);

@@ -66,6 +66,40 @@ static int do__f_restriction_set(ti_query_t * query, cleri_node_t * nd, ex_t * e
     return e->nr;
 }
 
+static int do__f_restriction_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    const int nargs = fn_get_nargs(nd);
+    ti_dict_t * dict;
+    ti_varr_t * varr;
+    ti_raw_t * key, * val;
+
+    if (fn_nargs("restriction", DOC_DICT_RESTRICTION, 0, nargs, e))
+        return e->nr;
+
+    dict = (ti_dict_t *) query->rval;
+    varr = ti_varr_create(2);
+
+    /* query->collection may be NULL, but this is not an issue as in that case
+     * we alwas have spec any */
+    key = ti_spec_raw(ti_dict_key_spec(dict), query->collection);
+    val = ti_spec_raw(ti_dict_val_spec(dict), query->collection);
+
+    if (!varr || !key || !val)
+    {
+        ti_val_drop((ti_val_t *) varr);
+        ti_val_drop((ti_val_t *) key);
+        ti_val_drop((ti_val_t *) val);
+        ex_set_mem(e);
+        return e->nr;
+    }
+    VEC_push(varr->vec, key);
+    VEC_push(varr->vec, val);
+
+    query->rval = (ti_val_t *) varr;
+    ti_val_unsafe_drop((ti_val_t *) dict);
+    return e->nr;
+}
+
 static inline int do__f_restriction(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     return ti_val_is_object(query->rval)
@@ -74,5 +108,7 @@ static inline int do__f_restriction(ti_query_t * query, cleri_node_t * nd, ex_t 
             ? do__f_restriction_list(query, nd, e)
             : ti_val_is_set(query->rval)
             ? do__f_restriction_set(query, nd, e)
+            : ti_val_is_dict(query->rval)
+            ? do__f_restriction_dict(query, nd, e)
             : fn_call_try("restriction", query, nd, e);
 }

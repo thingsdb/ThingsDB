@@ -86,7 +86,7 @@ static int do__f_set_name(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         goto done;
     }
     task = ti_task_get_task(query->change, query->collection->root);
-    if (!task || ti_task_set_name(task, room))
+    if (!task || ti_task_add_room_set_name(task, room))
         ex_set_mem(e);
 
 done:

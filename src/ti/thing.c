@@ -432,6 +432,7 @@ int ti_thing_p_prop_add_assign(
     case TI_VAL_MEMBER:
     case TI_VAL_ANO:
     case TI_VAL_WANO:
+    case TI_VAL_UUID:
         ti_incref(val);
         break;
     case TI_VAL_ARR:
@@ -453,6 +454,16 @@ int ti_thing_p_prop_add_assign(
         }
         ((ti_vset_t *) val)->parent = thing;
         ((ti_vset_t *) val)->key_ = name;
+        break;
+    case TI_VAL_DICT:
+        val = (ti_val_t *) ti_dict_cp((ti_dict_t *) val);
+        if (!val)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        ((ti_dict_t *) val)->parent = thing;
+        ((ti_dict_t *) val)->key_ = name;
         break;
     case TI_VAL_CLOSURE:
         if (ti_closure_unbound((ti_closure_t *) val, e))
@@ -535,6 +546,7 @@ int ti_thing_i_item_add_assign(
     case TI_VAL_MEMBER:
     case TI_VAL_ANO:
     case TI_VAL_WANO:
+    case TI_VAL_UUID:
         ti_incref(val);
         break;
     case TI_VAL_ARR:
@@ -556,6 +568,16 @@ int ti_thing_i_item_add_assign(
         }
         ((ti_vset_t *) val)->parent = thing;
         ((ti_vset_t *) val)->key_ = key;
+        break;
+    case TI_VAL_DICT:
+        val = (ti_val_t *) ti_dict_cp((ti_dict_t *) val);
+        if (!val)
+        {
+            ex_set_mem(e);
+            return e->nr;
+        }
+        ((ti_dict_t *) val)->parent = thing;
+        ((ti_dict_t *) val)->key_ = key;
         break;
     case TI_VAL_CLOSURE:
         if (ti_closure_unbound((ti_closure_t *) val, e))
@@ -1064,7 +1086,7 @@ int ti_thing_id_to_client_pk(ti_thing_t * thing, msgpack_packer * pk)
             ? thing->via.type->idname
             : NULL;
     return -(
-            msgpack_pack_map(pk,1) || (name
+            msgpack_pack_map(pk, 1) || (name
                 ? mp_pack_strn(pk, name->str, name->n)
                 : mp_pack_strn(pk, TI_KIND_S_THING, 1)) ||
             msgpack_pack_uint64(pk, thing->id)
@@ -1272,15 +1294,8 @@ void ti_thing_t_to_object(ti_thing_t * thing)
         if (!prop)
             ti_panic("cannot recover from a state between object and instance");
 
-        switch((*val)->tp)
-        {
-        case TI_VAL_ARR:
+        if (ti_val_has_parent(*val))
             ((ti_varr_t *) *val)->key_ = name;
-            break;
-        case TI_VAL_SET:
-            ((ti_vset_t *) *val)->key_ = name;
-            break;
-        }
 
         ti_incref(name);
         *val = (ti_val_t *) prop;
@@ -1853,29 +1868,27 @@ fail:
 int ti_thing_copy(ti_thing_t ** thing, uint8_t deep)
 {
     assert(deep);
-    return deep--
-            ? (*thing)->flags & TI_THING_FLAG_DEEP
+    deep--;
+    return (*thing)->flags & TI_THING_FLAG_DEEP
             ? thing__deep_use(thing)
             : ti_thing_is_object(*thing)
             ? ti_thing_is_dict(*thing)
             ? thing__copy_i(thing, deep)
             : thing__copy_p(thing, deep)
-            : thing__copy_t(thing, deep)
-            : 0;
+            : thing__copy_t(thing, deep);
 }
 
 int ti_thing_dup(ti_thing_t ** thing, uint8_t deep)
 {
     assert(deep);
-    return deep--
-            ? (*thing)->flags & TI_THING_FLAG_DEEP
+    deep--;
+    return (*thing)->flags & TI_THING_FLAG_DEEP
             ? thing__deep_use(thing)
             : ti_thing_is_object(*thing)
             ? ti_thing_is_dict(*thing)
             ? thing__dup_i(thing, deep)
             : thing__dup_p(thing, deep)
-            : thing__dup_t(thing, deep)
-            : 0;
+            : thing__dup_t(thing, deep);
 }
 
 int ti_thing_init_gc(void)

@@ -29,6 +29,7 @@ static inline const char * doc_len(ti_val_t * val)
     case TI_VAL_THING:          return DOC_THING_LEN;
     case TI_VAL_ARR:            return DOC_LIST_LEN;
     case TI_VAL_SET:            return DOC_SET_LEN;
+    case TI_VAL_DICT:           return DOC_DICT_LEN;
     case TI_VAL_MEMBER:         return doc_len(VMEMBER(val));
     default:                    return NULL;
     }
@@ -85,16 +86,6 @@ static inline const char * doc_reduce(ti_val_t * val)
     }
 }
 
-static inline const char * doc_has(ti_val_t * val)
-{
-    switch ((ti_val_enum) val->tp)
-    {
-    case TI_VAL_THING:          return DOC_THING_HAS;
-    case TI_VAL_SET:            return DOC_SET_HAS;
-    default:                    return NULL;
-    }
-}
-
 static inline const char * doc_map(ti_val_t * val)
 {
     switch ((ti_val_enum) val->tp)
@@ -102,6 +93,7 @@ static inline const char * doc_map(ti_val_t * val)
     case TI_VAL_THING:          return DOC_THING_MAP;
     case TI_VAL_ARR:            return DOC_LIST_MAP;
     case TI_VAL_SET:            return DOC_SET_MAP;
+    case TI_VAL_DICT:           return DOC_DICT_MAP;
     default:                    return NULL;
     }
 }
@@ -133,6 +125,7 @@ static inline const char * doc_each(ti_val_t * val)
     case TI_VAL_THING:          return DOC_THING_EACH;
     case TI_VAL_ARR:            return DOC_LIST_EACH;
     case TI_VAL_SET:            return DOC_SET_EACH;
+    case TI_VAL_DICT:           return DOC_DICT_EACH;
     default:                    return NULL;
     }
 }
@@ -145,6 +138,7 @@ static inline const char * doc_copy(ti_val_t * val)
     case TI_VAL_WRAP:           return DOC_WTYPE_COPY;
     case TI_VAL_ARR:            return DOC_LIST_COPY;
     case TI_VAL_SET:            return DOC_SET_COPY;
+    case TI_VAL_DICT:           return DOC_DICT_COPY;
     case TI_VAL_WANO:           return DOC_WTYPE_COPY;
     default:                    return NULL;
     }
@@ -158,6 +152,7 @@ static inline const char * doc_dup(ti_val_t * val)
     case TI_VAL_WRAP:           return DOC_WTYPE_DUP;
     case TI_VAL_ARR:            return DOC_LIST_DUP;
     case TI_VAL_SET:            return DOC_SET_DUP;
+    case TI_VAL_DICT:           return DOC_DICT_DUP;
     case TI_VAL_WANO:           return DOC_WTYPE_DUP;
     default:                    return NULL;
     }

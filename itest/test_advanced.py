@@ -617,7 +617,7 @@ class TestAdvanced(TestBase):
         with self.assertRaisesRegex(
                 ValueError,
                 r'invalid declaration for `a` on type `Foo`; '
-                r'nested range conditions are not allowed;'):
+                r'nested value restrictions are not allowed;'):
             await client.query(r'''
                 set_type('Foo', {a: '[int<0:10>]'});
             ''')
@@ -1651,6 +1651,7 @@ mod_enum('Obj', 'mod', 'B', {
   ),
   c: |a, b| a + b,
   float: 3.140000,
+  u: uuid('01a08b43-4abd-7529-82a2-9ae352b2f10f'),
 });
 
 
@@ -1998,8 +1999,9 @@ new_procedure('multiply', |a, b| a * b);
 
     async def test_ren_type_typed(self, client):
         # bug #292 (rename with a restricted type)
+        # pr #460 (added dict type)
         await client.query(r"""//ti
-            new_type('A');
+            new_type('A', WPO);
             new_type('B');
             new_type('C');
             new_type('D');
@@ -2007,6 +2009,10 @@ new_procedure('multiply', |a, b| a * b);
             set_type('A', {
                 a: 'A?',
                 b: 'B',
+                da: '&^dict<uuid:A>',
+                db: 'dict<any:B>?',
+                dc: 'dict<str:C?>',
+                dd: 'dict<int:D?>?',
                 ta: 'thing<A>',
                 tb: 'thing<B>?',
                 tc: 'thing<C?>',
@@ -2017,13 +2023,21 @@ new_procedure('multiply', |a, b| a * b);
                 ld: '[D?]?',
                 sa: '{A}',
                 sb: '{B}?',
+                na: [{
+                    a: '&+A?'
+                }],
+                nt: {
+                    t: {
+                        a: '&-A?',
+                    }
+                },
             });
         """)
 
         aa = await client.query(r"""//ti
             set_type('W', {
                 name: 'any',
-                fields: 'any'
+                fields: '+any'
             });
             rename_type('A', 'AA');
             rename_type('B', 'BB');
@@ -2031,6 +2045,7 @@ new_procedure('multiply', |a, b| a * b);
             rename_type('D', 'DD');
             type_info('AA').load().wrap('W');
         """)
+        self.maxDiff = 1000
         self.assertEqual(aa, {
             "fields": [
                 [
@@ -2040,6 +2055,22 @@ new_procedure('multiply', |a, b| a * b);
                 [
                     "b",
                     "BB"
+                ],
+                [
+                    "da",
+                    "&^dict<uuid:AA>"
+                ],
+                [
+                    "db",
+                    "dict<any:BB>?"
+                ],
+                [
+                    "dc",
+                    "dict<str:CC?>"
+                ],
+                [
+                    "dd",
+                    "dict<int:DD?>?"
                 ],
                 [
                     "ta",
@@ -2080,6 +2111,22 @@ new_procedure('multiply', |a, b| a * b);
                 [
                     "sb",
                     "{BB}?"
+                ],
+                [
+                    "na",
+                    [
+                        {
+                            "a": "&+AA?"
+                        }
+                    ]
+                ],
+                [
+                    "nt",
+                    {
+                        "t": {
+                            "a": "&-AA?"
+                        }
+                    }
                 ]
             ],
             "name": "AA"
@@ -2944,6 +2991,7 @@ mod_enum('E', 'mod', 'A', {
 
         class MyRoom(Room):
             x = 0
+
             async def on_join(self):
                 self.x = 42
 
@@ -2964,6 +3012,29 @@ mod_enum('E', 'mod', 'A', {
                                      """)
 
         self.assertEqual(wrap_nm, "<F>")
+
+    async def test_optimize_arr_wrap(self, client: Client):
+        await client.query("""//ti
+            set_type('P', {x: 'int'}, HID);
+            set_type('T', {p: '[P]'});
+            set_type('_T', {p: '&[P]'}, WPO|HID);
+            .t = T{
+                p: [P{x: 1}]
+            };
+            .tt = T{
+                p: [P{x: 1}, P{x: 2}]
+            };
+        """)
+
+        no_opt = await client.query("""//ti
+            .t.wrap('_T');  // one or less, no optimized call
+        """)
+        opt = await client.query("""//ti
+            .tt.wrap('_T');  // more than two, optimized call
+        """)
+
+        self.assertEqual(no_opt, {"p": [{"x": 1}]})
+        self.assertEqual(opt, {"p": [{"x": 1}, {"x": 2}]})
 
 
 if __name__ == '__main__':

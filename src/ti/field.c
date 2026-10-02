@@ -1985,6 +1985,16 @@ static _Bool field__maps_arr_to_type(ti_varr_t * varr)
     return true;
 }
 
+static int field__dict_things(ti_val_t * val, void * UNUSED(_))
+{
+    return !ti_val_is_thing(val);
+}
+
+static _Bool field__maps_dict_to_type(ti_dict_t * dict)
+{
+    return !ti_dict_walk(dict, (ti_dict_cb) field__dict_things, NULL);
+}
+
 static int field__map_restrict_cb(ti_prop_t * prop, ti_field_t * field)
 {
     return !ti_spec_maps_to_nested_val(field, prop->val);
@@ -2611,7 +2621,10 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
         return ((
             ti_val_is_array(val) &&
             field__maps_arr_to_type((ti_varr_t *) val)
-        ) || ti_val_is_set(val));
+        ) || ti_val_is_set(val) || (
+            ti_val_is_dict(val) &&
+            field__maps_dict_to_type((ti_varr_t *) val)
+        ));
     }
 
     /* any *thing* can be mapped */

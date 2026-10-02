@@ -727,6 +727,22 @@ class TestDict(TestBase):
             """)
         self.assertEqual(await q(".lookup.len()"), 0)
 
+    async def test_wrap_dict_val_ano(self, client):
+        q = client.query
+        res = await q("""//ti
+            set_type('U', {name: 'str'}, HID);
+            .d = dict([
+                [0, U{name: 'Iris'}],
+            ]);
+            .wrap(&{
+                d: [{
+                    name: 'str'
+                }]
+            });
+        """)
+        self.assertEqual(res['d'], [
+            {"name": "Iris"},
+        ])
 
 if __name__ == '__main__':
     run_test(TestDict())

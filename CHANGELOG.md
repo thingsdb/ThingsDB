@@ -17,10 +17,12 @@
   - `dict.each()`: https://docs.thingsdb.io/v1/data-types/dict/each/
   - `dict.get()`: https://docs.thingsdb.io/v1/data-types/dict/get/
   - `dict.has()`: https://docs.thingsdb.io/v1/data-types/dict/has/
+  - `dict.keys()`: https://docs.thingsdb.io/v1/data-types/dict/keys/
   - `dict.len()`: https://docs.thingsdb.io/v1/data-types/dict/len/
   - `dict.map()`: https://docs.thingsdb.io/v1/data-types/dict/map/
   - `dict.restriction()`: https://docs.thingsdb.io/v1/data-types/dict/restriction/
   - `dict.set()`: https://docs.thingsdb.io/v1/data-types/dict/set/
+  - `dict.values()`: https://docs.thingsdb.io/v1/data-types/dict/values/
 
 # v1.9.2
 

@@ -547,6 +547,38 @@ class TestDict(TestBase):
         self.assertEqual(await q('dict().set(0, 42)'), 42)
         self.assertEqual(await q('d=dict(); d.set(0, 42); d;'), [[0, 42]])
 
+    async def test_dict_keys(self, client):
+        q = client.query
+        u = str(uuid.uuid7())
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `keys` takes 0 arguments but 1 was given'):
+            await q('dict().keys(nil);')
+        res = await q("""//ti
+            dict([
+                [uuid(u), 0],
+                [123, 2],
+                ['test', 1],
+            ]).keys();
+        """, u=u)
+        self.assertEqual(res, [u, 123, 'test'])
+
+    async def test_dict_values(self, client):
+        q = client.query
+        u = str(uuid.uuid7())
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `values` takes 0 arguments but 1 was given'):
+            await q('dict().values(nil);')
+        res = await q("""//ti
+            dict([
+                [uuid(u), 0],
+                [123, 2],
+                ['test', 1],
+            ]).values();
+        """, u=u)
+        self.assertEqual(res, [0, 2, 1])
+
     async def test_wrap_as_arr(self, client):
         q = client.query
         res = await q("""//ti

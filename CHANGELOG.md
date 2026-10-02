@@ -23,7 +23,7 @@
   - `dict.restriction()`: https://docs.thingsdb.io/v1/data-types/dict/restriction/
   - `dict.set()`: https://docs.thingsdb.io/v1/data-types/dict/set/
   - `dict.values()`: https://docs.thingsdb.io/v1/data-types/dict/values/
-* Type `datetime` can now be wrapped as `timeval` and vice versa, pr #461.
+* Allow type `datetime` to be wrapped as `timeval` and vice versa, pr #461.
 
 # v1.9.2
 

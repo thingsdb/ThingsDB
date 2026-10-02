@@ -2623,7 +2623,7 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
             field__maps_arr_to_type((ti_varr_t *) val)
         ) || ti_val_is_set(val) || (
             ti_val_is_dict(val) &&
-            field__maps_dict_to_type((ti_varr_t *) val)
+            field__maps_dict_to_type((ti_dict_t *) val)
         ));
     }
 

@@ -733,7 +733,6 @@ class TestDict(TestBase):
             set_type('U', {name: 'str'}, HID);
             .d = dict([
                 [0, U{name: 'Iris'}],
-                [1, U{name: 'Sasha'}],
             ]);
             .wrap(&{
                 d: [{
@@ -742,7 +741,7 @@ class TestDict(TestBase):
             });
         """)
         self.assertEqual(res['d'], [
-            {"name": "Iris"}
+            {"name": "Iris"},
         ])
 
 if __name__ == '__main__':

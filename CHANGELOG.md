@@ -1,4 +1,4 @@
-# v1.10.0-alpha0
+# v1.10.0-alpha4
 
 * Fixed sanatize runtime checking, pr #455.
 * Replaced `ti_sleep(..)` with `sched_yield()` with a few exceptions, pr #456.
@@ -23,6 +23,7 @@
   - `dict.restriction()`: https://docs.thingsdb.io/v1/data-types/dict/restriction/
   - `dict.set()`: https://docs.thingsdb.io/v1/data-types/dict/set/
   - `dict.values()`: https://docs.thingsdb.io/v1/data-types/dict/values/
+* Type `datetime` can now be wrapped as `timeval` and vice versa, pr #461.
 
 # v1.9.2
 

@@ -1037,6 +1037,18 @@ class TestDatetime(TestBase):
 
     async def test_wrap_as(self, client):
         q = client.query
+        res = await q("""//ti
+            set_type('Card', {
+                name: 'str',
+                created: 'datetime',
+            });
+            Card{name: 'Example'}.wrap(&{
+                name: 'str',
+                created: 'timeval'
+            });
+        """)
+        self.assertIn('created', res)
+        self.assertIsInstance(res['created'], int)
 
 if __name__ == '__main__':
     run_test(TestDatetime())

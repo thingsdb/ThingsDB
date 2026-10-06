@@ -113,6 +113,7 @@ static int ctask__thing_clear(ti_thing_t * thing, mp_unp_t * up)
         return -1;
     }
 
+    /* thing is an object, never an instance */
     if (ti_thing_is_dict(thing))
         smap_clear(
                 thing->items.smap,

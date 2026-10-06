@@ -1651,6 +1651,7 @@ mod_enum('Obj', 'mod', 'B', {
   ),
   c: |a, b| a + b,
   float: 3.140000,
+  u: uuid('01a08b43-4abd-7529-82a2-9ae352b2f10f'),
 });
 
 

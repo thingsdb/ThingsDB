@@ -130,4 +130,10 @@ static inline _Bool ti_is_reserved_key_strn(const char * str, size_t n)
     return n == 1 && (*str >> 4 == 2);
 }
 
+#if defined(__GNUC__) || defined(__clang__)
+  #define ALWAYS_INLINE inline __attribute__((always_inline))
+#else
+  #define ALWAYS_INLINE inline
+#endif
+
 #endif  /* TIINC_H_ */

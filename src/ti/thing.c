@@ -432,6 +432,7 @@ int ti_thing_p_prop_add_assign(
     case TI_VAL_MEMBER:
     case TI_VAL_ANO:
     case TI_VAL_WANO:
+    case TI_VAL_UUID:
         ti_incref(val);
         break;
     case TI_VAL_ARR:
@@ -535,6 +536,7 @@ int ti_thing_i_item_add_assign(
     case TI_VAL_MEMBER:
     case TI_VAL_ANO:
     case TI_VAL_WANO:
+    case TI_VAL_UUID:
         ti_incref(val);
         break;
     case TI_VAL_ARR:
@@ -1064,7 +1066,7 @@ int ti_thing_id_to_client_pk(ti_thing_t * thing, msgpack_packer * pk)
             ? thing->via.type->idname
             : NULL;
     return -(
-            msgpack_pack_map(pk,1) || (name
+            msgpack_pack_map(pk, 1) || (name
                 ? mp_pack_strn(pk, name->str, name->n)
                 : mp_pack_strn(pk, TI_KIND_S_THING, 1)) ||
             msgpack_pack_uint64(pk, thing->id)

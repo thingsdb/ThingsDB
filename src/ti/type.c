@@ -1338,8 +1338,8 @@ ti_map_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type)
 }
 
 /*
- * Type must have been checked for `wrap_only` mode before calling this
- * function.
+ * Type must have been checked for not having `wrap_only` mode before calling
+ * this function.
  */
 ti_val_t * ti_type_dval(ti_type_t * type)
 {
@@ -1503,8 +1503,8 @@ fail0:
 }
 
 /*
- * Type must have been checked for `wrap_only` mode before calling this
- * function.
+ * Type must have been checked for not having `wrap_only` mode before calling
+ * this function.
  */
 ti_thing_t * ti_type_from_thing(ti_type_t * type, ti_thing_t * from, ex_t * e)
 {

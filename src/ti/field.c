@@ -227,6 +227,11 @@ static ti_val_t * field__dval_bool(ti_field_t * UNUSED(field))
     return (ti_val_t *) ti_vbool_get(false);
 }
 
+static ti_val_t * field__dval_uuid(ti_field_t * UNUSED(field))
+{
+    return (ti_val_t *) ti_uuid_new();
+}
+
 static ti_val_t * field__dval_regex(ti_field_t * UNUSED(field))
 {
     return ti_val_default_re();
@@ -294,11 +299,11 @@ static inline void field__set_cb(ti_field_t * field, ti_field_dval_cb cb)
  */
 enum
 {
-    TOTAL_KEYWORDS = 26,
+    TOTAL_KEYWORDS = 27,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 8,
     MIN_HASH_VALUE = 2,
-    MAX_HASH_VALUE = 27
+    MAX_HASH_VALUE = 28
 };
 
 static inline unsigned int field__hash(
@@ -307,32 +312,32 @@ static inline unsigned int field__hash(
 {
     static unsigned short asso_values[] =
     {
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 14, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 11, 28, 11, 28, 28, 28,  8,  1,  6,
-         0,  1,  8,  6,  4,  3, 28,  0,  0,  6,
-         1,  0,  9, 28,  0,  8,  0,  0,  0,  3,
-         5,  1, 28,  0, 28,  0, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28, 28, 28, 28, 28,
-        28, 28, 28, 28, 28, 28
+        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+        29, 29, 29, 29, 29, 29,  6, 29, 29, 29,
+        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+        29, 12, 29, 12, 29, 29, 29,  1,  1,  7,
+        7,  1, 18,  7,  6,  3, 29,  5,  0,  6,
+        1,  0, 11, 29,  0, 10,  0,  0,  0, 13,
+        7,  6, 29,  0, 29,  0, 29, 29, 29, 29,
+        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+        29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+        29, 29, 29, 29, 29, 29
     };
 
     register unsigned int hval = n;
@@ -381,6 +386,7 @@ ti_field_map_t field__mapping[TOTAL_KEYWORDS] = {
     {.name="float",     .spec=TI_SPEC_FLOAT,    .dval_cb=field__dval_float},
     {.name="number",    .spec=TI_SPEC_NUMBER,   .dval_cb=field__dval_int},
     {.name="bool",      .spec=TI_SPEC_BOOL,     .dval_cb=field__dval_bool},
+    {.name="uuid",      .spec=TI_SPEC_UUID,     .dval_cb=field__dval_uuid},
     {.name="[]",        .spec=TI_SPEC_ARR,      .dval_cb=field__dval_arr},
     {.name="{}",        .spec=TI_SPEC_SET,      .dval_cb=field__dval_set},
     {.name="datetime",  .spec=TI_SPEC_DATETIME, .dval_cb=field__dval_datetime},
@@ -1840,6 +1846,7 @@ int ti_field_make_assignable(
             return ti_closure_unbound((ti_closure_t *) *val, e);
         case TI_VAL_ANO:
         case TI_VAL_WANO:
+        case TI_VAL_UUID:
             break;
         case TI_VAL_FUTURE:
         case TI_VAL_MODULE:
@@ -1906,6 +1913,10 @@ int ti_field_make_assignable(
         goto type_error;
     case TI_SPEC_BOOL:
         if (ti_val_is_bool(*val))
+            return 0;
+        goto type_error;
+    case TI_SPEC_UUID:
+        if (ti_val_is_uuid(*val))
             return 0;
         goto type_error;
     case TI_SPEC_DATETIME:
@@ -2250,6 +2261,8 @@ _Bool ti_field_maps_to_val(ti_field_t * field, ti_val_t * val)
         return ti_val_is_number(val);
     case TI_SPEC_BOOL:
         return ti_val_is_bool(val);
+    case TI_SPEC_UUID:
+        return ti_val_is_uuid(val);
     case TI_SPEC_DATETIME:
         return ti_val_is_datetime_strict(val);
     case TI_SPEC_TIMEVAL:
@@ -2401,6 +2414,7 @@ static _Bool field__maps_to_nested(ti_field_t * t_field, ti_field_t * f_field)
     case TI_SPEC_NINT:
     case TI_SPEC_FLOAT:
     case TI_SPEC_BOOL:
+    case TI_SPEC_UUID:
     case TI_SPEC_DATETIME:
     case TI_SPEC_TIMEVAL:
     case TI_SPEC_REGEX:
@@ -2536,6 +2550,7 @@ _Bool ti_field_maps_to_field(ti_field_t * t_field, ti_field_t * f_field)
                 f_spec == TI_SPEC_INT_RANGE ||
                 f_spec == TI_SPEC_FLOAT_RANGE);
     case TI_SPEC_BOOL:
+    case TI_SPEC_UUID:
     case TI_SPEC_DATETIME:
     case TI_SPEC_TIMEVAL:
     case TI_SPEC_REGEX:

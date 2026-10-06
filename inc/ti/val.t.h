@@ -28,6 +28,7 @@
 #define TI_VAL_TASK_S       "task"
 #define TI_VAL_ANO_S        "<anonymous>"
 #define TI_VAL_WANO_S       "<<anonymous>>"
+#define TI_VAL_UUID_S       "uuid"
 
 #define TI_KIND_S_INSTANCE  "."     /* Internally, New typed thing */
 #define TI_KIND_S_OBJECT    ","     /* Internally, New thing */
@@ -69,6 +70,7 @@ typedef enum
     TI_VAL_CLOSURE,
     TI_VAL_ANO,         /* anonymous wrap-only type */
     TI_VAL_WANO,        /* wrapped with anonymous type */
+    TI_VAL_UUID,
     /* future, module and template are never stored */
     TI_VAL_FUTURE,      /* future */
     TI_VAL_MODULE,      /* module */

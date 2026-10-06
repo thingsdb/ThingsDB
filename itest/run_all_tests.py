@@ -39,6 +39,7 @@ from test_thingsdb_functions import TestThingsDBFunctions
 from test_type import TestType
 from test_types import TestTypes
 from test_user_access import TestUserAccess
+from test_uuid import TestUuid
 from test_variable import TestVariable
 from test_whitelist import TestWhitelist
 from test_wrap import TestWrap
@@ -115,6 +116,7 @@ if __name__ == '__main__':
     run_test(TestType(), hide_version=hide_version())
     run_test(TestTypes(), hide_version=hide_version())
     run_test(TestUserAccess(), hide_version=hide_version())
+    run_test(TestUuid(), hide_version=hide_version())
     run_test(TestVariable(), hide_version=hide_version())
     run_test(TestWhitelist(), hide_version=hide_version())
     run_test(TestWS(), hide_version=hide_version())

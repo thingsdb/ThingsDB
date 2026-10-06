@@ -54,7 +54,7 @@ static int do__f_history(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     return e->nr;
 fail:
     filtered->n = i;
-    vec_destroy(filtered, (vec_destroy_cb) ti_val_unassign_drop);
+    vec_destroy(filtered, (vec_destroy_cb) ti_val_unsafe_drop);
     ex_set_mem(e);
     return e->nr;
 }

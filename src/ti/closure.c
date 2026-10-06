@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <langdef/langdef.h>
+#include <langdef/hasprop.h>
 #include <ti/closure.h>
 #include <ti/closure.inline.h>
 #include <ti/query.inline.h>
@@ -665,6 +666,29 @@ int ti_closure_vars_vset(ti_closure_t * closure, ti_thing_t * t)
     return 0;
 }
 
+void ti_closure_vars_dict(ti_closure_t * closure, ti_val_t * k, ti_val_t * v)
+{
+    ti_prop_t * prop;
+    switch(closure->vars->n)
+    {
+    default:
+    case 2:
+        prop = VEC_get(closure->vars, 1);
+        ti_incref(v);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = v;
+        /* fall through */
+    case 1:
+        prop = VEC_get(closure->vars, 0);
+        ti_incref(k);
+        ti_val_unsafe_drop(prop->val);
+        prop->val = k;
+        /* fall through */
+    case 0:
+        break;
+    }
+}
+
 int ti_closure_call(
         ti_closure_t * closure,
         ti_query_t * query,
@@ -770,4 +794,19 @@ ti_raw_t * ti_closure_def(ti_closure_t * closure)
     def = ti_str_create(fmt.buf.data, fmt.buf.len);
     ti_fmt_clear(&fmt);
     return def;
+}
+
+_Bool ti_closure_arg_used(ti_closure_t * closure, size_t n)
+{
+    cleri_node_t * nd = closure->node               /* sequence */
+                        ->children->next            /* list */
+                        ->children;                 /* first child */
+
+    if (n >= closure->vars->n)
+        return false;
+
+    for (; n; n--)
+        nd = nd->next->next;
+
+    return langdef_hasprop(ti_closure_statement(closure), nd->str, nd->len);
 }

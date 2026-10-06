@@ -6,6 +6,7 @@
 
 #include <inttypes.h>
 #include <ti/collection.t.h>
+#include <ti/dict.t.h>
 #include <ti/enum.t.h>
 #include <ti/field.t.h>
 #include <ti/member.t.h>
@@ -64,7 +65,7 @@ int ti_task_add_new_module(
         ti_task_t * task,
         ti_module_t * module,
         ti_raw_t * source);
-int ti_task_set_name(ti_task_t * task, ti_room_t * room);
+int ti_task_add_room_set_name(ti_task_t * task, ti_room_t * room);
 int ti_task_add_new_node(ti_task_t * task, ti_node_t * node);
 int ti_task_add_new_procedure(ti_task_t * task, ti_procedure_t * procedure);
 int ti_task_add_mod_procedure(ti_task_t * task, ti_procedure_t * procedure);
@@ -195,5 +196,16 @@ int ti_task_add_del_history(
         ti_task_t * task,
         uint64_t scope_id,
         vec_t * commits);
-
+int ti_task_add_dict_set(
+        ti_task_t * task,
+        ti_raw_t * key,  /* parent key where dict lives */
+        ti_val_t * k,
+        ti_val_t * v);
+int ti_task_add_dict_del(
+        ti_task_t * task,
+        ti_raw_t * key,  /* parent key where dict lives */
+        ti_val_t * k);
+int ti_task_add_dict_clear(
+        ti_task_t * task,
+        ti_raw_t * key);  /* parent key where dict lives */
 #endif /* TI_TASK_H_ */

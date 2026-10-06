@@ -1,8 +1,28 @@
-# v1.9.3-alpha2
+# v1.10.0-alpha4
 
 * Fixed sanatize runtime checking, pr #455.
 * Replaced `ti_sleep(..)` with `sched_yield()` with a few exceptions, pr #456.
+* Added native `uuid` type, pr #457.
+  - `uuid()`: https://docs.thingsdb.io/v1/collection-api/uuid/
+  - `is_uuid()`: https://docs.thingsdb.io/v1/collection-api/is/is_uuid/
 * Replaced `gsutil` with `gcloud storage` command, pr #458.
+* Return with correct error on `datetime` and `str` compare, bug #459.
+* Added native `dict` type, pr #460.
+  - `dict()`: https://docs.thingsdb.io/v1/collection-api/dict/
+  - `is_dict()`: https://docs.thingsdb.io/v1/collection-api/is/is_dict/
+  - `dict.clear()`: https://docs.thingsdb.io/v1/data-types/dict/clear/
+  - `dict.copy()`: https://docs.thingsdb.io/v1/data-types/dict/copy/
+  - `dict.del()`: https://docs.thingsdb.io/v1/data-types/dict/del/
+  - `dict.dup()`: https://docs.thingsdb.io/v1/data-types/dict/dup/
+  - `dict.each()`: https://docs.thingsdb.io/v1/data-types/dict/each/
+  - `dict.get()`: https://docs.thingsdb.io/v1/data-types/dict/get/
+  - `dict.has()`: https://docs.thingsdb.io/v1/data-types/dict/has/
+  - `dict.keys()`: https://docs.thingsdb.io/v1/data-types/dict/keys/
+  - `dict.len()`: https://docs.thingsdb.io/v1/data-types/dict/len/
+  - `dict.map()`: https://docs.thingsdb.io/v1/data-types/dict/map/
+  - `dict.restriction()`: https://docs.thingsdb.io/v1/data-types/dict/restriction/
+  - `dict.set()`: https://docs.thingsdb.io/v1/data-types/dict/set/
+  - `dict.values()`: https://docs.thingsdb.io/v1/data-types/dict/values/
 
 # v1.9.2
 

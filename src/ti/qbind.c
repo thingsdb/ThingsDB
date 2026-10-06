@@ -59,6 +59,7 @@
 #include <ti/fn/fndeltype.h>
 #include <ti/fn/fndeluser.h>
 #include <ti/fn/fndeploymodule.h>
+#include <ti/fn/fndict.h>
 #include <ti/fn/fndoc.h>
 #include <ti/fn/fndup.h>
 #include <ti/fn/fneach.h>
@@ -111,6 +112,7 @@
 #include <ti/fn/fnisbytes.h>
 #include <ti/fn/fnisclosure.h>
 #include <ti/fn/fnisdatetime.h>
+#include <ti/fn/fnisdict.h>
 #include <ti/fn/fnisemail.h>
 #include <ti/fn/fnisenum.h>
 #include <ti/fn/fniserr.h>
@@ -137,6 +139,7 @@
 #include <ti/fn/fnisunique.h>
 #include <ti/fn/fnisurl.h>
 #include <ti/fn/fnisutf8.h>
+#include <ti/fn/fnisuuid.h>
 #include <ti/fn/fnjoin.h>
 #include <ti/fn/fnjsondump.h>
 #include <ti/fn/fnjsonload.h>
@@ -268,6 +271,7 @@
 #include <ti/fn/fnupper.h>
 #include <ti/fn/fnuserinfo.h>
 #include <ti/fn/fnusersinfo.h>
+#include <ti/fn/fnuuid.h>
 #include <ti/fn/fnvalue.h>
 #include <ti/fn/fnvalues.h>
 #include <ti/fn/fnvmap.h>
@@ -309,11 +313,11 @@ static void qbind__statement(ti_qbind_t * qbind, cleri_node_t * nd);
  */
 enum
 {
-    TOTAL_KEYWORDS = 284,
+    TOTAL_KEYWORDS = 288,
     MIN_WORD_LENGTH = 2,
     MAX_WORD_LENGTH = 17,
-    MIN_HASH_VALUE = 24,
-    MAX_HASH_VALUE = 776
+    MIN_HASH_VALUE = 42,
+    MAX_HASH_VALUE = 831
 };
 
 /*
@@ -325,32 +329,32 @@ static inline unsigned int qbind__hash(
 {
     static unsigned short asso_values[] =
     {
-        777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
-        777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
-        777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
-        777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
-        777, 777, 777, 777, 777, 777, 777, 777,   7,   7,
-        7, 777,   8, 777,   8, 777,   8, 777, 777, 777,
-        777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
-        777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
-        777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
-        777, 777, 777, 777, 777,   7, 777,  24,  42,  69,
-        40,   9, 127, 359, 240,   7,   7, 120,  13,  40,
-        12,  14, 155,  39,   8,   7,   8,  48, 230, 241,
-        200,  64,  64, 777, 777, 777, 777, 777, 777, 777,
-        777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
-        777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
-        777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
-        777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
-        777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
-        777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
-        777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
-        777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
-        777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
-        777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
-        777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
-        777, 777, 777, 777, 777, 777, 777, 777, 777, 777,
-        777, 777, 777, 777, 777, 777
+        832, 832, 832, 832, 832, 832, 832, 832, 832, 832,
+        832, 832, 832, 832, 832, 832, 832, 832, 832, 832,
+        832, 832, 832, 832, 832, 832, 832, 832, 832, 832,
+        832, 832, 832, 832, 832, 832, 832, 832, 832, 832,
+        832, 832, 832, 832, 832, 832, 832, 832,  18,  17,
+        17, 832,  17, 832,  17, 832,  17, 832, 832, 832,
+        832, 832, 832, 832, 832, 832, 832, 832, 832, 832,
+        832, 832, 832, 832, 832, 832, 832, 832, 832, 832,
+        832, 832, 832, 832, 832, 832, 832, 832, 832, 832,
+        832, 832, 832, 832, 832,  17, 832,  22,  67, 123,
+        26,  19, 171, 217, 229,  17,  19,  66,  19,  61,
+        22,  24,  78,  82,  18,  17,  18,  26, 283, 189,
+        339, 182,  25, 832, 832, 832, 832, 832, 832, 832,
+        832, 832, 832, 832, 832, 832, 832, 832, 832, 832,
+        832, 832, 832, 832, 832, 832, 832, 832, 832, 832,
+        832, 832, 832, 832, 832, 832, 832, 832, 832, 832,
+        832, 832, 832, 832, 832, 832, 832, 832, 832, 832,
+        832, 832, 832, 832, 832, 832, 832, 832, 832, 832,
+        832, 832, 832, 832, 832, 832, 832, 832, 832, 832,
+        832, 832, 832, 832, 832, 832, 832, 832, 832, 832,
+        832, 832, 832, 832, 832, 832, 832, 832, 832, 832,
+        832, 832, 832, 832, 832, 832, 832, 832, 832, 832,
+        832, 832, 832, 832, 832, 832, 832, 832, 832, 832,
+        832, 832, 832, 832, 832, 832, 832, 832, 832, 832,
+        832, 832, 832, 832, 832, 832, 832, 832, 832, 832,
+        832, 832, 832, 832, 832, 832
     };
 
     register unsigned int hval = n;
@@ -546,6 +550,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="del_type",          .fn=do__f_del_type,             ROOT_CE},
     {.name="del_user",          .fn=do__f_del_user,             ROOT_TE},
     {.name="deploy_module",     .fn=do__f_deploy_module,        ROOT_TE},
+    {.name="dict",              .fn=do__f_dict,                 ROOT_NE},
     {.name="doc",               .fn=do__f_doc,                  CHAIN_NE},
     {.name="dup",               .fn=do__f_dup,                  CHAIN_NE},
     {.name="each",              .fn=do__f_each,                 CHAIN_NE},
@@ -598,6 +603,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="is_bytes",          .fn=do__f_is_bytes,             ROOT_NE},
     {.name="is_closure",        .fn=do__f_is_closure,           ROOT_NE},
     {.name="is_datetime",       .fn=do__f_is_datetime,          ROOT_NE},
+    {.name="is_dict",           .fn=do__f_is_dict,              ROOT_NE},
     {.name="is_email",          .fn=do__f_is_email,             ROOT_NE},
     {.name="is_enum",           .fn=do__f_is_enum,              ROOT_NE},
     {.name="is_err",            .fn=do__f_is_err,               ROOT_NE},
@@ -624,6 +630,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="is_unique",         .fn=do__f_is_unique,            CHAIN_NE},
     {.name="is_url",            .fn=do__f_is_url,               ROOT_NE},
     {.name="is_utf8",           .fn=do__f_is_utf8,              ROOT_NE},
+    {.name="is_uuid",           .fn=do__f_is_uuid,              ROOT_NE},
     {.name="join",              .fn=do__f_join,                 CHAIN_NE},
     {.name="json_dump",         .fn=do__f_json_dump,            ROOT_NE},
     {.name="json_load",         .fn=do__f_json_load,            ROOT_NE},
@@ -764,6 +771,7 @@ qbind__fmap_t qbind__fn_mapping[TOTAL_KEYWORDS] = {
     {.name="upper",             .fn=do__f_upper,                CHAIN_NE},
     {.name="user_info",         .fn=do__f_user_info,            ROOT_NE},
     {.name="users_info",        .fn=do__f_users_info,           ROOT_NE},
+    {.name="uuid",              .fn=do__f_uuid,                 ROOT_NE},
     {.name="value",             .fn=do__f_value,                CHAIN_NE},
     {.name="value_err",         .fn=do__f_value_err,            ROOT_NE},
     {.name="values",            .fn=do__f_values,               CHAIN_NE},
@@ -1325,15 +1333,10 @@ static void qbind__expr_choice(ti_qbind_t * qbind, cleri_node_t * nd)
  */
 static inline void qbind__expression(ti_qbind_t * qbind, cleri_node_t * nd)
 {
-    cleri_node_t * node;
-    intptr_t preopr;
-
-    assert(nd->cl_obj->gid == CLERI_GID_EXPRESSION);
+    cleri_node_t * node = nd->children;
+    intptr_t preopr = (intptr_t) ti_preopr_bind(node->str, node->len);
 
     nd->data = ti_do_expression;
-
-    node = nd->children;
-    preopr = (intptr_t) ti_preopr_bind(node->str, node->len);
     node->data = (void *) preopr;
 
     qbind__expr_choice(qbind, nd->children->next);

@@ -725,11 +725,13 @@ ti_member_t * ti_enum_member_by_val_e(
     case TI_VAL_TASK:
     case TI_VAL_ARR:
     case TI_VAL_SET:
+    case TI_VAL_DICT:
     case TI_VAL_CLOSURE:
     case TI_VAL_ERROR:
     case TI_VAL_MEMBER:
     case TI_VAL_ANO:
     case TI_VAL_WANO:
+    case TI_VAL_UUID:
     case TI_VAL_FUTURE:
     case TI_VAL_MODULE:
     case TI_VAL_TEMPLATE:

@@ -2351,6 +2351,19 @@ class TestCollectionFunctions(TestBase):
         self.assertFalse(await client.query(r'is_tuple({});'))
         self.assertFalse(await client.query('is_tuple(.x[1]);'))
 
+    async def test_is_dict(self, client):
+        await client.query('.x = [dict(), nil]; .y = .x[0]; .z = dict();')
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `is_dict` takes 1 argument but 0 were given'):
+            await client.query('is_dict();')
+
+        self.assertFalse(await client.query('is_dict([]);'))
+        self.assertFalse(await client.query('is_dict(.x[0]);'))
+        self.assertFalse(await client.query('is_dict(.y);'))
+        self.assertTrue(await client.query('is_dict(.z);'))
+        self.assertTrue(await client.query('is_dict(dict([]));'))
+
     async def test_is_utf8(self, client):
         with self.assertRaisesRegex(
                 NumArgumentsError,
@@ -5469,7 +5482,7 @@ class TestCollectionFunctions(TestBase):
         with self.assertRaisesRegex(
                 TypeError,
                 r'mismatch in type `B`; property `aa` requires an array '
-                r'with items that matches definition `\[A\]`'):
+                r'with items that match definition `\[A\]`'):
             await client.query('.to_type("B");')
 
         with self.assertRaisesRegex(

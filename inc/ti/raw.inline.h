@@ -49,7 +49,7 @@ static inline int ti_raw_bytes_to_pk(ti_raw_t * raw, msgpack_packer * pk)
 
 static inline int ti_raw_str_to_pk(ti_raw_t * raw, msgpack_packer * pk)
 {
-    return mp_pack_strn(pk, raw->data, raw->n); \
+    return mp_pack_strn(pk, raw->data, raw->n);
 }
 
 static inline int ti_raw_mpdata_to_client_pk(

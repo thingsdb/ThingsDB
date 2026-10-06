@@ -1,5 +1,5 @@
 /*
- * pipe.h
+ * ti/pipe.h
  */
 #ifndef TI_PIPE_H_
 #define TI_PIPE_H_

@@ -55,7 +55,6 @@ static int opr__le(ti_val_t * a, ti_val_t ** b, ex_t * e)
     case OPR_NAME_NAME:
     case OPR_NAME_STR:
     case OPR_NAME_BYTES:
-    case OPR_STR_DATETIME:
     case OPR_STR_NAME:
     case OPR_STR_STR:
     case OPR_STR_BYTES:
@@ -66,6 +65,9 @@ static int opr__le(ti_val_t * a, ti_val_t ** b, ex_t * e)
         break;
     case OPR_SET_SET:
         bool_ = ti_vset_le((ti_vset_t*) a, (ti_vset_t *) *b);
+        break;
+    case OPR_UUID_UUID:
+        bool_ = memcmp(VUUID(a), VUUID(*b), sizeof(uuid_t)) <= 0;
         break;
     }
 

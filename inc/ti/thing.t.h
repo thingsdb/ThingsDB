@@ -71,7 +71,7 @@ union ti_thing_via_items
                                  */
     smap_t * smap;              /* contains ti_item_t :
                                  *          In an item the `key` value is of
-                                 *          type ti_raw_t, but valid names are
+                                 *          type ti_raw_t, but valid names
                                  *          must still be of type ti_name_t
                                  *          because logic might decide a
                                  *          key does not exist in case there is

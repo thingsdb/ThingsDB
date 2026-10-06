@@ -7,14 +7,18 @@ static int values__walk_i(ti_item_t * item, vec_t * vec)
     return 0;
 }
 
-static int do__f_values(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+static int values__dict_items(ti_val_t * val, vec_t * vec)
+{
+    VEC_push(vec, val);
+    ti_incref(val);
+    return 0;
+}
+
+static int do__f_values_thing(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const int nargs = fn_get_nargs(nd);
     ti_thing_t * thing;
     ti_varr_t * varr;
-
-    if (!ti_val_is_thing(query->rval))
-        return fn_call_try("values", query, nd, e);
 
     if (fn_nargs("values", DOC_THING_VALUES, 0, nargs, e))
         return e->nr;
@@ -58,4 +62,38 @@ static int do__f_values(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     ti_val_unsafe_drop((ti_val_t *) thing);
 
     return e->nr;
+}
+
+static int do__f_values_dict(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    const int nargs = fn_get_nargs(nd);
+    ti_dict_t * dict;
+    ti_varr_t * varr;
+
+    if (fn_nargs("values", DOC_DICT_VALUES, 0, nargs, e))
+        return e->nr;
+
+    dict = (ti_dict_t *) query->rval;
+    varr = ti_varr_create(ti_dict_n(dict));
+    if (!varr)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+
+    (void) ti_dict_walk(dict, (ti_dict_cb) values__dict_items, varr->vec);
+
+    query->rval = (ti_val_t *) varr;
+    ti_val_unsafe_drop((ti_val_t *) dict);
+
+    return e->nr;
+}
+
+static int do__f_values(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+{
+    return ti_val_is_thing(query->rval)
+            ? do__f_values_thing(query, nd, e)
+            : ti_val_is_dict(query->rval)
+            ? do__f_values_dict(query, nd, e)
+            : fn_call_try("values", query, nd, e);
 }

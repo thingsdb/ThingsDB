@@ -86,7 +86,7 @@ static _Bool hasprop__index(cleri_node_t * nd,
     return false;
 }
 
-static inline _Bool hasprop__closure(cleri_node_t * nd,
+static _Bool hasprop__closure(cleri_node_t * nd,
                                      const char * str,
                                      const size_t n)
 {

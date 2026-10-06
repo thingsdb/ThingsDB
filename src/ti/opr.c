@@ -118,8 +118,6 @@ _Bool ti__opr_eq_(ti_val_t * a, ti_val_t * b)
             ti_raw_eq(
                 ((ti_wano_t *) a)->ano->spec_raw,
                 ((ti_wano_t *) b)->ano->spec_raw);
-    case OPR_UUID_UUID:
-        return memcmp(VUUID(a), VUUID(b), sizeof(uuid_t)) == 0;
     }
     return false;
 }
@@ -181,8 +179,6 @@ int ti_opr_compare(ti_val_t * a, ti_val_t * b, ex_t * e)
         return ti_opr_compare(VMEMBER(a), b, e);
     case OPR_MEMBER_MEMBER:
         return ti_opr_compare(VMEMBER(a), VMEMBER(b), e);
-    case OPR_UUID_UUID:
-        return memcmp(VUUID(a), VUUID(b), sizeof(uuid_t));
     }
     return 0;
 }

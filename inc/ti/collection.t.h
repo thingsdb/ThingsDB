@@ -16,7 +16,6 @@ typedef struct ti_collection_s  ti_collection_t;
 #include <ti/tz.h>
 #include <util/guid.h>
 #include <util/imap.h>
-#include <util/umap.h>
 #include <util/queue.h>
 
 struct ti_collection_s

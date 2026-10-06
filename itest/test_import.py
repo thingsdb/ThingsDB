@@ -118,7 +118,6 @@ class TestImport(TestBase):
     async def test_export(self, client0, client1):
         global dump
         await client0.query(r"""//ti
-            .u = uuid('01a08b43-4abd-7529-82a2-9ae352b2f10f');
             .x = 42;
             .t = task(datetime(), |t, r| {
                 log(`running task for root Id {r.id()}...`);
@@ -152,7 +151,6 @@ class TestImport(TestBase):
                 }
             }, true, true);
             set_type('T', {
-                u: 'uuid',
                 x: 'int',
                 t: 'task',
                 me: 'thing',
@@ -185,7 +183,6 @@ class TestImport(TestBase):
         for client in (client0, client1):
             await client.query(r"""//ti
                 wse();
-                assert(.u == uuid('01a08b43-4abd-7529-82a2-9ae352b2f10f'));
                 assert(.x == 42);
                 assert(.r.name == 'master');
                 assert(.r.r.name == 'slave');

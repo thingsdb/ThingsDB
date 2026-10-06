@@ -26,7 +26,7 @@ static inline int ti_vset_walk(
                     cb,
                     arg,
                     (imap_destroy_cb) ti_val_unsafe_drop);
-        if (query->change)
+        else if (query->change)
         {
             /* the closure does not required a change, however, within the
              * closure another stored procedure or closure might be called

@@ -37,7 +37,6 @@ typedef enum
     OPR_NIL_MEMBER          =TI_VAL_NIL<<5|TI_VAL_MEMBER,
     OPR_NIL_ANO             =TI_VAL_NIL<<5|TI_VAL_ANO,
     OPR_NIL_WANO            =TI_VAL_NIL<<5|TI_VAL_WANO,
-    OPR_NIL_UUID            =TI_VAL_NIL<<5|TI_VAL_UUID,
 
     OPR_INT_NIL             =TI_VAL_INT<<5|TI_VAL_NIL,
     OPR_INT_INT             =TI_VAL_INT<<5|TI_VAL_INT,
@@ -56,7 +55,6 @@ typedef enum
     OPR_INT_MEMBER          =TI_VAL_INT<<5|TI_VAL_MEMBER,
     OPR_INT_ANO             =TI_VAL_INT<<5|TI_VAL_ANO,
     OPR_INT_WANO            =TI_VAL_INT<<5|TI_VAL_WANO,
-    OPR_INT_UUID            =TI_VAL_INT<<5|TI_VAL_UUID,
 
     OPR_FLOAT_NIL           =TI_VAL_FLOAT<<5|TI_VAL_NIL,
     OPR_FLOAT_INT           =TI_VAL_FLOAT<<5|TI_VAL_INT,
@@ -75,7 +73,6 @@ typedef enum
     OPR_FLOAT_MEMBER        =TI_VAL_FLOAT<<5|TI_VAL_MEMBER,
     OPR_FLOAT_ANO           =TI_VAL_FLOAT<<5|TI_VAL_ANO,
     OPR_FLOAT_WANO          =TI_VAL_FLOAT<<5|TI_VAL_WANO,
-    OPR_FLOAT_UUID          =TI_VAL_FLOAT<<5|TI_VAL_UUID,
 
     OPR_BOOL_NIL            =TI_VAL_BOOL<<5|TI_VAL_NIL,
     OPR_BOOL_INT            =TI_VAL_BOOL<<5|TI_VAL_INT,
@@ -94,7 +91,6 @@ typedef enum
     OPR_BOOL_MEMBER         =TI_VAL_BOOL<<5|TI_VAL_MEMBER,
     OPR_BOOL_ANO            =TI_VAL_BOOL<<5|TI_VAL_ANO,
     OPR_BOOL_WANO           =TI_VAL_BOOL<<5|TI_VAL_WANO,
-    OPR_BOOL_UUID           =TI_VAL_BOOL<<5|TI_VAL_UUID,
 
     OPR_DATETIME_NIL        =TI_VAL_DATETIME<<5|TI_VAL_NIL,
     OPR_DATETIME_INT        =TI_VAL_DATETIME<<5|TI_VAL_INT,
@@ -113,7 +109,6 @@ typedef enum
     OPR_DATETIME_MEMBER     =TI_VAL_DATETIME<<5|TI_VAL_MEMBER,
     OPR_DATETIME_ANO        =TI_VAL_DATETIME<<5|TI_VAL_ANO,
     OPR_DATETIME_WANO       =TI_VAL_DATETIME<<5|TI_VAL_WANO,
-    OPR_DATETIME_UUID       =TI_VAL_DATETIME<<5|TI_VAL_UUID,
 
     OPR_NAME_NIL            =TI_VAL_NAME<<5|TI_VAL_NIL,
     OPR_NAME_INT            =TI_VAL_NAME<<5|TI_VAL_INT,
@@ -132,7 +127,6 @@ typedef enum
     OPR_NAME_MEMBER         =TI_VAL_NAME<<5|TI_VAL_MEMBER,
     OPR_NAME_ANO            =TI_VAL_NAME<<5|TI_VAL_ANO,
     OPR_NAME_WANO           =TI_VAL_NAME<<5|TI_VAL_WANO,
-    OPR_NAME_UUID           =TI_VAL_NAME<<5|TI_VAL_UUID,
 
     OPR_STR_NIL             =TI_VAL_STR<<5|TI_VAL_NIL,
     OPR_STR_INT             =TI_VAL_STR<<5|TI_VAL_INT,
@@ -151,7 +145,7 @@ typedef enum
     OPR_STR_MEMBER          =TI_VAL_STR<<5|TI_VAL_MEMBER,
     OPR_STR_ANO             =TI_VAL_STR<<5|TI_VAL_ANO,
     OPR_STR_WANO            =TI_VAL_STR<<5|TI_VAL_WANO,
-    OPR_STR_UUID            =TI_VAL_STR<<5|TI_VAL_UUID,
+
 
     OPR_BYTES_NIL           =TI_VAL_BYTES<<5|TI_VAL_NIL,
     OPR_BYTES_INT           =TI_VAL_BYTES<<5|TI_VAL_INT,
@@ -170,7 +164,6 @@ typedef enum
     OPR_BYTES_MEMBER        =TI_VAL_BYTES<<5|TI_VAL_MEMBER,
     OPR_BYTES_ANO           =TI_VAL_BYTES<<5|TI_VAL_ANO,
     OPR_BYTES_WANO          =TI_VAL_BYTES<<5|TI_VAL_WANO,
-    OPR_BYTES_UUID          =TI_VAL_BYTES<<5|TI_VAL_UUID,
 
     OPR_REGEX_NIL           =TI_VAL_REGEX<<5|TI_VAL_NIL,
     OPR_REGEX_INT           =TI_VAL_REGEX<<5|TI_VAL_INT,
@@ -190,7 +183,6 @@ typedef enum
     OPR_REGEX_MEMBER        =TI_VAL_REGEX<<5|TI_VAL_MEMBER,
     OPR_REGEX_ANO           =TI_VAL_REGEX<<5|TI_VAL_ANO,
     OPR_REGEX_WANO          =TI_VAL_REGEX<<5|TI_VAL_WANO,
-    OPR_REGEX_UUID          =TI_VAL_REGEX<<5|TI_VAL_UUID,
 
     OPR_THING_NIL           =TI_VAL_THING<<5|TI_VAL_NIL,
     OPR_THING_INT           =TI_VAL_THING<<5|TI_VAL_INT,
@@ -209,7 +201,6 @@ typedef enum
     OPR_THING_MEMBER        =TI_VAL_THING<<5|TI_VAL_MEMBER,
     OPR_THING_ANO           =TI_VAL_THING<<5|TI_VAL_ANO,
     OPR_THING_WANO          =TI_VAL_THING<<5|TI_VAL_WANO,
-    OPR_THING_UUID          =TI_VAL_THING<<5|TI_VAL_UUID,
 
     OPR_WRAP_NIL            =TI_VAL_WRAP<<5|TI_VAL_NIL,
     OPR_WRAP_INT            =TI_VAL_WRAP<<5|TI_VAL_INT,
@@ -229,7 +220,6 @@ typedef enum
     OPR_WRAP_MEMBER         =TI_VAL_WRAP<<5|TI_VAL_MEMBER,
     OPR_WRAP_ANO            =TI_VAL_WRAP<<5|TI_VAL_ANO,
     OPR_WRAP_WANO           =TI_VAL_WRAP<<5|TI_VAL_WANO,
-    OPR_WRAP_UUID           =TI_VAL_WRAP<<5|TI_VAL_UUID,
 
     OPR_ARR_NIL             =TI_VAL_ARR<<5|TI_VAL_NIL,
     OPR_ARR_INT             =TI_VAL_ARR<<5|TI_VAL_INT,
@@ -248,7 +238,6 @@ typedef enum
     OPR_ARR_MEMBER          =TI_VAL_ARR<<5|TI_VAL_MEMBER,
     OPR_ARR_ANO             =TI_VAL_ARR<<5|TI_VAL_ANO,
     OPR_ARR_WANO            =TI_VAL_ARR<<5|TI_VAL_WANO,
-    OPR_ARR_UUID            =TI_VAL_ARR<<5|TI_VAL_UUID,
 
     OPR_SET_NIL             =TI_VAL_SET<<5|TI_VAL_NIL,
     OPR_SET_INT             =TI_VAL_SET<<5|TI_VAL_INT,
@@ -267,7 +256,6 @@ typedef enum
     OPR_SET_MEMBER          =TI_VAL_SET<<5|TI_VAL_MEMBER,
     OPR_SET_ANO             =TI_VAL_SET<<5|TI_VAL_ANO,
     OPR_SET_WANO            =TI_VAL_SET<<5|TI_VAL_WANO,
-    OPR_SET_UUID            =TI_VAL_SET<<5|TI_VAL_UUID,
 
     OPR_ERROR_NIL           =TI_VAL_ERROR<<5|TI_VAL_NIL,
     OPR_ERROR_INT           =TI_VAL_ERROR<<5|TI_VAL_INT,
@@ -287,7 +275,6 @@ typedef enum
     OPR_ERROR_MEMBER        =TI_VAL_ERROR<<5|TI_VAL_MEMBER,
     OPR_ERROR_ANO           =TI_VAL_ERROR<<5|TI_VAL_ANO,
     OPR_ERROR_WANO          =TI_VAL_ERROR<<5|TI_VAL_WANO,
-    OPR_ERROR_UUID          =TI_VAL_ERROR<<5|TI_VAL_UUID,
 
     OPR_MEMBER_NIL          =TI_VAL_MEMBER<<5|TI_VAL_NIL,
     OPR_MEMBER_INT          =TI_VAL_MEMBER<<5|TI_VAL_INT,
@@ -306,7 +293,6 @@ typedef enum
     OPR_MEMBER_MEMBER       =TI_VAL_MEMBER<<5|TI_VAL_MEMBER,
     OPR_MEMBER_ANO          =TI_VAL_MEMBER<<5|TI_VAL_ANO,
     OPR_MEMBER_WANO         =TI_VAL_MEMBER<<5|TI_VAL_WANO,
-    OPR_MEMBER_UUID         =TI_VAL_MEMBER<<5|TI_VAL_UUID,
 
     OPR_ANO_NIL             =TI_VAL_ANO<<5|TI_VAL_NIL,
     OPR_ANO_INT             =TI_VAL_ANO<<5|TI_VAL_INT,
@@ -325,7 +311,6 @@ typedef enum
     OPR_ANO_MEMBER          =TI_VAL_ANO<<5|TI_VAL_MEMBER,
     OPR_ANO_ANO             =TI_VAL_ANO<<5|TI_VAL_ANO,
     OPR_ANO_WANO            =TI_VAL_ANO<<5|TI_VAL_WANO,
-    OPR_ANO_UUID            =TI_VAL_ANO<<5|TI_VAL_UUID,
 
     OPR_WANO_NIL            =TI_VAL_WANO<<5|TI_VAL_NIL,
     OPR_WANO_INT            =TI_VAL_WANO<<5|TI_VAL_INT,
@@ -344,26 +329,6 @@ typedef enum
     OPR_WANO_MEMBER         =TI_VAL_WANO<<5|TI_VAL_MEMBER,
     OPR_WANO_ANO            =TI_VAL_WANO<<5|TI_VAL_ANO,
     OPR_WANO_WANO           =TI_VAL_WANO<<5|TI_VAL_WANO,
-    OPR_WANO_UUID           =TI_VAL_WANO<<5|TI_VAL_UUID,
-
-    OPR_UUID_NIL            =TI_VAL_UUID<<5|TI_VAL_NIL,
-    OPR_UUID_INT            =TI_VAL_UUID<<5|TI_VAL_INT,
-    OPR_UUID_FLOAT          =TI_VAL_UUID<<5|TI_VAL_FLOAT,
-    OPR_UUID_BOOL           =TI_VAL_UUID<<5|TI_VAL_BOOL,
-    OPR_UUID_DATETIME       =TI_VAL_UUID<<5|TI_VAL_DATETIME,
-    OPR_UUID_NAME           =TI_VAL_UUID<<5|TI_VAL_NAME,
-    OPR_UUID_STR            =TI_VAL_UUID<<5|TI_VAL_STR,
-    OPR_UUID_BYTES          =TI_VAL_UUID<<5|TI_VAL_BYTES,
-    OPR_UUID_REGEX          =TI_VAL_UUID<<5|TI_VAL_REGEX,
-    OPR_UUID_THING          =TI_VAL_UUID<<5|TI_VAL_THING,
-    OPR_UUID_WRAP           =TI_VAL_UUID<<5|TI_VAL_WRAP,
-    OPR_UUID_ARR            =TI_VAL_UUID<<5|TI_VAL_ARR,
-    OPR_UUID_SET            =TI_VAL_UUID<<5|TI_VAL_SET,
-    OPR_UUID_ERROR          =TI_VAL_UUID<<5|TI_VAL_ERROR,
-    OPR_UUID_MEMBER         =TI_VAL_UUID<<5|TI_VAL_MEMBER,
-    OPR_UUID_ANO            =TI_VAL_UUID<<5|TI_VAL_ANO,
-    OPR_UUID_WANO           =TI_VAL_UUID<<5|TI_VAL_WANO,
-    OPR_UUID_UUID           =TI_VAL_UUID<<5|TI_VAL_UUID,
 
 } ti_opr_perm_t;
 

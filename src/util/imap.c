@@ -10,8 +10,6 @@
 #include <tiinc.h>
 
 #define IMAP_NODE_SZ 32
-#define IMAP_MASK 31  // (IMAP_NODE_SZ - 1)
-#define IMAP_SHIFT 5  // log2(IMAP_NODE_SZ)
 
 static int imap__nodes_dup(imap_node_t * dest, imap_node_t * node);
 static int imap__node_dup_cb(imap_node_t * node, _Bool incref);
@@ -39,7 +37,7 @@ static inline imap_node_t * imap__unsafe_node(imap_node_t * node, uint8_t key)
             : node->nodes;
 }
 
-static ALWAYS_INLINE imap_node_t * imap__get_node(imap_node_t * node, uint8_t key)
+static inline imap_node_t * imap__get_node(imap_node_t * node, uint8_t key)
 {
     return node->key == IMAP_NODE_SZ
             ? node->nodes + key
@@ -248,7 +246,7 @@ failed:
 static void * imap__set(imap_node_t * node, uint64_t id, void * data)
 {
     void * ret;
-    uint8_t key = (uint8_t)(id & IMAP_MASK);
+    uint8_t key = id % IMAP_NODE_SZ;
     imap_node_t * nd;
 
     if (!node->sz)
@@ -264,7 +262,7 @@ static void * imap__set(imap_node_t * node, uint64_t id, void * data)
         return NULL;
 
     nd = imap__unsafe_node(node, key);
-    id >>= IMAP_SHIFT;
+    id /= IMAP_NODE_SZ;
 
     if (!id)
     {
@@ -292,8 +290,8 @@ void * imap_set(imap_t * imap, uint64_t id, void * data)
 {
     assert(data != NULL);
     void * ret;
-    imap_node_t * nd = imap->nodes + (id & IMAP_MASK);
-    id >>= IMAP_SHIFT;
+    imap_node_t * nd = imap->nodes + (id % IMAP_NODE_SZ);
+    id /= IMAP_NODE_SZ;
 
     if (!id)
     {
@@ -312,7 +310,7 @@ void * imap_set(imap_t * imap, uint64_t id, void * data)
 static int imap__add(imap_node_t * node, uint64_t id, void * data)
 {
     int rc;
-    uint8_t key = (uint8_t)(id & IMAP_MASK);
+    uint8_t key = id % IMAP_NODE_SZ;
     imap_node_t * nd;
 
     if (!node->sz)
@@ -328,7 +326,7 @@ static int imap__add(imap_node_t * node, uint64_t id, void * data)
         return IMAP_ERR_ALLOC;
 
     nd = imap__unsafe_node(node, key);
-    id >>= IMAP_SHIFT;
+    id /= IMAP_NODE_SZ;
 
     if (!id)
     {
@@ -359,8 +357,8 @@ static int imap__add(imap_node_t * node, uint64_t id, void * data)
 int imap_add(imap_t * imap, uint64_t id, void * data)
 {
     assert(data != NULL);
-    imap_node_t * nd = imap->nodes + (id & IMAP_MASK);
-    id >>= IMAP_SHIFT;
+    imap_node_t * nd = imap->nodes + (id % IMAP_NODE_SZ);
+    id /= IMAP_NODE_SZ;
 
     if (!id)
     {
@@ -383,10 +381,10 @@ int imap_add(imap_t * imap, uint64_t id, void * data)
  */
 void * imap_get(imap_t * imap, uint64_t id)
 {
-    imap_node_t * nd = imap->nodes + (id & IMAP_MASK);
+    imap_node_t * nd = imap->nodes + (id % IMAP_NODE_SZ);
     do
     {
-        id >>= IMAP_SHIFT;
+        id /= IMAP_NODE_SZ;
 
         if (!id)
             return nd->data;
@@ -394,7 +392,7 @@ void * imap_get(imap_t * imap, uint64_t id)
         if (!nd->nodes)
             return NULL;
 
-        nd = imap__get_node(nd, --id & IMAP_MASK);
+        nd = imap__get_node(nd, --id % IMAP_NODE_SZ);
     }
     while (nd);
 
@@ -438,11 +436,11 @@ void * imap_one(imap_t * imap)
 static void * imap__pop(imap_node_t * node, uint64_t id)
 {
     void * data;
-    imap_node_t * nd = imap__get_node(node, id & IMAP_MASK);
+    imap_node_t * nd = imap__get_node(node, id % IMAP_NODE_SZ);
     if (!nd)
         return NULL;
 
-    id >>= IMAP_SHIFT;
+    id /= IMAP_NODE_SZ;
 
     if (!id)
     {
@@ -479,8 +477,8 @@ static void * imap__pop(imap_node_t * node, uint64_t id)
 void * imap_pop(imap_t * imap, uint64_t id)
 {
     void * data;
-    imap_node_t * nd = imap->nodes + (id & IMAP_MASK);
-    id >>= IMAP_SHIFT;
+    imap_node_t * nd = imap->nodes + (id % IMAP_NODE_SZ);
+    id /= IMAP_NODE_SZ;
 
     if (id)
     {
@@ -832,7 +830,7 @@ static uint64_t imap__unused_id(imap_node_t * node, uint64_t max)
     if (node->key != IMAP_NODE_SZ)
         // it is not enough to test just for free, it must be the lowest
         // because a higher value might be out the range of max
-        return (node->key & IMAP_MASK) == 0 ? 1 : 0;
+        return (node->key % IMAP_NODE_SZ) == 0 ? 1 : 0;
 
     for (i = 0; i < IMAP_NODE_SZ; ++i, ++nd)
         if (!nd->data)
@@ -840,7 +838,7 @@ static uint64_t imap__unused_id(imap_node_t * node, uint64_t max)
 
     n = IMAP_NODE_SZ + IMAP_NODE_SZ;
     n = n < max ? n : max;
-    m = max >> IMAP_SHIFT;
+    m = max / IMAP_NODE_SZ;
     nd = node->nodes;
     low = max;
     for (i = IMAP_NODE_SZ; i < n; ++i, ++nd)
@@ -883,7 +881,7 @@ uint64_t imap_unused_id(imap_t * imap, uint64_t max)
 
     n = IMAP_NODE_SZ + IMAP_NODE_SZ;
     n = n < max ? n : max;
-    m = max >> IMAP_SHIFT;
+    m = max / IMAP_NODE_SZ;
     nd = imap->nodes;
 
     for (i = IMAP_NODE_SZ; i < n; ++i, ++nd)

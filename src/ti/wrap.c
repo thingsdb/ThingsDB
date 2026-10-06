@@ -344,11 +344,11 @@ static int wrap__field_val(
             vp->query->collection)
         {
             uint16_t fspec = ti_varr_spec(varr);
-            if (fspec < TI_SPEC_ANY)
+            if (ti_spec_is_thing(fspec))
             {
                 ti_type_t * t_type = ti_types_by_id(
                         vp->query->collection->types,
-                        fspec);
+                        t_field->nested_spec);
                 if (t_type)
                 {
                     for (vec_each(varr->vec, ti_thing_t, t))

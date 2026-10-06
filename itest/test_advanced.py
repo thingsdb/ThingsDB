@@ -3036,6 +3036,29 @@ mod_enum('E', 'mod', 'A', {
         self.assertEqual(no_opt, {"p": [{"x": 1}]})
         self.assertEqual(opt, {"p": [{"x": 1}, {"x": 2}]})
 
+    async def test_nested_arr_opt(self, client: Client):
+        ids = await client.query("""//ti
+            set_type('P', {name: 'str'});
+            set_type('T', {
+                arr: '[P]'
+            });
+            set_type('_P', {
+                id: '#',
+                name: 'str',
+            }, WPO);
+            set_type('_T', {
+                arr: '&[_P]',
+            }, WPO|HID);
+            .to_type('T');
+            .arr.push(P{name: 'Iris'}, P{name: 'Cato'});
+            .arr.map_id();
+        """)
+        res = await client.query("""//ti
+            .wrap('_T');
+        """)
+        self.assertEqual(res, {
+            'arr': [{'id': 2, 'name': 'Iris'}, {'id': 3, 'name': 'Cato'}]})
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

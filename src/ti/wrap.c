@@ -215,9 +215,9 @@ static int wrap__dict(
 {
     if (ti_dict_n(dict) > 1 &&
         t_field->nested_spec < TI_SPEC_ANY &&
-        ti_spec_is_thing(ti_dict_val_spec(dict)) &&
         vp->query &&
-        vp->query->collection)
+        vp->query->collection &&
+        ti_spec_is_thing(ti_dict_val_spec(dict)))
     {
         /* optimization for dict with multiple values when we know all source
            is of type thing */
@@ -341,28 +341,25 @@ static int wrap__field_val(
         if (varr->vec->n > 1 &&
             t_field->nested_spec < TI_SPEC_ANY &&
             vp->query &&
-            vp->query->collection)
+            vp->query->collection &&
+            ti_spec_is_thing(ti_varr_spec(varr))
         {
-            uint16_t fspec = ti_varr_spec(varr);
-            if (ti_spec_is_thing(fspec))
+            ti_type_t * t_type = ti_types_by_id(
+                    vp->query->collection->types,
+                    t_field->nested_spec);
+            if (t_type)
             {
-                ti_type_t * t_type = ti_types_by_id(
-                        vp->query->collection->types,
-                        t_field->nested_spec);
-                if (t_type)
+                for (vec_each(varr->vec, ti_thing_t, t))
                 {
-                    for (vec_each(varr->vec, ti_thing_t, t))
-                    {
-                        if (ti_wrap_field_thing_type(
-                                t,
-                                vp,
-                                t_type,
-                                deep,
-                                flags))
-                            return -1;
-                    }
-                    return 0;
+                    if (ti_wrap_field_thing_type(
+                            t,
+                            vp,
+                            t_type,
+                            deep,
+                            flags))
+                        return -1;
                 }
+                return 0;
             }
         }
         for (vec_each(varr->vec, ti_val_t, v))

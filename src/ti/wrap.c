@@ -282,7 +282,16 @@ static int wrap__field_val(
     case TI_VAL_BOOL:
         return ti_vbool_to_pk((ti_vbool_t *) val, &vp->pk);
     case TI_VAL_DATETIME:
-        return ti_datetime_to_client_pk((ti_datetime_t *) val, &vp->pk);
+        switch (*spec & TI_SPEC_MASK_NILLABLE)
+        {
+        case TI_SPEC_DATETIME:
+            return ti_datetime_strict_to_client_pk((ti_datetime_t *) val, &vp->pk);
+        case TI_SPEC_TIMEVAL:
+            return ti_timeval_to_client_pk((ti_datetime_t *) val, &vp->pk);
+        case TI_SPEC_ANY:
+        default:
+            return ti_datetime_to_client_pk((ti_datetime_t *) val, &vp->pk);
+        }
     case TI_VAL_NAME:
     case TI_VAL_STR:
         return ti_raw_str_to_pk((ti_raw_t *) val, &vp->pk);

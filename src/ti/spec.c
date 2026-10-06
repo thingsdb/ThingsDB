@@ -539,9 +539,8 @@ _Bool ti__spec_maps_to_nested_val(ti_field_t * field, ti_val_t * val)
     case TI_SPEC_DICT:
         return ti_val_is_dict(val);
     case TI_SPEC_DATETIME:
-        return ti_val_is_datetime_strict(val);
     case TI_SPEC_TIMEVAL:
-        return ti_val_is_timeval(val);
+        return ti_val_is_datetime(val);
     case TI_SPEC_REGEX:
         return ti_val_is_regex(val);
     case TI_SPEC_CLOSURE:

@@ -342,7 +342,7 @@ static int wrap__field_val(
             t_field->nested_spec < TI_SPEC_ANY &&
             vp->query &&
             vp->query->collection &&
-            ti_spec_is_thing(ti_varr_spec(varr))
+            ti_spec_is_thing(ti_varr_spec(varr)))
         {
             ti_type_t * t_type = ti_types_by_id(
                     vp->query->collection->types,

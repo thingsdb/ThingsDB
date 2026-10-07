@@ -13,9 +13,9 @@
 
 typedef enum
 {
+    TI_DICT_KEY_UUID,
     TI_DICT_KEY_INT,
     TI_DICT_KEY_STR,
-    TI_DICT_KEY_UUID,
 } ti_dict_enum_e;
 
 typedef struct

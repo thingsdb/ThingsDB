@@ -1,3 +1,7 @@
+# v1.10.1-alpha0
+
+* Improved `dict` export _(cosmetic)_, pr #462.
+
 # v1.10.0
 
 * Fixed sanatize runtime checking, pr #455.

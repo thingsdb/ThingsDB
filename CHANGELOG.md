@@ -1,3 +1,7 @@
+# v1.10.1-alpha0
+
+* Improve `dict` export, pr #
+
 # v1.10.0
 
 * Fixed sanatize runtime checking, pr #455.

@@ -396,18 +396,20 @@ static int export__dict_pair(ti_dict_key_t * key,
 
     switch(key->tp)
     {
+        case TI_DICT_KEY_UUID:
+            if (export__uuid(fmt, key->via.uuid) ||
+                buf_write(buf, ',') ||
+                buf_write(buf, ' '))
+                return -1;
+            break;
         case TI_DICT_KEY_INT:
             if (buf_append_fmt(buf, "%"PRIi64", ", key->via.id))
                 return -1;
             break;
-        case TI_DICT_KEY_UUID:
-            if (export__uuid(fmt, key->via.uuid) ||
-                buf_write(buf, ','))
-                return -1;
-            break;
         case TI_DICT_KEY_STR:
             if (ti_fmt_strn(fmt, key->via.str.str, key->via.str.n) ||
-                buf_write(buf, ','))
+                buf_write(buf, ',') ||
+                buf_write(buf, ' '))
                 return -1;
             break;
     }
@@ -501,7 +503,7 @@ static int export__val(ti_fmt_t * fmt, ti_val_t * val)
         fmt->indent--;
         return -(
             ti_fmt_indent(fmt) ||
-            buf_append_str(buf, "])\n")
+            buf_append_str(buf, "])")
         );
     }
     case TI_VAL_ERROR:

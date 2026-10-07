@@ -1571,7 +1571,8 @@ class TestAdvanced(TestBase):
         self.assertEqual(res, '|| x[0] += 1')  # formatted closure
 
     async def test_export(self, client):
-        script = r'''
+        self.maxDiff = 1800
+        script = r"""
 try(commit('Source: collection `stuff`'));
 
 new_type('Friend');
@@ -1652,6 +1653,11 @@ mod_enum('Obj', 'mod', 'B', {
   c: |a, b| a + b,
   float: 3.140000,
   u: uuid('01a08b43-4abd-7529-82a2-9ae352b2f10f'),
+  d: dict([
+    [uuid('01a08b43-4abd-7529-82a2-9ae352b2f10f'), 0],
+    [0, 1],
+    ['a', 2],
+  ]),
 });
 
 
@@ -1665,7 +1671,7 @@ new_procedure('multiply', |a, b| a * b);
 .to_type('Root');
 
 'DONE';
-'''.lstrip().replace('  ', '\t')
+""".lstrip().replace('  ', '\t')
         await client.query(script)
         res = await client.query('export();')
         self.assertEqual(res, script)

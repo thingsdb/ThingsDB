@@ -470,19 +470,25 @@ static int do__get_enum_member(
     return e->nr;
 }
 
-
-static int do__function_call(ti_query_t * query, cleri_node_t * nd, ex_t * e)
+int ti_do_othernone_scope_call(ti_query_t * query,
+                          const char * name,
+                          cleri_node_t * args,
+                          ex_t * e)
 {
-    cleri_node_t * fname = nd       /* sequence */
-            ->children;             /* name node */
+    cleri_node_t fname = {
+        .str = name,
+        .len = strlen(name),
+    };
+    return do__function_call(query, &fname, args, e);
+}
 
-    cleri_node_t * args = nd        /* sequence */
-        ->children->next            /* function sequence */
-        ->children->next;           /* arguments */
-
+static int do__function_call(ti_query_t * query,
+                             cleri_node_t * fname,
+                             cleri_node_t * args,
+                             ex_t * e)
+{
     ti_prop_t * prop;
     ti_module_t * module;
-
     /*
      * If `rval` is set, this means it is a "chained" function call,
      * for example:  my_thing.func()
@@ -597,7 +603,13 @@ static inline int do__function(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                         ->children->next            /* function sequence */
                         ->children->next,           /* arguments */
                     e)
-            : do__function_call(query, nd, e);
+            : do__function_call(query,
+                                nd                  /* sequence */
+                                ->children,         /* name node */
+                                nd                  /* sequence */
+                                ->children->next    /* function sequence */
+                                ->children->next,   /* arguments */
+                                e);
 }
 
 int ti_do_block(ti_query_t * query, cleri_node_t * nd, ex_t * e)

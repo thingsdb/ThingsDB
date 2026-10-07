@@ -1,6 +1,6 @@
 # v1.10.1-alpha0
 
-* Improve `dict` export, pr #
+* Improved `dict` export _(cosmetic)_, pr #462.
 
 # v1.10.0
 

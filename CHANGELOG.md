@@ -1,4 +1,4 @@
-# v1.10.1-alpha1
+# v1.10.1
 
 * Improved `dict` export _(cosmetic)_, pr #462.
 * Added alternative `wse(f(..))` using `f(..)!` syntax, issue #463, pr #464.

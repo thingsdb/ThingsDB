@@ -626,16 +626,18 @@ class TestCollectionFunctions(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'closures with side effects require a change but none is '
-                r'created; use `wse\(...\)` to enforce a change;'):
+                r"closures with side effects require a change but none is "
+                r"created; use `wse\(...\)` or append `!` to "
+                r"enforce a change;"):
             await client.query(r'''
                 .test.call(42);
             ''')
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'closures with side effects require a change but none is '
-                r'created; use `wse\(...\)` to enforce a change;'):
+                r"closures with side effects require a change but none is "
+                r"created; use `wse\(...\)` or append `!` to "
+                r"enforce a change;"):
             await client.query(r'''
                 .test(42);
             ''')

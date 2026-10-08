@@ -134,8 +134,9 @@ class TestProcedures(TestBase):
         for client in (client0, client1, client2):
             with self.assertRaisesRegex(
                     OperationError,
-                    r'closures with side effects require a change but none is '
-                    r'created; use `wse\(...\)` to enforce a change;'):
+                r"closures with side effects require a change but none is "
+                r"created; use `wse\(...\)` or append `!` to "
+                r"enforce a change;"):
                 await client.run('missing_wse', 1)
 
         for client in (client0, client1, client2):

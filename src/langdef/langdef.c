@@ -107,7 +107,7 @@ cleri_grammar_t * compile_langdef(void)
         3,
         x_function,
         cleri_list(CLERI_NONE, CLERI_THIS, cleri_token(CLERI_NONE, ","), 0, 0, 1),
-        cleri_regex(CLERI_NONE, "^\\)\\!?")
+        cleri_regex(CLERI_NONE, "^\\)!?")
     );
     cleri_t * instance = cleri_dup(CLERI_GID_INSTANCE, thing);
     cleri_t * enum_ = cleri_sequence(

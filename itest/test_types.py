@@ -272,16 +272,18 @@ class TestTypes(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'closures with side effects require a change but none is '
-                r'created; use `wse\(...\)` to enforce a change;'):
+                r"closures with side effects require a change but none is "
+                r"created; use `wse\(...\)` or append `!` to "
+                r"enforce a change;"):
             await client.query(r'''
                 [1 ,2 ,3].map(.b);
             ''')
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'closures with side effects require a change but none is '
-                r'created; use `wse\(...\)` to enforce a change;'):
+                r"closures with side effects require a change but none is "
+                r"created; use `wse\(...\)` or append `!` to "
+                r"enforce a change;"):
             await client.query(r'''
                 [1 ,2 ,3].map(.a[0]);
             ''')
@@ -326,6 +328,10 @@ class TestTypes(TestBase):
             c = || {x:5};
             str(c)
         '''), r"|| {x: 5}")
+
+        await client.query(r'''
+            [1 ,2 ,3].map(.a[0])!;
+        ''')
 
     async def test_integer(self, client):
         with self.assertRaisesRegex(

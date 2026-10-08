@@ -1877,7 +1877,8 @@ new_procedure('multiply', |a, b| a * b);
         with self.assertRaisesRegex(
                 OperationError,
                 r"closures with side effects require a change but none is "
-                r"created; use `wse\(...\)` to enforce a change;"):
+                r"created; use `wse\(...\)` or append `!` to "
+                r"enforce a change;"):
             await client.query(f"""//ti
                 thing({id}).func(123); // requires a change
             """)
@@ -2251,7 +2252,7 @@ new_procedure('multiply', |a, b| a * b);
             'calc': (
                 'closures with side effects require a change but '
                 'none is created; use '
-                '`wse(...)` to enforce a change; see '
+                '`wse(...)` or append `!` to enforce a change; see '
                 'https://docs.thingsdb.io/v1/collection-api/wse')
         })
 
@@ -3092,7 +3093,8 @@ mod_enum('E', 'mod', 'A', {
         with self.assertRaisesRegex(
                 OperationError,
                 r"closures with side effects require a change but none is "
-                r"created; use `wse\(...\)` to enforce a change;"):
+                r"created; use `wse\(...\)` or append `!` to "
+                r"enforce a change;"):
             await client.query(f"""//ti
                 set_x(123);
             """)
@@ -3100,7 +3102,8 @@ mod_enum('E', 'mod', 'A', {
         with self.assertRaisesRegex(
                 OperationError,
                 r"closures with side effects require a change but none is "
-                r"created; use `wse\(...\)` to enforce a change;"):
+                r"created; use `wse\(...\)` or append `!` to "
+                r"enforce a change;"):
             await client.query(f"""//ti
                 .set_x(42);
             """)

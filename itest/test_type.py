@@ -89,8 +89,9 @@ class TestType(TestBase):
 
         with self.assertRaisesRegex(
                 OperationError,
-                r'closures with side effects require a change but none is '
-                r'created; use `wse\(...\)` to enforce a change;'):
+                r"closures with side effects require a change but none is "
+                r"created; use `wse\(...\)` or append `!` to "
+                r"enforce a change;"):
             self.assertEqual(await client.query('.iris.to_upper();'), 'Iris')
 
         self.assertEqual(await client.query('.iris.name;'), 'Iris')

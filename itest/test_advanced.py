@@ -1870,7 +1870,7 @@ new_procedure('multiply', |a, b| a * b);
             set_type('Test', {
                 func: 'any'
             });
-            .test = Test{func: || .x = 1};
+            .test = Test{func: |x| .x = x};
             .test.id();
         """)
 
@@ -1879,8 +1879,19 @@ new_procedure('multiply', |a, b| a * b);
                 r"closures with side effects require a change but none is "
                 r"created; use `wse\(...\)` to enforce a change;"):
             await client.query(f"""//ti
-                thing({id}).func(); // requires a change
+                thing({id}).func(123); // requires a change
             """)
+
+        res = await client.query(f"""//ti
+            wse(); thing({id}).func(123);
+        """)
+        self.assertEqual(res, 123)
+
+        # Alternative wse(..) syntax, issue #463, pr #464
+        res = await client.query(f"""//ti
+            thing({id}).func(123)!;
+        """)
+        self.assertEqual(res, 123)
 
     async def test_future_or_wrap_ano_to_type(self, client):
         await client.query(r"""//ti
@@ -3064,6 +3075,64 @@ mod_enum('E', 'mod', 'A', {
         """)
         self.assertEqual(res, {
             'arr': [{'id': 2, 'name': 'Iris'}, {'id': 3, 'name': 'Cato'}]})
+
+    async def test_more_wse(self, client: Client):
+        q = client.query
+        await q("""//ti
+            // setters
+            new_procedure('set_x', |x| .x = x);
+            .set_x = |x| .x = x;
+            .x = 0;
+
+            // getters
+            .get_x = || .x;
+            .wse = || .x;  // fake test;
+        """)
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r"closures with side effects require a change but none is "
+                r"created; use `wse\(...\)` to enforce a change;"):
+            await client.query(f"""//ti
+                set_x(123);
+            """)
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r"closures with side effects require a change but none is "
+                r"created; use `wse\(...\)` to enforce a change;"):
+            await client.query(f"""//ti
+                .set_x(42);
+            """)
+
+        res = await q("""//ti
+            .wse();
+            change_id();
+        """)
+        self.assertIs(res, None)
+
+        res = await q("""//ti
+            set_x(123)!;
+        """)
+        self.assertEqual(res, 123)
+
+        res = await q("""//ti
+            .set_x(42)!;
+        """)
+        self.assertEqual(res, 42)
+
+        res = await q("""//ti
+            .set_x(42)!.bit_count();
+        """)
+        self.assertEqual(res, 3)
+
+        with self.assertRaisesRegex(
+                SyntaxError,
+                r"error at line 1, position 11, unexpected character `!`, "
+                r"expecting: ; or end_of_statement"):
+            await client.query(f"""//ti
+                .set_x(42)!!;
+            """)
 
 
 if __name__ == '__main__':

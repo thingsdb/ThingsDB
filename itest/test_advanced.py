@@ -1571,7 +1571,8 @@ class TestAdvanced(TestBase):
         self.assertEqual(res, '|| x[0] += 1')  # formatted closure
 
     async def test_export(self, client):
-        script = r'''
+        self.maxDiff = 1800
+        script = r"""
 try(commit('Source: collection `stuff`'));
 
 new_type('Friend');
@@ -1613,6 +1614,7 @@ set_type('Person', {
   name: 'str',
   age: 'int',
   upper: |this| this.name..upper(),
+  set_name: |this, name| this.set('name', name)!,
 });
 set_type('Root', {
   id: '#',
@@ -1652,6 +1654,11 @@ mod_enum('Obj', 'mod', 'B', {
   c: |a, b| a + b,
   float: 3.140000,
   u: uuid('01a08b43-4abd-7529-82a2-9ae352b2f10f'),
+  d: dict([
+    [uuid('01a08b43-4abd-7529-82a2-9ae352b2f10f'), 0],
+    [0, 1],
+    ['a', 2],
+  ]),
 });
 
 
@@ -1665,7 +1672,7 @@ new_procedure('multiply', |a, b| a * b);
 .to_type('Root');
 
 'DONE';
-'''.lstrip().replace('  ', '\t')
+""".lstrip().replace('  ', '\t')
         await client.query(script)
         res = await client.query('export();')
         self.assertEqual(res, script)
@@ -1864,17 +1871,29 @@ new_procedure('multiply', |a, b| a * b);
             set_type('Test', {
                 func: 'any'
             });
-            .test = Test{func: || .x = 1};
+            .test = Test{func: |x| .x = x};
             .test.id();
         """)
 
         with self.assertRaisesRegex(
                 OperationError,
                 r"closures with side effects require a change but none is "
-                r"created; use `wse\(...\)` to enforce a change;"):
+                r"created; use `wse\(...\)` or append `!` to "
+                r"enforce a change;"):
             await client.query(f"""//ti
-                thing({id}).func(); // requires a change
+                thing({id}).func(123); // requires a change
             """)
+
+        res = await client.query(f"""//ti
+            wse(); thing({id}).func(123);
+        """)
+        self.assertEqual(res, 123)
+
+        # Alternative wse(..) syntax, issue #463, pr #464
+        res = await client.query(f"""//ti
+            thing({id}).func(123)!;
+        """)
+        self.assertEqual(res, 123)
 
     async def test_future_or_wrap_ano_to_type(self, client):
         await client.query(r"""//ti
@@ -2234,7 +2253,7 @@ new_procedure('multiply', |a, b| a * b);
             'calc': (
                 'closures with side effects require a change but '
                 'none is created; use '
-                '`wse(...)` to enforce a change; see '
+                '`wse(...)` or append `!` to enforce a change; see '
                 'https://docs.thingsdb.io/v1/collection-api/wse')
         })
 
@@ -3058,6 +3077,95 @@ mod_enum('E', 'mod', 'A', {
         """)
         self.assertEqual(res, {
             'arr': [{'id': 2, 'name': 'Iris'}, {'id': 3, 'name': 'Cato'}]})
+
+    async def test_more_wse(self, client: Client):
+        q = client.query
+        await q("""//ti
+            // setters
+            new_procedure('set_x', |x| .x = x);
+            .set_x = |x| .x = x;
+            .x = 0;
+
+            // getters
+            .get_x = || .x;
+            .wse = || .x;  // fake test;
+        """)
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r"closures with side effects require a change but none is "
+                r"created; use `wse\(...\)` or append `!` to "
+                r"enforce a change;"):
+            await client.query(f"""//ti
+                set_x(123);
+            """)
+
+        with self.assertRaisesRegex(
+                OperationError,
+                r"closures with side effects require a change but none is "
+                r"created; use `wse\(...\)` or append `!` to "
+                r"enforce a change;"):
+            await client.query(f"""//ti
+                .set_x(42);
+            """)
+
+        res = await q("""//ti
+            .wse();
+            change_id();
+        """)
+        self.assertIs(res, None)
+
+        res = await q("""//ti
+            set_x(123)!;
+        """)
+        self.assertEqual(res, 123)
+
+        res = await q("""//ti
+            .set_x(42)!;
+        """)
+        self.assertEqual(res, 42)
+
+        res = await q("""//ti
+            .set_x(42)!.bit_count();
+        """)
+        self.assertEqual(res, 3)
+
+        with self.assertRaisesRegex(
+                SyntaxError,
+                r"error at line 1, position 11, unexpected character `!`, "
+                r"expecting: ; or end_of_statement"):
+            await client.query(f"""//ti
+                .set_x(42)!!;
+            """)
+
+    async def test_wse_shortcut_str(self, client: Client):
+        res = await client.query(r"""//ti
+            x = || .test()!;
+            str(x);
+        """)
+        self.assertEqual(res, "|| .test()!")
+
+        res = await client.query(r"""//ti
+            .x = || {
+                .t()!;
+                .t()!!=42;
+                .t()
+
+                !=42;
+                .t()==42;
+            };
+            .x;
+        """)
+        self.assertEqual(res, "||{.t()!;.t()!!=42;.t() !=42;.t()==42;}")
+
+        res = await client.query("str(closure(c));", c=res)
+        self.assertEqual(res, """
+|| {
+  .t()!;
+  .t()! != 42;
+  .t() != 42;
+  .t() == 42;
+}""".lstrip().replace('  ', '\t'))
 
 
 if __name__ == '__main__':

@@ -1065,5 +1065,6 @@ class TestDatetime(TestBase):
         self.assertIn('nested', res)
         self.assertIsInstance(res['nested'][0], str)
 
+
 if __name__ == '__main__':
     run_test(TestDatetime())

@@ -1,3 +1,12 @@
+# v1.10.2
+
+* Fixed `export()` with wse shortcut (`!`) syntax, issue #465.
+
+# v1.10.1
+
+* Improved `dict` export _(cosmetic)_, pr #462.
+* Added alternative `wse(f(..))` using `f(..)!` syntax, issue #463, pr #464.
+
 # v1.10.0
 
 * Fixed sanatize runtime checking, pr #455.

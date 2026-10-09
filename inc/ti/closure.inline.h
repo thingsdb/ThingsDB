@@ -56,7 +56,7 @@ static inline int ti_closure_try_wse(
     {
         ex_set(e, EX_OPERATION,
             "closures with side effects require a change but none is created; "
-            "use `wse(...)` to enforce a change"DOC_WSE);
+            "use `wse(...)` or append `!` to enforce a change"DOC_WSE);
         return -1;
     }
     return 0;

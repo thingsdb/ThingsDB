@@ -91,6 +91,7 @@ static int fmt__closure(ti_fmt_t * fmt, cleri_node_t * nd)
 static int fmt__function(ti_fmt_t * fmt, cleri_node_t * nd)
 {
     cleri_node_t * child = nd->children;
+    int has_wse = child->next->children->next->next->len == 2;
 
     /* function name */
     if (buf_append(&fmt->buf, child->str, child->len) ||
@@ -112,7 +113,9 @@ static int fmt__function(ti_fmt_t * fmt, cleri_node_t * nd)
             return -1;
     }
 
-    return buf_write(&fmt->buf, ')');
+    return buf_write(&fmt->buf, ')') || (
+        has_wse && buf_write(&fmt->buf, '!')
+    );
 }
 
 static int fmt__enum(ti_fmt_t * fmt, cleri_node_t * nd)

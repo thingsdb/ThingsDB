@@ -1000,7 +1000,17 @@ static void qbind__function(
             ((FN__FLAG_ROOT|FN__FLAG_CHAIN) & flags & fmap->flags) &&
             memcmp(fnname->str, fmap->name, n) == 0) ? fmap->flags : 0;
 
+    /* set build-in function if one found */
     nd->data = fmflags ? fmap->fn : NULL;
+
+    /* update the value cache if no build-in function is found */
+    q->immutable_n += nd->data == NULL;
+
+    /* list (arguments) */
+    nd = nd->children->next->children->next;
+
+    /* set wse from `(..)!` syntax by checking node either `)` or `)!` */
+    fmflags |= (nd->next->len == 2) ? FN__FLAG_EV_T|FN__FLAG_EV_C : 0;
 
     /* may set wse flag */
     q->flags |= (
@@ -1010,14 +1020,8 @@ static void qbind__function(
         ((~fmflags & FN__FLAG_XNSE) || (~q->flags & TI_QBIND_FLAG_NSE))
     ) << TI_QBIND_BIT_WSE;
 
-    /* update the value cache if no build-in function is found */
-    q->immutable_n += nd->data == NULL;
-
     /* only used when no build-in function is found */
     fnname->data = NULL;
-
-    /* list (arguments) */
-    nd = nd->children->next->children->next;
 
     if (fmflags & FN__FLAG_NSE)
         q->flags |= TI_QBIND_FLAG_NSE;

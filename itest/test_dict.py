@@ -744,5 +744,6 @@ class TestDict(TestBase):
             {"name": "Iris"},
         ])
 
+
 if __name__ == '__main__':
     run_test(TestDict())

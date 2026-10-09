@@ -159,6 +159,15 @@ static void closure__node_to_buf(cleri_node_t * nd, char * buf, size_t * n)
         }
         /* fall through */
     case CLERI_TP_REGEX:
+        if (nd->cl_obj->gid == CLERI_GID_X_FUNCTION_CLOSE &&
+            nd->len == 1 &&
+            isspace(nd->str[nd->len]))
+        {
+            buf[(*n)++] = ')';
+            buf[(*n)++] = ' ';
+            return;
+        }
+        /* fall through */
     case CLERI_TP_TOKEN:
     case CLERI_TP_TOKENS:
         memcpy(buf + (*n), nd->str, nd->len);

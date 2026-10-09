@@ -53,6 +53,7 @@ class LangDef(Grammar):
     x_thing = Token('{')
     x_ano = Token('&{')
     x_template = Token('`')
+    x_function_close = Regex(r'\)!?')
 
     template = Sequence(
         x_template,
@@ -86,7 +87,7 @@ class LangDef(Grammar):
 
     thing = Sequence(x_thing, List(Sequence(name, ':', Optional(THIS))), '}')
     array = Sequence(x_array, List(THIS), ']')
-    function = Sequence(x_function, List(THIS), Regex(r'\)!?'))
+    function = Sequence(x_function, List(THIS), x_function_close)
     instance = Repeat(thing, mi=1, ma=1)  # will be exported as `cleri_dup_t`
     enum_ = Sequence(x_thing, Choice(name, closure), '}')
 

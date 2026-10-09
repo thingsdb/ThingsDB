@@ -3145,6 +3145,28 @@ mod_enum('E', 'mod', 'A', {
         """)
         self.assertEqual(res, "|| .test()!")
 
+        res = await client.query(r"""//ti
+            .x = || {
+                .t()!;
+                .t()!!=42;
+                .t()
+
+                !=42;
+                .t()==42;
+            };
+            .x;
+        """)
+        self.assertEqual(res, "||{.t()!;.t()!!=42;.t() !=42;.t()==42;}")
+
+        res = await client.query("str(closure(c));", c=res)
+        self.assertEqual(res, """
+|| {
+  .t()!;
+  .t()! != 42;
+  .t() != 42;
+  .t() == 42;
+}""".lstrip().replace('  ', '\t'))
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

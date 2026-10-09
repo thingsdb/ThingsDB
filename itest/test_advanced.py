@@ -1614,6 +1614,7 @@ set_type('Person', {
   name: 'str',
   age: 'int',
   upper: |this| this.name..upper(),
+  set_name: |this, name| this.set('name', name)!,
 });
 set_type('Root', {
   id: '#',
@@ -3136,6 +3137,13 @@ mod_enum('E', 'mod', 'A', {
             await client.query(f"""//ti
                 .set_x(42)!!;
             """)
+
+    async def test_wse_shortcut_str(self, client: Client):
+        res = await client.query(r"""//ti
+            x = || .test()!;
+            str(x);
+        """)
+        self.assertEqual(res, "|| .test()!")
 
 
 if __name__ == '__main__':

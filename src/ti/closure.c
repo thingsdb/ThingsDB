@@ -76,7 +76,7 @@ static cleri_node_t * closure__node_from_strn(
         else
         {
             cleri_parse_free(res);
-            res = cleri_parse2(ti.compat, query, TI_CLERI_PARSE_FLAGS);
+            res = cleri_parse2(ti.compat1, query, TI_CLERI_PARSE_FLAGS);
             if (!res)
             {
                 ex_set_mem(e);

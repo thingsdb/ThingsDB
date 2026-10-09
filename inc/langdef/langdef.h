@@ -15,7 +15,7 @@
 cleri_grammar_t * compile_langdef(void);
 
 /* TODO: (COMPAT) For compatibility with < v1.5 (old syntax) */
-cleri_grammar_t * compile_compat(void);
+cleri_grammar_t * compile_compat1(void);
 
 /* TODO: (COMPAT) For compatibility with < v1.10.1 (without ! syntax) */
 cleri_grammar_t * compile_compat2(void);

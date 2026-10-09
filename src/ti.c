@@ -95,7 +95,7 @@ int ti_create(void)
     ti.procedures = smap_create();
     ti.modules = smap_create();
     ti.langdef = compile_langdef();
-    ti.compat = compile_compat();
+    ti.compat1 = compile_compat1();
     ti.compat2 = compile_compat2();
     ti.thing0 = ti_thing_o_create(0, 0, NULL);
     ti.room0 = ti_room_create(0, NULL);
@@ -120,7 +120,7 @@ int ti_create(void)
             !ti.access_thingsdb ||
             !ti.procedures ||
             !ti.langdef ||
-            !ti.compat ||
+            !ti.compat1 ||
             !ti.compat2)
     {
         /* ti_stop() is never called */
@@ -138,7 +138,7 @@ int ti_create(void)
     ti.langdef->start->via.list                 /* statements */
         ->cl_obj->via.rule                      /* statement */
         ->cl_obj->gid = CLERI_GID_STATEMENT;    /* prio */
-    ti.compat->start->via.list                  /* statements */
+    ti.compat1->start->via.list                 /* statements */
         ->cl_obj->via.rule                      /* statement */
         ->cl_obj->gid = CLERI_GID_STATEMENT;    /* prio */
     ti.compat2->start->via.list                 /* statements */
@@ -202,8 +202,8 @@ void ti_destroy(void)
 
     if (ti.langdef)
         cleri_grammar_free(ti.langdef);
-    if (ti.compat)
-        cleri_grammar_free(ti.compat);
+    if (ti.compat1)
+        cleri_grammar_free(ti.compat1);
     if (ti.compat2)
         cleri_grammar_free(ti.compat2);
 

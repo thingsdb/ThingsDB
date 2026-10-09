@@ -1,5 +1,5 @@
 /*
- * langdef.c
+ * compat2.c
  *
  * This grammar is generated using the Grammar.export_c() method and
  * should be used with the libcleri module.

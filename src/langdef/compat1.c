@@ -1,5 +1,5 @@
 /*
- * compat.c
+ * compat1.c
  *
  * This grammar is generated using the Grammar.export_c() method and
  * should be used with the libcleri module.
@@ -17,7 +17,7 @@
 #define CLERI_FIRST_MATCH 0
 #define CLERI_MOST_GREEDY 1
 
-cleri_grammar_t * compile_compat(void)
+cleri_grammar_t * compile_compat1(void)
 {
     cleri_t * x_array = cleri_token(CLERI_GID_X_ARRAY, "[");
     cleri_t * x_assign = cleri_tokens(CLERI_GID_X_ASSIGN, "+= -= *= /= %= &= ^= |= =");

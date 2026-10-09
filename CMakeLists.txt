@@ -94,7 +94,8 @@ set(SOURCES
     main.c
     src/ex.c
     src/ti.c
-    src/langdef/compat.c
+    src/langdef/compat1.c
+    src/langdef/compat2.c
     src/langdef/hasprop.c
     src/langdef/langdef.c
     src/langdef/translate.c

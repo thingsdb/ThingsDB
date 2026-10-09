@@ -114,7 +114,7 @@ struct ti_s
     smap_t * modules;           /* ti_module_t */
     uv_loop_t * loop;
     cleri_grammar_t * langdef;
-    cleri_grammar_t * compat;   /* TODO (COMPAT): For < v1.5 */
+    cleri_grammar_t * compat1;  /* TODO (COMPAT): For < v1.5 */
     cleri_grammar_t * compat2;  /* TODO (COMPAT): For < v1.10.1 */
     size_t futures_count;       /* number of running futures */
     uint32_t rel_id;            /* relative node id */

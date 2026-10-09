@@ -63,19 +63,33 @@ static cleri_node_t * closure__node_from_strn(
          *                of handling missing semicolons.
          */
         cleri_parse_free(res);
-        res = cleri_parse2(ti.compat, query, TI_CLERI_PARSE_FLAGS);
+        res = cleri_parse2(ti.compat2, query, TI_CLERI_PARSE_FLAGS);
         if (!res)
         {
             ex_set_mem(e);
             goto fail0;
         }
-
-        if (!res->is_valid)
+        if (res->is_valid)
         {
-            ex_set(e, EX_SYNTAX_ERROR, "invalid syntax in closure");
-            goto fail1;
+            log_warning("compare (!=) direct after function call: %s", query);
         }
-        log_warning("closure with missing semicolons: %s", query);
+        else
+        {
+            cleri_parse_free(res);
+            res = cleri_parse2(ti.compat, query, TI_CLERI_PARSE_FLAGS);
+            if (!res)
+            {
+                ex_set_mem(e);
+                goto fail0;
+            }
+
+            if (!res->is_valid)
+            {
+                ex_set(e, EX_SYNTAX_ERROR, "invalid syntax in closure");
+                goto fail1;
+            }
+            log_warning("closure with missing semicolons: %s", query);
+        }
     }
 
     node = res->tree->children;             /* Sequence (START) */

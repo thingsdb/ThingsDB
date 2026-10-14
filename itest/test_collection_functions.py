@@ -6021,6 +6021,83 @@ class TestCollectionFunctions(TestBase):
         """)
         self.assertEqual(res, 42)
 
+    async def test_of_type(self, client):
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `nil` has no function `of_type`'):
+            await client.query('nil.of_type("T");')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'function `of_type` is undefined'):
+            await client.query('of_type("T");')
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `of_type` takes 1 argument '
+                'but 0 were given'):
+            await client.query('(4).of_type();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r'function `of_type` expects argument 1 to be of '
+                r'type `str` but got type `nil` instead'):
+            await client.query('(4).of_type(nil);')
+
+        with self.assertRaisesRegex(
+                ValueError,
+                'type name must follow the naming rules'):
+            await client.query('(4).of_type("");')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `T` not found'):
+            await client.query('(4).of_type("T");')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'type `T` not found'):
+            await client.query('(4).of_type("T");', scope='/t')
+
+        t_id, o_id, f_id = await client.query("""//ti
+            set_type('T', {name: 'str<::unknown>'});
+            set_type('F', {name: 'str<::unknown>'});
+            .t = T{};
+            .o = {};
+            .f = F{};
+            [.t.id(), .o.id(), .f.id()];
+        """)
+
+        with self.assertRaisesRegex(
+                TypeError,
+                f'#{o_id}` is of type `thing`, not `T`'):
+            await client.query("""//ti
+                o_id.of_type(kind);
+            """, o_id=o_id, kind='T')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                f'`#{f_id}` is of type `F`, not `T`'):
+            await client.query("""//ti
+                f_id.of_type(kind);
+            """, f_id=f_id, kind='T')
+
+        with self.assertRaisesRegex(
+                LookupError,
+                'collection `stuff` has no `thing` with id 123456'):
+            await client.query("""//ti
+                t_id.of_type(kind);
+            """, t_id=123456, kind='T')
+
+        res = await client.query("""//ti
+            t_id.of_type(kind);
+        """, t_id=t_id, kind='T')
+
+        self.assertEqual(res, {
+            "#": t_id,
+            "name": "unknown",
+        })
+
     async def test_type_all(self, client):
         q = client.query
 

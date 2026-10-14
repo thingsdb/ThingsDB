@@ -1,3 +1,7 @@
+# v1.10.3-alpha0
+
+* Add `int.of_type(..)` to convert an ID to a stored intance, pr #466.
+
 # v1.10.2
 
 * Fixed `export()` with wse shortcut (`!`) syntax, issue #465.

@@ -241,6 +241,7 @@
 #define DOC_FUTURE_ELSE             DOC_SEE("data-types/future/else")
 #define DOC_FUTURE_THEN             DOC_SEE("data-types/future/then")
 #define DOC_INT_BIT_COUNT           DOC_SEE("data-types/int/bit_count")
+#define DOC_INT_OF_TYPE             DOC_SEE("data-types/int/of_type")
 #define DOC_LIST_CHOICE             DOC_SEE("data-types/list/choice")
 #define DOC_LIST_CLEAR              DOC_SEE("data-types/list/clear")
 #define DOC_LIST_COPY               DOC_SEE("data-types/list/copy")

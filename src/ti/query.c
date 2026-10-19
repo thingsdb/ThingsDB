@@ -530,13 +530,11 @@ static inline int ti_query_investigate(ti_query_t * query, ex_t * e)
 static int query__test_ambiguous_ne(ti_query_t * query, ex_t * e)
 {
     register cleri_parse_t * pr = query->with.parseres;
-    register size_t pos = pr->pos;
-    register const char * str = pr->str;
-    if (!pr->is_valid &&
-        pos >= 4 &&
-        str[pos] == '=' &&
-        str[pos-1] == '!' &&
-        str[pos-2] == ')')
+    register const char * str = pr->str + pr->pos;
+    if (pr->pos >= 4 &&
+        *str == '=' &&
+        *(--str) == '!' &&
+        *(--str) == ')')
     {
         size_t line, pos;
         cleri_parse_expect_start(pr);

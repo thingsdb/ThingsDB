@@ -3174,6 +3174,12 @@ mod_enum('E', 'mod', 'A', {
         """)
         self.assertEqual(res, "||nse()!=0&&wse()!=0")
 
+        with self.assertRaisesRegex(
+                SyntaxError,
+                r"error at line 1, position 6, ambiguous operator '!=', "
+                r"add a space between '\)' and '!=' to resolve"):
+            await client.query('test()!=0;')
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

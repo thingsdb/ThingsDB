@@ -132,7 +132,7 @@ void cleri_parse_expect_start(cleri_parse_t * pr)
     pr->expect = pr->expecting->required;
 }
 
-static void parse__line_pos(cleri_parse_t * pr, size_t * line, size_t * pos)
+void cleri_parse_line_pos(cleri_parse_t * pr, size_t * line, size_t * pos)
 {
     size_t n = pr->pos;
     const char * pt = pr->str;
@@ -210,10 +210,12 @@ int cleri_parse_strn(
     {
         return snprintf(s, n, "parsed successfully");
     }
+
     /* make sure expecting is at start */
     cleri_parse_expect_start(pr);
 
-    parse__line_pos(pr, &line, &pos);
+    /* get line and position */
+    cleri_parse_line_pos(pr, &line, &pos);
 
     rc = snprintf(s, n, "error at line %zu, position %zu", line, pos);
     if (rc < 0)

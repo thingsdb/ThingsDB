@@ -529,9 +529,9 @@ static inline int ti_query_investigate(ti_query_t * query, ex_t * e)
 /* improve error message, pr #468 */
 static int query__test_ambiguous_ne(ti_query_t * query, ex_t * e)
 {
-    cleri_parse_t * pr = query->with.parseres;
-    size_t pos = pr->pos;
-    const char * str = pr->str;
+    register cleri_parse_t * pr = query->with.parseres;
+    register size_t pos = pr->pos;
+    register const char * str = pr->str;
     if (!pr->is_valid &&
         pos >= 4 &&
         str[pos] == '=' &&

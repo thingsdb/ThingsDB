@@ -542,8 +542,8 @@ static int query__test_ambiguous_ne(ti_query_t * query, ex_t * e)
         cleri_parse_expect_start(pr);
         cleri_parse_line_pos(pr, &line, &pos);
         ex_set(e, EX_SYNTAX_ERROR,
-            "error at line %zu, position %zu, ambiguous operator '!=', "
-            "add a space between ')' and '!=' to resolve",
+            "error at line %zu, position %zu, ambiguous operator `!=`, "
+            "add a space between `)` and `!=` to resolve",
             line, pos-1);
         return e->nr;
     }

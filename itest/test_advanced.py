@@ -3177,8 +3177,8 @@ mod_enum('E', 'mod', 'A', {
         # pr #468
         with self.assertRaisesRegex(
                 SyntaxError,
-                r"error at line 1, position 6, ambiguous operator '!=', "
-                r"add a space between '\)' and '!=' to resolve"):
+                r"error at line 1, position 6, ambiguous operator `!=`, "
+                r"add a space between `\)` and `!=` to resolve"):
             await client.query('test()!=0;')
 
 

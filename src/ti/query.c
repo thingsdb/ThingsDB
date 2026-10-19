@@ -526,8 +526,35 @@ static inline int ti_query_investigate(ti_query_t * query, ex_t * e)
     return e->nr;
 }
 
+/* improve error message, pr #468 */
+static int query__test_ambiguous_ne(ti_query_t * query, ex_t * e)
+{
+    cleri_parse_t * pr = query->with.parseres;
+    size_t pos = pr->pos;
+    const char * str = pr->str;
+    if (!pr->is_valid &&
+        pos >= 4 &&
+        str[pos] == '=' &&
+        str[pos-1] == '!' &&
+        str[pos-2] == ')')
+    {
+        size_t line, pos;
+        cleri_parse_expect_start(pr);
+        cleri_parse_line_pos(pr, &line, &pos);
+        ex_set(e, EX_SYNTAX_ERROR,
+            "error at line %zu, position %zu, ambiguous operator `!=`, "
+            "add a space between `)` and `!=` to resolve",
+            line, pos-1);
+        return e->nr;
+    }
+    return 0;
+}
+
 static int query__syntax_err(ti_query_t * query, ex_t * e)
 {
+    if (query__test_ambiguous_ne(query, e))
+        return e->nr;
+
     int i = cleri_parse_strn(
             e->msg,
             EX_MAX_SZ,

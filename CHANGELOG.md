@@ -1,6 +1,7 @@
-# v1.10.3-alpha0
+# v1.10.3-alpha1
 
 * Add `int.of_type(..)` to convert an ID to a stored intance, pr #466.
+* Improve error message when typing `f()!=x`, ambiguous operator, pr #468.
 
 # v1.10.2
 

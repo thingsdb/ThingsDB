@@ -48,6 +48,7 @@ cleri_parse_t * cleri_parse2(
     int flags);
 void cleri_parse_free(cleri_parse_t * pr);
 void cleri_parse_expect_start(cleri_parse_t * pr);
+void cleri_parse_line_pos(cleri_parse_t * pr, size_t * line, size_t * pos);
 int cleri_parse_strn(
     char * s,
     size_t n,

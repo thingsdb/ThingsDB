@@ -3167,6 +3167,13 @@ mod_enum('E', 'mod', 'A', {
   .t() == 42;
 }""".lstrip().replace('  ', '\t'))
 
+        res = await client.query("""//ti
+            .c = closure('||nse()!=0&&wse()!=0');
+            .x = .c;
+            .x;
+        """)
+        self.assertEqual(res, "||nse()!=0&&wse()!=0")
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

@@ -526,6 +526,7 @@ static inline int ti_query_investigate(ti_query_t * query, ex_t * e)
     return e->nr;
 }
 
+/* improve error message, pr #468 */
 static int query__test_ambiguous_ne(ti_query_t * query, ex_t * e)
 {
     cleri_parse_t * pr = query->with.parseres;

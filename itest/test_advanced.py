@@ -3174,6 +3174,7 @@ mod_enum('E', 'mod', 'A', {
         """)
         self.assertEqual(res, "||nse()!=0&&wse()!=0")
 
+        # pr #468
         with self.assertRaisesRegex(
                 SyntaxError,
                 r"error at line 1, position 6, ambiguous operator '!=', "

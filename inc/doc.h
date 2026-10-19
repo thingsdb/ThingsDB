@@ -234,6 +234,7 @@
 #define DOC_DICT_RESTRICTION        DOC_SEE("data-types/dict/restriction")
 #define DOC_DICT_SET                DOC_SEE("data-types/dict/set")
 #define DOC_DICT_VALUES             DOC_SEE("data-types/dict/values")
+#define DOC_DICT_VMAP               DOC_SEE("data-types/dict/vmap")
 #define DOC_ENUM_NAME               DOC_SEE("data-types/enum/name")
 #define DOC_ENUM_VALUE              DOC_SEE("data-types/enum/value")
 #define DOC_ERROR_CODE              DOC_SEE("data-types/error/code")

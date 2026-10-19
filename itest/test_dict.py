@@ -500,6 +500,46 @@ class TestDict(TestBase):
         self.assertEqual(keys, [f'key: {i}' for i in range(n)])
         self.assertEqual(values, [f'value: {i}' for i in range(n)])
 
+    async def test_dict_vmap(self, client):
+        q = client.query
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                'function `vmap` takes 1 argument but 0 were given'):
+            await q('dict().vmap();')
+
+        with self.assertRaisesRegex(
+                TypeError,
+                'function `vmap` expects argument 1 to be of '
+                'type `closure` but got type `int` instead'):
+            await q('dict().vmap(0);')
+
+        self.assertEqual(await q('dict().vmap(||nil)'), [])
+
+        self.assertEqual(sorted(await q("""//ti
+            dict([
+                [0, 1],
+                [1, 2],
+                [2, 3],
+                [3, 4]
+            ]).vmap(|v| v*v);
+        """)), [
+            [0, 1],
+            [1, 4],
+            [2, 9],
+            [3, 16]
+        ])
+
+        # test conversion
+        a1, a2 = await q("""//ti
+            a = ["a", "b"];
+            d = dict([[0, nil]]).vmap(|| a);
+            a.push("c");  // this is still a list
+            assert(is_tuple(d[0]));  // must be a tuple
+            [a, d[0]];
+        """)
+        self.assertEqual(a1, ["a", "b", "c"])
+        self.assertEqual(a2, ["a", "b"])
+
     async def test_dict_restriction(self, client):
         q = client.query
         with self.assertRaisesRegex(

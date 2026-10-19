@@ -1,7 +1,8 @@
-# v1.10.3-alpha1
+# v1.10.3-alpha2
 
 * Add `int.of_type(..)` to convert an ID to a stored intance, pr #466.
 * Improve error message when typing `f()!=x`, ambiguous operator, pr #468.
+* Added `dict.vmap(..)` function, pr #469.
 
 # v1.10.2
 

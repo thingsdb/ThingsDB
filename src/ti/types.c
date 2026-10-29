@@ -225,7 +225,7 @@ static int types__ren_cb(ti_type_t * type, types__ren_t * w)
             }
             else if (field->spec == w->id &&
                      !flags_pos &&
-                     !(field->flags & TI_FIELD_FLAG_RO))
+                     (~field->flags & TI_FIELD_FLAG_RO))
             {
                 ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
                 field->spec_raw = w->nname;

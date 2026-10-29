@@ -176,7 +176,7 @@ static int modtype__mod_cb(ti_thing_t * thing, modtype__mod_t * w)
                     ex_set_mem(w->e);
             }
 
-            if (w->e->nr == 0 && ex.nr)
+            if (w->e->nr == 0)
             {
                 ex_set(w->e, EX_OPERATION,
                         "field `%s` on type `%s` is modified but at least "
@@ -722,9 +722,31 @@ static int type__mod_using_callback(
     if (!modjob.field)
         goto fail1;  /* error is set */
 
+    if (modjob.field->flags & TI_FIELD_FLAG_READ_ONLY)
+    {
+        if (field->flags & TI_FIELD_FLAG_READ_ONLY)
+            ex_set(e, EX_NUM_ARGUMENTS,
+                    "function `%s` takes at most 4 arguments when used "
+                    "on a read-only property; if a callback is required, "
+                    "remove the read-only mark first and re-apply read-only "
+                    "in a subsequent request"DOC_MOD_TYPE_MOD,
+                    fnname);
+        else
+            ex_set(e, EX_NUM_ARGUMENTS,
+                    "function `%s` takes at most 4 arguments when making a "
+                    "property read-only; if a callback is required, make the "
+                    "changes first, then mark the property read-only in a "
+                    "subsequent request"DOC_MOD_TYPE_MOD,
+                    fnname);
+        goto fail2;
+    }
+
     modjob.dval = modjob.field->dval_cb(modjob.field);
     if (!modjob.dval)
-        goto fail2;  /* error is set */
+    {
+        ex_set_mem(e);
+        goto fail2;
+    }
 
     imap = ti_type_collect_things(query, field->type);
     if (!imap)
@@ -1147,6 +1169,15 @@ static void type__rel_add(
     ti_field_t * ofield;
     ti_task_t * task;
 
+    if (field->flags & TI_FIELD_FLAG_READ_ONLY)
+    {
+        ex_set(e, EX_OPERATION,
+                "failed to create relation; "
+                "property `%s` on type `%s` is read-only",
+                field->name->str, field->type->name);
+        return;
+    }
+
     otype = modtype__type_from_field(field, e);
     if (!otype)
         return;
@@ -1170,6 +1201,15 @@ static void type__rel_add(
                 "failed to create relation; "
                 "property `%s` on type `%s` is referring to type `%s`",
                 ofield->name->str, otype->name, type->name);
+        return;
+    }
+
+    if (ofield->flags & TI_FIELD_FLAG_READ_ONLY)
+    {
+        ex_set(e, EX_OPERATION,
+                "failed to create relation; "
+                "property `%s` on type `%s` is read-only",
+                ofield->name->str, otype->name);
         return;
     }
 

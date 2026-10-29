@@ -1,3 +1,7 @@
+# v1.10.4-alpha0
+
+* Add the option for marking properties as _read-only_, pr #470.
+
 # v1.10.3
 
 * Add `int.of_type(..)` to convert an ID to a stored intance, pr #466.

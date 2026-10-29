@@ -99,12 +99,13 @@ static int types__ren_member(ti_field_t * field, ti_member_t * member)
     /* enum with default value rename */
     int flags_pos = types__spec_flags_pos(field->spec_raw->data);
     ti_raw_t * spec_raw = ti_str_from_fmt(
-            "%.*s%s{%s}%s",
+            "%.*s%s{%s}%s%s",
             flags_pos,
             (const char *) field->spec_raw->data,
             member->enum_->name,
             member->name->str,
-            (field->spec & TI_SPEC_NILLABLE) ? "?": "");
+            (field->spec & TI_SPEC_NILLABLE) ? "?": "",
+            (field->flags & TI_FIELD_FLAG_RO) ? "(ro)" : "");
     if (!spec_raw)
         return -1;
 
@@ -207,13 +208,14 @@ static int types__ren_cb(ti_type_t * type, types__ren_t * w)
                 ti_member_t * member = \
                     (ti_member_t *) field->condition.dval->dval;
                 ti_raw_t * spec_raw = ti_str_from_fmt(
-                        "%.*s%.*s{%.*s}%s",
+                        "%.*s%.*s{%.*s}%s%s",
                         flags_pos,
                         (const char *) field->spec_raw->data,
                         w->nname->n,
                         (const char *) w->nname->data,
                         member->name->n, member->name->str,
-                        (field->spec & TI_SPEC_NILLABLE) ? "?": "");
+                        (field->spec & TI_SPEC_NILLABLE) ? "?": "",
+                        (field->flags & TI_FIELD_FLAG_RO) ? "(ro)" : "");
                 if (!spec_raw)
                     return -1;
 
@@ -221,7 +223,9 @@ static int types__ren_cb(ti_type_t * type, types__ren_t * w)
                 field->spec_raw = spec_raw;
                 w->nchanges++;
             }
-            else if (field->spec == w->id && !flags_pos)
+            else if (field->spec == w->id &&
+                     !flags_pos &&
+                     !(field->flags & TI_FIELD_FLAG_RO))
             {
                 ti_val_unsafe_drop((ti_val_t *) field->spec_raw);
                 field->spec_raw = w->nname;
@@ -231,12 +235,13 @@ static int types__ren_cb(ti_type_t * type, types__ren_t * w)
             else
             {
                 ti_raw_t * spec_raw = ti_str_from_fmt(
-                        "%.*s%.*s%s",
+                        "%.*s%.*s%s%s",
                         flags_pos,
                         (const char *) field->spec_raw->data,
                         w->nname->n,
                         (const char *) w->nname->data,
-                        (field->spec & TI_SPEC_NILLABLE) ? "?": "");
+                        (field->spec & TI_SPEC_NILLABLE) ? "?": "",
+                        (field->flags & TI_FIELD_FLAG_RO) ? "(ro)" : "");
                 if (!spec_raw)
                     return -1;
 
@@ -284,7 +289,7 @@ static int types__ren_cb(ti_type_t * type, types__ren_t * w)
                 end = '_';
             }
             spec_raw = ti_str_from_fmt(
-                    "%.*s%s%.*s%s%c%s",
+                    "%.*s%s%.*s%s%c%s%s",
                     flags_pos,
                     (const char *) field->spec_raw->data,
                     begin,
@@ -292,7 +297,8 @@ static int types__ren_cb(ti_type_t * type, types__ren_t * w)
                     (const char *) w->nname->data,
                     (field->nested_spec & TI_SPEC_NILLABLE) ? "?": "",
                     end,
-                    (field->spec & TI_SPEC_NILLABLE) ? "?": "");
+                    (field->spec & TI_SPEC_NILLABLE) ? "?": "",
+                    (field->flags & TI_FIELD_FLAG_RO) ? "(ro)" : "");
 
             if (!spec_raw)
                 return -1;

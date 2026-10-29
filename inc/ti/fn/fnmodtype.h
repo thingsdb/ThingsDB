@@ -722,9 +722,9 @@ static int type__mod_using_callback(
     if (!modjob.field)
         goto fail1;  /* error is set */
 
-    if (modjob.field->flags & TI_FIELD_FLAG_READ_ONLY)
+    if (modjob.field->flags & TI_FIELD_FLAG_RO)
     {
-        if (field->flags & TI_FIELD_FLAG_READ_ONLY)
+        if (field->flags & TI_FIELD_FLAG_RO)
             ex_set(e, EX_NUM_ARGUMENTS,
                     "function `%s` takes at most 4 arguments when used "
                     "on a read-only property; if a callback is required, "
@@ -1169,7 +1169,7 @@ static void type__rel_add(
     ti_field_t * ofield;
     ti_task_t * task;
 
-    if (field->flags & TI_FIELD_FLAG_READ_ONLY)
+    if (field->flags & TI_FIELD_FLAG_RO)
     {
         ex_set(e, EX_OPERATION,
                 "failed to create relation; "
@@ -1204,7 +1204,7 @@ static void type__rel_add(
         return;
     }
 
-    if (ofield->flags & TI_FIELD_FLAG_READ_ONLY)
+    if (ofield->flags & TI_FIELD_FLAG_RO)
     {
         ex_set(e, EX_OPERATION,
                 "failed to create relation; "

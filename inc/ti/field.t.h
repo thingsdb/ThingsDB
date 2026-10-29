@@ -31,7 +31,7 @@ enum
 
     TI_FIELD_FLAG_SKIP_NIL=1<<6,  /* skip when prop is nil */
     TI_FIELD_FLAG_SKIP_FALSE=1<<7,  /* skip when prop evaluates to false */
-    TI_FIELD_FLAG_READ_ONLY=1<<8,  /* read-only */
+    TI_FIELD_FLAG_RO=1<<8,  /* read-only */
 };
 
 #define TI_FIELD_MIN_MAX (TI_FIELD_FLAG_MIN_DEEP|TI_FIELD_FLAG_MAX_DEEP)

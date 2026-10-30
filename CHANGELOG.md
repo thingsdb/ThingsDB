@@ -2,6 +2,7 @@
 
 * Add support for marking properties as read-only, pr #470.
 * Added `dict.filter(..)` function, pr #471.
+* Added `HID` as alias to `NO_IDS` return flag, pr #472.
 
 # v1.10.3
 

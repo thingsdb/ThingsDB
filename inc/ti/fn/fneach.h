@@ -172,7 +172,6 @@ static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 .closure = closure,
                 .query = query,
         };
-        ;
 
         if (ti_closure_arg_used(closure, 0)
             ? ti_dict_items(
@@ -183,11 +182,7 @@ static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 (ti_dict_t *) iterval,
                 (ti_dict_cb) each__walk_dict_values,
                 &w))
-        {
-            if (!e->nr)
-                ex_set_mem(e);
             goto fail2;
-        }
         break;
     }
     }

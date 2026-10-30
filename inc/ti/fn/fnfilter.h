@@ -49,6 +49,46 @@ static int filter__walk_i(ti_item_t * item, filter__walk_i_t * w)
     return 0;
 }
 
+typedef struct
+{
+    ex_t * e;
+    ti_closure_t * closure;
+    ti_query_t * query;
+    ti_dict_t * dict;
+} filter__walk_dict_t;
+
+static int filter__walk_dict_items(ti_val_t * k,
+                                   ti_val_t * v,
+                                   filter__walk_dict_t * w)
+{
+    ti_closure_vars_dict(w->closure, k, v);
+    if (ti_closure_do_statement(w->closure, w->query, w->e))
+        return -1;
+
+    if (ti_val_as_bool(w->query->rval) && ti_dict_set(w->dict, k, &v, w->e))
+        return -1;
+
+    ti_val_unsafe_drop(w->query->rval);
+    w->query->rval = NULL;
+    return 0;
+}
+
+static int filter__walk_pair(ti_dict_key_t * k,
+                             ti_val_t * v,
+                             filter__walk_dict_t * w)
+{
+    ti_closure_vars_dict(w->closure, (ti_val_t *) ti_nil_weak_get(), v);
+    if (ti_closure_do_statement(w->closure, w->query, w->e))
+        return -1;
+
+    if (ti_val_as_bool(w->query->rval) && ti_dict_setr(w->dict, k, v))
+        return -1;
+
+    ti_val_unsafe_drop(w->query->rval);
+    w->query->rval = NULL;
+    return 0;
+}
+
 static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 {
     const char * doc;
@@ -198,6 +238,33 @@ static int do__f_filter(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 (imap_cb) filter__walk_set,
                 &w))
             goto fail2;
+        break;
+    }
+    case TI_VAL_DICT:
+    {
+        filter__walk_dict_t w = {
+                .e = e,
+                .closure = closure,
+                .query = query,
+                .dict = ti_dict_create(),
+        };
+
+        if (!w.dict)
+            goto fail2;
+
+        retval = (ti_val_t *) w.dict;
+
+        if (ti_closure_arg_used(closure, 0)
+            ? ti_dict_items(
+                (ti_dict_t *) iterval,
+                (ti_dict_item_cb) filter__walk_dict_items,
+                &w)
+            : ti_dict_pairs(
+                (ti_dict_t *) iterval,
+                (ti_dict_pair_cb) filter__walk_pair,
+                &w))
+            goto fail2;
+        break;
     }
     }
 

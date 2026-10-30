@@ -1,6 +1,7 @@
-# v1.10.4-alpha0
+# v1.10.4-alpha1
 
 * Add support for marking properties as read-only, pr #470.
+* Added `dict.filter(..)` function, pr #471.
 
 # v1.10.3
 

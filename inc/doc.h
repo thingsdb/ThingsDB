@@ -226,6 +226,7 @@
 #define DOC_DICT_DEL                DOC_SEE("data-types/dict/del")
 #define DOC_DICT_DUP                DOC_SEE("data-types/dict/dup")
 #define DOC_DICT_EACH               DOC_SEE("data-types/dict/each")
+#define DOC_DICT_FILTER             DOC_SEE("data-types/dict/filter")
 #define DOC_DICT_GET                DOC_SEE("data-types/dict/get")
 #define DOC_DICT_HAS                DOC_SEE("data-types/dict/has")
 #define DOC_DICT_KEYS               DOC_SEE("data-types/dict/keys")

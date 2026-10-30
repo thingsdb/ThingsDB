@@ -1015,7 +1015,7 @@ class TestCollectionFunctions(TestBase):
             await client.query('a = .list; a.extend([123]);')
 
     async def test_filter(self, client):
-        await client.query(r'''
+        await client.query(r"""//ti
             .iris = {
                 name: 'Iris',
                 age: 6,
@@ -1026,7 +1026,8 @@ class TestCollectionFunctions(TestBase):
                 age: 5,
             };
             .girls = set([.iris, .cato]);
-        ''')
+            .people = dict(.girls.map(|v| [v.name, v]));
+        """)
         with self.assertRaisesRegex(
                 LookupError,
                 'type `nil` has no function `filter`'):
@@ -1069,11 +1070,26 @@ class TestCollectionFunctions(TestBase):
                 '.girls.filter(|_v, i|(i == .cato.id()))'))[0]['age'],
             5)
 
+        # pr #471
+        res = await client.query("""//ti
+            .people.filter(|k, v| v.age == 5);
+        """)
+        self.assertEqual(len(res), 1)
+        self.assertEqual(res[0][0], 'Cato')
+
+        # pr #471
+        res = await client.query("""//ti
+            .people.filter(|k, v| k == 'Iris');
+        """)
+        self.assertEqual(len(res), 1)
+        self.assertEqual(res[0][0], 'Iris')
+
         self.assertEqual(await client.query('.iris.filter(||nil);'), {})
         self.assertEqual(await client.query('.iris.likes.filter(||nil);'), [])
         self.assertEqual(await client.query(r'{}.filter(||true)'), {})
         self.assertEqual(await client.query(r'[].filter(||true)'), [])
         self.assertEqual(await client.query(r'set().filter(||1)'), [])
+        self.assertEqual(await client.query(r'dict().filter(||1)'), [])
 
     async def test_reverse(self, client):
         await client.query(r'''

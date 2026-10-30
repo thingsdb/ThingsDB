@@ -3258,6 +3258,32 @@ mod_enum('E', 'mod', 'A', {
                 .t1.name = 'Unknown';
             """)
 
+        await client.query("""//ti
+            new_type('A');
+            new_type('B');
+            set_type('A', {
+                a: 'A?(ro)',
+                b: 'B?(ro)',
+            });
+            set_type('B', {
+                a: 'A?',
+            });
+        """)
+        with self.assertRaisesRegex(
+                OperationError,
+                r"failed to create relation; property `a` on "
+                r"type `A` is read-only"):
+            await client.query(f"""//ti
+                mod_type('A', 'rel', 'a', 'a');
+            """)
+        with self.assertRaisesRegex(
+                OperationError,
+                r"failed to create relation; property `b` on "
+                r"type `A` is read-only"):
+            await client.query(f"""//ti
+                mod_type('B', 'rel', 'a', 'b');
+            """)
+
 
 if __name__ == '__main__':
     run_test(TestAdvanced())

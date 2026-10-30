@@ -16,6 +16,10 @@ int ti_flags_set_from_val(ti_val_t * val, uint8_t * flags, ex_t * e)
         return e->nr;
     }
 
+    /* pr #472 */
+    if (VINT(val) & TI_TYPE_FLAG_HIDE_ID)
+        *flags |= TI_FLAGS_NO_IDS;
+
     *flags |= VINT(val) & TI_FLAGS_NO_IDS;
     return 0;
 }

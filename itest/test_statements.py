@@ -288,6 +288,13 @@ class TestStatements(TestBase):
         """)
         self.assertEqual(res, {'nested': {}})
 
+        # pr #472 (alias HID flag)
+        res = await client.query("""//ti
+            .a = A();
+            return .a, 2, HID;
+        """)
+        self.assertEqual(res, {'nested': {}})
+
         res = await client.query("""//ti
             return .a, 2, 1;
         """)
@@ -303,6 +310,8 @@ class TestStatements(TestBase):
             || return 'value',0,NO_IDS;
         """)
         self.assertEqual(res, "|| return 'value',0,NO_IDS")
+
+
 
     async def test_format(self, client):
         res = await client.query("""//ti

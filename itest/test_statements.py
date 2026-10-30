@@ -311,8 +311,6 @@ class TestStatements(TestBase):
         """)
         self.assertEqual(res, "|| return 'value',0,NO_IDS")
 
-
-
     async def test_format(self, client):
         res = await client.query("""//ti
             x = || {

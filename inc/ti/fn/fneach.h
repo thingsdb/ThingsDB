@@ -131,10 +131,7 @@ static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
         for (vec_each(VARR(iterval), ti_val_t, v), ++idx)
         {
             if (ti_closure_vars_val_idx(closure, v, idx))
-            {
-                ex_set_mem(e);
                 goto fail2;
-            }
 
             if (ti_closure_do_statement(closure, query, e))
                 goto fail2;
@@ -158,11 +155,7 @@ static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
                 closure,
                 (imap_cb) each__walk_set,
                 &w))
-        {
-            if (!e->nr)
-                ex_set_mem(e);
             goto fail2;
-        }
         break;
     }
     case TI_VAL_DICT:
@@ -190,7 +183,11 @@ static int do__f_each(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     assert(query->rval == NULL);
     query->rval = (ti_val_t *) ti_nil_get();
 
+    goto done;
 fail2:
+    if (!e->nr)
+        ex_set_mem(e);
+done:
     ti_closure_dec(closure, query);
 
 fail1:

@@ -215,7 +215,7 @@ class TestAdvanced(TestBase):
                 d: '[A?]',
                 e: '[A?]?',
                 f: '{A}',
-                g: '{A}?',
+                g: '{A}?(ro)',
                 h: 'C',
                 i: 'C?',
                 j: '[C]',
@@ -242,7 +242,7 @@ class TestAdvanced(TestBase):
             ['d', '[Name?]'],
             ['e', '[Name?]?'],
             ['f', '{Name}'],
-            ['g', '{Name}?'],
+            ['g', '{Name}?(ro)'],
             ['h', 'Color'],
             ['i', 'Color?'],
             ['j', '[Color]'],
@@ -1622,7 +1622,7 @@ set_type('Root', {
 });
 set_type('W', {
   arr: [{
-    w: '?W?',
+    w: '?W?(ro)',
   }],
   obj: {
     obj: {
@@ -2028,7 +2028,7 @@ new_procedure('multiply', |a, b| a * b);
             set_type('A', {
                 a: 'A?',
                 b: 'B',
-                da: '&^dict<uuid:A>',
+                da: '&^dict<uuid:A>(ro)',
                 db: 'dict<any:B>?',
                 dc: 'dict<str:C?>',
                 dd: 'dict<int:D?>?',
@@ -2040,10 +2040,13 @@ new_procedure('multiply', |a, b| a * b);
                 lb: '[B]?',
                 lc: '[C?]',
                 ld: '[D?]?',
+                ra: 'A?(ro)',
+                rb: 'A(ro)',
                 sa: '{A}',
                 sb: '{B}?',
+                sc: '{B}(ro)',
                 na: [{
-                    a: '&+A?'
+                    a: '&+A?(ro)'
                 }],
                 nt: {
                     t: {
@@ -2077,7 +2080,7 @@ new_procedure('multiply', |a, b| a * b);
                 ],
                 [
                     "da",
-                    "&^dict<uuid:AA>"
+                    "&^dict<uuid:AA>(ro)"
                 ],
                 [
                     "db",
@@ -2124,6 +2127,14 @@ new_procedure('multiply', |a, b| a * b);
                     "[DD?]?"
                 ],
                 [
+                    "ra",
+                    "AA?(ro)"
+                ],
+                [
+                    "rb",
+                    "AA(ro)"
+                ],
+                [
                     "sa",
                     "{AA}"
                 ],
@@ -2132,10 +2143,14 @@ new_procedure('multiply', |a, b| a * b);
                     "{BB}?"
                 ],
                 [
+                    "sc",
+                    "{BB}(ro)"
+                ],
+                [
                     "na",
                     [
                         {
-                            "a": "&+AA?"
+                            "a": "&+AA?(ro)"
                         }
                     ]
                 ],
@@ -3180,6 +3195,94 @@ mod_enum('E', 'mod', 'A', {
                 r"error at line 1, position 6, ambiguous operator `!=`, "
                 r"add a space between `\)` and `!=` to resolve"):
             await client.query('test()!=0;')
+
+    async def test_read_only(self, client: Client):
+        await client.query("""//ti
+            set_type('T', {
+                name: 'str<::unknown>(ro)'
+            });
+            .t1 = T{};
+            .t2 = T{name: 'iris'};
+            .t3 = T({name: 'fleur'});
+            .t4 = .t3.dup();
+        """)
+        names = await client.query("""//ti
+            [.t1.name, .t2.name, .t3.name, .t4.name];
+        """)
+        self.assertEqual(names, ['unknown', 'iris', 'fleur', 'fleur'])
+        with self.assertRaisesRegex(
+                OperationError,
+                r"mismatch in type `T`; property `name` is read-only"):
+            await client.query(f"""//ti
+                .t4.name = 'Nissa';
+            """)
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r"function `mod_type` with task `mod` takes at most 4 "
+                r"arguments when used on a read-only property; if a callback "
+                r"is required, remove the read-only mark first and re-apply "
+                r"read-only in a subsequent request; "):
+            await client.query("""//ti
+                mod_type('T', 'mod', 'name', 'str<::unknown>(ro)', |t| {
+                    `{t.name[0].upper()}{t.name[1:]}`;
+                });
+            """)
+        await client.query("""//ti
+            mod_type('T', 'mod', 'name', 'str<::unknown>', |t| {
+                `{t.name[0].upper()}{t.name[1:]}`;
+            });
+        """)
+
+        with self.assertRaisesRegex(
+                NumArgumentsError,
+                r"function `mod_type` with task `mod` takes at most 4 "
+                r"arguments when making a property read-only; if a callback "
+                r"is required, make the changes first, then mark the "
+                r"property read-only in a subsequent request;"):
+            await client.query("""//ti
+                mod_type('T', 'mod', 'name', 'str<::unknown>(ro)', |t| nil);
+            """)
+
+        await client.query("""//ti
+            .t4.name = 'Nissa';
+            mod_type('T', 'mod', 'name', 'str<::unknown>(ro)');
+        """)
+        names = await client.query("""//ti
+            [.t1.name, .t2.name, .t3.name, .t4.name];
+        """)
+        self.assertEqual(names, ['Unknown', 'Iris', 'Fleur', 'Nissa'])
+        with self.assertRaisesRegex(
+                OperationError,
+                r"mismatch in type `T`; property `name` is read-only"):
+            await client.query(f"""//ti
+                .t1.name = 'Unknown';
+            """)
+
+        await client.query("""//ti
+            new_type('A');
+            new_type('B');
+            set_type('A', {
+                a: 'A?(ro)',
+                b: 'B?(ro)',
+            });
+            set_type('B', {
+                a: 'A?',
+            });
+        """)
+        with self.assertRaisesRegex(
+                OperationError,
+                r"failed to create relation; property `a` on "
+                r"type `A` is read-only"):
+            await client.query(f"""//ti
+                mod_type('A', 'rel', 'a', 'a');
+            """)
+        with self.assertRaisesRegex(
+                OperationError,
+                r"failed to create relation; property `b` on "
+                r"type `A` is read-only"):
+            await client.query(f"""//ti
+                mod_type('B', 'rel', 'a', 'b');
+            """)
 
 
 if __name__ == '__main__':

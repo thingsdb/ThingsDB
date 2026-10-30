@@ -925,7 +925,7 @@ class TestEnum(TestBase):
         await q("""//ti
             set_type('T', {
                 C1: 'Colors{Purple}',
-                C2: 'Colors{Yellow}?',
+                C2: 'Colors{Yellow}?(ro)',
                 C3: 'Colors',
                 C4: 'Colors?',
                 C5: '?[Colors?]?'
@@ -1039,7 +1039,7 @@ class TestEnum(TestBase):
         """)
         self.assertEqual(res, [
             ['C1', 'Color{Red}'],
-            ['C2', 'Color{Orange}?'],
+            ['C2', 'Color{Orange}?(ro)'],
             ['C3', 'Color'],
             ['C4', 'Color?'],
             ['C5', '?[Color?]?'],

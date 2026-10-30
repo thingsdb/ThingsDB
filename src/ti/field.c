@@ -554,6 +554,12 @@ done_flags:
         field->flags |= TI_FIELD_FLAG_DEEP;  /* most common, first check */
     }
 
+    if (n >= 4 && memcmp(str+n-4, "(ro)", 4) == 0)
+    {
+        n-=4;
+        field->flags |= TI_FIELD_FLAG_RO;
+    }
+
     if (str[n-1] == '?')
     {
         field->spec |= TI_SPEC_NILLABLE;
@@ -2044,6 +2050,11 @@ int ti_field_make_assignable(
 {
     uint16_t spec = field->spec & TI_SPEC_MASK_NILLABLE;
 
+    if ((field->flags & TI_FIELD_FLAG_RO) &&
+        parent &&
+        vec_get(parent->items.vec, field->idx))
+        goto read_only_error;
+
     if (spec < TI_SPEC_ANY)
     {
         /*
@@ -2478,6 +2489,13 @@ relation_error:
             "mismatch in type `%s` on property `%s`; "
             "relations must be created using a property "
             "on a stored thing (a thing with an Id)",
+            field->type->name,
+            field->name->str);
+    return e->nr;
+
+read_only_error:
+    ex_set(e, EX_OPERATION,
+            "mismatch in type `%s`; property `%s` is read-only",
             field->type->name,
             field->name->str);
     return e->nr;

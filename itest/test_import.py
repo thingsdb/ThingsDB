@@ -169,6 +169,7 @@ class TestImport(TestBase):
             .r.name = 'master';
             .r.r = R{name: 'slave'};
             .room.set_name('ROOM');
+            mod_type('T', 'add', 'key', 'str(ro)', 'secretkey');
         """)
 
         dump = await client0.query(r"""//ti
@@ -199,6 +200,8 @@ class TestImport(TestBase):
                 assert(is_nil(.t.id()));
                 assert(procedures_info().len() == 1);
                 assert(.room.name() == 'ROOM');
+                assert(.key == 'secretkey');
+                assert(is_err(try(.key = 'test', operation_err())));
             """)
 
             res = await client.query(

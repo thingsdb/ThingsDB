@@ -19,18 +19,19 @@ typedef ti_val_t *  (*ti_field_dval_cb) (ti_field_t *);
 
 enum
 {
-    TI_FIELD_FLAG_SAME_DEEP=1,
+    TI_FIELD_FLAG_SAME_DEEP=1<<0,
 
     /* exactly one of the DEEP flags below will be set on a field */
-    TI_FIELD_FLAG_MIN_DEEP=2,
-    TI_FIELD_FLAG_MAX_DEEP=4,
-    TI_FIELD_FLAG_DEEP=8,   /* this flag returns deep as-is */
-    TI_FIELD_FLAG_ENAME=16, /* return enumerator names instead of value */
+    TI_FIELD_FLAG_MIN_DEEP=1<<1,
+    TI_FIELD_FLAG_MAX_DEEP=1<<2,
+    TI_FIELD_FLAG_DEEP=1<<3,   /* this flag returns deep as-is */
+    TI_FIELD_FLAG_ENAME=1<<4, /* return enumerator names instead of value */
 
-    TI_FIELD_FLAG_NO_IDS=TI_FLAGS_NO_IDS,  /* 32 */
+    TI_FIELD_FLAG_NO_IDS=TI_FLAGS_NO_IDS,  /* 32 (1<<5) */
 
-    TI_FIELD_FLAG_SKIP_NIL=64,  /* skip when prop is nil */
-    TI_FIELD_FLAG_SKIP_FALSE=128,  /* skip when prop evaluates to false */
+    TI_FIELD_FLAG_SKIP_NIL=1<<6,  /* skip when prop is nil */
+    TI_FIELD_FLAG_SKIP_FALSE=1<<7,  /* skip when prop evaluates to false */
+    TI_FIELD_FLAG_RO=1<<8,  /* read-only */
 };
 
 #define TI_FIELD_MIN_MAX (TI_FIELD_FLAG_MIN_DEEP|TI_FIELD_FLAG_MAX_DEEP)

@@ -339,7 +339,7 @@ static int ctask__set(ti_thing_t * thing, mp_unp_t * up)
         {
             log_critical(
                     "task `set` to "TI_THING_ID": "
-                    "cannot make value relation",
+                    "error setting property",
                     thing->id);
             goto fail;
         }

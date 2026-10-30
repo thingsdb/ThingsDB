@@ -1070,14 +1070,14 @@ class TestCollectionFunctions(TestBase):
                 '.girls.filter(|_v, i|(i == .cato.id()))'))[0]['age'],
             5)
 
-        # pr #470
+        # pr #471
         res = await client.query("""//ti
             .people.filter(|k, v| v.age == 5);
         """)
         self.assertEqual(len(res), 1)
         self.assertEqual(res[0][0], 'Cato')
 
-        # pr #470
+        # pr #471
         res = await client.query("""//ti
             .people.filter(|k, v| k == 'Iris');
         """)

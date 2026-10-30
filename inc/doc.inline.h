@@ -42,6 +42,7 @@ static inline const char * doc_filter(ti_val_t * val)
     case TI_VAL_THING:          return DOC_THING_FILTER;
     case TI_VAL_ARR:            return DOC_LIST_FILTER;
     case TI_VAL_SET:            return DOC_SET_FILTER;
+    case TI_VAL_DICT:           return DOC_DICT_FILTER;
     default:                    return NULL;
     }
 }

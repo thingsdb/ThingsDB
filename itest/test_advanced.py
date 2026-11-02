@@ -3257,7 +3257,17 @@ mod_enum('E', 'mod', 'A', {
             await client.query(f"""//ti
                 .t1.name = 'Unknown';
             """)
-
+        res = await client.query("""//ti
+            mod_type('T', 'add', 'key', 'str(ro)', 'secret123');
+            .t1.key;
+        """)
+        self.assertEqual(res, "secret123")
+        with self.assertRaisesRegex(
+                OperationError,
+                r"mismatch in type `T`; property `key` is read-only"):
+            await client.query(f"""//ti
+                .t1.key = 'xxx';
+            """)
         await client.query("""//ti
             new_type('A');
             new_type('B');

@@ -39,7 +39,6 @@ class TestReadOnly(TestBase):
         client.close()
         await client.wait_closed()
 
-
     async def test_read_only(self, client: Client):
         await client.query("""//ti
             set_type('T', {
@@ -173,7 +172,6 @@ class TestReadOnly(TestBase):
             await client.query(f"""//ti
                 .ver = 3;
             """)
-
 
 
 if __name__ == '__main__':

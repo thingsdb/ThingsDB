@@ -27,6 +27,7 @@ from test_node_functions import TestNodeFunctions
 from test_nodes import TestNodes
 from test_operators import TestOperators
 from test_procedures import TestProcedures
+from test_read_only import TestReadOnly
 from test_recovery import TestRecovery
 from test_relations import TestRelations
 from test_restriction import TestRestriction
@@ -105,6 +106,7 @@ if __name__ == '__main__':
     run_test(TestNodes(), hide_version=hide_version())
     run_test(TestOperators(), hide_version=hide_version())
     run_test(TestProcedures(), hide_version=hide_version())
+    run_test(TestReadOnly(), hide_version=hide_version())
     run_test(TestRecovery(), hide_version=hide_version())
     run_test(TestRelations(), hide_version=hide_version())
     run_test(TestRestriction(), hide_version=hide_version())

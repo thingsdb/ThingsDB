@@ -1,3 +1,7 @@
+# v1.10.5
+
+* Fixed `to_type()` tasks with read-only properties, issue #473.
+
 # v1.10.4
 
 * Add support for marking properties as read-only, pr #470.

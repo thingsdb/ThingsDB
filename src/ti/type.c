@@ -1381,6 +1381,7 @@ int type__convert_cb(ti_prop_t * prop, type__convert_t * w)
 {
     ti_field_t * field = ti_field_by_name(w->type, prop->name);
     ti_val_t ** vaddr;
+    int rc, flags;
 
     if (!field)
     {
@@ -1416,7 +1417,13 @@ int type__convert_cb(ti_prop_t * prop, type__convert_t * w)
      */
     vaddr = (ti_val_t **) vec_get_addr(w->vec, field->idx);
     *vaddr = prop->val;
-    return ti_field_make_assignable(field, vaddr, w->thing, w->e);
+
+    /* temporary remove ro flag for convert, bug #473 */
+    flags = field->flags;
+    field->flags &= ~TI_FIELD_FLAG_RO;
+    rc = ti_field_make_assignable(field, vaddr, w->thing, w->e);
+    field->flags = flags;
+    return rc;
 }
 
 int ti_type_convert(

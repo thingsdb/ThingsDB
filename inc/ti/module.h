@@ -34,6 +34,7 @@ void ti_module_stop_and_destroy(ti_module_t * module);
 void ti_module_del(ti_module_t * module, _Bool delete_files);
 void ti_module_cancel_futures(ti_module_t * module);
 void ti_module_load(ti_module_t * module);
+void ti_module_reset_status(ti_module_t * module);
 void ti_module_restart(ti_module_t * module);
 void ti_module_update_conf(ti_module_t * module);
 _Bool ti_module_is_ready(ti_module_t * module);

@@ -18,7 +18,7 @@ static int do__f_restart_module(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (!module)
         return ti_raw_err_not_found((ti_raw_t *) query->rval, "module", e);
 
-    module->restarts = 0;
+    ti_module_reset_status(module);
     ti_module_restart(module);
 
     ti_val_unsafe_drop(query->rval);

@@ -844,7 +844,7 @@ void ti_module_load(ti_module_t * module)
 void ti_module_reset_status(ti_module_t * module)
 {
     module->restarts = 0;
-    if (module->status = TI_MODULE_STAT_TOO_MANY_RESTARTS)
+    if (module->status == TI_MODULE_STAT_TOO_MANY_RESTARTS)
         module->status = TI_MODULE_STAT_NOT_LOADED;
 }
 

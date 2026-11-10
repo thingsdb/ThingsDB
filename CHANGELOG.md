@@ -1,6 +1,7 @@
 # v1.10.5
 
 * Fixed `to_type()` tasks with read-only properties, issue #473.
+* Reset _restart-counter_ when calling `restart_module(..)`, issue #474.
 
 # v1.10.4
 

@@ -6,6 +6,7 @@
 #include <ti/ano.h>
 #include <ti/change.t.h>
 #include <ti/closure.h>
+#include <ti/column.h>
 #include <ti/dict.inline.h>
 #include <ti/dict.t.h>
 #include <ti/field.h>
@@ -17,6 +18,7 @@
 #include <ti/prop.h>
 #include <ti/regex.h>
 #include <ti/room.inline.h>
+#include <ti/row.h>
 #include <ti/spec.inline.h>
 #include <ti/types.inline.h>
 #include <ti/val.inline.h>
@@ -571,6 +573,111 @@ int ti__wrap_methods_to_pk(
     return rc;
 }
 
+static int wrap__as_row(
+        ti_thing_t * thing,
+        ti_vp_t * vp,
+        ti_type_t * t_type,
+        int deep,
+        int flags)
+{
+    ti_row_t * row = t_type->row;
+
+    int rc = -1;
+    ti_val_t * rval = vp->query->rval;
+    register const uint8_t deep_ = vp->query->qbind.deep;
+    register const uint8_t flags_ = vp->query->flags;
+    register ti_change_t * change_ = vp->query->change;
+
+    /* Set change to NULL for methods */
+    vp->query->change = NULL;
+
+    /* Set the lock */
+    thing->flags |= TI_VFLAG_LOCK;
+
+    if (msgpack_pack_array(pk, row->columns->n))
+        goto fail;
+
+    for (vec_each(row->columns, ti_column_t, column))
+    {
+        switch (column->tp)
+        {
+        case TI_COLUMN_ID:
+            break;
+        case TI_COLUMN_FIELD:
+            break;
+        case TI_COLUMN_METHOD:
+        {
+            ti_method_t * method = column->via.method;
+            ex_t e = {0};  /* bug #343 */
+            _Bool is_success = true;  /* bug #332 */
+            vp->query->rval = NULL;
+            vp->query->qbind.deep = vp->query->collection->deep;
+            vp->query->flags = \
+                (uint8_t) ((vp->query->flags & TI_FLAGS_QUERY_MASK) | flags);
+
+            if (method->closure->flags & TI_CLOSURE_FLAG_WSE)
+            {
+                ex_set(&e, EX_BAD_DATA,
+                        "failed to compute property; "
+                        "method has side effects");
+                vp->query->rval = (ti_val_t *) ti_verror_ensure_from_e(&e);
+                is_success = false;
+            }
+            else if (ti_closure_call_one_arg(
+                    method->closure,
+                    vp->query,
+                    (ti_val_t *) thing,
+                    &e))
+            {
+                ti_val_gc_drop((ti_val_t *) vp->query->rval);
+                vp->query->rval = (ti_val_t *) ti_verror_ensure_from_e(&e);
+                is_success = false;
+            }
+
+            if (vp->query->futures.n)
+            {
+                link_clear(
+                        &vp->query->futures,
+                        (link_destroy_cb) ti_val_unsafe_drop);
+
+                ti_val_gc_drop((ti_val_t *) vp->query->rval);
+
+                ex_set(&e, EX_BAD_DATA,
+                        "failed to compute property; "
+                        "method contains futures");
+
+                vp->query->rval = (ti_val_t *) ti_verror_ensure_from_e(&e);
+            }
+
+            rc = ti_val_to_client_pk(
+                vp->query->rval,
+                vp,
+                vp->query->qbind.deep,
+                vp->query->flags);
+
+            ti_val_unsafe_gc_drop(vp->query->rval);
+
+            if (is_success)
+                ti_closure_dec(method->closure, vp->query);
+
+            if (rc)
+                goto fail;
+            break;
+        }
+        }
+    }
+
+
+    rc = 0;
+fail:
+    thing->flags &= ~TI_VFLAG_LOCK;
+    vp->query->change = change_;
+    vp->query->qbind.deep = deep_;
+    vp->query->flags = flags_;
+    vp->query->rval = rval;
+    return rc;
+}
+
 static int wrap__field_thing(
         ti_thing_t * thing,
         ti_vp_t * vp,
@@ -578,16 +685,18 @@ static int wrap__field_thing(
         int deep,
         int flags)
 {
-    size_t nm;
-
     /* decrement `deep` by one */
     --deep;
+
+    if (t_type->row)
+        return
+
 
     /* Set the lock */
     thing->flags |= TI_VFLAG_LOCK;
 
     /* Number of methods to pack */
-    nm = t_type->methods->n;
+    size_t nm = t_type->methods->n;
 
     if (ti_thing_is_object(thing))
     {

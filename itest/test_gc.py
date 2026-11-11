@@ -89,7 +89,6 @@ class TestGC(TestBase):
 
         await self.node0.shutdown()
         await self.node0.run()
-
         await self.wait_nodes_ready()
 
         x, other = await client.query(

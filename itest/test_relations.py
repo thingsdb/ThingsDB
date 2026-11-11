@@ -85,14 +85,14 @@ class TestRelations(TestBase):
         ''')
 
         with self.assertRaisesRegex(
-                TypeError,
+                LookupError,
                 r'relation for `f` on type `F` already exist'):
             await client.query(r'''
                 mod_type('F', 'rel', 'ff', 'f');
             ''')
 
         with self.assertRaisesRegex(
-                TypeError,
+                OperationError,
                 r'cannot delete a property with a relation; '
                 r'you might want to remove the relation by using: '
                 r'`mod_type\("D", "rel", "e", nil\);`'):
@@ -101,7 +101,7 @@ class TestRelations(TestBase):
             ''')
 
         with self.assertRaisesRegex(
-                TypeError,
+                OperationError,
                 r'cannot modify a property with a relation; '
                 r'you might want to remove the relation by using: '
                 r'`mod_type\("D", "rel", "e", nil\);`'):

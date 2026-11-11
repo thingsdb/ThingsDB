@@ -645,7 +645,8 @@ static void type__del(
     if (type->row && ti_row_column_by_name(type->row, name))
     {
         ex_set(e, EX_OPERATION,
-                "cannot delete a property with a corresponding column in row; "
+                "cannot delete a field or method with a corresponding "
+                "column in row; "
                 "you might want to create a new row without this property: "
                 "`mod_type(\"%s\", \"row\", [...]);`",
                 type->name);
@@ -873,7 +874,7 @@ static void type__mod(
 
     if (field && ti_field_has_relation(field))
     {
-        ex_set(e, EX_TYPE_ERROR,
+        ex_set(e, EX_OPERATION,
                 "cannot modify a property with a relation; "
                 "you might want to remove the relation by using: "
                 "`mod_type(\"%s\", \"rel\", \"%s\", nil);`",
@@ -1160,7 +1161,7 @@ static ti_type_t * modtype__type_from_field(ti_field_t * field, ex_t * e)
 
     if (field->condition.rel)
     {
-        ex_set(e, EX_TYPE_ERROR,
+        ex_set(e, EX_LOOKUP_ERROR,
                 "relation for `%s` on type `%s` already exists",
                 field->name->str, field->type->name);
         return NULL;
@@ -1448,15 +1449,16 @@ static void type__row(
     {
         ti_name_t * name;
         arr = (ti_varr_t *) query->rval;
+        query->rval = NULL;
+
         if (!arr->vec->n)
         {
             ex_set(e, EX_VALUE_ERROR,
                     "at least one column is required for a row definition; "
-                    "use `nil` to remove the row");
+                    "use `nil` to remove the row"
+                    DOC_MOD_TYPE_ROW);
             goto fail0;
         }
-
-        query->rval = NULL;
 
         for (vec_each(arr->vec, ti_str_t, namestr))
         {
@@ -1464,23 +1466,27 @@ static void type__row(
             {
                 ex_set(e, EX_TYPE_ERROR,
                     "each column in a row must be specified as "
-                    "type `"TI_VAL_STR_S"`, found type `%s`",
+                    "type `"TI_VAL_STR_S"`, found type `%s`"
+                    DOC_MOD_TYPE_ROW,
                     ti_val_str((ti_val_t *) namestr));
                 goto fail0;
             }
             if (!ti_name_is_valid_strn(namestr->str, namestr->n))
             {
                 ex_set(e, EX_VALUE_ERROR,
-                    "each column must follow the naming rules");
+                    "each column in a row must follow the naming rules"
+                    DOC_MOD_TYPE_ROW);
                 goto fail0;
             }
             name = ti_names_weak_get_strn(namestr->str, namestr->n);
             if (!name || !ti_type_has_property(type, name))
             {
                 ex_set(e, EX_LOOKUP_ERROR,
-                    "type `%s` has no property `%s`; "
-                    "each column in a row must refer to an existing property",
-                    type->name, name->str);
+                    "type `%s` has no property `%.*s`; "
+                    "each column in a row must refer to an existing "
+                    "field or method;"
+                    DOC_MOD_TYPE_ROW,
+                    type->name, (int) namestr->n, namestr->str);
                 goto fail0;
             }
         }
@@ -1785,7 +1791,8 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
 unknown:
     ex_set(e, EX_VALUE_ERROR,
             "function `mod_type` expects argument 2 to be "
-            "`all`, `add`, `del`, `hid`, `mod`, `rel`, `ren` or `wpo` "
+            "`add`, `all`, `del`, `hid`, `idx`, `mod`, "
+            "`rel`, `ren`, `row` or `wpo` "
             "but got `%.*s` instead"
             DOC_MOD_TYPE,
             rmod->n, (const char *) rmod->data);

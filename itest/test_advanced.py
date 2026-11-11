@@ -3111,7 +3111,7 @@ mod_enum('E', 'mod', 'A', {
                 r"closures with side effects require a change but none is "
                 r"created; use `wse\(...\)` or append `!` to "
                 r"enforce a change;"):
-            await client.query(f"""//ti
+            await client.query("""//ti
                 set_x(123);
             """)
 
@@ -3120,7 +3120,7 @@ mod_enum('E', 'mod', 'A', {
                 r"closures with side effects require a change but none is "
                 r"created; use `wse\(...\)` or append `!` to "
                 r"enforce a change;"):
-            await client.query(f"""//ti
+            await client.query("""//ti
                 .set_x(42);
             """)
 
@@ -3149,7 +3149,7 @@ mod_enum('E', 'mod', 'A', {
                 SyntaxError,
                 r"error at line 1, position 11, unexpected character `!`, "
                 r"expecting: ; or end_of_statement"):
-            await client.query(f"""//ti
+            await client.query("""//ti
                 .set_x(42)!!;
             """)
 

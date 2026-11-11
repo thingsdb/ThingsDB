@@ -23,7 +23,8 @@ RUN mkdir -p /var/lib/thingsdb && \
     libuv1 \
     libpcre2-8-0 \
     libyajl2 \
-    libcurl4 && \
+    libcurl4 \
+    python3-pip && \
     pip install py-timod --break-system-packages
 
 COPY --from=builder /tmp/thingsdb/thingsdb /usr/local/bin/

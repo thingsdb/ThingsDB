@@ -310,7 +310,6 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             mp_hid.via.bool_ = false;
             mp_idx.tp = MP_BOOL;
             mp_idx.via.bool_ = false;
-            mp_row.tp = MP_NIL;
             if (mp_next(&up, &mp_id) != MP_U64 ||
                 mp_next(&up, &mp_wpo) != MP_BOOL ||
                 mp_next(&up, &mp_created) != MP_U64 ||
@@ -329,7 +328,6 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             with_row = false;
             mp_idx.tp = MP_BOOL;
             mp_idx.via.bool_ = false;
-            mp_row.tp = MP_NIL;
             if (mp_next(&up, &mp_id) != MP_U64 ||
                 mp_next(&up, &mp_wpo) != MP_BOOL ||
                 mp_next(&up, &mp_hid) != MP_BOOL ||

@@ -8,7 +8,7 @@
 #include <util/vec.h>
 
 
-ti_row_t * ti_row_create(size_t n);
+ti_row_t * ti_row_create(size_t n)
 {
     ti_row_t * row = malloc(sizeof(ti_row_t));
     if (!row)
@@ -50,6 +50,9 @@ int ti_row_to_pk(ti_row_t * row, msgpack_packer * pk)
 
 ti_column_t * ti_row_column_by_name(ti_row_t * row, ti_name_t * name)
 {
+    if (!row)
+        return NULL;
+
     for (vec_each(row->columns, ti_column_t, column))
     {
         switch (column->tp)

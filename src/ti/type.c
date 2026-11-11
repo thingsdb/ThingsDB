@@ -153,6 +153,52 @@ int ti_type_row_init(ti_type_t * type, size_t n)
     return type->row ? 0 : -1;
 }
 
+/* we can be short with error messages as these should not occur */
+int ti_type_row_add_column_strn(
+        ti_type_t * type,
+        const char * str,
+        size_t n,
+        ex_t * e)
+{
+    /* we must have row and space left */
+    assert(type->row && type->row->columns->sz > type->row->columns->n);
+    ti_column_t * column;
+    ti_field_t * field;
+    ti_method_t * method;
+    ti_name_t * name = ti_names_weak_get_strn(str, n);
+    if (!name)
+    {
+        ex_set(e, EX_LOOKUP_ERROR, "add column failed: name missing");
+        return e->nr;
+    }
+
+    if (type->idname == name)
+    {
+        column = ti_column_idname(name);
+    }
+    else if ((field = ti_field_by_name(type, name)))
+    {
+        column = ti_column_field(field);
+    }
+    else if ((method = ti_type_get_method(type, name)))
+    {
+        column = ti_column_method(method);
+    }
+    else
+    {
+        ex_set(e, EX_LOOKUP_ERROR, "add column failed: propery is missing");
+        return e->nr;
+    }
+
+    if (!column)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+    VEC_push(type->row->columns, column);
+    return 0;
+}
+
 imap_t * ti_type_collect_things(ti_query_t * query, ti_type_t * type)
 {
     if (type->t_cache)
@@ -407,13 +453,14 @@ void ti_type_remove_method(ti_type_t * type, ti_name_t * name)
     }
 }
 
-int ti_type_set_idname(
+int ti_type_ren_idname(
         ti_type_t * type,
         const char * s,
         size_t n,
         ex_t * e)
 {
     ti_name_t * name;
+    ti_column_t * column;
 
     if (!ti_name_is_valid_strn(s, n))
     {
@@ -438,6 +485,13 @@ int ti_type_set_idname(
             name->str,
             type->name);
         goto fail0;
+    }
+
+    column = ti_row_column_by_name(type->row, type->idname);
+    if (column)
+    {
+        assert(column->tp == TI_COLUMN_ID);
+        column->via.idname = name;
     }
 
     ti_name_unsafe_drop(type->idname);
@@ -552,59 +606,6 @@ _Bool ti_type_has_dependencies(ti_type_t * type)
             ti_type_has_dependencies(field->condition.type))
             return true;
     return false;
-}
-
-int ti_type_row_init(ti_type_t * type, size_t n)
-{
-    ti_row_destroy(type->row);
-    type->row = ti_row_create(n);
-
-}
-
-/* we can be short with error messages as these should not occur */
-int ti_type_row_add_column_strn(
-        ti_type_t * type,
-        const char * str,
-        size_t n,
-        ex_t * e)
-{
-    /* we must have row and space left */
-    assert(type->row && type->row->columns->sz > type->row->columns->n);
-    ti_column_t * column;
-    ti_field_t * field;
-    ti_method_t * method;
-    ti_name_t * name = ti_names_weak_get_strn(str, n);
-    if (!name)
-    {
-        ex_set(e, EX_LOOKUP_ERROR, "add column failed: name missing");
-        return e->nr;
-    }
-
-    if (type->idname == name)
-    {
-        column = ti_column_idname(name);
-    }
-    else if ((field = ti_field_by_name(type, name)))
-    {
-        column = ti_column_field(field);
-    }
-    else if ((method = ti_type_get_method(type, name)))
-    {
-        column = ti_column_method(method);
-    }
-    else
-    {
-        ex_set(e, EX_LOOKUP_ERROR, "add column failed: propery is missing");
-        return e->nr;
-    }
-
-    if (!column)
-    {
-        ex_set_mem(e);
-        return e->nr;
-    }
-    VEC_push(type->row->columns, column);
-    return 0;
 }
 
 static inline int type__assign(

@@ -1079,7 +1079,7 @@ static void type__ren(
     }
     else
     {
-        if (ti_type_set_idname(
+        if (ti_type_ren_idname(
                 type,
                 (const char *) rname->data,
                 rname->n,
@@ -1460,7 +1460,7 @@ static void type__row(
 
         for (vec_each(arr->vec, ti_str_t, namestr))
         {
-            if (!ti_val_is_str((ti_str_t *) namestr))
+            if (!ti_val_is_str((ti_val_t *) namestr))
             {
                 ex_set(e, EX_TYPE_ERROR,
                     "each column in a row must be specified as "
@@ -1508,7 +1508,7 @@ static void type__row(
     /* update modified time-stamp */
     type->modified_at = util_now_usec();
 
-    if (ti_task_add_set_row(task, type))
+    if (ti_task_add_mod_type_row(task, type))
         ex_set_mem(e);
 
 fail0:

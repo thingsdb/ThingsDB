@@ -208,7 +208,7 @@ int ti_task_add_dict_del(
 int ti_task_add_dict_clear(
         ti_task_t * task,
         ti_raw_t * key);  /* parent key where dict lives */
-int ti_task_add_set_row(
+int ti_task_add_mod_type_row(
         ti_task_t * task,
         ti_type_t * type);
 #endif /* TI_TASK_H_ */

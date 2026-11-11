@@ -18,6 +18,6 @@
 ti_row_t * ti_row_create(size_t n);
 void ti_row_destroy(ti_row_t * row);
 int ti_row_to_pk(ti_row_t * row, msgpack_packer * pk);
-ti_column_t * ti_row_column_by_name(ti_row_t * row, ti_name_t * name)
+ti_column_t * ti_row_column_by_name(ti_row_t * row, ti_name_t * name);
 
 #endif  /* TI_ROW_H_ */

@@ -7,7 +7,7 @@
 
 ti_column_t * ti_column_idname(ti_name_t * idname)
 {
-    ti_column_t * column = malloc(sizeof(ti_columnt_t));
+    ti_column_t * column = malloc(sizeof(ti_column_t));
     if (!column)
         return NULL;
     column->tp = TI_COLUMN_ID;
@@ -16,7 +16,7 @@ ti_column_t * ti_column_idname(ti_name_t * idname)
 }
 ti_column_t * ti_column_field(ti_field_t * field)
 {
-    ti_column_t * column = malloc(sizeof(ti_columnt_t));
+    ti_column_t * column = malloc(sizeof(ti_column_t));
     if (!column)
         return NULL;
     column->tp = TI_COLUMN_FIELD;
@@ -26,7 +26,7 @@ ti_column_t * ti_column_field(ti_field_t * field)
 }
 ti_column_t * ti_column_method(ti_method_t * method)
 {
-    ti_column_t * column = malloc(sizeof(ti_columnt_t));
+    ti_column_t * column = malloc(sizeof(ti_column_t));
     if (!column)
         return NULL;
     column->tp = TI_COLUMN_METHOD;

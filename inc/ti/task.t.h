@@ -99,7 +99,7 @@ typedef enum
     TI_TASK_DICT_SET,                       /* 86  */
     TI_TASK_DICT_DEL,                       /* 87  */
     TI_TASK_DICT_CLEAR,                     /* 88  */
-    TI_TASK_SET_ROW,                        /* 89  */
+    TI_TASK_MOD_TYPE_ROW,                   /* 89  */
 } ti_task_enum;
 
 typedef struct ti_task_s ti_task_t;

@@ -1,7 +1,7 @@
 # v1.11.0-alpha0
 
-* Change `ExTypeErro` to `ExOperation` when trying to remove relation, pr #.
-
+* Changed `ExTypeError` to `ExOperation` for del propery with relation, pr #475.
+* Added *wrap-as-row* feature _(`mod_type(T, 'row', [...])`)_ for Type, pr #475.
 
 # v1.10.5
 

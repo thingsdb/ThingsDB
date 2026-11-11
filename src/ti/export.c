@@ -271,8 +271,8 @@ static int export__row_cb(ti_type_t * type, ti_fmt_t * fmt)
         if (buf_append_str(&fmt->buf, "mod_type('") ||
             buf_append(
                     &fmt->buf,
-                    (const char *) field_a->type->rname->data,
-                    field_a->type->rname->n) ||
+                    (const char *) type->rname->data,
+                    type->rname->n) ||
             buf_append_str(&fmt->buf, "', 'row', [\n"))
             return -1;
 
@@ -289,7 +289,6 @@ static int export__row_cb(ti_type_t * type, ti_fmt_t * fmt)
                 return -1;
         }
         fmt->indent--;
-
         return buf_append_str(&fmt->buf, "]);\n");
     }
     return 0;

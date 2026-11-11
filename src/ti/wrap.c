@@ -603,7 +603,7 @@ static int wrap__as_row(
     /* Set the lock */
     thing->flags |= TI_VFLAG_LOCK;
 
-    if (msgpack_pack_array(pk, row->columns->n))
+    if (msgpack_pack_array(&vp->pk, row->columns->n))
         goto fail;
 
     for (vec_each(row->columns, ti_column_t, column))
@@ -611,7 +611,9 @@ static int wrap__as_row(
         switch (column->tp)
         {
         case TI_COLUMN_ID:
-            if (msgpack_pack_uint64(pk, thing->id))
+            if (thing->id
+                    ? msgpack_pack_uint64(&vp->pk, thing->id)
+                    : msgpack_pack_nil(&vp->pk))
                 goto fail;
             break;
         case TI_COLUMN_FIELD:
@@ -619,7 +621,8 @@ static int wrap__as_row(
             ti_field_t * t_field = column->via.field;
             if (ti_thing_is_object(thing))
             {
-                ti_prop_t * prop = ti_thing_o_prop_weak_get(thing, t_field->name);
+                ti_prop_t * prop = ti_thing_o_prop_weak_get(thing,
+                                                            t_field->name);
                 if (prop && ti_field_maps_to_val(t_field, prop->val)
                         ? wrap__field_val(
                             t_field,
@@ -628,7 +631,7 @@ static int wrap__as_row(
                             vp,
                             ti_field_deep(t_field, deep),
                             flags | ti_field_ret_flags(t_field))
-                        : msgpack_pack_nil(pk))
+                        : msgpack_pack_nil(&vp->pk))
                     goto fail;
             }
             else
@@ -649,7 +652,7 @@ static int wrap__as_row(
                             vp,
                             ti_field_deep(t_field, deep),
                             flags | ti_field_ret_flags(t_field))
-                        : msgpack_pack_nil(pk))
+                        : msgpack_pack_nil(&vp->pk))
                     goto fail;
             }
             break;
@@ -699,8 +702,7 @@ static int wrap__field_thing(
     --deep;
 
     if (t_type->row)
-        return
-
+        return wrap__as_row(thing, vp, t_type, deep, flags);
 
     /* Set the lock */
     thing->flags |= TI_VFLAG_LOCK;

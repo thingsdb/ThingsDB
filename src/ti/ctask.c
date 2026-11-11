@@ -2101,7 +2101,7 @@ static int ctask__mod_type_ren(ti_thing_t * thing, mp_unp_t * up)
 
     if (type->idname == name)
     {
-        if (ti_type_set_idname(
+        if (ti_type_ren_idname(
                 type,
                 mp_to.via.str.data,
                 mp_to.via.str.n,
@@ -2239,6 +2239,76 @@ static int ctask__mod_type_idx(ti_thing_t * thing, mp_unp_t * up)
 
     type->modified_at = mp_modified.via.u64;
 
+    return 0;
+}
+
+/*
+ * Returns 0 on success
+ */
+static int ctask__mod_type_row(ti_thing_t * thing, mp_unp_t * up)
+{
+    ex_t e = {0};
+    ti_collection_t * collection = thing->collection;
+    ti_type_t * type;
+    size_t i;
+    mp_obj_t obj, mp_id, mp_modified, mp_column;
+
+    if (mp_next(up, &obj) != MP_MAP || obj.via.sz != 3 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_id) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        mp_next(up, &mp_modified) != MP_U64 ||
+        mp_skip(up) != MP_STR ||
+        (mp_next(up, &obj) != MP_ARR && obj.tp != MP_NIL))
+    {
+        log_critical(
+                "task `mod_type_row` for "TI_COLLECTION_ID" is invalid",
+                collection->id);
+        return -1;
+    }
+
+    type = ti_types_by_id(collection->types, mp_id.via.u64);
+    if (!type)
+    {
+        log_critical(
+                "task `mod_type_row` for "TI_COLLECTION_ID" is invalid; "
+                "type with id %"PRIu64" not found",
+                collection->id, mp_id.via.u64);
+        return -1;
+    }
+
+    type->modified_at = mp_modified.via.u64;
+
+    if (obj.tp == MP_NIL)
+    {
+        ti_type_row_clear(type);
+        return 0;
+    }
+
+    if (ti_type_row_init(type, obj.via.sz))
+        return -1;
+
+    for (i = obj.via.sz; i--;)
+    {
+        if (mp_next(up, &mp_column) != MP_STR)
+        {
+            log_critical(
+                    "task `mod_type_row` for "TI_COLLECTION_ID" is invalid; "
+                    "each column must be a string",
+                    collection->id);
+            return -1;
+        }
+
+        if (ti_type_row_add_column_strn(
+                type,
+                mp_column.via.str.data,
+                mp_column.via.str.n,
+                &e))
+        {
+            log_critical("%s", e.msg);
+            return -1;
+        }
+    }
     return 0;
 }
 
@@ -3673,6 +3743,7 @@ int ti_ctask_run(ti_thing_t * thing, mp_unp_t * up)
     case TI_TASK_DICT_SET:          return ctask__dict_set(thing, up);
     case TI_TASK_DICT_DEL:          return ctask__dict_del(thing, up);
     case TI_TASK_DICT_CLEAR:        return ctask__dict_clear(thing, up);
+    case TI_TASK_MOD_TYPE_ROW:      return ctask__mod_type_row(thing, up);
     }
 
     log_critical("unknown collection task: %"PRIu64, mp_task.via.u64);

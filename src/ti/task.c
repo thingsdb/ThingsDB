@@ -3413,11 +3413,11 @@ fail_data:
     return -1;
 }
 
-int ti_task_add_set_row(
+int ti_task_add_mod_type_row(
         ti_task_t * task,
         ti_type_t * type)
 {
-    size_t alloc = 28 + (type->row ? type->row->columns->n * 255 : 0);
+    size_t alloc = 64 + (type->row ? type->row->columns->n * 16 : 0);
     ti_data_t * data;
     msgpack_packer pk;
     msgpack_sbuffer buffer;
@@ -3428,7 +3428,7 @@ int ti_task_add_set_row(
 
     msgpack_pack_array(&pk, 2);
 
-    msgpack_pack_uint8(&pk, TI_TASK_SET_ROW);
+    msgpack_pack_uint8(&pk, TI_TASK_MOD_TYPE_ROW);
 
     msgpack_pack_map(&pk, 3);
 
@@ -3438,8 +3438,9 @@ int ti_task_add_set_row(
     mp_pack_str(&pk, "modified_at");
     msgpack_pack_uint64(&pk, type->modified_at);
 
-    mp_pack_str(&pk, "rows");
-    ti_row_to_pk(type->row, pk)
+    mp_pack_str(&pk, "row");
+    if (ti_row_to_pk(type->row, &pk))
+        goto fail_pack;
 
     msgpack_pack_uint64(&pk, type->created_at);
 
@@ -3454,5 +3455,9 @@ int ti_task_add_set_row(
 
 fail_data:
     free(data);
+    return -1;
+
+fail_pack:
+    msgpack_sbuffer_destroy(&buffer);
     return -1;
 }

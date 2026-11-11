@@ -19,6 +19,7 @@
 #include <ti/prop.h>
 #include <ti/query.h>
 #include <ti/raw.inline.h>
+#include <ti/row.h>
 #include <ti/task.h>
 #include <ti/thing.inline.h>
 #include <ti/type.h>
@@ -83,6 +84,7 @@ ti_type_t * ti_type_create(
     type->modified_at = modified_at;
     type->methods = vec_new(0);
     type->t_cache = NULL;
+    type->row = NULL;
 
     if (!type->name || !type->wname || !type->dependencies || !type->fields ||
         !type->rname || !type->rwname || !type->t_mappings || !type->methods ||
@@ -124,6 +126,7 @@ ti_type_t * ti_type_create_anonymous(
     type->modified_at = 0;
     type->methods = vec_new(0);
     type->t_cache = NULL;
+    type->row = NULL;
 
     if (!type->name || !type->dependencies || !type->fields ||
         !type->rname || !type->t_mappings || !type->methods)
@@ -133,6 +136,21 @@ ti_type_t * ti_type_create_anonymous(
     }
 
     return type;
+}
+
+void ti_type_row_clear(ti_type_t * type)
+{
+    ti_type_map_cleanup_for_row(type);
+    ti_row_destroy(type->row);
+    type->row = NULL;
+}
+
+int ti_type_row_init(ti_type_t * type, size_t n)
+{
+    ti_type_map_cleanup_for_row(type);
+    ti_row_destroy(type->row);
+    type->row = ti_row_create(n);
+    return type->row ? 0 : -1;
 }
 
 imap_t * ti_type_collect_things(ti_query_t * query, ti_type_t * type)
@@ -168,6 +186,17 @@ imap_t * ti_type_collect_things(ti_query_t * query, ti_type_t * type)
     return collect.imap;
 }
 
+_Bool ti_type_has_property(ti_type_t * type, ti_name_t * name)
+{
+    if (type->idname == name)
+        return true;
+    if (ti_field_by_name(type, name))
+        return true;
+    if (ti_type_get_method(type, name))
+        return true;
+    return false;
+}
+
 /* used as a callback function and removes all cached type mappings */
 static int type__map_cleanup(ti_type_t * t_haystack, ti_type_t * t_needle)
 {
@@ -192,6 +221,12 @@ void ti_type_map_cleanup(ti_type_t * type)
         (smap_val_cb) type__map_cleanup_ano_cb,
         type);
     imap_clear(type->t_mappings, (imap_destroy_cb) ti_map_destroy);
+}
+
+void ti_type_map_cleanup_for_row(ti_type_t * type)
+{
+    /* we only need the own mappings as here the row mappngs are stored */
+   imap_clear(type->t_mappings, (imap_destroy_cb) ti_map_destroy);
 }
 
 void ti_type_drop(ti_type_t * type)
@@ -262,6 +297,7 @@ void ti_type_destroy(ti_type_t * type)
     ti_val_drop((ti_val_t *) type->rname);
     ti_val_drop((ti_val_t *) type->rwname);
     ti_val_drop((ti_val_t *) type->idname);
+    ti_row_destroy(type->row);
     free(type->dependencies);
     free(type->name);
     free(type->wname);
@@ -516,6 +552,59 @@ _Bool ti_type_has_dependencies(ti_type_t * type)
             ti_type_has_dependencies(field->condition.type))
             return true;
     return false;
+}
+
+int ti_type_row_init(ti_type_t * type, size_t n)
+{
+    ti_row_destroy(type->row);
+    type->row = ti_row_create(n);
+
+}
+
+/* we can be short with error messages as these should not occur */
+int ti_type_row_add_column_strn(
+        ti_type_t * type,
+        const char * str,
+        size_t n,
+        ex_t * e)
+{
+    /* we must have row and space left */
+    assert(type->row && type->row->columns->sz > type->row->columns->n);
+    ti_column_t * column;
+    ti_field_t * field;
+    ti_method_t * method;
+    ti_name_t * name = ti_names_weak_get_strn(str, n);
+    if (!name)
+    {
+        ex_set(e, EX_LOOKUP_ERROR, "add column failed: name missing");
+        return e->nr;
+    }
+
+    if (type->idname == name)
+    {
+        column = ti_column_idname(name);
+    }
+    else if ((field = ti_field_by_name(type, name)))
+    {
+        column = ti_column_field(field);
+    }
+    else if ((method = ti_type_get_method(type, name)))
+    {
+        column = ti_column_method(method);
+    }
+    else
+    {
+        ex_set(e, EX_LOOKUP_ERROR, "add column failed: propery is missing");
+        return e->nr;
+    }
+
+    if (!column)
+    {
+        ex_set_mem(e);
+        return e->nr;
+    }
+    VEC_push(type->row->columns, column);
+    return 0;
 }
 
 static inline int type__assign(
@@ -1248,7 +1337,7 @@ ti_val_t * ti_type_as_mpval(ti_type_t * type, _Bool with_definition)
     mp_sbuffer_alloc_init(&buffer, sizeof(ti_raw_t), sizeof(ti_raw_t));
     msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
 
-    if (msgpack_pack_map(&pk, 10) ||
+    if (msgpack_pack_map(&pk, 11) ||
         mp_pack_str(&pk, "type_id") ||
         msgpack_pack_uint16(&pk, type->type_id) ||
 
@@ -1277,6 +1366,9 @@ ti_val_t * ti_type_as_mpval(ti_type_t * type, _Bool with_definition)
 
         mp_pack_str(&pk, "methods") ||
         ti_type_methods_info_to_pk(type, &pk, with_definition) ||
+
+        mp_pack_str(&pk, "row") ||
+        ti_row_to_pk(type->row, &pk) ||
 
         mp_pack_str(&pk, "relations") ||
         ti_type_relations_to_pk(type, &pk))
@@ -1312,10 +1404,7 @@ ti_map_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type)
     for (vec_each(t_type->fields, ti_field_t, t_field))
     {
         f_field = ti_field_by_name(f_type, t_field->name);
-        if (!f_field)
-            continue;
-
-        if (ti_field_maps_to_field(t_field, f_field))
+        if (f_field && ti_field_maps_to_field(t_field, f_field))
         {
             mapping = ti_mapping_new(t_field, f_field);
             if (!mapping)
@@ -1325,6 +1414,8 @@ ti_map_t * ti_type_map(ti_type_t * t_type, ti_type_t * f_type)
             }
             VEC_push(mappings, mapping);
         }
+        else if (t_type->row)
+            VEC_push(mappings, NULL);
     }
     map = ti_map_new(mappings);
     if (!map)

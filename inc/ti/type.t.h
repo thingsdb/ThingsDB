@@ -16,6 +16,7 @@ typedef struct ti_type_s ti_type_t;
 
 #include <inttypes.h>
 #include <ti/raw.t.h>
+#include <ti/row.t.h>
 #include <ti/name.t.h>
 #include <ti/types.t.h>
 #include <util/imap.h>

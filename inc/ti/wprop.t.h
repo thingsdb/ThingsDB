@@ -4,7 +4,7 @@
 #ifndef TI_WPROP_T_H_
 #define TI_WPROP_T_H_
 
-typedef struct ti_wprop_s  ti_wprop_t;
+typedef struct ti_wprop_s ti_wprop_t;
 
 #include <ti/name.t.h>
 #include <ti/val.t.h>

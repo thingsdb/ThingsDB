@@ -4,7 +4,7 @@
 #ifndef TI_USER_T_H_
 #define TI_USER_T_H_
 
-typedef struct ti_user_s  ti_user_t;
+typedef struct ti_user_s ti_user_t;
 
 extern const char * ti_user_def_name;
 extern const char * ti_user_def_pass;

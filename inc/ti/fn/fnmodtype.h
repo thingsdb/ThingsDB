@@ -634,11 +634,21 @@ static void type__del(
 
     if (field && ti_field_has_relation(field))
     {
-        ex_set(e, EX_TYPE_ERROR,
+        ex_set(e, EX_OPERATION,
                 "cannot delete a property with a relation; "
                 "you might want to remove the relation by using: "
                 "`mod_type(\"%s\", \"rel\", \"%s\", nil);`",
                 type->name, name->str);
+        return;
+    }
+
+    if (type->row && ti_row_column_by_name(type->row, name))
+    {
+        ex_set(e, EX_OPERATION,
+                "cannot delete a property with a corresponding column in row; "
+                "you might want to create a new row without this property: "
+                "`mod_type(\"%s\", \"row\", [...]);`",
+                type->name);
         return;
     }
 
@@ -1415,6 +1425,97 @@ fail0:
     return;
 }
 
+static void type__row(
+        ti_query_t * query,
+        ti_type_t * type,
+        cleri_node_t * nd,
+        ex_t * e)
+{
+    static const char * fnname = "mod_type` with task `row";
+    const int nargs = fn_get_nargs(nd);
+
+    ti_varr_t * arr = NULL;
+    ti_task_t * task;
+
+    nd = nd->children->next->next->next->next;
+
+    if (fn_nargs(fnname, DOC_MOD_TYPE_ROW, 3, nargs, e) ||
+        ti_do_statement(query, nd, e) ||
+        fn_arg_array_or_nil(fnname, DOC_MOD_TYPE_ROW, 3, query->rval, e))
+        return;
+
+    if (ti_val_is_array(query->rval))
+    {
+        ti_name_t * name;
+        arr = (ti_varr_t *) query->rval;
+        if (!arr->vec->n)
+        {
+            ex_set(e, EX_VALUE_ERROR,
+                    "at least one column is required for a row definition; "
+                    "use `nil` to remove the row");
+            goto fail0;
+        }
+
+        query->rval = NULL;
+
+        for (vec_each(arr->vec, ti_str_t, namestr))
+        {
+            if (!ti_val_is_str((ti_str_t *) namestr))
+            {
+                ex_set(e, EX_TYPE_ERROR,
+                    "each column in a row must be specified as "
+                    "type `"TI_VAL_STR_S"`, found type `%s`",
+                    ti_val_str((ti_val_t *) namestr));
+                goto fail0;
+            }
+            if (!ti_name_is_valid_strn(namestr->str, namestr->n))
+            {
+                ex_set(e, EX_VALUE_ERROR,
+                    "each column must follow the naming rules");
+                goto fail0;
+            }
+            name = ti_names_weak_get_strn(namestr->str, namestr->n);
+            if (!name || !ti_type_has_property(type, name))
+            {
+                ex_set(e, EX_LOOKUP_ERROR,
+                    "type `%s` has no property `%s`; "
+                    "each column in a row must refer to an existing property",
+                    type->name, name->str);
+                goto fail0;
+            }
+        }
+
+        if (ti_type_row_init(type, arr->vec->n))
+        {
+            ex_set_mem(e);
+            goto fail0;
+        }
+
+        for (vec_each(arr->vec, ti_str_t, namestr))
+            if (ti_type_row_add_column_strn(type, namestr->str, namestr->n, e))
+                goto fail0;
+    }
+    else
+        ti_type_row_clear(type);  /* nil, just clear the row */
+
+    task = ti_task_get_task(query->change, query->collection->root);
+    if (!task)
+    {
+        ex_set_mem(e);
+        goto fail0;
+    }
+
+    /* update modified time-stamp */
+    type->modified_at = util_now_usec();
+
+    if (ti_task_add_set_row(task, type))
+        ex_set_mem(e);
+
+fail0:
+    ti_val_drop((ti_val_t *) arr);
+    return;
+}
+
 static void type__wpo(
         ti_query_t * query,
         ti_type_t * type,
@@ -1620,6 +1721,12 @@ static int do__f_mod_type(ti_query_t * query, cleri_node_t * nd, ex_t * e)
     if (ti_raw_eq_strn(rmod, "all", 3))
     {
         type__all(query, type, nd, e);
+        goto done;
+    }
+
+    if (ti_raw_eq_strn(rmod, "row", 3))
+    {
+        type__row(query, type, nd, e);
         goto done;
     }
 

@@ -4,7 +4,7 @@
 #ifndef TI_WRAP_H_
 #define TI_WRAP_H_
 
-typedef struct ti_wrap_s  ti_wrap_t;
+typedef struct ti_wrap_s ti_wrap_t;
 
 #include <inttypes.h>
 #include <ti/thing.h>

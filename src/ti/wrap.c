@@ -460,6 +460,55 @@ static inline int wrap__id_to_pk(
     return msgpack_pack_map(pk, n);
 }
 
+static void wrap__calc_method(
+        ti_method_t * method,
+        ti_thing_t * thing,
+        ti_vp_t * vp,
+        int flags,
+        bool * call_dec)
+{
+    ex_t e = {0};  /* bug #343 */
+    vp->query->rval = NULL;
+    vp->query->qbind.deep = vp->query->collection->deep;
+    vp->query->flags = \
+            (uint8_t) ((vp->query->flags & TI_FLAGS_QUERY_MASK) | flags);
+
+    if (method->closure->flags & TI_CLOSURE_FLAG_WSE)
+    {
+        ex_set(&e, EX_BAD_DATA,
+                "failed to compute property; "
+                "method has side effects");
+        vp->query->rval = (ti_val_t *) ti_verror_ensure_from_e(&e);
+        *call_dec = false;  /* closure not increased */
+    }
+    else if (ti_closure_call_one_arg(
+            method->closure,
+            vp->query,
+            (ti_val_t *) thing,
+            &e))
+    {
+        ti_val_gc_drop((ti_val_t *) vp->query->rval);
+        vp->query->rval = (ti_val_t *) ti_verror_ensure_from_e(&e);
+        *call_dec = false;  /* closure not increade */
+    }
+    /* call_dec must stay true, closure is increased and dec must be called */
+
+    if (vp->query->futures.n)
+    {
+        link_clear(
+                &vp->query->futures,
+                (link_destroy_cb) ti_val_unsafe_drop);
+
+        ti_val_gc_drop((ti_val_t *) vp->query->rval);
+
+        ex_set(&e, EX_BAD_DATA,
+                "failed to compute property; "
+                "method contains futures");
+
+        vp->query->rval = (ti_val_t *) ti_verror_ensure_from_e(&e);
+    }
+}
+
 int ti__wrap_methods_to_pk_no_query(ti_type_t * t_type, ti_vp_t * vp)
 {
     int rc = 0;
@@ -506,47 +555,8 @@ int ti__wrap_methods_to_pk(
 
     for (vec_each(t_type->methods, ti_method_t, method))
     {
-        ex_t e = {0};  /* bug #343 */
-        _Bool is_success = true;  /* bug #332 */
-        vp->query->rval = NULL;
-        vp->query->qbind.deep = vp->query->collection->deep;
-        vp->query->flags = \
-                (uint8_t) ((vp->query->flags & TI_FLAGS_QUERY_MASK) | flags);
-
-        if (method->closure->flags & TI_CLOSURE_FLAG_WSE)
-        {
-            ex_set(&e, EX_BAD_DATA,
-                    "failed to compute property; "
-                    "method has side effects");
-            vp->query->rval = (ti_val_t *) ti_verror_ensure_from_e(&e);
-            is_success = false;
-        }
-        else if (ti_closure_call_one_arg(
-                method->closure,
-                vp->query,
-                (ti_val_t *) thing,
-                &e))
-        {
-            ti_val_gc_drop((ti_val_t *) vp->query->rval);
-            vp->query->rval = (ti_val_t *) ti_verror_ensure_from_e(&e);
-            is_success = false;
-        }
-
-        if (vp->query->futures.n)
-        {
-            link_clear(
-                    &vp->query->futures,
-                    (link_destroy_cb) ti_val_unsafe_drop);
-
-            ti_val_gc_drop((ti_val_t *) vp->query->rval);
-
-            ex_set(&e, EX_BAD_DATA,
-                    "failed to compute property; "
-                    "method contains futures");
-
-            vp->query->rval = (ti_val_t *) ti_verror_ensure_from_e(&e);
-        }
-
+        _Bool call_dec = true;
+        wrap__calc_method(method, thing, vp, flags, &call_dec);
         rc = mp_pack_strn(
                 &vp->pk,
                 method->name->str,
@@ -559,7 +569,7 @@ int ti__wrap_methods_to_pk(
 
         ti_val_unsafe_gc_drop(vp->query->rval);
 
-        if (is_success)
+        if (call_dec)
             ti_closure_dec(method->closure, vp->query);
 
         if (rc)
@@ -581,7 +591,6 @@ static int wrap__as_row(
         int flags)
 {
     ti_row_t * row = t_type->row;
-
     int rc = -1;
     ti_val_t * rval = vp->query->rval;
     register const uint8_t deep_ = vp->query->qbind.deep;
@@ -602,52 +611,54 @@ static int wrap__as_row(
         switch (column->tp)
         {
         case TI_COLUMN_ID:
+            if (msgpack_pack_uint64(pk, thing->id))
+                goto fail;
             break;
         case TI_COLUMN_FIELD:
+        {
+            ti_field_t * t_field = column->via.field;
+            if (ti_thing_is_object(thing))
+            {
+                ti_prop_t * prop = ti_thing_o_prop_weak_get(thing, t_field->name);
+                if (prop && ti_field_maps_to_val(t_field, prop->val)
+                        ? wrap__field_val(
+                            t_field,
+                            &t_field->spec,
+                            prop->val,
+                            vp,
+                            ti_field_deep(t_field, deep),
+                            flags | ti_field_ret_flags(t_field))
+                        : msgpack_pack_nil(pk))
+                    goto fail;
+            }
+            else
+            {
+                ti_mapping_t * mapping;
+                register const ti_map_t * map = ti_type_map(t_type,
+                                                            thing->via.type);
+                if (!map)
+                    goto fail;
+
+                mapping = VEC_get(map->mappings, t_field->idx);
+                assert(!mapping || mapping->t_field == t_field);
+                if (mapping
+                        ? wrap__field_val(
+                            t_field,
+                            &t_field->spec,
+                            VEC_get(thing->items.vec, mapping->f_field->idx),
+                            vp,
+                            ti_field_deep(t_field, deep),
+                            flags | ti_field_ret_flags(t_field))
+                        : msgpack_pack_nil(pk))
+                    goto fail;
+            }
             break;
+        }
         case TI_COLUMN_METHOD:
         {
+            _Bool call_dec = true;
             ti_method_t * method = column->via.method;
-            ex_t e = {0};  /* bug #343 */
-            _Bool is_success = true;  /* bug #332 */
-            vp->query->rval = NULL;
-            vp->query->qbind.deep = vp->query->collection->deep;
-            vp->query->flags = \
-                (uint8_t) ((vp->query->flags & TI_FLAGS_QUERY_MASK) | flags);
-
-            if (method->closure->flags & TI_CLOSURE_FLAG_WSE)
-            {
-                ex_set(&e, EX_BAD_DATA,
-                        "failed to compute property; "
-                        "method has side effects");
-                vp->query->rval = (ti_val_t *) ti_verror_ensure_from_e(&e);
-                is_success = false;
-            }
-            else if (ti_closure_call_one_arg(
-                    method->closure,
-                    vp->query,
-                    (ti_val_t *) thing,
-                    &e))
-            {
-                ti_val_gc_drop((ti_val_t *) vp->query->rval);
-                vp->query->rval = (ti_val_t *) ti_verror_ensure_from_e(&e);
-                is_success = false;
-            }
-
-            if (vp->query->futures.n)
-            {
-                link_clear(
-                        &vp->query->futures,
-                        (link_destroy_cb) ti_val_unsafe_drop);
-
-                ti_val_gc_drop((ti_val_t *) vp->query->rval);
-
-                ex_set(&e, EX_BAD_DATA,
-                        "failed to compute property; "
-                        "method contains futures");
-
-                vp->query->rval = (ti_val_t *) ti_verror_ensure_from_e(&e);
-            }
+            wrap__calc_method(method, thing, vp, flags, &call_dec);
 
             rc = ti_val_to_client_pk(
                 vp->query->rval,
@@ -657,7 +668,7 @@ static int wrap__as_row(
 
             ti_val_unsafe_gc_drop(vp->query->rval);
 
-            if (is_success)
+            if (call_dec)
                 ti_closure_dec(method->closure, vp->query);
 
             if (rc)
@@ -666,7 +677,6 @@ static int wrap__as_row(
         }
         }
     }
-
 
     rc = 0;
 fail:

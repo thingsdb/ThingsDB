@@ -1,3 +1,4 @@
+#include <ti/column.h>
 #include <ti/dict.inline.h>
 #include <ti/enum.t.h>
 #include <ti/enums.t.h>
@@ -263,6 +264,37 @@ static int export__relation_cb(ti_type_t * type, ti_fmt_t * fmt)
     return 0;
 }
 
+static int export__row_cb(ti_type_t * type, ti_fmt_t * fmt)
+{
+    if (type->row)
+    {
+        if (buf_append_str(&fmt->buf, "mod_type('") ||
+            buf_append(
+                    &fmt->buf,
+                    (const char *) field_a->type->rname->data,
+                    field_a->type->rname->n) ||
+            buf_append_str(&fmt->buf, "', 'row', [\n"))
+            return -1;
+
+        fmt->indent++;
+        for (vec_each(type->row->columns, ti_column_t, column))
+        {
+            ti_name_t * name = ti_column_name(column);
+
+            if (ti_fmt_indent(fmt) ||
+                buf_append_fmt(
+                    &fmt->buf,
+                    "'%.*s',\n",
+                    (int) name->n, name->str))
+                return -1;
+        }
+        fmt->indent--;
+
+        return buf_append_str(&fmt->buf, "]);\n");
+    }
+    return 0;
+}
+
 static int export__write_new_types(ti_fmt_t * fmt, ti_types_t * types)
 {
     return -(
@@ -277,6 +309,8 @@ static int export__write_types(ti_fmt_t * fmt, ti_types_t * types)
         smap_values(types->smap, (smap_val_cb) export__set_type_cb, fmt) ||
         buf_write(&fmt->buf, '\n') ||
         smap_values(types->smap, (smap_val_cb) export__relation_cb, fmt) ||
+        buf_write(&fmt->buf, '\n') ||
+        smap_values(types->smap, (smap_val_cb) export__row_cb, fmt) ||
         buf_write(&fmt->buf, '\n')
     );
 }

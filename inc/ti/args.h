@@ -4,7 +4,7 @@
 #ifndef TI_ARGS_H_
 #define TI_ARGS_H_
 
-typedef struct ti_args_s  ti_args_t;
+typedef struct ti_args_s ti_args_t;
 
 #include <util/argparse.h>
 

@@ -30,7 +30,7 @@
 #ifndef TI_THING_T_H_
 #define TI_THING_T_H_
 
-typedef struct ti_thing_s  ti_thing_t;
+typedef struct ti_thing_s ti_thing_t;
 typedef union ti_thing_via_items ti_thing_via_items_t;
 typedef union ti_thing_via ti_thing_via_t;
 

@@ -56,6 +56,8 @@
 #include <ti/restore.h>
 #include <ti/room.h>
 #include <ti/room.inline.h>
+#include <ti/row.h>
+#include <ti/row.t.h>
 #include <ti/scope.h>
 #include <ti/spec.inline.h>
 #include <ti/task.h>
@@ -452,6 +454,22 @@ static inline int fn_arg_array(
         ex_set(e, EX_TYPE_ERROR,
             "function `%s` expects argument %d to be of "
             "type `"TI_VAL_LIST_S"` or `"TI_VAL_TUPLE_S"` "
+            "but got type `%s` instead%s",
+            name, argn, ti_val_str(val), doc);
+    return e->nr;
+}
+
+static inline int fn_arg_array_or_nil(
+        const char * name,
+        const char * doc,
+        int argn,
+        ti_val_t * val,
+        ex_t * e)
+{
+    if (!ti_val_is_array(val) && !ti_val_is_nil(val))
+        ex_set(e, EX_TYPE_ERROR,
+            "function `%s` expects argument %d to be of "
+            "type `"TI_VAL_LIST_S"`, `"TI_VAL_TUPLE_S"` or `"TI_VAL_NIL_S"` "
             "but got type `%s` instead%s",
             name, argn, ti_val_str(val), doc);
     return e->nr;

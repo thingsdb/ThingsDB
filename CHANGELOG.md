@@ -1,3 +1,8 @@
+# v1.11.0-alpha0
+
+* Change `ExTypeErro` to `ExOperation` when trying to remove relation, pr #.
+
+
 # v1.10.5
 
 * Fixed `to_type()` tasks with read-only properties, issue #473.

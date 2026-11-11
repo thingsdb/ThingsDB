@@ -4,7 +4,7 @@
 #ifndef TI_ANO_T_H_
 #define TI_ANO_T_H_
 
-typedef struct ti_ano_s  ti_ano_t;
+typedef struct ti_ano_s ti_ano_t;
 
 #include <ti/type.t.h>
 #include <ti/val.t.h>

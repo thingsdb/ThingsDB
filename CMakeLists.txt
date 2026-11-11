@@ -140,6 +140,7 @@ set(SOURCES
     src/ti/closure.c
     src/ti/collection.c
     src/ti/collections.c
+    src/ti/column.c
     src/ti/commit.c
     src/ti/commits.c
     src/ti/condition.c
@@ -197,14 +198,15 @@ set(SOURCES
     src/ti/restore.c
     src/ti/room.c
     src/ti/rooms.c
+    src/ti/row.c
     src/ti/rpkg.c
     src/ti/scope.c
     src/ti/signals.c
     src/ti/spec.c
     src/ti/store.c
     src/ti/stream.c
-    src/ti/syncarchive.c
     src/ti/sync.c
+    src/ti/syncarchive.c
     src/ti/syncer.c
     src/ti/syncevents.c
     src/ti/syncfull.c

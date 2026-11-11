@@ -240,6 +240,47 @@ class TestRow(TestBase):
             None,
             'type `Book` has no property or method `books`'
         ])
+        res = await client.query("""//ti
+            export();
+        """)
+        self.maxDiff = 1000
+        self.assertEqual(res, """
+try(commit('Source: collection `stuff`'));
+
+new_type('Book');
+new_type('Collection');
+
+
+set_type('Book', {
+  id: '#',
+  title: 'str<2:>',
+  pages: 'int',
+});
+set_type('Collection', {
+  id: '#',
+  books: '&[Book]',
+  total_pages: |this| {
+    this.books.sum(|b| b.pages);
+  },
+});
+
+
+mod_type('Book', 'row', [
+  'id',
+  'title',
+  'pages',
+]);
+mod_type('Collection', 'row', [
+  'id',
+  'books',
+  'total_pages',
+]);
+
+
+
+
+'DONE';
+""".lstrip().replace('  ', '\t'))
 
 
 if __name__ == '__main__':

@@ -235,7 +235,11 @@ class TestRow(TestBase):
         res = await client.query("""//ti
             Book(id).wrap('Collection');
         """, id=alice_id)
-        self.assertEqual(res, [alice_id, None, None])
+        self.assertEqual(res, [
+            alice_id,
+            None,
+            'type `Book` has no property or method `books`'
+        ])
 
 
 if __name__ == '__main__':

@@ -170,6 +170,7 @@ class TestImport(TestBase):
             .r.r = R{name: 'slave'};
             .room.set_name('ROOM');
             mod_type('T', 'add', 'key', 'str(ro)', 'secretkey');
+            mod_type('T', 'row', ['key']);
         """)
 
         dump = await client0.query(r"""//ti
@@ -202,6 +203,8 @@ class TestImport(TestBase):
                 assert(.room.name() == 'ROOM');
                 assert(.key == 'secretkey');
                 assert(is_err(try(.key = 'test', operation_err())));
+                assert(type_info('R').load().row == nil);
+                assert(type_info('T').load().row == ['key']);
             """)
 
             res = await client.query(

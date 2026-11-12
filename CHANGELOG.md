@@ -1,4 +1,4 @@
-# v1.11.1-alpha0
+# v1.11.1
 
 * Upgraded `libwebsockets` from **4.3.99** to **4.5.8**, pr #476.
 

@@ -4,7 +4,7 @@
 #ifndef TI_COLLECTION_T_H_
 #define TI_COLLECTION_T_H_
 
-typedef struct ti_collection_s  ti_collection_t;
+typedef struct ti_collection_s ti_collection_t;
 
 #include <uv.h>
 #include <inttypes.h>

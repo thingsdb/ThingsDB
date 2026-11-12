@@ -19,7 +19,7 @@ typedef enum
     TI_STREAM_WS_IN_CLIENT,     /* WebSocket connection */
 } ti_stream_enum;
 
-typedef struct ti_stream_s  ti_stream_t;
+typedef struct ti_stream_s ti_stream_t;
 typedef union ti_stream_via_u ti_stream_via_t;
 typedef union ti_stream_with_u ti_stream_with_t;
 

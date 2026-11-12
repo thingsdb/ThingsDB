@@ -32,12 +32,21 @@ ti_type_t * ti_type_create_anonymous(
         ti_types_t * types,
         ti_raw_t * name,
         uint8_t flags);
+void ti_type_row_clear(ti_type_t * type);
+int ti_type_row_init(ti_type_t * type, size_t n);
+int ti_type_row_add_column_strn(
+        ti_type_t * type,
+        const char * str,
+        size_t n,
+        ex_t * e);
 imap_t * ti_type_collect_things(ti_query_t * query, ti_type_t * type);
+_Bool ti_type_has_property(ti_type_t * type, ti_name_t * name);
 void ti_type_drop(ti_type_t * type);
 void ti_type_drop_anonymous(ti_type_t * type);
 void ti_type_del(ti_type_t * type, vec_t * vars);
 void ti_type_destroy(ti_type_t * type);
 void ti_type_map_cleanup(ti_type_t * type);
+void ti_type_map_cleanup_for_row(ti_type_t * type);
 size_t ti_type_fields_approx_pack_sz(ti_type_t * type);
 int ti_type_init_from_thing(ti_type_t * type, ti_thing_t * thing, ex_t * e);
 int ti_type_init_from_unp(
@@ -64,7 +73,7 @@ int ti_type_add_method(
         ti_closure_t * closure,
         ex_t * e);
 void ti_type_remove_method(ti_type_t * type, ti_name_t * name);
-int ti_type_set_idname(
+int ti_type_ren_idname(
         ti_type_t * type,
         const char * s,
         size_t n,

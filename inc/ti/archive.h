@@ -4,7 +4,7 @@
 #ifndef TI_ARCHIVE_H_
 #define TI_ARCHIVE_H_
 
-typedef struct ti_archive_s  ti_archive_t;
+typedef struct ti_archive_s ti_archive_t;
 
 #include <stdint.h>
 #include <ti/cpkg.t.h>

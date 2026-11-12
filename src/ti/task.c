@@ -10,6 +10,7 @@
 #include <ti/method.h>
 #include <ti/proto.h>
 #include <ti/raw.h>
+#include <ti/row.h>
 #include <ti/task.h>
 #include <ti/type.h>
 #include <ti/val.inline.h>
@@ -3409,5 +3410,51 @@ int ti_task_add_dict_clear(
 
 fail_data:
     free(data);
+    return -1;
+}
+
+int ti_task_add_mod_type_row(
+        ti_task_t * task,
+        ti_type_t * type)
+{
+    size_t alloc = 64 + (type->row ? type->row->columns->n * 16 : 0);
+    ti_data_t * data;
+    msgpack_packer pk;
+    msgpack_sbuffer buffer;
+
+    if (mp_sbuffer_alloc_init(&buffer, alloc, sizeof(ti_data_t)))
+        return -1;
+    msgpack_packer_init(&pk, &buffer, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+
+    msgpack_pack_uint8(&pk, TI_TASK_MOD_TYPE_ROW);
+    msgpack_pack_map(&pk, 3);
+
+    mp_pack_str(&pk, "type_id");
+    msgpack_pack_uint16(&pk, type->type_id);
+
+    mp_pack_str(&pk, "modified_at");
+    msgpack_pack_uint64(&pk, type->modified_at);
+
+    mp_pack_str(&pk, "row");
+    if (ti_row_to_pk(type->row, &pk))
+        goto fail_pack;
+
+    data = (ti_data_t *) buffer.data;
+    ti_data_init(data, buffer.size);
+
+    if (vec_push(&task->list, data))
+        goto fail_data;
+
+    task__upd_approx_sz(task, data);
+    return 0;
+
+fail_data:
+    free(data);
+    return -1;
+
+fail_pack:
+    msgpack_sbuffer_destroy(&buffer);
     return -1;
 }

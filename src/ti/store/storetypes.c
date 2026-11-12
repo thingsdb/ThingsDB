@@ -9,6 +9,7 @@
 #include <ti/method.h>
 #include <ti/prop.h>
 #include <ti/raw.inline.h>
+#include <ti/row.h>
 #include <ti/store/storetypes.h>
 #include <ti/things.h>
 #include <ti/type.h>
@@ -30,7 +31,7 @@ static int rmtype_cb(
 static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
 {
     uintptr_t p;
-    if (msgpack_pack_array(pk, 9) ||
+    if (msgpack_pack_array(pk, 10) ||
         msgpack_pack_uint16(pk, type->type_id) ||
         mp_pack_bool(pk, type->flags & TI_TYPE_FLAG_WRAP_ONLY) ||
         mp_pack_bool(pk, type->flags & TI_TYPE_FLAG_HIDE_ID) ||
@@ -69,6 +70,9 @@ static int mktype_cb(ti_type_t * type, msgpack_packer * pk)
             ti_closure_to_store_pk(method->closure, pk)
         ) return -1;
     }
+
+    if (ti_row_to_pk(type->row, pk))
+        return -1;
 
     return 0;
 }
@@ -115,6 +119,11 @@ static int rltype_cb(ti_type_t * type, msgpack_packer * pk)
         }
     }
     return 0;
+}
+
+static inline int mp_arr_or_nil(mp_enum_t tp)
+{
+    return tp == MP_NIL || tp == MP_ARR;
 }
 
 int ti_store_types_store(ti_types_t * types, const char * fn)
@@ -174,6 +183,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
     _Bool with_hide_id = true;
     _Bool with_index = true;
     _Bool with_relations = true;
+    _Bool with_row = true;
     fx_mmap_t fmap;
     ex_t e = {0};
     ti_name_t * name, * oname;
@@ -251,6 +261,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             with_wrap_only = false;
             with_hide_id = false;
             with_index = false;
+            with_row = false;
             mp_wpo.tp = MP_BOOL;
             mp_wpo.via.bool_ = false;
             mp_hid.tp = MP_BOOL;
@@ -272,6 +283,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             with_wrap_only = false;
             with_hide_id = false;
             with_index = false;
+            with_row = false;
             mp_wpo.tp = MP_BOOL;
             mp_wpo.via.bool_ = false;
             mp_hid.tp = MP_BOOL;
@@ -293,6 +305,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
              */
             with_hide_id = false;
             with_index = false;
+            with_row = false;
             mp_hid.tp = MP_BOOL;
             mp_hid.via.bool_ = false;
             mp_idx.tp = MP_BOOL;
@@ -312,6 +325,7 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
              *       versions before v1.8.4.
              */
             with_index = false;
+            with_row = false;
             mp_idx.tp = MP_BOOL;
             mp_idx.via.bool_ = false;
             if (mp_next(&up, &mp_id) != MP_U64 ||
@@ -325,6 +339,11 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
            ) goto fail1;
             break;
         case 9:
+            /*
+             * TODO: (COMPAT) This code is for compatibility with ThingsDB
+             *       versions before v1.11.0.
+             */
+            with_row = false;
             if (mp_next(&up, &mp_id) != MP_U64 ||
                 mp_next(&up, &mp_wpo) != MP_BOOL ||
                 mp_next(&up, &mp_hid) != MP_BOOL ||
@@ -334,6 +353,19 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
                 mp_next(&up, &mp_name) != MP_STR ||
                 mp_skip(&up) != MP_MAP ||   /* fields */
                 mp_skip(&up) != MP_MAP      /* methods */
+           ) goto fail1;
+            break;
+        case 10:
+            if (mp_next(&up, &mp_id) != MP_U64 ||
+                mp_next(&up, &mp_wpo) != MP_BOOL ||
+                mp_next(&up, &mp_hid) != MP_BOOL ||
+                mp_next(&up, &mp_idx) != MP_BOOL ||
+                mp_next(&up, &mp_created) != MP_U64 ||
+                mp_next(&up, &mp_modified) != MP_U64 ||
+                mp_next(&up, &mp_name) != MP_STR ||
+                mp_skip(&up) != MP_MAP ||   /* fields */
+                mp_skip(&up) != MP_MAP ||   /* methods */
+                !mp_arr_or_nil(mp_skip(&up))  /* row header or nil */
            ) goto fail1;
             break;
         default:
@@ -450,6 +482,29 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
 
             ti_decref(val);
         }
+
+        if (with_row && mp_next(&up, &obj) == MP_ARR)
+        {
+            mp_obj_t mp_column;
+            if (ti_type_row_init(type, obj.via.sz))
+                goto fail1;
+
+            for (ii = obj.via.sz; ii--;)
+            {
+                if (mp_next(&up, &mp_column) != MP_STR)
+                    goto fail1;
+
+                if (ti_type_row_add_column_strn(
+                        type,
+                        mp_column.via.str.data,
+                        mp_column.via.str.n,
+                        &e))
+                {
+                    log_critical("%s", e.msg);
+                    goto fail1;
+                }
+            }
+        }
     }
 
     if (with_relations)
@@ -502,6 +557,8 @@ int ti_store_types_restore(ti_types_t * types, imap_t * names, const char * fn)
             }
         }
     }
+
+
 
     rc = 0;
 

@@ -1876,6 +1876,7 @@ int ti_ttask_run(ti_change_t * change, mp_unp_t * up)
     case TI_TASK_DICT_SET:          break;
     case TI_TASK_DICT_DEL:          break;
     case TI_TASK_DICT_CLEAR:        break;
+    case TI_TASK_MOD_TYPE_ROW:      break;
     }
 
     log_critical("unknown thingsdb task: %"PRIu64, mp_task.via.u64);

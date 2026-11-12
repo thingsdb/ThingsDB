@@ -4,7 +4,7 @@
 #ifndef TI_ITEM_T_H_
 #define TI_ITEM_T_H_
 
-typedef struct ti_item_s  ti_item_t;
+typedef struct ti_item_s ti_item_t;
 
 #include <ti/raw.t.h>
 #include <ti/val.t.h>

@@ -4,7 +4,7 @@
 #ifndef TI_CFG_H_
 #define TI_CFG_H_
 
-typedef struct ti_cfg_s  ti_cfg_t;
+typedef struct ti_cfg_s ti_cfg_t;
 
 #include <stdint.h>
 

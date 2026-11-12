@@ -56,7 +56,7 @@ class TestReadOnly(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r"mismatch in type `T`; property `name` is read-only"):
-            await client.query(f"""//ti
+            await client.query("""//ti
                 .t4.name = 'Nissa';
             """)
         with self.assertRaisesRegex(
@@ -97,7 +97,7 @@ class TestReadOnly(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r"mismatch in type `T`; property `name` is read-only"):
-            await client.query(f"""//ti
+            await client.query("""//ti
                 .t1.name = 'Unknown';
             """)
         res = await client.query("""//ti
@@ -108,7 +108,7 @@ class TestReadOnly(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r"mismatch in type `T`; property `key` is read-only"):
-            await client.query(f"""//ti
+            await client.query("""//ti
                 .t1.key = 'xxx';
             """)
         await client.query("""//ti
@@ -126,14 +126,14 @@ class TestReadOnly(TestBase):
                 OperationError,
                 r"failed to create relation; property `a` on "
                 r"type `A` is read-only"):
-            await client.query(f"""//ti
+            await client.query("""//ti
                 mod_type('A', 'rel', 'a', 'a');
             """)
         with self.assertRaisesRegex(
                 OperationError,
                 r"failed to create relation; property `b` on "
                 r"type `A` is read-only"):
-            await client.query(f"""//ti
+            await client.query("""//ti
                 mod_type('B', 'rel', 'a', 'b');
             """)
 
@@ -157,7 +157,7 @@ class TestReadOnly(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r"mismatch in type `T`; property `ver` is read-only"):
-            await client.query(f"""//ti
+            await client.query("""//ti
                 .ver = 3;
             """)
 
@@ -169,7 +169,7 @@ class TestReadOnly(TestBase):
         with self.assertRaisesRegex(
                 OperationError,
                 r"mismatch in type `T`; property `ver` is read-only"):
-            await client.query(f"""//ti
+            await client.query("""//ti
                 .ver = 3;
             """)
 

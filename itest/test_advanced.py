@@ -1635,6 +1635,7 @@ set_type('W', {
 });
 
 
+
 mod_enum('Obj', 'mod', 'A', Person{
   name: 'Iris',
   age: 12,
@@ -2903,9 +2904,9 @@ new_procedure('multiply', |a, b| a * b);
         # bug #407
         with self.assertRaisesRegex(
                 ValueError,
-                r'function `mod_type` expects argument 2 to be `all`, `add`, '
-                r'`del`, `hid`, `mod`, `rel`, `ren` or `wpo` but got `xxx` '
-                r'instead'):
+                r'function `mod_type` expects argument 2 to be `add`, `all`, '
+                r'`del`, `hid`, `idx`, `mod`, `rel`, `ren`, `row` or `wpo` '
+                r'but got `xxx` instead'):
             await client.query("""//ti
                 set_type('T', {x: 'int'});
                 mod_type('T', 'xxx', true);
@@ -2944,6 +2945,7 @@ try(commit('Source: collection `stuff`'));
 set_enum('E', {
   A: {},
 });
+
 
 
 
@@ -3111,7 +3113,7 @@ mod_enum('E', 'mod', 'A', {
                 r"closures with side effects require a change but none is "
                 r"created; use `wse\(...\)` or append `!` to "
                 r"enforce a change;"):
-            await client.query(f"""//ti
+            await client.query("""//ti
                 set_x(123);
             """)
 
@@ -3120,7 +3122,7 @@ mod_enum('E', 'mod', 'A', {
                 r"closures with side effects require a change but none is "
                 r"created; use `wse\(...\)` or append `!` to "
                 r"enforce a change;"):
-            await client.query(f"""//ti
+            await client.query("""//ti
                 .set_x(42);
             """)
 
@@ -3149,7 +3151,7 @@ mod_enum('E', 'mod', 'A', {
                 SyntaxError,
                 r"error at line 1, position 11, unexpected character `!`, "
                 r"expecting: ; or end_of_statement"):
-            await client.query(f"""//ti
+            await client.query("""//ti
                 .set_x(42)!!;
             """)
 

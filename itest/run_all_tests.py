@@ -33,6 +33,7 @@ from test_relations import TestRelations
 from test_restriction import TestRestriction
 from test_room import TestRoom
 from test_room_wss import TestRoomWSS
+from test_row import TestRow
 from test_scopes import TestScopes
 from test_statements import TestStatements
 from test_syntax import TestSyntax
@@ -112,6 +113,7 @@ if __name__ == '__main__':
     run_test(TestRestriction(), hide_version=hide_version())
     run_test(TestRoom(), hide_version=hide_version())
     run_test(TestRoomWSS(), hide_version=hide_version())
+    run_test(TestRow(), hide_version=hide_version())
     run_test(TestScopes(), hide_version=hide_version())
     run_test(TestStatements(), hide_version=hide_version())
     run_test(TestSyntax(), hide_version=hide_version())

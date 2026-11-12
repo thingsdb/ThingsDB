@@ -3,6 +3,7 @@
 #include <ti/enums.h>
 #include <ti/field.h>
 #include <ti/procedure.h>
+#include <ti/row.h>
 #include <ti/thing.h>
 #include <ti/type.h>
 #include <ti/val.h>
@@ -159,8 +160,31 @@ static int dump__relation_cb(ti_type_t * type, msgpack_packer * pk)
     return 0;
 }
 
-static int dump__rel_count_cb(ti_type_t * type, size_t * n)
+
+static int dump__row_cb(ti_type_t * type, msgpack_packer * pk)
 {
+    return type->row ? (
+        msgpack_pack_array(pk, 2) ||
+
+        msgpack_pack_uint8(pk, TI_TASK_MOD_TYPE_ROW) ||
+        msgpack_pack_map(pk, 3) ||
+
+        dump__key(pk, "type_id") ||
+        msgpack_pack_uint16(pk, type->type_id) ||
+
+        dump__key(pk, "modified_at") ||
+        msgpack_pack_uint64(pk, type->modified_at) ||
+
+        dump__key(pk, "row") ||
+        ti_row_to_pk(type->row, pk)
+    ) : 0;
+}
+
+static int dump__type_count_cb(ti_type_t * type, size_t * n)
+{
+    if (type->row)
+        *n += 1;
+
     for (vec_each(type->fields, ti_field_t, field))
     {
         if (ti_field_has_relation(field))
@@ -329,6 +353,11 @@ static int dump__write_relations(ti_types_t * types, msgpack_packer * pk)
     return smap_values(types->smap, (smap_val_cb) dump__relation_cb, pk);
 }
 
+static int dump__write_rows(ti_types_t * types, msgpack_packer * pk)
+{
+    return smap_values(types->smap, (smap_val_cb) dump__row_cb, pk);
+}
+
 static int dump__write_procedures(smap_t * procedures, msgpack_packer * pk)
 {
     return smap_values(procedures, (smap_val_cb) dump__procedure_cb, pk);
@@ -349,7 +378,7 @@ static size_t dump__count_tasks(ti_collection_t * collection)
             n += 1;
 
     n += collection->types->smap->n * 2;
-    smap_values(collection->types->smap, (smap_val_cb) dump__rel_count_cb, &n);
+    smap_values(collection->types->smap, (smap_val_cb) dump__type_count_cb, &n);
     n += collection->procedures->n;
     n += collection->named_rooms->n;
     return n;
@@ -386,6 +415,7 @@ ti_raw_t * ti_dump_collection(ti_collection_t * collection)
         dump__write_enums_data(collection->enums, &pk) ||
         dump__write_tasks_args(collection->vtasks, &pk) ||
         dump__write_relations(collection->types, &pk) ||
+        dump__write_rows(collection->types, &pk) ||
         dump__write_procedures(collection->procedures, &pk) ||
         dump__write_named_rooms(collection->named_rooms, &pk))
     {

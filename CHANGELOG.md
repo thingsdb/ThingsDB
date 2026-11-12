@@ -1,4 +1,4 @@
-# v1.11.2
+# v1.11.2-alpha0
 
 * Expose `libwebsockets` without Git commit for cleaner version, issue #477.
 

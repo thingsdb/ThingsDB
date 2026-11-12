@@ -413,8 +413,6 @@ int ti_read(void)
     return rc;
 }
 
-static ti__version
-
 int ti_unpack(uchar * data, size_t n)
 {
     mp_unp_t up;

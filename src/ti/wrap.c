@@ -596,6 +596,9 @@ static int wrap__as_row(
     register const uint8_t deep_ = vp->query->qbind.deep;
     register const uint8_t flags_ = vp->query->flags;
     register ti_change_t * change_ = vp->query->change;
+    register const ti_map_t * map = ti_thing_is_instance(thing)
+            ? ti_type_map(t_type, thing->via.type)
+            : NULL;
 
     /* Set change to NULL for methods */
     vp->query->change = NULL;
@@ -634,15 +637,9 @@ static int wrap__as_row(
                         : msgpack_pack_nil(&vp->pk))
                     goto fail;
             }
-            else
+            else if (map)
             {
-                ti_mapping_t * mapping;
-                register const ti_map_t * map = ti_type_map(t_type,
-                                                            thing->via.type);
-                if (!map)
-                    goto fail;
-
-                mapping = VEC_get(map->mappings, t_field->idx);
+                ti_mapping_t * mapping = VEC_get(map->mappings, t_field->idx);
                 assert(!mapping || mapping->t_field == t_field);
                 if (mapping
                         ? wrap__field_val(
@@ -654,7 +651,7 @@ static int wrap__as_row(
                             flags | ti_field_ret_flags(t_field))
                         : msgpack_pack_nil(&vp->pk))
                     goto fail;
-            }
+            } else goto fail;
             break;
         }
         case TI_COLUMN_METHOD:

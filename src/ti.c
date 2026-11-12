@@ -413,6 +413,8 @@ int ti_read(void)
     return rc;
 }
 
+static ti__version
+
 int ti_unpack(uchar * data, size_t n)
 {
     mp_unp_t up;
@@ -962,6 +964,7 @@ int ti_this_node_to_pk(msgpack_packer * pk)
     double uptime = util_time_diff(&ti.boottime, &timing);
     const char * platform = osarch_get_os();
     const char * architecture = osarch_get_arch();
+    const char * lws_ver = lws_get_library_version();
 
     return (
         msgpack_pack_map(pk, 42) ||
@@ -1093,7 +1096,7 @@ int ti_this_node_to_pk(msgpack_packer * pk)
         msgpack_pack_uint64(pk, ti.node->next_free_id) ||
         /* 41 */
         mp_pack_str(pk, "libwebsockets_version") ||
-        mp_pack_str(pk, lws_get_library_version()) ||
+        mp_pack_strn(pk, lws_ver, strcspn(lws_ver, "- ")) ||
         /* 42 */
         mp_pack_str(pk, "commit_history") ||
         (ti.commits

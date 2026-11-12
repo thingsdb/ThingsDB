@@ -1,3 +1,7 @@
+# v1.11.2
+
+* Expose `libwebsockets` without Git commit for cleaner version, issue #477.
+
 # v1.11.1
 
 * Upgraded `libwebsockets` from **4.3.99** to **4.5.8**, pr #476.

@@ -1,0 +1,81 @@
+/*
+ * libwebsockets - small server side websockets and web server implementation
+ *
+ * Copyright (C) 2010 - 2026 Andy Green <andy@warmcat.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+
+#ifndef __LWS_TLS_GNUTLS_PRIVATE_H__
+#define __LWS_TLS_GNUTLS_PRIVATE_H__
+
+#include <gnutls/gnutls.h>
+#include <gnutls/x509.h>
+#include <gnutls/abstract.h>
+
+struct lws_tls_gnutls_ctx {
+	gnutls_certificate_credentials_t creds;
+	gnutls_priority_t priority;
+#if GNUTLS_VERSION_NUMBER >= 0x030603
+	gnutls_datum_t ticket_key;
+	uint8_t ticket_key_valid;
+#endif
+	uint8_t has_client_cert;	/* creds contain a client cert pair */
+};
+
+struct lws_x509_cert {
+	gnutls_x509_crt_t cert;
+};
+
+/*
+ * Free a gnutls-allocated datum that held something secret (private key
+ * elements, a session ticket key, a serialized session, a derived secret or
+ * decrypted plaintext): gnutls_free() alone leaves it in freed heap
+ */
+
+static LWS_INLINE void
+lws_gnutls_free_secret(gnutls_datum_t *d)
+{
+	if (d->data) {
+		lws_explicit_bzero(d->data, d->size);
+		gnutls_free(d->data);
+		d->data = NULL;
+	}
+	d->size = 0;
+}
+
+struct lws;
+
+#if defined(LWS_WITH_CLIENT)
+/*
+ * The name we put in SNI and the name we check the peer certificate against
+ * have to be the same thing, and both are derived from the connection's
+ * Host: / stash hostname... this is the single place that decides it
+ */
+int
+lws_gnutls_client_hostname(struct lws *wsi, char *buf, size_t len);
+#endif
+
+/* Connection is just the session pointer itself to match SSL* return of lws_get_ssl */
+typedef SSL lws_tls_conn;
+typedef SSL_CTX lws_tls_ctx;
+typedef BIO lws_tls_bio;
+typedef X509 lws_tls_x509;
+
+#endif

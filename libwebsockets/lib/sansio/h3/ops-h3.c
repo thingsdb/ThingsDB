@@ -1,0 +1,4657 @@
+/*
+ * libwebsockets - small server side websockets and web server implementation
+ *
+ * Copyright (C) 2010 - 2026 Andy Green <andy@warmcat.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+
+#include "private-lib-core.h"
+#include "private-lib-roles-h3.h"
+
+struct lws *
+lws_get_quic_network_wsi(struct lws *wsi);
+
+static int
+rops_write_role_protocol_h3(struct lws *wsi, unsigned char *buf, size_t len,
+			    enum lws_write_protocol *wp);
+#if defined(LWS_WITH_SYS_FAULT_INJECTION)
+static void
+lws_h3_fi_late_insert(struct lws *wsi);
+#endif
+#if defined(LWS_WITH_CLIENT)
+static int
+lws_h3_rx_goaway(struct lws *wsi, uint64_t id);
+#endif
+
+
+#if defined(LWS_WITH_CLIENT)
+#if defined(LWS_ROLE_WT)
+/* a client stream bound to "webtransport" asks for a WebTransport session */
+static int
+lws_h3_client_is_wt(const struct lws *wsi)
+{
+	return wsi->a.protocol && !strcmp(wsi->a.protocol->name, "webtransport");
+}
+#endif
+
+/*
+ * The request's field section is complete in start .. p of the compose buffer,
+ * which ends at end: send it, ending the stream with it unless more follows
+ */
+static int
+lws_h3_client_handshake_send(struct lws *wsi, uint8_t *start, uint8_t *p,
+			     uint8_t *end)
+{
+	int m, n;
+
+#if defined(LWS_WITH_CLIENT) && defined(LWS_WITH_SYS_FAULT_INJECTION)
+	/*
+	 * The h3_req_lost fault loses a request with no body on its way: it
+	 * is taken as sent, and the server never hears of it
+	 */
+	if (!wsi->client_http_body_pending && !wsi->h23_stream_carries_ws &&
+	    lws_fi(&wsi->fic, "h3_req_lost"))
+		return 0;
+
+	/*
+	 * The h3_req_frame_settings fault puts an empty SETTINGS frame on the
+	 * request stream ahead of its HEADERS, where only the control stream
+	 * may have one.  A write that isn't http goes out unframed.
+	 */
+	if (lws_fi(&wsi->fic, "h3_req_frame_settings")) {
+		uint8_t fr[LWS_PRE + 2];
+
+		fr[LWS_PRE] = 0x04; /* SETTINGS */
+		fr[LWS_PRE + 1] = 0x00; /* of no length */
+		if (lws_write(wsi, &fr[LWS_PRE], 2, LWS_WRITE_BINARY) != 2)
+			return -1;
+	}
+#endif
+
+	m = LWS_WRITE_HTTP_HEADERS;
+#if defined(LWS_WITH_CLIENT)
+	/*
+	 * The request ends with its headers unless a body follows, or the
+	 * stream is to carry ws (RFC 9220): then it stays open for the ws
+	 * connection's frames
+	 */
+	if (!(wsi->client_http_body_pending || lws_has_buffered_out(wsi) ||
+	      wsi->h23_stream_carries_ws
+#if defined(LWS_WITH_SYS_FAULT_INJECTION)
+	      || lws_fi(&wsi->fic, "h3_trailer_field") ||
+	      lws_fi(&wsi->fic, "h3_trailer_pseudo")
+#endif
+	     ))
+		m |= LWS_WRITE_H2_STREAM_END;
+#endif
+
+	lwsl_debug("%s: calling lws_write with m=0x%x (body_pending=%d, buffered_out=%d)\n", 
+		__func__, m, wsi->client_http_body_pending, lws_has_buffered_out(wsi));
+
+	n = lws_write(wsi, start, lws_ptr_diff_size_t(p, start), (enum lws_write_protocol)m);
+	if (n != lws_ptr_diff(p, start))
+		return -1;
+
+#if defined(LWS_WITH_CLIENT) && defined(LWS_WITH_SYS_FAULT_INJECTION)
+	/*
+	 * The h3_trailer_* faults end a request with no body with a trailers
+	 * block (RFC 9114 4.1), holding a field the request did not have, or
+	 * a pseudo-header, which trailers may not
+	 */
+	if (!(m & LWS_WRITE_H2_STREAM_END) && !wsi->client_http_body_pending &&
+	    !wsi->h23_stream_carries_ws) {
+		int pseudo = lws_fi(&wsi->fic, "h3_trailer_pseudo");
+
+		p = start;
+		p += 2; /* the QPACK prefix, as above */
+		wsi->http.h3_prefix_ptr = start;
+		if (pseudo ?
+		    lws_add_http_header_by_token(wsi,
+				WSI_TOKEN_HTTP_COLON_PATH,
+				(const unsigned char *)"/trailer", 8, &p, end) :
+		    lws_add_http_header_by_token(wsi,
+				WSI_TOKEN_HTTP_USER_AGENT,
+				(const unsigned char *)"trailer-ua", 10, &p, end))
+			return -1;
+		if (lws_finalize_http_header(wsi, &p, end))
+			return -1;
+
+		n = lws_write(wsi, start, lws_ptr_diff_size_t(p, start),
+			      LWS_WRITE_HTTP_HEADERS | LWS_WRITE_H2_STREAM_END);
+		if (n != lws_ptr_diff(p, start))
+			return -1;
+	}
+#endif
+
+	/* the caller says what follows: a body, or the response */
+
+	return 0;
+}
+
+static int
+lws_h3_client_handshake_composed(struct lws *wsi)
+{
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+	uint8_t *buf, *start, *p, *end;
+	char *meth = lws_hdr_simple_ptr(wsi, _WSI_TOKEN_CLIENT_METHOD),
+	     *uri = lws_hdr_simple_ptr(wsi, _WSI_TOKEN_CLIENT_URI), v6[64];
+	const char *path = "/", *simp;
+	uint32_t ric;
+	int n;
+
+	lwsl_wsi_debug(wsi, "%s", __func__);
+
+	p = start = buf = pt->compose_buf + LWS_PRE;
+	end = start + (wsi->a.context->pt_serv_buf_size / 2) - LWS_PRE - 1;
+
+	if (wsi->do_ws)
+		meth = "CONNECT";
+#if defined(LWS_ROLE_WT)
+	else if (lws_h3_client_is_wt(wsi))
+		meth = "CONNECT";
+#endif
+	/*
+	 * Client mux child streams carry the request line in the generic
+	 * client stash, not in ah header tokens (the same reason :authority
+	 * and :path below fall back to wsi->stash->cis[]).  Source the method
+	 * from there too when the token is absent, otherwise a non-GET request
+	 * (eg, POST) is silently encoded as :method GET and its body is lost.
+	 */
+	else if (!meth && wsi->stash && wsi->stash->cis[CIS_METHOD])
+		meth = wsi->stash->cis[CIS_METHOD];
+	else if (!meth)
+		meth = "GET";
+
+	/* Reserve space for the 2-byte QPACK prefix at the beginning of the header block */
+	p += 2;
+	wsi->http.h3_prefix_ptr = start;
+
+
+	if (lws_add_http3_header_by_token(wsi, WSI_TOKEN_HTTP_COLON_METHOD,
+				(unsigned char *)meth, (int)strlen(meth), &p, end))
+		return -1;
+
+	if (wsi->do_ws) {
+		if (lws_add_http3_header_by_token(wsi, WSI_TOKEN_COLON_PROTOCOL,
+					(unsigned char *)"websocket", 9, &p, end))
+			return -1;
+	}
+#if defined(LWS_ROLE_WT)
+	else if (lws_h3_client_is_wt(wsi)) {
+		if (lws_add_http3_header_by_token(wsi, WSI_TOKEN_COLON_PROTOCOL,
+					(unsigned char *)"webtransport", 12, &p, end))
+			return -1;
+	}
+#endif
+
+	if (lws_add_http3_header_by_token(wsi, WSI_TOKEN_HTTP_COLON_SCHEME,
+				(unsigned char *)"https", 5, &p, end))
+		return -1;
+
+	n = lws_hdr_total_length(wsi, _WSI_TOKEN_CLIENT_HOST);
+	simp = lws_hdr_simple_ptr(wsi, _WSI_TOKEN_CLIENT_HOST);
+	/*
+	 * A mux child carries the request in the stash, not in ah tokens, so
+	 * the authority has to come from there.  Prefer the host the caller
+	 * gave us over the bare address: on a non-default port the host is
+	 * "name:port" and the address is just "name", and servers compose
+	 * absolute URLs of their own from the authority we send -- a
+	 * redirect_uri, an RFC 9207 iss -- so dropping the port makes them name
+	 * somewhere unreachable.
+	 */
+	if (!n && wsi->stash && wsi->stash->cis[CIS_HOST]) {
+		n = (int)strlen(wsi->stash->cis[CIS_HOST]);
+		simp = wsi->stash->cis[CIS_HOST];
+	}
+	if (!n && wsi->stash && wsi->stash->cis[CIS_ADDRESS]) {
+		n = (int)strlen(wsi->stash->cis[CIS_ADDRESS]);
+		simp = wsi->stash->cis[CIS_ADDRESS];
+	}
+	if (n && simp) {
+		simp = lws_http_client_authority(simp, v6, sizeof(v6));
+		n = (int)strlen(simp);
+	}
+	if (n && simp && lws_add_http3_header_by_token(wsi, WSI_TOKEN_HTTP_COLON_AUTHORITY,
+			(unsigned char *)simp, n, &p, end))
+		return -1;
+
+	n = lws_hdr_total_length(wsi, _WSI_TOKEN_CLIENT_URI);
+	if (n)
+		path = uri;
+	else if (wsi->stash && wsi->stash->cis[CIS_PATH]) {
+		path = wsi->stash->cis[CIS_PATH];
+		n = (int)strlen(path);
+	} else
+		n = 1;
+
+	if (n > 1 && path[0] == '/' && path[1] == '/') {
+		path++;
+		n--;
+	}
+
+	if (n && lws_add_http3_header_by_token(wsi, WSI_TOKEN_HTTP_COLON_PATH,
+				(unsigned char *)path, n, &p, end))
+		return -1;
+
+#if defined(LWS_ROLE_WS)
+	if (wsi->do_ws) {
+		/* the subprotocols we ask for, not our origin */
+		const char *prot = lws_hdr_simple_ptr(wsi,
+					_WSI_TOKEN_CLIENT_SENT_PROTOCOLS);
+
+		if (lws_add_http3_header_by_token(wsi, WSI_TOKEN_VERSION,
+					(unsigned char *)"13", 2, &p, end))
+			return -1;
+
+		if (!prot && wsi->stash && wsi->stash->cis[CIS_PROTOCOL])
+			prot = wsi->stash->cis[CIS_PROTOCOL];
+
+		if (prot) {
+			if (lws_add_http3_header_by_token(wsi, WSI_TOKEN_PROTOCOL,
+						(unsigned char *)prot, (int)strlen(prot), &p, end))
+				return -1;
+		}
+
+		wsi->h23_stream_carries_ws = 1;
+	}
+#endif
+
+	if (wsi->flags & LCCSCF_HTTP_MULTIPART_MIME) {
+		uint8_t *p1 = lws_http_multipart_headers(wsi, p, end);
+		if (!p1)
+			return -1;
+		p = p1;
+	}
+
+	/*
+	 * Let the user append additional headers via callback...
+	 *
+	 * p can have been left sitting exactly on end by a header that did not
+	 * fit, in which case subtracting 12 underflows to SIZE_MAX - 11 and
+	 * the callback is told it has ~unbounded room after the buffer
+	 */
+
+	if (lws_ptr_diff(end, p) <= 12) {
+		lwsl_wsi_err(wsi, "no room left for user headers");
+
+		return -1;
+	}
+
+	if (wsi->a.protocol->callback(wsi, LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER,
+				wsi->user_space, &p, lws_ptr_diff_size_t(end, p) - 12))
+		return -1;
+
+	ric = wsi->http.h3_req_ric;
+	n = lws_finalize_http_header(wsi, &p, end);
+	if (n == LWS_H3_QPACK_ENC_HOLD) {
+		/*
+		 * The section refers to inserts the peer may not have, and it
+		 * already has as many streams that might block as it allows:
+		 * the request waits for it to acknowledge more, as it is
+		 */
+		if (lws_buflist_append_segment(&wsi->h3.qpack_held_hdrs, start,
+					lws_ptr_diff_size_t(p, start)) < 0)
+			return -1;
+		wsi->h3.qpack_held_ric = ric;
+		lwsl_wsi_info(wsi, "request held for qpack inserts, ric %u",
+			      (unsigned int)ric);
+#if defined(LWS_WITH_SYS_FAULT_INJECTION)
+		/* a late insert waits for a request that wants it */
+		lws_h3_fi_late_insert(wsi);
+#endif
+
+		return 1;
+	}
+	if (n)
+		return -1;
+
+	return lws_h3_client_handshake_send(wsi, start, p, end);
+}
+
+/* the request's held field section may go once the peer has more inserts */
+static int
+lws_h3_client_handshake_held(struct lws *wsi)
+{
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+	uint8_t *start = pt->compose_buf + LWS_PRE, *held,
+		*end = start + (wsi->a.context->pt_serv_buf_size / 2) -
+				LWS_PRE - 1;
+	size_t len = lws_buflist_next_segment_len(&wsi->h3.qpack_held_hdrs,
+						  &held);
+	int n = lws_h3_qpack_enc_section(wsi, wsi->h3.qpack_held_ric);
+
+	if (n == LWS_H3_QPACK_ENC_HOLD)
+		return 1;
+	/* it was composed in the same buffer */
+	if (n || !len || len > lws_ptr_diff_size_t(end, start))
+		return -1;
+
+	memcpy(start, held, len);
+	lws_buflist_destroy_all_segments(&wsi->h3.qpack_held_hdrs);
+	lwsl_wsi_info(wsi, "held request goes, ric %u",
+		      (unsigned int)wsi->h3.qpack_held_ric);
+
+	return lws_h3_client_handshake_send(wsi, start, start + len, end);
+}
+
+/*
+ * 0 means the request went, 1 that it is held, waiting for the peer to
+ * acknowledge more qpack inserts, and -1 that it failed
+ */
+static int
+lws_h3_client_handshake(struct lws *wsi)
+{
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+	int sb = lws_servbuf_claim(pt, pt->compose_buf + LWS_PRE,
+				   wsi->a.context->pt_serv_buf_size - LWS_PRE,
+				   "lws_h3_client_handshake");
+	int r = wsi->h3.qpack_held_hdrs ? lws_h3_client_handshake_held(wsi) :
+					   lws_h3_client_handshake_composed(wsi);
+
+	lws_servbuf_release(pt, sb);
+
+	return r;
+}
+#endif
+
+/*
+ * What a stream can send now: the quic stream's own flow control, and the
+ * pending tx throttle, as the transport's tx_credit op sees them
+ */
+static int32_t
+lws_h3_usable_tx_cr(struct lws *wsi)
+{
+	if (lws_rops_fidx(wsi->role_ops, LWS_ROPS_tx_credit))
+		return lws_rops_func_fidx(wsi->role_ops, LWS_ROPS_tx_credit).
+					tx_credit(wsi, LWSTXCR_US_TO_PEER, 0);
+
+	return wsi->txc.tx_cr;
+}
+
+/*
+ * Send all one of our qpack streams has queued, as far as credit goes, not a
+ * chunk a turn: a field section referring to an insert can't be decoded until
+ * the whole insert has arrived, nor can the peer use an insert until our
+ * acknowledgement of it has, and a turn is only had once per service pass
+ */
+static int
+lws_h3_qpack_stream_drain(struct lws *wsi, struct lws_buflist **bl)
+{
+	uint8_t tx_buf[LWS_PRE + 512], *p;
+	int32_t cr;
+	size_t len;
+	int n;
+
+	while ((len = lws_buflist_next_segment_len(bl, &p))) {
+		cr = lws_h3_usable_tx_cr(wsi);
+		if (lws_wsi_txc_check_skint(&wsi->txc, cr)) {
+			lws_callback_on_writable(wsi);
+			return 0;
+		}
+
+		if (len > sizeof(tx_buf) - LWS_PRE)
+			len = sizeof(tx_buf) - LWS_PRE;
+		if (len > (size_t)cr)
+			len = (size_t)cr;
+		memcpy(tx_buf + LWS_PRE, p, len);
+
+		n = lws_write(wsi, tx_buf + LWS_PRE, len, LWS_WRITE_BINARY);
+		if (n < 0)
+			return -1;
+		if (!n) {
+			lws_callback_on_writable(wsi);
+			return 0;
+		}
+
+		lws_buflist_use_segment(bl, (size_t)n);
+	}
+
+	return 0;
+}
+
+static struct lws *
+lws_h3_create_unidi_stream(struct lws *nwsi, uint8_t type);
+
+/*
+ * Our QPACK encoder (0x02) or decoder (0x03) stream, opened the first time
+ * there is an instruction for it (RFC 9204 4.2 lets an endpoint not open
+ * one it won't use).  Our encoder never inserts into the peer's table, and
+ * our decoder has nothing to say until the peer inserts into ours, so a
+ * connection usually needs neither, and each is a whole stream wsi.
+ *
+ * Not before the connection's control stream, which must be our first, and
+ * not while it closes.  A new stream asks to be writeable, so it sends
+ * what was queued for it.
+ */
+static struct lws *
+lws_h3_qpack_stream(struct lws_h3_netconn *h3n, uint8_t type)
+{
+	struct lws **pw = type == 0x02 ? &h3n->cwsi_qpack_enc :
+					 &h3n->cwsi_qpack_dec;
+
+	if (*pw)
+		return *pw;
+
+	if (!h3n->cwsi_control || !h3n->nwsi->quic.qn ||
+	    h3n->nwsi->quic.qn->is_closing)
+		return NULL;
+
+	*pw = lws_h3_create_unidi_stream(h3n->nwsi, type);
+	if (!*pw)
+		lwsl_wsi_warn(h3n->nwsi, "unable to open qpack stream 0x%02x",
+			      type);
+	else
+		if (type == 0x02)
+			h3n->qpack_tx_encoder.wsi_qpack_enc = *pw;
+
+	return *pw;
+}
+
+/*
+ * Queue an instruction for our decoder stream (RFC 9204 4.4): a prefixed
+ * integer, the stream ID or the increment, under its pattern bits.  If the
+ * stream can't be opened yet, the instruction waits for it.
+ */
+static int
+lws_h3_qpack_dec_emit(struct lws_h3_netconn *h3n, uint64_t val,
+		      uint8_t prefix_bits, uint8_t pattern)
+{
+	uint8_t b[12];
+	int n = lws_qpack_encode_int(b, sizeof(b), val, prefix_bits, pattern);
+	struct lws *w;
+
+	if (n < 0 ||
+	    lws_buflist_append_segment(&h3n->qpack_dec_tx_bl, b, (size_t)n) < 0)
+		return 1;
+
+	w = lws_h3_qpack_stream(h3n, 0x03);
+	if (w)
+		lws_callback_on_writable(w);
+
+	return 0;
+}
+
+/*
+ * RFC 9204 4.4.3: tell the peer's encoder about the inserts its encoder
+ * stream made that no Section Acknowledgment told it about already, so it
+ * may refer to them without blocking a stream
+ */
+static int
+lws_h3_qpack_dec_ack_inserts(struct lws_h3_netconn *h3n)
+{
+	struct lws_qpack_dynamic_table *t = &h3n->qpack_dec_ctx.dyn_table;
+	uint32_t inc = t->insert_count - t->known_received_count;
+
+	if (!inc)
+		return 0;
+
+	t->known_received_count = t->insert_count;
+
+	return lws_h3_qpack_dec_emit(h3n, inc, 6, 0x00);
+}
+
+/*
+ * RFC 9204 4.4.1: a field section that referred to the dynamic table has been
+ * decoded on the stream.  The peer's encoder knows from it that we have every
+ * insert up to its Required Insert Count.
+ */
+static int
+lws_h3_qpack_dec_ack_section(struct lws *wsi, uint64_t ric)
+{
+	struct lws_h3_netconn *h3n = wsi->h3.h3n;
+
+	if (!h3n || !wsi->quic.qs)
+		return 1;
+
+	if (ric > h3n->qpack_dec_ctx.dyn_table.known_received_count)
+		h3n->qpack_dec_ctx.dyn_table.known_received_count =
+							(uint32_t)ric;
+
+	return lws_h3_qpack_dec_emit(h3n, wsi->quic.qs->stream_id, 7, 0x80);
+}
+
+static int
+rops_perform_user_POLLOUT_h3(struct lws *wsi)
+{
+#if defined(LWS_WITH_HTTP2) && defined(LWS_WITH_SERVER)
+	if (wsi->h2.pending_status_code) {
+		lws_http_status_page_send_pending(wsi);
+		lwsl_wsi_notice(wsi, "closing stream after sending pending status body");
+		return -1;
+	}
+#endif
+
+	lwsl_wsi_info(wsi, "rops_perform_user_POLLOUT_h3: entry, state=%d", lwsi_state(wsi));
+
+	/*
+	 * For QUIC/H3, lws_has_buffered_out() also checks QUIC pending_tx
+	 * for stream frames.  But those are drained by the QUIC POLLOUT
+	 * handler, not by lws_io_tx_push().  Only check buflist_out here —
+	 * blocking on QUIC pending_tx prevents the H3 state machine from
+	 * ever progressing past this point for client streams whose HEADERS
+	 * STREAM frames are still in the QUIC TX queue.
+	 */
+	if (wsi->buflist_out) {
+		lwsl_wsi_debug(wsi, "%s: completing partial", __func__);
+		if (lws_io_tx_push(wsi, NULL, 0) < 0) {
+			lwsl_wsi_info(wsi, "%s signalling to close", __func__);
+			lwsi_set_skt_unusable(wsi, 1);
+			return -1;
+		}
+		if (wsi->buflist_out)
+			return 0;
+	}
+
+#if defined(LWS_WITH_SERVER)
+	/*
+	 * Not once the stream is closing: a completion it was waiting for is
+	 * over with it, and only the close's flush is left (below)
+	 */
+	if (lwsi_state_live(wsi) == LRS_TXN_COMPLETING &&
+	    !lwsi_flushing_to_close(wsi)) {
+		if (!lws_has_buffered_out(wsi)) {
+			if (lws_http_transaction_completed(wsi)) {
+				lwsi_set_skt_unusable(wsi, 1);
+				return -1;
+			}
+		} else if (lws_has_unsent_buffered_out(wsi)) {
+			/*
+			 * only bytes still to send want a writeable: a frame
+			 * merely in flight is the ack's business (which wakes
+			 * us), and udp POLLOUT is always ready, so re-arming
+			 * for it spun a core until the last STREAM frame was
+			 * acked, which a peer can withhold indefinitely
+			 */
+			lws_callback_on_writable(wsi);
+			wsi->mux.requested_POLLOUT = 1;
+		}
+		return 0;
+	}
+#endif
+
+	if (lwsi_flushing_to_close(wsi)) {
+		if (!lws_has_buffered_out(wsi)) {
+			lwsi_set_skt_unusable(wsi, 1);
+			return -1;
+		}
+		if (lws_has_unsent_buffered_out(wsi)) {
+			lws_callback_on_writable(wsi);
+			wsi->mux.requested_POLLOUT = 1;
+		}
+		return 0;
+	}
+
+#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+	if (wsi->http.comp_ctx.buflist_comp ||
+	    wsi->http.comp_ctx.may_have_more) {
+		enum lws_write_protocol wp = LWS_WRITE_HTTP;
+
+		/*
+		 * Nothing can go until the peer gives us credit: wait to be
+		 * woken for it, as the file sender does, not spin here
+		 */
+		if (lws_wsi_txc_check_skint(&wsi->txc,
+					    lws_h3_usable_tx_cr(wsi))) {
+			lws_callback_on_writable(wsi);
+			return 0;
+		}
+
+		lwsl_wsi_info(wsi, "completing comp partial (buflist %p, may %d)",
+			   wsi->http.comp_ctx.buflist_comp,
+			   wsi->http.comp_ctx.may_have_more);
+
+		if (rops_write_role_protocol_h3(wsi, NULL, 0, &wp) < 0) {
+			lwsl_wsi_info(wsi, "signalling to close due to comp write fail");
+			return -1;
+		}
+		lws_callback_on_writable(wsi);
+		return 0;
+	}
+#endif
+
+	if (wsi->h3.h3n && wsi == wsi->h3.h3n->cwsi_qpack_enc)
+		return lws_h3_qpack_stream_drain(wsi,
+				&wsi->h3.h3n->qpack_tx_encoder.tx_bl);
+
+	if (wsi->h3.h3n && wsi == wsi->h3.h3n->cwsi_qpack_dec)
+		return lws_h3_qpack_stream_drain(wsi,
+				&wsi->h3.h3n->qpack_dec_tx_bl);
+
+	if (wsi->h3.h3n && wsi == wsi->h3.h3n->cwsi_control)
+		return 0;
+
+#if defined(LWS_WITH_SERVER)
+#if defined(LWS_WITH_FILE_OPS)
+	if (lwsi_state(wsi) == LRS_ISSUING_FILE) {
+		int n;
+
+		if (lws_wsi_txc_check_skint(&wsi->txc,
+					    lws_h3_usable_tx_cr(wsi))) {
+			/*
+			 * No TX credit — either QUIC peer flow control is
+			 * exhausted, or the pending_tx buffer throttle (64KB cap
+			 * in rops_tx_credit_quic) is full.  Call
+			 * lws_callback_on_writable() which for QUIC will invoke
+			 * lws_wsi_mux_mark_parents_needing_writeable(), propagating
+			 * requested_POLLOUT up the full parent chain to nwsi so the
+			 * post-ACK wakeup loop can find and restart us.
+			 */
+			lws_callback_on_writable(wsi);
+			return 0;
+		}
+
+		n = lws_io_tx_file(wsi);
+		lwsl_wsi_info(wsi, "file tx says %d", n);
+
+		if (n < 0) {
+			lwsl_wsi_notice(wsi, "Closing POLLOUT child");
+			return -1;
+		}
+		if (n > 0) {
+			if (lws_http_transaction_completed(wsi))
+				return -1;
+		}
+		/* a read gone to a worker asks for us when it is back */
+		if (!n && lwsi_state(wsi) == LRS_ISSUING_FILE) {
+			lws_callback_on_writable(wsi);
+			wsi->mux.requested_POLLOUT = 1;
+		}
+
+		return 0;
+	}
+#endif
+#endif
+
+	if (lwsi_state(wsi) == LRS_H2_WAITING_TO_SEND_HEADERS) {
+#if defined(LWS_WITH_CLIENT)
+		struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+		if (nwsi && nwsi->h3.h3n && nwsi->h3.h3n->peer_control && !nwsi->h3.h3n->peer_control->h3.seen_settings) {
+			/* Wait for peer SETTINGS frame */
+			return 0;
+		}
+
+		/*
+		 * Once our encoder inserted anything, the request may refer to
+		 * it: the section's Required Insert Count is then encoded
+		 * against the table capacity, and the streams that may block
+		 * limited to the number, that the peer's whole SETTINGS give
+		 */
+		if (nwsi && nwsi->h3.h3n &&
+		    nwsi->h3.h3n->qpack_tx_encoder.insert_count &&
+		    !nwsi->h3.h3n->peer_settings_done)
+			return 0;
+
+		/*
+		 * Whether the peer takes ws over h3 is in its SETTINGS (RFC
+		 * 9220 3): as for WebTransport below, wait for the whole frame,
+		 * even if its control stream has not opened yet, rather than
+		 * take a SETTINGS not yet seen as a refusal
+		 */
+		if (wsi->do_ws && nwsi && nwsi->h3.h3n &&
+		    !nwsi->h3.h3n->peer_settings_done)
+			return 0;
+
+		if (wsi->do_ws && nwsi && nwsi->h3.h3n && !nwsi->h3.h3n->peer_supports_ws) {
+			if (wsi->cli_hostname_copy && wsi->a.context->alpn_cache && wsi->c_port) {
+				char key[256];
+				void *p;
+				lws_snprintf(key, sizeof(key), "alpn_%s_%u", wsi->cli_hostname_copy, wsi->c_port);
+				/* Overwrite h3 entry with what tcp prefers */
+				lws_cache_write_through(wsi->a.context->alpn_cache, key,
+							(const uint8_t *)LWS_CLIENT_TCP_ALPN_PREFERRED,
+							sizeof(LWS_CLIENT_TCP_ALPN_PREFERRED),
+							lws_wsi_now(wsi) + (lws_usec_t)(3600ULL * 1000000ULL), &p);
+				lwsl_wsi_notice(wsi, "H3 WS not supported by peer, downgrading ALPN cache to %s for %s", LWS_CLIENT_TCP_ALPN_PREFERRED, key);
+			}
+			return -1;
+		}
+#if defined(LWS_ROLE_WT)
+		if (lws_h3_client_is_wt(wsi)) {
+			static const char cce[] =
+					"HS: peer did not enable WebTransport";
+			struct lws_h3_netconn *h3n = nwsi ? nwsi->h3.h3n : NULL;
+
+			/*
+			 * draft-ietf-webtrans-http3: the client must not send
+			 * its WebTransport CONNECT until the server's SETTINGS
+			 * enabled both WebTransport and HTTP Datagrams (RFC
+			 * 9297).  So wait for the whole SETTINGS frame, even
+			 * if the peer's control stream has not opened yet, and
+			 * then insist on both.  There is no WebTransport over
+			 * h2 here, so unlike ws there is nothing to fall back
+			 * to: the attempt fails.
+			 */
+			if (h3n && !h3n->peer_settings_done)
+				return 0;
+
+			if (!h3n || !h3n->peer_supports_webtransport ||
+			    !h3n->peer_supports_h3_datagram) {
+				lwsl_wsi_notice(wsi, "peer SETTINGS: "
+					"ENABLE_WEBTRANSPORT %d, H3_DATAGRAM %d",
+					h3n ? h3n->peer_supports_webtransport : 0,
+					h3n ? h3n->peer_supports_h3_datagram : 0);
+				lws_inform_client_conn_fail(wsi, (void *)cce,
+							    sizeof(cce) - 1);
+				return -1;
+			}
+		}
+#endif
+		int n = lws_h3_client_handshake(wsi);
+
+		if (n < 0) {
+			lwsl_wsi_err(wsi, "lws_h3_client_handshake failed!");
+			return -1;
+		}
+		if (n)
+			/* held: a qpack ack makes it writable again */
+			return 0;
+
+		/*
+		 * If the request carries a body, the client-body mechanism
+		 * (LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER having called
+		 * lws_client_http_body_pending()) made lws_h3_client_handshake()
+		 * emit the HEADERS frame WITHOUT the QUIC FIN, and we still owe
+		 * the peer the body as one or more H3 DATA frames.  Mirror the H1
+		 * client (client-http.c lws_http_client_socket_service): enter an
+		 * explicit LRS_ISSUE_HTTP_BODY phase that keeps driving
+		 * LWS_CALLBACK_CLIENT_HTTP_WRITEABLE until the body (and its FIN)
+		 * have been handed to the transport, and only THEN start
+		 * time-boxing the server reply.  Without this the H3 stream jumped
+		 * straight to waiting for the reply, the writeable callback was
+		 * never delivered, and the request body DATA frame was never
+		 * framed/flushed (the peer saw an empty body).
+		 */
+		if (wsi->client_http_body_pending) {
+			lws_wsi_event(wsi, LWS_WSIEV_REQ_HDRS_SENT_BODY);
+			lws_set_timeout(wsi, PENDING_TIMEOUT_CLIENT_ISSUE_PAYLOAD,
+					(int)wsi->a.context->timeout_secs);
+			if (lws_fi(&wsi->fic, "h3_body_with_headers"))
+				/*
+				 * The body's first write goes now, after the
+				 * HEADERS on the stream, as many clients send
+				 * a small body: the server sees the request,
+				 * its body and maybe the FIN all at once,
+				 * while it has yet to act on the request
+				 */
+				return rops_perform_user_POLLOUT_h3(wsi);
+
+			lws_callback_on_writable(wsi);
+			return 0;
+		}
+
+		/*
+		 * Bodyless request (eg, GET/HEAD): the request headers + FIN have
+		 * been sent.  Bound the wait for the server's response the same
+		 * way the H1 client does, so an H3 stream whose reply is lost to
+		 * packet corruption, a silent/blackholed peer, or a key-phase
+		 * desync fails cleanly here instead of hanging on an otherwise-
+		 * live QUIC connection forever.
+		 *
+		 * If the timeout fires, lws_sul_wsitimeout_cb() delivers the
+		 * informative LWS_CALLBACK_CLIENT_CONNECTION_ERROR "Timed out
+		 * waiting server reply" that H1 clients get.  On the first response
+		 * bytes the timeout is cleared and the state advanced to
+		 * LRS_ESTABLISHED by lws_client_interpret_server_handshake()
+		 * (client-http.c).
+		 */
+		lws_wsi_event(wsi, LWS_WSIEV_REQ_HDRS_SENT);
+		lws_set_timeout(wsi, PENDING_TIMEOUT_AWAITING_SERVER_RESPONSE,
+				(int)wsi->a.context->timeout_secs);
+#endif
+		return 0;
+	}
+
+#if defined(LWS_WITH_SERVER)
+	if (lwsi_state(wsi) == LRS_DEFERRING_ACTION) {
+		int n;
+
+		lws_wsi_event(wsi, LWS_WSIEV_ACTION_DEFERRED_RUN);
+
+		lwsl_debug("H3_TRACE: wsi %p entering lws_http_action from rops_perform_user_POLLOUT_h3\n", wsi);
+		n = lws_http_action(wsi);
+		if (n < 0) {
+			lwsl_debug("H3_TRACE: wsi %p lws_http_action failed, returning %d\n", wsi, n);
+			return -1;
+		}
+		if (n > 0
+#if defined(LWS_WITH_HTTP2)
+		    && !wsi->h2.pending_status_code
+#endif
+		) {
+#if defined(LWS_ROLE_WS)
+			if (lwsi_role_ws(wsi))
+				/*
+				 * A ws stream refused after its upgrade's
+				 * response went, eg, by the app's ESTABLISHED:
+				 * it is a ws connection, and closes as one,
+				 * with a Close frame, as on h1 and h2
+				 */
+				return -1;
+#endif
+			lwsl_wsi_notice(wsi, "closing stream after h3 action completed (%d)", n);
+			/* unless its close is already under way */
+			if (lwsi_close(wsi) == LCS_NONE)
+				lws_wsi_event(wsi, LWS_WSIEV_CLOSE_WHEN_FLUSHED);
+			return 0;
+		}
+		lwsl_debug("H3_TRACE: wsi %p lws_http_action returned 0 (success)\n", wsi);
+
+		/*
+		 * Detach the ah now that headers are processed, to prevent ah
+		 * pool exhaustion.
+		 *
+		 * Not while a request body is still to come, though.  For a
+		 * request with a body lws_http_action() returning 0 means
+		 * "headers dispatched, now read the body", and the handler that
+		 * acts on the request runs later, from the body / body
+		 * completion callbacks -- which still read request headers.
+		 * Detaching here took every request header away from them, so
+		 * on h3 a POST handler saw no Cookie at all: the body arrived
+		 * intact (it is not in the ah) while the headers had gone,
+		 * which is what made a cookie-authenticated POST fail on h3
+		 * alone.  The shared helper holds on until the body completion
+		 * for those, so h2 and h3 streams end the request headers at
+		 * the same point (C-021).
+		 */
+		lws_http_ah_release_after_dispatch(wsi, 0);
+
+		/*
+		 * lws_http_action sets LRS_DOING_TRANSACTION on the wsi BEFORE
+		 * dispatching LWS_CALLBACK_HTTP (server.c:2157,2365).  If the
+		 * user returned 0 to suspend the transaction and wait for async
+		 * work, the wsi is still in LRS_DOING_TRANSACTION here.  In that
+		 * case we must NOT re-arm POLLOUT: doing so schedules an
+		 * immediate writeable that resumes the transaction before the
+		 * async work the user is waiting on has finished (h1 and h2
+		 * honor this -- they simply leave the wsi suspended until the
+		 * user's explicit lws_callback_on_writable).
+		 *
+		 * For the non-suspend case (eg file serving that transitions to
+		 * LRS_ISSUING_FILE and may have queued FIN synchronously without
+		 * sending it yet), preserve the original re-arm so the stream
+		 * gets polled again and flushes.
+		 */
+		if (lwsi_state(wsi) == LRS_DOING_TRANSACTION) {
+			lws_set_timeout(wsi, NO_PENDING_TIMEOUT, 0);
+			return 0;
+		}
+
+		lws_set_timeout(wsi, NO_PENDING_TIMEOUT, 0);
+
+		/* We are returning 0 because the file might be read synchronously and FIN queued,
+		 * but not sent yet. We need to preserve requested_POLLOUT so it gets polled
+		 * again and transitions properly. */
+		lws_callback_on_writable(wsi);
+		wsi->mux.requested_POLLOUT = 1;
+
+		return 0;
+	}
+#endif
+
+#if defined(LWS_WITH_CLIENT)
+	/*
+	 * Once we FIN'd a client request stream nothing more can be sent on
+	 * it, so it has no use for a writeable callback: the stream is only
+	 * re-armed by, eg, MAX_STREAM_DATA now.  A user offered
+	 * LWS_CALLBACK_CLIENT_HTTP_WRITEABLE again after his final body write
+	 * would write it again, and a second FIN at a larger final size is a
+	 * connection-level FINAL_SIZE_ERROR from the peer.  Tested before
+	 * the body branch, as h2 tests HALF_CLOSED_LOCAL: a FINAL write made
+	 * with client_http_body_pending still set must not be offered another.
+	 */
+	if (lwsi_role_client(wsi) && wsi->quic.qs && wsi->quic.qs->sent_fin) {
+		lwsl_wsi_debug(wsi, "no writeable cb after FIN");
+
+		return 0;
+	}
+#endif
+
+#if defined(LWS_WITH_CLIENT)
+	if (lwsi_state(wsi) == LRS_ISSUE_HTTP_BODY) {
+		/*
+		 * Client request-body upload.  The user writes the body from
+		 * LWS_CALLBACK_CLIENT_HTTP_WRITEABLE using LWS_WRITE_HTTP /
+		 * LWS_WRITE_HTTP_FINAL; rops_write_role_protocol_h3() frames each
+		 * write as an H3 DATA frame and, on the FINAL write, sets
+		 * H2_STREAM_END so rops_write_role_protocol_quic() FINs the
+		 * stream.  As in the H1 client the user re-arms POLLOUT while it
+		 * still has body to send (or the QUIC stream flow-control window
+		 * re-arms it on MAX_STREAM_DATA); once it clears
+		 * client_http_body_pending the whole body has been handed to the
+		 * transport, so switch to bounding the wait for the reply.
+		 */
+		int m = lws_callback_as_writeable(wsi);
+		if (m)
+			return m;
+
+		if (!wsi->client_http_body_pending) {
+			lws_wsi_event(wsi, LWS_WSIEV_REQ_BODY_SENT);
+			lws_set_timeout(wsi,
+					PENDING_TIMEOUT_AWAITING_SERVER_RESPONSE,
+					(int)wsi->a.context->timeout_secs);
+		}
+
+		return 0;
+	}
+#endif
+
+
+	if (lwsi_state(wsi) == LRS_ESTABLISHED) {
+		int m = lws_callback_as_writeable(wsi);
+		lwsl_wsi_info(wsi, "rops_perform_user_POLLOUT_h3: LRS_ESTABLISHED lws_callback_as_writeable returned %d", m);
+		return m;
+	}
+
+	switch (lwsi_state(wsi)) {
+	case LRS_DOING_TRANSACTION:
+	case LRS_BODY:
+	case LRS_DISCARD_BODY:
+		/*
+		 * The user has been given the request and may respond to it
+		 * from any of these: this is the writeable it asked for
+		 */
+		return lws_callback_as_writeable(wsi);
+
+#if defined(LWS_WITH_SERVER)
+	case LRS_AWAITING_FILE_READ:
+		/*
+		 * A worker has the file read; when it is back the stream is
+		 * put in ISSUING_FILE and asked to write, so nothing to do
+		 * with a writeable that arrives while we wait
+		 */
+		return 0;
+
+	case LRS_HEADERS:
+		/*
+		 * A server wsi still in LRS_HEADERS has no request the user has
+		 * been told about, so nothing the user could write to.  The h3
+		 * connection wsi sits there for the life of the connection, and
+		 * the control and qpack streams' writes mark it as wanting
+		 * POLLOUT; that is the normal way here.
+		 */
+		if (lwsi_role_server(wsi))
+			return 0;
+		break;
+#endif
+#if defined(LWS_WITH_CLIENT)
+	case LRS_WAITING_SERVER_REPLY:
+		/*
+		 * A client stream whose request went without ending the
+		 * stream, a ws ask (RFC 9220) waiting for its answer: there is
+		 * nothing it can write until that has come
+		 */
+		if (lwsi_role_client(wsi))
+			return 0;
+		break;
+#endif
+	default:
+		break;
+	}
+
+	/*
+	 * Every state that can want a writeable is named above.  Anything
+	 * else is a stream being serviced for POLLOUT with nothing to write
+	 * and nobody to tell: an lws bug, not a user callback.  Handing the
+	 * user HTTP_WRITEABLE on a request it was never given dereferences
+	 * per-session data that was never allocated.
+	 */
+	lwsl_wsi_err(wsi, "%s: user writeable in state 0x%x, no state asks "
+			  "for one", __func__, lwsi_state(wsi));
+	assert(0);
+
+	return 0;
+}
+
+static int
+lws_h3_parse_path(struct lws *wsi, const char *value, size_t value_len)
+{
+	struct allocated_headers *ah = wsi->stream.ah;
+	struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+	size_t i;
+
+	if (!ah)
+		return -1;
+
+	/* Start fragment for WSI_TOKEN_HTTP_COLON_PATH, if there's a slot */
+	if (ah->nfrag + 1 >= (int)LWS_ARRAY_SIZE(ah->frags)) {
+		lwsl_wsi_err(wsi, "frag index too big");
+		return -1;
+	}
+	ah->nfrag++;
+
+	ah->frags[ah->nfrag].offset = ah->pos;
+	ah->frags[ah->nfrag].len = 0;
+	ah->frags[ah->nfrag].nfrag = 0;
+	ah->frags[ah->nfrag].flags = 2; /* we had reason to set it */
+
+	ah->hdr_token_idx = WSI_TOKEN_HTTP_COLON_PATH;
+	ah->frag_index[WSI_TOKEN_HTTP_COLON_PATH] = ah->nfrag;
+
+	ah->ues = URIES_IDLE;
+	ah->ups = URIPS_IDLE;
+	ah->post_literal_equal = 0;
+
+	for (i = 0; i < value_len; i++) {
+		uint8_t c = (uint8_t)value[i];
+
+		switch (lws_parse_urldecode(wsi, &c)) {
+		case LPUR_CONTINUE:
+			break;
+		case LPUR_SWALLOW:
+			continue;
+		case LPUR_EXCESSIVE:
+		case LPUR_FORBID:
+			lwsl_wsi_notice(wsi, "Evil or excessive URI in H3 path");
+			lws_quic_enter_closing_state(nwsi, LWS_H3_MESSAGE_ERROR, 0, 1);
+			return -1;
+		default:
+			return -1;
+		}
+
+		/* Append character */
+		if ((int)ah->pos >= (int)wsi->a.context->max_http_header_data - 1) {
+			lwsl_wsi_err(wsi, "Header data overflow");
+			return -1;
+		}
+		ah->data[ah->pos++] = (char)c;
+		ah->frags[ah->nfrag].len++;
+	}
+
+	/* a :path may not end partway through a %XX, as on h1 */
+	if (ah->ues != URIES_IDLE) {
+		lwsl_wsi_notice(wsi, "Unterminated escape in H3 path");
+		lws_quic_enter_closing_state(nwsi, LWS_H3_MESSAGE_ERROR, 0, 1);
+		return -1;
+	}
+
+	if (ah->ups == URIPS_SEEN_SLASH_DOT_DOT) {
+		if (ah->frags[ah->nfrag].len > 2) {
+			ah->pos--;
+			ah->frags[ah->nfrag].len--;
+			do {
+				ah->pos--;
+				ah->frags[ah->nfrag].len--;
+			} while (ah->frags[ah->nfrag].len > 1 &&
+				 ah->data[ah->pos] != '/');
+		}
+	}
+
+	{
+		int k;
+		char *p = &ah->data[ah->frags[ah->nfrag].offset];
+		int plen = ah->frags[ah->nfrag].len;
+		/* RFC 9114 4.2 / RFC 9113 8.2.1: CR, LF and NUL are malformed */
+		for (k = 0; k < plen; k++) {
+			if (p[k] == '\r' || p[k] == '\n' || !p[k]) {
+				lws_quic_enter_closing_state(nwsi, LWS_H3_MESSAGE_ERROR, 0, 1);
+				return -1;
+			}
+		}
+	}
+
+	/* Seal fragment */
+	if ((int)ah->pos >= (int)wsi->a.context->max_http_header_data - 1) {
+		lwsl_wsi_err(wsi, "Header data overflow");
+		return -1;
+	}
+	ah->data[ah->pos++] = '\0';
+
+	return 0;
+}
+
+/*
+ * The most field section, as RFC 9114 4.2.2 sizes it, we take on this vhost.
+ * It is the same limit as h2's SETTINGS_MAX_HEADER_LIST_SIZE, which is sized
+ * the same way, so one setting covers both.  A build without h2 never
+ * initialises the vhost's h2 settings, so has the stock value.
+ */
+static uint32_t
+lws_h3_max_field_section(const struct lws_vhost *vh)
+{
+	return vh->h2.set.s[H2SET_MAX_HEADER_LIST_SIZE] ?
+		vh->h2.set.s[H2SET_MAX_HEADER_LIST_SIZE] :
+		LWS_H3_DEF_MAX_FIELD_SECTION;
+}
+
+/*
+ * Is there room in the ah for another field of need bytes (a fragment, the
+ * bytes and a NUL)?  Checked before anything is stored, so a field is kept
+ * whole or not at all.
+ */
+static int
+lws_h3_hdr_room(struct lws *wsi, size_t need)
+{
+	struct allocated_headers *ah = wsi->stream.ah;
+
+	return ah->nfrag + 1 < (int)LWS_ARRAY_SIZE(ah->frags) &&
+	       (size_t)ah->pos + need + 2 <
+			(size_t)wsi->a.context->max_http_header_data;
+}
+
+/*
+ * The request's header block does not fit: keep none of it, and once the
+ * block is done, answer 431 rather than act on part of it.  qpack keeps its
+ * own dynamic table, so there is nothing else to keep in step.  There is no
+ * one to answer for trailers, whose request is already under way: those
+ * still fail it.
+ */
+static int
+lws_h3_hdrs_oversize(struct lws *wsi)
+{
+	/* a client has nobody to answer, it fails the response */
+	if (!lwsi_role_server(wsi) || !lwsi_hdrs_pending(wsi))
+		return -1;
+
+	if (!wsi->h3.hdrs_oversized) {
+		lwsl_wsi_info(wsi, "header block oversized, will answer 431");
+		_lws_header_table_reset(wsi->stream.ah);
+		wsi->h3.hdrs_oversized = 1;
+	}
+
+	return 0;
+}
+
+static int
+lws_h3_qpack_header_cb(void *user, int name_idx, const char *name, size_t name_len, const char *value, size_t value_len)
+{
+	struct lws *wsi = (struct lws *)user;
+	int tok = name_idx;
+	struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+	int is_pseudo = 0;
+	size_t k;
+
+	/*
+	 * No real request or response has anywhere near this many fields,
+	 * and each one costs us more than the byte or two it can take on
+	 * the wire
+	 */
+	if (++wsi->h3.rx_field_count > LWS_H3_MAX_FIELD_LINES) {
+		lwsl_wsi_notice(wsi, "more than %d field lines",
+				LWS_H3_MAX_FIELD_LINES);
+		lws_quic_enter_closing_state(nwsi, LWS_H3_EXCESSIVE_LOAD, 0, 1);
+		return -1;
+	}
+
+	/*
+	 * The head's fields go in an ah, attached for its first one.  Not a
+	 * trailers block's, which is validated below but not kept: one
+	 * attached for it put an ah back on a stream past its dispatch, which
+	 * gave its own back
+	 */
+	if (lwsi_hdrs_pending(wsi) && !wsi->stream.ah) {
+		lws_ah_attach_result_t ar;
+
+		/*
+		 * A request the peer has more to send for, eg, a POST's
+		 * body, holds its ah until it does: only so many of those
+		 * per connection (G-028).  Refused like one finding the pool
+		 * full, below.
+		 */
+		if (lwsi_role_server(wsi) &&
+		    !(wsi->quic.qs && wsi->quic.qs->fin_received) &&
+		    lws_mux_ah_cap_reached(wsi)) {
+			wsi->h3.ah_refused = 1;
+
+			return -1;
+		}
+
+#if defined(LWS_WITH_CLIENT) && defined(LWS_WITH_SYS_FAULT_INJECTION)
+		/* the h3_rx_no_ah fault finds no ah for a response's headers */
+		if (lwsi_role_client(wsi) && lws_fi(&wsi->fic, "h3_rx_no_ah"))
+			ar = LWS_AH_ATTACH_WAITING;
+		else
+#endif
+			ar = lws_header_table_attach(wsi, 0);
+
+		if (ar == LWS_AH_ATTACH_WSI_GONE)
+			/*
+			 * Can't happen for an h3 stream (no autoservice, not
+			 * an unconnected client), and this qpack callback has
+			 * no way to say "your wsi is gone" to the decoder
+			 * loop.  -1 at least stops the header block here,
+			 * and we do not touch wsi again.
+			 */
+			return -1;
+
+		if (ar == LWS_AH_ATTACH_WAITING && lwsi_role_server(wsi)) {
+			/*
+			 * No ah for it now (the pool is in use, or peer
+			 * limits): that is this request's problem, not the
+			 * connection's.  It isn't waiting for one either, it
+			 * is refused with H3_REQUEST_REJECTED, which tells the
+			 * peer it is safe to retry (RFC 9114 4.1.1).  qpack's
+			 * decoder state is only changed by the encoder stream,
+			 * so stopping the block here costs it nothing (G-028).
+			 */
+			lwsl_wsi_notice(wsi, "no ah for request, refusing it");
+			lws_header_table_detach(wsi, 0);
+			wsi->h3.ah_refused = 1;
+
+			return -1;
+		}
+
+#if defined(LWS_WITH_CLIENT)
+		if (ar != LWS_AH_ATTACH_OK && lwsi_role_client(wsi)) {
+			/*
+			 * No ah for a response's headers, because the heap
+			 * couldn't make one or the pool is in use: only this
+			 * stream fails, with H3_REQUEST_CANCELLED, and its
+			 * client sees it closed with no response, which it
+			 * may try again, as Secure Streams does.
+			 * The connection and its other streams go on, as for a
+			 * server refusing a request above.  Nor does it wait
+			 * for one: the response is arriving now.
+			 */
+			lwsl_wsi_warn(wsi, "no ah for response, cancelling it");
+			lws_header_table_detach(wsi, 0);
+			wsi->h3.ah_refused = 1;
+
+			return -1;
+		}
+#endif
+
+		if (ar != LWS_AH_ATTACH_OK) {
+			lwsl_wsi_err(wsi, "Failed to attach ah");
+			return -1;
+		}
+	}
+
+	/* a field qpack could not keep for us, name and value */
+	if (name_idx == LWS_QPACK_FIELD_TOO_LARGE)
+		return lws_h3_hdrs_oversize(wsi);
+
+	/*
+	 * RFC 9114 4.2.2: the section is sized by its decoded names and values
+	 * plus 32 for each field line, however few bytes they took on the
+	 * wire, eg as references to one big dynamic table entry.  Past the
+	 * size we advertised, the request is refused with 431 like one that
+	 * does not fit its ah, and anything else fails.
+	 */
+	if (name)
+		k = name_len;
+	else {
+		const char *ts = (const char *)lws_token_to_string(
+					(enum lws_token_indexes)tok);
+
+		/* regular header tokens are kept as "name:" */
+		k = ts ? strlen(ts) : 0;
+		if (k && ts[k - 1] == ':')
+			k--;
+	}
+	wsi->h3.rx_section_size += (uint32_t)(k + value_len + 32);
+	if (wsi->h3.rx_section_size > lws_h3_max_field_section(nwsi->a.vhost)) {
+		if (!wsi->h3.hdrs_oversized)
+			lwsl_wsi_notice(wsi, "field section over %u",
+				(unsigned int)lws_h3_max_field_section(
+							nwsi->a.vhost));
+		if (lws_h3_hdrs_oversize(wsi))
+			return -1;
+	}
+
+	/*
+	 * RFC 9114 4.2 (via RFC 9113 8.2.1): CR, LF and NUL are malformed in
+	 * any field value, whichever way it goes on to be stored, as hpack
+	 * refuses them for h2.  lws_hdr_simple_create() copies what it is
+	 * given, :path is checked again after its urldecode, and a field
+	 * that does not fit or comes after one that did not is still a
+	 * malformed message.
+	 *
+	 * The decoder only gives no value with LWS_QPACK_FIELD_TOO_LARGE,
+	 * dealt with above, and everything below uses it.
+	 */
+	if (!value)
+		return -1;
+
+	for (k = 0; k < value_len; k++)
+		if (value[k] == '\r' || value[k] == '\n' || !value[k]) {
+			lwsl_wsi_notice(wsi, "CR, LF or NUL in field value");
+			lws_quic_enter_closing_state(nwsi,
+					LWS_H3_MESSAGE_ERROR, 0, 1);
+			return -1;
+		}
+
+	if (name) {
+		for (k = 0; k < name_len; k++)
+			if (!lws_http_field_name_char_valid(
+					(unsigned char)name[k], !k)) {
+				lwsl_wsi_notice(wsi, "invalid field name");
+				lws_quic_enter_closing_state(nwsi,
+						LWS_H3_MESSAGE_ERROR, 0, 1);
+				return -1;
+			}
+
+		/*
+		 * A name qpack took from its static table, directly or as the
+		 * name of a dynamic entry inserted with a reference to it,
+		 * comes with that row's token.  Only a name the peer spelled
+		 * out, or one lws has no token for, needs matching.
+		 *
+		 * Once the block is known not to fit, a regular field is
+		 * only validated, not kept, so its name need not be matched
+		 * either.  A pseudo-header's still is, for the order and
+		 * repeat checks below.
+		 */
+		if ((name_idx < 0 || name_idx >= WSI_TOKEN_COUNT) &&
+		    (!wsi->h3.hdrs_oversized || (name_len && name[0] == ':'))) {
+			tok = lws_http_string_to_known_header(name, name_len);
+			/*
+			 * That lookup is a prefix match over the lextable
+			 * strings, which also hold the method + URI tokens
+			 * ("get " etc).  A literal QPACK name like "get" would
+			 * map to WSI_TOKEN_GET_URI and its value would be
+			 * stored verbatim, bypassing the :path decode and
+			 * normalization.  Only accept an exact field-name
+			 * match: pseudo headers are stored as ":name", regular
+			 * headers as "name:".
+			 */
+			if (tok >= 0 && tok < WSI_TOKEN_COUNT) {
+				const char *ts = (const char *)
+					lws_token_to_string(
+						(enum lws_token_indexes)tok);
+				size_t tl = ts ? strlen(ts) : 0;
+
+				if (!ts || strncmp(ts, name, name_len) ||
+				    !(tl == name_len ||
+				      (tl == name_len + 1 &&
+				       ts[name_len] == ':'))) {
+					lwsl_wsi_notice(wsi, "refusing field "
+							"name %.*s",
+							(int)name_len, name);
+					return -1;
+				}
+
+				/*
+				 * Spelled exactly as a token that is no field
+				 * name, eg "put" or "uri-args": a header we
+				 * don't know, not that token
+				 */
+				if (!lws_http_token_is_field_name(tok))
+					tok = -1;
+			}
+		}
+		if (name_len > 0 && name[0] == ':')
+			is_pseudo = 1;
+#if (_LWS_ENABLED_LOGS & LLL_DEBUG)
+		{
+			char lv[128];
+
+			/* keep the diagnostic, lose any credential */
+			lwsl_wsi_debug(wsi, "QPACK decoded header: name=%.*s, "
+				       "value=%s", (int)name_len, name,
+				       lws_http_hdr_log_value(wsi, lv, sizeof(lv),
+						tok, NULL, 0, value,
+						value_len));
+		}
+#endif
+	} else {
+#if (_LWS_ENABLED_LOGS & LLL_DEBUG)
+		{
+			char lv[128];
+
+			/* keep the diagnostic, lose any credential */
+			lwsl_wsi_debug(wsi, "QPACK decoded header: tok=%d (%s), "
+				       "value=%s", tok, (const char *)
+				       lws_token_to_string(
+						(enum lws_token_indexes)tok),
+				       lws_http_hdr_log_value(wsi, lv, sizeof(lv),
+						tok, NULL, 0, value,
+						value_len));
+		}
+#endif
+		if (tok == WSI_TOKEN_HTTP_COLON_AUTHORITY ||
+		    tok == WSI_TOKEN_HTTP_COLON_METHOD ||
+		    tok == WSI_TOKEN_HTTP_COLON_PATH ||
+		    tok == WSI_TOKEN_HTTP_COLON_SCHEME ||
+		    tok == WSI_TOKEN_HTTP_COLON_STATUS ||
+		    tok == WSI_TOKEN_COLON_PROTOCOL) {
+			is_pseudo = 1;
+		}
+	}
+
+	/*
+	 * A block after the head was acted on is trailers (RFC 9114 4.1).  They
+	 * may carry no pseudo-header (4.1.1), nor connection-specific or
+	 * framing fields (4.2, RFC 9110 6.5.1).  The rest are validated but
+	 * not kept, as on h2: decoded into the live ah, they added to, or with
+	 * an empty value took away, the head's fields that code dispatched on
+	 * still reads.
+	 */
+	if (!lwsi_hdrs_pending(wsi)) {
+		if (is_pseudo || tok == WSI_TOKEN_CONNECTION ||
+		    tok == WSI_TOKEN_HTTP_TRANSFER_ENCODING ||
+		    tok == WSI_TOKEN_TE) {
+			lwsl_wsi_notice(wsi, "trailers can't carry field "
+					"(tok %d)", tok);
+			lws_quic_enter_closing_state(nwsi, LWS_H3_MESSAGE_ERROR,
+						     0, 1);
+			return -1;
+		}
+
+		return 0;
+	}
+
+	if (is_pseudo) {
+		/* HTTP/3 4.1.1: MUST send H3_MESSAGE_ERROR if pseudo-header fields exist after regular fields */
+		if (wsi->h3.seen_regular_header) {
+			lws_quic_enter_closing_state(nwsi, LWS_H3_MESSAGE_ERROR, 0, 1);
+			return -1;
+		}
+
+		/* HTTP/3 4.1.1: MUST send H3_MESSAGE_ERROR if a pseudo-header is duplicated */
+		if (tok == WSI_TOKEN_HTTP_COLON_METHOD) {
+			if (wsi->h3.seen_pseudo_method) goto duplicate;
+			wsi->h3.seen_pseudo_method = 1;
+		} else if (tok == WSI_TOKEN_HTTP_COLON_SCHEME) {
+			if (wsi->h3.seen_pseudo_scheme) goto duplicate;
+			wsi->h3.seen_pseudo_scheme = 1;
+		} else if (tok == WSI_TOKEN_HTTP_COLON_AUTHORITY) {
+			if (wsi->h3.seen_pseudo_authority) goto duplicate;
+			wsi->h3.seen_pseudo_authority = 1;
+		} else if (tok == WSI_TOKEN_HTTP_COLON_PATH) {
+			if (wsi->h3.seen_pseudo_path) goto duplicate;
+			wsi->h3.seen_pseudo_path = 1;
+		} else if (tok == WSI_TOKEN_HTTP_COLON_STATUS) {
+			if (wsi->h3.seen_pseudo_status) goto duplicate;
+			wsi->h3.seen_pseudo_status = 1;
+		} else if (tok == WSI_TOKEN_COLON_PROTOCOL) {
+			if (wsi->h3.seen_pseudo_protocol) goto duplicate;
+			wsi->h3.seen_pseudo_protocol = 1;
+		} else {
+			/* Prohibited pseudo-header */
+			lws_quic_enter_closing_state(nwsi, LWS_H3_MESSAGE_ERROR, 0, 1);
+			return -1;
+		}
+	} else {
+		wsi->h3.seen_regular_header = 1;
+	}
+
+	/* the rest of a block that did not fit: validated, but not kept */
+	if (wsi->h3.hdrs_oversized)
+		return 0;
+
+	if (tok >= 0 && tok < WSI_TOKEN_COUNT) {
+		/* Known token */
+		if (!lws_h3_hdr_room(wsi, value_len))
+			return lws_h3_hdrs_oversize(wsi);
+		if (tok == WSI_TOKEN_HTTP_COLON_STATUS) {
+			wsi->stream.ah->http_response = (uint32_t)atoi(value);
+		}
+		if (tok == WSI_TOKEN_HTTP_COLON_PATH) {
+			if (lws_h3_parse_path(wsi, value, value_len))
+				return -1;
+		} else {
+			if (lws_hdr_simple_create(wsi, (enum lws_token_indexes)tok, value))
+				return -1;
+		}
+	} else {
+#if defined(LWS_WITH_CUSTOM_HEADERS)
+		struct allocated_headers *ah = wsi->stream.ah;
+		if (ah && name && name_len > 0) {
+			uint32_t unk_pos = ah->pos;
+
+			/* all of it or none of it */
+			if (ah->pos + 8 + name_len + 1 + value_len >=
+				(unsigned int)wsi->a.context->max_http_header_data)
+				return lws_h3_hdrs_oversize(wsi);
+
+			/*
+			 * Store the name with a trailing ':' to match the
+			 * h1 / hpack storage format that the
+			 * lws_hdr_custom_*() accessors expect
+			 */
+
+			lws_ser_wu16be((uint8_t *)&ah->data[unk_pos + 0], (uint16_t)(name_len + 1));
+			lws_ser_wu16be((uint8_t *)&ah->data[unk_pos + 2], (uint16_t)value_len);
+			lws_ser_wu32be((uint8_t *)&ah->data[unk_pos + 4], 0);
+
+			memcpy(&ah->data[unk_pos + 8], name, name_len);
+			ah->data[unk_pos + 8 + name_len] = ':';
+			memcpy(&ah->data[unk_pos + 8 + name_len + 1], value, value_len);
+
+			if (!ah->unk_ll_head)
+				ah->unk_ll_head = unk_pos;
+			if (ah->unk_ll_tail)
+				lws_ser_wu32be((uint8_t *)&ah->data[ah->unk_ll_tail + 4], unk_pos);
+			ah->unk_ll_tail = unk_pos;
+
+			ah->pos += (ah_data_idx_t)(8 + name_len + 1 + value_len);
+			// lwsl_wsi_notice(wsi, "Added H3 custom header: %.*s = %.*s", (int)name_len, name, (int)value_len, value);
+		} else
+#endif
+		lwsl_wsi_debug(wsi, "Ignoring unknown header: %s", name ? name : "unknown");
+	}
+
+	return 0;
+
+duplicate:
+	lws_quic_enter_closing_state(nwsi, LWS_H3_MESSAGE_ERROR, 0, 1);
+	return -1;
+}
+
+static int
+lws_h3_parse_varint_accum(struct lws *wsi, const uint8_t **pbuf, size_t *plen, uint64_t *val)
+{
+	const uint8_t *buf = *pbuf;
+	size_t len = *plen;
+	size_t needed = 0;
+
+	if (wsi->h3.rx_varint_len == 0) {
+		if (len == 0) return 0;
+		uint8_t type = buf[0] >> 6;
+		if (type == 0) needed = 1;
+		else if (type == 1) needed = 2;
+		else if (type == 2) needed = 4;
+		else needed = 8;
+
+		if (len >= needed) {
+			size_t consumed = lws_quic_parse_varint(buf, len, val);
+			*pbuf += consumed;
+			*plen -= consumed;
+			return 1;
+		}
+	} else {
+		uint8_t type = wsi->h3.rx_varint_buf[0] >> 6;
+		if (type == 0) needed = 1;
+		else if (type == 1) needed = 2;
+		else if (type == 2) needed = 4;
+		else needed = 8;
+	}
+
+	size_t to_copy = needed - wsi->h3.rx_varint_len;
+	if (to_copy > len) to_copy = len;
+
+	memcpy(&wsi->h3.rx_varint_buf[wsi->h3.rx_varint_len], buf, to_copy);
+	wsi->h3.rx_varint_len += (uint8_t)to_copy;
+	*pbuf += to_copy;
+	*plen -= to_copy;
+
+	if (wsi->h3.rx_varint_len == needed) {
+		lws_quic_parse_varint(wsi->h3.rx_varint_buf, needed, val);
+		wsi->h3.rx_varint_len = 0;
+		return 1;
+	}
+
+	return 0;
+}
+
+
+#if defined(LWS_WITH_CLIENT)
+static int
+rops_client_bind_h3(struct lws *wsi, const struct lws_client_connect_info *i)
+{
+	(void)wsi;
+	(void)i;
+	/* 
+	 * If alpn was specified as h3, we want to start as quic, 
+	 * and when ALPN confirms h3, the streams transition to h3.
+	 */
+	return 0;
+}
+#endif
+
+static int
+rops_adoption_bind_h3(struct lws *wsi, int type, const char *vh_prot_name)
+{
+	/* 
+	 * If we are adopting a QUIC stream that negotiated h3, 
+	 * we transition it to h3 role here.
+	 */
+	return 0;
+}
+
+static struct lws *
+lws_h3_create_unidi_stream(struct lws *nwsi, uint8_t type)
+{
+	struct lws_quic_netconn *qn = nwsi->quic.qn;
+	struct lws *cwsi;
+
+	cwsi = lws_create_new_server_wsi(nwsi->a.vhost, nwsi->tsi, 0, "h3_unidi");
+	if (!cwsi)
+		return NULL;
+
+	/*
+	 * These are our own unidirectional streams, so they belong to
+	 * whichever side we are: a server's control streams are not client
+	 * streams, and must not pick the client-side callbacks
+	 */
+	lws_wsi_event_x(cwsi, LWS_WSIEV_CONTROL_STREAM_OPENED, NULL, nwsi);
+	cwsi->mux_substream = 1;
+	/* our control or qpack stream: nothing the user asked for */
+	cwsi->internal = 1;
+#if defined(LWS_WITH_CLIENT)
+	if (!lwsi_role_server(nwsi))
+		cwsi->client_mux_substream = 1;
+#endif
+
+	cwsi->quic.qs = lws_zalloc(sizeof(*cwsi->quic.qs), "quic stream");
+	if (!cwsi->quic.qs) {
+		lws_close_free_wsi(cwsi, LWS_CLOSE_STATUS_NOSTATUS, "oom");
+		return NULL;
+	}
+
+	cwsi->quic.qs->stream_id = qn->next_stream_id_unidi_local;
+	/*
+	 * Unidirectional by construction (bit 1 of the id): the idle checks
+	 * tell request streams from these by this flag, and without it our
+	 * own control and qpack streams counted as requests in flight, so a
+	 * connection carrying only them never looked idle
+	 */
+	cwsi->quic.qs->is_unidirectional = 1;
+	cwsi->quic.qs->is_server_initiated = qn->is_server ? 1u : 0u;
+	lws_quic_stream_flow_init(cwsi, nwsi);
+
+	/* We're doing client unidi streams */
+	lws_wsi_mux_insert(cwsi, nwsi, (unsigned int)qn->next_stream_id_unidi_local);
+	qn->next_stream_id_unidi_local += 4;
+
+	cwsi->h3.h3n = nwsi->h3.h3n;
+
+	{
+		uint8_t pre[LWS_PRE + 32];
+		size_t send_len = 1;
+		pre[LWS_PRE] = type;
+		if (type == 0x00) {
+			/*
+			 * HTTP/3 Control Stream MUST send a SETTINGS frame
+			 * (Type 0x04) immediately.
+			 *
+			 * The SETTINGS_QPACK_MAX_TABLE_CAPACITY value is a 2-byte
+			 * HTTP/3 varint (RFC 9114 s16: 01 = 2-byte form), so eg
+			 * 0x50 0x00 = 4096 and 0x60 0x00 = 8192: the second byte
+			 * is part of the value, not a stray entry.  It must stay
+			 * in sync with LWS_QPACK_CAP_VAL, which is the cap the
+			 * decoder actually enforces on the peer's Set Dynamic
+			 * Table Capacity instruction.
+			 */
+
+			pre[LWS_PRE + 1] = 0x04; /* SETTINGS */
+			/* LWS_PRE + 2 is the length, filled in below */
+			pre[LWS_PRE + 3] = 0x01; /* SETTINGS_QPACK_MAX_TABLE_CAPACITY */
+			pre[LWS_PRE + 4] = LWS_QPACK_CAP_VARINT;
+			pre[LWS_PRE + 5] = 0x00;
+			send_len = 6;
+
+			/* how many streams may wait for inserts at once */
+			pre[LWS_PRE + send_len++] = 0x07; /* SETTINGS_QPACK_BLOCKED_STREAMS */
+			send_len += lws_quic_write_varint(&pre[LWS_PRE + send_len],
+					sizeof(pre) - LWS_PRE - send_len,
+					nwsi->h3.h3n->qpack_blocked_max);
+
+			/*
+			 * The field section size we will take, RFC 9114 4.2.2,
+			 * enforced by lws_h3_qpack_header_cb().  Advisory for
+			 * the peer, but a conformant one then doesn't send what
+			 * we would only refuse.
+			 */
+			pre[LWS_PRE + send_len++] =
+				LWS_H3_SETTINGS_MAX_FIELD_SECTION_SIZE;
+			send_len += lws_quic_write_varint(&pre[LWS_PRE + send_len],
+					sizeof(pre) - LWS_PRE - send_len,
+					lws_h3_max_field_section(nwsi->a.vhost));
+
+			if (nwsi->a.vhost->h2.set.s[H2SET_ENABLE_CONNECT_PROTOCOL]) {
+				pre[LWS_PRE + send_len++] = 0x08; /* SETTINGS_ENABLE_CONNECT_PROTOCOL */
+				pre[LWS_PRE + send_len++] = 0x01; /* 1 */
+#if defined(LWS_ROLE_WT)
+				/*
+				 * Only a build that can accept a WebTransport
+				 * session may tell the peer it can.  The
+				 * fault lets a test be a server that does not.
+				 */
+				if (!lws_fi(&nwsi->a.vhost->fic,
+					    "h3_settings_no_wt")) {
+					pre[LWS_PRE + send_len++] = 0x33; /* SETTINGS_H3_DATAGRAM */
+					pre[LWS_PRE + send_len++] = 0x01; /* 1 */
+					/* SETTINGS_ENABLE_WEBTRANSPORT, 4-byte varint */
+					pre[LWS_PRE + send_len++] = 0xab;
+					pre[LWS_PRE + send_len++] = 0x60;
+					pre[LWS_PRE + send_len++] = 0x37;
+					pre[LWS_PRE + send_len++] = 0x42;
+					pre[LWS_PRE + send_len++] = 0x01; /* 1 */
+				}
+#endif
+			}
+
+			/* the frame length: everything after type and length */
+			pre[LWS_PRE + 2] = (uint8_t)(send_len - 3);
+			
+#if (_LWS_ENABLED_LOGS & LLL_INFO)
+			int n = lws_write(cwsi, &pre[LWS_PRE], send_len, LWS_WRITE_BINARY | LWS_WRITE_NO_FIN);
+			lwsl_info("lws_h3_create_unidi_stream: lws_write control ret %d\n", n);
+#else
+			lws_write(cwsi, &pre[LWS_PRE], send_len, LWS_WRITE_BINARY | LWS_WRITE_NO_FIN);
+#endif
+		} else {
+#if (_LWS_ENABLED_LOGS & LLL_INFO)
+			int n = lws_write(cwsi, &pre[LWS_PRE], 1, LWS_WRITE_BINARY | LWS_WRITE_NO_FIN);
+			lwsl_info("lws_h3_create_unidi_stream: lws_write %d ret %d\n", type, n);
+#else
+			lws_write(cwsi, &pre[LWS_PRE], 1, LWS_WRITE_BINARY | LWS_WRITE_NO_FIN);
+#endif
+		}
+	}
+
+	lws_callback_on_writable(cwsi);
+
+	return cwsi;
+}
+
+static size_t
+lws_quic_parse_varint_prefix(const uint8_t *buf, size_t len, int prefix_len, uint64_t *val)
+{
+	if (!len) return 0;
+	uint8_t mask = (uint8_t)((1 << prefix_len) - 1);
+	uint8_t first = buf[0] & mask;
+	if (first < mask) {
+		*val = first;
+		return 1;
+	}
+	/* It's mask + a variable length integer... */
+	/* We need to parse an integer that is encoded 7 bits per byte until MSB is 0 */
+	size_t i = 1;
+	uint64_t v = mask;
+	int shift = 0;
+	while (i < len) {
+		uint8_t b = buf[i++];
+		v += (uint64_t)(b & 0x7f) << shift;
+		if (!(b & 0x80)) {
+			*val = v;
+			return i;
+		}
+		shift += 7;
+		if (shift >= 64) {
+			/* Prevent undefined behavior from shifting >= 64 bits */
+			return 0;
+		}
+	}
+	return 0; /* Need more data */
+}
+
+#if defined(LWS_ROLE_WT)
+/*
+ * The rest of a WebTransport stream's header is the session ID (its CONNECT
+ * stream's ID / 4), which may itself arrive split.  Once it is all here,
+ * move the stream to the session's protocol as a WT stream and give the
+ * protocol whatever followed the header.
+ */
+static int
+lws_h3_wt_stream_bind(struct lws *wsi, struct lws *nwsi, const uint8_t *buf,
+		      size_t len)
+{
+	struct lws *session_wsi = NULL;
+	int unidi = wsi->quic.qs->is_unidirectional;
+	uint64_t session_id, sid = wsi->quic.qs->stream_id;
+
+	if (!lws_h3_parse_varint_accum(wsi, &buf, &len, &session_id))
+		return 0;
+
+	wsi->h3.wt_sid_pending = 0;
+
+	if (nwsi) {
+		lws_start_foreach_dll(struct lws_dll2 *, d,
+				lws_dll2_get_head(&nwsi->mux.child_list_owner)) {
+			struct lws *child = lws_container_of(d,
+					struct lws, mux.sibling_list);
+			if (child->wt.is_session &&
+			    (child->mux.my_sid / 4 == session_id)) {
+				session_wsi = child;
+				break;
+			}
+		}
+		lws_end_foreach_dll(d);
+	}
+
+	if (!session_wsi) {
+		lwsl_err("WT session WSI not found for session ID %llu\n",
+			 (unsigned long long)session_id);
+		return 1;
+	}
+
+	lwsl_notice("Transitioning client-initiated %s stream to WT (session ID %llu)\n",
+		    unidi ? "uni" : "bidi", (unsigned long long)session_id);
+	lws_wsi_event(wsi, LWS_WSIEV_WT_STREAM);
+	wsi->wt.is_unidi = unidi ? 1u : 0u;
+	wsi->wt.is_session = 0;
+	/* the session this stream belongs to (C-068) */
+	wsi->wt.session_wsi = session_wsi;
+	wsi->wt.is_stream = 1;
+
+	/*
+	 * The stream was already bound to its protocol (and the adoption
+	 * callback delivered) when the QUIC layer created it.  Only rebind
+	 * (which replaces the user space, after letting the old protocol
+	 * unbind) when the target protocol is actually different.
+	 */
+	if (wsi->a.protocol != session_wsi->a.protocol) {
+		if (lws_bind_protocol(wsi, session_wsi->a.protocol, __func__))
+			return 1;
+
+		/*
+		 * Nonzero refuses the stream, as it does for the session.
+		 * Either way, the stream must still exist before we look at
+		 * it again: the callback may have closed it synchronously,
+		 * freeing it and its qs, as lws_quic_rx_deliver_protocol()
+		 * also allows for.
+		 */
+		if (wsi->a.protocol && wsi->a.protocol->callback &&
+		    wsi->a.protocol->callback(wsi,
+				LWS_CALLBACK_SERVER_NEW_CLIENT_INSTANTIATED,
+				wsi->user_space, NULL, 0))
+			return 1;
+
+		if (lws_quic_stream_find(nwsi, sid) != wsi)
+			return 1;
+	} else if (!wsi->user_space && lws_ensure_user_space(wsi))
+		return 1;
+
+	if (len && wsi->a.protocol && wsi->a.protocol->callback &&
+	    wsi->a.protocol->callback(wsi, LWS_CALLBACK_RECEIVE,
+				      wsi->user_space, (void *)buf, len))
+		return 1; /* the protocol wants the stream closed */
+
+	/* the caller goes on to use the stream and its qs */
+
+	if (len && lws_quic_stream_find(nwsi, sid) != wsi)
+		return 1;
+
+	return 0;
+}
+#endif
+
+#if defined(LWS_WITH_SERVER)
+int
+lws_h3_rx_fin_server(struct lws *wsi)
+{
+	/*
+	 * A body still to be stashed and drained is ended by
+	 * lws_http_action() once the drain is done, and a stream that's not
+	 * taking a body, eg, a GET, has nothing to end
+	 */
+	if (!lwsi_role_server(wsi) ||
+	    (lwsi_state(wsi) != LRS_BODY &&
+	     lwsi_state(wsi) != LRS_DISCARD_BODY) ||
+	    !lws_http_mux_body_ended_by_peer(wsi))
+		return 0;
+
+	lwsl_wsi_info(wsi, "FIN ends the request body");
+
+	return lws_read_h1(wsi, NULL, 0, 1) < 0;
+}
+#endif
+
+#if defined(LWS_ROLE_WT)
+static int
+lws_h3_has_wt_session(struct lws *nwsi)
+{
+	if (!nwsi)
+		return 0;
+
+	lws_start_foreach_dll(struct lws_dll2 *, d,
+			lws_dll2_get_head(&nwsi->mux.child_list_owner)) {
+		struct lws *child = lws_container_of(d, struct lws,
+						     mux.sibling_list);
+		if (child->wt.is_session)
+			return 1;
+	} lws_end_foreach_dll(d);
+
+	return 0;
+}
+#endif
+
+int
+lws_h3_peer_bidi_allowed(struct lws *nwsi)
+{
+	if (!nwsi->quic.qn || nwsi->quic.qn->is_server)
+		return 1;
+
+#if defined(LWS_ROLE_WT) && defined(LWS_WITH_CLIENT)
+	/*
+	 * The server may open a session's streams as soon as it accepted the
+	 * CONNECT, so one may arrive before we saw its 200: a session asked
+	 * for, by one of our request streams, counts as well as one we have.
+	 * The peer's unidi streams are bound to a protocol too, but they ask
+	 * for nothing.
+	 */
+	lws_start_foreach_dll(struct lws_dll2 *, d,
+			lws_dll2_get_head(&nwsi->mux.child_list_owner)) {
+		struct lws *child = lws_container_of(d, struct lws,
+						     mux.sibling_list);
+		if (child->wt.is_session ||
+		    (child->quic.qs && !child->quic.qs->is_unidirectional &&
+		     !child->quic.qs->is_server_initiated &&
+		     lws_h3_client_is_wt(child)))
+			return 1;
+	} lws_end_foreach_dll(d);
+#endif
+
+	return 0;
+}
+
+/*
+ * The peer might block on a field section we sent on s: it has not
+ * acknowledged it, and it refers to an insert beyond those the peer told us it
+ * has (RFC 9204 2.1.2)
+ */
+static int
+lws_h3_qpack_enc_may_block(const struct lws *s, uint32_t krc)
+{
+	uint8_t n;
+
+	for (n = 0; n < s->h3.qpack_enc_unacked; n++)
+		if (s->h3.qpack_enc_ric[n] > krc)
+			return 1;
+
+	return 0;
+}
+
+int
+lws_h3_qpack_enc_section(struct lws *wsi, uint32_t ric)
+{
+	struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+	struct lws_h3_netconn *h3n = nwsi ? nwsi->h3.h3n : NULL;
+	uint64_t might_block = 0;
+	uint32_t krc;
+
+	/* a request has at most its head and trailers outstanding */
+	if (!h3n || wsi->h3.qpack_enc_unacked >=
+					LWS_ARRAY_SIZE(wsi->h3.qpack_enc_ric))
+		return 1;
+
+	/*
+	 * A stream that might block already is counted already.  The peer's
+	 * limit is 0 until its SETTINGS say otherwise.
+	 */
+	krc = h3n->qpack_tx_encoder.known_received_count;
+	if (ric > krc && !lws_h3_qpack_enc_may_block(wsi, krc)
+#if defined(LWS_WITH_SYS_FAULT_INJECTION)
+	    /* the h3_qpack_enc_no_hold fault sends it regardless */
+	    && !lws_fi(&wsi->fic, "h3_qpack_enc_no_hold") &&
+	    !lws_fi(&nwsi->fic, "h3_qpack_enc_no_hold")
+#endif
+	    ) {
+		lws_start_foreach_dll(struct lws_dll2 *, d,
+				lws_dll2_get_head(&nwsi->mux.child_list_owner)) {
+			struct lws *s = lws_container_of(d, struct lws,
+							 mux.sibling_list);
+
+			might_block += (uint64_t)lws_h3_qpack_enc_may_block(s,
+									krc);
+		} lws_end_foreach_dll(d);
+
+		if (might_block >= h3n->peer_qpack_blocked_streams)
+			return LWS_H3_QPACK_ENC_HOLD;
+	}
+
+	wsi->h3.qpack_enc_ric[wsi->h3.qpack_enc_unacked++] = ric;
+
+	return 0;
+}
+
+#if defined(LWS_WITH_CLIENT)
+/*
+ * The peer has acknowledged more inserts, or there is a stream fewer that
+ * might block: requests held for that may go now
+ */
+static void
+lws_h3_qpack_enc_wake_held(struct lws *nwsi)
+{
+	if (!nwsi)
+		return;
+
+	lws_start_foreach_dll(struct lws_dll2 *, d,
+			lws_dll2_get_head(&nwsi->mux.child_list_owner)) {
+		struct lws *s = lws_container_of(d, struct lws,
+						 mux.sibling_list);
+
+		if (s->h3.qpack_held_hdrs)
+			lws_callback_on_writable(s);
+	} lws_end_foreach_dll(d);
+}
+#endif
+
+/*
+ * RFC 9204 4.4.1: the peer decoded the oldest field section we sent on the
+ * stream that referred to its dynamic table, so it has every insert up to the
+ * section's Required Insert Count.  An acknowledgment when none was
+ * outstanding is a QPACK_DECODER_STREAM_ERROR.  A stream we already closed
+ * can't be checked, nor does it matter: it has nothing outstanding now.
+ */
+static int
+lws_h3_qpack_enc_section_acked(struct lws *wsi, uint64_t sid)
+{
+	struct lws *nwsi = lws_get_quic_network_wsi(wsi), *s;
+	struct lws_qpack_tx_encoder *enc;
+
+	if (!nwsi || !nwsi->h3.h3n)
+		return 0;
+
+	s = lws_quic_stream_find(nwsi, sid);
+	if (!s) {
+		lwsl_wsi_info(wsi, "Section Acknowledgment for gone stream %llu",
+			      (unsigned long long)sid);
+		return 0;
+	}
+
+	if (!s->h3.qpack_enc_unacked) {
+		lwsl_wsi_notice(wsi, "Section Acknowledgment for stream %llu, "
+				"none outstanding", (unsigned long long)sid);
+		return 1;
+	}
+
+	enc = &nwsi->h3.h3n->qpack_tx_encoder;
+	if (s->h3.qpack_enc_ric[0] > enc->known_received_count)
+		enc->known_received_count = s->h3.qpack_enc_ric[0];
+
+	s->h3.qpack_enc_ric[0] = s->h3.qpack_enc_ric[1];
+	s->h3.qpack_enc_unacked--;
+#if defined(LWS_WITH_CLIENT)
+	lws_h3_qpack_enc_wake_held(nwsi);
+#endif
+
+	return 0;
+}
+
+/* RFC 9204 4.4.2: nothing we sent on the stream is outstanding any more */
+static void
+lws_h3_qpack_enc_stream_cancelled(struct lws *wsi, uint64_t sid)
+{
+	struct lws *nwsi = lws_get_quic_network_wsi(wsi), *s;
+
+	s = nwsi ? lws_quic_stream_find(nwsi, sid) : NULL;
+	if (!s)
+		return;
+
+	s->h3.qpack_enc_unacked = 0;
+#if defined(LWS_WITH_CLIENT)
+	lws_h3_qpack_enc_wake_held(nwsi);
+#endif
+}
+
+/*
+ * The field section starting in buf can't be decoded until the peer's
+ * encoder stream brings the inserts it requires (RFC 9204 2.1.2).  Its prefix
+ * is taken as the frame's, like any decoded bytes; the rest of buf, and all
+ * the stream brings afterwards, is held until then, without crediting it to
+ * the peer's flow control.  Nonzero means the stream can't wait, a
+ * QPACK_DECOMPRESSION_FAILED: more are waiting than we said we would let, or
+ * there's no more to the section than its prefix, so it could never have
+ * needed the inserts.
+ */
+static int
+lws_h3_qpack_block(struct lws *wsi, const uint8_t *buf, size_t chunk,
+		   size_t len)
+{
+	struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+	struct lws_h3_netconn *h3n = nwsi ? nwsi->h3.h3n : NULL;
+	size_t used = wsi->h3.qpack_dec_state->used;
+
+	if (!h3n || h3n->qpack_blocked_owner.count >= h3n->qpack_blocked_max) {
+		lwsl_wsi_notice(wsi, "QPACK: more than %d streams blocked",
+				h3n ? h3n->qpack_blocked_max : 0);
+		return 1;
+	}
+
+	if (used == chunk &&
+	    wsi->h3.rx_frame_payload_read + used == wsi->h3.rx_frame_len) {
+		lwsl_wsi_notice(wsi, "QPACK: blocked section is only a prefix");
+		return 1;
+	}
+
+	wsi->h3.rx_frame_payload_read += used;
+
+	if (len > used && lws_buflist_append_segment(&wsi->h3.qpack_blocked_bl,
+						     buf + used, len - used) < 0)
+		return 1;
+
+	lws_dll2_add_tail(&wsi->h3.qpack_blocked, &h3n->qpack_blocked_owner);
+	lwsl_wsi_info(wsi, "QPACK: blocked for insert %llu",
+		      (unsigned long long)wsi->h3.qpack_dec_state->ric);
+
+	return 0;
+}
+
+int
+lws_h3_rx_fin_deferred(struct lws *wsi)
+{
+	if (lws_dll2_is_detached(&wsi->h3.qpack_blocked))
+		return 0;
+
+	wsi->h3.qpack_blocked_fin = 1;
+
+	return 1;
+}
+
+/*
+ * The table has the inserts a blocked stream waited for: process what it held
+ * as if it had just come, and the FIN after it if that came too.  It may block
+ * again, on a later field section, and hold the rest again.
+ */
+static void
+lws_h3_qpack_replay(struct lws *nwsi, struct lws *w)
+{
+	struct lws_buflist *bl = w->h3.qpack_blocked_bl;
+	struct lws_quic_stream *qs = w->quic.qs;
+	uint64_t sid = qs ? qs->stream_id : 0;
+	int fin = w->h3.qpack_blocked_fin;
+	uint8_t *p;
+	size_t len;
+
+	w->h3.qpack_blocked_bl = NULL;
+	w->h3.qpack_blocked_fin = 0;
+	lws_dll2_remove(&w->h3.qpack_blocked);
+
+	while ((len = lws_buflist_next_segment_len(&bl, &p))) {
+		if (lws_h3_rx_stream_data(w, p, len)) {
+			/* w may be gone now */
+			lws_quic_rx_h3_wants_close(nwsi, w, qs, sid);
+			goto bail;
+		}
+		lws_buflist_use_segment(&bl, len);
+	}
+
+	if (fin)
+		lws_quic_rx_fin_h3(nwsi, w, qs);
+
+bail:
+	lws_buflist_destroy_all_segments(&bl);
+}
+
+/*
+ * The peer's encoder stream brought the table on: let the streams that were
+ * waiting for it carry on, in the order they blocked
+ */
+static void
+lws_h3_qpack_unblock(struct lws *nwsi, struct lws_h3_netconn *h3n)
+{
+	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
+			lws_dll2_get_head(&h3n->qpack_blocked_owner)) {
+		struct lws *w = lws_container_of(d, struct lws,
+						 h3.qpack_blocked);
+
+		if (w->h3.qpack_dec_state &&
+		    w->h3.qpack_dec_state->ric <=
+				h3n->qpack_dec_ctx.dyn_table.insert_count) {
+			lws_h3_qpack_replay(nwsi, w);
+			if (!nwsi->quic.qn || nwsi->quic.qn->is_closing)
+				return;
+		}
+	} lws_end_foreach_dll_safe(d, d1);
+}
+
+static int
+lws_h3_rx_stream_data_(struct lws *wsi, const uint8_t *buf, size_t len)
+{
+	/*
+	 * The stream offset buf starts at, as the quic layer delivers it, for
+	 * the diagnostics.  What a stream held for qpack inserts comes again
+	 * later, from lws_h3_qpack_replay(), when rx_offset has moved on past
+	 * it: there it's only approximate
+	 */
+	uint64_t base = wsi->quic.qs ? wsi->quic.qs->rx_offset : 0;
+	const uint8_t *buf0 = buf;
+#if defined(LWS_ROLE_WT)
+	struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+	int has_wt_session = lws_h3_has_wt_session(nwsi);
+#endif
+
+	/*
+	 * A stream waiting for inserts holds all it gets until they come.  A
+	 * STREAM frame that only brings the FIN comes with nothing to hold,
+	 * and a buflist takes no empty segment.
+	 */
+	if (!lws_dll2_is_detached(&wsi->h3.qpack_blocked))
+		return len && lws_buflist_append_segment(
+				&wsi->h3.qpack_blocked_bl, buf, len) < 0;
+
+	/*
+	 * The prefixes a stream starts with, a unidirectional stream's type,
+	 * and a WebTransport stream's type and session ID, are varints that
+	 * may arrive split over several STREAM frames.  The quic layer has
+	 * delivered, and is done with, every byte it gives us, so partial
+	 * varints are accumulated here (lws_h3_parse_varint_accum()) and a
+	 * return of 0 means only that there is nothing more to do yet.
+	 */
+
+	if (wsi->quic.qs && wsi->quic.qs->is_unidirectional && !wsi->h3.type_set) {
+		uint64_t type;
+
+		if (!lws_h3_parse_varint_accum(wsi, &buf, &len, &type))
+			return 0;
+
+		/*
+		 * Types we do not know are ignored (RFC 9114 6.2), keep a
+		 * large reserved one from aliasing a known one in the uint8_t
+		 */
+		wsi->h3.stream_type = type > 0xff ? 0xff : (uint8_t)type;
+		wsi->h3.type_set = 1;
+		/*
+		 * The peer's control, push and qpack streams are h3's own,
+		 * as are those of types it ignores.  Only a WebTransport unidi
+		 * stream is something the user hears of
+		 */
+		wsi->internal = type != LWS_WT_STREAM_TYPE_UNIDI;
+		/*
+		 * The encoder stream's decode state, with its 4KB value
+		 * buffer, is only made when an instruction comes
+		 */
+
+		lwsl_wsi_info(wsi, "H3 RX: Unidi stream type %llu", (unsigned long long)type);
+
+		if (wsi->h3.h3n) {
+			uint8_t one = type == 0x00 ? LWS_H3_PEER_UNI_CONTROL :
+				      type == 0x02 ? LWS_H3_PEER_UNI_QPACK_ENC :
+				      type == 0x03 ? LWS_H3_PEER_UNI_QPACK_DEC : 0;
+
+			/*
+			 * RFC 9114 6.2.1, RFC 9204 4.2: the peer has one
+			 * control stream, one qpack encoder and one decoder
+			 * stream.  A second control stream took the place of
+			 * the first, and its SETTINGS were taken again.
+			 */
+			if (one & wsi->h3.h3n->peer_uni_seen) {
+				struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+
+				lwsl_wsi_notice(wsi, "second peer unidi stream "
+						"of type %u", (unsigned int)type);
+				if (nwsi)
+					lws_quic_enter_closing_state(nwsi,
+						LWS_H3_STREAM_CREATION_ERROR, 0, 1);
+				return 1;
+			}
+			wsi->h3.h3n->peer_uni_seen |= one;
+
+			/* Link it to peer's control streams if applicable */
+			if (type == 0x00)
+				wsi->h3.h3n->peer_control = wsi;
+		}
+	}
+
+#if defined(LWS_ROLE_WT)
+	if (wsi->quic.qs && !wsi->quic.qs->is_unidirectional &&
+	    !wsi->h3.type_set && !wsi->h3.wt_sid_pending) {
+		/*
+		 * Only a bidi stream starting while the connection has a
+		 * WebTransport session may be one of its streams: then it
+		 * starts with the WT stream type instead of an h3 frame type.
+		 * Either way this is only decided at the start of the stream.
+		 */
+		if (!has_wt_session)
+			wsi->h3.type_set = 1;
+		else {
+			if (!lws_h3_parse_varint_accum(wsi, &buf, &len,
+						       &wsi->h3.rx_frame_type))
+				return 0;
+
+			wsi->h3.type_set = 1;
+			if (wsi->h3.rx_frame_type == LWS_WT_STREAM_TYPE_BIDI)
+				wsi->h3.wt_sid_pending = 1;
+			else
+				/* an h3 request stream, its first frame type */
+				wsi->h3.rx_frame_state = 1;
+		}
+	}
+
+	if (wsi->quic.qs &&
+	    ((has_wt_session && wsi->quic.qs->is_unidirectional &&
+	      wsi->h3.stream_type == LWS_WT_STREAM_TYPE_UNIDI) ||
+	     wsi->h3.wt_sid_pending))
+		return lws_h3_wt_stream_bind(wsi, nwsi, buf, len);
+#endif
+
+	if (!len)
+		return 0;
+
+	while (len > 0) {
+		if (wsi->h3.stream_type == 0x00) {
+			lwsl_wsi_debug(wsi, "H3 RX: Control Stream data len %d", (int)len);
+		} else if (wsi->h3.stream_type == 0x02) {
+			struct lws_qpack_context *ctx = wsi->h3.h3n ? &wsi->h3.h3n->qpack_dec_ctx : NULL;
+			lwsl_wsi_info(wsi, "LWS_H3_RX_STREAM_DATA: Encoder Stream payload received, len=%d", (int)len);
+			
+			if (!wsi->h3.qpack_dec_state) {
+				wsi->h3.qpack_dec_state = lws_zalloc(sizeof(*wsi->h3.qpack_dec_state), "qpack dec state");
+				if (!wsi->h3.qpack_dec_state)
+					return 1;
+				wsi->h3.qpack_dec_state->state = LQP_DEC_INSTRUCTION;
+			}
+
+			if (lws_qpack_decode_encoder_stream(wsi->h3.qpack_dec_state, ctx, buf, len)) {
+				struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+				lwsl_err("ERROR: QPACK_ENCODER_STREAM_ERROR!!!!\n");
+				lws_quic_enter_closing_state(nwsi, LWS_QPACK_ENCODER_STREAM_ERROR, 0, 1);
+				return 1;
+			}
+			/*
+			 * Nothing carries from one instruction to the next, so
+			 * unless one is still coming in, the state can go
+			 * until the next one: the peer may send inserts at any
+			 * time, but usually only at the start
+			 */
+			if (wsi->h3.qpack_dec_state->state == LQP_DEC_INSTRUCTION) {
+				lws_free(wsi->h3.qpack_dec_state);
+				wsi->h3.qpack_dec_state = NULL;
+			}
+			/*
+			 * tell its encoder what it may now refer to, and let
+			 * the streams waiting for the inserts carry on
+			 */
+			if (wsi->h3.h3n) {
+				struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+
+				if (lws_h3_qpack_dec_ack_inserts(wsi->h3.h3n))
+					return 1;
+				if (nwsi) {
+					lws_h3_qpack_unblock(nwsi, wsi->h3.h3n);
+					if (!nwsi->quic.qn || nwsi->quic.qn->is_closing)
+						return 1;
+				}
+			}
+
+			return 0;
+		} else if (wsi->h3.stream_type == 0x03) {
+			lwsl_wsi_debug(wsi, "H3 RX: Decoder Stream data len %d", (int)len);
+			
+			while (len > 0) {
+				if (wsi->h3.rx_dec_instr_len > 0) {
+					size_t to_copy = 16 - wsi->h3.rx_dec_instr_len;
+					if (to_copy > len) to_copy = len;
+					memcpy(&wsi->h3.rx_dec_instr_buf[wsi->h3.rx_dec_instr_len], buf, to_copy);
+					wsi->h3.rx_dec_instr_len += (uint8_t)to_copy;
+					buf += to_copy;
+					len -= to_copy;
+				}
+
+				const uint8_t *p = wsi->h3.rx_dec_instr_len > 0 ? wsi->h3.rx_dec_instr_buf : buf;
+				size_t plen = wsi->h3.rx_dec_instr_len > 0 ? wsi->h3.rx_dec_instr_len : len;
+				
+				if (plen == 0) break;
+
+				uint8_t b = p[0];
+				size_t consumed = 0;
+
+				if ((b & 0x80) == 0x80) { /* Section Acknowledgment */
+					uint64_t stream_id;
+					consumed = lws_quic_parse_varint_prefix(p, plen, 7, &stream_id);
+					if (consumed &&
+					    lws_h3_qpack_enc_section_acked(wsi, stream_id)) {
+						struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+
+						lws_quic_enter_closing_state(nwsi, LWS_QPACK_DECODER_STREAM_ERROR, 0, 1);
+						return 1;
+					}
+				} else if ((b & 0xc0) == 0x40) { /* Stream Cancellation */
+					uint64_t stream_id;
+					consumed = lws_quic_parse_varint_prefix(p, plen, 6, &stream_id);
+					if (consumed)
+						lws_h3_qpack_enc_stream_cancelled(wsi, stream_id);
+				} else if ((b & 0xc0) == 0x00) { /* Insert Count Increment */
+					uint64_t inc;
+					consumed = lws_quic_parse_varint_prefix(p, plen, 6, &inc);
+					if (consumed) {
+						/*
+						 * RFC 9204 4.4.3: nor may it make the
+						 * Known Received Count more than the
+						 * inserts we sent
+						 */
+						if (inc == 0 || (wsi->h3.h3n &&
+						    inc > wsi->h3.h3n->qpack_tx_encoder.insert_count -
+							  wsi->h3.h3n->qpack_tx_encoder.known_received_count)) {
+							struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+							lws_quic_enter_closing_state(nwsi, LWS_QPACK_DECODER_STREAM_ERROR, 0, 1);
+							return 1;
+						}
+						if (wsi->h3.h3n)
+							wsi->h3.h3n->qpack_tx_encoder.known_received_count += (uint32_t)inc;
+#if defined(LWS_WITH_CLIENT)
+						lws_h3_qpack_enc_wake_held(
+							lws_get_quic_network_wsi(wsi));
+#endif
+						lwsl_wsi_info(wsi, "QPACK Insert Count Increment inc=%llu known=%u", (unsigned long long)inc, (unsigned int)(wsi->h3.h3n ? wsi->h3.h3n->qpack_tx_encoder.known_received_count : 0));
+					}
+				} else {
+					consumed = 1; /* Unknown instruction */
+				}
+
+				if (consumed) {
+					if (wsi->h3.rx_dec_instr_len > 0) {
+						if (consumed < wsi->h3.rx_dec_instr_len) {
+							memmove(wsi->h3.rx_dec_instr_buf, wsi->h3.rx_dec_instr_buf + consumed, wsi->h3.rx_dec_instr_len - consumed);
+							wsi->h3.rx_dec_instr_len -= (uint8_t)consumed;
+						} else {
+							wsi->h3.rx_dec_instr_len = 0;
+						}
+					} else {
+						buf += consumed;
+						len -= consumed;
+					}
+				} else {
+					/*
+					 * Not enough data to complete the
+					 * instruction.  Every decoder instruction
+					 * is a single prefixed varint, which needs
+					 * at most 1 + 10 bytes: if we already have
+					 * that many and it still does not complete,
+					 * it never will (or the varint is
+					 * over-long), so treat it as a decoder
+					 * stream error instead of parking the
+					 * stream forever.  Otherwise stash the
+					 * partial bytes (necessarily < 11, so they
+					 * fit) for the next packet.
+					 */
+					if (plen >= 11) {
+						struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+
+						lwsl_wsi_notice(wsi, "QPACK decoder instr overlong");
+						lws_quic_enter_closing_state(nwsi, LWS_QPACK_DECODER_STREAM_ERROR, 0, 1);
+						return 1;
+					}
+					if (wsi->h3.rx_dec_instr_len == 0) {
+						memcpy(wsi->h3.rx_dec_instr_buf, buf, len);
+						wsi->h3.rx_dec_instr_len = (uint8_t)len;
+						buf += len;
+						len = 0;
+					}
+					break;
+				}
+			}
+			return 0;
+		}
+		if (wsi->h3.rx_frame_state == 0) {
+			if (!wsi->h3.rx_varint_len)
+				wsi->h3.rx_frame_at = base +
+					(uint64_t)lws_ptr_diff_size_t(buf, buf0);
+			if (lws_h3_parse_varint_accum(wsi, &buf, &len, &wsi->h3.rx_frame_type)) {
+				wsi->h3.rx_frame_state = 1;
+			} else break;
+		} else if (wsi->h3.rx_frame_state == 1) {
+			if (lws_h3_parse_varint_accum(wsi, &buf, &len, &wsi->h3.rx_frame_len)) {
+				/* F-67: Bound rx_frame_len to prevent stream-wedging */
+				if (wsi->h3.rx_frame_len > 100 * 1024 * 1024) {
+					struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+					lwsl_wsi_notice(wsi, "H3 RX: frame len %llu exceeds 100MB bound", (unsigned long long)wsi->h3.rx_frame_len);
+					lws_quic_enter_closing_state(nwsi, 0x0100 /* LWS_H3_NO_ERROR + 0x0100 (FRAME_ERROR) */, 0, 1);
+					return 1;
+				}
+
+				/*
+				 * F4: HEADERS frames feed the QPACK decoder, which
+				 * walks the encoded header block roughly byte-by-byte
+				 * (up to 8 Huffman-table steps per byte).  A legitimate
+				 * QPACK header block is tiny (RFC 9204 implies a few KB
+				 * at most), so the generic 100 MB frame cap is far too
+				 * generous here and lets a single HEADERS frame burn
+				 * ~800M table walks, multiplied across concurrent
+				 * streams.  Apply a dedicated, proportionate bound.
+				 */
+				if (wsi->h3.rx_frame_type == 0x01 /* HEADERS */ &&
+				    wsi->h3.rx_frame_len > 65536) {
+					struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+					lwsl_wsi_notice(wsi, "H3 RX: HEADERS block len "
+						"%llu exceeds 64KiB bound",
+						(unsigned long long)wsi->h3.rx_frame_len);
+					lws_quic_enter_closing_state(nwsi,
+						LWS_H3_EXCESSIVE_LOAD, 0, 1);
+					return 1;
+				}
+				wsi->h3.rx_frame_state = 2;
+				wsi->h3.rx_frame_payload_read = 0;
+				wsi->h3.rx_setting_count = 0; /* Q-2: per-frame */
+				wsi->h3.rx_field_count = 0;
+				wsi->h3.rx_section_size = 0;
+				if (wsi->h3.rx_frame_type == 0x01) {
+					/*
+					 * The pseudo-header rules are per
+					 * field section: a final response's
+					 * :status after a 1xx's is no repeat
+					 */
+					wsi->h3.seen_regular_header = 0;
+					wsi->h3.seen_pseudo_method = 0;
+					wsi->h3.seen_pseudo_scheme = 0;
+					wsi->h3.seen_pseudo_authority = 0;
+					wsi->h3.seen_pseudo_path = 0;
+					wsi->h3.seen_pseudo_status = 0;
+					wsi->h3.seen_pseudo_protocol = 0;
+				}
+				lwsl_wsi_info(wsi, "H3 RX: Frame Type %llu, Len %llu on stream type %d (unidi=%d)", 
+					(unsigned long long)wsi->h3.rx_frame_type, (unsigned long long)wsi->h3.rx_frame_len,
+					wsi->h3.stream_type, wsi->quic.qs ? wsi->quic.qs->is_unidirectional : 0);
+
+				/*
+				 * RFC 9114 7.2.8: the frame types h2 has and h3
+				 * reserved in their place are unexpected on any
+				 * stream (PRIORITY, PING, WINDOW_UPDATE and
+				 * CONTINUATION)
+				 */
+				if (wsi->h3.rx_frame_type == 0x02 ||
+				    wsi->h3.rx_frame_type == 0x06 ||
+				    wsi->h3.rx_frame_type == 0x08 ||
+				    wsi->h3.rx_frame_type == 0x09) {
+					struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+					lws_quic_enter_closing_state(nwsi, LWS_H3_FRAME_UNEXPECTED, 0, 1);
+					return 1;
+				}
+
+				/* Validation: Control Streams */
+				if (wsi->quic.qs && wsi->quic.qs->is_unidirectional && wsi->h3.stream_type == 0x00) {
+					/* HTTP/3 6.2.1: MUST send H3_MISSING_SETTINGS if the first control frame is not SETTINGS */
+					if (!wsi->h3.seen_settings && wsi->h3.rx_frame_type != 0x04) {
+						struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+						lws_quic_enter_closing_state(nwsi, LWS_H3_MISSING_SETTINGS, 0, 1);
+						return 1;
+					}
+					/* HTTP/3 7.2.1/7.2.2/7.2.5: MUST send H3_FRAME_UNEXPECTED if DATA, HEADERS or PUSH_PROMISE is received on a control stream */
+					if (wsi->h3.rx_frame_type == 0x00 || wsi->h3.rx_frame_type == 0x01 ||
+					    wsi->h3.rx_frame_type == 0x05) {
+						struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+						lws_quic_enter_closing_state(nwsi, LWS_H3_FRAME_UNEXPECTED, 0, 1);
+						return 1;
+					}
+					/* HTTP/3 7.2.4: MUST send H3_FRAME_UNEXPECTED if a second SETTINGS frame is received */
+					if (wsi->h3.seen_settings && wsi->h3.rx_frame_type == 0x04) {
+						struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+						lws_quic_enter_closing_state(nwsi, LWS_H3_FRAME_UNEXPECTED, 0, 1);
+						return 1;
+					}
+					if (wsi->h3.rx_frame_type == 0x04) {
+						wsi->h3.seen_settings = 1;
+					}
+					/* RFC 9114 7.2.6: a GOAWAY is its ID, a varint */
+					if (wsi->h3.rx_frame_type == 0x07 &&
+					    (!wsi->h3.rx_frame_len ||
+					     wsi->h3.rx_frame_len > 8)) {
+						struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+						lws_quic_enter_closing_state(nwsi, LWS_H3_FRAME_ERROR, 0, 1);
+						return 1;
+					}
+				}
+
+				/* Validation: Request Streams */
+				if (!wsi->quic.qs || !wsi->quic.qs->is_unidirectional) {
+					lwsl_wsi_debug(wsi, "H3 Validation: rx_frame_type=%d, hdrs_pending=%d",
+						(int)wsi->h3.rx_frame_type, lwsi_hdrs_pending(wsi));
+					if (wsi->h3.rx_frame_type == 0x00 && lwsi_hdrs_pending(wsi)) {
+						struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+						lws_quic_enter_closing_state(nwsi, LWS_H3_FRAME_UNEXPECTED, 0, 1);
+						return 1;
+					}
+					/*
+					 * RFC 9114 4.1: a request is its
+					 * head, its DATA and optionally a
+					 * trailers block, which ends it.
+					 * Neither DATA nor HEADERS may follow
+					 * the trailers
+					 */
+					if (lwsi_role_http(wsi) &&
+					    lwsi_role_server(wsi) &&
+					    !lwsi_hdrs_pending(wsi) &&
+					    (wsi->h3.rx_frame_type == 0x00 ||
+					     wsi->h3.rx_frame_type == 0x01)) {
+						if (wsi->h3.rx_trailers_seen) {
+							struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+
+							lwsl_wsi_notice(wsi, "frame after trailers");
+							lws_quic_enter_closing_state(nwsi, LWS_H3_FRAME_UNEXPECTED, 0, 1);
+							return 1;
+						}
+						if (wsi->h3.rx_frame_type == 0x01)
+							wsi->h3.rx_trailers_seen = 1;
+					}
+					/*
+					 * RFC 9114 7.2.3 / 7.2.4 / 7.2.6 / 7.2.7:
+					 * CANCEL_PUSH, SETTINGS, GOAWAY and
+					 * MAX_PUSH_ID only go on the control
+					 * stream.  A SETTINGS here once passed
+					 * for the peer's, before its real one.
+					 */
+					if (wsi->h3.rx_frame_type == 0x03 ||
+					    wsi->h3.rx_frame_type == 0x04 ||
+					    wsi->h3.rx_frame_type == 0x07 ||
+					    wsi->h3.rx_frame_type == 0x0d) {
+						struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+						lws_quic_enter_closing_state(nwsi, LWS_H3_FRAME_UNEXPECTED, 0, 1);
+						return 1;
+					}
+					/*
+					 * RFC 9114 7.2.5: a server never takes a
+					 * PUSH_PROMISE, and a client that sent
+					 * no MAX_PUSH_ID, as lws doesn't, allows
+					 * no push ID at all
+					 */
+					if (wsi->h3.rx_frame_type == 0x05) {
+						struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+
+						/*
+						 * lws never allows push, so
+						 * on a client this is most
+						 * likely us having lost our
+						 * place in the stream's frames
+						 */
+						const uint8_t *dp = buf - (buf - buf0 > 24 ?
+								24 : buf - buf0);
+
+						lwsl_wsi_notice(wsi, "PUSH_PROMISE "
+							"(len %llu) on stream %llu "
+							"at %llu (rx %llu), state 0x%x, "
+							"after type 0x%llx len %llu "
+							"at %llu",
+							(unsigned long long)
+								wsi->h3.rx_frame_len,
+							(unsigned long long)(wsi->quic.qs ?
+								wsi->quic.qs->stream_id : 0),
+							(unsigned long long)
+								wsi->h3.rx_frame_at,
+							(unsigned long long)base,
+							(unsigned int)lwsi_state(wsi),
+							(unsigned long long)
+								wsi->h3.rx_prev_type,
+							(unsigned long long)
+								wsi->h3.rx_prev_len,
+							(unsigned long long)
+								wsi->h3.rx_prev_at);
+						/* what came up to it, and the start of it */
+						lwsl_hexdump_wsi_notice(wsi, dp,
+							lws_ptr_diff_size_t(buf, dp) +
+							(len < 8 ? len : 8));
+						lws_quic_enter_closing_state(nwsi,
+							nwsi && nwsi->quic.qn &&
+							nwsi->quic.qn->is_server ?
+								LWS_H3_FRAME_UNEXPECTED :
+								LWS_H3_ID_ERROR, 0, 1);
+						return 1;
+					}
+#if defined(LWS_WITH_CLIENT)
+					/*
+					 * A response before our request went
+					 * (as h2) is refused before qpack
+					 * decodes its block over the pending
+					 * request's headers in the ah
+					 */
+					if (wsi->h3.rx_frame_type == 0x01 &&
+					    wsi->client_mux_substream &&
+					    lwsi_state(wsi) == LRS_H2_WAITING_TO_SEND_HEADERS) {
+						struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+
+						lwsl_wsi_notice(wsi, "HEADERS on unsent stream");
+						if (nwsi)
+							lws_quic_enter_closing_state(nwsi, LWS_H3_FRAME_UNEXPECTED, 0, 1);
+						return 1;
+					}
+#endif
+				}
+			} else break;
+		} else if (wsi->h3.rx_frame_state == 2) {
+			size_t chunk = (size_t)(wsi->h3.rx_frame_len - wsi->h3.rx_frame_payload_read);
+			if (chunk > len) chunk = len;
+
+			if (!wsi->quic.qs || !wsi->quic.qs->is_unidirectional) {
+				if (wsi->h3.rx_frame_type == 0x01) { /* HEADERS */
+					struct lws_qpack_context *ctx = wsi->h3.h3n ? &wsi->h3.h3n->qpack_dec_ctx : NULL;
+					if (!wsi->h3.qpack_dec_state) {
+						wsi->h3.qpack_dec_state = lws_zalloc(sizeof(*wsi->h3.qpack_dec_state), "qpack dec state");
+						if (!wsi->h3.qpack_dec_state)
+							return 1;
+					}
+					int dr = lws_qpack_decode_header_block(
+							wsi->h3.qpack_dec_state, ctx,
+							buf, chunk,
+							lws_h3_qpack_header_cb, wsi);
+
+					/*
+					 * The section waits for inserts: the
+					 * prefix is taken, the rest is held
+					 */
+					if (dr == LWS_QPACK_DEC_BLOCKED &&
+					    !lws_h3_qpack_block(wsi, buf, chunk, len))
+						return 0;
+
+					if (dr) {
+						struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+
+						if (dr != LWS_QPACK_DEC_BLOCKED &&
+						    wsi->h3.ah_refused) {
+							/*
+							 * only the stream is closed: a
+							 * server refused the request, a
+							 * client gave up on the response
+							 */
+							if (wsi->quic.qs)
+								wsi->quic.qs->close_app_err =
+									lwsi_role_client(wsi) ?
+									LWS_H3_REQUEST_CANCELLED :
+									LWS_H3_REQUEST_REJECTED;
+							return 1;
+						}
+						lws_quic_enter_closing_state(nwsi, LWS_QPACK_DECOMPRESSION_FAILED, 0, 1);
+						return 1;
+					}
+				} else if (wsi->h3.rx_frame_type == 0x00) { /* DATA */
+#if defined(LWS_ROLE_WS)
+					/*
+					 * ws over h3 (RFC 9220): the DATA is
+					 * the ws connection's frames, either
+					 * role, open or closing
+					 */
+					if (lwsi_role_ws(wsi)) {
+						if (lws_read_h1(wsi, (unsigned char *)buf,
+								chunk, 1) < 0)
+							return 1;
+					} else
+#endif
+					{
+					/* Deliver data to application */
+#if defined(LWS_WITH_CLIENT)
+					int m = 0;
+					if (wsi->client_mux_substream) {
+						/*
+						 * The transaction completes at the
+						 * stream FIN, as h2's does at
+						 * END_STREAM, never here: the
+						 * content-length only bounds the
+						 * DATA, beyond it is malformed
+						 * (RFC 9114 4.1.2)
+						 */
+						if (wsi->http.content_length_given) {
+							if (chunk > wsi->http.rx_content_remain) {
+								lwsl_wsi_info(wsi, "DATA beyond content-length");
+								return 1;
+							}
+							wsi->http.rx_content_remain -= chunk;
+						}
+
+						if (!wsi->a.protocol) {
+							lwsl_wsi_err(wsi, "doesn't have protocol");
+						} else {
+							m = user_callback_handle_rxflow(
+								wsi->a.protocol->callback,
+								wsi,
+								LWS_CALLBACK_RECEIVE_CLIENT_HTTP_READ,
+								wsi->user_space,
+								(void *)buf, (unsigned int)chunk);
+						}
+						if (m) {
+							lwsl_wsi_info(wsi, "RECEIVE_CLIENT_HTTP closed it");
+							return 1;
+						}
+					}
+#endif
+#if defined(LWS_WITH_SERVER)
+#if defined(LWS_WITH_CLIENT)
+					else
+#endif
+					{
+						/* Server-side receive */
+						int n;
+
+						/*
+						 * The request's Content-Length
+						 * bounds its DATA: beyond it the
+						 * message is malformed (RFC 9114
+						 * 4.1.2), and must not be taken
+						 * as more body, or a second one.
+						 * What is stashed ahead of the
+						 * action counts against it too
+						 */
+						if (lwsi_role_http(wsi) &&
+						    wsi->http.content_length_given) {
+							lws_filepos_t rem =
+								wsi->http.rx_content_remain;
+
+							if (lwsi_state(wsi) ==
+								LRS_DEFERRING_ACTION) {
+								size_t st = lws_buflist_total_len(
+									&wsi->buflist);
+
+								rem = st >= rem ? 0 :
+								      rem - (lws_filepos_t)st;
+							}
+							if ((lws_filepos_t)chunk > rem) {
+								struct lws *nwsi =
+									lws_get_quic_network_wsi(wsi);
+
+								lwsl_wsi_notice(wsi, "DATA beyond "
+										"content-length");
+								lws_quic_enter_closing_state(nwsi,
+									LWS_H3_MESSAGE_ERROR, 0, 1);
+								return 1;
+							}
+						}
+
+						if (lwsi_state(wsi) == LRS_DEFERRING_ACTION) {
+							/*
+							 * An empty DATA, with more
+							 * after it on the stream,
+							 * has nothing to keep
+							 */
+							if (chunk) {
+								n = lws_buflist_append_segment(
+									&wsi->buflist, buf, chunk);
+								if (n < 0)
+									return 1;
+								lwsl_debug("H3_TRACE: deferred %d bytes in buflist\n",
+									   (int)chunk);
+							}
+						} else {
+							/*
+							 * DATA is only meaningful as
+							 * body after a complete header
+							 * block: before it, DATA is
+							 * H3_FRAME_UNEXPECTED.  And a
+							 * request whose body is over,
+							 * its completion delivered or
+							 * dispatched with none, has no
+							 * more of it, not even an
+							 * empty DATA: taken as body it
+							 * put the stream back in
+							 * LRS_BODY, and an empty one
+							 * had the completion delivered
+							 * again.  Refuse both.
+							 *
+							 * That is known from the wsi,
+							 * not the ah: the POLLOUT
+							 * handler detaches it as soon
+							 * as lws_http_action()
+							 * returned, while a POST
+							 * stream is still legitimately
+							 * in LRS_BODY waiting for its
+							 * body, and in the body states
+							 * lws_read_h1() goes straight
+							 * to the body path and needs
+							 * no ah.
+							 *
+							 * Mirror h2: a stream still in
+							 * ESTABLISHED, where its body
+							 * completion also leaves it,
+							 * moves to LRS_BODY here.
+							 */
+							if (lwsi_role_http(wsi)) {
+								if (lwsi_hdrs_pending(wsi)) {
+									lwsl_wsi_notice(wsi, "DATA before header block");
+									return 1;
+								}
+								if (lwsi_state(wsi) == LRS_ESTABLISHED) {
+									if (wsi->http.rx_body_done) {
+										struct lws *nwsi =
+											lws_get_quic_network_wsi(wsi);
+
+										lwsl_wsi_notice(wsi, "DATA after the request body");
+										lws_quic_enter_closing_state(nwsi,
+											LWS_H3_MESSAGE_ERROR, 0, 1);
+										return 1;
+									}
+									lws_wsi_event(wsi, LWS_WSIEV_BODY_BEGIN);
+								}
+							}
+
+							/* on failure we close, not the read */
+							n = lws_read_h1(wsi, (unsigned char *)buf, chunk, 1);
+							
+							if (n < 0) {
+								lwsl_wsi_info(wsi, "server side read failed");
+								return 1;
+							}
+						}
+					}
+#endif
+					}
+				}
+			} else if (wsi->h3.stream_type == 0x00 && wsi->h3.rx_frame_type == 0x04) {
+				/* Parse SETTINGS frame */
+				const uint8_t *p = buf;
+				size_t clen = chunk;
+				while (clen > 0) {
+					/*
+					 * Q-2: cap the number of SETTINGS entries
+					 * per frame.  RFC 9114 defines ~7; 64 is a
+					 * generous ceiling that matches the QUIC
+					 * transport-parameter tracker.  Without
+					 * this a peer can burn CPU by stuffing
+					 * tens of thousands of junk entries (each
+					 * doing two varint parses + an if/else
+					 * chain) within the 100 MB frame budget.
+					 */
+					if (wsi->h3.rx_setting_count >= 64) {
+						struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+						lwsl_wsi_notice(wsi, "H3 RX: SETTINGS entry count exceeds 64");
+						lws_quic_enter_closing_state(nwsi, LWS_H3_SETTINGS_ERROR, 0, 1);
+						return 1;
+					}
+					if (wsi->h3.rx_setting_state == 0) {
+						if (!lws_h3_parse_varint_accum(wsi, &p, &clen, &wsi->h3.rx_setting_id))
+							break;
+						wsi->h3.rx_setting_state = 1;
+					}
+					if (clen > 0 && wsi->h3.rx_setting_state == 1) {
+						uint64_t val;
+						if (!lws_h3_parse_varint_accum(wsi, &p, &clen, &val))
+							break;
+						wsi->h3.rx_setting_state = 0;
+						wsi->h3.rx_setting_count++; /* Q-2 */
+						uint64_t id = wsi->h3.rx_setting_id;
+						if (id == 0x00 || id == 0x02 || id == 0x03 || id == 0x04 || id == 0x05) {
+							/* Prohibited HTTP/2 setting */
+							struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+							lws_quic_enter_closing_state(nwsi, LWS_H3_SETTINGS_ERROR, 0, 1);
+							return 1;
+						} else if (id == 0x01) { /* SETTINGS_QPACK_MAX_TABLE_CAPACITY */
+							if (wsi->h3.h3n) {
+								wsi->h3.h3n->qpack_tx_encoder.virtual_payload_max =
+									val > 0xffffffffu ? 0xffffffffu :
+											    (uint32_t)val;
+							}
+						} else if (id == 0x07) { /* SETTINGS_QPACK_BLOCKED_STREAMS */
+							if (wsi->h3.h3n)
+								wsi->h3.h3n->peer_qpack_blocked_streams = val;
+						} else if (id == 0x08) {
+							/* SETTINGS_ENABLE_WEB_SOCKETS */
+							struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+							if (nwsi && nwsi->h3.h3n)
+								nwsi->h3.h3n->peer_supports_ws = 1;
+						} else if (id == LWS_H3_SETTINGS_H3_DATAGRAM) {
+							struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+
+							/* RFC 9297 2.1.1: 0 or 1, else a settings error */
+							if (val > 1) {
+								lwsl_wsi_notice(wsi, "H3 RX: SETTINGS_H3_DATAGRAM %llu",
+										(unsigned long long)val);
+								lws_quic_enter_closing_state(nwsi, LWS_H3_SETTINGS_ERROR, 0, 1);
+								return 1;
+							}
+							if (nwsi && nwsi->h3.h3n)
+								nwsi->h3.h3n->peer_supports_h3_datagram = val == 1;
+						} else if (id == LWS_H3_SETTINGS_ENABLE_WEBTRANSPORT) {
+							struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+
+							/* the peer enables it by sending 1 */
+							if (nwsi && nwsi->h3.h3n)
+								nwsi->h3.h3n->peer_supports_webtransport = val == 1;
+						}
+					}
+				}
+			} else if (wsi->h3.stream_type == 0x00 && wsi->h3.rx_frame_type == 0x07) {
+				/* GOAWAY: its payload is one varint, the ID */
+				const uint8_t *p = buf;
+				size_t clen = chunk;
+				uint64_t id;
+
+				if (!wsi->h3.rx_frame_payload_read && chunk &&
+				    wsi->h3.rx_frame_len != ((uint64_t)1 << (buf[0] >> 6))) {
+					struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+
+					lws_quic_enter_closing_state(nwsi, LWS_H3_FRAME_ERROR, 0, 1);
+					return 1;
+				}
+				if (lws_h3_parse_varint_accum(wsi, &p, &clen, &id)) {
+#if defined(LWS_WITH_CLIENT)
+					if (lws_h3_rx_goaway(wsi, id))
+						return 1;
+#else
+					(void)id;
+#endif
+				}
+			}
+			
+			wsi->h3.rx_frame_payload_read += chunk;
+			buf += chunk;
+			len -= chunk;
+
+			if (wsi->h3.rx_frame_type == 0x00)
+				/* DATA payload, given to the user code */
+				wsi->h3.rx_user_len += chunk;
+
+			if (wsi->h3.rx_frame_payload_read == wsi->h3.rx_frame_len) {
+				/*
+				 * A field section must end where a field line
+				 * does, and have needed all the inserts it said
+				 * it required
+				 */
+				if ((!wsi->quic.qs || !wsi->quic.qs->is_unidirectional) &&
+				    wsi->h3.rx_frame_type == 0x01 &&
+				    (!wsi->h3.qpack_dec_state ||
+				     lws_qpack_decode_header_block_done(
+						     wsi->h3.qpack_dec_state))) {
+					struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+
+					lwsl_wsi_notice(wsi, "QPACK: bad field section end");
+					lws_quic_enter_closing_state(nwsi,
+						LWS_QPACK_DECOMPRESSION_FAILED, 0, 1);
+					return 1;
+				}
+
+				if ((!wsi->quic.qs || !wsi->quic.qs->is_unidirectional) &&
+				    wsi->h3.rx_frame_type == 0x01 &&
+				    wsi->h3.qpack_dec_state->ric &&
+				    lws_h3_qpack_dec_ack_section(wsi,
+					    wsi->h3.qpack_dec_state->ric))
+					return 1;
+
+				/* the peer's control stream: a request stream's type is 0 too */
+				if (wsi->quic.qs && wsi->quic.qs->is_unidirectional &&
+				    wsi->h3.stream_type == 0x00 && wsi->h3.rx_frame_type == 0x04) {
+					/* SETTINGS frame fully received, wake up children */
+					struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+
+					if (nwsi && nwsi->h3.h3n)
+						nwsi->h3.h3n->peer_settings_done = 1;
+					if (nwsi) {
+						lws_start_foreach_dll(struct lws_dll2 *, d,
+								lws_dll2_get_head(&nwsi->mux.child_list_owner)) {
+							struct lws *child = lws_container_of(
+								d, struct lws, mux.sibling_list);
+							lws_callback_on_writable(child);
+						}
+						lws_end_foreach_dll(d);
+					}
+				}
+
+				if ((!wsi->quic.qs || !wsi->quic.qs->is_unidirectional) && wsi->h3.rx_frame_type == 0x01 &&
+				    !lwsi_hdrs_pending(wsi)) {
+					/*
+					 * A second HEADERS block on a stream
+					 * whose head was already acted on is
+					 * trailers (RFC 9114 4.1): there is
+					 * nothing to dispatch or interpret
+					 * again, and doing so re-ran the
+					 * request (server) or the response
+					 * handling (client)
+					 */
+					/*
+					 * ...and its fields were validated, not
+					 * kept, by lws_h3_qpack_header_cb()
+					 */
+					lwsl_wsi_info(wsi, "trailers block");
+				} else if ((!wsi->quic.qs || !wsi->quic.qs->is_unidirectional) && wsi->h3.rx_frame_type == 0x01) {
+					/* HEADERS frame complete, validate and notify application! */
+					
+					/* HTTP/3 4.1.3: MUST send H3_MESSAGE_ERROR if mandatory pseudo-header fields are absent */
+					struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+					lwsl_wsi_info(wsi, "H3 HEADERS frame completed. is_server=%d, seen_method=%d, seen_scheme=%d, seen_path=%d", 
+						(nwsi && nwsi->quic.qn) ? nwsi->quic.qn->is_server : -1,
+						wsi->h3.seen_pseudo_method, wsi->h3.seen_pseudo_scheme, wsi->h3.seen_pseudo_path);
+					if (nwsi && nwsi->quic.qn && nwsi->quic.qn->is_server) {
+						/* Request headers must have :method, :scheme, :path, and :authority */
+						if (!wsi->h3.seen_pseudo_method || !wsi->h3.seen_pseudo_scheme || !wsi->h3.seen_pseudo_path || !wsi->h3.seen_pseudo_authority) {
+							lwsl_wsi_notice(wsi, "H3 MESSAGE_ERROR: Missing mandatory pseudo-headers!");
+							lws_quic_enter_closing_state(nwsi, LWS_H3_MESSAGE_ERROR, 0, 1);
+							return 1;
+						}
+						/* Prohibited in requests */
+						if (wsi->h3.seen_pseudo_status) {
+							lws_quic_enter_closing_state(nwsi, LWS_H3_MESSAGE_ERROR, 0, 1);
+							return 1;
+						}
+						/*
+						 * RFC 9114 4.2: connection-specific fields
+						 * (Connection, Transfer-Encoding, ...) MUST
+						 * NOT be sent, and a message containing one
+						 * is malformed.  h3 does its own framing, so
+						 * a Transfer-Encoding here is not merely
+						 * useless: let through to an onward h1 leg
+						 * it is the downgrade request-smuggling
+						 * primitive.  h2 refuses both the same way.
+						 */
+						if (lws_hdr_extant(wsi, WSI_TOKEN_HTTP_TRANSFER_ENCODING) ||
+						    lws_hdr_extant(wsi, WSI_TOKEN_CONNECTION)) {
+							lwsl_wsi_notice(wsi, "H3 MESSAGE_ERROR: connection-specific header in request");
+							lws_quic_enter_closing_state(nwsi, LWS_H3_MESSAGE_ERROR, 0, 1);
+							return 1;
+						}
+
+						/*
+						 * RFC 9114 4.3.1: if both :authority
+						 * and Host are present they must name
+						 * the same authority, or the request
+						 * is malformed.  We route on
+						 * :authority, but redirects, origin
+						 * checks, the proxy and user code
+						 * read Host: they must not be able to
+						 * say different things.  h2 refuses
+						 * it the same way.
+						 */
+						if (lws_http_host_authority_disagree(wsi)) {
+							lwsl_wsi_notice(wsi, "H3 MESSAGE_ERROR: Host disagrees with :authority");
+							lws_quic_enter_closing_state(nwsi, LWS_H3_MESSAGE_ERROR, 0, 1);
+							return 1;
+						}
+
+						/*
+						 * Server code asks for the Host it
+						 * would have had on h1: give it the
+						 * :authority, once the block is done
+						 * and only if no Host came, the way h2
+						 * does (a real Host after :authority
+						 * would otherwise chain onto the
+						 * mirror).  An alias, so a request
+						 * that just fits the ah still does.
+						 */
+						if (!lws_hdr_extant(wsi, WSI_TOKEN_HOST) &&
+						    lws_hdr_alias(wsi, WSI_TOKEN_HOST,
+								  WSI_TOKEN_HTTP_COLON_AUTHORITY) &&
+						    /* only fails with no frag left */
+						    lws_h3_hdrs_oversize(wsi)) {
+							lws_quic_enter_closing_state(nwsi, LWS_H3_INTERNAL_ERROR, 0, 1);
+							return 1;
+						}
+					} else if (nwsi && nwsi->quic.qn) {
+						/*
+						 * RFC 9114 4.3.2: a response has a
+						 * :status and none of the request's
+						 * pseudo-headers.  A response :method
+						 * or :path was otherwise acted on below
+						 * as if it were a request's.
+						 */
+						if (!wsi->h3.seen_pseudo_status ||
+						    wsi->h3.seen_pseudo_method ||
+						    wsi->h3.seen_pseudo_scheme ||
+						    wsi->h3.seen_pseudo_authority ||
+						    wsi->h3.seen_pseudo_path ||
+						    wsi->h3.seen_pseudo_protocol) {
+							lwsl_wsi_notice(wsi, "H3 MESSAGE_ERROR: "
+								"response pseudo-headers");
+							lws_quic_enter_closing_state(nwsi,
+								LWS_H3_MESSAGE_ERROR, 0, 1);
+							return 1;
+						}
+					}
+
+					/* duplicate :path into the individual method uri header index */
+					const char *p = lws_hdr_simple_ptr(wsi, WSI_TOKEN_HTTP_COLON_METHOD);
+#if (_LWS_ENABLED_LOGS & LLL_INFO)
+					{
+						char pbuf[128];
+						/* F-016: show the path, but not any query string */
+						lwsl_wsi_info(wsi, "Decoded method: %s, Decoded path: %s",
+							      p ? p : "NULL",
+							      lws_http_log_path(pbuf, sizeof(pbuf),
+						lws_hdr_simple_ptr(wsi, WSI_TOKEN_HTTP_COLON_PATH)));
+					}
+#endif
+					
+					static const char * const method_names[] = {
+						"GET", "POST",
+					#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS)
+						"OPTIONS", "PUT", "PATCH", "DELETE",
+					#endif
+						"CONNECT", "HEAD"
+					};
+					static const unsigned char method_index[] = {
+						WSI_TOKEN_GET_URI,
+						WSI_TOKEN_POST_URI,
+					#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS)
+						WSI_TOKEN_OPTIONS_URI,
+						WSI_TOKEN_PUT_URI,
+						WSI_TOKEN_PATCH_URI,
+						WSI_TOKEN_DELETE_URI,
+					#endif
+						WSI_TOKEN_CONNECT,
+						WSI_TOKEN_HEAD_URI,
+					};
+					for (int n = 0; n < (int)LWS_ARRAY_SIZE(method_names); n++) {
+						if (p && !strcasecmp(p, method_names[n])) {
+							wsi->stream.ah->frag_index[method_index[n]] =
+								wsi->stream.ah->frag_index[WSI_TOKEN_HTTP_COLON_PATH];
+							break;
+						}
+					}
+					
+					lwsl_debug("H3_TRACE: HEADERS frame complete for wsi %p. :authority len=%d (%s), HOST len=%d (%s), vhost=%s\n",
+						wsi,
+						lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_COLON_AUTHORITY),
+						lws_hdr_simple_ptr(wsi, WSI_TOKEN_HTTP_COLON_AUTHORITY) ? lws_hdr_simple_ptr(wsi, WSI_TOKEN_HTTP_COLON_AUTHORITY) : "null",
+						lws_hdr_total_length(wsi, WSI_TOKEN_HOST),
+						lws_hdr_simple_ptr(wsi, WSI_TOKEN_HOST) ? lws_hdr_simple_ptr(wsi, WSI_TOKEN_HOST) : "null",
+						wsi->a.vhost ? wsi->a.vhost->name : "null");
+
+					
+					/* Extract Content-Length if present */
+					if (lws_hdr_extant(wsi, WSI_TOKEN_HTTP_CONTENT_LENGTH)) {
+						const char *simp = lws_hdr_simple_ptr(wsi, WSI_TOKEN_HTTP_CONTENT_LENGTH);
+						if (simp) {
+							long long cl_val = atoll(simp);
+							if (cl_val >= 0) {
+								wsi->http.rx_content_length = (unsigned long long)cl_val;
+								wsi->http.rx_content_remain = wsi->http.rx_content_length;
+								wsi->http.content_length_given = 1;
+								if (wsi->http.rx_content_length == 0)
+									wsi->http.content_length_explicitly_zero = 1;
+							}
+						}
+					}
+
+#if defined(LWS_WITH_CLIENT)
+					if (wsi->client_mux_substream) {
+						if (lws_client_interpret_server_handshake(wsi) !=
+							LWS_HPI_RET_HANDLED) {
+							lwsl_info("cli int serv hs closed, or redir\n");
+							return 1;
+						}
+						/* content-length was taken above */
+						lws_client_mux_hdrs_done(wsi);
+					}
+#endif
+#if defined(LWS_WITH_SERVER)
+#if defined(LWS_WITH_CLIENT)
+					else
+#endif
+					{
+						lwsl_info("H3_VHOST_SELECT: headers parsed. vhost listen_port: %d, auth len: %d, authority: %s\n",
+							wsi->a.vhost->listen_port,
+							lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_COLON_AUTHORITY),
+							lws_hdr_simple_ptr(wsi, WSI_TOKEN_HTTP_COLON_AUTHORITY) ? lws_hdr_simple_ptr(wsi, WSI_TOKEN_HTTP_COLON_AUTHORITY) : "NULL");
+
+						/*
+						 * Select vhost based on authority.
+						 *
+						 * Only among the vhosts sharing the listener
+						 * he arrived on, as h1 does with Host: a
+						 * vhost on another port or interface, or a
+						 * unix socket one, is not reachable from
+						 * here, whatever he names.  A vhost with no
+						 * listen port of its own (eg, a quic listener
+						 * adopted onto it) shares it with nobody.
+						 *
+						 * h3 is always over tls, so the name he gave
+						 * was also judged at SNI time by
+						 * lws_select_vhost_sni()... apply the same
+						 * rules again rather than let an unrecognized
+						 * authority move him onto whichever vhost is
+						 * first on the listener.  If nothing matches he
+						 * stays on the vhost that accepted him.
+						 */
+						if (lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_COLON_AUTHORITY)) {
+							struct lws_vhost *lv = wsi->a.vhost,
+									 *vhost = NULL;
+
+							if (lv->listen_port > 0)
+								vhost = lws_select_vhost_sni(lv,
+									lws_hdr_simple_ptr(wsi, WSI_TOKEN_HTTP_COLON_AUTHORITY));
+
+							lwsl_debug("H3_TRACE: :authority selects %s, arrived on %s\n",
+								vhost ? vhost->name : "none", lv->name);
+							if (vhost && (lws_vhost_rebind_mtls_refused(wsi, vhost) ||
+								      lws_http_server_rebind(wsi, vhost))) {
+								/*
+								 * He named a vhost that he can't be
+								 * moved to, eg, one requiring a client
+								 * cert his handshake did not satisfy.
+								 * Leaving him on the vhost he came in on
+								 * would serve him from one he did not
+								 * ask for... reject the request instead
+								 * (h1 answers 421 here).
+								 */
+								lwsl_wsi_notice(wsi, "refusing :authority move to vh %s",
+										vhost->name);
+								lws_quic_enter_closing_state(nwsi, LWS_H3_REQUEST_REJECTED, 0, 1);
+
+								return 1;
+							}
+
+							if (vhost)
+								lwsl_debug("H3_TRACE: bound wsi %p to vhost %s\n", wsi, vhost->name);
+						}
+
+						lws_wsi_event(wsi, LWS_WSIEV_REQ_HDRS_COMPLETE);
+						lws_callback_on_writable(wsi);
+						lwsl_debug("H3_TRACE: wsi %p transitioned to LRS_DEFERRING_ACTION and called callback_on_writable\n", wsi);
+					}
+#endif
+				}
+				if (wsi->h3.rx_frame_type == 0x01 && wsi->h3.qpack_dec_state) {
+					lws_free(wsi->h3.qpack_dec_state);
+					wsi->h3.qpack_dec_state = NULL;
+				}
+				wsi->h3.rx_prev_type = wsi->h3.rx_frame_type;
+				wsi->h3.rx_prev_len = wsi->h3.rx_frame_len;
+				wsi->h3.rx_prev_at = wsi->h3.rx_frame_at;
+				wsi->h3.rx_frame_state = 0; /* Next frame */
+			}
+		}
+	}
+
+	return 0;
+}
+
+/*
+ * Everything h3 took from the stream, and doesn't hold for later, is dealt
+ * with: the frames' types and lengths, HEADERS, the unidirectional streams'
+ * types and payloads as well as DATA, so give back the window it all took.
+ * DATA payload, that the user code had, is only given back on the stream by
+ * the user code if it's doing manual rx flow control.
+ */
+int
+lws_h3_rx_stream_data(struct lws *wsi, const uint8_t *buf, size_t len)
+{
+	size_t held = lws_buflist_total_len(&wsi->h3.qpack_blocked_bl);
+
+	wsi->h3.rx_user_len = 0;
+	if (lws_h3_rx_stream_data_(wsi, buf, len))
+		return 1;
+
+	held = lws_buflist_total_len(&wsi->h3.qpack_blocked_bl) - held;
+	if (len > held)
+		lws_quic_rx_consumed(wsi, len - held, wsi->h3.rx_user_len);
+
+	return 0;
+}
+
+#if defined(LWS_WITH_SYS_FAULT_INJECTION)
+/*
+ * The h3_qpack_enc_big_entry fault has the peer keep one big entry in its
+ * dynamic table, for a test's request headers to refer to many times over in
+ * a few bytes: lws' own encoder never inserts anything.  It takes the whole
+ * 4096 capacity a peer may well have advertised, as a cookie of
+ * LWS_H3_FI_BIG_ENTRY_LEN 'a's, absolute index 0.
+ *
+ * With h3_qpack_enc_big_entry_late, the insert waits until the connection's
+ * first request HEADERS went, so a request referring to it arrives first and
+ * blocks.  With h3_qpack_enc_big_entry_never, it is counted but never sent,
+ * so a request referring to it stays blocked.
+ */
+static int
+lws_h3_fi_big_entry(struct lws *wsi, struct lws *nwsi,
+		    struct lws_h3_netconn *h3n)
+{
+	struct lws_buflist **bl = &h3n->qpack_tx_encoder.tx_bl;
+	uint8_t *ins;
+	char *val;
+	int n = -1, m;
+
+	if (lws_fi(&wsi->fic, "h3_qpack_enc_big_entry_late") ||
+	    lws_fi(&nwsi->fic, "h3_qpack_enc_big_entry_late"))
+		bl = &h3n->fi_late_insert;
+	else if (lws_fi(&wsi->fic, "h3_qpack_enc_big_entry_never") ||
+		 lws_fi(&nwsi->fic, "h3_qpack_enc_big_entry_never")) {
+		h3n->qpack_tx_encoder.insert_count++;
+		return 0;
+	} else if (!lws_fi(&wsi->fic, "h3_qpack_enc_big_entry") &&
+		   !lws_fi(&nwsi->fic, "h3_qpack_enc_big_entry"))
+		return 0;
+
+	ins = lws_malloc(LWS_H3_FI_BIG_ENTRY_LEN + 16, "h3 fi entry");
+	val = lws_malloc(LWS_H3_FI_BIG_ENTRY_LEN, "h3 fi value");
+	if (ins && val) {
+		memset(val, 'a', LWS_H3_FI_BIG_ENTRY_LEN);
+		n = lws_qpack_tx_encode_set_capacity(ins,
+				LWS_H3_FI_BIG_ENTRY_LEN + 16, 4096);
+		m = n < 0 ? -1 :
+			lws_qpack_tx_encode_insert_name_ref(ins + n,
+				(size_t)(LWS_H3_FI_BIG_ENTRY_LEN + 16 - n), 1,
+				5 /* cookie */, val, LWS_H3_FI_BIG_ENTRY_LEN);
+		n = m < 0 ? -1 : n + m;
+	}
+	if (n > 0 && lws_buflist_append_segment(bl, ins, (size_t)n) < 0)
+		n = -1;
+	lws_free(ins);
+	lws_free(val);
+	if (n < 0)
+		return 1;
+
+	/* it is an insert like any other, the peer acks it */
+	h3n->qpack_tx_encoder.insert_count++;
+	if (bl == &h3n->qpack_tx_encoder.tx_bl &&
+	    !lws_h3_qpack_stream(h3n, 0x02))
+		return 1;
+
+	return 0;
+}
+
+/* a request's HEADERS went: a late insert may go now */
+static void
+lws_h3_fi_late_insert(struct lws *wsi)
+{
+	struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+	struct lws_h3_netconn *h3n = nwsi ? nwsi->h3.h3n : NULL;
+	uint8_t *p;
+	size_t len;
+
+	if (!h3n || !h3n->fi_late_insert)
+		return;
+
+	while ((len = lws_buflist_next_segment_len(&h3n->fi_late_insert, &p))) {
+		if (lws_buflist_append_segment(&h3n->qpack_tx_encoder.tx_bl,
+					       p, len) < 0)
+			break;
+		lws_buflist_use_segment(&h3n->fi_late_insert, len);
+	}
+	lws_buflist_destroy_all_segments(&h3n->fi_late_insert);
+	if (h3n->qpack_tx_encoder.tx_bl) {
+		struct lws *w = lws_h3_qpack_stream(h3n, 0x02);
+
+		if (w)
+			lws_callback_on_writable(w);
+	}
+}
+#endif
+
+static int
+rops_alpn_negotiated_h3(struct lws *wsi, const char *alpn)
+{
+	struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+	struct lws_h3_netconn *h3n;
+
+	lwsl_wsi_info(wsi, "H3 ALPN Negotiated: %s", alpn);
+
+	if (!nwsi || !nwsi->quic.qn)
+		return 1;
+
+	/* Only the first H3 stream (which is the application request) initializes the connection */
+	if (!nwsi->h3.h3n) {
+		h3n = lws_zalloc(sizeof(*h3n), "h3n");
+		if (!h3n)
+			return 1;
+		nwsi->h3.h3n = h3n;
+		h3n->nwsi = nwsi;
+#if defined(LWS_WITH_FOOTPRINT)
+		lws_h3_netconn_fp_register(h3n);
+#endif
+
+		/* Initialize QPACK encoder context */
+		h3n->qpack_tx_encoder.entries = h3n->tx_entries;
+		h3n->qpack_tx_encoder.num_entries = LWS_ARRAY_SIZE(h3n->tx_entries);
+		h3n->qpack_tx_encoder.virtual_payload_max = 4096;
+		nwsi->h3.qpack_tx_encoder = &h3n->qpack_tx_encoder;
+
+		/*
+		 * Initialize the QPACK decoder context: the storage for the
+		 * peer's dynamic table must exist or lws_qpack_dynamic_insert()
+		 * refuses every encoder-stream insert, insert_count stays 0 and
+		 * every dynamic reference in a field block is silently dropped.
+		 * Real-browser encoders (which use the dynamic table we invite
+		 * with SETTINGS_QPACK_MAX_TABLE_CAPACITY) then lose headers --
+		 * eg the SSO origin/referer CSRF gate saw "no origin/referer".
+		 */
+		h3n->qpack_dec_ctx.dyn_table.entries = h3n->rx_entries;
+		h3n->qpack_dec_ctx.dyn_table.num_entries =
+				LWS_ARRAY_SIZE(h3n->rx_entries);
+		h3n->qpack_dec_ctx.dyn_table.virtual_payload_limit = LWS_QPACK_CAP_VAL;
+
+		h3n->qpack_blocked_max = LWS_QPACK_BLOCKED_STREAMS;
+#if defined(LWS_WITH_SYS_FAULT_INJECTION)
+		/*
+		 * the h3_qpack_blocked_streams_0 fault has a server let no
+		 * stream wait for inserts, so a peer may not send a section
+		 * referring to one before it knows we have it
+		 */
+		if (lws_fi(&nwsi->a.vhost->fic, "h3_qpack_blocked_streams_0"))
+			h3n->qpack_blocked_max = 0;
+#endif
+
+		/* Create the 3 local control streams */
+		/* Client unidi start at 2 */
+		if (nwsi->quic.qn->next_stream_id_unidi_local == 0)
+			nwsi->quic.qn->next_stream_id_unidi_local = lwsi_role_server(nwsi) ? 3 : 2;
+			
+		/*
+		 * Only the control stream now: our qpack streams are opened
+		 * by lws_h3_qpack_stream() when there's something for them
+		 * to say, which for the decoder may already be the case
+		 */
+		h3n->cwsi_control = lws_h3_create_unidi_stream(nwsi, 0x00);
+		if (!h3n->cwsi_control ||
+		    (h3n->qpack_dec_tx_bl && !lws_h3_qpack_stream(h3n, 0x03)))
+			return 1;
+
+#if defined(LWS_WITH_SYS_FAULT_INJECTION)
+		/* the h3_second_qpack_enc fault opens a second encoder stream */
+		if ((lws_fi(&wsi->fic, "h3_second_qpack_enc") ||
+		     lws_fi(&nwsi->fic, "h3_second_qpack_enc")) &&
+		    (!lws_h3_qpack_stream(h3n, 0x02) ||
+		     !lws_h3_create_unidi_stream(nwsi, 0x02)))
+			return 1;
+
+		if (lws_h3_fi_big_entry(wsi, nwsi, h3n))
+			return 1;
+#endif
+	}
+
+	wsi->h3.h3n = nwsi->h3.h3n;
+	wsi->h3.qpack_tx_encoder = nwsi->h3.qpack_tx_encoder;
+
+	/* Notify all children and update their h3n */
+	{
+		lwsl_wsi_info(wsi, "H3 ALPN Negotiated, child_list=%p",
+			      (void *)lws_dll2_get_head(&nwsi->mux.child_list_owner));
+		lws_start_foreach_dll(struct lws_dll2 *, d,
+				lws_dll2_get_head(&nwsi->mux.child_list_owner)) {
+			struct lws *child = lws_container_of(d, struct lws,
+							     mux.sibling_list);
+			lwsl_wsi_info(child, "H3 ALPN child state=%d", lwsi_state(child));
+			child->h3.h3n = nwsi->h3.h3n;
+			child->h3.qpack_tx_encoder = nwsi->h3.qpack_tx_encoder;
+
+			if (lwsi_state(child) == LRS_UNCONNECTED || lwsi_transport(child) == LTS_WAITING_CONNECT) {
+				lwsl_wsi_info(child, "H3 ALPN Negotiated, transitioning child");
+				lws_wsi_event_role(child, LWS_WSIEV_ALPN_DONE, &role_ops_h3);
+				lws_callback_on_writable(child);
+			} else if (child->role_ops && !strcmp(child->role_ops->name, "quic")) {
+				/* Server-side peer-initiated stream adopted during 0-RTT! Transition it to H3 now. */
+				lwsl_wsi_info(child, "H3 ALPN Negotiated, transitioning 0-RTT child to H3");
+				lws_wsi_event_role(child, LWS_WSIEV_ALPN_DONE, &role_ops_h3);
+			}
+		}
+		lws_end_foreach_dll(d);
+	}
+
+	return 0;
+}
+
+/*
+ * RFC 9204 4.4.2: a request stream we stop reading before the peer finished
+ * it may have carried field sections referring to the dynamic table that we
+ * never decoded, so never acknowledged: tell the peer's encoder none of them
+ * are outstanding any more.  If it never inserted anything, there were none.
+ */
+static void
+lws_h3_qpack_dec_cancel_stream(struct lws *wsi)
+{
+	struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+	struct lws_h3_netconn *h3n = nwsi ? nwsi->h3.h3n : NULL;
+	struct lws_quic_stream *qs = wsi->quic.qs;
+
+	if (!h3n || wsi == nwsi || !qs || qs->is_unidirectional ||
+	    !nwsi->quic.qn || nwsi->quic.qn->is_closing)
+		return;
+
+	/* a blocked stream's section is outstanding even if its FIN came */
+	if (lws_dll2_is_detached(&wsi->h3.qpack_blocked) &&
+	    (qs->fin_delivered || !h3n->qpack_dec_ctx.dyn_table.insert_count))
+		return;
+
+	/*
+	 * This is a close path, which mustn't be what opens our decoder
+	 * stream: and it can't be, since there was an insert, whose Insert
+	 * Count Increment went as soon as it came and opened it
+	 */
+	if (!h3n->cwsi_qpack_dec)
+		return;
+
+	if (lws_h3_qpack_dec_emit(h3n, qs->stream_id, 6, 0x40))
+		lwsl_wsi_warn(wsi, "unable to queue Stream Cancellation");
+}
+
+#if defined(LWS_WITH_FOOTPRINT)
+
+/*
+ * The h3 connection works out what it holds on demand: itself, with the
+ * qpack tables' slots, the strings in both tables, the qpack instructions
+ * waiting to go, and what its streams hold for qpack: their decode state,
+ * with its 4KB value buffer, while a field section or encoder instruction is
+ * coming in, and the sections waiting for inserts, or for the peer to
+ * acknowledge ours.  The quic connection and stream state is in the "quic
+ * conn" participant.
+ */
+
+typedef struct {
+	size_t		conn, dyn, dyn_n, enc, enc_n, q;
+	size_t		st_dec, st_dec_n, st_held;
+} h3_fp_parts_t;
+
+static void
+h3_fp_parts(struct lws_h3_netconn *h3n, h3_fp_parts_t *p)
+{
+	const struct lws_qpack_dynamic_table *t = &h3n->qpack_dec_ctx.dyn_table;
+	const struct lws_qpack_tx_encoder *e = &h3n->qpack_tx_encoder;
+	unsigned int n;
+
+	memset(p, 0, sizeof(*p));
+
+	p->conn = lws_fp_heap(h3n, sizeof(*h3n));
+
+	for (n = 0; n < t->num_entries; n++)
+		if (t->entries[n].value) {
+			p->dyn += lws_fp_heap(t->entries[n].value,
+				      (size_t)(t->entries[n].hdr_len - 32 + 2));
+			p->dyn_n++;
+		}
+
+	for (n = 0; n < e->num_entries; n++) {
+		if (e->entries[n].name)
+			p->enc += lws_fp_heap(e->entries[n].name,
+					      e->entries[n].name_len + 1u);
+		if (e->entries[n].value) {
+			p->enc += lws_fp_heap(e->entries[n].value,
+					      e->entries[n].value_len + 1u);
+			p->enc_n++;
+		}
+	}
+
+	p->q = lws_buflist_total_len(&h3n->qpack_dec_tx_bl) +
+	       lws_buflist_total_len(&h3n->qpack_tx_encoder.tx_bl);
+
+	lws_start_foreach_dll(struct lws_dll2 *, d,
+			lws_dll2_get_head(&h3n->nwsi->mux.child_list_owner)) {
+		struct lws *w = lws_container_of(d, struct lws,
+						 mux.sibling_list);
+
+		if (w->h3.qpack_dec_state) {
+			p->st_dec += lws_fp_heap(w->h3.qpack_dec_state,
+					sizeof(*w->h3.qpack_dec_state));
+			p->st_dec_n++;
+		}
+		p->st_held += lws_buflist_total_len(&w->h3.qpack_blocked_bl);
+#if defined(LWS_WITH_CLIENT)
+		p->st_held += lws_buflist_total_len(&w->h3.qpack_held_hdrs);
+#endif
+	} lws_end_foreach_dll(d);
+}
+
+static void
+h3_fp_report(lws_footprint_t *fp, lws_footprint_report_t *r)
+{
+	struct lws_h3_netconn *h3n = lws_container_of(fp,
+					struct lws_h3_netconn, fp);
+	h3_fp_parts_t p;
+	size_t b;
+
+	h3_fp_parts(h3n, &p);
+	b = p.conn + p.dyn + p.enc + p.q + p.st_dec + p.st_held;
+
+	r->count	= 1;
+	r->bytes	= b;
+	if (b > fp->bytes_hwm)
+		fp->bytes_hwm = b;
+	r->bytes_hwm	= fp->bytes_hwm;
+}
+
+#if (_LWS_ENABLED_LOGS & LLL_NOTICE)
+static void
+h3_fp_dump(lws_footprint_t *fp)
+{
+	struct lws_h3_netconn *h3n = lws_container_of(fp,
+					struct lws_h3_netconn, fp);
+	h3_fp_parts_t p;
+
+	h3_fp_parts(h3n, &p);
+
+	lwsl_wsi_notice(h3n->nwsi, "fp:     conn %u, peer's table %u entries "
+			"(%u B), ours %u (%u B), qpack to send %u",
+			(unsigned int)p.conn, (unsigned int)p.dyn_n,
+			(unsigned int)p.dyn, (unsigned int)p.enc_n,
+			(unsigned int)p.enc, (unsigned int)p.q);
+	lwsl_wsi_notice(h3n->nwsi, "fp:     streams: qpack decoding %u (%u B), "
+			"sections held %u B", (unsigned int)p.st_dec_n,
+			(unsigned int)p.st_dec, (unsigned int)p.st_held);
+	/* each is a whole stream wsi: the qpack ones are opened on need */
+	lwsl_wsi_notice(h3n->nwsi, "fp:     unidi: ours control%s%s, "
+			"peer's%s%s%s", h3n->cwsi_qpack_enc ? " qpack-enc" : "",
+			h3n->cwsi_qpack_dec ? " qpack-dec" : "",
+			h3n->peer_uni_seen & LWS_H3_PEER_UNI_CONTROL ?
+							" control" : "",
+			h3n->peer_uni_seen & LWS_H3_PEER_UNI_QPACK_ENC ?
+							" qpack-enc" : "",
+			h3n->peer_uni_seen & LWS_H3_PEER_UNI_QPACK_DEC ?
+							" qpack-dec" : "");
+}
+#endif
+
+static const lws_footprint_ops_t h3_fp_ops = {
+	.shed_class	= LWSFP_SHED_NONE,
+	.report		= h3_fp_report,
+#if (_LWS_ENABLED_LOGS & LLL_NOTICE)
+	.dump		= h3_fp_dump,
+#endif
+};
+
+void
+lws_h3_netconn_fp_register(struct lws_h3_netconn *h3n)
+{
+	struct lws *nwsi = h3n->nwsi;
+
+	lws_footprint_register(nwsi->a.context, &h3n->fp, "h3 conn",
+			       &h3_fp_ops);
+	if (nwsi->a.vhost)
+		lws_footprint_set_ident(&h3n->fp, nwsi->a.vhost->name);
+}
+#endif
+
+static int
+rops_close_kill_connection_h3(struct lws *wsi, enum lws_close_status reason)
+{
+	struct lws *cnwsi = lws_get_quic_network_wsi(wsi);
+	struct lws_h3_netconn *h3n = cnwsi && cnwsi != wsi ?
+						cnwsi->h3.h3n : NULL;
+
+	lws_quic_trace_unanswered(wsi, reason);
+
+	/*
+	 * When the connection closes, its children may go in any order: if
+	 * this is one of the connection's own streams, the others mustn't
+	 * find it there after, eg, a request stream closing after the qpack
+	 * decoder stream queues a Stream Cancellation and asks for it to be
+	 * writeable
+	 */
+	if (h3n) {
+		if (h3n->cwsi_control == wsi)
+			h3n->cwsi_control = NULL;
+		if (h3n->cwsi_qpack_enc == wsi) {
+			h3n->cwsi_qpack_enc = NULL;
+			h3n->qpack_tx_encoder.wsi_qpack_enc = NULL;
+		}
+		if (h3n->cwsi_qpack_dec == wsi)
+			h3n->cwsi_qpack_dec = NULL;
+		if (h3n->peer_control == wsi)
+			h3n->peer_control = NULL;
+	}
+
+	lws_h3_qpack_dec_cancel_stream(wsi);
+	/* nothing it held is wanted now */
+	lws_dll2_remove(&wsi->h3.qpack_blocked);
+	lws_buflist_destroy_all_segments(&wsi->h3.qpack_blocked_bl);
+#if defined(LWS_WITH_CLIENT)
+	lws_buflist_destroy_all_segments(&wsi->h3.qpack_held_hdrs);
+	{
+		struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+
+		/* a stream that might have blocked at the peer is one fewer */
+		if (nwsi && nwsi != wsi && nwsi->h3.h3n &&
+		    lws_h3_qpack_enc_may_block(wsi, nwsi->h3.h3n->
+					qpack_tx_encoder.known_received_count)) {
+			wsi->h3.qpack_enc_unacked = 0;
+			lws_h3_qpack_enc_wake_held(nwsi);
+		}
+	}
+#endif
+	lws_quic_stream_cleanup(wsi);
+
+#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+	/*
+	 * An answer compressed on the fly leaves its compressor behind, as on
+	 * h1 and h2, whose destroy_role frees it: nothing more is written on
+	 * the stream now
+	 */
+	lws_http_compression_destroy(wsi);
+#endif
+
+	if (wsi->h3.qpack_dec_state) {
+		lws_free(wsi->h3.qpack_dec_state);
+		wsi->h3.qpack_dec_state = NULL;
+	}
+
+	if (wsi->mux.parent_wsi) {
+		struct lws *nwsi = wsi->mux.parent_wsi;
+
+		lws_wsi_mux_sibling_disconnect(wsi);
+#if defined(LWS_WITH_CLIENT)
+		/* if that was the connection's last request stream, keep it warm */
+		lws_wsi_mux_client_idle_check(nwsi);
+#else
+		(void)nwsi;
+#endif
+	}
+
+	return 0;
+}
+
+/*
+ * The h3 DATA / HEADERS frame header (1 type byte + up to 8 bytes of varint
+ * length) is written in place before the caller's buffer, and for
+ * webtransport up to 8 more bytes of session id go before that
+ * (rops_write_role_protocol_wt): it all has to fit in LWS_PRE.
+ */
+typedef char lws_pre_covers_h3_and_wt_headers[(LWS_PRE >= 1 + 8 + 8) ? 1 : -1];
+
+static int
+rops_write_role_protocol_h3(struct lws *wsi, unsigned char *buf, size_t len,
+			    enum lws_write_protocol *wp)
+{
+	/*
+	 * Where the framed write starts, set below when there is a frame
+	 * header to put before buf.  Not buf - LWS_PRE up front: a write
+	 * draining the compressor's buffered input comes with a NULL buf
+	 */
+	unsigned char *pre = buf;
+	int base = (*wp & 0x1f);
+	int is_http = base == LWS_WRITE_HTTP || base == LWS_WRITE_HTTP_FINAL;
+	int is_headers = base == LWS_WRITE_HTTP_HEADERS;
+	/* ws over h3 (RFC 9220): the ws frames are the stream's DATA */
+	int is_ws = wsi->h23_stream_carries_ws && lwsi_role_ws(wsi) &&
+		    !is_headers;
+	size_t olen = len;
+	char head_body = 0;
+	int n;
+#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+	unsigned char mtubuf[4096 + LWS_PRE];
+	int32_t max_out = sizeof(mtubuf) - LWS_PRE;
+	
+	if (is_http && wsi->http.lcs) {
+		struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+		int32_t cr = lws_h3_usable_tx_cr(wsi);
+
+		if (nwsi && nwsi->txc.tx_cr < cr)
+			cr = nwsi->txc.tx_cr;
+
+		/*
+		 * The compressor may produce no more than the credit allows,
+		 * less room for the h3 DATA frame header.  If that's nothing,
+		 * it produces nothing: the input it can't take goes on
+		 * buflist_comp, to be drained when credit comes, the same as
+		 * when its output buffer is full.  Refusing the write instead
+		 * reads to our caller as the stream failing.
+		 */
+		cr -= 16;
+		if (cr < 0)
+			cr = 0;
+		if (cr < max_out)
+			max_out = cr;
+	}
+#endif
+
+	if (is_http && wsi->http.tx_content_length) {
+		if (wsi->http.tx_content_remain <= len) {
+			lwsl_info("%s: selecting final write mode\n", __func__);
+			base = LWS_WRITE_HTTP_FINAL;
+			*wp = (enum lws_write_protocol)(((unsigned int)*wp & ~0x1fu) | LWS_WRITE_HTTP_FINAL);
+		}
+	}
+
+	if (base == LWS_WRITE_HTTP_FINAL) {
+		*wp = (enum lws_write_protocol)((unsigned int)*wp | LWS_WRITE_H2_STREAM_END);
+	}
+
+	if (is_http && lws_http_tx_is_head_body(wsi, base)) {
+		/*
+		 * Answering a HEAD: none of the body goes, but the stream still
+		 * ends where the write would have ended it, as the FIN alone,
+		 * uncoded: there is no body to code
+		 */
+		if (wsi->http.tx_content_length)
+			wsi->http.tx_content_remain -= olen <
+					wsi->http.tx_content_remain ?
+					(lws_filepos_t)olen :
+					wsi->http.tx_content_remain;
+		if (!((*wp) & LWS_WRITE_H2_STREAM_END))
+			return (int)olen;
+
+		len = 0;
+		is_http = 0;
+		head_body = 1;
+		goto send;
+	}
+
+#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+	if (is_http && wsi->http.lcs) {
+		unsigned char *out = mtubuf + LWS_PRE;
+		size_t o = (size_t)max_out;
+
+		n = lws_http_compression_transform(wsi, buf, len, wp, &out, &o);
+		if (n)
+			return n;
+
+		buf = out;
+		len = o;
+		base = (*wp) & 0x1f;
+
+		if (base == LWS_WRITE_HTTP_FINAL) {
+			*wp = (enum lws_write_protocol)((unsigned int)*wp | LWS_WRITE_H2_STREAM_END);
+		} else {
+			*wp = (enum lws_write_protocol)((unsigned int)*wp & ~(unsigned int)LWS_WRITE_H2_STREAM_END);
+		}
+
+		if (!len && base != LWS_WRITE_HTTP_FINAL)
+			return (int)olen;
+	}
+#endif
+
+	if (is_http && !len) {
+		/*
+		 * An empty DATA frame says nothing: a body-less FINAL only ends
+		 * the stream, which is a FIN on the quic stream, and a
+		 * body-less non-FINAL write is nothing at all.
+		 * Leaving it unframed also lets quic see a repeat of it (eg,
+		 * the proxy's stream close after the content-length already
+		 * ended the stream) for the harmless FIN-only write it is.
+		 */
+		is_http = 0;
+	} else if (is_http || is_ws) {
+		/* It's HTTP payload, we need to frame it in an H3 DATA frame (type 0x00) */
+		/* We assume the caller reserved LWS_PRE bytes before buf. */
+		uint8_t len_buf[8];
+		int len_bytes = (int)lws_quic_write_varint(len_buf, sizeof(len_buf), len);
+		
+		pre = buf - len_bytes - 1;
+		pre[0] = 0x00; /* DATA frame type */
+		memcpy(&pre[1], len_buf, (size_t)len_bytes);
+
+		len += (size_t)(len_bytes + 1);
+	} else if (is_headers) {
+		/* It's HTTP headers, we need to frame it in an H3 HEADERS frame (type 0x01) */
+		/* We assume the caller reserved LWS_PRE bytes before buf. */
+		uint8_t len_buf[8];
+		int len_bytes = (int)lws_quic_write_varint(len_buf, sizeof(len_buf), len);
+		
+		pre = buf - len_bytes - 1;
+		pre[0] = 0x01; /* HEADERS frame type */
+		memcpy(&pre[1], len_buf, (size_t)len_bytes);
+
+		len += (size_t)(len_bytes + 1);
+		// lwsl_notice("%s: HTTP/3 HEADERS frame: unframed len=%d, framed len=%d\n", __func__, (int)olen, (int)len);
+		// lwsl_hexdump_notice(pre, len);
+	}
+
+send:
+	{
+		struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+		const struct lws_role_ops *role = nwsi ? nwsi->role_ops : NULL;
+		if (role && !strcmp(role->name, "h3")) {
+			role = lws_role_by_name("quic");
+		}
+		if (nwsi && role && lws_rops_fidx(role, LWS_ROPS_write_role_protocol)) {
+			n = lws_rops_func_fidx(role, LWS_ROPS_write_role_protocol).
+					write_role_protocol(wsi, (is_http || is_ws || is_headers) ? pre : buf, len, wp);
+			if (n < 0 || (!n && !head_body))
+				return n;
+
+#if defined(LWS_WITH_SYS_FAULT_INJECTION)
+			if (is_headers)
+				lws_h3_fi_late_insert(wsi);
+#endif
+			if (is_headers)
+				/* server response HEADERS frame went out: arm the
+				 * response-completion watchdog (no-op for immortal
+				 * streams, idempotent). */
+				lws_http_response_started(wsi);
+			else
+				/* more of it has gone: it is not stalled */
+				lws_http_response_progress(wsi);
+
+			if (is_http && wsi->http.tx_content_length) {
+				wsi->http.tx_content_remain -= olen;
+				lwsl_info("%s: %s: tx_content_rem = %llu\n", __func__,
+					  lws_wsi_tag(wsi),
+					  (unsigned long long)wsi->http.tx_content_remain);
+			}
+
+			return (int)olen;
+		}
+	}
+
+	return -1;
+}
+
+static int
+rops_callback_on_writable_h3(struct lws *wsi)
+{
+	struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+
+	if (wsi->mux.requested_POLLOUT)
+		lwsl_debug("already pending writable\n");
+
+	lws_wsi_mux_mark_parents_needing_writeable(wsi);
+
+	if (nwsi && nwsi != wsi)
+		return lws_callback_on_writable(nwsi);
+
+	return 0;
+}
+
+extern int rops_tx_credit_quic(struct lws *wsi, char peer_to_us, int add);
+
+#if (defined(LWS_ROLE_WS) || defined(LWS_ROLE_WT)) && defined(LWS_WITH_SERVER)
+#if defined(LWS_ROLE_WT)
+/*
+ * A protocol takes WebTransport sessions only where the vhost says so, with a
+ * "webtransport" option in the protocol's pvo, like "default" or "raw".
+ *
+ * The wt role drives its protocol with the ws server reasons RECEIVE and
+ * CLOSED, but none of the ws lifecycle: there is no ESTABLISHED and no
+ * wsi->ws.  A protocol written for ws, that sets up its pss in ESTABLISHED or
+ * uses the ws frame accessors in RECEIVE, must never be given a session,
+ * however the peer names it or wherever it is mounted.
+ *
+ * Servers written before v5.1 do not have the pvo, and their sessions are
+ * refused with a 404 before any callback, so the first time a protocol on a
+ * vhost is passed over for lacking it, say so at warn.  Only once per vhost,
+ * since the peer decides how often it happens.
+ */
+static const struct lws_protocols *
+lws_h3_wt_protocol(struct lws_vhost *vh, const char *name)
+{
+	const struct lws_protocol_vhost_options *pvo;
+	const struct lws_protocols *prot;
+
+	if (!name)
+		return NULL;
+
+	prot = lws_vhost_name_to_protocol(vh, name);
+	if (!prot)
+		return NULL;
+
+	pvo = lws_vhost_protocol_options(vh, prot->name);
+	if (!pvo || !lws_pvo_search(pvo->options, "webtransport")) {
+		if (!vh->wt_optin_warned) {
+			vh->wt_optin_warned = 1;
+			lwsl_vhost_warn(vh, "protocol '%s' not given a "
+					"WebTransport session: it has no "
+					"\"webtransport\" pvo option (needed "
+					"since v5.1, see "
+					"READMEs/README.webtransport.md)",
+					prot->name);
+		}
+
+		return NULL;
+	}
+
+	return prot;
+}
+
+/* answer the CONNECT with status, instead of the 200 */
+
+static lws_handling_result_t
+lws_h3_wt_refuse(struct lws *wsi, unsigned int status, const char *why)
+{
+	lwsl_wsi_info(wsi, "WT CONNECT refused %u: %s", status, why);
+
+	if (lws_return_http_status(wsi, status, NULL))
+		return LWS_UPG_RET_BAIL;
+
+	return LWS_UPG_RET_DONE;
+}
+
+#if defined(LWS_WITH_HTTP_BASIC_AUTH)
+/*
+ * Returns 0 if the CONNECT may proceed, else 1 with *r set to how it was
+ * answered
+ */
+static int
+lws_h3_wt_basic_auth(struct lws *wsi, const char *login_file,
+		     unsigned int auth_mode, lws_handling_result_t *r)
+{
+	switch (lws_check_basic_auth(wsi, login_file, auth_mode)) {
+	case LCBA_CONTINUE:
+	case LCBA_AUTH_RETRY_KEEPALIVE:
+		return 0;
+	case LCBA_FAILED_AUTH:
+		*r = lws_unauthorised_basic_auth(wsi) ? LWS_UPG_RET_BAIL :
+							LWS_UPG_RET_DONE;
+		return 1;
+	case LCBA_END_TRANSACTION:
+		break;
+	}
+
+	*r = lws_h3_wt_refuse(wsi, HTTP_STATUS_FORBIDDEN, "basic auth");
+
+	return 1;
+}
+#endif
+#endif
+
+static int
+rops_check_upgrades_h3(struct lws *wsi)
+{
+	const char *p;
+
+	/*
+	 * with H3 there's also a way to upgrade a stream to something
+	 * else... :method is CONNECT and :protocol says the name of
+	 * the new protocol we want to carry.  We have to have sent a
+	 * SETTINGS saying that we support it though.
+	 */
+	p = lws_hdr_simple_ptr(wsi, WSI_TOKEN_HTTP_COLON_METHOD);
+	if (!wsi->a.vhost->h2.set.s[H2SET_ENABLE_CONNECT_PROTOCOL] ||
+	    !wsi->mux_substream || !p || strcmp(p, "CONNECT"))
+		return LWS_UPG_RET_CONTINUE;
+
+	p = lws_hdr_simple_ptr(wsi, WSI_TOKEN_COLON_PROTOCOL);
+	if (!p)
+		return LWS_UPG_RET_CONTINUE;
+
+#if defined(LWS_ROLE_WS)
+	if (!strcmp(p, "websocket")) {
+		lwsl_info("Upgrade h3 to ws\n");
+		lws_mux_mark_immortal(wsi);
+		wsi->h23_stream_carries_ws = 1;
+
+		lws_metrics_tag_wsi_add(wsi, "upg", "ws_over_h3");
+
+		if (lws_process_ws_upgrade(wsi))
+			return LWS_UPG_RET_BAIL;
+
+		lwsl_info("Upgraded h3 to ws OK\n");
+
+		return LWS_UPG_RET_DONE;
+	}
+#endif
+
+#if defined(LWS_ROLE_WT)
+	if (!strcmp(p, "webtransport")) {
+		unsigned char response_buf[LWS_PRE + 4096], *rp = response_buf + LWS_PRE, *end = response_buf + sizeof(response_buf);
+		struct lws_vhost *vh = wsi->a.vhost;
+		const struct lws_http_mount *hit = NULL;
+		const struct lws_protocols *prot = NULL;
+#if defined(LWS_WITH_HTTP_BASIC_AUTH)
+		const struct lws_protocol_vhost_options *pvos;
+		const char *prot_basic_auth;
+		lws_handling_result_t r;
+#endif
+		char *uri_ptr;
+		int uri_len;
+
+		lwsl_info("Upgrade h3 to wt\n");
+
+		/*
+		 * A vhost that only upgrades a request naming it checks a wt
+		 * CONNECT's :authority (its Host) too, as it does a ws one's
+		 * in lws_process_ws_upgrade()
+		 */
+		if ((vh->options & LWS_SERVER_OPTION_VHOST_UPG_STRICT_HOST_CHECK) &&
+		    lws_confirm_host_header(wsi))
+			/* 421 Misdirected Request (RFC 9110 15.5.20) */
+			return (int)lws_h3_wt_refuse(wsi, 421,
+						"host is not the vhost's");
+
+		/*
+		 * The mount the :path lands in already gated the CONNECT,
+		 * as for any other request to it, with its interceptors and
+		 * basic auth (lws_http_upgrade_gates(), before
+		 * check_upgrades).  It may also decide the protocol.
+		 */
+		uri_ptr = lws_hdr_simple_ptr(wsi, WSI_TOKEN_HTTP_COLON_PATH);
+		uri_len = lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_COLON_PATH);
+		if (uri_ptr && uri_len > 0)
+			hit = lws_find_mount(wsi, uri_ptr, uri_len);
+
+		if (hit && (hit->protocol ||
+			    hit->origin_protocol == LWSMPRO_CALLBACK)) {
+			/*
+			 * The mount serves its path with a protocol: the
+			 * session can only be that protocol's, whatever the
+			 * peer offered
+			 */
+			prot = lws_h3_wt_protocol(vh, hit->protocol ?
+						  hit->protocol : hit->origin);
+			if (!prot)
+				return (int)lws_h3_wt_refuse(wsi,
+						HTTP_STATUS_NOT_FOUND,
+						"mount protocol takes no wt");
+#if defined(LWS_WITH_CUSTOM_HEADERS)
+		} else if (lws_hdr_custom_length(wsi, "wt-available-protocols:",
+						 23) > 0) {
+			/*
+			 * Only custom headers keep the protocols the CONNECT
+			 * offers: without them (eg, FreeRTOS builds), a
+			 * session gets the vhost's default protocol below, as
+			 * if it offered none
+			 */
+			struct lws_tokenize ts;
+			char client_protos[256];
+			lws_tokenize_elem e;
+			int cp_len;
+
+			/*
+			 * Subprotocol negotiation: the first protocol the
+			 * client offered that takes WebTransport on this vhost
+			 */
+			cp_len = lws_hdr_custom_copy(wsi, client_protos,
+						     sizeof(client_protos),
+						     "wt-available-protocols:",
+						     23);
+			if (cp_len <= 0)
+				return (int)lws_h3_wt_refuse(wsi,
+						HTTP_STATUS_BAD_REQUEST,
+						"protocol list too long");
+
+			lws_tokenize_init(&ts, client_protos,
+					  LWS_TOKENIZE_F_COMMA_SEP_LIST |
+					  LWS_TOKENIZE_F_MINUS_NONTERM);
+			ts.len = (unsigned int)cp_len;
+
+			do {
+				char name[64];
+
+				e = lws_tokenize(&ts);
+				if ((e == LWS_TOKZE_TOKEN ||
+				     e == LWS_TOKZE_QUOTED_STRING) &&
+				    !lws_tokenize_cstr(&ts, name, sizeof(name)))
+					prot = lws_h3_wt_protocol(vh, name);
+			} while (!prot && e > 0);
+
+			if (!prot)
+				return (int)lws_h3_wt_refuse(wsi,
+						HTTP_STATUS_NOT_FOUND,
+						"no offered protocol takes wt");
+#endif
+		} else {
+			/*
+			 * No protocol offered, as a ws upgrade with no
+			 * protocol list: the vhost's default protocol, if it
+			 * takes WebTransport.  A default_protocol_index out of
+			 * range refuses these, as it does for ws.
+			 */
+			if (vh->default_protocol_index < vh->count_protocols)
+				prot = lws_h3_wt_protocol(vh,
+					vh->protocols[vh->default_protocol_index].name);
+			if (!prot)
+				return (int)lws_h3_wt_refuse(wsi,
+						HTTP_STATUS_NOT_FOUND,
+						"no default wt protocol");
+		}
+
+#if defined(LWS_WITH_HTTP_BASIC_AUTH)
+		/*
+		 * The protocol's own "basic-auth" pvo, as for a ws upgrade to
+		 * it, before it is bound, so a refused peer never reaches it
+		 */
+		pvos = lws_vhost_protocol_options(vh, prot->name);
+		if (pvos && pvos->options &&
+		    !lws_pvo_get_str((void *)pvos->options, "basic-auth",
+				     &prot_basic_auth) &&
+		    lws_h3_wt_basic_auth(wsi, prot_basic_auth,
+					 LWSAUTHM_DEFAULT, &r))
+			return (int)r;
+
+		/* the CONNECT has met every basic auth check it is going to */
+		lws_http_basic_auth_rewrite(wsi);
+#endif
+
+		if (lws_bind_protocol(wsi, prot, __func__))
+			return LWS_UPG_RET_BAIL;
+		lwsl_info("H3 WT Upgrade: bound to protocol '%s'\n", prot->name);
+
+		/*
+		 * Give the user code a chance to study the CONNECT request (:path,
+		 * urlargs, headers) and deny it before we commit to the upgrade:
+		 * same semantics as the ws upgrade.  If it is refused, answer 403
+		 * on the stream instead of the 200.
+		 */
+		if (wsi->a.protocol && wsi->a.protocol->callback &&
+		    wsi->a.protocol->callback(wsi,
+					      LWS_CALLBACK_FILTER_PROTOCOL_CONNECTION,
+					      wsi->user_space,
+					      (void *)prot->name, 0)) {
+#if (_LWS_ENABLED_LOGS & LLL_WARN)
+			char name[LWS_PEER_DESC_LEN];
+			lwsl_warn("User code denied wt connection: protocol=%s, peer=%s\n",
+				  prot->name,
+				  lws_io_peer_describe(wsi, name, sizeof(name),
+						LWS_PEER_DESC_BARE_SINGLE));
+#endif
+			if (lws_return_http_status(wsi, HTTP_STATUS_FORBIDDEN, NULL))
+				return LWS_UPG_RET_BAIL;
+
+			return LWS_UPG_RET_DONE;
+		}
+
+		lws_mux_mark_immortal(wsi);
+		lws_metrics_tag_wsi_add(wsi, "upg", "wt_over_h3");
+
+		/* Construct HTTP/3 response headers for CONNECT upgrade to WebTransport */
+		if (lws_add_http_header_status(wsi, 200, &rp, end))
+			return LWS_UPG_RET_BAIL;
+
+		/*
+		 * draft-ietf-webtrans-http3-02 clients send
+		 * "sec-webtransport-http3-draft02: 1" and expect
+		 * "sec-webtransport-http3-draft: draft02" back; later drafts
+		 * dropped the version headers and ignore this one.  Always
+		 * answering draft02 satisfies both.
+		 */
+		if (lws_add_http_header_by_name(wsi,
+				(const unsigned char *)"sec-webtransport-http3-draft:",
+				(const unsigned char *)"draft02", 7, &rp, end))
+			return LWS_UPG_RET_BAIL;
+
+		{
+			/*
+			 * Echo the protocol that got bound, so the client can
+			 * determine what was negotiated even if it offered no
+			 * protocol list of its own.
+			 */
+			char wt_prot_val[128];
+			int wpl = lws_snprintf(wt_prot_val, sizeof(wt_prot_val), "\"%s\"", prot->name);
+
+			if (lws_add_http_header_by_name(wsi,
+					(const unsigned char *)"wt-protocol:",
+					(const unsigned char *)wt_prot_val, wpl, &rp, end))
+				return LWS_UPG_RET_BAIL;
+		}
+
+		if (lws_finalize_http_header(wsi, &rp, end))
+			return LWS_UPG_RET_BAIL;
+
+		if (lws_write(wsi, response_buf + LWS_PRE, lws_ptr_diff_size_t(rp, response_buf + LWS_PRE), LWS_WRITE_HTTP_HEADERS) < 0)
+			return LWS_UPG_RET_BAIL;
+
+		lws_wsi_event(wsi, LWS_WSIEV_WT_SESSION);
+		wsi->wt.is_session = 1;
+
+		if (lws_ensure_user_space(wsi))
+			return LWS_UPG_RET_BAIL;
+
+		if (wsi->a.protocol && wsi->a.protocol->callback) {
+			if (wsi->a.protocol->callback(wsi, LWS_CALLBACK_SERVER_NEW_CLIENT_INSTANTIATED, wsi->user_space, NULL, 0))
+				return LWS_UPG_RET_BAIL;
+		}
+
+		lwsl_info("Upgraded h3 to wt OK\n");
+
+		return LWS_UPG_RET_DONE;
+	}
+#endif
+
+	return LWS_UPG_RET_CONTINUE;
+}
+#endif
+
+static const lws_rops_t rops_table_h3[] = {
+	/*  1 */ { .handle_POLLIN	  = NULL }, /* an encapsulation role has none */
+	/*  2 */ { .perform_user_POLLOUT  = rops_perform_user_POLLOUT_h3 },
+	/*  3 */ { .adoption_bind	  = rops_adoption_bind_h3 },
+#if defined(LWS_WITH_CLIENT)
+	/*  4 */ { .client_bind		  = rops_client_bind_h3 },
+#endif
+	/*  5 */ { .alpn_negotiated	  = rops_alpn_negotiated_h3 },
+	/*  6 */ { .close_kill_connection = rops_close_kill_connection_h3 },
+	/*  7 */ { .write_role_protocol	  = rops_write_role_protocol_h3 },
+	/*  8 */ { .callback_on_writable  = rops_callback_on_writable_h3 },
+	/*  9 */ { .tx_credit		  = rops_tx_credit_quic },
+#if (defined(LWS_ROLE_WS) || defined(LWS_ROLE_WT)) && defined(LWS_WITH_SERVER)
+	/* 10 */ { .check_upgrades	  = rops_check_upgrades_h3 },
+#endif
+};
+
+const struct lws_role_ops role_ops_h3 = {
+	/* role name */			"h3",
+	/* alpn id */			"h3",
+
+	/* rops_table */		rops_table_h3,
+	/* rops_idx */			{
+#if (defined(LWS_ROLE_WS) || defined(LWS_ROLE_WT)) && defined(LWS_WITH_SERVER)
+	  /* LWS_ROPS_check_upgrades */
+	  /* LWS_ROPS_pt_init_destroy */		0x0A, 0x00,
+#else
+	  /* LWS_ROPS_check_upgrades */
+	  /* LWS_ROPS_pt_init_destroy */		0x00, 0x00,
+#endif
+	  /* LWS_ROPS_init_vhost */
+	  /* LWS_ROPS_destroy_vhost */			0x00, 0x00,
+	  /* LWS_ROPS_service_flag_pending */
+	  /* LWS_ROPS_handle_POLLIN */			0x00, 0x00,
+	  /* LWS_ROPS_handle_POLLOUT */
+	  /* LWS_ROPS_perform_user_POLLOUT */		0x00, 0x02,
+	  /* LWS_ROPS_callback_on_writable */
+	  /* LWS_ROPS_tx_credit */			0x08, 0x09,
+	  /* LWS_ROPS_write_role_protocol */
+	  /* LWS_ROPS_encapsulation_parent */		0x07, 0x00,
+	  /* LWS_ROPS_alpn_negotiated */
+	  /* LWS_ROPS_close_via_role_protocol */	0x05, 0x00,
+	  /* LWS_ROPS_close_role */
+	  /* LWS_ROPS_close_kill_connection */		0x00, 0x06,
+	  /* LWS_ROPS_destroy_role */
+	  /* LWS_ROPS_adoption_bind */			0x00, 0x03,
+#if defined(LWS_WITH_CLIENT)
+	  /* LWS_ROPS_client_bind */
+	  /* LWS_ROPS_issue_keepalive */		0x04, 0x00,
+#else
+	  /* LWS_ROPS_client_bind */
+	  /* LWS_ROPS_issue_keepalive */		0x00, 0x00,
+#endif
+					},
+
+	/* adoption_cb clnt, srv */	{ LWS_CALLBACK_SERVER_NEW_CLIENT_INSTANTIATED,
+					  LWS_CALLBACK_SERVER_NEW_CLIENT_INSTANTIATED },
+	/* rx_cb clnt, srv */		{ LWS_CALLBACK_RECEIVE_CLIENT_HTTP,
+					  LWS_CALLBACK_HTTP },
+	/* writeable cb clnt, srv */	{ LWS_CALLBACK_CLIENT_HTTP_WRITEABLE,
+					  LWS_CALLBACK_HTTP_WRITEABLE },
+	/* close cb clnt, srv */	{ LWS_CALLBACK_CLOSED_CLIENT_HTTP,
+					  LWS_CALLBACK_CLOSED_HTTP },
+	/* protocol_bind cb c, srv */	{ LWS_CALLBACK_CLIENT_HTTP_BIND_PROTOCOL,
+					  LWS_CALLBACK_HTTP_BIND_PROTOCOL },
+	/* protocol_unbind cb c, srv */	{ LWS_CALLBACK_CLIENT_HTTP_DROP_PROTOCOL,
+					  LWS_CALLBACK_HTTP_DROP_PROTOCOL },
+	/* file_handle */		0,
+	/* child_stdio */		0,
+};
+
+int
+lws_wsi_h3_can_adopt(struct lws *parent_wsi)
+{
+        struct lws *nwsi = lws_get_network_wsi(parent_wsi);
+        struct lws_quic_netconn *qn = nwsi->quic.qn;
+        uint64_t next_id;
+
+        if (!qn)
+                return 0;
+
+        next_id = qn->next_stream_id_bidi_local;
+        if (next_id == 0)
+                next_id = 4;
+
+        if (next_id / 4 >= qn->max_streams_bidi_remote) {
+		/* Allow if we are doing 0-RTT but haven't received/cached the peer's limit */
+		if (qn->early_data_status == LWS_0RTT_STATUS_ATTEMPTED && !qn->max_streams_bidi_remote)
+			return 1;
+		
+		return 0; /* limit reached */
+	}
+
+        return 1;
+}
+
+#if defined(LWS_WITH_SERVER)
+void
+lws_h3_server_goaway(struct lws *nwsi)
+{
+	struct lws_quic_netconn *qn = nwsi->quic.qn;
+	struct lws_h3_netconn *h3n = nwsi->h3.h3n;
+	uint8_t fr[LWS_PRE + 10];
+	uint64_t id;
+	size_t n;
+
+	if (!qn || !qn->is_server || !h3n || !h3n->cwsi_control)
+		return;
+
+	/*
+	 * The first of the client's request streams we did not take, past
+	 * every one it opened: 0 if it opened none
+	 */
+	id = lws_quic_idtr_end(&qn->peer_opened[0]) << 2;
+
+	fr[LWS_PRE] = 0x07; /* GOAWAY */
+	n = lws_quic_write_varint(&fr[LWS_PRE + 2], 8, id);
+	fr[LWS_PRE + 1] = (uint8_t)n;
+
+	if (lws_write(h3n->cwsi_control, &fr[LWS_PRE], n + 2,
+		      LWS_WRITE_BINARY | LWS_WRITE_NO_FIN) != (int)(n + 2)) {
+		lwsl_wsi_notice(nwsi, "GOAWAY not sent");
+		return;
+	}
+
+	lwsl_wsi_info(nwsi, "GOAWAY %llu", (unsigned long long)id);
+}
+#endif
+
+#if defined(LWS_WITH_CLIENT)
+/*
+ * The server's GOAWAY: our requests on streams from id up were not
+ * processed, and it will take no more (RFC 9114 5.2).  A server may send
+ * more than one, each with an ID no higher than the last.  A client's GOAWAY
+ * is about pushes, which we never take: a server has nothing to do with it.
+ */
+static int
+lws_h3_rx_goaway(struct lws *wsi, uint64_t id)
+{
+	struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+	struct lws_h3_netconn *h3n = nwsi ? nwsi->h3.h3n : NULL;
+
+	if (!h3n || !nwsi->quic.qn)
+		return 1;
+	if (nwsi->quic.qn->is_server)
+		return 0;
+
+	/* it names a client request stream, never one beyond the last */
+	if ((id & 3) || (h3n->goaway_rx && id > h3n->goaway_id)) {
+		lwsl_wsi_notice(nwsi, "bad GOAWAY ID %llu",
+				(unsigned long long)id);
+		lws_quic_enter_closing_state(nwsi, LWS_H3_ID_ERROR, 0, 1);
+		return 1;
+	}
+
+	lwsl_wsi_info(nwsi, "GOAWAY %llu", (unsigned long long)id);
+	h3n->goaway_rx = 1;
+	h3n->goaway_id = id;
+
+	/* a new request must not join a connection that is going */
+	nwsi->keepalive_rejected = 1;
+
+	return 0;
+}
+
+/*
+ * The retry policy.  A request goes again, on a new connection, when
+ *
+ *  - the server's GOAWAY says it did not process it: it is on a stream from
+ *    the GOAWAY's ID up.  Without a GOAWAY, the server ended the connection
+ *    without error, or forgot it (a Stateless Reset), without answering it,
+ *
+ *  - it is a GET or HEAD, which are idempotent (RFC 9110 9.2.2) and have no
+ *    body to send again,
+ *
+ *  - nothing of its response came: it is waiting to go, or for the reply,
+ *
+ *  - and it did not go again already: it is retried once.
+ *
+ * Anything else ends with the connection as before.  The wsi is reset onto
+ * the connect path, which its close then hands it to.
+ */
+void
+lws_h3_client_retry_unanswered(struct lws *nwsi)
+{
+	struct lws_quic_netconn *qn = nwsi->quic.qn;
+	struct lws_h3_netconn *h3n = nwsi->h3.h3n;
+
+	if (!qn || qn->is_server || !h3n ||
+	    (!h3n->goaway_rx && !qn->peer_gone_graceful))
+		return;
+
+	/* what retries must not land on the connection that is going */
+	nwsi->keepalive_rejected = 1;
+
+	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
+			lws_dll2_get_head(&nwsi->mux.child_list_owner)) {
+		struct lws *w = lws_container_of(d, struct lws,
+						 mux.sibling_list);
+		const char *meth, *path, *host, *ads;
+
+		if (!w->client_mux_substream || w->client_request_retried ||
+		    !w->quic.qs || w->quic.qs->is_unidirectional ||
+		    (lwsi_state(w) != LRS_WAITING_SERVER_REPLY &&
+		     lwsi_state(w) != LRS_H2_WAITING_TO_SEND_HEADERS) ||
+		    (h3n->goaway_rx && w->quic.qs->stream_id < h3n->goaway_id))
+			continue;
+
+		meth = lws_wsi_client_stash_item(w, CIS_METHOD,
+						 _WSI_TOKEN_CLIENT_METHOD);
+		if (!meth || (strcmp(meth, "GET") && strcmp(meth, "HEAD")))
+			continue;
+
+		path = lws_wsi_client_stash_item(w, CIS_PATH,
+						 _WSI_TOKEN_CLIENT_URI);
+		host = lws_wsi_client_stash_item(w, CIS_HOST,
+						 _WSI_TOKEN_CLIENT_HOST);
+		ads = lws_wsi_client_stash_item(w, CIS_ADDRESS,
+						_WSI_TOKEN_CLIENT_PEER_ADDRESS);
+		if (!ads)
+			ads = host;
+		if (!path || !host || !ads)
+			continue;
+
+		/* not after the reset: the strings may be in what it frees */
+		lwsl_wsi_notice(w, "%s left unanswered by the server, "
+				   "sending it again", meth);
+		w->client_request_retried = 1;
+		lws_quic_trace(qn, LQTE_RETRY, 0, w->quic.qs->stream_id, 0);
+		if (!lws_client_reset(&w, !!(w->flags & LCCSCF_USE_SSL), ads,
+				      w->c_port, path, host, NULL, 1))
+			/* it closes with the connection, as before */
+			lwsl_wsi_notice(w, "unable to send it again");
+	} lws_end_foreach_dll_safe(d, d1);
+}
+#endif
+
+struct lws *
+lws_wsi_h3_adopt(struct lws *parent_wsi, struct lws *wsi)
+{
+	struct lws *nwsi = lws_get_network_wsi(parent_wsi);
+	struct lws_quic_netconn *qn = nwsi->quic.qn;
+	uint64_t sid;
+
+	if (!qn) {
+		lwsl_err("%s: no quic netconn\n", __func__);
+		return NULL;
+	}
+
+	if (qn->is_closing) {
+		/* a stream on it now would never be sent */
+		lwsl_wsi_info(nwsi, "closing, can't adopt");
+		return NULL;
+	}
+
+	wsi->seen_nonpseudoheader = 0;
+#if defined(LWS_WITH_CLIENT)
+	wsi->client_mux_substream = 1;
+	/* the last request to use the connection sets its keep-warm time */
+	parent_wsi->keep_warm_secs = wsi->keep_warm_secs;
+#endif
+
+	/*
+	 * A client wsi arrives here bound as a fresh QUIC connection, with
+	 * its own netconn, initial keys and congestion control state; as a
+	 * stream on the existing connection it needs none of that
+	 */
+	lws_quic_netconn_destroy(&wsi->quic.qn);
+
+	wsi->quic.qs = lws_zalloc(sizeof(*wsi->quic.qs), "quic stream");
+	if (!wsi->quic.qs)
+		return NULL;
+
+	wsi->quic.qs->wsi = wsi;
+
+	/* If next_stream_id_bidi_local is 0, initialize it to 4 because stream 0 is already used */
+	if (qn->next_stream_id_bidi_local == 0)
+		qn->next_stream_id_bidi_local = 4;
+
+	sid = qn->next_stream_id_bidi_local;
+	wsi->quic.qs->stream_id = sid;
+	qn->next_stream_id_bidi_local += 4;
+
+	/* a bidi stream we opened, so a client's */
+	lws_quic_stream_flow_init(wsi, nwsi);
+
+	wsi->mux_substream = 1;
+
+	if (!qn->is_server && qn->early_data_status == LWS_0RTT_STATUS_ATTEMPTED)
+		wsi->quic.qs->opted_into_early_data = 1;
+
+	lws_wsi_mux_insert(wsi, nwsi, (unsigned int)sid);
+
+	wsi->h3.h3n = nwsi->h3.h3n;
+
+	if (lws_ensure_user_space(wsi)) {
+		lws_free_set_NULL(wsi->quic.qs);
+		return NULL;
+	}
+
+	lws_wsi_event_role(wsi, LWS_WSIEV_MUX_STREAM_ADOPTED, &role_ops_h3);
+
+	lws_callback_on_writable(wsi);
+
+	return wsi;
+}
+

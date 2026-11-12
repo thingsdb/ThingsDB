@@ -1,0 +1,2615 @@
+/*
+ * libwebsockets - small server side websockets and web server implementation
+ *
+ * Copyright (C) 2010 - 2019 Andy Green <andy@warmcat.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+
+#include "private-lib-core.h"
+
+/*
+ * Official static header table for HPACK
+ *        +-------+-----------------------------+---------------+
+          | 1     | :authority                  |               |
+          | 2     | :method                     | GET           |
+          | 3     | :method                     | POST          |
+          | 4     | :path                       | /             |
+          | 5     | :path                       | /index.html   |
+          | 6     | :scheme                     | http          |
+          | 7     | :scheme                     | https         |
+          | 8     | :status                     | 200           |
+          | 9     | :status                     | 204           |
+          | 10    | :status                     | 206           |
+          | 11    | :status                     | 304           |
+          | 12    | :status                     | 400           |
+          | 13    | :status                     | 404           |
+          | 14    | :status                     | 500           |
+          | 15    | accept-charset              |               |
+          | 16    | accept-encoding             | gzip, deflate |
+          | 17    | accept-language             |               |
+          | 18    | accept-ranges               |               |
+          | 19    | accept                      |               |
+          | 20    | access-control-allow-origin |               |
+          | 21    | age                         |               |
+          | 22    | allow                       |               |
+          | 23    | authorization               |               |
+          | 24    | cache-control               |               |
+          | 25    | content-disposition         |               |
+          | 26    | content-encoding            |               |
+          | 27    | content-language            |               |
+          | 28    | content-length              |               |
+          | 29    | content-location            |               |
+          | 30    | content-range               |               |
+          | 31    | content-type                |               |
+          | 32    | cookie                      |               |
+          | 33    | date                        |               |
+          | 34    | etag                        |               |
+          | 35    | expect                      |               |
+          | 36    | expires                     |               |
+          | 37    | from                        |               |
+          | 38    | host                        |               |
+          | 39    | if-match                    |               |
+          | 40    | if-modified-since           |               |
+          | 41    | if-none-match               |               |
+          | 42    | if-range                    |               |
+          | 43    | if-unmodified-since         |               |
+          | 44    | last-modified               |               |
+          | 45    | link                        |               |
+          | 46    | location                    |               |
+          | 47    | max-forwards                |               |
+          | 48    | proxy-authenticate          |               |
+          | 49    | proxy-authorization         |               |
+          | 50    | range                       |               |
+          | 51    | referer                     |               |
+          | 52    | refresh                     |               |
+          | 53    | retry-after                 |               |
+          | 54    | server                      |               |
+          | 55    | set-cookie                  |               |
+          | 56    | strict-transport-security   |               |
+          | 57    | transfer-encoding           |               |
+          | 58    | user-agent                  |               |
+          | 59    | vary                        |               |
+          | 60    | via                         |               |
+          | 61    | www-authenticate            |               |
+          +-------+-----------------------------+---------------+
+*/
+
+static const uint8_t static_hdr_len[62] = {
+		0, /* starts at 1 */
+		10,  7,  7,  5,  5,    7,  7,  7,  7,  7,
+		 7,  7,  7,  7, 14,   15, 15, 13,  6, 27,
+		 3,  5, 13, 13, 19,   16, 16, 14, 16, 13,
+		12,  6,  4,  4,  6,    7,  4,  4,  8, 17,
+		13,  8, 19, 13,  4,    8, 12, 18, 19,  5,
+		 7,  7, 11,  6, 10,   25, 17, 10,  4,  3,
+		16
+};
+
+static const unsigned char static_token[] = {
+	0,
+	WSI_TOKEN_HTTP_COLON_AUTHORITY,
+	WSI_TOKEN_HTTP_COLON_METHOD,
+	WSI_TOKEN_HTTP_COLON_METHOD,
+	WSI_TOKEN_HTTP_COLON_PATH,
+	WSI_TOKEN_HTTP_COLON_PATH,
+	WSI_TOKEN_HTTP_COLON_SCHEME,
+	WSI_TOKEN_HTTP_COLON_SCHEME,
+	WSI_TOKEN_HTTP_COLON_STATUS,
+	WSI_TOKEN_HTTP_COLON_STATUS,
+	WSI_TOKEN_HTTP_COLON_STATUS,
+	WSI_TOKEN_HTTP_COLON_STATUS,
+	WSI_TOKEN_HTTP_COLON_STATUS,
+	WSI_TOKEN_HTTP_COLON_STATUS,
+	WSI_TOKEN_HTTP_COLON_STATUS,
+	WSI_TOKEN_HTTP_ACCEPT_CHARSET,
+	WSI_TOKEN_HTTP_ACCEPT_ENCODING,
+	WSI_TOKEN_HTTP_ACCEPT_LANGUAGE,
+	WSI_TOKEN_HTTP_ACCEPT_RANGES,
+	WSI_TOKEN_HTTP_ACCEPT,
+	WSI_TOKEN_HTTP_ACCESS_CONTROL_ALLOW_ORIGIN,
+	WSI_TOKEN_HTTP_AGE,
+	WSI_TOKEN_HTTP_ALLOW,
+	WSI_TOKEN_HTTP_AUTHORIZATION,
+	WSI_TOKEN_HTTP_CACHE_CONTROL,
+	WSI_TOKEN_HTTP_CONTENT_DISPOSITION,
+	WSI_TOKEN_HTTP_CONTENT_ENCODING,
+	WSI_TOKEN_HTTP_CONTENT_LANGUAGE,
+	WSI_TOKEN_HTTP_CONTENT_LENGTH,
+	WSI_TOKEN_HTTP_CONTENT_LOCATION,
+	WSI_TOKEN_HTTP_CONTENT_RANGE,
+	WSI_TOKEN_HTTP_CONTENT_TYPE,
+	WSI_TOKEN_HTTP_COOKIE,
+	WSI_TOKEN_HTTP_DATE,
+	WSI_TOKEN_HTTP_ETAG,
+	WSI_TOKEN_HTTP_EXPECT,
+	WSI_TOKEN_HTTP_EXPIRES,
+	WSI_TOKEN_HTTP_FROM,
+	WSI_TOKEN_HOST,
+	WSI_TOKEN_HTTP_IF_MATCH,
+	WSI_TOKEN_HTTP_IF_MODIFIED_SINCE,
+	WSI_TOKEN_HTTP_IF_NONE_MATCH,
+	WSI_TOKEN_HTTP_IF_RANGE,
+	WSI_TOKEN_HTTP_IF_UNMODIFIED_SINCE,
+	WSI_TOKEN_HTTP_LAST_MODIFIED,
+	WSI_TOKEN_HTTP_LINK,
+	WSI_TOKEN_HTTP_LOCATION,
+	WSI_TOKEN_HTTP_MAX_FORWARDS,
+	WSI_TOKEN_HTTP_PROXY_AUTHENTICATE,
+	WSI_TOKEN_HTTP_PROXY_AUTHORIZATION,
+	WSI_TOKEN_HTTP_RANGE,
+	WSI_TOKEN_HTTP_REFERER,
+	WSI_TOKEN_HTTP_REFRESH,
+	WSI_TOKEN_HTTP_RETRY_AFTER,
+	WSI_TOKEN_HTTP_SERVER,
+	WSI_TOKEN_HTTP_SET_COOKIE,
+	WSI_TOKEN_HTTP_STRICT_TRANSPORT_SECURITY,
+	WSI_TOKEN_HTTP_TRANSFER_ENCODING,
+	WSI_TOKEN_HTTP_USER_AGENT,
+	WSI_TOKEN_HTTP_VARY,
+	WSI_TOKEN_HTTP_VIA,
+	WSI_TOKEN_HTTP_WWW_AUTHENTICATE,
+};
+
+/* some of the entries imply values as well as header names */
+
+static const char * const http2_canned[] = {
+	"",
+	"",
+	"GET",
+	"POST",
+	"/",
+	"/index.html",
+	"http",
+	"https",
+	"200",
+	"204",
+	"206",
+	"304",
+	"400",
+	"404",
+	"500",
+	"",
+	"gzip, deflate"
+};
+
+/* see minihuf.c */
+
+#include "huftable.h"
+
+static int huftable_decode(int pos, char c)
+{
+	int q = pos + !!c;
+
+	if (lextable_terms[q >> 3] & (1 << (q & 7))) /* terminal */
+		return lextable[q] | 0x8000;
+
+	return pos + (lextable[q] << 1);
+}
+
+/*
+ * What the frag helpers return when the ah has no room left for the header
+ * block, as opposed to 1, the peer did something we fail the connection for
+ */
+#define LWS_H2_FRAG_NO_ROOM 2
+
+/*
+ * The request pseudo-headers, which may appear once in a header block (RFC
+ * 9113 8.3)
+ */
+static int
+lws_hpack_tok_is_request_pseudo(int tok)
+{
+	return tok == WSI_TOKEN_HTTP_COLON_AUTHORITY ||
+	       tok == WSI_TOKEN_HTTP_COLON_METHOD ||
+	       tok == WSI_TOKEN_HTTP_COLON_PATH ||
+	       tok == WSI_TOKEN_COLON_PROTOCOL ||
+	       tok == WSI_TOKEN_HTTP_COLON_SCHEME;
+}
+
+static int
+lws_hpack_pseudo_duplicated(struct lws *wsi, int tok)
+{
+	const char *hn = (const char *)lws_token_to_string(
+					(enum lws_token_indexes)tok);
+	char reason[48];
+
+	lws_snprintf(reason, sizeof(reason), "Duplicated pseudoheader %s",
+		     hn ? hn : "?");
+	lwsl_wsi_warn(wsi, "RX DUPLICATE pseudo-header '%s' -> GOAWAY",
+		      hn ? hn : "?");
+	if (lws_h2_goaway(lws_get_network_wsi(wsi), H2_ERR_PROTOCOL_ERROR,
+			  reason))
+		lwsl_info("%s: GOAWAY not queued\n", __func__);
+
+	return 1;
+}
+
+static int lws_frag_start(struct lws *wsi, int hdr_token_idx)
+{
+	struct allocated_headers *ah = wsi->stream.ah;
+
+	if (!ah) {
+		lwsl_notice("%s: no ah\n", __func__);
+		return 1;
+	}
+
+	ah->hdr_token_idx = -1;
+
+	lwsl_header("%s: token %d ah->pos = %d, ah->nfrag = %d\n",
+		   __func__, hdr_token_idx, (int)ah->pos, ah->nfrag);
+
+	if (!hdr_token_idx) {
+		lwsl_err("%s: zero hdr_token_idx\n", __func__);
+		return 1;
+	}
+
+	/*
+	 * ah->nfrag names the last slot used, the same as for the ah's other
+	 * writers, lws_parse(), lws_hdr_simple_create() and lws_hdr_alias(),
+	 * so the field claims the next one.  An h2 client's response decodes
+	 * into the ah still holding the request's _WSI_TOKEN_CLIENT_* tokens,
+	 * and starting the field at ah->nfrag took the last of those over.
+	 * Check before moving nfrag on: never leave it naming no slot.
+	 */
+	if (ah->nfrag + 1 >= (int)LWS_ARRAY_SIZE(ah->frags)) {
+		lwsl_info("%s: frag index %d too big\n", __func__, ah->nfrag);
+		return LWS_H2_FRAG_NO_ROOM;
+	}
+
+	/*
+	 * A request pseudo-header the ah already has is a duplicate, however
+	 * the first one came (it being added to the dynamic table as well
+	 * makes no difference)
+	 */
+	if (lws_hpack_tok_is_request_pseudo(hdr_token_idx) &&
+	    ah->frag_index[hdr_token_idx])
+		return lws_hpack_pseudo_duplicated(wsi, hdr_token_idx);
+
+	ah->nfrag++;
+
+	ah->frags[ah->nfrag].offset = ah->pos;
+	ah->frags[ah->nfrag].len = 0;
+	ah->frags[ah->nfrag].nfrag = 0;
+	ah->frags[ah->nfrag].flags = 2; /* we had reason to set it */
+
+	ah->hdr_token_idx = hdr_token_idx;
+
+	/*
+	 * Okay, but we could be, eg, the second or subsequent cookie: header
+	 */
+
+	if (ah->frag_index[hdr_token_idx]) {
+		int n, nx;
+
+		/* find the last fragment for this header... */
+		n = ah->frag_index[hdr_token_idx];
+		while ((nx = lws_ah_frag_next(ah, n)))
+			n = nx;
+		/* and point it to continue in our continuation fragment */
+		ah->frags[n].nfrag = ah->nfrag;
+	} else
+		ah->frag_index[hdr_token_idx] = ah->nfrag;
+
+	return 0;
+}
+
+static int lws_frag_append(struct lws *wsi, unsigned char c)
+{
+	struct allocated_headers *ah = wsi->stream.ah;
+
+	/*
+	 * lws_parse() leaves ah->nfrag one past the end of ah->frags[] when it
+	 * runs out of fragment slots, so never trust it to name a slot here
+	 */
+	if (ah->nfrag >= LWS_ARRAY_SIZE(ah->frags) ||
+	    (unsigned int)ah->pos >= wsi->a.context->max_http_header_data)
+		return LWS_H2_FRAG_NO_ROOM;
+
+	ah->data[ah->pos++] = (char)c;
+	ah->frags[ah->nfrag].len++;
+
+	return (unsigned int)ah->pos >= wsi->a.context->max_http_header_data ?
+			LWS_H2_FRAG_NO_ROOM : 0;
+}
+
+static int lws_frag_end(struct lws *wsi)
+{
+	struct allocated_headers *ah = wsi->stream.ah;
+
+	lwsl_header("%s\n", __func__);
+
+	/*
+	 * Only a fragment that was started by lws_frag_start() or lws_parse()
+	 * can be ended, and both of those bound ah->nfrag
+	 */
+	if (ah->nfrag >= LWS_ARRAY_SIZE(ah->frags))
+		return LWS_H2_FRAG_NO_ROOM;
+
+	if (lws_frag_append(wsi, 0))
+		return LWS_H2_FRAG_NO_ROOM;
+
+	/*
+	 * don't account for the terminating NUL in the logical length.  The
+	 * fragment stays ah->nfrag, the last slot used, until the next one is
+	 * started
+	 */
+	wsi->stream.ah->frags[wsi->stream.ah->nfrag].len--;
+
+	return 0;
+}
+
+/*
+ * A :path value goes into the ah through lws_parse_urldecode(), the same as
+ * the h1 request URI: percent-decoded, its dot-segments and // normalised, and
+ * its query split off into WSI_TOKEN_HTTP_URI_ARGS fragments.  Returns 0,
+ * LWS_H2_FRAG_NO_ROOM, or 1 if the connection is failing.
+ */
+static int
+lws_hpack_path_char(struct lws *wsi, uint8_t c)
+{
+	switch (lws_parse_urldecode(wsi, &c)) {
+	case LPUR_CONTINUE:
+		return lws_frag_append(wsi, c);
+	case LPUR_SWALLOW:
+		return 0;
+	case LPUR_EXCESSIVE:
+	case LPUR_FORBID:
+		if (lws_h2_goaway(lws_get_network_wsi(wsi),
+				  H2_ERR_PROTOCOL_ERROR, "Evil URI"))
+			lwsl_info("%s: GOAWAY not queued\n", __func__);
+		return 1;
+	default:
+		return 1;
+	}
+}
+
+/*
+ * The :path value is complete, and its last fragment is still open
+ */
+static int
+lws_hpack_path_end(struct lws *wsi)
+{
+	struct allocated_headers *ah = wsi->stream.ah;
+
+	/* a :path may not end partway through a %XX, as on h1 */
+	if (ah->ues != URIES_IDLE) {
+		if (lws_h2_goaway(lws_get_network_wsi(wsi),
+				  H2_ERR_PROTOCOL_ERROR,
+				  "Unterminated escape in :path"))
+			lwsl_info("%s: GOAWAY not queued\n", __func__);
+		return 1;
+	}
+
+	if (ah->ups != URIPS_SEEN_SLASH_DOT_DOT)
+		return 0;
+
+	/*
+	 * :path ended in "/..": back up one dir level if possible, the same
+	 * as the h1 parser does at the end of the request URI.  This has to
+	 * act on the still-open fragment, before lws_frag_end() terminates it.
+	 * There is no query
+	 * then: a ? moves the state on from URIPS_SEEN_SLASH_DOT_DOT, so the
+	 * open fragment is the path's.
+	 */
+	if (ah->frags[ah->nfrag].len > 2) {
+		ah->pos--;
+		ah->frags[ah->nfrag].len--;
+		do {
+			ah->pos--;
+			ah->frags[ah->nfrag].len--;
+		} while (ah->frags[ah->nfrag].len > 1 &&
+			 ah->data[ah->pos] != '/');
+	}
+
+	return 0;
+}
+
+/*
+ * The dynamic table holds field values as the peer sent them, and a field line
+ * that refers to an entry by index must come out of the decoder exactly as the
+ * literal that made the entry did.
+ *
+ * What lws_hpack_path_char() leaves in the ah is not the :path value that was
+ * sent, and it leaves ah->nfrag on the last urlarg of a query, not on the path.
+ * So for a :path with incremental indexing, the value is also collected here
+ * as it arrives, and it is this copy that is inserted.  lws_hpack_use_idx_hdr()
+ * then feeds an indexed :path through lws_hpack_path_char() the same way.
+ *
+ * A block decoded without storing (sunk, or trailers) has no ah to take any
+ * value from, but the peer's table holds its entries all the same, and later
+ * blocks refer to them: a request the server refused is retried referring to
+ * the entries its first try made.  So in such a block, every field being added
+ * to the table is collected here too.
+ *
+ * An entry bigger than the whole table can't be in the peer's table (RFC 7541
+ * 4.4), so no more than that is collected: a value that overflows it is kept
+ * as a lost entry, which the peer has no business referring to.
+ */
+static void
+lws_hpack_dyn_val_release(struct lws_h2_netconn *h2n)
+{
+	if (h2n->dyn_val)
+		lws_free_set_NULL(h2n->dyn_val);
+	h2n->dyn_val_on = 0;
+}
+
+static int
+lws_hpack_dyn_val_start(struct lws_h2_netconn *h2n)
+{
+	uint32_t max = h2n->hpack_dyn_table.virtual_payload_max;
+	uint64_t bound = h2n->hpack_len;
+
+	lws_hpack_dyn_val_release(h2n);
+
+	/* a huffman code is at least 5 bits */
+	if (h2n->huff)
+		bound = (bound * 8) / 5;
+	if (max > 0xffff) /* hpack_dt_entry value_len */
+		max = 0xffff;
+	if (bound < max)
+		max = (uint32_t)bound;
+
+	h2n->dyn_val = lws_malloc(max + 1, "hpack dyn val");
+	if (!h2n->dyn_val)
+		return 1;
+
+	h2n->dyn_val_max = (uint16_t)max;
+	h2n->dyn_val_len = 0;
+	h2n->dyn_val_lost = 0;
+	h2n->dyn_val_on = 1;
+
+	return 0;
+}
+
+static void
+lws_hpack_dyn_val_char(struct lws_h2_netconn *h2n, uint8_t c)
+{
+	if (h2n->dyn_val_len >= h2n->dyn_val_max) {
+		h2n->dyn_val_lost = 1;
+		return;
+	}
+
+	h2n->dyn_val[h2n->dyn_val_len] = (char)c;
+	h2n->dyn_val_len = (uint16_t)(h2n->dyn_val_len + 1);
+}
+
+static int
+lws_dynamic_token_insert(struct lws *wsi, int hdr_len,
+			 int lws_hdr_index, char *arg, size_t len);
+
+/* a literal name's byte in a block decoded without storing */
+
+static void
+lws_hpack_sink_name_char(struct lws_h2_netconn *h2n, uint8_t c)
+{
+	if (h2n->sink_name_len >= sizeof(h2n->sink_name)) {
+		h2n->sink_name_lost = 1;
+		return;
+	}
+
+	h2n->sink_name[h2n->sink_name_len++] = (char)c;
+}
+
+/*
+ * The token of the literal name collected by lws_hpack_sink_name_char(), the
+ * one lws_parse() finds for it when the block is stored, or
+ * LWS_HPACK_IGNORE_ENTRY for a header lws doesn't know
+ */
+
+static int
+lws_hpack_sink_name_tok(struct lws_h2_netconn *h2n)
+{
+	int tok;
+
+	if (h2n->sink_name_lost)
+		return LWS_HPACK_IGNORE_ENTRY;
+
+	tok = lws_http_string_to_known_header(h2n->sink_name,
+					      h2n->sink_name_len);
+	if (tok < 0 || tok >= WSI_TOKEN_COUNT ||
+	    !lws_http_token_is_field_name(tok))
+		return LWS_HPACK_IGNORE_ENTRY;
+
+	return tok;
+}
+
+/*
+ * A field of a block decoded without storing is being added to the dynamic
+ * table: the entry it makes, with its value, so the table holds what the
+ * peer's does.  A value that would be malformed in a block we store fails
+ * the connection the same way here, rather than come out of the table later
+ * into a block we do store.
+ */
+
+static int
+lws_hpack_sink_dyn_insert(struct lws *wsi, int tok)
+{
+	struct lws *nwsi = lws_get_network_wsi(wsi);
+	struct lws_h2_netconn *h2n = nwsi->h2.h2n;
+	uint16_t n;
+
+	if (tok < 0 || tok == LWS_HPACK_IGNORE_ENTRY || !h2n->dyn_val_on)
+		/* an entry for a header lws doesn't know has no value */
+		return lws_dynamic_token_insert(wsi, (int)h2n->hpack_hdr_len,
+				wsi != nwsi && wsi->h2.hdrs_oversized ?
+					LWS_HPACK_LOST_ENTRY :
+					LWS_HPACK_IGNORE_ENTRY, NULL, 0);
+
+	if (h2n->dyn_val_lost)
+		/* too big to be in the peer's table either */
+		return lws_dynamic_token_insert(wsi, (int)h2n->hpack_hdr_len,
+					LWS_HPACK_LOST_ENTRY, NULL, 0);
+
+	for (n = 0; n < h2n->dyn_val_len; n++)
+		if (h2n->dyn_val[n] == '\r' || h2n->dyn_val[n] == '\n' ||
+		    !h2n->dyn_val[n])
+			return lws_h2_goaway(nwsi, H2_ERR_PROTOCOL_ERROR,
+					     "CR/LF/NUL in header value");
+
+	return lws_dynamic_token_insert(wsi, (int)h2n->hpack_hdr_len, tok,
+					h2n->dyn_val, h2n->dyn_val_len);
+}
+
+
+static void lws_dump_header(struct lws *wsi, int hdr)
+{
+	if (hdr == LWS_HPACK_IGNORE_ENTRY) {
+		lwsl_notice("hdr tok ignored\n");
+		return;
+	}
+
+#if (_LWS_ENABLED_LOGS & LLL_HEADER)
+	{
+		const unsigned char *p;
+		char s[200];
+		int len;
+
+		p = lws_token_to_string((enum lws_token_indexes)hdr);
+		len = lws_hdr_copy(wsi, s, sizeof(s), (enum lws_token_indexes)hdr);
+
+		lwsl_header("  hdr tok %d (%s) = '%s' (len %d)\n", hdr,
+			    p ? (char *)p : (char *)"null",
+			    len < 0 ? "(too big to show)" :
+				lws_http_hdr_log_value(wsi, s, sizeof(s), hdr,
+						       NULL, 0, s, (size_t)len),
+			    lws_hdr_total_length(wsi,
+						 (enum lws_token_indexes)hdr));
+	}
+#endif
+}
+
+/*
+ * dynamic table
+ *
+ *  [ 0 ....   num_entries - 1]
+ *
+ *  Starts filling at 0+
+ *
+ *  #62 is *most recently entered*
+ *
+ *  Number of entries is not restricted, but aggregated size of the entry
+ *  payloads is.  Unfortunately the way HPACK does this is specific to an
+ *  imagined implementation, and lws implementation is much more efficient
+ *  (ignoring unknown headers and using the lws token index for the header
+ *  name part).
+ */
+
+/*
+ * returns 0 if dynamic entry (arg and len are filled)
+ * returns -1 if failure
+ * returns nonzero token index if actually static token
+ */
+static int
+lws_h2_hdrs_are_trailers(struct lws *wsi);
+
+static int
+lws_token_from_index(struct lws *wsi, int index, const char **arg, int *len,
+		     uint32_t *hdr_len)
+{
+	struct hpack_dynamic_table *dyn;
+	struct lws *swsi = wsi;
+
+	if (index == LWS_HPACK_IGNORE_ENTRY)
+		return LWS_HPACK_IGNORE_ENTRY;
+
+	/* dynamic table only belongs to network wsi */
+	wsi = lws_get_network_wsi(wsi);
+	if (!wsi->h2.h2n)
+		return -1;
+
+	dyn = &wsi->h2.h2n->hpack_dyn_table;
+
+	if (index < 0)
+		return -1;
+
+	if (index < (int)LWS_ARRAY_SIZE(static_token)) {
+		if (arg && index < (int)LWS_ARRAY_SIZE(http2_canned)) {
+			*arg = http2_canned[index];
+			*len = (int)strlen(http2_canned[index]);
+		}
+		if (hdr_len)
+			*hdr_len = static_hdr_len[index];
+
+		return static_token[index];
+	}
+
+	/*
+	 * dyn is the address of a member inside h2n and can never be NULL.
+	 * What is possible is the table storage is not allocated (it was
+	 * destroyed, eg, by a peer dynamic table size update of 0), or the
+	 * table is empty.  Either way there is nothing at this dynamic
+	 * index: treat it as the compression error it is rather than
+	 * dereferencing dyn->entries.
+	 */
+	if (!dyn->entries || !dyn->used_entries) {
+		lwsl_info("%s: dynamic table empty for index %d\n", __func__,
+			  index);
+		if (lws_h2_goaway(wsi, H2_ERR_COMPRESSION_ERROR,
+				      "index into empty dynamic table"))
+			lwsl_info("%s: GOAWAY not queued\n", __func__);
+		return -1;
+	}
+
+	if (index >= (int)LWS_ARRAY_SIZE(static_token) + dyn->used_entries) {
+		lwsl_info("  %s: adjusted index %d >= %d\n", __func__, index,
+				(int)LWS_ARRAY_SIZE(static_token) + dyn->used_entries);
+		if (lws_h2_goaway(wsi, H2_ERR_COMPRESSION_ERROR,
+				      "index out of range"))
+			lwsl_info("%s: GOAWAY not queued\n", __func__);
+		return -1;
+	}
+
+	index -= (int)LWS_ARRAY_SIZE(static_token);
+	index = lws_safe_modulo(dyn->pos - 1 - index, dyn->num_entries);
+	if (index < 0)
+		index += dyn->num_entries;
+
+	lwsl_header("%s: dyn index %d, tok %d\n", __func__, index,
+		    dyn->entries[index].lws_hdr_idx);
+
+	if (arg && len) {
+		*arg = dyn->entries[index].value;
+		*len = dyn->entries[index].value_len;
+	}
+
+	if (hdr_len)
+		*hdr_len = dyn->entries[index].hdr_len;
+
+	if (dyn->entries[index].lws_hdr_idx == LWS_HPACK_LOST_ENTRY) {
+		/*
+		 * A field from an oversized block that we could not keep: the
+		 * request referring to it can't be served as it was sent
+		 * either (when we are sinking a block for a stream we don't
+		 * have, there is no request to refuse).
+		 *
+		 * But a trailer block keeps none of its fields anyway, so for
+		 * one it's no loss: the request it trails was dispatched on
+		 * the headers of its first block, which must stay as they were
+		 */
+		if (swsi != wsi && !lws_h2_hdrs_are_trailers(swsi) &&
+		    lws_h2_hdrs_oversize(swsi))
+			return -1;
+
+		return LWS_HPACK_IGNORE_ENTRY;
+	}
+
+	return dyn->entries[index].lws_hdr_idx;
+}
+
+static int
+lws_h2_dynamic_table_dump(struct lws *wsi)
+{
+#if 0
+	struct lws *nwsi = lws_get_network_wsi(wsi);
+	struct hpack_dynamic_table *dyn;
+	int n, m;
+	const char *p;
+
+	if (!nwsi->h2.h2n)
+		return 1;
+	dyn = &nwsi->h2.h2n->hpack_dyn_table;
+
+	lwsl_header("Dump dyn table for nwsi %s (%d / %d members, pos = %d, "
+		    "start index %d, virt used %d / %d)\n", lws_wsi_tag(nwsi),
+		    dyn->used_entries, dyn->num_entries, dyn->pos,
+		    (uint32_t)LWS_ARRAY_SIZE(static_token),
+		    dyn->virtual_payload_usage, dyn->virtual_payload_max);
+
+	for (n = 0; n < dyn->used_entries; n++) {
+		m = lws_safe_modulo(dyn->pos - 1 - n, dyn->num_entries);
+		if (m < 0)
+			m += dyn->num_entries;
+		if (dyn->entries[m].lws_hdr_idx == LWS_HPACK_LOST_ENTRY)
+			p = "(lost)";
+		else if (dyn->entries[m].lws_hdr_idx != LWS_HPACK_IGNORE_ENTRY)
+			p = (const char *)lws_token_to_string(
+					dyn->entries[m].lws_hdr_idx);
+		else
+			p = "(ignored)";
+		lwsl_header("   %3d: tok %s: (len %d) val '%s'\n",
+			    (int)(n + LWS_ARRAY_SIZE(static_token)), p,
+			    (int)dyn->entries[m].hdr_len, dyn->entries[m].value ?
+			    dyn->entries[m].value : "null");
+	}
+#endif
+	return 0;
+}
+
+static void
+lws_dynamic_free(struct hpack_dynamic_table *dyn, int idx)
+{
+	lwsl_header("freeing %d for reuse\n", idx);
+	/* must subtract exactly what lws_dynamic_token_insert() added */
+	dyn->virtual_payload_usage = (uint32_t)(dyn->virtual_payload_usage -
+				((uint32_t)dyn->entries[idx].value_len +
+				 dyn->entries[idx].hdr_len));
+	lws_free_set_NULL(dyn->entries[idx].value);
+	dyn->entries[idx].value = NULL;
+	dyn->entries[idx].value_len = 0;
+	dyn->entries[idx].hdr_len = 0;
+	dyn->entries[idx].lws_hdr_idx = LWS_HPACK_IGNORE_ENTRY;
+	dyn->used_entries--;
+}
+
+/*
+ * There are two address spaces, 1) internal ringbuffer and 2) HPACK indexes.
+ *
+ * Internal ringbuffer:
+ *
+ * The internal ringbuffer wraps as we keep filling it, dyn->pos points to
+ * the next index to be written.
+ *
+ * HPACK indexes:
+ *
+ * The last-written entry becomes entry 0, the previously-last-written entry
+ * becomes entry 1 etc.
+ */
+
+static int
+lws_dynamic_token_insert(struct lws *wsi, int hdr_len,
+			 int lws_hdr_index, char *arg, size_t len)
+{
+	struct hpack_dynamic_table *dyn;
+	int new_index;
+
+	/* dynamic table only belongs to network wsi */
+	wsi = lws_get_network_wsi(wsi);
+	if (!wsi->h2.h2n)
+		return 1;
+	dyn = &wsi->h2.h2n->hpack_dyn_table;
+
+	if (!dyn->entries) {
+		lwsl_err("%s: unsized dyn table\n", __func__);
+
+		return 1;
+	}
+
+	if (!dyn->num_entries)
+		/*
+		 * A peer can set SETTINGS_HEADER_TABLE_SIZE under 8, ie, to a
+		 * table of zero slots.  His inserts legally continue but
+		 * self-evict immediately, so accept and store nothing: the
+		 * destroy path only frees values in num_entries slots.
+		 */
+		return 0;
+
+	lws_h2_dynamic_table_dump(wsi);
+
+	new_index = lws_safe_modulo(dyn->pos, dyn->num_entries);
+	if (dyn->num_entries && dyn->used_entries == dyn->num_entries) {
+		if (dyn->virtual_payload_usage < dyn->virtual_payload_max)
+			lwsl_err("Dropping header content before limit!\n");
+		/* we have to drop the oldest to make space */
+		lws_dynamic_free(dyn, new_index);
+	}
+
+	/*
+	 * evict guys to make room, allowing for some overage.  We have to
+	 * take care about getting a single huge header, and evicting
+	 * everything
+	 */
+
+	while (dyn->virtual_payload_usage &&
+	       dyn->used_entries &&
+	       dyn->virtual_payload_usage + (unsigned int)hdr_len + len >
+				dyn->virtual_payload_max + 1024) {
+		int n = lws_safe_modulo(dyn->pos - dyn->used_entries,
+						dyn->num_entries);
+		if (n < 0)
+			n += dyn->num_entries;
+		lws_dynamic_free(dyn, n);
+	}
+
+	if (dyn->used_entries < dyn->num_entries)
+		dyn->used_entries++;
+
+	dyn->entries[new_index].value_len = 0;
+
+	if (lws_hdr_index != LWS_HPACK_IGNORE_ENTRY &&
+	    lws_hdr_index != LWS_HPACK_LOST_ENTRY) {
+		if (dyn->entries[new_index].value)
+			lws_free_set_NULL(dyn->entries[new_index].value);
+		dyn->entries[new_index].value =
+				lws_malloc(len + 1, "hpack dyn");
+		if (!dyn->entries[new_index].value)
+			return 1;
+
+		memcpy(dyn->entries[new_index].value, arg, len);
+		dyn->entries[new_index].value[len] = '\0';
+		dyn->entries[new_index].value_len = (uint16_t)len;
+	} else
+		dyn->entries[new_index].value = NULL;
+
+	dyn->entries[new_index].lws_hdr_idx = (uint16_t)lws_hdr_index;
+	dyn->entries[new_index].hdr_len = (uint32_t)hdr_len;
+
+	dyn->virtual_payload_usage = (uint32_t)(dyn->virtual_payload_usage +
+					(unsigned int)hdr_len + len);
+
+#if (_LWS_ENABLED_LOGS & LLL_INFO)
+	{
+		char lv[128];
+
+		lwsl_info("%s: index %ld: lws_hdr_index 0x%x, hdr len %d, "
+			  "'%s' len %d\n", __func__,
+			  (long)LWS_ARRAY_SIZE(static_token), lws_hdr_index,
+			  hdr_len, dyn->entries[new_index].value ?
+				lws_http_hdr_log_value(wsi, lv, sizeof(lv),
+					lws_hdr_index, NULL, 0,
+					dyn->entries[new_index].value, len) :
+				"null", (int)len);
+	}
+#endif
+
+	dyn->pos = (uint16_t)lws_safe_modulo(dyn->pos + 1, dyn->num_entries);
+
+	lws_h2_dynamic_table_dump(wsi);
+
+	return 0;
+}
+
+int
+lws_hpack_dynamic_size(struct lws *wsi, int size)
+{
+	struct hpack_dynamic_table *dyn;
+	struct hpack_dt_entry *dte;
+	struct lws *nwsi;
+	int min, n = 0, m;
+
+	/*
+	 * "size" here is coming from the http/2 SETTING
+	 * SETTINGS_HEADER_TABLE_SIZE.  This is a (virtual, in our case)
+	 * linear buffer containing dynamic header names and values... when it
+	 * is full, old entries are evicted.
+	 *
+	 * We encode the header as an lws_hdr_idx, which is all the rest of
+	 * lws cares about; if there is no matching header we store an empty
+	 * entry in the dyn table as a placeholder.
+	 *
+	 * So to make the two systems work together we keep an accounting of
+	 * what we are using to decide when to evict... we must only evict
+	 * things when the remote peer's accounting also makes him feel he
+	 * should evict something.
+	 */
+
+	nwsi = lws_get_network_wsi(wsi);
+	if (!nwsi->h2.h2n)
+		goto bail;
+
+	dyn = &nwsi->h2.h2n->hpack_dyn_table;
+	lwsl_info("%s: from %d to %d, lim %u\n", __func__,
+		  (int)dyn->num_entries, size,
+		  (unsigned int)nwsi->a.vhost->h2.set.s[H2SET_HEADER_TABLE_SIZE]);
+
+	if (!size) {
+		size = dyn->num_entries * 8;
+		/*
+		 * wsi here is normally the substream whose HEADERS block we
+		 * are interpreting; the dynamic table belongs to the network
+		 * connection.  destroy is a no-op on a wsi without h2n, so we
+		 * have to pass the network wsi we already resolved.
+		 */
+		lws_hpack_destroy_dynamic_header(nwsi);
+	}
+
+	if (size < 0) {
+		lwsl_err("%s: negative size %d\n", __func__, size);
+		goto bail;
+	}
+
+	if (size > (int)nwsi->a.vhost->h2.set.s[H2SET_HEADER_TABLE_SIZE]) {
+		lwsl_info("rejecting hpack dyn size %u vs %u\n", size,
+			  (unsigned int)nwsi->a.vhost->h2.set.s[H2SET_HEADER_TABLE_SIZE]);
+
+		// this seems necessary to work with some browsers
+
+		if (nwsi->a.vhost->h2.set.s[H2SET_HEADER_TABLE_SIZE] == 65536 &&
+				size == 65537) { /* h2spec */
+			if (lws_h2_goaway(nwsi, H2_ERR_COMPRESSION_ERROR,
+					  "Asked for header table bigger "
+					  "than we told"))
+				lwsl_info("%s: GOAWAY not queued\n", __func__);
+			goto bail;
+		}
+
+		size = (int)nwsi->a.vhost->h2.set.s[H2SET_HEADER_TABLE_SIZE];
+	}
+
+	dyn->virtual_payload_max = (uint32_t)size;
+
+	size = size / 8;
+	min = size;
+	if (min > dyn->used_entries)
+		min = dyn->used_entries;
+
+	/*
+	 * Nothing to do if the slot count is unchanged... but if the entries
+	 * storage went away (a resize to 0 destroys it above), we have to
+	 * fall through and reallocate, or the table stays unusable.
+	 */
+	if (dyn->entries && size == dyn->num_entries)
+		return 0;
+
+	if (dyn->num_entries < min)
+		min = dyn->num_entries;
+
+	// lwsl_notice("dte requested size %d\n", size);
+
+	dte = lws_zalloc(sizeof(*dte) * (unsigned int)(size + 1), "dynamic table entries");
+	if (!dte)
+		goto bail;
+
+	/*
+	 * The entries storage may have gone away above, if this is a move
+	 * away from a table size of 0... there is nothing to evict then.
+	 */
+	while (dyn->entries && dyn->virtual_payload_usage && dyn->used_entries &&
+	       dyn->virtual_payload_usage > dyn->virtual_payload_max) {
+		n = lws_safe_modulo(dyn->pos - dyn->used_entries, dyn->num_entries);
+		if (n < 0)
+			n += dyn->num_entries;
+		lws_dynamic_free(dyn, n);
+	}
+
+	if (min > dyn->used_entries)
+		min = dyn->used_entries;
+
+	if (dyn->entries) {
+		/*
+		 * Keep the newest min entries, still oldest first: HPACK
+		 * evicts from the oldest end, so they are the ones the peer
+		 * may still refer to.  We account an entry lws ignores as
+		 * its name alone, so we can be holding more entries than
+		 * the peer does even when the usage loop above had nothing
+		 * to evict... but the peer counts at least 32 bytes each, so
+		 * all of his fit in the size / 8 slots we keep.
+		 */
+		for (n = 0; n < min; n++) {
+			m = (dyn->pos - min + n) % dyn->num_entries;
+			if (m < 0)
+				m += dyn->num_entries;
+			dte[n] = dyn->entries[m];
+		}
+
+		/*
+		 * The older entries that did not fit the smaller table are
+		 * evicted... ownership of the kept ones moved into dte[], but
+		 * the dropped ones' heap storage has to be freed here, or it
+		 * is lost with the old entries array
+		 */
+
+		for (n = 0; n < dyn->used_entries - min; n++) {
+			m = (dyn->pos - dyn->used_entries + n) %
+						dyn->num_entries;
+			if (m < 0)
+				m += dyn->num_entries;
+			lws_free_set_NULL(dyn->entries[m].value);
+			dyn->virtual_payload_usage = (uint32_t)
+				(dyn->virtual_payload_usage -
+				 (unsigned int)(dyn->entries[m].hdr_len +
+						dyn->entries[m].value_len));
+		}
+
+		lws_free(dyn->entries);
+	}
+
+	dyn->entries = dte;
+	dyn->num_entries = (uint16_t)size;
+	dyn->used_entries = (uint16_t)min;
+	if (size)
+		dyn->pos = (uint16_t)lws_safe_modulo(min, size);
+	else
+		dyn->pos = 0;
+
+	lws_h2_dynamic_table_dump(wsi);
+
+	return 0;
+
+bail:
+	lwsl_info("%s: failed to resize to %d\n", __func__, size);
+
+	return 1;
+}
+
+void
+lws_hpack_destroy_dynamic_header(struct lws *wsi)
+{
+	struct hpack_dynamic_table *dyn;
+	int n;
+
+	if (!wsi->h2.h2n)
+		return;
+
+	dyn = &wsi->h2.h2n->hpack_dyn_table;
+
+	if (!dyn->entries)
+		return;
+
+	for (n = 0; n < dyn->num_entries; n++)
+		if (dyn->entries[n].value)
+			lws_free_set_NULL(dyn->entries[n].value);
+
+	lws_free_set_NULL(dyn->entries);
+
+	/*
+	 * The table storage is gone, so the table is now empty: the
+	 * accounting and ringbuffer state have to return to the empty
+	 * state as well, or later users of the table trust used_entries
+	 * and virtual_payload_usage that describe freed storage.
+	 *
+	 * num_entries is left alone... it describes the current slot
+	 * capacity, which lws_hpack_dynamic_size() still needs after
+	 * calling us on a resize to zero (and at teardown, h2n is freed
+	 * whole immediately afterwards anyway).
+	 */
+	dyn->used_entries = 0;
+	dyn->pos = 0;
+	dyn->virtual_payload_usage = 0;
+}
+
+/*
+ * Is the header block we are decoding a trailer block?
+ *
+ * RFC 9113 8.1: a stream may carry a second HEADERS block after its body, and
+ * that block is trailers.  By then the request (or response) was dispatched
+ * from the first block, and the ah holding it has been validated -- the
+ * pseudo-header rules, the Connection / Transfer-Encoding / TE refusals and
+ * the content-length were all decided on what block 1 contained.
+ *
+ * So nothing a trailer block carries may be added to the ah: hpack chains a
+ * repeat of a header onto the existing fragment list for that token, so a
+ * trailer could otherwise append a second value to cookie / authorization /
+ * host, or introduce a header that block 1 was refused for having, after all
+ * of the checking is done.  The application, the access log, the CGI
+ * environment and any onward h1 leg would then see a header set that lws never
+ * validated.
+ *
+ * We can't simply skip decoding the block, because the hpack dynamic table
+ * belongs to the whole connection and has to stay in step with the peer's
+ * index space.  So we decode it in full and discard the fields.
+ *
+ * (http2.c re-runs the connection-specific header checks over the ah after a
+ * trailer block as belt and braces; the END_STREAM the trailers carry is
+ * actioned there too, and is unaffected by this.)
+ */
+
+static int
+lws_h2_hdrs_are_trailers(struct lws *wsi)
+{
+	/*
+	 * The stream's state: past LRS_HEADERS on a server, past waiting for
+	 * the response on a client.  Not a bool in the ah, which the ah reset
+	 * cleared when one was re-attached for this very block after the
+	 * stream had released it (cgi mounts do, and an early detach
+	 * generally would)
+	 */
+	return !lwsi_hdrs_pending(wsi);
+}
+
+/*
+ * We are decoding a header block that names a stream we don't have (the peer's
+ * HEADERS was already in flight when we closed it, say).  RFC 9113 5.1 still
+ * requires us to decode it, because the hpack context is connection-wide: drop
+ * it and our dynamic table is permanently out of step with the peer's, and
+ * every later indexed field line on the connection resolves to the wrong entry.
+ *
+ * So we decode it into the sink instead: the field lines are parsed and the
+ * dynamic table is updated, and nothing is stored or acted on.
+ */
+static int
+lws_h2_hpack_sinking(struct lws *wsi)
+{
+	struct lws *nwsi = lws_get_network_wsi(wsi);
+
+	/*
+	 * ... or the rest of a stream's header block that did not fit, which
+	 * we sink the same way (see lws_h2_hdrs_oversize())
+	 */
+	return (nwsi->h2.h2n && nwsi->h2.h2n->hpack_no_store) ||
+	       (wsi != nwsi && wsi->h2.hdrs_oversized);
+}
+
+/*
+ * Is there anywhere for what we decode to go?  Either we are sinking the whole
+ * block as above, or these are trailers, which we also decode only to keep the
+ * dynamic table in step.  Everything that would store into the ah, or apply a
+ * decoded field to the stream, is gated on this.
+ */
+static int
+lws_h2_hpack_no_store(struct lws *wsi)
+{
+	return lws_h2_hpack_sinking(wsi) || lws_h2_hdrs_are_trailers(wsi);
+}
+
+/*
+ * The stand-in ah used while sinking.  Only parser_state and lextable_pos are
+ * ever touched on it: every path that would reach ah->data, ah->frags or the
+ * unknown-header list is gated on lws_h2_hpack_no_store() above, which is true
+ * for as long as this is in use.  So it has no data buffer.
+ */
+static struct allocated_headers *
+lws_h2_hpack_sink_ah(struct lws *wsi)
+{
+	struct lws *nwsi = lws_get_network_wsi(wsi);
+	struct lws_h2_netconn *h2n = nwsi->h2.h2n;
+
+	if (!h2n)
+		return NULL;
+
+	if (!h2n->hpack_sink) {
+		h2n->hpack_sink = lws_zalloc(sizeof(*h2n->hpack_sink),
+					     "hpack sink");
+		if (!h2n->hpack_sink)
+			return NULL;
+	}
+
+	_lws_header_table_reset(h2n->hpack_sink);
+
+	return h2n->hpack_sink;
+}
+
+/*
+ * The ah a header block decodes into.  Trailers store nothing (see
+ * lws_h2_hdrs_are_trailers()), so a stream that already gave its ah back
+ * decodes them into the sink rather than taking one from the pool again:
+ * only parser_state and lextable_pos are used, as for sinking.
+ */
+static struct allocated_headers *
+lws_h2_hpack_ah(struct lws *wsi, struct lws_h2_netconn *h2n)
+{
+	if (lws_h2_hpack_sinking(wsi) ||
+	    (!wsi->stream.ah && wsi != lws_get_network_wsi(wsi) &&
+	     lws_h2_hdrs_are_trailers(wsi)))
+		return h2n->hpack_sink;
+
+	return wsi->stream.ah;
+}
+
+/*
+ * A trailers block is starting on a stream with no ah: make the sink ready
+ * for lws_h2_hpack_ah() to decode it into.  The stream and its END_STREAM
+ * are handled as usual.  Nonzero only if the connection is failing (OOM).
+ */
+int
+lws_h2_hpack_sink_trailers(struct lws *wsi)
+{
+	if (lws_h2_hpack_sink_ah(wsi))
+		return 0;
+
+	if (lws_h2_goaway(lws_get_network_wsi(wsi), H2_ERR_INTERNAL_ERROR,
+			  "OOM"))
+		lwsl_info("%s: GOAWAY not queued\n", __func__);
+
+	return 1;
+}
+
+int
+lws_h2_hpack_sink_start(struct lws *wsi)
+{
+	struct lws *nwsi = lws_get_network_wsi(wsi);
+
+	if (!lws_h2_hpack_sink_ah(wsi)) {
+		if (lws_h2_goaway(nwsi, H2_ERR_INTERNAL_ERROR, "OOM"))
+			lwsl_info("%s: GOAWAY not queued\n", __func__);
+
+		return 1;
+	}
+
+	nwsi->h2.h2n->hpack_no_store = 1;
+
+	return 0;
+}
+
+/*
+ * The stream's header block does not fit its ah.  Rather than fail the whole
+ * connection, sink the rest of the block: it is still decoded, which keeps
+ * the connection's hpack state in step with the peer's, but nothing more is
+ * kept, and once the block is done the request is answered with 431.
+ *
+ * Nothing already in the ah is any use without the rest, so it is emptied
+ * now.  Returns nonzero only if the connection is failing anyway.
+ */
+int
+lws_h2_hdrs_oversize(struct lws *wsi)
+{
+	if (wsi->h2.hdrs_oversized)
+		return 0;
+
+	lwsl_wsi_info(wsi, "header block oversized, will answer 431");
+
+	if (!lws_h2_hpack_sink_ah(wsi)) {
+		if (lws_h2_goaway(lws_get_network_wsi(wsi),
+				  H2_ERR_INTERNAL_ERROR, "OOM"))
+			lwsl_info("%s: GOAWAY not queued\n", __func__);
+
+		return 1;
+	}
+
+	if (wsi->stream.ah)
+		_lws_header_table_reset(wsi->stream.ah);
+	wsi->h2.hdrs_oversized = 1;
+
+	return 0;
+}
+
+void
+lws_h2_hpack_sink_destroy(struct lws *wsi)
+{
+	if (!wsi->h2.h2n)
+		return;
+
+	if (wsi->h2.h2n->hpack_sink)
+		lws_free_set_NULL(wsi->h2.h2n->hpack_sink);
+
+	/* a connection that died partway through a :path value */
+	lws_hpack_dyn_val_release(wsi->h2.h2n);
+}
+
+static int
+lws_hpack_handle_pseudo_rules(struct lws *nwsi, struct lws *wsi, int m);
+
+static int
+lws_hpack_use_idx_hdr(struct lws *wsi, int idx)
+{
+	const char *arg = NULL;
+	int len = 0, n;
+	const char *p = NULL;
+	int tok = lws_token_from_index(wsi, idx, &arg, &len, NULL);
+
+	if (tok == LWS_HPACK_IGNORE_ENTRY) {
+		lwsl_header("%s: lws_token says ignore, returning\n", __func__);
+		return 0;
+	}
+
+	if (tok == -1) {
+		lwsl_info("%s: idx %d mapped to tok %d\n", __func__, idx, tok);
+		return 1;
+	}
+
+#if (_LWS_ENABLED_LOGS & LLL_HEADER)
+	if (arg) {
+		/* table entry with a value */
+		char lv[128];
+
+		lwsl_header("%s: dyn: idx %d '%s' tok %d\n", __func__, idx,
+			    lws_http_hdr_log_value(wsi, lv, sizeof(lv), tok, NULL, 0,
+						   arg, (size_t)len), tok);
+	} else
+#endif
+		lwsl_header("writing indexed hdr %d (tok %d '%s')\n", idx, tok,
+				lws_token_to_string((enum lws_token_indexes)tok));
+
+	if (lws_h2_hpack_no_store(wsi)) {
+		/*
+		 * We validated the index (which is all the connection-wide
+		 * hpack state cares about for a fully-indexed header), so throw
+		 * the field away instead of adding it to the ah... but a
+		 * trailer still may not carry a pseudo-header (RFC 9113 8.1),
+		 * which is what this decides.
+		 *
+		 * When sinking there is no stream this field belongs to, so
+		 * there is no pseudo-header ordering to judge it against
+		 * either
+		 */
+		if (lws_h2_hpack_sinking(wsi))
+			return 0;
+
+		return lws_hpack_handle_pseudo_rules(lws_get_network_wsi(wsi),
+						     wsi, tok);
+	}
+
+	if (arg)
+		p = arg;
+
+	if (idx < (int)LWS_ARRAY_SIZE(http2_canned))
+		p = http2_canned[idx];
+
+	n = lws_frag_start(wsi, tok);
+	if (n == LWS_H2_FRAG_NO_ROOM)
+		return lws_h2_hdrs_oversize(wsi);
+	if (n)
+		return 1;
+
+	if (tok == WSI_TOKEN_HTTP_COLON_PATH) {
+		/*
+		 * The entry is the :path as it was sent: it's decoded into the
+		 * ah exactly as a literal :path is, see
+		 * lws_hpack_dyn_val_start()
+		 */
+		if (p)
+			while (*p && len--) {
+				n = lws_hpack_path_char(wsi, (uint8_t)*p++);
+				if (n == LWS_H2_FRAG_NO_ROOM)
+					return lws_h2_hdrs_oversize(wsi);
+				if (n)
+					return 1;
+			}
+
+		if (lws_hpack_path_end(wsi))
+			return 1;
+	} else
+		if (p)
+			while (*p && len--)
+				if (lws_frag_append(wsi, (unsigned char)*p++))
+					return lws_h2_hdrs_oversize(wsi);
+
+	if (lws_frag_end(wsi))
+		return lws_h2_hdrs_oversize(wsi);
+
+	lws_dump_header(wsi, tok);
+
+	return 0;
+}
+
+#if !defined(LWS_HTTP_HEADERS_ALL) && !defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) && !defined(LWS_ROLE_WS) && !defined(LWS_ROLE_H2)
+static uint8_t lws_header_implies_psuedoheader_map[] = {
+	0x03,0x00,0x00,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+};
+#endif
+#if !defined(LWS_HTTP_HEADERS_ALL) &&  defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) && !defined(LWS_ROLE_WS) && !defined(LWS_ROLE_H2)
+static uint8_t lws_header_implies_psuedoheader_map[] = {
+	0x07,0x00,0x00,0x00,0x00,0x00,0x00,0x0e,0x04,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+};
+#endif
+#if !defined(LWS_HTTP_HEADERS_ALL) && !defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) &&  defined(LWS_ROLE_WS) && !defined(LWS_ROLE_H2)
+static uint8_t lws_header_implies_psuedoheader_map[] = {
+	0x03,0x00,0x00,0x00,0x00,0x00,0x00,0x04,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+};
+#endif
+#if !defined(LWS_HTTP_HEADERS_ALL) &&  defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) &&  defined(LWS_ROLE_WS) && !defined(LWS_ROLE_H2)
+static uint8_t lws_header_implies_psuedoheader_map[] = {
+	0x07,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x38,0x10,0x00,0x00,0x00,0x00,0x00,0x00,
+};
+#endif
+#if !defined(LWS_HTTP_HEADERS_ALL) && !defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) && !defined(LWS_ROLE_WS) &&  defined(LWS_ROLE_H2)
+static uint8_t lws_header_implies_psuedoheader_map[] = {
+	0x03,0x00,0x80,0x0f,0x00,0x00,0x00,0x00,0x12,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+};
+#endif
+#if !defined(LWS_HTTP_HEADERS_ALL) &&  defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) && !defined(LWS_ROLE_WS) &&  defined(LWS_ROLE_H2)
+static uint8_t lws_header_implies_psuedoheader_map[] = {
+	0x07,0x00,0x00,0x3e,0x00,0x00,0x00,0x80,0x03,0x09,0x00,0x00,0x00,0x00,0x00,0x00,
+};
+#endif
+#if !defined(LWS_HTTP_HEADERS_ALL) && !defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) &&  defined(LWS_ROLE_WS) &&  defined(LWS_ROLE_H2)
+static uint8_t lws_header_implies_psuedoheader_map[] = {
+	0x03,0x00,0x00,0x00,0x3e,0x00,0x00,0x00,0x00,0x48,0x00,0x00,0x00,0x00,0x00,0x00,
+};
+#endif
+#if defined(LWS_HTTP_HEADERS_ALL) || ( defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) &&  defined(LWS_ROLE_WS) &&  defined(LWS_ROLE_H2))
+static uint8_t lws_header_implies_psuedoheader_map[] = {
+	0x07,0x00,0x00,0x00,0xf8,0x00,0x00,0x00,0x00,0x0e,0x24,0x00,0x00,0x00,0x00,0x00,
+};
+#endif
+
+
+static int
+lws_hpack_handle_pseudo_rules(struct lws *nwsi, struct lws *wsi, int m)
+{
+	if (m == LWS_HPACK_IGNORE_ENTRY || m == -1)
+		return 0;
+
+#if defined(LWS_WITH_CLIENT)
+	/* RFC 9113 8.3.2: a response has only :status of the pseudo-headers */
+	if (wsi->client_mux_substream && lws_hpack_tok_is_request_pseudo(m)) {
+		if (lws_h2_goaway(nwsi, H2_ERR_PROTOCOL_ERROR,
+				  "Request pseudoheader in response"))
+			lwsl_info("%s: GOAWAY not queued\n", __func__);
+		return 1;
+	}
+#endif
+
+	if (wsi->seen_nonpseudoheader &&
+	    (lws_header_implies_psuedoheader_map[m >> 3] & (1 << (m & 7)))) {
+
+		lwsl_info("lws tok %d seems to be a pseudoheader\n", m);
+
+		/*
+		 * it's not legal to see a
+		 * pseudoheader after normal
+		 * headers
+		 */
+		if (lws_h2_goaway(nwsi, H2_ERR_PROTOCOL_ERROR,
+				"Pseudoheader after normal hdrs"))
+			lwsl_info("%s: GOAWAY not queued\n", __func__);
+		return 1;
+	}
+
+	if (!(lws_header_implies_psuedoheader_map[m >> 3] & (1 << (m & 7))))
+		wsi->seen_nonpseudoheader = 1;
+
+	return 0;
+}
+
+int lws_hpack_interpret(struct lws *wsi, unsigned char c)
+{
+	struct lws *nwsi = lws_get_network_wsi(wsi);
+	struct lws_h2_netconn *h2n = nwsi->h2.h2n;
+	struct allocated_headers *ah;
+	unsigned int prev;
+	unsigned char c1;
+	int n, m, plen;
+
+	if (!h2n)
+		return -1;
+
+	ah = lws_h2_hpack_ah(wsi, h2n);
+	if (!ah)
+		return -1;
+
+	h2n->hpack_total_hdr_len++;
+	if (h2n->hpack_total_hdr_len >
+	    h2n->our_set.s[H2SET_MAX_HEADER_LIST_SIZE]) {
+		/*
+		 * Past the header list size we told the peer: a request we
+		 * can refuse on its own, the way RFC 9113 10.5.1 suggests
+		 * (the CONTINUATION flood limit still bounds the block);
+		 * sinking a block for no stream, there's none to refuse
+		 */
+		if (wsi == nwsi)
+			return lws_h2_goaway(nwsi, H2_ERR_ENHANCE_YOUR_CALM,
+				      "Header list size limit exceeded");
+		if (lws_h2_hdrs_are_trailers(wsi))
+			/*
+			 * ... but not by emptying the headers of the request
+			 * a trailer block belongs to, which was dispatched
+			 * on them.  Nothing of the trailers is kept, so keep
+			 * decoding them, and http2.c fails the stream once
+			 * the block is complete
+			 */
+			h2n->hpack_trailers_oversized = 1;
+		else {
+			if (lws_h2_hdrs_oversize(wsi))
+				return 1;
+			ah = h2n->hpack_sink;
+		}
+	}
+
+	/*
+	 * HPKT_INDEXED_HDR_7		  1xxxxxxx: just "header field"
+	 * HPKT_INDEXED_HDR_6_VALUE_INCR  01xxxxxx: NEW indexed hdr + val
+	 * HPKT_LITERAL_HDR_VALUE_INCR	  01000000: NEW literal hdr + val
+	 * HPKT_INDEXED_HDR_4_VALUE	  0000xxxx: indexed hdr + val
+	 * HPKT_INDEXED_HDR_4_VALUE_NEVER 0001xxxx: NEVER NEW indexed hdr + val
+	 * HPKT_LITERAL_HDR_VALUE	  00000000: literal hdr + val
+	 * HPKT_LITERAL_HDR_VALUE_NEVER	  00010000: NEVER NEW literal hdr + val
+	 */
+	switch (h2n->hpack) {
+
+	case HPKS_TYPE:
+		h2n->is_first_header_char = 1;
+		h2n->huff_pad = 0;
+		h2n->zero_huff_padding = 0;
+		h2n->last_action_dyntable_resize = 0;
+		h2n->ext_count = 0;
+		h2n->hpack_hdr_len = 0;
+		h2n->unknown_header = 0;
+		ah->parser_state = 255;
+
+		if (c & 0x80) { /* 1....  indexed header field only */
+			/* just a possibly-extended integer */
+			h2n->hpack_type = HPKT_INDEXED_HDR_7;
+			lwsl_header("HPKT_INDEXED_HDR_7 hdr %d\n", c & 0x7f);
+			lws_h2_dynamic_table_dump(wsi);
+
+			h2n->hdr_idx = c & 0x7f;
+			if ((c & 0x7f) == 0x7f) {
+				h2n->hpack_len = 0;
+				h2n->hpack_m = 0x7f;
+				h2n->hpack = HPKS_IDX_EXT;
+				break;
+			}
+			if (!h2n->hdr_idx) {
+				return lws_h2_goaway(nwsi, H2_ERR_COMPRESSION_ERROR,
+					      "hdr index 0 seen");
+			}
+
+			m = lws_token_from_index(wsi, (int)h2n->hdr_idx,
+						 NULL, NULL, NULL);
+			if (!lws_h2_hpack_sinking(wsi) &&
+			    lws_hpack_handle_pseudo_rules(nwsi, wsi, m))
+				return 1;
+
+			lwsl_header("HPKT_INDEXED_HDR_7: hdr %d\n", c & 0x7f);
+			if (lws_hpack_use_idx_hdr(wsi, c & 0x7f)) {
+				lwsl_header("%s: idx hdr wr fail\n", __func__);
+				return 1;
+			}
+			/* stay at same state */
+			break;
+		}
+		if (c & 0x40) { /* 01.... indexed or literal header incr idx */
+			/*
+			 * [possibly-ext hdr idx (6) | new literal hdr name]
+			 * H + possibly-ext value length
+			 * literal value
+			 */
+			h2n->hdr_idx = 0;
+			if (c == 0x40) { /* literal header */
+				lwsl_header("   HPKT_LITERAL_HDR_VALUE_INCR\n");
+				h2n->hpack_type = HPKT_LITERAL_HDR_VALUE_INCR;
+				h2n->value = 0;
+				h2n->hpack_len = 0;
+				h2n->hpack = HPKS_HLEN;
+				break;
+			}
+			/* indexed header */
+			h2n->hpack_type = HPKT_INDEXED_HDR_6_VALUE_INCR;
+			lwsl_header(" HPKT_INDEXED_HDR_6_VALUE_INCR (hdr %d)\n",
+				   c & 0x3f);
+			h2n->hdr_idx = c & 0x3f;
+			if ((c & 0x3f) == 0x3f) {
+				h2n->hpack_m = 0x3f;
+				h2n->hpack_len = 0;
+				h2n->hpack = HPKS_IDX_EXT;
+				break;
+			}
+
+			h2n->value = 1;
+			h2n->hpack = HPKS_HLEN;
+			if (!h2n->hdr_idx) {
+				return lws_h2_goaway(nwsi, H2_ERR_COMPRESSION_ERROR,
+					      "hdr index 0 seen");
+			}
+			break;
+		}
+		switch(c & 0xf0) {
+		case 0x10: /* literal header never index */
+		case 0:    /* literal header without indexing */
+			/*
+			 * follows 0x40 except 4-bit hdr idx
+			 * and don't add to index
+			 */
+			if (c == 0) { /* literal name */
+				h2n->hpack_type = HPKT_LITERAL_HDR_VALUE;
+				lwsl_header("   HPKT_LITERAL_HDR_VALUE\n");
+				h2n->hpack = HPKS_HLEN;
+				h2n->value = 0;
+				break;
+			}
+			if (c == 0x10) { /* literal name NEVER */
+				h2n->hpack_type = HPKT_LITERAL_HDR_VALUE_NEVER;
+				lwsl_header("  HPKT_LITERAL_HDR_VALUE_NEVER\n");
+				h2n->hpack = HPKS_HLEN;
+				h2n->value = 0;
+				break;
+			}
+			lwsl_header("indexed\n");
+			/* indexed name */
+			if (c & 0x10) {
+				h2n->hpack_type = HPKT_INDEXED_HDR_4_VALUE_NEVER;
+				lwsl_header("HPKT_LITERAL_HDR_4_VALUE_NEVER\n");
+			} else {
+				h2n->hpack_type = HPKT_INDEXED_HDR_4_VALUE;
+				lwsl_header("   HPKT_INDEXED_HDR_4_VALUE\n");
+			}
+			h2n->hdr_idx = 0;
+			if ((c & 0xf) == 0xf) {
+				h2n->hpack_len = c & 0xf;
+				h2n->hpack_m = 0xf;
+				h2n->hpack_len = 0;
+				h2n->hpack = HPKS_IDX_EXT;
+				break;
+			}
+			h2n->hdr_idx = c & 0xf;
+			h2n->value = 1;
+			h2n->hpack = HPKS_HLEN;
+			break;
+
+		case 0x20:
+		case 0x30: /* header table size update */
+			/* possibly-extended size value (5) */
+			lwsl_header("HPKT_SIZE_5 %x\n", c &0x1f);
+			h2n->hpack_type = HPKT_SIZE_5;
+			h2n->hpack_len = c & 0x1f;
+			if (h2n->hpack_len == 0x1f) {
+				h2n->hpack_m = 0x1f;
+				h2n->hpack_len = 0;
+				h2n->hpack = HPKS_IDX_EXT;
+				break;
+			}
+			h2n->last_action_dyntable_resize = 1;
+			if (lws_hpack_dynamic_size(wsi, (int)h2n->hpack_len))
+				return 1;
+			break;
+		}
+		break;
+
+	case HPKS_IDX_EXT:
+		if (h2n->ext_count > 24) {
+			lwsl_notice("%s: HPACK integer overflow\n", __func__);
+			return lws_h2_goaway(nwsi, H2_ERR_COMPRESSION_ERROR,
+				      "HPACK integer exceeds uint32 range");
+		}
+		h2n->hpack_len = (uint32_t)((unsigned int)h2n->hpack_len |
+				(((unsigned int)(c & 0x7f)) << h2n->ext_count));
+		h2n->ext_count = (uint8_t)(h2n->ext_count + 7);
+		if (c & 0x80) /* extended int not complete yet */
+			break;
+
+		/* extended integer done */
+		h2n->hpack_len += h2n->hpack_m;
+		lwsl_header("HPKS_IDX_EXT: hpack_len %u\n", (unsigned int)h2n->hpack_len);
+
+		switch (h2n->hpack_type) {
+		case HPKT_INDEXED_HDR_7:
+			/*
+			 * As for the one-byte index above.  h2n->hdr_idx is only
+			 * the 0x7f prefix here: the index is h2n->hpack_len
+			 */
+			m = lws_token_from_index(wsi, (int)h2n->hpack_len,
+						 NULL, NULL, NULL);
+			if (!lws_h2_hpack_sinking(wsi) &&
+			    lws_hpack_handle_pseudo_rules(nwsi, wsi, m))
+				return 1;
+
+			if (lws_hpack_use_idx_hdr(wsi, (int)h2n->hpack_len)) {
+				lwsl_notice("%s: hd7 use fail\n", __func__);
+				return 1;
+			}
+			h2n->hpack = HPKS_TYPE;
+			break;
+
+		case HPKT_SIZE_5:
+			h2n->last_action_dyntable_resize = 1;
+			if (lws_hpack_dynamic_size(wsi, (int)h2n->hpack_len))
+				return 1;
+			h2n->hpack = HPKS_TYPE;
+			break;
+
+		default:
+			h2n->hdr_idx = h2n->hpack_len;
+			if (!h2n->hdr_idx) {
+				return lws_h2_goaway(nwsi, H2_ERR_COMPRESSION_ERROR,
+					      "extended header index was 0");
+			}
+			h2n->value = 1;
+			h2n->hpack = HPKS_HLEN;
+			break;
+		}
+		break;
+
+	case HPKS_HLEN: /* [ H | 7+ ] */
+	case HPKS_HLEN_EXT:
+		if (h2n->hpack == HPKS_HLEN) {
+			h2n->huff = !!(c & 0x80);
+			h2n->hpack_pos = 0;
+			h2n->hpack_len = c & 0x7f;
+
+			if (h2n->hpack_len == 0x7f) {
+				h2n->hpack_m = 0x7f;
+				h2n->hpack_len = 0;
+				h2n->ext_count = 0;
+				h2n->hpack = HPKS_HLEN_EXT;
+				break;
+			}
+		} else {
+			if (h2n->ext_count > 24) {
+				lwsl_notice("%s: HPACK integer overflow\n", __func__);
+				return lws_h2_goaway(nwsi, H2_ERR_COMPRESSION_ERROR,
+					      "HPACK integer exceeds uint32 range");
+			}
+			h2n->hpack_len = (uint32_t)((unsigned int)h2n->hpack_len |
+					(unsigned int)((c & 0x7f) << h2n->ext_count));
+			h2n->ext_count = (uint8_t)(h2n->ext_count + 7);
+			if (c & 0x80) /* extended integer not complete yet */
+				break;
+
+			h2n->hpack_len += h2n->hpack_m;
+		}
+
+		if (!h2n->value && !h2n->hpack_len) {
+			/*
+			 * A zero-length literal header name is malformed (a
+			 * field-name is 1*tchar).  Left alone, the decrement
+			 * in HPKS_DATA would wrap hpack_len and the rest of
+			 * the header block would be swallowed as the name.
+			 */
+			return lws_h2_goaway(nwsi, H2_ERR_PROTOCOL_ERROR,
+				      "Zero-length header name");
+		}
+
+		h2n->hpack = HPKS_DATA;
+		if (!h2n->value || !h2n->hdr_idx) {
+			ah->parser_state = WSI_TOKEN_NAME_PART;
+			ah->lextable_pos = 0;
+			h2n->unknown_header = 0;
+#if defined(LWS_WITH_CUSTOM_HEADERS)
+			/*
+			 * h2 doesn't use the h1 header text parser to lay down
+			 * the unknown-header storage (the name comes in via
+			 * hpack one char at a time and the value never passes
+			 * through the h1 value collector).  So for substreams
+			 * we build the UHO entry ourselves as the name/value
+			 * are decoded: speculatively reserve the entry header
+			 * before the name now, then finalize (or abandon, if it
+			 * turns out to be a header lws knows) at name complete.
+			 */
+			if (wsi->mux_substream && !h2n->value) {
+				ah->unk_pos = 0;
+				/*
+				 * ... but not for a trailer block: leaving
+				 * unk_pos at 0 is what disables the whole
+				 * custom-header collection (name bytes, value
+				 * bytes and the UHO list linkage) for it
+				 */
+				if (!lws_h2_hpack_no_store(wsi)) {
+					if (ah->pos + UHO_NAME >= wsi->a.context->
+							max_http_header_data) {
+						if (lws_h2_hdrs_oversize(wsi))
+							return 1;
+						ah = h2n->hpack_sink;
+						break;
+					}
+					ah->unk_pos = ah->pos;
+					for (n = 0; n < UHO_NAME; n++)
+						ah->data[ah->pos++] = 0;
+				}
+			}
+#endif
+			break;
+		}
+
+		if (h2n->hpack_type == HPKT_LITERAL_HDR_VALUE ||
+		    h2n->hpack_type == HPKT_LITERAL_HDR_VALUE_INCR ||
+		    h2n->hpack_type == HPKT_LITERAL_HDR_VALUE_NEVER) {
+			n = ah->parser_state;
+			if (n == 255) {
+				n = -1;
+				h2n->hdr_idx = (uint32_t)-1;
+			} else
+				h2n->hdr_idx = 1;
+		} else {
+			n = lws_token_from_index(wsi, (int)h2n->hdr_idx, NULL,
+						 NULL, NULL);
+			lwsl_header("  lws_tok_from_idx(%u) says %d\n",
+				   (unsigned int)h2n->hdr_idx, n);
+		}
+
+		/* a reference to a lost entry makes us sink the rest */
+		ah = lws_h2_hpack_ah(wsi, h2n);
+
+		if (n == LWS_HPACK_IGNORE_ENTRY || n == -1)
+			h2n->hdr_idx = LWS_HPACK_IGNORE_ENTRY;
+
+		switch (h2n->hpack_type) {
+		/*
+		 * hpack types with literal headers were parsed by the lws
+		 * header SM... on recognition of a known lws header, it does
+		 * the correct lws_frag_start() for us already.  Other types
+		 * (ie, indexed header) need us to do it here.
+		 */
+		case HPKT_LITERAL_HDR_VALUE_INCR:
+		case HPKT_LITERAL_HDR_VALUE:
+		case HPKT_LITERAL_HDR_VALUE_NEVER:
+			break;
+		default:
+			if (n != -1 && n != LWS_HPACK_IGNORE_ENTRY &&
+			    !lws_h2_hpack_no_store(wsi)) {
+				m = lws_frag_start(wsi, n);
+				if (m == LWS_H2_FRAG_NO_ROOM) {
+					if (lws_h2_hdrs_oversize(wsi))
+						return 1;
+					ah = h2n->hpack_sink;
+				} else if (m) {
+					lwsl_header("%s: frag start failed\n",
+						    __func__);
+					return 1;
+				}
+			}
+			break;
+		}
+
+		/*
+		 * A :path we are going to add to the dynamic table: keep it as
+		 * it is sent, as well as decoding it into the ah
+		 */
+		if ((h2n->hpack_type == HPKT_INDEXED_HDR_6_VALUE_INCR ||
+		     h2n->hpack_type == HPKT_LITERAL_HDR_VALUE_INCR) &&
+		    h2n->hdr_idx != LWS_HPACK_IGNORE_ENTRY &&
+		    !lws_h2_hpack_no_store(wsi) &&
+		    ah->hdr_token_idx == WSI_TOKEN_HTTP_COLON_PATH &&
+		    lws_hpack_dyn_val_start(h2n))
+			return lws_h2_goaway(nwsi, H2_ERR_INTERNAL_ERROR,
+					     "OOM");
+
+		/* ... and any field for it, when there is no ah keeping it */
+		if ((h2n->hpack_type == HPKT_INDEXED_HDR_6_VALUE_INCR ||
+		     h2n->hpack_type == HPKT_LITERAL_HDR_VALUE_INCR) &&
+		    lws_h2_hpack_no_store(wsi) &&
+		    lws_hpack_dyn_val_start(h2n))
+			return lws_h2_goaway(nwsi, H2_ERR_INTERNAL_ERROR,
+					     "OOM");
+
+		if (!h2n->hpack_len) {
+			/*
+			 * Zero-length value: no HPKS_DATA bytes are coming and
+			 * the header is already complete.  We only take this
+			 * shortcut after the per-header setup above, so the
+			 * indexed-name case has had its lws_frag_start() (and
+			 * that function's bounds check on ah->nfrag) and the
+			 * literal-name case has hdr_idx set up for the
+			 * lws_frag_end() at fin, exactly as for a nonzero
+			 * length value.  Taking it earlier left fin operating
+			 * on a fragment slot nobody had started for us, which
+			 * is one past the end of ah->frags[] once all the
+			 * slots are in use.
+			 */
+			lwsl_debug("%s: zero-length header data\n", __func__);
+			h2n->hpack = HPKS_TYPE;
+			goto fin;
+		}
+		break;
+
+	case HPKS_DATA:
+		//lwsl_header(" 0x%02X huff %d\n", c, h2n->huff);
+			c1 = c;
+
+		for (n = 0; n < 8; n++) {
+			if (h2n->huff) {
+				char b = (c >> 7) & 1;
+				prev = h2n->hpack_pos;
+				h2n->hpack_pos = (uint16_t)huftable_decode(
+						(int)h2n->hpack_pos, b);
+				c = (unsigned char)(c << 1);
+				if (h2n->hpack_pos == 0xffff) {
+					lwsl_notice("Huffman err\n");
+					return 1;
+				}
+				if (!(h2n->hpack_pos & 0x8000)) {
+					if (!b)
+						h2n->zero_huff_padding = 1;
+					h2n->huff_pad++;
+					continue;
+				}
+				c1 = (uint8_t)(h2n->hpack_pos & 0x7fff);
+				h2n->hpack_pos = 0;
+				h2n->huff_pad = 0;
+				h2n->zero_huff_padding = 0;
+
+				/* EOS |11111111|11111111|11111111|111111 */
+				if (!c1 && prev == HUFTABLE_0x100_PREV) {
+					return lws_h2_goaway(nwsi,
+						H2_ERR_COMPRESSION_ERROR,
+						"Huffman EOT seen");
+				}
+			} else
+				n = 8;
+
+			if (h2n->value) { /* value */
+
+				if (h2n->dyn_val_on &&
+				    lws_h2_hpack_no_store(wsi))
+					/* nothing else keeps it */
+					lws_hpack_dyn_val_char(h2n, c1);
+
+				if (h2n->hdr_idx &&
+				    h2n->hdr_idx != LWS_HPACK_IGNORE_ENTRY &&
+				    !lws_h2_hpack_no_store(wsi)) {
+
+					if (ah->hdr_token_idx ==
+					    WSI_TOKEN_HTTP_COLON_PATH) {
+						if (h2n->dyn_val_on)
+							lws_hpack_dyn_val_char(
+								h2n, c1);
+						m = lws_hpack_path_char(wsi, c1);
+					} else
+						m = lws_frag_append(wsi, c1);
+
+					if (m == LWS_H2_FRAG_NO_ROOM) {
+						if (lws_h2_hdrs_oversize(wsi))
+							return 1;
+						ah = h2n->hpack_sink;
+					} else if (m)
+						return 1;
+				}
+#if defined(LWS_WITH_CUSTOM_HEADERS)
+				else if (wsi->mux_substream && ah->unk_pos &&
+					 ah->unk_value_pos) {
+					/*
+					 * RFC 9113 8.2.1 applies to the values
+					 * of headers lws does not know as well:
+					 * these bytes never pass through
+					 * lws_parse(), so police them here
+					 * before they are stored
+					 */
+					if (c1 == '\r' || c1 == '\n' || !c1) {
+						return lws_h2_goaway(nwsi,
+							H2_ERR_PROTOCOL_ERROR,
+							"CR/LF/NUL in header value");
+					}
+					/*
+					 * collect unknown-header value byte,
+					 * all of it or none
+					 */
+					if (ah->pos + 1 >= wsi->a.context->
+							max_http_header_data) {
+						if (lws_h2_hdrs_oversize(wsi))
+							return 1;
+						ah = h2n->hpack_sink;
+					} else
+						ah->data[ah->pos++] = (char)c1;
+				}
+#endif
+			} else {
+				/*
+				 * Convert name using existing parser,
+			 	 * If h2n->unknown_header == 0, result is
+				 * in wsi->parser_state
+			 	 * using WSI_TOKEN_GET_URI.
+			 	 *
+			 	 * If unknown header h2n->unknown_header
+			 	 * will be set.
+			 	 */
+				h2n->hpack_hdr_len++;
+				if (h2n->is_first_header_char) {
+					/*
+					 * Only a name we have from its start
+					 * is any use, not the rest of one the
+					 * block stopped storing partway through
+					 */
+					h2n->sink_name_len = 0;
+					h2n->sink_name_lost =
+						!lws_h2_hpack_no_store(wsi);
+				}
+				if (lws_h2_hpack_no_store(wsi))
+					lws_hpack_sink_name_char(h2n, c1);
+				if (h2n->is_first_header_char) {
+					h2n->is_first_header_char = 0;
+					h2n->first_hdr_char = (char)c1;
+				}
+				lwsl_header("parser: %c\n", c1);
+				if (!lws_http_field_name_char_valid(c1,
+						h2n->hpack_hdr_len == 1))
+					return lws_h2_goaway(nwsi,
+						H2_ERR_PROTOCOL_ERROR,
+						"Invalid literal hpack hdr name");
+#if defined(LWS_WITH_CUSTOM_HEADERS)
+				/*
+				 * Speculatively collect the name into the UHO
+				 * entry we reserved.  We must do this before
+				 * lws_parse() below: if it recognizes a known
+				 * header it does lws_frag_start() using the
+				 * current ah->pos, which has to already point
+				 * past the name we are stashing here.
+				 */
+				if (ah->unk_pos) {
+					/* all of the name or none of it */
+					if (ah->pos + 1 >= wsi->a.context->
+							max_http_header_data) {
+						if (lws_h2_hdrs_oversize(wsi))
+							return 1;
+						ah = h2n->hpack_sink;
+					} else
+						ah->data[ah->pos++] = (char)c1;
+				}
+#endif
+				plen = 1;
+				/*
+				 * lws_parse() is not just name recognition:
+				 * on recognizing a known header it does the
+				 * lws_frag_start() that links the field into
+				 * the ah.  For a trailer block we must not let
+				 * it, so don't run it at all -- the name then
+				 * ends up "unknown" at fin below, which routes
+				 * the field to the ignored-entry handling
+				 */
+				/*
+				 * A regular name only matches on the ':' we
+				 * feed lws_parse() once the name has ended,
+				 * but a pseudo-header's matches on its last
+				 * byte.  A name going on past one, eg
+				 * ":methodx", is no pseudo-header lws knows,
+				 * and its bytes must not become the value of
+				 * the one it starts with
+				 */
+				if (!h2n->unknown_header &&
+				    !lws_h2_hpack_no_store(wsi) &&
+				    ah->parser_state < WSI_TOKEN_COUNT)
+					return lws_h2_goaway(nwsi,
+						H2_ERR_PROTOCOL_ERROR,
+						"Unknown pseudoheader");
+
+				if (!h2n->unknown_header &&
+				    !lws_h2_hpack_no_store(wsi)) {
+					m = lws_parse(wsi, &c1, &plen);
+					if (m == LPR_TOO_LARGE) {
+						/* a known header, no room */
+						if (lws_h2_hdrs_oversize(wsi))
+							return 1;
+						ah = h2n->hpack_sink;
+					} else if (m)
+						h2n->unknown_header = 1;
+				}
+			}
+		} // for n
+
+		if (--h2n->hpack_len)
+			break;
+
+		/*
+		 * The header (h2n->value = 0) or the payload (h2n->value = 1)
+		 * is complete.
+		 */
+
+		if (h2n->huff && (h2n->huff_pad > 7 ||
+		    (h2n->zero_huff_padding && h2n->huff_pad))) {
+			lwsl_info("zero_huff_padding: %d huff_pad: %d\n",
+				    h2n->zero_huff_padding, h2n->huff_pad);
+			return lws_h2_goaway(nwsi, H2_ERR_COMPRESSION_ERROR,
+				      "Huffman padding excessive or wrong");
+		}
+fin:
+		if (!h2n->value && (
+		    h2n->hpack_type == HPKT_LITERAL_HDR_VALUE ||
+		    h2n->hpack_type == HPKT_LITERAL_HDR_VALUE_INCR ||
+		    h2n->hpack_type == HPKT_LITERAL_HDR_VALUE_NEVER)) {
+			h2n->hdr_idx = LWS_HPACK_IGNORE_ENTRY;
+			lwsl_header("wsi->parser_state: %d\n",
+					ah->parser_state);
+
+			/*
+			 * RFC 9113 8.1: trailers must not contain
+			 * pseudo-header fields.  For a header with an indexed
+			 * name that falls out of
+			 * lws_hpack_handle_pseudo_rules() below, but a literal
+			 * name in a trailer block never reaches lws_parse()
+			 * (see above), so there is no lws token for it to
+			 * judge: the leading ':' is all we need and all we
+			 * have.
+			 */
+
+			if (!lws_h2_hpack_sinking(wsi) &&
+			    lws_h2_hdrs_are_trailers(wsi) &&
+			    h2n->first_hdr_char == ':') {
+				return lws_h2_goaway(nwsi, H2_ERR_PROTOCOL_ERROR,
+					      "Pseudoheader in trailers");
+			}
+
+			if (ah->parser_state == WSI_TOKEN_NAME_PART &&
+			    !lws_h2_hpack_no_store(wsi)) {
+				/* h2 headers come without the colon */
+				c1 = ':';
+				plen = 1;
+				m = lws_parse(wsi, &c1, &plen);
+				if (m == LPR_TOO_LARGE) {
+					if (lws_h2_hdrs_oversize(wsi))
+						return 1;
+					ah = h2n->hpack_sink;
+				} else if (m)
+					h2n->unknown_header = 1;
+			}
+
+			/*
+			 * If lws_parse() failed the name, its parser_state may
+			 * still be the token it matched before it failed, with
+			 * no fragment started for it.  The value must not be
+			 * stored against that token, so it is unknown whatever
+			 * parser_state says.
+			 */
+			if (h2n->unknown_header ||
+			    ah->parser_state == WSI_TOKEN_NAME_PART ||
+#if defined(LWS_WITH_CUSTOM_HEADERS)
+			    ah->parser_state == WSI_TOKEN_UNKNOWN_VALUE_PART ||
+#endif
+			    ah->parser_state == WSI_TOKEN_SKIPPING) {
+				h2n->unknown_header = 1;
+				ah->parser_state = 0xff;
+				if (!lws_h2_hpack_sinking(wsi))
+					wsi->seen_nonpseudoheader = 1;
+			}
+
+			/*
+			 * lws_parse() chains a name it already has onto the
+			 * first instance's fragments, which is right for a
+			 * repeated regular header, but a repeated
+			 * pseudo-header is a malformed request (RFC 9113 8.3)
+			 */
+			if (!h2n->unknown_header &&
+			    !lws_h2_hpack_no_store(wsi) &&
+			    lws_hpack_tok_is_request_pseudo(ah->parser_state) &&
+			    ah->frag_index[ah->parser_state] != ah->nfrag)
+				return lws_hpack_pseudo_duplicated(wsi,
+							ah->parser_state);
+		}
+
+#if defined(LWS_WITH_CUSTOM_HEADERS)
+		/*
+		 * The name part just completed.  If lws didn't recognize it,
+		 * finalize the UHO entry we have been building (the name is
+		 * stored with a trailing ':' to match the h1 storage format,
+		 * which is what the lws_hdr_custom_*() accessors expect) and
+		 * link it into the unknown-header list.  Otherwise drop the
+		 * speculative name (the recognized header's value frag was
+		 * already located past it by the lws header parser).
+		 */
+		if (wsi->mux_substream && ah->unk_pos && !h2n->value) {
+			if (h2n->unknown_header &&
+			    ah->pos + 1 >= wsi->a.context->max_http_header_data) {
+				if (lws_h2_hdrs_oversize(wsi))
+					return 1;
+				ah = h2n->hpack_sink;
+			} else if (h2n->unknown_header) {
+				ah->data[ah->pos++] = ':';
+				lws_ser_wu16be((uint8_t *)&ah->data[ah->unk_pos +
+								    UHO_NLEN],
+					(uint16_t)((ah->pos - ah->unk_pos) -
+						   UHO_NAME));
+				if (!ah->unk_ll_head)
+					ah->unk_ll_head = ah->unk_pos;
+				if (ah->unk_ll_tail)
+					lws_ser_wu32be((uint8_t *)&ah->data[
+						ah->unk_ll_tail + UHO_LL],
+						ah->unk_pos);
+				ah->unk_ll_tail = ah->unk_pos;
+				ah->unk_value_pos = ah->pos;
+			} else
+				/* known header: drop capture */
+				ah->unk_pos = 0;
+		}
+#endif
+
+		/* we have the header */
+		if (!h2n->value) {
+			h2n->value = 1;
+			h2n->hpack = HPKS_HLEN;
+			h2n->huff_pad = 0;
+			h2n->zero_huff_padding = 0;
+			h2n->ext_count = 0;
+			break;
+		}
+
+		/*
+		 * we have got both the header and value
+		 */
+
+		m = -1;
+		switch (h2n->hpack_type) {
+		/*
+		 * These are the only two that insert to the dyntable
+		 */
+		/* NEW indexed hdr with value */
+		case HPKT_INDEXED_HDR_6_VALUE_INCR:
+			/* header length is determined by known index */
+			m = lws_token_from_index(wsi, (int)h2n->hdr_idx, NULL, NULL,
+					&h2n->hpack_hdr_len);
+			if (m < 0)
+				/*
+				 * The peer may only send known 6-bit indexes,
+				 * there's still the possibility it sends an unset
+				 * dynamic index that we can't succeed to look up
+				 */
+				return 1;
+			ah = lws_h2_hpack_ah(wsi, h2n);
+			goto add_it;
+		/* NEW literal hdr with value */
+		case HPKT_LITERAL_HDR_VALUE_INCR:
+			/*
+			 * hdr is a new literal, so length is already in
+			 * h2n->hpack_hdr_len
+			 */
+			m = ah->parser_state;
+			if (h2n->unknown_header ||
+			    ah->parser_state == WSI_TOKEN_NAME_PART ||
+			    ah->parser_state == WSI_TOKEN_SKIPPING) {
+				if (h2n->first_hdr_char == ':' &&
+				    !lws_h2_hpack_sinking(wsi)) {
+					lwsl_info("HPKT_LITERAL_HDR_VALUE_INCR:"
+						  " end state %d unk hdr %d\n",
+						  ah->parser_state,
+						h2n->unknown_header);
+					/* unknown pseudoheaders are illegal */
+					return lws_h2_goaway(nwsi,
+						      H2_ERR_PROTOCOL_ERROR,
+						      "Unknown pseudoheader");
+				}
+				m = LWS_HPACK_IGNORE_ENTRY;
+			}
+add_it:
+			/*
+			 * The fragment was started by lws_frag_start() or by
+			 * lws_parse(), both of which bound ah->nfrag... if the
+			 * header just used the last slot, it's all it could
+			 */
+			if (!lws_h2_hpack_no_store(wsi) &&
+			    m != LWS_HPACK_IGNORE_ENTRY &&
+			    ah->nfrag >= LWS_ARRAY_SIZE(ah->frags)) {
+				if (lws_h2_hdrs_oversize(wsi))
+					return 1;
+				ah = h2n->hpack_sink;
+			}
+
+			if (lws_h2_hpack_no_store(wsi)) {
+				/*
+				 * Nothing of this block is stored, so nobody
+				 * started a fragment for it and
+				 * ah->frags[ah->nfrag] is not ours to look at:
+				 * the entry is made from what we collected
+				 */
+				if (h2n->hpack_type ==
+						HPKT_LITERAL_HDR_VALUE_INCR)
+					m = lws_hpack_sink_name_tok(h2n);
+				if (lws_hpack_sink_dyn_insert(wsi, m)) {
+					lwsl_notice("%s: tok_insert fail\n",
+						    __func__);
+					return 1;
+				}
+				break;
+			}
+
+			if (m == LWS_HPACK_IGNORE_ENTRY) {
+				/*
+				 * There is no lws token for this header, so
+				 * nobody started a fragment for it and
+				 * ah->frags[ah->nfrag] is not ours to look at:
+				 * it is whatever the previous header left
+				 * there or, once all the frag slots are used,
+				 * one past the end of the array.  Store the
+				 * placeholder entry without any value, so our
+				 * dynamic table indexes stay aligned with the
+				 * peer's.
+				 */
+				if (lws_dynamic_token_insert(wsi,
+						(int)h2n->hpack_hdr_len,
+						wsi != nwsi &&
+						wsi->h2.hdrs_oversized ?
+							LWS_HPACK_LOST_ENTRY :
+							LWS_HPACK_IGNORE_ENTRY,
+						NULL, 0)) {
+					lwsl_notice("%s: tok_insert fail\n",
+						    __func__);
+					return 1;
+				}
+				break;
+			}
+
+			if (h2n->dyn_val_on) {
+				/*
+				 * A :path: not what is in the ah, but what was
+				 * sent, see lws_hpack_dyn_val_start()
+				 */
+				n = lws_dynamic_token_insert(wsi,
+						(int)h2n->hpack_hdr_len,
+						h2n->dyn_val_lost ?
+							LWS_HPACK_LOST_ENTRY : m,
+						h2n->dyn_val,
+						h2n->dyn_val_lost ? 0 :
+							h2n->dyn_val_len);
+			} else
+				n = lws_dynamic_token_insert(wsi,
+					(int)h2n->hpack_hdr_len, m,
+					&ah->data[ah->frags[ah->nfrag].offset],
+					ah->frags[ah->nfrag].len);
+			if (n) {
+				lwsl_notice("%s: tok_insert fail\n", __func__);
+				return 1;
+			}
+			break;
+
+		default:
+			break;
+		}
+
+		/* inserted, or not wanted after all */
+		lws_hpack_dyn_val_release(h2n);
+
+		if (h2n->hpack_type != HPKT_INDEXED_HDR_6_VALUE_INCR) {
+
+			if (h2n->hpack_type == HPKT_LITERAL_HDR_VALUE ||
+			    h2n->hpack_type == HPKT_LITERAL_HDR_VALUE_INCR ||
+			    h2n->hpack_type == HPKT_LITERAL_HDR_VALUE_NEVER) {
+				m = ah->parser_state;
+				if (m == 255)
+					m = -1;
+			} else
+				m = lws_token_from_index(wsi, (int)h2n->hdr_idx,
+							 NULL, NULL, NULL);
+		}
+
+		/* a reference to a lost entry makes us sink the rest */
+		ah = lws_h2_hpack_ah(wsi, h2n);
+
+		if (m == WSI_TOKEN_HTTP_COLON_PATH &&
+		    h2n->hdr_idx != LWS_HPACK_IGNORE_ENTRY &&
+		    !lws_h2_hpack_no_store(wsi) &&
+		    lws_hpack_path_end(wsi))
+			return 1;
+
+		if (h2n->hdr_idx != LWS_HPACK_IGNORE_ENTRY &&
+		    !lws_h2_hpack_no_store(wsi)) {
+			/*
+			 * RFC 9113 8.2.1: a field value containing NUL, CR or
+			 * LF is malformed and must be treated as a stream /
+			 * connection error.  HPACK carries values as opaque
+			 * bytes, so unlike h1 nothing structural stops them
+			 * arriving; if we stored them they would reach the
+			 * access log, onward-proxied h1 requests, and apps
+			 * that splice header values into their own lines.
+			 * This is the still-open fragment, ie, exactly the
+			 * value that just completed.
+			 */
+			const char *fp = &ah->data[ah->frags[ah->nfrag].offset];
+			unsigned int i;
+
+			for (i = 0; i < ah->frags[ah->nfrag].len; i++)
+				if (fp[i] == '\r' || fp[i] == '\n' ||
+				    !fp[i]) {
+					return lws_h2_goaway(nwsi, H2_ERR_PROTOCOL_ERROR,
+						      "CR/LF/NUL in header value");
+				}
+
+			if (lws_frag_end(wsi)) {
+				if (lws_h2_hdrs_oversize(wsi))
+					return 1;
+				ah = h2n->hpack_sink;
+			}
+		}
+
+		/*
+		 * Nothing decoded into the sink was stored, and its
+		 * parser_state is no token index to look one up by
+		 */
+		if (m != -1 && m != LWS_HPACK_IGNORE_ENTRY &&
+		    !lws_h2_hpack_no_store(wsi))
+			lws_dump_header(wsi, m);
+
+		if (!lws_h2_hpack_sinking(wsi) &&
+		    lws_hpack_handle_pseudo_rules(nwsi, wsi, m))
+			return 1;
+
+#if defined(LWS_WITH_CUSTOM_HEADERS)
+		/*
+		 * Value part complete: if we were collecting an unknown
+		 * header, record the value length to finish the UHO entry.
+		 */
+		if (wsi->mux_substream && ah->unk_pos && ah->unk_value_pos) {
+			lws_ser_wu16be((uint8_t *)&ah->data[ah->unk_pos +
+							    UHO_VLEN],
+				(uint16_t)(ah->pos - ah->unk_value_pos));
+			ah->unk_pos = 0;
+			ah->unk_value_pos = 0;
+		}
+#endif
+
+		h2n->is_first_header_char = 1;
+		h2n->hpack = HPKS_TYPE;
+		break;
+	}
+
+	return 0;
+}
+
+
+
+static unsigned int
+lws_h2_num_start(int starting_bits, unsigned long num)
+{
+	unsigned int mask = (unsigned int)((1 << starting_bits) - 1);
+
+	if (num < mask)
+		return (unsigned int)num;
+
+	return mask;
+}
+
+static int
+lws_h2_num(int starting_bits, unsigned long num,
+			 unsigned char **p, unsigned char *end)
+{
+	unsigned int mask = (unsigned int)((1 << starting_bits) - 1);
+
+	if (num < mask)
+		return 0;
+
+	num -= mask;
+	do {
+		if (num > 127)
+			*((*p)++) = (uint8_t)(0x80 | (num & 0x7f));
+		else
+			*((*p)++) = (uint8_t)(0x00 | (num & 0x7f));
+		if (*p >= end)
+			return 1;
+		num >>= 7;
+	} while (num);
+
+	return 0;
+}
+
+int lws_add_http2_header_by_name(struct lws *wsi, const unsigned char *name,
+				 const unsigned char *value, int length,
+				 unsigned char **p, unsigned char *end)
+{
+	int len;
+
+#if defined(_DEBUG)
+	/*
+	 * value does not have to be NUL-terminated.  Values of headers that
+	 * may carry a credential (authorization, cookie, set-cookie, unknown
+	 * names like x-api-key) are never logged, only their length.
+	 */
+	if (!value)
+		lwsl_err("%s: %s: NULL value (len %d)\n", __func__, name, length);
+#if (_LWS_ENABLED_LOGS & LLL_HEADER)
+	else {
+		char lv[128];
+
+		lwsl_header("%s: %s %s (len %d)\n", __func__, name,
+			    lws_http_hdr_log_value(wsi, lv, sizeof(lv), -1,
+					(const char *)name,
+					strlen((const char *)name),
+					(const char *)value, (size_t)length),
+			    length);
+	}
+#endif
+#endif
+
+	len = (int)strlen((char *)name);
+	if (len)
+		if (name[len - 1] == ':')
+			len--;
+
+	/*
+	 * Transmit-side duplicate-pseudoheader guard.
+	 *
+	 * h2 pseudo-headers (:method, :path, :scheme, :authority, :protocol,
+	 * :status) MUST appear at most once in a HEADERS block; a strict peer
+	 * answers with GOAWAY PROTOCOL_ERROR "Duplicated pseudoheader" and
+	 * tears the connection down.  The receive side (lws_frag_start in
+	 * hpack.c) already rejects these, but the transmit side used to emit
+	 * the duplicate silently, so the bug only surfaced months later at a
+	 * peer that validated it.
+	 *
+	 * h2_pseudo_seen is cleared at the start of each HEADERS build
+	 * (lws_h2_client_handshake / the server response builders); each
+	 * pseudo-header add sets its bit.  If the bit is already set here, we
+	 * are emitting a duplicate -- an lws bug.  Assert at the construction
+	 * site so it's found in seconds under gdb, with the offending header
+	 * named in the log, instead of divined from a peer's GOAWAY weeks
+	 * later.
+	 */
+	if (len && name[0] == ':') {
+		static const struct {
+			const char *name;
+			uint8_t bit;
+		} pseudo[] = {
+			{ ":method",	1u << 0 },
+			{ ":path",	1u << 1 },
+			{ ":scheme",	1u << 2 },
+			{ ":authority", 1u << 3 },
+			{ ":protocol",	1u << 4 },
+			{ ":status",	1u << 5 },
+		};
+		size_t i;
+		for (i = 0; i < LWS_ARRAY_SIZE(pseudo); i++) {
+			if ((int)strlen(pseudo[i].name) == len &&
+			    !memcmp(pseudo[i].name, name, (size_t)len)) {
+				if (wsi->h2.h2_pseudo_seen & pseudo[i].bit) {
+					/*
+					 * Transmitting a duplicate pseudo-header
+					 * is an lws bug we do not tolerate on
+					 * the producer any more than on the
+					 * consumer (a strict peer GOAWAYs the
+					 * connection with "Duplicated
+					 * pseudoheader").  Assert at the
+					 * construction site with the offending
+					 * header named, so the cause is found
+					 * in seconds under gdb -- typically a
+					 * missing reset of per-HEADERS state on
+					 * wsi reuse (eg redirect).
+					 */
+					lwsl_wsi_warn(wsi, "%s: DUPLICATE h2 "
+						     "pseudo-header '%.*s' added "
+						     "to one HEADERS block -- lws "
+						     "transmit bug, asserting",
+						     __func__, len,
+						     (const char *)name);
+					assert(0);
+				}
+				wsi->h2.h2_pseudo_seen |= pseudo[i].bit;
+				break;
+			}
+		}
+	}
+
+	if (wsi->mux_substream && !strncmp((const char *)name,
+					     "transfer-encoding", (unsigned int)len)) {
+		lwsl_header("rejecting %s\n", name);
+
+		return 0;
+	}
+
+	if (end - *p < len + length + 8)
+		return 1;
+
+	*((*p)++) = 0; /* literal hdr, literal name,  */
+
+	*((*p)++) = (uint8_t)(0 | (uint8_t)lws_h2_num_start(7, (unsigned long)len)); /* non-HUF */
+	if (lws_h2_num(7, (unsigned long)len, p, end))
+		return 1;
+
+	/* upper-case header names are verboten in h2, but OK on h1, so
+	 * they're not illegal per se.  Silently convert them for h2... */
+
+	while(len--)
+		*((*p)++) = (uint8_t)tolower((int)*name++);
+
+	*((*p)++) = (uint8_t)(0 | (uint8_t)lws_h2_num_start(7, (unsigned long)length)); /* non-HUF */
+	if (lws_h2_num(7, (unsigned long)length, p, end))
+		return 1;
+
+	if (value)
+		memcpy(*p, value, (unsigned int)length);
+	*p += length;
+
+	return 0;
+}
+
+int lws_add_http2_header_by_token(struct lws *wsi, enum lws_token_indexes token,
+				  const unsigned char *value, int length,
+				  unsigned char **p, unsigned char *end)
+{
+	const unsigned char *name;
+
+	name = lws_token_to_string(token);
+	if (!name)
+		return 1;
+
+	return lws_add_http2_header_by_name(wsi, name, value, length, p, end);
+}
+
+int lws_add_http2_header_status(struct lws *wsi, unsigned int code,
+				unsigned char **p, unsigned char *end)
+{
+	unsigned char status[12];
+	int n;
+
+	wsi->h2.send_END_STREAM = 0; // !!(code >= 400);
+
+	/* Reset the per-HEADERS duplicate-pseudoheader tracker (see hpack.c) */
+	wsi->h2.h2_pseudo_seen = 0;
+
+	n = lws_snprintf((char *)status, sizeof(status), "%u", code);
+	if (lws_add_http2_header_by_token(wsi, WSI_TOKEN_HTTP_COLON_STATUS,
+					  status, n, p, end))
+
+		return 1;
+
+	return 0;
+}

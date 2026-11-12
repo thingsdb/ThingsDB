@@ -1,0 +1,1059 @@
+ /*
+ * libwebsockets - small server side websockets and web server implementation
+ *
+ * Copyright (C) 2010 - 2019 Andy Green <andy@warmcat.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ *
+ *  This is included from private-lib-core.h if either H1 or H2 roles are
+ *  enabled
+ */
+
+#if defined(LWS_WITH_HUBBUB)
+  #include <hubbub/hubbub.h>
+  #include <hubbub/parser.h>
+ #endif
+
+#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+#include "private-lib-roles-http-compression.h"
+#endif
+
+#define lwsi_role_http(wsi) (lwsi_role_h1(wsi) || lwsi_role_h2(wsi) || lwsi_role_h3(wsi))
+
+struct http2_settings {
+	uint32_t s[H2SET_COUNT];
+};
+
+struct lws_vhost_role_h2 {
+	struct http2_settings set;
+};
+
+enum http_version {
+	HTTP_VERSION_1_0,
+	HTTP_VERSION_1_1,
+	HTTP_VERSION_2
+};
+
+enum http_conn_type {
+	HTTP_CONNECTION_CLOSE,
+	HTTP_CONNECTION_KEEP_ALIVE
+};
+
+/*
+ * This is totally opaque to code using the library.  It's exported as a
+ * forward-reference pointer-only declaration; the user can use the pointer with
+ * other APIs to get information out of it.
+ */
+
+#if defined(LWS_PLAT_FREERTOS)
+typedef uint16_t ah_data_idx_t;
+#else
+typedef uint32_t ah_data_idx_t;
+#endif
+
+struct lws_fragments {
+	ah_data_idx_t	offset;
+	uint16_t	len;
+	uint8_t		nfrag; /* which ah->frag[] continues this content, or 0 */
+	uint8_t		flags; /* only http2 cares */
+};
+
+#if defined(LWS_WITH_RANGES)
+enum range_states {
+	LWSRS_NO_ACTIVE_RANGE,
+	LWSRS_BYTES_EQ,
+	LWSRS_FIRST,
+	LWSRS_STARTING,
+	LWSRS_ENDING,
+	LWSRS_COMPLETED,
+	LWSRS_SYNTAX,
+};
+
+/*
+ * The most ranges we will compose a response from.
+ *
+ * The parser re-reads the Range: header all through the response, long after
+ * the ah has been handed on, so the header is copied where it will live as
+ * long as the response does.  The copy is allocated to the length of the
+ * header that actually arrived -- a couple of dozen bytes for what a real
+ * client asks -- so nothing here has to be sized for the worst case, and
+ * this count is the only thing deciding what is unreasonable.
+ */
+
+#define LWS_RANGES_MAX		16
+
+struct lws_range_parsing {
+	unsigned long long start, end, extent, agg, budget;
+	char *buf;
+	char boundary[24];
+	int pos;
+	int len; /* of buf's content: the walk stops there */
+	enum range_states state;
+	char start_valid, end_valid, ctr, count_ranges, did_try, inside, send_ctr;
+};
+
+/*
+ * The framing of a multipart/byteranges body (RFC 2046 5.1.1): each part is
+ * introduced by CRLF "--" boundary CRLF, and the body ends at CRLF "--"
+ * boundary "--".  The CRLF ahead of a delimiter belongs to the delimiter, so
+ * it also terminates the part before it.
+ *
+ * The boundary is random per response.  A fixed one could appear in the file
+ * being served, and then the payload itself would read as a delimiter: a
+ * client parsing the body by scanning for one would see parts we did not
+ * send, with headers of the file's choosing.
+ *
+ * The response header sizes the body by composing the same part header it
+ * will send, so the Content-Length and the framing cannot drift apart.
+ */
+
+#define LWS_RANGES_PART_HDR	"\x0d\x0a--%s\x0d\x0a" \
+				"Content-Type: %s\x0d\x0a" \
+				"Content-Range: bytes %llu-%llu/%llu\x0d\x0a" \
+				"\x0d\x0a"
+#define LWS_RANGES_CLOSE	"\x0d\x0a--%s--\x0d\x0a"
+
+int
+lws_ranges_snapshot(struct lws *wsi, struct lws_range_parsing *rp);
+int
+lws_ranges_init(struct lws_range_parsing *rp, unsigned long long extent);
+int
+lws_ranges_next(struct lws_range_parsing *rp);
+void
+lws_ranges_reset(struct lws_range_parsing *rp);
+
+/*
+ * Let go of the copied Range: header.  Safe at any time, and again after:
+ * the request that is finishing may never have had one.
+ */
+void
+lws_ranges_destroy(struct lws_range_parsing *rp);
+
+/*
+ * Choose this response's boundary.  Returns nonzero if there is no random
+ * to be had, in which case no multipart response may be sent.
+ */
+int
+lws_ranges_boundary_create(struct lws_context *cx,
+			   struct lws_range_parsing *rp);
+
+/* the length LWS_RANGES_CLOSE comes to with this response's boundary */
+size_t
+lws_ranges_close_len(struct lws_range_parsing *rp);
+#endif
+
+#define LWS_HTTP_NO_KNOWN_HEADER 0xff
+
+#if defined(LWS_WITH_CUSTOM_HEADERS)
+#define UHO_NLEN	0
+#define UHO_VLEN	2
+#define UHO_LL		4
+#define UHO_NAME	8
+#endif
+
+/*
+ * these are assigned from a pool held in the context.
+ * Both client and server mode uses them for http header analysis
+ */
+
+struct allocated_headers {
+	lws_dll2_t list; /* member of pt->http.ah_owner */
+	struct lws *wsi; /* owner */
+	char *data; /* prepared by context init to point to dedicated storage */
+	ah_data_idx_t data_length;
+	/*
+	 * the randomly ordered fragments, indexed by frag_index and
+	 * lws_fragments->nfrag for continuation.
+	 */
+	struct lws_fragments frags[WSI_TOKEN_COUNT];
+	time_t assigned;
+	/*
+	 * for each recognized token, frag_index says which frag[] his data
+	 * starts in (0 means the token did not appear)
+	 * the actual header data gets dumped as it comes in, into data[]
+	 */
+	uint8_t frag_index[WSI_TOKEN_COUNT];
+
+#if defined(LWS_WITH_CLIENT)
+	char initial_handshake_hash_base64[30];
+#endif
+	int hdr_token_idx;
+
+	ah_data_idx_t pos;
+	ah_data_idx_t http_response;
+	ah_data_idx_t current_token_limit;
+	ah_data_idx_t unk_pos; /* to undo speculative unknown header */
+
+#if defined(LWS_WITH_CUSTOM_HEADERS)
+	ah_data_idx_t unk_value_pos;
+
+	ah_data_idx_t unk_ll_head;
+	ah_data_idx_t unk_ll_tail;
+#endif
+
+	/*
+	 * Where the response section of a client ah begins, taken when the
+	 * client starts waiting for the server's reply: a 1xx interim
+	 * response is rewound to here, so the request tokens created before
+	 * it (the client's own uri, method, peer address...) survive for the
+	 * final response to use.
+	 */
+	ah_data_idx_t rx_snap_pos;
+#if defined(LWS_WITH_CUSTOM_HEADERS)
+	ah_data_idx_t rx_snap_unk_ll_head;
+	ah_data_idx_t rx_snap_unk_ll_tail;
+#endif
+
+	int16_t lextable_pos;
+
+	uint8_t in_use;
+	uint8_t nfrag;
+	uint8_t rx_snap_nfrag;
+	uint8_t rx_interims; /* 1xx seen since the snapshot */
+	uint8_t leading_empty_lines; /* h1 server: skipped before the request
+				      * line */
+	char /*enum uri_path_states */ ups;
+	char /*enum uri_esc_states */ ues;
+
+	char esc_stash;
+	char post_literal_equal;
+	uint8_t /* enum lws_token_indexes */ parser_state;
+};
+
+
+
+#if defined(LWS_WITH_HUBBUB)
+struct lws_rewrite {
+	hubbub_parser *parser;
+	hubbub_parser_optparams params;
+	const char *from, *to;
+	unsigned char *p, *end;
+	struct lws *wsi;
+};
+static LWS_INLINE int hstrcmp(hubbub_string *s, const char *p, int len)
+{
+	if ((int)s->len != len)
+		return 1;
+
+	return strncmp((const char *)s->ptr, p, len);
+}
+typedef hubbub_error (*hubbub_callback_t)(const hubbub_token *token, void *pw);
+LWS_EXTERN struct lws_rewrite *
+lws_rewrite_create(struct lws *wsi, hubbub_callback_t cb, const char *from, const char *to);
+LWS_EXTERN void
+lws_rewrite_destroy(struct lws_rewrite *r);
+LWS_EXTERN int
+lws_rewrite_parse(struct lws_rewrite *r, const unsigned char *in, int in_len);
+#endif
+
+/* NULL-safe iteration helpers for an allocated-header pool owner */
+static LWS_INLINE struct allocated_headers *
+lws_pt_first_ah(lws_dll2_owner_t *ow)
+{
+	struct lws_dll2 *d = lws_dll2_get_head(ow);
+
+	return d ? lws_container_of(d, struct allocated_headers, list) : NULL;
+}
+
+static LWS_INLINE struct allocated_headers *
+lws_pt_next_ah(struct allocated_headers *ah)
+{
+	struct lws_dll2 *d = lws_dll2_get_next(&ah->list);
+
+	return d ? lws_container_of(d, struct allocated_headers, list) : NULL;
+}
+
+/*
+ * The fragment after n in its header's chain, or 0 at the end of it.
+ *
+ * Every link is made from a fragment to one taken after it (a continuation
+ * or the next urlarg always gets a fresh slot, lws_hdr_alias() a fresh
+ * descriptor, a removal or a rewind only drops links), so a link that does
+ * not go forward is a corrupted chain.  End the walk there: without this, a
+ * link back to itself or an earlier fragment had every walker going round
+ * it forever, with whatever lock its caller holds.
+ */
+static LWS_INLINE int
+lws_ah_frag_next(const struct allocated_headers *ah, int n)
+{
+	int nx = ah->frags[n].nfrag;
+
+	return nx > n && nx < (int)LWS_ARRAY_SIZE(ah->frags) ? nx : 0;
+}
+
+/*
+ * One byte of an h2 / h3 field name (RFC 9113 8.2.1, RFC 9114 4.2): no
+ * controls, SP, uppercase or non-ASCII, and a ':' only to lead a pseudo-header.
+ *
+ * Besides being malformed, a name with a space in it can be taken by the h1
+ * lextable lookup for a request-line method token, eg "get ", whose value
+ * would then be the request URI without any of the :path decoding.
+ */
+static LWS_INLINE int
+lws_http_field_name_char_valid(unsigned char c, int first)
+{
+	if (c <= 0x20 || c >= 0x7f || (c >= 'A' && c <= 'Z'))
+		return 0;
+
+	return c != ':' || first;
+}
+
+int
+lws_http_token_is_field_name(int n);
+
+/* how many 1xx interim responses a client swallows before giving up */
+#define LWS_HTTP_INTERIM_RESPONSE_LIMIT 8
+
+struct lws_pt_role_http {
+	lws_dll2_owner_t ah_owner; /* allocated but not necessarily in use */
+#if defined(LWS_WITH_FOOTPRINT)
+	lws_footprint_t fp; /* "ah pool" participant, while it has any ah */
+#endif
+	struct lws *ah_wait_list;
+#ifdef LWS_WITH_CGI
+	lws_dll2_owner_t cgi_owner; /* struct lws_cgi with a live child */
+#endif
+	int ah_wait_list_length;
+
+	int ah_count_in_use;
+	/* nonzero while an ah recipient is being serviced from a detach */
+	int ah_autoservice_depth;
+};
+
+struct lws_peer_role_http {
+	uint32_t count_ah;
+	uint32_t total_ah;
+};
+
+struct lws_vhost_role_http {
+#if defined(LWS_CLIENT_HTTP_PROXYING)
+	char http_proxy_address[128];
+#endif
+	const struct lws_http_mount *mount_list;
+	const char *error_document_404;
+#if defined(LWS_CLIENT_HTTP_PROXYING)
+	unsigned int http_proxy_port;
+#endif
+};
+
+#ifdef LWS_WITH_ACCESS_LOG
+struct lws_access_log {
+	char *header_log;
+	char *user_agent;
+	char *referrer;
+	unsigned long sent;
+	int response;
+};
+#endif
+
+#define LWS_HTTP_CHUNK_HDR_MAX_SIZE (6 + 2) /* 6 hex digits and then CRLF */
+#define LWS_HTTP_CHUNK_TRL_MAX_SIZE (2 + 5) /* CRLF, then maybe 0 CRLF CRLF */
+
+#if defined(LWS_WITH_HTTP_PROXY)
+/*
+ * When proxying, the client's request body is stashed on the client-facing
+ * (parent) wsi until the onward, backend connection is writeable, and drained
+ * from there by the h1 POLLOUT path.  Without backpressure, a client that
+ * uploads faster than the backend accepts grows the stash on the heap up to
+ * the whole allowed body size.
+ *
+ * Above _HI we stop reading the client, and resume below _LO; a muxed parent
+ * (h2 stream) ignores rx flow control, so there we can only bound the stash at
+ * _MAX and fail the transaction rather than the process.
+ */
+#define LWS_HTTP_PROXY_BODY_BUFFERED_MAX	(10 * 1024 * 1024)
+#define LWS_HTTP_PROXY_BODY_BUFFERED_HI		(256 * 1024)
+#define LWS_HTTP_PROXY_BODY_BUFFERED_LO		(64 * 1024)
+#endif
+
+/*
+ * Stream-level state shared by every protocol carried on an http stream:
+ * the http roles themselves, and ws, which after its upgrade still needs
+ * the request headers (until the ESTABLISHED callback has seen them), the
+ * request version and the access log.  Kept out of the http role struct so
+ * that the http and ws role state are genuinely disjoint.
+ */
+
+struct _lws_stream_related {
+	struct allocated_headers	*ah;
+#ifdef LWS_WITH_ACCESS_LOG
+	struct lws_access_log		access_log;
+#endif
+	enum http_version		request_version;
+};
+
+struct _lws_http_mode_related {
+	unsigned char *pending_return_headers;
+	size_t pending_return_headers_len;
+	size_t prh_content_length;
+
+#if defined(LWS_WITH_HTTP_PROXY)
+	struct lws_rewrite *rw;
+	struct lws_buflist *buflist_post_body;
+	size_t buflist_post_body_len;
+#endif
+	struct lws *ah_wait_list;
+
+	unsigned long		writeable_len;
+
+#if defined(LWS_WITH_FILE_OPS)
+	lws_filepos_t filepos;
+	lws_filepos_t filelen;
+	lws_fop_fd_t fop_fd;
+#endif
+#if defined(LWS_WITH_CLIENT)
+	char multipart_boundary[16];
+#endif
+#if defined(LWS_WITH_RANGES)
+	struct lws_range_parsing range;
+	char multipart_content_type[64];
+#endif
+
+#if defined(LWS_WITH_SERVER)
+	char *content_type;
+	/**< server: the request's Content-Type, or NULL if it had none.
+	 * Snapshotted at dispatch by lws_http_action_request(), for lws_spa,
+	 * which reads it when it is created: apps commonly create one lazily
+	 * at the first LWS_CALLBACK_HTTP_BODY, and the request headers are not
+	 * promised to be there then.  Per transaction: freed when it
+	 * completes, or when the wsi closes. */
+#if defined(LWS_WITH_HTTP_BASIC_AUTH)
+	char *basic_auth_user;
+	/**< server: the user name lws's basic auth accepted for this request
+	 * (or ws connection), or NULL; see lws_http_basic_auth_user().  Kept
+	 * like content_type, and dropped at the next request's dispatch. */
+#endif
+	unsigned int response_code;
+	const struct lws_protocol_vhost_options *mount_specific_headers;
+	unsigned int mount_specific_keepalive_timeout_secs;
+#endif
+#ifdef LWS_WITH_CGI
+	struct lws_cgi *cgi; /* wsi being cgi stream have one of these */
+#endif
+#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+	struct lws_compression_support *lcs;
+	lws_comp_ctx_t comp_ctx;
+	unsigned char comp_accept_mask;
+	/* the app forbade coding this response, see
+	 * lws_http_compression_opt_out(); per request, like comp_accept_mask */
+	unsigned char comp_opt_out;
+#endif
+
+	enum http_conn_type conn_type;
+	lws_filepos_t tx_content_length;
+	lws_filepos_t tx_content_remain;
+	lws_filepos_t rx_content_length;
+	lws_filepos_t rx_content_remain;
+#if defined(LWS_WITH_SERVER)
+	/* the request body's minimum rate: since when, and how much so far */
+	lws_usec_t rx_body_start;
+	uint64_t rx_body_count;
+#endif
+
+	/*
+	 * Transfer-Encoding: chunked decoder state for the rx body on this
+	 * wsi... the response body on a client wsi, the request body on an
+	 * h1 server wsi.  chunk_parser holds an enum lws_chunk_parser.
+	 */
+	int chunk_remaining;
+	uint16_t chunk_skip;
+	uint16_t cli_response;
+	/**< client mux stream: the response status, snapshotted when its
+	 * headers go back, for lws_http_client_http_response() after */
+	char chunk_parser;
+
+#if defined(LWS_WITH_HTTP_PROXY)
+	unsigned int perform_rewrite:1;
+	unsigned int proxy_clientside:1;
+	unsigned int proxy_parent_chunked:1;
+	unsigned int proxy_body_chunked:1;
+	/**< on the client-facing wsi of an http proxy: the request body has
+	 * no length we can tell the backend up front (h1 chunked, h2 without
+	 * content-length), so the onward h1 request says Transfer-Encoding:
+	 * chunked and the body is chunk-encoded on the way out */
+	unsigned int proxy_body_complete:1;
+	/**< ... and all of the request body has arrived */
+	unsigned int proxy_body_ended:1;
+	/**< ... and the onward request's last-chunk has been sent */
+	unsigned int proxy_relaying:1;
+	/**< on the client-facing wsi of an http proxy: an onward response is
+	 * being relayed to it, and it hasn't been ended yet */
+	unsigned int proxy_onward_completed:1;
+	/**< on the onward client wsi of an http proxy: all of its response
+	 * has arrived (COMPLETED_CLIENT_HTTP) */
+	uint64_t proxy_relayed;
+	/**< ... and how many of its response body bytes went to the parent */
+#endif
+	uint8_t pipeline_count;
+#if defined(LWS_ROLE_H3)
+	unsigned char *h3_prefix_ptr;
+	uint32_t h3_base;
+	uint32_t h3_req_ric;
+#endif
+	unsigned int method_head:1;
+	/**< the request being served is a HEAD, ie, its response must consist
+	 * of the headers alone.  Snapshotted from the method token at dispatch
+	 * time by lws_http_action(), because the file-serve path decides
+	 * whether to emit a body long after the request headers were released
+	 * (C-460).  Re-decided for every request on the connection. */
+	unsigned int accept_gzip:1;
+	/**< the request's Accept-Encoding mentions gzip, so a file may be
+	 * served from a pre-gzipped copy.  Snapshotted with method_head, since
+	 * a file may be served long after the request headers have gone. */
+	unsigned int method_post:1;
+	/**< the request being served is a POST.  Snapshotted with method_head,
+	 * for lws_http_action()'s decisions after the request's callback has
+	 * returned, by when a cgi mount has given the request headers back. */
+	unsigned int expect_continue:1;
+	/**< the request asked for a 100 Continue before its body (the only
+	 * expectation lws_http_request_body_framing() lets through).
+	 * Snapshotted there, for the same reason as method_post. */
+	unsigned int content_length_explicitly_zero:1;
+	unsigned int content_length_given:1;
+	unsigned int cli_hdrs_release:1;
+	/**< client mux stream: the user called lws_http_headers_detach() while
+	 * the role was still reading the response headers, so they go back
+	 * when it has: see lws_client_mux_hdrs_done() */
+	unsigned int cli_hdrs_read:1;
+	/**< client mux stream: the role finished with the response headers */
+	unsigned int rx_body_done:1;
+	/**< server: the request's body phase is over, it was dispatched with no
+	 * body, or its LWS_CALLBACK_HTTP_BODY_COMPLETION was delivered.  Body
+	 * that comes after is refused by the mux roles, and there is never a
+	 * second completion.  On the wsi, not read from the ah, which a mux
+	 * stream gives back at dispatch.  Per transaction, cleared by
+	 * lws_http_request_body_framing(). */
+	unsigned int rx_chunked:1; /* rx body uses chunked transfer-coding */
+	unsigned int did_stream_close:1;
+	unsigned int multipart:1;
+	unsigned int cgi_transaction_complete:1;
+	unsigned int interceptors_evaluated:1;
+	/**< lws_http_evaluate_interceptors() has run for this transaction, and
+	 * interceptor_hit / interceptor_result hold what it decided.  Cleared
+	 * on transaction rearm. */
+	unsigned int interceptor_diverted:1;
+	/**< set by lws_http_evaluate_interceptors() for the duration of this
+	 * transaction when a mount interceptor took the request away from the
+	 * mount it was aimed at.  It lets the interceptor's own callback tell a
+	 * gated request that was diverted to it from one the peer actually
+	 * addressed to its mountpoint (eg, its own challenge or login form
+	 * POST), which are otherwise indistinguishable: the method URI header
+	 * still holds the original, protected URI.  Cleared on transaction
+	 * rearm. */
+	unsigned int client_body_chunked:1;
+	/**< client: the request body goes chunked, each lws_write() a chunk and
+	 * the final one followed by the last-chunk, because the app framed it
+	 * with neither a Content-Length nor a Transfer-Encoding
+	 * (lws_generate_client_handshake()).  Decided per request. */
+	unsigned int tx_head_ended:1;
+	unsigned int tx_head_crlf:2;
+	/**< h1 server: the answer's head has been written out to its blank
+	 * line, and how much of the "\r\n\r\n" ending it the bytes written
+	 * so far end with, across writes, so what is written after it can be
+	 * counted against its Content-Length whatever kind of write carried
+	 * it.  Per transaction. */
+	unsigned int sent_response_headers:1;
+	/**< set once we have written response headers on this transaction, so
+	 * we can distinguish "stream closed during request" from "stream closed
+	 * after we started responding but never sent END_STREAM" (the latter is
+	 * a user-code bug we want to warn about).  Cleared on transaction
+	 * rearm. */
+
+	char *digest_auth_hdr;
+	char *extra_onward_headers;
+
+	/*
+	 * What lws_http_evaluate_interceptors() decided for this transaction:
+	 * the mount it was asked about, and where the request goes, that mount
+	 * or an interceptor's.  Valid while interceptors_evaluated.
+	 */
+	const struct lws_http_mount *interceptor_hit;
+	const struct lws_http_mount *interceptor_result;
+};
+
+
+enum lws_chunk_parser {
+	ELCP_HEX,		/* first chunk-size hex digit is required */
+	ELCP_HEX_MORE,		/* more hex digits, extension, or CR */
+	ELCP_EXT,		/* skipping a chunk extension up to CR */
+	ELCP_CR,
+	ELCP_CONTENT,
+	ELCP_POST_CR,
+	ELCP_POST_LF,
+	ELCP_TRAILER_CR,	/* CR ends the trailers, else a field line */
+	ELCP_TRAILER_SKIP,	/* skipping a trailer field line up to CR */
+	ELCP_TRAILER_SKIP_LF,	/* the LF ending a trailer field line */
+	ELCP_TRAILER_LF
+};
+
+/* chunk extension + trailer field bytes we will skip per body */
+#define LWS_HTTP_CHUNK_SKIP_MAX 4096
+
+int
+lws_http_dechunk_framing(struct lws *wsi, unsigned char **buf, size_t *len);
+
+#if defined(LWS_WITH_FILE_OPS)
+/* the sansIO side of serving a file: its tx, its completion, its failure */
+int
+lws_http_file_tx(struct lws *wsi, unsigned char *buf, size_t max,
+		 unsigned char **pp, enum lws_write_protocol *wp, int *last);
+int
+lws_http_file_complete(struct lws *wsi);
+void
+lws_http_file_tx_abort(struct lws *wsi);
+#endif
+
+void
+lws_header_table_rx_snapshot(struct lws *wsi);
+void
+lws_header_table_rx_rewind(struct lws *wsi);
+
+enum lws_parse_urldecode_results {
+	LPUR_CONTINUE,
+	LPUR_SWALLOW,
+	LPUR_FORBID,
+	LPUR_EXCESSIVE,
+};
+
+enum lws_check_basic_auth_results {
+	LCBA_CONTINUE,
+	LCBA_FAILED_AUTH,
+	LCBA_END_TRANSACTION,
+	LCBA_AUTH_RETRY_KEEPALIVE, /* digest auth computed, reuse existing TCP/TLS */
+};
+
+enum lws_check_basic_auth_results
+lws_check_basic_auth(struct lws *wsi, const char *basic_auth_login_file, unsigned int auth_mode);
+
+void
+lws_http_basic_auth_rewrite(struct lws *wsi);
+
+int
+lws_unauthorised_basic_auth(struct lws *wsi);
+
+/*
+ * Append a "name: value" line to wsi->http.extra_onward_headers without
+ * touching the ah: the proxy snapshot's appender for the peer's own headers.
+ * The public lws_http_add_onward_header() zaps the peer's copy first.
+ */
+int
+lws_http_onward_header_append(struct lws *wsi, const char *name,
+			      const char *value);
+
+#if defined(LWS_WITH_SERVER)
+/*
+ * The request gates every server request passes before anything mounted may
+ * act on it, shared by lws_http_action() and the h2 POST dispatch (see the
+ * comment on the implementation in server.c).  Each returns 0 to let the
+ * request on, or 1 if it decided it, verdict then being what lws_http_action()
+ * returns for it.
+ */
+struct lws_http_gate {
+	const struct lws_http_mount	*hit;
+	/**< the mount to serve the request from, NULL for none */
+	char				*uri_ptr;
+	/**< the request path, repointed at the interceptor's mountpoint if an
+	 * interceptor took the request */
+	char				*mount_rel;
+	/**< what followed the mountpoint in the path the peer sent */
+	int				uri_len;
+	int				meth;
+	/**< index of the request method, from lws_http_get_uri_and_method() */
+	int				verdict;
+};
+
+int
+lws_http_action_request(struct lws *wsi, struct lws_http_gate *g);
+int
+lws_http_action_gates(struct lws *wsi, struct lws_http_gate *g);
+int
+lws_http_action_bind_mount(struct lws *wsi, struct lws_http_gate *g);
+
+/*
+ * The one place mount interceptors are evaluated, shared by every role that
+ * dispatches a request (see the comment on the implementation in server.c)
+ */
+const struct lws_http_mount *
+lws_http_evaluate_interceptors(struct lws *wsi, const struct lws_http_mount *hit,
+			       char **uri_ptr, int *uri_len);
+
+/*
+ * Release the request headers once the request has been dispatched as far as
+ * user code is ever allowed to read them: after LWS_CALLBACK_HTTP for a
+ * request with no body, after LWS_CALLBACK_HTTP_BODY_COMPLETION for one with.
+ * `body_done` says the body completion has just been delivered, ie, that the
+ * body states are no longer a reason to hold on.  Decides for itself whether
+ * this wsi may let go (see server.c); safe to call when there is no ah.
+ */
+void
+lws_http_ah_release_after_dispatch(struct lws *wsi, char body_done);
+
+/*
+ * A mux stream's request body completion was delivered: its body phase is
+ * over.  Wherever the completion was delivered from (the DATA as it came, or
+ * the body stashed before the dispatch), the stream says so after the
+ * callback, which may have moved it on already, eg, to a file it serves.
+ */
+void
+lws_http_mux_body_completed(struct lws *wsi);
+
+/*
+ * Deliver LWS_CALLBACK_HTTP_BODY_COMPLETION for the request, at most once:
+ * every role's completion goes through here, and it latches
+ * wsi->http.rx_body_done first.  0 if it was delivered before, or the
+ * callback's return.
+ */
+int
+lws_http_body_completion(struct lws *wsi);
+
+/*
+ * (Re)arm a server request body's timeout: the wait for its next piece, or
+ * sooner, when the body must have more by then to keep up with the vhost's
+ * http_body_min_rate.  A body already behind is closed as for a timeout.
+ */
+void
+lws_http_body_timeout_arm(struct lws *wsi);
+#endif
+
+#if defined(LWS_ROLE_H1)
+int
+lws_read_h1(struct lws *wsi, unsigned char *buf, lws_filepos_t len,
+	    int caller_closes);
+#else
+#define lws_read_h1(_a, _b, _c, _d) (0)
+#endif
+
+#if defined(LWS_ROLE_H1) && (defined(LWS_ROLE_H2) || defined(LWS_ROLE_H3))
+/*
+ * A mux stream's request body with no content-length is ended by the peer
+ * ending its half of the stream: END_STREAM on h2, the FIN on h3.  Nonzero
+ * once that has come after all the body, and none of the body is still
+ * parked on the stream's own buflist, where it was stashed while the action
+ * was deferred: then lws_read_h1() with no bytes completes it.
+ */
+int
+lws_http_mux_body_ended_by_peer(struct lws *wsi);
+#else
+#define lws_http_mux_body_ended_by_peer(_a) (0)
+#endif
+
+/*
+ * Result from lws_header_table_attach()
+ *
+ * Attaching an ah is not a simple "did it work" question, because the attach
+ * path is reentrant: __lws_header_table_reset() with autoservice set services
+ * the wsi's fd inline, and the client path performs the actual connect.  Both
+ * of those can close and free the wsi before we return, and there have
+ * historically been many bugs from callers going on to use a wsi that no
+ * longer exists.  So the result has to be able to say "there is no wsi to go
+ * back to any more".
+ *
+ * LWS_AH_ATTACH_OK is 0, so the traditional "did it fail" boolean sense of
+ * the return is unchanged; but a caller that only tests for nonzero is a bug
+ * on any path that can reach the reentrant parts.
+ */
+
+#if defined(LWS_ROLE_H2) || defined(LWS_ROLE_H3)
+/*
+ * One h2 / h3 server connection's streams may only hold so many ahs at once
+ * while they wait on the peer (G-028: context max_http_header_pool_per_mux),
+ * or a few connections opening many streams whose requests never finish,
+ * eg, bodies trickling in, would hold the whole pool and nobody else's
+ * request could be read.  Streams the peer has finished sending on, eg,
+ * GETs waiting for their dispatch, give theirs back without the peer's help
+ * and don't count.  Nonzero if a new stream the peer is not done with must
+ * be refused on its own, as for a full pool: the peer may retry it.
+ */
+int
+lws_mux_ah_cap_reached(struct lws *wsi);
+
+/*
+ * The streams of one h2 or h3 server connection that ended before we were
+ * done answering them, the peer resetting them (h2 RST_STREAM, h3
+ * RESET_STREAM / STOP_SENDING) or us having to (G-646, G-647: "rapid
+ * reset").  The concurrent stream limit counts only live streams, so a peer
+ * that resets each request once it has been dispatched gets fresh ones
+ * dispatched, and their work started, for as long as it likes.
+ *
+ * A leaky bucket: each reset adds one, and it drains at the vhost's
+ * .mux_reset_limit per .mux_reset_window_secs.  Overflowing it means the
+ * connection is to be ended (GOAWAY ENHANCE_YOUR_CALM, H3_EXCESSIVE_LOAD).
+ */
+typedef struct lws_mux_reset_budget {
+	lws_usec_t		last;	/* when level was last drained */
+	uint64_t		level;	/* resets, in us of the window each */
+} lws_mux_reset_budget_t;
+
+/*
+ * Spend one reset of nwsi's (the network connection's) budget: nonzero if
+ * that overflowed it, and the connection must be ended
+ */
+int
+lws_mux_reset_budget_spend(struct lws *nwsi, lws_mux_reset_budget_t *b);
+#endif
+
+typedef enum lws_ah_attach_result {
+	LWS_AH_ATTACH_OK		= 0,	/* wsi owns an ah, wsi valid */
+	LWS_AH_ATTACH_WAITING,			/* no ah for now, wsi is on
+						 * the pt ah wait list and
+						 * will be given one later,
+						 * wsi valid */
+	LWS_AH_ATTACH_FAIL,			/* refused, wsi valid */
+	LWS_AH_ATTACH_WSI_GONE			/* the wsi was closed and
+						 * freed inside: it must not
+						 * be dereferenced again, and
+						 * must not be closed again */
+} lws_ah_attach_result_t;
+
+void
+_lws_header_table_reset(struct allocated_headers *ah);
+
+LWS_EXTERN int
+_lws_destroy_ah(struct lws_context_per_thread *pt, struct allocated_headers *ah);
+
+int
+lws_http_proxy_start(struct lws *wsi, const struct lws_http_mount *hit,
+		     char *uri_ptr, char ws);
+
+void
+lws_sul_http_ah_lifecheck(lws_sorted_usec_list_t *sul);
+
+uint8_t *
+lws_http_multipart_headers(struct lws *wsi, uint8_t *p, uint8_t *end);
+
+/*
+ * lws_return_http_status() with one extra header on the response, for the
+ * statuses that RFC asks to be explained by one.  \p tok is WSI_TOKEN_COUNT
+ * when there is nothing extra to say, which is what the public api passes.
+ */
+int
+_lws_return_http_status(struct lws *wsi, unsigned int code,
+			const char *html_body, enum lws_token_indexes tok,
+			const char *val);
+
+int
+lws_http_string_to_known_header(const char *s, size_t slen);
+
+/*
+ * The version on an h1 request line: 1.1 for HTTP/1.1 or any later HTTP/1.x,
+ * otherwise 1.0
+ */
+enum http_version
+lws_h1_request_version(struct lws *wsi);
+
+/*
+ * A Content-Length value, strictly 1*DIGIT (RFC 9110 8.6) and not wrapping:
+ * returns 0 and sets *result if it is one
+ */
+int
+lws_http_parse_content_length(const char *in, uint64_t *result);
+
+/* nonzero if the one Transfer-Encoding header is exactly "chunked" */
+int
+lws_http_te_is_chunked(struct lws *wsi);
+
+/*
+ * Nonzero unless a, of len bytes, is an authority, host [ ":" port ], whose
+ * host can only be read one way: a reg-name or IPv4address made of letters,
+ * digits, '-', '.', '_' and '~', or a bracketed IPv6 literal of hex digits,
+ * ':' and '.'.  Userinfo, percent-encoding and the sub-delims are refused,
+ * legal or not: an authority echoed into a url, eg, a redirect's Location,
+ * must not be able to change where it points.
+ */
+int
+lws_http_authority_check(const char *a, size_t len);
+
+/*
+ * Split an http(s) authority, host [ ":" port ], into the length of its host
+ * (an IPv6 literal host keeps its brackets) and its port, -1 if it has none.
+ * Nonzero if it is not of that shape, eg, the port is not 0 - 65535.
+ */
+int
+lws_http_authority_split(const char *a, size_t len, size_t *host_len,
+			 int *port);
+
+/*
+ * Nonzero unless the Host (or :authority) of a request to a vhost with
+ * LWS_SERVER_OPTION_VHOST_UPG_STRICT_HOST_CHECK names the vhost and its port
+ */
+int
+lws_confirm_host_header(struct lws *wsi);
+
+/*
+ * The authority a client sends for host, the host a caller gave it: a bare
+ * IPv6 literal, eg "::1", which callers may give, is bracketed in buf, since
+ * on the wire it can't be told from host:port (RFC 3986 3.2.2).  Anything
+ * else is returned as it is.
+ */
+const char *
+lws_http_client_authority(const char *host, char *buf, size_t len);
+
+#if defined(LWS_ROLE_H2) || defined(LWS_ROLE_H3)
+/*
+ * Nonzero if an h2 / h3 request carries both :authority and Host and they
+ * do not name the same authority (RFC 9113 8.3.1, RFC 9114 4.3.1): the hosts
+ * compared case-insensitively, a missing port taken as the :scheme's default.
+ * Either one repeated, or not of the form host [ ":" port ], disagrees,
+ * unless the two are the same bytes.
+ */
+int
+lws_http_host_authority_disagree(struct lws *wsi);
+#endif
+
+/* the h1 and h2 tx_drained role op: a deferred completion completes */
+int
+lws_http_tx_drained(struct lws *wsi);
+
+/*
+ * Returns nonzero if the header token can carry peer credentials
+ * (Authorization, Cookie, Set-Cookie, x-auth-token, Proxy-Authorization
+ * where the build has it).  Debug header dumps use this to log presence
+ * and length for these tokens instead of copying the values to the log.
+ */
+int
+lws_hdr_token_is_credential(enum lws_token_indexes tok);
+int
+lws_http_header_name_may_be_credential(const char *name);
+
+/*
+ * Renders into buf what a log line may show of a header value: its length
+ * only for headers that may carry credentials (or are unknown), a request
+ * path without its query string, of a Sec-WebSocket-Protocol list only the
+ * names of protocols wsi's vhost has (wsi may be NULL), else the value with
+ * control bytes masked.  Every log of an http header value uses this.
+ */
+const char *
+lws_http_hdr_log_value(struct lws *wsi, char *buf, size_t len, int tok,
+		       const char *name, size_t name_len, const char *value,
+		       size_t value_len);
+/*
+ * Returns nonzero if the header name or value contains CR, LF, NUL or other
+ * control bytes (HTAB excepted) or DEL, ie, it is not safe to splice into a
+ * header line.  Every header composer should fence its inputs with this.
+ */
+int
+lws_hdr_add_value_bad(const unsigned char *value, int length);
+
+/* adds "vary: accept-encoding", for a response whose coding was negotiated */
+int
+lws_http_add_vary_accept_encoding(struct lws *wsi, unsigned char **p,
+				  unsigned char *end);
+
+int
+lws_http_date_render_from_unix(char *buf, size_t len, const time_t *t);
+
+/*
+ * Called from the role write paths (h1/h2/h3) the first time response
+ * headers are written on a server transaction.  It marks the transaction as
+ * having started its response and, unless the stream is immortal (SSE / long
+ * poll, which opt out of timeouts via lws_http_mark_sse / lws_mux_mark_immortal),
+ * arms PENDING_TIMEOUT_HTTP_RESPONSE so a response that never completes (no
+ * END_STREAM / no body drain -- a user-code bug) is closed and warned about
+ * rather than hanging the stream forever.  Idempotent: only acts on the first
+ * response-headers write of the transaction.
+ *
+ * The watchdog bounds how long the response may go without sending anything,
+ * not how long it may take: lws_http_response_progress(), from the same write
+ * paths, renews it whenever more of the response is sent.
+ *
+ * The role write paths that call these are shared between client and server
+ * builds, so when LWS_WITH_SERVER is off they collapse to no-op stubs -- the
+ * watchdog they arm lives in lib/sansio/http/server/server.c which is
+ * server-only.
+ */
+#if defined(LWS_WITH_SERVER)
+void
+lws_http_response_started(struct lws *wsi);
+void
+lws_http_response_progress(struct lws *wsi);
+#else
+static inline void
+lws_http_response_started(struct lws *wsi)
+{
+	(void)wsi;
+}
+static inline void
+lws_http_response_progress(struct lws *wsi)
+{
+	(void)wsi;
+}
+#endif
+
+/*
+ * Whether an answer with this status has a body (RFC 9110 6.4.1): a 1xx, 204
+ * or 304 never does, whatever its headers say.  code may carry the
+ * LWSAHH_FLAG_ bits of lws_add_http_header_status().
+ */
+static inline int
+lws_http_status_has_body(unsigned int code)
+{
+	code &= LWSAHH_CODE_MASK;
+
+	return !(code < 200 || code == HTTP_STATUS_NO_CONTENT ||
+		 code == HTTP_STATUS_NOT_MODIFIED);
+}
+
+/*
+ * Whether a write of this kind (the lws_write_protocol, & 0x1f) is body a
+ * server must not send, because it is answering a HEAD: the answer is its
+ * headers alone (RFC 9110 9.3.2), however the handler that writes it was
+ * written.  The role write paths drop the bytes, but still end the stream
+ * where the write would have ended it.
+ */
+#if defined(LWS_WITH_SERVER)
+int
+lws_http_tx_is_head_body(struct lws *wsi, int base);
+#else
+static inline int
+lws_http_tx_is_head_body(struct lws *wsi, int base)
+{
+	(void)wsi;
+	(void)base;
+
+	return 0;
+}
+#endif
+
+#if defined(LWS_WITH_CLIENT)
+int
+lws_h1_client_issue_handshake(struct lws *wsi);
+int
+lws_h1_client_request_sent(struct lws *wsi);
+lws_handling_result_t
+lws_h1_client_transport_up(struct lws *wsi, const lws_sockaddr46 *peer);
+lws_handling_result_t
+lws_h1_client_rx_done(struct lws *wsi);
+int
+lws_h1_client_body_done_check(struct lws *wsi);
+#endif
+
+int
+lws_http_date_parse_unix(const char *b, size_t len, time_t *t);
+
+/*
+ * A reverse-proxied transaction that timed out, or is being closed before its
+ * response was all relayed: say how far each side of it got.  wsi is either
+ * side, the client-facing one or its onward client.
+ */
+#if defined(LWS_WITH_HTTP_PROXY) && (_LWS_ENABLED_LOGS & LLL_NOTICE)
+void
+lws_http_proxy_dump_stalled(struct lws *wsi, const char *why);
+#else
+#define lws_http_proxy_dump_stalled(_w, _why) do { } while (0)
+#endif

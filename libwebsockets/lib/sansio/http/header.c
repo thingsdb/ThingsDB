@@ -1,0 +1,1744 @@
+/*
+ * libwebsockets - small server side websockets and web server implementation
+ *
+ * Copyright (C) 2010 - 2020 Andy Green <andy@warmcat.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+
+#include "private-lib-core.h"
+#include "lextable-strings.h"
+
+
+const unsigned char *
+lws_token_to_string(enum lws_token_indexes token)
+{
+	if ((unsigned int)token >= LWS_ARRAY_SIZE(set))
+		return NULL;
+
+	return (unsigned char *)set[token];
+}
+
+/*
+ * Return http header index if one exactly matches the slen chars of field
+ * name at s, else LWS_HTTP_NO_KNOWN_HEADER.
+ *
+ * The lextable strings carry their trailing ':' (and the method + status
+ * tokens a trailing ' '), so both "cookie" and "cookie:" are accepted as
+ * naming WSI_TOKEN_HTTP_COOKIE, but nothing else is.
+ *
+ * This used to be a bare strncmp() over slen bytes, ie, a *prefix* match:
+ * "auth" resolved to WSI_TOKEN_HTTP_AUTHORIZATION, "x-auth" to
+ * WSI_TOKEN_X_AUTH_TOKEN, "get" to WSI_TOKEN_GET_URI and so on.  Callers use
+ * this to name a header to remove (the anti-spoof zaps in the interceptor and
+ * lws-login) or to bind a metadata name to a token, and for those a prefix
+ * hit silently acts on a completely different header than the one named.
+ */
+
+int
+lws_http_string_to_known_header(const char *s, size_t slen)
+{
+	int n;
+
+	if (!slen)
+		return LWS_HTTP_NO_KNOWN_HEADER;
+
+	for (n = 0; n < (int)LWS_ARRAY_SIZE(set); n++) {
+		size_t tl = strlen(set[n]);
+
+		/* the placeholder entries are not matchable */
+		if (!tl)
+			continue;
+
+		if (tl != slen && !(tl == slen + 1 && set[n][slen] == ':'))
+			continue;
+
+		if (!strncmp(set[n], s, slen))
+			return n;
+	}
+
+	return LWS_HTTP_NO_KNOWN_HEADER;
+}
+
+/*
+ * Debug header dumps exist to diagnose what the peer sent, not to harvest
+ * peer credentials: header values that can carry credentials must never be
+ * copied into the logs, where they typically outlive the connection and
+ * reach a wider audience than their owner.  Users of this (ah lifecheck
+ * dump in header.c, h2 header dump in http2.c) log presence and length only
+ * for these tokens.
+ */
+int
+lws_hdr_token_is_credential(enum lws_token_indexes tok)
+{
+	switch (tok) {
+	case WSI_TOKEN_HTTP_AUTHORIZATION:
+	case WSI_TOKEN_HTTP_COOKIE:
+	case WSI_TOKEN_HTTP_SET_COOKIE:
+	case WSI_TOKEN_X_AUTH_TOKEN:
+	/* gating matches the token enum in lws-http.h */
+#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS) || defined(LWS_ROLE_H2) || \
+    defined(LWS_ROLE_H3) || defined(LWS_HTTP_HEADERS_ALL)
+	case WSI_TOKEN_HTTP_PROXY_AUTHORIZATION:
+#endif
+		return 1;
+
+	default:
+		return 0;
+	}
+}
+
+/*
+ * May a request header of this name, which lws does not compose itself but
+ * sends with whatever value it was given, carry a credential?  A header lws
+ * knows as an ordinary one (accept, user-agent...) does not, the ones
+ * lws_hdr_token_is_credential() names do, and one lws doesn't know, eg
+ * x-api-key, might.  The name may end with the ':' policies give it.
+ */
+int
+lws_http_header_name_may_be_credential(const char *name)
+{
+	size_t l = strlen(name);
+	int tok;
+
+	if (l && name[l - 1] == ':')
+		l--;
+
+	tok = lws_http_string_to_known_header(name, l);
+	if (tok < 0 || tok >= WSI_TOKEN_COUNT ||
+	    !lws_http_token_is_field_name(tok))
+		return 1;
+
+	return lws_hdr_token_is_credential((enum lws_token_indexes)tok);
+}
+
+/*
+ * Copy what may be logged of value into buf: up to a '?' if cut_query, and
+ * no more than fits, with control and non-ASCII bytes shown as '.' so a
+ * value can't forge log lines.  value may be buf itself.
+ */
+static const char *
+lws_http_log_copy(char *buf, size_t len, const char *value, size_t value_len,
+		  int cut_query)
+{
+	const char *q;
+	size_t n;
+
+	if (cut_query) {
+		q = memchr(value, '?', value_len);
+		if (q)
+			value_len = lws_ptr_diff_size_t(q, value);
+	}
+
+	for (n = 0; n < value_len && n < len - 1; n++)
+		buf[n] = ((unsigned char)value[n] < 0x20 ||
+			  (unsigned char)value[n] >= 0x7f) ? '.' : value[n];
+	buf[n] = '\0';
+
+	return buf;
+}
+
+/*
+ * F-016: urlargs are a common place for apps to put session or authorization
+ * tokens (OAuth code=, presigned URL signatures, ?api_key=...).  A log line
+ * that shows a request path, sent or received, shows it with this: cut at
+ * the '?', so the query string never reaches log sinks, which outlive the
+ * connection and reach a wider audience than the path's owner.
+ *
+ * Returns buf, always NUL-terminated, or "NULL" if path is NULL.
+ */
+const char *
+lws_http_log_path(char *buf, size_t len, const char *path)
+{
+	if (!path)
+		return "NULL";
+	if (!len)
+		return "";
+
+	return lws_http_log_copy(buf, len, path, strlen(path), 1);
+}
+
+#if defined(LWS_ROLE_WS) || defined(LWS_HTTP_HEADERS_ALL)
+/*
+ * A Sec-WebSocket-Protocol list as lws_http_hdr_log_value() shows it, eg,
+ * "lws-minimal, <unknown:72>": entries naming one of the protocols of wsi's
+ * vhost in clear, anything else only as its length.
+ */
+static const char *
+lws_ws_protocols_log(struct lws *wsi, char *buf, size_t len,
+		     const char *value, size_t value_len)
+{
+	const struct lws_vhost *vh = wsi ? wsi->a.vhost : NULL;
+	size_t o = 0, el, vl = value_len;
+	const char *c, *e, *end;
+	char list[256];
+	int n, known;
+
+	/* value may be buf: work from a copy */
+	if (vl > sizeof(list))
+		vl = sizeof(list);
+	memcpy(list, value, vl);
+	c = list;
+	end = list + vl;
+	buf[0] = '\0';
+
+	while (c < end && o + 1 < len) {
+		e = memchr(c, ',', lws_ptr_diff_size_t(end, c));
+		if (!e)
+			e = end;
+		while (c < e && (*c == ' ' || *c == '\t'))
+			c++;
+		el = lws_ptr_diff_size_t(e, c);
+		while (el && (c[el - 1] == ' ' || c[el - 1] == '\t'))
+			el--;
+
+		if (el) {
+			known = 0;
+			for (n = 0; vh && n < vh->count_protocols; n++)
+				if (vh->protocols[n].name &&
+				    strlen(vh->protocols[n].name) == el &&
+				    !strncmp(vh->protocols[n].name, c, el)) {
+					known = 1;
+					break;
+				}
+
+			if (o)
+				o += (size_t)lws_snprintf(buf + o, len - o,
+							  ", ");
+			if (o + 1 >= len)
+				break;
+			if (known)
+				lws_http_log_copy(buf + o, len - o, c, el, 0);
+			else
+				lws_snprintf(buf + o, len - o, "<unknown:%u>",
+					     (unsigned int)el);
+			o += strlen(buf + o);
+		}
+
+		c = e + 1;
+	}
+
+	/* what didn't fit in list is shown only as its length */
+	if (vl != value_len && o + 1 < len)
+		lws_snprintf(buf + o, len - o, " <+%u>",
+			     (unsigned int)(value_len - vl));
+
+	return buf;
+}
+#endif
+
+/*
+ * Every log line that shows an http header value, h1, h2 or h3, sent or
+ * received, takes what it shows from here, so there is one policy:
+ *
+ *  - a header that may carry a credential shows only its length: the
+ *    lws_hdr_token_is_credential() tokens, and any name lws has no token for
+ *    (x-api-key, x-amz-security-token...), since we can't know what it holds
+ *  - the urlargs (WSI_TOKEN_HTTP_URI_ARGS) are treated the same way, and a
+ *    request path (:path, the method URI tokens) is shown as
+ *    lws_http_log_path() shows it, without its query string
+ *  - a Sec-WebSocket-Protocol list shows the entries naming a protocol of
+ *    wsi's vhost in clear, the negotiated one among them, and any other
+ *    entry only as its length, since some deployments carry a bearer token
+ *    as a subprotocol (eg, base64url.bearer.authorization.k8s.io.<token>)
+ *  - anything else is shown, truncated to fit buf, with control and
+ *    non-ASCII bytes shown as '.' so a value can't forge log lines
+ *
+ * wsi is the connection the header belongs to, or NULL if there is none, when
+ * no protocol name is known.  tok is the lws token index when the caller has
+ * one, else -1 and the header is named by name / name_len (name may then be
+ * NULL, meaning unknown).  value may be buf itself, in which case it is
+ * masked in place.
+ *
+ * Returns buf, always NUL-terminated.
+ */
+const char *
+lws_http_hdr_log_value(struct lws *wsi, char *buf, size_t len, int tok,
+		       const char *name, size_t name_len, const char *value,
+		       size_t value_len)
+{
+	if (!len)
+		return "";
+
+	if (tok < 0 && name) {
+		if (name_len && name[name_len - 1] == ':')
+			name_len--;
+		tok = lws_http_string_to_known_header(name, name_len);
+		/* spelled like a token that is no field name: not that token */
+		if (tok >= 0 && tok < WSI_TOKEN_COUNT &&
+		    !lws_http_token_is_field_name(tok))
+			tok = -1;
+	}
+
+	if (tok < 0 || tok >= WSI_TOKEN_COUNT ||
+	    tok == WSI_TOKEN_HTTP_URI_ARGS ||
+	    lws_hdr_token_is_credential((enum lws_token_indexes)tok)) {
+		lws_snprintf(buf, len, "<%llu bytes, redacted>",
+			     (unsigned long long)value_len);
+
+		return buf;
+	}
+
+	if (!value) {
+		lws_strncpy(buf, "(null)", len);
+
+		return buf;
+	}
+
+#if defined(LWS_ROLE_WS) || defined(LWS_HTTP_HEADERS_ALL)
+	if (tok == WSI_TOKEN_PROTOCOL)
+		return lws_ws_protocols_log(wsi, buf, len, value, value_len);
+#endif
+
+	return lws_http_log_copy(buf, len, value, value_len,
+#if defined(LWS_ROLE_H2) || defined(LWS_ROLE_H3) || \
+    defined(LWS_HTTP_HEADERS_ALL)
+				 tok == WSI_TOKEN_HTTP_COLON_PATH ||
+#endif
+				 !lws_http_token_is_field_name(tok));
+}
+
+#ifdef LWS_WITH_HTTP2
+int
+lws_wsi_is_h2(struct lws *wsi)
+{
+	if (lwsi_role_h3(wsi))
+		return 0;
+
+	return lws_wsi_is_mux_nwsi(wsi) ||
+	       wsi->mux_substream ||
+#if defined(LWS_WITH_CLIENT)
+	       wsi->client_mux_substream ||
+#endif
+	       lwsi_role_h2(wsi) ||
+	       lwsi_role_h2_ENCAPSULATION(wsi);
+}
+#endif
+
+#ifdef LWS_ROLE_H3
+int
+lws_wsi_is_h3(struct lws *wsi)
+{
+	return lwsi_role_h3(wsi);
+}
+#endif
+
+/*
+ * F-018 follow-up fence: header field values are RFC 9110 field-content,
+ * VCHAR / SP / HTAB / obs-text.  No caller can compose a header with a C0
+ * control byte (except TAB) or DEL in it -- over h1 that is response
+ * splitting; over h2/h3 it poisons the encoded field for strict peers.
+ * This also fences operator misconfiguration (CRLF in vhost header pvo
+ * strings, server_string, ...) which previously passed to the wire
+ * verbatim.  The refusal is fail-closed: the add fails (returns 1) and
+ * callers bail without emitting anything.
+ *
+ * Applies to exactly [value, value + length): callers may pass value ==
+ * NULL with a length for sizing (the cookie apis do), and obs-text
+ * (bytes >= 0x80, eg UTF-8) stays allowed.
+ */
+int
+lws_hdr_add_value_bad(const unsigned char *value, int length)
+{
+	int n;
+
+	if (!value)
+		return 0;
+
+	for (n = 0; n < length; n++)
+		if ((value[n] < 0x20 && value[n] != '\t') || value[n] == 0x7f)
+			return 1;
+
+	return 0;
+}
+
+int
+lws_add_http_header_by_name(struct lws *wsi, const unsigned char *name,
+			    const unsigned char *value, int length,
+			    unsigned char **p, unsigned char *end)
+{
+	unsigned char *start = *p;
+	char has_colon = 0;
+
+	if (length < 0 ||
+	    (name && lws_hdr_add_value_bad(name,
+				(int)strlen((const char *)name))) ||
+	    lws_hdr_add_value_bad(value, length)) {
+		lwsl_info("%s: refusing header with bad length or control "
+			  "bytes in name or value\n", __func__);
+
+		return 1;
+	}
+
+	/*
+	 * A NULL name asks for h1 status-line composition (value emitted with
+	 * no field name).  That has no h2/h3 representation: the status is the
+	 * :status pseudo-header, emitted by the dedicated _status helpers.
+	 * Refuse it fail-closed rather than let the encoders strlen(NULL).
+	 */
+#ifdef LWS_ROLE_H3
+	if (wsi && lws_wsi_is_h3(wsi)) {
+		if (!name) {
+			lwsl_wsi_info(wsi, "%s: refusing nameless header "
+					  "over h3\n", __func__);
+
+			return 1;
+		}
+
+		if (lws_add_http3_header_by_name(wsi, name, value, length,
+						 p, end))
+			goto bail;
+
+		return 0;
+	}
+#endif
+#ifdef LWS_WITH_HTTP2
+	if (wsi && lws_wsi_is_h2(wsi)) {
+		if (!name) {
+			lwsl_wsi_info(wsi, "%s: refusing nameless header "
+					  "over h2\n", __func__);
+
+			return 1;
+		}
+
+		if (lws_add_http2_header_by_name(wsi, name, value, length,
+						 p, end))
+			goto bail;
+
+		return 0;
+	}
+#endif
+	if (name) {
+		while (*p < end && *name) {
+			has_colon = has_colon || *name == ':';
+			*((*p)++) = *name++;
+		}
+		if (*p + (has_colon ? 1 : 2) >= end)
+			goto bail;
+		if (!has_colon)
+			*((*p)++) = ':';
+		*((*p)++) = ' ';
+	}
+	if (*p + length + 3 >= end)
+		goto bail;
+
+	if (value)
+		memcpy(*p, value, (unsigned int)length);
+	*p += length;
+	*((*p)++) = '\x0d';
+	*((*p)++) = '\x0a';
+
+	return 0;
+
+bail:
+	/*
+	 * A header that does not fit leaves nothing of itself behind: the
+	 * cursor goes back to where it was.  Left after a name with no value
+	 * or CRLF, the next header the caller adds would become this one's
+	 * value (C-699)
+	 */
+	*p = start;
+
+	return 1;
+}
+
+int lws_finalize_http_header(struct lws *wsi, unsigned char **p,
+			     unsigned char *end)
+{
+#ifdef LWS_ROLE_H3
+	if (wsi && lws_wsi_is_h3(wsi)) {
+		if (wsi->http.h3_prefix_ptr) {
+			struct lws *nwsi = lws_get_quic_network_wsi(wsi);
+			struct lws_qpack_tx_encoder *enc = nwsi && nwsi->h3.h3n ?
+					&nwsi->h3.h3n->qpack_tx_encoder : NULL;
+			uint32_t ric = wsi->http.h3_req_ric;
+
+			/* the section is only this once */
+			wsi->http.h3_req_ric = 0;
+
+			if (!ric) {
+				wsi->http.h3_prefix_ptr[0] = 0x00;
+				wsi->http.h3_prefix_ptr[1] = 0x00;
+				wsi->http.h3_prefix_ptr = NULL;
+
+				return 0;
+			}
+
+			/*
+			 * The section refers to the peer's dynamic table: its
+			 * Required Insert Count is encoded against the most
+			 * entries the table the peer advertised can hold, and
+			 * must fit the two bytes reserved for the prefix.  The
+			 * peer acknowledges each such section, and may not
+			 * have more streams that might block than it allows:
+			 * LWS_H3_QPACK_ENC_HOLD says the complete section
+			 * must wait for that.  Only a client request can.
+			 */
+			if (!enc || enc->virtual_payload_max < 32 ||
+			    lws_qpack_encode_prefix(wsi->http.h3_prefix_ptr, 2,
+					ric, wsi->http.h3_base,
+					enc->virtual_payload_max / 32) != 2)
+				return 1;
+
+			wsi->http.h3_prefix_ptr = NULL;
+
+			return lws_h3_qpack_enc_section(wsi, ric);
+		}
+		return 0;
+	}
+#endif
+#ifdef LWS_WITH_HTTP2
+	if (wsi && lws_wsi_is_h2(wsi))
+		return 0;
+#endif
+	if ((lws_intptr_t)(end - *p) < 3)
+		return 1;
+	*((*p)++) = '\x0d';
+	*((*p)++) = '\x0a';
+
+	return 0;
+}
+
+int
+lws_finalize_write_http_header_flags(struct lws *wsi, unsigned char *start,
+			             unsigned char **pp, unsigned char *end,
+			             enum lws_write_protocol flags)
+{
+	unsigned char *p;
+	int len;
+
+	if (lws_finalize_http_header(wsi, pp, end))
+		return 1;
+
+	p = *pp;
+	len = lws_ptr_diff(p, start);
+
+	if (lws_write(wsi, start, (unsigned int)len, flags) != len)
+		return 1;
+
+	return 0;
+}
+
+int
+lws_finalize_write_http_header(struct lws *wsi, unsigned char *start,
+			       unsigned char **pp, unsigned char *end)
+{
+	return lws_finalize_write_http_header_flags(wsi, start, pp, end,
+						    LWS_WRITE_HTTP_HEADERS);
+}
+
+int
+lws_add_http_header_by_token(struct lws *wsi, enum lws_token_indexes token,
+			     const unsigned char *value, int length,
+			     unsigned char **p, unsigned char *end)
+{
+	const unsigned char *name;
+#if defined(LWS_ROLE_H3) || defined(LWS_WITH_HTTP2)
+	unsigned char *start = *p;
+#endif
+
+	/*
+	 * This has its own h2/h3 dispatch and never reaches by_name on those
+	 * roles, so it needs its own copy of by_name's contract: a negative
+	 * length and control bytes in the value are refused, and a header
+	 * that does not fit leaves nothing of itself behind (C-699)
+	 */
+	if (length < 0 || lws_hdr_add_value_bad(value, length)) {
+		lwsl_info("%s: refusing header with bad length or control "
+			  "bytes in value\n", __func__);
+
+		return 1;
+	}
+
+#ifdef LWS_ROLE_H3
+	if (wsi && lws_wsi_is_h3(wsi)) {
+		if (lws_add_http3_header_by_token(wsi, token, value,
+						  length, p, end))
+			goto bail;
+
+		return 0;
+	}
+#endif
+#ifdef LWS_WITH_HTTP2
+	if (wsi && lws_wsi_is_h2(wsi)) {
+		if (lws_add_http2_header_by_token(wsi, token, value,
+						  length, p, end))
+			goto bail;
+
+		return 0;
+	}
+#endif
+	name = lws_token_to_string(token);
+	if (!name)
+		return 1;
+
+	return lws_add_http_header_by_name(wsi, name, value, length, p, end);
+
+#if defined(LWS_ROLE_H3) || defined(LWS_WITH_HTTP2)
+bail:
+	*p = start;
+
+	return 1;
+#endif
+}
+
+int
+lws_add_http_header_content_length(struct lws *wsi,
+				   lws_filepos_t content_length,
+				   unsigned char **p, unsigned char *end)
+{
+	char b[24];
+	int n;
+
+	n = lws_snprintf(b, sizeof(b) - 1, "%llu", (unsigned long long)content_length);
+	if (lws_add_http_header_by_token(wsi, WSI_TOKEN_HTTP_CONTENT_LENGTH,
+					 (unsigned char *)b, n, p, end))
+		return 1;
+	wsi->http.tx_content_length = content_length;
+	wsi->http.tx_content_remain = content_length;
+
+	/* lwsl_notice("CONTENT-LENGTH: %s: content_length=%llu, stream_id=%llu\n",
+		    lws_wsi_tag(wsi), (unsigned long long)content_length,
+		    (unsigned long long)(wsi->quic.qs ? wsi->quic.qs->stream_id : 0)); */
+
+	return 0;
+}
+
+/*
+ * The content coding of the response was, or could have been, chosen from the
+ * request's Accept-Encoding.  Saying so keeps shared caches from giving one
+ * client a coding that was chosen for another (RFC 9110 12.5.5)
+ */
+
+int
+lws_http_add_vary_accept_encoding(struct lws *wsi, unsigned char **p,
+				  unsigned char *end)
+{
+	return lws_add_http_header_by_name(wsi, (const unsigned char *)"vary:",
+				(const unsigned char *)"accept-encoding", 15,
+				p, end);
+}
+
+#if defined(LWS_WITH_SERVER)
+
+int
+lws_add_http_common_headers(struct lws *wsi, unsigned int code,
+			    const char *content_type, lws_filepos_t content_len,
+			    unsigned char **p, unsigned char *end)
+{
+	const char *ka[] = { "close", "keep-alive" };
+	int types[] = { HTTP_CONNECTION_CLOSE, HTTP_CONNECTION_KEEP_ALIVE },
+			t = 0;
+
+	if (lws_add_http_header_status(wsi, code, p, end))
+		return 1;
+
+	if (content_type &&
+	    lws_add_http_header_by_token(wsi, WSI_TOKEN_HTTP_CONTENT_TYPE,
+		    			(unsigned char *)content_type,
+		    			(int)strlen(content_type), p, end))
+		return 1;
+
+#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+	/*
+	 * A coding replaces the Content-Length with framing of its own, on h1
+	 * chunks, which only the body's FINAL write through the coder ends.
+	 * An answer that has no body (a headers-only redirect, a 204, a 304)
+	 * never makes that write, and a coding has nothing to code for it
+	 * anyway: it keeps its Content-Length.  A HEAD's answer goes on as
+	 * the GET's would, coding and all, since none of its body is sent
+	 * (RFC 9110 9.3.2).
+	 */
+	if (!wsi->http.lcs && content_len &&
+	    lws_http_status_has_body(code) &&
+	    lws_http_compression_candidate(wsi, content_type))
+		lws_http_compression_apply(wsi, NULL, p, end, 0);
+#endif
+
+	/*
+	 * if we decided to compress it, we don't know the content length...
+	 * the compressed data will go out chunked on h1
+	 */
+	if (
+#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+	    !wsi->http.lcs &&
+#endif
+	     content_len != LWS_ILLEGAL_HTTP_CONTENT_LEN) {
+		if (lws_add_http_header_content_length(wsi, content_len,
+						       p, end))
+			return 1;
+	} else {
+		/* there was no length... it normally means CONNECTION_CLOSE */
+#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+
+		if (!wsi->mux_substream && wsi->http.lcs) {
+			/* so...
+			 *  - h1 connection
+			 *  - http compression transform active
+			 *  - did not send content length
+			 *
+			 * then mark as chunked...
+			 */
+			wsi->http.comp_ctx.chunking = 1;
+			if (lws_add_http_header_by_token(wsi,
+					WSI_TOKEN_HTTP_TRANSFER_ENCODING,
+					(unsigned char *)"chunked", 7, p, end))
+				return -1;
+
+			/* ... but h1 compression is chunked, if active we can
+			 * still pipeline
+			 */
+			if (wsi->http.lcs &&
+			    wsi->http.conn_type == HTTP_CONNECTION_KEEP_ALIVE)
+				t = 1;
+		}
+#endif
+		if (!wsi->mux_substream) {
+			if (lws_add_http_header_by_token(wsi,
+						 WSI_TOKEN_CONNECTION,
+						 (unsigned char *)ka[t],
+						 (int)strlen(ka[t]), p, end))
+				return 1;
+
+			wsi->http.conn_type = (enum http_conn_type)types[t];
+		}
+	}
+
+	return 0;
+}
+
+static const char * const err400[] = {
+	"Bad Request",
+	"Unauthorized",
+	"Payment Required",
+	"Forbidden",
+	"Not Found",
+	"Method Not Allowed",
+	"Not Acceptable",
+	"Proxy Auth Required",
+	"Request Timeout",
+	"Conflict",
+	"Gone",
+	"Length Required",
+	"Precondition Failed",
+	"Request Entity Too Large",
+	"Request URI too Long",
+	"Unsupported Media Type",
+	"Requested Range Not Satisfiable",
+	"Expectation Failed"
+};
+
+static const char * const err500[] = {
+	"Internal Server Error",
+	"Not Implemented",
+	"Bad Gateway",
+	"Service Unavailable",
+	"Gateway Timeout",
+	"HTTP Version Not Supported"
+};
+
+/* security best practices from Mozilla Observatory */
+
+static const
+struct lws_protocol_vhost_options pvo_hsbph[] = {{
+	NULL, NULL, "referrer-policy:", "no-referrer"
+}, {
+	&pvo_hsbph[0], NULL, "x-frame-options:", "deny"
+}, {
+	&pvo_hsbph[1], NULL, "x-xss-protection:", "1; mode=block"
+}, {
+	&pvo_hsbph[2], NULL, "x-content-type-options:", "nosniff"
+}, {
+	&pvo_hsbph[3], NULL, "content-security-policy:",
+	"default-src 'none'; img-src 'self' data: ; "
+		"script-src 'self'; font-src 'self'; "
+		/*
+		 * CSP3 'self' matches same-origin ws: / wss: as well as
+		 * http(s):, so scheme sources are not needed for our own
+		 * websockets, and "ws: wss:" would have allowed an injected
+		 * script to open a socket to ANY host.  A deployment that
+		 * talks to a third-party websocket supplies its own headers
+		 * pvo instead of this built-in set.
+		 */
+		"style-src 'self'; connect-src 'self'; "
+		"frame-ancestors 'none'; base-uri 'none';"
+		"form-action 'self';"
+}};
+
+int
+lws_add_http_header_status(struct lws *wsi, unsigned int _code,
+			   unsigned char **p, unsigned char *end)
+{
+	static const char * const hver[] = {
+		"HTTP/1.0", "HTTP/1.1", "HTTP/2"
+	};
+	const struct lws_protocol_vhost_options *headers, *ho;
+	unsigned int code = _code & LWSAHH_CODE_MASK;
+	const char *description = "", *p1;
+	unsigned char code_and_desc[60];
+	int n;
+
+	wsi->http.response_code = code;
+#ifdef LWS_WITH_ACCESS_LOG
+	wsi->stream.access_log.response = (int)code;
+#endif
+
+#ifdef LWS_WITH_HTTP2
+	if (lws_wsi_is_h2(wsi)) {
+		n = lws_add_http2_header_status(wsi, code, p, end);
+		if (n)
+			return n;
+	} else
+#endif
+#ifdef LWS_ROLE_H3
+	if (lws_wsi_is_h3(wsi)) {
+		n = lws_add_http3_header_status(wsi, code, p, end);
+		if (n)
+			return n;
+	} else
+#endif
+	{
+		if (code >= 400 && code < (400 + LWS_ARRAY_SIZE(err400)))
+			description = err400[code - 400];
+		if (code >= 500 && code < (500 + LWS_ARRAY_SIZE(err500)))
+			description = err500[code - 500];
+		if (code == HTTP_STATUS_UPGRADE_REQUIRED)
+			description = "Upgrade Required";
+		if (code == HTTP_STATUS_REQ_HEADER_FIELDS_TOO_LARGE)
+			description = "Request Header Fields Too Large";
+
+		if (code == 100)
+			description = "Continue";
+		if (code == 200)
+			description = "OK";
+		if (code == 304)
+			description = "Not Modified";
+		else
+			if (code >= 300 && code < 400)
+				description = "Redirect";
+
+		if (wsi->stream.request_version < LWS_ARRAY_SIZE(hver))
+			p1 = hver[wsi->stream.request_version];
+		else
+			p1 = hver[0];
+
+		n = lws_snprintf((char *)code_and_desc,
+				 sizeof(code_and_desc) - 1, "%s %u %s",
+				 p1, code, description);
+
+		if (lws_add_http_header_by_name(wsi, NULL, code_and_desc, n, p,
+						end))
+			return 1;
+	}
+
+	headers = wsi->a.vhost->headers;
+
+	while (headers) {
+		/*
+		 * Give mount headers the chance to individually override
+		 * each vhost header (case-insensitive and colon-agnostic)
+		 */
+		ho = wsi->http.mount_specific_headers;
+		int h_len = (int)strlen(headers->name);
+		if (h_len && headers->name[h_len - 1] == ':')
+			h_len--;
+
+		while (ho) {
+			int u_len = (int)strlen(ho->name);
+			if (u_len && ho->name[u_len - 1] == ':')
+				u_len--;
+
+			if (h_len == u_len && !strncasecmp(ho->name, headers->name, (size_t)h_len))
+				break;
+			ho = ho->next;
+		}
+		/* if there was no mount header of same name, use vhost one */
+		if (!ho)
+			ho = headers;
+
+		if (lws_add_http_header_by_name(wsi,
+				(const unsigned char *)ho->name,
+				(unsigned char *)ho->value,
+				(int)strlen(ho->value), p, end))
+			return 1;
+
+		headers = headers->next;
+	}
+
+	ho = wsi->http.mount_specific_headers;
+	while (ho) {
+		int already_provided = 0;
+		int h_len = (int)strlen(ho->name);
+		if (h_len && ho->name[h_len - 1] == ':')
+			h_len--;
+
+		headers = wsi->a.vhost->headers;
+		while (headers) {
+			int u_len = (int)strlen(headers->name);
+			if (u_len && headers->name[u_len - 1] == ':')
+				u_len--;
+
+			if (h_len == u_len && !strncasecmp(ho->name, headers->name, (size_t)h_len)) {
+				already_provided = 1;
+				break;
+			}
+			headers = headers->next;
+		}
+		if (!already_provided) {
+			if (lws_add_http_header_by_name(wsi,
+					(const unsigned char *)ho->name,
+					(unsigned char *)ho->value,
+					(int)strlen(ho->value), p, end))
+				return 1;
+		}
+		ho = ho->next;
+	}
+
+	if (wsi->a.vhost->options &
+	    LWS_SERVER_OPTION_HTTP_HEADERS_SECURITY_BEST_PRACTICES_ENFORCE) {
+		headers = &pvo_hsbph[LWS_ARRAY_SIZE(pvo_hsbph) - 1];
+		while (headers) {
+			int already_provided = 0;
+			const struct lws_protocol_vhost_options *uh = wsi->a.vhost->headers;
+			int h_len = (int)strlen(headers->name);
+
+			if (h_len && headers->name[h_len - 1] == ':')
+				h_len--;
+
+			while (uh) {
+				int u_len = (int)strlen(uh->name);
+				if (u_len && uh->name[u_len - 1] == ':')
+					u_len--;
+
+				if (h_len == u_len && !strncasecmp(uh->name, headers->name, (size_t)h_len)) {
+					already_provided = 1;
+					break;
+				}
+				uh = uh->next;
+			}
+
+			if (!already_provided) {
+				uh = wsi->http.mount_specific_headers;
+				while (uh) {
+					int u_len = (int)strlen(uh->name);
+					if (u_len && uh->name[u_len - 1] == ':')
+						u_len--;
+
+					if (h_len == u_len && !strncasecmp(uh->name, headers->name, (size_t)h_len)) {
+						already_provided = 1;
+						break;
+					}
+					uh = uh->next;
+				}
+			}
+
+			if (!already_provided) {
+				if (lws_add_http_header_by_name(wsi,
+						(const unsigned char *)headers->name,
+						(unsigned char *)headers->value,
+						(int)strlen(headers->value), p, end))
+					return 1;
+			}
+			headers = headers->next;
+		}
+	}
+
+	if (wsi->a.context->server_string &&
+	    !(_code & LWSAHH_FLAG_NO_SERVER_NAME)) {
+		assert(wsi->a.context->server_string_len > 0);
+		if (lws_add_http_header_by_token(wsi, WSI_TOKEN_HTTP_SERVER,
+				(unsigned char *)wsi->a.context->server_string,
+				wsi->a.context->server_string_len, p, end))
+			return 1;
+	}
+
+	if (wsi->a.vhost->options & LWS_SERVER_OPTION_STS)
+		if (lws_add_http_header_by_name(wsi, (unsigned char *)
+				"Strict-Transport-Security:",
+				(unsigned char *)"max-age=15768000 ; "
+				"includeSubDomains", 36, p, end))
+			return 1;
+
+#if defined(LWS_ROLE_QUIC)
+	if (lws_wsi_is_h2(wsi) || !wsi->mux_substream) {
+		struct lws_vhost *vh = lws_vhost_first(wsi->a.context);
+		int quic_listening = 0;
+		while (vh) {
+			if (vh->listen_port == wsi->a.vhost->listen_port) {
+				lws_start_foreach_dll_safe(struct lws_dll2 *, d, d_tmp, lws_dll2_get_head(&vh->listen_wsi)) {
+					struct lws *lw = lws_container_of(d, struct lws, listen_list);
+					if (lw->role_ops && lw->role_ops->name &&
+					    !strcmp(lw->role_ops->name, "quic")) {
+						quic_listening = 1;
+						break;
+					}
+				} lws_end_foreach_dll_safe(d, d_tmp);
+			}
+			if (quic_listening)
+				break;
+			vh = lws_vhost_next(vh);
+		}
+			if (quic_listening) {
+				char buf[64];
+				int n = lws_snprintf(buf, sizeof(buf), "h3=\":%d\"; ma=2592000", wsi->a.vhost->listen_port);
+				int ret;
+				ret = lws_add_http_header_by_name(wsi, (unsigned char *)"alt-svc:",
+							    (unsigned char *)buf, n, p, end);
+				if (ret)
+					return 1;
+			}
+	}
+#endif
+
+	if (*p >= (end - 2)) {
+		lwsl_err("%s: reached end of buffer\n", __func__);
+
+		return 1;
+	}
+
+	return 0;
+}
+
+/* the most of the caller's text a deferred status page keeps */
+#define LWS_STATUS_TEXT_MAX 63
+
+static int
+lws_http_status_page_body(unsigned char *body, size_t max, unsigned int code,
+			  const char *text)
+{
+	return lws_snprintf((char *)body, max, "<html><head>"
+		"<meta charset=utf-8 http-equiv=\"Content-Language\" "
+			"content=\"en\"/>"
+		"<link rel=\"stylesheet\" type=\"text/css\" "
+			"href=\"/error.css\"/>"
+		"</head><body><h1>%u</h1>%s</body></html>", code, text);
+}
+
+#if defined(LWS_WITH_HTTP2)
+/*
+ * The body of a status page whose HEADERS already went out on a stream:
+ * regenerated from what was kept, written as the stream's final DATA.
+ */
+int
+lws_http_status_page_send_pending(struct lws *wsi)
+{
+	struct lws_context_per_thread *pt =
+			&wsi->a.context->pt[(int)wsi->tsi];
+	unsigned char *p = pt->compose_buf + LWS_PRE;
+	int len, n, sb;
+
+	sb = lws_servbuf_claim(pt, p, 512, "status page");
+	len = lws_http_status_page_body(p, 512, wsi->h2.pending_status_code,
+					wsi->h2.pending_status_text ?
+					wsi->h2.pending_status_text : "");
+	lws_http_status_page_drop_pending(wsi);
+
+	n = lws_write(wsi, p, (size_t)len, LWS_WRITE_HTTP_FINAL);
+	lws_servbuf_release(pt, sb);
+
+	return n != len;
+}
+
+void
+lws_http_status_page_drop_pending(struct lws *wsi)
+{
+	if (wsi->h2.pending_status_text)
+		lws_free_set_NULL(wsi->h2.pending_status_text);
+	wsi->h2.pending_status_code = 0;
+}
+#endif
+
+int
+lws_return_http_status(struct lws *wsi, unsigned int code,
+		       const char *html_body)
+{
+	return _lws_return_http_status(wsi, code, html_body, WSI_TOKEN_COUNT,
+				       NULL);
+}
+
+static int
+_lws_return_http_status_composed(struct lws *wsi, unsigned int code,
+			const char *html_body, enum lws_token_indexes tok,
+			const char *val)
+{
+	struct lws_context *context = lws_get_context(wsi);
+	struct lws_context_per_thread *pt = &context->pt[(int)wsi->tsi];
+	unsigned char *p = pt->compose_buf + LWS_PRE;
+	unsigned char *start = p;
+	unsigned char *end = p + context->pt_serv_buf_size - LWS_PRE;
+	unsigned char *body;
+	int n = 0, m = 0, len;
+	char slen[20];
+
+	if (!wsi->a.vhost) {
+		lwsl_err("%s: wsi not bound to vhost\n", __func__);
+
+		return 1;
+	}
+#if defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2) || defined(LWS_ROLE_H3)
+	if (!wsi->handling_404 &&
+	    wsi->a.vhost->http.error_document_404 &&
+	    code == HTTP_STATUS_NOT_FOUND)
+		/* we should do a redirect, and do the 404 there */
+		if (lws_http_redirect(wsi, HTTP_STATUS_FOUND,
+			       (uint8_t *)wsi->a.vhost->http.error_document_404,
+			       (int)strlen(wsi->a.vhost->http.error_document_404),
+			       &p, end) > 0)
+			return 0;
+#endif
+
+	/* if the redirect failed, just do a simple status */
+	p = start;
+
+	/*
+	 * The html body is staged into the last 512 bytes of the per-thread
+	 * scratch buffer, and the headers are composed into the space before
+	 * it, with `body` passed as their end limit.  That keeps the header
+	 * block from invading the staged body, and the body append after the
+	 * finalized headers from writing past the end of the scratch buffer
+	 * (and so into whatever follows it in the context allocation).
+	 *
+	 * 128 is the most the mandatory status line, content-type and
+	 * content-length headers can need; with less than that before the
+	 * staged body, no status page can be composed at all.
+	 */
+	if (lws_ptr_diff(end, start) < 512 + 128) {
+		lwsl_err("%s: pt_serv_buf_size %u too small for status page\n",
+			 __func__, context->pt_serv_buf_size);
+
+		return 1;
+	}
+	body = end - 512;
+
+	if (!html_body)
+		html_body = "";
+
+#if defined(LWS_WITH_HTTP2)
+	if (wsi->mux_substream) {
+		/*
+		 * On a stream the body is deferred (below) and regenerated
+		 * from a bounded copy of the text: announce the length of
+		 * what will actually be sent
+		 */
+		size_t tl = strlen(html_body);
+
+		if (tl > LWS_STATUS_TEXT_MAX)
+			tl = LWS_STATUS_TEXT_MAX;
+
+		/* the stream owns at most one kept text */
+		lws_http_status_page_drop_pending(wsi);
+
+		if (tl) {
+			wsi->h2.pending_status_text = lws_malloc(tl + 1,
+							"pending status text");
+			if (!wsi->h2.pending_status_text)
+				return 1;
+			memcpy(wsi->h2.pending_status_text, html_body, tl);
+			wsi->h2.pending_status_text[tl] = '\0';
+			html_body = wsi->h2.pending_status_text;
+		}
+	}
+#endif
+
+	if (lws_add_http_header_status(wsi, code, &p, body))
+		goto bail;
+
+	if (lws_add_http_header_by_token(wsi, WSI_TOKEN_HTTP_CONTENT_TYPE,
+					 (unsigned char *)"text/html", 9,
+					 &p, body))
+		goto bail;
+
+	if (tok != WSI_TOKEN_COUNT && val &&
+	    lws_add_http_header_by_token(wsi, tok, (unsigned char *)val,
+					 (int)strlen(val), &p, body))
+		goto bail;
+
+	len = lws_http_status_page_body(body, 510, code, html_body);
+
+
+	n = lws_snprintf(slen, 12, "%d", len);
+	if (lws_add_http_header_by_token(wsi, WSI_TOKEN_HTTP_CONTENT_LENGTH,
+					 (unsigned char *)slen, n, &p, body))
+		goto bail;
+
+	if (lws_finalize_http_header(wsi, &p, body))
+		goto bail;
+
+#if defined(LWS_WITH_HTTP2)
+	if (wsi->mux_substream) {
+
+		/*
+		 * for HTTP/2, the headers must be sent separately, since they
+		 * go out in their own frame.  That puts us in a bind that
+		 * we won't always be able to get away with two lws_write()s in
+		 * sequence, since the first may use up the writability due to
+		 * the pipe being choked or SSL_WANT_.
+		 *
+		 * However we do need to send the human-readable body, and the
+		 * END_STREAM.
+		 *
+		 * Solve it by writing the headers now...
+		 */
+		m = lws_write(wsi, start, lws_ptr_diff_size_t(p, start),
+			      LWS_WRITE_HTTP_HEADERS);
+		if (m != lws_ptr_diff(p, start))
+			goto bail;
+
+		/*
+		 * ... and send the body, regenerated from the code and the
+		 * kept text, as a priority next handle_POLLOUT
+		 */
+		wsi->http.tx_content_length = (unsigned int)len;
+		wsi->http.tx_content_remain = (unsigned int)len;
+
+		wsi->h2.pending_status_code = (uint16_t)code;
+		lws_callback_on_writable(wsi);
+
+		return 0;
+	} else
+#endif
+	{
+		/*
+		 * for http/1, we can just append the body after the finalized
+		 * headers and send it all in one go.
+		 */
+
+		n = lws_ptr_diff(p, start) + len;
+
+		/*
+		 * the headers were composed against the staged body, so this
+		 * should always be in range; enforce it rather than trust it
+		 */
+
+		if (p + len > end) {
+			lwsl_err("%s: status page overflow\n", __func__);
+
+			return 1;
+		}
+
+		/*
+		 * memmove rather than memcpy: with tight buffers, the append
+		 * can overlap the staged body it is copying from
+		 */
+
+		memmove(p, body, (unsigned int)len);
+		m = lws_write(wsi, start, (unsigned int)n, LWS_WRITE_HTTP);
+		if (m != n)
+			return 1;
+	}
+
+	return m != n;
+
+bail:
+#if defined(LWS_WITH_HTTP2)
+	/* nothing will send the deferred body now: the kept text goes too */
+	lws_http_status_page_drop_pending(wsi);
+#endif
+
+	return 1;
+}
+
+int
+_lws_return_http_status(struct lws *wsi, unsigned int code,
+			const char *html_body, enum lws_token_indexes tok,
+			const char *val)
+{
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+	int sb = lws_servbuf_claim(pt, pt->compose_buf + LWS_PRE,
+				   wsi->a.context->pt_serv_buf_size - LWS_PRE,
+				   "_lws_return_http_status");
+	int r = _lws_return_http_status_composed(wsi, code, html_body, tok, val);
+
+	lws_servbuf_release(pt, sb);
+
+	return r;
+}
+
+int
+lws_http_redirect(struct lws *wsi, int code, const unsigned char *loc, int len,
+		  unsigned char **p, unsigned char *end)
+{
+	unsigned char *start = *p;
+
+	if (lws_add_http_header_status(wsi, (unsigned int)code, p, end))
+		return -1;
+
+	if (lws_add_http_header_by_token(wsi, WSI_TOKEN_HTTP_LOCATION, loc, len,
+					 p, end))
+		return -1;
+	/*
+	 * if we're going with http/1.1 and keepalive, we have to give fake
+	 * content metadata so the client knows we completed the transaction and
+	 * it can do the redirect...
+	 */
+	if (lws_add_http_header_by_token(wsi, WSI_TOKEN_HTTP_CONTENT_TYPE,
+					 (unsigned char *)"text/html", 9, p,
+					 end))
+		return -1;
+	if (lws_add_http_header_by_token(wsi, WSI_TOKEN_HTTP_CONTENT_LENGTH,
+					 (unsigned char *)"0", 1, p, end))
+		return -1;
+
+	if (lws_finalize_http_header(wsi, p, end))
+		return -1;
+
+	return lws_write(wsi, start, lws_ptr_diff_size_t(*p, start),
+			 LWS_WRITE_HTTP_HEADERS | LWS_WRITE_H2_STREAM_END);
+}
+#endif
+
+#if !defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+int
+lws_http_compression_apply(struct lws *wsi, const char *name,
+			   unsigned char **p, unsigned char *end, char decomp)
+{
+	(void)wsi;
+	(void)name;
+	(void)p;
+	(void)end;
+	(void)decomp;
+
+	return 0;
+}
+
+int
+lws_http_compression_opt_out(struct lws *wsi)
+{
+	(void)wsi;
+
+	return 0;
+}
+#endif
+
+int
+lws_http_headers_detach(struct lws *wsi)
+{
+#if defined(LWS_WITH_CLIENT) && (defined(LWS_ROLE_H2) || defined(LWS_ROLE_H3))
+	/*
+	 * An h2 or h3 client stream's role is still reading its response
+	 * headers when it calls back LWS_CALLBACK_ESTABLISHED_CLIENT_HTTP:
+	 * they go back when it has, lws_client_mux_hdrs_done()
+	 */
+	if (wsi->client_mux_substream && !wsi->http.cli_hdrs_read) {
+		wsi->http.cli_hdrs_release = 1;
+
+		return 0;
+	}
+#endif
+
+	return lws_header_table_detach(wsi, 0);
+}
+
+#if defined(LWS_WITH_SERVER)
+
+#if (_LWS_ENABLED_LOGS & LLL_NOTICE)
+/* every header the stuck ah holds, with any credential redacted */
+static void
+lws_ah_lifecheck_dump(struct lws *wsi)
+{
+	const unsigned char *c;
+	int len, n, m = 0;
+	char buf[256];
+
+	do {
+		c = lws_token_to_string((enum lws_token_indexes)m);
+		if (!c)
+			break;
+		if (!(*c))
+			break;
+
+		len = lws_hdr_total_length(wsi, (enum lws_token_indexes)m);
+		if (!len) {
+			m++;
+			continue;
+		}
+
+		n = lws_hdr_copy(wsi, buf, sizeof buf,
+				 (enum lws_token_indexes)m);
+		/* keep the diagnostic, lose any credential */
+		lwsl_notice("   %s = %s (len %d)\n", (const char *)c,
+			    n < 0 ? "(too big to show)" :
+			    lws_http_hdr_log_value(wsi, buf, sizeof(buf), m,
+					NULL, 0, buf, (size_t)n), len);
+		m++;
+	} while (1);
+}
+#endif
+
+void
+lws_sul_http_ah_lifecheck(lws_sorted_usec_list_t *sul)
+{
+	struct allocated_headers *ah;
+	struct lws_context_per_thread *pt = lws_container_of(sul,
+			struct lws_context_per_thread, sul_ah_lifecheck);
+	struct lws *wsi;
+	time_t now;
+
+	now = lws_pt_now_wall(pt);
+
+	lws_pt_lock(pt, __func__);
+
+	ah = lws_pt_first_ah(&pt->http.ah_owner);
+	while (ah) {
+		char buf[256];
+
+		/*
+		 * The ah is held for the whole transaction, not just while
+		 * the headers are being received, so a total-hold criterion
+		 * would close every legitimate slow download or upload that
+		 * runs past a few minutes.  The hazard this backstops is a
+		 * peer that never finishes sending its headers, so only look
+		 * at connections still in that phase.
+		 */
+		if (!ah->in_use || !ah->wsi || !ah->assigned ||
+		    lwsi_state(ah->wsi) != LRS_HEADERS ||
+		    (ah->wsi->a.vhost &&
+		     (now - ah->assigned) <
+		     ah->wsi->a.vhost->timeout_secs_ah_idle + 360)) {
+			ah = lws_pt_next_ah(ah);
+			continue;
+		}
+
+		/*
+		 * a single ah session somehow got held for
+		 * an unreasonable amount of time.
+		 *
+		 * Dump info on the connection...
+		 */
+		wsi = ah->wsi;
+		buf[0] = '\0';
+#if !defined(LWS_PLAT_OPTEE)
+		lws_io_peer_describe(wsi, buf, sizeof(buf),
+				     LWS_PEER_DESC_BARE_SINGLE);
+#else
+		buf[0] = '\0';
+#endif
+		lwsl_notice("%s: ah excessive hold: wsi %p\n"
+			    "  peer address: %s\n"
+			    "  ah pos %lu\n", __func__, lws_wsi_tag(wsi),
+			    buf, (unsigned long)ah->pos);
+#if (_LWS_ENABLED_LOGS & LLL_NOTICE)
+		lws_ah_lifecheck_dump(wsi);
+#endif
+
+		/* explicitly detach the ah */
+		lws_header_table_detach(wsi, 0);
+
+		/* ... and then drop the connection */
+
+		__lws_close_free_wsi(wsi, LWS_CLOSE_STATUS_NOSTATUS,
+					     "excessive ah");
+
+		ah = lws_pt_first_ah(&pt->http.ah_owner);
+	}
+
+	/*
+	 * This is the pt's periodic backstop against a peer holding an ah (and
+	 * so an fd, a wsi and max_http_header_data bytes) forever, so it has
+	 * to re-arm itself every time it runs... the pt destroy path removes
+	 * it from the sul owner.
+	 */
+
+	__lws_sul_insert_us(pt, LWSSULLI_MISS_IF_SUSPENDED,
+			    sul, 30 * LWS_US_PER_SEC);
+
+	lws_pt_unlock(pt);
+}
+#endif
+
+int
+lws_http_zap_header(struct lws *wsi, const char *name)
+{
+	int n = (int)strlen(name), m;
+	char lc[64];
+	int index;
+
+	if (!wsi->stream.ah)
+		return 0;
+
+	/*
+	 * A name may be both a known token and present in the custom header
+	 * list (eg, an h2/h3 peer can send a name that lws knows in a way that
+	 * lands it in the unknown-header chain).  Zap the known token if there
+	 * is one, but do not return here: this api's job is that the header is
+	 * gone afterwards, so we must always walk the custom headers too.
+	 *
+	 * Field names are case-insensitive, but the known token names are
+	 * held in lower case: look the name up lower-cased, so that a caller
+	 * naming "Authorization" zaps the peer's authorization header as
+	 * surely as one naming "authorization" does.  No known name is as long
+	 * as lc[].
+	 */
+	if (n < (int)sizeof(lc)) {
+		for (m = 0; m < n; m++)
+			lc[m] = (name[m] >= 'A' && name[m] <= 'Z') ?
+					(char)(name[m] + 'a' - 'A') : name[m];
+		lc[n] = '\0';
+
+		index = lws_http_string_to_known_header(lc, (size_t)n);
+		if (index != LWS_HTTP_NO_KNOWN_HEADER &&
+		    index < WSI_TOKEN_COUNT)
+			wsi->stream.ah->frag_index[index] = 0;
+	}
+
+#if defined(LWS_WITH_CUSTOM_HEADERS)
+	{
+		ah_data_idx_t ll = wsi->stream.ah->unk_ll_head, prev = 0;
+		char cname[128];
+
+		/*
+		 * Custom header names are stored with their trailing ':'
+		 * (that is what lws_hdr_custom_length() etc take).  The
+		 * documented usage of this api passes a bare name, and a
+		 * bare name never matched anything, so the anti-spoofing
+		 * zaps in the interceptor and lws-login were no-ops.
+		 * Normalise here.  And remove every duplicate, not just the
+		 * first: a peer can send the header more than once.
+		 */
+		if (n && name[n - 1] != ':') {
+			if (n + 2 > (int)sizeof(cname))
+				return 1;
+			memcpy(cname, name, (size_t)n);
+			cname[n++] = ':';
+			cname[n] = '\0';
+			name = cname;
+		}
+
+		while (ll) {
+			ah_data_idx_t next;
+
+			/*
+			 * The whole UHO_NAME-byte entry header has to be
+			 * inside the buffer before we read any of it, the
+			 * same bound the three sibling walkers in parsers.c
+			 * use... "ll >= data_length" alone let the 4-byte
+			 * link and the 2-byte name length be read past the
+			 * end of ah->data.
+			 */
+			if (ll + UHO_NAME >= wsi->stream.ah->data_length)
+				return 1;
+
+			next = lws_ser_ru32be(
+				(uint8_t *)&wsi->stream.ah->data[ll + UHO_LL]);
+
+			if (n == lws_ser_ru16be(
+				(uint8_t *)&wsi->stream.ah->data[ll + UHO_NLEN]) &&
+			    ll + UHO_NAME + (ah_data_idx_t)n <=
+					    wsi->stream.ah->data_length &&
+			    !strncasecmp(name, &wsi->stream.ah->data[ll + UHO_NAME],
+					 (unsigned int)n)) {
+				/* found one, remove from list and carry on */
+				if (!prev)
+					wsi->stream.ah->unk_ll_head = next;
+				else
+					lws_ser_wu32be(
+						(uint8_t *)&wsi->stream.ah->data[prev + UHO_LL],
+						next);
+
+				if (!next)
+					wsi->stream.ah->unk_ll_tail = prev;
+
+				ll = next;
+				continue;
+			}
+
+			prev = ll;
+			ll = next;
+		}
+	}
+#endif
+
+	return 0;
+}
+
+/*
+ * Append "name: value\r\n" to the wsi's extra onward headers, nothing more.
+ * This is the proxy snapshot's appender: it is copying the peer's own
+ * request headers (Cookie, Content-Length...) onward, which must stay in the
+ * ah for the rest of the transaction.
+ */
+
+int
+lws_http_onward_header_append(struct lws *wsi, const char *name,
+			      const char *value)
+{
+	size_t nl, vl;
+	int cur_len = 0;
+	char *p;
+
+	if (!name)
+		return 1;
+
+	/*
+	 * The line is spliced verbatim into the onward request head: refuse
+	 * CR / LF / control bytes in either part so a value that came from
+	 * a JSON claim or similar cannot terminate the line and smuggle a
+	 * second, trusted-looking header to the backend.
+	 */
+	if (lws_hdr_add_value_bad((const unsigned char *)name,
+				  (int)strlen(name)) ||
+	    (value && lws_hdr_add_value_bad((const unsigned char *)value,
+					    (int)strlen(value)))) {
+		lwsl_wsi_info(wsi, "refusing onward header with control bytes");
+
+		return 1;
+	}
+
+	/*
+	 * Sized from the parts, not a fixed line: a browser's Cookie header
+	 * alone is routinely several KB, and the proxy snapshots it through
+	 * here (C-460)
+	 */
+
+	nl = strlen(name);
+	vl = value ? strlen(value) : 0;
+
+	if (wsi->http.extra_onward_headers)
+		cur_len = (int)strlen(wsi->http.extra_onward_headers);
+
+	p = lws_realloc(wsi->http.extra_onward_headers,
+			(size_t)cur_len + nl + 2 + vl + 3, "extra headers");
+	if (!p)
+		return 1;
+
+	wsi->http.extra_onward_headers = p;
+	p += cur_len;
+	memcpy(p, name, nl);
+	p += nl;
+	*p++ = ':';
+	*p++ = ' ';
+	if (vl)
+		memcpy(p, value, vl);
+	p += vl;
+	*p++ = '\r';
+	*p++ = '\n';
+	*p = '\0';
+
+	return 0;
+}
+
+int
+lws_http_get_onward_header(struct lws *wsi, const char *name, char *buf,
+			   size_t len)
+{
+	const char *p = wsi->http.extra_onward_headers, *nl, *v;
+	size_t nlen = name ? strlen(name) : 0, vlen;
+	int ret = -1;
+
+	if (!p || !nlen || !len)
+		return -1;
+
+	/*
+	 * Lines are "name: value\r\n", as written by the appender.  Take the
+	 * LAST match: a header stamped twice on one request (two interceptors
+	 * in a mount's chain, say) has the later one as the current opinion
+	 */
+	while (*p) {
+		nl = strstr(p, "\r\n");
+		if (!nl)
+			break;
+
+		if ((size_t)(nl - p) > nlen + 1 && p[nlen] == ':' &&
+		    !strncasecmp(p, name, nlen)) {
+			v = p + nlen + 1;
+			while (v < nl && (*v == ' ' || *v == '\t'))
+				v++;
+			vlen = (size_t)(nl - v);
+			if (vlen >= len)
+				ret = -2;
+			else {
+				memcpy(buf, v, vlen);
+				buf[vlen] = '\0';
+				ret = (int)vlen;
+			}
+		}
+
+		p = nl + 2;
+	}
+
+	return ret;
+}
+
+int
+lws_http_add_onward_header(struct lws *wsi, const char *name, const char *value)
+{
+	if (!name)
+		return 1;
+
+	/*
+	 * Whatever an interceptor stamps onward is by definition a header the
+	 * backend is going to trust, so the peer's own copy of it must never
+	 * survive in the ah for anything downstream (an in-process protocol
+	 * reading the ah, the CGI env, the proxy snapshot) to mistake for
+	 * ours.  Snip it here, unconditionally, rather than rely on every
+	 * caller remembering to.
+	 */
+	lws_http_zap_header(wsi, name);
+
+	return lws_http_onward_header_append(wsi, name, value);
+}
+
+#if defined(LWS_WITH_CLIENT)
+static const uint8_t hnames[] = {
+	_WSI_TOKEN_CLIENT_PEER_ADDRESS,
+	_WSI_TOKEN_CLIENT_URI,
+	_WSI_TOKEN_CLIENT_HOST,
+	_WSI_TOKEN_CLIENT_ORIGIN,
+	_WSI_TOKEN_CLIENT_SENT_PROTOCOLS,
+	_WSI_TOKEN_CLIENT_METHOD,
+	_WSI_TOKEN_CLIENT_IFACE,
+	_WSI_TOKEN_CLIENT_ALPN
+};
+
+/*
+ * A client's request, stashed when it was asked for, goes into its header
+ * table now that it has one, before its transport starts.  A connection that
+ * has no header table (raw, mqtt, quic) keeps its stash.  Returns 0, or -1
+ * when it did not fit: the stash is freed, and the caller closes the wsi.
+ */
+int
+lws_client_stash_to_headers(struct lws *wsi)
+{
+	struct client_info_stash *stash = wsi->stash;
+	int n;
+
+	wsi->a.opaque_user_data = stash->opaque_user_data;
+
+	if ((stash->cis[CIS_METHOD] && (!strcmp(stash->cis[CIS_METHOD], "RAW") ||
+				      !strcmp(stash->cis[CIS_METHOD], "MQTT") ||
+				      !strcmp(stash->cis[CIS_METHOD], "QUIC"))) ||
+	    (stash->cis[CIS_ALPN] && !strcmp(stash->cis[CIS_ALPN], "h3")))
+		return 0;
+
+	for (n = 0; n < (int)LWS_ARRAY_SIZE(hnames); n++)
+		if (hnames[n] && stash->cis[n] &&
+		    lws_hdr_simple_create(wsi, hnames[n], stash->cis[n])) {
+			lws_free_set_NULL(wsi->stash);
+
+			return -1;
+		}
+
+	/*
+	 * The stash stays, as in every build: a digest auth retry, a redirect
+	 * or a socks leg's reconnect still read the request from it
+	 */
+
+	return 0;
+}
+#endif

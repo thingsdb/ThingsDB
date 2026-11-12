@@ -1,0 +1,1577 @@
+/*
+ * libwebsockets - small server side websockets and web server implementation
+ *
+ * Copyright (C) 2010 - 2019 Andy Green <andy@warmcat.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+
+#if !defined(_GNU_SOURCE)
+#define _GNU_SOURCE
+#endif
+
+#include "private-lib-core.h"
+
+#if defined(WIN32) || defined(_WIN32)
+#else
+#include <sys/wait.h>
+#endif
+
+static const char *hex = "0123456789ABCDEF";
+
+void
+lws_cgi_sul_cb(lws_sorted_usec_list_t *sul);
+
+static int
+urlencode(const char *in, int inlen, char *out, int outlen)
+{
+	char *start = out, *end = out + outlen;
+
+	while (inlen-- && out < end - 4) {
+		/*
+		 * As unsigned: a byte >= 0x80, eg, UTF-8, is negative as a
+		 * char where char is signed, and would index hex[] before
+		 * its start
+		 */
+		unsigned char c = (unsigned char)*in++;
+
+		if ((c >= 'A' && c <= 'Z') ||
+		    (c >= 'a' && c <= 'z') ||
+		    (c >= '0' && c <= '9') ||
+		    c == '-' ||
+		    c == '_' ||
+		    c == '.' ||
+		    c == '~') {
+			*out++ = (char)c;
+			continue;
+		}
+		if (c == ' ') {
+			*out++ = '+';
+			continue;
+		}
+		*out++ = '%';
+		*out++ = hex[c >> 4];
+		*out++ = hex[c & 15];
+	}
+	*out = '\0';
+
+	if (out >= end - 4)
+		return -1;
+
+	return lws_ptr_diff(out, start);
+}
+
+/*
+ * Take the given cgi off the pt's list of active cgis, if it is on it, and
+ * stop the reaping timer if that emptied the list.
+ *
+ * lws_dll2_remove() is a no-op on a node that was never added, or was already
+ * removed, so this is idempotent (and tolerates a NULL cgi) and is the single
+ * point every teardown path for a struct lws_cgi goes through before the
+ * object is freed.
+ */
+
+static void
+lws_cgi_list_remove(struct lws_context_per_thread *pt, struct lws_cgi *cgi)
+{
+	if (cgi)
+		lws_dll2_remove(&cgi->list);
+
+	if (lws_dll2_is_empty(&pt->http.cgi_owner))
+		lws_sul_cancel(&pt->sul_cgi);
+}
+
+static void
+lws_cgi_grace(lws_sorted_usec_list_t *sul)
+{
+	struct lws_cgi *cgi = lws_container_of(sul, struct lws_cgi, sul_grace);
+
+	/* act on the reap cb from earlier */
+
+	if (!cgi->wsi->http.cgi->post_in_expected)
+		cgi->wsi->http.cgi->cgi_transaction_over = 1;
+
+	lws_callback_on_writable(cgi->wsi);
+}
+
+
+static int
+lws_cgi_env_add(char **e_array, int *n, int max_n, char **p, char *end,
+		const char *fmt, ...)
+{
+	va_list ap;
+	int space, len;
+
+	if (*n >= max_n - 1)
+		return -1;
+
+	space = lws_ptr_diff(end, *p);
+	if (space < 1)
+		return -1;
+
+	e_array[(*n)++] = *p;
+
+	va_start(ap, fmt);
+	len = vsnprintf(*p, (size_t)space, fmt, ap);
+	va_end(ap);
+
+	if (len < 0 || len >= space)
+		return -1;
+
+	*p += len + 1;
+
+	return 0;
+}
+
+static void
+lws_cgi_reap_cb(void *opaque, const struct lws_spawn_resource_us *res, siginfo_t *si,
+		 int we_killed_him)
+{
+	struct lws *wsi = (struct lws *)opaque;
+	struct lws_cgi_args args;
+
+	/*
+	 * lws_spawn_reap() destroyed the lsp before calling us.  If the
+	 * transaction's close killed the cgi, lws_cgi_kill() told its user it
+	 * terminated already: it is only the pipes that went after that
+	 */
+	if (!wsi->http.cgi || wsi->http.cgi->being_closed)
+		return;
+
+	/* nothing in here is meaningful for TERMINATED, but do not leak stack */
+	memset(&args, 0, sizeof(args));
+
+	if (user_callback_handle_rxflow(wsi->a.protocol->callback, wsi,
+					LWS_CALLBACK_CGI_TERMINATED,
+					wsi->user_space, (void *)&args,
+					(unsigned int)wsi->http.cgi->pi)) {
+		/* as lws_cgi_kill() does, the user wants the transaction gone */
+		lws_close_free_wsi(wsi, 0, "lws_cgi_reap_cb");
+
+		return;
+	}
+
+	/*
+	 * The cgi has come to an end, by itself or with a signal... the user
+	 * may have completed the transaction, and released the cgi, already
+	 */
+
+	if (!wsi->http.cgi)
+		return;
+
+	lwsl_wsi_info(wsi, "post_in_expected %d",
+		      (int)wsi->http.cgi->post_in_expected);
+
+	/*
+	 * Grace period to handle the incoming stdout
+	 */
+
+	lws_sul_schedule(wsi->a.context, wsi->tsi, &wsi->http.cgi->sul_grace,
+			 lws_cgi_grace, 1 * LWS_US_PER_SEC);
+}
+
+int
+lws_cgi_via_info(struct lws_cgi_info * cgiinfo)
+{
+	struct lws_context_per_thread *pt = &cgiinfo->wsi->a.context->pt[(int)cgiinfo->wsi->tsi];
+	struct lws_spawn_piped_info info;
+	char *env_array[64], cgi_path[500], e[4096], *p = e,
+	     *end = p + sizeof(e) - 1, tok[256], *t, *sum, *sumend;
+	struct lws_cgi *cgi;
+	int n, m = 0, i, uritok = -1, c;
+	const struct lws_protocol_vhost_options *mp_cgienv = cgiinfo->mp_cgienv;
+
+	/*
+	 * A wsi carries one cgi at a time: its struct lws_cgi is on the pt
+	 * list with its wsi pointer, and only the one at wsi->http.cgi is
+	 * unlinked by the transaction's completion or the close.  Spawning
+	 * over a live one would orphan it there, to be dereferenced after the
+	 * wsi has gone.  The mount path parks the connection's rx for the
+	 * transaction so a second request cannot reach here meanwhile; refuse
+	 * any other caller the same way rather than let it.
+	 */
+	if (cgiinfo->wsi->http.cgi) {
+		lwsl_wsi_err(cgiinfo->wsi, "cgi already running on wsi");
+
+		return -1;
+	}
+
+	/*
+	 * give the cgi stream wsi a cgi struct
+	 */
+
+	cgiinfo->wsi->http.cgi = lws_zalloc(sizeof(*cgiinfo->wsi->http.cgi), "new cgi");
+	if (!cgiinfo->wsi->http.cgi) {
+		lwsl_wsi_err(cgiinfo->wsi, "OOM");
+		return -1;
+	}
+
+	cgiinfo->wsi->http.cgi->response_code = HTTP_STATUS_OK;
+
+	cgi = cgiinfo->wsi->http.cgi;
+	cgi->wsi = cgiinfo->wsi; /* set cgi's owning wsi */
+	cgi->timeout_secs = cgiinfo->timeout_secs;
+	sum = cgi->summary;
+	sumend = sum + sizeof(cgi->summary) - 1;
+
+	if (cgiinfo->timeout_secs)
+		lws_set_timeout(cgiinfo->wsi, PENDING_TIMEOUT_CGI, cgiinfo->timeout_secs);
+
+	/* the cgi stdout is always sending us http1.x header data first */
+	cgiinfo->wsi->io->hdr_state = LCHS_HEADER;
+
+	/*
+	 * Notice we do NOT put ourselves on the pt list of active cgis yet:
+	 * the whole env below is composed into the fixed-size e[] and any part
+	 * of it that does not fit is a hard failure (an unauthenticated client
+	 * can force that, since urlencode() expands the URI args up to 3:1
+	 * into QUERY_STRING).  Nothing needs reaping until there is actually a
+	 * child, so we refuse those before anything is linked or armed, and
+	 * bail: below then has nothing of ours to unpick.
+	 */
+
+	sum += lws_snprintf(sum, lws_ptr_diff_size_t(sumend, sum), "%s ", cgiinfo->exec_array[0]);
+
+	/* prepare his CGI env */
+
+	n = 0;
+
+	if (lws_is_ssl(cgiinfo->wsi)) {
+		if (lws_cgi_env_add(env_array, &n, (int)LWS_ARRAY_SIZE(env_array),
+				    &p, end, "HTTPS=ON"))
+			goto bail;
+	}
+
+	if (cgiinfo->wsi->stream.ah) {
+		static const unsigned char meths[] = {
+			WSI_TOKEN_GET_URI,
+			WSI_TOKEN_POST_URI,
+#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS)
+			WSI_TOKEN_OPTIONS_URI,
+			WSI_TOKEN_PUT_URI,
+			WSI_TOKEN_PATCH_URI,
+			WSI_TOKEN_DELETE_URI,
+#endif
+			WSI_TOKEN_CONNECT,
+			WSI_TOKEN_HEAD_URI,
+		#ifdef LWS_WITH_HTTP2
+			WSI_TOKEN_HTTP_COLON_PATH,
+		#endif
+		};
+		static const char * const meth_names[] = {
+			"GET", "POST",
+#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS)
+			"OPTIONS", "PUT", "PATCH", "DELETE",
+#endif
+			"CONNECT", "HEAD", ":path"
+		};
+
+		if (cgiinfo->script_uri_path_len >= 0)
+			for (m = 0; m < (int)LWS_ARRAY_SIZE(meths); m++)
+				if (lws_hdr_total_length(cgiinfo->wsi, meths[m]) >=
+						cgiinfo->script_uri_path_len) {
+					uritok = meths[m];
+					break;
+				}
+
+		if (cgiinfo->script_uri_path_len < 0 && uritok < 0)
+			goto bail;
+//		if (cgiinfo->script_uri_path_len < 0)
+//			uritok = 0;
+
+		if (m < (int)LWS_ARRAY_SIZE(meths)) {
+			if (m < (int)LWS_ARRAY_SIZE(meths) - 1) { /* not the final, PATH one */
+				if (lws_cgi_env_add(env_array, &n, (int)LWS_ARRAY_SIZE(env_array), &p, end,
+						  "REQUEST_METHOD=%s",
+						  meth_names[m]))
+					goto bail;
+				sum += lws_snprintf(sum, lws_ptr_diff_size_t(sumend, sum), "%s ",
+						    meth_names[m]);
+#if defined(LWS_ROLE_H2)
+			} else {
+				if (lws_cgi_env_add(env_array, &n, (int)LWS_ARRAY_SIZE(env_array), &p, end,
+						  "REQUEST_METHOD=%s",
+				lws_hdr_simple_ptr(cgiinfo->wsi, WSI_TOKEN_HTTP_COLON_METHOD)))
+					goto bail;
+				sum += lws_snprintf(sum, lws_ptr_diff_size_t(sumend, sum), "%s ",
+					lws_hdr_simple_ptr(cgiinfo->wsi,
+						  WSI_TOKEN_HTTP_COLON_METHOD));
+#endif
+			}
+		}
+
+		if (uritok >= 0)
+			sum += lws_snprintf(sum, lws_ptr_diff_size_t(sumend, sum), "%s ",
+					    lws_hdr_simple_ptr(cgiinfo->wsi, (enum lws_token_indexes)uritok));
+
+		if (n >= (int)LWS_ARRAY_SIZE(env_array) - 1)
+			goto bail;
+		env_array[n++] = p;
+		i = lws_snprintf(p, lws_ptr_diff_size_t(end, p), "QUERY_STRING=");
+		if (i >= lws_ptr_diff(end, p))
+			goto bail;
+		p += i;
+		/* dump the individual URI Arg parameters */
+		m = 0;
+		while (cgiinfo->script_uri_path_len >= 0) {
+			i = lws_hdr_copy_fragment(cgiinfo->wsi, tok, sizeof(tok),
+					     WSI_TOKEN_HTTP_URI_ARGS, m);
+			if (i < 0)
+				break;
+			t = tok;
+			while (*t && *t != '=' && p < end - 4)
+				*p++ = *t++;
+			/*
+			 * bound this write too: an arg starting with '='
+			 * skips the loop above, so each such fragment would
+			 * otherwise advance p past the end of the buffer
+			 */
+			if (*t == '=' && p < end - 2)
+				*p++ = *t++;
+			i = urlencode(t, i - lws_ptr_diff(t, tok), p, lws_ptr_diff(end, p));
+			if (i >= 0) {
+				p += i;
+				if (p < end - 1)
+					*p++ = '&';
+			}
+			m++;
+		}
+		if (m)
+			p--;
+		if (p >= end)
+			goto bail;
+		*p++ = '\0';
+
+		if (uritok >= 0) {
+			strcpy(cgi_path, "REQUEST_URI=");
+			c = lws_hdr_copy(cgiinfo->wsi, cgi_path + 12,
+					 sizeof(cgi_path) - 12, (enum lws_token_indexes)uritok);
+			if (c < 0)
+				goto bail;
+
+			cgi_path[sizeof(cgi_path) - 1] = '\0';
+			if (n >= (int)LWS_ARRAY_SIZE(env_array) - 1)
+				goto bail;
+			env_array[n++] = cgi_path;
+
+			sum += lws_snprintf(sum, lws_ptr_diff_size_t(sumend, sum), "%s", env_array[n - 1]);
+
+			if (cgiinfo->script_uri_path_len >= 0) {
+				if (lws_cgi_env_add(env_array, &n, (int)LWS_ARRAY_SIZE(env_array), &p, end,
+						  "PATH_INFO=%s",
+					      cgi_path + 12 + cgiinfo->script_uri_path_len))
+					goto bail;
+			}
+		}
+	}
+#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS)
+	if (cgiinfo->script_uri_path_len >= 0 &&
+	    lws_hdr_total_length(cgiinfo->wsi, WSI_TOKEN_HTTP_REFERER)) {
+		if (lws_cgi_env_add(env_array, &n, (int)LWS_ARRAY_SIZE(env_array), &p, end,
+				  "HTTP_REFERER=%s",
+			      lws_hdr_simple_ptr(cgiinfo->wsi, WSI_TOKEN_HTTP_REFERER)))
+			goto bail;
+	}
+#endif
+	if (cgiinfo->script_uri_path_len >= 0 &&
+	    lws_hdr_total_length(cgiinfo->wsi, WSI_TOKEN_HOST)) {
+		if (lws_cgi_env_add(env_array, &n, (int)LWS_ARRAY_SIZE(env_array), &p, end,
+				  "HTTP_HOST=%s",
+			      lws_hdr_simple_ptr(cgiinfo->wsi, WSI_TOKEN_HOST)))
+			goto bail;
+	}
+	if (cgiinfo->script_uri_path_len >= 0 &&
+	    lws_hdr_total_length(cgiinfo->wsi, WSI_TOKEN_HTTP_COOKIE)) {
+		if (n >= (int)LWS_ARRAY_SIZE(env_array) - 1)
+			goto bail;
+		env_array[n++] = p;
+		i = lws_snprintf(p, lws_ptr_diff_size_t(end, p), "HTTP_COOKIE=");
+		if (i >= lws_ptr_diff(end, p))
+			goto bail;
+		p += i;
+		m = lws_hdr_copy(cgiinfo->wsi, p, lws_ptr_diff(end, p), WSI_TOKEN_HTTP_COOKIE);
+		if (m > 0) {
+			p += m;
+			if (p >= end)
+				goto bail;
+		}
+		*p++ = '\0';
+	}
+#if defined(LWS_WITH_HTTP_UNCOMMON_HEADERS)
+	if (cgiinfo->script_uri_path_len >= 0 &&
+	    lws_hdr_total_length(cgiinfo->wsi, WSI_TOKEN_HTTP_USER_AGENT)) {
+		if (lws_cgi_env_add(env_array, &n, (int)LWS_ARRAY_SIZE(env_array), &p, end,
+				  "HTTP_USER_AGENT=%s",
+			    lws_hdr_simple_ptr(cgiinfo->wsi, WSI_TOKEN_HTTP_USER_AGENT)))
+			goto bail;
+	}
+#endif
+	if (cgiinfo->script_uri_path_len >= 0 &&
+	    lws_hdr_total_length(cgiinfo->wsi, WSI_TOKEN_HTTP_CONTENT_ENCODING)) {
+		if (lws_cgi_env_add(env_array, &n, (int)LWS_ARRAY_SIZE(env_array), &p, end,
+				  "HTTP_CONTENT_ENCODING=%s",
+		      lws_hdr_simple_ptr(cgiinfo->wsi, WSI_TOKEN_HTTP_CONTENT_ENCODING)))
+			goto bail;
+	}
+	if (cgiinfo->script_uri_path_len >= 0 &&
+	    lws_hdr_total_length(cgiinfo->wsi, WSI_TOKEN_HTTP_ACCEPT)) {
+		if (lws_cgi_env_add(env_array, &n, (int)LWS_ARRAY_SIZE(env_array), &p, end,
+				  "HTTP_ACCEPT=%s",
+			      lws_hdr_simple_ptr(cgiinfo->wsi, WSI_TOKEN_HTTP_ACCEPT)))
+			goto bail;
+	}
+	if (cgiinfo->script_uri_path_len >= 0 &&
+	    lws_hdr_total_length(cgiinfo->wsi, WSI_TOKEN_HTTP_ACCEPT_ENCODING)) {
+		if (lws_cgi_env_add(env_array, &n, (int)LWS_ARRAY_SIZE(env_array), &p, end,
+				  "HTTP_ACCEPT_ENCODING=%s",
+		      lws_hdr_simple_ptr(cgiinfo->wsi, WSI_TOKEN_HTTP_ACCEPT_ENCODING)))
+			goto bail;
+	}
+	/*
+	 * A request body goes to the script's stdin whatever the method or
+	 * the http version (on h2 / h3 there are no method URI tokens, and
+	 * PUT and PATCH have bodies as well as POST): the script is told its
+	 * type, and its length when it has one, the one the request framing
+	 * validated.  The relay counts that length down, and ends the stdin
+	 * when it reaches 0; a body without one is ended at its end.
+	 */
+	if (cgiinfo->script_uri_path_len >= 0) {
+		if (lws_hdr_total_length(cgiinfo->wsi, WSI_TOKEN_HTTP_CONTENT_TYPE)) {
+			if (lws_cgi_env_add(env_array, &n, (int)LWS_ARRAY_SIZE(env_array), &p, end,
+					  "CONTENT_TYPE=%s",
+			  lws_hdr_simple_ptr(cgiinfo->wsi, WSI_TOKEN_HTTP_CONTENT_TYPE)))
+				goto bail;
+		}
+		if (lws_hdr_total_length(cgiinfo->wsi, WSI_TOKEN_HTTP_CONTENT_LENGTH) &&
+		    cgiinfo->wsi->http.content_length_given) {
+			if (lws_cgi_env_add(env_array, &n, (int)LWS_ARRAY_SIZE(env_array),
+					    &p, end, "CONTENT_LENGTH=%llu",
+					    (unsigned long long)
+					    cgiinfo->wsi->http.rx_content_length))
+				goto bail;
+
+			cgiinfo->wsi->http.cgi->post_in_expected =
+					cgiinfo->wsi->http.rx_content_length;
+		}
+	}
+
+	/*
+	 * Headers a mount interceptor stamped on the request (eg, lws-login's
+	 * x-lws-login-*) go to the script the way the reverse proxy forwards
+	 * them to a remote backend: as request headers, so HTTP_X_LWS_LOGIN_
+	 * STATE and friends, RFC 3875 style.  The peer's own copy of each
+	 * name was removed from the ah when it was stamped, and the env above
+	 * only ever exports a fixed set of known headers anyway, so a script
+	 * sees exactly one, trusted, value.
+	 */
+	if (cgiinfo->script_uri_path_len >= 0 &&
+	    cgiinfo->wsi->http.extra_onward_headers) {
+		const char *line = cgiinfo->wsi->http.extra_onward_headers,
+			   *nl, *colon, *v;
+
+		while (*line && (nl = strstr(line, "\r\n"))) {
+			colon = memchr(line, ':', (size_t)(nl - line));
+			if (colon) {
+				char name[64];
+				size_t nlen = (size_t)(colon - line), k;
+
+				v = colon + 1;
+				while (v < nl && (*v == ' ' || *v == '\t'))
+					v++;
+
+				if (nlen && nlen < sizeof(name)) {
+					for (k = 0; k < nlen; k++)
+						name[k] = line[k] == '-' ? '_' :
+						  (char)toupper((unsigned char)line[k]);
+					name[nlen] = '\0';
+
+					if (lws_cgi_env_add(env_array, &n,
+						    (int)LWS_ARRAY_SIZE(env_array),
+						    &p, end, "HTTP_%s=%.*s", name,
+						    (int)(nl - v), v))
+						goto bail;
+				}
+			}
+			line = nl + 2;
+		}
+	}
+
+	if (lws_cgi_env_add(env_array, &n, (int)LWS_ARRAY_SIZE(env_array), &p, end,
+			  "PATH=/bin:/usr/bin:/usr/local/bin:/var/www/cgi-bin"))
+		goto bail;
+
+	if (lws_cgi_env_add(env_array, &n, (int)LWS_ARRAY_SIZE(env_array), &p, end,
+			  "SCRIPT_PATH=%s", cgiinfo->exec_array[0]))
+		goto bail;
+
+	while (mp_cgienv) {
+		if (lws_cgi_env_add(env_array, &n, (int)LWS_ARRAY_SIZE(env_array), &p, end,
+				  "%s=%s", mp_cgienv->name, mp_cgienv->value))
+			goto bail;
+
+		if (!strcmp(mp_cgienv->name, "GIT_PROJECT_ROOT")) {
+			cgiinfo->wsi->http.cgi->implied_chunked = 1;
+			cgiinfo->wsi->http.cgi->explicitly_chunked = 1;
+		}
+		lwsl_info("   Applying mount-specific cgi env '%s'\n",
+			   env_array[n - 1]);
+		mp_cgienv = mp_cgienv->next;
+	}
+
+	if (lws_cgi_env_add(env_array, &n, (int)LWS_ARRAY_SIZE(env_array), &p, end,
+			  "SERVER_SOFTWARE=lws"))
+		goto bail;
+
+	env_array[n] = NULL;
+
+#if 0
+	for (m = 0; m < n; m++)
+		lwsl_notice("    %s\n", env_array[m]);
+#endif
+
+	memset(&info, 0, sizeof(info));
+	info.env_array = (const char **)env_array;
+	info.exec_array = cgiinfo->exec_array;
+	info.max_log_lines = 20000;
+	info.opt_parent = cgiinfo->wsi;
+	info.timeout_us = 5 * 60 * LWS_US_PER_SEC;
+	info.tsi = cgiinfo->wsi->tsi;
+	info.vh = cgiinfo->wsi->a.vhost;
+	info.ops = &role_ops_cgi;
+	info.plsp = &cgiinfo->wsi->http.cgi->lsp;
+	info.opaque = cgiinfo->wsi;
+	info.reap_cb = lws_cgi_reap_cb;
+	info.chroot_path = cgiinfo->chroot_path;
+	info.wd = cgiinfo->wd;
+
+	if (cgiinfo->script_uri_path_len >= 0)
+		info.disable_ctrlc = 1;
+
+	cgiinfo->wsi->http.cgi->lsp = lws_spawn_piped(&info);
+	if (!cgiinfo->wsi->http.cgi->lsp) {
+		lwsl_err("%s: spawn failed\n", __func__);
+		goto bail;
+	}
+
+	/*
+	 * Actually having made the env and the child, as a cgi we don't need
+	 * the ah any more.  Until the child exists, the request may still
+	 * have to be answered with a failure.
+	 */
+	if (cgiinfo->script_uri_path_len >= 0)
+		lws_header_table_detach(cgiinfo->wsi, 0);
+
+	cgiinfo->wsi->http.cgi->pi = cgiinfo->wsi->http.cgi->lsp->child_pid;
+
+	/*
+	 * There is a child now, so it is time to go on the pt list of active
+	 * cgis and make sure the reaping timer is running
+	 */
+
+	lwsl_wsi_debug(cgiinfo->wsi, "adding cgi %p to list", cgi);
+	lws_dll2_add_tail(&cgi->list, &pt->http.cgi_owner);
+
+	/* if it's not already running, start the cleanup timer */
+	if (!lws_dll2_owner(&pt->sul_cgi.list))
+		lws_sul_schedule(pt->context, (int)(pt - pt->context->pt),
+				 &pt->sul_cgi, lws_cgi_sul_cb,
+				 3 * LWS_US_PER_SEC);
+
+	/* we are the parent process */
+
+	cgiinfo->wsi->a.context->count_cgi_spawned++;
+
+	/* inform cgi owner of the child PID */
+	n = user_callback_handle_rxflow(cgiinfo->wsi->a.protocol->callback, cgiinfo->wsi,
+				    LWS_CALLBACK_CGI_PROCESS_ATTACH,
+				    cgiinfo->wsi->user_space, NULL, (unsigned int)cgi->lsp->child_pid);
+	(void)n;
+
+	return 0;
+
+bail:
+	/*
+	 * Everything that can fail above does so before we are linked, so the
+	 * removal is a no-op today; it stays because it is the invariant that
+	 * a struct lws_cgi is never freed while listed, and because both
+	 * teardown paths that would otherwise do it (lws_cgi_remove_and_kill()
+	 * from the close flow and from lws_http_transaction_completed()) are
+	 * gated on wsi->http.cgi, which we are about to NULL.
+	 * lws_cgi_list_remove() is idempotent, so it costs nothing to keep any
+	 * later bail added after the link point honest.
+	 */
+	lws_cgi_list_remove(pt, cgiinfo->wsi->http.cgi);
+	lws_sul_cancel(&cgiinfo->wsi->http.cgi->sul_grace);
+	lws_free_set_NULL(cgiinfo->wsi->http.cgi);
+
+	lwsl_err("%s: failed\n", __func__);
+
+	return -1;
+}
+
+int
+lws_cgi(struct lws *wsi, const char * const *exec_array,
+	int script_uri_path_len, int timeout_secs,
+	const struct lws_protocol_vhost_options *mp_cgienv)
+{
+	struct lws_cgi_info cgiinfo;
+
+	memset (&cgiinfo, 0, sizeof (cgiinfo));
+	cgiinfo.wsi = wsi;
+	cgiinfo.exec_array = exec_array;
+	cgiinfo.script_uri_path_len = script_uri_path_len;
+	cgiinfo.timeout_secs = timeout_secs;
+	cgiinfo.mp_cgienv = mp_cgienv;
+	return lws_cgi_via_info (&cgiinfo);
+}
+
+/* we have to parse out these headers in the CGI output */
+
+static const char * const significant_hdr[SIGNIFICANT_HDR_COUNT] = {
+	"content-length: ",
+	"location: ",
+	"status: ",
+	"transfer-encoding: chunked",
+	"content-encoding: gzip",
+};
+
+enum header_recode {
+	HR_NAME,
+	HR_WHITESPACE,
+	HR_ARG,
+	HR_CRLF,
+};
+
+/*
+ * The stdout relay took what there was and wants more of what the child
+ * writes: arrange to be called again when there is some.  While the child
+ * holds its end of the pipe, that is POLLIN on the pipe.  Once it has let go
+ * (stdout_hup), the pipe holds all there will ever be, readable to its end
+ * at once, and is not polled any more: it is the transaction's writeable.
+ */
+static void
+lws_cgi_stdout_want_more(struct lws *wsi)
+{
+	struct lws *sowsi = lws_cgi_get_stdwsi(wsi, LWS_STDOUT);
+
+	if (wsi->http.cgi->stdout_hup) {
+		wsi->reason_bf |= LWS_CB_REASON_AUX_BF__CGI;
+		lws_callback_on_writable(wsi);
+
+		return;
+	}
+
+	if (sowsi)
+		lws_rx_flow_control(sowsi, 1);
+}
+
+int
+lws_cgi_write_split_stdout_headers(struct lws *wsi)
+{
+	int n, m, cmd, h3;
+	unsigned char buf[LWS_PRE + 4096], *start = &buf[LWS_PRE], *p = start,
+			*end = &buf[sizeof(buf) - 1], *name,
+			*value = NULL, *raw = NULL, *raw_end = NULL,
+			**pp, *pend;
+	char c, hrs;
+
+	if (!wsi->http.cgi)
+		return -1;
+
+	/*
+	 * Note ->lsp can be NULL here even though ->cgi is not:
+	 * lws_spawn_reap() destroys the lsp and NULLs it via info.plsp before
+	 * it calls us back, while wsi->http.cgi and the wsi itself stay
+	 * around so we can still flush any headers we already collected.
+	 * So every ->lsp use below goes via lws_cgi_get_stdwsi(), which
+	 * checks it.
+	 */
+
+	while (wsi->io->hdr_state != LHCS_PAYLOAD) {
+		/*
+		 * We have to separate header / finalize and payload chunks,
+		 * since they need to be handled separately
+		 */
+		switch (wsi->io->hdr_state) {
+		case LHCS_RESPONSE:
+			lwsl_wsi_debug(wsi, "LHCS_RESPONSE: iss response %d",
+					    wsi->http.cgi->response_code);
+
+			/*
+			 * We have a bunch of http/1 style ascii headers from
+			 * the script, from headers_start up to headers_pos.
+			 * They are OK for http/1 connections, but no good for
+			 * a mux stream: there they are recoded below, into the
+			 * stream's encoding at headers_pos onwards, and it is
+			 * that block LHCS_DUMP_HEADERS sends.
+			 */
+			if (wsi->mux_substream) {
+				raw = (unsigned char *)wsi->http.cgi->headers_start;
+				raw_end = (unsigned char *)wsi->http.cgi->headers_pos;
+				wsi->http.cgi->headers_start =
+						wsi->http.cgi->headers_pos;
+				wsi->http.cgi->headers_dumped =
+						wsi->http.cgi->headers_start;
+			}
+
+			/*
+			 * h3 has no CONTINUATION: the whole field section,
+			 * :status included, must be one QPACK block (whose
+			 * prefix the status reserves and the finalize fills
+			 * in) in one HEADERS frame.  So on h3 the status leads
+			 * the recoded block, instead of going out ahead of it.
+			 */
+			h3 = lws_wsi_is_h3(wsi);
+			if (h3) {
+				pp = (unsigned char **)&wsi->http.cgi->headers_pos;
+				pend = (unsigned char *)wsi->http.cgi->headers_end;
+			} else {
+				pp = &p;
+				pend = end;
+			}
+
+			if (lws_add_http_header_status(wsi,
+					(unsigned int)wsi->http.cgi->response_code,
+						       pp, pend))
+				goto bail_recode;
+			/*
+			 * A mux stream frames its own body, and must not say
+			 * transfer-encoding at all (RFC 9113 8.2.2, RFC 9114
+			 * 4.2): the body is not chunked there either
+			 */
+			if (!wsi->mux_substream &&
+			    !wsi->http.cgi->explicitly_chunked &&
+			    !wsi->http.cgi->content_length &&
+				lws_add_http_header_by_token(wsi,
+					WSI_TOKEN_HTTP_TRANSFER_ENCODING,
+					(unsigned char *)"chunked", 7, pp, pend))
+				goto bail_recode;
+			if (!(wsi->mux_substream))
+				if (lws_add_http_header_by_token(wsi,
+						WSI_TOKEN_CONNECTION,
+						(unsigned char *)"close", 5,
+						pp, pend))
+					goto bail_recode;
+
+			if (!h3 && lws_write(wsi, start,
+					     lws_ptr_diff_size_t(p, start),
+					     LWS_WRITE_HTTP_HEADERS |
+					     LWS_WRITE_NO_FIN) < 0)
+				return -1;
+
+			if (!wsi->mux_substream)
+				goto post_hpack_recode;
+
+			p = raw;
+			hrs = HR_NAME;
+			name = buf;
+
+			while (p < raw_end) {
+				switch (hrs) {
+				case HR_NAME:
+					/*
+					 * in http/2 upper-case header names
+					 * are illegal.  So convert to lower-
+					 * case.
+					 */
+					if (name - buf > 64)
+						goto bail_recode;
+					if (*p != ':') {
+						if (*p >= 'A' && *p <= 'Z')
+							*name++ = (unsigned char)((*p++) +
+								  ('a' - 'A'));
+						else
+							*name++ = *p++;
+					} else {
+						p++;
+						*name++ = '\0';
+						value = name;
+						hrs = HR_WHITESPACE;
+					}
+					break;
+				case HR_WHITESPACE:
+					if (*p == ' ') {
+						p++;
+						break;
+					}
+					hrs = HR_ARG;
+					/* fallthru */
+				case HR_ARG:
+					if (name > end - 64)
+						goto bail_recode;
+
+					if (*p != '\x0a' && *p != '\x0d') {
+						*name++ = *p++;
+						break;
+					}
+					hrs = HR_CRLF;
+					/* fallthru */
+				case HR_CRLF:
+					if ((*p != '\x0a' && *p != '\x0d') ||
+					    p + 1 == raw_end) {
+						*name = '\0';
+						if ((strcmp((const char *)buf,
+							    "transfer-encoding")
+						)) {
+							lwsl_debug("+ %s: %s\n",
+								   buf, value);
+							if (
+					lws_add_http_header_by_name(wsi, buf,
+					(unsigned char *)value, lws_ptr_diff(name, value),
+					(unsigned char **)&wsi->http.cgi->headers_pos,
+					(unsigned char *)wsi->http.cgi->headers_end))
+								goto bail_recode;
+							hrs = HR_NAME;
+							name = buf;
+							break;
+						}
+					}
+					p++;
+					break;
+				}
+			}
+post_hpack_recode:
+			/* finalize cached headers before dumping them */
+			if (lws_finalize_http_header(wsi,
+			      (unsigned char **)&wsi->http.cgi->headers_pos,
+			      (unsigned char *)wsi->http.cgi->headers_end)) {
+
+				lwsl_notice("finalize failed\n");
+				return -1;
+			}
+
+			wsi->io->hdr_state = LHCS_DUMP_HEADERS;
+			wsi->reason_bf |= LWS_CB_REASON_AUX_BF__CGI_HEADERS;
+			lws_callback_on_writable(wsi);
+			/* back to the loop for writeability again */
+			return 0;
+
+		case LHCS_DUMP_HEADERS:
+
+			n = (int)(wsi->http.cgi->headers_pos -
+			    wsi->http.cgi->headers_dumped);
+			if (n > 512)
+				n = 512;
+
+			lwsl_wsi_debug(wsi, "LHCS_DUMP_HEADERS: %d", n);
+
+			cmd = LWS_WRITE_HTTP_HEADERS_CONTINUATION;
+			if (lws_wsi_is_h3(wsi)) {
+				/* the one HEADERS frame, see LHCS_RESPONSE */
+				n = (int)(wsi->http.cgi->headers_pos -
+					  wsi->http.cgi->headers_dumped);
+				cmd = LWS_WRITE_HTTP_HEADERS;
+			} else if (wsi->http.cgi->headers_dumped + n !=
+						wsi->http.cgi->headers_pos) {
+				lwsl_notice("adding no fin flag\n");
+				cmd |= LWS_WRITE_NO_FIN;
+			}
+
+			m = lws_write(wsi,
+				 (unsigned char *)wsi->http.cgi->headers_dumped,
+				      (unsigned int)n, (enum lws_write_protocol)cmd);
+			if (m < 0) {
+				lwsl_wsi_debug(wsi, "write says %d", m);
+				return -1;
+			}
+			wsi->http.cgi->headers_dumped += n;
+			if (wsi->http.cgi->headers_dumped ==
+			    wsi->http.cgi->headers_pos) {
+				wsi->io->hdr_state = LHCS_PAYLOAD;
+				lws_free_set_NULL(wsi->http.cgi->headers_buf);
+				lwsl_wsi_debug(wsi, "freed cgi headers");
+
+				if (wsi->http.cgi->post_in_expected) {
+					lwsl_wsi_info(wsi, "post data still "
+							   "expected, asking "
+							   "for writeable");
+					lws_callback_on_writable(wsi);
+				}
+
+				/* on to the payload, as the child writes it */
+				lws_cgi_stdout_want_more(wsi);
+
+			} else {
+				wsi->reason_bf |=
+					LWS_CB_REASON_AUX_BF__CGI_HEADERS;
+				lws_callback_on_writable(wsi);
+			}
+
+			/*
+			 * writeability becomes uncertain now we wrote
+			 * something, we must return to the event loop
+			 */
+			return 0;
+		}
+
+		if (!wsi->http.cgi->headers_buf) {
+			/* if we don't already have a headers buf, cook one */
+			n = 2048;
+			if (wsi->mux_substream)
+				n = 4096;
+			wsi->http.cgi->headers_buf = lws_malloc((unsigned int)n + LWS_PRE,
+							   "cgi hdr buf");
+			if (!wsi->http.cgi->headers_buf) {
+				lwsl_wsi_err(wsi, "OOM");
+				return -1;
+			}
+
+			lwsl_wsi_debug(wsi, "allocated cgi hdrs");
+			wsi->http.cgi->headers_start =
+					wsi->http.cgi->headers_buf + LWS_PRE;
+			wsi->http.cgi->headers_pos = wsi->http.cgi->headers_start;
+			wsi->http.cgi->headers_dumped = wsi->http.cgi->headers_pos;
+			wsi->http.cgi->headers_end =
+					wsi->http.cgi->headers_buf + n - 1;
+
+			for (n = 0; n < SIGNIFICANT_HDR_COUNT; n++) {
+				wsi->http.cgi->match[n] = 0;
+				wsi->http.cgi->lp = 0;
+			}
+		}
+
+		if (wsi->http.cgi->headers_pos >=
+		    wsi->http.cgi->headers_end - 4) {
+			lwsl_wsi_notice(wsi, "CGI hdrs > buf size");
+
+			return -1;
+		}
+
+		n = lws_get_socket_fd(lws_cgi_get_stdwsi(wsi, LWS_STDOUT));
+		if (n < 0)
+			return -1;
+		n = (int)read(n, &c, 1);
+		if (n < 0) {
+			if (errno != EAGAIN) {
+				lwsl_wsi_debug(wsi, "read says %d", n);
+				return -1;
+			}
+
+			/* ran out of input for now */
+			lws_cgi_stdout_want_more(wsi);
+
+			return 0;
+		}
+		if (!n) {
+			/*
+			 * The child closed its stdout before it finished its
+			 * headers: there is no response to relay, it is a
+			 * failed cgi
+			 */
+			lwsl_wsi_notice(wsi, "cgi stdout ended in its headers");
+
+			return -1;
+		}
+
+		lwsl_wsi_debug(wsi, "-- 0x%02X %c %d %d", (unsigned char)c, c,
+				    wsi->http.cgi->match[1], wsi->io->hdr_state);
+		if (!c)
+			return -1;
+		do {
+			int reprocess = 0;
+			switch (wsi->io->hdr_state) {
+			case LCHS_HEADER:
+				for (n = 0; n < SIGNIFICANT_HDR_COUNT; n++) {
+				/*
+				 * significant headers with
+				 * numeric decimal payloads
+				 */
+				if (!significant_hdr[n][wsi->http.cgi->match[n]] &&
+				    (c >= '0' && c <= '9') &&
+				    wsi->http.cgi->lp < (int)sizeof(wsi->http.cgi->l) - 1) {
+					wsi->http.cgi->l[wsi->http.cgi->lp++] = c;
+					wsi->http.cgi->l[wsi->http.cgi->lp] = '\0';
+					switch (n) {
+					case SIGNIFICANT_HDR_CONTENT_LENGTH:
+						wsi->http.cgi->content_length =
+							(lws_filepos_t)atoll(wsi->http.cgi->l);
+						break;
+					case SIGNIFICANT_HDR_STATUS:
+						wsi->http.cgi->response_code =
+							atoi(wsi->http.cgi->l);
+						lwsl_wsi_debug(wsi, "Status set to %d",
+								wsi->http.cgi->response_code);
+						break;
+					default:
+						break;
+					}
+				}
+				/* hits up to the NUL are sticky until next hdr */
+				if (significant_hdr[n][wsi->http.cgi->match[n]]) {
+					if (tolower(c) ==
+					    significant_hdr[n][wsi->http.cgi->match[n]])
+						wsi->http.cgi->match[n]++;
+					else
+						wsi->http.cgi->match[n] = 0;
+				}
+			}
+
+			/* some cgi only send us \x0a for EOL */
+			if (c == '\x0a') {
+				wsi->io->hdr_state = LCHS_SINGLE_0A;
+				*wsi->http.cgi->headers_pos++ = '\x0d';
+			}
+			*wsi->http.cgi->headers_pos++ = (unsigned char)c;
+			if (c == '\x0d')
+				wsi->io->hdr_state = LCHS_LF1;
+
+			if (wsi->io->hdr_state != LCHS_HEADER &&
+			    !significant_hdr[SIGNIFICANT_HDR_TRANSFER_ENCODING]
+				    [wsi->http.cgi->match[
+					 SIGNIFICANT_HDR_TRANSFER_ENCODING]]) {
+				lwsl_wsi_info(wsi, "cgi produced chunked");
+				wsi->http.cgi->explicitly_chunked = 1;
+			}
+
+			/* presence of Location: mandates 302 retcode */
+			if (wsi->io->hdr_state != LCHS_HEADER &&
+			    !significant_hdr[SIGNIFICANT_HDR_LOCATION][
+			      wsi->http.cgi->match[SIGNIFICANT_HDR_LOCATION]]) {
+				lwsl_wsi_debug(wsi, "CGI: Location hdr seen");
+				wsi->http.cgi->response_code = 302;
+			}
+			break;
+		case LCHS_LF1:
+			*wsi->http.cgi->headers_pos++ = (unsigned char)c;
+			if (c == '\x0a') {
+				wsi->io->hdr_state = LCHS_CR2;
+				break;
+			}
+			/* we got \r[^\n]... it's unreasonable */
+			lwsl_wsi_debug(wsi, "funny CRLF 0x%02X",
+					    (unsigned char)c);
+			return -1;
+
+		case LCHS_CR2:
+			if (c == '\x0d') {
+				/* drop the \x0d */
+				wsi->io->hdr_state = LCHS_LF2;
+				break;
+			}
+			wsi->io->hdr_state = LCHS_HEADER;
+			for (n = 0; n < SIGNIFICANT_HDR_COUNT; n++)
+				wsi->http.cgi->match[n] = 0;
+			wsi->http.cgi->lp = 0;
+			reprocess = 1;
+			break;
+
+		case LCHS_LF2:
+		case LCHS_SINGLE_0A:
+			m = wsi->io->hdr_state;
+			if (c == '\x0a') {
+				lwsl_wsi_debug(wsi, "Content-Length: %lld",
+					(unsigned long long)
+					wsi->http.cgi->content_length);
+				wsi->io->hdr_state = LHCS_RESPONSE;
+				/*
+				 * drop the \0xa ... finalize
+				 * will add it if needed (HTTP/1)
+				 */
+				break;
+			}
+			if (m == LCHS_LF2)
+				/* we got \r\n\r[^\n]... unreasonable */
+				return -1;
+			/* we got \x0anext header, it's reasonable */
+			*wsi->http.cgi->headers_pos++ = (unsigned char)c;
+			wsi->io->hdr_state = LCHS_HEADER;
+			for (n = 0; n < SIGNIFICANT_HDR_COUNT; n++)
+				wsi->http.cgi->match[n] = 0;
+			wsi->http.cgi->lp = 0;
+			break;
+		case LHCS_PAYLOAD:
+				break;
+			}
+			if (!reprocess)
+				break;
+		} while (1);
+	}
+
+	/* payload processing */
+
+	m = !wsi->http.cgi->implied_chunked && !wsi->mux_substream &&
+	    !wsi->http.cgi->content_length;
+	n = lws_get_socket_fd(lws_cgi_get_stdwsi(wsi, LWS_STDOUT));
+	if (n < 0)
+		return -1;
+
+	lws_fileofs_t wa = lws_get_peer_write_allowance(wsi);
+	if (wa == 0) {
+		/*
+		 * The h2 peer's window is shut: nothing can go until its
+		 * WINDOW_UPDATE, which makes the stream writeable again.
+		 * Keep our reason for then, but neither ask for a writeable
+		 * nor watch stdout meanwhile: either would only spin until
+		 * the window opens.
+		 */
+		wsi->reason_bf |= LWS_CB_REASON_AUX_BF__CGI;
+
+		return 0;
+	}
+
+	int to_read = sizeof(buf) - LWS_PRE - 16;
+	if (wa > 0 && to_read > (int)wa)
+		to_read = (int)wa;
+
+	n = (int)read(n, start, (size_t)to_read);
+
+	if (n < 0 && errno != EAGAIN) {
+		lwsl_wsi_debug(wsi, "stdout read says %d", n);
+		return -1;
+	}
+
+	if (n < 0 && errno == EAGAIN) {
+		lwsl_wsi_notice(wsi, "CGI stdout EAGAIN... yielding instead of EOF");
+		lws_cgi_stdout_want_more(wsi);
+
+		return 0;
+	}
+
+	if (n > 0) {
+		// lwsl_hexdump_notice(buf, n);
+
+		if (!wsi->mux_substream && m) {
+			char chdr[LWS_HTTP_CHUNK_HDR_SIZE];
+			m = lws_snprintf(chdr, LWS_HTTP_CHUNK_HDR_SIZE - 3,
+					 "%X\x0d\x0a", n);
+			memmove(start + m, start, (unsigned int)n);
+			memcpy(start, chdr, (unsigned int)m);
+			memcpy(start + m + n, "\x0d\x0a", 2);
+			n += m + 2;
+		}
+
+
+#if defined(LWS_WITH_HTTP2)
+		if (wsi->mux_substream) {
+			struct lws *nwsi = lws_get_network_wsi(wsi);
+
+			/*
+			 * We hold no lock here: the locking form of the
+			 * timeout takes the context and pt locks to change
+			 * the pt's sul list
+			 */
+			lws_set_timeout(wsi,
+				PENDING_TIMEOUT_HTTP_KEEPALIVE_IDLE, 31);
+
+			if (!nwsi->immortal_substream_count)
+				lws_set_timeout(nwsi,
+					PENDING_TIMEOUT_HTTP_KEEPALIVE_IDLE, 31);
+		}
+#endif
+
+		cmd = LWS_WRITE_HTTP;
+		if (wsi->http.cgi->content_length_seen + (unsigned int)n ==
+						wsi->http.cgi->content_length)
+			cmd = LWS_WRITE_HTTP_FINAL;
+
+		m = lws_write(wsi, (unsigned char *)start, (unsigned int)n, (enum lws_write_protocol)cmd);
+		//lwsl_notice("write %d\n", m);
+		if (m < 0) {
+			lwsl_wsi_debug(wsi, "stdout write says %d\n", m);
+			return -1;
+		}
+		wsi->http.cgi->content_length_seen += (unsigned int)n;
+		lws_cgi_stdout_want_more(wsi);
+	} else {
+
+		lwsl_wsi_info(wsi, "CGI stdout reached EOF (n=%d)", n);
+
+		if (!wsi->mux_substream && m) {
+			uint8_t term[LWS_PRE + 6];
+
+			lwsl_wsi_info(wsi, "sent trailer");
+			memcpy(term + LWS_PRE, (uint8_t *)"0\x0d\x0a\x0d\x0a", 5);
+
+			if (lws_write(wsi, term + LWS_PRE, 5,
+				      LWS_WRITE_HTTP_FINAL) != 5)
+				return -1;
+
+			wsi->http.cgi->cgi_transaction_over = 1;
+
+			return 0;
+		}
+
+		if (wsi->cgi_stdout_zero_length) {
+			lwsl_wsi_debug(wsi, "stdout is POLLHUP'd");
+			if (wsi->mux_substream) {
+				m = lws_write(wsi, (unsigned char *)start, 0,
+					      LWS_WRITE_HTTP_FINAL);
+				wsi->http.cgi->cgi_transaction_over = 1;
+			} else
+				return -1;
+			return 1;
+		}
+		wsi->cgi_stdout_zero_length = 1;
+		lws_cgi_stdout_want_more(wsi);
+	}
+	return 0;
+
+bail_recode:
+#if defined(LWS_ROLE_H3)
+	/* the QPACK prefix it reserved is in the block we are abandoning */
+	wsi->http.h3_prefix_ptr = NULL;
+#endif
+
+	return -1;
+}
+
+int
+lws_cgi_kill(struct lws *wsi)
+{
+	struct lws_cgi_args args;
+	pid_t pid;
+	int n, m = 0;
+
+	if (!wsi->http.cgi || !wsi->http.cgi->lsp)
+		return 0;
+
+	pid = wsi->http.cgi->lsp->child_pid;
+
+	args.stdwsi = &wsi->http.cgi->lsp->stdwsi[0];
+	/*
+	 * That only signals him: the lsp stays, and whether or not he has gone
+	 * yet, destroying it in lws_cgi_release() hands him on to be collected
+	 * (and SIGKILLed if he ignores this) after the lsp is gone
+	 */
+	lws_spawn_piped_kill_child_process(wsi->http.cgi->lsp);
+
+	if (pid != -1) {
+		if (wsi->http.cgi)
+			m = wsi->http.cgi->being_closed;
+		n = user_callback_handle_rxflow(wsi->a.protocol->callback, wsi,
+						LWS_CALLBACK_CGI_TERMINATED,
+						wsi->user_space, (void *)&args,
+						(unsigned int)pid);
+		if (n && !m)
+			lws_close_free_wsi(wsi, 0, "lws_cgi_kill");
+	}
+
+	return 0;
+}
+
+int
+lws_cgi_kill_terminated(struct lws_context_per_thread *pt)
+{
+	int status, n = 1;
+
+	while (n > 0) {
+		/* find finished guys but don't reap yet */
+		n = waitpid(-1, &status, WNOHANG);
+		if (n <= 0)
+			continue;
+		lwsl_cx_debug(pt->context, "observed PID %d terminated", n);
+
+		/* is it one of the subprocesses on the cgi list? */
+		lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
+				lws_dll2_get_head(&pt->http.cgi_owner)) {
+			struct lws_cgi *cgi = lws_container_of(d,
+						struct lws_cgi, list);
+
+			/*
+			 * ->lsp is NULLed by lws_spawn_reap() while the cgi
+			 * stays on our list, so it must be checked here too
+			 */
+
+			if (!cgi->lsp || cgi->lsp->child_pid != n)
+				continue;
+
+			/*
+			 * It is this cgi's child we just collected.  Whatever
+			 * we do about it now, his pid may be anybody's from
+			 * here on: the lsp must know he went, or a later kill
+			 * of the cgi signals the pid, and the pass below never
+			 * sees him go
+			 */
+			lws_spawn_note_reaped(cgi->lsp, &status);
+
+			/* finish sending cached headers */
+			if (cgi->headers_buf)
+				break;
+
+			/* wait for stdout to be drained */
+			if (cgi->content_length > cgi->content_length_seen)
+				break;
+
+			if (cgi->content_length) {
+				lwsl_cx_debug(pt->context, "expected content "
+							   "length seen: %lld",
+				(unsigned long long)cgi->content_length_seen);
+			}
+
+			lwsl_cx_info(pt->context, "reaping cgi pid %d (content len %d, clen seen %d)", (int)n, (int)cgi->content_length, (int)cgi->content_length_seen);
+
+			/*
+			 * he's already terminated so no need for kill()
+			 * but we should do the terminated cgi callback
+			 * and close him if he's not already closing
+			 */
+
+			if (!cgi->content_length) {
+				/*
+				 * well, if he sends chunked...
+				 * give him 2s after the
+				 * cgi terminated to send buffered
+				 */
+				cgi->chunked_grace++;
+				break;
+			}
+
+			/* we are done with him */
+			cgi->lsp->child_pid = 0;
+			lws_cgi_kill(cgi->wsi);
+
+			break;
+		} lws_end_foreach_dll_safe(d, d1);
+	}
+
+	/* check all the subprocesses on the cgi list */
+	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
+			lws_dll2_get_head(&pt->http.cgi_owner)) {
+		struct lws_cgi *cgi = lws_container_of(d, struct lws_cgi, list);
+		int do_finish = 0;
+
+		if (!cgi->lsp || cgi->lsp->child_pid <= 0)
+			continue;
+
+		/* we deferred killing him after reaping his PID */
+		if (cgi->chunked_grace) {
+			cgi->chunked_grace++;
+			if (cgi->chunked_grace < 5)
+				continue;
+			do_finish = 1;
+		}
+
+		/* finish sending cached headers */
+		if (!do_finish && cgi->headers_buf)
+			continue;
+
+		/* wait for stdout to be drained */
+		if (!do_finish && cgi->content_length > cgi->content_length_seen)
+			continue;
+
+		if (!do_finish && cgi->content_length)
+			lwsl_wsi_debug(cgi->wsi, "expected cont len seen: %lld",
+				  (unsigned long long)cgi->content_length_seen);
+
+		/* reap it, if nobody did yet */
+		if (!do_finish && !cgi->lsp->reaped &&
+		    waitpid(cgi->lsp->child_pid, &status, WNOHANG) > 0)
+			lws_spawn_note_reaped(cgi->lsp, &status);
+
+		if (do_finish || cgi->lsp->reaped) {
+
+			if (!do_finish && !cgi->content_length) {
+				/*
+				 * well, if he sends chunked...
+				 * give him 2s after the
+				 * cgi terminated to send buffered
+				 */
+				cgi->chunked_grace += 4;
+				continue;
+			}
+			lwsl_cx_debug(pt->context, "found PID %d on cgi list",
+						   cgi->lsp->child_pid);
+
+			/* we are done with him */
+			cgi->lsp->child_pid = 0;
+			lws_cgi_kill(cgi->wsi);
+
+			break;
+		}
+	} lws_end_foreach_dll_safe(d, d1);
+
+	return 0;
+}
+
+struct lws *
+lws_cgi_get_stdwsi(struct lws *wsi, enum lws_enum_stdinouterr ch)
+{
+	if (!wsi->http.cgi || !wsi->http.cgi->lsp)
+		return NULL;
+
+	return wsi->http.cgi->lsp->stdwsi[ch];
+}
+
+void
+lws_cgi_remove_and_kill(struct lws *wsi)
+{
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+
+	/* remove us from the cgi list */
+
+	lws_cgi_list_remove(pt, wsi->http.cgi);
+
+	if (wsi->http.cgi->headers_buf)
+		lws_free_set_NULL(wsi->http.cgi->headers_buf);
+
+	/* we have a cgi going, we must kill it */
+	wsi->http.cgi->being_closed = 1;
+	lws_cgi_kill(wsi);
+}
+
+/*
+ * The request body that was being relayed to the cgi's stdin is complete:
+ * close our end of the stdin pipe so the child sees EOF, without taking the
+ * rest of the cgi and its other pipes down with it.
+ *
+ * A body with a Content-Length ends when post_in_expected is counted down to
+ * zero in the CGI_STDIN_DATA relay; a chunked body ends at its last-chunk,
+ * which only the body decoder sees, so it calls here.
+ *
+ * While the body came, its own timeout stood in for the cgi's.  Now it is all
+ * here, the cgi has its own timeout again to answer in: the mount's
+ * cgi_timeout, not the context's timeout_secs, which killed a git-http-backend
+ * still packing quietly at 15s.  Unless the answer is already going, under the
+ * response's watchdog that its sending renews.
+ */
+void
+lws_cgi_stdin_body_end(struct lws *wsi)
+{
+	struct lws *siwsi;
+
+	if (!wsi->http.cgi)
+		return;
+
+	if (!wsi->http.sent_response_headers) {
+		if (wsi->http.cgi->timeout_secs)
+			lws_set_timeout(wsi, PENDING_TIMEOUT_CGI,
+					wsi->http.cgi->timeout_secs);
+		else
+			lws_set_timeout(wsi, NO_PENDING_TIMEOUT, 0);
+	}
+
+	if (!wsi->http.cgi->lsp)
+		return;
+
+	siwsi = wsi->http.cgi->lsp->stdwsi[LWS_STDIN];
+	if (!siwsi || siwsi->io->desc.filefd <= 0)
+		return;
+
+	lwsl_wsi_info(siwsi, "request body complete: closing stdin fd %d",
+		      siwsi->io->desc.sockfd);
+
+	/*
+	 * We don't want the child / parent relationship to be handled in
+	 * close, since we want the rest of the cgi and children to stay up
+	 */
+
+	lws_remove_child_from_any_parent(siwsi);
+	lws_wsi_close(siwsi, LWS_TO_KILL_ASYNC);
+	/*
+	 * lws_spawn_stdwsi_closed() finds which pipe died by looking the
+	 * stdwsi up in the lsp and clears the slot itself, so it must not be
+	 * cleared first or pipes_alive is never decremented and the graceful
+	 * reap is blocked
+	 */
+	lws_spawn_stdwsi_closed(wsi->http.cgi->lsp, siwsi);
+}
+
+/*
+ * What the child wrote on its stderr: read from its stderr pipe wsi, into
+ * buf.  Returns what read() does, or -1 when the pipe is gone.
+ */
+int
+lws_cgi_stderr_read(struct lws *stdwsi, char *buf, size_t len)
+{
+	int n;
+
+	if (!lws_socket_is_valid(stdwsi->io->desc.sockfd))
+		return -1;
+
+	n = (int)read(stdwsi->io->desc.sockfd, buf, LWS_POSIX_LENGTH_CAST(len));
+	if (!n)
+		/* the child let go of it, and all it wrote is read */
+		stdwsi->io->lsp_eof = 1;
+
+	return n;
+}
+
+/*
+ * The transaction is finished with its cgi: the child and its pipes, and
+ * the cgi object itself, go
+ */
+void
+lws_cgi_release(struct lws *wsi)
+{
+	if (!wsi->http.cgi)
+		return;
+
+	lws_spawn_piped_destroy(&wsi->http.cgi->lsp);
+	lws_sul_cancel(&wsi->http.cgi->sul_grace);
+	lws_free_set_NULL(wsi->http.cgi);
+}
+
+/*
+ * One of a cgi's stdio pipes is closing: it is no longer the child's.  The
+ * logical cgi stays, so it can be drained.
+ *
+ * lws_spawn_stdwsi_closed() finds which pipe it is by looking for it in the
+ * lsp, clears the slot itself and counts the pipe down, so that the spawn's
+ * own reap follows the last one: the slot must not be cleared here first, or
+ * the count never reaches 0 (the C-449 shape).
+ */
+void
+lws_cgi_stdwsi_quiesce(struct lws *wsi)
+{
+	if (!lwsi_role_cgi(wsi) || !wsi->parent || !wsi->parent->http.cgi)
+		return;
+
+	lws_spawn_stdwsi_closed(wsi->parent->http.cgi->lsp, wsi);
+}
+
+/*
+ * The http transaction's request body goes to the cgi's stdin, as much of
+ * it as the pipe takes now.  Returns what it took: 0 when the pipe is full,
+ * a normal backpressure condition, and the stdin pipe is then watched for
+ * writable, so the cgi role's stdin POLLOUT lets the transaction read again
+ * when it drains; -1 when the stdin is gone or failed.
+ */
+int
+lws_cgi_stdin_write(struct lws_cgi_args *args)
+{
+	int n;
+
+	if (!args->stdwsi[LWS_STDIN])
+		return -1;
+	n = lws_get_socket_fd(args->stdwsi[LWS_STDIN]);
+	if (n < 0)
+		return -1;
+
+	/*
+	 * The data is only consumed using its explicit length: the buffer it
+	 * arrives in is not guaranteed to have a spare byte after it
+	 */
+	n = (int)write(n, args->data, (unsigned int)args->len);
+	if (n < 0) {
+		/*
+		 * Anything but the pipe being momentarily full (eg, EPIPE
+		 * from the cgi going away) really is fatal for the transaction
+		 */
+		if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
+			return -1;
+		n = 0;
+	}
+
+	if (n < args->len &&
+	    lws_change_pollfd(args->stdwsi[LWS_STDIN], 0, LWS_POLLOUT))
+		return -1;
+
+	return n;
+}
+

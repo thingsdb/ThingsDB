@@ -1,0 +1,2151 @@
+/*
+ * libwebsockets - small server side websockets and web server implementation
+ *
+ * Copyright (C) 2010 - 2021 Andy Green <andy@warmcat.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+
+#include "private-lib-core.h"
+#include "private-lib-tls.h"
+#include "private.h"
+
+/* Helper to manage SChannel buffers */
+	static int
+lws_tls_schannel_realloc_buffer(struct lws_tls_schannel_conn *conn, size_t new_size)
+{
+	if (new_size <= conn->rx_alloc)
+		return 0;
+
+	uint8_t *new_buf = lws_realloc(conn->rx_buf, new_size, "schannel_rx");
+	if (!new_buf)
+		return 1;
+
+	conn->rx_buf = new_buf;
+	conn->rx_alloc = new_size;
+	return 0;
+}
+
+/*
+ * Schannel takes an alpn list as SEC_APPLICATION_PROTOCOLS: a u32 size of
+ * what follows, then one SEC_APPLICATION_PROTOCOL_LIST, ie, a u32 extension
+ * type, a u16 list size and the list in wire format.  Build one into buf from
+ * a comma-separated list.
+ *
+ * Only the alpns the connection's transport can carry are offered, see
+ * lws_alpn_for_transport().
+ *
+ * Returns the length used in buf, or 0 if there is nothing to offer.
+ */
+
+size_t
+lws_tls_schannel_alpn_buf(const char *alpn_comma, int quic, uint8_t *buf,
+			  size_t len)
+{
+	uint8_t *p;
+	char filtered[128];
+	uint32_t u32;
+	uint16_t u16;
+	int n;
+
+	if (!alpn_comma || len < 12 ||
+	    !lws_alpn_for_transport(alpn_comma, filtered, sizeof(filtered),
+				    quic))
+		return 0;
+
+	n = lws_alpn_comma_to_openssl(filtered, buf + 10, (int)(len - 11));
+	if (n <= 0)
+		return 0;
+
+	p = buf + 10 + n;
+
+	u16 = (uint16_t)lws_ptr_diff_size_t(p, buf + 10);
+	u32 = 6u + u16;
+	memcpy(buf, &u32, 4);
+	u32 = 2; /* SecApplicationProtocolNegotiationExt_ALPN */
+	memcpy(buf + 4, &u32, 4);
+	memcpy(buf + 8, &u16, 2);
+
+	return lws_ptr_diff_size_t(p, buf);
+}
+
+int
+lws_ssl_client_bio_create(struct lws *wsi)
+{
+	struct lws_tls_schannel_conn *conn;
+	char hostname[LWS_TLS_CLIENT_HOSTNAME_LEN];
+
+	conn = lws_zalloc(sizeof(*conn), "schannel_conn");
+	if (!conn) return -1;
+
+	wsi->io->tls.ssl = conn;
+
+	if (wsi->stash) {
+		lws_strncpy(hostname, wsi->stash->cis[CIS_HOST], sizeof(hostname));
+	} else {
+#if defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2)
+		if (lws_hdr_copy(wsi, hostname, sizeof(hostname),
+					_WSI_TOKEN_CLIENT_HOST) <= 0)
+#endif
+		{
+			lwsl_err("%s: Unable to get hostname\n", __func__);
+			return -1;
+		}
+	}
+
+	/* Handle port stripping */
+	if (lws_tls_client_strip_port(hostname) &&
+	    !(wsi->use_ssl & LCCSCF_SKIP_SERVER_CERT_HOSTNAME_CHECK)) {
+		/*
+		 * Nothing usable is left of it ("[", "[]", ":port") and we were
+		 * not told to skip the name check.  Fail closed rather than
+		 * hand an empty pwszServerName to the SSL chain policy, which
+		 * is how Schannel is told "do not match the name at all"
+		 * (C-408).
+		 */
+		lwsl_err("%s: no usable hostname for peer cert check\n",
+			 __func__);
+
+		return -1;
+	}
+
+	lws_strncpy(conn->hostname, hostname, sizeof(conn->hostname));
+
+	/* ALPN */
+#if defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2)
+	if (wsi->alpn[0])
+		lws_strncpy(conn->alpn, wsi->alpn, sizeof(conn->alpn));
+	else if (wsi->a.vhost->tls.alpn)
+		lws_strncpy(conn->alpn, wsi->a.vhost->tls.alpn, sizeof(conn->alpn));
+#endif
+
+	conn->relax = wsi->use_ssl & (unsigned int)
+			(LCCSCF_ALLOW_SELFSIGNED | LCCSCF_ALLOW_EXPIRED |
+			 LCCSCF_ALLOW_INSECURE |
+			 LCCSCF_SKIP_SERVER_CERT_HOSTNAME_CHECK);
+
+	return 0;
+}
+
+/*
+ * How many times a single service may go round the "SSPI wants more of this
+ * record" loop before we hand back to the event loop.  A peer that dribbles
+ * one handshake record out in tiny TCP segments must not be able to keep us
+ * in here (it used to recurse once per recv(), one stack frame at a time)
+ */
+
+#define LWS_SCH_HS_LOOP_BUDGET 8
+
+/* the same, for records that decrypt to no application data at all */
+
+#define LWS_SCH_RX_LOOP_BUDGET 16
+
+#if defined(LWS_WITH_TCP_TLS)
+	enum lws_ssl_capable_status
+lws_tls_client_connect(struct lws *wsi, char *errbuf, size_t len)
+{
+	struct lws_tls_schannel_conn *conn = wsi->io->tls.ssl;
+	struct lws_tls_schannel_ctx *ctx = wsi->a.vhost->tls.ssl_client_ctx;
+	SecBufferDesc out_desc, in_desc;
+       SecBuffer out_buf[1], in_buf[3];
+	ULONG req_attrs, ret_attrs;
+	SECURITY_STATUS status = SEC_E_INTERNAL_ERROR;
+	int budget = LWS_SCH_HS_LOOP_BUDGET;
+	ssize_t n;
+
+	if (!ctx || !conn)
+		return LWS_SSL_CAPABLE_ERROR;
+
+	req_attrs = ISC_REQ_SEQUENCE_DETECT | ISC_REQ_REPLAY_DETECT |
+		    ISC_REQ_CONFIDENTIALITY | ISC_REQ_STREAM |
+		    ISC_REQ_ALLOCATE_MEMORY | ISC_REQ_MANUAL_CRED_VALIDATION |
+		    ISC_REQ_USE_SUPPLIED_CREDS;
+
+	/* If we have pending output from previous step, try to send it */
+	if (conn->tx_buf && conn->tx_pos < conn->tx_len) {
+		n = send(wsi->io->desc.sockfd, (char *)conn->tx_buf + conn->tx_pos, (int)(conn->tx_len - conn->tx_pos), 0);
+		if (n < 0) {
+			if (LWS_ERRNO == LWS_EAGAIN || LWS_ERRNO == LWS_EWOULDBLOCK) {
+				lws_set_blocking_send(wsi);
+				return LWS_SSL_CAPABLE_MORE_SERVICE_WRITE;
+			}
+			return LWS_SSL_CAPABLE_ERROR;
+		}
+		conn->tx_pos += n;
+		if (conn->tx_pos < conn->tx_len)
+			return LWS_SSL_CAPABLE_MORE_SERVICE_WRITE;
+
+		lws_free_set_NULL(conn->tx_buf);
+		conn->tx_len = 0;
+		conn->tx_pos = 0;
+	}
+
+       if (conn->f_handshake_finished)
+               return LWS_SSL_CAPABLE_DONE;
+
+	uint8_t alpn_buf[256];
+	size_t alpn_len = lws_tls_schannel_alpn_buf(conn->alpn, 0, alpn_buf,
+						    sizeof(alpn_buf));
+
+	while (budget--) {
+
+	/*
+	 * in_buf[] is consulted below for SECBUFFER_EXTRA whichever branch we
+	 * took, but the initial branch hands SSPI its own in_bufs[]... so it
+	 * has to start out defined every time round
+	 */
+
+	memset(in_buf, 0, sizeof(in_buf));
+
+	if (!conn->f_context_init) {
+		/* Initial call */
+		SecBuffer in_bufs[1];
+		SecBufferDesc in_desc_initial;
+
+               in_bufs[0].BufferType = SECBUFFER_EMPTY;
+               in_bufs[0].pvBuffer = NULL;
+               in_bufs[0].cbBuffer = 0;
+		in_desc_initial.cBuffers = 0;
+               in_desc_initial.pBuffers = in_bufs;
+		in_desc_initial.ulVersion = SECBUFFER_VERSION;
+
+               if (alpn_len > 0) {
+			in_bufs[0].BufferType = SECBUFFER_APPLICATION_PROTOCOLS;
+			in_bufs[0].pvBuffer = alpn_buf;
+                       in_bufs[0].cbBuffer = (unsigned long)alpn_len;
+			in_desc_initial.cBuffers = 1;
+		}
+
+               out_buf[0].BufferType = SECBUFFER_TOKEN;
+               out_buf[0].cbBuffer = 0;
+               out_buf[0].pvBuffer = NULL;
+               out_desc.cBuffers = 1;
+               out_desc.pBuffers = out_buf;
+               out_desc.ulVersion = SECBUFFER_VERSION;
+
+		status = InitializeSecurityContextA(&ctx->cred, NULL, conn->hostname, req_attrs, 0, 0,
+				(in_desc_initial.cBuffers > 0) ? &in_desc_initial : NULL,
+				0, &conn->ctxt, &out_desc, &ret_attrs, NULL);
+               lwsl_notice("%s: InitSecCtx (initial) returned 0x%x\n", __func__, (int)status);
+
+		conn->f_context_init = 1;
+	} else {
+		/* Continuation */
+		if (conn->rx_len == 0) {
+			if (conn->rx_alloc < 4096) lws_tls_schannel_realloc_buffer(conn, 4096);
+
+			n = recv(wsi->io->desc.sockfd, (char *)conn->rx_buf, (int)conn->rx_alloc, 0);
+			if (n < 0) {
+				if (LWS_ERRNO == LWS_EAGAIN || LWS_ERRNO == LWS_EWOULDBLOCK)
+					return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
+				return LWS_SSL_CAPABLE_ERROR;
+			} else if (n == 0) {
+				return LWS_SSL_CAPABLE_ERROR;
+			}
+			conn->rx_len = n;
+		}
+
+		in_buf[0].BufferType = SECBUFFER_TOKEN;
+		in_buf[0].pvBuffer = conn->rx_buf;
+		in_buf[0].cbBuffer = (unsigned long)conn->rx_len;
+		in_buf[1].BufferType = SECBUFFER_EMPTY;
+		in_buf[1].pvBuffer = NULL;
+		in_buf[1].cbBuffer = 0;
+		in_desc.cBuffers = 2;
+
+               if (alpn_len > 0) {
+                       in_buf[2].BufferType = SECBUFFER_APPLICATION_PROTOCOLS;
+                       in_buf[2].pvBuffer = alpn_buf;
+                       in_buf[2].cbBuffer = (unsigned long)alpn_len;
+                       in_desc.cBuffers = 3;
+               }
+
+		in_desc.pBuffers = in_buf;
+		in_desc.ulVersion = SECBUFFER_VERSION;
+
+		out_buf[0].BufferType = SECBUFFER_TOKEN;
+		out_buf[0].cbBuffer = 0;
+		out_buf[0].pvBuffer = NULL;
+		out_desc.cBuffers = 1;
+		out_desc.pBuffers = out_buf;
+		out_desc.ulVersion = SECBUFFER_VERSION;
+
+		status = InitializeSecurityContextA(&ctx->cred, &conn->ctxt, conn->hostname, req_attrs, 0, 0,
+				&in_desc, 0, NULL, &out_desc, &ret_attrs, NULL);
+               lwsl_notice("%s: InitSecCtx (cont) returned 0x%x\n", __func__, (int)status);
+	}
+
+	if (status == SEC_E_INCOMPLETE_MESSAGE) {
+		if (conn->rx_len == conn->rx_alloc) {
+			if (lws_tls_schannel_realloc_buffer(conn, conn->rx_alloc + 2048))
+				return LWS_SSL_CAPABLE_ERROR;
+		}
+
+		n = recv(wsi->io->desc.sockfd, (char *)conn->rx_buf + conn->rx_len, (int)(conn->rx_alloc - conn->rx_len), 0);
+		if (n < 0) {
+			if (LWS_ERRNO == LWS_EAGAIN || LWS_ERRNO == LWS_EWOULDBLOCK)
+				return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
+			return LWS_SSL_CAPABLE_ERROR;
+		} else if (n == 0) {
+			return LWS_SSL_CAPABLE_ERROR;
+		}
+		conn->rx_len += n;
+
+		continue;
+	}
+
+	break;
+
+	} /* while (budget--) */
+
+	if (status == SEC_E_INCOMPLETE_MESSAGE)
+		/* still short of a whole record, come back when there's more */
+		return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
+
+	if (status == SEC_I_CONTINUE_NEEDED || status == SEC_E_OK) {
+		if (out_buf[0].cbBuffer > 0 && out_buf[0].pvBuffer) {
+			conn->tx_buf = lws_malloc(out_buf[0].cbBuffer, "schannel_tx");
+			if (!conn->tx_buf) {
+				FreeContextBuffer(out_buf[0].pvBuffer);
+				return LWS_SSL_CAPABLE_ERROR;
+			}
+			memcpy(conn->tx_buf, out_buf[0].pvBuffer, out_buf[0].cbBuffer);
+			conn->tx_len = out_buf[0].cbBuffer;
+			conn->tx_pos = 0;
+			FreeContextBuffer(out_buf[0].pvBuffer);
+		}
+
+		if (in_buf[1].BufferType == SECBUFFER_EXTRA &&
+		    in_buf[1].cbBuffer > 0 && conn->rx_buf &&
+		    conn->rx_len >= in_buf[1].cbBuffer) {
+			memmove(conn->rx_buf, (uint8_t*)conn->rx_buf + (conn->rx_len - in_buf[1].cbBuffer), in_buf[1].cbBuffer);
+			conn->rx_len = in_buf[1].cbBuffer;
+		} else {
+			conn->rx_len = 0;
+		}
+
+		if (status == SEC_E_OK) {
+			conn->f_handshake_finished = 1;
+			if (QueryContextAttributes(&conn->ctxt,
+						   SECPKG_ATTR_STREAM_SIZES,
+						   &conn->stream_sizes) !=
+								SEC_E_OK ||
+			    !conn->stream_sizes.cbMaximumMessage) {
+				lwsl_wsi_err(wsi, "no stream sizes");
+
+				return LWS_SSL_CAPABLE_ERROR;
+			}
+               }
+
+               if (conn->tx_buf) {
+                       n = send(wsi->io->desc.sockfd, (char *)conn->tx_buf, (int)conn->tx_len, 0);
+                       if (n < 0) {
+                               if (LWS_ERRNO == LWS_EAGAIN || LWS_ERRNO == LWS_EWOULDBLOCK) {
+                                       lws_set_blocking_send(wsi);
+                                       return LWS_SSL_CAPABLE_MORE_SERVICE_WRITE;
+                               }
+                       } else {
+                               conn->tx_pos += n;
+                               if (conn->tx_pos == conn->tx_len) {
+                                       lws_free_set_NULL(conn->tx_buf);
+                                       conn->tx_len = 0;
+                               } else {
+                                       return LWS_SSL_CAPABLE_MORE_SERVICE_WRITE;
+                               }
+                       }
+		}
+
+               if (status == SEC_E_OK) {
+                       return LWS_SSL_CAPABLE_DONE;
+               }
+
+		return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
+	}
+
+	lwsl_err("%s: InitializeSecurityContext failed 0x%x\n", __func__, (int)status);
+	if (errbuf && len)
+		lws_snprintf(errbuf, len, "InitializeSecurityContext: 0x%x",
+			     (unsigned int)status);
+
+	return LWS_SSL_CAPABLE_ERROR;
+}
+
+int
+lws_tls_server_new_nonblocking(struct lws *wsi, lws_sockfd_type accept_fd)
+{
+	struct lws_tls_schannel_conn *conn;
+
+	conn = lws_zalloc(sizeof(*conn), "schannel_conn_srv");
+	if (!conn)
+		return 1;
+
+	wsi->io->tls.ssl = conn;
+
+	wsi->io->tls.ctx_ref = lws_tls_ctx_ref_get(wsi->a.vhost);
+
+	return 0;
+}
+#endif
+
+#if defined(LWS_WITH_SERVER)
+
+int
+lws_tls_schannel_want_client_cert(struct lws_vhost *vh)
+{
+	return lws_check_opt(vh->options,
+			     LWS_SERVER_OPTION_REQUIRE_VALID_OPENSSL_CLIENT_CERT) ||
+	       lws_check_opt(vh->options,
+		LWS_SERVER_OPTION_MBEDTLS_VERIFY_CLIENT_CERT_POST_HANDSHAKE);
+}
+
+/*
+ * Bind a server connection to the vhost the SNI name he sent selects, before
+ * Schannel has seen his ClientHello, for tcp and quic alike.
+ *
+ * Returns 0 if the handshake may go ahead on wsi's (possibly just changed)
+ * vhost, or 1 if the name selects nothing and he must be refused.
+ */
+
+int
+lws_tls_schannel_sni_bind(struct lws *wsi, const char *name)
+{
+	struct lws_vhost *vh = wsi->a.vhost;
+	struct lws_tls_ctx_ref *ref;
+
+	if (lws_tls_server_sni_select(wsi, name))
+		return 1;
+
+	if (wsi->a.vhost == vh)
+		return 0;
+
+	/*
+	 * We moved him to another vhost: the lifetime reference the accept
+	 * took has to follow, since the credential handle the handshake runs
+	 * with comes from it
+	 */
+
+	ref = lws_tls_ctx_ref_get(wsi->a.vhost);
+	if (wsi->io->tls.ctx_ref)
+		lws_tls_ctx_ref_unref(wsi->io->tls.ctx_ref);
+	wsi->io->tls.ctx_ref = ref;
+
+	return 0;
+}
+
+/*
+ * Server-side SNI.
+ *
+ * Schannel has no servername callback: AcceptSecurityContext() consumes the
+ * ClientHello with the credential handle, and so the certificate and the
+ * client-certificate policy, already chosen.  The only chance to choose them
+ * from the name he asked for is before that first call... at which point the
+ * ClientHello is already sitting in our own rx buffer, so we read the name
+ * out of it ourselves and select the vhost with it.
+ *
+ * Returns 0 if the handshake may proceed on wsi's (possibly just changed)
+ * vhost, 1 if we need more bytes from him first, or -1 if he has been refused
+ * (the alert is already on its way) or the connection is unusable.
+ */
+
+static int
+lws_tls_schannel_server_sni(struct lws *wsi)
+{
+	struct lws_tls_schannel_conn *conn = wsi->io->tls.ssl;
+	char name[256];
+	uint8_t ver[2];
+	ssize_t s;
+	int n;
+
+	n = lws_tls_client_hello_sni(conn->rx_buf, conn->rx_len, name,
+				     sizeof(name));
+
+	while (n == LWS_TLS_CH_SNI_MORE) {
+
+		/* it may span several records, see lws_tls_client_hello_sni() */
+		if (conn->rx_len >= LWS_TLS_CH_MAX) {
+			/* he is not sending a ClientHello we can make sense of */
+			n = LWS_TLS_CH_SNI_NONE;
+			break;
+		}
+
+		if (conn->rx_len == conn->rx_alloc &&
+		    lws_tls_schannel_realloc_buffer(conn, conn->rx_alloc + 2048))
+			return -1;
+
+		s = recv(wsi->io->desc.sockfd, (char *)conn->rx_buf + conn->rx_len,
+			 (int)(conn->rx_alloc - conn->rx_len), 0);
+		if (s < 0) {
+			if (LWS_ERRNO == LWS_EAGAIN ||
+			    LWS_ERRNO == LWS_EWOULDBLOCK)
+				/*
+				 * Come back when there is more: what we have
+				 * stays in rx_buf and f_sni_done stays clear,
+				 * so we resume where we left off
+				 */
+				return 1;
+
+			return -1;
+		}
+
+		if (!s)
+			/* he hung up in the middle of his ClientHello */
+			return -1;
+
+		conn->rx_len += (size_t)s;
+
+		n = lws_tls_client_hello_sni(conn->rx_buf, conn->rx_len, name,
+					     sizeof(name));
+	}
+
+	conn->f_sni_done = 1;
+
+	if (n == LWS_TLS_CH_SNI_NONE)
+		/* he named nothing: he is served by the vhost that accepted him */
+		return 0;
+
+	if (n == LWS_TLS_CH_SNI_FOUND && !lws_tls_schannel_sni_bind(wsi, name))
+		return 0;
+
+	/*
+	 * Either he named something served by no vhost on this listener, or
+	 * what he put in the server_name extension is not usable as a name.
+	 * Schannel is not involved yet, so we send the same fatal alert the
+	 * other backends send ourselves, echoing the record version he used
+	 * so he can parse it.
+	 */
+
+	ver[0] = conn->rx_buf[1];
+	ver[1] = conn->rx_buf[2];
+
+	lws_tls_server_send_alert(wsi, ver, LWS_TLS_ALERT_UNRECOGNIZED_NAME);
+
+	lwsi_set_skt_unusable(wsi, 1);
+
+	return -1;
+}
+
+#endif
+
+enum lws_ssl_capable_status
+lws_tls_server_accept(struct lws *wsi)
+{
+	struct lws_tls_schannel_conn *conn = wsi->io->tls.ssl;
+	struct lws_tls_schannel_ctx *ctx;
+	SecBufferDesc out_desc, in_desc;
+       SecBuffer out_buf[1], in_buf[3];
+	ULONG req_attrs, ret_attrs;
+	SECURITY_STATUS status = SEC_E_INTERNAL_ERROR;
+	int budget = LWS_SCH_HS_LOOP_BUDGET;
+	ssize_t n;
+
+    if (!conn) {
+        lwsl_wsi_err(wsi, "conn missing\n");
+        return LWS_SSL_CAPABLE_ERROR;
+    }
+
+	if (conn->f_handshake_finished)
+		return LWS_SSL_CAPABLE_DONE;
+
+	if (conn->tx_buf && conn->tx_pos < conn->tx_len) {
+		n = send(wsi->io->desc.sockfd, (char *)conn->tx_buf + conn->tx_pos, (int)(conn->tx_len - conn->tx_pos), 0);
+		if (n < 0) {
+			if (LWS_ERRNO == LWS_EAGAIN || LWS_ERRNO == LWS_EWOULDBLOCK) {
+				lws_set_blocking_send(wsi);
+				return LWS_SSL_CAPABLE_MORE_SERVICE_WRITE;
+			}
+			return LWS_SSL_CAPABLE_ERROR;
+		}
+		conn->tx_pos += n;
+		if (conn->tx_pos < conn->tx_len)
+			return LWS_SSL_CAPABLE_MORE_SERVICE_WRITE;
+		lws_free_set_NULL(conn->tx_buf);
+		conn->tx_len = 0;
+	}
+
+	if (conn->rx_len == 0) {
+		if (conn->rx_alloc < 4096) lws_tls_schannel_realloc_buffer(conn, 4096);
+		n = recv(wsi->io->desc.sockfd, (char *)conn->rx_buf, (int)conn->rx_alloc, 0);
+		if (n < 0) {
+			if (LWS_ERRNO == LWS_EAGAIN || LWS_ERRNO == LWS_EWOULDBLOCK)
+				return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
+             lwsl_err("%s: recv failed %d\n", __func__, LWS_ERRNO);
+			return LWS_SSL_CAPABLE_ERROR;
+		} else if (n == 0) {
+            lwsl_err("%s: recv 0 (EOF)\n", __func__);
+			return LWS_SSL_CAPABLE_ERROR;
+		}
+		conn->rx_len = n;
+        lwsl_info("%s: recv %d bytes client hello\n", __func__, (int)n);
+	}
+
+	/*
+	 * The ClientHello is in rx_buf but Schannel has not seen it yet: this
+	 * is the only moment at which the name he asked for can still decide
+	 * which vhost's credential, client-cert policy and ALPN list the
+	 * handshake runs with
+	 */
+
+	if (!conn->f_sni_done) {
+		int sni = lws_tls_schannel_server_sni(wsi);
+
+		if (sni < 0)
+			return LWS_SSL_CAPABLE_ERROR;
+
+		if (sni > 0)
+			return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
+	}
+
+	/* ...so everything below follows the vhost we are bound to now */
+
+	ctx = wsi->io->tls.ctx_ref ? wsi->io->tls.ctx_ref->ctx :
+				 wsi->a.vhost->tls.ssl_ctx;
+	if (!ctx) {
+		lwsl_wsi_err(wsi, "no tls ctx on vhost %s\n",
+			     wsi->a.vhost->name);
+
+		return LWS_SSL_CAPABLE_ERROR;
+	}
+
+	req_attrs = ASC_REQ_SEQUENCE_DETECT | ASC_REQ_REPLAY_DETECT |
+		ASC_REQ_CONFIDENTIALITY | ASC_REQ_STREAM |
+		ASC_REQ_ALLOCATE_MEMORY;
+
+	/*
+	 * If the vhost cares about client certificates at all, we have to ask
+	 * for one: without ASC_REQ_MUTUAL_AUTH Schannel never sends a
+	 * CertificateRequest and there is simply nothing to check afterwards
+	 */
+
+	if (lws_tls_schannel_want_client_cert(wsi->a.vhost)) {
+		req_attrs |= ASC_REQ_MUTUAL_AUTH;
+		conn->f_want_client_cert = 1;
+	}
+
+	/*
+	 * A vhost without its own alpn list offers the context default, the
+	 * same as the other tls backends do
+	 */
+
+	uint8_t alpn_buf[256];
+	size_t alpn_len = lws_tls_schannel_alpn_buf(wsi->a.vhost->tls.alpn ?
+				wsi->a.vhost->tls.alpn :
+				wsi->a.context->tls.alpn_default, 0,
+				alpn_buf, sizeof(alpn_buf));
+
+	while (budget--) {
+
+	memset(in_buf, 0, sizeof(in_buf));
+	in_buf[0].BufferType = SECBUFFER_TOKEN;
+	in_buf[0].pvBuffer = conn->rx_buf;
+	in_buf[0].cbBuffer = (unsigned long)conn->rx_len;
+	in_buf[1].BufferType = SECBUFFER_EMPTY;
+	in_buf[1].pvBuffer = NULL;
+	in_buf[1].cbBuffer = 0;
+	in_desc.cBuffers = 2;
+
+       if (alpn_len > 0) {
+               in_buf[2].BufferType = SECBUFFER_APPLICATION_PROTOCOLS;
+               in_buf[2].pvBuffer = alpn_buf;
+               in_buf[2].cbBuffer = (unsigned long)alpn_len;
+               in_desc.cBuffers = 3;
+       }
+
+	in_desc.pBuffers = in_buf;
+	in_desc.ulVersion = SECBUFFER_VERSION;
+
+	out_buf[0].BufferType = SECBUFFER_TOKEN;
+	out_buf[0].cbBuffer = 0;
+	out_buf[0].pvBuffer = NULL;
+	out_desc.cBuffers = 1;
+	out_desc.pBuffers = out_buf;
+	out_desc.ulVersion = SECBUFFER_VERSION;
+
+#if defined(LWS_WITH_LATENCY)
+	lws_usec_t _sch_ssl_acc_start = lws_now_usecs();
+#endif
+
+	status = AcceptSecurityContext(&ctx->cred, conn->f_context_init ? &conn->ctxt : NULL,
+			&in_desc, req_attrs, 0, &conn->ctxt,
+			&out_desc, &ret_attrs, NULL);
+
+#if defined(LWS_WITH_LATENCY)
+	{
+		unsigned int ms = (unsigned int)((lws_now_usecs() - _sch_ssl_acc_start) / 1000);
+		if (ms > 2 && !wsi->io->tls.ssl_accept_in_bg)
+			lws_latency_note(&wsi->a.context->pt[(int)wsi->tsi], _sch_ssl_acc_start, 2000, "ssl_accept:%dms", ms);
+	}
+#endif
+
+	conn->f_context_init = 1;
+
+    lwsl_info("%s: AcceptSecurityContext status 0x%x\n", __func__, (int)status);
+
+	if (status == SEC_E_INCOMPLETE_MESSAGE) {
+		if (conn->rx_len == conn->rx_alloc) {
+			if (lws_tls_schannel_realloc_buffer(conn, conn->rx_alloc + 2048))
+				return LWS_SSL_CAPABLE_ERROR;
+		}
+		n = recv(wsi->io->desc.sockfd, (char *)conn->rx_buf + conn->rx_len, (int)(conn->rx_alloc - conn->rx_len), 0);
+		if (n < 0) {
+			if (LWS_ERRNO == LWS_EAGAIN || LWS_ERRNO == LWS_EWOULDBLOCK)
+				return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
+			return LWS_SSL_CAPABLE_ERROR;
+		} else if (n == 0) {
+			return LWS_SSL_CAPABLE_ERROR;
+		}
+		conn->rx_len += n;
+
+		continue;
+	}
+
+	break;
+
+	} /* while (budget--) */
+
+	if (status == SEC_E_INCOMPLETE_MESSAGE)
+		/* still short of a whole record, come back when there's more */
+		return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
+
+	if (status == SEC_I_CONTINUE_NEEDED || status == SEC_E_OK) {
+		if (out_buf[0].cbBuffer > 0 && out_buf[0].pvBuffer) {
+			conn->tx_buf = lws_malloc(out_buf[0].cbBuffer, "schannel_tx_srv");
+			if (!conn->tx_buf) {
+				FreeContextBuffer(out_buf[0].pvBuffer);
+
+				return LWS_SSL_CAPABLE_ERROR;
+			}
+			memcpy(conn->tx_buf, out_buf[0].pvBuffer, out_buf[0].cbBuffer);
+			conn->tx_len = out_buf[0].cbBuffer;
+			conn->tx_pos = 0;
+			FreeContextBuffer(out_buf[0].pvBuffer);
+
+			n = send(wsi->io->desc.sockfd, (char *)conn->tx_buf, (int)conn->tx_len, 0);
+			if (n < 0) {
+				if (LWS_ERRNO == LWS_EAGAIN || LWS_ERRNO == LWS_EWOULDBLOCK) {
+					lws_set_blocking_send(wsi);
+					return LWS_SSL_CAPABLE_MORE_SERVICE_WRITE;
+				}
+			} else {
+				conn->tx_pos += n;
+				if (conn->tx_pos == conn->tx_len) {
+					lws_free_set_NULL(conn->tx_buf);
+					conn->tx_len = 0;
+				}
+			}
+		}
+
+		if (in_buf[1].BufferType == SECBUFFER_EXTRA &&
+		    in_buf[1].cbBuffer > 0 && conn->rx_buf &&
+		    conn->rx_len >= in_buf[1].cbBuffer) {
+			memmove(conn->rx_buf, (uint8_t*)conn->rx_buf + (conn->rx_len - in_buf[1].cbBuffer), in_buf[1].cbBuffer);
+			conn->rx_len = in_buf[1].cbBuffer;
+		} else {
+			conn->rx_len = 0;
+		}
+
+		if (status == SEC_E_OK) {
+			conn->f_handshake_finished = 1;
+			if (QueryContextAttributes(&conn->ctxt,
+						   SECPKG_ATTR_STREAM_SIZES,
+						   &conn->stream_sizes) !=
+								SEC_E_OK ||
+			    !conn->stream_sizes.cbMaximumMessage) {
+				lwsl_wsi_err(wsi, "no stream sizes");
+
+				return LWS_SSL_CAPABLE_ERROR;
+			}
+
+			if (conn->f_want_client_cert &&
+			    lws_tls_schannel_server_client_cert(wsi))
+				return LWS_SSL_CAPABLE_ERROR;
+
+                       if (lws_ssl_pending(wsi) &&
+                           lws_dll2_is_detached(&wsi->io->tls.dll_pending_tls)) {
+                               struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+                               lws_pt_lock(pt, __func__);
+                               lws_dll2_add_head(&wsi->io->tls.dll_pending_tls,
+                                                 &pt->tls.dll_pending_tls_owner);
+                               lws_pt_unlock(pt);
+                       }
+
+			return LWS_SSL_CAPABLE_DONE;
+		}
+
+		if (conn->tx_buf) return LWS_SSL_CAPABLE_MORE_SERVICE_WRITE;
+		return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
+	}
+
+	lwsl_err("%s: AcceptSecurityContext failed 0x%x\n", __func__, (int)status);
+	return LWS_SSL_CAPABLE_ERROR;
+}
+
+int
+lws_tls_schannel_server_conn_alpn(struct lws *wsi)
+{
+       struct lws_tls_schannel_conn *conn = wsi->io->tls.ssl;
+       SecPkgContext_ApplicationProtocol alpn_result;
+       SECURITY_STATUS alpn_stat;
+
+       if (!conn || !conn->f_handshake_finished)
+               return 0;
+
+       alpn_stat = QueryContextAttributes(&conn->ctxt, SECPKG_ATTR_APPLICATION_PROTOCOL, &alpn_result);
+       if (alpn_stat == SEC_E_OK && alpn_result.ProtoNegoStatus == SecApplicationProtocolNegotiationStatus_Success) {
+               char cstr[64];
+               if (alpn_result.ProtocolIdSize < sizeof(cstr)) {
+                       memcpy(cstr, alpn_result.ProtocolId, alpn_result.ProtocolIdSize);
+                       cstr[alpn_result.ProtocolIdSize] = 0;
+                       lwsl_notice("%s: ALPN negotiated %s\n", __func__, cstr);
+
+		       /* tcp: as lws_tls_server_conn_alpn() */
+		       if (lws_alpn_wrong_transport(cstr,
+					alpn_result.ProtocolIdSize, 0)) {
+			       lwsl_wsi_err(wsi, "'%s' negotiated on tcp",
+					    cstr);
+			       return 1;
+		       }
+
+#if defined(LWS_WITH_CLIENT)
+		       /*
+			* record the successful ALPN in the cache, the same
+			* as the generic helper does for the other backends
+			*/
+		       if (lwsi_role_client(wsi) && wsi->cli_hostname_copy &&
+		           wsi->a.context->alpn_cache && wsi->c_port) {
+			       char key[256];
+			       void *p;
+			       lws_snprintf(key, sizeof(key), "alpn_%s_%u",
+					    wsi->cli_hostname_copy,
+					    wsi->c_port);
+			       lws_cache_write_through(wsi->a.context->alpn_cache,
+						       key,
+						       (const uint8_t *)cstr,
+						       strlen(cstr) + 1,
+						       lws_now_usecs() +
+						       (lws_usec_t)(3600ULL * 1000000ULL),
+						       &p);
+			       lwsl_wsi_notice(wsi, "wrote ALPN %s to cache for %s",
+					       cstr, key);
+		       }
+#endif
+
+                       return lws_role_call_alpn_negotiated(wsi, cstr);
+               }
+       }
+       return 0;
+}
+
+#ifndef SP_PROT_TLS1_3_SERVER
+#define SP_PROT_TLS1_3_SERVER 0x00001000
+#endif
+#ifndef SP_PROT_TLS1_3_CLIENT
+#define SP_PROT_TLS1_3_CLIENT 0x00002000
+#endif
+
+/*
+ * Copy of the peer's certificate as SSPI currently holds it (NULL / 0 if the
+ * peer sent none, which is normal for a client)
+ */
+
+static int
+lws_tls_schannel_peer_der(struct lws_tls_schannel_conn *conn, uint8_t **der,
+			  size_t *len)
+{
+	PCCERT_CONTEXT pc = NULL;
+
+	*der = NULL;
+	*len = 0;
+
+	if (QueryContextAttributes(&conn->ctxt, SECPKG_ATTR_REMOTE_CERT_CONTEXT,
+				   &pc) != SEC_E_OK || !pc)
+		return 0;
+
+	if (pc->cbCertEncoded) {
+		*der = lws_malloc(pc->cbCertEncoded, "schannel_peer_der");
+		if (!*der) {
+			CertFreeCertificateContext(pc);
+
+			return -1;
+		}
+		memcpy(*der, pc->pbCertEncoded, pc->cbCertEncoded);
+		*len = pc->cbCertEncoded;
+	}
+
+	CertFreeCertificateContext(pc);
+
+	return 0;
+}
+
+/*
+ * Send as much of the ciphertext waiting in tx_buf as the socket takes now.
+ * Returns 0 when it has all gone, 1 when some is left for POLLOUT, or -1 if
+ * the socket failed.
+ */
+
+static int
+lws_tls_schannel_tx_flush(struct lws *wsi, struct lws_tls_schannel_conn *conn)
+{
+	ssize_t n;
+
+	if (!conn->tx_buf)
+		return 0;
+
+	n = send(wsi->io->desc.sockfd, (char *)conn->tx_buf + conn->tx_pos,
+		 (int)(conn->tx_len - conn->tx_pos), 0);
+	if (n < 0) {
+		if (LWS_ERRNO != LWS_EAGAIN && LWS_ERRNO != LWS_EWOULDBLOCK)
+			return -1;
+		/*
+		 * Windows reports POLLOUT for us on every turn until it is
+		 * told the socket would block, so a flush waiting on POLLOUT
+		 * would otherwise spin the event loop
+		 */
+		lws_set_blocking_send(wsi);
+		n = 0;
+	}
+
+	conn->tx_pos += (size_t)n;
+	if (conn->tx_pos < conn->tx_len)
+		return 1;
+
+	lws_free_set_NULL(conn->tx_buf);
+	conn->tx_len = 0;
+	conn->tx_pos = 0;
+
+	return 0;
+}
+
+/*
+ * Put a token SSPI made behind any ciphertext still waiting to go out
+ */
+
+static int
+lws_tls_schannel_tx_append(struct lws_tls_schannel_conn *conn, const void *tok,
+			   size_t len)
+{
+	uint8_t *p;
+
+	if (conn->tx_buf && conn->tx_pos) {
+		memmove(conn->tx_buf, conn->tx_buf + conn->tx_pos,
+			conn->tx_len - conn->tx_pos);
+		conn->tx_len -= conn->tx_pos;
+		conn->tx_pos = 0;
+	}
+
+	p = lws_realloc(conn->tx_buf, conn->tx_len + len, "schannel_tx");
+	if (!p)
+		return -1;
+
+	memcpy(p + conn->tx_len, tok, len);
+	conn->tx_buf = p;
+	conn->tx_len += len;
+
+	return 0;
+}
+
+/*
+ * Queue a token SSPI wants sent behind any ciphertext still waiting to go
+ * out, and send as much of the lot as the socket will take now.  Whatever is
+ * left goes ahead of the next write, the same as buffered app ciphertext.
+ */
+
+static int
+lws_tls_schannel_tx_queue(struct lws *wsi, struct lws_tls_schannel_conn *conn,
+			  const void *tok, size_t len)
+{
+	int n;
+
+	if (lws_tls_schannel_tx_append(conn, tok, len))
+		return -1;
+
+	n = lws_tls_schannel_tx_flush(wsi, conn);
+	if (n < 0)
+		return -1;
+	if (n)
+		lws_callback_on_writable(wsi);
+
+	return 0;
+}
+
+/*
+ * The credentials and request flags an SSPI step on an established session
+ * takes, which depend on which end of the connection we are
+ */
+
+static struct lws_tls_schannel_ctx *
+lws_tls_schannel_step_args(struct lws *wsi, struct lws_tls_schannel_conn *conn,
+			   ULONG *req_attrs)
+{
+	if (lwsi_role_client(wsi)) {
+		*req_attrs = ISC_REQ_SEQUENCE_DETECT | ISC_REQ_REPLAY_DETECT |
+			     ISC_REQ_CONFIDENTIALITY | ISC_REQ_STREAM |
+			     ISC_REQ_ALLOCATE_MEMORY |
+			     ISC_REQ_MANUAL_CRED_VALIDATION |
+			     ISC_REQ_USE_SUPPLIED_CREDS;
+
+		return wsi->a.vhost->tls.ssl_client_ctx;
+	}
+
+	*req_attrs = ASC_REQ_SEQUENCE_DETECT | ASC_REQ_REPLAY_DETECT |
+		     ASC_REQ_CONFIDENTIALITY | ASC_REQ_STREAM |
+		     ASC_REQ_ALLOCATE_MEMORY;
+	if (conn->f_want_client_cert)
+		*req_attrs |= ASC_REQ_MUTUAL_AUTH;
+
+	return wsi->io->tls.ctx_ref ? wsi->io->tls.ctx_ref->ctx :
+				      wsi->a.vhost->tls.ssl_ctx;
+}
+
+/*
+ * DecryptMessage() answers SEC_I_RENEGOTIATE for any post-handshake TLS
+ * message that is not application data.  On TLS 1.3 that is not a
+ * renegotiation at all: it is the NewSessionTicket the server sends right
+ * after every handshake, or a KeyUpdate.  From that moment every
+ * EncryptMessage() / DecryptMessage() fails with SEC_E_CONTEXT_EXPIRED until
+ * the message has been fed back through InitializeSecurityContext() /
+ * AcceptSecurityContext(), so refusing it outright killed every TLS 1.3
+ * connection a few ms after it was established.
+ *
+ * Re-running the SSPI handshake step here does not re-run the peer
+ * certificate confirmation (that only happens in lws_ssl_client_connect2()),
+ * which is why a real renegotiation must not be allowed to change the peer
+ * certificate behind our back.  So we only do this on TLS 1.3, where the
+ * post-handshake messages cannot carry a new peer certificate, and we insist
+ * afterwards that SSPI still holds the certificate it had when the handshake
+ * completed.
+ */
+
+static int
+lws_tls_schannel_post_hs_begin(struct lws *wsi)
+{
+	struct lws_tls_schannel_conn *conn = wsi->io->tls.ssl;
+	SecPkgContext_ConnectionInfo ci;
+
+	memset(&ci, 0, sizeof(ci));
+	if (QueryContextAttributes(&conn->ctxt, SECPKG_ATTR_CONNECTION_INFO,
+				   &ci) != SEC_E_OK ||
+	    !(ci.dwProtocol & (SP_PROT_TLS1_3_CLIENT | SP_PROT_TLS1_3_SERVER))) {
+		lwsl_wsi_notice(wsi, "refusing renegotiation (proto 0x%x)",
+				(unsigned int)ci.dwProtocol);
+
+		return -1;
+	}
+
+	lws_free_set_NULL(conn->peer_der);
+	if (lws_tls_schannel_peer_der(conn, &conn->peer_der,
+				      &conn->peer_der_len))
+		return -1;
+
+	conn->f_post_hs = 1;
+
+	return 0;
+}
+
+/*
+ * Push what is in rx_buf through the SSPI handshake step.  Returns -1 on
+ * error, 0 if more has to arrive from the socket first, 1 when the
+ * post-handshake message has been dealt with and rx_buf is back to holding
+ * application records
+ */
+
+static int
+lws_tls_schannel_post_hs_step(struct lws *wsi)
+{
+	struct lws_tls_schannel_conn *conn = wsi->io->tls.ssl;
+	struct lws_tls_schannel_ctx *ctx;
+	SecBufferDesc out_desc, in_desc;
+	SecBuffer out_buf[1], in_buf[2];
+	SECURITY_STATUS status = SEC_E_INTERNAL_ERROR;
+	ULONG req_attrs, ret_attrs;
+	int budget = LWS_SCH_HS_LOOP_BUDGET, client = lwsi_role_client(wsi);
+	size_t der_len, in_len;
+	uint8_t *der;
+	ssize_t n;
+
+	ctx = lws_tls_schannel_step_args(wsi, conn, &req_attrs);
+	if (!ctx)
+		return -1;
+
+	while (budget--) {
+		in_len = conn->rx_len;
+		memset(in_buf, 0, sizeof(in_buf));
+		in_buf[0].BufferType = SECBUFFER_TOKEN;
+		in_buf[0].pvBuffer = conn->rx_buf;
+		in_buf[0].cbBuffer = (unsigned long)in_len;
+		in_buf[1].BufferType = SECBUFFER_EMPTY;
+		in_desc.cBuffers = 2;
+		in_desc.pBuffers = in_buf;
+		in_desc.ulVersion = SECBUFFER_VERSION;
+
+		out_buf[0].BufferType = SECBUFFER_TOKEN;
+		out_buf[0].cbBuffer = 0;
+		out_buf[0].pvBuffer = NULL;
+		out_desc.cBuffers = 1;
+		out_desc.pBuffers = out_buf;
+		out_desc.ulVersion = SECBUFFER_VERSION;
+
+		if (client)
+			status = InitializeSecurityContextA(&ctx->cred,
+					&conn->ctxt, conn->hostname, req_attrs,
+					0, 0, &in_desc, 0, NULL, &out_desc,
+					&ret_attrs, NULL);
+		else
+			status = AcceptSecurityContext(&ctx->cred, &conn->ctxt,
+					&in_desc, req_attrs, 0, NULL,
+					&out_desc, &ret_attrs, NULL);
+
+		lwsl_wsi_info(wsi, "post-handshake step: 0x%x, rx_len %d",
+			      (int)status, (int)conn->rx_len);
+
+		if (status == SEC_E_INCOMPLETE_MESSAGE) {
+			if (!conn->rx_alloc || conn->rx_len == conn->rx_alloc) {
+				if (lws_tls_schannel_realloc_buffer(conn,
+						conn->rx_alloc + 2048))
+					return -1;
+			}
+
+			n = recv(wsi->io->desc.sockfd,
+				 (char *)conn->rx_buf + conn->rx_len,
+				 (int)(conn->rx_alloc - conn->rx_len), 0);
+			if (n < 0) {
+				if (LWS_ERRNO == LWS_EAGAIN ||
+				    LWS_ERRNO == LWS_EWOULDBLOCK)
+					return 0;
+
+				return -1;
+			}
+			if (!n)
+				return -1;
+
+			conn->rx_len += (size_t)n;
+
+			continue;
+		}
+
+		if (status != SEC_I_CONTINUE_NEEDED && status != SEC_E_OK) {
+			lwsl_wsi_err(wsi, "post-handshake step failed 0x%x",
+				     (int)status);
+
+			return -1;
+		}
+
+		if (out_buf[0].cbBuffer && out_buf[0].pvBuffer) {
+			n = lws_tls_schannel_tx_queue(wsi, conn,
+						      out_buf[0].pvBuffer,
+						      out_buf[0].cbBuffer);
+			FreeContextBuffer(out_buf[0].pvBuffer);
+			if (n)
+				return -1;
+		}
+
+		if (in_buf[1].BufferType == SECBUFFER_EXTRA &&
+		    in_buf[1].cbBuffer > 0 && conn->rx_buf &&
+		    conn->rx_len >= in_buf[1].cbBuffer) {
+			memmove(conn->rx_buf, (uint8_t *)conn->rx_buf +
+					(conn->rx_len - in_buf[1].cbBuffer),
+				in_buf[1].cbBuffer);
+			conn->rx_len = in_buf[1].cbBuffer;
+		} else
+			conn->rx_len = 0;
+
+		if (status == SEC_E_OK)
+			break;
+
+		/* SEC_I_CONTINUE_NEEDED: SSPI wants the rest of the exchange */
+
+		if (!conn->rx_len)
+			return 0;
+
+		if (conn->rx_len == in_len && in_len) {
+			/* it took nothing and wants more: we would spin here */
+			lwsl_wsi_err(wsi, "post-handshake step made no progress");
+
+			return -1;
+		}
+	}
+
+	if (status != SEC_E_OK)
+		/* out of budget with SSPI still wanting more, come back later */
+		return 0;
+
+	/*
+	 * Whatever just happened, the peer must still be who we confirmed
+	 */
+
+	if (lws_tls_schannel_peer_der(conn, &der, &der_len))
+		return -1;
+
+	n = der_len != conn->peer_der_len ||
+	    (der_len && memcmp(der, conn->peer_der, der_len));
+	lws_free(der);
+	lws_free_set_NULL(conn->peer_der);
+	conn->peer_der_len = 0;
+
+	if (n) {
+		lwsl_wsi_err(wsi, "peer certificate changed post-handshake");
+
+		return -1;
+	}
+
+	if (QueryContextAttributes(&conn->ctxt, SECPKG_ATTR_STREAM_SIZES,
+				   &conn->stream_sizes) != SEC_E_OK ||
+	    !conn->stream_sizes.cbMaximumMessage) {
+		lwsl_wsi_err(wsi, "no stream sizes");
+
+		return -1;
+	}
+
+	conn->f_post_hs = 0;
+
+	return 1;
+}
+
+	int
+lws_ssl_capable_read(struct lws *wsi, unsigned char *buf, size_t len)
+{
+	struct lws_tls_schannel_conn *conn = wsi->io->tls.ssl;
+	SecBufferDesc msg_desc;
+	SecBuffer msg_buf[4];
+	SECURITY_STATUS status;
+	int budget = LWS_SCH_RX_LOOP_BUDGET;
+	size_t pending_len;
+	ssize_t n;
+
+	if (!wsi->io->tls.ssl)
+		return lws_ssl_capable_read_no_ssl(wsi, buf, len);
+
+	if (!conn || !conn->f_handshake_finished) return LWS_SSL_CAPABLE_ERROR;
+
+	/* Check if we have decrypted data pending in buflist */
+	pending_len = lws_buflist_next_segment_len(&conn->decrypted_list, NULL);
+	if (pending_len > 0) {
+		size_t copy_len = pending_len > len ? len : pending_len;
+		lws_buflist_linear_use(&conn->decrypted_list, buf, copy_len);
+		lwsl_wsi_debug(wsi, "buflist pending %d, copied %d", (int)pending_len, (int)copy_len);
+		n = (int)copy_len;
+		goto check_pending;
+	}
+
+	/*
+	 * A TLS 1.3 post-handshake message that needed more of the socket
+	 * than was there last time: nothing in the connection can move until
+	 * SSPI has had it all
+	 */
+
+	if (conn->f_post_hs) {
+		int m = lws_tls_schannel_post_hs_step(wsi);
+
+		if (m < 0)
+			return LWS_SSL_CAPABLE_ERROR;
+		if (!m)
+			goto want_read;
+	}
+
+	/*
+	 * Records that decrypt to no application data at all (post-handshake
+	 * handshake messages, empty records) used to recurse into ourselves
+	 * once per record with no bound at all; go round a bounded loop in
+	 * this frame instead and let the event loop have us back after that
+	 */
+
+	while (budget--) {
+
+	if (!conn->rx_len) {
+		if (!conn->rx_alloc &&
+		    lws_tls_schannel_realloc_buffer(conn, 4096))
+			return LWS_SSL_CAPABLE_ERROR;
+		n = recv(wsi->io->desc.sockfd, (char *)conn->rx_buf, (int)conn->rx_alloc, 0);
+		if (n < 0) {
+			if (LWS_ERRNO == LWS_EAGAIN ||
+					LWS_ERRNO == LWS_EWOULDBLOCK)
+				goto want_read;
+
+			return LWS_SSL_CAPABLE_ERROR;
+		}
+		if (n == 0)
+			return LWS_SSL_CAPABLE_ERROR;
+
+		conn->rx_len = n;
+		lwsl_wsi_debug(wsi, "recv %d bytes", (int)n);
+	}
+
+	/* Decrypt */
+	msg_buf[0].BufferType = SECBUFFER_DATA;
+	msg_buf[0].pvBuffer = conn->rx_buf;
+	msg_buf[0].cbBuffer = (unsigned long)conn->rx_len;
+	msg_buf[1].BufferType = SECBUFFER_EMPTY;
+	msg_buf[2].BufferType = SECBUFFER_EMPTY;
+	msg_buf[3].BufferType = SECBUFFER_EMPTY;
+
+	msg_desc.cBuffers = 4;
+	msg_desc.pBuffers = msg_buf;
+	msg_desc.ulVersion = SECBUFFER_VERSION;
+
+	status = DecryptMessage(&conn->ctxt, &msg_desc, 0, NULL);
+
+	if (status == SEC_E_INCOMPLETE_MESSAGE) {
+		if (conn->rx_len == conn->rx_alloc &&
+		    lws_tls_schannel_realloc_buffer(conn, conn->rx_alloc + 2048))
+			return LWS_SSL_CAPABLE_ERROR;
+
+		n = recv(wsi->io->desc.sockfd, (char *)conn->rx_buf + conn->rx_len, (int)(conn->rx_alloc - conn->rx_len), 0);
+		if (n < 0) {
+			if (LWS_ERRNO == LWS_EAGAIN || LWS_ERRNO == LWS_EWOULDBLOCK)
+				goto want_read;
+
+			return LWS_SSL_CAPABLE_ERROR;
+		} else if (n == 0) {
+			return LWS_SSL_CAPABLE_ERROR;
+		}
+		conn->rx_len += n;
+
+		continue;
+	}
+
+       if (status != SEC_E_OK && status != SEC_I_RENEGOTIATE && status != SEC_I_CONTEXT_EXPIRED && status != SEC_E_CONTEXT_EXPIRED) {
+		lwsl_err("%s: DecryptMessage failed 0x%x\n", __func__, (int)status);
+		return LWS_SSL_CAPABLE_ERROR;
+	}
+
+	if (status == SEC_E_OK || status == SEC_I_RENEGOTIATE ||
+           status == SEC_I_CONTEXT_EXPIRED || status == SEC_E_CONTEXT_EXPIRED) {
+		int i;
+		uint8_t *dec_data = NULL;
+		size_t dec_len = 0;
+
+		/* First locate the data pointer/length before any memmove happens */
+		for (i = 0; i < 4; i++) {
+			if (msg_buf[i].BufferType == SECBUFFER_DATA) {
+				dec_data = msg_buf[i].pvBuffer;
+				dec_len = msg_buf[i].cbBuffer;
+				break;
+			}
+		}
+
+		if (status == SEC_I_RENEGOTIATE) {
+			int i2, m;
+
+			/*
+			 * Any application data handed over along with it is
+			 * still good, but from here on SSPI refuses to
+			 * decrypt anything until it has seen the whole
+			 * post-handshake message
+			 */
+
+			if (dec_len &&
+			    lws_buflist_append_segment(&conn->decrypted_list,
+						       dec_data, dec_len) < 0)
+				return LWS_SSL_CAPABLE_ERROR;
+
+			for (i2 = 0; i2 < 4; i2++)
+				if (msg_buf[i2].BufferType == SECBUFFER_EXTRA) {
+					memmove(conn->rx_buf,
+						msg_buf[i2].pvBuffer,
+						msg_buf[i2].cbBuffer);
+					conn->rx_len = msg_buf[i2].cbBuffer;
+					break;
+				}
+			if (i2 == 4)
+				conn->rx_len = 0;
+
+			if (lws_tls_schannel_post_hs_begin(wsi))
+				return LWS_SSL_CAPABLE_ERROR;
+
+			m = lws_tls_schannel_post_hs_step(wsi);
+			if (m < 0)
+				return LWS_SSL_CAPABLE_ERROR;
+
+			pending_len = lws_buflist_next_segment_len(
+						&conn->decrypted_list, NULL);
+			if (pending_len) {
+				size_t copy_len = pending_len > len ? len :
+								   pending_len;
+
+				lws_buflist_linear_use(&conn->decrypted_list,
+						       buf, copy_len);
+				n = (int)copy_len;
+
+				goto check_pending;
+			}
+
+			if (!m)
+				goto want_read;
+
+			/* done: what follows in rx_buf is application data */
+
+			continue;
+		}
+
+		/* Process decrypted data immediately */
+		if (dec_len > 0) {
+			size_t copy_len = dec_len > len ? len : dec_len;
+			memcpy(buf, dec_data, copy_len);
+
+			if (dec_len > copy_len) {
+				if (lws_buflist_append_segment(&conn->decrypted_list, dec_data + copy_len, dec_len - copy_len) < 0) {
+					lwsl_err("OOM appending to buflist\n");
+					return LWS_SSL_CAPABLE_ERROR;
+				}
+			}
+			n = (int)copy_len; /* Return value */
+			lwsl_wsi_debug(wsi, "decrypted %d bytes, copied %d to user\n", (int)dec_len, (int)n);
+		} else {
+                       if (status == SEC_I_CONTEXT_EXPIRED || status == SEC_E_CONTEXT_EXPIRED)
+                               return LWS_SSL_CAPABLE_ERROR;
+
+			/* Handshake message or empty record: go round again */
+			/* But first move extra data */
+			for (i = 0; i < 4; i++)
+				if (msg_buf[i].BufferType == SECBUFFER_EXTRA) {
+					memmove(conn->rx_buf, msg_buf[i].pvBuffer, msg_buf[i].cbBuffer);
+					conn->rx_len = msg_buf[i].cbBuffer;
+					break;
+				}
+
+			if (i == 4)
+				conn->rx_len = 0;
+
+			continue;
+		}
+
+		/* Now handle extra data buffering */
+		for (i = 0; i < 4; i++) {
+			if (msg_buf[i].BufferType == SECBUFFER_EXTRA) {
+				memmove(conn->rx_buf, msg_buf[i].pvBuffer, msg_buf[i].cbBuffer);
+				conn->rx_len = msg_buf[i].cbBuffer;
+				goto check_pending;
+			}
+		}
+		conn->rx_len = 0;
+
+		goto check_pending;
+	}
+
+	return LWS_SSL_CAPABLE_ERROR;
+
+	} /* while (budget--) */
+
+want_read:
+	/*
+	 * We have nothing for the caller this time.  Fall through the pending
+	 * bookkeeping rather than returning directly: if there is no complete
+	 * record waiting we must come off the fake-POLLIN list, or the event
+	 * loop spins on us at 100% CPU for as long as the peer stays quiet
+	 */
+
+	n = LWS_SSL_CAPABLE_MORE_SERVICE_READ;
+
+check_pending:
+	{
+		struct lws_context_per_thread *pt =
+				&wsi->a.context->pt[(int)wsi->tsi];
+
+		lws_pt_lock(pt, __func__);
+		if (lws_ssl_pending(wsi)) {
+			if (lws_dll2_is_detached(&wsi->io->tls.dll_pending_tls))
+				lws_dll2_add_head(&wsi->io->tls.dll_pending_tls,
+						  &pt->tls.dll_pending_tls_owner);
+		} else
+			__lws_ssl_remove_wsi_from_buffered_list(wsi);
+		lws_pt_unlock(pt);
+	}
+
+	return (int)n;
+}
+
+	int
+lws_ssl_capable_write(struct lws *wsi, unsigned char *buf, size_t len)
+{
+	struct lws_tls_schannel_conn *conn = wsi->io->tls.ssl;
+	SecBufferDesc msg_desc;
+	SecBuffer msg_buf[4];
+	SECURITY_STATUS status;
+	uint8_t *alloc_buf;
+	size_t alloc_len;
+	ssize_t n;
+
+	if (!wsi->io->tls.ssl)
+		return lws_ssl_capable_write_no_ssl(wsi, buf, len);
+
+	if (!conn || !conn->f_handshake_finished) return LWS_SSL_CAPABLE_ERROR;
+
+	/* Flush existing ciphertext */
+	n = lws_tls_schannel_tx_flush(wsi, conn);
+	if (n < 0)
+		return LWS_SSL_CAPABLE_ERROR;
+	if (n)
+		return LWS_SSL_CAPABLE_MORE_SERVICE_WRITE;
+
+	/*
+	 * If the last record could not be sent in full, we told the caller
+	 * nothing was written and it buffered the plaintext to retry on
+	 * POLLOUT... but that plaintext is already encrypted and (now) sent.
+	 * This call is that retry, from the same buffered plaintext, so hand
+	 * back those bytes as written without encrypting them again.  This is
+	 * the same trick as openssl's moving-write-buffer mode.
+	 *
+	 * A caller that did not buffer and retry (the h1 client handshake
+	 * write) is not owed anything: what it gave us has gone out with the
+	 * flush above, and this is new plaintext, so drop the credit rather
+	 * than misapply it.
+	 */
+
+	if (conn->tx_plain) {
+		size_t m = conn->tx_plain > len ? len : conn->tx_plain;
+
+		if (!lws_has_buffered_out(wsi)) {
+			conn->tx_plain = 0;
+			goto fresh;
+		}
+
+		conn->tx_plain -= m;
+
+		return (int)m;
+	}
+
+fresh:
+
+	/*
+	 * Until the post-handshake message has gone through SSPI,
+	 * EncryptMessage() fails with SEC_E_CONTEXT_EXPIRED; the caller
+	 * buffers what it wanted to send and retries on POLLOUT
+	 */
+
+	if (conn->f_post_hs)
+		return LWS_SSL_CAPABLE_MORE_SERVICE_WRITE;
+
+	/*
+	 * EncryptMessage() will not accept more plaintext than
+	 * cbMaximumMessage in one record; hand back a short write for the
+	 * rest rather than failing the whole connection
+	 */
+
+	if (!conn->stream_sizes.cbMaximumMessage)
+		return LWS_SSL_CAPABLE_ERROR;
+
+	if (len > conn->stream_sizes.cbMaximumMessage)
+		len = conn->stream_sizes.cbMaximumMessage;
+
+	alloc_len = conn->stream_sizes.cbHeader + len + conn->stream_sizes.cbTrailer;
+	alloc_buf = lws_malloc(alloc_len, "schannel_write");
+	if (!alloc_buf) return LWS_SSL_CAPABLE_ERROR;
+
+	msg_buf[0].BufferType = SECBUFFER_STREAM_HEADER;
+	msg_buf[0].pvBuffer = alloc_buf;
+	msg_buf[0].cbBuffer = conn->stream_sizes.cbHeader;
+
+	msg_buf[1].BufferType = SECBUFFER_DATA;
+	msg_buf[1].pvBuffer = alloc_buf + conn->stream_sizes.cbHeader;
+	msg_buf[1].cbBuffer = (unsigned long)len;
+	memcpy(msg_buf[1].pvBuffer, buf, len);
+
+	msg_buf[2].BufferType = SECBUFFER_STREAM_TRAILER;
+	msg_buf[2].pvBuffer = alloc_buf + conn->stream_sizes.cbHeader + len;
+	msg_buf[2].cbBuffer = conn->stream_sizes.cbTrailer;
+
+	msg_buf[3].BufferType = SECBUFFER_EMPTY;
+	msg_buf[3].cbBuffer = 0;
+
+	msg_desc.cBuffers = 4;
+	msg_desc.pBuffers = msg_buf;
+	msg_desc.ulVersion = SECBUFFER_VERSION;
+
+	status = EncryptMessage(&conn->ctxt, 0, &msg_desc, 0);
+	if (status != SEC_E_OK) {
+		lwsl_err("%s: EncryptMessage failed 0x%x\n", __func__, (int)status);
+		lws_free(alloc_buf);
+		return LWS_SSL_CAPABLE_ERROR;
+	}
+
+	size_t total_len = msg_buf[0].cbBuffer + msg_buf[1].cbBuffer + msg_buf[2].cbBuffer;
+
+	n = send(wsi->io->desc.sockfd, (char *)alloc_buf, (int)total_len, 0);
+
+	if (n < 0) {
+		if (LWS_ERRNO != LWS_EAGAIN && LWS_ERRNO != LWS_EWOULDBLOCK) {
+			lws_free(alloc_buf);
+
+			return LWS_SSL_CAPABLE_ERROR;
+		}
+		lws_set_blocking_send(wsi);
+		n = 0;
+	}
+
+	if ((size_t)n == total_len) {
+		lws_free(alloc_buf);
+
+		return (int)len;
+	}
+
+	/*
+	 * The socket would not take the whole record.  Keep the ciphertext
+	 * and tell the caller nothing went out: it then buffers the plaintext,
+	 * asks for POLLOUT, and lws_send_pipe_choked() reports the truth.
+	 * Reporting the write as complete here (as this used to) left the
+	 * remainder stuck in tx_buf until the next write, which never came if
+	 * the peer was waiting for exactly these bytes.
+	 */
+
+	conn->tx_buf = alloc_buf;
+	conn->tx_len = total_len;
+	conn->tx_pos = (size_t)n;
+	conn->tx_plain = len;
+
+	return LWS_SSL_CAPABLE_MORE_SERVICE_WRITE;
+}
+
+	int
+lws_ssl_pending(struct lws *wsi)
+{
+	struct lws_tls_schannel_conn *conn = wsi->io->tls.ssl;
+
+	/*
+	 * "Pending" has to mean "another call will make progress without the
+	 * socket becoming readable", ie, decrypted data we have not handed
+	 * over yet, or a whole undecrypted record sitting in rx_buf.  Any
+	 * lesser test (such as "rx_len is nonzero") leaves a peer that sent a
+	 * few bytes of a record and then went quiet permanently on the
+	 * fake-POLLIN list, which the event loop then services with a zero
+	 * timeout for ever
+	 */
+
+	if (conn && lws_buflist_next_segment_len(&conn->decrypted_list, NULL) > 0) {
+		lwsl_wsi_debug(wsi, "pending buflist");
+		return 1;
+	}
+
+	if (conn && conn->rx_len >= 5) {
+		size_t record_len = (((size_t)conn->rx_buf[3]) << 8) | conn->rx_buf[4];
+		if (conn->rx_len >= 5 + record_len) {
+			lwsl_wsi_debug(wsi, "pending rx_buf complete record %d", (int)record_len);
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+/*
+ * The conn now belongs to wsi (lws_tls_transfer_wsi()): schannel's conn keeps
+ * no reference to its wsi, so there is nothing to re-point
+ */
+void
+lws_tls_conn_set_wsi(struct lws *wsi)
+{
+	(void)wsi;
+}
+
+	int
+lws_ssl_close(struct lws *wsi)
+{
+	struct lws_tls_schannel_conn *conn = wsi->io->tls.ssl;
+	if (conn) {
+		DeleteSecurityContext(&conn->ctxt);
+		/* rx_buf / tx_buf hold plaintext, and conn holds key-ish
+		 * material for QUIC; do not leave it in the freed heap */
+		if (conn->rx_buf)
+			lws_explicit_bzero(conn->rx_buf, conn->rx_alloc);
+		if (conn->tx_buf)
+			lws_explicit_bzero(conn->tx_buf, conn->tx_len);
+		lws_free_set_NULL(conn->rx_buf);
+		lws_free_set_NULL(conn->tx_buf);
+		lws_free_set_NULL(conn->peer_der);
+		lws_buflist_destroy_all_segments(&conn->decrypted_list);
+		lws_explicit_bzero(conn, sizeof(*conn));
+		lws_free_set_NULL(conn);
+		wsi->io->tls.ssl = NULL;
+	}
+
+	if (wsi->io->tls.ctx_ref) {
+		lws_tls_ctx_ref_unref(wsi->io->tls.ctx_ref);
+		wsi->io->tls.ctx_ref = NULL;
+	}
+
+	if (wsi->io->tls.quic_tp_recv) {
+		lws_free((void *)wsi->io->tls.quic_tp_recv);
+		wsi->io->tls.quic_tp_recv = NULL;
+	}
+	if (wsi->io->tls.quic_tp_send) {
+		lws_free((void *)wsi->io->tls.quic_tp_send);
+		wsi->io->tls.quic_tp_send = NULL;
+	}
+
+	return 0;
+}
+
+	void
+lws_ssl_bind_passphrase(lws_tls_ctx *ssl_ctx, int is_client,
+		const struct lws_context_creation_info *info)
+{
+	/* schannel acquires private keys into named containers at
+	 * credential time; there is no passphrase-at-bind step */
+}
+
+	enum lws_ssl_capable_status
+lws_tls_server_abort_connection(struct lws *wsi)
+{
+	lws_ssl_close(wsi);
+	return LWS_SSL_CAPABLE_DONE;
+}
+
+/*
+ * Have SSPI make our close_notify alert and queue it behind any ciphertext
+ * still waiting to go out.  Returns 0 if it was queued, -1 if SSPI would not
+ * make one.
+ */
+
+static int
+lws_tls_schannel_close_notify(struct lws *wsi,
+			      struct lws_tls_schannel_conn *conn)
+{
+	struct lws_tls_schannel_ctx *ctx;
+	DWORD type = SCHANNEL_SHUTDOWN;
+	SecBufferDesc desc;
+	SECURITY_STATUS st;
+	ULONG req_attrs, ret_attrs;
+	SecBuffer sb;
+	int n;
+
+	ctx = lws_tls_schannel_step_args(wsi, conn, &req_attrs);
+	if (!ctx)
+		return -1;
+
+	sb.BufferType = SECBUFFER_TOKEN;
+	sb.pvBuffer = &type;
+	sb.cbBuffer = sizeof(type);
+	desc.cBuffers = 1;
+	desc.pBuffers = &sb;
+	desc.ulVersion = SECBUFFER_VERSION;
+
+	st = ApplyControlToken(&conn->ctxt, &desc);
+	if (st != SEC_E_OK) {
+		lwsl_wsi_info(wsi, "ApplyControlToken 0x%x", (int)st);
+
+		return -1;
+	}
+
+	/* the next step on the context makes the alert */
+
+	sb.BufferType = SECBUFFER_TOKEN;
+	sb.pvBuffer = NULL;
+	sb.cbBuffer = 0;
+
+	if (lwsi_role_client(wsi))
+		st = InitializeSecurityContextA(&ctx->cred, &conn->ctxt,
+				conn->hostname, req_attrs, 0, 0, NULL, 0, NULL,
+				&desc, &ret_attrs, NULL);
+	else
+		st = AcceptSecurityContext(&ctx->cred, &conn->ctxt, NULL,
+				req_attrs, 0, NULL, &desc, &ret_attrs, NULL);
+
+	if ((st != SEC_E_OK && st != SEC_I_CONTEXT_EXPIRED) ||
+	    !sb.pvBuffer || !sb.cbBuffer) {
+		lwsl_wsi_info(wsi, "no close_notify from SSPI: 0x%x", (int)st);
+		if (sb.pvBuffer)
+			FreeContextBuffer(sb.pvBuffer);
+
+		return -1;
+	}
+
+	n = lws_tls_schannel_tx_append(conn, sb.pvBuffer, sb.cbBuffer);
+	FreeContextBuffer(sb.pvBuffer);
+
+	return n;
+}
+
+/*
+ * Send our close_notify, after whatever ciphertext is still waiting to go.
+ * The session stays until lws_ssl_close() at the release: the staged close
+ * shuts our write side once this is DONE and discards the peer's rx until
+ * his FIN without reading through it, and nothing may fall back to treating
+ * the socket as plaintext meanwhile.
+ *
+ * A session SSPI cannot make an alert for (the handshake is not done, or it
+ * is partway through a post-handshake message) is still DONE: the FIN after
+ * it ends the stream, and failing here would close at once over unread rx.
+ */
+
+	enum lws_ssl_capable_status
+__lws_tls_shutdown(struct lws *wsi)
+{
+	struct lws_tls_schannel_conn *conn = wsi->io->tls.ssl;
+	int n;
+
+	if (!conn)
+		return LWS_SSL_CAPABLE_DONE;
+
+	if (!conn->f_close_notify) {
+		conn->f_close_notify = 1;
+		if (conn->f_handshake_finished && !conn->f_post_hs)
+			lws_tls_schannel_close_notify(wsi, conn);
+	}
+
+	n = lws_tls_schannel_tx_flush(wsi, conn);
+	if (n < 0)
+		return LWS_SSL_CAPABLE_ERROR;
+	if (n) {
+		__lws_change_pollfd(wsi, 0, LWS_POLLOUT);
+
+		return LWS_SSL_CAPABLE_MORE_SERVICE_WRITE;
+	}
+
+	/* nothing more goes out: a POLLOUT left armed would only spin */
+	__lws_change_pollfd(wsi, LWS_POLLOUT, 0);
+
+	return LWS_SSL_CAPABLE_DONE;
+}
+
+/*
+ * Chain trust bits that are never a reason to refuse here: we do not ask
+ * CertGetCertificateChain() for revocation checking, so "unknown" is the
+ * expected answer rather than a finding
+ */
+
+#define LWS_SCH_TRUST_DONT_CARE (CERT_TRUST_REVOCATION_STATUS_UNKNOWN | \
+				 CERT_TRUST_IS_OFFLINE_REVOCATION)
+
+/*
+ * SSL_EXTRA_CERT_CHAIN_POLICY_PARA::fdwChecks takes the wininet.h
+ * SECURITY_FLAG_IGNORE_* values, and we do not include wininet.h for them
+ */
+
+#if !defined(SECURITY_FLAG_IGNORE_UNKNOWN_CA)
+#define SECURITY_FLAG_IGNORE_UNKNOWN_CA		0x00000100
+#endif
+#if !defined(SECURITY_FLAG_IGNORE_WRONG_USAGE)
+#define SECURITY_FLAG_IGNORE_WRONG_USAGE	0x00000200
+#endif
+#if !defined(SECURITY_FLAG_IGNORE_CERT_CN_INVALID)
+#define SECURITY_FLAG_IGNORE_CERT_CN_INVALID	0x00001000
+#endif
+#if !defined(SECURITY_FLAG_IGNORE_CERT_DATE_INVALID)
+#define SECURITY_FLAG_IGNORE_CERT_DATE_INVALID	0x00002000
+#endif
+
+static DWORD
+lws_tls_schannel_policy(PCCERT_CHAIN_CONTEXT chain, DWORD auth_type,
+			WCHAR *wname, DWORD ignore, DWORD checks)
+{
+	CERT_CHAIN_POLICY_STATUS ps;
+	HTTPSPolicyCallbackData ph;
+	CERT_CHAIN_POLICY_PARA pp;
+
+	memset(&ph, 0, sizeof(ph));
+	ph.cbStruct = sizeof(ph);
+	ph.dwAuthType = auth_type;
+	ph.pwszServerName = wname;
+	/*
+	 * The SSL policy does the name and trust checks itself and takes its
+	 * "do not mind this" bits here, not only from
+	 * CERT_CHAIN_POLICY_PARA::dwFlags below
+	 */
+	ph.fdwChecks = checks;
+
+	memset(&pp, 0, sizeof(pp));
+	pp.cbSize = sizeof(pp);
+	pp.dwFlags = ignore;
+	pp.pvExtraPolicyPara = &ph;
+
+	memset(&ps, 0, sizeof(ps));
+	ps.cbSize = sizeof(ps);
+
+	if (!CertVerifyCertificateChainPolicy(CERT_CHAIN_POLICY_SSL, chain,
+					      &pp, &ps))
+		return (DWORD)CERT_E_UNTRUSTEDROOT;
+
+	return ps.dwError;
+}
+
+/*
+ * The single place this backend decides whether a peer certificate is
+ * acceptable.
+ *
+ * The chain is built against ctx's exclusive trust root if the app pinned a
+ * CA, else against the OS ROOT store.  It is then judged twice: once with
+ * nothing forgiven, which is what LWS_TLS_CERT_INFO_VERIFIED reports, and
+ * (only if that failed and the connection asked for it) once with exactly
+ * the relaxations the LCCSCF_ALLOW_... flags describe.
+ *
+ * Deciding it this way is what keeps the openssl semantics: the name check
+ * lives in the SSL chain policy and is only skipped for
+ * LCCSCF_SKIP_SERVER_CERT_HOSTNAME_CHECK, so an untrusted root can never
+ * hide a name mismatch behind itself, and the chain error bits are examined
+ * separately so a passing name cannot hide a chain problem either.
+ */
+
+int
+lws_tls_schannel_confirm_cert(struct lws_tls_schannel_ctx *ctx,
+			      struct lws_tls_schannel_conn *conn,
+			      PCCERT_CONTEXT pCert, const char *hostname,
+			      char *ebuf, size_t ebuf_len)
+{
+	LPSTR usage = hostname ? (LPSTR)szOID_PKIX_KP_SERVER_AUTH :
+				 (LPSTR)szOID_PKIX_KP_CLIENT_AUTH;
+	PCCERT_CHAIN_CONTEXT chain = NULL;
+	DWORD auth_type = hostname ? AUTHTYPE_SERVER : AUTHTYPE_CLIENT;
+	WCHAR wname[128], *pwname = NULL;
+	DWORD err, ignore = 0, checks = 0, allowed = LWS_SCH_TRUST_DONT_CARE;
+	HCERTCHAINENGINE engine;
+	CERT_CHAIN_PARA cp;
+	int ret = -1;
+
+	if (!conn || !pCert)
+		return -1;
+
+	engine = lws_tls_schannel_chain_engine(ctx);
+	if (ctx && ctx->ca_store && !engine) {
+		/*
+		 * The app pinned a CA but we could not make it the exclusive
+		 * trust root; going ahead on the default engine would trust
+		 * the whole OS root store instead, so refuse
+		 */
+		lws_snprintf(ebuf, ebuf_len, "cannot honour the pinned CA");
+
+		return -1;
+	}
+
+	conn->f_peer_cert_checked = 1;
+	conn->f_peer_cert_verified = 0;
+
+	if (hostname) {
+		/*
+		 * If the hostname is not valid UTF-8 (or does not fit), we
+		 * must fail closed: leaving pwszServerName NULL makes the SSL
+		 * chain policy skip name matching entirely (F-047)
+		 */
+		if (!MultiByteToWideChar(CP_UTF8, 0, hostname, -1, wname,
+					 (int)LWS_ARRAY_SIZE(wname))) {
+			lws_snprintf(ebuf, ebuf_len, "hostname not valid "
+				     "UTF-8, refusing to skip peer name check");
+
+			return -1;
+		}
+		pwname = wname;
+	}
+
+	memset(&cp, 0, sizeof(cp));
+	cp.cbSize = sizeof(cp);
+	cp.RequestedUsage.dwType = USAGE_MATCH_TYPE_AND;
+	cp.RequestedUsage.Usage.cUsageIdentifier = 1;
+	cp.RequestedUsage.Usage.rgpszUsageIdentifier = &usage;
+
+	if (!CertGetCertificateChain(engine, pCert, NULL,
+				     ctx ? ctx->store : NULL, &cp, 0,
+				     NULL, &chain) || !chain) {
+		lws_snprintf(ebuf, ebuf_len, "cannot build peer cert chain");
+
+		return -1;
+	}
+
+	err = lws_tls_schannel_policy(chain, auth_type, pwname, 0, 0);
+	if (err == ERROR_SUCCESS &&
+	    !(chain->TrustStatus.dwErrorStatus & ~LWS_SCH_TRUST_DONT_CARE)) {
+		conn->f_peer_cert_verified = 1;
+		ret = 0;
+		goto bail;
+	}
+
+	if (!conn->relax) {
+		lws_snprintf(ebuf, ebuf_len, "Certificate validation failed: "
+			     "0x%x (chain 0x%x) name '%s' relax 0 "
+			     "(nothing forgiven)", (unsigned int)err,
+			     (unsigned int)chain->TrustStatus.dwErrorStatus,
+			     hostname ? hostname : "(none)");
+		goto bail;
+	}
+
+	if (conn->relax & (LCCSCF_ALLOW_SELFSIGNED | LCCSCF_ALLOW_INSECURE)) {
+		ignore |= CERT_CHAIN_POLICY_ALLOW_UNKNOWN_CA_FLAG;
+		checks |= SECURITY_FLAG_IGNORE_UNKNOWN_CA;
+		allowed |= CERT_TRUST_IS_UNTRUSTED_ROOT |
+			   CERT_TRUST_IS_PARTIAL_CHAIN;
+	}
+
+	if (conn->relax & (LCCSCF_ALLOW_EXPIRED | LCCSCF_ALLOW_INSECURE)) {
+		ignore |= CERT_CHAIN_POLICY_IGNORE_ALL_NOT_TIME_VALID_FLAGS;
+		checks |= SECURITY_FLAG_IGNORE_CERT_DATE_INVALID;
+		allowed |= CERT_TRUST_IS_NOT_TIME_VALID |
+			   CERT_TRUST_CTL_IS_NOT_TIME_VALID |
+			   CERT_TRUST_IS_NOT_TIME_NESTED;
+	}
+
+	if (conn->relax & LCCSCF_ALLOW_INSECURE) {
+		ignore |= CERT_CHAIN_POLICY_IGNORE_WRONG_USAGE_FLAG |
+			  CERT_CHAIN_POLICY_IGNORE_INVALID_POLICY_FLAG |
+			  CERT_CHAIN_POLICY_IGNORE_INVALID_BASIC_CONSTRAINTS_FLAG;
+		checks |= SECURITY_FLAG_IGNORE_WRONG_USAGE;
+		allowed |= CERT_TRUST_IS_NOT_VALID_FOR_USAGE |
+			   CERT_TRUST_INVALID_BASIC_CONSTRAINTS |
+			   CERT_TRUST_INVALID_POLICY_CONSTRAINTS |
+			   CERT_TRUST_INVALID_NAME_CONSTRAINTS;
+	}
+
+	/*
+	 * Note that no flag here forgives a name mismatch except
+	 * LCCSCF_SKIP_SERVER_CERT_HOSTNAME_CHECK, exactly as on openssl
+	 */
+
+	if (conn->relax & LCCSCF_SKIP_SERVER_CERT_HOSTNAME_CHECK) {
+		ignore |= CERT_CHAIN_POLICY_IGNORE_INVALID_NAME_FLAG;
+		checks |= SECURITY_FLAG_IGNORE_CERT_CN_INVALID;
+	}
+
+	err = lws_tls_schannel_policy(chain, auth_type, pwname, ignore, checks);
+	if (err == ERROR_SUCCESS &&
+	    !(chain->TrustStatus.dwErrorStatus & ~allowed)) {
+		lwsl_info("%s: allowing anyway\n", __func__);
+		ret = 0;
+		goto bail;
+	}
+
+	lws_snprintf(ebuf, ebuf_len, "Certificate validation failed: 0x%x "
+		     "(chain 0x%x) name '%s' relax 0x%x ign 0x%x chk 0x%x "
+		     "allow 0x%x", (unsigned int)err,
+		     (unsigned int)chain->TrustStatus.dwErrorStatus,
+		     hostname ? hostname : "(none)",
+		     (unsigned int)conn->relax, (unsigned int)ignore,
+		     (unsigned int)checks, (unsigned int)allowed);
+
+bail:
+	CertFreeCertificateChain(chain);
+
+	return ret;
+}
+
+	int
+lws_tls_client_confirm_peer_cert(struct lws *wsi, char *ebuf, size_t ebuf_len)
+{
+	struct lws_tls_schannel_conn *conn = wsi->io->tls.ssl;
+	struct lws_tls_schannel_ctx *ctx = wsi->a.vhost->tls.ssl_client_ctx;
+	PCCERT_CONTEXT pCert = NULL;
+	int ret;
+
+	if (!conn)
+		return -1;
+
+	if (QueryContextAttributes(&conn->ctxt,
+				   SECPKG_ATTR_REMOTE_CERT_CONTEXT,
+				   &pCert) != SEC_E_OK || !pCert) {
+		lws_snprintf(ebuf, ebuf_len, "no peer certificate");
+
+		return -1;
+	}
+
+	ret = lws_tls_schannel_confirm_cert(ctx, conn, pCert, conn->hostname,
+					    ebuf, ebuf_len);
+
+	CertFreeCertificateContext(pCert);
+
+	return ret;
+}
+
+int
+lws_tls_schannel_server_client_cert(struct lws *wsi)
+{
+	struct lws_tls_schannel_conn *conn = wsi->io->tls.ssl;
+	struct lws_tls_schannel_ctx *ctx = wsi->io->tls.ctx_ref ?
+			wsi->io->tls.ctx_ref->ctx : wsi->a.vhost->tls.ssl_ctx;
+	int req_valid = !!lws_check_opt(wsi->a.vhost->options,
+		LWS_SERVER_OPTION_REQUIRE_VALID_OPENSSL_CLIENT_CERT);
+	int required = req_valid &&
+		       !lws_check_opt(wsi->a.vhost->options,
+		LWS_SERVER_OPTION_PEER_CERT_NOT_REQUIRED);
+	PCCERT_CONTEXT pCert = NULL;
+	char ebuf[192];
+
+	if (!conn)
+		return 1;
+
+	if (QueryContextAttributes(&conn->ctxt,
+				   SECPKG_ATTR_REMOTE_CERT_CONTEXT,
+				   &pCert) != SEC_E_OK || !pCert) {
+		conn->f_peer_cert_checked = 1;
+		conn->f_peer_cert_verified = 0;
+
+		if (!required)
+			return 0;
+
+		lwsl_wsi_notice(wsi, "vh %s requires a client cert and the "
+				"peer sent none", wsi->a.vhost->name);
+
+		return 1;
+	}
+
+	ebuf[0] = '\0';
+	if (lws_tls_schannel_confirm_cert(ctx, conn, pCert, NULL, ebuf,
+					  sizeof(ebuf))) {
+		CertFreeCertificateContext(pCert);
+
+		lwsl_wsi_notice(wsi, "vh %s: client cert rejected: %s",
+				wsi->a.vhost->name, ebuf);
+
+		/*
+		 * req_valid, not `required`: LWS_SERVER_OPTION_PEER_CERT_NOT_
+		 * REQUIRED tolerates the *absence* of a client cert, it does
+		 * not excuse one that was presented and failed to verify.
+		 * That is what openssl's SSL_VERIFY_PEER does, and what
+		 * mbedtls was brought to in C-359 and gnutls with it: an app
+		 * reading the CN or SAN afterwards to authorize must not be
+		 * reading an unvalidated identity.
+		 */
+
+		return req_valid;
+	}
+
+	CertFreeCertificateContext(pCert);
+
+	return 0;
+}
+
+#if defined(LWS_WITH_SERVER)
+/*
+ * A server handshake completed: does the client cert it presented satisfy
+ * the vhost's policy?  quic's handshake completion
+ * (lws_tls_quic_server_confirm_peer()) asks, on the vhost he is bound to
+ * after the policy is applied; the tcp accept, and the quic handshake step
+ * before the policy reads the result, judge it with
+ * lws_tls_schannel_server_client_cert() directly.  0 if he may go on.
+ */
+int
+lws_tls_server_client_cert_check(struct lws *wsi)
+{
+	if (!lws_tls_schannel_want_client_cert(wsi->a.vhost))
+		return 0;
+
+	return lws_tls_schannel_server_client_cert(wsi);
+}
+#endif
+
+	int
+lws_ssl_get_error(struct lws *wsi, int n)
+{
+	return n;
+}
+
+	static int
+tops_fake_POLLIN_for_buffered_schannel(struct lws_context_per_thread *pt)
+{
+	int ret = lws_tls_fake_POLLIN_for_buffered(pt);
+	if (ret) lwsl_info("%s: triggered %d\n", __func__, ret);
+	return ret;
+}
+
+const struct lws_tls_ops tls_ops_schannel = {
+	.fake_POLLIN_for_buffered = tops_fake_POLLIN_for_buffered_schannel,
+};

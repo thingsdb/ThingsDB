@@ -1,0 +1,2271 @@
+/*
+ * libwebsockets - small server side websockets and web server implementation
+ *
+ * Copyright (C) 2010 - 2019 Andy Green <andy@warmcat.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+
+#include <private-lib-core.h>
+
+/*
+ * These are the standardized defaults.
+ * Override what actually goes in the vhost settings in platform or user code.
+ * Leave these alone because they are used to determine "what is different
+ * from the protocol defaults".
+ */
+const struct http2_settings lws_h2_defaults = { {
+	1,
+	/* H2SET_HEADER_TABLE_SIZE */			4096,
+	/* *** This controls how many entries in the dynamic table ***
+	 * Allows the sender to inform the remote endpoint of the maximum
+	 * size of the header compression table used to decode header
+	 * blocks, in octets.  The encoder can select any size equal to or
+	 * less than this value by using signaling specific to the header
+	 * compression format inside a header block (see [COMPRESSION]).
+	 * The initial value is 4,096 octets.
+	 */
+	/* H2SET_ENABLE_PUSH */				   1,
+	/* H2SET_MAX_CONCURRENT_STREAMS */	  0x7fffffff,
+	/* H2SET_INITIAL_WINDOW_SIZE */		       65535,
+	/* H2SET_MAX_FRAME_SIZE */		       16384,
+	/* H2SET_MAX_HEADER_LIST_SIZE */	  0x7fffffff,
+	/*< This advisory setting informs a peer of the maximum size of
+	 * header list that the sender is prepared to accept, in octets.
+	 * The value is based on the uncompressed size of header fields,
+	 * including the length of the name and value in octets plus an
+	 * overhead of 32 octets for each header field.
+	 */
+	/* H2SET_RESERVED7 */				   0,
+	/* H2SET_ENABLE_CONNECT_PROTOCOL */		   0,
+}};
+
+/* these are the "lws defaults"... they can be overridden in plat */
+
+const struct http2_settings lws_h2_stock_settings = { {
+	1,
+	/* H2SET_HEADER_TABLE_SIZE */			65536, /* ffox */
+	/* *** This controls how many entries in the dynamic table ***
+	 * Allows the sender to inform the remote endpoint of the maximum
+	 * size of the header compression table used to decode header
+	 * blocks, in octets.  The encoder can select any size equal to or
+	 * less than this value by using signaling specific to the header
+	 * compression format inside a header block (see [COMPRESSION]).
+	 * The initial value is 4,096 octets.
+	 *
+	 * Can't pass h2spec with less than 4096 here...
+	 */
+	/* H2SET_ENABLE_PUSH */				   0,
+	/* H2SET_MAX_CONCURRENT_STREAMS */		  24,
+	/* H2SET_INITIAL_WINDOW_SIZE */		           0,
+	/*< This is managed by explicit WINDOW_UPDATE.  Because otherwise no
+	 * way to precisely control it when we do want to.
+	 */
+	/* H2SET_MAX_FRAME_SIZE */		       16384,
+	/* H2SET_MAX_HEADER_LIST_SIZE */	       65536,
+	/*< This advisory setting informs a peer of the maximum size of
+	 * header list that the sender is prepared to accept, in octets.
+	 * The value is based on the uncompressed size of header fields,
+	 * including the length of the name and value in octets plus an
+	 * overhead of 32 octets for each header field.
+	 *
+	 * The previous stock value of 4096 is smaller than the response
+	 * headers many real servers send (github.com, Google's GFE,
+	 * wikipedia), and the public http2_settings[] override can't reach
+	 * this index, so such servers' streams were GOAWAY'd with
+	 * ENHANCE_YOUR_CALM.  The actual header storage is still bounded by
+	 * max_http_header_data.
+	 */
+	/* H2SET_RESERVED7 */				   0,
+	/* H2SET_ENABLE_CONNECT_PROTOCOL */		   1,
+}};
+
+/*
+ * The wsi at this level is normally the network wsi... we can get called on
+ * another path via lws_service_do_ripe_rxflow() on mux children too tho...
+ */
+
+/*
+ * sansIO rx for an h2 connection or stream.  On the network connection the
+ * bytes are frames for the h2 parser (or, in a body state, h1-style body).
+ * A client stream whose response headers are in does not consume: its
+ * parked body is the user's to read with lws_http_client_read(), so it is
+ * told and the bytes stay where they are.  len 0 is the peer closing.
+ */
+static lws_handling_result_t
+rops_rx_h2(struct lws *wsi, const uint8_t *buf, size_t len, int from_transport,
+	   size_t *used)
+{
+	int n;
+
+	*used = 0;
+
+	if (!len) {
+		lwsl_wsi_info(wsi, "zero length read");
+
+		return LWS_HPI_RET_PLEASE_CLOSE_ME;
+	}
+
+	/*
+	 * Bytes from the peer are activity worth extending the timeout for...
+	 * except the keep-warm idle of a client connection with no stream:
+	 * that measures how long nothing of ours used it, and the peer's own
+	 * PINGs are no use of it (lws_h2_parse_frame_header() skips it for
+	 * the same reason).  Otherwise a peer PINGing inside keep_warm_secs
+	 * would hold the idle connection open for as long as it liked.
+	 */
+	if (from_transport && wsi->pending_timeout &&
+	    wsi->pending_timeout != PENDING_TIMEOUT_CLIENT_CONN_IDLE)
+		lws_set_timeout(wsi, (enum pending_timeout)wsi->pending_timeout,
+				wsi->pending_timeout ==
+					PENDING_TIMEOUT_HTTP_KEEPALIVE_IDLE ?
+				(int)lws_wsi_keepalive_timeout_eff(wsi) :
+				(int)wsi->a.context->timeout_secs);
+
+#if defined(LWS_WITH_CLIENT)
+	if (wsi->mux_substream &&
+	    lwsi_role_http(wsi) && lwsi_role_client(wsi) &&
+	    !lwsi_hdrs_pending(wsi) && lwsi_close(wsi) != LCS_USER_TOLD) {
+		/*
+		 * Mark ourselves as having readable data and turn off our
+		 * POLLIN; the user usually asks for a writeable callback and
+		 * drains / re-enables from there
+		 */
+		if (lws_io_want_read(wsi, 0))
+			return LWS_HPI_RET_PLEASE_CLOSE_ME;
+		if (user_callback_handle_rxflow(wsi->a.protocol->callback, wsi,
+						LWS_CALLBACK_RECEIVE_CLIENT_HTTP,
+						wsi->user_space, NULL, 0)) {
+			lwsl_info("RECEIVE_CLIENT_HTTP closed it\n");
+
+			return LWS_HPI_RET_PLEASE_CLOSE_ME;
+		}
+
+		return LWS_HPI_RET_HANDLED;
+	}
+#endif
+
+	{
+#if defined(LWS_WITH_LATENCY)
+		lws_usec_t _h2_read_start = lws_now_usecs();
+#endif
+		if (lwsi_role_h2(wsi) && lwsi_state(wsi) != LRS_BODY &&
+		    lwsi_state(wsi) != LRS_DISCARD_BODY)
+			n = lws_read_h2(wsi, (unsigned char *)buf,
+					(unsigned int)len);
+		else
+			n = lws_read_h1(wsi, (unsigned char *)buf,
+					(unsigned int)len, 1);
+#if defined(LWS_WITH_LATENCY)
+		{
+			unsigned int ms = (unsigned int)((lws_now_usecs() -
+						_h2_read_start) / 1000);
+			if (ms > 2)
+				lws_latency_note(&wsi->a.context->pt[(int)wsi->tsi],
+						 _h2_read_start, 2000,
+						 "h2read:%dms", ms);
+		}
+#endif
+	}
+	if (n < 0) /* the read failed: IO closes it */
+		return LWS_HPI_RET_PLEASE_CLOSE_ME;
+
+	*used = (size_t)n;
+
+	return LWS_HPI_RET_HANDLED;
+}
+
+/*
+ * How an h2 connection or stream is read (README.sans-io-split.md, "Who
+ * calls rx").  The handshake's failure and a client's transport phases are
+ * the handler's (a cgi's is read like any other: its handler's cgi block is
+ * about POLLOUT).  A server connection with a partial
+ * send outstanding is not read at all, and stops being polled for reading
+ * until the partial drains: new rx would start actions that expect to send
+ * behind it, and rx flow control is a no-op for h2, so a level-armed POLLIN
+ * would spin.  A stream has no transport of its own: only what its
+ * connection parked for it, and one with nothing parked leaves the parked
+ * list.  A client connection reads only in the states where h2 frames can
+ * arrive, including kept warm with no stream: GOAWAY, PING, SETTINGS and
+ * WINDOW_UPDATE all arrive while it is idle.  Otherwise it reads while tls
+ * holds more.
+ */
+static int
+rops_rx_policy_h2(struct lws *wsi, int *flags, size_t *max)
+{
+	struct lws *wsi1;
+
+	*flags = 0;
+	*max = 0;
+
+	/*
+	 * A client mux connection kept warm after its last stream closed
+	 * sits in LRS_IDLING, which takes no writeable callback, but it is
+	 * still a live h2 connection: its POLLOUT is the connection's own
+	 * business (the pps queue, and the walk of children that want to
+	 * write), not a transaction's.  It has to be serviced, or a POLLOUT
+	 * already asserted on it when it went idle (the pps path leaves
+	 * POLLOUT active on purpose) is never cleared and the loop spins.
+	 */
+	if (lwsi_state(wsi) == LRS_IDLING && lwsi_role_client(wsi) &&
+	    lws_wsi_is_mux_nwsi(wsi))
+		*flags |= LWS_RXPOL_F_POLLOUT;
+
+	/*
+	 * Likewise its protocol packets are the connection's own, whatever the
+	 * state: the 101 answering an h2c upgrade is sent while we await the
+	 * peer's preface, which only comes after it
+	 */
+	if (lws_wsi_is_mux_nwsi(wsi) &&
+	    !lws_dll2_is_empty(&wsi->h2.h2n->pps_owner))
+		*flags |= LWS_RXPOL_F_POLLOUT;
+
+	/*
+	 * something went wrong with parsing the handshake, and we ended up
+	 * back in the event loop without completing it
+	 */
+	if (lwsi_state(wsi) == LRS_H1_UPGRADE) {
+		lwsi_set_skt_unusable(wsi, 1);
+
+		return LWS_RXPOL_CLOSE;
+	}
+
+	if (lwsi_close(wsi) == LCS_RETURNED_CLOSE ||
+	    lwsi_close(wsi) == LCS_WAITING_TO_SEND_CLOSE ||
+	    lwsi_close(wsi) == LCS_AWAITING_CLOSE_ACK) {
+		/*
+		 * we stopped caring about anything except control packets.
+		 * Force flow control off, defeat tx draining.
+		 */
+		lws_rx_flow_control(wsi, 1);
+#if defined(LWS_ROLE_WS)
+		/* the flag and the pt's list go together */
+		lws_remove_wsi_from_tx_draining_ext_list(wsi);
+#endif
+	}
+
+	/* as ws: a close of ours waiting to go out goes before more comes in */
+	if (lwsi_close(wsi) == LCS_WAITING_TO_SEND_CLOSE)
+		return LWS_RXPOL_HOLD;
+
+	if (wsi->mux_substream || lws_wsi_is_mux_nwsi(wsi)) {
+		wsi1 = lws_get_network_wsi(wsi);
+		if (wsi1 && lws_has_buffered_out(wsi1)) {
+			lwsl_wsi_info(wsi, "has buffered out");
+			if (!lwsi_role_client(wsi)) {
+				/*
+				 * Nothing will consume the rx until the
+				 * partial send drains: drop POLLIN on the
+				 * network wsi; rops_tx_drained_h2() restores
+				 * it once the buffered output is gone
+				 */
+				if (lws_io_want_read(wsi1, 0))
+					return LWS_RXPOL_CLOSE;
+
+				return LWS_RXPOL_HOLD;
+			}
+			lwsl_wsi_notice(wsi, "allowing rx despite buffered out (client)");
+		}
+	}
+
+	if (wsi->mux_substream &&
+	    !lws_buflist_next_segment_len(&wsi->buflist, NULL)) {
+		lwsl_wsi_warn(wsi, "mux child with nothing to drain");
+		lws_dll2_remove(&wsi->dll_buflist);
+
+		return LWS_RXPOL_HOLD;
+	}
+
+	if (wsi->mux_substream ||
+	    (lwsi_role_client(wsi) &&
+	     lwsi_state(wsi) != LRS_ESTABLISHED &&
+	     lwsi_state(wsi) != LRS_ISSUE_HTTP_BODY &&
+	     lwsi_state(wsi) != LRS_WAITING_SERVER_REPLY &&
+	     lwsi_state(wsi) != LRS_H2_WAITING_TO_SEND_HEADERS &&
+	     lwsi_state(wsi) != LRS_IDLING)) {
+		lwsl_wsi_info(wsi, "parked rx only");
+		*flags = LWS_RXP_NO_READ;
+
+		return LWS_RXPOL_PUMP;
+	}
+
+#if defined(LWS_WITH_SYS_FAULT_INJECTION) && defined(LWS_WITH_CLIENT)
+	/*
+	 * Simulate the peer dropping a client h2 connection right after
+	 * ALPN, before we created our first stream on it: the network wsi
+	 * dies in a state that is neither "unestablished" (no CCE) nor with a
+	 * child to report CLOSED for ... and the peer dropping an established
+	 * client h2 connection at any point, eg, with streams open and more
+	 * queued on it waiting for a stream slot.  Where the read would have
+	 * failed, fail before it.  (We are only asked when there is something
+	 * to read.)
+	 */
+	if (lwsi_role_client(wsi) && lws_wsi_is_mux_nwsi(wsi) &&
+	    ((!lws_wsi_client_nwsi_migrated(wsi) &&
+	      lws_fi(&wsi->fic, "h2cli_nwsi_early_rx_err")) ||
+	     (lws_wsi_client_nwsi_migrated(wsi) &&
+	      wsi->h2.h2n && wsi->h2.h2n->swsi &&
+	      /* the faults migrated to sid 1 with the original ask */
+	      lws_fi(&wsi->h2.h2n->swsi->fic, "h2cli_nwsi_rx_err"))))
+		return LWS_RXPOL_CLOSE;
+#endif
+
+	return LWS_RXPOL_PUMP_LOOP;
+}
+
+
+/*
+ * The network connection's tx (README.sans-io-split.md, "Sending is a
+ * pull"): IO asks for its protocol packets first each POLLOUT pass, oldest
+ * first.  They are drained as far as a pass allows: the frames are small,
+ * and leaving the bulk of them queued risks the pps ceiling goaway-ing the
+ * connection, and everything in flight on it, when rx arrives in bursts.
+ */
+static int
+rops_tx_h2(struct lws *wsi, uint8_t *buf, size_t max, lws_sockaddr46 *dest,
+	   int first)
+{
+	struct lws_h2_netconn *h2n = wsi->h2.h2n;
+	int n;
+
+	if (!lws_wsi_is_mux_nwsi(wsi) || !h2n ||
+	    lwsi_state(wsi) == LRS_ISSUE_HTTP_BODY ||
+	    lwsi_state(wsi) == LRS_AWAITING_FILE_READ)
+		return 0;
+
+	if (first) {
+		h2n->pps_tx_budget = 64;
+		h2n->pps_tx_pass = 0;
+	}
+
+	while (h2n->pps_tx_budget && lws_dll2_get_tail(&h2n->pps_owner)) {
+		h2n->pps_tx_budget--;
+		h2n->pps_tx_pass = 1;
+
+		n = lws_h2_pps_tx(wsi, buf, max, &h2n->pps_tx);
+		if (n)
+			return n; /* bytes for IO, or it failed */
+
+		/* nothing to send for this one: its consequences, the next */
+		n = lws_h2_pps_done(wsi, h2n->pps_tx);
+		h2n->pps_tx = NULL;
+		if (n) {
+			lwsi_set_skt_unusable(wsi, 1);
+			return LWS_TX_FAIL;
+		}
+	}
+
+	return 0;
+}
+
+/*
+ * The pps IO wrote: its consequences, whose bytes must follow it (the
+ * SETTINGS ack's start the first response).
+ */
+static int
+rops_tx_sent_h2(struct lws *wsi, int n)
+{
+	struct lws_h2_netconn *h2n = wsi->h2.h2n;
+	struct lws_h2_protocol_send *pps = h2n->pps_tx;
+	int goaway = pps && pps->type == LWS_H2_PPS_GOAWAY;
+
+	h2n->pps_tx = NULL;
+	if (n < 0) {
+		lws_free(pps);
+		lwsi_set_skt_unusable(wsi, 1);
+		return -1;
+	}
+
+	if (lws_h2_pps_done(wsi, pps)) {
+		/*
+		 * Our GOAWAY went: the connection is finished with, but the
+		 * socket is fine, and its close must wait for the peer's FIN
+		 * the polite way, see __lws_close_free_wsi().  Closed at once
+		 * with his rx unread, the kernel resets the connection, and
+		 * the peer may drop the GOAWAY unread.
+		 */
+		if (!goaway)
+			lwsi_set_skt_unusable(wsi, 1);
+		return -1;
+	}
+
+	return 0;
+}
+
+lws_handling_result_t
+rops_handle_POLLOUT_h2(struct lws *wsi)
+{
+	// lwsl_notice("%s\n", __func__);
+
+	if (lwsi_state(wsi) == LRS_ISSUE_HTTP_BODY)
+		return LWS_HP_RET_USER_SERVICE;
+
+	if (lwsi_state(wsi) == LRS_AWAITING_FILE_READ) {
+		return LWS_HP_RET_DROP_POLLOUT;
+	}
+
+	/*
+	 * Priority 1: H2 protocol packets.  IO's tx pull sent what it could of
+	 * them just before this pass (rops_tx_h2()): if it sent any, the pass
+	 * was theirs.
+	 */
+	if (lws_wsi_is_mux_nwsi(wsi) && wsi->h2.h2n->pps_tx_pass) {
+		wsi->h2.h2n->pps_tx_pass = 0;
+
+		/*
+		 * The pass was the protocol packets', but more of them, or a
+		 * stream, may still want to write.  A poll() loop's POLLOUT
+		 * is still on for them, but a writeable is one per ask
+		 * (io_ops want_write), so ask for the next one: otherwise,
+		 * with a transport that takes it at its word, a stream that
+		 * asked while its parent's ask was pending is never served.
+		 */
+		if (!lws_dll2_is_empty(&wsi->h2.h2n->pps_owner) ||
+		    wsi->mux.requested_POLLOUT)
+			(void)__lws_io_want_write(wsi);
+
+		if (!lws_dll2_is_empty(&wsi->h2.h2n->pps_owner))
+			return LWS_HP_RET_BAIL_OK;
+
+		/* we can resume whatever we were doing */
+		lws_rx_flow_control(wsi, LWS_RXFLOW_REASON_APPLIES_ENABLE |
+					 LWS_RXFLOW_REASON_H2_PPS_PENDING);
+
+		return LWS_HP_RET_BAIL_OK; /* leave POLLOUT active */
+	}
+
+	/* Priority 2: if we are closing, not allowed to send more data frags
+	 *	       which means user callback or tx ext flush banned now
+	 */
+	if (lwsi_close(wsi) == LCS_RETURNED_CLOSE)
+		return LWS_HP_RET_USER_SERVICE;
+
+	return LWS_HP_RET_USER_SERVICE;
+}
+
+static int
+rops_write_role_protocol_h2(struct lws *wsi, unsigned char *buf, size_t len,
+			    enum lws_write_protocol *wp)
+{
+	unsigned char flags = 0, base = (*wp) & 0x1f;
+	size_t olen = len;
+	int n;
+#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+	unsigned char mtubuf[4096 + LWS_PRE];
+#endif
+
+	/* if not in a state to send stuff, then just send nothing */
+
+	if (!lwsi_role_ws(wsi) && !wsi->mux_stream_immortal &&
+	    base != LWS_WRITE_HTTP &&
+	    base != LWS_WRITE_HTTP_FINAL &&
+	    base != LWS_WRITE_HTTP_HEADERS_CONTINUATION &&
+	    base != LWS_WRITE_HTTP_HEADERS && lwsi_state(wsi) != LRS_BODY &&
+	    ((lwsi_close(wsi) != LCS_RETURNED_CLOSE &&
+	      lwsi_close(wsi) != LCS_WAITING_TO_SEND_CLOSE &&
+	      lwsi_state(wsi) != LRS_ESTABLISHED &&
+	      lwsi_close(wsi) != LCS_AWAITING_CLOSE_ACK)
+#if defined(LWS_ROLE_WS)
+	   || base != LWS_WRITE_CLOSE
+#endif
+	)) {
+		//assert(0);
+		lwsl_notice("%s: binning wsistate 0x%x %d: %s\n", __func__,
+				(unsigned int)wsi->wsistate, *wp, wsi->a.protocol ?
+					wsi->a.protocol->name : "no protocol");
+
+		return 0;
+	}
+
+	/*
+	 * Nothing can follow END_STREAM on a stream.  A user who writes again
+	 * after his final write (eg, from a writeable callback that a later
+	 * WINDOW_UPDATE re-armed) would put DATA on a half-closed stream: the
+	 * peer answers that with a connection-level GOAWAY (STREAM_CLOSED),
+	 * taking every other stream on the connection with it.  Bin it.  A
+	 * repeated body-less FINAL (eg, the proxy's stream close after the
+	 * content-length already ended the stream) is pointless but
+	 * harmless, drop it quietly.
+	 *
+	 * If the stream has ended both ways, it's gone: nothing will ever be
+	 * sent or received on it again.  Binning the write would leave the
+	 * user writing into it for as long as the connection lasts, eg, a ws
+	 * stream fed from a timer, where the ws role reports the write as
+	 * sent.  Fail it, so the user closes the stream like any other dead
+	 * connection.
+	 */
+
+	if (wsi->h2.h2_state == LWS_H2_STATE_HALF_CLOSED_LOCAL ||
+	    wsi->h2.h2_state == LWS_H2_STATE_CLOSED) {
+		if (!len)
+			return 0;
+
+		if (!wsi->h2.told_write_after_end) {
+			wsi->h2.told_write_after_end = 1;
+			lwsl_wsi_notice(wsi, "%s %d byte write after END_STREAM"
+					" (h2 %s, protocol %s)",
+					wsi->h2.h2_state == LWS_H2_STATE_CLOSED ?
+						"failing" : "binning", (int)len,
+					wsi->h2.h2_state == LWS_H2_STATE_CLOSED ?
+						"closed" : "half-closed local",
+					wsi->a.protocol ? wsi->a.protocol->name :
+							  "none");
+		}
+
+		return wsi->h2.h2_state == LWS_H2_STATE_CLOSED ? -1 : 0;
+	}
+
+	if (lws_http_tx_is_head_body(wsi, base)) {
+		/*
+		 * Answering a HEAD: none of the body goes, but the stream
+		 * still ends where the write would have ended it, as an empty
+		 * DATA with END_STREAM, uncoded: there is no body to code
+		 */
+		if (wsi->http.tx_content_length) {
+			if (len >= wsi->http.tx_content_remain)
+				base = LWS_WRITE_HTTP_FINAL;
+			wsi->http.tx_content_remain -= len <
+					wsi->http.tx_content_remain ?
+					(lws_filepos_t)len :
+					wsi->http.tx_content_remain;
+		}
+		if (base != LWS_WRITE_HTTP_FINAL &&
+		    !((*wp) & LWS_WRITE_H2_STREAM_END))
+			return (int)olen;
+
+		wsi->h2.send_END_STREAM = 1;
+		n = lws_h2_frame_write(wsi, LWS_H2_FRAME_TYPE_DATA,
+				       LWS_H2_FLAG_END_STREAM,
+				       (unsigned int)wsi->mux.my_sid, 0, buf);
+		if (n < 0)
+			return n;
+		lws_http_response_progress(wsi);
+
+		return (int)olen;
+	}
+
+	/* compression transform... */
+
+#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+	if (wsi->http.lcs) {
+		unsigned char *out = mtubuf + LWS_PRE;
+		size_t o = sizeof(mtubuf) - LWS_PRE;
+		int cr = lws_h2_tx_cr_get(wsi);
+
+		/*
+		 * What the compressor produces is DATA, which must fit the
+		 * peer's window like any other: let it produce no more than
+		 * that.  Input it can't take for want of room is kept on
+		 * buflist_comp for when a WINDOW_UPDATE lets us go on.
+		 */
+		if ((size_t)cr < o)
+			o = (size_t)cr;
+
+		n = lws_http_compression_transform(wsi, buf, len, wp, &out, &o);
+		if (n)
+			return n;
+
+		lwsl_info("%s: %s: transformed %d bytes to %d "
+			   "(wp 0x%x, more %d)\n", __func__,
+			   lws_wsi_tag(wsi), (int)len, (int)o, (int)*wp,
+			   wsi->http.comp_ctx.may_have_more);
+
+		buf = out;
+		len = o;
+		base = (*wp) & 0x1f;
+
+		/*
+		 * Nothing to send... unless it's the end of the stream, which
+		 * must still go, as an empty DATA with END_STREAM (as h3 does)
+		 */
+		if (!len && base != LWS_WRITE_HTTP_FINAL)
+			return (int)olen;
+	}
+#endif
+
+	/*
+	 * ws-over-h2 also ends up here after the ws framing applied
+	 */
+
+	n = LWS_H2_FRAME_TYPE_DATA;
+	if (base == LWS_WRITE_HTTP_HEADERS) {
+		n = LWS_H2_FRAME_TYPE_HEADERS;
+		if (!((*wp) & LWS_WRITE_NO_FIN))
+			flags = LWS_H2_FLAG_END_HEADERS;
+		if (wsi->h2.send_END_STREAM ||
+		    ((*wp) & LWS_WRITE_H2_STREAM_END)) {
+			flags |= LWS_H2_FLAG_END_STREAM;
+			wsi->h2.send_END_STREAM = 1;
+		}
+		/* server response headers are going out: arm the
+		 * response-completion watchdog (no-op for immortal streams
+		 * and idempotent across continuation frames). */
+		lws_http_response_started(wsi);
+	}
+
+	if (base == LWS_WRITE_HTTP_HEADERS_CONTINUATION) {
+		n = LWS_H2_FRAME_TYPE_CONTINUATION;
+		if (!((*wp) & LWS_WRITE_NO_FIN))
+			flags = LWS_H2_FLAG_END_HEADERS;
+		if (wsi->h2.send_END_STREAM ||
+		    ((*wp) & LWS_WRITE_H2_STREAM_END)) {
+			flags |= LWS_H2_FLAG_END_STREAM;
+			wsi->h2.send_END_STREAM = 1;
+		}
+	}
+
+	if ((base == LWS_WRITE_HTTP ||
+	     base == LWS_WRITE_HTTP_FINAL) &&
+	     wsi->http.tx_content_length) {
+		wsi->http.tx_content_remain -= len;
+		lwsl_info("%s: %s: tx_content_rem = %llu\n", __func__,
+			  lws_wsi_tag(wsi),
+			  (unsigned long long)wsi->http.tx_content_remain);
+		if (!wsi->http.tx_content_remain) {
+			lwsl_info("%s: selecting final write mode\n", __func__);
+			base = *wp = LWS_WRITE_HTTP_FINAL;
+		}
+	}
+
+	if (base == LWS_WRITE_HTTP_FINAL || ((*wp) & LWS_WRITE_H2_STREAM_END)) {
+		flags |= LWS_H2_FLAG_END_STREAM;
+		lwsl_info("%s: %s: setting END_STREAM, 0x%x\n", __func__,
+				lws_wsi_tag(wsi), flags);
+		wsi->h2.send_END_STREAM = 1;
+	}
+
+	n = lws_h2_frame_write(wsi, n, flags, (unsigned int)wsi->mux.my_sid, (unsigned int)len, buf);
+	if (n < 0)
+		return n;
+
+	/* more of a response has gone: it is not stalled */
+	if (base != LWS_WRITE_HTTP_HEADERS)
+		lws_http_response_progress(wsi);
+
+	/* hide it may have been compressed... */
+
+	return (int)olen;
+}
+
+#if defined(LWS_WITH_SERVER)
+static int
+rops_check_upgrades_h2(struct lws *wsi)
+{
+#if defined(LWS_ROLE_WS)
+	char *p;
+
+	/*
+	 * with H2 there's also a way to upgrade a stream to something
+	 * else... :method is CONNECT and :protocol says the name of
+	 * the new protocol we want to carry.  We have to have sent a
+	 * SETTINGS saying that we support it though.
+	 */
+	p = lws_hdr_simple_ptr(wsi, WSI_TOKEN_HTTP_COLON_METHOD);
+	if (!wsi->a.vhost->h2.set.s[H2SET_ENABLE_CONNECT_PROTOCOL] ||
+	    !wsi->mux_substream || !p || strcmp(p, "CONNECT"))
+		return LWS_UPG_RET_CONTINUE;
+
+	p = lws_hdr_simple_ptr(wsi, WSI_TOKEN_COLON_PROTOCOL);
+	if (!p || strcmp(p, "websocket"))
+		return LWS_UPG_RET_CONTINUE;
+
+	lwsl_info("Upgrade h2 to ws\n");
+	lws_mux_mark_immortal(wsi);
+	wsi->h23_stream_carries_ws = 1;
+
+	lws_metrics_tag_wsi_add(wsi, "upg", "ws_over_h2");
+
+	if (lws_process_ws_upgrade(wsi))
+		return LWS_UPG_RET_BAIL;
+
+	lwsl_info("Upgraded h2 to ws OK\n");
+
+	return LWS_UPG_RET_DONE;
+#else
+	return LWS_UPG_RET_CONTINUE;
+#endif
+}
+#endif
+
+static int
+rops_init_vhost_h2(struct lws_vhost *vh,
+		   const struct lws_context_creation_info *info)
+{
+	vh->h2.set = vh->context->set;
+	if (info->http2_settings[0]) {
+		int n;
+
+		/*
+		 * Every setting the info has room for: LWS_H2_SETTINGS_LEN is
+		 * the wire size of one, and as the bound it left out
+		 * MAX_HEADER_LIST_SIZE.  Since that went unused, a 0 there
+		 * keeps the default rather than refusing every header.
+		 */
+		for (n = 1; n < (int)LWS_ARRAY_SIZE(info->http2_settings); n++)
+			if (n != H2SET_MAX_HEADER_LIST_SIZE ||
+			    info->http2_settings[n])
+				vh->h2.set.s[n] = info->http2_settings[n];
+	}
+
+	return 0;
+}
+
+int
+rops_pt_init_destroy_h2(struct lws_context *context,
+		    const struct lws_context_creation_info *info,
+		    struct lws_context_per_thread *pt, int destroy)
+{
+	/* if not already set by plat, use lws default SETTINGS */
+	if (!context->set.s[0])
+		context->set = lws_h2_stock_settings;
+
+	/*
+	 * The pt's ah lifecheck watchdog is registered by the h1 role ops,
+	 * which are always built when h2 is (this used to carry a copy
+	 * guarded on !LWS_ROLE_H2, ie, dead in its own translation unit)
+	 */
+
+	return 0;
+}
+
+
+static int
+rops_tx_credit_h2(struct lws *wsi, char peer_to_us, int add)
+{
+	struct lws *nwsi = lws_get_network_wsi(wsi);
+	int n;
+
+	if (add) {
+		if (peer_to_us == LWSTXCR_PEER_TO_US) {
+			/*
+			 * We want to tell the peer they can write an additional
+			 * "add" bytes to us
+			 */
+			return lws_h2_update_peer_txcredit(wsi, (unsigned int)-1, add);
+		}
+
+		/*
+		 * We're being told we can write an additional "add" bytes
+		 * to the peer
+		 */
+
+		wsi->txc.tx_cr = lws_txc_cr_add(wsi->txc.tx_cr, add);
+		if (nwsi != wsi)
+			nwsi->txc.tx_cr = lws_txc_cr_add(nwsi->txc.tx_cr, add);
+
+		return 0;
+	}
+
+	if (peer_to_us == LWSTXCR_US_TO_PEER)
+		return lws_h2_tx_cr_get(wsi);
+
+	n = wsi->txc.peer_tx_cr_est;
+	if (n > nwsi->txc.peer_tx_cr_est)
+		n = nwsi->txc.peer_tx_cr_est;
+
+	return n;
+}
+
+static int
+rops_destroy_role_h2(struct lws *wsi)
+{
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+	struct allocated_headers *ah;
+
+	/* we may not have an ah, but may be on the waiting list... */
+	lwsl_info("%s: %s: ah det due to close\n", __func__, lws_wsi_tag(wsi));
+	__lws_header_table_detach(wsi, 0);
+
+	ah = lws_pt_first_ah(&pt->http.ah_owner);
+
+	while (ah) {
+		if (ah->in_use && ah->wsi == wsi) {
+			lwsl_err("%s: ah leak: %s\n", __func__, lws_wsi_tag(wsi));
+			ah->in_use = 0;
+			ah->wsi = NULL;
+			pt->http.ah_count_in_use--;
+			break;
+		}
+		ah = lws_pt_next_ah(ah);
+	}
+
+#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+	lws_http_compression_destroy(wsi);
+#endif
+
+	if (lws_wsi_is_mux_nwsi(wsi) || wsi->mux_substream) {
+		lws_hpack_destroy_dynamic_header(wsi);
+
+		if (wsi->h2.h2n) {
+			lws_h2_hpack_sink_destroy(wsi);
+			lws_free_set_NULL(wsi->h2.h2n);
+		}
+	}
+
+	return 0;
+}
+
+static int
+rops_close_kill_connection_h2(struct lws *wsi, enum lws_close_status reason)
+{
+
+#if defined(LWS_WITH_HTTP_PROXY)
+	if (wsi->http.proxy_clientside) {
+
+		wsi->http.proxy_clientside = 0;
+
+		if (user_callback_handle_rxflow(wsi->a.protocol->callback,
+						wsi,
+					    LWS_CALLBACK_COMPLETED_CLIENT_HTTP,
+						wsi->user_space, NULL, 0))
+			wsi->http.proxy_clientside = 0;
+	}
+#endif
+
+	if (wsi->mux_substream && wsi->h23_stream_carries_ws) {
+		/*
+		 * The ws role delegates its close here too, so this is either
+		 * an RFC 8441 extended-CONNECT upgrade that failed while the
+		 * stream was still in the h2 role, or an established ws stream.
+		 *
+		 * RFC 8441 section 5 says a rejected extended-CONNECT must be
+		 * failed with REFUSED_STREAM so the peer knows the stream was
+		 * never processed and may safely retry it elsewhere.
+		 *
+		 * An established ws stream was processed, so REFUSED_STREAM
+		 * would be a lie.  If both sides ended the stream there is
+		 * nothing to say; if only we did (eg, we answered the peer's
+		 * CLOSE with END_STREAM), NO_ERROR tells the peer to stop
+		 * sending, RFC 9113 section 8.1; otherwise we are abandoning
+		 * it and it's CANCEL.
+		 */
+		uint32_t err = H2_ERR_REFUSED_STREAM;
+		const char *why = "ws-over-h2 handshake refused";
+		/*
+		 * send_END_STREAM is set as the END_STREAM is written,
+		 * h2_state only catches up after the writeable callback
+		 * returns, which the close may not wait for.  But a frame
+		 * written without the stream window for it is parked on the
+		 * stream (lws_h2_frame_write()), and goes with it now: an
+		 * END_STREAM in that never reached the peer
+		 */
+		int ended = wsi->h2.send_END_STREAM && !wsi->buflist_out;
+
+		if (lwsi_role_ws(wsi)) {
+			err = H2_ERR_CANCEL;
+			why = "ws-over-h2 stream abandoned";
+			if (ended) {
+				err = H2_ERR_NO_ERROR;
+				why = "ws-over-h2 closed";
+			}
+		}
+
+		if (wsi->h2.h2_state != LWS_H2_STATE_CLOSED &&
+		    !(ended &&
+		      wsi->h2.h2_state == LWS_H2_STATE_HALF_CLOSED_REMOTE) &&
+		    lws_h2_rst_stream(wsi, err, why))
+			lwsl_wsi_info(wsi, "%s: couldn't queue RST_STREAM",
+				      __func__);
+	} else if (wsi->mux_substream && lwsi_role_server(wsi) &&
+		   wsi->h2.send_END_STREAM && !wsi->buflist_out &&
+		   !wsi->h2.END_STREAM &&
+		   wsi->h2.h2_state != LWS_H2_STATE_CLOSED &&
+		   !lws_check_opt(wsi->a.vhost->options,
+				  LWS_SERVER_OPTION_VH_H2_HALF_CLOSED_LONG_POLL)) {
+		/*
+		 * The whole answer went before the peer finished its request,
+		 * eg, a POST answered and completed from LWS_CALLBACK_HTTP:
+		 * the stream is done with, so tell the peer to stop sending
+		 * its body, without error (RFC 9113 8.1).  What it had in
+		 * flight meanwhile is ignored (lws_h2_parse_frame_header()).
+		 * Whether the peer ended its side is h2.END_STREAM, which
+		 * h2_state may not have caught up with yet (a stream answered
+		 * from the completion of the body that ended it); a long poll
+		 * vhost does not latch it, and its streams end as they did.
+		 */
+		if (lws_h2_rst_stream(wsi, H2_ERR_NO_ERROR,
+				      "answered before the request ended"))
+			lwsl_wsi_info(wsi, "%s: couldn't queue RST_STREAM",
+				      __func__);
+	} else if (wsi->mux_substream && lwsi_role_server(wsi) &&
+		   !wsi->h2.send_END_STREAM &&
+		   wsi->h2.h2_state != LWS_H2_STATE_CLOSED &&
+		   wsi->h2.h2_state != LWS_H2_STATE_IDLE &&
+		   wsi->mux.parent_wsi &&
+		   !lwsi_close_started(wsi->mux.parent_wsi)) {
+		/*
+		 * The stream is going away before its answer ended, eg, the
+		 * app gave up on a file it was serving: nothing would ever
+		 * tell the peer the rest is not coming, it would wait on the
+		 * stream for ever.  Not when the connection itself is closing,
+		 * which says it for every stream.
+		 */
+		if (lws_h2_rst_stream(wsi, H2_ERR_CANCEL,
+				      "answer abandoned"))
+			lwsl_wsi_info(wsi, "%s: couldn't queue RST_STREAM",
+				      __func__);
+	}
+
+	lwsl_info(" %s, his parent %s: siblings:\n", lws_wsi_tag(wsi), lws_wsi_tag(wsi->mux.parent_wsi));
+	lws_wsi_mux_dump_children(wsi);
+
+	if (lws_wsi_is_mux_nwsi(wsi) || wsi->mux_substream
+#if defined(LWS_WITH_CLIENT)
+			|| wsi->client_mux_substream
+#endif
+	) {
+		lwsl_info("closing %s: parent %s\n", lws_wsi_tag(wsi),
+				lws_wsi_tag(wsi->mux.parent_wsi));
+
+		if (lws_dll2_get_head(&wsi->mux.child_list_owner) && lwsl_visible(LLL_INFO)) {
+			lwsl_info(" parent %s: closing children: list:\n", lws_wsi_tag(wsi));
+			lws_wsi_mux_dump_children(wsi);
+		}
+		lws_wsi_mux_close_children(wsi, (int)reason);
+	}
+
+	if (lws_wsi_is_mux_nwsi(wsi)) {
+		/* remove pps */
+		while(!lws_dll2_is_empty(&wsi->h2.h2n->pps_owner)) {
+			struct lws_dll2 *d = lws_dll2_get_head(&wsi->h2.h2n->pps_owner);
+			lws_dll2_remove(d);
+			lws_free(lws_container_of(d,
+					struct lws_h2_protocol_send, list));
+		}
+	}
+
+	/*
+	 * A stream leaving its connection: judged by the parent it is still
+	 * attached to, not by the substream marks, which a redirect's
+	 * lws_client_reset() has already cleared by the time the close gets
+	 * here.  Without the swsi clear below, a redirected stream rejoining
+	 * the same connection found the parent still pointing at it as the
+	 * stream to send headers first, and waited for itself forever.
+	 */
+	if (wsi->mux.parent_wsi) {
+
+		struct lws_h2_netconn *h2n = wsi->mux.parent_wsi->h2.h2n;
+
+		/* a stream the peer opened on us: its late HEADERS are dropped */
+		if (h2n && lwsi_role_server(wsi->mux.parent_wsi) &&
+		    (wsi->mux.my_sid & 1))
+			lws_h2_sid_closed(h2n, (uint32_t)wsi->mux.my_sid);
+
+		/*
+		 * Closing in the middle of its own header block, eg, a client
+		 * stream timing out between the frames of a response's: the
+		 * rest of the block is still decoded, into the sink, since the
+		 * hpack dynamic table is the whole connection's.  Without, its
+		 * remaining bytes went undecoded, and a CONTINUATION for it
+		 * failed the connection, other streams and all.
+		 */
+		if (h2n && !h2n->hpack_no_store &&
+		    ((h2n->cont_exp && h2n->cont_exp_sid == wsi->mux.my_sid) ||
+		     (h2n->frame_state == LWS_H2_FRAME_HEADER_LENGTH &&
+		      h2n->sid == wsi->mux.my_sid &&
+		      (h2n->type == LWS_H2_FRAME_TYPE_HEADERS ||
+		       h2n->type == LWS_H2_FRAME_TYPE_CONTINUATION))) &&
+		    lws_h2_hpack_sink_start(wsi->mux.parent_wsi))
+			lwsl_wsi_info(wsi, "no sink, connection failing");
+
+		if (wsi->mux.parent_wsi->h2.h2n &&
+		    wsi->mux.parent_wsi->h2.h2n->swsi == wsi) {
+			struct lws *nwsi = wsi->mux.parent_wsi;
+			wsi->mux.parent_wsi->h2.h2n->swsi = NULL;
+			lws_start_foreach_dll(struct lws_dll2 *, d,
+					lws_dll2_get_head(&nwsi->mux.child_list_owner)) {
+				struct lws *sibling = lws_container_of(d,
+						struct lws, mux.sibling_list);
+				if (sibling != wsi && lwsi_state(sibling) == LRS_H2_WAITING_TO_SEND_HEADERS)
+					lws_callback_on_writable(sibling);
+			} lws_end_foreach_dll(d);
+		}
+
+		{
+			struct lws *nwsi = wsi->mux.parent_wsi;
+
+			lws_wsi_mux_sibling_disconnect(wsi);
+
+#if defined(LWS_WITH_CLIENT)
+			/*
+			 * A stream slot on the connection is free: if client
+			 * transactions were queued waiting for the peer's
+			 * concurrent stream limit, the next can go.  Not if
+			 * the connection itself is what's closing (this is
+			 * one of its children being closed by that): adopting
+			 * the queue on to a dying parent leaves the adoptees
+			 * with a dangling parent pointer after it is freed,
+			 * and no longer on the txn queue that the parent's
+			 * reset would have closed them from
+			 */
+			if (nwsi && lwsi_role_client(nwsi) &&
+			    !lwsi_close_started(nwsi) &&
+			    !lwsi_skt_unusable(nwsi) &&
+			    !lws_dll2_is_empty(&nwsi->dll2_cli_txn_queue_owner) &&
+			    !nwsi->a.context->being_destroyed)
+				lws_wsi_mux_apply_queue(nwsi);
+
+			/* ... and if that was its last stream, keep it warm */
+			lws_wsi_mux_client_idle_check(nwsi);
+#else
+			(void)nwsi;
+#endif
+		}
+#if defined(LWS_WITH_SERVER)
+		lws_http_status_page_drop_pending(wsi);
+#endif
+	}
+
+	return 0;
+}
+
+static int
+rops_callback_on_writable_h2(struct lws *wsi)
+{
+#if defined(LWS_WITH_CLIENT)
+	struct lws *network_wsi;
+#endif
+	int already;
+
+//	if (!lwsi_role_h2(wsi) && !lwsi_role_h2_ENCAPSULATION(wsi))
+//		return 0;
+
+	if (wsi->mux.requested_POLLOUT) {
+		lwsl_debug("already pending writable\n");
+		// return 1;
+	}
+
+	/* is this for DATA or for control messages? */
+
+	if (lws_wsi_is_mux_nwsi(wsi) && !lws_dll2_get_head(&wsi->h2.h2n->pps_owner) &&
+	    lws_wsi_txc_check_skint(&wsi->txc, lws_h2_tx_cr_get(wsi))) {
+		/*
+		 * refuse his efforts to get WRITABLE if we have no credit and
+		 * no non-DATA pps to send
+		 */
+		lwsl_err("%s: skint\n", __func__);
+		return 0;
+	}
+
+#if defined(LWS_WITH_CLIENT)
+	network_wsi = lws_get_network_wsi(wsi);
+#endif
+	already = lws_wsi_mux_mark_parents_needing_writeable(wsi);
+
+	/* for network action, act only on the network wsi */
+
+	if (already
+#if defined(LWS_WITH_CLIENT)
+			&& !lwsi_role_client(network_wsi)
+#endif
+			)
+		return 1;
+
+	return 0;
+}
+
+#if defined(LWS_WITH_SERVER)
+
+/*
+ * We bound a POST but its body is not all here yet, so the request cannot be
+ * dispatched: the POLLOUT mux walk will leave the stream parked in LRS_BODY
+ * with its requested_POLLOUT already cleared, waiting on the peer.
+ *
+ * Nothing else arms any timeout on an h2 stream wsi... lws_http_action() (the
+ * only thing that arms PENDING_TIMEOUT_HTTP_CONTENT on a request wsi) is
+ * exactly what we are deferring, and the timeouts the h2 parser sets belong to
+ * the network wsi, which the peer keeps fresh with any frame at all.  So
+ * without this a HEADERS whose body never comes holds the stream wsi, its ah
+ * and whatever the user allocated at LWS_CALLBACK_HTTP for the life of the
+ * connection.
+ *
+ * Arm the same body timeout h1 uses, with its minimum rate: lws_read_h1()
+ * re-arms it as body arrives and clears it at body completion.
+ */
+
+static void
+lws_h2_await_body_timeout(struct lws *wsi)
+{
+	if (!wsi->mux_stream_immortal)
+		lws_http_body_timeout_arm(wsi);
+}
+
+/*
+ * Returns
+ *
+ *   0: this is not a POST we take over, the caller must dispatch the request
+ *      with lws_http_action() as usual (it does its own body / stashed-body
+ *      handling for mux streams)
+ *
+ *   1: we bound the POST and took over its dispatch, ie, the user code already
+ *      had its LWS_CALLBACK_HTTP and will get the
+ *      LWS_CALLBACK_HTTP_BODY[_COMPLETION] from here.  The caller must NOT
+ *      then call lws_http_action(): that would rebind the protocol
+ *      (destroying wsi->user_space, ie, whatever the user allocated at
+ *      LWS_CALLBACK_HTTP, along with any lws_spa) and deliver a second
+ *      LWS_CALLBACK_HTTP for the same request
+ *
+ *   2: as for 1, but the transaction is over (it was answered or refused
+ *      without waiting for the body): the caller must close the stream.  Only
+ *      the stream... an interceptor refusing one request, or the dispatch
+ *      asking to be closed, is no reason to take down everybody else's
+ *      streams on the same h2 connection, which is what lws_http_action()
+ *      returning > 0 does here too
+ *
+ *  -1: fatal, close the connection
+ */
+
+/*
+ * The stream's request was answered before its body was all given to the
+ * app: the body is nothing to anyone.  What is stashed of it goes now, and
+ * what is still to come is discarded as it arrives (lws_read_h1()), so it is
+ * counted from here.
+ */
+
+static void
+lws_h2_stashed_body_nobodys(struct lws *wsi)
+{
+	size_t sl;
+
+	wsi->http.rx_content_remain = wsi->http.content_length_given ?
+			wsi->http.rx_content_length :
+			(wsi->a.vhost->max_http_body_size ?
+				wsi->a.vhost->max_http_body_size :
+				100 * 1024 * 1024);
+	while ((sl = lws_buflist_next_segment_len(&wsi->buflist, NULL))) {
+		lws_buflist_use_segment(&wsi->buflist, sl);
+		wsi->http.rx_content_remain =
+			wsi->http.rx_content_remain > sl ?
+				wsi->http.rx_content_remain - sl : 0;
+	}
+	lws_dll2_remove(&wsi->dll_buflist);
+}
+
+static int
+lws_h2_bind_for_post_before_action(struct lws *wsi, int *verdict)
+{
+	const struct lws_http_mount *hit;
+	int uri_len = 0, methidx, n;
+	struct lws_http_gate g;
+	char *uri_ptr = NULL;
+	uint8_t *buffered;
+	const char *p;
+	size_t blen;
+
+	p = lws_hdr_simple_ptr(wsi, WSI_TOKEN_HTTP_COLON_METHOD);
+	if (!p || strcmp(p, "POST"))
+		return 0;
+
+	if (!lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_COLON_PATH) ||
+	    !lws_hdr_simple_ptr(wsi, WSI_TOKEN_HTTP_COLON_PATH))
+		/*
+		 * There must be a path.  Actually this is checked at
+		 * http2.c along with the other required header
+		 * presence before we can get here.
+		 *
+		 * But Coverity insists to see us check it.
+		 */
+		return -1;
+
+	/*
+	 * Decide whether we are the dispatch for this POST, from the mount it
+	 * is aimed at.  If we cannot even get the method URI, hand the request
+	 * back to lws_http_action(), which refuses it in exactly the same way
+	 * it would on h1 rather than having a second opinion about it here.
+	 */
+
+	methidx = lws_http_get_uri_and_method(wsi, &uri_ptr, &uri_len);
+	if (methidx < 0 || !uri_ptr)
+		return 0;
+
+	hit = lws_find_mount(wsi, uri_ptr, uri_len);
+
+	lwsl_debug("%s: %s: hit %p: %s\n", __func__, uri_ptr,
+		    hit, hit ? hit->origin : "null");
+
+	/*
+	 * Mounts we do not dispatch: hand the request back to
+	 * lws_http_action(), which does the whole job for them
+	 */
+
+	if (hit && (hit->origin_protocol == LWSMPRO_CGI ||
+		    hit->origin_protocol == LWSMPRO_HTTP ||
+		    hit->origin_protocol == LWSMPRO_HTTPS))
+		return 0;
+
+	if (hit && !hit->protocol && hit->origin_protocol == LWSMPRO_FILE)
+		return 0;
+
+	/*
+	 * From here we are the dispatch for this request, so it passes the
+	 * same request gates lws_http_action() applies, from the same code:
+	 * the body framing and size limits, the app's
+	 * LWS_CALLBACK_FILTER_HTTP_CONNECTION, the mount's redirect, its
+	 * interceptor chain and basic auth, and once bound to the mount's
+	 * protocol, its LWS_CALLBACK_CHECK_ACCESS_RIGHTS.  They decide the
+	 * mount we serve, and prepare the access log.
+	 *
+	 * If they decided the request instead, it is over as it would be from
+	 * lws_http_action(), whose verdict the caller acts on.  The body
+	 * stashed while we deferred is nobody's: drop it, so the stream does
+	 * not feed it to whatever the request was refused with.
+	 */
+
+	memset(&g, 0, sizeof(g));
+	if (lws_http_action_request(wsi, &g) ||
+	    lws_http_action_gates(wsi, &g) ||
+	    (g.hit && lws_http_action_bind_mount(wsi, &g))) {
+		lws_buflist_destroy_all_segments(&wsi->buflist);
+		lws_dll2_remove(&wsi->dll_buflist);
+		*verdict = g.verdict;
+
+		return 3;
+	}
+
+	hit = g.hit;
+	uri_ptr = g.uri_ptr;
+	uri_len = g.uri_len;
+
+	if (!hit) {
+		/*
+		 * We are this POST's dispatch, and there was no mount hit, so
+		 * protocols[0] serves it, as lws_http_action() does for the
+		 * no-mount case.  The gates above bound the protocol the
+		 * stream was created on (__lws_wsi_server_new()), so its pss
+		 * has had its BIND and is owed its DROP.  If that is
+		 * protocols[0], it keeps that pss for the request; otherwise
+		 * protocols[0] is bound now, the other one dropped first.
+		 */
+		if ((wsi->a.protocol != &wsi->a.vhost->protocols[0] ||
+		     !wsi->protocol_bind_balance) &&
+		    lws_bind_protocol(wsi, &wsi->a.vhost->protocols[0],
+				      "no mount hit"))
+			return -1;
+	}
+
+	if (wsi->a.protocol->callback(wsi, LWS_CALLBACK_HTTP, wsi->user_space,
+				      hit ? uri_ptr + hit->mountpoint_len :
+					    uri_ptr,
+				      (size_t)(hit ? uri_len -
+						  (int)hit->mountpoint_len :
+						  uri_len)))
+		/*
+		 * He is done with it (commonly: an interceptor that refused
+		 * the request has already written its response and completed
+		 * the transaction).  Close the stream, not the connection
+		 */
+		return 2;
+
+	if (lwsi_state(wsi) == LRS_TXN_COMPLETING ||
+	    lwsi_state(wsi) == LRS_ISSUING_FILE ||
+	    lwsi_state(wsi) == LRS_AWAITING_FILE_READ) {
+		/*
+		 * The dispatch answered the request: it completed it with its
+		 * answer still queued, and the stream ends once that has gone
+		 * (the walk of the children sees to it), or it is serving a
+		 * file as the answer
+		 */
+		lws_h2_stashed_body_nobodys(wsi);
+
+		return 1;
+	}
+
+	if (lwsi_state(wsi) == LRS_DISCARD_BODY)
+		/*
+		 * The dispatch answered the request without consuming the
+		 * body and completed the transaction, so the core put us in
+		 * LRS_DISCARD_BODY to resync.  There is nothing to resync on a
+		 * mux stream -- it is framed independently of its neighbours
+		 * and cannot be reused -- so drop whatever body we stashed and
+		 * let the caller close the stream, which resets it if the peer
+		 * is still sending.
+		 */
+		goto discard_and_close;
+
+	lwsl_info("%s: setting LRS_BODY from 0x%x (%s)\n", __func__,
+		    (int)wsi->wsistate, wsi->a.protocol->name);
+
+	lws_wsi_event(wsi, LWS_WSIEV_BODY_BEGIN);
+
+	if (wsi->http.content_length_explicitly_zero) {
+		/*
+		 * He told us there is no body... but if he did not also end
+		 * his side of the stream, we are still waiting on him for the
+		 * END_STREAM before we may reply
+		 */
+		if (!wsi->h2.END_STREAM) {
+			lws_h2_await_body_timeout(wsi);
+
+			return 1;
+		}
+
+		/*
+		 * He did end his side of the stream, so the (empty) body is
+		 * complete.  Give the empty LWS_CALLBACK_HTTP_BODY before the
+		 * completion exactly as lws_http_action() does for an h1 POST
+		 * with "Content-Length: 0", so user code that only creates its
+		 * lws_spa at HTTP_BODY is not confronted with a completion for
+		 * a body it never saw start.
+		 */
+
+		if (wsi->a.protocol->callback(wsi, LWS_CALLBACK_HTTP_BODY,
+					      wsi->user_space, NULL, 0))
+			return 2;
+
+		if (lws_http_body_completion(wsi))
+			return 2;
+		lws_http_mux_body_completed(wsi);
+
+		/* the last point the request headers may be read */
+		lws_http_ah_release_after_dispatch(wsi, 1);
+
+		return 1;
+	}
+
+	/*
+	 * Dump any stashed body
+	 */
+
+	if (lwsi_role_server(wsi) && !wsi->http.content_length_given && !wsi->http.rx_content_remain) {
+		uint64_t max_body = hit && hit->max_http_body_size ? hit->max_http_body_size :
+				    (wsi->a.vhost->max_http_body_size ? wsi->a.vhost->max_http_body_size : 100 * 1024 * 1024);
+		wsi->http.rx_content_remain = max_body;
+	}
+
+	while (!wsi->http.content_length_given ||
+	       wsi->http.rx_content_length) {
+
+		blen = lws_buflist_next_segment_len(&wsi->buflist, &buffered);
+		if (!blen)
+			break;
+
+		if (wsi->http.content_length_given &&
+		    (size_t)wsi->http.rx_content_length < blen)
+			blen = (size_t)wsi->http.rx_content_length;
+
+		if (lwsi_role_server(wsi) && !wsi->http.content_length_given && wsi->http.rx_content_remain < blen) {
+			lwsl_warn("%s: deferred body exceeded max size\n", __func__);
+			return -1;
+		}
+
+		/*
+		 * Account for the piece before the app hears of it, as the
+		 * inline DATA path in lws_read_h1() does: an app completing
+		 * the transaction from this HTTP_BODY must find no body owed
+		 * if this was the last of it, not discard it.
+		 *
+		 * Keep rx_content_remain in step with the body we deliver
+		 * from the deferred buflist.  The inline DATA path in
+		 * lws_read_h1() and the HTTP_BODY_COMPLETION decision both track
+		 * rx_content_remain (initialized to the full content-length);
+		 * if we only decrement rx_content_length here, a body that is
+		 * split across the DEFERRING_ACTION boundary (some stashed here,
+		 * the rest arriving later inline) leaves rx_content_remain stuck
+		 * at the stashed byte count, so completion never fires and the
+		 * request times out.
+		 */
+		wsi->http.rx_content_length -= blen;
+		if (wsi->http.rx_content_remain >= blen)
+			wsi->http.rx_content_remain -= blen;
+		else
+			wsi->http.rx_content_remain = 0;
+
+		n = wsi->a.protocol->callback(wsi, LWS_CALLBACK_HTTP_BODY,
+					      wsi->user_space, buffered, blen);
+		lws_buflist_use_segment(&wsi->buflist, blen);
+		if (n)
+			return 2;
+
+		switch (lwsi_state(wsi)) {
+		case LRS_BODY:
+			break;
+		case LRS_DISCARD_BODY:
+			/* the app completed from a piece before the last */
+			goto discard_and_close;
+		default:
+			/*
+			 * The app answered from the body and completed the
+			 * transaction, its answer still queued, or started
+			 * serving a file: the rest of the body, and its
+			 * completion, are nobody's
+			 */
+			lws_h2_stashed_body_nobodys(wsi);
+
+			return 1;
+		}
+	}
+
+	if (!wsi->buflist)
+		/* Take us off the pt's "wsi holding input buflist" list */
+		lws_dll2_remove(&wsi->dll_buflist);
+
+	if (wsi->http.content_length_given && wsi->http.rx_content_length) {
+		if (wsi->h2.END_STREAM) {
+			/*
+			 * He ended his side of the stream while still owing us
+			 * the body his content-length promised.  Nothing more
+			 * can arrive on the stream, so waiting is pointless...
+			 * this is the deferred-body twin of the "Not enough rx
+			 * content" check in lws_h2_parse_end_of_frame(), which
+			 * cannot see the stashed body's accounting.
+			 */
+			lwsl_info("%s: %s: END_STREAM, %llu owed\n",
+				  __func__, lws_wsi_tag(wsi),
+				  (unsigned long long)
+					wsi->http.rx_content_length);
+
+			if (lws_h2_rst_stream(wsi, H2_ERR_PROTOCOL_ERROR,
+					      "Not enough rx content"))
+				lwsl_info("%s: RST_STREAM not queued\n",
+					  __func__);
+
+			return 1;
+		}
+
+		/* still a-ways to go */
+		lws_h2_await_body_timeout(wsi);
+
+		return 1;
+	}
+
+	if (!wsi->http.content_length_given && !wsi->h2.END_STREAM) {
+		/* no content-length, so we're waiting for his END_STREAM */
+		lws_h2_await_body_timeout(wsi);
+
+		return 1;
+	}
+
+	/*
+	 * The body is complete: like h1's postbody_completion, the peer owes us
+	 * nothing more, so no body timeout is left armed.  From here the
+	 * response watchdog lws_http_response_started() arms takes over.
+	 */
+
+	if (lws_http_body_completion(wsi))
+		return 2;
+	lws_http_mux_body_completed(wsi);
+
+	/* the last point the request headers may be read */
+	lws_http_ah_release_after_dispatch(wsi, 1);
+
+	return 1;
+
+discard_and_close:
+	lws_buflist_destroy_all_segments(&wsi->buflist);
+	lws_dll2_remove(&wsi->dll_buflist);
+
+	/*
+	 * A status page answered the request, lws_return_http_status(): its
+	 * HEADERS went, but its body goes on the stream's next writeable,
+	 * which then ends it.  Until then the stream stays, the rest of the
+	 * request body discarded as it comes
+	 */
+	if (wsi->h2.pending_status_code)
+		return 1;
+
+	return 2;
+}
+#endif
+
+/*
+ * we are the 'network wsi' for potentially many muxed child wsi with
+ * no network connection of their own, who have to use us for all their
+ * network actions.  So we use a round-robin scheme to share out the
+ * POLLOUT notifications to our children.
+ *
+ * But because any child could exhaust the socket's ability to take
+ * writes, we can only let one child get notified each time.
+ *
+ * In addition children may be closed / deleted / added between POLLOUT
+ * notifications, so we can't hold pointers
+ */
+
+static int
+rops_perform_user_POLLOUT_h2(struct lws *wsi)
+{
+	int n;
+
+	wsi = lws_get_network_wsi(wsi);
+
+	wsi->mux.requested_POLLOUT = 0;
+//	if (!wsi->h2.initialized) {
+//		lwsl_info("pollout on uninitialized http2 conn\n");
+//		return 0;
+//	}
+
+	lws_wsi_mux_dump_waiting_children(wsi);
+
+	if(lws_dll2_is_empty(&wsi->mux.child_list_owner))
+		return 0;
+
+	/*
+	 * Fair-share POLLOUT service via a forward walk.  _safe caches next
+	 * before the body, so relocating the current child to the tail
+	 * (fair-share rotation) or removing it (close) is safe.  The
+	 * rotation does not make the walk terminate by itself: a serviced
+	 * child lands behind the next one's cached next, so two children
+	 * that re-arm on every visit alternate for as long as the pipe is
+	 * not choked.  The bound is the count at pass start: every child
+	 * then present is seen once, and children a callback adds or
+	 * re-arms are picked up on a future pass.
+	 *
+	 * The choke test is post-tested, matching the historical do/while:
+	 * the first iteration skips it so a pipe that already looks choked on
+	 * entry (buffered partial write, draining ws extension, stream-
+	 * compression buflist, ...) cannot starve every child.  From the
+	 * second iteration on we re-check before the next sibling, so writes
+	 * that re-arm via 'continue' are still gated the next time round.
+	 */
+	int first_iteration = 1,
+	    remaining = (int)wsi->mux.child_list_owner.count;
+	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
+			lws_dll2_get_head(&wsi->mux.child_list_owner)) {
+		struct lws *w = lws_container_of(d, struct lws, mux.sibling_list);
+
+		if (remaining-- <= 0)
+			break;
+
+		if (!first_iteration && lws_send_pipe_choked(wsi))
+			break;
+		first_iteration = 0;
+
+		if (!w->mux.requested_POLLOUT)
+			continue;	/* not interested; leave in place */
+
+		/*
+		 * we're going to do writable callback for this child.
+		 * move him to be the last child (fair share); the cached d1
+		 * (next) stays valid across the relocate.
+		 */
+		lwsl_debug("servicing child %s\n", lws_wsi_tag(w));
+		lws_dll2_remove(&w->mux.sibling_list);
+		lws_dll2_add_tail(&w->mux.sibling_list,
+				  &wsi->mux.child_list_owner);
+
+		/*
+		 * We have selected this child for service: clear its POLLOUT
+		 * request now, exactly as the historical
+		 * lws_wsi_mux_move_child_to_tail() did when it was the
+		 * rotation primitive.  Placing the clear here (before the body,
+		 * matching the old helper) matters: every early 'continue' path
+		 * below was written assuming the flag is already clear, and
+		 * re-arms it explicitly via lws_callback_on_writable(w) /
+		 * requested_POLLOUT = 1 only when it wants another cycle.
+		 *
+		 * Without this clear the normal (non-error) path through
+		 * lws_callback_as_writeable() returns having done nothing more
+		 * while requested_POLLOUT stays set, so the post-loop
+		 * lws_wsi_mux_action_pending_writeable_reqs() re-arms POLLOUT
+		 * on the nwsi every pass; on a level-triggered event loop
+		 * (libuv) the always-writable socket spins at 100% CPU.
+		 */
+		w->mux.requested_POLLOUT = 0;
+
+		lwsl_info("%s: child %s, sid %llu, (wsistate 0x%x)\n",
+			  __func__, lws_wsi_tag(w), (unsigned long long)w->mux.my_sid,
+			  (unsigned int)w->wsistate);
+
+		/* priority 1: post compression-transform buffered output */
+
+#if defined(LWS_ROLE_WS)
+		if (w->h23_stream_carries_ws && w->buflist_out) {
+			/*
+			 * ws-over-h2: whole DATA frames parked by
+			 * lws_h2_frame_write() waiting for tx credit.  Gate
+			 * and re-arm on the stream's OWN buflist, not
+			 * lws_has_buffered_out(): that also reports the
+			 * nwsi's buffer (eg, another stream's partial socket
+			 * write), which must neither pull us into the drain
+			 * with nothing parked nor block re-arming the user
+			 * once our own frames are gone.  If nothing of ours
+			 * is parked, fall through to normal servicing.
+			 */
+
+			if (lws_h2_ws_drain_parked_tx(wsi, w) < 0) {
+				lwsl_info("%s signalling to close\n",
+					  __func__);
+				lws_close_free_wsi(w,
+					LWS_CLOSE_STATUS_NOSTATUS,
+					"h2 end stream 1");
+				continue;
+			}
+			if (!w->buflist_out)
+				/* fully drained: let the user write */
+				lws_callback_on_writable(w);
+			/*
+			 * else still skint: stay quiet, the
+			 * WINDOW_UPDATE handler re-arms every child
+			 */
+			continue;
+		}
+#endif
+		/* ... for both ws-over-h2 and h2, deal with partial at nwsi */
+
+		if (lws_has_buffered_out(w)) {
+			lwsl_debug("%s: completing partial\n", __func__);
+			if (lws_io_tx_push(w, NULL, 0) < 0) {
+				lwsl_info("%s signalling to close\n", __func__);
+				lws_close_free_wsi(w, LWS_CLOSE_STATUS_NOSTATUS,
+						   "h2 end stream 1");
+				continue;
+			}
+			lws_callback_on_writable(w);
+			continue;
+		}
+
+#if defined(LWS_ROLE_WS) && !defined(LWS_WITHOUT_EXTENSIONS)
+		/*
+		 * ws-over-h2: tx path extension with more to send (eg,
+		 * permessage-deflate whose compressed output exceeded its
+		 * chunk buffer).  The h1 path services this from
+		 * rops_handle_POLLOUT_ws() priority 5; this loop is the ONLY
+		 * POLLOUT servicing an encapsulated child ever gets, so it
+		 * must do the same -- while tx_draining_ext is set,
+		 * lws_send_pipe_choked() reports choked, so the user
+		 * callback will never write again and the connection wedges
+		 * for good.
+		 */
+		if (lwsi_role_ws(w) && lwsi_state(w) == LRS_ESTABLISHED &&
+		    w->ws && w->ws->tx_draining_ext) {
+			if (lws_write(w, NULL, 0, LWS_WRITE_CONTINUATION) < 0) {
+				lwsl_info("%s signalling to close\n", __func__);
+				lws_close_free_wsi(w, LWS_CLOSE_STATUS_NOSTATUS,
+						   "h2 ws ext drain");
+				continue;
+			}
+			lws_callback_on_writable(w);
+			continue;
+		}
+#endif
+
+		/* priority 2: pre compression-transform buffered output */
+
+#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+		if (w->http.comp_ctx.buflist_comp ||
+		    w->http.comp_ctx.may_have_more) {
+			enum lws_write_protocol wp = LWS_WRITE_HTTP;
+
+			/*
+			 * No window, no DATA: the WINDOW_UPDATE handler
+			 * re-arms every child, rather than us spinning here
+			 */
+			if (lws_wsi_txc_check_skint(&w->txc,
+						    lws_h2_tx_cr_get(w)))
+				continue;
+
+			lwsl_info("%s: completing comp partial"
+				   "(buflist_comp %p, may %d)\n",
+				   __func__, w->http.comp_ctx.buflist_comp,
+				    w->http.comp_ctx.may_have_more);
+
+			if (rops_write_role_protocol_h2(w, NULL, 0, &wp) < 0) {
+				lwsl_info("%s signalling to close\n", __func__);
+				lws_close_free_wsi(w, LWS_CLOSE_STATUS_NOSTATUS,
+						   "comp write fail");
+				continue;
+			}
+			lws_callback_on_writable(w);
+			continue;
+		}
+#endif
+
+		/* priority 3: if no buffered out and waiting for that... */
+
+		if (lwsi_flushing_to_close(w)) {
+			lwsi_set_skt_unusable(w, 1);
+			lws_close_free_wsi(w, LWS_CLOSE_STATUS_NOSTATUS,
+					   "h2 end stream 1");
+			continue;
+		}
+
+#if defined(LWS_WITH_SERVER)
+		/*
+		 * ...or completion: the user completed the transaction while
+		 * its output was queued.  Once none is, it completes, which
+		 * ends the stream; until then there is nothing for the user
+		 * to write
+		 */
+		if (lwsi_state_live(w) == LRS_TXN_COMPLETING) {
+			if (lws_http_tx_drained(w) < 0)
+				lws_close_free_wsi(w, LWS_CLOSE_STATUS_NOSTATUS,
+						   "h2 deferred completion");
+			continue;
+		}
+#endif
+
+#if defined(LWS_WITH_SERVER)
+		if (w->h2.pending_status_code) {
+			w->h2.send_END_STREAM = 1;
+			lws_http_status_page_send_pending(w);
+			lws_close_free_wsi(w, LWS_CLOSE_STATUS_NOSTATUS,
+					   "h2 end stream 1");
+			continue;
+		}
+#endif
+
+#if defined(LWS_WITH_CLIENT)
+		if (lwsi_state(w) == LRS_H2_WAITING_TO_SEND_HEADERS) {
+			/*
+			 * Stream ids must rise, so stream 1 opens the
+			 * connection: until the migration the connection's own
+			 * request is stream 1 and nothing else may go, after it
+			 * the sid-1 child must have sent its headers first.
+			 * (Ask that child, not the parser's current stream
+			 * pointer, which is the connection itself between
+			 * frames on stream 0.)
+			 */
+			if (w->mux.my_sid != 1) {
+				struct lws *s1 = lws_wsi_mux_from_id(wsi, 1);
+
+				if (!lws_wsi_client_nwsi_migrated(wsi) ||
+				    (s1 && lwsi_state(s1) ==
+						LRS_H2_WAITING_TO_SEND_HEADERS)) {
+					lwsl_info("%s: waiting for sid 1 to send headers\n",
+						  __func__);
+					continue;
+				}
+			}
+
+			if (lws_h2_client_handshake(w))
+				return -1;
+
+			continue;
+		}
+#endif
+
+#if defined(LWS_WITH_SERVER)
+		if (lwsi_state(w) == LRS_DEFERRING_ACTION) {
+			int verdict = 0;
+
+			/*
+			 * The connection is dead, its GOAWAY waiting to go:
+			 * start no more work for it, eg, for streams that
+			 * came in the same read as the resets that made us
+			 * end it (G-646)
+			 */
+			if (wsi->h2.h2n && wsi->h2.h2n->goaway_queued)
+				continue;
+
+			/*
+			 * we had to defer the http_action to the POLLOUT
+			 * handler, because we know it will send something and
+			 * only in the POLLOUT handler do we know for sure
+			 * that there is no partial pending on the network wsi.
+			 */
+
+			lws_wsi_event(w, LWS_WSIEV_ACTION_DEFERRED_RUN);
+
+			if (w->buflist) {
+				struct lws_context_per_thread *pt;
+
+				pt = &w->a.context->pt[(int)w->tsi];
+				lwsl_debug("%s: added %s to rxflow list\n",
+					   __func__, lws_wsi_tag(w));
+				lws_dll2_add_head(
+					&w->dll_buflist,
+					&pt->dll_buflist_owner);
+			}
+
+			n = lws_h2_bind_for_post_before_action(w, &verdict);
+			if (n < 0)
+				return -1;
+
+			/*
+			 * If it was a POST we bind ahead of the action, that
+			 * function is the dispatch: the user code has had its
+			 * LWS_CALLBACK_HTTP and gets the body (and its
+			 * completion) from there or from lws_read_h1() as the
+			 * DATA frames arrive.  Running lws_http_action() over
+			 * the top of it would rebind the protocol -- freeing
+			 * wsi->user_space and everything the user hung off it
+			 * at LWS_CALLBACK_HTTP, eg, his lws_spa -- and deliver
+			 * a second LWS_CALLBACK_HTTP for the same request.
+			 *
+			 * 2 additionally means it is already over: the request
+			 * was answered without waiting on the body, so this
+			 * stream -- and only this stream -- closes now.
+			 *
+			 * 3 means the request gates decided it before any
+			 * dispatch, as they would have in lws_http_action():
+			 * verdict is what lws_http_action() would have returned,
+			 * and is acted on in the same way.
+			 */
+
+			if (n == 2) {
+				lwsl_info("%s: closing stream after h2 POST "
+					  "dispatch\n", __func__);
+				lws_close_free_wsi(w, LWS_CLOSE_STATUS_NOSTATUS,
+						   "h2 post dispatch done");
+				continue;
+			}
+
+			if (n == 3)
+				n = verdict;
+			else {
+				if (n)
+					continue;
+
+				lwsl_info("  h2 action start...\n");
+				n = lws_http_action(w);
+			}
+			if (n < 0)
+				lwsl_info ("   h2 action result %d\n", n);
+			else
+			lwsl_info("  h2 action result %d "
+				  "(wsi->http.rx_content_remain %lld)\n",
+				  n, w->http.rx_content_remain);
+
+			/*
+			 * Commonly we only managed to start a larger transfer
+			 * that will complete asynchronously under its own wsi
+			 * states.  In those cases we will hear about
+			 * END_STREAM going out in the POLLOUT handler.
+			 */
+			if (n >= 0 && !w->h2.pending_status_code &&
+			    (n || w->h2.send_END_STREAM)) {
+				lwsl_info("closing stream after h2 action\n");
+				lws_close_free_wsi(w, LWS_CLOSE_STATUS_NOSTATUS,
+						   "h2 end stream");
+			}
+
+			continue;
+		}
+
+#if defined(LWS_WITH_FILE_OPS)
+
+		if (lwsi_state(w) == LRS_AWAITING_FILE_READ)
+			/*
+			 * A worker has the file's next read: when it is back
+			 * the stream is put in ISSUING_FILE and asked to
+			 * write, as on h1 and h3.  Nothing of this pass is the
+			 * stream's, and it is never the app's
+			 */
+			continue;
+
+		if (lwsi_state(w) == LRS_ISSUING_FILE) {
+
+			if (lws_wsi_txc_check_skint(&w->txc,
+						    lws_h2_tx_cr_get(w))) {
+				continue;
+			}
+
+			/* >0 == completion, <0 == error
+			 *
+			 * We'll get a LWS_CALLBACK_HTTP_FILE_COMPLETION
+			 * callback when it's done.  That's the case even if we
+			 * just completed the send, so wait for that.
+			 */
+			n = lws_io_tx_file(w);
+			lwsl_debug("file tx says %d\n", n);
+
+			/*
+			 * We will often hear about out having sent the final
+			 * DATA here... if so close the actual wsi
+			 */
+			if (n < 0 || w->h2.send_END_STREAM) {
+				lwsl_debug("Closing POLLOUT child %s\n",
+						lws_wsi_tag(w));
+				lws_close_free_wsi(w, LWS_CLOSE_STATUS_NOSTATUS,
+						   "h2 end stream file");
+				continue;
+			}
+			if (n > 0)
+				if (lws_http_transaction_completed(w))
+					return -1;
+			/* a read gone to a worker asks for us when it is back */
+			if (!n && lwsi_state(w) == LRS_ISSUING_FILE) {
+				lws_callback_on_writable(w);
+				(w)->mux.requested_POLLOUT = 1;
+			}
+
+			continue;
+		}
+#endif
+#endif
+
+#if defined(LWS_ROLE_WS)
+		/*
+		 * What a ws stream owes the peer itself goes before the app
+		 * hears it may write: its close, its answer to the peer's,
+		 * a ping or pong
+		 */
+		if (lwsi_role_ws(w)) {
+			n = lws_ws_mux_child_pollout(w);
+			if (n < 0)
+				return -1;
+			if (n)
+				continue;
+		}
+#endif
+
+		/*
+		 * set client wsi to immortal long-poll mode; send END_STREAM
+		 * flag on headers to indicate to a server, that allows
+		 * it, that you want them to leave the stream in a long poll
+		 * ro immortal state.  We have to send headers so the client
+		 * understands the http connection is ongoing.
+		 */
+
+		if (w->h2.send_END_STREAM && w->h2.long_poll) {
+			uint8_t buf[LWS_PRE + 1];
+			enum lws_write_protocol wp = 0;
+
+			if (!rops_write_role_protocol_h2(w, buf + LWS_PRE, 0,
+							 &wp)) {
+				lwsl_info("%s: %s: entering ro long poll\n",
+					  __func__, lws_wsi_tag(w));
+				lws_mux_mark_immortal(w);
+			} else
+				lwsl_err("%s: %s: failed to set long poll\n",
+						__func__, lws_wsi_tag(w));
+			continue;
+		}
+
+#if defined(LWS_WITH_CLIENT)
+		if (lwsi_role_client(w)) {
+			/*
+			 * Once END_STREAM has gone out on a client stream
+			 * nothing more can be sent on it, so it has no use
+			 * for a writeable callback.  A WINDOW_UPDATE for the
+			 * connection or any stream re-arms every child (it
+			 * cannot know who was waiting for credit), and a user
+			 * given LWS_CALLBACK_CLIENT_HTTP_WRITEABLE again after
+			 * his final body write would write the body again:
+			 * DATA on a half-closed stream, GOAWAY from the peer.
+			 */
+			if (w->h2.h2_state == LWS_H2_STATE_HALF_CLOSED_LOCAL ||
+			    w->h2.h2_state == LWS_H2_STATE_CLOSED) {
+				lwsl_wsi_debug(w, "no writeable cb after "
+						  "END_STREAM");
+				continue;
+			}
+
+			/*
+			 * The request body is DATA, subject to the peer's
+			 * stream and connection windows, and the peer may
+			 * open the stream window at zero and grow it by
+			 * WINDOW_UPDATE only once it has seen the HEADERS.
+			 * lws_h2_frame_write() cannot hold back an
+			 * over-window write, so do not offer the body
+			 * writeable callback until there is credit: the
+			 * WINDOW_UPDATE that brings it re-arms us.  Response
+			 * HEADERS are not flow-controlled, so only the body
+			 * phase is gated.
+			 */
+			if (lwsi_state(w) == LRS_ISSUE_HTTP_BODY &&
+			    lws_wsi_txc_check_skint(&w->txc,
+						    lws_h2_tx_cr_get(w)))
+				continue;
+		}
+#endif
+
+#if defined(LWS_WITH_SERVER)
+		/*
+		 * A server stream's protocol is bound, and its pss allocated,
+		 * by its request's gates.  Until then it has no request and no
+		 * pss, and the protocol has heard nothing of it: there is
+		 * nothing for it to write.  But a stream can be asked to write
+		 * while it is still reading its headers, eg, by the
+		 * WINDOW_UPDATE granting the new stream its window, queued as
+		 * its HEADERS arrive, or by the peer's WINDOW_UPDATE on stream
+		 * 0 re-arming every child.  That must not reach the user as an
+		 * HTTP_WRITEABLE with user NULL.
+		 */
+		if (lwsi_role_server(w) && lwsi_role_h2(w) &&
+		    !w->protocol_bind_balance) {
+			lwsl_wsi_debug(w, "no writeable cb before the request");
+			continue;
+		}
+#endif
+
+		if (lws_callback_as_writeable(w)) {
+			lwsl_info("Closing POLLOUT child (end stream %d)\n",
+				  w->h2.send_END_STREAM);
+			lws_close_free_wsi(w, LWS_CLOSE_STATUS_NOSTATUS,
+					   "h2 pollout handle");
+		} else {
+			/*
+			 * Our END_STREAM has gone: if the peer had ended his
+			 * side already, the stream is now closed both ways,
+			 * RFC 9113 5.1.  Once it's closed, it stays closed.
+			 */
+			if (w->h2.send_END_STREAM) {
+				if (w->h2.h2_state == LWS_H2_STATE_OPEN)
+					lws_h2_state(w,
+					      LWS_H2_STATE_HALF_CLOSED_LOCAL);
+				else if (w->h2.h2_state ==
+					 LWS_H2_STATE_HALF_CLOSED_REMOTE)
+					lws_h2_state(w, LWS_H2_STATE_CLOSED);
+			}
+
+#if defined(LWS_WITH_CLIENT)
+			/*
+			 * If we just finished writing the request body (the
+			 * user cleared client_http_body_pending from
+			 * LWS_CALLBACK_CLIENT_HTTP_WRITEABLE and the last chunk
+			 * carried END_STREAM on h2), advance to waiting for the
+			 * server's reply -- the same transition h1 makes at
+			 * client-http.c:~325 and h3 at ops-h3.c:~477.  Without
+			 * this the h2 client stream stayed in LRS_ISSUE_HTTP_BODY
+			 * after END_STREAM, never expecting a response.
+			 */
+			if (lwsi_state(w) == LRS_ISSUE_HTTP_BODY &&
+			    !w->client_http_body_pending) {
+				lws_wsi_event(w, LWS_WSIEV_REQ_BODY_SENT);
+				lws_set_timeout(w,
+					PENDING_TIMEOUT_AWAITING_SERVER_RESPONSE,
+					(int)w->a.context->timeout_secs);
+			}
+#endif
+		}
+
+	} lws_end_foreach_dll_safe(d, d1);
+
+	// lws_wsi_mux_dump_waiting_children(wsi);
+
+	/*
+	 * The mux network connection may have queued protocol sends of its own
+	 * (e.g. a connection-level WINDOW_UPDATE granting the peer rx credit)
+	 * that are not associated with any child stream's writeable request.
+	 * lws_wsi_mux_action_pending_writeable_reqs() below only looks at child
+	 * streams, so if no child currently wants POLLOUT (e.g. a bodyless GET
+	 * whose stream is already HALF_CLOSED_LOCAL) it would clear POLLOUT and
+	 * the queued pps would never be flushed, stalling the transfer.  Keep
+	 * POLLOUT asserted while the netconn still has pps pending.
+	 */
+	if (wsi->h2.h2n && lws_dll2_get_head(&wsi->h2.h2n->pps_owner)) {
+		if (lws_io_want_write(wsi))
+			return -1;
+		return 0;
+	}
+
+	/*
+	 * Nothing wanting a turn needs no answer: the dispatcher's one-shot
+	 * already dropped POLLOUT before this user service
+	 */
+	if (lws_wsi_mux_action_pending_writeable_reqs(wsi) < 0)
+		return -1;
+
+	return 0;
+}
+
+static struct lws *
+rops_encapsulation_parent_h2(struct lws *wsi)
+{
+	if (wsi->mux.parent_wsi)
+		return wsi->mux.parent_wsi;
+
+	return NULL;
+}
+
+static int
+rops_alpn_negotiated_h2(struct lws *wsi, const char *alpn)
+{
+	struct allocated_headers *ah;
+
+	lwsl_debug("%s: client %d\n", __func__, lwsi_role_client(wsi));
+#if defined(LWS_WITH_CLIENT)
+	if (lwsi_role_client(wsi))
+		lwsl_info("%s: upgraded to H2\n", __func__);
+#endif
+
+	/* adopt the header info */
+
+	ah = wsi->stream.ah;
+
+	lws_wsi_event(wsi, LWS_WSIEV_H2_SELECTED);
+
+	/* http2 union member has http union struct at start */
+	wsi->stream.ah = ah;
+
+	if (!wsi->h2.h2n)
+		wsi->h2.h2n = lws_zalloc(sizeof(*wsi->h2.h2n), "h2n");
+	if (!wsi->h2.h2n)
+		return 1;
+
+	lws_h2_init(wsi);
+
+	/* HTTP2 union */
+
+	if (lws_hpack_dynamic_size(wsi,
+			   (int)wsi->h2.h2n->our_set.s[H2SET_HEADER_TABLE_SIZE]))
+		return 1;
+	wsi->txc.tx_cr = 65535;
+
+	lwsl_info("%s: %s: configured for h2\n", __func__, lws_wsi_tag(wsi));
+
+	return 0;
+}
+
+static int
+rops_issue_keepalive_h2(struct lws *wsi, int isvalid)
+{
+	struct lws *nwsi = lws_get_network_wsi(wsi);
+	struct lws_h2_protocol_send *pps;
+	uint64_t us = (uint64_t)lws_wsi_now(wsi);
+
+	if (isvalid) {
+		_lws_validity_confirmed_role(nwsi);
+
+		return 0;
+	}
+
+	/*
+	 * We can only send these frames on the network connection itself...
+	 * we shouldn't be tracking validity on anything else
+	 */
+
+	assert(wsi == nwsi);
+
+	pps = lws_h2_new_pps(LWS_H2_PPS_PING);
+	if (!pps)
+		return 1;
+
+	/*
+	 * The peer is defined to copy us back the unchanged payload in another
+	 * PING frame this time with ACK set.  So by sending that out with the
+	 * current time, it's an interesting opportunity to learn the effective
+	 * RTT on the link when the PONG comes in, plus or minus the time to
+	 * schedule the PPS.
+	 */
+
+	memcpy(pps->u.ping.ping_payload, &us, 8);
+	lws_pps_schedule(nwsi, pps);
+
+	return 0;
+}
+
+/*
+ * What IO had queued for the wsi's transport has gone.  A stream's own
+ * compression partial ends a transaction deferred behind it.  On the
+ * network connection it is its streams' output that has gone: a server
+ * connection, which stopped reading behind it (rops_rx_policy_h2()), reads
+ * again, and the streams whose completion waited for it are asked for a
+ * writeable, so the walk of the connection's children completes them.
+ */
+static int
+rops_tx_drained_h2(struct lws *wsi)
+{
+	if (!lws_wsi_is_mux_nwsi(wsi))
+		return lws_http_tx_drained(wsi);
+
+	if (!lwsi_role_client(wsi) && lws_io_read_after_drain(wsi))
+		return -1;
+
+	lws_start_foreach_dll(struct lws_dll2 *, d,
+			      lws_dll2_get_head(&wsi->mux.child_list_owner)) {
+		struct lws *w = lws_container_of(d, struct lws,
+						 mux.sibling_list);
+
+		if (lwsi_state_live(w) == LRS_TXN_COMPLETING)
+			lws_callback_on_writable(w);
+	} lws_end_foreach_dll(d);
+
+	return 0;
+}
+
+static const lws_rops_t rops_table_h2[] = {
+#if defined(LWS_WITH_SERVER)
+	/*  1 */ { .check_upgrades	  = rops_check_upgrades_h2 },
+#else
+	/*  1 */ { .check_upgrades	  = NULL },
+#endif
+	/*  2 */ { .pt_init_destroy	  = rops_pt_init_destroy_h2 },
+	/*  3 */ { .init_vhost		  = rops_init_vhost_h2 },
+	/*  4 */ { .handle_POLLIN	  = NULL }, /* a sansIO role has none */
+	/*  5 */ { .handle_POLLOUT	  = rops_handle_POLLOUT_h2 },
+	/*  6 */ { .perform_user_POLLOUT  = rops_perform_user_POLLOUT_h2 },
+	/*  7 */ { .callback_on_writable  = rops_callback_on_writable_h2 },
+	/*  8 */ { .tx_credit		  = rops_tx_credit_h2 },
+	/*  9 */ { .write_role_protocol	  = rops_write_role_protocol_h2 },
+	/* 10 */ { .encapsulation_parent  = rops_encapsulation_parent_h2 },
+	/* 11 */ { .alpn_negotiated	  = rops_alpn_negotiated_h2 },
+	/* 12 */ { .close_kill_connection = rops_close_kill_connection_h2 },
+	/* 13 */ { .destroy_role	  = rops_destroy_role_h2 },
+	/* 14 */ { .issue_keepalive	  = rops_issue_keepalive_h2 },
+	/* 15 */ { .rx			  = rops_rx_h2 },
+	/* 16 */ { .rx_policy		  = rops_rx_policy_h2 },
+	/* 17 */ { .tx			  = rops_tx_h2 },
+	/* 18 */ { .tx_sent		  = rops_tx_sent_h2 },
+	/* 19 */ { .tx_drained		  = rops_tx_drained_h2 },
+#if defined(LWS_WITH_CLIENT)
+	/* 20 */ { .client_transport_up	  = lws_h2_client_transport_up },
+#endif
+};
+
+
+const struct lws_role_ops role_ops_h2 = {
+	/* role name */			"h2",
+	/* alpn id */			"h2",
+
+	/* rops_table */		rops_table_h2,
+	/* rops_idx */			{
+	  /* LWS_ROPS_check_upgrades */
+#if defined(LWS_WITH_SERVER)
+	  /* LWS_ROPS_pt_init_destroy */		0x01, 0x02,
+#else
+	  /* LWS_ROPS_pt_init_destroy */		0x00, 0x02,
+#endif
+	  /* LWS_ROPS_init_vhost */
+	  /* LWS_ROPS_destroy_vhost */			0x03, 0x00,
+	  /* LWS_ROPS_service_flag_pending */
+	  /* LWS_ROPS_handle_POLLIN */			0x00, 0x00,
+	  /* LWS_ROPS_handle_POLLOUT */
+	  /* LWS_ROPS_perform_user_POLLOUT */		0x05, 0x06,
+	  /* LWS_ROPS_callback_on_writable */
+	  /* LWS_ROPS_tx_credit */			0x07, 0x08,
+	  /* LWS_ROPS_write_role_protocol */
+	  /* LWS_ROPS_encapsulation_parent */		0x09, 0x0A,
+	  /* LWS_ROPS_alpn_negotiated */
+	  /* LWS_ROPS_close_via_role_protocol */	0x0B, 0x00,
+	  /* LWS_ROPS_close_role */
+	  /* LWS_ROPS_close_kill_connection */		0x00, 0x0C,
+	  /* LWS_ROPS_destroy_role */
+	  /* LWS_ROPS_adoption_bind */			0x0D, 0x00,
+	  /* LWS_ROPS_client_bind */
+	  /* LWS_ROPS_issue_keepalive */		0x00, 0x0E,
+#if defined(LWS_WITH_CLIENT)
+	  /* LWS_ROPS_client_transport_up */
+	  /* LWS_ROPS_rx */				0x14, 0x0F,
+#else
+	  /* LWS_ROPS_client_transport_up */
+	  /* LWS_ROPS_rx */				0x00, 0x0F,
+#endif
+	  /* LWS_ROPS_rx_dgram */			0x00,
+	  /* LWS_ROPS_rx_policy */			0x10,
+	  /* LWS_ROPS_rx_done */			0x00,
+	  /* LWS_ROPS_tx */				0x11,
+	  /* LWS_ROPS_tx_sent */			0x12,
+	  /* LWS_ROPS_tx_drained */			0x13,
+					},
+	/* adoption_cb clnt, srv */	{ LWS_CALLBACK_SERVER_NEW_CLIENT_INSTANTIATED,
+					  LWS_CALLBACK_SERVER_NEW_CLIENT_INSTANTIATED },
+	/* rx cb clnt, srv */		{ LWS_CALLBACK_RECEIVE_CLIENT_HTTP,
+					  0 /* may be POST, etc */ },
+	/* writeable cb clnt, srv */	{ LWS_CALLBACK_CLIENT_HTTP_WRITEABLE,
+					  LWS_CALLBACK_HTTP_WRITEABLE },
+	/* close cb clnt, srv */	{ LWS_CALLBACK_CLOSED_CLIENT_HTTP,
+					  LWS_CALLBACK_CLOSED_HTTP },
+	/* protocol_bind cb c, srv */	{ LWS_CALLBACK_CLIENT_HTTP_BIND_PROTOCOL,
+					  LWS_CALLBACK_HTTP_BIND_PROTOCOL },
+	/* protocol_unbind cb c, srv */	{ LWS_CALLBACK_CLIENT_HTTP_DROP_PROTOCOL,
+					  LWS_CALLBACK_HTTP_DROP_PROTOCOL },
+	/* file_handle */		0,
+	/* child_stdio */		0,
+};

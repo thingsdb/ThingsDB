@@ -1,0 +1,1844 @@
+/*
+ * libwebsockets - small server side websockets and web server implementation
+ *
+ * Copyright (C) 2010 - 2019 Andy Green <andy@warmcat.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+
+#include <private-lib-core.h>
+
+#ifndef min
+#define min(a, b) ((a) < (b) ? (a) : (b))
+#endif
+
+
+/*
+ * We have to take care about parsing because the headers may be split
+ * into multiple fragments.  They may contain unknown headers with arbitrary
+ * argument lengths.  So, we parse using a single-character at a time state
+ * machine that is completely independent of packet size.
+ *
+ * Returns <0 for error or length of chars consumed from buf (up to len)
+ */
+
+/*
+ * caller_closes: the caller closes the wsi when we return -1, rather than
+ * us.  The h2 / h3 frame parsers call us with the framing stripped, for the
+ * stream the frame belongs to: when that read fails, it is the whole
+ * connection that comes down, and the outer parser does that close itself.
+ * The roles' sansIO rx asks IO to close it.  Other callers expect us to have
+ * closed the wsi when we return -1.
+ */
+
+/*
+ * The request has its answer, and the answer is going or gone: a file being
+ * served (its reads maybe on a worker), an answer queued behind a transaction
+ * already completed, a transaction the app completed from its body's last
+ * piece, or on a stream, a refusal whose status page went with
+ * its body still to go (lws_return_http_status() on h2 / h3).  An h1
+ * connection's rx policy holds rx meanwhile, but an h2 or h3 stream's DATA
+ * is fed to us as it comes: it is the request's body, nothing to anyone now,
+ * and is discarded as it arrives.
+ */
+static int
+lws_h1_answer_going(struct lws *wsi)
+{
+#if defined(LWS_WITH_HTTP2)
+	if (wsi->mux_substream && wsi->h2.pending_status_code)
+		return 1;
+#endif
+
+	switch (lwsi_state(wsi)) {
+	case LRS_TXN_COMPLETING:
+	case LRS_TXN_COMPLETED: /* answered and completed from the body */
+	case LRS_ISSUING_FILE:
+	case LRS_AWAITING_FILE_READ:
+		return 1;
+	default:
+		return 0;
+	}
+}
+
+/*
+ * The body's own timeout: renewed as it arrives, and cleared once it is all
+ * here.  But not while the answer is already going: the answer's own timeout
+ * (the response's watchdog, or the file sender's, renewed as it sends) is
+ * what bounds the stream then, and body the peer is still sending must
+ * neither replace it nor, completing, clear it and leave an answer the peer
+ * never takes waiting for ever.  The same once the app has started its
+ * answer during the body (its response headers went out, arming the
+ * watchdog) while still taking the body: the rest of its answer is under the
+ * watchdog, and the body must not take that away from it either.  But a body
+ * being discarded after the transaction completed has nothing ahead of it:
+ * the answer has all gone, and the body has its own timeout again.
+ */
+static void
+lws_h1_body_timeout(struct lws *wsi, int arm)
+{
+	if (lwsi_state(wsi) != LRS_DISCARD_BODY &&
+	    (lws_h1_answer_going(wsi) ||
+	     (!lwsi_role_client(wsi) && wsi->http.sent_response_headers)))
+		return;
+
+	if (!arm) {
+		lws_set_timeout(wsi, NO_PENDING_TIMEOUT, 0);
+		return;
+	}
+
+#if defined(LWS_WITH_SERVER)
+	if (lwsi_role_server(wsi)) {
+		/* the body as a whole must keep up with a minimum rate too */
+		lws_http_body_timeout_arm(wsi);
+		return;
+	}
+#endif
+
+	lws_set_timeout(wsi, PENDING_TIMEOUT_HTTP_CONTENT,
+			(int)wsi->a.context->timeout_secs);
+}
+
+#if defined(LWS_ROLE_H2) || defined(LWS_ROLE_H3)
+int
+lws_http_mux_body_ended_by_peer(struct lws *wsi)
+{
+	if (!wsi->mux_substream || wsi->http.content_length_given ||
+	    wsi->h23_stream_carries_ws ||
+	    /* still some to take from where it was stashed */
+	    lws_buflist_next_segment_len(&wsi->buflist, NULL))
+		return 0;
+
+#if defined(LWS_ROLE_H2)
+	if (lwsi_role_h2(wsi))
+		return wsi->h2.END_STREAM;
+#endif
+#if defined(LWS_ROLE_H3)
+	if (lwsi_role_h3(wsi))
+		return wsi->quic.qs && wsi->quic.qs->fin_delivered;
+#endif
+
+	return 0;
+}
+#endif
+
+int
+lws_read_h1(struct lws *wsi, unsigned char *buf, lws_filepos_t len,
+	    int caller_closes)
+{
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+	unsigned char *last_char, *oldbuf = buf;
+	lws_filepos_t body_chunk_len;
+	size_t n;
+
+	lwsl_debug("%s: h1 path: wsi state 0x%x\n", __func__, lwsi_state(wsi));
+
+	switch (lwsi_state(wsi)) {
+
+	case LRS_ISSUING_FILE:
+	case LRS_AWAITING_FILE_READ:
+		/*
+		 * h1 reads nothing until the file has gone: what it reads
+		 * then is the next request's
+		 */
+		if (!wsi->mux_substream)
+			return 0;
+		goto http_postbody;
+
+	case LRS_DOING_TRANSACTION:
+		/*
+		 * A stream whose action refused the request has its refusal
+		 * still going, and the request's body may still come
+		 */
+		if (wsi->mux_substream && lws_h1_answer_going(wsi))
+			goto http_postbody;
+
+		lwsl_err("%s: Unhandled state %d\n", __func__,
+			 lwsi_state(wsi));
+		goto bail;
+
+	case LRS_ESTABLISHED:
+
+		if (lwsi_role_ws(wsi))
+			goto ws_mode;
+
+		if (lwsi_role_client(wsi))
+			break;
+
+
+		/* fallthru */
+
+	case LRS_HEADERS:
+		if (!wsi->stream.ah) {
+			lwsl_err("%s: LRS_HEADERS: NULL ah\n", __func__);
+			assert(0);
+			/* under NDEBUG this would hand a NULL ah to the parser */
+			goto bail;
+		}
+		lwsl_parser("issuing %d bytes to parser\n", (int)len);
+		last_char = buf;
+#if defined(LWS_ROLE_WS) && defined(LWS_WITH_CLIENT)
+		if (lws_ws_handshake_client(wsi, &buf, (size_t)len) == LWS_HPI_RET_PLEASE_CLOSE_ME)
+			goto bail;
+
+		/*
+		 * It may have taken some or all of the buffer (the rx flow
+		 * control cache path does *buf += len, and the ws parser
+		 * advances *buf by what it consumed) without telling us in
+		 * len... whatever it took is not there for the http parser
+		 * below to look at.
+		 */
+
+		len -= (lws_filepos_t)lws_ptr_diff_size_t(buf, last_char);
+		last_char = buf;
+
+		if (!len)
+			return lws_ptr_diff(buf, oldbuf);
+#endif
+		if (lws_handshake_server(wsi, &buf, (size_t)len))
+			/* Handshake indicates this session is done. */
+			goto bail;
+
+		/* we might have transitioned to RAW */
+		if (wsi->role_ops == &role_ops_raw_skt ||
+		    wsi->role_ops->file_handle)
+			 /* we gave the read buffer to RAW handler already */
+			return lws_ptr_diff(buf, oldbuf);
+
+		/*
+		 * It's possible that we've exhausted our data already, or
+		 * rx flow control has stopped us dealing with this early,
+		 * but lws_handshake_server doesn't update len for us.
+		 * Figure out how much was read, so that we can proceed
+		 * appropriately:
+		 */
+		len -= (unsigned int)lws_ptr_diff(buf, last_char);
+
+		if (lwsi_state(wsi) == LRS_HEADERS)
+			/* More header content on the way */
+			return lws_ptr_diff(buf, oldbuf);
+
+		switch (lwsi_state(wsi)) {
+			case LRS_ESTABLISHED:
+			case LRS_HEADERS:
+				return lws_ptr_diff(buf, oldbuf);
+			case LRS_ISSUING_FILE:
+				return lws_ptr_diff(buf, oldbuf);
+			case LRS_DOING_TRANSACTION:
+				if (!lwsi_role_h1(wsi))
+					break;
+				/*
+				 * Anything after the headers is the next
+				 * pipelined request, for after this
+				 * transaction completes.  Leave it unconsumed:
+				 * our caller stashes it on the buflist, and
+				 * the service loop leaves the stash alone
+				 * while we are in this state
+				 * (lws_service_adjust_timeout() and
+				 * lws_service_flag_pending() skip it), so it
+				 * neither spins nor gets discarded.
+				 */
+				return lws_ptr_diff(buf, oldbuf);
+			case LRS_DISCARD_BODY:
+			case LRS_BODY:
+				wsi->http.rx_content_remain =
+						wsi->http.rx_content_length;
+				if (wsi->http.rx_content_remain)
+					goto http_postbody;
+
+				/* there is no POST content */
+				goto postbody_completion;
+			default:
+				break;
+		}
+		break;
+
+	case LRS_DISCARD_BODY:
+	case LRS_BODY:
+	case LRS_TXN_COMPLETING: /* see lws_h1_answer_going() */
+http_postbody:
+		lwsl_info("%s: http post body: cl set %d, remain %d, len %d\n", __func__,
+			    (int)wsi->http.content_length_given,
+			    (int)wsi->http.rx_content_remain, (int)len);
+
+		if (wsi->http.content_length_given && !wsi->http.rx_content_remain)
+			goto postbody_completion;
+
+#if defined(LWS_ROLE_H2) || defined(LWS_ROLE_H3)
+		/*
+		 * A mux stream's body with no content-length is ended by the
+		 * peer ending the stream.  On h2, on the frame with the body's
+		 * last byte, that's seen as that byte is taken, below.  But
+		 * the peer may end the stream with a DATA frame of its own
+		 * after the body, with nothing in it, eg, git streaming a
+		 * request body.  And on h3 the FIN is only known to have
+		 * followed the body once all the stream's bytes before it
+		 * went through the h3 framing.  Either way the role tells us
+		 * with no bytes at all, and it's what ends it.
+		 */
+		if (!len && lws_http_mux_body_ended_by_peer(wsi))
+			goto postbody_completion;
+#endif
+
+		while (len &&(!wsi->http.content_length_given || wsi->http.rx_content_remain)) {
+			/* Copy as much as possible, up to the limit of:
+			 * what we have in the read buffer (len)
+			 * remaining portion of the POST body (content_remain)
+			 */
+			if (wsi->http.rx_chunked) {
+				/*
+				 * Transfer-Encoding: chunked request body: eat
+				 * any framing before the next payload bytes,
+				 * then deliver at most the rest of this chunk.
+				 * We go around this loop once per piece of
+				 * chunk payload in the buffer.
+				 */
+				size_t l = (size_t)len;
+				int m = lws_http_dechunk_framing(wsi, &buf, &l);
+
+				len = (lws_filepos_t)l;
+				if (m < 0) {
+					lwsl_wsi_notice(wsi, "chunked body framing error");
+					goto bail;
+				}
+				if (m > 0) {
+					/*
+					 * That was the last-chunk and trailer:
+					 * the body is complete with nothing
+					 * left unread.  Anything after it in
+					 * the buffer is the next pipelined
+					 * request, left for the caller to
+					 * stash.
+					 */
+					wsi->http.rx_content_remain = 0;
+					goto postbody_completion;
+				}
+				if (!len) {
+					/* need more bytes to reach payload */
+					lws_h1_body_timeout(wsi, 1);
+					break;
+				}
+				body_chunk_len = len;
+				if ((lws_filepos_t)wsi->http.chunk_remaining < len)
+					body_chunk_len = (lws_filepos_t)
+						wsi->http.chunk_remaining;
+				if (lwsi_role_server(wsi) &&
+				    body_chunk_len > wsi->http.rx_content_remain) {
+					lwsl_warn("%s: body exceeded max size\n", __func__);
+					goto bail;
+				}
+			} else if (wsi->http.content_length_given) {
+				body_chunk_len = min(wsi->http.rx_content_remain, len);
+			} else {
+				if (lwsi_role_server(wsi) && (lws_filepos_t)len > wsi->http.rx_content_remain) {
+					lwsl_warn("%s: body exceeded max size\n", __func__);
+					goto bail;
+				}
+				body_chunk_len = len;
+			}
+			wsi->http.rx_content_remain -= body_chunk_len;
+			// len -= body_chunk_len;
+			/* the chunk is delivered from the read: still live */
+			lws_servbuf_trim(pt, buf);
+#ifdef LWS_WITH_CGI
+			if (wsi->http.cgi) {
+				struct lws_cgi_args args;
+
+				if (!wsi->http.cgi->lsp)
+					/*
+					 * The child was already reaped and
+					 * the lsp destroyed, there is nothing
+					 * left to relay the body to
+					 */
+					goto bail;
+
+				args.ch = LWS_STDIN;
+				args.stdwsi = &wsi->http.cgi->lsp->stdwsi[0];
+				args.data = buf;
+				args.len = (int)(unsigned int)body_chunk_len;
+
+				/* returns how much used */
+				n = (unsigned int)user_callback_handle_rxflow(
+					wsi->a.protocol->callback,
+					wsi, LWS_CALLBACK_CGI_STDIN_DATA,
+					wsi->user_space,
+					(void *)&args, 0);
+				if ((int)n < 0)
+					goto bail;
+
+				/*
+				 * The cgi stdin pipe is nonblocking and may
+				 * only have been able to accept part of the
+				 * chunk... the callback return is the
+				 * authoritative count of bytes actually
+				 * consumed.  Keep account for the unconsumed
+				 * tail as remaining body, so it stays stashed
+				 * on the wsi buflist and is re-offered to the
+				 * cgi stdin when the pipe drains, instead of
+				 * being mistaken for a completed body or
+				 * reparsed as a new pipelined request.
+				 */
+				if (n < body_chunk_len)
+					wsi->http.rx_content_remain +=
+							body_chunk_len - n;
+			} else {
+#endif
+				if (lwsi_state(wsi) != LRS_DISCARD_BODY &&
+				    !lws_h1_answer_going(wsi)) {
+					lwsl_info("%s: HTTP_BODY %d\n", __func__, (int)body_chunk_len);
+					n = (unsigned int)wsi->a.protocol->callback(wsi,
+						LWS_CALLBACK_HTTP_BODY, wsi->user_space,
+						buf, (size_t)body_chunk_len);
+					if (n)
+						goto bail;
+				}
+				n = (size_t)body_chunk_len;
+#ifdef LWS_WITH_CGI
+			}
+#endif
+			lwsl_info("%s: advancing buf by %d\n", __func__, (int)n);
+#if defined(LWS_WITH_SERVER)
+			/* what the body's minimum rate counts */
+			wsi->http.rx_body_count += n;
+#endif
+			buf += n;
+			lws_servbuf_trim(pt, buf);
+
+			if (wsi->http.rx_chunked) {
+				/*
+				 * Account the delivered payload against this
+				 * chunk, then go around for the framing that
+				 * follows it.  If the cgi stdin took less than
+				 * we offered, stop here: the caller stashes
+				 * the tail and re-offers it, still inside this
+				 * chunk, when the pipe drains.
+				 */
+				len -= n;
+				wsi->http.chunk_remaining -= (int)n;
+				if (!wsi->http.chunk_remaining)
+					wsi->http.chunk_parser = ELCP_POST_CR;
+
+				lws_h1_body_timeout(wsi, 1);
+
+				if ((lws_filepos_t)n != body_chunk_len)
+					break;
+
+				continue;
+			}
+
+#if defined(LWS_ROLE_H2)
+			if (lwsi_role_h2(wsi) && wsi->mux_substream &&
+			    !wsi->http.content_length_given) {
+				/*
+				 * h2 request body with no content-length: the
+				 * peer's END_STREAM is what ends it.
+				 *
+				 * That is a property of *this stream*, ie,
+				 * wsi->h2.END_STREAM, which the h2 DATA path
+				 * latches once the END_STREAM-bearing frame's
+				 * last body byte has been handed to us.  It is
+				 * not the flags byte of whatever frame the
+				 * network wsi parsed most recently: that is a
+				 * connection-wide, already-moved-on value, and
+				 * peeking at it completes the body early
+				 * whenever the frame is split across reads, or
+				 * for the wrong stream when the body is drained
+				 * from the buflist after later frames arrived.
+				 *
+				 * We must also have consumed everything we were
+				 * offered: the cgi stdin path may take less
+				 * than the chunk, and the tail is re-offered.
+				 */
+
+				if (!wsi->h2.END_STREAM ||
+				    (lws_filepos_t)n != body_chunk_len) {
+					lwsl_info("%s: h2, no cl, not END_STREAM, continuing\n", __func__);
+					lws_h1_body_timeout(wsi, 1);
+					break;
+				}
+				goto postbody_completion;
+			}
+#endif
+
+			if (wsi->http.rx_content_remain)  {
+				lws_h1_body_timeout(wsi, 1);
+				break;
+			}
+			/* he sent all the content in time */
+postbody_completion:
+#ifdef LWS_WITH_CGI
+			/*
+			 * If we're running a cgi, we can't let him off the
+			 * hook just because he sent his POST data: ending the
+			 * child's stdin puts the cgi's own timeout back
+			 */
+			if (wsi->http.cgi) {
+				/*
+				 * However it was framed, the body is complete:
+				 * end the child's stdin.  A chunked body, or an
+				 * h2 / h3 one ended by the stream, has no
+				 * Content-Length for the stdin relay to count
+				 * down, so this is its only end; one with a
+				 * Content-Length was ended by the countdown
+				 * already, and this does nothing.
+				 */
+				lws_cgi_stdin_body_end(wsi);
+			} else
+#endif
+				lws_h1_body_timeout(wsi, 0);
+
+#if defined(LWS_WITH_SERVER)
+			/*
+			 * An h1 request's body is all here, but its answer
+			 * (the cgi's, the proxied one, or an app's from its
+			 * writeable) may still be to come.  Until that
+			 * completes the transaction, whatever the peer sent
+			 * after the body is the next pipelined request: it
+			 * must stay parked, not be offered back to us every
+			 * loop turn, only to run this completion again each
+			 * time.  So the body phase ends here, once.  A mux
+			 * stream says so after its completion callback below.
+			 */
+			if (!wsi->mux_substream && lwsi_role_server(wsi) &&
+			    lwsi_state(wsi) == LRS_BODY)
+				lws_wsi_event(wsi, LWS_WSIEV_BODY_COMPLETE);
+#endif
+#ifdef LWS_WITH_CGI
+			if (!wsi->http.cgi)
+#endif
+			{
+#if defined(LWS_WITH_SERVER)
+				if (lwsi_state(wsi) == LRS_DISCARD_BODY) {
+					/*
+					 * repeat the transaction completed
+					 * that got us into this state, having
+					 * consumed the pending body now
+					 */
+
+					if (lws_http_transaction_completed(wsi))
+						goto bail;
+
+					if (lwsi_state(wsi) == LRS_DISCARD_BODY) {
+						/*
+						 * It did not take, and nothing
+						 * else will move us on from
+						 * here: the buflist would just
+						 * re-offer whatever follows
+						 * the body for ever
+						 */
+						lwsl_wsi_warn(wsi, "discard-body completion stalled");
+						goto bail;
+					}
+					break;
+				}
+				/*
+				 * the request was answered already: the body
+				 * that came meanwhile was nobody's, and has no
+				 * completion either
+				 */
+				if (lws_h1_answer_going(wsi))
+					break;
+#endif
+				lwsl_info("HTTP_BODY_COMPLETION: %s (%s)\n",
+					  lws_wsi_tag(wsi), wsi->a.protocol->name);
+
+#if defined(LWS_WITH_SERVER)
+				n = (unsigned int)lws_http_body_completion(wsi);
+#else
+				n = (unsigned int)wsi->a.protocol->callback(wsi,
+					LWS_CALLBACK_HTTP_BODY_COMPLETION,
+					wsi->user_space, NULL, 0);
+#endif
+				if (n) {
+					lwsl_info("%s: bailing after BODY_COMPLETION\n", __func__);
+					goto bail;
+				}
+
+#if defined(LWS_WITH_SERVER)
+				if (wsi->mux_substream)
+					lws_http_mux_body_completed(wsi);
+
+				/*
+				 * The body is complete and its completion
+				 * delivered: that is the last point user code
+				 * may read the request headers, so a mux
+				 * stream lets them go now (h2 and h3 stream
+				 * bodies both arrive here)
+				 */
+				if (lwsi_role_server(wsi))
+					lws_http_ah_release_after_dispatch(wsi, 1);
+#endif
+			}
+
+			break;
+		}
+		break;
+
+	case LRS_RETURNED_CLOSE:
+	case LRS_AWAITING_CLOSE_ACK:
+	case LRS_WAITING_TO_SEND_CLOSE:
+	case LRS_SHUTDOWN:
+
+ws_mode:
+#if defined(LWS_WITH_CLIENT) && defined(LWS_ROLE_WS)
+		// lwsl_notice("%s: ws_mode\n", __func__);
+		if (lws_ws_handshake_client(wsi, &buf, (size_t)len) == LWS_HPI_RET_PLEASE_CLOSE_ME)
+			goto bail;
+#endif
+#if defined(LWS_ROLE_WS)
+		if (lwsi_role_ws(wsi) && lwsi_role_server(wsi) &&
+			/*
+			 * for h2 we are on the swsi
+			 */
+		    lws_parse_ws(wsi, &buf, (size_t)len) < 0) {
+			lwsl_info("%s: lws_parse_ws bailed\n", __func__);
+			goto bail;
+		}
+#endif
+		// lwsl_notice("%s: ws_mode: buf moved on by %d\n", __func__,
+		//	       lws_ptr_diff(buf, oldbuf));
+		break;
+
+	case LRS_TXN_COMPLETED:
+	case LRS_DEFERRING_ACTION:
+		lwsl_notice("%s: state 0x%x\n", __func__, lwsi_state(wsi));
+		break;
+
+	case LRS_SSL_ACK_PENDING:
+		break;
+
+	case LRS_FLUSHING_BEFORE_CLOSE:
+		break;
+
+	case LRS_DEAD_SOCKET:
+		lwsl_err("%s: Unhandled state LRS_DEAD_SOCKET\n", __func__);
+		goto bail;
+		// assert(0);
+		/* fallthru */
+
+	case LRS_WAITING_CONNECT: /* observed on warmcat.com */
+		break;
+
+	default:
+		lwsl_err("%s: Unhandled state %d\n", __func__, lwsi_state(wsi));
+		goto bail;
+	}
+
+	/* Nothing more to do for now */
+//	lwsl_info("%s: %p: read_ok, used %ld (len %d, state %d)\n", __func__,
+//		  wsi, (long)(buf - oldbuf), (int)len, wsi->state);
+
+	return lws_ptr_diff(buf, oldbuf);
+
+bail:
+	if (!caller_closes)
+		lws_close_free_wsi(wsi, LWS_CLOSE_STATUS_NOSTATUS,
+				   "lws_read_h1 bail");
+
+	return -1;
+}
+#if defined(LWS_WITH_SERVER) || defined(LWS_WITH_CLIENT)
+/*
+ * sansIO rx for an h1 connection.  buf/len is what the transport delivered,
+ * or the parked remainder of an earlier delivery; len 0 is the peer closing.
+ *
+ * A client's, while it waits for its response headers, is the header
+ * parser's: lws_h1_client_rx() in client-http.c.  A server connection's
+ * (which may have become h2 or ws by now: the parsers decide) is below.
+ */
+static lws_handling_result_t
+rops_rx_h1(struct lws *wsi, const uint8_t *buf, size_t len, int from_transport,
+	   size_t *used)
+{
+	int n;
+
+	*used = 0;
+
+#if defined(LWS_WITH_CLIENT)
+	if (lwsi_role_client(wsi))
+		return lws_h1_client_rx(wsi, buf, len, from_transport, used);
+#endif
+#if defined(LWS_WITH_SERVER)
+	if (!len) {
+#if !defined(LWS_WITHOUT_EXTENSIONS)
+		/*
+		 * autobahn requires us to win the race between close and
+		 * draining the extensions
+		 */
+		if (wsi->ws &&
+		    (wsi->ws->rx_draining_ext || wsi->ws->tx_draining_ext))
+			return LWS_HPI_RET_HANDLED;
+#endif
+		/* normally, we respond to close by logically closing our side */
+		return LWS_HPI_RET_PLEASE_CLOSE_ME;
+	}
+
+	/*
+	 * An SSE stream takes no further request and has no header table to
+	 * parse one with (see the rx policy): whatever the peer sends it, we
+	 * cannot act on
+	 */
+	if (wsi->http_carries_sse) {
+		lwsl_wsi_info(wsi, "rx on an SSE stream");
+		return LWS_HPI_RET_PLEASE_CLOSE_ME;
+	}
+
+	/*
+	 * A close flushing its buffered tx takes nothing more: what the peer
+	 * sends is read and dropped, so the socket is not left readable with
+	 * nothing taking it (reported every poll until the flush ends), and
+	 * the kernel's rx is kept drained for the staged shutdown after the
+	 * flush, as that reads and discards too.  What was parked is for
+	 * nobody either, the close destroys it: offered first by the pump,
+	 * it has to go, or the socket behind it is never read.  Nor does any
+	 * of it renew the flush's timeout below: that is how long the peer
+	 * has to take our tx, not something its own sending may extend.
+	 */
+	if (lwsi_flushing_to_close(wsi)) {
+		lwsl_wsi_info(wsi, "dropping rx while flushing to close");
+		*used = len;
+
+		return LWS_HPI_RET_HANDLED;
+	}
+
+	/*
+	 * Only rx from the transport is peer activity worth extending the
+	 * timeout for: a replay of what was parked is not.
+	 *
+	 * Nor is anything while the request head is coming: the header
+	 * table's hold, timeout_secs_ah_idle, is how long the peer has to
+	 * send the whole of its request headers, not how long it may pause
+	 * between bytes.  Refreshed on every byte, a peer trickling header
+	 * bytes in keeps the connection and its ah (one of a small pool) for
+	 * as long as it likes: "slowloris".  Whatever timeout stands for the
+	 * head, it is a deadline, not a timeout to slide.
+	 *
+	 * Nor is the response's watchdog: it bounds how long our answer may
+	 * go without sending anything, and only more of the answer going
+	 * renews it.  The peer sending is no sign that the answer moves.
+	 */
+	if (from_transport && wsi->pending_timeout &&
+	    lwsi_state(wsi) != LRS_HEADERS &&
+	    wsi->pending_timeout != PENDING_TIMEOUT_SHUTDOWN_FLUSH &&
+	    wsi->pending_timeout != PENDING_TIMEOUT_HOLDING_AH &&
+	    wsi->pending_timeout != PENDING_TIMEOUT_HTTP_RESPONSE)
+		lws_set_timeout(wsi, (enum pending_timeout)wsi->pending_timeout,
+				wsi->pending_timeout ==
+					PENDING_TIMEOUT_HTTP_KEEPALIVE_IDLE ?
+				(int)lws_wsi_keepalive_timeout_eff(wsi) :
+				(int)wsi->a.context->timeout_secs);
+
+	if (lwsi_state(wsi) == LRS_ISSUING_FILE ||
+	    lwsi_state(wsi) == LRS_AWAITING_FILE_READ ||
+	    (lwsi_state(wsi) == LRS_DOING_TRANSACTION && lwsi_role_h1(wsi))) {
+		/*
+		 * While a file is being served (or its next read is out on a
+		 * worker), rx is not consumed: it is parked and the socket
+		 * behind it is not read, so a peer that sent bytes after its
+		 * request and stopped reading had POLLIN firing every loop
+		 * turn with nothing ever consumed: take POLLIN off until the
+		 * transaction completes and the parked rx can be dealt with.
+		 *
+		 * The same while an h1 transaction is being answered by
+		 * something other than a file (a cgi, the proxy, an app from
+		 * its writeable or a timer): what the peer sends after its
+		 * request is the next pipelined one, for after this
+		 * transaction completes.  Arriving in the request's own
+		 * segment it is parked by the parse (lws_read_h1()); arriving
+		 * in a segment of its own it is parked here the same way,
+		 * where it used to be handed to lws_read_h1() as an unhandled
+		 * state, and the connection closed with the request lost.
+		 */
+		if (!from_transport)
+			lws_rx_flow_control(wsi,
+					LWS_RXFLOW_REASON_APPLIES_DISABLE |
+					LWS_RXFLOW_REASON_HTTP_RXBUFFER);
+		return LWS_HPI_RET_HANDLED;
+	}
+
+	/*
+	 * give it to whoever wants it according to the connection state; if
+	 * that fails, IO closes the wsi
+	 */
+	{
+#if defined(LWS_WITH_LATENCY)
+		lws_usec_t _h1_read_start = lws_now_usecs();
+#endif
+#if defined(LWS_ROLE_H2)
+		if (lwsi_role_h2(wsi) && lwsi_state(wsi) != LRS_BODY)
+			n = lws_read_h2(wsi, (unsigned char *)buf,
+					(unsigned int)len);
+		else
+#endif
+			n = lws_read_h1(wsi, (unsigned char *)buf,
+					(unsigned int)len, 1);
+#if defined(LWS_WITH_LATENCY)
+		{
+			unsigned int ms = (unsigned int)((lws_now_usecs() -
+						_h1_read_start) / 1000);
+			if (ms > 2)
+				lws_latency_note(&wsi->a.context->pt[(int)wsi->tsi],
+						 _h1_read_start, 2000,
+						 "h1read:%dms", ms);
+		}
+#endif
+	}
+	if (n < 0)
+		return LWS_HPI_RET_PLEASE_CLOSE_ME;
+
+	/*
+	 * during the parsing our role changed to something non-http,
+	 * so the ah has no further meaning
+	 */
+	if (wsi->stream.ah &&
+	    !lwsi_role_h1(wsi) && !lwsi_role_h2(wsi) && !lwsi_role_cgi(wsi))
+		lws_header_table_detach(wsi, 0);
+
+	*used = (size_t)n;
+
+	return LWS_HPI_RET_HANDLED;
+#else
+	(void)n;
+
+	return LWS_HPI_RET_PLEASE_CLOSE_ME;
+#endif
+}
+#endif
+
+#if defined(LWS_WITH_SERVER)
+#endif
+
+/*
+ * How an h1 connection is read (README.sans-io-split.md, "Who calls rx").
+ * A client kept warm between transactions is read to hear its peer go
+ * away.  A compression partial's and a flow-controlled connection's pass
+ * are the handler's (a cgi's is read like any other: the dispatcher has
+ * its own cgi step).  A server's writeable is its handle_POLLOUT op, so
+ * the pass's POLLOUT is IO's except while a compression partial is
+ * pending.  A server connection is read in the
+ * states that take a request or its body, after making sure it holds a
+ * header table (waiting for one holds the reading; the attach can close the
+ * wsi); its transaction end, tls accept and tunnel setup are the handler's.
+ * A client is read while its socks or CONNECT tunnel comes up and while its
+ * response headers come in, until the block is complete; once established
+ * the app pulls its body itself, so it is not read here.
+ */
+static int
+rops_rx_policy_h1(struct lws *wsi, int *flags, size_t *max)
+{
+	*flags = 0;
+	*max = 0;
+
+	if (lwsi_state(wsi) == LRS_IDLING)
+		return LWS_RXPOL_PUMP;
+
+#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+	if (wsi->http.comp_ctx.buflist_comp ||
+	    wsi->http.comp_ctx.may_have_more) {
+		/* the dispatcher completes the compression partial: no rx */
+		*flags = LWS_RXPOL_F_POLLOUT;
+
+		return LWS_RXPOL_ROLE;
+	}
+#endif
+	if (lws_is_flowcontrolled(wsi)) {
+#if defined(LWS_WITH_SERVER)
+		/*
+		 * ...but the server's writeable is still owed: a file being
+		 * served over parked rx (C-537) is exactly the case where rx
+		 * is flow-controlled and the transfer, and the completion
+		 * that lifts the flow control, live on POLLOUT.  Without this
+		 * the pass dropped POLLOUT from the fd and the connection
+		 * wedged with neither side armed.
+		 */
+		if (!lwsi_role_client(wsi) &&
+		    lwsi_transport(wsi) != LTS_SSL_ACK_PENDING)
+			*flags |= LWS_RXPOL_F_POLLOUT;
+#endif
+		return LWS_RXPOL_ROLE;
+	}
+
+#if defined(LWS_WITH_SERVER)
+	if (!lwsi_role_client(wsi)) {
+		/*
+		 * A server's POLLOUT is served in every state: serving a file
+		 * (LRS_ISSUING_FILE) and taking a body take no writeable
+		 * callback by their state bit, but the file's next lump and
+		 * the transaction's drain happen on the socket's writeable
+		 */
+		if (lwsi_transport(wsi) != LTS_SSL_ACK_PENDING)
+			*flags |= LWS_RXPOL_F_POLLOUT;
+
+		if (lwsi_transport(wsi) == LTS_SSL_ACK_PENDING)
+			return LWS_RXPOL_ROLE;
+
+		/*
+		 * A close draining its buffered tx reads, to drop what comes
+		 * (the rx op): a readable socket nobody reads is reported
+		 * every poll until the flush ends or times out
+		 */
+		if (lwsi_flushing_to_close(wsi))
+			return LWS_RXPOL_PUMP;
+
+		if (lwsi_state(wsi) == LRS_TXN_COMPLETED ||
+		    lwsi_state(wsi) == LRS_TXN_COMPLETING) {
+			/*
+			 * Nothing is read while the answer's tail drains, nor
+			 * until the connection is writable again after it; a
+			 * peer that sends meanwhile (its next request, early,
+			 * while not taking our answer) must not leave POLLIN
+			 * armed, level-triggered with nothing taking what it
+			 * reports: a spin for as long as it does not read.
+			 * Reading resumes where these states end, at
+			 * TXN_DRAINED (the next request's HEADERS) and at
+			 * BODY_DISCARD (the unread body).
+			 */
+			if (lws_io_want_read(wsi, 0))
+				return LWS_RXPOL_CLOSE;
+
+			return LWS_RXPOL_ROLE;
+		}
+
+		/*
+		 * the states we read in: the file ones read to park (the rx
+		 * op), and take POLLIN off when the peer goes on sending
+		 */
+		if (lwsi_state(wsi) != LRS_ESTABLISHED &&
+		    lwsi_state(wsi) != LRS_ISSUING_FILE &&
+		    lwsi_state(wsi) != LRS_AWAITING_FILE_READ &&
+		    lwsi_state(wsi) != LRS_HEADERS &&
+		    lwsi_state(wsi) != LRS_DOING_TRANSACTION && /* at least, SSE */
+		    lwsi_state(wsi) != LRS_DISCARD_BODY &&
+		    lwsi_state(wsi) != LRS_BODY)
+			return LWS_RXPOL_ROLE;
+
+		/*
+		 * Reading a request or its body needs a header table.  An SSE
+		 * stream is read only to hear the peer go away: it gave its
+		 * table up in lws_http_mark_sse() and must not be handed one
+		 * back.  To us it looks like a keepalive connection waiting
+		 * for its next request, and attaching the table arms the ah
+		 * idle timeout that reaps those: we are asked this on every
+		 * service, not only for rx, so every h1 SSE stream was closed
+		 * timeout_secs_ah_idle after it was first writeable.
+		 *
+		 * Nor does a transaction being answered need one: nothing is
+		 * parsed in DOING_TRANSACTION, what the peer sends is parked
+		 * for after it (the rx op), and the table that needs is
+		 * attached once the connection is back in HEADERS, as for any
+		 * pipelined request.  A cgi gave its table back at spawn so
+		 * the child does not pin one of a small pool; attaching one
+		 * here gave it straight back for the child's life, and armed
+		 * the ah hold timeout over the cgi's own.
+		 */
+		if (!wsi->stream.ah && !wsi->http_carries_sse &&
+		    lwsi_state(wsi) != LRS_DOING_TRANSACTION) {
+			lws_ah_attach_result_t ar =
+					lws_header_table_attach(wsi, 0);
+
+			if (ar == LWS_AH_ATTACH_WSI_GONE)
+				return LWS_RXPOL_DIED;
+
+			if (ar != LWS_AH_ATTACH_OK) {
+				lwsl_wsi_info(wsi, "ah not available");
+
+				return LWS_RXPOL_HOLD;
+			}
+		}
+
+		return LWS_RXPOL_PUMP;
+	}
+#endif
+#if defined(LWS_WITH_CLIENT)
+	/*
+	 * A client's POLLOUT is served in every state: a pipelined request's
+	 * turn (LRS_H1C_ISSUE_HANDSHAKE2) and the body it writes
+	 * (LRS_ISSUE_HTTP_BODY) take no writeable callback by their state
+	 * bit, but happen on the socket's writeable; the dispatcher gates the
+	 * user's callbacks itself
+	 */
+	*flags |= LWS_RXPOL_F_POLLOUT;
+
+	/* the body the app was writing may have all gone: then we await */
+	if (lws_h1_client_body_done_check(wsi))
+		return LWS_RXPOL_CLOSE;
+
+	switch (lwsi_state(wsi)) {
+	case LRS_H1C_ISSUE_HANDSHAKE2:
+	case LRS_ISSUE_HTTP_BODY:
+		/*
+		 * Our request, or its body, is still going out.  Nothing reads
+		 * until it has all gone: lws_h1_client_request_sent() reads
+		 * again then.  A server that answers early must not leave
+		 * POLLIN armed meanwhile, level-triggered with nothing taking
+		 * what it reports, a spin until the body has gone.
+		 */
+		if (lws_io_want_read(wsi, 0))
+			return LWS_RXPOL_CLOSE;
+
+		return LWS_RXPOL_ROLE;
+
+#if defined(LWS_WITH_SOCKS5)
+	case LRS_WAITING_SOCKS_GREETING_REPLY:
+	case LRS_WAITING_SOCKS_AUTH_REPLY:
+	case LRS_WAITING_SOCKS_CONNECT_REPLY:
+#endif
+#if defined(LWS_CLIENT_HTTP_PROXYING)
+	case LRS_WAITING_PROXY_REPLY:
+#endif
+		return LWS_RXPOL_PUMP;
+
+	case LRS_WAITING_SERVER_REPLY:
+		if (!wsi->stream.ah)
+			return LWS_RXPOL_ROLE;
+		if (wsi->stream.ah->parser_state == WSI_PARSING_COMPLETE)
+			/* the block is in: the handler interprets it */
+			return LWS_RXPOL_HOLD;
+
+		return LWS_RXPOL_PUMP_LOOP;
+
+	default:
+		break;
+	}
+#endif
+
+	return LWS_RXPOL_ROLE;
+}
+
+
+/*
+ * The pass's reading is done (README.sans-io-split.md "Who calls rx"): a
+ * client acts on the response headers it completed, or tells the app the
+ * body it can pull is there
+ */
+static lws_handling_result_t
+rops_rx_done_h1(struct lws *wsi)
+{
+#if defined(LWS_WITH_CLIENT)
+	if (lwsi_role_client(wsi))
+		return lws_h1_client_rx_done(wsi);
+#endif
+	return LWS_HPI_RET_HANDLED;
+}
+
+static lws_handling_result_t
+rops_handle_POLLOUT_h1(struct lws *wsi)
+{
+	if (lwsi_state(wsi) == LRS_ISSUE_HTTP_BODY ||
+	    lwsi_state(wsi) == LRS_WAITING_SERVER_REPLY) {
+#if defined(LWS_WITH_HTTP_PROXY)
+		if (wsi->http.proxy_clientside) {
+			struct lws_context_per_thread *pt =
+					&wsi->a.context->pt[(int)wsi->tsi];
+			struct lws *par = lws_get_parent(wsi);
+			size_t max = wsi->a.context->pt_serv_buf_size - LWS_PRE;
+			unsigned char *buf, *o = pt->serv_buf + LWS_PRE;
+			size_t len, hl = 0, fr = 0;
+			int n;
+
+			if (!par) {
+				lwsl_wsi_info(wsi, "proxy body: parent gone");
+
+				return LWS_HP_RET_BAIL_DIE;
+			}
+
+			/*
+			 * A body of no known length goes onward chunked
+			 * (lws_http_proxy_start()): leave room for the chunk
+			 * header and its CRLF, and keep the chunk size inside
+			 * what the header has room to say
+			 */
+			if (par->http.proxy_body_chunked) {
+				fr = LWS_HTTP_CHUNK_HDR_MAX_SIZE + 2;
+				max -= fr;
+				if (max > 0xffffff)
+					max = 0xffffff;
+			}
+
+			len = lws_buflist_next_segment_len(
+					&par->http.buflist_post_body, &buf);
+
+			if (len > max)
+				len = max;
+
+			if (len) {
+				int sb = lws_servbuf_claim(pt, o, len + fr,
+							   "h1 proxy body");
+
+				if (fr)
+					hl = (size_t)lws_snprintf((char *)o,
+						LWS_HTTP_CHUNK_HDR_MAX_SIZE + 1,
+						"%X\x0d\x0a", (unsigned int)len);
+
+				memcpy(o + hl, buf, len);
+				if (fr) {
+					o[hl + len] = '\x0d';
+					o[hl + len + 1] = '\x0a';
+				}
+
+				lwsl_debug("%s: %s: proxying body %d %d %d %d %d\n",
+						__func__, lws_wsi_tag(wsi), (int)len,
+						(int)wsi->http.tx_content_length,
+						(int)wsi->http.tx_content_remain,
+						(int)wsi->http.rx_content_length,
+						(int)wsi->http.rx_content_remain
+						);
+
+				n = lws_write(wsi, o, hl + len + (fr ? 2 : 0),
+					      LWS_WRITE_HTTP);
+				lws_servbuf_release(pt, sb);
+				if (n < 0) {
+					lwsl_err("%s: PROXY_BODY: write %d failed\n",
+						 __func__, (int)len);
+					return LWS_HP_RET_BAIL_DIE;
+				}
+
+				lws_buflist_use_segment(&par->http.buflist_post_body, len);
+
+				if (par->http.buflist_post_body_len >= len)
+					par->http.buflist_post_body_len -= len;
+				else
+					par->http.buflist_post_body_len = 0;
+
+				if (par->http.buflist_post_body_len <
+					    LWS_HTTP_PROXY_BODY_BUFFERED_LO)
+					/* we have room again, let him talk */
+					lws_rx_flow_control(par, 1);
+			}
+
+			if (par->http.buflist_post_body) {
+				lws_callback_on_writable(wsi);
+				return LWS_HP_RET_DROP_POLLOUT;
+			}
+
+			/* the stash is drained, he is free to talk again */
+
+			par->http.buflist_post_body_len = 0;
+			lws_rx_flow_control(par, 1);
+
+			/*
+			 * A chunked onward body ends with its last-chunk, once
+			 * the parent's body is complete and all of it went.
+			 * One write per POLLOUT: if we wrote a chunk just now,
+			 * the last-chunk goes on the next one
+			 */
+			if (par->http.proxy_body_chunked &&
+			    par->http.proxy_body_complete &&
+			    !par->http.proxy_body_ended) {
+				if (len)
+					lws_callback_on_writable(wsi);
+				else {
+					uint8_t lc[LWS_PRE + 5];
+
+					memcpy(&lc[LWS_PRE], "0\x0d\x0a\x0d\x0a", 5);
+					if (lws_write(wsi, &lc[LWS_PRE], 5,
+						      LWS_WRITE_HTTP) < 0) {
+						lwsl_wsi_err(wsi, "PROXY_BODY: "
+							"last-chunk failed");
+
+						return LWS_HP_RET_BAIL_DIE;
+					}
+					par->http.proxy_body_ended = 1;
+				}
+			}
+
+			/*
+			 * Only the end of the body we were forwarding is news:
+			 * a POLLOUT while we already wait for the response
+			 * must not reset the response parser (it may be part
+			 * way through the headers) or re-arm the timeout
+			 */
+			if (lwsi_state(wsi) != LRS_ISSUE_HTTP_BODY)
+				return LWS_HP_RET_DROP_POLLOUT;
+
+			lwsl_wsi_info(wsi, "nothing to send");
+			/* the response is awaited, and read */
+			if (lws_h1_client_request_sent(wsi))
+				return LWS_HP_RET_BAIL_DIE;
+
+			return LWS_HP_RET_DROP_POLLOUT;
+		}
+#endif
+		return LWS_HP_RET_USER_SERVICE;
+	}
+
+#if defined(LWS_WITH_CLIENT)
+	if (lwsi_role_client(wsi)) {
+		/* a pipelined request whose turn on the connection has come */
+		if (lwsi_state(wsi) == LRS_H1C_ISSUE_HANDSHAKE2) {
+			if (lws_h1_client_issue_handshake(wsi))
+				return LWS_HP_RET_BAIL_DIE;
+
+			return LWS_HP_RET_DROP_POLLOUT;
+		}
+
+		/* the body the app was writing has all gone */
+		if (lws_h1_client_body_done_check(wsi))
+			return LWS_HP_RET_BAIL_DIE;
+
+		return LWS_HP_RET_USER_SERVICE;
+	}
+#endif
+
+	/*
+	 * A server's writeable.  The dispatcher has already flushed a partial
+	 * send and cleared the back-to-back write detection; it clears
+	 * POLLOUT after us unless something asked for it again meanwhile.
+	 */
+	if (lwsi_state(wsi) == LRS_TXN_COMPLETED) {
+		lwsl_wsi_debug(wsi, "LRS_TXN_COMPLETED now writable");
+
+		/* idle until the next request's headers arrive */
+		lws_wsi_event(wsi, LWS_WSIEV_TXN_DRAINED);
+
+		/* ... which are read again, the rx policy stopped that */
+		if (lws_io_read_after_drain(wsi))
+			return LWS_HP_RET_BAIL_DIE;
+
+		return LWS_HP_RET_DROP_POLLOUT;
+	}
+
+	/* nothing to write until there is a request to answer */
+	if (lwsi_state(wsi) == LRS_HEADERS ||
+	    lwsi_state(wsi) == LRS_AWAITING_FILE_READ)
+		return LWS_HP_RET_DROP_POLLOUT;
+
+#if defined(LWS_WITH_SERVER) && defined(LWS_WITH_FILE_OPS)
+	if (lwsi_state(wsi) == LRS_ISSUING_FILE) {
+		/*
+		 * >0 == completion, <0 == error.  We'll get a
+		 * LWS_CALLBACK_HTTP_FILE_COMPLETION callback when it's done,
+		 * even if we just completed the send, so wait for that.  More
+		 * to send asks for writeable again, which keeps POLLOUT.
+		 */
+		if (lws_io_tx_file(wsi) < 0)
+			return LWS_HP_RET_BAIL_DIE;
+
+		return LWS_HP_RET_DROP_POLLOUT;
+	}
+#endif
+
+	return LWS_HP_RET_USER_SERVICE;
+}
+
+/*
+ * A server's answer is counted against the Content-Length lws added to its
+ * head, so the completion can tell an answer abandoned short of it.  What is
+ * counted is what follows the head's blank line, however it was written: an
+ * h1 head and its body may go in one write, of either kind
+ * (lws_return_http_status() does).  It is counted as the app gives it to us,
+ * before any compression, as the app's Content-Length is.  More than the
+ * Content-Length is the app's overrun: the count stops at zero.
+ *
+ * Returns how many of the bytes are the head, the rest are body.
+ */
+static size_t
+lws_h1_count_answer(struct lws *wsi, const unsigned char *buf, size_t len)
+{
+	static const char blank_line[] = "\r\n\r\n";
+	size_t head = 0;
+
+	while (head < len && !wsi->http.tx_head_ended) {
+		/* tx_head_crlf: how much of blank_line the head ends with */
+		if (buf[head] == blank_line[wsi->http.tx_head_crlf]) {
+			if (wsi->http.tx_head_crlf == 3)
+				wsi->http.tx_head_ended = 1;
+			else
+				wsi->http.tx_head_crlf++;
+		} else
+			wsi->http.tx_head_crlf = buf[head] == '\r';
+		head++;
+	}
+
+	len -= head;
+	if (wsi->http.tx_head_ended && wsi->http.tx_content_length)
+		wsi->http.tx_content_remain -= len < wsi->http.tx_content_remain ?
+				(lws_filepos_t)len : wsi->http.tx_content_remain;
+
+	return head;
+}
+
+static int
+rops_write_role_protocol_h1(struct lws *wsi, unsigned char *buf, size_t len,
+			    enum lws_write_protocol *wp)
+{
+	size_t olen = len;
+	int n;
+#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+	/*
+	 * The compressed (and maybe chunked) output is built in here, and
+	 * buf / len are pointed into it for the lws_io_tx_push() below, so it
+	 * has to be at function scope: block-scoped inside the if, the send
+	 * read a dead stack object (stack-use-after-scope under ASan, seen
+	 * serving any static file to a browser that offers gzip / br).
+	 */
+	unsigned char mtubuf[1500 + LWS_PRE + LWS_HTTP_CHUNK_HDR_MAX_SIZE +
+			     LWS_HTTP_CHUNK_TRL_MAX_SIZE];
+#endif
+
+	if (!lwsi_role_client(wsi)) {
+		size_t head = lws_h1_count_answer(wsi, buf, len);
+
+		if (lws_http_tx_is_head_body(wsi, (*wp) & 0x1f)) {
+			/*
+			 * Answering a HEAD: whatever of the head is in the
+			 * write goes, the body after it does not.  An h1 HEAD
+			 * answer has no end of its own, its head is all of it,
+			 * so there is nothing to end either: nothing of it
+			 * goes through the coder.
+			 */
+			if (!head)
+				return (int)olen;
+			len = head;
+			goto push;
+		}
+	}
+
+#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+	if (wsi->http.lcs && (((*wp) & 0x1f) == LWS_WRITE_HTTP_FINAL ||
+			      ((*wp) & 0x1f) == LWS_WRITE_HTTP)) {
+		unsigned char *out = mtubuf + LWS_PRE +
+				     LWS_HTTP_CHUNK_HDR_MAX_SIZE;
+		size_t o = sizeof(mtubuf) - LWS_PRE -
+			   LWS_HTTP_CHUNK_HDR_MAX_SIZE -
+			   LWS_HTTP_CHUNK_TRL_MAX_SIZE;
+
+#if defined(LWS_WITH_LATENCY)
+		lws_usec_t _h1comp_start = lws_now_usecs();
+#endif
+
+		n = lws_http_compression_transform(wsi, buf, len, wp, &out, &o);
+
+#if defined(LWS_WITH_LATENCY)
+		{
+			unsigned int ms = (unsigned int)((lws_now_usecs() - _h1comp_start) / 1000);
+			if (ms > 2)
+				lws_latency_note((&wsi->a.context->pt[(int)wsi->tsi]), _h1comp_start, 2000, "h1comp:%dms", ms);
+		}
+#endif
+
+		if (n)
+			return n;
+
+		lwsl_info("%s: %s: transformed %d bytes to %d "
+			   "(wp 0x%x, more %d)\n", __func__,
+			   lws_wsi_tag(wsi), (int)len,
+			   (int)o, (int)*wp, wsi->http.comp_ctx.may_have_more);
+
+		if (!o) {
+			if (!wsi->http.comp_ctx.chunking ||
+			    ((*wp) & 0x1f) != LWS_WRITE_HTTP_FINAL)
+				return (int)olen;
+
+			/*
+			 * The compressor had nothing more for the end of the
+			 * stream, but the body still has to end: the last
+			 * chunk alone, or the peer keeps waiting for it, and
+			 * on keep-alive reads the next response as a chunk
+			 */
+			memcpy(out, "0\x0d\x0a\x0d\x0a", 5);
+			o = 5;
+		} else if (wsi->http.comp_ctx.chunking) {
+			char c[LWS_HTTP_CHUNK_HDR_MAX_SIZE + 2];
+			/*
+			 * this only needs dealing with on http/1.1 to allow
+			 * pipelining
+			 */
+			n = lws_snprintf(c, sizeof(c), "%X\x0d\x0a", (int)o);
+			lwsl_info("%s: chunk (%d) %s", __func__, (int)o, c);
+			out -= n;
+			o += (unsigned int)n;
+			memcpy(out, c, (unsigned int)n);
+			out[o++] = '\x0d';
+			out[o++] = '\x0a';
+
+			if (((*wp) & 0x1f) == LWS_WRITE_HTTP_FINAL) {
+				lwsl_info("%s: final chunk\n", __func__);
+				out[o++] = '0';
+				out[o++] = '\x0d';
+				out[o++] = '\x0a';
+				out[o++] = '\x0d';
+				out[o++] = '\x0a';
+			}
+		}
+
+		buf = out;
+		len = o;
+	}
+#endif
+
+#if defined(LWS_WITH_CLIENT)
+	/*
+	 * A client body the head framed as chunked
+	 * (lws_generate_client_handshake(): the app gave it no
+	 * Content-Length): each piece goes as a chunk, its size line in the
+	 * LWS_PRE in front of it, and after it its CRLF and, for the final
+	 * piece, the last-chunk, pushed behind it in order (a partial of the
+	 * first keeps the second queued after it).  An empty piece that is
+	 * not final is nothing on the wire: a chunk of size zero would be
+	 * the last-chunk.
+	 */
+	if (wsi->http.client_body_chunked && lwsi_role_client(wsi) &&
+	    (((*wp) & 0x1f) == LWS_WRITE_HTTP ||
+	     ((*wp) & 0x1f) == LWS_WRITE_HTTP_FINAL)) {
+		char trl[LWS_HTTP_CHUNK_TRL_MAX_SIZE];
+		size_t tl = 0;
+
+		if (len > 0xffffff) {
+			/* the size line has six hex digits */
+			lwsl_wsi_err(wsi, "chunk too large: %lu",
+					  (unsigned long)len);
+
+			return -1;
+		}
+
+		if (len) {
+			char hdr[LWS_HTTP_CHUNK_HDR_MAX_SIZE + 1];
+			int hl = lws_snprintf(hdr, sizeof(hdr), "%X\x0d\x0a",
+					      (unsigned int)len);
+
+			buf -= hl;
+			len += (size_t)hl;
+			memcpy(buf, hdr, (size_t)hl);
+			trl[tl++] = '\x0d';
+			trl[tl++] = '\x0a';
+		}
+		if (((*wp) & 0x1f) == LWS_WRITE_HTTP_FINAL) {
+			memcpy(trl + tl, "0\x0d\x0a\x0d\x0a", 5);
+			tl += 5;
+		}
+
+		if (len && lws_io_tx_push(wsi, (unsigned char *)buf, len) < 0)
+			return -1;
+		if (tl && lws_io_tx_push(wsi, (unsigned char *)trl, tl) < 0)
+			return -1;
+
+		return (int)olen;
+	}
+#endif
+
+push:
+	n = lws_io_tx_push(wsi, (unsigned char *)buf, len);
+	if (n < 0)
+		return n;
+
+	/*
+	 * A server's response headers going arm the response's watchdog, and
+	 * each later piece of it renews it, as h2 and h3 do from their own
+	 * write paths: an answer started during the request body keeps a
+	 * timeout after the body completes and clears the body's own
+	 */
+	if (!lwsi_role_client(wsi)) {
+		if (((*wp) & 0x1f) == LWS_WRITE_HTTP_HEADERS)
+			lws_http_response_started(wsi);
+		else
+			lws_http_response_progress(wsi);
+	}
+
+	/* hide there may have been compression */
+
+	return (int)olen;
+}
+
+static int
+rops_alpn_negotiated_h1(struct lws *wsi, const char *alpn)
+{
+	lwsl_debug("%s: client %d\n", __func__, lwsi_role_client(wsi));
+
+	return 0;
+}
+
+static int
+rops_destroy_role_h1(struct lws *wsi)
+{
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+	struct allocated_headers *ah;
+
+	/* we may not have an ah, but may be on the waiting list... */
+	lwsl_info("%s: ah det due to close\n", __func__);
+	__lws_header_table_detach(wsi, 0);
+
+	ah = lws_pt_first_ah(&pt->http.ah_owner);
+
+	while (ah) {
+		if (ah->in_use && ah->wsi == wsi) {
+			lwsl_err("%s: ah leak: wsi %s\n", __func__,
+					lws_wsi_tag(wsi));
+			ah->in_use = 0;
+			ah->wsi = NULL;
+			pt->http.ah_count_in_use--;
+			break;
+		}
+		ah = lws_pt_next_ah(ah);
+	}
+
+#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+	lws_http_compression_destroy(wsi);
+#endif
+
+#ifdef LWS_ROLE_WS
+	lws_free_set_NULL(wsi->ws);
+#endif
+	return 0;
+}
+
+#if defined(LWS_WITH_SERVER)
+
+static int
+rops_adoption_bind_h1(struct lws *wsi, int type, const char *vh_prot_name)
+{
+	if (!(type & LWS_ADOPT_HTTP))
+		return 0; /* no match */
+
+	if (type & _LWS_ADOPT_FINISH && !lwsi_role_http(wsi))
+		return 0;
+
+	if (type & _LWS_ADOPT_FINISH) {
+		switch (lws_header_table_attach(wsi, 0)) {
+		case LWS_AH_ATTACH_OK:
+			lwsl_debug("Attached ah immediately\n");
+			break;
+		case LWS_AH_ATTACH_WSI_GONE:
+			/*
+			 * Can't happen on this path (a server wsi being
+			 * adopted is neither autoserviced by the attach nor
+			 * an unconnected client), and we have no way to tell
+			 * our caller the wsi is gone: -1 is "the bind
+			 * failed", which makes him close the wsi again.  So
+			 * shout, and claim the bind so at least nothing
+			 * further happens to him in here.
+			 */
+			lwsl_err("%s: wsi vanished in ah attach\n", __func__);
+
+			return 1;
+		default:
+			lwsl_info("%s: waiting for ah\n", __func__);
+			break;
+		}
+
+		return 1;
+	}
+
+#if defined(LWS_WITH_SERVER) && defined(LWS_WITH_SECURE_STREAMS)
+	if (wsi->a.vhost->ss_handle &&
+	    wsi->a.vhost->ss_handle->policy->protocol == LWSSSP_RAW) {
+		lws_wsi_event_role(wsi, (type & LWS_ADOPT_ALLOW_SSL) ?
+				LWS_WSIEV_ADOPTED_TLS : LWS_WSIEV_ADOPTED,
+				   &role_ops_raw_skt);
+		return 1;
+	}
+#endif
+
+	/* If Non-TLS and HTTP2 prior knowledge is enabled, skip to clear text HTTP2 */
+
+#if defined(LWS_WITH_HTTP2)
+	if ((!(type & LWS_ADOPT_ALLOW_SSL)) && (wsi->a.vhost->options & LWS_SERVER_OPTION_H2_PRIOR_KNOWLEDGE)) {
+		lwsl_info("http/2 prior knowledge\n");
+		lws_metrics_tag_wsi_add(wsi, "upg", "h2_prior");
+		lws_role_call_alpn_negotiated(wsi, "h2");
+	}
+	else
+#endif
+		lws_wsi_event_role(wsi, (type & LWS_ADOPT_ALLOW_SSL) ?
+				LWS_WSIEV_ADOPTED_TLS : LWS_WSIEV_ADOPTED,
+				   &role_ops_h1);
+
+	/*
+	 * Otherwise, we have to bind to h1 as a default even when we're actually going to
+	 * replace it as an h2 bind later.  So don't take this seriously if the
+	 * default is disabled (ws upgrade caees properly about it)
+	 */
+
+	if (!vh_prot_name && wsi->a.vhost->default_protocol_index <
+			     wsi->a.vhost->count_protocols)
+		wsi->a.protocol = &wsi->a.vhost->protocols[
+				wsi->a.vhost->default_protocol_index];
+	else
+		wsi->a.protocol = &wsi->a.vhost->protocols[0];
+
+	/* the transport is accepted... give him time to negotiate */
+	lws_set_timeout(wsi, PENDING_TIMEOUT_ESTABLISH_WITH_SERVER,
+			(int)wsi->a.context->timeout_secs);
+
+	return 1; /* bound */
+}
+
+#endif
+
+#if defined(LWS_WITH_CLIENT)
+
+static const char * const http_methods[] = {
+	"GET", "POST", "OPTIONS", "HEAD", "PUT", "PATCH", "DELETE", "CONNECT"
+};
+
+int
+_lws_is_http_method(const char *method)
+{
+	if (method)
+		for (int n = 0; n < (int)LWS_ARRAY_SIZE(http_methods); n++)
+			if (!strcmp(method, http_methods[n]))
+				return 1;
+
+	return 0;
+}
+
+static int
+rops_client_bind_h1(struct lws *wsi, const struct lws_client_connect_info *i)
+{
+	if (!i) {
+		/* we are finalizing an already-selected role */
+
+		/*
+		 * If we stay in http, assuming there wasn't already-set
+		 * external user_space, since we know our initial protocol
+		 * we can assign the user space now, otherwise do it after the
+		 * ws subprotocol negotiated
+		 */
+		if (!wsi->user_space && wsi->stash->cis[CIS_METHOD])
+			if (lws_ensure_user_space(wsi))
+				return 1;
+
+		 /*
+		  * For ws, default to http/1.1 only.  If i->alpn had been set
+		  * though, defer to whatever he has set in there (eg, "h2").
+		  *
+		  * The problem is he has to commit to h2 before he can find
+		  * out if the server has the SETTINGS for ws-over-h2 enabled;
+		  * if not then ws is not possible on that connection.  So we
+		  * only try h2 if he assertively said to use h2 alpn, otherwise
+		  * ws implies alpn restriction to h1.
+		  */
+		if (!wsi->stash->cis[CIS_METHOD] && !wsi->stash->cis[CIS_ALPN])
+			wsi->stash->cis[CIS_ALPN] = "http/1.1";
+
+		/* if we went on the ah waiting list, it's ok, we can wait.
+		 *
+		 * When we do get the ah, now or later, he will end up at
+		 * lws_client_transport_start().
+		 */
+		if (lws_header_table_attach(wsi, 0) ==
+						LWS_AH_ATTACH_WSI_GONE)
+			/*
+			 * The attach went on to do the connect and it failed:
+			 * the wsi is already closed and freed.  -1 is this
+			 * op's "gone" answer, our caller must not touch or
+			 * close him either.
+			 */
+			return -1;
+
+		return 0;
+	}
+
+	/*
+	 * Clients that want to be h1, h2, or ws all start out as h1
+	 * (we don't yet know if the server supports h2 or ws), unless their
+	 * alpn is only "h2"
+	 */
+
+//	if (i->alpn && !strcmp(i->alpn, "h2"))
+//		return 0; /* we are h1, he only wants h2 */
+
+	if (!i->method) { /* websockets */
+#if defined(LWS_ROLE_WS)
+		if (lws_create_client_ws_object(i, wsi))
+			goto fail_wsi;
+
+		goto bind_h1;
+#else
+		lwsl_err("%s: ws role not configured\n", __func__);
+
+		goto fail_wsi;
+#endif
+	}
+
+	/* if a recognized http method, bind to it */
+	if (_lws_is_http_method(i->method))
+		goto bind_h1;
+
+	/* other roles may bind to it */
+
+	return 0; /* no match */
+
+bind_h1:
+	lws_wsi_event_role(wsi, LWS_WSIEV_CLIENT_BIND, &role_ops_h1);
+
+	return 1; /* matched */
+
+fail_wsi:
+	return -1;
+}
+#endif
+
+static int
+rops_close_kill_connection_h1(struct lws *wsi, enum lws_close_status reason)
+{
+#if defined(LWS_WITH_HTTP_PROXY)
+	if (!wsi->http.proxy_clientside)
+		return 0;
+
+	wsi->http.proxy_clientside = 0;
+
+	if (user_callback_handle_rxflow(wsi->a.protocol->callback, wsi,
+					LWS_CALLBACK_COMPLETED_CLIENT_HTTP,
+					wsi->user_space, NULL, 0))
+		return 0;
+#endif
+	return 0;
+}
+
+int
+rops_pt_init_destroy_h1(struct lws_context *context,
+		    const struct lws_context_creation_info *info,
+		    struct lws_context_per_thread *pt, int destroy)
+{
+	/*
+	 * We only want to do this once, and h1 is the role that is always
+	 * built when any http role is (h2 fails the cmake configure without
+	 * it), so h1 owns the pt's "ah excessive hold" watchdog for every
+	 * build.  It used to be guarded on !LWS_ROLE_H2 here and "let h2 ops
+	 * do it", but the h2 copy carried the same inverted guard inside a
+	 * translation unit only compiled when LWS_ROLE_H2 is defined... so in
+	 * the default build neither ran and the watchdog never existed.
+	 */
+#if defined(LWS_WITH_SERVER)
+	if (!destroy)
+		lws_sul_schedule(context, (int)pt->tid, &pt->sul_ah_lifecheck,
+				 lws_sul_http_ah_lifecheck,
+				 30 * LWS_US_PER_SEC);
+	else
+		lws_sul_cancel(&pt->sul_ah_lifecheck);
+#endif
+
+	return 0;
+}
+
+static const lws_rops_t rops_table_h1[] = {
+	/*  1 */ { .pt_init_destroy	  = rops_pt_init_destroy_h1 },
+	/*  2 */ { .rx_done		  = rops_rx_done_h1 },
+	/*  3 */ { .handle_POLLOUT	  = rops_handle_POLLOUT_h1 },
+	/*  4 */ { .write_role_protocol	  = rops_write_role_protocol_h1 },
+	/*  5 */ { .alpn_negotiated	  = rops_alpn_negotiated_h1 },
+	/*  6 */ { .close_kill_connection = rops_close_kill_connection_h1 },
+	/*  7 */ { .destroy_role	  = rops_destroy_role_h1 },
+#if defined(LWS_WITH_SERVER)
+	/*  8 */ { .adoption_bind	  = rops_adoption_bind_h1 },
+#endif
+#if defined(LWS_WITH_CLIENT)
+	/*  8 if client and no server */
+	/*  9 */ { .client_bind		  = rops_client_bind_h1 },
+#endif
+	/* 10 with server and client, 9 with one, 8 with neither */
+	{ .rx				  = rops_rx_h1 },
+	/* 11 with server and client, 10 with one, 9 with neither */
+	{ .rx_policy			  = rops_rx_policy_h1 },
+#if defined(LWS_WITH_CLIENT)
+	/* 12 with server, 11 without */
+	{ .client_transport_up		  = lws_h1_client_transport_up },
+#endif
+	/* 13 with server and client, 12 client, 11 server, 10 neither */
+	{ .tx_drained			  = lws_http_tx_drained },
+};
+
+const struct lws_role_ops role_ops_h1 = {
+	/* role name */			"h1",
+	/* alpn id */			"http/1.1",
+	/* rops_table */		rops_table_h1,
+	/* rops_idx */			{
+	  /* LWS_ROPS_check_upgrades */
+	  /* LWS_ROPS_pt_init_destroy */		0x00, 0x01,
+	  /* LWS_ROPS_init_vhost */
+	  /* LWS_ROPS_destroy_vhost */			0x00, 0x00,
+	  /* LWS_ROPS_service_flag_pending */
+	  /* LWS_ROPS_handle_POLLIN */			0x00, 0x00,
+	  /* LWS_ROPS_handle_POLLOUT */
+	  /* LWS_ROPS_perform_user_POLLOUT */		0x03, 0x00,
+	  /* LWS_ROPS_callback_on_writable */
+	  /* LWS_ROPS_tx_credit */			0x00, 0x00,
+	  /* LWS_ROPS_write_role_protocol */
+	  /* LWS_ROPS_encapsulation_parent */		0x04, 0x00,
+	  /* LWS_ROPS_alpn_negotiated */
+	  /* LWS_ROPS_close_via_role_protocol */	0x05, 0x00,
+	  /* LWS_ROPS_close_role */
+	  /* LWS_ROPS_close_kill_connection */		0x00, 0x06,
+	  /* LWS_ROPS_destroy_role */
+#if defined(LWS_WITH_SERVER)
+	  /* LWS_ROPS_adoption_bind */			0x07, 0x08,
+#else
+	  /* LWS_ROPS_adoption_bind */			0x07, 0x00,
+#endif
+	  /* LWS_ROPS_client_bind */
+#if defined(LWS_WITH_CLIENT)
+#if defined(LWS_WITH_SERVER)
+	  /* LWS_ROPS_issue_keepalive */		0x09, 0x00,
+	  /* LWS_ROPS_client_transport_up */
+	  /* LWS_ROPS_rx */				0x0C, 0x0A,
+	  /* LWS_ROPS_rx_dgram */			0x00,
+	  /* LWS_ROPS_rx_policy */			0x0B,
+	  /* LWS_ROPS_rx_done */			0x02,
+	  /* LWS_ROPS_tx */
+	  /* LWS_ROPS_tx_sent */			0x00, 0x00,
+	  /* LWS_ROPS_tx_drained */			0x0D,
+#else
+	  /* LWS_ROPS_issue_keepalive */		0x08, 0x00,
+	  /* LWS_ROPS_client_transport_up */
+	  /* LWS_ROPS_rx */				0x0B, 0x09,
+	  /* LWS_ROPS_rx_dgram */			0x00,
+	  /* LWS_ROPS_rx_policy */			0x0A,
+	  /* LWS_ROPS_rx_done */			0x02,
+	  /* LWS_ROPS_tx */
+	  /* LWS_ROPS_tx_sent */			0x00, 0x00,
+	  /* LWS_ROPS_tx_drained */			0x0C,
+#endif
+#else
+	  /* LWS_ROPS_issue_keepalive */		0x00, 0x00,
+#if defined(LWS_WITH_SERVER)
+	  /* LWS_ROPS_client_transport_up */
+	  /* LWS_ROPS_rx */				0x00, 0x09,
+	  /* LWS_ROPS_rx_dgram */			0x00,
+	  /* LWS_ROPS_rx_policy */			0x0A,
+	  /* LWS_ROPS_rx_done */			0x02,
+	  /* LWS_ROPS_tx */
+	  /* LWS_ROPS_tx_sent */			0x00, 0x00,
+	  /* LWS_ROPS_tx_drained */			0x0B,
+#else
+	  /* LWS_ROPS_client_transport_up */
+	  /* LWS_ROPS_rx */				0x00, 0x08,
+	  /* LWS_ROPS_rx_dgram */			0x00,
+	  /* LWS_ROPS_rx_policy */			0x09,
+	  /* LWS_ROPS_rx_done */			0x02,
+	  /* LWS_ROPS_tx */
+	  /* LWS_ROPS_tx_sent */			0x00, 0x00,
+	  /* LWS_ROPS_tx_drained */			0x0A,
+#endif
+#endif
+					},
+	/* adoption_cb clnt, srv */	{ LWS_CALLBACK_SERVER_NEW_CLIENT_INSTANTIATED,
+					  LWS_CALLBACK_SERVER_NEW_CLIENT_INSTANTIATED },
+	/* rx_cb clnt, srv */		{ LWS_CALLBACK_RECEIVE_CLIENT_HTTP,
+					  0 /* may be POST, etc */ },
+	/* writeable cb clnt, srv */	{ LWS_CALLBACK_CLIENT_HTTP_WRITEABLE,
+					  LWS_CALLBACK_HTTP_WRITEABLE },
+	/* close cb clnt, srv */	{ LWS_CALLBACK_CLOSED_CLIENT_HTTP,
+					  LWS_CALLBACK_CLOSED_HTTP },
+	/* protocol_bind cb c, srv */	{ LWS_CALLBACK_CLIENT_HTTP_BIND_PROTOCOL,
+					  LWS_CALLBACK_HTTP_BIND_PROTOCOL },
+	/* protocol_unbind cb c, srv */	{ LWS_CALLBACK_CLIENT_HTTP_DROP_PROTOCOL,
+					  LWS_CALLBACK_HTTP_DROP_PROTOCOL },
+	/* file_handle */		0,
+	/* child_stdio */		0,
+};

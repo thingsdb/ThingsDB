@@ -1,0 +1,732 @@
+/*
+ * libwebsockets - small server side websockets and web server implementation
+ *
+ * Copyright (C) 2010 - 2020 Andy Green <andy@warmcat.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+
+#include "private-lib-core.h"
+
+/*
+ * The client's request is ready to go (it has its header table, if it needs
+ * one): its stashed request goes into the headers, and the transport starts,
+ * with dns.  Returns the wsi, or NULL when it was closed and freed.
+ */
+struct lws *
+lws_client_transport_start(struct lws *wsi)
+{
+	lwsl_wsi_debug(wsi, "stash %p", wsi->stash);
+
+	if (!wsi->stash)
+		return wsi;
+
+	if (lws_client_stash_to_headers(wsi)) {
+		/*
+		 * Every caller takes NULL as "the wsi has been closed and
+		 * freed": returning it with the wsi still alive leaked the
+		 * wsi and its ah for each redirect whose headers did not fit
+		 */
+		lws_close_free_wsi(wsi, LWS_CLOSE_STATUS_NOSTATUS, "cvi2 bail");
+
+		return NULL;
+	}
+
+	return lws_client_connect_2_dnsreq_MAY_CLOSE_WSI(wsi);
+}
+
+/*
+ * A transport's fd is the connection's from the connect call on and is
+ * closed with it (lws-client.h): if we fail before there is a wsi to take
+ * it, it is closed here
+ */
+static void
+lws_client_transport_fd_drop(const struct lws_client_connect_info *i)
+{
+	if (i->transport && lws_socket_is_valid(i->transport_fd))
+		compatible_close(i->transport_fd);
+}
+
+/*
+ * The connection we are making failed and is gone, the caller's wsi storage
+ * must not keep pointing at it.  But the callbacks we made during the attempt,
+ * eg, CLIENT_CONNECTION_ERROR, may already have started another connection and
+ * stored that in the same place... it's not ours to scrub then.
+ */
+static void
+lws_client_pwsi_clear(const struct lws_client_connect_info *i,
+		      struct lws *pwsi_entry, struct lws *wsi)
+{
+	if (i->pwsi && (*i->pwsi == pwsi_entry || *i->pwsi == wsi))
+		*i->pwsi = NULL;
+}
+
+static struct lws *
+__lws_client_connect_via_info(const struct lws_client_connect_info *i)
+{
+	const char *local = i->protocol;
+	struct lws *wsi, *wsi_started, *pwsi_entry = i->pwsi ? *i->pwsi : NULL;
+	struct lws_context_per_thread *pt;
+	const struct lws_protocols *p;
+	const char *cisin[CIS_COUNT];
+	char buf_localport[8];
+	struct lws_vhost *vh;
+	const char *alpn = i->alpn;
+	int tsi;
+
+	if (i->context->requested_stop_internal_loops) {
+		lws_client_transport_fd_drop(i);
+		return NULL;
+	}
+
+	if (!i->context->protocol_init_done)
+		if (lws_protocol_init(i->context)) {
+			lws_client_transport_fd_drop(i);
+			return NULL;
+		}
+
+	/*
+	 * If we have .local_protocol_name, use it to select the local protocol
+	 * handler to bind to.  Otherwise use .protocol if http[s].
+	 */
+	if (i->local_protocol_name)
+		local = i->local_protocol_name;
+
+	lws_context_lock(i->context, __func__);
+	/*
+	 * PHASE 1: if SMP, find out the tsi related to current service thread
+	 */
+
+	tsi = lws_pthread_self_to_tsi(i->context);
+	assert(tsi >= 0);
+
+	/* PHASE 2: create a bare wsi */
+
+	wsi = __lws_wsi_create_with_role(i->context, tsi, NULL, i->log_cx);
+	lws_context_unlock(i->context);
+	if (wsi == NULL) {
+		lws_client_transport_fd_drop(i);
+		return NULL;
+	}
+
+	/*
+	 * A connection with a transport under it (lws_set_transport()) has
+	 * its bytes carried by the transport and its place in the poll set
+	 * given: the connect machine skips dns and connect for it.  The fd is
+	 * the wsi's from here, so every bail below closes it with the wsi.
+	 */
+	if (i->transport) {
+		wsi->io->desc.sockfd = i->transport_fd;
+		lws_set_transport(wsi, i->transport, i->transport_opaque);
+	}
+
+	vh = i->vhost;
+	if (!vh) {
+#if defined(LWS_WITH_TLS_JIT_TRUST)
+		if (lws_tls_jit_trust_vhost_bind(i->context, i->address,
+						 (uint16_t)(unsigned int)i->port,
+						 i->host, &vh))
+#endif
+		{
+			vh = lws_get_vhost_by_name(i->context, "default");
+			if (!vh) {
+
+				/*
+				 * The first vhost that is not "system", which
+				 * exists for lws's own protocols (eg, async
+				 * dns) even when the app made none of its own
+				 */
+				vh = lws_vhost_first(i->context);
+				if (vh && !strcmp(vh->name, "system"))
+					vh = lws_vhost_next(vh);
+			}
+		}
+	}
+
+	/*
+	 * Eg, an app with LWS_SERVER_OPTION_EXPLICIT_VHOSTS that never created
+	 * a vhost and gave none in the connect info.  Everything below takes
+	 * vh to be real, so fail here.
+	 */
+	if (!vh) {
+		lwsl_cx_err(i->context, "No vhost in the context");
+		goto bail; /* this frees the wsi */
+	}
+
+#if defined(LWS_WITH_SECURE_STREAMS)
+	/* any of these imply we are a client wsi bound to an SS, which
+	 * implies our opaque user ptr is the ss (or sspc if PROXY_LINK) handle
+	 */
+	wsi->for_ss = !!(i->ssl_connection & (LCCSCF_SECSTREAM_CLIENT | LCCSCF_SECSTREAM_PROXY_LINK | LCCSCF_SECSTREAM_PROXY_ONWARD));
+	wsi->client_bound_sspc = !!(i->ssl_connection & LCCSCF_SECSTREAM_PROXY_LINK); /* so wsi close understands need to remove sspc ptr to wsi */
+	wsi->client_proxy_onward = !!(i->ssl_connection & LCCSCF_SECSTREAM_PROXY_ONWARD);
+#endif
+
+#if defined(LWS_WITH_SYS_FAULT_INJECTION)
+	if (lws_dll2_count(&i->fic.fi_owner))
+		/*
+		 * This moves all the lws_fi_t from i->fi to the vhost fi,
+		 * leaving it empty
+		 */
+		lws_fi_import(&wsi->fic, &i->fic);
+
+	lws_fi_inherit_copy(&wsi->fic, &i->context->fic, "wsi", i->fi_wsi_name);
+
+	if (lws_fi(&wsi->fic, "createfail"))
+		goto bail;
+
+#if defined(LWS_WITH_SECURE_STREAMS)
+#if defined(LWS_WITH_SECURE_STREAMS_PROXY_API)
+	if (wsi->client_bound_sspc) {
+		lws_sspc_handle_t *fih = (lws_sspc_handle_t *)i->opaque_user_data;
+		lws_fi_inherit_copy(&wsi->fic, &fih->fic, "wsi", NULL);
+	}
+#endif
+	if (wsi->for_ss) {
+		lws_ss_handle_t *fih = (lws_ss_handle_t *)i->opaque_user_data;
+		lws_fi_inherit_copy(&wsi->fic, &fih->fic, "wsi", NULL);
+	}
+#endif
+#endif
+
+	lws_wsi_fault_timedclose(wsi);
+
+	/*
+	 * Until we exit, we can report connection failure directly to the
+	 * caller without needing to call through to protocol CONNECTION_ERROR.
+	 */
+	wsi->client_suppress_CONNECTION_ERROR = 1;
+
+	if (i->keep_warm_secs)
+		wsi->keep_warm_secs = i->keep_warm_secs;
+	else
+		wsi->keep_warm_secs = 5;
+
+	wsi->flags = i->ssl_connection;
+	if (i->context->options & LWS_SERVER_OPTION_ALLOW_EARLY_DATA)
+		wsi->flags |= LCCSCF_ALLOW_EARLY_DATA;
+
+	wsi->io->c_pri = i->priority;
+
+	if (i->retry_and_idle_policy)
+		wsi->retry_policy = i->retry_and_idle_policy;
+	else
+		wsi->retry_policy = &i->context->default_retry;
+
+	if (i->ssl_connection & LCCSCF_WAKE_SUSPEND__VALIDITY)
+		wsi->conn_validity_wakesuspend = 1;
+
+	if (lws_vhost_bind_wsi(vh, wsi)) {
+		lwsl_wsi_err(wsi, "unable to bind to vhost %s", vh->name);
+
+		goto bail;
+	}
+
+#if defined(LWS_WITH_SYS_FAULT_INJECTION)
+	/* additionally inherit from vhost we bound to */
+	lws_fi_inherit_copy(&wsi->fic, &vh->fic, "wsi", i->fi_wsi_name);
+#endif
+
+	/*
+	 * PHASE 3: Choose an initial role for the wsi and do role-specific init
+	 *
+	 * Note the initial role may not reflect the final role, eg,
+	 * we may want ws, but first we have to go through h1 to get that
+	 */
+
+	if (lws_role_call_client_bind(wsi, i) < 0) {
+		lwsl_wsi_err(wsi, "unable to bind to role");
+
+		goto bail;
+	}
+
+#if defined(LWS_WITH_UDP)
+	/* a role that takes datagrams rides a datagram transport: IO's */
+	if (lws_rops_fidx(wsi->role_ops, LWS_ROPS_rx_dgram) &&
+	    lws_io_udp_alloc(wsi)) {
+		lwsl_wsi_err(wsi, "OOM on udp");
+
+		goto bail;
+	}
+#endif
+	lwsl_wsi_info(wsi, "role binding to %s", wsi->role_ops->name);
+
+	/*
+	 * PHASE 4: fill up the wsi with stuff from the connect_info as far as
+	 * it can go.  It's uncertain because not only is our connection
+	 * going to complete asynchronously, we might have bound to h1 and not
+	 * even be able to get ahold of an ah immediately.
+	 */
+
+	wsi->user_space = NULL;
+	wsi->pending_timeout = NO_PENDING_TIMEOUT;
+	wsi->io->position_in_fds_table = LWS_NO_FDS_POS;
+	wsi->c_port = (uint16_t)(unsigned int)i->port;
+	wsi->io->sys_tls_client_cert = i->sys_tls_client_cert;
+
+#if defined(LWS_ROLE_H2) || defined(LWS_ROLE_QUIC)
+	/* the h2 and h3 streams' manual rx flow control start from it */
+	wsi->txc.manual_initial_tx_credit =
+			(int32_t)i->manual_initial_tx_credit;
+#endif
+
+	wsi->a.protocol = &wsi->a.vhost->protocols[0];
+	wsi->client_pipeline = !!(i->ssl_connection & LCCSCF_PIPELINE);
+    wsi->io->disable_h3_fallback = !!i->disable_h3_fallback;
+	wsi->client_no_follow_redirect = !!(i->ssl_connection &
+					    LCCSCF_HTTP_NO_FOLLOW_REDIRECT);
+	/*
+	 * A vhost the app chose is his trust decision, eg, a private CA or an
+	 * SS policy trust store: restarts must keep him on it too, JIT Trust
+	 * only chooses for connections that left it to lws
+	 */
+	wsi->client_vhost_given = !!i->vhost;
+
+	/*
+	 * PHASE 5: handle external user_space now, generic alloc is done in
+	 * role finalization
+	 */
+
+	if (i->userdata) {
+		wsi->user_space_externally_allocated = 1;
+		wsi->user_space = i->userdata;
+	}
+
+	if (local) {
+		lwsl_wsi_info(wsi, "vh %s protocol binding to %s\n",
+				wsi->a.vhost->name, local);
+		p = lws_vhost_name_to_protocol(wsi->a.vhost, local);
+		if (p) {
+			lws_bind_protocol(wsi, p, __func__);
+		} else {
+			/*
+			 * The named protocol is not enabled on the bound vhost.
+			 * The wsi is left on the vhost's protocols[0]; any later
+			 * CLIENT_* callbacks are delivered to that callback, not
+			 * the one the caller asked for -- which typically shows
+			 * up as a request that hangs forever.
+			 *
+			 * Protocol plugins are optional, so this is not an
+			 * assert.  But warn with enough context to identify the
+			 * connection (the wsi lc tag does not exist yet, so
+			 * name the peer explicitly) and to see what the vhost
+			 * does have enabled: either set i.vhost to a vhost that
+			 * has the protocol enabled, or add the protocol to this
+			 * vhost's ws-protocols list.
+			 */
+			char pro[192];
+			size_t pl = 0;
+			int m;
+
+			pro[0] = '\0';
+			for (m = 0; m < wsi->a.vhost->count_protocols; m++) {
+				const char *nm = wsi->a.vhost->protocols[m].name;
+				size_t nl;
+
+				if (!nm)
+					continue;
+				nl = strlen(nm);
+				if (pl + nl + 6 > sizeof(pro)) {
+					memcpy(&pro[pl], " ...", 4);
+					pl += 4;
+					break;
+				}
+				if (pl)
+					pro[pl++] = ',';
+				memcpy(&pro[pl], nm, nl);
+				pl += nl;
+				pro[pl] = '\0';
+			}
+
+			lwsl_wsi_warn(wsi, "unknown protocol %s on vhost %s%s%s: "
+					"callbacks will be misrouted; set i.vhost "
+					"to a vhost that has it enabled, or add it "
+					"to this vhost (enabled: %s)",
+					local, wsi->a.vhost->name,
+					i->address ? " for " : "",
+					i->address ? i->address : "", pro);
+
+			/*
+			 * If the caller stashed user data on the wsi, or holds
+			 * the wsi pointer itself via i.pwsi, it is relying on
+			 * the misrouted CLIENT_* callbacks to learn the wsi
+			 * died.  It will never be told, and typically keeps
+			 * dereferencing the wsi after we free it.
+			 */
+			if (i->userdata || i->pwsi)
+				lwsl_wsi_warn(wsi, "external owner passed i.userdata/"
+						"i.pwsi: it will never receive the "
+						"CLIENT_* callbacks and may "
+						"dereference the wsi after free");
+		}
+
+		lwsl_wsi_info(wsi, "%s: %s %s entry",
+			    lws_wsi_tag(wsi), wsi->role_ops->name,
+			    wsi->a.protocol ? wsi->a.protocol->name : "none");
+	}
+
+	/*
+	 * PHASE 5: handle external user_space now, generic alloc is done in
+	 * role finalization
+	 */
+
+	if (!wsi->user_space && i->userdata) {
+		wsi->user_space_externally_allocated = 1;
+		wsi->user_space = i->userdata;
+	}
+
+#if defined(LWS_WITH_TLS)
+	wsi->use_ssl = (unsigned int)wsi->flags;
+#else
+	if (i->ssl_connection & LCCSCF_USE_SSL) {
+		lwsl_wsi_err(wsi, "lws not configured for tls");
+		goto bail;
+	}
+#endif
+
+	/*
+	 * The tls backends read and write the connection's fd themselves, so
+	 * over a transport their records would go to transport_fd, the poll
+	 * handle, past the transport's ops
+	 */
+	if (i->transport && (i->ssl_connection & LCCSCF_USE_SSL)) {
+		lwsl_wsi_err(wsi, "tls over a transport is not supported");
+		goto bail;
+	}
+
+	/*
+	 * PHASE 6: stash the things from connect_info that we can't process
+	 * right now, eg, if http binding, without an ah.  If h1 and no ah, we
+	 * will go on the ah waiting list and process those things later (after
+	 * the connect_info and maybe the things pointed to have gone out of
+	 * scope)
+	 *
+	 * However these things are stashed in a generic way at this point,
+	 * with no relationship to http or ah
+	 */
+
+	cisin[CIS_ADDRESS]	= i->address;
+	cisin[CIS_PATH]		= i->path;
+	cisin[CIS_HOST]		= i->host;
+	cisin[CIS_ORIGIN]	= i->origin;
+	cisin[CIS_PROTOCOL]	= i->protocol;
+	cisin[CIS_METHOD]	= i->method;
+	cisin[CIS_IFACE]	= i->iface;
+	lws_snprintf(buf_localport, sizeof(buf_localport), "%u", i->local_port);
+	cisin[CIS_LOCALPORT]	= buf_localport;
+	cisin[CIS_ALPN]		= alpn;
+	cisin[CIS_USERNAME]	= i->auth_username;
+	cisin[CIS_PASSWORD]	= i->auth_password;
+
+/*
+	lwsl_notice("%d\n", (int)(cisin[CIS_ADDRESS] ? (int)strlen(cisin[CIS_ADDRESS]) : -1));
+	lwsl_notice("%d\n", (int)(cisin[CIS_PATH] ? (int)strlen(cisin[CIS_PATH]) : -1));
+	lwsl_notice("%d\n", (int)(cisin[CIS_HOST] ? (int)strlen(cisin[CIS_HOST]) : -1));
+	lwsl_notice("%d\n", (int)(cisin[CIS_ORIGIN] ? (int)strlen(cisin[CIS_ORIGIN]) : -1));
+	lwsl_notice("%d\n", (int)(cisin[CIS_PROTOCOL] ? (int)strlen(cisin[CIS_PROTOCOL]) : -1));
+	lwsl_notice("%d\n", (int)(cisin[CIS_METHOD] ? (int)strlen(cisin[CIS_METHOD]) : -1));
+	lwsl_notice("%d\n", (int)(cisin[CIS_IFACE] ? (int)strlen(cisin[CIS_IFACE]) : -1));
+	lwsl_notice("%d\n", (int)(cisin[CIS_LOCALPORT] ? (int)strlen(cisin[CIS_LOCALPORT]) : -1));
+	lwsl_notice("%d\n", (int)(cisin[CIS_ALPN] ? (int)strlen(cisin[CIS_ALPN]) : -1));
+	lwsl_notice("%d\n", (int)(cisin[CIS_USERNAME] ? (int)strlen(cisin[CIS_USERNAME]) : -1));
+	lwsl_notice("%d\n", (int)(cisin[CIS_PASSWORD] ? (int)strlen(cisin[CIS_PASSWORD]) : -1));
+*/
+
+	if (lws_client_stash_create(wsi, cisin))
+		goto bail;
+
+#if defined(LWS_WITH_TLS)
+	if (alpn)
+		lws_strncpy(wsi->alpn, alpn, sizeof(wsi->alpn));
+#endif
+
+	wsi->a.opaque_user_data = wsi->stash->opaque_user_data =
+		i->opaque_user_data;
+
+#if defined(LWS_WITH_SECURE_STREAMS)
+
+	if (wsi->for_ss) {
+		/* it's related to ss... the options are
+		 *
+		 * LCCSCF_SECSTREAM_PROXY_LINK  : client SSPC link to proxy
+		 * LCCSCF_SECSTREAM_PROXY_ONWARD: proxy's onward connection
+		 */
+		__lws_lc_tag(i->context, &i->context->lcg[
+#if defined(LWS_WITH_SECURE_STREAMS_PROXY_API)
+		         (i->ssl_connection & LCCSCF_SECSTREAM_PROXY_LINK) ? LWSLCG_WSI_SSP_CLIENT :
+#if defined(LWS_WITH_SERVER)
+		         ((i->ssl_connection & LCCSCF_SECSTREAM_PROXY_ONWARD) ? LWSLCG_WSI_SSP_ONWARD :
+#endif
+			  LWSLCG_WSI_CLIENT
+#if defined(LWS_WITH_SERVER)
+			  )
+#endif
+		],
+#else
+				LWSLCG_WSI_CLIENT],
+#endif
+			&wsi->lc, "%s/%s/%s/(%s)", i->method ? i->method : "WS",
+			wsi->role_ops->name, i->address,
+#if defined(LWS_WITH_SECURE_STREAMS_PROXY_API)
+			(i->ssl_connection & LCCSCF_SECSTREAM_PROXY_LINK) ?
+				lws_sspc_tag((lws_sspc_handle_t *)i->opaque_user_data) :
+#endif
+			lws_ss_tag(((lws_ss_handle_t *)i->opaque_user_data)));
+	} else
+#endif
+		__lws_lc_tag(i->context, &i->context->lcg[LWSLCG_WSI_CLIENT], &wsi->lc,
+			     "%s/%s/%s/%s", i->method ? i->method : "WS",
+			     wsi->role_ops->name ? wsi->role_ops->name : "novh", vh->name, i->address);
+
+	lws_metrics_tag_wsi_add(wsi, "vh", wsi->a.vhost->name);
+
+	/*
+	 * at this point user callbacks like
+	 * LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER will be interested to
+	 * know the parent... eg for proxying we can grab extra headers from
+	 * the parent's incoming ah and add them to the child client handshake
+	 */
+
+	if (i->parent_wsi) {
+		lwsl_wsi_info(wsi, "created as child %s",
+			      lws_wsi_tag(i->parent_wsi));
+		wsi->parent = i->parent_wsi;
+		lws_dll2_add_head(&wsi->sibling_list,
+				  &i->parent_wsi->child_list_owner);
+	}
+
+	/*
+	 * PHASE 7: Do any role-specific finalization processing.  We can still
+	 * see important info things via wsi->stash
+	 */
+
+	if (lws_rops_fidx(wsi->role_ops, LWS_ROPS_client_bind)) {
+
+		int n = lws_rops_func_fidx(wsi->role_ops, LWS_ROPS_client_bind).
+							client_bind(wsi, NULL);
+
+		if (n > 0 && i->parent_wsi)
+			/*
+			 * Unpick from parent... only if the wsi still exists:
+			 * for n < 0 he was closed and freed inside the bind
+			 * (which unlinked him from any parent itself), so his
+			 * sibling_list is not ours to touch any more.
+			 */
+			lws_dll2_remove(&wsi->sibling_list);
+
+		if (n < 0)
+			/* we didn't survive, wsi is freed */
+			goto bail2;
+
+		if (n)
+			/* something else failed, wsi needs freeing */
+			goto bail;
+	}
+
+	/* let the caller's optional wsi storage have the wsi we created */
+
+	if (i->pwsi)
+		*i->pwsi = wsi;
+
+	if (!wsi->a.protocol)
+		/* we must have one protocol or another bound by this point */
+		goto bail;
+
+	/* PHASE 8: notify protocol with role-specific connected callback */
+
+	/* raw socket per se doesn't want this... raw socket proxy wants it... */
+
+	if ((wsi->role_ops != &role_ops_raw_skt &&
+#if defined(LWS_ROLE_QUIC)
+	     wsi->role_ops != &role_ops_quic &&
+#endif
+	     1) ||
+	    (i->local_protocol_name &&
+	     !strcmp(i->local_protocol_name, "raw-proxy"))) {
+		lwsl_wsi_debug(wsi, "adoption cb %d to %s %s",
+			   wsi->role_ops->adoption_cb[0],
+			   wsi->role_ops->name, wsi->a.protocol->name);
+
+		wsi->a.protocol->callback(wsi, wsi->role_ops->adoption_cb[0],
+				wsi->user_space, NULL, 0);
+	}
+
+#if defined(LWS_WITH_HUBBUB)
+	if (i->uri_replace_to)
+		wsi->http.rw = lws_rewrite_create(wsi, html_parser_cb,
+					     i->uri_replace_from,
+					     i->uri_replace_to);
+#endif
+
+	if ((i->method && (!strcmp(i->method, "RAW") ||
+			  !strcmp(i->method, "QUIC"))) ||
+	    (alpn && !strcmp(alpn, "h3"))) {
+
+		/*
+		 * Not for MQTT here, since we don't know if we will
+		 * pipeline it or not...
+		 */
+
+#if defined(LWS_WITH_TLS)
+		/*
+		 * No tls session yet, not even for quic, which drives its own
+		 * handshake inside its packets.  Most h3 requests join a quic
+		 * connection already there, or queue on one still coming up,
+		 * as another stream: they never need a session of their own,
+		 * and a session costs the tls library's record buffers, and a
+		 * slot under simultaneous_ssl_restriction, for as long as the
+		 * stream lives.  A quic wsi that does start a connection makes
+		 * it as its transport comes up (lws_tls_quic_session()), and a
+		 * raw client's tls starts on its socket once that has
+		 * connected, from the transport stage
+		 */
+		wsi->io->tls.ssl = NULL;
+#endif
+
+		/* fallthru */
+
+		wsi_started = wsi;
+		wsi = lws_client_transport_start(wsi);
+		if (!wsi)
+			/*
+			 * It was closed and freed: the caller's copy we set
+			 * above must not outlive it, as on every other NULL
+			 * return
+			 */
+			lws_client_pwsi_clear(i, pwsi_entry, wsi_started);
+	}
+
+	if (wsi)
+		/*
+		 * If it subsequently fails, report CONNECTION_ERROR,
+		 * because we're going to return a non-error return now.
+		 */
+		wsi->client_suppress_CONNECTION_ERROR = 0;
+
+	return wsi;
+
+bail:
+	/*
+	 * By the time we can come here, the wsi may be bound to a vhost (so
+	 * vh->count_bound_wsi is incremented), bound to a protocol (so it is
+	 * on the vhost's same_vh_protocol_owner list), tagged into the
+	 * context's client lifecycle group, carrying metrics tags, and a child
+	 * of a parent wsi.  A plain lws_free() leaves all of those lists with
+	 * a member inside freed heap -- the next client wsi to be tagged
+	 * writes through the freed one -- and leaks the vhost binding so the
+	 * vhost can never be destroyed.
+	 *
+	 * Use the same teardown the connect3 oom path uses for a wsi that
+	 * never made it into the fd tables.
+	 */
+
+	lws_dll2_remove(&wsi->sibling_list);
+	wsi->parent = NULL;
+
+	/*
+	 * A transport's fd became ours at the call and goes with the wsi,
+	 * once.  If the transport started, the fd is in the poll set and the
+	 * RELEASE below takes it out and closes it.  If not, it is closed
+	 * and forgotten here: the RELEASE would otherwise ask the event lib
+	 * to stop watching an fd it was never given.
+	 */
+	if (i->transport && lws_socket_is_valid(wsi->io->desc.sockfd) &&
+	    wsi->io->position_in_fds_table == LWS_NO_FDS_POS) {
+		compatible_close(wsi->io->desc.sockfd);
+		wsi->io->desc.sockfd = LWS_SOCK_INVALID;
+	}
+
+#if defined(LWS_WITH_TLS)
+	/* whether or not a session was made, it follows what was borrowed */
+	lws_tls_restrict_return(wsi);
+#endif
+
+	lws_metrics_caliper_cancel(wsi->cal_conn);
+
+	lws_context_lock(i->context, __func__);
+
+	if (!wsi->lc.gutag[0])
+		/*
+		 * We bailed before PHASE 6 tagged the wsi into the client
+		 * lifecycle group (eg, tls requested on a build without tls,
+		 * or stash allocation failed).  __lws_free_wsi() untags
+		 * unconditionally and treats a never-tagged object as a bug,
+		 * so give it the tag it would have had, so the lifecycle
+		 * accounting sees a matched tag / untag pair.
+		 */
+		__lws_lc_tag(i->context, &i->context->lcg[LWSLCG_WSI_CLIENT],
+			     &wsi->lc, "%s/%s/%s/%s", i->method ? i->method : "WS",
+			     wsi->role_ops && wsi->role_ops->name ?
+					     wsi->role_ops->name : "norole",
+			     wsi->a.vhost ? wsi->a.vhost->name : "novh",
+			     i->address ? i->address : "");
+
+	/*
+	 * The fds table is the pt's, and so are the timers and ah the free's
+	 * reset takes back: context lock, then pt lock, as close does
+	 */
+	pt = &i->context->pt[(int)wsi->tsi];
+	lws_pt_lock(pt, __func__);
+	__lws_io_close_transport(wsi, LWS_IOCLOSE_RELEASE);
+	__lws_free_wsi(wsi); /* acquires vhost lock in wsi reset */
+	lws_pt_unlock(pt);
+	lws_context_unlock(i->context);
+
+bail2:
+	/* only the pointer value is compared, the wsi may be freed */
+	lws_client_pwsi_clear(i, pwsi_entry, wsi);
+
+	return NULL;
+}
+
+struct lws *
+lws_client_connect_via_info(const struct lws_client_connect_info *i)
+{
+	struct lws_client_connect_info *fi;
+	const char *forced = NULL;
+	struct lws *wsi;
+
+	if (i->context->options & LWS_SERVER_OPTION_CMDLINE_FORCE_H3)
+		forced = "h3";
+	else if (i->context->options & LWS_SERVER_OPTION_CMDLINE_FORCE_H2)
+		forced = "h2";
+	else if (i->context->options & LWS_SERVER_OPTION_CMDLINE_FORCE_H1)
+		forced = "http/1.1";
+
+	if (!forced || (i->alpn && !strcmp(i->alpn, forced)))
+		return __lws_client_connect_via_info(i);
+
+	/*
+	 * The commandline forced the alpn: connect as if the caller had given
+	 * it, so it also chooses the connection's role, eg, h3 is made on
+	 * quic, not offered on tcp, where nothing can carry it
+	 */
+	fi = lws_malloc(sizeof(*fi), __func__);
+	if (!fi) {
+		lws_client_transport_fd_drop(i);
+		return NULL;
+	}
+
+	*fi = *i;
+	fi->alpn = forced;
+	wsi = __lws_client_connect_via_info(fi);
+	lws_free(fi);
+
+	return wsi;
+}

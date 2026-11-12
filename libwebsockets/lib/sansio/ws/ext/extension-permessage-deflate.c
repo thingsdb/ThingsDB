@@ -1,0 +1,927 @@
+/*
+ * libwebsockets - small server side websockets and web server implementation
+ *
+ * Copyright (C) 2010 - 2019 Andy Green <andy@warmcat.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+
+#include "private-lib-core.h"
+#include "extension-permessage-deflate.h"
+#include <stdio.h>
+#include <string.h>
+#include <assert.h>
+
+#define LWS_ZLIB_MEMLEVEL 8
+
+const struct lws_ext_options lws_ext_pm_deflate_options[] = {
+	/* public RFC7692 settings */
+	{ "server_no_context_takeover", EXTARG_NONE },
+	{ "client_no_context_takeover", EXTARG_NONE },
+	{ "server_max_window_bits",	EXTARG_OPT_DEC },
+	{ "client_max_window_bits",	EXTARG_OPT_DEC },
+	/* ones only user code can set */
+	{ "rx_buf_size",		EXTARG_DEC },
+	{ "tx_buf_size",		EXTARG_DEC },
+	{ "compression_level",		EXTARG_DEC },
+	{ "mem_level",			EXTARG_DEC },
+	{ NULL, 0 }, /* sentinel */
+};
+
+/*
+ * The args have to stay in sane ranges no matter who set them.  The public
+ * RFC7692 params are the server/client window bits; the rest are local-only
+ * tuning params that a ws peer has no business sending at all, but the
+ * client parses the server's extension response through the full option
+ * table.  The buf pwr2 args directly size per-connection allocations
+ * (LWS_PRE + 7 + 5 + (1 << pwr2)) so an unchecked one from a malicious ws
+ * server means ~1GiB per connection; zlib would reject out-of-range comp /
+ * mem level itself, but only at the first payload, after the connection was
+ * already accepted.
+ */
+
+static int
+lws_ext_pm_deflate_arg_valid(int option_index, int v)
+{
+	switch (option_index) {
+	case PMD_SERVER_MAX_WINDOW_BITS:
+	case PMD_CLIENT_MAX_WINDOW_BITS:
+		return v >= 8 && v <= 15;
+	case PMD_RX_BUF_PWR2:
+	case PMD_TX_BUF_PWR2:
+		/* 128B .. 128KB chunk buffers */
+		return v >= 7 && v <= 17;
+	case PMD_COMP_LEVEL:
+		return v >= 0 && v <= 9;
+	case PMD_MEM_LEVEL:
+		return v >= 1 && v <= 9;
+	default:
+		/* the NO_CONTEXT_TAKEOVER flag args take any value */
+		return 1;
+	}
+}
+
+static void
+lws_extension_pmdeflate_restrict_args(struct lws *wsi,
+				      struct lws_ext_pm_deflate_priv *priv)
+{
+	int n, extra;
+
+	/* cap the RX buf at the nearest power of 2 to protocol rx buf */
+
+	n = (int)wsi->a.context->pt_serv_buf_size;
+	if (wsi->a.protocol->rx_buffer_size)
+		n = (int)wsi->a.protocol->rx_buffer_size;
+
+	extra = 7;
+	while (n >= 1 << (extra + 1))
+		extra++;
+
+	if (extra < priv->args[PMD_RX_BUF_PWR2]) {
+		priv->args[PMD_RX_BUF_PWR2] = (unsigned char)extra;
+		lwsl_wsi_info(wsi, " Capping pmd rx to %d", 1 << extra);
+	}
+
+	/*
+	 * ... and the TX buf the same, so a peer cannot size our per-
+	 * connection deflate output allocation via the negotiation
+	 */
+
+	if (extra < priv->args[PMD_TX_BUF_PWR2]) {
+		priv->args[PMD_TX_BUF_PWR2] = (unsigned char)extra;
+		lwsl_wsi_info(wsi, " Capping pmd tx to %d", 1 << extra);
+	}
+}
+
+/*
+ * RFC7692 names its params after the endpoint they constrain, not after the
+ * endpoint holding them: server_* govern the server's compressor and so the
+ * client's decompressor, client_* the other way round.  So which arg applies
+ * to our inflater (peer's params) or our deflater (our own params) depends
+ * on which role we are in.
+ */
+
+static int
+pmd_arg_own(struct lws *wsi, int server_idx, int client_idx)
+{
+	return lwsi_role_client(wsi) ? client_idx : server_idx;
+}
+
+static int
+pmd_arg_peer(struct lws *wsi, int server_idx, int client_idx)
+{
+	return lwsi_role_client(wsi) ? server_idx : client_idx;
+}
+
+static unsigned char trail[] = { 0, 0, 0xff, 0xff };
+
+/*
+ * A sender may end its deflate stream with a block that has BFINAL set (RFC
+ * 7692 7.2.3.4).  All that can follow it in the message is the padding octet
+ * of the empty stored block it flushed with: anything else would be data for
+ * a stream that has ended, which is a protocol error.
+ */
+static int
+lws_pmd_rx_is_padding(const uint8_t *p, size_t len)
+{
+	while (len--)
+		if (*p++)
+			return 0;
+
+	return 1;
+}
+
+LWS_VISIBLE int
+lws_extension_callback_pm_deflate(struct lws_context *context,
+				  const struct lws_extension *ext,
+				  struct lws *wsi,
+				  enum lws_extension_callback_reasons reason,
+				  void *user, void *in, size_t len)
+{
+	struct lws_ext_pm_deflate_priv *priv =
+				     (struct lws_ext_pm_deflate_priv *)user;
+	struct lws_ext_pm_deflate_rx_ebufs *pmdrx =
+				(struct lws_ext_pm_deflate_rx_ebufs *)in;
+	struct lws_ext_option_arg *oa;
+	int n, ret = 0, was_fin = 0, m;
+	unsigned int pen = 0;
+	uLong total_in = 0;
+	int penbits = 0;
+
+	switch (reason) {
+	case LWS_EXT_CB_NAMED_OPTION_SET:
+		oa = in;
+		if (!oa->option_name)
+			break;
+		lwsl_wsi_ext(wsi, "named option set: %s", oa->option_name);
+		/*
+		 * The table has a { NULL, 0 } sentinel after the PMD_ARG_COUNT
+		 * real entries, so stop at PMD_ARG_COUNT: walking the whole
+		 * array would strcmp() against the sentinel's NULL name, and
+		 * then use the sentinel's index to write past args[]
+		 */
+		for (n = 0; n < (int)PMD_ARG_COUNT; n++)
+			if (!strcmp(lws_ext_pm_deflate_options[n].name,
+				    oa->option_name))
+				break;
+
+		if (n == (int)PMD_ARG_COUNT)
+			break;
+		oa->option_index = n;
+
+		/* fallthru */
+
+	case LWS_EXT_CB_OPTION_SET:
+		oa = in;
+		lwsl_wsi_ext(wsi, "option set: idx %d, %s, len %d",
+			 oa->option_index, oa->start, oa->len);
+
+		/* args[] is indexed by it, do not trust the caller */
+
+		if (oa->option_index < 0 || oa->option_index >= PMD_ARG_COUNT) {
+			lwsl_wsi_notice(wsi, "pmd option index %d out of range",
+					oa->option_index);
+			return -1;
+		}
+
+		if (oa->start) {
+			int v = atoi(oa->start);
+			if (!lws_ext_pm_deflate_arg_valid(oa->option_index, v)) {
+				lwsl_wsi_notice(wsi, "pmd option %d invalid value %d",
+						oa->option_index, v);
+				return -1;
+			}
+			priv->args[oa->option_index] = (unsigned char)v;
+		} else
+			priv->args[oa->option_index] = 1;
+
+		if (priv->args[PMD_CLIENT_MAX_WINDOW_BITS] == 8)
+			priv->args[PMD_CLIENT_MAX_WINDOW_BITS] = 9;
+
+		lws_extension_pmdeflate_restrict_args(wsi, priv);
+		break;
+
+	case LWS_EXT_CB_OPTION_CONFIRM:
+		/*
+		 * lws_ext_parse_options() drops the return from OPTION_SET,
+		 * so re-check the stored args here: this is the client-side
+		 * gate on the server's extension response
+		 */
+		for (n = 0; n < PMD_ARG_COUNT; n++)
+			if (!lws_ext_pm_deflate_arg_valid(n, priv->args[n]))
+				return -1;
+		break;
+
+	case LWS_EXT_CB_CLIENT_CONSTRUCT:
+	case LWS_EXT_CB_CONSTRUCT:
+
+		n = (int)context->pt_serv_buf_size;
+		if (wsi->a.protocol->rx_buffer_size)
+			n = (int)wsi->a.protocol->rx_buffer_size;
+
+		if (n < 128) {
+			lwsl_wsi_info(wsi, " permessage-deflate requires the protocol "
+				  "(%s) to have an RX buffer >= 128",
+				  wsi->a.protocol->name);
+			return -1;
+		}
+
+		/* fill in **user */
+		priv = lws_zalloc(sizeof(*priv), "pmd priv");
+		if (!priv) {
+			/*
+			 * the negotiation sites treat a nonzero return as
+			 * "ext failed construction" and carry on without it,
+			 * so bail cleanly rather than write through NULL
+			 */
+			lwsl_wsi_err(wsi, "OOM");
+			return -1;
+		}
+		*((void **)user) = priv;
+		lwsl_wsi_ext(wsi, "LWS_EXT_CB_*CONSTRUCT");
+
+		/* fill in pointer to options list */
+		if (in)
+			*((const struct lws_ext_options **)in) =
+					lws_ext_pm_deflate_options;
+
+		/* fallthru */
+
+	case LWS_EXT_CB_OPTION_DEFAULT:
+
+		/* set the public, RFC7692 defaults... */
+
+		priv->args[PMD_SERVER_NO_CONTEXT_TAKEOVER] = 0,
+		priv->args[PMD_CLIENT_NO_CONTEXT_TAKEOVER] = 0;
+		priv->args[PMD_SERVER_MAX_WINDOW_BITS] = 15;
+		priv->args[PMD_CLIENT_MAX_WINDOW_BITS] = 15;
+
+		/* ...and the ones the user code can override */
+
+		priv->args[PMD_RX_BUF_PWR2] = 10; /* ie, 1024 */
+		priv->args[PMD_TX_BUF_PWR2] = 10; /* ie, 1024 */
+		priv->args[PMD_COMP_LEVEL] = 1;
+		priv->args[PMD_MEM_LEVEL] = 8;
+
+		lws_extension_pmdeflate_restrict_args(wsi, priv);
+		break;
+
+	case LWS_EXT_CB_DESTROY:
+		lwsl_wsi_ext(wsi, "LWS_EXT_CB_DESTROY");
+		if (!priv)
+			return ret;
+		lws_free(priv->buf_rx_inflated);
+		lws_free(priv->buf_rx_holding);
+		lws_free(priv->buf_tx_deflated);
+		lws_free(priv->buf_tx_holding);
+		if (priv->rx_init)
+			(void)inflateEnd(&priv->rx);
+		if (priv->tx_init)
+			(void)deflateEnd(&priv->tx);
+		lws_free(priv);
+
+		return ret;
+
+
+	case LWS_EXT_CB_PAYLOAD_RX:
+		/*
+		 * ie, we are INFLATING
+		 */
+		lwsl_wsi_ext(wsi, " LWS_EXT_CB_PAYLOAD_RX: in %d, existing in %d",
+			 pmdrx->eb_in.len, priv->rx.avail_in);
+
+		/*
+		 * If this frame is not marked as compressed,
+		 * there is nothing we should do with it
+		 */
+
+		if (!(wsi->ws->rsv_first_msg & 0x40) || (wsi->ws->opcode & 8))
+			/*
+			 * This is a bit different than DID_NOTHING... we have
+			 * identified using ext-private bits in the packet, or
+			 * by it being a control fragment that we SHOULD not do
+			 * anything to it, parent should continue as if we
+			 * processed it
+			 */
+			return PMDR_NOTHING_WE_SHOULD_DO;
+
+		/*
+		 * we shouldn't come back in here if we already applied the
+		 * trailer for this compressed packet... unless zlib could not
+		 * take all of it yet and we still owe it the rest
+		 */
+		if (!wsi->ws->pmd_trailer_application &&
+		    !priv->rx_trailer_pending)
+			return PMDR_DID_NOTHING;
+
+		pmdrx->eb_out.len = 0;
+
+		lwsl_wsi_ext(wsi, "LWS_EXT_CB_PAYLOAD_RX: in %d, "
+			 "existing avail in %d, pkt fin: %d",
+			 pmdrx->eb_in.len, priv->rx.avail_in, wsi->ws->final);
+
+		/* if needed, initialize the inflator */
+
+		if (!priv->rx_init) {
+			/* the window the peer compresses with bounds ours */
+			if (inflateInit2(&priv->rx,
+			     -priv->args[pmd_arg_peer(wsi,
+					     PMD_SERVER_MAX_WINDOW_BITS,
+					     PMD_CLIENT_MAX_WINDOW_BITS)]) != Z_OK) {
+				lwsl_wsi_err(wsi, "iniflateInit failed");
+				return PMDR_FAILED;
+			}
+			priv->rx_init = 1;
+			if (!priv->buf_rx_inflated)
+				priv->buf_rx_inflated = lws_malloc(
+					(unsigned int)(LWS_PRE + 7 + 5 +
+					    (1 << priv->args[PMD_RX_BUF_PWR2])),
+					    "pmd rx inflate buf");
+			if (!priv->buf_rx_inflated) {
+				lwsl_wsi_err(wsi, "OOM");
+				return PMDR_FAILED;
+			}
+		}
+
+#if 0
+		/*
+		 * don't give us new input while we still work through
+		 * the last input
+		 */
+
+		if (priv->rx.avail_in && pmdrx->eb_in.token &&
+					 pmdrx->eb_in.len) {
+			lwsl_wsi_warn(wsi, "priv->rx.avail_in %d while getting new in",
+					priv->rx.avail_in);
+	//		assert(0);
+		}
+#endif
+		if (!priv->rx.avail_in && pmdrx->eb_in.token && pmdrx->eb_in.len) {
+			priv->rx.next_in = (unsigned char *)pmdrx->eb_in.token;
+			priv->rx.avail_in = (uInt)pmdrx->eb_in.len;
+		}
+
+		priv->rx.next_out = priv->buf_rx_inflated + LWS_PRE;
+		pmdrx->eb_out.token = priv->rx.next_out;
+		priv->rx.avail_out = (uInt)(1 << priv->args[PMD_RX_BUF_PWR2]);
+
+		if (priv->rx_stream_ended) {
+			/*
+			 * The peer's deflate stream ended earlier in this
+			 * message: zlib would take nothing more on it, so
+			 * there is nothing to inflate until the message ends
+			 */
+			if (pmdrx->eb_in.token && pmdrx->eb_in.len) {
+				if (!lws_pmd_rx_is_padding(pmdrx->eb_in.token,
+						(size_t)pmdrx->eb_in.len)) {
+					lwsl_wsi_notice(wsi, "data after the "
+						"end of the deflate stream");
+					return PMDR_FAILED;
+				}
+				pmdrx->eb_in.token += pmdrx->eb_in.len;
+				pmdrx->eb_in.len = 0;
+			}
+			if (wsi->ws->final && !wsi->ws->rx_packet_length &&
+			    wsi->ws->pmd_trailer_application) {
+				wsi->ws->pmd_trailer_application = 0;
+				was_fin = 1;
+			}
+
+			goto rx_out;
+		}
+
+		/* so... if...
+		 *
+		 *  - he has no remaining input content for this message, and
+		 *
+		 *  - and this is the final fragment, and
+		 *
+		 *  - we used everything that could be drained on the input side
+		 *
+		 * ...then put back the 00 00 FF FF the sender stripped as our
+		 * input to zlib
+		 */
+		if (!priv->rx.avail_in &&
+		    wsi->ws->final &&
+		    !wsi->ws->rx_packet_length &&
+		    wsi->ws->pmd_trailer_application) {
+			lwsl_wsi_ext(wsi, "trailer apply 1");
+			priv->rx_trailer_pending = 1;
+			wsi->ws->pmd_trailer_application = 0;
+			priv->rx.next_in = trail;
+			priv->rx.avail_in = sizeof(trail);
+		}
+
+		/*
+		 * if after all that there's nothing pending and nothing to give
+		 * him right now, bail without having done anything
+		 */
+
+		if (!priv->rx.avail_in)
+			return PMDR_DID_NOTHING;
+
+		total_in = priv->rx.total_in;
+		n = inflate(&priv->rx, priv->rx_trailer_pending ? Z_SYNC_FLUSH :
+								  Z_NO_FLUSH);
+		lwsl_wsi_ext(wsi, "inflate ret %d, avi %d, avo %d, wsifinal %d", n,
+			 priv->rx.avail_in, priv->rx.avail_out, wsi->ws->final);
+		switch (n) {
+		case Z_NEED_DICT:
+		case Z_STREAM_ERROR:
+		case Z_DATA_ERROR:
+		case Z_MEM_ERROR:
+			lwsl_wsi_err(wsi, "zlib error inflate %d: \"%s\"",
+				  n, priv->rx.msg);
+			return PMDR_FAILED;
+		}
+
+		if (n == Z_STREAM_END) {
+			/*
+			 * The peer ended its deflate stream in this message.
+			 * zlib takes nothing more on it, so what it left is
+			 * either our own trailer, and the message is over, or
+			 * the peer's padding, dropped here.  The inflater
+			 * restarts when the message ends.
+			 */
+			priv->rx_stream_ended = 1;
+			if (priv->rx_trailer_pending) {
+				priv->rx_trailer_pending = 0;
+				was_fin = 1;
+			} else if (!lws_pmd_rx_is_padding(priv->rx.next_in,
+							  priv->rx.avail_in)) {
+				lwsl_wsi_notice(wsi, "data after the end of the "
+						     "deflate stream");
+				return PMDR_FAILED;
+			}
+			priv->rx.avail_in = 0;
+		}
+
+		/*
+		 * The message is only over once the whole synthetic trailer
+		 * went in.  zlib can return with avail_in still set if it ran
+		 * out of output room (eg, it still owed us the tail of a match
+		 * when we handed it the trailer); trail[] is static, so it is
+		 * safe to keep pointing at the rest of it and finish it on a
+		 * later pass with a fresh output buffer.
+		 */
+
+		if (priv->rx_trailer_pending && !priv->rx.avail_in) {
+			priv->rx_trailer_pending = 0;
+			was_fin = 1;
+		}
+
+		/*
+		 * track how much input was used, and advance it
+		 *
+		 * A drain call legitimately comes in with eb_in.len == 0 while
+		 * we still hold unconsumed input from an earlier call (and the
+		 * synthetic zlib trailer case counts 4 bytes of "input" that
+		 * was never in the caller's buffer at all).  So the unconsumed
+		 * rx.avail_in we hold can exceed what we were offered this
+		 * call; that is not an error.  Only advance the caller's token
+		 * and remaining length when the whole of what we hold actually
+		 * came from what he offered us this call, otherwise the token
+		 * arithmetic would underflow (this is what COV was complaining
+		 * about, "eb_in.len == 0 and rx->avail_in == 4").
+		 *
+		 * The drain call's token can be NULL as well as empty, and
+		 * NULL + 0 is still undefined, so only move a token that
+		 * something was actually consumed from.
+		 */
+
+		if ((unsigned int)pmdrx->eb_in.len >= (unsigned int)priv->rx.avail_in) {
+			unsigned int used = (unsigned int)pmdrx->eb_in.len -
+					    (unsigned int)priv->rx.avail_in;
+
+			if (used)
+				pmdrx->eb_in.token = pmdrx->eb_in.token + used;
+			pmdrx->eb_in.len = (int)priv->rx.avail_in;
+		} else
+			/* nothing of the offered token could be consumed yet */
+			pmdrx->eb_in.len = 0;
+
+		/*
+		 * If we still hold unconsumed input that came from what he
+		 * offered us this call, stop pointing zlib into his buffer:
+		 * we are about to return to the event loop with the drain
+		 * still pending, and by the time we are called back to finish
+		 * it, his buffer (pt->serv_buf, which is shared by every wsi
+		 * on the thread, or a buflist segment, which is freed the
+		 * moment it is fully consumed) may have been reused or freed.
+		 * Copy the remainder somewhere we own, exactly like the TX
+		 * side does with buf_tx_holding.
+		 */
+
+		if (pmdrx->eb_in.len && pmdrx->eb_in.token) {
+			if (priv->len_rx_holding < (size_t)pmdrx->eb_in.len) {
+				lws_free(priv->buf_rx_holding);
+				priv->len_rx_holding = (size_t)pmdrx->eb_in.len;
+				priv->buf_rx_holding = lws_malloc(
+						priv->len_rx_holding,
+						"pmd rx holding buf");
+				if (!priv->buf_rx_holding) {
+					priv->len_rx_holding = 0;
+					return PMDR_FAILED;
+				}
+			}
+			memcpy(priv->buf_rx_holding, pmdrx->eb_in.token,
+			       (size_t)pmdrx->eb_in.len);
+			priv->rx.next_in = priv->buf_rx_holding;
+
+			lwsl_wsi_ext(wsi, "RX holding %u unconsumed input",
+					(unsigned int)pmdrx->eb_in.len);
+		} else if (!priv->rx.avail_in && priv->buf_rx_holding) {
+			/* any held input is fully inflated now, let it go */
+			lws_free_set_NULL(priv->buf_rx_holding);
+			priv->len_rx_holding = 0;
+			priv->rx.next_in = NULL;
+		}
+
+		lwsl_wsi_debug(wsi, "%d %d %d %d %d",
+				priv->rx.avail_in,
+				wsi->ws->final,
+				(int)wsi->ws->rx_packet_length,
+				was_fin,
+				wsi->ws->pmd_trailer_application);
+
+		if (!priv->rx.avail_in &&
+		    wsi->ws->final &&
+		    !wsi->ws->rx_packet_length &&
+		    !was_fin &&
+		    wsi->ws->pmd_trailer_application &&
+		    priv->rx_stream_ended) {
+			/* the stream already ended: there is nothing to flush */
+			wsi->ws->pmd_trailer_application = 0;
+			was_fin = 1;
+		}
+
+		if (!priv->rx.avail_in &&
+		    wsi->ws->final &&
+		    !wsi->ws->rx_packet_length &&
+		    !was_fin &&
+		    wsi->ws->pmd_trailer_application) {
+			lwsl_wsi_ext(wsi, "RX trailer apply 2");
+
+			/* we overallocated just for this situation where
+			 * we might issue something */
+			priv->rx.avail_out += 5;
+
+			priv->rx_trailer_pending = 1;
+			wsi->ws->pmd_trailer_application = 0;
+			priv->rx.next_in = trail;
+			priv->rx.avail_in = sizeof(trail);
+			n = inflate(&priv->rx, Z_SYNC_FLUSH);
+			lwsl_wsi_ext(wsi, "RX trailer infl ret %d, avi %d, avo %d",
+				 n, priv->rx.avail_in, priv->rx.avail_out);
+			switch (n) {
+			case Z_NEED_DICT:
+			case Z_STREAM_ERROR:
+			case Z_DATA_ERROR:
+			case Z_MEM_ERROR:
+				lwsl_wsi_info(wsi, "zlib error inflate %d: %s",
+					  n, priv->rx.msg);
+				return -1;
+			}
+
+			/*
+			 * The peer chooses the compressed content, so he can
+			 * arrange for zlib to still owe us output when we get
+			 * here (eg, the tail of a match that did not fit the
+			 * output buffer).  Then it cannot take the whole
+			 * trailer in the 5 bytes of slack we have, which used
+			 * to fire an assert() he could reach at will.  Just
+			 * leave the rest of the static trail[] as pending
+			 * input and finish it below on a pass with a fresh
+			 * output buffer.
+			 */
+
+			if (n == Z_STREAM_END) {
+				/* the trailer completed the peer's last block */
+				priv->rx_stream_ended = 1;
+				priv->rx.avail_in = 0;
+			}
+
+			if (!priv->rx.avail_in) {
+				priv->rx_trailer_pending = 0;
+				was_fin = 1;
+			}
+		}
+
+rx_out:
+		pmdrx->eb_out.len = lws_ptr_diff(priv->rx.next_out,
+						 pmdrx->eb_out.token);
+		priv->count_rx_between_fin = priv->count_rx_between_fin + (size_t)pmdrx->eb_out.len;
+		if (priv->count_rx_between_fin > 0x10000000ull) { /* 256MB */
+			lwsl_wsi_err(wsi, "permessage-deflate rx zip-bomb");
+			return PMDR_FAILED;
+		}
+
+		lwsl_wsi_ext(wsi, "  RX leaving with new effbuff len %d, "
+			 "rx.avail_in=%d, TOTAL RX since FIN %lu",
+			 pmdrx->eb_out.len, priv->rx.avail_in,
+			 (unsigned long)priv->count_rx_between_fin);
+
+		if (was_fin) {
+			lwsl_wsi_ext(wsi, "was_fin");
+			priv->count_rx_between_fin = 0;
+			/*
+			 * Only the peer giving up context takeover lets us
+			 * drop our inflate context: if it was only us that
+			 * agreed to it, the peer may still refer back into
+			 * the previous message
+			 */
+			if (priv->rx_stream_ended ||
+			    priv->args[pmd_arg_peer(wsi,
+					PMD_SERVER_NO_CONTEXT_TAKEOVER,
+					PMD_CLIENT_NO_CONTEXT_TAKEOVER)]) {
+				lwsl_wsi_ext(wsi, "peer no context takeover, "
+						  "or its stream ended");
+				priv->rx_stream_ended = 0;
+				(void)inflateEnd(&priv->rx);
+				priv->rx_init = 0;
+				/*
+				 * inflateInit2() does not touch next_in /
+				 * avail_in, so make sure the reinit does not
+				 * inherit any input state from the message
+				 * that just ended
+				 */
+				priv->rx.next_in = NULL;
+				priv->rx.avail_in = 0;
+			}
+
+			return PMDR_EMPTY_FINAL;
+		}
+
+		if (priv->rx.avail_in) {
+			/*
+			 * Saying we have more is a promise the caller acts on
+			 * by coming back for it, without new input: if this
+			 * call took nothing and gave nothing, neither will the
+			 * next, and the caller would never be done with us
+			 */
+			if (!pmdrx->eb_out.len && priv->rx.total_in == total_in) {
+				lwsl_wsi_err(wsi, "inflate made no progress");
+				return PMDR_FAILED;
+			}
+
+			return PMDR_HAS_PENDING;
+		}
+
+		return PMDR_EMPTY_NONFINAL;
+
+	case LWS_EXT_CB_PAYLOAD_TX:
+
+		/*
+		 * ie, we are DEFLATING
+		 *
+		 * initialize us if needed
+		 */
+
+		if (!priv->tx_init) {
+			n = deflateInit2(&priv->tx, priv->args[PMD_COMP_LEVEL],
+					 Z_DEFLATED,
+					 -priv->args[pmd_arg_own(wsi,
+						PMD_SERVER_MAX_WINDOW_BITS,
+						PMD_CLIENT_MAX_WINDOW_BITS)],
+					 priv->args[PMD_MEM_LEVEL],
+					 Z_DEFAULT_STRATEGY);
+			if (n != Z_OK) {
+				lwsl_wsi_ext(wsi, "inflateInit2 failed %d", n);
+				return PMDR_FAILED;
+			}
+			priv->tx_init = 1;
+		}
+
+		if (!priv->buf_tx_deflated)
+			priv->buf_tx_deflated = lws_malloc((unsigned int)(LWS_PRE + 7 + 5 +
+					    (1 << priv->args[PMD_TX_BUF_PWR2])),
+					    "pmd tx deflate buf");
+		if (!priv->buf_tx_deflated) {
+			lwsl_wsi_err(wsi, "OOM");
+			return PMDR_FAILED;
+		}
+
+		/* hook us up with any deflated input that the caller has */
+
+		if (pmdrx->eb_in.token) {
+
+			assert(!priv->tx.avail_in);
+
+			priv->count_tx_between_fin = priv->count_tx_between_fin + (size_t)pmdrx->eb_in.len;
+			lwsl_wsi_ext(wsi, "TX: eb_in length %d, "
+				    "TOTAL TX since FIN: %d",
+				    pmdrx->eb_in.len,
+				    (int)priv->count_tx_between_fin);
+			priv->tx.next_in = (unsigned char *)pmdrx->eb_in.token;
+			priv->tx.avail_in = (uInt)pmdrx->eb_in.len;
+		}
+
+		priv->tx.next_out = priv->buf_tx_deflated + LWS_PRE + 5;
+		pmdrx->eb_out.token = priv->tx.next_out;
+		priv->tx.avail_out = (uInt)(1 << priv->args[PMD_TX_BUF_PWR2]);
+
+		pen = 0;
+		penbits = 0;
+		deflatePending(&priv->tx, &pen, &penbits);
+		pen = pen | (unsigned int)penbits;
+
+		if (!priv->tx.avail_in && (len & LWS_WRITE_NO_FIN)) {
+			lwsl_wsi_ext(wsi, "no available in, pen: %u", pen);
+
+			if (!pen)
+				return PMDR_DID_NOTHING;
+		}
+
+		m = Z_NO_FLUSH;
+		if (!(len & LWS_WRITE_NO_FIN)) {
+			lwsl_wsi_ext(wsi, "deflate with SYNC_FLUSH, pkt len %d",
+					(int)wsi->ws->rx_packet_length);
+			m = Z_SYNC_FLUSH;
+		}
+
+		n = deflate(&priv->tx, m);
+		if (n == Z_STREAM_ERROR) {
+			lwsl_wsi_notice(wsi, "Z_STREAM_ERROR");
+			return PMDR_FAILED;
+		}
+
+		pen = (!priv->tx.avail_out) && n != Z_STREAM_END;
+
+		lwsl_wsi_ext(wsi, "deflate ret %d, len 0x%x", n,
+				(unsigned int)len);
+
+		if ((len & 0xf) == LWS_WRITE_TEXT)
+			priv->tx_first_frame_type = LWSWSOPC_TEXT_FRAME;
+		if ((len & 0xf) == LWS_WRITE_BINARY)
+			priv->tx_first_frame_type = LWSWSOPC_BINARY_FRAME;
+
+		pmdrx->eb_out.len = lws_ptr_diff(priv->tx.next_out,
+						 pmdrx->eb_out.token);
+
+		if (m == Z_SYNC_FLUSH && !pen) {
+			if (n == Z_BUF_ERROR && !pmdrx->eb_out.len &&
+			    !priv->tx.avail_in) {
+				/*
+				 * zlib refuses a second sync flush with nothing
+				 * new since the last: an empty message straight
+				 * after a whole one.  The stream is byte
+				 * aligned after that flush, so the message is
+				 * the empty stored block's header octet, whose
+				 * LEN / NLEN are the 00 00 ff ff the receiver
+				 * appends (RFC 7692 7.2.2), just what zlib
+				 * sends for an empty first message.
+				 */
+				*priv->tx.next_out++ = 0x00;
+				priv->tx.avail_out--;
+			} else {
+				/*
+				 * A completed sync flush ends with the empty
+				 * stored block, whose 00 00 ff ff RFC 7692
+				 * 7.2.1 has us remove
+				 */
+				if (pmdrx->eb_out.len < 4 ||
+				    priv->tx.next_out[-4] != 0x00 ||
+				    priv->tx.next_out[-3] != 0x00 ||
+				    priv->tx.next_out[-2] != 0xff ||
+				    priv->tx.next_out[-1] != 0xff) {
+					lwsl_wsi_err(wsi, "deflate flush did "
+						"not end as expected (%d)",
+						(int)pmdrx->eb_out.len);
+					return PMDR_FAILED;
+				}
+				priv->tx.next_out -= 4;
+				priv->tx.avail_out += 4;
+			}
+			priv->count_tx_between_fin = 0;
+		}
+
+
+		/*
+		 * track how much input was used and advance it
+		 */
+
+		if (pmdrx->eb_in.token) {
+			pmdrx->eb_in.token = pmdrx->eb_in.token +
+					((unsigned int)pmdrx->eb_in.len -
+					 (unsigned int)priv->tx.avail_in);
+			pmdrx->eb_in.len = (int)priv->tx.avail_in;
+		}
+
+		if (pmdrx->eb_in.len && pmdrx->eb_in.token) {
+			/*
+			 * We could not consume all of the caller's input yet,
+			 * but lws_write() is about to return to him... the tx
+			 * draining continues later from the POLLOUT handler,
+			 * by which time he may legitimately have reused or
+			 * freed his write buffer.  Move the remaining input
+			 * somewhere we own, so the deflate stream only
+			 * references our own buffer from now on.
+			 */
+			if (priv->len_tx_holding < (size_t)pmdrx->eb_in.len) {
+				lws_free(priv->buf_tx_holding);
+				priv->len_tx_holding = (size_t)pmdrx->eb_in.len;
+				priv->buf_tx_holding = lws_malloc(
+						priv->len_tx_holding,
+						"pmd tx holding buf");
+				if (!priv->buf_tx_holding) {
+					priv->len_tx_holding = 0;
+					return PMDR_FAILED;
+				}
+			}
+			memcpy(priv->buf_tx_holding, pmdrx->eb_in.token,
+			       (size_t)pmdrx->eb_in.len);
+			priv->tx.next_in = priv->buf_tx_holding;
+
+			lwsl_wsi_ext(wsi, "TX holding %u unconsumed input",
+					(unsigned int)pmdrx->eb_in.len);
+		} else if (!priv->tx.avail_in && priv->buf_tx_holding) {
+			/*
+			 * any held input is fully deflated now, we can stop
+			 * holding onto it
+			 */
+			lws_free_set_NULL(priv->buf_tx_holding);
+			priv->len_tx_holding = 0;
+			priv->tx.next_in = NULL;
+		}
+
+		priv->compressed_out = 1;
+		pmdrx->eb_out.len = lws_ptr_diff(priv->tx.next_out,
+						 pmdrx->eb_out.token);
+
+		lwsl_wsi_ext(wsi, "  TX rewritten with new eb_in len %d, "
+				"eb_out len %d, deflatePending %d",
+				pmdrx->eb_in.len, pmdrx->eb_out.len, pen);
+
+		if (pmdrx->eb_in.len || pen)
+			return PMDR_HAS_PENDING;
+
+		if (!(len & LWS_WRITE_NO_FIN))
+			return PMDR_EMPTY_FINAL;
+
+		return PMDR_EMPTY_NONFINAL;
+
+	case LWS_EXT_CB_PACKET_TX_PRESEND:
+		if (!priv->compressed_out)
+			break;
+		priv->compressed_out = 0;
+
+		/*
+		 * we may have not produced any output for the actual "first"
+		 * write... in that case, we need to fix up the inappropriate
+		 * use of CONTINUATION when the first real write does come.
+		 */
+		if (priv->tx_first_frame_type & 0xf) {
+			*pmdrx->eb_in.token = (unsigned char)((((unsigned char)*pmdrx->eb_in.token) & (unsigned char)~0xf) |
+				((unsigned char)priv->tx_first_frame_type & (unsigned char)0xf));
+			/*
+			 * We have now written the "first" fragment, only
+			 * do that once
+			 */
+			priv->tx_first_frame_type = 0;
+		}
+
+		n = *(pmdrx->eb_in.token) & 15;
+
+		/* set RSV1, but not on CONTINUATION */
+		if (n == LWSWSOPC_TEXT_FRAME || n == LWSWSOPC_BINARY_FRAME)
+			*pmdrx->eb_in.token |= 0x40;
+
+		lwsl_wsi_ext(wsi, "PRESEND compressed: ws frame 0x%02X, len %d",
+			    ((*pmdrx->eb_in.token) & 0xff),
+			    pmdrx->eb_in.len);
+
+		/* we agreed not to refer back into this message later */
+		if (((*pmdrx->eb_in.token) & 0x80) &&	/* fin */
+		    priv->args[pmd_arg_own(wsi,
+				PMD_SERVER_NO_CONTEXT_TAKEOVER,
+				PMD_CLIENT_NO_CONTEXT_TAKEOVER)]) {
+			lwsl_wsi_debug(wsi, "own no context takeover");
+			(void)deflateEnd(&priv->tx);
+			priv->tx_init = 0;
+		}
+
+		break;
+
+	default:
+		break;
+	}
+
+	return 0;
+}
+

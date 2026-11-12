@@ -1,0 +1,1826 @@
+/*
+ * libwebsockets - small server side websockets and web server implementation
+ *
+ * Copyright (C) 2010 - 2019 Andy Green <andy@warmcat.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+
+#include "private-lib-core.h"
+#include "private-lib-async-dns.h"
+
+
+
+
+/* if not a socket, it's a raw, non-ssl file descriptor
+ * req cx lock, acq pt lock, acq vh lock
+ *
+ * The new wsi goes on its parent's tsi, else on tsi if it's not -1, else on
+ * the least busy one
+ */
+
+static struct lws *
+__lws_adopt_descriptor_vhost1(struct lws_vhost *vh, lws_adoption_type type,
+			    const char *vh_prot_name, struct lws *parent,
+			    int tsi, void *opaque, const char *fi_wsi_name)
+{
+	struct lws_context *context;
+	struct lws_context_per_thread *pt;
+	struct lws *new_wsi;
+	int n;
+
+	/*
+	 * Notice that in SMP case, the wsi may be being created on an
+	 * entirely different pt / tsi for load balancing.  In that case as
+	 * we initialize it, it may become "live" concurrently unexpectedly...
+	 */
+
+	if (!vh)
+		return NULL;
+
+	context = vh->context;
+
+	lws_context_assert_lock_held(vh->context);
+
+	n = parent ? parent->tsi : tsi;
+	new_wsi = lws_create_new_server_wsi(vh, n, LWSLCG_WSI_SERVER, fi_wsi_name);
+	if (!new_wsi)
+		return NULL;
+
+	/* bring in specific fault injection rules early */
+	lws_fi_inherit_copy(&new_wsi->fic, &context->fic, "wsi", fi_wsi_name);
+
+	pt = &context->pt[(int)new_wsi->tsi];
+
+	if (lws_fi(&new_wsi->fic, "createfail")) {
+		/*
+		 * He is already tagged, bound to the vhost and on the pt's
+		 * pre-natal list... returning NULL from here without giving
+		 * all of that back leaks him and permanently inflates the
+		 * vhost's count_bound_wsi, so it can never be destroyed.
+		 */
+		lws_pt_lock(pt, __func__); /* -------------- pt { */
+		goto bail;
+	}
+
+	new_wsi->a.opaque_user_data = opaque;
+
+	lws_pt_lock(pt, __func__);
+
+	if (parent) {
+		new_wsi->parent = parent;
+		lws_dll2_add_head(&new_wsi->sibling_list,
+				  &parent->child_list_owner);
+	}
+
+	if (vh_prot_name) {
+		new_wsi->a.protocol = lws_vhost_name_to_protocol(new_wsi->a.vhost,
+							       vh_prot_name);
+		if (!new_wsi->a.protocol) {
+			if (!strcmp(vh_prot_name, "quic")) {
+				new_wsi->a.protocol = &new_wsi->a.vhost->protocols[0];
+			} else {
+				lwsl_vhost_err(new_wsi->a.vhost, "Protocol %s not enabled",
+							      vh_prot_name);
+				goto bail;
+			}
+		}
+		if (lws_ensure_user_space(new_wsi)) {
+			lwsl_wsi_notice(new_wsi, "OOM");
+			goto bail;
+		}
+	}
+
+	if (!LWS_SSL_ENABLED(new_wsi->a.vhost) ||
+	    !(type & LWS_ADOPT_SOCKET))
+		type &= (unsigned int)~LWS_ADOPT_ALLOW_SSL;
+
+#if defined(LWS_WITH_UDP)
+	/* a datagram socket's peer state, before any role sees the wsi */
+	if ((type & LWS_ADOPT_FLAG_UDP) && lws_io_udp_alloc(new_wsi))
+		goto bail;
+#endif
+
+	if (lws_role_call_adoption_bind(new_wsi, (int)type, vh_prot_name)) {
+		lwsl_wsi_err(new_wsi, "no role for desc type 0x%x", type);
+		goto bail;
+	}
+
+#if defined(LWS_WITH_SERVER)
+	if (new_wsi->role_ops) {
+		lws_metrics_tag_wsi_add(new_wsi, "role", new_wsi->role_ops->name);
+	}
+#endif
+
+	lws_pt_unlock(pt);
+
+	/*
+	 * We can lose him from the context pre_natal "last resort" bind now,
+	 * because we will list him on a specific vhost
+	 */
+
+	lws_dll2_remove(&new_wsi->pre_natal);
+
+	/*
+	 * he's an allocated wsi, but he's not on any fds list or child list,
+	 * join him to the vhost's list of these kinds of incomplete wsi until
+	 * he gets another identity (he may do async dns now...)
+	 */
+	lws_vhost_lock(new_wsi->a.vhost);
+
+	lws_dll2_add_head(&new_wsi->io->vh_awaiting_socket,
+			  &new_wsi->a.vhost->vh_awaiting_socket_owner);
+	lws_vhost_unlock(new_wsi->a.vhost);
+
+	return new_wsi;
+
+bail: /* entered with the pt lock held */
+	lwsl_wsi_notice(new_wsi, "exiting on bail");
+
+	lws_io_udp_release(new_wsi); /* allocated above, before the bind */
+
+	lws_dll2_remove(&new_wsi->pre_natal);
+	if (parent)
+		lws_dll2_remove(&new_wsi->sibling_list);
+
+	lws_pt_unlock(pt); /* } pt --------------- */
+
+	if (new_wsi->user_space)
+		lws_free(new_wsi->user_space);
+
+	lws_fi_destroy(&new_wsi->fic);
+
+	__lws_vhost_unbind_wsi(new_wsi); /* req cx, acq vh lock */
+
+	/*
+	 * He was added to his lifecycle group when he was created; freeing him
+	 * without untagging leaves the group owner's head / tail / neighbour
+	 * pointers aimed inside the freed wsi, and never gives back the
+	 * refcount he took on his log_cx
+	 */
+	__lws_lc_untag(context, &new_wsi->lc);
+
+	lws_free(new_wsi);
+
+	return NULL;
+}
+
+#if defined(LWS_WITH_SERVER) && defined(LWS_WITH_SECURE_STREAMS)
+
+/*
+ * If the incoming wsi is bound to a vhost that is a ss server, this creates
+ * an accepted ss bound to the wsi.
+ *
+ * For h1 or raw, we can do the binding here, but for muxed protocols like h2
+ * or mqtt we have to do it not on the nwsi but on the stream.  And for h2 we
+ * start off bound to h1 role, since we don't know if we will upgrade to h2
+ * until we meet the server.
+ *
+ * 1) No tls is assumed to mean no muxed protocol so can do it at adopt.
+ *
+ * 2) After alpn if not muxed we can do it.
+ *
+ * 3) For muxed, do it at the nwsi migration and on new stream
+ */
+
+int
+lws_adopt_ss_server_accept(struct lws *new_wsi)
+{
+	lws_ss_handle_t *h;
+
+	if (lws_ss_server_accept_bind(new_wsi))
+		return 1;
+
+	if (!new_wsi->for_ss)
+		return 0;
+
+	h = (lws_ss_handle_t *)new_wsi->a.opaque_user_data;
+
+	/* the accepted socket takes the policy's socket options */
+	if (lws_plat_set_socket_options_ip(new_wsi->io->desc.sockfd,
+					   h->policy->priority,
+		      (LCCSCF_IP_LOW_LATENCY *
+		       !!(h->policy->flags & LWSSSPOLF_ATTR_LOW_LATENCY)) |
+		      (LCCSCF_IP_HIGH_THROUGHPUT *
+		       !!(h->policy->flags & LWSSSPOLF_ATTR_HIGH_THROUGHPUT)) |
+		      (LCCSCF_IP_HIGH_RELIABILITY *
+		       !!(h->policy->flags & LWSSSPOLF_ATTR_HIGH_RELIABILITY)) |
+		      (LCCSCF_IP_LOW_COST *
+		       !!(h->policy->flags & LWSSSPOLF_ATTR_LOW_COST))))
+		lwsl_wsi_warn(new_wsi, "unable to set ip options");
+
+	return 0;
+}
+
+#endif
+
+
+static struct lws *
+lws_adopt_descriptor_vhost2(struct lws *new_wsi, lws_adoption_type type,
+			    lws_sock_file_fd_type fd)
+{
+	struct lws_context_per_thread *pt =
+			&new_wsi->a.context->pt[(int)new_wsi->tsi];
+	struct lws_context *cx = new_wsi->a.context;
+	int n;
+
+	/* enforce that every fd is nonblocking */
+
+	if (type & LWS_ADOPT_SOCKET) {
+		if (lws_plat_set_nonblocking(fd.sockfd)) {
+			lwsl_wsi_err(new_wsi, "unable to set sockfd %d nonblocking",
+				     fd.sockfd);
+			goto fail;
+		}
+	}
+#if !defined(WIN32)
+	else
+		if (!(type & LWS_ADOPT_FLAG_NO_NONBLOCK) &&
+		    lws_plat_set_nonblocking(fd.filefd)) {
+			lwsl_wsi_err(new_wsi, "unable to set filefd nonblocking");
+			goto fail;
+		}
+#endif
+
+	new_wsi->io->desc = fd;
+
+	if (!LWS_SSL_ENABLED(new_wsi->a.vhost) ||
+	    !(type & LWS_ADOPT_SOCKET))
+		type &= (unsigned int)~LWS_ADOPT_ALLOW_SSL;
+
+	/*
+	 * A new connection was accepted. Give the user a chance to
+	 * set properties of the newly created wsi. There's no protocol
+	 * selected yet so we issue this to the vhosts's default protocol,
+	 * itself by default protocols[0]
+	 */
+	n = LWS_CALLBACK_SERVER_NEW_CLIENT_INSTANTIATED;
+	if (new_wsi->role_ops->adoption_cb[lwsi_role_server(new_wsi)])
+		n = new_wsi->role_ops->adoption_cb[lwsi_role_server(new_wsi)];
+
+	if (new_wsi->a.context->event_loop_ops->sock_accept)
+		if (new_wsi->a.context->event_loop_ops->sock_accept(new_wsi))
+			goto fail;
+
+	{
+        	struct lws *nwsi = lws_get_network_wsi(new_wsi);
+		char ta[64];
+
+        	if (nwsi->io->pstack[0].sa46.sa4.sin_family)
+        	        lws_sa46_write_numeric_address(&nwsi->io->pstack[0].sa46, ta, sizeof(ta));
+        	else
+                	strncpy(ta, "unknown", sizeof(ta));
+		__lws_lc_tag_append(&new_wsi->lc, ta);
+	}
+
+#if LWS_MAX_SMP > 1
+	/*
+	 * Caution: after this point the wsi is live on its service thread
+	 * which may be concurrent to this.  We mark the wsi as still undergoing
+	 * init in another pt so the assigned pt leaves it alone.
+	 */
+	new_wsi->io->undergoing_init_from_other_pt = 1;
+#endif
+
+#if defined(LWS_WITH_TLS_PASSTHROUGH)
+	/*
+	 * A server connection whose first bytes have to be looked at before
+	 * its tls or its role sees them (lib/io/passthrough.c) only goes in
+	 * the fd table, reading, for now: its tls accept, if any, waits until
+	 * lws_pre_accept_service() is done with it
+	 */
+	if ((type & LWS_ADOPT_SOCKET) && !(type & LWS_ADOPT_FLAG_UDP) &&
+	    lwsi_role_server(new_wsi) &&
+	    lws_pre_accept_wanted(new_wsi, !!(type & LWS_ADOPT_ALLOW_SSL))) {
+		lws_pt_lock(pt, __func__);
+		if (__insert_wsi_socket_into_fds(new_wsi->a.context, new_wsi)) {
+			lws_pt_unlock(pt);
+			lwsl_wsi_err(new_wsi, "fail inserting socket");
+			goto fail;
+		}
+		lws_pt_unlock(pt);
+		lws_set_timeout(new_wsi, PENDING_TIMEOUT_SSL_ACCEPT,
+				(int)new_wsi->a.context->timeout_secs);
+	} else
+#endif
+	if (!(type & LWS_ADOPT_ALLOW_SSL)) {
+		lws_pt_lock(pt, __func__);
+		if (__insert_wsi_socket_into_fds(new_wsi->a.context, new_wsi)) {
+			lws_pt_unlock(pt);
+			lwsl_wsi_err(new_wsi, "fail inserting socket");
+			goto fail;
+		}
+		lws_pt_unlock(pt);
+	}
+#if defined(LWS_WITH_SERVER)
+	 else {
+#if defined(LWS_WITH_LATENCY)
+		lws_usec_t _adptssl_start = lws_now_usecs();
+#endif
+		if (lws_server_socket_service_ssl(new_wsi, fd.sockfd, 0)) {
+			lwsl_wsi_info(new_wsi, "fail ssl negotiation");
+
+			goto fail;
+		}
+#if defined(LWS_WITH_LATENCY)
+		{
+			unsigned int ms = (unsigned int)((lws_now_usecs() - _adptssl_start) / 1000);
+			if (ms > 2)
+				lws_latency_note(pt, _adptssl_start, 2000, "adptssl:%dms", ms);
+		}
+#endif
+	}
+#endif
+
+	lws_vhost_lock(new_wsi->a.vhost);
+	/* he has fds visibility now, remove from vhost orphan list */
+	lws_dll2_remove(&new_wsi->io->vh_awaiting_socket);
+	lws_vhost_unlock(new_wsi->a.vhost);
+
+	/*
+	 *  by deferring callback to this point, after insertion to fds,
+	 * lws_callback_on_writable() can work from the callback
+	 */
+	if ((new_wsi->a.protocol->callback)(new_wsi, (enum lws_callback_reasons)n, new_wsi->user_space,
+					  NULL, 0))
+		goto fail;
+
+	/* role may need to do something after all adoption completed */
+
+	lws_role_call_adoption_bind(new_wsi, (int)type | _LWS_ADOPT_FINISH,
+				    new_wsi->a.protocol->name);
+
+#if defined(LWS_WITH_UDP)
+	if ((type & LWS_ADOPT_FLAG_UDP) &&
+	    lws_rops_fidx(new_wsi->role_ops, LWS_ROPS_rx_dgram)) {
+		/*
+		 * A datagram role hears the ECN bits of what arrives (its
+		 * rx_dgram), and what it sends is marked ECT(0)
+		 */
+		lws_io_udp_enable_ecn(new_wsi);
+
+		/* bound, it is where new peers arrive: one of our listeners */
+		if (new_wsi->io->do_bind) {
+			new_wsi->io->listener = 1;
+#if defined(LWS_WITH_SERVER)
+			if (!lws_dll2_owner(&new_wsi->listen_list))
+				lws_dll2_add_tail(&new_wsi->listen_list,
+						  &new_wsi->a.vhost->listen_wsi);
+#endif
+		}
+	}
+#endif
+
+#if defined(LWS_WITH_SERVER) && defined(LWS_WITH_SECURE_STREAMS)
+	/*
+	 * Did we come from an accepted client connection to a ss server?
+	 *
+	 * !!! For mux protocols, this will cause an additional inactive ss
+	 * representing the nwsi.  Doing that allows us to support both h1
+	 * (here) and h2 (at __lws_wsi_server_new())
+	 */
+
+	lwsl_wsi_info(new_wsi, "vhost %s", new_wsi->a.vhost->lc.gutag);
+
+	if (lws_adopt_ss_server_accept(new_wsi))
+		goto fail;
+#endif
+
+#if LWS_MAX_SMP > 1
+	/* its actual pt can service it now */
+
+	new_wsi->io->undergoing_init_from_other_pt = 0;
+#endif
+
+	lws_cancel_service_pt(new_wsi);
+
+	return new_wsi;
+
+fail:
+	if (type & LWS_ADOPT_SOCKET) {
+		lws_close_free_wsi(new_wsi, LWS_CLOSE_STATUS_NOSTATUS,
+				   "adopt skt fail");
+
+		return NULL;
+	}
+
+	/*
+	 * LWS_ADOPT_RAW_FILE_DESC is 0, so this is the non-socket adopt.  The
+	 * API contract is that if we return NULL, the caller still owns the fd
+	 * and will close it himself... so we must not close it here.
+	 *
+	 * But we may already have put him in the fds table above (the failing
+	 * user callback is issued after that, deliberately, so it can use
+	 * lws_callback_on_writable()).  If we just return, we keep polling an
+	 * fd number the caller has closed, and will service this wsi against
+	 * whatever the OS hands that number to next.
+	 *
+	 * Take him back out of the fds table and the fd lookup while his desc
+	 * is still valid, then forget the desc so the close path can't close
+	 * an fd that isn't ours, and free him.
+	 */
+
+	lws_context_lock(cx, __func__); /* ---------------------- context { */
+	lws_pt_lock(pt, __func__); /* -------------------------------- pt { */
+
+	__remove_wsi_socket_from_fds(new_wsi);
+	new_wsi->io->desc.sockfd = LWS_SOCK_INVALID;
+
+	__lws_close_free_wsi(new_wsi, LWS_CLOSE_STATUS_NOSTATUS,
+			     "adopt file fail");
+
+	lws_pt_unlock(pt); /* --------------------------------------- } pt */
+	lws_context_unlock(cx); /* ---------------------------- } context */
+
+	return NULL;
+}
+
+
+/* if not a socket, it's a raw, non-ssl file descriptor */
+
+struct lws *
+lws_adopt_descriptor_vhost(struct lws_vhost *vh, lws_adoption_type type,
+			   lws_sock_file_fd_type fd, const char *vh_prot_name,
+			   struct lws *parent)
+{
+	lws_adopt_desc_t info;
+
+	memset(&info, 0, sizeof(info));
+
+	info.vh = vh;
+	info.type = type;
+	info.fd = fd;
+	info.vh_prot_name = vh_prot_name;
+	info.parent = parent;
+
+	return lws_adopt_descriptor_vhost_via_info(&info);
+}
+
+struct lws *
+lws_adopt_descriptor_vhost_via_info(const lws_adopt_desc_t *info)
+{
+	socklen_t slen = sizeof(lws_sockaddr46);
+	struct lws *new_wsi;
+
+#if defined(LWS_WITH_PEER_LIMITS)
+	struct lws_peer *peer = NULL;
+
+	if (info->type & LWS_ADOPT_SOCKET) {
+		socklen_t plen = sizeof(lws_sockaddr46);
+		lws_sockaddr46 psa46;
+
+		/*
+		 * A unix socket has no peer to count, nor, eg, a udp socket
+		 * that has no peer of its own
+		 */
+		if (!(info->vh->options & LWS_SERVER_OPTION_UNIX_SOCK) &&
+		    !getpeername(info->fd.sockfd, (struct sockaddr *)&psa46,
+				 &plen)) {
+#if defined(LWS_WITH_TLS_PASSTHROUGH)
+			/*
+			 * A connection from a proxy we trust for a PROXY v2
+			 * header is held in the pre-accept stage until the
+			 * header says who the client is, and is only counted
+			 * then, against that client
+			 * (lws_pre_accept_proxy_v2()): counting it against the
+			 * proxy would make every client behind it share one
+			 * budget.  Until then it is counted against nobody: it
+			 * is the operator's own proxy, the header comes first
+			 * on its connections, and the stage is bounded by the
+			 * accept timeout and the fd limit.  Trust is decided
+			 * on the connection's own address: a peer stands for a
+			 * whole host, eg, an IPv6 /64.
+			 */
+			if ((info->type & LWS_ADOPT_FLAG_UDP) ||
+			    !lws_proxy_v2_trusts(info->vh, &psa46))
+#endif
+				peer = lws_get_or_create_peer_sa46(info->vh,
+								   &psa46);
+		}
+
+		if (lws_peer_wsi_limit_reached(info->vh->context, peer,
+					       info->fd.sockfd)) {
+			compatible_close(info->fd.sockfd);
+			return NULL;
+		}
+	}
+#endif
+
+#if defined(LWS_WITH_LATENCY)
+	lws_usec_t _adpt1_start = lws_now_usecs();
+#endif
+
+	lws_context_lock(info->vh->context, __func__);
+
+	new_wsi = __lws_adopt_descriptor_vhost1(info->vh, info->type,
+					      info->vh_prot_name, info->parent,
+					      -1, info->opaque,
+					      info->fi_wsi_name);
+
+#if defined(LWS_WITH_LATENCY)
+	{
+		unsigned int ms = (unsigned int)((lws_now_usecs() - _adpt1_start) / 1000);
+		if (ms > 2)
+			lws_latency_note(info->vh->context->pt, _adpt1_start, 2000, "adpt1:%dms", ms);
+	}
+#endif
+
+	if (!new_wsi) {
+		if (info->type & LWS_ADOPT_SOCKET)
+			compatible_close(info->fd.sockfd);
+		goto bail;
+	}
+
+#if defined(LWS_WITH_LATENCY)
+	lws_usec_t _peer_start = lws_now_usecs();
+#endif
+
+	if (info->type & LWS_ADOPT_SOCKET) {
+		if (getpeername(info->fd.sockfd,
+				(struct sockaddr *)&new_wsi->io->pstack[0].sa46,
+				&slen) < 0)
+			lwsl_info("%s: getpeername failed\n", __func__);
+		else
+			/*
+			 * A connected stream's peer completed a handshake with
+			 * us, an AF_UNIX one is attested by the kernel, but a
+			 * datagram socket's peer is only who it says it is
+			 */
+			lws_io_peer_set(new_wsi, &new_wsi->io->pstack[0].sa46,
+#if defined(LWS_WITH_UNIX_SOCK)
+				new_wsi->io->pstack[0].sa46.sa4.sin_family ==
+					AF_UNIX ? LWS_PEER_KIND_LOCAL :
+#endif
+					LWS_PEER_KIND_SOCKET,
+				info->type & LWS_ADOPT_FLAG_UDP ?
+					LWS_PEER_CRED_HEARSAY :
+					LWS_PEER_CRED_ROUTABLE);
+	}
+
+#if defined(LWS_WITH_LATENCY)
+	{
+		unsigned int ms = (unsigned int)((lws_now_usecs() - _peer_start) / 1000);
+		if (ms > 2)
+			lws_latency_note(info->vh->context->pt, _peer_start, 2000, "peer:%dms", ms);
+	}
+#endif
+
+#if defined(LWS_WITH_PEER_LIMITS)
+	if (peer)
+		lws_peer_add_wsi(info->vh->context, peer, new_wsi);
+#endif
+
+#if defined(LWS_WITH_LATENCY)
+	lws_usec_t _adpt2_start = lws_now_usecs();
+#endif
+
+	new_wsi = lws_adopt_descriptor_vhost2(new_wsi, info->type, info->fd);
+
+#if defined(LWS_WITH_LATENCY)
+	{
+		unsigned int ms = (unsigned int)((lws_now_usecs() - _adpt2_start) / 1000);
+		if (ms > 2)
+			lws_latency_note(info->vh->context->pt, _adpt2_start, 2000, "adpt2:%dms", ms);
+	}
+#endif
+
+bail:
+	lws_context_unlock(info->vh->context);
+
+	return new_wsi;
+}
+
+struct lws *
+lws_adopt_socket_vhost(struct lws_vhost *vh, lws_sockfd_type accept_fd)
+{
+	lws_sock_file_fd_type fd;
+
+	fd.sockfd = accept_fd;
+	return lws_adopt_descriptor_vhost(vh, LWS_ADOPT_SOCKET |
+			LWS_ADOPT_HTTP | LWS_ADOPT_ALLOW_SSL, fd, NULL, NULL);
+}
+
+struct lws *
+lws_adopt_socket(struct lws_context *context, lws_sockfd_type accept_fd)
+{
+	return lws_adopt_socket_vhost(lws_vhost_first(context), accept_fd);
+}
+
+/* Common read-buffer adoption for lws_adopt_*_readbuf */
+static struct lws*
+adopt_socket_readbuf(struct lws *wsi, const char *readbuf, size_t len)
+{
+	struct lws_context_per_thread *pt;
+#if defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2)
+	lws_ah_attach_result_t ar = LWS_AH_ATTACH_OK;
+	struct lws_pollfd *pfd;
+#endif
+	int n;
+
+	if (!wsi)
+		return NULL;
+
+	if (!readbuf || len == 0)
+		return wsi;
+
+	if (wsi->io->position_in_fds_table == LWS_NO_FDS_POS)
+		return wsi;
+
+	pt = &wsi->a.context->pt[(int)wsi->tsi];
+
+	n = lws_buflist_append_segment(&wsi->buflist, (const uint8_t *)readbuf,
+				       len);
+	if (n < 0)
+		goto bail;
+	if (n)
+		lws_dll2_add_head(&wsi->dll_buflist, &pt->dll_buflist_owner);
+
+	/*
+	 * we can't process the initial read data until we can attach an ah.
+	 *
+	 * if one is available, get it and place the data in his ah rxbuf...
+	 * wsi with ah that have pending rxbuf get auto-POLLIN service.
+	 *
+	 * no autoservice because we didn't get a chance to attach the
+	 * readbuf data to wsi or ah yet, and we will do it next if we get
+	 * the ah.
+	 */
+#if defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2)
+	if (!wsi->stream.ah)
+		ar = lws_header_table_attach(wsi, 0);
+
+	if (ar == LWS_AH_ATTACH_WSI_GONE)
+		/*
+		 * The attach closed and freed him... NULL is this api's "no
+		 * wsi any more" answer, and its callers must not close him
+		 * again either.
+		 */
+		return NULL;
+
+	if (ar == LWS_AH_ATTACH_OK) {
+
+		lwsl_notice("%s: calling service on readbuf ah\n", __func__);
+
+		/*
+		 * unlike a normal connect, we have the headers already
+		 * (or the first part of them anyway).
+		 * libuv won't come back and service us without a network
+		 * event, so we need to do the header service right here.
+		 */
+		pfd = &pt->fds[wsi->io->position_in_fds_table];
+		pfd->revents |= LWS_POLLIN;
+		lwsl_err("%s: calling service\n", __func__);
+		if (lws_service_fd_tsi(wsi->a.context, pfd, wsi->tsi))
+			/* service closed us */
+			return NULL;
+
+		return wsi;
+	}
+#endif
+	lwsl_err("%s: deferring handling ah\n", __func__);
+
+	return wsi;
+
+bail:
+	lws_close_free_wsi(wsi, LWS_CLOSE_STATUS_NOSTATUS,
+			   "adopt skt readbuf fail");
+
+	return NULL;
+}
+
+#if defined(LWS_WITH_UDP)
+
+/*
+ * SO_REUSEADDR is only for a port the caller binds by number, eg, a
+ * well-known one other sockets may share
+ */
+static int
+lws_udp_port_shareable(const struct lws *wsi)
+{
+	return wsi->io->do_bind && wsi->c_port && !wsi->io->random_port;
+}
+
+/*
+ * This is the ASYNC_DNS callback target for udp client, it's analogous to
+ * connect3()
+ */
+
+#if defined(LWS_WITH_CLIENT)
+
+#if defined(LWS_WITH_IPV4) && defined(LWS_WITH_IPV6)
+/*
+ * Move the results of family af ahead of the others, keeping the order
+ * within each family
+ */
+static void
+lws_adopt_udp_family_first(struct lws *wsi, int af)
+{
+	lws_dll2_owner_t first;
+	struct lws_dll2 *d;
+
+	memset(&first, 0, sizeof(first));
+
+	lws_start_foreach_dll_safe(struct lws_dll2 *, p, p1,
+			lws_dll2_get_head(&wsi->io->dns_sorted_list)) {
+		lws_dns_sort_t *s = lws_container_of(p, lws_dns_sort_t, list);
+
+		if (s->dest.sa4.sin_family == af) {
+			lws_dll2_remove(&s->list);
+			lws_dll2_add_tail(&s->list, &first);
+		}
+	} lws_end_foreach_dll_safe(p, p1);
+
+	while ((d = lws_dll2_get_tail(&first))) {
+		lws_dll2_remove(d);
+		lws_dll2_add_head(d, &wsi->io->dns_sorted_list);
+	}
+}
+#endif
+
+static struct lws *
+lws_create_adopt_udp2(struct lws *wsi, const char *ads,
+		      const struct addrinfo *r, int n, void *opaque)
+{
+	lws_sock_file_fd_type sock;
+	int bc = 1, m;
+
+	assert(wsi);
+
+	if (ads && (n < 0 || !r)) {
+		/*
+		 * DNS lookup failed: there are no usable results.  Fail the
+		 * overall connection request.
+		 */
+		lwsl_notice("%s: bad: n %d, r %p\n", __func__, n, r);
+
+		goto bail;
+	}
+
+	if (r) {
+		m = lws_sort_dns(wsi, r);
+
+		if (!ads && !m && wsi->io->do_bind) {
+			/*
+			 * A wildcard bind.  The resolver hands us both wildcards
+			 * with 0.0.0.0 first, and binding that gives an
+			 * IPv4-only listener on a dual-stack host.  Try :: first:
+			 * with the vhost's V6ONLY policy off (the QUIC listener
+			 * asks for that) it takes both families, and on a host
+			 * without IPv6 the bind fails and the loop below moves
+			 * on to 0.0.0.0, so either family may be absent.
+			 */
+			lws_start_foreach_dll(struct lws_dll2 *, d,
+					lws_dll2_get_head(&wsi->io->dns_sorted_list)) {
+				lws_dns_sort_t *s = lws_container_of(d,
+						lws_dns_sort_t, list);
+
+				if (s->dest.sa4.sin_family == AF_INET6) {
+					lws_dll2_remove(&s->list);
+					lws_dll2_add_head(&s->list,
+							  &wsi->io->dns_sorted_list);
+					break;
+				}
+			} lws_end_foreach_dll(d);
+		}
+
+#if defined(LWS_WITH_IPV4) && defined(LWS_WITH_IPV6)
+		if (ads && !m && wsi->io->do_bind && wsi->io->ipv4)
+			/*
+			 * A name to bind takes its A record first, as the libc
+			 * path asks getaddrinfo() for only those.  Async dns
+			 * answers both families for an A query, in the
+			 * nameserver's or the hosts file's order, and a bind is
+			 * not sorted by route: eg, FreeBSD's /etc/hosts lists
+			 * ::1 for localhost before 127.0.0.1, and a socket bound
+			 * there never hears from a peer aiming at 127.0.0.1.
+			 * The AAAA results stay after, if the bind fails.
+			 */
+			lws_adopt_udp_family_first(wsi, AF_INET);
+#endif
+
+#if defined(LWS_WITH_SYS_ASYNC_DNS)
+		lws_async_dns_freeaddrinfo(&r);
+#else
+		freeaddrinfo((struct addrinfo *)r);
+#endif
+		if (m)
+			goto bail;
+	} else {
+		/*
+		 * If we get here with r == NULL, it's because ads == NULL and
+		 * we're using ASYNC_DNS, taking the fast path because no lookup
+		 * is needed for INADDR_ANY. Synthesize a result.
+		 */
+		lws_dns_sort_t *s = lws_zalloc(sizeof(*s), __func__);
+		if (!s)
+			goto bail;
+
+#if defined(LWS_WITH_IPV6) && defined(LWS_WITH_IPV4)
+                if (!lws_check_opt(wsi->a.context->options,
+                                   LWS_SERVER_OPTION_DISABLE_IPV6)) {
+                        s->dest.sa6.sin6_family = AF_INET6;
+                        s->af = AF_INET6;
+                } else {
+                        s->dest.sa4.sin_family = AF_INET;
+                        s->dest.sa4.sin_addr.s_addr = INADDR_ANY;
+                        s->af = AF_INET;
+                }
+#elif defined(LWS_WITH_IPV6)
+                {
+                        s->dest.sa6.sin6_family = AF_INET6;
+                        s->af = AF_INET6;
+                }
+#elif defined(LWS_WITH_IPV4)
+                {
+                        s->dest.sa4.sin_family = AF_INET;
+                        s->dest.sa4.sin_addr.s_addr = INADDR_ANY;
+                        s->af = AF_INET;
+                }
+#endif
+		lws_dll2_add_tail(&s->list, &wsi->io->dns_sorted_list);
+	}
+
+	while (lws_dll2_get_head(&wsi->io->dns_sorted_list)) {
+		lws_dns_sort_t *s = lws_container_of(
+				lws_dll2_get_head(&wsi->io->dns_sorted_list),
+				lws_dns_sort_t, list);
+
+		/*
+		 * Remove it from the head, but don't free it yet... we are
+		 * taking responsibility to free it
+		 */
+		lws_dll2_remove(&s->list);
+
+		/*
+		 * We have done the dns lookup, identify the result we want
+		 * if any, and then complete the adoption by binding wsi to
+		 * socket opened on it.
+		 *
+		 * Ignore the weak assumptions about protocol driven by port
+		 * number and force to DGRAM / UDP since that's what this
+		 * function is for.
+		 */
+
+#if !defined(__linux__)
+		sock.sockfd = socket(s->dest.sa4.sin_family,
+				     SOCK_DGRAM, IPPROTO_UDP);
+#else
+		/* PF_PACKET is linux-only */
+		sock.sockfd = socket(wsi->io->pf_packet ? PF_PACKET :
+						s->dest.sa4.sin_family,
+				     SOCK_DGRAM, wsi->io->pf_packet ?
+					htons(0x800) : IPPROTO_UDP);
+#endif
+		if (sock.sockfd == LWS_SOCK_INVALID)
+			goto resume;
+
+		if (lws_plat_set_udp_bufs(sock.sockfd))
+			lwsl_wsi_warn(wsi, "unable to size udp buffers");
+
+		if (lws_plat_apply_FD_CLOEXEC((int)sock.sockfd) ||
+		    lws_plat_set_nonblocking(sock.sockfd)) {
+			compatible_close(sock.sockfd);
+			sock.sockfd = LWS_SOCK_INVALID;
+			goto resume;
+		}
+
+#if defined(LWS_ROLE_QUIC)
+		/* QUIC finds the path MTU itself */
+		if (wsi->role_ops && !strcmp(wsi->role_ops->name, "quic") &&
+		    lws_plat_set_socket_dontfrag(sock.sockfd,
+						 s->dest.sa4.sin_family))
+			lwsl_wsi_info(wsi, "unable to set Don't Fragment");
+#endif
+
+#if defined(LWS_WITH_IPV6) && defined(IPV6_V6ONLY)
+		/*
+		 * For IPv6 UDP sockets we own the IPV6_V6ONLY state rather
+		 * than inheriting the OS default, which varies by platform
+		 * (0 = dual-stack on Linux, 1 = v6-only on Windows):
+		 *
+		 *   - by default (!MODIFY) we force v6-only in dual builds,
+		 *     matching the TCP listen path.  Callers that want both
+		 *     families bind two sockets (:: and 0.0.0.0) and rely on
+		 *     this -- e.g. dht, auth_dns, extip.
+		 *   - MODIFY && !VALUE explicitly requests dual-stack, so a
+		 *     lone :: listener also receives IPv4-mapped packets
+		 *     (the QUIC adoption path).  Force V6ONLY=0 here, since
+		 *     the OS default cannot be relied on (Windows = 1).
+		 *   - MODIFY | VALUE explicitly requests v6-only.
+		 *
+		 * In an IPv6-only build there is no second (AF_INET) socket
+		 * possible, so lws_v6only_opt() defaults to dual-stack there:
+		 * a lone :: listener still receives v4-mapped peers.
+		 *
+		 * A v4-mapped bind address (eg, "127.0.0.1" resolved in an
+		 * IPv6-only build) is dual-stack by construction and the
+		 * vhost option has nothing to say about it: force V6ONLY=0.
+		 * Leaving the OS default in place there is what made this
+		 * platform-dependent -- on a v6-only socket the v4-mapped
+		 * bind still succeeds and packets still arrive, but every
+		 * send back to the v4-mapped peer is refused.
+		 */
+		if (s->dest.sa4.sin_family == AF_INET6) {
+			int opt = lws_sa46_is_ipv4_mapped(&s->dest) ? 0 :
+				  lws_v6only_opt(wsi->a.vhost->options);
+
+			if (setsockopt(sock.sockfd, IPPROTO_IPV6, IPV6_V6ONLY,
+				       (const void *)&opt, sizeof(opt)) < 0) {
+				lwsl_vhost_notice(wsi->a.vhost, "set IPV6_V6ONLY fail");
+			}
+		}
+#endif
+
+		/* ipv6 udp!!! */
+
+#if defined(LWS_WITH_IPV4)
+		if (s->dest.sa4.sin_family == AF_INET)
+			s->dest.sa4.sin_port = htons(wsi->c_port);
+#if defined(LWS_WITH_IPV6)
+		else
+#endif
+#endif
+#if defined(LWS_WITH_IPV6)
+			s->dest.sa6.sin6_port = htons(wsi->c_port);
+#endif
+
+		/*
+		 * Only a port the caller names may be shared.  One we or the
+		 * OS choose is ours alone: on Linux, a socket with
+		 * SO_REUSEADDR that leaves the OS to choose its port can be
+		 * given one another SO_REUSEADDR socket already has, and the
+		 * two then take each other's datagrams.
+		 */
+		if (lws_udp_port_shareable(wsi) &&
+		    setsockopt(sock.sockfd, SOL_SOCKET, SO_REUSEADDR,
+			       (const char *)&bc, sizeof(bc)) < 0)
+			lwsl_err("%s: failed to set reuse\n", __func__);
+
+		if (wsi->io->do_broadcast &&
+		    setsockopt(sock.sockfd, SOL_SOCKET, SO_BROADCAST,
+			       (const char *)&bc, sizeof(bc)) < 0)
+			lwsl_err("%s: failed to set broadcast\n", __func__);
+
+		/* Bind the udp socket to a particular network interface */
+
+		if (opaque &&
+		    lws_plat_BINDTODEVICE(sock.sockfd, (const char *)opaque)) {
+			compatible_close(sock.sockfd);
+			sock.sockfd = LWS_SOCK_INVALID;
+			goto resume;
+		}
+
+		if (wsi->io->random_port && !wsi->io->do_bind &&
+		    !wsi->io->pf_packet &&
+		    lws_socket_bind_random_port(wsi->a.context, sock.sockfd,
+						s->dest.sa4.sin_family))
+			lwsl_wsi_notice(wsi, "no random port, OS chooses");
+
+		if (wsi->io->do_bind &&
+		    bind(sock.sockfd, sa46_sockaddr(&s->dest),
+#if defined(_WIN32)
+			 (int)
+#endif
+			 sa46_socklen(&s->dest)
+		) == -1) {
+			lwsl_err("%s: bind failed\n", __func__);
+			compatible_close(sock.sockfd);
+			sock.sockfd = LWS_SOCK_INVALID;
+			goto resume;
+		}
+
+		if (!wsi->io->do_bind && !wsi->io->pf_packet &&
+		    connect(sock.sockfd, sa46_sockaddr(&s->dest),
+			    sa46_socklen(&s->dest)) == -1 &&
+		    errno != EADDRNOTAVAIL /* openbsd */ ) {
+			lwsl_err("%s: conn fd %d fam %d %s:%u failed "
+				 "errno %d\n", __func__, sock.sockfd,
+				 s->dest.sa4.sin_family,
+				 ads ? ads : "null", wsi->c_port,
+				 LWS_ERRNO);
+			compatible_close(sock.sockfd);
+			goto resume;
+		}
+
+		if (wsi->io->udp)
+			wsi->io->udp->sa46 = s->dest;
+		/*
+		 * Only a connected socket has a peer.  A bound listener's
+		 * address is our own side, and recording it as the peer makes
+		 * the routing-table checks judge a wildcard bind like :: or
+		 * 0.0.0.0 as an unreachable destination and cull the listener
+		 * when the netlink coldplug completes on a host without a
+		 * route of that family.
+		 */
+		if (!wsi->io->do_bind)
+			lws_io_peer_set(wsi, &s->dest, LWS_PEER_KIND_SOCKET,
+					LWS_PEER_CRED_HEARSAY);
+
+		/* we connected: complete the udp socket adoption flow */
+
+		lws_free(s);
+		lws_addrinfo_clean(wsi);
+		return lws_adopt_descriptor_vhost2(wsi,
+						LWS_ADOPT_RAW_SOCKET_UDP, sock);
+
+resume:
+		lws_free(s);
+	}
+
+	lwsl_err("%s: unable to create INET socket %d\n", __func__, LWS_ERRNO);
+	lws_addrinfo_clean(wsi);
+
+bail:
+	lws_close_free_wsi(wsi, LWS_CLOSE_STATUS_NOSTATUS, "adopt udp2 fail");
+
+	return NULL;
+}
+#else
+static struct lws *
+lws_create_adopt_udp2(struct lws *wsi, const char *ads,
+		      const struct addrinfo *r, int n, void *opaque)
+{
+	lws_sock_file_fd_type sock;
+	int bc = 1;
+	lws_sockaddr46 dest;
+
+	assert(wsi);
+
+	if (ads && (n < 0 || !r)) {
+		lwsl_notice("%s: bad: n %d, r %p\n", __func__, n, r);
+		goto bail;
+	}
+
+	memset(&dest, 0, sizeof(dest));
+
+	if (r) {
+#if defined(LWS_WITH_IPV4)
+		if (r->ai_family == AF_INET) {
+			dest.sa4.sin_family = AF_INET;
+			memcpy(&dest.sa4.sin_addr, &((struct sockaddr_in *)r->ai_addr)->sin_addr, sizeof(struct in_addr));
+		}
+#if defined(LWS_WITH_IPV6)
+		else
+#endif
+#endif
+#if defined(LWS_WITH_IPV6)
+		if (r->ai_family == AF_INET6) {
+			dest.sa6.sin6_family = AF_INET6;
+			memcpy(&dest.sa6.sin6_addr, &((struct sockaddr_in6 *)r->ai_addr)->sin6_addr, sizeof(struct in6_addr));
+		}
+#endif
+	} else {
+#if defined(LWS_WITH_IPV6)
+		if (!lws_check_opt(wsi->a.context->options,
+				   LWS_SERVER_OPTION_DISABLE_IPV6)) {
+			dest.sa6.sin6_family = AF_INET6;
+		} else
+#endif
+#if defined(LWS_WITH_IPV4)
+		{
+			dest.sa4.sin_family = AF_INET;
+			dest.sa4.sin_addr.s_addr = INADDR_ANY;
+		}
+#endif
+	}
+
+#if !defined(__linux__)
+	sock.sockfd = socket(dest.sa4.sin_family, SOCK_DGRAM, IPPROTO_UDP);
+#else
+	sock.sockfd = socket(wsi->io->pf_packet ? PF_PACKET : dest.sa4.sin_family,
+			     SOCK_DGRAM, wsi->io->pf_packet ? htons(0x800) : IPPROTO_UDP);
+#endif
+	if (sock.sockfd == LWS_SOCK_INVALID)
+		goto bail;
+
+	if (lws_plat_set_udp_bufs(sock.sockfd))
+		lwsl_wsi_warn(wsi, "unable to size udp buffers");
+
+	if (lws_plat_apply_FD_CLOEXEC((int)sock.sockfd) ||
+	    lws_plat_set_nonblocking(sock.sockfd)) {
+		compatible_close(sock.sockfd);
+		sock.sockfd = LWS_SOCK_INVALID;
+		goto resume;
+	}
+
+#if defined(LWS_ROLE_QUIC)
+	/* QUIC finds the path MTU itself */
+	if (wsi->role_ops && !strcmp(wsi->role_ops->name, "quic") &&
+	    lws_plat_set_socket_dontfrag(sock.sockfd, dest.sa4.sin_family))
+		lwsl_wsi_info(wsi, "unable to set Don't Fragment");
+#endif
+
+#if defined(LWS_WITH_IPV6) && defined(IPV6_V6ONLY)
+		if (dest.sa4.sin_family == AF_INET6) {
+			int opt = lws_sa46_is_ipv4_mapped(&dest) ? 0 :
+				  lws_v6only_opt(wsi->a.vhost->options);
+
+			if (setsockopt(sock.sockfd, IPPROTO_IPV6, IPV6_V6ONLY,
+				       (const void *)&opt, sizeof(opt)) < 0) {
+				lwsl_vhost_notice(wsi->a.vhost, "set IPV6_V6ONLY fail");
+			}
+		}
+#endif
+
+#if defined(LWS_WITH_IPV4)
+	if (dest.sa4.sin_family == AF_INET)
+		dest.sa4.sin_port = htons(wsi->c_port);
+#if defined(LWS_WITH_IPV6)
+	else
+#endif
+#endif
+#if defined(LWS_WITH_IPV6)
+		dest.sa6.sin6_port = htons(wsi->c_port);
+#endif
+
+	/* only a port the caller names may be shared, see above */
+	if (lws_udp_port_shareable(wsi) &&
+	    setsockopt(sock.sockfd, SOL_SOCKET, SO_REUSEADDR,
+		       (const char *)&bc, sizeof(bc)) < 0)
+		lwsl_err("%s: failed to set reuse\n", __func__);
+
+	if (wsi->io->do_broadcast &&
+	    setsockopt(sock.sockfd, SOL_SOCKET, SO_BROADCAST,
+		       (const char *)&bc, sizeof(bc)) < 0)
+		lwsl_err("%s: failed to set broadcast\n", __func__);
+
+	if (opaque && lws_plat_BINDTODEVICE(sock.sockfd, (const char *)opaque))
+		goto resume;
+
+	if (wsi->io->random_port && !wsi->io->do_bind && !wsi->io->pf_packet &&
+	    lws_socket_bind_random_port(wsi->a.context, sock.sockfd,
+					dest.sa4.sin_family))
+		lwsl_wsi_notice(wsi, "no random port, OS chooses");
+
+	if (wsi->io->do_bind &&
+	    bind(sock.sockfd, sa46_sockaddr(&dest),
+#if defined(_WIN32)
+		 (int)
+#endif
+		 sa46_socklen(&dest)) == -1) {
+		lwsl_err("%s: bind failed\n", __func__);
+		goto resume;
+	}
+
+	if (!wsi->io->do_bind && !wsi->io->pf_packet) {
+		/*
+		 * Connected on every platform, so the kernel filters what
+		 * reaches us to datagrams from the peer, and an ICMP refusal
+		 * from it comes back as a socket error: BSD stacks deliver
+		 * those only to a connected UDP socket.
+		 *
+		 * dacae3a95 (2020) compiled this out on Apple, since OSX
+		 * rejects a sendto() naming a destination on a connected
+		 * socket with EISCONN; lws_ssl_capable_write_no_ssl() retries
+		 * that with a NULL destination since 6059d830f2.  Without the
+		 * connect(), a lws_async_dns_query_direct() to a port nothing
+		 * listens on timed out on Apple instead of failing at once.
+		 *
+		 * callback_async_dns() still checks the source of every
+		 * answer itself, and restores the chosen server to
+		 * wsi->io->udp->sa46 before doing it, since recvfrom() left
+		 * the datagram's source (which is also the send target)
+		 * there.  See the "resolver source-check legs" in
+		 * ./minimal-examples-lowlevel/api-tests/api-test-async-dns.
+		 */
+		if (connect(sock.sockfd, sa46_sockaddr(&dest),
+			    sa46_socklen(&dest)) == -1 &&
+		    errno != EADDRNOTAVAIL) {
+			lwsl_err("%s: conn failed\n", __func__);
+			goto resume;
+		}
+	}
+
+	if (wsi->io->udp)
+		wsi->io->udp->sa46 = dest;
+	if (!wsi->io->do_bind)
+		lws_io_peer_set(wsi, &dest, LWS_PEER_KIND_SOCKET,
+				LWS_PEER_CRED_HEARSAY);
+
+	return lws_adopt_descriptor_vhost2(wsi, LWS_ADOPT_RAW_SOCKET_UDP, sock);
+
+resume:
+	compatible_close(sock.sockfd);
+bail:
+	lws_close_free_wsi(wsi, LWS_CLOSE_STATUS_NOSTATUS, "adopt udp2 fail");
+
+	return NULL;
+}
+#endif
+
+struct lws *
+lws_create_adopt_udp_tsi(struct lws_vhost *vhost, const char *ads, int port,
+			 int flags, const char *protocol_name,
+			 const char *ifname, struct lws *parent_wsi, int tsi,
+			 void *opaque, const lws_retry_bo_t *retry_policy,
+			 const char *fi_wsi_name)
+{
+#if !defined(LWS_PLAT_OPTEE)
+	struct lws *wsi;
+	int n;
+
+	lwsl_info("%s: %s:%u\n", __func__, ads ? ads : "null", port);
+
+	/* create the logical wsi without any valid fd */
+
+	lws_context_lock(vhost->context, __func__);
+
+	wsi = __lws_adopt_descriptor_vhost1(vhost, LWS_ADOPT_SOCKET |
+						 LWS_ADOPT_RAW_SOCKET_UDP,
+					  protocol_name, parent_wsi, tsi,
+					  opaque, fi_wsi_name);
+
+	lws_context_unlock(vhost->context);
+	if (!wsi) {
+		lwsl_err("%s: udp wsi creation failed\n", __func__);
+		goto bail;
+	}
+
+	// lwsl_notice("%s: role %s\n", __func__, wsi->role_ops->name);
+
+	wsi->io->do_bind = !!(flags & LWS_CAUDP_BIND);
+	wsi->io->do_broadcast = !!(flags & LWS_CAUDP_BROADCAST);
+	wsi->io->pf_packet = !!(flags & LWS_CAUDP_PF_PACKET);
+	wsi->io->random_port = !!(flags & LWS_CAUDP_RANDOM_PORT);
+	wsi->c_port = (uint16_t)(unsigned int)port;
+	if (retry_policy)
+		wsi->retry_policy = retry_policy;
+	else
+		wsi->retry_policy = vhost->retry_policy;
+	/*
+	 * lws_sort_dns() filters out IPv6 results if wsi->io->ipv6 == 0, pick up
+	 * the vhost / context ipv6 policy
+	 */
+#if !defined(LWS_WITH_IPV4)
+	/* IPv6-only build: no v4 socket path exists to fall back to */
+	wsi->io->ipv6 = 1;
+#else
+	wsi->io->ipv6 = !!LWS_IPV6_ENABLED(vhost);
+	wsi->io->ipv4 = !!LWS_IPV4_ENABLED(vhost);
+	if (lws_wsi_is_async_dns(wsi))
+		/* resolver's own socket: either family may reach the NS */
+		wsi->io->ipv6 = wsi->io->ipv4 = 1;
+#endif
+
+#if !defined(LWS_WITH_SYS_ASYNC_DNS)
+	{
+		struct addrinfo *r, h;
+		uint8_t na[16];
+		char buf[16];
+
+		memset(&h, 0, sizeof(h));
+		h.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
+		/*
+		 * Only the first result is used.  A name is asked for its A
+		 * records (AAAA without ipv4), as async dns asks for it below,
+		 * so a socket for eg, "localhost" binds or connects to the same
+		 * address whichever resolver lws has: libc's AF_UNSPEC answer
+		 * puts ::1 first.  An address, or none, is taken as it is.
+		 */
+		if (ads && lws_parse_numeric_address(ads, na, sizeof(na)) < 0)
+#if defined(LWS_WITH_IPV4)
+			h.ai_family = wsi->io->ipv4 ? AF_INET : AF_INET6;
+#else
+			h.ai_family = AF_INET6;
+#endif
+		h.ai_socktype = SOCK_DGRAM;
+		h.ai_protocol = IPPROTO_UDP;
+#if defined(AI_PASSIVE)
+		h.ai_flags = AI_PASSIVE;
+#endif
+#ifdef AI_ADDRCONFIG
+		h.ai_flags |= AI_ADDRCONFIG;
+#endif
+
+		if (ads && lws_host_is_ambiguous_numeric(ads)) {
+			/* eg, "012.0.0.1", which libc reads as 10.0.0.1 */
+			lwsl_cx_warn(vhost->context,
+				     "refusing ambiguous numeric host");
+			goto bail1;
+		}
+
+		/* any name under "localhost" is loopback too (RFC 6761) */
+		if (ads && lws_host_is_localhost(ads))
+			ads = "localhost";
+
+		/* if the dns lookup is synchronous, do the whole thing now */
+		lws_snprintf(buf, sizeof(buf), "%u", port);
+		n = getaddrinfo(ads, buf, &h, &r);
+		if (n) {
+#if !defined(LWS_PLAT_FREERTOS)
+			lwsl_cx_info(vhost->context, "getaddrinfo error: %d", n);
+#else
+#if (_LWS_ENABLED_LOGS & LLL_INFO)
+			char t16[16];
+			lwsl_cx_info(vhost->context, "getaddrinfo error: %s",
+				lws_errno_describe(LWS_ERRNO, t16, sizeof(t16)));
+#endif
+#endif
+			//freeaddrinfo(r);
+			goto bail1;
+		}
+		/*
+		 * With synchronous dns, complete it immediately after the
+		 * blocking dns lookup finished... free r when connect either
+		 * completed or failed
+		 */
+		wsi = lws_create_adopt_udp2(wsi, ads, r, 0, NULL);
+
+		return wsi;
+	}
+#else
+	if (ads) {
+		/*
+		 * with async dns, use the wsi as the point about which to do
+		 * the dns lookup and have it call the second part when it's
+		 * done.
+		 *
+		 * Keep a refcount on the results and free it when we connected
+		 * or definitively failed.
+		 *
+		 * Notice wsi has no socket at this point (we don't know what
+		 * kind to ask for until we get the dns back).  But it is bound
+		 * to a vhost and can be cleaned up from that at vhost destroy.
+		 */
+		/*
+		 * An A query is answered with both families unless the vhost
+		 * disables one; lws_create_adopt_udp2() puts the A records
+		 * first for a bind, as the libc lookup above has only those
+		 */
+		n = lws_async_dns_query(vhost->context, 0, ads,
+#if defined(LWS_WITH_IPV4)
+					wsi->io->ipv4 ? LWS_ADNS_RECORD_A :
+							LWS_ADNS_RECORD_AAAA,
+#else
+					LWS_ADNS_RECORD_AAAA,
+#endif
+					lws_create_adopt_udp2, wsi,
+					(void *)ifname, NULL);
+		// lwsl_notice("%s: dns query returned %d\n", __func__, n);
+		if (n < LADNS_RET_FOUND) {
+			/*
+			 * Any terminal failure retcode (< 0), including
+			 * LADNS_RET_FAILED_WSI_CLOSED which is what we get when
+			 * the synchronous numeric-address path ran the adopt
+			 * callback and it failed (eg, the resolved address had
+			 * no usable route, so lws_sort_dns() produced no results
+			 * and lws_create_adopt_udp2() closed the wsi).  The
+			 * callback has already closed the wsi in that case; we
+			 * must NOT return the now-dangling wsi pointer.
+			 */
+			lwsl_err("%s: async dns failed (%d)\n", __func__, n);
+			wsi = NULL;
+			goto bail;
+		}
+	} else {
+		lwsl_debug("%s: udp adopt has no ads\n", __func__);
+		wsi = lws_create_adopt_udp2(wsi, ads, NULL, 0, (void *)ifname);
+	}
+
+	/* dns lookup is happening asynchronously */
+
+	// lwsl_notice("%s: returning wsi %p\n", __func__, wsi);
+
+	return wsi;
+#endif
+#if !defined(LWS_WITH_SYS_ASYNC_DNS)
+bail1:
+	lws_close_free_wsi(wsi, LWS_CLOSE_STATUS_NOSTATUS, "adopt udp2 fail");
+	wsi = NULL;
+#endif
+bail:
+	return wsi;
+#else
+	return NULL;
+#endif
+}
+
+struct lws *
+lws_create_adopt_udp(struct lws_vhost *vhost, const char *ads, int port,
+		     int flags, const char *protocol_name, const char *ifname,
+		     struct lws *parent_wsi, void *opaque,
+		     const lws_retry_bo_t *retry_policy, const char *fi_wsi_name)
+{
+	return lws_create_adopt_udp_tsi(vhost, ads, port, flags, protocol_name,
+					ifname, parent_wsi, -1, opaque,
+					retry_policy, fi_wsi_name);
+}
+#endif
+
+struct lws *
+lws_adopt_socket_readbuf(struct lws_context *context, lws_sockfd_type accept_fd,
+			 const char *readbuf, size_t len)
+{
+        return adopt_socket_readbuf(lws_adopt_socket(context, accept_fd),
+				    readbuf, len);
+}
+
+struct lws *
+lws_adopt_socket_vhost_readbuf(struct lws_vhost *vhost,
+			       lws_sockfd_type accept_fd,
+			       const char *readbuf, size_t len)
+{
+        return adopt_socket_readbuf(lws_adopt_socket_vhost(vhost, accept_fd),
+				    readbuf, len);
+}
+
+/* a wsi's place in the event loop: given, and taken back */
+
+int lws_wsi_inject_to_loop(struct lws_context_per_thread *pt, struct lws *wsi) {
+	int ret = 1;
+
+	lws_pt_lock(pt, __func__); /* -------------- pt { */
+
+	if (pt->context->event_loop_ops->sock_accept)
+		if (pt->context->event_loop_ops->sock_accept(wsi))
+			goto bail;
+
+	if (__insert_wsi_socket_into_fds(pt->context, wsi))
+		goto bail;
+
+	lws_dll2_remove(&wsi->pre_natal);
+	ret = 0;
+
+bail:
+	lws_pt_unlock(pt);
+
+	return ret;
+}
+
+/*
+ * Take a copy of wsi->io->desc.sockfd before calling this, then close it
+ * afterwards
+ */
+
+int lws_wsi_extract_from_loop(struct lws *wsi) {
+	if (lws_socket_is_valid(wsi->io->desc.sockfd))
+		__remove_wsi_socket_from_fds(wsi);
+
+	if (!wsi->a.context->event_loop_ops->destroy_wsi &&
+			wsi->a.context->event_loop_ops->wsi_logical_close)
+		/*
+		 * Only the event lib knows whether it actually queued an
+		 * asynchronous close (it may have nothing to close, eg, a wsi
+		 * that never got a handle)... if it did not, we must tell the
+		 * caller he is responsible for destroying the wsi now, or it
+		 * and its fd are simply never freed
+		 */
+		return !!wsi->a.context->event_loop_ops->wsi_logical_close(wsi);
+
+	if (wsi->a.context->event_loop_ops->destroy_wsi)
+		wsi->a.context->event_loop_ops->destroy_wsi(wsi);
+
+	return 0; /* he is destroyed */
+}
+
+/*
+ * Whatever a connect attempt still has in flight: the racing sockets of
+ * happy eyeballs, the name resolution and what it resolved.  Idempotent.
+ */
+void
+lws_io_abort_connect(struct lws *wsi)
+{
+#if defined(LWS_WITH_CLIENT)
+	int m;
+
+	for (m = 0; m < wsi->io->parallel_count; m++)
+		if (wsi->io->parallel_conns[m].is_valid)
+			lws_remove_parallel_fd_safely(wsi, m);
+	wsi->io->parallel_count = 0;
+	lws_free_set_NULL(wsi->io->parallel_conns);
+	wsi->io->retry = 0;
+#endif
+	lws_io_connect_timers_cancel(wsi);
+#if defined(LWS_WITH_SYS_ASYNC_DNS)
+	lws_async_dns_cancel(wsi);
+#endif
+	lws_addrinfo_clean(wsi);
+}
+
+/* the connect machine's timers hold the wsi: cancel them all */
+void
+lws_io_connect_timers_cancel(struct lws *wsi)
+{
+	lws_sul_cancel(&wsi->io->sul_connect_timeout);
+#if defined(WIN32)
+	lws_sul_cancel(&wsi->io->win32_sul_connect_async_check);
+#endif
+#if defined(LWS_WITH_CLIENT)
+	lws_sul_cancel(&wsi->io->sul_happy_eyeballs);
+	lws_sul_cancel(&wsi->io->sul_h3_grace);
+#endif
+#if defined(LWS_TLS_SYNTHESIZE_CB)
+	lws_sul_cancel(&wsi->io->tls.sul_cb_synth);
+#endif
+}
+
+/*
+ * Take the next of the sorted dns results, if any is left, as a numeric
+ * address string: the caller is falling back to it.  Returns 1 with the
+ * address written, 0 when there is none.
+ */
+int
+lws_io_dns_next(struct lws *wsi, char *ads, size_t len)
+{
+#if defined(LWS_WITH_CLIENT)
+	struct lws_dll2 *d = lws_dll2_get_head(&wsi->io->dns_sorted_list);
+	lws_dns_sort_t *ds;
+
+	if (!d)
+		return 0;
+
+	ds = lws_container_of(d, lws_dns_sort_t, list);
+	lws_sa46_write_numeric_address(&ds->dest, ads, len);
+	lws_dll2_remove(d);
+	lws_free(ds);
+
+	return 1;
+#else
+	(void)wsi; (void)ads; (void)len;
+
+	return 0;
+#endif
+}
+
+void
+lws_addrinfo_clean(struct lws *wsi)
+{
+#if defined(LWS_WITH_CLIENT)
+	struct lws_dll2 *d = lws_dll2_get_head(&wsi->io->dns_sorted_list), *d1;
+
+	while (d) {
+		lws_dns_sort_t *r = lws_container_of(d, lws_dns_sort_t, list);
+
+		d1 = lws_dll2_get_next(d);
+		lws_dll2_remove(d);
+		lws_free(r);
+
+		d = d1;
+	}
+#else
+	(void)wsi;
+#endif
+}
+
+/* the transport is no longer watched, but not released until the RELEASE */
+void
+lws_io_unwatch(struct lws *wsi)
+{
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+
+	lws_pt_lock(pt, __func__);
+	/* nothing it has buffered is offered any more, nor is it polled */
+	__lws_ssl_remove_wsi_from_buffered_list(wsi);
+	__remove_wsi_socket_from_fds(wsi);
+	lws_pt_unlock(pt);
+}
+
+/*
+ * The vhost's list of wsi that have no socket yet (they are waiting for the
+ * fd budget, or for dns): a closing wsi leaves it, and one still on it when
+ * it closes never got to tell its user it existed, so the close callback is
+ * owed.  A vhost going away closes the ones on this pt.
+ */
+void
+lws_io_socket_wait_cancel(struct lws *wsi)
+{
+	if (!wsi->a.vhost)
+		return;
+
+	lws_vhost_lock(wsi->a.vhost);
+	lws_dll2_remove(&wsi->io->vh_awaiting_socket);
+	lws_vhost_unlock(wsi->a.vhost);
+}
+
+int
+lws_io_socket_wait_pending(struct lws *wsi)
+{
+	return !lws_dll2_is_detached(&wsi->io->vh_awaiting_socket);
+}
+
+void
+lws_io_socket_waiters_close(struct lws_vhost *vh, int tsi)
+{
+#if defined(LWS_WITH_CLIENT)
+	lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
+			      lws_dll2_get_head(&vh->vh_awaiting_socket_owner)) {
+		struct lws *w =
+			lws_container_of(d, struct lws_io_adjunct, vh_awaiting_socket)->wsi;
+
+		if (w->tsi == tsi) {
+			lwsl_vhost_debug(vh, "closing aso");
+			lws_wsi_close(w, LWS_TO_KILL_ASYNC);
+		}
+
+	} lws_end_foreach_dll_safe(d, d1);
+#else
+	(void)vh; (void)tsi;
+#endif
+}
+
+#if defined(LWS_WITH_TLS)
+/*
+ * One step of a tls session's shutdown.  Once our close_notify has gone (the
+ * backend is done, or only waits for the peer's), the socket's write side is
+ * shut too, and the staged close only waits for the peer's FIN, reading and
+ * discarding what comes before it like a plaintext one: nothing is read
+ * through the session any more, so what it holds buffered is not offered
+ * again either.  Returns the backend's lws_ssl_capable_status.
+ */
+int
+lws_io_tls_shutdown_step(struct lws *wsi)
+{
+	int n = __lws_tls_shutdown(wsi);
+
+	if ((n == LWS_SSL_CAPABLE_DONE ||
+	     n == LWS_SSL_CAPABLE_MORE_SERVICE_READ) &&
+	    !wsi->io->tls.close_notify_sent) {
+		wsi->io->tls.close_notify_sent = 1;
+		lws_ssl_remove_wsi_from_buffered_list(wsi);
+		if (lws_socket_is_valid(wsi->io->desc.sockfd) &&
+		    shutdown(wsi->io->desc.sockfd, SHUT_WR))
+			lwsl_wsi_debug(wsi, "shutdown errno %d", LWS_ERRNO);
+	}
+
+	return n;
+}
+#endif
+
+/*
+ * Stop sending on the transport, keeping it open for what the peer still
+ * sends: a tls close_notify when there is a session, else the socket's
+ * write side.  Returns 1 when a tls shutdown was attempted (it may want more
+ * service), 0 when the write side is shut, -1 when shutdown() failed.
+ */
+int
+lws_io_shutdown_write(struct lws *wsi)
+{
+#if defined(LWS_WITH_UDP)
+	if (wsi->io->udp)
+		return 0; /* nothing to shut on a datagram socket */
+#endif
+#if defined(LWS_WITH_TLS)
+	if (lws_is_ssl(wsi) && wsi->io->tls.ssl) {
+		lws_io_tls_shutdown_step(wsi);
+
+		return 1;
+	}
+#endif
+	if (!lws_socket_is_valid(wsi->io->desc.sockfd))
+		return 0;
+
+	lwsl_wsi_info(wsi, "shutdown conn (sk %d, state 0x%x)",
+		      (int)(lws_intptr_t)wsi->io->desc.sockfd, lwsi_state(wsi));
+	if (shutdown(wsi->io->desc.sockfd, SHUT_WR)) {
+		lwsl_wsi_debug(wsi, "shutdown errno %d", LWS_ERRNO);
+
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * Stage the close: stop writing, keep reading, so the peer's FIN can be
+ * seen before the socket is closed.  Only a poll-based loop can promise the
+ * event that completes it.  Returns 1 when staged, 0 when not possible.
+ */
+int
+lws_io_close_staged(struct lws *wsi)
+{
+#if defined(LWS_WITH_UDP)
+	if (wsi->io->udp)
+		return 0; /* nothing to stage on a datagram socket */
+#endif
+	if (!lws_socket_is_valid(wsi->io->desc.sockfd) ||
+	    !(wsi->a.context->event_loop_ops->flags & LELOF_ISPOLL))
+		return 0;
+
+	__lws_change_pollfd(wsi, LWS_POLLOUT, LWS_POLLIN);
+
+	return 1;
+}
+
+/*
+ * The h1 keepalive handover: the connection goes on with a new wsi.  Its
+ * socket, its place in the loop (the event lib may need a new watcher) and
+ * its tls session move from wsi to wnew.  Returns -1 when the loop could not
+ * take the fd for wnew, in which case the fd is closed here and the caller
+ * bails.  Caller holds the pt lock.
+ */
+static int
+lws_io_transfer_socket(struct lws *wsi, struct lws *wnew)
+{
+assert(lws_socket_is_valid(wsi->io->desc.sockfd));
+
+__lws_change_pollfd(wsi, LWS_POLLOUT | LWS_POLLIN, 0);
+
+/* copy the fd */
+wnew->io->desc = wsi->io->desc;
+
+assert(lws_socket_is_valid(wnew->io->desc.sockfd));
+
+/* disconnect the fd from association with old wsi */
+
+if (__remove_wsi_socket_from_fds(wsi)) {
+	/* the fd stays the old wsi's, which closes with it: not wnew's too */
+	wnew->io->desc.sockfd = LWS_SOCK_INVALID;
+
+	return -1; /* we must not return holding the vh lock */
+}
+
+sanity_assert_no_wsi_traces(wsi->a.context, wsi);
+sanity_assert_no_sockfd_traces(wsi->a.context, wsi->io->desc.sockfd);
+wsi->io->desc.sockfd = LWS_SOCK_INVALID;
+
+/*
+ * ... we're doing some magic here in terms of handing off the socket
+ * that has been active to a wsi that has not yet itself been active...
+ * depending on the event lib we may need to give a magic spark to the
+ * new guy and snuff out the old guy's magic spark at that level as well
+ */
+
+#if defined(LWS_WITH_EVENT_LIBS)
+if (wsi->a.context->event_loop_ops->destroy_wsi)
+	wsi->a.context->event_loop_ops->destroy_wsi(wsi);
+if (wsi->a.context->event_loop_ops->sock_accept &&
+    wsi->a.context->event_loop_ops->sock_accept(wnew)) {
+	/*
+	 * The event lib could not take the fd (eg, libuv already had
+	 * a handle on it)... the new guy has no watcher, so he must
+	 * not go into the fds table where nothing would ever service
+	 * or close his fd
+	 */
+	compatible_close(wnew->io->desc.sockfd);
+	wnew->io->desc.sockfd = LWS_SOCK_INVALID;
+
+	return -1;
+}
+#endif
+
+/* point the fd table entry to new guy */
+
+assert(lws_socket_is_valid(wnew->io->desc.sockfd));
+
+if (__insert_wsi_socket_into_fds(wsi->a.context, wnew)) {
+	/*
+	 * We already took the fd away from the old wsi, and it did not
+	 * make it into the fds table on the new guy... nothing will
+	 * ever poll or close it now, so close it here rather than
+	 * leak it
+	 */
+	compatible_close(wnew->io->desc.sockfd);
+	wnew->io->desc.sockfd = LWS_SOCK_INVALID;
+
+	return -1;
+}
+
+#if defined(LWS_WITH_TLS)
+/* pass on the tls, and everything in the tls library that leads to a wsi */
+lws_tls_transfer_wsi(wsi, wnew);
+wsi->use_ssl = 0;
+#endif
+
+	return 0;
+}
+
+/*
+ * io_ops transfer (lws-io-ops.h): the connection sansIO knew as from goes on
+ * as to.  A stream socket's watcher is made anew on to (the keep-warm join).
+ * A datagram connection moves with its peer state and its watcher re-homed
+ * (quic's network wsi), and so does one with no socket of its own, a server
+ * quic connection on its listener's.
+ */
+int
+lws_io_transfer_pollfd(struct lws *from, struct lws *to)
+{
+	struct lws_context_per_thread *pt = &from->a.context->pt[(int)from->tsi];
+	int n;
+
+#if defined(LWS_WITH_UDP)
+	if (from->io->udp || !lws_socket_is_valid(from->io->desc.sockfd))
+		return lws_io_udp_transfer_socket(from, to);
+#endif
+
+	lws_pt_lock(pt, __func__);
+	n = lws_io_transfer_socket(from, to);
+	lws_pt_unlock(pt);
+
+	return n;
+}

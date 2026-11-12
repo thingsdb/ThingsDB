@@ -1,0 +1,2167 @@
+/*
+ * libwebsockets - small server side websockets and web server implementation
+ *
+ * Copyright (C) 2010 - 2021 Andy Green <andy@warmcat.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+
+#include "private-lib-core.h"
+
+/*
+ * The hangup alone, without the POLLERR that LWS_POLLHUP also carries on
+ * unix, and that error alone.  The small platforms number poll events lws'
+ * own way, so both are all of LWS_POLLHUP there: any hangup is an error.
+ */
+#if defined(POLLHUP) && !defined(LWS_PLAT_FREERTOS)
+#define LWS_POLL_HANGUP		(POLLHUP)
+#define LWS_POLL_ERROR		(POLLERR)
+#else
+#define LWS_POLL_HANGUP		(LWS_POLLHUP)
+#define LWS_POLL_ERROR		(LWS_POLLHUP)
+#endif
+
+#if defined(_DEBUG)
+void
+lws_service_assert_loop_thread(struct lws_context *cx, int tsi)
+{
+	if (!cx->event_loop_ops->foreign_thread)
+		/* we can't judge it */
+		return;
+
+	if (!cx->event_loop_ops->foreign_thread(cx, tsi))
+		/* OK */
+		return;
+
+	/*
+	 * Lws apis are NOT THREADSAFE with the sole exception of
+	 * lws_cancel_service().  If you look at the assert backtrace, you
+	 * should see you're illegally calling an lws api from another thread.
+	 */
+}
+#endif
+
+/*
+ * Returns 0 = handled (wsi alive), 1 = caller should close the wsi (it is
+ * alive), or -1 = the wsi has already been synchronously closed and freed in
+ * here (client connect racing paths) and must not be touched or closed again.
+ */
+
+int
+lws_handle_POLLOUT_event(struct lws *wsi, struct lws_pollfd *pollfd)
+{
+	volatile struct lws *vwsi = (volatile struct lws *)wsi;
+	lws_handling_result_t hr;
+	int n;
+
+	if (lwsi_skt_unusable(wsi)) {
+		/*
+		 * Nothing will be written on it any more, and the poll is
+		 * level-triggered: POLLOUT left armed is reported on every
+		 * pass, a busy spin until the wsi is closed, or for good if
+		 * whoever found the socket unusable never closes it
+		 */
+		if (pollfd && lws_change_pollfd(wsi, LWS_POLLOUT, 0))
+			return 1;
+
+		return 0;
+	}
+
+#if defined(LWS_WITH_CLIENT)
+	/* Intercept POLLOUT for parallel sockets if we are racing H3 */
+	if (pollfd && wsi->io->parallel_count > 0 && pollfd->fd != wsi->io->desc.sockfd) {
+		if (!lws_client_connect_3_connect(wsi, NULL, NULL, 0, pollfd)) {
+			/*
+			 * The connect processing took over the wsi's fate...
+			 * it may already have been synchronously closed and
+			 * freed (eg, racer promotion followed by a connect_4
+			 * failure).  Callers must not touch or close the wsi
+			 * again: pass the "already died" disposition up rather
+			 * than "please close me", which would double-free.
+			 */
+			return -1;
+		}
+
+		return 0;
+	}
+#endif
+
+	vwsi->io->leave_pollout_active = 0;
+	vwsi->io->handling_pollout = 1;
+	/*
+	 * if another thread wants POLLOUT on us, from here on while
+	 * handling_pollout is set, he will only set leave_pollout_active.
+	 * If we are going to disable POLLOUT, we will check that first.
+	 */
+
+	/*
+	 * user callback is lowest priority to get these notifications
+	 * actually, since other pending things cannot be disordered
+	 *
+	 * Priority 1: pending truncated sends are incomplete ws fragments
+	 *	       If anything else sent first the protocol would be
+	 *	       corrupted.
+	 *
+	 *	       These are post- any compression transform
+	 */
+
+	if (lws_has_buffered_out(wsi)) {
+		/*
+		 * If that drains it, the role hears so (its tx_drained): one
+		 * whose rx policy held its reading behind the partial reads
+		 * again from there (lws_io_read_after_drain()).  Only the role
+		 * knows why it stopped reading, so IO does not start it again.
+		 */
+		if (lws_io_tx_push(wsi, NULL, 0) < 0) {
+			lwsl_wsi_info(wsi, "signalling to close");
+			goto bail_die;
+		}
+		/* leave POLLOUT active either way */
+		goto bail_ok;
+	} else
+		if (lwsi_flushing_to_close(wsi)) {
+			lwsi_set_skt_unusable(wsi, 1);
+			goto bail_die; /* retry closing now */
+		}
+
+	/* Priority 2: pre- compression transform */
+
+#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+	if (wsi->http.comp_ctx.buflist_comp ||
+	    wsi->http.comp_ctx.may_have_more) {
+		enum lws_write_protocol wp = LWS_WRITE_HTTP;
+
+		lwsl_wsi_info(wsi, "compl comp partial (buflist_comp %p, may %d)",
+				   wsi->http.comp_ctx.buflist_comp,
+				   wsi->http.comp_ctx.may_have_more);
+
+		if (lws_rops_fidx(wsi->role_ops, LWS_ROPS_write_role_protocol) &&
+		    lws_rops_func_fidx(wsi->role_ops, LWS_ROPS_write_role_protocol).
+					write_role_protocol(wsi, NULL, 0, &wp) < 0) {
+			lwsl_wsi_info(wsi, "signalling to close");
+			goto bail_die;
+		}
+		lws_callback_on_writable(wsi);
+
+		/* if that was the end of the output, the role hears so */
+		if (lws_io_tx_drained(wsi) < 0)
+			goto bail_die;
+		goto bail_ok;
+	}
+#endif
+#ifdef LWS_WITH_CGI
+	/*
+	 * A cgi connection's wire protocol remains h1 or h2.  He is just
+	 * getting his data from his child cgis.
+	 */
+	if (wsi->http.cgi) {
+		/* also one shot */
+		if (pollfd)
+			if (lws_change_pollfd(wsi, LWS_POLLOUT, 0)) {
+				lwsl_wsi_info(wsi, "failed at set pollfd");
+				goto bail_die;
+			}
+		goto user_service_go_again;
+	}
+#endif
+
+	/* if we got here, we should have wire protocol ops set on the wsi */
+	assert(wsi->role_ops);
+
+	/* a role with a tx has it pulled first, then it has the pass */
+	if (lws_rops_fidx(wsi->role_ops, LWS_ROPS_tx) && lws_tx_pump(wsi))
+		goto bail_die;
+
+	if (!lws_rops_fidx(wsi->role_ops, LWS_ROPS_handle_POLLOUT))
+		goto bail_ok;
+
+	hr = lws_rops_func_fidx(wsi->role_ops, LWS_ROPS_handle_POLLOUT).
+							handle_POLLOUT(wsi);
+	switch (hr) {
+	case LWS_HP_RET_BAIL_OK:
+		goto bail_ok;
+	case LWS_HP_RET_BAIL_DIE:
+		goto bail_die;
+	case LWS_HP_RET_DROP_POLLOUT:
+	case LWS_HP_RET_USER_SERVICE:
+		break;
+	default:
+		assert(0);
+	}
+
+	/* one shot */
+
+	if (pollfd) {
+		int eff = vwsi->io->leave_pollout_active;
+
+		if (!eff) {
+			if (lws_change_pollfd(wsi, LWS_POLLOUT, 0)) {
+				lwsl_wsi_info(wsi, "failed at set pollfd");
+				goto bail_die;
+			}
+		}
+
+		vwsi->io->handling_pollout = 0;
+
+		/* cannot get leave_pollout_active set after the above */
+		if (!eff && wsi->io->leave_pollout_active) {
+			/*
+			 * got set inbetween sampling eff and clearing
+			 * handling_pollout, force POLLOUT on
+			 */
+			lwsl_wsi_debug(wsi, "leave_pollout_active");
+			if (lws_change_pollfd(wsi, 0, LWS_POLLOUT)) {
+				lwsl_wsi_info(wsi, "failed at set pollfd");
+				goto bail_die;
+			}
+		}
+
+		vwsi->io->leave_pollout_active = 0;
+	}
+
+	/*
+	 * An http client gets no user writeable callbacks until the response
+	 * headers have arrived, except while it is issuing its own request
+	 * headers (h2) or body.  Roles without headers are not gated.
+	 */
+	if (lwsi_role_client(wsi) && lwsi_role_http(wsi) &&
+	    lwsi_hdrs_pending(wsi) &&
+	     lwsi_state(wsi) != LRS_H2_WAITING_TO_SEND_HEADERS &&
+	     lwsi_state(wsi) != LRS_ISSUE_HTTP_BODY)
+		goto bail_ok;
+
+	if (hr == LWS_HP_RET_DROP_POLLOUT)
+		goto bail_ok;
+
+
+#ifdef LWS_WITH_CGI
+user_service_go_again:
+#endif
+
+	if (lws_rops_fidx(wsi->role_ops, LWS_ROPS_perform_user_POLLOUT)) {
+		if (lws_rops_func_fidx(wsi->role_ops,
+				       LWS_ROPS_perform_user_POLLOUT).
+						perform_user_POLLOUT(wsi) == -1)
+			goto bail_die;
+		else
+			goto bail_ok;
+	}
+
+	lwsl_wsi_debug(wsi, "non mux: wsistate 0x%lx, ops %s",
+			    (unsigned long)wsi->wsistate, wsi->role_ops->name);
+
+	vwsi = (volatile struct lws *)wsi;
+	vwsi->io->leave_pollout_active = 0;
+
+	n = lws_callback_as_writeable(wsi);
+	vwsi->io->handling_pollout = 0;
+
+	if (vwsi->io->leave_pollout_active)
+		if (lws_change_pollfd(wsi, 0, LWS_POLLOUT))
+			goto bail_die;
+
+	/*
+	 * Any nonzero return from the user protocol callback means "close this
+	 * connection".  Normalize it to our 1 = "caller should close me"
+	 * disposition: it must not be able to alias -1, which means "the wsi
+	 * is already closed and freed, do not touch it".
+	 */
+
+	return !!n;
+
+	/*
+	 * since these don't disable the POLLOUT, they are always doing the
+	 * right thing for leave_pollout_active whether it was set or not.
+	 */
+
+bail_ok:
+	vwsi->io->handling_pollout = 0;
+	vwsi->io->leave_pollout_active = 0;
+
+	return 0;
+
+bail_die:
+	vwsi->io->handling_pollout = 0;
+	vwsi->io->leave_pollout_active = 0;
+
+	/*
+	 * The wsi is still alive here, it just cannot continue: it's the
+	 * caller's job to close it.  -1 is reserved for the case the wsi was
+	 * already synchronously closed and freed inside here (see the client
+	 * connect racing intercept at the top).
+	 */
+
+	return 1;
+}
+
+/*
+ * Does this wsi's state park its rx until the phase in progress ends?
+ *
+ * An h1 client sending its request (a queued one's turn on the connection)
+ * or its request body reads nothing until that has all gone, and then the
+ * response.
+ *
+ * While it is holding the next request off until a clean POLLOUT, has a
+ * deferred http action, is serving a file (synchronously or on a worker), is
+ * in the middle of a callback-driven transaction, is waiting for an async
+ * tls accept, is flushing before close, or has a ws CLOSE frame (its own, or
+ * its answer to the peer's) still to send, it stashes or ignores rx without
+ * consuming it.  Each of those phases ends with our tx (the response, the
+ * handshake, the flush, the CLOSE), not with anything the peer sends.
+ *
+ * A close staged in SHUTDOWN (a server's, or an h2 client connection's after
+ * its GOAWAY) has sent its FIN and waits only for the peer's: its protocol is gone, so nothing parked on it can ever be consumed
+ * either (the staging drops it, see __lws_close_free_wsi()).
+ */
+int
+lws_wsi_state_parks_rx(struct lws *wsi)
+{
+	switch (lwsi_state(wsi)) {
+	case LRS_H1C_ISSUE_HANDSHAKE2:
+	case LRS_ISSUE_HTTP_BODY:
+	case LRS_TXN_COMPLETED:
+	case LRS_TXN_COMPLETING:
+	case LRS_DEFERRING_ACTION:
+	case LRS_AWAITING_FILE_READ:
+	case LRS_ISSUING_FILE:
+	case LRS_DOING_TRANSACTION:
+	case LRS_AWAITING_SSL_ACCEPT:
+	case LRS_FLUSHING_BEFORE_CLOSE:
+	case LRS_WAITING_TO_SEND_CLOSE:
+	case LRS_RETURNED_CLOSE:
+	case LRS_SHUTDOWN:
+		return 1;
+	default:
+		return 0;
+	}
+}
+
+/*
+ * Can this wsi consume rx parked on its buflist if we service it now?  Not
+ * while rx flow control holds it, nor while its state parks it: forcing a
+ * zero wait then would only spin the event loop until the state change at
+ * the end of that phase brings it back here.
+ */
+int
+lws_wsi_can_consume_parked_rx(struct lws *wsi)
+{
+#if defined(LWS_ROLE_H2)
+	/*
+	 * An h2 server connection takes no rx, for itself or its streams,
+	 * while it holds a partial send: the role's policy holds it until the
+	 * partial drains (rops_rx_policy_h2(), rops_tx_drained_h2()), so
+	 * offering it from here every pass meanwhile only has the loop spin,
+	 * for as long as the peer does not read
+	 */
+	if (lwsi_role_h2(wsi) && !lwsi_role_client(wsi) &&
+	    (wsi->mux_substream || lws_wsi_is_mux_nwsi(wsi))) {
+		struct lws *nwsi = lws_get_network_wsi(wsi);
+
+		if (nwsi && lws_has_buffered_out(nwsi))
+			return 0;
+	}
+#endif
+
+	return !lws_is_flowcontrolled(wsi) && !lws_wsi_state_parks_rx(wsi);
+}
+
+lws_usec_t
+lws_service_set_now(struct lws_context *context, int tsi, lws_usec_t now_us,
+		    time_t now_wall)
+{
+	struct lws_context_per_thread *pt = &context->pt[tsi];
+	lws_usec_t us;
+
+	lws_context_lock(pt->context, __func__); /* cx then pt */
+	lws_pt_lock(pt, __func__);
+
+	if (pt->now_external && now_us < pt->now_us)
+		now_us = pt->now_us; /* time only moves forwards */
+
+	pt->now_us = now_us;
+	pt->now_wall = now_wall;
+	pt->now_external = 1;
+
+	us = __lws_sul_service_ripe(&pt->pt_sul_owner[0].owner,
+				    LWS_COUNT_PT_SUL_OWNERS, now_us);
+	lws_pt_unlock(pt);
+	lws_context_unlock(pt->context);
+
+	return us;
+}
+
+int
+lws_service_adjust_timeout(struct lws_context *context, int timeout_ms, int tsi)
+{
+	struct lws_context_per_thread *pt;
+
+	if (!context)
+		return 1;
+
+        if (!context->protocol_init_done)
+                if (lws_protocol_init(context))
+                        return 1;
+
+#if defined(LWS_WITH_SYS_SMD)
+	if (!tsi && lws_smd_message_pending(context)) {
+		lws_smd_msg_distribute(context);
+		if (lws_smd_message_pending(context))
+			return 0;
+	}
+#endif
+
+	pt = &context->pt[tsi];
+
+	if (pt->evlib_pt) {
+		lws_usec_t u;
+
+		lws_context_lock(pt->context, __func__); /* cx then pt */
+		lws_pt_lock(pt, __func__); /* -------------- pt { */
+
+		u = __lws_sul_service_ripe(&pt->pt_sul_owner[0].owner,
+				      LWS_COUNT_PT_SUL_OWNERS, lws_now_usecs());
+		/*
+		 * We will come back with 0 if nothing to do at the moment, or
+		 * the number of us until something to do.  A timer that is not
+		 * due yet is not forced service: wait until it is due, never
+		 * less than 1ms
+		 */
+		if (u && u < (lws_usec_t)timeout_ms * LWS_US_PER_MS)
+			timeout_ms = (int)lws_us_to_ms_ceil(u);
+
+		lws_pt_unlock(pt);
+		lws_context_unlock(pt->context);
+	}
+
+	/*
+	 * Figure out if we really want to wait in poll()... we only need to
+	 * wait if really nothing already to do and we have to wait for
+	 * something from network
+	 */
+#if defined(LWS_ROLE_WS) && !defined(LWS_WITHOUT_EXTENSIONS)
+	/*
+	 * 1) if we know we are draining rx ext, do not wait in poll... for a
+	 *    wsi that will be serviced for it, ie, one still watched for rx
+	 *    (rops_service_flag_pending_ws() fakes its POLLIN).  One whose rx
+	 *    is held meanwhile (rx flow control, a tx extension drain) has
+	 *    dropped POLLIN and does not drain until that ends: not waiting
+	 *    for it would only spin.
+	 */
+	{
+		struct lws *w = pt->ws.rx_draining_ext_list;
+
+		while (w) {
+			if (w->io->position_in_fds_table != LWS_NO_FDS_POS &&
+			    (pt->fds[w->io->position_in_fds_table].events &
+								LWS_POLLIN))
+				return 0;
+			w = w->ws->rx_draining_ext_list;
+		}
+	}
+#endif
+
+#if defined(LWS_WITH_TLS)
+	/* 2) if we know we have non-network pending data,
+	 *    do not wait in poll */
+
+	if (pt->context->tls_ops &&
+	    pt->context->tls_ops->fake_POLLIN_for_buffered &&
+	    pt->context->tls_ops->fake_POLLIN_for_buffered(pt))
+			return 0;
+#endif
+
+	/*
+	 * 4) If there is any wsi with rxflow buffered and in a state to process
+	 *    it, we should not wait in poll
+	 */
+
+	lws_start_foreach_dll(struct lws_dll2 *, d, lws_dll2_get_head(&pt->dll_buflist_owner)) {
+		struct lws *wsi = lws_container_of(d, struct lws, dll_buflist);
+
+		/*
+		 * Only if the wsi is in a state where the h1 service path
+		 * will actually consume the buffered rx.  While it is
+		 * issuing a file, in the middle of a callback-driven
+		 * transaction, or flushing before close, it stashes /
+		 * ignores rx without consuming it, so forcing a zero wait
+		 * here would just spin the event loop for the duration of
+		 * the transfer; the state change at the end of the
+		 * transaction brings it back here.
+		 */
+		if (lws_wsi_can_consume_parked_rx(wsi))
+			return 0;
+
+	/*
+	 * 5) If any guys with http compression to spill, we shouldn't wait in
+	 *    poll but hurry along and service them
+	 */
+
+	} lws_end_foreach_dll(d);
+
+	return timeout_ms;
+}
+
+/*
+ * POLLIN said there is something... we must read it, and either use it; or
+ * if other material already in the buflist append it and return the buflist
+ * head material.
+ */
+int
+lws_buflist_aware_read(struct lws_context_per_thread *pt, struct lws *wsi,
+		       struct lws_tokens *ebuf, char fr, const char *hint)
+{
+	int n, e, bns;
+	uint8_t *ep, *b;
+
+	// lwsl_debug("%s: %s: %s: prior %d\n", __func__, lws_wsi_tag(wsi), hint, prior);
+	// lws_buflist_describe(&wsi->buflist, wsi, __func__);
+
+	(void)hint;
+
+	/*
+	 * "No buffer" and "no length" both mean the same thing, use the pt
+	 * serv_buf... the substitution has to be all-or-nothing, since giving
+	 * a caller-provided (short) buffer the pt serv_buf's length would let
+	 * the read below overflow it.
+	 */
+
+	if (!ebuf->token || ebuf->len <= 0) {
+		ebuf->token = pt->serv_buf + LWS_PRE;
+		ebuf->len = (int)(wsi->a.context->pt_serv_buf_size - LWS_PRE);
+	} else
+		if ((unsigned int)ebuf->len >
+				wsi->a.context->pt_serv_buf_size - LWS_PRE)
+			ebuf->len = (int)(wsi->a.context->pt_serv_buf_size -
+					  LWS_PRE);
+
+	e = ebuf->len;
+	ep = ebuf->token;
+
+	/* h2 or muxed stream... must force the read due to HOL blocking */
+
+	if (wsi->mux_substream)
+		fr = 1;
+
+	/* there's something on the buflist? */
+
+	bns = (int)lws_buflist_next_segment_len(&wsi->buflist, &ebuf->token);
+	b = ebuf->token;
+
+	if (!fr && bns)
+		goto buflist_material;
+
+	/* we're going to read something */
+
+	ebuf->token = ep;
+	ebuf->len = n = lws_ssl_capable_read(wsi, ep, (size_t)e);
+	if (n == LWS_SSL_CAPABLE_ERROR) {
+		int en = LWS_ERRNO;
+
+		/* the transport may have said more precisely already */
+		lws_wsi_close_cause_set(wsi, en ? "rx failed, errno" :
+						  "rx failed", en);
+	}
+
+	lwsl_wsi_debug(wsi, "%s: ssl_capable_read %d", hint, ebuf->len);
+
+	if (!bns && /* only acknowledge error when we handled buflist content */
+	    n == LWS_SSL_CAPABLE_ERROR) {
+		lwsl_debug("%s: SSL_CAPABLE_ERROR\n", __func__);
+		return -1;
+	}
+
+	if (n <= 0 && bns)
+		/*
+		 * There wasn't anything to read yet, but there's something
+		 * on the buflist to give him
+		 */
+		goto buflist_material;
+
+	/* we read something */
+
+	if (fr && bns) {
+		/*
+		 * Stash what we read, since there's earlier buflist material
+		 */
+
+		n = lws_buflist_append_segment(&wsi->buflist, ebuf->token, (size_t)ebuf->len);
+		if (n < 0)
+			return -1;
+		if (n && lws_dll2_is_detached(&wsi->dll_buflist))
+			lws_dll2_add_head(&wsi->dll_buflist,
+					  &pt->dll_buflist_owner);
+
+		goto buflist_material;
+	}
+
+	/*
+	 * directly return what we read
+	 */
+
+	return 0;
+
+buflist_material:
+
+	ebuf->token = b;
+	if (e < bns)
+		/* restrict to e, if more than e available */
+		ebuf->len = e;
+	else
+		ebuf->len = bns;
+
+	return 1; /* from buflist */
+}
+
+
+/*
+ * The rx pump: IO's side of the rx interface.  Takes what the transport has
+ * (or what was parked from an earlier read), hands it to the role's rx,
+ * parks what it did not consume, and deals with the transport's own
+ * conditions: nothing there yet, an error, the peer closed.
+ *
+ * pollfd is what the event loop reported, NULL to read regardless: unless
+ * it says readable only parked rx is offered.  LWS_RXP_FORCE_READ reads
+ * even when something is parked (a mux stream must, to avoid head-of-line
+ * blocking); LWS_RXP_NO_READ offers parked rx only, for a wsi with no
+ * transport of its own or in a state that must not read.  max is the most
+ * to read, 0 for the per-thread buffer's worth.
+ *
+ * Returns LWS_HPI_RET_HANDLED when the caller can carry on to its POLLOUT
+ * side, with *nothing set when there was no rx for the role to act on (and
+ * *consumed the count it took), or the usual PLEASE_CLOSE_ME /
+ * WSI_ALREADY_DIED, or CLOSING when the role closed or restarted the wsi and
+ * it lives on: nothing more of this pass is to be done with it.
+ */
+/* the peer closed its side: stop reading, tell the role */
+static lws_handling_result_t
+rx_pump_peer_closed(struct lws *wsi, int *nothing)
+{
+	lws_handling_result_t hr;
+	size_t used;
+
+	wsi->seen_zero_length_recv = 1;
+	if (lws_change_pollfd(wsi, LWS_POLLIN, 0))
+		return LWS_HPI_RET_PLEASE_CLOSE_ME;
+	hr = lws_rops_func_fidx(wsi->role_ops, LWS_ROPS_rx).rx(wsi, NULL, 0, 1,
+								&used);
+	if (hr == LWS_HPI_RET_HANDLED)
+		*nothing = 1;
+
+	return hr;
+}
+
+lws_handling_result_t
+lws_rx_pump(struct lws_context_per_thread *pt, struct lws *wsi,
+	    struct lws_pollfd *pollfd, int flags, size_t max, int *nothing,
+	    int *consumed)
+{
+	/*
+	 * With a NULL token lws_buflist_aware_read() substitutes the whole
+	 * pt serv_buf, length included, so the role's max (a ws protocol's
+	 * rx_buffer_size) was never applied; name the buffer so only the
+	 * length is clamped
+	 */
+	struct lws_tokens ebuf = { max ? pt->serv_buf + LWS_PRE : NULL, (int)max };
+	lws_handling_result_t hr;
+	int buffered, sb;
+	size_t used;
+#if defined(LWS_WITH_TLS) && defined(LWS_WITH_CLIENT)
+	int plaintext = !wsi->io->tls.ssl;
+#endif
+
+	*nothing = 0;
+	*consumed = 0;
+
+	if (lws_io_tls_on_worker(wsi)) {
+		/*
+		 * Whatever the role's policy said, the SSL is inside an
+		 * accept on a worker: a read here would run the tls library
+		 * on it from two threads at once
+		 */
+		*nothing = 1;
+
+		return LWS_HPI_RET_HANDLED;
+	}
+
+	if (((flags & LWS_RXP_NO_READ) ||
+	     (pollfd && !(pollfd->revents & pollfd->events & LWS_POLLIN))) &&
+	    !lws_buflist_next_segment_len(&wsi->buflist, NULL)) {
+		/* nothing readable, nothing parked */
+		*nothing = 1;
+
+		return LWS_HPI_RET_HANDLED;
+	}
+
+	if (flags & LWS_RXP_NO_READ) {
+		/* parked rx only: what is there is offered as it lies */
+		ebuf.len = (int)lws_buflist_next_segment_len(&wsi->buflist,
+							     &ebuf.token);
+		buffered = 1;
+	} else
+		buffered = lws_buflist_aware_read(pt, wsi, &ebuf,
+						  !!(flags & LWS_RXP_FORCE_READ),
+						  __func__);
+	switch (ebuf.len) {
+	case 0:
+#if defined(LWS_WITH_UDP)
+		/*
+		 * An empty datagram is legal and says nothing about the
+		 * socket: nothing for the role, the wsi lives on
+		 */
+		if (lws_wsi_is_udp(wsi)) {
+			*nothing = 1;
+
+			return LWS_HPI_RET_HANDLED;
+		}
+#endif
+		lws_wsi_close_cause_set(wsi, "peer closed", 0);
+
+		return rx_pump_peer_closed(wsi, nothing);
+
+	case LWS_SSL_CAPABLE_ERROR:
+	case LWS_SSL_CAPABLE_MORE_SERVICE_READ:
+	case LWS_SSL_CAPABLE_MORE_SERVICE_WRITE:
+		/*
+		 * A hangup the poll reported is trusted over the read's own
+		 * account of the socket: not every platform and tls library
+		 * tells a closed peer apart from an empty record or a
+		 * transient error, and some would have us try again
+		 * forever.  A read that yields nothing on a hung-up socket
+		 * is the peer closed, however it was spelled.
+		 */
+		if (pollfd && (pollfd->revents & LWS_POLLHUP)) {
+			lws_wsi_close_cause_set(wsi, "peer hung up", 0);
+
+			return rx_pump_peer_closed(wsi, nothing);
+		}
+
+		if (ebuf.len == LWS_SSL_CAPABLE_ERROR) {
+			/*
+			 * The transport failed.  To the role that is the peer
+			 * gone, however it was spelled: it hears the empty rx
+			 * so a client still waiting for its reply can report a
+			 * connection error rather than a bare close, and then
+			 * the wsi is closed regardless of what it answered.
+			 */
+			lws_handling_result_t hr =
+					rx_pump_peer_closed(wsi, nothing);
+
+			if (hr == LWS_HPI_RET_WSI_ALREADY_DIED ||
+			    hr == LWS_HPI_RET_CLOSING)
+				return hr;
+
+			return LWS_HPI_RET_PLEASE_CLOSE_ME;
+		}
+
+		*nothing = 1;
+
+		return LWS_HPI_RET_HANDLED;
+	}
+
+	sb = lws_servbuf_claim(pt, ebuf.token, (size_t)ebuf.len, "rx pump");
+	hr = lws_rops_func_fidx(wsi->role_ops, LWS_ROPS_rx).
+			rx(wsi, ebuf.token, (size_t)ebuf.len, !buffered, &used);
+	lws_servbuf_release(pt, sb);
+	if (hr != LWS_HPI_RET_HANDLED)
+		return hr;
+
+	/* a role taking more than it was given is broken */
+	if (used > (size_t)ebuf.len)
+		return LWS_HPI_RET_PLEASE_CLOSE_ME;
+
+	*consumed = (int)used;
+	if (lws_buflist_aware_finished_consuming(wsi, &ebuf, (int)used,
+						 buffered, __func__))
+		return LWS_HPI_RET_PLEASE_CLOSE_ME;
+
+#if defined(LWS_WITH_TLS) && defined(LWS_WITH_CLIENT)
+	/*
+	 * The rx started tls on a plaintext connection (STARTTLS, with
+	 * lws_tls_client_upgrade()): whatever is still parked was read
+	 * before it, unprotected, and must never be taken for what comes over
+	 * the tls.  The app can only see what it was given in this rx.
+	 */
+	if (plaintext && wsi->io->tls.ssl &&
+	    lws_buflist_next_segment_len(&wsi->buflist, NULL)) {
+		lwsl_wsi_warn(wsi, "plaintext parked behind the start of tls");
+
+		return LWS_HPI_RET_PLEASE_CLOSE_ME;
+	}
+#endif
+
+	return LWS_HPI_RET_HANDLED;
+}
+
+/*
+ * Service a wsi now as though its socket had POLLIN pending, for a role
+ * that already holds bytes for it (a pipelined request in the buflist, the
+ * first bytes after a tunnel came up).  Returns what the service says: <0 a
+ * failure, 1 the wsi died in the service, 0 otherwise; a wsi with no place
+ * in the poll set yet has nothing to service and gets 0.
+ */
+int
+lws_io_service_now(struct lws *wsi)
+{
+	struct lws_pollfd pfd;
+
+	if (wsi->io->position_in_fds_table == LWS_NO_FDS_POS ||
+	    !lws_socket_is_valid(wsi->io->desc.sockfd))
+		return 0;
+
+	pfd.fd = wsi->io->desc.sockfd;
+	pfd.events = LWS_POLLIN;
+	pfd.revents = LWS_POLLIN;
+
+	return lws_service_fd_tsi(wsi->a.context, &pfd, wsi->tsi);
+}
+
+/*
+ * Mark a wsi's poll entry as having rx pending so the loop services it on
+ * this turn without waiting in poll: for a role holding bytes it has not
+ * finished with (ws extension data still draining).  Returns 1 when the wsi
+ * is watched for rx and so will be serviced, else 0.
+ */
+int
+lws_io_flag_pending_rx(struct lws *wsi)
+{
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+	struct lws_pollfd *pfd;
+
+	if (wsi->io->position_in_fds_table == LWS_NO_FDS_POS)
+		return 0;
+
+	pfd = &pt->fds[wsi->io->position_in_fds_table];
+	pfd->revents = (short)((short)pfd->revents |
+			       (short)(pfd->events & LWS_POLLIN));
+
+	return !!(pfd->revents & LWS_POLLIN);
+}
+
+
+#if defined(LWS_WITH_UDP)
+/*
+ * The datagram spelling of the pump: receive one datagram for wsi into the
+ * pt serv_buf and hand it, with the peer it came from and the ECN bits it
+ * carried, to the role's rx_dgram op.  A datagram is taken whole, so there
+ * is nothing to park.  *nothing is set when there was none to take.  With
+ * pollfd NULL it reads without the poll saying there is one, to empty the
+ * socket.
+ *
+ * Which family the peer's address is reported in is the platform's choice:
+ * macOS hands a v4 peer up from an AF_INET6 socket as a plain sockaddr_in,
+ * Linux always uses the v4-mapped AF_INET6 form.  The role must answer on
+ * the socket the datagram came in on, and a sockaddr of the other family is
+ * not a valid destination for it (Linux tolerates the mismatch, macOS
+ * refuses it with EINVAL).  So the peer is brought to the socket's family
+ * here, once, before the role records it, compares it for path migration
+ * or answers to it.
+ */
+lws_handling_result_t
+lws_rx_pump_dgram(struct lws_context_per_thread *pt, struct lws *wsi,
+		  struct lws_pollfd *pollfd, int *nothing)
+{
+	const lws_peer_entry_t *via = NULL;
+#if defined(LWS_WITH_TLS_PASSTHROUGH) && defined(LWS_ROLE_QUIC)
+	lws_peer_entry_t relayed[2];
+#endif
+	lws_handling_result_t hr;
+	lws_sockaddr46 sa46;
+	socklen_t slen = sizeof(sa46);
+	uint8_t ecn = 0, *b;
+	int n, sb;
+	size_t l;
+
+	*nothing = 0;
+
+	if (pollfd && !(pollfd->revents & LWS_POLLIN)) {
+		*nothing = 1;
+
+		return LWS_HPI_RET_HANDLED;
+	}
+
+	memset(&sa46, 0, sizeof(sa46));
+
+#if defined(LWS_WITH_UDP)
+	if (wsi->io->pending_sock_err) {
+		/*
+		 * The icmp error the service loop took from the socket
+		 * (_lws_service_fd_tsi()): the recv would have returned it
+		 */
+		lwsl_wsi_info(wsi, "dgram socket error %d",
+			      wsi->io->pending_sock_err);
+#if defined(LWS_WITH_CLIENT)
+		/* a client's peer may not be at this address at all */
+		lws_io_dgram_refused(wsi, wsi->io->pending_sock_err);
+#endif
+		wsi->io->pending_sock_err = 0;
+		*nothing = 1;
+
+		return LWS_HPI_RET_HANDLED;
+	}
+#endif
+
+	if (wsi->io->transport && wsi->io->transport->recv_dgram)
+		n = wsi->io->transport->recv_dgram(wsi, wsi->io->transport_opaque,
+						  pt->serv_buf,
+						  wsi->a.context->pt_serv_buf_size,
+						  &sa46, &ecn);
+	else
+#if defined(WIN32) || defined(_WIN32)
+	n = (int)recvfrom(wsi->io->desc.sockfd, (char *)pt->serv_buf,
+			  (int)wsi->a.context->pt_serv_buf_size, 0,
+			  sa46_sockaddr(&sa46), &slen);
+#else
+	{
+		struct iovec iov;
+		struct msghdr msg;
+		struct cmsghdr *cmsg;
+		uint8_t cmsg_buf[256];
+
+		iov.iov_base = (void *)pt->serv_buf;
+		iov.iov_len = wsi->a.context->pt_serv_buf_size;
+
+		memset(&msg, 0, sizeof(msg));
+		msg.msg_name = sa46_sockaddr(&sa46);
+		msg.msg_namelen = slen;
+		msg.msg_iov = &iov;
+		msg.msg_iovlen = 1;
+		msg.msg_control = cmsg_buf;
+		msg.msg_controllen = sizeof(cmsg_buf);
+
+		n = (int)recvmsg(wsi->io->desc.sockfd, &msg, 0);
+
+		if (n > 0)
+			for (cmsg = CMSG_FIRSTHDR(&msg); cmsg;
+			     cmsg = CMSG_NXTHDR(&msg, cmsg)) {
+#if defined(IP_TOS)
+				if (cmsg->cmsg_level == IPPROTO_IP &&
+				    cmsg->cmsg_type == IP_TOS)
+					ecn = *(uint8_t *)CMSG_DATA(cmsg) & 3;
+#endif
+#if defined(LWS_WITH_IPV6) && defined(IPV6_TCLASS)
+				if (cmsg->cmsg_level == IPPROTO_IPV6 &&
+				    cmsg->cmsg_type == IPV6_TCLASS)
+					ecn = *(uint8_t *)CMSG_DATA(cmsg) & 3;
+#endif
+			}
+	}
+#endif
+
+	if (n <= 0) {
+		int en = LWS_ERRNO;
+
+		*nothing = 1;
+		/* none left (a transport says so with 0) */
+		if (!n || en == LWS_EAGAIN || en == LWS_EWOULDBLOCK)
+			return LWS_HPI_RET_HANDLED;
+
+		lwsl_wsi_info(wsi, "dgram recv returned %d (errno %d)", n, en);
+#if defined(LWS_WITH_CLIENT)
+		/* the recv can be what reports an ICMP error */
+		if (n < 0)
+			lws_io_dgram_refused(wsi, en);
+#endif
+
+		return LWS_HPI_RET_HANDLED;
+	}
+
+#if defined(LWS_WITH_CLIENT)
+	/* a client's connected socket only takes what its peer sent */
+	lws_io_dgram_heard(wsi);
+#endif
+
+#if defined(LWS_WITH_IPV6)
+	if (wsi->io->udp && wsi->io->udp->sa46.sa4.sin_family == AF_INET6 &&
+	    sa46.sa4.sin_family == AF_INET) {
+		uint8_t a4[4];
+		uint16_t port;
+
+		memcpy(a4, &sa46.sa4.sin_addr, sizeof(a4));
+		port = ntohs(sa46.sa4.sin_port);
+
+		memset(&sa46, 0, sizeof(sa46));
+		lws_sa46_4to6(&sa46, a4, port);
+	}
+#endif
+
+	sb = lws_servbuf_claim(pt, pt->serv_buf, (size_t)n, "rx dgram pump");
+	b = pt->serv_buf;
+	l = (size_t)n;
+#if defined(LWS_WITH_TLS_PASSTHROUGH) && defined(LWS_ROLE_QUIC)
+	/*
+	 * A trusted relay's PROXY v2 header comes off first, leaving how the
+	 * datagram came in via, then a datagram for a passed through vhost
+	 * goes on to its server (lib/io/passthrough.c)
+	 */
+	if (wsi->io->listener && wsi->role_ops == &role_ops_quic) {
+		if (lws_relayed_dgram_rx(wsi, &b, &l, &sa46, relayed) ||
+		    lws_quic_passthrough_rx(wsi, b, l, &sa46, ecn)) {
+			lws_servbuf_release(pt, sb);
+			return LWS_HPI_RET_HANDLED;
+		}
+		if (relayed[0].cred != LWS_PEER_CRED_NONE)
+			via = relayed;
+	}
+#endif
+	hr = lws_rops_func_fidx(wsi->role_ops, LWS_ROPS_rx_dgram).
+			rx_dgram(wsi, b, l, &sa46, ecn, via);
+	lws_servbuf_release(pt, sb);
+
+	return hr;
+}
+#endif
+
+/*
+ * The tx pull (README.sans-io-split.md, "Sending is a pull"): the transport
+ * can take bytes, so take them from the role one piece at a time into the pt
+ * serv_buf, write each, and tell the role how each write went.  A datagram
+ * role's pieces are datagrams, sent where the role says; a stream's are
+ * written in order, the socket's short writes buffered here as ever.  wsi is
+ * the transport's owner, or a connection whose datagrams must go now
+ * (lws_io_tx_now()).  The pass ends when the role has nothing more it may
+ * send now, or the transport is full.  Returns 0, or -1 when the role is
+ * finished with the connection and IO closes it.
+ */
+int
+lws_tx_pump(struct lws *wsi)
+{
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+	size_t max = wsi->a.context->pt_serv_buf_size;
+#if defined(LWS_WITH_UDP)
+	int dgram = !!lws_rops_fidx(wsi->role_ops, LWS_ROPS_rx_dgram);
+	lws_sockaddr46 dest;
+#endif
+	int first = 1, n, sb;
+
+	do {
+		lws_sockaddr46 *pdest = NULL;
+
+#if defined(LWS_WITH_UDP)
+		if (dgram) {
+			memset(&dest, 0, sizeof(dest));
+			pdest = &dest;
+		}
+#endif
+		sb = lws_servbuf_claim(pt, pt->serv_buf, max, "tx pull");
+		n = lws_rops_func_fidx(wsi->role_ops, LWS_ROPS_tx).
+				tx(wsi, pt->serv_buf, max, pdest, first);
+		first = 0;
+		if (n <= 0) { /* nothing more now, held, or finished with */
+			lws_servbuf_release(pt, sb);
+			return n == LWS_TX_FAIL ? -1 : 0;
+		}
+
+#if defined(LWS_WITH_UDP)
+		if (dgram) {
+			/*
+			 * A fault dropping it looks like it was sent.  One
+			 * refusing it looks like a full socket, eg ENOBUFS,
+			 * which macOS gives for a burst of datagrams: it isn't
+			 * sent, and the role has to send it again later.
+			 */
+			if (lws_fi(&wsi->fic, "udp_tx_full"))
+				n = LWS_SSL_CAPABLE_MORE_SERVICE_WRITE;
+			else if (!lws_fi(&wsi->fic, "udp_tx_loss"))
+				n = lws_io_send_dgram(wsi, pt->serv_buf,
+						(size_t)n, dest.sa4.sin_family ?
+							&dest : NULL);
+		} else
+#endif
+		{
+			int m = lws_io_tx_push(wsi, pt->serv_buf, (size_t)n);
+
+			/* the stream takes it all, or it failed */
+			n = m == n ? m : LWS_SSL_CAPABLE_ERROR;
+		}
+		lws_servbuf_release(pt, sb);
+
+		n = lws_rops_func_fidx(wsi->role_ops, LWS_ROPS_tx_sent).
+								tx_sent(wsi, n);
+	} while (!n);
+
+	return n < 0 ? -1 : 0;
+}
+
+#if defined(LWS_WITH_UDP)
+/* the datagrams of a connection that must go now, not on the next POLLOUT */
+void
+lws_io_tx_now(struct lws *wsi)
+{
+	if (lws_rops_fidx(wsi->role_ops, LWS_ROPS_tx))
+		lws_tx_pump(wsi);
+}
+#endif
+
+#if defined(LWS_WITH_CLIENT) && \
+    (defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2) || defined(LWS_ROLE_H3))
+/*
+ * The app's pull of a response body.  IO at the app's pace: reads into the
+ * app's buffer (or the pt serv_buf), as much as fits, and hands it to the
+ * sansIO body rx, which strips any chunked framing and delivers the payload.
+ * Nothing is queued in lws for a body the app has not asked for: what it
+ * does not pull stays in the kernel, and the peer feels it as the window
+ * closing.  On a stream of a muxed connection there is nothing to read, and
+ * what the connection parked for the stream is offered instead.
+ */
+int
+lws_http_client_read(struct lws *wsi, char **buf, int *len)
+{
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+	struct lws_tokens eb;
+	int buffered, n;
+
+	/*
+	 * If the caller provided a non-NULL *buf and nonzero *len, we should
+	 * use that as the buffer for the read action, limititing it to *len
+	 * (actual payload will be less if chunked headers inside).
+	 *
+	 * If it's NULL / 0 length, buflist_aware_read will use the pt_serv_buf
+	 */
+
+	eb.token = (unsigned char *)*buf;
+	eb.len = *len;
+
+	buffered = lws_buflist_aware_read(pt, wsi, &eb, 0, __func__);
+	*buf = (char *)eb.token; /* may be pointing to buflist or pt_serv_buf */
+	*len = 0;
+
+	/* allow the source to signal he has data again next time */
+	if (lws_change_pollfd(wsi, 0, LWS_POLLIN))
+		return -1;
+
+	/*
+	 * A read of 0 is a transport's peer closing (lws_transport_ops_t):
+	 * a socket's is reported as the failed read
+	 */
+	if (buffered < 0 || (!buffered && !eb.len)) {
+		/*
+		 * the transport failed or finished: the body ends here,
+		 * however framed
+		 */
+		lwsl_wsi_notice(wsi, "%s: read error, hdrs_pending=%d, "
+				"content_length_given=%d, chunked=%d", __func__,
+				lwsi_hdrs_pending(wsi),
+				wsi->http.content_length_given,
+				wsi->http.rx_chunked);
+		lws_h1_client_body_rx(wsi, NULL, 0);
+
+		return -1;
+	}
+
+	if (eb.len <= 0)
+		return 0;
+
+	n = lws_h1_client_body_rx(wsi, eb.token, (size_t)eb.len);
+	if (n < 0)
+		return -1;
+
+	*buf += n;
+	*len = eb.len - n;
+
+	if (lws_buflist_aware_finished_consuming(wsi, &eb, n, buffered,
+						 __func__))
+		return -1;
+
+	return 0;
+}
+#endif
+
+/*
+ * The rx stage: a role that says how it wants to be read in its current
+ * state is read here (README.sans-io-split.md, "Who calls rx"), and its own
+ * handler gets the rest of the pass with POLLIN already taken.  Both entries
+ * to a role's handler come through here: the poll's, and the ripe-rxflow
+ * pass that re-offers what was parked.  A pass where POLLIN was favoured
+ * last time and POLLOUT also waits is left for POLLOUT: that fairness is
+ * ours.  Returns 0 to go on to the role's handler, 1 when the wsi died on
+ * the way (closed and freed: touch neither it nor pollfd), -1 when it must
+ * be closed by the caller.
+ */
+static int
+lws_rx_stage(struct lws_context_per_thread *pt, struct lws *wsi,
+	     struct lws_pollfd *pollfd)
+{
+	size_t max = 0;
+	int flags = 0, pol, in, out;
+
+	if (!lws_rops_fidx(wsi->role_ops, LWS_ROPS_rx_policy))
+		return 0;
+
+	in = !!(pollfd->revents & pollfd->events & LWS_POLLIN);
+	out = !!(pollfd->revents & LWS_POLLOUT);
+	if (!in && !out)
+		return 0;
+
+	pol = lws_rops_func_fidx(wsi->role_ops, LWS_ROPS_rx_policy).
+					rx_policy(wsi, &flags, &max);
+	if (pol == LWS_RXPOL_CLOSE)
+		return -1;
+	if (pol == LWS_RXPOL_DIED)
+		return 1;
+
+	if (in && wsi->io->favoured_pollin &&
+	    (pollfd->revents & pollfd->events & LWS_POLLOUT)) {
+		/* POLLIN went first last time: this pass is POLLOUT's */
+		wsi->io->favoured_pollin = 0;
+		in = 0;
+	}
+
+#if defined(LWS_WITH_UDP)
+	if (in && pol == LWS_RXPOL_PUMP_DGRAM) {
+		struct lws_pollfd *pfd = pollfd;
+		int nothing, budget = LWS_RX_DGRAM_BUDGET;
+
+		/*
+		 * Take what is waiting on the socket, not one datagram a pass:
+		 * the timers run before each poll, and one datagram a pass
+		 * lets them fire between the datagrams of a backlog, eg, a
+		 * quic loss timer acting before the acks behind it are read
+		 */
+		do {
+			switch (lws_rx_pump_dgram(pt, wsi, pfd, &nothing)) {
+			case LWS_HPI_RET_WSI_ALREADY_DIED:
+			case LWS_HPI_RET_CLOSING:
+				return 1;
+			case LWS_HPI_RET_PLEASE_CLOSE_ME:
+				return -1;
+			default:
+				break;
+			}
+			/* the poll said one is there, after that, read until none */
+			pfd = NULL;
+		} while (!nothing && --budget);
+		pollfd->revents &= (short)~LWS_POLLIN;
+	}
+#endif
+	if (in && (pol == LWS_RXPOL_PUMP || pol == LWS_RXPOL_PUMP_LOOP)) {
+		struct lws_pollfd *pfd = pollfd;
+		int nothing, consumed, budget = 1000, took = 0;
+		size_t pending = 0;
+
+		do {
+			/* with tls bytes pending, take exactly those */
+			if (pending && (!max || pending < max))
+				max = pending;
+			switch (lws_rx_pump(pt, wsi, pfd,
+					    flags & LWS_RXPOL_RXP_MASK, max,
+					    &nothing, &consumed)) {
+			case LWS_HPI_RET_WSI_ALREADY_DIED:
+			case LWS_HPI_RET_CLOSING:
+				return 1;
+			case LWS_HPI_RET_PLEASE_CLOSE_ME:
+				return -1;
+			default:
+				break;
+			}
+			took |= consumed > 0;
+			if (pol != LWS_RXPOL_PUMP_LOOP || nothing ||
+			    !consumed || !--budget)
+				break;
+			pending = (size_t)lws_ssl_pending(wsi);
+			if (!pending)
+				break;
+			/* tls still holds decrypted bytes: read again, regardless of the poll */
+			pfd = NULL;
+			/* the rx may have changed the role to one IO reads for itself */
+			if (!lws_rops_fidx(wsi->role_ops, LWS_ROPS_rx_policy))
+				break;
+			pol = lws_rops_func_fidx(wsi->role_ops,
+						 LWS_ROPS_rx_policy).
+					rx_policy(wsi, &flags, &max);
+			if (pol == LWS_RXPOL_CLOSE)
+				return -1;
+			if (pol == LWS_RXPOL_DIED)
+				return 1;
+		} while (pol == LWS_RXPOL_PUMP ||
+			 pol == LWS_RXPOL_PUMP_LOOP);
+
+		/* the read is done; the role hears so below */
+		pollfd->revents &= (short)~LWS_POLLIN;
+		/*
+		 * Bytes were taken and POLLOUT also waits: taking them may
+		 * have used the writability up, so POLLOUT is left for the
+		 * next pass, which favours it.  Nothing taken (or a file
+		 * being served parked what came) and POLLOUT is served now.
+		 */
+		if (took && (pollfd->revents & pollfd->events & LWS_POLLOUT)) {
+			wsi->io->favoured_pollin = 1;
+			pollfd->revents &= (short)~LWS_POLLOUT;
+			out = 0;
+		}
+	}
+
+	/*
+	 * The pass's reading is done (or the role reads on its own terms):
+	 * the role acts on what it holds
+	 */
+	if (in && lws_rops_fidx(wsi->role_ops, LWS_ROPS_rx_done)) {
+		switch (lws_rops_func_fidx(wsi->role_ops, LWS_ROPS_rx_done).
+								rx_done(wsi)) {
+		case LWS_HPI_RET_WSI_ALREADY_DIED:
+		case LWS_HPI_RET_CLOSING:
+			return 1;
+		case LWS_HPI_RET_PLEASE_CLOSE_ME:
+			return -1;
+		default:
+			break;
+		}
+	}
+
+	/*
+	 * The pass's POLLOUT: served here through the dispatcher in the
+	 * states that take a writeable callback, or where the role insisted,
+	 * or whatever the state, with bytes held from a partial write, which
+	 * nothing else will send (eg, an h2c 101 that went only partly,
+	 * before the connection has a state that writes); otherwise nothing
+	 * wants it and it is cleared, since the poll is level-triggered and
+	 * the role asks again when it does
+	 */
+	if (out && (lwsi_state_can_handle_POLLOUT(wsi) ||
+		    (flags & LWS_RXPOL_F_POLLOUT) ||
+		    lws_has_buflist_out(wsi))) {
+		int hr = lws_handle_POLLOUT_event(wsi, pollfd);
+
+		if (hr < 0)
+			/* a connect racing closed and freed the wsi */
+			return 1;
+		if (hr) {
+			/*
+			 * A close asked while our answer to the peer's Close
+			 * is still to go out flushes it first (ws)
+			 */
+			if (lwsi_close(wsi) == LCS_RETURNED_CLOSE)
+				lws_wsi_event(wsi, LWS_WSIEV_CLOSE_FLUSH);
+
+			return -1;
+		}
+		pollfd->revents &= (short)~LWS_POLLOUT;
+	} else if (out) {
+		if (lws_change_pollfd(wsi, LWS_POLLOUT, 0))
+			return -1;
+		pollfd->revents &= (short)~LWS_POLLOUT;
+	}
+
+	return 0;
+}
+
+/*
+ * Service all guys with pending rxflow that reached a state they can accept
+ * the pending data.
+ *
+ * Servicing one can close and free others on the list, not only itself: an
+ * h2 network connection's parked rx can reset a stream that is listed too,
+ * or fail the connection, which frees all its streams.  So no pointer to
+ * another member can be kept across servicing one.  Instead, the guys listed
+ * when the pass starts move to a list of our own, and are taken from its
+ * head one at a time, going back on the pt's list before each is serviced,
+ * where the rest of lws expects to find him while he has parked rx.  A guy
+ * freed meanwhile is removed from whichever of the two lists he is on
+ * (__lws_free_wsi()), so he is simply never taken.  Guys that park rx during
+ * the pass are listed on the pt's list, for the next pass.
+ */
+void
+lws_service_do_ripe_rxflow(struct lws_context_per_thread *pt)
+{
+	lws_dll2_owner_t pass;
+	struct lws_pollfd pfd;
+	struct lws_dll2 *d;
+
+	if (lws_dll2_is_empty(&pt->dll_buflist_owner))
+		return;
+
+	lws_dll2_owner_clear(&pass);
+
+	/*
+	 * What we service may close wsis, set timeouts or connect, which take
+	 * the context lock: it comes first, as for the sul service
+	 */
+	lws_context_lock(pt->context, __func__); /* --------------- cx { */
+	lws_pt_lock(pt, __func__); /* ---------------------------- pt { */
+
+	while ((d = lws_dll2_get_head(&pt->dll_buflist_owner))) {
+		lws_dll2_remove(d);
+		lws_dll2_add_tail(d, &pass);
+	}
+
+	while ((d = lws_dll2_get_head(&pass))) {
+		struct lws *wsi = lws_container_of(d, struct lws, dll_buflist);
+
+		lws_dll2_remove(d);
+		lws_dll2_add_tail(d, &pt->dll_buflist_owner);
+
+		pfd.events = LWS_POLLIN;
+		pfd.revents = LWS_POLLIN;
+		pfd.fd = -1;
+
+		lwsl_wsi_debug(wsi, "rxflow processing: fc=%d, 0x%lx",
+				    lws_is_flowcontrolled(wsi),
+				    (unsigned long)wsi->wsistate);
+
+		/*
+		 * Not a wsi holding its parked rx back for now, eg, an h1
+		 * request pipelined behind the transaction in progress
+		 */
+		if (lws_wsi_can_consume_parked_rx(wsi)) {
+			pt->inside_lws_service = 1;
+
+			switch (lws_rx_stage(pt, wsi, &pfd)) {
+			case 1:
+				/* it died in the read: nothing left to touch */
+				pt->inside_lws_service = 0;
+				continue;
+			case -1:
+				lws_close_free_wsi(wsi, LWS_CLOSE_STATUS_NOSTATUS,
+						"close_and_handled");
+				pt->inside_lws_service = 0;
+				continue;
+			default:
+				break;
+			}
+
+			/* a transport adapter role (IO) keeps a handler */
+			if (lws_rops_fidx(wsi->role_ops, LWS_ROPS_handle_POLLIN) &&
+			    lws_rops_func_fidx(wsi->role_ops,
+					       LWS_ROPS_handle_POLLIN).
+						handle_POLLIN(pt, wsi, &pfd) ==
+						   LWS_HPI_RET_PLEASE_CLOSE_ME)
+				lws_close_free_wsi(wsi, LWS_CLOSE_STATUS_NOSTATUS,
+						"close_and_handled");
+			pt->inside_lws_service = 0;
+		}
+	}
+
+	lws_pt_unlock(pt); /* } pt */
+	lws_context_unlock(pt->context); /* } cx */
+}
+
+/*
+ * guys that need POLLIN service again without waiting for network action
+ * can force POLLIN here if not flowcontrolled, so they will get service.
+ *
+ * Return nonzero if anybody got their POLLIN faked
+ */
+int
+lws_service_flag_pending(struct lws_context *context, int tsi)
+{
+	struct lws_context_per_thread *pt;
+	int forced = 0;
+
+	if (!context)
+		return 1;
+
+	pt = &context->pt[tsi];
+
+	lws_pt_lock(pt, __func__);
+
+	/*
+	 * 1) If there is any wsi with a buflist and in a state to process
+	 *    it, we should not wait in poll
+	 */
+
+	lws_start_foreach_dll(struct lws_dll2 *, d, lws_dll2_get_head(&pt->dll_buflist_owner)) {
+		struct lws *wsi = lws_container_of(d, struct lws, dll_buflist);
+
+		if (lws_wsi_can_consume_parked_rx(wsi)) {
+			forced = 1;
+			break;
+		}
+	} lws_end_foreach_dll(d);
+
+#if defined(LWS_ROLE_WS)
+	forced |= lws_rops_func_fidx(&role_ops_ws,
+				     LWS_ROPS_service_flag_pending).
+					service_flag_pending(context, tsi);
+#endif
+
+#if defined(LWS_WITH_TLS)
+	/*
+	 * 2) For all guys with buffered SSL read data already saved up, if they
+	 * are not flowcontrolled, fake their POLLIN status so they'll get
+	 * service to use up the buffered incoming data, even though their
+	 * network socket may have nothing
+	 */
+	lws_start_foreach_dll_safe(struct lws_dll2 *, p, p1,
+			lws_dll2_get_head(&pt->tls.dll_pending_tls_owner)) {
+		struct lws *wsi = lws_container_of(p, struct lws_io_adjunct,
+						   tls.dll_pending_tls)->wsi;
+
+		if (wsi->io->position_in_fds_table >= 0) {
+
+			pt->fds[wsi->io->position_in_fds_table].revents = (short)(
+					pt->fds[wsi->io->position_in_fds_table].revents |
+				(pt->fds[wsi->io->position_in_fds_table].events &
+								LWS_POLLIN));
+			if (pt->fds[wsi->io->position_in_fds_table].revents &
+								LWS_POLLIN)
+				/*
+				 * We're not going to remove the wsi from the
+				 * pending tls list.  The processing will have
+				 * to do it if he exhausts the pending tls.
+				 */
+				forced = 1;
+		}
+
+	} lws_end_foreach_dll_safe(p, p1);
+#endif
+
+	lws_pt_unlock(pt);
+
+	return forced;
+}
+
+/*
+ * A client's response body is pulled by the app at its own pace
+ * (lws_http_client_read()): nothing is read until it asks, and its reading is
+ * held meanwhile.  A hangup reported then may only be the peer's FIN: OSX and
+ * BSD report one as a bare POLLHUP to a wsi asking for neither POLLIN nor
+ * POLLOUT, and WSAPoll as POLLHUP to one not asking for POLLIN.  What the peer
+ * sent before it can still be unread in the kernel, and the end itself has
+ * not been heard: for a response delimited by the close, it is what completes
+ * it, eg, a proxy's onward connection relaying one at the pace of its
+ * client-facing connection.  Both are found by the app's next pull.  Linux
+ * reports a tcp FIN only to the read that comes to it, so that is how it goes
+ * there too.
+ *
+ * So a client's connection is not taken as done here, unless what it reads
+ * from can have nothing more for it: an error (a reset, unless it is a bare
+ * POLLHUP on OSX, which the pull finds out), a state that parks rx, a
+ * transport adapter role, which hears its hangup itself, or a datagram
+ * socket.  A server's is (C-703): the peer is done with it, and one waiting
+ * for a header table must not hold on to its fd.
+ */
+static int
+lws_hangup_may_leave_rx(struct lws *wsi, struct lws_pollfd *pollfd)
+{
+	if (!lwsi_role_client(wsi) ||
+	    (pollfd->events & LWS_POLLIN) ||
+	    (pollfd->revents & LWS_POLL_ERROR) ||
+	    lws_wsi_state_parks_rx(wsi) ||
+	    lws_rops_fidx(wsi->role_ops, LWS_ROPS_handle_POLLIN))
+		return 0;
+#if defined(LWS_WITH_UDP)
+	if (lws_wsi_is_udp(wsi))
+		return 0;
+#endif
+
+	return 1;
+}
+
+static int
+_lws_service_fd_tsi(struct lws_context *context, struct lws_pollfd *pollfd,
+		   int tsi)
+{
+	struct lws_context_per_thread *pt;
+	int bare_hangup;
+	struct lws *wsi;
+	char cow = 0;
+
+	if (!context || context->service_no_longer_possible)
+		return -1;
+
+	pt = &context->pt[tsi];
+
+	/* nothing may hold serv_buf across a service pass */
+	lws_servbuf_pass_boundary(pt, "service pass entry");
+
+	if (pt->event_loop_pt_unused)
+		return -1;
+
+	if (!pollfd) {
+		/*
+		 * calling with NULL pollfd for periodic background processing
+		 * is no longer needed and is now illegal.
+		 */
+		assert(pollfd);
+		return -1;
+	}
+	assert(lws_socket_is_valid(pollfd->fd));
+
+	/* no, here to service a socket descriptor */
+	wsi = wsi_from_fd(context, pollfd->fd);
+	if (!wsi)
+		/* not lws connection ... leave revents alone and return */
+		return 0;
+
+#if LWS_MAX_SMP > 1
+	if (wsi->io->undergoing_init_from_other_pt)
+		/*
+		 * Temporary situation that other service thread is initializing
+		 * this wsi right now for use on our service thread.
+		 */
+		return 0;
+#endif
+
+	/*
+	 * so that caller can tell we handled, past here we need to
+	 * zero down pollfd->revents after handling
+	 */
+
+	/*
+	 * Whatever the situation with buffered rx packets, or explicitly read-
+	 * and-buffered rx going to be handled before we want to acknowledge the
+	 * socket is gone, any sign of HUP always immediately means no more tx
+	 * is possible.
+	 *
+	 * On unix LWS_POLLHUP is POLLHUP and POLLERR together, but OSX reports
+	 * a reset connection as POLLHUP alone, and never with POLLOUT: a wsi
+	 * that asked for POLLOUT, to drain a partial send, and is told POLLHUP
+	 * instead can send nothing more, and if that is not acted on here,
+	 * nothing else will act on it while poll() keeps reporting it.  A bare
+	 * POLLERR is not enough, a udp socket gets that for an icmp error.
+	 *
+	 * But on OSX that bare POLLHUP is also all a FIN gets: the peer may
+	 * only have finished sending, with what it sent before it (eg, why it
+	 * refused what we are sending) still unread, because reading was held
+	 * behind the partial.  That is read before the wsi goes, below.
+	 * Windows' WSAPoll reports a FIN as POLLHUP too, which is all of
+	 * LWS_POLLHUP there, so it is never a bare hangup; but a hangup with
+	 * no POLLERR is no reset either, and is read the same way.
+	 *
+	 * A wsi asking for neither POLLIN nor POLLOUT (waiting for a header
+	 * table, or rx flow-controlled with nothing to send) is only told of
+	 * the close by the bare POLLHUP: off Linux it asks for that alone
+	 * (pollfd.c), and on Linux a unix socket's peer closing is reported
+	 * that way too.  It can neither read nor write to find out any other
+	 * way, and poll() reports it again at once, so it is taken the same
+	 * way, unless it is a client's whose reading is held for the app's
+	 * pull (lws_hangup_may_leave_rx()).  A transport adapter role (one
+	 * that keeps a handle_POLLIN) is given the revents and hears its
+	 * hangup itself, eg, a cgi's stdout pipe draining what the child
+	 * wrote before it exited.
+	 */
+
+	bare_hangup = (pollfd->revents & LWS_POLL_HANGUP) &&
+		      (pollfd->revents & LWS_POLLHUP) != LWS_POLLHUP &&
+		      (((pollfd->events & LWS_POLLOUT) &&
+			!(pollfd->revents & LWS_POLLOUT)) ||
+		       (!(pollfd->events & (LWS_POLLIN | LWS_POLLOUT)) &&
+			!lws_rops_fidx(wsi->role_ops, LWS_ROPS_handle_POLLIN)));
+
+	if ((pollfd->revents & LWS_POLLHUP) == LWS_POLLHUP || bare_hangup) {
+#if defined(LWS_WITH_CLIENT)
+		if (lwsi_transport(wsi) == LTS_WAITING_CONNECT) {
+			if (lws_client_connect_3_connect(wsi, NULL, NULL, 0, pollfd))
+				return 0;
+			else
+				return 1;
+		}
+#endif
+		lwsi_set_skt_unusable(wsi, 1);
+
+		if (!(pollfd->revents & pollfd->events & LWS_POLLIN)) {
+
+			if (wsi->buflist_out &&
+			    (bare_hangup ||
+			     !(pollfd->revents & LWS_POLL_ERROR))) {
+				/*
+				 * The partial send reading was held behind can
+				 * never go now: drop it, and tell the role its
+				 * output has gone, as it would hear had it
+				 * drained.  A role whose rx policy held its
+				 * reading behind the partial reads again from
+				 * there, if it still wants to: only it knows
+				 * why it stopped, so IO does not decide that.
+				 * The next poll reports what the peer sent, if
+				 * anything, and then its end, which the rx
+				 * sees as the peer closing, and closes on; if
+				 * that does not come soon, the timeout closes
+				 * it anyway.
+				 */
+				lws_buflist_destroy_all_segments(
+							&wsi->buflist_out);
+				if (lws_io_tx_drained(wsi) < 0)
+					goto close_and_handled_l;
+				if (wsi->pending_timeout !=
+						PENDING_TIMEOUT_CLOSE_ACK)
+					lws_set_timeout(wsi,
+						PENDING_TIMEOUT_CLOSE_ACK, 3);
+
+				goto handled;
+			}
+
+			/* ... there are no pending rx packets waiting... */
+
+			if (!lws_buflist_total_len(&wsi->buflist) &&
+			    !lws_hangup_may_leave_rx(wsi, pollfd)) {
+
+				/*
+				 * ... nothing stashed in the buflist either,
+				 * nor anything the peer may have left in the
+				 * kernel for the wsi, so acknowledge it is done
+				 */
+
+				lwsl_wsi_debug(wsi, "Session Socket %d dead",
+						    pollfd->fd);
+
+				goto close_and_handled_l;
+			}
+
+			/*
+			 * ... in fact we have some unread rx parked, or may
+			 * have.  If the wsi's state parks it, it waits on a tx
+			 * that can never go now (the response, the handshake,
+			 * the flush): the wsi is done.
+			 */
+
+			if (lws_wsi_state_parks_rx(wsi)) {
+				lwsl_wsi_debug(wsi, "dead, parked rx dropped");
+
+				goto close_and_handled_l;
+			}
+
+			/*
+			 * Otherwise only rx flow control or the role's policy
+			 * holds it, and what the peer sent before its hangup,
+			 * and the end the role hears when it reads again, may
+			 * still be wanted (eg, the tail of a proxied response,
+			 * and the end of one delimited by the close).
+			 * Hold off the closing a bit for it...
+			 * but the hangup is level-triggered and reported on
+			 * every pass until the close: armed again each time,
+			 * the timeout would be put off forever while poll()
+			 * spins, so it is armed only the first time.
+			 */
+
+			if (wsi->pending_timeout != PENDING_TIMEOUT_CLOSE_ACK)
+				lws_set_timeout(wsi, PENDING_TIMEOUT_CLOSE_ACK,
+						3);
+		}
+	}
+
+#if defined(LWS_WITH_UDP) && !defined(WIN32) && !defined(LWS_PLAT_OPTEE)
+	/*
+	 * A connected datagram socket is told of an icmp error (port or host
+	 * unreachable) as a bare POLLERR, and it is level-triggered: the kernel
+	 * reports it on every poll() until something takes the error from the
+	 * socket, a read, a write or SO_ERROR.  It is not a hangup, so the
+	 * block above is not entered for it, and nothing below reads or writes
+	 * unless POLLIN or POLLOUT came with it, so left alone it is reported
+	 * again at once and the thread spins until the next send.
+	 *
+	 * Take it from the socket now, and keep it for the wsi's next read or
+	 * write, which fails with it exactly as the syscall would have, so the
+	 * async dns and quic error paths see what they always saw.  A wsi that
+	 * is reading hears it on this pass.
+	 */
+	if ((pollfd->revents & LWS_POLLHUP) &&
+	    !(pollfd->revents & LWS_POLL_HANGUP) &&
+	    lws_wsi_is_udp(wsi) && lwsi_transport(wsi) != LTS_WAITING_CONNECT) {
+		socklen_t sl = sizeof(int);
+		int e = 0;
+
+		if (!getsockopt(wsi->io->desc.sockfd, SOL_SOCKET, SO_ERROR,
+				(char *)&e, &sl) && e) {
+			lwsl_wsi_info(wsi, "datagram socket error %d", e);
+			wsi->io->pending_sock_err = e;
+			if (pollfd->events & LWS_POLLIN)
+				pollfd->revents |= LWS_POLLIN;
+		}
+	}
+#endif
+
+#ifdef _WIN32
+	if (pollfd->revents & LWS_POLLOUT)
+		wsi->io->sock_send_blocking = FALSE;
+#endif
+
+#if defined(LWS_WITH_TLS)
+	/*
+	 * A tls close staged in SHUTDOWN first sees our close_notify
+	 * away; then it is only waiting for his FIN, as a plaintext one is.
+	 */
+	if (lwsi_close(wsi) == LCS_SHUTDOWN && lws_is_ssl(wsi) &&
+	    wsi->io->tls.ssl && !wsi->io->tls.close_notify_sent) {
+
+#if defined(LWS_WITH_LATENCY)
+		lws_usec_t _tls_shut_start = lws_now_usecs();
+#endif
+		int m = lws_io_tls_shutdown_step(wsi);
+
+#if defined(LWS_WITH_LATENCY)
+		{
+			unsigned int ms = (unsigned int)((lws_now_usecs() - _tls_shut_start) / 1000);
+			if (ms > 2)
+				lws_latency_note(pt, _tls_shut_start, 2000, "tls_shut:%dms", ms);
+		}
+#endif
+		if (m == LWS_SSL_CAPABLE_ERROR)
+			goto close_and_handled_l;
+		if (!wsi->io->tls.close_notify_sent)
+			goto handled; /* ours still has to go */
+	}
+#endif
+
+	/*
+	 * A close staged in SHUTDOWN has sent its FIN (after its tls
+	 * close_notify, if any) and only waits for his; nothing he sends now
+	 * is for anyone (the protocol has been dropped), so it is read and
+	 * discarded rather than parsed by the role or the tls session, and his
+	 * FIN or a socket error ends it.  Closing on unread rx instead would
+	 * have the kernel abort the connection, losing the tx we flushed
+	 * before staging the close, and on OSX leave the peer waiting for it.
+	 */
+	if (lwsi_close(wsi) == LCS_SHUTDOWN &&
+	    (!lws_is_ssl(wsi)
+#if defined(LWS_WITH_TLS)
+	     || wsi->io->tls.close_notify_sent
+#endif
+	    ) && (pollfd->revents & LWS_POLLIN)) {
+		int m = lws_ssl_capable_read_no_ssl(wsi, pt->serv_buf,
+						    context->pt_serv_buf_size);
+		if (m > 0)
+			goto handled;
+		if (m != LWS_SSL_CAPABLE_MORE_SERVICE_READ &&
+		    m != LWS_SSL_CAPABLE_MORE_SERVICE_WRITE)
+			goto close_and_handled_l;
+
+		goto handled;
+	}
+
+#if defined(LWS_WITH_TLS)
+	if ((pollfd->revents & LWS_POLLOUT) == LWS_POLLOUT &&
+	    wsi->io->tls_read_wanted_write) {
+		/*
+		 * If this wsi has a pending WANT_WRITE from SSL_read(), it has
+		 * asked for a callback on writeable so it can retry the read.
+		 *
+		 *  Let's consume the POLLOUT by turning it into a POLLIIN, and
+		 *  setting a flag to request a new writeable
+		 */
+		wsi->io->tls_read_wanted_write = 0;
+		pollfd->revents &= ~(LWS_POLLOUT);
+		pollfd->revents |= LWS_POLLIN;
+		__lws_change_pollfd(wsi, LWS_POLLOUT, LWS_POLLIN);
+		cow = 1;
+	}
+#endif
+
+
+	/* okay, what we came here to do... */
+
+	/* if we got here, we should have wire protocol ops set on the wsi */
+	assert(wsi->role_ops);
+
+	// lwsl_notice("%s: %s: wsistate 0x%x\n", __func__, wsi->role_ops->name,
+	//	    wsi->wsistate);
+
+#if defined(LWS_WITH_LATENCY)
+	lws_usec_t _role_start = lws_now_usecs();
+#endif
+
+#if defined(LWS_WITH_SERVER) && defined(LWS_WITH_TLS)
+	if (lws_io_tls_on_worker(wsi)) {
+		/*
+		 * The SSL is the worker's until its accept step comes back on
+		 * the event pipe, which arms the poll set again as the accept
+		 * left it: nothing, rx or the user's WRITEABLE, may use it
+		 * from here meanwhile, and a level-triggered event nobody
+		 * takes would spin
+		 */
+		if (lws_change_pollfd(wsi, LWS_POLLIN | LWS_POLLOUT, 0))
+			goto close_and_handled_l;
+
+		goto handled;
+	}
+
+#if defined(LWS_WITH_TLS_PASSTHROUGH)
+	/* so is the look at a server connection's first bytes before it */
+	if (wsi->io->pre_accept) {
+		if (lws_pre_accept_service(wsi))
+			goto close_and_handled_l;
+
+		goto handled;
+	}
+#endif
+
+	/* a server's tls accept in progress is IO's alone */
+	if (!lwsi_role_client(wsi) && lwsi_state(wsi) == LRS_SSL_ACK_PENDING) {
+		if (lws_server_socket_service_ssl(wsi, LWS_SOCK_INVALID,
+					!!(pollfd->revents & LWS_POLLIN)))
+			goto close_and_handled_l;
+
+		goto handled;
+	}
+#endif
+
+#if defined(LWS_WITH_CLIENT)
+	/* a client's dns, connect and tls passes are IO's alone */
+	switch (lws_client_transport_stage(wsi, pollfd)) {
+	case 1:
+		/* the wsi is closed and freed already: see below */
+		return 1;
+	case 2:
+		goto handled;
+	default:
+		break;
+	}
+#endif
+
+	switch (lws_rx_stage(pt, wsi, pollfd)) {
+	case 1:
+		/* the wsi is closed and freed already: see below */
+		return 1;
+	case -1:
+		goto close_and_handled_l;
+	default:
+		break;
+	}
+
+	/* a transport adapter role (IO) keeps a handler; a sansIO role has none */
+	if (!lws_rops_fidx(wsi->role_ops, LWS_ROPS_handle_POLLIN))
+		goto handled;
+
+	switch (lws_rops_func_fidx(wsi->role_ops, LWS_ROPS_handle_POLLIN).
+					       handle_POLLIN(pt, wsi, pollfd)) {
+	case LWS_HPI_RET_WSI_ALREADY_DIED:
+		/*
+		 * wsi is closed and freed already: we must not touch it, and
+		 * we must not touch pollfd either, since the delete-swap in
+		 * __remove_wsi_socket_from_fds() may have moved a different
+		 * wsi's entry into this slot (same reasoning as at
+		 * close_and_handled_l below).  This is why we cannot fall
+		 * through to the revents / "callback on writable" tail.
+		 */
+		return 1;
+	case LWS_HPI_RET_HANDLED:
+		break;
+	case LWS_HPI_RET_PLEASE_CLOSE_ME:
+		//lwsl_notice("%s: %s pollin says please close me\n", __func__,
+		//		wsi->role_ops->name);
+		goto close_and_handled_l;
+	default:
+		assert(0);
+	}
+
+#if defined(LWS_WITH_LATENCY)
+	{
+		unsigned int ms = (unsigned int)((lws_now_usecs() - _role_start) / 1000);
+		if (ms > 2)
+			lws_latency_note(pt, _role_start, 2000, "pollin:%dms", ms);
+	}
+#endif
+
+handled:
+	pollfd->revents = 0;
+#if defined(LWS_WITH_LATENCY)
+	lws_usec_t _role_out_start = lws_now_usecs();
+#endif
+	if (cow)
+		lws_callback_on_writable(wsi);
+#if defined(LWS_WITH_LATENCY)
+	{
+		unsigned int ms = (unsigned int)((lws_now_usecs() - _role_out_start) / 1000);
+		if (ms > 2)
+			lws_latency_note(pt, _role_out_start, 2000, "pollout:%dms", ms);
+	}
+#endif
+	return 0;
+
+close_and_handled_l:
+	lwsl_wsi_debug(wsi, "Close and handled");
+	lws_close_free_wsi(wsi, LWS_CLOSE_STATUS_NOSTATUS,
+			   "close_and_handled");
+	/*
+	 * pollfd may point to something else after the close
+	 * due to pollfd swapping scheme on delete on some platforms
+	 * we can't clear revents now because it'd be the wrong guy's
+	 * revents
+	 */
+	return 1;
+}
+
+int
+lws_service_fd_tsi(struct lws_context *context, struct lws_pollfd *pollfd,
+		   int tsi)
+{
+	int ret;
+	struct lws_context_per_thread *pt = &context->pt[tsi];
+	const char *pn = "unknown";
+	struct lws *wsi;
+	(void)pt;
+	(void)pn;
+
+	if (!pollfd)
+		return -1;
+
+	wsi = wsi_from_fd(context, pollfd->fd);
+	if (wsi) {
+		if (wsi->a.protocol && wsi->a.protocol->name)
+			pn = wsi->a.protocol->name;
+		else if (wsi->role_ops && wsi->role_ops->name)
+			pn = wsi->role_ops->name;
+	}
+
+#if defined(LWS_WITH_LATENCY)
+	lws_latency_cb_start(pt);
+#endif
+
+	pt->inside_lws_service = 1;
+	ret = _lws_service_fd_tsi(context, pollfd, tsi);
+	pt->inside_lws_service = 0;
+
+#if defined(LWS_WITH_LATENCY)
+	lws_latency_cb_end(pt, pn);
+#endif
+
+	return ret;
+}
+
+/*
+ * Service the wsi now as if its socket had reported writable, instead of
+ * waiting for the event loop to come round: a role uses this to get its
+ * first protocol write out in the same call that saw the transport come up.
+ * Returns what the service did: 0 ok, -1 failed, 1 the wsi was closed.
+ */
+int
+lws_service_wsi_as_writable(struct lws *wsi)
+{
+	struct lws_pollfd pfd;
+
+	assert(lws_socket_is_valid(wsi->io->desc.sockfd));
+
+	pfd.fd = wsi->io->desc.sockfd;
+	pfd.events = LWS_POLLIN;
+	pfd.revents = LWS_POLLOUT;
+
+	return lws_service_fd_tsi(wsi->a.context, &pfd, wsi->tsi);
+}
+
+int
+lws_service_fd(struct lws_context *context, struct lws_pollfd *pollfd)
+{
+	return lws_service_fd_tsi(context, pollfd, 0);
+}
+
+/*
+ * The event library's internal loop has returned to us.
+ *
+ * If a context destroy was started while it ran (lws' own signal handler on
+ * the loop, or lws_context_destroy() called from a callback), the loop wound
+ * down and exited because every lws handle on it is gone.  Entering it again
+ * just exits again immediately, so an app looping on lws_service() while it
+ * returns >= 0 would spin forever, never finishing the destroy: return -1 so
+ * its loop ends and it goes on to call lws_context_destroy(), which is what
+ * completes a destroy that was deferred to after the loop exit.
+ */
+
+static int
+lws_service_evlib_result(struct lws_context *context)
+{
+	/* lws_default_loop_exit(): leave now, the app's destroy does the rest */
+	if (context->interrupted)
+		return -1;
+
+	/*
+	 * A destroy started inside the loop (lws' signal watcher, or deferred
+	 * from a callback) closes the loop's handles asynchronously and is
+	 * resumed by the evlib from the last handle's close callback, which
+	 * needs the loop to keep turning.  Only once it has got as far as it
+	 * can from inside the loop (LWSCD_FINALIZATION, "waiting for internal
+	 * loop exit") is it the app's lws_context_destroy() that finishes it,
+	 * so only then send the app out of its loop.
+	 */
+	if (context->being_destroyed &&
+	    context->destroy_state >= LWSCD_FINALIZATION)
+		return -1;
+
+	/* a normal turn of the loop, the same 0 the poll loop returns */
+
+	return 0;
+}
+
+/*
+ * The default poll loop returned normally: if lws_default_loop_exit() was
+ * called meanwhile (from a signal handler or a callback), tell the app to
+ * leave its service loop and destroy the context, so it needs no flag of its
+ * own.  n == -1 means the context may already be gone, don't touch it.
+ */
+
+static int
+lws_service_poll_result(struct lws_context *context, int n)
+{
+	if (n >= 0 && context->interrupted)
+		return -1;
+
+	return n;
+}
+
+int
+lws_service(struct lws_context *context, int timeout_ms)
+{
+	struct lws_context_per_thread *pt;
+	int n;
+
+	if (!context)
+		return 1;
+
+	pt = &context->pt[0];
+	pt->inside_service = 1;
+
+	if (context->event_loop_ops->run_pt) {
+		/* we are configured for an event loop */
+		context->event_loop_ops->run_pt(context, 0);
+
+		pt->inside_service = 0;
+
+		return lws_service_evlib_result(context);
+	}
+	n = lws_plat_service(context, timeout_ms);
+
+	if (n != -1)
+		pt->inside_service = 0;
+
+	return lws_service_poll_result(context, n);
+}
+
+int
+lws_service_tsi(struct lws_context *context, int timeout_ms, int tsi)
+{
+	struct lws_context_per_thread *pt;
+	int n;
+
+	if (!context)
+		return 1;
+
+	pt = &context->pt[tsi];
+	pt->inside_service = 1;
+#if LWS_MAX_SMP > 1
+	pt->self = pthread_self();
+#endif
+
+	if (context->event_loop_ops->run_pt) {
+		/* we are configured for an event loop */
+		context->event_loop_ops->run_pt(context, tsi);
+
+		pt->inside_service = 0;
+
+		return lws_service_evlib_result(context);
+	}
+
+	n = _lws_plat_service_tsi(context, timeout_ms, tsi);
+
+	/*
+	 * _lws_plat_service_tsi may have finished off a context destroy that
+	 * was deferred from inside service; in that case it returns -1 and
+	 * the context, including pt, is already freed.  Mirrors lws_service.
+	 */
+	if (n != -1)
+		pt->inside_service = 0;
+
+	return lws_service_poll_result(context, n);
+}

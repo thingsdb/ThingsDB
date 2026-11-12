@@ -1,0 +1,565 @@
+/*
+ * libwebsockets - small server side websockets and web server implementation
+ *
+ * Copyright (C) 2010 - 2026 Andy Green <andy@warmcat.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+
+#include "private-lib-core.h"
+#include "private-lib-tls-bearssl.h"
+
+/*
+ * LCCSCF_ALLOW_EXPIRED time source: by always reporting "now" is inside the
+ * cert validity window, chain parsing is not aborted at the validity check
+ * (which happens before the EE public key is parsed) and the rest of the
+ * validation proceeds normally
+ */
+static int
+lws_bearssl_time_always_in_window(void *tctx,
+	uint32_t not_before_days, uint32_t not_before_seconds,
+	uint32_t not_after_days, uint32_t not_after_seconds)
+{
+	(void)tctx;
+	(void)not_before_days;
+	(void)not_before_seconds;
+	(void)not_after_days;
+	(void)not_after_seconds;
+
+	return 0;
+}
+
+enum lws_ssl_capable_status
+lws_tls_client_connect(struct lws *wsi, char *errbuf, size_t elen)
+{
+	struct lws_tls_conn *conn = (struct lws_tls_conn *)wsi->io->tls.ssl;
+	struct lws_tls_ctx *ctx = wsi->a.vhost->tls.ssl_client_ctx;
+	unsigned st;
+	int err;
+
+	if (!conn->initialized) {
+		br_x509_trust_anchor *tas = ctx ? ctx->trust_anchors : NULL;
+		size_t num_tas = ctx ? ctx->num_trust_anchors : 0;
+
+		/* We enforce strict validation if trust anchors are provided */
+		br_x509_minimal_init(&conn->x509_ctx, &br_sha256_vtable,
+			tas, num_tas);
+
+		/* Basic init */
+		br_ssl_client_init_full(&conn->u.client, &conn->x509_ctx, tas, num_tas);
+
+		/* must follow br_ssl_client_init_full(), which set the version
+		 * range back to TLS 1.0 - 1.2 */
+		lws_bearssl_engine_set_floor(&conn->u.client.eng,
+					     ctx ? ctx->options_clear : 0);
+
+		/*
+		 * mTLS: if the vhost was configured with a client cert, it
+		 * has to actually be offered when the server asks for one
+		 */
+
+		if (ctx && ctx->chain && ctx->chain_len && ctx->key_buf) {
+			if (ctx->is_rsa)
+				br_ssl_client_set_single_rsa(&conn->u.client,
+					ctx->chain, ctx->chain_len,
+					&ctx->rsa_key,
+					br_rsa_pkcs1_sign_get_default());
+			else
+				br_ssl_client_set_single_ec(&conn->u.client,
+					ctx->chain, ctx->chain_len,
+					&ctx->ec_key, BR_KEYTYPE_SIGN, 0,
+					br_ec_get_default(),
+					br_ecdsa_sign_asn1_get_default());
+		}
+
+		conn->tls_use_ssl = wsi->use_ssl;
+		lws_bearssl_x509_wrap_conn(conn);
+
+		if (wsi->use_ssl & LCCSCF_ALLOW_EXPIRED)
+			/*
+			 * Must come after br_ssl_client_init_full(), which
+			 * resets the x509 context including the time source
+			 */
+			br_x509_minimal_set_time_callback(&conn->x509_ctx, NULL,
+					lws_bearssl_time_always_in_window);
+
+#if defined(LWS_WITH_TLS_JIT_TRUST)
+		conn->wsi = wsi;
+#endif
+		br_ssl_engine_set_buffers_bidi(&conn->u.client.eng, conn->iobuf_in, sizeof(conn->iobuf_in), conn->iobuf_out, sizeof(conn->iobuf_out));
+
+		{
+			const char *alpn_comma = wsi->a.context->tls.alpn_default;
+			uint8_t openssl_alpn[128];
+			char temp_alpn[128], alpn_filtered[128];
+			int n;
+
+			if (wsi->a.vhost->tls.alpn)
+				alpn_comma = wsi->a.vhost->tls.alpn;
+			if (wsi->stash) {
+				alpn_comma = wsi->stash->cis[CIS_ALPN];
+			} else {
+				if (lws_hdr_copy(wsi, temp_alpn, sizeof(temp_alpn), _WSI_TOKEN_CLIENT_ALPN) > 0)
+					alpn_comma = temp_alpn;
+			}
+
+			if (lws_tls_client_alpn_transport(wsi, &alpn_comma,
+							  alpn_filtered,
+							  sizeof(alpn_filtered))) {
+				lws_snprintf(errbuf, elen, "alpn needs quic");
+				return LWS_SSL_CAPABLE_ERROR;
+			}
+
+			if (alpn_comma) {
+				n = lws_alpn_comma_to_openssl(alpn_comma, openssl_alpn, sizeof(openssl_alpn) - 1);
+				if (n > 0) {
+					lws_bearssl_set_alpn(conn, openssl_alpn, (size_t)n);
+				}
+			}
+		}
+
+		/* Extract hostname for SNI and the server name check */
+		if (wsi->stash) {
+			if (wsi->stash->cis[CIS_HOST])
+				conn->client_hostname = lws_strdup(wsi->stash->cis[CIS_HOST]);
+		} else {
+			/*
+			 * sized for br_ssl_engine_context.server_name[256]
+			 * and the 253-byte DNS name limit... a name that does
+			 * not fit fails below, it must never silently turn
+			 * into "no name to check"
+			 */
+			char temp_host[256];
+
+			if (lws_hdr_copy(wsi, temp_host, sizeof(temp_host), _WSI_TOKEN_CLIENT_HOST) > 0)
+				conn->client_hostname = lws_strdup(temp_host);
+		}
+
+		if (conn->client_hostname &&
+		    lws_tls_client_strip_port(conn->client_hostname))
+			/*
+			 * Nothing usable was left of it ("[", "[]", ":port").
+			 * BearSSL reads an empty server_name exactly as it
+			 * reads NULL, ie, "do not check the name at all"
+			 * (C-408), so drop it and let the !client_hostname
+			 * refusal below deal with it uniformly.
+			 */
+			lws_free_set_NULL(conn->client_hostname);
+
+		int resume = 0;
+#if defined(LWS_WITH_TLS_SESSIONS)
+		if (!(wsi->a.vhost->options & LWS_SERVER_OPTION_DISABLE_TLS_SESSION_CACHE))
+			resume = lws_tls_reuse_session(wsi);
+#endif
+		int skip = (wsi->use_ssl & LCCSCF_SKIP_SERVER_CERT_HOSTNAME_CHECK);
+		const char *sni;
+
+		/*
+		 * BearSSL takes a NULL server_name as "do not check the name
+		 * at all" and sends no SNI... so if we could not get the
+		 * hostname, fail the connection like the openssl backend
+		 * rather than accept any cert that chains to a trusted root
+		 */
+
+		if (!skip && !conn->client_hostname) {
+			lws_snprintf(errbuf, elen,
+				     "Unable to get hostname for cert check");
+
+			return LWS_SSL_CAPABLE_ERROR;
+		}
+
+		/*
+		 * The server_name is both the SNI and the name the cert is
+		 * checked against.  The SNI tells the server which of its
+		 * vhosts we want, so it is sent whether or not the name is
+		 * checked, as the other backends do; when it isn't, the
+		 * x509 wrapper doesn't pass it on to the check
+		 * (wrap_start_chain()).  RFC 6066 3 forbids a literal address
+		 * in the SNI, so with nothing to check, a literal isn't
+		 * given at all.
+		 */
+
+		sni = conn->client_hostname;
+		if (skip && sni && lws_tls_client_host_is_literal(sni))
+			sni = NULL;
+
+		br_ssl_client_reset(&conn->u.client, sni, resume);
+		conn->initialized = 1;
+	}
+
+	st = br_ssl_engine_current_state(&conn->u.client.eng);
+	if (st == BR_SSL_CLOSED) {
+		err = br_ssl_engine_last_error(&conn->u.client.eng);
+#if defined(LWS_WITH_TLS_JIT_TRUST)
+		if (err == BR_ERR_X509_NOT_TRUSTED)
+			lws_tls_jit_trust_sort_kids(wsi, &wsi->io->tls.kid_chain);
+#endif
+		lws_snprintf(errbuf, elen, "BearSSL handshake failed: %d", err);
+		return LWS_SSL_CAPABLE_ERROR;
+	}
+
+	if (lws_bearssl_pump(wsi) < 0) {
+		lws_snprintf(errbuf, elen, "BearSSL pump failed");
+		return LWS_SSL_CAPABLE_ERROR;
+	}
+
+	st = br_ssl_engine_current_state(&conn->u.client.eng);
+	if (st == BR_SSL_CLOSED) {
+		err = br_ssl_engine_last_error(&conn->u.client.eng);
+#if defined(LWS_WITH_TLS_JIT_TRUST)
+		if (err == BR_ERR_X509_NOT_TRUSTED)
+			lws_tls_jit_trust_sort_kids(wsi, &wsi->io->tls.kid_chain);
+#endif
+		lws_snprintf(errbuf, elen, "BearSSL handshake failed: %d", err);
+		return LWS_SSL_CAPABLE_ERROR;
+	}
+
+	if (st & BR_SSL_SENDREC)
+		return LWS_SSL_CAPABLE_MORE_SERVICE_WRITE;
+
+	if (st & (BR_SSL_SENDAPP | BR_SSL_RECVAPP)) {
+		lwsl_info("%s: client connect OK\n", __func__);
+
+		if (lws_ssl_pending(wsi)) {
+			struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+			if (lws_dll2_is_detached(&wsi->io->tls.dll_pending_tls))
+				lws_dll2_add_head(&wsi->io->tls.dll_pending_tls,
+						  &pt->tls.dll_pending_tls_owner);
+		}
+
+#if defined(LWS_WITH_TLS_SESSIONS)
+		lws_tls_session_new_bearssl(wsi);
+#endif
+		return LWS_SSL_CAPABLE_DONE;
+	}
+
+	return LWS_SSL_CAPABLE_MORE_SERVICE_READ;
+}
+
+int
+lws_tls_client_confirm_peer_cert(struct lws *wsi, char *ebuf, size_t ebuf_len)
+{
+	return 0;
+}
+
+static int
+lws_tls_bearssl_load_pem_certs(struct lws_vhost *vh, const char *filepath)
+{
+	struct lws_b64state b64;
+	uint8_t chunk[1024];
+	char line[256];
+	uint8_t *der = NULL;
+	size_t der_size = 0, der_len = 0;
+	int inside = 0, ret = 0, fd, pos = 0;
+	ssize_t n, i;
+
+	fd = lws_open(filepath, LWS_O_RDONLY);
+	if (fd < 0) {
+		lwsl_err("%s: failed to open %s\n", __func__, filepath);
+		return 1;
+	}
+
+	while ((n = read(fd, chunk, sizeof(chunk))) > 0) {
+		for (i = 0; i < n; i++) {
+			char c = (char)chunk[i];
+
+			if (c != '\n' && c != '\r' && pos < (int)sizeof(line) - 1) {
+				line[pos++] = c;
+				continue;
+			}
+			if (pos == 0)
+				continue;
+
+			line[pos] = '\0';
+			pos = 0;
+
+			if (!strncmp(line, "-----BEGIN", 10)) {
+				inside = 1;
+				/* a truncated block leaves the last one here */
+				if (der)
+					lws_free(der);
+				der_size = 2048;
+				der = lws_malloc(der_size, "pem");
+				if (!der) {
+					ret = 1;
+					goto done;
+				}
+				der_len = 0;
+				lws_b64_decode_state_init(&b64);
+				continue;
+			}
+
+			if (!strncmp(line, "-----END", 8)) {
+				size_t in_len = 0, out_size = der_size - der_len;
+				inside = 0;
+				if (!der)
+					continue;
+				if (lws_b64_decode_stateful(&b64, "", &in_len, der + der_len, &out_size, 1) < 0) {
+					lwsl_notice("%s: failed to decode b64 cert, skipping\n", __func__);
+					lws_free(der);
+					der = NULL;
+					continue;
+				}
+				der_len += out_size;
+				if (der_len && lws_tls_client_vhost_extra_cert_mem(vh, der, der_len))
+					lwsl_notice("%s: ignoring unparseable cert\n", __func__);
+				lws_free(der);
+				der = NULL;
+				continue;
+			}
+
+			if (inside) {
+				size_t in_len = strlen(line);
+				size_t out_size = der_size - der_len;
+
+				if (out_size < in_len) {
+					uint8_t *new_der;
+
+					der_size += 2048 + in_len;
+					new_der = lws_realloc(der, der_size, "pem");
+					if (!new_der) {
+						ret = 1;
+						goto done;
+					}
+					der = new_der;
+					out_size = der_size - der_len;
+				}
+
+				if (lws_b64_decode_stateful(&b64, line, &in_len, der + der_len, &out_size, 0) < 0) {
+					lwsl_notice("%s: b64 decode err, skipping cert\n", __func__);
+					inside = 0;
+					lws_free(der);
+					der = NULL;
+					continue;
+				}
+				der_len += out_size;
+			}
+		}
+	}
+
+done:
+	if (der)
+		lws_free(der);
+	close(fd);
+
+	return ret;
+}
+
+static int
+lws_tls_bearssl_load_certs_dir_cb(const char *dirpath, void *user,
+				  struct lws_dir_entry *lde)
+{
+	struct lws_vhost *vh = (struct lws_vhost *)user;
+	char path[256];
+
+	if (lde->type != LDOT_FILE && lde->type != LDOT_LINK)
+		return 0;
+
+	lws_snprintf(path, sizeof(path), "%s/%s", dirpath, lde->name);
+
+	/* we don't care about individual file errors here, load whatever we can */
+	lws_tls_bearssl_load_pem_certs(vh, path);
+
+	return 0;
+}
+
+/*
+ * Load the client certificate chain and its private key into the client ctx,
+ * for mTLS.  Both must be present; a half-configured client cert is refused
+ * rather than quietly connecting anonymously
+ */
+
+static int
+lws_tls_bearssl_client_cert_load(struct lws_vhost *vh, struct lws_tls_ctx *ctx,
+				 const char *cert_filepath,
+				 const void *cert_mem, unsigned int cert_mem_len,
+				 const char *private_key_filepath,
+				 const void *key_mem, unsigned int key_mem_len)
+{
+	lws_filepos_t amount;
+	uint8_t *buf;
+	int err;
+
+	if (!private_key_filepath && !key_mem) {
+		lwsl_err("%s: client cert given with no private key\n",
+			 __func__);
+
+		return 1;
+	}
+
+	if (lws_tls_alloc_pem_to_der_file(vh->context, cert_filepath, cert_mem,
+					  cert_mem_len, &buf, &amount)) {
+		lwsl_err("%s: failed to load client cert\n", __func__);
+
+		return 1;
+	}
+
+	ctx->chain = lws_zalloc(sizeof(br_x509_certificate), "bearssl cchain");
+	if (!ctx->chain) {
+		lws_free(buf);
+
+		return 1;
+	}
+
+	ctx->chain[0].data = buf;
+	ctx->chain[0].data_len = (size_t)amount;
+	ctx->chain_len = 1;
+
+	if (lws_tls_alloc_pem_to_der_file(vh->context, private_key_filepath,
+					  key_mem, key_mem_len, &buf, &amount)) {
+		lwsl_err("%s: failed to load client private key\n", __func__);
+
+		return 1;
+	}
+
+	/* the decoder does not copy; rsa_key / ec_key point into key_buf */
+
+	ctx->key_buf = buf;
+	ctx->key_buf_len = (size_t)amount;
+	br_skey_decoder_init(&ctx->skc);
+	br_skey_decoder_push(&ctx->skc, buf, amount);
+	err = br_skey_decoder_last_error(&ctx->skc);
+	if (err) {
+		lwsl_err("%s: failed to decode client private key: %d\n",
+			 __func__, err);
+
+		return 1;
+	}
+
+	switch (br_skey_decoder_key_type(&ctx->skc)) {
+	case BR_KEYTYPE_RSA:
+		ctx->is_rsa = 1;
+		ctx->rsa_key = *br_skey_decoder_get_rsa(&ctx->skc);
+		break;
+	case BR_KEYTYPE_EC:
+		ctx->is_rsa = 0;
+		ctx->ec_key = *br_skey_decoder_get_ec(&ctx->skc);
+		break;
+	default:
+		lwsl_err("%s: unsupported client private key type\n", __func__);
+
+		return 1;
+	}
+
+	lwsl_notice("%s: vh %s: client cert loaded for mTLS\n", __func__,
+		    vh->name);
+
+	return 0;
+}
+
+int
+lws_tls_client_create_vhost_context(struct lws_vhost *vh,
+			    const struct lws_context_creation_info *info,
+			    const char *cipher_list,
+			    const char *ca_filepath,
+			    const void *ca_mem,
+			    unsigned int ca_mem_len,
+			    const char *cert_filepath,
+			    const void *cert_mem,
+			    unsigned int cert_mem_len,
+			    const char *private_key_filepath,
+			    const void *key_mem,
+			    unsigned int key_mem_len)
+{
+	struct lws_tls_ctx *ctx;
+
+#if defined(LWS_WITH_TLS_SESSIONS)
+	vh->tls_session_cache_max = info->tls_session_cache_max ?
+				    info->tls_session_cache_max : 10;
+	lws_tls_session_cache(vh, info->tls_session_timeout);
+#endif
+
+	ctx = lws_zalloc(sizeof(*ctx), "bearssl client ctx");
+	if (!ctx)
+		return 1;
+
+	vh->tls.ssl_client_ctx = ctx;
+
+	/* the app's override for the TLS 1.2 floor, see
+	 * lws_bearssl_engine_set_floor() */
+	ctx->options_clear = info ? (long)info->ssl_client_options_clear : 0;
+
+	if (!ca_filepath && (!ca_mem || !ca_mem_len)) {
+		ca_filepath = getenv("SSL_CERT_FILE");
+		if (!ca_filepath)
+			ca_filepath = getenv("SSL_CERT_DIR");
+
+		if (!ca_filepath) {
+			if (access("/etc/ssl/certs/ca-certificates.crt", R_OK) == 0)
+				ca_filepath = "/etc/ssl/certs/ca-certificates.crt";
+			else if (access("/etc/pki/tls/certs/ca-bundle.crt", R_OK) == 0)
+				ca_filepath = "/etc/pki/tls/certs/ca-bundle.crt";
+		}
+#if defined(LWS_OPENSSL_CLIENT_CERTS)
+		if (!ca_filepath)
+			ca_filepath = LWS_OPENSSL_CLIENT_CERTS;
+#endif
+	}
+
+	if (ca_filepath) {
+#if !defined(LWS_PLAT_OPTEE)
+		struct stat s;
+		if (!stat(ca_filepath, &s) && (s.st_mode & S_IFMT) == S_IFDIR) {
+			lws_dir(ca_filepath, vh, lws_tls_bearssl_load_certs_dir_cb);
+		} else {
+			if (lws_tls_bearssl_load_pem_certs(vh, ca_filepath)) {
+				lwsl_err("%s: failed to load CA %s\n", __func__, ca_filepath);
+				return 1;
+			}
+		}
+#endif
+	} else if (ca_mem && ca_mem_len) {
+		if (lws_tls_client_vhost_extra_cert_mem(vh, ca_mem, ca_mem_len))
+			return 1;
+	}
+
+	if (cert_filepath || cert_mem) {
+		/*
+		 * mTLS: it is not OK to ignore a configured client cert and
+		 * connect anonymously, so a failure here fails the vhost
+		 */
+		if (lws_tls_bearssl_client_cert_load(vh, ctx, cert_filepath,
+						     cert_mem, cert_mem_len,
+						     private_key_filepath,
+						     key_mem, key_mem_len))
+			return 1;
+	} else
+		if (private_key_filepath || key_mem)
+			lwsl_warn("%s: client private key without a client "
+				  "cert, no client cert will be offered\n",
+				  __func__);
+
+	return 0;
+}
+
+int
+lws_ssl_client_bio_create(struct lws *wsi)
+{
+	struct lws_tls_conn *conn;
+
+	conn = lws_zalloc(sizeof(*conn), "bearssl conn");
+	if (!conn)
+		return -1;
+
+	wsi->io->tls.ssl = (lws_tls_conn *)conn;
+	conn->is_client = 1;
+	conn->ctx = wsi->a.vhost->tls.ssl_client_ctx;
+
+	return 0;
+}

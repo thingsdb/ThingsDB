@@ -1,0 +1,373 @@
+/*
+ * Copyright (c) 2009-2011 by Juliusz Chroboczek
+ * Minor changes (c) 2018 Gwiz <gwiz2009@gmail.com>
+ *   Added handler for implied port & hook for dhtdigg
+ * Copyright (c) 2026 Andy Green <andy@warmcat.com>
+ *   Adaptation for lws, cleaning, modernization
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
+#include "private-lib-misc-dht.h"
+
+LWS_VISIBLE int
+lws_dht_nodes(struct lws_dht_ctx *ctx, int af, int *good_return, int *dubious_return, int *cached_return,
+		int *incoming_return)
+{
+	int good = 0, dubious = 0, cached = 0, incoming = 0;
+	lws_dll2_owner_t *bo = af == AF_INET ? &ctx->buckets : &ctx->buckets6;
+
+	lws_start_foreach_dll(struct lws_dll2 *, db, lws_dll2_get_head(bo)) {
+		struct bucket *b = lws_container_of(db, struct bucket, list);
+
+		lws_start_foreach_dll(struct lws_dll2 *, d, lws_dll2_get_head(&b->nodes)) {
+			struct node *n = lws_container_of(d, struct node, list);
+
+			if (node_good(ctx, n)) {
+				good++;
+				if (n->time > n->reply_time)
+					incoming++;
+			} else
+				dubious++;
+		} lws_end_foreach_dll(d);
+
+		if (b->cached.ss_family > 0)
+			cached++;
+	} lws_end_foreach_dll(db);
+
+	if (good_return)
+		*good_return = good;
+	if (dubious_return)
+		*dubious_return = dubious;
+	if (cached_return)
+		*cached_return = cached;
+	if (incoming_return)
+		*incoming_return = incoming;
+
+	return good + dubious;
+}
+
+int
+lws_dht_foreach_node(struct lws_dht_ctx *ctx, int af, lws_dht_node_cb_t cb,
+		     void *user)
+{
+	lws_dll2_owner_t *bo = af == AF_INET ? &ctx->buckets : &ctx->buckets6;
+	lws_dht_node_info_t ni;
+	int count = 0;
+
+	lws_start_foreach_dll(struct lws_dll2 *, db, lws_dll2_get_head(bo)) {
+		struct bucket *b = lws_container_of(db, struct bucket, list);
+
+		lws_start_foreach_dll(struct lws_dll2 *, d,
+				      lws_dll2_get_head(&b->nodes)) {
+			struct node *n = lws_container_of(d, struct node, list);
+
+			memset(&ni, 0, sizeof(ni));
+			ni.id		= n->id;
+			ni.sa		= (const struct sockaddr *)&n->ss;
+			ni.salen	= n->sslen;
+			ni.heard	= n->time ? (long)(ctx->now - n->time) : -1;
+			ni.replied	= n->reply_time ?
+					  (long)(ctx->now - n->reply_time) : -1;
+			ni.pinged	= n->pinged;
+			ni.good		= !!node_good(ctx, n);
+			ni.bep42_ok	= !!n->bep42_ok;
+
+			count++;
+			if (cb(user, &ni))
+				return count;
+		} lws_end_foreach_dll(d);
+	} lws_end_foreach_dll(db);
+
+	return count;
+}
+
+static int
+check_pending_notifications(struct lws_dht_ctx *ctx)
+{
+	int soon = 0;
+
+	lws_start_foreach_dll(struct lws_dll2 *, dst, lws_dll2_get_head(&ctx->storage)) {
+		struct storage *st = lws_container_of(dst, struct storage, list);
+
+		lws_start_foreach_dll_safe(struct lws_dll2 *, dsb, dsb1,
+					   lws_dll2_get_head(&st->subscribers)) {
+			struct subscriber *sub = lws_container_of(dsb, struct subscriber, list);
+
+			if (sub->pending_notify) {
+				if (ctx->now >= sub->last_notify + 3) {
+					if (sub->notify_retries >= 5) {
+						/* give up on this subscriber */
+						lws_dll2_remove(dsb);
+						lws_free(sub);
+						continue;
+					}
+
+					lws_dht_send_notify(ctx, (struct sockaddr *)&sub->ss, sub->sslen, sub->tid, sub->tid_len, st->id, sub->pending_sha256, NULL, 0);
+					sub->last_notify = ctx->now;
+					sub->notify_retries++;
+				}
+				soon = 1;
+			}
+		} lws_end_foreach_dll_safe(dsb, dsb1);
+	} lws_end_foreach_dll(dst);
+
+	return soon;
+}
+
+void
+lws_dht_periodic_cb(lws_sorted_usec_list_t *sul)
+{
+	struct lws_dht_ctx *ctx = lws_container_of(sul, struct lws_dht_ctx, sul);
+	time_t tosleep = 10;
+	uint32_t r;
+
+	ctx->now = (time_t)lws_now_secs();
+
+	if (ctx->now >= ctx->rotate_secrets_time)
+		rotate_secrets(ctx);
+
+	if (ctx->now >= ctx->expire_stuff_time) {
+		int soon = 0;
+
+		expire_buckets(ctx, &ctx->buckets);
+		expire_buckets(ctx, &ctx->buckets6);
+		expire_storage(ctx);
+		expire_searches(ctx);
+
+		soon |= bucket_maintenance(ctx, AF_INET);
+		soon |= bucket_maintenance(ctx, AF_INET6);
+		ctx->expire_stuff_time = ctx->now + LWS_DHT_IDLE_EXPIRE_SECS;
+		if (soon) {
+			if (ctx->confirm_nodes_time == 0 ||
+			    ctx->confirm_nodes_time > ctx->now + 2)
+				ctx->confirm_nodes_time = ctx->now + 2;
+		}
+	}
+
+	if (ctx->search_time > 0 && ctx->now >= ctx->search_time) {
+		/*
+		 * search_step() dispatches the app's SEARCH_DONE callback, and
+		 * an app that starts a search from there can retire a done
+		 * search underneath us, so walk with the safe iterator.
+		 */
+		lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
+					   lws_dll2_get_head(&ctx->searches)) {
+			struct search *sr = lws_container_of(d, struct search, list);
+
+			if (!sr->done && sr->step_time + 5 <= ctx->now)
+				search_step(ctx, sr, ctx->cb, ctx->closure);
+		} lws_end_foreach_dll_safe(d, d1);
+
+		ctx->search_time = 0;
+
+		lws_start_foreach_dll(struct lws_dll2 *, d2, lws_dll2_get_head(&ctx->searches)) {
+			struct search *sr = lws_container_of(d2, struct search, list);
+
+			if (!sr->done) {
+				uint32_t r;
+				time_t tm;
+
+				lws_get_random(ctx->vhost->context, &r, sizeof(r));
+				tm = sr->step_time + LWS_DHT_PING_TIMEOUT_SECS +
+						(time_t)(r % 10);
+				if (ctx->search_time == 0 || ctx->search_time > tm)
+					ctx->search_time = tm;
+			}
+		} lws_end_foreach_dll(d2);
+	}
+
+	if (ctx->confirm_nodes_time > 0 && ctx->now >= ctx->confirm_nodes_time) {
+		int soon = neighbourhood_maintenance(ctx, AF_INET) |
+			   neighbourhood_maintenance(ctx, AF_INET6);
+
+		if (!soon) {
+			if (ctx->mybucket_grow_time >= ctx->now - 150)
+				soon |= neighbourhood_maintenance(ctx, AF_INET);
+			if (ctx->mybucket6_grow_time >= ctx->now - 150)
+				soon |= neighbourhood_maintenance(ctx, AF_INET6);
+		}
+
+		/*
+		 * Unsigned draw: % of a negative signed random is negative in
+		 * C99, which would leave confirm_nodes_time in the past, make
+		 * tosleep 0 and burst find_node into the event loop.
+		 */
+		lws_get_random(ctx->vhost->context, &r, sizeof(r));
+
+		if (soon)
+			ctx->confirm_nodes_time = ctx->now + 5 + (time_t)(r % 20);
+		else
+			ctx->confirm_nodes_time = ctx->now + 60 + (time_t)(r % 120);
+	}
+
+	if (ctx->confirm_nodes_time > ctx->now)
+		tosleep = ctx->confirm_nodes_time - ctx->now;
+	else
+		tosleep = 0;
+
+	if (check_pending_notifications(ctx)) {
+		if (tosleep > 3 || tosleep == 0)
+			tosleep = 3;
+	}
+
+	if (ctx->search_time > 0) {
+		if (ctx->search_time <= ctx->now)
+			tosleep = 0;
+		else if (tosleep > ctx->search_time - ctx->now)
+			tosleep = ctx->search_time - ctx->now;
+	}
+
+	lws_sul_schedule(ctx->vhost->context, 0, &ctx->sul,
+			 lws_dht_periodic_cb, tosleep * LWS_US_PER_SEC);
+}
+
+int
+lws_dht_get_nodes(struct lws_dht_ctx *ctx, struct sockaddr_in *sin, int *num,
+		  struct sockaddr_in6 *sin6, int *num6)
+{
+	int i, j;
+	struct bucket *b;
+
+	i = 0;
+
+	/*
+	 * For restoring to work without discarding too many nodes, the list
+	 * must start with the contents of our bucket.
+	 */
+	b = find_bucket(ctx, ctx->myid, AF_INET);
+	if (b == NULL)
+		goto no_ipv4;
+
+	lws_start_foreach_dll(struct lws_dll2 *, d, lws_dll2_get_head(&b->nodes)) {
+		struct node *n = lws_container_of(d, struct node, list);
+
+		if (i >= *num)
+			break;
+
+		if (node_good(ctx, n)) {
+			sin[i] = *(struct sockaddr_in*)&n->ss;
+			i++;
+		}
+	} lws_end_foreach_dll(d);
+
+	lws_start_foreach_dll(struct lws_dll2 *, db, lws_dll2_get_head(&ctx->buckets)) {
+		struct bucket *b1 = lws_container_of(db, struct bucket, list);
+		struct bucket *nb = bucket_next(b1);
+
+		if (i >= *num)
+			break;
+
+		if (id_cmp(b1->first, ctx->myid) <= 0 &&
+		    (nb == NULL || id_cmp(ctx->myid, nb->first) < 0))
+		{
+			/* skip, handled above */
+		} else {
+			lws_start_foreach_dll(struct lws_dll2 *, d1, lws_dll2_get_head(&b1->nodes)) {
+				struct node *n = lws_container_of(d1, struct node, list);
+
+				if (i >= *num)
+					break;
+
+				if (node_good(ctx, n)) {
+					sin[i] = *(struct sockaddr_in*)&n->ss;
+					i++;
+				}
+			} lws_end_foreach_dll(d1);
+		}
+	} lws_end_foreach_dll(db);
+
+no_ipv4:
+
+	j = 0;
+
+	b = find_bucket(ctx, ctx->myid, AF_INET6);
+	if (b == NULL)
+		goto no_ipv6;
+
+	lws_start_foreach_dll(struct lws_dll2 *, d2, lws_dll2_get_head(&b->nodes)) {
+		struct node *n = lws_container_of(d2, struct node, list);
+
+		if (j >= *num6)
+			break;
+
+		if (node_good(ctx, n)) {
+			sin6[j] = *(struct sockaddr_in6*)&n->ss;
+			j++;
+		}
+	} lws_end_foreach_dll(d2);
+
+	lws_start_foreach_dll(struct lws_dll2 *, db6, lws_dll2_get_head(&ctx->buckets6)) {
+		struct bucket *b1 = lws_container_of(db6, struct bucket, list);
+		struct bucket *nb = bucket_next(b1);
+
+		if (j >= *num6)
+			break;
+
+		if (id_cmp(b1->first, ctx->myid) <= 0 &&
+		    (nb == NULL || id_cmp(ctx->myid, nb->first) < 0))
+		{
+			/* skip */
+		} else {
+			lws_start_foreach_dll(struct lws_dll2 *, d3, lws_dll2_get_head(&b1->nodes)) {
+				struct node *n = lws_container_of(d3, struct node, list);
+
+				if (j >= *num6)
+					break;
+
+				if (node_good(ctx, n)) {
+					sin6[j] = *(struct sockaddr_in6*)&n->ss;
+					j++;
+				}
+			} lws_end_foreach_dll(d3);
+		}
+	} lws_end_foreach_dll(db6);
+
+no_ipv6:
+
+	*num = i;
+	*num6 = j;
+
+	return i + j;
+}
+
+int
+lws_dht_insert_node(struct lws_dht_ctx *ctx, const lws_dht_hash_t *id,
+		    struct sockaddr *sa, size_t salen)
+{
+	struct node *node;
+
+	switch (sa->sa_family) {
+	case AF_INET:
+	case AF_INET6:
+		/*
+		 * confirm=1 means we treat it as if we just heard from it, so it
+		 * gets a timestamp and isn't immediately expired.
+		 */
+		node = maybe_new_node(ctx, id, sa, salen, 1);
+
+		return !!node;
+	default:
+		break;
+	}
+
+	errno = EAFNOSUPPORT;
+
+	return -1;
+}

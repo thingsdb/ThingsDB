@@ -1,0 +1,1212 @@
+/*
+ * libwebsockets - small server side websockets and web server implementation
+ *
+ * Copyright (C) 2010 - 2020 Andy Green <andy@warmcat.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+
+#include "private-lib-core.h"
+#if defined(LWS_WITH_SYS_ASYNC_DNS)
+#include "private-lib-async-dns.h"
+#endif
+
+int
+_lws_change_pollfd(struct lws *wsi, int _and, int _or, struct lws_pollargs *pa)
+{
+#if !defined(LWS_WITH_EVENT_LIBS) && !defined(LWS_PLAT_FREERTOS) && \
+    !defined(WIN32) && !defined(_WIN32)
+	volatile struct lws_context_per_thread *vpt;
+#endif
+	struct lws_context_per_thread *pt;
+	struct lws_context *context;
+	int ret = 0, pa_events;
+	struct lws_pollfd *pfd;
+	int sampled_tid, tid;
+
+	if (!wsi)
+		return 0;
+
+	assert(wsi->io->position_in_fds_table == LWS_NO_FDS_POS ||
+	       wsi->io->position_in_fds_table >= 0);
+
+	if (wsi->io->position_in_fds_table == LWS_NO_FDS_POS)
+		return 0;
+
+	if (((volatile struct lws *)wsi)->io->handling_pollout &&
+	    !_and && _or == LWS_POLLOUT) {
+		/*
+		 * Happening alongside service thread handling POLLOUT.
+		 * The danger is when he is finished, he will disable POLLOUT,
+		 * countermanding what we changed here.
+		 *
+		 * Instead of changing the fds, inform the service thread
+		 * what happened, and ask it to leave POLLOUT active on exit
+		 */
+		((volatile struct lws *)wsi)->io->leave_pollout_active = 1;
+		/*
+		 * by definition service thread is not in poll wait, so no need
+		 * to cancel service
+		 */
+
+		lwsl_wsi_debug(wsi, "using leave_pollout_active");
+
+		return 0;
+	}
+
+	context = wsi->a.context;
+	pt = &context->pt[(int)wsi->tsi];
+
+#if !defined(LWS_WITH_EVENT_LIBS) && !defined(LWS_PLAT_FREERTOS) && \
+    !defined(WIN32) && !defined(_WIN32)
+	/*
+	 * This only applies when we use the default poll() event loop.
+	 *
+	 * BSD can revert pa->events at any time, when the kernel decides to
+	 * exit from poll().  We can't protect against it using locking.
+	 *
+	 * Therefore we must check first if the service thread is in poll()
+	 * wait; if so, we know we must be being called from a foreign thread,
+	 * and we must keep a strictly ordered list of changes we made instead
+	 * of trying to apply them, since when poll() exits, which may happen
+	 * at any time it would revert our changes.
+	 *
+	 * The plat code will apply them when it leaves the poll() wait
+	 * before doing anything else.
+	 */
+
+	vpt = (volatile struct lws_context_per_thread *)pt;
+
+	vpt->foreign_spinlock = 1;
+	lws_memory_barrier();
+
+	if (vpt->inside_poll) {
+		struct lws_foreign_thread_pollfd *ftp;
+		/*
+		 * We are certainly a foreign thread trying to change events
+		 * while the service thread is in the poll() wait.
+		 *
+		 * Create a list of changes to be applied after poll() exit,
+		 * instead of trying to apply them now.
+		 */
+		ftp = lws_zalloc(sizeof(*ftp), "ftp");
+		if (!ftp) {
+			vpt->foreign_spinlock = 0;
+			lws_memory_barrier();
+			ret = -1;
+			goto bail;
+		}
+
+		ftp->_and = _and;
+		ftp->_or = _or;
+
+		lws_pt_lock(pt, __func__);
+		assert(wsi->io->position_in_fds_table < (int)pt->fds_count);
+		ftp->fd_index = wsi->io->position_in_fds_table;
+
+		/* place at END of list to maintain order */
+		lws_dll2_add_tail(&ftp->list, &pt->foreign_pfd_owner);
+		vpt->foreign_spinlock = 0;
+		lws_memory_barrier();
+
+		lws_pt_unlock(pt);
+
+		lws_cancel_service_pt(wsi);
+
+		return 0;
+	}
+
+	vpt->foreign_spinlock = 0;
+	lws_memory_barrier();
+#endif
+
+	lws_pt_lock(pt, __func__);
+	assert(wsi->io->position_in_fds_table < (int)pt->fds_count);
+	pfd = &pt->fds[wsi->io->position_in_fds_table];
+	pa->prev_events = pfd->events;
+	pa->events = (short)((pfd->events & ~_and) | _or);
+#if !defined(__linux__) && !defined(WIN32)
+	/*
+	 * A BSD poll() only tells an fd that asks for nothing about its close
+	 * if it asks for POLLHUP (OSX couldn't otherwise see the close on the
+	 * stdin pipe side).  But it must not be asked for alongside POLLIN or
+	 * POLLOUT, which already see the close: on OSX it arms the read side
+	 * even while POLLIN is held off, and POLLHUP and POLLOUT are never
+	 * reported together, so once the peer sends its FIN a wsi waiting to
+	 * drain a partial send never hears POLLOUT again and poll() returns
+	 * a bare POLLHUP for it in a spin.  WSAPOLL blows up if we give it
+	 * POLLHUP at all.
+	 */
+	if (pa->events & (LWS_POLLIN | LWS_POLLOUT))
+		pa->events = (short)(pa->events & ~LWS_POLLHUP);
+	else
+		pa->events = (short)(pa->events | LWS_POLLHUP);
+#endif
+	pfd->events = (short)pa->events;
+	lws_pt_unlock(pt);
+
+	pa->fd = wsi->io->desc.sockfd;
+	//lwsl_wsi_debug(wsi, "fd %d events %d -> %d", pa->fd, pa->prev_events,
+	//	pa->events);
+
+	if (wsi->mux_substream)
+		return 0;
+
+#if defined(LWS_WITH_EXTERNAL_POLL)
+
+	if (wsi->a.vhost &&
+	    wsi->a.vhost->protocols[0].callback(wsi,
+			    	    	      LWS_CALLBACK_CHANGE_MODE_POLL_FD,
+					      wsi->user_space, (void *)pa, 0)) {
+		ret = -1;
+		goto bail;
+	}
+#endif
+
+	if (_and & LWS_POLLIN)
+		_lws_event_loop_ops_io(wsi, LWS_EV_STOP | LWS_EV_READ);
+
+	if (_or & LWS_POLLIN)
+		_lws_event_loop_ops_io(wsi, LWS_EV_START | LWS_EV_READ);
+
+	if (_and & LWS_POLLOUT)
+		_lws_event_loop_ops_io(wsi, LWS_EV_STOP | LWS_EV_WRITE);
+
+	if (_or & LWS_POLLOUT)
+		_lws_event_loop_ops_io(wsi, LWS_EV_START | LWS_EV_WRITE);
+
+	/*
+	 * if we changed something in this pollfd...
+	 *   ... and we're running in a different thread context
+	 *     than the service thread...
+	 *       ... and the service thread is waiting ...
+	 *         then cancel it to force a restart with our changed events
+	 */
+	pa_events = pa->prev_events != pa->events;
+	pfd->events = (short)pa->events;
+
+	if (pa_events) {
+		if (lws_plat_change_pollfd(context, wsi, pfd)) {
+			lwsl_wsi_info(wsi, "failed");
+			ret = -1;
+			goto bail;
+		}
+		sampled_tid = pt->service_tid;
+		if (sampled_tid && wsi->a.vhost) {
+			tid = wsi->a.vhost->protocols[0].callback(wsi,
+				     LWS_CALLBACK_GET_THREAD_ID, NULL, NULL, 0);
+			if (tid == -1) {
+				ret = -1;
+				goto bail;
+			}
+			if (tid != sampled_tid)
+				lws_cancel_service_pt(wsi);
+		}
+	}
+
+bail:
+	return ret;
+}
+
+#if defined(LWS_WITH_SERVER)
+/*
+ * Should this listener hear new connections now?  1 if so, 0 if it is to be
+ * paused, or -1 if it is not one whose POLLIN accept pausing may touch.
+ *
+ * Only a stream listen socket's POLLIN means nothing but "a new connection".
+ * A bound udp socket on a vhost's listen list (the quic listener, the tls
+ * passthrough relay's socket to its server) also carries every datagram of
+ * the connections already established over it: a server quic connection has
+ * no socket of its own.  Pausing one of those to stop new connections would
+ * freeze all the existing ones, so they are never paused.  New quic
+ * connections are refused for themselves instead: by the half-open caps
+ * (lws_quic_halfopen_admit()), and, once their address is validated, by the
+ * tls restriction (lws_tls_quic_admit()).
+ *
+ * A stream listener is paused while no pt has room for another connection
+ * (lws_accept_modulation()), and, on a tls vhost, while the tls restriction
+ * is reached (lws_gate_accepts()).  Each of those decides from both, so one
+ * opening never undoes the other's pause: a listener with POLLIN that then
+ * declines to accept would be readable for ever, and spin the loop.
+ */
+int
+lws_accept_listener_open(struct lws *wsi)
+{
+	struct lws_context *cx = wsi->a.context;
+	int n;
+
+	if (wsi->role_ops != &role_ops_listen)
+		return -1;
+
+#if defined(LWS_WITH_TLS)
+	if (wsi->a.vhost->tls.use_ssl && cx->tls_gate_accepts)
+		return 0;
+#endif
+
+	for (n = 0; n < cx->count_threads; n++)
+		if (!cx->pt[n].accept_full)
+			return 1;
+
+	return 0;
+}
+
+/*
+ * A listener just joined a vhost's listen list: it was created (a vhost made
+ * after the context, an iface listener retried when its interface appeared),
+ * or moved to another vhost when its own went away.  The pausers only act on
+ * listeners when their own state changes, so one made while either pause is
+ * in effect would otherwise keep the POLLIN it was inserted with, and its
+ * connects, declined at accept, keep it readable: the loop spins.  It takes
+ * the same decision now; whichever pause is lifted later reopens it with the
+ * rest, since it is on the list they walk.
+ *
+ * Call with the listener's pt lock held.
+ */
+int
+__lws_accept_listener_arm(struct lws *wsi)
+{
+	int open = lws_accept_listener_open(wsi);
+
+	if (open < 0)
+		return 0;
+
+	return __lws_change_pollfd(wsi, open ? 0 : LWS_POLLIN,
+				   open ? LWS_POLLIN : 0);
+}
+
+/*
+ * Listeners are paused while no pt has room for another connection, since an
+ * accept is adopted onto the idlest pt (lws_get_idlest_tsi()), whichever pt
+ * the listener itself is on.
+ *
+ * Only a listener's own pt changes its poll entry.  A pt's table filling up,
+ * or making room again, changes the answer for every pt's listeners, but it
+ * happens under that pt's lock (insert / remove), and taking another pt's lock
+ * from under ours is an AB-BA with that pt doing the same towards us.  So the
+ * other pts are flagged and woken through their event pipe, and each decides
+ * again for its own listeners on its own service thread
+ * (lws_accept_modulation_recheck()).
+ *
+ * Call with the pt lock held.
+ */
+static void
+lws_accept_modulation(struct lws_context_per_thread *pt)
+{
+	struct lws_context *cx = pt->context;
+	struct lws_vhost *vh;
+	struct lws_pollargs pa1;
+	int n, allow = 0, acted = 0, open;
+
+	for (n = 0; n < cx->count_threads; n++)
+		if (!cx->pt[n].accept_full) {
+			allow = 1;
+			break;
+		}
+
+	for (vh = lws_vhost_first(cx); vh; vh = lws_vhost_next(vh)) {
+		lws_start_foreach_dll(struct lws_dll2 *, d,
+				      lws_dll2_get_head(&vh->listen_wsi)) {
+			struct lws *wsi = lws_container_of(d, struct lws,
+							   listen_list);
+
+			if (wsi->tsi == pt->tid &&
+			    (open = lws_accept_listener_open(wsi)) >= 0) {
+				_lws_change_pollfd(wsi, open ? 0 : LWS_POLLIN,
+						   open ? LWS_POLLIN : 0, &pa1);
+				acted = 1;
+			}
+		} lws_end_foreach_dll(d);
+	}
+
+	if (!allow && acted && !pt->accept_pause_warned) {
+		/*
+		 * Until a connection closes, nothing more is accepted on any
+		 * listener.  That is by design, but a budget this small is
+		 * usually an accident (eg, lws_context_info_defaults() sizes
+		 * it for a client) and it is otherwise silent: say so, once.
+		 */
+		pt->accept_pause_warned = 1;
+		lwsl_cx_warn(cx, "tsi %d: fds tables full (%u fds here), "
+			     "listeners paused until a connection closes: "
+			     "raise info->fd_limit_per_thread (0 = process "
+			     "limit) if this server should take more",
+			     (int)pt->tid, (unsigned int)pt->fds_count);
+	}
+}
+
+/* the pt's fds table was changed, with its lock held */
+static void
+lws_accept_room_changed(struct lws_context_per_thread *pt)
+{
+	struct lws_context *cx = pt->context;
+	unsigned char full = (unsigned int)pt->fds_count >=
+					cx->fd_limit_per_thread - 1;
+#if LWS_MAX_SMP > 1
+	int n;
+#endif
+
+	if (cx->being_destroyed || pt->accept_full == full)
+		return;
+
+	pt->accept_full = full;
+
+#if LWS_MAX_SMP > 1
+	/*
+	 * Our accept_full must be visible before any pt we flag clears its
+	 * flag and looks at the others' (lws_accept_modulation_recheck())
+	 */
+	lws_memory_barrier();
+
+	for (n = 0; n < cx->count_threads; n++)
+		if (n != pt->tid && cx->pt[n].pipe_wsi) {
+			cx->pt[n].accept_recheck = 1;
+			lws_plat_pipe_signal(cx, n);
+		}
+#endif
+
+	lws_accept_modulation(pt);
+}
+
+#if LWS_MAX_SMP > 1
+/* on the pt's service thread, when its event pipe was signalled */
+void
+lws_accept_modulation_recheck(struct lws_context_per_thread *pt)
+{
+	if (!pt->accept_recheck)
+		return;
+
+	/* a change after this point flags us, and wakes us, again */
+	pt->accept_recheck = 0;
+	lws_memory_barrier();
+
+	if (pt->context->being_destroyed)
+		return;
+
+	lws_pt_lock(pt, __func__);
+	lws_accept_modulation(pt);
+	lws_pt_unlock(pt);
+}
+#endif
+#endif
+
+#if _LWS_ENABLED_LOGS & LLL_WARN
+void
+__dump_fds(struct lws_context_per_thread *pt, const char *s)
+{
+	unsigned int n;
+
+	lwsl_cx_warn(pt->context, "fds_count %u, %s", pt->fds_count, s);
+
+	for (n = 0; n < pt->fds_count; n++) {
+		struct lws *wsi = wsi_from_fd(pt->context, pt->fds[n].fd);
+
+		lwsl_cx_warn(pt->context, "  %d: fd %d, wsi %s, pos_in_fds: %d",
+			n + 1, pt->fds[n].fd, lws_wsi_tag(wsi),
+			wsi ? wsi->io->position_in_fds_table : -1);
+	}
+}
+#else
+#define __dump_fds(x, y)
+#endif
+
+int
+__insert_wsi_socket_into_fds(struct lws_context *context, struct lws *wsi)
+{
+#if defined(LWS_WITH_EXTERNAL_POLL)
+	struct lws_pollargs pa = { wsi->io->desc.sockfd, LWS_POLLIN, 0 };
+#endif
+	struct lws_context_per_thread *pt = &context->pt[(int)wsi->tsi];
+	int ret = 0;
+
+//	__dump_fds(pt, "pre insert");
+
+	lws_pt_assert_lock_held(pt);
+
+	lwsl_wsi_debug(wsi, "tsi=%d, sock=%d, pos-in-fds=%d",
+			wsi->tsi, wsi->io->desc.sockfd, pt->fds_count);
+
+	if ((unsigned int)pt->fds_count >= context->fd_limit_per_thread) {
+		lwsl_cx_err(context, "Too many fds (%d vs %d)", context->max_fds,
+				context->fd_limit_per_thread);
+		return 1;
+	}
+
+	/* no fd has no place in the fd lookup table or the poll set */
+	if (!lws_socket_is_valid(wsi->io->desc.sockfd)) {
+		lwsl_wsi_err(wsi, "no socket to insert");
+		return 1;
+	}
+
+#if !defined(_WIN32)
+	if (!wsi->a.context->max_fds_unrelated_to_ulimit &&
+	    wsi->io->desc.sockfd - lws_plat_socket_offset() >= (int)context->max_fds) {
+		lwsl_cx_err(context, "Socket fd %d is too high (%d) offset %d",
+			 wsi->io->desc.sockfd, context->max_fds,
+			 lws_plat_socket_offset());
+		return 1;
+	}
+#endif
+
+	assert(wsi);
+
+#if defined(LWS_WITH_ROUTING)
+	assert(wsi->io->event_pipe || wsi->a.vhost || wsi == pt->context->netlink);
+#else
+	assert(wsi->io->event_pipe || wsi->a.vhost);
+#endif
+	assert(lws_socket_is_valid(wsi->io->desc.sockfd));
+
+#if defined(LWS_WITH_EXTERNAL_POLL)
+
+	if (wsi->a.vhost &&
+	    wsi->a.vhost->protocols[0].callback(wsi, LWS_CALLBACK_LOCK_POLL,
+					   wsi->user_space, (void *) &pa, 1))
+		return -1;
+#endif
+
+	if (insert_wsi(context, wsi))
+		return -1;
+	pt->count_conns++;
+	wsi->io->position_in_fds_table = (int)pt->fds_count;
+
+	pt->fds[wsi->io->position_in_fds_table].fd = wsi->io->desc.sockfd;
+	pt->fds[wsi->io->position_in_fds_table].events = LWS_POLLIN;
+#if defined(LWS_WITH_EXTERNAL_POLL)
+	pa.events = pt->fds[pt->fds_count].events;
+#endif
+
+	lws_plat_insert_socket_into_fds(context, wsi);
+
+#if defined(LWS_WITH_EXTERNAL_POLL)
+
+	/* external POLL support via protocol 0 */
+	if (wsi->a.vhost &&
+	    wsi->a.vhost->protocols[0].callback(wsi, LWS_CALLBACK_ADD_POLL_FD,
+					   wsi->user_space, (void *) &pa, 0))
+		ret =  -1;
+#endif
+#if defined(LWS_WITH_SERVER)
+	/* if that was the last room, listeners may have to stop accepting */
+	lws_accept_room_changed(pt);
+#endif
+
+#if defined(LWS_WITH_EXTERNAL_POLL)
+	if (wsi->a.vhost &&
+	    wsi->a.vhost->protocols[0].callback(wsi, LWS_CALLBACK_UNLOCK_POLL,
+					   wsi->user_space, (void *)&pa, 1))
+		ret = -1;
+#endif
+
+//	__dump_fds(pt, "post insert");
+
+	return ret;
+}
+
+/* requires pt lock */
+
+int
+__remove_wsi_socket_from_fds(struct lws *wsi)
+{
+	struct lws_context *context = wsi->a.context;
+#if defined(LWS_WITH_EXTERNAL_POLL)
+	struct lws_pollargs pa = { wsi->io->desc.sockfd, 0, 0 };
+#endif
+	struct lws_context_per_thread *pt = &context->pt[(int)wsi->tsi];
+	struct lws *end_wsi;
+	lws_sockfd_type v;
+	int m, ret = 0;
+
+	lws_pt_assert_lock_held(pt);
+
+//	__dump_fds(pt, "pre remove");
+
+#if !defined(_WIN32)
+	if (!wsi->a.context->max_fds_unrelated_to_ulimit &&
+	    wsi->io->desc.sockfd - lws_plat_socket_offset() > (int)context->max_fds) {
+		lwsl_wsi_err(wsi, "fd %d too high (%d)",
+				   wsi->io->desc.sockfd,
+				   context->max_fds);
+
+		return 1;
+	}
+#endif
+#if defined(LWS_WITH_EXTERNAL_POLL)
+	if (wsi->a.vhost && wsi->a.vhost->protocols &&
+	    wsi->a.vhost->protocols[0].callback(wsi, LWS_CALLBACK_LOCK_POLL,
+					   wsi->user_space, (void *)&pa, 1))
+		return -1;
+#endif
+
+	__lws_same_vh_protocol_remove(wsi);
+
+	/* the guy who is to be deleted's slot index in pt->fds */
+	m = wsi->io->position_in_fds_table;
+	
+	/* these are the only valid possibilities for position_in_fds_table */
+	assert(m == LWS_NO_FDS_POS || (m >= 0 && (unsigned int)m < pt->fds_count));
+
+	if (context->event_loop_ops->io || context->event_loop_ops->io_parallel)
+		_lws_event_loop_ops_io(wsi, LWS_EV_STOP | LWS_EV_READ |
+							       LWS_EV_WRITE);
+/*
+	lwsl_notice("%s: wsi=%s, skt=%d, fds pos=%d, end guy pos=%d, endfd=%d\n",
+		  __func__, lws_wsi_tag(wsi), wsi->io->desc.sockfd, wsi->io->position_in_fds_table,
+		  pt->fds_count, pt->fds[pt->fds_count - 1].fd); */
+
+	if (m != LWS_NO_FDS_POS) {
+		char fixup = 0;
+
+		assert(pt->fds_count && (unsigned int)m != pt->fds_count);
+
+		/* deletion guy's lws_lookup entry needs nuking */
+		delete_from_fd(context, wsi->io->desc.sockfd);
+
+		if ((unsigned int)m != pt->fds_count - 1) {
+			/* have the last guy take up the now vacant slot */
+			pt->fds[m] = pt->fds[pt->fds_count - 1];
+			fixup = 1;
+		}
+
+		pt->fds[pt->fds_count - 1].fd = -1;
+
+		/* this decrements pt->fds_count */
+		lws_plat_delete_socket_from_fds(context, wsi, m);
+		pt->count_conns--;
+		if (fixup) {
+			v = pt->fds[m].fd;
+			/* old end guy's "position in fds table" is now the
+			 * deletion guy's old one */
+			end_wsi = wsi_from_fd(context, v);
+			if (!end_wsi) {
+				lwsl_wsi_err(wsi, "no wsi for fd %d pos %d, "
+						  "pt->fds_count=%d",
+						  (int)pt->fds[m].fd, m,
+						  pt->fds_count);
+				// assert(0);
+			} else {
+#if defined(LWS_WITH_CLIENT)
+				int p = -1;
+				for (int i = 0; i < end_wsi->io->parallel_count; i++) {
+					if (end_wsi->io->parallel_conns[i].is_valid && end_wsi->io->parallel_conns[i].desc.sockfd == v) {
+						p = i;
+						break;
+					}
+				}
+				if (p != -1)
+					end_wsi->io->parallel_conns[p].position_in_fds_table = m;
+				else
+#endif
+					end_wsi->io->position_in_fds_table = m;
+			}
+		}
+
+		/* removed wsi has no position any more */
+		wsi->io->position_in_fds_table = LWS_NO_FDS_POS;
+
+#if defined(LWS_WITH_EXTERNAL_POLL)
+		/* remove also from external POLL support via protocol 0 */
+		if (lws_socket_is_valid(wsi->io->desc.sockfd) && wsi->a.vhost &&
+		    wsi->a.vhost->protocols[0].callback(wsi,
+						        LWS_CALLBACK_DEL_POLL_FD,
+						        wsi->user_space,
+						        (void *) &pa, 0))
+			ret = -1;
+#endif
+	}
+
+#if defined(LWS_WITH_SERVER)
+	/* if this made some room, listeners may accept again */
+	lws_accept_room_changed(pt);
+#endif
+
+#if defined(LWS_WITH_EXTERNAL_POLL)
+	if (wsi->a.vhost &&
+	    wsi->a.vhost->protocols[0].callback(wsi, LWS_CALLBACK_UNLOCK_POLL,
+					      wsi->user_space, (void *) &pa, 1))
+		ret = -1;
+#endif
+
+//	__dump_fds(pt, "post remove");
+
+	return ret;
+}
+
+void
+_lws_event_loop_ops_io(struct lws *wsi, unsigned int flags)
+{
+	struct lws_context *context = wsi->a.context;
+
+#if defined(LWS_WITH_CLIENT)
+	if (context->event_loop_ops->io_parallel && wsi->io->parallel_count > 0) {
+		for (int i = 0; i < wsi->io->parallel_count; i++) {
+			if (wsi->io->parallel_conns[i].is_valid &&
+			    wsi->io->parallel_conns[i].desc.sockfd == wsi->io->desc.sockfd) {
+				context->event_loop_ops->io_parallel(wsi, i, flags);
+				return;
+			}
+		}
+	}
+#endif
+	if (context->event_loop_ops->io)
+		context->event_loop_ops->io(wsi, flags);
+}
+
+int
+__lws_change_pollfd(struct lws *wsi, int _and, int _or)
+{
+	struct lws_context *context;
+	struct lws_pollargs pa;
+	int ret = 0;
+
+	if (!wsi || (!wsi->a.protocol && !wsi->io->event_pipe) ||
+	    wsi->io->position_in_fds_table == LWS_NO_FDS_POS)
+		return 0;
+
+	context = lws_get_context(wsi);
+	if (!context)
+		return 1;
+
+#if defined(LWS_WITH_EXTERNAL_POLL)
+	if (wsi->a.vhost &&
+	    wsi->a.vhost->protocols[0].callback(wsi, LWS_CALLBACK_LOCK_POLL,
+					      wsi->user_space, (void *) &pa, 0))
+		return -1;
+#endif
+
+	ret = _lws_change_pollfd(wsi, _and, _or, &pa);
+
+#if defined(LWS_WITH_EXTERNAL_POLL)
+	if (wsi->a.vhost &&
+	    wsi->a.vhost->protocols[0].callback(wsi, LWS_CALLBACK_UNLOCK_POLL,
+					   wsi->user_space, (void *) &pa, 0))
+		ret = -1;
+#endif
+
+	return ret;
+}
+
+int
+lws_change_pollfd(struct lws *wsi, int _and, int _or)
+{
+	struct lws_context_per_thread *pt;
+	int ret = 0;
+
+	pt = &wsi->a.context->pt[(int)wsi->tsi];
+
+	lws_pt_lock(pt, __func__);
+	ret = __lws_change_pollfd(wsi, _and, _or);
+	lws_pt_unlock(pt);
+
+	return ret;
+}
+
+/*
+ * IO's implementation of the four requests of sansIO (lws-io-ops.h).  The
+ * transport is a socket in the pt's poll set.
+ */
+
+static int
+lws_io_want_write_pollfd(struct lws *wsi)
+{
+#if defined(LWS_WITH_SERVER) && defined(LWS_WITH_TLS)
+	/*
+	 * A server's tls accept has the POLLOUT until it is done, and arms it
+	 * itself when the handshake wants to write: a writeable asked for
+	 * meanwhile, eg, from the adoption callback of a protocol whose server
+	 * speaks first, is kept for when the accept completes
+	 * (lws_tls_server_accept_completed() asks again).  Arming it now
+	 * would have the user write through an SSL that is not accepted yet,
+	 * and that, when the accept is on an async worker, the worker is
+	 * inside.
+	 */
+	if (!lwsi_role_client(wsi) && (lwsi_state(wsi) == LRS_SSL_INIT ||
+				       lwsi_state(wsi) == LRS_SSL_ACK_PENDING ||
+				       lwsi_state(wsi) == LRS_AWAITING_SSL_ACCEPT)) {
+		wsi->io->tls.want_write_after_accept = 1;
+
+		return 0;
+	}
+#endif
+
+	return __lws_change_pollfd(wsi, 0, LWS_POLLOUT);
+}
+
+static int
+lws_io_want_read_pollfd(struct lws *wsi, int on)
+{
+	/*
+	 * The accept on a worker had POLLIN taken off, and its completion
+	 * arms it again: rx enabled meanwhile (rx flow control from an
+	 * adoption callback, say) must not have the service thread read
+	 * through the SSL the worker is accepting on
+	 */
+	if (on && lws_io_tls_on_worker(wsi))
+		return 0;
+
+	return __lws_change_pollfd(wsi, on ? 0 : LWS_POLLIN, on ? LWS_POLLIN : 0);
+}
+
+/* nothing of the transport's may act on the wsi any more */
+static void
+lws_io_quiesce_pollfd(struct lws *wsi)
+{
+	lws_io_abort_connect(wsi);
+	lws_io_socket_wait_cancel(wsi);
+#if defined(LWS_WITH_TLS_PASSTHROUGH)
+	lws_pre_accept_destroy(wsi);
+#endif
+
+	/* the service thread's event pipe leaves the loop now */
+	if (wsi->a.context->pt[(int)wsi->tsi].pipe_wsi == wsi)
+		lws_pipe_wsi_release_fds(wsi);
+
+#if defined(LWS_WITH_SYS_ASYNC_DNS)
+	lws_async_dns_wsi_closing(wsi);
+#endif
+}
+
+static int
+lws_io_close_pollfd(struct lws *wsi, int phase)
+{
+	int n, ssl_handled = 0;
+
+	switch (phase) {
+	case LWS_IOCLOSE_QUIESCE:
+		/*
+		 * a stream's transport is its connection, which the role
+		 * takes it off next, before its close callbacks: it keeps a
+		 * copy of the connection's peer stack for them
+		 */
+		lws_io_peer_keep(wsi);
+#if defined(LWS_WITH_CLIENT) && defined(LWS_WITH_TLS_SESSIONS) && \
+    defined(LWS_WITH_GNUTLS)
+		/*
+		 * keep the session for resumption while it is intact.  A mux
+		 * stream's session is its network connection's: that one
+		 * takes the (expensive) snapshot, not every stream
+		 */
+		if (!wsi->client_mux_substream)
+			lws_tls_session_new_gnutls(wsi);
+#endif
+#if defined(LWS_WITH_CGI)
+		/* a cgi's stdio pipe is no longer the child's */
+		lws_cgi_stdwsi_quiesce(wsi);
+#endif
+		/* the quiesce ends the wait: whether there was one is asked */
+		n = lws_io_socket_wait_pending(wsi);
+		lws_io_quiesce_pollfd(wsi);
+		return n;
+
+	case LWS_IOCLOSE_UNWATCH:
+		/* the datagram state, like the socket, goes at the RELEASE */
+		lws_io_quiesce_pollfd(wsi);
+		lws_io_unwatch(wsi);
+		return 0;
+
+	case LWS_IOCLOSE_SHUTDOWN:
+		n = lws_io_shutdown_write(wsi);
+		if (n > 0 && wsi->io->shutdown_tries++ == 8)
+			/* a tls shutdown that keeps wanting more service */
+			return 2;
+		return n;
+
+	case LWS_IOCLOSE_STAGE:
+		return lws_io_close_staged(wsi);
+
+	default:
+		break;
+	}
+
+	/* LWS_IOCLOSE_RELEASE */
+
+	lws_io_quiesce_pollfd(wsi);
+#if defined(LWS_WITH_TLS_PASSTHROUGH) && defined(LWS_ROLE_QUIC)
+	/* a relay it proved is proven by one connection less */
+	lws_qpt_conn_release(wsi);
+	/* a quic listener's pending Initials can't be given to it any more */
+	if (wsi->io->listener && wsi->role_ops == &role_ops_quic)
+		lws_qpt_listener_gone(wsi);
+#endif
+
+	if (!wsi->io->shadow) {
+		ssl_handled = lws_ssl_close(wsi);
+#if defined(LWS_WITH_TLS)
+		/*
+		 * A tls restriction slot the connection borrowed goes back
+		 * with it, whatever its backend's lws_ssl_close() did: some
+		 * only return it when there is a session, some never do, and
+		 * a connection can hold one with no session, eg, when making
+		 * the session failed (C-655).  It is a no-op if nothing is
+		 * borrowed, or it was returned already.
+		 */
+		lws_tls_restrict_return(wsi);
+#endif
+	}
+
+	if (!wsi->io->shadow &&
+	    lws_socket_is_valid(wsi->io->desc.sockfd) && !ssl_handled) {
+		lwsl_wsi_debug(wsi, "fd %d", wsi->io->desc.sockfd);
+
+		__remove_wsi_socket_from_fds(wsi);
+		if (lws_socket_is_valid(wsi->io->desc.sockfd))
+			delete_from_fd(wsi->a.context, wsi->io->desc.sockfd);
+
+		/*
+		 * if this is the pt pipe, skip the actual close,
+		 * go through the motions though so we will reach 0 open wsi
+		 * on the pt, and trigger the pt destroy to close the pipe fds
+		 */
+		if (!lws_plat_pipe_is_fd_assocated(wsi->a.context, wsi->tsi,
+						   wsi->io->desc.sockfd)) {
+			n = compatible_close(wsi->io->desc.sockfd);
+			if (n)
+				lwsl_wsi_debug(wsi, "closing: close ret %d",
+					       LWS_ERRNO);
+		}
+
+#if !defined(LWS_PLAT_FREERTOS) && !defined(WIN32) && !defined(LWS_PLAT_OPTEE)
+		delete_from_fdwsi(wsi->a.context, wsi);
+#endif
+
+		sanity_assert_no_sockfd_traces(wsi->a.context, wsi->io->desc.sockfd);
+	}
+
+	/* ... if we're closing the cancel pipe, account for it */
+	{
+		struct lws_context_per_thread *pt =
+				&wsi->a.context->pt[(int)wsi->tsi];
+
+		if (pt->pipe_wsi == wsi) {
+			lws_plat_pipe_close(wsi);
+			pt->pipe_wsi = NULL;
+		}
+		if (pt->dummy_pipe_fds[0] == wsi->io->desc.sockfd)
+               {
+#if !defined(LWS_PLAT_FREERTOS)
+			pt->dummy_pipe_fds[0] = LWS_SOCK_INVALID;
+#endif
+               }
+	}
+
+
+	sanity_assert_no_wsi_traces(wsi->a.context, wsi);
+
+	wsi->io->desc.sockfd = LWS_SOCK_INVALID;
+	lws_io_udp_release(wsi);
+#if defined(LWS_WITH_TLS)
+	/* the session went with the socket: nothing of it is remembered */
+	__lws_ssl_remove_wsi_from_buffered_list(wsi);
+	memset(&wsi->io->tls, 0, sizeof(wsi->io->tls));
+#endif
+	wsi->io->shutdown_tries = 0;
+
+	return 0;
+}
+
+/* an adjunct with no transport: no socket, no place in the poll set */
+void
+lws_io_adjunct_setup(struct lws_io_adjunct *io)
+{
+	io->desc.sockfd = LWS_SOCK_INVALID;
+	io->position_in_fds_table = LWS_NO_FDS_POS;
+}
+
+/*
+ * io_ops created: a new wsi's half, allocated after it (the context's
+ * wsi_io_size), with the event library's per-wsi block after that
+ */
+static void
+lws_io_adjunct_init(struct lws *wsi)
+{
+	wsi->io = (struct lws_io_adjunct *)&wsi[1];
+	wsi->io->wsi = wsi;
+#if defined(LWS_WITH_EVENT_LIBS)
+	wsi->io->evlib_wsi = (uint8_t *)wsi->io + sizeof(*wsi->io);
+#endif
+	lws_io_adjunct_setup(wsi->io);
+}
+
+lws_sockfd_type
+lws_get_socket_fd(struct lws *wsi)
+{
+	if (!wsi)
+		return -1;
+
+	return wsi->io->desc.sockfd;
+}
+
+/*
+ * The app's calls over every connection of a protocol (a callback to each,
+ * or allowing each one's rx): finding them walks the fd table, which is
+ * IO's, as are the event library's per-thread handles.  sansIO keeps no
+ * list of every connection.
+ */
+
+int lws_callback_all_protocol(struct lws_context *context,
+		const struct lws_protocols *protocol,
+		int reason) {
+	struct lws_context_per_thread *pt = &context->pt[0];
+	unsigned int n, m = context->count_threads;
+	struct lws *wsi;
+
+	while (m--) {
+		for (n = 0; n < pt->fds_count; n++) {
+			wsi = wsi_from_fd(context, pt->fds[n].fd);
+			if (!wsi || !wsi->a.protocol)
+				continue;
+			if (wsi->a.protocol->callback == protocol->callback &&
+					!strcmp(protocol->name, wsi->a.protocol->name))
+				protocol->callback(wsi, (enum lws_callback_reasons)reason,
+						wsi->user_space, NULL, 0);
+		}
+		pt++;
+	}
+
+	return 0;
+}
+
+void *lws_evlib_wsi_to_evlib_pt(struct lws *wsi) {
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+
+	return pt->evlib_pt;
+}
+
+void *lws_evlib_tsi_to_evlib_pt(struct lws_context *cx, int tsi) {
+	struct lws_context_per_thread *pt = &cx->pt[tsi];
+
+	return pt->evlib_pt;
+}
+
+int lws_callback_all_protocol_vhost_args(struct lws_vhost *vh,
+		const struct lws_protocols *protocol,
+		int reason, void *argp, size_t len) {
+	struct lws_context *context = vh->context;
+	struct lws_context_per_thread *pt = &context->pt[0];
+	unsigned int n, m = context->count_threads;
+	struct lws *wsi;
+
+	while (m--) {
+		for (n = 0; n < pt->fds_count; n++) {
+			wsi = wsi_from_fd(context, pt->fds[n].fd);
+
+			if (!wsi || !wsi->a.protocol || wsi->a.vhost != vh)
+				continue;
+
+			if (protocol && wsi->a.protocol->callback != protocol->callback &&
+					strcmp(protocol->name, wsi->a.protocol->name))
+				continue;
+
+			wsi->a.protocol->callback(wsi, (enum lws_callback_reasons)reason,
+					wsi->user_space, argp, len);
+		}
+		pt++;
+	}
+
+	return 0;
+}
+
+int lws_callback_all_protocol_vhost(struct lws_vhost *vh,
+		const struct lws_protocols *protocol,
+		int reason) {
+	return lws_callback_all_protocol_vhost_args(vh, protocol, reason, NULL, 0);
+}
+
+void lws_rx_flow_allow_all_protocol(const struct lws_context *context,
+		const struct lws_protocols *protocol) {
+	const struct lws_context_per_thread *pt = &context->pt[0];
+	struct lws *wsi;
+	unsigned int n, m = context->count_threads;
+
+	while (m--) {
+		for (n = 0; n < pt->fds_count; n++) {
+			wsi = wsi_from_fd(context, pt->fds[n].fd);
+			if (!wsi || !wsi->a.protocol)
+				continue;
+			if (wsi->a.protocol->callback == protocol->callback &&
+					!strcmp(protocol->name, wsi->a.protocol->name))
+				lws_rx_flow_control(wsi, LWS_RXFLOW_ALLOW);
+		}
+		pt++;
+	}
+}
+
+const lws_io_ops_t lws_io_ops_default = {
+	.want_write	= lws_io_want_write_pollfd,
+	.want_read	= lws_io_want_read_pollfd,
+	.deadline	= NULL, /* the loops ask what is due each time round */
+	.close		= lws_io_close_pollfd,
+#if defined(LWS_WITH_UDP)
+	.path		= lws_io_path_dgram,
+#endif
+	.created	= lws_io_adjunct_init,
+	.transfer	= lws_io_transfer_pollfd,
+
+#if defined(LWS_WITH_CLIENT)
+	.transport_start	= lws_client_transport_start,
+	.transport_connected	= lws_client_transport_connected,
+	.transport_established	= lws_client_transport_established,
+#if defined(LWS_ROLE_H3) || defined(LWS_ROLE_QUIC)
+	.transport_failed	= lws_client_transport_failed,
+#endif
+	.client_connect		= lws_client_connect_via_info,
+#endif
+#if !defined(LWS_PLAT_OPTEE)
+	.peer_address		= lws_get_peer_simple,
+#endif
+	.peer_describe		= lws_peer_describe,
+	.peer_walk		= lws_peer_walk,
+	.peer_raise		= lws_peer_raise,
+
+#if defined(LWS_WITH_TLS)
+	.tls_session		= lws_tls_session_ptr,
+	.tls_hs_ca_id		= lws_tls_wsi_hs_ca_id,
+	.tls_peer_cert_info	= lws_tls_peer_cert_info,
+#if defined(LWS_ROLE_QUIC)
+	.tls_quic_session	= lws_tls_quic_session,
+	.tls_quic_handshake	= lws_tls_quic_handshake,
+	.tls_quic_set_tp	= lws_tls_quic_set_transport_parameters,
+	.tls_quic_get_tp	= lws_tls_quic_get_transport_parameters,
+	.tls_confirm_peer_cert	= lws_tls_quic_confirm_peer,
+	.tls_quic_aead		= lws_tls_quic_aead_type,
+	.tls_quic_alert		= lws_tls_quic_alert,
+	.tls_quic_alpn		= lws_tls_quic_alpn,
+#if defined(LWS_WITH_SERVER)
+	.tls_quic_admit		= lws_tls_quic_admit,
+#endif
+#endif
+#endif
+
+	.tx_push	= lws_io_tx_push,
+#if defined(LWS_WITH_UDP)
+	.tx_now		= lws_io_tx_now,
+#endif
+	.tx_choked	= lws_io_tx_choked_pollfd,
+#if defined(LWS_WITH_SERVER) && defined(LWS_WITH_FILE_OPS)
+	.tx_file	= lws_serve_http_file_fragment,
+#endif
+
+	.service_writable = lws_service_wsi_as_writable,
+	.service_now	= lws_io_service_now,
+	.flag_pending_rx = lws_io_flag_pending_rx,
+	.wake		= lws_cancel_service_pt,
+
+#if defined(LWS_WITH_CLIENT) && \
+    (defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2) || defined(LWS_ROLE_H3))
+	.http_client_read = lws_http_client_read,
+#endif
+
+	.finalize_startup = lws_finalize_startup,
+	.vhost_destroy	= __lws_vhost_destroy2,
+};
+
+/*
+ * A table handed in through lws_context_creation_info.io_ops is refused,
+ * noisily, unless it was built for this lws_io_ops_t and has every member
+ * this build calls without checking.  Returns 0 when it can be used.
+ */
+int
+lws_io_ops_check(const lws_io_ops_t *ops)
+{
+	int bad = 0;
+
+	if (ops == &lws_io_ops_default)
+		return 0;
+
+	if (ops->abi_version != LWS_IO_OPS_ABI_VERSION) {
+		lwsl_err("%s: io_ops ABI version %u, this library's is %u: "
+			 "rebuild against its headers, starting the table with "
+			 "lws_io_ops_init()\n", __func__,
+			 (unsigned int)ops->abi_version,
+			 (unsigned int)LWS_IO_OPS_ABI_VERSION);
+		return 1;
+	}
+
+#define lws_io_ops_required(_m) \
+	if (!ops->_m) { \
+		lwsl_err("%s: io_ops." #_m " must be set\n", __func__); \
+		bad = 1; \
+	}
+
+	lws_io_ops_required(want_write)
+	lws_io_ops_required(want_read)
+	lws_io_ops_required(close)
+	lws_io_ops_required(transfer)
+	lws_io_ops_required(tx_push)
+	lws_io_ops_required(tx_choked)
+	lws_io_ops_required(service_writable)
+	lws_io_ops_required(service_now)
+	lws_io_ops_required(flag_pending_rx)
+	lws_io_ops_required(wake)
+	lws_io_ops_required(vhost_destroy)
+#if defined(LWS_WITH_CLIENT)
+	lws_io_ops_required(transport_start)
+	lws_io_ops_required(transport_connected)
+	lws_io_ops_required(transport_established)
+#endif
+#if defined(LWS_WITH_TLS) && defined(LWS_ROLE_QUIC)
+	lws_io_ops_required(tls_quic_session)
+	lws_io_ops_required(tls_quic_handshake)
+	lws_io_ops_required(tls_quic_set_tp)
+	lws_io_ops_required(tls_quic_get_tp)
+	lws_io_ops_required(tls_quic_aead)
+	lws_io_ops_required(tls_quic_alert)
+	lws_io_ops_required(tls_quic_alpn)
+	lws_io_ops_required(tls_confirm_peer_cert)
+#endif
+
+#undef lws_io_ops_required
+
+	return bad;
+}
+
+/*
+ * IO's plumbing (private-lib-core-net.h): what sansIO asks of IO's own
+ * features, a context's whatever io_ops it was given
+ */
+const lws_io_plumbing_t lws_io_plumbing_default = {
+#if defined(LWS_WITH_TLS_JIT_TRUST) && defined(LWS_WITH_CLIENT)
+	.transport_rebind	= lws_client_transport_rebind,
+#else
+	.transport_rebind	= NULL, /* so the initializer is never empty */
+#endif
+#if defined(LWS_WITH_CLIENT) && \
+    (defined(LWS_ROLE_H3) || defined(LWS_ROLE_QUIC))
+	.quic_path_proven	= lws_client_quic_path_proven,
+#endif
+#if defined(LWS_WITH_TLS_JIT_TRUST)
+	.vhost_jit_grace	= lws_tls_jit_trust_vh_start_grace,
+#endif
+
+#if defined(LWS_WITH_CGI)
+	.cgi_start		= lws_cgi_via_info,
+	.cgi_stdout_tx		= lws_cgi_write_split_stdout_headers,
+	.cgi_stdin_write	= lws_cgi_stdin_write,
+	.cgi_stdin_body_end	= lws_cgi_stdin_body_end,
+	.cgi_stderr_read	= lws_cgi_stderr_read,
+	.cgi_remove_and_kill	= lws_cgi_remove_and_kill,
+	.cgi_release		= lws_cgi_release,
+#endif
+};
+
+
+
+
+
+
+

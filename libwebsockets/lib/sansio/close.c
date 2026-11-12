@@ -1,0 +1,1470 @@
+/*
+ * libwebsockets - small server side websockets and web server implementation
+ *
+ * Copyright (C) 2010 - 2019 Andy Green <andy@warmcat.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+
+#include "private-lib-core.h"
+
+/*
+ * The user has already had the last word on this connection, or waived it:
+ * CLOSED was delivered, or this is the network wsi of a migrated mqtt client
+ * mux, whose sessions belong to its child streams (h2 says the same for
+ * its network wsi further down).
+ */
+static int
+lws_wsi_close_cb_waived(struct lws *wsi)
+{
+	if (lwsi_close(wsi) == LCS_USER_TOLD)
+		return 1;
+#if defined(LWS_ROLE_MQTT)
+	if (lwsi_role_mqtt(wsi) && lws_wsi_client_nwsi_migrated(wsi))
+		return 1;
+#endif
+	return 0;
+}
+
+#if defined(LWS_WITH_CLIENT)
+static int
+lws_close_trans_q_leader(struct lws_dll2 *d, void *user)
+{
+	struct lws *w = lws_container_of(d, struct lws, dll2_cli_txn_queue);
+
+	__lws_close_free_wsi(w, (enum lws_close_status)-1, "trans q leader closing");
+
+	return 0;
+}
+
+/*
+ * The client connection is going: nothing may piggyback on it any more, and
+ * what was queued on it goes too
+ */
+static void
+lws_client_conn_withdraw(struct lws *wsi)
+{
+	/* we are no longer an active client connection that can piggyback */
+	lws_dll2_remove(&wsi->dll_cli_active_conns);
+
+	lws_dll2_foreach_safe(&wsi->dll2_cli_txn_queue_owner, NULL,
+			      lws_close_trans_q_leader);
+}
+
+/*
+ * A client's close is not staged: it closes at once, nobody waits for it.
+ * Except for an h2 client connection that told the peer GOAWAY: closed with
+ * some of the peer's rx still unread, eg, a SETTINGS ACK or PING that crossed
+ * the GOAWAY, the kernel aborts the connection, and a peer told of the abort
+ * may drop what it had not read yet, the GOAWAY with it (Windows does).  Its
+ * streams have closed by now, so like a server's, its close waits for the
+ * peer's FIN.
+ */
+static int
+lws_close_client_stages(struct lws *wsi)
+{
+#if defined(LWS_ROLE_H2)
+	return lws_wsi_is_mux_nwsi(wsi) && lws_wsi_client_nwsi_migrated(wsi) &&
+	       wsi->h2.h2n->we_told_goaway;
+#else
+	(void)wsi;
+
+	return 0;
+#endif
+}
+#endif
+
+/*
+ * The caller holds the context lock and then the wsi's pt lock, in that
+ * order: the reset changes the pt's sul lists and its ah pool (detaching the
+ * ah may hand it to a waiter), and unbinding things from the vhost needs the
+ * context lock
+ */
+
+void
+__lws_reset_wsi(struct lws *wsi)
+{
+	if (!wsi)
+		return;
+
+	lws_context_assert_lock_held(wsi->a.context);
+	lws_pt_assert_lock_held(&wsi->a.context->pt[(int)wsi->tsi]);
+
+#if defined(LWS_WITH_CLIENT)
+
+	lws_free_set_NULL(wsi->cli_hostname_copy);
+
+#if defined(LWS_WITH_CONMON)
+
+	lws_conmon_release(&wsi->conmon);
+
+	wsi->conmon.ciu_dns =
+		wsi->conmon.ciu_sockconn =
+		wsi->conmon.ciu_tls =
+		wsi->conmon.ciu_txn_resp = 0;
+#endif
+
+	/*
+	 * if we have wsi in our transaction queue, if we are closing we
+	 * must go through and close all those first
+	 */
+	if (wsi->a.vhost) {
+
+		lws_client_conn_withdraw(wsi);
+
+		/*
+		 * !!! If we are closing, but we have pending pipelined
+		 * transaction results we already sent headers for, that's going
+		 * to destroy sync for HTTP/1 and leave H2 stream with no live
+		 * swsi.`
+		 *
+		 * However this is normal if we are being closed because the
+		 * transaction queue leader is closing.
+		 */
+		if (!lws_dll2_is_detached(&wsi->dll2_cli_txn_queue)) {
+#if defined(LWS_ROLE_H2) || defined(LWS_ROLE_MQTT) || defined(LWS_ROLE_QUIC)
+			struct lws *leader = lws_container_of(
+				lws_dll2_owner(&wsi->dll2_cli_txn_queue),
+				struct lws, dll2_cli_txn_queue_owner);
+#endif
+
+			lws_dll2_remove(&wsi->dll2_cli_txn_queue);
+
+#if defined(LWS_ROLE_H2) || defined(LWS_ROLE_MQTT) || defined(LWS_ROLE_QUIC)
+			/*
+			 * We left a mux connection's queue without ever being
+			 * a stream on it (our deadline passed, or the app
+			 * gave up on us).  If that leaves it with no stream
+			 * and nothing queued, it goes to its keep-warm idle:
+			 * nothing else would notice it has nothing to do.
+			 * It returns at once if it is the one closing us.
+			 */
+			lws_wsi_mux_client_idle_check(leader);
+#endif
+		}
+	}
+#endif
+
+	/*
+	 * Protocol user data may be allocated either internally by lws
+	 * or by specified the user. We should only free what we allocated.
+	 *
+	 * The test is on ownership, not on per_session_data_size...
+	 * lws_ensure_user_space() also allocates when per_session_data_size is
+	 * zero but the protocol answered LWS_CALLBACK_GET_PSS_SIZE with a
+	 * size, and those allocations must be freed here too.
+	 */
+	if (wsi->user_space && !wsi->user_space_externally_allocated) {
+		/* confirm no sul left scheduled in user data itself */
+		lws_sul_debug_zombies(wsi->a.context, wsi->user_space,
+				wsi->user_space_len, __func__);
+		lws_free_set_NULL(wsi->user_space);
+		wsi->user_space_len = 0;
+	}
+
+	/*
+	 * Don't let buflist content or state from the wsi's previous life
+	 * carry over to the new life
+	 */
+
+	lws_buflist_destroy_all_segments(&wsi->buflist);
+	lws_dll2_remove(&wsi->dll_buflist);
+	lws_buflist_destroy_all_segments(&wsi->buflist_out);
+	wsi->mount_hit = 0;
+
+#if defined(LWS_WITH_CLIENT)
+	lws_dll2_remove(&wsi->dll2_cli_txn_queue);
+	lws_dll2_remove(&wsi->dll_cli_active_conns);
+	if (wsi->cli_hostname_copy)
+		lws_free_set_NULL(wsi->cli_hostname_copy);
+#endif
+
+#if defined(LWS_WITH_HTTP_PROXY)
+	if (wsi->http.buflist_post_body)
+		lws_buflist_destroy_all_segments(&wsi->http.buflist_post_body);
+#endif
+
+#if defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2)
+#if defined(LWS_WITH_HTTP_DIGEST_AUTH)
+	if (wsi->http.digest_auth_hdr) {
+		lws_free(wsi->http.digest_auth_hdr);
+		wsi->http.digest_auth_hdr = NULL;
+	}
+#endif
+#endif
+
+#if defined(LWS_WITH_SERVER)
+	lws_dll2_remove(&wsi->listen_list);
+#endif
+
+#if defined(LWS_WITH_CLIENT)
+	if (wsi->a.vhost)
+		lws_dll2_remove(&wsi->dll_cli_active_conns);
+#endif
+
+	__lws_same_vh_protocol_remove(wsi);
+#if defined(LWS_WITH_CLIENT)
+	//lws_free_set_NULL(wsi->stash);
+	lws_free_set_NULL(wsi->cli_hostname_copy);
+#endif
+
+#if defined(LWS_WITH_PEER_LIMITS)
+	/*
+	 * Note wsi->peer is deliberately NOT cleared here...
+	 * __lws_header_table_detach() below still needs it to give back the
+	 * peer's ah count.  It is cleared just after that.
+	 */
+	lws_peer_track_wsi_close(wsi->a.context, wsi->peer);
+#endif
+
+	/* since we will destroy the wsi, make absolutely sure now */
+
+	__lws_wsi_remove_from_sul(wsi);
+
+#if defined(LWS_ROLE_WS) && !defined(LWS_WITHOUT_EXTENSIONS)
+	/*
+	 * A ws handshake may have got as far as constructing extensions
+	 * before it failed, with the wsi still in its http role, which frees
+	 * wsi->ws below: only the ws role's close destroys them otherwise
+	 */
+	if (wsi->ws && !lwsi_role_ws(wsi) &&
+	    lws_ext_cb_active(wsi, LWS_EXT_CB_DESTROY, NULL, 0) < 0)
+		lwsl_wsi_warn(wsi, "extension destruction failed");
+#endif
+
+	/* a client wsi that bailed before its role was chosen has none */
+	if (wsi->role_ops && lws_rops_fidx(wsi->role_ops, LWS_ROPS_destroy_role))
+		lws_rops_func_fidx(wsi->role_ops,
+				   LWS_ROPS_destroy_role).destroy_role(wsi);
+
+#if defined(LWS_ROLE_WS)
+	/*
+	 * A ws struct can have been attached to the wsi while it was still
+	 * in an http role, for example a ws upgrade that was refused, or a
+	 * client ws bind on a connection that then failed.  If the wsi is
+	 * destroyed under its old role, the role destroy above cannot have
+	 * freed it.  Take care of any leftover; for an established ws wsi,
+	 * the ws role destroy has already freed and NULLed it.
+	 */
+	lws_free_set_NULL(wsi->ws);
+#endif
+
+#if defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2)
+	__lws_header_table_detach(wsi, 0);
+	wsi->http.rx_chunked = 0;
+#endif
+
+#if defined(LWS_WITH_PEER_LIMITS)
+	wsi->peer = NULL;
+#endif
+
+#if defined(LWS_ROLE_H2)
+	/*
+	 * Let's try to clean out the h2-ness of the wsi
+	 */
+
+	memset(&wsi->h2, 0, sizeof(wsi->h2));
+
+	/*
+	 * We must give back any immortal count we hold on the network wsi
+	 * before we clear mux_stream_immortal below... lws_client_reset()
+	 * calls us directly on the redirect / fallback path, ie, without
+	 * having gone through __lws_close_free_wsi()'s decrement
+	 */
+	if (wsi->mux_stream_immortal)
+		lws_http_close_immortal(wsi);
+
+	wsi->mux_substream = wsi->mux_stream_immortal =
+	wsi->h2_acked_settings = wsi->seen_nonpseudoheader = 0;
+#endif
+
+	/*
+	 * What we knew of the old connection's socket, that it could not be
+	 * used or that the peer had half-closed it, is not true of the next
+	 * one, whatever the role
+	 */
+	lwsi_set_skt_unusable(wsi, 0);
+	wsi->seen_zero_length_recv = 0;
+
+#if defined(LWS_ROLE_QUIC)
+	lws_quic_stream_cleanup(wsi);
+	memset(&wsi->quic, 0, sizeof(wsi->quic));
+#endif
+
+#if defined(LWS_ROLE_H3)
+	/* the stream's qpack decoder state is its own, h3n is the connection's */
+	if (wsi->h3.qpack_dec_state)
+		lws_free_set_NULL(wsi->h3.qpack_dec_state);
+	memset(&wsi->h3, 0, sizeof(wsi->h3));
+#endif
+
+#if defined(LWS_WITH_CLIENT)
+	wsi->do_ws =
+	wsi->client_http_body_pending = wsi->transaction_from_pipeline_queue =
+	wsi->keepalive_rejected =
+	wsi->redirected_to_get = wsi->client_pipeline =
+	wsi->client_mux_substream = wsi->client_subsequent_mime_part =
+	wsi->tls_session_reused = wsi->perf_done =
+		wsi->tried_quic = 0;
+
+	wsi->immortal_substream_count = 0;
+#if defined(LWS_ROLE_H3) || defined(LWS_ROLE_QUIC)
+	wsi->quic_alt_port = 0;
+#endif
+#endif
+}
+
+/*
+ * The caller holds the context lock and then the wsi's pt lock, as the close
+ * path does: the free resets the wsi (see __lws_reset_wsi()) and takes it off
+ * the pt's sul lists again after the vhost unbind.  A wsi that never got as
+ * far as the fds table is no exception, its timers and ah are still the pt's.
+ */
+
+void
+__lws_free_wsi(struct lws *wsi)
+{
+	struct lws_vhost *vh;
+
+	if (!wsi)
+		return;
+
+	lws_context_assert_lock_held(wsi->a.context);
+	lws_pt_assert_lock_held(&wsi->a.context->pt[(int)wsi->tsi]);
+
+	/* just in case */
+	lws_dll2_remove(&wsi->pre_natal);
+
+#if defined(LWS_WITH_RANGES) && defined(LWS_WITH_SERVER)
+	/* a range response that never reached its completion */
+	lws_ranges_destroy(&wsi->http.range);
+#endif
+
+#if defined(LWS_WITH_HTTP2) && defined(LWS_WITH_SERVER)
+	/*
+	 * A status page on an h2 / h3 stream keeps its text until the
+	 * stream's next writeable sends the body.  The stream may go before
+	 * that (reset, connection closed, no credit): the text goes with it,
+	 * whichever role's close ran.
+	 */
+	lws_http_status_page_drop_pending(wsi);
+#endif
+
+#if defined(LWS_WITH_SECURE_STREAMS)
+	if (wsi->for_ss) {
+
+#if defined(LWS_WITH_SECURE_STREAMS_PROXY_API)
+		if (wsi->client_bound_sspc) {
+			lws_sspc_handle_t *h = (lws_sspc_handle_t *)
+							wsi->a.opaque_user_data;
+			if (h) {
+				h->txp_path.priv_onw = NULL;
+				wsi->a.opaque_user_data = NULL;
+			}
+		} else
+#endif
+		{
+			/*
+			 * Make certain it is disconnected from the ss by now
+			 */
+			lws_ss_handle_t *h = (lws_ss_handle_t *)
+							wsi->a.opaque_user_data;
+
+			if (h) {
+				h->wsi = NULL;
+				wsi->a.opaque_user_data = NULL;
+			}
+		}
+	}
+#endif
+
+	vh = wsi->a.vhost;
+
+	__lws_reset_wsi(wsi);
+
+	if (vh)
+		/* this may destroy vh */
+		__lws_vhost_unbind_wsi(wsi); /* req cx + vh lock */
+
+#if defined(LWS_WITH_CLIENT)
+	if (wsi->stash)
+		lws_free_set_NULL(wsi->stash);
+	lws_free_set_NULL(wsi->cli_redir_origin);
+#endif
+
+	if (wsi->a.context->event_loop_ops->destroy_wsi)
+		wsi->a.context->event_loop_ops->destroy_wsi(wsi);
+
+	/*
+	 * Since we will free the wsi, make absolutely sure no timer is left
+	 * scheduled in it.  This must come after the vhost unbind: when the
+	 * wsi was the last one bound to a vhost being destroyed, the unbind
+	 * runs the vhost's PROTOCOL_DESTROY, and user code there may still
+	 * act on the wsi, eg, set a timeout on it (G-298)
+	 */
+	__lws_wsi_remove_from_sul(wsi);
+
+	lwsl_wsi_debug(wsi, "tsi fds count %d\n",
+			wsi->a.context->pt[(int)wsi->tsi].fds_count);
+
+	/* confirm no sul left scheduled in wsi itself, or in IO's part of it */
+	lws_sul_debug_zombies(wsi->a.context, wsi,
+			      sizeof(*wsi) + wsi->a.context->wsi_io_size,
+			      __func__);
+
+	lwsi_set_skt_unusable(wsi, 1); /* !!! */
+
+	/*
+	 * Every path that frees a created wsi comes through here, so the fault
+	 * injection entries it inherited go here too, rather than relying on
+	 * each caller to remember
+	 */
+	lws_fi_destroy(&wsi->fic);
+
+#if defined(LWS_WITH_SYS_METRICS)
+	/*
+	 * The connection caliper was reported, and its tags released, as the
+	 * close began.  Anything the close itself then did to the wsi may
+	 * have tagged it again, eg, a cgi killed by the close completes its
+	 * transaction and tags the status: those go with the wsi.
+	 */
+	lws_metrics_tags_destroy(&wsi->cal_conn.mtags_owner);
+#endif
+
+	__lws_lc_untag(wsi->a.context, &wsi->lc);
+	lws_free(wsi);
+}
+
+
+void
+lws_remove_child_from_any_parent(struct lws *wsi)
+{
+	if (!wsi->parent)
+		return;
+
+	if (lws_dll2_is_detached(&wsi->sibling_list)) {
+		lwsl_wsi_err(wsi, "failed to detach from parent");
+		wsi->parent = NULL;
+		return;
+	}
+
+	lwsl_wsi_info(wsi, "detach from parent %s",
+			    lws_wsi_tag(wsi->parent));
+
+	if (wsi->parent->a.protocol)
+		wsi->parent->a.protocol->callback(wsi,
+				LWS_CALLBACK_CHILD_CLOSING,
+				wsi->parent->user_space, wsi, 0);
+
+	lws_dll2_remove(&wsi->sibling_list);
+	wsi->parent = NULL;
+}
+
+#if defined(LWS_WITH_CLIENT)
+void
+lws_inform_client_conn_fail(struct lws *wsi, void *arg, size_t len)
+{
+	/* already reported, or being retargeted: nothing to say */
+	if (lwsi_transport(wsi) >= LTS_FAILED)
+		return;
+
+	/*
+	 * a STARTTLS upgrade failing: the user was told the connection is up,
+	 * so what he hears is its close
+	 */
+	if (lwsi_tls_upgrading(wsi))
+		return;
+
+#if defined(LWS_ROLE_H3) || defined(LWS_ROLE_QUIC)
+	/* a quic attempt IO can retarget: the next address, or tcp */
+	if (wsi->tried_quic && wsi->role_ops &&
+	    !strcmp(wsi->role_ops->name, "quic") &&
+	    lws_client_transport_failed(wsi))
+		return;
+#endif
+
+	lws_wsi_event(wsi, LWS_WSIEV_CONN_FAILED);
+
+	/*
+	 * This is his last word on the wsi, so it is said during a context
+	 * destroy too: a protocol holding the wsi pointer (eg, via i.pwsi)
+	 * must learn it is gone before its PROTOCOL_DESTROY (G-298).  Should
+	 * it try to connect again from here, the destroy refuses it.
+	 */
+	if (!wsi->a.protocol)
+		return;
+
+	if (!wsi->client_suppress_CONNECTION_ERROR)
+		wsi->a.protocol->callback(wsi,
+					LWS_CALLBACK_CLIENT_CONNECTION_ERROR,
+					wsi->user_space, arg, len);
+}
+#endif
+
+#if defined(LWS_WITH_ASYNC_QUEUE)
+/*
+ * The job the wsi has out on the worker pool, if any, is finished with: one
+ * waiting or finished is taken off the pool and freed, one running is waited
+ * for first (briefly: one read, or one tls accept step), so nothing of the
+ * wsi's is touched by a worker after this returns
+ */
+void
+lws_async_worker_wait_and_reap(struct lws *wsi)
+{
+
+	while (1) {
+		pthread_mutex_lock(&wsi->a.context->async_worker_mutex);
+		if (!wsi->async_worker_job) {
+			pthread_mutex_unlock(&wsi->a.context->async_worker_mutex);
+			break;
+		}
+		struct lws_async_job *job = wsi->async_worker_job;
+		if (lws_dll2_owner(&job->list) == &wsi->a.context->async_worker_waiting ||
+		    lws_dll2_owner(&job->list) == &wsi->a.context->async_worker_finished ||
+		    job->handled_by_main) {
+			/* Not actively running. We can safely detach it and reap it. */
+			wsi->async_worker_job = NULL;
+			lws_dll2_remove(&job->list);
+			lws_free(job);
+			pthread_mutex_unlock(&wsi->a.context->async_worker_mutex);
+			break;
+		}
+		pthread_mutex_unlock(&wsi->a.context->async_worker_mutex);
+		/* The background thread is actively modifying this WSI or its SSL contexts.
+		 * It is catastrophic to continue closing or freeing this WSI until it is done.
+		 * Because this happens very infrequently (shutdown collisions), we briefly yield.
+		 */
+		usleep(1000);
+	}
+}
+#endif
+
+/* requires cx and pt lock */
+
+/*
+ * Note why the connection is ending, if nothing has yet: the first cause is
+ * the one that matters, what follows from it, eg, the close it leads to, is
+ * not news.  cause must be a static string.
+ */
+void
+lws_wsi_close_cause_set(struct lws *wsi, const char *cause, int arg)
+{
+	if (wsi->close_cause || !cause)
+		return;
+
+	wsi->close_cause = cause;
+	wsi->close_cause_arg = arg;
+}
+
+int
+lws_close_cause_render(char *buf, size_t len, const char *cause, int arg)
+{
+	if (!len)
+		return 0;
+
+	buf[0] = '\0';
+	if (!cause)
+		return 0;
+
+	if (arg)
+		return lws_snprintf(buf, len, "%s %d", cause, arg);
+
+	return lws_snprintf(buf, len, "%s", cause);
+}
+
+int
+lws_wsi_close_cause(struct lws *wsi, char *buf, size_t len)
+{
+	if (!wsi)
+		return lws_close_cause_render(buf, len, NULL, 0);
+
+	return lws_close_cause_render(buf, len, wsi->close_cause,
+				      wsi->close_cause_arg);
+}
+
+/*
+ * Returns LWS_HPI_RET_WSI_ALREADY_DIED when the wsi was freed, or
+ * LWS_HPI_RET_CLOSING when it lives on in its close: flushing, a polite ws
+ * close, a staged shutdown, an event library finishing it later, a restart,
+ * or a close an outer stack frame is already making
+ */
+lws_handling_result_t
+__lws_close_free_wsi(struct lws *wsi, enum lws_close_status reason,
+		     const char *caller)
+{
+	int est_at_entry;
+	struct lws_context_per_thread *pt;
+	const struct lws_protocols *pro;
+#if defined(LWS_WITH_SECURE_STREAMS)
+	lws_ss_handle_t *hh = NULL;
+	char hh_unannounced = 0;
+	char hh_accepted = 0; /* only set with LWS_WITH_SERVER */
+#endif
+	struct lws_context *context;
+	struct lws *wsi2;
+	int n, ccb, owed;
+
+	if (!wsi)
+		return LWS_HPI_RET_WSI_ALREADY_DIED;
+
+	lwsl_wsi_info(wsi, "caller: %s", caller);
+
+	if (lwsi_close(wsi) >= LCS_DEAD_SOCKET)
+		/*
+		 * We are already in the middle of closing him in an outer
+		 * stack frame (eg, we were re-entered from one of his own
+		 * close callbacks).  We must do nothing at all here: the
+		 * role-specific paths below "goto just_kill_connection" and
+		 * would otherwise reach __lws_close_free_wsi_final() and free
+		 * the wsi under the feet of the outer frame.
+		 *
+		 * The generic child-close loop below relies on this bail to
+		 * detect and break re-entrant closes.
+		 */
+		return LWS_HPI_RET_CLOSING;
+
+	/* nothing lower down saw why: it's whatever decided to close it */
+	lws_wsi_close_cause_set(wsi, caller, 0);
+
+	lws_access_log(wsi);
+
+	if (!lws_dll2_is_detached(&wsi->dll_buflist))
+		lwsl_wsi_info(wsi, "going down with stuff in buflist");
+
+	context = wsi->a.context;
+	pt = &context->pt[(int)wsi->tsi];
+
+#if defined(LWS_WITH_SYS_METRICS) && \
+    (defined(LWS_WITH_CLIENT) || defined(LWS_WITH_SERVER))
+	/* wsi level: only reports if dangling caliper */
+	if (wsi->cal_conn.mt && wsi->cal_conn.us_start) {
+		if ((lws_metrics_priv_to_pub(wsi->cal_conn.mt)->flags) & LWSMTFL_REPORT_HIST) {
+			lws_metrics_caliper_report_hist(wsi->cal_conn, (struct lws *)NULL);
+		} else {
+			lws_metrics_caliper_report(wsi->cal_conn, METRES_NOGO);
+			lws_metrics_caliper_done(wsi->cal_conn);
+		}
+	} else
+		lws_metrics_caliper_done(wsi->cal_conn);
+#endif
+
+	lws_pt_assert_lock_held(pt);
+
+#if defined(LWS_WITH_CLIENT)
+	lws_free_set_NULL(wsi->cli_hostname_copy);
+	wsi->client_mux_substream_was = wsi->client_mux_substream;
+#endif
+
+#if defined(LWS_WITH_HTTP2)
+	if (wsi->mux_stream_immortal)
+		lws_http_close_immortal(wsi);
+#endif
+
+#if defined(LWS_WITH_HTTP_PROXY) && (_LWS_ENABLED_LOGS & LLL_NOTICE)
+	/*
+	 * A proxied response being cut off before it was all relayed, or its
+	 * onward side going while it was: say how far each side got
+	 */
+	if (wsi->http.proxy_relaying ||
+	    (wsi->http.proxy_clientside && lws_get_parent(wsi) &&
+	     lws_get_parent(wsi)->http.proxy_relaying &&
+	     !wsi->http.proxy_onward_completed)) {
+		char cause[64], why[80];
+
+		lws_close_cause_render(cause, sizeof(cause), wsi->close_cause,
+				       wsi->close_cause_arg);
+		lws_snprintf(why, sizeof(why), "closing%s%s",
+			     cause[0] ? ", " : "", cause);
+		lws_http_proxy_dump_stalled(wsi, why);
+
+		/* the other side's close is the same story: told once */
+		if (wsi->http.proxy_relaying)
+			wsi->http.proxy_relaying = 0;
+		else
+			lws_get_parent(wsi)->http.proxy_relaying = 0;
+	}
+#endif
+
+	/* if we have children, close them first */
+	while(!lws_dll2_is_empty(&wsi->child_list_owner)) {
+		wsi2 = lws_container_of(lws_dll2_get_head(&wsi->child_list_owner),
+					struct lws, sibling_list);
+		/* stop it doing shutdown processing */
+		lwsi_set_skt_unusable(wsi2, 1);
+		/* his stream ends for the reason its connection did */
+		lws_wsi_close_cause_set(wsi2, wsi->close_cause,
+					wsi->close_cause_arg);
+		__lws_close_free_wsi(wsi2, reason, "general child recurse");
+		if (lws_dll2_get_head(&wsi->child_list_owner) == &wsi2->sibling_list) {
+			/*
+			 * The child's close processing did not detach it from
+			 * us: only possible when it bailed at the
+			 * LRS_DEAD_SOCKET check, ie, we were reentrantly closed
+			 * from the child's own close callbacks.  It's still
+			 * alive, just unlink it so we cannot spin.
+			 */
+			lws_dll2_remove(&wsi2->sibling_list);
+			wsi2->parent = NULL;
+		}
+	}
+
+#if defined(LWS_ROLE_RAW_FILE)
+	/*
+	 * a file whose user hears it close (raw-file, not the pt pipe)...
+	 * anything we can be asked to close has a role by now, the failures
+	 * before one is bound free the wsi directly
+	 */
+	if (wsi->role_ops->file_handle &&
+	    wsi->role_ops->close_cb[0]) {
+		lws_remove_child_from_any_parent(wsi);
+		/* the file is watched no more; the final free releases it */
+		__lws_io_close_transport(wsi, LWS_IOCLOSE_UNWATCH);
+		if (wsi->a.protocol)
+			wsi->a.protocol->callback(wsi, wsi->role_ops->close_cb[0],
+					wsi->user_space, NULL, 0);
+		goto async_close;
+	}
+#endif
+
+	/*
+	 * Whether he counts as established for the CLOSED callback decision
+	 * below is judged as we come in here, the same as the pre-close
+	 * snapshot used to do: a staged close re-entering from SHUTDOWN or
+	 * FLUSHING counts, a connection that never got past its transport
+	 * setup does not, but one whose STARTTLS upgrade is in its transport
+	 * setup again was established before it began
+	 */
+	est_at_entry = lwsi_state_est(wsi) || lwsi_tls_upgrading(wsi);
+	/* the close machine says the close has begun */
+	if (lwsi_close(wsi) == LCS_NONE ||
+	    lwsi_close(wsi) == LCS_CLOSE_WHEN_FLUSHED)
+		lws_wsi_event(wsi, LWS_WSIEV_CLOSE_ENTERED);
+
+#ifdef LWS_WITH_CGI
+	if (lwsi_role_cgi(wsi)) {
+		/*
+		 * we are not a network connection, but one of a cgi's stdio
+		 * pipes: the quiesce ends its binding to the child, keeping
+		 * the logical cgi around so it can be drained
+		 */
+		lwsi_set_skt_unusable(wsi, 1);
+
+		goto just_kill_connection;
+	}
+
+	if (wsi->http.cgi)
+		lws_cgi_remove_and_kill(wsi);
+#endif
+
+#if defined(LWS_WITH_CLIENT)
+	/* a restart needs the stash to reconnect from */
+	if (!lwsi_restarting(wsi))
+		lws_free_set_NULL(wsi->stash);
+#endif
+
+#if defined(LWS_WITH_ASYNC_QUEUE)
+	lws_async_worker_wait_and_reap(wsi);
+#endif
+
+	if (wsi->role_ops == &role_ops_raw_skt) {
+		lwsi_set_skt_unusable(wsi, 1);
+		goto just_kill_connection;
+	}
+#if defined(LWS_WITH_FILE_OPS) && (defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2))
+	if (lwsi_role_http(wsi) && lwsi_role_server(wsi) &&
+	    wsi->http.fop_fd != NULL)
+		lws_vfs_file_close(&wsi->http.fop_fd);
+#endif
+
+	if (lwsi_close(wsi) >= LCS_DEAD_SOCKET)
+		return LWS_HPI_RET_CLOSING;
+
+	if (lwsi_skt_unusable(wsi) ||
+	    reason == LWS_CLOSE_STATUS_NOSTATUS_CONTEXT_DESTROY ||
+	    lwsi_close(wsi) == LCS_SHUTDOWN)
+		goto just_kill_connection;
+
+	switch (lwsi_close(wsi)) {
+	/* we tried the polite way... */
+	case LCS_WAITING_TO_SEND_CLOSE:
+	case LCS_AWAITING_CLOSE_ACK:
+	case LCS_RETURNED_CLOSE:
+		goto just_kill_connection;
+
+	case LCS_FLUSHING_BEFORE_CLOSE:
+		if (lws_has_buffered_out(wsi)
+#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+		    || wsi->http.comp_ctx.buflist_comp ||
+		    wsi->http.comp_ctx.may_have_more
+#endif
+		 ) {
+			lws_callback_on_writable(wsi);
+			return LWS_HPI_RET_CLOSING;
+		}
+		lwsl_wsi_info(wsi, " end LRS_FLUSHING_BEFORE_CLOSE");
+		goto just_kill_connection;
+	default:
+		if ((lws_has_buffered_out(wsi)
+#if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
+				|| wsi->http.comp_ctx.buflist_comp ||
+		    wsi->http.comp_ctx.may_have_more
+#endif
+		    ) &&
+		    /*
+		     * A ws stream has nothing to flush ahead of its Close
+		     * unless lws itself still holds some of what it wrote.
+		     * Over h3, what quic has for the stream, still to send
+		     * or not acknowledged yet, is already on it ahead of
+		     * where the Close goes, eg, the upgrade's response
+		     * HEADERS when the app closes or refuses the connection
+		     * as soon as it is established.  The close is the
+		     * polite one: flushing first would end the stream with
+		     * no Close at all.
+		     */
+		    !(lwsi_role_ws(wsi) && !lws_has_buflist_out(wsi))) {
+			lwsl_wsi_info(wsi, "LRS_FLUSHING_BEFORE_CLOSE");
+			lws_wsi_event(wsi, LWS_WSIEV_CLOSE_FLUSH);
+			__lws_set_timeout(wsi,
+				PENDING_FLUSH_STORED_SEND_BEFORE_CLOSE, 5);
+			return LWS_HPI_RET_CLOSING;
+		}
+		break;
+	}
+
+	if (lwsi_transport(wsi) == LTS_WAITING_CONNECT ||
+	    lwsi_transport(wsi) == LTS_WAITING_DNS ||
+	    lwsi_state(wsi) == LRS_H1C_ISSUE_HANDSHAKE)
+		goto just_kill_connection;
+
+	if (!lws_wsi_close_cb_waived(wsi) && wsi->user_space && wsi->a.protocol &&
+	    wsi->protocol_bind_balance) {
+		wsi->a.protocol->callback(wsi,
+				wsi->role_ops->protocol_unbind_cb[
+				       !!lwsi_role_server(wsi)],
+				       wsi->user_space, (void *)__func__, 0);
+		wsi->protocol_bind_balance = 0;
+	}
+
+	/*
+	 * signal we are closing, lws_write will
+	 * add any necessary version-specific stuff.  If the write fails,
+	 * no worries we are closing anyway.  If we didn't initiate this
+	 * close, then our state has been changed to
+	 * LRS_RETURNED_CLOSE and we will skip this.
+	 *
+	 * Likewise if it's a second call to close this connection after we
+	 * sent the close indication to the peer already, we are in state
+	 * LRS_AWAITING_CLOSE_ACK and will skip doing this a second time.
+	 */
+
+	if (lws_rops_fidx(wsi->role_ops, LWS_ROPS_close_via_role_protocol) &&
+	    lws_rops_func_fidx(wsi->role_ops, LWS_ROPS_close_via_role_protocol).
+					 close_via_role_protocol(wsi, reason)) {
+		lwsl_wsi_info(wsi, "close_via_role took over");
+		return LWS_HPI_RET_CLOSING;
+	}
+
+just_kill_connection:
+
+	lwsl_wsi_debug(wsi, "real just_kill_connection A");
+
+#if defined(LWS_WITH_THREADPOOL) && defined(LWS_HAVE_PTHREAD_H)
+	lws_threadpool_wsi_closing(wsi);
+#endif
+
+
+#if defined(LWS_WITH_FILE_OPS) && (defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2))
+	if (lwsi_role_http(wsi) && lwsi_role_server(wsi) &&
+	    wsi->http.fop_fd != NULL)
+		lws_vfs_file_close(&wsi->http.fop_fd);
+#endif
+
+	/*
+	 * nothing of the transport's may act on the wsi from here; one that
+	 * was still waiting for its socket is owed its close callback below
+	 */
+	owed = __lws_io_close_transport(wsi, LWS_IOCLOSE_QUIESCE) == 1;
+
+#if defined(LWS_WITH_HTTP_PROXY)
+	if (wsi->http.buflist_post_body)
+		lws_buflist_destroy_all_segments(&wsi->http.buflist_post_body);
+#endif
+
+	if (lws_rops_fidx(wsi->role_ops, LWS_ROPS_close_kill_connection))
+		lws_rops_func_fidx(wsi->role_ops,
+				   LWS_ROPS_close_kill_connection).
+					    close_kill_connection(wsi, reason);
+
+	if (!lws_wsi_close_cb_waived(wsi) && wsi->user_space &&
+	    wsi->protocol_bind_balance && wsi->a.protocol) {
+		lwsl_debug("%s: %s: DROP_PROTOCOL %s\n", __func__, lws_wsi_tag(wsi),
+			   wsi->a.protocol ? wsi->a.protocol->name: "NULL");
+		if (wsi->a.protocol)
+			wsi->a.protocol->callback(wsi,
+				wsi->role_ops->protocol_unbind_cb[
+				       !!lwsi_role_server(wsi)],
+				       wsi->user_space, (void *)__func__, 0);
+		wsi->protocol_bind_balance = 0;
+	}
+
+#if defined(LWS_WITH_CLIENT)
+	if ((
+#if defined(LWS_ROLE_WS)
+		/*
+		 * If our goal is a ws upgrade, effectively we did not reach
+		 * ESTABLISHED if we did not get the upgrade server reply.  Over
+		 * h2 or h3 the stream only takes the ws role once the reply
+		 * came, so its goal is known from do_ws
+		 */
+		(lwsi_state(wsi) == LRS_WAITING_SERVER_REPLY &&
+		 (wsi->role_ops == &role_ops_ws
+#if defined(LWS_WITH_CLIENT)
+		  || (lwsi_role_client(wsi) && wsi->do_ws)
+#endif
+		 )) ||
+#endif
+	     lwsi_transport(wsi) == LTS_WAITING_DNS ||
+	     lwsi_transport(wsi) == LTS_WAITING_CONNECT ||
+	     (lwsi_role_client(wsi) && lwsi_state(wsi) == LRS_UNCONNECTED)) &&
+	     lwsi_transport(wsi) < LTS_FAILED && wsi->a.protocol) {
+		static const char _reason[] = "closed before established";
+
+		lwsl_wsi_debug(wsi, "closing in unestablished state 0x%x",
+				lwsi_state(wsi));
+		lwsi_set_skt_unusable(wsi, 1);
+
+		lws_inform_client_conn_fail(wsi,
+			(void *)_reason, sizeof(_reason) - 1);
+	}
+#endif
+
+	/*
+	 * Testing with ab shows that we have to stage the socket close when
+	 * the system is under stress... shutdown any further TX, change the
+	 * state to one that won't emit anything more, and wait with a timeout
+	 * for the POLLIN to show a zero-size rx before coming back and doing
+	 * the actual close.
+	 */
+	if (wsi->role_ops != &role_ops_raw_skt &&
+	    (!lwsi_role_client(wsi)
+#if defined(LWS_WITH_CLIENT)
+	     || lws_close_client_stages(wsi)
+#endif
+	    ) &&
+	    lwsi_close(wsi) != LCS_SHUTDOWN &&
+	    lwsi_state(wsi) != LRS_UNCONNECTED &&
+	    reason != LWS_CLOSE_STATUS_NOSTATUS_CONTEXT_DESTROY &&
+	    !lwsi_skt_unusable(wsi)) {
+
+#if defined(LWS_WITH_CLIENT)
+		/*
+		 * a client connection waiting for the peer's FIN is not one
+		 * anything can still join or queue on
+		 */
+		if (lwsi_role_client(wsi) && wsi->a.vhost)
+			lws_client_conn_withdraw(wsi);
+#endif
+
+		/*
+		 * Don't mark the socket unusable here: the LRS_SHUTDOWN
+		 * staging below is gated on it, and we want to wait for
+		 * his FIN before closing the same as the tls path
+		 */
+		n = __lws_io_close_transport(wsi, LWS_IOCLOSE_SHUTDOWN);
+		if (n == 2) {
+			/* a tls shutdown that keeps wanting more service */
+			lwsl_wsi_info(wsi, "avoiding shutdown spin");
+			lws_wsi_event(wsi, LWS_WSIEV_CLOSE_STAGED);
+		}
+		if (n < 0)
+			lwsl_wsi_debug(wsi, "closing: shutdown (state 0x%x) failed",
+				   lwsi_state(wsi));
+
+		/*
+		 * This causes problems on WINCE / ESP32 with disconnection
+		 * when the events are half closing connection
+		 */
+#if !defined(_WIN32_WCE) && !defined(LWS_PLAT_FREERTOS)
+		/* libuv: no event available to guarantee completion */
+		if (!lwsi_skt_unusable(wsi) && !lwsi_restarting(wsi) &&
+		    lwsi_close(wsi) != LCS_SHUTDOWN &&
+		    __lws_io_close_transport(wsi, LWS_IOCLOSE_STAGE) > 0) {
+			lws_wsi_event(wsi, LWS_WSIEV_CLOSE_STAGED);
+			__lws_set_timeout(wsi, PENDING_TIMEOUT_SHUTDOWN_FLUSH,
+					  (int)context->timeout_secs);
+
+			/*
+			 * Only the peer's FIN is awaited now, and the protocol
+			 * is gone: rx parked on the wsi (eg, an h1 request
+			 * pipelined behind the one just answered) is for
+			 * nobody.  Left listed, the loop would offer it every
+			 * turn without waiting in poll, until the flush
+			 * timeout.
+			 */
+			lws_buflist_destroy_all_segments(&wsi->buflist);
+			lws_dll2_remove(&wsi->dll_buflist);
+
+			return LWS_HPI_RET_CLOSING;
+		}
+#endif
+	}
+
+	lwsl_wsi_info(wsi, "real just_kill_connection");
+
+#ifdef LWS_WITH_HUBBUB
+	if (wsi->http.rw) {
+		lws_rewrite_destroy(wsi->http.rw);
+		wsi->http.rw = NULL;
+	}
+#endif
+
+#if defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2)
+	if (wsi->http.pending_return_headers)
+		lws_free_set_NULL(wsi->http.pending_return_headers);
+	/*
+	 * An interceptor's onward headers are otherwise only freed when the
+	 * transaction completes, which a connection closed during it never
+	 * does
+	 */
+	lws_free_set_NULL(wsi->http.extra_onward_headers);
+#endif
+#if (defined(LWS_ROLE_H1) || defined(LWS_ROLE_H2) || \
+     defined(LWS_ROLE_H3)) && defined(LWS_WITH_SERVER)
+	/* likewise the request's Content-Type snapshot and basic auth user */
+	lws_free_set_NULL(wsi->http.content_type);
+#if defined(LWS_WITH_HTTP_BASIC_AUTH)
+	lws_free_set_NULL(wsi->http.basic_auth_user);
+#endif
+#endif
+
+	/*
+	 * we won't be servicing or receiving anything further from this guy:
+	 * his timers go, and the transport is watched no more (the final free
+	 * releases it)
+	 */
+	__lws_wsi_remove_from_sul(wsi);
+	__lws_io_close_transport(wsi, LWS_IOCLOSE_UNWATCH);
+
+	lws_wsi_event(wsi, LWS_WSIEV_SOCKET_GONE);
+	lws_buflist_destroy_all_segments(&wsi->buflist);
+	lws_dll2_remove(&wsi->dll_buflist);
+
+	if (lws_rops_fidx(wsi->role_ops, LWS_ROPS_close_role))
+		lws_rops_func_fidx(wsi->role_ops, LWS_ROPS_close_role).
+							close_role(pt, wsi);
+
+	/* tell the user it's all over for this guy */
+
+	ccb = 0;
+	if ((est_at_entry ||
+	    /* raw skt adopted but didn't complete tls hs should CLOSE */
+	    (wsi->role_ops == &role_ops_raw_skt && !lwsi_role_client(wsi)) ||
+	     /*
+	      * a client's first response is awaited in the carrier
+	      * machine, later ones in the live state: both are "we
+	      * asked and were dropped", which is a CLOSED not an error
+	      */
+	     lwsi_state_live(wsi) == LRS_WAITING_SERVER_REPLY ||
+	     lwsi_carrier(wsi) == LCR_WAITING_SERVER_REPLY) &&
+	    !lws_wsi_close_cb_waived(wsi) &&
+	    wsi->role_ops->close_cb[lwsi_role_server(wsi)]) {
+		if (!lws_wsi_is_mux_nwsi(wsi) || !lwsi_role_client(wsi))
+			ccb = 1;
+			/*
+			 * The network wsi for a client h2 connection shouldn't
+			 * call back for its role: the child stream connections
+			 * own the role.  Otherwise h2 will call back closed
+			 * one too many times as the children do it and then
+			 * the closing network stream.
+			 */
+	}
+
+	if (!lws_wsi_close_cb_waived(wsi) && owed)
+		/*
+		 * He's a guy who got started with dns, but failed or is
+		 * caught with a shutdown before he got the result.  We have
+		 * to issue him a close cb
+		 */
+		ccb = 1;
+
+	lwsl_wsi_info(wsi, "cce=%d", ccb);
+
+	pro = wsi->a.protocol;
+
+	if (lwsi_transport(wsi) == LTS_FAILED)
+		/*
+		 * If we handled this by CLIENT_CONNECTION_ERROR, it's
+		 * mutually exclusive with CLOSE
+		 */
+		ccb = 0;
+
+	if (wsi->internal)
+		/*
+		 * lws' own, eg, an h3 control stream: nothing the user asked
+		 * for is closing, so he hears nothing about it either way
+		 */
+		ccb = 0;
+
+#if defined(LWS_WITH_CLIENT)
+	/*
+	 * An h2 client network wsi is established at the transport, but until
+	 * the server's SETTINGS migrates the user's ask on to sid 1 it is still
+	 * the user's wsi, never told it was established, and there is no child
+	 * stream to tell him anything about the close
+	 */
+	if (!ccb && !wsi->internal && lwsi_role_client(wsi) &&
+	    (!est_at_entry || (lws_wsi_is_mux_nwsi(wsi) &&
+			       !lws_wsi_client_nwsi_migrated(wsi))))
+		/* it declines to say anything on a restart */
+		lws_inform_client_conn_fail(wsi, "Closed before conn", 18);
+#endif
+	if (ccb && !lwsi_restarting(wsi)) {
+
+		if (!wsi->a.protocol && wsi->a.vhost && wsi->a.vhost->protocols)
+			pro = &wsi->a.vhost->protocols[0];
+
+		if (pro && pro->callback)
+			pro->callback(wsi,
+				wsi->role_ops->close_cb[lwsi_role_server(wsi)],
+				wsi->user_space, NULL, 0);
+		lws_wsi_event(wsi, LWS_WSIEV_USER_TOLD);
+	}
+
+#if defined(LWS_ROLE_RAW_FILE)
+async_close:
+#endif
+
+#if defined(LWS_WITH_SECURE_STREAMS)
+	if (wsi->for_ss) {
+		lwsl_wsi_debug(wsi, "for_ss");
+		/*
+		 * We were adopted for a particular ss, but, eg, we may not
+		 * have succeeded with the connection... we are closing which is
+		 * good, but we have to invalidate any pointer the related ss
+		 * handle may be holding on us
+		 */
+#if defined(LWS_WITH_SECURE_STREAMS_PROXY_API)
+
+		if (wsi->client_proxy_onward) {
+			/*
+			 * We are an onward proxied wsi at the proxy,
+			 * opaque is proxing "conn", we must remove its pointer
+			 * to us since we are destroying
+			 */
+			lws_proxy_clean_conn_ss(wsi);
+		} else
+
+			if (wsi->client_bound_sspc) {
+				lws_sspc_handle_t *h = (lws_sspc_handle_t *)wsi->a.opaque_user_data;
+
+				if (h) { // && (h->info.flags & LWSSSINFLAGS_ACCEPTED)) {
+
+#if defined(LWS_WITH_SYS_METRICS)
+					/*
+					 * If any hanging caliper measurement, dump it, and free any tags
+					 */
+					lws_metrics_caliper_report_hist(h->cal_txn, (struct lws *)NULL);
+#endif
+
+					h->txp_path.priv_onw = NULL;
+					//wsi->a.opaque_user_data = NULL;
+				}
+			} else
+#endif
+		{
+			hh = (lws_ss_handle_t *)wsi->a.opaque_user_data;
+
+			if (hh) { // && (h->info.flags & LWSSSINFLAGS_ACCEPTED)) {
+
+				/*
+				 * ss level: only reports if dangling caliper
+				 * not already reported
+				 */
+				lws_metrics_caliper_report_hist(hh->cal_txn, wsi);
+
+				/*
+				 * If we're surviving this close as a redirect
+				 * (eg, QUIC attempt failed and we're falling
+				 * back to TCP on the same wsi), don't cut the
+				 * binding between the ss handle and the wsi
+				 * that is about to restart
+				 */
+				if (!lwsi_restarting(wsi)) {
+					/*
+					 * Did the ss hear nothing about this
+					 * wsi dying?  Everything above only
+					 * informs it on the CCE and CLOSED
+					 * paths, but a client h2 network wsi
+					 * lost right after ALPN, before its
+					 * stream child exists, is in a state
+					 * flagged established (so no CCE) and
+					 * as the mux parent gets no CLOSED
+					 * either: the ss would stay in
+					 * CONNECTING forever
+					 */
+					if (hh->wsi == wsi &&
+					    !hh->ss_dangling_connected &&
+					    hh->prev_ss_state ==
+							LWSSSCS_CONNECTING)
+						hh_unannounced = 1;
+#if defined(LWS_WITH_SERVER)
+					/*
+					 * An accepted stream exists only for
+					 * the connection it was accepted on,
+					 * it never reconnects
+					 */
+					if (hh->info.flags &
+						    LWSSSINFLAGS_ACCEPTED)
+						hh_accepted = 1;
+#endif
+					hh->wsi = NULL;
+					wsi->a.opaque_user_data = NULL;
+				} else
+					/*
+					 * it stays bound to the wsi, which
+					 * lives on: this close says nothing
+					 * to it
+					 */
+					hh = NULL;
+			}
+		}
+	}
+#endif
+
+
+	lws_remove_child_from_any_parent(wsi);
+	lwsi_set_skt_unusable(wsi, 1);
+
+#if defined(LWS_WITH_SECURE_STREAMS)
+	/*
+	 * The ss handle is no longer bound to the wsi, so it can be told now,
+	 * before the event library is asked to finish the close.  It must be
+	 * now: an event library that finishes closes later (libuv, glib)
+	 * makes us return below, and its later final free knows nothing of
+	 * the handle (G-299).
+	 */
+	if (hh && hh_accepted) {
+		/*
+		 * Whatever state it reached, the accepted stream goes with its
+		 * connection.  The role's close handling can't be relied on to
+		 * do it: eg, an h1 connection closed before a whole request
+		 * header arrived, or the h2 network connection's own stream,
+		 * never got CONNECTED, so will never get the DISCONNECTED that
+		 * destroys it.  lws_ss_destroy() gives it DISCONNECTED first
+		 * if it did get CONNECTED.
+		 */
+		lws_ss_destroy(&hh);
+	} else if (hh && hh->ss_dangling_connected &&
+	    lws_ss_event_helper(hh, LWSSSCS_DISCONNECTED) == LWSSSSRET_DESTROY_ME)
+		/*
+		 * This close may be inside lws_ss_client_connect() for the
+		 * handle, eg, a quic connection that could not have a tls
+		 * session: that still uses the handle when it returns, so its
+		 * destruction is left to whoever asked for the connection.
+		 * The wsi no longer points at it.
+		 */
+		_lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(
+					LWSSSSRET_DESTROY_ME, NULL, &hh);
+	else if (hh && hh_unannounced) {
+		/* treat it as the connection attempt failing */
+		if (lws_ss_event_helper(hh, LWSSSCS_UNREACHABLE) ==
+							LWSSSSRET_DESTROY_ME ||
+		    lws_ss_backoff(hh) == LWSSSSRET_DESTROY_ME)
+			/* as above, it may be inside its own connect */
+			_lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(
+					LWSSSSRET_DESTROY_ME, NULL, &hh);
+	}
+#endif
+
+	if (wsi->a.context->event_loop_ops->wsi_logical_close)
+		if (wsi->a.context->event_loop_ops->wsi_logical_close(wsi))
+			return LWS_HPI_RET_CLOSING;
+
+	return _lws_close_free_wsi_final(wsi);
+}
+
+
+/* cx + vh lock */
+
+/*
+ * Returns LWS_HPI_RET_WSI_ALREADY_DIED when the wsi was freed, or
+ * LWS_HPI_RET_CLOSING when it was picked up by a restart and lives on
+ */
+lws_handling_result_t
+_lws_close_free_wsi_final(struct lws *wsi)
+{
+
+#if defined(LWS_WITH_ASYNC_QUEUE)
+	lws_async_worker_wait_and_reap(wsi);
+#endif
+
+	/* the transport goes: tls session, fd, place in the poll set */
+	__lws_io_close_transport(wsi, LWS_IOCLOSE_RELEASE);
+
+#if defined(LWS_WITH_CLIENT)
+	lws_free_set_NULL(wsi->cli_hostname_copy);
+	if (lwsi_restarting(wsi)) {
+
+		lwsl_wsi_info(wsi, "picking up redirection");
+
+		/* the restart ends the transport phase, with everything else */
+#if defined(LWS_ROLE_H1)
+		lws_wsi_event_role(wsi, LWS_WSIEV_RESTART, &role_ops_h1);
+#elif defined(LWS_ROLE_H2)
+		lws_wsi_event_role(wsi, LWS_WSIEV_RESTART, &role_ops_h2);
+#elif defined(LWS_ROLE_H3)
+		lws_wsi_event_role(wsi, LWS_WSIEV_RESTART, &role_ops_h3);
+#else
+		lwsi_set_skt_unusable(wsi, 1);
+#endif
+
+
+#if defined(LWS_WITH_HTTP2)
+		if (wsi->client_mux_substream_was)
+			wsi->h2.END_STREAM = wsi->h2.END_HEADERS = 0;
+#endif
+#if defined(LWS_ROLE_H2) || defined(LWS_ROLE_MQTT) || defined(LWS_ROLE_H3)
+		if (wsi->mux.parent_wsi)
+			lws_wsi_mux_sibling_disconnect(wsi);
+		/*
+		 * The stream id belonged to the connection we just left.  If
+		 * the restart rejoins an existing h2 connection it must open
+		 * a new stream there, not reuse the one the server has closed
+		 */
+		wsi->mux.my_sid = 0;
+#endif
+
+#if defined(LWS_WITH_TLS)
+		/*
+		 * The restart reconnects from inside the ah attach below, and
+		 * the kept-warm join test compares our tls wish with the
+		 * candidate's: set it from the flags first, so a redirect or
+		 * a fallback over tls can join a kept-warm connection to the
+		 * same origin, as one over cleartext already does
+		 */
+		wsi->use_ssl = (unsigned int)wsi->flags;
+#endif
+
+#if defined(LWS_WITH_TLS_JIT_TRUST)
+		/*
+		 * His new endpoint may belong on another vhost, the one jit
+		 * trust keeps for it.  Move him now, before anything below
+		 * places him in the vhost he is on: the protocol bind, and the
+		 * ah attach, which runs the connect and can list him among the
+		 * vhost's client connections others may join.  Moved after
+		 * those, he was left in the old vhost's list and pointing into
+		 * its protocol table, and a jit trust vhost is destroyed once
+		 * nothing is bound to it for a while.
+		 */
+		lws_client_transport_rebind(wsi);
+#endif
+
+	//	wsi->a.protocol = NULL;
+		if (wsi->a.protocol)
+			lws_bind_protocol(wsi, wsi->a.protocol, "client_reset");
+		wsi->pending_timeout = NO_PENDING_TIMEOUT;
+		/* the new connection hasn't ended for any reason yet */
+		wsi->close_cause = NULL;
+		wsi->close_cause_arg = 0;
+
+#if defined(LWS_WITH_TLS)
+		/* guarded like the CIS_ADDRESS use further down */
+		if (wsi->stash && wsi->stash->cis[CIS_ALPN])
+			lws_strncpy(wsi->alpn, wsi->stash->cis[CIS_ALPN],
+				    sizeof(wsi->alpn));
+#endif
+
+		/*
+		 * Careful... this wsi is a client in LRS_UNCONNECTED, so the
+		 * attach goes on to do the actual connect, which can close
+		 * and free him.  In that case there is nothing left to log
+		 * about or to redirect, we just have to leave.
+		 */
+
+		switch (lws_header_table_attach(wsi, 0)) {
+		case LWS_AH_ATTACH_OK:
+			break;
+		case LWS_AH_ATTACH_WSI_GONE:
+			/* do not touch wsi */
+			return LWS_HPI_RET_CLOSING;
+		default:
+			lwsl_wsi_err(wsi, "failed to get ah");
+			return LWS_HPI_RET_CLOSING;
+		}
+//		}
+		//_lws_header_table_reset(wsi->stream.ah);
+
+		return LWS_HPI_RET_CLOSING;
+	}
+#endif
+
+	/* outermost destroy notification for wsi (user_space still intact) */
+	if (wsi->a.vhost)
+		wsi->a.vhost->protocols[0].callback(wsi, LWS_CALLBACK_WSI_DESTROY,
+						  wsi->user_space, NULL, 0);
+
+#ifdef LWS_WITH_CGI
+	lws_cgi_release(wsi);
+#endif
+
+	__lws_wsi_remove_from_sul(wsi);
+	__lws_free_wsi(wsi);
+
+	return LWS_HPI_RET_WSI_ALREADY_DIED;
+}
+
+void
+__lws_close_free_wsi_final(struct lws *wsi)
+{
+	(void)_lws_close_free_wsi_final(wsi);
+}
+
+
+/*
+ * As lws_close_free_wsi(), saying whether the wsi was freed
+ * (LWS_HPI_RET_WSI_ALREADY_DIED) or lives on in its close
+ * (LWS_HPI_RET_CLOSING)
+ */
+lws_handling_result_t
+_lws_close_free_wsi(struct lws *wsi, enum lws_close_status reason,
+		    const char *caller)
+{
+	struct lws_context *cx = wsi->a.context;
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+	lws_handling_result_t hr;
+
+	lws_context_lock(cx, __func__);
+
+	lws_pt_lock(pt, __func__);
+	/* may destroy vhost, cannot hold vhost lock outside it */
+	hr = __lws_close_free_wsi(wsi, reason, caller);
+	lws_pt_unlock(pt);
+
+	lws_context_unlock(cx);
+
+	return hr;
+}
+
+void
+lws_close_free_wsi(struct lws *wsi, enum lws_close_status reason, const char *caller)
+{
+	(void)_lws_close_free_wsi(wsi, reason, caller);
+}
+
+

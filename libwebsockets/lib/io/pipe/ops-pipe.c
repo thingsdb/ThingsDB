@@ -1,0 +1,419 @@
+/*
+ * libwebsockets - small server side websockets and web server implementation
+ *
+ * Copyright (C) 2010 - 2019 Andy Green <andy@warmcat.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+
+#include <private-lib-core.h>
+
+static lws_handling_result_t
+rops_handle_POLLIN_pipe(struct lws_context_per_thread *pt, struct lws *wsi,
+			struct lws_pollfd *pollfd)
+{
+#if defined(LWS_WITH_LATENCY)
+	lws_usec_t _pipe_start = lws_now_usecs();
+#endif
+#if defined(LWS_HAVE_EVENTFD)
+	eventfd_t value;
+	int n;
+
+	n = eventfd_read(wsi->io->desc.sockfd, &value);
+	if (n < 0) {
+		lwsl_notice("%s: eventfd read %d bailed errno %d\n", __func__,
+				wsi->io->desc.sockfd, LWS_ERRNO);
+		return LWS_HPI_RET_PLEASE_CLOSE_ME;
+	}
+#elif !defined(WIN32) && !defined(_WIN32)
+	char s[100];
+	int n;
+
+	/*
+	 * discard the byte(s) that signaled us
+	 * We really don't care about the number of bytes, but coverity
+	 * thinks we should.
+	 */
+	n = (int)read(wsi->io->desc.sockfd, s, sizeof(s));
+	(void)n;
+	/*
+	 * Only treat a real read error as a reason to close the pipe wsi.
+	 * read() returning 0 happens when the context is tearing down (the
+	 * write end is going away); closing the pipe wsi from inside its own
+	 * POLLIN handler during context destroy frees it out from under the
+	 * service loop that is still iterating on it, observed as a segfault
+	 * during lws_context_destroy() on libuv / distro-recommended builds.
+	 * The pipe is owned by the context and is explicitly closed as part
+	 * of normal pt destroy, so it does not need our help here.
+	 */
+	if (n < 0)
+		return LWS_HPI_RET_PLEASE_CLOSE_ME;
+#elif defined(WIN32)
+	char s[100];
+	int n;
+
+	n = recv(wsi->io->desc.sockfd, s, sizeof(s), 0);
+	if (n == SOCKET_ERROR)
+		return LWS_HPI_RET_PLEASE_CLOSE_ME;
+#endif
+
+	/*
+	 * lws_default_loop_exit() sets context->interrupted and cancels
+	 * service, which is all the default poll loop needs.  On an event
+	 * library's internal loop lws_service() IS the loop and never returns
+	 * to look at the flag, so begin the context destroy from here, inside
+	 * the service: it defers, the evlib winds the loop down, lws_service()
+	 * returns -1 and lws_context_default_loop_run_destroy() finalizes.
+	 * A foreign loop is the app's, it watches the flag itself.
+	 */
+	if (pt->context->interrupted && !pt->context->being_destroyed &&
+	    pt->context->event_loop_ops->run_pt && !pt->event_loop_foreign) {
+		lwsl_cx_notice(pt->context, "%s: loop exit requested on an "
+					    "internal evlib loop, destroying",
+					    __func__);
+		lws_context_destroy(pt->context);
+	}
+
+#if defined(LWS_WITH_THREADPOOL) && defined(LWS_HAVE_PTHREAD_H)
+	/*
+	 * threadpools that need to call for on_writable callbacks do it by
+	 * marking the task as needing one for its wsi, then cancelling service.
+	 *
+	 * Each tsi will call this to perform the actual callback_on_writable
+	 * from the correct service thread context
+	 */
+	lws_threadpool_tsi_context(pt->context, pt->tid);
+#endif
+
+#if defined(LWS_WITH_SERVER) && LWS_MAX_SMP > 1
+	/* another pt's fds table filled or made room: see to our listeners */
+	lws_accept_modulation_recheck(pt);
+#endif
+
+#if defined(LWS_WITH_ASYNC_QUEUE)
+	{
+		struct lws_dll2_owner handled;
+
+		lws_dll2_owner_clear(&handled);
+		pthread_mutex_lock(&pt->context->async_worker_mutex);
+		if (lws_dll2_count(&pt->context->async_worker_finished)) {
+			lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1, lws_dll2_get_head(&pt->context->async_worker_finished)) {
+				struct lws_async_job *job = lws_container_of(d, struct lws_async_job, list);
+
+				if (!job->wsi) {
+					lws_dll2_remove(d);
+					if (job->type != LWS_AQ_FILE_READ)
+						lws_free(job); /* file read frees itself */
+					continue;
+				}
+
+				if (job->wsi->tsi == pt->tid) {
+					job->handled_by_main = 1;
+					lws_dll2_remove(d);
+					lws_dll2_add_tail(d, &handled);
+				}
+			} lws_end_foreach_dll_safe(d, d1);
+		}
+		pthread_mutex_unlock(&pt->context->async_worker_mutex);
+
+		lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1, lws_dll2_get_head(&handled)) {
+			struct lws_async_job *job = lws_container_of(d, struct lws_async_job, list);
+
+			lws_dll2_remove(d);
+			if (job->type == LWS_AQ_FILE_READ) {
+				lws_wsi_event(job->wsi, LWS_WSIEV_FILE_READ_DONE);
+				lws_callback_on_writable(job->wsi);
+			}
+#if defined(LWS_WITH_TLS) && defined(LWS_WITH_SERVER)
+			else if (job->type == LWS_AQ_SSL_ACCEPT) {
+				job->wsi->async_worker_job = NULL;
+
+				if (lws_tls_server_accept_completed(job->wsi, job->u.ssl.status)) {
+					lws_close_free_wsi(job->wsi, LWS_CLOSE_STATUS_NOSTATUS, "ssl accept failed");
+				} else if (lwsi_transport(job->wsi) != LTS_SSL_ACK_PENDING) {
+
+					/* restore POLLIN which was stripped before entering async worker queue */
+					if (lws_io_want_read(job->wsi, 1)) {
+						lws_close_free_wsi(job->wsi, LWS_CLOSE_STATUS_NOSTATUS, "ssl accept pollin failed");
+					} else {
+						if (lws_server_socket_service_ssl(job->wsi, job->wsi->io->desc.sockfd, 0))
+							lwsl_notice("OOB ssl success path failed\n");
+
+						/*
+						 * OpenSSL background accept might have slurped the HTTP/2 preface
+						 * into its internal BIO without generating a kernel POLLIN.
+						 * Force a fake POLLIN by adding to the pending list once, but ONLY if
+						 * it actually has decoded bytes. If not, it will spin WANT_READ endlessly.
+						 */
+						if (lws_ssl_pending(job->wsi)) {
+							lws_pt_lock(pt, __func__);
+							if (lws_dll2_is_detached(&job->wsi->io->tls.dll_pending_tls)) {
+								lws_dll2_add_head(&job->wsi->io->tls.dll_pending_tls,
+										  &pt->tls.dll_pending_tls_owner);
+								lwsl_notice("ops-pipe added %s to pending tls list, pos=%d\n", lws_wsi_tag(job->wsi), job->wsi->io->position_in_fds_table);
+							}
+							lws_pt_unlock(pt);
+						}
+					}
+				}
+			}
+#endif
+			if (job->type != LWS_AQ_FILE_READ)
+				lws_free(job);
+		} lws_end_foreach_dll_safe(d, d1);
+	}
+#endif
+
+#if LWS_MAX_SMP > 1
+
+	/*
+	 * Other pts need to take care of their own wsi bound to a vhost that
+	 * is going down
+	 */
+
+	if(!lws_dll2_is_empty(&pt->context->owner_vh_being_destroyed)) {
+
+		lws_start_foreach_dll_safe(struct lws_dll2 *, d, d1,
+				      lws_dll2_get_head(&pt->context->owner_vh_being_destroyed)) {
+			struct lws_vhost *v =
+				lws_container_of(d, struct lws_vhost,
+						 vh_being_destroyed_list);
+
+			lws_vhost_lock(v); /* -------------- vh { */
+			v->count_bound_wsi++;
+			__lws_vhost_destroy_pt_wsi_dieback_start(v);
+			v->count_bound_wsi--;
+			int do_destroy2 = !v->count_bound_wsi && v->being_destroyed;
+			lws_vhost_unlock(v); /* } vh -------------- */
+
+			if (do_destroy2)
+				__lws_vhost_destroy2(v);
+
+		} lws_end_foreach_dll_safe(d, d1);
+	}
+
+#endif
+
+#if defined(LWS_WITH_SECURE_STREAMS)
+	lws_dll2_foreach_safe(&pt->ss_owner, NULL, lws_ss_cancel_notify_dll);
+#if defined(LWS_WITH_SECURE_STREAMS_PROXY_API) && defined(LWS_WITH_CLIENT)
+	lws_dll2_foreach_safe(&pt->ss_client_owner, NULL, lws_sspc_cancel_notify_dll);
+#endif
+#endif
+
+	/*
+	 * the poll() wait, or the event loop for libuv etc is a
+	 * process-wide resource that we interrupted.  So let every
+	 * protocol that may be interested in the pipe event know that
+	 * it happened.
+	 */
+	if (lws_broadcast(pt, LWS_CALLBACK_EVENT_WAIT_CANCELLED, NULL, 0)) {
+		lwsl_info("closed in event cancel\n");
+		return LWS_HPI_RET_PLEASE_CLOSE_ME;
+	}
+
+#if defined(LWS_WITH_LATENCY)
+	{
+		unsigned int ms = (unsigned int)((lws_now_usecs() - _pipe_start) / 1000);
+		if (ms > 2)
+			lws_latency_note(pt, _pipe_start, 2000, "pipe:%dms", ms);
+	}
+#endif
+
+	return LWS_HPI_RET_HANDLED;
+}
+
+static const lws_rops_t rops_table_pipe[] = {
+	/*  1 */ { .handle_POLLIN	= rops_handle_POLLIN_pipe },
+};
+
+
+const struct lws_role_ops role_ops_pipe = {
+	/* role name */			"pipe",
+	/* alpn id */			NULL,
+
+	/* rops_table */		rops_table_pipe,
+	/* rops_idx */			{
+	  /* LWS_ROPS_check_upgrades */
+	  /* LWS_ROPS_pt_init_destroy */		0x00, 0x00,
+	  /* LWS_ROPS_init_vhost */
+	  /* LWS_ROPS_destroy_vhost */			0x00, 0x00,
+	  /* LWS_ROPS_service_flag_pending */
+	  /* LWS_ROPS_handle_POLLIN */			0x00, 0x01,
+	  /* LWS_ROPS_handle_POLLOUT */
+	  /* LWS_ROPS_perform_user_POLLOUT */		0x00, 0x00,
+	  /* LWS_ROPS_callback_on_writable */
+	  /* LWS_ROPS_tx_credit */			0x00, 0x00,
+	  /* LWS_ROPS_write_role_protocol */
+	  /* LWS_ROPS_encapsulation_parent */		0x00, 0x00,
+	  /* LWS_ROPS_alpn_negotiated */
+	  /* LWS_ROPS_close_via_role_protocol */	0x00, 0x00,
+	  /* LWS_ROPS_close_role */
+	  /* LWS_ROPS_close_kill_connection */		0x00, 0x00,
+	  /* LWS_ROPS_destroy_role */
+	  /* LWS_ROPS_adoption_bind */			0x00, 0x00,
+	  /* LWS_ROPS_client_bind */
+	  /* LWS_ROPS_issue_keepalive */		0x00, 0x00,
+					},
+
+	/* adoption_cb clnt, srv */	{ 0, 0 },
+	/* rx_cb clnt, srv */		{ 0, 0 },
+	/* writeable cb clnt, srv */	{ 0, 0 },
+	/* close cb clnt, srv */	{ 0, 0 },
+	/* protocol_bind_cb c,s */	{ 0, 0 },
+	/* protocol_unbind_cb c,s */	{ 0, 0 },
+#if defined(WIN32)
+	/* file_handle (no, UDP) */	0,
+#else
+	/* file_handle */		1,
+#endif
+	/* child_stdio */		0,
+};
+
+/*
+ * The pt's own pipe wsi, which wakes the service thread, and cancelling
+ * service through it.  IO's, moved here from vhost.c.
+ */
+
+void
+lws_cancel_service_pt(struct lws *wsi)
+{
+	lws_plat_pipe_signal(wsi->a.context, wsi->tsi);
+}
+
+void
+lws_cancel_service(struct lws_context *context)
+{
+	struct lws_context_per_thread *pt = &context->pt[0];
+	unsigned short m;
+
+	if (context->service_no_longer_possible)
+		return;
+
+	lwsl_cx_debug(context, "\n");
+
+	for (m = 0; m < context->count_threads; m++) {
+		if (pt->pipe_wsi)
+			lws_plat_pipe_signal(pt->context, m);
+		pt++;
+	}
+}
+
+lws_sockfd_type
+lws_service_wake_fd(struct lws_context *context, int tsi)
+{
+	struct lws_context_per_thread *pt;
+
+	if (tsi < 0 || tsi >= context->count_threads)
+		return LWS_SOCK_INVALID;
+
+	pt = &context->pt[tsi];
+	if (!pt->pipe_wsi)
+		return LWS_SOCK_INVALID;
+
+	/* a pipe the platform made outside the poll set has no fd here */
+	return pt->pipe_wsi->io->desc.sockfd;
+}
+
+int
+__lws_create_event_pipes(struct lws_context *context)
+{
+	struct lws_context_per_thread *pt;
+	struct lws *wsi;
+	int n;
+
+	/*
+	 * Create the pt event pipes... these are unique in that they are
+	 * not bound to a vhost or protocol (both are NULL)
+	 */
+
+#if LWS_MAX_SMP > 1
+	for (n = 0; n < context->count_threads; n++) {
+#else
+	n = 0;
+	{
+#endif
+		pt = &context->pt[n];
+
+		if (pt->pipe_wsi)
+			return 0;
+
+		wsi = __lws_wsi_create_with_role(context, n, &role_ops_pipe,
+							NULL);
+		if (!wsi)
+			return 1;
+
+		__lws_lc_tag(context, &context->lcg[LWSLCG_WSI], &wsi->lc,
+				"pipe");
+
+		wsi->io->event_pipe = 1;
+		pt->pipe_wsi = wsi;
+
+		if (!lws_plat_pipe_create(wsi)) {
+			/*
+			 * platform code returns 0 if it actually created pipes
+			 * and initialized pt->dummy_pipe_fds[].  If it used
+			 * some other mechanism outside of signaling in the
+			 * normal event loop, we skip treating the pipe as
+			 * related to dummy_pipe_fds[], adding it to the fds,
+			 * etc.
+			 */
+
+			wsi->io->desc.sockfd = context->pt[n].dummy_pipe_fds[0];
+			// lwsl_debug("event pipe fd %d\n", wsi->io->desc.sockfd);
+
+			if (lws_wsi_inject_to_loop(pt, wsi))
+					goto bail;
+		}
+	}
+
+	return 0;
+
+bail:
+
+	return 1;
+}
+
+void
+lws_destroy_event_pipe(struct lws *wsi)
+{
+	int n;
+
+	lwsl_wsi_info(wsi, "in");
+
+	n = lws_wsi_extract_from_loop(wsi);
+	lws_plat_pipe_close(wsi);
+	if (!n)
+		lws_free(wsi);
+}
+
+/* the pt pipe wsi's fd leaves the poll set and the fd tables */
+void
+lws_pipe_wsi_release_fds(struct lws *wsi)
+{
+	if (!lws_socket_is_valid(wsi->io->desc.sockfd))
+		return;
+
+	__remove_wsi_socket_from_fds(wsi);
+	if (lws_socket_is_valid(wsi->io->desc.sockfd))
+		delete_from_fd(wsi->a.context, wsi->io->desc.sockfd);
+#if !defined(LWS_PLAT_FREERTOS) && !defined(WIN32) && !defined(LWS_PLAT_OPTEE)
+	delete_from_fdwsi(wsi->a.context, wsi);
+#endif
+}

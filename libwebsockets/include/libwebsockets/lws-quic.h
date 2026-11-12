@@ -1,0 +1,355 @@
+/*
+ * libwebsockets - small server side websockets and web server implementation
+ *
+ * Copyright (C) 2010 - 2026 Andy Green <andy@warmcat.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+
+/** \defgroup quic QUIC Transport APIs
+ * ##QUIC Transport APIs
+ *
+ * These APIs abstract the underlying TLS library to provide the memory BIO
+ * and traffic secret extraction capabilities required for QUIC.
+ */
+///@{
+
+enum lws_tls_quic_secret_type {
+	LWS_TLS_QUIC_SECRET_CLIENT_EARLY,
+	LWS_TLS_QUIC_SECRET_CLIENT_HANDSHAKE,
+	LWS_TLS_QUIC_SECRET_SERVER_HANDSHAKE,
+	LWS_TLS_QUIC_SECRET_CLIENT_APPLICATION,
+	LWS_TLS_QUIC_SECRET_SERVER_APPLICATION,
+};
+
+/*
+ * RFC 9001 4.1 / 5.3 / 5.4: the QUIC packet-protection AEAD and the header-
+ * protection cipher are both fixed by the negotiated TLS 1.3 cipher suite, and
+ * cannot be inferred from the traffic-secret length alone (TLS_AES_128_GCM_
+ * SHA256 and TLS_CHACHA20_POLY1305_SHA256 both use SHA-256 and so produce a
+ * 32-byte secret).  The TLS backend reports the negotiated AEAD to the QUIC
+ * role via wsi->tls.quic_aead so the correct algorithms are selected.
+ */
+enum lws_tls_quic_aead {
+	LWS_TLS_QUIC_AEAD_UNKNOWN,	   /**< backend didn't report; caller
+					     * falls back to length heuristic */
+	LWS_TLS_QUIC_AEAD_AES_128_GCM,	   /**< TLS_AES_128_GCM_SHA256 */
+	LWS_TLS_QUIC_AEAD_AES_256_GCM,	   /**< TLS_AES_256_GCM_SHA384 */
+	LWS_TLS_QUIC_AEAD_CHACHA20_POLY1305, /**< TLS_CHACHA20_POLY1305_SHA256 */
+};
+
+enum lws_0rtt_status {
+	LWS_0RTT_STATUS_NONE,       /**< No 0-RTT attempted */
+	LWS_0RTT_STATUS_ATTEMPTED,  /**< Client sent 0-RTT, awaiting server decision */
+	LWS_0RTT_STATUS_ACCEPTED,   /**< Server accepted 0-RTT data */
+	LWS_0RTT_STATUS_REJECTED,   /**< Server rejected 0-RTT data, client must resend */
+};
+
+/**
+ * lws_tls_quic_secret_cb() - Callback for QUIC traffic secret derivation
+ *
+ * \param wsi: the wsi
+ * \param type: the type of secret derived
+ * \param secret: the raw secret bytes
+ * \param secret_len: length of the secret
+ *
+ * This callback is fired by the underlying TLS library (OpenSSL, mbedTLS, etc)
+ * when a new traffic secret is derived during the QUIC TLS 1.3 handshake.
+ */
+typedef int (*lws_tls_quic_secret_cb)(struct lws *wsi,
+				      enum lws_tls_quic_secret_type type,
+				      const uint8_t *secret, size_t secret_len);
+
+/**
+ * lws_tls_quic_init() - Initialize QUIC TLS state for a wsi
+ *
+ * \param wsi: the wsi
+ * \param cb: the traffic secret callback
+ *
+ * Enables QUIC mode on the TLS connection.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_tls_quic_init(struct lws *wsi, lws_tls_quic_secret_cb cb);
+
+/**
+ * lws_tls_quic_advance_handshake() - Feed QUIC CRYPTO frame data to TLS
+ *
+ * \param wsi: the wsi
+ * \param in: incoming CRYPTO frame payload (or NULL)
+ * \param in_len: length of incoming data
+ * \param out: buffer for outgoing CRYPTO frame payload
+ * \param out_len: on entry, max size of out; on exit, bytes written
+ *
+ * Feeds TLS handshake bytes into the memory BIO and retrieves the output
+ * to be sent in the next QUIC CRYPTO frame.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_tls_quic_advance_handshake(struct lws *wsi, int level,
+			       const uint8_t *in, size_t in_len,
+			       uint8_t *out, size_t *out_len);
+
+/**
+ * lws_tls_quic_set_transport_parameters() - Set QUIC transport parameters extension
+ *
+ * \param wsi: the wsi
+ * \param tp: the transport parameters payload
+ * \param tp_len: length of the payload
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_tls_quic_set_transport_parameters(struct lws *wsi, const uint8_t *tp, size_t tp_len);
+
+/**
+ * lws_tls_quic_get_transport_parameters() - Get peer's QUIC transport parameters
+ *
+ * \param wsi: the wsi
+ * \param tp: pointer to receive the transport parameters payload
+ * \param tp_len: pointer to receive the length
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_tls_quic_get_transport_parameters(struct lws *wsi, const uint8_t **tp, size_t *tp_len);
+
+/**
+ * lws_tls_0rtt_status() - Get the status of 0-RTT early data
+ *
+ * \param wsi: the wsi
+ *
+ * Returns the status of 0-RTT early data for the connection.
+ */
+LWS_VISIBLE LWS_EXTERN enum lws_0rtt_status
+lws_tls_0rtt_status(struct lws *wsi);
+
+/**
+ * lws_rx_is_early_data() - Determine if received data is 0-RTT early data
+ *
+ * \param wsi: the wsi
+ *
+ * Returns 1 if the current RX data was received as 0-RTT early data, 0 otherwise.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_rx_is_early_data(struct lws *wsi);
+
+/**
+ * lws_tls_quic_api_test() - Internal API test for QUIC TLS 1.3 memory BIOs
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_tls_quic_api_test(void);
+
+/**
+ * lws_tls_quic_migrate_wsi() - Migrate QUIC TLS context from old to new wsi
+ *
+ * \param old_wsi: the old logical stream wsi
+ * \param new_wsi: the new parent network connection wsi
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_tls_quic_migrate_wsi(struct lws *old_wsi, struct lws *new_wsi);
+
+/**
+ * lws_quic_dump() - log where a QUIC connection and its streams stand
+ *
+ * \param wsi: any QUIC wsi on the connection (stream or network), or NULL
+ *
+ * Logs at notice level what the connection holds and waits on: handshake
+ * and close state, credit, PTO count and whether it is armed, the frames
+ * waiting and in flight at each level, and the congestion controller's say.
+ * Then, for a stream wsi, that stream, or else every stream with data
+ * outstanding: how far its tx and rx got, what it holds out of order and
+ * the first of its frames waiting or in flight.
+ *
+ * lws logs this itself when a stream times out stuck.  This is for an
+ * application or test to say the same when its own deadline for a transfer
+ * passes first, so the log shows why it hadn't moved.  Nothing is logged
+ * for a wsi that isn't on a QUIC connection.
+ *
+ * Built with LWS_WITH_QUIC_TRACE, it also logs the connection's last 64
+ * packets sent and taken, PTOs and handshake and path events, with when each
+ * happened: see READMEs/README.quic.md.
+ */
+LWS_VISIBLE LWS_EXTERN void
+lws_quic_dump(struct lws *wsi);
+
+/**
+ * lws_quic_initiate_key_update() - Manually trigger a QUIC Key Update
+ *
+ * \param wsi: any QUIC wsi on the connection (stream or network)
+ *
+ * Initiates a Key Update on the QUIC connection as per RFC 9001.
+ * Returns 0 if successfully initiated, or nonzero on failure.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_quic_initiate_key_update(struct lws *wsi);
+
+/**
+ * lws_quic_seal_client_initial() - protect a client Initial as a client would
+ *
+ * \param pkt: the packet, unprotected, with 16 bytes free after it
+ * \param len: the packet's length, unprotected: header through the packet
+ *	       number, then the plaintext payload
+ * \param pn_offset: where the packet number is in pkt
+ * \param pn_len: the packet number's length, 1 .. 4
+ * \param pn: the full packet number
+ * \param odcid: the DCID of the client's first Initial, or NULL if this is
+ *		 one of its first flight, whose own DCID it is
+ * \param odcid_len: odcid's length, 0 .. 20
+ *
+ * Initial packets are protected with keys anyone can derive from the DCID
+ * of the client's first Initial (RFC 9001 5.2), so this is what a client
+ * does to its own Initial, for whatever needs to give a server Initials of
+ * a plaintext it chooses: tests, and fuzzing the server's Initial
+ * processing past its AEAD.  A client's Initials after the server answered
+ * go to the server's SCID, but are still protected with keys from that
+ * first DCID: give it as odcid for those.  Only QUIC v1.
+ *
+ * pkt must be a long header v1 Initial, the packet number length bits of
+ * its first byte 0 (they are set here), and its Length field must already
+ * count the packet number, the payload and the 16-byte AEAD tag.  The
+ * payload is encrypted in place, the tag appended, and the header protected.
+ *
+ * Returns the protected packet's length (len + 16), or -1 if pkt is not
+ * such a packet or protecting it failed.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_quic_seal_client_initial(uint8_t *pkt, size_t len, size_t pn_offset,
+			     uint8_t pn_len, uint64_t pn, const uint8_t *odcid,
+			     size_t odcid_len);
+
+/**
+ * lws_quic_seal_packet() - protect a packet with the keys of a traffic secret
+ *
+ * \param pkt: the packet, unprotected, with 16 bytes free after it
+ * \param len: the packet's length, unprotected: header through the packet
+ *	       number, then the plaintext payload
+ * \param pn_offset: where the packet number is in pkt
+ * \param pn_len: the packet number's length, 1 .. 4
+ * \param pn: the full packet number
+ * \param aead: the AEAD the secret's cipher suite has
+ * \param secret: the traffic secret the handshake gave, whose packet
+ *		  protection keys are derived as RFC 9001 5.1 has it
+ * \param secret_len: 32, or 48 for AES-256-GCM, whose hash is SHA-384
+ * \param key_updates: how many key updates (RFC 9001 6) the packet's keys
+ *		       are on from the handshake's: the AEAD's key and IV
+ *		       are made from the secret that many "quic ku" steps on,
+ *		       the header protection key from the secret itself
+ *
+ * What lws_quic_seal_client_initial() does to an Initial, for a packet of
+ * any kind, long header or short, whose protection is made from a traffic
+ * secret the caller has: tests holding the secrets of both ends of a
+ * connection, and fuzzing past a handshake.
+ *
+ * pkt's first byte must have its fixed bit set and its packet number length
+ * bits 0 (they are set here), and for a short header, its key phase bit
+ * the lowest of key_updates; a long header's Length field must already
+ * count the packet number, the payload and the 16-byte AEAD tag.  The
+ * payload is encrypted in place, the tag appended, and the header
+ * protected.
+ *
+ * Returns the protected packet's length (len + 16), or -1 if pkt can't be
+ * protected so, or protecting it failed.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_quic_seal_packet(uint8_t *pkt, size_t len, size_t pn_offset,
+		     uint8_t pn_len, uint64_t pn, enum lws_tls_quic_aead aead,
+		     const uint8_t *secret, size_t secret_len,
+		     unsigned int key_updates);
+
+#if defined(LWS_WITH_FUZZERS)
+/**
+ * struct lws_quic_fuzz_taps - a fuzzing build's view into its connections
+ *
+ * \param secret: a traffic secret the connection installed, \p type saying
+ *		  which, with the AEAD its packets are protected with
+ * \param crypto_tx: handshake bytes the connection's TLS gave it to send in
+ *		     CRYPTO frames, in order, at \p level: 0 Initial,
+ *		     2 Handshake, 3 1-RTT
+ *
+ * Both are told the SCID of the peer's first packets, \p peer_scid, which
+ * tells whoever plays that peer which of its connections it is: on a
+ * client, it has no length until the server has answered.
+ *
+ * A fuzz target playing a QUIC peer can make nothing a connection would
+ * accept past its Initials, since everything after is protected with keys
+ * from the TLS handshake, and the bytes the peer's Finished authenticates
+ * differ every run.  With these, it has the secrets to protect its packets
+ * with (lws_quic_seal_packet()), and the transcript a Finished is made
+ * from, without reimplementing TLS or decrypting what the connection sends.
+ *
+ * Only for libFuzzer builds (LWS_WITH_FUZZERS): it hands out the keys of
+ * every connection.
+ */
+typedef struct lws_quic_fuzz_taps {
+	void (*secret)(struct lws *wsi, const uint8_t *peer_scid,
+		       size_t peer_scid_len, enum lws_tls_quic_secret_type type,
+		       enum lws_tls_quic_aead aead, const uint8_t *secret,
+		       size_t secret_len);
+	void (*crypto_tx)(struct lws *wsi, const uint8_t *peer_scid,
+			  size_t peer_scid_len, int level, const uint8_t *buf,
+			  size_t len);
+} lws_quic_fuzz_taps_t;
+
+/**
+ * lws_quic_fuzz_set_taps() - watch the secrets and handshakes of connections
+ *
+ * \param cx: the context whose QUIC connections are watched
+ * \param taps: what to tell, or NULL to stop telling
+ *
+ * Only for libFuzzer builds (LWS_WITH_FUZZERS), see struct
+ * lws_quic_fuzz_taps.  \p taps must stay valid while set.
+ */
+LWS_VISIBLE LWS_EXTERN void
+lws_quic_fuzz_set_taps(struct lws_context *cx,
+		       const lws_quic_fuzz_taps_t *taps);
+#endif
+
+/**
+ * struct lws_cc_ops - a QUIC congestion controller
+ *
+ * Set in lws_context_creation_info.quic_cc_ops to select one of the
+ * controllers below or supply your own.  Every op may be NULL and is then
+ * skipped, but the byte accounting ops come as a set: whatever on_sent adds
+ * to the controller's idea of bytes in flight is only ever taken back by
+ * on_ack, on_loss and on_discard.  A controller that counts in-flight bytes
+ * must implement all four, or each PTO requeue leaves its bytes counted for
+ * the life of the connection and the window closes.
+ *
+ * \param init: (re)start the controller's state for the connection, also on
+ *	path migration
+ * \param on_sent: bytes of an ack-eliciting packet went on the wire
+ * \param on_ack: bytes acknowledged, with an RTT sample for the largest
+ * \param on_loss: bytes declared lost by loss detection, react on cwnd
+ * \param on_discard: bytes taken out of flight without ack or loss: a PTO
+ *	requeue (RFC 9002 6.2.4, cwnd must not react) or a purged stream.  Only
+ *	the in-flight count is corrected.
+ * \param on_persistent_congestion: collapse cwnd to the minimum
+ * \param can_send: may bytes more go out now
+ * \param get_pacing_delay: usecs to wait before bytes_to_send may go out
+ */
+struct lws_cc_ops {
+	void (*init)(struct lws *nwsi);
+	void (*on_sent)(struct lws *nwsi, size_t bytes);
+	void (*on_ack)(struct lws *nwsi, size_t bytes_acked, lws_usec_t rtt);
+	void (*on_loss)(struct lws *nwsi, size_t bytes_lost);
+	void (*on_discard)(struct lws *nwsi, size_t bytes_discarded);
+	void (*on_persistent_congestion)(struct lws *nwsi);
+	int  (*can_send)(struct lws *nwsi, size_t bytes);
+	lws_usec_t (*get_pacing_delay)(struct lws *nwsi, size_t bytes_to_send);
+};
+
+LWS_VISIBLE LWS_EXTERN_FOR_DATA const struct lws_cc_ops lws_cc_ops_newreno;
+LWS_VISIBLE LWS_EXTERN_FOR_DATA const struct lws_cc_ops lws_cc_ops_cubic;
+
+///@}

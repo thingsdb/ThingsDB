@@ -1,0 +1,698 @@
+/*
+ * libwebsockets - small server side websockets and web server implementation
+ *
+ * Copyright (C) 2010 - 2026 Andy Green <andy@warmcat.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ *
+ * private-lib-io.h: the IO half's private prototypes, split out of
+ * private-lib-core-net.h by the file that defines each: lib/io,
+ * lib/plat, lib/tls, lib/event-libs, lib/drivers, the async dns.  See
+ * READMEs/README.sans-io-split.md, "The headers".
+ *
+ * Not included when LWS_SANSIO_CHECK is defined: scripts/sans-io-check.sh
+ * compiles the sansIO sources that way, so a sansIO file that reaches for
+ * one of these fails to compile, naming the line.
+ */
+
+#if !defined(__LWS_PRIVATE_LIB_IO_H__)
+#define __LWS_PRIVATE_LIB_IO_H__
+
+/**
+ * lws_wsi_is_async_dns(): true if the wsi is one of the async resolver's
+ * own sockets, which are exempt from forced-family policy so they can
+ * reach the configured nameservers over either family
+ */
+int
+lws_wsi_is_async_dns(const struct lws *wsi);
+
+lws_usec_t
+__lws_sul_service_ripe(lws_dll2_owner_t *own, int num_own, lws_usec_t usnow);
+
+/*
+ * The wait in whole ms, for a loop that waits in ms, until a deadline that
+ * is _us away and not due yet: rounded up, so the loop sleeps until it is due.
+ * Rounded down, the loop wakes short of it and then goes around without
+ * waiting, hundreds of times, until it is due.
+ */
+#define lws_us_to_ms_ceil(_us) \
+	(((_us) + LWS_US_PER_MS - 1) / LWS_US_PER_MS)
+
+void
+lws_async_dns_cancel(struct lws *wsi);
+
+/* the wsi is closing: if it's one of the resolver's sockets, forget it */
+void
+lws_async_dns_wsi_closing(struct lws *wsi);
+
+#if (defined(LWS_WITH_ASYNC_QUEUE))
+
+#endif
+#if (defined(LWS_WITH_SPAWN))
+int
+lws_spawn_reap(struct lws_spawn_piped *lsp);
+
+#if !defined(WIN32)
+void
+lws_spawn_note_reaped(struct lws_spawn_piped *lsp, const int *status);
+#endif
+
+#endif
+void
+lws_service_do_ripe_rxflow(struct lws_context_per_thread *pt);
+
+int
+lws_socket_bind(struct lws_vhost *vhost, struct lws *wsi,
+		lws_sockfd_type sockfd, int port, const char *iface,
+		int ipv6_allowed);
+
+int
+lws_socket_bind_random_port(struct lws_context *cx, lws_sockfd_type sockfd,
+			    int af);
+
+#if (defined(LWS_WITH_IPV6))
+unsigned long
+lws_get_addr_scope(struct lws *wsi, const char *ipaddr);
+
+#endif
+lws_handling_result_t
+lws_rx_pump(struct lws_context_per_thread *pt, struct lws *wsi,
+	    struct lws_pollfd *pollfd, int flags, size_t max, int *nothing,
+	    int *consumed);
+
+#if (defined(LWS_WITH_UDP))
+/* most datagrams read from one socket in a pass, so others get their turn */
+#define LWS_RX_DGRAM_BUDGET	32
+
+lws_handling_result_t
+lws_rx_pump_dgram(struct lws_context_per_thread *pt, struct lws *wsi,
+		  struct lws_pollfd *pollfd, int *nothing);
+#endif
+
+int
+lws_io_tx_drained(struct lws *wsi);
+
+int
+lws_wsi_state_parks_rx(struct lws *wsi);
+
+int
+lws_wsi_can_consume_parked_rx(struct lws *wsi);
+
+int
+lws_plat_set_nonblocking(lws_sockfd_type fd);
+
+/*
+ * How many bytes are waiting to be read on the socket, without reading them.
+ * Returns 0 with *pending set, or -1 if the platform cannot say, when the
+ * caller must find out some other way.
+ */
+int
+lws_plat_rx_pending(lws_sockfd_type fd, size_t *pending);
+
+/*
+ * Asks for big kernel buffers on a UDP socket, so QUIC and other datagram
+ * traffic isn't dropped in bursts.  Returns nonzero if the platform refused;
+ * platforms where it makes no sense, like lwip, do nothing and return 0.
+ */
+int
+lws_plat_set_udp_bufs(lws_sockfd_type fd);
+
+int
+lws_plat_set_socket_options(struct lws_vhost *vhost, lws_sockfd_type fd,
+			    int unix_skt);
+
+int
+lws_plat_set_socket_options_ip(lws_sockfd_type fd, uint8_t pri, int lws_flags);
+
+/*
+ * Datagrams sent on fd go with Don't Fragment, so one too big for the path is
+ * lost, not fragmented, and the sender can find the path MTU itself, eg,
+ * QUIC's DPLPMTUD (RFC 9000 14).  Where the platform can, the kernel's own
+ * idea of the path MTU, from ICMP messages anyone can forge, isn't applied to
+ * them either (RFC 9000 14.2.1).  af is the socket's address family.  Returns
+ * 0 if done, or there's no way to do it on this platform.
+ */
+int
+lws_plat_set_socket_dontfrag(lws_sockfd_type fd, int af);
+
+int
+lws_plat_check_connection_error(struct lws *wsi);
+
+int LWS_WARN_UNUSED_RESULT
+lws_change_pollfd(struct lws *wsi, int _and, int _or);
+
+int
+__remove_wsi_socket_from_fds(struct lws *wsi);
+
+int
+_lws_plat_service_forced_tsi(struct lws_context *context, int tsi);
+
+
+int
+lws_service_flag_pending(struct lws_context *context, int tsi);
+
+void
+lws_libuv_closehandle(struct lws *wsi);
+
+int
+lws_libuv_check_watcher_active(struct lws *wsi);
+
+#if (defined(LWS_WITH_EVLIB_PLUGINS) || defined(LWS_WITH_PLUGINS) || defined(LWS_WITH_PLUGINS_API))
+const lws_plugin_header_t *
+lws_plat_dlopen(struct lws_plugin **pplugin, const char *libpath,
+		const char *sofilename, const char *_class,
+		each_plugin_cb_t each, void *each_user);
+
+int
+lws_plat_destroy_dl(struct lws_plugin *p);
+
+#endif
+struct lws *
+lws_adopt_socket_vhost(struct lws_vhost *vh, lws_sockfd_type accept_fd);
+
+void
+_lws_event_loop_ops_io(struct lws *wsi, unsigned int flags);
+
+int
+__lws_change_pollfd(struct lws *wsi, int _and, int _or);
+
+
+int
+lws_alpn_comma_to_openssl(const char *comma, uint8_t *os, int len);
+size_t
+lws_alpn_for_transport(const char *in, char *out, size_t len, int quic);
+int
+lws_alpn_wrong_transport(const char *e, size_t el, int quic);
+
+int
+lws_tls_server_conn_alpn(struct lws *wsi);
+
+int LWS_WARN_UNUSED_RESULT
+__insert_wsi_socket_into_fds(struct lws_context *context, struct lws *wsi);
+
+void
+lws_client_happy_eyeballs_cb(lws_sorted_usec_list_t *sul);
+void
+lws_client_h3_grace_cb(lws_sorted_usec_list_t *sul);
+#if defined(LWS_ROLE_H3) || defined(LWS_ROLE_QUIC)
+void
+lws_client_quic_peer_rejected(struct lws *wsi);
+void
+lws_client_quic_path_proven(struct lws *wsi);
+#endif
+
+
+int
+_lws_change_pollfd(struct lws *wsi, int _and, int _or, struct lws_pollargs *pa);
+
+void
+lws_plat_delete_socket_from_fds(struct lws_context *context,
+				struct lws *wsi, int m);
+
+void
+lws_plat_insert_socket_into_fds(struct lws_context *context,
+				struct lws *wsi);
+
+int
+lws_plat_change_pollfd(struct lws_context *context, struct lws *wsi,
+		       struct lws_pollfd *pfd);
+
+#if (defined(LWS_WITH_SERVER) && defined(LWS_WITH_SECURE_STREAMS))
+int
+lws_adopt_ss_server_accept(struct lws *new_wsi);
+
+#endif
+int
+lws_plat_pipe_create(struct lws *wsi);
+
+int
+lws_plat_pipe_signal(struct lws_context *ctx, int tsi);
+
+#if defined(LWS_WITH_SERVER)
+int
+lws_accept_listener_open(struct lws *wsi);
+int
+__lws_accept_listener_arm(struct lws *wsi);
+#endif
+
+#if defined(LWS_WITH_SERVER) && LWS_MAX_SMP > 1
+void
+lws_accept_modulation_recheck(struct lws_context_per_thread *pt);
+#endif
+
+void
+lws_plat_pipe_close(struct lws *wsi);
+
+int
+lws_plat_pipe_is_fd_assocated(struct lws_context *cx, int tsi, lws_sockfd_type fd);
+
+int
+lws_poll_listen_fd(struct lws_pollfd *fd);
+
+int
+lws_plat_service(struct lws_context *context, int timeout_ms);
+
+LWS_VISIBLE int
+_lws_plat_service_tsi(struct lws_context *context, int timeout_ms, int tsi);
+
+const char * LWS_WARN_UNUSED_RESULT
+lws_plat_inet_ntop(int af, const void *src, char *dst, socklen_t cnt);
+
+int LWS_WARN_UNUSED_RESULT
+lws_plat_inet_pton(int af, const char *src, void *dst);
+
+
+
+
+
+int
+_lws_route_pt_close_unroutable(struct lws_context_per_thread *pt);
+
+void
+_lws_routing_entry_dump(struct lws_context *cx, lws_route_t *rou);
+
+void
+_lws_routing_table_dump(struct lws_context *cx);
+
+lws_route_t *
+_lws_route_remove(struct lws_context_per_thread *pt, lws_route_t *robj, int flags);
+
+lws_route_t *
+_lws_route_find_same(struct lws_context_per_thread *pt, const lws_route_t *robj);
+
+void
+_lws_route_table_empty(struct lws_context_per_thread *pt);
+
+void
+_lws_route_table_ifdown(struct lws_context_per_thread *pt, int idx);
+
+lws_route_uidx_t
+_lws_route_get_uidx(struct lws_context *cx);
+
+int
+_lws_route_pt_close_route_users(struct lws_context_per_thread *pt,
+			        lws_route_uidx_t uidx);
+
+lws_route_t *
+_lws_route_est_outgoing(struct lws_context_per_thread *pt,
+		        const lws_sockaddr46 *dest);
+
+int
+_lws_route_table_usable(struct lws_context *cx);
+
+int
+_lws_route_table_known_empty(struct lws_context *cx);
+
+const char *
+lws_errno_describe(int en, char *result, size_t len);
+
+#if (defined(_DEBUG))
+void
+lws_service_assert_loop_thread(struct lws_context *cx, int tsi);
+
+#endif
+
+
+
+int
+lws_buflist_aware_read(struct lws_context_per_thread *pt, struct lws *wsi,
+		       struct lws_tokens *ebuf, char fr, const char *hint);
+
+#if (defined(LWS_WITH_SYS_ASYNC_DNS))
+lws_async_dns_server_check_t
+lws_plat_asyncdns_init(struct lws_context *context, lws_async_dns_t *dns);
+
+int
+lws_async_dns_init(struct lws_context *context);
+
+void
+lws_async_dns_deinit(lws_async_dns_t *dns);
+
+int
+lws_adns_servers_known(struct lws_context *context);
+
+int
+lws_adns_gate_ok(struct lws_context *context);
+
+void
+lws_adns_kick(struct lws_context *context);
+
+void
+lws_adns_smd_destroy(struct lws_context *context);
+
+#endif
+#if (defined(_DEBUG) && !defined(LWS_PLAT_FREERTOS) && !defined(WIN32) && !defined(LWS_PLAT_OPTEE))
+int
+sanity_assert_no_wsi_traces(const struct lws_context *context, struct lws *wsi);
+
+int
+sanity_assert_no_sockfd_traces(const struct lws_context *context,
+			       lws_sockfd_type sfd);
+
+#endif
+void
+delete_from_fdwsi(const struct lws_context *context, struct lws *wsi);
+
+int
+lws_plat_mbedtls_net_send(void *ctx, const uint8_t *buf, size_t len);
+
+int
+lws_plat_mbedtls_net_recv(void *ctx, unsigned char *buf, size_t len);
+
+lws_usec_t
+lws_sul_nonmonotonic_adjust(struct lws_context *ctx, int64_t step_us);
+
+void
+lws_netdev_instance_remove_destroy(struct lws_netdev_instance *ni);
+
+#if (defined(LWS_WITH_SYS_SMD))
+int
+lws_netdev_smd_cb(void *opaque, lws_smd_class_t _class, lws_usec_t timestamp,
+		  void *buf, size_t len);
+
+#endif
+void
+lws_netdev_instance_create(lws_netdev_instance_t *ni, struct lws_context *ctx,
+			   const lws_netdev_ops_t *ops, const char *name,
+			   void *platinfo);
+
+int
+lws_netdev_wifi_rssi_sort_compare(const lws_dll2_t *d, const lws_dll2_t *i);
+
+void
+lws_netdev_wifi_scan_empty(lws_netdev_instance_wifi_t *wnd);
+
+lws_wifi_sta_t *
+lws_netdev_wifi_scan_find(lws_netdev_instance_wifi_t *wnd, const char *ssid,
+			  const uint8_t *bssid);
+
+int
+lws_netdev_wifi_scan_select(lws_netdev_instance_wifi_t *wnd);
+
+lws_wifi_creds_t *
+lws_netdev_credentials_find(lws_netdevs_t *netdevs, const char *ssid,
+			    const uint8_t *bssid);
+
+int
+lws_netdev_wifi_redo_last(lws_netdev_instance_wifi_t *wnd);
+
+void
+lws_netdev_wifi_scan(lws_sorted_usec_list_t *sul);
+
+#if (defined(LWS_WITH_CLIENT))
+void
+lws_remove_parallel_fd_safely(struct lws *wsi, int pidx);
+
+#endif
+
+#if defined(LWS_WITH_UDP)
+int
+lws_io_send_dgram(struct lws *wsi, const uint8_t *buf, size_t len,
+		  const lws_sockaddr46 *dest);
+#endif
+int
+lws_tx_pump(struct lws *wsi);
+
+/* the vhost's listen sockets, the pt pipe, a wsi's place in the loop */
+#if defined(LWS_WITH_SERVER)
+int _lws_vhost_init_server(const struct lws_context_creation_info *info,
+			   struct lws_vhost *vhost);
+#else
+#define _lws_vhost_init_server(_a, _b) (0)
+#endif
+void
+lws_destroy_event_pipe(struct lws *wsi);
+int
+lws_wsi_inject_to_loop(struct lws_context_per_thread *pt, struct lws *wsi);
+int
+lws_wsi_extract_from_loop(struct lws *wsi);
+
+/* connect attempts, restarts and the staged close */
+void
+lws_io_abort_connect(struct lws *wsi);
+void
+lws_io_unwatch(struct lws *wsi);
+int
+lws_io_shutdown_write(struct lws *wsi);
+#if defined(LWS_WITH_TLS)
+int
+lws_io_tls_shutdown_step(struct lws *wsi);
+#endif
+int
+lws_io_close_staged(struct lws *wsi);
+int
+lws_io_transfer_pollfd(struct lws *from, struct lws *to);
+void
+lws_io_socket_wait_cancel(struct lws *wsi);
+int
+lws_io_socket_wait_pending(struct lws *wsi);
+void
+lws_io_socket_waiters_close(struct lws_vhost *vh, int tsi);
+void
+lws_io_connect_timers_cancel(struct lws *wsi);
+int
+lws_io_dns_next(struct lws *wsi, char *ads, size_t len);
+void
+lws_addrinfo_clean(struct lws *wsi);
+void
+lws_io_set_peer(struct lws *wsi, const lws_sockaddr46 *sa46);
+#if defined(LWS_WITH_UDP)
+int
+lws_io_udp_connect_peer(struct lws *nwsi, const lws_sockaddr46 *sa46);
+#endif
+/* the peer address stack (lib/io/peer-stack.c) */
+struct lws *
+lws_io_peer_conn(struct lws *wsi);
+void
+lws_io_peer_set(struct lws *wsi, const lws_sockaddr46 *sa46,
+		lws_peer_kind_t kind, lws_peer_cred_t cred);
+int
+lws_io_peer_push(struct lws *wsi, const lws_sockaddr46 *sa46,
+		 lws_peer_kind_t kind, lws_peer_cred_t cred);
+int
+lws_io_peer_claim(struct lws *wsi, const lws_sockaddr46 *sa46,
+		  lws_peer_kind_t kind, lws_peer_cred_t cred);
+void
+lws_io_peer_datagram(struct lws *wsi, const lws_sockaddr46 *src);
+void
+lws_io_peer_forget(struct lws *wsi);
+void
+lws_io_peer_keep(struct lws *wsi);
+const lws_sockaddr46 *
+lws_io_peer_route_dest(struct lws *wsi);
+enum {
+	LWS_IO_PEER_POLICY_NONE		= -1,	/* no peer at all */
+	LWS_IO_PEER_POLICY_PROVEN	= 0,	/* the address is believable */
+	LWS_IO_PEER_POLICY_UNPROVEN	= 1,	/* only hearsay */
+};
+int
+lws_io_peer_policy(struct lws *wsi, lws_sockaddr46 *sa46);
+lws_sockaddr46 *
+lws_io_peer(struct lws *wsi);
+int
+lws_io_udp_alloc(struct lws *wsi);
+#if defined(LWS_WITH_CLIENT)
+/* the client transport machine (io/client/transport.c) */
+int
+lws_client_transport_stage(struct lws *wsi, struct lws_pollfd *pollfd);
+struct lws * LWS_WARN_UNUSED_RESULT
+lws_client_connect_2_dnsreq_MAY_CLOSE_WSI(struct lws *wsi);
+struct lws * LWS_WARN_UNUSED_RESULT
+lws_client_connect_transport(struct lws *wsi);
+#endif
+/* address selection for connect (io/client/sort-dns.c) */
+int
+lws_sort_dns(struct lws *wsi, const struct addrinfo *result);
+/* the connection-monitoring copy of the dns results (io/client/conmon.c) */
+int
+lws_conmon_append_copy_new_dns_results(struct lws *wsi,
+				       const struct addrinfo *cai);
+void
+lws_io_udp_release(struct lws *wsi);
+#if defined(LWS_WITH_UDP)
+/* the datagram socket under a datagram role: path is the io_ops op */
+int
+lws_io_path_dgram(struct lws *wsi, int op, const lws_sockaddr46 *peer);
+void
+lws_io_udp_enable_ecn(struct lws *wsi);
+int
+lws_io_udp_transfer_socket(struct lws *wsi, struct lws *nwsi);
+#if defined(LWS_WITH_CLIENT)
+/* a client datagram connection's other addresses for its peer (network.c) */
+int
+lws_io_dgram_alt_set(struct lws *wsi, uint16_t port);
+void
+lws_io_dgram_alt_release(struct lws *wsi);
+void
+lws_io_dgram_heard(struct lws *wsi);
+int
+lws_io_dgram_refused(struct lws *wsi, int err);
+#endif
+#endif
+void
+lws_pipe_wsi_release_fds(struct lws *wsi);
+void
+lws_io_adjunct_setup(struct lws_io_adjunct *io);
+#if defined(LWS_WITH_CGI)
+void
+lws_cgi_stdwsi_quiesce(struct lws *wsi);
+#endif
+#if defined(LWS_WITH_ASYNC_QUEUE)
+#endif
+
+/*
+ * IO's transport adapter roles that the context brings up on each thread
+ * (lib/io/roles.c), beside sansIO's in available_roles; IO walks both
+ */
+extern const struct lws_role_ops * const lws_io_roles[];
+
+#define LWS_FOR_EVERY_ROLE_START(xx) { \
+		const struct lws_role_ops * const *ppxx = available_roles; \
+		int _io_list = 0; \
+		while (*ppxx || (!_io_list++ && *(ppxx = lws_io_roles))) { \
+			const struct lws_role_ops *xx = *ppxx++;
+
+#define LWS_FOR_EVERY_ROLE_END }}
+
+const struct lws_role_ops *
+lws_io_role_by_name(const char *name);
+int
+lws_role_call_adoption_bind(struct lws *wsi, int type, const char *prot);
+
+/*
+ * IO's implementations of the requests sansIO makes of it, the members of
+ * lws_io_ops_default (lws-io-ops.h).  The sansIO sources call the same names
+ * through the ops, as private-lib-sansio-seam.h spells them; everything else
+ * calls these directly.
+ */
+
+/* is a table handed in through the creation info usable: 0 yes */
+int
+lws_io_ops_check(const lws_io_ops_t *ops);
+
+/* tx */
+int LWS_WARN_UNUSED_RESULT
+lws_io_tx_push(struct lws *wsi, unsigned char *buf, size_t len);
+#if defined(LWS_WITH_UDP)
+void
+lws_io_tx_now(struct lws *wsi);
+#endif
+/* would the transport under wsi block a write now: IO's, then the socket's */
+int
+lws_io_tx_choked_pollfd(struct lws *wsi);
+int
+lws_plat_tx_choked(struct lws *wsi);
+
+/* service */
+int
+lws_service_wsi_as_writable(struct lws *wsi);
+int
+lws_io_service_now(struct lws *wsi);
+int
+lws_io_flag_pending_rx(struct lws *wsi);
+
+/*
+ * A server's tls accept step is on an async worker: the SSL is the worker's
+ * until the service thread takes the result (lws_tls_server_accept_completed()
+ * from the event pipe, which then arms the poll set as the accept left it).
+ * Until then nothing on the service thread may read or write through it, or
+ * arm the socket for anything that would.
+ */
+#if defined(LWS_WITH_ASYNC_QUEUE) && defined(LWS_WITH_TLS) && \
+    defined(LWS_WITH_SERVER)
+#define lws_io_tls_on_worker(wsi) ((wsi)->async_worker_job && \
+		(wsi)->async_worker_job->type == LWS_AQ_SSL_ACCEPT)
+#else
+#define lws_io_tls_on_worker(wsi) (0)
+#endif
+
+/* the tls session */
+#if defined(LWS_WITH_TLS)
+void *
+lws_tls_session_ptr(struct lws *wsi);
+const uint8_t *
+lws_tls_wsi_hs_ca_id(struct lws *wsi);
+#if defined(LWS_WITH_CLIENT)
+int
+lws_tls_client_confirm_peer_cert(struct lws *wsi, char *ebuf, size_t ebuf_len);
+#endif
+#if defined(LWS_ROLE_QUIC)
+int
+lws_tls_quic_session(struct lws *wsi, lws_tls_quic_secret_cb cb);
+int
+lws_tls_quic_handshake(struct lws *wsi, int level, const uint8_t *in,
+		       size_t in_len, uint8_t *out, size_t *out_len);
+int
+lws_tls_quic_confirm_peer(struct lws *wsi, char *ebuf, size_t ebuf_len);
+int
+lws_tls_quic_aead_type(struct lws *wsi);
+int
+lws_tls_quic_alert(struct lws *wsi);
+int
+lws_tls_quic_alpn(struct lws *wsi, char *buf, size_t len);
+#if defined(LWS_WITH_SERVER)
+int
+lws_tls_quic_admit(struct lws *wsi);
+#endif
+#endif
+#endif
+
+/* the cgi */
+#if defined(LWS_WITH_CGI)
+int
+lws_cgi_stdin_write(struct lws_cgi_args *args);
+void
+lws_cgi_stdin_body_end(struct lws *wsi);
+int
+lws_cgi_stderr_read(struct lws *stdwsi, char *buf, size_t len);
+void
+lws_cgi_remove_and_kill(struct lws *wsi);
+void
+lws_cgi_release(struct lws *wsi);
+#endif
+
+/* the vhost */
+void
+__lws_vhost_destroy2(struct lws_vhost *vh);
+#if defined(LWS_WITH_TLS_JIT_TRUST)
+void
+lws_tls_jit_trust_vh_start_grace(struct lws_vhost *vh);
+#endif
+
+/* the transport */
+#if defined(LWS_WITH_CLIENT)
+struct lws *
+lws_client_transport_start(struct lws *wsi);
+int
+lws_client_transport_connected(struct lws *wsi);
+void
+lws_client_transport_established(struct lws *wsi);
+#if defined(LWS_ROLE_H3) || defined(LWS_ROLE_QUIC)
+int
+lws_client_transport_failed(struct lws *wsi);
+#endif
+#if defined(LWS_WITH_TLS_JIT_TRUST)
+void
+lws_client_transport_rebind(struct lws *wsi);
+int
+lws_client_transport_jit_moves(struct lws *wsi);
+#endif
+#endif
+
+#endif /* __LWS_PRIVATE_LIB_IO_H__ */

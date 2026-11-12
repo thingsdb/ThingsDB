@@ -1,0 +1,1384 @@
+
+#include <libwebsockets.h>
+#include "private-lib-core.h"
+
+//#define LWS_COOKIE_DEBUG
+
+#if defined(LWS_COOKIE_DEBUG)
+	#define lwsl_cookie lwsl_notice
+#else
+	#define lwsl_cookie lwsl_debug
+#endif
+
+#define LWS_COOKIE_MAX_CACHE_NAME_LEN	128
+
+#define lws_tolower(_c) (((_c) >= 'A' && (_c) <= 'Z') ? \
+					    (char)((_c) + 'a' - 'A') : \
+					    (char)(_c))
+
+#define LWS_COOKIE_NSC_FORMAT		  "%.*s\t"\
+					  "%s\t"\
+					  "%.*s\t"\
+					  "%s\t"\
+					  "%llu\t"\
+					  "%.*s\t"\
+					  "%.*s"
+
+static const char *const mon = "janfebmaraprnayjunjulaugsepoctnovdec";
+
+enum lws_cookie_nsc_f {
+	LWSC_NSC_DOMAIN,
+	LWSC_NSC_HOSTONLY,
+	LWSC_NSC_PATH,
+	LWSC_NSC_SECURE,
+	LWSC_NSC_EXPIRES,
+	LWSC_NSC_NAME,
+	LWSC_NSC_VALUE,
+
+	LWSC_NSC_COUNT,
+};
+
+/*
+ * Indices into c.f[] / c.l[].  The first group -- the cookie attributes that
+ * appear as "name=value" AVs after the cookie name=value pair -- is kept in
+ * EXACTLY the same order as the cft[] AV table below, so that a cft[] index
+ * can be used directly as a CE_* index in lws_parse_set_cookie().  The
+ * remaining elements are not AVs (the cookie's own name/value, and the
+ * host-only flag inferred from the absence of a Domain attribute).
+ */
+enum lws_cookie_elements {
+	/* --- AV-backed, order must match cft[] --- */
+	CE_DOMAIN,
+	CE_PATH,
+	CE_EXPIRES,
+	CE_MAXAGE,
+	CE_HTTPONLY,	/* bool, NULL = 0, non-NULL = 1 */
+	CE_SECURE,	/* bool, NULL = 0, non-NULL = 1 */
+
+	/* --- not AVs --- */
+	CE_NAME,
+	CE_VALUE,
+	CE_HOSTONLY,	/* bool, NULL = 0, non-NULL = 1 */
+
+	CE_COUNT
+};
+
+struct lws_cookie {
+	const char	*f[CE_COUNT];
+	size_t		l[CE_COUNT];
+};
+
+static size_t
+lws_cookie_domain_len(const char *domain)
+{
+	const char *p;
+
+	if (!domain)
+		return 0;
+
+	if (domain[0] == '[') {
+		p = (char *)strchr(domain, ']');
+		if (p && p[1] == ':')
+			return lws_ptr_diff_size_t((p + 1), domain);
+	} else {
+		p = (char *)strchr(domain, ':');
+		if (p)
+			return lws_ptr_diff_size_t(p, domain);
+	}
+
+	return strlen(domain);
+}
+
+/*
+ * RFC 6265 suffix-domain matching is only meaningful for domain names: a
+ * host that is not a domain name (an IP literal) must match stored cookies
+ * on the exact host string only.  Decide if the host is a bracketed IPv6
+ * literal or an IPv4-style string of digits and dots (including numeric
+ * lookalikes that no real domain can produce).
+ */
+static int
+lws_cookie_is_ip_literal(const char *host, size_t len)
+{
+	size_t n;
+
+	if (!host || !len)
+		return 0;
+
+	/* bracketed IPv6 literal, eg, "[::1]" */
+	if (host[0] == '[')
+		return 1;
+
+	/* IPv4-style numeric host? */
+	for (n = 0; n < len; n++)
+		if ((host[n] < '0' || host[n] > '9') && host[n] != '.')
+			return 0;
+
+	return 1;
+}
+
+/*
+ * The cookie's domain, path and name go into the jar as its first, third and
+ * sixth TAB-separated columns and into the "domain|path|name" cache tag, and
+ * the backends treat '*' and '?' in a tag as wildcards and a jar line starting
+ * with '#' as a comment.  So nothing a server sends may carry CTLs (TAB, CR,
+ * LF, NUL ...), whitespace, '|', '*', '?' or '#' into those fields, even
+ * where the RFC grammar would allow it.
+ */
+
+/* RFC 6265 4.1.1 cookie-name, which is an RFC 2616 token */
+static int
+lws_cookie_name_ok(const char *s, size_t len)
+{
+	unsigned char ch;
+
+	if (!len)
+		return 0;
+
+	while (len--) {
+		ch = (unsigned char)*s++;
+		if (ch <= 0x20 || ch >= 0x7f ||
+		    strchr("()<>@,;:\\\"/[]?={}#*|", ch))
+			return 0;
+	}
+
+	return 1;
+}
+
+/* RFC 6265 4.1.1 cookie-octet, the value with any DQUOTEs already taken off */
+static int
+lws_cookie_value_ok(const char *s, size_t len)
+{
+	unsigned char ch;
+
+	while (len--) {
+		ch = (unsigned char)*s++;
+		if (ch <= 0x20 || ch >= 0x7f || ch == '\"' || ch == ',' ||
+		    ch == ';' || ch == '\\')
+			return 0;
+	}
+
+	return 1;
+}
+
+/*
+ * RFC 6265 4.1.1 path-value is any CHAR except CTLs or ';'.  It must also be
+ * an absolute path (5.2.4), and we additionally refuse what the jar cannot
+ * carry safely, and ',' and whitespace, which have no business there.
+ */
+static int
+lws_cookie_path_ok(const char *s, size_t len)
+{
+	unsigned char ch;
+
+	if (!len || *s != '/')
+		return 0;
+
+	while (len--) {
+		ch = (unsigned char)*s++;
+		if (ch <= 0x20 || ch >= 0x7f || strchr(";,*?#|", ch))
+			return 0;
+	}
+
+	return 1;
+}
+
+/*
+ * A host name: dot-separated, non-empty labels of letters, digits, '-' and
+ * '_' (the last is not in RFC 1123 but real DNS names carry it).  No leading,
+ * trailing or doubled dots.
+ */
+static int
+lws_cookie_hostname_ok(const char *s, size_t len)
+{
+	size_t label = 0;
+	char ch;
+
+	if (!len)
+		return 0;
+
+	while (len--) {
+		ch = *s++;
+		if (ch == '.') {
+			if (!label)
+				return 0;
+			label = 0;
+			continue;
+		}
+		if ((ch < 'a' || ch > 'z') && (ch < 'A' || ch > 'Z') &&
+		    (ch < '0' || ch > '9') && ch != '-' && ch != '_')
+			return 0;
+		label++;
+	}
+
+	return !!label;
+}
+
+/*
+ * The request host, as the cookie code sees it (without any :port): a host
+ * name, a dotted IPv4 address (which passes the host name test) or a
+ * bracketed IPv6 literal.  It becomes the domain of host-only cookies and the
+ * domain part of the attach lookups, so it gets policed like a Domain= value.
+ */
+static int
+lws_cookie_request_host_ok(const char *s, size_t len)
+{
+	size_t n;
+
+	if (len < 3 || s[0] != '[')
+		return lws_cookie_hostname_ok(s, len);
+
+	if (s[len - 1] != ']')
+		return 0;
+
+	for (n = 1; n < len - 1; n++)
+		if ((s[n] < '0' || s[n] > '9') && (s[n] < 'a' || s[n] > 'f') &&
+		    (s[n] < 'A' || s[n] > 'F') && s[n] != ':' && s[n] != '.')
+			return 0;
+
+	return 1;
+}
+
+static int
+lws_cookie_iequal(const char *a, const char *b, size_t len)
+{
+	while (len--)
+		if (lws_tolower(a[len]) != lws_tolower(b[len]))
+			return 0;
+
+	return 1;
+}
+
+/*
+ * RFC 6265 5.1.3 domain-match: the host equals the domain, or the host is a
+ * host name that ends with "." + the domain.
+ */
+static int
+lws_cookie_domain_match(const char *host, size_t hl, const char *dom, size_t dl)
+{
+	if (!dl || dl > hl || !lws_cookie_iequal(host + hl - dl, dom, dl))
+		return 0;
+
+	if (hl == dl)
+		return 1;
+
+	return host[hl - dl - 1] == '.' && !lws_cookie_is_ip_literal(host, hl);
+}
+
+static void
+lws_cookie_lower(char *p, size_t len)
+{
+	while (len--) {
+		*p = lws_tolower(*p);
+		p++;
+	}
+}
+
+/*
+ * RFC 6265 5.1.4 default-path: the request path up to, but not including, its
+ * right-most '/', or "/" if that would be empty or the request path is not
+ * absolute.  It is always a prefix of the request path, or "/".
+ */
+static void
+lws_cookie_default_path(struct lws_cookie *c, const char *path)
+{
+	size_t len = strcspn(path, "?#"), n;
+
+	c->f[CE_PATH] = "/";
+	c->l[CE_PATH] = 1;
+
+	if (!len || path[0] != '/')
+		return;
+
+	for (n = len - 1; n; n--)
+		if (path[n] == '/') {
+			c->f[CE_PATH] = path;
+			c->l[CE_PATH] = n;
+			return;
+		}
+}
+
+/*
+ * Decide the scope of a cookie a server sent us in response to a request to
+ * host ads (with any :port still on it) and path, the way RFC 6265 5.3 steps
+ * 5 - 7 and 5.2.3 / 5.2.4 say, and fill in c's domain, host-only flag and
+ * path.  Returns 0 if the cookie may be stored, nonzero if it must be ignored.
+ *
+ * lws has no Public Suffix List, so the public suffix test of 5.3 step 5 is
+ * reduced to refusing a Domain with no interior dot (a TLD, or "localhost"
+ * style single label) unless it is the request host itself, in which case the
+ * cookie becomes host-only as that step says.  A Domain like "co.uk" is not
+ * caught by this.
+ */
+static int
+lws_cookie_scope(struct lws *wsi, struct lws_cookie *c, const char *ads,
+		 const char *path)
+{
+	size_t al = lws_cookie_domain_len(ads);
+	int secure = !!(wsi->flags & LCCSCF_USE_SSL);
+
+	if (!lws_cookie_request_host_ok(ads, al)) {
+		lwsl_cookie("%s: unusable request host\n", __func__);
+		return 1;
+	}
+
+	if (!lws_cookie_name_ok(c->f[CE_NAME], c->l[CE_NAME]) ||
+	    !lws_cookie_value_ok(c->f[CE_VALUE], c->l[CE_VALUE])) {
+		lwsl_notice("%s: dropping cookie with illegal name or value\n",
+			    __func__);
+		return 1;
+	}
+
+	/* RFC 6265bis 5.7: a Secure cookie can only be set over tls */
+	if (c->f[CE_SECURE] && !secure) {
+		lwsl_notice("%s: dropping Secure cookie set over plaintext\n",
+			    __func__);
+		return 1;
+	}
+
+	/* RFC 6265 5.2.3: an empty Domain attribute is ignored */
+	if (c->f[CE_DOMAIN] && !c->l[CE_DOMAIN])
+		c->f[CE_DOMAIN] = NULL;
+
+	if (c->f[CE_DOMAIN]) {
+		if (!lws_cookie_hostname_ok(c->f[CE_DOMAIN], c->l[CE_DOMAIN])) {
+			lwsl_notice("%s: dropping cookie with illegal Domain\n",
+				    __func__);
+			return 1;
+		}
+
+		/*
+		 * From here, Domain is known to be printable.
+		 *
+		 * It must domain-match the request host (5.3 step 6), or any
+		 * server could set, replace or delete cookies for any other.
+		 *
+		 * And reject cookies scoped by Domain= to something that is not
+		 * a domain name (a numeric / IP-literal host).  Cookies for IP
+		 * hosts are host-only, for the exact host only, so a numeric
+		 * Domain= is never a legitimate scope and would only feed the
+		 * suffix walk cross-host replays.
+		 */
+		if (lws_cookie_is_ip_literal(c->f[CE_DOMAIN], c->l[CE_DOMAIN]) ||
+		    !lws_cookie_domain_match(ads, al, c->f[CE_DOMAIN],
+					     c->l[CE_DOMAIN])) {
+			lwsl_notice("%s: dropping cookie with Domain=%.*s "
+				    "not covering the request host\n", __func__,
+				    (int)c->l[CE_DOMAIN], c->f[CE_DOMAIN]);
+			return 1;
+		}
+
+		/*
+		 * No interior dot: a TLD or single label.  It domain-matched,
+		 * so it is either the request host itself, which makes it a
+		 * host-only cookie (5.3 step 5), or a suffix of it, which is
+		 * too wide a scope.
+		 */
+		if (!memchr(c->f[CE_DOMAIN], '.', c->l[CE_DOMAIN])) {
+			if (c->l[CE_DOMAIN] != al) {
+				lwsl_notice("%s: dropping cookie with top-level "
+					    "Domain=%.*s\n", __func__,
+					    (int)c->l[CE_DOMAIN],
+					    c->f[CE_DOMAIN]);
+				return 1;
+			}
+			c->f[CE_DOMAIN] = NULL;
+		}
+	}
+
+	if (!c->f[CE_DOMAIN]) {
+		c->f[CE_HOSTONLY] = "T";
+		c->l[CE_HOSTONLY] = 1;
+		c->f[CE_DOMAIN] = ads;
+		c->l[CE_DOMAIN] = al;
+	} else {
+		c->f[CE_HOSTONLY] = NULL;
+		c->l[CE_HOSTONLY] = 0;
+	}
+
+	/* RFC 6265 5.2.4: a Path that is empty or not absolute is ignored */
+	if (!c->f[CE_PATH] || !c->l[CE_PATH] || c->f[CE_PATH][0] != '/')
+		lws_cookie_default_path(c, path);
+
+	if (!lws_cookie_path_ok(c->f[CE_PATH], c->l[CE_PATH])) {
+		lwsl_notice("%s: dropping cookie with illegal path\n", __func__);
+		return 1;
+	}
+
+	return 0;
+}
+
+static int
+lws_cookie_parse_date(const char *d, size_t len, time_t *t)
+{
+	struct tm date;
+	int offset = 0, i;
+
+	memset(&date, 0, sizeof(date));
+
+	while (len) {
+		if (isalnum((int)*d)) {
+			offset++;
+			goto next;
+		}
+		switch (offset) {
+		case 2:
+			if (*d == ':' && len >= 6) {
+				date.tm_hour = atoi(d - 2);
+				if (date.tm_hour < 0 || date.tm_hour > 23)
+					return -1;
+				date.tm_min = atoi(d + 1);
+				if (date.tm_min < 0 || date.tm_min > 60)
+					return -1;
+				date.tm_sec = atoi(d + 4);
+				if (date.tm_sec < 0 || date.tm_sec > 61)
+					/* leap second */
+					return -1;
+
+				d += 6;
+				len -= 6;
+				offset = 0;
+				continue;
+			}
+
+			if (!date.tm_mday) {
+				date.tm_mday = atoi(d - 2);
+				if (date.tm_mday < 1 || date.tm_mday > 31)
+					return -1;
+				goto next2;
+			}
+
+			if (!date.tm_year) {
+				date.tm_year = atoi(d - 2);
+				if (date.tm_year < 0 || date.tm_year > 99)
+					return -1;
+				if (date.tm_year < 70)
+					date.tm_year += 100;
+			}
+			goto next2;
+
+		case 3:
+			for (i = 0; i < 36; i += 3) {
+				if (lws_tolower(*(d - 3)) == mon[i] &&
+				    lws_tolower(*(d - 2)) == mon[i + 1] &&
+				    lws_tolower(*(d - 1)) == mon[i + 2]) {
+					date.tm_mon = i / 3;
+					break;
+				}
+			}
+			goto next2;
+
+		case 4:
+			if (!date.tm_year) {
+				date.tm_year = atoi(d - 4);
+				if (date.tm_year < 1601)
+					return -1;
+				date.tm_year -= 1900;
+			}
+			goto next2;
+
+		default:
+			goto next2;
+		}
+
+next2:
+		offset = 0;
+next:
+		d++;
+		len--;
+	}
+
+	*t = mktime(&date);
+
+	if (*t < 0)
+		return -1;
+
+	return 0;
+}
+
+/*
+ * RFC 6265bis 5.6.2: a Max-Age is longer than anyone should keep a cookie
+ * past 400 days.  Capping it there also keeps now + Max-Age from overflowing.
+ */
+#define LWS_COOKIE_MAX_AGE_CAP	(400ll * 24 * 3600)
+
+/*
+ * RFC 6265 5.2.2: a Max-Age value is an optional '-' and then one or more
+ * digits.  Anything else means the attribute is ignored, which we report by
+ * returning nonzero.  On success *delta is the value in seconds, capped to
+ * the range -1 .. LWS_COOKIE_MAX_AGE_CAP: zero or less means the cookie has
+ * already expired, and how much less doesn't matter.
+ */
+static int
+lws_cookie_parse_max_age(const char *s, size_t len, int64_t *delta)
+{
+	int neg = 0;
+	int64_t v = 0;
+
+	if (len && *s == '-') {
+		neg = 1;
+		s++;
+		len--;
+	}
+
+	if (!len)
+		return 1;
+
+	while (len--) {
+		if (*s < '0' || *s > '9')
+			return 1;
+		/* stop accumulating once past the cap, so v can't overflow */
+		if (v <= LWS_COOKIE_MAX_AGE_CAP)
+			v = (v * 10) + (*s - '0');
+		s++;
+	}
+
+	if (neg)
+		*delta = v ? -1 : 0;
+	else
+		*delta = v > LWS_COOKIE_MAX_AGE_CAP ? LWS_COOKIE_MAX_AGE_CAP : v;
+
+	return 0;
+}
+
+static void
+lws_cookie_rm_sws(const char **buf_p, size_t *len_p)
+{
+	const char *buf;
+	size_t len;
+
+	if (!buf_p || !*buf_p || !len_p || !*len_p) {
+		lwsl_err("%s: false parameter\n", __func__);
+		return;
+	}
+
+	buf = *buf_p;
+	len = *len_p;
+
+	while (buf[0] == ' ' && len > 0) {
+		buf++;
+		len--;
+	}
+
+	while (len && buf[len - 1] == ' ')
+		len--;
+
+	*buf_p = buf;
+	*len_p = len;
+}
+
+static int
+is_iprefix(const char *h, size_t hl, const char *n, size_t nl)
+{
+	if (!h || !n || nl > hl)
+		return 0;
+
+	while (nl) {
+		nl--;
+		if (lws_tolower(h[nl]) != lws_tolower(n[nl]))
+			return 0;
+	}
+	return 1;
+}
+
+static int
+lws_cookie_compile_cache_name(char *buf, size_t buf_len, struct lws_cookie *c)
+{
+	if (!buf || !c->f[CE_DOMAIN] || !c->f[CE_PATH] || !c->f[CE_NAME] ||
+	    c->l[CE_DOMAIN] + c->l[CE_PATH] + c->l[CE_NAME] + 6 > buf_len)
+		return -1;
+
+	memcpy(buf, c->f[CE_DOMAIN], c->l[CE_DOMAIN]);
+	buf += c->l[CE_DOMAIN];
+	*buf++ = '|';
+
+	memcpy(buf, c->f[CE_PATH], c->l[CE_PATH]);
+	buf += c->l[CE_PATH];
+	*buf++ = '|';
+
+	memcpy(buf, c->f[CE_NAME], c->l[CE_NAME]);
+	buf += c->l[CE_NAME];
+	*buf = '\0';
+
+	return 0;
+}
+
+static int
+lws_cookie_parse_nsc(struct lws_cookie *c, const char *b, size_t l)
+{
+	enum lws_cookie_nsc_f state = LWSC_NSC_DOMAIN;
+	size_t n = 0;
+
+	if (!c || !b || l < 13)
+		return -1;
+
+	memset(c, 0, sizeof(*c));
+	/* the line carries the cookie value: never log it, see below */
+	lwsl_cookie("%s: parsing jar line, len %d\n", __func__, (int)l);
+
+	while (l) {
+		l--;
+		if (b[n] != '\t' && l) {
+			n++;
+			continue;
+		}
+		switch (state) {
+		case LWSC_NSC_DOMAIN:
+			c->f[CE_DOMAIN] = b;
+			c->l[CE_DOMAIN] = n;
+			break;
+		case LWSC_NSC_PATH:
+			c->f[CE_PATH] = b;
+			c->l[CE_PATH] = n;
+			break;
+		case LWSC_NSC_EXPIRES:
+			c->f[CE_EXPIRES] = b;
+			c->l[CE_EXPIRES] = n;
+			break;
+		case LWSC_NSC_NAME:
+			c->f[CE_NAME] = b;
+			c->l[CE_NAME] = n;
+			break;
+
+		case LWSC_NSC_HOSTONLY:
+			if (b[0] == 'T') {
+				c->f[CE_HOSTONLY] = b;
+				c->l[CE_HOSTONLY] = 1;
+			}
+			break;
+		case LWSC_NSC_SECURE:
+			if (b[0] == 'T') {
+				c->f[CE_SECURE] = b;
+				c->l[CE_SECURE] = 1;
+			}
+			break;
+
+		case LWSC_NSC_VALUE:
+			c->f[CE_VALUE] = b;
+			c->l[CE_VALUE] = n + 1;
+
+			/*
+			 * The value is the credential (session ids, tokens):
+			 * log only its length, at any level
+			 */
+			for (n = 0; n < LWS_ARRAY_SIZE(c->f); n++)
+				if (n == CE_VALUE)
+					lwsl_cookie("%s: %d: <%d bytes>\n",
+						    __func__, (int)n,
+						    (int)c->l[n]);
+				else
+					lwsl_cookie("%s: %d: %.*s\n", __func__,
+						    (int)n, (int)c->l[n],
+						    c->f[n]);
+
+			return 0;
+		default:
+			return -1;
+		}
+
+		b += n + 1;
+		n = 0;
+		state++;
+	}
+
+	/*
+	 * A cookie with an empty value ("name=") is stored as a line that
+	 * ends with the TAB closing the name column: the value is empty, not
+	 * missing.  A line that ended inside the name column has no value.
+	 */
+	if (state == LWSC_NSC_VALUE && b[-1] == '\t') {
+		c->f[CE_VALUE] = b;
+		c->l[CE_VALUE] = 0;
+
+		return 0;
+	}
+
+	return -1;
+}
+
+static int
+lws_cookie_write_nsc(struct lws *wsi, struct lws_cookie *c)
+{
+	const char *ads, *path;
+	struct lws_cache_ttl_lru *l1;
+	struct client_info_stash *stash;
+	char *cookie_string = NULL, *cache_name = NULL;
+	struct lws_cookie old;
+	const char *po;
+	 /* 6 tabs + 20 for max time_t + 2 * TRUE/FALSE + null */
+	size_t size = 6 + 20 + 10 + 1, cnl, psize;
+	time_t expires = 0, now_s;
+	lws_usec_t expiry_us = 0;
+	int64_t max_age = 0;
+	int ret = 0;
+
+	if (!wsi || !c)
+		return -1;
+
+	now_s = lws_wsi_now_wall(wsi);
+
+	l1 = wsi->a.context->l1;
+	if (!l1 || !wsi->a.context->nsc)
+		return -1;
+
+	stash = wsi->stash ? wsi->stash : lws_get_network_wsi(wsi)->stash;
+	if (stash) {
+		ads = stash->cis[CIS_HOST] ? stash->cis[CIS_HOST] : stash->cis[CIS_ADDRESS];
+		path = stash->cis[CIS_PATH];
+	} else {
+		ads = lws_hdr_simple_ptr(wsi, _WSI_TOKEN_CLIENT_HOST);
+		if (!ads)
+			ads = lws_hdr_simple_ptr(wsi, _WSI_TOKEN_CLIENT_PEER_ADDRESS);
+		path = lws_hdr_simple_ptr(wsi, _WSI_TOKEN_CLIENT_URI);
+	}
+	if (!ads || !path)
+		return -1;
+
+	if (!c->f[CE_NAME] || !c->f[CE_VALUE]) {
+		lwsl_err("%s: malformed c\n", __func__);
+
+		return -1;
+	}
+
+	/* not for us to store: ignored, like RFC 6265 says, not an error */
+	if (lws_cookie_scope(wsi, c, ads, path))
+		return 0;
+
+	cnl = c->l[CE_DOMAIN] + c->l[CE_PATH] + c->l[CE_NAME] + 6;
+	cache_name = lws_malloc(cnl, __func__);
+	if (!cache_name)
+		return -1;
+
+	if (lws_cookie_compile_cache_name(cache_name, cnl, c)) {
+		ret = -1;
+		goto exit;
+	}
+
+	/* domains are case-insensitive: the jar holds them in lower case */
+	lws_cookie_lower(cache_name, c->l[CE_DOMAIN]);
+
+	/*
+	 * RFC 6265bis 5.7: a plaintext response may not replace, or delete, a
+	 * Secure cookie of the same name, domain and path
+	 */
+	if (!(wsi->flags & LCCSCF_USE_SSL) &&
+	    !lws_cache_item_get(l1, cache_name, (const void **)&po, &psize) &&
+	    !lws_cookie_parse_nsc(&old, po, psize) && old.f[CE_SECURE]) {
+		lwsl_notice("%s: plaintext may not overwrite Secure cookie\n",
+			    __func__);
+		goto exit;
+	}
+
+	/*
+	 * RFC 6265 5.2.1, 5.2.2: a Max-Age or Expires attribute whose value
+	 * does not parse is ignored, the cookie is not.  And 5.3 step 3: if
+	 * both are usable, Max-Age decides the expiry.  Without either, it is
+	 * a session cookie, expires == 0.
+	 */
+	if (c->f[CE_MAXAGE] &&
+	    lws_cookie_parse_max_age(c->f[CE_MAXAGE], c->l[CE_MAXAGE],
+				     &max_age)) {
+		lwsl_notice("%s: ignoring unusable Max-Age\n", __func__);
+		c->f[CE_MAXAGE] = NULL;
+	}
+
+	if (!c->f[CE_MAXAGE] && c->f[CE_EXPIRES] &&
+	    lws_cookie_parse_date(c->f[CE_EXPIRES], c->l[CE_EXPIRES],
+				  &expires)) {
+		lwsl_notice("%s: ignoring unusable Expires\n", __func__);
+		c->f[CE_EXPIRES] = NULL;
+	}
+
+	if (c->f[CE_MAXAGE])
+		/* zero or less is already expired: make it in the past */
+		expires = max_age > 0 ? now_s + (time_t)max_age : now_s;
+
+	lwsl_cookie("%s: name=%s expiry t=%lld now=%lld\n", __func__,
+		    cache_name, (long long)expires, (long long)now_s);
+
+	/*
+	 * RFC 6265 treats a cookie that has already expired as a delete signal
+	 * for it.  Expires at exactly the UNIX epoch (t=0) is one too, so check
+	 * the attribute and not expires, which is 0 for a session cookie.
+	 */
+	if ((c->f[CE_MAXAGE] || c->f[CE_EXPIRES]) && expires <= now_s) {
+		lwsl_cookie("%s: dropping already-expired cookie\n", __func__);
+		(void)lws_cache_item_remove(l1, cache_name);
+		ret = 0;
+		goto exit;
+	}
+
+	size += c->l[CE_NAME] + c->l[CE_VALUE] + c->l[CE_DOMAIN] + c->l[CE_PATH];
+	cookie_string = (char *)lws_malloc(size, __func__);
+	if (!cookie_string) {
+		lwsl_err("%s: OOM\n", __func__);
+
+		ret = -1;
+		goto exit;
+	}
+
+	lws_snprintf(cookie_string, size, LWS_COOKIE_NSC_FORMAT,
+			(int)c->l[CE_DOMAIN], c->f[CE_DOMAIN],
+			c->f[CE_HOSTONLY] ? "TRUE" : "FALSE",
+			(int)c->l[CE_PATH], c->f[CE_PATH],
+			c->f[CE_SECURE] ? "TRUE" : "FALSE",
+			(unsigned long long)expires,
+			(int)c->l[CE_NAME], c->f[CE_NAME],
+			(int)c->l[CE_VALUE], c->f[CE_VALUE]);
+	lws_cookie_lower(cookie_string, c->l[CE_DOMAIN]);
+
+	/* cookie_string carries the value: log only its length */
+	lwsl_cookie("%s: name %s, value len %d\n", __func__, cache_name,
+		    (int)c->l[CE_VALUE]);
+
+	/*
+	 * Convert expiry in UNIX time to lws_usec_t (monotonic clock).
+	 * expires == 0 is a session cookie (no expiry).
+	 */
+	if (expires) {
+		expiry_us = lws_wsi_now(wsi) +
+				(lws_usec_t)(expires - now_s) *
+				(lws_usec_t)LWS_US_PER_SEC;
+	}
+
+	if (lws_cache_write_through(l1, cache_name,
+					(const uint8_t *)cookie_string,
+					strlen(cookie_string),
+					expiry_us, NULL)) {
+		ret = -1;
+		goto exit;
+	}
+
+#if defined(LWS_COOKIE_DEBUG)
+	if (lws_cache_item_get(l1, cache_name, (const void **)&po, &size) ||
+	    size != strlen(cookie_string) || memcmp(po, cookie_string, size)) {
+		lwsl_err("%s: L1 '%s' missing\n", __func__, cache_name);
+	}
+
+	if (lws_cache_item_get(wsi->a.context->nsc, cache_name,
+			       (const void **)&po, &size) ||
+			       size != strlen(cookie_string) ||
+			       memcmp(po, cookie_string, size)) {
+		lwsl_err("%s: NSC '%s' missing, size %llu\n", __func__,
+			 cache_name, (unsigned long long)size);
+	}
+#endif
+
+exit:
+	lws_free(cookie_string);
+	lws_free(cache_name);
+
+	return ret;
+}
+
+static int
+lws_cookie_attach_cookies(struct lws *wsi, char *buf, char *end)
+{
+	const char *domain, *path, *dl_domain, *dl_path, *po;
+	size_t domain_len, path_len, size, cnl, ret = 0;
+	struct lws_cache_ttl_lru *l1;
+	struct client_info_stash *stash;
+	lws_cache_results_t cr;
+	struct lws_cookie c;
+	int hostdomain = 1, ip_host, secure, overflow = 0;
+	char *p, *p1, *cache_name;
+	uint8_t *results;
+
+	if (!wsi)
+		return -1;
+
+	secure = !!(wsi->flags & LCCSCF_USE_SSL);
+
+	/*
+	 * stash is only guaranteed during the connect phase; lws frees it
+	 * early when LWS_WITH_SOCKS5 is on. Fall back to HTTP headers
+	 * (same pattern as lws_cookie_write_nsc()).
+	 */
+	{
+		const char *fb_domain, *fb_path;
+
+		stash = wsi->stash ? wsi->stash :
+			lws_get_network_wsi(wsi)->stash;
+		if (stash && stash->cis[CIS_HOST] &&
+			    stash->cis[CIS_PATH]) {
+			fb_domain = stash->cis[CIS_HOST] ?
+				stash->cis[CIS_HOST] :
+				stash->cis[CIS_ADDRESS];
+			fb_path   = stash->cis[CIS_PATH];
+		} else {
+			fb_domain = lws_hdr_simple_ptr(wsi,
+					_WSI_TOKEN_CLIENT_HOST);
+			if (!fb_domain)
+				fb_domain = lws_hdr_simple_ptr(wsi,
+					_WSI_TOKEN_CLIENT_PEER_ADDRESS);
+			fb_path = lws_hdr_simple_ptr(wsi,
+					_WSI_TOKEN_CLIENT_URI);
+		}
+		if (!fb_domain || !fb_path)
+			return -1;
+
+		domain = fb_domain;
+		path = fb_path;
+	}
+
+	l1 = wsi->a.context->l1;
+	if (!l1 || !wsi->a.context->nsc){
+		lwsl_err("%s:no cookiejar\n", __func__);
+		return -1;
+	}
+
+	memset(&c, 0, sizeof(c));
+
+	/*
+	 * The request host and path form the "host|path|*" lookup key.  A host
+	 * that is not a host name or IP literal, or a path with the tag
+	 * separator in it, can't be expressed as that key without changing
+	 * what it matches, and no cookie was ever stored for it: send none.
+	 */
+	if (!lws_cookie_request_host_ok(domain, lws_cookie_domain_len(domain)))
+		return 0;
+
+	path_len = strlen(path);
+
+	/* remove query string if exist */
+	dl_path = (char *)memchr(path, '?', path_len);
+	if (dl_path)
+		path_len = lws_ptr_diff_size_t(dl_path,  path);
+
+	if (memchr(path, '|', path_len))
+		return 0;
+
+	/* remove last slash if exist */
+	if (path_len != 1 && path[path_len - 1] == '/')
+		path_len--;
+
+	if (!path_len)
+		return -1;
+
+	lwsl_cookie("%s: path %.*s len %d\n", __func__, (int)path_len, path, (int)path_len);
+
+	/* when dest buf is not provided, we only return size of cookie string */
+	if (!buf || !end)
+		p = NULL;
+	else
+		p = buf;
+
+	/*
+	 * RFC 6265: a request host that is an IP literal, not a domain name,
+	 * matches cookies stored for exactly that host only.  Do the initial
+	 * exact-host lookup below, but do not then walk the dot-suffixes of a
+	 * numeric host -- they are unrelated hosts, eg, a cookie stored under
+	 * "168.0.1" must not replay to 192.168.0.1 or 10.168.0.1.
+	 */
+	ip_host = lws_cookie_is_ip_literal(domain,
+					   lws_cookie_domain_len(domain));
+
+	/*
+	 * Iterate through the domain levels to find matching cookies: the
+	 * request host itself, then each of its parent domains.  The path
+	 * levels are taken care of by the jar's lookup, which matches the
+	 * request path against each stored cookie path the RFC 6265 5.1.4
+	 * way, eg, a cookie with Path=/ is found for a request to /a/b.
+	 */
+	while (1) {
+		domain_len = lws_cookie_domain_len(domain);
+		dl_domain = (char *)memchr(domain, '.', domain_len);
+		/*
+		 * Don't match a parent domain that is a top level domain.  But
+		 * the request host itself can be a single label, like
+		 * "localhost", and its host-only cookies must still match it.
+		 */
+		if (!hostdomain && !dl_domain)
+			break;
+
+		cnl = domain_len + path_len + 6;
+		cache_name = lws_malloc(cnl, __func__);
+		if (!cache_name)
+			return -1;
+
+		/* compile key string "[domain]|[path]|*"" */
+		p1 = cache_name;
+		memcpy(p1, domain, domain_len);
+		p1 += domain_len;
+		*p1 = '|';
+		p1++;
+		memcpy(p1, path, path_len);
+		p1 += path_len;
+		*p1 = '|';
+		p1++;
+		*p1 = '*';
+		p1++;
+		*p1 = '\0';
+
+		/* the jar holds domains in lower case */
+		lws_cookie_lower(cache_name, domain_len);
+
+		lwsl_cookie("%s: looking for %s\n", __func__, cache_name);
+
+		/*
+		 * Another service thread may change the cache while we use
+		 * pointers into it, and the result set of the lookup lives in
+		 * L1 too: getting its items below may fill L1 and evict it, or
+		 * an item it names.  So hold the cache lock over the walk, and
+		 * walk a copy of the result set.
+		 */
+
+		lws_cache_lock(l1); /* ------------------------------ l1 { */
+
+		if (!lws_cache_lookup(l1, cache_name,
+				      (const void **)&cr.ptr, &cr.size) &&
+		    cr.size) {
+
+			results = lws_malloc(cr.size, __func__);
+			if (!results) {
+				lws_cache_unlock(l1);
+				lws_free(cache_name);
+
+				return -1;
+			}
+			memcpy(results, cr.ptr, cr.size);
+			cr.ptr = results;
+
+			while (!lws_cache_results_walk(&cr)) {
+				lwsl_cookie(" %s (%d)\n", (const char *)cr.tag,
+						(int)cr.payload_len);
+
+				/*
+				 * One result we can't use (eg, it expired
+				 * since the lookup) says nothing about the
+				 * others: skip it, not the rest of the set
+				 */
+				if (lws_cache_item_get(l1, (const char *)cr.tag,
+						   (const void **)&po, &size) ||
+					lws_cookie_parse_nsc(&c, po, size)) {
+					lwsl_err("%s: failed to get c '%s'\n",
+							__func__, cr.tag);
+					continue;
+				}
+
+				/*
+				 * What we store was policed on the way in, but
+				 * the jar file may hold lines that weren't (an
+				 * older lws, another writer): the name and value
+				 * go into the request head verbatim, so they
+				 * must be what we would have stored
+				 */
+				if (!lws_cookie_name_ok(c.f[CE_NAME],
+							c.l[CE_NAME]) ||
+				    !lws_cookie_value_ok(c.f[CE_VALUE],
+							 c.l[CE_VALUE])) {
+					lwsl_notice("%s: skipping bad '%s'\n",
+						    __func__, cr.tag);
+					continue;
+				}
+
+				if (c.f[CE_HOSTONLY] && !hostdomain){
+					lwsl_cookie("%s: not sending this\n",
+							__func__);
+					continue;
+				}
+
+				/* RFC 6265 5.4: Secure cookies only go over tls */
+				if (c.f[CE_SECURE] && !secure) {
+					lwsl_cookie("%s: not sending Secure\n",
+							__func__);
+					continue;
+				}
+
+				if (p) {
+					size_t need = (ret ? 2u : 0u) +
+						      c.l[CE_NAME] + 1 +
+						      c.l[CE_VALUE];
+
+					/*
+					 * The write pass must bound itself
+					 * against its own destination: it
+					 * cannot just trust the size the
+					 * measuring pass returned earlier,
+					 * since the two passes are separated
+					 * by the header reservation and each
+					 * one re-walks the cookie cache.
+					 */
+					if (need > lws_ptr_diff_size_t(end, p)) {
+						lwsl_err("%s: cookie buf\n",
+							 __func__);
+						overflow = 1;
+						break;
+					}
+
+					if (ret) {
+						*p = ';';
+						p++;
+						*p = ' ';
+						p++;
+					}
+
+					memcpy(p, c.f[CE_NAME], c.l[CE_NAME]);
+					p += c.l[CE_NAME];
+					*p = '=';
+					p++;
+					memcpy(p, c.f[CE_VALUE], c.l[CE_VALUE]);
+					p += c.l[CE_VALUE];
+				}
+
+				if (ret)
+					ret += 2;
+				ret += c.l[CE_NAME] + 1 + c.l[CE_VALUE];
+
+			}
+
+			lws_free(results);
+		}
+
+		lws_cache_unlock(l1); /* ----------------------------- } l1 */
+
+		lws_free(cache_name);
+
+		if (overflow)
+			return -1;
+
+		/*
+		 * IP-literal hosts match on the exact host only, and a single
+		 * label host has no parent domain
+		 */
+		if (ip_host || !dl_domain)
+			break;
+
+		domain = dl_domain + 1;
+		hostdomain = 0;
+	}
+
+	lwsl_notice("%s: c len (%d)\n", __func__, (int)ret);
+
+	return (int)ret;
+}
+
+/*
+ * Attribute-value (AV) tokens recognized in a Set-Cookie after the name=value
+ * pair.  The order here MUST match the AV-backed group at the top of enum
+ * lws_cookie_elements: lws_parse_set_cookie() uses the cft[] index directly as
+ * a CE_* index, so the two stay in 1:1 alignment by construction.  This is
+ * the structural fix for issue #3652, where the orderings disagreed and the
+ * cft[] index silently aliased CE_NAME/CE_VALUE for httponly/secure.
+ */
+static struct {
+	const char		*const name;
+	uint8_t			len;
+} cft[] = {
+	[CE_DOMAIN]  = { "domain=",  7 },
+	[CE_PATH]    = { "path=",    5 },
+	[CE_EXPIRES] = { "expires=", 8 },
+	[CE_MAXAGE]  = { "max-age=", 8 },
+	[CE_HTTPONLY]= { "httponly", 8 },
+	[CE_SECURE]  = { "secure",   6 }
+};
+
+int
+lws_parse_set_cookie(struct lws *wsi)
+{
+	char *tk_head, *tk_end, *buf_head, *buf_end, *cookiep, *dl;
+	struct lws_cache_ttl_lru *l1;
+	struct lws_cookie c;
+	size_t fl;
+	int f, n;
+
+	if (!wsi)
+		return -1;
+
+	l1 = wsi->a.context->l1;
+	if (!l1)
+		return -1;
+
+	/* the response headers may already have been released */
+	if (!wsi->stream.ah)
+		return -1;
+
+	f = wsi->stream.ah->frag_index[WSI_TOKEN_HTTP_SET_COOKIE];
+
+	while (f) {
+		cookiep = wsi->stream.ah->data + wsi->stream.ah->frags[f].offset;
+		fl = wsi->stream.ah->frags[f].len;
+		f = lws_ah_frag_next(wsi->stream.ah, f);
+
+		if (!cookiep || !fl)
+			continue;
+
+		/* the header carries the cookie value: never log it */
+		lwsl_cookie("%s: parsing Set-Cookie, len %d\n", __func__,
+			    (int)fl);
+
+		buf_head = cookiep;
+		buf_end = cookiep + fl - 1;
+		memset(&c, 0, sizeof(struct lws_cookie));
+
+		do {
+			tk_head = buf_head;
+			tk_end = (char *)memchr(buf_head, ';',
+					(size_t)(buf_end - buf_head + 1));
+			if (!tk_end) {
+				tk_end = buf_end;
+				buf_head = buf_end;
+			} else {
+				buf_head = tk_end + 1;
+				tk_end--;
+			}
+
+			if (tk_end < tk_head) {
+				if (!c.f[CE_NAME])
+					return -1;
+				continue;
+			}
+
+			if (c.f[CE_NAME])
+				goto parse_av;
+
+			/*
+			 * find name value, remove leading trailing
+			 * WS and DQ for value
+			 */
+
+			dl = (char *)memchr(tk_head, '=',
+				    lws_ptr_diff_size_t(tk_end, tk_head) + 1);
+			if (!dl || dl == tk_head)
+				return -1;
+
+			c.f[CE_NAME] = tk_head;
+			c.l[CE_NAME] = lws_ptr_diff_size_t(dl, tk_head);
+			lws_cookie_rm_sws(&c.f[CE_NAME], &c.l[CE_NAME]);
+
+			if (!c.l[CE_NAME])
+				return -1;
+
+			lwsl_cookie("%s: c name l %d v:%.*s\n", __func__,
+					(int)c.l[CE_NAME],
+					(int)c.l[CE_NAME], c.f[CE_NAME]);
+			c.f[CE_VALUE] = dl + 1;
+			c.l[CE_VALUE] = lws_ptr_diff_size_t(tk_end,
+						   c.f[CE_VALUE]) + 1;
+
+			lws_cookie_rm_sws(&c.f[CE_VALUE], &c.l[CE_VALUE]);
+			if (c.l[CE_VALUE] >= 2 && c.f[CE_VALUE][0] == '\"' &&
+			    c.f[CE_VALUE][c.l[CE_VALUE] - 1] == '\"') {
+				c.f[CE_VALUE]++;
+				c.l[CE_VALUE] -= 2;
+			}
+			lwsl_cookie("%s: c value len %d\n", __func__,
+				    (int)c.l[CE_VALUE]);
+			continue;
+
+parse_av:
+			while (*tk_head == ' ') {
+				if (tk_head == tk_end)
+					return -1;
+
+				tk_head++;
+			}
+
+			for (n = 0; n < (int)LWS_ARRAY_SIZE(cft); n++) {
+				if (lws_tolower(*tk_head) != cft[n].name[0])
+					continue;
+
+				if (!is_iprefix(tk_head,
+						lws_ptr_diff_size_t(tk_end,
+								   tk_head) + 1,
+						cft[n].name, cft[n].len))
+					continue;
+
+				/*
+				 * Matched AV cft[n].  Because the AV-backed
+				 * CE_* fields are kept in the same order as
+				 * cft[], n is a valid c.f[]/c.l[] index here.
+				 * Bare flags (httponly, secure) carry no value;
+				 * mark them present like CE_HOSTONLY (NULL = 0,
+				 * non-NULL = 1).  Value AVs record the value
+				 * after the "name=" prefix.
+				 */
+				if (cft[n].len && cft[n].name[cft[n].len - 1] == '=') {
+					c.f[n] = tk_head + cft[n].len;
+					c.l[n] = lws_ptr_diff_size_t(tk_end, c.f[n]) + 1;
+					lws_cookie_rm_sws(&c.f[n], &c.l[n]);
+
+					if (n == CE_DOMAIN && c.l[n] &&
+					    c.f[n][0] == '.') {
+						c.f[n]++;
+						c.l[n]--;
+					}
+				} else {
+					c.f[n] = "T";
+					c.l[n] = 1;
+				}
+
+				lwsl_cookie("%s: %s l %d v:%.*s\n", __func__,
+				    cft[n].name, (int)c.l[n],
+				    (int)c.l[n], c.f[n]);
+				break;
+			}
+
+		} while (tk_end != buf_end);
+
+		/* lws_cookie_scope() decides if the request may set it */
+		if (lws_cookie_write_nsc(wsi, &c))
+			lwsl_err("%s:failed to write nsc\n", __func__);
+	}
+
+	return 0;
+}
+
+int
+lws_cookie_send_cookies(struct lws *wsi, char **pp, char *end)
+{
+	char *p, *start;
+	int size;
+
+	if (!wsi || !pp || !(*pp) || !end)
+		return -1;
+
+	size = lws_cookie_attach_cookies(wsi, NULL, NULL);
+
+	if (!size)
+		return 0;
+	if (size < 0) {
+		lwsl_err("%s:failed to get cookie string size\n", __func__);
+		return -1;
+	}
+
+	lwsl_notice("%s: size %d\n", __func__, size);
+
+	start = *pp;
+	if (lws_add_http_header_by_token(wsi, WSI_TOKEN_HTTP_COOKIE, NULL, size,
+								(unsigned char **)pp, (unsigned char *)end))
+		return -1;
+
+
+#ifdef LWS_WITH_HTTP2
+	if (lws_wsi_is_h2(wsi)
+#ifdef LWS_ROLE_H3
+	    || lws_wsi_is_h3(wsi)
+#endif
+	)
+		p = *pp - size;
+	else
+#endif
+		p = *pp - size - 2;
+
+	/*
+	 * The reservation above only moved *pp on, it did not initialize the
+	 * reserved bytes (lws_add_http_header_by_name() skips the copy for a
+	 * NULL value), so they still hold whatever was in the serv_buf.  If
+	 * the second pass writes fewer bytes than the first pass measured --
+	 * eg, a cookie's TTL lapsed in between and the cache walk stopped
+	 * early -- the tail of the Cookie: header we send would be that stale
+	 * scratch content.  Insist the two passes agree exactly.
+	 */
+	if (lws_cookie_attach_cookies(wsi, p, p + size) != size) {
+		lwsl_err("%s:failed to attach cookies\n", __func__);
+		/* take the half-filled reservation back out of the head */
+		*pp = start;
+		return -1;
+	}
+
+	/* the header carries the cookie values: log only its length */
+	lwsl_cookie("%s: attached Cookie:, len %d\n", __func__,
+		    (int)lws_ptr_diff(*pp, start));
+
+	return 0;
+}

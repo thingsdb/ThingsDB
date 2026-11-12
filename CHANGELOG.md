@@ -1,6 +1,6 @@
 # v1.11.2-alpha0
 
-* Expose `libwebsockets` without git hash for cleaner version, issue #477.
+* Expose `libwebsockets` version without git hash, issue #477.
 
 # v1.11.1
 

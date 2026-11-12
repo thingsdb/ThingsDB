@@ -284,6 +284,11 @@ lws_sspc_deserialize_parse(lws_sspc_handle_t *hh, const uint8_t *cp, size_t len,
 				lwsl_info("RPAR_RIDESHARE_LEN\n");
 				goto hangup;
 			}
+			if (par->slen >= sizeof(par->rideshare)) {
+				lwsl_err("%s: rideshare slen %d >= buffer %zu\n",
+					 __func__, (unsigned)par->slen, sizeof(par->rideshare));
+				goto hangup;
+			}
 			break;
 
 		case RPAR_PERF:
@@ -867,7 +872,7 @@ payload_ff:
 			if (*cp == ',') {
 				cp++;
 				h->rideshare_list[par->rsl_pos++] = '\0';
-				if (par->rsl_idx == LWS_ARRAY_SIZE(h->rideshare_ofs)) {
+				if (par->rsl_idx + 1 >= (int)LWS_ARRAY_SIZE(h->rideshare_ofs)) {
 					lwsl_info("CDSH5\n");
 					goto hangup;
 				}
@@ -945,11 +950,6 @@ payload_ff:
 				break;
 			default:
 				break;
-			}
-
-			if (par->ctr < 0) {
-				lwsl_info("ORDA\n");
-				goto hangup;
 			}
 
 #if !defined(STANDALONE) && defined(_DEBUG)

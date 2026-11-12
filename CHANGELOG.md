@@ -1,3 +1,7 @@
+# v1.11.1-alpha0
+
+* Upgraded `libwebsockets` from **4.3.99** to **4.5.8**, pr #476.
+
 # v1.11.0
 
 * Changed error type for faults during relation modifications, pr #475.

@@ -185,7 +185,7 @@ const char *mbedtls_client_preload_filepath;
 /**
  * @brief create a SSL context
  */
-SSL_CTX* SSL_CTX_new(const SSL_METHOD *method, void *rngctx)
+SSL_CTX* SSL_CTX_new(const SSL_METHOD *method)
 {
     SSL_CTX *ctx;
     CERT *cert;
@@ -205,7 +205,7 @@ SSL_CTX* SSL_CTX_new(const SSL_METHOD *method, void *rngctx)
         goto failed1;
     }
 
-    cert = ssl_cert_new(rngctx);
+    cert = ssl_cert_new();
     if (!cert) {
         SSL_DEBUG(SSL_LIB_ERROR_LEVEL, "ssl_cert_new() return NULL");
         goto failed2;
@@ -220,7 +220,6 @@ SSL_CTX* SSL_CTX_new(const SSL_METHOD *method, void *rngctx)
     ctx->method = method;
     ctx->client_CA = client_ca;
     ctx->cert = cert;
-    ctx->rngctx = rngctx;
 
     ctx->version = method->version;
 
@@ -231,9 +230,11 @@ SSL_CTX* SSL_CTX_new(const SSL_METHOD *method, void *rngctx)
 	*px = malloc(sizeof(**px));
 	mbedtls_x509_crt_init(*px);
 	n = mbedtls_x509_crt_parse_file(*px, mbedtls_client_preload_filepath);
-	if (n < 0)
+	if (n < 0) {
 		lwsl_err("%s: unable to load cert bundle 0x%x\n", __func__, -n);
-	else
+		mbedtls_x509_crt_free(*px);
+		free(*px);
+	} else
 		lwsl_info("%s: loaded cert bundle %d\n", __func__, n);
     }
 #endif
@@ -256,6 +257,17 @@ void SSL_CTX_free(SSL_CTX* ctx)
     SSL_ASSERT3(ctx);
 
     ssl_cert_free(ctx->cert);
+
+#if defined(LWS_HAVE_mbedtls_x509_crt_parse_file)
+    if (mbedtls_client_preload_filepath) {
+        mbedtls_x509_crt **px = (mbedtls_x509_crt **)ctx->client_CA->x509_pm;
+
+        if (*px) {
+            mbedtls_x509_crt_free(*px);
+            free(*px);
+        }
+    }
+#endif
 
     X509_free(ctx->client_CA);
 
@@ -317,7 +329,7 @@ SSL *SSL_new(SSL_CTX *ctx)
         goto failed2;
     }
 
-    ssl->cert = __ssl_cert_new(ctx->cert, ctx->rngctx);
+    ssl->cert = __ssl_cert_new(ctx->cert);
     if (!ssl->cert) {
         SSL_DEBUG(SSL_LIB_ERROR_LEVEL, "__ssl_cert_new() return NULL");
         goto failed3;
@@ -1243,4 +1255,60 @@ void SSL_set_alpn_select_cb(SSL *ssl, void *arg)
 	_openssl_alpn_to_mbedtls(ac, (char ***)&ssl->alpn_protos);
 
 	_ssl_set_alpn_list(ssl);
+}
+
+int SSL_CTX_load_verify_file(SSL_CTX *ctx, const char *CAfile)
+{
+	X509 *x;
+	int ret;
+
+	SSL_ASSERT1(ctx);
+	SSL_ASSERT1(CAfile);
+
+	x = X509_new();
+	ret = X509_METHOD_CALL(load_file, x, CAfile);
+	if (ret) {
+		X509_free(x);
+		return 0;
+	}
+
+	SSL_CTX_add_client_CA(ctx, x);
+	return 1;
+}
+
+int SSL_CTX_load_verify_dir(SSL_CTX *ctx, const char *CApath)
+{
+	X509 *x;
+	int ret;
+
+	SSL_ASSERT1(ctx);
+	SSL_ASSERT1(CApath);
+
+	x = X509_new();
+	ret = X509_METHOD_CALL(load_path, x, CApath);
+	if (ret) {
+		X509_free(x);
+		return 0;
+	}
+
+	SSL_CTX_add_client_CA(ctx, x);
+	return 1;
+}
+
+int SSL_CTX_load_verify_locations(SSL_CTX *ctx, const char *CAfile,
+                                  const char *CApath)
+{
+	if (CAfile == NULL && CApath == NULL) {
+		return 0;
+	}
+
+	if (CAfile != NULL && !SSL_CTX_load_verify_file(ctx, CAfile)) {
+		return 0;
+	}
+
+	if (CApath != NULL && !SSL_CTX_load_verify_dir(ctx, CApath)) {
+		return 0;
+	}
+
+	return 1;
 }

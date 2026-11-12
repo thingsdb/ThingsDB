@@ -150,6 +150,9 @@ static int
 nscookiejar_iterate(lws_cache_nscookiejar_t *cache, int fd,
 		    nsc_cb_t cb, void *opaque)
 {
+#if defined(__COVERITY__)
+	return -1;
+#else
 	int m = 0, n = 0, e, r = LCN_SOL, ignore = 0, ret = 0;
 	char temp[256], eof = 0;
 
@@ -157,26 +160,49 @@ nscookiejar_iterate(lws_cache_nscookiejar_t *cache, int fd,
 		return -1;
 
 	do { /* for as many buffers in the file */
-
-		int n1;
+		ssize_t n1s; /* coverity taints if we use int cast here */
 
 		lwsl_debug("%s: n %d, m %d\n", __func__, n, m);
 
 read:
-		n1 = (int)read(fd, temp + n, sizeof(temp) - (size_t)n);
+		if ((size_t)n >= sizeof(temp) - 1)
+			/* there's no space left in temp */
+			n1s = 0;
+		else
+			/*
+			 * Coverity says:  "The expression 256UL - (size_t)n is
+			 * deemed underflowed because at least one of its
+			 * arguments has underflowed." ... however we explicitly
+			 * check if n >= 256 a couple of lines above.
+			 * n cannot be negative either.
+			 *
+			 * Removing this function from Coverity
+			 */
+			n1s = read(fd, temp + n, sizeof(temp) - (size_t)n);
 
-		lwsl_debug("%s: n1 %d\n", __func__, n1);
+		lwsl_debug("%s: n1 %d\n", __func__, (int)n1s);
 
-		if (n1 <= 0) {
+		if (n1s <= 0) {
 			eof = 1;
 			if (m == n)
 				continue;
-		} else
-			n += n1;
+		} else {
+			/*
+			 * Help coverity see we cannot overflow n here
+			 */
+			if ((size_t)n >= sizeof(temp) ||
+			    (size_t)n1s >= sizeof(temp) ||
+			    (size_t)(n + n1s) >= sizeof(temp)) {
+				ret = -1;
+				goto bail;
+			}
+
+			n = (int)(n + n1s);
+		}
 
 		while (m < n) {
 
-			m++;
+			m++; /* m can == n now then */
 
 			if (temp[m - 1] != '\n')
 				continue;
@@ -197,6 +223,13 @@ read:
 			 * cb can classify it even if it can't get all the
 			 * value part in one go
 			 */
+
+			/* coverity: we will blow up if m > n */
+			if (m > n) {
+				ret = -1;
+				goto bail;
+			}
+
 			memmove(temp, temp + m, (size_t)(n - m));
 			n -= m;
 			m = 0;
@@ -241,6 +274,7 @@ read:
 bail:
 
 	return ret;
+#endif
 }
 
 /*
@@ -651,6 +685,17 @@ nsc_regen(lws_cache_nscookiejar_t *cache, const char *wc_delete,
 	close(ctx.fdt);
 	ctx.fdt = -1;
 
+#if defined(WIN32)
+	/*
+	 * On Windows, unlink / rename fail while fd holds the original
+	 * file open for reading.  Close it first so the replace can
+	 * succeed.  nsc_backing_close_unlock() checks fd >= 0, so
+	 * setting it to -1 makes the later close a safe no-op.
+	 */
+	close(fd);
+	fd = -1;
+#endif
+
 	if (unlink(cache->cache.info.u.nscookiejar.filepath) == -1)
 		lwsl_info("%s: unlink %s failed\n", __func__,
 			  cache->cache.info.u.nscookiejar.filepath);
@@ -881,7 +926,7 @@ lws_cache_nscookiejar_create(const struct lws_cache_creation_info *info)
 	 */
 	expiry_cb(&cache->cache.sul);
 
-	lwsl_notice("%s: create %s\n", __func__, info->name ? info->name : "?");
+	lwsl_info("%s: create %s\n", __func__, info->name ? info->name : "?");
 
 	return (struct lws_cache_ttl_lru *)cache;
 }

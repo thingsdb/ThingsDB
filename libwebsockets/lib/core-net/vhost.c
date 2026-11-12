@@ -305,7 +305,7 @@ lws_protocol_vh_priv_get(struct lws_vhost *vhost,
 		}
 
 		if (n == vhost->count_protocols) {
-			lwsl_vhost_err(vhost, "unknown protocol %p", prot);
+			lwsl_vhost_err(vhost, "unknown protocol %p (%s)", prot, prot->name);
 			return NULL;
 		}
 	}
@@ -390,7 +390,7 @@ lws_protocol_init_vhost(struct lws_vhost *vh, int *any)
 	struct lws _lws;
 	struct lws_a *lwsa = &_lws.a;
 
-	memset(&_lws, 0, sizeof(_lws));
+	memset((void *)&_lws, 0, sizeof(_lws));
 #endif
 
 	lwsa->context = vh->context;
@@ -451,7 +451,8 @@ lws_protocol_init_vhost(struct lws_vhost *vh, int *any)
 		 * prepared in case the protocol handler wants to touch them
 		 */
 
-		if (pvo
+		if (pvo || (vh->options & LWS_SERVER_OPTION_VH_INSTANTIATE_ALL_PROTOCOLS)
+
 #if !defined(LWS_WITH_PLUGINS)
 				/*
 				 * with plugins, you have to explicitly
@@ -467,22 +468,19 @@ lws_protocol_init_vhost(struct lws_vhost *vh, int *any)
 			lwsl_vhost_info(vh, "init %s.%s", vh->name,
 					vh->protocols[n].name);
 			if (vh->protocols[n].callback((struct lws *)lwsa,
-				LWS_CALLBACK_PROTOCOL_INIT, NULL,
-#if !defined(LWS_WITH_PLUGINS)
-				(void *)(pvo ? pvo->options : NULL),
-#else
-				(void *)pvo->options,
-#endif
-				0)) {
+					LWS_CALLBACK_PROTOCOL_INIT, NULL,
+					(void *)(pvo ? pvo->options : NULL),
+					0)) {
 				if (vh->protocol_vh_privs && vh->protocol_vh_privs[n]) {
 					lws_free(vh->protocol_vh_privs[n]);
 					vh->protocol_vh_privs[n] = NULL;
 				}
-			lwsl_vhost_err(vh, "protocol %s failed init",
+				lwsl_vhost_warn(vh, "protocol %s failed init",
 					vh->protocols[n].name);
 
-				return 1;
-			}
+				// return 1;
+			} else
+				vh->protocol_init |= 1u << n;
 		}
 	}
 
@@ -747,6 +745,8 @@ lws_create_vhost(struct lws_context *context,
 	if (n) {
 		vh->tls.key_path = vh->tls.alloc_cert_path =
 					lws_malloc((unsigned int)n, "vh paths");
+		if (!vh->tls.alloc_cert_path)
+			goto bail;
 		if (info->ssl_cert_filepath) {
 			n = (int)strlen(info->ssl_cert_filepath) + 1;
 			memcpy(vh->tls.alloc_cert_path,
@@ -849,7 +849,8 @@ lws_create_vhost(struct lws_context *context,
 	 * for a protocol get it enabled.
 	 */
 
-	if (context->options & LWS_SERVER_OPTION_EXPLICIT_VHOSTS)
+	if ((context->options & LWS_SERVER_OPTION_EXPLICIT_VHOSTS) &&
+	    !(vh->options & LWS_SERVER_OPTION_VH_INSTANTIATE_ALL_PROTOCOLS))
 		f = 0;
 	(void)f;
 #ifdef LWS_WITH_PLUGINS
@@ -1108,7 +1109,7 @@ void
 lws_cancel_service(struct lws_context *context)
 {
 	struct lws_context_per_thread *pt = &context->pt[0];
-	short m;
+	unsigned short m;
 
 	if (context->service_no_longer_possible)
 		return;
@@ -1236,8 +1237,7 @@ __lws_vhost_destroy_pt_wsi_dieback_start(struct lws_vhost *vh)
 		if (w->tsi == tsi) {
 
 			lwsl_vhost_debug(vh, "closing aso");
-			lws_close_free_wsi(w, LWS_CLOSE_STATUS_NOSTATUS,
-					   "awaiting skt");
+			lws_wsi_close(w, LWS_TO_KILL_ASYNC);
 		}
 
 	} lws_end_foreach_dll_safe(d, d1);
@@ -1482,7 +1482,7 @@ __lws_vhost_destroy2(struct lws_vhost *vh)
 	 * let the protocols destroy the per-vhost protocol objects
 	 */
 
-	memset(&wsi, 0, sizeof(wsi));
+	memset((void *)&wsi, 0, sizeof(wsi));
 	wsi.a.context = vh->context;
 	wsi.a.vhost = vh; /* not a real bound wsi */
 	protocol = vh->protocols;
@@ -1491,11 +1491,11 @@ __lws_vhost_destroy2(struct lws_vhost *vh)
 		while (n < vh->count_protocols) {
 			wsi.a.protocol = protocol;
 
-			lwsl_vhost_debug(vh, "protocol destroy");
-
-			if (protocol->callback)
+			if (protocol->callback && (vh->protocol_init & (1u << n))) {
+				lwsl_vhost_debug(vh, "protocol %s destroy", protocol->name);
 				protocol->callback(&wsi, LWS_CALLBACK_PROTOCOL_DESTROY,
 					   NULL, NULL, 0);
+			}
 			protocol++;
 			n++;
 		}
@@ -1557,7 +1557,6 @@ __lws_vhost_destroy2(struct lws_vhost *vh)
 #if defined(LWS_WITH_PLUGINS)
 		context->plugin_list ||
 #endif
-	    (context->options & LWS_SERVER_OPTION_EXPLICIT_VHOSTS) ||
 	    vh->allocated_vhost_protocols)
 		lws_free((void *)vh->protocols);
 #if defined(LWS_WITH_NETWORK)
@@ -1575,6 +1574,7 @@ __lws_vhost_destroy2(struct lws_vhost *vh)
 
 #if defined (LWS_WITH_TLS)
 	lws_free_set_NULL(vh->tls.alloc_cert_path);
+	vh->tls.key_path = NULL;
 #endif
 
 #if LWS_MAX_SMP > 1
@@ -1918,7 +1918,7 @@ lws_vhost_active_conns(struct lws *wsi, struct lws **nwsi, const char *adsin)
 			 * to get there or fail.
 			 */
 
-			lwsl_wsi_notice(wsi, "apply txn queue %s, state 0x%lx",
+			lwsl_wsi_info(wsi, "apply txn queue %s, state 0x%lx",
 					     lws_wsi_tag(w),
 					     (unsigned long)w->wsistate);
 			/*

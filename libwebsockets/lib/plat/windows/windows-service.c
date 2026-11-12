@@ -63,6 +63,7 @@ _lws_plat_service_tsi(struct lws_context *context, int timeout_ms, int tsi)
 	struct lws_context_per_thread *pt;
 	struct lws_pollfd *pfd;
 	lws_usec_t timeout_us;
+	int64_t timeout_ms64 = (int64_t)timeout_ms;
 	struct lws *wsi;
 	unsigned int i;
 	int n;
@@ -85,12 +86,12 @@ _lws_plat_service_tsi(struct lws_context *context, int timeout_ms, int tsi)
 		pt->service_tid_detected = 1;
 	}
 
-	if (timeout_ms < 0)
-		timeout_ms = 0;
+	if (timeout_ms64 < 0)
+		timeout_ms64 = 0;
 	else
 		/* force a default timeout of 23 days */
-		timeout_ms = 2000000000;
-	timeout_us = ((lws_usec_t)timeout_ms) * LWS_US_PER_MS;
+		timeout_ms64 = 2000000000;
+	timeout_us = ((lws_usec_t)timeout_ms64) * LWS_US_PER_MS;
 
 	if (context->event_loop_ops->run_pt)
 		context->event_loop_ops->run_pt(context, tsi);
@@ -176,6 +177,11 @@ _lws_plat_service_tsi(struct lws_context *context, int timeout_ms, int tsi)
 //			lwsl_notice("%s: idx %d, revents 0x%x\n", __func__, n, pt->fds[n].revents);
 			lws_service_fd_tsi(context, &pt->fds[n], tsi);
 		}
+		
+	if (pt->destroy_self) {
+		lws_context_destroy(pt->context);
+		return -1;
+	}
 
 	return 0;
 }

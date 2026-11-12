@@ -160,11 +160,13 @@ lws_cookie_rm_sws(const char **buf_p, size_t *len_p)
 
 	buf = *buf_p;
 	len = *len_p;
+
 	while (buf[0] == ' ' && len > 0) {
 		buf++;
 		len--;
 	}
-	while (buf[len - 1] == ' ' && len > 0)
+
+	while (len && buf[len - 1] == ' ')
 		len--;
 
 	*buf_p = buf;
@@ -284,7 +286,8 @@ lws_cookie_write_nsc(struct lws *wsi, struct lws_cookie *c)
 	const char *ads, *path;
 	struct lws_cache_ttl_lru *l1;
 	struct client_info_stash *stash;
-	char *cookie_string = NULL, *dl;
+	char *cookie_string = NULL;
+	const char *dl;
 	 /* 6 tabs + 20 for max time_t + 2 * TRUE/FALSE + null */
 	size_t size = 6 + 20 + 10 + 1;
 	time_t expires = 0;
@@ -595,6 +598,12 @@ lws_parse_set_cookie(struct lws *wsi)
 				tk_end--;
 			}
 
+			if (tk_end < tk_head) {
+				if (!c.f[CE_NAME])
+					return -1;
+				continue;
+			}
+
 			if (c.f[CE_NAME])
 				goto parse_av;
 
@@ -603,8 +612,8 @@ lws_parse_set_cookie(struct lws *wsi)
 			 * WS and DQ for value
 			 */
 
-			dl = memchr(tk_head, '=', lws_ptr_diff_size_t(tk_end,
-							tk_head + 1));
+			dl = memchr(tk_head, '=',
+				    lws_ptr_diff_size_t(tk_end, tk_head) + 1);
 			if (!dl || dl == tk_head)
 				return -1;
 

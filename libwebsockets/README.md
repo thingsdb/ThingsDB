@@ -1,6 +1,8 @@
-[![CI status](https://libwebsockets.org/sai/status/libwebsockets)](https://libwebsockets.org/git/libwebsockets) [![Coverity Scan Build Status](https://scan.coverity.com/projects/3576/badge.svg)](https://scan.coverity.com/projects/3576) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2266/badge)](https://bestpractices.coreinfrastructure.org/projects/2266) [![Codacy Badge](https://api.codacy.com/project/badge/Grade/144fb195a83046e484a75c8b4c6cfc99)](https://www.codacy.com/app/lws-team/libwebsockets?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=warmcat/libwebsockets&amp;utm_campaign=Badge_Grade) [![Total alerts](https://img.shields.io/lgtm/alerts/g/warmcat/libwebsockets.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/warmcat/libwebsockets/alerts/) [![Language grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/warmcat/libwebsockets.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/warmcat/libwebsockets/context:cpp) [![Language grade: JavaScript](https://img.shields.io/lgtm/grade/javascript/g/warmcat/libwebsockets.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/warmcat/libwebsockets/context:javascript)
+[![CI status](https://libwebsockets.org/sai/status/libwebsockets)](https://libwebsockets.org/git/libwebsockets) [![Coverity Scan Build Status](https://scan.coverity.com/projects/3576/badge.svg)](https://scan.coverity.com/projects/3576) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2266/badge)](https://bestpractices.coreinfrastructure.org/projects/2266) 
 
 # Libwebsockets
+
+** v4.5 is released, you can follow it on v4.5-stable or use current tag v4.5.8 **
 
 Libwebsockets is a simple-to-use, MIT-license, pure C library providing client and server
 for **http/1**, **http/2**, **websockets**, **MQTT** and other protocols in a security-minded,
@@ -77,7 +79,7 @@ and am starting to port more cases from there into SS-based examples.
 |Loop support, sul scheduler|default, event libs|same|
 |Supports comms mode|Client, Server, Raw|same|
 |Supports protocols|h1, h2, ws, mqtt (client)|same|
-|TLS support|mbedtls (including v3), openssl (including v3), wolfssl, boringssl, libressl|same|
+|TLS support|mbedtls (including v3), openssl (including v3), wolfssl, boringssl, aws-lc, libressl|same|
 |Serializable, proxiable, muxable, transportable|No|Yes|
 |Auto-allocated per-connection user object|pss specified in lws_protocols|Specified in ss info struct|
 |Connection User API|Protocol-specific lws_protocols cbs (> 100)|SS API (rx, tx, state callbacks only)|
@@ -124,21 +126,6 @@ The user SS code is identical however it is transported, muxed and fulfilled.
 See the [changelog](https://libwebsockets.org/git/libwebsockets/tree/changelog)
 
 
-## Lws work retrospective
-
-The initial commit for lws will have been 11 years ago come Oct 28 2021, it's been a lot of work.
-There are a total of 4.3K patches, touching 800KLOC cumulatively (this is not the size in the
-repo, but over the years, how many source lines were changed by patches).
-
-![overview](./doc-assets/work.png)
-
-Gratifyingly, it turns out over the years, ~15% of that was contributed by 404 contributors: that's not so bad.
-Thanks a lot to everyone who has provided patches.
-
-Today at least tens of millions of devices and product features rely on lws to
-handle their communications including several from FAANG; Google now include lws
-as part of Android sources.
-
 ## Support
 
 This is the libwebsockets C library for lightweight websocket clients and
@@ -146,13 +133,39 @@ servers.  For support, visit
 
  https://libwebsockets.org
 
-and consider joining the project mailing list at
-
- https://libwebsockets.org/mailman/listinfo/libwebsockets
-
 You can get the latest version of the library from git:
 
 - https://libwebsockets.org/git
 
 Doxygen API docs for development: https://libwebsockets.org/lws-api-doc-main/html/index.html
 
+### Patching with AI
+
+In 2025, writing actual code with AI is quite scary while at the same time offering a way
+forward for the thankless and lonely task of maintaining FOSS code.  I have been using Google's
+Gemini 2.5 and now 3.0, while it's very good at looking at the code and what I am asking
+and producing something sane (much better than a year ago or self-hosted generic models),
+it falls down badly on being able to complete the scope of the patch that it figured out it
+wants to do, and simply stops too early and drops the rest on the floor.
+
+It deserves praise for being able to work with quite complicated apis in lws like `lws_struct`
+with both JSON and sqlite3 serializations and deserializations, well, mostly.
+
+It is much more interested in making new structures and messages for whatever today's problem
+is and much less interested in looking at what's already there and thinking about how that
+could be adapted or unified.  In short it doesn't care at all about mantainability.
+
+It's also suffering from being strong with its mental model of what's going on and what the
+change does, but very weak when it has to be told that its patch doesn't do what it expected.
+Where a human would 'trap' the difference between its mental model and reality so they can
+see where the model broke, they will often avoid adding logging and instead go down very
+unlikely rabbit holes for hours.
+
+At the same time, it knows that maintainability and security are supposed to be desirable
+traits.  But it knows it in the same way it knows layered patches are desirable, it can't
+take care of these considerations properly yet, although it can talk about the concepts.
+
+In short in 2025, although I will continue to use it for some tasks, it's not at the state
+where someone who was unable to do the work carefully themselves can use it for lws.  It's
+too easy to wave through code that is not understood perhaps by anybody and then deal with
+security problems and other breakage for the rest of your life.

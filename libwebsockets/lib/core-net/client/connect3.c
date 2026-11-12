@@ -76,8 +76,8 @@ lws_client_dns_retry_timeout(lws_sorted_usec_list_t *sul)
 	 */
 
 	lwsl_wsi_info(wsi, "dns retry");
-	if (!lws_client_connect_2_dnsreq(wsi))
-		lwsl_wsi_notice(wsi, "DNS lookup failed");
+	if (!lws_client_connect_2_dnsreq_MAY_CLOSE_WSI(wsi))
+		lwsl_notice("DNS lookup failed");
 }
 
 /*
@@ -189,7 +189,7 @@ lws_client_connect_3_connect(struct lws *wsi, const char *ads,
 	const char *cce = "Unable to connect", *iface, *local_port;
 	const struct sockaddr *psa = NULL;
 	uint16_t port = wsi->conn_port;
-	char dcce[48], t16[16];
+	char dcce[128], t16[16];
 	lws_dns_sort_t *curr;
 	ssize_t plen = 0;
 	lws_dll2_t *d;
@@ -249,7 +249,7 @@ lws_client_connect_3_connect(struct lws *wsi, const char *ads,
 		 */
 
 		lwsi_set_state(wsi, LRS_UNCONNECTED);
-		lws_sul_schedule(wsi->a.context, 0, &wsi->sul_connect_timeout,
+		lws_sul_schedule(wsi->a.context, wsi->tsi, &wsi->sul_connect_timeout,
 				 lws_client_dns_retry_timeout,
 						 LWS_USEC_PER_SEC);
 		return wsi;
@@ -312,7 +312,7 @@ lws_client_connect_3_connect(struct lws *wsi, const char *ads,
 	if (ads && *ads == '+') {
 		ads++;
 		memset(&wsi->sa46_peer, 0, sizeof(wsi->sa46_peer));
-		af = sau.sun_family = AF_UNIX;
+		sau.sun_family = AF_UNIX;
 		strncpy(sau.sun_path, ads, sizeof(sau.sun_path));
 		sau.sun_path[sizeof(sau.sun_path) - 1] = '\0';
 
@@ -391,7 +391,6 @@ ads_known:
 		}
 
 #if defined(LWS_WITH_UNIX_SOCK)
-		af = 0;
 		if (wsi->unix_skt) {
 			af = AF_UNIX;
 			wsi->desc.sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -553,7 +552,7 @@ ads_known:
 		char buf[64];
 
 		lws_sa46_write_numeric_address((lws_sockaddr46 *)psa, buf, sizeof(buf));
-		lwsl_wsi_notice(wsi, "trying %s", buf);
+		lwsl_wsi_info(wsi, "trying %s", buf);
 	}
 
 #if defined(LWS_WITH_SYS_FAULT_INJECTION)
@@ -655,7 +654,7 @@ ads_known:
 		 * uses wsi->sul_connect_timeout just for this purpose
 		 */
 
-		lws_sul_schedule(wsi->a.context, 0, &wsi->sul_connect_timeout,
+		lws_sul_schedule(wsi->a.context, wsi->tsi, &wsi->sul_connect_timeout,
 				 lws_client_conn_wait_timeout,
 				 wsi->a.context->timeout_secs *
 						 LWS_USEC_PER_SEC);
@@ -801,6 +800,7 @@ try_next_dns_result:
 	lws_inform_client_conn_fail(wsi, (void *)cce, strlen(cce));
 
 failed1:
+	lws_sul_cancel(&wsi->sul_connect_timeout);
 	lws_close_free_wsi(wsi, LWS_CLOSE_STATUS_NOSTATUS, "client_connect3");
 
 	return NULL;

@@ -102,15 +102,16 @@ static int
 lws_get_addresses(struct lws_vhost *vh, void *ads, char *name,
 		  int name_len, char *rip, int rip_len)
 {
-	struct addrinfo ai, *res;
 	struct sockaddr_in addr4;
 
 	rip[0] = '\0';
-	name[0] = '\0';
+	if (name)
+		name[0] = '\0';
 	addr4.sin_family = AF_UNSPEC;
 
 #ifdef LWS_WITH_IPV6
-	if (LWS_IPV6_ENABLED(vh)) {
+	if (LWS_IPV6_ENABLED(vh) &&
+	    ((struct sockaddr *)ads)->sa_family == AF_INET6) {
 		if (!lws_plat_inet_ntop(AF_INET6,
 					&((struct sockaddr_in6 *)ads)->sin6_addr,
 					rip, (socklen_t)rip_len)) {
@@ -126,53 +127,37 @@ lws_get_addresses(struct lws_vhost *vh, void *ads, char *name,
 		if (strncmp(rip, "::ffff:", 7) == 0)
 			memmove(rip, rip + 7, strlen(rip) - 6);
 
-		getnameinfo((struct sockaddr *)ads, sizeof(struct sockaddr_in6),
-			    name,
+		if (name) {
+			getnameinfo((struct sockaddr *)ads, sizeof(struct sockaddr_in6),
+				    name,
 #if defined(__ANDROID__)
-			    (size_t)name_len,
+				    (size_t)name_len,
 #else
-			    (socklen_t)name_len,
+				    (socklen_t)name_len,
 #endif
-			    NULL, 0, 0);
+				    NULL, 0, 0);
+		}
 
 		return 0;
 	} else
 #endif
 	{
-		struct addrinfo *result;
+		addr4.sin_family = AF_INET;
+		addr4.sin_addr = ((struct sockaddr_in *)ads)->sin_addr;
 
-		memset(&ai, 0, sizeof ai);
-		ai.ai_family = PF_UNSPEC;
-		ai.ai_socktype = SOCK_STREAM;
 #if !defined(LWS_PLAT_FREERTOS)
-		if (getnameinfo((struct sockaddr *)ads,
-				sizeof(struct sockaddr_in),
-				name,
+		if (name) {
+			getnameinfo((struct sockaddr *)ads,
+					sizeof(struct sockaddr_in),
+					name,
 #if defined(__ANDROID__)
-				(size_t)name_len,
+					(size_t)name_len,
 #else
-				(socklen_t)name_len,
+					(socklen_t)name_len,
 #endif
-				NULL, 0, 0))
-			return -1;
-#endif
-
-		if (getaddrinfo(name, NULL, &ai, &result))
-			return -1;
-
-		res = result;
-		while (addr4.sin_family == AF_UNSPEC && res) {
-			switch (res->ai_family) {
-			case AF_INET:
-				addr4.sin_addr =
-				 ((struct sockaddr_in *)res->ai_addr)->sin_addr;
-				addr4.sin_family = AF_INET;
-				break;
-			}
-
-			res = res->ai_next;
+					NULL, 0, 0);
 		}
-		freeaddrinfo(result);
+#endif
 	}
 
 	if (addr4.sin_family == AF_UNSPEC)
@@ -312,7 +297,7 @@ lws_socket_bind(struct lws_vhost *vhost, struct lws *wsi,
 			return LWS_ITOSA_NOT_EXIST;
 		}
 		n = (int)(sizeof(uint16_t) + strlen(iface));
-		strcpy(serv_unix.sun_path, iface);
+		lws_strncpy(serv_unix.sun_path, iface, sizeof(serv_unix.sun_path) - 1);
 		if (serv_unix.sun_path[0] == '@')
 			serv_unix.sun_path[0] = '\0';
 		else
@@ -381,6 +366,18 @@ lws_socket_bind(struct lws_vhost *vhost, struct lws *wsi,
 	/* just checking for the interface extant */
 	if (sockfd == LWS_SOCK_INVALID)
 		return LWS_ITOSA_USABLE;
+#if defined(LWS_WITH_BINDTODEVICE)
+	if (af != AF_UNIX && iface) {
+		if (setsockopt(sockfd, SOL_SOCKET, SO_BINDTODEVICE, iface, (socklen_t)strlen(iface)) < 0) {
+#if !defined(LWS_WITH_NO_LOGS)
+			int _lws_errno = LWS_ERRNO;
+			lwsl_wsi_warn(wsi, "setsockopt bind to device %s error fd %d (%d)",
+					  iface, sockfd, _lws_errno);
+#endif
+	/* Root only, non-fatal, continue here. */
+		}
+	}
+#endif
 
 	n = bind(sockfd, v, (socklen_t)n);
 #ifdef LWS_WITH_UNIX_SOCK

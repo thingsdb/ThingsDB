@@ -24,7 +24,7 @@
 
 #include "private-lib-core.h"
 
-static int
+static lws_handling_result_t
 rops_handle_POLLIN_mqtt(struct lws_context_per_thread *pt, struct lws *wsi,
 			   struct lws_pollfd *pollfd)
 {
@@ -170,7 +170,6 @@ drain:
 	}
 
 	ebuf.token = NULL;
-	ebuf.len = 0;
 
 	pending = (unsigned int)lws_ssl_pending(wsi);
 	if (pending) {
@@ -272,7 +271,7 @@ rops_client_bind_mqtt(struct lws *wsi, const struct lws_client_connect_info *i)
 	return 1; /* matched */
 }
 
-static int
+static lws_handling_result_t
 rops_handle_POLLOUT_mqtt(struct lws *wsi)
 {
 	struct lws **wsi2;
@@ -516,7 +515,7 @@ rops_callback_on_writable_mqtt(struct lws *wsi)
 #endif
 	) {
 		lwsl_debug("already pending writable\n");
-		return 1;
+		// return 1;
 	}
 #if 0
 	/* is this for DATA or for control messages? */

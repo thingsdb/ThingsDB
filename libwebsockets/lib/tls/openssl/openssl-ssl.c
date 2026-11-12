@@ -51,12 +51,33 @@ int lws_openssl_describe_cipher(struct lws *wsi)
 int lws_ssl_get_error(struct lws *wsi, int n)
 {
 	int m;
+	unsigned long l;
+	char buf[160];
 
 	if (!wsi->tls.ssl)
 		return 99;
 
 	m = SSL_get_error(wsi->tls.ssl, n);
        lwsl_debug("%s: %p %d -> %d (errno %d)\n", __func__, wsi->tls.ssl, n, m, LWS_ERRNO);
+	if (m == SSL_ERROR_SSL) {
+		if (!wsi->tls.err_helper[0]) {
+			/* Append first error for clarity */
+			l = ERR_get_error();
+			if (l) {
+				ERR_error_string_n(
+#if defined(LWS_WITH_BORINGSSL) || defined(LWS_WITH_AWSLC)
+					(uint32_t)
+#endif
+					l, buf, sizeof(buf) - 1);
+				buf[sizeof(buf) - 1] = '\0';
+				lws_strncpy(wsi->tls.err_helper, buf,
+					    sizeof(wsi->tls.err_helper));
+			}
+		}
+
+		// Describe other errors
+		lws_tls_err_describe_clear();
+	}
 
        // assert (LWS_ERRNO != 9);
 
@@ -176,7 +197,8 @@ lws_ssl_destroy(struct lws_vhost *vhost)
 #else
 #if OPENSSL_VERSION_NUMBER >= 0x1010005f && \
     !defined(LIBRESSL_VERSION_NUMBER) && \
-    !defined(OPENSSL_IS_BORINGSSL)
+    !defined(OPENSSL_IS_BORINGSSL) && \
+	!defined(OPENSSL_IS_AWSLC)
 	ERR_remove_thread_state();
 #else
 	ERR_remove_thread_state(NULL);
@@ -505,7 +527,8 @@ lws_ssl_context_destroy(struct lws_context *context)
 #else
 #if OPENSSL_VERSION_NUMBER >= 0x1010005f && \
     !defined(LIBRESSL_VERSION_NUMBER) && \
-    !defined(OPENSSL_IS_BORINGSSL)
+    !defined(OPENSSL_IS_BORINGSSL) && \
+	!defined(OPENSSL_IS_AWSLC)
 	ERR_remove_thread_state();
 #else
 	ERR_remove_thread_state(NULL);

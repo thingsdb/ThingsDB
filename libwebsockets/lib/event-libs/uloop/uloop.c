@@ -135,6 +135,7 @@ lws_uloop_cb(struct uloop_fd *ufd, unsigned int revents)
 static int
 elops_listen_init_uloop(struct lws_dll2 *d, void *user)
 {
+#if defined(LWS_WITH_SERVER)
 	struct lws *wsi = lws_container_of(d, struct lws, listen_list);
 	struct lws_wsi_eventlibs_uloop *wu = wsi_to_priv_uloop(wsi);
 
@@ -143,6 +144,7 @@ elops_listen_init_uloop(struct lws_dll2 *d, void *user)
 	wu->fd.cb = lws_uloop_cb;
 	uloop_fd_add(&wu->fd,  ULOOP_READ);
 	wu->actual_events = ULOOP_READ;
+#endif
 
 	return 0;
 }
@@ -217,10 +219,12 @@ elops_run_pt_uloop(struct lws_context *context, int tsi)
 static int
 elops_listen_destroy_uloop(struct lws_dll2 *d, void *user)
 {
+#if defined(LWS_WITH_SERVER)
 	struct lws *wsi = lws_container_of(d, struct lws, listen_list);
 	struct lws_wsi_eventlibs_uloop *wu = wsi_to_priv_uloop(wsi);
 
 	uloop_fd_delete(&wu->fd);
+#endif
 
 	return 0;
 }
@@ -297,6 +301,7 @@ static const struct lws_event_loop_ops event_loop_ops_uloop = {
 	/* destroy_pt */		elops_destroy_pt_uloop,
 	/* destroy wsi */		elops_destroy_wsi_uloop,
 	/* foreign_thread */		NULL,
+	/* fake_POLLIN */		NULL,
 
 	/* flags */			0,
 

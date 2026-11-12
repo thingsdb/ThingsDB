@@ -985,11 +985,18 @@ lws_h2_parse_frame_header(struct lws *wsi)
 
 	/* let the network wsi live a bit longer if subs are active */
 
-	if (!wsi->immortal_substream_count)
-		lws_set_timeout(wsi, PENDING_TIMEOUT_HTTP_KEEPALIVE_IDLE,
-				wsi->a.vhost->keepalive_timeout ?
-					wsi->a.vhost->keepalive_timeout : 31);
+	if (!wsi->immortal_substream_count) {
+		int ds = lws_wsi_keepalive_timeout_eff(wsi);
 
+		/*
+		 * A short (5s) timeout here affects the reverse proxy if
+		 * the onward box takes a long time to respond, eg to a POST.
+		 * The mount can override the keepalive timeout, eg, to give
+		 * the right behaviour depending on reverse proxy for a particular
+		 * server.
+		 */
+		lws_set_timeout(wsi, PENDING_TIMEOUT_HTTP_KEEPALIVE_IDLE, ds);
+	}
 	if (h2n->sid)
 		h2n->swsi = lws_wsi_mux_from_id(wsi, h2n->sid);
 
@@ -1250,6 +1257,7 @@ lws_h2_parse_frame_header(struct lws *wsi)
 		goto update_end_headers;
 
 	case LWS_H2_FRAME_TYPE_HEADERS:
+		h2n->hpack_total_hdr_len = 0;
 		lwsl_info("HEADERS: frame header: sid = %u\n",
 				(unsigned int)h2n->sid);
 		if (!h2n->sid) {
@@ -1531,6 +1539,8 @@ lws_h2_parse_end_of_frame(struct lws *wsi)
 			if (wsi->for_ss) {
 				lws_ss_handle_t *h = (lws_ss_handle_t *)lws_get_opaque_user_data(wsi);
 
+				if (!h)
+					return 1;
 				h2n->swsi->for_ss = 1;
 				wsi->for_ss = 0;
 
@@ -1673,7 +1683,12 @@ lws_h2_parse_end_of_frame(struct lws *wsi)
 
 			if (!simp) /* coverity */
 				return 1;
-			h2n->swsi->http.rx_content_length = (unsigned long long)atoll(simp);
+			{
+				long long cl_val = atoll(simp);
+				if (cl_val < 0)
+					return 1;
+				h2n->swsi->http.rx_content_length = (unsigned long long)cl_val;
+			}
 			h2n->swsi->http.rx_content_remain =
 					h2n->swsi->http.rx_content_length;
 			h2n->swsi->http.content_length_given = 1;
@@ -1974,7 +1989,7 @@ lws_h2_parse_end_of_frame(struct lws *wsi)
 		break;
 
 	case LWS_H2_FRAME_TYPE_GOAWAY:
-		lwsl_notice("GOAWAY: last sid %u, error 0x%08X, string '%s'\n",
+		lwsl_wsi_notice(wsi, "RX GOAWAY: last sid %u, error 0x%08X, string '%s'\n",
 			  (unsigned int)h2n->goaway_last_sid,
 			  (unsigned int)h2n->goaway_err, h2n->goaway_str);
 
@@ -2179,9 +2194,8 @@ lws_h2_parser(struct lws *wsi, unsigned char *in, lws_filepos_t _inlen,
 				 */
 				if (!wsi->immortal_substream_count)
 					lws_set_timeout(wsi,
-					PENDING_TIMEOUT_HTTP_KEEPALIVE_IDLE,
-						wsi->a.vhost->keepalive_timeout ?
-					    wsi->a.vhost->keepalive_timeout : 31);
+						PENDING_TIMEOUT_HTTP_KEEPALIVE_IDLE,
+						lws_wsi_keepalive_timeout_eff(wsi));
 
 				if (!h2n->swsi)
 					break;
@@ -2329,12 +2343,14 @@ lws_h2_parser(struct lws *wsi, unsigned char *in, lws_filepos_t _inlen,
 						(unsigned int)h2n->count,
 						(unsigned int)h2n->length);
 
-				in += (unsigned int)n - 1;
-				h2n->inside += (unsigned int)n;
-				h2n->count += (unsigned int)n - 1;
+				if (n) {
+					in += (unsigned int)n - 1;
+					h2n->inside += (unsigned int)n;
+					h2n->count += (unsigned int)n - 1;
 
-				h2n->swsi->txc.peer_tx_cr_est -= n;
-				wsi->txc.peer_tx_cr_est -= n;
+					h2n->swsi->txc.peer_tx_cr_est -= n;
+					wsi->txc.peer_tx_cr_est -= n;
+				}
 
 do_windows:
 
@@ -2592,6 +2608,8 @@ lws_h2_client_handshake(struct lws *wsi)
 		n--;
 	}
 
+	// lwsl_hexdump_notice(path, (size_t)n);
+
 	if (n && lws_add_http_header_by_token(wsi,
 				WSI_TOKEN_HTTP_COLON_PATH,
 				(unsigned char *)path, n, &p, end))
@@ -2790,6 +2808,19 @@ lws_h2_ws_handshake(struct lws *wsi)
                return -1;
 #endif
 
+	{
+		struct lws_process_html_args args;
+
+		args.p = (char *)p;
+		args.max_len = lws_ptr_diff(end, p);
+		if (user_callback_handle_rxflow(wsi->a.protocol->callback, wsi,
+						LWS_CALLBACK_ADD_HEADERS,
+						wsi->user_space, &args, 0))
+			return -1;
+
+		p = (uint8_t *)args.p;
+	}
+
 	if (lws_finalize_http_header(wsi, &p, end))
 		return -1;
 
@@ -2879,6 +2910,9 @@ lws_read_h2(struct lws *wsi, unsigned char *buf, lws_filepos_t len)
 		 */
 
 		m = lws_h2_parser(wsi, buf, len, &body_chunk_len);
+
+               body_chunk_len &= 0xffffffff; /* attempt workaround for finding len=7167 --> len = 0xffffffff00001bff on lws.org */
+
 		if (m && m != 2) {
 			lwsl_debug("%s: http2_parser bail: %d\n", __func__, m);
 			lws_close_free_wsi(wsi, LWS_CLOSE_STATUS_NOSTATUS,

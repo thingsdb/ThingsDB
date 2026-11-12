@@ -62,6 +62,7 @@ int
 lws_handle_POLLOUT_event(struct lws *wsi, struct lws_pollfd *pollfd)
 {
 	volatile struct lws *vwsi = (volatile struct lws *)wsi;
+	lws_handling_result_t hr;
 	int n;
 
 	if (wsi->socket_is_permanently_unusable)
@@ -145,9 +146,9 @@ lws_handle_POLLOUT_event(struct lws *wsi, struct lws_pollfd *pollfd)
 	if (!lws_rops_fidx(wsi->role_ops, LWS_ROPS_handle_POLLOUT))
 		goto bail_ok;
 
-	n = lws_rops_func_fidx(wsi->role_ops, LWS_ROPS_handle_POLLOUT).
+	hr = lws_rops_func_fidx(wsi->role_ops, LWS_ROPS_handle_POLLOUT).
 							handle_POLLOUT(wsi);
-	switch (n) {
+	switch (hr) {
 	case LWS_HP_RET_BAIL_OK:
 		goto bail_ok;
 	case LWS_HP_RET_BAIL_DIE:
@@ -194,7 +195,7 @@ lws_handle_POLLOUT_event(struct lws *wsi, struct lws_pollfd *pollfd)
 	     lwsi_state(wsi) != LRS_ISSUE_HTTP_BODY)
 		goto bail_ok;
 
-	if (n == LWS_HP_RET_DROP_POLLOUT)
+	if (hr == LWS_HP_RET_DROP_POLLOUT)
 		goto bail_ok;
 
 
@@ -767,7 +768,11 @@ lws_service_fd_tsi(struct lws_context *context, struct lws_pollfd *pollfd,
 					       handle_POLLIN(pt, wsi, pollfd)) {
 	case LWS_HPI_RET_WSI_ALREADY_DIED:
 		pt->inside_lws_service = 0;
+#if defined (_WIN32)
+		break;
+#else
 		return 1;
+#endif
 	case LWS_HPI_RET_HANDLED:
 		break;
 	case LWS_HPI_RET_PLEASE_CLOSE_ME:

@@ -139,6 +139,7 @@ lws_ev_sigint_cb(struct ev_loop *loop, struct ev_signal *watcher, int revents)
 static int
 elops_listen_init_ev(struct lws_dll2 *d, void *user)
 {
+#if defined(LWS_WITH_SERVER)
 	struct lws *wsi = lws_container_of(d, struct lws, listen_list);
 	struct lws_context *context = (struct lws_context *)user;
 	struct lws_context_per_thread *pt = &context->pt[(int)wsi->tsi];
@@ -153,6 +154,7 @@ elops_listen_init_ev(struct lws_dll2 *d, void *user)
 	ev_io_init(&vh_to_priv_ev(vh)->w_accept.watcher,
 		   lws_accept_cb, wsi->desc.sockfd, EV_READ);
 	ev_io_start(ptpr->io_loop, &vh_to_priv_ev(vh)->w_accept.watcher);
+#endif
 
 	return 0;
 }
@@ -243,6 +245,7 @@ elops_init_pt_ev(struct lws_context *context, void *_loop, int tsi)
 static int
 elops_listen_destroy_ev(struct lws_dll2 *d, void *user)
 {
+#if defined(LWS_WITH_SERVER)
 	struct lws *wsi = lws_container_of(d, struct lws, listen_list);
 	struct lws_context *context = (struct lws_context *)user;
 	struct lws_context_per_thread *pt = &context->pt[(int)wsi->tsi];
@@ -250,7 +253,7 @@ elops_listen_destroy_ev(struct lws_dll2 *d, void *user)
 	struct lws_vhost *vh = wsi->a.vhost;
 
 	ev_io_stop(ptpr->io_loop, &vh_to_priv_ev(vh)->w_accept.watcher);
-
+#endif
 	return 0;
 }
 
@@ -342,7 +345,7 @@ static void
 elops_run_pt_ev(struct lws_context *context, int tsi)
 {
 	if (pt_to_priv_ev(&context->pt[tsi])->io_loop)
-		ev_run(pt_to_priv_ev(&context->pt[tsi])->io_loop, 0);
+		ev_run(pt_to_priv_ev(&context->pt[tsi])->io_loop, EVRUN_ONCE);
 }
 
 static int
@@ -368,7 +371,7 @@ elops_destroy_context2_ev(struct lws_context *context)
 			continue;
 		}
 		while (budget-- &&
-		       (m = ev_run(ptpr->io_loop, 0)))
+		       (m = ev_run(ptpr->io_loop, EVRUN_NOWAIT)))
 			;
 
 		ev_loop_destroy(ptpr->io_loop);
@@ -440,6 +443,7 @@ static const struct lws_event_loop_ops event_loop_ops_ev = {
 	/* destroy_pt */		elops_destroy_pt_ev,
 	/* destroy wsi */		elops_destroy_wsi_ev,
 	/* foreign_thread */		NULL,
+	/* fake_POLLIN */		NULL,
 
 	/* flags */			0,
 

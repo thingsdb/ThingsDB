@@ -1,7 +1,7 @@
 /*
  * libwebsockets - small server side websockets and web server implementation
  *
- * Copyright (C) 2010 - 2019 Andy Green <andy@warmcat.com>
+ * Copyright (C) 2010 - 2026 Andy Green <andy@warmcat.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -26,6 +26,12 @@
 #include "private-lib-core.h"
 #include "private-lib-tls-openssl.h"
 
+#if OPENSSL_VERSION_NUMBER >= 0x40000000L
+#define CAST_X509_EXTENSION(x)	(x)
+#else
+#define CAST_X509_EXTENSION(x)	((X509_EXTENSION *)(x))
+#endif
+
 #if !defined(LWS_PLAT_OPTEE)
 static int
 dec(char c)
@@ -39,7 +45,7 @@ lws_tls_openssl_asn1time_to_unix(ASN1_TIME *as)
 {
 #if !defined(LWS_PLAT_OPTEE)
 
-	const char *p = (const char *)as->data;
+	const char *p = (const char *)ASN1_STRING_get0_data(as);
 	struct tm t;
 
 	/* [YY]YYMMDDHHMMSSZ */
@@ -47,11 +53,13 @@ lws_tls_openssl_asn1time_to_unix(ASN1_TIME *as)
 	memset(&t, 0, sizeof(t));
 
 	if (strlen(p) == 13) {
-		t.tm_year = (dec(p[0]) * 10) + dec(p[1]) + 100;
+		t.tm_year = (dec(p[0]) * 10) + dec(p[1]);
+		if (t.tm_year < 50) /* RFC5280: 13 char dates will break after 2049 */
+			t.tm_year += 100; /* struct tm year is -1900, this gives 2000..2049 */
 		p += 2;
 	} else {
-		t.tm_year = (dec(p[0]) * 1000) + (dec(p[1]) * 100) +
-			    (dec(p[2]) * 10) + dec(p[3]);
+		t.tm_year = ((dec(p[0]) * 1000) + (dec(p[1]) * 100) +
+			    (dec(p[2]) * 10) + dec(p[3])) - 1900; /* struct tm year is -1900 */
 		p += 4;
 	}
 	t.tm_mon = (dec(p[0]) * 10) + dec(p[1]) - 1;
@@ -82,12 +90,13 @@ lws_tls_openssl_cert_info(X509 *x509, enum lws_tls_cert_info type,
 #ifndef USE_WOLFSSL
 	const unsigned char *dp;
 	ASN1_OCTET_STRING *val;
+	const ASN1_OCTET_STRING *val2;
 	AUTHORITY_KEYID *akid;
-	X509_EXTENSION *ext;
+	const X509_EXTENSION *ext;
 	int tag, xclass, r = 1;
 	long xlen, loc;
 #endif
-	X509_NAME *xn;
+	const X509_NAME *xn;
 #if !defined(LWS_PLAT_OPTEE)
 	char *p, *p1;
 	size_t rl;
@@ -217,15 +226,15 @@ lws_tls_openssl_cert_info(X509 *x509, enum lws_tls_cert_info type,
 		if (!ext)
 			return 1;
 #ifndef USE_WOLFSSL
-		akid = (AUTHORITY_KEYID *)X509V3_EXT_d2i(ext);
+		akid = (AUTHORITY_KEYID *)X509V3_EXT_d2i(CAST_X509_EXTENSION(ext));
 #else
 		akid = (AUTHORITY_KEYID *)wolfSSL_X509V3_EXT_d2i(ext);
 #endif
 		if (!akid || !akid->keyid)
 			return 1;
 		val = akid->keyid;
-		dp = (const unsigned char *)val->data;
-		xlen = val->length;
+		dp = ASN1_STRING_get0_data(val);
+		xlen = ASN1_STRING_length(val);
 
 		buf->ns.len = (int)xlen;
 		if (len < (size_t)buf->ns.len)
@@ -246,7 +255,7 @@ lws_tls_openssl_cert_info(X509 *x509, enum lws_tls_cert_info type,
 			return 1;
 
 #ifndef USE_WOLFSSL
-		akid = (AUTHORITY_KEYID *)X509V3_EXT_d2i(ext);
+		akid = (AUTHORITY_KEYID *)X509V3_EXT_d2i(CAST_X509_EXTENSION(ext));
 #else
 		akid = (AUTHORITY_KEYID *)wolfSSL_X509V3_EXT_d2i(ext);
 #endif
@@ -255,9 +264,13 @@ lws_tls_openssl_cert_info(X509 *x509, enum lws_tls_cert_info type,
 
 #if defined(LWS_HAVE_OPENSSL_STACK)
 		{
-			const X509V3_EXT_METHOD* method = X509V3_EXT_get(ext);
+			const X509V3_EXT_METHOD* method = X509V3_EXT_get(CAST_X509_EXTENSION(ext));
 			STACK_OF(CONF_VALUE) *cv;
+		#if defined(LWS_WITH_BORINGSSL) || defined(LWS_WITH_AWSLC)
+			size_t j;
+		#else
 			int j;
+		#endif
 
 			cv = i2v_GENERAL_NAMES((X509V3_EXT_METHOD*)method, akid->issuer, NULL);
 			if (!cv)
@@ -297,7 +310,7 @@ bail_ak:
 		ext = X509_get_ext(x509, (int)loc);
 		if (!ext)
 			return 1;
-		akid = (AUTHORITY_KEYID *)X509V3_EXT_d2i(ext);
+		akid = (AUTHORITY_KEYID *)X509V3_EXT_d2i(CAST_X509_EXTENSION(ext));
 		if (!akid || !akid->serial)
 			return 1;
 
@@ -324,17 +337,17 @@ bail_ak:
 		if (!ext)
 			return 1;
 
-		val = X509_EXTENSION_get_data(ext);
-		if (!val)
+		val2 = X509_EXTENSION_get_data(CAST_X509_EXTENSION(ext));
+		if (!val2)
 			return 1;
 
 #if defined(USE_WOLFSSL)
 		return 1;
 #else
-		dp = (const unsigned char *)val->data;
+		dp = ASN1_STRING_get0_data(val2);
 
 		if (ASN1_get_object(&dp, &xlen,
-				    &tag, &xclass, val->length) & 0x80)
+				    &tag, &xclass, ASN1_STRING_length(val2)) & 0x80)
 			return -1;
 
 		if (tag != V_ASN1_OCTET_STRING) {
@@ -450,7 +463,7 @@ lws_x509_verify(struct lws_x509_cert *x509, struct lws_x509_cert *trusted,
 	int ret;
 
 	if (common_name) {
-		X509_NAME *xn = X509_get_subject_name(x509->cert);
+		const X509_NAME *xn = X509_get_subject_name(x509->cert);
 		if (!xn)
 			return -1;
 		X509_NAME_oneline(xn, c, (int)sizeof(c) - 2);
@@ -775,10 +788,10 @@ lws_x509_jwk_privkey_pem(struct lws_context *cx, struct lws_jwk *jwk,
 		/* then check that n & e match what we got from the cert */
 
 		dummy[2] = BN_bin2bn(jwk->e[LWS_GENCRYPTO_RSA_KEYEL_N].buf,
-				     (int32_t)jwk->e[LWS_GENCRYPTO_RSA_KEYEL_N].len,
+				     SSL_SIZE_CAST(jwk->e[LWS_GENCRYPTO_RSA_KEYEL_N].len),
 				     NULL);
 		dummy[3] = BN_bin2bn(jwk->e[LWS_GENCRYPTO_RSA_KEYEL_E].buf,
-				     (int32_t)jwk->e[LWS_GENCRYPTO_RSA_KEYEL_E].len,
+				     SSL_SIZE_CAST(jwk->e[LWS_GENCRYPTO_RSA_KEYEL_E].len),
 				     NULL);
 
 		m = BN_cmp(dummy[2], dummy[0]) | BN_cmp(dummy[3], dummy[1]);

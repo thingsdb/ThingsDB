@@ -212,7 +212,21 @@ done_list:
 	for (m = 0; m < limit; m++) {
 
 		if (a->info && a->info->vh_listen_sockfd)
-			sockfd = dup((int)a->info->vh_listen_sockfd);
+		{
+#if defined(_WIN32)
+			if (!DuplicateHandle(GetCurrentProcess(),
+					(HANDLE)a->info->vh_listen_sockfd,
+					GetCurrentProcess(), (HANDLE*)&sockfd, 0,
+					FALSE, DUPLICATE_SAME_ACCESS))
+				sockfd = LWS_SOCK_INVALID;
+#else
+#if defined(LWS_PLAT_FREERTOS)
+			sockfd = a->info->vh_listen_sockfd;
+#else
+			sockfd = dup(a->info->vh_listen_sockfd);
+#endif
+#endif
+		}
 		else
 			sockfd = lws_fi(&a->vhost->fic, "listenskt") ?
 					LWS_SOCK_INVALID :
@@ -281,9 +295,9 @@ done_list:
 		if (n || cx->count_threads > 1) /* ... also implied by threads > 1 */
 			if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT,
 					(const void *)&opt, sizeof(opt)) < 0) {
-				lwsl_err("reuseport failed\n");
-				compatible_close(sockfd);
-				return -1;
+				lwsl_info("reuseport failed\n");
+//				compatible_close(sockfd);
+//				return -1;
 			}
 #endif
 #endif
@@ -330,12 +344,12 @@ done_list:
 		wsi->af = (uint8_t)a->af;
 
 #ifdef LWS_WITH_UNIX_SOCK
-		if (!LWS_UNIX_SOCK_ENABLED(a->vhost))
+		if (LWS_UNIX_SOCK_ENABLED(a->vhost)) {
+			wsi->unix_skt = 1;
+		} else
 #endif
 		{
-			wsi->unix_skt = 1;
 			a->vhost->listen_port = is;
-
 			lwsl_debug("%s: lws_socket_bind says %d\n", __func__, is);
 		}
 
@@ -356,6 +370,8 @@ done_list:
 			goto bail;
 		}
 
+		lws_dll2_remove(&wsi->pre_natal);
+
 		lws_dll2_add_tail(&wsi->listen_list, &a->vhost->listen_wsi);
 		lws_pt_unlock(pt);
 
@@ -365,9 +381,11 @@ done_list:
 			if (setsockopt(wsi->desc.sockfd, IPPROTO_TCP,
 				       TCP_FASTOPEN,
 				       (const char*)&optval, sizeof(optval)) < 0) {
+#if (_LWS_ENABLED_LOGS & LLL_WARN)
 				int error = LWS_ERRNO;
 				lwsl_warn("%s: TCP_NODELAY failed with error %d\n",
 						__func__, error);
+#endif
 			}
 		}
 #else
@@ -447,6 +465,11 @@ _lws_vhost_init_server(const struct lws_context_creation_info *info,
 	if (vhost->listen_port == CONTEXT_PORT_NO_LISTEN ||
 	    vhost->listen_port == CONTEXT_PORT_NO_LISTEN_SERVER)
 		return 0;
+
+	if (info && info->vh_listen_sockfd) {
+		a.af = AF_UNSPEC;
+		goto single;
+	}
 
 	/*
 	 * Let's figure out what AF(s) we want this vhost to listen on.
@@ -610,6 +633,7 @@ static const struct lws_mimetype {
 	{ ".xml", "application/xml" },
 	{ ".json", "application/json" },
 	{ ".mjs", "text/javascript" },
+	{ ".wasm", "application/wasm" },
 };
 
 const char *
@@ -1176,6 +1200,22 @@ lws_http_get_uri_and_method(struct lws *wsi, char **puri_ptr, int *puri_len)
 
 #if defined(LWS_WITH_HTTP_BASIC_AUTH)
 
+static int
+lws_authorization_rewrite(struct lws *wsi, const char *name, size_t len)
+{
+	char *p = lws_hdr_simple_ptr(wsi, WSI_TOKEN_HTTP_AUTHORIZATION);
+	int fi = wsi->http.ah->frag_index[WSI_TOKEN_HTTP_AUTHORIZATION];
+
+	if (!p)
+		return 1;
+
+	wsi->http.ah->frags[fi].len = (uint16_t)len;
+	strncpy(p, name, (unsigned int)len);
+	p[len] = '\0';
+
+	return 0;
+}
+
 enum lws_check_basic_auth_results
 lws_check_basic_auth(struct lws *wsi, const char *basic_auth_login_file,
 		     unsigned int auth_mode)
@@ -1183,6 +1223,7 @@ lws_check_basic_auth(struct lws *wsi, const char *basic_auth_login_file,
 #if defined(LWS_WITH_FILE_OPS)
 	char b64[160], plain[(sizeof(b64) * 3) / 4], *pcolon;
 	int m, ml, fi, bar;
+	size_t le;
 
 	if (!basic_auth_login_file && auth_mode == LWSAUTHM_DEFAULT)
 		return LCBA_CONTINUE;
@@ -1252,13 +1293,12 @@ lws_check_basic_auth(struct lws *wsi, const char *basic_auth_login_file,
 	 * authorized username
 	 */
 
-	*pcolon = '\0';
-	wsi->http.ah->frags[fi].len = (uint16_t)lws_ptr_diff_size_t(pcolon, &plain[0]);
-	pcolon = lws_hdr_simple_ptr(wsi, WSI_TOKEN_HTTP_AUTHORIZATION);
-	strncpy(pcolon, plain, (unsigned int)(ml - 1));
-	pcolon[ml - 1] = '\0';
-	lwsl_info("%s: basic auth accepted for %s\n", __func__,
-		 lws_hdr_simple_ptr(wsi, WSI_TOKEN_HTTP_AUTHORIZATION));
+	le = lws_ptr_diff_size_t(pcolon, plain);
+	plain[le] = '\0';
+	lws_authorization_rewrite(wsi, plain, le);
+
+	lwsl_wsi_info(wsi, "%s: basic auth accepted for '%s'\n", __func__,       
+			lws_hdr_simple_ptr(wsi, WSI_TOKEN_HTTP_AUTHORIZATION));
 
 	return LCBA_CONTINUE;
 #else
@@ -1395,7 +1435,7 @@ lws_http_proxy_start(struct lws *wsi, const struct lws_http_mount *hit,
 	}
 
 	i.path = rpath;
-	lwsl_notice("%s: proxied path '%s'\n", __func__, i.path);
+	lwsl_wsi_info(wsi, "proxied path '%s'", i.path);
 
 	/* incoming may be h1 or h2... if he sends h1 HOST, use that
 	 * directly, otherwise we must convert h2 :authority to h1
@@ -1515,6 +1555,8 @@ lws_http_proxy_start(struct lws *wsi, const struct lws_http_mount *hit,
 
 	lwsl_info("%s: setting proxy clientside on %s (parent %s)\n",
 		  __func__, lws_wsi_tag(cwsi), lws_wsi_tag(lws_get_parent(cwsi)));
+
+	cwsi->http.mount_specific_keepalive_timeout_secs = (unsigned int)lws_wsi_keepalive_timeout_eff(wsi);
 
 	cwsi->http.proxy_clientside = 1;
 	if (ws) {
@@ -1691,8 +1733,15 @@ lws_http_action(struct lws *wsi)
 	    lws_hdr_copy(wsi, content_length_str,
 			 sizeof(content_length_str) - 1,
 			 WSI_TOKEN_HTTP_CONTENT_LENGTH) > 0) {
+		long long cl_val = atoll(content_length_str);
+		if (cl_val < 0) {
+			lwsl_warn("%s: rejected negative Content-Length: %s\n",
+				  __func__, content_length_str);
+			lws_return_http_status(wsi, HTTP_STATUS_BAD_REQUEST, NULL);
+			return 1;
+		}
 		wsi->http.rx_content_remain = wsi->http.rx_content_length =
-				(lws_filepos_t)atoll(content_length_str);
+				(lws_filepos_t)cl_val;
 		if (!wsi->http.rx_content_length) {
 			wsi->http.content_length_explicitly_zero = 1;
 			lwsl_debug("%s: explicit 0 content-length\n", __func__);
@@ -1811,6 +1860,9 @@ lws_http_action(struct lws *wsi)
 	/* can we serve it from the mount list? */
 
 	wsi->mount_hit = 0;
+	wsi->http.mount_specific_headers = NULL;
+	wsi->http.mount_specific_keepalive_timeout_secs = 0;
+
 	hit = lws_find_mount(wsi, uri_ptr, uri_len);
 	if (!hit) {
 		/* deferred cleanup and reset to protocols[0] */
@@ -1830,6 +1882,10 @@ lws_http_action(struct lws *wsi)
 	}
 
 	wsi->mount_hit = 1;
+	wsi->http.mount_specific_headers = hit->headers;
+	wsi->http.mount_specific_keepalive_timeout_secs = hit->keepalive_timeout;
+
+	// lwsl_wsi_notice(wsi, "keepalive_timeout %d ******************\n", hit->keepalive_timeout);
 
 #if defined(LWS_WITH_FILE_OPS)
 	s = uri_ptr + hit->mountpoint_len;
@@ -1938,6 +1994,7 @@ lws_http_action(struct lws *wsi)
 			NULL, /* replace with cgi path */
 			NULL
 		};
+		struct lws_cgi_info cgiinfo;
 
 		lwsl_debug("%s: cgi\n", __func__);
 		cmd[0] = hit->origin;
@@ -1946,8 +2003,16 @@ lws_http_action(struct lws *wsi)
 		if (hit->cgi_timeout)
 			n = (unsigned int)hit->cgi_timeout;
 
-		n = (unsigned int)lws_cgi(wsi, cmd, hit->mountpoint_len, (int)n,
-			    hit->cgienv);
+		memset (&cgiinfo, 0, sizeof (cgiinfo));
+		cgiinfo.wsi = wsi;
+		cgiinfo.exec_array = cmd;
+		cgiinfo.script_uri_path_len = hit->mountpoint_len;
+		cgiinfo.timeout_secs = (int)n;
+		cgiinfo.mp_cgienv = hit->cgienv;
+		cgiinfo.chroot_path = hit->cgi_chroot_path;
+		cgiinfo.wd = hit->cgi_wd;
+
+		n = (unsigned int)lws_cgi_via_info(&cgiinfo);
 		if (n) {
 			lwsl_err("%s: cgi failed\n", __func__);
 			return -1;
@@ -1986,7 +2051,6 @@ lws_http_action(struct lws *wsi)
 			const struct lws_protocols *pp =
 					lws_vhost_name_to_protocol(
 						wsi->a.vhost, hit->protocol);
-
 			/* coverity */
 			if (!pp)
 				return 1;
@@ -2055,7 +2119,8 @@ deal_body:
 		return 0;
 	}
 
-	if (wsi->http.rx_content_length <= 0)
+	if (wsi->http.rx_content_length == 0 ||
+	    wsi->http.rx_content_length == LWS_ILLEGAL_HTTP_CONTENT_LEN)
 		return 0;
 
 	if (lwsi_state(wsi) != LRS_DISCARD_BODY) {
@@ -2321,7 +2386,8 @@ raw_transition:
 		if (wsi->a.context->reject_service_keywords) {
 			const struct lws_protocol_vhost_options *rej =
 					wsi->a.context->reject_service_keywords;
-			char ua[384], *msg = NULL;
+			char ua[384];
+			const char *msg = NULL;
 
 			if (lws_hdr_copy(wsi, ua, sizeof(ua) - 1,
 					 WSI_TOKEN_HTTP_USER_AGENT) > 0) {
@@ -2409,49 +2475,49 @@ raw_transition:
 						HTTP_STATUS_FORBIDDEN, NULL) ||
 				    lws_http_transaction_completed(wsi))
 					goto bail_nuke_ah;
-			}
+			} else {
+				n = user_callback_handle_rxflow(wsi->a.protocol->callback,
+						wsi, LWS_CALLBACK_HTTP_CONFIRM_UPGRADE,
+						wsi->user_space, (char *)up, 0);
 
-			n = user_callback_handle_rxflow(wsi->a.protocol->callback,
-					wsi, LWS_CALLBACK_HTTP_CONFIRM_UPGRADE,
-					wsi->user_space, (char *)up, 0);
+				/* just hang up? */
 
-			/* just hang up? */
-
-			if (n < 0)
-				goto bail_nuke_ah;
-
-			/* callback returned headers already, do t_c? */
-
-			if (n > 0) {
-				if (lws_http_transaction_completed(wsi))
+				if (n < 0)
 					goto bail_nuke_ah;
 
-				/* continue on */
+				/* callback returned headers already, do t_c? */
 
-				return 0;
-			}
+				if (n > 0) {
+				    if (lws_http_transaction_completed(wsi))
+					goto bail_nuke_ah;
 
-			/* callback said 0, it was allowed */
+				    /* continue on */
 
-			if (wsi->a.vhost->options &
-			    LWS_SERVER_OPTION_VHOST_UPG_STRICT_HOST_CHECK &&
-			    lws_confirm_host_header(wsi))
-				goto bail_nuke_ah;
+				    return 0;
+				}
 
-			if (!strcasecmp(up, "websocket")) {
+				/* callback said 0, it was allowed */
+
+				if (wsi->a.vhost->options &
+					LWS_SERVER_OPTION_VHOST_UPG_STRICT_HOST_CHECK &&
+					lws_confirm_host_header(wsi))
+				    goto bail_nuke_ah;
+
+				if (!strcasecmp(up, "websocket")) {
 #if defined(LWS_ROLE_WS)
-				lws_metrics_tag_wsi_add(wsi, "upg", "ws");
-				lwsl_info("Upgrade to ws\n");
-				goto upgrade_ws;
+					lws_metrics_tag_wsi_add(wsi, "upg", "ws");
+					lwsl_info("Upgrade to ws\n");
+					goto upgrade_ws;
 #endif
-			}
+				}
 #if defined(LWS_WITH_HTTP2)
-			if (!strcasecmp(up, "h2c")) {
-				lws_metrics_tag_wsi_add(wsi, "upg", "h2c");
-				lwsl_info("Upgrade to h2c\n");
-				goto upgrade_h2c;
-			}
+				if (!strcasecmp(up, "h2c")) {
+				    lws_metrics_tag_wsi_add(wsi, "upg", "h2c");
+				    lwsl_info("Upgrade to h2c\n");
+				    goto upgrade_h2c;
+				}
 #endif
+			}
 		}
 
 		/* no upgrade ack... he remained as HTTP */
@@ -2552,8 +2618,6 @@ bail_nuke_ah:
 int LWS_WARN_UNUSED_RESULT
 lws_http_transaction_completed(struct lws *wsi)
 {
-	int n;
-
 	if (wsi->http.cgi_transaction_complete)
 		return 0;
 
@@ -2685,10 +2749,17 @@ lws_http_transaction_completed(struct lws *wsi)
 		lws_vfs_file_close(&wsi->http.fop_fd);
 #endif
 
-	n = NO_PENDING_TIMEOUT;
-	if (wsi->a.vhost->keepalive_timeout)
-		n = PENDING_TIMEOUT_HTTP_KEEPALIVE_IDLE;
-	lws_set_timeout(wsi, (enum pending_timeout)n, wsi->a.vhost->keepalive_timeout);
+	{
+		enum pending_timeout ept = NO_PENDING_TIMEOUT;
+
+		if (wsi->a.vhost->keepalive_timeout
+#if defined(LWS_WITH_SERVER)
+			|| wsi->http.mount_specific_keepalive_timeout_secs
+#endif
+   	   )
+		ept = PENDING_TIMEOUT_HTTP_KEEPALIVE_IDLE;
+		lws_set_timeout(wsi, ept, lws_wsi_keepalive_timeout_eff(wsi));
+	}
 
 	/*
 	 * We already know we are on http1.1 / keepalive and the next thing

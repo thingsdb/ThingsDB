@@ -221,6 +221,9 @@ __lws_free_wsi(struct lws *wsi)
 
 	lws_context_assert_lock_held(wsi->a.context);
 
+	/* just in case */
+	lws_dll2_remove(&wsi->pre_natal);
+
 #if defined(LWS_WITH_SECURE_STREAMS)
 	if (wsi->for_ss) {
 
@@ -377,8 +380,18 @@ __lws_close_free_wsi(struct lws *wsi, enum lws_close_status reason,
 	context = wsi->a.context;
 	pt = &context->pt[(int)wsi->tsi];
 
-	if (pt->pipe_wsi == wsi)
+	if (pt->pipe_wsi == wsi) {
+		if (lws_socket_is_valid(wsi->desc.sockfd)) {
+			__remove_wsi_socket_from_fds(wsi);
+			if (lws_socket_is_valid(wsi->desc.sockfd))
+				delete_from_fd(wsi->a.context, wsi->desc.sockfd);
+#if !defined(LWS_PLAT_FREERTOS) && !defined(WIN32) && !defined(LWS_PLAT_OPTEE)
+			delete_from_fdwsi(wsi->a.context, wsi);
+#endif
+		}
+		lws_plat_pipe_close(pt->pipe_wsi);
 		pt->pipe_wsi = NULL;
+	}
 
 #if defined(LWS_WITH_SYS_METRICS) && \
     (defined(LWS_WITH_CLIENT) || defined(LWS_WITH_SERVER))
@@ -650,7 +663,7 @@ just_kill_connection:
 		wsi->socket_is_permanently_unusable = 1;
 
 		lws_inform_client_conn_fail(wsi,
-			(void *)_reason, sizeof(_reason));
+			(void *)_reason, sizeof(_reason) - 1);
 	}
 #endif
 
@@ -811,7 +824,7 @@ just_kill_connection:
 		if (!wsi->a.protocol && wsi->a.vhost && wsi->a.vhost->protocols)
 			pro = &wsi->a.vhost->protocols[0];
 
-		if (pro && pro->callback && wsi->role_ops)
+		if (pro && pro->callback)
 			pro->callback(wsi,
 				wsi->role_ops->close_cb[lwsi_role_server(wsi)],
 				wsi->user_space, NULL, 0);
@@ -905,13 +918,23 @@ __lws_close_free_wsi_final(struct lws *wsi)
 	if (!wsi->shadow &&
 	    lws_socket_is_valid(wsi->desc.sockfd) && !lws_ssl_close(wsi)) {
 		lwsl_wsi_debug(wsi, "fd %d", wsi->desc.sockfd);
-		n = compatible_close(wsi->desc.sockfd);
-		if (n)
-			lwsl_wsi_debug(wsi, "closing: close ret %d", LWS_ERRNO);
 
 		__remove_wsi_socket_from_fds(wsi);
 		if (lws_socket_is_valid(wsi->desc.sockfd))
 			delete_from_fd(wsi->a.context, wsi->desc.sockfd);
+
+		/*
+		 * if this is the pt pipe, skip the actual close,
+		 * go through the motions though so we will reach 0 open wsi
+		 * on the pt, and trigger the pt destroy to close the pipe fds
+		 */
+		if (!lws_plat_pipe_is_fd_assocated(wsi->a.context, wsi->tsi,
+						   wsi->desc.sockfd)) {
+			n = compatible_close(wsi->desc.sockfd);
+			if (n)
+				lwsl_wsi_debug(wsi, "closing: close ret %d",
+					       LWS_ERRNO);
+		}
 
 #if !defined(LWS_PLAT_FREERTOS) && !defined(WIN32) && !defined(LWS_PLAT_OPTEE)
 		delete_from_fdwsi(wsi->a.context, wsi);
@@ -929,7 +952,11 @@ __lws_close_free_wsi_final(struct lws *wsi)
 		if (pt->pipe_wsi == wsi)
 			pt->pipe_wsi = NULL;
 		if (pt->dummy_pipe_fds[0] == wsi->desc.sockfd)
+               {
+#if !defined(LWS_PLAT_FREERTOS)
 			pt->dummy_pipe_fds[0] = LWS_SOCK_INVALID;
+#endif
+               }
 	}
 
 	wsi->desc.sockfd = LWS_SOCK_INVALID;

@@ -1029,17 +1029,27 @@ _lws_mqtt_rx_parser(struct lws *wsi, lws_mqtt_parser_t *par,
 			switch (par->conn_rc) {
 			case 0:
 				goto cmd_completion;
+			/* 3.1.1 errors [MQTT-3.2.3] */
 			case 1:
-			case 2:
-			case 3:
-			case 4:
-			case 5:
-				par->reason = LMQCP_REASON_UNSUPPORTED_PROTOCOL +
-						par->conn_rc - 1;
+				par->reason = LMQCP_REASON_UNSUPPORTED_PROTOCOL;
 				goto send_reason_and_close;
+			case 2:
+				par->reason = LMQCP_REASON_CLIENT_ID_INVALID;
+				goto send_reason_and_close;
+			case 3:
+				par->reason = LMQCP_REASON_SERVER_UNAVAILABLE;
+				goto send_reason_and_close;
+			case 4:
+				par->reason = LMQCP_REASON_BAD_CREDENTIALS;
+				goto send_reason_and_close;
+			case 5:
+				par->reason = LMQCP_REASON_NOT_AUTHORIZED;
+				goto send_reason_and_close;
+			/* 5.0 and all other errors [MQTT-3.2.2.2] */
 			default:
+				par->reason = (lws_mqtt_reason_t)par->conn_rc;
 				lwsl_notice("%s: bad connack retcode\n", __func__);
-				goto send_protocol_error_and_close;
+				goto send_reason_and_close;
 			}
 			break;
 
@@ -1745,7 +1755,7 @@ bail1:
 				 lws_mqtt_str_init(&par->s_temp, NULL, 0, 0);
 
 				/* property arg state enums are so encoded */
-				par->state = 0x100 | par->vbit.value;
+				par->state = 0x100 | par->prop_id;
 				break;
 			default:
 				lwsl_notice("%s: prop id bad vbi\n", __func__);
@@ -1858,6 +1868,10 @@ bail1:
 			lwsl_err("%s: Unimplemented packet state 0x%x\n",
 					__func__, par->state);
 			return -1;
+
+		default:
+			lwsl_notice("%s: unhandled state 0x%x\n", __func__, par->state);
+			goto send_protocol_error_and_close;
 		}
 	}
 
@@ -2327,7 +2341,7 @@ lws_mqtt_client_send_unsubcribe(struct lws *wsi,
 		for (n = 0; n < unsub->num_topics; n++) {
 			mysub = lws_mqtt_find_sub(nwsi->mqtt,
 						  unsub->topic[n].name);
-			assert(mysub);
+			//assert(mysub);
 
 			if (mysub && --mysub->ref_count == 0) {
 				lwsl_notice("%s: Need to send UNSUB\n", __func__);

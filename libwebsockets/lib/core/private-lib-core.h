@@ -1,7 +1,7 @@
 /*
  * libwebsockets - small server side websockets and web server implementation
  *
- * Copyright (C) 2010 - 2019 Andy Green <andy@warmcat.com>
+ * Copyright (C) 2010 - 2025 Andy Green <andy@warmcat.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -28,6 +28,9 @@
 #include "lws_config.h"
 #include "lws_config_private.h"
 
+#if !defined(LHP_URL_LEN)
+#define LHP_URL_LEN			240
+#endif
 
 #if defined(LWS_WITH_CGI) && defined(LWS_HAVE_VFORK) && \
     !defined(NO_GNU_SOURCE_THIS_TIME) && !defined(_GNU_SOURCE)
@@ -209,6 +212,7 @@ typedef struct lws_lifecycle {
 	lws_dll2_t			list; /* group list membership */
 	uint64_t			us_creation; /* creation timestamp */
 	lws_log_cx_t			*log_cx;
+	uint8_t				recycle_len;
 } lws_lifecycle_t;
 
 void
@@ -321,7 +325,9 @@ struct lws_ring {
 struct lws_protocols;
 struct lws;
 
+#if defined(LWS_WITH_SECURE_STREAMS)
 #include "private-lib-secure-streams.h"
+#endif
 
 #if defined(LWS_WITH_NETWORK) /* network */
 #include "private-lib-event-libs.h"
@@ -432,6 +438,15 @@ typedef struct lws_ss_sinks {
 } lws_ss_sinks_t;
 #endif
 
+typedef struct lws_buflist {
+	struct lws_buflist			*next;
+	size_t					len;
+	size_t					pos;
+	unsigned char				awaiting_eom;
+	unsigned char				src_channel;
+} lws_buflist_t;
+
+
 /*
  * the rest is managed per-context, that includes
  *
@@ -444,7 +459,7 @@ struct lws_context {
 	char canonical_hostname[96];
  #endif
 #if defined(LWS_HAVE_SSL_CTX_set_keylog_callback) && \
-	defined(LWS_WITH_TLS) && defined(LWS_WITH_CLIENT)
+	defined(LWS_WITH_TLS) && (!defined(LWS_WITHOUT_CLIENT) || !defined(LWS_WITHOUT_SERVER))
 	char					keylog_file[96];
 #endif
 
@@ -482,6 +497,9 @@ struct lws_context {
 	lws_lifecycle_group_t			lcg[LWSLCG_COUNT];
 
 	const struct lws_protocols		*protocols_copy;
+#if defined(LWS_ROLE_WS)
+        const struct lws_extension		*extensions;
+#endif
 
 #if defined(LWS_WITH_NETLINK)
 	lws_sorted_usec_list_t			sul_nl_coldplug;
@@ -635,6 +653,8 @@ struct lws_context {
 	lws_ss_handle_t			* ota_ss;	/* opaque to platform */
 #endif
 
+	const char			*wol_if;
+
 /*
  * <====== LWS_WITH_NETWORK end
  */
@@ -652,7 +672,19 @@ struct lws_context {
 	lws_txp_path_client_t			txp_cpath;
 
 	const void				*txp_ssproxy_info;
+#endif
 
+#if !defined(LWS_PLAT_FREERTOS) && !defined(LWS_PLAT_BAREMETAL)
+	int					argc;
+	const char				**argv;
+
+	int					stdin_argc;
+	const char				*stdin_argv[16];
+
+	struct lws_buflist			*stdin_buflist;
+	char					*stdin_linear;
+	size_t					stdin_linear_size;
+	unsigned int				stdin_flags;
 #endif
 
 #if defined(LWS_WITH_FILE_OPS)
@@ -839,12 +871,6 @@ int
 lws_system_do_attach(struct lws_context_per_thread *pt);
 #endif
 
-struct lws_buflist {
-	struct lws_buflist *next;
-	size_t len;
-	size_t pos;
-};
-
 char *
 lws_strdup(const char *s);
 
@@ -1026,7 +1052,7 @@ void lwsl_emit_stderr(int level, const char *line);
 
 
 
-#if LWS_MAX_SMP > 1
+#if defined(LWS_WITH_NETWORK) && LWS_MAX_SMP > 1
 #define lws_context_lock(c, reason) lws_mutex_refcount_lock(&c->mr, reason)
 #define lws_context_unlock(c) lws_mutex_refcount_unlock(&c->mr)
 #define lws_context_assert_lock_held(c) lws_mutex_refcount_assert_held(&c->mr)
@@ -1191,6 +1217,14 @@ sul_ping_cb(lws_sorted_usec_list_t *sul);
 void
 lws_klog_dump(const SSL *ssl, const char *line);
 #endif
+
+struct lws_plugin *
+lws_plugin_alloc(struct lws_plugin **pplugin);
+
+int
+lws_plugins_handle_builtin(struct lws_plugin **pplugin,
+			   each_plugin_cb_t each, void *each_user);
+
 
 #if !defined(PRIu64)
 #define PRIu64 "llu"

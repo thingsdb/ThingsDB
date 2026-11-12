@@ -79,6 +79,10 @@ typedef void (*lws_log_use_cx_t)(struct lws_log_cx *cx, int _new);
 
 typedef struct lws_log_cx {
 	union {
+/* Apparently Qt likes to leave 'emit' defined at the preprocessor */
+#if defined(emit)
+#undef emit
+#endif
 		lws_log_emit_t		emit; /* legacy emit function */
 		lws_log_emit_cx_t	emit_cx; /* LLLF_LOG_CONTEXT_AWARE */
 	} u;
@@ -335,11 +339,12 @@ _lws_log_cx(lws_log_cx_t *cx, lws_log_prepend_cx_t prep, void *obj,
 #define lwsl_user(...) do {} while(0)
 #endif
 
-#define lwsl_hexdump_err(...) lwsl_hexdump_level(LLL_ERR, __VA_ARGS__)
-#define lwsl_hexdump_warn(...) lwsl_hexdump_level(LLL_WARN, __VA_ARGS__)
-#define lwsl_hexdump_notice(...) lwsl_hexdump_level(LLL_NOTICE, __VA_ARGS__)
-#define lwsl_hexdump_info(...) lwsl_hexdump_level(LLL_INFO, __VA_ARGS__)
-#define lwsl_hexdump_debug(...) lwsl_hexdump_level(LLL_DEBUG, __VA_ARGS__)
+#define lwsl_hexdump_user(...)		lwsl_hexdump_level(LLL_USER,   __VA_ARGS__)
+#define lwsl_hexdump_err(...)		lwsl_hexdump_level(LLL_ERR,    __VA_ARGS__)
+#define lwsl_hexdump_warn(...)		lwsl_hexdump_level(LLL_WARN,   __VA_ARGS__)
+#define lwsl_hexdump_notice(...)	lwsl_hexdump_level(LLL_NOTICE, __VA_ARGS__)
+#define lwsl_hexdump_info(...)		lwsl_hexdump_level(LLL_INFO,   __VA_ARGS__)
+#define lwsl_hexdump_debug(...)		lwsl_hexdump_level(LLL_DEBUG,  __VA_ARGS__)
 
 /*
  * lws_context scope logs
@@ -587,6 +592,8 @@ _lws_log_cx(lws_log_cx_t *cx, lws_log_prepend_cx_t prep, void *obj,
 #define lwsl_hexdump_wsi_notice(_v, ...) lwsl_hexdump_wsi(_v, LLL_NOTICE, __VA_ARGS__)
 #define lwsl_hexdump_wsi_info(_v, ...)   lwsl_hexdump_wsi(_v, LLL_INFO, __VA_ARGS__)
 #define lwsl_hexdump_wsi_debug(_v, ...)  lwsl_hexdump_wsi(_v, LLL_DEBUG, __VA_ARGS__)
+#define lwsl_hexdump_wsi_user(_v, ...)   lwsl_hexdump_wsi(_v, LLL_USER, __VA_ARGS__)
+
 
 
 /*

@@ -622,7 +622,22 @@ static int wrap__as_row(
         case TI_COLUMN_FIELD:
         {
             ti_field_t * t_field = column->via.field;
-            if (ti_thing_is_object(thing))
+            if (map)
+            {
+                ti_mapping_t * mapping = VEC_get(map->mappings, t_field->idx);
+                assert(!mapping || mapping->t_field == t_field);
+                if (mapping
+                        ? wrap__field_val(
+                            t_field,
+                            &t_field->spec,
+                            VEC_get(thing->items.vec, mapping->f_field->idx),
+                            vp,
+                            ti_field_deep(t_field, deep),
+                            flags | ti_field_ret_flags(t_field))
+                        : msgpack_pack_nil(&vp->pk))
+                    goto fail;
+            }
+            else if (ti_thing_is_object(thing))
             {
                 ti_prop_t * prop = ti_thing_o_prop_weak_get(thing,
                                                             t_field->name);
@@ -637,21 +652,7 @@ static int wrap__as_row(
                         : msgpack_pack_nil(&vp->pk))
                     goto fail;
             }
-            else if (map)
-            {
-                ti_mapping_t * mapping = VEC_get(map->mappings, t_field->idx);
-                assert(!mapping || mapping->t_field == t_field);
-                if (mapping
-                        ? wrap__field_val(
-                            t_field,
-                            &t_field->spec,
-                            VEC_get(thing->items.vec, mapping->f_field->idx),
-                            vp,
-                            ti_field_deep(t_field, deep),
-                            flags | ti_field_ret_flags(t_field))
-                        : msgpack_pack_nil(&vp->pk))
-                    goto fail;
-            } else goto fail;
+            else goto fail;  /* only when map get has failed */
             break;
         }
         case TI_COLUMN_METHOD:
